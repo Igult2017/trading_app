@@ -199,6 +199,8 @@ class Signal:
     created_at:         datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     expires_at:         Optional[datetime] = None
     alert_only:         bool = False   # True = setup alert; bypasses dedup, DB, AI validator
+    qualified:          bool = True    # False = pullback reported but fails one+ rule
+    disqualifiers:      list[str] = field(default_factory=list)  # reasons it isn't qualified
 
 
 # ── Strategy result ────────────────────────────────────────────────────────────

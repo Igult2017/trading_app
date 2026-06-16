@@ -20,7 +20,7 @@ def format_scan_started(payload: dict) -> str:
         f"📅 <b>Sessions:</b>    <code>{sess_list}</code>",
         "",
         "<i>Market is open — scanning for setups.</i>",
-        "⚡️ <i>TradeJournal Signal Platform</i>",
+        "⚡️ <i>Trade&amp;Journal Signal Platform</i>",
     ])
 
 
@@ -41,5 +41,5 @@ def format_session_open(session_name: str) -> str:
         f"🕐 <b>Time:</b> <code>{now_utc}</code>",
         "",
         f"<i>{label} session is now live. Watch for setups.</i>",
-        "⚡️ <i>TradeJournal Signal Platform</i>",
+        "⚡️ <i>Trade&amp;Journal Signal Platform</i>",
     ])

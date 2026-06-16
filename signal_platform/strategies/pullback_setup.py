@@ -69,18 +69,23 @@ def measure_pullback(
     vol_idx: int,
     bullish: bool,
     cluster_start: int | None = None,
-) -> tuple[float, float, int, int] | None:
+) -> dict | None:
     """
-    Validate the H1 pullback immediately after the volume cluster end.
-    Returns (pb_high, pb_low, count, pb_end_time) or None.
+    Measure the H1 pullback immediately after the volume cluster end.
 
-    Rules:
+    Returns None ONLY when there is no pullback at all (price kept moving with the
+    cluster). Whenever ≥1 counter-trend candle exists it returns a dict describing
+    the pullback so the scanner can report it — qualified or not:
+        {pb_high, pb_low, count, pb_end_time, reasons}
+    `reasons` is empty when the pullback passes all rules; otherwise it lists the
+    rule(s) it fails (depth, length, structure).
+
+    Rules for a *qualified* pullback:
     - 1 to 6 candles against direction
-    - depth 10–80% of full cluster range (from cluster_start to vol_idx)
-      (10% floor lets a shallow one-candle pullback after a strong cluster qualify)
+    - depth 10–80% of the full cluster range (from cluster_start to vol_idx)
+    - no candle CLOSES beyond the cluster boundary (wicks are allowed)
     """
     pb_candles: list[Candle] = []
-
     for c in candles[vol_idx + 1:]:
         against = is_bearish(c) if bullish else is_bullish(c)
         if against:
@@ -88,38 +93,35 @@ def measure_pullback(
         else:
             break
 
-    if len(pb_candles) < 1:
-        log.info("[eurusd_diag]   pullback REJECTED — no counter-trend candle after cluster")
-        return None
-    if len(pb_candles) > 6:
-        log.info(f"[eurusd_diag]   pullback REJECTED — {len(pb_candles)} counter candles (max 6)")
-        return None
+    if not pb_candles:
+        return None  # no pullback yet — nothing to report
 
     pb_high = max(c.high for c in pb_candles)
     pb_low  = min(c.low  for c in pb_candles)
     depth   = pb_high - pb_low
 
-    # Use full cluster range so the pullback ratio is meaningful
     start = cluster_start if cluster_start is not None else vol_idx
     cluster_slice = candles[start:vol_idx + 1]
     cluster_high  = max(c.high for c in cluster_slice)
     cluster_low   = min(c.low  for c in cluster_slice)
     vol_range     = cluster_high - cluster_low
-    if vol_range > 0 and (depth < vol_range * 0.10 or depth > vol_range * 0.80):
-        log.info(f"[eurusd_diag]   pullback REJECTED — depth {depth / vol_range * 100:.0f}% of cluster (need 10-80%)")
-        return None
 
-    # Structure change guard: reject only when a pullback candle CLOSES beyond the
-    # cluster boundary (body breaks structure). Wicks through cluster_low / cluster_high
-    # are allowed — price sometimes sweeps liquidity then recovers.
+    reasons: list[str] = []
+    if len(pb_candles) > 6:
+        reasons.append(f"pullback too long ({len(pb_candles)} candles, max 6)")
+    if vol_range > 0:
+        pct = depth / vol_range * 100
+        if pct < 10 or pct > 80:
+            reasons.append(f"depth {pct:.0f}% of cluster (need 10-80%)")
     for c in pb_candles:
-        if bullish     and c.close < cluster_low:
-            log.info("[eurusd_diag]   pullback REJECTED — closed below cluster low (structure break)")
-            return None
+        if bullish and c.close < cluster_low:
+            reasons.append("closed below cluster low (structure break)"); break
         if not bullish and c.close > cluster_high:
-            log.info("[eurusd_diag]   pullback REJECTED — closed above cluster high (structure break)")
-            return None
+            reasons.append("closed above cluster high (structure break)"); break
 
-    return (pb_high, pb_low, len(pb_candles), pb_candles[-1].time + 3600)
+    return {
+        "pb_high": pb_high, "pb_low": pb_low, "count": len(pb_candles),
+        "pb_end_time": pb_candles[-1].time + 3600, "reasons": reasons,
+    }
 
 

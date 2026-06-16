@@ -14,22 +14,40 @@ MAX_RISK   = 60 * _PIP
 def build_setup_signal(
     symbol: str, bullish: bool, pb_high: float, pb_low: float,
     pb_count: int, cluster_len: int, strategy_id: str, strategy_name: str,
-    d1_aligned: bool = True,
+    d1_aligned: bool = True, qualified: bool = True,
+    disqualifiers: list[str] | None = None,
 ) -> Signal:
-    """Stage 1 — H1 pullback detected. Telegram alert only; no trade entry yet."""
-    side       = "BUY" if bullish else "SELL"
-    entry      = pb_high if bullish else pb_low
-    sl         = (pb_low  - _SL_BUFFER) if bullish else (pb_high + _SL_BUFFER)
-    risk       = abs(entry - sl)
-    tp         = entry + 2.0 * risk if bullish else entry - 2.0 * risk
-    ema_note   = "D1 EMA 200 aligned ✓" if d1_aligned else "D1 EMA 200 NOT aligned — watch only"
-    sig_id     = strategy_id + "_setup" if d1_aligned else strategy_id + "_watch_setup"
-    confidence = 0.60 if d1_aligned else 0.55
-    ctx        = (
-        f"SETUP — {side} H1 pullback | {cluster_len}c cluster | Awaiting M1 fractal"
-        if d1_aligned else
-        f"WATCH SETUP — {side} H1 pullback | EMA miss | ADX confirms trend | Awaiting M1 fractal"
-    )
+    """Stage 1 — H1 pullback detected. Telegram alert only; no trade entry yet.
+
+    Fires for EVERY cluster+pullback. `qualified=False` means a pullback was found
+    but fails one or more rules (listed in `disqualifiers`); it is reported so the
+    trader can see it, but no entry signal will follow.
+    """
+    disqualifiers = disqualifiers or []
+    side  = "BUY" if bullish else "SELL"
+    entry = pb_high if bullish else pb_low
+    sl    = (pb_low  - _SL_BUFFER) if bullish else (pb_high + _SL_BUFFER)
+    risk  = abs(entry - sl)
+    tp    = entry + 2.0 * risk if bullish else entry - 2.0 * risk
+
+    if not qualified:
+        sig_id, confidence, ema_note = strategy_id + "_unqualified_setup", 0.0, None
+        ctx = f"PULLBACK (NOT QUALIFIED) — {side} H1 pullback | {cluster_len}c cluster"
+    elif d1_aligned:
+        sig_id, confidence, ema_note = strategy_id + "_setup", 0.60, "D1 EMA 200 aligned ✓"
+        ctx = f"SETUP — {side} H1 pullback | {cluster_len}c cluster | Awaiting M1 fractal"
+    else:
+        sig_id, confidence, ema_note = strategy_id + "_watch_setup", 0.55, "D1 EMA 200 NOT aligned — ADX confirms trend"
+        ctx = f"WATCH SETUP — {side} H1 pullback | EMA miss | ADX confirms trend | Awaiting M1 fractal"
+
+    reasons = [
+        f"H1 {'bullish' if bullish else 'bearish'} cluster: {cluster_len} candles",
+        f"Pullback: {pb_count}c [{pb_low:.5f} – {pb_high:.5f}], {(pb_high-pb_low)/_PIP:.1f} pips",
+        f"Approx entry {entry:.5f} | SL {sl:.5f} | Risk ~{risk/_PIP:.0f} pips",
+    ]
+    if ema_note:
+        reasons.append(ema_note)
+
     return Signal(
         symbol            = symbol,
         direction         = Direction.BUY if bullish else Direction.SELL,
@@ -41,15 +59,11 @@ def build_setup_signal(
         risk_reward       = 2.0,
         confidence        = confidence,
         primary_timeframe = TF.H1,
-        technical_reasons = [
-            f"H1 {'bullish' if bullish else 'bearish'} cluster: {cluster_len} candles, body_ratio >= 0.55",
-            f"Pullback: {pb_count}c [{pb_low:.5f} – {pb_high:.5f}], {(pb_high-pb_low)/_PIP:.1f} pips",
-            f"Approximate entry zone: {entry:.5f} | SL: {sl:.5f} | Risk: ~{risk/_PIP:.0f} pips",
-            ema_note,
-            "DO NOT enter yet — waiting for M1 fractal entry signal.",
-        ],
+        technical_reasons = reasons,
         market_context    = ctx,
         alert_only        = True,
+        qualified         = qualified,
+        disqualifiers     = disqualifiers,
     )
 
 

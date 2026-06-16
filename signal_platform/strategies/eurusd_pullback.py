@@ -1,16 +1,9 @@
 """
-EURUSD Pullback Strategy — two-stage alert system.
-
-Stage 1 (SETUP ALERT): Fires immediately when H1 cluster + valid pullback is
-  detected. Tells the trader: setup forming, watch M1.
-
-Stage 2 (ENTRY SIGNAL): Fires when M1 fractal is CONFIRMED and M1 is already
-  heading toward the fractal level (HIGH touches for BUY, LOW touches for SELL).
-  Tells the trader: place buy/sell stop at fractal level NOW — stop fills naturally.
-
-State is in-memory. A platform restart resets stage tracking; Stage 2 may fire
-without a preceding Stage 1 if the platform restarted mid-setup. This is correct
-behaviour — Stage 2 is the actionable alert.
+EURUSD Pullback — two-stage alerts.
+Stage 1: reports EVERY H1 volume-cluster + pullback once, labelled QUALIFIED
+  (entry will follow) or NOT QUALIFIED (review only, with the failing rules).
+Stage 2: M1 fractal entry — fired only for QUALIFIED setups.
+State is in-memory; a platform restart resets stage tracking (acceptable).
 """
 import logging
 import time
@@ -56,6 +49,7 @@ class EURUSDPullbackStrategy(BaseStrategy):
     def __init__(self):
         self._setup_alerted: dict[str, float] = {}   # cluster_sig → monotonic timestamp
         self._entry_alerted: set[str]          = set()
+        self._qualified:     dict[str, bool]   = {}   # cluster_sig → passed all rules
 
     def _cleanup(self) -> None:
         cutoff = time.monotonic() - _STATE_TTL
@@ -63,6 +57,7 @@ class EURUSDPullbackStrategy(BaseStrategy):
         for k in stale:
             self._setup_alerted.pop(k)
             self._entry_alerted.discard(k)
+            self._qualified.pop(k, None)
 
     async def analyze(self, context: StrategyContext) -> StrategyResult:
         m1 = context.candles.get(TF.M1)
@@ -95,49 +90,51 @@ class EURUSDPullbackStrategy(BaseStrategy):
 
         pb = measure_pullback(h1, vol_end, bullish, cluster_start=vol_start)
         if pb is None:
-            log.info(f"[eurusd_diag] {'BULL' if bullish else 'BEAR'} H1 cluster ({vol_end - vol_start + 1}c) found but no valid pullback")
+            log.info(f"[eurusd_diag] {'BULL' if bullish else 'BEAR'} H1 cluster ({vol_end - vol_start + 1}c) — no pullback yet")
             return StrategyResult.empty()
-        pb_high, pb_low, pb_count, pb_end_time = pb
+        pb_high, pb_low, pb_count = pb["pb_high"], pb["pb_low"], pb["count"]
+        pb_end_time, pb_reasons   = pb["pb_end_time"], pb["reasons"]
 
         cluster_sig = f"{'B' if bullish else 'S'}_{h1[vol_end].time}"
         cluster_len = vol_end - vol_start + 1
         self._cleanup()
+        at_4h_zone = is_at_4h_key_level(h4[-50:], pb_low if bullish else pb_high)
 
-        zone_ref   = pb_low if bullish else pb_high
-        at_4h_zone = is_at_4h_key_level(h4[-50:], zone_ref)
+        # Trend gate — D1 EMA 200, with H1 ADX as a fallback confirmation.
+        ema_d1     = EMA200Indicator._ema([c.close for c in d1[-_EMA_PERIOD:]], _EMA_PERIOD)
+        d1_aligned = (d1[-1].close > ema_d1) == bullish
+        adx        = 0.0
+        trend_ok   = d1_aligned
+        if not d1_aligned:
+            adx, pdi, mdi = calc_adx(h1, period=_ADX_PERIOD)
+            trend_ok = adx >= _ADX_MIN and (pdi > mdi) == bullish
 
-        # Stage 1 — fire once when valid pullback is first detected
+        disqualifiers = list(pb_reasons)
+        if not trend_ok:
+            disqualifiers.append(f"not trending (D1 EMA misaligned, ADX {adx:.0f} < {_ADX_MIN})")
+        qualified = not disqualifiers
+
+        # Stage 1 — report EVERY cluster+pullback once, qualified or not.
         if cluster_sig not in self._setup_alerted:
-            ema_d1     = EMA200Indicator._ema([c.close for c in d1[-_EMA_PERIOD:]], _EMA_PERIOD)
-            d1_aligned = (d1[-1].close > ema_d1) == bullish
-            if not d1_aligned:
-                adx_s1, pdi_s1, mdi_s1 = calc_adx(h1, period=_ADX_PERIOD)
-                if adx_s1 < _ADX_MIN or (pdi_s1 > mdi_s1) != bullish:
-                    log.info(f"[eurusd_diag] {'BULL' if bullish else 'BEAR'} cluster+pullback FOUND but not trending — D1 EMA misaligned & ADX {adx_s1:.0f}<{_ADX_MIN}/DI mismatch")
-                    return StrategyResult.empty()   # doesn't qualify even as watch
-            log.info(f"[eurusd_diag] SETUP EMITTED — {'BULL' if bullish else 'BEAR'} cluster+pullback, trend OK (d1_aligned={d1_aligned})")
             self._setup_alerted[cluster_sig] = time.monotonic()
+            self._qualified[cluster_sig]     = qualified
+            log.info(f"[eurusd_diag] {'QUALIFIED' if qualified else 'UNQUALIFIED'} pullback — "
+                     f"{'BULL' if bullish else 'BEAR'} {cluster_len}c cluster"
+                     + ("" if qualified else f" | {'; '.join(disqualifiers)}"))
             sig = build_setup_signal(
-                context.symbol, bullish, pb_high, pb_low,
-                pb_count, cluster_len, self.id, self.name, d1_aligned,
+                context.symbol, bullish, pb_high, pb_low, pb_count, cluster_len,
+                self.id, self.name, d1_aligned=d1_aligned,
+                qualified=qualified, disqualifiers=disqualifiers,
             )
             return StrategyResult(signals=[sig])
 
-        # Stage 2 — fire once when M1 fractal is approaching the breakout level
-        if cluster_sig in self._entry_alerted:
+        # Stage 2 — entry only for QUALIFIED setups, fired once.
+        if not self._qualified.get(cluster_sig) or cluster_sig in self._entry_alerted:
             return StrategyResult.empty()
 
         entry = fractal_identified(m1, pb_high, pb_low, bullish, pb_end_time)
         if entry is None:
             return StrategyResult.empty()
-
-        ema_d1     = EMA200Indicator._ema([c.close for c in d1[-_EMA_PERIOD:]], _EMA_PERIOD)
-        d1_aligned = (d1[-1].close > ema_d1) == bullish
-        adx        = 0.0
-        if not d1_aligned:
-            adx, pdi, mdi = calc_adx(h1, period=_ADX_PERIOD)
-            if adx < _ADX_MIN or (pdi > mdi) != bullish:
-                return StrategyResult.empty()
 
         sig = build_entry_signal(
             context.symbol, bullish, entry, pb_high, pb_low,

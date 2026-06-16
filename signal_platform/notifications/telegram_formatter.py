@@ -12,25 +12,26 @@ def _h(text: str) -> str:
 
 
 def format_setup_alert(signal: Signal) -> str:
-    """Stage 1 — H1 pullback spotted. Watch M1, do not enter yet."""
-    is_watch = "_watch" in signal.strategy_id
-    arrow    = "📈" if signal.direction == Direction.BUY else "📉"
-    side     = "BUY" if signal.direction == Direction.BUY else "SELL"
-    header   = (
-        f"⚠️ <b>WATCH SETUP — {_h(signal.symbol)} {side}</b>"
-        if is_watch else
-        f"👁 <b>SETUP ALERT — {_h(signal.symbol)} {side}</b>"
-    )
-    ema_line = (
-        "📊 <b>EMA status:</b>  <i>D1 200 EMA NOT aligned — ADX confirms trend</i>"
-        if is_watch else
-        "📊 <b>EMA status:</b>  <i>D1 200 EMA aligned ✓</i>"
-    )
+    """Stage 1 — H1 pullback after a volume cluster. Fired for every pullback,
+    labelled QUALIFIED (entry will follow) or NOT QUALIFIED (review only)."""
+    arrow = "📈" if signal.direction == Direction.BUY else "📉"
+    side  = "BUY" if signal.direction == Direction.BUY else "SELL"
+
+    if not signal.qualified:
+        header = f"🔍 <b>PULLBACK — {_h(signal.symbol)} {side}</b>  <i>(not qualified)</i>"
+        status = "❌ <b>NOT QUALIFIED</b> — reported for review only"
+    elif "_watch" in signal.strategy_id:
+        header = f"⚠️ <b>WATCH SETUP — {_h(signal.symbol)} {side}</b>"
+        status = "✅ <b>QUALIFIED</b> (ADX) — D1 200 EMA not aligned"
+    else:
+        header = f"👁 <b>SETUP ALERT — {_h(signal.symbol)} {side}</b>"
+        status = "✅ <b>QUALIFIED</b> — D1 200 EMA aligned"
+
     lines = [
         header,
         "──────────────────────────",
-        f"{arrow} <b>H1 Pullback Identified — Watch M1</b>",
-        ema_line,
+        f"{arrow} <b>H1 pullback after volume cluster</b>",
+        status,
         "",
         f"📍 <b>Entry zone:</b>    <code>{signal.entry_price:.5f}</code>",
         f"🛑 <b>SL (approx):</b>  <code>{signal.stop_loss:.5f}</code>",
@@ -41,16 +42,20 @@ def format_setup_alert(signal: Signal) -> str:
         lines += ["📝 <b>Setup details:</b>"]
         for r in signal.technical_reasons[:5]:
             lines.append(f"  • {_h(r)}")
+    if not signal.qualified and signal.disqualifiers:
+        lines += ["", "🚫 <b>Why not qualified:</b>"]
+        for r in signal.disqualifiers[:5]:
+            lines.append(f"  • {_h(r)}")
     footer = (
-        "⏳ <i>Watch only — EMA not aligned. Second alert follows if fractal forms.</i>"
-        if is_watch else
-        "⏳ <i>EMA confirmed. A second alert will follow with exact entry level.</i>"
+        "⏳ <i>A second alert will follow with the exact entry if the M1 fractal forms.</i>"
+        if signal.qualified else
+        "🔎 <i>Shown so you can verify detection — no entry will follow.</i>"
     )
     lines += [
         "",
         "──────────────────────────",
         footer,
-        "⚡️ <i>TradeJournal Signal Platform</i>",
+        "⚡️ <i>Trade&amp;Journal Signal Platform</i>",
     ]
     return "\n".join(lines)
 
@@ -89,7 +94,7 @@ def format_signal_confirmed(signal: Signal) -> str:
 
     lines += [
         "──────────────────────────",
-        "⚡️ <i>TradeJournal Signal Platform</i>",
+        "⚡️ <i>Trade&amp;Journal Signal Platform</i>",
     ]
 
     return "\n".join(lines)
@@ -154,5 +159,5 @@ def format_signal_closed(symbol: str, direction: str, status: str,
     if close_price:
         lines.append(f"📌 <b>Close:</b>  <code>{close_price:.5f}</code>")
 
-    lines.append("⚡️ <i>TradeJournal Signal Platform</i>")
+    lines.append("⚡️ <i>Trade&amp;Journal Signal Platform</i>")
     return "\n".join(lines)
