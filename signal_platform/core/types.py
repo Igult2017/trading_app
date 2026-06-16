@@ -213,6 +213,7 @@ class Signal:
     qualified:          bool = True    # False = pullback reported but fails one+ rule
     disqualifiers:      list[str] = field(default_factory=list)  # reasons it isn't qualified
     zone_notes:         list[str] = field(default_factory=list)  # nearby unmitigated S/D zones (info only)
+    news_note:          str = ""   # high-impact news context (info only — never blocks)
 
 
 # ── Strategy result ────────────────────────────────────────────────────────────

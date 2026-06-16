@@ -50,6 +50,8 @@ def format_setup_alert(signal: Signal) -> str:
         lines += ["", "📌 <b>Nearby S/D zones:</b>"]
         for z in signal.zone_notes[:6]:
             lines.append(f"  • {_h(z)}")
+    if signal.news_note:
+        lines += ["", _h(signal.news_note)]
     footer = (
         "⏳ <i>A second alert will follow with the exact entry if the M1 fractal forms.</i>"
         if signal.qualified else
@@ -101,6 +103,9 @@ def format_signal_confirmed(signal: Signal) -> str:
         for z in signal.zone_notes[:6]:
             lines.append(f"  • {_h(z)}")
 
+    if signal.news_note:
+        lines += ["", _h(signal.news_note)]
+
     lines += [
         "──────────────────────────",
         "⚡️ <i>Trade&amp;Journal Signal Platform</i>",
@@ -143,6 +148,9 @@ def format_signal_watch(signal: Signal) -> str:
         lines += ["", "📌 <b>Nearby S/D zones:</b>"]
         for z in signal.zone_notes[:6]:
             lines.append(f"  • {_h(z)}")
+
+    if signal.news_note:
+        lines += ["", _h(signal.news_note)]
 
     lines += [
         "──────────────────────────",

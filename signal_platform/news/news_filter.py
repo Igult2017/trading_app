@@ -6,7 +6,7 @@ _currencies_for() handles: forex pairs, gold/silver, US/EU/UK indices, crypto.
 Unknown instruments return [] — no news filtering applied (safe default).
 """
 
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from config.instruments import SYMBOL_TO_CURRENCIES
 from core.types import NewsContext, NewsImpact, NewsStance
 from core.base_strategy import BaseStrategy
@@ -107,3 +107,33 @@ def check(strategy: BaseStrategy,
         return len(relevant) > 0
 
     return True
+
+
+def news_note(news_context: NewsContext, currencies: list[str],
+              now: datetime | None = None) -> str:
+    """Human-readable HIGH-impact news note for the signal card — information only,
+    never blocks. Reports an event active inside the news window now, else the
+    nearest upcoming high-impact event within 12 h. '' when nothing is relevant.
+    """
+    if not news_context or not news_context.events:
+        return ""
+    now   = now or datetime.now(timezone.utc)
+    highs = [e for e in news_context.events
+             if e.impact == NewsImpact.HIGH and e.currency in currencies and e.scheduled_at]
+    if not highs:
+        return ""
+
+    pre  = timedelta(minutes=news_context.pre_window_mins)
+    post = timedelta(minutes=news_context.post_window_mins)
+    active = [e for e in highs if (e.scheduled_at - pre) <= now <= (e.scheduled_at + post)]
+    if active:
+        e = min(active, key=lambda ev: abs((ev.scheduled_at - now).total_seconds()))
+        return f"⚠️ High-impact {e.currency} news in window: {e.title} ({e.scheduled_at:%H:%M} UTC)"
+
+    soon = [e for e in highs if 0 <= (e.scheduled_at - now).total_seconds() <= 12 * 3600]
+    if soon:
+        e    = min(soon, key=lambda ev: (ev.scheduled_at - now).total_seconds())
+        mins = int((e.scheduled_at - now).total_seconds() // 60)
+        when = f"{mins // 60}h {mins % 60}m" if mins >= 60 else f"{mins}m"
+        return f"🗞 Upcoming high-impact {e.currency} news in {when}: {e.title}"
+    return ""

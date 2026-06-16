@@ -17,6 +17,7 @@ from strategies.pullback_setup import find_volume_cluster, measure_pullback, rec
 from strategies.pullback_fractal import fractal_identified
 from strategies.pullback_obstruction import is_at_4h_key_level, nearby_zone_warnings
 from strategies.eurusd_pullback_signals import build_setup_signal, build_entry_signal
+from news.news_filter import news_note
 
 log = logging.getLogger(__name__)
 
@@ -43,7 +44,8 @@ class EURUSDPullbackStrategy(BaseStrategy):
     # Trend.ANY: strategy manages trend via D1 EMA 200; pre-filter would cache D1 with count=100
     allowed_trends      = [Trend.ANY]
     allowed_instruments = ["EUR/USD"]
-    news_stance         = NewsStance.AVOID_HIGH_ONLY
+    # News is REPORTED on the card (info only), never blocks — user's call to trade through it.
+    news_stance         = NewsStance.NEWS_AGNOSTIC
     news_impact_filter  = [NewsImpact.HIGH]
 
     def __init__(self):
@@ -69,9 +71,6 @@ class EURUSDPullbackStrategy(BaseStrategy):
             log.info(f"[eurusd_diag] insufficient candles: M1={len(m1)} H1={len(h1)}/{_EMA_PERIOD} H4={len(h4)} D1={len(d1)}/{_EMA_PERIOD}")
             return StrategyResult.empty()
 
-        if context.news and context.news.has_high_impact(["USD", "EUR"]):
-            log.info("[eurusd_diag] skipped: high-impact USD/EUR news in window")
-            return StrategyResult.empty()
         bull_cluster = find_volume_cluster(h1, bullish=True)
         bear_cluster = find_volume_cluster(h1, bullish=False)
         if bull_cluster is None and bear_cluster is None:
@@ -98,6 +97,7 @@ class EURUSDPullbackStrategy(BaseStrategy):
         self._cleanup()
         at_4h_zone = is_at_4h_key_level(h4[-50:], pb_low if bullish else pb_high)
         zone_notes = nearby_zone_warnings(h4, d1, pb_high if bullish else pb_low)
+        news_msg   = news_note(context.news, ["USD", "EUR"]) if context.news else ""
 
         # Trend gate — D1 EMA 200, with H1 ADX as a fallback confirmation.
         ema_d1     = EMA200Indicator._ema([c.close for c in d1[-_EMA_PERIOD:]], _EMA_PERIOD)
@@ -126,6 +126,7 @@ class EURUSDPullbackStrategy(BaseStrategy):
                 context.symbol, bullish, pb_high, pb_low, pb_count, cluster_len,
                 self.id, self.name, d1_aligned=d1_aligned, qualified=qualified,
                 disqualifiers=disqualifiers, at_4h_zone=at_4h_zone, zone_notes=zone_notes,
+                news_msg=news_msg,
             )
             return StrategyResult(signals=[sig])
         self._qualified[cluster_sig] = qualified   # keep status fresh between alerts
@@ -139,8 +140,8 @@ class EURUSDPullbackStrategy(BaseStrategy):
             return StrategyResult.empty()
 
         sig = build_entry_signal(
-            context.symbol, bullish, entry, pb_high, pb_low,
-            pb_count, cluster_len, at_4h_zone, d1_aligned, adx, self.name, zone_notes,
+            context.symbol, bullish, entry, pb_high, pb_low, pb_count, cluster_len,
+            at_4h_zone, d1_aligned, adx, self.name, zone_notes, news_msg=news_msg,
         )
         if sig is None:
             return StrategyResult.empty()

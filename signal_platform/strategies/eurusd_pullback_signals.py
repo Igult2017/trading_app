@@ -16,7 +16,7 @@ def build_setup_signal(
     pb_count: int, cluster_len: int, strategy_id: str, strategy_name: str,
     d1_aligned: bool = True, qualified: bool = True,
     disqualifiers: list[str] | None = None, at_4h_zone: bool = False,
-    zone_notes: list[str] | None = None,
+    zone_notes: list[str] | None = None, news_msg: str = "",
 ) -> Signal:
     """Stage 1 — H1 pullback detected. Telegram alert only; no trade entry yet.
 
@@ -68,6 +68,7 @@ def build_setup_signal(
         qualified         = qualified,
         disqualifiers     = disqualifiers,
         zone_notes        = zone_notes or [],
+        news_note         = news_msg,
     )
 
 
@@ -75,7 +76,7 @@ def build_entry_signal(
     symbol: str, bullish: bool, entry: float, pb_high: float, pb_low: float,
     pb_count: int, cluster_len: int, at_4h_zone: bool,
     d1_aligned: bool, adx: float, strategy_name: str,
-    zone_notes: list[str] | None = None,
+    zone_notes: list[str] | None = None, news_msg: str = "",
 ) -> Signal | None:
     """Stage 2 — M1 fractal approaching breakout. Place buy/sell stop NOW."""
     side = "BUY" if bullish else "SELL"
@@ -122,4 +123,5 @@ def build_entry_signal(
         smc_factors       = ["h1_volume_cluster", "pullback_continuation", "m1_fractal_entry"],
         market_context    = ctx,
         zone_notes        = zone_notes or [],
+        news_note         = news_msg,
     )
