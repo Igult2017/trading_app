@@ -1,4 +1,5 @@
 import { BROKERS } from "./constants";
+import { openAuthModal } from "@/components/auth/AuthModal";
 
 export default function CtaSection() {
   return (
@@ -26,10 +27,10 @@ export default function CtaSection() {
             Join 10,000+ traders who stopped guessing and started knowing. Free forever tier — no card required.
           </p>
           <div className="flex flex-wrap gap-4 justify-center mb-6">
-            <a href="/auth?mode=signup" target="Smart_Journal"
-              className="rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-[16px] px-8 py-4 transition-colors">
+            <button type="button" onClick={() => openAuthModal("signup")}
+              className="rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-[16px] px-8 py-4 transition-colors cursor-pointer border-0">
               Start journaling free
-            </a>
+            </button>
             <a href="/calendar"
               className="rounded-xl border border-white/20 hover:border-white/40 text-white/80 hover:text-white font-semibold text-[16px] px-8 py-4 transition-colors">
               View economic calendar

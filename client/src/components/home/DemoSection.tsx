@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { openAuthModal } from "@/components/auth/AuthModal";
 
 const TABS = ["Journal", "Analytics", "Trade Vault", "Strategy Audit"] as const;
 
@@ -129,10 +130,10 @@ export default function DemoSection() {
         </div>
 
         <div className="text-center mt-8">
-          <a href="/auth?mode=signup" target="Smart_Journal"
-            className="rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-[15px] px-7 py-3.5 transition-colors inline-block">
+          <button type="button" onClick={() => openAuthModal("signup")}
+            className="rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-[15px] px-7 py-3.5 transition-colors inline-block cursor-pointer border-0">
             Try it free — no card required
-          </a>
+          </button>
         </div>
       </div>
     </section>

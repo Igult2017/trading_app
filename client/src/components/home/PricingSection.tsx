@@ -1,4 +1,5 @@
 import { PRICING_PLANS } from "./constants";
+import { openAuthModal } from "@/components/auth/AuthModal";
 
 export default function PricingSection() {
   return (
@@ -39,14 +40,14 @@ export default function PricingSection() {
                 ))}
               </div>
 
-              <a href="/auth?mode=signup" target="Smart_Journal"
-                className={`block text-center rounded-xl py-2.5 text-[14px] font-semibold transition-all ${
+              <button type="button" onClick={() => openAuthModal("signup")}
+                className={`block w-full cursor-pointer text-center rounded-xl py-2.5 text-[14px] font-semibold transition-all ${
                   p.highlight
-                    ? "bg-white text-indigo-700 hover:bg-indigo-50"
+                    ? "bg-white text-indigo-700 hover:bg-indigo-50 border-0"
                     : "border border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-indigo-300 hover:text-indigo-700"
                 }`}>
                 {p.cta}
-              </a>
+              </button>
             </div>
           ))}
         </div>

@@ -8,7 +8,7 @@ import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
-import AuthModal from "@/components/auth/AuthModal";
+import AuthModal, { openAuthModal, type AuthModalMode } from "@/components/auth/AuthModal";
 import { prefetchAllPanels } from "@/lib/prefetchPanels";
 import { prefetchAdminData } from "@/lib/prefetchAdmin";
 import { startCalendarBackgroundRefresh } from "@/lib/prefetchCalendar";
@@ -42,7 +42,6 @@ import BlogPostPage from "@/pages/BlogPostPage";
 import EconomicCalendarPage from "@/pages/EconomicCalendarPage";
 import SupportPage from "@/pages/SupportPage";
 import LegalPage from "@/pages/LegalPage";
-import AuthPage from "@/pages/AuthPage";
 import AuthCallbackPage from "@/pages/AuthCallbackPage";
 import ResetPasswordPage from "@/pages/ResetPasswordPage";
 import AdminPanel from "@/pages/AdminPanel";
@@ -200,6 +199,19 @@ function PublicPagesGroup() {
   );
 }
 
+// Legacy /auth route → bounce to the homepage and open the auth modal, so the
+// old full-page auth UI is never shown. ?mode=signup|forgot selects the tab.
+function AuthRedirect() {
+  const [, navigate] = useLocation();
+  useEffect(() => {
+    const mode = new URLSearchParams(window.location.search).get("mode");
+    const m: AuthModalMode = mode === "signup" ? "signup" : mode === "forgot" ? "forgot" : "login";
+    navigate("/", { replace: true });
+    openAuthModal(m);
+  }, [navigate]);
+  return null;
+}
+
 // ── Top-level router ──────────────────────────────────────────────────────────
 function AppRoutes() {
   return (
@@ -208,7 +220,7 @@ function AppRoutes() {
     <Switch>
       {/* Pages with their own full layouts — must come before the catch-all */}
       <Route path="/"                     component={HomePage} />
-      <Route path="/auth"                 component={AuthPage} />
+      <Route path="/auth"                 component={AuthRedirect} />
       <Route path="/auth/callback"        component={AuthCallbackPage} />
       <Route path="/auth/reset-password"  component={ResetPasswordPage} />
       <Route path="/join"                 component={Join} />

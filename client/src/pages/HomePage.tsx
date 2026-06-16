@@ -1,4 +1,5 @@
 import { BarChart3, Calendar, PieChart, Diamond, Check, ArrowRight, Search, BookOpen, Brain } from 'lucide-react';
+import { openAuthModal } from "@/components/auth/AuthModal";
 import HomeHeader from "@/components/HomeHeader";
 import { usePublicTheme } from "@/context/PublicThemeContext";
 import HomeFooter from "@/components/HomeFooter";
@@ -72,10 +73,10 @@ export default function HomePage() {
             <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
               <input type="email" placeholder="Enter your email address"
                 style={{ flex: 1, padding: '13px 16px', borderRadius: 10, border: 'none', fontSize: 14, background: dm ? card : '#ffffff', color: text, outline: 'none', ...sans, boxShadow: dm ? `0 0 0 1.5px ${border}` : '0 1px 6px rgba(0,0,0,0.09)', minWidth: 0 }} />
-              <a href="/auth?mode=signup" target="Smart_Journal"
-                style={{ padding: '13px 22px', borderRadius: 10, background: '#2563eb', color: '#fff', fontSize: 14, fontWeight: 700, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap', ...sans }}>
+              <button type="button" onClick={() => openAuthModal("signup")}
+                style={{ padding: '13px 22px', borderRadius: 10, background: '#2563eb', color: '#fff', fontSize: 14, fontWeight: 700, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap', ...sans }}>
                 Start free <ArrowRight size={15} />
-              </a>
+              </button>
             </div>
 
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 20px' }}>
@@ -103,7 +104,7 @@ export default function HomePage() {
               ))}
             </div>
             <div style={{ fontSize: 12, color: muted, textAlign: 'right', marginTop: 10, ...sans }}>
-              Or <a href="/auth" target="Smart_Journal" style={{ color: '#2563eb', textDecoration: 'none', fontWeight: 600 }}>sign in →</a>
+              Or <button type="button" onClick={() => openAuthModal("login")} style={{ color: '#2563eb', background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontWeight: 600, font: 'inherit' }}>sign in →</button>
             </div>
           </div>
         </div>

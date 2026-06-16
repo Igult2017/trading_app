@@ -3,7 +3,7 @@ import { useLocation } from 'wouter';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
 
-export type AuthModalMode = 'login' | 'signup';
+export type AuthModalMode = 'login' | 'signup' | 'forgot';
 
 /** Open the auth modal from anywhere (e.g. header / CTA buttons). */
 export function openAuthModal(mode: AuthModalMode = 'login') {
@@ -30,10 +30,12 @@ export default function AuthModal() {
     try { return localStorage.getItem('fmj_returning') === '1'; } catch { return false; }
   });
 
+  const go = (m: AuthModalMode) => { setMode(m); setError(''); setInfo(''); };
+
   useEffect(() => {
     const onOpen = (e: Event) => {
       const m = (e as CustomEvent).detail as AuthModalMode;
-      setMode(m === 'signup' ? 'signup' : 'login');
+      setMode(m === 'signup' ? 'signup' : m === 'forgot' ? 'forgot' : 'login');
       setError(''); setInfo('');
       setOpen(true);
     };
@@ -67,6 +69,20 @@ export default function AuthModal() {
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(''); setInfo('');
+
+    if (mode === 'forgot') {
+      if (!supabase) { setError('Password reset is not configured.'); return; }
+      setBusy(true);
+      try {
+        const { error: err } = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: `${window.location.origin}/auth/reset-password`,
+        });
+        if (err) setError(err.message);
+        else setInfo('Reset link sent! Check your inbox and follow the link to set a new password.');
+      } finally { setBusy(false); }
+      return;
+    }
+
     if (mode === 'signup' && password.length < 8) { setError('Password must be at least 8 characters.'); return; }
     setBusy(true);
     try {
@@ -90,9 +106,10 @@ export default function AuthModal() {
     } finally { setBusy(false); }
   }
 
-  const title = mode === 'login' ? 'Sign in to trade&journal' : 'Create your account';
-  const sub   = mode === 'login'
-    ? 'Welcome back! Please sign in to continue'
+  const title = mode === 'forgot' ? 'Reset your password'
+    : mode === 'login' ? 'Sign in to trade&journal' : 'Create your account';
+  const sub = mode === 'forgot' ? "Enter your email and we'll send you a reset link."
+    : mode === 'login' ? 'Welcome back! Please sign in to continue'
     : 'Welcome! Please fill in the details to get started.';
 
   return (
@@ -103,13 +120,16 @@ export default function AuthModal() {
         <h2 className="am-title">{title}</h2>
         <p className="am-sub">{sub}</p>
 
-        <button className="am-google" type="button" onClick={google} disabled={busyAll}>
-          {gbusy ? <span className="am-spin" /> : <GoogleIcon />}
-          {mode === 'login' ? 'Continue with Google' : 'Sign up with Google'}
-          {isReturning && mode === 'login' && <span className="am-badge">Last used</span>}
-        </button>
-
-        <div className="am-divider"><span>or</span></div>
+        {mode !== 'forgot' && (
+          <>
+            <button className="am-google" type="button" onClick={google} disabled={busyAll}>
+              {gbusy ? <span className="am-spin" /> : <GoogleIcon />}
+              {mode === 'login' ? 'Continue with Google' : 'Sign up with Google'}
+              {isReturning && mode === 'login' && <span className="am-badge">Last used</span>}
+            </button>
+            <div className="am-divider"><span>or</span></div>
+          </>
+        )}
 
         <form onSubmit={submit} className="am-form">
           {mode === 'signup' && (
@@ -128,31 +148,37 @@ export default function AuthModal() {
             <label className="am-label">Email address</label>
             <input className="am-input" type="email" required value={email} onChange={e => setEmail(e.target.value)} placeholder="Enter your email address" autoComplete="email" disabled={busyAll} />
           </div>
-          <div className="am-field">
-            <label className="am-label">Password</label>
-            <div className="am-passwrap">
-              <input className="am-input" type={showPass ? 'text' : 'password'} required value={password} onChange={e => setPwd(e.target.value)} placeholder={mode === 'login' ? 'Enter your password' : 'Create a password'} autoComplete={mode === 'login' ? 'current-password' : 'new-password'} disabled={busyAll} />
-              <button type="button" className="am-eye" tabIndex={-1} onClick={() => setShow(v => !v)} aria-label="Toggle password"><EyeIcon open={showPass} /></button>
+          {mode !== 'forgot' && (
+            <div className="am-field">
+              <label className="am-label">Password</label>
+              <div className="am-passwrap">
+                <input className="am-input" type={showPass ? 'text' : 'password'} required value={password} onChange={e => setPwd(e.target.value)} placeholder={mode === 'login' ? 'Enter your password' : 'Create a password'} autoComplete={mode === 'login' ? 'current-password' : 'new-password'} disabled={busyAll} />
+                <button type="button" className="am-eye" tabIndex={-1} onClick={() => setShow(v => !v)} aria-label="Toggle password"><EyeIcon open={showPass} /></button>
+              </div>
             </div>
-          </div>
+          )}
 
           {mode === 'login' && (
-            <div className="am-forgot"><a href="/auth?mode=forgot" className="am-link">Forgot password?</a></div>
+            <div className="am-forgot"><button type="button" className="am-link" onClick={() => go('forgot')}>Forgot password?</button></div>
           )}
 
           {error && <div className="am-error">{error}</div>}
           {info  && <div className="am-info">{info}</div>}
 
           <button className="am-submit" type="submit" disabled={busyAll}>
-            {busy ? 'Please wait…' : 'Continue ›'}
+            {busy ? 'Please wait…' : mode === 'forgot' ? 'Send reset link' : 'Continue ›'}
           </button>
         </form>
 
         <div className="am-switch">
-          {mode === 'login' ? (
-            <>Don’t have an account? <button className="am-link" onClick={() => { setMode('signup'); setError(''); setInfo(''); }}>Sign up</button></>
-          ) : (
-            <>Already have an account? <button className="am-link" onClick={() => { setMode('login'); setError(''); setInfo(''); }}>Sign in</button></>
+          {mode === 'login' && (
+            <>Don’t have an account? <button className="am-link" onClick={() => go('signup')}>Sign up</button></>
+          )}
+          {mode === 'signup' && (
+            <>Already have an account? <button className="am-link" onClick={() => go('login')}>Sign in</button></>
+          )}
+          {mode === 'forgot' && (
+            <button className="am-link" onClick={() => go('login')}>← Back to sign in</button>
           )}
         </div>
       </div>

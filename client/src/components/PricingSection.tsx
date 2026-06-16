@@ -2,6 +2,7 @@ import React from 'react';
 import { Check } from 'lucide-react';
 import { Card, CardHeader, CardContent, CardFooter } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
+import { openAuthModal } from "@/components/auth/AuthModal";
 
 interface Plan {
   name: string; price: string; period: string; tagline: string;
@@ -106,21 +107,21 @@ export default function PricingSection({ darkMode }: { darkMode: boolean }) {
                 </CardContent>
 
                 <CardFooter className="pt-4">
-                  <a
-                    href="/auth?mode=signup"
-                    target="Smart_Journal"
+                  <button
+                    type="button"
+                    onClick={() => openAuthModal("signup")}
                     className={cn(
-                      'w-full text-center py-3 rounded text-sm font-bold transition-all duration-200',
+                      'w-full text-center py-3 rounded text-sm font-bold transition-all duration-200 cursor-pointer',
                       plan.popular
-                        ? 'bg-blue-600 text-white hover:bg-blue-700'
+                        ? 'bg-blue-600 text-white hover:bg-blue-700 border-0'
                         : darkMode
                           ? 'border-2 border-slate-600 text-white hover:border-blue-500'
                           : 'border-2 border-slate-200 text-slate-800 hover:border-blue-400'
                     )}
-                    style={{ fontFamily: "'Inter', sans-serif", display: 'block', textDecoration: 'none' }}
+                    style={{ fontFamily: "'Inter', sans-serif", display: 'block' }}
                   >
                     {plan.cta}
-                  </a>
+                  </button>
                 </CardFooter>
               </Card>
             </div>
