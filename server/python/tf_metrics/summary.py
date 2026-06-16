@@ -100,13 +100,14 @@ def compute_summary(by_tf: dict, trades: list) -> dict:
     # Overall win rate vs win rate of trades with confluenceScore >= 70.
     # Boost = high_confluence_wr - overall_wr
     # Requires >= 5 high-confluence trades to report; else 0.0.
-    all_knowns = [t for t in trades if _get_outcome(t) in ("win", "loss", "breakeven")]
+    # Canonical win rate excludes break-evens from the denominator (decisive only).
+    all_knowns = [t for t in trades if _get_outcome(t) in ("win", "loss")]
     all_wins   = sum(1 for t in all_knowns if _get_outcome(t) == "win")
     overall_wr = (all_wins / len(all_knowns) * 100) if all_knowns else 0.0
 
     hc_trades = [t for t in trades if (_get_confluence(t) or 0) >= 70]
     if len(hc_trades) >= 3:
-        hc_knowns = [t for t in hc_trades if _get_outcome(t) in ("win", "loss", "breakeven")]
+        hc_knowns = [t for t in hc_trades if _get_outcome(t) in ("win", "loss")]
         hc_wins   = sum(1 for t in hc_knowns if _get_outcome(t) == "win")
         hc_wr     = (hc_wins / len(hc_knowns) * 100) if hc_knowns else 0.0
         mtf_boost = round(hc_wr - overall_wr, 2)

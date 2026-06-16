@@ -243,23 +243,33 @@ def _handle(key: str, trades: list[dict]) -> str:
     if key == "profit_factor":
         wins_pnl  = [abs(_to_float(t.get("pnl") or t.get("profitLoss")) or 0) for t in trades if is_win(t) and (_to_float(t.get("pnl") or t.get("profitLoss")) or 0) > 0]
         loss_pnl  = [abs(_to_float(t.get("pnl") or t.get("profitLoss")) or 0) for t in trades if is_loss(t) and (_to_float(t.get("pnl") or t.get("profitLoss")) or 0) > 0]
-        if not wins_pnl or not loss_pnl:
+        if not wins_pnl and not loss_pnl:
             return "Not enough P&L data to compute profit factor."
+        # Canonical: no losing trades → infinite profit factor.
+        if not loss_pnl:
+            return f"Profit factor: ∞ (no losing trades; gross wins {sum(wins_pnl):.2f})."
         pf = sum(wins_pnl) / sum(loss_pnl)
-        return f"Profit factor: {pf:.2f} (gross wins {sum(wins_pnl):.2f} / gross losses {sum(loss_pnl):.2f} over {len(trades)} trades)."
+        return f"Profit factor: {pf:.2f} (gross wins {sum(wins_pnl):.2f} / gross losses {sum(loss_pnl):.2f})."
 
     if key == "expectancy_stat":
-        knowns = [(is_win(t), _to_float(t.get("pnl") or t.get("profitLoss"))) for t in trades]
-        knowns = [(w, p) for w, p in knowns if p is not None]
-        if not knowns:
-            return "No P&L data recorded to compute expectancy."
-        win_pnls  = [p for w, p in knowns if w]
-        loss_pnls = [p for w, p in knowns if not w]
-        wr = len(win_pnls) / len(knowns)
-        avg_w = safe_mean(win_pnls) or 0
-        avg_l = abs(safe_mean(loss_pnls) or 0)
-        exp = wr * avg_w - (1 - wr) * avg_l
-        return f"Expectancy: {exp:+.2f} per trade. (WR {wr:.0%}, avg win {avg_w:.2f}, avg loss {avg_l:.2f}, {len(knowns)} trades with P&L)"
+        # Canonical R expectancy (R-multiples): win → its RR (default 1R), loss → −1R,
+        # break-even → 0R, averaged over decided trades. Matches the rest of the journal.
+        be_set = ("breakeven", "be", "scratch", "break_even")
+        r_values: list = []
+        for t in trades:
+            if is_win(t):
+                rr = _to_float(t.get("riskReward") or t.get("rr") or t.get("risk_reward"))
+                r_values.append(rr if (rr is not None and rr > 0) else 1.0)
+            elif is_loss(t):
+                r_values.append(-1.0)
+            elif str(t.get("outcome", "")).strip().lower() in be_set:
+                r_values.append(0.0)
+        if not r_values:
+            return "No decided trades to compute expectancy."
+        exp     = safe_mean(r_values)
+        n_win   = sum(1 for v in r_values if v > 0)
+        n_loss  = sum(1 for v in r_values if v < 0)
+        return f"Expectancy: {exp:+.2f}R per trade across {len(r_values)} decided trades (wins {n_win}, losses {n_loss})."
 
     if key in ("pnl_summary", "avg_pnl"):
         pnls = [_to_float(t.get("pnl") or t.get("profitLoss")) for t in trades]

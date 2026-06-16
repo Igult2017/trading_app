@@ -15,8 +15,11 @@ def _f(v) -> float | None:
         return None
 
 
-def _wr(wins: int, total: int) -> float:
-    return round(wins / total * 100, 2) if total > 0 else 0.0
+def _wr(wins: int, losses: int) -> float:
+    # Canonical win rate: wins / (wins + losses) — break-evens are NOT in the
+    # denominator (callers pass decisive counts, not total trades).
+    decisive = wins + losses
+    return round(wins / decisive * 100, 2) if decisive > 0 else 0.0
 
 
 def _mean(vals: list) -> float:
@@ -92,7 +95,7 @@ def compute_breakdowns(group: list) -> dict:
     # ── By instrument ─────────────────────────────────────────────────────────
     # Uses: instrument field (schema.ts journalEntries)
     instr_buckets: dict[str, dict] = defaultdict(
-        lambda: {"trades": 0, "wins": 0, "net_pnl": 0.0}
+        lambda: {"trades": 0, "wins": 0, "losses": 0, "net_pnl": 0.0}
     )
 
     for t in group:
@@ -104,13 +107,15 @@ def compute_breakdowns(group: list) -> dict:
         instr_buckets[instr]["net_pnl"] = round(instr_buckets[instr]["net_pnl"] + pl, 2)
         if outcome == "win":
             instr_buckets[instr]["wins"] += 1
+        elif outcome == "loss":
+            instr_buckets[instr]["losses"] += 1
 
     by_instrument: dict[str, dict] = {}
     for instr, d in instr_buckets.items():
         by_instrument[instr] = {
             "trades":  d["trades"],
             "wins":    d["wins"],
-            "winRate": _wr(d["wins"], d["trades"]),
+            "winRate": _wr(d["wins"], d["losses"]),
             "netPnl":  d["net_pnl"],
         }
 
@@ -122,7 +127,7 @@ def compute_breakdowns(group: list) -> dict:
     # ── By direction ──────────────────────────────────────────────────────────
     # Uses: direction field (schema.ts journalEntries: "buy"/"sell" or "long"/"short")
     dir_buckets: dict[str, dict] = defaultdict(
-        lambda: {"trades": 0, "wins": 0, "rr_vals": []}
+        lambda: {"trades": 0, "wins": 0, "losses": 0, "rr_vals": []}
     )
 
     for t in group:
@@ -148,20 +153,22 @@ def compute_breakdowns(group: list) -> dict:
             dir_buckets[direction]["wins"] += 1
             if rr is not None and rr > 0:
                 dir_buckets[direction]["rr_vals"].append(rr)
+        elif outcome == "loss":
+            dir_buckets[direction]["losses"] += 1
 
     by_direction: dict[str, dict] = {}
     for direction in ("long", "short"):
         d = dir_buckets[direction]
         by_direction[direction] = {
             "trades":  d["trades"],
-            "winRate": _wr(d["wins"], d["trades"]),
+            "winRate": _wr(d["wins"], d["losses"]),
             "avgRR":   _mean(d["rr_vals"]),
         }
 
     # ── By session ────────────────────────────────────────────────────────────
     # Always return all 4 canonical sessions so the frontend never hits KeyError
     session_buckets: dict[str, dict] = defaultdict(
-        lambda: {"trades": 0, "wins": 0}
+        lambda: {"trades": 0, "wins": 0, "losses": 0}
     )
 
     for t in group:
@@ -170,6 +177,8 @@ def compute_breakdowns(group: list) -> dict:
         session_buckets[session]["trades"] += 1
         if outcome == "win":
             session_buckets[session]["wins"] += 1
+        elif outcome == "loss":
+            session_buckets[session]["losses"] += 1
 
     by_session: dict[str, dict] = {
         s: {"trades": 0, "winRate": 0.0}
@@ -179,7 +188,7 @@ def compute_breakdowns(group: list) -> dict:
         if session in by_session:
             by_session[session] = {
                 "trades":  d["trades"],
-                "winRate": _wr(d["wins"], d["trades"]),
+                "winRate": _wr(d["wins"], d["losses"]),
             }
         # Unknown / non-canonical sessions are discarded (rare edge case)
 

@@ -672,6 +672,20 @@ export class DbStorage implements IStorage {
             )
         )::int AS "winCount",
 
+        -- losses: BUY closed below entry OR SELL closed above entry.
+        -- A close exactly at entry is a break-even and is excluded from the
+        -- win-rate denominator (canonical: wins / (wins + losses)).
+        COUNT(t.id) FILTER (
+          WHERE t.event_type = 'close'
+            AND t.closed_price IS NOT NULL
+            AND t.entry_price  IS NOT NULL
+            AND (
+              (t.action = 'BUY'  AND t.closed_price::numeric < t.entry_price::numeric)
+              OR
+              (t.action = 'SELL' AND t.closed_price::numeric > t.entry_price::numeric)
+            )
+        )::int AS "lossCount",
+
         -- months active (floor, minimum 1 to avoid division by zero)
         GREATEST(1, FLOOR(EXTRACT(EPOCH FROM (NOW() - m.created_at)) / 2592000))::int AS "monthsActive"
 
@@ -683,11 +697,14 @@ export class DbStorage implements IStorage {
       ORDER BY m.created_at DESC
     `);
 
-    return rows.map((r: any) => ({
-      ...r,
-      winRate:    r.totalTrades > 0 ? Math.round((r.winCount / r.totalTrades) * 1000) / 10 : null,
-      since:      new Date(r.createdAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
-    }));
+    return rows.map((r: any) => {
+      const decisive = (r.winCount || 0) + (r.lossCount || 0);   // break-evens excluded
+      return {
+        ...r,
+        winRate:  decisive > 0 ? Math.round((r.winCount / decisive) * 1000) / 10 : null,
+        since:    new Date(r.createdAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
+      };
+    });
   }
 
   async getCopyMasterById(id: string): Promise<CopyMaster | undefined> {

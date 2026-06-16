@@ -19,9 +19,15 @@ def is_loss(trade: dict) -> bool:
     return str(trade.get("outcome", "")).strip().lower() in _LOSS_OUTCOMES
 
 def win_rate(trades: list[dict]) -> float:
+    # Canonical win rate as a 0-1 fraction (callers multiply by 100): wins over
+    # DECISIVE trades only — break-evens and unknown outcomes are excluded from
+    # the denominator, matching metrics_calculator.win_rate_of.
     if not trades:
         return 0.0
-    return sum(1 for t in trades if is_win(t)) / len(trades)
+    wins   = sum(1 for t in trades if is_win(t))
+    losses = sum(1 for t in trades if is_loss(t))
+    decisive = wins + losses
+    return wins / decisive if decisive else 0.0
 
 
 # ── manualFields extraction ───────────────────────────────────────────────────

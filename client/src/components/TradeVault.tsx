@@ -7,6 +7,7 @@ import { Pencil, Trash2 } from "lucide-react";
 import type { JournalEntry } from "@shared/schema";
 import TradingLoader, { useDelayedLoading } from "@/components/TradingLoader";
 import { useTranslation } from "react-i18next";
+import { winRate as winRateOf } from "@/lib/tradeStats";
 
 const CircleDownloadIcon = ({ success }: { success: boolean }) => (
   <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -469,8 +470,9 @@ export default function TradeVault({ sessionId, startingBalance: sessionStarting
   });
 
   const totalPL = trades.reduce((sum, t) => sum + t.pl, 0);
-  const wins = trades.filter((t) => t.outcome === "WIN").length;
-  const winRate = trades.length ? Math.round((wins / trades.length) * 100) : 0;
+  // Canonical win rate (break-evens excluded) — shared with every other journal
+  // surface via lib/tradeStats so the number matches the Dashboard/Metrics.
+  const winRate = winRateOf(trades) ?? 0;
 
   const growthPct = sessionStartingBalance && sessionStartingBalance > 0
     ? (totalPL / sessionStartingBalance) * 100

@@ -85,7 +85,7 @@ def compute_calendar_data(trades):
     Each day key is the string representation of the day integer (no zero-padding)
     to match what TradingCalendar.tsx expects.
     """
-    daily = defaultdict(lambda: {"pnl": 0.0, "trades": 0, "wins": 0})
+    daily = defaultdict(lambda: {"pnl": 0.0, "trades": 0, "wins": 0, "losses": 0})
 
     for t in trades:
         day_key = _pick_trade_date(t)
@@ -94,11 +94,16 @@ def compute_calendar_data(trades):
 
         pl      = safe_float(t.get("profitLoss"))
         outcome = (t.get("outcome") or "").lower()
+        # Harmonized classification: outcome label first, P&L sign as fallback.
+        is_w = outcome in ("win", "w", "profit") or (not outcome and pl > 0)
+        is_l = outcome in ("loss", "l")          or (not outcome and pl < 0)
 
         daily[day_key]["pnl"]    += pl
         daily[day_key]["trades"] += 1
-        if outcome == "win":
+        if is_w:
             daily[day_key]["wins"] += 1
+        elif is_l:
+            daily[day_key]["losses"] += 1
 
     result = {}
     for day_key, data in daily.items():
@@ -114,13 +119,16 @@ def compute_calendar_data(trades):
         if month_key not in result:
             result[month_key] = {}
 
+        decisive = data["wins"] + data["losses"]
         win_rate = (
-            round(data["wins"] / data["trades"] * 100)
-            if data["trades"] > 0 else 0
+            round(data["wins"] / decisive * 100)
+            if decisive > 0 else 0
         )
         result[month_key][str(day)] = {
             "pnl":     round(data["pnl"], 2),
             "trades":  data["trades"],
+            "wins":    data["wins"],
+            "losses":  data["losses"],
             "winRate": win_rate,
         }
 

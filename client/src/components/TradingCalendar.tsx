@@ -18,7 +18,7 @@ const DAYS_SHORT   = ["S","M","T","W","T","F","S"];
 const CURRENT_YEAR = new Date().getFullYear();
 const YEARS        = Array.from({ length: CURRENT_YEAR - 2015 + 1 }, (_, i) => 2015 + i);
 
-type DayData  = { pnl: number; trades: number; winRate: number };
+type DayData  = { pnl: number; trades: number; winRate: number; wins?: number; losses?: number };
 type MonthData = Record<string, DayData>;
 
 function fmt(pnl: number) {
@@ -35,7 +35,12 @@ function getStats(data: MonthData) {
   const avgWin   = winDays.length  ? winDays.reduce((s, d) => s + d.pnl, 0) / winDays.length : 0;
   const avgLoss  = lossDays.length ? Math.abs(lossDays.reduce((s, d) => s + d.pnl, 0) / lossDays.length) : 0;
   const trades   = days.reduce((s, d) => s + d.trades, 0);
-  const winRate  = days.length > 0 ? Math.round((winDays.length / days.length) * 100) : 0;
+  // Canonical TRADE-based win rate: Σwins / (Σwins + Σlosses) across the month
+  // (break-evens excluded) — matches the Dashboard/Metrics, not "profitable days".
+  const totalWins   = days.reduce((s, d) => s + (d.wins   ?? 0), 0);
+  const totalLosses = days.reduce((s, d) => s + (d.losses ?? 0), 0);
+  const decisive = totalWins + totalLosses;
+  const winRate  = decisive > 0 ? Math.round((totalWins / decisive) * 1000) / 10 : 0;
   const totalVol = days.reduce((s, d) => s + Math.abs(d.pnl), 0);
   const pct      = totalVol > 0 ? ((net / totalVol) * 100).toFixed(2) : "0.00";
   return { net, winRate, trades, ratio: avgLoss ? (avgWin / avgLoss).toFixed(2) : "—", profitDays: winDays.length, lossDays: lossDays.length, pct };

@@ -3,6 +3,7 @@ import { Trophy, TrendingUp, Percent, Loader2, Users, Layers } from 'lucide-reac
 import { useQuery } from '@tanstack/react-query';
 import { authFetch } from '@/lib/queryClient';
 import { countryToIso } from '@/lib/countryToIso';
+import { formatProfitFactor } from '@/lib/tradeStats';
 
 interface Trader {
   rank: number;
@@ -299,7 +300,7 @@ export default function Leaderboard() {
                           {activeCategory === 'profitFactor' ? 'P. Factor' : 'Win Rate'}
                         </p>
                         <p style={{ fontSize: 14, fontWeight: 800, margin: 0, color: accentFor(activeCategory) }}>
-                          {activeCategory === 'profitFactor' ? trader.profitFactor.toFixed(2) : `${trader.winRate}%`}
+                          {activeCategory === 'profitFactor' ? formatProfitFactor(trader.profitFactor) : `${trader.winRate}%`}
                         </p>
                       </div>
                     </div>
@@ -368,7 +369,7 @@ export default function Leaderboard() {
                     </td>
                     {!isMobile && (
                       <td style={{ padding: '12px 20px', textAlign: 'right', fontSize: 12, fontWeight: 700, color: activeCategory === 'profitFactor' ? '#a78bfa' : 'var(--jr-muted)' }}>
-                        {trader.profitFactor > 0 ? trader.profitFactor.toFixed(2) : '—'}
+                        {formatProfitFactor(trader.profitFactor)}
                       </td>
                     )}
                     {!isMobile && (

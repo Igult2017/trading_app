@@ -576,6 +576,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           SELECT
             COALESCE(je.user_id, ts.user_id) AS user_id,
             je.profit_loss,
+            je.outcome,
             je.created_at
           FROM journal_entries je
           LEFT JOIN trading_sessions ts ON ts.id = je.session_id
@@ -589,12 +590,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
           MAX(up.email)                                                                   AS email,
           MAX(up.country)                                                                 AS country,
           COUNT(*)                                                                        AS total_trades,
-          COUNT(*) FILTER (WHERE COALESCE(r.profit_loss, 0) > 0)                          AS wins,
+          COUNT(*) FILTER (WHERE LOWER(COALESCE(r.outcome,'')) IN ('win','w','profit')
+                              OR (COALESCE(r.outcome,'') = '' AND r.profit_loss > 0))     AS wins,
+          COUNT(*) FILTER (WHERE LOWER(COALESCE(r.outcome,'')) IN ('loss','l')
+                              OR (COALESCE(r.outcome,'') = '' AND r.profit_loss < 0))     AS losses,
           ROUND(CAST(SUM(COALESCE(r.profit_loss, 0)) AS numeric), 2)                      AS total_pnl,
+          -- Canonical profit factor: grossProfit / |grossLoss|, 999 = ∞ when no losses.
           ROUND(CAST(
-            SUM(CASE WHEN r.profit_loss > 0 THEN r.profit_loss ELSE 0 END) /
-            NULLIF(ABS(SUM(CASE WHEN r.profit_loss < 0 THEN r.profit_loss ELSE 0 END)), 0)
-          AS numeric), 2)                                                                 AS profit_factor
+            CASE
+              WHEN SUM(r.profit_loss) FILTER (WHERE LOWER(COALESCE(r.outcome,'')) IN ('loss','l')
+                                                 OR (COALESCE(r.outcome,'') = '' AND r.profit_loss < 0)) < 0
+                THEN SUM(r.profit_loss) FILTER (WHERE LOWER(COALESCE(r.outcome,'')) IN ('win','w','profit')
+                                                   OR (COALESCE(r.outcome,'') = '' AND r.profit_loss > 0))
+                   / ABS(SUM(r.profit_loss) FILTER (WHERE LOWER(COALESCE(r.outcome,'')) IN ('loss','l')
+                                                       OR (COALESCE(r.outcome,'') = '' AND r.profit_loss < 0)))
+              WHEN SUM(r.profit_loss) FILTER (WHERE LOWER(COALESCE(r.outcome,'')) IN ('win','w','profit')
+                                                 OR (COALESCE(r.outcome,'') = '' AND r.profit_loss > 0)) > 0 THEN 999
+              ELSE 0
+            END
+          AS numeric), 3)                                                                 AS profit_factor
         FROM resolved r
         LEFT JOIN user_profiles up ON up.id = r.user_id
         WHERE r.user_id IS NOT NULL
@@ -687,9 +701,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const leaderboard = rows.map((r: any, index: number) => {
         const trades   = parseInt(r.total_trades);
         const wins     = parseInt(r.wins);
-        const winRate  = trades > 0 ? Math.round((wins / trades) * 100) : 0;
+        const losses   = parseInt(r.losses);
+        const decisive = wins + losses;   // break-evens excluded (canonical)
+        const winRate  = decisive > 0 ? Math.round((wins / decisive) * 1000) / 10 : 0;
         const rawPnl   = parseFloat(r.total_pnl) || 0;
-        const pf       = parseFloat(r.profit_factor) || 0;
+        const pf       = parseFloat(r.profit_factor) || 0;   // 999 = ∞ sentinel
         const growth   = sparklines[r.user_id] || [0];
         const name     = displayFor(r.user_id, r.full_name, r.email);
 
@@ -745,12 +761,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
           MAX(up.email)                                                                      AS email,
           MAX(up.country)                                                                    AS country,
           COUNT(*)                                                                           AS total_trades,
-          COUNT(*) FILTER (WHERE je.profit_loss > 0)                                         AS wins,
+          COUNT(*) FILTER (WHERE LOWER(COALESCE(je.outcome,'')) IN ('win','w','profit')
+                              OR (COALESCE(je.outcome,'') = '' AND je.profit_loss > 0))      AS wins,
+          COUNT(*) FILTER (WHERE LOWER(COALESCE(je.outcome,'')) IN ('loss','l')
+                              OR (COALESCE(je.outcome,'') = '' AND je.profit_loss < 0))      AS losses,
           ROUND(CAST(SUM(COALESCE(je.profit_loss, 0)) AS numeric), 2)                        AS total_pnl,
+          -- Canonical profit factor: grossProfit / |grossLoss|, 999 = ∞ when no losses.
           ROUND(CAST(
-            SUM(CASE WHEN je.profit_loss > 0 THEN je.profit_loss ELSE 0 END) /
-            NULLIF(ABS(SUM(CASE WHEN je.profit_loss < 0 THEN je.profit_loss ELSE 0 END)), 0)
-          AS numeric), 2)                                                                    AS profit_factor
+            CASE
+              WHEN SUM(je.profit_loss) FILTER (WHERE LOWER(COALESCE(je.outcome,'')) IN ('loss','l')
+                                                  OR (COALESCE(je.outcome,'') = '' AND je.profit_loss < 0)) < 0
+                THEN SUM(je.profit_loss) FILTER (WHERE LOWER(COALESCE(je.outcome,'')) IN ('win','w','profit')
+                                                    OR (COALESCE(je.outcome,'') = '' AND je.profit_loss > 0))
+                   / ABS(SUM(je.profit_loss) FILTER (WHERE LOWER(COALESCE(je.outcome,'')) IN ('loss','l')
+                                                        OR (COALESCE(je.outcome,'') = '' AND je.profit_loss < 0)))
+              WHEN SUM(je.profit_loss) FILTER (WHERE LOWER(COALESCE(je.outcome,'')) IN ('win','w','profit')
+                                                  OR (COALESCE(je.outcome,'') = '' AND je.profit_loss > 0)) > 0 THEN 999
+              ELSE 0
+            END
+          AS numeric), 3)                                                                    AS profit_factor
         FROM trading_sessions ts
         JOIN journal_entries je ON je.session_id = ts.id
         LEFT JOIN user_profiles up ON up.id = COALESCE(je.user_id, ts.user_id)
@@ -800,12 +829,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const leaderboard = rows.map((r: any, index: number) => {
-        const trades  = parseInt(r.total_trades);
-        const wins    = parseInt(r.wins);
-        const winRate = trades > 0 ? Math.round((wins / trades) * 100) : 0;
-        const rawPnl  = parseFloat(r.total_pnl) || 0;
-        const pf      = parseFloat(r.profit_factor) || 0;
-        const name    = displayFor(r.user_id, r.full_name, r.email);
+        const trades   = parseInt(r.total_trades);
+        const wins     = parseInt(r.wins);
+        const losses   = parseInt(r.losses);
+        const decisive = wins + losses;   // break-evens excluded (canonical)
+        const winRate  = decisive > 0 ? Math.round((wins / decisive) * 1000) / 10 : 0;
+        const rawPnl   = parseFloat(r.total_pnl) || 0;
+        const pf       = parseFloat(r.profit_factor) || 0;   // 999 = ∞ sentinel
+        const name     = displayFor(r.user_id, r.full_name, r.email);
         return {
           rank:         index + 1,
           sessionId:    r.session_id,
@@ -841,6 +872,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           SELECT
             COALESCE(je.user_id, ts.user_id) AS user_id,
             je.profit_loss,
+            je.outcome,
             je.session_id
           FROM journal_entries je
           LEFT JOIN trading_sessions ts ON ts.id = je.session_id
@@ -855,7 +887,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           COALESCE(bool_or(up.leaderboard_hidden), false)                                     AS hidden,
           COUNT(DISTINCT r.session_id)                                                        AS session_count,
           COUNT(*)                                                                            AS total_trades,
-          COUNT(*) FILTER (WHERE r.profit_loss > 0)                                           AS wins,
+          COUNT(*) FILTER (WHERE LOWER(COALESCE(r.outcome,'')) IN ('win','w','profit')
+                              OR (COALESCE(r.outcome,'') = '' AND r.profit_loss > 0))         AS wins,
+          COUNT(*) FILTER (WHERE LOWER(COALESCE(r.outcome,'')) IN ('loss','l')
+                              OR (COALESCE(r.outcome,'') = '' AND r.profit_loss < 0))         AS losses,
           ROUND(CAST(SUM(COALESCE(r.profit_loss, 0)) AS numeric), 2)                          AS total_pnl
         FROM resolved r
         LEFT JOIN user_profiles up ON up.id = r.user_id
@@ -865,14 +900,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         LIMIT 500
       `);
       const mapped = rows.map((r: any) => {
-        const trades  = parseInt(r.total_trades) || 0;
-        const wins    = parseInt(r.wins) || 0;
+        const trades   = parseInt(r.total_trades) || 0;
+        const wins     = parseInt(r.wins) || 0;
+        const losses   = parseInt(r.losses) || 0;
+        const decisive = wins + losses;   // break-evens excluded (canonical)
         const name    = r.full_name?.trim() || r.email?.split('@')[0] || `Trader #${(r.user_id || '').slice(-4).toUpperCase()}`;
         return {
           userId: r.user_id, name, email: r.email || '', country: r.country || '',
           hidden: r.hidden === true || r.hidden === 't',
           sessions: parseInt(r.session_count) || 0, trades,
-          winRate: trades > 0 ? Math.round((wins / trades) * 100) : 0,
+          winRate: decisive > 0 ? Math.round((wins / decisive) * 1000) / 10 : 0,
           pnl: parseFloat(r.total_pnl) || 0,
         };
       });
@@ -1601,12 +1638,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const trades = await storage.getTrades(auth.id);
       
       const totalTrades = trades.length;
-      const winningTrades = trades.filter(t => t.outcome === 'win');
-      const losingTrades = trades.filter(t => t.outcome === 'loss');
-      
+      // Harmonized classification: outcome label first, P&L sign as fallback.
+      const _o = (t: any) => String(t.outcome || '').toLowerCase();
+      const winningTrades = trades.filter(t => ['win','w','profit'].includes(_o(t)) || (!_o(t) && parseFloat(t.pnl) > 0));
+      const losingTrades  = trades.filter(t => ['loss','l'].includes(_o(t)) || (!_o(t) && parseFloat(t.pnl) < 0));
+
       const totalPnL = trades.reduce((sum, t) => sum + parseFloat(t.pnl), 0);
       const averagePnL = totalTrades > 0 ? totalPnL / totalTrades : 0;
-      const winRate = totalTrades > 0 ? (winningTrades.length / totalTrades) * 100 : 0;
+      // Canonical win rate: wins / (wins + losses) — break-evens excluded.
+      const decisive = winningTrades.length + losingTrades.length;
+      const winRate = decisive > 0 ? (winningTrades.length / decisive) * 100 : 0;
       
       const averageWin = winningTrades.length > 0 
         ? winningTrades.reduce((sum, t) => sum + parseFloat(t.pnl), 0) / winningTrades.length 

@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { BookOpen, TrendingUp, TrendingDown, Filter, Download, Calendar, Target, AlertTriangle, Clock, BarChart3 } from 'lucide-react';
 import type { Trade } from '@shared/schema';
+import { winRate as winRateOf, profitFactor as profitFactorOf, classifyOutcome, formatProfitFactor } from '@/lib/tradeStats';
 
 const safeParseFloat = (value: string | null | undefined, defaultValue = 0): number => {
   if (value === null || value === undefined || value === '') return defaultValue;
@@ -70,16 +71,18 @@ export default function TradeHistory() {
   });
 
   const totalPnL = timeFilteredTrades.reduce((sum, trade) => sum + safeParseFloat(trade.pnl), 0);
-  const winningTrades = timeFilteredTrades.filter(t => t.outcome === 'win');
-  const losingTrades = timeFilteredTrades.filter(t => t.outcome === 'loss');
-  const winRate = timeFilteredTrades.length > 0 ? (winningTrades.length / timeFilteredTrades.length) * 100 : 0;
-  const avgWin = winningTrades.length > 0 
-    ? winningTrades.reduce((sum, t) => sum + safeParseFloat(t.pnl), 0) / winningTrades.length 
+  // Canonical stats (shared with the rest of the journal via lib/tradeStats):
+  // win rate excludes break-evens; profit factor uses the ∞ sentinel.
+  const winningTrades = timeFilteredTrades.filter(t => classifyOutcome(t) === 'win');
+  const losingTrades = timeFilteredTrades.filter(t => classifyOutcome(t) === 'loss');
+  const winRate = winRateOf(timeFilteredTrades) ?? 0;
+  const avgWin = winningTrades.length > 0
+    ? winningTrades.reduce((sum, t) => sum + safeParseFloat(t.pnl), 0) / winningTrades.length
     : 0;
   const avgLoss = losingTrades.length > 0
     ? Math.abs(losingTrades.reduce((sum, t) => sum + safeParseFloat(t.pnl), 0) / losingTrades.length)
     : 0;
-  const profitFactor = avgLoss > 0 ? (avgWin * winningTrades.length) / (avgLoss * losingTrades.length) : 0;
+  const profitFactor = profitFactorOf(timeFilteredTrades);
 
   if (trades.length === 0) {
     return (
@@ -192,8 +195,8 @@ export default function TradeHistory() {
           </div>
           <div className="text-center">
             <div className="text-xs text-muted-foreground mb-1">Profit Factor</div>
-            <div className={`font-mono font-semibold ${profitFactor >= 1 ? 'text-green-500' : 'text-red-500'}`}>
-              {profitFactor.toFixed(2)}
+            <div className={`font-mono font-semibold ${(profitFactor ?? 0) >= 1 ? 'text-green-500' : 'text-red-500'}`}>
+              {formatProfitFactor(profitFactor)}
             </div>
           </div>
         </div>

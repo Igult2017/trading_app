@@ -88,8 +88,20 @@ def profit_factor(trades: list) -> float:
 
 
 def expectancy(trades: list) -> float:
-    pnls = [t["pnl"] for t in trades if t.get("pnl") is not None]
-    return safe_mean(pnls)
+    # Canonical R expectancy (R-multiples, NOT dollars) — harmonized with
+    # metrics_calculator and level4: win → rr_float (default 1R), loss → −1R,
+    # break-even → 0R, averaged over all decided trades.
+    r_values: list = []
+    for t in trades:
+        outcome = (t.get("outcome") or "").lower()
+        if outcome == "win":
+            rr = t.get("rr_float")
+            r_values.append(float(rr) if rr is not None and rr > 0 else 1.0)
+        elif outcome == "loss":
+            r_values.append(-1.0)
+        elif outcome in ("breakeven", "be"):
+            r_values.append(0.0)
+    return safe_mean(r_values)
 
 
 _ALIAS: dict[str, str] = {

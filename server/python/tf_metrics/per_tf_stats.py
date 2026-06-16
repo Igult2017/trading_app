@@ -91,8 +91,10 @@ def compute_per_tf_stats(group: list) -> dict:
             confluence_scores.append(cs)
 
     total  = len(group)
-    knowns = wins + losses + breakevens
-    win_rate = round(wins / knowns * 100, 2) if knowns > 0 else 0.0
+    # Canonical win rate: wins / (wins + losses) — break-evens EXCLUDED from the
+    # denominator (matches metrics_calculator.win_rate_of). See harmonization note.
+    decisive = wins + losses
+    win_rate = round(wins / decisive * 100, 2) if decisive > 0 else 0.0
 
     gross_wins  = sum(p for p in win_pnls  if p > 0)
     gross_losses = sum(abs(p) for p in loss_pnls if p < 0)
@@ -102,10 +104,12 @@ def compute_per_tf_stats(group: list) -> dict:
     avg_win  = _mean(win_pnls)
     avg_loss = _mean(loss_pnls)   # negative value
 
-    # Expectancy = (winRate * avgWin) + (lossRate * avgLoss)
-    wr_dec   = wins   / knowns if knowns > 0 else 0.0
-    lr_dec   = losses / knowns if knowns > 0 else 0.0
-    expectancy = round((wr_dec * avg_win) + (lr_dec * avg_loss), 2)
+    # Canonical R expectancy (NOT dollars): each win contributes its RR (default
+    # 1R when missing), each loss −1R, each break-even 0R, averaged over all
+    # decided trades (wins + losses + break-evens). Matches metrics_calculator.
+    r_sum = sum(win_rrs) + 1.0 * (wins - len(win_rrs)) - 1.0 * losses
+    r_n   = wins + losses + breakevens
+    expectancy = round(r_sum / r_n, 3) if r_n > 0 else 0.0
 
     net_pnl = round(sum(win_pnls) + sum(loss_pnls), 2)
 
