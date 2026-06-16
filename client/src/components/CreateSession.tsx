@@ -510,7 +510,8 @@ function DeleteSessionModal({ session, onClose, onConfirm, isPending }: {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// TOTAL SLOTS
+// GRID FILL — minimum tiles to keep the grid looking full. NOT a cap on how many
+// sessions a user can create; a create slot is always shown beyond this count.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const TOTAL_SLOTS = 6;
@@ -729,7 +730,9 @@ export const SessionsList = ({ onSelectSession, activeSessionId, onDeleteSession
     );
   }
 
-  const ghostsNeeded = Math.max(0, TOTAL_SLOTS - sessions.length);
+  // Always keep at least one "+ Create Session" slot so there's no cap — below
+  // TOTAL_SLOTS we fill the grid up to 6; at/above it we still show one create slot.
+  const ghostsNeeded = Math.max(1, TOTAL_SLOTS - sessions.length);
 
   return (
     <div className="obs-sessions-root">
