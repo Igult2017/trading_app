@@ -66,7 +66,7 @@ function LiveClock({ lastUpdate, textMut }: { lastUpdate: number; textMut: strin
 }
 
 
-export default function EconomicCalendarPage() {
+export default function EconomicCalendarPage({ active = true }: { active?: boolean }) {
   const [filter, setFilter]           = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [ccyFilter, setCcyFilter]     = useState('All');
@@ -198,12 +198,16 @@ export default function EconomicCalendarPage() {
 
   return (
     <>
-    <SEOHead
-      title="Economic Calendar – Live Forex & Crypto Events"
-      description="Track high-impact economic events, central bank decisions, and market-moving news in real time. Essential for Forex, crypto, and commodity traders."
-      keywords="economic calendar, forex calendar, central bank calendar, high impact news, NFP, FOMC, interest rates, forex events"
-      canonical="/calendar"
-    />
+    {/* Only emit SEO/title when this always-mounted page is the active route,
+        otherwise its <Helmet> competes with the blog's and the wrong tab title wins. */}
+    {active && (
+      <SEOHead
+        title="Economic Calendar – Live Forex & Crypto Events"
+        description="Track high-impact economic events, central bank decisions, and market-moving news in real time. Essential for Forex, crypto, and commodity traders."
+        keywords="economic calendar, forex calendar, central bank calendar, high impact news, NFP, FOMC, interest rates, forex events"
+        canonical="/calendar"
+      />
+    )}
     <div style={{ minHeight: '100vh', background: pageBg, fontFamily: "'Inter',sans-serif", transition: 'background 0.3s' }}>
       <style>{pageStyles}</style>
 

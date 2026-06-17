@@ -175,10 +175,10 @@ function PublicPagesGroup() {
        * Queries keep polling in the background so data is always fresh.
        */}
       <div hidden={!isCalendar} aria-hidden={!isCalendar} style={isCalendar ? undefined : { display: 'none' }}>
-        <EconomicCalendarPage />
+        <EconomicCalendarPage active={isCalendar} />
       </div>
       <div hidden={!isBlog} aria-hidden={!isBlog} style={isBlog ? undefined : { display: 'none' }}>
-        <BlogPage />
+        <BlogPage active={isBlog} />
       </div>
 
       {/* Remaining public routes — less frequently visited, mount/unmount is fine */}

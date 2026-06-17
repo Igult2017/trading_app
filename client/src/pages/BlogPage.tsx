@@ -73,7 +73,7 @@ function SkeletonBlock({ w, h, delay = 0, isDark }: { w: string | number; h: num
 
 const categories = ['All', 'Equities', 'Forex', 'Digital Assets', 'Analysis', 'Backtested Strategies'];
 
-export default function BlogPage() {
+export default function BlogPage({ active = true }: { active?: boolean }) {
   const [activeCategory, setActiveCategory] = useState('All');
   const { darkMode } = usePublicTheme();
   const [, navigate] = useLocation();
@@ -137,12 +137,16 @@ export default function BlogPage() {
 
   return (
     <>
-    <SEOHead
-      title="Trading Insights & Education Blog"
-      description="Expert articles on Forex, crypto, and commodities trading. Strategy breakdowns, SMC concepts, psychology, and market analysis from professional traders."
-      keywords="forex trading blog, trading strategies, SMC trading, smart money concepts, trading psychology, market analysis, forex education"
-      canonical="/blog"
-    />
+    {/* Only emit SEO/title when this always-mounted page is the active route,
+        otherwise its <Helmet> competes with the calendar's and wins on /calendar too. */}
+    {active && (
+      <SEOHead
+        title="Trading Insights & Education Blog"
+        description="Expert articles on Forex, crypto, and commodities trading. Strategy breakdowns, SMC concepts, psychology, and market analysis from professional traders."
+        keywords="forex trading blog, trading strategies, SMC trading, smart money concepts, trading psychology, market analysis, forex education"
+        canonical="/blog"
+      />
+    )}
     <div
       className={`min-h-screen transition-colors duration-700 selection:bg-blue-400 selection:text-white ${isDark ? 'bg-[#0f172a] text-[#f1f5f9]' : 'bg-[#FDFCFB] text-[#1a1a1a]'}`}
       style={{ fontFamily: '"Inter", sans-serif' }}
