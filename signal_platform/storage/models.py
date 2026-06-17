@@ -6,6 +6,7 @@ ORM model — column names match the trading_signals PostgreSQL table
 import uuid
 from datetime import datetime, timezone
 from sqlalchemy import Boolean, Column, DateTime, Integer, JSON, Numeric, String, Text, ARRAY
+from sqlalchemy.dialects.postgresql import JSONB
 
 from storage.db import Base
 
@@ -55,3 +56,15 @@ class SignalModel(Base):
     created_at     = Column("created_at",     DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at     = Column("updated_at",     DateTime, default=lambda: datetime.now(timezone.utc),
                             onupdate=lambda: datetime.now(timezone.utc))
+
+
+class StrategyStateModel(Base):
+    """Persistent per-strategy dedup/alert memory — survives restarts so a
+    redeploy doesn't wipe state and re-fire already-alerted setups. Matches the
+    `strategy_state` table in shared/schema.ts."""
+    __tablename__ = "strategy_state"
+
+    strategy_id = Column("strategy_id", String, primary_key=True)
+    state       = Column("state",       JSONB, nullable=False, default=dict)
+    updated_at  = Column("updated_at",  DateTime, default=lambda: datetime.now(timezone.utc),
+                         onupdate=lambda: datetime.now(timezone.utc))

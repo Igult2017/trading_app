@@ -84,6 +84,15 @@ export const insertTelegramSignalSourceSchema = createInsertSchema(telegramSigna
 export type InsertTelegramSignalSource = z.infer<typeof insertTelegramSignalSourceSchema>;
 export type TelegramSignalSource = typeof telegramSignalSources.$inferSelect;
 
+/** Per-strategy persistent state for the signal platform (Python reads/writes).
+ *  Keyed by strategy id; `state` holds the strategy's dedup/alert memory as JSON
+ *  so a redeploy does not wipe it and re-fire already-alerted setups. */
+export const strategyState = pgTable("strategy_state", {
+  strategyId: text("strategy_id").primaryKey(),
+  state:      jsonb("state").notNull(),
+  updatedAt:  timestamp("updated_at").defaultNow(),
+});
+
 /** Follower account configuration for a specific master. */
 export const copyFollowers = pgTable("copy_followers", {
   id:              varchar("id").primaryKey().default(sql`gen_random_uuid()`),

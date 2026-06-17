@@ -3,10 +3,10 @@ EURUSD Pullback — two-stage alerts.
 Stage 1: reports EVERY H1 volume-cluster + pullback once, labelled QUALIFIED
   (entry will follow) or NOT QUALIFIED (review only, with the failing rules).
 Stage 2: M1 fractal entry — fired only for QUALIFIED setups.
-State is in-memory; the scanner's first-scan warm-up re-seeds it after a restart so prior setups are not re-fired.
+Dedup memory (which setups/entries were already alerted) is persisted to the DB
+via PullbackState, so a redeploy does not wipe it and re-fire prior setups.
 """
 import logging
-import time
 
 from core.base_strategy import BaseStrategy
 from core.types import (Session, Trend, NewsStance, NewsImpact, StrategyResult, TF)
@@ -18,6 +18,7 @@ from strategies.pullback_fractal import fractal_identified
 from strategies.pullback_obstruction import is_at_4h_key_level, nearby_zone_warnings
 from strategies.eurusd_pullback_signals import build_setup_signal, build_entry_signal
 from news.news_filter import news_note
+from strategies.pullback_state import PullbackState
 
 log = logging.getLogger(__name__)
 
@@ -49,17 +50,8 @@ class EURUSDPullbackStrategy(BaseStrategy):
     news_impact_filter  = [NewsImpact.HIGH]
 
     def __init__(self):
-        self._setup_alerted: dict[str, float] = {}   # cluster_sig → monotonic timestamp
-        self._entry_alerted: set[str]          = set()
-        self._qualified:     dict[str, bool]   = {}   # cluster_sig → passed all rules
-
-    def _cleanup(self) -> None:
-        cutoff = time.monotonic() - _STATE_TTL
-        stale  = [k for k, ts in self._setup_alerted.items() if ts < cutoff]
-        for k in stale:
-            self._setup_alerted.pop(k)
-            self._entry_alerted.discard(k)
-            self._qualified.pop(k, None)
+        # Dedup memory persisted to the DB so a redeploy doesn't re-fire setups.
+        self.state = PullbackState(self.id)
 
     async def analyze(self, context: StrategyContext) -> StrategyResult:
         m1 = context.candles.get(TF.M1)
@@ -94,7 +86,7 @@ class EURUSDPullbackStrategy(BaseStrategy):
 
         cluster_sig = f"{'B' if bullish else 'S'}_{h1[vol_end].time}"
         cluster_len = vol_end - vol_start + 1
-        self._cleanup()
+        self.state.cleanup(_STATE_TTL)
         at_4h_zone = is_at_4h_key_level(h4[-50:], pb_low if bullish else pb_high)
         zone_notes = nearby_zone_warnings(h4, d1, pb_high if bullish else pb_low)
         news_msg   = news_note(context.news, ["USD", "EUR"]) if context.news else ""
@@ -115,10 +107,9 @@ class EURUSDPullbackStrategy(BaseStrategy):
         # at_4h_zone is a WARNING shown on the card (below), never a reject — user's call.
 
         # Stage 1 — alert once, and again on upgrade to qualified (re-evaluated each tick, never frozen).
-        prev_q = self._qualified.get(cluster_sig)
-        if prev_q is None or (prev_q is False and qualified and cluster_sig not in self._entry_alerted):
-            self._setup_alerted[cluster_sig] = time.monotonic()
-            self._qualified[cluster_sig]     = qualified
+        prev_q = self.state.qualified.get(cluster_sig)
+        if prev_q is None or (prev_q is False and qualified and cluster_sig not in self.state.entry_alerted):
+            self.state.mark_setup(cluster_sig, qualified)
             log.info(f"[eurusd_diag] {'QUALIFIED' if qualified else 'UNQUALIFIED'} pullback — "
                      f"{'BULL' if bullish else 'BEAR'} {cluster_len}c cluster"
                      + ("" if qualified else f" | {'; '.join(disqualifiers)}"))
@@ -129,10 +120,10 @@ class EURUSDPullbackStrategy(BaseStrategy):
                 news_msg=news_msg,
             )
             return StrategyResult(signals=[sig])
-        self._qualified[cluster_sig] = qualified   # keep status fresh between alerts
+        self.state.set_qualified(cluster_sig, qualified)   # keep status fresh between alerts
 
         # Stage 2 — entry only while CURRENTLY qualified, fired once.
-        if not qualified or cluster_sig in self._entry_alerted:
+        if not qualified or cluster_sig in self.state.entry_alerted:
             return StrategyResult.empty()
 
         entry = fractal_identified(m1, pb_high, pb_low, bullish, pb_end_time)
@@ -146,5 +137,5 @@ class EURUSDPullbackStrategy(BaseStrategy):
         if sig is None:
             return StrategyResult.empty()
 
-        self._entry_alerted.add(cluster_sig)
+        self.state.mark_entry(cluster_sig)
         return StrategyResult(signals=[sig])

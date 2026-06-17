@@ -32,7 +32,6 @@ async def run_strategy(
     news_context,
     current_sessions: list,
     tick_now: datetime,
-    warmup: bool = False,
 ) -> None:
     # Pre-filter 1: instrument whitelist
     if strategy.allowed_instruments is not None:
@@ -93,17 +92,6 @@ async def run_strategy(
         result = await strategy.analyze(context)
     except Exception:
         log.error(f"[runner] {strategy.id} on {instrument}:\n{traceback.format_exc()}")
-        return
-
-    # Warm-up tick (first scan after a (re)deploy): analyze() above already SEEDED
-    # the strategy's in-memory dedup state for whatever setups exist right now, so
-    # suppress every outbound signal/notification/DB-save this tick. Without this,
-    # a restart wipes the in-memory state and re-fires every pre-existing setup as
-    # if it were brand new — the inaccurate post-redeploy signals.
-    if warmup:
-        n = len(result.signals) if result and result.signals else 0
-        if n:
-            log.info(f"[runner] warm-up: {instrument}/{strategy.id} seeded {n} setup(s), suppressed")
         return
 
     valid_signals = signal_validator.validate(result, instrument)
