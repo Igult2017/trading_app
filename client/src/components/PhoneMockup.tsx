@@ -94,9 +94,9 @@ export default function PhoneMockup({ darkMode: d }: Props) {
         <circle cx="204" cy="51.5" r="2" fill={labelClr} />
 
         {/* ── App header ── */}
-        <text x="26" y="80" fontFamily="Georgia,serif" fontSize="13" fontWeight="700" fill={d ? '#f1f5f9' : '#0f172a'}>trade</text>
+        <text x="26" y="80" fontFamily="Georgia,serif" fontSize="13" fontWeight="700" fill={d ? '#f1f5f9' : '#0f172a'}>Trade</text>
         <text x="67" y="80" fontFamily="Georgia,serif" fontSize="13" fontWeight="700" fill="#2563eb">&amp;</text>
-        <text x="78" y="80" fontFamily="Georgia,serif" fontSize="13" fontWeight="700" fill={d ? '#f1f5f9' : '#0f172a'}>journal</text>
+        <text x="78" y="80" fontFamily="Georgia,serif" fontSize="13" fontWeight="700" fill={d ? '#f1f5f9' : '#0f172a'}>Journal</text>
         {/* Avatar circle */}
         <circle cx="228" cy="74" r="12" fill={`url(#${id}-accent)`} />
         <text x="222" y="78" fontFamily="sans-serif" fontSize="10" fontWeight="700" fill="white">AI</text>

@@ -530,7 +530,7 @@ export default function JournalHeader({ onToggleSidebar, darkMode, onToggleDarkM
           {/* Left: Logo + Sidebar Toggle */}
           <div className="jh-left" style={{ display: 'flex', alignItems: 'center', gap: 14, flexShrink: 0 }}>
             <span className="jh-logo" style={{ fontSize: 17, fontWeight: 400, letterSpacing: '0.01em', fontFamily: "'DM Serif Display', serif", cursor: 'pointer' }}>
-              <span style={{ color: theme.logoWhite }}>trade</span><span style={{ color: '#2563eb' }}>&</span><span style={{ color: theme.logoWhite }}>journal</span>
+              <span style={{ color: theme.logoWhite }}>Trade</span><span style={{ color: '#2563eb' }}>&</span><span style={{ color: theme.logoWhite }}>Journal</span>
             </span>
             <button
               className="jh-sidebar-desktop"

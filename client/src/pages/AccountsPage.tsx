@@ -250,7 +250,7 @@ function AddAccountForm({ platform, onCancel, onCreated }: AddFormProps) {
           </div>
         )}
         <div style={{ background: "#0a1628", border: "1px solid #1e3a55", padding: "11px 14px", fontSize: 12, color: "#64748b" }}>
-          Use a <strong style={{ color: "#38bdf8" }}>read-only API key</strong> — trade&amp;journal only reads your trade history, never places orders.
+          Use a <strong style={{ color: "#38bdf8" }}>read-only API key</strong> — Trade&amp;Journal only reads your trade history, never places orders.
         </div>
       </>)}
 
@@ -373,7 +373,7 @@ function WebhookModal({ account, onClose }: { account: BrokerAccount; onClose: (
           {/* Info note */}
           <div style={{ background: "#0c1e10", border: "1px solid #1a4020", padding: "11px 14px", borderRadius: 4 }}>
             <span style={{ color: "#4ade80", fontSize: 12, fontWeight: 600 }}>How it works: </span>
-            <span style={{ color: "#6b8f72", fontSize: 12 }}>When you close a trade in MT5, the EA automatically posts it to trade&amp;journal. It is journaled instantly with P&amp;L, session, pips, and duration — no manual entry needed.</span>
+            <span style={{ color: "#6b8f72", fontSize: 12 }}>When you close a trade in MT5, the EA automatically posts it to Trade&amp;Journal. It is journaled instantly with P&amp;L, session, pips, and duration — no manual entry needed.</span>
           </div>
 
           <button onClick={onClose} style={{ background: "#1e293b", border: "1px solid #334155", color: "#94a3b8", padding: "10px 20px", cursor: "pointer", fontSize: 13, fontWeight: 600, alignSelf: "flex-end" }}>

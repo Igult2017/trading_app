@@ -503,7 +503,7 @@ export default function BlogPostPage() {
         author: { '@type': 'Person', name: post.author },
         datePublished: post.date,
         image: post.imageUrl || undefined,
-        publisher: { '@type': 'Organization', name: 'trade&journal', url: 'https://tradeandjournal.com' },
+        publisher: { '@type': 'Organization', name: 'Trade&Journal', url: 'https://tradeandjournal.com' },
       }}
     />
     <div style={{ minHeight: '100vh', background: bg, color: text, fontFamily: '"Montserrat",sans-serif', transition: 'background 0.5s,color 0.5s' }}>

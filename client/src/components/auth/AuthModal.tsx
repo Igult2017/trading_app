@@ -107,7 +107,7 @@ export default function AuthModal() {
   }
 
   const title = mode === 'forgot' ? 'Reset your password'
-    : mode === 'login' ? 'Sign in to trade&journal' : 'Create your account';
+    : mode === 'login' ? 'Sign in to Trade&Journal' : 'Create your account';
   const sub = mode === 'forgot' ? "Enter your email and we'll send you a reset link."
     : mode === 'login' ? 'Welcome back! Please sign in to continue'
     : 'Welcome! Please fill in the details to get started.';

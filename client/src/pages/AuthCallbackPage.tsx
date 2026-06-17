@@ -64,7 +64,7 @@ export default function AuthCallbackPage() {
       <div style={styles.card}>
         <div style={styles.brand}>
           <span style={styles.brandName}>
-            <span style={{ color: '#ffffff' }}>trade</span><span style={{ color: '#2563eb' }}>&amp;</span><span style={{ color: '#ffffff' }}>journal</span>
+            <span style={{ color: '#ffffff' }}>Trade</span><span style={{ color: '#2563eb' }}>&amp;</span><span style={{ color: '#ffffff' }}>Journal</span>
           </span>
         </div>
 

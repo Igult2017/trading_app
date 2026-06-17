@@ -1,6 +1,6 @@
 import { Helmet } from 'react-helmet-async';
 
-const SITE_NAME = 'trade&journal';
+const SITE_NAME = 'Trade&Journal';
 const DEFAULT_DESC = 'A professional-grade trading journal and signal analysis platform for Forex, Crypto, and Commodities traders. Log trades, track psychology, and unlock your edge with AI-powered analytics.';
 const DEFAULT_IMAGE = 'https://tradeandjournal.com/og-image.png';
 const SITE_URL = typeof window !== 'undefined' ? window.location.origin : 'https://tradeandjournal.com';

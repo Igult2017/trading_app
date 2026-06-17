@@ -133,7 +133,7 @@ export default function HomeFooter({ darkMode = false }: HomeFooterProps) {
         {/* Bottom bar */}
         <div style={{ borderTop: `1px solid ${divider}`, padding: "18px 0", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
           <span style={{ fontSize: 12, color: muted, ...bFont }}>
-            © {new Date().getFullYear()} trade&amp;journal. All rights reserved.
+            © {new Date().getFullYear()} Trade&amp;Journal. All rights reserved.
           </span>
           <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
             {LEGAL.map(({ label, href }, i) => (

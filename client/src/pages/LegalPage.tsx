@@ -54,7 +54,7 @@ function UL({ items, dm }: { items: string[]; dm: boolean }) {
 function Brand({ dm }: { dm: boolean }) {
   return (
     <span style={{ fontFamily: "'DM Serif Display', serif", fontWeight: 400, letterSpacing: '0.01em', whiteSpace: 'nowrap' }}>
-      <span style={{ color: dm ? '#f1f5f9' : '#0f172a' }}>trade</span><span style={{ color: '#2563eb' }}>&</span><span style={{ color: dm ? '#f1f5f9' : '#0f172a' }}>journal</span>
+      <span style={{ color: dm ? '#f1f5f9' : '#0f172a' }}>Trade</span><span style={{ color: '#2563eb' }}>&</span><span style={{ color: dm ? '#f1f5f9' : '#0f172a' }}>Journal</span>
     </span>
   );
 }
@@ -461,7 +461,7 @@ export default function LegalPage() {
     <>
     <SEOHead
       title="Privacy Policy & Terms of Service"
-      description="Read trade&amp;journal's privacy policy, terms of service, and contact information. We are committed to protecting your data and your trading privacy."
+      description="Read Trade&amp;Journal's privacy policy, terms of service, and contact information. We are committed to protecting your data and your trading privacy."
       canonical="/legal"
       noindex={false}
     />
