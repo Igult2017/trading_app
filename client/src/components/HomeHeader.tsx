@@ -141,7 +141,7 @@ export default function HomeHeader({ darkMode, setDarkMode, activePath }: HomeHe
           {/* Logo */}
           <Link href="/" style={{ textDecoration: "none", flexShrink: 0 }}>
             <span style={{ ...hFont, fontSize: 21, color: logoClr }}>
-              trade<span style={{ color: "#2563eb" }}>&</span>journal
+              Trade<span style={{ color: "#2563eb" }}>&</span>Journal
             </span>
           </Link>
 
