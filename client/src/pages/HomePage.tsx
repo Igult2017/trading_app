@@ -62,8 +62,8 @@ export default function HomePage() {
             </div>
 
             <h1 style={{ ...serif, fontSize: 'clamp(3rem,5vw,5rem)', lineHeight: 1.05, marginBottom: 20, color: text, fontWeight: 900 }}>
-              Your trades,<br />
-              <span style={{ color: '#2563eb' }}>analyzed smart.</span>
+              Trade and Journal,<br />
+              <span style={{ color: '#2563eb' }}>Find your edge</span>
             </h1>
 
             <p style={{ fontSize: 16, color: muted, lineHeight: 1.8, marginBottom: 32, ...sans }}>
