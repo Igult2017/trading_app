@@ -70,9 +70,11 @@ def find_volume_cluster(
         prev     = candles[cluster_start - 1]
         avg_body = sum(body_size(candles[k]) for k in range(cluster_start, i + 1)) / length
         avg_vol  = sum(candles[k].volume    for k in range(cluster_start, i + 1)) / length
-        # Real participation: cluster bodies AND tick volume must exceed the
-        # candle right before the cluster (lenient — cTrader tick volume).
-        if avg_body > body_size(prev) and avg_vol >= prev.volume:
+        # The volume candle (or cluster) must be BIGGER than the candle right
+        # before it — strictly larger body AND strictly higher tick volume.
+        # This applies to a single-candle impulse too (length == 1 → avg_* is
+        # just that one candle).
+        if avg_body > body_size(prev) and avg_vol > prev.volume:
             return (cluster_start, i)
 
     return None
