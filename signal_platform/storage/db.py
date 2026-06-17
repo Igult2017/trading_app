@@ -34,4 +34,7 @@ def get_session():
 
 def create_tables() -> None:
     """Create all tables that don't exist yet (idempotent)."""
+    # Import models here so every ORM class is registered on Base.metadata
+    # before create_all runs — otherwise metadata is empty and nothing is created.
+    from storage import models  # noqa: F401
     Base.metadata.create_all(bind=engine)
