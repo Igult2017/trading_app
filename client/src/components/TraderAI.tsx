@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from "react";
 import {
   Send, Copy, Check, Download,
   ChevronRight, AlertCircle,
-  Plus, Trash2, MessageSquare, Pencil, Sparkles
+  Plus, Trash2, MessageSquare, Pencil
 } from "lucide-react";
 import { authFetch } from "@/lib/queryClient";
 
@@ -546,8 +546,8 @@ export default function TraderAI({ sessionId, darkMode = true }: { sessionId?: s
           /* Empty state — single column suggestions */
           .traderai-empty-grid { grid-template-columns: 1fr !important; max-width: 100% !important; }
           .traderai-empty-wrap { padding: 20px 14px !important; }
-          .traderai-empty-title { font-size: 18px !important; }
-          .traderai-empty-sub { font-size: 12px !important; margin-bottom: 18px !important; }
+          .traderai-empty-title { font-size: 13px !important; }
+          .traderai-empty-sub { font-size: 7px !important; margin-bottom: 18px !important; }
 
           /* Tighter message padding */
           .traderai-msglist { padding: 16px 12px 6px !important; }
@@ -683,9 +683,6 @@ export default function TraderAI({ sessionId, darkMode = true }: { sessionId?: s
         {/* Header */}
         <div className="traderai-header" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 16px", height: 52, background: panelBg, borderBottom: `1px solid ${borderC}`, flexShrink: 0, position: "relative" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
-            <div style={{ width: 24, height: 24, borderRadius: 7, background: "linear-gradient(135deg, #6366f1, #8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: "0 2px 10px rgba(99,102,241,0.3)" }}>
-              <Sparkles size={13} color="#ffffff" />
-            </div>
             <span style={{ fontFamily: F, fontSize: 13, fontWeight: 600, color: textPrim, letterSpacing: "-0.02em" }}>Trader AI</span>
             <span className="traderai-subtitle" style={{ fontFamily: F, fontSize: 11, color: textMut, fontWeight: 400 }}>Your Personal Trading Coach</span>
           </div>
@@ -695,14 +692,10 @@ export default function TraderAI({ sessionId, darkMode = true }: { sessionId?: s
         <div className="traderai-scroll" style={{ flex: 1, overflowY: "auto", overflowX: "hidden" }}>
           {messages.length === 0 ? (
             <div className="traderai-empty-wrap" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "100%", padding: "40px 32px", textAlign: "center" }}>
-              {/* AI avatar */}
-              <div className="traderai-empty-avatar" style={{ width: 56, height: 56, borderRadius: 18, background: "linear-gradient(135deg, #6366f1, #8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 18, boxShadow: "0 10px 30px rgba(99,102,241,0.35)" }}>
-                <Sparkles size={26} color="#ffffff" />
-              </div>
-              <h2 className="traderai-empty-title" style={{ fontFamily: F, fontSize: 26, fontWeight: 800, color: textPrim, letterSpacing: "-0.03em", marginBottom: 8, lineHeight: 1.15 }}>
+              <h2 className="traderai-empty-title" style={{ fontFamily: F, fontSize: 13, fontWeight: 800, color: textPrim, letterSpacing: "-0.03em", marginBottom: 8, lineHeight: 1.15 }}>
                 How can I analyse your trades today?
               </h2>
-              <p className="traderai-empty-sub" style={{ fontFamily: F, fontSize: 13, fontWeight: 400, color: textMut, marginBottom: 30, maxWidth: 540, lineHeight: 1.6 }}>
+              <p className="traderai-empty-sub" style={{ fontFamily: F, fontSize: 7, fontWeight: 400, color: textMut, marginBottom: 30, maxWidth: 540, lineHeight: 1.6 }}>
                 Ask anything about your journal — I read your real trade data to surface your edge, your leaks, and your best setups.
               </p>
               <div className="traderai-empty-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", columnGap: 28, rowGap: 12, width: "100%", maxWidth: 940 }}>
