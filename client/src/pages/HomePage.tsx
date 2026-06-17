@@ -51,8 +51,10 @@ export default function HomePage() {
       <HomeHeader darkMode={dm} setDarkMode={setDarkMode} activePath="/" />
 
       {/* ── Hero ─────────────────────────────────────────────────────── */}
-      <section style={{ padding: '9rem 2rem 5rem', background: dm ? bg : '#f0f5ff', transition: 'background 0.4s' }}>
-        <div className="max-w-6xl mx-auto" style={{ display: 'grid', gridTemplateColumns: '5fr 7fr', gap: '4rem', alignItems: 'center' }}>
+      <section style={{ padding: '9rem 0 5rem', background: dm ? bg : '#f0f5ff', transition: 'background 0.4s' }}>
+        {/* Container matches HomeHeader exactly (maxWidth 1280 + 32px padding) so the
+            hero content hugs the same left/right edges as the nav. */}
+        <div style={{ maxWidth: 1280, margin: '0 auto', padding: '0 32px', display: 'grid', gridTemplateColumns: '5fr 7fr', gap: '4rem', alignItems: 'center' }}>
 
           {/* Left — copy */}
           <div>
