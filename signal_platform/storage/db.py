@@ -10,7 +10,10 @@ from config.settings import settings
 
 # SQLAlchemy 2.0 dropped the legacy "postgres://" prefix — rewrite to "postgresql://"
 _db_url = settings.database_url.replace("postgres://", "postgresql://", 1)
-engine = create_engine(_db_url, echo=False)
+# pool_pre_ping recycles dead connections (managed Postgres drops idle ones after
+# minutes; this is a long-lived process that queries only every 30-60s), and
+# pool_recycle proactively refreshes connections before the server times them out.
+engine = create_engine(_db_url, echo=False, pool_pre_ping=True, pool_recycle=300)
 
 SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
 
