@@ -3,7 +3,7 @@ EURUSD Pullback — two-stage alerts.
 Stage 1: reports EVERY H1 volume-cluster + pullback once, labelled QUALIFIED
   (entry will follow) or NOT QUALIFIED (review only, with the failing rules).
 Stage 2: M1 fractal entry — fired only for QUALIFIED setups.
-State is in-memory; a platform restart resets stage tracking (acceptable).
+State is in-memory; the scanner's first-scan warm-up re-seeds it after a restart so prior setups are not re-fired.
 """
 import logging
 import time

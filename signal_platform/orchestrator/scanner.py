@@ -36,6 +36,11 @@ _was_scanning: bool = False
 # during London/NY does not re-emit SESSION_OPEN for already-open sessions.
 _active_sessions: set[str] | None = None
 _current_interval: int = 60   # mirrors the scheduler's initial scan interval
+# False until the first instrument-scanning tick finishes. That first tick runs
+# strategies to SEED their in-memory dedup state but suppresses every signal, so a
+# redeploy/restart never re-fires setups that already existed before boot. Mirrors
+# the _active_sessions silent-seed above (same anti-re-fire idea for signals).
+_warmed_up: bool = False
 
 
 async def _fetch_active_sessions() -> set[str]:
@@ -74,17 +79,18 @@ async def _scan_instrument(
     news_context,
     current_sessions: list,
     tick_now: datetime,
+    warmup: bool = False,
 ) -> None:
     """Fan each strategy out independently — no shared state between tenants."""
     await asyncio.gather(
-        *[run_strategy(s, instrument, news_context, current_sessions, tick_now)
+        *[run_strategy(s, instrument, news_context, current_sessions, tick_now, warmup=warmup)
           for s in strategies],
         return_exceptions=True,
     )
 
 
 async def scan_markets() -> None:
-    global _was_scanning, _active_sessions, _current_interval
+    global _was_scanning, _active_sessions, _current_interval, _warmed_up
     tick_now = datetime.now(timezone.utc)
     current_sessions = get_current_sessions(tick_now)
 
@@ -137,12 +143,19 @@ async def scan_markets() -> None:
         })
     _was_scanning = True
 
-    log.info(f"[scanner] {len(instruments)} instruments × {len(strategies)} strategies")
+    warmup = not _warmed_up
+    if warmup:
+        log.info(f"[scanner] WARM-UP tick — seeding strategy state across {len(instruments)} instruments; signals suppressed this cycle (post-restart anti-re-fire)")
+    else:
+        log.info(f"[scanner] {len(instruments)} instruments × {len(strategies)} strategies")
 
     await asyncio.gather(
-        *[_scan_instrument(inst, strategies, news_context, current_sessions, tick_now)
+        *[_scan_instrument(inst, strategies, news_context, current_sessions, tick_now, warmup=warmup)
           for inst in instruments],
         return_exceptions=True,
     )
+    # Mark warmed up only after a real scanning tick (market open + strategies ran),
+    # so a restart while the market is closed doesn't consume the warm-up silently.
+    _warmed_up = True
 
     log.info(f"[scanner] tick complete — cache: {candle_fetcher.candle_cache.stats()}")
