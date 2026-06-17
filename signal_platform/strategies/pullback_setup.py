@@ -29,10 +29,11 @@ def find_volume_cluster(
     lookback: int = 60,
 ) -> tuple[int, int] | None:
     """
-    Find the most recent H1 volume cluster: 2+ consecutive directional candles.
+    Find the most recent H1 volume "cluster": 1+ consecutive directional candles —
+    a single strong volume candle now counts, as well as a multi-candle impulse.
 
     Conditions (all required):
-    - 2+ consecutive candles all moving in trade direction (no maximum)
+    - 1+ consecutive candles all moving in trade direction (no maximum)
     - Each candle: body_ratio >= 0.55 (long body, small wicks)
     - Cluster avg body > preceding candle body (growing vs pre-cluster activity)
     - Cluster avg tick volume >= preceding candle volume (real participation)
@@ -60,9 +61,9 @@ def find_volume_cluster(
             else:
                 break
 
-        if length < 2:
-            continue
-
+        # A single strong "volume candle" now qualifies as the impulse (was: 2+).
+        # The growing-body + volume checks below keep it to genuine impulses, and
+        # any resulting pullback is still reported (QUALIFIED or NOT QUALIFIED).
         cluster_start = i - length + 1
         if cluster_start < 1:
             continue
