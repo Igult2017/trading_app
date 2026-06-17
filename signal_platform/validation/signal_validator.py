@@ -34,9 +34,11 @@ def _load_active_from_db() -> None:
         log.info(f"[validator] loaded {len(_seen)} active signals into duplicate guard")
     except Exception as exc:
         log.warning(
-            f"[validator] could not load active signals — duplicate guard starts empty: {exc}"
+            f"[validator] could not load active signals — will retry next call: {exc}"
         )
-        _loaded = True   # don't retry on every call; accept empty start
+        # Leave _loaded False so a transient DB outage at startup is retried on the
+        # next validation tick, instead of permanently leaving the guard empty
+        # (which would let already-active DB signals slip past the dup check).
 
 
 def register_confirmed(signal: Signal) -> None:

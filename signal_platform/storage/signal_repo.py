@@ -5,6 +5,7 @@ All decisions about what to store are made in the orchestrator or monitor.
 
 import logging
 from datetime import datetime, timedelta, timezone
+from sqlalchemy import or_, and_
 from sqlalchemy.exc import IntegrityError
 from core.types import Signal, SignalStatus
 from storage.db import get_session
@@ -67,12 +68,20 @@ def update_status(signal_id: str, status: SignalStatus,
 
 
 def expire_stale(older_than_hours: int = 24) -> int:
-    """Mark expired signals and return the count updated."""
-    cutoff = datetime.now(timezone.utc) - timedelta(hours=older_than_hours)
+    """Mark expired signals and return the count updated.
+
+    Honours each signal's own expires_at when set (e.g. a 4h intraday setup);
+    falls back to created_at + older_than_hours as a blanket cap when expires_at
+    is null."""
+    now    = datetime.now(timezone.utc)
+    cutoff = now - timedelta(hours=older_than_hours)
     with get_session() as s:
         rows = s.query(SignalModel).filter(
             SignalModel.status == "active",
-            SignalModel.created_at < cutoff,
+            or_(
+                SignalModel.expires_at < now,
+                and_(SignalModel.expires_at.is_(None), SignalModel.created_at < cutoff),
+            ),
         ).all()
         for row in rows:
             row.status = SignalStatus.EXPIRED.value

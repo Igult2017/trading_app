@@ -47,10 +47,10 @@ def _mark_mitigated(zones: list[Zone], candles: list[Candle]) -> None:
             # the zone is only empty when price exits the other side.
             # DEMAND zone bottom = where buy orders sit; fully mitigated when close < bottom.
             # SUPPLY zone top    = where sell orders sit; fully mitigated when close > top.
-            if zone.type == ZoneType.DEMAND and c.close <= zone.bottom:
+            if zone.type == ZoneType.DEMAND and c.close < zone.bottom:
                 zone.mitigated = True
                 break
-            if zone.type == ZoneType.SUPPLY and c.close >= zone.top:
+            if zone.type == ZoneType.SUPPLY and c.close > zone.top:
                 zone.mitigated = True
                 break
 
@@ -99,9 +99,9 @@ def _mark_fvg_mitigated(zones: list[Zone], candles: list[Candle]) -> None:
     """
     for zone in zones:
         for c in candles[zone.formed_at + 2:]:
-            if zone.type == ZoneType.DEMAND and c.close <= zone.bottom:
+            if zone.type == ZoneType.DEMAND and c.close < zone.bottom:
                 zone.mitigated = True
                 break
-            if zone.type == ZoneType.SUPPLY and c.close >= zone.top:
+            if zone.type == ZoneType.SUPPLY and c.close > zone.top:
                 zone.mitigated = True
                 break
