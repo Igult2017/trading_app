@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from "react";
 import {
   Send, Copy, Check, Download,
   ChevronRight, AlertCircle,
-  Plus, Trash2, MessageSquare, Pencil
+  Plus, Trash2, MessageSquare, Pencil, Sparkles
 } from "lucide-react";
 import { authFetch } from "@/lib/queryClient";
 
@@ -683,6 +683,9 @@ export default function TraderAI({ sessionId, darkMode = true }: { sessionId?: s
         {/* Header */}
         <div className="traderai-header" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 16px", height: 52, background: panelBg, borderBottom: `1px solid ${borderC}`, flexShrink: 0, position: "relative" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+            <div style={{ width: 24, height: 24, borderRadius: 7, background: "linear-gradient(135deg, #6366f1, #8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: "0 2px 10px rgba(99,102,241,0.3)" }}>
+              <Sparkles size={13} color="#ffffff" />
+            </div>
             <span style={{ fontFamily: F, fontSize: 13, fontWeight: 600, color: textPrim, letterSpacing: "-0.02em" }}>Trader AI</span>
             <span className="traderai-subtitle" style={{ fontFamily: F, fontSize: 11, color: textMut, fontWeight: 400 }}>Your Personal Trading Coach</span>
           </div>
@@ -691,21 +694,28 @@ export default function TraderAI({ sessionId, darkMode = true }: { sessionId?: s
         {/* Scrollable messages / empty state */}
         <div className="traderai-scroll" style={{ flex: 1, overflowY: "auto", overflowX: "hidden" }}>
           {messages.length === 0 ? (
-            <div className="traderai-empty-wrap" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "100%", padding: "32px 20px", textAlign: "center" }}>
-              <h2 className="traderai-empty-title" style={{ fontFamily: F, fontSize: 15, fontWeight: 700, color: textPrim, letterSpacing: "-0.04em", marginBottom: 20, lineHeight: 1.2 }}>
-                How can I analyse<br />your trades today?
+            <div className="traderai-empty-wrap" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "100%", padding: "40px 32px", textAlign: "center" }}>
+              {/* AI avatar */}
+              <div className="traderai-empty-avatar" style={{ width: 56, height: 56, borderRadius: 18, background: "linear-gradient(135deg, #6366f1, #8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 18, boxShadow: "0 10px 30px rgba(99,102,241,0.35)" }}>
+                <Sparkles size={26} color="#ffffff" />
+              </div>
+              <h2 className="traderai-empty-title" style={{ fontFamily: F, fontSize: 26, fontWeight: 800, color: textPrim, letterSpacing: "-0.03em", marginBottom: 8, lineHeight: 1.15 }}>
+                How can I analyse your trades today?
               </h2>
-              <div className="traderai-empty-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, width: "100%", maxWidth: 600 }}>
+              <p className="traderai-empty-sub" style={{ fontFamily: F, fontSize: 13, fontWeight: 400, color: textMut, marginBottom: 30, maxWidth: 540, lineHeight: 1.6 }}>
+                Ask anything about your journal — I read your real trade data to surface your edge, your leaks, and your best setups.
+              </p>
+              <div className="traderai-empty-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", columnGap: 28, rowGap: 12, width: "100%", maxWidth: 940 }}>
                 {SUGGESTIONS.map((s, i) => (
                   <button key={i} onClick={() => send(s)}
-                    style={{ padding: "13px 14px", background: suggBg, border: `1px solid ${suggBd}`, borderRadius: 12, color: suggText, fontSize: 12, fontFamily: F, fontWeight: 400, cursor: "pointer", textAlign: "left", lineHeight: 1.5, transition: "all 0.18s", display: "flex", flexDirection: "column", gap: 8 }}
-                    onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.background = "rgba(99,102,241,0.08)"; b.style.borderColor = "rgba(99,102,241,0.35)"; b.style.color = dm ? "rgba(255,255,255,0.85)" : "#1e293b"; }}
-                    onMouseLeave={e => { const b = e.currentTarget as HTMLButtonElement; b.style.background = suggBg; b.style.borderColor = suggBd; b.style.color = suggText; }}
+                    style={{ padding: "16px 18px", background: suggBg, border: `1px solid ${suggBd}`, borderRadius: 14, color: suggText, fontSize: 13, fontFamily: F, fontWeight: 400, cursor: "pointer", textAlign: "left", lineHeight: 1.5, transition: "transform 0.18s, background 0.18s, border-color 0.18s, box-shadow 0.18s, color 0.18s", display: "flex", alignItems: "center", gap: 12 }}
+                    onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.background = "rgba(99,102,241,0.08)"; b.style.borderColor = "rgba(99,102,241,0.35)"; b.style.color = dm ? "rgba(255,255,255,0.85)" : "#1e293b"; b.style.transform = "translateY(-2px)"; b.style.boxShadow = "0 8px 22px rgba(99,102,241,0.18)"; }}
+                    onMouseLeave={e => { const b = e.currentTarget as HTMLButtonElement; b.style.background = suggBg; b.style.borderColor = suggBd; b.style.color = suggText; b.style.transform = "translateY(0)"; b.style.boxShadow = "none"; }}
                   >
-                    <div style={{ width: 24, height: 24, borderRadius: 6, background: "rgba(99,102,241,0.15)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                      <ChevronRight size={11} color="#818cf8" />
+                    <div style={{ width: 30, height: 30, borderRadius: 9, background: "rgba(99,102,241,0.15)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                      <ChevronRight size={13} color="#818cf8" />
                     </div>
-                    <span style={{ fontFamily: F }}>{s}</span>
+                    <span style={{ fontFamily: F, flex: 1 }}>{s}</span>
                   </button>
                 ))}
               </div>
