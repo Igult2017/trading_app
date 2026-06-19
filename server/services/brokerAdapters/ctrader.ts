@@ -12,27 +12,29 @@ import type { RawBrokerTrade } from '../brokerSyncService';
 const CONNECT   = 'https://connect.spotware.com';
 const TOKEN_URL = `${CONNECT}/apps/token`;
 
-const LIVE_WS = 'wss://live.ctraderapi.com:5036';
-const DEMO_WS = 'wss://demo.ctraderapi.com:5036';
+export const LIVE_WS = 'wss://live.ctraderapi.com:5036';
+export const DEMO_WS = 'wss://demo.ctraderapi.com:5036';
 
 // Verified payload types from openapi-proto-messages
 const PT_APP_AUTH_REQ  = 2100;
 const PT_APP_AUTH_RES  = 2101;
-const PT_ACCT_AUTH_REQ = 2102;
-const PT_ACCT_AUTH_RES = 2103;
-const PT_SYMBOLS_REQ   = 2114;
-const PT_SYMBOLS_RES   = 2115;
+export const PT_ACCT_AUTH_REQ = 2102;
+export const PT_ACCT_AUTH_RES = 2103;
+export const PT_SYMBOLS_REQ   = 2114;
+export const PT_SYMBOLS_RES   = 2115;
 const PT_DEALS_REQ     = 2133;
 const PT_DEALS_RES     = 2134;
 const PT_TRADER_REQ    = 2121;   // PROTO_OA_TRADER_REQ  (2120 is SYMBOL_CHANGED_EVENT — wrong)
 const PT_TRADER_RES    = 2122;   // PROTO_OA_TRADER_RES
 const PT_ACCOUNTS_REQ  = 2149;
 const PT_ACCOUNTS_RES  = 2150;
-const PT_OA_ERROR      = 2142;
+export const PT_OA_ERROR        = 2142;
+export const PT_EXECUTION_EVENT = 2126;  // PROTO_OA_EXECUTION_EVENT — real-time fills
+export const PT_HEARTBEAT       = 51;    // ProtoHeartbeatEvent — keep-alive, send every ~10s
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function openWS(url: string): Promise<WebSocket> {
+export function openWS(url: string): Promise<WebSocket> {
   return new Promise((resolve, reject) => {
     const ws = new WebSocket(url);
     const t = setTimeout(() => { ws.terminate(); reject(new Error(`WS connect timeout: ${url}`)); }, 12000);
@@ -41,11 +43,11 @@ function openWS(url: string): Promise<WebSocket> {
   });
 }
 
-function send(ws: WebSocket, payloadType: number, payload: object) {
+export function send(ws: WebSocket, payloadType: number, payload: object) {
   ws.send(JSON.stringify({ payloadType, payload }));
 }
 
-function waitFor(ws: WebSocket, targetType: number, timeoutMs = 20000): Promise<any> {
+export function waitFor(ws: WebSocket, targetType: number, timeoutMs = 20000): Promise<any> {
   return new Promise((resolve, reject) => {
     const t = setTimeout(() => reject(new Error(`cTrader timeout waiting for type ${targetType}`)), timeoutMs);
     ws.on('message', function handler(raw) {
@@ -66,7 +68,7 @@ function waitFor(ws: WebSocket, targetType: number, timeoutMs = 20000): Promise<
   });
 }
 
-async function appAuth(ws: WebSocket) {
+export async function appAuth(ws: WebSocket) {
   const clientId     = process.env.CTRADER_CLIENT_ID;
   const clientSecret = process.env.CTRADER_CLIENT_SECRET;
   if (!clientId || !clientSecret) throw new Error('CTRADER_CLIENT_ID or CTRADER_CLIENT_SECRET is not configured');
@@ -216,6 +218,33 @@ async function fetchDealsInRange(ws: WebSocket, acctId: number, from: number, to
   return [...left, ...right];
 }
 
+// ── Deal → trade mapping (shared by history sync + realtime feed) ─────────────
+
+/**
+ * Map a FILLED, position-closing cTrader deal to a RawBrokerTrade.
+ * Returns null when the deal isn't a realised close (e.g. an opening fill), so
+ * callers can `.filter(Boolean)`. Used by both the history fetch and the live
+ * execution-event feed so the two stay byte-for-byte consistent.
+ */
+export function mapClosedDeal(d: any, symbolMap: Record<number, string>): RawBrokerTrade | null {
+  if (!d || d.dealStatus !== 2 || d.closePositionDetail == null) return null;
+  const close = d.closePositionDetail;
+  return {
+    externalId: String(d.dealId),
+    symbol:     symbolMap[d.symbolId] ?? String(d.symbolId),
+    direction:  d.tradeSide === 1 ? 'Long' : 'Short',
+    lots:       d.filledVolume        ? d.filledVolume / 100           : undefined,
+    openPrice:  close?.entryPrice     != null ? close.entryPrice       : undefined,
+    closePrice: d.executionPrice      != null ? d.executionPrice       : undefined,
+    openTime:   close?.entryTimestamp ? String(Math.floor(close.entryTimestamp / 1000)) : undefined,
+    closeTime:  d.executionTimestamp  ? String(Math.floor(d.executionTimestamp  / 1000)) : undefined,
+    profit:     close?.grossProfit    != null ? close.grossProfit / 100 : undefined,
+    commission: d.commission          != null ? d.commission / 100      : undefined,
+    swap:       close?.swap           != null ? close.swap / 100        : undefined,
+    comment:    d.comment,
+  };
+}
+
 // ── Trade history (WebSocket) ─────────────────────────────────────────────────
 
 // isLive is passed from the stored accountType — avoids redundant WS connections on every sync chunk
@@ -257,24 +286,8 @@ export async function fetchCTraderTrades(
     }
 
     return allDeals
-      .filter((d: any) => d.dealStatus === 2 && d.closePositionDetail != null)
-      .map((d: any): RawBrokerTrade => {
-        const close = d.closePositionDetail;
-        return {
-          externalId: String(d.dealId),
-          symbol:     symbolMap[d.symbolId] ?? String(d.symbolId),
-          direction:  d.tradeSide === 1 ? 'Long' : 'Short',
-          lots:       d.filledVolume        ? d.filledVolume / 100           : undefined,
-          openPrice:  close?.entryPrice     != null ? close.entryPrice       : undefined,
-          closePrice: d.executionPrice      != null ? d.executionPrice       : undefined,
-          openTime:   close?.entryTimestamp ? String(Math.floor(close.entryTimestamp / 1000)) : undefined,
-          closeTime:  d.executionTimestamp  ? String(Math.floor(d.executionTimestamp  / 1000)) : undefined,
-          profit:     close?.grossProfit    != null ? close.grossProfit / 100 : undefined,
-          commission: d.commission          != null ? d.commission / 100      : undefined,
-          swap:       close?.swap           != null ? close.swap / 100        : undefined,
-          comment:    d.comment,
-        };
-      });
+      .map((d: any) => mapClosedDeal(d, symbolMap))
+      .filter((t): t is RawBrokerTrade => t !== null);
   } finally {
     ws.close();
   }

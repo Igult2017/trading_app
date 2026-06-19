@@ -13,6 +13,7 @@ import { registerRoutes } from "./routes";
 import { serveStatic, log } from "./static";
 import { scraperScheduler } from "./scrapers/scheduler";
 import { startAutoSync } from "./services/autoSyncService";
+import { startCTraderRealtime } from "./services/ctraderRealtime";
 import { startCopyPlatform, stopCopyPlatform } from "./services/copyPlatformProcess";
 import { startSignalPlatform, stopSignalPlatform } from "./services/signalPlatformProcess";
 import { initializeDatabase } from "./db-init";
@@ -192,6 +193,7 @@ const isPrimaryWorker = !process.env.NODE_APP_INSTANCE || process.env.NODE_APP_I
     // Only worker 0 runs scrapers — prevents N-core duplicate DB writes + external API bans
     if (isPrimaryWorker) scraperScheduler.start();
     if (isPrimaryWorker) startAutoSync();
+    if (isPrimaryWorker) startCTraderRealtime();   // instant cTrader trade recording
     if (isPrimaryWorker) startCopyPlatform();
     // Start signal platform unless Docker already started it via start.sh
     if (isPrimaryWorker && !process.env.SIGNAL_PLATFORM_MANAGED) startSignalPlatform();

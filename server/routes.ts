@@ -10,6 +10,7 @@ import { geolocateIp } from "./lib/geoIp";
 import { processIncomingTrades } from "./services/brokerSyncService";
 import { fetchTradesForAccount, API_PLATFORMS } from "./services/brokerAdapters/index";
 import { getCTraderAuthUrl, exchangeCodeForTokens, getCTraderAccounts, fetchCTraderBalance, refreshAccessToken } from "./services/brokerAdapters/ctrader";
+import { addCTraderAccount, removeCTraderAccount } from "./services/ctraderRealtime";
 import { syncAccount } from "./services/autoSyncService";
 import { randomBytes, randomUUID } from "crypto";
 import { sendCampaignEmail, isEmailConfigured } from "./services/emailService";
@@ -3161,6 +3162,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const account = await storage.getBrokerAccountById(req.params.id);
     if (!account || account.userId !== user.id) return res.status(404).json({ error: "Not found" });
 
+    removeCTraderAccount(req.params.id);   // tear down any live feed before deleting
     await storage.deleteBrokerAccount(req.params.id);
     return res.json({ success: true });
   });
@@ -3502,6 +3504,8 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
           // Kick off trade sync AFTER balance fetch completes to avoid concurrent WS rate limiting
           syncAccount(freshAccount).catch(() => {});
         })().catch(() => {});
+        // Open the persistent live feed so future trades record the instant they close
+        addCTraderAccount(freshAccount.id);
       }
 
       return res.redirect('/journal?tab=accounts&ctrader_connected=1');
@@ -3560,6 +3564,7 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
     const freshAccount = await storage.getBrokerAccountById(token);
     if (freshAccount) {
       syncAccount(freshAccount).catch(() => {});
+      addCTraderAccount(freshAccount.id);   // start instant live feed for the chosen account
       // Fetch real balance immediately — PT_ACCOUNTS_RES never includes balance
       (async () => {
         try {

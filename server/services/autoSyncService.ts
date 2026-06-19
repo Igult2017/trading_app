@@ -22,7 +22,7 @@ async function getAllApiAccounts(): Promise<BrokerAccount[]> {
   return db.select().from(brokerAccounts).where(eq(brokerAccounts.connectionType, 'api'));
 }
 
-async function refreshCTraderToken(account: BrokerAccount): Promise<BrokerAccount | null> {
+export async function refreshCTraderToken(account: BrokerAccount): Promise<BrokerAccount | null> {
   try {
     const plain = safeDecrypt(account.passwordEnc);
     if (!plain) return null;
