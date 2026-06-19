@@ -11,7 +11,10 @@ def format_scan_started(payload: dict) -> str:
     sessions    = payload.get("sessions", [])
     now_utc     = datetime.now(timezone.utc).strftime("%H:%M UTC")
     instr_list  = ", ".join(instruments) if instruments else "—"
-    sess_list   = ", ".join(sessions)    if sessions    else "—"
+    # Render the established session(s) with their proper labels (e.g. "new_york" → "New York").
+    sess_list   = ", ".join(
+        _SESSION_META.get(s.lower(), ("", s.replace("_", " ").title()))[1] for s in sessions
+    ) if sessions else "—"
     return "\n".join([
         "🟢 <b>Scanner Active</b>",
         "──────────────────────────",

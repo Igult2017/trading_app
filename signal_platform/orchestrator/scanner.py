@@ -137,14 +137,17 @@ async def scan_markets() -> None:
         _was_scanning = False
         return
 
-    # Fire SCAN_STARTED only on the closed→open transition, not every tick.
-    if not _was_scanning:
+    # Fire SCAN_STARTED only on the closed→open transition — AND only once the
+    # active session is established (sessions API reachable). After a restart we
+    # hold the announcement until then, so it always names the accurate session
+    # instead of going out session-less in the first seconds before Node is up.
+    if not _was_scanning and _active_sessions is not None:
         await event_bus.emit(event_bus.SCAN_STARTED, {
             "instruments": instruments,
-            "sessions":    sorted(_active_sessions or set()),   # last real reading; never the None/fallback
+            "sessions":    sorted(_active_sessions),
             "tick_now":    tick_now.isoformat(),
         })
-    _was_scanning = True
+        _was_scanning = True
 
     log.info(f"[scanner] {len(instruments)} instruments × {len(strategies)} strategies")
 
