@@ -6,6 +6,9 @@ pydantic-settings>=2.0.0
 # Scheduling
 APScheduler>=3.10.0
 
+# IANA timezone database for zoneinfo (DST-aware session windows; cross-platform)
+tzdata>=2024.1
+
 # Database
 SQLAlchemy>=2.0.0
 psycopg2-binary>=2.9.0

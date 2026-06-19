@@ -1,33 +1,49 @@
 """
-Forex trading session UTC windows and helpers.
+Forex trading session windows — computed live from each centre's IANA timezone
+so Daylight Saving Time is always handled, matching the Node /api/market-sessions
+convention (standard local session hours). This keeps the signal platform's
+session logic in agreement with the sessions page. Falls back to fixed UTC
+windows if the tz database is unavailable, so a scan can never crash on it.
 """
 
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 from core.types import Session
 
-# Session UTC hour ranges (start_hour, end_hour) — 24h clock
-_WINDOWS: dict[Session, tuple[int, int]] = {
-    Session.ASIAN:    (22, 8),   # 22:00 UTC (prev day) – 08:00 UTC
-    Session.LONDON:   (7,  16),  # 07:00 – 16:00 UTC
-    Session.NEW_YORK: (12, 21),  # 12:00 – 21:00 UTC
+# (IANA zone, local open hour, local close hour) per session. ASIAN = Tokyo ∪
+# Sydney — the page lists them separately, but the gate uses one combined Asian
+# window; the underlying hours are identical.
+_ZONES: dict[Session, list[tuple[str, int, int]]] = {
+    Session.ASIAN:    [("Asia/Tokyo", 9, 18), ("Australia/Sydney", 8, 17)],
+    Session.LONDON:   [("Europe/London", 8, 17)],
+    Session.NEW_YORK: [("America/New_York", 8, 17)],
+}
+
+# Fixed-UTC fallback — only used if the tz database can't be loaded.
+_FALLBACK: dict[Session, tuple[int, int]] = {
+    Session.ASIAN:    (22, 9),
+    Session.LONDON:   (7, 16),
+    Session.NEW_YORK: (12, 21),
 }
 
 
 def get_current_sessions(now: datetime | None = None) -> list[Session]:
-    """Return all sessions that are currently active (sessions can overlap)."""
+    """Return all sessions currently active (they overlap). DST-aware."""
     now = now or datetime.now(timezone.utc)
-    hour = now.hour
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=timezone.utc)
     active: list[Session] = [Session.ALL]
-
-    for session, (start, end) in _WINDOWS.items():
-        if start < end:
-            if start <= hour < end:
+    try:
+        for session, zones in _ZONES.items():
+            if any(o <= now.astimezone(ZoneInfo(tz)).hour < c for tz, o, c in zones):
                 active.append(session)
-        else:
-            # Overnight session (e.g. Asian: 22–08)
-            if hour >= start or hour < end:
+    except Exception:
+        # tz database unavailable — degrade to fixed UTC windows rather than crash.
+        hour = now.hour
+        for session, (start, end) in _FALLBACK.items():
+            ok = (start <= hour < end) if start < end else (hour >= start or hour < end)
+            if ok:
                 active.append(session)
-
     return active
 
 
@@ -40,7 +56,7 @@ def is_market_open(now: datetime | None = None) -> bool:
 def scan_interval_seconds(now: datetime | None = None) -> int:
     """
     Faster scans at session opens (higher volatility).
-    London + NY overlap → 30s, otherwise → 60s.
+    London + NY overlap → 30s, single major session → 45s, otherwise → 60s.
     """
     sessions = get_current_sessions(now)
     if Session.LONDON in sessions and Session.NEW_YORK in sessions:

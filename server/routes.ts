@@ -1103,24 +1103,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // --- Journal Entry Routes ---
 
-  // Re-derive forex session + phase from a broker-local timestamp and a known UTC offset.
-  // Mirrors the Python derive_session() logic so the Node route can apply the override
-  // without a second Python call.
+  // Re-derive forex session + phase from a broker-local timestamp and a known UTC
+  // offset, using the SAME DST-aware IANA windows as /api/market-sessions — so a
+  // journaled trade's session label is correct for its own date (winter/summer)
+  // and agrees with the sessions page.
   function deriveSessionFromTime(entryTime: string, brokerTzOffset: number): { sessionName: string | null; sessionPhase: string | null } {
     try {
       const dt = new Date(entryTime);
       if (isNaN(dt.getTime())) return { sessionName: null, sessionPhase: null };
-      // Shift broker local → UTC
-      const utcHour = new Date(dt.getTime() - brokerTzOffset * 3_600_000).getUTCHours();
-      if (utcHour >= 21)             return { sessionName: "Sydney",    sessionPhase: "Open"  };
-      if (utcHour < 3)               return { sessionName: "Tokyo",     sessionPhase: "Open"  };
-      if (utcHour < 6)               return { sessionName: "Tokyo",     sessionPhase: "Mid"   };
-      if (utcHour < 7)               return { sessionName: "Tokyo",     sessionPhase: "Close" };
-      if (utcHour < 10)              return { sessionName: "London",    sessionPhase: "Open"  };
-      if (utcHour < 13)              return { sessionName: "London",    sessionPhase: "Mid"   };
-      if (utcHour < 16)              return { sessionName: "Overlap",   sessionPhase: "Open"  };
-      if (utcHour < 19)              return { sessionName: "New York",  sessionPhase: "Mid"   };
-                                     return { sessionName: "New York",  sessionPhase: "Close" };
+      // Broker-local wall clock → true UTC instant.
+      const instant  = new Date(dt.getTime() - brokerTzOffset * 3_600_000);
+      const localHour = (tz: string): number =>
+        parseInt(instant.toLocaleString("en-US", { timeZone: tz, hour: "2-digit", hour12: false }), 10) % 24;
+      const phaseOf = (h: number, o: number, c: number): string => {
+        const span = c - o;
+        return h < o + span / 3 ? "Open" : h < o + (2 * span) / 3 ? "Mid" : "Close";
+      };
+      const WINDOWS = [
+        { name: "Sydney",   tz: "Australia/Sydney", open: 8, close: 17 },
+        { name: "Tokyo",    tz: "Asia/Tokyo",       open: 9, close: 18 },
+        { name: "London",   tz: "Europe/London",    open: 8, close: 17 },
+        { name: "New York", tz: "America/New_York", open: 8, close: 17 },
+      ];
+      const active = WINDOWS
+        .map(w => ({ w, h: localHour(w.tz) }))
+        .filter(({ w, h }) => h >= w.open && h < w.close);
+      if (!active.length) return { sessionName: null, sessionPhase: null };
+      const names = active.map(a => a.w.name);
+      if (names.includes("London") && names.includes("New York")) {
+        const ny = active.find(a => a.w.name === "New York")!;   // high-volume overlap
+        return { sessionName: "Overlap", sessionPhase: phaseOf(ny.h, ny.w.open, ny.w.close) };
+      }
+      const primary = active[active.length - 1];   // Sydney→Tokyo→London→NY order; later wins
+      return { sessionName: primary.w.name, sessionPhase: phaseOf(primary.h, primary.w.open, primary.w.close) };
     } catch { return { sessionName: null, sessionPhase: null }; }
   }
 
