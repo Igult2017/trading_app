@@ -528,8 +528,18 @@ export default function AccountsPage({ openModal = false, darkMode = true, onVie
 
   async function handleDelete(id: string) {
     if (!confirm("Remove this account? Synced trades will also be deleted.")) return;
-    await fetch(`/api/broker-accounts/${id}`, { method: "DELETE", headers: await authHeaders() });
-    setAccounts(prev => prev.filter(a => a.id !== id));
+    try {
+      const res = await fetch(`/api/broker-accounts/${id}`, { method: "DELETE", headers: await authHeaders() });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error ?? `Delete failed (${res.status})`);
+      }
+      // Only drop the row once the server confirms — otherwise a failed delete
+      // would vanish from the UI but reappear on the next refresh.
+      setAccounts(prev => prev.filter(a => a.id !== id));
+    } catch (e: any) {
+      alert(e.message ?? "Failed to delete account");
+    }
   }
 
   async function handleSyncAll() {
