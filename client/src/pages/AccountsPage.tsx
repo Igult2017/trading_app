@@ -3,6 +3,7 @@ import { Wrench, RefreshCw, Pencil, Trash2, Copy, Check, ExternalLink, BarChart2
 import { SiBinance, SiBuiltbybit, SiCoinbase } from "react-icons/si";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/context/AuthContext";
+import { queryClient } from "@/lib/queryClient";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface BrokerAccount {
@@ -527,7 +528,7 @@ export default function AccountsPage({ openModal = false, darkMode = true, onVie
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("Remove this account? Synced trades will also be deleted.")) return;
+    if (!confirm("Delete this account? Everything tied to it — all its synced trades, journal entries and performance dashboard — will be permanently removed. This cannot be undone.")) return;
     try {
       const res = await fetch(`/api/broker-accounts/${id}`, { method: "DELETE", headers: await authHeaders() });
       if (!res.ok) {
@@ -537,6 +538,10 @@ export default function AccountsPage({ openModal = false, darkMode = true, onVie
       // Only drop the row once the server confirms — otherwise a failed delete
       // would vanish from the UI but reappear on the next refresh.
       setAccounts(prev => prev.filter(a => a.id !== id));
+      // Its session + all its journal entries are gone server-side too — refresh
+      // the journal/metrics views so they don't keep showing deleted data.
+      ['/api/sessions', '/api/journal/entries', '/api/metrics/compute', '/api/calendar/compute', '/api/drawdown/compute']
+        .forEach(key => queryClient.invalidateQueries({ queryKey: [key] }));
     } catch (e: any) {
       alert(e.message ?? "Failed to delete account");
     }

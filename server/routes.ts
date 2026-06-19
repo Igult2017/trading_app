@@ -3163,7 +3163,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!account || account.userId !== user.id) return res.status(404).json({ error: "Not found" });
 
     removeCTraderAccount(req.params.id);   // tear down any live feed before deleting
-    await storage.deleteBrokerAccount(req.params.id);
+    await storage.deleteBrokerAccount(req.params.id);   // also cascades synced_trades
+    // Wipe everything else tied to the account — its auto-created session AND every
+    // journal entry in it (deleteSession deletes the entries then the session in a
+    // transaction). Mirrors deleting a normal session: nothing is left behind.
+    if (account.defaultSessionId) {
+      await storage.deleteSession(account.defaultSessionId);
+    }
     return res.json({ success: true });
   });
 
