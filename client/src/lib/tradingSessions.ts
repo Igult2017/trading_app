@@ -10,40 +10,43 @@ export interface TradingSession {
   closeUTC: number;
 }
 
-const SESSION_DEFINITIONS = [
-  {
-    name: 'Sydney',
-    city: 'Sydney',
-    timezone: 'AEDT (UTC+11)',
-    openUTC: 22,
-    closeUTC: 7,
-    color: 'hsl(280 85% 70%)',
-  },
-  {
-    name: 'Tokyo',
-    city: 'Tokyo',
-    timezone: 'JST (UTC+9)',
-    openUTC: 0,
-    closeUTC: 9,
-    color: 'hsl(45 90% 60%)',
-  },
-  {
-    name: 'London',
-    city: 'London',
-    timezone: 'BST (UTC+1)',
-    openUTC: 7,
-    closeUTC: 15.5,
-    color: 'hsl(120 60% 50%)',
-  },
-  {
-    name: 'New York',
-    city: 'New York',
-    timezone: 'EDT (UTC-4)',
-    openUTC: 12,
-    closeUTC: 21,
-    color: 'hsl(210 100% 60%)',
-  },
+// Each centre's REAL IANA timezone + standard local session hours. Open/close in
+// UTC are derived live from the current offset, so Daylight Saving Time is always
+// correct (London/NY shift in N-winter; Sydney in Australian summer) — matching
+// the server /api/market-sessions and Google's session clock.
+const SESSION_DEFS = [
+  { name: 'Sydney',   city: 'Sydney',   tz: 'Australia/Sydney', open: 8, close: 17, color: 'hsl(280 85% 70%)' },
+  { name: 'Tokyo',    city: 'Tokyo',    tz: 'Asia/Tokyo',       open: 9, close: 18, color: 'hsl(45 90% 60%)'  },
+  { name: 'London',   city: 'London',   tz: 'Europe/London',    open: 8, close: 17, color: 'hsl(120 60% 50%)' },
+  { name: 'New York', city: 'New York', tz: 'America/New_York', open: 8, close: 17, color: 'hsl(210 100% 60%)' },
 ];
+
+const wrap = (h: number): number => ((h % 24) + 24) % 24;
+
+/** Current UTC offset (whole hours) for an IANA zone — reflects live DST. */
+function offsetHours(tz: string, at: Date): number {
+  const inTz  = new Date(at.toLocaleString('en-US', { timeZone: tz }));
+  const inUtc = new Date(at.toLocaleString('en-US', { timeZone: 'UTC' }));
+  return Math.round((inTz.getTime() - inUtc.getTime()) / 3_600_000);
+}
+
+/** Human label like "BST (UTC+1)" / "GMT (UTC+0)", computed live. */
+function tzLabel(tz: string, off: number, at: Date): string {
+  let abbrev = '';
+  try {
+    abbrev = new Intl.DateTimeFormat('en-US', { timeZone: tz, timeZoneName: 'short' })
+      .formatToParts(at).find(p => p.type === 'timeZoneName')?.value ?? '';
+  } catch { /* ignore */ }
+  const utc = off === 0 ? 'UTC+0' : `UTC${off > 0 ? '+' : ''}${off}`;
+  return abbrev ? `${abbrev} (${utc})` : utc;
+}
+
+/** Forex is closed all Saturday, Sunday before 22:00 UTC, and Friday from 22:00 UTC. */
+function isForexClosed(now: Date): boolean {
+  const dow = now.getUTCDay();   // 0=Sun … 6=Sat
+  const h   = now.getUTCHours();
+  return dow === 6 || (dow === 0 && h < 22) || (dow === 5 && h >= 22);
+}
 
 function formatUTCTime(hours: number): string {
   const h = Math.floor(hours);
@@ -62,18 +65,24 @@ function isSessionActive(openUTC: number, closeUTC: number, currentUTC: number):
 export function getActiveSessions(): TradingSession[] {
   const now = new Date();
   const currentUTC = now.getUTCHours() + now.getUTCMinutes() / 60;
-  const dayOfWeek = now.getUTCDay();
-  
-  const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-  
-  return SESSION_DEFINITIONS.map(session => {
-    const isActive = !isWeekend && isSessionActive(session.openUTC, session.closeUTC, currentUTC);
-    
+  const closed = isForexClosed(now);
+
+  return SESSION_DEFS.map(s => {
+    const off      = offsetHours(s.tz, now);     // DST-aware
+    const openUTC  = wrap(s.open  - off);
+    const closeUTC = wrap(s.close - off);
+    const isActive = !closed && isSessionActive(openUTC, closeUTC, currentUTC);
+
     return {
-      ...session,
-      openTime: formatUTCTime(session.openUTC),
-      closeTime: formatUTCTime(session.closeUTC),
+      name:     s.name,
+      city:     s.city,
+      timezone: tzLabel(s.tz, off, now),
+      openUTC,
+      closeUTC,
+      openTime: formatUTCTime(openUTC),
+      closeTime: formatUTCTime(closeUTC),
       isActive,
+      color:    s.color,
     };
   });
 }

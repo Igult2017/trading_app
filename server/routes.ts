@@ -979,14 +979,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     const utcHour   = now.getUTCHours() + now.getUTCMinutes() / 60;
     const dayOfWeek = now.getUTCDay();
-    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+    // Forex week: opens Sun 22:00 UTC, closes Fri 22:00 UTC; closed all Saturday.
+    // (Replaces the old coarse Sat/Sun check so the Fri-22:00 close and Sun-22:00
+    // reopen are exact — keeps the page and the scanner's session feed accurate.)
+    const isClosed =
+      dayOfWeek === 6 ||
+      (dayOfWeek === 0 && utcHour < 22) ||
+      (dayOfWeek === 5 && utcHour >= 22);
 
     const sessions = SESSION_DEFS.map(s => {
       const off      = offsetHours(s.tz);
       const openUTC  = wrap(s.open  - off);
       const closeUTC = wrap(s.close - off);
       let active = false;
-      if (!isWeekend) {
+      if (!isClosed) {
         active = openUTC < closeUTC
           ? utcHour >= openUTC && utcHour < closeUTC
           : utcHour >= openUTC || utcHour < closeUTC;
@@ -996,7 +1002,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     res.json({
       utcHour:   Math.round(utcHour * 100) / 100,
-      isWeekend,
+      isWeekend: isClosed,   // now reflects true forex-closed state, not just Sat/Sun
       anyActive: sessions.some(s => s.isActive),
       sessions,
     });
