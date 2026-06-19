@@ -992,15 +992,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!auth) return;
     try {
       const sessions = await storage.getSessions(auth.id);
-      // Hide sessions that merely back a broker account (auto-created when the
-      // account is connected on the Accounts page). They power that account's
-      // synced-trade metrics, but listing them here too is a duplicate of the
-      // account itself, so the session-creation grid only shows real sessions.
-      const brokerAccounts = await storage.getBrokerAccounts(auth.id);
-      const brokerSessionIds = new Set(
-        brokerAccounts.map(a => a.defaultSessionId).filter(Boolean) as string[],
-      );
-      res.json(sessions.filter(s => !brokerSessionIds.has(s.id)));
+      res.json(sessions);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch sessions" });
     }
