@@ -1,15 +1,16 @@
 /**
  * cTrader real-time trade recorder
  * ────────────────────────────────
- * Holds one persistent WebSocket per connected cTrader account and listens for
+ * One persistent WebSocket per connected cTrader account, listening for
  * PROTO_OA_EXECUTION_EVENT. The instant a position closes, the deal is fed into
- * processIncomingTrades — the SAME pipeline as manual/connect sync, so it is
- * deduped (by externalId) and auto-journaled. That makes this safe to run
- * alongside the existing sync: a trade can never be recorded twice.
+ * processIncomingTrades — the SAME pipeline as manual/connect sync, so it's
+ * deduped (by externalId) and auto-journaled. Safe beside the existing sync: a
+ * trade can never be recorded twice.
  *
- * Keep-alive: a heartbeat every 10s (cTrader drops idle sockets). Resilience:
- * reconnect with a fixed backoff on close/error, and a one-shot token refresh
- * if the access token has expired (account-auth error 2142).
+ * Push-only (no polling); the only periodic outbound message is a 10s heartbeat
+ * keep-alive. Resilience: reconnect with backoff on drop, one-shot token refresh
+ * on auth-expiry (2142), and a 60s reconcile that self-heals missed connects and
+ * prunes deleted accounts. Feeds run on the PRIMARY worker only (cluster-safe).
  */
 import WebSocket from 'ws';
 import { eq } from 'drizzle-orm';
@@ -28,8 +29,14 @@ import {
 
 interface Conn { ws: WebSocket; hb: NodeJS.Timeout; closing: boolean; }
 const conns = new Map<string, Conn>();   // brokerAccountId → live connection
+const connecting = new Set<string>();    // ids mid-handshake (blocks double-connect)
 const HEARTBEAT_MS = 10_000;
 const RECONNECT_MS = 15_000;
+const RECONCILE_MS = 60_000;
+// Feeds live only on the primary worker (mirrors index.ts) so PM2 cluster mode
+// can't open duplicate sockets; non-primary workers no-op and the primary's
+// reconcile loop adopts any account they connect/delete within RECONCILE_MS.
+const IS_PRIMARY = !process.env.NODE_APP_INSTANCE || process.env.NODE_APP_INSTANCE === '0';
 
 async function loadAccount(id: string): Promise<BrokerAccount | null> {
   const [a] = await db.select().from(brokerAccounts).where(eq(brokerAccounts.id, id));
@@ -40,11 +47,17 @@ function scheduleReconnect(id: string): void {
   setTimeout(() => { connect(id).catch(() => {}); }, RECONNECT_MS);
 }
 
+/** Idempotent connect — guards against concurrent attempts for the same account. */
 async function connect(id: string, attempt = 0): Promise<void> {
-  if (conns.has(id)) return;                                  // already streaming
+  if (conns.has(id) || connecting.has(id)) return;
+  connecting.add(id);
+  try { await openFeed(id, attempt); }
+  finally { connecting.delete(id); }
+}
+
+async function openFeed(id: string, attempt: number): Promise<void> {
   const account = await loadAccount(id);
-  if (!account || account.platform.toLowerCase() !== 'ctrader') return;
-  if (account.connectionType !== 'api') return;
+  if (!account || account.platform.toLowerCase() !== 'ctrader' || account.connectionType !== 'api') return;
 
   let creds: any;
   try { creds = JSON.parse(safeDecrypt(account.passwordEnc) ?? '{}'); } catch { return; }
@@ -79,10 +92,9 @@ async function connect(id: string, attempt = 0): Promise<void> {
     });
   } catch (err: any) {
     const msg = String(err?.message ?? '');
-    // Expired/invalid access token → refresh once, then retry immediately.
-    if (attempt === 0 && /2142|token|auth/i.test(msg)) {
+    if (attempt === 0 && /2142|token|auth/i.test(msg)) {       // expired token → refresh once
       const fresh = await refreshCTraderToken(account).catch(() => null);
-      if (fresh) { await connect(id, 1); return; }
+      if (fresh) { await openFeed(id, 1); return; }
     }
     scheduleReconnect(id);
   }
@@ -112,20 +124,30 @@ async function onExecution(account: BrokerAccount, symbolMap: Record<number, str
   }
 }
 
-/** Boot hook — open a live feed for every connected cTrader account. */
+/** Connect newly-added cTrader accounts and drop feeds whose account was deleted. */
+async function reconcile(): Promise<void> {
+  const all = await db.select().from(brokerAccounts).where(eq(brokerAccounts.connectionType, 'api'));
+  const wanted = new Set(all.filter(a => a.platform.toLowerCase() === 'ctrader').map(a => a.id));
+  wanted.forEach(id => { if (!conns.has(id)) connect(id).catch(() => {}); });
+  const stale: string[] = [];
+  conns.forEach((_c, id) => { if (!wanted.has(id)) stale.push(id); });
+  stale.forEach(id => removeCTraderAccount(id));
+}
+
+/** Boot hook (primary worker only) — open all feeds, then keep them reconciled. */
 export async function startCTraderRealtime(): Promise<void> {
+  if (!IS_PRIMARY) return;
   try {
-    const all = await db.select().from(brokerAccounts).where(eq(brokerAccounts.connectionType, 'api'));
-    const ctrader = all.filter(a => a.platform.toLowerCase() === 'ctrader');
-    console.log(`[cTraderRT] starting live feeds for ${ctrader.length} cTrader account(s)`);
-    for (const a of ctrader) connect(a.id).catch(() => {});
+    await reconcile();
+    console.log(`[cTraderRT] live feeds active for ${conns.size} cTrader account(s)`);
+    setInterval(() => { reconcile().catch(() => {}); }, RECONCILE_MS);
   } catch (e: any) {
     console.error(`[cTraderRT] startup failed: ${e.message}`);
   }
 }
 
 /** Start a feed for a freshly connected account (call right after OAuth completes). */
-export function addCTraderAccount(id: string): void { connect(id).catch(() => {}); }
+export function addCTraderAccount(id: string): void { if (IS_PRIMARY) connect(id).catch(() => {}); }
 
 /** Stop and drop a feed (call on account disconnect/delete). */
 export function removeCTraderAccount(id: string): void {
