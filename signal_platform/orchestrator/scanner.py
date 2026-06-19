@@ -107,11 +107,21 @@ async def scan_markets() -> None:
         _was_scanning = False
         return
 
-    # Session-open detection — gated behind the guards so nothing fires while
-    # paused/disabled. Uses ONE source (the sessions API); when it's unreachable
-    # (e.g. the first seconds after a restart, before Node is up) we skip this
-    # tick rather than diff against a different taxonomy. The first *real* reading
-    # seeds silently, so a restart never re-announces already-open sessions.
+    # Market-hours gate FIRST: when forex is closed (all Saturday, Sunday before
+    # 22:00 UTC, Friday from 22:00 UTC) the whole tick is a no-op — no scanning,
+    # no news fetch, and no session-open alerts. Nothing fires while closed.
+    instruments = instrument_filter.get_open_instruments(tick_now)
+    if not instruments:
+        if _was_scanning:
+            log.info("[scanner] market closed — scanning paused")
+        _was_scanning = False
+        return
+
+    # Session-open detection (market is open). Uses ONE source (the sessions API);
+    # when it's unreachable (e.g. the first seconds after a restart, before Node is
+    # up) we skip this tick rather than diff against a different taxonomy. The
+    # first *real* reading seeds silently, so a restart never re-announces
+    # already-open sessions.
     live = await _fetch_active_sessions()
     if live is not None:
         if _active_sessions is None:
@@ -124,12 +134,6 @@ async def scan_markets() -> None:
     log.info(f"[scanner] tick at {tick_now.strftime('%H:%M:%S UTC')}")
 
     news_context = await news_fetcher.fetch(tick_now)
-    instruments  = instrument_filter.get_open_instruments(tick_now)
-
-    if not instruments:
-        log.info("[scanner] market closed — nothing to scan")
-        _was_scanning = False
-        return
 
     strategies = strategy_registry.get_enabled()
     if not strategies:
