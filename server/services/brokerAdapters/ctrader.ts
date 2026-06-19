@@ -185,9 +185,14 @@ export async function fetchCTraderBalance(
     // PT_TRADER_RES payload may have balance nested under `trader` or flat — handle both
     const trader = t?.trader ?? t;
     const rawBalance = trader?.balance ?? 0;
+    // cTrader scales `balance` by moneyDigits (raw / 10^moneyDigits), NOT a fixed
+    // /100. DEMO accounts often report moneyDigits=0, so the old /100 collapsed
+    // their balance toward $0. Default to 2 (the common live case) when absent.
+    const moneyDigits = trader?.moneyDigits ?? 2;
+    const balance = rawBalance / Math.pow(10, moneyDigits);
     const currency   = trader?.depositCurrency ?? '';
-    console.log(`[cTrader] PT_TRADER_RES for ${ctraderId}: balance=${rawBalance} currency=${currency}`);
-    return { balance: rawBalance / 100, currency };
+    console.log(`[cTrader] PT_TRADER_RES for ${ctraderId}: rawBalance=${rawBalance} moneyDigits=${moneyDigits} -> ${balance} currency=${currency}`);
+    return { balance, currency };
   } catch (err: any) {
     console.error(`[cTrader] fetchCTraderBalance failed for account ${ctraderId}: ${err.message}`);
     return null;

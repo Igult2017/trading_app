@@ -99,7 +99,29 @@ const PLATFORM_ICON_META: Record<string, { icon?: React.ReactNode; color: string
   charlesschwab: { color: '#00A0DF', letters: 'CS'  },
 };
 
+// ── Brand logos for the major platforms (inline SVG → crisp at any size) ──────
+const CTraderLogo = ({ size = 36 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 100 100" style={{ flexShrink: 0 }} aria-label="cTrader">
+    <circle cx="50" cy="50" r="50" fill="#E5342A" />
+    <path d="M41 23 C30 39 27 57 33 76 C52 71 64 53 62 32 C55 28 48 25 41 23 Z" fill="#fff" />
+    <circle cx="63.5" cy="64" r="9.5" fill="#fff" />
+  </svg>
+);
+const MetaTraderLogo = ({ size = 36, n = '5' }: { size?: number; n?: string }) => (
+  <svg width={size} height={size} viewBox="0 0 100 100" style={{ flexShrink: 0 }} aria-label={`MetaTrader ${n}`}>
+    <rect width="100" height="100" rx="24" fill="#0A1A33" />
+    <text x="50" y="55" textAnchor="middle" dominantBaseline="central" fontSize="62" fontWeight="900" fill="#EFA42A" fontFamily="Georgia, 'Times New Roman', serif">{n}</text>
+  </svg>
+);
+const PLATFORM_LOGOS: Record<string, (size: number) => React.ReactNode> = {
+  ctrader: (s) => <CTraderLogo size={s} />,
+  mt5:     (s) => <MetaTraderLogo size={s} n="5" />,
+  mt4:     (s) => <MetaTraderLogo size={s} n="4" />,
+};
+
 function PlatformIcon({ id, size = 36 }: { id: string; size?: number }) {
+  const logo = PLATFORM_LOGOS[id];
+  if (logo) return <span style={{ display: 'inline-flex', lineHeight: 0, flexShrink: 0 }}>{logo(size)}</span>;
   const meta = PLATFORM_ICON_META[id] ?? { color: '#64748b', letters: '?' };
   return (
     <div style={{ width: size, height: size, background: `${meta.color}22`, border: `1.5px solid ${meta.color}55`, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', color: meta.color, fontSize: meta.icon ? size * 0.58 : size * 0.3, fontWeight: 800, flexShrink: 0 }}>
@@ -429,10 +451,15 @@ function EditModal({ account, onClose, onSaved }: { account: BrokerAccount; onCl
 }
 
 // ── Main AccountsPage ─────────────────────────────────────────────────────────
+// Module-level cache of the last-fetched accounts: survives component remounts
+// (navigating away and back to the Accounts tab) so the page shows data instantly
+// instead of flashing a loading spinner and re-fetching from scratch every open.
+let _accountsCache: BrokerAccount[] | null = null;
+
 export default function AccountsPage({ openModal = false, darkMode = true, onViewSession }: { openModal?: boolean; darkMode?: boolean; onViewSession?: (sessionId: string) => void }) {
   const { session } = useAuth();
-  const [accounts,    setAccounts]    = useState<BrokerAccount[]>([]);
-  const [loading,     setLoading]     = useState(true);
+  const [accounts,    setAccounts]    = useState<BrokerAccount[]>(_accountsCache ?? []);
+  const [loading,     setLoading]     = useState(_accountsCache === null);
   const [modalOpen,   setModalOpen]   = useState(openModal);
   const [selectedPlatform, setSelectedPlatform] = useState<string | null>(null);
   const [showForm,    setShowForm]    = useState(false);
@@ -453,6 +480,9 @@ export default function AccountsPage({ openModal = false, darkMode = true, onVie
   }, []);
 
   useEffect(() => { if (session) fetchAccounts(); }, [session]);
+  // Keep the module cache in sync with every accounts change (fetch, add, delete,
+  // edit, balance refresh) so the next remount renders instantly from it.
+  useEffect(() => { _accountsCache = accounts; }, [accounts]);
   useEffect(() => { setModalOpen(openModal); }, [openModal]);
 
   // Handle cTrader OAuth callback query params
@@ -487,7 +517,7 @@ export default function AccountsPage({ openModal = false, darkMode = true, onVie
   }, []);
 
   async function fetchAccounts() {
-    setLoading(true);
+    if (_accountsCache === null) setLoading(true);   // spinner only on first-ever load; otherwise refresh silently
     try {
       const res = await fetch("/api/broker-accounts", { headers: await authHeaders() });
       if (res.ok) setAccounts(await res.json());
