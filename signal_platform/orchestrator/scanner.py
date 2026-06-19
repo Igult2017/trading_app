@@ -38,11 +38,16 @@ _active_sessions: set[str] | None = None
 _current_interval: int = 60   # mirrors the scheduler's initial scan interval
 
 
-async def _fetch_active_sessions() -> set[str]:
+async def _fetch_active_sessions() -> set[str] | None:
     """
-    Fetch active sessions from the Sessions page API (/api/market-sessions).
-    Returns lowercase underscore names e.g. {"london", "new_york"}.
-    Falls back to local session_windows calculation if the API is unreachable.
+    Active sessions from the Sessions API (/api/market-sessions), as lowercase
+    underscore names e.g. {"london", "new_york"}.
+
+    Returns None when the API is unreachable. The caller then SKIPS session-open
+    detection for that tick rather than seeding/diffing against the local
+    taxonomy (which uses "asian" instead of "tokyo"/"sydney"). Mixing the two
+    sources is what made a restart announce already-open sessions as "just
+    opened" — so we deliberately use a single source and wait for it.
     """
     try:
         import requests as _req
@@ -57,8 +62,8 @@ async def _fetch_active_sessions() -> set[str]:
             if s.get("isActive")
         }
     except Exception as exc:
-        log.debug("[scanner] sessions API unavailable (%s) — using local fallback", exc)
-        return {s.value for s in get_current_sessions() if s.value != "all"}
+        log.debug("[scanner] sessions API unavailable (%s) — skipping session-open detection this tick", exc)
+        return None
 
 
 def _is_paused() -> bool:
@@ -103,14 +108,18 @@ async def scan_markets() -> None:
         return
 
     # Session-open detection — gated behind the guards so nothing fires while
-    # paused/disabled. First tick seeds silently (sessions already open pre-boot).
+    # paused/disabled. Uses ONE source (the sessions API); when it's unreachable
+    # (e.g. the first seconds after a restart, before Node is up) we skip this
+    # tick rather than diff against a different taxonomy. The first *real* reading
+    # seeds silently, so a restart never re-announces already-open sessions.
     live = await _fetch_active_sessions()
-    if _active_sessions is None:
-        _active_sessions = live
-    else:
-        for name in live - _active_sessions:
-            await event_bus.emit(event_bus.SESSION_OPEN, name)
-        _active_sessions = live
+    if live is not None:
+        if _active_sessions is None:
+            _active_sessions = live                       # seed silently on first real reading
+        elif live != _active_sessions:
+            for name in sorted(live - _active_sessions):
+                await event_bus.emit(event_bus.SESSION_OPEN, name)
+            _active_sessions = live
 
     log.info(f"[scanner] tick at {tick_now.strftime('%H:%M:%S UTC')}")
 
@@ -132,7 +141,7 @@ async def scan_markets() -> None:
     if not _was_scanning:
         await event_bus.emit(event_bus.SCAN_STARTED, {
             "instruments": instruments,
-            "sessions":    list(live),
+            "sessions":    sorted(_active_sessions or set()),   # last real reading; never the None/fallback
             "tick_now":    tick_now.isoformat(),
         })
     _was_scanning = True
