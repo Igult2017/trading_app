@@ -956,32 +956,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Returns the 4 standard forex sessions with live active status.
   // Used by the signal platform to determine valid trading windows.
   app.get("/api/market-sessions", (_req, res) => {
-    const SESSION_DEFINITIONS = [
-      { name: "Sydney",   openUTC: 22,   closeUTC: 7    },
-      { name: "Tokyo",    openUTC: 0,    closeUTC: 9    },
-      { name: "London",   openUTC: 7,    closeUTC: 15.5 },
-      { name: "New York", openUTC: 12,   closeUTC: 21   },
+    // Session windows are computed LIVE from each financial centre's real
+    // timezone, so Daylight Saving Time is always correct: London/New York shift
+    // in Northern winter, Sydney shifts in Australian summer (its DST is the
+    // opposite season). Local hours follow the standard forex convention
+    // (08:00–17:00; Tokyo 09:00–18:00) — this keeps the page in step with Google.
+    const SESSION_DEFS = [
+      { name: "Sydney",   tz: "Australia/Sydney", open: 8, close: 17 },
+      { name: "Tokyo",    tz: "Asia/Tokyo",       open: 9, close: 18 },
+      { name: "London",   tz: "Europe/London",    open: 8, close: 17 },
+      { name: "New York", tz: "America/New_York", open: 8, close: 17 },
     ];
 
-    const now       = new Date();
+    const now = new Date();
+    // Current UTC offset (whole hours) for an IANA zone — reflects live DST.
+    const offsetHours = (tz: string): number => {
+      const inTz  = new Date(now.toLocaleString("en-US", { timeZone: tz }));
+      const inUtc = new Date(now.toLocaleString("en-US", { timeZone: "UTC" }));
+      return Math.round((inTz.getTime() - inUtc.getTime()) / 3_600_000);
+    };
+    const wrap = (h: number): number => ((h % 24) + 24) % 24;
+
     const utcHour   = now.getUTCHours() + now.getUTCMinutes() / 60;
     const dayOfWeek = now.getUTCDay();
     const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
 
-    const sessions = SESSION_DEFINITIONS.map(s => {
+    const sessions = SESSION_DEFS.map(s => {
+      const off      = offsetHours(s.tz);
+      const openUTC  = wrap(s.open  - off);
+      const closeUTC = wrap(s.close - off);
       let active = false;
       if (!isWeekend) {
-        active = s.openUTC < s.closeUTC
-          ? utcHour >= s.openUTC && utcHour < s.closeUTC
-          : utcHour >= s.openUTC || utcHour < s.closeUTC;
+        active = openUTC < closeUTC
+          ? utcHour >= openUTC && utcHour < closeUTC
+          : utcHour >= openUTC || utcHour < closeUTC;
       }
-      return { name: s.name, openUTC: s.openUTC, closeUTC: s.closeUTC, isActive: active };
+      return { name: s.name, openUTC, closeUTC, isActive: active };
     });
 
     res.json({
-      utcHour:        Math.round(utcHour * 100) / 100,
+      utcHour:   Math.round(utcHour * 100) / 100,
       isWeekend,
-      anyActive:      sessions.some(s => s.isActive),
+      anyActive: sessions.some(s => s.isActive),
       sessions,
     });
   });
