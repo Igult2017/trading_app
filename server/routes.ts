@@ -11,6 +11,7 @@ import { processIncomingTrades } from "./services/brokerSyncService";
 import { fetchTradesForAccount, API_PLATFORMS } from "./services/brokerAdapters/index";
 import { getCTraderAuthUrl, exchangeCodeForTokens, getCTraderAccounts, fetchCTraderBalance, refreshAccessToken } from "./services/brokerAdapters/ctrader";
 import { addCTraderAccount, removeCTraderAccount } from "./services/ctraderRealtime";
+import { sessionAt } from "./lib/forexSession";
 import { syncAccount } from "./services/autoSyncService";
 import { randomBytes, randomUUID } from "crypto";
 import { sendCampaignEmail, isEmailConfigured } from "./services/emailService";
@@ -1114,35 +1115,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // journaled trade's session label is correct for its own date (winter/summer)
   // and agrees with the sessions page.
   function deriveSessionFromTime(entryTime: string, brokerTzOffset: number): { sessionName: string | null; sessionPhase: string | null } {
-    try {
-      const dt = new Date(entryTime);
-      if (isNaN(dt.getTime())) return { sessionName: null, sessionPhase: null };
-      // Broker-local wall clock → true UTC instant.
-      const instant  = new Date(dt.getTime() - brokerTzOffset * 3_600_000);
-      const localHour = (tz: string): number =>
-        parseInt(instant.toLocaleString("en-US", { timeZone: tz, hour: "2-digit", hour12: false }), 10) % 24;
-      const phaseOf = (h: number, o: number, c: number): string => {
-        const span = c - o;
-        return h < o + span / 3 ? "Open" : h < o + (2 * span) / 3 ? "Mid" : "Close";
-      };
-      const WINDOWS = [
-        { name: "Sydney",   tz: "Australia/Sydney", open: 8, close: 17 },
-        { name: "Tokyo",    tz: "Asia/Tokyo",       open: 9, close: 18 },
-        { name: "London",   tz: "Europe/London",    open: 8, close: 17 },
-        { name: "New York", tz: "America/New_York", open: 8, close: 17 },
-      ];
-      const active = WINDOWS
-        .map(w => ({ w, h: localHour(w.tz) }))
-        .filter(({ w, h }) => h >= w.open && h < w.close);
-      if (!active.length) return { sessionName: null, sessionPhase: null };
-      const names = active.map(a => a.w.name);
-      if (names.includes("London") && names.includes("New York")) {
-        const ny = active.find(a => a.w.name === "New York")!;   // high-volume overlap
-        return { sessionName: "Overlap", sessionPhase: phaseOf(ny.h, ny.w.open, ny.w.close) };
-      }
-      const primary = active[active.length - 1];   // Sydney→Tokyo→London→NY order; later wins
-      return { sessionName: primary.w.name, sessionPhase: phaseOf(primary.h, primary.w.open, primary.w.close) };
-    } catch { return { sessionName: null, sessionPhase: null }; }
+    const dt = new Date(entryTime);
+    if (isNaN(dt.getTime())) return { sessionName: null, sessionPhase: null };
+    // Broker-local wall clock → true UTC instant, then label via the shared
+    // DST-aware source (identical to the synced-trade journaller).
+    return sessionAt(new Date(dt.getTime() - brokerTzOffset * 3_600_000))
+      ?? { sessionName: null, sessionPhase: null };
   }
 
   app.post("/api/journal/analyze-screenshot", async (req, res) => {

@@ -11,22 +11,22 @@
  */
 import { storage } from '../storage';
 import type { InsertJournalEntry, SyncedTrade, BrokerAccount } from '../../shared/schema';
+import { sessionAt } from '../lib/forexSession';
 
 // ── Session detection ─────────────────────────────────────────────────────────
 type SessionName = 'SYDNEY' | 'TOKYO' | 'LONDON' | 'NEW YORK' | 'LONDON/NY OVERLAP';
 
-function detectSession(utcHour: number): { session: SessionName; phase: string } {
-  // Approximate session boundaries (UTC):
-  // Sydney:   21:00–06:00
-  // Tokyo:    00:00–09:00
-  // London:   07:00–16:00
-  // New York: 12:00–21:00
-  // Overlap:  12:00–16:00
-  if (utcHour >= 12 && utcHour < 16) return { session: 'LONDON/NY OVERLAP', phase: 'Mid' };
-  if (utcHour >= 7  && utcHour < 12) return { session: 'LONDON',   phase: utcHour < 9  ? 'Open' : 'Mid' };
-  if (utcHour >= 16 && utcHour < 21) return { session: 'NEW YORK', phase: utcHour < 19 ? 'Mid'  : 'Close' };
-  if (utcHour >= 0  && utcHour < 7)  return { session: 'TOKYO',    phase: utcHour < 3  ? 'Open' : utcHour < 6 ? 'Mid' : 'Close' };
-  return { session: 'SYDNEY', phase: utcHour >= 21 ? 'Open' : 'Close' };
+// DST-aware via the shared session source (same logic as the screenshot/manual
+// journaller). Keeps the existing uppercase label format so stored data and
+// session-grouped views stay consistent.
+function detectSession(at: Date | null): { session: SessionName; phase: string } {
+  const r = at ? sessionAt(at) : null;
+  if (!r) return { session: 'SYDNEY', phase: 'Open' };
+  const MAP: Record<string, SessionName> = {
+    Sydney: 'SYDNEY', Tokyo: 'TOKYO', London: 'LONDON',
+    'New York': 'NEW YORK', Overlap: 'LONDON/NY OVERLAP',
+  };
+  return { session: MAP[r.sessionName] ?? 'SYDNEY', phase: r.sessionPhase };
 }
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -48,8 +48,7 @@ export async function autoJournalTrade(trade: SyncedTrade, sessionId?: string | 
   const netPl   = Math.round((pl + comm + sw) * 100) / 100;
   const outcome = netPl >= 0 ? 'WIN' : 'LOSS';
 
-  const utcHour     = openTime ? openTime.getUTCHours() : 0;
-  const { session, phase } = detectSession(utcHour);
+  const { session, phase } = detectSession(openTime);
   const dayOfWeek   = openTime ? DAY_NAMES[openTime.getDay()] : undefined;
   const tradeDuration = openTime && closeTime ? String(minutesBetween(openTime, closeTime)) : undefined;
 

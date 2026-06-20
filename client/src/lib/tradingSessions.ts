@@ -154,32 +154,21 @@ export function formatMinutesToHoursAndMinutes(totalMinutes: number): string {
 
 export function getMinutesUntilSessionOpen(session: TradingSession): number {
   if (session.isActive) return 0;
-  
-  const now = new Date();
-  const dayOfWeek = now.getUTCDay();
-  const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-  
-  if (isWeekend) {
-    // Calculate time until Monday 00:00 UTC, then add time to session open
-    const daysUntilMonday = dayOfWeek === 0 ? 1 : 2;
-    const hoursUntilMonday = (24 - now.getUTCHours() - 1) + (daysUntilMonday - 1) * 24;
-    const minutesUntilMonday = (60 - now.getUTCMinutes()) + hoursUntilMonday * 60;
-    
-    // Add time from Monday 00:00 to session open
-    const sessionOpenMinutes = Math.floor(session.openUTC * 60);
-    return minutesUntilMonday + sessionOpenMinutes;
+
+  const now   = new Date();
+  const openH = Math.floor(session.openUTC);
+  const openM = Math.round((session.openUTC - openH) * 60);
+
+  // Next future time this session opens that also falls within forex hours —
+  // this skips the weekend and lands on the real Sunday-22:00 reopen, instead
+  // of the old "count to Monday" guess.
+  for (let d = 0; d <= 7; d++) {
+    const cand = new Date(now);
+    cand.setUTCDate(now.getUTCDate() + d);
+    cand.setUTCHours(openH, openM, 0, 0);
+    if (cand.getTime() <= now.getTime()) continue;   // must be in the future
+    if (isForexClosed(cand)) continue;               // can't open while market is closed
+    return Math.floor((cand.getTime() - now.getTime()) / 60000);
   }
-  
-  const currentUTC = now.getUTCHours() + now.getUTCMinutes() / 60;
-  let hoursUntilOpen: number;
-  
-  if (session.openUTC > currentUTC) {
-    // Session opens later today
-    hoursUntilOpen = session.openUTC - currentUTC;
-  } else {
-    // Session opens tomorrow
-    hoursUntilOpen = 24 - currentUTC + session.openUTC;
-  }
-  
-  return Math.floor(hoursUntilOpen * 60);
+  return 0;
 }
