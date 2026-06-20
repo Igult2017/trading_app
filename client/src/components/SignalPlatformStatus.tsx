@@ -59,7 +59,7 @@ export default function SignalPlatformStatus({ darkMode = true, selectedSymbol =
         </button>
       </div>
 
-      <div style={{ padding: "28px 24px", display: "flex", flexDirection: "column", gap: 20, minHeight: 300, justifyContent: "center" }}>
+      <div style={{ padding: "16px 24px 20px", display: "flex", flexDirection: "column", gap: 16 }}>
         {isLoading ? (
           <div style={{ textAlign: "center", color: C.muted, fontSize: 10, letterSpacing: "0.1em" }}>CHECKING STATUS…</div>
         ) : (
