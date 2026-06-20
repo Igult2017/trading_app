@@ -83,8 +83,12 @@ async function runCheck(): Promise<void> {
           `Current price: *${currentPrice.toPrecision(6)}*\n\n` +
           `_Alert set via FSD Zones_`;
 
-        await telegramNotificationService.broadcastMessage(msg, { parse_mode: "Markdown" });
-        console.log(`[PriceAlert] ${symbol} triggered @ ${currentPrice} (target ${target} ${alert.direction})`);
+        if (telegramNotificationService) {
+          await telegramNotificationService.broadcastMessage(msg, { parse_mode: "Markdown" });
+          console.log(`[PriceAlert] ${symbol} triggered @ ${currentPrice} (target ${target} ${alert.direction})`);
+        } else {
+          console.warn(`[PriceAlert] ${symbol} triggered @ ${currentPrice} but Telegram service is unavailable — alert not delivered`);
+        }
       }
     }
   } catch (err: any) {

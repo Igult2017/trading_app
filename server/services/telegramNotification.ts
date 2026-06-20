@@ -512,8 +512,8 @@ export class TelegramNotificationService {
 
 let telegramNotificationService: TelegramNotificationService | null = null;
 
-// Telegram notifications are muted. To re-enable, remove the TELEGRAM_MUTED check below.
-const TELEGRAM_MUTED = true;
+// Re-enabled so price alerts (and other Telegram notifications) actually fire.
+const TELEGRAM_MUTED = false;
 
 (async () => {
   if (TELEGRAM_MUTED) {
