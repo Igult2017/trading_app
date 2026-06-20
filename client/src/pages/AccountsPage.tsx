@@ -23,6 +23,7 @@ interface BrokerAccount {
   webhookToken: string | null;
   defaultSessionId: string | null;
   isActive: boolean;
+  copyEnabled?: boolean;
 }
 
 // ── Platform list ─────────────────────────────────────────────────────────────
@@ -572,6 +573,21 @@ export default function AccountsPage({ openModal = false, darkMode = true, onVie
     }
   }
 
+  // Toggle whether others can copy this account (lists it as followable in the marketplace).
+  async function handleToggleCopy(account: BrokerAccount) {
+    const next = !account.copyEnabled;
+    setAccounts(prev => prev.map(a => a.id === account.id ? { ...a, copyEnabled: next } : a));
+    try {
+      const res = await fetch(`/api/broker-accounts/${account.id}/copy-listing`, {
+        method: "POST", headers: await authHeaders(), body: JSON.stringify({ enabled: next }),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? "Failed to update");
+    } catch (e: any) {
+      setAccounts(prev => prev.map(a => a.id === account.id ? { ...a, copyEnabled: !next } : a)); // revert
+      alert(e.message ?? "Could not update copy setting");
+    }
+  }
+
   async function handleCreated(account: BrokerAccount) {
     setAccounts(prev => [account, ...prev]);
     setModalOpen(false);
@@ -705,6 +721,13 @@ export default function AccountsPage({ openModal = false, darkMode = true, onVie
                       {a.defaultSessionId && onViewSession && (
                         <button style={s.actionBtn as CSSProperties} title="View Performance Dashboard" onClick={() => onViewSession(a.defaultSessionId!)}>
                           <BarChart2 size={14} color="#4ade80" />
+                        </button>
+                      )}
+                      {a.connectionType === "api" && (
+                        <button style={s.actionBtn as CSSProperties}
+                          title={a.copyEnabled ? "Copying ON — others can follow this account. Click to disable." : "Allow others to copy this account"}
+                          onClick={() => handleToggleCopy(a)}>
+                          <Copy size={14} color={a.copyEnabled ? "#4ade80" : "#475569"} />
                         </button>
                       )}
                       <button style={s.actionBtn as CSSProperties} title="Webhook / Settings" onClick={() => setWebhookAcc(a)}><Wrench size={14} color="#f59e0b" /></button>

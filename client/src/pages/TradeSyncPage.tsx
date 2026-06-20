@@ -9,6 +9,7 @@ import { PiInfoFill } from 'react-icons/pi';
 import CopyManagementDashboard from '@/components/CopyManagementDashboard';
 import CTraderAccountPicker from '@/components/copy/CTraderAccountPicker';
 import { apiRequest } from '@/lib/queryClient';
+import { useAuth } from '@/context/AuthContext';
 
 // ─── Fonts ────────────────────────────────────────────────────────────────────
 const FONTS = `@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;800&family=JetBrains+Mono:wght@400;700&display=swap');`;
@@ -163,50 +164,83 @@ function providerInitials(name: string) {
 
 const ProviderCard = ({ provider, selected, onSelect }: any) => {
   const mono = "'JetBrains Mono', monospace";
-  const avatar = providerAvatar(provider.id);
-  const initials = providerInitials(provider.strategyName || provider.name || '');
+  const { user } = useAuth();
+  const isOwn = !!user?.id && provider.ownerId === user.id;
+  const followable = !!provider.followingEnabled && !!provider.masterId;
+
+  const name = provider.name || 'Unnamed Account';
+  const avatar = providerAvatar(provider.brokerAccountId || name);
+  const initials = providerInitials(name);
   const winRate = provider.winRate;
-  const winColor = winRate == null ? '#475569' : winRate >= 70 ? '#4ade80' : winRate >= 55 ? '#fbbf24' : '#f87171';
-  const totalTrades = provider.totalTrades ?? 0;
-  const followerCount = provider.followerCount ?? 0;
-  const style = provider.tradingStyle || provider.sourceType || '—';
-  const since = provider.since || '—';
-  const name = provider.strategyName || provider.name || 'Unnamed Strategy';
+  const winColor = winRate == null ? '#475569' : winRate >= 60 ? '#4ade80' : winRate >= 45 ? '#fbbf24' : '#f87171';
+  const trades = provider.trades ?? 0;
+  const avgRR = provider.avgRR;
+  const netPnl = provider.netPnl ?? 0;
+  const pnlColor = netPnl > 0 ? '#4ade80' : netPnl < 0 ? '#f87171' : '#94a3b8';
+  const instruments: string[] = provider.instruments || [];
 
   const stats = [
-    { label:'Win rate',     value: winRate != null ? `${winRate}%` : '—',          color: winColor  },
-    { label:'Market',       value: (provider.primaryMarket || '—').toUpperCase(),   color: '#94a3b8' },
-    { label:'Total trades', value: totalTrades > 0 ? totalTrades.toLocaleString() : '—', color: '#f8fafc' },
-    { label:'Followers',    value: followerCount > 0 ? followerCount.toLocaleString() : '0', color: '#f8fafc' },
+    { label: 'Win rate', value: winRate != null ? `${winRate}%` : '—', color: winColor },
+    { label: 'Trades',   value: trades > 0 ? trades.toLocaleString() : '—', color: '#f8fafc' },
+    { label: 'Avg RR',   value: avgRR != null ? avgRR.toFixed(2) : '—', color: '#f8fafc' },
+    { label: 'Net P/L',  value: trades > 0 ? `${netPnl >= 0 ? '+' : ''}${netPnl.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : '—', color: pnlColor },
   ];
+  const badge = isOwn
+    ? { t: 'Your account', c: 'bg-violet-500/15 text-violet-300' }
+    : followable ? { t: 'Copyable', c: 'bg-emerald-500/15 text-emerald-300' }
+                 : { t: 'Not enabled', c: 'bg-slate-500/15 text-slate-400' };
+
+  const pick = () => { if (followable && !isOwn) onSelect(provider.masterId); };
 
   return (
-    <div onClick={() => onSelect(provider.id)}
-      className={`relative p-5 md:p-8 border cursor-pointer transition-all duration-700 group flex flex-col
-        ${selected ? 'bg-blue-600/5 border-blue-500/50' : 'bg-transparent border-white/5 hover:border-white/20'}`}>
-      <div className={`mb-4 md:mb-6 transition-transform duration-500 ${selected ? 'scale-110' : 'group-hover:scale-105'}`}>
-        <div style={{ width:36, height:36, borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'11px', fontWeight:700, fontFamily:mono, background:avatar.bg, border:`1px solid ${avatar.border}`, color:avatar.color }}>
-          {initials}
+    <div onClick={pick}
+      className={`relative p-5 md:p-7 border transition-all duration-300 flex flex-col
+        ${selected ? 'bg-blue-600/5 border-blue-500/50' : 'bg-transparent border-white/5'}
+        ${followable && !isOwn ? 'cursor-pointer hover:border-white/20' : 'opacity-80'}`}>
+      <div className="flex items-start justify-between mb-4">
+        <div className="flex items-center gap-3 min-w-0">
+          <div style={{ width: 36, height: 36, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700, fontFamily: mono, background: avatar.bg, border: `1px solid ${avatar.border}`, color: avatar.color, flexShrink: 0 }}>{initials}</div>
+          <div className="min-w-0">
+            <h3 className={`text-sm md:text-base font-medium tracking-tight truncate ${selected ? 'text-white' : 'text-slate-300'}`}>{name}</h3>
+            <p className="text-[10px] text-slate-500 font-mono uppercase tracking-wider">{provider.platform} · {provider.accountType || 'demo'}</p>
+          </div>
         </div>
+        <span className={`text-[8px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full flex-shrink-0 ${badge.c}`}>{badge.t}</span>
       </div>
-      <h3 className={`text-base md:text-lg font-light tracking-tight mb-1 ${selected ? 'text-white' : 'text-slate-400'}`}>{name}</h3>
-      <p className="text-xs text-slate-500 leading-relaxed font-light mb-4 md:mb-6">
-        {style} · {followerCount.toLocaleString()} followers · since {since}
-      </p>
-      <div className="grid grid-cols-2 gap-px bg-white/5 border border-white/5 mb-4">
+
+      <div className="grid grid-cols-4 gap-px bg-white/5 border border-white/5 mb-3">
         {stats.map(s => (
-          <div key={s.label} className="bg-[#020203] p-2 md:p-3">
-            <div style={{ fontSize:'9px', fontWeight:700, letterSpacing:'0.12em', textTransform:'uppercase', color:'#1e293b', marginBottom:'4px', fontFamily:mono }}>{s.label}</div>
-            <div style={{ fontSize:'14px', fontWeight:700, letterSpacing:'-0.03em', fontFamily:mono, lineHeight:1, color:s.color }}>{s.value}</div>
+          <div key={s.label} className="bg-[#020203] p-2">
+            <div style={{ fontSize: '8px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#475569', marginBottom: '3px', fontFamily: mono }}>{s.label}</div>
+            <div style={{ fontSize: '13px', fontWeight: 700, letterSpacing: '-0.02em', fontFamily: mono, lineHeight: 1, color: s.color }}>{s.value}</div>
           </div>
         ))}
       </div>
-      <button onClick={(e: any) => { e.stopPropagation(); onSelect(provider.id); }}
-        className={`w-full py-2 text-[9px] font-bold uppercase tracking-[0.15em] border transition-all duration-300
-          ${selected ? 'border-blue-500/40 bg-blue-500/10 text-blue-400' : 'border-white/5 text-slate-700 hover:border-white/15 hover:text-slate-500'}`}
-        style={{ fontFamily:mono }}>
-        {selected ? '● copying this provider' : 'select provider'}
-      </button>
+
+      {instruments.length > 0 && (
+        <div className="flex flex-wrap gap-1 mb-4">
+          {instruments.slice(0, 6).map(sym => (
+            <span key={sym} className="text-[9px] font-mono text-slate-400 bg-white/[0.04] border border-white/10 rounded px-1.5 py-0.5">{sym}</span>
+          ))}
+        </div>
+      )}
+
+      {isOwn ? (
+        <div className="w-full py-2 text-center text-[9px] font-bold uppercase tracking-[0.15em] text-violet-300/70 border border-violet-500/20" style={{ fontFamily: mono }}>
+          Your account — use Self-Copy
+        </div>
+      ) : followable ? (
+        <button onClick={(e: any) => { e.stopPropagation(); onSelect(provider.masterId); }}
+          className={`w-full py-2 text-[9px] font-bold uppercase tracking-[0.15em] border transition-all duration-300
+            ${selected ? 'border-blue-500/40 bg-blue-500/10 text-blue-400' : 'border-white/10 text-slate-400 hover:border-blue-500/40 hover:text-blue-300'}`}
+          style={{ fontFamily: mono }}>
+          {selected ? '● copying this account' : 'follow this account'}
+        </button>
+      ) : (
+        <div className="w-full py-2 text-center text-[9px] font-bold uppercase tracking-[0.15em] text-slate-600 border border-white/5" style={{ fontFamily: mono }}>
+          Following not enabled
+        </div>
+      )}
       {selected && <div className="absolute bottom-0 left-0 h-[2px] bg-blue-500 w-full shadow-[0_0_15px_rgba(37,99,235,1)]" />}
     </div>
   );
@@ -337,18 +371,17 @@ const StepLink = ({ data, setData, providers, providersLoading }: any) => {
     if (!search.trim()) return true;
     const q = search.toLowerCase();
     return (
-      p.id?.toLowerCase().includes(q) ||
-      (p.strategyName || '').toLowerCase().includes(q) ||
-      (p.tradingStyle || '').toLowerCase().includes(q) ||
-      (p.primaryMarket || '').toLowerCase().includes(q)
+      (p.name || '').toLowerCase().includes(q) ||
+      (p.platform || '').toLowerCase().includes(q) ||
+      (p.instruments || []).some((s: string) => s.toLowerCase().includes(q))
     );
   });
 
   return (
     <div className="w-full space-y-6 md:space-y-10">
       <TInput
-        label="Search Providers"
-        placeholder="Filter by name, style, market, or paste a Provider UUID…"
+        label="Browse Accounts"
+        placeholder="Filter by name, platform, or instrument…"
         value={search}
         onChange={(e: any) => setSearch(e.target.value)}
       />
@@ -380,9 +413,9 @@ const StepLink = ({ data, setData, providers, providersLoading }: any) => {
             ${filtered.length === 1 ? 'grid-cols-1 md:grid-cols-1' : 'grid-cols-1 md:grid-cols-2 md:divide-y-0 md:divide-x'}`}>
             {filtered.map((p: any) => (
               <ProviderCard
-                key={p.id}
+                key={p.brokerAccountId}
                 provider={p}
-                selected={data.selectedProvider === p.id}
+                selected={!!p.masterId && data.selectedProvider === p.masterId}
                 onSelect={(id: string) => setData({ ...data, selectedProvider: id })}
               />
             ))}
@@ -1436,7 +1469,7 @@ function CopierWizard({ onBack, onOpenDashboard }: { onBack: () => void; onOpenD
   const [providersLoading, setProvidersLoading] = useState(true);
 
   useEffect(() => {
-    fetch('/api/copy/masters/public')
+    fetch('/api/copy/providers')
       .then(r => r.json())
       .then(d => { setProviders(Array.isArray(d) ? d : []); })
       .catch(() => setProviders([]))

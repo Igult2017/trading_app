@@ -2608,6 +2608,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (err: any) { console.error(err); return res.status(500).json({ error: "Internal server error" }); }
   });
 
+  /** Public provider marketplace — every connected account + realized performance.
+   *  Only accounts whose owner enabled copying carry a masterId (followable). */
+  app.get("/api/copy/providers", async (_req, res) => {
+    try {
+      return res.json(await storage.getProviderDirectory());
+    } catch (err: any) { console.error(err); return res.status(500).json({ error: "Internal server error" }); }
+  });
+
   app.get("/api/copy/masters", async (req, res) => {
     try {
       const auth = await requireAuth(req, res);
@@ -3095,8 +3103,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!user) return res.status(401).json({ error: "Unauthorized" });
 
     const accounts = await storage.getBrokerAccounts(user.id);
+    // Flag which accounts have copying enabled (an active public master exists).
+    const masters = await storage.getCopyMasters(user.id);
+    const copyOn = new Set(masters.filter((m: any) => m.isActive && m.brokerAccountId).map((m: any) => m.brokerAccountId));
     // Never return encrypted password to client
-    const safe = accounts.map(({ passwordEnc: _, ...a }) => a);
+    const safe = accounts.map(({ passwordEnc: _, ...a }) => ({ ...a, copyEnabled: copyOn.has(a.id) }));
     return res.json(safe);
   });
 
@@ -3673,6 +3684,40 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
   });
 
   /**
+   * Toggle whether an account is followable in the public marketplace. ON creates/
+   * activates a public copy_master (the engine then runs its provider); OFF
+   * deactivates it. Self-copy never needs this.
+   */
+  app.post("/api/broker-accounts/:id/copy-listing", async (req: Request, res: Response) => {
+    const user = await verifyToken(req.headers.authorization);
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
+    const account = await storage.getBrokerAccountById(req.params.id);
+    if (!account || account.userId !== user.id) return res.status(404).json({ error: "Not found" });
+    if (!API_PLATFORMS.has(account.platform.toLowerCase())) {
+      return res.status(400).json({ error: "Only API-connected accounts can be copied by others" });
+    }
+
+    const enabled = req.body?.enabled !== false;
+    const requireApproval = req.body?.requireApproval === true;
+    let master = await storage.getCopyMasterByBrokerAccountId(account.id);
+
+    if (enabled) {
+      if (master) {
+        master = await storage.updateCopyMaster(master.id, { isActive: true, isPublic: true, requireApproval });
+      } else {
+        master = await storage.createCopyMaster({
+          userId: user.id, brokerAccountId: account.id, sourceType: account.platform.toLowerCase(),
+          strategyName: account.name, description: '', tradingStyle: 'intraday', primaryMarket: 'fx',
+          isPublic: true, requireApproval, showOpenTrades: true, isActive: true,
+        });
+      }
+      return res.json({ enabled: true, master });
+    }
+    if (master) await storage.updateCopyMaster(master.id, { isActive: false });
+    return res.json({ enabled: false });
+  });
+
+  /**
    * Register a connected broker account as a copy-trading FOLLOWER of a master.
    * Creates (or returns existing) copy_followers row linked to the broker account.
    * The follower account places the copied orders, so it must be connected with
@@ -3726,6 +3771,25 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
       riskAccepted:    b.riskAccepted ?? false,
       deployedAt:      new Date(),
     } as any);
+
+    // Notify both parties (self-copy uses /api/copy/self-copy and stays silent).
+    const provName = master.strategyName || 'an account';
+    notificationService.createNotification({
+      userId: user.id, type: 'update',
+      title:   master.requireApproval ? '⏳ Copy request sent' : '✅ Now copying',
+      message: master.requireApproval
+        ? `Your request to copy ${provName} was sent — awaiting the provider's approval.`
+        : `You're now copying ${provName}. Trades will mirror in real time.`,
+    }).catch(() => {});
+    if (master.userId && master.userId !== user.id) {
+      notificationService.createNotification({
+        userId: master.userId, type: 'update',
+        title:   master.requireApproval ? '🔔 New copy request' : '🔔 New follower',
+        message: master.requireApproval
+          ? `A trader requested to copy your account "${provName}" — approve them in your provider dashboard.`
+          : `A trader started copying your account "${provName}".`,
+      }).catch(() => {});
+    }
 
     return res.status(201).json({
       follower, created: true,

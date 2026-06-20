@@ -708,6 +708,63 @@ export class DbStorage implements IStorage {
     });
   }
 
+  /**
+   * Public provider marketplace — EVERY connected account, with realized
+   * performance computed from its synced trade history. `followingEnabled` is
+   * true only when the owner has switched on copying (an active public master
+   * exists); only those carry a `masterId` and can actually be followed.
+   */
+  async getProviderDirectory(): Promise<any[]> {
+    const { rows } = await pool.query(`
+      SELECT
+        ba.id           AS "brokerAccountId",
+        ba.name         AS "accountName",
+        ba.platform     AS "platform",
+        ba.account_type AS "accountType",
+        ba.user_id      AS "ownerId",
+        cm.id           AS "masterId",
+        cm.strategy_name                     AS "strategyName",
+        COALESCE(cm.is_active, false)        AS "followingEnabled",
+        COALESCE(cm.require_approval, false) AS "requireApproval",
+        COUNT(t.id) FILTER (WHERE t.profit_loss IS NOT NULL)::int  AS "trades",
+        COUNT(t.id) FILTER (WHERE t.profit_loss::numeric > 0)::int AS "wins",
+        COUNT(t.id) FILTER (WHERE t.profit_loss::numeric < 0)::int AS "losses",
+        COALESCE(SUM(t.profit_loss::numeric), 0)                   AS "netPnl",
+        AVG(t.profit_loss::numeric) FILTER (WHERE t.profit_loss::numeric > 0) AS "avgWin",
+        AVG(t.profit_loss::numeric) FILTER (WHERE t.profit_loss::numeric < 0) AS "avgLoss",
+        (ARRAY_AGG(DISTINCT t.symbol) FILTER (WHERE t.symbol IS NOT NULL))[1:8] AS "instruments"
+      FROM broker_accounts ba
+      LEFT JOIN copy_masters cm
+        ON cm.broker_account_id = ba.id AND cm.is_public = true AND cm.is_active = true
+      LEFT JOIN synced_trades t ON t.broker_account_id = ba.id
+      WHERE ba.is_active = true
+      GROUP BY ba.id, cm.id
+      ORDER BY "netPnl" DESC NULLS LAST
+    `);
+
+    return rows.map((r: any) => {
+      const wins = r.wins || 0, losses = r.losses || 0;
+      const decided = wins + losses;
+      const avgWin  = r.avgWin  != null ? Math.abs(Number(r.avgWin))  : null;
+      const avgLoss = r.avgLoss != null ? Math.abs(Number(r.avgLoss)) : null;
+      return {
+        brokerAccountId:  r.brokerAccountId,
+        masterId:         r.masterId,                       // null = following not enabled
+        followingEnabled: !!r.followingEnabled,
+        requireApproval:  !!r.requireApproval,
+        name:             r.strategyName || r.accountName,
+        platform:         r.platform,
+        accountType:      r.accountType,
+        ownerId:          r.ownerId,
+        trades:           r.trades || 0,
+        winRate:          decided > 0 ? Math.round((wins / decided) * 1000) / 10 : null,
+        avgRR:            (avgWin != null && avgLoss && avgLoss > 0) ? Math.round((avgWin / avgLoss) * 100) / 100 : null,
+        netPnl:           Number(r.netPnl || 0),
+        instruments:      r.instruments || [],
+      };
+    });
+  }
+
   async getCopyMasterById(id: string): Promise<CopyMaster | undefined> {
     const r = await db.select().from(copyMasters).where(eq(copyMasters.id, id)).limit(1);
     return r[0];
