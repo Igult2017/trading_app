@@ -125,6 +125,11 @@ async def _startup() -> None:
     write_status("ok")
     log.info("[boot] scheduler started — platform is running")
 
+    # 6b. Boot heartbeat — one-time Telegram status (market open/closed) so every
+    #     redeploy confirms the platform is alive and the session logic is accurate.
+    from notifications.dispatcher import announce_status
+    await announce_status()
+
     # 7. Run first scan immediately
     log.info("[boot] running initial scan...")
     await scan_markets()

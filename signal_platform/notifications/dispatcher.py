@@ -109,6 +109,30 @@ async def on_session_open(session_name: str) -> None:
     await _send_text(format_session_open(session_name))
 
 
+async def announce_status() -> None:
+    """One-time boot heartbeat — reports whether the forex market is open or closed
+    so a redeploy confirms the platform is alive and the session logic is accurate."""
+    from datetime import datetime, timezone, timedelta
+    from data.instrument_filter import is_forex_open
+    from scheduler.session_windows import get_current_sessions
+    from notifications.telegram_system_formatter import format_platform_status
+
+    now     = datetime.now(timezone.utc)
+    is_open = is_forex_open(now)
+    sessions = [s.value for s in get_current_sessions(now) if s.value != "all"] if is_open else []
+    next_open = None
+    if not is_open:
+        probe = now.replace(minute=0, second=0, microsecond=0)
+        for _ in range(72):                       # search up to 72h ahead for the reopen
+            probe += timedelta(hours=1)
+            if is_forex_open(probe):
+                delta = probe - now
+                hrs, mins = int(delta.total_seconds() // 3600), int((delta.total_seconds() % 3600) // 60)
+                next_open = probe.strftime("%a %H:%M UTC") + f" (in {hrs}h {mins}m)"
+                break
+    await _send_text(format_platform_status(is_open, sessions, next_open))
+
+
 async def on_signal_closed(signal_id: str) -> None:
     try:
         loop = asyncio.get_running_loop()
