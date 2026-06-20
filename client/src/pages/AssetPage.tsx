@@ -131,25 +131,8 @@ function assetClassToCategory(ac: string): Instrument["category"] {
 
 // ASSET_DATA removed — data now fetched live from /api/trading-signals
 
-const _PLACEHOLDER_CONTEXT: ContextItem[] = [
-  { label: "1D TREND",      value: "—", color: "#2d4a63" },
-  { label: "4H STRUCTURE",  value: "—", color: "#2d4a63" },
-  { label: "1H MOMENTUM",   value: "—", color: "#2d4a63" },
-  { label: "15M LIQUIDITY", value: "—", color: "#2d4a63" },
-  { label: "STRATEGY",      value: "—", color: "#2d4a63" },
-];
-const _PLACEHOLDER_TECH: TechItem[] = [
-  { label: "ADX POWER",       value: "—", color: "#2d4a63" },
-  { label: "MACD",            value: "—", color: "#2d4a63" },
-  { label: "EMA 200",         value: "—", color: "#2d4a63" },
-  { label: "EMA (5,9,13,21)", value: "—", color: "#2d4a63" },
-  { label: "VOLUME",          value: "—", color: "#2d4a63" },
-];
-const _PLACEHOLDER_PRICE_ACTION = [
-  { icon: "layers"  as const, text: "NO ACTIVE SIGNAL FOR THIS INSTRUMENT.", bold: undefined },
-  { icon: "layers2" as const, text: "SIGNAL WILL APPEAR WHEN STRATEGY IDENTIFIES A SETUP.", bold: undefined },
-  { icon: "zoom"    as const, text: "MARKET SCANNING IN PROGRESS.", bold: undefined },
-];
+// Placeholder rows removed — the panels stay blank (just the section-header
+// icons) until a live setup is displayed, then show only that setup's data.
 
 // ─── Icon helpers ─────────────────────────────────────────────────────────────
 function LayersIcon({ color }: { color: string }) {
@@ -421,10 +404,12 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
   // Transform DB signal into display-ready structure; null = no signal
   const data = signalToDisplayData(rawSignal ?? null);
 
-  // Fallback display values used when data is null (no signal)
-  const displayContext    = data?.context     ?? _PLACEHOLDER_CONTEXT;
-  const displayTech       = data?.tech        ?? _PLACEHOLDER_TECH;
-  const displayPriceAction = data?.priceAction ?? _PLACEHOLDER_PRICE_ACTION;
+  // Dynamic panels: each one tells ONLY the story of an active setup. With no
+  // signal they're blank (just the section-header icons) — no placeholder rows,
+  // no "—" filler. With a signal, only the data-points that actually exist show.
+  const displayContext     = data ? data.context.filter(r => r.value !== "—") : [];
+  const displayTech        = data ? data.tech.filter(r => r.value !== "—") : [];
+  const displayPriceAction = data ? data.priceAction.filter(p => !/AWAITING FURTHER CONFIRMATION/i.test(p.text)) : [];
 
   const filtered = sidebarInstruments.filter(i =>
     i.symbol.toLowerCase().includes(search.toLowerCase())
@@ -535,9 +520,9 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
                     {row.loading
                       ? <Loader2 size={10} color="#f59e0b" style={{ animation: "spin 1.5s linear infinite" }} />
                       : <ChevronRight size={10} color={C.dim} />}
-                    <span style={{ fontSize: 9, fontWeight: 700, color: C.muted, letterSpacing: "0.08em" }}>{row.label}</span>
+                    <span style={{ fontSize: 9, fontWeight: 700, color: "#22d3a5", letterSpacing: "0.08em" }}>{row.label}</span>
                   </div>
-                  <span style={{ fontSize: 9, fontWeight: 800, color: row.color, letterSpacing: "0.1em", display: "inline-block", maxWidth: "62%", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", textAlign: "right" }}>{row.value}</span>
+                  <span style={{ fontSize: 9, fontWeight: 800, color: "#22d3a5", letterSpacing: "0.1em", display: "inline-block", maxWidth: "62%", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", textAlign: "right" }}>{row.value}</span>
                 </div>
               ))}
             </div>
@@ -552,9 +537,9 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
                 <div key={i} className="ctx-row" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 4px", borderRadius: 3 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                     <ChevronRight size={10} color={C.dim} />
-                    <span style={{ fontSize: 9, fontWeight: 700, color: C.muted, letterSpacing: "0.08em" }}>{row.label}</span>
+                    <span style={{ fontSize: 9, fontWeight: 700, color: "#22d3a5", letterSpacing: "0.08em" }}>{row.label}</span>
                   </div>
-                  <span style={{ fontSize: 9, fontWeight: 800, color: row.color, letterSpacing: "0.1em", display: "inline-block", maxWidth: "62%", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", textAlign: "right" }}>{row.value}</span>
+                  <span style={{ fontSize: 9, fontWeight: 800, color: "#22d3a5", letterSpacing: "0.1em", display: "inline-block", maxWidth: "62%", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", textAlign: "right" }}>{row.value}</span>
                 </div>
               ))}
             </div>
@@ -573,7 +558,7 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
                         ? <ZoomIcon color="#f59e0b" />
                         : <LayersIcon color={item.icon === "layers" ? "#3b82f6" : "#3b82f6"} />}
                     </div>
-                    <p style={{ fontSize: 9, fontWeight: 600, color: C.muted, letterSpacing: "0.06em", lineHeight: 1.7, margin: 0 }}>
+                    <p style={{ fontSize: 9, fontWeight: 600, color: "#22d3a5", letterSpacing: "0.06em", lineHeight: 1.7, margin: 0 }}>
                       {boldify(item.text, item.bold)}
                     </p>
                   </div>
