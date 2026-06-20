@@ -1561,35 +1561,47 @@ function CopierWizard({ onBack, onOpenDashboard }: { onBack: () => void; onOpenD
               <span className="text-[10px] font-mono text-slate-600 uppercase tracking-widest hidden sm:block">TradeSync Terminal</span>
               <span className="text-[10px] font-mono text-slate-600 uppercase tracking-widest sm:hidden">TradeSync</span>
             </div>
-            <div className="flex items-center gap-2">
-              {/* Manage dashboards */}
-              <div className="hidden md:flex items-center gap-1.5 mr-3 pr-3 border-r border-white/10">
-                <button onClick={() => onOpenDashboard('provider')}
-                  className="inline-flex items-center gap-1.5 text-[9px] uppercase tracking-widest px-3 py-1.5 border border-white/10 text-slate-500 hover:border-blue-500/40 hover:text-blue-400 hover:bg-blue-500/5 transition-colors">
-                  <Radio size={10} /> Manage Provider
+            <div className="flex items-center gap-2 md:gap-3">
+              {/* Role segmented control — primary mode switch */}
+              <div className="hidden sm:flex items-center gap-1 p-1 rounded-lg bg-white/[0.03] border border-white/10">
+                {[
+                  { id: 'follower', label: 'Follower',  Icon: Users },
+                  { id: 'provider', label: 'Provider',  Icon: Radio },
+                  { id: 'self',     label: 'Self-Copy', Icon: GitFork },
+                  { id: 'telegram', label: 'Telegram',  Icon: Send },
+                ].map(({ id, label, Icon }) => {
+                  const on = data.role === id;
+                  return (
+                    <button key={id} title={label} onClick={() => { setData({ ...data, role: id }); setStep(0); }}
+                      className={`inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider px-2.5 md:px-3 py-1.5 rounded-md transition-all duration-200
+                        ${on ? 'bg-blue-500 text-white shadow-[0_0_12px_rgba(59,130,246,0.45)]'
+                             : 'text-slate-400 hover:text-white hover:bg-white/[0.06]'}`}>
+                      <Icon size={12} /> <span className="hidden lg:inline">{label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Manage dashboards — secondary */}
+              <div className="hidden md:flex items-center gap-1.5 pl-3 border-l border-white/10">
+                <button onClick={() => onOpenDashboard('provider')} title="Open your provider dashboard"
+                  className="inline-flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wider px-3 py-1.5 rounded-md border border-white/10 text-slate-400 hover:border-blue-500/40 hover:text-blue-300 hover:bg-blue-500/5 transition-all duration-200">
+                  <Radio size={11} /> Providers
                 </button>
-                <button onClick={() => onOpenDashboard('follower')}
-                  className="inline-flex items-center gap-1.5 text-[9px] uppercase tracking-widest px-3 py-1.5 border border-white/10 text-slate-500 hover:border-blue-500/40 hover:text-blue-400 hover:bg-blue-500/5 transition-colors">
-                  <Users size={10} /> Manage Follower
+                <button onClick={() => onOpenDashboard('follower')} title="Open your follower dashboard"
+                  className="inline-flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wider px-3 py-1.5 rounded-md border border-white/10 text-slate-400 hover:border-blue-500/40 hover:text-blue-300 hover:bg-blue-500/5 transition-all duration-200">
+                  <Users size={11} /> Followers
                 </button>
               </div>
-              {/* Role tabs */}
-              <div className="hidden sm:flex items-center gap-1.5">
-                {['follower','provider','self','telegram'].map(r => (
-                  <span key={r} className={`text-[9px] uppercase tracking-widest px-2 py-1 border transition-colors cursor-pointer
-                    ${data.role===r?'border-blue-500/40 text-blue-400 bg-blue-500/5':'border-white/5 text-slate-700 hover:text-slate-500'}`}
-                    onClick={() => { setData({...data,role:r}); setStep(0); }}>
-                    {r}
-                  </span>
-                ))}
-              </div>
-              {/* Back button */}
-              <button onClick={onBack}
-                className="ml-3 text-[9px] uppercase tracking-widest px-3 py-1.5 border border-white/10 text-slate-600 hover:border-white/30 hover:text-slate-300 transition-colors">
-                ← Back
+
+              {/* Back */}
+              <button onClick={onBack} title="Back to Trade Sync home"
+                className="inline-flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wider px-2.5 md:px-3 py-1.5 rounded-md text-slate-500 hover:text-white hover:bg-white/[0.06] transition-all duration-200">
+                <ArrowRight size={12} className="rotate-180" /> <span className="hidden lg:inline">Back</span>
               </button>
+
               {/* Hamburger — mobile */}
-              <button className="md:hidden p-1.5 text-slate-500 hover:text-white transition-colors" onClick={() => setSidebarOpen(true)}>
+              <button className="md:hidden p-1.5 text-slate-400 hover:text-white transition-colors" onClick={() => setSidebarOpen(true)}>
                 <Menu size={18} />
               </button>
             </div>
@@ -1597,13 +1609,30 @@ function CopierWizard({ onBack, onOpenDashboard }: { onBack: () => void; onOpenD
 
           {/* Mobile role switcher */}
           <div className="flex sm:hidden items-center gap-1.5 px-4 py-2 border-b border-white/5 overflow-x-auto hide-scrollbar flex-shrink-0">
-            {['follower','provider','self','telegram'].map(r => (
-              <span key={r} className={`text-[9px] uppercase tracking-widest px-2 py-1.5 border transition-colors cursor-pointer flex-shrink-0
-                ${data.role===r?'border-blue-500/40 text-blue-400 bg-blue-500/5':'border-white/5 text-slate-700'}`}
-                onClick={() => { setData({...data,role:r}); setStep(0); }}>
-                {r}
-              </span>
-            ))}
+            {[
+              { id: 'follower', label: 'Follower',  Icon: Users },
+              { id: 'provider', label: 'Provider',  Icon: Radio },
+              { id: 'self',     label: 'Self',      Icon: GitFork },
+              { id: 'telegram', label: 'Telegram',  Icon: Send },
+            ].map(({ id, label, Icon }) => {
+              const on = data.role === id;
+              return (
+                <button key={id} onClick={() => { setData({ ...data, role: id }); setStep(0); }}
+                  className={`inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider px-2.5 py-1.5 rounded-md flex-shrink-0 transition-all
+                    ${on ? 'bg-blue-500 text-white' : 'text-slate-400 bg-white/[0.04]'}`}>
+                  <Icon size={11} /> {label}
+                </button>
+              );
+            })}
+            <span className="w-px h-5 bg-white/10 mx-1 flex-shrink-0" />
+            <button onClick={() => onOpenDashboard('provider')}
+              className="inline-flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wider px-2.5 py-1.5 rounded-md border border-white/10 text-slate-400 flex-shrink-0">
+              <Radio size={11} /> Providers
+            </button>
+            <button onClick={() => onOpenDashboard('follower')}
+              className="inline-flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wider px-2.5 py-1.5 rounded-md border border-white/10 text-slate-400 flex-shrink-0">
+              <Users size={11} /> Followers
+            </button>
           </div>
 
           {/* CONTENT */}
