@@ -16,12 +16,9 @@ const FONTS = `@import url('https://fonts.googleapis.com/css2?family=Plus+Jakart
 // ─── Step Definitions ─────────────────────────────────────────────────────────
 const STEPS_FOLLOWER = [
   { id: 'role',    label: 'Identity', icon: User },
-  { id: 'connect', label: 'Broker',   icon: Globe },
+  { id: 'connect', label: 'Account',  icon: Globe },
   { id: 'link',    label: 'Provider', icon: Link2 },
-  { id: 'filters', label: 'Filters',  icon: Filter },
   { id: 'copy',    label: 'Engine',   icon: Settings2 },
-  { id: 'protect', label: 'Shield',   icon: Shield },
-  { id: 'risk',    label: 'Risk',     icon: AlertTriangle },
   { id: 'go-live', label: 'Live',     icon: Rocket },
 ];
 const STEPS_PROVIDER = [
@@ -35,8 +32,7 @@ const STEPS_PROVIDER = [
 ];
 const STEPS_SELF = [
   { id: 'role',     label: 'Identity', icon: User },
-  { id: 'connect',  label: 'Source',   icon: Globe },
-  { id: 'connect2', label: 'Target',   icon: Globe },
+  { id: 'accounts', label: 'Accounts', icon: GitFork },
   { id: 'copy',     label: 'Engine',   icon: Settings2 },
   { id: 'go-live',  label: 'Live',     icon: Rocket },
 ];
@@ -623,6 +619,29 @@ const StepConnect2 = ({ data, setData }: any) => {
   });
   return <StepConnect data={inner} setData={setInner} label="Target Account" />;
 };
+
+// Self-copy: pick source + target connected cTrader accounts on one screen.
+const StepSelfAccounts = ({ data, setData }: any) => (
+  <div className="space-y-6 md:space-y-8">
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-6">
+      <div className="border border-white/5 bg-white/[0.01] p-5 md:p-6 rounded-sm">
+        <div className="flex items-center gap-2 mb-4">
+          <span className="text-[9px] font-bold text-blue-300 uppercase tracking-widest bg-blue-500/10 px-2 py-0.5 rounded-full">Source</span>
+          <span className="text-[11px] text-slate-500">copy from</span>
+        </div>
+        <CTraderAccountPicker value={data.brokerAccountId} onChange={(id: string) => setData({ ...data, platform: 'cTrader', brokerAccountId: id })} label="Source cTrader account" />
+      </div>
+      <div className="border border-white/5 bg-white/[0.01] p-5 md:p-6 rounded-sm">
+        <div className="flex items-center gap-2 mb-4">
+          <span className="text-[9px] font-bold text-emerald-300 uppercase tracking-widest bg-emerald-500/10 px-2 py-0.5 rounded-full">Target</span>
+          <span className="text-[11px] text-slate-500">copy to</span>
+        </div>
+        <CTraderAccountPicker value={data.brokerAccountId2} onChange={(id: string) => setData({ ...data, platform2: 'cTrader', brokerAccountId2: id })} label="Target cTrader account" />
+      </div>
+    </div>
+    <InfoBox color="blue">Every trade on the source mirrors to the target in real time. Pick two different cTrader accounts — both connected on the Accounts page.</InfoBox>
+  </div>
+);
 
 const StepMapping = ({ data, setData }: any) => {
   const copyAll = data.copyAllSymbols ?? true;
@@ -1383,7 +1402,7 @@ const StepGoLive = ({ data, setData, role, onReset, onHome, providers }: any) =>
 
 // ─── Step Titles ──────────────────────────────────────────────────────────────
 const STEP_TITLES: any = {
-  role:'Define your role.', connect:'Terminal Access', connect2:'Target Account',
+  role:'Define your role.', connect:'Terminal Access', connect2:'Target Account', accounts:'Source & Target',
   link:'Bridge Linkage', filters:'Copy Filters', copy:'Lot Engine',
   protect:'Protection Shield', risk:'Risk Disclosure', strategy:'Your Strategy',
   limits:'Signal Limits', notif:'Notifications', mapping:'Symbol Mapping',
@@ -1435,6 +1454,7 @@ function CopierWizard({ onBack, onOpenDashboard }: { onBack: () => void; onOpenD
       case 'role':       return <StepRole          data={data} setData={setData} onNext={handleNext} />;
       case 'connect':    return <StepConnect       data={data} setData={setData} label={data.role==='self'?'Source Account':'Trading Account'} />;
       case 'connect2':   return <StepConnect2      data={data} setData={setData} />;
+      case 'accounts':   return <StepSelfAccounts  data={data} setData={setData} />;
       case 'link':       return <StepLink          data={data} setData={setData} providers={providers} providersLoading={providersLoading} />;
       case 'filters':    return <StepFilters       data={data} setData={setData} />;
       case 'copy':       return <StepCopy          data={data} setData={setData} />;
