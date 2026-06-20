@@ -7,6 +7,8 @@ import {
 } from 'lucide-react';
 import { PiInfoFill } from 'react-icons/pi';
 import CopyManagementDashboard from '@/components/CopyManagementDashboard';
+import CTraderAccountPicker from '@/components/copy/CTraderAccountPicker';
+import { apiRequest } from '@/lib/queryClient';
 
 // ─── Fonts ────────────────────────────────────────────────────────────────────
 const FONTS = `@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;800&family=JetBrains+Mono:wght@400;700&display=swap');`;
@@ -255,7 +257,9 @@ const StepConnect = ({ data, setData, label = "Trading Account" }: any) => (
           ))}
         </div>
       </div>
-      {data.platform==='Proprietary' ? (
+      {data.platform==='cTrader' ? (
+        <CTraderAccountPicker value={data.brokerAccountId} onChange={(id: string) => setData({ ...data, brokerAccountId: id })} label={`${label} (cTrader)`} />
+      ) : data.platform==='Proprietary' ? (
         <div className="space-y-6 md:space-y-8">
           <TInput label="Broker Platform Name" placeholder="e.g. ThinkTrader, Oanda Desktop" value={data.propriBrokerName??''} onChange={(e:any)=>setData({...data,propriBrokerName:e.target.value})} />
           <TInput label="API Endpoint (Optional)" placeholder="https://api.broker.com/v1" value={data.propriApiEndpoint??''} onChange={(e:any)=>setData({...data,propriApiEndpoint:e.target.value})} />
@@ -574,23 +578,25 @@ const StepProviderNotif = ({ data, setData }: any) => (
 const StepConnect2 = ({ data, setData }: any) => {
   const inner = {
     ...data,
-    platform:     data.platform2     ?? 'MT5',
-    nickname:     data.nickname2     ?? '',
-    brokerServer: data.brokerServer2 ?? '',
-    loginId:      data.loginId2      ?? '',
-    password:     data.password2     ?? '',
-    symbolPrefix: data.symbolPrefix2 ?? '',
-    symbolSuffix: data.symbolSuffix2 ?? '',
+    platform:        data.platform2        ?? 'MT5',
+    nickname:        data.nickname2        ?? '',
+    brokerServer:    data.brokerServer2    ?? '',
+    loginId:         data.loginId2         ?? '',
+    password:        data.password2        ?? '',
+    symbolPrefix:    data.symbolPrefix2    ?? '',
+    symbolSuffix:    data.symbolSuffix2    ?? '',
+    brokerAccountId: data.brokerAccountId2 ?? '',
   };
   const setInner = (d: any) => setData({
     ...data,
-    platform2:     d.platform,
-    nickname2:     d.nickname,
-    brokerServer2: d.brokerServer,
-    loginId2:      d.loginId,
-    password2:     d.password,
-    symbolPrefix2: d.symbolPrefix,
-    symbolSuffix2: d.symbolSuffix,
+    platform2:        d.platform,
+    nickname2:        d.nickname,
+    brokerServer2:    d.brokerServer,
+    loginId2:         d.loginId,
+    password2:        d.password,
+    symbolPrefix2:    d.symbolPrefix,
+    symbolSuffix2:    d.symbolSuffix,
+    brokerAccountId2: d.brokerAccountId,
   });
   return <StepConnect data={inner} setData={setInner} label="Target Account" />;
 };
@@ -969,6 +975,44 @@ function buildDeployPayload(data: any) {
   };
 }
 
+/**
+ * Submit the copy configuration. cTrader (OAuth/API) accounts are connected on the
+ * Accounts page and wired through the broker-account endpoints; MT5 / Telegram /
+ * Proprietary keep the legacy deploy path. Every call goes through apiRequest so
+ * the Supabase bearer token is attached (the old header-less fetch always 401'd).
+ */
+async function deployCopy(data: any): Promise<any> {
+  const isApiPlatform = String(data.platform || '').toLowerCase() === 'ctrader';
+
+  if (!isApiPlatform) {
+    const res = await apiRequest('POST', '/api/copy/deploy', buildDeployPayload(data));
+    return res.json();
+  }
+
+  if (!data.brokerAccountId) throw new Error('Select a connected cTrader account first.');
+  const p = buildDeployPayload(data);
+
+  if (data.role === 'provider') {
+    const res = await apiRequest('POST', `/api/broker-accounts/${data.brokerAccountId}/register-as-provider`, p.masterConfig);
+    return res.json();
+  }
+
+  if (data.role === 'self') {
+    if (!data.brokerAccountId2) throw new Error('Select a target cTrader account.');
+    const { masterId, ...followerCfg } = p.followerConfig;
+    const res = await apiRequest('POST', '/api/copy/self-copy', {
+      sourceBrokerAccountId: data.brokerAccountId,
+      targetBrokerAccountId: data.brokerAccountId2,
+      ...followerCfg,
+    });
+    return res.json();
+  }
+
+  // follower
+  const res = await apiRequest('POST', `/api/broker-accounts/${data.brokerAccountId}/register-as-follower`, p.followerConfig);
+  return res.json();
+}
+
 // ─── Copier Dashboard (shown after successful deployment) ─────────────────────
 const ROLE_LABELS: Record<string,string> = {
   follower:'Follower', provider:'Provider / Master', self:'Self-Copy', telegram:'Telegram Signal',
@@ -1186,16 +1230,7 @@ const StepGoLive = ({ data, setData, role, onReset, onHome, providers }: any) =>
     setStatus('deploying');
     setErrorMsg('');
     try {
-      const res = await fetch('/api/copy/deploy', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(buildDeployPayload(data)),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ message: `Server error ${res.status}` }));
-        throw new Error(err.message || `Server error ${res.status}`);
-      }
-      const result = await res.json();
+      const result = await deployCopy(data);
       setDeployResult(result);
       setStatus('success');
     } catch (err: any) {

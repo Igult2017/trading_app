@@ -41,6 +41,12 @@ COPY signal_platform ./signal_platform
 # Install signal platform Python deps (separate from the base image's server/python deps)
 RUN pip install --no-cache-dir --break-system-packages -r signal_platform/requirements.txt
 
+# Copy-trading engine (Python — runs alongside Node.js + signal platform in the same container)
+COPY copy_platform ./copy_platform
+
+# Install copy engine Python deps
+RUN pip install --no-cache-dir --break-system-packages -r copy_platform/requirements.txt
+
 # DB migration file (applied at container startup)
 COPY docker-migrate.sql /app/docker-migrate.sql
 

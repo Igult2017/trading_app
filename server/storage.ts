@@ -88,6 +88,7 @@ export interface IStorage {
 
   getCopyFollowers(userId?: string, masterId?: string): Promise<CopyFollower[]>;
   getCopyFollowerById(id: string): Promise<CopyFollower | undefined>;
+  getCopyFollowerByBrokerAccountAndMaster(brokerAccountId: string, masterId: string): Promise<CopyFollower | undefined>;
   createCopyFollower(follower: InsertCopyFollower): Promise<CopyFollower>;
   updateCopyFollower(id: string, follower: Partial<InsertCopyFollower>): Promise<CopyFollower | undefined>;
   deleteCopyFollower(id: string): Promise<boolean>;
@@ -720,11 +721,14 @@ export class DbStorage implements IStorage {
 
   async createCopyMaster(master: InsertCopyMaster): Promise<CopyMaster> {
     const r = await db.insert(copyMasters).values({ ...master, id: randomUUID() }).returning();
+    // Wake the copy engine immediately (it also polls every 60s as a fallback).
+    void db.execute(sql`SELECT pg_notify('copy_change', '')`).catch(() => {});
     return r[0];
   }
 
   async updateCopyMaster(id: string, master: Partial<InsertCopyMaster>): Promise<CopyMaster | undefined> {
     const r = await db.update(copyMasters).set({ ...master, updatedAt: new Date() }).where(eq(copyMasters.id, id)).returning();
+    void db.execute(sql`SELECT pg_notify('copy_change', '')`).catch(() => {});
     return r[0];
   }
 
@@ -759,6 +763,12 @@ export class DbStorage implements IStorage {
 
   async getCopyFollowerById(id: string): Promise<CopyFollower | undefined> {
     const r = await db.select().from(copyFollowers).where(eq(copyFollowers.id, id)).limit(1);
+    return r[0];
+  }
+
+  async getCopyFollowerByBrokerAccountAndMaster(brokerAccountId: string, masterId: string): Promise<CopyFollower | undefined> {
+    const r = await db.select().from(copyFollowers)
+      .where(and(eq((copyFollowers as any).brokerAccountId, brokerAccountId), eq(copyFollowers.masterId, masterId))).limit(1);
     return r[0];
   }
 

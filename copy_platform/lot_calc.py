@@ -32,10 +32,15 @@ def calc_lots(
 
 
 def apply_direction(action: str, direction: str) -> str:
-    """Apply follower direction setting to master's trade action."""
-    if direction == "reverse":
+    """Apply follower direction setting to the master's trade action.
+
+    reverse / hedge → open the OPPOSITE side. (On a netting cTrader account a
+    hedge can net against an existing position rather than sit alongside it —
+    that is account-mode dependent; v1 opens the opposite side either way.)
+    """
+    if direction in ("reverse", "hedge"):
         return "SELL" if action == "BUY" else "BUY"
-    return action  # same | hedge — hedge is handled at execution level
+    return action  # same
 
 
 def is_symbol_allowed(symbol: str, follower) -> bool:

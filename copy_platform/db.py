@@ -28,6 +28,8 @@ class BrokerAccount(Base):
     server         = Column(Text)   # broker API URL (DXTrade) or server name (TradeLocker/MT4/5)
     is_active      = Column(Boolean)
     sync_status    = Column(Text)
+    balance        = Column(Numeric)   # last-known account balance (refreshed by Node)
+    equity         = Column(Numeric)   # last-known equity (balance ± floating P/L)
 
 
 class CopyMaster(Base):
@@ -56,6 +58,10 @@ class CopyFollower(Base):
     symbol_blacklist  = Column(JSON)
     max_open_trades   = Column(Integer)
     trade_delay_sec   = Column(Integer)
+    pause_inactive    = Column(Boolean)
+    pause_on_dd       = Column(Boolean)
+    max_dd_percent    = Column(Numeric)
+    max_daily_loss    = Column(Numeric)
     is_active         = Column(Boolean)
     risk_accepted     = Column(Boolean)
 
@@ -108,5 +114,5 @@ class CopyExecutionLog(Base):
     level       = Column(Text)   # INFO | WARN | ERROR
     event       = Column(Text)   # OPEN | CLOSE | MODIFY | SKIP | RETRY | FAIL
     message     = Column(Text)
-    metadata    = Column(JSON)
+    meta        = Column("metadata", JSON)   # 'metadata' is reserved on the ORM base; map via attr 'meta'
     created_at  = Column(DateTime, default=datetime.utcnow)

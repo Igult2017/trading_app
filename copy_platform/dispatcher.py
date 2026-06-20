@@ -13,6 +13,7 @@ from db import Session, CopyMaster, CopyFollower, BrokerAccount, \
     CopyTradeMaster, CopyTradeFollower, CopyExecutionLog
 from cred_manager import get_creds
 from lot_calc import calc_lots, apply_direction, is_symbol_allowed
+from risk_guard import check_follower_allowed
 from providers.ctrader import PositionSnapshot
 
 log = logging.getLogger("dispatcher")
@@ -91,6 +92,19 @@ async def _exec_follower(master_trade_id: str, follower: CopyFollower,
     if not creds:
         _log(fid, master_trade_id, "ERROR", "FAIL", "Could not get credentials")
         return
+
+    # Safety guard (max open trades, drawdown / loss) — only gates new OPENs.
+    allowed, skip_reason = check_follower_allowed(follower, snap, etype, broker_account)
+    if not allowed:
+        _log(fid, master_trade_id, "INFO", "SKIP", skip_reason or "blocked by risk guard")
+        return
+
+    # Optional per-follower delay before mirroring a new entry.
+    if etype == "OPEN" and follower.trade_delay_sec:
+        try:
+            await asyncio.sleep(int(follower.trade_delay_sec))
+        except (TypeError, ValueError):
+            pass
 
     lots     = calc_lots(follower, snap.volume_lots)
     action   = apply_direction(snap.action, follower.direction or "same")

@@ -7,6 +7,7 @@ Auth flow: ApplicationAuth → AccountAuth → subscribe → receive ProtoOAExec
 """
 import asyncio
 import logging
+import time
 from dataclasses import dataclass
 from typing import Callable, Awaitable
 
@@ -21,7 +22,7 @@ from ctrader_open_api.messages.OpenApiMessages_pb2 import (
 )
 
 from config import CT_LIVE_HOST, CT_DEMO_HOST, CT_PORT, RECONNECT_DELAY, \
-    CTRADER_CLIENT_ID, CTRADER_CLIENT_SECRET
+    RECONCILE_INTERVAL, CTRADER_CLIENT_ID, CTRADER_CLIENT_SECRET
 
 log = logging.getLogger("provider.ctrader")
 
@@ -50,6 +51,10 @@ class CTraderProvider:
         self.on_event     = on_event
         self._positions: dict[int, PositionSnapshot] = {}
         self._authed      = False
+        self._reconciled  = False
+        self._reconcile_scheduled = False
+        self._connected   = False
+        self._disconnected_since: float | None = None
         self._loop        = asyncio.get_running_loop()
 
         host = CT_LIVE_HOST if account_type == "live" else CT_DEMO_HOST
@@ -67,9 +72,27 @@ class CTraderProvider:
     def stop(self) -> None:
         self.client.stopService()
 
+    def needs_recycle(self, max_down: float = 300.0) -> bool:
+        """True if disconnected longer than max_down — the engine supervisor recycles it."""
+        return (not self._connected and self._disconnected_since is not None
+                and (time.monotonic() - self._disconnected_since) > max_down)
+
+    def _request_reconcile(self) -> None:
+        """Periodic safety net — re-fetch open positions to catch missed closes."""
+        if self._authed:
+            try:
+                req = ProtoOAReconcileReq()
+                req.ctidTraderAccountId = int(self.creds["ctraderId"])
+                self.client.send(req)
+            except Exception as e:
+                log.warning(f"[{self.master_id}] reconcile request failed: {e}")
+        self._loop.call_later(RECONCILE_INTERVAL, self._request_reconcile)
+
     # ── Twisted callbacks ──────────────────────────────────────────────────────
 
     def _on_connected(self, client):
+        self._connected = True
+        self._disconnected_since = None
         req = ProtoOAApplicationAuthReq()
         req.clientId     = CTRADER_CLIENT_ID
         req.clientSecret = CTRADER_CLIENT_SECRET
@@ -78,6 +101,10 @@ class CTraderProvider:
     def _on_disconnected(self, client, reason):
         log.warning(f"[{self.master_id}] disconnected: {reason}. Reconnecting in {RECONNECT_DELAY}s")
         self._authed = False
+        self._reconciled = False
+        self._connected = False
+        if self._disconnected_since is None:
+            self._disconnected_since = time.monotonic()
         self._loop.call_later(RECONNECT_DELAY, self.start)
 
     def _on_message(self, client, message):
@@ -95,13 +122,34 @@ class CTraderProvider:
             req = ProtoOAReconcileReq()
             req.ctidTraderAccountId = int(self.creds["ctraderId"])
             client.send(req)
+            if not self._reconcile_scheduled:   # one chain for the provider's lifetime
+                self._reconcile_scheduled = True
+                self._loop.call_later(RECONCILE_INTERVAL, self._request_reconcile)
 
         elif ptype == ProtoOAReconcileRes().payloadType:
             res = Protobuf.extract(message, ProtoOAReconcileRes)
+            fresh: dict[int, PositionSnapshot] = {}
             for pos in res.position:
                 snap = self._snap(pos)
-                self._positions[snap.position_id] = snap
-            log.info(f"[{self.master_id}] loaded {len(self._positions)} open positions")
+                fresh[snap.position_id] = snap
+            if not self._reconciled:
+                # Initial load after auth — record, no diff.
+                self._positions = fresh
+                self._reconciled = True
+                log.info(f"[{self.master_id}] loaded {len(self._positions)} open positions")
+            else:
+                # Periodic safety reconcile — a position that vanished was closed on
+                # the master (possibly via a missed event); emit a synthetic CLOSE.
+                for pid, prev in list(self._positions.items()):
+                    if pid not in fresh:
+                        self._positions.pop(pid, None)
+                        log.info(f"[{self.master_id}] reconcile: position {pid} closed externally")
+                        asyncio.ensure_future(
+                            self.on_event({"type": "CLOSE", "snap": prev}, self.master_id))
+                # Track newly-seen positions silently — do NOT emit OPEN (the live
+                # execution event already handles opens; avoids double-copying).
+                for pid, snap in fresh.items():
+                    self._positions.setdefault(pid, snap)
 
         elif ptype == ProtoOAExecutionEvent().payloadType:
             event = Protobuf.extract(message, ProtoOAExecutionEvent)

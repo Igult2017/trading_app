@@ -2686,9 +2686,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!user) return res.status(401).json({ error: "Unauthorized" });
 
       const { masterId } = req.params;
-      const { accountId, lotMode, lotMultiplier, fixedLot, riskPercent } = req.body;
+      const { accountId, brokerAccountId, lotMode, lotMultiplier, fixedLot, riskPercent } = req.body;
 
-      if (!accountId) return res.status(400).json({ error: "accountId is required" });
+      if (!accountId && !brokerAccountId) return res.status(400).json({ error: "accountId or brokerAccountId is required" });
 
       // Verify master exists and is publicly visible
       const masterRow = await pool.query<{
@@ -2699,16 +2699,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const master = masterRow.rows[0];
       if (!master.is_public) return res.status(403).json({ error: "This provider is not public" });
 
-      // Prevent duplicate subscriptions
+      // Prevent duplicate subscriptions (match on whichever account ref was supplied —
+      // brokerAccountId for OAuth/API accounts, accountId for legacy copy_accounts).
+      const dupCol = brokerAccountId ? "broker_account_id" : "account_id";
       const existing = await pool.query(
-        `SELECT id FROM copy_followers WHERE master_id = $1 AND user_id = $2 AND account_id = $3`,
-        [masterId, user.id, accountId],
+        `SELECT id FROM copy_followers WHERE master_id = $1 AND user_id = $2 AND ${dupCol} = $3`,
+        [masterId, user.id, brokerAccountId || accountId],
       );
       if (existing.rows.length) return res.status(409).json({ error: "Already subscribed with this account" });
 
       const follower = await storage.createCopyFollower({
-        userId:        user.id,
-        accountId,
+        userId:           user.id,
+        accountId:        brokerAccountId ? undefined : accountId,
+        brokerAccountId:  brokerAccountId || undefined,
         masterId,
         lotMode:       lotMode       || "mult",
         lotMultiplier: lotMultiplier || "1.0",
@@ -2716,7 +2719,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         riskPercent:   riskPercent   || "1.0",
         isActive:      !master.require_approval,  // auto-activate unless approval required
         riskAccepted:  false,
-      });
+      } as any);
 
       return res.status(201).json({
         follower,
@@ -2791,6 +2794,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = auth.id;
       const { role, accountConfig, masterConfig, followerConfig, telegramConfig } = req.body;
       if (!role) return res.status(400).json({ error: "role is required" });
+
+      // API/OAuth platforms (cTrader, etc.) connect on the Accounts page and are wired
+      // via register-as-provider / register-as-follower / self-copy — never this legacy
+      // copy_accounts path, which stores a typed password the engine can't trade with.
+      if (API_PLATFORMS.has(String(accountConfig?.platform || "").toLowerCase())) {
+        return res.status(400).json({ error: "Connect this platform on the Accounts page, then enable copying — the credential form doesn't work for API/OAuth platforms." });
+      }
 
       // 1. Save broker account
       const ac = accountConfig || {};
@@ -3637,7 +3647,7 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
     const existing = await storage.getCopyMasterByBrokerAccountId(account.id);
     if (existing) return res.json({ master: existing, created: false });
 
-    const { strategyName, description, tradingStyle, primaryMarket, isPublic } = req.body as Record<string, any>;
+    const { strategyName, description, tradingStyle, primaryMarket, isPublic, requireApproval } = req.body as Record<string, any>;
 
     const master = await storage.createCopyMaster({
       userId:           user.id,
@@ -3648,12 +3658,149 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
       tradingStyle:     tradingStyle ?? 'intraday',
       primaryMarket:    primaryMarket ?? 'fx',
       isPublic:         isPublic !== false,
-      requireApproval:  false,
+      requireApproval:  requireApproval === true,
       showOpenTrades:   true,
       isActive:         true,
     });
 
     return res.status(201).json({ master, created: true });
+  });
+
+  /**
+   * Register a connected broker account as a copy-trading FOLLOWER of a master.
+   * Creates (or returns existing) copy_followers row linked to the broker account.
+   * The follower account places the copied orders, so it must be connected with
+   * trading access (cTrader OAuth). The engine picks it up via NOTIFY / 60s poll.
+   */
+  app.post("/api/broker-accounts/:id/register-as-follower", async (req: Request, res: Response) => {
+    const user = await verifyToken(req.headers.authorization);
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
+
+    const account = await storage.getBrokerAccountById(req.params.id);
+    if (!account || account.userId !== user.id) return res.status(404).json({ error: "Not found" });
+    if (!API_PLATFORMS.has(account.platform.toLowerCase())) {
+      return res.status(400).json({ error: "Only API-connected accounts can copy trades" });
+    }
+
+    const b = req.body as Record<string, any>;
+    if (!b.masterId) return res.status(400).json({ error: "masterId is required" });
+
+    const master = await storage.getCopyMasterById(b.masterId);
+    if (!master) return res.status(404).json({ error: "Master not found" });
+    // A follower can join a public master, or the user's own master (self-copy).
+    if (!master.isPublic && master.userId !== user.id) {
+      return res.status(403).json({ error: "This provider is not public" });
+    }
+    if ((master as any).brokerAccountId === account.id) {
+      return res.status(400).json({ error: "An account cannot copy itself" });
+    }
+
+    // Idempotent — one follower row per (account, master)
+    const existing = await storage.getCopyFollowerByBrokerAccountAndMaster(account.id, b.masterId);
+    if (existing) return res.json({ follower: existing, created: false });
+
+    const follower = await storage.createCopyFollower({
+      userId:          user.id,
+      brokerAccountId: account.id,
+      masterId:        b.masterId,
+      lotMode:         b.lotMode       || "mult",
+      lotMultiplier:   b.lotMultiplier || "1.0",
+      fixedLot:        b.fixedLot      ?? null,
+      riskPercent:     b.riskPercent   || "1.0",
+      direction:       b.direction     || "same",
+      symbolWhitelist: b.symbolWhitelist ?? null,
+      symbolBlacklist: b.symbolBlacklist ?? null,
+      maxOpenTrades:   b.maxOpenTrades ?? 10,
+      tradeDelaySec:   b.tradeDelaySec ?? 0,
+      pauseInactive:   b.pauseInactive ?? true,
+      pauseOnDD:       b.pauseOnDD ?? true,
+      maxDdPercent:    b.maxDdPercent ?? null,
+      maxDailyLoss:    b.maxDailyLoss ?? null,
+      isActive:        master.requireApproval ? false : true,
+      riskAccepted:    b.riskAccepted ?? false,
+      deployedAt:      new Date(),
+    } as any);
+
+    return res.status(201).json({
+      follower, created: true,
+      requiresApproval: master.requireApproval,
+      message: master.requireApproval
+        ? "Copy request submitted — awaiting provider approval"
+        : "Copying — trades will mirror within seconds",
+    });
+  });
+
+  /**
+   * Self-copy: mirror one of the user's own accounts (source) onto another (target).
+   * Creates/returns a private master for the source + a follower for the target.
+   * Both carry broker_account_id (OAuth) — no legacy copy_accounts row. Idempotent.
+   */
+  app.post("/api/copy/self-copy", async (req: Request, res: Response) => {
+    const user = await verifyToken(req.headers.authorization);
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
+
+    const b = req.body as Record<string, any>;
+    const { sourceBrokerAccountId, targetBrokerAccountId } = b;
+    if (!sourceBrokerAccountId || !targetBrokerAccountId) {
+      return res.status(400).json({ error: "sourceBrokerAccountId and targetBrokerAccountId are required" });
+    }
+    if (sourceBrokerAccountId === targetBrokerAccountId) {
+      return res.status(400).json({ error: "Source and target must be different accounts" });
+    }
+
+    const source = await storage.getBrokerAccountById(sourceBrokerAccountId);
+    const target = await storage.getBrokerAccountById(targetBrokerAccountId);
+    if (!source || source.userId !== user.id) return res.status(404).json({ error: "Source account not found" });
+    if (!target || target.userId !== user.id) return res.status(404).json({ error: "Target account not found" });
+    if (!API_PLATFORMS.has(source.platform.toLowerCase()) || !API_PLATFORMS.has(target.platform.toLowerCase())) {
+      return res.status(400).json({ error: "Both accounts must be API-connected (OAuth)" });
+    }
+
+    // 1. Private master from the source account (idempotent)
+    let master = await storage.getCopyMasterByBrokerAccountId(source.id);
+    if (!master) {
+      master = await storage.createCopyMaster({
+        userId:          user.id,
+        brokerAccountId: source.id,
+        sourceType:      source.platform.toLowerCase(),
+        strategyName:    `${source.name} (self-copy)`,
+        description:     'Self-copy source',
+        tradingStyle:    'intraday',
+        primaryMarket:   'fx',
+        isPublic:        false,
+        requireApproval: false,
+        showOpenTrades:  false,
+        isActive:        true,
+      });
+    }
+
+    // 2. Follower from the target account (idempotent)
+    let follower = await storage.getCopyFollowerByBrokerAccountAndMaster(target.id, master.id);
+    if (!follower) {
+      follower = await storage.createCopyFollower({
+        userId:          user.id,
+        brokerAccountId: target.id,
+        masterId:        master.id,
+        lotMode:         b.lotMode       || "mult",
+        lotMultiplier:   b.lotMultiplier || "1.0",
+        fixedLot:        b.fixedLot      ?? null,
+        riskPercent:     b.riskPercent   || "1.0",
+        direction:       b.direction     || "same",
+        symbolWhitelist: b.symbolWhitelist ?? null,
+        symbolBlacklist: b.symbolBlacklist ?? null,
+        maxOpenTrades:   b.maxOpenTrades ?? 10,
+        tradeDelaySec:   b.tradeDelaySec ?? 0,
+        pauseInactive:   b.pauseInactive ?? true,
+        pauseOnDD:       b.pauseOnDD ?? true,
+        maxDdPercent:    b.maxDdPercent ?? null,
+        maxDailyLoss:    b.maxDailyLoss ?? null,
+        isActive:        true,
+        riskAccepted:    b.riskAccepted ?? true,
+        deployedAt:      new Date(),
+      } as any);
+    }
+
+    return res.status(201).json({ master, follower, message: "Self-copy active — trades on the source mirror to the target." });
   });
 
   // ── Auth: registration setup (idempotent) ────────────────────────────────────

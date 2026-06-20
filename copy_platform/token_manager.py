@@ -20,9 +20,16 @@ async def get_ctrader_creds(broker_account: BrokerAccount) -> dict | None:
     if not creds:
         return None
 
-    # Try to refresh proactively — cTrader tokens last ~1 hour
     refresh_token = creds.get("refreshToken")
     if not refresh_token:
+        return creds
+
+    # Only refresh when the token is missing an expiry or is within 5 min of it —
+    # avoids a network round-trip on every command (cTrader tokens last ~1 hour).
+    now_ms     = int(datetime.now(timezone.utc).timestamp() * 1000)
+    expires_at = creds.get("tokenExpiresAt")
+    needs_refresh = (not expires_at) or now_ms >= (int(expires_at) - 300_000)
+    if not needs_refresh:
         return creds
 
     try:
@@ -56,9 +63,12 @@ async def _refresh_ctrader_token(refresh_token: str) -> dict | None:
             if resp.status != 200:
                 return None
             data = await resp.json()
+            expires_in = int(data.get("expires_in", 3600))
+            now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
             return {
-                "accessToken":  data["access_token"],
-                "refreshToken": data.get("refresh_token", refresh_token),
+                "accessToken":   data["access_token"],
+                "refreshToken":  data.get("refresh_token", refresh_token),
+                "tokenExpiresAt": now_ms + expires_in * 1000,
             }
 
 

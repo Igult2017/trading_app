@@ -3,14 +3,22 @@ Engine — loads all active masters from the DB, starts one provider per master,
 and polls the DB every 60 s for newly registered masters.
 """
 import asyncio
+import hashlib
 import logging
 from db import Session, CopyMaster, BrokerAccount
 from cred_manager import get_creds
 from dispatcher import dispatch
+from notify import start_listener
+from config import COPY_WORKER_INDEX, COPY_WORKER_COUNT
 
 log = logging.getLogger("engine")
 
 SUPPORTED_PLATFORMS = {"ctrader", "ct", "binance", "dxtrade", "tradelocker"}
+
+
+def _shard_of(master_id: str) -> int:
+    """Which worker owns this master (stable hash → worker index)."""
+    return int(hashlib.md5(master_id.encode()).hexdigest(), 16) % COPY_WORKER_COUNT
 
 
 def _make_provider(platform: str, master_id: str, creds: dict,
@@ -36,13 +44,32 @@ class CopyEngine:
         self._watch_task = None
 
     async def start(self) -> None:
-        log.info("[engine] starting copy engine")
+        log.info("[engine] starting copy engine (worker %d/%d)",
+                 COPY_WORKER_INDEX, COPY_WORKER_COUNT)
         await self._load_masters()
         self._watch_task = asyncio.ensure_future(self._watch_loop())
+        asyncio.ensure_future(self._supervise_loop())
+        # Instant pickup of new masters; silently falls back to the 60s poll.
+        start_listener(asyncio.get_running_loop(), self._load_masters)
 
     async def _watch_loop(self) -> None:
         while True:
             await asyncio.sleep(60)
+            await self._load_masters()
+
+    async def _supervise_loop(self) -> None:
+        """Recycle providers whose connection has been dead too long (their own
+        reconnect chain may have silently stopped), then reload to restart them."""
+        while True:
+            await asyncio.sleep(90)
+            for mid, p in list(self._providers.items()):
+                try:
+                    recycle = getattr(p, "needs_recycle", None)
+                    if recycle and recycle():
+                        log.warning(f"[engine] recycling stale provider for master {mid}")
+                        self.stop_provider(mid)
+                except Exception as e:
+                    log.warning(f"[engine] supervise error for {mid}: {e}")
             await self._load_masters()
 
     async def _load_masters(self) -> None:
@@ -60,6 +87,8 @@ class CopyEngine:
         for master in masters:
             if master.id in self._providers:
                 continue
+            if COPY_WORKER_COUNT > 1 and _shard_of(master.id) != COPY_WORKER_INDEX:
+                continue   # another worker owns this master
             if not master.broker_account_id or master.broker_account_id not in accounts:
                 log.warning(f"[engine] master {master.id}: broker account not found")
                 continue
