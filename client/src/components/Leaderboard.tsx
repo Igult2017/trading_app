@@ -20,22 +20,28 @@ interface Trader {
   growth: number[];
 }
 
+// Crisp rectangular flags from flagcdn.com — a dedicated flag CDN (sharper and
+// more reliable than the old circle-flags GitHub-Pages source, and consistent
+// with the AuthPage country picker). Uniform height + natural width, subtle
+// rounded corners and a hairline ring so light flags read on the dark card.
 const FlagCdn = ({ code, size = 28 }: { code?: string; size?: number }) => {
   const iso = countryToIso(code);
   if (!iso) return null;
+  const h = Math.round(size * 0.72);
   return (
     <img
-      src={`https://hatscripts.github.io/circle-flags/flags/${iso}.svg`}
+      src={`https://flagcdn.com/${iso.toLowerCase()}.svg`}
       alt={iso.toUpperCase()}
       title={iso.toUpperCase()}
-      width={size}
-      height={size}
+      height={h}
       style={{
-        borderRadius: '50%',
-        objectFit: 'cover',
+        height: h,
+        width: 'auto',
+        borderRadius: 3,
         display: 'block',
         flexShrink: 0,
-        boxShadow: '0 1px 4px rgba(0,0,0,0.5)',
+        border: '1px solid rgba(255,255,255,0.14)',
+        boxShadow: '0 1px 4px rgba(0,0,0,0.45)',
       }}
       onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
     />
