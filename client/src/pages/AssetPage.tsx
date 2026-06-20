@@ -607,7 +607,7 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
                 <line x1="14" y1="58" x2="54" y2="10" stroke="#5b4fcf" strokeWidth="5" strokeLinecap="round" opacity="0.9" />
               </svg>
               <span style={{
-                fontSize: 8, fontWeight: 800, color: C.heroText,
+                fontSize: 10, fontWeight: 800, color: C.heroText,
                 position: "relative", letterSpacing: "0.02em",
               }}>{data?.probability ?? 0}%</span>
             </div>
@@ -615,13 +615,13 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
             {/* Text */}
             <div style={{ flex: 1 }}>
               <div style={{
-                fontSize: 13, fontWeight: 800, color: C.heroText,
+                fontSize: 10, fontWeight: 800, color: C.heroText,
                 letterSpacing: "0.05em", marginBottom: 5,
               }}>
                 PROBABILITY: {data?.probability ?? 0}%
               </div>
               <div style={{
-                fontSize: 13, fontWeight: 600,
+                fontSize: 10, fontWeight: 600,
                 color: "#3d9fd3",
                 letterSpacing: "0.1em",
               }}>
