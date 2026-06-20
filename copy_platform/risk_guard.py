@@ -11,6 +11,12 @@ from db import Session, CopyTradeFollower, CopyFollower
 
 log = logging.getLogger("risk_guard")
 
+# Highest balance seen per follower (in-memory; rebuilds from current balance on
+# restart). cTrader exposes balance but NOT equity, so the drawdown guard measures
+# *realized* drawdown — balance fallen from its peak. (Floating/equity drawdown
+# would need a live price feed to value open positions — a future addition.)
+_peak_balance: dict[str, float] = {}
+
 
 def _open_position_count(db, follower_id: str) -> int:
     """Approximate live open positions = executed OPENs minus executed CLOSEs."""
@@ -52,15 +58,16 @@ def check_follower_allowed(follower, snap, etype: str, broker_account) -> tuple[
             if _open_position_count(db, follower.id) >= int(follower.max_open_trades):
                 return False, f"max_open_trades ({follower.max_open_trades}) reached"
 
-    # 2. Drawdown / loss guard — uses balance + equity (refreshed by Node).
-    #    Floating drawdown = (balance - equity) / balance. Degrades to a no-op
-    #    when equity isn't available yet, so it never blocks on missing data.
+    # 2. Drawdown / loss guard — realized drawdown of balance from its peak.
+    #    balance is refreshed by autoSyncService; degrades to a no-op until a
+    #    balance is known, so it never blocks on missing data.
     if getattr(follower, "pause_on_dd", False):
         balance = _to_float(getattr(broker_account, "balance", None))
-        equity  = _to_float(getattr(broker_account, "equity", None))
-        if balance and equity is not None and balance > 0:
-            floating_loss = balance - equity            # > 0 means currently down
-            dd_pct = floating_loss / balance * 100
+        if balance and balance > 0:
+            peak = max(_peak_balance.get(follower.id, balance), balance)
+            _peak_balance[follower.id] = peak
+            drop   = peak - balance                      # realized loss from the peak
+            dd_pct = (drop / peak * 100) if peak > 0 else 0.0
 
             max_dd = _to_float(follower.max_dd_percent)
             if max_dd and dd_pct >= max_dd:
@@ -68,8 +75,8 @@ def check_follower_allowed(follower, snap, etype: str, broker_account) -> tuple[
                 return False, f"drawdown {dd_pct:.1f}% >= max {max_dd}%"
 
             max_loss = _to_float(follower.max_daily_loss)
-            if max_loss and floating_loss >= max_loss:
-                _auto_pause(follower.id, f"floating loss {floating_loss:.2f} >= {max_loss}")
-                return False, f"floating loss {floating_loss:.2f} >= max {max_loss}"
+            if max_loss and drop >= max_loss:
+                _auto_pause(follower.id, f"loss {drop:.2f} from peak >= {max_loss}")
+                return False, f"loss {drop:.2f} >= max {max_loss}"
 
     return True, None
