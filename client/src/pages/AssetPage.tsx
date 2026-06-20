@@ -40,8 +40,14 @@ function parseReason(reasons: string[] | null | undefined, keyword: string): str
   if (!reasons?.length) return "—";
   const match = reasons.find(r => r.toLowerCase().includes(keyword.toLowerCase()));
   if (!match) return "—";
+  // Only surface a tidy "key: value" reading — never cram a whole free-text
+  // reason (or a duplicate of one) into the small value cell. Anything that
+  // isn't a clean 1–2 word value falls back to "—" so the row stays organized.
   const parts = match.split(/:\s*/);
-  return parts.length > 1 ? parts.slice(1).join(": ").trim().toUpperCase() : match.trim().toUpperCase();
+  if (parts.length < 2) return "—";
+  const val = parts.slice(1).join(": ").replace(/[✓✗]/g, "").trim();
+  if (!val || val.length > 14 || val.split(/\s+/).length > 2) return "—";
+  return val.toUpperCase();
 }
 
 function deriveOptimalRisk(confidence?: number | null): string {
@@ -89,7 +95,7 @@ function signalToDisplayData(sig: any | null) {
     { label: "1D TREND",      value: sig.trendDirection?.toUpperCase() || "—",        color: trendColor(sig.trendDirection) },
     { label: "4H STRUCTURE",  value: parseReason(sig.technicalReasons, "4H"),         color: valueColor(parseReason(sig.technicalReasons, "4H")) },
     { label: "1H MOMENTUM",   value: parseReason(sig.technicalReasons, "1H"),         color: valueColor(parseReason(sig.technicalReasons, "1H")) },
-    { label: "15M LIQUIDITY", value: sig.liquiditySweep ? "TAKEN" : "AVAILABLE",     color: sig.liquiditySweep ? "#f59e0b" : "#22d3a5" },
+    { label: "15M LIQUIDITY", value: sig.liquiditySweep ? "TAKEN" : "—",            color: sig.liquiditySweep ? "#f59e0b" : "#2d4a63" },
     { label: (sig.strategy?.toUpperCase() || "STRATEGY"), value: sig.orderBlockType?.toUpperCase() || "—", color: "#22d3a5" },
   ];
 
@@ -531,7 +537,7 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
                       : <ChevronRight size={10} color={C.dim} />}
                     <span style={{ fontSize: 9, fontWeight: 700, color: C.muted, letterSpacing: "0.08em" }}>{row.label}</span>
                   </div>
-                  <span style={{ fontSize: 9, fontWeight: 800, color: row.color, letterSpacing: "0.1em" }}>{row.value}</span>
+                  <span style={{ fontSize: 9, fontWeight: 800, color: row.color, letterSpacing: "0.1em", display: "inline-block", maxWidth: "62%", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", textAlign: "right" }}>{row.value}</span>
                 </div>
               ))}
             </div>
@@ -548,7 +554,7 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
                     <ChevronRight size={10} color={C.dim} />
                     <span style={{ fontSize: 9, fontWeight: 700, color: C.muted, letterSpacing: "0.08em" }}>{row.label}</span>
                   </div>
-                  <span style={{ fontSize: 9, fontWeight: 800, color: row.color, letterSpacing: "0.1em" }}>{row.value}</span>
+                  <span style={{ fontSize: 9, fontWeight: 800, color: row.color, letterSpacing: "0.1em", display: "inline-block", maxWidth: "62%", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", textAlign: "right" }}>{row.value}</span>
                 </div>
               ))}
             </div>
