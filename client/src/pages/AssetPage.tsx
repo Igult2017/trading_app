@@ -131,8 +131,16 @@ function assetClassToCategory(ac: string): Instrument["category"] {
 
 // ASSET_DATA removed — data now fetched live from /api/trading-signals
 
-// Placeholder rows removed — the panels stay blank (just the section-header
-// icons) until a live setup is displayed, then show only that setup's data.
+// Icon-only scaffolds: the panels ALWAYS render their row/line icons; the TEXT
+// (labels, values, price-action lines) fills in — in green — only when a live
+// setup provides it. No setup ⇒ icons only, no text.
+const _ICON_CTX:  ContextItem[] = Array.from({ length: 5 }, () => ({ label: "", value: "", color: "" }));
+const _ICON_TECH: TechItem[]    = Array.from({ length: 5 }, () => ({ label: "", value: "", color: "" }));
+const _ICON_PA = [
+  { icon: "layers"  as const, text: "", bold: undefined as string | undefined },
+  { icon: "layers2" as const, text: "", bold: undefined as string | undefined },
+  { icon: "zoom"    as const, text: "", bold: undefined as string | undefined },
+];
 
 // ─── Icon helpers ─────────────────────────────────────────────────────────────
 function LayersIcon({ color }: { color: string }) {
@@ -404,12 +412,11 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
   // Transform DB signal into display-ready structure; null = no signal
   const data = signalToDisplayData(rawSignal ?? null);
 
-  // Dynamic panels: each one tells ONLY the story of an active setup. With no
-  // signal they're blank (just the section-header icons) — no placeholder rows,
-  // no "—" filler. With a signal, only the data-points that actually exist show.
-  const displayContext     = data ? data.context.filter(r => r.value !== "—") : [];
-  const displayTech        = data ? data.tech.filter(r => r.value !== "—") : [];
-  const displayPriceAction = data ? data.priceAction.filter(p => !/AWAITING FURTHER CONFIRMATION/i.test(p.text)) : [];
+  // Row/line ICONS always render (scaffold); the TEXT fills in green only where a
+  // live setup actually has a data-point. No signal ⇒ icons only, no text.
+  const displayContext     = data?.context     ?? _ICON_CTX;
+  const displayTech        = data?.tech        ?? _ICON_TECH;
+  const displayPriceAction = data?.priceAction ?? _ICON_PA;
 
   const filtered = sidebarInstruments.filter(i =>
     i.symbol.toLowerCase().includes(search.toLowerCase())
@@ -514,17 +521,20 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
                 <div style={{ width: 10, height: 10, background: "#3b82f6" }} />
                 <span style={{ fontSize: 9, fontWeight: 800, color: C.muted, letterSpacing: "0.14em" }}>CONTEXT ALIGNMENT</span>
               </div>
-              {displayContext.map((row, i) => (
-                <div key={i} className="ctx-row" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 4px", borderRadius: 3 }}>
+              {displayContext.map((row, i) => {
+                const has = !!row.value && row.value !== "—";
+                return (
+                <div key={i} className="ctx-row" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 4px", borderRadius: 3, minHeight: 24 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                     {row.loading
                       ? <Loader2 size={10} color="#f59e0b" style={{ animation: "spin 1.5s linear infinite" }} />
                       : <ChevronRight size={10} color={C.dim} />}
-                    <span style={{ fontSize: 9, fontWeight: 700, color: "#22d3a5", letterSpacing: "0.08em" }}>{row.label}</span>
+                    {has && <span style={{ fontSize: 9, fontWeight: 700, color: "#22d3a5", letterSpacing: "0.08em" }}>{row.label}</span>}
                   </div>
-                  <span style={{ fontSize: 9, fontWeight: 800, color: "#22d3a5", letterSpacing: "0.1em", display: "inline-block", maxWidth: "62%", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", textAlign: "right" }}>{row.value}</span>
+                  {has && <span style={{ fontSize: 9, fontWeight: 800, color: "#22d3a5", letterSpacing: "0.1em", display: "inline-block", maxWidth: "62%", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", textAlign: "right" }}>{row.value}</span>}
                 </div>
-              ))}
+                );
+              })}
             </div>
 
             {/* Technical Confluence */}
@@ -533,15 +543,18 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
                 <div style={{ width: 10, height: 10, background: "#22d3a5" }} />
                 <span style={{ fontSize: 9, fontWeight: 800, color: C.muted, letterSpacing: "0.14em" }}>TECHNICAL CONFLUENCE</span>
               </div>
-              {displayTech.map((row, i) => (
-                <div key={i} className="ctx-row" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 4px", borderRadius: 3 }}>
+              {displayTech.map((row, i) => {
+                const has = !!row.value && row.value !== "—";
+                return (
+                <div key={i} className="ctx-row" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 4px", borderRadius: 3, minHeight: 24 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                     <ChevronRight size={10} color={C.dim} />
-                    <span style={{ fontSize: 9, fontWeight: 700, color: "#22d3a5", letterSpacing: "0.08em" }}>{row.label}</span>
+                    {has && <span style={{ fontSize: 9, fontWeight: 700, color: "#22d3a5", letterSpacing: "0.08em" }}>{row.label}</span>}
                   </div>
-                  <span style={{ fontSize: 9, fontWeight: 800, color: "#22d3a5", letterSpacing: "0.1em", display: "inline-block", maxWidth: "62%", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", textAlign: "right" }}>{row.value}</span>
+                  {has && <span style={{ fontSize: 9, fontWeight: 800, color: "#22d3a5", letterSpacing: "0.1em", display: "inline-block", maxWidth: "62%", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", textAlign: "right" }}>{row.value}</span>}
                 </div>
-              ))}
+                );
+              })}
             </div>
 
             {/* Price Action */}
@@ -551,18 +564,21 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
                 <span style={{ fontSize: 9, fontWeight: 800, color: C.muted, letterSpacing: "0.14em" }}>PRICE ACTION</span>
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                {displayPriceAction.map((item, i) => (
-                  <div key={i} style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+                {displayPriceAction.map((item, i) => {
+                  const has = !!item.text && !/AWAITING FURTHER CONFIRMATION/i.test(item.text);
+                  return (
+                  <div key={i} style={{ display: "flex", gap: 10, alignItems: "flex-start", minHeight: 18 }}>
                     <div style={{ flexShrink: 0, marginTop: 1 }}>
                       {item.icon === "zoom"
                         ? <ZoomIcon color="#f59e0b" />
                         : <LayersIcon color={item.icon === "layers" ? "#3b82f6" : "#3b82f6"} />}
                     </div>
-                    <p style={{ fontSize: 9, fontWeight: 600, color: "#22d3a5", letterSpacing: "0.06em", lineHeight: 1.7, margin: 0 }}>
+                    {has && <p style={{ fontSize: 9, fontWeight: 600, color: "#22d3a5", letterSpacing: "0.06em", lineHeight: 1.7, margin: 0 }}>
                       {boldify(item.text, item.bold)}
-                    </p>
+                    </p>}
                   </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </div>
