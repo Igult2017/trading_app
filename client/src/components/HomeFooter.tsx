@@ -74,9 +74,15 @@ export default function HomeFooter({ darkMode = false }: HomeFooterProps) {
 
   return (
     <footer style={{ background: footBg, borderTop: `1px solid ${divider}`, transition: 'background 0.4s', ...bFont }}>
+      <style>{`
+        .hf-grid { display:grid; grid-template-columns:220px 160px 1fr 1fr 1fr; gap:0 48px; padding:60px 0 48px; align-items:flex-start; }
+        @media (max-width:900px) { .hf-grid { grid-template-columns:repeat(3,1fr); gap:36px 24px; padding:48px 0 32px; } }
+        @media (max-width:560px) { .hf-grid { grid-template-columns:repeat(2,1fr); gap:30px 20px; } }
+        @media (max-width:380px) { .hf-grid { grid-template-columns:1fr; gap:26px; } }
+      `}</style>
       <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 28px" }}>
 
-        <div style={{ display: "grid", gridTemplateColumns: "220px 160px 1fr 1fr 1fr", gap: "0 48px", padding: "60px 0 48px", alignItems: "flex-start" }}>
+        <div className="hf-grid">
 
           {/* Col 1 — Brand */}
           <div>
