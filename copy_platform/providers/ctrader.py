@@ -12,10 +12,8 @@ from dataclasses import dataclass
 from typing import Callable, Awaitable
 
 from ctrader_open_api import Client, Protobuf, TcpProtocol
-from ctrader_open_api.messages.OpenApiCommonMessages_pb2 import (
-    ProtoOAApplicationAuthReq, ProtoOAApplicationAuthRes,
-)
 from ctrader_open_api.messages.OpenApiMessages_pb2 import (
+    ProtoOAApplicationAuthReq, ProtoOAApplicationAuthRes,
     ProtoOAAccountAuthReq, ProtoOAAccountAuthRes,
     ProtoOASymbolsListReq, ProtoOASymbolsListRes,
     ProtoOAReconcileReq, ProtoOAReconcileRes,
