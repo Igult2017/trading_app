@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
-  Shield, Settings2, Link2, Globe, User, ChevronRight, CheckCircle2,
+  Shield, ShieldCheck, Settings2, Link2, Globe, User, ChevronRight, CheckCircle2,
   Bell, ArrowRight, Radio, Users, GitFork, Scale, Anchor, TrendingUp,
   Rocket, AlertTriangle, Filter, Hash, Send, Zap,
   MessageSquare, GitMerge, Menu, X,
@@ -280,32 +280,57 @@ const StepConnect = ({ data, setData, label = "Trading Account" }: any) => (
       )}
     </div>
     <div className="p-5 md:p-8 flex flex-col gap-4 md:gap-6">
-      <div className="p-4 md:p-5 border border-white/5 bg-white/[0.01]">
-        <div className="flex items-center gap-3 mb-3 md:mb-4 text-blue-400">
-          <Shield size={16} strokeWidth={1.5} />
-          <span className="text-[10px] font-bold uppercase tracking-widest font-mono">Security Protocol</span>
-        </div>
-        <p className="text-xs text-slate-500 leading-relaxed italic">TradeSync uses isolated bridge technology to monitor your margin and mirror executions. No withdrawal or sensitive personal data permissions are ever required.</p>
-      </div>
-      <div className="p-4 md:p-5 border border-white/5 bg-white/[0.01]">
-        <span className="text-[9px] font-mono font-bold text-slate-700 uppercase tracking-widest block mb-3 md:mb-4">// connection_status</span>
-        <div className="divide-y divide-white/[0.04]">
-          {[{label:'Bridge',status:'ready'},{label:'Broker server',status:'pending'},{label:'Login ID',status:'inactive'}].map(row => (
-            <div key={row.label} className="flex items-center justify-between py-2.5">
-              <span style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:'11px', color:'#334155' }}>{row.label}</span>
-              <StatusDot status={row.status} />
+      {data.platform==='cTrader' ? (
+        <>
+          <div className="p-4 md:p-5 border border-emerald-500/15 bg-emerald-500/[0.04] rounded-sm">
+            <div className="flex items-center gap-3 mb-3 text-emerald-400">
+              <ShieldCheck size={16} strokeWidth={1.5} />
+              <span className="text-[10px] font-bold uppercase tracking-widest font-mono">OAuth Secured</span>
             </div>
-          ))}
-          <div className="flex items-center justify-between py-2.5">
-            <span style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:'11px', color:'#334155' }}>Latency</span>
-            <span style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:'11px', color:'#1e293b' }}>— ms</span>
+            <p className="text-xs text-slate-400 leading-relaxed">cTrader connects through Spotware's official OAuth — you sign in on cTrader's own page. We hold a revocable access token, never your password, and you can revoke it any time from cTrader.</p>
           </div>
-        </div>
-      </div>
-      <div className="flex items-start gap-3 p-3 md:p-4 border border-blue-500/20 bg-blue-500/5 rounded-sm">
-        <PiInfoFill size={15} className="text-blue-400 mt-0.5 flex-shrink-0" />
-        <p className="text-[11px] text-blue-300 leading-relaxed">Use your <span className="text-blue-200 font-semibold">investor (read-only) password</span> — never your master password.</p>
-      </div>
+          <div className="p-4 md:p-5 border border-white/5 bg-white/[0.01] rounded-sm">
+            <span className="text-[9px] font-mono font-bold text-slate-600 uppercase tracking-widest block mb-4">// how_copying_works</span>
+            <ol className="space-y-3">
+              {['Pick the connected account this terminal uses','Fills mirror in real time via the cTrader Open API','Risk limits & filters apply before every order'].map((t, i) => (
+                <li key={i} className="flex gap-3 text-[11px] text-slate-400 leading-relaxed">
+                  <span className="flex-shrink-0 w-4 h-4 rounded-full bg-blue-500/15 text-blue-300 text-[9px] font-bold flex items-center justify-center">{i+1}</span>
+                  {t}
+                </li>
+              ))}
+            </ol>
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="p-4 md:p-5 border border-white/5 bg-white/[0.01]">
+            <div className="flex items-center gap-3 mb-3 md:mb-4 text-blue-400">
+              <Shield size={16} strokeWidth={1.5} />
+              <span className="text-[10px] font-bold uppercase tracking-widest font-mono">Security Protocol</span>
+            </div>
+            <p className="text-xs text-slate-500 leading-relaxed italic">TradeSync uses isolated bridge technology to monitor your margin and mirror executions. No withdrawal or sensitive personal data permissions are ever required.</p>
+          </div>
+          <div className="p-4 md:p-5 border border-white/5 bg-white/[0.01]">
+            <span className="text-[9px] font-mono font-bold text-slate-700 uppercase tracking-widest block mb-3 md:mb-4">// connection_status</span>
+            <div className="divide-y divide-white/[0.04]">
+              {[{label:'Bridge',status:'ready'},{label:'Broker server',status:'pending'},{label:'Login ID',status:'inactive'}].map(row => (
+                <div key={row.label} className="flex items-center justify-between py-2.5">
+                  <span style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:'11px', color:'#334155' }}>{row.label}</span>
+                  <StatusDot status={row.status} />
+                </div>
+              ))}
+              <div className="flex items-center justify-between py-2.5">
+                <span style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:'11px', color:'#334155' }}>Latency</span>
+                <span style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:'11px', color:'#1e293b' }}>— ms</span>
+              </div>
+            </div>
+          </div>
+          <div className="flex items-start gap-3 p-3 md:p-4 border border-blue-500/20 bg-blue-500/5 rounded-sm">
+            <PiInfoFill size={15} className="text-blue-400 mt-0.5 flex-shrink-0" />
+            <p className="text-[11px] text-blue-300 leading-relaxed">Use your <span className="text-blue-200 font-semibold">investor (read-only) password</span> — never your master password.</p>
+          </div>
+        </>
+      )}
     </div>
   </div>
 );
