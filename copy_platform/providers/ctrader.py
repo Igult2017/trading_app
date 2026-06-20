@@ -17,9 +17,11 @@ from ctrader_open_api.messages.OpenApiCommonMessages_pb2 import (
 )
 from ctrader_open_api.messages.OpenApiMessages_pb2 import (
     ProtoOAAccountAuthReq, ProtoOAAccountAuthRes,
+    ProtoOASymbolsListReq, ProtoOASymbolsListRes,
     ProtoOAReconcileReq, ProtoOAReconcileRes,
     ProtoOAExecutionEvent,
 )
+from ctrader_open_api.messages.OpenApiModelMessages_pb2 import ProtoOAPositionStatus
 
 from config import CT_LIVE_HOST, CT_DEMO_HOST, CT_PORT, RECONNECT_DELAY, \
     RECONCILE_INTERVAL, CTRADER_CLIENT_ID, CTRADER_CLIENT_SECRET
@@ -50,6 +52,7 @@ class CTraderProvider:
         self.account_type = account_type
         self.on_event     = on_event
         self._positions: dict[int, PositionSnapshot] = {}
+        self._symbols: dict[int, str] = {}   # symbolId → symbolName (cTrader trades carry only ids)
         self._authed      = False
         self._reconciled  = False
         self._reconcile_scheduled = False
@@ -118,7 +121,15 @@ class CTraderProvider:
 
         elif ptype == ProtoOAAccountAuthRes().payloadType:
             self._authed = True
-            log.info(f"[{self.master_id}] authenticated — requesting open positions")
+            log.info(f"[{self.master_id}] authenticated — loading symbols")
+            req = ProtoOASymbolsListReq()
+            req.ctidTraderAccountId = int(self.creds["ctraderId"])
+            client.send(req)
+
+        elif ptype == ProtoOASymbolsListRes().payloadType:
+            res = Protobuf.extract(message, ProtoOASymbolsListRes)
+            self._symbols = {s.symbolId: s.symbolName for s in res.symbol}
+            log.info(f"[{self.master_id}] {len(self._symbols)} symbols — requesting open positions")
             req = ProtoOAReconcileReq()
             req.ctidTraderAccountId = int(self.creds["ctraderId"])
             client.send(req)
@@ -158,35 +169,39 @@ class CTraderProvider:
     # ── Event handling ─────────────────────────────────────────────────────────
 
     async def _handle_execution(self, event) -> None:
-        et   = event.executionType  # ORDER_FILLED | POSITION_PARTIAL_CLOSE | POSITION_CLOSE
-        pos  = event.position if event.HasField("position") else None
+        # Classify by the position's STATUS (open/closed) + our previous snapshot —
+        # NOT executionType (ORDER_FILLED=3 fires for BOTH opens and closes, so the
+        # old 2/3/4 code misclassified every fill).
+        pos = event.position if event.HasField("position") else None
         if pos is None:
             return
 
-        pid  = pos.positionId
-        snap = self._snap(pos)
-        prev = self._positions.get(pid)
+        pid    = pos.positionId
+        status = pos.positionStatus
+        snap   = self._snap(pos)
+        prev   = self._positions.get(pid)
 
-        if et == 2 and prev is None:            # ORDER_FILLED = new position opened
-            self._positions[pid] = snap
-            await self.on_event({"type": "OPEN",   "snap": snap}, self.master_id)
+        if status == ProtoOAPositionStatus.POSITION_STATUS_CLOSED:
+            if prev is not None:
+                self._positions.pop(pid, None)
+                snap.entry_price = float(pos.price) if pos.price else prev.entry_price
+                await self.on_event({"type": "CLOSE", "snap": snap}, self.master_id)
 
-        elif et in (3, 4):                       # POSITION_PARTIAL_CLOSE / POSITION_CLOSE
-            self._positions.pop(pid, None)
-            snap.entry_price = pos.price if pos.price else snap.entry_price
-            await self.on_event({"type": "CLOSE",  "snap": snap}, self.master_id)
+        elif status == ProtoOAPositionStatus.POSITION_STATUS_OPEN:
+            if prev is None:
+                self._positions[pid] = snap
+                await self.on_event({"type": "OPEN", "snap": snap}, self.master_id)
+            elif prev.stop_loss != snap.stop_loss or prev.take_profit != snap.take_profit:
+                self._positions[pid] = snap
+                await self.on_event({"type": "MODIFY", "snap": snap, "prev": prev}, self.master_id)
+            else:
+                self._positions[pid] = snap   # volume/other change — track silently
 
-        elif prev and (prev.stop_loss != snap.stop_loss or
-                       prev.take_profit != snap.take_profit):
-            self._positions[pid] = snap
-            await self.on_event({"type": "MODIFY", "snap": snap, "prev": prev}, self.master_id)
-
-    @staticmethod
-    def _snap(pos) -> PositionSnapshot:
+    def _snap(self, pos) -> PositionSnapshot:
         td = pos.tradeData
         return PositionSnapshot(
             position_id = pos.positionId,
-            symbol      = td.symbolName,
+            symbol      = self._symbols.get(td.symbolId, str(td.symbolId)),
             action      = "BUY" if td.tradeSide == 1 else "SELL",
             volume_lots = td.volume / 100,   # cTrader volume = centilots
             entry_price = float(pos.price) if pos.price else 0.0,

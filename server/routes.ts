@@ -3189,6 +3189,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     removeCTraderAccount(req.params.id);   // tear down any live feed before deleting
     await storage.deleteBrokerAccount(req.params.id);   // also cascades synced_trades
+    // Cascade copy-trading rows tied to this account (no DB FK cascade on these),
+    // so the engine never tries to connect to a deleted account. Notify it to drop
+    // the provider immediately.
+    await pool.query("DELETE FROM copy_followers WHERE broker_account_id = $1", [req.params.id]);
+    await pool.query("DELETE FROM copy_masters   WHERE broker_account_id = $1", [req.params.id]);
+    await pool.query("SELECT pg_notify('copy_change', '')").catch(() => {});
     // Wipe everything else tied to the account — its auto-created session AND every
     // journal entry in it (deleteSession deletes the entries then the session in a
     // transaction). Mirrors deleting a normal session: nothing is left behind.
@@ -3801,6 +3807,20 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
     }
 
     return res.status(201).json({ master, follower, message: "Self-copy active — trades on the source mirror to the target." });
+  });
+
+  /** Provider approves a pending follower on one of their own masters. */
+  app.post("/api/copy/followers/:id/approve", async (req: Request, res: Response) => {
+    const user = await verifyToken(req.headers.authorization);
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
+    const follower = await storage.getCopyFollowerById(req.params.id);
+    if (!follower || !follower.masterId) return res.status(404).json({ error: "Follower not found" });
+    const master = await storage.getCopyMasterById(follower.masterId);
+    if (!master || master.userId !== user.id) {
+      return res.status(403).json({ error: "Only the provider can approve followers" });
+    }
+    const updated = await storage.updateCopyFollower(follower.id, { isActive: true });
+    return res.json({ follower: updated, approved: true });
   });
 
   // ── Auth: registration setup (idempotent) ────────────────────────────────────

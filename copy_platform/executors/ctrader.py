@@ -2,9 +2,9 @@
 cTrader executor — places / closes / modifies orders on follower accounts
 via the cTrader Open API (TCP/protobuf).
 
-Each call opens a short-lived authenticated connection, sends the command,
-waits for the execution event, then disconnects. This keeps follower
-connections idle (not keeping 1 TCP connection per follower open at all times).
+Each call opens a short-lived authenticated connection, resolves the symbol id
+(opens only — cTrader orders use a numeric symbolId, not a name), sends the
+command, waits for the fill (or error), then disconnects.
 """
 import asyncio
 import logging
@@ -16,6 +16,7 @@ from ctrader_open_api.messages.OpenApiCommonMessages_pb2 import (
 )
 from ctrader_open_api.messages.OpenApiMessages_pb2 import (
     ProtoOAAccountAuthReq, ProtoOAAccountAuthRes,
+    ProtoOASymbolsListReq, ProtoOASymbolsListRes,
     ProtoOANewOrderReq, ProtoOAClosePositionReq,
     ProtoOAAmendPositionSLTPReq, ProtoOAExecutionEvent,
 )
@@ -43,6 +44,8 @@ class CTraderExecutor:
         self.account_type = account_type
         self._result_future: asyncio.Future | None = None
         self._client: Client | None = None
+        self._pending_cmd = None
+        self._symbol_map: dict[str, int] = {}   # symbolName → symbolId
 
     def _make_client(self) -> Client:
         host = CT_LIVE_HOST if self.account_type == "live" else CT_DEMO_HOST
@@ -77,11 +80,15 @@ class CTraderExecutor:
         self._client = self._make_client()
         self._client.startService()
         try:
-            return await asyncio.wait_for(self._result_future, timeout=15)
+            return await asyncio.wait_for(self._result_future, timeout=20)
         except asyncio.TimeoutError:
-            return ExecResult(ok=False, error="Execution timed out after 15s")
+            return ExecResult(ok=False, error="Execution timed out")
         finally:
             self._client.stopService()
+
+    def _resolve(self, result: ExecResult) -> None:
+        if self._result_future and not self._result_future.done():
+            self._result_future.set_result(result)
 
     def _on_connected(self, client):
         req = ProtoOAApplicationAuthReq()
@@ -99,18 +106,35 @@ class CTraderExecutor:
             client.send(req)
 
         elif ptype == ProtoOAAccountAuthRes().payloadType:
+            # Opens need a numeric symbolId → fetch the symbol list first.
+            # Close / modify use a positionId → send straight away.
+            if self._pending_cmd and self._pending_cmd[0] == "open":
+                req = ProtoOASymbolsListReq()
+                req.ctidTraderAccountId = int(self.creds["ctraderId"])
+                client.send(req)
+            else:
+                self._send_command(client)
+
+        elif ptype == ProtoOASymbolsListRes().payloadType:
+            res = Protobuf.extract(message, ProtoOASymbolsListRes)
+            self._symbol_map = {s.symbolName: s.symbolId for s in res.symbol}
             self._send_command(client)
 
         elif ptype == ProtoOAExecutionEvent().payloadType:
             event = Protobuf.extract(message, ProtoOAExecutionEvent)
-            pos   = event.position if event.HasField("position") else None
-            result = ExecResult(
-                ok          = True,
-                external_id = str(pos.positionId) if pos else None,
-                entry_price = float(pos.price) if pos and pos.price else None,
-            )
-            if not self._result_future.done():
-                self._result_future.set_result(result)
+            # Order rejected / error → fail immediately.
+            if event.HasField("errorCode") and event.errorCode:
+                self._resolve(ExecResult(ok=False, error=f"cTrader: {event.errorCode}"))
+                return
+            # A fill carries a position. Intermediate events (ORDER_ACCEPTED) carry
+            # no position — ignore them and wait for the fill (or the 20s timeout).
+            if event.HasField("position"):
+                pos = event.position
+                self._resolve(ExecResult(
+                    ok          = True,
+                    external_id = str(pos.positionId),
+                    entry_price = float(pos.price) if pos.price else None,
+                ))
 
     def _send_command(self, client):
         cmd = self._pending_cmd
@@ -118,9 +142,13 @@ class CTraderExecutor:
 
         if cmd[0] == "open":
             _, symbol, action, lots, sl, tp = cmd
+            symbol_id = self._symbol_map.get(symbol)
+            if symbol_id is None:
+                self._resolve(ExecResult(ok=False, error=f"Symbol {symbol} not on follower account"))
+                return
             req = ProtoOANewOrderReq()
             req.ctidTraderAccountId = acct_id
-            req.symbolName          = symbol
+            req.symbolId            = symbol_id
             req.orderType           = ProtoOAOrderType.Value("MARKET")
             req.tradeSide           = 1 if action == "BUY" else 2
             req.volume              = int(lots * 100)   # centilots
@@ -132,7 +160,7 @@ class CTraderExecutor:
             _, pos_id, lots = cmd
             req = ProtoOAClosePositionReq()
             req.ctidTraderAccountId = acct_id
-            req.positionId          = pos_id
+            req.positionId          = int(pos_id)
             req.volume              = int(lots * 100)
             client.send(req)
 
@@ -140,7 +168,7 @@ class CTraderExecutor:
             _, pos_id, sl, tp = cmd
             req = ProtoOAAmendPositionSLTPReq()
             req.ctidTraderAccountId = acct_id
-            req.positionId          = pos_id
+            req.positionId          = int(pos_id)
             if sl: req.stopLoss   = sl
             if tp: req.takeProfit = tp
             client.send(req)

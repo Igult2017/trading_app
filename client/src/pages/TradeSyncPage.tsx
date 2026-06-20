@@ -1252,7 +1252,13 @@ const StepGoLive = ({ data, setData, role, onReset, onHome, providers }: any) =>
   const [errorMsg, setErrorMsg] = useState('');
   const provider = (providers || []).find((p: any) => p.id === data.selectedProvider);
   const allAccepted = data.riskAccepted && data.affordConfirmed;
-  const canDeploy = role==='provider' ? (allAccepted && data.providerConfirmed) : allAccepted;
+  const isCT = String(data.platform || '').toLowerCase() === 'ctrader';
+  const disclosuresAccepted = role==='provider' ? (allAccepted && data.providerConfirmed) : allAccepted;
+  const accountsReady = !isCT ? true
+    : role === 'self'     ? !!(data.brokerAccountId && data.brokerAccountId2)
+    : role === 'follower' ? !!(data.brokerAccountId && data.selectedProvider)
+    : !!data.brokerAccountId;   // provider
+  const canDeploy = disclosuresAccepted && accountsReady;
   const providerName = provider ? (provider.strategyName || provider.name || 'Provider') : null;
   const summaries: any = {
     follower: providerName ? `Copying ${providerName} · ${data.lotMode??'mult'} lot mode` : 'Configure provider in Bridge Linkage step',
@@ -1344,7 +1350,7 @@ const StepGoLive = ({ data, setData, role, onReset, onHome, providers }: any) =>
       </div>
 
       {/* ── Risk disclosure (inline) ─────────────────────────── */}
-      {!canDeploy && (
+      {!disclosuresAccepted && (
         <div className="w-full border-b border-white/5 p-6 md:p-8 space-y-4">
           <div className="flex items-center gap-2 text-amber-400 mb-1">
             <AlertTriangle size={14} className="flex-shrink-0" />
@@ -1393,7 +1399,13 @@ const StepGoLive = ({ data, setData, role, onReset, onHome, providers }: any) =>
           DEPLOY TERMINAL <ArrowRight size={14} />
         </GlowButton>
         {!canDeploy && (
-          <p className="text-[10px] text-slate-700 font-mono mt-1">Accept all disclosures above to enable deployment.</p>
+          <p className="text-[10px] text-slate-700 font-mono mt-1">
+            {!accountsReady
+              ? (role === 'self' ? 'Select both source and target cTrader accounts.'
+                 : role === 'follower' ? 'Select your account and a provider in the earlier steps.'
+                 : 'Select your cTrader account in the earlier step.')
+              : 'Accept all disclosures above to enable deployment.'}
+          </p>
         )}
       </div>
     </div>
@@ -1417,7 +1429,7 @@ function CopierWizard({ onBack, onOpenDashboard }: { onBack: () => void; onOpenD
   const [step, setStep]               = useState(0);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [data, setData] = useState<any>({
-    role:'follower', platform:'cTrader', lotMode:'mult', riskAmount:'1',
+    role:'follower', platform:'cTrader', platform2:'cTrader', lotMode:'mult', riskAmount:'1',
     selectedProvider:null, symbolMaps:[{from:'',to:''},{from:'',to:''}],
   });
   const [providers, setProviders]             = useState<any[]>([]);
@@ -1446,7 +1458,7 @@ function CopierWizard({ onBack, onOpenDashboard }: { onBack: () => void; onOpenD
 
   const handleReset = () => {
     setStep(0);
-    setData({ role:'follower', platform:'cTrader', lotMode:'mult', riskAmount:'1', selectedProvider:null, symbolMaps:[{from:'',to:''},{from:'',to:''}] });
+    setData({ role:'follower', platform:'cTrader', platform2:'cTrader', lotMode:'mult', riskAmount:'1', selectedProvider:null, symbolMaps:[{from:'',to:''},{from:'',to:''}] });
   };
 
   const renderStep = () => {

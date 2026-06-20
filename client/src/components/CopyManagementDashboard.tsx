@@ -4,6 +4,7 @@ import {
   ChevronUp, X, AlertTriangle, ShieldCheck, UserMinus,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import { apiRequest } from '@/lib/queryClient';
 
 type Master = {
   id: string;
@@ -265,6 +266,14 @@ function ProviderTab({ userId }: { userId: string }) {
     }
   };
 
+  const approveFollower = async (followerId: string) => {
+    try {
+      await apiRequest('POST', `/api/copy/followers/${followerId}/approve`);
+    } finally {
+      load();
+    }
+  };
+
   if (loading) {
     return <div style={{ padding: 40, textAlign: 'center', color: tone.dim, fontSize: 11, fontFamily: "'JetBrains Mono', monospace" }}>Loading providers…</div>;
   }
@@ -386,13 +395,18 @@ function ProviderTab({ userId }: { userId: string }) {
                                   {f.lotMode} · {f.lotMode === 'mult' ? `${f.lotMultiplier}×` : f.lotMode === 'fixed' ? `${f.fixedLot} lot` : `${f.riskPercent}% risk`}
                                 </div>
                               </div>
-                              <span style={{
-                                fontSize: 8, padding: '2px 6px', fontFamily: "'JetBrains Mono', monospace",
-                                fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.15em',
-                                background: f.isActive ? 'rgba(74,222,128,0.1)' : 'rgba(251,191,36,0.1)',
-                                border: `1px solid ${f.isActive ? 'rgba(74,222,128,0.3)' : 'rgba(251,191,36,0.3)'}`,
-                                color: f.isActive ? tone.green : tone.amber,
-                              }}>{f.isActive ? 'Active' : 'Pending'}</span>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                <span style={{
+                                  fontSize: 8, padding: '2px 6px', fontFamily: "'JetBrains Mono', monospace",
+                                  fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.15em',
+                                  background: f.isActive ? 'rgba(74,222,128,0.1)' : 'rgba(251,191,36,0.1)',
+                                  border: `1px solid ${f.isActive ? 'rgba(74,222,128,0.3)' : 'rgba(251,191,36,0.3)'}`,
+                                  color: f.isActive ? tone.green : tone.amber,
+                                }}>{f.isActive ? 'Active' : 'Pending'}</span>
+                                {!f.isActive && (
+                                  <Btn size="xs" onClick={() => approveFollower(f.id)}>Approve</Btn>
+                                )}
+                              </div>
                             </div>
                           ))}
                         </div>
