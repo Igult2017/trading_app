@@ -3,7 +3,7 @@ import {
   Shield, ShieldCheck, Settings2, Link2, Globe, User, ChevronRight, CheckCircle2,
   Bell, ArrowRight, Radio, Users, GitFork, Scale, Anchor, TrendingUp,
   Rocket, AlertTriangle, Filter, Hash, Send, Zap,
-  MessageSquare, GitMerge, Menu, X,
+  MessageSquare, Menu, X,
 } from 'lucide-react';
 import { PiInfoFill } from 'react-icons/pi';
 import CopyManagementDashboard from '@/components/CopyManagementDashboard';
@@ -37,9 +37,7 @@ const STEPS_SELF = [
   { id: 'role',     label: 'Identity', icon: User },
   { id: 'connect',  label: 'Source',   icon: Globe },
   { id: 'connect2', label: 'Target',   icon: Globe },
-  { id: 'mapping',  label: 'Mapping',  icon: GitMerge },
   { id: 'copy',     label: 'Engine',   icon: Settings2 },
-  { id: 'protect',  label: 'Shield',   icon: Shield },
   { id: 'go-live',  label: 'Live',     icon: Rocket },
 ];
 const STEPS_TELEGRAM = [
@@ -603,7 +601,7 @@ const StepProviderNotif = ({ data, setData }: any) => (
 const StepConnect2 = ({ data, setData }: any) => {
   const inner = {
     ...data,
-    platform:        data.platform2        ?? 'MT5',
+    platform:        data.platform2        ?? 'cTrader',
     nickname:        data.nickname2        ?? '',
     brokerServer:    data.brokerServer2    ?? '',
     loginId:         data.loginId2         ?? '',
@@ -1400,7 +1398,7 @@ function CopierWizard({ onBack, onOpenDashboard }: { onBack: () => void; onOpenD
   const [step, setStep]               = useState(0);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [data, setData] = useState<any>({
-    role:'follower', platform:'MT5', lotMode:'mult', riskAmount:'1',
+    role:'follower', platform:'cTrader', lotMode:'mult', riskAmount:'1',
     selectedProvider:null, symbolMaps:[{from:'',to:''},{from:'',to:''}],
   });
   const [providers, setProviders]             = useState<any[]>([]);
@@ -1429,7 +1427,7 @@ function CopierWizard({ onBack, onOpenDashboard }: { onBack: () => void; onOpenD
 
   const handleReset = () => {
     setStep(0);
-    setData({ role:'follower', platform:'MT5', lotMode:'mult', riskAmount:'1', selectedProvider:null, symbolMaps:[{from:'',to:''},{from:'',to:''}] });
+    setData({ role:'follower', platform:'cTrader', lotMode:'mult', riskAmount:'1', selectedProvider:null, symbolMaps:[{from:'',to:''},{from:'',to:''}] });
   };
 
   const renderStep = () => {
