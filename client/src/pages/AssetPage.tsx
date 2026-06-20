@@ -676,11 +676,19 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
                   Add a new level — Telegram fires when price {parseFloat(alertProx) > 0 ? "nears or reaches" : "reaches"} the target.
                 </div>
                 <div style={{ display: "flex", gap: 8 }}>
-                  {(["above","below"] as const).map(d => (
-                    <button key={d} onClick={() => setAlertDir(d)} style={{ flex: 1, padding: "8px 0", background: alertDir === d ? "rgba(59,130,246,0.2)" : "transparent", border: `1px solid ${alertDir === d ? "#3b82f6" : "#1e2d45"}`, borderRadius: 6, color: alertDir === d ? "#93c5fd" : "#4a6580", fontSize: 11, fontWeight: 700, cursor: "pointer", letterSpacing: "0.08em" }}>
-                      {d === "above" ? "▲ ABOVE" : "▼ BELOW"}
+                  {(["above","below"] as const).map(d => {
+                    const sel   = alertDir === d;
+                    const arrow = d === "above" ? "#22d3a5" : "#f4617f";   // green up / red down
+                    return (
+                    <button key={d} onClick={() => setAlertDir(d)} title={d === "above" ? "Above" : "Below"}
+                      style={{ flex: 1, padding: "9px 0",
+                        background: sel ? (d === "above" ? "rgba(34,211,165,0.12)" : "rgba(244,97,127,0.12)") : "transparent",
+                        border: `1px solid ${sel ? arrow : "#1e2d45"}`, borderRadius: 6,
+                        color: arrow, fontSize: 18, fontWeight: 800, lineHeight: 1, cursor: "pointer" }}>
+                      {d === "above" ? "▲" : "▼"}
                     </button>
-                  ))}
+                    );
+                  })}
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                   <label style={{ fontSize: 9, fontWeight: 700, color: "#4a6580", letterSpacing: "0.1em" }}>TARGET PRICE</label>
