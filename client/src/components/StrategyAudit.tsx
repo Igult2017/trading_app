@@ -112,7 +112,7 @@ const T = {
   red:    "#f43f5e",
   red2:   "#e11d48",
   amber:  "#f59e0b",
-  blue:   "#6366f1",
+  blue:   'var(--sa-blue, #6366f1)',
   blue2:  "#4f46e5",
 };
 
@@ -149,7 +149,7 @@ function Sub({ children, color = T.dim, style = {} }: { children: React.ReactNod
 function CellTitle({ children, icon }: { children: React.ReactNode; icon?: React.ReactNode }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 18 }}>
-      <span style={{ width: 1, height: 16, background: "rgba(255,255,255,0.10)", display: "inline-block" }} />
+      <span style={{ width: 1, height: 16, background: T.line2, display: "inline-block" }} />
       {icon && <span style={{ color: T.dim, display: "inline-flex" }}>{icon}</span>}
       <span style={{ fontFamily: FONT, fontSize: 10, letterSpacing: ".2em", textTransform: "uppercase", color: T.text, fontWeight: 700 }}>{children}</span>
     </div>
@@ -186,7 +186,7 @@ function StatRow({ label, value, color = T.text, last = false }: { label: string
 
 function Bar({ pct, color = T.blue }: { pct: number; color?: string }) {
   return (
-    <div style={{ height: 1, background: "rgba(255,255,255,0.05)", width: "100%" }}>
+    <div style={{ height: 1, background: T.line, width: "100%" }}>
       <div style={{ height: 1, background: color, width: `${Math.min(100, Math.max(0, pct))}%`, transition: "width 0.7s" }} />
     </div>
   );
@@ -260,7 +260,9 @@ function Heatmap({ factors, corr, instruments, isWin }: {
                   width: CELL_W, flexShrink: 0, height: 30, display: "flex", alignItems: "center", justifyContent: "center",
                   background: `rgba(${base},${alpha})`,
                   fontFamily: MONO, fontWeight: 400, fontSize: 10,
-                  color: "rgba(255,255,255,0.9)", cursor: "default",
+                  // Themed via --sa-text → white on dark, dark slate on light, so the
+                  // cell numbers stay readable on the pale green/pink light cells.
+                  color: T.text, cursor: "default",
                   position: "relative", outline: isHov ? `1px solid ${T.line2}` : "none",
                 }}
               >
@@ -1260,8 +1262,8 @@ export default function StrategyAudit({ sessionId, userId, darkMode = true }: Pr
 
   const saVars = !darkMode ? {
     '--sa-bg':    '#EEF2F7', '--sa-bg2':   '#FFFFFF', '--sa-bg3':   '#FFFFFF', '--sa-bg4':   '#F1F5F9',
-    '--sa-line':  '#CBD5E1', '--sa-line2':  '#E2E8F0',
-    '--sa-text':  '#1E293B', '--sa-mut':    '#64748B', '--sa-dim':   '#94A3B8',
+    '--sa-line':  '#CBD5E1', '--sa-line2':  '#E2E8F0', '--sa-blue':  '#4f46e5',
+    '--sa-text':  '#1E293B', '--sa-mut':    '#64748B', '--sa-dim':   '#64748B',
   } as React.CSSProperties : {};
 
   const showAuditLoader = useDelayedLoading(isLoading);
@@ -1373,8 +1375,8 @@ export default function StrategyAudit({ sessionId, userId, darkMode = true }: Pr
 
       <div className="audit-root" style={{ minHeight: "100vh", background: T.bg, color: T.text, fontFamily: FONT, padding: "24px 0", ...(!darkMode ? {
         '--sa-bg':    '#EEF2F7', '--sa-bg2':   '#FFFFFF', '--sa-bg3':   '#FFFFFF', '--sa-bg4':   '#F1F5F9',
-        '--sa-line':  '#CBD5E1', '--sa-line2':  '#E2E8F0',
-        '--sa-text':  '#1E293B', '--sa-mut':    '#64748B', '--sa-dim':   '#94A3B8',
+        '--sa-line':  '#CBD5E1', '--sa-line2':  '#E2E8F0', '--sa-blue':  '#4f46e5',
+        '--sa-text':  '#1E293B', '--sa-mut':    '#64748B', '--sa-dim':   '#64748B',
       } as React.CSSProperties : {}) }}>
         <div style={{ width: "100%", margin: "0 auto" }}>
 
@@ -1403,7 +1405,7 @@ export default function StrategyAudit({ sessionId, userId, darkMode = true }: Pr
             </div>
 
             {/* Tab bar — toggle style */}
-            <div style={{ display: "inline-flex", background: "rgba(0,0,0,0.5)", padding: 4, borderRadius: 4, border: `1px solid ${T.line}`, alignSelf: "flex-start" }}>
+            <div style={{ display: "inline-flex", background: darkMode ? "rgba(0,0,0,0.5)" : "#FFFFFF", padding: 4, borderRadius: 4, border: `1px solid ${T.line}`, alignSelf: "flex-start" }}>
               {TABS.map(tab => (
                 <button
                   key={tab.id}
@@ -1411,7 +1413,7 @@ export default function StrategyAudit({ sessionId, userId, darkMode = true }: Pr
                   style={{
                     fontFamily: FONT, fontSize: 9, fontWeight: 600, letterSpacing: ".18em", textTransform: "uppercase",
                     padding: "8px 16px", cursor: "pointer", border: "none", borderRadius: 3,
-                    background: active === tab.id ? "rgba(255,255,255,0.08)" : "transparent",
+                    background: active === tab.id ? (darkMode ? "rgba(255,255,255,0.08)" : "#E2E8F0") : "transparent",
                     color: active === tab.id ? T.text : T.dim, transition: "all .15s",
                   }}
                 >
