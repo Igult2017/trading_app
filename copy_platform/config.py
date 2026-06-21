@@ -19,6 +19,12 @@ if TELEGRAM_COPY_BOT_TOKEN and _notif_token and \
     print("[config] WARNING: TELEGRAM_COPY_BOT_TOKEN == TELEGRAM_BOT_TOKEN — two "
           "getUpdates pollers on one bot will 409-conflict. Use a SEPARATE copy bot.")
 
+# User-session relay (optional, advanced) — ONE app registered at my.telegram.org lets
+# users authorize their OWN Telegram account to relay channels the bot can't be admin of.
+# Unset → relay disabled; the bot marketplace/direct flows are unaffected.
+TELEGRAM_API_ID   = int(os.environ.get("TELEGRAM_API_ID", "0") or "0")
+TELEGRAM_API_HASH = os.environ.get("TELEGRAM_API_HASH", "")
+
 # cTrader Open API endpoints
 CT_LIVE_HOST  = "trade.ctrader.com"
 CT_DEMO_HOST  = "demo.ctraderapi.com"

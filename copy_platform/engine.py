@@ -113,6 +113,8 @@ class CopyEngine:
                 continue
             await self._start_provider(master, broker_account)
 
+        await self._start_user_relays()
+
     async def _start_provider(self, master: CopyMaster,
                               broker_account: BrokerAccount) -> None:
         creds = await get_creds(broker_account)
@@ -155,6 +157,50 @@ class CopyEngine:
         self._providers[master.id] = provider
         provider.start()
         log.info(f"[engine] telegram provider started for master {master.id} (channel {src.channel_name})")
+
+    async def _start_user_relays(self) -> None:
+        """Advanced opt-in: start one MTProto client per authorized user session,
+        reading that user's chosen channels (masters with source_type='telegram_user').
+        Disabled unless TELEGRAM_API_ID/HASH are set — bot paths are unaffected."""
+        from config import TELEGRAM_API_ID, TELEGRAM_API_HASH
+        if not (TELEGRAM_API_ID and TELEGRAM_API_HASH):
+            return
+        if COPY_WORKER_COUNT > 1 and COPY_WORKER_INDEX != 0:
+            return   # the relay set (like the bot poller) lives on worker 0
+        from db import Session, CopyMaster, TelegramSource, TelegramUserSession
+        with Session() as db:
+            sessions = db.query(TelegramUserSession).filter_by(is_active=True).all()
+            plan = []
+            for s in sessions:
+                if ("relay:" + s.id) in self._providers or not s.session_enc:
+                    continue
+                masters = db.query(CopyMaster).filter_by(
+                    user_id=s.user_id, source_type="telegram_user", is_active=True).all()
+                routes = {}
+                for m in masters:
+                    src = db.query(TelegramSource).filter_by(master_id=m.id, is_active=True).first()
+                    if src and src.channel_name:
+                        routes[src.channel_name.lstrip("@").lower()] = (m.id, {
+                            "entry_keyword": src.entry_keyword, "sl_keyword": src.sl_keyword,
+                            "tp_keyword": src.tp_keyword, "symbol_keyword": src.symbol_keyword,
+                            "execute_no_sl": bool(src.execute_no_sl), "execute_no_tp": bool(src.execute_no_tp),
+                            "use_first_tp_only": bool(src.use_first_tp_only), "min_confidence": "medium",
+                        })
+                if routes:
+                    plan.append((s.id, s.session_enc, routes))
+        for sid, session_enc, routes in plan:
+            try:
+                from crypto import decrypt_json
+                from providers.telethon_relay import TelethonRelay
+                session_str = (decrypt_json(session_enc) or {}).get("session")
+                if not session_str:
+                    continue
+                relay = TelethonRelay(session_str, TELEGRAM_API_ID, TELEGRAM_API_HASH, routes, dispatch)
+                self._providers["relay:" + sid] = relay
+                await relay.start()
+                log.info(f"[engine] user-relay started (relay:{sid})")
+            except Exception as e:
+                log.warning(f"[engine] user-relay {sid} failed: {e}")
 
     def stop_provider(self, master_id: str) -> None:
         p = self._providers.pop(master_id, None)

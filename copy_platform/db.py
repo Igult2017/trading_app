@@ -86,6 +86,18 @@ class TelegramSource(Base):
     is_active         = Column(Boolean)
 
 
+class TelegramUserSession(Base):
+    __tablename__ = "telegram_user_sessions"
+    id              = Column(String, primary_key=True)
+    user_id         = Column(String)
+    phone_number    = Column(Text)
+    session_enc     = Column(Text)    # encrypted Telethon StringSession
+    phone_code_hash = Column(Text)
+    status          = Column(Text)
+    last_error      = Column(Text)
+    is_active       = Column(Boolean)
+
+
 class CopyTradeMaster(Base):
     __tablename__ = "copy_trades_master"
     id          = Column(String, primary_key=True)

@@ -82,6 +82,24 @@ export const telegramSignalSources = pgTable("telegram_signal_sources", {
 
 export const insertTelegramSignalSourceSchema = createInsertSchema(telegramSignalSources).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertTelegramSignalSource = z.infer<typeof insertTelegramSignalSourceSchema>;
+
+// User-session relay (advanced, opt-in): a user authorizes their OWN Telegram account
+// (Telethon StringSession) so the engine can read channels the copy-bot can't be admin
+// of. Fully separate from telegram_signal_sources (the bot path) — bot copying unaffected.
+export const telegramUserSessions = pgTable("telegram_user_sessions", {
+  id:            varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId:        varchar("user_id").notNull(),
+  phoneNumber:   text("phone_number"),
+  sessionEnc:    text("session_enc"),                // encrypted Telethon StringSession
+  phoneCodeHash: text("phone_code_hash"),            // transient, during the OTP exchange
+  status:        text("status").default("pending"),  // pending | code_sent | password_needed | active | failed
+  lastError:     text("last_error"),
+  isActive:      boolean("is_active").default(false),
+  createdAt:     timestamp("created_at").defaultNow(),
+  updatedAt:     timestamp("updated_at").defaultNow(),
+});
+export const insertTelegramUserSessionSchema = createInsertSchema(telegramUserSessions).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertTelegramUserSession = z.infer<typeof insertTelegramUserSessionSchema>;
 export type TelegramSignalSource = typeof telegramSignalSources.$inferSelect;
 
 /** Per-strategy persistent state for the signal platform (Python reads/writes).
