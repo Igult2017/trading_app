@@ -185,3 +185,15 @@ export const localStoragePersister = createSyncStoragePersister({
   key: CACHE_KEY,
   throttleTime: 1_000,
 });
+
+/**
+ * Wipe the persisted cache + all in-memory queries. Called on logout so no user
+ * data lingers in the browser (clear-on-logout security posture).
+ */
+export function clearPersistedJournalCache() {
+  try {
+    queryClient.clear();
+    localStorage.removeItem(CACHE_KEY);
+    localStorage.removeItem(OWNER_KEY);
+  } catch { /* ignore */ }
+}

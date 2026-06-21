@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import type { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
-import { queryClient } from '@/lib/queryClient';
+import { queryClient, clearPersistedJournalCache } from '@/lib/queryClient';
 import { warmJournalCache } from '@/lib/prefetchPanels';
 import { clearInactivityTracking } from '@/lib/inactivity';
 
@@ -115,10 +115,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Keep the persisted journal cache scoped to its owner. If a DIFFERENT user signs
-  // in on this browser, drop the previous user's cached data (no cross-user leak).
-  // On logout we deliberately KEEP it, so the same user returns to an instantly
-  // populated app even days later.
+  // Defense-in-depth for the cache owner: logout already wipes it, but if a session
+  // ended uncleanly (tab killed, no signOut) and a DIFFERENT user then signs in,
+  // drop the previous user's cached data so it can never surface cross-user.
   useEffect(() => {
     if (loading || !user?.id) return;
     try {
@@ -163,6 +162,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (error) return { error, emailConfirmationRequired: false };
 
     if (data.session) {
+      // Warm the dashboard the instant signup yields a session (parallel with setup).
+      try { warmJournalCache(queryClient, data.session.user.id); } catch { /* best-effort */ }
       const assignedRole = await runSetup(data.session.access_token);
       clearInactivityTracking();   // fresh login — start a clean 10-min window
       setRole(assignedRole ?? extractRole(data.session.user));
@@ -220,6 +221,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function signOut() {
+    // Clear-on-logout: wipe persisted + in-memory user data so nothing lingers in
+    // the browser after sign-out (security posture). The fast warm-up runs again on
+    // the next login/signup, so this costs nothing on return.
+    clearPersistedJournalCache();
     if (!supabase) {
       sessionStorage.removeItem(LOCAL_ADMIN_KEY);
       setSession(null);
