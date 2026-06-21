@@ -51,10 +51,9 @@ export default function HomePage() {
       <HomeHeader darkMode={dm} setDarkMode={setDarkMode} activePath="/" />
 
       {/* ── Hero ─────────────────────────────────────────────────────── */}
-      <section style={{ padding: '9rem 0 5rem', background: dm ? bg : '#f0f5ff', transition: 'background 0.4s' }}>
-        {/* Container matches HomeHeader exactly (maxWidth 1280 + 32px padding) so the
-            hero content hugs the same left/right edges as the nav. */}
-        <div style={{ maxWidth: 1280, margin: '0 auto', padding: '0 32px', display: 'grid', gridTemplateColumns: '5fr 7fr', gap: '4rem', alignItems: 'center' }}>
+      <section className="pt-24 pb-16 lg:pt-36 lg:pb-20" style={{ background: dm ? bg : '#f0f5ff', transition: 'background 0.4s' }}>
+        {/* Stacks to one column below lg; matches HomeHeader's 1280/32px edges on desktop. */}
+        <div className="max-w-[1280px] mx-auto px-6 lg:px-8 grid grid-cols-1 lg:grid-cols-[5fr_7fr] gap-10 lg:gap-16 items-center">
 
           {/* Left — copy */}
           <div>
@@ -63,10 +62,10 @@ export default function HomePage() {
               Trusted by 10,000+ retail traders
             </div>
 
-            <h1 style={{ ...serif, fontSize: 'clamp(3rem,5vw,5rem)', lineHeight: 1.05, marginBottom: 20, color: text, fontWeight: 900 }}>
+            <h1 style={{ ...serif, fontSize: 'clamp(2.25rem,6vw,5rem)', lineHeight: 1.07, marginBottom: 20, color: text, fontWeight: 900 }}>
               Trade and<br />
               Journal,<br />
-              <span style={{ color: '#2563eb', whiteSpace: 'nowrap' }}>Find your edge</span>
+              <span style={{ color: '#2563eb' }}>Find your edge</span>
             </h1>
 
             <p style={{ fontSize: 16, color: muted, lineHeight: 1.8, marginBottom: 32, ...sans }}>
