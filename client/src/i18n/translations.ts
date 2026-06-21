@@ -59,7 +59,7 @@ export const STATIC_T = {
     edit:'Edit', close:'Close',
     sessions:'Sessions', vault:'Trade Vault', calendar:'Calendar',
     drawdown:'Drawdown', metrics:'Metrics', strategy:'Audit',
-    fsdai:'Trader AI', sync:'Sync Trade',
+    fsdai:'Trader AI', sync:'Trade Sync',
   },
   es: {
     dashboard:'Panel', journal:'Diario', tradeHistory:'Historial',

@@ -1906,7 +1906,7 @@ const features = [
   { icon:"🎯", title:"Priority Support & Onboarding", desc:"Get one-on-one onboarding & dedicated troubleshooting." },
 ];
 const faqs = [
-  { q:"Does Sync Trade trade for me?",        a:"No. Sync Trade is a copy trading tool that mirrors your own trades from a master account to one or more slave accounts. You remain in full control of all trading decisions." },
+  { q:"Does Trade Sync trade for me?",        a:"No. Trade Sync is a copy trading tool that mirrors your own trades from a master account to one or more slave accounts. You remain in full control of all trading decisions." },
   { q:"Is this for accounts I own?",          a:"Yes. Trade Sync is designed for traders who manage multiple accounts of their own. You must have authorized access to all accounts you connect to the platform." },
   { q:"Which platforms are supported?",       a:"MT4, MT5, MatchTrader, cTrader, DXTrade, TradeLocker, and Binance (USDM Futures) are fully supported — all via API, no desktop terminal needed. More platforms are coming soon — vote for your favorites." },
   { q:"Do you provide signals or advice?",    a:"No. Trade Sync does not provide trading signals, advice, or recommendations. It solely syncs trades between accounts you control." },
@@ -2088,7 +2088,7 @@ export default function TradeSyncPage() {
           <div className="ts-faq-inner">
             <div className="ts-section-header">
               <div className="ts-section-title">Frequently Asked Questions</div>
-              <div className="ts-section-sub">Everything you need to know about Sync Trade</div>
+              <div className="ts-section-sub">Everything you need to know about Trade Sync</div>
             </div>
             {faqs.map((f,i) => (
               <div key={i} className={`ts-faq-item ${openFaq===i?"open":""}`}>

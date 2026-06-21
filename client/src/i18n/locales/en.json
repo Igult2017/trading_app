@@ -6,7 +6,7 @@
     "logout": "Logout", "loginStreak": "Login Streak", "days": "days", "free": "Free",
     "language": "Language", "newTrade": "New Trade", "sessions": "Sessions",
     "vault": "Trade Vault", "calendar": "Calendar", "drawdown": "Drawdown",
-    "metrics": "Metrics", "strategy": "Audit", "fsdai": "Trader AI", "sync": "Sync Trade"
+    "metrics": "Metrics", "strategy": "Audit", "fsdai": "Trader AI", "sync": "Trade Sync"
   },
   "common": {
     "save": "Save", "cancel": "Cancel", "edit": "Edit", "close": "Close",
