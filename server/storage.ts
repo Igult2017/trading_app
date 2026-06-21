@@ -738,7 +738,7 @@ export class DbStorage implements IStorage {
         ON cm.broker_account_id = ba.id AND cm.is_public = true AND cm.is_active = true
       LEFT JOIN synced_trades t ON t.broker_account_id = ba.id
       WHERE ba.is_active = true
-      GROUP BY ba.id, cm.id
+      GROUP BY ba.id, cm.id, cm.strategy_name, cm.is_active, cm.require_approval
       ORDER BY "netPnl" DESC NULLS LAST
     `);
 
