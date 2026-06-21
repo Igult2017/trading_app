@@ -230,48 +230,53 @@ function Heatmap({ factors, corr, instruments, isWin }: {
   if (!instruments.length || !factors.length) {
     return <div style={{ fontSize: 12, color: T.muted, fontFamily: FONT, padding: "12px 0" }}>No correlation data available yet.</div>;
   }
+  // Transposed: factors run DOWN the rows (grows vertically as factors are added),
+  // instruments are the few columns — so the panel never widens out of its half.
+  const LABEL_W = 168;
+  const CELL_W = instruments.length <= 1 ? 92 : 76;
   return (
-    <div style={{ overflowX: "auto", paddingBottom: 8 }}>
-      <div style={{ width: "max-content" }}>
-        <div style={{ display: "flex", gap: 2, marginBottom: 2 }}>
-          <div style={{ width: 80 }} />
-          {factors.map((f, i) => (
-            <div key={i} style={{ width: 68, textAlign: "center", fontFamily: FONT, fontWeight: 700, fontSize: 9, color: T.dim, letterSpacing: ".06em", padding: "4px 2px" }}>{f}</div>
-          ))}
-        </div>
-        {instruments.map((inst, ri) => (
-          <div key={inst} style={{ display: "flex", gap: 2, marginBottom: 2 }}>
-            <div style={{ width: 80, fontFamily: FONT, fontWeight: 700, fontSize: 10, color: T.muted, display: "flex", alignItems: "center", paddingLeft: 4 }}>{inst}</div>
-            {(corr[inst] ?? []).map((v, ci) => {
-              const alpha = (v / 100) * 0.85 + 0.1;
-              const isHov = hovered?.ri === ri && hovered?.ci === ci;
-              return (
-                <div
-                  key={ci}
-                  onMouseEnter={() => setHovered({ ri, ci, v, inst, factor: factors[ci] })}
-                  onMouseLeave={() => setHovered(null)}
-                  style={{
-                    width: 68, height: 30, display: "flex", alignItems: "center", justifyContent: "center",
-                    background: `rgba(${base},${alpha})`,
-                    fontFamily: MONO, fontWeight: 400, fontSize: 10,
-                    color: "rgba(255,255,255,0.9)", cursor: "default",
-                    position: "relative", outline: isHov ? `1px solid ${T.line2}` : "none",
-                  }}
-                >
-                  {v}
-                  {isHov && (
-                    <div style={{ position: "absolute", bottom: "110%", left: "50%", transform: "translateX(-50%)", background: T.bg2, border: `1px solid ${T.line2}`, padding: "6px 10px", whiteSpace: "nowrap", zIndex: 10, pointerEvents: "none" }}>
-                      <div style={{ fontFamily: FONT, fontWeight: 700, fontSize: 10, color: T.text }}>{inst}</div>
-                      <div style={{ fontFamily: FONT, fontSize: 9, color: T.dim }}>{factors[ci]}</div>
-                      <div style={{ fontFamily: MONO, fontSize: 11, color: T.text, marginTop: 2 }}>{v}%</div>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+    <div style={{ paddingBottom: 8 }}>
+      {/* Header — instrument name(s) across the top */}
+      <div style={{ display: "flex", gap: 2, marginBottom: 2 }}>
+        <div style={{ width: LABEL_W, flexShrink: 0 }} />
+        {instruments.map((inst) => (
+          <div key={inst} style={{ width: CELL_W, flexShrink: 0, textAlign: "center", fontFamily: FONT, fontWeight: 700, fontSize: 10, color: T.muted, letterSpacing: ".04em", padding: "4px 2px" }}>{inst}</div>
         ))}
       </div>
+      {/* One row per factor → the panel grows downward, not wider */}
+      {factors.map((f, fi) => (
+        <div key={fi} style={{ display: "flex", gap: 2, marginBottom: 2 }}>
+          <div style={{ width: LABEL_W, flexShrink: 0, fontFamily: FONT, fontWeight: 700, fontSize: 9.5, color: T.dim, letterSpacing: ".04em", display: "flex", alignItems: "center", paddingRight: 8, lineHeight: 1.25 }}>{f}</div>
+          {instruments.map((inst, ii) => {
+            const v = corr[inst]?.[fi] ?? 0;
+            const alpha = (v / 100) * 0.85 + 0.1;
+            const isHov = hovered?.ri === fi && hovered?.ci === ii;
+            return (
+              <div
+                key={ii}
+                onMouseEnter={() => setHovered({ ri: fi, ci: ii, v, inst, factor: f })}
+                onMouseLeave={() => setHovered(null)}
+                style={{
+                  width: CELL_W, flexShrink: 0, height: 30, display: "flex", alignItems: "center", justifyContent: "center",
+                  background: `rgba(${base},${alpha})`,
+                  fontFamily: MONO, fontWeight: 400, fontSize: 10,
+                  color: "rgba(255,255,255,0.9)", cursor: "default",
+                  position: "relative", outline: isHov ? `1px solid ${T.line2}` : "none",
+                }}
+              >
+                {v}
+                {isHov && (
+                  <div style={{ position: "absolute", bottom: "110%", left: "50%", transform: "translateX(-50%)", background: T.bg2, border: `1px solid ${T.line2}`, padding: "6px 10px", whiteSpace: "nowrap", zIndex: 10, pointerEvents: "none" }}>
+                    <div style={{ fontFamily: FONT, fontWeight: 700, fontSize: 10, color: T.text }}>{inst}</div>
+                    <div style={{ fontFamily: FONT, fontSize: 9, color: T.dim }}>{f}</div>
+                    <div style={{ fontFamily: MONO, fontSize: 11, color: T.text, marginTop: 2 }}>{v}%</div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      ))}
     </div>
   );
 }
