@@ -87,12 +87,12 @@ export function prefetchAllPanels(
 
     queryClient.prefetchQuery({
       queryKey: ["strategyAudit", sessionId, userId],
-      queryFn: async () => {
-        try {
-          const r = await authFetch(`/api/strategy-audit/compute?${p}`);
-          return r.ok ? r.json() : null;
-        } catch { return null; }
-      },
+      // Use fetchJson so a non-OK/transient failure THROWS. A rejected prefetch is
+      // swallowed by prefetchQuery and leaves the cache EMPTY — instead of poisoning
+      // it with a sticky `null` (staleTime Infinity) that makes the Audit page show
+      // "NO AUDIT DATA YET" and never refetch. The component's own fetchAudit then
+      // loads fresh (real data, or a proper error+retry if the server is the issue).
+      queryFn: () => fetchJson(`/api/strategy-audit/compute?${p}`),
       staleTime: STALE_AUDIT,
     });
   }, 500);
