@@ -72,9 +72,19 @@ def blob_field(t: dict, key: str) -> Any:
 
 # ── Domain helpers ────────────────────────────────────────────────────────────
 
+def _first(t: dict, *keys: str) -> Any:
+    """First key whose value is not None — so a legitimate 0 / breakeven is not
+    skipped the way an `a or b` chain would skip a falsy 0."""
+    for k in keys:
+        v = t.get(k)
+        if v is not None:
+            return v
+    return None
+
+
 def get_pnl(t: dict) -> float | None:
-    """Monetary P&L from profitLoss field."""
-    return _f(t.get("profitLoss") or t.get("profit_loss"))
+    """Monetary P&L from profitLoss field (0 is a valid breakeven, not skipped)."""
+    return _f(_first(t, "profitLoss", "profit_loss"))
 
 
 def get_pnl_pct(t: dict) -> float | None:
@@ -84,13 +94,14 @@ def get_pnl_pct(t: dict) -> float | None:
       2. _pnlPct    (pre-computed by core._annotate_pnl_pct from monetary P&L)
     Returns None when absent.
     """
-    return _f(
-        t.get("pnlPercent") or
-        t.get("pnl_percent") or
-        blob_field(t, "pnlPercent") or
-        blob_field(t, "pnl_percent") or
-        t.get("_pnlPct")
-    )
+    v = _first(t, "pnlPercent", "pnl_percent")
+    if v is None:
+        v = blob_field(t, "pnlPercent")
+    if v is None:
+        v = blob_field(t, "pnl_percent")
+    if v is None:
+        v = t.get("_pnlPct")
+    return _f(v)
 
 
 _WIN_ALIASES     = frozenset({"win", "won", "profit", "tp", "take profit", "1", "true"})

@@ -1,0 +1,100 @@
+"""
+drawdown/risk_model.py
+─────────────────────────────────────────────────────────────────────────────
+Edge & ruin model:
+  • win rate, payoff (avg win / avg loss), Kelly-optimal risk fraction
+  • consecutive-loss: actual longest losing streak vs the statistically expected
+    longest run, with an "out of expectation" flag
+  • MAE (max adverse excursion): how much deeper losers run against you than
+    winners do before resolving (relative, unit-agnostic)
+
+Pure, never raises.
+"""
+from __future__ import annotations
+import math
+from ._utils import get_pnl_pct, get_outcome, get_pnl, sort_by_date, safe_mean, _f
+
+_EMPTY = {
+    "winRate": 0.0, "payoff": 0.0, "kellyPct": 0.0,
+    "expectedMaxLossStreak": 0, "actualMaxLossStreak": 0, "streakWithinExpectation": True,
+    "mae": {"hasData": False, "avgWinnerMae": 0.0, "avgLoserMae": 0.0, "ratio": 0.0, "count": 0},
+}
+
+
+def _is_win(t) -> bool:
+    oc = get_outcome(t)
+    return oc == "win" or (oc == "" and (get_pnl(t) or 0) > 0)
+
+
+def _is_loss(t) -> bool:
+    oc = get_outcome(t)
+    return oc == "loss" or (oc == "" and (get_pnl(t) or 0) < 0)
+
+
+def compute_risk_model(trades: list) -> dict:
+    if not trades:
+        return _EMPTY
+
+    wins_pct, loss_pct = [], []
+    for t in trades:
+        pct = get_pnl_pct(t)
+        if _is_win(t) and pct is not None and pct > 0:
+            wins_pct.append(pct)
+        elif _is_loss(t) and pct is not None and pct < 0:
+            loss_pct.append(abs(pct))
+
+    decided = len(wins_pct) + len(loss_pct)
+    if decided == 0:
+        return _EMPTY
+
+    win_rate = len(wins_pct) / decided
+    avg_win  = safe_mean(wins_pct)
+    avg_loss = safe_mean(loss_pct)
+    payoff   = (avg_win / avg_loss) if avg_loss > 0 else 0.0
+    # Kelly: f* = W - (1-W)/R ; clamp to [0,1].
+    kelly = (win_rate - (1 - win_rate) / payoff) if payoff > 0 else 0.0
+    kelly = max(0.0, min(1.0, kelly))
+
+    # Consecutive-loss: actual longest losing streak.
+    actual_streak, cur = 0, 0
+    for t in sort_by_date(trades):
+        if _is_loss(t):
+            cur += 1
+            actual_streak = max(actual_streak, cur)
+        elif _is_win(t):
+            cur = 0
+    # Expected longest run of length-q events in n trials ≈ log(n)/log(1/q).
+    q = 1 - win_rate
+    n = decided
+    expected_streak = round(math.log(n) / math.log(1 / q)) if 0 < q < 1 and n > 1 else 0
+    within = actual_streak <= expected_streak + 1
+
+    # MAE winner vs loser (absolute, relative comparison is unit-agnostic).
+    win_maes, loss_maes = [], []
+    for t in trades:
+        m = _f(t.get("mae"))
+        if m is None:
+            continue
+        if _is_win(t):
+            win_maes.append(abs(m))
+        elif _is_loss(t):
+            loss_maes.append(abs(m))
+    avg_win_mae  = round(safe_mean(win_maes), 2) if win_maes else 0.0
+    avg_loss_mae = round(safe_mean(loss_maes), 2) if loss_maes else 0.0
+    mae_ratio    = round(avg_loss_mae / avg_win_mae, 2) if avg_win_mae > 0 else 0.0
+
+    return {
+        "winRate": round(win_rate * 100, 1),
+        "payoff": round(payoff, 2),
+        "kellyPct": round(kelly * 100, 1),
+        "expectedMaxLossStreak": expected_streak,
+        "actualMaxLossStreak": actual_streak,
+        "streakWithinExpectation": within,
+        "mae": {
+            "hasData": (len(win_maes) + len(loss_maes)) > 0,
+            "avgWinnerMae": avg_win_mae,
+            "avgLoserMae": avg_loss_mae,
+            "ratio": mae_ratio,
+            "count": len(win_maes) + len(loss_maes),
+        },
+    }

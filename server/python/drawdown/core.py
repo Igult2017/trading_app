@@ -12,7 +12,10 @@ from .sessions     import compute_sessions
 from .streaks      import compute_streaks
 from .distribution import compute_rr_buckets, compute_monthly
 from .intelligence import compute_intelligence
-from ._utils       import get_pnl, sort_by_date
+from .risk_model   import compute_risk_model
+from .montecarlo   import compute_montecarlo
+from .recovery     import compute_recovery
+from ._utils       import get_pnl, get_pnl_pct, sort_by_date
 
 
 def _annotate_pnl_pct(trades: list, starting_balance: float) -> None:
@@ -25,13 +28,19 @@ def _annotate_pnl_pct(trades: list, starting_balance: float) -> None:
     sb = float(starting_balance) if starting_balance else 10_000.0
     bal = sb
     for t in sort_by_date(trades):
-        if t.get("pnlPercent") is None and t.get("pnl_percent") is None:
-            pl = get_pnl(t)
-            if pl is not None and bal > 0:
-                t["_pnlPct"] = round(pl / bal * 100, 4)
-                bal += pl
-            else:
-                t["_pnlPct"] = None
+        has_pct = t.get("pnlPercent") is not None or t.get("pnl_percent") is not None
+        pl = get_pnl(t)
+        if not has_pct:
+            t["_pnlPct"] = round(pl / bal * 100, 4) if (pl is not None and bal > 0) else None
+        # Advance the running balance for EVERY trade so later %-denominators stay
+        # correct in mixed pnl/pct journals (previously only pct-less trades advanced
+        # it, drifting the denominator after any explicit-pct trade).
+        if pl is not None:
+            bal += pl
+        else:
+            pct = get_pnl_pct(t)
+            if pct is not None and bal > 0:
+                bal *= (1 + pct / 100)
 
 
 def compute_drawdown(trades: list, starting_balance: float) -> dict:
@@ -71,6 +80,14 @@ def compute_drawdown(trades: list, starting_balance: float) -> dict:
                 "byStrategy":   [],
                 "byInstrument": [],
             },
+            "riskModel": {"winRate": 0.0, "payoff": 0.0, "kellyPct": 0.0,
+                          "expectedMaxLossStreak": 0, "actualMaxLossStreak": 0, "streakWithinExpectation": True,
+                          "mae": {"hasData": False, "avgWinnerMae": 0.0, "avgLoserMae": 0.0, "ratio": 0.0, "count": 0}},
+            "monteCarlo": {"hasData": False, "runs": 0, "actualMaxDd": 0.0, "expectedMaxDd": 0.0,
+                           "worstCase95": 0.0, "worstCase99": 0.0, "actualPercentile": 0.0,
+                           "riskOfRuinPct": 0.0, "ruinThreshold": -50.0, "breach20Pct": 0.0},
+            "recovery": {"hasData": False, "underwaterAvgSize": 0.0, "baselineAvgSize": 0.0,
+                         "sizeRatio": 0.0, "underwaterCount": 0, "baselineCount": 0, "verdict": ""},
         }
 
     sb = float(starting_balance) if starting_balance else 10_000.0
@@ -88,6 +105,9 @@ def compute_drawdown(trades: list, starting_balance: float) -> dict:
     rr_buckets = compute_rr_buckets(trades)
     monthly    = compute_monthly(trades, sb)
     intelligence = compute_intelligence(trades, sb)
+    risk_model   = compute_risk_model(trades)
+    monte_carlo  = compute_montecarlo(trades, sb)
+    recovery     = compute_recovery(trades, sb)
 
     return {
         "topStats":   top_stats,
@@ -99,4 +119,7 @@ def compute_drawdown(trades: list, starting_balance: float) -> dict:
         "rrBuckets":  rr_buckets,
         "monthly":    monthly,
         "intelligence": intelligence,
+        "riskModel":  risk_model,
+        "monteCarlo": monte_carlo,
+        "recovery":   recovery,
     }

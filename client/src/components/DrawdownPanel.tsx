@@ -17,6 +17,12 @@ const V = ({ children, className = '' }: { children: React.ReactNode; className?
 const Sub = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
   <span className={`text-[9px] font-mono text-slate-600 ${className}`} style={{ fontWeight: 400 }}>{children}</span>
 );
+const Row = ({ k, v, accent }: { k: string; v: string; accent?: string }) => (
+  <div className="flex items-center justify-between gap-3">
+    <L>{k}</L>
+    <span className="text-xs jm" style={{ fontWeight: 700, ...(accent ? { color: accent } : {}) }}>{v}</span>
+  </div>
+);
 const SectionTitle = ({ icon, children }: { icon?: React.ReactNode; children: React.ReactNode }) => (
   <div className="flex items-center gap-3">
     <div className="w-px h-4 bg-slate-700"></div>
@@ -151,7 +157,10 @@ export default function DrawdownPanel({ sessionId }: { sessionId?: string | null
     { label: t('drawdown.trendAlignment'), value: ts ? `${ts.trendAlignment}%`   : '—', accent: '#6366f1' },
   ];
 
-  const intel = d?.intelligence ?? null;
+  const intel    = d?.intelligence ?? null;
+  const risk     = d?.riskModel ?? null;
+  const mc       = d?.monteCarlo ?? null;
+  const recovery = d?.recovery ?? null;
 
   // Heatmap: rows from API, strategies derived from first row's cells
   const heatRows: any[]     = d?.heatmap ?? [];
@@ -357,6 +366,49 @@ export default function DrawdownPanel({ sessionId }: { sessionId?: string | null
                 </div>
               ))}
             </div>
+          </div>
+        )}
+
+        {/* ── EDGE & RISK · MONTE-CARLO · RECOVERY ────────────────── */}
+        {(risk || (mc && mc.hasData) || (recovery && recovery.hasData)) && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
+            {risk && (
+              <div className="dd-card rounded p-4 sm:p-6">
+                <SectionTitle icon={<ShieldCheck className="w-3 h-3"/>}>Edge &amp; Risk Model</SectionTitle>
+                <div className="mt-5 flex flex-col gap-3">
+                  <Row k="Win Rate" v={`${risk.winRate}%`} />
+                  <Row k="Payoff (avg win / loss)" v={`${risk.payoff}x`} />
+                  <Row k="Kelly Optimal Risk" v={`${risk.kellyPct}%`} accent="#10b981" />
+                  <Row k="Loss Streak (actual / expected)" v={`${risk.actualMaxLossStreak} / ${risk.expectedMaxLossStreak}`} accent={risk.streakWithinExpectation ? undefined : '#f43f5e'} />
+                  {risk.mae?.hasData && <Row k="Loser vs Winner MAE" v={`${risk.mae.ratio}x deeper`} accent="#f59e0b" />}
+                </div>
+              </div>
+            )}
+            {mc && mc.hasData && (
+              <div className="dd-card rounded p-4 sm:p-6">
+                <SectionTitle icon={<Activity className="w-3 h-3"/>}>Monte-Carlo Projection</SectionTitle>
+                <div className="mt-5 flex flex-col gap-3">
+                  <Row k="Expected Max DD" v={fmtDd(mc.expectedMaxDd)} accent="#f59e0b" />
+                  <Row k="Worst Case (95%)" v={fmtDd(mc.worstCase95)} accent="#f43f5e" />
+                  <Row k="Worst Case (99%)" v={fmtDd(mc.worstCase99)} accent="#f43f5e" />
+                  <Row k="Risk of Ruin (>50% DD)" v={`${mc.riskOfRuinPct}%`} accent={mc.riskOfRuinPct > 1 ? '#f43f5e' : '#10b981'} />
+                  <Sub>{mc.actualPercentile}% of {mc.runs} simulated histories had a drawdown as deep or deeper than yours.</Sub>
+                </div>
+              </div>
+            )}
+            {recovery && recovery.hasData && (
+              <div className="dd-card rounded p-4 sm:p-6">
+                <SectionTitle icon={<TrendingDown className="w-3 h-3"/>}>Recovery Pattern</SectionTitle>
+                <div className="mt-5 flex flex-col gap-3">
+                  <Row k="Size When Underwater" v={`${recovery.sizeRatio}x baseline`} accent={recovery.verdict === 'increase' ? '#f43f5e' : recovery.verdict === 'reduce' ? '#10b981' : '#6366f1'} />
+                  <Sub>{recovery.verdict === 'increase'
+                    ? 'You trade LARGER when underwater — revenge-recovery risk.'
+                    : recovery.verdict === 'reduce'
+                    ? 'You trade smaller when underwater — disciplined de-risking.'
+                    : 'Your position sizing stays steady through drawdowns.'}</Sub>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
