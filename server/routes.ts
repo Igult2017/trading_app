@@ -3918,7 +3918,15 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
       return res.status(400).json({ error: "The copy-onto account must be API-connected (e.g. cTrader)" });
     }
 
-    const channel = String(b.channel).trim().replace(/^@/, "");
+    // Normalize: accept @name, t.me/name, https://t.me/name, t.me/c/<id> (private)
+    // or a raw -100… numeric id. The engine routes by @username (public) or chat id
+    // (private) — never an invite link.
+    let channel = String(b.channel || "").trim()
+      .replace(/^https?:\/\//i, "").replace(/^t\.me\//i, "").replace(/^@/, "");
+    const cMatch = channel.match(/^c\/(\d+)/);          // t.me/c/1234567890/.. → private chat id
+    if (cMatch) channel = "-100" + cMatch[1];
+    else channel = channel.replace(/\/.*$/, "");        // drop any trailing /path on public links
+    if (!channel) return res.status(400).json({ error: "Channel is required" });
 
     // Dedup: re-following the same channel onto the same account must NOT spawn a
     // second master/follower (that would mirror every signal twice). Reuse any

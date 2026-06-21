@@ -757,27 +757,25 @@ const StepMapping = ({ data, setData }: any) => {
 
 const TG_COPY_BOT = '@tandjournal_copybot';   // the platform copy-bot (your configured TELEGRAM_COPY_BOT_TOKEN)
 
-const StepTgChannel = ({ data, setData }: any) => (
+const StepTgChannel = ({ data, setData }: any) => {
+  const isPrivate = data.tgChannelType === 'private_channel';
+  return (
   <div className="grid grid-cols-1 md:grid-cols-2 gap-0 border border-white/5 divide-y md:divide-y-0 md:divide-x divide-white/5">
-    <div className="p-5 md:p-8 space-y-6">
-      <span className="text-[10px] font-mono font-bold text-slate-600 uppercase tracking-widest">// signal_channel</span>
-      <TInput label="Channel @username or link" hint="The channel that posts the signals." placeholder="@forex_signals" value={data.tgChannelName??''} onChange={(e:any)=>setData({...data,tgChannelName:e.target.value})} />
-      <TSelect label="Channel type"
-        options={[{value:'public_channel',label:'Public channel (@username)'},{value:'private_channel',label:'Private channel'},{value:'group',label:'Group / supergroup'}]}
-        value={data.tgChannelType??'public_channel'} onChange={(v: any) => setData({...data,tgChannelType:v})} />
-      <InfoBox color="blue">For a private channel, add the bot as an admin first, then paste the channel here.</InfoBox>
-    </div>
+    {/* STEP 1 — add the bot (this is what grants access) */}
     <div className="p-5 md:p-8 space-y-5">
       <div className="flex items-center gap-3 text-blue-400">
         <Send size={16} strokeWidth={1.5} />
-        <span className="text-[10px] font-bold uppercase tracking-widest font-mono">Connect via our bot</span>
+        <span className="text-[10px] font-bold uppercase tracking-widest font-mono">Step 1 · Add our bot</span>
       </div>
-      <p className="text-xs text-slate-400 leading-relaxed">No phone number, API keys or OTP. Just add our bot to the channel as an admin — it reads new signals automatically and securely.</p>
+      <p className="text-xs text-slate-400 leading-relaxed">Adding the bot as a channel admin is what grants access — no phone number, API keys or OTP. It then reads new signals automatically and securely.</p>
+      <div className="p-3 border border-white/10 bg-white/[0.02] rounded-md flex items-center justify-between gap-3">
+        <span className="font-mono text-sm text-blue-300 select-all">{TG_COPY_BOT}</span>
+        <span className="text-[9px] text-slate-600 uppercase tracking-widest font-mono">copy bot</span>
+      </div>
       <ol className="space-y-3">
         {[
-          <>In Telegram open the channel → <span className="text-slate-300">Manage → Administrators</span></>,
-          <>Add <span className="font-mono text-blue-300 select-all">{TG_COPY_BOT}</span> as an admin (read access is enough)</>,
-          <>Paste the channel <span className="text-slate-300">@username</span> on the left — that's it.</>,
+          <>In Telegram, open your channel → <span className="text-slate-300">Manage → Administrators</span></>,
+          <>Tap <span className="text-slate-300">Add Admin</span>, search <span className="font-mono text-blue-300">{TG_COPY_BOT}</span> and add it (read access is enough)</>,
         ].map((t, i) => (
           <li key={i} className="flex gap-3 text-[11px] text-slate-400 leading-relaxed">
             <span className="flex-shrink-0 w-4 h-4 rounded-full bg-blue-500/15 text-blue-300 text-[9px] font-bold flex items-center justify-center">{i + 1}</span>{t}
@@ -785,8 +783,29 @@ const StepTgChannel = ({ data, setData }: any) => (
         ))}
       </ol>
     </div>
+    {/* STEP 2 — identify the channel */}
+    <div className="p-5 md:p-8 space-y-6">
+      <div className="flex items-center gap-3 text-blue-400">
+        <Hash size={16} strokeWidth={1.5} />
+        <span className="text-[10px] font-bold uppercase tracking-widest font-mono">Step 2 · Which channel?</span>
+      </div>
+      <TSelect label="Channel type"
+        options={[{value:'public_channel',label:'Public (has an @username)'},{value:'private_channel',label:'Private (no @username)'},{value:'group',label:'Group / supergroup'}]}
+        value={data.tgChannelType??'public_channel'} onChange={(v: any) => setData({...data,tgChannelType:v})} />
+      <TInput
+        label={isPrivate ? 'Channel ID' : 'Channel @username'}
+        hint={isPrivate
+          ? 'Private channels have no @username — paste the numeric ID (e.g. -1001234567890), not an invite link. Tip: forward any post to @getidsbot to reveal it.'
+          : 'Its public @username, e.g. @forex_signals. A t.me/forex_signals link also works.'}
+        placeholder={isPrivate ? '-1001234567890' : '@forex_signals'}
+        value={data.tgChannelName??''} onChange={(e:any)=>setData({...data,tgChannelName:e.target.value})} />
+      <InfoBox color="blue">{isPrivate
+        ? 'Add the bot (Step 1) first — a private channel only works with its numeric ID.'
+        : 'Add the bot (Step 1), then paste the @username here. That\'s it.'}</InfoBox>
+    </div>
   </div>
-);
+  );
+};
 
 const StepTgParser = ({ data, setData }: any) => {
   const [sample, setSample] = useState<string>(data.testMessage ?? '');
