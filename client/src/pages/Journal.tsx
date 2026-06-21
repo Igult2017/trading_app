@@ -909,10 +909,29 @@ export default function Journal() {
     document.head.appendChild(link);
   }, [settings.font, F.googleUrl]);
 
-  // ── Paywall gate ───────────────────────────────────────────────────────────
-  // Show a loading state while entitlement is being resolved so we don't
-  // flash the paywall for users who do have access.
-  if (entitlementLoading) {
+  // ── Boot gate ────────────────────────────────────────────────────────────────
+  // Hold ONE skeleton until access is resolved AND (if the user has sessions) the
+  // landing dashboard's data is ready — so a COLD login/signup (new device, or after
+  // a different user wiped the cache) lands straight on a populated journal instead
+  // of two sequential loaders (entitlement → then dashboard). `booted` latches after
+  // the first full boot, so later session switches use the inline panel skeleton.
+  const [booted, setBooted] = useState(false);
+  const { data: bootMetrics, isError: bootMetricsErr } = useQuery<any>({
+    queryKey: ['/api/metrics/compute', activeSessionId],
+    enabled: !booted && hasJournalAccess && !!activeSessionId,
+    queryFn: async () => {
+      const r = await authFetch(`/api/metrics/compute?sessionId=${activeSessionId}`);
+      if (!r.ok) throw new Error(`${r.status}`);
+      return r.json();
+    },
+  });
+  const sessionsUnknown  = hasJournalAccess && !!user && sessions.length === 0 && sessionsFetching;
+  const dashboardPending = hasJournalAccess && !!activeSessionId && !bootMetrics && !bootMetricsErr;
+  const booting = !booted && (entitlementLoading || sessionsUnknown || dashboardPending);
+  useEffect(() => { if (!booting) setBooted(true); }, [booting]);
+
+  // One continuous skeleton while booting; only decide the paywall once access is known.
+  if (booting) {
     return <JournalBootSkeleton />;
   }
 
