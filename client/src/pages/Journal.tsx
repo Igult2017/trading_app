@@ -1222,6 +1222,20 @@ export default function Journal() {
         .journal-light .obs-jf textarea::placeholder { color: ${T.textMuted} !important; }
         .journal-light .obs-jf button:not([class*="bg-[#4e8cff]"]):not([class*="bg-indigo"]):not([class*="bg-emerald"]) { border-color: ${T.border} !important; }
 
+        /* ── JournalForm live-stats sidebar ──────────────────────────────────
+           Its values use Tailwind color CLASSES (text-white / text-emerald-* /
+           text-rose-*) that the [style*=…] hex remaps can't reach, so on a light bg
+           they render as faint ghosts ("blurred"). Scope-remap them to readable
+           colors — scoped to the sidebar so white-on-accent buttons elsewhere are
+           untouched. */
+        .journal-light .js-stats-sidebar [class*="text-white"] { color: ${T.text} !important; }
+        .journal-light .js-stats-sidebar .text-emerald-400,
+        .journal-light .js-stats-sidebar .text-emerald-500,
+        .journal-light .js-stats-sidebar .text-emerald-800 { color: #047857 !important; }
+        .journal-light .js-stats-sidebar .text-rose-400,
+        .journal-light .js-stats-sidebar .text-rose-500,
+        .journal-light .js-stats-sidebar .text-rose-800 { color: #be123c !important; }
+
         /* ── TraderAI empty-state heading + suggestion cards ─────────────── */
         .journal-light .traderai-empty-wrap h2,
         .journal-light .traderai-empty-title { color: ${T.text} !important; }

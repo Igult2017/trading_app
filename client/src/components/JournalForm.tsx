@@ -1160,7 +1160,7 @@ function Sidebar({ startingBalance, sessionId }: { allEntries?: any[]; startingB
   const monthLabel = `${_MONTH_ABBR[selMon - 1]} ${selYear}`;
 
   return (
-    <div className="w-full lg:w-[260px] xl:w-[260px] bg-[#09090b] flex flex-col h-full overflow-hidden border-l border-[#18181b] flex-shrink-0">
+    <div className="js-stats-sidebar w-full lg:w-[260px] xl:w-[260px] bg-[#09090b] flex flex-col h-full overflow-hidden border-l border-[#18181b] flex-shrink-0">
       <div className="h-[2px] bg-[#18181b] flex-shrink-0" />
       {/* Header */}
       <div className="h-[52px] px-4 border-b border-[#18181b] flex items-center justify-between flex-shrink-0">
