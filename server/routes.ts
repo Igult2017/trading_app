@@ -3210,7 +3210,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // the delete above misses them. Drop this user's telegram masters that now have no
     // followers left, then any telegram sources orphaned by a deleted master.
     await pool.query(
-      `DELETE FROM copy_masters WHERE source_type = 'telegram' AND user_id = $1
+      `DELETE FROM copy_masters WHERE source_type IN ('telegram', 'telegram_user') AND user_id = $1
          AND NOT EXISTS (SELECT 1 FROM copy_followers cf WHERE cf.master_id = copy_masters.id)`,
       [account.userId],
     );
@@ -4093,7 +4093,7 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
       message: `Relaying ${channel} from your Telegram account to ${account.name || "your account"}.`,
     }).catch(() => {});
 
-    return res.status(201).json({ master, follower });
+    return res.status(201).json({ master, follower, account });
   });
 
   // ── Auth: registration setup (idempotent) ────────────────────────────────────

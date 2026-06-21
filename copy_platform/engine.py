@@ -168,26 +168,32 @@ class CopyEngine:
         if COPY_WORKER_COUNT > 1 and COPY_WORKER_INDEX != 0:
             return   # the relay set (like the bot poller) lives on worker 0
         from db import Session, CopyMaster, TelegramSource, TelegramUserSession
+        active_ids = set()
+        plan = []
         with Session() as db:
             sessions = db.query(TelegramUserSession).filter_by(is_active=True).all()
-            plan = []
+            active_ids = {s.id for s in sessions}
             for s in sessions:
                 if ("relay:" + s.id) in self._providers or not s.session_enc:
                     continue
                 masters = db.query(CopyMaster).filter_by(
                     user_id=s.user_id, source_type="telegram_user", is_active=True).all()
-                routes = {}
+                routes: dict = {}
                 for m in masters:
                     src = db.query(TelegramSource).filter_by(master_id=m.id, is_active=True).first()
                     if src and src.channel_name:
-                        routes[src.channel_name.lstrip("@").lower()] = (m.id, {
+                        routes.setdefault(src.channel_name.lstrip("@").lower(), []).append((m.id, {
                             "entry_keyword": src.entry_keyword, "sl_keyword": src.sl_keyword,
                             "tp_keyword": src.tp_keyword, "symbol_keyword": src.symbol_keyword,
                             "execute_no_sl": bool(src.execute_no_sl), "execute_no_tp": bool(src.execute_no_tp),
                             "use_first_tp_only": bool(src.use_first_tp_only), "min_confidence": "medium",
-                        })
+                        }))
                 if routes:
                     plan.append((s.id, s.session_enc, routes))
+        # Stop relays whose session is no longer active (unlinked / deactivated).
+        for pkey in list(self._providers.keys()):
+            if pkey.startswith("relay:") and pkey[6:] not in active_ids:
+                self.stop_provider(pkey)
         for sid, session_enc, routes in plan:
             try:
                 from crypto import decrypt_json
@@ -196,9 +202,9 @@ class CopyEngine:
                 if not session_str:
                     continue
                 relay = TelethonRelay(session_str, TELEGRAM_API_ID, TELEGRAM_API_HASH, routes, dispatch)
-                self._providers["relay:" + sid] = relay
-                await relay.start()
-                log.info(f"[engine] user-relay started (relay:{sid})")
+                if await relay.start():                       # only keep it if auth succeeded
+                    self._providers["relay:" + sid] = relay
+                    log.info(f"[engine] user-relay started (relay:{sid})")
             except Exception as e:
                 log.warning(f"[engine] user-relay {sid} failed: {e}")
 

@@ -29,7 +29,7 @@ class TelethonRelay:
 
     def __init__(self, session_str: str, api_id: int, api_hash: str,
                  routes: dict, on_event):
-        # routes: { channel_key(lowercased, no '@') : (master_id, cfg) }
+        # routes: { channel_key(lowercased, no '@') : [(master_id, cfg), ...] }
         self.session_str = session_str
         self.api_id      = api_id
         self.api_hash    = api_hash
@@ -37,7 +37,7 @@ class TelethonRelay:
         self.on_event    = on_event
         self._client     = None
 
-    async def start(self) -> None:
+    async def start(self) -> bool:
         from telethon import TelegramClient, events            # lazy
         from telethon.sessions import StringSession
         self._client = TelegramClient(StringSession(self.session_str), self.api_id, self.api_hash)
@@ -46,7 +46,7 @@ class TelethonRelay:
             log.warning("[tg-relay] session not authorized — skipping")
             await self._client.disconnect()
             self._client = None
-            return
+            return False
 
         @self._client.on(events.NewMessage())
         async def _on_new(event):                                # noqa: ANN001
@@ -56,6 +56,7 @@ class TelethonRelay:
                 log.warning("[tg-relay] handler error: %s", e)
 
         log.info("[tg-relay] relay started for %d channel(s)", len(self.routes))
+        return True
 
     @staticmethod
     def _chat_keys(chat) -> list:
@@ -73,19 +74,15 @@ class TelethonRelay:
         chat = getattr(event, "chat", None)
         text = (getattr(event.message, "message", None) or "")
         for key in self._chat_keys(chat):
-            route = self.routes.get(key)
-            if not route:
-                continue
-            master_id, cfg = route
-            sig = parse_signal(text, cfg)
-            if not sig:
-                return
-            if _RANK.get(sig.confidence, 0) < _RANK.get(cfg.get("min_confidence", "medium"), 2):
-                return
-            snap = self._to_snapshot(sig)
-            if snap:
-                asyncio.ensure_future(self.on_event({"type": sig.event_type, "snap": snap}, master_id))
-            return
+            for (master_id, cfg) in self.routes.get(key, []):   # key -> [(master_id, cfg)]
+                sig = parse_signal(text, cfg)
+                if not sig:
+                    continue
+                if _RANK.get(sig.confidence, 0) < _RANK.get(cfg.get("min_confidence", "medium"), 2):
+                    continue
+                snap = self._to_snapshot(sig)
+                if snap:
+                    asyncio.ensure_future(self.on_event({"type": sig.event_type, "snap": snap}, master_id))
 
     @staticmethod
     def _to_snapshot(sig):
