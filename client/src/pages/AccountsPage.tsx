@@ -522,7 +522,20 @@ export default function AccountsPage({ openModal = false, darkMode = true, onVie
     if (_accountsCache === null) setLoading(true);   // spinner only on first-ever load; otherwise refresh silently
     try {
       const res = await fetch("/api/broker-accounts", { headers: await authHeaders() });
-      if (res.ok) setAccounts(await res.json());
+      if (res.ok) {
+        const data = await res.json();
+        setAccounts(Array.isArray(data) ? data : []);
+        setInfo("");                                  // clear any prior load error
+      } else {
+        // Never blank an existing list on a transient failure — surface the real
+        // reason instead of the misleading "No accounts yet" empty state. Accounts
+        // live server-side; a failed load does NOT mean they're gone.
+        setInfo(res.status === 401
+          ? "Session expired — refresh the page or sign in again to load your accounts (they're safe)."
+          : `Couldn't load your accounts (error ${res.status}). They're safe on the server — please retry in a moment.`);
+      }
+    } catch {
+      setInfo("Couldn't reach the server to load your accounts. Check your connection and retry — your accounts are safe.");
     } finally {
       setLoading(false);
     }
