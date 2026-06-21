@@ -474,6 +474,9 @@ export default function AccountsPage({ openModal = false, darkMode = true, onVie
   const [ctSelectAccounts, setCtSelectAccounts] = useState<any[]>([]);
   const [ctSelectBusy,     setCtSelectBusy]     = useState(false);
   const [editAccount,      setEditAccount]      = useState<BrokerAccount | null>(null);
+  const [confirmDel,       setConfirmDel]       = useState<BrokerAccount | null>(null);
+  const [deleting,         setDeleting]         = useState(false);
+  const [delErr,           setDelErr]           = useState<string>("");
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 640);
@@ -541,8 +544,10 @@ export default function AccountsPage({ openModal = false, darkMode = true, onVie
     }
   }
 
+  // Confirmation is handled by an in-app modal (setConfirmDel) — no native confirm().
   async function handleDelete(id: string) {
-    if (!confirm("Delete this account? Everything tied to it — all its synced trades, journal entries and performance dashboard — will be permanently removed. This cannot be undone.")) return;
+    setDeleting(true);
+    setDelErr("");
     try {
       const res = await fetch(`/api/broker-accounts/${id}`, { method: "DELETE", headers: await authHeaders() });
       if (!res.ok) {
@@ -556,8 +561,11 @@ export default function AccountsPage({ openModal = false, darkMode = true, onVie
       // the journal/metrics views so they don't keep showing deleted data.
       ['/api/sessions', '/api/journal/entries', '/api/metrics/compute', '/api/calendar/compute', '/api/drawdown/compute']
         .forEach(key => queryClient.invalidateQueries({ queryKey: [key] }));
+      setConfirmDel(null);   // success — close the modal
     } catch (e: any) {
-      alert(e.message ?? "Failed to delete account");
+      setDelErr(e.message ?? "Failed to delete account");   // keep modal open, show inline
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -746,7 +754,7 @@ export default function AccountsPage({ openModal = false, darkMode = true, onVie
                       <button style={s.actionBtn as CSSProperties} title="Webhook / Settings" onClick={() => setWebhookAcc(a)}><Wrench size={14} color="#f59e0b" /></button>
                       <button style={s.actionBtn as CSSProperties} title="Sync" onClick={() => handleSync(a)}><RefreshCw size={14} color="#94a3b8" /></button>
                       <button style={s.actionBtn as CSSProperties} title="Edit" onClick={() => setEditAccount(a)}><Pencil size={14} color="#38bdf8" /></button>
-                      <button style={s.actionBtn as CSSProperties} title="Delete" onClick={() => handleDelete(a.id)}><Trash2 size={14} color="#ef4444" /></button>
+                      <button style={s.actionBtn as CSSProperties} title="Delete account" onClick={() => { setDelErr(""); setConfirmDel(a); }}><Trash2 size={14} color="#ef4444" /></button>
                     </div>
                   </td>
                 </tr>
@@ -825,6 +833,37 @@ export default function AccountsPage({ openModal = false, darkMode = true, onVie
 
       {/* Webhook Info Modal */}
       {webhookAcc && <WebhookModal account={webhookAcc} onClose={() => setWebhookAcc(null)} />}
+
+      {/* Proper styled delete-confirmation modal (replaces the native confirm dialog) */}
+      {confirmDel && (
+        <div style={s.overlay as CSSProperties} onClick={() => { if (!deleting) setConfirmDel(null); }}>
+          <div style={{ ...(s.modal as CSSProperties), width: 460, padding: 28 }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+              <div style={{ width: 40, height: 40, borderRadius: 10, background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <Trash2 size={18} color="#ef4444" />
+              </div>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 16, fontWeight: 700, color: '#f1f5f9' }}>Delete “{confirmDel.name}”?</div>
+                <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 2 }}>{(confirmDel.platform || '').toUpperCase()} · {confirmDel.loginId}</div>
+              </div>
+            </div>
+            <p style={{ fontSize: 13, color: '#cbd5e1', lineHeight: 1.6, marginBottom: delErr ? 12 : 20 }}>
+              Everything tied to this account — all its <strong style={{ color: '#f1f5f9' }}>synced trades</strong>, <strong style={{ color: '#f1f5f9' }}>journal entries</strong> and its <strong style={{ color: '#f1f5f9' }}>performance dashboard</strong> — will be permanently removed. <span style={{ color: '#fca5a5' }}>This cannot be undone.</span>
+            </p>
+            {delErr && <div style={{ fontSize: 12, color: '#fca5a5', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 8, padding: '8px 12px', marginBottom: 18 }}>{delErr}</div>}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+              <button onClick={() => setConfirmDel(null)} disabled={deleting}
+                style={{ padding: '9px 18px', borderRadius: 8, border: '1px solid #1e3050', background: 'transparent', color: '#cbd5e1', fontSize: 13, fontWeight: 600, cursor: deleting ? 'default' : 'pointer' }}>
+                Cancel
+              </button>
+              <button onClick={() => handleDelete(confirmDel.id)} disabled={deleting}
+                style={{ padding: '9px 18px', borderRadius: 8, border: 'none', background: '#dc2626', color: '#fff', fontSize: 13, fontWeight: 700, cursor: deleting ? 'default' : 'pointer', opacity: deleting ? 0.65 : 1, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Trash2 size={14} /> {deleting ? 'Deleting…' : 'Delete permanently'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
