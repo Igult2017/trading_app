@@ -208,5 +208,190 @@ CREATE TABLE IF NOT EXISTS price_alerts (
 -- ── 12. trading_sessions — add broker_timezone if missing ────────────────────
 ALTER TABLE trading_sessions ADD COLUMN IF NOT EXISTS broker_timezone INTEGER DEFAULT 2;
 
+-- ── 13. copy-trading tables (copy_masters / copy_followers + copy-v2) ─────────
+-- Prod migrates via THIS file, NOT `drizzle-kit push`, so any copy column/table
+-- added after the original push was never created. copy_masters/copy_followers
+-- exist but lack newer columns (e.g. broker_account_id → error 42703); the
+-- copy-v2 tables may not exist at all. Create-if-missing + add-every-column.
+
+CREATE TABLE IF NOT EXISTS copy_masters (
+  id                VARCHAR   PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id           VARCHAR,
+  account_id        VARCHAR,
+  broker_account_id VARCHAR,
+  source_type       TEXT,
+  strategy_name     TEXT,
+  description       TEXT,
+  trading_style     TEXT,
+  primary_market    TEXT,
+  is_public         BOOLEAN   DEFAULT TRUE,
+  require_approval  BOOLEAN   DEFAULT FALSE,
+  show_open_trades  BOOLEAN   DEFAULT TRUE,
+  is_active         BOOLEAN   DEFAULT FALSE,
+  created_at        TIMESTAMP DEFAULT NOW(),
+  updated_at        TIMESTAMP DEFAULT NOW()
+);
+ALTER TABLE copy_masters ADD COLUMN IF NOT EXISTS account_id        VARCHAR;
+ALTER TABLE copy_masters ADD COLUMN IF NOT EXISTS broker_account_id VARCHAR;
+ALTER TABLE copy_masters ADD COLUMN IF NOT EXISTS source_type       TEXT;
+ALTER TABLE copy_masters ADD COLUMN IF NOT EXISTS strategy_name     TEXT;
+ALTER TABLE copy_masters ADD COLUMN IF NOT EXISTS description       TEXT;
+ALTER TABLE copy_masters ADD COLUMN IF NOT EXISTS trading_style     TEXT;
+ALTER TABLE copy_masters ADD COLUMN IF NOT EXISTS primary_market    TEXT;
+ALTER TABLE copy_masters ADD COLUMN IF NOT EXISTS is_public         BOOLEAN DEFAULT TRUE;
+ALTER TABLE copy_masters ADD COLUMN IF NOT EXISTS require_approval  BOOLEAN DEFAULT FALSE;
+ALTER TABLE copy_masters ADD COLUMN IF NOT EXISTS show_open_trades  BOOLEAN DEFAULT TRUE;
+ALTER TABLE copy_masters ADD COLUMN IF NOT EXISTS is_active         BOOLEAN DEFAULT FALSE;
+ALTER TABLE copy_masters ADD COLUMN IF NOT EXISTS created_at        TIMESTAMP DEFAULT NOW();
+ALTER TABLE copy_masters ADD COLUMN IF NOT EXISTS updated_at        TIMESTAMP DEFAULT NOW();
+
+CREATE TABLE IF NOT EXISTS copy_followers (
+  id                VARCHAR   PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id           VARCHAR,
+  account_id        VARCHAR,
+  broker_account_id VARCHAR,
+  master_id         VARCHAR,
+  lot_mode          TEXT          DEFAULT 'mult',
+  lot_multiplier    DECIMAL(6,2)  DEFAULT 1.0,
+  fixed_lot         DECIMAL(8,2),
+  risk_percent      DECIMAL(5,2)  DEFAULT 1.0,
+  direction         TEXT          DEFAULT 'same',
+  symbol_whitelist  TEXT[],
+  symbol_blacklist  TEXT[],
+  max_open_trades   INTEGER   DEFAULT 10,
+  trade_delay_sec   INTEGER   DEFAULT 0,
+  pause_inactive    BOOLEAN   DEFAULT TRUE,
+  pause_on_dd       BOOLEAN   DEFAULT TRUE,
+  session_filter    BOOLEAN   DEFAULT FALSE,
+  active_sessions   TEXT[],
+  max_dd_percent    DECIMAL(5,2),
+  max_daily_loss    DECIMAL(10,2),
+  notif_chat_id     TEXT,
+  notif_disconnect  BOOLEAN   DEFAULT TRUE,
+  notif_exec_fail   BOOLEAN   DEFAULT TRUE,
+  notif_dd_warn     BOOLEAN   DEFAULT TRUE,
+  notif_daily_warn  BOOLEAN   DEFAULT TRUE,
+  is_active         BOOLEAN   DEFAULT FALSE,
+  risk_accepted     BOOLEAN   DEFAULT FALSE,
+  deployed_at       TIMESTAMP,
+  created_at        TIMESTAMP DEFAULT NOW(),
+  updated_at        TIMESTAMP DEFAULT NOW()
+);
+ALTER TABLE copy_followers ADD COLUMN IF NOT EXISTS account_id        VARCHAR;
+ALTER TABLE copy_followers ADD COLUMN IF NOT EXISTS broker_account_id VARCHAR;
+ALTER TABLE copy_followers ADD COLUMN IF NOT EXISTS master_id         VARCHAR;
+ALTER TABLE copy_followers ADD COLUMN IF NOT EXISTS lot_mode          TEXT DEFAULT 'mult';
+ALTER TABLE copy_followers ADD COLUMN IF NOT EXISTS lot_multiplier    DECIMAL(6,2) DEFAULT 1.0;
+ALTER TABLE copy_followers ADD COLUMN IF NOT EXISTS fixed_lot         DECIMAL(8,2);
+ALTER TABLE copy_followers ADD COLUMN IF NOT EXISTS risk_percent      DECIMAL(5,2) DEFAULT 1.0;
+ALTER TABLE copy_followers ADD COLUMN IF NOT EXISTS direction         TEXT DEFAULT 'same';
+ALTER TABLE copy_followers ADD COLUMN IF NOT EXISTS symbol_whitelist  TEXT[];
+ALTER TABLE copy_followers ADD COLUMN IF NOT EXISTS symbol_blacklist  TEXT[];
+ALTER TABLE copy_followers ADD COLUMN IF NOT EXISTS max_open_trades   INTEGER DEFAULT 10;
+ALTER TABLE copy_followers ADD COLUMN IF NOT EXISTS trade_delay_sec   INTEGER DEFAULT 0;
+ALTER TABLE copy_followers ADD COLUMN IF NOT EXISTS pause_inactive    BOOLEAN DEFAULT TRUE;
+ALTER TABLE copy_followers ADD COLUMN IF NOT EXISTS pause_on_dd       BOOLEAN DEFAULT TRUE;
+ALTER TABLE copy_followers ADD COLUMN IF NOT EXISTS session_filter    BOOLEAN DEFAULT FALSE;
+ALTER TABLE copy_followers ADD COLUMN IF NOT EXISTS active_sessions   TEXT[];
+ALTER TABLE copy_followers ADD COLUMN IF NOT EXISTS max_dd_percent    DECIMAL(5,2);
+ALTER TABLE copy_followers ADD COLUMN IF NOT EXISTS max_daily_loss    DECIMAL(10,2);
+ALTER TABLE copy_followers ADD COLUMN IF NOT EXISTS notif_chat_id     TEXT;
+ALTER TABLE copy_followers ADD COLUMN IF NOT EXISTS notif_disconnect  BOOLEAN DEFAULT TRUE;
+ALTER TABLE copy_followers ADD COLUMN IF NOT EXISTS notif_exec_fail   BOOLEAN DEFAULT TRUE;
+ALTER TABLE copy_followers ADD COLUMN IF NOT EXISTS notif_dd_warn     BOOLEAN DEFAULT TRUE;
+ALTER TABLE copy_followers ADD COLUMN IF NOT EXISTS notif_daily_warn  BOOLEAN DEFAULT TRUE;
+ALTER TABLE copy_followers ADD COLUMN IF NOT EXISTS is_active         BOOLEAN DEFAULT FALSE;
+ALTER TABLE copy_followers ADD COLUMN IF NOT EXISTS risk_accepted     BOOLEAN DEFAULT FALSE;
+ALTER TABLE copy_followers ADD COLUMN IF NOT EXISTS deployed_at       TIMESTAMP;
+ALTER TABLE copy_followers ADD COLUMN IF NOT EXISTS created_at        TIMESTAMP DEFAULT NOW();
+ALTER TABLE copy_followers ADD COLUMN IF NOT EXISTS updated_at        TIMESTAMP DEFAULT NOW();
+
+CREATE TABLE IF NOT EXISTS telegram_signal_sources (
+  id                VARCHAR   PRIMARY KEY DEFAULT gen_random_uuid(),
+  master_id         VARCHAR,
+  bot_token_enc     TEXT,
+  phone_number      TEXT,
+  api_id            TEXT,
+  api_hash_enc      TEXT,
+  channel_name      TEXT,
+  channel_type      TEXT,
+  multi_channel     BOOLEAN   DEFAULT FALSE,
+  filter_sender     TEXT,
+  entry_keyword     TEXT,
+  sl_keyword        TEXT,
+  tp_keyword        TEXT,
+  symbol_keyword    TEXT,
+  execute_no_sl     BOOLEAN   DEFAULT FALSE,
+  execute_no_tp     BOOLEAN   DEFAULT TRUE,
+  use_first_tp_only BOOLEAN   DEFAULT TRUE,
+  auto_update       BOOLEAN   DEFAULT FALSE,
+  is_active         BOOLEAN   DEFAULT FALSE,
+  session_file      TEXT,
+  created_at        TIMESTAMP DEFAULT NOW(),
+  updated_at        TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS telegram_user_sessions (
+  id              VARCHAR   PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id         VARCHAR   NOT NULL,
+  phone_number    TEXT,
+  session_enc     TEXT,
+  phone_code_hash TEXT,
+  status          TEXT      DEFAULT 'pending',
+  last_error      TEXT,
+  is_active       BOOLEAN   DEFAULT FALSE,
+  created_at      TIMESTAMP DEFAULT NOW(),
+  updated_at      TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS copy_trades_master (
+  id           VARCHAR   PRIMARY KEY DEFAULT gen_random_uuid(),
+  master_id    VARCHAR,
+  external_id  TEXT      NOT NULL,
+  source       TEXT      NOT NULL,
+  symbol       TEXT      NOT NULL,
+  action       TEXT      NOT NULL,
+  event_type   TEXT      NOT NULL,
+  volume       DECIMAL(10,2),
+  entry_price  DECIMAL(12,5),
+  stop_loss    DECIMAL(12,5),
+  take_profit  DECIMAL(12,5),
+  closed_price DECIMAL(12,5),
+  raw_payload  JSONB,
+  status       TEXT      DEFAULT 'pending',
+  created_at   TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS copy_trades_follower (
+  id              VARCHAR   PRIMARY KEY DEFAULT gen_random_uuid(),
+  master_trade_id VARCHAR,
+  follower_id     VARCHAR,
+  external_id     TEXT,
+  symbol          TEXT      NOT NULL,
+  action          TEXT      NOT NULL,
+  event_type      TEXT      NOT NULL,
+  volume          DECIMAL(10,2),
+  entry_price     DECIMAL(12,5),
+  stop_loss       DECIMAL(12,5),
+  take_profit     DECIMAL(12,5),
+  closed_price    DECIMAL(12,5),
+  status          TEXT      DEFAULT 'pending',
+  error_message   TEXT,
+  retry_count     INTEGER   DEFAULT 0,
+  executed_at     TIMESTAMP,
+  created_at      TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS copy_execution_logs (
+  id          VARCHAR   PRIMARY KEY DEFAULT gen_random_uuid(),
+  follower_id VARCHAR,
+  trade_id    VARCHAR,
+  level       TEXT      NOT NULL,
+  event       TEXT      NOT NULL,
+  message     TEXT      NOT NULL,
+  metadata    JSONB,
+  created_at  TIMESTAMP DEFAULT NOW()
+);
+
 -- ── Done ─────────────────────────────────────────────────────────────────────
 DO $$ BEGIN RAISE NOTICE 'docker-migrate.sql complete'; END $$;
