@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState, ReactNode } from 'react
 import type { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import { queryClient } from '@/lib/queryClient';
-import { warmJournalCache } from '@/lib/prefetchPanels';
+import { prepareDashboard } from '@/lib/prefetchPanels';
 import { clearInactivityTracking } from '@/lib/inactivity';
 
 const LOCAL_ADMIN_KEY = 'local_admin_session';
@@ -162,9 +162,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (error) return { error, emailConfirmationRequired: false };
 
     if (data.session) {
-      // Warm the dashboard the instant signup yields a session (parallel with setup).
-      try { warmJournalCache(queryClient, data.session.user.id); } catch { /* best-effort */ }
-      const assignedRole = await runSetup(data.session.access_token);
+      // Block completion until the dashboard data is populated (parallel with setup),
+      // so signup lands on a fully-rendered journal, not a skeleton. prepareDashboard
+      // is time-boxed + best-effort, so it can never hang or fail signup.
+      const [, assignedRole] = await Promise.all([
+        prepareDashboard(queryClient, data.session.user.id),
+        runSetup(data.session.access_token),
+      ]);
       clearInactivityTracking();   // fresh login — start a clean 10-min window
       setRole(assignedRole ?? extractRole(data.session.user));
       return { error: null, emailConfirmationRequired: false };
@@ -205,12 +209,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { error: error ?? new Error('Sign in failed'), role: null };
     }
 
-    // Fire the dashboard warm-up the INSTANT sign-in succeeds — the earliest the
-    // token exists — so journal data is already loading (in parallel with the
-    // profile setup below) before the user is routed to /journal.
-    try { warmJournalCache(queryClient, data.session.user.id); } catch { /* best-effort */ }
-
-    const assignedRole = await runSetup(data.session.access_token);
+    // Block sign-in completion until the dashboard data is populated, so the user is
+    // routed to a fully-rendered journal instead of a skeleton. Runs in PARALLEL with
+    // the profile/role setup. prepareDashboard is time-boxed (6s) + best-effort: a
+    // slow/cold compute can't hang or fail login — it resolves and the journal's
+    // boot-gate skeleton covers the remainder. role is set AFTER this so AuthPage's
+    // role-keyed auto-redirect can't fire onto an unpopulated dashboard early.
+    const [, assignedRole] = await Promise.all([
+      prepareDashboard(queryClient, data.session.user.id),
+      runSetup(data.session.access_token),
+    ]);
     const role = assignedRole ?? extractRole(data.session.user);
 
     // Set role directly — avoids calling refreshSession() which can fire

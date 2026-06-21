@@ -121,3 +121,93 @@ export function warmJournalCache(queryClient: QueryClient, userId?: string): voi
     if (target && (!savedId || target.id !== savedId)) prefetchAllPanels(queryClient, target.id, userId);
   }).catch(() => { /* best-effort */ });
 }
+
+/**
+ * AWAITABLE warm-up for login/signup. Resolves once the journal's gating data is in
+ * cache — entitlement + the active session's /api/dashboard (sessions, session,
+ * entries, metrics) — so login can complete onto a fully-populated dashboard rather
+ * than a skeleton.
+ *
+ * Contract (deliberately defensive — this runs in the login critical path):
+ *  - NEVER throws. Every fetch is caught; a failure just means the journal's own
+ *    boot-gate/queries handle it after navigation.
+ *  - TIME-BOXED. Races a timeout so a slow/cold metrics compute can't hang login;
+ *    on timeout it resolves and the in-flight fetches keep seeding the cache in the
+ *    background while the boot-gate skeleton covers the gap.
+ *  - Brand-new user with no sessions resolves almost immediately (nothing to load).
+ */
+export async function prepareDashboard(
+  queryClient: QueryClient,
+  userId?: string,
+  timeoutMs = 6000,
+): Promise<void> {
+  // Warm-cache fast path: if the gating data (entitlement + the active session's
+  // metrics) is already cached — i.e. a SAME-user re-login on a device that kept its
+  // cache — resolve immediately so re-login stays INSTANT (no blocking fetch). The
+  // journal renders straight from cache; its own queries refresh in the background.
+  // Only a COLD login (new device / different user / first signup) falls through to
+  // the blocking fetch below.
+  const savedId = typeof window !== "undefined"
+    ? localStorage.getItem("journal_active_session_id")
+    : null;
+  const haveEnt  = !userId || !!queryClient.getQueryData(["/api/me/entitlement", userId]);
+  const haveDash = !!savedId && !!queryClient.getQueryData(["/api/metrics/compute", savedId]);
+  if (haveEnt && haveDash) return;
+
+  const work = (async () => {
+    const tasks: Promise<unknown>[] = [];
+
+    // Entitlement — gates the whole journal (the first loader). Seed its exact key.
+    if (userId) {
+      tasks.push(
+        fetchJson("/api/me/entitlement")
+          .then((d) => queryClient.setQueryData(["/api/me/entitlement", userId], d))
+          .catch(() => { /* journal falls back to its own entitlement query */ }),
+      );
+    }
+
+    // Active session → landing bundle.
+    tasks.push((async () => {
+      let sessionId = typeof window !== "undefined"
+        ? localStorage.getItem("journal_active_session_id")
+        : null;
+
+      let sessions: any[] = [];
+      try {
+        const list = await fetchJson<any[]>("/api/sessions");
+        sessions = Array.isArray(list) ? list : [];
+        queryClient.setQueryData(["/api/sessions"], sessions);
+      } catch { /* leave empty — no session to populate */ }
+
+      // Validate the saved session or fall back to the most-recent one.
+      if (!sessionId || !sessions.some((s: any) => s.id === sessionId)) {
+        sessionId = sessions.length
+          ? sessions.slice().sort((a: any, b: any) =>
+              new Date(b.updatedAt ?? b.createdAt ?? 0).getTime() -
+              new Date(a.updatedAt ?? a.createdAt ?? 0).getTime())[0].id
+          : null;
+      }
+      if (!sessionId) return;   // brand-new user — nothing to populate, resolve fast
+
+      try {
+        const d: any = await fetchJson(`/api/dashboard?sessionId=${sessionId}`);
+        if (d) {
+          if (Array.isArray(d.sessions)) queryClient.setQueryData(["/api/sessions"], d.sessions);
+          if (d.session)                 queryClient.setQueryData(["/api/sessions", sessionId], d.session);
+          if (Array.isArray(d.entries))  queryClient.setQueryData(["/api/journal/entries", sessionId], d.entries);
+          if (d.metrics)                 queryClient.setQueryData(["/api/metrics/compute", sessionId], d.metrics);
+        }
+      } catch { /* boot-gate skeleton covers it after navigation */ }
+    })());
+
+    await Promise.all(tasks);
+  })();
+
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<void>((resolve) => { timer = setTimeout(resolve, timeoutMs); });
+  try {
+    await Promise.race([work, timeout]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}

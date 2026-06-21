@@ -113,11 +113,17 @@ export default function AuthPage() {
   const { signIn, signUp, role, loading } = useAuth();
   const [, navigate] = useLocation();
 
+  // Redirect once authenticated. Suppressed while a submit is in flight (`busy`):
+  // signIn/signUp now BLOCK until the dashboard data is populated, but onAuthStateChange
+  // sets `role` early — without this guard the page would redirect onto an unpopulated
+  // dashboard before the block finishes. During a submit, the explicit navigate at the
+  // end of handleSubmit (which runs only after the blocking await) drives the redirect;
+  // this effect still handles the "already-logged-in user lands on /auth" case (busy=false).
   useEffect(() => {
-    if (!loading && role) {
+    if (!loading && role && !busy) {
       navigate(role === 'admin' ? '/admin' : '/journal', { replace: true });
     }
-  }, [loading, role, navigate]);
+  }, [loading, role, busy, navigate]);
 
   async function handleGoogleClick() {
     if (!supabase) {
