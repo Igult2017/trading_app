@@ -34,6 +34,17 @@ export function prefetchAllPanels(
 ): void {
   if (!sessionId) return;
 
+  // ── Entries — FAST standalone prefetch ───────────────────────────────────────
+  // A cheap DB query (~250ms). Seed it on its OWN so the Trade Vault + dashboard
+  // recent-trades populate immediately, instead of waiting on the ~2s /api/dashboard
+  // bundle below (which blocks on the metrics Python compute). The bundle re-seeds
+  // the same key harmlessly; whichever lands first wins, and this one lands first.
+  queryClient.prefetchQuery({
+    queryKey: ["/api/journal/entries", sessionId],
+    queryFn: () => fetchJson(`/api/journal/entries?sessionId=${sessionId}`),
+    staleTime: STALE_FAST,
+  });
+
   // ── Landing bundle — ONE round-trip seeds the dashboard + session selector ───
   // /api/dashboard returns { sessions, session, entries, metrics } in a single
   // request; we seed each panel's EXACT React Query key so the components read from
