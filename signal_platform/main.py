@@ -125,14 +125,21 @@ async def _startup() -> None:
     write_status("ok")
     log.info("[boot] scheduler started — platform is running")
 
-    # 6b. Boot heartbeat — one-time Telegram status (market open/closed) so every
-    #     redeploy confirms the platform is alive and the session logic is accurate.
-    from notifications.dispatcher import announce_status
-    await announce_status()
+    # 6b. Boot heartbeat + first scan — BEST-EFFORT. A failure here must never crash
+    #     _startup: the process would exit, the watchdog would restart it, and it would
+    #     re-send the boot heartbeat on every restart (a Telegram spam loop). The
+    #     scheduler already runs scans on its own interval regardless.
+    try:
+        from notifications.dispatcher import announce_status
+        await announce_status()
+    except Exception as exc:
+        log.warning(f"[boot] heartbeat failed (non-fatal): {exc}")
 
-    # 7. Run first scan immediately
-    log.info("[boot] running initial scan...")
-    await scan_markets()
+    try:
+        log.info("[boot] running initial scan...")
+        await scan_markets()
+    except Exception as exc:
+        log.warning(f"[boot] initial scan failed (non-fatal): {exc}")
 
 
 def main() -> None:

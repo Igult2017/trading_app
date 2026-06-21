@@ -24,7 +24,8 @@ log = logging.getLogger(__name__)
 
 _bot = None
 _MAX_RETRIES = 3
-_RETRY_DELAY = 5   # seconds
+_RETRY_DELAY = 5      # seconds
+_BOOT_THROTTLE = 30 * 60   # min seconds between boot heartbeats, across restarts
 
 
 def _get_bot():
@@ -112,6 +113,19 @@ async def on_session_open(session_name: str) -> None:
 async def announce_status() -> None:
     """One-time boot heartbeat — reports whether the forex market is open or closed
     so a redeploy confirms the platform is alive and the session logic is accurate."""
+    # Throttle across restarts (persisted in DB): a restart loop or repeated deploys
+    # must never spam this heartbeat. Skip if one was sent < _BOOT_THROTTLE ago.
+    try:
+        import time
+        from storage import strategy_state_repo
+        blob = strategy_state_repo.load("_system_boot") or {}
+        if time.time() - float(blob.get("last_announce_ts") or 0) < _BOOT_THROTTLE:
+            log.info("[dispatcher] boot heartbeat throttled — already sent recently")
+            return
+        strategy_state_repo.save("_system_boot", {"last_announce_ts": time.time()})
+    except Exception as exc:
+        log.warning(f"[dispatcher] boot-throttle check failed ({exc}) — sending anyway")
+
     from datetime import datetime, timezone, timedelta
     from data.instrument_filter import is_forex_open
     from scheduler.session_windows import get_current_sessions
