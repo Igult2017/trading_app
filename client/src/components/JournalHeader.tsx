@@ -357,6 +357,7 @@ export default function JournalHeader({ onToggleSidebar, darkMode, onToggleDarkM
     return () => document.removeEventListener('fullscreenchange', handler);
   }, []);
   const profileRef = useRef<HTMLDivElement>(null);
+  const mobileProfileRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dm = darkMode;
@@ -422,9 +423,10 @@ export default function JournalHeader({ onToggleSidebar, darkMode, onToggleDarkM
   useEffect(() => {
     if (!profileOpen) return;
     const handler = (e: MouseEvent) => {
-      const inButton   = profileRef.current?.contains(e.target as Node);
-      const inDropdown = dropdownRef.current?.contains(e.target as Node);
-      if (!inButton && !inDropdown) setProfileOpen(false);
+      const inButton    = profileRef.current?.contains(e.target as Node);
+      const inMobileBtn = mobileProfileRef.current?.contains(e.target as Node);
+      const inDropdown  = dropdownRef.current?.contains(e.target as Node);
+      if (!inButton && !inMobileBtn && !inDropdown) setProfileOpen(false);
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
@@ -689,6 +691,15 @@ export default function JournalHeader({ onToggleSidebar, darkMode, onToggleDarkM
             >
               <Menu size={18} strokeWidth={2.5} />
             </button>
+            {/* Profile/avatar — opens the same dropdown (account settings + logout) as desktop. */}
+            <div ref={mobileProfileRef} style={{ position: 'relative' }}>
+              <button className="avatar-btn" title="Profile" onClick={() => setProfileOpen(o => !o)} style={{ padding: 0, overflow: 'hidden' }}>
+                {avatarUrl
+                  ? <img src={avatarUrl} alt="avatar" style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover', display: 'block' }} />
+                  : <UserCircle2 size={18} color="#60a5fa" />
+                }
+              </button>
+            </div>
           </div>
         </nav>
       </div>
