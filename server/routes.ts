@@ -3205,6 +3205,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // the provider immediately.
     await pool.query("DELETE FROM copy_followers WHERE broker_account_id = $1", [req.params.id]);
     await pool.query("DELETE FROM copy_masters   WHERE broker_account_id = $1", [req.params.id]);
+    // Telegram masters carry NO broker_account_id (the follower holds the account), so
+    // the delete above misses them. Drop this user's telegram masters that now have no
+    // followers left, then any telegram sources orphaned by a deleted master.
+    await pool.query(
+      `DELETE FROM copy_masters WHERE source_type = 'telegram' AND user_id = $1
+         AND NOT EXISTS (SELECT 1 FROM copy_followers cf WHERE cf.master_id = copy_masters.id)`,
+      [account.userId],
+    );
+    await pool.query(
+      "DELETE FROM telegram_signal_sources WHERE master_id NOT IN (SELECT id FROM copy_masters)",
+    );
     await pool.query("SELECT pg_notify('copy_change', '')").catch(() => {});
     // Wipe everything else tied to the account — its auto-created session AND every
     // journal entry in it (deleteSession deletes the entries then the session in a
@@ -3909,12 +3920,26 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
 
     const channel = String(b.channel).trim().replace(/^@/, "");
 
-    const master = await storage.createCopyMaster({
-      userId: user.id, sourceType: "telegram",
-      strategyName: b.strategyName || `@${channel}`, description: b.description || `Telegram channel @${channel}`,
-      tradingStyle: "signals", primaryMarket: b.primaryMarket || "mixed",
-      isPublic: b.isPublic === true, requireApproval: false, showOpenTrades: false, isActive: true,
-    });
+    // Dedup: re-following the same channel onto the same account must NOT spawn a
+    // second master/follower (that would mirror every signal twice). Reuse any
+    // existing active telegram master for this user+channel.
+    const existing = await pool.query(
+      `SELECT cm.id FROM copy_masters cm
+         JOIN telegram_signal_sources ts ON ts.master_id = cm.id
+        WHERE cm.user_id = $1 AND cm.source_type = 'telegram'
+          AND lower(ts.channel_name) = lower($2) AND cm.is_active = true
+        LIMIT 1`,
+      [user.id, channel],
+    );
+    const master = existing.rows[0]
+      ? await storage.getCopyMasterById(existing.rows[0].id)
+      : await storage.createCopyMaster({
+          userId: user.id, sourceType: "telegram",
+          strategyName: b.strategyName || `@${channel}`, description: b.description || `Telegram channel @${channel}`,
+          tradingStyle: "signals", primaryMarket: b.primaryMarket || "mixed",
+          isPublic: b.isPublic === true, requireApproval: false, showOpenTrades: false, isActive: true,
+        });
+    if (!master) return res.status(500).json({ error: "Could not create master" });
 
     await storage.upsertTelegramSource({
       masterId: master.id, channelName: channel, channelType: b.channelType || "public_channel",
@@ -3924,7 +3949,7 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
       useFirstTpOnly: b.useFirstTpOnly !== false, autoUpdate: b.autoUpdate === true, isActive: true,
     } as any);
 
-    const follower = await storage.createCopyFollower({
+    const followerCfg = {
       userId: user.id, brokerAccountId: account.id, masterId: master.id,
       lotMode: b.lotMode || "fixed", lotMultiplier: b.lotMultiplier || "1.0",
       fixedLot: b.fixedLot ?? "0.01", riskPercent: b.riskPercent || "1.0", direction: b.direction || "same",
@@ -3933,7 +3958,20 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
       pauseInactive: b.pauseInactive ?? true, pauseOnDD: b.pauseOnDD ?? true,
       maxDdPercent: b.maxDdPercent ?? null, maxDailyLoss: b.maxDailyLoss ?? null,
       isActive: true, riskAccepted: b.riskAccepted ?? true, deployedAt: new Date(),
-    } as any);
+    };
+    const dupFollower = await pool.query(
+      `SELECT id FROM copy_followers WHERE master_id = $1 AND broker_account_id = $2 LIMIT 1`,
+      [master.id, account.id],
+    );
+    const follower = dupFollower.rows[0]
+      ? await storage.updateCopyFollower(dupFollower.rows[0].id, followerCfg as any)
+      : await storage.createCopyFollower(followerCfg as any);
+
+    notificationService.createNotification({
+      userId: user.id, type: "update",
+      title: "Telegram copy active",
+      message: `Add the copy-bot as an admin to @${channel} — its signals will mirror to ${account.name || "your account"}.`,
+    }).catch(() => {});
 
     return res.status(201).json({
       master, follower,

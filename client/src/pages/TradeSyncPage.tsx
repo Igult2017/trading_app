@@ -8,7 +8,7 @@ import {
 import { PiInfoFill } from 'react-icons/pi';
 import CopyManagementDashboard from '@/components/CopyManagementDashboard';
 import CTraderAccountPicker from '@/components/copy/CTraderAccountPicker';
-import { apiRequest } from '@/lib/queryClient';
+import { apiRequest, authFetch } from '@/lib/queryClient';
 import { useAuth } from '@/context/AuthContext';
 
 // ─── Fonts ────────────────────────────────────────────────────────────────────
@@ -1141,19 +1141,19 @@ function CopierDashboard({ deployResult, role, data, onSetupAnother, onHome }: a
       const reqs: Promise<any>[] = [];
       if (followerId) {
         reqs.push(
-          fetch(`/api/copy/logs/${followerId}`).then(r => r.ok ? r.json() : []),
-          fetch(`/api/copy/trades/follower/${followerId}?limit=10`).then(r => r.ok ? r.json() : []),
+          authFetch(`/api/copy/logs/${followerId}`).then(r => r.ok ? r.json() : []),
+          authFetch(`/api/copy/trades/follower/${followerId}?limit=10`).then(r => r.ok ? r.json() : []),
         );
       } else if (masterId) {
         reqs.push(
           Promise.resolve([]),
-          fetch(`/api/copy/trades/master/${masterId}?limit=10`).then(r => r.ok ? r.json() : []),
+          authFetch(`/api/copy/trades/master/${masterId}?limit=10`).then(r => r.ok ? r.json() : []),
         );
       } else {
         reqs.push(Promise.resolve([]), Promise.resolve([]));
       }
       if (accountId) {
-        reqs.push(fetch(`/api/copy/accounts/${accountId}`).then(r => r.ok ? r.json() : null));
+        reqs.push(authFetch(`/api/copy/accounts/${accountId}`).then(r => r.ok ? r.json() : null));
       }
       const [logsRes, tradesRes, acctRes] = await Promise.all(reqs);
       setLogs(Array.isArray(logsRes) ? logsRes.slice(0, 8) : []);

@@ -8,7 +8,10 @@ from sqlalchemy import create_engine, Column, String, Boolean, Integer, \
 from sqlalchemy.orm import declarative_base, sessionmaker
 from config import DATABASE_URL
 
-engine  = create_engine(DATABASE_URL, pool_pre_ping=True)
+# Sized for the dispatcher fan-out: a master with many followers opens several
+# short DB sessions per follower concurrently, so the default 5+10 pool starves.
+engine  = create_engine(DATABASE_URL, pool_pre_ping=True,
+                        pool_size=20, max_overflow=40, pool_recycle=1800)
 # expire_on_commit=False keeps attributes accessible after the session closes
 # (prevents DetachedInstanceError when objects are used outside the with-block)
 Session = sessionmaker(engine, expire_on_commit=False)

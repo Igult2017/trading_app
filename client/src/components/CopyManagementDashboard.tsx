@@ -4,7 +4,7 @@ import {
   ChevronUp, X, AlertTriangle, ShieldCheck, UserMinus,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
-import { apiRequest } from '@/lib/queryClient';
+import { apiRequest, authFetch } from '@/lib/queryClient';
 
 type Master = {
   id: string;
@@ -214,12 +214,12 @@ function ProviderTab({ userId }: { userId: string }) {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const ms: Master[] = await fetch(`/api/copy/masters?userId=${encodeURIComponent(userId)}`).then(r => r.ok ? r.json() : []);
+      const ms: Master[] = await authFetch(`/api/copy/masters?userId=${encodeURIComponent(userId)}`).then(r => r.ok ? r.json() : []);
       setMasters(Array.isArray(ms) ? ms : []);
 
       const accountIds = Array.from(new Set(ms.map(m => m.accountId).filter(Boolean))) as string[];
       const acctEntries = await Promise.all(accountIds.map(async id => {
-        const a = await fetch(`/api/copy/accounts/${id}`).then(r => r.ok ? r.json() : null);
+        const a = await authFetch(`/api/copy/accounts/${id}`).then(r => r.ok ? r.json() : null);
         return [id, a] as const;
       }));
       const acctMap: Record<string, Account> = {};
@@ -227,7 +227,7 @@ function ProviderTab({ userId }: { userId: string }) {
       setAccounts(acctMap);
 
       const followerEntries = await Promise.all(ms.map(async m => {
-        const f: Follower[] = await fetch(`/api/copy/followers?masterId=${m.id}`).then(r => r.ok ? r.json() : []);
+        const f: Follower[] = await authFetch(`/api/copy/followers?masterId=${m.id}`).then(r => r.ok ? r.json() : []);
         return [m.id, Array.isArray(f) ? f : []] as const;
       }));
       const fMap: Record<string, Follower[]> = {};
@@ -245,11 +245,7 @@ function ProviderTab({ userId }: { userId: string }) {
   const updateMaster = async (id: string, patch: Partial<Master>) => {
     setMasters(prev => prev.map(m => m.id === id ? { ...m, ...patch } : m));
     try {
-      await fetch(`/api/copy/masters/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(patch),
-      });
+      await apiRequest('PUT', `/api/copy/masters/${id}`, patch);
     } catch {
       load();
     }
@@ -258,8 +254,8 @@ function ProviderTab({ userId }: { userId: string }) {
   const deleteMaster = async (m: Master) => {
     setConfirmDelete(null);
     try {
-      await fetch(`/api/copy/masters/${m.id}`, { method: 'DELETE' });
-      if (m.accountId) await fetch(`/api/copy/accounts/${m.accountId}`, { method: 'DELETE' });
+      await apiRequest('DELETE', `/api/copy/masters/${m.id}`);
+      if (m.accountId) await apiRequest('DELETE', `/api/copy/accounts/${m.accountId}`);
       load();
     } catch {
       load();
@@ -435,7 +431,7 @@ function FollowerTab({ userId }: { userId: string }) {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const fs: Follower[] = await fetch(`/api/copy/followers?userId=${encodeURIComponent(userId)}`).then(r => r.ok ? r.json() : []);
+      const fs: Follower[] = await authFetch(`/api/copy/followers?userId=${encodeURIComponent(userId)}`).then(r => r.ok ? r.json() : []);
       setFollowers(Array.isArray(fs) ? fs : []);
 
       const masterIds  = Array.from(new Set(fs.map(f => f.masterId).filter(Boolean))) as string[];
@@ -443,11 +439,11 @@ function FollowerTab({ userId }: { userId: string }) {
 
       const [mEntries, aEntries] = await Promise.all([
         Promise.all(masterIds.map(async id => {
-          const m = await fetch(`/api/copy/masters/${id}`).then(r => r.ok ? r.json() : null);
+          const m = await authFetch(`/api/copy/masters/${id}`).then(r => r.ok ? r.json() : null);
           return [id, m] as const;
         })),
         Promise.all(accountIds.map(async id => {
-          const a = await fetch(`/api/copy/accounts/${id}`).then(r => r.ok ? r.json() : null);
+          const a = await authFetch(`/api/copy/accounts/${id}`).then(r => r.ok ? r.json() : null);
           return [id, a] as const;
         })),
       ]);
@@ -471,11 +467,7 @@ function FollowerTab({ userId }: { userId: string }) {
   const updateFollower = async (id: string, patch: Partial<Follower>) => {
     setFollowers(prev => prev.map(f => f.id === id ? { ...f, ...patch } : f));
     try {
-      await fetch(`/api/copy/followers/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(patch),
-      });
+      await apiRequest('PUT', `/api/copy/followers/${id}`, patch);
     } catch {
       load();
     }
@@ -484,7 +476,7 @@ function FollowerTab({ userId }: { userId: string }) {
   const unfollow = async (f: Follower) => {
     setConfirmUnfollow(null);
     try {
-      await fetch(`/api/copy/followers/${f.id}`, { method: 'DELETE' });
+      await apiRequest('DELETE', `/api/copy/followers/${f.id}`);
       load();
     } catch {
       load();

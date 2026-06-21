@@ -87,9 +87,16 @@ class CopyEngine:
         for master in masters:
             if master.id in self._providers:
                 continue
-            if COPY_WORKER_COUNT > 1 and _shard_of(master.id) != COPY_WORKER_INDEX:
-                continue   # another worker owns this master
-            if (master.source_type or "").lower() == "telegram":
+            is_telegram = (master.source_type or "").lower() == "telegram"
+            if COPY_WORKER_COUNT > 1:
+                # Telegram uses ONE shared bot poller, so all Telegram masters live
+                # on worker 0 — otherwise every worker would poll the same bot
+                # (Telegram 409 conflict / updates split at random). cTrader masters
+                # shard normally by id so no master is ever copied twice.
+                owner = 0 if is_telegram else _shard_of(master.id)
+                if owner != COPY_WORKER_INDEX:
+                    continue
+            if is_telegram:
                 await self._start_telegram(master)
                 continue
             if not master.broker_account_id or master.broker_account_id not in accounts:

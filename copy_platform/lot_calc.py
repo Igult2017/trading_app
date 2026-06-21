@@ -4,7 +4,11 @@ Lot sizing for copy followers.
   fixed → follower_lots = fixed_lot (ignores master size)
   risk  → follower_lots = (equity × risk%) / (sl_pips × pip_value)
 """
+import math
 from decimal import Decimal
+
+# Safety backstop: a corrupt multiplier / fixed-lot must never place a giant order.
+MAX_LOTS = 100.0
 
 
 def calc_lots(
@@ -31,8 +35,11 @@ def calc_lots(
             # follower's fixed lot. (Telegram followers should use fixed/risk.)
             lots = float(follower.fixed_lot or 0.01)
 
-    # Enforce cTrader minimum (0.01 lot) and round to 2 dp
-    return max(0.01, round(lots, 2))
+    # Guard against NaN/inf from bad input, then floor at the cTrader minimum
+    # (0.01), cap at a sane maximum, and round to 2 dp.
+    if not math.isfinite(lots):
+        lots = 0.0
+    return max(0.01, min(MAX_LOTS, round(lots, 2)))
 
 
 def pip_size(symbol: str) -> float:

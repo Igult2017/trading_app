@@ -120,6 +120,13 @@ async def _exec_follower(master_trade_id: str, follower: CopyFollower,
     action   = apply_direction(snap.action, follower.direction or "same")
     platform = (broker_account.platform or "").lower()
 
+    # On reverse/hedge the side flips, so SL and TP must swap to stay on the correct
+    # side of the reversed position (the master's stop becomes the follower's target
+    # and vice-versa). Without this the broker rejects the order or it triggers instantly.
+    sl_price, tp_price = snap.stop_loss, snap.take_profit
+    if snap.action and action != snap.action:
+        sl_price, tp_price = snap.take_profit, snap.stop_loss
+
     # Resolve follower position ID once outside the retry loop (avoids repeated DB hits)
     follower_pos_id: str | None = None
     if etype in ("CLOSE", "MODIFY"):
@@ -132,11 +139,16 @@ async def _exec_follower(master_trade_id: str, follower: CopyFollower,
     executor = _get_executor(broker_account, creds)
     result   = None
 
-    for attempt in range(1, 4):
+    # OPEN is never retried: a retry after an ambiguous failure (e.g. the fill
+    # confirmation lost to a timeout) could place a SECOND live position. A missed
+    # entry is far safer than a duplicate one. CLOSE/MODIFY are idempotent-ish
+    # (closing an already-closed position just no-ops), so they keep retrying.
+    max_attempts = 1 if etype == "OPEN" else 3
+    for attempt in range(1, max_attempts + 1):
         try:
             if etype == "OPEN":
                 result = await executor.open_position(
-                    snap.symbol, action, lots, snap.stop_loss, snap.take_profit
+                    snap.symbol, action, lots, sl_price, tp_price
                 )
             elif etype == "CLOSE":
                 if platform == "binance":
@@ -149,7 +161,7 @@ async def _exec_follower(master_trade_id: str, follower: CopyFollower,
             elif etype == "MODIFY":
                 if platform != "binance":   # Binance modify not supported
                     result = await executor.modify_position(
-                        int(follower_pos_id), snap.stop_loss, snap.take_profit
+                        int(follower_pos_id), sl_price, tp_price
                     )
                 else:
                     result = None   # skip modify silently for Binance
@@ -157,7 +169,8 @@ async def _exec_follower(master_trade_id: str, follower: CopyFollower,
                 break
         except Exception as e:
             _log(fid, master_trade_id, "WARN", "RETRY", f"Attempt {attempt} failed: {e}")
-            await asyncio.sleep(2 ** attempt)
+            if attempt < max_attempts:
+                await asyncio.sleep(2 ** attempt)
 
     _record_follower_trade(master_trade_id, follower, snap, etype, lots, result)
 

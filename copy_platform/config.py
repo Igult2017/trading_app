@@ -11,6 +11,13 @@ CTRADER_CLIENT_SECRET = os.environ["CTRADER_CLIENT_SECRET"]
 # Telegram copy-bot — added as ADMIN to provider channels; one shared poller reads
 # their posts. Optional: if unset, Telegram providers are simply skipped.
 TELEGRAM_COPY_BOT_TOKEN = os.environ.get("TELEGRAM_COPY_BOT_TOKEN", "")
+# The notification bot (TELEGRAM_BOT_TOKEN) already long-polls getUpdates; using the
+# SAME token here would make two pollers 409-conflict. Warn loudly — use a separate bot.
+_notif_token = os.environ.get("TELEGRAM_BOT_TOKEN", "")
+if TELEGRAM_COPY_BOT_TOKEN and _notif_token and \
+        TELEGRAM_COPY_BOT_TOKEN.strip() == _notif_token.strip():
+    print("[config] WARNING: TELEGRAM_COPY_BOT_TOKEN == TELEGRAM_BOT_TOKEN — two "
+          "getUpdates pollers on one bot will 409-conflict. Use a SEPARATE copy bot.")
 
 # cTrader Open API endpoints
 CT_LIVE_HOST  = "trade.ctrader.com"
