@@ -303,8 +303,16 @@ function JournalPrefetcher() {
 
     const STALE = 2 * 60 * 1000;
 
-    // Step 1 — warm the sessions list
-    // Key must match Journal.tsx useQuery key exactly: ['/api/sessions']
+    const savedId = typeof window !== 'undefined'
+      ? localStorage.getItem('journal_active_session_id')
+      : null;
+
+    // Fast path — warm the LAST-OPEN session's panels IMMEDIATELY, in parallel with
+    // the sessions list, so dashboard data is already loading from the first moment
+    // of login instead of waiting for the sessions round-trip to finish.
+    if (savedId) prefetchAllPanels(qc, savedId, user.id);
+
+    // Warm the sessions list. Key must match Journal.tsx useQuery key exactly.
     qc.prefetchQuery({
       // Throw on a bad response so a failed prefetch never overwrites the shared
       // ['/api/sessions'] cache with [] (which would blank the session cards).
@@ -312,13 +320,8 @@ function JournalPrefetcher() {
       queryFn: () => fetchJson('/api/sessions'),
       staleTime: STALE,
     }).then(() => {
-      // Step 2 — resolve which session to warm panels for
       const sessions: any[] = qc.getQueryData(['/api/sessions']) ?? [];
       if (sessions.length === 0) return;
-
-      const savedId = typeof window !== 'undefined'
-        ? localStorage.getItem('journal_active_session_id')
-        : null;
 
       const target =
         (savedId && sessions.find((s: any) => s.id === savedId)) ??
@@ -329,8 +332,8 @@ function JournalPrefetcher() {
 
       if (!target) return;
 
-      // Step 3 — warm all panel endpoints for that session
-      prefetchAllPanels(qc, target.id, user.id);
+      // Only warm here if we didn't already above (saved id missing or now invalid).
+      if (!savedId || target.id !== savedId) prefetchAllPanels(qc, target.id, user.id);
     }).catch(() => { /* silent — prefetch is best-effort */ });
   }, [session?.access_token, user?.id, qc]);
 
