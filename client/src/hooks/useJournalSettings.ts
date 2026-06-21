@@ -179,6 +179,10 @@ function load(): JournalSettings {
     const raw = localStorage.getItem('journal_settings_v2');
     if (raw) {
       const parsed = JSON.parse(raw) as JournalSettings;
+      // Validate every field — a stale/invalid persisted theme (e.g. a renamed theme
+      // from an older build) must fall back to the default, not leave THEMES[theme]
+      // undefined (which renders a white background).
+      if (!THEMES[parsed.theme]) parsed.theme = 'navy';
       if (!FONTS[parsed.font]) parsed.font = 'montserrat';
       if (!Array.isArray(parsed.hiddenPanels)) parsed.hiddenPanels = [];
       return parsed;

@@ -738,7 +738,7 @@ export default function Journal() {
   const { user } = useAuth();
   const { hasJournalAccess, stripeConfigured, loading: entitlementLoading } = useEntitlement();
   const { settings, setSettings } = useJournalSettings();
-  const T = THEMES[settings.theme];
+  const T = THEMES[settings.theme] ?? THEMES.navy;   // never undefined → never a white fallback
   const F = FONTS[settings.font];
   const [location] = useLocation();
   const [activeNav, setActiveNav] = useState(() => {
@@ -795,11 +795,14 @@ export default function Journal() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
   const [darkMode, setDarkMode] = useState(() => {
+    // Default to the active theme's darkness (Navy = dark) when never toggled, so the
+    // toggle can't desync from the theme on first load and force light rendering.
+    const fallback = THEMES[settings.theme]?.dark ?? true;
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('journal_dark_mode');
-      return saved === null ? false : saved === 'true';
+      return saved === null ? fallback : saved === 'true';
     }
-    return false;
+    return fallback;
   });
   // Remembers the last dark theme so toggling back from light restores it.
   const lastDarkThemeRef = useRef<import('@/hooks/useJournalSettings').ThemeId>(
