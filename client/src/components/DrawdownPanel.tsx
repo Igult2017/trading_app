@@ -328,7 +328,7 @@ export default function DrawdownPanel({ sessionId }: { sessionId?: string | null
         @keyframes ddPulse { from { opacity:0.3; } to { opacity:1; } }
       `}</style>
 
-      <div className="max-w-[1400px] mx-auto px-4 sm:px-6">
+      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 pt-6 sm:pt-8">
 
         {/* ── HEADER ─────────────────────────────────────────────── */}
         <div className="mb-6 sm:mb-8 pb-5 sm:pb-6 border-b dd-divider flex flex-col md:flex-row md:items-start justify-between gap-4 sm:gap-6">
