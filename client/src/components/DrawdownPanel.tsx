@@ -17,6 +17,18 @@ const V = ({ children, className = '' }: { children: React.ReactNode; className?
 const Sub = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
   <span className={`text-[9px] font-mono text-slate-600 ${className}`} style={{ fontWeight: 400 }}>{children}</span>
 );
+// Status-banner stat tile: tiny eyebrow label → big bold number → muted unit suffix,
+// for clear 3-level hierarchy (the label must NOT read like the value). slate-200/400/500
+// are all remapped by the dd-root light-theme override, so this holds on white too.
+const DdStat = ({ label, num, suffix, className = '' }: { label: string; num: React.ReactNode; suffix?: string; className?: string }) => (
+  <div className={`flex flex-col gap-1.5 ${className}`}>
+    <span className="text-[9px] uppercase tracking-[0.2em] text-slate-500" style={{ fontWeight: 600 }}>{label}</span>
+    <span className="font-mono leading-none" style={{ fontWeight: 800 }}>
+      <span className="text-lg text-slate-200">{num}</span>
+      {suffix && <span className="text-[11px] text-slate-400 ml-1.5" style={{ fontWeight: 600 }}>{suffix}</span>}
+    </span>
+  </div>
+);
 const Row = ({ k, v, accent }: { k: string; v: string; accent?: string }) => (
   <div className="flex items-center justify-between gap-3">
     <L>{k}</L>
@@ -357,32 +369,26 @@ export default function DrawdownPanel({ sessionId }: { sessionId?: string | null
         {/* ── DRAWDOWN STATUS (live) ─────────────────────────────── */}
         {intel && (
           <div className="dd-card rounded-lg p-4 sm:p-5 mb-4 flex flex-col lg:flex-row lg:items-center gap-5 lg:gap-6">
-            {/* Status */}
+            {/* Status — eyebrow label over a large colored verdict */}
             <div className="flex items-center gap-3 lg:pr-6 lg:border-r dd-divider shrink-0">
               <span style={{ width: 10, height: 10, borderRadius: '50%', flexShrink: 0,
                 background: intel.current.inDrawdown ? '#f43f5e' : '#10b981',
                 boxShadow: `0 0 10px ${intel.current.inDrawdown ? 'rgba(244,63,94,0.55)' : 'rgba(16,185,129,0.55)'}` }} />
-              <div className="flex flex-col gap-1">
-                <L>Status</L>
-                <span className="text-sm" style={{ fontWeight: 700, color: intel.current.inDrawdown ? '#f43f5e' : '#10b981' }}>
+              <div className="flex flex-col gap-1.5">
+                <span className="text-[9px] uppercase tracking-[0.2em] text-slate-500" style={{ fontWeight: 600 }}>Status</span>
+                <span className="text-base leading-none" style={{ fontWeight: 800, color: intel.current.inDrawdown ? '#f43f5e' : '#10b981' }}>
                   {intel.current.inDrawdown ? `In Drawdown ${fmtDd(intel.current.ddPct)}` : 'At Equity Highs'}
                 </span>
               </div>
             </div>
-            {/* Stat tiles */}
+            {/* Stat tiles — eyebrow label → big number → muted unit */}
             <div className="grid grid-cols-3 flex-1 gap-3">
-              <div className="flex flex-col gap-1">
-                <L>Since Peak</L>
-                <V>{intel.current.tradesSincePeak} trades{intel.current.daysSincePeak != null ? ` · ${intel.current.daysSincePeak}d` : ''}</V>
-              </div>
-              <div className="flex flex-col gap-1 lg:pl-4 lg:border-l dd-divider">
-                <L>Longest Underwater</L>
-                <V>{intel.underwater.longestTrades} trades{intel.underwater.longestDays ? ` · ${intel.underwater.longestDays}d` : ''}</V>
-              </div>
-              <div className="flex flex-col gap-1 lg:pl-4 lg:border-l dd-divider">
-                <L>Avg Recovery</L>
-                <V>{intel.underwater.avgRecoveryTrades || '—'} trades</V>
-              </div>
+              <DdStat label="Since Peak" num={intel.current.tradesSincePeak}
+                suffix={`trades${intel.current.daysSincePeak != null ? ` · ${intel.current.daysSincePeak}d` : ''}`} />
+              <DdStat label="Longest Underwater" className="lg:pl-4 lg:border-l dd-divider" num={intel.underwater.longestTrades}
+                suffix={`trades${intel.underwater.longestDays ? ` · ${intel.underwater.longestDays}d` : ''}`} />
+              <DdStat label="Avg Recovery" className="lg:pl-4 lg:border-l dd-divider" num={intel.underwater.avgRecoveryTrades || '—'}
+                suffix="trades" />
             </div>
             {intel.series && intel.series.length > 1 && <UnderwaterSpark series={intel.series} />}
           </div>
