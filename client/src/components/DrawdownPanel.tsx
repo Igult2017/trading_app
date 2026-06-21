@@ -331,7 +331,7 @@ export default function DrawdownPanel({ sessionId }: { sessionId?: string | null
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6">
 
         {/* ── HEADER ─────────────────────────────────────────────── */}
-        <div className="mb-6 sm:mb-8 pb-5 sm:pb-6 border-b dd-divider flex flex-col md:flex-row md:items-end justify-between gap-4 sm:gap-6">
+        <div className="mb-6 sm:mb-8 pb-5 sm:pb-6 border-b dd-divider flex flex-col md:flex-row md:items-start justify-between gap-4 sm:gap-6">
           <div>
             <div className="flex items-center gap-3 mb-2">
               <p className="text-[9px] uppercase tracking-[0.3em] text-slate-600" style={{ fontWeight: 500 }}>Drawdown Intelligence</p>
