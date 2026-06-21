@@ -1236,6 +1236,54 @@ export default function Journal() {
         .journal-light .js-stats-sidebar .text-rose-500,
         .journal-light .js-stats-sidebar .text-rose-800 { color: #be123c !important; }
 
+        /* ── Trade Sync wizard / copy dashboard — light-theme remap ──────────
+           Built from hardcoded dark Tailwind utilities (bg-[#020203], text-slate-*,
+           border-white/*, bg-white/[…]) that no global rule reaches. Scoped to
+           .ts-wizard-root, light-only (under .journal-light) → dark theme untouched. */
+        .journal-light .ts-wizard-root { background-color: var(--jr-bg, #EEF2F7) !important; color: var(--jr-text, #0F172A) !important; }
+        .journal-light .ts-wizard-root [class*="bg-[#020203]"],
+        .journal-light .ts-wizard-root [class*="bg-[#05060a]"] { background-color: var(--jr-bg, #EEF2F7) !important; }
+        .journal-light .ts-wizard-root [class*="bg-[#0a0a0f]"],
+        .journal-light .ts-wizard-root [class*="bg-black/40"] { background-color: var(--jr-panel, #FFFFFF) !important; }
+        .journal-light .ts-wizard-root [class*="bg-white/["] { background-color: rgba(15,23,42,0.035) !important; }
+        .journal-light .ts-wizard-root .bg-slate-800 { background-color: var(--jr-border, #E2E8F0) !important; }
+
+        .journal-light .ts-wizard-root .text-white,
+        .journal-light .ts-wizard-root .text-slate-200,
+        .journal-light .ts-wizard-root .text-slate-300 { color: var(--jr-text, #0F172A) !important; }
+        .journal-light .ts-wizard-root .text-slate-400,
+        .journal-light .ts-wizard-root .text-slate-500,
+        .journal-light .ts-wizard-root .text-slate-600,
+        .journal-light .ts-wizard-root .text-slate-700 { color: var(--jr-muted, #5A6679) !important; }
+        .journal-light .ts-wizard-root input::placeholder,
+        .journal-light .ts-wizard-root textarea::placeholder { color: var(--jr-muted, #5A6679) !important; }
+
+        .journal-light .ts-wizard-root [class*="border-white/"] { border-color: var(--jr-border, #E2E8F0) !important; }
+        .journal-light .ts-wizard-root [class*="divide-white/"] > * + * { border-color: var(--jr-border, #E2E8F0) !important; }
+
+        /* Selected platform card (bg-white text-black) → accent so it reads in light. */
+        .journal-light .ts-wizard-root .bg-white.text-black { background-color: var(--jr-accent, #2563eb) !important; color: #fff !important; }
+
+        /* Bright tint text (code/info pills) → AA-contrast variants on white. */
+        .journal-light .ts-wizard-root .text-blue-300,
+        .journal-light .ts-wizard-root .text-blue-400 { color: #2563eb !important; }
+        .journal-light .ts-wizard-root .text-emerald-300,
+        .journal-light .ts-wizard-root .text-emerald-400,
+        .journal-light .ts-wizard-root .text-green-300,
+        .journal-light .ts-wizard-root .text-green-400 { color: #047857 !important; }
+        .journal-light .ts-wizard-root .text-rose-300,
+        .journal-light .ts-wizard-root .text-rose-400,
+        .journal-light .ts-wizard-root .text-red-300,
+        .journal-light .ts-wizard-root .text-red-400 { color: #be123c !important; }
+        .journal-light .ts-wizard-root .text-amber-300,
+        .journal-light .ts-wizard-root .text-amber-400 { color: #b45309 !important; }
+
+        /* My Terminals dashboard — feed its --cm-* theme vars (the component reads them via its tone object). */
+        .journal-light .copy-mgr-root {
+          --cm-bg: #EEF2F7; --cm-panel: #FFFFFF; --cm-border: #E2E8F0; --cm-borderhi: #CBD5E1;
+          --cm-text: #0F172A; --cm-muted: #5A6679; --cm-dim: #5A6679; --cm-blue: #2563eb;
+        }
+
         /* ── TraderAI empty-state heading + suggestion cards ─────────────── */
         .journal-light .traderai-empty-wrap h2,
         .journal-light .traderai-empty-title { color: ${T.text} !important; }

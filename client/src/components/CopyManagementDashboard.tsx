@@ -45,15 +45,17 @@ type Account = {
   loginId: string;
 };
 
+// Theme-aware via --cm-* vars (set on .journal-light .copy-mgr-root in Journal.tsx).
+// Dark fallbacks keep the original look in dark themes; light theme flips them.
 const tone = {
-  bg:        '#020203',
-  panel:     '#05060a',
-  border:    'rgba(255,255,255,0.06)',
-  borderHi:  'rgba(255,255,255,0.12)',
-  text:      '#e2e8f0',
-  muted:     '#64748b',
-  dim:       '#475569',
-  blue:      '#60a5fa',
+  bg:        'var(--cm-bg, #020203)',
+  panel:     'var(--cm-panel, #05060a)',
+  border:    'var(--cm-border, rgba(255,255,255,0.06))',
+  borderHi:  'var(--cm-borderhi, rgba(255,255,255,0.12))',
+  text:      'var(--cm-text, #e2e8f0)',
+  muted:     'var(--cm-muted, #64748b)',
+  dim:       'var(--cm-dim, #64748b)',
+  blue:      'var(--cm-blue, #60a5fa)',
   green:     '#4ade80',
   red:       '#f87171',
   amber:     '#fbbf24',
@@ -631,14 +633,14 @@ export default function CopyManagementDashboard({ onBack, initialTab = 'provider
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: tone.bg, color: tone.text, fontFamily: "'Inter', sans-serif" }}>
+    <div className="copy-mgr-root" style={{ minHeight: '100vh', background: tone.bg, color: tone.text, fontFamily: "'Inter', sans-serif" }}>
       {/* Header */}
       <div style={{ borderBottom: `1px solid ${tone.border}`, background: tone.panel, padding: '20px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
         <div>
           <div style={{ color: tone.muted, fontSize: 9, fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.25em', marginBottom: 4 }}>
             Trade Sync · Account Manager
           </div>
-          <h1 style={{ fontSize: 22, fontWeight: 300, letterSpacing: '-0.01em', margin: 0 }}>My Terminals</h1>
+          <h1 style={{ fontSize: 16, fontWeight: 600, letterSpacing: '-0.01em', margin: 0 }}>My Terminals</h1>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <Btn onClick={() => setRefreshKey(k => k + 1)}><RefreshCw size={11} /> Refresh</Btn>

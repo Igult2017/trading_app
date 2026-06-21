@@ -125,7 +125,7 @@ const InfoBox = ({ children, color = 'blue' }: any) => {
 const SectionTitle = ({ step, id, title }: any) => (
   <div className="mb-8 md:mb-16">
     <span className="text-blue-500 font-mono text-xs mb-2 block tracking-widest">0{step + 1} // {id.toUpperCase()}</span>
-    <h1 className="text-xl md:text-2xl font-extralight tracking-tighter mb-4">{title}</h1>
+    <h1 className="text-lg md:text-xl font-light tracking-tight mb-4">{title}</h1>
     <div className="w-24 h-[1px] bg-blue-500/50" />
   </div>
 );
@@ -1221,7 +1221,7 @@ function CopierDashboard({ deployResult, role, data, onSetupAnother, onHome }: a
   const platform  = data?.platform || account?.platform || 'MT5';
 
   return (
-    <div className="w-full max-w-3xl mx-auto space-y-0">
+    <div className="ts-wizard-root w-full max-w-3xl mx-auto space-y-0">
       {/* ── Hero status bar ─────────────────────────────────────────────── */}
       <div className="border border-white/5 bg-[#05060a] p-6 md:p-8 flex flex-col md:flex-row items-center md:items-start gap-6">
         <div className="relative flex-shrink-0">
@@ -1241,7 +1241,7 @@ function CopierDashboard({ deployResult, role, data, onSetupAnother, onHome }: a
               ● Live
             </span>
           </div>
-          <h2 className="text-xl md:text-2xl font-light tracking-tight">Copy Engine Active</h2>
+          <h2 className="text-base md:text-lg font-light tracking-tight">Copy Engine Active</h2>
           <p className="text-slate-500 text-xs font-mono">{data?.nickname || loginId} · {platform} · {broker}</p>
         </div>
         <div className="flex gap-2 flex-shrink-0">
@@ -1408,7 +1408,7 @@ const StepGoLive = ({ data, setData, role, onReset, onHome, providers }: any) =>
         <div className="absolute inset-0 bg-blue-500/10 blur-2xl animate-ping" />
         <Rocket size={40} className="text-blue-400 animate-pulse" strokeWidth={1.5} />
       </div>
-      <h2 className="text-2xl md:text-3xl font-light">Deploying Terminal…</h2>
+      <h2 className="text-lg md:text-xl font-light">Deploying Terminal…</h2>
       <div className="flex flex-col items-center gap-3 w-full max-w-xs">
         {['Establishing bridge connection','Verifying account credentials','Activating copy engine'].map((msg, i) => (
           <div key={msg} className="flex items-center gap-3 w-full text-left">
@@ -1433,7 +1433,7 @@ const StepGoLive = ({ data, setData, role, onReset, onHome, providers }: any) =>
           <span className="w-1.5 h-1.5 rounded-full bg-red-400 inline-block" />
           Deployment Failed
         </div>
-        <h2 className="text-2xl md:text-3xl font-light">Terminal Error</h2>
+        <h2 className="text-lg md:text-xl font-light">Terminal Error</h2>
         <p className="text-slate-500 text-sm max-w-md font-mono">{errorMsg}</p>
       </div>
       <GlowButton active onClick={() => setStatus('ready')}>
@@ -1460,7 +1460,7 @@ const StepGoLive = ({ data, setData, role, onReset, onHome, providers }: any) =>
           <div className="absolute inset-0 bg-blue-500/10 blur-2xl animate-pulse" />
           <Rocket size={40} className="text-blue-500 relative z-10" strokeWidth={1.5} />
         </div>
-        <h2 className="text-2xl md:text-3xl font-light">System Ready</h2>
+        <h2 className="text-lg md:text-xl font-light">System Ready</h2>
         <p className="text-slate-500 text-sm max-w-md">{summaries[role]}</p>
       </div>
 
@@ -1603,7 +1603,7 @@ function CopierWizard({ onBack, onOpenDashboard }: { onBack: () => void; onOpenD
   };
 
   return (
-    <div className="min-h-screen bg-[#020203] text-white selection:bg-blue-500/40 font-light overflow-hidden">
+    <div className="ts-wizard-root min-h-screen bg-[#020203] text-white selection:bg-blue-500/40 font-light overflow-hidden">
       <style>{FONTS + `
         body{font-family:'Inter',sans-serif;letter-spacing:-0.01em;}
         .mono{font-family:'JetBrains Mono',monospace;}
