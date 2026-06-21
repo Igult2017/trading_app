@@ -41,6 +41,23 @@ const Toggle = ({ options, active, onChange }: { options: { value: string; label
   </div>
 );
 
+// Underwater sparkline — area of the per-trade drawdown % (≤0); peak line at top.
+function UnderwaterSpark({ series }: { series: number[] }) {
+  const w = 150, h = 30;
+  const min = series.reduce((m, v) => Math.min(m, v), -0.01);   // most-negative (reduce, not spread → safe for big arrays)
+  const n = series.length;
+  const pts = series.map((v, i) => {
+    const x = (n > 1 ? i / (n - 1) : 0) * w;
+    const y = Math.max(0, Math.min(h, (v / min) * h));
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(' ');
+  return (
+    <svg width={w} height={h} className="ml-auto shrink-0" aria-hidden="true">
+      <polygon points={`0,0 ${pts} ${w},0`} fill="rgba(244,63,94,0.15)" stroke="#f43f5e" strokeWidth="1" />
+    </svg>
+  );
+}
+
 // ── Mapping helpers ───────────────────────────────────────────────────────────
 
 const heatColor = (v: number) => `rgba(244,63,94,${Math.min(Math.abs(v) / 6, 0.85)})`;
@@ -104,6 +121,7 @@ export default function DrawdownPanel({ sessionId }: { sessionId?: string | null
   const { t } = useTranslation();
   const [activeFreqView,   setActiveFreqView]   = useState('attr');
   const [activeStructView, setActiveStructView] = useState('context');
+  const [ddGroupView,      setDdGroupView]      = useState('strategy');
 
   const { data: result, isLoading, isFetching, isError, error } = useQuery<any>({
     queryKey: ['/api/drawdown/compute', sessionId],
@@ -132,6 +150,8 @@ export default function DrawdownPanel({ sessionId }: { sessionId?: string | null
     { label: t('drawdown.recoveryFactor'), value: ts ? String(ts.recoveryFactor) : '—', accent: '#10b981' },
     { label: t('drawdown.trendAlignment'), value: ts ? `${ts.trendAlignment}%`   : '—', accent: '#6366f1' },
   ];
+
+  const intel = d?.intelligence ?? null;
 
   // Heatmap: rows from API, strategies derived from first row's cells
   const heatRows: any[]     = d?.heatmap ?? [];
@@ -290,6 +310,55 @@ export default function DrawdownPanel({ sessionId }: { sessionId?: string | null
             ))}
           </div>
         </div>
+
+        {/* ── DRAWDOWN STATUS (live) ─────────────────────────────── */}
+        {intel && (
+          <div className="dd-card rounded p-4 sm:p-5 mb-4 flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-8">
+            <div className="flex items-center gap-3">
+              <div style={{ width: 9, height: 9, borderRadius: '50%', background: intel.current.inDrawdown ? '#f43f5e' : '#10b981' }} />
+              <div className="flex flex-col gap-1">
+                <L>Status</L>
+                <span className="text-sm jm" style={{ fontWeight: 700, color: intel.current.inDrawdown ? '#f43f5e' : '#10b981' }}>
+                  {intel.current.inDrawdown ? `In Drawdown ${fmtDd(intel.current.ddPct)}` : 'At Equity Highs'}
+                </span>
+              </div>
+            </div>
+            <div className="flex flex-col gap-1">
+              <L>Since Peak</L>
+              <V>{intel.current.tradesSincePeak} trades{intel.current.daysSincePeak != null ? ` · ${intel.current.daysSincePeak}d` : ''}</V>
+            </div>
+            <div className="flex flex-col gap-1">
+              <L>Longest Underwater</L>
+              <V>{intel.underwater.longestTrades} trades{intel.underwater.longestDays ? ` · ${intel.underwater.longestDays}d` : ''}</V>
+            </div>
+            <div className="flex flex-col gap-1">
+              <L>Avg Recovery</L>
+              <V>{intel.underwater.avgRecoveryTrades || '—'} trades</V>
+            </div>
+            {intel.series && intel.series.length > 1 && <UnderwaterSpark series={intel.series} />}
+          </div>
+        )}
+
+        {/* ── DRAWDOWN BY STRATEGY / INSTRUMENT ───────────────────── */}
+        {intel && (intel.byStrategy.length > 0 || intel.byInstrument.length > 0) && (
+          <div className="dd-card rounded p-4 sm:p-6 mb-4">
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-5">
+              <SectionTitle icon={<Network className="w-3 h-3"/>}>Drawdown By {ddGroupView === 'strategy' ? 'Strategy' : 'Instrument'}</SectionTitle>
+              <Toggle options={[{ value: 'strategy', label: 'Strategy' }, { value: 'instrument', label: 'Instrument' }]} active={ddGroupView} onChange={setDdGroupView} />
+            </div>
+            <div className="flex flex-col">
+              {(ddGroupView === 'strategy' ? intel.byStrategy : intel.byInstrument).map((g: any) => (
+                <div key={g.name} className="flex items-center justify-between py-2.5 border-b dd-divider last:border-b-0">
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-xs text-slate-300" style={{ fontWeight: 600 }}>{g.name}</span>
+                    <Sub>{g.trades} trades · {g.lossRate}% loss rate</Sub>
+                  </div>
+                  <V className="text-rose-500">{fmtDd(g.totalLossPct)}</V>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* ── ROW 1: HEATMAP + FREQUENCY ─────────────────────────── */}
         <div className="grid grid-cols-1 xl:grid-cols-[1fr_380px] gap-4 mb-4">

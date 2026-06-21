@@ -11,6 +11,7 @@ from .structural   import compute_structural
 from .sessions     import compute_sessions
 from .streaks      import compute_streaks
 from .distribution import compute_rr_buckets, compute_monthly
+from .intelligence import compute_intelligence
 from ._utils       import get_pnl, sort_by_date
 
 
@@ -61,6 +62,15 @@ def compute_drawdown(trades: list, starting_balance: float) -> dict:
                            "timeline": []},
             "rrBuckets":  [],
             "monthly":    [],
+            "intelligence": {
+                "current":      {"ddPct": 0.0, "inDrawdown": False, "tradesSincePeak": 0,
+                                 "daysSincePeak": None, "peakEquity": 0.0, "currentEquity": 0.0},
+                "underwater":   {"longestTrades": 0, "longestDays": 0, "avgRecoveryTrades": 0.0,
+                                 "currentUnderwaterTrades": 0, "episodes": 0},
+                "series":       [],
+                "byStrategy":   [],
+                "byInstrument": [],
+            },
         }
 
     sb = float(starting_balance) if starting_balance else 10_000.0
@@ -77,6 +87,7 @@ def compute_drawdown(trades: list, starting_balance: float) -> dict:
     streaks    = compute_streaks(trades)
     rr_buckets = compute_rr_buckets(trades)
     monthly    = compute_monthly(trades, sb)
+    intelligence = compute_intelligence(trades, sb)
 
     return {
         "topStats":   top_stats,
@@ -87,4 +98,5 @@ def compute_drawdown(trades: list, starting_balance: float) -> dict:
         "streaks":    streaks,
         "rrBuckets":  rr_buckets,
         "monthly":    monthly,
+        "intelligence": intelligence,
     }
