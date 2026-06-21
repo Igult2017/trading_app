@@ -783,7 +783,7 @@ const StepTgAuth = ({ data, setData }: any) => (
   </div>
 );
 
-const TG_COPY_BOT = '@TradeSyncCopyBot';   // the platform copy-bot (your configured TELEGRAM_COPY_BOT_TOKEN)
+const TG_COPY_BOT = '@tandjournal_copybot';   // the platform copy-bot (your configured TELEGRAM_COPY_BOT_TOKEN)
 
 const StepTgChannel = ({ data, setData }: any) => (
   <div className="grid grid-cols-1 md:grid-cols-2 gap-0 border border-white/5 divide-y md:divide-y-0 md:divide-x divide-white/5">
