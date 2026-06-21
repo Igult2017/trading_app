@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { authFetch } from "@/lib/queryClient";
-import TradingLoader, { useDelayedLoading } from "@/components/TradingLoader";
+import { useDelayedLoading } from "@/components/TradingLoader";
+import { PanelSkeleton } from "@/components/skeletons/DashboardSkeletons";
 
 // ─── DESIGN TOKENS ────────────────────────────────────────────────────────────
 const C = {
@@ -596,9 +597,7 @@ export default function TFMetricsPanel({ sessionId }: { sessionId?: string | nul
 
       <main className="fade" key={`${page}-${isMobile}`} style={{ paddingBottom:32 }}>
         {showTFLoader ? (
-          <div style={{ display:'flex', alignItems:'center', justifyContent:'center', minHeight:320 }}>
-            <TradingLoader message="Computing timeframe matrix…" />
-          </div>
+          <PanelSkeleton />
         ) : !sessionId || rows.length === 0 ? (
           <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', minHeight:320, gap:10 }}>
             <span style={{ fontFamily:MONO, fontSize:20, color:C.sep }}>◫</span>

@@ -1500,6 +1500,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Aggregated landing-view bundle — ONE round-trip for the dashboard + session
+  // selector (sessions list, active session, metrics, entries). Reuses the SAME
+  // auth, ownership scope, compute fn and 5-min metrics cache as the individual
+  // routes, so it never double-computes and stays consistent with /api/metrics/
+  // compute. The heavier analytics panels (calendar/drawdown/tf-matrix) are left
+  // OUT on purpose: each spawns a 30s-cap Python subprocess, so bundling them would
+  // make the dashboard wait for the slowest one. They stay lazy + background-prefetched.
+  app.get("/api/dashboard", async (req, res) => {
+    const auth = await requireAuth(req, res);
+    if (!auth) return;
+    try {
+      const sessions = await storage.getSessions(auth.id);
+      const scope = await resolveComputeScope(auth, req);
+      if (!scope) {
+        return res.json({ success: true, sessions, session: null, entries: [], metrics: { success: true, metrics: {} } });
+      }
+      const { entries, startingBalance, sessionId } = scope;
+      const session = sessionId ? (sessions.find((s: any) => s.id === sessionId) ?? null) : null;
+
+      // Metrics — share the metrics cache key so /api/dashboard and /api/metrics/compute never double-compute.
+      let metrics: any;
+      const key = userSessionKey("metrics", auth.id, sessionId);
+      const cached = await cacheGet<{ result: any; entryCount: number }>(key);
+      if (cached && cached.entryCount === entries.length) {
+        metrics = cached.result;
+      } else if (!entries || entries.length === 0) {
+        metrics = { success: true, metrics: {} };
+        await cacheSet(key, { result: metrics, entryCount: 0 }, TTL_5MIN);
+      } else {
+        metrics = await computeMetrics(entries, startingBalance);
+        if (metrics.success) await cacheSet(key, { result: metrics, entryCount: entries.length }, TTL_5MIN);
+      }
+
+      res.json({ success: true, sessions, session, entries, metrics });
+    } catch (error) {
+      console.error("[Routes] Dashboard aggregation error:", error);
+      res.status(500).json({ success: false, error: "Dashboard aggregation failed" });
+    }
+  });
+
   app.get("/api/calendar/compute", async (req, res) => {
     const auth = await requireAuth(req, res);
     if (!auth) return;

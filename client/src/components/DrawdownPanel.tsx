@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { authFetch } from '@/lib/queryClient';
 import { Layout, Clock, Zap, Network, CalendarDays, ShieldCheck, TrendingDown, Activity } from 'lucide-react';
-import TradingLoader, { useDelayedLoading } from '@/components/TradingLoader';
+import { useDelayedLoading } from '@/components/TradingLoader';
+import { PanelSkeleton } from '@/components/skeletons/DashboardSkeletons';
 import { useTranslation } from 'react-i18next';
 
 // ── Primitive UI atoms ────────────────────────────────────────────────────────
@@ -225,11 +226,7 @@ export default function DrawdownPanel({ sessionId }: { sessionId?: string | null
 
   const showLoader = useDelayedLoading(!!sessionId && isLoading);
   if (showLoader) {
-    return (
-      <div style={{ minHeight: 480, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <TradingLoader message="Computing drawdown metrics…" />
-      </div>
-    );
+    return <PanelSkeleton />;
   }
 
   if (!sessionId) {

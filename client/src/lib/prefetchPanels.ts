@@ -34,50 +34,31 @@ export function prefetchAllPanels(
 ): void {
   if (!sessionId) return;
 
-  // ── Fast endpoints — fire immediately, all in parallel ──────────────────────
-  const fast: { queryKey: unknown[]; url: string; staleTime: number }[] = [
-    {
-      queryKey: ["/api/sessions",          sessionId],
-      url:      `/api/sessions/${sessionId}`,
-      staleTime: STALE_FAST,
-    },
-    {
-      queryKey: ["/api/metrics/compute",   sessionId],
-      url:      `/api/metrics/compute?sessionId=${sessionId}`,
-      staleTime: STALE_FAST,
-    },
-    {
-      queryKey: ["/api/journal/entries",   sessionId],
-      url:      `/api/journal/entries?sessionId=${sessionId}`,
-      staleTime: STALE_FAST,
-    },
-    {
-      queryKey: ["/api/calendar/compute",  sessionId],
-      url:      `/api/calendar/compute?sessionId=${sessionId}`,
-      staleTime: STALE_FAST,
-    },
-    {
-      queryKey: ["/api/drawdown/compute",  sessionId],
-      url:      `/api/drawdown/compute?sessionId=${sessionId}`,
-      staleTime: STALE_FAST,
-    },
-    {
-      queryKey: ["/api/tf-metrics/matrix", sessionId],
-      url:      `/api/tf-metrics/matrix?sessionId=${sessionId}`,
-      staleTime: STALE_TF,
-    },
-  ];
+  // ── Landing bundle — ONE round-trip seeds the dashboard + session selector ───
+  // /api/dashboard returns { sessions, session, entries, metrics } in a single
+  // request; we seed each panel's EXACT React Query key so the components read from
+  // cache with no fetch. fetchJson THROWS on a non-OK/transient response, so a
+  // failed bundle leaves any existing good cache intact (never overwrites with null,
+  // especially the shared "/api/journal/entries" key the Trade Vault reads).
+  fetchJson(`/api/dashboard?sessionId=${sessionId}`)
+    .then((d: any) => {
+      if (!d) return;
+      if (Array.isArray(d.sessions)) queryClient.setQueryData(["/api/sessions"], d.sessions);
+      if (d.session)                 queryClient.setQueryData(["/api/sessions", sessionId], d.session);
+      if (Array.isArray(d.entries))  queryClient.setQueryData(["/api/journal/entries", sessionId], d.entries);
+      if (d.metrics)                 queryClient.setQueryData(["/api/metrics/compute", sessionId], d.metrics);
+    })
+    .catch(() => { /* best-effort — panels fall back to their own queries */ });
 
-  for (const { queryKey, url, staleTime } of fast) {
-    // fetchJson THROWS on a non-OK/transient response instead of resolving with
-    // null. A rejected prefetch is swallowed by prefetchQuery and leaves any
-    // existing good data in place — it must never overwrite the cache (especially
-    // the shared "/api/journal/entries" key the Trade Vault reads) with null.
-    queryClient.prefetchQuery({
-      queryKey,
-      queryFn: () => fetchJson(url),
-      staleTime,
-    });
+  // ── Heavier analytics panels — background prefetch so a tab switch is warm, but
+  // they NEVER block the dashboard (each is a 30s-cap Python compute). ───────────
+  const heavy: { queryKey: unknown[]; url: string; staleTime: number }[] = [
+    { queryKey: ["/api/calendar/compute",  sessionId], url: `/api/calendar/compute?sessionId=${sessionId}`,  staleTime: STALE_FAST },
+    { queryKey: ["/api/drawdown/compute",  sessionId], url: `/api/drawdown/compute?sessionId=${sessionId}`,  staleTime: STALE_FAST },
+    { queryKey: ["/api/tf-metrics/matrix", sessionId], url: `/api/tf-metrics/matrix?sessionId=${sessionId}`, staleTime: STALE_TF },
+  ];
+  for (const { queryKey, url, staleTime } of heavy) {
+    queryClient.prefetchQuery({ queryKey, queryFn: () => fetchJson(url), staleTime });
   }
 
   // ── Strategy audit — delayed so fast queries get network priority ────────────

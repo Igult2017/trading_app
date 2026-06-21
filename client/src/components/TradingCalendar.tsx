@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { authFetch } from "@/lib/queryClient";
-import TradingLoader, { useDelayedLoading } from "@/components/TradingLoader";
+import { useDelayedLoading } from "@/components/TradingLoader";
+import { PanelSkeleton } from "@/components/skeletons/DashboardSkeletons";
 import { useTranslation } from "react-i18next";
 
 const FONT   = "'Montserrat', sans-serif";
@@ -347,8 +348,8 @@ export default function TradingCalendar({ sessionId, darkMode = true }: { sessio
 
   if (showCalendarLoader) {
     return (
-      <div style={{ background: BG, minHeight: "100vh", fontFamily: FONT, padding: pad, display: "flex", alignItems: "center", justifyContent: "center", ...tcVars }}>
-        <TradingLoader size="sm" message="Loading calendar…" />
+      <div style={{ background: BG, minHeight: "100vh", fontFamily: FONT, padding: pad, ...tcVars }}>
+        <PanelSkeleton />
       </div>
     );
   }

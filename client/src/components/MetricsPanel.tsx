@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { authFetch } from '@/lib/queryClient';
 import { useSessionBalance } from '@/hooks/useSessionBalance';
-import TradingLoader, { useDelayedLoading } from '@/components/TradingLoader';
+import { useDelayedLoading } from '@/components/TradingLoader';
+import { PanelSkeleton } from '@/components/skeletons/DashboardSkeletons';
 import { useTranslation } from 'react-i18next';
 
 /* ─────────────────────────────────────────────────────────────────────
@@ -407,9 +408,9 @@ export default function MetricsPanel({ sessionId, darkMode = true }: { sessionId
   } as React.CSSProperties : {};
 
   if (showMetricsLoader) return (
-    <div className="mp-root" style={{ minHeight: '100vh', background: D.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', ...lightVars }}>
+    <div className="mp-root" style={{ minHeight: '100vh', background: D.bg, padding: 16, ...lightVars }}>
       <style>{css}</style>
-      <TradingLoader size="sm" message="Loading metrics…" />
+      <PanelSkeleton />
     </div>
   );
 

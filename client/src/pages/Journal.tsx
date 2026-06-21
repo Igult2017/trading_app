@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import TradingLoader, { useDelayedLoading } from '@/components/TradingLoader';
+import { DashboardSkeleton } from '@/components/skeletons/DashboardSkeletons';
 import { usePageTracking } from '@/hooks/usePageTracking';
 import { Link, useLocation } from 'wouter';
 import { Activity, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
@@ -623,7 +624,7 @@ function DashboardView({ sessionId, isMobile, windowWidth, darkMode = true }: { 
 
   const showDashLoader = useDelayedLoading(metricsLoading || entriesLoading);
   if (showDashLoader) {
-    return <TradingLoader message="Building your dashboard…" />;
+    return <DashboardSkeleton />;
   }
 
   return (
