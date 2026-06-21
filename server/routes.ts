@@ -46,6 +46,7 @@ import { analyzeEventSentiment, updateEventWithSentiment } from "./services/sent
 import { telegramNotificationService } from "./services/telegramNotification";
 import { startPriceAlertChecker } from "./services/priceAlertChecker";
 import { notificationService } from "./services/notificationService";
+import { runTgLogin } from "./lib/tgRelayLogin";
 import {
   createAdminNotification,
   getAdminNotifications,
@@ -3985,6 +3986,114 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
       master, follower,
       message: `Add our copy-bot as an admin to @${channel}, and its signals will mirror to your account.`,
     });
+  });
+
+  // ── Telegram USER-SESSION relay (advanced, opt-in) ────────────────────────────
+  // Lets a user authorize their OWN Telegram account to copy channels the bot can't be
+  // admin of. The OTP steps proxy to copy_platform/tg_login.py (Telethon).
+  app.post("/api/copy/telegram-relay/start", async (req: Request, res: Response) => {
+    const user = await verifyToken(req.headers.authorization);
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
+    const phone = String(req.body?.phone || "").trim();
+    if (!phone) return res.status(400).json({ error: "Phone number is required" });
+    const ins = await pool.query(
+      `INSERT INTO telegram_user_sessions (user_id, phone_number, status, is_active)
+       VALUES ($1, $2, 'pending', false) RETURNING id`, [user.id, phone]);
+    const sessionId = ins.rows[0].id;
+    const r = await runTgLogin({ cmd: "send", sessionId });
+    if (!r.ok) return res.status(400).json({ error: r.error || "Could not send code", sessionId });
+    return res.json({ sessionId, status: r.status });   // code_sent
+  });
+
+  app.post("/api/copy/telegram-relay/verify", async (req: Request, res: Response) => {
+    const user = await verifyToken(req.headers.authorization);
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
+    const { sessionId, code } = req.body || {};
+    if (!sessionId || !code) return res.status(400).json({ error: "sessionId and code are required" });
+    const own = await pool.query(`SELECT user_id FROM telegram_user_sessions WHERE id = $1`, [sessionId]);
+    if (!own.rows[0] || own.rows[0].user_id !== user.id) return res.status(404).json({ error: "Session not found" });
+    const r = await runTgLogin({ cmd: "verify", sessionId, code: String(code) });
+    if (!r.ok) return res.status(400).json({ error: r.error || "Verification failed" });
+    return res.json({ status: r.status });   // active | password_needed
+  });
+
+  app.post("/api/copy/telegram-relay/password", async (req: Request, res: Response) => {
+    const user = await verifyToken(req.headers.authorization);
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
+    const { sessionId, password } = req.body || {};
+    if (!sessionId || !password) return res.status(400).json({ error: "sessionId and password are required" });
+    const own = await pool.query(`SELECT user_id FROM telegram_user_sessions WHERE id = $1`, [sessionId]);
+    if (!own.rows[0] || own.rows[0].user_id !== user.id) return res.status(404).json({ error: "Session not found" });
+    const r = await runTgLogin({ cmd: "password", sessionId, password: String(password) });
+    if (!r.ok) return res.status(400).json({ error: r.error || "2FA failed" });
+    return res.json({ status: r.status });
+  });
+
+  app.get("/api/copy/telegram-relay/:sessionId", async (req: Request, res: Response) => {
+    const user = await verifyToken(req.headers.authorization);
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
+    const q = await pool.query(
+      `SELECT status, is_active, last_error FROM telegram_user_sessions WHERE id = $1 AND user_id = $2`,
+      [req.params.sessionId, user.id]);
+    if (!q.rows[0]) return res.status(404).json({ error: "Session not found" });
+    return res.json({ status: q.rows[0].status, isActive: q.rows[0].is_active, lastError: q.rows[0].last_error });
+  });
+
+  app.post("/api/copy/telegram-relay/follow", async (req: Request, res: Response) => {
+    const user = await verifyToken(req.headers.authorization);
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
+    const b = req.body as Record<string, any>;
+    if (!b.sessionId || !b.brokerAccountId || !b.channel) {
+      return res.status(400).json({ error: "sessionId, brokerAccountId and channel are required" });
+    }
+    const sess = await pool.query(`SELECT user_id, is_active FROM telegram_user_sessions WHERE id = $1`, [b.sessionId]);
+    if (!sess.rows[0] || sess.rows[0].user_id !== user.id) return res.status(404).json({ error: "Session not found" });
+    if (!sess.rows[0].is_active) return res.status(400).json({ error: "Authorize your Telegram account first" });
+
+    const account = await storage.getBrokerAccountById(b.brokerAccountId);
+    if (!account || account.userId !== user.id) return res.status(404).json({ error: "Account not found" });
+    if (!API_PLATFORMS.has(account.platform.toLowerCase())) {
+      return res.status(400).json({ error: "The copy-onto account must be API-connected (e.g. cTrader)" });
+    }
+
+    let channel = String(b.channel).trim()
+      .replace(/^https?:\/\//i, "").replace(/^t\.me\//i, "").replace(/^@/, "");
+    const cMatch = channel.match(/^c\/(\d+)/);
+    if (cMatch) channel = "-100" + cMatch[1];
+    else channel = channel.replace(/\/.*$/, "");
+    if (!channel) return res.status(400).json({ error: "Channel is required" });
+
+    const master = await storage.createCopyMaster({
+      userId: user.id, sourceType: "telegram_user",
+      strategyName: b.strategyName || `TG ${channel}`, description: `Telegram (my account) ${channel}`,
+      tradingStyle: "signals", primaryMarket: "mixed",
+      isPublic: false, requireApproval: false, showOpenTrades: false, isActive: true,
+    });
+    await storage.upsertTelegramSource({
+      masterId: master.id, channelName: channel, channelType: b.channelType || "private_channel",
+      entryKeyword: b.entryKeyword || null, slKeyword: b.slKeyword || null,
+      tpKeyword: b.tpKeyword || null, symbolKeyword: b.symbolKeyword || null,
+      executeNoSl: b.executeNoSl === true, executeNoTp: b.executeNoTp !== false,
+      useFirstTpOnly: b.useFirstTpOnly !== false, autoUpdate: false, isActive: true,
+    } as any);
+    const follower = await storage.createCopyFollower({
+      userId: user.id, brokerAccountId: account.id, masterId: master.id,
+      lotMode: b.lotMode || "fixed", lotMultiplier: b.lotMultiplier || "1.0", fixedLot: b.fixedLot ?? "0.01",
+      riskPercent: b.riskPercent || "1.0", direction: b.direction || "same",
+      maxOpenTrades: b.maxOpenTrades ?? 10, tradeDelaySec: b.tradeDelaySec ?? 0,
+      pauseInactive: false, pauseOnDD: b.pauseOnDD ?? true,
+      maxDdPercent: b.maxDdPercent ?? null, maxDailyLoss: b.maxDailyLoss ?? null,
+      isActive: true, riskAccepted: b.riskAccepted ?? true, deployedAt: new Date(),
+    } as any);
+    await pool.query("SELECT pg_notify('copy_change', '')").catch(() => {});
+
+    notificationService.createNotification({
+      userId: user.id, type: "update",
+      title: "Telegram relay active",
+      message: `Relaying ${channel} from your Telegram account to ${account.name || "your account"}.`,
+    }).catch(() => {});
+
+    return res.status(201).json({ master, follower });
   });
 
   // ── Auth: registration setup (idempotent) ────────────────────────────────────
