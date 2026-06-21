@@ -1048,6 +1048,31 @@ export default function Journal() {
         .journal-light [style*="background: rgb(13,17,23)"],
         .journal-light [style*="background:rgb(13,17,23)"] { background: ${T.surface} !important; color: ${T.text} !important; }
 
+        /* ── Light-theme card depth ──────────────────────────────────────────
+           Dark themes separate cards with borders/glows, which read flat on a
+           light canvas. Lift white cards/panels off the soft-gray bg with a subtle
+           shadow so the dashboard has visual hierarchy instead of looking washed out. */
+        .journal-light [style*="var(--jr-chart"],
+        .journal-light [style*="var(--jr-panel"],
+        .journal-light [style*="background: #0d1117"],
+        .journal-light [style*="background:#0d1117"],
+        .journal-light [style*="background: #080d18"],
+        .journal-light [style*="background:#080d18"],
+        .journal-light .dd-card,
+        .journal-light .dd-card-dark,
+        .journal-light .ts-platform-card,
+        .journal-light .ts-step,
+        .journal-light .ts-feat-item,
+        .journal-light .obs-rating-btn {
+          box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 2px 6px rgba(15, 23, 42, 0.06) !important;
+        }
+        /* Interactive cards lift a touch more on hover. */
+        .journal-light .ts-platform-card:hover,
+        .journal-light .ts-step:hover,
+        .journal-light .obs-rating-btn:hover {
+          box-shadow: 0 4px 12px rgba(15, 23, 42, 0.10) !important;
+        }
+
         /* Dim greyish text used in panels → muted theme color. */
         .journal-light [style*="color: #cbd5e1"],
         .journal-light [style*="color:#cbd5e1"],
