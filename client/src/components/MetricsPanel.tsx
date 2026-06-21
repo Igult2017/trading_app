@@ -23,31 +23,31 @@ const D = {
   muted:    'var(--mp-mut, #5A6278)',
   dim:      'var(--mp-dim, #2E3545)',
   sub:      'var(--mp-sub, #3A4050)',
-  green:    '#1D9E75',
+  green:    'var(--mp-green,  #1D9E75)',
   greenBg:  'var(--mp-grbg, #0A2016)',
   greenBd:  'var(--mp-grbd, #0F3020)',
-  red:      '#E24B4A',
+  red:      'var(--mp-red,    #E24B4A)',
   redBg:    'var(--mp-rdbg, #1E0A0A)',
   redBd:    'var(--mp-rdbd, #3A1010)',
-  amber:    '#EF9F27',
+  amber:    'var(--mp-amber,  #EF9F27)',
   amberBg:  'var(--mp-ambg, #1E1200)',
   amberBd:  'var(--mp-ambd, #3A2200)',
-  blue:     '#378ADD',
+  blue:     'var(--mp-blue,   #378ADD)',
   blueBg:   'var(--mp-blbg, #0A1628)',
   blueBd:   'var(--mp-blbd, #0F2A4A)',
-  purple:   '#7F77DD',
+  purple:   'var(--mp-purple, #7F77DD)',
   purpleBg: 'var(--mp-pubg, #140F28)',
   purpleBd: 'var(--mp-pubd, #251B4A)',
-  cyan:     '#4AE8D8',
+  cyan:     'var(--mp-cyan,   #4AE8D8)',
   cyanBg:   'var(--mp-cybg, #0A2028)',
   cyanBd:   'var(--mp-cybd, #0F3038)',
-  gray:     '#4A5568',
+  gray:     'var(--mp-gray,   #4A5568)',
   grayBg:   'var(--mp-gybg, #12151C)',
   grayBd:   'var(--mp-gybd, #1A1F2E)',
 };
 
 const MONO: React.CSSProperties = {
-  fontFamily: "'JetBrains Mono', 'Fira Mono', 'Courier New', monospace",
+  fontFamily: "'JetBrains Mono Variable', 'JetBrains Mono', 'Fira Mono', 'Courier New', monospace",
 };
 
 /* ─── helpers ─────────────────────────────────────────────────────── */
@@ -356,9 +356,9 @@ export default function MetricsPanel({ sessionId, darkMode = true }: { sessionId
 
   /* ── CSS ── */
   const css = `
-    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap');
+    @keyframes mp-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
     .mp-root, .mp-root *, .mp-root *::before, .mp-root *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    .mp-root { font-family: 'JetBrains Mono', 'Fira Mono', 'Courier New', monospace; background: ${D.bg}; color: ${D.text}; }
+    .mp-root { font-family: 'JetBrains Mono Variable', 'JetBrains Mono', 'Fira Mono', 'Courier New', monospace; background: ${D.bg}; color: ${D.text}; }
     .mp-kpi  { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; padding: 8px 0; background: ${D.bg}; border-bottom: 0.5px solid ${D.bdInner}; }
     .mp-page { padding: 12px 0; display: flex; flex-direction: column; gap: 10px; }
     .mp-g4   { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
@@ -368,10 +368,10 @@ export default function MetricsPanel({ sessionId, darkMode = true }: { sessionId
     .mp-scroll::-webkit-scrollbar { width: 3px; }
     .mp-scroll::-webkit-scrollbar-thumb { background: ${D.bdInner}; border-radius: 2px; }
     .mp-dtable      { width: 100%; border-collapse: collapse; }
-    .mp-dtable th   { font-family: 'JetBrains Mono', monospace; font-size: 8px; color: ${D.label}; text-transform: uppercase; letter-spacing: 0.1em; padding: 7px 10px; text-align: left; border-bottom: 0.5px solid ${D.bdInner}; font-weight: 500; }
-    .mp-dtable td   { font-family: 'JetBrains Mono', monospace; font-size: 10px; padding: 7px 10px; border-bottom: 0.5px solid ${D.bdRow}; color: ${D.text}; }
+    .mp-dtable th   { font-family: 'JetBrains Mono Variable', 'JetBrains Mono', monospace; font-size: 8px; color: ${D.label}; text-transform: uppercase; letter-spacing: 0.1em; padding: 7px 10px; text-align: left; border-bottom: 0.5px solid ${D.bdInner}; font-weight: 500; }
+    .mp-dtable td   { font-family: 'JetBrains Mono Variable', 'JetBrains Mono', monospace; font-size: 10px; padding: 7px 10px; border-bottom: 0.5px solid ${D.bdRow}; color: ${D.text}; }
     .mp-dtable tr:last-child td { border-bottom: none; }
-    .mp-select      { font-family: 'JetBrains Mono', monospace; font-size: 9px; background: ${D.bg4}; color: ${D.muted}; border: 0.5px solid ${D.bdInner}; padding: 2px 6px; outline: none; cursor: pointer; border-radius: 4px; letter-spacing: 0.06em; }
+    .mp-select      { font-family: 'JetBrains Mono Variable', 'JetBrains Mono', monospace; font-size: 9px; background: ${D.bg4}; color: ${D.muted}; border: 0.5px solid ${D.bdInner}; padding: 2px 6px; outline: none; cursor: pointer; border-radius: 4px; letter-spacing: 0.06em; }
     .mp-strat-grid  { display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
     .mp-eq-grid     { display: grid; grid-template-columns: 2fr 1fr; gap: 8px; }
     @media (max-width: 1024px) {
@@ -393,11 +393,16 @@ export default function MetricsPanel({ sessionId, darkMode = true }: { sessionId
   `;
 
   /* ── GUARDS ── */
-  const showMetricsLoader = useDelayedLoading(!!sessionId && (isLoading || (balLoading && !metricsData)));
+  // Only show the skeleton on a genuinely COLD load (no cached metrics). When data
+  // is cached the panel renders straight to content — no skeleton↔content height
+  // swap, which was the main "shaking on open".
+  const showMetricsLoader = useDelayedLoading(!!sessionId && isLoading && !metricsData);
   const lightVars = !darkMode ? {
     '--mp-bg':   '#F8FAFC', '--mp-bg2':  '#FFFFFF', '--mp-bg3':  '#F8FAFC', '--mp-bg4':  '#F1F5F9',
     '--mp-bdo':  '#CBD5E1', '--mp-bdi':  '#E2E8F0', '--mp-bdr':  '#F1F5F9', '--mp-bdd':  '#E2E8F0',
-    '--mp-txt':  '#1E293B', '--mp-lbl':  '#64748B', '--mp-mut':  '#475569', '--mp-dim':  '#94A3B8', '--mp-sub': '#CBD5E1',
+    '--mp-txt':  '#1E293B', '--mp-lbl':  '#64748B', '--mp-mut':  '#475569', '--mp-dim':  '#64748B', '--mp-sub': '#64748B',
+    '--mp-green': '#047857', '--mp-red': '#DC2626', '--mp-amber': '#B45309',
+    '--mp-blue': '#2563EB', '--mp-purple': '#6D28D9', '--mp-cyan': '#0E7490', '--mp-gray': '#475569',
     '--mp-grbg': 'rgba(29,158,117,0.1)',  '--mp-grbd': 'rgba(29,158,117,0.3)',
     '--mp-rdbg': 'rgba(226,75,74,0.1)',   '--mp-rdbd': 'rgba(226,75,74,0.3)',
     '--mp-ambg': 'rgba(239,159,39,0.1)',  '--mp-ambd': 'rgba(239,159,39,0.3)',
@@ -475,7 +480,7 @@ export default function MetricsPanel({ sessionId, darkMode = true }: { sessionId
   const maxDD        = streaks.maxDrawdown     || 0;
   const currentDD    = streaks.currentDrawdown || 0;
   const isPos        = totalPL >= 0;
-  const winLossRatio = avgLoss > 0 ? (avgWin / avgLoss).toFixed(1) : '0';
+  const winLossRatio = avgLoss > 0 ? (avgWin / avgLoss).toFixed(1) : (avgWin > 0 ? '∞' : '—');
 
   const longData    = directionBias.long    || {};
   const shortData   = directionBias.short   || {};
