@@ -395,25 +395,36 @@ export default function DrawdownPanel({ sessionId }: { sessionId?: string | null
               <SectionTitle icon={<Network className="w-3 h-3"/>}>Drawdown By {ddGroupView === 'strategy' ? 'Strategy' : 'Instrument'}</SectionTitle>
               <Toggle options={[{ value: 'strategy', label: 'Strategy' }, { value: 'instrument', label: 'Instrument' }]} active={ddGroupView} onChange={setDdGroupView} />
             </div>
-            <div className="flex flex-col gap-1">
+            {/* Core-Robustness pattern: column headers + per-row [label over glowing bar | centered value] */}
+            <div className="flex flex-col">
+              <div className="grid items-center pb-2 mb-1 border-b dd-divider" style={{ gridTemplateColumns: '1fr 1fr' }}>
+                <span className="text-[9px] uppercase tracking-[0.25em] text-slate-600" style={{ fontWeight: 600 }}>Loss Contribution</span>
+                <span className="text-[9px] uppercase tracking-[0.25em] text-slate-600 text-center" style={{ fontWeight: 600 }}>Drawdown</span>
+              </div>
               {(() => {
                 const rows = ddGroupView === 'strategy' ? intel.byStrategy : intel.byInstrument;
                 const max = rows.reduce((m: number, r: any) => Math.max(m, Math.abs(r.totalLossPct)), 0.01);
                 return rows.map((g: any, i: number) => {
                   const neg = g.totalLossPct < 0;
+                  const color = neg ? '#f43f5e' : '#10b981';
                   const pct = Math.min(100, (Math.abs(g.totalLossPct) / max) * 100);
                   return (
-                    <div key={g.name} className="py-2.5 border-b dd-divider last:border-b-0">
-                      <div className="flex items-center justify-between gap-3 mb-2">
+                    <div key={g.name} className="grid items-center border-b dd-divider last:border-b-0" style={{ gridTemplateColumns: '1fr 1fr', padding: '16px 0' }}>
+                      {/* Left — label + glowing contribution bar */}
+                      <div className="flex flex-col gap-3 pr-6 min-w-0">
                         <div className="flex items-center gap-2.5 min-w-0">
                           <span className="text-[9px] font-mono text-slate-600 shrink-0" style={{ fontWeight: 700 }}>{String(i + 1).padStart(2, '0')}</span>
-                          <span className="text-xs text-slate-300 truncate" style={{ fontWeight: 600 }}>{g.name}</span>
-                          <Sub>{g.trades} trades · {g.lossRate}% loss</Sub>
+                          <span className="text-xs text-slate-200 truncate" style={{ fontWeight: 600 }}>{g.name}</span>
+                          <Sub className="truncate">{g.trades} trades · {g.lossRate}% loss</Sub>
                         </div>
-                        <V className={neg ? 'text-rose-500 shrink-0' : 'text-emerald-500 shrink-0'}>{fmtDd(g.totalLossPct)}</V>
+                        <div className="w-full rounded-full" style={{ height: 3, background: 'rgba(148,163,184,0.14)' }}>
+                          <div className="h-full rounded-full" style={{ width: `${pct}%`, background: color, boxShadow: `0 0 8px ${color}`, transition: 'width 0.6s ease' }} />
+                        </div>
                       </div>
-                      <div className="w-full rounded-full" style={{ height: 3, background: 'rgba(148,163,184,0.14)' }}>
-                        <div className="h-full rounded-full" style={{ width: `${pct}%`, background: neg ? '#f43f5e' : '#10b981', transition: 'width 0.6s ease' }} />
+                      {/* Right — centered value: big number + faded % */}
+                      <div className="text-center font-mono">
+                        <span className="text-sm" style={{ fontWeight: 700, color }}>{g.totalLossPct.toFixed(2)}</span>
+                        <span className="text-[9px]" style={{ fontWeight: 700, color, opacity: 0.5 }}>%</span>
                       </div>
                     </div>
                   );
