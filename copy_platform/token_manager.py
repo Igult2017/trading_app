@@ -37,9 +37,18 @@ async def get_ctrader_creds(broker_account: BrokerAccount) -> dict | None:
         if new_creds:
             creds.update(new_creds)
             _save_creds(broker_account.id, creds)
+            return creds
     except Exception as e:
         log.warning(f"Token refresh failed for {broker_account.id}: {e}")
 
+    # Refresh did not succeed. If the existing token is already expired, handing it
+    # back would just loop the provider in auth-fail forever — return None so the
+    # caller skips and retries next cycle. If we're only inside the 5-min early-refresh
+    # window (token still valid), the old token still works, so use it.
+    is_expired = (not expires_at) or now_ms >= int(expires_at)
+    if is_expired:
+        log.error(f"cTrader token for {broker_account.id} expired and refresh failed — skipping")
+        return None
     return creds
 
 

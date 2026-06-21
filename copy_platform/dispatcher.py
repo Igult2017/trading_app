@@ -29,6 +29,21 @@ async def dispatch(event: dict, master_id: str) -> None:
         if not master:
             return
         source    = master.source_type or "unknown"
+
+        # Idempotency for OPEN: never mirror an entry for a position/symbol that is
+        # already open (Telegram edits/re-posts, or any duplicate OPEN event) — the
+        # main double-entry guard. A re-open after a close is allowed because by then
+        # opens == closes for the key.
+        if etype == "OPEN":
+            ext    = str(snap.position_id)
+            opens  = db.query(CopyTradeMaster).filter_by(
+                master_id=master_id, external_id=ext, event_type="OPEN").count()
+            closes = db.query(CopyTradeMaster).filter_by(
+                master_id=master_id, external_id=ext, event_type="CLOSE").count()
+            if opens > closes:
+                log.info("[dispatch] duplicate OPEN for %s (already open) — skipping", ext)
+                return
+
         master_trade = _save_master_trade(db, master_id, snap, etype, source)
         followers    = db.query(CopyFollower).filter_by(
             master_id=master_id, is_active=True, risk_accepted=True
@@ -45,13 +60,18 @@ async def dispatch(event: dict, master_id: str) -> None:
 def _save_master_trade(db: DBSession, master_id: str,
                        snap: PositionSnapshot, etype: str,
                        source: str) -> CopyTradeMaster:
-    existing = db.query(CopyTradeMaster).filter_by(
-        master_id=master_id,
-        external_id=str(snap.position_id),
-        event_type=etype,
-    ).first()
-    if existing:
-        return existing
+    # OPEN always gets a fresh row — dispatch() already guards against a duplicate
+    # open, so any OPEN reaching here is a genuine new entry (incl. re-opening a
+    # symbol after a prior close). CLOSE/MODIFY dedupe so a synthetic+real duplicate
+    # (e.g. the reconcile CLOSE racing the live CLOSE) never creates two rows.
+    if etype != "OPEN":
+        existing = db.query(CopyTradeMaster).filter_by(
+            master_id=master_id,
+            external_id=str(snap.position_id),
+            event_type=etype,
+        ).first()
+        if existing:
+            return existing
 
     record = CopyTradeMaster(
         id          = str(uuid4()),

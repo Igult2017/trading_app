@@ -149,7 +149,7 @@ class CTraderExecutor:
             req.symbolId            = symbol_id
             req.orderType           = ProtoOAOrderType.Value("MARKET")
             req.tradeSide           = 1 if action == "BUY" else 2
-            req.volume              = int(lots * 100)   # centilots
+            req.volume              = max(1, int(lots * 100))   # centilots, never 0
             if sl: req.stopLoss   = sl
             if tp: req.takeProfit = tp
             client.send(req)
@@ -159,7 +159,7 @@ class CTraderExecutor:
             req = ProtoOAClosePositionReq()
             req.ctidTraderAccountId = acct_id
             req.positionId          = int(pos_id)
-            req.volume              = int(lots * 100)
+            req.volume              = max(1, int(lots * 100))
             client.send(req)
 
         elif cmd[0] == "modify":

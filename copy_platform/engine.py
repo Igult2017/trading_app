@@ -62,14 +62,18 @@ class CopyEngine:
         reconnect chain may have silently stopped), then reload to restart them."""
         while True:
             await asyncio.sleep(90)
+            recycled = False
             for mid, p in list(self._providers.items()):
                 try:
                     recycle = getattr(p, "needs_recycle", None)
                     if recycle and recycle():
                         log.warning(f"[engine] recycling stale provider for master {mid}")
                         self.stop_provider(mid)
+                        recycled = True
                 except Exception as e:
                     log.warning(f"[engine] supervise error for {mid}: {e}")
+            if recycled:
+                await asyncio.sleep(1)   # let the old client finish closing before restart
             await self._load_masters()
 
     async def _load_masters(self) -> None:
