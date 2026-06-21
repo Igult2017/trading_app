@@ -466,9 +466,11 @@ const StepCopy = ({ data, setData }: any) => (
       {data.lotMode==='mult'  && <TInput label="Multiplier" hint="1.0 mirrors exactly. 0.5 = half the provider's lot. 2.0 = double." placeholder="1.0" type="number" value={data.lotMultiplier??''} onChange={(e:any)=>setData({...data,lotMultiplier:e.target.value})} />}
       {data.lotMode==='fixed' && <TInput label="Fixed Lot Size" hint="This exact lot value will be used for every copied trade." placeholder="0.01" type="number" value={data.fixedLot??''} onChange={(e:any)=>setData({...data,fixedLot:e.target.value})} />}
       {data.lotMode==='risk'  && <TInput label="Risk Per Trade (%)" hint="Engine auto-calculates lot size from your free margin and the stop-loss distance." placeholder="1.0" type="number" value={data.riskAmount} onChange={(e: any) => setData({...data,riskAmount:e.target.value})} />}
-      <TSelect label="Direction Mode" hint="How trades are copied relative to the provider's direction."
-        options={[{value:'same',label:'Same direction (standard copy)'},{value:'reverse',label:'Reverse direction (counter-trade)'},{value:'hedge',label:'Hedge mode (open opposite simultaneously)'}]}
-        value={data.direction??'same'} onChange={(v: any) => setData({...data,direction:v})} />
+      <TSelect label="Direction Mode" hint={data.role==='telegram' ? "How trades are placed relative to the signal's direction." : "How trades are copied relative to the provider's direction."}
+        options={data.role==='telegram'
+          ? [{value:'same',label:'Same direction (follow the signal)'},{value:'reverse',label:'Reverse direction (counter-trade)'}]
+          : [{value:'same',label:'Same direction (standard copy)'},{value:'reverse',label:'Reverse direction (counter-trade)'},{value:'hedge',label:'Hedge mode (open opposite simultaneously)'}]}
+        value={data.role==='telegram' && data.direction==='hedge' ? 'reverse' : (data.direction??'same')} onChange={(v: any) => setData({...data,direction:v})} />
       <div className="p-3 md:p-4 border border-white/5 bg-white/[0.01]">
         <p className="text-[11px] text-slate-600 leading-relaxed">
           {data.lotMode==='mult'  && 'Best for accounts with a similar balance to the provider. The engine scales proportionally so risk stays consistent.'}
