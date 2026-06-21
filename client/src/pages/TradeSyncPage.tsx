@@ -45,6 +45,15 @@ const STEPS_TELEGRAM = [
   { id: 'copy',       label: 'Engine',   icon: Settings2 },
   { id: 'go-live',    label: 'Live',     icon: Rocket },
 ];
+// Advanced: copy via the user's OWN Telegram account (channels the bot can't admin).
+const STEPS_RELAY = [
+  { id: 'role',             label: 'Identity',  icon: User },
+  { id: 'connect',          label: 'Account',   icon: Globe },
+  { id: 'tg-login',         label: 'Authorize', icon: Send },
+  { id: 'tg-relay-channel', label: 'Channel',   icon: Hash },
+  { id: 'copy',             label: 'Engine',    icon: Settings2 },
+  { id: 'go-live',          label: 'Live',      icon: Rocket },
+];
 
 // ─── Shared UI ────────────────────────────────────────────────────────────────
 const GlowButton = ({ children, onClick, active, small }: any) => (
@@ -263,13 +272,16 @@ const StepRole = ({ data, setData, onNext }: any) => (
       <FeatureCard icon={GitFork}       title="Self-Copy"         active={data.role==='self'}     onClick={() => { setData({...data,role:'self'}); onNext(); }}     sub="Duplicate trades between your own accounts on any broker." />
       <FeatureCard icon={MessageSquare} title="Telegram Signals"  active={data.role==='telegram'} onClick={() => { setData({...data,role:'telegram',platform:'cTrader',lotMode:data.lotMode==='risk'?'risk':'fixed'}); onNext(); }} sub="Parse and auto-execute signals from a Telegram channel." accent="text-sky-400" />
     </div>
+    <div className="border-t border-white/5">
+      <FeatureCard icon={Send} title="Telegram — My Account (Advanced)" active={data.role==='relay'} onClick={() => { setData({...data,role:'relay',platform:'cTrader',lotMode:data.lotMode==='risk'?'risk':'fixed'}); onNext(); }} sub="Copy ANY channel you're subscribed to via your own Telegram account — no bot or listing needed. Requires authorizing your account." accent="text-amber-400" />
+    </div>
   </div>
 );
 
 const StepConnect = ({ data, setData, label = "Trading Account" }: any) => (
   <div className="grid grid-cols-1 md:grid-cols-2 gap-0 border border-white/5 divide-y md:divide-y-0 md:divide-x divide-white/5">
     <div className="p-5 md:p-8 space-y-6 md:space-y-8">
-      {data.role!=='telegram' && (
+      {(data.role!=='telegram' && data.role!=='relay') && (
       <div className="space-y-2">
         <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Platform Type</label>
         <div className="grid grid-cols-2 gap-2 md:gap-3">
@@ -283,7 +295,7 @@ const StepConnect = ({ data, setData, label = "Trading Account" }: any) => (
         </div>
       </div>
       )}
-      {(data.platform==='cTrader' || data.role==='telegram') ? (
+      {(data.platform==='cTrader' || data.role==='telegram' || data.role==='relay') ? (
         <CTraderAccountPicker value={data.brokerAccountId} onChange={(id: string) => setData({ ...data, brokerAccountId: id })} label={`${label} (cTrader)`} />
       ) : data.platform==='Proprietary' ? (
         <div className="space-y-6 md:space-y-8">
@@ -455,7 +467,7 @@ const StepFilters = ({ data, setData }: any) => (
 const StepCopy = ({ data, setData }: any) => (
   <div className="grid grid-cols-1 md:grid-cols-2 gap-0 border border-white/5 divide-y md:divide-y-0 md:divide-x divide-white/5">
     <div className="divide-y divide-white/5">
-      {data.role!=='telegram' && <FeatureCard icon={Scale} title="Balance Multiplier" active={data.lotMode==='mult'}  onClick={() => setData({...data,lotMode:'mult'})}  sub="Scale lot relative to account size. Recommended for most users." />}
+      {(data.role!=='telegram' && data.role!=='relay') && <FeatureCard icon={Scale} title="Balance Multiplier" active={data.lotMode==='mult'}  onClick={() => setData({...data,lotMode:'mult'})}  sub="Scale lot relative to account size. Recommended for most users." />}
       <FeatureCard icon={Anchor}     title="Fixed Lot Size"     active={data.lotMode==='fixed'} onClick={() => setData({...data,lotMode:'fixed'})} sub="Always open a fixed lot regardless of the provider's size." />
       <FeatureCard icon={TrendingUp} title="Equity Risk %"      active={data.lotMode==='risk'}  onClick={() => setData({...data,lotMode:'risk'})}  sub="Dynamic sizing based on free margin and stop-loss distance." />
     </div>
@@ -466,11 +478,11 @@ const StepCopy = ({ data, setData }: any) => (
       {data.lotMode==='mult'  && <TInput label="Multiplier" hint="1.0 mirrors exactly. 0.5 = half the provider's lot. 2.0 = double." placeholder="1.0" type="number" value={data.lotMultiplier??''} onChange={(e:any)=>setData({...data,lotMultiplier:e.target.value})} />}
       {data.lotMode==='fixed' && <TInput label="Fixed Lot Size" hint="This exact lot value will be used for every copied trade." placeholder="0.01" type="number" value={data.fixedLot??''} onChange={(e:any)=>setData({...data,fixedLot:e.target.value})} />}
       {data.lotMode==='risk'  && <TInput label="Risk Per Trade (%)" hint="Engine auto-calculates lot size from your free margin and the stop-loss distance." placeholder="1.0" type="number" value={data.riskAmount} onChange={(e: any) => setData({...data,riskAmount:e.target.value})} />}
-      <TSelect label="Direction Mode" hint={data.role==='telegram' ? "How trades are placed relative to the signal's direction." : "How trades are copied relative to the provider's direction."}
-        options={data.role==='telegram'
+      <TSelect label="Direction Mode" hint={(data.role==='telegram'||data.role==='relay') ? "How trades are placed relative to the signal's direction." : "How trades are copied relative to the provider's direction."}
+        options={(data.role==='telegram'||data.role==='relay')
           ? [{value:'same',label:'Same direction (follow the signal)'},{value:'reverse',label:'Reverse direction (counter-trade)'}]
           : [{value:'same',label:'Same direction (standard copy)'},{value:'reverse',label:'Reverse direction (counter-trade)'},{value:'hedge',label:'Hedge mode (open opposite simultaneously)'}]}
-        value={data.role==='telegram' && data.direction==='hedge' ? 'reverse' : (data.direction??'same')} onChange={(v: any) => setData({...data,direction:v})} />
+        value={(data.role==='telegram'||data.role==='relay') && data.direction==='hedge' ? 'reverse' : (data.direction??'same')} onChange={(v: any) => setData({...data,direction:v})} />
       <div className="p-3 md:p-4 border border-white/5 bg-white/[0.01]">
         <p className="text-[11px] text-slate-600 leading-relaxed">
           {data.lotMode==='mult'  && 'Best for accounts with a similar balance to the provider. The engine scales proportionally so risk stays consistent.'}
@@ -905,6 +917,93 @@ function clientSideParseSignal(text: string) {
   };
 }
 
+// Advanced relay — authorize the user's own Telegram account (phone → code → 2FA).
+const StepTgLogin = ({ data, setData }: any) => {
+  const [phase, setPhase] = useState<'phone'|'code'|'password'|'done'>(data.relayAuthed ? 'done' : 'phone');
+  const [phone, setPhone] = useState(data.relayPhone ?? '');
+  const [code, setCode]   = useState('');
+  const [pw, setPw]       = useState('');
+  const [busy, setBusy]   = useState(false);
+  const [err, setErr]     = useState('');
+
+  const call = async (url: string, body: any) => {
+    setBusy(true); setErr('');
+    try { const r = await apiRequest('POST', url, body); return await r.json(); }
+    catch (e: any) { setErr(e?.message || 'Request failed'); return null; }
+    finally { setBusy(false); }
+  };
+  const sendCode = async () => {
+    if (!phone.trim()) { setErr('Enter your Telegram phone number'); return; }
+    const r = await call('/api/copy/telegram-relay/start', { phone: phone.trim() });
+    if (r?.sessionId) { setData({ ...data, relaySessionId: r.sessionId, relayPhone: phone.trim() }); setPhase('code'); }
+    else if (r) setErr(r.error || 'Could not send code');
+  };
+  const verify = async () => {
+    const r = await call('/api/copy/telegram-relay/verify', { sessionId: data.relaySessionId, code: code.trim() });
+    if (r?.status === 'active') { setData({ ...data, relayAuthed: true }); setPhase('done'); }
+    else if (r?.status === 'password_needed') setPhase('password');
+    else if (r) setErr(r.error || 'Verification failed');
+  };
+  const submitPw = async () => {
+    const r = await call('/api/copy/telegram-relay/password', { sessionId: data.relaySessionId, password: pw });
+    if (r?.status === 'active') { setData({ ...data, relayAuthed: true }); setPhase('done'); }
+    else if (r) setErr(r.error || '2FA failed');
+  };
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-0 border border-white/5 divide-y md:divide-y-0 md:divide-x divide-white/5">
+      <div className="p-5 md:p-8 space-y-6">
+        <span className="text-[10px] font-mono font-bold text-slate-600 uppercase tracking-widest">// authorize_telegram</span>
+        {phase === 'phone' && (<>
+          <TInput label="Telegram phone number" hint="The account subscribed to the channels you want to copy. A login code is sent to your Telegram app." placeholder="+254 7XX XXX XXX" type="tel" value={phone} onChange={(e:any)=>setPhone(e.target.value)} />
+          <GlowButton active={!busy && !!phone.trim()} onClick={sendCode}>{busy ? 'Sending…' : 'Send login code'}</GlowButton>
+        </>)}
+        {phase === 'code' && (<>
+          <TInput label="Login code" hint="Sent to your Telegram app (not SMS)." placeholder="12345" value={code} onChange={(e:any)=>setCode(e.target.value)} />
+          <GlowButton active={!busy && !!code.trim()} onClick={verify}>{busy ? 'Verifying…' : 'Verify code'}</GlowButton>
+        </>)}
+        {phase === 'password' && (<>
+          <TInput label="Two-step password" hint="Your account has 2FA enabled — enter your Telegram password." type="password" placeholder="••••••••" value={pw} onChange={(e:any)=>setPw(e.target.value)} />
+          <GlowButton active={!busy && !!pw} onClick={submitPw}>{busy ? 'Checking…' : 'Confirm'}</GlowButton>
+        </>)}
+        {phase === 'done' && (
+          <div className="flex items-center gap-3 p-4 border border-emerald-500/20 bg-emerald-500/[0.05] rounded-sm text-emerald-400">
+            <CheckCircle2 size={16} /><span className="text-xs font-semibold">Telegram account authorized.</span>
+          </div>
+        )}
+        {err && <InfoBox color="amber">{err}</InfoBox>}
+      </div>
+      <div className="p-5 md:p-8 space-y-4">
+        <div className="flex items-center gap-3 text-amber-400"><Shield size={16} strokeWidth={1.5} /><span className="text-[10px] font-bold uppercase tracking-widest font-mono">Advanced · your session</span></div>
+        <p className="text-xs text-slate-400 leading-relaxed">This authorizes <span className="text-slate-200">your own</span> Telegram account so the engine can read the channels you're subscribed to — including ones our bot can't join. No channel-owner involvement needed.</p>
+        <ul className="space-y-2 text-[11px] text-slate-500 leading-relaxed list-disc pl-4">
+          <li>Your session is encrypted and used only to read the channels you choose.</li>
+          <li>Automated user sessions are a Telegram grey area — use an account you're comfortable with.</li>
+          <li>Revoke any time from Telegram → Settings → Devices.</li>
+        </ul>
+      </div>
+    </div>
+  );
+};
+
+const StepRelayChannel = ({ data, setData }: any) => (
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-0 border border-white/5 divide-y md:divide-y-0 md:divide-x divide-white/5">
+    <div className="p-5 md:p-8 space-y-6">
+      <span className="text-[10px] font-mono font-bold text-slate-600 uppercase tracking-widest">// channel_to_copy</span>
+      <TInput label="Channel @username or ID" hint="Any channel YOUR account is subscribed to. @username for public, numeric -100… id for private." placeholder="@forex_signals" value={data.relayChannel??''} onChange={(e:any)=>setData({...data,relayChannel:e.target.value})} />
+      <div className="space-y-3 pt-2 border-t border-white/5">
+        <Toggle label="Execute without a Stop-Loss" sub="Open even if the signal has no SL (riskier)" on={data.tgNoSL??false}   onChange={(v:any)=>setData({...data,tgNoSL:v})} />
+        <Toggle label="Use first TP only"            sub="For multi-TP signals, target TP1"           on={data.tgFirstTP??true} onChange={(v:any)=>setData({...data,tgFirstTP:v})} />
+      </div>
+    </div>
+    <div className="p-5 md:p-8 space-y-4">
+      <span className="text-[10px] font-mono font-bold text-slate-600 uppercase tracking-widest">// note</span>
+      <p className="text-xs text-slate-400 leading-relaxed">You must already be subscribed to this channel on the Telegram account you authorized. The relay reads new posts as they arrive and mirrors valid signals to your cTrader account.</p>
+      <InfoBox color="blue">One channel per setup — run the wizard again to relay another.</InfoBox>
+    </div>
+  </div>
+);
+
 function buildDeployPayload(data: any) {
   const toList = (csv: string) =>
     csv ? csv.split(',').map((s: string) => s.trim()).filter(Boolean) : undefined;
@@ -1016,6 +1115,26 @@ async function deployCopy(data: any): Promise<any> {
     return res.json();
   }
 
+  // Relay: copy a channel via the user's OWN authorized Telegram account.
+  if (data.role === 'relay') {
+    if (!data.relayAuthed || !data.relaySessionId) throw new Error('Authorize your Telegram account first.');
+    if (!data.brokerAccountId) throw new Error('Select the account to copy onto.');
+    if (!data.relayChannel) throw new Error('Enter the channel to copy.');
+    const res = await apiRequest('POST', '/api/copy/telegram-relay/follow', {
+      sessionId:      data.relaySessionId,
+      brokerAccountId: data.brokerAccountId,
+      channel:        data.relayChannel,
+      executeNoSl:    data.tgNoSL ?? false,
+      useFirstTpOnly: data.tgFirstTP ?? true,
+      lotMode:        data.lotMode || 'fixed',
+      fixedLot:       data.fixedLot,
+      riskPercent:    data.riskAmount,
+      direction:      data.direction || 'same',
+      riskAccepted:   data.riskAccepted ?? true,
+    });
+    return res.json();
+  }
+
   const isApiPlatform = String(data.platform || '').toLowerCase() === 'ctrader';
 
   if (!isApiPlatform) {
@@ -1049,10 +1168,10 @@ async function deployCopy(data: any): Promise<any> {
 
 // ─── Copier Dashboard (shown after successful deployment) ─────────────────────
 const ROLE_LABELS: Record<string,string> = {
-  follower:'Follower', provider:'Provider / Master', self:'Self-Copy', telegram:'Telegram Signal',
+  follower:'Follower', provider:'Provider / Master', self:'Self-Copy', telegram:'Telegram Signal', relay:'Telegram (My Account)',
 };
 const ROLE_COLORS: Record<string,string> = {
-  follower:'#60a5fa', provider:'#a78bfa', self:'#34d399', telegram:'#fbbf24',
+  follower:'#60a5fa', provider:'#a78bfa', self:'#34d399', telegram:'#fbbf24', relay:'#fbbf24',
 };
 
 function CopierDashboard({ deployResult, role, data, onSetupAnother, onHome }: any) {
@@ -1250,6 +1369,7 @@ const StepGoLive = ({ data, setData, role, onReset, onHome, providers }: any) =>
     : role === 'self'     ? !!(data.brokerAccountId && data.brokerAccountId2)
     : role === 'follower' ? !!(data.brokerAccountId && data.selectedProvider)
     : role === 'telegram' ? !!(data.brokerAccountId && data.tgChannelName)
+    : role === 'relay'    ? !!(data.brokerAccountId && data.relayAuthed && data.relayChannel)
     : !!data.brokerAccountId;   // provider
   const canDeploy = disclosuresAccepted && accountsReady;
   const providerName = provider ? (provider.strategyName || provider.name || 'Provider') : null;
@@ -1258,12 +1378,14 @@ const StepGoLive = ({ data, setData, role, onReset, onHome, providers }: any) =>
     provider: `Broadcasting your strategy · ${data.isPublic?'Public':'Private'}`,
     self:     'Self-copy bridge between your two accounts',
     telegram: 'Telegram signal parser configured',
+    relay:    'Relaying a channel via your own Telegram account',
   };
   const successMsg: any = {
     follower: providerName ? <>Copying <span className="text-blue-400 font-mono">{providerName}</span> in real-time.</> : 'Bridge is live.',
     provider: 'Your signals are now broadcasting to followers.',
     self:     'Self-copy bridge is active between your accounts.',
     telegram: 'Telegram signal parser is live and monitoring the channel.',
+    relay:    'Relay is live — reading the channel from your Telegram account.',
   };
 
   const handleDeploy = async () => {
@@ -1412,7 +1534,7 @@ const STEP_TITLES: any = {
   link:'Bridge Linkage', filters:'Copy Filters', copy:'Lot Engine',
   protect:'Protection Shield', risk:'Risk Disclosure', strategy:'Your Strategy',
   limits:'Signal Limits', notif:'Notifications', mapping:'Symbol Mapping',
-  'tg-channel':'Channel Setup',
+  'tg-channel':'Channel Setup', 'tg-login':'Authorize Telegram', 'tg-relay-channel':'Channel',
   'tg-parser':'Signal Parser', 'go-live':'Deployment Protocol',
 };
 
@@ -1441,6 +1563,7 @@ function CopierWizard({ onBack, onOpenDashboard }: { onBack: () => void; onOpenD
     if (data.role==='provider') return STEPS_PROVIDER;
     if (data.role==='self')     return STEPS_SELF;
     if (data.role==='telegram') return STEPS_TELEGRAM;
+    if (data.role==='relay')    return STEPS_RELAY;
     return STEPS_FOLLOWER;
   };
 
@@ -1472,6 +1595,8 @@ function CopierWizard({ onBack, onOpenDashboard }: { onBack: () => void; onOpenD
       case 'mapping':    return <StepMapping       data={data} setData={setData} />;
       case 'tg-channel': return <StepTgChannel     data={data} setData={setData} />;
       case 'tg-parser':  return <StepTgParser      data={data} setData={setData} />;
+      case 'tg-login':   return <StepTgLogin       data={data} setData={setData} />;
+      case 'tg-relay-channel': return <StepRelayChannel data={data} setData={setData} />;
       case 'go-live':    return <StepGoLive        data={data} setData={setData} role={data.role} onReset={handleReset} onHome={onBack} providers={providers} />;
       default:           return null;
     }
