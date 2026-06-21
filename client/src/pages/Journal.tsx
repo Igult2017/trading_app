@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
-import TradingLoader, { useDelayedLoading } from '@/components/TradingLoader';
-import { DashboardSkeleton } from '@/components/skeletons/DashboardSkeletons';
+import { useDelayedLoading } from '@/components/TradingLoader';
+import { DashboardSkeleton, JournalBootSkeleton } from '@/components/skeletons/DashboardSkeletons';
 import { usePageTracking } from '@/hooks/usePageTracking';
 import { Link, useLocation } from 'wouter';
 import { Activity, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
@@ -913,11 +913,7 @@ export default function Journal() {
   // Show a loading state while entitlement is being resolved so we don't
   // flash the paywall for users who do have access.
   if (entitlementLoading) {
-    return (
-      <div style={{ height: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#020817' }}>
-        <TradingLoader message="Loading your journal…" />
-      </div>
-    );
+    return <JournalBootSkeleton />;
   }
 
   if (!hasJournalAccess) {

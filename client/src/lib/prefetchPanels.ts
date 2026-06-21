@@ -87,6 +87,17 @@ export function prefetchAllPanels(
  * with the sessions list, so data is loading before the user reaches /journal.
  */
 export function warmJournalCache(queryClient: QueryClient, userId?: string): void {
+  // Entitlement gates the WHOLE journal (the first loader, before the dashboard even
+  // mounts). Prefetch it the instant we sign in — keyed exactly as useEntitlement —
+  // so the journal renders straight to content instead of a full-page spinner.
+  if (userId) {
+    queryClient.prefetchQuery({
+      queryKey: ["/api/me/entitlement", userId],
+      queryFn: () => fetchJson("/api/me/entitlement"),
+      staleTime: 60_000,
+    });
+  }
+
   const savedId = typeof window !== "undefined"
     ? localStorage.getItem("journal_active_session_id")
     : null;

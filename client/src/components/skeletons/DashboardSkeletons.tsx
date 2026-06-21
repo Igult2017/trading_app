@@ -25,6 +25,30 @@ export function DashboardSkeleton() {
   );
 }
 
+/**
+ * Whole-journal boot skeleton — shown while the entitlement check resolves (the
+ * gate that previously blocked the journal with a full-page spinner). It mirrors
+ * the journal shell (sidebar + header) and embeds the DashboardSkeleton, so the
+ * transition into the real dashboard is one continuous skeleton, not a spinner
+ * followed by a second skeleton.
+ */
+export function JournalBootSkeleton() {
+  return (
+    <div className="flex h-[100dvh] w-full overflow-hidden bg-[#020817]">
+      <div className="hidden w-56 flex-col gap-3 border-r border-white/5 p-4 lg:flex">
+        <Skeleton className="h-8 w-32 rounded-md" />
+        {Array.from({ length: 7 }).map((_, i) => (
+          <Skeleton key={i} className="h-9 w-full rounded-lg" />
+        ))}
+      </div>
+      <div className="flex flex-1 flex-col gap-3 p-4">
+        <Skeleton className="h-10 w-full rounded-lg" />
+        <DashboardSkeleton />
+      </div>
+    </div>
+  );
+}
+
 /** Generic analytics-panel skeleton — header + stat row + a large data block. */
 export function PanelSkeleton() {
   return (
