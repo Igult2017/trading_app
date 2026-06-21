@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, ReactNode } from 'react
 import type { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import { queryClient } from '@/lib/queryClient';
+import { warmJournalCache } from '@/lib/prefetchPanels';
 import { clearInactivityTracking } from '@/lib/inactivity';
 
 const LOCAL_ADMIN_KEY = 'local_admin_session';
@@ -202,6 +203,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (error || !data.session) {
       return { error: error ?? new Error('Sign in failed'), role: null };
     }
+
+    // Fire the dashboard warm-up the INSTANT sign-in succeeds — the earliest the
+    // token exists — so journal data is already loading (in parallel with the
+    // profile setup below) before the user is routed to /journal.
+    try { warmJournalCache(queryClient, data.session.user.id); } catch { /* best-effort */ }
 
     const assignedRole = await runSetup(data.session.access_token);
     const role = assignedRole ?? extractRole(data.session.user);

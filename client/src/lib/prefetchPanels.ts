@@ -97,3 +97,35 @@ export function prefetchAllPanels(
     });
   }, 500);
 }
+
+/**
+ * Warm the whole journal dashboard for the just-signed-in user. Safe to call the
+ * INSTANT sign-in resolves (the Supabase token is available by then) and again on
+ * session-confirm — prefetchQuery dedupes identical in-flight keys, so repeated
+ * calls are cheap. Fires the last-open session's panels immediately, in parallel
+ * with the sessions list, so data is loading before the user reaches /journal.
+ */
+export function warmJournalCache(queryClient: QueryClient, userId?: string): void {
+  const savedId = typeof window !== "undefined"
+    ? localStorage.getItem("journal_active_session_id")
+    : null;
+
+  if (savedId) prefetchAllPanels(queryClient, savedId, userId);
+
+  queryClient.prefetchQuery({
+    // Key must match Journal.tsx useQuery key exactly: ['/api/sessions']
+    queryKey: ["/api/sessions"],
+    queryFn: () => fetchJson("/api/sessions"),
+    staleTime: 2 * 60 * 1000,
+  }).then(() => {
+    const sessions: any[] = (queryClient.getQueryData(["/api/sessions"]) as any[]) ?? [];
+    if (sessions.length === 0) return;
+    const target =
+      (savedId && sessions.find((s: any) => s.id === savedId)) ??
+      sessions.slice().sort((a: any, b: any) =>
+        new Date(b.updatedAt ?? b.createdAt ?? 0).getTime() -
+        new Date(a.updatedAt ?? a.createdAt ?? 0).getTime()
+      )[0];
+    if (target && (!savedId || target.id !== savedId)) prefetchAllPanels(queryClient, target.id, userId);
+  }).catch(() => { /* best-effort */ });
+}

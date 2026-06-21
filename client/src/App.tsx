@@ -9,7 +9,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 import AuthModal, { openAuthModal, type AuthModalMode } from "@/components/auth/AuthModal";
-import { prefetchAllPanels } from "@/lib/prefetchPanels";
+import { warmJournalCache } from "@/lib/prefetchPanels";
 import { prefetchAdminData } from "@/lib/prefetchAdmin";
 import { startCalendarBackgroundRefresh } from "@/lib/prefetchCalendar";
 
@@ -301,40 +301,10 @@ function JournalPrefetcher() {
     if (prefetchedFor.current === key) return;
     prefetchedFor.current = key;
 
-    const STALE = 2 * 60 * 1000;
-
-    const savedId = typeof window !== 'undefined'
-      ? localStorage.getItem('journal_active_session_id')
-      : null;
-
-    // Fast path — warm the LAST-OPEN session's panels IMMEDIATELY, in parallel with
-    // the sessions list, so dashboard data is already loading from the first moment
-    // of login instead of waiting for the sessions round-trip to finish.
-    if (savedId) prefetchAllPanels(qc, savedId, user.id);
-
-    // Warm the sessions list. Key must match Journal.tsx useQuery key exactly.
-    qc.prefetchQuery({
-      // Throw on a bad response so a failed prefetch never overwrites the shared
-      // ['/api/sessions'] cache with [] (which would blank the session cards).
-      queryKey: ['/api/sessions'],
-      queryFn: () => fetchJson('/api/sessions'),
-      staleTime: STALE,
-    }).then(() => {
-      const sessions: any[] = qc.getQueryData(['/api/sessions']) ?? [];
-      if (sessions.length === 0) return;
-
-      const target =
-        (savedId && sessions.find((s: any) => s.id === savedId)) ??
-        sessions.sort((a: any, b: any) =>
-          new Date(b.updatedAt ?? b.createdAt ?? 0).getTime() -
-          new Date(a.updatedAt ?? a.createdAt ?? 0).getTime()
-        )[0];
-
-      if (!target) return;
-
-      // Only warm here if we didn't already above (saved id missing or now invalid).
-      if (!savedId || target.id !== savedId) prefetchAllPanels(qc, target.id, user.id);
-    }).catch(() => { /* silent — prefetch is best-effort */ });
+    // Fallback warm-up: covers page reload with an existing session and OAuth-redirect
+    // logins (where signIn() isn't called). A password login warms eagerly inside
+    // signIn(); prefetchQuery dedupes so this second call is a cheap no-op.
+    warmJournalCache(qc, user.id);
   }, [session?.access_token, user?.id, qc]);
 
   return null;
