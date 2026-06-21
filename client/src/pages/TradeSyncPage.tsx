@@ -261,7 +261,7 @@ const StepRole = ({ data, setData, onNext }: any) => (
     </div>
     <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-white/5">
       <FeatureCard icon={GitFork}       title="Self-Copy"         active={data.role==='self'}     onClick={() => { setData({...data,role:'self'}); onNext(); }}     sub="Duplicate trades between your own accounts on any broker." />
-      <FeatureCard icon={MessageSquare} title="Telegram Signals"  active={data.role==='telegram'} onClick={() => { setData({...data,role:'telegram'}); onNext(); }} sub="Parse and auto-execute signals from a Telegram channel." accent="text-sky-400" />
+      <FeatureCard icon={MessageSquare} title="Telegram Signals"  active={data.role==='telegram'} onClick={() => { setData({...data,role:'telegram',platform:'cTrader',lotMode:data.lotMode==='risk'?'risk':'fixed'}); onNext(); }} sub="Parse and auto-execute signals from a Telegram channel." accent="text-sky-400" />
     </div>
   </div>
 );
@@ -269,6 +269,7 @@ const StepRole = ({ data, setData, onNext }: any) => (
 const StepConnect = ({ data, setData, label = "Trading Account" }: any) => (
   <div className="grid grid-cols-1 md:grid-cols-2 gap-0 border border-white/5 divide-y md:divide-y-0 md:divide-x divide-white/5">
     <div className="p-5 md:p-8 space-y-6 md:space-y-8">
+      {data.role!=='telegram' && (
       <div className="space-y-2">
         <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Platform Type</label>
         <div className="grid grid-cols-2 gap-2 md:gap-3">
@@ -281,7 +282,8 @@ const StepConnect = ({ data, setData, label = "Trading Account" }: any) => (
           ))}
         </div>
       </div>
-      {data.platform==='cTrader' ? (
+      )}
+      {(data.platform==='cTrader' || data.role==='telegram') ? (
         <CTraderAccountPicker value={data.brokerAccountId} onChange={(id: string) => setData({ ...data, brokerAccountId: id })} label={`${label} (cTrader)`} />
       ) : data.platform==='Proprietary' ? (
         <div className="space-y-6 md:space-y-8">
@@ -453,7 +455,7 @@ const StepFilters = ({ data, setData }: any) => (
 const StepCopy = ({ data, setData }: any) => (
   <div className="grid grid-cols-1 md:grid-cols-2 gap-0 border border-white/5 divide-y md:divide-y-0 md:divide-x divide-white/5">
     <div className="divide-y divide-white/5">
-      <FeatureCard icon={Scale}      title="Balance Multiplier" active={data.lotMode==='mult'}  onClick={() => setData({...data,lotMode:'mult'})}  sub="Scale lot relative to account size. Recommended for most users." />
+      {data.role!=='telegram' && <FeatureCard icon={Scale} title="Balance Multiplier" active={data.lotMode==='mult'}  onClick={() => setData({...data,lotMode:'mult'})}  sub="Scale lot relative to account size. Recommended for most users." />}
       <FeatureCard icon={Anchor}     title="Fixed Lot Size"     active={data.lotMode==='fixed'} onClick={() => setData({...data,lotMode:'fixed'})} sub="Always open a fixed lot regardless of the provider's size." />
       <FeatureCard icon={TrendingUp} title="Equity Risk %"      active={data.lotMode==='risk'}  onClick={() => setData({...data,lotMode:'risk'})}  sub="Dynamic sizing based on free margin and stop-loss distance." />
     </div>
