@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import type { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
-import { queryClient, clearPersistedJournalCache } from '@/lib/queryClient';
+import { queryClient } from '@/lib/queryClient';
 import { warmJournalCache } from '@/lib/prefetchPanels';
 import { clearInactivityTracking } from '@/lib/inactivity';
 
@@ -221,10 +221,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function signOut() {
-    // Clear-on-logout: wipe persisted + in-memory user data so nothing lingers in
-    // the browser after sign-out (security posture). The fast warm-up runs again on
-    // the next login/signup, so this costs nothing on return.
-    clearPersistedJournalCache();
+    // Keep the journal cache across logout so the SAME user's next login is INSTANT
+    // (stale-while-revalidate — no loaders at all). The auth token is cleared below,
+    // so the cached data can never be used for authenticated requests. A DIFFERENT
+    // user signing in trips the owner-guard effect above (queryClient.clear() + wipe
+    // localStorage) before any prior data can surface. The cache holds journal data +
+    // plan status only — never credentials or tokens (those live in Supabase's store).
     if (!supabase) {
       sessionStorage.removeItem(LOCAL_ADMIN_KEY);
       setSession(null);
