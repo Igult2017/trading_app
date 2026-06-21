@@ -353,7 +353,7 @@ export default function App() {
   return (
     <PersistQueryClientProvider
       client={queryClient}
-      persistOptions={{ persister: localStoragePersister, maxAge: 24 * 60 * 60 * 1000 }}
+      persistOptions={{ persister: localStoragePersister, maxAge: 30 * 24 * 60 * 60 * 1000 }}
     >
       <PublicThemeContext.Provider value={{ darkMode, setDarkMode }}>
         <TooltipProvider>

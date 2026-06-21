@@ -95,6 +95,25 @@ export const getQueryFn: <T>(options: { on401: UnauthorizedBehavior }) => QueryF
   };
 
 const DAY = 24 * 60 * 60 * 1000;
+const RETAIN_MS = 30 * DAY;                        // keep the persisted cache ~30 days (survives logout)
+const CACHE_KEY = "fsd-journal-cache-v1";
+const OWNER_KEY = "fsd-journal-cache-owner";       // userId the persisted cache belongs to
+
+/** Synchronously read the signed-in user's id from the Supabase session that
+ *  supabase-js stores in localStorage — used to guard the persisted cache so a
+ *  DIFFERENT user can never seed from the previous user's data. */
+function currentSupabaseUserId(): string | null {
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith("sb-") && k.endsWith("-auth-token")) {
+        const v = JSON.parse(localStorage.getItem(k) || "null");
+        return v?.user?.id ?? v?.currentSession?.user?.id ?? null;
+      }
+    }
+  } catch { /* ignore */ }
+  return null;
+}
 
 export const queryClient = new QueryClient({
   defaultOptions: {
@@ -128,16 +147,21 @@ export const queryClient = new QueryClient({
 function seedQueryClientFromStorage() {
   if (typeof window === "undefined") return;
   try {
-    const raw = localStorage.getItem("fsd-journal-cache-v1");
+    const raw = localStorage.getItem(CACHE_KEY);
     if (!raw) return;
+    // Never seed a cache that belongs to a DIFFERENT user than the one currently
+    // signed in — drop it so the previous user's data can't leak on a shared device.
+    const owner = localStorage.getItem(OWNER_KEY);
+    const uid = currentSupabaseUserId();
+    if (owner && uid && owner !== uid) { localStorage.removeItem(CACHE_KEY); return; }
     const persisted = JSON.parse(raw) as {
       timestamp?: number;
       clientState?: { queries?: Array<{ queryKey: unknown[]; state: { data: unknown; status: string; dataUpdatedAt?: number } }> };
     };
 
-    // Honour the 24-hour TTL — don't seed if the stored snapshot is too old
+    // Retention window — don't seed if the stored snapshot is older than RETAIN_MS
     const age = Date.now() - (persisted.timestamp ?? 0);
-    if (age > DAY) return;
+    if (age > RETAIN_MS) return;
 
     const queries = persisted?.clientState?.queries ?? [];
     for (const q of queries) {
@@ -158,6 +182,6 @@ seedQueryClientFromStorage();
  */
 export const localStoragePersister = createSyncStoragePersister({
   storage: typeof window !== "undefined" ? window.localStorage : undefined,
-  key: "fsd-journal-cache-v1",
+  key: CACHE_KEY,
   throttleTime: 1_000,
 });

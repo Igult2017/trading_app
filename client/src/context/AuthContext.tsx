@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import type { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
+import { queryClient } from '@/lib/queryClient';
 import { clearInactivityTracking } from '@/lib/inactivity';
 
 const LOCAL_ADMIN_KEY = 'local_admin_session';
@@ -112,6 +113,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return () => subscription.unsubscribe();
   }, []);
+
+  // Keep the persisted journal cache scoped to its owner. If a DIFFERENT user signs
+  // in on this browser, drop the previous user's cached data (no cross-user leak).
+  // On logout we deliberately KEEP it, so the same user returns to an instantly
+  // populated app even days later.
+  useEffect(() => {
+    if (loading || !user?.id) return;
+    try {
+      const OWNER_KEY = 'fsd-journal-cache-owner';
+      const owner = localStorage.getItem(OWNER_KEY);
+      if (owner && owner !== user.id) {
+        queryClient.clear();
+        localStorage.removeItem('fsd-journal-cache-v1');
+      }
+      localStorage.setItem(OWNER_KEY, user.id);
+    } catch { /* ignore */ }
+  }, [user?.id, loading]);
 
   async function runSetup(accessToken: string): Promise<'admin' | 'user' | null> {
     try {
