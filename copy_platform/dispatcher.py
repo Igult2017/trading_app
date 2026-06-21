@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session as DBSession
 from db import Session, CopyMaster, CopyFollower, BrokerAccount, \
     CopyTradeMaster, CopyTradeFollower, CopyExecutionLog
 from cred_manager import get_creds
-from lot_calc import calc_lots, apply_direction, is_symbol_allowed
+from lot_calc import calc_lots, apply_direction, is_symbol_allowed, pip_size
 from risk_guard import check_follower_allowed
 from providers.ctrader import PositionSnapshot
 
@@ -106,7 +106,17 @@ async def _exec_follower(master_trade_id: str, follower: CopyFollower,
         except (TypeError, ValueError):
             pass
 
-    lots     = calc_lots(follower, snap.volume_lots)
+    # Risk inputs for risk-% sizing (works for Telegram signals too, which carry no volume).
+    sl_pips = None
+    if snap.entry_price and snap.stop_loss:
+        ps = pip_size(snap.symbol)
+        if ps > 0:
+            sl_pips = abs(float(snap.entry_price) - float(snap.stop_loss)) / ps
+    try:
+        equity = float(broker_account.balance) if broker_account.balance is not None else None
+    except (TypeError, ValueError):
+        equity = None
+    lots     = calc_lots(follower, snap.volume_lots, sl_pips=sl_pips, follower_equity=equity)
     action   = apply_direction(snap.action, follower.direction or "same")
     platform = (broker_account.platform or "").lower()
 

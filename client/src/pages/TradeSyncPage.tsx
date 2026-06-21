@@ -39,14 +39,10 @@ const STEPS_SELF = [
 ];
 const STEPS_TELEGRAM = [
   { id: 'role',       label: 'Identity', icon: User },
-  { id: 'connect',    label: 'Broker',   icon: Globe },
-  { id: 'tg-auth',    label: 'Telegram', icon: MessageSquare },
+  { id: 'connect',    label: 'Account',  icon: Globe },
   { id: 'tg-channel', label: 'Channel',  icon: Hash },
   { id: 'tg-parser',  label: 'Parser',   icon: Zap },
-  { id: 'tg-test',    label: 'Test',     icon: Send },
-  { id: 'filters',    label: 'Filters',  icon: Filter },
-  { id: 'protect',    label: 'Shield',   icon: Shield },
-  { id: 'risk',       label: 'Risk',     icon: AlertTriangle },
+  { id: 'copy',       label: 'Engine',   icon: Settings2 },
   { id: 'go-live',    label: 'Live',     icon: Rocket },
 ];
 
@@ -787,71 +783,82 @@ const StepTgAuth = ({ data, setData }: any) => (
   </div>
 );
 
+const TG_COPY_BOT = '@TradeSyncCopyBot';   // the platform copy-bot (your configured TELEGRAM_COPY_BOT_TOKEN)
+
 const StepTgChannel = ({ data, setData }: any) => (
   <div className="grid grid-cols-1 md:grid-cols-2 gap-0 border border-white/5 divide-y md:divide-y-0 md:divide-x divide-white/5">
-    <div className="p-5 md:p-8 space-y-6 md:space-y-8">
-      {/* Telegram session auth callout */}
-      <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-4 space-y-3">
-        <div className="flex items-center gap-2">
-          <svg className="w-4 h-4 text-amber-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
-          </svg>
-          <span className="text-xs font-semibold text-amber-400 uppercase tracking-wider">One-time authentication required</span>
-        </div>
-        <p className="text-xs text-slate-300 leading-relaxed">
-          Telegram requires your account to be authenticated <strong>once</strong> on the server before signal copying can start. This is done via a command-line step — not through this wizard — because Telegram's login flow requires you to enter a live OTP code interactively.
-        </p>
-        <p className="text-xs text-slate-400 leading-relaxed">
-          After saving this configuration, SSH into your server and run:
-        </p>
-        <div className="rounded bg-slate-900 border border-white/10 px-3 py-2 font-mono text-xs text-green-400 select-all break-all">
-          docker compose exec bridge python -m python.copy_trading.auth_helper
-        </div>
-        <p className="text-xs text-slate-500">
-          This creates a session file that persists across bridge restarts. You only need to do this once per Telegram account.
-        </p>
-      </div>
-      <div className="border-t border-white/5 pt-6 space-y-6">
-        <TInput label="Channel / Group Name or Link" hint="The exact username or invite link of the signal channel." placeholder="@forex_signals_channel or https://t.me/..." value={data.tgChannelName??''} onChange={(e:any)=>setData({...data,tgChannelName:e.target.value})} />
-        <TSelect label="Channel Type" hint="Select the type of Telegram source you're connecting to."
-          options={[{value:'public_channel',label:'Public channel (@username)'},{value:'private_channel',label:'Private channel (invite link)'},{value:'group',label:'Group or supergroup'},{value:'bot',label:'Direct bot signals'}]}
-          value={data.tgChannelType??'public_channel'} onChange={(v: any) => setData({...data,tgChannelType:v})} />
-      </div>
+    <div className="p-5 md:p-8 space-y-6">
+      <span className="text-[10px] font-mono font-bold text-slate-600 uppercase tracking-widest">// signal_channel</span>
+      <TInput label="Channel @username or link" hint="The channel that posts the signals." placeholder="@forex_signals" value={data.tgChannelName??''} onChange={(e:any)=>setData({...data,tgChannelName:e.target.value})} />
+      <TSelect label="Channel type"
+        options={[{value:'public_channel',label:'Public channel (@username)'},{value:'private_channel',label:'Private channel'},{value:'group',label:'Group / supergroup'}]}
+        value={data.tgChannelType??'public_channel'} onChange={(v: any) => setData({...data,tgChannelType:v})} />
+      <InfoBox color="blue">For a private channel, add the bot as an admin first, then paste the channel here.</InfoBox>
     </div>
-    <div className="p-5 md:p-8 space-y-4 md:space-y-6">
-      <span className="text-[10px] font-mono font-bold text-slate-600 uppercase tracking-widest">// source_options</span>
-      <Toggle label="Monitor multiple channels"              sub="Connect up to 5 channels and merge their signals"         on={data.tgMultiChannel??false} onChange={(v: any) => setData({...data,tgMultiChannel:v})} />
-      <Toggle label="Only copy signals from specific sender" sub="Filter by a specific admin or bot username in the channel" on={data.tgFilterSender??false} onChange={(v: any) => setData({...data,tgFilterSender:v})} />
-      {data.tgFilterSender && (
-        <div className="pl-4 border-l border-blue-500/30 pt-2">
-          <TInput label="Sender Username" placeholder="@signal_admin" value={data.tgSenderUsername??''} onChange={(e:any)=>setData({...data,tgSenderUsername:e.target.value})} />
-        </div>
-      )}
+    <div className="p-5 md:p-8 space-y-5">
+      <div className="flex items-center gap-3 text-blue-400">
+        <Send size={16} strokeWidth={1.5} />
+        <span className="text-[10px] font-bold uppercase tracking-widest font-mono">Connect via our bot</span>
+      </div>
+      <p className="text-xs text-slate-400 leading-relaxed">No phone number, API keys or OTP. Just add our bot to the channel as an admin — it reads new signals automatically and securely.</p>
+      <ol className="space-y-3">
+        {[
+          <>In Telegram open the channel → <span className="text-slate-300">Manage → Administrators</span></>,
+          <>Add <span className="font-mono text-blue-300 select-all">{TG_COPY_BOT}</span> as an admin (read access is enough)</>,
+          <>Paste the channel <span className="text-slate-300">@username</span> on the left — that's it.</>,
+        ].map((t, i) => (
+          <li key={i} className="flex gap-3 text-[11px] text-slate-400 leading-relaxed">
+            <span className="flex-shrink-0 w-4 h-4 rounded-full bg-blue-500/15 text-blue-300 text-[9px] font-bold flex items-center justify-center">{i + 1}</span>{t}
+          </li>
+        ))}
+      </ol>
     </div>
   </div>
 );
 
-const StepTgParser = ({ data, setData }: any) => (
-  <div className="grid grid-cols-1 md:grid-cols-2 gap-0 border border-white/5 divide-y md:divide-y-0 md:divide-x divide-white/5">
-    <div className="p-5 md:p-8 space-y-6 md:space-y-8">
-      <span className="text-[10px] font-mono font-bold text-slate-600 uppercase tracking-widest">// signal_keywords</span>
-      <InfoBox>Tell the parser what keywords your channel uses so it can extract entry, SL and TP correctly.</InfoBox>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 md:gap-8">
-        <TInput label="Entry Keyword"       hint="Word that precedes the entry price."       placeholder="e.g. Entry, Buy at" value={data.tgEntryKw??''} onChange={(e:any)=>setData({...data,tgEntryKw:e.target.value})} />
-        <TInput label="Stop-Loss Keyword"   hint="Word that precedes the stop-loss value."    placeholder="e.g. SL, Stop" value={data.tgSlKw??''} onChange={(e:any)=>setData({...data,tgSlKw:e.target.value})} />
-        <TInput label="Take-Profit Keyword" hint="Word preceding the take-profit value."      placeholder="e.g. TP, Target" value={data.tgTpKw??''} onChange={(e:any)=>setData({...data,tgTpKw:e.target.value})} />
-        <TInput label="Symbol Keyword"      hint="How the symbol is labelled in the message." placeholder="e.g. Pair, Symbol" value={data.tgSymbolKw??''} onChange={(e:any)=>setData({...data,tgSymbolKw:e.target.value})} />
+const StepTgParser = ({ data, setData }: any) => {
+  const [sample, setSample] = useState<string>(data.testMessage ?? '');
+  const parsed = sample.trim() ? clientSideParseSignal(sample) : null;
+  const confColor = parsed ? (parsed.confidence === 'High' ? '#4ade80' : parsed.confidence === 'Medium' ? '#fbbf24' : '#f87171') : '#64748b';
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-0 border border-white/5 divide-y md:divide-y-0 md:divide-x divide-white/5">
+      <div className="p-5 md:p-8 space-y-6">
+        <span className="text-[10px] font-mono font-bold text-slate-600 uppercase tracking-widest">// parser_settings</span>
+        <InfoBox color="green">The parser auto-detects symbol, side, entry, SL and TP for most channels. Only set keywords below if your channel uses an unusual format.</InfoBox>
+        <div className="grid grid-cols-2 gap-4 md:gap-5">
+          <TInput label="Entry keyword"  placeholder="auto" value={data.tgEntryKw??''}  onChange={(e:any)=>setData({...data,tgEntryKw:e.target.value})} />
+          <TInput label="SL keyword"     placeholder="auto" value={data.tgSlKw??''}     onChange={(e:any)=>setData({...data,tgSlKw:e.target.value})} />
+          <TInput label="TP keyword"     placeholder="auto" value={data.tgTpKw??''}     onChange={(e:any)=>setData({...data,tgTpKw:e.target.value})} />
+          <TInput label="Symbol keyword" placeholder="auto" value={data.tgSymbolKw??''} onChange={(e:any)=>setData({...data,tgSymbolKw:e.target.value})} />
+        </div>
+        <div className="space-y-3 pt-2 border-t border-white/5">
+          <Toggle label="Execute without a Stop-Loss" sub="Open even if the signal has no SL (riskier)" on={data.tgNoSL??false}   onChange={(v:any)=>setData({...data,tgNoSL:v})} />
+          <Toggle label="Use first TP only"            sub="For multi-TP signals, target TP1"           on={data.tgFirstTP??true} onChange={(v:any)=>setData({...data,tgFirstTP:v})} />
+        </div>
+      </div>
+      <div className="p-5 md:p-8 space-y-4">
+        <span className="text-[10px] font-mono font-bold text-slate-600 uppercase tracking-widest">// live_test</span>
+        <p className="text-xs text-slate-500 leading-relaxed">Paste a real message from the channel to preview how it parses. <span className="text-slate-600">Final parsing runs server-side.</span></p>
+        <textarea value={sample}
+          onChange={(e) => { setSample(e.target.value); setData({ ...data, testMessage: e.target.value }); }}
+          placeholder={"BUY EURUSD @ 1.0950\nSL 1.0900\nTP 1.1000"}
+          className="w-full h-28 bg-white/[0.02] border border-white/10 rounded-md p-3 text-[13px] text-slate-200 font-mono placeholder:text-slate-600 focus:border-blue-500/50 outline-none resize-none" />
+        {parsed ? (
+          <div className="border border-white/10 rounded-md divide-y divide-white/5">
+            {[['Symbol', parsed.symbol], ['Side', parsed.direction], ['Entry', parsed.entry], ['Stop-loss', parsed.sl], ['Take-profit', parsed.tp1], ['Confidence', parsed.confidence]].map(([k, v]) => (
+              <div key={k as string} className="flex items-center justify-between px-3 py-2">
+                <span className="text-[10px] text-slate-500 font-mono uppercase tracking-wider">{k}</span>
+                <span className="text-[12px] font-mono font-bold" style={{ color: k === 'Confidence' ? confColor : '#e2e8f0' }}>{v}</span>
+              </div>
+            ))}
+          </div>
+        ) : sample.trim() ? (
+          <div className="border border-rose-500/20 bg-rose-500/5 rounded-md p-3 text-[11px] text-rose-300">No signal detected — check the message or set keywords on the left.</div>
+        ) : null}
       </div>
     </div>
-    <div className="p-5 md:p-8 space-y-4 md:space-y-6">
-      <span className="text-[10px] font-mono font-bold text-slate-600 uppercase tracking-widest">// partial_signal_handling</span>
-      <Toggle label="Execute if no Stop-Loss provided"        sub="Opens the trade without an SL — use with caution"   on={data.tgNoSL??false}      onChange={(v: any) => setData({...data,tgNoSL:v})} />
-      <Toggle label="Execute if no Take-Profit provided"      sub="Leaves trade open until manually closed or SL hit"  on={data.tgNoTP??true}       onChange={(v: any) => setData({...data,tgNoTP:v})} />
-      <Toggle label="Use first TP only (ignore multiple TPs)" sub="For multi-TP signals, only execute against TP1"     on={data.tgFirstTP??true}    onChange={(v: any) => setData({...data,tgFirstTP:v})} />
-      <Toggle label="Auto-close on signal update"             sub="If the channel updates a signal, modify the trade"  on={data.tgAutoUpdate??false} onChange={(v: any) => setData({...data,tgAutoUpdate:v})} />
-    </div>
-  </div>
-);
+  );
+};
 
 function clientSideParseSignal(text: string) {
   const up = text.toUpperCase();
@@ -1057,6 +1064,30 @@ function buildDeployPayload(data: any) {
  * the Supabase bearer token is attached (the old header-less fetch always 401'd).
  */
 async function deployCopy(data: any): Promise<any> {
+  // Telegram: copy a signal channel onto the user's connected account.
+  if (data.role === 'telegram') {
+    if (!data.brokerAccountId) throw new Error('Select the account to copy onto.');
+    if (!data.tgChannelName) throw new Error('Enter the signal channel.');
+    const res = await apiRequest('POST', '/api/copy/telegram-follow', {
+      brokerAccountId: data.brokerAccountId,
+      channel:         data.tgChannelName,
+      channelType:     data.tgChannelType,
+      entryKeyword:    data.tgEntryKw || undefined,
+      slKeyword:       data.tgSlKw || undefined,
+      tpKeyword:       data.tgTpKw || undefined,
+      symbolKeyword:   data.tgSymbolKw || undefined,
+      executeNoSl:     data.tgNoSL ?? false,
+      useFirstTpOnly:  data.tgFirstTP ?? true,
+      lotMode:         data.lotMode || 'fixed',
+      fixedLot:        data.fixedLot,
+      lotMultiplier:   data.lotMultiplier,
+      riskPercent:     data.riskAmount,
+      direction:       data.direction || 'same',
+      riskAccepted:    data.riskAccepted ?? true,
+    });
+    return res.json();
+  }
+
   const isApiPlatform = String(data.platform || '').toLowerCase() === 'ctrader';
 
   if (!isApiPlatform) {
@@ -1290,6 +1321,7 @@ const StepGoLive = ({ data, setData, role, onReset, onHome, providers }: any) =>
   const accountsReady = !isCT ? true
     : role === 'self'     ? !!(data.brokerAccountId && data.brokerAccountId2)
     : role === 'follower' ? !!(data.brokerAccountId && data.selectedProvider)
+    : role === 'telegram' ? !!(data.brokerAccountId && data.tgChannelName)
     : !!data.brokerAccountId;   // provider
   const canDeploy = disclosuresAccepted && accountsReady;
   const providerName = provider ? (provider.strategyName || provider.name || 'Provider') : null;
@@ -1436,6 +1468,7 @@ const StepGoLive = ({ data, setData, role, onReset, onHome, providers }: any) =>
             {!accountsReady
               ? (role === 'self' ? 'Select both source and target cTrader accounts.'
                  : role === 'follower' ? 'Select your account and a provider in the earlier steps.'
+                 : role === 'telegram' ? 'Select your account and enter the signal channel.'
                  : 'Select your cTrader account in the earlier step.')
               : 'Accept all disclosures above to enable deployment.'}
           </p>
@@ -1497,7 +1530,7 @@ function CopierWizard({ onBack, onOpenDashboard }: { onBack: () => void; onOpenD
   const renderStep = () => {
     switch (cur.id) {
       case 'role':       return <StepRole          data={data} setData={setData} onNext={handleNext} />;
-      case 'connect':    return <StepConnect       data={data} setData={setData} label={data.role==='self'?'Source Account':'Trading Account'} />;
+      case 'connect':    return <StepConnect       data={data} setData={setData} label={data.role==='self'?'Source Account':data.role==='telegram'?'Account to Copy Onto':'Trading Account'} />;
       case 'connect2':   return <StepConnect2      data={data} setData={setData} />;
       case 'accounts':   return <StepSelfAccounts  data={data} setData={setData} />;
       case 'link':       return <StepLink          data={data} setData={setData} providers={providers} providersLoading={providersLoading} />;

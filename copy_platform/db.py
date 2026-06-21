@@ -66,6 +66,23 @@ class CopyFollower(Base):
     risk_accepted     = Column(Boolean)
 
 
+class TelegramSource(Base):
+    __tablename__ = "telegram_signal_sources"
+    id                = Column(String, primary_key=True)
+    master_id         = Column(String)
+    channel_name      = Column(Text)   # @username or channel id the copy-bot reads
+    channel_type      = Column(Text)
+    entry_keyword     = Column(Text)
+    sl_keyword        = Column(Text)
+    tp_keyword        = Column(Text)
+    symbol_keyword    = Column(Text)
+    execute_no_sl     = Column(Boolean)
+    execute_no_tp     = Column(Boolean)
+    use_first_tp_only = Column(Boolean)
+    auto_update       = Column(Boolean)
+    is_active         = Column(Boolean)
+
+
 class CopyTradeMaster(Base):
     __tablename__ = "copy_trades_master"
     id          = Column(String, primary_key=True)

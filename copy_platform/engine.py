@@ -89,6 +89,9 @@ class CopyEngine:
                 continue
             if COPY_WORKER_COUNT > 1 and _shard_of(master.id) != COPY_WORKER_INDEX:
                 continue   # another worker owns this master
+            if (master.source_type or "").lower() == "telegram":
+                await self._start_telegram(master)
+                continue
             if not master.broker_account_id or master.broker_account_id not in accounts:
                 log.warning(f"[engine] master {master.id}: broker account not found")
                 continue
@@ -118,6 +121,29 @@ class CopyEngine:
         self._providers[master.id] = provider
         provider.start()
         log.info(f"[engine] provider started for master {master.id} ({broker_account.name})")
+
+    async def _start_telegram(self, master: CopyMaster) -> None:
+        from db import Session, TelegramSource
+        from providers.telegram import TelegramProvider
+        with Session() as db:
+            src = db.query(TelegramSource).filter_by(master_id=master.id, is_active=True).first()
+        if not src or not src.channel_name:
+            log.info(f"[engine] telegram master {master.id}: no active source/channel — skipping")
+            return
+        cfg = {
+            "entry_keyword":     src.entry_keyword,
+            "sl_keyword":        src.sl_keyword,
+            "tp_keyword":        src.tp_keyword,
+            "symbol_keyword":    src.symbol_keyword,
+            "execute_no_sl":     bool(src.execute_no_sl),
+            "execute_no_tp":     bool(src.execute_no_tp),
+            "use_first_tp_only": bool(src.use_first_tp_only),
+            "min_confidence":    "medium",
+        }
+        provider = TelegramProvider(master.id, src.channel_name, cfg, dispatch)
+        self._providers[master.id] = provider
+        provider.start()
+        log.info(f"[engine] telegram provider started for master {master.id} (channel {src.channel_name})")
 
     def stop_provider(self, master_id: str) -> None:
         p = self._providers.pop(master_id, None)

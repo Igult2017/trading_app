@@ -24,11 +24,25 @@ def calc_lots(
         lots = risk_amount / (sl_pips * pip_value)
 
     else:  # mult (default)
-        multiplier = float(follower.lot_multiplier or 1.0)
-        lots = master_lots * multiplier
+        if master_lots and master_lots > 0:
+            lots = master_lots * float(follower.lot_multiplier or 1.0)
+        else:
+            # No master volume (e.g. a Telegram signal) — fall back to the
+            # follower's fixed lot. (Telegram followers should use fixed/risk.)
+            lots = float(follower.fixed_lot or 0.01)
 
     # Enforce cTrader minimum (0.01 lot) and round to 2 dp
     return max(0.01, round(lots, 2))
+
+
+def pip_size(symbol: str) -> float:
+    """Approximate pip size for risk-based sizing (best-effort, not broker-exact)."""
+    s = (symbol or "").upper()
+    if s.endswith("JPY"):
+        return 0.01
+    if s.startswith("XAU") or s in ("US30", "US500", "NAS100", "GER40", "UK100", "JP225", "AUS200"):
+        return 0.1
+    return 0.0001
 
 
 def apply_direction(action: str, direction: str) -> str:

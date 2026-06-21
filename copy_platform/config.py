@@ -8,6 +8,10 @@ ENCRYPTION_KEY    = os.environ["COPY_ENCRYPTION_KEY"]
 CTRADER_CLIENT_ID = os.environ["CTRADER_CLIENT_ID"]
 CTRADER_CLIENT_SECRET = os.environ["CTRADER_CLIENT_SECRET"]
 
+# Telegram copy-bot — added as ADMIN to provider channels; one shared poller reads
+# their posts. Optional: if unset, Telegram providers are simply skipped.
+TELEGRAM_COPY_BOT_TOKEN = os.environ.get("TELEGRAM_COPY_BOT_TOKEN", "")
+
 # cTrader Open API endpoints
 CT_LIVE_HOST  = "trade.ctrader.com"
 CT_DEMO_HOST  = "demo.ctraderapi.com"

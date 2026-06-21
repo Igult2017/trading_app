@@ -3887,6 +3887,60 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
     return res.json({ follower: updated, approved: true });
   });
 
+  /**
+   * Follow a Telegram signal channel onto one of your connected accounts.
+   * Creates a telegram master (the channel) + its parser config + a follower
+   * (your account). No phone / api_hash — the platform copy-bot (added as an
+   * admin to the channel) reads posts. Lot size defaults to fixed (Telegram
+   * signals carry no volume).
+   */
+  app.post("/api/copy/telegram-follow", async (req: Request, res: Response) => {
+    const user = await verifyToken(req.headers.authorization);
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
+    const b = req.body as Record<string, any>;
+    if (!b.brokerAccountId) return res.status(400).json({ error: "Select the account to copy onto" });
+    if (!b.channel) return res.status(400).json({ error: "Channel is required" });
+
+    const account = await storage.getBrokerAccountById(b.brokerAccountId);
+    if (!account || account.userId !== user.id) return res.status(404).json({ error: "Account not found" });
+    if (!API_PLATFORMS.has(account.platform.toLowerCase())) {
+      return res.status(400).json({ error: "The copy-onto account must be API-connected (e.g. cTrader)" });
+    }
+
+    const channel = String(b.channel).trim().replace(/^@/, "");
+
+    const master = await storage.createCopyMaster({
+      userId: user.id, sourceType: "telegram",
+      strategyName: b.strategyName || `@${channel}`, description: b.description || `Telegram channel @${channel}`,
+      tradingStyle: "signals", primaryMarket: b.primaryMarket || "mixed",
+      isPublic: b.isPublic === true, requireApproval: false, showOpenTrades: false, isActive: true,
+    });
+
+    await storage.upsertTelegramSource({
+      masterId: master.id, channelName: channel, channelType: b.channelType || "public_channel",
+      entryKeyword: b.entryKeyword || null, slKeyword: b.slKeyword || null,
+      tpKeyword: b.tpKeyword || null, symbolKeyword: b.symbolKeyword || null,
+      executeNoSl: b.executeNoSl === true, executeNoTp: b.executeNoTp !== false,
+      useFirstTpOnly: b.useFirstTpOnly !== false, autoUpdate: b.autoUpdate === true, isActive: true,
+    } as any);
+
+    const follower = await storage.createCopyFollower({
+      userId: user.id, brokerAccountId: account.id, masterId: master.id,
+      lotMode: b.lotMode || "fixed", lotMultiplier: b.lotMultiplier || "1.0",
+      fixedLot: b.fixedLot ?? "0.01", riskPercent: b.riskPercent || "1.0", direction: b.direction || "same",
+      symbolWhitelist: b.symbolWhitelist ?? null, symbolBlacklist: b.symbolBlacklist ?? null,
+      maxOpenTrades: b.maxOpenTrades ?? 10, tradeDelaySec: b.tradeDelaySec ?? 0,
+      pauseInactive: b.pauseInactive ?? true, pauseOnDD: b.pauseOnDD ?? true,
+      maxDdPercent: b.maxDdPercent ?? null, maxDailyLoss: b.maxDailyLoss ?? null,
+      isActive: true, riskAccepted: b.riskAccepted ?? true, deployedAt: new Date(),
+    } as any);
+
+    return res.status(201).json({
+      master, follower,
+      message: `Add our copy-bot as an admin to @${channel}, and its signals will mirror to your account.`,
+    });
+  });
+
   // ── Auth: registration setup (idempotent) ────────────────────────────────────
   // Called by the client after every sign-in/sign-up.
   // On the FIRST call for a given user, a profile is created with a role assigned
