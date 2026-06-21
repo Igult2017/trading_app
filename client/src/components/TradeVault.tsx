@@ -399,11 +399,13 @@ export default function TradeVault({ sessionId, startingBalance: sessionStarting
     },
     enabled: !!sessionId,
     staleTime: 2 * 60 * 1000,
-    gcTime:   30 * 60 * 1000,
-    // The persisted cache is re-seeded on every reload with dataUpdatedAt=now,
-    // which can make a stale/empty entry look fresh and suppress the refetch —
-    // leaving the vault stuck on "no trades". Always revalidate on mount so the
-    // cached value shows instantly (keepPreviousData) but real trades load in.
+    // Keep entries resident for the whole session (was 30 min, which dropped the
+    // prefetched/persisted cache and forced a cold spinner when reopening the vault
+    // later). Matches the app's 24h persistence so the vault stays populated.
+    gcTime:   24 * 60 * 60 * 1000,
+    // Always revalidate on mount so the cached value shows instantly
+    // (placeholderData: keepPreviousData) while fresh trades load in the background —
+    // a stale/empty seed can never leave the vault stuck on "no trades".
     refetchOnMount: "always",
   });
 
