@@ -3208,32 +3208,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const account = await storage.getBrokerAccountById(req.params.id);
     if (!account || account.userId !== user.id) return res.status(404).json({ error: "Not found" });
 
-    removeCTraderAccount(req.params.id);   // tear down any live feed before deleting
-    await storage.deleteBrokerAccount(req.params.id);   // also cascades synced_trades
-    // Cascade copy-trading rows tied to this account (no DB FK cascade on these),
-    // so the engine never tries to connect to a deleted account. Notify it to drop
-    // the provider immediately.
-    await pool.query("DELETE FROM copy_followers WHERE broker_account_id = $1", [req.params.id]);
-    await pool.query("DELETE FROM copy_masters   WHERE broker_account_id = $1", [req.params.id]);
-    // Telegram masters carry NO broker_account_id (the follower holds the account), so
-    // the delete above misses them. Drop this user's telegram masters that now have no
-    // followers left, then any telegram sources orphaned by a deleted master.
-    await pool.query(
-      `DELETE FROM copy_masters WHERE source_type IN ('telegram', 'telegram_user') AND user_id = $1
-         AND NOT EXISTS (SELECT 1 FROM copy_followers cf WHERE cf.master_id = copy_masters.id)`,
-      [account.userId],
-    );
-    await pool.query(
-      "DELETE FROM telegram_signal_sources WHERE master_id NOT IN (SELECT id FROM copy_masters)",
-    );
-    await pool.query("SELECT pg_notify('copy_change', '')").catch(() => {});
-    // Wipe everything else tied to the account — its auto-created session AND every
-    // journal entry in it (deleteSession deletes the entries then the session in a
-    // transaction). Mirrors deleting a normal session: nothing is left behind.
-    if (account.defaultSessionId) {
-      await storage.deleteSession(account.defaultSessionId);
+    try {
+      try { removeCTraderAccount(req.params.id); }   // tear down any live feed first
+      catch (e) { console.error("[broker-delete] feed teardown failed (non-fatal):", e); }
+
+      // Core delete — the ONLY step allowed to fail the request.
+      const ok = await storage.deleteBrokerAccount(req.params.id);   // cascades synced_trades
+      if (!ok) return res.status(404).json({ error: "Account not found" });
+
+      // Everything below is best-effort cleanup. A cleanup failure must NEVER make a
+      // successful delete look failed (the bug: an unhandled throw here 500'd the whole
+      // request even though the account was already gone).
+      try {
+        await pool.query("DELETE FROM copy_followers WHERE broker_account_id = $1", [req.params.id]);
+        await pool.query("DELETE FROM copy_masters   WHERE broker_account_id = $1", [req.params.id]);
+        await pool.query(
+          `DELETE FROM copy_masters WHERE source_type IN ('telegram', 'telegram_user') AND user_id = $1
+             AND NOT EXISTS (SELECT 1 FROM copy_followers cf WHERE cf.master_id = copy_masters.id)`,
+          [account.userId],
+        );
+        await pool.query("DELETE FROM telegram_signal_sources WHERE master_id NOT IN (SELECT id FROM copy_masters)");
+        await pool.query("SELECT pg_notify('copy_change', '')");
+      } catch (e) { console.error("[broker-delete] copy cascade cleanup failed (non-fatal):", e); }
+
+      // Its auto-created session + that session's journal entries.
+      try {
+        if (account.defaultSessionId) await storage.deleteSession(account.defaultSessionId);
+      } catch (e) { console.error("[broker-delete] session cleanup failed (non-fatal):", e); }
+
+      return res.json({ success: true });
+    } catch (e: any) {
+      console.error("[broker-delete] failed:", e);
+      return res.status(500).json({ error: e?.message || "Failed to delete account" });
     }
-    return res.json({ success: true });
   });
 
   /** Get raw synced trades for an account. */
