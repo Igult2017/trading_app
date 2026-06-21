@@ -32,9 +32,9 @@ export function DashboardSkeleton() {
  * transition into the real dashboard is one continuous skeleton, not a spinner
  * followed by a second skeleton.
  */
-export function JournalBootSkeleton() {
+export function JournalBootSkeleton({ bg = "#020817" }: { bg?: string }) {
   return (
-    <div className="flex h-[100dvh] w-full overflow-hidden bg-[#020817]">
+    <div className="flex h-[100dvh] w-full overflow-hidden" style={{ background: bg }}>{/* bg from the journal theme so it never flashes the wrong color */}
       <div className="hidden w-56 flex-col gap-3 border-r border-white/5 p-4 lg:flex">
         <Skeleton className="h-8 w-32 rounded-md" />
         {Array.from({ length: 7 }).map((_, i) => (

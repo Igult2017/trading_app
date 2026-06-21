@@ -916,7 +916,9 @@ export default function Journal() {
   // of two sequential loaders (entitlement → then dashboard). `booted` latches after
   // the first full boot, so later session switches use the inline panel skeleton.
   const [booted, setBooted] = useState(false);
-  const { data: bootMetrics, isError: bootMetricsErr } = useQuery<any>({
+  // Gate on query STATUS (isSuccess/isError), never data truthiness — a 200 body of
+  // literal `null` would otherwise leave the skeleton up forever.
+  const { isSuccess: bootMetricsDone, isError: bootMetricsErr } = useQuery<any>({
     queryKey: ['/api/metrics/compute', activeSessionId],
     enabled: !booted && hasJournalAccess && !!activeSessionId,
     queryFn: async () => {
@@ -926,13 +928,16 @@ export default function Journal() {
     },
   });
   const sessionsUnknown  = hasJournalAccess && !!user && sessions.length === 0 && sessionsFetching;
-  const dashboardPending = hasJournalAccess && !!activeSessionId && !bootMetrics && !bootMetricsErr;
-  const booting = !booted && (entitlementLoading || sessionsUnknown || dashboardPending);
+  // Sessions exist but the auto-select effect hasn't picked one yet — hold the skeleton
+  // through that one render so the cold "no saved session" path stays a single loader.
+  const awaitingSession  = hasJournalAccess && !!user && sessions.length > 0 && !activeSessionId;
+  const dashboardPending = hasJournalAccess && !!activeSessionId && !bootMetricsDone && !bootMetricsErr;
+  const booting = !booted && (entitlementLoading || sessionsUnknown || awaitingSession || dashboardPending);
   useEffect(() => { if (!booting) setBooted(true); }, [booting]);
 
   // One continuous skeleton while booting; only decide the paywall once access is known.
   if (booting) {
-    return <JournalBootSkeleton />;
+    return <JournalBootSkeleton bg={T.bg} />;
   }
 
   if (!hasJournalAccess) {

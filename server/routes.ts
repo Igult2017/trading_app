@@ -1529,8 +1529,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         metrics = { success: true, metrics: {} };
         await cacheSet(key, { result: metrics, entryCount: 0 }, TTL_5MIN);
       } else {
-        metrics = await computeMetrics(entries, startingBalance);
-        if (metrics.success) await cacheSet(key, { result: metrics, entryCount: entries.length }, TTL_5MIN);
+        const computed = await computeMetrics(entries, startingBalance);
+        if (computed.success) {
+          await cacheSet(key, { result: computed, entryCount: entries.length }, TTL_5MIN);
+          metrics = computed;
+        } else {
+          // Don't ship a failed compute in the bundle — leave it null so the client
+          // skips seeding and its own /api/metrics/compute query surfaces the error.
+          metrics = null;
+        }
       }
 
       res.json({ success: true, sessions, session, entries, metrics });

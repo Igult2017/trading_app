@@ -186,14 +186,6 @@ export const localStoragePersister = createSyncStoragePersister({
   throttleTime: 1_000,
 });
 
-/**
- * Wipe the persisted cache + all in-memory queries. Called on logout so no user
- * data lingers in the browser (clear-on-logout security posture).
- */
-export function clearPersistedJournalCache() {
-  try {
-    queryClient.clear();
-    localStorage.removeItem(CACHE_KEY);
-    localStorage.removeItem(OWNER_KEY);
-  } catch { /* ignore */ }
-}
+// NOTE: the journal cache is intentionally KEPT across logout for instant re-login
+// (see AuthContext + project memory). Cross-user safety is handled by the owner-guard
+// in seedQueryClientFromStorage + AuthContext, so there is no clear-on-logout helper.
