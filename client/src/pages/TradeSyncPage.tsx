@@ -751,38 +751,6 @@ const StepMapping = ({ data, setData }: any) => {
   );
 };
 
-const StepTgAuth = ({ data, setData }: any) => (
-  <div className="grid grid-cols-1 md:grid-cols-2 gap-0 border border-white/5 divide-y md:divide-y-0 md:divide-x divide-white/5">
-    <div className="p-5 md:p-8 space-y-6 md:space-y-8">
-      <span className="text-[10px] font-mono font-bold text-slate-600 uppercase tracking-widest">// credentials</span>
-      <TInput label="Bot API Token" hint="Create a bot via @BotFather on Telegram and paste the token here." placeholder="1234567890:AAF..." value={data.tgBotToken??''} onChange={(e:any)=>setData({...data,tgBotToken:e.target.value})} />
-      <TInput label="Telegram Phone Number" hint="Your personal Telegram number linked to the account with channel access." placeholder="+254 7XX XXX XXX" type="tel" value={data.tgPhone??''} onChange={(e:any)=>setData({...data,tgPhone:e.target.value})} />
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 md:gap-8">
-        <TInput label="API ID"   hint="Get from my.telegram.org → API development tools." placeholder="12345678" value={data.tgApiId??''} onChange={(e:any)=>setData({...data,tgApiId:e.target.value})} />
-        <TInput label="API Hash" hint="Generated alongside your API ID." placeholder="abc123def456..." value={data.tgApiHash??''} onChange={(e:any)=>setData({...data,tgApiHash:e.target.value})} />
-      </div>
-      <InfoBox color="blue">A verification code will be sent to your Telegram app after submitting.</InfoBox>
-    </div>
-    <div className="p-5 md:p-8 space-y-4 md:space-y-6">
-      <span className="text-[10px] font-mono font-bold text-slate-600 uppercase tracking-widest">// security_protocol</span>
-      <p className="text-[11px] text-slate-600 leading-relaxed">TradeSync uses a read-only Telegram bot to monitor signal channels. Your credentials are never stored — only a revocable session token is used.</p>
-      {[
-        { title:'Read-only access',      body:'The bot can only read messages in channels it has been added to. It cannot send messages or access your contacts.' },
-        { title:'Revocable at any time', body:'You can revoke access from Telegram Settings → Privacy → Active Sessions at any time.' },
-        { title:'No password required',  body:"We use Telegram's official MTProto API. Your account password is never requested or stored." },
-      ].map(({ title, body }) => (
-        <div key={title} className="flex items-start gap-3 p-3 md:p-4 border border-white/5 bg-white/[0.01]">
-          <Shield size={13} className="text-slate-600 mt-0.5 flex-shrink-0" strokeWidth={1.5} />
-          <div>
-            <p className="text-xs font-semibold text-slate-400 mb-1">{title}</p>
-            <p className="text-[11px] text-slate-600 leading-relaxed">{body}</p>
-          </div>
-        </div>
-      ))}
-    </div>
-  </div>
-);
-
 const TG_COPY_BOT = '@tandjournal_copybot';   // the platform copy-bot (your configured TELEGRAM_COPY_BOT_TOKEN)
 
 const StepTgChannel = ({ data, setData }: any) => (
@@ -913,69 +881,6 @@ function clientSideParseSignal(text: string) {
     confidence,
   };
 }
-
-const StepTgTest = ({ data, setData }: any) => {
-  const [parsed, setParsed] = useState<any>(null);
-  const [parseError, setParseError] = useState<string>('');
-  const sampleMsg = data.testMessage ?? '';
-  const runTest = () => {
-    if (!sampleMsg.trim()) return;
-    setParseError('');
-    const result = clientSideParseSignal(sampleMsg);
-    if (result) {
-      setParsed(result);
-    } else {
-      setParsed(null);
-      setParseError('Could not identify a valid trade signal. Check that the message contains a direction (BUY/SELL) and a symbol (e.g. EURUSD).');
-    }
-  };
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-0 border border-white/5 divide-y md:divide-y-0 md:divide-x divide-white/5">
-      <div className="p-5 md:p-8 space-y-6 md:space-y-8">
-        <span className="text-[10px] font-mono font-bold text-slate-600 uppercase tracking-widest">// sample_message</span>
-        <InfoBox>Paste a real signal message from the channel to verify the parser before going live.</InfoBox>
-        <TTextarea label="Signal Message" hint="Copy and paste an example message exactly as it appears in the channel."
-          placeholder={`BUY EURUSD\nEntry: 1.08450\nSL: 1.08100\nTP1: 1.08800\nTP2: 1.09100`}
-          rows={6} value={sampleMsg} onChange={(e: any) => setData({...data,testMessage:e.target.value})} />
-        <GlowButton active={!!sampleMsg.trim()} onClick={runTest}>
-          <Zap size={14} /> Run Parser Test
-        </GlowButton>
-      </div>
-      <div className="p-5 md:p-8 space-y-4 md:space-y-6">
-        <span className="text-[10px] font-mono font-bold text-slate-600 uppercase tracking-widest">// parser_result</span>
-        {!parsed && !parseError
-          ? <p className="text-[11px] text-slate-700 leading-relaxed">Paste a signal message and run the test to see the extracted trade details here.</p>
-          : parseError
-          ? (
-            <div className="space-y-3">
-              <div className="flex items-center gap-2 text-amber-400">
-                <span className="text-[10px] font-bold uppercase tracking-widest">No Signal Detected</span>
-              </div>
-              <p className="text-[11px] text-slate-500 leading-relaxed">{parseError}</p>
-            </div>
-          )
-          : parsed && (
-            <div className="space-y-4">
-              <div className="flex items-center gap-2 text-green-400">
-                <CheckCircle2 size={14} />
-                <span className="text-[10px] font-bold uppercase tracking-widest">Confidence: {parsed.confidence}</span>
-              </div>
-              <div className="grid grid-cols-2 gap-px bg-white/5 border border-white/5">
-                {[{label:'Symbol',value:parsed.symbol},{label:'Direction',value:parsed.direction},{label:'Entry',value:parsed.entry},{label:'Stop-Loss',value:parsed.sl},{label:'TP 1',value:parsed.tp1},{label:'TP 2',value:parsed.tp2}].map((f: any) => (
-                  <div key={f.label} className="bg-[#020203] p-2 md:p-3">
-                    <div className="text-[9px] font-bold uppercase tracking-widest text-slate-600 mb-1 font-mono">{f.label}</div>
-                    <div className="text-sm font-bold font-mono text-white">{f.value ?? '—'}</div>
-                  </div>
-                ))}
-              </div>
-              <p className="text-[10px] text-slate-600">If any field looks incorrect, go back and adjust the parser keywords.</p>
-            </div>
-          )
-        }
-      </div>
-    </div>
-  );
-};
 
 function buildDeployPayload(data: any) {
   const toList = (csv: string) =>
@@ -1484,8 +1389,8 @@ const STEP_TITLES: any = {
   link:'Bridge Linkage', filters:'Copy Filters', copy:'Lot Engine',
   protect:'Protection Shield', risk:'Risk Disclosure', strategy:'Your Strategy',
   limits:'Signal Limits', notif:'Notifications', mapping:'Symbol Mapping',
-  'tg-auth':'Telegram Auth', 'tg-channel':'Channel Setup',
-  'tg-parser':'Signal Parser', 'tg-test':'Parser Test', 'go-live':'Deployment Protocol',
+  'tg-channel':'Channel Setup',
+  'tg-parser':'Signal Parser', 'go-live':'Deployment Protocol',
 };
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -1542,10 +1447,8 @@ function CopierWizard({ onBack, onOpenDashboard }: { onBack: () => void; onOpenD
       case 'limits':     return <StepLimits        data={data} setData={setData} />;
       case 'notif':      return <StepProviderNotif data={data} setData={setData} />;
       case 'mapping':    return <StepMapping       data={data} setData={setData} />;
-      case 'tg-auth':    return <StepTgAuth        data={data} setData={setData} />;
       case 'tg-channel': return <StepTgChannel     data={data} setData={setData} />;
       case 'tg-parser':  return <StepTgParser      data={data} setData={setData} />;
-      case 'tg-test':    return <StepTgTest        data={data} setData={setData} />;
       case 'go-live':    return <StepGoLive        data={data} setData={setData} role={data.role} onReset={handleReset} onHome={onBack} providers={providers} />;
       default:           return null;
     }
