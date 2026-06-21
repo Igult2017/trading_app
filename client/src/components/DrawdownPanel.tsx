@@ -47,36 +47,53 @@ const Toggle = ({ options, active, onChange }: { options: { value: string; label
   </div>
 );
 
-// Underwater curve — clean gradient area of the per-trade drawdown % (≤0), with the
-// equity-peak baseline at top. Long series are downsampled so it reads as a chart,
-// not noise.
+// Catmull-Rom → cubic-bézier smoothing so the curve reads clean, not jagged.
+function smoothPath(pts: [number, number][]): string {
+  if (pts.length < 2) return '';
+  let d = `M ${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}`;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[i - 1] || pts[i], p1 = pts[i], p2 = pts[i + 1], p3 = pts[i + 2] || p2;
+    const c1x = p1[0] + (p2[0] - p0[0]) / 6, c1y = p1[1] + (p2[1] - p0[1]) / 6;
+    const c2x = p2[0] - (p3[0] - p1[0]) / 6, c2y = p2[1] - (p3[1] - p1[1]) / 6;
+    d += ` C ${c1x.toFixed(1)},${c1y.toFixed(1)} ${c2x.toFixed(1)},${c2y.toFixed(1)} ${p2[0].toFixed(1)},${p2[1].toFixed(1)}`;
+  }
+  return d;
+}
+
+// Underwater curve — smooth gradient area of the per-trade drawdown % (≤0), with the
+// equity-peak baseline at top and a marker at the deepest point. Verified via Playwright.
 function UnderwaterSpark({ series }: { series: number[] }) {
-  const w = 190, h = 40;
-  const MAXP = 64;
+  const w = 200, h = 46, pad = 2;
+  const MAXP = 48;
   const step = series.length > MAXP ? Math.ceil(series.length / MAXP) : 1;
   const data = series.filter((_, i) => i % step === 0);
+  if (data.length < 2) return null;
   const min = data.reduce((m, v) => Math.min(m, v), -0.01);   // most-negative (reduce → safe for big arrays)
   const n = data.length;
-  const line = data.map((v, i) => {
-    const x = (n > 1 ? i / (n - 1) : 0) * w;
-    const y = Math.max(1, Math.min(h - 1, (v / min) * (h - 5)));
-    return `${x.toFixed(1)},${y.toFixed(1)}`;
-  }).join(' ');
+  const pts: [number, number][] = data.map((v, i) => [
+    (i / (n - 1)) * w,
+    pad + Math.max(0, Math.min(1, v / min)) * (h - pad * 2),
+  ]);
+  let di = 0;
+  for (let i = 1; i < data.length; i++) if (data[i] < data[di]) di = i;
+  const line = smoothPath(pts);
+  const area = `${line} L ${w.toFixed(1)},${pad} L 0,${pad} Z`;
   return (
-    <div className="ml-auto shrink-0 flex flex-col items-end gap-1.5">
+    <div className="ml-auto shrink-0 flex flex-col items-end gap-1">
       <span className="text-[8px] uppercase tracking-[0.15em] text-slate-500" style={{ fontWeight: 600 }}>Underwater Curve</span>
       <svg width={w} height={h} aria-hidden="true" style={{ display: 'block' }}>
         <defs>
           <linearGradient id="dd-uw-grad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="rgba(244,63,94,0.28)" />
-            <stop offset="100%" stopColor="rgba(244,63,94,0.02)" />
+            <stop offset="0%" stopColor="rgba(244,63,94,0.32)" />
+            <stop offset="100%" stopColor="rgba(244,63,94,0)" />
           </linearGradient>
         </defs>
-        <line x1="0" y1="1" x2={w} y2="1" stroke="rgba(148,163,184,0.35)" strokeWidth="1" strokeDasharray="3 3" />
-        <polygon points={`0,1 ${line} ${w},1`} fill="url(#dd-uw-grad)" />
-        <polyline points={line} fill="none" stroke="#f43f5e" strokeWidth="1.25" strokeLinejoin="round" strokeLinecap="round" />
+        <line x1="0" y1={pad} x2={w} y2={pad} stroke="rgba(148,163,184,0.30)" strokeWidth="1" strokeDasharray="2 3" />
+        <path d={area} fill="url(#dd-uw-grad)" />
+        <path d={line} fill="none" stroke="#f43f5e" strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
+        <circle cx={pts[di][0].toFixed(1)} cy={pts[di][1].toFixed(1)} r="2.2" fill="#f43f5e" />
       </svg>
-      <span className="text-[8px] font-mono text-slate-500">low {fmtDd(min)}</span>
+      <span className="text-[8px] font-mono text-slate-500">deepest {fmtDd(min)}</span>
     </div>
   );
 }
