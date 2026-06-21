@@ -899,18 +899,9 @@ export default function Journal() {
     return () => window.removeEventListener('resize', check);
   }, []);
 
-  // Dynamically load the selected Google Font by injecting a <link> into <head>.
-  // @import inside a nested <style> tag is ignored by browsers — this is the
-  // correct way to load fonts on-demand.
-  useEffect(() => {
-    const id = `jr-font-${settings.font}`;
-    if (document.getElementById(id)) return; // already loaded
-    const link = document.createElement('link');
-    link.id = id;
-    link.rel = 'stylesheet';
-    link.href = F.googleUrl;
-    document.head.appendChild(link);
-  }, [settings.font, F.googleUrl]);
+  // Fonts are self-hosted via Fontsource (imported in index.css) and bundled, so
+  // there is no on-demand font loading here anymore — F.stack just references the
+  // already-available family. (Previously this injected a Google Fonts <link>.)
 
   // ── Boot gate ────────────────────────────────────────────────────────────────
   // Hold ONE skeleton until access is resolved AND (if the user has sessions) the

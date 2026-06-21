@@ -50,7 +50,6 @@ export interface ThemeDef {
 export interface FontDef {
   label: string;
   stack: string;
-  googleUrl: string;
   sample: string;
 }
 
@@ -129,47 +128,43 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
   },
 };
 
+// All families are self-hosted via Fontsource (imported in index.css) — no Google
+// Fonts request. Variable packages register a "<Name> Variable" family, so those
+// stacks list the variable name first with the static name as a fallback.
 export const FONTS: Record<FontId, FontDef> = {
   montserrat: {
     label: 'Montserrat',
     stack: "'Montserrat', sans-serif",
-    googleUrl: 'https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&display=swap',
     sample: 'Aa Bb 0123',
   },
   'dm-mono': {
     label: 'DM Mono',
     stack: "'DM Mono', monospace",
-    googleUrl: 'https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500&display=swap',
     sample: 'Aa Bb 0123',
   },
   inter: {
     label: 'Inter',
-    stack: "'Inter', sans-serif",
-    googleUrl: 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap',
+    stack: "'Inter Variable', 'Inter', sans-serif",
     sample: 'Aa Bb 0123',
   },
   manrope: {
     label: 'Manrope',
-    stack: "'Manrope', sans-serif",
-    googleUrl: 'https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap',
+    stack: "'Manrope Variable', 'Manrope', sans-serif",
     sample: 'Aa Bb 0123',
   },
   sora: {
     label: 'Sora',
-    stack: "'Sora', sans-serif",
-    googleUrl: 'https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&display=swap',
+    stack: "'Sora Variable', 'Sora', sans-serif",
     sample: 'Aa Bb 0123',
   },
   'jetbrains-mono': {
     label: 'JetBrains Mono',
-    stack: "'JetBrains Mono', monospace",
-    googleUrl: 'https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap',
+    stack: "'JetBrains Mono Variable', 'JetBrains Mono', monospace",
     sample: 'Aa Bb 0123',
   },
   'plus-jakarta-sans': {
     label: 'Plus Jakarta Sans',
     stack: "'Plus Jakarta Sans', sans-serif",
-    googleUrl: 'https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap',
     sample: 'Aa Bb 0123',
   },
 };

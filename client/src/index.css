@@ -1,11 +1,15 @@
 /* ── Fonts: self-hosted via Fontsource — no Google Fonts network request ─────
-   Variable fonts (Inter, Playfair Display, JetBrains Mono) cover all weights
-   in a single file. Static packages used for the remaining four families. */
+   Variable fonts (Inter, Playfair Display, JetBrains Mono, Manrope, Sora) cover
+   all weights in a single file. Static packages used for the remaining families.
+   These back the user-selectable journal dashboard font (see useJournalSettings
+   FONTS) — all seven options now load from the bundle, none from Google. */
 
 /* Variable fonts — single file covers all weights */
 @import '@fontsource-variable/inter';
 @import '@fontsource-variable/playfair-display';
 @import '@fontsource-variable/jetbrains-mono';
+@import '@fontsource-variable/manrope';
+@import '@fontsource-variable/sora';
 
 /* Static fonts — load only the weights actually used */
 @import '@fontsource/montserrat/400.css';
