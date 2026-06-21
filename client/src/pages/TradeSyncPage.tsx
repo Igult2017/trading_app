@@ -3,7 +3,7 @@ import {
   Shield, ShieldCheck, Settings2, Link2, Globe, User, ChevronRight, CheckCircle2,
   Bell, ArrowRight, Radio, Users, GitFork, Scale, Anchor, TrendingUp,
   Rocket, AlertTriangle, Filter, Hash, Send, Zap,
-  MessageSquare, Menu, X,
+  MessageSquare, Menu, X, Check,
 } from 'lucide-react';
 import { PiInfoFill } from 'react-icons/pi';
 import CopyManagementDashboard from '@/components/CopyManagementDashboard';
@@ -1594,23 +1594,36 @@ function CopierWizard({ onBack, onOpenDashboard }: { onBack: () => void; onOpenD
 
         {/* SIDEBAR — desktop only */}
         <aside className="hidden md:flex w-24 border-l border-white/5 flex-col items-center py-8 bg-black/40 backdrop-blur-xl z-20 overflow-y-auto hide-scrollbar">
-          <nav className="flex-1 flex flex-col gap-6 justify-center">
+          <nav className="flex-1 flex flex-col justify-center">
             {steps.map((s,i) => {
-              const Icon = s.icon;
+              const Icon   = s.icon;
               const done   = i < step;
               const active = i === step;
+              const last   = i === steps.length - 1;
               return (
-                <div key={s.id} className="relative flex flex-col items-center gap-1">
-                  <div className="relative flex items-center justify-center">
-                    <Icon size={18} strokeWidth={1.5}
-                      className={`transition-all duration-500 cursor-pointer
-                        ${active?'text-blue-400':done?'text-blue-600':'text-slate-700 hover:text-slate-400'}`}
-                      onClick={() => done && setStep(i)} />
-                    {active && <div className="absolute -left-[13px] w-[2px] h-6 bg-blue-500 shadow-[0_0_15px_rgba(37,99,235,1)]" />}
-                  </div>
-                  <span className={`text-[8px] uppercase tracking-widest transition-colors ${active?'text-blue-400':done?'text-slate-600':'text-slate-800'}`}>
+                <div key={s.id} className="flex flex-col items-center">
+                  <button
+                    onClick={() => done && setStep(i)}
+                    disabled={!done}
+                    aria-current={active ? 'step' : undefined}
+                    aria-label={s.label}
+                    className={`relative z-10 flex items-center justify-center w-9 h-9 rounded-full border transition-all duration-300
+                      ${active
+                        ? 'border-blue-500 bg-blue-500/10 text-blue-300 shadow-[0_0_18px_rgba(37,99,235,0.55)]'
+                        : done
+                          ? 'border-blue-600/70 bg-blue-600/15 text-blue-300 hover:border-blue-400 hover:bg-blue-600/25 cursor-pointer'
+                          : 'border-white/10 bg-white/[0.02] text-slate-500 cursor-default'}`}>
+                    {done ? <Check size={15} strokeWidth={2.5} /> : <Icon size={15} strokeWidth={1.5} />}
+                    {active && <span className="absolute -inset-1 rounded-full border border-blue-500/30 animate-pulse" />}
+                  </button>
+                  <span className={`mt-1.5 text-[8px] uppercase tracking-widest transition-colors
+                    ${active ? 'text-blue-300' : done ? 'text-slate-400' : 'text-slate-600'}`}>
                     {s.label}
                   </span>
+                  {!last && (
+                    <div className={`w-px h-7 my-1 rounded-full transition-colors duration-500
+                      ${done ? 'bg-gradient-to-b from-blue-500/70 to-blue-600/40' : 'bg-white/10'}`} />
+                  )}
                 </div>
               );
             })}
