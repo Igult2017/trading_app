@@ -25,6 +25,9 @@ log = logging.getLogger(__name__)
 _bot = None
 _MAX_RETRIES = 3
 _RETRY_DELAY = 5      # seconds
+# Per-container marker: present for the life of one container (survives watchdog
+# restarts) but gone on a fresh deploy (new image) → announce exactly once per deploy.
+_ANNOUNCE_MARKER = "/app/.signal_boot_announced"
 
 
 def _get_bot():
@@ -110,10 +113,22 @@ async def on_session_open(session_name: str) -> None:
 
 
 async def announce_status() -> None:
-    """Boot heartbeat — sent on EVERY successful start. _startup sys.exit()s before
-    this if cTrader/config fails to connect, so this message firing confirms the
-    platform is alive AND connected to cTrader; its ABSENCE on a deploy means it
-    didn't start/connect. Reports whether the forex market is open or closed."""
+    """Boot heartbeat — sent exactly ONCE PER DEPLOY. _startup sys.exit()s before this
+    if cTrader/config fails, so the message firing confirms alive + cTrader-connected;
+    its ABSENCE on a deploy means it didn't start/connect.
+
+    Dedup is a marker file on the container filesystem: it survives watchdog restarts
+    (same container) but is gone on a fresh deploy (new image). So a restart loop can
+    never spam this, yet every deploy announces once."""
+    try:
+        if os.path.exists(_ANNOUNCE_MARKER):
+            log.info("[dispatcher] boot heartbeat already sent this deploy — skipping")
+            return
+        with open(_ANNOUNCE_MARKER, "w") as _f:
+            _f.write("1")
+    except Exception as exc:
+        log.warning(f"[dispatcher] boot-marker write failed ({exc}) — sending anyway")
+
     from datetime import datetime, timezone, timedelta
     from data.instrument_filter import is_forex_open
     from scheduler.session_windows import get_current_sessions
