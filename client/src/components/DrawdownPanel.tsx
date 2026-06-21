@@ -47,20 +47,37 @@ const Toggle = ({ options, active, onChange }: { options: { value: string; label
   </div>
 );
 
-// Underwater sparkline — area of the per-trade drawdown % (≤0); peak line at top.
+// Underwater curve — clean gradient area of the per-trade drawdown % (≤0), with the
+// equity-peak baseline at top. Long series are downsampled so it reads as a chart,
+// not noise.
 function UnderwaterSpark({ series }: { series: number[] }) {
-  const w = 150, h = 30;
-  const min = series.reduce((m, v) => Math.min(m, v), -0.01);   // most-negative (reduce, not spread → safe for big arrays)
-  const n = series.length;
-  const pts = series.map((v, i) => {
+  const w = 190, h = 40;
+  const MAXP = 64;
+  const step = series.length > MAXP ? Math.ceil(series.length / MAXP) : 1;
+  const data = series.filter((_, i) => i % step === 0);
+  const min = data.reduce((m, v) => Math.min(m, v), -0.01);   // most-negative (reduce → safe for big arrays)
+  const n = data.length;
+  const line = data.map((v, i) => {
     const x = (n > 1 ? i / (n - 1) : 0) * w;
-    const y = Math.max(0, Math.min(h, (v / min) * h));
+    const y = Math.max(1, Math.min(h - 1, (v / min) * (h - 5)));
     return `${x.toFixed(1)},${y.toFixed(1)}`;
   }).join(' ');
   return (
-    <svg width={w} height={h} className="ml-auto shrink-0" aria-hidden="true">
-      <polygon points={`0,0 ${pts} ${w},0`} fill="rgba(244,63,94,0.15)" stroke="#f43f5e" strokeWidth="1" />
-    </svg>
+    <div className="ml-auto shrink-0 flex flex-col items-end gap-1.5">
+      <span className="text-[8px] uppercase tracking-[0.15em] text-slate-500" style={{ fontWeight: 600 }}>Underwater Curve</span>
+      <svg width={w} height={h} aria-hidden="true" style={{ display: 'block' }}>
+        <defs>
+          <linearGradient id="dd-uw-grad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="rgba(244,63,94,0.28)" />
+            <stop offset="100%" stopColor="rgba(244,63,94,0.02)" />
+          </linearGradient>
+        </defs>
+        <line x1="0" y1="1" x2={w} y2="1" stroke="rgba(148,163,184,0.35)" strokeWidth="1" strokeDasharray="3 3" />
+        <polygon points={`0,1 ${line} ${w},1`} fill="url(#dd-uw-grad)" />
+        <polyline points={line} fill="none" stroke="#f43f5e" strokeWidth="1.25" strokeLinejoin="round" strokeLinecap="round" />
+      </svg>
+      <span className="text-[8px] font-mono text-slate-500">low {fmtDd(min)}</span>
+    </div>
   );
 }
 
@@ -322,27 +339,33 @@ export default function DrawdownPanel({ sessionId }: { sessionId?: string | null
 
         {/* ── DRAWDOWN STATUS (live) ─────────────────────────────── */}
         {intel && (
-          <div className="dd-card rounded p-4 sm:p-5 mb-4 flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-8">
-            <div className="flex items-center gap-3">
-              <div style={{ width: 9, height: 9, borderRadius: '50%', background: intel.current.inDrawdown ? '#f43f5e' : '#10b981' }} />
+          <div className="dd-card rounded-lg p-4 sm:p-5 mb-4 flex flex-col lg:flex-row lg:items-center gap-5 lg:gap-6">
+            {/* Status */}
+            <div className="flex items-center gap-3 lg:pr-6 lg:border-r dd-divider shrink-0">
+              <span style={{ width: 10, height: 10, borderRadius: '50%', flexShrink: 0,
+                background: intel.current.inDrawdown ? '#f43f5e' : '#10b981',
+                boxShadow: `0 0 10px ${intel.current.inDrawdown ? 'rgba(244,63,94,0.55)' : 'rgba(16,185,129,0.55)'}` }} />
               <div className="flex flex-col gap-1">
                 <L>Status</L>
-                <span className="text-sm jm" style={{ fontWeight: 700, color: intel.current.inDrawdown ? '#f43f5e' : '#10b981' }}>
+                <span className="text-sm" style={{ fontWeight: 700, color: intel.current.inDrawdown ? '#f43f5e' : '#10b981' }}>
                   {intel.current.inDrawdown ? `In Drawdown ${fmtDd(intel.current.ddPct)}` : 'At Equity Highs'}
                 </span>
               </div>
             </div>
-            <div className="flex flex-col gap-1">
-              <L>Since Peak</L>
-              <V>{intel.current.tradesSincePeak} trades{intel.current.daysSincePeak != null ? ` · ${intel.current.daysSincePeak}d` : ''}</V>
-            </div>
-            <div className="flex flex-col gap-1">
-              <L>Longest Underwater</L>
-              <V>{intel.underwater.longestTrades} trades{intel.underwater.longestDays ? ` · ${intel.underwater.longestDays}d` : ''}</V>
-            </div>
-            <div className="flex flex-col gap-1">
-              <L>Avg Recovery</L>
-              <V>{intel.underwater.avgRecoveryTrades || '—'} trades</V>
+            {/* Stat tiles */}
+            <div className="grid grid-cols-3 flex-1 gap-3">
+              <div className="flex flex-col gap-1">
+                <L>Since Peak</L>
+                <V>{intel.current.tradesSincePeak} trades{intel.current.daysSincePeak != null ? ` · ${intel.current.daysSincePeak}d` : ''}</V>
+              </div>
+              <div className="flex flex-col gap-1 lg:pl-4 lg:border-l dd-divider">
+                <L>Longest Underwater</L>
+                <V>{intel.underwater.longestTrades} trades{intel.underwater.longestDays ? ` · ${intel.underwater.longestDays}d` : ''}</V>
+              </div>
+              <div className="flex flex-col gap-1 lg:pl-4 lg:border-l dd-divider">
+                <L>Avg Recovery</L>
+                <V>{intel.underwater.avgRecoveryTrades || '—'} trades</V>
+              </div>
             </div>
             {intel.series && intel.series.length > 1 && <UnderwaterSpark series={intel.series} />}
           </div>
@@ -355,16 +378,30 @@ export default function DrawdownPanel({ sessionId }: { sessionId?: string | null
               <SectionTitle icon={<Network className="w-3 h-3"/>}>Drawdown By {ddGroupView === 'strategy' ? 'Strategy' : 'Instrument'}</SectionTitle>
               <Toggle options={[{ value: 'strategy', label: 'Strategy' }, { value: 'instrument', label: 'Instrument' }]} active={ddGroupView} onChange={setDdGroupView} />
             </div>
-            <div className="flex flex-col">
-              {(ddGroupView === 'strategy' ? intel.byStrategy : intel.byInstrument).map((g: any) => (
-                <div key={g.name} className="flex items-center justify-between py-2.5 border-b dd-divider last:border-b-0">
-                  <div className="flex flex-col gap-0.5">
-                    <span className="text-xs text-slate-300" style={{ fontWeight: 600 }}>{g.name}</span>
-                    <Sub>{g.trades} trades · {g.lossRate}% loss rate</Sub>
-                  </div>
-                  <V className="text-rose-500">{fmtDd(g.totalLossPct)}</V>
-                </div>
-              ))}
+            <div className="flex flex-col gap-1">
+              {(() => {
+                const rows = ddGroupView === 'strategy' ? intel.byStrategy : intel.byInstrument;
+                const max = rows.reduce((m: number, r: any) => Math.max(m, Math.abs(r.totalLossPct)), 0.01);
+                return rows.map((g: any, i: number) => {
+                  const neg = g.totalLossPct < 0;
+                  const pct = Math.min(100, (Math.abs(g.totalLossPct) / max) * 100);
+                  return (
+                    <div key={g.name} className="py-2.5 border-b dd-divider last:border-b-0">
+                      <div className="flex items-center justify-between gap-3 mb-2">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <span className="text-[9px] font-mono text-slate-600 shrink-0" style={{ fontWeight: 700 }}>{String(i + 1).padStart(2, '0')}</span>
+                          <span className="text-xs text-slate-300 truncate" style={{ fontWeight: 600 }}>{g.name}</span>
+                          <Sub>{g.trades} trades · {g.lossRate}% loss</Sub>
+                        </div>
+                        <V className={neg ? 'text-rose-500 shrink-0' : 'text-emerald-500 shrink-0'}>{fmtDd(g.totalLossPct)}</V>
+                      </div>
+                      <div className="w-full rounded-full" style={{ height: 3, background: 'rgba(148,163,184,0.14)' }}>
+                        <div className="h-full rounded-full" style={{ width: `${pct}%`, background: neg ? '#f43f5e' : '#10b981', transition: 'width 0.6s ease' }} />
+                      </div>
+                    </div>
+                  );
+                });
+              })()}
             </div>
           </div>
         )}

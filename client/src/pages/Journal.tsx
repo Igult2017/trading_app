@@ -1292,6 +1292,7 @@ export default function Journal() {
         .journal-light .dd-root .text-emerald-400, .journal-light .dd-root .text-emerald-500 { color: #047857 !important; }
         .journal-light .dd-root .text-amber-400,  .journal-light .dd-root .text-amber-500   { color: #b45309 !important; }
         .journal-light .dd-root .text-indigo-500 { color: #4f46e5 !important; }
+        .journal-light .dd-root .dd-divider { border-color: var(--jr-border, #E2E8F0) !important; }
         .journal-light .dd-root [class*="bg-black/"] { background-color: rgba(15,23,42,0.05) !important; }
         .journal-light .dd-root [class*="bg-white/5"],
         .journal-light .dd-root .bg-slate-700,
