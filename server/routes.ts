@@ -3103,13 +3103,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const user = await verifyToken(req.headers.authorization);
     if (!user) return res.status(401).json({ error: "Unauthorized" });
 
-    const accounts = await storage.getBrokerAccounts(user.id);
-    // Flag which accounts have copying enabled (an active public master exists).
-    const masters = await storage.getCopyMasters(user.id);
-    const copyOn = new Set(masters.filter((m: any) => m.isActive && m.brokerAccountId).map((m: any) => m.brokerAccountId));
-    // Never return encrypted password to client
-    const safe = accounts.map(({ passwordEnc: _, ...a }) => ({ ...a, copyEnabled: copyOn.has(a.id) }));
-    return res.json(safe);
+    try {
+      const accounts = await storage.getBrokerAccounts(user.id);
+      // copyEnabled is a SECONDARY flag — its lookup failing must never blank the
+      // user's accounts. Default to "none enabled" if the copy query errors.
+      let copyOn = new Set<string>();
+      try {
+        const masters = await storage.getCopyMasters(user.id);
+        copyOn = new Set(masters.filter((m: any) => m.isActive && m.brokerAccountId).map((m: any) => m.brokerAccountId));
+      } catch (e) { console.error("[broker-accounts] copyEnabled lookup failed:", e); }
+      // Never return encrypted password to client
+      const safe = accounts.map(({ passwordEnc: _, ...a }) => ({ ...a, copyEnabled: copyOn.has(a.id) }));
+      return res.json(safe);
+    } catch (e: any) {
+      console.error("[broker-accounts] fetch failed:", e);
+      return res.status(500).json({ error: "Failed to load accounts" });
+    }
   });
 
   /** Add a broker account. Encrypts password before storing. */
