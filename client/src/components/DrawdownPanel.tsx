@@ -256,7 +256,7 @@ export default function DrawdownPanel({ sessionId }: { sessionId?: string | null
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <div className="min-h-full antialiased" style={{ fontFamily: "'Montserrat', sans-serif" }}>
+    <div className="dd-root min-h-full antialiased" style={{ fontFamily: "'Montserrat', sans-serif" }}>
       <style>{`
         .dd-card      { background:#0d1117; border:1px solid rgba(255,255,255,0.04); }
         .dd-card-dark { background:#080a0e; border:1px solid rgba(255,255,255,0.04); }

@@ -1278,6 +1278,27 @@ export default function Journal() {
         .journal-light .ts-wizard-root .text-amber-300,
         .journal-light .ts-wizard-root .text-amber-400 { color: #b45309 !important; }
 
+        /* ── Drawdown panel (Tailwind dark utilities) — light-theme remap ────
+           .dd-card backgrounds are already remapped above; the text/toggle classes
+           are not. Scope-remap them (light-only) so nothing dark-theme is affected. */
+        .journal-light .dd-root .text-white,
+        .journal-light .dd-root .text-slate-200,
+        .journal-light .dd-root .text-slate-300 { color: var(--jr-text, #0F172A) !important; }
+        .journal-light .dd-root .text-slate-400,
+        .journal-light .dd-root .text-slate-500,
+        .journal-light .dd-root .text-slate-600 { color: var(--jr-muted, #5A6679) !important; }
+        .journal-light .dd-root [class*="text-white/"] { color: var(--jr-muted, #5A6679) !important; }
+        .journal-light .dd-root .text-rose-400,  .journal-light .dd-root .text-rose-500    { color: #be123c !important; }
+        .journal-light .dd-root .text-emerald-400, .journal-light .dd-root .text-emerald-500 { color: #047857 !important; }
+        .journal-light .dd-root .text-amber-400,  .journal-light .dd-root .text-amber-500   { color: #b45309 !important; }
+        .journal-light .dd-root .text-indigo-500 { color: #4f46e5 !important; }
+        .journal-light .dd-root [class*="bg-black/"] { background-color: rgba(15,23,42,0.05) !important; }
+        .journal-light .dd-root [class*="bg-white/5"],
+        .journal-light .dd-root .bg-slate-700,
+        .journal-light .dd-root .bg-slate-600 { background-color: var(--jr-border, #E2E8F0) !important; }
+        .journal-light .dd-root [class*="bg-white/10"] { background-color: rgba(15,23,42,0.06) !important; }
+        .journal-light .dd-root [class*="bg-white/10"].text-white { background-color: var(--jr-accent, #2563eb) !important; color: #fff !important; }
+
         /* My Terminals dashboard — feed its --cm-* theme vars (the component reads them via its tone object). */
         .journal-light .copy-mgr-root {
           --cm-bg: #EEF2F7; --cm-panel: #FFFFFF; --cm-border: #E2E8F0; --cm-borderhi: #CBD5E1;
