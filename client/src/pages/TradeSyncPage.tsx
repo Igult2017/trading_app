@@ -2020,10 +2020,13 @@ export default function TradeSyncPage() {
       <style>{landingStyles}</style>
       <div className="ts-page">
 
-        {/* ── Overview Banner ── */}
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, background: 'rgba(30,41,59,0.4)', border: '1px solid #1e293b', padding: '12px 16px', marginBottom: 0, fontSize: 11, color: '#64748b', lineHeight: 1.6, fontFamily: "'Inter', sans-serif" }}>
-          <PiInfoFill style={{ flexShrink: 0, marginTop: 2 }} size={16} color="#38bdf8" />
-          <span><strong style={{ color: '#94a3b8', fontWeight: 700 }}>What is Trade Sync?</strong> — Trade Sync is an automated copy-trading engine that links multiple brokerage accounts and replicates positions in real time. You can operate as a <strong style={{ color: '#94a3b8' }}>Provider</strong> (broadcasting your trades to followers), a <strong style={{ color: '#94a3b8' }}>Follower</strong> (mirroring a master account with configurable lot sizing and risk controls), perform <strong style={{ color: '#94a3b8' }}>Self-Copy</strong> between your own accounts, or route signals directly from a <strong style={{ color: '#94a3b8' }}>Telegram</strong> channel. All copying happens through an isolated bridge — no withdrawal permissions or sensitive credentials are ever required.</span>
+        {/* ── Overview Banner ── theme-aware via --jr-* vars (set on .journal-root)
+             so it reads correctly in BOTH dark and light. Role keywords use the
+             accent so they stand out and never vanish on a light background. The hex
+             fallbacks keep the dark look if the vars aren't present. */}
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, background: 'var(--jr-panel, #0d1117)', border: '1px solid var(--jr-border, #1e293b)', borderRadius: 8, padding: '12px 16px', marginBottom: 0, fontSize: 11, color: 'var(--jr-muted, #94a3b8)', lineHeight: 1.6, fontFamily: "'Inter', sans-serif" }}>
+          <PiInfoFill style={{ flexShrink: 0, marginTop: 2 }} size={16} color="var(--jr-accent, #38bdf8)" />
+          <span><strong style={{ color: 'var(--jr-text, #e2e8f0)', fontWeight: 700 }}>What is Trade Sync?</strong> — Trade Sync is an automated copy-trading engine that links multiple brokerage accounts and replicates positions in real time. You can operate as a <strong style={{ color: 'var(--jr-accent, #38bdf8)', fontWeight: 600 }}>Provider</strong> (broadcasting your trades to followers), a <strong style={{ color: 'var(--jr-accent, #38bdf8)', fontWeight: 600 }}>Follower</strong> (mirroring a master account with configurable lot sizing and risk controls), perform <strong style={{ color: 'var(--jr-accent, #38bdf8)', fontWeight: 600 }}>Self-Copy</strong> between your own accounts, or route signals directly from a <strong style={{ color: 'var(--jr-accent, #38bdf8)', fontWeight: 600 }}>Telegram</strong> channel. All copying happens through an isolated bridge — no withdrawal permissions or sensitive credentials are ever required.</span>
         </div>
 
         {/* HERO */}
