@@ -64,8 +64,14 @@ def canon_token(tok: str) -> str | None:
 
 def find_symbol(text: str) -> str | None:
     """Scan a message and return the first recognizable canonical symbol."""
-    for raw in re.split(r"[\s,;:|()\[\]]+", text or ""):
+    tokens = re.split(r"[\s,;:|()\[\]]+", text or "")
+    for raw in tokens:
         c = canon_token(raw)
+        if c:
+            return c
+    # Space-separated pair, e.g. "GBP JPY" -> "GBPJPY", "EUR USD" -> "EURUSD".
+    for a, b in zip(tokens, tokens[1:]):
+        c = canon_token(a + b)
         if c:
             return c
     return None

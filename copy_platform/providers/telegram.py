@@ -42,7 +42,10 @@ class TelegramListener:
         key = (channel or "").lstrip("@").lower()
         if not key:
             return
-        self._routes.setdefault(key, []).append((master_id, cfg, on_event))
+        routes = self._routes.setdefault(key, [])
+        if any(r[0] == master_id for r in routes):
+            return   # already registered — never double-route (avoids duplicate trades)
+        routes.append((master_id, cfg, on_event))
         if self._task is None:
             self._task = asyncio.ensure_future(self._poll_loop())
         log.info("[tg] channel '%s' -> master %s", key, master_id)
@@ -70,7 +73,10 @@ class TelegramListener:
                         self._offset = upd["update_id"] + 1
                         post = upd.get("channel_post") or upd.get("edited_channel_post")
                         if post:
-                            self._handle_post(post)
+                            try:
+                                self._handle_post(post)
+                            except Exception as e:          # one bad post never stalls the loop
+                                log.warning("[tg] handle_post error: %s", e)
                 except Exception as e:
                     log.warning("[tg] poll error: %s", e)
                     await asyncio.sleep(5)
