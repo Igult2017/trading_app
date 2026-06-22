@@ -56,7 +56,10 @@ export function prefetchAllPanels(
       if (!d) return;
       if (Array.isArray(d.sessions)) queryClient.setQueryData(["/api/sessions"], d.sessions);
       if (d.session)                 queryClient.setQueryData(["/api/sessions", sessionId], d.session);
-      if (Array.isArray(d.entries))  queryClient.setQueryData(["/api/journal/entries", sessionId], d.entries);
+      // Don't let a transient empty bundle (scope race → entries:[]) clobber good
+      // cached trades; only seed [] when nothing is cached for this session yet.
+      if (Array.isArray(d.entries) && (d.entries.length > 0 || !queryClient.getQueryData(["/api/journal/entries", sessionId])))
+                                     queryClient.setQueryData(["/api/journal/entries", sessionId], d.entries);
       if (d.metrics)                 queryClient.setQueryData(["/api/metrics/compute", sessionId], d.metrics);
     })
     .catch(() => { /* best-effort — panels fall back to their own queries */ });
@@ -205,7 +208,9 @@ export async function prepareDashboard(
         if (d) {
           if (Array.isArray(d.sessions)) queryClient.setQueryData(["/api/sessions"], d.sessions);
           if (d.session)                 queryClient.setQueryData(["/api/sessions", sessionId], d.session);
-          if (Array.isArray(d.entries))  queryClient.setQueryData(["/api/journal/entries", sessionId], d.entries);
+          // Don't clobber good cached trades with a transient empty bundle (see above).
+          if (Array.isArray(d.entries) && (d.entries.length > 0 || !queryClient.getQueryData(["/api/journal/entries", sessionId])))
+                                         queryClient.setQueryData(["/api/journal/entries", sessionId], d.entries);
           if (d.metrics)                 queryClient.setQueryData(["/api/metrics/compute", sessionId], d.metrics);
         }
       } catch { /* boot-gate skeleton covers it after navigation */ }

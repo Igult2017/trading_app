@@ -390,7 +390,7 @@ export default function TradeVault({ sessionId, startingBalance: sessionStarting
   }, [confirmDeleteId]);
 
   const queryUrl = sessionId ? `/api/journal/entries?sessionId=${sessionId}` : '/api/journal/entries';
-  const { data: journalEntries = [], isLoading } = useQuery<JournalEntry[]>({
+  const { data: journalEntries = [], isFetching } = useQuery<JournalEntry[]>({
     queryKey: ["/api/journal/entries", sessionId],
     queryFn: async () => {
       const r = await authFetch(queryUrl);
@@ -412,6 +412,15 @@ export default function TradeVault({ sessionId, startingBalance: sessionStarting
   // Coerce defensively: a poisoned cache (e.g. a prefetch that stored null on a
   // transient error) must never reach .map() — show empty, then the refetch fixes it.
   const trades: Trade[] = (Array.isArray(journalEntries) ? journalEntries : []).map(journalEntryToTrade);
+
+  // "Loading" = a fetch is in flight AND we have nothing to show yet. With
+  // refetchOnMount:"always" every open refetches; if the cache momentarily holds []
+  // (a transient empty prefetch/seed, or a not-yet-warmed cache) we must show the
+  // loader, NOT the "no trades" empty state — otherwise the vault flashes empty
+  // before the data lands. The empty state only appears once the fetch settles and
+  // there are genuinely 0 trades (isFetching false). A non-empty cache renders
+  // instantly and refetches in the background.
+  const loading = isFetching && trades.length === 0;
 
   function invalidateAll() {
     queryClient.invalidateQueries({ queryKey: ["/api/journal/entries"] });
@@ -544,7 +553,7 @@ export default function TradeVault({ sessionId, startingBalance: sessionStarting
     updateMutation.mutate(updated);
   };
 
-  const showLoader = useDelayedLoading(!!sessionId && isLoading);
+  const showLoader = useDelayedLoading(!!sessionId && loading);
 
   if (showLoader) {
     return (
@@ -624,14 +633,14 @@ export default function TradeVault({ sessionId, startingBalance: sessionStarting
         }
       `}</style>
 
-      {vaultHeader(isLoading ? "Loading…" : `Performance ledger · ${trades.length} ${trades.length === 1 ? "entry" : "entries"}`)}
+      {vaultHeader(loading ? "Loading…" : `Performance ledger · ${trades.length} ${trades.length === 1 ? "entry" : "entries"}`)}
 
       <div style={{ padding: 0 }}>
       {!sessionId ? (
         <div style={{ ...styles.tableWrapper, padding: 40, textAlign: "center" as const }}>
           <div style={{ color: "var(--jr-muted)", fontSize: 13 }}>Select a session to view your trades.</div>
         </div>
-      ) : isLoading ? null : trades.length === 0 ? (
+      ) : loading ? null : trades.length === 0 ? (
         <div style={{ ...styles.tableWrapper, padding: 40, textAlign: "center" as const }}>
           <div style={{ color: "var(--jr-muted)", fontSize: 14 }} data-testid="text-empty-state">{t('vault.noTrades')}</div>
         </div>
