@@ -12,6 +12,8 @@ interface Instrument {
   symbol: string;
   assetClass: "crypto" | "forex" | "stock" | "commodity";
   category: "Crypto" | "Forex" | "Stock" | "Index" | "Commodity";
+  unconfirmed?: boolean;   // pending_setups — scanner is watching, not yet a confirmed signal
+  setupStage?: string;
 }
 
 interface ContextItem { label: string; value: string; color: string; loading?: boolean }
@@ -338,6 +340,20 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
     staleTime: 30_000,
   });
 
+  // Unconfirmed setups the scanner is watching (pending_setups). Not yet promoted
+  // to a confirmed signal — shown in the same list, flagged so the UI marks them PENDING.
+  const { data: pendingSetups = [] } = useQuery<any[]>({
+    queryKey: ["pending-setups"],
+    queryFn: async () => {
+      const res = await fetch("/api/pending-setups");
+      if (!res.ok) return [];
+      const json = await res.json();
+      return Array.isArray(json) ? json : [];
+    },
+    refetchInterval: 60_000,
+    staleTime: 30_000,
+  });
+
   const sidebarInstruments: Instrument[] = (() => {
     const seen = new Set<string>();
     const list: Instrument[] = [];
@@ -345,6 +361,14 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
       if (!seen.has(s.symbol)) {
         seen.add(s.symbol);
         list.push({ symbol: s.symbol, assetClass: s.assetClass as Instrument["assetClass"], category: assetClassToCategory(s.assetClass) });
+      }
+    }
+    // Append unconfirmed setups after the confirmed signals (a symbol with a
+    // confirmed signal is never duplicated as pending).
+    for (const p of pendingSetups) {
+      if (p?.symbol && !seen.has(p.symbol)) {
+        seen.add(p.symbol);
+        list.push({ symbol: p.symbol, assetClass: p.assetClass as Instrument["assetClass"], category: assetClassToCategory(p.assetClass), unconfirmed: true, setupStage: p.setupStage });
       }
     }
     return list;
@@ -721,6 +745,25 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
             </div>
           )}
 
+          {/* ── Unconfirmed-setup banner — when the selected symbol is a pending setup ── */}
+          {(() => {
+            const ps = pendingSetups.find((p: any) => p?.symbol === selected);
+            const isUnconfirmed = !!ps && !allSignals.some((s: any) => s.symbol === selected);
+            if (!isUnconfirmed) return null;
+            return (
+              <div style={{ background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.3)",
+                borderRadius: 4, padding: "10px 14px", marginBottom: 12, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                <span style={{ fontSize: 9, fontWeight: 800, color: "#f59e0b", letterSpacing: "0.1em",
+                  background: "rgba(245,158,11,0.14)", border: "1px solid rgba(245,158,11,0.4)", borderRadius: 3, padding: "3px 8px" }}>
+                  UNCONFIRMED
+                </span>
+                <span style={{ fontSize: 10, fontWeight: 600, color: C.muted, letterSpacing: "0.04em" }}>
+                  Scanner is watching this setup{ps.setupStage ? ` · ${String(ps.setupStage).toUpperCase()}` : ""} — it becomes a signal once all conditions confirm.
+                </span>
+              </div>
+            );
+          })()}
+
           {/* ── Signal Platform Status (replaces live chart — signal-only mode) ── */}
           <SignalPlatformStatus darkMode={darkMode} selectedSymbol={selected} />
 
@@ -997,10 +1040,15 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
                     {card.symbol}
                   </span>
                   {sidebarWidth >= 200 && (
-                    <span style={{ fontSize: 8, fontWeight: 700, color: C.dim, letterSpacing: "0.08em",
-                      background: C.bg3, border: `1px solid ${C.border2}`, borderRadius: 3, padding: "2px 6px" }}>
-                      {card.category.toUpperCase()}
-                    </span>
+                    card.unconfirmed
+                      ? <span style={{ fontSize: 8, fontWeight: 800, color: "#f59e0b", letterSpacing: "0.08em",
+                          background: "rgba(245,158,11,0.12)", border: "1px solid rgba(245,158,11,0.35)", borderRadius: 3, padding: "2px 6px" }}>
+                          PENDING
+                        </span>
+                      : <span style={{ fontSize: 8, fontWeight: 700, color: C.dim, letterSpacing: "0.08em",
+                          background: C.bg3, border: `1px solid ${C.border2}`, borderRadius: 3, padding: "2px 6px" }}>
+                          {card.category.toUpperCase()}
+                        </span>
                   )}
                 </div>
 
