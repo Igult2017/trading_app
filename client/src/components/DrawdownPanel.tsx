@@ -1,161 +1,30 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { authFetch } from '@/lib/queryClient';
-import { Layout, Clock, Zap, Network, CalendarDays, ShieldCheck, TrendingDown, Activity } from 'lucide-react';
+import { TrendingDown } from 'lucide-react';
 import { useDelayedLoading } from '@/components/TradingLoader';
 import { PanelSkeleton } from '@/components/skeletons/DashboardSkeletons';
-import { useTranslation } from 'react-i18next';
+import { DiveProfile } from '@/components/drawdown/diveProfile';
+import { DP_CSS } from '@/components/drawdown/dpStyles';
 
-// ── Primitive UI atoms ────────────────────────────────────────────────────────
+/**
+ * DrawdownPanel — "Dive Profile" layout.
+ * Wired 1-to-1 to /api/drawdown/compute (server/python/drawdown). Every section
+ * is real data: KPIs, the underwater hero chart, the strategy/instrument
+ * leaderboard split by BULLISH/BEARISH direction, edge/Monte-Carlo/recovery model,
+ * pair×strategy heatmap, loss frequency, structural diagnostics, sessions, loss
+ * streaks + timeline, R:R distribution and the monthly drawdown table.
+ */
 
-const L = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
-  <span className={`text-[10px] uppercase tracking-widest text-slate-500 ${className}`} style={{ fontWeight: 500 }}>{children}</span>
-);
-const V = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
-  <span className={`text-xs font-mono ${className}`} style={{ fontWeight: 700 }}>{children}</span>
-);
-const Sub = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
-  <span className={`text-[9px] font-mono text-slate-600 ${className}`} style={{ fontWeight: 400 }}>{children}</span>
-);
-// Status-banner stat tile: tiny eyebrow label → big bold number → muted unit suffix,
-// for clear 3-level hierarchy (the label must NOT read like the value). slate-200/400/500
-// are all remapped by the dd-root light-theme override, so this holds on white too.
-const DdStat = ({ label, num, suffix, className = '' }: { label: string; num: React.ReactNode; suffix?: string; className?: string }) => (
-  <div className={`flex flex-col gap-1.5 ${className}`}>
-    <span className="text-[9px] uppercase tracking-[0.2em] text-slate-500" style={{ fontWeight: 600 }}>{label}</span>
-    <span className="font-mono leading-none" style={{ fontWeight: 800 }}>
-      <span className="text-lg text-slate-200">{num}</span>
-      {suffix && <span className="text-[11px] text-slate-400 ml-1.5" style={{ fontWeight: 600 }}>{suffix}</span>}
-    </span>
-  </div>
-);
-const Row = ({ k, v, accent }: { k: string; v: string; accent?: string }) => (
-  <div className="flex items-center justify-between gap-3">
-    <L>{k}</L>
-    <span className="text-xs jm" style={{ fontWeight: 700, ...(accent ? { color: accent } : {}) }}>{v}</span>
-  </div>
-);
-const SectionTitle = ({ icon, children }: { icon?: React.ReactNode; children: React.ReactNode }) => (
-  <div className="flex items-center gap-3">
-    <div className="w-px h-4 bg-slate-700"></div>
-    {icon && <span className="text-slate-600">{icon}</span>}
-    <span className="text-[10px] uppercase tracking-[0.2em] text-white" style={{ fontWeight: 700 }}>{children}</span>
-  </div>
-);
-const Bar = ({ pct, color = 'bg-rose-500' }: { pct: string; color?: string }) => (
-  <div className="w-full bg-white/5 h-px mt-3">
-    <div className={`${color} h-full transition-all duration-700`} style={{ width: pct }}></div>
-  </div>
-);
-const Toggle = ({ options, active, onChange }: { options: { value: string; label: string }[]; active: string; onChange: (v: string) => void }) => (
-  <div className="flex bg-black/50 p-1 rounded-sm border border-white/5 shrink-0">
-    {options.map(o => (
-      <button key={o.value} onClick={() => onChange(o.value)}
-        className={`px-3 sm:px-5 py-2 text-[9px] uppercase tracking-widest rounded-sm transition-all ${active === o.value ? 'bg-white/10 text-white' : 'text-slate-600 hover:text-slate-400'}`}
-        style={{ fontWeight: 600 }}>
-        {o.label}
-      </button>
-    ))}
-  </div>
-);
-
-// Catmull-Rom → cubic-bézier smoothing so the curve reads clean, not jagged.
-function smoothPath(pts: [number, number][]): string {
-  if (pts.length < 2) return '';
-  let d = `M ${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}`;
-  for (let i = 0; i < pts.length - 1; i++) {
-    const p0 = pts[i - 1] || pts[i], p1 = pts[i], p2 = pts[i + 1], p3 = pts[i + 2] || p2;
-    const c1x = p1[0] + (p2[0] - p0[0]) / 6, c1y = p1[1] + (p2[1] - p0[1]) / 6;
-    const c2x = p2[0] - (p3[0] - p1[0]) / 6, c2y = p2[1] - (p3[1] - p1[1]) / 6;
-    d += ` C ${c1x.toFixed(1)},${c1y.toFixed(1)} ${c2x.toFixed(1)},${c2y.toFixed(1)} ${p2[0].toFixed(1)},${p2[1].toFixed(1)}`;
-  }
-  return d;
-}
-
-// Underwater curve — smooth gradient area of the per-trade drawdown % (≤0), with the
-// equity-peak baseline at top and a marker at the deepest point. Verified via Playwright.
-function UnderwaterSpark({ series }: { series: number[] }) {
-  const w = 200, h = 46, pad = 2;
-  const MAXP = 48;
-  const step = series.length > MAXP ? Math.ceil(series.length / MAXP) : 1;
-  const data = series.filter((_, i) => i % step === 0);
-  if (data.length < 2) return null;
-  const min = data.reduce((m, v) => Math.min(m, v), -0.01);   // most-negative (reduce → safe for big arrays)
-  const n = data.length;
-  const pts: [number, number][] = data.map((v, i) => [
-    (i / (n - 1)) * w,
-    pad + Math.max(0, Math.min(1, v / min)) * (h - pad * 2),
-  ]);
-  let di = 0;
-  for (let i = 1; i < data.length; i++) if (data[i] < data[di]) di = i;
-  const line = smoothPath(pts);
-  const area = `${line} L ${w.toFixed(1)},${pad} L 0,${pad} Z`;
-  return (
-    <div className="ml-auto shrink-0 flex flex-col items-end gap-1">
-      <span className="text-[8px] uppercase tracking-[0.15em] text-slate-500" style={{ fontWeight: 600 }}>Underwater Curve</span>
-      <svg width={w} height={h} aria-hidden="true" style={{ display: 'block' }}>
-        <defs>
-          <linearGradient id="dd-uw-grad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="rgba(244,63,94,0.32)" />
-            <stop offset="100%" stopColor="rgba(244,63,94,0)" />
-          </linearGradient>
-        </defs>
-        <line x1="0" y1={pad} x2={w} y2={pad} stroke="rgba(148,163,184,0.30)" strokeWidth="1" strokeDasharray="2 3" />
-        <path d={area} fill="url(#dd-uw-grad)" />
-        <path d={line} fill="none" stroke="#f43f5e" strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
-        <circle cx={pts[di][0].toFixed(1)} cy={pts[di][1].toFixed(1)} r="2.2" fill="#f43f5e" />
-      </svg>
-      <span className="text-[8px] font-mono text-slate-500">deepest {fmtDd(min)}</span>
-    </div>
-  );
-}
-
-// ── Mapping helpers ───────────────────────────────────────────────────────────
-
-const heatColor = (v: number) => `rgba(244,63,94,${Math.min(Math.abs(v) / 6, 0.85)})`;
-
-function fmtDd(v: number) {
+// ── helpers ─────────────────────────────────────────────────────────────────
+function fmtDd(v?: number | null): string {
+  if (v == null) return '—';
   if (v === 0) return '0.00%';
-  return `${v >= 0 ? '' : ''}${v.toFixed(2)}%`;
-}
-
-function sessionColors(avgDdPct: number) {
-  const abs = Math.abs(avgDdPct);
-  if (abs < 1.0) return { vColor: 'text-emerald-500', bar: 'bg-emerald-500' };
-  if (abs < 2.5) return { vColor: 'text-amber-500',   bar: 'bg-amber-500'   };
-  return           { vColor: 'text-rose-500',   bar: 'bg-rose-500'   };
-}
-
-function barColor(lossRate: number) {
-  if (lossRate > 70) return 'bg-rose-500';
-  if (lossRate > 40) return 'bg-amber-500';
-  return 'bg-emerald-500';
-}
-
-const STRUCT_ICONS: Record<string, React.ReactNode> = {
-  'CTF Validity':   <Zap className="w-3 h-3 text-indigo-500" />,
-  'ATF Validity':   <Zap className="w-3 h-3 text-emerald-500" />,
-  'HTF Bias':       <Zap className="w-3 h-3 text-indigo-500" />,
-  'ETF Execution':  <Zap className="w-3 h-3 text-rose-500" />,
-  'Entry Timing':   <Zap className="w-3 h-3 text-amber-500" />,
-  'Risk Placement': <Zap className="w-3 h-3 text-rose-500" />,
-};
-
-const RR_COLORS: Record<string, string> = {
-  '< 1:1':     'bg-rose-500',
-  '1:1 – 1:2': 'bg-amber-500',
-  '1:2 – 1:3': 'bg-indigo-500',
-  '> 1:3':     'bg-emerald-500',
-};
-
-function causeColor(cc: string) {
-  if (cc === 'bad')  return 'text-rose-500';
-  if (cc === 'good') return 'text-emerald-400';
-  return 'text-amber-400';
+  return `${v.toFixed(2)}%`;
 }
 
 const MONTH_ABBR = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-function fmtRange(start: string | null | undefined, end: string | null | undefined) {
+function fmtRange(start?: string | null, end?: string | null): string {
   if (!start) return '';
   try {
     const s = new Date(start);
@@ -167,15 +36,59 @@ function fmtRange(start: string | null | undefined, end: string | null | undefin
   } catch { return ''; }
 }
 
-// ── Component ─────────────────────────────────────────────────────────────────
+function heatBg(avgDdPct: number): React.CSSProperties {
+  const v = Math.abs(avgDdPct);
+  if (!v) return { background: 'var(--raise)' };
+  const a = Math.min(v / 1.4, 1) * 0.5 + 0.1;
+  return { background: `rgba(242,89,106,${a.toFixed(3)})` };
+}
 
+function sevTone(avgDdPct: number): string {
+  const abs = Math.abs(avgDdPct);
+  if (abs < 1.0) return 'gain';
+  if (abs < 2.5) return 'warn';
+  return 'loss';
+}
+function toneVar(tone: string): string {
+  return tone === 'loss' ? 'var(--loss)' : tone === 'warn' ? 'var(--warn)' : tone === 'gain' ? 'var(--gain)' : 'var(--ink2)';
+}
+
+function Rule({ label, sub, right }: { label: string; sub?: string; right?: React.ReactNode }) {
+  return (
+    <div className="rule">
+      <div className="lab">
+        <span className="pin" />
+        <span className="t">{label}</span>
+        {sub && <span className="sub">{sub}</span>}
+      </div>
+      {right}
+    </div>
+  );
+}
+function Seg({ options, value, onChange, accents }: {
+  options: string[]; value: string; onChange: (v: string) => void; accents?: Record<string, string>;
+}) {
+  return (
+    <div className="seg">
+      {options.map((o) => {
+        const ac = accents && accents[o];
+        return (
+          <button key={o} className={value === o ? 'on' : ''} onClick={() => onChange(o)}
+            style={value === o && ac ? { color: ac, borderBottomColor: ac } : undefined}>{o}</button>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── component ───────────────────────────────────────────────────────────────
 export default function DrawdownPanel({ sessionId }: { sessionId?: string | null }) {
-  const { t } = useTranslation();
-  const [activeFreqView,   setActiveFreqView]   = useState('attr');
-  const [activeStructView, setActiveStructView] = useState('context');
-  const [ddGroupView,      setDdGroupView]      = useState('strategy');
+  const [ddView, setDdView] = useState('STRATEGY');
+  const [dir,    setDir]    = useState('BULLISH');
+  const [freq,   setFreq]   = useState('INSTR');
+  const [diag,   setDiag]   = useState('CONTEXT');
 
-  const { data: result, isLoading, isFetching, isError, error } = useQuery<any>({
+  const { data: result, isLoading, isError, error } = useQuery<any>({
     queryKey: ['/api/drawdown/compute', sessionId],
     enabled: !!sessionId,
     staleTime: 2 * 60 * 1000,
@@ -191,571 +104,337 @@ export default function DrawdownPanel({ sessionId }: { sessionId?: string | null
     },
   });
 
-  // ── Derive display data from API response ──────────────────────────────────
+  const d        = result ?? null;
+  const ts       = d?.topStats;
+  const intel    = d?.intelligence;
+  const risk     = d?.riskModel;
+  const mc       = d?.monteCarlo;
+  const recovery = d?.recovery;
 
-  const d = result ?? null;
-  const ts = d?.topStats;
+  // ── states ────────────────────────────────────────────────────────────────
+  const showLoader = useDelayedLoading(!!sessionId && isLoading);
+  if (showLoader) return <PanelSkeleton />;
 
-  const topStats = [
-    { label: t('drawdown.maxDrawdown'),    value: ts ? fmtDd(ts.maxDrawdown)    : '—', accent: '#f43f5e' },
-    { label: t('drawdown.avgDrawdown'),    value: ts ? fmtDd(ts.avgDrawdown)    : '—', accent: '#f59e0b' },
-    { label: t('drawdown.recoveryFactor'), value: ts ? String(ts.recoveryFactor) : '—', accent: '#10b981' },
-    { label: t('drawdown.trendAlignment'), value: ts ? `${ts.trendAlignment}%`   : '—', accent: '#6366f1' },
+  const centered = (icon: React.ReactNode, title: string, subtitle: string, titleColor = 'text-slate-500') => (
+    <div className="dp"><style>{DP_CSS}</style>
+      <div style={{ minHeight: 420, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
+        {icon}
+        <p className={`${titleColor}`} style={{ fontSize: 11, letterSpacing: '.18em', textTransform: 'uppercase', fontWeight: 600, color: 'var(--ink2)' }}>{title}</p>
+        <p style={{ fontSize: 10, color: 'var(--ink3)' }}>{subtitle}</p>
+      </div>
+    </div>
+  );
+
+  if (!sessionId)
+    return centered(<TrendingDown style={{ width: 30, height: 30, color: 'var(--ink3)' }} />, 'No session selected', 'Select or create a session to view drawdown analysis');
+  if (isError)
+    return centered(<TrendingDown style={{ width: 30, height: 30, color: 'var(--loss)' }} />, 'Failed to load drawdown data', (error as Error)?.message || 'Check server logs or try refreshing');
+  if (!ts || !intel)
+    return centered(<TrendingDown style={{ width: 30, height: 30, color: 'var(--ink3)' }} />, 'No drawdown data yet', 'Log trades in this session to populate the analysis');
+
+  // ── derive ──────────────────────────────────────────────────────────────────
+  const cur = intel.current ?? {};
+  const uw  = intel.underwater ?? {};
+  const inDd = !!cur.inDrawdown;
+
+  const kpis = [
+    { k: 'Max Drawdown',    v: fmtDd(ts.maxDrawdown), c: 'loss' },
+    { k: 'Avg. Drawdown',   v: fmtDd(ts.avgDrawdown), c: 'warn' },
+    { k: 'Recovery Factor', v: String(ts.recoveryFactor), c: 'gain' },
+    { k: 'Trend Alignment', v: `${ts.trendAlignment}%`, c: '' },
   ];
 
-  const intel    = d?.intelligence ?? null;
-  const risk     = d?.riskModel ?? null;
-  const mc       = d?.monteCarlo ?? null;
-  const recovery = d?.recovery ?? null;
+  // Leaderboard — direction-filtered (BULLISH/BEARISH) × STRATEGY/INSTRUMENT.
+  const dirKey  = dir === 'BEARISH' ? 'bearish' : 'bullish';
+  const viewKey = ddView === 'INSTRUMENT' ? 'byInstrument' : 'byStrategy';
+  const byDir   = intel.byDirection;
+  const leaderRows: any[] = byDir
+    ? (byDir[dirKey]?.[viewKey] ?? [])
+    : ((ddView === 'INSTRUMENT' ? intel.byInstrument : intel.byStrategy) ?? []);
+  const leaderMax = Math.max(0.01, ...leaderRows.map((r: any) => Math.abs(r.totalLossPct)));
 
-  // Heatmap: rows from API, strategies derived from first row's cells
-  const heatRows: any[]     = d?.heatmap ?? [];
-  const strategies: string[] = heatRows[0]?.cells?.map((c: any) => c.strategy) ?? [];
+  const edge = risk ? [
+    { k: 'Win Rate', v: `${risk.winRate}%`, c: '' },
+    { k: 'Payoff (avg win / loss)', v: `${risk.payoff}x`, c: '' },
+    { k: 'Kelly Optimal Risk', v: `${risk.kellyPct}%`, c: 'gain' },
+    { k: 'Loss Streak (actual / expected)', v: `${risk.actualMaxLossStreak} / ${risk.expectedMaxLossStreak}`, c: risk.streakWithinExpectation ? '' : 'loss' },
+    ...(risk.mae?.hasData ? [{ k: 'Loser vs Winner MAE', v: `${risk.mae.ratio}x deeper`, c: 'warn' }] : []),
+  ] : [];
 
-  // Frequency: API shape matches UI shape exactly
-  const freqData: Record<string, any[]> = d?.frequency ?? { attr: [], instr: [] };
+  const hasMc = mc && mc.hasData;
+  const monte = hasMc ? [
+    { k: 'Expected Max DD', v: fmtDd(mc.expectedMaxDd), c: 'warn' },
+    { k: 'Worst Case (95%)', v: fmtDd(mc.worstCase95), c: 'loss' },
+    { k: 'Worst Case (99%)', v: fmtDd(mc.worstCase99), c: 'loss' },
+    { k: 'Risk of Ruin (>50% DD)', v: `${mc.riskOfRuinPct}%`, c: mc.riskOfRuinPct > 1 ? 'loss' : 'gain' },
+  ] : [];
 
-  // Structural: map API items to UI item shape
-  function mapStructSections(sections: any[]) {
-    return sections.map((sec: any) => ({
-      title: sec.title,
-      icon:  STRUCT_ICONS[sec.title] ?? <Zap className="w-3 h-3 text-slate-500" />,
-      items: sec.items.map((item: any) => ({
-        label: item.label,
-        val:   fmtDd(item.avgDdPct),
-        t:     item.total,
-        l:     item.losses,
-        w:     `${item.barWidthPct}%`,
-        c:     barColor(item.lossRate),
-      })),
-    }));
-  }
-  const structData: Record<string, any[]> = {
-    context: mapStructSections(d?.structural?.context ?? []),
-    entry:   mapStructSections(d?.structural?.entry   ?? []),
-  };
+  const recHas = recovery?.hasData;
+  const recNote = recHas
+    ? (recovery.verdict === 'increase' ? 'You trade LARGER when underwater — revenge-recovery risk.'
+      : recovery.verdict === 'reduce' ? 'You reduce size when underwater — disciplined recovery.'
+      : 'Your position sizing stays steady through drawdowns.')
+    : 'Not enough underwater trades to assess recovery sizing.';
+  const recColor = recovery?.verdict === 'increase' ? 'loss' : recovery?.verdict === 'reduce' ? 'gain' : '';
 
-  // Sessions
-  const sessions = (d?.sessions ?? []).map((s: any) => ({
-    s:         s.session,
-    v:         fmtDd(s.avgDdPct),
-    t:         s.total,
-    l:         s.losses,
-    w:         `${Math.round(s.barWidthPct)}%`,
-    worstPair: s.worstPair,
-    worstDD:   fmtDd(s.worstDdPct),
-    ...sessionColors(s.avgDdPct),
-  }));
+  const heatRows: any[]   = d.heatmap ?? [];
+  const heatCols: string[] = heatRows[0]?.cells?.map((c: any) => c.strategy) ?? [];
 
-  // Streaks
-  const sk = d?.streaks;
-  const streaks = [
-    { label: t('drawdown.maxLossStreak'),    value: String(sk?.maxLossStreak?.length ?? 0), sub: fmtRange(sk?.maxLossStreak?.startDate, sk?.maxLossStreak?.endDate) || 'no data', vColor: 'text-rose-500'    },
-    { label: t('drawdown.avgLossStreak'),    value: String(sk?.avgLossStreak  ?? 0),        sub: t('drawdown.beforeRecovery'),      vColor: 'text-amber-500'   },
-    { label: t('drawdown.postStreakRevenge'),value: `${sk?.revengeRate ?? 0}%`,             sub: 'of streaks triggered', vColor: 'text-rose-400'    },
-    { label: t('drawdown.bestWinStreak'),    value: String(sk?.bestWinStreak?.length ?? 0), sub: fmtRange(sk?.bestWinStreak?.startDate, sk?.bestWinStreak?.endDate) || 'no data', vColor: 'text-emerald-500' },
-  ];
+  const freqKey = freq === 'ATTR' ? 'attr' : 'instr';
+  const freqList: any[] = (d.frequency?.[freqKey] ?? []).slice(0, 6);
+  const freqMax = Math.max(1, ...freqList.map((f: any) => f.lossRate));
+
+  const structKey = diag === 'ENTRY' ? 'entry' : 'context';
+  const structSections: any[] = d.structural?.[structKey] ?? [];
+
+  const sessions: any[] = d.sessions ?? [];
+
+  const sk = d.streaks;
   const timeline: string[] = (sk?.timeline ?? []).map((t: any) => t.result);
 
-  // RR Buckets
-  const rrBuckets = (d?.rrBuckets ?? []).map((b: any) => ({
-    label: b.label,
-    count: b.count,
-    pct:   `${b.pct}%`,
-    note:  b.note,
-    c:     RR_COLORS[b.label] ?? 'bg-slate-500',
-  }));
+  const rrBuckets: any[] = d.rrBuckets ?? [];
+  const rrTone = (label: string) =>
+    label === '< 1:1' ? 'loss' : label === '1:1 – 1:2' ? 'warn' : label === '> 1:3' ? 'gain' : 'dim';
+  const belowTarget = rrBuckets
+    .filter((b: any) => b.label === '< 1:1' || b.label === '1:1 – 1:2')
+    .reduce((s: number, b: any) => s + (b.pct || 0), 0);
 
-  // Monthly
-  const monthly = (d?.monthly ?? []).map((m: any) => {
-    const eq = m.equityGrowthPct ?? null;
-    const eqStr = eq === null ? '—' : eq === 0 ? '0.00%' : `${eq > 0 ? '+' : ''}${eq.toFixed(2)}%`;
-    const eqColor = eq === null ? 'text-slate-500' : eq > 0 ? 'text-emerald-400' : eq < 0 ? 'text-rose-400' : 'text-slate-400';
-    const deficit = m.outstandingDeficitPct ?? 0;
-    const hasDeficit = deficit > 0.01;
-    return {
-      month:      m.month,
-      year:       m.year,
-      dd:         fmtDd(m.maxDdPct),
-      t:          m.totalTrades,
-      l:          m.lossCount,
-      rec:        `${Math.round(m.recoveryPct)}%`,
-      cause:      m.dominantCause,
-      causeC:     causeColor(m.dominantCauseClass),
-      bigL:       fmtDd(m.biggestLossPct),
-      equity:     eqStr,
-      eqColor,
-      hasDeficit,
-      deficitStr: hasDeficit ? `-${deficit.toFixed(2)}%` : null,
-    };
-  });
+  const monthly: any[] = d.monthly ?? [];
+  const years: number[] = monthly.map((m: any) => m.year);
+  const monthlyRange = years.length === 0 ? '' : years[0] === years[years.length - 1] ? `${years[0]}` : `${years[0]}–${years[years.length - 1]}`;
 
-  const monthlyYears: number[] = d?.monthly?.map((m: any) => m.year) ?? [];
-  const monthlyTitle = monthlyYears.length === 0
-    ? t('drawdown.monthlyDrawdown')
-    : monthlyYears[0] === monthlyYears[monthlyYears.length - 1]
-      ? `${t('drawdown.monthlyDrawdown')} · FY ${monthlyYears[0]}`
-      : `${t('drawdown.monthlyDrawdown')} · ${monthlyYears[0]}–${monthlyYears[monthlyYears.length - 1]}`;
-
-  // ── Loading / error / no-session states ───────────────────────────────────
-
-  const showLoader = useDelayedLoading(!!sessionId && isLoading);
-  if (showLoader) {
-    return <PanelSkeleton />;
-  }
-
-  if (!sessionId) {
-    return (
-      <div style={{ minHeight: 480, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, fontFamily: "'Montserrat', sans-serif" }}>
-        <TrendingDown className="w-8 h-8 text-slate-700" />
-        <p className="text-[11px] text-slate-500 uppercase tracking-widest" style={{ fontWeight: 600 }}>No session selected</p>
-        <p className="text-[10px] text-slate-600" style={{ fontWeight: 400 }}>Select or create a session to view drawdown analysis</p>
-      </div>
-    );
-  }
-
-  if (isError) {
-    const errMsg = (error as Error)?.message;
-    return (
-      <div style={{ minHeight: 480, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, fontFamily: "'Montserrat', sans-serif" }}>
-        <TrendingDown className="w-8 h-8 text-rose-600" />
-        <p className="text-[11px] text-rose-500 uppercase tracking-widest" style={{ fontWeight: 600 }}>Failed to load drawdown data</p>
-        {errMsg && (
-          <p className="text-[9px] text-rose-400/80 max-w-sm text-center px-4" style={{ fontWeight: 500, lineHeight: 1.6, wordBreak: 'break-all' }}>{errMsg}</p>
-        )}
-        <p className="text-[10px] text-slate-500" style={{ fontWeight: 400 }}>Check server logs or try refreshing</p>
-      </div>
-    );
-  }
-
-  // ── Render ────────────────────────────────────────────────────────────────
-
+  // ── render ──────────────────────────────────────────────────────────────────
   return (
-    <div className="dd-root min-h-full antialiased" style={{ fontFamily: "'Montserrat', sans-serif" }}>
-      <style>{`
-        .dd-card      { background:#0d1117; border:1px solid rgba(255,255,255,0.04); }
-        .dd-card-dark { background:#080a0e; border:1px solid rgba(255,255,255,0.04); }
-        .dd-divider   { border-color:rgba(255,255,255,0.04); }
-        .jm, .jm *    { font-family:'JetBrains Mono',monospace !important; }
-        @keyframes ddPulse { from { opacity:0.3; } to { opacity:1; } }
-      `}</style>
+    <div className="dp">
+      <style>{DP_CSS}</style>
+      <div className="shell">
 
-      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 pt-6 sm:pt-8">
-
-        {/* ── HEADER ─────────────────────────────────────────────── */}
-        <div className="mb-6 sm:mb-8 pb-5 sm:pb-6 border-b dd-divider flex flex-col md:flex-row md:items-start justify-between gap-4 sm:gap-6">
-          <div>
-            <div className="flex items-center gap-3 mb-2">
-              <p className="text-[9px] uppercase tracking-[0.3em] text-slate-600" style={{ fontWeight: 500 }}>Drawdown Intelligence</p>
-              {isFetching && !isLoading && (
-                <div className="flex items-center gap-1">
-                  <div style={{ width: 4, height: 4, borderRadius: '50%', background: '#10b981', animation: 'ddPulse 1s ease infinite alternate' }} />
-                  <span style={{ fontSize: 7, fontWeight: 700, letterSpacing: '0.2em', color: '#10b981', opacity: 0.7 }}>SYNCING</span>
-                </div>
-              )}
+        {/* ── HERO ── */}
+        <section>
+          <div className="hero-head">
+            <div>
+              <div className="eyebrow">Drawdown Intelligence</div>
+              <h1 className="hero-h1">Where Are You Losing?</h1>
             </div>
-            <h1 className="text-xl sm:text-2xl text-white leading-none" style={{ fontWeight: 800 }}>Where Are You Losing?</h1>
+            <div className="equity">
+              <span className="slabel">Status :</span>
+              <span className="t" style={{ color: inDd ? 'var(--loss)' : 'var(--gain)' }}>
+                {inDd ? `In Drawdown ${fmtDd(cur.ddPct)}` : 'At Equity Highs'}
+              </span>
+            </div>
           </div>
-          <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-4 sm:gap-8">
-            {topStats.map((s, i) => (
-              <div key={i} className="flex flex-col gap-1">
-                <L>{s.label}</L>
-                <span className="text-sm jm" style={{ fontWeight: 700, color: s.accent }}>{s.value}</span>
+
+          <div className="kpis">
+            {kpis.map((kp) => (
+              <div className="kpi" key={kp.k}><div className="k">{kp.k}</div><div className={`v ${kp.c}`}>{kp.v}</div></div>
+            ))}
+          </div>
+
+          <div className="chart-wrap">
+            <DiveProfile series={intel.series ?? []} inDrawdown={inDd} currentDdPct={cur.ddPct ?? 0} />
+          </div>
+
+          <div className="chart-foot">
+            <div className="foot"><div className="k">Since Peak</div><div className="v">{cur.tradesSincePeak ?? 0}<span className="u">trades{cur.daysSincePeak != null ? ` · ${cur.daysSincePeak}d` : ''}</span></div></div>
+            <div className="foot"><div className="k">Longest Underwater</div><div className="v">{uw.longestTrades ?? 0}<span className="u">trades{uw.longestDays ? ` · ${uw.longestDays}d` : ''}</span></div></div>
+            <div className="foot"><div className="k">Avg Recovery</div><div className="v">{uw.avgRecoveryTrades ?? 0}<span className="u">trades</span></div></div>
+            <div className="foot" style={{ marginLeft: 'auto' }}><div className="k">Deepest</div><div className="v loss">{fmtDd(ts.maxDrawdown)}</div></div>
+          </div>
+        </section>
+
+        {/* ── STRATEGY LEADERBOARD ── */}
+        <section>
+          <Rule label={`Drawdown by ${ddView === 'INSTRUMENT' ? 'Instrument' : 'Strategy'}`} right={
+            <div style={{ display: 'flex', alignItems: 'center', gap: 18, flexWrap: 'wrap' }}>
+              <Seg options={['BEARISH', 'BULLISH']} value={dir} onChange={setDir} accents={{ BEARISH: 'var(--loss)', BULLISH: 'var(--gain)' }} />
+              <span style={{ width: 1, height: 13, background: 'var(--line2)' }} />
+              <Seg options={['STRATEGY', 'INSTRUMENT']} value={ddView} onChange={setDdView} />
+            </div>
+          } />
+          <div className="colh"><span /><span /><span>Loss Contribution</span><span style={{ textAlign: 'right' }}>Drawdown</span></div>
+          <div className="lead">
+            {leaderRows.length === 0 ? (
+              <div className="empty-row">No {dir.toLowerCase()} trades recorded</div>
+            ) : leaderRows.map((s: any, i: number) => {
+              const neg = s.totalLossPct < 0;
+              const w = (Math.abs(s.totalLossPct) / leaderMax) * 100;
+              return (
+                <div className="lrow" key={s.name}>
+                  <span className="lrank">{String(i + 1).padStart(2, '0')}</span>
+                  <div className="lname"><span className="ltag">{s.name}</span><span className="lmeta">{s.trades} trades · {s.lossRate}% loss</span></div>
+                  <div className="lbar"><i style={{ width: `${Math.max(w, 1)}%`, background: neg ? 'var(--loss)' : 'var(--ink3)' }} /></div>
+                  <span className={`lval ${neg ? 'loss' : 'gain'}`}>{neg ? `${s.totalLossPct.toFixed(2)}%` : '0.00%'}</span>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+
+        {/* ── MODEL TRIPLE ── */}
+        <section>
+          <Rule label="Edge & Risk Model" sub="Model · Projection · Recovery" />
+          <div className="trip">
+            <div>
+              <div className="subh">Edge & Risk Model</div>
+              <div className="dl">{edge.map((r) => <div className="r" key={r.k}><span className="k">{r.k}</span><span className={`v ${r.c}`}>{r.v}</span></div>)}</div>
+            </div>
+            <div>
+              <div className="subh">Monte-Carlo Projection</div>
+              {hasMc ? <>
+                <div className="dl">{monte.map((r) => <div className="r" key={r.k}><span className="k">{r.k}</span><span className={`v ${r.c}`}>{r.v}</span></div>)}</div>
+                <p className="note">{mc.actualPercentile}% of {mc.runs} simulated histories had a drawdown as deep or deeper than yours.</p>
+              </> : <p className="note">Not enough trades to run a Monte-Carlo projection.</p>}
+            </div>
+            <div>
+              <div className="subh">Recovery Pattern</div>
+              <div className="dl"><div className="r"><span className="k">Size When Underwater</span><span className={`v ${recColor}`}>{recHas ? `${recovery.sizeRatio}x baseline` : '—'}</span></div></div>
+              <p className="note">{recNote}</p>
+            </div>
+          </div>
+        </section>
+
+        {/* ── RISK SURFACE ── */}
+        <section>
+          <Rule label="Risk Heatmap · Pair vs Strategy" sub="Loss Intensity by Cell" />
+          <div className="rs">
+            {heatRows.length === 0 ? (
+              <div className="empty-row">No heatmap data</div>
+            ) : (
+              <div className="heat" style={{ ['--cols' as any]: heatCols.length || 1 }}>
+                <div className="hrow"><div className="hp">PAIR</div>{heatCols.map((c, i) => <div className="hh" key={i}>{c}</div>)}</div>
+                {heatRows.map((r) => (
+                  <div className="hrow" key={r.pair}>
+                    <div className="hp">{r.pair}</div>
+                    {r.cells.map((c: any, i: number) => (
+                      <div className="hc" key={i} style={heatBg(c.avgDdPct)}>
+                        <div className="p" style={{ color: c.avgDdPct < 0 ? 'var(--heat-neg-ink)' : 'var(--ink3)' }}>{c.avgDdPct === 0 ? '0.0%' : `${c.avgDdPct.toFixed(1)}%`}</div>
+                        <div className="t">({c.total}T/{c.losses}L)</div>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="freq">
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 18 }}>
+                <span className="subh" style={{ margin: 0 }}>Frequency</span>
+                <Seg options={['ATTR', 'INSTR']} value={freq} onChange={setFreq} />
+              </div>
+              {freqList.length === 0 ? <span className="mut" style={{ fontSize: 11 }}>No data</span> : freqList.map((f, i) => {
+                const tone = f.lossRate > 60 ? 'loss' : f.lossRate > 35 ? 'warn' : 'gain';
+                return (
+                  <div key={i}>
+                    <div className="frow"><span className="dim" style={{ letterSpacing: '.06em' }}>{f.name}</span><span className={`num ${tone}`} style={{ fontSize: 15 }}>{f.lossRate}%</span></div>
+                    <div className="bar"><i style={{ width: `${(f.lossRate / freqMax) * 100}%`, background: toneVar(tone) }} /></div>
+                    <div className="fsub">{f.losses}L / {f.total}T</div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </section>
+
+        {/* ── STRUCTURAL ── */}
+        <section>
+          <Rule label="Structural Diagnostics" right={<Seg options={['CONTEXT', 'ENTRY']} value={diag} onChange={setDiag} />} />
+          <div className="struct-top">
+            {structSections.length === 0 ? (
+              <span className="mut" style={{ fontSize: 12 }}>No structural data yet</span>
+            ) : structSections.map((sec, si) => (
+              <div key={si} style={si > 0 ? { marginTop: 18 } : undefined}>
+                <div className="subh" style={{ color: 'var(--loss)' }}>{sec.title}</div>
+                {sec.items.map((it: any, ii: number) => (
+                  <div className="rp" key={ii}>
+                    <span className="nm">{it.label}</span>
+                    <span style={{ display: 'flex', gap: 12, alignItems: 'baseline' }}>
+                      <span className="v">{fmtDd(it.avgDdPct)}</span><span className="tl">{it.total}T/{it.losses}L</span>
+                    </span>
+                  </div>
+                ))}
               </div>
             ))}
           </div>
-        </div>
 
-        {/* ── DRAWDOWN STATUS (live) ─────────────────────────────── */}
-        {intel && (
-          <div className="dd-card rounded-lg p-4 sm:p-5 mb-4 flex flex-col lg:flex-row lg:items-center gap-5 lg:gap-6">
-            {/* Status — eyebrow label over a large colored verdict */}
-            <div className="flex items-center gap-3 lg:pr-6 lg:border-r dd-divider shrink-0">
-              <span style={{ width: 10, height: 10, borderRadius: '50%', flexShrink: 0,
-                background: intel.current.inDrawdown ? '#f43f5e' : '#10b981',
-                boxShadow: `0 0 10px ${intel.current.inDrawdown ? 'rgba(244,63,94,0.55)' : 'rgba(16,185,129,0.55)'}` }} />
-              <div className="flex flex-col gap-1.5">
-                <span className="text-[9px] uppercase tracking-[0.2em] text-slate-500" style={{ fontWeight: 600 }}>Status</span>
-                <span className="text-base leading-none" style={{ fontWeight: 800, color: intel.current.inDrawdown ? '#f43f5e' : '#10b981' }}>
-                  {intel.current.inDrawdown ? `In Drawdown ${fmtDd(intel.current.ddPct)}` : 'At Equity Highs'}
-                </span>
-              </div>
-            </div>
-            {/* Stat tiles — eyebrow label → big number → muted unit */}
-            <div className="grid grid-cols-3 flex-1 gap-3">
-              <DdStat label="Since Peak" num={intel.current.tradesSincePeak}
-                suffix={`trades${intel.current.daysSincePeak != null ? ` · ${intel.current.daysSincePeak}d` : ''}`} />
-              <DdStat label="Longest Underwater" className="lg:pl-4 lg:border-l dd-divider" num={intel.underwater.longestTrades}
-                suffix={`trades${intel.underwater.longestDays ? ` · ${intel.underwater.longestDays}d` : ''}`} />
-              <DdStat label="Avg Recovery" className="lg:pl-4 lg:border-l dd-divider" num={intel.underwater.avgRecoveryTrades || '—'}
-                suffix="trades" />
-            </div>
-            {intel.series && intel.series.length > 1 && <UnderwaterSpark series={intel.series} />}
-          </div>
-        )}
-
-        {/* ── DRAWDOWN BY STRATEGY / INSTRUMENT ───────────────────── */}
-        {intel && (intel.byStrategy.length > 0 || intel.byInstrument.length > 0) && (
-          <div className="dd-card rounded p-4 sm:p-6 mb-4">
-            <div className="flex flex-wrap items-center justify-between gap-2 mb-5">
-              <SectionTitle icon={<Network className="w-3 h-3"/>}>Drawdown By {ddGroupView === 'strategy' ? 'Strategy' : 'Instrument'}</SectionTitle>
-              <Toggle options={[{ value: 'strategy', label: 'Strategy' }, { value: 'instrument', label: 'Instrument' }]} active={ddGroupView} onChange={setDdGroupView} />
-            </div>
-            {/* Core-Robustness pattern: column headers + per-row [label over glowing bar | centered value] */}
-            <div className="flex flex-col">
-              <div className="grid items-center pb-2 mb-1 border-b dd-divider" style={{ gridTemplateColumns: '1fr 1fr' }}>
-                <span className="text-[9px] uppercase tracking-[0.25em] text-slate-600" style={{ fontWeight: 600 }}>Loss Contribution</span>
-                <span className="text-[9px] uppercase tracking-[0.25em] text-slate-600 text-center" style={{ fontWeight: 600 }}>Drawdown</span>
-              </div>
-              {(() => {
-                const rows = ddGroupView === 'strategy' ? intel.byStrategy : intel.byInstrument;
-                const max = rows.reduce((m: number, r: any) => Math.max(m, Math.abs(r.totalLossPct)), 0.01);
-                return rows.map((g: any, i: number) => {
-                  const neg = g.totalLossPct < 0;
-                  const color = neg ? '#f43f5e' : '#10b981';
-                  const pct = Math.min(100, (Math.abs(g.totalLossPct) / max) * 100);
-                  return (
-                    <div key={g.name} className="grid items-center border-b dd-divider last:border-b-0" style={{ gridTemplateColumns: '1fr 1fr', padding: '16px 0' }}>
-                      {/* Left — label + glowing contribution bar */}
-                      <div className="flex flex-col gap-3 pr-6 min-w-0">
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <span className="text-[9px] font-mono text-slate-600 shrink-0" style={{ fontWeight: 700 }}>{String(i + 1).padStart(2, '0')}</span>
-                          <span className="text-xs text-slate-200 truncate" style={{ fontWeight: 600 }}>{g.name}</span>
-                          <Sub className="truncate">{g.trades} trades · {g.lossRate}% loss</Sub>
-                        </div>
-                        <div className="w-full rounded-full" style={{ height: 3, background: 'rgba(148,163,184,0.14)' }}>
-                          <div className="h-full rounded-full" style={{ width: `${pct}%`, background: color, boxShadow: `0 0 8px ${color}`, transition: 'width 0.6s ease' }} />
-                        </div>
-                      </div>
-                      {/* Right — centered value: big number + faded % */}
-                      <div className="text-center font-mono">
-                        <span className="text-sm" style={{ fontWeight: 700, color }}>{g.totalLossPct.toFixed(2)}</span>
-                        <span className="text-[9px]" style={{ fontWeight: 700, color, opacity: 0.5 }}>%</span>
-                      </div>
-                    </div>
-                  );
-                });
-              })()}
-            </div>
-          </div>
-        )}
-
-        {/* ── EDGE & RISK · MONTE-CARLO · RECOVERY ────────────────── */}
-        {(risk || (mc && mc.hasData) || (recovery && recovery.hasData)) && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
-            {risk && (
-              <div className="dd-card rounded p-4 sm:p-6">
-                <SectionTitle icon={<ShieldCheck className="w-3 h-3"/>}>Edge &amp; Risk Model</SectionTitle>
-                <div className="mt-5 flex flex-col gap-3">
-                  <Row k="Win Rate" v={`${risk.winRate}%`} />
-                  <Row k="Payoff (avg win / loss)" v={`${risk.payoff}x`} />
-                  <Row k="Kelly Optimal Risk" v={`${risk.kellyPct}%`} accent="#10b981" />
-                  <Row k="Loss Streak (actual / expected)" v={`${risk.actualMaxLossStreak} / ${risk.expectedMaxLossStreak}`} accent={risk.streakWithinExpectation ? undefined : '#f43f5e'} />
-                  {risk.mae?.hasData && <Row k="Loser vs Winner MAE" v={`${risk.mae.ratio}x deeper`} accent="#f59e0b" />}
-                </div>
-              </div>
-            )}
-            {mc && mc.hasData && (
-              <div className="dd-card rounded p-4 sm:p-6">
-                <SectionTitle icon={<Activity className="w-3 h-3"/>}>Monte-Carlo Projection</SectionTitle>
-                <div className="mt-5 flex flex-col gap-3">
-                  <Row k="Expected Max DD" v={fmtDd(mc.expectedMaxDd)} accent="#f59e0b" />
-                  <Row k="Worst Case (95%)" v={fmtDd(mc.worstCase95)} accent="#f43f5e" />
-                  <Row k="Worst Case (99%)" v={fmtDd(mc.worstCase99)} accent="#f43f5e" />
-                  <Row k="Risk of Ruin (>50% DD)" v={`${mc.riskOfRuinPct}%`} accent={mc.riskOfRuinPct > 1 ? '#f43f5e' : '#10b981'} />
-                  <Sub>{mc.actualPercentile}% of {mc.runs} simulated histories had a drawdown as deep or deeper than yours.</Sub>
-                </div>
-              </div>
-            )}
-            {recovery && recovery.hasData && (
-              <div className="dd-card rounded p-4 sm:p-6">
-                <SectionTitle icon={<TrendingDown className="w-3 h-3"/>}>Recovery Pattern</SectionTitle>
-                <div className="mt-5 flex flex-col gap-3">
-                  <Row k="Size When Underwater" v={`${recovery.sizeRatio}x baseline`} accent={recovery.verdict === 'increase' ? '#f43f5e' : recovery.verdict === 'reduce' ? '#10b981' : '#6366f1'} />
-                  <Sub>{recovery.verdict === 'increase'
-                    ? 'You trade LARGER when underwater — revenge-recovery risk.'
-                    : recovery.verdict === 'reduce'
-                    ? 'You trade smaller when underwater — disciplined de-risking.'
-                    : 'Your position sizing stays steady through drawdowns.'}</Sub>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ── ROW 1: HEATMAP + FREQUENCY ─────────────────────────── */}
-        <div className="grid grid-cols-1 xl:grid-cols-[1fr_380px] gap-4 mb-4">
-
-          {/* Heatmap */}
-          <div className="dd-card rounded p-4 sm:p-6">
-            <div className="flex flex-wrap items-center justify-between gap-2 mb-6">
-              <SectionTitle icon={<Layout className="w-3 h-3"/>}>{t('drawdown.riskHeatmap')}</SectionTitle>
-              <L>loss intensity by cell</L>
-            </div>
-            {heatRows.length === 0 ? (
-              <p className="text-[10px] text-slate-600 uppercase tracking-widest" style={{ fontWeight: 500 }}>No trade data yet</p>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full border-collapse">
-                  <thead>
-                    <tr>
-                      <th className="text-left pb-3 pr-4 w-24"><L>Pair</L></th>
-                      {strategies.map((s: string) => <th key={s} className="pb-3 text-center min-w-[110px]"><L>{s}</L></th>)}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {heatRows.map((row: any) => (
-                      <tr key={row.pair}>
-                        <td className="py-1 pr-4">
-                          <span className="text-[10px] text-slate-400 uppercase" style={{ fontWeight: 600 }}>{row.pair}</span>
-                        </td>
-                        {row.cells.map((cell: any, i: number) => (
-                          <td key={i} className="py-1 px-1">
-                            <div className="rounded-sm py-2.5 flex flex-col items-center cursor-crosshair hover:brightness-125 transition-all"
-                              style={{ backgroundColor: heatColor(cell.avgDdPct) }}>
-                              <span className="text-[11px] text-white" style={{ fontWeight: 700 }}>{cell.avgDdPct.toFixed(1)}%</span>
-                              <span className="text-[8px] text-white/50 jm mt-0.5" style={{ fontWeight: 400 }}>({cell.total}T/{cell.losses}L)</span>
-                            </div>
-                          </td>
-                        ))}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-
-          {/* Frequency */}
-          <div className="dd-card rounded p-4 sm:p-6 flex flex-col">
-            <div className="flex flex-wrap items-center justify-between gap-2 mb-5">
-              <SectionTitle>Frequency</SectionTitle>
-              <Toggle
-                options={[{ value:'attr', label:'Attr' },{ value:'instr', label:'Instr' }]}
-                active={activeFreqView}
-                onChange={setActiveFreqView}
-              />
-            </div>
-            <div className="flex flex-col gap-3 flex-1">
-              {(freqData[activeFreqView] ?? []).length === 0 ? (
-                <p className="text-[10px] text-slate-600">No data yet</p>
-              ) : (
-                (freqData[activeFreqView] ?? []).map((item: any, i: number) => {
-                  const rate = Math.round((item.losses / item.total) * 100);
-                  const high = rate > 55;
-                  return (
-                    <div key={i} className="flex items-center gap-3">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-baseline justify-between mb-1">
-                          <span className="text-[10px] text-slate-300 truncate uppercase" style={{ fontWeight: 600 }}>{item.name}</span>
-                          <span className={`text-[10px] jm ml-2 shrink-0 ${high ? 'text-rose-500' : 'text-emerald-500'}`} style={{ fontWeight: 700 }}>{rate}%</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <div className="flex-1 bg-white/5 h-px">
-                            <div className={`h-full ${high ? 'bg-rose-500' : 'bg-slate-600'} transition-all duration-700`} style={{ width: `${rate}%` }}></div>
-                          </div>
-                          <Sub>{item.total}T/{item.losses}L</Sub>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* ── ROW 2: STRUCTURAL DIAGNOSTICS ──────────────────────── */}
-        <div className="dd-card-dark rounded p-4 sm:p-6 mb-4 border-t border-indigo-500/10">
-          <div className="flex flex-wrap items-center justify-between gap-3 mb-6 sm:mb-7">
-            <SectionTitle icon={<Network className="w-3 h-3"/>}>{t('drawdown.structuralDiagnostics')}</SectionTitle>
-            <Toggle
-              options={[{ value:'context', label:'Context' },{ value:'entry', label:'Entry' }]}
-              active={activeStructView}
-              onChange={setActiveStructView}
-            />
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 sm:gap-8">
-            {(structData[activeStructView] ?? []).length === 0 ? (
-              <p className="text-[10px] text-slate-600 col-span-3">No structural data yet</p>
-            ) : (
-              (structData[activeStructView] ?? []).map((sec: any, i: number) => (
-                <div key={i}>
-                  <div className="flex items-center gap-2 mb-4">
-                    {sec.icon}
-                    <L>{sec.title}</L>
+          <div className="sg">
+            <div>
+              <div className="subh">Session</div>
+              {sessions.length === 0 ? <span className="mut" style={{ fontSize: 11 }}>No session data</span> : sessions.map((s) => {
+                const tone = sevTone(s.avgDdPct);
+                return (
+                  <div className="sess" key={s.session}>
+                    <div className="top"><span className="nm">{s.session}</span><span className={`vv ${tone}`}>{fmtDd(s.avgDdPct)}</span></div>
+                    <div className="sb">N={s.total} · {s.losses} losses</div>
+                    <div className="sbar"><i style={{ width: `${Math.round(s.barWidthPct)}%`, background: toneVar(tone) }} /></div>
+                    <div className="wp"><span className="l">Worst Pair</span><span className="r">{s.worstPair} {fmtDd(s.worstDdPct)}</span></div>
                   </div>
-                  <div className="space-y-4">
-                    {sec.items.map((item: any, j: number) => (
-                      <div key={j}>
-                        <div className="flex items-baseline justify-between mb-1.5">
-                          <span className="text-[10px] text-slate-400 uppercase" style={{ fontWeight: 600 }}>{item.label}</span>
-                          <V className="text-rose-500 ml-2 shrink-0">{item.val}</V>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <div className="flex-1 bg-white/5 h-px">
-                            <div className={`${item.c} h-full transition-all duration-700`} style={{ width: item.w }}></div>
-                          </div>
-                          <Sub>{item.t}T/{item.l}L</Sub>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-
-        {/* ── ROW 3: SESSION + STREAK + RR ───────────────────────── */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-
-          {/* Session */}
-          <div className="dd-card rounded p-4 sm:p-6">
-            <div className="mb-5"><SectionTitle icon={<Clock className="w-3 h-3"/>}>Session</SectionTitle></div>
-            {sessions.length === 0 ? (
-              <p className="text-[10px] text-slate-600">No session data yet</p>
-            ) : (
-              <div className="space-y-4">
-                {sessions.map((s: any, i: number) => (
-                  <div key={i} className="pb-4 border-b dd-divider last:border-0 last:pb-0">
-                    <div className="flex items-start justify-between mb-2">
-                      <div>
-                        <span className="text-[10px] text-slate-300 uppercase" style={{ fontWeight: 600 }}>{s.s}</span>
-                        <Sub className="block mt-0.5">N={s.t} · {s.l} losses</Sub>
-                      </div>
-                      <V className={s.vColor}>{s.v}</V>
-                    </div>
-                    <Bar pct={s.w} color={s.bar} />
-                    <div className="flex justify-between mt-2">
-                      <L>Worst pair</L>
-                      <div className="flex gap-2">
-                        <Sub className="text-slate-400">{s.worstPair}</Sub>
-                        <Sub className="text-rose-500">{s.worstDD}</Sub>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Streak */}
-          <div className="dd-card rounded p-4 sm:p-6">
-            <div className="mb-5"><SectionTitle icon={<TrendingDown className="w-3 h-3"/>}>{t('drawdown.lossStreaks')}</SectionTitle></div>
-            <div className="grid grid-cols-2 gap-3 mb-6">
-              {streaks.map((s, i) => (
-                <div key={i} className="dd-card-dark rounded p-3">
-                  <L className="block mb-2">{s.label}</L>
-                  <V className={s.vColor}>{s.value}</V>
-                  <Sub className="block mt-1">{s.sub}</Sub>
-                </div>
-              ))}
+                );
+              })}
             </div>
             <div>
-              <L className="block mb-3">Trade Timeline</L>
-              {timeline.length === 0 ? (
-                <p className="text-[10px] text-slate-600">No trades yet</p>
-              ) : (
-                <div className="flex flex-wrap gap-1">
-                  {timeline.map((r, i) => (
-                    <div key={i} className={`w-[18px] h-[18px] rounded-sm flex items-center justify-center text-[7px] ${r === 'W' ? 'bg-emerald-500/15 text-emerald-500' : r === 'B' ? 'bg-slate-500/15 text-slate-400' : 'bg-rose-500/15 text-rose-500'}`} style={{ fontWeight: 700 }}>{r}</div>
-                  ))}
-                </div>
-              )}
+              <div className="subh">Loss Streaks</div>
+              <div className="ls">
+                <div><div className="k">Max Loss Streak</div><div className="big loss">{sk?.maxLossStreak?.length ?? 0}</div><div className="s">{fmtRange(sk?.maxLossStreak?.startDate, sk?.maxLossStreak?.endDate) || 'no data'}</div></div>
+                <div><div className="k">Avg Loss Streak</div><div className="big warn">{sk?.avgLossStreak ?? 0}</div><div className="s">before recovery</div></div>
+                <div><div className="k">Post-Streak Revenge</div><div className="big loss">{sk?.revengeRate ?? 0}%</div><div className="s">of streaks triggered</div></div>
+                <div><div className="k">Best Win Streak</div><div className="big gain">{sk?.bestWinStreak?.length ?? 0}</div><div className="s">{fmtRange(sk?.bestWinStreak?.startDate, sk?.bestWinStreak?.endDate) || 'no data'}</div></div>
+              </div>
+              <div className="k" style={{ fontSize: 9, letterSpacing: '.13em', textTransform: 'uppercase', color: 'var(--ink3)', marginTop: 20 }}>Trade Timeline</div>
+              <div className="tl">{timeline.length === 0 ? <span className="mut" style={{ fontSize: 10 }}>—</span> : timeline.map((c, i) => <span key={i} className={c === 'W' ? 'tw' : c === 'L' ? 'tlo' : 'tb'}>{c}</span>)}</div>
             </div>
-          </div>
-
-          {/* RR Distribution */}
-          <div className="dd-card rounded p-4 sm:p-6">
-            <div className="mb-5"><SectionTitle icon={<Activity className="w-3 h-3"/>}>RR Distribution</SectionTitle></div>
-            {rrBuckets.length === 0 ? (
-              <p className="text-[10px] text-slate-600">No RR data yet</p>
-            ) : (
-              <div className="space-y-5">
-                {rrBuckets.map((b: any, i: number) => (
-                  <div key={i}>
-                    <div className="flex items-baseline justify-between mb-1.5">
-                      <div className="flex items-baseline gap-3">
-                        <V className="text-slate-200">{b.label}</V>
-                        <L>{b.note}</L>
-                      </div>
-                      <div className="flex items-baseline gap-2">
-                        <Sub>{b.count}T</Sub>
-                        <V className="text-slate-300">{b.pct}</V>
-                      </div>
-                    </div>
-                    <Bar pct={b.pct} color={b.c} />
-                  </div>
-                ))}
-              </div>
-            )}
-            {rrBuckets.length > 0 && (
-              <div className="mt-6 pt-5 border-t dd-divider">
-                <p className="text-[10px] text-slate-500 leading-relaxed" style={{ fontWeight: 500 }}>
-                  {(() => {
-                    const below = rrBuckets.slice(0, 2).reduce((s: number, b: any) => s + b.count, 0);
-                    const total = rrBuckets.reduce((s: number, b: any) => s + b.count, 0);
-                    const pct = total > 0 ? Math.round(below / total * 100) : 0;
-                    return `${pct}% of trades fall below target RR — `;
-                  })()}
-                  <span className="text-rose-400" style={{ fontWeight: 700 }}>primary drawdown driver</span>
-                </p>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* ── ROW 4: MONTHLY TIMELINE ────────────────────────────── */}
-        <div className="dd-card rounded p-4 sm:p-6">
-          <div className="flex flex-wrap items-start justify-between gap-2 mb-6 sm:mb-7">
-            <SectionTitle icon={<CalendarDays className="w-3 h-3"/>}>{monthlyTitle}</SectionTitle>
-            <L>dominant cause per month</L>
-          </div>
-          {monthly.length === 0 ? (
-            <p className="text-[10px] text-slate-600">No monthly data yet</p>
-          ) : (
-            <div className="relative">
-              <div className="absolute top-[22px] left-0 right-0 h-px bg-white/5 z-0"></div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 relative z-10">
-                {monthly.map((d: any, i: number) => {
-                  const isLoss   = d.eqColor === 'text-rose-400';
-                  const isProfit = d.eqColor === 'text-emerald-400';
-                  const heavy    = isLoss;
-                  const dotColor = heavy ? 'bg-rose-500' : isProfit ? 'bg-emerald-500' : d.hasDeficit ? 'bg-amber-500' : 'bg-slate-700';
-                  const cardBg   = heavy ? 'bg-rose-500/5 border-rose-500/15' : d.hasDeficit ? 'bg-amber-500/3 border-amber-500/15' : 'dd-card-dark border-white/4';
+            <div>
+              <div className="subh">RR Distribution</div>
+              {rrBuckets.length === 0 ? <span className="mut" style={{ fontSize: 11 }}>No RR data</span> : <>
+                {rrBuckets.map((b) => {
+                  const tone = rrTone(b.label);
                   return (
-                    <div key={i} className={`rounded p-4 border transition-all duration-300 hover:border-white/10 ${cardBg}`}>
-                      <div className={`w-2 h-2 rounded-full mb-4 mx-auto ${dotColor}`}></div>
-                      <L className="block text-center mb-2">
-                        {({'Jan':'JANUARY','Feb':'FEBRUARY','Mar':'MARCH','Apr':'APRIL','May':'MAY','Jun':'JUNE','Jul':'JULY','Aug':'AUGUST','Sep':'SEPTEMBER','Oct':'OCTOBER','Nov':'NOVEMBER','Dec':'DECEMBER'} as Record<string,string>)[d.month] ?? d.month.toUpperCase()}/{d.year}
-                      </L>
-                      <V className={`block text-center mb-1 ${d.eqColor}`}>{d.equity}</V>
-                      <Sub className="block text-center mb-3">{d.rec} rec.</Sub>
-                      {d.hasDeficit && (
-                        <div className="text-[7px] text-center px-1 py-0.5 rounded mb-1" style={{ background: 'rgba(245,158,11,0.08)', color: '#f59e0b', fontWeight: 700, letterSpacing: '0.08em' }}>
-                          CARRYING {d.deficitStr}
-                        </div>
-                      )}
-                      <div className={`text-[8px] text-center px-1.5 py-0.5 rounded bg-white/5 border border-white/5 ${d.causeC} mb-3`} style={{ fontWeight: 600 }}>{d.cause}</div>
-                      <div className="space-y-1.5 pt-2 border-t dd-divider">
-                        <div className="flex justify-between items-baseline"><L>Max DD</L><Sub className="text-rose-400 font-bold">{d.dd}</Sub></div>
-                        <div className="flex justify-between"><L>Big L</L><Sub className="text-rose-400">{d.bigL}</Sub></div>
-                        <div className="flex justify-between"><L>Loss</L><Sub className="text-slate-400">{d.l}/{d.t}</Sub></div>
+                    <div className="rr" key={b.label}>
+                      <div className="top">
+                        <span style={{ display: 'flex', gap: 10, alignItems: 'baseline' }}><span className={`rng ${tone}`}>{b.label}</span><span className="nm">{b.note}</span></span>
+                        <span style={{ display: 'flex', gap: 9, alignItems: 'baseline' }}><span className="ct">{b.count}T</span><span className="pc">{b.pct}%</span></span>
                       </div>
+                      <div className="rrbar"><i style={{ width: `${b.pct}%`, background: toneVar(tone) }} /></div>
                     </div>
                   );
                 })}
-              </div>
+                {belowTarget > 0 && <p className="note">{belowTarget.toFixed(0)}% of trades fall below target RR — <span className="loss">primary drawdown driver</span></p>}
+              </>}
             </div>
-          )}
-        </div>
+          </div>
+        </section>
+
+        {/* ── MONTHLY TABLE ── */}
+        {monthly.length > 0 && (
+          <section>
+            <Rule label={`Monthly Drawdown${monthlyRange ? ` · ${monthlyRange}` : ''}`} sub="Dominant Cause per Month" />
+            <div className="mwrap">
+              <table className="mtbl">
+                <thead><tr><th>Month</th><th>Return</th><th>Rec.</th><th>Max DD</th><th>Big L</th><th>Loss</th><th>CF</th></tr></thead>
+                <tbody>
+                  {monthly.map((m, i) => {
+                    const cf = i === 0 ? '0.00%' : fmtDd(monthly[i - 1].maxDdPct);
+                    const eq = m.equityGrowthPct;
+                    const eqStr = eq == null ? '—' : eq === 0 ? '0.00%' : `${eq > 0 ? '+' : ''}${eq.toFixed(2)}%`;
+                    const eqCls = eq == null ? 'mut' : eq > 0 ? 'gain' : eq < 0 ? 'loss' : 'dim';
+                    const dot = m.dominantCauseClass === 'bad' ? 'var(--loss)' : m.dominantCauseClass === 'good' ? 'var(--gain)' : 'var(--warn)';
+                    return (
+                      <tr key={`${m.month}-${m.year}`}>
+                        <td><span className="mmname"><span className="d" style={{ background: dot, boxShadow: m.dominantCauseClass === 'good' ? undefined : 'none' }} /><span className="nm">{m.month.toUpperCase()}/{m.year}</span></span></td>
+                        <td className={eqCls}>{eqStr}</td>
+                        <td className="mut">{Math.round(m.recoveryPct)}%</td>
+                        <td className={m.maxDdPct === 0 ? 'mut' : 'loss'}>{fmtDd(m.maxDdPct)}</td>
+                        <td className={m.biggestLossPct === 0 ? 'mut' : 'loss'}>{fmtDd(m.biggestLossPct)}</td>
+                        <td className="dim">{m.lossCount}/{m.totalTrades}</td>
+                        <td className={cf === '0.00%' ? 'mut' : 'loss'}>{cf}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        )}
 
       </div>
-
-      <footer className="max-w-[1400px] mx-auto px-6 py-8 flex justify-center">
-        <ShieldCheck className="w-3 h-3 text-slate-800" />
-      </footer>
     </div>
   );
 }

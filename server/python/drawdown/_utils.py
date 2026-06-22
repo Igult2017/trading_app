@@ -230,6 +230,34 @@ def get_strategy(t: dict) -> str:
     return s or "Unknown"
 
 
+_BULL_ALIASES = frozenset({"long", "buy", "bull", "bullish", "up", "b"})
+_BEAR_ALIASES = frozenset({"short", "sell", "bear", "bearish", "down", "s"})
+
+
+def get_direction(t: dict) -> str:
+    """
+    Normalise trade direction to 'bullish' (long / buy) | 'bearish' (short / sell)
+    | '' (unknown). Checks the direction field then common aliases + JSONB blobs.
+    """
+    raw = (
+        t.get("direction") or t.get("tradeType") or t.get("trade_type") or
+        t.get("side") or t.get("bias") or
+        blob_field(t, "direction") or blob_field(t, "side") or
+        blob_field(t, "tradeType") or ""
+    )
+    s = _s(raw)
+    if s in _BULL_ALIASES:
+        return "bullish"
+    if s in _BEAR_ALIASES:
+        return "bearish"
+    # substring fallback for compound labels e.g. "Long (buy)"
+    if "long" in s or "buy" in s or "bull" in s:
+        return "bullish"
+    if "short" in s or "sell" in s or "bear" in s:
+        return "bearish"
+    return ""
+
+
 _SESSION_MAP: dict[str, str] = {
     # normalised → display label
     "london":          "London Open",

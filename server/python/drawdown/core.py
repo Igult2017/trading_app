@@ -79,6 +79,8 @@ def compute_drawdown(trades: list, starting_balance: float) -> dict:
                 "series":       [],
                 "byStrategy":   [],
                 "byInstrument": [],
+                "byDirection":  {"bullish": {"byStrategy": [], "byInstrument": []},
+                                 "bearish": {"byStrategy": [], "byInstrument": []}},
             },
             "riskModel": {"winRate": 0.0, "payoff": 0.0, "kellyPct": 0.0,
                           "expectedMaxLossStreak": 0, "actualMaxLossStreak": 0, "streakWithinExpectation": True,
