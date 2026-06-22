@@ -28,6 +28,14 @@ function downsampleDeepest(s: number[], maxPoints: number): number[] {
   return out;
 }
 
+// Pick a "nice" gridline interval (1/2/2.5/5/10 × power of ten) for ~4 lines, so deep
+// drawdowns get clean labels (−20/−40/−60) instead of −21/−42.
+function niceStep(maxAbs: number): number {
+  const rough = maxAbs / 4;
+  const pow = Math.pow(10, Math.floor(Math.log10(rough)));
+  return [1, 2, 2.5, 5, 10].map((c) => c * pow).find((c) => c >= rough) ?? 10 * pow;
+}
+
 export function DiveProfile({
   series,
   inDrawdown,
@@ -42,6 +50,10 @@ export function DiveProfile({
   const surfaceY = PT, bottomY = H - PB;
   const span = bottomY - surfaceY;
   const plotW = plotR - plotL;
+  // Map the deepest value to 86% of the height (not the floor) so the trough + the
+  // curve's smooth overshoot keep headroom and never clip — at any depth up to -100%.
+  // The water still fills below to the floor.
+  const usable = span * 0.86;
 
   // Smooth sharp single-trade dips into rounded ones (depth preserved; true deepest
   // still shown in the "Deepest" stat).
@@ -51,7 +63,7 @@ export function DiveProfile({
 
   const P = data.map((v, i) => [
     plotL + (i / (n - 1)) * plotW,
-    surfaceY + (Math.abs(v) / maxAbs) * span,
+    surfaceY + (Math.abs(v) / maxAbs) * usable,
   ]);
 
   // Smooth path (Catmull-Rom → cubic bézier).
@@ -67,7 +79,7 @@ export function DiveProfile({
   const area = `${line} L ${plotR} ${bottomY} L ${plotL} ${bottomY} Z`;
 
   // Y gridlines: round-number drawdown depths between the surface and the floor.
-  const step = maxAbs <= 3 ? 1 : maxAbs <= 6 ? 2 : Math.ceil(maxAbs / 3);
+  const step = niceStep(maxAbs);
   const ylines: number[] = [];
   for (let v = step; v < maxAbs; v += step) ylines.push(v);
 
@@ -99,7 +111,7 @@ export function DiveProfile({
 
       {/* Y gridlines + depth labels (the Y axis) */}
       {ylines.map((v) => {
-        const y = surfaceY + (v / maxAbs) * span;
+        const y = surfaceY + (v / maxAbs) * usable;
         return (
           <g key={v}>
             <line x1={plotL} y1={y} x2={plotR} y2={y} stroke="rgba(148,163,184,.16)" strokeDasharray="2 5" />
