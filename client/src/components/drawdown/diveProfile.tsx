@@ -1,32 +1,39 @@
 import React from "react";
 
 /**
- * DiveProfile — the hero "depth gauge" chart.
- * Peak equity = the waterline (0%); the curve shows how deep below it equity sank
- * after each trade. Driven entirely by the real per-trade underwater series
- * (intel.series, values ≤ 0). Smooth Catmull-Rom path, depth gridlines derived
- * from the actual deepest point, a marker at the trough, and a current-position
- * dot that rides the surface when at equity highs.
+ * DiveProfile — the hero "depth gauge".
+ * Plots the real per-trade underwater series (intel.series, values ≤ 0): how far
+ * below peak equity you are after each trade. Peak = the green water-line (0%);
+ * red dips = drawdowns; the green dot rides the surface when at equity highs.
+ *
+ * An underwater curve has no positive side (you're at the surface when in profit),
+ * so depth is red and "healthy / at-peak" is green — there is no green *area* to
+ * show (that would be the equity curve, which lives on the Dashboard).
+ *
+ * Axes: Y = drawdown % (left gridline labels), X = trade number (bottom ticks).
+ * A right margin keeps the current-position marker from clipping at the edge.
  */
 export function DiveProfile({
   series,
   inDrawdown,
-  currentDdPct,
 }: {
   series: number[];
   inDrawdown: boolean;
-  currentDdPct: number;
+  currentDdPct?: number;
 }) {
-  const W = 1000, H = 250, surfaceY = 40, bottomY = 214;
+  const W = 1000, H = 264;
+  const PL = 2, PR = 22, PT = 18, PB = 28;          // plot margins (room for axes + end marker)
+  const plotL = PL, plotR = W - PR;
+  const surfaceY = PT, bottomY = H - PB;
   const span = bottomY - surfaceY;
+  const plotW = plotR - plotL;
 
-  // Guard: need at least 2 points; otherwise render a flat surface line.
   const data = series && series.length > 1 ? series : [0, 0];
   const n = data.length;
   const maxAbs = Math.max(0.01, ...data.map((v) => Math.abs(v)));
 
   const P = data.map((v, i) => [
-    (i / (n - 1)) * W,
+    plotL + (i / (n - 1)) * plotW,
     surfaceY + (Math.abs(v) / maxAbs) * span,
   ]);
 
@@ -38,24 +45,31 @@ export function DiveProfile({
     const c2x = p2[0] - (p3[0] - p1[0]) / 6, c2y = p2[1] - (p3[1] - p1[1]) / 6;
     line += ` C ${c1x.toFixed(1)} ${c1y.toFixed(1)} ${c2x.toFixed(1)} ${c2y.toFixed(1)} ${p2[0].toFixed(1)} ${p2[1].toFixed(1)}`;
   }
-  const area = `${line} L ${W} ${bottomY} L 0 ${bottomY} Z`;
+  const area = `${line} L ${plotR} ${surfaceY} L ${plotL} ${surfaceY} Z`;
 
-  // Depth gridlines: a few round-number percentages between the surface and the floor.
+  // Y gridlines: round-number drawdown depths between the surface and the floor.
   const step = maxAbs <= 3 ? 1 : maxAbs <= 6 ? 2 : Math.ceil(maxAbs / 3);
-  const gridlines: number[] = [];
-  for (let v = step; v < maxAbs; v += step) gridlines.push(v);
+  const ylines: number[] = [];
+  for (let v = step; v < maxAbs; v += step) ylines.push(v);
+
+  // X ticks: trade numbers at evenly-spaced positions.
+  const xticks = [0, 0.25, 0.5, 0.75, 1].map((f) => ({
+    x: plotL + f * plotW,
+    label: `${Math.round(f * (n - 1)) + 1}`,
+    anchor: f === 0 ? "start" : f === 1 ? "end" : "middle",
+  }));
 
   // Deepest point (most-negative trade).
   let di = 0;
   for (let i = 1; i < data.length; i++) if (data[i] < data[di]) di = i;
   const [deepX, deepY] = P[di];
 
-  // Current position dot — at the last point; green at the surface, red when underwater.
+  // Current position — last point; green at the surface, red when underwater.
   const [curX, curY] = P[n - 1];
   const dotColor = inDrawdown ? "var(--lossdeep)" : "var(--gain)";
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-label="Underwater drawdown profile">
+    <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-label="Underwater drawdown profile by trade">
       <defs>
         <linearGradient id="dpfill" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor="rgba(242,89,106,.02)" />
@@ -64,18 +78,24 @@ export function DiveProfile({
         </linearGradient>
       </defs>
 
-      {/* depth gridlines */}
-      {gridlines.map((v) => {
+      {/* Y gridlines + depth labels (the Y axis) */}
+      {ylines.map((v) => {
         const y = surfaceY + (v / maxAbs) * span;
         return (
           <g key={v}>
-            <line x1="0" y1={y} x2={W} y2={y} stroke="rgba(148,163,184,.18)" strokeDasharray="2 5" />
-            <text x="6" y={y - 5} fill="var(--ink3)" fontSize="10">-{v.toFixed(2)}%</text>
+            <line x1={plotL} y1={y} x2={plotR} y2={y} stroke="rgba(148,163,184,.16)" strokeDasharray="2 5" />
+            <text x={plotL + 4} y={y - 4} fill="var(--ink3)" fontSize="9.5">-{v.toFixed(2)}%</text>
           </g>
         );
       })}
 
-      {/* fill + profile */}
+      {/* X ticks (trade numbers) + axis caption */}
+      {xticks.map((t, i) => (
+        <text key={i} x={t.x} y={bottomY + 16} fill="var(--ink3)" fontSize="9.5" textAnchor={t.anchor as any}>{t.label}</text>
+      ))}
+      <text x={plotR} y={H - 3} fill="var(--ink3)" fontSize="8" textAnchor="end" letterSpacing="1.5">TRADE #</text>
+
+      {/* fill + profile (drawdown depth = red) */}
       <path d={area} fill="url(#dpfill)" />
       <path d={line} fill="none" stroke="var(--loss)" strokeWidth="1.5" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
 
@@ -87,13 +107,13 @@ export function DiveProfile({
         </>
       )}
 
-      {/* waterline (peak) */}
-      <line x1="0" y1={surfaceY} x2={W} y2={surfaceY} stroke="var(--gain)" strokeWidth="1" strokeOpacity=".55" vectorEffect="non-scaling-stroke" />
-      <text x="6" y={surfaceY - 9} fill="var(--gain)" fontSize="10" letterSpacing="1.5">0.00% · PEAK</text>
+      {/* water-line (peak = at equity highs = green) */}
+      <line x1={plotL} y1={surfaceY} x2={plotR} y2={surfaceY} stroke="var(--gain)" strokeWidth="1" strokeOpacity=".6" vectorEffect="non-scaling-stroke" />
+      <text x={plotL + 4} y={surfaceY - 6} fill="var(--gain)" fontSize="9.5" letterSpacing="1">0.00% · PEAK</text>
 
       {/* current position */}
-      <circle cx={curX} cy={curY} r="4.5" fill={dotColor} />
-      <circle cx={curX} cy={curY} r="9" fill="none" stroke={dotColor} strokeOpacity=".4" vectorEffect="non-scaling-stroke" />
+      <circle cx={curX} cy={curY} r="4" fill={dotColor} />
+      <circle cx={curX} cy={curY} r="8" fill="none" stroke={dotColor} strokeOpacity=".4" vectorEffect="non-scaling-stroke" />
     </svg>
   );
 }
