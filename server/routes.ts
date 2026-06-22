@@ -949,7 +949,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         FROM trading_sessions ts
         LEFT JOIN user_profiles up ON up.id = ts.user_id
         LEFT JOIN journal_entries je ON je.session_id = ts.id
-        GROUP BY ts.id
+        GROUP BY ts.id, ts.session_name, ts.user_id, ts.starting_balance, ts.status, ts.created_at
         ORDER BY MAX(je.created_at) DESC NULLS LAST, ts.created_at DESC
       `);
       const sessions = rows.map((r: any) => {
