@@ -410,8 +410,12 @@ export default function DrawdownPanel({ sessionId }: { sessionId?: string | null
               <table className="mtbl">
                 <thead><tr><th>Month</th><th>Return</th><th>Rec.</th><th>Max DD</th><th>Big L</th><th>Loss</th><th>CF</th></tr></thead>
                 <tbody>
-                  {monthly.map((m, i) => {
-                    const cf = i === 0 ? '0.00%' : fmtDd(monthly[i - 1].maxDdPct);
+                  {monthly.map((m) => {
+                    // CF = carry-forward deficit still owed at month-end (the backend's real
+                    // cross-month tracking). 0 whenever the month is net-profitable — NOT the
+                    // previous month's intra-month dip (that produced false red cells).
+                    const cfVal = m.outstandingDeficitPct ?? 0;
+                    const cf = cfVal > 0.01 ? `-${cfVal.toFixed(2)}%` : '0.00%';
                     const eq = m.equityGrowthPct;
                     const eqStr = eq == null ? '—' : eq === 0 ? '0.00%' : `${eq > 0 ? '+' : ''}${eq.toFixed(2)}%`;
                     const eqCls = eq == null ? 'mut' : eq > 0 ? 'gain' : eq < 0 ? 'loss' : 'dim';
