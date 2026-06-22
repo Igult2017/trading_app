@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Trophy, TrendingUp, Percent, Loader2, Users, Layers } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { authFetch } from '@/lib/queryClient';
+import { useAuth } from '@/context/AuthContext';
 import { countryToIso } from '@/lib/countryToIso';
 import { formatProfitFactor } from '@/lib/tradeStats';
 
@@ -84,6 +85,7 @@ const Sparkline = ({ data, color }: { data: number[]; color: string }) => {
 };
 
 export default function Leaderboard() {
+  const { user } = useAuth();
   const [activeCategory, setActiveCategory] = useState<'pnl' | 'winRate' | 'profitFactor'>('pnl');
   const [activePeriod, setActivePeriod]     = useState<'all' | 'daily' | 'weekly' | 'monthly'>('all');
   const [viewMode, setViewMode]             = useState<'overall' | 'session'>('overall');
@@ -173,6 +175,30 @@ export default function Leaderboard() {
     if (abs >= 1_000_000) return `${sign}$${(abs / 1_000_000).toFixed(1)}M`;
     if (abs >= 1_000)     return `${sign}$${(abs / 1_000).toFixed(1)}k`;
     return `${sign}$${abs.toFixed(2)}`;
+  };
+
+  // ── Header benchmarks (sort-aware: Leader / Avg / Your Rank follow the toggle) ─
+  const catMeta = {
+    pnl:          { label: 'PnL',           color: '#34d399', score: (t: Trader) => fmtPnl(t.pnl) },
+    winRate:      { label: 'Win Rate',      color: '#60a5fa', score: (t: Trader) => `${t.winRate}%` },
+    profitFactor: { label: 'Profit Factor', color: '#a78bfa', score: (t: Trader) => formatProfitFactor(t.profitFactor) },
+  }[activeCategory];
+  const leader = sortedTraders[0];
+  const avgRaw = traders.length
+    ? traders.reduce((s, t) => s + (Number(t[activeCategory]) || 0), 0) / traders.length
+    : 0;
+  const avgLabel =
+    activeCategory === 'pnl'       ? fmtPnl(avgRaw)
+    : activeCategory === 'winRate' ? `${Math.round(avgRaw)}%`
+    :                                formatProfitFactor(avgRaw);
+  const myRank = user?.id ? (sortedTraders.find((t) => t.userId === user.id)?.rank ?? null) : null;
+  const totalRanked = sortedTraders.length;
+  const tileBox: React.CSSProperties = { background: 'var(--jr-panel)', border: '1px solid var(--jr-border)', padding: isMobile ? '12px 14px' : '16px 18px', transition: 'border-color 0.15s', minWidth: 0 };
+  const tileLbl: React.CSSProperties = { fontSize: 9, color: 'var(--jr-muted)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.14em', margin: '0 0 6px', display: 'flex', alignItems: 'center', gap: 4 };
+  const tileVal: React.CSSProperties = { fontSize: isMobile ? 17 : 22, fontWeight: 800, color: 'var(--jr-text)', margin: 0, letterSpacing: '-0.02em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' };
+  const tileHover = {
+    onMouseEnter: (e: React.MouseEvent<HTMLDivElement>) => (e.currentTarget.style.borderColor = 'var(--jr-muted)'),
+    onMouseLeave: (e: React.MouseEvent<HTMLDivElement>) => (e.currentTarget.style.borderColor = 'var(--jr-border)'),
   };
 
   const btnBase: React.CSSProperties = {
@@ -400,21 +426,40 @@ export default function Leaderboard() {
             </table>
           </div>
 
-          {/* Summary */}
+          {/* Summary — sort-aware leaderboard benchmarks (Leader / Avg / field size / Your Rank) */}
           {summary && (
-            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)', gap: isMobile ? 8 : 10 }}>
-              {[
-                { label: 'Total PnL',                                               value: fmtPnl(summary.totalPnl) },
-                { label: 'Total Trades',                                            value: summary.totalTrades.toLocaleString() },
-                { label: viewMode === 'session' ? 'Sessions Ranked' : 'Active Traders', value: summary.activeTraders.toString() },
-              ].map(({ label, value }) => (
-                <div key={label} style={{ background: 'var(--jr-panel)', border: '1px solid var(--jr-border)', padding: isMobile ? '12px 14px' : '16px 18px', transition: 'border-color 0.15s', minWidth: 0 }}
-                  onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--jr-muted)')}
-                  onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--jr-border)')}>
-                  <p style={{ fontSize: 9, color: 'var(--jr-muted)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.14em', margin: '0 0 6px' }}>{label}</p>
-                  <p style={{ fontSize: isMobile ? 17 : 22, fontWeight: 800, color: 'var(--jr-text)', margin: 0, letterSpacing: '-0.02em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{value}</p>
-                </div>
-              ))}
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: isMobile ? 8 : 10 }}>
+              {/* Leader — the top-ranked entry for the current sort */}
+              <div style={tileBox} {...tileHover}>
+                <p style={tileLbl}>🏆 {viewMode === 'session' ? 'Top Session' : 'Leader'}</p>
+                {leader ? (
+                  <p style={{ ...tileVal, fontSize: isMobile ? 14 : 17, display: 'flex', alignItems: 'baseline', gap: 7 }}>
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{truncateName(leader.name)}</span>
+                    <span style={{ fontSize: isMobile ? 12 : 13, fontWeight: 800, color: catMeta.color, flexShrink: 0 }}>{catMeta.score(leader)}</span>
+                  </p>
+                ) : <p style={tileVal}>—</p>}
+              </div>
+              {/* Field average of the active metric — the bar to beat */}
+              <div style={tileBox} {...tileHover}>
+                <p style={tileLbl}>Avg {catMeta.label}</p>
+                <p style={{ ...tileVal, color: catMeta.color }}>{traders.length ? avgLabel : '—'}</p>
+              </div>
+              {/* Field size */}
+              <div style={tileBox} {...tileHover}>
+                <p style={tileLbl}>{viewMode === 'session' ? 'Sessions Ranked' : 'Active Traders'}</p>
+                <p style={tileVal}>{summary.activeTraders}</p>
+              </div>
+              {/* The viewer's own standing */}
+              <div style={tileBox} {...tileHover}>
+                <p style={tileLbl}>Your Rank</p>
+                {myRank ? (
+                  <p style={{ ...tileVal, color: myRank <= 3 ? '#eab308' : 'var(--jr-text)' }}>
+                    #{myRank} <span style={{ fontSize: isMobile ? 11 : 12, fontWeight: 700, color: 'var(--jr-muted)' }}>of {totalRanked}</span>
+                  </p>
+                ) : (
+                  <p style={{ ...tileVal, fontSize: isMobile ? 13 : 15, color: 'var(--jr-muted)' }}>— Unranked</p>
+                )}
+              </div>
             </div>
           )}
         </>
