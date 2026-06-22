@@ -218,7 +218,7 @@ export default function DrawdownPanel({ sessionId }: { sessionId?: string | null
         <section>
           <div className="hero-head">
             <div>
-              <div className="eyebrow">Drawdown Intelligence</div>
+              <div className="eyebrow">Drawdown Tracking</div>
               <h1 className="hero-h1">Where Are You Losing?</h1>
             </div>
             <div className="equity">

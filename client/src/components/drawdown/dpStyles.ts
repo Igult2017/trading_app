@@ -68,7 +68,7 @@ export const DP_CSS = `
 
 /* HERO */
 .dp .hero-head{display:flex;justify-content:space-between;align-items:flex-start;gap:24px;flex-wrap:wrap;margin-bottom:30px;}
-.dp .hero-h1{font-family:var(--disp);font-weight:800;font-size:clamp(30px,4.6vw,52px);line-height:.98;letter-spacing:-.03em;margin:14px 0 0;}
+.dp .hero-h1{font-family:var(--disp);font-weight:800;font-size:clamp(24px,3.2vw,36px);line-height:1;letter-spacing:-.02em;margin:12px 0 0;}
 .dp .equity{display:flex;align-items:baseline;gap:9px;}
 .dp .equity .slabel{font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink3);}
 .dp .equity .t{font-size:13px;letter-spacing:.08em;text-transform:uppercase;}
