@@ -73,7 +73,7 @@ export const DP_CSS = `
 .dp .hero-h1{font-family:var(--disp);font-weight:800;font-size:clamp(24px,3.2vw,36px);line-height:1;letter-spacing:-.02em;margin:12px 0 0;}
 .dp .equity{display:flex;align-items:baseline;gap:9px;}
 .dp .equity .slabel{font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink3);}
-.dp .equity .t{font-size:13px;letter-spacing:.08em;text-transform:uppercase;}
+.dp .equity .t{font-size:11px;letter-spacing:.08em;text-transform:uppercase;}
 
 /* KPI surface readouts */
 .dp .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line);
