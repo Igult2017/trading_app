@@ -192,8 +192,8 @@ export default function Leaderboard() {
         <span>Performance data reflects live journal activity from connected user accounts. Rankings exist solely for community engagement — they do not constitute financial advice and should not be taken as a representation of returns any individual can expect to replicate.</span>
       </div>
 
-      {/* View Mode Toggle */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: isMobile ? 10 : 14 }}>
+      {/* View Mode Toggle — indented to the card content column (the rank-badge line) */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: isMobile ? 10 : 14, paddingLeft: isMobile ? 12 : 16 }}>
         {([
           { id: 'overall' as const, label: 'Overall', icon: <Users size={13} /> },
           { id: 'session' as const, label: 'By Session', icon: <Layers size={13} /> },
@@ -216,7 +216,7 @@ export default function Leaderboard() {
       </div>
 
       {/* Controls */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: isMobile ? 6 : 8, marginBottom: isMobile ? 14 : 20 }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: isMobile ? 6 : 8, marginBottom: isMobile ? 14 : 20, paddingLeft: isMobile ? 12 : 16 }}>
         {categories.map(c => (
           <button key={c.id} onClick={() => setActiveCategory(c.id)}
             style={{ display: 'flex', alignItems: 'center', gap: 6, padding: isMobile ? '6px 10px' : '7px 14px', borderRadius: 4, fontSize: isMobile ? 10 : 11, fontWeight: 700, letterSpacing: '0.06em', cursor: 'pointer', border: `1px solid ${activeCategory === c.id ? c.color + '60' : 'var(--jr-border)'}`, background: activeCategory === c.id ? c.color + '18' : 'var(--jr-panel)', color: activeCategory === c.id ? c.color : 'var(--jr-muted)', transition: 'all 0.15s', fontFamily: 'inherit' }}>
