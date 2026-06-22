@@ -85,7 +85,7 @@ function Seg({ options, value, onChange, accents }: {
 export default function DrawdownPanel({ sessionId }: { sessionId?: string | null }) {
   const [ddView, setDdView] = useState('STRATEGY');
   const [dir,    setDir]    = useState('BULLISH');
-  const [freq,   setFreq]   = useState('INSTR');
+  const [freq,   setFreq]   = useState('SESSION');
   const [diag,   setDiag]   = useState('CONTEXT');
 
   const { data: result, isLoading, isError, error } = useQuery<any>({
@@ -180,9 +180,14 @@ export default function DrawdownPanel({ sessionId }: { sessionId?: string | null
   const heatRows: any[]   = d.heatmap ?? [];
   const heatCols: string[] = heatRows[0]?.cells?.map((c: any) => c.strategy) ?? [];
 
-  const freqKey = freq === 'ATTR' ? 'attr' : 'instr';
-  const freqList: any[] = (d.frequency?.[freqKey] ?? []).slice(0, 6);
-  const freqMax = Math.max(1, ...freqList.map((f: any) => f.lossRate));
+  // Loss-frequency card: SESSION (loss contribution per trading session) or INSTRUMENT.
+  // Replaces the old ATTR view that jumbled strategies + sessions + psychology together.
+  // Both lead with raw loss contribution (XL / YT); the bar = the group's own loss rate.
+  const freqList: any[] = (freq === 'SESSION'
+    ? (d.sessions ?? []).map((s: any) => ({ name: s.session, losses: s.losses, total: s.total, lossRate: s.lossRate }))
+        .sort((a: any, b: any) => b.losses - a.losses)
+    : (d.frequency?.instr ?? []))
+    .slice(0, 6);
 
   const structKey = diag === 'ENTRY' ? 'entry' : 'context';
   const structSections: any[] = d.structural?.[structKey] ?? [];
@@ -317,16 +322,16 @@ export default function DrawdownPanel({ sessionId }: { sessionId?: string | null
             )}
             <div className="freq">
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 18 }}>
-                <span className="subh" style={{ margin: 0 }}>Frequency</span>
-                <Seg options={['ATTR', 'INSTR']} value={freq} onChange={setFreq} />
+                <span className="subh" style={{ margin: 0 }}>Loss Frequency</span>
+                <Seg options={['SESSION', 'INSTR']} value={freq} onChange={setFreq} />
               </div>
-              {freqList.length === 0 ? <span className="mut" style={{ fontSize: 11 }}>No data</span> : freqList.map((f, i) => {
+              {freqList.length === 0 ? <span className="mut" style={{ fontSize: 11 }}>No {freq === 'SESSION' ? 'session' : 'instrument'} data</span> : freqList.map((f, i) => {
                 const tone = f.lossRate > 60 ? 'loss' : f.lossRate > 35 ? 'warn' : 'gain';
                 return (
                   <div key={i}>
-                    <div className="frow"><span className="dim" style={{ letterSpacing: '.06em' }}>{f.name}</span><span className={`num ${tone}`} style={{ fontSize: 15 }}>{f.lossRate}%</span></div>
-                    <div className="bar"><i style={{ width: `${(f.lossRate / freqMax) * 100}%`, background: toneVar(tone) }} /></div>
-                    <div className="fsub">{f.losses}L / {f.total}T</div>
+                    <div className="frow"><span className="dim" style={{ letterSpacing: '.06em' }}>{f.name}</span><span className={`num ${tone}`} style={{ fontSize: 14 }}>{f.losses}L / {f.total}T</span></div>
+                    <div className="bar"><i style={{ width: `${Math.min(100, f.lossRate)}%`, background: toneVar(tone) }} /></div>
+                    <div className="fsub">{f.lossRate}% loss rate</div>
                   </div>
                 );
               })}
