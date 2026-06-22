@@ -212,10 +212,38 @@ export default function Leaderboard() {
   return (
     <div style={{ background: 'var(--jr-panel)', color: 'var(--jr-text)', padding: isMobile ? '14px 0 28px' : '20px 0 40px', fontFamily: "'Montserrat', 'Inter', sans-serif" }}>
 
-      {/* Disclaimer */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: isMobile ? 8 : 10, background: 'rgba(0,0,0,0.03)', border: '1px solid var(--jr-border)', padding: isMobile ? '10px 12px' : '12px 16px', marginBottom: isMobile ? 12 : 16, fontSize: isMobile ? 10 : 11, color: 'var(--jr-muted)', lineHeight: 1.55 }}>
-        <svg style={{ flexShrink: 0, marginTop: 1 }} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-        <span>Performance data reflects live journal activity from connected user accounts. Rankings exist solely for community engagement — they do not constitute financial advice and should not be taken as a representation of returns any individual can expect to replicate.</span>
+      {/* Disclaimer — refined info callout */}
+      <div style={{
+        display: 'flex',
+        alignItems: isMobile ? 'flex-start' : 'center',
+        gap: isMobile ? 11 : 14,
+        background: 'linear-gradient(180deg, rgba(96,165,250,0.07) 0%, rgba(96,165,250,0.015) 100%)',
+        border: '1px solid rgba(96,165,250,0.18)',
+        borderRadius: 12,
+        padding: isMobile ? '12px 14px' : '14px 18px',
+        marginBottom: isMobile ? 14 : 18,
+        boxShadow: '0 1px 2px rgba(0,0,0,0.18)',
+      }}>
+        <div style={{
+          flexShrink: 0,
+          width: isMobile ? 30 : 34, height: isMobile ? 30 : 34,
+          borderRadius: 10,
+          display: 'grid', placeItems: 'center',
+          background: 'rgba(96,165,250,0.14)',
+          border: '1px solid rgba(96,165,250,0.26)',
+          color: '#60a5fa',
+          marginTop: isMobile ? 1 : 0,
+        }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="8.01"/><line x1="12" y1="11" x2="12" y2="16"/></svg>
+        </div>
+        <div style={{ minWidth: 0 }}>
+          <p style={{ margin: '0 0 3px', fontSize: 9, letterSpacing: '0.16em', textTransform: 'uppercase', color: '#60a5fa' }}>
+            Community Rankings · Not Financial Advice
+          </p>
+          <p style={{ margin: 0, fontSize: isMobile ? 10.5 : 11.5, color: 'var(--jr-muted)', lineHeight: 1.55 }}>
+            Performance data reflects live journal activity from connected user accounts. Rankings exist solely for community engagement — they do not constitute financial advice and should not be taken as a representation of returns any individual can expect to replicate.
+          </p>
+        </div>
       </div>
 
       {/* View Mode Toggle — indented to the card content column (the rank-badge line) */}
