@@ -393,5 +393,10 @@ CREATE TABLE IF NOT EXISTS copy_execution_logs (
   created_at  TIMESTAMP DEFAULT NOW()
 );
 
+-- ── user_profiles ─────────────────────────────────────────────────────────────
+-- leaderboard_hidden: lets admins hide a trader from the public leaderboard.
+-- Added here so the leaderboard routes no longer need a per-request ALTER guard.
+ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS leaderboard_hidden BOOLEAN DEFAULT false;
+
 -- ── Done ─────────────────────────────────────────────────────────────────────
 DO $$ BEGIN RAISE NOTICE 'docker-migrate.sql complete'; END $$;

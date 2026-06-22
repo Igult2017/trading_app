@@ -106,7 +106,12 @@ export default function Leaderboard() {
       if (d.error) throw new Error(d.error);
       return { leaderboard: d.leaderboard || [], summary: d.summary || null };
     },
-    staleTime: 2 * 60 * 1000,
+    // Real-time: always fetch fresh on open, poll while viewing, refresh on focus.
+    // (Overrides the app's global staleTime:Infinity / refetchInterval:false defaults.)
+    staleTime: 0,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
+    refetchInterval: 20000,
     enabled: viewMode === 'overall',
   });
 
@@ -119,7 +124,10 @@ export default function Leaderboard() {
       if (d.error) throw new Error(d.error);
       return { leaderboard: d.leaderboard || [], summary: d.summary || null };
     },
-    staleTime: 2 * 60 * 1000,
+    staleTime: 0,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
+    refetchInterval: 20000,
     enabled: viewMode === 'session',
   });
 
