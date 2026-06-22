@@ -329,7 +329,7 @@ export default function DrawdownPanel({ sessionId }: { sessionId?: string | null
                 const tone = f.lossRate > 60 ? 'loss' : f.lossRate > 35 ? 'warn' : 'gain';
                 return (
                   <div key={i}>
-                    <div className="frow"><span className="dim" style={{ letterSpacing: '.06em' }}>{f.name}</span><span className={`num ${tone}`} style={{ fontSize: 14 }}>{f.losses}L / {f.total}T</span></div>
+                    <div className="frow"><span className="dim" style={{ letterSpacing: '.06em' }}>{f.name}</span><span className={`num ${tone}`} style={{ fontSize: 12 }}>{f.losses}L / {f.total}T</span></div>
                     <div className="bar"><i style={{ width: `${Math.min(100, f.lossRate)}%`, background: toneVar(tone) }} /></div>
                     <div className="fsub">{f.lossRate}% loss rate</div>
                   </div>

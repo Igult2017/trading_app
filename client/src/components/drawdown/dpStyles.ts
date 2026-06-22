@@ -157,11 +157,11 @@ export const DP_CSS = `
 
 .dp .ls{display:grid;grid-template-columns:1fr 1fr;gap:18px 22px;}
 .dp .ls .k{font-size:9px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink3);margin-bottom:8px;}
-.dp .ls .big{font-size:26px;font-weight:500;line-height:1;}
+.dp .ls .big{font-size:20px;font-weight:500;line-height:1;}
 .dp .ls .s{font-size:10px;color:var(--ink3);margin-top:7px;}
 .dp .tl{display:flex;flex-wrap:wrap;gap:3px;margin-top:14px;}
 .dp .tl span{width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-size:9px;}
-.dp .tw{background:var(--gain-d);color:var(--gain);} .dp .tlo{background:var(--loss-d);color:var(--loss);} .dp .tb{background:var(--raise);color:var(--ink2);}
+.dp .tw{background:var(--gain-d);color:var(--gain);font-weight:700;} .dp .tlo{background:var(--loss-d);color:var(--loss);font-weight:700;} .dp .tb{background:var(--raise);color:var(--ink2);}
 
 .dp .rr{padding:11px 0;border-top:1px solid var(--line);}
 .dp .rr:first-of-type{border-top:0;padding-top:2px;}
