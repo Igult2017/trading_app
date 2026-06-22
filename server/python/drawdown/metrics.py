@@ -16,7 +16,7 @@ def compute_metrics(trades: list, starting_balance: float) -> dict:
     maxDrawdown:    most negative peak-to-trough equity % decline
     avgDrawdown:    mean depth of all individual drawdown episodes
     recoveryFactor: net_pnl_pct / abs(maxDrawdown)
-    trendAlignment: % of trades where htfBias == "with_trend"
+    trendAlignment: % of trades marked "Trend Alignment: Yes" (manualFields.trendAlignment)
     """
     empty = {"maxDrawdown": 0.0, "avgDrawdown": 0.0,
              "recoveryFactor": 0.0, "trendAlignment": 0.0}
@@ -80,23 +80,30 @@ def compute_metrics(trades: list, starting_balance: float) -> dict:
     recovery_factor = (net_pnl_pct / abs(max_dd)) if abs(max_dd) > 0.001 else 0.0
 
     # ── Trend alignment ───────────────────────────────────────────────────────
-    WITH_TREND = frozenset({
-        "with_trend", "with trend", "aligned", "bullish",
-        "bearish_short", "long", "buy", "bull", "yes", "true", "1",
-    })
-    htf_total = 0
-    htf_aligned = 0
+    # Trend alignment = % of trades the journal explicitly marked as trend-aligned
+    # (the "Trend Alignment: Yes/No" field, stored in manualFields). The old version
+    # derived this from htfBias (Bull/Bear/Range) and only matched "bull", so it was
+    # really "% of bullish-bias trades" — not trend alignment at all.
+    ALIGNED_YES = frozenset({"yes", "y", "true", "1", "aligned", "with_trend", "with trend"})
+    ALIGNED_NO  = frozenset({"no", "n", "false", "0", "counter_trend", "counter trend", "against"})
+    align_total = 0
+    align_yes   = 0
     for t in trades:
-        bias = (
-            t.get("htfBias") or t.get("htf_bias") or
-            blob_field(t, "htf_bias") or blob_field(t, "htfBias")
+        raw = (
+            t.get("trendAlignment") or t.get("trend_alignment") or
+            blob_field(t, "trendAlignment") or blob_field(t, "trend_alignment")
         )
-        if bias is not None:
-            htf_total += 1
-            if str(bias).lower().strip() in WITH_TREND:
-                htf_aligned += 1
+        if raw is None:
+            continue
+        s = str(raw).strip().lower()
+        if s in ALIGNED_YES:
+            align_total += 1
+            align_yes   += 1
+        elif s in ALIGNED_NO:
+            align_total += 1
+        # blank / unrecognised values are ignored (not in the denominator)
 
-    trend_alignment = round(htf_aligned / htf_total * 100, 1) if htf_total > 0 else 0.0
+    trend_alignment = round(align_yes / align_total * 100, 1) if align_total > 0 else 0.0
 
     return {
         "maxDrawdown":    round(max_dd, 2),
