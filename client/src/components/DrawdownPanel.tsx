@@ -415,12 +415,14 @@ export default function DrawdownPanel({ sessionId }: { sessionId?: string | null
               <table className="mtbl">
                 <thead><tr><th>Month</th><th>Return</th><th>Rec.</th><th>Max DD</th><th>Big L</th><th>Loss</th><th>CF</th></tr></thead>
                 <tbody>
-                  {monthly.map((m) => {
-                    // CF = carry-forward deficit still owed at month-end (the backend's real
-                    // cross-month tracking). 0 whenever the month is net-profitable — NOT the
-                    // previous month's intra-month dip (that produced false red cells).
-                    const cfVal = m.outstandingDeficitPct ?? 0;
-                    const cf = cfVal > 0.01 ? `-${cfVal.toFixed(2)}%` : '0.00%';
+                  {monthly.map((m, i) => {
+                    // CF (carry-forward) = the PREVIOUS month's return, but only if it ended
+                    // RED. A red month carries its loss into this month (prev -4% → this month
+                    // starts -4% in the hole, so a +14% month nets +10%). A green previous
+                    // month carries nothing (it already ended positive), and the first month
+                    // has nothing before it.
+                    const prevRet = i > 0 ? (monthly[i - 1].equityGrowthPct ?? 0) : 0;
+                    const cf = prevRet < 0 ? `${prevRet.toFixed(2)}%` : '0.00%';
                     const eq = m.equityGrowthPct;
                     const eqStr = eq == null ? '—' : eq === 0 ? '0.00%' : `${eq > 0 ? '+' : ''}${eq.toFixed(2)}%`;
                     const eqCls = eq == null ? 'mut' : eq > 0 ? 'gain' : eq < 0 ? 'loss' : 'dim';
