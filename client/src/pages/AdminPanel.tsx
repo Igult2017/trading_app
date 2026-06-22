@@ -948,6 +948,12 @@ const SyncPerformanceSection = ({ bp }: { bp: any }) => {
   const [lbConfirm, setLbConfirm]   = useState<{ userId: string; name: string; hide: boolean } | null>(null);
   const [lbBusy, setLbBusy]         = useState(false);
 
+  // ── All-sessions management (precise per-session deletion) ──────────────────
+  const [adminSessions, setAdminSessions] = useState<any[]>([]);
+  const [sessLoading, setSessLoading]     = useState(false);
+  const [sessConfirm, setSessConfirm]     = useState<{ id: string; name: string; owner: string; trades: number } | null>(null);
+  const [sessBusy, setSessBusy]           = useState(false);
+
   const loadOverview = async () => {
     setOvLoading(true);
     try {
@@ -988,6 +994,16 @@ const SyncPerformanceSection = ({ bp }: { bp: any }) => {
     setLbLoading(false);
   };
 
+  const loadAdminSessions = async () => {
+    setSessLoading(true);
+    try {
+      const h = await getSyncAuthHeaders();
+      const r = await fetch('/api/admin/sessions', { headers: h });
+      if (r.ok) setAdminSessions((await r.json()).sessions ?? []);
+    } catch {}
+    setSessLoading(false);
+  };
+
   const handleLbToggle = async () => {
     if (!lbConfirm) return;
     setLbBusy(true);
@@ -1006,6 +1022,21 @@ const SyncPerformanceSection = ({ bp }: { bp: any }) => {
     } catch {}
     setLbBusy(false);
     setLbConfirm(null);
+  };
+
+  const handleSessDelete = async () => {
+    if (!sessConfirm) return;
+    setSessBusy(true);
+    try {
+      const h = await getSyncAuthHeaders();
+      const r = await fetch(`/api/admin/sessions/${sessConfirm.id}`, { method: 'DELETE', headers: h });
+      if (r.ok) {
+        setAdminSessions(prev => prev.filter(s => s.id !== sessConfirm.id));
+        loadLbEntries();  // refresh per-user aggregates so the leaderboard table stays consistent
+      }
+    } catch {}
+    setSessBusy(false);
+    setSessConfirm(null);
   };
 
   const renderLeaderboard = () => {
@@ -1088,6 +1119,60 @@ const SyncPerformanceSection = ({ bp }: { bp: any }) => {
                 </table>
               </div>
             )}
+
+            {/* All sessions — see every session in the DB and delete precisely */}
+            <div style={{ marginTop: 28 }}>
+              <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase',
+                letterSpacing: '0.1em', color: C.muted, marginBottom: 8 }}>
+                All Sessions ({adminSessions.length})
+              </div>
+              {sessLoading
+                ? <div style={{ color: C.muted, fontSize: '12px', padding: '12px 0' }}>Loading sessions…</div>
+                : adminSessions.length === 0
+                  ? <div style={{ color: C.muted, fontSize: '12px', padding: '12px 0' }}>No sessions found.</div>
+                  : (
+                    <table style={{ width: '100%', borderCollapse: 'collapse', background: C.bg }}>
+                      <thead>
+                        <tr style={{ borderBottom: `1px solid ${C.border2}` }}>
+                          {['Session', 'Owner', 'Trades', 'PnL', 'Created', ''].map((h, i) => (
+                            <th key={i} style={{ padding: '6px 10px', fontSize: '10px', fontWeight: 700,
+                              textTransform: 'uppercase', letterSpacing: '0.1em', color: C.muted,
+                              textAlign: (i === 2 || i === 3 || i === 5) ? 'right' : 'left' }}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {adminSessions.map((s) => (
+                          <tr key={s.id} style={{ borderBottom: `1px solid ${C.border}` }}>
+                            <td style={{ padding: '8px 10px', fontSize: '13px', fontWeight: 600, color: C.text }}>{s.name}</td>
+                            <td style={{ padding: '8px 10px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <FlagImg country={s.country} size={18} />
+                                <span style={{ fontSize: '12px', color: C.muted }}>{toTitleCase(s.owner || 'Unknown')}</span>
+                              </div>
+                            </td>
+                            <td style={{ padding: '8px 10px', fontSize: '12px', textAlign: 'right', color: C.muted }}>{s.trades}</td>
+                            <td style={{ padding: '8px 10px', fontSize: '12px', textAlign: 'right',
+                              color: (s.pnl ?? 0) >= 0 ? C.green : C.red }}>
+                              {(s.pnl ?? 0) >= 0 ? '+' : ''}{Number(s.pnl ?? 0).toFixed(2)}
+                            </td>
+                            <td style={{ padding: '8px 10px', fontSize: '11px', color: C.muted }}>
+                              {s.createdAt ? new Date(s.createdAt).toLocaleDateString() : '—'}
+                            </td>
+                            <td style={{ padding: '8px 10px', textAlign: 'right' }}>
+                              <button
+                                onClick={() => setSessConfirm({ id: s.id, name: s.name, owner: toTitleCase(s.owner || 'Unknown'), trades: s.trades })}
+                                style={{ ...btn, fontSize: '11px', padding: '4px 10px',
+                                  background: C.red + '22', color: C.red, border: `1px solid ${C.red}40` }}>
+                                Delete
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+            </div>
           </>
         )}
         {/* Confirm modal */}
@@ -1119,6 +1204,34 @@ const SyncPerformanceSection = ({ bp }: { bp: any }) => {
             </div>
           </div>
         )}
+        {/* Delete-session confirm modal */}
+        {sessConfirm && (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex',
+            alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
+            <div style={{ background: C.card, border: `1px solid ${C.border}`, padding: '28px 32px',
+              minWidth: 360, maxWidth: 420, fontFamily: FONT }}>
+              <div style={{ fontSize: '14px', fontWeight: 700, color: C.text, marginBottom: 10 }}>Delete Session</div>
+              <div style={{ fontSize: '13px', color: C.muted, marginBottom: 24, lineHeight: 1.6 }}>
+                Permanently delete <strong style={{ color: C.text }}>{sessConfirm.name}</strong>
+                {sessConfirm.owner ? <> ({sessConfirm.owner})</> : null} and its{' '}
+                <strong style={{ color: C.text }}>{sessConfirm.trades}</strong> trade{sessConfirm.trades === 1 ? '' : 's'}?
+                <br />The owner's account and their other sessions are not affected. This cannot be undone.
+              </div>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button onClick={() => setSessConfirm(null)}
+                  style={{ ...btn, flex: 1, padding: '9px', fontSize: '12px',
+                    background: 'transparent', color: C.muted, border: `1px solid ${C.border2}` }}>
+                  Cancel
+                </button>
+                <button onClick={handleSessDelete} disabled={sessBusy}
+                  style={{ ...btn, flex: 1, padding: '9px', fontSize: '12px',
+                    background: C.red, color: '#fff', opacity: sessBusy ? 0.6 : 1 }}>
+                  {sessBusy ? 'Deleting…' : 'Delete Session'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   };
@@ -1126,7 +1239,7 @@ const SyncPerformanceSection = ({ bp }: { bp: any }) => {
   useEffect(() => { loadOverview(); }, []);
   useEffect(() => { if (tab === 'telegram'    && !tgLoaded) loadTgTrades();  }, [tab]);
   useEffect(() => { if (tab === 'trades'      && !atLoaded) loadAllTrades(); }, [tab]);
-  useEffect(() => { if (tab === 'leaderboard' && !lbLoaded) loadLbEntries(); }, [tab]);
+  useEffect(() => { if (tab === 'leaderboard' && !lbLoaded) { loadLbEntries(); loadAdminSessions(); } }, [tab]);
 
   async function markOutcome(id: string, current: string | null, which: 'win' | 'loss') {
     const next = current === which ? null : which;

@@ -933,6 +933,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ── Admin: every trading session (all users) + precise per-session delete ─────
+  app.get("/api/admin/sessions", requireAdmin, async (_req: Request, res: Response) => {
+    try {
+      const { rows } = await pool.query(`
+        SELECT
+          ts.id, ts.session_name, ts.user_id, ts.starting_balance, ts.status, ts.created_at,
+          MAX(up.full_name) AS full_name, MAX(up.email) AS email, MAX(up.country) AS country,
+          COUNT(je.id) FILTER (WHERE je.profit_loss IS NOT NULL)                               AS trades,
+          COUNT(je.id)                                                                          AS entries,
+          COUNT(je.id) FILTER (WHERE LOWER(COALESCE(je.outcome,'')) IN ('win','w','profit')
+                                  OR (COALESCE(je.outcome,'') = '' AND je.profit_loss > 0))     AS wins,
+          ROUND(CAST(COALESCE(SUM(je.profit_loss), 0) AS numeric), 2)                           AS pnl,
+          MAX(je.created_at)                                                                    AS last_activity
+        FROM trading_sessions ts
+        LEFT JOIN user_profiles up ON up.id = ts.user_id
+        LEFT JOIN journal_entries je ON je.session_id = ts.id
+        GROUP BY ts.id
+        ORDER BY MAX(je.created_at) DESC NULLS LAST, ts.created_at DESC
+      `);
+      const sessions = rows.map((r: any) => {
+        const trades = parseInt(r.trades) || 0;
+        const wins   = parseInt(r.wins)   || 0;
+        const owner  = (r.full_name && r.full_name.trim())
+          || (r.email ? r.email.split('@')[0] : null) || 'Unknown';
+        return {
+          id: r.id, name: r.session_name, userId: r.user_id,
+          owner, email: r.email, country: r.country,
+          startingBalance: parseFloat(r.starting_balance) || 0,
+          status: r.status, createdAt: r.created_at, lastActivity: r.last_activity,
+          trades, entries: parseInt(r.entries) || 0,
+          winRate: trades > 0 ? Math.round((wins / trades) * 1000) / 10 : 0,
+          pnl: parseFloat(r.pnl) || 0,
+        };
+      });
+      res.json({ sessions });
+    } catch (error) {
+      console.error('[Admin/sessions] Error:', error);
+      res.status(500).json({ error: 'Failed to load sessions' });
+    }
+  });
+
+  // Delete ONE session + its journal entries only (transactional). The owner's
+  // account and their OTHER sessions are untouched — this is precise per-session,
+  // not a per-user wipe.
+  app.delete("/api/admin/sessions/:id", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const ok = await storage.deleteSession(req.params.id);
+      if (!ok) return res.status(404).json({ error: 'Session not found' });
+      res.json({ success: true });
+    } catch (error) {
+      console.error('[Admin/sessions] Delete error:', error);
+      res.status(500).json({ error: 'Failed to delete session' });
+    }
+  });
+
   // --- Leaderboard: distinct session names (for filter dropdown) ---
   app.get("/api/leaderboard/session-names", async (req, res) => {
     try {
