@@ -1274,8 +1274,8 @@ export default function Journal() {
         .journal-light .ts-wizard-root .text-amber-400 { color: #b45309 !important; }
 
         /* (Drawdown panel light-theme remap removed — the Dive Profile design
-           (.dp) now owns its own light theme via `.journal-light .dp` token
-           overrides in dpStyles.ts, so the old .dd-root utility remaps are dead.) */
+           (.dp) now owns its own light theme via the journal-light .dp token
+           overrides in dpStyles.ts, so the old dd-root utility remaps are dead.) */
 
         /* My Terminals dashboard — feed its --cm-* theme vars (the component reads them via its tone object). */
         .journal-light .copy-mgr-root {
