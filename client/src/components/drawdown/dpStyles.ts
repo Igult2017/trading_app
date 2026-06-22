@@ -27,7 +27,9 @@ export const DP_CSS = `
   --disp:'Montserrat',sans-serif;
   background:var(--bg); color:var(--ink); font-family:var(--mono);
   min-height:100%; -webkit-font-smoothing:antialiased;
-  padding:30px clamp(14px,3.4vw,46px);
+  /* top gap comes from <main> (14px, uniform with every other journal page); keep
+     the horizontal + bottom padding here. */
+  padding:0 clamp(14px,3.4vw,46px) 30px;
 }
 /* Light theme — remap every token; the layout/typography is unchanged. */
 .journal-light .dp{
