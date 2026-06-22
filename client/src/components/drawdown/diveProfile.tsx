@@ -13,6 +13,21 @@ import React from "react";
  * Axes: Y = drawdown % (left gridline labels), X = trade number (bottom ticks).
  * A right margin keeps the current-position marker from clipping at the edge.
  */
+// Aggregate a long per-trade series into <= maxPoints segments, keeping the DEEPEST
+// (most-negative) value in each. Turns sharp single-trade dips into smooth rounded
+// ones while preserving trough depth; all-surface segments stay 0.
+function downsampleDeepest(s: number[], maxPoints: number): number[] {
+  if (s.length <= maxPoints) return s;
+  const bucket = Math.ceil(s.length / maxPoints);
+  const out: number[] = [];
+  for (let i = 0; i < s.length; i += bucket) {
+    let m = 0;
+    for (let j = i; j < Math.min(i + bucket, s.length); j++) m = Math.min(m, s[j]);
+    out.push(m);
+  }
+  return out;
+}
+
 export function DiveProfile({
   series,
   inDrawdown,
@@ -21,14 +36,16 @@ export function DiveProfile({
   inDrawdown: boolean;
   currentDdPct?: number;
 }) {
-  const W = 1000, H = 264;
+  const W = 1000, H = 340;                          // taller so the profile isn't squeezed
   const PL = 2, PR = 22, PT = 18, PB = 28;          // plot margins (room for axes + end marker)
   const plotL = PL, plotR = W - PR;
   const surfaceY = PT, bottomY = H - PB;
   const span = bottomY - surfaceY;
   const plotW = plotR - plotL;
 
-  const data = series && series.length > 1 ? series : [0, 0];
+  // Smooth sharp single-trade dips into rounded ones (depth preserved; true deepest
+  // still shown in the "Deepest" stat).
+  const data = downsampleDeepest(series && series.length > 1 ? series : [0, 0], 22);
   const n = data.length;
   const maxAbs = Math.max(0.01, ...data.map((v) => Math.abs(v)));
 
