@@ -45,7 +45,9 @@ export function DiveProfile({
     const c2x = p2[0] - (p3[0] - p1[0]) / 6, c2y = p2[1] - (p3[1] - p1[1]) / 6;
     line += ` C ${c1x.toFixed(1)} ${c1y.toFixed(1)} ${c2x.toFixed(1)} ${c2y.toFixed(1)} ${p2[0].toFixed(1)} ${p2[1].toFixed(1)}`;
   }
-  const area = `${line} L ${plotR} ${surfaceY} L ${plotL} ${surfaceY} Z`;
+  // Fill BELOW the curve down to the floor — the "water". (Closing at surfaceY instead
+  // would fill the gap between curve and the 0% line, leaving the bottom empty.)
+  const area = `${line} L ${plotR} ${bottomY} L ${plotL} ${bottomY} Z`;
 
   // Y gridlines: round-number drawdown depths between the surface and the floor.
   const step = maxAbs <= 3 ? 1 : maxAbs <= 6 ? 2 : Math.ceil(maxAbs / 3);
