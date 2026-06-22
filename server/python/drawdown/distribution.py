@@ -139,7 +139,8 @@ def compute_monthly(trades: list, starting_balance: float = 10_000.0) -> list:
       Profits are assumed withdrawn each month — always relative to sb.
 
     BIG L:
-      Largest intra-month peak-to-trough drawdown as % of starting_balance.
+      The single worst losing trade in the month, as % of starting_balance
+      (distinct from maxDdPct, the multi-trade peak-to-trough drawdown).
 
     RECOVERY %  (cross-month):
       Profits are WITHDRAWN each month — next month always starts at sb.
@@ -207,15 +208,21 @@ def compute_monthly(trades: list, starting_balance: float = 10_000.0) -> list:
         peak       = effective_month_start
         trough     = effective_month_start
         max_dd_pct = 0.0
+        worst_trade_pct = 0.0   # most-negative SINGLE trade in the month, as % of sb
 
         for t in month_trades:
             pl = get_pnl(t)
             if pl is not None:
+                delta_pct = (pl / sb * 100) if sb > 0 else 0.0
                 balance += pl
             else:
                 pct = get_pnl_pct(t)
+                delta_pct = pct if pct is not None else 0.0
                 if pct is not None:
                     balance += pct / 100.0 * sb
+
+            if delta_pct < worst_trade_pct:
+                worst_trade_pct = delta_pct
 
             if balance > peak:
                 peak = balance
@@ -225,7 +232,9 @@ def compute_monthly(trades: list, starting_balance: float = 10_000.0) -> list:
             if dd < max_dd_pct:
                 max_dd_pct = dd
 
-        biggest_loss_pct = round(max_dd_pct, 2)
+        # BIG L = the single worst losing trade this month, as % of sb. Distinct from
+        # maxDdPct (the peak-to-trough drawdown, which can span several trades).
+        biggest_loss_pct = round(worst_trade_pct, 2)
 
         # ── Cross-month recovery tracking (pure % of sb) ─────────────────────
         # equity_growth_pct is this month's net result as % of sb.
