@@ -36,8 +36,8 @@ export function DiveProfile({
   inDrawdown: boolean;
   currentDdPct?: number;
 }) {
-  const W = 1000, H = 340;                          // taller so the profile isn't squeezed
-  const PL = 2, PR = 22, PT = 18, PB = 28;          // plot margins (room for axes + end marker)
+  const W = 1000, H = 360;                          // taller so the profile isn't squeezed
+  const PL = 2, PR = 22, PT = 40, PB = 28;          // PT=40 → breathing room above the 0% peak line + curve humps
   const plotL = PL, plotR = W - PR;
   const surfaceY = PT, bottomY = H - PB;
   const span = bottomY - surfaceY;
