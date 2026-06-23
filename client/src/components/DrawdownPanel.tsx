@@ -110,12 +110,32 @@ export default function DrawdownPanel({ sessionId }: { sessionId?: string | null
     },
   });
 
-  const d        = result ?? null;
-  const ts       = d?.topStats;
-  const intel    = d?.intelligence;
-  const risk     = d?.riskModel;
-  const mc       = d?.monteCarlo;
-  const recovery = d?.recovery;
+  // When the session has no logged trades the API returns no analysis. Rather than one
+  // blank screen, render the full page STRUCTURE with a zeroed placeholder so every panel
+  // shows (each with its own "no X yet" row). Only the Monthly table stays hidden — it's
+  // unavoidable without dated trades.
+  const EMPTY_DRAWDOWN = {
+    topStats: { maxDrawdown: 0, avgDrawdown: 0, recoveryFactor: 0, trendAlignment: 0 },
+    intelligence: {
+      current: { ddPct: 0, inDrawdown: false, tradesSincePeak: 0, daysSincePeak: null, peakEquity: 0, currentEquity: 0 },
+      underwater: { longestTrades: 0, longestDays: 0, avgRecoveryTrades: 0, currentUnderwaterTrades: 0, episodes: 0 },
+      series: [], byStrategy: [], byInstrument: [],
+      byDirection: { bullish: { byStrategy: [], byInstrument: [] }, bearish: { byStrategy: [], byInstrument: [] } },
+    },
+    riskModel: { winRate: 0, payoff: 0, kellyPct: 0, expectedMaxLossStreak: 0, actualMaxLossStreak: 0, streakWithinExpectation: true, mae: { hasData: false, avgWinnerMae: 0, avgLoserMae: 0, ratio: 0, count: 0 } },
+    monteCarlo: { hasData: false, runs: 0, actualMaxDd: 0, expectedMaxDd: 0, worstCase95: 0, worstCase99: 0, actualPercentile: 0, riskOfRuinPct: 0, ruinThreshold: -50, breach20Pct: 0 },
+    recovery: { hasData: false, underwaterAvgSize: 0, baselineAvgSize: 0, sizeRatio: 0, underwaterCount: 0, baselineCount: 0, verdict: '' },
+    heatmap: [], frequency: { attr: [], instr: [] }, structural: { context: [], entry: [] },
+    sessions: [], streaks: { maxLossStreak: { length: 0, startDate: null, endDate: null }, avgLossStreak: 0, revengeRate: 0, bestWinStreak: { length: 0, startDate: null, endDate: null }, timeline: [] },
+    rrBuckets: [], monthly: [],
+  };
+  const hasData  = !!(result && result.topStats && result.intelligence);
+  const d: any   = hasData ? result : EMPTY_DRAWDOWN;
+  const ts       = d.topStats;
+  const intel    = d.intelligence;
+  const risk     = d.riskModel;
+  const mc       = d.monteCarlo;
+  const recovery = d.recovery;
 
   // ── states ────────────────────────────────────────────────────────────────
   const showLoader = useDelayedLoading(!!sessionId && isLoading);
@@ -135,8 +155,8 @@ export default function DrawdownPanel({ sessionId }: { sessionId?: string | null
     return centered(<TrendingDown style={{ width: 30, height: 30, color: 'var(--ink3)' }} />, 'No session selected', 'Select or create a session to view drawdown analysis');
   if (isError)
     return centered(<TrendingDown style={{ width: 30, height: 30, color: 'var(--loss)' }} />, 'Failed to load drawdown data', (error as Error)?.message || 'Check server logs or try refreshing');
-  if (!ts || !intel)
-    return centered(<TrendingDown style={{ width: 30, height: 30, color: 'var(--ink3)' }} />, 'No drawdown data yet', 'Log trades in this session to populate the analysis');
+  // No blanket "no data" screen — when hasData is false we render the full panel layout
+  // with the zeroed EMPTY_DRAWDOWN placeholder above (each panel shows its own empty row).
 
   // ── derive ──────────────────────────────────────────────────────────────────
   const cur = intel.current ?? {};
@@ -263,8 +283,8 @@ export default function DrawdownPanel({ sessionId }: { sessionId?: string | null
             </div>
             <div className="equity">
               <span className="slabel">Status :</span>
-              <span className="t" style={{ color: inDd ? 'var(--loss)' : 'var(--gain)' }}>
-                {inDd ? `In Drawdown ${fmtDd(cur.ddPct)}` : 'At Equity Highs'}
+              <span className="t" style={{ color: !hasData ? 'var(--ink3)' : inDd ? 'var(--loss)' : 'var(--gain)' }}>
+                {!hasData ? 'No trades logged yet' : inDd ? `In Drawdown ${fmtDd(cur.ddPct)}` : 'At Equity Highs'}
               </span>
             </div>
           </div>
