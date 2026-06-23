@@ -91,7 +91,13 @@ export default function DrawdownPanel({ sessionId }: { sessionId?: string | null
   const { data: result, isLoading, isError, error } = useQuery<any>({
     queryKey: ['/api/drawdown/compute', sessionId],
     enabled: !!sessionId,
-    staleTime: 2 * 60 * 1000,
+    // Always pull fresh on open: treat cached data as stale and refetch every mount, so a
+    // redeploy (or any recompute fix) shows up on the next visit with NO manual cache-bust.
+    // keepPreviousData (global default) shows the cached result instantly while the fresh
+    // one loads in the background, so there's no loading flash. The server still caches the
+    // heavy Python compute for 5 min, so these refetches stay cheap.
+    staleTime: 0,
+    refetchOnMount: 'always',
     gcTime:   30 * 60 * 1000,
     retry: 2,
     retryDelay: (attempt) => Math.min(500 * 2 ** attempt, 4000),
