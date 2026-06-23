@@ -41,14 +41,14 @@ def compute_streaks(trades: list) -> dict:
         return dt.strftime("%Y-%m-%d") if dt else None
 
     def _close_streak(streak_type, start_idx, length, end_idx):
-        if streak_type == "loss" and length >= 2:
+        if streak_type == "loss" and length >= 1:
             loss_streaks.append({
                 "length":    length,
                 "startDate": _date_str(sorted_trades[start_idx]),
                 "endDate":   _date_str(sorted_trades[end_idx]),
                 "endIdx":    end_idx,
             })
-        elif streak_type == "win" and length >= 2:
+        elif streak_type == "win" and length >= 1:
             win_streaks.append({
                 "length":    length,
                 "startDate": _date_str(sorted_trades[start_idx]),
@@ -57,20 +57,23 @@ def compute_streaks(trades: list) -> dict:
 
     for i, t in enumerate(sorted_trades):
         outcome = get_outcome(t)
-        if outcome == "breakeven":
-            continue  # breakevens don't extend or break streaks
-
-        if outcome == current_streak_type:
+        if outcome in ("win", "loss") and outcome == current_streak_type:
             streak_length += 1
         else:
-            if current_streak_type is not None and streak_length >= 2:
+            if current_streak_type is not None and streak_length >= 1:
                 _close_streak(current_streak_type, streak_start_idx, streak_length, i - 1)
-            current_streak_type = outcome
-            streak_start_idx    = i
-            streak_length       = 1
+            if outcome in ("win", "loss"):
+                current_streak_type = outcome
+                streak_start_idx    = i
+                streak_length       = 1
+            else:
+                # breakeven / unknown BREAKS the run (matches metrics calc_streaks,
+                # which resets on a non-win/non-loss instead of bridging over it)
+                current_streak_type = None
+                streak_length       = 0
 
     # Close final streak
-    if current_streak_type is not None and streak_length >= 2:
+    if current_streak_type is not None and streak_length >= 1:
         _close_streak(current_streak_type, streak_start_idx, streak_length, len(sorted_trades) - 1)
 
     # Max and avg loss streak
@@ -83,9 +86,12 @@ def compute_streaks(trades: list) -> dict:
             "endDate":   best["endDate"],
         }
 
+    # avg/revenge consider only true streaks (≥2); the headline maxLossStreak above
+    # counts a lone loss as length 1 (metrics parity).
+    multi_loss = [s for s in loss_streaks if s["length"] >= 2]
     avg_loss_streak = (
-        round(sum(s["length"] for s in loss_streaks) / len(loss_streaks), 1)
-        if loss_streaks else 0.0
+        round(sum(s["length"] for s in multi_loss) / len(multi_loss), 1)
+        if multi_loss else 0.0
     )
 
     # Best win streak
@@ -102,7 +108,7 @@ def compute_streaks(trades: list) -> dict:
     REVENGE_WINDOW_MINS = 60
     revenge_count = 0
 
-    for streak in loss_streaks:
+    for streak in multi_loss:
         end_idx = streak.get("endIdx")
         if end_idx is None or end_idx + 1 >= len(sorted_trades):
             continue
@@ -140,7 +146,7 @@ def compute_streaks(trades: list) -> dict:
         if revenge:
             revenge_count += 1
 
-    revenge_rate = round(revenge_count / len(loss_streaks) * 100, 1) if loss_streaks else 0.0
+    revenge_rate = round(revenge_count / len(multi_loss) * 100, 1) if multi_loss else 0.0
 
     # ── Timeline (last 50 trades) ─────────────────────────────────────────────
     recent = sorted_trades[-50:]

@@ -6,7 +6,7 @@ from __future__ import annotations
 from collections import defaultdict
 from ._utils import (
     get_outcome, get_pnl, get_pnl_pct, get_trade_dt,
-    blob_field, safe_mean, _f, _s, sort_by_date
+    blob_field, safe_mean, _coerce_rr, _f, _s, sort_by_date
 )
 
 
@@ -27,20 +27,14 @@ def compute_rr_buckets(trades: list) -> list:
     total_with_rr = 0
 
     for t in trades:
-        rr = _f(t.get("riskReward") or t.get("risk_reward"))
-        if rr is None:
-            # Try achievedRR e.g. "1:2.5"
-            achieved = _s(t.get("achievedRR") or t.get("achieved_rr") or "")
-            if achieved and ":" in achieved:
-                parts = achieved.split(":")
-                try:
-                    rr = float(parts[-1])
-                except ValueError:
-                    pass
+        # Parse R:R like Metrics (rrRatio → riskReward → risk_reward → blob → achievedRR),
+        # handling colon ratios like "1:2.5". Plain _f() couldn't parse those and never
+        # checked rrRatio, so colon-formatted / rrRatio journals were dropped here.
+        rr = (_coerce_rr(t.get("rrRatio")) or _coerce_rr(t.get("riskReward")) or
+              _coerce_rr(t.get("risk_reward")) or _coerce_rr(blob_field(t, "riskReward")) or
+              _coerce_rr(t.get("achievedRR") or t.get("achieved_rr")))
         if rr is None:
             continue
-
-        rr = abs(rr)  # ensure positive
         total_with_rr += 1
 
         for b in buckets:
@@ -271,10 +265,11 @@ def compute_monthly(trades: list, starting_balance: float = 10_000.0) -> list:
         # Dominant cause
         cause, cause_class = _dominant_cause(month_trades)
 
-        # Avg RR
+        # Avg RR — parse like Metrics (rrRatio → riskReward → risk_reward + colon ratios)
         rr_vals = []
         for t in month_trades:
-            rr = _f(t.get("riskReward") or t.get("risk_reward"))
+            rr = (_coerce_rr(t.get("rrRatio")) or _coerce_rr(t.get("riskReward")) or
+                  _coerce_rr(t.get("risk_reward")) or _coerce_rr(blob_field(t, "riskReward")))
             if rr and rr > 0:
                 rr_vals.append(rr)
         avg_rr_str = f"1:{safe_mean(rr_vals):.1f}" if rr_vals else "N/A"

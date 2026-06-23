@@ -12,7 +12,7 @@ Pure, never raises.
 """
 from __future__ import annotations
 import math
-from ._utils import get_pnl_pct, get_outcome, get_pnl, sort_by_date, safe_mean, _f
+from ._utils import get_pnl_pct, get_outcome, get_pnl, sort_by_date, safe_mean, blob_field, _f
 
 _EMPTY = {
     "winRate": 0.0, "payoff": 0.0, "kellyPct": 0.0,
@@ -35,19 +35,18 @@ def compute_risk_model(trades: list) -> dict:
     if not trades:
         return _EMPTY
 
-    wins_pct, loss_pct = [], []
-    for t in trades:
-        pct = get_pnl_pct(t)
-        if _is_win(t) and pct is not None and pct > 0:
-            wins_pct.append(pct)
-        elif _is_loss(t) and pct is not None and pct < 0:
-            loss_pct.append(abs(pct))
-
-    decided = len(wins_pct) + len(loss_pct)
+    # Win rate over ALL decisive trades (win/loss by outcome), like Metrics — NOT only
+    # those carrying a signed %, which previously dropped decisive trades from the count.
+    wins   = [t for t in trades if _is_win(t)]
+    losses = [t for t in trades if _is_loss(t)]
+    decided = len(wins) + len(losses)
     if decided == 0:
         return _EMPTY
 
-    win_rate = len(wins_pct) / decided
+    win_rate = len(wins) / decided
+    # payoff from signed %; with the fixed starting-balance denominator this equals the $ ratio
+    wins_pct = [p for t in wins   for p in (get_pnl_pct(t),) if p is not None and p > 0]
+    loss_pct = [abs(p) for t in losses for p in (get_pnl_pct(t),) if p is not None and p < 0]
     avg_win  = safe_mean(wins_pct)
     avg_loss = safe_mean(loss_pct)
     payoff   = (avg_win / avg_loss) if avg_loss > 0 else 0.0
@@ -61,7 +60,7 @@ def compute_risk_model(trades: list) -> dict:
         if _is_loss(t):
             cur += 1
             actual_streak = max(actual_streak, cur)
-        elif _is_win(t):
+        else:                       # win OR breakeven/unknown both end a losing run (metrics parity)
             cur = 0
     # Expected longest run of length-q events in n trials ≈ log(n)/log(1/q).
     q = 1 - win_rate
@@ -73,6 +72,8 @@ def compute_risk_model(trades: list) -> dict:
     win_maes, loss_maes = [], []
     for t in trades:
         m = _f(t.get("mae"))
+        if m is None:
+            m = _f(blob_field(t, "mae"))
         if m is None:
             continue
         if _is_win(t):

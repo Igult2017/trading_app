@@ -82,6 +82,27 @@ def _first(t: dict, *keys: str) -> Any:
     return None
 
 
+def _coerce_rr(value: Any) -> float | None:
+    """Parse an R:R value the way the Metrics page does (metrics_calculator._coerce_rr):
+    a number, or a 'risk:reward' string like '1:2.5' → returns the reward multiple (2.5).
+    Returns None for blanks / unparseable input. No abs() (matches Metrics)."""
+    if value is None:
+        return None
+    if isinstance(value, (int, float)):
+        v = float(value)
+        return v if (v == v and v not in (float("inf"), float("-inf"))) else None
+    s = str(value).strip()
+    if not s:
+        return None
+    if ":" in s:
+        s = s.split(":")[-1].strip()
+    try:
+        v = float(s)
+        return v if (v == v and v not in (float("inf"), float("-inf"))) else None
+    except (TypeError, ValueError):
+        return None
+
+
 def get_pnl(t: dict) -> float | None:
     """Monetary P&L. Matches the Metrics priority (pnl → profitLoss → profit_loss),
     checking top-level fields then JSONB blobs. 0 is a valid breakeven, not skipped.

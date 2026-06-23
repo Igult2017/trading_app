@@ -7,7 +7,7 @@ your running peak), do you trade BIGGER (revenge-recovery) or smaller
 vs at/above the peak. Pure, never raises.
 """
 from __future__ import annotations
-from ._utils import get_pnl, get_pnl_pct, sort_by_date, safe_mean, _f
+from ._utils import get_pnl, get_pnl_pct, sort_by_date, safe_mean, blob_field, _f
 
 _EMPTY = {
     "hasData": False, "underwaterAvgSize": 0.0, "baselineAvgSize": 0.0,
@@ -16,8 +16,12 @@ _EMPTY = {
 
 
 def _size(t):
-    """Position size proxy: lotSize, else riskPercent."""
-    return _f(t.get("lotSize") or t.get("lot_size")) or _f(t.get("riskPercent") or t.get("risk_percent"))
+    """Position size proxy: lotSize, else riskPercent (top-level then JSONB blobs, so
+    blob-stored size isn't missed — Metrics reads lot_size/risk_percent blob-merged)."""
+    return (_f(t.get("lotSize") or t.get("lot_size") or
+               blob_field(t, "lotSize") or blob_field(t, "lot_size"))
+            or _f(t.get("riskPercent") or t.get("risk_percent") or
+                  blob_field(t, "riskPercent") or blob_field(t, "risk_percent")))
 
 
 def compute_recovery(trades: list, starting_balance: float) -> dict:
