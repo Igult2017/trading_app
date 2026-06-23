@@ -83,8 +83,16 @@ def _first(t: dict, *keys: str) -> Any:
 
 
 def get_pnl(t: dict) -> float | None:
-    """Monetary P&L from profitLoss field (0 is a valid breakeven, not skipped)."""
-    return _f(_first(t, "profitLoss", "profit_loss"))
+    """Monetary P&L. Matches the Metrics priority (pnl → profitLoss → profit_loss),
+    checking top-level fields then JSONB blobs. 0 is a valid breakeven, not skipped.
+    (Previously read only profitLoss/profit_loss and ignored blobs, so trades whose
+    P&L lived under 'pnl' or in a blob were dropped from the equity curve.)"""
+    v = _first(t, "pnl", "profitLoss", "profit_loss")
+    if v is None:
+        v = blob_field(t, "pnl")
+    if v is None:
+        v = blob_field(t, "profitLoss")
+    return _f(v)
 
 
 def get_pnl_pct(t: dict) -> float | None:
@@ -219,23 +227,31 @@ def get_instrument(t: dict) -> str:
 
 def get_strategy(t: dict) -> str:
     """
-    Strategy label.  Checks explicit fields then JSONB blobs.
-    Falls back to the entry timeframe as a proxy (e.g. "5M", "15M").
+    Strategy label — derived IDENTICALLY to the Metrics page
+    (metrics_calculator: setupTag → strategyVersionId → strategy). Checks the
+    top-level fields then JSONB blobs.
+
+    NO timeframe fallback: the entry timeframe is NOT a strategy. The old version
+    read 'strategy'/'entryReason' then fell back to entryTF, so when the real
+    strategy lived in strategyVersionId/setupTag (as Metrics reads it) the
+    Drawdown-by-strategy breakdown listed timeframes ('1m', '5M', '1H', …) as
+    strategies instead of the actual strategy.
     """
     raw = (
-        t.get("strategy") or
-        t.get("entryReason") or
+        t.get("setupTag") or t.get("strategyVersionId") or t.get("strategy") or
+        blob_field(t, "setupTag") or
+        blob_field(t, "strategyVersionId") or
         blob_field(t, "strategy") or
-        blob_field(t, "entryReason") or
-        t.get("entryTF") or
-        t.get("entry_tf") or
+        t.get("setup_tag") or t.get("strategy_version_id") or
         ""
     )
     s = str(raw).strip()
     return s or "Unknown"
 
 
-_BULL_ALIASES = frozenset({"long", "buy", "bull", "bullish", "up", "b"})
+# Mirror metrics_calculator._normalise_direction (long/buy/l/bullish/bull,
+# short/sell/s/bearish/bear) plus a few extra safe aliases + a substring fallback.
+_BULL_ALIASES = frozenset({"long", "buy", "bull", "bullish", "up", "b", "l"})
 _BEAR_ALIASES = frozenset({"short", "sell", "bear", "bearish", "down", "s"})
 
 
