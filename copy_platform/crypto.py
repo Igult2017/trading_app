@@ -19,16 +19,24 @@ def _get_key() -> bytes:
     return bytes(buf)
 
 
+def _is_hex(s: str) -> bool:
+    return len(s) > 0 and all(c in "0123456789abcdefABCDEF" for c in s)
+
+
 def decrypt(encoded: str) -> str:
-    """Decrypt 'ivHex:tagHex:ciphertextHex' → plaintext."""
+    """Decrypt 'ivHex:tagHex:ciphertextHex' (AES-256-GCM), or fall back to plain base64
+    (written by safeEncrypt when no key was set, e.g. accounts connected before the key
+    existed). Only takes the AES path when all 3 parts are valid hex, and on ANY AES
+    failure (corrupt / wrong key) falls back to base64 — so a legacy or mismatched token
+    degrades instead of crashing the caller."""
     parts = encoded.split(":")
-    if len(parts) == 3:
-        iv         = bytes.fromhex(parts[0])
-        tag        = bytes.fromhex(parts[1])
-        ciphertext = bytes.fromhex(parts[2])
-        # AESGCM expects ciphertext + tag concatenated
-        aesgcm = AESGCM(_get_key())
-        return aesgcm.decrypt(iv, ciphertext + tag, None).decode()
+    if len(parts) == 3 and all(_is_hex(p) for p in parts):
+        try:
+            iv, tag, ciphertext = (bytes.fromhex(p) for p in parts)
+            # AESGCM expects ciphertext + tag concatenated
+            return AESGCM(_get_key()).decrypt(iv, ciphertext + tag, None).decode()
+        except Exception:
+            pass  # wrong key / corrupt AES blob → try base64 below
     # Fallback: plain base64
     return base64.b64decode(encoded).decode()
 

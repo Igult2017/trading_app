@@ -30,15 +30,18 @@ def calc_lots(
     else:  # mult (default)
         if master_lots and master_lots > 0:
             lots = master_lots * float(follower.lot_multiplier or 1.0)
+        elif follower.fixed_lot:
+            lots = float(follower.fixed_lot)            # explicit fallback size
         else:
-            # No master volume (e.g. a Telegram signal) — fall back to the
-            # follower's fixed lot. (Telegram followers should use fixed/risk.)
-            lots = float(follower.fixed_lot or 0.01)
+            # No master volume (e.g. a Telegram signal) and no fixed_lot → 0 so the
+            # caller SKIPS rather than guessing a live size. Signal followers should
+            # use fixed or risk mode.
+            lots = 0.0
 
-    # Guard against NaN/inf from bad input, then floor at the cTrader minimum
-    # (0.01), cap at a sane maximum, and round to 2 dp.
-    if not math.isfinite(lots):
-        lots = 0.0
+    # Guard NaN/inf and treat <=0 as "skip" (no valid size). Otherwise floor at the
+    # cTrader minimum (0.01), cap at a sane maximum, and round to 2 dp.
+    if not math.isfinite(lots) or lots <= 0:
+        return 0.0
     return max(0.01, min(MAX_LOTS, round(lots, 2)))
 
 
@@ -50,6 +53,21 @@ def pip_size(symbol: str) -> float:
     if s.startswith("XAU") or s in ("US30", "US500", "NAS100", "GER40", "UK100", "JP225", "AUS200"):
         return 0.1
     return 0.0001
+
+
+def pip_value(symbol: str) -> float:
+    """USD value per pip per standard lot, for risk-mode sizing (best-effort).
+
+    Exact for USD-quoted pairs (EURUSD, GBPUSD, …) = $10/pip/lot. For JPY-quoted and
+    cross pairs the true value depends on the quote-currency→USD rate, which the engine
+    doesn't have here, so those return a rough approximation — risk-mode sizing on
+    non-USD pairs is therefore approximate; use fixed/mult mode for exact sizing there."""
+    s = (symbol or "").upper()
+    if s.endswith("USD"):
+        return 10.0          # USD-quoted: exact
+    if s.endswith("JPY"):
+        return 7.0           # ~1000 JPY/lot ≈ $6.5–7 — approximate
+    return 10.0              # crosses / metals / indices — approximate fallback
 
 
 def apply_direction(action: str, direction: str) -> str:

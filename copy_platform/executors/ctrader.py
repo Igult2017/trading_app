@@ -18,12 +18,20 @@ from ctrader_open_api.messages.OpenApiMessages_pb2 import (
     ProtoOANewOrderReq, ProtoOAClosePositionReq,
     ProtoOAAmendPositionSLTPReq, ProtoOAExecutionEvent,
 )
-from ctrader_open_api.messages.OpenApiModelMessages_pb2 import ProtoOAOrderType
+from ctrader_open_api.messages.OpenApiModelMessages_pb2 import ProtoOAOrderType, ProtoOAExecutionType
 
 from config import CT_LIVE_HOST, CT_DEMO_HOST, CT_PORT, \
     CTRADER_CLIENT_ID, CTRADER_CLIENT_SECRET
 
 log = logging.getLogger("executor.ctrader")
+
+# Only a genuine FILL confirms success; these executionTypes are terminal failures
+# (resolved immediately instead of waiting out the 20s timeout). Built defensively so a
+# missing enum name in a library version is simply skipped, never a crash.
+_FILLED_TYPE = ProtoOAExecutionType.ORDER_FILLED
+_FAIL_TYPES  = {getattr(ProtoOAExecutionType, n)
+                for n in ("ORDER_REJECTED", "ORDER_CANCELLED", "ORDER_EXPIRED")
+                if hasattr(ProtoOAExecutionType, n)}
 
 
 @dataclass
@@ -121,13 +129,23 @@ class CTraderExecutor:
 
         elif ptype == ProtoOAExecutionEvent().payloadType:
             event = Protobuf.extract(message, ProtoOAExecutionEvent)
-            # Order rejected / error → fail immediately.
+            et = event.executionType
+            # 1. Explicit error code → fail immediately.
             if event.HasField("errorCode") and event.errorCode:
                 self._resolve(ExecResult(ok=False, error=f"cTrader: {event.errorCode}"))
                 return
-            # A fill carries a position. Intermediate events (ORDER_ACCEPTED) carry
-            # no position — ignore them and wait for the fill (or the 20s timeout).
-            if event.HasField("position"):
+            # 2. Rejected / cancelled / expired → fail now (don't hang until timeout),
+            #    even when no errorCode is set (the reason often lives in the order).
+            if et in _FAIL_TYPES:
+                try:
+                    reason = ProtoOAExecutionType.Name(et)
+                except Exception:
+                    reason = str(et)
+                self._resolve(ExecResult(ok=False, error=f"cTrader: {reason}"))
+                return
+            # 3. Only a genuine FILL (with a position) confirms success. Intermediate
+            #    events (ORDER_ACCEPTED / PARTIAL) are ignored — wait for the fill.
+            if et == _FILLED_TYPE and event.HasField("position"):
                 pos = event.position
                 self._resolve(ExecResult(
                     ok          = True,

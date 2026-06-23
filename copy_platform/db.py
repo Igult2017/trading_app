@@ -4,7 +4,7 @@ Mirrors shared/schema.ts — only the columns we actually touch.
 """
 from datetime import datetime
 from sqlalchemy import create_engine, Column, String, Boolean, Integer, \
-    Numeric, Text, DateTime, JSON
+    Numeric, Text, DateTime, JSON, ARRAY
 from sqlalchemy.orm import declarative_base, sessionmaker
 from config import DATABASE_URL
 
@@ -67,8 +67,8 @@ class CopyFollower(Base):
     fixed_lot         = Column(Numeric)
     risk_percent      = Column(Numeric)
     direction         = Column(Text)     # same | reverse | hedge
-    symbol_whitelist  = Column(JSON)
-    symbol_blacklist  = Column(JSON)
+    symbol_whitelist  = Column(ARRAY(Text))   # Postgres text[] (schema uses .array()), not JSON
+    symbol_blacklist  = Column(ARRAY(Text))
     max_open_trades   = Column(Integer)
     trade_delay_sec   = Column(Integer)
     pause_inactive    = Column(Boolean)

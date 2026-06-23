@@ -38,6 +38,7 @@ class PositionSnapshot:
     entry_price: float
     stop_loss:   float | None
     take_profit: float | None
+    closed_price: float | None = None   # set on CLOSE (exit price); entry_price stays the entry
 
 
 class CTraderProvider:
@@ -181,10 +182,16 @@ class CTraderProvider:
         prev   = self._positions.get(pid)
 
         if status == ProtoOAPositionStatus.POSITION_STATUS_CLOSED:
+            self._positions.pop(pid, None)
+            # Record the exit in closed_price; keep entry_price as the real entry (from
+            # our prior snapshot when we have it). Emit CLOSE EVEN IF we never saw the
+            # OPEN (e.g. it closed during the auth→reconcile window) — the dispatcher
+            # safely no-ops when the follower has no matching position, so a follower is
+            # never stranded holding a position the master has already exited.
+            snap.closed_price = float(pos.price) if pos.price else None
             if prev is not None:
-                self._positions.pop(pid, None)
-                snap.entry_price = float(pos.price) if pos.price else prev.entry_price
-                await self.on_event({"type": "CLOSE", "snap": snap}, self.master_id)
+                snap.entry_price = prev.entry_price
+            await self.on_event({"type": "CLOSE", "snap": snap}, self.master_id)
 
         elif status == ProtoOAPositionStatus.POSITION_STATUS_OPEN:
             if prev is None:

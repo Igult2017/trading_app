@@ -46,7 +46,10 @@ class CopyEngine:
     async def start(self) -> None:
         log.info("[engine] starting copy engine (worker %d/%d)",
                  COPY_WORKER_INDEX, COPY_WORKER_COUNT)
-        await self._load_masters()
+        try:
+            await self._load_masters()
+        except Exception:
+            log.exception("[engine] initial _load_masters failed — arming loops anyway")
         self._watch_task = asyncio.ensure_future(self._watch_loop())
         asyncio.ensure_future(self._supervise_loop())
         # Instant pickup of new masters; silently falls back to the 60s poll.
@@ -89,31 +92,39 @@ class CopyEngine:
                 }
 
         for master in masters:
-            if master.id in self._providers:
-                continue
-            is_telegram = (master.source_type or "").lower() == "telegram"
-            if COPY_WORKER_COUNT > 1:
-                # Telegram uses ONE shared bot poller, so all Telegram masters live
-                # on worker 0 — otherwise every worker would poll the same bot
-                # (Telegram 409 conflict / updates split at random). cTrader masters
-                # shard normally by id so no master is ever copied twice.
-                owner = 0 if is_telegram else _shard_of(master.id)
-                if owner != COPY_WORKER_INDEX:
+            # One bad master must never abort the whole load (taking down every other
+            # master). Each is isolated; a failure is logged and skipped.
+            try:
+                if master.id in self._providers:
                     continue
-            if is_telegram:
-                await self._start_telegram(master)
-                continue
-            if not master.broker_account_id or master.broker_account_id not in accounts:
-                log.warning(f"[engine] master {master.id}: broker account not found")
-                continue
-            broker_account = accounts[master.broker_account_id]
-            platform = broker_account.platform.lower()
-            if platform not in SUPPORTED_PLATFORMS:
-                log.info(f"[engine] skipping {master.id}: {platform} not yet supported")
-                continue
-            await self._start_provider(master, broker_account)
+                is_telegram = (master.source_type or "").lower() == "telegram"
+                if COPY_WORKER_COUNT > 1:
+                    # Telegram uses ONE shared bot poller, so all Telegram masters live
+                    # on worker 0 — otherwise every worker would poll the same bot
+                    # (Telegram 409 conflict / updates split at random). cTrader masters
+                    # shard normally by id so no master is ever copied twice.
+                    owner = 0 if is_telegram else _shard_of(master.id)
+                    if owner != COPY_WORKER_INDEX:
+                        continue
+                if is_telegram:
+                    await self._start_telegram(master)
+                    continue
+                if not master.broker_account_id or master.broker_account_id not in accounts:
+                    log.warning(f"[engine] master {master.id}: broker account not found")
+                    continue
+                broker_account = accounts[master.broker_account_id]
+                platform = (broker_account.platform or "").lower()
+                if platform not in SUPPORTED_PLATFORMS:
+                    log.info(f"[engine] skipping {master.id}: {platform} not yet supported")
+                    continue
+                await self._start_provider(master, broker_account)
+            except Exception:
+                log.exception("[engine] failed to start master %s — skipping", master.id)
 
-        await self._start_user_relays()
+        try:
+            await self._start_user_relays()
+        except Exception:
+            log.exception("[engine] _start_user_relays failed")
 
     async def _start_provider(self, master: CopyMaster,
                               broker_account: BrokerAccount) -> None:
