@@ -1721,9 +1721,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const scope = await resolveComputeScope(auth, req);
       if (!scope) return res.json({ success: true, audit: {} });
-      const { entries, startingBalance } = scope;
+      const { entries, startingBalance, sessionId } = scope;
+
+      // Cache the heavy (~10s) audit compute like drawdown/metrics, validated by trade
+      // count, so the client can refetch on every page open cheaply (a deploy clears the
+      // in-memory cache / 5-min TTL → fresh numbers without a manual cache-bust).
+      const cacheKey = userSessionKey("strategy-audit", auth.id, sessionId);
+      const cached = await cacheGet<{ result: any; entryCount: number }>(cacheKey);
+      if (cached && cached.entryCount === entries.length) return res.json(cached.result);
+
       const result = await computeStrategyAudit(entries, startingBalance);
       if (result.success) {
+        await cacheSet(cacheKey, { result, entryCount: entries.length }, TTL_5MIN);
         res.json(result);
       } else {
         res.status(500).json(result);

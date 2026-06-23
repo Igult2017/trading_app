@@ -35,7 +35,7 @@ interface AuditData {
   lossCorrelations: Record<string, number[]>;
   variance: { winRate: number; sampleSize: number; winLossRatio: number; positiveSkew: boolean; stdDev: number; skewness: number };
   drawdown: { maxPeakToValley: number; recovery: number; stagnation: number; calmarRatio: number; ulcerIndex: number };
-  equityVariance: { simulationConfidence: number; varianceSkew: number; maxCluster: number; bestMonth: number; worstMonth: number; mcBars: number[] };
+  equityVariance: { simulationConfidence: number; varianceSkew: number; maxCluster: number; bestMonth: number; worstMonth: number; mcBars: number[]; monthlyBars?: { label: string; pnl: number; pct: number }[] };
   auditScope: { totalTrades: number; statisticalSignificance: number };
   tradeQuality: { aTrades: { count: number; profit: number | null }; bTrades: { count: number; profit: number | null }; cTrades: { count: number; profit: number | null } };
   conditionalEdge: {
@@ -493,7 +493,18 @@ function Page2({ d }: { d: AuditData }) {
   const eq = d.equityVariance ?? { simulationConfidence: 0, varianceSkew: 0, maxCluster: 0, bestMonth: 0, worstMonth: 0, mcBars: [] };
   const tq = d.tradeQuality ?? { aTrades: { count: 0, profit: 0 }, bTrades: { count: 0, profit: 0 }, cTrades: { count: 0, profit: 0 } };
   const ce = d.conditionalEdge ?? { liquidityGap: { label: "Liquidity-Gap Entries", rMultiple: 0, samples: 0, winRate: 0 }, nonQualified: { label: "Non-Qualified Entries", rMultiple: 0, samples: 0, winRate: 0 } };
-  const bars = eq.mcBars ?? [];
+  // Signed monthly P&L bars (profit up / loss down) — see _monthly_equity_variance.
+  const mb = eq.monthlyBars ?? [];
+  const posPk = Math.max(1, ...mb.filter(b => b.pct >= 0).map(b => b.pct));
+  const negPk = Math.max(1, ...mb.filter(b => b.pct < 0).map(b => Math.abs(b.pct)));
+  const hasNeg = mb.some(b => b.pct < 0);
+  const CH = 64;                                   // chart height (px)
+  const zeroY = hasNeg ? Math.round(CH * 0.74) : CH - 2;  // baseline: leave room below for losses
+  const upMax = zeroY - 2;
+  const dnMax = CH - zeroY - 2;
+  const greenCount = mb.filter(b => b.pct >= 0).length;
+  const redCount   = mb.filter(b => b.pct < 0).length;
+  const fmtMoney = (v: number) => `${v < 0 ? "-" : "+"}$${Math.abs(Math.round(v)).toLocaleString()}`;
 
   const instruments = d.instruments?.length ? d.instruments : [];
   const winFactors = d.winFactors?.length ? d.winFactors : [];
@@ -524,23 +535,35 @@ function Page2({ d }: { d: AuditData }) {
         </Cell>
         <Cell style={{ borderRight: "none" }}>
           <CellTitle>Monthly P&amp;L Distribution</CellTitle>
-          {bars.length > 0 ? (
-            <div style={{ display: "flex", alignItems: "flex-end", gap: 2, height: 60 }}>
-              {bars.map((h, i) => (
-                <div key={i} style={{ flex: 1, minHeight: 4, height: `${Math.abs(h)}%`, background: h >= 0 ? `rgba(34,201,122,${0.3 + Math.abs(h) * 0.005})` : `rgba(232,64,64,${0.3 + Math.abs(h) * 0.005})` }} />
-              ))}
+          {mb.length > 0 ? (
+            <div style={{ position: "relative", display: "flex", gap: 2, height: CH }}>
+              {mb.map((b, i) => {
+                const up = b.pct >= 0;
+                const h  = up
+                  ? Math.max(2, Math.round((b.pct / posPk) * upMax))
+                  : Math.max(2, Math.round((Math.abs(b.pct) / negPk) * dnMax));
+                const top = up ? zeroY - h : zeroY;
+                return (
+                  <div key={i} title={`${b.label}: ${fmtMoney(b.pnl)}`} style={{ flex: 1, position: "relative", height: CH }}>
+                    <div style={{ position: "absolute", left: 1, right: 1, top, height: h, borderRadius: 2,
+                                  background: up ? "linear-gradient(180deg,#2ee08a,#1a9e60)" : "linear-gradient(180deg,#ff5a5a,#c22)" }} />
+                  </div>
+                );
+              })}
+              <div style={{ position: "absolute", left: 0, right: 0, top: zeroY, height: 1, background: "#2a3850" }} />
             </div>
           ) : (
-            <div style={{ height: 60, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, color: T.dim, fontFamily: FONT }}>
+            <div style={{ height: CH, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, color: T.dim, fontFamily: FONT }}>
               Not enough monthly data yet
             </div>
           )}
           <div style={{ ...mono, fontSize: 9, color: T.dim, letterSpacing: ".14em", textAlign: "center", marginTop: 8 }}>
-            CONSISTENCY SCORE: <span style={{ fontFamily: MONO }}>{eq.simulationConfidence.toFixed(1)}%</span>
+            CONSISTENCY: <span style={{ fontFamily: MONO }}>{eq.simulationConfidence.toFixed(1)}%</span>
+            {mb.length > 0 && <> · <span style={{ color: T.green }}>{greenCount}G</span> / <span style={{ color: T.red }}>{redCount}R</span></>}
           </div>
           <MiniGrid cols="1fr 1fr">
-            <MiniStatBox label="Var Skew" value={eq.varianceSkew.toFixed(1)} color={T.blue} />
-            <MiniStatBox label="Max Cluster" value={eq.maxCluster} />
+            <MiniStatBox label="Best Month"  value={fmtMoney(eq.bestMonth)}  color={T.green} />
+            <MiniStatBox label="Worst Month" value={fmtMoney(eq.worstMonth)} color={eq.worstMonth < 0 ? T.red : T.muted} />
           </MiniGrid>
         </Cell>
       </div>
@@ -1254,7 +1277,11 @@ export default function StrategyAudit({ sessionId, userId, darkMode = true }: Pr
   const { data, isLoading, isError, error, refetch } = useQuery<AuditData>({
     queryKey: ["strategyAudit", sessionId, userId],
     queryFn: () => fetchAudit(sessionId, userId),
-    staleTime: 5 * 60 * 1000,
+    // Always refetch on open so a redeploy / recompute shows next visit (no manual
+    // cache-bust). The server now caches the audit (5-min, trade-count-validated), so
+    // these refetches are cheap; keepPreviousData shows the cached audit instantly.
+    staleTime: 0,
+    refetchOnMount: 'always',
     retry: 2,
   });
 

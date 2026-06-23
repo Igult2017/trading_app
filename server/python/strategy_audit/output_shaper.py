@@ -243,7 +243,7 @@ def shape_output(l1: dict, l2: dict, l3: dict, l4: dict) -> dict:
         "winCorrelations": win_corr, "lossCorrelations": loss_corr,
         "variance":      {"winRate":wr,"sampleSize":n,"winLossRatio":wl_r,"positiveSkew":pos_skew,"stdDev":std_dev,"skewness":skew},
         "drawdown":      {"maxPeakToValley":max_dd,"recovery":round(rec_f,1),"stagnation":round(t_in_dd,1),"calmarRatio":calmar,"ulcerIndex":ulcer},
-        "equityVariance":{"simulationConfidence":cons_sc,"varianceSkew":round(skew,2),"maxCluster":max(round(avg_cl),1),"bestMonth":_r2(eq_var.get("bestMonth"),0.0),"worstMonth":_r2(eq_var.get("worstMonth"),0.0),"mcBars":eq_var.get("mcBars",[])},
+        "equityVariance":{"simulationConfidence":cons_sc,"varianceSkew":round(skew,2),"maxCluster":max(round(avg_cl),1),"bestMonth":_r2(eq_var.get("bestMonth"),0.0),"worstMonth":_r2(eq_var.get("worstMonth"),0.0),"mcBars":eq_var.get("mcBars",[]),"monthlyBars":eq_var.get("monthlyBars",[])},
         "auditScope":    {"totalTrades":n,"statisticalSignificance":round(conf,1)},
         "tradeQuality":  {"aTrades":{"count":a_cnt,"profit":a_prof},"bTrades":{"count":b_cnt,"profit":b_prof},"cTrades":{"count":c_cnt,"profit":c_prof}},
         "conditionalEdge":{"liquidityGap":liq_gap,"nonQualified":non_qual},

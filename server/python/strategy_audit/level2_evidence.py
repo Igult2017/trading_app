@@ -207,10 +207,12 @@ def _monthly_equity_variance(trades: list[dict]) -> dict:
         return {
             "bestMonth": 0.0, "worstMonth": 0.0,
             "monthlyStdDev": 0.0, "consistencyScore": 0.0,
-            "mcBars": [],
+            "mcBars": [], "monthlyBars": [],
         }
 
-    values = list(monthly.values())
+    # Chronological order so the bars read left→right by month.
+    ordered = sorted(monthly.items())
+    values  = [v for _, v in ordered]
     mean_monthly = safe_mean(values)
     std_monthly  = safe_std(values)
 
@@ -220,9 +222,19 @@ def _monthly_equity_variance(trades: list[dict]) -> dict:
     else:
         consistency = 0.0
 
-    # Real distribution bars: normalize each monthly P&L to 0-100 scale
-    # relative to the absolute peak value so bars reflect actual outcomes.
-    peak = max(abs(v) for v in values) or 1.0
+    # SIGNED monthly bars (profit up, loss down) with short labels — losing months are
+    # kept NEGATIVE, not clamped to 0, so the chart can draw red down-bars. pct is the
+    # month's P&L as a % of the largest-magnitude month (peak month fills its side).
+    peak = max((abs(v) for v in values), default=1.0) or 1.0
+    _MN  = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+            "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+    monthly_bars = []
+    for key, v in ordered:
+        y, m = key.split("-")
+        label = f"{_MN[int(m) - 1]} {y[2:]}"
+        monthly_bars.append({"label": label, "pnl": round(v, 2),
+                             "pct": round(v / peak * 100, 1)})
+    # Legacy unsigned bars kept for backward-compat.
     mc_bars = [max(0, min(100, round((v / peak) * 100))) for v in values]
 
     return {
@@ -231,6 +243,7 @@ def _monthly_equity_variance(trades: list[dict]) -> dict:
         "monthlyStdDev":    round(std_monthly, 2),
         "consistencyScore": consistency,
         "mcBars":           mc_bars,
+        "monthlyBars":      monthly_bars,
     }
 
 
