@@ -38,6 +38,7 @@ import { spawn, ChildProcess } from "child_process";
 import * as fs from "fs";
 import * as path from "path";
 import { PYTHON_BIN } from "../lib/pythonBin";
+import { remapJournalEntry } from "../lib/remapJournalEntry";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -102,7 +103,14 @@ export async function computeDrawdown(
       return;
     }
 
-    const payload = { trades, ...(startingBalance !== undefined && { startingBalance }) };
+    // Remap every row to the canonical field names BEFORE Python — IDENTICAL to the
+    // Metrics page (metricsCalculator.buildPayload). Metrics remapped its input and
+    // Drawdown did not, so the two engines saw different field shapes (timeframe /
+    // session / pnl / rr / date aliases). Now both compute on the exact same input.
+    const remapped = trades.map((t) =>
+      t && typeof t === "object" ? remapJournalEntry(t as Record<string, any>) : t
+    );
+    const payload = { trades: remapped, ...(startingBalance !== undefined && { startingBalance }) };
 
     const child: ChildProcess = spawn(PYTHON_BIN, [PYTHON_SCRIPT_PATH], {
       env: { ...process.env },

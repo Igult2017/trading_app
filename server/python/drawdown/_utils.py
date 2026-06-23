@@ -258,25 +258,27 @@ def get_instrument(t: dict) -> str:
 def get_strategy(t: dict) -> str:
     """
     Strategy label — derived IDENTICALLY to the Metrics page
-    (metrics_calculator: setupTag → strategyVersionId → strategy). Checks the
-    top-level fields then JSONB blobs.
+    (metrics_calculator: setupTag → strategyVersionId → strategy). Checks EACH field at
+    the top level AND in the JSONB blobs before moving to the next — the same precedence
+    Metrics gets by merging blobs into the row first (so a value in a blob still wins
+    over a lower-priority field). The JournalForm stores the user's strategy (e.g.
+    "M1H1") in strategyVersionId.
 
-    NO timeframe fallback: the entry timeframe is NOT a strategy. The old version
-    read 'strategy'/'entryReason' then fell back to entryTF, so when the real
-    strategy lived in strategyVersionId/setupTag (as Metrics reads it) the
-    Drawdown-by-strategy breakdown listed timeframes ('1m', '5M', '1H', …) as
-    strategies instead of the actual strategy.
+    NO timeframe fallback: the entry timeframe is NOT a strategy. The old version read
+    strategy → entryReason → entryTF and never looked at strategyVersionId/setupTag, so
+    when the real strategy lived there the breakdown listed timeframes ('1m','5M','1H')
+    as strategies instead of the actual strategy.
     """
-    raw = (
-        t.get("setupTag") or t.get("strategyVersionId") or t.get("strategy") or
-        blob_field(t, "setupTag") or
-        blob_field(t, "strategyVersionId") or
-        blob_field(t, "strategy") or
-        t.get("setup_tag") or t.get("strategy_version_id") or
-        ""
-    )
-    s = str(raw).strip()
-    return s or "Unknown"
+    for aliases in (("setupTag", "setup_tag"),
+                    ("strategyVersionId", "strategy_version_id"),
+                    ("strategy",)):
+        for key in aliases:
+            v = t.get(key)
+            if v is None:
+                v = blob_field(t, key)
+            if v is not None and str(v).strip():
+                return str(v).strip()
+    return "Unknown"
 
 
 # Mirror metrics_calculator._normalise_direction (long/buy/l/bullish/bull,
