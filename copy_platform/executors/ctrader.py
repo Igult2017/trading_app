@@ -46,7 +46,8 @@ class CTraderExecutor:
         self._symbol_map: dict[str, int] = {}   # symbolName → symbolId
 
     def _make_client(self) -> Client:
-        host = CT_LIVE_HOST if self.account_type == "live" else CT_DEMO_HOST
+        # Only "demo" uses the demo gateway; live AND funded/prop accounts are live.
+        host = CT_DEMO_HOST if self.account_type == "demo" else CT_LIVE_HOST
         c = Client(host, CT_PORT, TcpProtocol)
         c.setConnectedCallback(self._on_connected)
         c.setMessageReceivedCallback(self._on_message)

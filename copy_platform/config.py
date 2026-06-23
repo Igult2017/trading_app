@@ -25,8 +25,10 @@ if TELEGRAM_COPY_BOT_TOKEN and _notif_token and \
 TELEGRAM_API_ID   = int(os.environ.get("TELEGRAM_API_ID", "0") or "0")
 TELEGRAM_API_HASH = os.environ.get("TELEGRAM_API_HASH", "")
 
-# cTrader Open API endpoints
-CT_LIVE_HOST  = "trade.ctrader.com"
+# cTrader Open API endpoints. NOTE: the live gateway is "live.ctraderapi.com" — NOT
+# "trade.ctrader.com" (the web terminal). The working signal platform + Node broker
+# adapter both use live.ctraderapi.com; the old value silently failed every live account.
+CT_LIVE_HOST  = "live.ctraderapi.com"
 CT_DEMO_HOST  = "demo.ctraderapi.com"
 CT_PORT       = 5035
 

@@ -58,7 +58,8 @@ class CTraderProvider:
         self._disconnected_since: float | None = None
         self._loop        = asyncio.get_running_loop()
 
-        host = CT_LIVE_HOST if account_type == "live" else CT_DEMO_HOST
+        # Only "demo" uses the demo gateway; live AND funded/prop accounts are live.
+        host = CT_DEMO_HOST if account_type == "demo" else CT_LIVE_HOST
         self.client = Client(host, CT_PORT, TcpProtocol)
         self.client.setConnectedCallback(self._on_connected)
         self.client.setDisconnectedCallback(self._on_disconnected)
