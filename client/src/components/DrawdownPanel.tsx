@@ -214,15 +214,31 @@ export default function DrawdownPanel({ sessionId }: { sessionId?: string | null
   const years: number[] = monthly.map((m: any) => m.year);
   const monthlyRange = years.length === 0 ? '' : years[0] === years[years.length - 1] ? `${years[0]}` : `${years[0]}–${years[years.length - 1]}`;
 
+  // ── Live current-month row ───────────────────────────────────────────────────────
+  // Always surface the CURRENT calendar month (even before it has any trades) so you can
+  // watch it build — month-to-date green/red plus the deficit carried INTO it — before
+  // the month closes. If you've already traded this month it IS the last real row (just
+  // flagged live); if not, append a flat live row that inherits the running deficit.
+  const _now   = new Date();
+  const curMon = _now.toLocaleString('en-US', { month: 'short' });   // matches compute_monthly labels ("Jun")
+  const curYr  = _now.getFullYear();
+  const _last  = monthly[monthly.length - 1];
+  const _hasCurrent = !!_last && _last.month === curMon && _last.year === curYr;
+  const displayMonths: any[] = (monthly.length > 0 && !_hasCurrent)
+    ? [...monthly, { month: curMon, year: curYr, equityGrowthPct: 0, totalTrades: 0,
+                     lossCount: 0, maxDdPct: 0, biggestLossPct: 0, recoveryPct: 0,
+                     dominantCauseClass: 'neutral', avgRr: 'N/A' }]
+    : monthly;
+
   // ── Prop-firm carry-forward: running drawdown from the high-water mark ───────────
   // Months are chronological (oldest→newest). Red months ACCUMULATE the deficit and
   // carry it forward across as many consecutive reds as it takes; a green month pays it
   // down, and only the surplus ABOVE the prior peak counts as that month's Return. CF is
-  // the running deficit after each month — 0 once you're back at a new high — i.e. how
-  // far below your peak you currently sit, for tracking prop-firm drawdown limits.
+  // the running deficit after each month — 0 once back at a new high. The live row
+  // inherits the carried deficit (0% return, but its CF = where you START the month).
   const cfRows: { ret: number | null; cf: number }[] = (() => {
     let carry = 0;                       // running deficit (<= 0), starts at the high-water mark
-    return monthly.map((m: any) => {
+    return displayMonths.map((m: any) => {
       const r = m.equityGrowthPct;
       if (r == null) return { ret: null, cf: carry };   // no data this month; deficit unchanged
       const combined = carry + r;
@@ -439,9 +455,10 @@ export default function DrawdownPanel({ sessionId }: { sessionId?: string | null
               <table className="mtbl">
                 <thead><tr><th>Month</th><th>Return</th><th>Rec.</th><th>Max DD</th><th>Big L</th><th>Loss</th><th>CF</th></tr></thead>
                 <tbody>
-                  {monthly.map((m, i) => {
+                  {displayMonths.map((m, i) => {
                     // Return = surplus above the prior peak once recovered, else the raw month %.
                     // CF = the running carried-forward deficit after this month (see cfRows above).
+                    const isLive = m.month === curMon && m.year === curYr;
                     const eq = cfRows[i].ret;
                     const cfVal = cfRows[i].cf;
                     const cf = cfVal < 0 ? `${cfVal.toFixed(2)}%` : '0.00%';
@@ -449,8 +466,8 @@ export default function DrawdownPanel({ sessionId }: { sessionId?: string | null
                     const eqCls = eq == null ? 'mut' : eq > 0 ? 'gain' : eq < 0 ? 'loss' : 'dim';
                     const dot = m.dominantCauseClass === 'bad' ? 'var(--loss)' : m.dominantCauseClass === 'good' ? 'var(--gain)' : 'var(--warn)';
                     return (
-                      <tr key={`${m.month}-${m.year}`}>
-                        <td><span className="mmname"><span className="d" style={{ background: dot, boxShadow: m.dominantCauseClass === 'good' ? undefined : 'none' }} /><span className="nm">{m.month.toUpperCase()}/{m.year}</span></span></td>
+                      <tr key={`${m.month}-${m.year}`} style={isLive ? { background: 'rgba(96,165,250,0.06)' } : undefined}>
+                        <td><span className="mmname"><span className="d" style={{ background: isLive ? '#60a5fa' : dot, boxShadow: m.dominantCauseClass === 'good' ? undefined : 'none' }} /><span className="nm">{m.month.toUpperCase()}/{m.year}</span>{isLive && <span style={{ marginLeft: 6, fontSize: 8, fontWeight: 800, letterSpacing: '.1em', color: '#60a5fa', border: '1px solid rgba(96,165,250,.5)', borderRadius: 999, padding: '0 5px', verticalAlign: 'middle' }}>LIVE</span>}</span></td>
                         <td className={eqCls}>{eqStr}</td>
                         <td className="mut">{Math.round(m.recoveryPct)}%</td>
                         <td className={m.maxDdPct === 0 ? 'mut' : 'loss'}>{fmtDd(m.maxDdPct)}</td>
