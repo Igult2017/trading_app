@@ -214,6 +214,24 @@ export default function DrawdownPanel({ sessionId }: { sessionId?: string | null
   const years: number[] = monthly.map((m: any) => m.year);
   const monthlyRange = years.length === 0 ? '' : years[0] === years[years.length - 1] ? `${years[0]}` : `${years[0]}–${years[years.length - 1]}`;
 
+  // ── Prop-firm carry-forward: running drawdown from the high-water mark ───────────
+  // Months are chronological (oldest→newest). Red months ACCUMULATE the deficit and
+  // carry it forward across as many consecutive reds as it takes; a green month pays it
+  // down, and only the surplus ABOVE the prior peak counts as that month's Return. CF is
+  // the running deficit after each month — 0 once you're back at a new high — i.e. how
+  // far below your peak you currently sit, for tracking prop-firm drawdown limits.
+  const cfRows: { ret: number | null; cf: number }[] = (() => {
+    let carry = 0;                       // running deficit (<= 0), starts at the high-water mark
+    return monthly.map((m: any) => {
+      const r = m.equityGrowthPct;
+      if (r == null) return { ret: null, cf: carry };   // no data this month; deficit unchanged
+      const combined = carry + r;
+      if (combined >= 0) { carry = 0; return { ret: combined, cf: 0 }; }  // recovered → surplus above peak
+      carry = combined;
+      return { ret: r, cf: combined };   // still underwater → show raw return, carry the deficit
+    });
+  })();
+
   // ── render ──────────────────────────────────────────────────────────────────
   return (
     <div className="dp">
@@ -422,16 +440,11 @@ export default function DrawdownPanel({ sessionId }: { sessionId?: string | null
                 <thead><tr><th>Month</th><th>Return</th><th>Rec.</th><th>Max DD</th><th>Big L</th><th>Loss</th><th>CF</th></tr></thead>
                 <tbody>
                   {monthly.map((m, i) => {
-                    // CF (carry-forward) is recorded on the RED month ITSELF = that month's own
-                    // loss; green months show 0.00%. A green month SWALLOWS the previous red
-                    // month's deficit: the deficit is subtracted INTO its displayed Return (e.g.
-                    // prev -3%, this month +10% → shows +7%) but is NOT shown as the green month's
-                    // CF. A green month after a green month — and the first month — carry nothing.
-                    const prevRet = i > 0 ? (monthly[i - 1].equityGrowthPct ?? 0) : 0;
-                    const eqRaw = m.equityGrowthPct;
-                    const cf = (eqRaw != null && eqRaw < 0) ? `${eqRaw.toFixed(2)}%` : '0.00%';
-                    // Net the swallowed deficit into a green month's return (calculated, not shown as CF).
-                    const eq = (eqRaw != null && eqRaw >= 0 && prevRet < 0) ? eqRaw + prevRet : eqRaw;
+                    // Return = surplus above the prior peak once recovered, else the raw month %.
+                    // CF = the running carried-forward deficit after this month (see cfRows above).
+                    const eq = cfRows[i].ret;
+                    const cfVal = cfRows[i].cf;
+                    const cf = cfVal < 0 ? `${cfVal.toFixed(2)}%` : '0.00%';
                     const eqStr = eq == null ? '—' : eq === 0 ? '0.00%' : `${eq > 0 ? '+' : ''}${eq.toFixed(2)}%`;
                     const eqCls = eq == null ? 'mut' : eq > 0 ? 'gain' : eq < 0 ? 'loss' : 'dim';
                     const dot = m.dominantCauseClass === 'bad' ? 'var(--loss)' : m.dominantCauseClass === 'good' ? 'var(--gain)' : 'var(--warn)';
