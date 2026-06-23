@@ -422,14 +422,16 @@ export default function DrawdownPanel({ sessionId }: { sessionId?: string | null
                 <thead><tr><th>Month</th><th>Return</th><th>Rec.</th><th>Max DD</th><th>Big L</th><th>Loss</th><th>CF</th></tr></thead>
                 <tbody>
                   {monthly.map((m, i) => {
-                    // CF (carry-forward) = the PREVIOUS month's return, but only if it ended
-                    // RED. A red month carries its loss into this month (prev -4% → this month
-                    // starts -4% in the hole, so a +14% month nets +10%). A green previous
-                    // month carries nothing (it already ended positive), and the first month
-                    // has nothing before it.
+                    // CF (carry-forward) is recorded on the RED month ITSELF = that month's own
+                    // loss; green months show 0.00%. A green month SWALLOWS the previous red
+                    // month's deficit: the deficit is subtracted INTO its displayed Return (e.g.
+                    // prev -3%, this month +10% → shows +7%) but is NOT shown as the green month's
+                    // CF. A green month after a green month — and the first month — carry nothing.
                     const prevRet = i > 0 ? (monthly[i - 1].equityGrowthPct ?? 0) : 0;
-                    const cf = prevRet < 0 ? `${prevRet.toFixed(2)}%` : '0.00%';
-                    const eq = m.equityGrowthPct;
+                    const eqRaw = m.equityGrowthPct;
+                    const cf = (eqRaw != null && eqRaw < 0) ? `${eqRaw.toFixed(2)}%` : '0.00%';
+                    // Net the swallowed deficit into a green month's return (calculated, not shown as CF).
+                    const eq = (eqRaw != null && eqRaw >= 0 && prevRet < 0) ? eqRaw + prevRet : eqRaw;
                     const eqStr = eq == null ? '—' : eq === 0 ? '0.00%' : `${eq > 0 ? '+' : ''}${eq.toFixed(2)}%`;
                     const eqCls = eq == null ? 'mut' : eq > 0 ? 'gain' : eq < 0 ? 'loss' : 'dim';
                     const dot = m.dominantCauseClass === 'bad' ? 'var(--loss)' : m.dominantCauseClass === 'good' ? 'var(--gain)' : 'var(--warn)';
