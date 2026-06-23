@@ -44,7 +44,12 @@ def _group_drawdown(trades: list, key_fn) -> list:
             g["netPct"] += pct
             if pct < 0:
                 g["totalLossPct"] += pct
-        if (get_pnl(t) or 0) < 0:
+        # Loss count: prefer monetary P&L; fall back to % so percentage-only journals
+        # don't silently report 0 losses (get_pnl None → (None or 0) < 0 is always False).
+        loss_val = get_pnl(t)
+        if loss_val is None:
+            loss_val = pct
+        if (loss_val or 0) < 0:
             g["losses"] += 1
     out = []
     for g in groups.values():
@@ -86,7 +91,7 @@ def compute_intelligence(trades: list, starting_balance: float) -> dict:
     episodes: list = []
     cur = None
     for i, eq in enumerate(eqs):
-        if eq >= peak:
+        if eq > peak:   # strict, to match metrics.py + metrics_calculator (a flat re-touch of the peak must not reset peak_idx / close the episode)
             peak = eq
             peak_idx = i
             if cur is not None:

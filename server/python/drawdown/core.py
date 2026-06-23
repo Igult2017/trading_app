@@ -15,32 +15,30 @@ from .intelligence import compute_intelligence
 from .risk_model   import compute_risk_model
 from .montecarlo   import compute_montecarlo
 from .recovery     import compute_recovery
-from ._utils       import get_pnl, get_pnl_pct, sort_by_date
+from ._utils       import get_pnl
 
 
 def _annotate_pnl_pct(trades: list, starting_balance: float) -> None:
     """
-    Pre-compute _pnlPct for every trade that lacks an explicit pnlPercent.
-    Uses a running balance so each trade's % is relative to the equity at
-    the time it was taken — the correct denominator for drawdown analysis.
-    Mutates in place; sub-modules read this via get_pnl_pct().
+    Pre-compute _pnlPct for every trade lacking an explicit pnlPercent, as a percent of
+    the STARTING balance (pl / sb × 100) — the SAME fixed denominator the Metrics page
+    uses for returns (cumulative / start_bal).
+
+    Previously used a running/compounding balance, so each trade's % drifted as the
+    account grew: it diverged from Metrics, and skewed payoff/Kelly (whose avg-win ÷
+    avg-loss only cancels the denominator when it is fixed). With a fixed base, every
+    per-trade % is directly comparable and a group's summed loss-% reads as "% of
+    starting balance lost". Mutates in place; sub-modules read this via get_pnl_pct().
     """
     sb = float(starting_balance) if starting_balance else 10_000.0
-    bal = sb
-    for t in sort_by_date(trades):
+    if sb <= 0:
+        return
+    for t in trades:
         has_pct = t.get("pnlPercent") is not None or t.get("pnl_percent") is not None
+        if has_pct:
+            continue
         pl = get_pnl(t)
-        if not has_pct:
-            t["_pnlPct"] = round(pl / bal * 100, 4) if (pl is not None and bal > 0) else None
-        # Advance the running balance for EVERY trade so later %-denominators stay
-        # correct in mixed pnl/pct journals (previously only pct-less trades advanced
-        # it, drifting the denominator after any explicit-pct trade).
-        if pl is not None:
-            bal += pl
-        else:
-            pct = get_pnl_pct(t)
-            if pct is not None and bal > 0:
-                bal *= (1 + pct / 100)
+        t["_pnlPct"] = round(pl / sb * 100, 4) if pl is not None else None
 
 
 def compute_drawdown(trades: list, starting_balance: float) -> dict:

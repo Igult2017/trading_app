@@ -112,8 +112,10 @@ def get_pnl_pct(t: dict) -> float | None:
     return _f(v)
 
 
-_WIN_ALIASES     = frozenset({"win", "won", "profit", "tp", "take profit", "1", "true"})
-_LOSS_ALIASES    = frozenset({"loss", "lose", "lost", "sl", "stop loss", "stopped", "0", "false"})
+# Superset of metrics_calculator's WIN/LOSS sets (adds 'w','l','loser' for parity)
+# plus a few tolerant aliases. Drawdown lowercases first, so casing never matters.
+_WIN_ALIASES     = frozenset({"win", "won", "w", "profit", "tp", "take profit", "1", "true"})
+_LOSS_ALIASES    = frozenset({"loss", "lose", "lost", "loser", "l", "sl", "stop loss", "stopped", "0", "false"})
 _BE_ALIASES      = frozenset({"be", "breakeven", "break even", "break-even", "scratch"})
 
 
@@ -188,12 +190,14 @@ def _parse_dt(raw: Any) -> datetime | None:
 
 def get_trade_dt(t: dict) -> datetime | None:
     """
-    Best available datetime for a trade.  Priority:
-      entryTime → exitTime → entryTimeUTC → createdAt
+    Best available datetime for a trade (used for month bucketing / days-since-peak).
+    Priority matches the Metrics page's trade_date:
+      tradeDate → entryTime → exitTime → createdAt
     Bare time-only strings ("09:30") are skipped — they carry no date.
     """
-    for key in ("entryTime", "entry_time", "exitTime", "exit_time",
-                "entryTimeUTC", "entry_time_utc", "createdAt", "created_at"):
+    for key in ("tradeDate", "trade_date", "entryTime", "entry_time",
+                "exitTime", "exit_time", "entryTimeUTC", "entry_time_utc",
+                "createdAt", "created_at"):
         dt = _parse_dt(t.get(key))
         if dt is not None:
             return dt
@@ -201,10 +205,15 @@ def get_trade_dt(t: dict) -> datetime | None:
 
 
 def sort_by_date(trades: list) -> list:
-    """Return trades sorted by get_trade_dt ascending; undated trades go last."""
+    """Sort to match the Metrics page EXACTLY: by (exit/close time, entry/open time, id),
+    undated trades FIRST. Realised P&L hits the account at CLOSE, so close-time ordering
+    is the correct (and Metrics-consistent) equity sequence. The old version sorted
+    entry-time-first with undated trades last, producing a different equity path."""
+    _MIN = datetime.min
     def _key(t):
-        dt = get_trade_dt(t)
-        return dt if dt is not None else datetime(9999, 12, 31)
+        ex = _parse_dt(_first(t, "exitTime", "exit_time", "closedAt", "closed_at"))
+        en = _parse_dt(_first(t, "entryTime", "entry_time", "entryTimeUTC", "entry_time_utc", "openedAt", "opened_at"))
+        return (ex or _MIN, en or _MIN, str(t.get("id") or t.get("_id") or ""))
     return sorted(trades, key=_key)
 
 
@@ -279,57 +288,20 @@ def get_direction(t: dict) -> str:
     return ""
 
 
-_SESSION_MAP: dict[str, str] = {
-    # normalised → display label
-    "london":          "London Open",
-    "london open":     "London Open",
-    "london/ny":       "London/NY Overlap",
-    "london/ny overlap": "London/NY Overlap",
-    "overlap":         "London/NY Overlap",
-    "new york":        "NY Session",
-    "new york open":   "NY Session",
-    "ny":              "NY Session",
-    "ny open":         "NY Session",
-    "ny session":      "NY Session",
-    "new york session":"NY Session",
-    "ny mid":          "NY Mid-Day",
-    "ny mid-day":      "NY Mid-Day",
-    "mid-day":         "NY Mid-Day",
-    "asian":           "Asian",
-    "asian open":      "Asian",
-    "asia":            "Asian",
-    "asian close":     "Asian Close",
-    "off-hours":       "Off-Hours",
-    "off hours":       "Off-Hours",
-    "pre-market":      "Pre-Market",
-}
-
-
 def get_session(t: dict) -> str:
     """
-    Normalise trading session label.
-    Checks sessionPhase → sessionName → timingContext → JSONB blobs.
+    Trading session label — matches the Metrics page exactly: session → sessionName →
+    session_name (top-level then JSONB blobs), used VERBATIM with no remapping.
+
+    The old version read sessionPhase FIRST (Open/Mid/Close) and remapped labels, so the
+    Drawdown-by-session breakdown grouped by PHASE while Metrics groups by SESSION
+    (London/NY/Asian) — the two pages never lined up. sessionPhase is a SEPARATE
+    dimension and is no longer treated as the session.
     """
     raw = (
-        t.get("sessionPhase") or
-        t.get("session_phase") or
-        t.get("sessionName") or
-        t.get("session_name") or
-        t.get("timingContext") or
-        t.get("timing_context") or
-        blob_field(t, "sessionPhase") or
-        blob_field(t, "session") or
+        t.get("session") or t.get("sessionName") or t.get("session_name") or
+        blob_field(t, "session") or blob_field(t, "sessionName") or
         ""
     )
-    s = str(raw).strip().lower()
-    if not s:
-        return "Off-Hours"
-    # Try exact map first
-    if s in _SESSION_MAP:
-        return _SESSION_MAP[s]
-    # Partial match
-    for key, label in _SESSION_MAP.items():
-        if key in s:
-            return label
-    # Return title-cased original as fallback
-    return str(raw).strip().title() or "Off-Hours"
+    s = str(raw).strip()
+    return s or "Unknown"
