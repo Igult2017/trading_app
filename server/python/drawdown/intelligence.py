@@ -17,6 +17,18 @@ from ._utils import (
     get_strategy, get_instrument, get_direction, safe_mean,
 )
 
+# Reuse the Metrics page's EXACT trade parser so the strategy / instrument / direction
+# breakdowns below group IDENTICALLY to the Metrics page (real strategy from
+# strategyVersionId, normalised instrument, long/short direction, win/loss outcome).
+# Guarded import: if it ever fails we fall back to the _utils extractors (which already
+# mirror the same logic).
+import os as _os, sys as _sys
+try:
+    _sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+    from metrics_calculator import normalise_trade as _metrics_normalise
+except Exception:
+    _metrics_normalise = None
+
 _EMPTY_DIR = {"byStrategy": [], "byInstrument": []}
 _EMPTY = {
     "current":      {"ddPct": 0.0, "inDrawdown": False, "tradesSincePeak": 0,
@@ -58,6 +70,40 @@ def _group_drawdown(trades: list, key_fn) -> list:
         g["netPct"]       = round(g["netPct"], 2)
         out.append(g)
     out.sort(key=lambda x: x["totalLossPct"])   # most-negative first
+    return out[:8]
+
+
+def _group_metrics(records: list, attr: str, sb: float) -> list:
+    """Loss-contribution breakdown over Metrics-normalised TradeRecords, so the grouping
+    key (strategy / instrument) and win/loss are IDENTICAL to the Metrics page. % uses
+    the fixed starting-balance denominator (pnl/sb), matching Metrics' returns. Empty
+    strategy → 'Unclassified' (as Metrics); empty instrument → skipped (as Metrics)."""
+    groups: dict = {}
+    for r in records:
+        k = getattr(r, attr, None)
+        if not k:
+            if attr == "strategy":
+                k = "Unclassified"
+            else:
+                continue   # Metrics omits trades with no instrument
+        g = groups.setdefault(k, {"name": k, "trades": 0, "losses": 0,
+                                  "totalLossPct": 0.0, "netPct": 0.0})
+        g["trades"] += 1
+        pnl = r.pnl
+        if pnl is not None and sb > 0:
+            pct = pnl / sb * 100
+            g["netPct"] += pct
+            if pnl < 0:
+                g["totalLossPct"] += pct
+        if r.outcome == "loss":
+            g["losses"] += 1
+    out = []
+    for g in groups.values():
+        g["lossRate"]     = round(g["losses"] / g["trades"] * 100, 1) if g["trades"] else 0.0
+        g["totalLossPct"] = round(g["totalLossPct"], 2)
+        g["netPct"]       = round(g["netPct"], 2)
+        out.append(g)
+    out.sort(key=lambda x: x["totalLossPct"])
     return out[:8]
 
 
@@ -130,8 +176,35 @@ def compute_intelligence(trades: list, starting_balance: float) -> dict:
             recovery_trades.append(ep["recoveredIdx"] - ep["troughIdx"])
     cur_uw_trades = (n - 1 - cur["startIdx"]) if cur is not None else 0
 
-    bull = [t for t in trades if get_direction(t) == "bullish"]
-    bear = [t for t in trades if get_direction(t) == "bearish"]
+    # ── Strategy / instrument / direction breakdowns — REUSE the Metrics parser ──────
+    # Parse every trade with metrics_calculator.normalise_trade so strategy (from
+    # strategyVersionId, NOT the entry timeframe), instrument (normalised), direction
+    # (long/short) and win/loss are computed EXACTLY as on the Metrics page.
+    if _metrics_normalise is not None:
+        recs   = [r for r in (_metrics_normalise(t) for t in trades) if r is not None]
+        bull_r = [r for r in recs if r.direction == "long"]
+        bear_r = [r for r in recs if r.direction == "short"]
+        by_strategy   = _group_metrics(recs, "strategy", sb)
+        by_instrument = _group_metrics(recs, "instrument", sb)
+        by_direction  = {
+            "bullish": {"byStrategy":   _group_metrics(bull_r, "strategy", sb),
+                        "byInstrument": _group_metrics(bull_r, "instrument", sb)},
+            "bearish": {"byStrategy":   _group_metrics(bear_r, "strategy", sb),
+                        "byInstrument": _group_metrics(bear_r, "instrument", sb)},
+        }
+    else:
+        # Fallback (metrics engine unavailable): drawdown's own extractors, already
+        # aligned to the same field logic.
+        bull = [t for t in trades if get_direction(t) == "bullish"]
+        bear = [t for t in trades if get_direction(t) == "bearish"]
+        by_strategy   = _group_drawdown(trades, get_strategy)
+        by_instrument = _group_drawdown(trades, get_instrument)
+        by_direction  = {
+            "bullish": {"byStrategy":   _group_drawdown(bull, get_strategy),
+                        "byInstrument": _group_drawdown(bull, get_instrument)},
+            "bearish": {"byStrategy":   _group_drawdown(bear, get_strategy),
+                        "byInstrument": _group_drawdown(bear, get_instrument)},
+        }
 
     return {
         "current": {
@@ -145,18 +218,9 @@ def compute_intelligence(trades: list, starting_balance: float) -> dict:
             "currentUnderwaterTrades": cur_uw_trades, "episodes": len(all_eps),
         },
         "series":       series,
-        "byStrategy":   _group_drawdown(trades, get_strategy),
-        "byInstrument": _group_drawdown(trades, get_instrument),
-        # Same breakdowns split by trade direction (bullish=long/buy, bearish=short/sell).
-        # Trades with no direction set are simply absent from both subsets.
-        "byDirection": {
-            "bullish": {
-                "byStrategy":   _group_drawdown(bull, get_strategy),
-                "byInstrument": _group_drawdown(bull, get_instrument),
-            },
-            "bearish": {
-                "byStrategy":   _group_drawdown(bear, get_strategy),
-                "byInstrument": _group_drawdown(bear, get_instrument),
-            },
-        },
+        "byStrategy":   by_strategy,
+        "byInstrument": by_instrument,
+        # Breakdowns split by trade direction (bullish=long, bearish=short), computed
+        # from the Metrics parser above. Trades with no direction are absent from both.
+        "byDirection":  by_direction,
     }
