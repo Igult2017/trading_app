@@ -203,13 +203,18 @@ def sort_by_date(trades: list) -> list:
 # ── Instrument / strategy / session ──────────────────────────────────────────
 
 def get_instrument(t: dict) -> str:
-    """Instrument/pair name, upper-cased."""
+    """Instrument/pair name, normalised IDENTICALLY to the Metrics page
+    (metrics_calculator._normalize_instrument): upper-case + strip '/', '-', '_'
+    so EUR/USD, EURUSD and eur_usd all group as ONE pair. Without this, drawdown
+    treated 'EUR/USD' and 'EURUSD' as separate instruments and under-counted vs
+    Metrics (e.g. 22 instead of 59)."""
     raw = (
         t.get("instrument") or
         blob_field(t, "instrument") or
         "Unknown"
     )
-    return str(raw).strip().upper() or "Unknown"
+    norm = str(raw).upper().replace("/", "").replace("-", "").replace("_", "").strip()
+    return norm or "Unknown"
 
 
 def get_strategy(t: dict) -> str:
