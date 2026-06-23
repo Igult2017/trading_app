@@ -8,9 +8,19 @@ from sqlalchemy import create_engine, Column, String, Boolean, Integer, \
 from sqlalchemy.orm import declarative_base, sessionmaker
 from config import DATABASE_URL
 
+# SQLAlchemy 1.4+ dropped the legacy "postgres://" dialect alias and only accepts
+# "postgresql://" — but DATABASE_URL ships as "postgres://" (psycopg2 / the Node pg
+# driver / the signal platform all accept either, so only this engine is strict).
+# Normalise the scheme so create_engine can load the postgresql dialect.
+_DB_URL = (
+    "postgresql://" + DATABASE_URL[len("postgres://"):]
+    if DATABASE_URL.startswith("postgres://")
+    else DATABASE_URL
+)
+
 # Sized for the dispatcher fan-out: a master with many followers opens several
 # short DB sessions per follower concurrently, so the default 5+10 pool starves.
-engine  = create_engine(DATABASE_URL, pool_pre_ping=True,
+engine  = create_engine(_DB_URL, pool_pre_ping=True,
                         pool_size=20, max_overflow=40, pool_recycle=1800)
 # expire_on_commit=False keeps attributes accessible after the session closes
 # (prevents DetachedInstanceError when objects are used outside the with-block)
