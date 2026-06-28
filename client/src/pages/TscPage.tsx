@@ -73,8 +73,16 @@ function fmtHMS(totalSec: number): string {
   const sc = s % 60;
   return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(sc).padStart(2,"0")}`;
 }
-function isWeekday(date: Date) {
-  const day = date.getUTCDay(); return day >= 1 && day <= 5;
+// Forex trading week: opens Sunday 22:00 UTC (Sydney) and closes Friday 22:00 UTC (NY).
+// A plain calendar weekday check is wrong at the edges — Sunday evening is already
+// trading (Sydney open) and Friday night is already closed for the weekend.
+function isMarketOpen(date: Date) {
+  const day = date.getUTCDay();                       // 0=Sun .. 6=Sat
+  const h   = date.getUTCHours() + date.getUTCMinutes() / 60;
+  if (day === 6) return false;                        // Saturday — fully closed
+  if (day === 0) return h >= 22;                      // Sunday — opens 22:00 UTC
+  if (day === 5) return h < 22;                       // Friday — closes 22:00 UTC
+  return true;                                        // Mon–Thu — open
 }
 function isLive(s: Session, t: number, weekday: boolean) {
   if (!weekday) return false;
@@ -408,7 +416,7 @@ export default function TscPage() {
   const m        = now.getUTCMinutes();
   const sec      = now.getUTCSeconds();
   const decimal  = h + m / 60 + sec / 3600;
-  const weekday  = isWeekday(now);
+  const weekday  = isMarketOpen(now);   // "market open right now" — gates all live checks
   const SESSIONS = getSessions(now);
   const timeStr  = `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(sec).padStart(2,"0")} UTC`;
   const liveCount = weekday ? SESSIONS.filter(s => isLive(s, decimal, true)).length : 0;
