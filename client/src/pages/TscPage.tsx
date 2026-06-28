@@ -435,6 +435,7 @@ export default function TscPage() {
 
   return (
     <>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&display=swap');`}</style>
       <div style={{ minHeight: "100vh", background: pageBg, ...sans, transition: "background 0.3s" }}>
 
         {/* ── Hero ──────────────────────────────────────────────────────── */}
