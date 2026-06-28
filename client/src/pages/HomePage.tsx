@@ -1,4 +1,4 @@
-import { BarChart3, Calendar, PieChart, Diamond, Check, ArrowRight, Search, BookOpen, Brain } from 'lucide-react';
+import { BarChart3, Calendar, PieChart, Diamond, Check, ArrowRight, Search, BookOpen, Brain, Copy, ClipboardCheck } from 'lucide-react';
 import { openAuthModal } from "@/components/auth/AuthModal";
 import HomeHeader from "@/components/HomeHeader";
 import { usePublicTheme } from "@/context/PublicThemeContext";
@@ -13,9 +13,9 @@ const sans    = { fontFamily: "'Inter', sans-serif" } as const;
 
 const features = [
   { icon: <BookOpen size={18} />,  title: "Trade Journal",   sub: "Free forever" },
-  { icon: <BarChart3 size={18} />, title: "Analytics",       sub: "Premium" },
+  { icon: <Copy size={18} />,      title: "Copier",          sub: "Premium" },
   { icon: <Brain size={18} />,     title: "AI Coach",        sub: "From $20/mo" },
-  { icon: <Calendar size={18} />,  title: "Econ. Calendar",  sub: "Free" },
+  { icon: <ClipboardCheck size={18} />, title: "Strategy Audit", sub: "Free" },
   { icon: <Diamond size={18} />,   title: "Edge Builder",    sub: "Included" },
   { icon: <PieChart size={18} />,  title: "Broker Sync",     sub: "50+ brokers" },
 ];
