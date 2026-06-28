@@ -412,6 +412,11 @@ export default function TscPage() {
   const SESSIONS = getSessions(now);
   const timeStr  = `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(sec).padStart(2,"0")} UTC`;
   const liveCount = weekday ? SESSIONS.filter(s => isLive(s, decimal, true)).length : 0;
+  const liveSessions = weekday ? SESSIONS.filter(s => isLive(s, decimal, true)) : [];
+  const activeLabel  = liveSessions.length
+    ? liveSessions.map(s => s.name).join("  ·  ")
+    : (weekday ? "No Session Open" : "Markets Closed");
+  const activeColor  = liveSessions.length ? "#10b981" : "#fbbf24";
 
   // Adapt theme — the page shell uses the public light/dark toggle,
   // but the session widget is always dark (matches the journal dark style)
@@ -426,19 +431,23 @@ export default function TscPage() {
 
         {/* ── Hero ──────────────────────────────────────────────────────── */}
         <section style={{ borderBottom: `1px solid ${border}`, padding: "52px 0 48px" }}>
-          <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 28px", display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "flex-end", gap: 32 }}>
+          <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 28px", display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "flex-start", gap: 32 }}>
 
             <div style={{ flex: "1 1 380px" }}>
+              <p style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, letterSpacing: "0.16em", textTransform: "uppercase", color: textMuted, marginBottom: 8 }}>
+                Active Market
+              </p>
               <div style={{
-                display: "inline-flex", alignItems: "center", gap: 8, marginBottom: 16,
-                padding: "5px 14px",
-                background: weekday ? "rgba(16,185,129,0.08)" : "rgba(251,191,36,0.08)",
-                border: `1px solid ${weekday ? "rgba(16,185,129,0.25)" : "rgba(251,191,36,0.25)"}`,
+                display: "inline-flex", alignItems: "center", gap: 14,
+                fontFamily: "'DM Mono', monospace", fontSize: "clamp(1.4rem,2.5vw,2rem)",
+                fontWeight: 500, letterSpacing: "0.04em", color: activeColor, lineHeight: 1,
+                background: darkMode ? "#111827" : "#fff",
+                border: `1px solid ${border}`, padding: "8px 20px", textTransform: "uppercase",
               }}>
-                {weekday ? <PulsingDot color="#10b981" /> : <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#fbbf24", display: "inline-block" }} />}
-                <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: weekday ? "#10b981" : "#fbbf24" }}>
-                  {weekday ? `${liveCount} Sessions Live` : "Weekend — Markets Closed"}
-                </span>
+                {liveSessions.length
+                  ? <PulsingDot color={activeColor} />
+                  : <span style={{ width: 9, height: 9, borderRadius: "50%", background: activeColor, display: "inline-block" }} />}
+                {activeLabel}
               </div>
             </div>
 
