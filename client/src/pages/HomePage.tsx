@@ -62,7 +62,7 @@ export default function HomePage() {
               Trusted by 10,000+ retail traders
             </div>
 
-            <h1 style={{ ...serif, fontSize: 'clamp(2.25rem,6vw,5rem)', lineHeight: 1.07, marginBottom: 20, color: text, fontWeight: 900 }}>
+            <h1 style={{ ...serif, fontSize: 'clamp(2.1rem,4.7vw,4rem)', lineHeight: 1.07, marginBottom: 20, color: text, fontWeight: 900 }}>
               Trade and<br />
               Journal,<br />
               <span style={{ color: '#2563eb' }}>Find your edge</span>
@@ -129,7 +129,7 @@ export default function HomePage() {
       {/* ── How it works ─────────────────────────────────────────────── */}
       <section id="features" style={{ padding: '96px 24px', background: bg, transition: 'all 0.4s ease' }}>
         <div className="max-w-6xl mx-auto">
-          <h2 style={{ ...display, fontSize: 'clamp(2rem,3.5vw,3rem)', textAlign: 'center', marginBottom: 12, color: text, fontWeight: 700 }}>
+          <h2 style={{ ...display, fontSize: 'clamp(1.7rem,2.8vw,2.4rem)', textAlign: 'center', marginBottom: 12, color: text, fontWeight: 700 }}>
             How Trade&amp;Journal works
           </h2>
           <p style={{ textAlign: 'center', fontSize: 15, color: muted, marginBottom: 72, maxWidth: 480, margin: '0 auto 72px', lineHeight: 1.75, ...sans }}>
@@ -139,7 +139,7 @@ export default function HomePage() {
             {steps.map((s, i) => (
               <div key={i}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18 }}>
-                  <span style={{ ...display, fontSize: '3.2rem', lineHeight: 1, color: 'rgba(37,99,235,0.18)', fontWeight: 400 }}>{s.n}</span>
+                  <span style={{ ...display, fontSize: '2.55rem', lineHeight: 1, color: 'rgba(37,99,235,0.18)', fontWeight: 400 }}>{s.n}</span>
                   <div style={{ width: 38, height: 38, borderRadius: 10, border: `1.5px solid ${border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2563eb', flexShrink: 0 }}>
                     {s.icon}
                   </div>
