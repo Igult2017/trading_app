@@ -1,6 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { Link } from 'wouter';
-import { Plus, Check, ServerCrash } from 'lucide-react';
+import { Plus, Check, ServerCrash, RefreshCw } from 'lucide-react';
 
 interface BrokerAccount {
   id: string;
@@ -30,20 +29,30 @@ const fmtBalance = (b?: string | null, c?: string | null): string | null => {
 
 /**
  * Picks one of the user's OAuth-connected cTrader accounts (from the Accounts page).
- * cTrader connects via OAuth — there is no login/investor-password — so copy trading
- * reuses an already-connected account instead of asking for credentials again.
+ * The accounts already exist — selection is instant and in-place; no re-auth, no navigation.
+ * `excludeId` hides an account already chosen elsewhere (e.g. the self-copy source) so the
+ * list is "everything apart from the one you're copying". Adding a brand-NEW account is the
+ * only thing that needs the Accounts page — it opens in a separate tab so the wizard is never
+ * lost, and the list auto-refreshes on return.
  */
 export default function CTraderAccountPicker({
   value,
   onChange,
   label = 'cTrader Account',
+  excludeId,
 }: {
   value?: string;
   onChange: (id: string) => void;
   label?: string;
+  excludeId?: string;
 }) {
-  const { data, isLoading, isError } = useQuery<BrokerAccount[]>({ queryKey: ['/api/broker-accounts'] });
-  const accounts = (data ?? []).filter(a => (a.platform || '').toLowerCase() === 'ctrader');
+  const { data, isLoading, isError, refetch } = useQuery<BrokerAccount[]>({
+    queryKey: ['/api/broker-accounts'],
+    refetchOnWindowFocus: true,
+  });
+  const ctrader  = (data ?? []).filter(a => (a.platform || '').toLowerCase() === 'ctrader');
+  const accounts = ctrader.filter(a => a.id !== excludeId);
+  const openAccountsTab = () => window.open('/accounts', '_blank', 'noopener,noreferrer');
 
   return (
     <div className="space-y-3">
@@ -58,16 +67,26 @@ export default function CTraderAccountPicker({
         </div>
       ) : isError ? (
         <div className="flex items-center gap-2 text-rose-400 text-xs py-4 px-4 border border-rose-500/20 bg-rose-500/5 rounded-md">
-          <ServerCrash size={14} /> Couldn't load your accounts — please retry.
+          <ServerCrash size={14} /> Couldn't load your accounts —
+          <button type="button" onClick={() => refetch()} className="underline hover:text-rose-200">retry</button>
         </div>
       ) : accounts.length === 0 ? (
         <div className="border border-dashed border-white/15 rounded-md p-6 text-center space-y-3">
           <div className="mx-auto w-11 h-11 rounded-full bg-white/[0.03] flex items-center justify-center"><CTraderMark size={24} /></div>
-          <p className="text-sm text-slate-200 font-medium">No cTrader account connected</p>
-          <p className="text-[11px] text-slate-500 leading-relaxed max-w-xs mx-auto">cTrader connects securely via OAuth on the Accounts page — no password is ever stored here.</p>
-          <Link href="/accounts" className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-500 hover:bg-blue-400 text-white text-[11px] font-bold uppercase tracking-widest rounded-md transition-colors">
-            <Plus size={13} /> Connect cTrader
-          </Link>
+          <p className="text-sm text-slate-200 font-medium">
+            {ctrader.length > 0 ? 'No other cTrader account' : 'No cTrader account connected'}
+          </p>
+          <p className="text-[11px] text-slate-500 leading-relaxed max-w-xs mx-auto">
+            {ctrader.length > 0
+              ? 'Self-copy needs two different accounts. Add a second cTrader account to copy onto.'
+              : 'cTrader connects securely via OAuth on the Accounts page — no password is ever stored here.'}
+          </p>
+          <button type="button" onClick={openAccountsTab} className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-500 hover:bg-blue-400 text-white text-[11px] font-bold uppercase tracking-widest rounded-md transition-colors">
+            <Plus size={13} /> {ctrader.length > 0 ? 'Add another account' : 'Connect cTrader'}
+          </button>
+          <button type="button" onClick={() => refetch()} className="block mx-auto inline-flex items-center gap-1.5 text-[10px] text-slate-500 hover:text-blue-300 transition-colors">
+            <RefreshCw size={10} /> Connected it? Refresh
+          </button>
         </div>
       ) : (
         <div className="space-y-2">
@@ -114,9 +133,14 @@ export default function CTraderAccountPicker({
               </button>
             );
           })}
-          <Link href="/accounts" className="inline-flex items-center gap-1.5 text-[11px] text-slate-500 hover:text-blue-300 transition-colors pt-1">
-            <Plus size={12} /> Connect another account
-          </Link>
+          <div className="flex items-center gap-4 pt-1">
+            <button type="button" onClick={openAccountsTab} className="inline-flex items-center gap-1.5 text-[11px] text-slate-500 hover:text-blue-300 transition-colors">
+              <Plus size={12} /> Add a new account
+            </button>
+            <button type="button" onClick={() => refetch()} className="inline-flex items-center gap-1.5 text-[11px] text-slate-600 hover:text-slate-300 transition-colors">
+              <RefreshCw size={11} /> Refresh
+            </button>
+          </div>
         </div>
       )}
     </div>
