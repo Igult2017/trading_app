@@ -468,32 +468,54 @@ const StepFilters = ({ data, setData }: any) => (
 );
 
 const StepCopy = ({ data, setData }: any) => (
-  <div className="grid grid-cols-1 md:grid-cols-2 gap-0 border border-white/5 divide-y md:divide-y-0 md:divide-x divide-white/5">
-    <div className="divide-y divide-white/5">
-      {(data.role!=='telegram' && data.role!=='relay') && <FeatureCard icon={Scale} title="Balance Multiplier" active={data.lotMode==='mult'}  onClick={() => setData({...data,lotMode:'mult'})}  sub="Scale lot relative to account size. Recommended for most users." />}
-      <FeatureCard icon={Anchor}     title="Fixed Lot Size"     active={data.lotMode==='fixed'} onClick={() => setData({...data,lotMode:'fixed'})} sub="Always open a fixed lot regardless of the provider's size." />
-      <FeatureCard icon={TrendingUp} title="Equity Risk %"      active={data.lotMode==='risk'}  onClick={() => setData({...data,lotMode:'risk'})}  sub="Dynamic sizing based on free margin and stop-loss distance." />
-    </div>
-    <div className="p-5 md:p-8 flex flex-col justify-center space-y-6 md:space-y-8">
-      <span className="text-[10px] font-mono font-bold text-slate-600 uppercase tracking-widest">
-        // {data.lotMode==='mult'?'balance_multiplier':data.lotMode==='fixed'?'fixed_lot':'equity_risk'}_config
-      </span>
-      {data.lotMode==='mult'  && <TInput label="Multiplier" hint="1.0 mirrors exactly. 0.5 = half the provider's lot. 2.0 = double." placeholder="1.0" type="number" value={data.lotMultiplier??''} onChange={(e:any)=>setData({...data,lotMultiplier:e.target.value})} />}
-      {data.lotMode==='fixed' && <TInput label="Fixed Lot Size" hint="This exact lot value will be used for every copied trade." placeholder="0.01" type="number" value={data.fixedLot??''} onChange={(e:any)=>setData({...data,fixedLot:e.target.value})} />}
-      {data.lotMode==='risk'  && <TInput label="Risk Per Trade (%)" hint="Engine auto-calculates lot size from your free margin and the stop-loss distance." placeholder="1.0" type="number" value={data.riskAmount} onChange={(e: any) => setData({...data,riskAmount:e.target.value})} />}
-      <TSelect label="Direction Mode" hint={(data.role==='telegram'||data.role==='relay') ? "How trades are placed relative to the signal's direction." : "How trades are copied relative to the provider's direction."}
-        options={(data.role==='telegram'||data.role==='relay')
-          ? [{value:'same',label:'Same direction (follow the signal)'},{value:'reverse',label:'Reverse direction (counter-trade)'}]
-          : [{value:'same',label:'Same direction (standard copy)'},{value:'reverse',label:'Reverse direction (counter-trade)'},{value:'hedge',label:'Hedge mode (open opposite simultaneously)'}]}
-        value={(data.role==='telegram'||data.role==='relay') && data.direction==='hedge' ? 'reverse' : (data.direction??'same')} onChange={(v: any) => setData({...data,direction:v})} />
-      <div className="p-3 md:p-4 border border-white/5 bg-white/[0.01]">
-        <p className="text-[11px] text-slate-600 leading-relaxed">
-          {data.lotMode==='mult'  && 'Best for accounts with a similar balance to the provider. The engine scales proportionally so risk stays consistent.'}
-          {data.lotMode==='fixed' && 'Best for micro/cent accounts or when you want full manual control over position sizing.'}
-          {data.lotMode==='risk'  && 'Best for accounts of any size. Lot is recalculated on every trade based on current equity and the stop-loss distance.'}
-        </p>
+  <div className="space-y-5">
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-0 border border-white/5 divide-y md:divide-y-0 md:divide-x divide-white/5">
+      <div className="divide-y divide-white/5">
+        {(data.role!=='telegram' && data.role!=='relay') && <FeatureCard icon={Scale} title="Balance Multiplier" active={data.lotMode==='mult'}  onClick={() => setData({...data,lotMode:'mult'})}  sub="Scale lot relative to account size. Recommended for most users." />}
+        <FeatureCard icon={Anchor}     title="Fixed Lot Size"     active={data.lotMode==='fixed'} onClick={() => setData({...data,lotMode:'fixed'})} sub="Always open a fixed lot regardless of the provider's size." />
+        <FeatureCard icon={TrendingUp} title="Equity Risk %"      active={data.lotMode==='risk'}  onClick={() => setData({...data,lotMode:'risk'})}  sub="Dynamic sizing based on free margin and stop-loss distance." />
+      </div>
+      <div className="p-5 md:p-8 flex flex-col justify-center space-y-6 md:space-y-8">
+        <span className="text-[10px] font-mono font-bold text-slate-600 uppercase tracking-widest">
+          // {data.lotMode==='mult'?'balance_multiplier':data.lotMode==='fixed'?'fixed_lot':'equity_risk'}_config
+        </span>
+        {data.lotMode==='mult'  && <TInput label="Multiplier" hint="1.0 mirrors exactly. 0.5 = half the provider's lot. 2.0 = double." placeholder="1.0" type="number" value={data.lotMultiplier??''} onChange={(e:any)=>setData({...data,lotMultiplier:e.target.value})} />}
+        {data.lotMode==='fixed' && <TInput label="Fixed Lot Size" hint="This exact lot value will be used for every copied trade." placeholder="0.01" type="number" value={data.fixedLot??''} onChange={(e:any)=>setData({...data,fixedLot:e.target.value})} />}
+        {data.lotMode==='risk'  && <TInput label="Risk Per Trade (%)" hint="Engine auto-calculates lot size from your free margin and the stop-loss distance." placeholder="1.0" type="number" value={data.riskAmount} onChange={(e: any) => setData({...data,riskAmount:e.target.value})} />}
+        <TSelect label="Direction Mode" hint={(data.role==='telegram'||data.role==='relay') ? "How trades are placed relative to the signal's direction." : "How trades are copied relative to the provider's direction."}
+          options={(data.role==='telegram'||data.role==='relay')
+            ? [{value:'same',label:'Same direction (follow the signal)'},{value:'reverse',label:'Reverse direction (counter-trade)'}]
+            : [{value:'same',label:'Same direction (standard copy)'},{value:'reverse',label:'Reverse direction (counter-trade)'},{value:'hedge',label:'Hedge mode (open opposite simultaneously)'}]}
+          value={(data.role==='telegram'||data.role==='relay') && data.direction==='hedge' ? 'reverse' : (data.direction??'same')} onChange={(v: any) => setData({...data,direction:v})} />
+        <div className="p-3 md:p-4 border border-white/5 bg-white/[0.01]">
+          <p className="text-[11px] text-slate-600 leading-relaxed">
+            {data.lotMode==='mult'  && 'Best for accounts with a similar balance to the provider. The engine scales proportionally so risk stays consistent.'}
+            {data.lotMode==='fixed' && 'Best for micro/cent accounts or when you want full manual control over position sizing.'}
+            {data.lotMode==='risk'  && 'Best for accounts of any size. Lot is recalculated on every trade based on current equity and the stop-loss distance.'}
+          </p>
+        </div>
       </div>
     </div>
+
+    {/* Risk controls — read by the copy engine (drawdown / daily-loss guard, symbol filters, trade cap).
+        Only follower + self carry these through (register-as-follower / self-copy payloads). */}
+    {(data.role!=='telegram' && data.role!=='relay') && (
+    <div className="border border-white/5 p-5 md:p-7 space-y-5">
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] font-mono font-bold text-slate-600 uppercase tracking-widest">// risk_controls</span>
+        <span className="text-[10px] text-slate-600">optional · safe defaults apply if blank</span>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 md:gap-7">
+        <TInput label="Max Drawdown (%)"   hint="Auto-pause copying if account drawdown passes this. Blank = no cap." placeholder="10" type="number" value={data.maxDdPercent??''}  onChange={(e:any)=>setData({...data,maxDdPercent:e.target.value})} />
+        <TInput label="Max Daily Loss (%)" hint="Halt for the day past this % of balance. Default 2%." placeholder="2" type="number" value={data.maxDailyLoss??''} onChange={(e:any)=>setData({...data,maxDailyLoss:e.target.value})} />
+        <TInput label="Max Open Trades"    hint="Cap on simultaneous copied positions. Default 10." placeholder="10" type="number" value={data.maxOpenTrades??''} onChange={(e:any)=>setData({...data,maxOpenTrades:e.target.value})} />
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-7">
+        <TInput label="Symbol Whitelist" hint="Only copy these (exact names, comma-separated). Blank = copy all." placeholder="EURUSD, XAUUSD" value={data.whitelist??''} onChange={(e:any)=>setData({...data,whitelist:e.target.value})} />
+        <TInput label="Symbol Blacklist" hint="Never copy these symbols, even if the provider trades them." placeholder="GBPJPY" value={data.blacklist??''} onChange={(e:any)=>setData({...data,blacklist:e.target.value})} />
+      </div>
+    </div>
+    )}
   </div>
 );
 
