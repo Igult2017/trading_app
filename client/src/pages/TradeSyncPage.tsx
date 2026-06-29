@@ -9,6 +9,8 @@ import { PiInfoFill } from 'react-icons/pi';
 import CopyManagementDashboard from '@/components/CopyManagementDashboard';
 import CTraderAccountPicker from '@/components/copy/CTraderAccountPicker';
 import TradeSyncNav from '@/components/copy/TradeSyncNav';
+import QcShell from '@/components/copy/redesign/QcShell';
+import QcRoleStep from '@/components/copy/redesign/QcRoleStep';
 import { apiRequest, authFetch } from '@/lib/queryClient';
 import { useAuth } from '@/context/AuthContext';
 
@@ -1581,7 +1583,7 @@ function CopierWizard({ onBack, onOpenDashboard }: { onBack: () => void; onOpenD
 
   const renderStep = () => {
     switch (cur.id) {
-      case 'role':       return <StepRole          data={data} setData={setData} onNext={handleNext} />;
+      case 'role':       return <QcRoleStep value={data.role} onChange={(id) => { setData(id === 'telegram' ? { ...data, role: id, platform: 'cTrader', lotMode: data.lotMode === 'risk' ? 'risk' : 'fixed' } : { ...data, role: id }); setStep(0); }} />;
       case 'connect':    return <StepConnect       data={data} setData={setData} label={data.role==='self'?'Source Account':data.role==='telegram'?'Account to Copy Onto':'Trading Account'} />;
       case 'connect2':   return <StepConnect2      data={data} setData={setData} />;
       case 'accounts':   return <StepSelfAccounts  data={data} setData={setData} />;
@@ -1603,126 +1605,29 @@ function CopierWizard({ onBack, onOpenDashboard }: { onBack: () => void; onOpenD
     }
   };
 
+  const isGoLive = cur.id === 'go-live';
   return (
-    <div className="ts-wizard-root min-h-screen bg-[#020203] text-white selection:bg-blue-500/40 font-light overflow-hidden">
-      <style>{FONTS + `
-        body{font-family:'Inter',sans-serif;letter-spacing:-0.01em;}
-        .mono{font-family:'JetBrains Mono',monospace;}
-        .hide-scrollbar::-webkit-scrollbar{display:none;}
-        .hide-scrollbar{-ms-overflow-style:none;scrollbar-width:none;}
-      `}</style>
-
-      <div className="fixed inset-0 pointer-events-none z-50 opacity-[0.03] bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.25)_50%),linear-gradient(90deg,rgba(255,0,0,0.06),rgba(0,255,0,0.02),rgba(0,0,255,0.06))] bg-[length:100%_2px,3px_100%]" />
-
-      {/* Mobile sidebar drawer */}
-      {sidebarOpen && (
-        <div className="fixed inset-0 z-40 bg-black/70 md:hidden" onClick={() => setSidebarOpen(false)}>
-          <div className="absolute right-0 top-0 bottom-0 w-52 bg-[#0a0a0f] border-l border-white/10 flex flex-col py-6 px-4" onClick={(e: any) => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-6">
-              <span className="text-[9px] font-mono text-slate-600 uppercase tracking-widest">Navigation</span>
-              <button onClick={() => setSidebarOpen(false)}><X size={16} className="text-slate-500" /></button>
-            </div>
-            <nav className="flex flex-col gap-0.5">
-              {steps.map((s,i) => {
-                const Icon = s.icon;
-                const done   = i < step;
-                const active = i === step;
-                return (
-                  <button key={s.id} onClick={() => { if(done||active){ setStep(i); setSidebarOpen(false); } }}
-                    className={`flex items-center gap-3 px-3 py-2.5 transition-all text-left rounded-sm
-                      ${active?'text-blue-400 bg-blue-500/5':done?'text-slate-500 hover:text-slate-300 cursor-pointer':'text-slate-700 cursor-default'}`}>
-                    <Icon size={14} strokeWidth={1.5} />
-                    <span className="text-[11px] uppercase tracking-widest">{s.label}</span>
-                    {active && <div className="ml-auto w-1 h-3 bg-blue-500 rounded-full" />}
-                  </button>
-                );
-              })}
-            </nav>
-          </div>
+    <QcShell
+      steps={steps.map((s: any) => ({ id: s.id, label: s.label }))}
+      current={step}
+      onExit={onBack}
+      onProviders={() => onOpenDashboard('provider')}
+      onFollowers={() => onOpenDashboard('follower')}
+      onBack={handlePrev}
+      onNext={handleNext}
+      backDisabled={step === 0}
+      hideFooter={isGoLive}
+      nextLabel={step >= steps.length - 1 ? 'Finish' : 'Continue'}
+      contentWidth={cur.id === 'link' ? 980 : cur.id === 'accounts' ? 880 : cur.id === 'role' ? 760 : 680}
+    >
+      {cur.id !== 'role' && (
+        <div style={{ marginBottom: 18 }}>
+          <div className="qc-eyebrow">Step {String(step + 1).padStart(2, '0')} · {cur.label}</div>
+          <h1 className="qc-h1" style={{ marginTop: 10 }}>{STEP_TITLES[cur.id] ?? cur.label}</h1>
         </div>
       )}
-
-      <div className="flex h-screen flex-row-reverse">
-
-        {/* SIDEBAR — desktop only */}
-        <aside className="hidden md:flex w-24 border-l border-white/5 flex-col items-center py-8 bg-black/40 backdrop-blur-xl z-20 overflow-y-auto hide-scrollbar">
-          <nav className="flex-1 flex flex-col justify-center">
-            {steps.map((s,i) => {
-              const Icon   = s.icon;
-              const done   = i < step;
-              const active = i === step;
-              const last   = i === steps.length - 1;
-              return (
-                <div key={s.id} className="flex flex-col items-center">
-                  <button
-                    onClick={() => done && setStep(i)}
-                    disabled={!done}
-                    aria-current={active ? 'step' : undefined}
-                    aria-label={s.label}
-                    className={`relative z-10 flex items-center justify-center w-9 h-9 rounded-full border transition-all duration-300
-                      ${active
-                        ? 'border-blue-500 bg-blue-500/10 text-blue-300 shadow-[0_0_18px_rgba(37,99,235,0.55)]'
-                        : done
-                          ? 'border-blue-600/70 bg-blue-600/15 text-blue-300 hover:border-blue-400 hover:bg-blue-600/25 cursor-pointer'
-                          : 'border-white/10 bg-white/[0.02] text-slate-500 cursor-default'}`}>
-                    {done ? <Check size={15} strokeWidth={2.5} /> : <Icon size={15} strokeWidth={1.5} />}
-                    {active && <span className="absolute -inset-1 rounded-full border border-blue-500/30 animate-pulse" />}
-                  </button>
-                  <span className={`mt-1.5 text-[8px] uppercase tracking-widest transition-colors
-                    ${active ? 'text-blue-300' : done ? 'text-slate-400' : 'text-slate-600'}`}>
-                    {s.label}
-                  </span>
-                  {!last && (
-                    <div className={`w-px h-7 my-1 rounded-full transition-colors duration-500
-                      ${done ? 'bg-gradient-to-b from-blue-500/70 to-blue-600/40' : 'bg-white/10'}`} />
-                  )}
-                </div>
-              );
-            })}
-          </nav>
-        </aside>
-
-        {/* MAIN */}
-        <main className="flex-1 flex flex-col overflow-hidden bg-[radial-gradient(circle_at_top_right,rgba(37,99,235,0.03),transparent_40%)]">
-
-          {/* HEADER — terminal nav (controlled) */}
-          <TradeSyncNav
-            active={data.role}
-            onSelect={(id) => { setData({ ...data, role: id }); setStep(0); }}
-            onOpenDashboard={onOpenDashboard}
-            onBack={onBack}
-            onMenu={() => setSidebarOpen(true)}
-          />
-
-          {/* CONTENT */}
-          <section className="flex-1 overflow-y-auto p-5 md:p-12 lg:p-20 hide-scrollbar">
-            <div className={cur.id==='link' ? 'w-full' : 'max-w-6xl'}>
-              <SectionTitle step={step} id={cur.id} title={STEP_TITLES[cur.id]??cur.id} />
-              <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
-                {renderStep()}
-              </div>
-            </div>
-          </section>
-
-          {/* FOOTER */}
-          <footer className="h-16 md:h-24 border-t border-white/5 bg-black/40 flex items-center justify-between px-4 md:px-12 flex-shrink-0">
-            <button onClick={handlePrev}
-              className={`text-[10px] font-bold uppercase tracking-[0.2em] md:tracking-[0.3em] text-slate-600 hover:text-white transition-colors ${step===0?'opacity-0 pointer-events-none':''}`}>
-              [ Prev ]
-            </button>
-            <div className="flex items-center gap-3 md:gap-6">
-              <span className="text-[10px] font-mono text-slate-700">{step+1} / {steps.length}</span>
-              {step < steps.length-1 && (
-                <GlowButton onClick={handleNext}>
-                  Proceed <ChevronRight size={14} />
-                </GlowButton>
-              )}
-            </div>
-          </footer>
-
-        </main>
-      </div>
-    </div>
+      {renderStep()}
+    </QcShell>
   );
 }
 
