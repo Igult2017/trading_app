@@ -16,9 +16,10 @@ export const QC_CSS = `
   -webkit-font-smoothing:antialiased;min-height:100vh;
 }
 .qc-root *{box-sizing:border-box;}
+.qc-root h1,.qc-root h2,.qc-root h3,.qc-root h4{font-family:'Manrope Variable',Manrope,system-ui,sans-serif;letter-spacing:-.01em;}
 .qc-root .mono{font-family:'JetBrains Mono Variable','JetBrains Mono',monospace;font-feature-settings:"tnum" 1,"zero" 1;}
 .qc-root .qc-eyebrow{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--t3);}
-.qc-root .qc-h1{font-size:24px;font-weight:700;letter-spacing:-.015em;line-height:1.2;color:var(--t1);}
+.qc-root .qc-h1{font-family:'Manrope Variable',Manrope,system-ui,sans-serif;font-size:24px;font-weight:700;letter-spacing:-.015em;line-height:1.2;color:var(--t1);}
 .qc-root .qc-sub{font-size:14px;color:var(--t2);line-height:1.6;}
 .qc-root .qc-up{color:var(--ok);} .qc-root .qc-down{color:var(--bad);} .qc-root .qc-muted{color:var(--t3);}
 

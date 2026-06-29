@@ -9,6 +9,8 @@ import { PiInfoFill } from 'react-icons/pi';
 import CopyManagementDashboard from '@/components/CopyManagementDashboard';
 import CTraderAccountPicker from '@/components/copy/CTraderAccountPicker';
 import TradeSyncNav from '@/components/copy/TradeSyncNav';
+import QcShell from '@/components/copy/redesign/QcShell';
+import QcRoleStep from '@/components/copy/redesign/QcRoleStep';
 import { apiRequest, authFetch } from '@/lib/queryClient';
 import { useAuth } from '@/context/AuthContext';
 
@@ -59,98 +61,99 @@ const STEPS_RELAY = [
 // ─── Shared UI ────────────────────────────────────────────────────────────────
 const GlowButton = ({ children, onClick, active, small }: any) => (
   <button onClick={onClick}
-    className={`relative font-bold uppercase tracking-[0.2em] transition-all duration-500 border flex items-center gap-2
-      ${small ? 'px-4 py-2 text-[9px]' : 'px-5 py-3 text-[10px]'}
-      ${active
-        ? 'bg-blue-600 border-blue-400 text-white shadow-[0_0_20px_rgba(37,99,235,0.4)]'
-        : 'bg-transparent border-white/10 text-slate-400 hover:border-white/30 hover:text-white'}`}>
+    className="font-medium transition-all duration-150 inline-flex items-center gap-2 rounded-lg"
+    style={{
+      height: small ? 34 : 40, padding: small ? '0 14px' : '0 18px', fontSize: 14,
+      fontFamily: 'inherit', border: '1px solid transparent', cursor: 'pointer',
+      background: active ? 'var(--acc)' : 'var(--s2)',
+      color: active ? '#fff' : 'var(--t2)',
+      borderColor: active ? 'transparent' : 'var(--b2)',
+    }}>
     {children}
   </button>
 );
 
 const TInput = ({ label, hint, ...props }: any) => (
-  <div className="group space-y-1.5">
-    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest group-focus-within:text-blue-500 transition-colors">{label}</label>
-    {hint && <p className="text-[11px] text-slate-600 leading-relaxed">{hint}</p>}
-    <input {...props} className="w-full bg-white/[0.01] border-b border-white/10 py-3 text-sm font-medium text-white placeholder:text-slate-700 focus:outline-none focus:border-blue-500 transition-all font-mono" />
+  <div className="space-y-1.5">
+    <label className="block" style={{ fontSize: 11, fontWeight: 600, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--t3)' }}>{label}</label>
+    {hint && <p className="leading-relaxed" style={{ fontSize: 12, color: 'var(--t3)' }}>{hint}</p>}
+    <input {...props} className="qc-inp mono" />
   </div>
 );
 
 const TTextarea = ({ label, hint, ...props }: any) => (
-  <div className="group space-y-1.5">
-    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest group-focus-within:text-blue-500 transition-colors">{label}</label>
-    {hint && <p className="text-[11px] text-slate-600 leading-relaxed">{hint}</p>}
-    <textarea {...props} className="w-full bg-white/[0.03] border border-white/10 p-3 text-sm font-medium text-white placeholder:text-slate-700 focus:outline-none focus:border-blue-500 transition-all font-mono resize-none rounded-sm" />
+  <div className="space-y-1.5">
+    <label className="block" style={{ fontSize: 11, fontWeight: 600, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--t3)' }}>{label}</label>
+    {hint && <p className="leading-relaxed" style={{ fontSize: 12, color: 'var(--t3)' }}>{hint}</p>}
+    <textarea {...props} className="qc-inp mono w-full resize-none" style={{ height: 'auto', minHeight: 96, padding: '10px 12px', lineHeight: 1.5 }} />
   </div>
 );
 
 const TSelect = ({ label, hint, options, value, onChange }: any) => (
   <div className="space-y-1.5">
-    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{label}</label>
-    {hint && <p className="text-[11px] text-slate-600 leading-relaxed">{hint}</p>}
-    <select value={value} onChange={(e: any) => onChange(e.target.value)}
-      className="w-full bg-[#0a0a0f] border-b border-white/10 py-3 text-sm text-white focus:outline-none focus:border-blue-500 transition-all font-mono">
-      {options.map((o: any) => <option key={o.value} value={o.value}>{o.label}</option>)}
+    <label className="block" style={{ fontSize: 11, fontWeight: 600, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--t3)' }}>{label}</label>
+    {hint && <p className="leading-relaxed" style={{ fontSize: 12, color: 'var(--t3)' }}>{hint}</p>}
+    <select value={value} onChange={(e: any) => onChange(e.target.value)} className="qc-inp">
+      {options.map((o: any) => <option key={o.value} value={o.value} style={{ background: 'var(--s2)', color: 'var(--t1)' }}>{o.label}</option>)}
     </select>
   </div>
 );
 
 const Toggle = ({ label, sub, on, onChange }: any) => (
-  <div className="flex items-center justify-between p-3 md:p-4 border border-white/5 bg-white/[0.01] mb-3">
+  <div className="flex items-center justify-between mb-3 rounded-lg" style={{ padding: '12px 14px', background: 'var(--s1)', border: '1px solid var(--b1)' }}>
     <div className="pr-4">
-      <div className="text-xs font-bold text-slate-300 tracking-tight">{label}</div>
-      {sub && <div className="text-[10px] text-slate-500 font-light mt-0.5">{sub}</div>}
+      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--t1)' }}>{label}</div>
+      {sub && <div className="mt-0.5" style={{ fontSize: 11, color: 'var(--t3)' }}>{sub}</div>}
     </div>
-    <button onClick={() => onChange(!on)}
-      className={`relative w-10 h-5 flex-shrink-0 rounded-full transition-colors duration-300 ${on ? 'bg-blue-600' : 'bg-slate-800'}`}>
-      <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all duration-300 ${on ? 'left-6' : 'left-1'}`} />
-    </button>
+    <button onClick={() => onChange(!on)} className={`qc-sw${on ? '' : ' off'}`} style={{ border: 'none' }} aria-pressed={!!on} />
   </div>
 );
 
 const InfoBox = ({ children, color = 'blue' }: any) => {
   const styles: any = {
-    blue:  'border-blue-500/20 bg-blue-500/5 text-blue-300',
-    amber: 'border-amber-500/20 bg-amber-500/5 text-amber-300',
-    red:   'border-red-500/20 bg-red-500/5 text-red-300',
-    green: 'border-green-500/20 bg-green-500/5 text-green-300',
+    blue:  { border: 'var(--acc-bd)',          bg: 'var(--acc-soft)', color: 'var(--t2)',  ic: 'var(--acc)' },
+    amber: { border: 'rgba(245,166,35,.4)',     bg: 'var(--warn-s)',   color: 'var(--t2)',  ic: 'var(--warn)' },
+    red:   { border: 'rgba(240,85,107,.4)',     bg: 'var(--bad-s)',    color: 'var(--t2)',  ic: 'var(--bad)' },
+    green: { border: 'rgba(47,203,126,.4)',     bg: 'var(--ok-s)',     color: 'var(--t2)',  ic: 'var(--ok)' },
   };
+  const s = styles[color] || styles.blue;
   return (
-    <div className={`flex items-start gap-3 p-3 md:p-4 border rounded-sm ${styles[color]}`}>
-      <PiInfoFill size={15} className="mt-0.5 flex-shrink-0" />
-      <p className="text-[11px] leading-relaxed">{children}</p>
+    <div className="flex items-start gap-3 rounded-lg" style={{ padding: '12px 14px', border: `1px solid ${s.border}`, background: s.bg, color: s.color }}>
+      <PiInfoFill size={15} className="mt-0.5 flex-shrink-0" style={{ color: s.ic }} />
+      <p className="leading-relaxed" style={{ fontSize: 11.5 }}>{children}</p>
     </div>
   );
 };
 
 const SectionTitle = ({ step, id, title }: any) => (
-  <div className="mb-8 md:mb-16">
-    <span className="text-blue-500 font-mono text-xs mb-2 block tracking-widest">0{step + 1} // {id.toUpperCase()}</span>
-    <h1 className="text-lg md:text-xl font-light tracking-tight mb-4">{title}</h1>
-    <div className="w-24 h-[1px] bg-blue-500/50" />
+  <div style={{ marginBottom: 18 }}>
+    <div className="qc-eyebrow">Step {String(step + 1).padStart(2, '0')} · {String(id).toUpperCase()}</div>
+    <h1 className="qc-h1" style={{ marginTop: 10 }}>{title}</h1>
   </div>
 );
 
-const FeatureCard = ({ title, sub, icon: Icon, active, onClick, accent }: any) => (
-  <div onClick={onClick}
-    className={`relative p-5 md:p-8 border cursor-pointer transition-all duration-700 group
-      ${active ? 'bg-blue-600/5 border-blue-500/50' : 'bg-transparent border-white/5 hover:border-white/20'}`}>
-    <div className={`mb-4 md:mb-6 transition-transform duration-500 ${active ? 'scale-110' : 'group-hover:scale-105'}`}>
-      <Icon size={22} className={active ? (accent || 'text-blue-400') : 'text-slate-600'} strokeWidth={1.5} />
+const FeatureCard = ({ title, sub, icon: Icon, active, onClick }: any) => (
+  <div onClick={onClick} className="cursor-pointer group rounded-xl transition-all duration-200"
+    style={{
+      padding: 20,
+      border: `1px solid ${active ? 'var(--acc-bd)' : 'var(--b1)'}`,
+      background: active ? 'var(--acc-soft)' : 'var(--s1)',
+    }}>
+    <div className="mb-3 flex items-center justify-center rounded-lg" style={{ width: 40, height: 40, background: active ? 'rgba(91,108,255,.18)' : 'var(--s2)' }}>
+      <Icon size={20} style={{ color: active ? 'var(--acc-h)' : 'var(--t2)' }} strokeWidth={1.6} />
     </div>
-    <h3 className={`text-base md:text-lg font-light tracking-tight mb-2 ${active ? 'text-white' : 'text-slate-400'}`}>{title}</h3>
-    <p className="text-xs text-slate-500 leading-relaxed font-light">{sub}</p>
-    {active && <div className="absolute bottom-0 left-0 h-[2px] bg-blue-500 w-full shadow-[0_0_15px_rgba(37,99,235,1)]" />}
+    <h3 style={{ fontSize: 15, fontWeight: 600, marginBottom: 5, color: active ? 'var(--t1)' : 'var(--t2)' }}>{title}</h3>
+    <p className="leading-relaxed" style={{ fontSize: 13, color: 'var(--t3)' }}>{sub}</p>
   </div>
 );
 
 // ─── Provider helpers ─────────────────────────────────────────────────────────
 const AVATAR_PALETTES = [
-  { bg:'rgba(37,99,235,0.12)',  border:'rgba(37,99,235,0.25)', color:'#60a5fa' },
-  { bg:'rgba(20,184,166,0.1)',  border:'rgba(20,184,166,0.2)', color:'#2dd4bf' },
-  { bg:'rgba(245,158,11,0.1)', border:'rgba(245,158,11,0.2)', color:'#fbbf24' },
-  { bg:'rgba(139,92,246,0.1)', border:'rgba(139,92,246,0.2)', color:'#a78bfa' },
-  { bg:'rgba(236,72,153,0.1)', border:'rgba(236,72,153,0.2)', color:'#f472b6' },
+  { bg:'rgba(91,108,255,0.14)', border:'rgba(91,108,255,0.30)', color:'#6F7DFF' },
+  { bg:'rgba(70,180,230,0.12)', border:'rgba(70,180,230,0.24)', color:'#46B4E6' },
+  { bg:'rgba(245,166,35,0.12)', border:'rgba(245,166,35,0.24)', color:'#F5A623' },
+  { bg:'rgba(47,203,126,0.12)', border:'rgba(47,203,126,0.24)', color:'#2FCB7E' },
+  { bg:'rgba(240,85,107,0.12)', border:'rgba(240,85,107,0.24)', color:'#F0556B' },
 ];
 
 function providerAvatar(id: string) {
@@ -178,47 +181,46 @@ const ProviderCard = ({ provider, selected, onSelect }: any) => {
   const avatar = providerAvatar(provider.brokerAccountId || name);
   const initials = providerInitials(name);
   const winRate = provider.winRate;
-  const winColor = winRate == null ? '#475569' : winRate >= 60 ? '#4ade80' : winRate >= 45 ? '#fbbf24' : '#f87171';
+  const winColor = winRate == null ? 'var(--t3)' : winRate >= 60 ? 'var(--ok)' : winRate >= 45 ? 'var(--warn)' : 'var(--bad)';
   const trades = provider.trades ?? 0;
   const avgRR = provider.avgRR;
   const netPnl = provider.netPnl ?? 0;
-  const pnlColor = netPnl > 0 ? '#4ade80' : netPnl < 0 ? '#f87171' : '#94a3b8';
+  const pnlColor = netPnl > 0 ? 'var(--ok)' : netPnl < 0 ? 'var(--bad)' : 'var(--t2)';
   const instruments: string[] = provider.instruments || [];
 
   const stats = [
     { label: 'Win rate', value: winRate != null ? `${winRate}%` : '—', color: winColor },
-    { label: 'Trades',   value: trades > 0 ? trades.toLocaleString() : '—', color: '#f8fafc' },
-    { label: 'Avg RR',   value: avgRR != null ? avgRR.toFixed(2) : '—', color: '#f8fafc' },
+    { label: 'Trades',   value: trades > 0 ? trades.toLocaleString() : '—', color: 'var(--t1)' },
+    { label: 'Avg RR',   value: avgRR != null ? avgRR.toFixed(2) : '—', color: 'var(--t1)' },
     { label: 'Net P/L',  value: trades > 0 ? `${netPnl >= 0 ? '+' : ''}${netPnl.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : '—', color: pnlColor },
   ];
   const badge = isOwn
-    ? { t: 'Your account', c: 'bg-violet-500/15 text-violet-300' }
-    : followable ? { t: 'Copyable', c: 'bg-emerald-500/15 text-emerald-300' }
-                 : { t: 'Not enabled', c: 'bg-slate-500/15 text-slate-400' };
+    ? { t: 'Your account', c: 'qc-b-tg' }
+    : followable ? { t: 'Copyable', c: 'qc-b-live' }
+                 : { t: 'Not enabled', c: 'qc-b-demo' };
 
   const pick = () => { if (followable && !isOwn) onSelect(provider.masterId); };
 
   return (
     <div onClick={pick}
-      className={`relative p-5 md:p-7 border transition-all duration-300 flex flex-col
-        ${selected ? 'bg-blue-600/5 border-blue-500/50' : 'bg-transparent border-white/5'}
-        ${followable && !isOwn ? 'cursor-pointer hover:border-white/20' : 'opacity-80'}`}>
+      className={`rounded-xl transition-all duration-200 flex flex-col ${followable && !isOwn ? 'cursor-pointer' : 'opacity-80'}`}
+      style={{ padding: 20, border: `1px solid ${selected ? 'var(--acc-bd)' : 'var(--b1)'}`, background: selected ? 'var(--acc-soft)' : 'var(--s1)' }}>
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-center gap-3 min-w-0">
           <div style={{ width: 36, height: 36, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700, fontFamily: mono, background: avatar.bg, border: `1px solid ${avatar.border}`, color: avatar.color, flexShrink: 0 }}>{initials}</div>
           <div className="min-w-0">
-            <h3 className={`text-sm md:text-base font-medium tracking-tight truncate ${selected ? 'text-white' : 'text-slate-300'}`}>{name}</h3>
-            <p className="text-[10px] text-slate-500 font-mono uppercase tracking-wider">{provider.platform} · {provider.accountType || 'demo'}</p>
+            <h3 className="truncate" style={{ fontSize: 15, fontWeight: 600, color: selected ? 'var(--t1)' : 'var(--t2)' }}>{name}</h3>
+            <p className="mono uppercase tracking-wider" style={{ fontSize: 10, color: 'var(--t3)' }}>{provider.platform} · {provider.accountType || 'demo'}</p>
           </div>
         </div>
-        <span className={`text-[8px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full flex-shrink-0 ${badge.c}`}>{badge.t}</span>
+        <span className={`qc-badge ${badge.c} flex-shrink-0`}>{badge.t}</span>
       </div>
 
-      <div className="grid grid-cols-4 gap-px bg-white/5 border border-white/5 mb-3">
+      <div className="grid grid-cols-4 gap-px mb-3 rounded-lg overflow-hidden" style={{ background: 'var(--b1)', border: '1px solid var(--b1)' }}>
         {stats.map(s => (
-          <div key={s.label} className="bg-[#020203] p-2">
-            <div style={{ fontSize: '8px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#475569', marginBottom: '3px', fontFamily: mono }}>{s.label}</div>
-            <div style={{ fontSize: '13px', fontWeight: 700, letterSpacing: '-0.02em', fontFamily: mono, lineHeight: 1, color: s.color }}>{s.value}</div>
+          <div key={s.label} style={{ background: 'var(--inset)', padding: 8 }}>
+            <div className="mono" style={{ fontSize: '8px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--t3)', marginBottom: '3px' }}>{s.label}</div>
+            <div className="mono" style={{ fontSize: '13px', fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1, color: s.color }}>{s.value}</div>
           </div>
         ))}
       </div>
@@ -226,38 +228,36 @@ const ProviderCard = ({ provider, selected, onSelect }: any) => {
       {instruments.length > 0 && (
         <div className="flex flex-wrap gap-1 mb-4">
           {instruments.slice(0, 6).map(sym => (
-            <span key={sym} className="text-[9px] font-mono text-slate-400 bg-white/[0.04] border border-white/10 rounded px-1.5 py-0.5">{sym}</span>
+            <span key={sym} className="mono rounded px-1.5 py-0.5" style={{ fontSize: 9, color: 'var(--t2)', background: 'var(--s2)', border: '1px solid var(--b1)' }}>{sym}</span>
           ))}
         </div>
       )}
 
       {isOwn ? (
-        <div className="w-full py-2 text-center text-[9px] font-bold uppercase tracking-[0.15em] text-violet-300/70 border border-violet-500/20" style={{ fontFamily: mono }}>
+        <div className="w-full py-2 text-center uppercase tracking-[0.12em] mono rounded-lg" style={{ fontSize: 10, fontWeight: 700, color: 'var(--info)', border: '1px solid var(--b1)' }}>
           Your account — use Self-Copy
         </div>
       ) : followable ? (
         <button onClick={(e: any) => { e.stopPropagation(); onSelect(provider.masterId); }}
-          className={`w-full py-2 text-[9px] font-bold uppercase tracking-[0.15em] border transition-all duration-300
-            ${selected ? 'border-blue-500/40 bg-blue-500/10 text-blue-400' : 'border-white/10 text-slate-400 hover:border-blue-500/40 hover:text-blue-300'}`}
-          style={{ fontFamily: mono }}>
+          className="w-full py-2 uppercase tracking-[0.12em] mono transition-all duration-150 rounded-lg"
+          style={{ fontSize: 10, fontWeight: 700, border: `1px solid ${selected ? 'var(--acc-bd)' : 'var(--b2)'}`, background: selected ? 'var(--acc-soft)' : 'transparent', color: selected ? 'var(--acc-h)' : 'var(--t2)' }}>
           {selected ? '● copying this account' : 'follow this account'}
         </button>
       ) : (
-        <div className="w-full py-2 text-center text-[9px] font-bold uppercase tracking-[0.15em] text-slate-600 border border-white/5" style={{ fontFamily: mono }}>
+        <div className="w-full py-2 text-center uppercase tracking-[0.12em] mono rounded-lg" style={{ fontSize: 10, fontWeight: 700, color: 'var(--t3)', border: '1px solid var(--b1)' }}>
           Following not enabled
         </div>
       )}
-      {selected && <div className="absolute bottom-0 left-0 h-[2px] bg-blue-500 w-full shadow-[0_0_15px_rgba(37,99,235,1)]" />}
     </div>
   );
 };
 
 const StatusDot = ({ status }: any) => {
-  const s = (({ ready:{color:'#22c55e',shadow:'0 0 6px rgba(34,197,94,0.5)',label:'Ready'}, pending:{color:'#f59e0b',shadow:'none',label:'Pending'}, inactive:{color:'#1e293b',shadow:'none',label:'Not verified'} } as Record<string,{color:string;shadow:string;label:string}>)[status as string]) || {color:'#1e293b',shadow:'none',label:'—'};
+  const s = (({ ready:{color:'var(--ok)',shadow:'0 0 6px rgba(47,203,126,0.5)',label:'Ready'}, pending:{color:'var(--warn)',shadow:'none',label:'Pending'}, inactive:{color:'var(--t4)',shadow:'none',label:'Not verified'} } as Record<string,{color:string;shadow:string;label:string}>)[status as string]) || {color:'var(--t4)',shadow:'none',label:'—'};
   return (
     <span style={{ display:'inline-flex', alignItems:'center', gap:6 }}>
       <span style={{ width:7, height:7, borderRadius:'50%', background:s.color, boxShadow:s.shadow, display:'inline-block', flexShrink:0 }} />
-      <span style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:'11px', color:s.color }}>{s.label}</span>
+      <span className="mono" style={{ fontSize:'11px', color:s.color }}>{s.label}</span>
     </span>
   );
 };
@@ -280,16 +280,21 @@ const StepRole = ({ data, setData, onNext }: any) => (
 );
 
 const StepConnect = ({ data, setData, label = "Trading Account" }: any) => (
-  <div className="grid grid-cols-1 md:grid-cols-2 gap-0 border border-white/5 divide-y md:divide-y-0 md:divide-x divide-white/5">
-    <div className="p-5 md:p-8 space-y-6 md:space-y-8">
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+    <div className="rounded-xl space-y-6 md:space-y-8" style={{ padding: 20, background: 'var(--s1)', border: '1px solid var(--b1)' }}>
       {(data.role!=='telegram' && data.role!=='relay') && (
       <div className="space-y-2">
-        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Platform Type</label>
+        <label className="block" style={{ fontSize: 11, fontWeight: 600, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--t3)' }}>Platform Type</label>
         <div className="grid grid-cols-2 gap-2 md:gap-3">
           {["MT4","MT5","cTrader","Proprietary"].map(p => (
             <button key={p} onClick={() => setData({...data,platform:p})}
-              className={`px-3 md:px-4 py-3 border text-[10px] font-bold uppercase tracking-widest transition-all flex items-center justify-between
-                ${data.platform===p ? 'bg-white text-black border-white' : 'border-white/10 text-slate-500 hover:border-white/30'}`}>
+              className="py-3 px-4 uppercase tracking-widest transition-all flex items-center justify-between rounded-lg"
+              style={{
+                fontSize: 11, fontWeight: 600,
+                border: `1px solid ${data.platform===p ? 'var(--acc-bd)' : 'var(--b2)'}`,
+                background: data.platform===p ? 'var(--acc-soft)' : 'var(--s2)',
+                color: data.platform===p ? 'var(--acc-h)' : 'var(--t3)',
+              }}>
               {p}{data.platform===p && <CheckCircle2 size={12} />}
             </button>
           ))}
@@ -318,22 +323,22 @@ const StepConnect = ({ data, setData, label = "Trading Account" }: any) => (
         </div>
       )}
     </div>
-    <div className="p-5 md:p-8 flex flex-col gap-4 md:gap-6">
+    <div className="rounded-xl flex flex-col gap-4 md:gap-5" style={{ padding: 20, background: 'var(--s1)', border: '1px solid var(--b1)' }}>
       {data.platform==='cTrader' ? (
         <>
-          <div className="p-4 md:p-5 border border-emerald-500/15 bg-emerald-500/[0.04] rounded-sm">
-            <div className="flex items-center gap-3 mb-3 text-emerald-400">
+          <div className="rounded-lg" style={{ padding: 16, border: '1px solid rgba(47,203,126,.4)', background: 'var(--ok-s)' }}>
+            <div className="flex items-center gap-3 mb-3" style={{ color: 'var(--ok)' }}>
               <ShieldCheck size={16} strokeWidth={1.5} />
-              <span className="text-[10px] font-bold uppercase tracking-widest font-mono">OAuth Secured</span>
+              <span className="mono uppercase tracking-widest" style={{ fontSize: 10, fontWeight: 700 }}>OAuth Secured</span>
             </div>
-            <p className="text-xs text-slate-400 leading-relaxed">cTrader connects through Spotware's official OAuth — you sign in on cTrader's own page. We hold a revocable access token, never your password, and you can revoke it any time from cTrader.</p>
+            <p className="leading-relaxed" style={{ fontSize: 12, color: 'var(--t2)' }}>cTrader connects through Spotware's official OAuth — you sign in on cTrader's own page. We hold a revocable access token, never your password, and you can revoke it any time from cTrader.</p>
           </div>
-          <div className="p-4 md:p-5 border border-white/5 bg-white/[0.01] rounded-sm">
-            <span className="text-[9px] font-mono font-bold text-slate-600 uppercase tracking-widest block mb-4">// how_copying_works</span>
+          <div className="rounded-lg" style={{ padding: 16, border: '1px solid var(--b1)', background: 'var(--inset)' }}>
+            <span className="mono uppercase tracking-widest block mb-4" style={{ fontSize: 9, fontWeight: 700, color: 'var(--t3)' }}>// how_copying_works</span>
             <ol className="space-y-3">
               {['Pick the connected account this terminal uses','Fills mirror in real time via the cTrader Open API','Risk limits & filters apply before every order'].map((t, i) => (
-                <li key={i} className="flex gap-3 text-[11px] text-slate-400 leading-relaxed">
-                  <span className="flex-shrink-0 w-4 h-4 rounded-full bg-blue-500/15 text-blue-300 text-[9px] font-bold flex items-center justify-center">{i+1}</span>
+                <li key={i} className="flex gap-3 leading-relaxed" style={{ fontSize: 11.5, color: 'var(--t2)' }}>
+                  <span className="flex-shrink-0 w-4 h-4 rounded-full flex items-center justify-center" style={{ fontSize: 9, fontWeight: 700, background: 'var(--acc-soft)', color: 'var(--acc-h)' }}>{i+1}</span>
                   {t}
                 </li>
               ))}
@@ -342,31 +347,31 @@ const StepConnect = ({ data, setData, label = "Trading Account" }: any) => (
         </>
       ) : (
         <>
-          <div className="p-4 md:p-5 border border-white/5 bg-white/[0.01]">
-            <div className="flex items-center gap-3 mb-3 md:mb-4 text-blue-400">
+          <div className="rounded-lg" style={{ padding: 16, border: '1px solid var(--b1)', background: 'var(--inset)' }}>
+            <div className="flex items-center gap-3 mb-3 md:mb-4" style={{ color: 'var(--acc)' }}>
               <Shield size={16} strokeWidth={1.5} />
-              <span className="text-[10px] font-bold uppercase tracking-widest font-mono">Security Protocol</span>
+              <span className="mono uppercase tracking-widest" style={{ fontSize: 10, fontWeight: 700 }}>Security Protocol</span>
             </div>
-            <p className="text-xs text-slate-500 leading-relaxed italic">TradeSync uses isolated bridge technology to monitor your margin and mirror executions. No withdrawal or sensitive personal data permissions are ever required.</p>
+            <p className="leading-relaxed italic" style={{ fontSize: 12, color: 'var(--t3)' }}>TradeSync uses isolated bridge technology to monitor your margin and mirror executions. No withdrawal or sensitive personal data permissions are ever required.</p>
           </div>
-          <div className="p-4 md:p-5 border border-white/5 bg-white/[0.01]">
-            <span className="text-[9px] font-mono font-bold text-slate-700 uppercase tracking-widest block mb-3 md:mb-4">// connection_status</span>
-            <div className="divide-y divide-white/[0.04]">
+          <div className="rounded-lg" style={{ padding: 16, border: '1px solid var(--b1)', background: 'var(--inset)' }}>
+            <span className="mono uppercase tracking-widest block mb-3 md:mb-4" style={{ fontSize: 9, fontWeight: 700, color: 'var(--t3)' }}>// connection_status</span>
+            <div>
               {[{label:'Bridge',status:'ready'},{label:'Broker server',status:'pending'},{label:'Login ID',status:'inactive'}].map(row => (
-                <div key={row.label} className="flex items-center justify-between py-2.5">
-                  <span style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:'11px', color:'#334155' }}>{row.label}</span>
+                <div key={row.label} className="flex items-center justify-between py-2.5" style={{ borderTop: '1px solid var(--b1)' }}>
+                  <span className="mono" style={{ fontSize:'11px', color:'var(--t3)' }}>{row.label}</span>
                   <StatusDot status={row.status} />
                 </div>
               ))}
-              <div className="flex items-center justify-between py-2.5">
-                <span style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:'11px', color:'#334155' }}>Latency</span>
-                <span style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:'11px', color:'#1e293b' }}>— ms</span>
+              <div className="flex items-center justify-between py-2.5" style={{ borderTop: '1px solid var(--b1)' }}>
+                <span className="mono" style={{ fontSize:'11px', color:'var(--t3)' }}>Latency</span>
+                <span className="mono" style={{ fontSize:'11px', color:'var(--t4)' }}>— ms</span>
               </div>
             </div>
           </div>
-          <div className="flex items-start gap-3 p-3 md:p-4 border border-blue-500/20 bg-blue-500/5 rounded-sm">
-            <PiInfoFill size={15} className="text-blue-400 mt-0.5 flex-shrink-0" />
-            <p className="text-[11px] text-blue-300 leading-relaxed">Use your <span className="text-blue-200 font-semibold">investor (read-only) password</span> — never your master password.</p>
+          <div className="flex items-start gap-3 rounded-lg" style={{ padding: 14, border: '1px solid var(--acc-bd)', background: 'var(--acc-soft)' }}>
+            <PiInfoFill size={15} className="mt-0.5 flex-shrink-0" style={{ color: 'var(--acc)' }} />
+            <p className="leading-relaxed" style={{ fontSize: 11.5, color: 'var(--t2)' }}>Use your <span style={{ color: 'var(--t1)', fontWeight: 600 }}>investor (read-only) password</span> — never your master password.</p>
           </div>
         </>
       )}
@@ -389,7 +394,7 @@ const StepLink = ({ data, setData, providers, providersLoading }: any) => {
   });
 
   return (
-    <div className="w-full space-y-6 md:space-y-10">
+    <div className="w-full space-y-6 md:space-y-8">
       <TInput
         label="Browse Accounts"
         placeholder="Filter by name, platform, or instrument…"
@@ -397,31 +402,30 @@ const StepLink = ({ data, setData, providers, providersLoading }: any) => {
         onChange={(e: any) => setSearch(e.target.value)}
       />
       <div className="space-y-4">
-        <div style={{ fontFamily: mono, fontSize:'10px', fontWeight:700, letterSpacing:'0.18em', textTransform:'uppercase', color:'#1e293b' }}>
+        <div className="mono uppercase" style={{ fontSize:'10px', fontWeight:700, letterSpacing:'0.18em', color:'var(--t3)' }}>
           // verified_providers
         </div>
 
         {providersLoading ? (
-          <div className="border border-white/5 p-10 flex items-center justify-center gap-3">
-            <div className="w-4 h-4 border border-blue-500 border-t-transparent rounded-full animate-spin" />
-            <span style={{ fontFamily: mono, fontSize:'11px', color:'#334155' }}>loading providers…</span>
+          <div className="rounded-xl p-10 flex items-center justify-center gap-3" style={{ border: '1px solid var(--b1)', background: 'var(--s1)' }}>
+            <div className="w-4 h-4 border border-t-transparent rounded-full animate-spin" style={{ borderColor: 'var(--acc)', borderTopColor: 'transparent' }} />
+            <span className="mono" style={{ fontSize:'11px', color:'var(--t3)' }}>loading providers…</span>
           </div>
         ) : filtered.length === 0 ? (
-          <div className="border border-white/5 p-10 text-center space-y-3">
-            <div style={{ fontFamily: mono, fontSize:'11px', color:'#1e293b' }}>
+          <div className="rounded-xl p-10 text-center space-y-3" style={{ border: '1px solid var(--b1)', background: 'var(--s1)' }}>
+            <div className="mono" style={{ fontSize:'11px', color:'var(--t3)' }}>
               {search.trim()
                 ? `// no_providers_match "${search}"`
                 : '// no_public_providers_registered'}
             </div>
             {!search.trim() && (
-              <p className="text-xs text-slate-600 font-light">
+              <p style={{ fontSize: 12, color: 'var(--t3)' }}>
                 Be the first — register as a Signal Provider using the role selector above.
               </p>
             )}
           </div>
         ) : (
-          <div className={`grid gap-0 border border-white/5 divide-y divide-white/5
-            ${filtered.length === 1 ? 'grid-cols-1 md:grid-cols-1' : 'grid-cols-1 md:grid-cols-2 md:divide-y-0 md:divide-x'}`}>
+          <div className={`grid gap-3 ${filtered.length === 1 ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'}`}>
             {filtered.map((p: any) => (
               <ProviderCard
                 key={p.brokerAccountId}
@@ -438,24 +442,24 @@ const StepLink = ({ data, setData, providers, providersLoading }: any) => {
 };
 
 const StepFilters = ({ data, setData }: any) => (
-  <div className="grid grid-cols-1 md:grid-cols-2 gap-0 border border-white/5 divide-y md:divide-y-0 md:divide-x divide-white/5">
-    <div className="p-5 md:p-8 space-y-6 md:space-y-8">
-      <span className="text-[10px] font-mono font-bold text-slate-600 uppercase tracking-widest">// symbol_filters</span>
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+    <div className="rounded-xl space-y-6 md:space-y-8" style={{ padding: 20, background: 'var(--s1)', border: '1px solid var(--b1)' }}>
+      <span className="mono uppercase tracking-widest" style={{ fontSize: 10, fontWeight: 700, color: 'var(--t3)' }}>// symbol_filters</span>
       <InfoBox>Leave blank to copy everything from the provider. Filters only restrict — they never add symbols.</InfoBox>
       <TInput label="Symbol Whitelist" hint="Only copy trades on these symbols. Comma-separated." placeholder="EURUSD, XAUUSD, BTCUSD" value={data.whitelist??''} onChange={(e:any)=>setData({...data,whitelist:e.target.value})} />
       <TInput label="Symbol Blacklist" hint="Never copy trades on these symbols even if the provider opens them." placeholder="GBPJPY, USDZAR" value={data.blacklist??''} onChange={(e:any)=>setData({...data,blacklist:e.target.value})} />
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 md:gap-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
         <TInput label="Max Open Trades"  hint="Cap on simultaneous copied positions." placeholder="10" type="number" value={data.maxOpenTrades??''} onChange={(e:any)=>setData({...data,maxOpenTrades:e.target.value})} />
         <TInput label="Trade Delay (sec)" hint="Buffer before a copied trade executes." placeholder="0" type="number" value={data.tradeDelay??''} onChange={(e:any)=>setData({...data,tradeDelay:e.target.value})} />
       </div>
     </div>
-    <div className="p-5 md:p-8 space-y-4 md:space-y-6">
-      <span className="text-[10px] font-mono font-bold text-slate-600 uppercase tracking-widest">// auto_pause_conditions</span>
+    <div className="rounded-xl space-y-4 md:space-y-5" style={{ padding: 20, background: 'var(--s1)', border: '1px solid var(--b1)' }}>
+      <span className="mono uppercase tracking-widest" style={{ fontSize: 10, fontWeight: 700, color: 'var(--t3)' }}>// auto_pause_conditions</span>
       <Toggle label="Pause if provider hasn't traded in 7 days" sub="Prevents copying stale or abandoned signals" on={data.pauseInactive??true} onChange={(v: any) => setData({...data,pauseInactive:v})} />
       <Toggle label="Pause if my drawdown exceeds threshold"    sub="Set your drawdown limit in the Shield step"  on={data.pauseDD??true}       onChange={(v: any) => setData({...data,pauseDD:v})} />
       <Toggle label="Only copy during market sessions"          sub="Restrict copying to selected trading hours"  on={data.sessionFilter??false} onChange={(v: any) => setData({...data,sessionFilter:v})} />
       {data.sessionFilter && (
-        <div className="space-y-3 pl-4 border-l border-blue-500/30">
+        <div className="space-y-3 pl-4" style={{ borderLeft: '1px solid var(--acc-bd)' }}>
           {['London (08:00–17:00 GMT)','New York (13:00–22:00 GMT)','Asia (00:00–09:00 GMT)'].map(s => (
             <Toggle key={s} label={s} on={data[`session_${s}`]??false} onChange={(v: any) => setData({...data,[`session_${s}`]:v})} />
           ))}
@@ -466,14 +470,14 @@ const StepFilters = ({ data, setData }: any) => (
 );
 
 const StepCopy = ({ data, setData }: any) => (
-  <div className="grid grid-cols-1 md:grid-cols-2 gap-0 border border-white/5 divide-y md:divide-y-0 md:divide-x divide-white/5">
-    <div className="divide-y divide-white/5">
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+    <div className="space-y-3">
       {(data.role!=='telegram' && data.role!=='relay') && <FeatureCard icon={Scale} title="Balance Multiplier" active={data.lotMode==='mult'}  onClick={() => setData({...data,lotMode:'mult'})}  sub="Scale lot relative to account size. Recommended for most users." />}
       <FeatureCard icon={Anchor}     title="Fixed Lot Size"     active={data.lotMode==='fixed'} onClick={() => setData({...data,lotMode:'fixed'})} sub="Always open a fixed lot regardless of the provider's size." />
       <FeatureCard icon={TrendingUp} title="Equity Risk %"      active={data.lotMode==='risk'}  onClick={() => setData({...data,lotMode:'risk'})}  sub="Dynamic sizing based on free margin and stop-loss distance." />
     </div>
-    <div className="p-5 md:p-8 flex flex-col justify-center space-y-6 md:space-y-8">
-      <span className="text-[10px] font-mono font-bold text-slate-600 uppercase tracking-widest">
+    <div className="rounded-xl flex flex-col justify-center space-y-6 md:space-y-8" style={{ padding: 20, background: 'var(--s1)', border: '1px solid var(--b1)' }}>
+      <span className="mono uppercase tracking-widest" style={{ fontSize: 10, fontWeight: 700, color: 'var(--t3)' }}>
         // {data.lotMode==='mult'?'balance_multiplier':data.lotMode==='fixed'?'fixed_lot':'equity_risk'}_config
       </span>
       {data.lotMode==='mult'  && <TInput label="Multiplier" hint="1.0 mirrors exactly. 0.5 = half the provider's lot. 2.0 = double." placeholder="1.0" type="number" value={data.lotMultiplier??''} onChange={(e:any)=>setData({...data,lotMultiplier:e.target.value})} />}
@@ -484,8 +488,8 @@ const StepCopy = ({ data, setData }: any) => (
           ? [{value:'same',label:'Same direction (follow the signal)'},{value:'reverse',label:'Reverse direction (counter-trade)'}]
           : [{value:'same',label:'Same direction (standard copy)'},{value:'reverse',label:'Reverse direction (counter-trade)'},{value:'hedge',label:'Hedge mode (open opposite simultaneously)'}]}
         value={(data.role==='telegram'||data.role==='relay') && data.direction==='hedge' ? 'reverse' : (data.direction??'same')} onChange={(v: any) => setData({...data,direction:v})} />
-      <div className="p-3 md:p-4 border border-white/5 bg-white/[0.01]">
-        <p className="text-[11px] text-slate-600 leading-relaxed">
+      <div className="rounded-lg" style={{ padding: 14, border: '1px solid var(--b1)', background: 'var(--inset)' }}>
+        <p className="leading-relaxed" style={{ fontSize: 11.5, color: 'var(--t3)' }}>
           {data.lotMode==='mult'  && 'Best for accounts with a similar balance to the provider. The engine scales proportionally so risk stays consistent.'}
           {data.lotMode==='fixed' && 'Best for micro/cent accounts or when you want full manual control over position sizing.'}
           {data.lotMode==='risk'  && 'Best for accounts of any size. Lot is recalculated on every trade based on current equity and the stop-loss distance.'}
@@ -496,36 +500,36 @@ const StepCopy = ({ data, setData }: any) => (
 );
 
 const StepProtect = ({ data, setData }: any) => (
-  <div className="grid grid-cols-1 md:grid-cols-2 gap-0 border border-white/5 divide-y md:divide-y-0 md:divide-x divide-white/5">
-    <div className="p-5 md:p-8 space-y-6 md:space-y-8">
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+    <div className="rounded-xl space-y-6 md:space-y-8" style={{ padding: 20, background: 'var(--s1)', border: '1px solid var(--b1)' }}>
       <TInput label="Global Drawdown (%)" hint="Stop all copying if total account drawdown exceeds this." placeholder="5.0" type="number" value={data.maxDdPercent??''} onChange={(e:any)=>setData({...data,maxDdPercent:e.target.value})} />
       <TInput label="Max Daily Loss ($)"  hint="Halt copying for the rest of the day if this dollar loss is hit." placeholder="1000" type="number" value={data.maxDailyLoss??''} onChange={(e:any)=>setData({...data,maxDailyLoss:e.target.value})} />
-      <div className="border-t border-white/5 pt-6 space-y-6">
+      <div className="pt-6 space-y-6" style={{ borderTop: '1px solid var(--b1)' }}>
         <div className="space-y-2">
-          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Symbol Prefix</label>
-          <p className="text-[11px] text-slate-600 leading-relaxed">Characters your broker adds <span className="text-slate-300">before</span> the symbol name.</p>
-          <input type="text" placeholder="e.g. .m" value={data.symbolPrefix??''} onChange={(e:any)=>setData({...data,symbolPrefix:e.target.value})} className="w-full bg-white/[0.01] border-b border-white/10 py-3 text-sm font-medium text-white placeholder:text-slate-700 focus:outline-none focus:border-blue-500 transition-all font-mono" />
+          <label className="block" style={{ fontSize: 11, fontWeight: 600, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--t3)' }}>Symbol Prefix</label>
+          <p className="leading-relaxed" style={{ fontSize: 11.5, color: 'var(--t3)' }}>Characters your broker adds <span style={{ color: 'var(--t2)' }}>before</span> the symbol name.</p>
+          <input type="text" placeholder="e.g. .m" value={data.symbolPrefix??''} onChange={(e:any)=>setData({...data,symbolPrefix:e.target.value})} className="qc-inp mono" />
           <div className="flex items-center gap-2 mt-1 flex-wrap">
-            <span className="text-[10px] font-mono text-slate-600 bg-white/5 border border-white/5 px-2 py-1">EURUSD</span>
-            <span className="text-[10px] text-slate-600">→</span>
-            <span className="text-[10px] font-mono text-blue-400 bg-blue-500/5 border border-blue-500/10 px-2 py-1">.mEURUSD</span>
+            <span className="mono px-2 py-1 rounded" style={{ fontSize: 10, color: 'var(--t3)', background: 'var(--s2)', border: '1px solid var(--b1)' }}>EURUSD</span>
+            <span style={{ fontSize: 10, color: 'var(--t3)' }}>→</span>
+            <span className="mono px-2 py-1 rounded" style={{ fontSize: 10, color: 'var(--acc-h)', background: 'var(--acc-soft)', border: '1px solid var(--acc-bd)' }}>.mEURUSD</span>
           </div>
         </div>
         <div className="space-y-2">
-          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Symbol Suffix</label>
-          <p className="text-[11px] text-slate-600 leading-relaxed">Characters your broker adds <span className="text-slate-300">after</span> the symbol name.</p>
-          <input type="text" placeholder="e.g. +f" value={data.symbolSuffix??''} onChange={(e:any)=>setData({...data,symbolSuffix:e.target.value})} className="w-full bg-white/[0.01] border-b border-white/10 py-3 text-sm font-medium text-white placeholder:text-slate-700 focus:outline-none focus:border-blue-500 transition-all font-mono" />
+          <label className="block" style={{ fontSize: 11, fontWeight: 600, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--t3)' }}>Symbol Suffix</label>
+          <p className="leading-relaxed" style={{ fontSize: 11.5, color: 'var(--t3)' }}>Characters your broker adds <span style={{ color: 'var(--t2)' }}>after</span> the symbol name.</p>
+          <input type="text" placeholder="e.g. +f" value={data.symbolSuffix??''} onChange={(e:any)=>setData({...data,symbolSuffix:e.target.value})} className="qc-inp mono" />
           <div className="flex items-center gap-2 mt-1 flex-wrap">
-            <span className="text-[10px] font-mono text-slate-600 bg-white/5 border border-white/5 px-2 py-1">EURUSD</span>
-            <span className="text-[10px] text-slate-600">→</span>
-            <span className="text-[10px] font-mono text-blue-400 bg-blue-500/5 border border-blue-500/10 px-2 py-1">EURUSD+f</span>
+            <span className="mono px-2 py-1 rounded" style={{ fontSize: 10, color: 'var(--t3)', background: 'var(--s2)', border: '1px solid var(--b1)' }}>EURUSD</span>
+            <span style={{ fontSize: 10, color: 'var(--t3)' }}>→</span>
+            <span className="mono px-2 py-1 rounded" style={{ fontSize: 10, color: 'var(--acc-h)', background: 'var(--acc-soft)', border: '1px solid var(--acc-bd)' }}>EURUSD+f</span>
           </div>
         </div>
         <InfoBox>Leave prefix/suffix blank if unsure — most brokers don't need them.</InfoBox>
       </div>
     </div>
-    <div className="p-5 md:p-8 space-y-4 md:space-y-6">
-      <span className="text-[10px] font-mono font-bold text-slate-600 uppercase tracking-widest">// safety_notifications</span>
+    <div className="rounded-xl space-y-4 md:space-y-5" style={{ padding: 20, background: 'var(--s1)', border: '1px solid var(--b1)' }}>
+      <span className="mono uppercase tracking-widest" style={{ fontSize: 10, fontWeight: 700, color: 'var(--t3)' }}>// safety_notifications</span>
       <Toggle label="Disconnection Alert" sub="Alert if bridge loses server connection"   on={data.notif1??true} onChange={(v: any) => setData({...data,notif1:v})} />
       <Toggle label="Execution Fail"      sub="Alert when an order is rejected by broker" on={data.notif2??true} onChange={(v: any) => setData({...data,notif2:v})} />
       <Toggle label="Drawdown Warning"    sub="Alert at 80% of your drawdown threshold"   on={data.notif3??true} onChange={(v: any) => setData({...data,notif3:v})} />
@@ -535,14 +539,14 @@ const StepProtect = ({ data, setData }: any) => (
 );
 
 const StepRisk = ({ data, setData, isProvider }: any) => (
-  <div className="grid grid-cols-1 md:grid-cols-2 gap-0 border border-white/5 divide-y md:divide-y-0 md:divide-x divide-white/5">
-    <div className="p-5 md:p-8 space-y-4 md:space-y-6">
-      <div className="p-4 border border-red-500/20 bg-red-500/5 space-y-3">
-        <div className="flex items-center gap-3 text-red-400">
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+    <div className="rounded-xl space-y-4 md:space-y-5" style={{ padding: 20, background: 'var(--s1)', border: '1px solid var(--b1)' }}>
+      <div className="space-y-3 rounded-lg" style={{ padding: 16, border: '1px solid rgba(240,85,107,.4)', background: 'var(--bad-s)' }}>
+        <div className="flex items-center gap-3" style={{ color: 'var(--bad)' }}>
           <AlertTriangle size={16} />
-          <span className="text-[10px] font-bold uppercase tracking-widest">{isProvider?'Provider Liability Disclosure':'Risk Warning'}</span>
+          <span className="uppercase tracking-widest" style={{ fontSize: 10, fontWeight: 700 }}>{isProvider?'Provider Liability Disclosure':'Risk Warning'}</span>
         </div>
-        <p className="text-xs text-slate-400 leading-relaxed">
+        <p className="leading-relaxed" style={{ fontSize: 12, color: 'var(--t2)' }}>
           {isProvider ? "As a signal provider, you acknowledge that followers will execute real-money trades based on your signals. TradeSync does not verify your trading strategy or guarantee follower profitability."
                       : "Copy trading involves significant risk and may not be suitable for all investors. Past performance does not guarantee future results. You may lose some or all of your invested capital."}
         </p>
@@ -554,18 +558,18 @@ const StepRisk = ({ data, setData, isProvider }: any) => (
       </div>
       {!(data.riskAccepted && data.affordConfirmed) && <InfoBox color="amber">You must accept all disclosures before deploying.</InfoBox>}
     </div>
-    <div className="p-5 md:p-8 space-y-4 md:space-y-6">
-      <span className="text-[10px] font-mono font-bold text-slate-600 uppercase tracking-widest">// what_this_means</span>
+    <div className="rounded-xl space-y-4 md:space-y-5" style={{ padding: 20, background: 'var(--s1)', border: '1px solid var(--b1)' }}>
+      <span className="mono uppercase tracking-widest" style={{ fontSize: 10, fontWeight: 700, color: 'var(--t3)' }}>// what_this_means</span>
       {[
         { icon:Shield,        title:'Your account is your responsibility', body:'TradeSync executes trades on your behalf but you remain the account holder. Always monitor open positions.' },
         { icon:AlertTriangle, title:'Past results are not a guarantee',    body:"A provider's historical win rate does not predict future performance. Markets change." },
         { icon:TrendingUp,    title:'Only risk what you can afford',        body:'Never fund a copy trading account with money needed for living expenses or other obligations.' },
       ].map(({ icon:Icon, title, body }) => (
-        <div key={title} className="flex items-start gap-3 p-3 md:p-4 border border-white/5 bg-white/[0.01]">
-          <Icon size={14} className="text-slate-600 mt-0.5 flex-shrink-0" strokeWidth={1.5} />
+        <div key={title} className="flex items-start gap-3 rounded-lg" style={{ padding: 14, border: '1px solid var(--b1)', background: 'var(--inset)' }}>
+          <Icon size={14} className="mt-0.5 flex-shrink-0" style={{ color: 'var(--t3)' }} strokeWidth={1.5} />
           <div>
-            <p className="text-xs font-semibold text-slate-400 mb-1">{title}</p>
-            <p className="text-[11px] text-slate-600 leading-relaxed">{body}</p>
+            <p className="mb-1" style={{ fontSize: 12, fontWeight: 600, color: 'var(--t2)' }}>{title}</p>
+            <p className="leading-relaxed" style={{ fontSize: 11.5, color: 'var(--t3)' }}>{body}</p>
           </div>
         </div>
       ))}
@@ -574,11 +578,11 @@ const StepRisk = ({ data, setData, isProvider }: any) => (
 );
 
 const StepStrategy = ({ data, setData }: any) => (
-  <div className="grid grid-cols-1 md:grid-cols-2 gap-0 border border-white/5 divide-y md:divide-y-0 md:divide-x divide-white/5">
-    <div className="p-5 md:p-8 space-y-6 md:space-y-8">
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+    <div className="rounded-xl space-y-6 md:space-y-8" style={{ padding: 20, background: 'var(--s1)', border: '1px solid var(--b1)' }}>
       <TInput label="Strategy Name / Nickname" hint="Public-facing name followers will see on your profile." placeholder="e.g. Quantum Swing EA v3" value={data.strategyName??''} onChange={(e:any)=>setData({...data,strategyName:e.target.value})} />
       <TTextarea label="Strategy Description" hint="Describe your trading approach so followers know what to expect." placeholder="Describe your edge, timeframes, risk management approach..." rows={4} value={data.strategyDescription??''} onChange={(e:any)=>setData({...data,strategyDescription:e.target.value})} />
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 md:gap-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
         <TSelect label="Trading Style" hint="Primary style that best describes your approach."
           options={[{value:'scalp',label:'Scalping (< 1 hour)'},{value:'intraday',label:'Intraday (same-day)'},{value:'swing',label:'Swing (multi-day)'},{value:'position',label:'Position (weeks/months)'},{value:'hft',label:'High-Frequency (HFT)'}]}
           value={data.tradingStyle??'swing'} onChange={(v: any) => setData({...data,tradingStyle:v})} />
@@ -588,9 +592,9 @@ const StepStrategy = ({ data, setData }: any) => (
       </div>
       <TInput label="Typical Symbols Traded" hint="Comma-separated list of instruments your strategy focuses on." placeholder="EURUSD, XAUUSD, GBPUSD" value={data.typicalSymbols??''} onChange={(e:any)=>setData({...data,typicalSymbols:e.target.value})} />
     </div>
-    <div className="p-5 md:p-8 space-y-4 md:space-y-6">
-      <span className="text-[10px] font-mono font-bold text-slate-600 uppercase tracking-widest">// active_trading_sessions</span>
-      <p className="text-[11px] text-slate-600 leading-relaxed">Let followers know which market sessions you actively trade.</p>
+    <div className="rounded-xl space-y-4 md:space-y-5" style={{ padding: 20, background: 'var(--s1)', border: '1px solid var(--b1)' }}>
+      <span className="mono uppercase tracking-widest" style={{ fontSize: 10, fontWeight: 700, color: 'var(--t3)' }}>// active_trading_sessions</span>
+      <p className="leading-relaxed" style={{ fontSize: 11.5, color: 'var(--t3)' }}>Let followers know which market sessions you actively trade.</p>
       {['London (08:00–17:00 GMT)','New York (13:00–22:00 GMT)','Asia (00:00–09:00 GMT)'].map(s => (
         <Toggle key={s} label={s} on={data[`prov_session_${s}`]??false} onChange={(v: any) => setData({...data,[`prov_session_${s}`]:v})} />
       ))}
@@ -599,19 +603,19 @@ const StepStrategy = ({ data, setData }: any) => (
 );
 
 const StepLimits = ({ data, setData }: any) => (
-  <div className="grid grid-cols-1 md:grid-cols-2 gap-0 border border-white/5 divide-y md:divide-y-0 md:divide-x divide-white/5">
-    <div className="p-5 md:p-8 space-y-6 md:space-y-8">
-      <span className="text-[10px] font-mono font-bold text-slate-600 uppercase tracking-widest">// trade_limits</span>
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+    <div className="rounded-xl space-y-6 md:space-y-8" style={{ padding: 20, background: 'var(--s1)', border: '1px solid var(--b1)' }}>
+      <span className="mono uppercase tracking-widest" style={{ fontSize: 10, fontWeight: 700, color: 'var(--t3)' }}>// trade_limits</span>
       <InfoBox>These limits protect your followers from overexposure and help them size positions correctly.</InfoBox>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 md:gap-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
         <TInput label="Max Lot Size Per Signal"    hint="Highest lot you will ever broadcast."              placeholder="1.00" type="number" value={data.maxLotSize??''}          onChange={(e:any)=>setData({...data,maxLotSize:e.target.value})} />
         <TInput label="Max Open Trades at Once"    hint="Maximum simultaneous positions you'll carry."      placeholder="5"    type="number" value={data.provMaxOpenTrades??''}   onChange={(e:any)=>setData({...data,provMaxOpenTrades:e.target.value})} />
         <TInput label="Typical Stop-Loss (pips)"   hint="Average SL distance per trade."                   placeholder="30"   type="number" value={data.typicalSL??''}           onChange={(e:any)=>setData({...data,typicalSL:e.target.value})} />
         <TInput label="Typical Take-Profit (pips)" hint="Average TP distance."                             placeholder="60"   type="number" value={data.typicalTP??''}           onChange={(e:any)=>setData({...data,typicalTP:e.target.value})} />
       </div>
     </div>
-    <div className="p-5 md:p-8 space-y-4 md:space-y-6">
-      <span className="text-[10px] font-mono font-bold text-slate-600 uppercase tracking-widest">// signal_visibility</span>
+    <div className="rounded-xl space-y-4 md:space-y-5" style={{ padding: 20, background: 'var(--s1)', border: '1px solid var(--b1)' }}>
+      <span className="mono uppercase tracking-widest" style={{ fontSize: 10, fontWeight: 700, color: 'var(--t3)' }}>// signal_visibility</span>
       <Toggle label="Make profile publicly discoverable"         sub="Appear in the verified providers list for all users" on={data.isPublic??true}         onChange={(v: any) => setData({...data,isPublic:v})} />
       <Toggle label="Require approval before followers can copy" sub="You manually approve each follower request"          on={data.requireApproval??false} onChange={(v: any) => setData({...data,requireApproval:v})} />
       <Toggle label="Show live open trades to followers"         sub="Followers can see your current open positions"       on={data.showOpenTrades??true}   onChange={(v: any) => setData({...data,showOpenTrades:v})} />
@@ -620,11 +624,11 @@ const StepLimits = ({ data, setData }: any) => (
 );
 
 const StepProviderNotif = ({ data, setData }: any) => (
-  <div className="grid grid-cols-1 md:grid-cols-2 gap-0 border border-white/5 divide-y md:divide-y-0 md:divide-x divide-white/5">
-    <div className="p-5 md:p-8 space-y-4 md:space-y-6">
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+    <div className="rounded-xl space-y-4 md:space-y-5" style={{ padding: 20, background: 'var(--s1)', border: '1px solid var(--b1)' }}>
       <TInput label="Notification Email" hint="Where to receive follower and performance alerts." placeholder="you@example.com" type="email" value={data.notifEmail??''} onChange={(e:any)=>setData({...data,notifEmail:e.target.value})} />
-      <div className="border-t border-white/5 pt-4 space-y-3">
-        <span className="text-[10px] font-mono font-bold text-slate-600 uppercase tracking-widest">// alert_events</span>
+      <div className="pt-4 space-y-3" style={{ borderTop: '1px solid var(--b1)' }}>
+        <span className="mono uppercase tracking-widest" style={{ fontSize: 10, fontWeight: 700, color: 'var(--t3)' }}>// alert_events</span>
         <Toggle label="New follower joined"           sub="Alert when someone starts copying you"           on={data.nNewFollower??true} onChange={(v: any) => setData({...data,nNewFollower:v})} />
         <Toggle label="Follower stopped copying"      sub="Alert when someone disconnects from your signal" on={data.nDropped??true}     onChange={(v: any) => setData({...data,nDropped:v})} />
         <Toggle label="Execution failure on follower" sub="Alert if a follower's copy trade was rejected"   on={data.nExecFail??true}    onChange={(v: any) => setData({...data,nExecFail:v})} />
@@ -632,9 +636,9 @@ const StepProviderNotif = ({ data, setData }: any) => (
         <Toggle label="Weekly performance digest"     sub="A weekly summary of your follower performance"   on={data.nWeekly??false}     onChange={(v: any) => setData({...data,nWeekly:v})} />
       </div>
     </div>
-    <div className="p-5 md:p-8 space-y-4 md:space-y-6">
-      <span className="text-[10px] font-mono font-bold text-slate-600 uppercase tracking-widest">// delivery_info</span>
-      <p className="text-[11px] text-slate-600 leading-relaxed">All alerts are delivered to your notification email. You can update this at any time from your provider dashboard.</p>
+    <div className="rounded-xl space-y-4 md:space-y-5" style={{ padding: 20, background: 'var(--s1)', border: '1px solid var(--b1)' }}>
+      <span className="mono uppercase tracking-widest" style={{ fontSize: 10, fontWeight: 700, color: 'var(--t3)' }}>// delivery_info</span>
+      <p className="leading-relaxed" style={{ fontSize: 11.5, color: 'var(--t3)' }}>All alerts are delivered to your notification email. You can update this at any time from your provider dashboard.</p>
       <InfoBox color="blue">Keep alerts on while you are live. Disconnection and execution failure alerts are especially critical during active trading sessions.</InfoBox>
     </div>
   </div>
@@ -669,18 +673,18 @@ const StepConnect2 = ({ data, setData }: any) => {
 // Self-copy: pick source + target connected cTrader accounts on one screen.
 const StepSelfAccounts = ({ data, setData }: any) => (
   <div className="space-y-6 md:space-y-8">
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-6">
-      <div className="border border-white/5 bg-white/[0.01] p-5 md:p-6 rounded-sm">
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+      <div className="rounded-xl" style={{ padding: 20, background: 'var(--s1)', border: '1px solid var(--b1)' }}>
         <div className="flex items-center gap-2 mb-4">
-          <span className="text-[9px] font-bold text-blue-300 uppercase tracking-widest bg-blue-500/10 px-2 py-0.5 rounded-full">Source</span>
-          <span className="text-[11px] text-slate-500">copy from</span>
+          <span className="qc-badge" style={{ color: 'var(--acc-h)', background: 'var(--acc-soft)' }}>Source</span>
+          <span style={{ fontSize: 11, color: 'var(--t3)' }}>copy from</span>
         </div>
         <CTraderAccountPicker value={data.brokerAccountId} excludeId={data.brokerAccountId2} onChange={(id: string) => setData({ ...data, platform: 'cTrader', brokerAccountId: id })} label="Source cTrader account" />
       </div>
-      <div className="border border-white/5 bg-white/[0.01] p-5 md:p-6 rounded-sm">
+      <div className="rounded-xl" style={{ padding: 20, background: 'var(--s1)', border: '1px solid var(--b1)' }}>
         <div className="flex items-center gap-2 mb-4">
-          <span className="text-[9px] font-bold text-emerald-300 uppercase tracking-widest bg-emerald-500/10 px-2 py-0.5 rounded-full">Target</span>
-          <span className="text-[11px] text-slate-500">copy to</span>
+          <span className="qc-badge qc-b-live">Target</span>
+          <span style={{ fontSize: 11, color: 'var(--t3)' }}>copy to</span>
         </div>
         <CTraderAccountPicker value={data.brokerAccountId2} excludeId={data.brokerAccountId} onChange={(id: string) => setData({ ...data, platform2: 'cTrader', brokerAccountId2: id })} label="Target cTrader account" />
       </div>
@@ -693,32 +697,32 @@ const StepMapping = ({ data, setData }: any) => {
   const copyAll = data.copyAllSymbols ?? true;
   return (
     <div className="space-y-6 md:space-y-10">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-0 border border-white/5 divide-y md:divide-y-0 md:divide-x divide-white/5">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         <div onClick={() => setData({...data,copyAllSymbols:true})}
-          className={`relative p-5 cursor-pointer transition-all duration-300 ${copyAll?'bg-blue-600/5 border-blue-500/50 border':'border border-transparent hover:border-white/10'}`}>
+          className="cursor-pointer transition-all duration-200 rounded-xl"
+          style={{ padding: 20, border: `1px solid ${copyAll?'var(--acc-bd)':'var(--b1)'}`, background: copyAll?'var(--acc-soft)':'var(--s1)' }}>
           <div className="flex items-start gap-4">
-            <div className={`mt-1 w-4 h-4 flex-shrink-0 rounded-full border-2 flex items-center justify-center transition-colors ${copyAll?'border-blue-500':'border-slate-600'}`}>
-              {copyAll && <div className="w-2 h-2 rounded-full bg-blue-500" />}
+            <div className="mt-1 w-4 h-4 flex-shrink-0 rounded-full flex items-center justify-center" style={{ border: `2px solid ${copyAll?'var(--acc)':'var(--t3)'}` }}>
+              {copyAll && <div className="w-2 h-2 rounded-full" style={{ background: 'var(--acc)' }} />}
             </div>
             <div>
-              <p className={`text-sm font-semibold mb-1 transition-colors ${copyAll?'text-white':'text-slate-400'}`}>Copy everything</p>
-              <p className="text-[11px] text-slate-500 leading-relaxed">Mirror all symbols traded on the source account automatically.</p>
+              <p className="mb-1" style={{ fontSize: 14, fontWeight: 600, color: copyAll?'var(--t1)':'var(--t2)' }}>Copy everything</p>
+              <p className="leading-relaxed" style={{ fontSize: 11.5, color: 'var(--t3)' }}>Mirror all symbols traded on the source account automatically.</p>
             </div>
           </div>
-          {copyAll && <div className="absolute bottom-0 left-0 h-[2px] bg-blue-500 w-full" />}
         </div>
         <div onClick={() => setData({...data,copyAllSymbols:false})}
-          className={`relative p-5 cursor-pointer transition-all duration-300 ${!copyAll?'bg-blue-600/5 border-blue-500/50 border':'border border-transparent hover:border-white/10'}`}>
+          className="cursor-pointer transition-all duration-200 rounded-xl"
+          style={{ padding: 20, border: `1px solid ${!copyAll?'var(--acc-bd)':'var(--b1)'}`, background: !copyAll?'var(--acc-soft)':'var(--s1)' }}>
           <div className="flex items-start gap-4">
-            <div className={`mt-1 w-4 h-4 flex-shrink-0 rounded-full border-2 flex items-center justify-center transition-colors ${!copyAll?'border-blue-500':'border-slate-600'}`}>
-              {!copyAll && <div className="w-2 h-2 rounded-full bg-blue-500" />}
+            <div className="mt-1 w-4 h-4 flex-shrink-0 rounded-full flex items-center justify-center" style={{ border: `2px solid ${!copyAll?'var(--acc)':'var(--t3)'}` }}>
+              {!copyAll && <div className="w-2 h-2 rounded-full" style={{ background: 'var(--acc)' }} />}
             </div>
             <div>
-              <p className={`text-sm font-semibold mb-1 transition-colors ${!copyAll?'text-white':'text-slate-400'}`}>Custom symbol mapping</p>
-              <p className="text-[11px] text-slate-500 leading-relaxed">Specify exactly which symbols to copy and rename them if needed.</p>
+              <p className="mb-1" style={{ fontSize: 14, fontWeight: 600, color: !copyAll?'var(--t1)':'var(--t2)' }}>Custom symbol mapping</p>
+              <p className="leading-relaxed" style={{ fontSize: 11.5, color: 'var(--t3)' }}>Specify exactly which symbols to copy and rename them if needed.</p>
             </div>
           </div>
-          {!copyAll && <div className="absolute bottom-0 left-0 h-[2px] bg-blue-500 w-full" />}
         </div>
       </div>
       {copyAll && (
@@ -730,34 +734,35 @@ const StepMapping = ({ data, setData }: any) => {
         <div className="space-y-5">
           <InfoBox>Only symbols listed here will be copied — all others will be ignored.</InfoBox>
           <div className="grid grid-cols-2 gap-4 md:gap-8 px-1">
-            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Source Symbol</span>
-            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Target Symbol</span>
+            <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--t3)' }}>Source Symbol</span>
+            <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--t3)' }}>Target Symbol</span>
           </div>
           {(data.symbolMaps??[{from:'',to:''},{from:'',to:''}]).map((m: any,i: number) => (
             <div key={i} className="grid grid-cols-2 gap-4 md:gap-8 items-center">
               <input placeholder="e.g. XAUUSD" value={m.from}
                 onChange={(e: any) => { const maps=[...(data.symbolMaps??[])]; maps[i]={...maps[i],from:e.target.value}; setData({...data,symbolMaps:maps}); }}
-                className="w-full bg-white/[0.01] border-b border-white/10 py-3 text-sm font-medium text-white placeholder:text-slate-700 focus:outline-none focus:border-blue-500 transition-all font-mono" />
+                className="qc-inp mono" />
               <div className="flex items-center gap-2">
-                <span className="text-slate-700 text-xs flex-shrink-0">→</span>
+                <span className="flex-shrink-0" style={{ fontSize: 12, color: 'var(--t3)' }}>→</span>
                 <input placeholder="e.g. GOLD" value={m.to}
                   onChange={(e: any) => { const maps=[...(data.symbolMaps??[])]; maps[i]={...maps[i],to:e.target.value}; setData({...data,symbolMaps:maps}); }}
-                  className="w-full bg-white/[0.01] border-b border-white/10 py-3 text-sm font-medium text-white placeholder:text-slate-700 focus:outline-none focus:border-blue-500 transition-all font-mono" />
+                  className="qc-inp mono" />
                 {(data.symbolMaps??[]).length > 1 && (
                   <button onClick={() => setData({...data,symbolMaps:(data.symbolMaps??[]).filter((_: any,idx: number)=>idx!==i)})}
-                    className="text-slate-700 hover:text-red-400 transition-colors text-xs flex-shrink-0 font-mono">✕</button>
+                    className="transition-colors flex-shrink-0 mono" style={{ fontSize: 12, color: 'var(--t3)' }}>✕</button>
                 )}
               </div>
             </div>
           ))}
           <button onClick={() => setData({...data,symbolMaps:[...(data.symbolMaps??[]),{from:'',to:''}]})}
-            className="text-[10px] uppercase tracking-widest text-blue-400 hover:text-blue-300 transition-colors border border-blue-500/20 px-4 py-2">
+            className="uppercase tracking-widest transition-all rounded-lg px-4 py-2"
+            style={{ fontSize: 10, color: 'var(--acc-h)', border: '1px solid var(--acc-bd)', background: 'var(--acc-soft)' }}>
             + Add Symbol
           </button>
         </div>
       )}
-      <div className="grid grid-cols-1 md:grid-cols-2 border-t border-white/5">
-        <div className="space-y-6 pt-6 md:pt-8 md:pr-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 pt-6" style={{ borderTop: '1px solid var(--b1)' }}>
+        <div className="space-y-6 md:pr-8">
           <TSelect label="Direction Mode" hint="How to copy relative to source direction."
             options={[{value:'same',label:'Same direction (mirror)'},{value:'reverse',label:'Reverse direction (counter)'},{value:'hedge',label:'Hedge (open both directions)'}]}
             value={data.selfDirection??'same'} onChange={(v: any) => setData({...data,selfDirection:v})} />
@@ -773,34 +778,34 @@ const TG_COPY_BOT = '@tandjournal_copybot';   // the platform copy-bot (your con
 const StepTgChannel = ({ data, setData }: any) => {
   const isPrivate = data.tgChannelType === 'private_channel';
   return (
-  <div className="grid grid-cols-1 md:grid-cols-2 gap-0 border border-white/5 divide-y md:divide-y-0 md:divide-x divide-white/5">
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
     {/* STEP 1 — add the bot (this is what grants access) */}
-    <div className="p-5 md:p-8 space-y-5">
-      <div className="flex items-center gap-3 text-blue-400">
+    <div className="rounded-xl space-y-5" style={{ padding: 20, background: 'var(--s1)', border: '1px solid var(--b1)' }}>
+      <div className="flex items-center gap-3" style={{ color: 'var(--info)' }}>
         <Send size={16} strokeWidth={1.5} />
-        <span className="text-[10px] font-bold uppercase tracking-widest font-mono">Step 1 · Add our bot</span>
+        <span className="mono uppercase tracking-widest" style={{ fontSize: 10, fontWeight: 700 }}>Step 1 · Add our bot</span>
       </div>
-      <p className="text-xs text-slate-400 leading-relaxed">Adding the bot as a channel admin is what grants access — no phone number, API keys or OTP. It then reads new signals automatically and securely.</p>
-      <div className="p-3 border border-white/10 bg-white/[0.02] rounded-md flex items-center justify-between gap-3">
-        <span className="font-mono text-sm text-blue-300 select-all">{TG_COPY_BOT}</span>
-        <span className="text-[9px] text-slate-600 uppercase tracking-widest font-mono">copy bot</span>
+      <p className="leading-relaxed" style={{ fontSize: 12, color: 'var(--t2)' }}>Adding the bot as a channel admin is what grants access — no phone number, API keys or OTP. It then reads new signals automatically and securely.</p>
+      <div className="rounded-lg flex items-center justify-between gap-3" style={{ padding: 12, border: '1px solid var(--b2)', background: 'var(--s2)' }}>
+        <span className="mono select-all" style={{ fontSize: 14, color: 'var(--info)' }}>{TG_COPY_BOT}</span>
+        <span className="mono uppercase tracking-widest" style={{ fontSize: 9, color: 'var(--t3)' }}>copy bot</span>
       </div>
       <ol className="space-y-3">
         {[
-          <>In Telegram, open your channel → <span className="text-slate-300">Manage → Administrators</span></>,
-          <>Tap <span className="text-slate-300">Add Admin</span>, search <span className="font-mono text-blue-300">{TG_COPY_BOT}</span> and add it (read access is enough)</>,
+          <>In Telegram, open your channel → <span style={{ color: 'var(--t1)' }}>Manage → Administrators</span></>,
+          <>Tap <span style={{ color: 'var(--t1)' }}>Add Admin</span>, search <span className="mono" style={{ color: 'var(--info)' }}>{TG_COPY_BOT}</span> and add it (read access is enough)</>,
         ].map((t, i) => (
-          <li key={i} className="flex gap-3 text-[11px] text-slate-400 leading-relaxed">
-            <span className="flex-shrink-0 w-4 h-4 rounded-full bg-blue-500/15 text-blue-300 text-[9px] font-bold flex items-center justify-center">{i + 1}</span>{t}
+          <li key={i} className="flex gap-3 leading-relaxed" style={{ fontSize: 11.5, color: 'var(--t2)' }}>
+            <span className="flex-shrink-0 w-4 h-4 rounded-full flex items-center justify-center" style={{ fontSize: 9, fontWeight: 700, background: 'var(--info-s)', color: 'var(--info)' }}>{i + 1}</span>{t}
           </li>
         ))}
       </ol>
     </div>
     {/* STEP 2 — identify the channel */}
-    <div className="p-5 md:p-8 space-y-6">
-      <div className="flex items-center gap-3 text-blue-400">
+    <div className="rounded-xl space-y-6" style={{ padding: 20, background: 'var(--s1)', border: '1px solid var(--b1)' }}>
+      <div className="flex items-center gap-3" style={{ color: 'var(--info)' }}>
         <Hash size={16} strokeWidth={1.5} />
-        <span className="text-[10px] font-bold uppercase tracking-widest font-mono">Step 2 · Which channel?</span>
+        <span className="mono uppercase tracking-widest" style={{ fontSize: 10, fontWeight: 700 }}>Step 2 · Which channel?</span>
       </div>
       <TSelect label="Channel type"
         options={[{value:'public_channel',label:'Public (has an @username)'},{value:'private_channel',label:'Private (no @username)'},{value:'group',label:'Group / supergroup'}]}
@@ -823,11 +828,11 @@ const StepTgChannel = ({ data, setData }: any) => {
 const StepTgParser = ({ data, setData }: any) => {
   const [sample, setSample] = useState<string>(data.testMessage ?? '');
   const parsed = sample.trim() ? clientSideParseSignal(sample) : null;
-  const confColor = parsed ? (parsed.confidence === 'High' ? '#4ade80' : parsed.confidence === 'Medium' ? '#fbbf24' : '#f87171') : '#64748b';
+  const confColor = parsed ? (parsed.confidence === 'High' ? 'var(--ok)' : parsed.confidence === 'Medium' ? 'var(--warn)' : 'var(--bad)') : 'var(--t3)';
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-0 border border-white/5 divide-y md:divide-y-0 md:divide-x divide-white/5">
-      <div className="p-5 md:p-8 space-y-6">
-        <span className="text-[10px] font-mono font-bold text-slate-600 uppercase tracking-widest">// parser_settings</span>
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+      <div className="rounded-xl space-y-6" style={{ padding: 20, background: 'var(--s1)', border: '1px solid var(--b1)' }}>
+        <span className="mono uppercase tracking-widest" style={{ fontSize: 10, fontWeight: 700, color: 'var(--t3)' }}>// parser_settings</span>
         <InfoBox color="green">The parser auto-detects symbol, side, entry, SL and TP for most channels. Only set keywords below if your channel uses an unusual format.</InfoBox>
         <div className="grid grid-cols-2 gap-4 md:gap-5">
           <TInput label="Entry keyword"  placeholder="auto" value={data.tgEntryKw??''}  onChange={(e:any)=>setData({...data,tgEntryKw:e.target.value})} />
@@ -835,29 +840,29 @@ const StepTgParser = ({ data, setData }: any) => {
           <TInput label="TP keyword"     placeholder="auto" value={data.tgTpKw??''}     onChange={(e:any)=>setData({...data,tgTpKw:e.target.value})} />
           <TInput label="Symbol keyword" placeholder="auto" value={data.tgSymbolKw??''} onChange={(e:any)=>setData({...data,tgSymbolKw:e.target.value})} />
         </div>
-        <div className="space-y-3 pt-2 border-t border-white/5">
+        <div className="space-y-3 pt-2" style={{ borderTop: '1px solid var(--b1)' }}>
           <Toggle label="Execute without a Stop-Loss" sub="Open even if the signal has no SL (riskier)" on={data.tgNoSL??false}   onChange={(v:any)=>setData({...data,tgNoSL:v})} />
           <Toggle label="Use first TP only"            sub="For multi-TP signals, target TP1"           on={data.tgFirstTP??true} onChange={(v:any)=>setData({...data,tgFirstTP:v})} />
         </div>
       </div>
-      <div className="p-5 md:p-8 space-y-4">
-        <span className="text-[10px] font-mono font-bold text-slate-600 uppercase tracking-widest">// live_test</span>
-        <p className="text-xs text-slate-500 leading-relaxed">Paste a real message from the channel to preview how it parses. <span className="text-slate-600">Final parsing runs server-side.</span></p>
+      <div className="rounded-xl space-y-4" style={{ padding: 20, background: 'var(--s1)', border: '1px solid var(--b1)' }}>
+        <span className="mono uppercase tracking-widest" style={{ fontSize: 10, fontWeight: 700, color: 'var(--t3)' }}>// live_test</span>
+        <p className="leading-relaxed" style={{ fontSize: 12, color: 'var(--t3)' }}>Paste a real message from the channel to preview how it parses. <span style={{ color: 'var(--t4)' }}>Final parsing runs server-side.</span></p>
         <textarea value={sample}
           onChange={(e) => { setSample(e.target.value); setData({ ...data, testMessage: e.target.value }); }}
           placeholder={"BUY EURUSD @ 1.0950\nSL 1.0900\nTP 1.1000"}
-          className="w-full h-28 bg-white/[0.02] border border-white/10 rounded-md p-3 text-[13px] text-slate-200 font-mono placeholder:text-slate-600 focus:border-blue-500/50 outline-none resize-none" />
+          className="qc-inp mono w-full resize-none" style={{ height: 112, padding: 12, lineHeight: 1.5, fontSize: 13 }} />
         {parsed ? (
-          <div className="border border-white/10 rounded-md divide-y divide-white/5">
-            {[['Symbol', parsed.symbol], ['Side', parsed.direction], ['Entry', parsed.entry], ['Stop-loss', parsed.sl], ['Take-profit', parsed.tp1], ['Confidence', parsed.confidence]].map(([k, v]) => (
-              <div key={k as string} className="flex items-center justify-between px-3 py-2">
-                <span className="text-[10px] text-slate-500 font-mono uppercase tracking-wider">{k}</span>
-                <span className="text-[12px] font-mono font-bold" style={{ color: k === 'Confidence' ? confColor : '#e2e8f0' }}>{v}</span>
+          <div className="rounded-lg overflow-hidden" style={{ border: '1px solid var(--b1)' }}>
+            {[['Symbol', parsed.symbol], ['Side', parsed.direction], ['Entry', parsed.entry], ['Stop-loss', parsed.sl], ['Take-profit', parsed.tp1], ['Confidence', parsed.confidence]].map(([k, v], idx) => (
+              <div key={k as string} className="flex items-center justify-between px-3 py-2" style={idx > 0 ? { borderTop: '1px solid var(--b1)' } : undefined}>
+                <span className="mono uppercase tracking-wider" style={{ fontSize: 10, color: 'var(--t3)' }}>{k}</span>
+                <span className="mono" style={{ fontSize: 12, fontWeight: 700, color: k === 'Confidence' ? confColor : 'var(--t1)' }}>{v}</span>
               </div>
             ))}
           </div>
         ) : sample.trim() ? (
-          <div className="border border-rose-500/20 bg-rose-500/5 rounded-md p-3 text-[11px] text-rose-300">No signal detected — check the message or set keywords on the left.</div>
+          <div className="rounded-lg" style={{ padding: 12, border: '1px solid rgba(240,85,107,.4)', background: 'var(--bad-s)', fontSize: 11, color: 'var(--bad)' }}>No signal detected — check the message or set keywords on the left.</div>
         ) : null}
       </div>
     </div>
@@ -952,9 +957,9 @@ const StepTgLogin = ({ data, setData }: any) => {
   };
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-0 border border-white/5 divide-y md:divide-y-0 md:divide-x divide-white/5">
-      <div className="p-5 md:p-8 space-y-6">
-        <span className="text-[10px] font-mono font-bold text-slate-600 uppercase tracking-widest">// authorize_telegram</span>
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+      <div className="rounded-xl space-y-6" style={{ padding: 20, background: 'var(--s1)', border: '1px solid var(--b1)' }}>
+        <span className="mono uppercase tracking-widest" style={{ fontSize: 10, fontWeight: 700, color: 'var(--t3)' }}>// authorize_telegram</span>
         {phase === 'phone' && (<>
           <TInput label="Telegram phone number" hint="The account subscribed to the channels you want to copy. A login code is sent to your Telegram app." placeholder="+254 7XX XXX XXX" type="tel" value={phone} onChange={(e:any)=>setPhone(e.target.value)} />
           <GlowButton active={!busy && !!phone.trim()} onClick={sendCode}>{busy ? 'Sending…' : 'Send login code'}</GlowButton>
@@ -968,16 +973,16 @@ const StepTgLogin = ({ data, setData }: any) => {
           <GlowButton active={!busy && !!pw} onClick={submitPw}>{busy ? 'Checking…' : 'Confirm'}</GlowButton>
         </>)}
         {phase === 'done' && (
-          <div className="flex items-center gap-3 p-4 border border-emerald-500/20 bg-emerald-500/[0.05] rounded-sm text-emerald-400">
-            <CheckCircle2 size={16} /><span className="text-xs font-semibold">Telegram account authorized.</span>
+          <div className="flex items-center gap-3 rounded-lg" style={{ padding: 16, border: '1px solid rgba(47,203,126,.4)', background: 'var(--ok-s)', color: 'var(--ok)' }}>
+            <CheckCircle2 size={16} /><span style={{ fontSize: 12, fontWeight: 600 }}>Telegram account authorized.</span>
           </div>
         )}
         {err && <InfoBox color="amber">{err}</InfoBox>}
       </div>
-      <div className="p-5 md:p-8 space-y-4">
-        <div className="flex items-center gap-3 text-amber-400"><Shield size={16} strokeWidth={1.5} /><span className="text-[10px] font-bold uppercase tracking-widest font-mono">Advanced · your session</span></div>
-        <p className="text-xs text-slate-400 leading-relaxed">This authorizes <span className="text-slate-200">your own</span> Telegram account so the engine can read the channels you're subscribed to — including ones our bot can't join. No channel-owner involvement needed.</p>
-        <ul className="space-y-2 text-[11px] text-slate-500 leading-relaxed list-disc pl-4">
+      <div className="rounded-xl space-y-4" style={{ padding: 20, background: 'var(--s1)', border: '1px solid var(--b1)' }}>
+        <div className="flex items-center gap-3" style={{ color: 'var(--warn)' }}><Shield size={16} strokeWidth={1.5} /><span className="mono uppercase tracking-widest" style={{ fontSize: 10, fontWeight: 700 }}>Advanced · your session</span></div>
+        <p className="leading-relaxed" style={{ fontSize: 12, color: 'var(--t2)' }}>This authorizes <span style={{ color: 'var(--t1)' }}>your own</span> Telegram account so the engine can read the channels you're subscribed to — including ones our bot can't join. No channel-owner involvement needed.</p>
+        <ul className="space-y-2 leading-relaxed list-disc pl-4" style={{ fontSize: 11.5, color: 'var(--t3)' }}>
           <li>Your session is encrypted and used only to read the channels you choose.</li>
           <li>Automated user sessions are a Telegram grey area — use an account you're comfortable with.</li>
           <li>Revoke any time from Telegram → Settings → Devices.</li>
@@ -988,18 +993,18 @@ const StepTgLogin = ({ data, setData }: any) => {
 };
 
 const StepRelayChannel = ({ data, setData }: any) => (
-  <div className="grid grid-cols-1 md:grid-cols-2 gap-0 border border-white/5 divide-y md:divide-y-0 md:divide-x divide-white/5">
-    <div className="p-5 md:p-8 space-y-6">
-      <span className="text-[10px] font-mono font-bold text-slate-600 uppercase tracking-widest">// channel_to_copy</span>
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+    <div className="rounded-xl space-y-6" style={{ padding: 20, background: 'var(--s1)', border: '1px solid var(--b1)' }}>
+      <span className="mono uppercase tracking-widest" style={{ fontSize: 10, fontWeight: 700, color: 'var(--t3)' }}>// channel_to_copy</span>
       <TInput label="Channel @username or ID" hint="Any channel YOUR account is subscribed to. @username for public, numeric -100… id for private." placeholder="@forex_signals" value={data.relayChannel??''} onChange={(e:any)=>setData({...data,relayChannel:e.target.value})} />
-      <div className="space-y-3 pt-2 border-t border-white/5">
+      <div className="space-y-3 pt-2" style={{ borderTop: '1px solid var(--b1)' }}>
         <Toggle label="Execute without a Stop-Loss" sub="Open even if the signal has no SL (riskier)" on={data.tgNoSL??false}   onChange={(v:any)=>setData({...data,tgNoSL:v})} />
         <Toggle label="Use first TP only"            sub="For multi-TP signals, target TP1"           on={data.tgFirstTP??true} onChange={(v:any)=>setData({...data,tgFirstTP:v})} />
       </div>
     </div>
-    <div className="p-5 md:p-8 space-y-4">
-      <span className="text-[10px] font-mono font-bold text-slate-600 uppercase tracking-widest">// note</span>
-      <p className="text-xs text-slate-400 leading-relaxed">You must already be subscribed to this channel on the Telegram account you authorized. The relay reads new posts as they arrive and mirrors valid signals to your cTrader account.</p>
+    <div className="rounded-xl space-y-4" style={{ padding: 20, background: 'var(--s1)', border: '1px solid var(--b1)' }}>
+      <span className="mono uppercase tracking-widest" style={{ fontSize: 10, fontWeight: 700, color: 'var(--t3)' }}>// note</span>
+      <p className="leading-relaxed" style={{ fontSize: 12, color: 'var(--t2)' }}>You must already be subscribed to this channel on the Telegram account you authorized. The relay reads new posts as they arrive and mirrors valid signals to your cTrader account.</p>
       <InfoBox color="blue">One channel per setup — run the wizard again to relay another.</InfoBox>
     </div>
   </div>
@@ -1222,86 +1227,85 @@ function CopierDashboard({ deployResult, role, data, onSetupAnother, onHome }: a
   const platform  = data?.platform || account?.platform || 'MT5';
 
   return (
-    <div className="ts-wizard-root w-full max-w-3xl mx-auto space-y-0">
+    <div className="w-full max-w-3xl mx-auto space-y-3">
       {/* ── Hero status bar ─────────────────────────────────────────────── */}
-      <div className="border border-white/5 bg-[#05060a] p-6 md:p-8 flex flex-col md:flex-row items-center md:items-start gap-6">
+      <div className="rounded-xl flex flex-col md:flex-row items-center md:items-start gap-6" style={{ padding: 24, background: 'var(--s1)', border: '1px solid var(--b1)' }}>
         <div className="relative flex-shrink-0">
-          <div className="w-16 h-16 rounded-full border border-green-500/30 flex items-center justify-center">
-            <div className="absolute inset-0 rounded-full bg-green-500/10 blur-xl animate-pulse" />
-            <CheckCircle2 size={32} className="text-green-400 relative z-10" strokeWidth={1.5} />
+          <div className="w-16 h-16 rounded-full flex items-center justify-center" style={{ border: '1px solid rgba(47,203,126,.4)' }}>
+            <div className="absolute inset-0 rounded-full blur-xl animate-pulse" style={{ background: 'var(--ok-s)' }} />
+            <CheckCircle2 size={32} className="relative z-10" style={{ color: 'var(--ok)' }} strokeWidth={1.5} />
           </div>
-          <span className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-green-500 border-2 border-[#05060a] animate-pulse" />
+          <span className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full animate-pulse" style={{ background: 'var(--ok)', border: '2px solid var(--s1)' }} />
         </div>
         <div className="flex-1 text-center md:text-left space-y-1">
           <div className="flex items-center justify-center md:justify-start gap-2 flex-wrap">
-            <span className="text-[9px] font-mono font-bold uppercase tracking-widest px-2 py-0.5 border"
-              style={{ color: roleColor, borderColor: roleColor + '40', background: roleColor + '10' }}>
+            <span className="mono uppercase tracking-widest px-2 py-0.5 rounded-full"
+              style={{ fontSize: 9, fontWeight: 700, color: roleColor, border: `1px solid ${roleColor}`, background: 'var(--s2)' }}>
               {roleLabel}
             </span>
-            <span className="text-[9px] font-mono font-bold uppercase tracking-widest px-2 py-0.5 border border-green-500/30 bg-green-500/10 text-green-400">
-              ● Live
-            </span>
+            <span className="qc-badge qc-b-live">● Live</span>
           </div>
-          <h2 className="text-base md:text-lg font-light tracking-tight">Copy Engine Active</h2>
-          <p className="text-slate-500 text-xs font-mono">{data?.nickname || loginId} · {platform} · {broker}</p>
+          <h2 style={{ fontSize: 17, fontWeight: 600, color: 'var(--t1)' }}>Copy Engine Active</h2>
+          <p className="mono" style={{ fontSize: 12, color: 'var(--t3)' }}>{data?.nickname || loginId} · {platform} · {broker}</p>
         </div>
         <div className="flex gap-2 flex-shrink-0">
           <button onClick={fetchData}
-            className="text-[9px] font-mono uppercase tracking-widest text-slate-600 hover:text-slate-300 border border-white/5 hover:border-white/10 px-3 py-1.5 transition-all">
+            className="mono uppercase tracking-widest px-3 py-1.5 transition-all rounded-lg"
+            style={{ fontSize: 9, color: 'var(--t3)', border: '1px solid var(--b1)' }}>
             ↻ Refresh
           </button>
         </div>
       </div>
 
       {/* ── Stats strip ─────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-4 gap-px bg-white/5 border-x border-white/5">
+      <div className="grid grid-cols-4 gap-px rounded-xl overflow-hidden" style={{ background: 'var(--b1)', border: '1px solid var(--b1)' }}>
         {[
-          { label:'Account ID', value: accountId ? accountId.slice(0,8)+'…' : '—', color:'#f8fafc' },
+          { label:'Account ID', value: accountId ? accountId.slice(0,8)+'…' : '—', color:'var(--t1)' },
           { label:'Role',       value: roleLabel,                                    color: roleColor },
-          { label:'Bridge',     value: followerId || masterId ? 'Linked' : 'Ready',  color:'#4ade80' },
-          { label:'Trades',     value: loading ? '…' : String(trades.length),        color:'#60a5fa' },
+          { label:'Bridge',     value: followerId || masterId ? 'Linked' : 'Ready',  color:'var(--ok)' },
+          { label:'Trades',     value: loading ? '…' : String(trades.length),        color:'var(--acc-h)' },
         ].map(s => (
-          <div key={s.label} className="bg-[#020203] p-3 md:p-4 text-center">
-            <div className="text-[8px] font-mono font-bold uppercase tracking-widest text-slate-600 mb-1">{s.label}</div>
-            <div className="text-xs md:text-sm font-mono font-bold truncate" style={{ color: s.color }}>{s.value}</div>
+          <div key={s.label} className="text-center" style={{ background: 'var(--s1)', padding: 14 }}>
+            <div className="mono uppercase tracking-widest mb-1" style={{ fontSize: 8, fontWeight: 700, color: 'var(--t3)' }}>{s.label}</div>
+            <div className="mono truncate" style={{ fontSize: 13, fontWeight: 700, color: s.color }}>{s.value}</div>
           </div>
         ))}
       </div>
 
       {/* ── Recent logs ─────────────────────────────────────────────────── */}
-      <div className="border border-t-0 border-white/5 bg-[#020203]">
-        <div className="flex items-center justify-between px-5 py-3 border-b border-white/5">
-          <span className="text-[9px] font-mono font-bold uppercase tracking-widest text-slate-600">// execution_log</span>
+      <div className="rounded-xl overflow-hidden" style={{ background: 'var(--s1)', border: '1px solid var(--b1)' }}>
+        <div className="flex items-center justify-between px-5 py-3" style={{ borderBottom: '1px solid var(--b1)' }}>
+          <span className="mono uppercase tracking-widest" style={{ fontSize: 9, fontWeight: 700, color: 'var(--t3)' }}>// execution_log</span>
           {followerId && (
             <a href={`/api/copy/logs/${followerId}`} target="_blank" rel="noreferrer"
-              className="text-[9px] font-mono uppercase tracking-widest text-slate-700 hover:text-slate-400 transition-colors">
+              className="mono uppercase tracking-widest transition-colors" style={{ fontSize: 9, color: 'var(--t3)' }}>
               View all →
             </a>
           )}
         </div>
         {loading ? (
           <div className="px-5 py-8 flex items-center justify-center">
-            <div className="text-[10px] font-mono text-slate-700 animate-pulse">Loading logs…</div>
+            <div className="mono animate-pulse" style={{ fontSize: 10, color: 'var(--t3)' }}>Loading logs…</div>
           </div>
         ) : logs.length === 0 ? (
           <div className="px-5 py-8 flex flex-col items-center justify-center gap-2">
-            <div className="w-8 h-8 rounded-full border border-white/5 flex items-center justify-center">
-              <Radio size={14} className="text-slate-700" />
+            <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ border: '1px solid var(--b1)' }}>
+              <Radio size={14} style={{ color: 'var(--t3)' }} />
             </div>
-            <p className="text-[11px] text-slate-700 font-mono">Listening for first trade signal…</p>
-            <p className="text-[10px] text-slate-800">Logs appear here as trades execute</p>
+            <p className="mono" style={{ fontSize: 11, color: 'var(--t3)' }}>Listening for first trade signal…</p>
+            <p style={{ fontSize: 10, color: 'var(--t4)' }}>Logs appear here as trades execute</p>
           </div>
         ) : (
-          <div className="divide-y divide-white/5">
+          <div>
             {logs.map((log: any, i: number) => {
-              const levelColor: Record<string,string> = { INFO:'#4ade80', WARN:'#fbbf24', ERROR:'#f87171', DEBUG:'#94a3b8' };
-              const c = levelColor[log.level] || '#94a3b8';
+              const levelColor: Record<string,string> = { INFO:'var(--ok)', WARN:'var(--warn)', ERROR:'var(--bad)', DEBUG:'var(--t2)' };
+              const c = levelColor[log.level] || 'var(--t2)';
               return (
-                <div key={log.id || i} className="px-5 py-2.5 flex items-start gap-3 hover:bg-white/[0.01]">
-                  <span className="text-[8px] font-mono font-bold uppercase tracking-widest mt-0.5 flex-shrink-0"
-                    style={{ color: c }}>{log.level}</span>
-                  <span className="text-[10px] font-mono text-slate-400 flex-1 leading-relaxed">{log.message}</span>
-                  <span className="text-[8px] font-mono text-slate-700 flex-shrink-0 mt-0.5">
+                <div key={log.id || i} className="px-5 py-2.5 flex items-start gap-3" style={i > 0 ? { borderTop: '1px solid var(--b1)' } : undefined}>
+                  <span className="mono uppercase tracking-widest mt-0.5 flex-shrink-0"
+                    style={{ fontSize: 8, fontWeight: 700, color: c }}>{log.level}</span>
+                  <span className="mono flex-1 leading-relaxed" style={{ fontSize: 10, color: 'var(--t2)' }}>{log.message}</span>
+                  <span className="mono flex-shrink-0 mt-0.5" style={{ fontSize: 8, color: 'var(--t3)' }}>
                     {log.createdAt ? new Date(log.createdAt).toLocaleTimeString() : ''}
                   </span>
                 </div>
@@ -1312,30 +1316,30 @@ function CopierDashboard({ deployResult, role, data, onSetupAnother, onHome }: a
       </div>
 
       {/* ── Recent trades ───────────────────────────────────────────────── */}
-      <div className="border border-t-0 border-white/5 bg-[#020203]">
-        <div className="flex items-center justify-between px-5 py-3 border-b border-white/5">
-          <span className="text-[9px] font-mono font-bold uppercase tracking-widest text-slate-600">// recent_trades</span>
+      <div className="rounded-xl overflow-hidden" style={{ background: 'var(--s1)', border: '1px solid var(--b1)' }}>
+        <div className="flex items-center justify-between px-5 py-3" style={{ borderBottom: '1px solid var(--b1)' }}>
+          <span className="mono uppercase tracking-widest" style={{ fontSize: 9, fontWeight: 700, color: 'var(--t3)' }}>// recent_trades</span>
         </div>
         {loading ? (
           <div className="px-5 py-6 flex items-center justify-center">
-            <div className="text-[10px] font-mono text-slate-700 animate-pulse">Loading trades…</div>
+            <div className="mono animate-pulse" style={{ fontSize: 10, color: 'var(--t3)' }}>Loading trades…</div>
           </div>
         ) : trades.length === 0 ? (
           <div className="px-5 py-6 flex flex-col items-center justify-center gap-2">
-            <p className="text-[11px] text-slate-700 font-mono">No trades copied yet</p>
-            <p className="text-[10px] text-slate-800">Trades will appear here once the engine processes a signal</p>
+            <p className="mono" style={{ fontSize: 11, color: 'var(--t3)' }}>No trades copied yet</p>
+            <p style={{ fontSize: 10, color: 'var(--t4)' }}>Trades will appear here once the engine processes a signal</p>
           </div>
         ) : (
-          <div className="divide-y divide-white/5">
+          <div>
             {trades.map((t: any, i: number) => (
-              <div key={t.id || i} className="px-5 py-2.5 grid grid-cols-4 gap-2 items-center hover:bg-white/[0.01]">
-                <span className="text-[10px] font-mono text-slate-300 truncate">{t.symbol || '—'}</span>
-                <span className={`text-[9px] font-mono font-bold uppercase ${t.action==='BUY'?'text-green-400':'text-red-400'}`}>
+              <div key={t.id || i} className="px-5 py-2.5 grid grid-cols-4 gap-2 items-center" style={i > 0 ? { borderTop: '1px solid var(--b1)' } : undefined}>
+                <span className="mono truncate" style={{ fontSize: 10, color: 'var(--t2)' }}>{t.symbol || '—'}</span>
+                <span className="mono uppercase" style={{ fontSize: 9, fontWeight: 700, color: t.action==='BUY'?'var(--ok)':'var(--bad)' }}>
                   {t.action || '—'}
                 </span>
-                <span className="text-[10px] font-mono text-slate-500">{t.eventType || t.event_type || '—'}</span>
-                <span className={`text-[9px] font-mono uppercase text-right
-                  ${t.status==='executed'?'text-green-400':t.status==='failed'?'text-red-400':'text-slate-500'}`}>
+                <span className="mono" style={{ fontSize: 10, color: 'var(--t3)' }}>{t.eventType || t.event_type || '—'}</span>
+                <span className="mono uppercase text-right"
+                  style={{ fontSize: 9, color: t.status==='executed'?'var(--ok)':t.status==='failed'?'var(--bad)':'var(--t3)' }}>
                   {t.status || '—'}
                 </span>
               </div>
@@ -1345,12 +1349,13 @@ function CopierDashboard({ deployResult, role, data, onSetupAnother, onHome }: a
       </div>
 
       {/* ── Actions ─────────────────────────────────────────────────────── */}
-      <div className="border border-t-0 border-white/5 bg-[#020203] p-5 md:p-6 flex flex-col sm:flex-row items-center gap-3">
+      <div className="rounded-xl flex flex-col sm:flex-row items-center gap-3" style={{ padding: 20, background: 'var(--s1)', border: '1px solid var(--b1)' }}>
         <GlowButton active onClick={onSetupAnother}>
           Set Up Another Terminal <ArrowRight size={13} />
         </GlowButton>
         <button onClick={onHome}
-          className="text-[10px] font-mono uppercase tracking-widest text-slate-600 hover:text-slate-300 transition-colors border border-white/5 hover:border-white/10 px-4 py-2">
+          className="mono uppercase tracking-widest transition-colors px-4 py-2 rounded-lg"
+          style={{ fontSize: 10, color: 'var(--t3)', border: '1px solid var(--b1)' }}>
           ← Back to Trade Sync Home
         </button>
       </div>
@@ -1382,7 +1387,7 @@ const StepGoLive = ({ data, setData, role, onReset, onHome, providers }: any) =>
     relay:    'Relaying a channel via your own Telegram account',
   };
   const successMsg: any = {
-    follower: providerName ? <>Copying <span className="text-blue-400 font-mono">{providerName}</span> in real-time.</> : 'Bridge is live.',
+    follower: providerName ? <>Copying <span className="mono" style={{ color: 'var(--acc-h)' }}>{providerName}</span> in real-time.</> : 'Bridge is live.',
     provider: 'Your signals are now broadcasting to followers.',
     self:     'Self-copy bridge is active between your accounts.',
     telegram: 'Telegram signal parser is live and monitoring the channel.',
@@ -1404,19 +1409,19 @@ const StepGoLive = ({ data, setData, role, onReset, onHome, providers }: any) =>
   };
 
   if (status === 'deploying') return (
-    <div className="border border-white/5 p-8 md:p-20 flex flex-col items-center justify-center text-center space-y-6 max-w-2xl mx-auto">
-      <div className="w-24 h-24 rounded-full border border-blue-500/20 flex items-center justify-center relative">
-        <div className="absolute inset-0 bg-blue-500/10 blur-2xl animate-ping" />
-        <Rocket size={40} className="text-blue-400 animate-pulse" strokeWidth={1.5} />
+    <div className="rounded-xl p-8 md:p-20 flex flex-col items-center justify-center text-center space-y-6 max-w-2xl mx-auto" style={{ border: '1px solid var(--b1)', background: 'var(--s1)' }}>
+      <div className="w-24 h-24 rounded-full flex items-center justify-center relative" style={{ border: '1px solid var(--acc-bd)' }}>
+        <div className="absolute inset-0 blur-2xl animate-ping" style={{ background: 'var(--acc-soft)' }} />
+        <Rocket size={40} className="animate-pulse" style={{ color: 'var(--acc)' }} strokeWidth={1.5} />
       </div>
-      <h2 className="text-lg md:text-xl font-light">Deploying Terminal…</h2>
+      <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--t1)' }}>Deploying Terminal…</h2>
       <div className="flex flex-col items-center gap-3 w-full max-w-xs">
         {['Establishing bridge connection','Verifying account credentials','Activating copy engine'].map((msg, i) => (
           <div key={msg} className="flex items-center gap-3 w-full text-left">
-            <div className="w-4 h-4 rounded-full border border-blue-500/40 bg-blue-500/10 flex items-center justify-center flex-shrink-0">
-              <div className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" style={{ animationDelay:`${i*0.3}s` }} />
+            <div className="w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0" style={{ border: '1px solid var(--acc-bd)', background: 'var(--acc-soft)' }}>
+              <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: 'var(--acc)', animationDelay:`${i*0.3}s` }} />
             </div>
-            <span className="text-[11px] font-mono text-slate-500">{msg}</span>
+            <span className="mono" style={{ fontSize: 11, color: 'var(--t3)' }}>{msg}</span>
           </div>
         ))}
       </div>
@@ -1424,18 +1429,18 @@ const StepGoLive = ({ data, setData, role, onReset, onHome, providers }: any) =>
   );
 
   if (status === 'error') return (
-    <div className="border border-white/5 p-8 md:p-20 flex flex-col items-center justify-center text-center space-y-6 max-w-2xl mx-auto">
-      <div className="w-24 h-24 rounded-full border border-red-500/30 flex items-center justify-center relative">
-        <div className="absolute inset-0 bg-red-500/10 blur-2xl animate-pulse" />
-        <AlertTriangle size={40} className="text-red-400 relative z-10" strokeWidth={1.5} />
+    <div className="rounded-xl p-8 md:p-20 flex flex-col items-center justify-center text-center space-y-6 max-w-2xl mx-auto" style={{ border: '1px solid var(--b1)', background: 'var(--s1)' }}>
+      <div className="w-24 h-24 rounded-full flex items-center justify-center relative" style={{ border: '1px solid rgba(240,85,107,.4)' }}>
+        <div className="absolute inset-0 blur-2xl animate-pulse" style={{ background: 'var(--bad-s)' }} />
+        <AlertTriangle size={40} className="relative z-10" style={{ color: 'var(--bad)' }} strokeWidth={1.5} />
       </div>
       <div className="space-y-3">
-        <div className="inline-flex items-center gap-2 bg-red-500/10 border border-red-500/20 px-4 py-1.5 text-red-400 text-[10px] font-mono font-bold uppercase tracking-widest">
-          <span className="w-1.5 h-1.5 rounded-full bg-red-400 inline-block" />
+        <div className="inline-flex items-center gap-2 px-4 py-1.5 mono uppercase tracking-widest rounded-full" style={{ fontSize: 10, fontWeight: 700, color: 'var(--bad)', background: 'var(--bad-s)', border: '1px solid rgba(240,85,107,.4)' }}>
+          <span className="w-1.5 h-1.5 rounded-full inline-block" style={{ background: 'var(--bad)' }} />
           Deployment Failed
         </div>
-        <h2 className="text-lg md:text-xl font-light">Terminal Error</h2>
-        <p className="text-slate-500 text-sm max-w-md font-mono">{errorMsg}</p>
+        <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--t1)' }}>Terminal Error</h2>
+        <p className="mono max-w-md" style={{ fontSize: 13, color: 'var(--t3)' }}>{errorMsg}</p>
       </div>
       <GlowButton active onClick={() => setStatus('ready')}>
         Try Again <ArrowRight size={14} />
@@ -1454,27 +1459,27 @@ const StepGoLive = ({ data, setData, role, onReset, onHome, providers }: any) =>
   );
 
   return (
-    <div className="border border-white/5 max-w-2xl mx-auto flex flex-col items-center">
+    <div className="rounded-xl max-w-2xl mx-auto flex flex-col items-center overflow-hidden" style={{ border: '1px solid var(--b1)', background: 'var(--s1)' }}>
       {/* ── Hero block ──────────────────────────────────────── */}
-      <div className="w-full p-8 md:p-16 flex flex-col items-center text-center space-y-4 border-b border-white/5">
-        <div className="w-24 h-24 rounded-full border border-blue-500/20 flex items-center justify-center relative">
-          <div className="absolute inset-0 bg-blue-500/10 blur-2xl animate-pulse" />
-          <Rocket size={40} className="text-blue-500 relative z-10" strokeWidth={1.5} />
+      <div className="w-full p-8 md:p-16 flex flex-col items-center text-center space-y-4" style={{ borderBottom: '1px solid var(--b1)' }}>
+        <div className="w-24 h-24 rounded-full flex items-center justify-center relative" style={{ border: '1px solid var(--acc-bd)' }}>
+          <div className="absolute inset-0 blur-2xl animate-pulse" style={{ background: 'var(--acc-soft)' }} />
+          <Rocket size={40} className="relative z-10" style={{ color: 'var(--acc)' }} strokeWidth={1.5} />
         </div>
-        <h2 className="text-lg md:text-xl font-light">System Ready</h2>
-        <p className="text-slate-500 text-sm max-w-md">{summaries[role]}</p>
+        <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--t1)' }}>System Ready</h2>
+        <p className="max-w-md" style={{ fontSize: 13, color: 'var(--t3)' }}>{summaries[role]}</p>
       </div>
 
       {/* ── Risk disclosure (inline) ─────────────────────────── */}
       {!disclosuresAccepted && (
-        <div className="w-full border-b border-white/5 p-6 md:p-8 space-y-4">
-          <div className="flex items-center gap-2 text-amber-400 mb-1">
+        <div className="w-full p-6 md:p-8 space-y-4" style={{ borderBottom: '1px solid var(--b1)' }}>
+          <div className="flex items-center gap-2 mb-1" style={{ color: 'var(--warn)' }}>
             <AlertTriangle size={14} className="flex-shrink-0" />
-            <span className="text-[10px] font-bold uppercase tracking-widest">Risk Disclosure Required</span>
+            <span className="uppercase tracking-widest" style={{ fontSize: 10, fontWeight: 700 }}>Risk Disclosure Required</span>
           </div>
 
-          <div className="p-4 border border-red-500/20 bg-red-500/5 space-y-2">
-            <p className="text-[11px] text-slate-400 leading-relaxed">
+          <div className="space-y-2 rounded-lg" style={{ padding: 16, border: '1px solid rgba(240,85,107,.4)', background: 'var(--bad-s)' }}>
+            <p className="leading-relaxed" style={{ fontSize: 11.5, color: 'var(--t2)' }}>
               {role === 'provider'
                 ? "As a signal provider, you acknowledge that followers will execute real-money trades based on your signals. TradeSync does not verify your trading strategy or guarantee follower profitability."
                 : "Copy trading involves significant risk and may not be suitable for all investors. Past performance does not guarantee future results. You may lose some or all of your invested capital."}
@@ -1506,7 +1511,7 @@ const StepGoLive = ({ data, setData, role, onReset, onHome, providers }: any) =>
       {/* ── Deploy action ────────────────────────────────────── */}
       <div className="w-full p-6 md:p-8 flex flex-col items-center gap-3">
         {canDeploy && (
-          <div className="flex items-center gap-2 text-green-400 text-[10px] font-mono uppercase tracking-widest mb-2">
+          <div className="flex items-center gap-2 mono uppercase tracking-widest mb-2" style={{ fontSize: 10, color: 'var(--ok)' }}>
             <CheckCircle2 size={13} />
             <span>All disclosures accepted — ready to deploy</span>
           </div>
@@ -1515,7 +1520,7 @@ const StepGoLive = ({ data, setData, role, onReset, onHome, providers }: any) =>
           DEPLOY TERMINAL <ArrowRight size={14} />
         </GlowButton>
         {!canDeploy && (
-          <p className="text-[10px] text-slate-700 font-mono mt-1">
+          <p className="mono mt-1" style={{ fontSize: 10, color: 'var(--t3)' }}>
             {!accountsReady
               ? (role === 'self' ? 'Select both source and target cTrader accounts.'
                  : role === 'follower' ? 'Select your account and a provider in the earlier steps.'
@@ -1542,7 +1547,7 @@ const STEP_TITLES: any = {
 // ═══════════════════════════════════════════════════════════════════════════════
 // COPIER WIZARD
 // ═══════════════════════════════════════════════════════════════════════════════
-function CopierWizard({ onBack, onOpenDashboard }: { onBack: () => void; onOpenDashboard: (tab: 'provider' | 'follower') => void }) {
+export function CopierWizard({ onBack, onOpenDashboard }: { onBack: () => void; onOpenDashboard: (tab: 'provider' | 'follower') => void }) {
   const [step, setStep]               = useState(0);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [data, setData] = useState<any>({
@@ -1581,7 +1586,7 @@ function CopierWizard({ onBack, onOpenDashboard }: { onBack: () => void; onOpenD
 
   const renderStep = () => {
     switch (cur.id) {
-      case 'role':       return <StepRole          data={data} setData={setData} onNext={handleNext} />;
+      case 'role':       return <QcRoleStep value={data.role} onChange={(id) => { setData(id === 'telegram' ? { ...data, role: id, platform: 'cTrader', lotMode: data.lotMode === 'risk' ? 'risk' : 'fixed' } : { ...data, role: id }); setStep(0); }} />;
       case 'connect':    return <StepConnect       data={data} setData={setData} label={data.role==='self'?'Source Account':data.role==='telegram'?'Account to Copy Onto':'Trading Account'} />;
       case 'connect2':   return <StepConnect2      data={data} setData={setData} />;
       case 'accounts':   return <StepSelfAccounts  data={data} setData={setData} />;
@@ -1603,126 +1608,29 @@ function CopierWizard({ onBack, onOpenDashboard }: { onBack: () => void; onOpenD
     }
   };
 
+  const isGoLive = cur.id === 'go-live';
   return (
-    <div className="ts-wizard-root min-h-screen bg-[#020203] text-white selection:bg-blue-500/40 font-light overflow-hidden">
-      <style>{FONTS + `
-        body{font-family:'Inter',sans-serif;letter-spacing:-0.01em;}
-        .mono{font-family:'JetBrains Mono',monospace;}
-        .hide-scrollbar::-webkit-scrollbar{display:none;}
-        .hide-scrollbar{-ms-overflow-style:none;scrollbar-width:none;}
-      `}</style>
-
-      <div className="fixed inset-0 pointer-events-none z-50 opacity-[0.03] bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.25)_50%),linear-gradient(90deg,rgba(255,0,0,0.06),rgba(0,255,0,0.02),rgba(0,0,255,0.06))] bg-[length:100%_2px,3px_100%]" />
-
-      {/* Mobile sidebar drawer */}
-      {sidebarOpen && (
-        <div className="fixed inset-0 z-40 bg-black/70 md:hidden" onClick={() => setSidebarOpen(false)}>
-          <div className="absolute right-0 top-0 bottom-0 w-52 bg-[#0a0a0f] border-l border-white/10 flex flex-col py-6 px-4" onClick={(e: any) => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-6">
-              <span className="text-[9px] font-mono text-slate-600 uppercase tracking-widest">Navigation</span>
-              <button onClick={() => setSidebarOpen(false)}><X size={16} className="text-slate-500" /></button>
-            </div>
-            <nav className="flex flex-col gap-0.5">
-              {steps.map((s,i) => {
-                const Icon = s.icon;
-                const done   = i < step;
-                const active = i === step;
-                return (
-                  <button key={s.id} onClick={() => { if(done||active){ setStep(i); setSidebarOpen(false); } }}
-                    className={`flex items-center gap-3 px-3 py-2.5 transition-all text-left rounded-sm
-                      ${active?'text-blue-400 bg-blue-500/5':done?'text-slate-500 hover:text-slate-300 cursor-pointer':'text-slate-700 cursor-default'}`}>
-                    <Icon size={14} strokeWidth={1.5} />
-                    <span className="text-[11px] uppercase tracking-widest">{s.label}</span>
-                    {active && <div className="ml-auto w-1 h-3 bg-blue-500 rounded-full" />}
-                  </button>
-                );
-              })}
-            </nav>
-          </div>
+    <QcShell
+      steps={steps.map((s: any) => ({ id: s.id, label: s.label }))}
+      current={step}
+      onExit={onBack}
+      onProviders={() => onOpenDashboard('provider')}
+      onFollowers={() => onOpenDashboard('follower')}
+      onBack={handlePrev}
+      onNext={handleNext}
+      backDisabled={step === 0}
+      hideFooter={isGoLive}
+      nextLabel={step >= steps.length - 1 ? 'Finish' : 'Continue'}
+      contentWidth={cur.id === 'link' ? 980 : cur.id === 'accounts' ? 880 : cur.id === 'role' ? 760 : 680}
+    >
+      {cur.id !== 'role' && (
+        <div style={{ marginBottom: 18 }}>
+          <div className="qc-eyebrow">Step {String(step + 1).padStart(2, '0')} · {cur.label}</div>
+          <h1 className="qc-h1" style={{ marginTop: 10 }}>{STEP_TITLES[cur.id] ?? cur.label}</h1>
         </div>
       )}
-
-      <div className="flex h-screen flex-row-reverse">
-
-        {/* SIDEBAR — desktop only */}
-        <aside className="hidden md:flex w-24 border-l border-white/5 flex-col items-center py-8 bg-black/40 backdrop-blur-xl z-20 overflow-y-auto hide-scrollbar">
-          <nav className="flex-1 flex flex-col justify-center">
-            {steps.map((s,i) => {
-              const Icon   = s.icon;
-              const done   = i < step;
-              const active = i === step;
-              const last   = i === steps.length - 1;
-              return (
-                <div key={s.id} className="flex flex-col items-center">
-                  <button
-                    onClick={() => done && setStep(i)}
-                    disabled={!done}
-                    aria-current={active ? 'step' : undefined}
-                    aria-label={s.label}
-                    className={`relative z-10 flex items-center justify-center w-9 h-9 rounded-full border transition-all duration-300
-                      ${active
-                        ? 'border-blue-500 bg-blue-500/10 text-blue-300 shadow-[0_0_18px_rgba(37,99,235,0.55)]'
-                        : done
-                          ? 'border-blue-600/70 bg-blue-600/15 text-blue-300 hover:border-blue-400 hover:bg-blue-600/25 cursor-pointer'
-                          : 'border-white/10 bg-white/[0.02] text-slate-500 cursor-default'}`}>
-                    {done ? <Check size={15} strokeWidth={2.5} /> : <Icon size={15} strokeWidth={1.5} />}
-                    {active && <span className="absolute -inset-1 rounded-full border border-blue-500/30 animate-pulse" />}
-                  </button>
-                  <span className={`mt-1.5 text-[8px] uppercase tracking-widest transition-colors
-                    ${active ? 'text-blue-300' : done ? 'text-slate-400' : 'text-slate-600'}`}>
-                    {s.label}
-                  </span>
-                  {!last && (
-                    <div className={`w-px h-7 my-1 rounded-full transition-colors duration-500
-                      ${done ? 'bg-gradient-to-b from-blue-500/70 to-blue-600/40' : 'bg-white/10'}`} />
-                  )}
-                </div>
-              );
-            })}
-          </nav>
-        </aside>
-
-        {/* MAIN */}
-        <main className="flex-1 flex flex-col overflow-hidden bg-[radial-gradient(circle_at_top_right,rgba(37,99,235,0.03),transparent_40%)]">
-
-          {/* HEADER — terminal nav (controlled) */}
-          <TradeSyncNav
-            active={data.role}
-            onSelect={(id) => { setData({ ...data, role: id }); setStep(0); }}
-            onOpenDashboard={onOpenDashboard}
-            onBack={onBack}
-            onMenu={() => setSidebarOpen(true)}
-          />
-
-          {/* CONTENT */}
-          <section className="flex-1 overflow-y-auto p-5 md:p-12 lg:p-20 hide-scrollbar">
-            <div className={cur.id==='link' ? 'w-full' : 'max-w-6xl'}>
-              <SectionTitle step={step} id={cur.id} title={STEP_TITLES[cur.id]??cur.id} />
-              <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
-                {renderStep()}
-              </div>
-            </div>
-          </section>
-
-          {/* FOOTER */}
-          <footer className="h-16 md:h-24 border-t border-white/5 bg-black/40 flex items-center justify-between px-4 md:px-12 flex-shrink-0">
-            <button onClick={handlePrev}
-              className={`text-[10px] font-bold uppercase tracking-[0.2em] md:tracking-[0.3em] text-slate-600 hover:text-white transition-colors ${step===0?'opacity-0 pointer-events-none':''}`}>
-              [ Prev ]
-            </button>
-            <div className="flex items-center gap-3 md:gap-6">
-              <span className="text-[10px] font-mono text-slate-700">{step+1} / {steps.length}</span>
-              {step < steps.length-1 && (
-                <GlowButton onClick={handleNext}>
-                  Proceed <ChevronRight size={14} />
-                </GlowButton>
-              )}
-            </div>
-          </footer>
-
-        </main>
-      </div>
-    </div>
+      {renderStep()}
+    </QcShell>
   );
 }
 
