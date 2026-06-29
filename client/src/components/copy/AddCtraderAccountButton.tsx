@@ -66,44 +66,41 @@ export default function AddCtraderAccountButton({
 
   if (selectToken && choices.length) {
     return (
-      <div className="space-y-2 rounded-lg p-3" style={{ border: '1px solid var(--b2)', background: 'var(--s2)' }}>
-        <p className="uppercase tracking-widest" style={{ fontSize: 10, fontWeight: 700, color: 'var(--t3)' }}>Choose which cTrader account</p>
+      <div className="space-y-2 border border-white/10 rounded-md p-3 bg-white/[0.02]">
+        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Choose which cTrader account</p>
         {choices.map(c => (
           <button
             key={c.ctidTraderAccountId}
             type="button"
             disabled={busy}
             onClick={() => pick(c.ctidTraderAccountId)}
-            className="w-full flex items-center justify-between gap-3 px-3 py-2 rounded-lg text-left transition-colors disabled:opacity-50"
-            style={{ border: '1px solid var(--b2)', background: 'var(--s3)' }}
+            className="w-full flex items-center justify-between gap-3 px-3 py-2 border border-white/10 rounded-md text-left hover:border-blue-500/50 hover:bg-blue-500/5 transition-colors disabled:opacity-50"
           >
-            <span className="truncate" style={{ fontSize: 14, color: 'var(--t1)' }}>
-              #{c.traderLogin}{c.brokerName ? <span style={{ color: 'var(--t3)' }}> · {c.brokerName}</span> : null}
+            <span className="text-sm text-white truncate">
+              #{c.traderLogin}{c.brokerName ? <span className="text-slate-500"> · {c.brokerName}</span> : null}
             </span>
-            <span className="uppercase tracking-wider px-1.5 py-0.5 rounded-full flex-shrink-0" style={{ fontSize: 8, fontWeight: 700, color: c.isLive ? 'var(--bad)' : 'var(--ok)', background: c.isLive ? 'var(--bad-s)' : 'var(--ok-s)' }}>
+            <span className={`text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full flex-shrink-0 ${c.isLive ? 'bg-rose-500/15 text-rose-300' : 'bg-emerald-500/15 text-emerald-300'}`}>
               {c.isLive ? 'Live' : 'Demo'}
             </span>
           </button>
         ))}
-        {error && <p className="flex items-center gap-1.5" style={{ fontSize: 11, color: 'var(--bad)' }}><AlertCircle size={12} /> {error}</p>}
+        {error && <p className="text-[11px] text-rose-400 flex items-center gap-1.5"><AlertCircle size={12} /> {error}</p>}
       </div>
     );
   }
 
+  const btnClass = primary
+    ? 'inline-flex items-center gap-2 px-4 py-2.5 bg-blue-500 hover:bg-blue-400 text-white text-[11px] font-bold uppercase tracking-widest rounded-md transition-colors disabled:opacity-60'
+    : 'inline-flex items-center gap-1.5 text-[11px] text-slate-400 hover:text-blue-300 transition-colors disabled:opacity-60';
   const iconSize = primary ? 13 : 12;
-  const btnStyle = primary
-    ? { height: 38, padding: '0 16px', background: 'var(--acc)', color: '#fff', borderRadius: 8, border: '1px solid transparent' }
-    : { color: 'var(--t2)' };
 
   return (
     <div className="space-y-1.5">
-      <button type="button" onClick={start} disabled={busy}
-        className={`${primary ? 'inline-flex items-center gap-2 uppercase tracking-widest' : 'inline-flex items-center gap-1.5'} transition-colors disabled:opacity-60`}
-        style={{ ...btnStyle, fontSize: 11, fontWeight: primary ? 700 : 400 }}>
+      <button type="button" onClick={start} disabled={busy} className={btnClass}>
         {busy ? <Loader2 size={iconSize} className="animate-spin" /> : <Plus size={iconSize} />}
         {busy ? 'Connecting…' : label}
       </button>
-      {error && <p className="flex items-center gap-1.5" style={{ fontSize: 11, color: 'var(--bad)' }}><AlertCircle size={12} /> {error}</p>}
+      {error && <p className="text-[11px] text-rose-400 flex items-center gap-1.5"><AlertCircle size={12} /> {error}</p>}
     </div>
   );
 }
