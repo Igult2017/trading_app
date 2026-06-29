@@ -263,21 +263,39 @@ const StatusDot = ({ status }: any) => {
 };
 
 // ─── STEPS ────────────────────────────────────────────────────────────────────
-const StepRole = ({ data, setData, onNext }: any) => (
-  <div className="border border-white/5">
-    <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-white/5 border-b border-white/5">
-      <FeatureCard icon={Radio}         title="Signal Provider"  active={data.role==='provider'} onClick={() => { setData({...data,role:'provider'}); onNext(); }} sub="Master account. Broadcast your trades to followers in real-time." />
-      <FeatureCard icon={Users}         title="Copy Follower"    active={data.role==='follower'} onClick={() => { setData({...data,role:'follower'}); onNext(); }} sub="Follow a verified provider. Trades mirror automatically." />
+const StepRole = ({ data, setData, onNext }: any) => {
+  const isTg = data.role === 'telegram' || data.role === 'relay';
+  const pickTg = (role: string) => setData({ ...data, role, platform: 'cTrader', lotMode: data.lotMode === 'risk' ? 'risk' : 'fixed' });
+  return (
+    <div className="space-y-5">
+      <div className="border border-white/5">
+        <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-white/5 border-b border-white/5">
+          <FeatureCard icon={Radio} title="Signal Provider" active={data.role==='provider'} onClick={() => { setData({...data,role:'provider'}); onNext(); }} sub="Master account. Broadcast your trades to followers in real-time." />
+          <FeatureCard icon={Users}  title="Copy Follower"   active={data.role==='follower'} onClick={() => { setData({...data,role:'follower'}); onNext(); }} sub="Follow a verified provider. Trades mirror automatically." />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-white/5">
+          <FeatureCard icon={GitFork}       title="Self-Copy" active={data.role==='self'} onClick={() => { setData({...data,role:'self'}); onNext(); }} sub="Duplicate trades between your own accounts on any broker." />
+          <FeatureCard icon={MessageSquare} title="Telegram"  active={isTg} onClick={() => { if (!isTg) pickTg('telegram'); }} sub="Auto-execute signals from a Telegram channel — pick the source below." accent="text-sky-400" />
+        </div>
+      </div>
+
+      {isTg && (
+        <div className="border border-white/5 p-5 md:p-6">
+          <TSelect
+            label="Telegram source"
+            hint="Both modes execute onto your connected cTrader account — that's why the next step asks for it."
+            options={[
+              { value: 'telegram', label: 'Channel / bot signals — we monitor a public or bot channel' },
+              { value: 'relay',    label: "My own Telegram account (advanced) — copy any channel you're in" },
+            ]}
+            value={data.role}
+            onChange={(v: string) => pickTg(v)}
+          />
+        </div>
+      )}
     </div>
-    <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-white/5">
-      <FeatureCard icon={GitFork}       title="Self-Copy"         active={data.role==='self'}     onClick={() => { setData({...data,role:'self'}); onNext(); }}     sub="Duplicate trades between your own accounts on any broker." />
-      <FeatureCard icon={MessageSquare} title="Telegram Signals"  active={data.role==='telegram'} onClick={() => { setData({...data,role:'telegram',platform:'cTrader',lotMode:data.lotMode==='risk'?'risk':'fixed'}); onNext(); }} sub="Parse and auto-execute signals from a Telegram channel." accent="text-sky-400" />
-    </div>
-    <div className="border-t border-white/5">
-      <FeatureCard icon={Send} title="Telegram — My Account (Advanced)" active={data.role==='relay'} onClick={() => { setData({...data,role:'relay',platform:'cTrader',lotMode:data.lotMode==='risk'?'risk':'fixed'}); onNext(); }} sub="Copy ANY channel you're subscribed to via your own Telegram account — no bot or listing needed. Requires authorizing your account." accent="text-amber-400" />
-    </div>
-  </div>
-);
+  );
+};
 
 const StepConnect = ({ data, setData, label = "Trading Account" }: any) => {
   const isCtrader = data.platform==='cTrader' || data.role==='telegram' || data.role==='relay';
@@ -1590,10 +1608,8 @@ export function CopierWizard({ onBack, onOpenDashboard }: { onBack: () => void; 
   return (
     <div className="ts-wizard-root min-h-screen bg-[#020203] text-white selection:bg-blue-500/40 font-light overflow-hidden">
       <style>{FONTS + `
-        .ts-wizard-root,.ts-wizard-root input,.ts-wizard-root textarea,.ts-wizard-root select,.ts-wizard-root button,
-        .ts-wizard-root h1,.ts-wizard-root h2,.ts-wizard-root h3,.ts-wizard-root h4{font-family:'DM Mono',ui-monospace,monospace;}
+        .ts-wizard-root,.ts-wizard-root *{font-family:'DM Mono',ui-monospace,SFMono-Regular,monospace !important;}
         .ts-wizard-root{letter-spacing:-0.01em;}
-        .mono,.ts-wizard-root .font-mono{font-family:'DM Mono',ui-monospace,monospace;}
         .hide-scrollbar::-webkit-scrollbar{display:none;}
         .hide-scrollbar{-ms-overflow-style:none;scrollbar-width:none;}
       `}</style>
