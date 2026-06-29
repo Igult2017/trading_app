@@ -8,12 +8,13 @@ import {
 import { PiInfoFill } from 'react-icons/pi';
 import CopyManagementDashboard from '@/components/CopyManagementDashboard';
 import CTraderAccountPicker from '@/components/copy/CTraderAccountPicker';
+import CTraderConnectPanel from '@/components/copy/CTraderConnectPanel';
 import TradeSyncNav from '@/components/copy/TradeSyncNav';
 import { apiRequest, authFetch } from '@/lib/queryClient';
 import { useAuth } from '@/context/AuthContext';
 
 // ─── Fonts ────────────────────────────────────────────────────────────────────
-const FONTS = `@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;800&family=JetBrains+Mono:wght@400;700&display=swap');`;
+const FONTS = `@import url('https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,400&display=swap');`;
 
 // ─── Step Definitions ─────────────────────────────────────────────────────────
 const STEPS_FOLLOWER = [
@@ -169,7 +170,7 @@ function providerInitials(name: string) {
 }
 
 const ProviderCard = ({ provider, selected, onSelect }: any) => {
-  const mono = "'JetBrains Mono', monospace";
+  const mono = "'DM Mono', monospace";
   const { user } = useAuth();
   const isOwn = !!user?.id && provider.ownerId === user.id;
   const followable = !!provider.followingEnabled && !!provider.masterId;
@@ -257,7 +258,7 @@ const StatusDot = ({ status }: any) => {
   return (
     <span style={{ display:'inline-flex', alignItems:'center', gap:6 }}>
       <span style={{ width:7, height:7, borderRadius:'50%', background:s.color, boxShadow:s.shadow, display:'inline-block', flexShrink:0 }} />
-      <span style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:'11px', color:s.color }}>{s.label}</span>
+      <span style={{ fontFamily:"'DM Mono',monospace", fontSize:'11px', color:s.color }}>{s.label}</span>
     </span>
   );
 };
@@ -279,103 +280,87 @@ const StepRole = ({ data, setData, onNext }: any) => (
   </div>
 );
 
-const StepConnect = ({ data, setData, label = "Trading Account" }: any) => (
-  <div className="grid grid-cols-1 md:grid-cols-2 gap-0 border border-white/5 divide-y md:divide-y-0 md:divide-x divide-white/5">
-    <div className="p-5 md:p-8 space-y-6 md:space-y-8">
-      {(data.role!=='telegram' && data.role!=='relay') && (
-      <div className="space-y-2">
-        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Platform Type</label>
-        <div className="grid grid-cols-2 gap-2 md:gap-3">
-          {["MT4","MT5","cTrader","Proprietary"].map(p => (
-            <button key={p} onClick={() => setData({...data,platform:p})}
-              className={`px-3 md:px-4 py-3 border text-[10px] font-bold uppercase tracking-widest transition-all flex items-center justify-between
-                ${data.platform===p ? 'bg-white text-black border-white' : 'border-white/10 text-slate-500 hover:border-white/30'}`}>
-              {p}{data.platform===p && <CheckCircle2 size={12} />}
-            </button>
-          ))}
-        </div>
-      </div>
-      )}
-      {(data.platform==='cTrader' || data.role==='telegram' || data.role==='relay') ? (
-        <CTraderAccountPicker value={data.brokerAccountId} onChange={(id: string) => setData({ ...data, brokerAccountId: id })} label={`${label} (cTrader)`} />
-      ) : data.platform==='Proprietary' ? (
-        <div className="space-y-6 md:space-y-8">
-          <TInput label="Broker Platform Name" placeholder="e.g. ThinkTrader, Oanda Desktop" value={data.propriBrokerName??''} onChange={(e:any)=>setData({...data,propriBrokerName:e.target.value})} />
-          <TInput label="API Endpoint (Optional)" placeholder="https://api.broker.com/v1" value={data.propriApiEndpoint??''} onChange={(e:any)=>setData({...data,propriApiEndpoint:e.target.value})} />
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 md:gap-8">
-            <TInput label="API Key" type="password" placeholder="pk_live_..." value={data.propriApiKey??''} onChange={(e:any)=>setData({...data,propriApiKey:e.target.value})} />
-            <TInput label="Secret"  type="password" placeholder="••••••••" value={data.propriSecret??''} onChange={(e:any)=>setData({...data,propriSecret:e.target.value})} />
-          </div>
-        </div>
-      ) : (
-        <div className="space-y-6 md:space-y-8">
-          <TInput label={`${label} Nickname`} placeholder="e.g. IC Markets Live" value={data.nickname??''} onChange={(e:any)=>setData({...data,nickname:e.target.value})} />
-          <TInput label="Broker Server" placeholder="IC-Markets-Live-02" value={data.brokerServer??''} onChange={(e:any)=>setData({...data,brokerServer:e.target.value})} />
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 md:gap-8">
-            <TInput label="Login ID"          placeholder="1029384" value={data.loginId??''} onChange={(e:any)=>setData({...data,loginId:e.target.value})} />
-            <TInput label="Investor Password" type="password" placeholder="••••••••" value={data.password??''} onChange={(e:any)=>setData({...data,password:e.target.value})} />
+const StepConnect = ({ data, setData, label = "Trading Account" }: any) => {
+  const isCtrader = data.platform==='cTrader' || data.role==='telegram' || data.role==='relay';
+  const showSelector = data.role!=='telegram' && data.role!=='relay';
+  return (
+    <div className="space-y-6 md:space-y-8">
+      {showSelector && (
+        <div className="space-y-2.5 max-w-2xl">
+          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Platform Type</label>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3">
+            {["MT4","MT5","cTrader","Proprietary"].map(p => (
+              <button key={p} onClick={() => setData({...data,platform:p})}
+                className={`px-3 md:px-4 py-3 border text-[10px] font-bold uppercase tracking-widest transition-all flex items-center justify-between
+                  ${data.platform===p ? 'bg-white text-black border-white' : 'border-white/10 text-slate-500 hover:border-white/30'}`}>
+                {p}{data.platform===p && <CheckCircle2 size={12} />}
+              </button>
+            ))}
           </div>
         </div>
       )}
-    </div>
-    <div className="p-5 md:p-8 flex flex-col gap-4 md:gap-6">
-      {data.platform==='cTrader' ? (
-        <>
-          <div className="p-4 md:p-5 border border-emerald-500/15 bg-emerald-500/[0.04] rounded-sm">
-            <div className="flex items-center gap-3 mb-3 text-emerald-400">
-              <ShieldCheck size={16} strokeWidth={1.5} />
-              <span className="text-[10px] font-bold uppercase tracking-widest font-mono">OAuth Secured</span>
-            </div>
-            <p className="text-xs text-slate-400 leading-relaxed">cTrader connects through Spotware's official OAuth — you sign in on cTrader's own page. We hold a revocable access token, never your password, and you can revoke it any time from cTrader.</p>
-          </div>
-          <div className="p-4 md:p-5 border border-white/5 bg-white/[0.01] rounded-sm">
-            <span className="text-[9px] font-mono font-bold text-slate-600 uppercase tracking-widest block mb-4">// how_copying_works</span>
-            <ol className="space-y-3">
-              {['Pick the connected account this terminal uses','Fills mirror in real time via the cTrader Open API','Risk limits & filters apply before every order'].map((t, i) => (
-                <li key={i} className="flex gap-3 text-[11px] text-slate-400 leading-relaxed">
-                  <span className="flex-shrink-0 w-4 h-4 rounded-full bg-blue-500/15 text-blue-300 text-[9px] font-bold flex items-center justify-center">{i+1}</span>
-                  {t}
-                </li>
-              ))}
-            </ol>
-          </div>
-        </>
+
+      {isCtrader ? (
+        <CTraderConnectPanel value={data.brokerAccountId} onChange={(id: string) => setData({ ...data, brokerAccountId: id })} />
       ) : (
-        <>
-          <div className="p-4 md:p-5 border border-white/5 bg-white/[0.01]">
-            <div className="flex items-center gap-3 mb-3 md:mb-4 text-blue-400">
-              <Shield size={16} strokeWidth={1.5} />
-              <span className="text-[10px] font-bold uppercase tracking-widest font-mono">Security Protocol</span>
-            </div>
-            <p className="text-xs text-slate-500 leading-relaxed italic">TradeSync uses isolated bridge technology to monitor your margin and mirror executions. No withdrawal or sensitive personal data permissions are ever required.</p>
-          </div>
-          <div className="p-4 md:p-5 border border-white/5 bg-white/[0.01]">
-            <span className="text-[9px] font-mono font-bold text-slate-700 uppercase tracking-widest block mb-3 md:mb-4">// connection_status</span>
-            <div className="divide-y divide-white/[0.04]">
-              {[{label:'Bridge',status:'ready'},{label:'Broker server',status:'pending'},{label:'Login ID',status:'inactive'}].map(row => (
-                <div key={row.label} className="flex items-center justify-between py-2.5">
-                  <span style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:'11px', color:'#334155' }}>{row.label}</span>
-                  <StatusDot status={row.status} />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-0 border border-white/5 divide-y md:divide-y-0 md:divide-x divide-white/5">
+          <div className="p-5 md:p-8 space-y-6 md:space-y-8">
+            {data.platform==='Proprietary' ? (
+              <div className="space-y-6 md:space-y-8">
+                <TInput label="Broker Platform Name" placeholder="e.g. ThinkTrader, Oanda Desktop" value={data.propriBrokerName??''} onChange={(e:any)=>setData({...data,propriBrokerName:e.target.value})} />
+                <TInput label="API Endpoint (Optional)" placeholder="https://api.broker.com/v1" value={data.propriApiEndpoint??''} onChange={(e:any)=>setData({...data,propriApiEndpoint:e.target.value})} />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 md:gap-8">
+                  <TInput label="API Key" type="password" placeholder="pk_live_..." value={data.propriApiKey??''} onChange={(e:any)=>setData({...data,propriApiKey:e.target.value})} />
+                  <TInput label="Secret"  type="password" placeholder="••••••••" value={data.propriSecret??''} onChange={(e:any)=>setData({...data,propriSecret:e.target.value})} />
                 </div>
-              ))}
-              <div className="flex items-center justify-between py-2.5">
-                <span style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:'11px', color:'#334155' }}>Latency</span>
-                <span style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:'11px', color:'#1e293b' }}>— ms</span>
+              </div>
+            ) : (
+              <div className="space-y-6 md:space-y-8">
+                <TInput label={`${label} Nickname`} placeholder="e.g. IC Markets Live" value={data.nickname??''} onChange={(e:any)=>setData({...data,nickname:e.target.value})} />
+                <TInput label="Broker Server" placeholder="IC-Markets-Live-02" value={data.brokerServer??''} onChange={(e:any)=>setData({...data,brokerServer:e.target.value})} />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 md:gap-8">
+                  <TInput label="Login ID"          placeholder="1029384" value={data.loginId??''} onChange={(e:any)=>setData({...data,loginId:e.target.value})} />
+                  <TInput label="Investor Password" type="password" placeholder="••••••••" value={data.password??''} onChange={(e:any)=>setData({...data,password:e.target.value})} />
+                </div>
+              </div>
+            )}
+          </div>
+          <div className="p-5 md:p-8 flex flex-col gap-4 md:gap-6">
+            <div className="p-4 md:p-5 border border-white/5 bg-white/[0.01]">
+              <div className="flex items-center gap-3 mb-3 md:mb-4 text-blue-400">
+                <Shield size={16} strokeWidth={1.5} />
+                <span className="text-[10px] font-bold uppercase tracking-widest font-mono">Security Protocol</span>
+              </div>
+              <p className="text-xs text-slate-500 leading-relaxed italic">TradeSync uses isolated bridge technology to monitor your margin and mirror executions. No withdrawal or sensitive personal data permissions are ever required.</p>
+            </div>
+            <div className="p-4 md:p-5 border border-white/5 bg-white/[0.01]">
+              <span className="text-[9px] font-mono font-bold text-slate-700 uppercase tracking-widest block mb-3 md:mb-4">// connection_status</span>
+              <div className="divide-y divide-white/[0.04]">
+                {[{label:'Bridge',status:'ready'},{label:'Broker server',status:'pending'},{label:'Login ID',status:'inactive'}].map(row => (
+                  <div key={row.label} className="flex items-center justify-between py-2.5">
+                    <span style={{ fontFamily:"'DM Mono',monospace", fontSize:'11px', color:'#334155' }}>{row.label}</span>
+                    <StatusDot status={row.status} />
+                  </div>
+                ))}
+                <div className="flex items-center justify-between py-2.5">
+                  <span style={{ fontFamily:"'DM Mono',monospace", fontSize:'11px', color:'#334155' }}>Latency</span>
+                  <span style={{ fontFamily:"'DM Mono',monospace", fontSize:'11px', color:'#1e293b' }}>— ms</span>
+                </div>
               </div>
             </div>
+            <div className="flex items-start gap-3 p-3 md:p-4 border border-blue-500/20 bg-blue-500/5 rounded-sm">
+              <PiInfoFill size={15} className="text-blue-400 mt-0.5 flex-shrink-0" />
+              <p className="text-[11px] text-blue-300 leading-relaxed">Use your <span className="text-blue-200 font-semibold">investor (read-only) password</span> — never your master password.</p>
+            </div>
           </div>
-          <div className="flex items-start gap-3 p-3 md:p-4 border border-blue-500/20 bg-blue-500/5 rounded-sm">
-            <PiInfoFill size={15} className="text-blue-400 mt-0.5 flex-shrink-0" />
-            <p className="text-[11px] text-blue-300 leading-relaxed">Use your <span className="text-blue-200 font-semibold">investor (read-only) password</span> — never your master password.</p>
-          </div>
-        </>
+        </div>
       )}
     </div>
-  </div>
-);
+  );
+};
 
 const StepLink = ({ data, setData, providers, providersLoading }: any) => {
-  const mono = "'JetBrains Mono', monospace";
+  const mono = "'DM Mono', monospace";
   const [search, setSearch] = useState('');
 
   const filtered = (providers || []).filter((p: any) => {
@@ -1607,9 +1592,9 @@ export function CopierWizard({ onBack, onOpenDashboard }: { onBack: () => void; 
     <div className="ts-wizard-root min-h-screen bg-[#020203] text-white selection:bg-blue-500/40 font-light overflow-hidden">
       <style>{FONTS + `
         .ts-wizard-root,.ts-wizard-root input,.ts-wizard-root textarea,.ts-wizard-root select,.ts-wizard-root button,
-        .ts-wizard-root h1,.ts-wizard-root h2,.ts-wizard-root h3,.ts-wizard-root h4{font-family:'Plus Jakarta Sans',sans-serif;}
+        .ts-wizard-root h1,.ts-wizard-root h2,.ts-wizard-root h3,.ts-wizard-root h4{font-family:'DM Mono',ui-monospace,monospace;}
         .ts-wizard-root{letter-spacing:-0.01em;}
-        .mono,.ts-wizard-root .font-mono{font-family:'JetBrains Mono',monospace;}
+        .mono,.ts-wizard-root .font-mono{font-family:'DM Mono',ui-monospace,monospace;}
         .hide-scrollbar::-webkit-scrollbar{display:none;}
         .hide-scrollbar{-ms-overflow-style:none;scrollbar-width:none;}
       `}</style>
