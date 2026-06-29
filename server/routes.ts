@@ -3500,14 +3500,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     try {
       _pruneCtMaps();
+      const popup   = req.query.popup === '1';   // popup mode → callback postMessages instead of redirecting
       const nonce   = randomBytes(16).toString('hex');
       const expiry  = Date.now() + 10 * 60 * 1000;
-      _ctNonces.set(nonce, { accountId, expiry });
+      _ctNonces.set(nonce, { accountId, expiry, popup });
       // Persist nonce to DB — callback can verify freshness even after server restart
       const existingRaw = safeDecrypt(acctToConnect.passwordEnc);
       const existingCreds = existingRaw ? (() => { try { return JSON.parse(existingRaw); } catch { return {}; } })() : {};
       await storage.updateBrokerAccount(accountId, {
-        passwordEnc: safeEncrypt(JSON.stringify({ ...existingCreds, oauthNonce: nonce, oauthNonceExpiry: expiry })),
+        passwordEnc: safeEncrypt(JSON.stringify({ ...existingCreds, oauthNonce: nonce, oauthNonceExpiry: expiry, oauthPopup: popup })),
       });
       const url = getCTraderAuthUrl(nonce);
       // Cookie value = nonce:accountId so callback can detect stale cookies from old OAuth attempts.
@@ -3522,7 +3523,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Nonce map: each OAuth "Connect" click generates a unique nonce stored here.
   // Fixes race condition when two users connect simultaneously, and is safe after a server restart
   // (user just retries — their original OAuth code would be consumed on the dead nonce anyway).
-  const _ctNonces = new Map<string, { accountId: string; expiry: number }>();
+  const _ctNonces = new Map<string, { accountId: string; expiry: number; popup?: boolean }>();
 
   function _pruneCtMaps() {
     const now = Date.now();
@@ -3565,12 +3566,39 @@ ${authUrl}</pre>
     }
   });
 
+  /** Return from the cTrader OAuth callback. In popup mode, render a tiny page that
+   *  postMessages the result to the opener (the Trade Sync wizard) and closes — so the user
+   *  never leaves the page they started from. Otherwise, the existing Accounts-page redirect. */
+  function ctReturn(res: Response, popup: boolean, kind: 'connected' | 'select' | 'error', value: string) {
+    if (popup) {
+      const msg = {
+        source:    'ctrader-oauth',
+        status:    kind,
+        accountId: kind === 'error' ? '' : value,
+        token:     kind === 'select' ? value : '',
+        error:     kind === 'error' ? value : '',
+      };
+      const json  = JSON.stringify(msg).replace(/</g, '\\u003c');   // can't break out of <script>
+      const label = kind === 'error' ? 'cTrader connection failed — you can close this window.'
+                                     : 'Connected — you can close this window.';
+      return res.send(`<!doctype html><html><head><meta charset="utf-8"><title>cTrader</title></head>`
+        + `<body style="background:#06070a;color:#cfd6df;font-family:ui-monospace,Menlo,Consolas,monospace;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;font-size:13px;letter-spacing:.04em">`
+        + `<div>${label}</div>`
+        + `<script>(function(){try{if(window.opener)window.opener.postMessage(${json},window.location.origin);}catch(e){}setTimeout(function(){try{window.close()}catch(e){}},250);})();</script>`
+        + `</body></html>`);
+    }
+    if (kind === 'connected') return res.redirect('/journal?tab=accounts&ctrader_connected=1');
+    if (kind === 'select')    return res.redirect(`/journal?tab=accounts&ctrader_select=${encodeURIComponent(value)}`);
+    return res.redirect(`/journal?tab=accounts&ctrader_error=${encodeURIComponent(value)}`);
+  }
+
   /** Step 2: OAuth callback — exchange code, store tokens, fetch cTrader accounts. */
   app.get("/api/broker/ctrader/callback", async (req: Request, res: Response) => {
     const { code, state: nonce, error: oauthError } = req.query as Record<string, string>;
 
     if (oauthError) {
-      return res.redirect(`/journal?tab=accounts&ctrader_error=${encodeURIComponent(oauthError)}`);
+      const earlyPopup = nonce ? !!_ctNonces.get(nonce)?.popup : false;
+      return ctReturn(res, earlyPopup, 'error', oauthError);
     }
 
     // Resolve broker account ID.
@@ -3585,6 +3613,7 @@ ${authUrl}</pre>
     // Fast path: nonce map is populated (server hasn't restarted)
     const pending = nonce ? _ctNonces.get(nonce) : undefined;
     let resolvedAccountId = pending?.accountId || '';
+    let isPopup = !!pending?.popup;
 
     // Restart-safe path: verify cookie nonce against DB-persisted nonce
     if (!resolvedAccountId && cookieNonce && cookieAcctId) {
@@ -3593,6 +3622,7 @@ ${authUrl}</pre>
         const saved = (() => { try { return JSON.parse(safeDecrypt(dbAcct.passwordEnc) ?? '{}'); } catch { return {}; } })();
         if (saved.oauthNonce === cookieNonce && saved.oauthNonceExpiry > Date.now()) {
           resolvedAccountId = cookieAcctId;
+          isPopup = !!saved.oauthPopup;
         }
       }
     }
@@ -3600,7 +3630,7 @@ ${authUrl}</pre>
     const isSignalPlatform = nonce === 'signal_platform' || _signalPlatformPending;
 
     if (!code || (!resolvedAccountId && !isSignalPlatform)) {
-      return res.redirect('/journal?tab=accounts&ctrader_error=missing_code_or_expired');
+      return ctReturn(res, isPopup, 'error', 'missing_code_or_expired');
     }
     // Consume both storage entries
     res.clearCookie('ct_pending', { path: '/' });
@@ -3650,7 +3680,7 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
           expiry: Date.now() + 10 * 60 * 1000,
         });
         await storage.updateBrokerAccount(resolvedAccountId, { passwordEnc: safeEncrypt(pendingCreds), syncStatus: 'pending' });
-        return res.redirect(`/journal?tab=accounts&ctrader_select=${encodeURIComponent(resolvedAccountId)}`);
+        return ctReturn(res, isPopup, 'select', resolvedAccountId);
       }
 
       // Single account — link directly
@@ -3693,12 +3723,12 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
         addCTraderAccount(freshAccount.id);
       }
 
-      return res.redirect('/journal?tab=accounts&ctrader_connected=1');
+      return ctReturn(res, isPopup, 'connected', resolvedAccountId);
     } catch (err: any) {
       const cause = (err.cause as any)?.code ?? (err.cause as any)?.message ?? '';
       console.error('[cTrader OAuth]', err.message, cause, err.cause ?? '');
       const detail = cause ? `${err.message} (${cause})` : err.message;
-      return res.redirect(`/journal?tab=accounts&ctrader_error=${encodeURIComponent(detail)}`);
+      return ctReturn(res, isPopup, 'error', detail);
     }
   });
 

@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import { Plus, Check, ServerCrash, RefreshCw } from 'lucide-react';
+import { Check, ServerCrash, RefreshCw } from 'lucide-react';
+import AddCtraderAccountButton from './AddCtraderAccountButton';
 
 interface BrokerAccount {
   id: string;
@@ -52,7 +53,7 @@ export default function CTraderAccountPicker({
   });
   const ctrader  = (data ?? []).filter(a => (a.platform || '').toLowerCase() === 'ctrader');
   const accounts = ctrader.filter(a => a.id !== excludeId);
-  const openAccountsTab = () => window.open('/accounts', '_blank', 'noopener,noreferrer');
+  const onConnected = (id: string) => { onChange(id); refetch(); };
 
   return (
     <div className="space-y-3">
@@ -81,12 +82,9 @@ export default function CTraderAccountPicker({
               ? 'Self-copy needs two different accounts. Add a second cTrader account to copy onto.'
               : 'cTrader connects securely via OAuth on the Accounts page — no password is ever stored here.'}
           </p>
-          <button type="button" onClick={openAccountsTab} className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-500 hover:bg-blue-400 text-white text-[11px] font-bold uppercase tracking-widest rounded-md transition-colors">
-            <Plus size={13} /> {ctrader.length > 0 ? 'Add another account' : 'Connect cTrader'}
-          </button>
-          <button type="button" onClick={() => refetch()} className="block mx-auto inline-flex items-center gap-1.5 text-[10px] text-slate-500 hover:text-blue-300 transition-colors">
-            <RefreshCw size={10} /> Connected it? Refresh
-          </button>
+          <div className="flex flex-col items-center gap-2">
+            <AddCtraderAccountButton onConnected={onConnected} primary label={ctrader.length > 0 ? 'Add another account' : 'Connect cTrader'} />
+          </div>
         </div>
       ) : (
         <div className="space-y-2">
@@ -134,9 +132,7 @@ export default function CTraderAccountPicker({
             );
           })}
           <div className="flex items-center gap-4 pt-1">
-            <button type="button" onClick={openAccountsTab} className="inline-flex items-center gap-1.5 text-[11px] text-slate-500 hover:text-blue-300 transition-colors">
-              <Plus size={12} /> Add a new account
-            </button>
+            <AddCtraderAccountButton onConnected={onConnected} />
             <button type="button" onClick={() => refetch()} className="inline-flex items-center gap-1.5 text-[11px] text-slate-600 hover:text-slate-300 transition-colors">
               <RefreshCw size={11} /> Refresh
             </button>
