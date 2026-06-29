@@ -1644,7 +1644,18 @@ export function CopierWizard({ onBack, onOpenDashboard }: { onBack: () => void; 
         </div>
       )}
 
-      <div className="flex h-screen flex-row-reverse">
+      <div className="flex flex-col h-screen">
+
+        {/* HEADER — full-width terminal nav */}
+        <TradeSyncNav
+          active={data.role}
+          onSelect={(id) => { setData({ ...data, role: id }); setStep(0); }}
+          onOpenDashboard={onOpenDashboard}
+          onBack={onBack}
+          onMenu={() => setSidebarOpen(true)}
+        />
+
+        <div className="flex flex-1 flex-row-reverse overflow-hidden">
 
         {/* SIDEBAR — desktop only */}
         <aside className="hidden md:flex w-24 border-l border-white/5 flex-col items-center py-8 bg-black/40 backdrop-blur-xl z-20 overflow-y-auto hide-scrollbar">
@@ -1687,15 +1698,6 @@ export function CopierWizard({ onBack, onOpenDashboard }: { onBack: () => void; 
         {/* MAIN */}
         <main className="flex-1 flex flex-col overflow-hidden bg-[radial-gradient(circle_at_top_right,rgba(37,99,235,0.03),transparent_40%)]">
 
-          {/* HEADER — terminal nav (controlled) */}
-          <TradeSyncNav
-            active={data.role}
-            onSelect={(id) => { setData({ ...data, role: id }); setStep(0); }}
-            onOpenDashboard={onOpenDashboard}
-            onBack={onBack}
-            onMenu={() => setSidebarOpen(true)}
-          />
-
           {/* CONTENT */}
           <section className="flex-1 overflow-y-auto p-5 md:p-12 lg:p-20 hide-scrollbar">
             <div className={cur.id==='link' ? 'w-full' : 'max-w-6xl'}>
@@ -1706,23 +1708,24 @@ export function CopierWizard({ onBack, onOpenDashboard }: { onBack: () => void; 
             </div>
           </section>
 
-          {/* FOOTER */}
-          <footer className="h-16 md:h-24 border-t border-white/5 bg-black/40 flex items-center justify-between px-4 md:px-12 flex-shrink-0">
-            <button onClick={handlePrev}
-              className={`text-[10px] font-bold uppercase tracking-[0.2em] md:tracking-[0.3em] text-slate-600 hover:text-white transition-colors ${step===0?'opacity-0 pointer-events-none':''}`}>
-              [ Prev ]
-            </button>
-            <div className="flex items-center gap-3 md:gap-6">
-              <span className="text-[10px] font-mono text-slate-700">{step+1} / {steps.length}</span>
-              {step < steps.length-1 && (
-                <GlowButton onClick={handleNext}>
-                  Proceed <ChevronRight size={14} />
-                </GlowButton>
-              )}
-            </div>
-          </footer>
-
         </main>
+        </div>
+
+        {/* FOOTER — full width */}
+        <footer className="h-16 md:h-20 border-t border-white/[0.06] bg-[#020203]/85 backdrop-blur-sm flex items-center justify-between px-5 md:px-12 lg:px-20 flex-shrink-0">
+          <button onClick={handlePrev}
+            className={`text-[10px] font-bold uppercase tracking-[0.2em] md:tracking-[0.3em] text-slate-600 hover:text-white transition-colors ${step===0?'opacity-0 pointer-events-none':''}`}>
+            [ Prev ]
+          </button>
+          <div className="flex items-center gap-3 md:gap-6">
+            <span className="text-[10px] font-mono text-slate-700">{step+1} / {steps.length}</span>
+            {step < steps.length-1 && (
+              <GlowButton onClick={handleNext}>
+                Proceed <ChevronRight size={14} />
+              </GlowButton>
+            )}
+          </div>
+        </footer>
       </div>
     </div>
   );
