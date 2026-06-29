@@ -448,10 +448,10 @@ export default function TscPage() {
               </p>
               <div style={{
                 display: "inline-flex", alignItems: "center", gap: 14,
-                fontFamily: "'DM Mono', monospace", fontSize: "clamp(1.4rem,2.5vw,2rem)",
-                fontWeight: 500, letterSpacing: "0.04em", color: activeColor, lineHeight: 1,
+                fontFamily: "'Playfair Display', serif", fontSize: "clamp(1.4rem,2.5vw,2rem)",
+                fontWeight: 600, letterSpacing: "0", color: activeColor, lineHeight: 1,
                 background: darkMode ? "#111827" : "#fff",
-                border: `1px solid ${border}`, padding: "8px 20px", textTransform: "uppercase",
+                border: `1px solid ${border}`, padding: "8px 20px",
               }}>
                 {liveSessions.length
                   ? <PulsingDot color={activeColor} />
