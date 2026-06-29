@@ -1544,7 +1544,7 @@ const STEP_TITLES: any = {
 // ═══════════════════════════════════════════════════════════════════════════════
 // COPIER WIZARD
 // ═══════════════════════════════════════════════════════════════════════════════
-function CopierWizard({ onBack, onOpenDashboard }: { onBack: () => void; onOpenDashboard: (tab: 'provider' | 'follower') => void }) {
+export function CopierWizard({ onBack, onOpenDashboard }: { onBack: () => void; onOpenDashboard: (tab: 'provider' | 'follower') => void }) {
   const [step, setStep]               = useState(0);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [data, setData] = useState<any>({
