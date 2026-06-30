@@ -139,8 +139,25 @@ async def get_access_token() -> str:
             return _access_token
 
         except Exception:
+            # Stale/invalid refresh token (or 429 from cTrader). Node keeps a fresh copy for the
+            # copy engine — pull it and use it directly instead of hammering cTrader's token endpoint.
+            fresh = None
+            try:
+                from data.node_bridge import refetch_from_node
+                fresh = await refetch_from_node()
+            except Exception:
+                fresh = None
+            if fresh and fresh.get("access_token"):
+                _access_token = fresh["access_token"]
+                _token_expiry = time.monotonic() + 600   # short; next expiry refreshes via the fresh refresh_token
+                if fresh.get("refresh_token"):
+                    _write_tokens({**tokens, "refresh_token": fresh["refresh_token"]})
+                    from config.settings import settings as _s
+                    object.__setattr__(_s, "ctrader_refresh_token", fresh["refresh_token"])
+                log.info("[ctrader] recovered token from Node DB after refresh failure")
+                return _access_token
             _refresh_backoff_until = time.monotonic() + 300
-            log.warning("[ctrader] token refresh failed — backing off 5 min")
+            log.warning("[ctrader] token refresh failed and Node recovery unavailable — backing off 5 min")
             raise
 
 

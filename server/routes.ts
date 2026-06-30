@@ -2271,11 +2271,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (!plain) continue;
           const creds = JSON.parse(plain);
           if (creds.accessToken && creds.refreshToken) {
+            // Refresh-on-read when the stored token is past/near expiry, so the signal platform
+            // always receives a VALID token — and persist it so the copy engine + signal platform
+            // share one source of truth (no rotation race, no cTrader 429 on a stale token).
+            let { accessToken, refreshToken } = creds;
+            let tokenExpiresAt: number = creds.tokenExpiresAt ?? 0;
+            if (!tokenExpiresAt || tokenExpiresAt < Date.now() + 5 * 60 * 1000) {
+              try {
+                const t = await refreshAccessToken(refreshToken);
+                accessToken = t.accessToken; refreshToken = t.refreshToken;
+                tokenExpiresAt = Date.now() + (t.expiresIn ?? 3600) * 1000;
+                await storage.updateBrokerAccount(row.id, {
+                  passwordEnc: safeEncrypt(JSON.stringify({ ...creds, accessToken, refreshToken, tokenExpiresAt })),
+                });
+              } catch { /* refresh failed — return the stored token; the caller backs off */ }
+            }
             return res.json({
               account_id: row.id,
-              access_token:  creds.accessToken,
-              refresh_token: creds.refreshToken,
-              expires_at:    creds.tokenExpiresAt ?? 0,
+              access_token:  accessToken,
+              refresh_token: refreshToken,
+              expires_at:    tokenExpiresAt,
               is_live:       (row.account_type ?? '').toLowerCase() !== 'demo',
               ctrader_id:    String(creds.ctraderId ?? ''),
             });
