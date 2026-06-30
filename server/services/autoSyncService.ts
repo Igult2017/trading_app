@@ -22,7 +22,22 @@ async function getAllApiAccounts(): Promise<BrokerAccount[]> {
   return db.select().from(brokerAccounts).where(eq(brokerAccounts.connectionType, 'api'));
 }
 
-export async function refreshCTraderToken(account: BrokerAccount): Promise<BrokerAccount | null> {
+// Coalesce concurrent refreshes for the SAME account into ONE /apps/token call. cTrader
+// rotates the refresh token on every use, so two overlapping refreshes (a manual sync and
+// the health watchdog, or sync + balance fetch near expiry) race — the loser sends an
+// already-rotated refresh token and fails, which surfaced as flaky "Sync failed". One shared
+// in-flight promise also avoids the /apps/token 429 storm that the scanner hit before.
+const _refreshInFlight = new Map<string, Promise<BrokerAccount | null>>();
+
+export function refreshCTraderToken(account: BrokerAccount): Promise<BrokerAccount | null> {
+  const inflight = _refreshInFlight.get(account.id);
+  if (inflight) return inflight;
+  const p = _refreshCTraderTokenInner(account).finally(() => _refreshInFlight.delete(account.id));
+  _refreshInFlight.set(account.id, p);
+  return p;
+}
+
+async function _refreshCTraderTokenInner(account: BrokerAccount): Promise<BrokerAccount | null> {
   try {
     const plain = safeDecrypt(account.passwordEnc);
     if (!plain) return null;
@@ -76,6 +91,22 @@ async function doFetch(account: BrokerAccount, fromMs: number, toMs: number) {
   }
 }
 
+// One retry on transient cTrader WS hiccups (connect/read timeouts, dropped sockets, rate
+// limits) — common on cTrader's public WS, and otherwise they fail the entire sync. Real
+// errors (auth, no account) are not retried; token errors are already handled inside doFetch.
+async function fetchWithRetry(account: BrokerAccount, fromMs: number, toMs: number) {
+  try {
+    return await doFetch(account, fromMs, toMs);
+  } catch (err: any) {
+    const m = String(err?.message ?? '');
+    if (/timeout|WS connect|ECONNRESET|ETIMEDOUT|socket hang|rate|429/i.test(m)) {
+      await new Promise(r => setTimeout(r, 1500));
+      return doFetch(account, fromMs, toMs);
+    }
+    throw err;
+  }
+}
+
 async function updateCTraderBalance(account: BrokerAccount): Promise<void> {
   try {
     // Re-fetch from DB — token may have been refreshed during the preceding sync
@@ -107,11 +138,11 @@ export async function syncAccount(account: BrokerAccount): Promise<void> {
       // Single WS call for the full 2-year history — avoids rate limiting from opening
       // one connection per 60-day chunk (that was 12 connections, hitting cTrader's limit).
       // fetchTradesForAccount handles 7-day sub-chunking internally on the same connection.
-      const raw = await doFetch(account, now - HISTORY_DAYS * 86_400_000, now);
+      const raw = await fetchWithRetry(account, now - HISTORY_DAYS * 86_400_000, now);
       if (raw.length) await processIncomingTrades(account.id, account.userId, raw);
     } else {
       const fromMs = Math.max(account.lastSyncAt!.getTime() - OVERLAP_MS, 0);
-      const raw    = await doFetch(account, fromMs, now);
+      const raw    = await fetchWithRetry(account, fromMs, now);
       if (raw.length) await processIncomingTrades(account.id, account.userId, raw);
     }
 
