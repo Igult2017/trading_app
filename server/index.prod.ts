@@ -4,6 +4,7 @@ import { registerRoutes } from "./routes";
 import { serveStatic, log } from "./static";
 import { scraperScheduler } from "./scrapers/scheduler";
 import { logServiceStatus } from "./lib/serviceCheck";
+import { startHealthWatchdog } from "./services/healthWatchdog";
 
 const app = express();
 app.use(express.json({ limit: '50mb' }));
@@ -66,6 +67,7 @@ app.use((req, res, next) => {
     log(`serving on port ${port}`);
     logServiceStatus();
     scraperScheduler.start();
+    startHealthWatchdog();   // coded health alerts (token / scanner / engine) + proactive token refresh
   });
 
   process.on('SIGTERM', () => {
