@@ -5361,14 +5361,20 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
       }, 'Cache Layer'),
 
       probe('copy-bridge', async () => {
-        const bridgeUrl = process.env.COPY_BRIDGE_URL ?? 'http://bridge:8001';
-        const ctrl = new AbortController();
-        const tid = setTimeout(() => ctrl.abort(), 2000);
-        try {
-          const r = await fetch(`${bridgeUrl}/health`, { signal: ctrl.signal });
-          if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        } finally { clearTimeout(tid); }
-      }, 'Copy Trading Bridge'),
+        // The copy engine runs IN-PROCESS (started by start.sh), not as a separate
+        // bridge:8001 HTTP container — that obsolete probe always failed and reported DOWN.
+        // Liveness = a fresh row in copy_engine_heartbeat (the same signal the health
+        // watchdog uses); the engine UPSERTs it every reload cycle.
+        if (process.env.COPY_ENGINE_ENABLED === 'false') return;   // intentionally off → not "down"
+        const r = await pool.query(`SELECT beat_at FROM copy_engine_heartbeat WHERE id = 1`);
+        const beat = r.rows[0]?.beat_at ? new Date(r.rows[0].beat_at).getTime() : 0;
+        if (!beat) {
+          if (process.uptime() < 180) return;   // just booted — give the engine time to first-beat
+          throw new Error('no heartbeat');
+        }
+        const ageSec = Math.round((Date.now() - beat) / 1000);
+        if (ageSec > 300) throw new Error(`heartbeat ${ageSec}s stale`);
+      }, 'Copy Engine'),
     ]);
 
     return res.json({ services: checks, uptimeSec: Math.floor(process.uptime()) });
