@@ -44,6 +44,18 @@ async def bootstrap_ctrader_tokens(settings) -> None:
                 data = r.json()
                 object.__setattr__(settings, "ctrader_access_token",  data["access_token"])
                 object.__setattr__(settings, "ctrader_refresh_token", data["refresh_token"])
+                # Adopt the account the loaded token ACTUALLY belongs to — overrides any stale
+                # CTRADER_ACCOUNT_ID env. Without this the session authenticates a different
+                # account than the token (e.g. env=47535363 vs token ctrader_id=47535327),
+                # cTrader rejects it as "account invalid", and the platform crash-loops on boot.
+                # configure() runs after this (main.py), so the override takes effect; this also
+                # self-corrects whenever the connected cTrader account changes.
+                ctid = data.get("ctrader_id")
+                if ctid:
+                    try:
+                        object.__setattr__(settings, "ctrader_account_id", int(ctid))
+                    except (TypeError, ValueError):
+                        pass
                 from data.ctrader_session import set_node_bridge
                 set_node_bridge(data["account_id"], settings.admin_secret, settings.node_api_url)
                 log.info("[boot] tokens loaded from Node DB (ctrader_id=%s)", data.get("ctrader_id", "?"))
