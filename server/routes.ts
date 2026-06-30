@@ -4389,7 +4389,18 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
         .limit(1);
 
       if (existing.length > 0) {
-        const existingRole = existing[0].role as 'admin' | 'user';
+        let existingRole = existing[0].role as 'admin' | 'user';
+        // Self-heal: if this IS the configured ADMIN_EMAIL but the stored role drifted to
+        // 'user' (profile created before ADMIN_EMAIL was set, or the env changed), promote
+        // it now. Without this an existing admin can never regain admin — the ADMIN_EMAIL
+        // check below only runs for brand-NEW profiles, so each login keeps returning 'user'
+        // (and re-syncs app_metadata down to 'user'), locking the admin out of /admin.
+        const adminEmailEnv = process.env.ADMIN_EMAIL?.trim().toLowerCase();
+        if (adminEmailEnv && (authUser.email ?? '').trim().toLowerCase() === adminEmailEnv && existingRole !== 'admin') {
+          await db.update(userProfiles).set({ role: 'admin' }).where(eq(userProfiles.id, authUser.id));
+          existingRole = 'admin';
+          console.log('[Auth/setup] promoted existing ADMIN_EMAIL profile to admin', { id: authUser.id });
+        }
         console.log('[Auth/setup] existing profile found', { id: authUser.id, role: existingRole });
         // Sync Supabase app_metadata so the client JWT stays accurate
         if (supabaseAdmin) {
