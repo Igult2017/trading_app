@@ -209,6 +209,11 @@ const ProviderCard = ({ provider, selected, onSelect }: any) => {
           <div className="min-w-0">
             <h3 className={`text-sm md:text-base font-medium tracking-tight truncate ${selected ? 'text-white' : 'text-slate-300'}`}>{name}</h3>
             <p className="text-[10px] text-slate-500 font-mono uppercase tracking-wider">{provider.platform} · {provider.accountType || 'demo'}</p>
+            {(provider.tradingStyle || provider.maxLotSize != null || (provider.typicalSl && provider.typicalTp)) && (
+              <p className="text-[10px] text-slate-600 font-mono truncate mt-0.5">
+                {[provider.tradingStyle, provider.maxLotSize != null ? `≤${provider.maxLotSize} lot` : null, (provider.typicalSl && provider.typicalTp) ? `SL${provider.typicalSl}/TP${provider.typicalTp}` : null].filter(Boolean).join(' · ')}
+              </p>
+            )}
           </div>
         </div>
         <span className={`text-[8px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full flex-shrink-0 ${badge.c}`}>{badge.t}</span>
@@ -1061,15 +1066,20 @@ function buildDeployPayload(data: any) {
       requireApproval:   data.requireApproval ?? false,
       showOpenTrades:    data.showOpenTrades ?? true,
       maxLotSize:        data.maxLotSize        || undefined,
-      provMaxOpenTrades: data.provMaxOpenTrades  ? parseInt(data.provMaxOpenTrades) : undefined,
-      typicalSL:         data.typicalSL          || undefined,
-      typicalTP:         data.typicalTP          || undefined,
-      notifEmail:        data.notifEmail         || undefined,
-      nNewFollower:      data.nNewFollower       ?? true,
-      nDropped:          data.nDropped           ?? true,
-      nExecFail:         data.nExecFail          ?? true,
-      nDisconnect:       data.nDisconnect        ?? true,
-      nWeekly:           data.nWeekly            ?? false,
+      provMaxOpenTrades: data.provMaxOpenTrades || undefined,
+      typicalSl:         data.typicalSL         || undefined,
+      typicalTp:         data.typicalTP         || undefined,
+      typicalSymbols:    data.typicalSymbols    || undefined,
+      allowedSessions:   ([['London (08:00–17:00 GMT)','London'],['New York (13:00–22:00 GMT)','New York'],['Asia (00:00–09:00 GMT)','Asia']] as [string,string][])
+                           .filter(([k]) => data[`prov_session_${k}`]).map(([, s]) => s),
+      notifEmail:        data.notifEmail        || undefined,
+      notifPrefs: {
+        newFollower: data.nNewFollower ?? true,
+        dropped:     data.nDropped     ?? true,
+        execFail:    data.nExecFail    ?? true,
+        disconnect:  data.nDisconnect  ?? true,
+        weekly:      data.nWeekly      ?? false,
+      },
     },
     followerConfig: {
       masterId:        data.selectedProvider,

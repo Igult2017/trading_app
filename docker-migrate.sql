@@ -244,6 +244,15 @@ ALTER TABLE copy_masters ADD COLUMN IF NOT EXISTS show_open_trades  BOOLEAN DEFA
 ALTER TABLE copy_masters ADD COLUMN IF NOT EXISTS is_active         BOOLEAN DEFAULT FALSE;
 ALTER TABLE copy_masters ADD COLUMN IF NOT EXISTS created_at        TIMESTAMP DEFAULT NOW();
 ALTER TABLE copy_masters ADD COLUMN IF NOT EXISTS updated_at        TIMESTAMP DEFAULT NOW();
+-- Provider profile metadata (marketplace card + wizard Strategy/Limits/Notify steps)
+ALTER TABLE copy_masters ADD COLUMN IF NOT EXISTS max_lot_size         DECIMAL(8,2);
+ALTER TABLE copy_masters ADD COLUMN IF NOT EXISTS prov_max_open_trades INTEGER;
+ALTER TABLE copy_masters ADD COLUMN IF NOT EXISTS typical_sl           INTEGER;
+ALTER TABLE copy_masters ADD COLUMN IF NOT EXISTS typical_tp           INTEGER;
+ALTER TABLE copy_masters ADD COLUMN IF NOT EXISTS typical_symbols      TEXT[];
+ALTER TABLE copy_masters ADD COLUMN IF NOT EXISTS allowed_sessions     TEXT[];
+ALTER TABLE copy_masters ADD COLUMN IF NOT EXISTS notif_email          TEXT;
+ALTER TABLE copy_masters ADD COLUMN IF NOT EXISTS notif_prefs          JSONB;
 
 CREATE TABLE IF NOT EXISTS copy_followers (
   id                VARCHAR   PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -392,6 +401,18 @@ CREATE TABLE IF NOT EXISTS copy_execution_logs (
   metadata    JSONB,
   created_at  TIMESTAMP DEFAULT NOW()
 );
+
+-- ── copy_engine_heartbeat ─────────────────────────────────────────────────────
+-- Single row the Python copy engine UPSERTs every load cycle (~60s); the API reads
+-- it (GET /api/copy/engine-status) to report whether the engine is actually alive.
+CREATE TABLE IF NOT EXISTS copy_engine_heartbeat (
+  id        INTEGER     PRIMARY KEY DEFAULT 1,
+  beat_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  masters   INTEGER     DEFAULT 0,
+  providers INTEGER     DEFAULT 0,
+  CONSTRAINT copy_engine_heartbeat_single CHECK (id = 1)
+);
+INSERT INTO copy_engine_heartbeat (id) VALUES (1) ON CONFLICT DO NOTHING;
 
 -- ── user_profiles ─────────────────────────────────────────────────────────────
 -- leaderboard_hidden: lets admins hide a trader from the public leaderboard.

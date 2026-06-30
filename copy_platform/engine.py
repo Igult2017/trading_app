@@ -126,6 +126,19 @@ class CopyEngine:
         except Exception:
             log.exception("[engine] _start_user_relays failed")
 
+        # Heartbeat — lets the API report engine liveness (GET /api/copy/engine-status).
+        try:
+            from sqlalchemy import text
+            with Session() as db:
+                db.execute(text(
+                    "INSERT INTO copy_engine_heartbeat (id, beat_at, masters, providers) "
+                    "VALUES (1, now(), :m, :p) "
+                    "ON CONFLICT (id) DO UPDATE SET beat_at = now(), masters = :m, providers = :p"
+                ), {"m": len(masters), "p": len(self._providers)})
+                db.commit()
+        except Exception:
+            log.warning("[engine] heartbeat write failed", exc_info=False)
+
     async def _start_provider(self, master: CopyMaster,
                               broker_account: BrokerAccount) -> None:
         creds = await get_creds(broker_account)

@@ -724,6 +724,14 @@ export class DbStorage implements IStorage {
         ba.user_id      AS "ownerId",
         cm.id           AS "masterId",
         cm.strategy_name                     AS "strategyName",
+        cm.trading_style                     AS "tradingStyle",
+        cm.primary_market                    AS "primaryMarket",
+        cm.description                       AS "description",
+        cm.max_lot_size                      AS "maxLotSize",
+        cm.typical_sl                        AS "typicalSl",
+        cm.typical_tp                        AS "typicalTp",
+        cm.typical_symbols                   AS "typicalSymbols",
+        cm.allowed_sessions                  AS "allowedSessions",
         COALESCE(cm.is_active, false)        AS "followingEnabled",
         COALESCE(cm.require_approval, false) AS "requireApproval",
         COUNT(t.id) FILTER (WHERE t.profit_loss IS NOT NULL)::int  AS "trades",
@@ -738,7 +746,9 @@ export class DbStorage implements IStorage {
         ON cm.broker_account_id = ba.id AND cm.is_public = true AND cm.is_active = true
       LEFT JOIN synced_trades t ON t.broker_account_id = ba.id
       WHERE ba.is_active = true
-      GROUP BY ba.id, cm.id, cm.strategy_name, cm.is_active, cm.require_approval
+      GROUP BY ba.id, cm.id, cm.strategy_name, cm.trading_style, cm.primary_market, cm.description,
+               cm.max_lot_size, cm.typical_sl, cm.typical_tp, cm.typical_symbols, cm.allowed_sessions,
+               cm.is_active, cm.require_approval
       ORDER BY "netPnl" DESC NULLS LAST
     `);
 
@@ -761,6 +771,14 @@ export class DbStorage implements IStorage {
         avgRR:            (avgWin != null && avgLoss && avgLoss > 0) ? Math.round((avgWin / avgLoss) * 100) / 100 : null,
         netPnl:           Number(r.netPnl || 0),
         instruments:      r.instruments || [],
+        tradingStyle:     r.tradingStyle || null,
+        primaryMarket:    r.primaryMarket || null,
+        description:      r.description || null,
+        maxLotSize:       r.maxLotSize != null ? Number(r.maxLotSize) : null,
+        typicalSl:        r.typicalSl != null ? Number(r.typicalSl) : null,
+        typicalTp:        r.typicalTp != null ? Number(r.typicalTp) : null,
+        typicalSymbols:   r.typicalSymbols || null,
+        allowedSessions:  r.allowedSessions || null,
       };
     });
   }
@@ -884,9 +902,19 @@ export class DbStorage implements IStorage {
   // ── Broker Account Sync ─────────────────────────────────────────────────────
 
   async getBrokerAccounts(userId: string): Promise<BrokerAccount[]> {
-    return db.select().from(brokerAccounts)
+    const accounts = await db.select().from(brokerAccounts)
       .where(eq(brokerAccounts.userId, userId))
       .orderBy(desc(brokerAccounts.createdAt));
+    if (!accounts.length) return accounts;
+    // Derive copyEnabled so the Accounts-page Copy toggle survives a reload: an account is
+    // "listed for copying" iff it has an active master row (copy-listing ON sets is_active=true).
+    const { rows } = await pool.query(
+      `SELECT DISTINCT broker_account_id FROM copy_masters
+         WHERE is_active = true AND broker_account_id = ANY($1::text[])`,
+      [accounts.map(a => a.id)],
+    );
+    const enabled = new Set(rows.map((r: any) => r.broker_account_id));
+    return accounts.map(a => ({ ...a, copyEnabled: enabled.has(a.id) })) as any;
   }
 
   async getBrokerAccountById(id: string): Promise<BrokerAccount | undefined> {

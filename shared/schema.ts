@@ -45,6 +45,15 @@ export const copyMasters = pgTable("copy_masters", {
   isPublic:         boolean("is_public").default(true),
   requireApproval:  boolean("require_approval").default(false),
   showOpenTrades:   boolean("show_open_trades").default(true),
+  // Provider profile metadata — shown on the marketplace card; set in the wizard Strategy/Limits/Notify steps.
+  maxLotSize:        decimal("max_lot_size", { precision: 8, scale: 2 }),
+  provMaxOpenTrades: integer("prov_max_open_trades"),
+  typicalSl:         integer("typical_sl"),
+  typicalTp:         integer("typical_tp"),
+  typicalSymbols:    text("typical_symbols").array(),
+  allowedSessions:   text("allowed_sessions").array(),
+  notifEmail:        text("notif_email"),
+  notifPrefs:        jsonb("notif_prefs"),   // { newFollower, dropped, execFail, disconnect, weekly }
   isActive:         boolean("is_active").default(false),
   createdAt:        timestamp("created_at").defaultNow(),
   updatedAt:        timestamp("updated_at").defaultNow(),

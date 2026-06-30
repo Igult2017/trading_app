@@ -8,6 +8,7 @@ command, waits for the fill (or error), then disconnects.
 """
 import asyncio
 import logging
+import re
 from dataclasses import dataclass
 
 from ctrader_open_api import Client, Protobuf, TcpProtocol
@@ -17,6 +18,7 @@ from ctrader_open_api.messages.OpenApiMessages_pb2 import (
     ProtoOASymbolsListReq, ProtoOASymbolsListRes,
     ProtoOANewOrderReq, ProtoOAClosePositionReq,
     ProtoOAAmendPositionSLTPReq, ProtoOAExecutionEvent,
+    ProtoOAReconcileReq, ProtoOAReconcileRes,
 )
 from ctrader_open_api.messages.OpenApiModelMessages_pb2 import ProtoOAOrderType, ProtoOAExecutionType
 
@@ -32,6 +34,68 @@ _FILLED_TYPE = ProtoOAExecutionType.ORDER_FILLED
 _FAIL_TYPES  = {getattr(ProtoOAExecutionType, n)
                 for n in ("ORDER_REJECTED", "ORDER_CANCELLED", "ORDER_EXPIRED")
                 if hasattr(ProtoOAExecutionType, n)}
+
+# Canonical (telegram-side) symbol -> equivalent broker spellings. Used ONLY as a
+# fallback when the exact canonical name is absent from the follower's symbol list;
+# exact match is always tried first and wins. Bidirectional: every alias also maps
+# back to the canonical so a broker listing the canonical form still matches.
+_SYMBOL_ALIASES = {
+    "XAUUSD": ("GOLD",),
+    "XAGUSD": ("SILVER",),
+    "US30":   ("DJ30", "US30.cash", "WS30"),
+    "NAS100": ("USTEC", "NAS100.cash", "US100"),
+    "SPX500": ("US500",),
+    "XTIUSD": ("WTI", "USOIL"),
+}
+# Flatten to a lookup of every name -> the full equivalence group (incl. itself).
+_ALIAS_GROUPS: dict[str, set[str]] = {}
+for _canon, _alts in _SYMBOL_ALIASES.items():
+    _group = {_canon, *_alts}
+    for _name in _group:
+        _ALIAS_GROUPS.setdefault(_name.upper(), set()).update(_group)
+
+# Strip a trailing broker suffix (EURUSD.r, EURUSD+, EURUSD#, EURUSD-ECN) or a
+# leading broker prefix (.mEURUSD) so cores can be compared case-insensitively.
+_BROKER_SUFFIX_RE = re.compile(r"([._\-+#!]+[A-Z0-9]{1,6}|[+#!]+)$", re.IGNORECASE)
+_BROKER_PREFIX_RE = re.compile(r"^([._\-+#!]+[A-Z0-9]{0,4}\.?)", re.IGNORECASE)
+
+
+def _strip_affixes(name: str) -> str:
+    """Lower-cased core of a broker symbol with a trailing suffix / leading prefix removed."""
+    s = name.strip()
+    s = _BROKER_PREFIX_RE.sub("", s)
+    s = _BROKER_SUFFIX_RE.sub("", s)
+    return s.upper()
+
+
+def resolve_symbol_id(symbol: str, symbol_map: dict[str, int]) -> int | None:
+    """Map a canonical symbol to the follower account's numeric symbolId.
+
+    EXACT match is tried FIRST and wins. Only on a miss do we fall back to:
+      (a) case-insensitive comparison with a broker suffix/prefix stripped, then
+      (b) a small canonical<->broker alias table (also affix-tolerant).
+    Returns None when nothing matches.
+    """
+    # (0) Exact match — the original, fast path. Never bypassed.
+    sid = symbol_map.get(symbol)
+    if sid is not None:
+        return sid
+
+    want_core = _strip_affixes(symbol)
+
+    # (a) Case-insensitive + affix-stripped comparison against the account's symbols.
+    for name, mid in symbol_map.items():
+        if _strip_affixes(name) == want_core:
+            return mid
+
+    # (b) Alias table: build the set of acceptable cores for this symbol, then match.
+    group = _ALIAS_GROUPS.get(symbol.upper()) or _ALIAS_GROUPS.get(want_core)
+    if group:
+        want_cores = {_strip_affixes(g) for g in group}
+        for name, mid in symbol_map.items():
+            if _strip_affixes(name) in want_cores:
+                return mid
+    return None
 
 
 @dataclass
@@ -159,7 +223,7 @@ class CTraderExecutor:
 
         if cmd[0] == "open":
             _, symbol, action, lots, sl, tp = cmd
-            symbol_id = self._symbol_map.get(symbol)
+            symbol_id = resolve_symbol_id(symbol, self._symbol_map)
             if symbol_id is None:
                 self._resolve(ExecResult(ok=False, error=f"Symbol {symbol} not on follower account"))
                 return

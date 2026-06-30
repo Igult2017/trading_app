@@ -2718,6 +2718,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (err: any) { console.error(err); return res.status(500).json({ error: "Internal server error" }); }
   });
 
+  /** Copy-engine liveness + server config. The Python engine UPSERTs copy_engine_heartbeat
+   *  every ~60s; if the beat is stale the engine is down (likely a missing secret crash-loop). */
+  app.get("/api/copy/engine-status", async (req, res) => {
+    try {
+      const user = await verifyToken(req.headers.authorization);
+      if (!user) return res.status(401).json({ error: "Unauthorized" });
+      const r = await pool.query(`SELECT beat_at, masters, providers FROM copy_engine_heartbeat WHERE id = 1`);
+      const beat = r.rows[0]?.beat_at ? new Date(r.rows[0].beat_at) : null;
+      const ageSec = beat ? Math.round((Date.now() - beat.getTime()) / 1000) : null;
+      return res.json({
+        engineAlive: ageSec != null && ageSec < 180,   // beats every ~60s
+        lastHeartbeat: beat, heartbeatAgeSec: ageSec,
+        mastersLoaded: r.rows[0]?.masters ?? null,
+        providersRunning: r.rows[0]?.providers ?? null,
+        copyEngineEnabled: process.env.COPY_ENGINE_ENABLED !== "false",
+        ctraderConfigured: !!process.env.CTRADER_CLIENT_ID && !!process.env.CTRADER_CLIENT_SECRET,
+        copyBotConfigured: !!process.env.TELEGRAM_COPY_BOT_TOKEN,
+        relayConfigured: !!process.env.TELEGRAM_API_ID && !!process.env.TELEGRAM_API_HASH,
+        encryptionKeySet: !!process.env.COPY_ENCRYPTION_KEY,
+      });
+    } catch (err: any) { console.error(err); return res.status(500).json({ error: "Internal server error" }); }
+  });
+
   /** Public provider marketplace — every connected account + realized performance.
    *  Only accounts whose owner enabled copying carry a masterId (followable). */
   app.get("/api/copy/providers", async (_req, res) => {
@@ -2810,12 +2833,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Verify master exists and is publicly visible
       const masterRow = await pool.query<{
-        id: string; is_public: boolean; require_approval: boolean; strategy_name: string | null;
-      }>(`SELECT id, is_public, require_approval, strategy_name FROM copy_masters WHERE id = $1`, [masterId]);
+        id: string; is_public: boolean; is_active: boolean; require_approval: boolean; strategy_name: string | null;
+      }>(`SELECT id, is_public, is_active, require_approval, strategy_name FROM copy_masters WHERE id = $1`, [masterId]);
 
       if (!masterRow.rows.length) return res.status(404).json({ error: "Master not found" });
       const master = masterRow.rows[0];
-      if (!master.is_public) return res.status(403).json({ error: "This provider is not public" });
+      // Both flags required — disabling copy sets is_active=false, which must block new subscribers
+      // holding a stale masterId (the directory already hides such masters).
+      if (!master.is_public || !master.is_active) return res.status(403).json({ error: "This provider isn't available for copying" });
 
       // Prevent duplicate subscriptions (match on whichever account ref was supplied —
       // brokerAccountId for OAuth/API accounts, accountId for legacy copy_accounts).
@@ -3827,25 +3852,41 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
       return res.status(400).json({ error: "Only API-connected accounts can be signal providers" });
     }
 
-    // Return existing master if already registered
-    const existing = await storage.getCopyMasterByBrokerAccountId(account.id);
-    if (existing) return res.json({ master: existing, created: false });
+    const b = req.body as Record<string, any>;
+    const toList = (v: any) => Array.isArray(v) ? v
+      : (v ? String(v).split(',').map((s: string) => s.trim()).filter(Boolean) : null);
+    const meta = {
+      strategyName:      b.strategyName ?? account.name,
+      description:       b.description  ?? '',
+      tradingStyle:      b.tradingStyle ?? 'intraday',
+      primaryMarket:     b.primaryMarket ?? 'fx',
+      isPublic:          b.isPublic !== false,
+      requireApproval:   b.requireApproval === true,
+      showOpenTrades:    b.showOpenTrades !== false,
+      maxLotSize:        (b.maxLotSize != null && b.maxLotSize !== '') ? String(b.maxLotSize) : null,
+      provMaxOpenTrades: b.provMaxOpenTrades ? parseInt(b.provMaxOpenTrades) : null,
+      typicalSl:         b.typicalSl ? parseInt(b.typicalSl) : null,
+      typicalTp:         b.typicalTp ? parseInt(b.typicalTp) : null,
+      typicalSymbols:    toList(b.typicalSymbols),
+      allowedSessions:   toList(b.allowedSessions),
+      notifEmail:        b.notifEmail || null,
+      notifPrefs:        b.notifPrefs ?? null,
+    };
 
-    const { strategyName, description, tradingStyle, primaryMarket, isPublic, requireApproval } = req.body as Record<string, any>;
+    // Already registered → refresh metadata (so editing strategy info sticks) and keep it active.
+    const existing = await storage.getCopyMasterByBrokerAccountId(account.id);
+    if (existing) {
+      const updated = await storage.updateCopyMaster(existing.id, { ...meta, isActive: true } as any);
+      return res.json({ master: updated ?? existing, created: false });
+    }
 
     const master = await storage.createCopyMaster({
-      userId:           user.id,
-      brokerAccountId:  account.id,
-      sourceType:       account.platform.toLowerCase(),
-      strategyName:     strategyName ?? account.name,
-      description:      description  ?? '',
-      tradingStyle:     tradingStyle ?? 'intraday',
-      primaryMarket:    primaryMarket ?? 'fx',
-      isPublic:         isPublic !== false,
-      requireApproval:  requireApproval === true,
-      showOpenTrades:   true,
-      isActive:         true,
-    });
+      userId:          user.id,
+      brokerAccountId: account.id,
+      sourceType:      account.platform.toLowerCase(),
+      isActive:        true,
+      ...meta,
+    } as any);
 
     return res.status(201).json({ master, created: true });
   });
@@ -4115,7 +4156,9 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
 
     const followerCfg = {
       userId: user.id, brokerAccountId: account.id, masterId: master.id,
-      lotMode: b.lotMode || "fixed", lotMultiplier: b.lotMultiplier || "1.0",
+      // Telegram signals carry no master volume, so 'mult' mode resolves to 0 lots and the
+      // engine silently skips every trade. Force fixed/risk — never multiplier.
+      lotMode: (b.lotMode && b.lotMode !== "mult") ? b.lotMode : "fixed", lotMultiplier: b.lotMultiplier || "1.0",
       fixedLot: b.fixedLot ?? "0.01", riskPercent: b.riskPercent || "1.0", direction: b.direction || "same",
       symbolWhitelist: b.symbolWhitelist ?? null, symbolBlacklist: b.symbolBlacklist ?? null,
       maxOpenTrades: b.maxOpenTrades ?? 10, tradeDelaySec: b.tradeDelaySec ?? 0,
@@ -4131,15 +4174,23 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
       ? await storage.updateCopyFollower(dupFollower.rows[0].id, followerCfg as any)
       : await storage.createCopyFollower(followerCfg as any);
 
+    // Wake the copy engine immediately (the relay path already does this) instead of the 60s poll.
+    await pool.query("SELECT pg_notify('copy_change', 'telegram-follow')").catch(() => {});
+
+    const botConfigured = !!process.env.TELEGRAM_COPY_BOT_TOKEN;
     notificationService.createNotification({
       userId: user.id, type: "update",
-      title: "Telegram copy active",
-      message: `Add the copy-bot as an admin to @${channel} — its signals will mirror to ${account.name || "your account"}.`,
+      title: botConfigured ? "Telegram copy active" : "Telegram copy saved — bot not configured",
+      message: botConfigured
+        ? `Add the copy-bot as an admin to @${channel} — its signals will mirror to ${account.name || "your account"}.`
+        : `Saved, but the server's copy-bot isn't configured yet (TELEGRAM_COPY_BOT_TOKEN), so signals won't mirror until an admin sets it up.`,
     }).catch(() => {});
 
     return res.status(201).json({
-      master, follower,
-      message: `Add our copy-bot as an admin to @${channel}, and its signals will mirror to your account.`,
+      master, follower, botConfigured,
+      message: botConfigured
+        ? `Add our copy-bot as an admin to @${channel}, and its signals will mirror to your account.`
+        : `Saved. ⚠ The copy-bot isn't set up on the server yet — signals won't mirror until TELEGRAM_COPY_BOT_TOKEN is configured, then add the bot as an admin to @${channel}.`,
     });
   });
 
@@ -4233,7 +4284,8 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
     } as any);
     const follower = await storage.createCopyFollower({
       userId: user.id, brokerAccountId: account.id, masterId: master.id,
-      lotMode: b.lotMode || "fixed", lotMultiplier: b.lotMultiplier || "1.0", fixedLot: b.fixedLot ?? "0.01",
+      // Telegram signals carry no master volume — 'mult' → 0 lots → silent skip. Force fixed/risk.
+      lotMode: (b.lotMode && b.lotMode !== "mult") ? b.lotMode : "fixed", lotMultiplier: b.lotMultiplier || "1.0", fixedLot: b.fixedLot ?? "0.01",
       riskPercent: b.riskPercent || "1.0", direction: b.direction || "same",
       maxOpenTrades: b.maxOpenTrades ?? 10, tradeDelaySec: b.tradeDelaySec ?? 0,
       pauseInactive: false, pauseOnDD: b.pauseOnDD ?? true,
