@@ -49,11 +49,14 @@ export default function AuthCallbackPage() {
 
       try { localStorage.setItem('fmj_returning', '1'); } catch {}
 
-      if (role === 'admin') {
-        navigate('/admin');
-      } else {
-        navigate('/journal');
-      }
+      // Return the user to where they were before logging out (saved in signOut), else the default.
+      let dest = role === 'admin' ? '/admin' : '/journal';
+      try {
+        const back = localStorage.getItem('return-to');
+        if (back && /^\/(journal|accounts|history|analytics|assets|stocks|major-pairs|commodities|crypto|markets|signals|admin)/.test(back)) dest = back;
+        localStorage.removeItem('return-to');
+      } catch { /* ignore */ }
+      navigate(dest);
     }
 
     handleCallback();

@@ -229,6 +229,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function signOut() {
+    // Remember where the user was so the next login lands them back here, not the default dashboard.
+    try {
+      const path = window.location.pathname;
+      if (path !== '/' && !path.startsWith('/auth') && path !== '/join') {
+        localStorage.setItem('return-to', path + window.location.search);
+      }
+    } catch { /* ignore */ }
     // Keep the journal cache across logout so the SAME user's next login is INSTANT
     // (stale-while-revalidate — no loaders at all). The auth token is cleared below,
     // so the cached data can never be used for authenticated requests. A DIFFERENT

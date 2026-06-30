@@ -90,8 +90,15 @@ export default function AuthModal() {
         const { error: err, role } = await signIn(email, password);
         if (err) { setError(err.message); return; }
         try { localStorage.setItem('fmj_returning', '1'); } catch {}
+        // Return the user to where they were before logging out (saved in signOut), else the default.
+        let dest = role === 'admin' ? '/admin' : '/journal';
+        try {
+          const back = localStorage.getItem('return-to');
+          if (back && /^\/(journal|accounts|history|analytics|assets|stocks|major-pairs|commodities|crypto|markets|signals|admin)/.test(back)) dest = back;
+          localStorage.removeItem('return-to');
+        } catch { /* ignore */ }
         close();
-        navigate(role === 'admin' ? '/admin' : '/journal', { replace: true });
+        navigate(dest, { replace: true });
       } else {
         const { error: err, emailConfirmationRequired } = await signUp(email, password, `${first} ${last}`.trim());
         if (err) { setError(err.message); return; }

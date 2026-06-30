@@ -9,6 +9,7 @@ import { PiInfoFill } from 'react-icons/pi';
 import CopyManagementDashboard from '@/components/CopyManagementDashboard';
 import CTraderAccountPicker from '@/components/copy/CTraderAccountPicker';
 import CTraderConnectPanel from '@/components/copy/CTraderConnectPanel';
+import { usePersistedState } from '@/hooks/usePersistedState';
 import TradeSyncNav from '@/components/copy/TradeSyncNav';
 import { apiRequest, authFetch } from '@/lib/queryClient';
 import { useAuth } from '@/context/AuthContext';
@@ -1577,9 +1578,9 @@ const STEP_TITLES: any = {
 // COPIER WIZARD
 // ═══════════════════════════════════════════════════════════════════════════════
 export function CopierWizard({ onBack, onOpenDashboard }: { onBack: () => void; onOpenDashboard: (tab: 'provider' | 'follower') => void }) {
-  const [step, setStep]               = useState(0);
+  const [step, setStep]               = usePersistedState('ts-step', 0);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [data, setData] = useState<any>({
+  const [data, setData] = usePersistedState<any>('ts-data', {
     role:'follower', platform:'cTrader', platform2:'cTrader', lotMode:'mult', riskAmount:'1',
     selectedProvider:null, symbolMaps:[{from:'',to:''},{from:'',to:''}],
   });
@@ -1948,8 +1949,8 @@ const faqs = [
 // MAIN EXPORT
 // ═══════════════════════════════════════════════════════════════════════════════
 export default function TradeSyncPage() {
-  const [showCopier, setShowCopier] = useState(false);
-  const [showDashboard, setShowDashboard] = useState<null | 'provider' | 'follower'>(null);
+  const [showCopier, setShowCopier] = usePersistedState('ts-copier', false);
+  const [showDashboard, setShowDashboard] = usePersistedState<null | 'provider' | 'follower'>('ts-dashboard', null);
   const [billing, setBilling] = useState<"monthly"|"yearly">("monthly");
   const [openFaq, setOpenFaq] = useState<number|null>(null);
   const [votes, setVotes] = useState<Record<string,{count:number;voted:boolean}>>(() => {
