@@ -3678,6 +3678,12 @@ ${authUrl}</pre>
     const isSignalPlatform = nonce === 'signal_platform' || _signalPlatformPending;
 
     if (!code || (!resolvedAccountId && !isSignalPlatform)) {
+      if (resolvedAccountId) {
+        try {
+          const acct = await storage.getBrokerAccountById(resolvedAccountId);
+          if (acct && String(acct.loginId || '').startsWith('pending_')) await storage.deleteBrokerAccount(resolvedAccountId);
+        } catch { /* ignore */ }
+      }
       return ctReturn(res, isPopup, 'error', 'missing_code_or_expired');
     }
     // Consume both storage entries
@@ -3776,6 +3782,11 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
       const cause = (err.cause as any)?.code ?? (err.cause as any)?.message ?? '';
       console.error('[cTrader OAuth]', err.message, cause, err.cause ?? '');
       const detail = cause ? `${err.message} (${cause})` : err.message;
+      // Don't leave a half-created 'pending_' placeholder stuck as "Pending" in the account list.
+      try {
+        const acct = await storage.getBrokerAccountById(resolvedAccountId);
+        if (acct && String(acct.loginId || '').startsWith('pending_')) await storage.deleteBrokerAccount(resolvedAccountId);
+      } catch { /* ignore */ }
       return ctReturn(res, isPopup, 'error', detail);
     }
   });
