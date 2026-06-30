@@ -31,7 +31,8 @@ function CTraderMark({ size = 18 }: { size?: number }) {
 /** Step-02 cTrader connect — pick which connected account this terminal mirrors into. Real OAuth accounts. */
 export default function CTraderConnectPanel({ value, onChange }: { value?: string; onChange: (id: string) => void }) {
   const { data, isLoading, refetch, isFetching } = useQuery<BrokerAccount[]>({ queryKey: ['/api/broker-accounts'], refetchOnWindowFocus: true });
-  const accounts = (data ?? []).filter(a => (a.platform || '').toLowerCase() === 'ctrader');
+  // Hide incomplete OAuth placeholders (loginId 'pending_…') — they're orphaned attempts, not real accounts.
+  const accounts = (data ?? []).filter(a => (a.platform || '').toLowerCase() === 'ctrader' && !String(a.loginId || '').startsWith('pending_'));
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [choices, setChoices] = useState<PendingAcct[]>([]);

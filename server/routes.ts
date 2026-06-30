@@ -3523,6 +3523,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const acctToConnect = await storage.getBrokerAccountById(accountId);
     if (!acctToConnect || acctToConnect.userId !== user.id) return res.status(403).json({ error: "Account not found" });
 
+    // Clear abandoned OAuth placeholders from earlier failed/closed attempts (login_id 'pending_…'),
+    // so they don't pile up in the account list. Never touches the current attempt or real accounts.
+    pool.query(
+      `DELETE FROM broker_accounts WHERE user_id = $1 AND lower(platform) = 'ctrader'
+         AND login_id LIKE 'pending_%' AND id <> $2 AND created_at < now() - interval '5 minutes'`,
+      [user.id, accountId],
+    ).catch(() => {});
+
     try {
       _pruneCtMaps();
       const popup   = req.query.popup === '1';   // popup mode → callback postMessages instead of redirecting

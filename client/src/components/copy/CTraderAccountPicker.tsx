@@ -51,7 +51,7 @@ export default function CTraderAccountPicker({
     queryKey: ['/api/broker-accounts'],
     refetchOnWindowFocus: true,
   });
-  const ctrader  = (data ?? []).filter(a => (a.platform || '').toLowerCase() === 'ctrader');
+  const ctrader  = (data ?? []).filter(a => (a.platform || '').toLowerCase() === 'ctrader' && !String(a.loginId || '').startsWith('pending_'));
   const accounts = ctrader.filter(a => a.id !== excludeId);
   const onConnected = (id: string) => { onChange(id); refetch(); };
 

@@ -1,5 +1,19 @@
 import { apiRequest } from '@/lib/queryClient';
 
+/** Parse a response as JSON, but give an actionable error if the body is HTML
+ *  (e.g. the app was mid-redeploy and the proxy served a page) instead of the
+ *  cryptic "Unexpected token '<'". */
+async function jsonOrThrow(res: Response, label: string): Promise<any> {
+  const text = await res.text();
+  try { return JSON.parse(text); }
+  catch {
+    const looksHtml = text.trimStart().startsWith('<');
+    throw new Error(looksHtml
+      ? `${label} got an unexpected page instead of data (HTTP ${res.status}) — the server may be restarting. Wait a few seconds and try again.`
+      : `${label} returned an unreadable response (HTTP ${res.status}).`);
+  }
+}
+
 export interface CtraderConnectResult {
   status: 'connected' | 'select';   // 'select' = the cTrader login has >1 trading account
   accountId: string;                // the broker-account row (already created server-side)
@@ -21,12 +35,12 @@ export async function connectCtraderPopup(name = 'cTrader'): Promise<CtraderConn
     accountType: 'demo',
     connectionType: 'api',
   });
-  const created = await createRes.json();
+  const created = await jsonOrThrow(createRes, 'Account setup');
   const accountId: string = created?.id;
   if (!accountId) throw new Error('Could not create the account.');
 
   const connRes = await apiRequest('GET', `/api/broker/ctrader/connect?accountId=${accountId}&popup=1`);
-  const conn = await connRes.json();
+  const conn = await jsonOrThrow(connRes, 'cTrader connect');
   if (!conn?.url) throw new Error(conn?.error || 'cTrader OAuth is not configured on the server.');
 
   const w = 560, h = 760;
