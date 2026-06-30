@@ -2866,6 +2866,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       );
       if (existing.rows.length) return res.status(409).json({ error: "Already subscribed with this account" });
 
+      // The engine only mirrors a follower with risk_accepted=true; honour the caller's
+      // explicit acceptance instead of hardcoding false (which silently never copies).
+      const riskAccepted = req.body?.riskAccepted === true;
       const follower = await storage.createCopyFollower({
         userId:           user.id,
         accountId:        brokerAccountId ? undefined : accountId,
@@ -2876,7 +2879,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         fixedLot:      fixedLot      || null,
         riskPercent:   riskPercent   || "1.0",
         isActive:      !master.require_approval,  // auto-activate unless approval required
-        riskAccepted:  false,
+        riskAccepted,
       } as any);
 
       return res.status(201).json({
@@ -2884,7 +2887,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         requiresApproval: master.require_approval,
         message: master.require_approval
           ? "Subscription submitted — awaiting provider approval"
-          : "Subscribed — trades will start copying within 60 seconds",
+          : riskAccepted
+            ? "Subscribed — trades will start copying within 60 seconds"
+            : "Subscribed — accept the risk disclosure to start copying",
       });
     } catch (err: any) {
       return res.status(500).json({ error: err.message });

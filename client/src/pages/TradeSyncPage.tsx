@@ -1061,8 +1061,8 @@ function buildDeployPayload(data: any) {
     masterConfig: {
       strategyName:      data.strategyName,
       description:       data.strategyDescription,
-      tradingStyle:      data.tradingStyle,
-      primaryMarket:     data.primaryMarket,
+      tradingStyle:      data.tradingStyle ?? 'swing',   // match the Strategy step's shown default
+      primaryMarket:     data.primaryMarket ?? 'fx',      // (untouched select would else save as backend 'intraday')
       isPublic:          data.isPublic ?? true,
       requireApproval:   data.requireApproval ?? false,
       showOpenTrades:    data.showOpenTrades ?? true,
@@ -1402,7 +1402,7 @@ const StepGoLive = ({ data, setData, role, onReset, onHome, providers }: any) =>
   const isCT = String(data.platform || '').toLowerCase() === 'ctrader';
   const disclosuresAccepted = role==='provider' ? (allAccepted && data.providerConfirmed) : allAccepted;
   const accountsReady = !isCT ? true
-    : role === 'self'     ? !!(data.brokerAccountId && data.brokerAccountId2)
+    : role === 'self'     ? !!(data.brokerAccountId && data.brokerAccountId2 && data.brokerAccountId !== data.brokerAccountId2)
     : role === 'follower' ? !!(data.brokerAccountId && data.selectedProvider)
     : role === 'telegram' ? !!(data.brokerAccountId && data.tgChannelName)
     : role === 'relay'    ? !!(data.brokerAccountId && data.relayAuthed && data.relayChannel)
