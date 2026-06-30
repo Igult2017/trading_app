@@ -900,7 +900,7 @@ const CustomerCareSection = ({ bp, apiUsers = [], getAdminToken = null, usersLoa
 const SERVICE_GROUPS = {
   'Infrastructure': ['Database', 'Auth / Logins', 'Cache Layer', 'App Loading'],
   'Features':       ['Blog', 'Journal', 'Economic Calendar', 'TSC Page'],
-  'Services':       ['Price Feed', 'Gemini AI', 'Telegram Bot', 'Copy Trading Bridge'],
+  'Services':       ['Price Feed', 'Gemini AI', 'Telegram Bot', 'Copy Engine'],
 };
 
 // ─── SYNC PERFORMANCE SECTION ────────────────────────────────────────────────
