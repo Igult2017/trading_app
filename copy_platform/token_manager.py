@@ -15,41 +15,16 @@ log = logging.getLogger("token_manager")
 
 
 async def get_ctrader_creds(broker_account: BrokerAccount) -> dict | None:
-    """Return decrypted creds dict, refreshing access token if expired."""
-    creds = _decrypt_creds(broker_account)
-    if not creds:
-        return None
+    """Return the decrypted creds — does NOT refresh the token.
 
-    refresh_token = creds.get("refreshToken")
-    if not refresh_token:
-        return creds
-
-    # Only refresh when the token is missing an expiry or is within 5 min of it —
-    # avoids a network round-trip on every command (cTrader tokens last ~1 hour).
-    now_ms     = int(datetime.now(timezone.utc).timestamp() * 1000)
-    expires_at = creds.get("tokenExpiresAt")
-    needs_refresh = (not expires_at) or now_ms >= (int(expires_at) - 300_000)
-    if not needs_refresh:
-        return creds
-
-    try:
-        new_creds = await _refresh_ctrader_token(refresh_token)
-        if new_creds:
-            creds.update(new_creds)
-            _save_creds(broker_account.id, creds)
-            return creds
-    except Exception as e:
-        log.warning(f"Token refresh failed for {broker_account.id}: {e}")
-
-    # Refresh did not succeed. If the existing token is already expired, handing it
-    # back would just loop the provider in auth-fail forever — return None so the
-    # caller skips and retries next cycle. If we're only inside the 5-min early-refresh
-    # window (token still valid), the old token still works, so use it.
-    is_expired = (not expires_at) or now_ms >= int(expires_at)
-    if is_expired:
-        log.error(f"cTrader token for {broker_account.id} expired and refresh failed — skipping")
-        return None
-    return creds
+    cTrader rotates the refresh token on EVERY refresh, and this token is shared by Node's sync,
+    the signal scanner and this copy engine. When the copy engine refreshed here (a separate
+    process from Node, so it can't be coalesced), it rotated the shared token and invalidated the
+    signal scanner — CH_ACCESS_TOKEN_INVALID, crash-loop. So NODE is now the single token
+    refresher (near-expiry, coalesced) and every Python consumer just READS the current DB token,
+    which Node + the health watchdog keep fresh. If the read token is briefly stale the caller
+    skips and retries next cycle."""
+    return _decrypt_creds(broker_account)
 
 
 def _decrypt_creds(account: BrokerAccount) -> dict | None:
