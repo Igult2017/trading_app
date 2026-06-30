@@ -80,14 +80,15 @@ async def _send_private(message: str) -> None:
     await _send_text(message, chat_id=settings.watchdog_chat_id)
 
 
-async def _send_photo(chart_path: str, caption: str) -> None:
+async def _send_photo(chart_path: str, caption: str, chat_id: str | None = None) -> None:
     bot = _get_bot()
-    if not bot or not settings.telegram_chat_id:
+    target = chat_id or settings.telegram_chat_id
+    if not bot or not target:
         return
     try:
         with open(chart_path, "rb") as f:
             await bot.send_photo(
-                chat_id=settings.telegram_chat_id,
+                chat_id=target,
                 photo=f,
                 caption=caption,
                 parse_mode="HTML",
@@ -95,25 +96,32 @@ async def _send_photo(chart_path: str, caption: str) -> None:
         log.info("[dispatcher] chart photo sent")
     except Exception as exc:
         log.warning(f"[dispatcher] photo send failed ({exc}) — falling back to text")
-        await _send_text(caption)
+        await _send_text(caption, chat_id=chat_id)
 
 
 async def on_setup_alert(signal: Signal) -> None:
-    await _send_text(format_setup_alert(signal))
+    # Setup / pre-signal heads-ups are UNCONFIRMED → admin DM only, never the channel.
+    await _send_private(format_setup_alert(signal))
 
 
 async def on_signal_confirmed(signal: Signal) -> None:
     is_watch = signal.strategy_id.endswith("_watch")
     message  = format_signal_watch(signal) if is_watch else format_signal_confirmed(signal)
-    chart = signal.chart_path
+    chart    = signal.chart_path
+    # CONFIRMED signals → public channel. WATCH (unconfirmed) alerts → admin DM only;
+    # if no private chat is set the watch is dropped, never leaked to the channel.
+    target = settings.watchdog_chat_id if is_watch else settings.telegram_chat_id
+    if not target:
+        log.debug("[dispatcher] no target for %s signal — skipping", "watch" if is_watch else "confirmed")
+    elif chart and os.path.isfile(chart):
+        await _send_photo(chart, message, chat_id=target)
+    else:
+        await _send_text(message, chat_id=target)
     if chart and os.path.isfile(chart):
-        await _send_photo(chart, message)
         try:
             os.unlink(chart)
         except OSError:
             pass
-    else:
-        await _send_text(message)
 
 
 async def on_scan_started(payload: dict) -> None:
@@ -121,7 +129,8 @@ async def on_scan_started(payload: dict) -> None:
 
 
 async def on_session_open(session_name: str) -> None:
-    await _send_private(format_session_open(session_name))   # admin DM, not the channel
+    # Session opens (London/NY/Sydney/Tokyo + overlaps) are public → the channel.
+    await _send_text(format_session_open(session_name))
 
 
 async def announce_status() -> None:
