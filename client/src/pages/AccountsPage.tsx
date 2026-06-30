@@ -695,7 +695,7 @@ export default function AccountsPage({ openModal = false, darkMode = true, onVie
             <thead>
               <tr>
                 {["Name", "Number", "Server", "Type", "Platform", "Balance", "Connection", "Last Sync", "Actions"].map(h => (
-                  <th key={h} style={s.th as CSSProperties}>{h}</th>
+                  <th key={h} style={{ ...s.th, ...(h === "Platform" ? { textAlign: "center" } : {}) } as CSSProperties}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -719,9 +719,9 @@ export default function AccountsPage({ openModal = false, darkMode = true, onVie
                     {a.accountType.toUpperCase()}
                   </td>
                   <td style={s.td as CSSProperties}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <PlatformIcon id={a.platform.toLowerCase()} size={24} />
-                      {a.platform.toUpperCase()}
+                    {/* Brand icon only — no text label, centered in the column. */}
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }} title={a.platform.toUpperCase()}>
+                      <PlatformIcon id={a.platform.toLowerCase()} size={28} />
                     </div>
                   </td>
                   <td style={s.td as CSSProperties}>
