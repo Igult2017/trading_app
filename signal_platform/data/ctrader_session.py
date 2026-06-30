@@ -15,10 +15,11 @@ from pathlib import Path
 from typing import Optional
 
 import httpx
-from ctrader_open_api.messages.OpenApiCommonMessages_pb2 import ProtoMessage
+from ctrader_open_api.messages.OpenApiCommonMessages_pb2 import ProtoMessage, ProtoErrorRes
 from ctrader_open_api.messages.OpenApiMessages_pb2 import (
     ProtoOAApplicationAuthReq,
     ProtoOAAccountAuthReq,
+    ProtoOAErrorRes,
 )
 
 log = logging.getLogger(__name__)
@@ -188,6 +189,26 @@ async def recv(reader: asyncio.StreamReader) -> ProtoMessage:
         return msg
 
 
+PT_OA_ERROR = 2142   # ProtoOAErrorRes — carries cTrader's real errorCode + description
+PT_ERROR    = 50     # ProtoErrorRes (common protocol error)
+
+
+def _describe_resp(resp) -> str:
+    """Decode a cTrader error response so auth failures show the REAL errorCode, not just a
+    payload type. e.g. CH_CTID_TRADER_ACCOUNT_NOT_FOUND (wrong/foreign account),
+    ACCESS_TOKEN_INVALID / CH_ACCESS_TOKEN_INVALID (token), ALREADY_LOGGED_IN (contention)."""
+    try:
+        if resp.payloadType == PT_OA_ERROR:
+            e = ProtoOAErrorRes(); e.ParseFromString(resp.payload)
+            return f"ProtoOAErrorRes code={e.errorCode!r} desc={e.description!r}"
+        if resp.payloadType == PT_ERROR:
+            e = ProtoErrorRes(); e.ParseFromString(resp.payload)
+            return f"ProtoErrorRes code={e.errorCode!r} desc={e.description!r}"
+    except Exception as exc:
+        return f"type={resp.payloadType} (undecodable: {exc})"
+    return f"unexpected payloadType={resp.payloadType}"
+
+
 async def get_connection() -> tuple[asyncio.StreamReader, asyncio.StreamWriter]:
     """Return an authenticated TCP connection, reconnecting if needed."""
     global _reader, _writer
@@ -204,14 +225,14 @@ async def get_connection() -> tuple[asyncio.StreamReader, asyncio.StreamWriter]:
         await send(_writer, req.payloadType, req.SerializeToString())
         resp = await asyncio.wait_for(recv(_reader), timeout=10)
         if resp.payloadType != TYPE_APP_AUTH_RES:
-            raise RuntimeError(f"[ctrader] app auth failed (type={resp.payloadType})")
+            raise RuntimeError(f"[ctrader] app auth failed — {_describe_resp(resp)}")
 
         tok  = await get_access_token()
         req2 = ProtoOAAccountAuthReq(ctidTraderAccountId=_account_id, accessToken=tok)
         await send(_writer, req2.payloadType, req2.SerializeToString())
         resp2 = await asyncio.wait_for(recv(_reader), timeout=10)
         if resp2.payloadType != TYPE_ACCOUNT_AUTH_RES:
-            raise RuntimeError(f"[ctrader] account auth failed (type={resp2.payloadType})")
+            raise RuntimeError(f"[ctrader] account auth failed — acct={_account_id} {_describe_resp(resp2)}")
         log.info(f"[ctrader] account {_account_id} authenticated")
 
     return _reader, _writer
