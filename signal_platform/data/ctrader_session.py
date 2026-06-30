@@ -95,71 +95,41 @@ def _write_tokens(data: dict) -> None:
 
 
 async def get_access_token() -> str:
-    """Exchange refresh_token for access_token; persist any rotated refresh_token."""
-    global _access_token, _token_expiry, _refresh_backoff_until
+    """Single source of truth = NODE. The scanner READS Node's current cTrader access token
+    (Node keeps it fresh, near-expiry + coalesced, for its own sync) and NEVER independently
+    refreshes. An independent refresh here re-exchanged the refresh token on every boot, rotating
+    the shared cTrader token and invalidating everyone — the scanner then auth'd with an already-
+    rotated token and cTrader returned CH_ACCESS_TOKEN_INVALID, crash-looping the platform.
+    Only Node mutates the token now; we just consume it."""
+    global _access_token, _token_expiry
     async with _token_lock:
         if _access_token and time.monotonic() < _token_expiry:
             return _access_token
 
-        if time.monotonic() < _refresh_backoff_until:
-            raise ValueError("cTrader token refresh in backoff — re-run auth_setup.py to reset")
-
-        tokens = _read_tokens()
-        rt = tokens.get("refresh_token", "")
-        if not rt:
-            raise ValueError("No refresh token — run: python auth_setup.py")
-
+        # Pull Node's CURRENT token from the DB (GET /api/internal/ctrader-credentials, which
+        # refreshes near-expiry on Node's side via the coalesced path). No rotation from us.
+        fresh = None
         try:
-            async with httpx.AsyncClient(timeout=10) as http:
-                r = await http.post(_TOKEN_URL, data={
-                    "grant_type":    "refresh_token",
-                    "refresh_token": rt,
-                    "client_id":     _client_id,
-                    "client_secret": _client_secret,
-                })
-                r.raise_for_status()
-                j = r.json()
-
-            if "access_token" not in j:
-                raise ValueError(f"cTrader token refresh failed: {j}")
-
-            _access_token = j["access_token"]
-            _token_expiry = time.monotonic() + j.get("expires_in", 86_400) - 60
-
-            new_rt = j.get("refresh_token", "")
-            if new_rt and new_rt != rt:
-                _write_tokens({**tokens, "refresh_token": new_rt})
-                # Keep in-memory settings in sync so _read_tokens() doesn't
-                # return the pre-rotation value on the very next access token expiry.
-                from config.settings import settings as _s
-                object.__setattr__(_s, "ctrader_refresh_token", new_rt)
-                log.debug("[ctrader] refresh token rotated and saved")
-                from data.node_bridge import push_rotated_token
-                asyncio.create_task(push_rotated_token(new_rt, _access_token))
-
+            from data.node_bridge import refetch_from_node
+            fresh = await refetch_from_node()
+        except Exception:
+            fresh = None
+        if fresh and fresh.get("access_token"):
+            _access_token = fresh["access_token"]
+            _token_expiry = time.monotonic() + 180   # re-read Node's token every ~3 min
+            from config.settings import settings as _s
+            object.__setattr__(_s, "ctrader_access_token", fresh["access_token"])
+            if fresh.get("refresh_token"):
+                object.__setattr__(_s, "ctrader_refresh_token", fresh["refresh_token"])
             return _access_token
 
-        except Exception:
-            # Stale/invalid refresh token (or 429 from cTrader). Node keeps a fresh copy for the
-            # copy engine — pull it and use it directly instead of hammering cTrader's token endpoint.
-            fresh = None
-            try:
-                from data.node_bridge import refetch_from_node
-                fresh = await refetch_from_node()
-            except Exception:
-                fresh = None
-            if fresh and fresh.get("access_token"):
-                _access_token = fresh["access_token"]
-                _token_expiry = time.monotonic() + 600   # short; next expiry refreshes via the fresh refresh_token
-                if fresh.get("refresh_token"):
-                    _write_tokens({**tokens, "refresh_token": fresh["refresh_token"]})
-                    from config.settings import settings as _s
-                    object.__setattr__(_s, "ctrader_refresh_token", fresh["refresh_token"])
-                log.info("[ctrader] recovered token from Node DB after refresh failure")
-                return _access_token
-            _refresh_backoff_until = time.monotonic() + 300
-            log.warning("[ctrader] token refresh failed and Node recovery unavailable — backing off 5 min")
-            raise
+        # Node unreachable (e.g. first seconds of boot) — fall back to the token bootstrap loaded.
+        from config.settings import settings as _s
+        if _s.ctrader_access_token:
+            _access_token = _s.ctrader_access_token
+            _token_expiry = time.monotonic() + 45   # short — retry Node soon
+            return _access_token
+        raise ValueError("[ctrader] no access token from Node — reconnect the cTrader account")
 
 
 async def send(writer: asyncio.StreamWriter,
