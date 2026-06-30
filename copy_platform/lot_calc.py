@@ -23,9 +23,16 @@ def calc_lots(
     if mode == "fixed" and follower.fixed_lot:
         lots = float(follower.fixed_lot)
 
-    elif mode == "risk" and follower.risk_percent and sl_pips and follower_equity:
-        risk_amount = follower_equity * float(follower.risk_percent) / 100
-        lots = risk_amount / (sl_pips * pip_value)
+    elif mode == "risk":
+        # Size so a stop-out costs exactly risk_percent of equity. If we can't size it — the
+        # trade has no stop-loss, or the account balance isn't synced yet — we must NOT fall
+        # back to the master's raw lot (that could blow past the user's % cap). Size 0 so the
+        # caller SKIPS the trade instead, honouring the risk limit.
+        if follower.risk_percent and sl_pips and follower_equity:
+            risk_amount = follower_equity * float(follower.risk_percent) / 100
+            lots = risk_amount / (sl_pips * pip_value)
+        else:
+            lots = 0.0
 
     else:  # mult (default)
         if master_lots and master_lots > 0:
