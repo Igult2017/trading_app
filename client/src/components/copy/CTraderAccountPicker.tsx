@@ -14,10 +14,8 @@ interface BrokerAccount {
 
 /** cTrader brand mark (same artwork as the Accounts page, for visual consistency). */
 const CTraderMark = ({ size = 28 }: { size?: number }) => (
-  <svg width={size} height={size} viewBox="0 0 100 100" style={{ flexShrink: 0 }} aria-label="cTrader">
-    <circle cx="50" cy="50" r="50" fill="#E5342A" />
-    <path d="M41 23 C30 39 27 57 33 76 C52 71 64 53 62 32 C55 28 48 25 41 23 Z" fill="#fff" />
-    <circle cx="63.5" cy="64" r="9.5" fill="#fff" />
+  <svg width={size} height={size} viewBox="0 0 32 32" fill="none" style={{ flexShrink: 0 }} aria-label="cTrader">
+    <path fill="#FF101F" d="M16 0C7.176 0 0 7.176 0 16s7.176 16 16 16 16-7.177 16-16S24.823 0 16 0m0 2.572c7.17 0 13.045 5.647 13.41 12.727q.017.349.018.701c0 6.873-5.294 9.419-8.13 9.784-4.484.576-8.26-1.845-8.26-6.584 0-4.492 4.967-8.381 11.258-6.466l.814-3.663c-2.28-1.109-4.731-1.612-7.127-1.612-9.209 0-14.969 6.85-14.437 13.068-.05.026-.118.064-.186.101-.421-1.39-.647-2.936-.647-4.628C2.713 8.595 8.595 2.572 16 2.572" />
   </svg>
 );
 
