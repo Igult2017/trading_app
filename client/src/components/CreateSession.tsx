@@ -11,6 +11,7 @@ interface SessionData {
   brokerTimezone: number | null;
   status: string | null;
   createdAt: string | null;
+  brokerBacked?: boolean;   // set server-side: true if this session backs a broker account
 }
 
 const TZ_OPTIONS = [
@@ -698,18 +699,12 @@ export const SessionsList = ({ onSelectSession, activeSessionId, onDeleteSession
     queryKey: ['/api/sessions'],
     staleTime: 0,
   });
-  // Each broker account auto-creates a backing session. Hide those *here* (the
-  // manual-session grid) so they aren't a duplicate of the Accounts page — but
-  // they stay in /api/sessions so the per-account dashboard (opened by clicking
-  // the account) still resolves and renders normally.
-  const { data: brokerAccounts = [] } = useQuery<Array<{ defaultSessionId?: string | null }>>({
-    queryKey: ['/api/broker-accounts'],
-    staleTime: 30_000,
-  });
-  const brokerSessionIds = new Set(
-    brokerAccounts.map((a) => a.defaultSessionId).filter(Boolean) as string[],
-  );
-  const sessions = allSessions.filter((s) => !brokerSessionIds.has(s.id));
+  // Each broker account auto-creates a backing session. Hide those *here* (the manual-session
+  // grid) so they aren't a duplicate of the Accounts page. The `brokerBacked` flag is computed
+  // SERVER-SIDE on /api/sessions, so this never depends on a separate broker-accounts query
+  // being loaded/fresh (that race let broker accounts leak into the create page). The rows
+  // still come back from /api/sessions so the per-account dashboard keeps resolving.
+  const sessions = allSessions.filter((s) => !s.brokerBacked);
   const [showCreate, setShowCreate]   = useState(false);
   const [editTarget, setEditTarget]   = useState<SessionData | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<SessionData | null>(null);

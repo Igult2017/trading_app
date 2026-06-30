@@ -1069,7 +1069,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!auth) return;
     try {
       const sessions = await storage.getSessions(auth.id);
-      res.json(sessions);
+      // Tag broker-account-backed sessions so the manual-session grid can hide them
+      // server-side. Doing it here (not via a separate client /api/broker-accounts query
+      // that may be empty/stale at first render) is what stops broker accounts from leaking
+      // into the Sessions creation page. The rows stay in /api/sessions so the per-account
+      // dashboard still resolves.
+      let brokerSessionIds = new Set<string>();
+      try {
+        const accts = await storage.getBrokerAccounts(auth.id);
+        brokerSessionIds = new Set(accts.map((a: any) => a.defaultSessionId).filter(Boolean) as string[]);
+      } catch { /* best-effort flag — never block the sessions list */ }
+      res.json(sessions.map((s: any) => ({ ...s, brokerBacked: brokerSessionIds.has(s.id) })));
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch sessions" });
     }
