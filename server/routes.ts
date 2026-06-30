@@ -12,7 +12,7 @@ import { fetchTradesForAccount, API_PLATFORMS } from "./services/brokerAdapters/
 import { getCTraderAuthUrl, exchangeCodeForTokens, getCTraderAccounts, fetchCTraderBalance, refreshAccessToken } from "./services/brokerAdapters/ctrader";
 import { addCTraderAccount, removeCTraderAccount } from "./services/ctraderRealtime";
 import { sessionAt } from "./lib/forexSession";
-import { syncAccount } from "./services/autoSyncService";
+import { syncAccount, refreshCTraderToken } from "./services/autoSyncService";
 import { randomBytes, randomUUID } from "crypto";
 import { sendCampaignEmail, isEmailConfigured } from "./services/emailService";
 import { storage } from "./storage";
@@ -2287,14 +2287,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
             let { accessToken, refreshToken } = creds;
             let tokenExpiresAt: number = creds.tokenExpiresAt ?? 0;
             if (!tokenExpiresAt || tokenExpiresAt < Date.now() + 5 * 60 * 1000) {
+              // Refresh via the COALESCED path (shared with autoSyncService + the watchdog) so
+              // concurrent refreshes of the same account can't rotate the token out from under
+              // each other — that race handed the signal scanner an already-rotated token
+              // (CH_ACCESS_TOKEN_INVALID → crash-loop). If THIS account's refresh token is dead,
+              // skip to the next cTrader account that still has a working token, rather than
+              // returning a known-bad token.
+              const fresh = await refreshCTraderToken({ id: row.id, passwordEnc: row.password_enc } as any);
+              if (!fresh) continue;
               try {
-                const t = await refreshAccessToken(refreshToken);
-                accessToken = t.accessToken; refreshToken = t.refreshToken;
-                tokenExpiresAt = Date.now() + (t.expiresIn ?? 3600) * 1000;
-                await storage.updateBrokerAccount(row.id, {
-                  passwordEnc: safeEncrypt(JSON.stringify({ ...creds, accessToken, refreshToken, tokenExpiresAt })),
-                });
-              } catch { /* refresh failed — return the stored token; the caller backs off */ }
+                const fc = JSON.parse(safeDecrypt(fresh.passwordEnc) ?? "{}");
+                if (!fc.accessToken) continue;
+                accessToken = fc.accessToken; refreshToken = fc.refreshToken;
+                tokenExpiresAt = fc.tokenExpiresAt ?? tokenExpiresAt;
+              } catch { continue; }
             }
             return res.json({
               account_id: row.id,
