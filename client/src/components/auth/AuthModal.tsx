@@ -94,7 +94,9 @@ export default function AuthModal() {
         let dest = role === 'admin' ? '/admin' : '/journal';
         try {
           const back = localStorage.getItem('return-to');
-          if (back && /^\/(journal|accounts|history|analytics|assets|stocks|major-pairs|commodities|crypto|markets|signals|admin)/.test(back)) dest = back;
+          // Return-to-last-page is for regular users only. An admin ALWAYS lands on the
+          // admin panel — a stale return-to (e.g. /journal) must never hide it after login.
+          if (back && role !== 'admin' && /^\/(journal|accounts|history|analytics|assets|stocks|major-pairs|commodities|crypto|markets|signals)/.test(back)) dest = back;
           localStorage.removeItem('return-to');
         } catch { /* ignore */ }
         close();
