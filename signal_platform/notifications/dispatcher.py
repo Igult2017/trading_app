@@ -45,16 +45,19 @@ def _get_bot():
     return _bot
 
 
-async def _send_text(message: str) -> None:
+async def _send_text(message: str, chat_id: str | None = None) -> None:
+    """Default target is the public signal channel; pass chat_id to route elsewhere
+    (e.g. the admin DM for system telemetry)."""
     bot = _get_bot()
-    if not bot or not settings.telegram_chat_id:
+    target = chat_id or settings.telegram_chat_id
+    if not bot or not target:
         log.debug("[dispatcher] Telegram not configured — skipping")
         return
 
     for attempt in range(1, _MAX_RETRIES + 1):
         try:
             await bot.send_message(
-                chat_id=settings.telegram_chat_id,
+                chat_id=target,
                 text=message,
                 parse_mode="HTML",
             )
@@ -66,6 +69,15 @@ async def _send_text(message: str) -> None:
                 await asyncio.sleep(_RETRY_DELAY)
 
     log.error("[dispatcher] all Telegram retries exhausted — message lost")
+
+
+async def _send_private(message: str) -> None:
+    """System/status telemetry → the admin's PRIVATE DM only, never the public signal
+    channel. If no private chat is configured we DROP it rather than spam subscribers."""
+    if not settings.watchdog_chat_id:
+        log.debug("[dispatcher] no WATCHDOG_CHAT_ID set — dropping system message (kept off channel)")
+        return
+    await _send_text(message, chat_id=settings.watchdog_chat_id)
 
 
 async def _send_photo(chart_path: str, caption: str) -> None:
@@ -105,11 +117,11 @@ async def on_signal_confirmed(signal: Signal) -> None:
 
 
 async def on_scan_started(payload: dict) -> None:
-    await _send_text(format_scan_started(payload))
+    await _send_private(format_scan_started(payload))   # admin DM, not the channel
 
 
 async def on_session_open(session_name: str) -> None:
-    await _send_text(format_session_open(session_name))
+    await _send_private(format_session_open(session_name))   # admin DM, not the channel
 
 
 async def announce_status() -> None:
@@ -147,7 +159,7 @@ async def announce_status() -> None:
                 hrs, mins = int(delta.total_seconds() // 3600), int((delta.total_seconds() % 3600) // 60)
                 next_open = probe.strftime("%a %H:%M UTC") + f" (in {hrs}h {mins}m)"
                 break
-    await _send_text(format_platform_status(is_open, sessions, next_open))
+    await _send_private(format_platform_status(is_open, sessions, next_open))   # admin DM, not the channel
 
 
 async def on_signal_closed(signal_id: str) -> None:

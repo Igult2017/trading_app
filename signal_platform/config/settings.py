@@ -32,7 +32,11 @@ class Settings(BaseSettings):
 
     # ── Notifications ─────────────────────────────────────────────────────────
     telegram_bot_token: str = ""
-    telegram_chat_id: str = ""
+    telegram_chat_id: str = ""      # public signal channel — signal cards only
+    # Private admin DM for SYSTEM/STATUS telemetry (scanner active, platform online,
+    # session open) so it never spams the public channel. Same chat the Node health
+    # watchdog uses (env WATCHDOG_CHAT_ID). If unset, those system messages are dropped.
+    watchdog_chat_id: str = ""
 
     # ── AI validation ─────────────────────────────────────────────────────────
     # Optional. When absent: signals pass AI validation automatically.
