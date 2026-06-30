@@ -116,6 +116,7 @@ class CTraderExecutor:
         self._client: Client | None = None
         self._pending_cmd = None
         self._symbol_map: dict[str, int] = {}   # symbolName → symbolId
+        self._modify_filled = False             # guard: reconcile→fill done once
 
     def _make_client(self) -> Client:
         # Only "demo" uses the demo gateway; live AND funded/prop accounts are live.
@@ -178,9 +179,19 @@ class CTraderExecutor:
 
         elif ptype == ProtoOAAccountAuthRes().payloadType:
             # Opens need a numeric symbolId → fetch the symbol list first.
-            # Close / modify use a positionId → send straight away.
+            # A MODIFY that omits a field (SL or TP is None) means "leave that
+            # protection untouched" — but the cTrader amend request REPLACES the
+            # position's SL/TP wholesale (an unset field clears it). So we first
+            # reconcile to read the position's current SL/TP and back-fill the
+            # missing side; only when BOTH fields are supplied do we skip reconcile
+            # and send straight away (the cTrader live-copy path, unchanged).
+            # Close uses a positionId → send straight away.
             if self._pending_cmd and self._pending_cmd[0] == "open":
                 req = ProtoOASymbolsListReq()
+                req.ctidTraderAccountId = int(self.creds["ctraderId"])
+                client.send(req)
+            elif self._modify_needs_reconcile():
+                req = ProtoOAReconcileReq()
                 req.ctidTraderAccountId = int(self.creds["ctraderId"])
                 client.send(req)
             else:
@@ -189,6 +200,12 @@ class CTraderExecutor:
         elif ptype == ProtoOASymbolsListRes().payloadType:
             res = Protobuf.extract(message, ProtoOASymbolsListRes)
             self._symbol_map = {s.symbolName: s.symbolId for s in res.symbol}
+            self._send_command(client)
+
+        elif ptype == ProtoOAReconcileRes().payloadType:
+            # Back-fill any missing SL/TP from the live position so None = unchanged.
+            res = Protobuf.extract(message, ProtoOAReconcileRes)
+            self._backfill_modify(res)
             self._send_command(client)
 
         elif ptype == ProtoOAExecutionEvent().payloadType:
@@ -216,6 +233,34 @@ class CTraderExecutor:
                     external_id = str(pos.positionId),
                     entry_price = float(pos.price) if pos.price else None,
                 ))
+
+    def _modify_needs_reconcile(self) -> bool:
+        """A modify with a missing SL or TP needs the position's current values first.
+        Done at most once (guard) so a re-entrant reconcile can't loop."""
+        cmd = self._pending_cmd
+        if not cmd or cmd[0] != "modify" or self._modify_filled:
+            return False
+        _, _pos_id, sl, tp = cmd
+        return sl is None or tp is None
+
+    def _backfill_modify(self, reconcile_res) -> None:
+        """Fill any None SL/TP on a pending modify from the live position so an omitted
+        field is LEFT UNCHANGED instead of cleared. Mutates self._pending_cmd."""
+        self._modify_filled = True
+        cmd = self._pending_cmd
+        if not cmd or cmd[0] != "modify":
+            return
+        _, pos_id, sl, tp = cmd
+        for pos in reconcile_res.position:
+            if pos.positionId == int(pos_id):
+                cur_sl = float(pos.stopLoss)   if pos.stopLoss   else None
+                cur_tp = float(pos.takeProfit) if pos.takeProfit else None
+                if sl is None:
+                    sl = cur_sl                # leave existing SL untouched
+                if tp is None:
+                    tp = cur_tp                # leave existing TP untouched
+                break
+        self._pending_cmd = ("modify", pos_id, sl, tp)
 
     def _send_command(self, client):
         cmd = self._pending_cmd

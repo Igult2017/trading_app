@@ -62,9 +62,37 @@ def canon_token(tok: str) -> str | None:
     return None
 
 
-def find_symbol(text: str) -> str | None:
-    """Scan a message and return the first recognizable canonical symbol."""
+def _hint_from_keyword(tokens: list[str], symbol_keyword: str) -> str | None:
+    """If `symbol_keyword` appears as a token, canonicalize the token(s) right after it
+    (e.g. keyword 'pair' in 'Pair: EUR/USD', or 'Pair EUR USD'). Returns None on miss."""
+    kw = symbol_keyword.strip().upper()
+    if not kw:
+        return None
+    for i, tok in enumerate(tokens):
+        if tok.strip().upper() == kw:
+            nxt = tokens[i + 1] if i + 1 < len(tokens) else ""
+            c = canon_token(nxt)
+            if c:
+                return c
+            # space-separated pair following the keyword, e.g. "Pair EUR USD"
+            nxt2 = tokens[i + 2] if i + 2 < len(tokens) else ""
+            c = canon_token(nxt + nxt2)
+            if c:
+                return c
+    return None
+
+
+def find_symbol(text: str, symbol_keyword: str | None = None) -> str | None:
+    """Scan a message and return the first recognizable canonical symbol.
+
+    When `symbol_keyword` is provided, the token following that keyword is tried first
+    as a strong hint; the normal scan is used as a fallback (and when no keyword is set,
+    behaviour is identical to before)."""
     tokens = re.split(r"[\s,;:|()\[\]]+", text or "")
+    if symbol_keyword:
+        hint = _hint_from_keyword(tokens, symbol_keyword)
+        if hint:
+            return hint
     for raw in tokens:
         c = canon_token(raw)
         if c:

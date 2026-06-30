@@ -42,12 +42,18 @@ def _num(raw: str) -> float | None:
         return None
 
 
+# A pip/point/percent unit right after the number means the value is RELATIVE
+# (e.g. "SL 20 pips"), not an absolute price — skip it, same as _all_prices does.
+_UNIT = r"\s*(?:%|pips?|pts?|points?)"
+
+
 def _first_after(text: str, keywords: list[str]) -> float | None:
     for kw in keywords:
         # \d? = an optional ordinal attached to the keyword (tp1, tp2) — NOT a
         # greedy \d* that would swallow the price's own digits.
-        m = re.search(re.escape(kw) + r"\d?\s*[:=@\-]?\s*(" + _PRICE + r")", text, re.I)
-        if m:
+        for m in re.finditer(re.escape(kw) + r"\d?\s*[:=@\-]?\s*(" + _PRICE + r")(" + _UNIT + r")?", text, re.I):
+            if m.group(2):                            # "SL 20 pips" → relative, not a price
+                continue
             return _num(m.group(1))
     return None
 
@@ -55,7 +61,9 @@ def _first_after(text: str, keywords: list[str]) -> float | None:
 def _all_after(text: str, keywords: list[str]) -> list[float]:
     out: list[float] = []
     for kw in keywords:
-        for m in re.finditer(re.escape(kw) + r"\d?\s*[:=@\-]?\s*(" + _PRICE + r")", text, re.I):
+        for m in re.finditer(re.escape(kw) + r"\d?\s*[:=@\-]?\s*(" + _PRICE + r")(" + _UNIT + r")?", text, re.I):
+            if m.group(2):                            # pip/pts/% unit → relative, skip
+                continue
             v = _num(m.group(1))
             if v is not None and v not in out:
                 out.append(v)
@@ -64,8 +72,8 @@ def _all_after(text: str, keywords: list[str]) -> list[float]:
 
 def _all_prices(text: str) -> list[float]:
     out: list[float] = []
-    for m in re.finditer(r"(" + _PRICE + r")\s*(%|pips?|pts?)?", text, re.I):
-        if m.group(2):                                # skip "95%", "30 pips", "10 pts"
+    for m in re.finditer(r"(" + _PRICE + r")(" + _UNIT + r")?", text, re.I):
+        if m.group(2):                                # skip "95%", "30 pips", "10 pts", "5 points"
             continue
         v = _num(m.group(1))
         if v is not None:
@@ -80,19 +88,20 @@ def parse_signal(text: str, cfg: dict | None = None) -> ParsedSignal | None:
     entry_kw = [cfg.get("entry_keyword") or "entry", "buy", "sell", "@", "price", "open", "enter", "now"]
     sl_kw    = [cfg.get("sl_keyword") or "sl", "stop loss", "stoploss", "stop", "s/l"]
     tp_kw    = [cfg.get("tp_keyword") or "tp", "take profit", "target", "tps", "t/p"]
+    sym_kw   = cfg.get("symbol_keyword") or None      # optional strong hint for the symbol
 
     # ── Event type ──────────────────────────────────────────────────────────
     if _CLOSE.search(text):
-        sym = find_symbol(text)
+        sym = find_symbol(text, sym_kw)
         return ParsedSignal("CLOSE", symbol=sym, confidence="high" if sym else "medium",
                             reason="close keyword")
     if _MODIFY.search(text) and not (_BUY.search(text) or _SELL.search(text)):
-        return ParsedSignal("MODIFY", symbol=find_symbol(text),
+        return ParsedSignal("MODIFY", symbol=find_symbol(text, sym_kw),
                             stop_loss=_first_after(text, sl_kw), confidence="medium",
                             reason="modify keyword")
 
     # ── OPEN ────────────────────────────────────────────────────────────────
-    symbol = find_symbol(text)
+    symbol = find_symbol(text, sym_kw)
     action = "BUY" if _BUY.search(text) else "SELL" if _SELL.search(text) else None
     if not symbol or not action:
         return None                                   # not a tradeable open
