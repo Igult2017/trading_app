@@ -21,7 +21,7 @@ from core.base_strategy import BaseStrategy
 from core.types import (Session, Trend, NewsStance, NewsImpact,
                         StrategyResult, TF, Signal, Direction)
 from core.strategy_context import StrategyContext
-from strategies.vocant1_bias import clear_trend, latest_volume_candle
+from strategies.vocant1_bias import clear_trend, confirmed_volume_move
 from strategies.vocant1_entry import m1_entry
 from news.news_filter import news_note
 from news.news_candle import is_news_candle   # shared platform resource
@@ -69,10 +69,11 @@ class Vocant1Strategy(BaseStrategy):
             return StrategyResult.empty()
         bullish = trend > 0
 
-        # 2) 1HR VOLUME — a volume candle in the trend direction confirms the move ("volume day").
-        vc = latest_volume_candle(h1, bullish)
+        # 2) 1HR VOLUME — TWO consecutive volume candles confirm the move (1st starts, 2nd confirms);
+        #    the 2nd candle's close is what sends us to the 1M. Volume candle = short wicks + bigger body.
+        vc = confirmed_volume_move(h1, bullish)
         if vc is None:
-            log.info(f"[vocant1] {context.symbol} clear {'up' if bullish else 'down'}trend but no volume candle — skip")
+            log.info(f"[vocant1] {context.symbol} clear {'up' if bullish else 'down'}trend but no 2 confirming volume candles — skip")
             return StrategyResult.empty()
         # Playbook: NEVER trade the news candle. If the volume candle is news-driven, drop it —
         # post-news continuations / range breakouts still qualify; this only removes the news spike.
@@ -108,7 +109,7 @@ class Vocant1Strategy(BaseStrategy):
             confidence        = 0.72,
             primary_timeframe = TF.H1,
             technical_reasons = [
-                f"1HR clear {'up (HH+HL)' if bullish else 'down (LH+LL)'} trend + a {side.lower()} volume candle",
+                f"1HR clear {'up (HH+HL)' if bullish else 'down (LH+LL)'} trend + TWO confirming {side.lower()} volume candles",
                 f"Place {side} STOP at {entry:.5f} — M1 fractal (stop-order entry)",
                 f"SL {sl:.5f} | TP {tp:.5f} | Risk {risk/_PIP:.0f} pips | RR 2:1",
             ],
