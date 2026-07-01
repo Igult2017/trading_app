@@ -108,10 +108,10 @@ async def fetch_bars(
             _sess.reset_connection()
             raise
 
-    if resp.payloadType == TYPE_ERROR:
-        raise RuntimeError(f"[ctrader] server error for {symbol} {tf}")
     if resp.payloadType != TYPE_TRENDBARS_RES:
-        raise RuntimeError(f"[ctrader] unexpected response type {resp.payloadType}")
+        # Decode cTrader's REAL error (errorCode + description) — not just the payload type —
+        # so a persistent failure like M1 tells us exactly why (rate limit, boundaries, etc.).
+        raise RuntimeError(f"[ctrader] {symbol} {tf} fetch failed — {_sess._describe_resp(resp)}")
 
     res = ProtoOAGetTrendbarsRes()
     res.ParseFromString(resp.payload)
