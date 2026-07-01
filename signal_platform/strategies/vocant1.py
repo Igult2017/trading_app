@@ -24,6 +24,7 @@ from core.strategy_context import StrategyContext
 from strategies.vocant1_bias import clear_trend, latest_volume_candle
 from strategies.vocant1_entry import m1_entry
 from news.news_filter import news_note
+from news.news_candle import is_news_candle   # shared platform resource
 
 log = logging.getLogger(__name__)
 
@@ -44,7 +45,7 @@ class Vocant1Strategy(BaseStrategy):
     allowed_sessions    = [Session.ALL]
     allowed_trends      = [Trend.ANY]        # VOCANT.1 reads its own 1HR trend (HH-HL / LH-LL)
     allowed_instruments = ["EUR/USD", "GBP/USD"]
-    news_stance         = NewsStance.NEWS_AGNOSTIC   # news shown on the card; the playbook's "never trade the news candle" is a separate item, not yet built
+    news_stance         = NewsStance.NEWS_AGNOSTIC   # trades post-news continuations too; the "never trade the news candle" rule is enforced below via the shared news_candle resource
     news_impact_filter  = [NewsImpact.HIGH]
 
     def __init__(self):
@@ -72,6 +73,11 @@ class Vocant1Strategy(BaseStrategy):
         vc = latest_volume_candle(h1, bullish)
         if vc is None:
             log.info(f"[vocant1] {context.symbol} clear {'up' if bullish else 'down'}trend but no volume candle — skip")
+            return StrategyResult.empty()
+        # Playbook: NEVER trade the news candle. If the volume candle is news-driven, drop it —
+        # post-news continuations / range breakouts still qualify; this only removes the news spike.
+        if is_news_candle(vc, context.news, context.symbol):
+            log.info(f"[vocant1] {context.symbol} volume candle is a news candle — never trade it, skip")
             return StrategyResult.empty()
 
         sig_key = f"{'B' if bullish else 'S'}_{vc.time}"
