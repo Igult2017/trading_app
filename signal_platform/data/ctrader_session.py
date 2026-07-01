@@ -106,14 +106,21 @@ async def get_access_token() -> str:
         if _access_token and time.monotonic() < _token_expiry:
             return _access_token
 
-        # Pull Node's CURRENT token from the DB (GET /api/internal/ctrader-credentials, which
-        # refreshes near-expiry on Node's side via the coalesced path). No rotation from us.
+        # Pull Node's CURRENT token (GET /api/internal/ctrader-credentials — Node refreshes it
+        # near-expiry, coalesced, and returns a still-working account even across add/reconnect/
+        # delete). Retry a few times before EVER using the env fallback: Node boots after the
+        # scanner in start.sh, and the env token is a static snapshot that goes stale on rotation.
+        # This is what decouples the scanner from account-page activity.
         fresh = None
-        try:
-            from data.node_bridge import refetch_from_node
-            fresh = await refetch_from_node()
-        except Exception:
-            fresh = None
+        for _ in range(4):
+            try:
+                from data.node_bridge import refetch_from_node
+                fresh = await refetch_from_node()
+            except Exception:
+                fresh = None
+            if fresh and fresh.get("access_token"):
+                break
+            await asyncio.sleep(2)
         if fresh and fresh.get("access_token"):
             _access_token = fresh["access_token"]
             _token_expiry = time.monotonic() + 180   # re-read Node's token every ~3 min
@@ -121,13 +128,16 @@ async def get_access_token() -> str:
             object.__setattr__(_s, "ctrader_access_token", fresh["access_token"])
             if fresh.get("refresh_token"):
                 object.__setattr__(_s, "ctrader_refresh_token", fresh["refresh_token"])
+            log.info("[ctrader] using live token from Node DB")
             return _access_token
 
-        # Node unreachable (e.g. first seconds of boot) — fall back to the token bootstrap loaded.
+        # Last resort — Node truly unreachable. Use the env token but keep it SHORT-lived so we
+        # retry Node almost immediately (the env snapshot may be stale after a rotation).
         from config.settings import settings as _s
         if _s.ctrader_access_token:
             _access_token = _s.ctrader_access_token
-            _token_expiry = time.monotonic() + 45   # short — retry Node soon
+            _token_expiry = time.monotonic() + 30
+            log.warning("[ctrader] Node unreachable — using env fallback token (may be stale); retrying Node soon")
             return _access_token
         raise ValueError("[ctrader] no access token from Node — reconnect the cTrader account")
 
