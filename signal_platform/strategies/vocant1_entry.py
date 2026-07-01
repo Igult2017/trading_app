@@ -8,10 +8,11 @@ wide 1HR cluster range). Buy stop above a fractal high (uptrend) / sell stop bel
 """
 from core.types import Candle
 
-_PIP       = 0.00010
-_SL_BUFFER = 2 * _PIP
-_MAX_STALE = 20    # M1 bars — the fractal must be freshly approached, not stale
-_M1_WINDOW = 120   # only look at the recent ~2h of M1 (after the cluster) for the setup
+_PIP          = 0.00010
+_SL_BUFFER    = 2 * _PIP
+_ENTRY_BUFFER = 1 * _PIP   # entry sits JUST beyond the fractal (a genuine break, per the playbook)
+_MAX_STALE    = 20         # M1 bars — the touch must be this fresh, measured from NOW
+_M1_WINDOW    = 120        # only look at the recent ~2h of M1 (after the volume candle) for the setup
 
 
 def _fractal_after(window: list[Candle], start: int, bullish: bool) -> tuple[float, int] | None:
@@ -31,7 +32,7 @@ def _fractal_after(window: list[Candle], start: int, bullish: bool) -> tuple[flo
 def m1_entry(m1: list[Candle], bullish: bool, cluster_end_time: int) -> tuple[float, float] | None:
     """
     Return (entry_level, sl_level) for a VOCANT.1 stop-order entry, or None.
-      entry_level = the M1 fractal — buy stop above a fractal high / sell stop below a fractal low.
+      entry_level = JUST BEYOND the M1 fractal — buy stop above a fractal high / sell stop below a low.
       sl_level    = just beyond the M1 pullback extreme (a TIGHT stop, not the 1HR range).
 
     Flow: after the volume cluster, price first PUSHES in the trend direction (alignment), then
@@ -66,14 +67,18 @@ def m1_entry(m1: list[Candle], bullish: bool, cluster_end_time: int) -> tuple[fl
         return None
     fractal_level, fractal_pos = fr
 
-    # 4) Only fire while the fractal is FRESHLY approached (touched within _MAX_STALE bars).
-    touched = None
+    # 4) Fire only while price is FRESHLY at the fractal — the touch must be recent, measured from
+    #    NOW (not merely soon after the fractal), else the break has likely already played out.
+    touch_idx = None
     for j, c in enumerate(window[fractal_pos + 1:]):
         if (c.high >= fractal_level) if bullish else (c.low <= fractal_level):
-            touched = j
+            touch_idx = fractal_pos + 1 + j
             break
-    if touched is None or touched > _MAX_STALE:
+    if touch_idx is None or (len(window) - 1 - touch_idx) > _MAX_STALE:
         return None
 
-    sl = (extreme.low - _SL_BUFFER) if bullish else (extreme.high + _SL_BUFFER)
-    return round(fractal_level, 5), round(sl, 5)
+    # Entry sits JUST beyond the fractal (buy stop above the high / sell stop below the low) so it's
+    # a genuine break, not the touch that fires the signal; SL is just beyond the M1 pullback extreme.
+    entry = (fractal_level + _ENTRY_BUFFER) if bullish else (fractal_level - _ENTRY_BUFFER)
+    sl    = (extreme.low   - _SL_BUFFER)    if bullish else (extreme.high  + _SL_BUFFER)
+    return round(entry, 5), round(sl, 5)
