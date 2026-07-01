@@ -1,84 +1,82 @@
 """
 VOCANT.1 — 1M entry.
 
-After the 1HR volume+trend bias is set, find the ALIGNED M1 pullback + fractal and return the
-stop-order entry level plus a TIGHT M1 stop-loss (just beyond the M1 pullback extreme — NOT the
-wide 1HR cluster range). Buy stop above a fractal high (uptrend) / sell stop below a fractal low
-(downtrend). This is the strategy's real edge, so it lives in its own file.
+Fires on the 1M FRACTAL BREAK + PULL-BACK, per the playbook's chart samples:
+  Downtrend: price breaks BELOW a fractal low, then pulls back UP (retest) -> fire SELL (continuation).
+  Uptrend:   price breaks ABOVE a fractal high, then pulls back DOWN (retest) -> fire BUY  (continuation).
+The signal fires while price is pulling back AFTER the break, before the continuation resumes — the
+entry is a stop just beyond the broken fractal (fills when price continues), and the stop-loss sits
+just beyond the pull-back extreme (tight). Reads only raw candles — no other-strategy logic.
 """
 from core.types import Candle
 
 _PIP          = 0.00010
 _SL_BUFFER    = 2 * _PIP
-_ENTRY_BUFFER = 1 * _PIP   # entry sits JUST beyond the fractal (a genuine break, per the playbook)
-_MAX_STALE    = 20         # M1 bars — the touch must be this fresh, measured from NOW
+_ENTRY_BUFFER = 1 * _PIP   # entry sits JUST beyond the broken fractal (a genuine continuation break)
+_MAX_STALE    = 20         # M1 bars — the pull-back must be this fresh (fire before continuation runs)
 _M1_WINDOW    = 120        # only look at the recent ~2h of M1 (after the volume candle) for the setup
-
-
-def _fractal_after(window: list[Candle], start: int, bullish: bool) -> tuple[float, int] | None:
-    """First Williams 5-bar fractal after index `start`: a fractal HIGH (buy) / LOW (sell)."""
-    for i in range(start + 2, len(window) - 2):
-        c = window[i]
-        p1, p2, n1, n2 = window[i - 1], window[i - 2], window[i + 1], window[i + 2]
-        if bullish:
-            if c.high > p1.high and c.high > p2.high and c.high > n1.high and c.high > n2.high:
-                return c.high, i
-        else:
-            if c.low < p1.low and c.low < p2.low and c.low < n1.low and c.low < n2.low:
-                return c.low, i
-    return None
+_MIN_RISK     = 5  * _PIP
+_MAX_RISK     = 60 * _PIP
 
 
 def m1_entry(m1: list[Candle], bullish: bool, cluster_end_time: int) -> tuple[float, float] | None:
     """
     Return (entry_level, sl_level) for a VOCANT.1 stop-order entry, or None.
-      entry_level = JUST BEYOND the M1 fractal — buy stop above a fractal high / sell stop below a low.
-      sl_level    = just beyond the M1 pullback extreme (a TIGHT stop, not the 1HR range).
 
-    Flow: after the volume cluster, price first PUSHES in the trend direction (alignment), then
-    PULLS BACK; the fractal after that pullback is the entry, and the pullback extreme is the SL.
-    Fires only while price is freshly approaching the fractal so the stop can be placed now.
+    Finds the most recent 1M fractal (high if uptrend / low if downtrend) that has since been BROKEN
+    in the trend direction and then PULLED BACK — that break-then-pull-back is the trigger.
+      entry_level = a stop JUST BEYOND the broken fractal (fills as price continues the trend).
+      sl_level    = just beyond the M1 pull-back extreme (tight).
     """
     window = [c for c in m1[-_M1_WINDOW:] if c.time >= cluster_end_time]
-    if len(window) < 9:
+    n = len(window)
+    if n < 12:
         return None
 
-    # 1) Alignment — the furthest point price reached IN the trend direction after the cluster.
-    if bullish:
-        push = max(range(len(window)), key=lambda i: window[i].high)
-    else:
-        push = min(range(len(window)), key=lambda i: window[i].low)
-    if push < 2 or push > len(window) - 6:
-        return None    # nothing pushed with the trend yet, or no room left for a pullback + fractal
+    # Scan fractals from most-recent (with room for a break + pull-back after) back to oldest.
+    for i in range(n - 5, 1, -1):
+        c = window[i]
+        p1, p2, n1, n2 = window[i - 1], window[i - 2], window[i + 1], window[i + 2]
+        is_frac = ((c.high > p1.high and c.high > p2.high and c.high > n1.high and c.high > n2.high)
+                   if bullish else
+                   (c.low < p1.low and c.low < p2.low and c.low < n1.low and c.low < n2.low))
+        if not is_frac:
+            continue
+        f_level = c.high if bullish else c.low
 
-    # 2) Pullback extreme — the counter-trend swing AFTER the push (the SL anchor).
-    after = window[push + 1:]
-    if bullish:
-        ext = push + 1 + min(range(len(after)), key=lambda i: after[i].low)   # pullback low
-    else:
-        ext = push + 1 + max(range(len(after)), key=lambda i: after[i].high)  # pullback high
-    if ext >= len(window) - 4:
-        return None    # pullback still forming — no room for a fractal
-    extreme = window[ext]
+        # 1) BREAK in the trend direction after the fractal (confirmed 2 bars later → scan from i+3).
+        brk = next((j for j in range(i + 3, n)
+                    if (window[j].high > f_level if bullish else window[j].low < f_level)), None)
+        if brk is None or brk + 1 >= n:
+            continue
 
-    # 3) Fractal after the pullback extreme, in the trend direction = the entry level.
-    fr = _fractal_after(window, ext, bullish)
-    if fr is None:
-        return None
-    fractal_level, fractal_pos = fr
+        # 2) PULL-BACK after the break — the counter-trend retrace (this is the fire trigger).
+        after = window[brk + 1:]
+        if bullish:
+            rel = min(range(len(after)), key=lambda k: after[k].low)
+            pb_ext = after[rel].low
+        else:
+            rel = max(range(len(after)), key=lambda k: after[k].high)
+            pb_ext = after[rel].high
+        pb_idx = brk + 1 + rel
 
-    # 4) Fire only while price is FRESHLY at the fractal — the touch must be recent, measured from
-    #    NOW (not merely soon after the fractal), else the break has likely already played out.
-    touch_idx = None
-    for j, c in enumerate(window[fractal_pos + 1:]):
-        if (c.high >= fractal_level) if bullish else (c.low <= fractal_level):
-            touch_idx = fractal_pos + 1 + j
-            break
-    if touch_idx is None or (len(window) - 1 - touch_idx) > _MAX_STALE:
-        return None
+        # 3) Fire only while the pull-back is fresh (before the continuation has already run away).
+        if (n - 1 - pb_idx) > _MAX_STALE:
+            continue
 
-    # Entry sits JUST beyond the fractal (buy stop above the high / sell stop below the low) so it's
-    # a genuine break, not the touch that fires the signal; SL is just beyond the M1 pullback extreme.
-    entry = (fractal_level + _ENTRY_BUFFER) if bullish else (fractal_level - _ENTRY_BUFFER)
-    sl    = (extreme.low   - _SL_BUFFER)    if bullish else (extreme.high  + _SL_BUFFER)
-    return round(entry, 5), round(sl, 5)
+        # 4) Continuation entry beyond the broken fractal; SL just beyond the pull-back extreme.
+        if bullish:
+            entry, sl = f_level + _ENTRY_BUFFER, pb_ext - _SL_BUFFER
+            if sl >= entry:          # pull-back didn't dip below the entry → no valid risk
+                continue
+        else:
+            entry, sl = f_level - _ENTRY_BUFFER, pb_ext + _SL_BUFFER
+            if sl <= entry:          # pull-back didn't bounce above the entry → no valid risk
+                continue
+
+        risk = abs(entry - sl)
+        if risk < _MIN_RISK or risk > _MAX_RISK:
+            continue
+        return round(entry, 5), round(sl, 5)
+
+    return None
