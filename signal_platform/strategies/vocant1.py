@@ -7,8 +7,8 @@ VOCANT.1 — "Volume Strategy".
       a STOP order at that fractal (buy stop above the fractal high / sell stop below the low).
 
 Trades EUR/USD + GBP/USD, both directions. Reuses the EURUSD strategy's volume-cluster
-(`find_volume_cluster`) and M1 stop-level (`fractal_identified`) primitives, and DROPS the
-1HR pullback (`measure_pullback`) — the one real difference in the bias.
+(`find_volume_cluster`); the 1M entry is M1-native (`vocant1_entry.m1_entry` — aligned push →
+pullback → fractal, with a TIGHT stop from the M1 pullback extreme). DROPS the 1HR pullback.
 
 PHASE 1 = signal generation only. Signals are tagged `_watch` so they route to the private DM
 for validation before the channel. Phase 2 (2% pending stop orders on demo) + Phase 3 (full
@@ -23,7 +23,7 @@ from core.strategy_context import StrategyContext
 from indicators.ema_200 import EMA200Indicator
 from shared.adx import calc_adx
 from strategies.pullback_setup import find_volume_cluster, cluster_strength
-from strategies.pullback_fractal import fractal_identified
+from strategies.vocant1_entry import m1_entry
 from strategies.pullback_state import PullbackState
 from news.news_filter import news_note
 
@@ -87,28 +87,23 @@ class Vocant1Strategy(BaseStrategy):
             log.info(f"[vocant1] {context.symbol} volume ({'BULL' if bullish else 'BEAR'}) but no clear trend — skip")
             return StrategyResult.empty()
 
-        # 3) 1M ENTRY — after the volume cluster, an aligned M1 pullback forms a fractal;
-        #    place the stop at the fractal. VOCANT.1 has no 1HR pullback, so the volume
-        #    cluster's range + end time are the reference for the M1 fractal window.
-        cluster  = h1[vol_start:vol_end + 1]
-        c_high   = max(c.high for c in cluster)
-        c_low    = min(c.low  for c in cluster)
-        end_time = h1[vol_end].time + 3600
-
-        sig_key = f"{'B' if bullish else 'S'}_{h1[vol_end].time}"
+        # 3) 1M ENTRY — after the volume cluster, an ALIGNED M1 pullback forms a fractal.
+        #    entry = the fractal (stop-order level); SL = just beyond the M1 pullback extreme
+        #    (a TIGHT M1 stop — NOT the wide 1HR cluster range). See vocant1_entry.m1_entry.
+        end_time = h1[vol_end].time + 3600         # the cluster candle's close → look at M1 after it
+        sig_key  = f"{'B' if bullish else 'S'}_{h1[vol_end].time}"
         self.state.cleanup(_STATE_TTL)
         if sig_key in self.state.entry_alerted:
             return StrategyResult.empty()
 
-        entry = fractal_identified(m1, c_high, c_low, bullish, end_time)
-        if entry is None:
+        res = m1_entry(m1, bullish, end_time)
+        if res is None:
             return StrategyResult.empty()
-
-        sl   = (c_low - _SL_BUFFER) if bullish else (c_high + _SL_BUFFER)
+        entry, sl = res
         risk = abs(entry - sl)
         if risk < _MIN_RISK or risk > _MAX_RISK:
             return StrategyResult.empty()
-        tp   = entry + 2.0 * risk if bullish else entry - 2.0 * risk
+        tp = entry + 2.0 * risk if bullish else entry - 2.0 * risk
 
         side     = "BUY" if bullish else "SELL"
         news_msg = news_note(context.news, ["USD", "EUR", "GBP"]) if context.news else ""
