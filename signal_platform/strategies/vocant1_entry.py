@@ -6,20 +6,17 @@ Fires on the 1M FRACTAL BREAK + PULL-BACK, per the playbook's chart samples:
   Uptrend:   price breaks ABOVE a fractal high, then pulls back DOWN (retest) -> fire BUY  (continuation).
 The signal fires while price is pulling back AFTER the break, before the continuation resumes — the
 entry is a stop just beyond the broken fractal (fills when price continues), and the stop-loss sits
-just beyond the pull-back extreme (tight). Reads only raw candles — no other-strategy logic.
+just beyond the pull-back extreme (tight). `pip` scales the buffers, the 5-60 pip risk gate and the
+price rounding for the instrument (see shared.pip). Reads only raw candles — no other-strategy logic.
 """
 from core.types import Candle
 
-_PIP          = 0.00010
-_SL_BUFFER    = 2 * _PIP
-_ENTRY_BUFFER = 1 * _PIP   # entry sits JUST beyond the broken fractal (a genuine continuation break)
-_MAX_STALE    = 20         # M1 bars — the pull-back must be this fresh (fire before continuation runs)
-_M1_WINDOW    = 120        # only look at the recent ~2h of M1 (after the volume candle) for the setup
-_MIN_RISK     = 5  * _PIP
-_MAX_RISK     = 60 * _PIP
+_MAX_STALE = 20    # M1 bars — the pull-back must be this fresh (fire before continuation runs)
+_M1_WINDOW = 120   # only look at the recent ~2h of M1 (after the volume candle) for the setup
 
 
-def m1_entry(m1: list[Candle], bullish: bool, cluster_end_time: int) -> tuple[float, float] | None:
+def m1_entry(m1: list[Candle], bullish: bool, cluster_end_time: int,
+             pip: float = 0.0001) -> tuple[float, float] | None:
     """
     Return (entry_level, sl_level) for a VOCANT.1 stop-order entry, or None.
 
@@ -28,6 +25,12 @@ def m1_entry(m1: list[Candle], bullish: bool, cluster_end_time: int) -> tuple[fl
       entry_level = a stop JUST BEYOND the broken fractal (fills as price continues the trend).
       sl_level    = just beyond the M1 pull-back extreme (tight).
     """
+    sl_buffer    = 2 * pip     # SL just beyond the pull-back extreme
+    entry_buffer = 1 * pip     # entry just beyond the broken fractal (a genuine continuation break)
+    min_risk     = 5  * pip
+    max_risk     = 60 * pip
+    digits       = 5 if pip < 0.005 else 3
+
     window = [c for c in m1[-_M1_WINDOW:] if c.time >= cluster_end_time]
     n = len(window)
     if n < 12:
@@ -66,17 +69,17 @@ def m1_entry(m1: list[Candle], bullish: bool, cluster_end_time: int) -> tuple[fl
 
         # 4) Continuation entry beyond the broken fractal; SL just beyond the pull-back extreme.
         if bullish:
-            entry, sl = f_level + _ENTRY_BUFFER, pb_ext - _SL_BUFFER
+            entry, sl = f_level + entry_buffer, pb_ext - sl_buffer
             if sl >= entry:          # pull-back didn't dip below the entry → no valid risk
                 continue
         else:
-            entry, sl = f_level - _ENTRY_BUFFER, pb_ext + _SL_BUFFER
+            entry, sl = f_level - entry_buffer, pb_ext + sl_buffer
             if sl <= entry:          # pull-back didn't bounce above the entry → no valid risk
                 continue
 
         risk = abs(entry - sl)
-        if risk < _MIN_RISK or risk > _MAX_RISK:
+        if risk < min_risk or risk > max_risk:
             continue
-        return round(entry, 5), round(sl, 5)
+        return round(entry, digits), round(sl, digits)
 
     return None
