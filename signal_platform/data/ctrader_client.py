@@ -38,6 +38,13 @@ _TF_TO_PERIOD: dict[str, int] = {
 _symbols:  dict[str, int] = {}   # "EURUSD" → symbolId
 _req_lock  = asyncio.Lock()      # serialize all TCP request/response pairs
 
+# cTrader rate-limits HISTORICAL (trendbar) requests to ~5/s per connection and, when exceeded,
+# blocks the payload type ('BLOCKED_PAYLOAD_TYPE — You are being rate limited') for a cooldown.
+# Pace every trendbar request at least this far apart so a burst across many symbols/TFs (as we
+# add pairs + strategies) stays under the limit and never trips it. Requests just queue on _req_lock.
+_MIN_REQ_GAP = 0.30              # seconds between consecutive trendbar requests (~3.3/s, safely < 5/s)
+_last_req    = 0.0               # monotonic time of the last trendbar send
+
 
 async def _load_symbols(reader, writer) -> None:
     if _symbols:
@@ -97,6 +104,13 @@ async def fetch_bars(
                 toTimestamp=to_ts,
                 count=count,
             )
+            # Rate-limit guard: keep trendbar requests ≥ _MIN_REQ_GAP apart (under cTrader's ~5/s
+            # historical cap) so bursts across pairs/TFs never trip BLOCKED_PAYLOAD_TYPE.
+            global _last_req
+            gap = _MIN_REQ_GAP - (time.monotonic() - _last_req)
+            if gap > 0:
+                await asyncio.sleep(gap)
+            _last_req = time.monotonic()
             await _sess.send(writer, req.payloadType, req.SerializeToString())
             resp = await asyncio.wait_for(_sess.recv(reader), timeout=20)
 
