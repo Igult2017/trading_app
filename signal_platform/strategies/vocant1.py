@@ -21,7 +21,7 @@ from core.base_strategy import BaseStrategy
 from core.types import (Session, Trend, NewsStance, NewsImpact,
                         StrategyResult, TF, Signal, Direction)
 from core.strategy_context import StrategyContext
-from strategies.vocant1_bias import clear_trend, confirmed_volume_move
+from strategies.vocant1_bias import detect_bias
 from strategies.vocant1_entry import m1_entry
 from news.news_filter import news_note
 from news.news_candle import is_news_candle   # shared platform resource
@@ -63,20 +63,15 @@ class Vocant1Strategy(BaseStrategy):
         if len(m1) < 12 or len(h1) < 20:
             return StrategyResult.empty()
 
-        # 1) 1HR CLEAR TREND — HH+HL (up) / LH+LL (down), pure structure. No trend -> no trade.
-        trend = clear_trend(h1)
-        if trend == 0:
+        # 1+2) 1HR BIAS — an established HH+HL/LH+LL trend OR a range breaking into a trend, each
+        #      confirmed by TWO volume candles. detect_bias returns which (origin) so we report it.
+        bias = detect_bias(h1)
+        if bias is None:
             return StrategyResult.empty()
-        bullish = trend > 0
-
-        # 2) 1HR VOLUME — TWO consecutive volume candles confirm the move (1st starts, 2nd confirms);
-        #    the 2nd candle's close is what sends us to the 1M. Volume candle = short wicks + bigger body.
-        vc = confirmed_volume_move(h1, bullish)
-        if vc is None:
-            log.info(f"[vocant1] {context.symbol} clear {'up' if bullish else 'down'}trend but no 2 confirming volume candles — skip")
-            return StrategyResult.empty()
-        # Playbook: NEVER trade the news candle. If the volume candle is news-driven, drop it —
-        # post-news continuations / range breakouts still qualify; this only removes the news spike.
+        bullish, vc_idx, origin = bias
+        vc = h1[vc_idx]
+        # Playbook: NEVER trade the news candle. If the confirming volume candle is news-driven, drop
+        # it — post-news continuations / range breakouts still qualify; this only removes the spike.
         if is_news_candle(vc, context.news, context.symbol):
             log.info(f"[vocant1] {context.symbol} volume candle is a news candle — never trade it, skip")
             return StrategyResult.empty()
@@ -109,12 +104,15 @@ class Vocant1Strategy(BaseStrategy):
             confidence        = 0.72,
             primary_timeframe = TF.H1,
             technical_reasons = [
-                f"1HR clear {'up (HH+HL)' if bullish else 'down (LH+LL)'} trend + TWO confirming {side.lower()} volume candles",
-                f"Place {side} STOP at {entry:.5f} — M1 fractal (stop-order entry)",
+                (f"1HR RANGE BREAKOUT ({side.lower()}) — two volume candles broke the range, trend building"
+                 if origin == "range" else
+                 f"1HR clear {'up (HH+HL)' if bullish else 'down (LH+LL)'} trend + two confirming {side.lower()} volume candles"),
+                f"Place {side} STOP at {entry:.5f} — M1 fractal break + pull-back (continuation)",
                 f"SL {sl:.5f} | TP {tp:.5f} | Risk {risk/_PIP:.0f} pips | RR 2:1",
             ],
-            smc_factors    = ["h1_structure_trend", "h1_volume_candle", "m1_fractal_stop_entry"],
-            market_context = f"VOCANT.1 (validating) — {side} {context.symbol} stop at {entry:.5f}",
+            smc_factors    = [("h1_range_breakout" if origin == "range" else "h1_structure_trend"),
+                              "h1_volume_candle", "m1_fractal_break_pullback"],
+            market_context = f"VOCANT.1 (validating) — {side} {context.symbol} [{'range breakout' if origin == 'range' else 'trend'}] stop at {entry:.5f}",
             news_note      = news_msg,
         )
         self._remember(sig_key, vc.time)

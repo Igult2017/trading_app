@@ -1,31 +1,28 @@
 """
 VOCANT.1 — 1HR bias.
 
-The strategy's OWN trend + volume rules, straight from the Volume Strategy playbook — NO indicators
-(no EMA, no ADX). Trend = HH+HL (up) / LH+LL (down) structure.
-
+The strategy's OWN trend + volume rules, from the Volume Strategy playbook — NO indicators. The
+direction can come from EITHER:
+  - an ESTABLISHED trend — HH+HL (up) / LH+LL (down) 1HR structure, or
+  - a RANGE BREAKING INTO A TREND — two volume candles closing beyond the recent range.
 A VOLUME CANDLE is a candle in the trend direction with a bigger body than the previous candle and
-NO / very short wicks — a long wick on either side is volatility, not momentum, so it's a no-go.
-The move is CONFIRMED by TWO CONSECUTIVE volume candles: the first starts it, the second confirms —
-and it is the SECOND candle's close that sends us down to the 1M timeframe. Reads the candles only
-through the platform's GENERIC candle-math + swing-point helpers (a shared toolbox).
+NO / very short wicks (each wick <= 15% of range; a long wick = volatility = no-go). The move is
+confirmed by TWO CONSECUTIVE volume candles; the 2nd candle's close sends us to the 1M. detect_bias()
+reports which case fired ('trend' or 'range') so the signal sheet can show it. Reads only the shared
+GENERIC candle-math + swing-point helpers.
 """
 from core.types import Candle
 from shared.candle_math import body_size, upper_wick, lower_wick, full_range, is_bullish
 from shared.swing_points import find_swing_points
 
-_MAX_WICK_FRAC = 0.15   # each wick must be <= 15% of the candle's range — a long wick = volatility, no-go
-_VOL_LOOKBACK  = 6      # how many recent 1HR bars to scan for the confirming (2nd) volume candle
-_SWING_N       = 3      # generic swing-pivot half-width
+_MAX_WICK_FRAC  = 0.15   # each wick <= 15% of the candle's range — a long wick = volatility, no-go
+_VOL_LOOKBACK   = 6      # recent 1HR bars scanned for the confirming (2nd) volume candle
+_SWING_N        = 3      # generic swing-pivot half-width
+_RANGE_LOOKBACK = 8      # bars before the breakout that define the range being broken
 
 
 def clear_trend(h1: list[Candle]) -> int:
-    """
-    VOCANT.1's trend rule (playbook, no indicators):
-      +1 uptrend   = higher high AND higher low  (HH + HL)
-      -1 downtrend = lower high  AND lower low   (LH + LL)
-       0           = no clear trend  -> no trade
-    """
+    """+1 uptrend (HH+HL) / -1 downtrend (LH+LL) / 0 no clear trend — pure structure, no indicators."""
     pts   = find_swing_points(h1, n=_SWING_N)
     highs = [p.price for p in pts if p.is_high]
     lows  = [p.price for p in pts if not p.is_high]
@@ -39,32 +36,54 @@ def clear_trend(h1: list[Candle]) -> int:
 
 
 def _is_volume_candle(c: Candle, prev: Candle, bullish: bool) -> bool:
-    """
-    A VOCANT.1 volume candle: in the trend direction, a bigger body than the previous candle, and
-    NO / very short wicks. BOTH the upper and lower wick must each be small relative to the candle's
-    range — a long wick on either side is volatility and disqualifies the candle.
-    """
+    """In the trend direction, a bigger body than the previous candle, and NO / very short wicks
+    (both wicks small vs the range) — a long wick on either side disqualifies it."""
     if is_bullish(c) != bullish:
         return False
-    if body_size(c) <= body_size(prev):              # must be bigger than the previous candle
+    if body_size(c) <= body_size(prev):
         return False
     rng = full_range(c)
     if rng <= 0:
         return False
-    return (upper_wick(c) <= _MAX_WICK_FRAC * rng     # short upper wick — no long wick
-            and lower_wick(c) <= _MAX_WICK_FRAC * rng)  # short lower wick — no long wick
+    return upper_wick(c) <= _MAX_WICK_FRAC * rng and lower_wick(c) <= _MAX_WICK_FRAC * rng
 
 
-def confirmed_volume_move(h1: list[Candle], bullish: bool) -> Candle | None:
-    """
-    TWO CONSECUTIVE volume candles in the trend direction CONFIRM the move — the first starts it, the
-    second confirms. Returns the SECOND (confirming) candle, whose close anchors the 1M entry, or None.
-    Scans the recent bars for the most recent such pair. The direction can come from a news aftermath
-    OR a range breaking into a trend — either way, two clean volume candles one way = confirmation.
-    """
+def confirmed_volume_idx(h1: list[Candle], bullish: bool) -> int | None:
+    """Index of the SECOND of two CONSECUTIVE volume candles in the trend direction, or None."""
     start = max(2, len(h1) - _VOL_LOOKBACK)
-    for i in range(len(h1) - 1, start - 1, -1):       # i = confirming (2nd) candle; i-1 = the first
+    for i in range(len(h1) - 1, start - 1, -1):
         if (_is_volume_candle(h1[i], h1[i - 1], bullish)
                 and _is_volume_candle(h1[i - 1], h1[i - 2], bullish)):
-            return h1[i]
+            return i
+    return None
+
+
+def _breaks_range(h1: list[Candle], vc_idx: int, bullish: bool) -> bool:
+    """True if the 2nd volume candle CLOSES beyond the range set by the bars before the pair —
+    a genuine break out of a range, not a wiggle inside it."""
+    prior = h1[max(0, vc_idx - 1 - _RANGE_LOOKBACK): vc_idx - 1]
+    if len(prior) < 3:
+        return False
+    if bullish:
+        return h1[vc_idx].close > max(c.high for c in prior)
+    return h1[vc_idx].close < min(c.low for c in prior)
+
+
+def detect_bias(h1: list[Candle]) -> tuple[bool, int, str] | None:
+    """
+    VOCANT.1's 1HR bias. Returns (bullish, vc_idx, origin) or None.
+      origin 'trend' — established HH+HL / LH+LL structure, confirmed by two volume candles.
+      origin 'range' — a ranging market breaking into a trend: two volume candles closed beyond the range.
+    """
+    trend = clear_trend(h1)
+    if trend != 0:
+        bullish = trend > 0
+        vc_idx  = confirmed_volume_idx(h1, bullish)
+        return (bullish, vc_idx, "trend") if vc_idx is not None else None
+
+    # No established trend — accept a RANGE breaking into a trend (volume-led, playbook-valid).
+    for bullish in (True, False):
+        vc_idx = confirmed_volume_idx(h1, bullish)
+        if vc_idx is not None and _breaks_range(h1, vc_idx, bullish):
+            return (bullish, vc_idx, "range")
     return None
