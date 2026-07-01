@@ -17,7 +17,6 @@
  * Destination: WATCHDOG_CHAT_ID (set this to your private DM with the bot) → falls back
  * to TELEGRAM_CHAT_ID only if unset. Sends via TELEGRAM_BOT_TOKEN.
  */
-import { readFileSync } from "fs";
 import { pool } from "../db";
 import { safeDecrypt } from "../lib/crypto";
 import { refreshCTraderToken } from "./autoSyncService";
@@ -81,12 +80,9 @@ async function checkToken(): Promise<void> {
   } catch { /* transient DB/decrypt issue — don't false-alarm */ }
 }
 
-async function checkScanner(): Promise<void> {
-  try {
-    const s = JSON.parse(readFileSync("/app/.signal_platform_status.json", "utf8"));
-    await flag("scanner", s.status === "error");
-  } catch { /* file absent (dev / not booted yet) — skip silently */ }
-}
+// NOTE: the signal scanner (S3) now self-reports IMMEDIATELY from Python (startup_helpers.py
+// write_status → coded S3 ⏬/⏫ to WATCHDOG_CHAT_ID), so the watchdog no longer polls it here —
+// that avoids a duplicate, slower (10-min) alert. This watchdog still owns K7 (token) + E9 (engine).
 
 async function checkEngine(): Promise<void> {
   if (process.env.COPY_ENGINE_ENABLED === "false") return;
@@ -99,7 +95,7 @@ async function checkEngine(): Promise<void> {
 
 export function startHealthWatchdog(): void {
   if (!botToken() || !chatId()) return;   // no Telegram configured — nothing to alert through
-  const tick = async () => { await checkToken(); await checkScanner(); await checkEngine(); };
+  const tick = async () => { await checkToken(); await checkEngine(); };
   // First pass 90s after boot (let everything settle), then every 10 min.
   setTimeout(() => { void tick(); setInterval(() => void tick(), 10 * 60 * 1000); }, 90_000);
   console.log("[watchdog] health watchdog armed (coded alerts ->", process.env.WATCHDOG_CHAT_ID ? "admin chat)" : "signal chat)");

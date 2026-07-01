@@ -131,15 +131,10 @@ async def get_access_token() -> str:
             log.info("[ctrader] using live token from Node DB")
             return _access_token
 
-        # Last resort — Node truly unreachable. Use the env token but keep it SHORT-lived so we
-        # retry Node almost immediately (the env snapshot may be stale after a rotation).
-        from config.settings import settings as _s
-        if _s.ctrader_access_token:
-            _access_token = _s.ctrader_access_token
-            _token_expiry = time.monotonic() + 30
-            log.warning("[ctrader] Node unreachable — using env fallback token (may be stale); retrying Node soon")
-            return _access_token
-        raise ValueError("[ctrader] no access token from Node — reconnect the cTrader account")
+        # NO env fallback. A static env token can't be kept fresh — it only masks the failure by
+        # crash-looping on a stale, invalid token. Fail loudly instead: the boot probe reports it
+        # and write_status("error") fires an immediate coded S3 alert to the private admin chat.
+        raise ValueError("[ctrader] could not get a live token from Node after retries — check Node/DB")
 
 
 async def send(writer: asyncio.StreamWriter,
