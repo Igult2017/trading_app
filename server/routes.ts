@@ -629,7 +629,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .map((r: any) => r.user_id)
         .filter(Boolean);
       if (missing.length > 0) {
-        await backfillProfilesFromSupabase(missing);
+        // Time-box the Supabase backfill so a slow / rate-limited / unreachable Supabase can NEVER
+        // hang the whole leaderboard response — that hang is what the proxy turns into a 502
+        // "Bad Gateway" (which the client then fails to JSON.parse). If it doesn't finish in time we
+        // simply return with the names we already have (displayFor falls back to email / "Trader #").
+        await Promise.race([
+          backfillProfilesFromSupabase(missing).catch(() => {}),
+          new Promise<void>((resolve) => setTimeout(resolve, 4000)),
+        ]);
         const { rows: refreshed } = await pool.query(
           `SELECT id, email, full_name FROM user_profiles WHERE id = ANY($1::varchar[])`,
           [missing],
