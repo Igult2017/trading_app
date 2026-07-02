@@ -7,14 +7,6 @@ interface PlatformStatus { status: "starting" | "ok" | "error"; error: string; h
 interface StatusData { ctraderConfigured: boolean; dataSource: string; platformStatus: PlatformStatus | null; lastSignal: LastSignal | null; signalsLast24h: number; activeSignalsLast24h: number; error?: string; }
 interface Props { darkMode?: boolean; selectedSymbol?: string; confirmed?: boolean | null; }
 
-function timeAgo(iso: string): string {
-  const m = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
-  if (m < 1) return "just now";
-  if (m < 60) return `${m}m ago`;
-  const h = Math.floor(m / 60);
-  return h < 24 ? `${h}h ago` : `${Math.floor(h / 24)}d ago`;
-}
-
 export default function SignalPlatformStatus({ darkMode = true, selectedSymbol = "", confirmed = null }: Props) {
   const C = darkMode
     ? { bg: "#080c10", bg2: "#0a0f16", bg3: "#0c1219", border: "#0f1923", border2: "#172233",
@@ -78,29 +70,6 @@ export default function SignalPlatformStatus({ darkMode = true, selectedSymbol =
                 </div>
               </div>
             )}
-
-            {/* Last signal */}
-            <div>
-              <div style={{ fontSize: 8, fontWeight: 700, color: C.dim, letterSpacing: "0.14em", marginBottom: 10 }}>LAST SIGNAL</div>
-              {data?.lastSignal ? (
-                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                  <div style={{
-                    padding: "5px 12px", borderRadius: 3, fontSize: 10, fontWeight: 800, letterSpacing: "0.12em",
-                    background: data.lastSignal.type === "BUY" ? "rgba(34,211,165,0.12)" : "rgba(244,97,127,0.12)",
-                    color:      data.lastSignal.type === "BUY" ? "#22d3a5" : "#f4617f",
-                    border:     `1px solid ${data.lastSignal.type === "BUY" ? "rgba(34,211,165,0.3)" : "rgba(244,97,127,0.3)"}`,
-                  }}>{data.lastSignal.type}</div>
-                  <div>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: C.text }}>{data.lastSignal.symbol}</div>
-                    <div style={{ fontSize: 9, color: C.muted, marginTop: 2 }}>Conf {data.lastSignal.confidence}% · {timeAgo(data.lastSignal.createdAt)}</div>
-                  </div>
-                </div>
-              ) : (
-                <div style={{ fontSize: 10, color: C.muted }}>
-                  {hasError ? "Fix the error above to start receiving signals" : "No signal generated yet — scanner is running"}
-                </div>
-              )}
-            </div>
 
             {/* 24h stats */}
             <div style={{ display: "flex", gap: 16 }}>
