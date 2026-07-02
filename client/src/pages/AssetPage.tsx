@@ -68,56 +68,77 @@ function isConfirmedSignal(marketContext?: string | null): boolean {
   return !/validating|watch|invalidated/i.test(String(marketContext || ""));
 }
 
-function buildPriceAction(sig: any): { icon: "layers" | "layers2" | "zoom"; text: string; bold?: string }[] {
+// Split the strategy's smcFactors into the three panels by an explicit prefix, so each panel is
+// DYNAMIC per strategy — no hardcoded TF/indicator rows. Convention the strategy emits:
+//   CTX::<label>::<note>   → Context Alignment (what's happening in a timeframe)
+//   IND::<name>::<status>  → Technical Confluence (an indicator + its reading)
+//   PA::<note>             → Price Action
+// Anything without a prefix falls back to Price Action (older strategies).
+function splitFactors(smcFactors?: string[] | null) {
+  const ctx: ContextItem[] = [], ind: TechItem[] = [], pa: string[] = [];
+  for (const raw of smcFactors ?? []) {
+    const s = String(raw);
+    if (s.startsWith("CTX::")) {
+      const [, label, note] = s.split("::");
+      ctx.push({ label: (label ?? "").toUpperCase(), value: (note ?? "").toUpperCase(), color: valueColor(note) });
+    } else if (s.startsWith("IND::")) {
+      const [, name, status] = s.split("::");
+      ind.push({ label: (name ?? "").toUpperCase(), value: (status ?? "").toUpperCase(), color: valueColor(status) });
+    } else {
+      pa.push(s.startsWith("PA::") ? s.slice(4) : s);
+    }
+  }
+  return { ctx, ind, pa };
+}
+
+// Best-effort indicators for older strategies that don't emit IND:: factors — surfaces ONLY the
+// indicators actually named in the reasons (never a fixed row that doesn't apply to the strategy).
+function deriveIndicators(reasons?: string[] | null): TechItem[] {
+  const KNOWN = ["EMA 200", "ADX", "MACD", "RSI", "STOCH", "BOLLINGER"];
+  const out: TechItem[] = [];
+  for (const name of KNOWN) {
+    const r = (reasons ?? []).find(x => x.toUpperCase().includes(name.toUpperCase()));
+    if (!r) continue;
+    let status = "USED";
+    const num = r.match(new RegExp(name.replace(/\s+/g, "\\s*") + "\\s*([0-9]+(?:\\.[0-9]+)?)", "i"));
+    if (num) status = num[1];
+    else if (/aligned/i.test(r)) status = "ALIGNED";
+    else if (/confirm/i.test(r)) status = "CONFIRMS";
+    out.push({ label: name, value: status, color: valueColor(status) });
+  }
+  return out;
+}
+
+function buildPriceAction(sig: any, pa: string[]): { icon: "layers" | "layers2" | "zoom"; text: string; bold?: string }[] {
+  const icons: ("layers" | "layers2" | "zoom")[] = ["layers", "layers2", "zoom"];
   const items: { icon: "layers" | "layers2" | "zoom"; text: string; bold?: string }[] = [];
 
-  if (sig.bocChochDetected) {
-    items.push({ icon: "layers", text: `${sig.bocChochDetected.toUpperCase()} CONFIRMED.`, bold: sig.bocChochDetected.toUpperCase() });
-  } else if (sig.smcFactors?.length) {
-    items.push({ icon: "layers", text: sig.smcFactors[0].toUpperCase(), bold: undefined });
-  }
+  // Strategy-authored price-action notes first (dynamic, short — no free-text stories).
+  for (const p of pa) items.push({ icon: icons[items.length] ?? "zoom", text: p.toUpperCase(), bold: undefined });
 
-  if (sig.orderBlockType) {
-    items.push({ icon: "layers2", text: `${sig.orderBlockType.toUpperCase()} ORDER BLOCK IN PLAY.`, bold: "ORDER BLOCK" });
-  } else if (sig.smcFactors?.length > 1) {
-    items.push({ icon: "layers2", text: sig.smcFactors[1].toUpperCase(), bold: undefined });
-  }
+  // Then any SMC field the strategy set (order block / FVG / liquidity), appended if there's room.
+  if (items.length < 3 && sig.bocChochDetected)   items.push({ icon: "layers",  text: `${sig.bocChochDetected.toUpperCase()} CONFIRMED.`, bold: sig.bocChochDetected.toUpperCase() });
+  if (items.length < 3 && sig.orderBlockType)      items.push({ icon: "layers2", text: `${sig.orderBlockType.toUpperCase()} ORDER BLOCK IN PLAY.`, bold: "ORDER BLOCK" });
+  if (items.length < 3 && sig.fvgDetected)         items.push({ icon: "zoom",    text: "FAIR VALUE GAP IDENTIFIED — AWAITING MITIGATION.", bold: "FAIR VALUE GAP" });
+  else if (items.length < 3 && sig.liquiditySweep) items.push({ icon: "zoom",    text: "LIQUIDITY SWEEP DETECTED — ENTRY TRIGGER PENDING.", bold: "LIQUIDITY SWEEP" });
 
-  if (sig.fvgDetected) {
-    items.push({ icon: "zoom", text: "FAIR VALUE GAP IDENTIFIED — AWAITING MITIGATION.", bold: "FAIR VALUE GAP" });
-  } else if (sig.liquiditySweep) {
-    items.push({ icon: "zoom", text: "LIQUIDITY SWEEP DETECTED — ENTRY TRIGGER PENDING.", bold: "LIQUIDITY SWEEP" });
-  } else if (sig.smcFactors?.length > 2) {
-    // Third structured factor — NOT the free-text marketContext (this panel shows data, not prose).
-    items.push({ icon: "zoom", text: sig.smcFactors[2].toUpperCase(), bold: undefined });
-  }
-
-  // Fill to 3 items with placeholders if short
-  while (items.length < 3) {
-    items.push({ icon: "zoom", text: "AWAITING FURTHER CONFIRMATION.", bold: undefined });
-  }
-
+  while (items.length < 3) items.push({ icon: "zoom", text: "AWAITING FURTHER CONFIRMATION.", bold: undefined });
   return items.slice(0, 3);
 }
 
 function signalToDisplayData(sig: any | null) {
   if (!sig) return null;
+  const { ctx, ind, pa } = splitFactors(sig.smcFactors);
 
-  const context: ContextItem[] = [
-    { label: "1D TREND",      value: sig.trendDirection?.toUpperCase() || "—",        color: trendColor(sig.trendDirection) },
-    { label: "4H STRUCTURE",  value: parseReason(sig.technicalReasons, "4H"),         color: valueColor(parseReason(sig.technicalReasons, "4H")) },
-    { label: "1H MOMENTUM",   value: parseReason(sig.technicalReasons, "1H"),         color: valueColor(parseReason(sig.technicalReasons, "1H")) },
-    { label: "15M LIQUIDITY", value: sig.liquiditySweep ? "TAKEN" : "—",            color: sig.liquiditySweep ? "#f59e0b" : "#2d4a63" },
-    { label: (sig.strategy?.toUpperCase() || "STRATEGY"), value: sig.orderBlockType?.toUpperCase() || "—", color: "#22d3a5" },
+  // CONTEXT ALIGNMENT — dynamic per strategy (the TFs it actually used). Fall back to the trend
+  // direction on the primary TF when a strategy provides no per-TF notes.
+  const context: ContextItem[] = ctx.length ? ctx : [
+    { label: `${(sig.primaryTimeframe ?? "1D").toUpperCase()} TREND`, value: sig.trendDirection?.toUpperCase() || "—", color: trendColor(sig.trendDirection) },
   ];
 
-  const tech: TechItem[] = [
-    { label: "ADX POWER",       value: parseReason(sig.technicalReasons, "ADX"),     color: valueColor(parseReason(sig.technicalReasons, "ADX")) },
-    { label: "MACD",            value: parseReason(sig.technicalReasons, "MACD"),    color: valueColor(parseReason(sig.technicalReasons, "MACD")) },
-    { label: "EMA 200",         value: parseReason(sig.technicalReasons, "EMA 200"), color: valueColor(parseReason(sig.technicalReasons, "EMA 200")) },
-    { label: "EMA (5,9,13,21)", value: parseReason(sig.technicalReasons, "EMA"),     color: valueColor(parseReason(sig.technicalReasons, "EMA")) },
-    { label: "VOLUME",          value: parseReason(sig.technicalReasons, "Volume"),  color: valueColor(parseReason(sig.technicalReasons, "Volume")) },
-  ];
+  // TECHNICAL CONFLUENCE — only the indicators the strategy actually used; empty for a pure
+  // price-action strategy like VOCANT.1 (no fabricated ADX/MACD/EMA rows).
+  const tech: TechItem[] = ind.length ? ind : deriveIndicators(sig.technicalReasons);
 
   return {
     entry: sig.entryPrice ? String(sig.entryPrice) : null,
@@ -129,7 +150,7 @@ function signalToDisplayData(sig: any | null) {
     optimalRisk: deriveOptimalRisk(sig.overallConfidence),
     context,
     tech,
-    priceAction: buildPriceAction(sig),
+    priceAction: buildPriceAction(sig, pa),
   };
 }
 

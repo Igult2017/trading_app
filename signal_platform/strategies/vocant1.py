@@ -140,8 +140,14 @@ class Vocant1Strategy(BaseStrategy):
             confidence        = 0.72,
             primary_timeframe = TF.H1,
             technical_reasons = reasons,
-            smc_factors       = [("h1_range_breakout" if origin == "range" else "h1_structure_trend"),
-                                 "h1_volume_candle", "m1_fractal_break_pullback"] + (["correlated_usd"] if corr else []),
+            # Panel-labelled factors so the UI renders dynamically (CTX = per-TF context, PA = price
+            # action). VOCANT.1 uses NO indicators, so it emits NO IND factors → Technical Confluence
+            # stays empty (correct) rather than showing fabricated EMA/ADX rows.
+            smc_factors       = ([f"CTX::1HR TREND::{'RANGE BREAKOUT' if origin == 'range' else ('UPTREND' if bullish else 'DOWNTREND')}",
+                                  f"CTX::1HR VOLUME::{vol_count} CANDLE{'S' if vol_count != 1 else ''}",
+                                  "CTX::1M ENTRY::FRACTAL BREAK + PULL-BACK",
+                                  "PA::CONTINUATION STOP-ENTRY (2R)"]
+                                 + (["PA::CORRELATED USD — SIZE DOWN"] if corr else [])),
             market_context    = (f"VOCANT.1 (validating) — {side} {context.symbol} "
                                  f"[{'range breakout' if origin == 'range' else 'trend'}]"
                                  f"{' correlated' if corr else ''} stop at {entry:.{digits}f}"),
