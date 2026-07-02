@@ -14,6 +14,9 @@ interface Instrument {
   category: "Crypto" | "Forex" | "Stock" | "Index" | "Commodity";
   unconfirmed?: boolean;   // pending_setups — scanner is watching, not yet a confirmed signal
   setupStage?: string;
+  direction?: string;      // signal side (BUY/SELL) for the sidebar
+  createdAt?: string;      // signal time — sidebar is ordered latest-first
+  confirmed?: boolean;     // valid signal that can be taken vs a watch/validating one
 }
 
 interface ContextItem { label: string; value: string; color: string; loading?: boolean }
@@ -59,6 +62,12 @@ function deriveOptimalRisk(confidence?: number | null): string {
   return "0.5% - 1.0% CAPITAL";
 }
 
+// A signal is CONFIRMED (a valid setup that can be taken) unless it's a watch / validating /
+// invalidated alert. Derived from the market context the strategy writes.
+function isConfirmedSignal(marketContext?: string | null): boolean {
+  return !/validating|watch|invalidated/i.test(String(marketContext || ""));
+}
+
 function buildPriceAction(sig: any): { icon: "layers" | "layers2" | "zoom"; text: string; bold?: string }[] {
   const items: { icon: "layers" | "layers2" | "zoom"; text: string; bold?: string }[] = [];
 
@@ -78,8 +87,9 @@ function buildPriceAction(sig: any): { icon: "layers" | "layers2" | "zoom"; text
     items.push({ icon: "zoom", text: "FAIR VALUE GAP IDENTIFIED — AWAITING MITIGATION.", bold: "FAIR VALUE GAP" });
   } else if (sig.liquiditySweep) {
     items.push({ icon: "zoom", text: "LIQUIDITY SWEEP DETECTED — ENTRY TRIGGER PENDING.", bold: "LIQUIDITY SWEEP" });
-  } else if (sig.marketContext) {
-    items.push({ icon: "zoom", text: sig.marketContext.toUpperCase(), bold: undefined });
+  } else if (sig.smcFactors?.length > 2) {
+    // Third structured factor — NOT the free-text marketContext (this panel shows data, not prose).
+    items.push({ icon: "zoom", text: sig.smcFactors[2].toUpperCase(), bold: undefined });
   }
 
   // Fill to 3 items with placeholders if short
@@ -328,7 +338,7 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
   }
 
   // ── All active signals → sidebar instrument list ─────────────────────────
-  const { data: allSignals = [] } = useQuery<{ symbol: string; assetClass: string }[]>({
+  const { data: allSignals = [] } = useQuery<any[]>({
     queryKey: ["all-active-signals"],
     queryFn: async () => {
       const res = await fetch("/api/trading-signals?status=active");
@@ -357,18 +367,24 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
   const sidebarInstruments: Instrument[] = (() => {
     const seen = new Set<string>();
     const list: Instrument[] = [];
-    for (const s of allSignals) {
-      if (!seen.has(s.symbol)) {
+    // Signals, LATEST FIRST — the top of the sidebar is the newest signal (auto-selected below).
+    const sorted = [...allSignals].sort((a, b) =>
+      new Date(b?.createdAt || 0).getTime() - new Date(a?.createdAt || 0).getTime());
+    for (const s of sorted) {
+      if (s?.symbol && !seen.has(s.symbol)) {
         seen.add(s.symbol);
-        list.push({ symbol: s.symbol, assetClass: s.assetClass as Instrument["assetClass"], category: assetClassToCategory(s.assetClass) });
+        list.push({
+          symbol: s.symbol, assetClass: s.assetClass as Instrument["assetClass"],
+          category: assetClassToCategory(s.assetClass),
+          direction: s.type, createdAt: s.createdAt, confirmed: isConfirmedSignal(s.marketContext),
+        });
       }
     }
-    // Append unconfirmed setups after the confirmed signals (a symbol with a
-    // confirmed signal is never duplicated as pending).
+    // Unconfirmed setups the scanner is watching, after the fired signals.
     for (const p of pendingSetups) {
       if (p?.symbol && !seen.has(p.symbol)) {
         seen.add(p.symbol);
-        list.push({ symbol: p.symbol, assetClass: p.assetClass as Instrument["assetClass"], category: assetClassToCategory(p.assetClass), unconfirmed: true, setupStage: p.setupStage });
+        list.push({ symbol: p.symbol, assetClass: p.assetClass as Instrument["assetClass"], category: assetClassToCategory(p.assetClass), unconfirmed: true, confirmed: false, setupStage: p.setupStage });
       }
     }
     return list;
@@ -765,7 +781,7 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
           })()}
 
           {/* ── Signal Platform Status (replaces live chart — signal-only mode) ── */}
-          <SignalPlatformStatus darkMode={darkMode} selectedSymbol={selected} />
+          <SignalPlatformStatus darkMode={darkMode} selectedSymbol={selected} confirmed={rawSignal ? isConfirmedSignal(rawSignal.marketContext) : null} />
 
           {/* ── Live Visualizer Chart (disabled — signal-only mode) ── */}
           {false && <div style={{ background: C.bg2, border: `1px solid ${C.border}`, borderRadius: 4, overflow: "hidden" }}>
@@ -1034,7 +1050,7 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
                   transition: "all 0.15s",
                 }}
               >
-                {/* Row 1: Symbol + Category badge */}
+                {/* Row 1: Symbol + Category badge (sidebar stays a clean pair list) */}
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                   <span style={{ fontSize: 10, fontWeight: 700, color: isActive ? "#7c6ff7" : C.muted, letterSpacing: "0.04em" }}>
                     {card.symbol}

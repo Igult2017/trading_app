@@ -5,7 +5,7 @@ import { fetchJson } from "@/lib/queryClient";
 interface LastSignal { id: string; symbol: string; type: string; status: string; strategy: string | null; confidence: number; createdAt: string; }
 interface PlatformStatus { status: "starting" | "ok" | "error"; error: string; hint: string; ts: number; }
 interface StatusData { ctraderConfigured: boolean; dataSource: string; platformStatus: PlatformStatus | null; lastSignal: LastSignal | null; signalsLast24h: number; activeSignalsLast24h: number; error?: string; }
-interface Props { darkMode?: boolean; selectedSymbol?: string; }
+interface Props { darkMode?: boolean; selectedSymbol?: string; confirmed?: boolean | null; }
 
 function timeAgo(iso: string): string {
   const m = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
@@ -15,7 +15,7 @@ function timeAgo(iso: string): string {
   return h < 24 ? `${h}h ago` : `${Math.floor(h / 24)}d ago`;
 }
 
-export default function SignalPlatformStatus({ darkMode = true, selectedSymbol = "" }: Props) {
+export default function SignalPlatformStatus({ darkMode = true, selectedSymbol = "", confirmed = null }: Props) {
   const C = darkMode
     ? { bg: "#080c10", bg2: "#0a0f16", bg3: "#0c1219", border: "#0f1923", border2: "#172233",
         text: "#c8d8e8", muted: "#4a6580", dim: "#2d4a63", hero: "#ffffff" }
@@ -53,7 +53,10 @@ export default function SignalPlatformStatus({ darkMode = true, selectedSymbol =
               style={{ width: 9, height: 9, borderRadius: "50%", background: lightScanner, boxShadow: `0 0 7px ${lightScanner}`, animation: "sp-blink 1.4s ease-in-out infinite", animationDelay: "0.7s" }} />
           </div>
         </div>
-        <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.text, fontFamily: "monospace" }}>{selectedSymbol}</div>
+        <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.1em", fontFamily: "monospace",
+          color: confirmed == null ? C.muted : confirmed ? "#22d3a5" : "#f59e0b" }}>
+          {confirmed == null ? "STATUS: —" : confirmed ? "STATUS: CONFIRMED" : "STATUS: NOT CONFIRMED"}
+        </div>
         <button style={{ background: C.bg3, border: `1px solid ${C.border2}`, color: C.text, fontSize: 9, fontWeight: 700, letterSpacing: "0.08em", padding: "5px 12px", cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
           <Bell size={11} /> ALERT
         </button>
