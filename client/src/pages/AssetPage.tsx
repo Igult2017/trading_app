@@ -91,24 +91,6 @@ function splitFactors(smcFactors?: string[] | null) {
   return { ctx, ind, pa };
 }
 
-// Best-effort indicators for older strategies that don't emit IND:: factors — surfaces ONLY the
-// indicators actually named in the reasons (never a fixed row that doesn't apply to the strategy).
-function deriveIndicators(reasons?: string[] | null): TechItem[] {
-  const KNOWN = ["EMA 200", "ADX", "MACD", "RSI", "STOCH", "BOLLINGER"];
-  const out: TechItem[] = [];
-  for (const name of KNOWN) {
-    const r = (reasons ?? []).find(x => x.toUpperCase().includes(name.toUpperCase()));
-    if (!r) continue;
-    let status = "USED";
-    const num = r.match(new RegExp(name.replace(/\s+/g, "\\s*") + "\\s*([0-9]+(?:\\.[0-9]+)?)", "i"));
-    if (num) status = num[1];
-    else if (/aligned/i.test(r)) status = "ALIGNED";
-    else if (/confirm/i.test(r)) status = "CONFIRMS";
-    out.push({ label: name, value: status, color: valueColor(status) });
-  }
-  return out;
-}
-
 function buildPriceAction(sig: any, pa: string[]): { icon: "layers" | "layers2" | "zoom"; text: string; bold?: string }[] {
   const icons: ("layers" | "layers2" | "zoom")[] = ["layers", "layers2", "zoom"];
   const items: { icon: "layers" | "layers2" | "zoom"; text: string; bold?: string }[] = [];
@@ -130,15 +112,11 @@ function signalToDisplayData(sig: any | null) {
   if (!sig) return null;
   const { ctx, ind, pa } = splitFactors(sig.smcFactors);
 
-  // CONTEXT ALIGNMENT — dynamic per strategy (the TFs it actually used). Fall back to the trend
-  // direction on the primary TF when a strategy provides no per-TF notes.
-  const context: ContextItem[] = ctx.length ? ctx : [
-    { label: `${(sig.primaryTimeframe ?? "1D").toUpperCase()} TREND`, value: sig.trendDirection?.toUpperCase() || "—", color: trendColor(sig.trendDirection) },
-  ];
-
-  // TECHNICAL CONFLUENCE — only the indicators the strategy actually used; empty for a pure
-  // price-action strategy like VOCANT.1 (no fabricated ADX/MACD/EMA rows).
-  const tech: TechItem[] = ind.length ? ind : deriveIndicators(sig.technicalReasons);
+  // CONTEXT ALIGNMENT + TECHNICAL CONFLUENCE — ONLY what the strategy explicitly labelled (CTX:: /
+  // IND:: factors). Never fabricated or guessed: a strategy with no indicators shows an EMPTY
+  // Technical panel; one with no per-TF notes shows an EMPTY Context panel. No fake rows.
+  const context: ContextItem[] = ctx;
+  const tech: TechItem[] = ind;
 
   return {
     entry: sig.entryPrice ? String(sig.entryPrice) : null,
@@ -475,9 +453,11 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
 
   // Row/line ICONS always render (scaffold); the TEXT fills in green only where a
   // live setup actually has a data-point. No signal ⇒ icons only, no text.
-  const displayContext     = data?.context     ?? _ICON_CTX;
-  const displayTech        = data?.tech        ?? _ICON_TECH;
-  const displayPriceAction = data?.priceAction ?? _ICON_PA;
+  // Show the strategy's real rows; when a panel has none (e.g. VOCANT.1 uses no indicators), fall
+  // back to the blank icon scaffold — icons only, no fabricated text.
+  const displayContext     = data?.context?.length     ? data.context     : _ICON_CTX;
+  const displayTech        = data?.tech?.length         ? data.tech        : _ICON_TECH;
+  const displayPriceAction = data?.priceAction?.length  ? data.priceAction : _ICON_PA;
 
   const filtered = sidebarInstruments.filter(i =>
     i.symbol.toLowerCase().includes(search.toLowerCase())
@@ -543,19 +523,13 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
                 value: (
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
                     <svg width="14" height="14" viewBox="0 0 12 12"
-                      fill={entryTick.direction === "down" ? "#f4617f" : "#22d3a5"}
-                      style={{ transition: "fill 0.3s" }}>
-                      {entryTick.direction === "down"
+                      fill={data?.direction === "down" ? "#f4617f" : "#22d3a5"}>
+                      {data?.direction === "down"
                         ? <polygon points="6,11 11,2 1,2" />
                         : <polygon points="6,1 11,10 1,10" />}
                     </svg>
-                    <TickingPrice
-                      price={entryTick.price ?? parseFloat(data?.entry ?? "0")}
-                      prevPrice={entryTick.prevPrice}
-                      direction={entryTick.direction}
-                      fontSize={9}
-                      fontWeight={700}
-                    />
+                    {/* The signal's ENTRY LEVEL (real) — not the live price feed, which read 0. */}
+                    <span style={{ fontSize: 9, fontWeight: 700, color: C.text }}>{data?.entry ?? "—"}</span>
                   </div>
                 )
               },
