@@ -16,6 +16,7 @@ RESOURCES (candle feed, pip-size, dedup, signal types) — never another strateg
 PHASE 1 = signal generation only (DM-only alert via `_watch`). Phase 2 (auto-execute) follows.
 """
 import logging
+import time
 
 from core.base_strategy import BaseStrategy
 from core.types import Session, Trend, NewsStance, NewsImpact, StrategyResult, TF, Signal
@@ -26,6 +27,7 @@ from strategies.bx_sd_setup import detect_setup
 from strategies.bx_sd_ltf import ltf_confluence
 from strategies.bx_sd_entry import entry_trigger
 from strategies.bx_sd_signal import build_signal
+from strategies.bx_sd_watch import check_invalidation, invalidation_signal
 
 log = logging.getLogger(__name__)
 
@@ -49,8 +51,9 @@ class BXStrategy(BaseStrategy):
     news_impact_filter  = [NewsImpact.HIGH]
 
     def __init__(self):
-        self.fired = FiredRegistry(self.id)     # DB-persisted dedup, survives restarts
-        self._stage: dict[str, str] = {}        # symbol -> last logged cascade stage (observability)
+        self.fired = FiredRegistry(self.id)      # DB-persisted dedup, survives restarts
+        self._stage:  dict[str, str]  = {}       # symbol -> last logged cascade stage (observability)
+        self._locked: dict[str, dict] = {}       # symbol -> tapped setup being watched to invalidation
 
     async def analyze(self, context: StrategyContext) -> StrategyResult:
         h4  = context.candles.get(TF.H4)
@@ -62,40 +65,59 @@ class BXStrategy(BaseStrategy):
         sym    = context.symbol
         pip    = pip_size(sym)
         digits = price_digits(sym)
+        out: list[Signal] = []
+
+        # WATCH — a tapped setup broke before it triggered: alert once, then stop watching it.
+        locked = self._locked.get(sym)
+        if locked is not None:
+            inval = check_invalidation(locked, h4, m15)
+            if inval == "broken":
+                self._locked.pop(sym, None)
+                self.fired.add(f"{sym}_{locked['direction']}_{locked['zone_time']}")  # void it: no re-watch/re-fire
+                self._log(sym, "INVALIDATED", "4H zone broken before the entry triggered")
+                out.append(invalidation_signal(locked, sym, self.name, self.id + "_watch"))
+            elif inval == "expired":
+                self._locked.pop(sym, None)
 
         # STAGE 1 — 4H setup (confirmed, pro-trend, valid fresh zone, tapped, priced, liquidity-safe)
         setup = detect_setup(h4, pip)
         if not setup.active:
             self._log(sym, "SCANNING", f"4H: {setup.reason}")
-            return StrategyResult.empty()
+            return StrategyResult(signals=out)
+        zone_time = h4[setup.zone.origin_index].time
+        key = f"{sym}_{setup.direction}_{zone_time}"     # one fire + one watch per 4H zone
+        # lock the tapped setup so a break before the trigger is reported — but never re-watch a
+        # zone that already fired (else we'd 'invalidate' a trade we already signalled).
+        if not self.fired.has(key):
+            self._locked.setdefault(sym, {"direction": setup.direction, "distal": setup.zone.distal,
+                                          "zone_time": zone_time, "locked_at": time.time()})
 
         # STAGE 2 — LTF confluence: 15M CHoCH inside the zone (confirm) + refine + score;
         #           1H/30M CHoCH inside the zone add strength (bonus, never required — they lag).
         conf = ltf_confluence(setup, m15, pip, higher=higher)
         if not conf.confirmed:
             self._log(sym, "4H_ZONE_TAPPED", f"await 15M CHoCH — {conf.reason}")
-            return StrategyResult.empty()
+            return StrategyResult(signals=out)
         if not conf.passed:
             self._log(sym, "AWAIT_SCORE", f"15M confirmed but {conf.reason}")
-            return StrategyResult.empty()
+            return StrategyResult(signals=out)
 
         # STAGE 3 — 1M trigger off the refined POI
         trig = entry_trigger(conf, setup, m1, h4, pip)
         if not trig.triggered:
             self._log(sym, "REFINED_SCORED", f"await 1M trigger — {trig.reason}")
-            return StrategyResult.empty()
+            return StrategyResult(signals=out)
 
         # SIGNAL — one per 4H zone (anchored to the zone candle's time), DM-only alert (Phase 1)
         self.fired.cleanup(_STATE_TTL)
-        zone_time = h4[setup.zone.origin_index].time
-        key = f"{sym}_{trig.direction}_{zone_time}"
         if self.fired.has(key):
-            return StrategyResult.empty()
+            return StrategyResult(signals=out)
         self.fired.add(key)
+        self._locked.pop(sym, None)             # setup resolved into a signal — stop watching
         self._log(sym, "SIGNAL", f"{trig.direction.upper()} entry {trig.entry:.{digits}f} "
                   f"SL {trig.sl:.{digits}f} TP {trig.tp:.{digits}f} RR {trig.rr} (grade {conf.grade})")
-        sig = build_signal(sym, setup, conf, trig, pip, digits, self.id + "_watch", self.name)
-        return StrategyResult(signals=[sig])
+        out.append(build_signal(sym, setup, conf, trig, pip, digits, self.id + "_watch", self.name))
+        return StrategyResult(signals=out)
 
     def _log(self, sym: str, stage: str, detail: str) -> None:
         """Log only on stage change — a 'missed setup' is diagnosable without spamming every scan."""
