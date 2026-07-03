@@ -17,6 +17,7 @@ Assembles Phases 1-5; reuses only generic shared resources.
 from dataclasses import dataclass, field
 
 from core.types import Candle
+from shared.swing_points import find_swing_points
 from strategies.bx_sd_structure import map_structure
 from strategies.bx_sd_zones import find_zones, Zone
 from strategies.bx_sd_confluence import rsi_divergence
@@ -54,6 +55,20 @@ def find_ltf_choch(ltf: list[Candle], want_dir: str, zone: Zone, zdir: str, rece
     return e if tapped else None
 
 
+def _choch_valid(ltf: list[Candle], choch, zdir: str, recent: int = _RECENT) -> bool:
+    """Inducement guard (book): enter only AFTER the inducement is taken. The swing the CHoCH reversed
+    from must have SWEPT the prior swing (grabbed the resting liquidity) — for a demand the reversal
+    low must be BELOW the previous swing low; a reversal off a HIGHER low leaves that liquidity resting
+    below (a magnet) and is premature. Mirror for supply. Lenient when there is nothing yet to judge."""
+    lo  = max(0, choch.index - recent)
+    pts = find_swing_points(ltf)
+    if zdir == "demand":
+        lows = [p.price for p in pts if not p.is_high and lo <= p.index < choch.index]
+        return len(lows) < 2 or lows[-1] < lows[-2]
+    highs = [p.price for p in pts if p.is_high and lo <= p.index < choch.index]
+    return len(highs) < 2 or highs[-1] > highs[-2]
+
+
 def refine_zone(ltf: list[Candle], zdir: str, zone: Zone,
                 pip: float = 0.0001, tol_pips: float = 1.0) -> Zone | None:
     """Most-recent fresh LTF zone whose entry edge sits inside the 4H zone and is TIGHTER than it —
@@ -85,6 +100,8 @@ def ltf_confluence(setup: SetupResult, ltf: list[Candle], pip: float = 0.0001,
     choch = find_ltf_choch(ltf, want_dir, setup.zone, zdir)
     if choch is None:
         r.reason = "no LTF CHoCH inside the 4H zone (unconfirmed — no blind entry)"; return r
+    if not _choch_valid(ltf, choch, zdir):
+        r.reason = "LTF CHoCH reversed off a higher low — inducement still unswept (premature)"; return r
     r.confirmed = True
 
     refined = refine_zone(ltf, zdir, setup.zone, pip)
