@@ -26,9 +26,30 @@ class LiquidityPool:
     index: int    # candle index where the pool level formed
 
 
+def _daily_pools(candles: list[Candle]) -> list[LiquidityPool]:
+    """Prior-day highs/lows (PDH/PDL). Derived from the H4 stream — EXACT, since a day's high is just
+    the max of that day's H4 highs. Major resting liquidity the book weights heavily (Ch. 5 & 10)."""
+    by_day: dict[int, dict] = {}
+    order: list[int] = []
+    for i, c in enumerate(candles):
+        d = int(c.time // 86400)
+        e = by_day.get(d)
+        if e is None:
+            by_day[d] = {"hi": c.high, "lo": c.low, "last": i}; order.append(d)
+        else:
+            e["hi"] = max(e["hi"], c.high); e["lo"] = min(e["lo"], c.low); e["last"] = i
+    out: list[LiquidityPool] = []
+    for d in order[:-1]:                        # completed days only (skip the current forming day)
+        e = by_day[d]
+        out.append(LiquidityPool("buy",  e["hi"], "pdh", e["last"]))
+        out.append(LiquidityPool("sell", e["lo"], "pdl", e["last"]))
+    return out
+
+
 def find_liquidity(candles: list[Candle], pip: float = 0.0001,
                    eq_tol_pips: float = 2.0, n: int = 3) -> list[LiquidityPool]:
-    """All liquidity pools — every swing is a pool; near-equal swings are EQH/EQL (stronger)."""
+    """All liquidity pools — every swing is a pool; near-equal swings are EQH/EQL (stronger); plus
+    prior-day highs/lows (PDH/PDL — major pools). (Session H/L needs a finer feed — deferred.)"""
     pts   = find_swing_points(candles, n)
     highs = [(p.index, p.price) for p in pts if p.is_high]
     lows  = [(p.index, p.price) for p in pts if not p.is_high]
@@ -44,6 +65,7 @@ def find_liquidity(candles: list[Candle], pip: float = 0.0001,
     for a, b in zip(lows, lows[1:]):
         if abs(a[1] - b[1]) <= tol:
             pools.append(LiquidityPool("sell", min(a[1], b[1]), "eql", b[0]))
+    pools.extend(_daily_pools(candles))
     return pools
 
 
