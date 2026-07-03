@@ -6,7 +6,7 @@ direction can come from EITHER:
   - an ESTABLISHED trend — HH+HL (up) / LH+LL (down) 1HR structure, or
   - a RANGE BREAKING INTO A TREND — volume candles closing beyond the recent range.
 A VOLUME CANDLE is a candle in the trend direction with a bigger body than the previous candle and
-NO / very short wicks (each wick <= 15% of range; a long wick = volatility = no-go). The move is
+short wicks (each wick <= 33% of range; a genuine long/rejection wick = volatility = no-go). The move is
 confirmed by a RUN of 1-3 consecutive volume candles (a single strong momentum candle can qualify);
 the last candle's close sends us to the 1M. detect_bias() reports (bullish, vc_idx, origin, count).
 Reads only the shared GENERIC candle-math + swing-point helpers.
@@ -19,7 +19,8 @@ from shared.swing_points import find_swing_points
 
 log = logging.getLogger(__name__)
 
-_MAX_WICK_FRAC  = 0.15   # each wick <= 15% of the candle's range — a long wick = volatility, no-go
+_MAX_WICK_FRAC  = 0.33   # each wick <= 33% of the candle's range — a genuine long/rejection wick is
+                         # a no-go, but a normal short-to-medium wick on a strong trend candle is fine
 _MIN_RUN        = 1      # min consecutive volume candles to confirm (a single momentum candle counts)
 _VOL_LOOKBACK   = 12     # recent 1HR bars scanned for the confirming volume candle (an established
                          # trend's impulse can be several bars old while the fresh 1M entry forms)
