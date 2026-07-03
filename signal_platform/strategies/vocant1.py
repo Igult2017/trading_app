@@ -3,10 +3,9 @@ VOCANT.1 — "Volume Strategy".
 
 Built ONLY from the Volume Strategy playbook — a self-contained strategy, unrelated to any other:
   1HR = bias: a CLEAR TREND (HH+HL up / LH+LL down) OR a range breaking into a trend, carried by
-        VOLUME (a run of 1-3 volume candles). NO indicators. See vocant1_bias.
-  1M  = entry: after that, a fractal is BROKEN then PULLED BACK; the entry is a stop just beyond the
-        broken fractal (continuation). See vocant1_entry.
-  SL  = just beyond the M1 pull-back extreme (tight);  TP = 2R.
+        VOLUME (a run of 1-3 volume candles). OPERATE FROM THE 1ST volume candle. NO indicators.
+  1M  = entry: TWO signals — a FRACTAL BREAK (fire on the break, momentum) then a PULL-BACK re-entry
+        (a safe stop, if a retrace follows). Entry = a stop just beyond the fractal; TP = 2R.
 
 Once a setup fires it is LOCKED and WATCHED on both timeframes (vocant1_watch) — if the 1HR bias
 flips or the 1M reverses past the stop before entry, it is invalidated (alert) so we never keep
@@ -22,14 +21,14 @@ import time
 
 from core.base_strategy import BaseStrategy
 from core.types import (Session, Trend, NewsStance, NewsImpact,
-                        StrategyResult, TF, Signal, Direction)
+                        StrategyResult, TF, Signal)
 from core.strategy_context import StrategyContext
 from core.fired_registry import FiredRegistry
 from strategies.vocant1_bias import detect_bias
-from strategies.vocant1_entry import m1_entry
+from strategies.vocant1_entry import m1_signals
+from strategies.vocant1_signal import build_signal
 from strategies.vocant1_watch import check_invalidation, invalidation_signal
 from shared.pip import pip_size, price_digits
-from news.news_filter import news_note
 from news.news_candle import is_news_candle, in_news_window   # shared platform resources
 
 log = logging.getLogger(__name__)
@@ -67,99 +66,59 @@ class Vocant1Strategy(BaseStrategy):
         pip    = pip_size(context.symbol)
         digits = price_digits(context.symbol)
         now    = time.time()
+        sym    = context.symbol
+        out: list[Signal] = []
 
-        # WATCH — if a setup is LOCKED (pending) on this instrument, check BOTH 1HR + 1M for a reversal
-        # FIRST, so we never keep assuming a stale bias holds. Invalidate + alert on a genuine flip.
-        locked = self._locked.get(context.symbol)
+        # WATCH — a LOCKED pending setup: alert on invalidation, but do NOT block the pull-back signal.
+        locked = self._locked.get(sym)
         if locked is not None:
             reason = check_invalidation(locked, h1, m1, now)
-            if reason is None:
-                log.info(f"[vocant1] {context.symbol} setup LOCKED/pending "
-                         f"({'BUY' if locked['bullish'] else 'SELL'} stop {locked['entry']}) — watching, no new scan")
-                return StrategyResult.empty()             # still pending-valid — keep watching, no new setup
-            del self._locked[context.symbol]
-            if reason not in ("triggered", "expired"):
-                log.info(f"[vocant1] {context.symbol} setup invalidated — {reason}")
-                return StrategyResult(signals=[invalidation_signal(locked, reason, context.symbol, self.name)])
-            # triggered / expired → lock cleared; fall through to look for a fresh setup
+            if reason in ("triggered", "expired"):
+                del self._locked[sym]                       # cleared — look for a fresh setup
+            elif reason is not None:
+                del self._locked[sym]
+                log.info(f"[vocant1] {sym} setup invalidated — {reason}")
+                out.append(invalidation_signal(locked, reason, sym, self.name))
+            # reason is None → still valid: keep the lock, fall through (the pull-back may have formed)
 
-        # 1+2) 1HR BIAS — established HH+HL/LH+LL trend OR a range breaking into a trend (with origin).
-        bias = detect_bias(h1, context.symbol)   # logs its own reason at INFO when None
+        # 1HR BIAS — from the FIRST volume candle of the run.
+        bias = detect_bias(h1, sym)                         # logs its own reason at INFO when None
         if bias is None:
-            return StrategyResult.empty()
+            return StrategyResult(signals=out)
         bullish, vc_idx, origin, vol_count = bias
         vc = h1[vc_idx]
-        # NEVER trade the news candle itself.
-        if is_news_candle(vc, context.news, context.symbol):
-            log.info(f"[vocant1] {context.symbol} volume candle is a news candle — skip")
-            return StrategyResult.empty()
-        # H2: don't ENTER inside a high-impact news window (spreads blow out, stops get slipped).
-        if in_news_window(context.news, context.symbol):
-            log.info(f"[vocant1] {context.symbol} inside a high-impact news window — skip entry")
-            return StrategyResult.empty()
+        if is_news_candle(vc, context.news, sym):           # NEVER trade the news candle itself
+            log.info(f"[vocant1] {sym} 1st volume candle is a news candle — skip")
+            return StrategyResult(signals=out)
+        if in_news_window(context.news, sym):               # H2: skip entries in a high-impact window
+            log.info(f"[vocant1] {sym} inside a high-impact news window — skip entry")
+            return StrategyResult(signals=out)
 
-        # M2: dedup keyed by SYMBOL + direction + volume-candle time (persisted; survives restarts).
+        # 1M — the FRACTAL BREAK and (if any) PULL-BACK signals.
         self.fired.cleanup(_STATE_TTL)
-        sig_key = f"{context.symbol}_{'B' if bullish else 'S'}_{vc.time}"
-        if self.fired.has(sig_key):
-            log.info(f"[vocant1] {context.symbol} 1HR {'BUY' if bullish else 'SELL'} bias already fired "
-                     f"for this volume candle — dedup skip (a signal was already sent)")
-            return StrategyResult.empty()
+        log.info(f"[vocant1] {sym} 1HR bias OK ({'BUY' if bullish else 'SELL'}, {origin}, "
+                 f"{vol_count} vol candle{'s' if vol_count != 1 else ''}, from 1st) — checking 1M")
+        raw = m1_signals(m1, bullish, vc.time + 3600, pip=pip, symbol=sym)
+        if not raw:
+            return StrategyResult(signals=out)
 
-        # 3) 1M ENTRY — fractal break + pull-back; entry stop beyond the fractal, tight SL (pip-scaled).
-        log.info(f"[vocant1] {context.symbol} 1HR bias OK ({'BUY' if bullish else 'SELL'}, {origin}, "
-                 f"{vol_count} vol candle{'s' if vol_count != 1 else ''}) — checking 1M entry")
-        res = m1_entry(m1, bullish, vc.time + 3600, pip=pip, symbol=context.symbol)   # logs its own reason when None
-        if res is None:
-            return StrategyResult.empty()
-        entry, sl = res
-        risk = abs(entry - sl)
-        tp   = entry + 2.0 * risk if bullish else entry - 2.0 * risk
-        side = "BUY" if bullish else "SELL"
-
-        # C4: correlation — another USD pair already signalled the SAME direction within the window =
-        #     stacked USD exposure. Per user: SEND the signal, but flag it (warn, don't block).
+        # C4: correlation — another USD pair already the SAME direction within the window (warn, don't block).
         corr = [inst for inst, (b, t) in self._recent.items()
-                if inst != context.symbol and b == bullish and (now - t) < _CORR_WINDOW]
+                if inst != sym and b == bullish and (now - t) < _CORR_WINDOW]
 
-        vlabel  = f"{vol_count} volume candle{'s' if vol_count != 1 else ''}"
-        reasons = [
-            (f"1HR RANGE BREAKOUT ({side.lower()}) — {vlabel} broke the range, trend building"
-             if origin == "range" else
-             f"1HR clear {'up (HH+HL)' if bullish else 'down (LH+LL)'} trend + {vlabel} ({side.lower()})"),
-            f"Place {side} STOP at {entry:.{digits}f} — M1 fractal break + pull-back (continuation)",
-            f"SL {sl:.{digits}f} | TP {tp:.{digits}f} | Risk {risk/pip:.0f} pips | RR 2:1",
-        ]
-        if corr:
-            reasons.insert(0, f"⚠️ CORRELATED: {', '.join(corr)} already {side.lower()} (same USD direction) — stacked USD exposure, size down or skip")
+        for s in raw:                                       # each = {"kind", "entry", "sl"}
+            key = f"{sym}_{'B' if bullish else 'S'}_{vc.time}_{s['kind']}"
+            if self.fired.has(key):
+                continue
+            entry, sl = s["entry"], s["sl"]
+            risk = abs(entry - sl)
+            tp   = entry + 2.0 * risk if bullish else entry - 2.0 * risk
+            out.append(build_signal(s["kind"], sym, bullish, origin, vol_count, entry, sl, tp,
+                                    risk, pip, digits, corr, context.news, self.id + "_watch", self.name))
+            self.fired.add(key)
+            self._recent[sym] = (bullish, now)
+            self._locked.setdefault(sym, {"bullish": bullish, "entry": entry, "sl": sl, "locked_at": now})
+            log.info(f"[vocant1] {sym} 1M {s['kind'].upper()} signal — {'BUY' if bullish else 'SELL'} "
+                     f"stop {entry:.{digits}f} SL {sl:.{digits}f}")
 
-        news_msg = news_note(context.news, ["USD", "EUR", "GBP"]) if context.news else ""
-        sig = Signal(
-            symbol            = context.symbol,
-            direction         = Direction.BUY if bullish else Direction.SELL,
-            strategy_id       = self.id + "_watch",   # PHASE 1: route to private DM for validation
-            strategy_name     = self.name,
-            entry_price       = round(entry, digits),
-            stop_loss         = round(sl, digits),
-            take_profit       = round(tp, digits),
-            risk_reward       = 2.0,
-            confidence        = 0.72,
-            primary_timeframe = TF.H1,
-            technical_reasons = reasons,
-            # Panel-labelled factors so the UI renders dynamically (CTX = per-TF context, PA = price
-            # action). VOCANT.1 uses NO indicators, so it emits NO IND factors → Technical Confluence
-            # stays empty (correct) rather than showing fabricated EMA/ADX rows.
-            smc_factors       = ([f"CTX::1HR TREND::{'RANGE BREAKOUT' if origin == 'range' else ('UPTREND' if bullish else 'DOWNTREND')}",
-                                  f"CTX::1HR VOLUME::{vol_count} CANDLE{'S' if vol_count != 1 else ''}",
-                                  "CTX::1M ENTRY::FRACTAL BREAK + PULL-BACK",
-                                  "PA::CONTINUATION STOP-ENTRY (2R)"]
-                                 + (["PA::CORRELATED USD — SIZE DOWN"] if corr else [])),
-            market_context    = (f"VOCANT.1 (validating) — {side} {context.symbol} "
-                                 f"[{'range breakout' if origin == 'range' else 'trend'}]"
-                                 f"{' correlated' if corr else ''} stop at {entry:.{digits}f}"),
-            news_note         = news_msg,
-        )
-        self.fired.add(sig_key)
-        self._recent[context.symbol] = (bullish, now)
-        self._locked[context.symbol] = {"bullish": bullish, "entry": entry, "sl": sl, "locked_at": now}
-        return StrategyResult(signals=[sig])
+        return StrategyResult(signals=out)

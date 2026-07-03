@@ -58,20 +58,24 @@ def _is_volume_candle(c: Candle, prev: Candle, bullish: bool) -> bool:
 def volume_run(h1: list[Candle], bullish: bool) -> tuple[int, int] | None:
     """
     Most recent run of consecutive volume candles (>= _MIN_RUN) in the trend direction.
-    Returns (last_idx, run_len) or None — last_idx is the confirming candle whose close anchors the
-    1M entry; run_len is how many candles the run has (1, 2, 3, …). A single momentum candle qualifies.
+    Returns (first_idx, run_len) or None — first_idx is the FIRST volume candle of the run. VOCANT.1
+    OPERATES FROM THE FIRST volume candle (its close opens the 1M watch), so we drop to the 1M as soon
+    as the move starts rather than waiting for the whole run to finish. run_len = candles in the run.
     """
     start = max(1, len(h1) - _VOL_LOOKBACK)
     for i in range(len(h1) - 1, start - 1, -1):
         if not _is_volume_candle(h1[i], h1[i - 1], bullish):
             continue
-        run = 1
-        j = i - 1
+        # i = most recent volume candle; walk back to the FIRST candle of this contiguous run.
+        run   = 1
+        first = i
+        j     = i - 1
         while j >= 1 and _is_volume_candle(h1[j], h1[j - 1], bullish):
-            run += 1
-            j -= 1
+            run  += 1
+            first = j
+            j    -= 1
         if run >= _MIN_RUN:
-            return i, run
+            return first, run
     return None
 
 
