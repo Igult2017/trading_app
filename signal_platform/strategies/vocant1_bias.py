@@ -11,13 +11,18 @@ confirmed by a RUN of 1-3 consecutive volume candles (a single strong momentum c
 the last candle's close sends us to the 1M. detect_bias() reports (bullish, vc_idx, origin, count).
 Reads only the shared GENERIC candle-math + swing-point helpers.
 """
+import logging
+
 from core.types import Candle
 from shared.candle_math import body_size, upper_wick, lower_wick, full_range, is_bullish
 from shared.swing_points import find_swing_points
 
+log = logging.getLogger(__name__)
+
 _MAX_WICK_FRAC  = 0.15   # each wick <= 15% of the candle's range — a long wick = volatility, no-go
 _MIN_RUN        = 1      # min consecutive volume candles to confirm (a single momentum candle counts)
-_VOL_LOOKBACK   = 6      # recent 1HR bars scanned for the confirming volume candle
+_VOL_LOOKBACK   = 12     # recent 1HR bars scanned for the confirming volume candle (an established
+                         # trend's impulse can be several bars old while the fresh 1M entry forms)
 _SWING_N        = 3      # generic swing-pivot half-width
 _RANGE_LOOKBACK = 8      # bars before the breakout that define the range being broken
 
@@ -69,6 +74,28 @@ def volume_run(h1: list[Candle], bullish: bool) -> tuple[int, int] | None:
     return None
 
 
+def _volume_veto_reason(h1: list[Candle], bullish: bool) -> str:
+    """Why the recent bars produced no volume candle — for diagnostics only."""
+    start = max(1, len(h1) - _VOL_LOOKBACK)
+    dir_candles = wrong_dir = small_body = long_wick = 0
+    for i in range(len(h1) - 1, start - 1, -1):
+        c, prev = h1[i], h1[i - 1]
+        if is_bullish(c) != bullish:
+            wrong_dir += 1
+            continue
+        dir_candles += 1
+        if body_size(c) <= body_size(prev):
+            small_body += 1
+            continue
+        rng = full_range(c)
+        if rng > 0 and (upper_wick(c) > _MAX_WICK_FRAC * rng or lower_wick(c) > _MAX_WICK_FRAC * rng):
+            long_wick += 1
+    if dir_candles == 0:
+        return f"no in-direction ({'up' if bullish else 'down'}) H1 candle in last {_VOL_LOOKBACK} bars"
+    return (f"{dir_candles} in-direction bars but none qualified as a volume candle "
+            f"(smaller-body×{small_body}, long-wick>{int(_MAX_WICK_FRAC*100)}%×{long_wick})")
+
+
 def _breaks_range(h1: list[Candle], vc_idx: int, bullish: bool) -> bool:
     """True if the confirming volume candle CLOSES beyond the range set by the bars before the run —
     a genuine break out of a range, not a wiggle inside it."""
@@ -80,21 +107,28 @@ def _breaks_range(h1: list[Candle], vc_idx: int, bullish: bool) -> bool:
     return h1[vc_idx].close < min(c.low for c in prior)
 
 
-def detect_bias(h1: list[Candle]) -> tuple[bool, int, str, int] | None:
+def detect_bias(h1: list[Candle], symbol: str = "") -> tuple[bool, int, str, int] | None:
     """
     VOCANT.1's 1HR bias. Returns (bullish, vc_idx, origin, vol_count) or None.
       origin 'trend' — established HH+HL / LH+LL structure, confirmed by 1-3 volume candles.
       origin 'range' — a ranging market breaking into a trend: volume candles closed beyond the range.
+    Logs the exact reason at INFO when it returns None, so a miss is diagnosable.
     """
     trend = clear_trend(h1)
     if trend != 0:
         bullish = trend > 0
         vr = volume_run(h1, bullish)
-        return (bullish, vr[0], "trend", vr[1]) if vr is not None else None
+        if vr is not None:
+            return (bullish, vr[0], "trend", vr[1])
+        log.info(f"[vocant1] {symbol} 1HR bias=NONE: clear {'up (HH+HL)' if bullish else 'down (LH+LL)'} "
+                 f"trend, but {_volume_veto_reason(h1, bullish)}")
+        return None
 
     # No established trend — accept a RANGE breaking into a trend (volume-led, playbook-valid).
     for bullish in (True, False):
         vr = volume_run(h1, bullish)
         if vr is not None and _breaks_range(h1, vr[0], bullish):
             return (bullish, vr[0], "range", vr[1])
+    log.info(f"[vocant1] {symbol} 1HR bias=NONE: no clear HH+HL/LH+LL trend and no volume-led range "
+             f"breakout (up: {_volume_veto_reason(h1, True)})")
     return None

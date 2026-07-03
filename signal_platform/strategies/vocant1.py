@@ -74,6 +74,8 @@ class Vocant1Strategy(BaseStrategy):
         if locked is not None:
             reason = check_invalidation(locked, h1, m1, now)
             if reason is None:
+                log.info(f"[vocant1] {context.symbol} setup LOCKED/pending "
+                         f"({'BUY' if locked['bullish'] else 'SELL'} stop {locked['entry']}) — watching, no new scan")
                 return StrategyResult.empty()             # still pending-valid — keep watching, no new setup
             del self._locked[context.symbol]
             if reason not in ("triggered", "expired"):
@@ -82,7 +84,7 @@ class Vocant1Strategy(BaseStrategy):
             # triggered / expired → lock cleared; fall through to look for a fresh setup
 
         # 1+2) 1HR BIAS — established HH+HL/LH+LL trend OR a range breaking into a trend (with origin).
-        bias = detect_bias(h1)
+        bias = detect_bias(h1, context.symbol)   # logs its own reason at INFO when None
         if bias is None:
             return StrategyResult.empty()
         bullish, vc_idx, origin, vol_count = bias
@@ -100,10 +102,14 @@ class Vocant1Strategy(BaseStrategy):
         self.fired.cleanup(_STATE_TTL)
         sig_key = f"{context.symbol}_{'B' if bullish else 'S'}_{vc.time}"
         if self.fired.has(sig_key):
+            log.info(f"[vocant1] {context.symbol} 1HR {'BUY' if bullish else 'SELL'} bias already fired "
+                     f"for this volume candle — dedup skip (a signal was already sent)")
             return StrategyResult.empty()
 
         # 3) 1M ENTRY — fractal break + pull-back; entry stop beyond the fractal, tight SL (pip-scaled).
-        res = m1_entry(m1, bullish, vc.time + 3600, pip=pip)   # M1 after the volume candle closes
+        log.info(f"[vocant1] {context.symbol} 1HR bias OK ({'BUY' if bullish else 'SELL'}, {origin}, "
+                 f"{vol_count} vol candle{'s' if vol_count != 1 else ''}) — checking 1M entry")
+        res = m1_entry(m1, bullish, vc.time + 3600, pip=pip, symbol=context.symbol)   # logs its own reason when None
         if res is None:
             return StrategyResult.empty()
         entry, sl = res
