@@ -21,8 +21,9 @@ from strategies.bx_sd_zones import find_zones, Zone
 from strategies.bx_sd_liquidity import find_liquidity, swept_before, defensive_ok
 from strategies.bx_sd_confluence import premium_discount, pricing_aligned, fib_target, rsi_divergence
 
-_RECENT     = 4    # a live tap must be within the last N 4H bars
+_RECENT     = 6    # a live tap must be within the last N 4H bars (leaves time for the LTF to confirm)
 _LIQ_WINDOW = 20   # look-back for the fuel grab
+_BREAK_SPAN = 6    # a slow impulse can body-close beyond the swing several bars after the FVG
 
 
 @dataclass
@@ -49,8 +50,9 @@ def _first_tap(candles: list[Candle], zone: Zone) -> int | None:
 
 
 def _broke_structure(structure, zone: Zone, want_dir: str) -> bool:
-    """The zone's impulse must have created a BOS/CHoCH in the trade direction."""
-    return any(e.direction == want_dir and zone.origin_index <= e.index <= zone.ifc_index + 3
+    """The zone's impulse must have created a BOS/CHoCH in the trade direction. The break can lag
+    the FVG by several bars on a slow impulse, so allow a span past the IFC (not just +3)."""
+    return any(e.direction == want_dir and zone.origin_index <= e.index <= zone.ifc_index + _BREAK_SPAN
                for e in structure.events)
 
 

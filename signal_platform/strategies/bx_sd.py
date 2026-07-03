@@ -37,8 +37,9 @@ class BXStrategy(BaseStrategy):
     id      = "bx_sd"
     enabled = True
 
-    required_timeframes = [TF.H4, TF.M15, TF.M1]   # 4H setup · 15M confluence · 1M entry
-    candle_counts       = {TF.H4: 200, TF.M15: 200, TF.M1: 250}
+    # 4H setup · 1H/30M/15M confluence · 1M entry
+    required_timeframes = [TF.H4, TF.H1, TF.M30, TF.M15, TF.M1]
+    candle_counts       = {TF.H4: 200, TF.H1: 200, TF.M30: 200, TF.M15: 200, TF.M1: 250}
 
     # EUR/USD only; London/NY only (thin Asian EUR/USD → fake 1M CHoCHs). BX reads its OWN 4H trend.
     allowed_sessions    = [Session.LONDON, Session.NEW_YORK]
@@ -57,6 +58,7 @@ class BXStrategy(BaseStrategy):
         m1  = context.candles.get(TF.M1)
         if len(h4) < 40 or len(m15) < 30 or len(m1) < 30:
             return StrategyResult.empty()
+        higher = [c for c in (context.candles.get(TF.H1), context.candles.get(TF.M30)) if len(c) >= 20]
         sym    = context.symbol
         pip    = pip_size(sym)
         digits = price_digits(sym)
@@ -67,8 +69,9 @@ class BXStrategy(BaseStrategy):
             self._log(sym, "SCANNING", f"4H: {setup.reason}")
             return StrategyResult.empty()
 
-        # STAGE 2 — 15M confluence: CHoCH inside the zone (confirm) + refine + score
-        conf = ltf_confluence(setup, m15, pip)
+        # STAGE 2 — LTF confluence: 15M CHoCH inside the zone (confirm) + refine + score;
+        #           1H/30M CHoCH inside the zone add strength (bonus, never required — they lag).
+        conf = ltf_confluence(setup, m15, pip, higher=higher)
         if not conf.confirmed:
             self._log(sym, "4H_ZONE_TAPPED", f"await 15M CHoCH — {conf.reason}")
             return StrategyResult.empty()

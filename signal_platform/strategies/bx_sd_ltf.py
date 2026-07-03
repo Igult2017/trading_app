@@ -56,15 +56,23 @@ def find_ltf_choch(ltf: list[Candle], want_dir: str, zone: Zone, zdir: str, rece
 
 def refine_zone(ltf: list[Candle], zdir: str, zone: Zone,
                 pip: float = 0.0001, tol_pips: float = 1.0) -> Zone | None:
-    """Tightest fresh LTF zone sitting inside the 4H zone — the refined POI for the entry TF."""
-    tol = tol_pips * pip
+    """Most-recent fresh LTF zone whose entry edge sits inside the 4H zone and is TIGHTER than it —
+    the refined POI. Anchoring on the proximal (not full containment) is robust to LTF reaction
+    zones that straddle a 4H edge, which full containment would wrongly reject."""
+    tol    = tol_pips * pip
+    four_h = zone.top - zone.bottom
     inside = [z for z in find_zones(ltf)
               if z.direction == zdir and not z.mitigated
-              and z.bottom >= zone.bottom - tol and z.top <= zone.top + tol]
+              and (zone.bottom - tol) <= z.proximal <= (zone.top + tol)
+              and (z.top - z.bottom) < four_h]
     return inside[-1] if inside else None
 
 
-def ltf_confluence(setup: SetupResult, ltf: list[Candle], pip: float = 0.0001) -> LTFConfluence:
+def ltf_confluence(setup: SetupResult, ltf: list[Candle], pip: float = 0.0001,
+                   higher: list[list[Candle]] | None = None) -> LTFConfluence:
+    """`ltf` = the primary confluence TF (15M) — its CHoCH inside the zone is the MANDATORY confirm.
+    `higher` = optional slower confluence TFs (1H / 30M); a CHoCH inside the zone on those is a
+    strength BONUS (they lag, so they are never required — the 15M confirm keeps the signal timely)."""
     r = LTFConfluence()
     if not setup.active:
         r.reason = "no active 4H setup"; return r
@@ -74,10 +82,10 @@ def ltf_confluence(setup: SetupResult, ltf: list[Candle], pip: float = 0.0001) -
     zdir     = "demand" if buy else "supply"
     want_dir = "up"     if buy else "down"
 
-    if find_ltf_choch(ltf, want_dir, setup.zone, zdir) is None:
+    choch = find_ltf_choch(ltf, want_dir, setup.zone, zdir)
+    if choch is None:
         r.reason = "no LTF CHoCH inside the 4H zone (unconfirmed — no blind entry)"; return r
     r.confirmed = True
-    choch = find_ltf_choch(ltf, want_dir, setup.zone, zdir)
 
     refined = refine_zone(ltf, zdir, setup.zone, pip)
     r.refined_zone = refined
@@ -87,17 +95,22 @@ def ltf_confluence(setup: SetupResult, ltf: list[Candle], pip: float = 0.0001) -
     r.risk_pips = round(abs(r.entry - r.sl) / pip, 1)
 
     # ---- confluence score ----
-    score   = 30                                  # CHoCH confirmed (mandatory floor)
+    higher_confirms = sum(1 for hc in (higher or [])
+                          if len(hc) >= 20 and find_ltf_choch(hc, want_dir, setup.zone, zdir) is not None)
     pricing = setup.confluences.get("pricing", "equilibrium")
-    score  += 25 if pricing in ("discount", "premium") else 12
     div     = rsi_divergence(ltf, setup.direction)
-    score  += 20 if div else 0
-    score  += (25 if r.risk_pips <= 5 else 15 if r.risk_pips <= 10 else 8) if refined else 5
+    score   = 25                                  # 15M CHoCH confirmed (mandatory floor)
+    score  += 20 if pricing in ("discount", "premium") else 10
+    score  += 15 if div else 0
+    score  += (20 if r.risk_pips <= 5 else 12 if r.risk_pips <= 10 else 4) if refined else 4
+    score  += 10 * higher_confirms                # H1 / 30M also CHoCH'd inside the zone
+    score   = min(100, score)
 
     r.score  = score
     r.passed = score >= _PASS
     r.grade  = "A" if score >= 80 else "B" if score >= _PASS else "C" if score >= 50 else "reject"
     r.details = {"choch_index": choch.index, "pricing": pricing, "ltf_divergence": div,
-                 "refined": refined is not None, "risk_pips": r.risk_pips}
+                 "refined": refined is not None, "risk_pips": r.risk_pips,
+                 "higher_tf_confirms": higher_confirms}
     r.reason  = "confirmed" if r.passed else f"confluence too weak (score {score} < {_PASS})"
     return r
