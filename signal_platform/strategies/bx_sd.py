@@ -28,6 +28,7 @@ from strategies.bx_sd_ltf import ltf_confluence
 from strategies.bx_sd_entry import entry_trigger
 from strategies.bx_sd_signal import build_signal
 from strategies.bx_sd_watch import check_invalidation, invalidation_signal
+from strategies.bx_sd_reports import scan_reports
 
 log = logging.getLogger(__name__)
 
@@ -39,9 +40,10 @@ class BXStrategy(BaseStrategy):
     id      = "bx_sd"
     enabled = True
 
-    # 4H setup · 1H/30M/15M confluence · 1M entry
-    required_timeframes = [TF.H4, TF.H1, TF.M30, TF.M15, TF.M1]
-    candle_counts       = {TF.H4: 200, TF.H1: 200, TF.M30: 200, TF.M15: 200, TF.M1: 250}
+    # 4H setup · 1H/30M/15M confluence · 5M/1M entry · D1/W1/MN for HTF-confluence tagging
+    required_timeframes = [TF.H4, TF.H1, TF.M30, TF.M15, TF.M5, TF.M1, TF.D1, TF.W1, TF.MN]
+    candle_counts       = {TF.H4: 200, TF.H1: 200, TF.M30: 200, TF.M15: 200, TF.M5: 250,
+                           TF.M1: 250, TF.D1: 200, TF.W1: 120, TF.MN: 60}
 
     # EUR/USD only; London/NY only (thin Asian EUR/USD → fake 1M CHoCHs). BX reads its OWN 4H trend.
     allowed_sessions    = [Session.LONDON, Session.NEW_YORK]
@@ -58,14 +60,22 @@ class BXStrategy(BaseStrategy):
     async def analyze(self, context: StrategyContext) -> StrategyResult:
         h4  = context.candles.get(TF.H4)
         m15 = context.candles.get(TF.M15)
+        m5  = context.candles.get(TF.M5)
         m1  = context.candles.get(TF.M1)
         if len(h4) < 40 or len(m15) < 30 or len(m1) < 30:
             return StrategyResult.empty()
         higher = [c for c in (context.candles.get(TF.H1), context.candles.get(TF.M30)) if len(c) >= 20]
+        htf    = {"Daily":   context.candles.get(TF.D1),
+                  "Weekly":  context.candles.get(TF.W1),
+                  "Monthly": context.candles.get(TF.MN)}
         sym    = context.symbol
         pip    = pip_size(sym)
         digits = price_digits(sym)
         out: list[Signal] = []
+
+        # REPORTS — 4H zone mitigation heads-ups + respected-retest confirmed entries.
+        # Independent of the fresh-zone cascade below; each deduped once per zone.
+        out += scan_reports(sym, h4, m5, m1, htf, pip, digits, self.fired, self.name, self.id + "_watch")
 
         # WATCH — a tapped setup broke before it triggered: alert once, then stop watching it.
         locked = self._locked.get(sym)
