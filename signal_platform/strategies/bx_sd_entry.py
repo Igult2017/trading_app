@@ -17,9 +17,23 @@ Assembles Phases 1-6; reuses only generic shared resources.
 from dataclasses import dataclass, field
 
 from core.types import Candle
+from shared.swing_points import find_swing_points
 from strategies.bx_sd_zones import find_zones
 from strategies.bx_sd_ltf import find_ltf_choch, LTFConfluence
 from strategies.bx_sd_setup import SetupResult
+
+
+def _flip_ok(entry_tf: list[Candle], want_dir: str, n: int = 3) -> bool:
+    """Book S/D-FLIP entry ('tug of war'): a reaction FAILS to make a new extreme (a higher-low for a
+    buy / lower-high for a sell), then the reaction point is TAKEN OUT — orders have flipped."""
+    pts   = find_swing_points(entry_tf, n)
+    highs = [p for p in pts if p.is_high]
+    lows  = [p for p in pts if not p.is_high]
+    if want_dir == "up":
+        return len(lows) >= 2 and bool(highs) and lows[-1].price > lows[-2].price \
+            and entry_tf[-1].close > highs[-1].price
+    return len(highs) >= 2 and bool(lows) and highs[-1].price < highs[-2].price \
+        and entry_tf[-1].close < lows[-1].price
 
 
 @dataclass
@@ -62,13 +76,17 @@ def entry_trigger(conf: LTFConfluence, setup: SetupResult, entry_tf: list[Candle
     want_dir = "up"     if buy else "down"
     z        = conf.refined_zone or setup.zone
 
-    if find_ltf_choch(entry_tf, want_dir, z, zdir) is None:
-        r.reason = "no entry-TF CHoCH off the refined zone (no trigger yet)"; return r
+    # Book entry methods on the entry TF (CHoCH and/or S/D flip). Both = "god setup".
+    choch = find_ltf_choch(entry_tf, want_dir, z, zdir) is not None
+    flip  = _flip_ok(entry_tf, want_dir)
+    if not (choch or flip):
+        r.reason = "no entry-TF CHoCH or S/D-flip off the refined zone (no trigger yet)"; return r
     r.triggered = True
+    method = "CHoCH+Flip (god setup)" if (choch and flip) else ("CHoCH" if choch else "S/D Flip")
 
-    # entry: proximal when already tight, else the 50% equilibrium to keep risk ~<= 2-3 pip
-    prox_risk = abs(z.proximal - z.distal) / pip + 2
-    use_eq50  = conf.refined_zone is not None and prox_risk > 3
+    # entry: proximal when the zone already fits a 2-pip SL, else the 50% EQUILIBRIUM (book: use 50%
+    # when a max-2-pip SL can't cover the whole zone) so the SL stays ~<= 2 pip.
+    use_eq50 = conf.refined_zone is not None and (z.top - z.bottom) / pip > 2.0
     entry = z.eq50 if use_eq50 else z.proximal
     sl    = z.distal - 2 * pip if buy else z.distal + 2 * pip
     r.entry, r.sl = entry, sl
@@ -79,7 +97,7 @@ def entry_trigger(conf: LTFConfluence, setup: SetupResult, entry_tf: list[Candle
     r.tp = tp
     r.rr = round(_rr(entry, sl, tp, buy), 2)
     r.details = {"risk_pips": round(abs(entry - sl) / pip, 1),
-                 "entry_mode": "eq50" if use_eq50 else "proximal",
+                 "entry_mode": "eq50" if use_eq50 else "proximal", "method": method,
                  "tp_source": "opposite_zone" if tp not in (setup.tp1, setup.tp2) else "fib_extension"}
     r.reason = "triggered"
     return r

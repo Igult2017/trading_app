@@ -23,7 +23,7 @@ def build_signal(symbol: str, setup: SetupResult, conf: LTFConfluence, trig: Ent
         f"Valid zone: IFC + broke structure + liquidity grabbed (fuel), priced in {pricing}",
         f"LTF CHoCH inside the zone (confirmed entry) — refined to a {conf.risk_pips:.1f} pip POI, "
         f"grade {conf.grade} (score {conf.score})",
-        f"1M CHoCH trigger — {side} {trig.entry:.{digits}f}",
+        f"1M {trig.details.get('method', 'CHoCH')} trigger — {side} {trig.entry:.{digits}f}",
         f"SL {trig.sl:.{digits}f} | TP {trig.tp:.{digits}f} | "
         f"Risk {trig.details['risk_pips']:.1f} pips | RR {trig.rr}:1",
     ]
@@ -32,8 +32,8 @@ def build_signal(symbol: str, setup: SetupResult, conf: LTFConfluence, trig: Ent
         f"CTX::4H ZONE::FRESH {zdir.upper()} (IFC + BOS + LIQUIDITY GRAB)",
         f"CTX::PRICING::{pricing.upper()}",
         f"PA::LTF CHoCH CONFIRMED — REFINED {conf.risk_pips:.1f}PIP POI (GRADE {conf.grade})",
-        f"PA::1M CHoCH TRIGGER — {trig.details['entry_mode'].upper()} ENTRY, {trig.rr}R "
-        f"(TP {trig.details['tp_source'].replace('_', ' ').upper()})",
+        f"PA::1M {trig.details.get('method', 'CHoCH').upper()} — {trig.details['entry_mode'].upper()} ENTRY, "
+        f"{trig.rr}R (TP {trig.details['tp_source'].replace('_', ' ').upper()})",
     ]
     if divergent:
         smc.append("PA::RSI DIVERGENCE ALIGNED")

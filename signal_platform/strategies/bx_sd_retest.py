@@ -45,6 +45,36 @@ def is_respected_retest(h4: list[Candle], zone: Zone, pip: float = 0.0001,
     return False
 
 
+def fvg_zone(h4: list[Candle], zone: Zone) -> Zone | None:
+    """The IMBALANCE (FVG) the zone's impulse left, as a Zone — a SHALLOWER POI than the zone origin.
+    Book 'continuation entry': price often just taps this FVG and continues instead of fully retesting
+    the zone. Demand = bullish gap [candle[ifc-1].high, candle[ifc+1].low]; supply mirrors it."""
+    i = zone.ifc_index
+    if i - 1 < 0 or i + 1 >= len(h4):
+        return None
+    if zone.direction == "demand":
+        bottom, top = h4[i - 1].high, h4[i + 1].low
+        prox, dist = top, bottom
+    else:
+        bottom, top = h4[i + 1].high, h4[i - 1].low
+        prox, dist = bottom, top
+    if top <= bottom:
+        return None
+    return Zone(zone.direction, top, bottom, prox, dist, (top + bottom) / 2.0, zone.origin_index, i, False)
+
+
+def is_fvg_tap(h4: list[Candle], zone: Zone, fvg: Zone, recent: int = 6) -> bool:
+    """A SHALLOW continuation pullback: price recently tapped the FVG but stayed ABOVE the zone origin
+    (a demand never fully retested), and the latest bar is back on the trend side of the FVG."""
+    demand = zone.direction == "demand"
+    lo = max(fvg.ifc_index + 1, len(h4) - recent)
+    tapped = any((h4[j].low <= fvg.top and h4[j].low > zone.top) if demand
+                 else (h4[j].high >= fvg.bottom and h4[j].high < zone.bottom)
+                 for j in range(lo, len(h4)))
+    cont = (h4[-1].close > fvg.bottom) if demand else (h4[-1].close < fvg.top)
+    return tapped and cont
+
+
 def _setup_for_zone(h4: list[Candle], zone: Zone, pip: float) -> SetupResult:
     """A minimal SetupResult so the retested zone can reuse ltf_confluence + entry_trigger."""
     buy = zone.direction == "demand"

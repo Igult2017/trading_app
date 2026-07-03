@@ -14,7 +14,8 @@ from core import delivery_ledger
 from strategies.bx_sd_zones import find_zones
 from strategies.bx_sd_htf import htf_zone_map, htf_backing
 from strategies.bx_sd_mitigation import newly_mitigated_zones, mitigation_signal
-from strategies.bx_sd_retest import is_respected_retest, confirm_retest
+from strategies.bx_sd_retest import is_respected_retest, confirm_retest, fvg_zone, is_fvg_tap
+from strategies.bx_sd_continuation import confirm_continuation
 from strategies.bx_sd_signal import build_signal
 
 _MIN_PIPS = 3.0   # ignore micro-FVG zones
@@ -58,5 +59,29 @@ def scan_reports(symbol: str, h4: list[Candle], m5: list[Candle], m1: list[Candl
         sig.market_context = (f"BX-S/D PRIORITY — {symbol} respected 4H {z.direction} re-tested, "
                               f"{label} aligned{tag}, {trig.rr}R")
         sig.dedup_key = key                 # committed only when the DM actually lands
+        out.append(sig)
+
+    # ③ continuation entry — shallow FVG-tap-and-continue (book's continuation entry), once each
+    for z in find_zones(h4):
+        if (z.top - z.bottom) < tmin:
+            continue
+        fvg = fvg_zone(h4, z)
+        if fvg is None or not is_fvg_tap(h4, z, fvg):
+            continue
+        key = f"{sid}_cont_{ztime(z)}_{z.direction}"
+        if delivery_ledger.is_delivered(key):
+            continue
+        res = confirm_continuation(fvg, h4, m5, m1, pip)   # trend-BOS/flip confirm off the FVG (NOT a reversal CHoCH)
+        if res is None:
+            continue
+        trig, conf, label, setup = res
+        backing = htf_backing(z, htf_map)
+        tag = f", backed by {', '.join(backing)}" if backing else ""
+        sig = build_signal(symbol, setup, conf, trig, pip, digits, sid, name)
+        sig.technical_reasons.insert(
+            0, f"➡️ CONTINUATION — 4H {z.direction} FVG tapped & holding, confirmed on {label}{tag}")
+        sig.market_context = (f"BX-S/D CONTINUATION — {symbol} tapped the 4H {z.direction} FVG and "
+                              f"continued (no full retest), {label} aligned{tag}, {trig.rr}R")
+        sig.dedup_key = key
         out.append(sig)
     return out

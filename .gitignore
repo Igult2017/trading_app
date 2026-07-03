@@ -19,3 +19,4 @@ deploy_status_now.json
 logs_raw.json
 clogs.json
 .playwright-mcp/
+docs/reference/SD.pdf
