@@ -7,7 +7,9 @@ close every 4 hours — wasting ~1,440 network calls/day per instrument.
 Design:
   - Keyed by (symbol, timeframe)
   - TTL = 80% of the bar duration so we refresh before the next bar closes
-  - For sub-hour TFs (M1–M30) TTL is the bar duration itself — they change fast
+  - Fast intraday TFs (M1/M2) use a short 20s TTL so they refetch EVERY scan even during
+    the 30s London/NY-overlap cadence — otherwise a 55s+ TTL, being coarser than the sped-up
+    scan interval, serves stale M1 (the observed "M1 data is stale" warnings at session open)
   - Thread-safe: written from executor threads, read from the event loop
 
 The cache is module-level so it persists across scan ticks for the
@@ -25,9 +27,17 @@ _store: dict[tuple[str, str], tuple[list, float]] = {}  # (symbol, tf) → (cand
 _lock  = threading.Lock()
 
 
+# Fastest scan cadence is 30s (London/NY overlap). Fast intraday TFs must refetch inside that so
+# the cache is never coarser than the scan interval (which is what let M1 go 2-3 min stale).
+_FAST_TF_TTL = 20.0   # seconds — for M1/M2
+
+
 def _ttl_for(tf: str) -> float:
-    """Cache duration in seconds — 80% of bar duration, min 55s."""
+    """Cache duration in seconds. M1/M2 refetch every scan (20s, under the 30s overlap cadence);
+    higher TFs use 80% of the bar duration (min 55s) since those bars change slowly."""
     mins = to_minutes(tf)
+    if mins <= 2:
+        return _FAST_TF_TTL
     return max(55.0, mins * 60 * 0.80)
 
 
