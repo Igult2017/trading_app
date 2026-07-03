@@ -45,14 +45,14 @@ def _get_bot():
     return _bot
 
 
-async def _send_text(message: str, chat_id: str | None = None) -> None:
+async def _send_text(message: str, chat_id: str | None = None) -> bool:
     """Default target is the public signal channel; pass chat_id to route elsewhere
-    (e.g. the admin DM for system telemetry)."""
+    (e.g. the admin DM for system telemetry). Returns True iff the message was delivered."""
     bot = _get_bot()
     target = chat_id or settings.telegram_chat_id
     if not bot or not target:
         log.debug("[dispatcher] Telegram not configured — skipping")
-        return
+        return False
 
     for attempt in range(1, _MAX_RETRIES + 1):
         try:
@@ -62,22 +62,24 @@ async def _send_text(message: str, chat_id: str | None = None) -> None:
                 parse_mode="HTML",
             )
             log.info("[dispatcher] message sent")
-            return
+            return True
         except Exception as exc:
             log.warning(f"[dispatcher] send attempt {attempt}/{_MAX_RETRIES} failed: {exc}")
             if attempt < _MAX_RETRIES:
                 await asyncio.sleep(_RETRY_DELAY)
 
     log.error("[dispatcher] all Telegram retries exhausted — message lost")
+    return False
 
 
-async def _send_private(message: str) -> None:
+async def _send_private(message: str) -> bool:
     """System/status telemetry → the admin's PRIVATE DM only, never the public signal
-    channel. If no private chat is configured we DROP it rather than spam subscribers."""
+    channel. If no private chat is configured we DROP it rather than spam subscribers.
+    Returns True iff delivered."""
     if not settings.watchdog_chat_id:
         log.debug("[dispatcher] no WATCHDOG_CHAT_ID set — dropping system message (kept off channel)")
-        return
-    await _send_text(message, chat_id=settings.watchdog_chat_id)
+        return False
+    return await _send_text(message, chat_id=settings.watchdog_chat_id)
 
 
 async def _send_photo(chart_path: str, caption: str, chat_id: str | None = None) -> None:
@@ -101,7 +103,12 @@ async def _send_photo(chart_path: str, caption: str, chat_id: str | None = None)
 
 async def on_setup_alert(signal: Signal) -> None:
     # Setup / pre-signal heads-ups are UNCONFIRMED → admin DM only, never the channel.
-    await _send_private(format_setup_alert(signal))
+    ok = await _send_private(format_setup_alert(signal))
+    # At-least-once delivery: commit the producer's dedup key ONLY once the DM actually landed,
+    # so a failed send (or crash before send) re-fires next scan instead of being lost forever.
+    if ok and signal.dedup_key:
+        from core import delivery_ledger
+        delivery_ledger.mark_delivered(signal.dedup_key)
 
 
 async def on_signal_confirmed(signal: Signal) -> None:

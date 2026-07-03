@@ -214,6 +214,7 @@ class Signal:
     disqualifiers:      list[str] = field(default_factory=list)  # reasons it isn't qualified
     zone_notes:         list[str] = field(default_factory=list)  # nearby unmitigated S/D zones (info only)
     news_note:          str = ""   # high-impact news context (info only — never blocks)
+    dedup_key:          str = ""   # producer's dedup key; committed to the delivery ledger only ON a confirmed send
 
 
 # ── Strategy result ────────────────────────────────────────────────────────────

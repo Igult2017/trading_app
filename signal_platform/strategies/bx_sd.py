@@ -74,8 +74,9 @@ class BXStrategy(BaseStrategy):
         out: list[Signal] = []
 
         # REPORTS — 4H zone mitigation heads-ups + respected-retest confirmed entries.
-        # Independent of the fresh-zone cascade below; each deduped once per zone.
-        out += scan_reports(sym, h4, m5, m1, htf, pip, digits, self.fired, self.name, self.id + "_watch")
+        # Independent of the fresh-zone cascade below; deduped once per zone ON CONFIRMED DELIVERY
+        # (at-least-once — a failed DM re-fires next scan instead of being lost).
+        out += scan_reports(sym, h4, m5, m1, htf, pip, digits, self.name, self.id + "_watch")
 
         # WATCH — a tapped setup broke before it triggered: alert once, then stop watching it.
         locked = self._locked.get(sym)
