@@ -27,8 +27,10 @@ def format_setup_alert(signal: Signal) -> str:
         header = f"🔍 <b>SETUP — {_h(signal.symbol)} {side}</b>  <i>(not qualified)</i>"
         status = "❌ <b>NOT QUALIFIED</b> — reported for review only"
 
-    lines = [
-        header,
+    lines = [header]
+    if signal.label:
+        lines.append(f"🏷 <b>{_h(signal.label)}</b>")
+    lines += [
         "──────────────────────────",
         f"{arrow} <b>Strategy:</b> {_h(name)}",
         f"⏱ <b>Timeframe:</b> {_h(signal.primary_timeframe or '—')}",
@@ -70,8 +72,10 @@ def format_signal_confirmed(signal: Signal) -> str:
     side  = "BUY" if signal.direction == Direction.BUY else "SELL"
     conf  = f"{signal.confidence * 100:.0f}%" if signal.confidence else "—"
 
-    lines = [
-        f"{arrow} <b>{_h(signal.symbol)}</b> — <b>{side}</b>",
+    lines = [f"{arrow} <b>{_h(signal.symbol)}</b> — <b>{side}</b>"]
+    if signal.label:
+        lines.append(f"🏷 <b>{_h(signal.label)}</b>")
+    lines += [
         "──────────────────────────",
         f"🏷 <b>Strategy:</b> {_h(signal.strategy_name or signal.strategy_id)}",
         f"⏱ <b>Timeframe:</b> {_h(signal.primary_timeframe or '—')}",
@@ -117,8 +121,10 @@ def format_signal_watch(signal: Signal) -> str:
     arrow = "📈" if signal.direction == Direction.BUY else "📉"
     side  = "BUY" if signal.direction == Direction.BUY else "SELL"
 
-    lines = [
-        f"⚠️ <b>WATCH SIGNAL — {_h(signal.symbol)} {side}</b>",
+    lines = [f"⚠️ <b>WATCH SIGNAL — {_h(signal.symbol)} {side}</b>"]
+    if signal.label:
+        lines.append(f"🏷 <b>{_h(signal.label)}</b>")
+    lines += [
         "──────────────────────────",
         f"{arrow} <b>{_h(signal.symbol)}</b> — <b>{side}</b>",
         f"🏷 <b>Strategy:</b> {_h(signal.strategy_name or signal.strategy_id or '—')}",
