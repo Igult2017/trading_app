@@ -49,8 +49,15 @@ def write_status(status: str, error: str = "", hint: str = "") -> None:
             _S3_MARKER.write_text((error or hint or "boot error")[:200])
             _send_coded(f"🛰️ S3 ⏬\n{(error or hint or 'boot error')[:180]}")
         elif status == "ok" and _S3_MARKER.exists():
+            # Recovery: mirror the down alert's clarity — say plainly it's resolved and echo the
+            # prior fault (stored in the marker), so the ⏫ reads as a real 'all-clear', not a bare code.
+            try:
+                prior = _S3_MARKER.read_text().strip()[:150]
+            except Exception:
+                prior = ""
             _S3_MARKER.unlink(missing_ok=True)
-            _send_coded("🛰️ S3 ⏫")
+            _send_coded("🛰️ S3 ⏫ RESOLVED — signal scanner back online"
+                        + (f"\n(was: {prior})" if prior else ""))
     except Exception:
         pass
 
