@@ -80,15 +80,20 @@ def swept_before(pools: list[LiquidityPool], candles: list[Candle], side: str,
 
 
 def defensive_ok(pools: list[LiquidityPool], candles: list[Candle], direction: str,
-                 entry: float, sl: float, pip: float = 0.0001, sl_tol_pips: float = 1.5):
+                 entry: float, sl: float, pip: float = 0.0001, sl_tol_pips: float = 1.5,
+                 exclude: float | None = None, exclude_tol_pips: float = 1.5):
     """DEFENSE — 'don't be the liquidity'. Returns (ok, reason).
     Rejects if the SL sits on a pool, or an UNSWEPT opposing pool sits between entry and SL
-    (price would grab it and stop us out)."""
+    (price would grab it and stop us out). `exclude` is the zone's own distal edge — the low/high
+    we are trading FROM (our SL is already tucked beyond it), so it is not counted as a hazard pool."""
     tol = sl_tol_pips * pip
-    if any(abs(p.price - sl) <= tol for p in pools):
+    ex  = exclude_tol_pips * pip
+    def _skip(p):
+        return exclude is not None and abs(p.price - exclude) <= ex
+    if any(abs(p.price - sl) <= tol for p in pools if not _skip(p)):
         return False, "SL sits on a liquidity pool (it would get hunted)"
     for p in pools:
-        if is_swept(candles, p):
+        if is_swept(candles, p) or _skip(p):
             continue
         if direction == "demand" and p.side == "sell" and sl < p.price < entry:
             return False, f"unswept sell-side pool @ {p.price:.5f} between SL and entry — we'd be the liquidity"
