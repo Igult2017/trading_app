@@ -55,24 +55,28 @@ async def _startup() -> None:
     _env  = settings.ctrader_env or "demo"
     _host = "demo.ctraderapi.com" if _env == "demo" else "live.ctraderapi.com"
     log.info("[boot] checking TCP %s:5035 ...", _host)
-    try:
-        _, _w = await asyncio.wait_for(
-            asyncio.open_connection(_host, 5035, ssl=__import__("ssl").create_default_context()),
-            timeout=10,
-        )
-        _w.close()
-        log.info("[boot] TCP %s:5035 reachable", _host)
-    except asyncio.TimeoutError:
-        msg  = f"TCP {_host}:5035 timeout — outbound port 5035 is blocked"
+    _reach_err = ""
+    for _attempt in range(1, 4):        # retry transient blips before alerting — only cry when truly down
+        try:
+            _, _w = await asyncio.wait_for(
+                asyncio.open_connection(_host, 5035, ssl=__import__("ssl").create_default_context()),
+                timeout=10,
+            )
+            _w.close()
+            log.info("[boot] TCP %s:5035 reachable (attempt %d)", _host, _attempt)
+            _reach_err = ""
+            break
+        except asyncio.TimeoutError:
+            _reach_err = f"TCP {_host}:5035 timeout — outbound port 5035 is blocked"
+        except OSError as exc:
+            _reach_err = f"TCP {_host}:5035 refused — {exc}"
+        if _attempt < 3:
+            log.warning("[boot] 5035 check attempt %d/3 failed (%s) — retrying in 4s", _attempt, _reach_err)
+            await asyncio.sleep(4)
+    if _reach_err:                      # all 3 attempts failed → genuinely down, then alert + exit
         hint = "Open outbound TCP 5035 in your VPS firewall (UFW / iptables / provider panel)"
-        write_status("error", msg, hint)
-        log.error("[boot] %s", msg)
-        sys.exit(1)
-    except OSError as exc:
-        msg  = f"TCP {_host}:5035 refused — {exc}"
-        hint = "Check VPS firewall outbound rules for port 5035"
-        write_status("error", msg, hint)
-        log.error("[boot] %s", msg)
+        write_status("error", _reach_err, hint)
+        log.error("[boot] %s (after 3 attempts)", _reach_err)
         sys.exit(1)
 
     # cTrader probe — actually fetches bars to confirm auth + account ID are correct
