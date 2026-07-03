@@ -1,13 +1,19 @@
 """
-VOCANT.1 — 1M entry.
+VOCANT.1 — 1M entry (fractal-break stop entry).
 
-Fires on the 1M FRACTAL BREAK + PULL-BACK, per the playbook's chart samples:
-  Downtrend: price breaks BELOW a fractal low, then pulls back UP (retest) -> fire SELL (continuation).
-  Uptrend:   price breaks ABOVE a fractal high, then pulls back DOWN (retest) -> fire BUY  (continuation).
-The signal fires while price is pulling back AFTER the break, before the continuation resumes — the
-entry is a stop just beyond the broken fractal (fills when price continues), and the stop-loss sits
-just beyond the pull-back extreme (tight). `pip` scales the buffers, the 5-60 pip risk gate and the
-price rounding for the instrument (see shared.pip). Reads only raw candles — no other-strategy logic.
+Per the Volume Strategy playbook (STEP 2): after the 1HR volume+trend bias, drop to the 1M and enter
+on a FRACTAL BREAK via a stop order just beyond the fractal —
+  Uptrend:   buy  stop just ABOVE a fractal high; fills as price breaks up   (continuation).
+  Downtrend: sell stop just BELOW a fractal low;  fills as price breaks down (continuation).
+
+Supports BOTH break styles (user choice — "support both"):
+  * FIRST break (the playbook): price pulls back, forms the fractal, then breaks it — fire on that
+    break, even a strong runaway that never retests (entry = a pending stop just beyond the fractal).
+  * RETEST break: the fractal is broken, price pulls back to it, then continues — also valid.
+The stop-loss sits just beyond the PULL-BACK extreme (the retrace after the fractal, whether it
+precedes OR follows the break) = "one unit" of risk; TP = 2R (set by the caller). We never chase — if
+price has already run a full 1R past the entry, that continuation is gone. `pip` scales the buffers,
+the 5-60 pip risk gate and the price rounding (see shared.pip). Reads only raw candles.
 """
 import logging
 
@@ -22,15 +28,16 @@ _M1_WINDOW = 120   # only look at the recent ~2h of M1 (after the volume candle)
 def m1_entry(m1: list[Candle], bullish: bool, cluster_end_time: int,
              pip: float = 0.0001, symbol: str = "") -> tuple[float, float] | None:
     """
-    Return (entry_level, sl_level) for a VOCANT.1 stop-order entry, or None.
+    Return (entry_level, sl_level) for a VOCANT.1 fractal-break stop entry, or None.
 
-    Finds the most recent 1M fractal (high if uptrend / low if downtrend) that has since been BROKEN
-    in the trend direction and then PULLED BACK — that break-then-pull-back is the trigger.
-      entry_level = a stop JUST BEYOND the broken fractal (fills as price continues the trend).
-      sl_level    = just beyond the M1 pull-back extreme (tight).
+    Finds the most recent 1M fractal (high if uptrend / low if downtrend) whose break is fresh or
+    imminent, with a genuine pull-back beyond it for the stop:
+      entry_level = a stop JUST BEYOND the fractal (buy stop above the high / sell stop below the low).
+      sl_level    = just beyond the pull-back extreme (the retrace after the fractal) — tight, "one unit".
+    Fires on the FIRST break OR a later retest, but never once price has already run a full 1R past.
     """
     sl_buffer    = 2 * pip     # SL just beyond the pull-back extreme
-    entry_buffer = 1 * pip     # entry just beyond the broken fractal (a genuine continuation break)
+    entry_buffer = 1 * pip     # entry just beyond the fractal (a genuine break in the trend direction)
     min_risk     = 5  * pip
     max_risk     = 60 * pip
     digits       = 5 if pip < 0.005 else 3
@@ -40,10 +47,11 @@ def m1_entry(m1: list[Candle], bullish: bool, cluster_end_time: int,
     if n < 12:
         log.info(f"[vocant1] {symbol} 1M entry=NONE: only {n} M1 bars since the volume candle closed — waiting")
         return None
+    last_close = window[-1].close
 
     best_miss = "no 1M fractal formed yet"
-    # Scan fractals from most-recent (with room for a break + pull-back after) back to oldest.
-    for i in range(n - 5, 1, -1):
+    # Scan fractals from most-recent (needs 2 bars each side for the Williams shape) back to oldest.
+    for i in range(n - 3, 1, -1):
         c = window[i]
         p1, p2, n1, n2 = window[i - 1], window[i - 2], window[i + 1], window[i + 2]
         is_frac = ((c.high > p1.high and c.high > p2.high and c.high > n1.high and c.high > n2.high)
@@ -53,38 +61,26 @@ def m1_entry(m1: list[Candle], bullish: bool, cluster_end_time: int,
             continue
         f_level = c.high if bullish else c.low
 
-        # 1) BREAK in the trend direction after the fractal (confirmed 2 bars later → scan from i+3).
-        brk = next((j for j in range(i + 3, n)
-                    if (window[j].high > f_level if bullish else window[j].low < f_level)), None)
-        if brk is None or brk + 1 >= n:
-            best_miss = "fractal found but not yet broken in the trend direction (no continuation break)"
-            continue
-
-        # 2) PULL-BACK after the break — the counter-trend retrace (this is the fire trigger).
-        after = window[brk + 1:]
+        # PULL-BACK = the retrace after the fractal — serves the pre-break shoulder OR a post-break retest.
+        tail = window[i + 1:]
         if bullish:
-            rel = min(range(len(after)), key=lambda k: after[k].low)
-            pb_ext = after[rel].low
+            rel = min(range(len(tail)), key=lambda k: tail[k].low)
+            pb_ext = tail[rel].low
         else:
-            rel = max(range(len(after)), key=lambda k: after[k].high)
-            pb_ext = after[rel].high
-        pb_idx = brk + 1 + rel
+            rel = max(range(len(tail)), key=lambda k: tail[k].high)
+            pb_ext = tail[rel].high
+        pb_idx = i + 1 + rel
 
-        # 3) Fire only while the pull-back is fresh (before the continuation has already run away).
-        if (n - 1 - pb_idx) > _MAX_STALE:
-            best_miss = f"break+pull-back found but stale ({n - 1 - pb_idx} bars old > {_MAX_STALE} max)"
-            continue
-
-        # 4) Continuation entry beyond the broken fractal; SL just beyond the pull-back extreme.
+        # A valid stop needs the pull-back to sit BEYOND the fractal (below a high / above a low).
         if bullish:
             entry, sl = f_level + entry_buffer, pb_ext - sl_buffer
-            if sl >= entry:          # pull-back didn't dip below the entry → no valid risk
-                best_miss = "pull-back too shallow — stayed above the broken fractal (no valid stop below entry)"
+            if pb_ext >= f_level:
+                best_miss = "fractal high formed but no pull-back below it yet (setup still forming)"
                 continue
         else:
             entry, sl = f_level - entry_buffer, pb_ext + sl_buffer
-            if sl <= entry:          # pull-back didn't bounce above the entry → no valid risk
-                best_miss = "pull-back too shallow — stayed below the broken fractal (no valid stop above entry)"
+            if pb_ext <= f_level:
+                best_miss = "fractal low formed but no pull-back above it yet (setup still forming)"
                 continue
 
         risk = abs(entry - sl)
@@ -94,6 +90,17 @@ def m1_entry(m1: list[Candle], bullish: bool, cluster_end_time: int,
         if risk > max_risk:
             best_miss = f"valid setup but risk {risk / pip:.1f} pips > {max_risk / pip:.0f}p max (stop too wide)"
             continue
+
+        # Don't chase: if price already ran a full 1R past the entry, that continuation is gone.
+        if (last_close > entry + risk) if bullish else (last_close < entry - risk):
+            best_miss = "break already ran >1R past the entry (too late to enter)"
+            continue
+
+        # The setup must be current — the pull-back can't be ancient.
+        if (n - 1 - pb_idx) > _MAX_STALE:
+            best_miss = f"break+pull-back found but stale ({n - 1 - pb_idx} bars old > {_MAX_STALE} max)"
+            continue
+
         return round(entry, digits), round(sl, digits)
 
     log.info(f"[vocant1] {symbol} 1M entry=NONE: {best_miss}")
