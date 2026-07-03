@@ -185,14 +185,15 @@ async def on_signal_closed(signal_id: str) -> None:
                 return (
                     row.symbol, row.type, row.status,
                     float(row.entry_price) if row.entry_price else None,
+                    row.strategy or "",
                 )
 
         data = await loop.run_in_executor(None, _load_row)
         if data is None:
             return
-        symbol, direction, status, entry = data
+        symbol, direction, status, entry, strategy = data
         message = format_signal_closed(
-            symbol=symbol, direction=direction, status=status, entry=entry,
+            symbol=symbol, direction=direction, status=status, entry=entry, strategy=strategy,
         )
         await _send_text(message)
     except Exception as exc:

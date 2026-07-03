@@ -12,55 +12,54 @@ def _h(text: str) -> str:
 
 
 def format_setup_alert(signal: Signal) -> str:
-    """Stage 1 — H1 pullback after a volume cluster. Fired for every pullback,
-    labelled QUALIFIED (entry will follow) or NOT QUALIFIED (review only)."""
+    """Unconfirmed setup / heads-up (admin DM). STRATEGY-AGNOSTIC: every line is built from the
+    signal's OWN fields — the strategy supplies its own reasons/context. No hardcoded indicator or
+    setup-type text (e.g. no 'D1 200 EMA' / 'ADX' / 'H1 pullback' — those belong only to whichever
+    strategy actually uses them, via its own technical_reasons)."""
     arrow = "📈" if signal.direction == Direction.BUY else "📉"
     side  = "BUY" if signal.direction == Direction.BUY else "SELL"
+    name  = signal.strategy_name or signal.strategy_id or "—"
 
-    if not signal.qualified:
-        header = f"🔍 <b>PULLBACK — {_h(signal.symbol)} {side}</b>  <i>(not qualified)</i>"
-        status = "❌ <b>NOT QUALIFIED</b> — reported for review only"
-    elif "_watch" in signal.strategy_id:
-        header = f"⚠️ <b>WATCH SETUP — {_h(signal.symbol)} {side}</b>"
-        status = "✅ <b>QUALIFIED</b> (ADX) — D1 200 EMA not aligned"
-    else:
+    if signal.qualified:
         header = f"👁 <b>SETUP ALERT — {_h(signal.symbol)} {side}</b>"
-        status = "✅ <b>QUALIFIED</b> — D1 200 EMA aligned"
+        status = "✅ <b>QUALIFIED</b>"
+    else:
+        header = f"🔍 <b>SETUP — {_h(signal.symbol)} {side}</b>  <i>(not qualified)</i>"
+        status = "❌ <b>NOT QUALIFIED</b> — reported for review only"
 
     lines = [
         header,
         "──────────────────────────",
-        f"{arrow} <b>H1 pullback after volume cluster</b>",
+        f"{arrow} <b>Strategy:</b> {_h(name)}",
+        f"⏱ <b>Timeframe:</b> {_h(signal.primary_timeframe or '—')}",
         status,
-        "",
-        f"📍 <b>Entry zone:</b>    <code>{signal.entry_price:.5f}</code>",
-        f"🛑 <b>SL (approx):</b>  <code>{signal.stop_loss:.5f}</code>",
-        f"🎯 <b>TP (approx):</b>  <code>{signal.take_profit:.5f}</code>",
-        "",
     ]
+    if signal.entry_price:
+        lines += ["", f"📍 <b>Entry:</b>  <code>{signal.entry_price:.5f}</code>"]
+        if signal.stop_loss:
+            lines.append(f"🛑 <b>SL:</b>     <code>{signal.stop_loss:.5f}</code>")
+        if signal.take_profit:
+            lines.append(f"🎯 <b>TP:</b>     <code>{signal.take_profit:.5f}</code>")
     if signal.technical_reasons:
-        lines += ["📝 <b>Setup details:</b>"]
+        lines += ["", "📝 <b>Details:</b>"]
         for r in signal.technical_reasons[:5]:
             lines.append(f"  • {_h(r)}")
     if not signal.qualified and signal.disqualifiers:
         lines += ["", "🚫 <b>Why not qualified:</b>"]
         for r in signal.disqualifiers[:5]:
             lines.append(f"  • {_h(r)}")
+    if signal.market_context:
+        lines += ["", f"<i>{_h(signal.market_context)}</i>"]
     if signal.zone_notes:
         lines += ["", "📌 <b>Nearby S/D zones:</b>"]
         for z in signal.zone_notes[:6]:
             lines.append(f"  • {_h(z)}")
     if signal.news_note:
         lines += ["", _h(signal.news_note)]
-    footer = (
-        "⏳ <i>A second alert will follow with the exact entry if the M1 fractal forms.</i>"
-        if signal.qualified else
-        "🔎 <i>Shown so you can verify detection — no entry will follow.</i>"
-    )
     lines += [
         "",
         "──────────────────────────",
-        footer,
+        "👁 <i>Heads-up only — trade at your discretion</i>",
         "⚡️ <i>Trade&amp;Journal Signal Platform</i>",
     ]
     return "\n".join(lines)
@@ -119,10 +118,10 @@ def format_signal_watch(signal: Signal) -> str:
     side  = "BUY" if signal.direction == Direction.BUY else "SELL"
 
     lines = [
-        f"⚠️ <b>WATCH SIGNAL — Not aligning with D1 EMA 200</b>",
+        f"⚠️ <b>WATCH SIGNAL — {_h(signal.symbol)} {side}</b>",
         "──────────────────────────",
         f"{arrow} <b>{_h(signal.symbol)}</b> — <b>{side}</b>",
-        f"🏷 <b>Strategy:</b> {_h(signal.strategy_name or signal.strategy_id)}",
+        f"🏷 <b>Strategy:</b> {_h(signal.strategy_name or signal.strategy_id or '—')}",
         f"⏱ <b>Timeframe:</b> {_h(signal.primary_timeframe or '—')}",
         "",
     ]
@@ -162,7 +161,8 @@ def format_signal_watch(signal: Signal) -> str:
 
 def format_signal_closed(symbol: str, direction: str, status: str,
                           entry: float | None = None,
-                          close_price: float | None = None) -> str:
+                          close_price: float | None = None,
+                          strategy: str = "") -> str:
     if status == SignalStatus.EXECUTED.value:
         emoji, result = "✅", "TP HIT"
     elif status == SignalStatus.INVALIDATED.value:
@@ -176,6 +176,9 @@ def format_signal_closed(symbol: str, direction: str, status: str,
         f"{emoji} {dir_arrow} <b>{_h(symbol)}</b> — <b>{result}</b>",
         "──────────────────────────",
     ]
+    name = (strategy or "").removesuffix("_watch").removesuffix("_setup")   # drop routing suffix
+    if name:
+        lines.append(f"🏷 <b>Strategy:</b> {_h(name)}")
     if entry:
         lines.append(f"💰 <b>Entry:</b>  <code>{entry:.5f}</code>")
     if close_price:
