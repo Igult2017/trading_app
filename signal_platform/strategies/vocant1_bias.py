@@ -8,7 +8,7 @@ direction can come from EITHER:
 A VOLUME CANDLE is a candle in the trend direction with a bigger body than the previous candle and
 short wicks (each wick <= 33% of range; a genuine long/rejection wick = volatility = no-go). The move is
 confirmed by a RUN of 1-3 consecutive volume candles (a single strong momentum candle can qualify);
-the last candle's close sends us to the 1M. detect_bias() reports (bullish, vc_idx, origin, count).
+the FIRST candle's close opens the 1M watch. detect_bias() reports (bullish, first_idx, origin, count).
 Reads only the shared GENERIC candle-math + swing-point helpers.
 """
 import logging
@@ -101,15 +101,17 @@ def _volume_veto_reason(h1: list[Candle], bullish: bool) -> str:
             f"(smaller-body×{small_body}, long-wick>{int(_MAX_WICK_FRAC*100)}%×{long_wick})")
 
 
-def _breaks_range(h1: list[Candle], vc_idx: int, bullish: bool) -> bool:
-    """True if the confirming volume candle CLOSES beyond the range set by the bars before the run —
-    a genuine break out of a range, not a wiggle inside it."""
-    prior = h1[max(0, vc_idx - 1 - _RANGE_LOOKBACK): vc_idx - 1]
+def _run_breaks_range(h1: list[Candle], first_idx: int, run_len: int, bullish: bool) -> bool:
+    """True if the volume RUN closes beyond the range set by the bars BEFORE it started — a genuine
+    break out of a range, not a wiggle inside it. Checks the run's furthest close (any candle in the
+    run), so a breakout that completes on the 2nd/3rd candle still counts (not just the first)."""
+    prior = h1[max(0, first_idx - 1 - _RANGE_LOOKBACK): first_idx - 1]
     if len(prior) < 3:
         return False
+    run = h1[first_idx: first_idx + run_len]
     if bullish:
-        return h1[vc_idx].close > max(c.high for c in prior)
-    return h1[vc_idx].close < min(c.low for c in prior)
+        return max(c.close for c in run) > max(c.high for c in prior)
+    return min(c.close for c in run) < min(c.low for c in prior)
 
 
 def detect_bias(h1: list[Candle], symbol: str = "") -> tuple[bool, int, str, int] | None:
@@ -132,7 +134,7 @@ def detect_bias(h1: list[Candle], symbol: str = "") -> tuple[bool, int, str, int
     # No established trend — accept a RANGE breaking into a trend (volume-led, playbook-valid).
     for bullish in (True, False):
         vr = volume_run(h1, bullish)
-        if vr is not None and _breaks_range(h1, vr[0], bullish):
+        if vr is not None and _run_breaks_range(h1, vr[0], vr[1], bullish):
             return (bullish, vr[0], "range", vr[1])
     log.info(f"[vocant1] {symbol} 1HR bias=NONE: no clear HH+HL/LH+LL trend and no volume-led range "
              f"breakout (up: {_volume_veto_reason(h1, True)})")

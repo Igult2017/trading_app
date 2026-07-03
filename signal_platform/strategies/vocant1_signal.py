@@ -16,7 +16,8 @@ _KIND = {
 
 
 def build_signal(kind, symbol, bullish, origin, vol_count, entry, sl, tp,
-                 risk, pip, digits, corr, news_context, strategy_id, strategy_name) -> Signal:
+                 risk, pip, digits, corr, news_context, strategy_id, strategy_name,
+                 alert_only=False) -> Signal:
     side         = "BUY" if bullish else "SELL"
     label, blurb = _KIND[kind]
     vlabel       = f"{vol_count} volume candle{'s' if vol_count != 1 else ''}"
@@ -51,6 +52,7 @@ def build_signal(kind, symbol, bullish, origin, vol_count, entry, sl, tp,
         risk_reward       = 2.0,
         confidence        = 0.72,
         primary_timeframe = TF.H1,
+        alert_only        = alert_only,   # pull-back = DM alert (bypasses the symbol:direction dedup)
         technical_reasons = reasons,
         smc_factors       = smc,
         market_context    = (f"VOCANT.1 (validating) — {side} {symbol} 1M {label} "

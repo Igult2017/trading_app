@@ -113,8 +113,11 @@ class Vocant1Strategy(BaseStrategy):
             entry, sl = s["entry"], s["sl"]
             risk = abs(entry - sl)
             tp   = entry + 2.0 * risk if bullish else entry - 2.0 * risk
+            # BREAK is saved (AssetPage + DM); PULL-BACK is a DM alert so it bypasses the
+            # symbol:direction dedup (else the validator would drop it as a duplicate of the break).
             out.append(build_signal(s["kind"], sym, bullish, origin, vol_count, entry, sl, tp,
-                                    risk, pip, digits, corr, context.news, self.id + "_watch", self.name))
+                                    risk, pip, digits, corr, context.news, self.id + "_watch", self.name,
+                                    alert_only=(s["kind"] == "pullback")))
             self.fired.add(key)
             self._recent[sym] = (bullish, now)
             self._locked.setdefault(sym, {"bullish": bullish, "entry": entry, "sl": sl, "locked_at": now})
