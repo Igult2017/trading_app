@@ -33,6 +33,10 @@ _TF_TO_PERIOD: dict[str, int] = {
     "M10": 6, "M15": 7, "M30": 8,
     "H1": 9, "H4": 10, "H12": 11,
     "D1": 12, "W1": 13, "MN1": 14,
+    # The platform's canonical monthly TF is "MN" (shared/mtf_utils._NATIVE_TF[43200]); Spotware's
+    # enum name is MN1. Without this alias a strategy declaring TF.MN gets "no period enum for TF
+    # 'MN'" → empty series → strategy_context_builder returns None → the strategy is SILENTLY skipped.
+    "MN": 14,
 }
 
 _symbols:  dict[str, int] = {}   # "EURUSD" → symbolId
