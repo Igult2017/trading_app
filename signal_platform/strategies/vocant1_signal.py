@@ -8,10 +8,11 @@ formatting of an already-decided entry/SL/TP.
 from core.types import TF, Signal, Direction
 from news.news_filter import news_note
 
-# (panel label, human blurb) per entry kind
+# (panel label, human blurb) per entry kind — both are the same motion (pullback at the volume-candle
+# handover, stop beyond the level it came from); they differ only in where the stop could be anchored.
 _KIND = {
-    "break":    ("FRACTAL BREAK",      "1M fractal broke — momentum entry"),
-    "pullback": ("PULL-BACK RE-ENTRY", "pull-back after the break — safe stop re-entry"),
+    "transition": ("TRANSITION",    "pullback at the 1st->2nd volume-candle handover — stop at the line"),
+    "late":       ("LATE PULLBACK", "price ran first, pullback came late — stop capped at the standard"),
 }
 
 
@@ -36,7 +37,7 @@ def build_signal(kind, symbol, bullish, origin, vol_count, entry, sl, tp,
         f"CTX::1HR TREND::{'RANGE BREAKOUT' if origin == 'range' else ('UPTREND' if bullish else 'DOWNTREND')}",
         f"CTX::1HR VOLUME::{vol_count} CANDLE{'S' if vol_count != 1 else ''} (FROM 1ST)",
         f"CTX::1M ENTRY::{label}",
-        f"PA::{'MOMENTUM' if kind == 'break' else 'PULL-BACK'} STOP-ENTRY (2R)",
+        f"PA::{label} STOP-ENTRY (2R)",
     ]
     if corr:
         smc.append("PA::CORRELATED USD — SIZE DOWN")
