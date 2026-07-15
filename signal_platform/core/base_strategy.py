@@ -19,7 +19,12 @@ class BaseStrategy(ABC):
     enabled: bool = True
 
     # ── What to fetch ──────────────────────────────────────────────────────────
-    required_timeframes: list[str]   # e.g. ["M15", "H4"]
+    required_timeframes: list[str]   # e.g. ["M15", "H4"] — MISSING ANY OF THESE SKIPS THE STRATEGY
+
+    # Fetched and passed in the context like required TFs, but ENRICHMENT ONLY: if one comes back
+    # empty/short the context is still built and the strategy still runs (it must handle the gap).
+    # Use for HTF confluence / bonus TFs so one flaky feed can't silently kill a whole strategy.
+    optional_timeframes: list[str] = []
 
     # ── Plugin dependencies (all optional — default to empty) ──────────────────
     required_indicators: list[str] = []

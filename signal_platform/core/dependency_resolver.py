@@ -18,6 +18,9 @@ class ResolvedDeps:
     needs_session:    bool
     needs_volatility: bool
     needs_spread:     bool
+    # Subset of `timeframes` that is enrichment-only: fetched and passed through, but an empty
+    # series must NOT null the context (see strategy_context_builder). Default empty = old behaviour.
+    optional_timeframes: list[str] = field(default_factory=list)
 
 
 def resolve(strategy) -> ResolvedDeps:
@@ -38,8 +41,14 @@ def resolve(strategy) -> ResolvedDeps:
     for pat_id in strategy.required_patterns:
         tfs.update(_pat_tfs(pat_id))
 
+    # Optional (enrichment) TFs are fetched too, but never gate the context. A TF that is also
+    # required/needed by a component stays REQUIRED — required always wins.
+    optional = set(getattr(strategy, "optional_timeframes", None) or []) - tfs
+    tfs |= optional
+
     return ResolvedDeps(
         timeframes       = list(tfs),
+        optional_timeframes = list(optional),
         indicator_ids    = list(strategy.required_indicators),
         pattern_ids      = list(strategy.required_patterns),
         feature_ids      = list(strategy.required_features),

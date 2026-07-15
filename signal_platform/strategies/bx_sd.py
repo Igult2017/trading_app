@@ -1,17 +1,11 @@
 """
-BX-S/D — Smart-Money supply/demand strategy (EUR/USD only).
+BX-S/D — Smart-Money supply/demand strategy (EUR/USD only), built ONLY from the SMC (Vekariya) book.
 
-Built ONLY from the SMC (Dixit Vekariya) book — a self-contained strategy. Its cascade:
-  4H   — the SETUP is confirmed here and ONLY here: a CONFIRMED, PRO-TREND trend with a fresh
-         unmitigated zone that satisfies all 3 factors (IFC + broke structure + liquidity grabbed),
-         freshly tapped, priced right, and defensive-liquidity clear ("don't be the liquidity").
-  15M  — CONFIRM + REFINE: a CHoCH must print INSIDE the 4H zone (confirmed entries only — never a
-         blind limit), the zone is refined onto a tight LTF POI, and the stack is graded.
-  1M   — TRIGGER: a 1M CHoCH off the refined POI locks the entry (proximal/50%), SL beyond the
-         refined distal (~2 pip), TP = next unmitigated opposite zone / fib extension, >= 2R.
-
-Pro-trend + confirmed only. EUR/USD only. The only things shared with other strategies are platform
-RESOURCES (candle feed, pip-size, dedup, signal types) — never another strategy's trading logic.
+Cascade — 4H: the SETUP is confirmed there and ONLY there (confirmed pro-trend + a fresh 3-factor
+zone: IFC + broke structure + liquidity grabbed, tapped, priced right, defensive-liquidity clear).
+15M: a CHoCH INSIDE the zone confirms (never a blind limit), refines it to a tight POI, and grades it.
+1M/5M: the trigger locks entry (proximal/50%), SL ~2 pip beyond the distal, TP = next opposite zone /
+fib, >= 2R. Pro-trend + confirmed only. Shares platform RESOURCES only — never another strategy's logic.
 
 PHASE 1 = signal generation only (DM-only alert via `_watch`). Phase 2 (auto-execute) follows.
 """
@@ -40,8 +34,11 @@ class BXStrategy(BaseStrategy):
     id      = "bx_sd"
     enabled = True
 
-    # 4H setup · 1H/30M/15M confluence · 5M/1M entry · D1/W1/MN for HTF-confluence tagging
-    required_timeframes = [TF.H4, TF.H1, TF.M30, TF.M15, TF.M5, TF.M1, TF.D1, TF.W1, TF.MN]
+    # H4 is the ONLY hard requirement (setup + mitigation heads-up need nothing else). The rest are
+    # paths/enrichment — 15M confluence, 5M/1M entry (either works), 1H/30M bonus, D1/W1/MN tagging.
+    # OPTIONAL means one flaky/lagging feed degrades a path instead of silently killing the strategy.
+    required_timeframes = [TF.H4]
+    optional_timeframes = [TF.H1, TF.M30, TF.M15, TF.M5, TF.M1, TF.D1, TF.W1, TF.MN]
     candle_counts       = {TF.H4: 200, TF.H1: 200, TF.M30: 200, TF.M15: 200, TF.M5: 250,
                            TF.M1: 250, TF.D1: 200, TF.W1: 120, TF.MN: 60}
 
@@ -62,13 +59,17 @@ class BXStrategy(BaseStrategy):
         m15 = context.candles.get(TF.M15)
         m5  = context.candles.get(TF.M5)
         m1  = context.candles.get(TF.M1)
-        if len(h4) < 40 or len(m15) < 30 or len(m1) < 30:
+        sym = context.symbol
+        if len(h4) < 40:
+            self._log(sym, "NO_H4", f"only {len(h4)} H4 bars (need 40+) — nothing can run")
             return StrategyResult.empty()
+        # Entry TF: prefer 1M, fall back to 5M. The book uses whichever is clearer, and this also
+        # keeps BX alive when the 1M feed lags (stale bars get dropped upstream by the fail-safe).
+        entry_tf = m1 if len(m1) >= 30 else (m5 if len(m5) >= 30 else [])
         higher = [c for c in (context.candles.get(TF.H1), context.candles.get(TF.M30)) if len(c) >= 20]
         htf    = {"Daily":   context.candles.get(TF.D1),
                   "Weekly":  context.candles.get(TF.W1),
                   "Monthly": context.candles.get(TF.MN)}
-        sym    = context.symbol
         pip    = pip_size(sym)
         digits = price_digits(sym)
         out: list[Signal] = []
@@ -94,6 +95,13 @@ class BXStrategy(BaseStrategy):
                 elif inval == "expired":
                     self._locked.pop(sym, None)
 
+        # The fresh-zone cascade needs the 15M confluence AND an entry TF. If either feed is missing
+        # we still return the reports above — and SAY SO, rather than dying silently.
+        if len(m15) < 30 or len(entry_tf) < 30:
+            self._log(sym, "AWAIT_DATA", f"cascade needs 15M + an entry TF "
+                      f"(M15={len(m15)} M1={len(m1)} M5={len(m5)}) — reports still ran")
+            return StrategyResult(signals=out)
+
         # STAGE 1 — 4H setup (confirmed, pro-trend, valid fresh zone, tapped, priced, liquidity-safe)
         setup = detect_setup(h4, pip)
         if not setup.active:
@@ -117,8 +125,8 @@ class BXStrategy(BaseStrategy):
             self._log(sym, "AWAIT_SCORE", f"15M confirmed but {conf.reason}")
             return StrategyResult(signals=out)
 
-        # STAGE 3 — 1M trigger off the refined POI
-        trig = entry_trigger(conf, setup, m1, h4, pip)
+        # STAGE 3 — entry trigger off the refined POI (1M, or 5M when the 1M feed is lagging)
+        trig = entry_trigger(conf, setup, entry_tf, h4, pip)
         if not trig.triggered:
             self._log(sym, "REFINED_SCORED", f"await 1M trigger — {trig.reason}")
             return StrategyResult(signals=out)

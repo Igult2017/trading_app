@@ -34,11 +34,18 @@ def build(
         log.warning(f"[context_builder] {symbol}: strategy resolved zero timeframes — skip")
         return None
 
+    # Enrichment TFs may be empty (flaky/unsupported feed) — they must never null the context and
+    # silently kill a strategy. Only REQUIRED TFs gate it, and a gate is logged at INFO: a strategy
+    # skipped without a trace is the worst failure mode there is.
+    optional = set(getattr(deps, "optional_timeframes", None) or [])
     for tf in deps.timeframes:
         count = len(candle_view.get(tf, []))
-        if count < _MIN_CANDLES:
-            log.debug(f"[context_builder] {symbol}/{tf}: {count} candles < {_MIN_CANDLES} — skip")
+        if count < _MIN_CANDLES and tf not in optional:
+            log.info(f"[context_builder] {symbol}/{tf}: only {count} candles (< {_MIN_CANDLES}) — "
+                     f"strategy SKIPPED this tick")
             return None
+        if count < _MIN_CANDLES:
+            log.debug(f"[context_builder] {symbol}/{tf}: optional TF empty ({count}) — continuing")
 
     mtf = MTFCandles.from_cache(candle_view, deps.timeframes)
 
