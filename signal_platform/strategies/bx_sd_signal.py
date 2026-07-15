@@ -44,6 +44,8 @@ def build_signal(symbol: str, setup: SetupResult, conf: LTFConfluence, trig: Ent
         strategy_id       = strategy_id,          # _watch → private DM (Phase 1)
         strategy_name     = strategy_name,
         label             = "451HRZ",             # 4H zone + 1M/5M entry tag (retest / continuation / core)
+        to_channel        = True,                 # BX entries are PUBLIC (signal channel); its mitigation
+                                                  # heads-up + invalidation stay in the admin DM.
         entry_price       = round(trig.entry, digits),
         stop_loss         = round(trig.sl, digits),
         take_profit       = round(trig.tp, digits),

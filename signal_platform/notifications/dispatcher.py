@@ -102,8 +102,15 @@ async def _send_photo(chart_path: str, caption: str, chat_id: str | None = None)
 
 
 async def on_setup_alert(signal: Signal) -> None:
-    # Setup / pre-signal heads-ups are UNCONFIRMED → admin DM only, never the channel.
-    ok = await _send_private(format_setup_alert(signal))
+    # Default: setup / pre-signal heads-ups are UNCONFIRMED → admin DM only, never the channel.
+    # Opt-in: a strategy may mark an alert `to_channel` when its OWN cascade already confirmed it
+    # (BX-S/D entries). Those go PUBLIC with the full signal card instead of the DM heads-up card.
+    # They stay alert_only on purpose — so they keep BX's per-zone dedup + at-least-once delivery and
+    # are NOT subject to the cross-strategy symbol:direction dedup that would silently drop them.
+    if signal.to_channel:
+        ok = await _send_text(format_signal_confirmed(signal))     # public signal channel
+    else:
+        ok = await _send_private(format_setup_alert(signal))
     # At-least-once delivery: commit the producer's dedup key ONLY once the DM actually landed,
     # so a failed send (or crash before send) re-fires next scan instead of being lost forever.
     if ok and signal.dedup_key:
