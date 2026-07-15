@@ -11,8 +11,8 @@ from news.news_filter import news_note
 # (panel label, human blurb) per entry kind — both are the same motion (pullback at the volume-candle
 # handover, stop beyond the level it came from); they differ only in where the stop could be anchored.
 _KIND = {
-    "transition": ("TRANSITION",    "pullback at the 1st->2nd volume-candle handover — stop at the line"),
-    "late":       ("LATE PULLBACK", "price ran first, pullback came late — stop capped at the standard"),
+    "pullback": ("PULLBACK",      "price past the 1HR line — one candle back, stop beyond where it came from"),
+    "fractal":  ("FRACTAL BREAK", "price not past the line yet — stop beyond the fractal; the break re-aligns the 1M"),
 }
 
 

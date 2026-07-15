@@ -4,10 +4,11 @@ VOCANT.1 — "Volume Strategy".
 Built ONLY from the Volume Strategy playbook — a self-contained strategy, unrelated to any other:
   1HR = bias: a CLEAR TREND (HH+HL up / LH+LL down) OR a range breaking into a trend, carried by
         VOLUME (a run of 1-3 volume candles). OPERATE FROM THE 1ST volume candle. NO indicators.
-  1M  = entry: at the TRANSITION — the 1st volume candle ENDING while the 2nd FORMS. Its close is
-        THE LINE (== candle 2's open); price pulls back one candle off it and we place a stop beyond
-        the level that pullback came from, so a reversal never fills. SL is dynamic off the line
-        (capped when the pullback comes late); TP = 2R. See vocant1_entry.
+  1M  = entry, and the 1M alone decides WHEN — the 1HR never puts a clock on it. Wait until the 1M
+        ALIGNS, then trigger dynamically off THE LINE (the 1st volume candle's body end): PAST the
+        line -> a one-candle PULLBACK is enough; NOT past it -> the FRACTAL BREAK proves realignment.
+        Always a stop order, so a reversal never fills. SL dynamic off the line (capped when the line
+        is far or on the wrong side); TP = 2R. See vocant1_entry.
 
 Once a setup fires it is LOCKED and WATCHED on both timeframes (vocant1_watch) — if the 1HR bias
 flips or the 1M reverses past the stop before entry, it is invalidated (alert) so we never keep
