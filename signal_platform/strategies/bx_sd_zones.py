@@ -17,6 +17,10 @@ Book Ch.6, "Mitigation / Inefficiency":
     and doing it collapses every IFC in one impulse onto a single zone at the impulse's ORIGIN, tens
     of pips from where the inefficiency actually formed. That zone is then rarely revisited, so it
     reads "unmitigated" forever while the real zones next to price are never marked at all.
+  * WICK ZONES (p33-35): if the impulse candle's own wick traded back through the candle before it,
+    "there aren't any resting orders left on this candle, all of them get mitigated by this following
+    candle" — the zone is then the IMPULSE candle's wick ("orders are sitting on THIS WICK!"), and
+    marking the body instead is "NOT HERE!". See _wick_zone.
   * mitigated / unmitigated (p27): "When price taps into a d/s zone, that has not been tapped yet, it
     becomes mitigated from unmitigated." BX-S/D only ever trades UNMITIGATED zones.
 
@@ -61,6 +65,27 @@ def find_fvgs(candles: list[Candle]) -> list[FVG]:
     return out
 
 
+def _wick_zone(candles: list[Candle], ifc: int, bull: bool) -> tuple[float, float] | None:
+    """Book p33-35 — "When should you use wicks as the zones?".
+
+    If the impulse candle's own wick traded back THROUGH the candle before it, then (p34) "there
+    aren't any resting orders left on this candle, all of them get mitigated by this following
+    candle" — that candle is dead as a zone. "In this case, this is your valid supply level, orders
+    are sitting on THIS WICK!" So the zone becomes the impulse candle's OWN wick; p35 marks the body
+    and says "NOT HERE!". Returns (top, bottom) of the wick zone, or None when the ordinary
+    candle-before rule stands. The wick must actually exist — if the BODY did the sweeping there is
+    no wick to rest orders on, and we leave the normal rule in charge.
+    """
+    imp, zc = candles[ifc], candles[ifc - 1]
+    body_hi, body_lo = max(imp.open, imp.close), min(imp.open, imp.close)
+    if bull:
+        if imp.low <= zc.low and imp.low < body_lo:      # lower wick swept the whole prior candle
+            return body_lo, imp.low
+    elif imp.high >= zc.high and imp.high > body_hi:     # upper wick swept the whole prior candle
+        return imp.high, body_hi
+    return None
+
+
 def _is_mitigated(candles: list[Candle], after: int, direction: str, top: float, bottom: float) -> bool:
     """A fresh zone is mitigated the first time price taps back to its proximal edge (p27)."""
     for j in range(after + 1, len(candles)):
@@ -83,10 +108,16 @@ def find_zones(candles: list[Candle]) -> list[Zone]:
         zi = fvg.index - 1
         if zi < 0:
             continue
-        z    = candles[zi]
-        bull = fvg.direction == "bull"
-        direction   = "demand" if bull else "supply"
-        top, bottom = z.high, z.low
+        bull      = fvg.direction == "bull"
+        direction = "demand" if bull else "supply"
+        wick      = _wick_zone(candles, fvg.index, bull)
+        if wick is not None:
+            top, bottom = wick              # p33-35: the prior candle is mitigated; orders rest here
+            origin = fvg.index
+        else:
+            z = candles[zi]
+            top, bottom = z.high, z.low     # p29: the last candle before the IFC, any colour
+            origin = zi
         zones.append(Zone(
             direction    = direction,
             top          = top,
@@ -94,7 +125,7 @@ def find_zones(candles: list[Candle]) -> list[Zone]:
             proximal     = top if bull else bottom,     # entry edge faces the market
             distal       = bottom if bull else top,     # SL edge is the far side
             eq50         = (top + bottom) / 2.0,
-            origin_index = zi,
+            origin_index = origin,
             ifc_index    = fvg.index,
             mitigated    = _is_mitigated(candles, fvg.index, direction, top, bottom),
         ))
