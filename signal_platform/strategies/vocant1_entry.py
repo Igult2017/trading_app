@@ -15,9 +15,11 @@ Setups differ ONLY in how the 1M's ALIGNMENT is established:
                      exactly as above. It runs an unknown number of candles, so it is never
                      bar-counted; bar-counting would hardcode away the setups it must cover.
 
-Two lines come off candle 1 (vocant1_lines). The SL sits slightly beyond LINE 2 — past where an
-opposite move ends — so it cannot wick us out; with a no-wick candle line 2 IS line 1, the ordinary
-case. Unreachable or on the wrong side of the entry -> the instrument's standard. TP = 2R.
+Two lines come off candle 1 (vocant1_lines) and they have separate jobs. LINE 1 is THE line: it gates
+the entry (vocant1_pullback). LINE 2 only adjusts the STOP — it marks where an opposite move is
+expected to reverse, so the SL sits just beyond it and cannot be wicked out; with a no-wick candle it
+IS line 1, the ordinary case. Unreachable or on the wrong side of the entry -> the instrument's
+standard. TP = 2R.
 
 Nothing here is a knife-edge: the fractal tolerates equal highs/lows, and the pullback's own
 thresholds come off the 1M's recent candles and the volume candle's wick (vocant1_pullback).
@@ -93,7 +95,7 @@ def m1_signals(m1: list[Candle], bullish: bool, vc: Candle,
     digits = 5 if pip < 0.005 else 3
     bar    = max(1, seconds(m1[0].timeframe))   # never 0 — an unknown TF must not divide-by-zero
     hr     = seconds(vc.timeframe)
-    line, wick_line = draw_lines(vc, bullish)   # 1: body close  2: wick (usually == 1)
+    line, wick_line = draw_lines(vc)   # 1: body close = THE line;  2: wick = the stop's anchor
     win    = [c for c in m1 if c.time >= vc.time + hr]     # only price action since the line was set
     want   = 1 if bullish else -1
 

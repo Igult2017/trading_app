@@ -16,10 +16,12 @@ The market is never tidy, so nothing here is measured in fixed pips — every th
   retrace ENDS only when price actually resumes the trend: a doji or a stray tick inside it is part
   of the retrace, not the end of it.
 
-  It must have held PAST the lines (vocant1_lines). Not a knife-edge on LINE 1 — an opposite move is
-  allowed to push past line 1 and end at LINE 2, and that band IS the tolerance. It is the volume
-  candle's own open wick, so the market sizes it: no wick, no slack; a wicky candle, more. Beyond
-  line 2 it is not a pullback any more, and that is the only place we say no.
+  LINE 1 gates it, and in two parts. Price must actually have TRADED past line 1 — without that the
+  band below is just a corridor, and a setup where price never reached the line at all would still
+  produce an entry, which is the exact thing the line exists to prevent. Then the pullback itself
+  must not have run beyond LINE 2: an opposite move is allowed to push past line 1 and reverse at
+  line 2, so that band is the tolerance and no fifth decimal decides a trade. The band is the volume
+  candle's own open wick, so the market sizes it — no wick, no slack; a wicky candle, more.
 """
 from core.types import Candle
 from shared.candle_math import is_bullish, is_bearish, body_size, avg_body
@@ -40,10 +42,18 @@ def _resumes(c: Candle, bullish: bool) -> bool:
     return is_bullish(c) if bullish else is_bearish(c)
 
 
+def traded_past(win: list[Candle], bullish: bool, line: float) -> bool:
+    """Has price actually gone past LINE 1 since it was drawn? The whole point of the line."""
+    return max(c.high for c in win) > line if bullish else min(c.low for c in win) < line
+
+
 def find_pullback(win: list[Candle], bullish: bool,
                   line: float, wick_line: float) -> tuple[float | None, str]:
-    """Return (entry level, "") — the FIRST candle of the latest retrace, once it has held within the
-    lines — or (None, why-we-wait)."""
+    """Return (entry level, "") — the FIRST candle of the latest retrace, once price has gone past
+    line 1 and the retrace has held within the lines — or (None, why-we-wait)."""
+    if not traded_past(win, bullish, line):
+        return None, (f"price has not traded past line 1 ({line:.5f}) yet — an entry does not "
+                      f"belong here")
     min_body = _BODY_FRAC * avg_body(win)          # the 1M's own scale, not a fixed pip count
     p = next((i for i in range(len(win) - 1, -1, -1)
               if is_pullback_candle(win[i], bullish, min_body)), None)

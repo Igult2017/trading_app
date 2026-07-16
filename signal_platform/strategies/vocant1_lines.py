@@ -1,27 +1,29 @@
 """
 VOCANT.1 — the 1HR lines, drawn off the FIRST volume candle.
 
-These exist to make the 1M accurate: they say where an entry belongs (and where it does not), and
-they are what the 1M is read against to tell whether it is running with the 1HR.
-
-LINE 1 — the BODY CLOSE line, at candle 1's close. That price is also candle 2's open, so it is the
-         single level the whole setup pivots on. This is the line, and usually the only one.
-LINE 2 — the WICK line. Only worth drawing when candle 1's OPEN wick is a bit long: it sits INSIDE
-         the body, that wick's height off line 1. It marks where an opposite move ends if price
-         first pushes past line 1, and it warns that we could be wicked.
+LINE 1 — the BODY CLOSE line, at candle 1's close. THE line. That price is also candle 2's open, so
+         it is the level the whole setup pivots on. It exists to make the 1M accurate: it says where
+         an entry belongs and where it does not, and it is what the 1M is read against.
+LINE 2 — the WICK line, and it has exactly one job: adjusting the STOP. Drawn INSIDE the body, candle
+         1's OPEN wick height off line 1, it marks where we expect an opposite move to reverse if it
+         first pushes past line 1 — so the stop goes beyond it and that move cannot wick us out.
+         It never gates an entry; line 1 does that.
 
 A candle's OPEN wick is the one at the end it opened from: a bull candle opens at the body's bottom
 (so, its lower wick), a bear candle at the top (its upper wick).
 
-In most cases line 2 does not matter at all — small or no wicks IS the volume-candle filter, so
-there is usually nothing to draw and line 2 collapses onto line 1.
+Line 2 is INSIDE the body by construction, never merely by luck: the volume-candle filter caps each
+wick at 33% of range, which forces the body to at least 34% of range, so the open wick is always
+shorter than the body. And in most cases there is barely a line 2 to speak of — small or no wicks IS
+the volume-candle filter, so it collapses onto line 1.
 """
 from core.types import Candle
-from shared.candle_math import upper_wick, lower_wick
+from shared.candle_math import is_bullish, upper_wick, lower_wick
 
 
-def draw_lines(vc: Candle, bullish: bool) -> tuple[float, float]:
-    """Return (body_close_line, wick_line) for the first volume candle. With no open wick the two
-    are equal — so a caller can always just use line 2 and get the ordinary case for free."""
-    w = lower_wick(vc) if bullish else upper_wick(vc)
-    return vc.close, (vc.close - w if bullish else vc.close + w)
+def draw_lines(vc: Candle) -> tuple[float, float]:
+    """Return (line 1 body-close, line 2 wick) for the first volume candle. Direction is read off the
+    candle itself — a volume candle is in the trend direction by definition, so there is nothing to
+    pass in and nothing that can disagree. With no open wick the two lines are equal."""
+    w = lower_wick(vc) if is_bullish(vc) else upper_wick(vc)
+    return vc.close, (vc.close - w if is_bullish(vc) else vc.close + w)
