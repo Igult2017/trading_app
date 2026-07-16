@@ -26,7 +26,7 @@ import logging
 
 from core.types import Candle
 from shared.mtf_utils import seconds
-from strategies.vocant1_bias import clear_trend
+from strategies.vocant1_trend import clear_trend
 from strategies.vocant1_lines import draw_lines
 from strategies.vocant1_pullback import find_pullback
 

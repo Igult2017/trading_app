@@ -9,13 +9,18 @@ A VOLUME CANDLE is a candle in the trend direction with a bigger body than the p
 short wicks (each wick <= 33% of range; a genuine long/rejection wick = volatility = no-go). The move is
 confirmed by a RUN of 1-3 consecutive volume candles (a single strong momentum candle can qualify);
 the FIRST candle's close opens the 1M watch. detect_bias() reports (bullish, first_idx, origin, count).
-Reads only the shared GENERIC candle-math + swing-point helpers.
+
+The trend must be the thing CARRYING the volume (p1). So when structure and volume disagree — stale
+structure still reading the old trend while fresh volume builds the new one — we do NOT reach back
+past that opposing volume for an aligned candle from hours ago. Structure resolves on its own.
+
+Structure itself lives in vocant1_trend (same rule on both TFs); this module owns the volume rules.
 """
 import logging
 
 from core.types import Candle
 from shared.candle_math import body_size, upper_wick, lower_wick, full_range, is_bullish
-from shared.swing_points import find_swing_points
+from strategies.vocant1_trend import clear_trend        # the structure rule (both TFs)
 
 log = logging.getLogger(__name__)
 
@@ -24,22 +29,7 @@ _MAX_WICK_FRAC  = 0.33   # each wick <= 33% of the candle's range — a genuine 
 _MIN_RUN        = 1      # min consecutive volume candles to confirm (a single momentum candle counts)
 _VOL_LOOKBACK   = 12     # recent 1HR bars scanned for the confirming volume candle (an established
                          # trend's impulse can be several bars old while the fresh 1M entry forms)
-_SWING_N        = 3      # generic swing-pivot half-width
 _RANGE_LOOKBACK = 8      # bars before the breakout that define the range being broken
-
-
-def clear_trend(h1: list[Candle]) -> int:
-    """+1 uptrend (HH+HL) / -1 downtrend (LH+LL) / 0 no clear trend — pure structure, no indicators."""
-    pts   = find_swing_points(h1, n=_SWING_N)
-    highs = [p.price for p in pts if p.is_high]
-    lows  = [p.price for p in pts if not p.is_high]
-    if len(highs) < 2 or len(lows) < 2:
-        return 0
-    if highs[-1] > highs[-2] and lows[-1] > lows[-2]:
-        return 1
-    if highs[-1] < highs[-2] and lows[-1] < lows[-2]:
-        return -1
-    return 0
 
 
 def _is_volume_candle(c: Candle, prev: Candle, bullish: bool) -> bool:
@@ -124,9 +114,22 @@ def detect_bias(h1: list[Candle], symbol: str = "") -> tuple[bool, int, str, int
     trend = clear_trend(h1)
     if trend != 0:
         bullish = trend > 0
-        vr = volume_run(h1, bullish)
-        if vr is not None:
+        vr  = volume_run(h1, bullish)
+        opp = volume_run(h1, not bullish)
+        # p1: "the 1HR must be in a clear trend AND that move must also carry volume". So the trend
+        # has to be the thing carrying it. If the freshest volume runs AGAINST the structure, the
+        # structure is the stale one and the volume is the truth — we must NOT reach back past that
+        # to an aligned candle from hours ago and trade ITS direction. No fresh volume with the
+        # trend = no trade; structure catches up on its own and we take it then.
+        last     = (vr[0] + vr[1] - 1) if vr else -1
+        opp_last = (opp[0] + opp[1] - 1) if opp else -1
+        if vr is not None and last > opp_last:
             return (bullish, vr[0], "trend", vr[1])
+        if vr is not None:
+            log.info(f"[vocant1] {symbol} 1HR bias=NONE: {'up' if bullish else 'down'} structure, but the "
+                     f"freshest volume runs AGAINST it (opposing candle at {opp_last} vs {last}) — the "
+                     f"trend is not carrying the volume; waiting for structure to resolve")
+            return None
         log.info(f"[vocant1] {symbol} 1HR bias=NONE: clear {'up (HH+HL)' if bullish else 'down (LH+LL)'} "
                  f"trend, but {_volume_veto_reason(h1, bullish)}")
         return None
