@@ -20,10 +20,9 @@ how the 1M's ALIGNMENT gets established:
 The fractal-break move runs an unknown number of candles, so it is never bar-counted — bar-counting
 it would hardcode away the setups it has to cover.
 
-The SL is dynamic: slightly beyond THE LINE (the 1st volume candle's body end == the 2nd's open), so
-a wick into the line cannot take us out. Line unreachably far or on the wrong side of the entry -> it
-caps at the instrument's standard. TP = 2R. (How the line itself is marked off candle 1's wick is
-still open — see the notes; today it is the raw body end.)
+Two lines are drawn off candle 1 (vocant1_lines). The SL sits slightly beyond LINE 2 — past where
+an opposite move ends — so it cannot wick us out; with a no-wick candle line 2 IS line 1, which is
+the ordinary case. Unreachable or on the wrong side of the entry -> the instrument's standard. TP = 2R.
 """
 import logging
 
@@ -31,6 +30,7 @@ from core.types import Candle
 from shared.candle_math import is_bullish
 from shared.mtf_utils import seconds
 from strategies.vocant1_bias import clear_trend
+from strategies.vocant1_lines import draw_lines
 
 log = logging.getLogger(__name__)
 
@@ -48,12 +48,13 @@ def _max_sl(symbol: str) -> float:
     return _MAX_SL_PIPS.get(symbol, _MAX_SL_FALLBACK)
 
 
-def _dynamic_sl(entry: float, line: float, bullish: bool,
+def _dynamic_sl(entry: float, wick_line: float, bullish: bool,
                 pip: float, max_sl: float) -> tuple[float, float, bool]:
-    """Pullback NEAR the line -> stop slightly beyond THE LINE, so a wick into the line cannot take
-    us out. Line unreachably far or on the wrong side of the entry -> use the instrument's standard
+    """Pullback NEAR the line -> stop slightly beyond LINE 2, i.e. past where an opposite move ends,
+    so the wick it prints cannot take us out. (No wick on candle 1 -> line 2 IS line 1, the usual
+    case.) Line unreachably far or on the wrong side of the entry -> use the instrument's standard
     instead. Returns (sl, risk, standard)."""
-    ideal  = (line - _SL_BUFFER * pip) if bullish else (line + _SL_BUFFER * pip)
+    ideal  = (wick_line - _SL_BUFFER * pip) if bullish else (wick_line + _SL_BUFFER * pip)
     beyond = (ideal < entry) if bullish else (ideal > entry)
     risk   = abs(entry - ideal)
     # A line level with the entry yields ~0 risk; floor-rescuing that would hand back a tight stop
@@ -104,7 +105,7 @@ def m1_signals(m1: list[Candle], bullish: bool, vc: Candle,
     digits = 5 if pip < 0.005 else 3
     bar    = max(1, seconds(m1[0].timeframe))   # never 0 — an unknown TF must not divide-by-zero
     hr     = seconds(vc.timeframe)
-    line   = vc.close
+    line, wick_line = draw_lines(vc, bullish)   # 1: body close  2: wick (usually == 1)
     win    = [c for c in m1 if c.time >= vc.time + hr]     # only price action since the line was set
     want   = 1 if bullish else -1
 
@@ -130,7 +131,7 @@ def m1_signals(m1: list[Candle], bullish: bool, vc: Candle,
         return []
 
     entry = lvl + _ENTRY_BUFFER * pip if bullish else lvl - _ENTRY_BUFFER * pip
-    sl, risk, standard = _dynamic_sl(entry, line, bullish, pip, _max_sl(symbol))
+    sl, risk, standard = _dynamic_sl(entry, wick_line, bullish, pip, _max_sl(symbol))
 
     # The stop must still be UNFILLED — strictly beyond price in the trend direction. If the pullback
     # is already taken out, an order there is a LIMIT filling INTO the move: the inverse of this entry.
@@ -142,5 +143,6 @@ def m1_signals(m1: list[Candle], bullish: bool, vc: Candle,
 
     log.info(f"[vocant1] {symbol} 1M PULLBACK entry ({kind} path) — {'BUY' if bullish else 'SELL'} "
              f"stop {entry:.{digits}f} SL {sl:.{digits}f} ({risk / pip:.1f}p, "
-             f"{'standard' if standard else 'beyond the line'}; line {line:.{digits}f})")
+             f"{'standard' if standard else 'beyond the line'}; line {line:.{digits}f}"
+             f"{'' if wick_line == line else f' wick-line {wick_line:.{digits}f}'})")
     return [{"kind": kind, "entry": round(entry, digits), "sl": round(sl, digits)}]
