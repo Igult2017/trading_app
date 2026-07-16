@@ -5,9 +5,9 @@ Playbook p2: "if the 1M is still not aligned with the 1HR, wait — do nothing u
 That wait is OPEN-ENDED — the 1HR can be ready for hours while the 1M is not. A bias flip
 (vocant1_watch) ends a setup; a timer never does.
 
-THE ENTRY IS ALWAYS THE PULLBACK — a proper candle the other way, stop just beyond it: continue and
-it fills us along the way, reverse and we are never in ("no trade, no risk", p6). A pullback may run
-several candles; only its FIRST matters. Setups differ ONLY in how ALIGNMENT is established:
+THE ENTRY IS ALWAYS THE PULLBACK (vocant1_pullback) — 1M only, past the line, stop just beyond it:
+continue and it fills us along the way, reverse and we are never in ("no trade, no risk", p6).
+Setups differ ONLY in how the 1M's ALIGNMENT is established:
 
   already aligned -> the 1M already runs with the 1HR at the line. Wait for the pullback, enter.
   FRACTAL BREAK   -> the 1M was moving OPPOSITE the 1HR, turned, and took out the last fractal it
@@ -22,10 +22,10 @@ case. Unreachable or on the wrong side of the entry -> the instrument's standard
 import logging
 
 from core.types import Candle
-from shared.candle_math import is_bullish, is_bearish
 from shared.mtf_utils import seconds
 from strategies.vocant1_bias import clear_trend
 from strategies.vocant1_lines import draw_lines
+from strategies.vocant1_pullback import find_pullback
 
 log = logging.getLogger(__name__)
 
@@ -77,24 +77,6 @@ def _fractal_broken(win: list[Candle], bullish: bool, n: int = _FRACTAL_N) -> bo
     return False
 
 
-def _is_pullback(c: Candle, bullish: bool) -> bool:
-    """A pullback candle is a PROPER candle the other way — it must have a real body. A doji
-    (open == close) is indecision, not a pullback, and must never place a stop."""
-    return is_bearish(c) if bullish else is_bullish(c)
-
-
-def _pullback(win: list[Candle], bullish: bool) -> float | None:
-    """THE ENTRY LEVEL. A pullback may run several candles; only its FIRST matters — it sits nearest
-    the resumption, so a stop just beyond it fills us along the way. Taking the latest would drag the
-    stop deeper into the retrace every candle. Returns its extreme, or None."""
-    p = next((i for i in range(len(win) - 1, -1, -1) if _is_pullback(win[i], bullish)), None)
-    if p is None:
-        return None
-    while p > 0 and _is_pullback(win[p - 1], bullish):   # walk back to the FIRST of this run
-        p -= 1
-    return win[p].high if bullish else win[p].low
-
-
 def m1_signals(m1: list[Candle], bullish: bool, vc: Candle,
                pip: float = 0.0001, symbol: str = "") -> list[dict]:
     """
@@ -124,11 +106,10 @@ def m1_signals(m1: list[Candle], bullish: bool, vc: Candle,
                  f"and no fractal break yet — waiting (playbook: do nothing until the 1M lines up)")
         return []
 
-    # THE ENTRY — the one-candle pullback, in both cases.
-    lvl = _pullback(win, bullish)
+    # THE ENTRY — the first pullback candle PAST the line, in both cases.
+    lvl, why = find_pullback(win, bullish, line)
     if lvl is None:
-        log.info(f"[vocant1] {symbol} 1M: aligned ({kind}) but no pullback candle yet — price is "
-                 f"running; the stop needs one candle back to sit behind")
+        log.info(f"[vocant1] {symbol} 1M: aligned ({kind}) but {why} — waiting")
         return []
 
     entry = lvl + _ENTRY_BUFFER * pip if bullish else lvl - _ENTRY_BUFFER * pip
