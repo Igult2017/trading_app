@@ -109,7 +109,6 @@ async def _startup() -> None:
     # 4. Register plugins
     import features      # noqa: F401
     import strategies    # noqa: F401
-    import indicators    # noqa: F401
     import patterns      # noqa: F401
     from core import strategy_registry, feature_registry
     log.info("[boot] %d feature(s), %d strategy(ies) registered",
