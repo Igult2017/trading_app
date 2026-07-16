@@ -2,37 +2,57 @@
 VOCANT.1 — the 1M pullback: the entry level.
 
 Observed on the 1M ONLY. The 1HR never has a pullback in this strategy — it is there for volume, for
-trend, and to give us the line.
+trend, and to give us the lines.
 
-A pullback candle is a PROPER candle the other way: it must have a real body. A doji (open == close)
-is indecision, not a pullback, and must never place a stop.
+The market is never tidy, so nothing here is measured in fixed pips — every threshold comes off the
+1M's own recent candles or off the volume candle itself:
 
-A pullback may RUN several candles, but only its FIRST one matters. That candle sits nearest the
-resumption, so a stop just beyond it fills us along the way if price continues; taking the latest
-candle of the run instead would drag the stop deeper into the retrace with every candle that prints.
+  A PROPER candle the other way — a real body, judged against the 1M's own recent average body, not
+  a pip count. A doji is indecision and a tick of noise is noise; neither may place a stop. What is
+  a real body in London is noise in Tokyo, so the bar has to move with the market.
 
-And it must be PAST the 1HR line (vocant1_lines, LINE 1 — the body close of the first volume candle).
-That is what makes a pullback confirm the bias rather than be just another candle going the other
-way, and it is what keeps entries out of the places they do not belong.
+  Only the FIRST candle of the retrace matters — it sits nearest the resumption, so a stop just
+  beyond it fills us along the way, where a later one drags the stop deeper with every candle. A
+  retrace ENDS only when price actually resumes the trend: a doji or a stray tick inside it is part
+  of the retrace, not the end of it.
+
+  It must have held PAST the lines (vocant1_lines). Not a knife-edge on LINE 1 — an opposite move is
+  allowed to push past line 1 and end at LINE 2, and that band IS the tolerance. It is the volume
+  candle's own open wick, so the market sizes it: no wick, no slack; a wicky candle, more. Beyond
+  line 2 it is not a pullback any more, and that is the only place we say no.
 """
 from core.types import Candle
-from shared.candle_math import is_bullish, is_bearish
+from shared.candle_math import is_bullish, is_bearish, body_size, avg_body
+
+_BODY_FRAC = 0.25   # share of the 1M's own recent average body below which a candle is noise
 
 
-def is_pullback_candle(c: Candle, bullish: bool) -> bool:
-    """A proper candle the other way — a real body, never a doji."""
-    return is_bearish(c) if bullish else is_bullish(c)
+def is_pullback_candle(c: Candle, bullish: bool, min_body: float = 0.0) -> bool:
+    """A proper candle the other way — a real body, never a doji or a tick of noise."""
+    if not (is_bearish(c) if bullish else is_bullish(c)):
+        return False
+    return body_size(c) >= min_body
 
 
-def find_pullback(win: list[Candle], bullish: bool, line: float) -> tuple[float | None, str]:
-    """Return (entry level, "") — the FIRST candle of the latest pullback run, once it is past the
-    line — or (None, why-we-wait)."""
-    p = next((i for i in range(len(win) - 1, -1, -1) if is_pullback_candle(win[i], bullish)), None)
+def _resumes(c: Candle, bullish: bool) -> bool:
+    """Price going WITH the trend again — the only thing that ends a retrace. A doji or a stray tick
+    inside the retrace is part of it, so it must not split the run."""
+    return is_bullish(c) if bullish else is_bearish(c)
+
+
+def find_pullback(win: list[Candle], bullish: bool,
+                  line: float, wick_line: float) -> tuple[float | None, str]:
+    """Return (entry level, "") — the FIRST candle of the latest retrace, once it has held within the
+    lines — or (None, why-we-wait)."""
+    min_body = _BODY_FRAC * avg_body(win)          # the 1M's own scale, not a fixed pip count
+    p = next((i for i in range(len(win) - 1, -1, -1)
+              if is_pullback_candle(win[i], bullish, min_body)), None)
     if p is None:
-        return None, "no pullback candle yet — price is running"
-    while p > 0 and is_pullback_candle(win[p - 1], bullish):    # walk back to the FIRST of the run
+        return None, "no pullback candle with a real body yet — price is running"
+    while p > 0 and not _resumes(win[p - 1], bullish):    # noise inside the retrace is still retrace
         p -= 1
     lvl = win[p].high if bullish else win[p].low
-    if (lvl <= line) if bullish else (lvl >= line):
-        return None, f"the pullback ({lvl:.5f}) is not past the line ({line:.5f})"
+    if (lvl < wick_line) if bullish else (lvl > wick_line):
+        return None, (f"the pullback ({lvl:.5f}) ran beyond the lines "
+                      f"({line:.5f} / wick {wick_line:.5f}) — not a pullback any more")
     return lvl, ""

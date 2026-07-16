@@ -18,6 +18,9 @@ Setups differ ONLY in how the 1M's ALIGNMENT is established:
 Two lines come off candle 1 (vocant1_lines). The SL sits slightly beyond LINE 2 — past where an
 opposite move ends — so it cannot wick us out; with a no-wick candle line 2 IS line 1, the ordinary
 case. Unreachable or on the wrong side of the entry -> the instrument's standard. TP = 2R.
+
+Nothing here is a knife-edge: the fractal tolerates equal highs/lows, and the pullback's own
+thresholds come off the 1M's recent candles and the volume candle's wick (vocant1_pullback).
 """
 import logging
 
@@ -67,7 +70,9 @@ def _fractal_broken(win: list[Candle], bullish: bool, n: int = _FRACTAL_N) -> bo
     for i in range(len(win) - 1 - n, n - 1, -1):
         c  = win[i]
         nb = win[i - n:i] + win[i + 1:i + 1 + n]
-        if not all((c.high > x.high) if bullish else (c.low < x.low) for x in nb):
+        # Non-strict: an EQUAL high/low next door must not erase the fractal — ties are constant
+        # on 1M forex. In a real move the next bar is strictly beyond, so nothing spurious passes.
+        if not all((c.high >= x.high) if bullish else (c.low <= x.low) for x in nb):
             continue
         lvl = c.high if bullish else c.low
         # ONLY the most recent fractal decides — return, not continue. Scanning back finds some
@@ -107,7 +112,7 @@ def m1_signals(m1: list[Candle], bullish: bool, vc: Candle,
         return []
 
     # THE ENTRY — the first pullback candle PAST the line, in both cases.
-    lvl, why = find_pullback(win, bullish, line)
+    lvl, why = find_pullback(win, bullish, line, wick_line)
     if lvl is None:
         log.info(f"[vocant1] {symbol} 1M: aligned ({kind}) but {why} — waiting")
         return []
