@@ -5,10 +5,10 @@ Built ONLY from the Volume Strategy playbook — a self-contained strategy, unre
   1HR = bias: a CLEAR TREND (HH+HL up / LH+LL down) OR a range breaking into a trend, carried by
         VOLUME (a run of 1-3 volume candles). OPERATE FROM THE 1ST volume candle. NO indicators.
   1M  = entry, and the 1M alone decides WHEN — the 1HR never puts a clock on it. Wait until the 1M
-        ALIGNS, then trigger dynamically off THE LINE (the 1st volume candle's body end): PAST the
-        line -> a one-candle PULLBACK is enough; NOT past it -> the FRACTAL BREAK proves realignment.
-        Always a stop order, so a reversal never fills. SL dynamic off the line (capped when the line
-        is far or on the wrong side); TP = 2R. See vocant1_entry.
+        ALIGNS (already trending with the 1HR, or a FRACTAL BREAK confirming it just turned), then
+        the PULLBACK is the entry: a stop just beyond the first pullback candle, so a reversal never
+        fills. SL sits beyond the 1HR lines (vocant1_lines), capped at the instrument's standard when
+        they are far or on the wrong side; TP = 2R. See vocant1_entry.
 
 Once a setup fires it is LOCKED and WATCHED on both timeframes (vocant1_watch) — if the 1HR bias
 flips or the 1M reverses past the stop before entry, it is invalidated (alert) so we never keep
@@ -72,10 +72,10 @@ class Vocant1Strategy(BaseStrategy):
         sym    = context.symbol
         out: list[Signal] = []
 
-        # WATCH — a LOCKED pending setup: alert on invalidation, but do NOT block the pull-back signal.
+        # WATCH — a LOCKED pending setup: alert on invalidation, but never block a fresh setup.
         locked = self._locked.get(sym)
         if locked is not None:
-            reason = check_invalidation(locked, h1, m1, now)
+            reason = check_invalidation(locked, h1, m1, now, sym)
             if reason in ("triggered", "expired"):
                 del self._locked[sym]                       # cleared — look for a fresh setup
             elif reason is not None:
@@ -97,7 +97,7 @@ class Vocant1Strategy(BaseStrategy):
             log.info(f"[vocant1] {sym} inside a high-impact news window — skip entry")
             return StrategyResult(signals=out)
 
-        # 1M — the FRACTAL BREAK and (if any) PULL-BACK signals.
+        # 1M — align (structure, or a fractal break), then the pullback entry.
         self.fired.cleanup(_STATE_TTL)
         log.info(f"[vocant1] {sym} 1HR bias OK ({'BUY' if bullish else 'SELL'}, {origin}, "
                  f"{vol_count} vol candle{'s' if vol_count != 1 else ''}, from 1st) — checking 1M")
@@ -110,22 +110,25 @@ class Vocant1Strategy(BaseStrategy):
                 if inst != sym and b == bullish and (now - t) < _CORR_WINDOW]
 
         for s in raw:                                       # each = {"kind", "entry", "sl"}
-            # ONE entry per volume-candle transition. The key must NOT include the kind: a setup can
-            # start 'transition' and re-classify 'late' as price runs from the line, which would fire
-            # a second same-direction signal that the validator then drops as a duplicate — silently.
+            # ONE entry per volume candle. The key must NOT include the kind: the same setup can
+            # reach the entry via either alignment path as the 1M develops, and a second
+            # same-direction signal would be dropped by the validator as a duplicate — silently.
             key = f"{sym}_{'B' if bullish else 'S'}_{vc.time}"
             if self.fired.has(key):
                 continue
             entry, sl = s["entry"], s["sl"]
             risk = abs(entry - sl)
             tp   = entry + 2.0 * risk if bullish else entry - 2.0 * risk
-            # One entry per transition, so it is SAVED (AssetPage + DM + TP/SL monitoring) and holds
-            # the single symbol:direction reservation the validator/monitor/DB invariant assumes.
+            # One entry per setup, so it is SAVED (AssetPage + DM + TP/SL monitoring) and holds the
+            # single symbol:direction reservation the validator/monitor/DB invariant assumes.
             out.append(build_signal(s["kind"], sym, bullish, origin, vol_count, entry, sl, tp,
                                     risk, pip, digits, corr, context.news, self.id + "_watch", self.name))
             self.fired.add(key)
             self._recent[sym] = (bullish, now)
-            self._locked.setdefault(sym, {"bullish": bullish, "entry": entry, "sl": sl, "locked_at": now})
+            # Assign, don't setdefault: this is a new volume candle, so it SUPERSEDES any older
+            # pending setup. setdefault left the watch tracking the stale entry/sl and the live one
+            # unwatched.
+            self._locked[sym] = {"bullish": bullish, "entry": entry, "sl": sl, "locked_at": now}
             log.info(f"[vocant1] {sym} 1M {s['kind'].upper()} signal — {'BUY' if bullish else 'SELL'} "
                      f"stop {entry:.{digits}f} SL {sl:.{digits}f}")
 

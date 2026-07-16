@@ -15,7 +15,8 @@ _LOCK_TTL = 3 * 3600   # a pending setup that neither triggers nor invalidates e
 _WATCH_M1 = 120        # recent M1 bars inspected for a trigger / reversal
 
 
-def check_invalidation(locked: dict, h1: list[Candle], m1: list[Candle], now_ts: float) -> str | None:
+def check_invalidation(locked: dict, h1: list[Candle], m1: list[Candle],
+                       now_ts: float, symbol: str = "") -> str | None:
     """
     Watch a LOCKED (pending) setup on BOTH timeframes. Returns:
       a reason string  — the bias/price turned against the setup (invalidate + alert),
@@ -29,7 +30,7 @@ def check_invalidation(locked: dict, h1: list[Candle], m1: list[Candle], now_ts:
         return "expired"
 
     # 1HR — has the higher-timeframe bias flipped to the other side?
-    bias = detect_bias(h1)
+    bias = detect_bias(h1, symbol)
     if bias is not None and bias[0] != bullish:
         return "1HR bias flipped against the setup"
 

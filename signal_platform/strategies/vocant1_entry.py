@@ -1,33 +1,28 @@
 """
-VOCANT.1 — 1M entry. The 1HR sets the bias and THE LINE; the 1M decides WHEN.
+VOCANT.1 — 1M entry. The 1HR sets the bias and the lines; the 1M decides WHEN.
 
 Playbook p2: "if the 1M is still not aligned with the 1HR, wait — do nothing until the 1M lines up."
-That wait is OPEN-ENDED. The 1HR is context ONLY: it can be ready for hours while the 1M is not. A
-bias flip (vocant1_watch) ends a setup; a timer never does.
+That wait is OPEN-ENDED — the 1HR can be ready for hours while the 1M is not. A bias flip
+(vocant1_watch) ends a setup; a timer never does.
 
-THE ENTRY IS ALWAYS THE PULLBACK — a proper candle the other way, with a stop just beyond it:
-continue and it fills us along the way, reverse and we are never in ("no trade, no risk", p6). A
-pullback may run several candles; only its FIRST one matters. What differs between setups is only
-how the 1M's ALIGNMENT gets established:
+THE ENTRY IS ALWAYS THE PULLBACK — a proper candle the other way, stop just beyond it: continue and
+it fills us along the way, reverse and we are never in ("no trade, no risk", p6). A pullback may run
+several candles; only its FIRST matters. Setups differ ONLY in how ALIGNMENT is established:
 
-  already aligned  -> the 1M structure already runs with the 1HR (and price is at the line). Nothing
-                      to confirm: wait for the pullback and enter.
-  FRACTAL BREAK    -> the 1M was moving OPPOSITE the 1HR, then turned and took out the last fractal
-                      it formed on the way. That break is CONFIRMATION the 1M trend has changed and
-                      is now aligning — it is NOT the entry. We then wait for the pullback and enter
-                      there, exactly as above.
+  already aligned -> the 1M already runs with the 1HR at the line. Wait for the pullback, enter.
+  FRACTAL BREAK   -> the 1M was moving OPPOSITE the 1HR, turned, and took out the last fractal it
+                     formed. That break CONFIRMS the turn — it is NOT the entry. Then the pullback,
+                     exactly as above. It runs an unknown number of candles, so it is never
+                     bar-counted; bar-counting would hardcode away the setups it must cover.
 
-The fractal-break move runs an unknown number of candles, so it is never bar-counted — bar-counting
-it would hardcode away the setups it has to cover.
-
-Two lines are drawn off candle 1 (vocant1_lines). The SL sits slightly beyond LINE 2 — past where
-an opposite move ends — so it cannot wick us out; with a no-wick candle line 2 IS line 1, which is
-the ordinary case. Unreachable or on the wrong side of the entry -> the instrument's standard. TP = 2R.
+Two lines come off candle 1 (vocant1_lines). The SL sits slightly beyond LINE 2 — past where an
+opposite move ends — so it cannot wick us out; with a no-wick candle line 2 IS line 1, the ordinary
+case. Unreachable or on the wrong side of the entry -> the instrument's standard. TP = 2R.
 """
 import logging
 
 from core.types import Candle
-from shared.candle_math import is_bullish
+from shared.candle_math import is_bullish, is_bearish
 from shared.mtf_utils import seconds
 from strategies.vocant1_bias import clear_trend
 from strategies.vocant1_lines import draw_lines
@@ -50,10 +45,9 @@ def _max_sl(symbol: str) -> float:
 
 def _dynamic_sl(entry: float, wick_line: float, bullish: bool,
                 pip: float, max_sl: float) -> tuple[float, float, bool]:
-    """Pullback NEAR the line -> stop slightly beyond LINE 2, i.e. past where an opposite move ends,
-    so the wick it prints cannot take us out. (No wick on candle 1 -> line 2 IS line 1, the usual
-    case.) Line unreachably far or on the wrong side of the entry -> use the instrument's standard
-    instead. Returns (sl, risk, standard)."""
+    """Stop slightly beyond LINE 2 — past where an opposite move ends, so its wick cannot take us out
+    (no wick on candle 1 -> line 2 IS line 1). Line unreachably far, or on the wrong side of the
+    entry -> the instrument's standard instead. Returns (sl, risk, standard)."""
     ideal  = (wick_line - _SL_BUFFER * pip) if bullish else (wick_line + _SL_BUFFER * pip)
     beyond = (ideal < entry) if bullish else (ideal > entry)
     risk   = abs(entry - ideal)
@@ -68,28 +62,35 @@ def _dynamic_sl(entry: float, wick_line: float, bullish: bool,
 def _fractal_broken(win: list[Candle], bullish: bool, n: int = _FRACTAL_N) -> bool:
     """CONFIRMATION, never an entry. The 1M was moving opposite the 1HR and formed fractals on the
     way; price turning and closing through one of them means the 1M trend has CHANGED and is now
-    aligning with the 1HR. The move from fractal to break is any number of candles — so we scan the
-    whole window since the line and never bar-count it."""
+    aligning with the 1HR. Only the LAST fractal it formed counts. The move from that fractal to the
+    break is any number of candles, so nothing here is bar-counted."""
     for i in range(len(win) - 1 - n, n - 1, -1):
         c  = win[i]
         nb = win[i - n:i] + win[i + 1:i + 1 + n]
         if not all((c.high > x.high) if bullish else (c.low < x.low) for x in nb):
             continue
         lvl = c.high if bullish else c.low
-        if any((x.close > lvl) if bullish else (x.close < lvl) for x in win[i + n + 1:]):
-            return True
+        # ONLY the most recent fractal decides — return, not continue. Scanning back finds some
+        # long-dead broken level in any sizeable window and calls a plainly-counter 1M "aligned";
+        # once it truly trends with the 1HR the caller's clear_trend branch carries it anyway.
+        return any((x.close > lvl) if bullish else (x.close < lvl) for x in win[i + n + 1:])
     return False
 
 
+def _is_pullback(c: Candle, bullish: bool) -> bool:
+    """A pullback candle is a PROPER candle the other way — it must have a real body. A doji
+    (open == close) is indecision, not a pullback, and must never place a stop."""
+    return is_bearish(c) if bullish else is_bullish(c)
+
+
 def _pullback(win: list[Candle], bullish: bool) -> float | None:
-    """THE ENTRY LEVEL. A pullback may run several candles, but only its FIRST candle matters — that
-    is the one nearest the resumption, so a stop just beyond it fills us along the way if price
-    continues. Taking the latest candle instead would drag the stop deeper into the retrace with
-    every candle. Returns the first pullback candle's extreme, or None if none yet."""
-    p = next((i for i in range(len(win) - 1, -1, -1) if is_bullish(win[i]) != bullish), None)
+    """THE ENTRY LEVEL. A pullback may run several candles; only its FIRST matters — it sits nearest
+    the resumption, so a stop just beyond it fills us along the way. Taking the latest would drag the
+    stop deeper into the retrace every candle. Returns its extreme, or None."""
+    p = next((i for i in range(len(win) - 1, -1, -1) if _is_pullback(win[i], bullish)), None)
     if p is None:
         return None
-    while p > 0 and is_bullish(win[p - 1]) != bullish:   # walk back to the FIRST of this run
+    while p > 0 and _is_pullback(win[p - 1], bullish):   # walk back to the FIRST of this run
         p -= 1
     return win[p].high if bullish else win[p].low
 
