@@ -9,8 +9,9 @@ trigger before locking a signal:
     the refined zone. The last confirmation; still never a blind limit.
   * ENTRY  — the refined proximal edge (or the 50% equilibrium of the zone to tighten a wider POI).
   * SL     — just beyond the refined distal (~2 pip) — the whole point of refinement.
-  * TP     — the NEXT unmitigated opposite zone (real liquidity target); if none, the fib
-    extension (-0.272 / -0.618). The chosen TP must clear min RR, else the setup is skipped.
+  * TP     — the NEXT unmitigated opposite zone that is BOOK-VALID (3 factors — a candle beside a
+    gap has no orders behind it to fill us); if none, the fib extension (-0.272 / -0.618). The chosen
+    TP must clear min RR, else the setup is skipped.
 
 Assembles Phases 1-6; reuses only generic shared resources.
 """
@@ -19,6 +20,7 @@ from dataclasses import dataclass, field
 from core.types import Candle
 from shared.swing_points import find_swing_points
 from strategies.bx_sd_zones import find_zones
+from strategies.bx_sd_validity import valid_zones
 from strategies.bx_sd_ltf import find_ltf_choch, LTFConfluence
 from strategies.bx_sd_setup import SetupResult
 
@@ -54,10 +56,17 @@ def _rr(entry: float, sl: float, tp: float, buy: bool) -> float:
     return rew / risk if risk > 0 else 0.0
 
 
-def _tp_candidates(setup: SetupResult, h4: list[Candle], entry: float, buy: bool) -> list[float]:
-    """Next unmitigated opposite zone(s) first (real liquidity targets), fib extensions as fallback."""
+def _tp_candidates(setup: SetupResult, h4: list[Candle], entry: float, buy: bool,
+                   pip: float = 0.0001) -> list[float]:
+    """Next unmitigated opposite zone(s) first (real liquidity targets), fib extensions as fallback.
+
+    The target must be a BOOK-VALID zone (3 factors), not any candle beside a gap. We take the FIRST
+    candidate clearing min RR, so an invalid one sitting nearer would be picked ahead of a real zone
+    and we would aim at a level with no orders resting behind it — a TP that never fills.
+    """
     opp = "supply" if buy else "demand"
-    cands = [z.proximal for z in find_zones(h4) if z.direction == opp and not z.mitigated]
+    cands = [z.proximal for z in valid_zones(h4, find_zones(h4), pip)
+             if z.direction == opp and not z.mitigated]
     cands += [setup.tp1, setup.tp2]
     if buy:
         return sorted(c for c in cands if c > entry)
@@ -91,7 +100,8 @@ def entry_trigger(conf: LTFConfluence, setup: SetupResult, entry_tf: list[Candle
     sl    = z.distal - 2 * pip if buy else z.distal + 2 * pip
     r.entry, r.sl = entry, sl
 
-    tp = next((c for c in _tp_candidates(setup, h4, entry, buy) if _rr(entry, sl, c, buy) >= min_rr), None)
+    tp = next((c for c in _tp_candidates(setup, h4, entry, buy, pip)
+              if _rr(entry, sl, c, buy) >= min_rr), None)
     if tp is None:
         r.reason = f"no TP clears {min_rr}R"; r.triggered = False; return r
     r.tp = tp

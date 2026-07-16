@@ -107,7 +107,10 @@ class BXStrategy(BaseStrategy):
         if not setup.active:
             self._log(sym, "SCANNING", f"4H: {setup.reason}")
             return StrategyResult(signals=out)
-        zone_time = h4[setup.zone.origin_index].time
+        # Key on the IFC (one zone per IFC = unique). origin_index is NOT: a wick zone sits ON its
+        # impulse while the next IFC's zone sits on that same candle, so two real setups would share
+        # a key and the second be dropped as already-delivered. Same reason bx_sd_reports keys on it.
+        zone_time = h4[setup.zone.ifc_index].time
         key = f"{sym}_{setup.direction}_{zone_time}"     # one fire + one watch per 4H zone
         # lock the tapped setup so a break before the trigger is reported — but never re-watch a
         # zone that already fired (else we'd 'invalidate' a trade we already signalled).

@@ -19,7 +19,7 @@ from shared.swing_points import find_swing_points
 from strategies.bx_sd_structure import map_structure
 from strategies.bx_sd_zones import find_zones, Zone
 from strategies.bx_sd_liquidity import find_liquidity, swept_before, defensive_ok
-from strategies.bx_sd_validity import broke_structure, LIQ_WINDOW
+from strategies.bx_sd_validity import broke_structure, grabbed_liquidity, LIQ_WINDOW
 from strategies.bx_sd_confluence import premium_discount, pricing_aligned, fib_target, rsi_divergence
 
 _RECENT     = 6    # a live tap must be within the last N 4H bars (leaves time for the LTF to confirm)
