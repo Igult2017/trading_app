@@ -27,7 +27,11 @@ def scan_reports(symbol: str, h4: list[Candle], m5: list[Candle], m1: list[Candl
     out: list[Signal] = []
     htf_map = htf_zone_map(htf_candles)
     tmin = _MIN_PIPS * pip
-    def ztime(z): return h4[z.origin_index].time
+    # Key on the IFC, not the origin: there is exactly ONE zone per IFC, so the IFC identifies a zone
+    # uniquely. origin_index does NOT — a wick zone sits ON its impulse (origin == ifc) while the next
+    # IFC's ordinary zone sits on that same candle (origin == ifc-1), so the two collide and one would
+    # be silently suppressed as already-delivered.
+    def ztime(z): return h4[z.ifc_index].time
 
     # ① mitigation heads-ups — significant, freshly-tapped zones, once each (on confirmed delivery)
     for z in newly_mitigated_zones(h4):
