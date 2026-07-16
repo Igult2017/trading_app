@@ -14,13 +14,15 @@ The trend must be the thing CARRYING the volume (p1). So when structure and volu
 structure still reading the old trend while fresh volume builds the new one — we do NOT reach back
 past that opposing volume for an aligned candle from hours ago. Structure resolves on its own.
 
-Structure itself lives in vocant1_trend (same rule on both TFs); this module owns the volume rules.
+Structure itself lives in vocant1_trend; this module owns the volume rules. The 1M does NOT use it:
+there the LINE says whether price is with us (vocant1_entry), because swing structure cannot read a
+spike-and-return inside a single hour.
 """
 import logging
 
 from core.types import Candle
 from shared.candle_math import body_size, upper_wick, lower_wick, full_range, is_bullish
-from strategies.vocant1_trend import clear_trend        # the structure rule (both TFs)
+from strategies.vocant1_trend import clear_trend        # the structure rule (1HR bias only)
 
 log = logging.getLogger(__name__)
 

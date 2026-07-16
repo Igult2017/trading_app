@@ -1,8 +1,9 @@
 """
 VOCANT.1 — the structure rule: HH+HL is up, LH+LL is down, anything else is no clear trend.
 
-Pure price structure, no indicators. Used on BOTH timeframes and it is the same rule each time: on
-the 1HR it decides the bias, on the 1M it decides whether price has lined up with that bias.
+Pure price structure, no indicators. The 1HR bias ONLY. The 1M deliberately does not use it: a
+spike-and-return inside one hour never prints the two highs and two lows this needs, so it read
+"no trend" through every long-wick case and threw real entries away. There, the LINE answers it.
 
 Ties are handled deliberately. find_swing_points flags EVERY bar whose high/low equals the window
 extreme, so a neighbour that ties a pivot records the SAME level twice — and "higher than the last
