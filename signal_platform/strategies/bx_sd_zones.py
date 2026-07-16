@@ -1,23 +1,31 @@
 """
-BX-S/D — supply/demand zones from inefficiency (Phase 2).
+BX-S/D — supply/demand zones from inefficiency.
 
-Per the SMC book (Ch. 3 & 6):
-  * IFC / imbalance = a 3-candle gap (fair-value gap): the fast move skipped a price range.
-      bullish FVG: candle[i-1].high < candle[i+1].low
-      bearish FVG: candle[i-1].low  > candle[i+1].high
-  * A supply/demand zone = the LAST candle BEFORE the impulsive move that created the IFC
-    ("the demand candle, not the red one"). Demand = origin of a bullish impulse, supply = origin
-    of a bearish impulse.
-  * mitigated / unmitigated: the FIRST time price taps a fresh zone it becomes mitigated.
-    BX-S/D only ever trades UNMITIGATED zones.
+Book Ch.6, "Mitigation / Inefficiency":
+  * "Supply/demand is a zone, where price rapidly pushes away from (lots of orders placed), creating
+    inefficiency (IFC), and breaks structure (BOS) / changes character (CHoCH)."
+  * IFC / imbalance = a 3-candle gap (fair-value gap) — the fast move skipped a price range:
+      bullish IFC: candle[i-1].high < candle[i+1].low
+      bearish IFC: candle[i-1].low  > candle[i+1].high
+  * THE ZONE (p29, near-verbatim): "Find areas where IFC has been created. Find the LAST RECENT
+    CANDLE BEFORE THE IFC. It doesn't have to be in the opposite direction! (For example: if the IFC
+    was created on the long side, you can choose an upside move candle, it doesn't have to be a
+    downside move candle.) Always choose the last candle that created the IFC!"
 
-The 3rd validity factor (broke structure) and liquidity are assembled in later phases.
-Reads only raw candles + generic candle-math.
+    So: ONE zone per IFC, at the candle immediately before it, WHATEVER COLOUR it is. We must not
+    walk backwards hunting an opposite-coloured candle — the book rules that out in as many words,
+    and doing it collapses every IFC in one impulse onto a single zone at the impulse's ORIGIN, tens
+    of pips from where the inefficiency actually formed. That zone is then rarely revisited, so it
+    reads "unmitigated" forever while the real zones next to price are never marked at all.
+  * mitigated / unmitigated (p27): "When price taps into a d/s zone, that has not been tapped yet, it
+    becomes mitigated from unmitigated." BX-S/D only ever trades UNMITIGATED zones.
+
+The other two validity factors (broke structure, liquidity grabbed) are applied by bx_sd_setup;
+selecting the most recent zone that carries all three is its job too (p32). Reads only raw candles.
 """
 from dataclasses import dataclass
 
 from core.types import Candle
-from shared.candle_math import is_bullish, is_bearish
 
 
 @dataclass
@@ -42,7 +50,7 @@ class Zone:
 
 
 def find_fvgs(candles: list[Candle]) -> list[FVG]:
-    """3-candle fair-value gaps (inefficiencies)."""
+    """3-candle fair-value gaps (inefficiencies), oldest first."""
     out: list[FVG] = []
     for i in range(1, len(candles) - 1):
         p, n = candles[i - 1], candles[i + 1]
@@ -53,22 +61,8 @@ def find_fvgs(candles: list[Candle]) -> list[FVG]:
     return out
 
 
-def _dir(c: Candle) -> int:
-    return 1 if is_bullish(c) else (-1 if is_bearish(c) else 0)
-
-
-def _zone_candle_idx(candles: list[Candle], i: int, bull: bool) -> int:
-    """Walk back to the start of the same-direction impulse run containing i, then step one
-    before it — that last candle before the impulse is the S/D zone origin."""
-    want = 1 if bull else -1
-    s = i
-    while s - 1 >= 0 and _dir(candles[s - 1]) == want:
-        s -= 1
-    return s - 1
-
-
 def _is_mitigated(candles: list[Candle], after: int, direction: str, top: float, bottom: float) -> bool:
-    """A fresh zone is mitigated once price taps back into it (first touch of the proximal edge)."""
+    """A fresh zone is mitigated the first time price taps back to its proximal edge (p27)."""
     for j in range(after + 1, len(candles)):
         c = candles[j]
         if direction == "demand" and c.low <= top:
@@ -79,24 +73,31 @@ def _is_mitigated(candles: list[Candle], after: int, direction: str, top: float,
 
 
 def find_zones(candles: list[Candle]) -> list[Zone]:
-    """Every IFC-backed S/D zone with its mitigation state, most-recent last."""
+    """Every IFC-backed S/D zone with its mitigation state — one per IFC, most-recent last.
+
+    The zone candle is the one immediately before the IFC and its colour is irrelevant (p29). Zones
+    come out ordered because find_fvgs walks the candles in order.
+    """
     zones: list[Zone] = []
-    seen: set[int] = set()
     for fvg in find_fvgs(candles):
-        bull = fvg.direction == "bull"
-        zi = _zone_candle_idx(candles, fvg.index, bull)
-        if zi < 0 or zi in seen:
+        zi = fvg.index - 1
+        if zi < 0:
             continue
-        seen.add(zi)
-        z = candles[zi]
-        direction = "demand" if bull else "supply"
+        z    = candles[zi]
+        bull = fvg.direction == "bull"
+        direction   = "demand" if bull else "supply"
         top, bottom = z.high, z.low
-        proximal = top if bull else bottom          # entry edge faces the market
-        distal   = bottom if bull else top          # SL edge is the far side
-        mit = _is_mitigated(candles, fvg.index, direction, top, bottom)
-        zones.append(Zone(direction, top, bottom, proximal, distal,
-                          (top + bottom) / 2.0, zi, fvg.index, mit))
-    zones.sort(key=lambda z: z.origin_index)
+        zones.append(Zone(
+            direction    = direction,
+            top          = top,
+            bottom       = bottom,
+            proximal     = top if bull else bottom,     # entry edge faces the market
+            distal       = bottom if bull else top,     # SL edge is the far side
+            eq50         = (top + bottom) / 2.0,
+            origin_index = zi,
+            ifc_index    = fvg.index,
+            mitigated    = _is_mitigated(candles, fvg.index, direction, top, bottom),
+        ))
     return zones
 
 

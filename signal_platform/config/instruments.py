@@ -1,12 +1,16 @@
 """
 Instruments the platform will scan.
-EURUSD (EURUSD Pullback) + GBPUSD (added for VOCANT.1, which trades both).
+
+EURUSD (EURUSD Pullback) + GBPUSD (VOCANT.1 trades both) + USDJPY (BX-S/D scans all three).
+A strategy still opts in via its own allowed_instruments, so adding one here only means the
+platform CAN fetch it — eurusd_pullback and VOCANT.1 keep their own narrower lists.
 """
 
 TRADEABLE_INSTRUMENTS: list[tuple[str, str, str]] = [
     # (app_symbol, base_currency, quote_currency)
     ("EUR/USD", "EUR", "USD"),
     ("GBP/USD", "GBP", "USD"),
+    ("USD/JPY", "USD", "JPY"),
 ]
 
 SYMBOL_TO_CURRENCIES: dict[str, tuple[str, str]] = {

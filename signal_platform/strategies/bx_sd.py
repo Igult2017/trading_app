@@ -1,12 +1,11 @@
 """
-BX-S/D — Smart-Money supply/demand strategy (EUR/USD only), built ONLY from the SMC (Vekariya) book.
+BX-S/D — Smart-Money supply/demand strategy (EUR/USD, GBP/USD, USD/JPY), from the SMC (Vekariya) book.
 
 Cascade — 4H: the SETUP is confirmed there and ONLY there (confirmed pro-trend + a fresh 3-factor
 zone: IFC + broke structure + liquidity grabbed, tapped, priced right, defensive-liquidity clear).
 15M: a CHoCH INSIDE the zone confirms (never a blind limit), refines it to a tight POI, and grades it.
 1M/5M: the trigger locks entry (proximal/50%), SL ~2 pip beyond the distal, TP = next opposite zone /
-fib, >= 2R. Pro-trend + confirmed only. Shares platform RESOURCES only — never another strategy's logic.
-
+fib, >= 2R. Pro-trend + confirmed only. Shares platform RESOURCES only, never another strategy's logic.
 PHASE 1 = signal generation only (DM-only alert via `_watch`). Phase 2 (auto-execute) follows.
 """
 import logging
@@ -35,17 +34,18 @@ class BXStrategy(BaseStrategy):
     enabled = True
 
     # H4 is the ONLY hard requirement (setup + mitigation heads-up need nothing else). The rest are
-    # paths/enrichment — 15M confluence, 5M/1M entry (either works), 1H/30M bonus, D1/W1/MN tagging.
-    # OPTIONAL means one flaky/lagging feed degrades a path instead of silently killing the strategy.
+    # paths/enrichment — 15M confluence, 5M/1M entry, 1H/30M bonus, D1/W1/MN tagging. OPTIONAL means
+    # one flaky/lagging feed degrades a path instead of silently killing the whole strategy.
     required_timeframes = [TF.H4]
     optional_timeframes = [TF.H1, TF.M30, TF.M15, TF.M5, TF.M1, TF.D1, TF.W1, TF.MN]
     candle_counts       = {TF.H4: 200, TF.H1: 200, TF.M30: 200, TF.M15: 200, TF.M5: 250,
                            TF.M1: 250, TF.D1: 200, TF.W1: 120, TF.MN: 60}
 
-    # EUR/USD only; London/NY only (thin Asian EUR/USD → fake 1M CHoCHs). BX reads its OWN 4H trend.
+    # London/NY only (thin Asian liquidity → fake 1M CHoCHs). BX reads its OWN 4H trend. Pip math
+    # all flows from pip_size(symbol), so USD/JPY's 0.01 pip / 3 digits needs no special case.
     allowed_sessions    = [Session.LONDON, Session.NEW_YORK]
     allowed_trends      = [Trend.ANY]
-    allowed_instruments = ["EUR/USD"]
+    allowed_instruments = ["EUR/USD", "GBP/USD", "USD/JPY"]
     news_stance         = NewsStance.NEWS_AGNOSTIC
     news_impact_filter  = [NewsImpact.HIGH]
 
