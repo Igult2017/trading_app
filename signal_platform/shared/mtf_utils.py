@@ -17,6 +17,7 @@ Supported input formats: M1, M5, M15, M30, H1, H2, H4, H6, H8, D1, W1, MN
 """
 
 import re
+import time
 
 
 def to_minutes(tf: str) -> int:
@@ -47,6 +48,19 @@ def to_minutes(tf: str) -> int:
 def seconds(tf: str) -> int:
     """Duration of one bar in seconds — used for cache TTL and signal expiry."""
     return to_minutes(tf) * 60
+
+
+def is_closed(bar_time: int, tf: str, now: float | None = None) -> bool:
+    """Has this bar finished forming? Bars are stamped at their OPEN, so a bar is closed once its
+    own duration has elapsed. The feed returns the bar currently forming as the newest one, and a
+    forming bar's body, wicks and close all still change — anything anchored to it moves with it."""
+    return bar_time + seconds(tf) <= (now if now is not None else time.time())
+
+
+def closed_only(candles: list, now: float | None = None) -> list:
+    """Drop a trailing still-forming bar. Use wherever a value must STAY PUT once read — a level, a
+    line, a zone. Do NOT use where the live price is the point (an entry reacting to price now)."""
+    return [c for c in candles if is_closed(c.time, c.timeframe, now)]
 
 
 # ── cTrader native TF registry ────────────────────────────────────────────────

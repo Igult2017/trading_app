@@ -32,6 +32,7 @@ from strategies.vocant1_entry import m1_signals
 from strategies.vocant1_signal import build_signal
 from strategies.vocant1_watch import check_invalidation, invalidation_signal
 from shared.pip import pip_size, price_digits
+from shared.mtf_utils import closed_only
 from news.news_candle import is_news_candle, in_news_window   # shared platform resources
 
 log = logging.getLogger(__name__)
@@ -63,7 +64,11 @@ class Vocant1Strategy(BaseStrategy):
 
     async def analyze(self, context: StrategyContext) -> StrategyResult:
         m1 = context.candles.get(TF.M1)
-        h1 = context.candles.get(TF.H1)
+        # The 1HR feed hands back the candle still FORMING as its newest bar. Its body, wicks and
+        # close all keep changing, so it can be neither the volume candle nor the line — a line that
+        # moves every scan is not a line, and its "close" is simply the current price. The 1M's
+        # forming bar is KEPT on purpose: there, live price is exactly what the entry reacts to.
+        h1 = closed_only(context.candles.get(TF.H1))
         if len(m1) < 12 or len(h1) < 20:
             return StrategyResult.empty()
         pip    = pip_size(context.symbol)
