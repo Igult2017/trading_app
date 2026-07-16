@@ -19,11 +19,10 @@ from shared.swing_points import find_swing_points
 from strategies.bx_sd_structure import map_structure
 from strategies.bx_sd_zones import find_zones, Zone
 from strategies.bx_sd_liquidity import find_liquidity, swept_before, defensive_ok
+from strategies.bx_sd_validity import broke_structure, LIQ_WINDOW
 from strategies.bx_sd_confluence import premium_discount, pricing_aligned, fib_target, rsi_divergence
 
 _RECENT     = 6    # a live tap must be within the last N 4H bars (leaves time for the LTF to confirm)
-_LIQ_WINDOW = 20   # look-back for the fuel grab
-_BREAK_SPAN = 6    # a slow impulse can body-close beyond the swing several bars after the FVG
 
 
 @dataclass
@@ -47,13 +46,6 @@ def _first_tap(candles: list[Candle], zone: Zone) -> int | None:
         if zone.direction == "supply" and c.high >= zone.bottom:
             return j
     return None
-
-
-def _broke_structure(structure, zone: Zone, want_dir: str) -> bool:
-    """The zone's impulse must have created a BOS/CHoCH in the trade direction. The break can lag
-    the FVG by several bars on a slow impulse, so allow a span past the IFC (not just +3)."""
-    return any(e.direction == want_dir and zone.origin_index <= e.index <= zone.ifc_index + _BREAK_SPAN
-               for e in structure.events)
 
 
 def detect_setup(h4: list[Candle], pip: float = 0.0001) -> SetupResult:
@@ -81,9 +73,9 @@ def detect_setup(h4: list[Candle], pip: float = 0.0001) -> SetupResult:
     if cand is None:
         r.reason = f"no fresh {zdir} zone tapped in the last {_RECENT} 4H bars"; return r
 
-    if not _broke_structure(st, cand, "up" if up else "down"):
+    if not broke_structure(st, cand, "up" if up else "down"):
         r.reason = "zone did not break structure (factor 2 fail)"; return r
-    if not swept_before(pools, h4, "sell" if up else "buy", cand.ifc_index, _LIQ_WINDOW):
+    if not swept_before(pools, h4, "sell" if up else "buy", cand.ifc_index, LIQ_WINDOW):
         r.reason = "no liquidity grab before the zone (no fuel)"; return r
 
     pts   = find_swing_points(h4)

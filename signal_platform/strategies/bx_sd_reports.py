@@ -3,6 +3,8 @@ BX-S/D — report orchestrator: the two 4H-zone-centred DM reports, run every sc
 core (fresh-zone) cascade.
   ① 4H zone MITIGATION heads-up — any direction, HTF-confluence tagged.
   ② RESPECTED 4H zone RE-TEST → 1M/5M-aligned CONFIRMED entry (priority).
+Every producer works from BOOK-VALID zones only (bx_sd_validity: IFC + broke structure + liquidity
+grabbed). A candle next to a gap is not a zone, so it is not worth a DM either.
 
 Dedup is DELIVERY-CONFIRMED (at-least-once): each signal is stamped with its dedup_key but the key is
 only committed to the shared delivery ledger by the dispatcher AFTER a successful DM. A send that
@@ -12,6 +14,7 @@ being lost. Micro-FVG zones (< min_pips) are skipped as noise.
 from core.types import Candle, Signal
 from core import delivery_ledger
 from strategies.bx_sd_zones import find_zones
+from strategies.bx_sd_validity import valid_zones
 from strategies.bx_sd_htf import htf_zone_map, htf_backing
 from strategies.bx_sd_mitigation import newly_mitigated_zones, mitigation_signal
 from strategies.bx_sd_retest import is_respected_retest, confirm_retest, fvg_zone, is_fvg_tap
@@ -32,9 +35,12 @@ def scan_reports(symbol: str, h4: list[Candle], m5: list[Candle], m1: list[Candl
     # IFC's ordinary zone sits on that same candle (origin == ifc-1), so the two collide and one would
     # be silently suppressed as already-delivered.
     def ztime(z): return h4[z.ifc_index].time
+    # The book's 3 factors. find_zones only proves the IFC — a candidate next to a gap is not a zone
+    # (p26/p27/p29), and we must not DM about zones the entry cascade would never touch.
+    zones = valid_zones(h4, find_zones(h4), pip)
 
     # ① mitigation heads-ups — significant, freshly-tapped zones, once each (on confirmed delivery)
-    for z in newly_mitigated_zones(h4):
+    for z in newly_mitigated_zones(h4, zones=zones):
         if (z.top - z.bottom) < tmin:
             continue
         key = f"{sid}_mit_{ztime(z)}_{z.direction}"
@@ -45,7 +51,7 @@ def scan_reports(symbol: str, h4: list[Candle], m5: list[Candle], m1: list[Candl
         out.append(sig)
 
     # ② respected-retest → 1M/5M-aligned confirmed entry, once each (on confirmed delivery)
-    for z in find_zones(h4):
+    for z in zones:
         if (z.top - z.bottom) < tmin or not is_respected_retest(h4, z, pip):
             continue
         key = f"{sid}_retest_{ztime(z)}_{z.direction}"
@@ -66,7 +72,7 @@ def scan_reports(symbol: str, h4: list[Candle], m5: list[Candle], m1: list[Candl
         out.append(sig)
 
     # ③ continuation entry — shallow FVG-tap-and-continue (book's continuation entry), once each
-    for z in find_zones(h4):
+    for z in zones:
         if (z.top - z.bottom) < tmin:
             continue
         fvg = fvg_zone(h4, z)

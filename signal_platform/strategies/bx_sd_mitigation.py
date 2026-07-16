@@ -12,10 +12,12 @@ from strategies.bx_sd_setup import _first_tap
 _RECENT = 6   # first tap within the last N 4H bars = "just mitigated"
 
 
-def newly_mitigated_zones(h4: list[Candle], recent: int = _RECENT) -> list[Zone]:
-    """4H zones whose FIRST tap (mitigation) landed within the last `recent` bars — any direction."""
+def newly_mitigated_zones(h4: list[Candle], recent: int = _RECENT,
+                          zones: list[Zone] | None = None) -> list[Zone]:
+    """4H zones whose FIRST tap (mitigation) landed within the last `recent` bars — any direction.
+    Pass `zones` to restrict to the book-valid ones (3 factors); defaults to every IFC candidate."""
     out: list[Zone] = []
-    for z in find_zones(h4):
+    for z in (find_zones(h4) if zones is None else zones):
         ft = _first_tap(h4, z)
         if ft is not None and ft >= len(h4) - recent:
             out.append(z)
