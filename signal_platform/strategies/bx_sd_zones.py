@@ -30,6 +30,7 @@ selecting the most recent zone that carries all three is its job too (p32). Read
 from dataclasses import dataclass
 
 from core.types import Candle
+from shared.mtf_utils import closed_only
 
 
 @dataclass
@@ -103,19 +104,25 @@ def find_zones(candles: list[Candle]) -> list[Zone]:
     The zone candle is the one immediately before the IFC and its colour is irrelevant (p29). Zones
     come out ordered because find_fvgs walks the candles in order.
     """
+    # A zone is a LEVEL, so it is built from CLOSED candles only. The feed hands back the newest bar
+    # while it is still forming, and a forming bar's high/low can only extend — so an IFC that exists
+    # this scan can vanish the next, taking its zone with it. On the 4H that flicker lasts hours.
+    # MITIGATION is the opposite case: a tap is an event happening NOW, so it reads the full series.
+    # closed_only drops trailing bars only, so an index into `closed` is still valid in `candles`.
+    closed = closed_only(candles)
     zones: list[Zone] = []
-    for fvg in find_fvgs(candles):
+    for fvg in find_fvgs(closed):
         zi = fvg.index - 1
         if zi < 0:
             continue
         bull      = fvg.direction == "bull"
         direction = "demand" if bull else "supply"
-        wick      = _wick_zone(candles, fvg.index, bull)
+        wick      = _wick_zone(closed, fvg.index, bull)
         if wick is not None:
             top, bottom = wick              # p33-35: the prior candle is mitigated; orders rest here
             origin = fvg.index
         else:
-            z = candles[zi]
+            z = closed[zi]
             top, bottom = z.high, z.low     # p29: the last candle before the IFC, any colour
             origin = zi
         zones.append(Zone(

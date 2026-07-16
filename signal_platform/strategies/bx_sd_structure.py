@@ -15,6 +15,7 @@ from dataclasses import dataclass, field
 
 from core.types import Candle
 from shared.swing_points import find_swing_points
+from shared.mtf_utils import closed_only
 
 _SWING_N = 3   # generic pivot half-width
 
@@ -53,7 +54,12 @@ def map_structure(candles: list[Candle], n: int = _SWING_N) -> StructureState:
     Walk candles left→right. A body CLOSE beyond the most recent UNBROKEN opposite swing is a
     break: with the prior trend = BOS, against it = CHoCH (flips the trend). Confirmed only
     after 2 same-direction breaks. Returns the final StructureState.
+
+    CLOSED candles only. This engine's whole rule is "by body CLOSE, never wicks" — and the newest
+    bar the feed returns has not closed, so its "close" is just the current price. Reading it would
+    let a break confirm and then un-confirm as price ticks, on the 4H for hours at a time.
     """
+    candles = closed_only(candles)
     pts = sorted(find_swing_points(candles, n), key=lambda p: p.index)
     st  = StructureState()
     if not pts:
