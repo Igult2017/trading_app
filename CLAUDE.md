@@ -90,6 +90,16 @@ cd signal_platform && python main.py
 
 **Signals display on the existing `AssetPage.tsx` — never create a new signals dashboard.**
 
+### Before touching VOCANT.1 or BX-S/D — READ THE DOC FIRST
+`docs/strategies/vocant1.md` and `docs/strategies/bx-sd.md` hold the SETTLED rules (in the user's own
+words / the book's own quotes), the fix log, and what is still open. They exist because the same rules
+kept being re-derived and re-broken. Do not re-derive them; if a change contradicts one, it is wrong.
+
+**The rule that spans both:** a **LEVEL must be read from a CLOSED candle** (`shared/mtf_utils.closed_only`),
+a **TRIGGER or current price stays LIVE**. The feed returns the still-forming bar as its newest — both
+strategies shipped a bug from reading it as a level, and a backtest can never catch it (every
+historical bar is closed).
+
 ### Adding a Strategy
 1. Subclass `core.base_strategy.BaseStrategy`
 2. Declare all 8 required class attributes: `name`, `id`, `enabled`, `required_timeframes`, `required_indicators`, `required_patterns`, `allowed_sessions`, `allowed_trends`; also `allowed_instruments`, `news_stance`, `news_impact_filter`
