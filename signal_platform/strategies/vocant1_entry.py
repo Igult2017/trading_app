@@ -44,8 +44,9 @@ _ENTRY_BUFFER = 1   # pips — the stop sits JUST beyond the pullback, never res
 def m1_signals(m1: list[Candle], bullish: bool, vc: Candle,
                pip: float = 0.0001, symbol: str = "") -> list[dict]:
     """
-    The 1M entry — [{"kind", "entry", "sl"}] or [] (logs why). `vc` is the FIRST volume candle of the
-    1HR run: its close is THE LINE.
+    The 1M entry — [{"kind", "entry", "sl", "sl_note"}] or [] (logs why). `vc` is the FIRST volume
+    candle of the 1HR run: its close is THE LINE. `sl_note` says WHICH region the stop sits behind, so
+    the card can tell the reader too — the number alone does not explain itself.
     """
     if not m1:
         return []
@@ -113,4 +114,5 @@ def m1_signals(m1: list[Candle], bullish: bool, vc: Candle,
     log.info(f"[vocant1] {symbol} 1M PULLBACK entry ({kind} path) — {'BUY' if bullish else 'SELL'} "
              f"stop {entry:.{digits}f} SL {sl:.{digits}f} ({sl_note}; line {line:.{digits}f}"
              f"{'' if wick_line == line else f' wick-line {wick_line:.{digits}f}'})")
-    return [{"kind": kind, "entry": round(entry, digits), "sl": round(sl, digits)}]
+    return [{"kind": kind, "entry": round(entry, digits), "sl": round(sl, digits),
+             "sl_note": sl_note}]

@@ -4,11 +4,11 @@ VOCANT.1 — "Volume Strategy".
 Built ONLY from the Volume Strategy playbook — a self-contained strategy, unrelated to any other:
   1HR = bias: a CLEAR TREND (HH+HL up / LH+LL down) OR a range breaking into a trend, carried by
         VOLUME (a run of 1-3 volume candles). OPERATE FROM THE 1ST volume candle. NO indicators.
-  1M  = entry, and the 1M alone decides WHEN — the 1HR never puts a clock on it. Wait until the 1M
-        ALIGNS (already trending with the 1HR, or a FRACTAL BREAK confirming it just turned), then
-        the PULLBACK is the entry: a stop just beyond the first pullback candle, so a reversal never
-        fills. SL sits beyond the 1HR lines (vocant1_lines), capped at the instrument's standard when
-        they are far or on the wrong side; TP = 2R. See vocant1_entry.
+  1M  = entry, and the 1M alone decides WHEN — the 1HR never puts a clock on it. THE LINE says which
+        side we are on: our side -> the PULLBACK is the entry; the wrong side -> the counter-move's
+        last FRACTAL must break first. Entry = a stop just beyond the first pullback candle, so a
+        reversal never fills. SL = the nearest 1M REGION OF INTEREST beyond it (vocant1_roi) — never a
+        pip count; TP = 2R, the two-1HR-candle move. See vocant1_entry.
 
 Once a setup fires it is LOCKED and WATCHED on both timeframes (vocant1_watch) — if the 1HR bias
 flips or the 1M reverses past the stop before entry, it is invalidated (alert) so we never keep
@@ -127,7 +127,8 @@ class Vocant1Strategy(BaseStrategy):
             # One entry per setup, so it is SAVED (AssetPage + DM + TP/SL monitoring) and holds the
             # single symbol:direction reservation the validator/monitor/DB invariant assumes.
             out.append(build_signal(s["kind"], sym, bullish, origin, vol_count, entry, sl, tp,
-                                    risk, pip, digits, corr, context.news, self.id + "_watch", self.name))
+                                    risk, pip, digits, corr, context.news, self.id + "_watch",
+                                    self.name, sl_note=s.get("sl_note", "")))
             self.fired.add(key)
             self._recent[sym] = (bullish, now)
             # Assign, don't setdefault: this is a new volume candle, so it SUPERSEDES any older

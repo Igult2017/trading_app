@@ -81,6 +81,26 @@ pairs: correlation **~0.2**, and real pairing beats a random shuffle by **3 poin
 match (2.2p → 2.1p), which is why it looks true on a chart — both are just "a typical wick". No link
 between *this* candle 1 and *this* candle 2.
 
+### The SL is a region of interest, never a pip count
+> "put our SL at a region of interest where price might pullback to in the worst case scenario…
+>  any zone where the price might revisit in 1M… think of all the zones that can reverse the price or
+>  act as a road block."
+> "15 pips is not hardcoded… if the price is in our favor, we can even use 8 or 5 pips as SL."
+
+**"Far from the line is an ADVANTAGE"** — the trend is confirmed. (I built a whole "GAP 1" on the
+opposite assumption, because I still had *line = invalidation* in my head.)
+
+SL = just beyond the **nearest** region on the protective side (`vocant1_roi`): line 2, the last 1M
+fractals, recent 1M swings, unmitigated 1M S/D zones. Both bounds are the market's, not mine:
+- **floor** — structural: the SL must clear **the pullback candle's own extreme**
+- **ceiling** — **one 1HR candle's range**, from "2 candles of 1HR gives 2R" → 1 candle = 1R
+
+No region within one candle → **skip**. We never invent a stop. Measured: risk ranges 5.3–29.7p over
+400 setups, 88 distinct values (a hardcoded SL gives 1).
+
+**TP = 2R** and that is *justified, not assumed*: it IS the two-candle move the user backtested.
+"Or more" is the Phase 3 trailing stop.
+
 ### Levels closed, triggers live
 A **level must stay put; a trigger must be live.**
 - 1HR → `closed_only()`. A forming candle's close **is the current price**, so the line would track
@@ -97,6 +117,7 @@ against the 1M's **own average body** — what is a real body in London is noise
 
 | commit | what |
 |---|---|
+| `e8d2935` | **the SL is a 1M region of interest**, not a number I made up. `15`/`20`/`5` deleted; floor structural, ceiling = one 1HR candle |
 | `54eff8d` | fractal = 1–4 candles (not Williams); **the LINE decides alignment**, `clear_trend` out of the 1M. 3/6 → **6/6** |
 | `34ba9ca` | volume candle + line must come from a **CLOSED** 1HR candle. Was **70 of 82** prod log lines — VOCANT.1 idle ~85% of the time |
 | `0bc6a58` | line 1 gates the entry, line 2 only adjusts the stop; price must have **traded past** line 1 |
@@ -113,8 +134,8 @@ against the 1M's **own average body** — what is a real body in London is noise
 ## Files
 `vocant1.py` (orchestration) · `vocant1_bias.py` (1HR volume rules) · `vocant1_trend.py` (structure —
 **1HR only**) · `vocant1_lines.py` (the two lines) · `vocant1_fractal.py` (1–4 candle fractal) ·
-`vocant1_pullback.py` (the entry level) · `vocant1_entry.py` (assembly) · `vocant1_signal.py` ·
-`vocant1_watch.py`
+`vocant1_pullback.py` (the entry level) · `vocant1_roi.py` (**regions of interest = the SL**) ·
+`vocant1_entry.py` (assembly) · `vocant1_signal.py` · `vocant1_watch.py`
 
 ## Closed — do NOT re-raise these
 - **GAP 2 (the fixed 60-minute alignment window)** — CLOSED by `54eff8d`, incidentally. `clear_trend`
@@ -132,10 +153,9 @@ against the 1M's **own average body** — what is a real body in London is noise
   ~8.5k real pairs: correlation ~0.2, beats a random shuffle by 3 points.
 
 ## Open / not done
-- **GAP 1** — risk disconnected from the setup's own invalidation. **Needs restating**: my write-up
-  assumed *line = invalidation*, which is wrong (see above), so the gap as I stated it may not exist.
-- **`_MAX_SL_PIPS` GBP 20p vs EUR 15p** — my number, never the user's. User only ever said **15**.
-- **`_MIN_SL_PIPS = 5`** — mine, never discussed.
+- **GAP 1** — CLOSED (`e8d2935`). It was never a gap: I framed it on *line = invalidation*. Far from
+  the line is an ADVANTAGE. The real change underneath was replacing my invented `15`/`20`/`5` with a
+  region of interest.
 - **`self._locked` is RAM-only** — a redeploy forgets a pending setup, so its invalidation alert is
   lost. The signal itself is safe (DB-persisted dedup).
 - Phase 2 (2% pending stop orders) / Phase 3 (BE, partial, trail).

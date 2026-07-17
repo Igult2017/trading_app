@@ -1,5 +1,5 @@
 """
-VOCANT.1 — assemble a Signal from a resolved 1M entry (a 'break' or a 'pullback').
+VOCANT.1 — assemble a Signal from a resolved 1M entry (a 'pullback' or a 'fractal' path).
 
 Kept separate so vocant1.analyze() stays lean (150-line rule) and both entry kinds share ONE place
 that builds the panel-labelled factors, reasons and market context. No trading logic here — pure
@@ -18,7 +18,7 @@ _KIND = {
 
 def build_signal(kind, symbol, bullish, origin, vol_count, entry, sl, tp,
                  risk, pip, digits, corr, news_context, strategy_id, strategy_name,
-                 alert_only=False) -> Signal:
+                 alert_only=False, sl_note="") -> Signal:
     side         = "BUY" if bullish else "SELL"
     label, blurb = _KIND[kind]
     vlabel       = f"{vol_count} volume candle{'s' if vol_count != 1 else ''}"
@@ -28,7 +28,8 @@ def build_signal(kind, symbol, bullish, origin, vol_count, entry, sl, tp,
          if origin == "range" else
          f"1HR clear {'up (HH+HL)' if bullish else 'down (LH+LL)'} trend + {vlabel} from the 1st ({side.lower()})"),
         f"1M {label} — place {side} STOP at {entry:.{digits}f} ({blurb})",
-        f"SL {sl:.{digits}f} | TP {tp:.{digits}f} | Risk {risk / pip:.0f} pips | RR 2:1",
+        f"SL {sl:.{digits}f} | TP {tp:.{digits}f} | Risk {risk / pip:.1f} pips | RR 2:1"
+        + (f" — SL {sl_note}" if sl_note else ""),
     ]
     if corr:
         reasons.insert(0, f"⚠️ CORRELATED: {', '.join(corr)} already {side.lower()} (same USD direction) — size down or skip")
