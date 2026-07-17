@@ -102,10 +102,10 @@ async def _send_photo(chart_path: str, caption: str, chat_id: str | None = None)
 
 async def on_setup_alert(signal: Signal) -> None:
     # Default: setup / pre-signal heads-ups are UNCONFIRMED → admin DM only, never the channel.
-    # Opt-in: a strategy may mark an alert `to_channel` when its OWN cascade already confirmed it
-    # (BX-S/D entries). Those go PUBLIC with the full signal card instead of the DM heads-up card.
-    # They stay alert_only on purpose — so they keep BX's per-zone dedup + at-least-once delivery and
-    # are NOT subject to the cross-strategy symbol:direction dedup that would silently drop them.
+    # Opt-in: a strategy may mark an alert `to_channel` when its OWN cascade already confirmed it,
+    # and it goes PUBLIC with the full signal card instead of the DM heads-up. No strategy uses this
+    # today — BX entries were the one user and are now REAL signals (saved + monitored), routed by
+    # strategy_id like VOCANT.1's. Kept because an alert that is genuinely public is a real case.
     if signal.to_channel:
         ok = await _send_text(format_signal_confirmed(signal))     # public signal channel
     else:

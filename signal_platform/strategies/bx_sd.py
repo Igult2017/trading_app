@@ -74,7 +74,7 @@ class BXStrategy(BaseStrategy):
         # REPORTS — 4H zone mitigation heads-ups + respected-retest confirmed entries.
         # Independent of the fresh-zone cascade below; deduped once per zone ON CONFIRMED DELIVERY
         # (at-least-once — a failed DM re-fires next scan instead of being lost).
-        out += scan_reports(sym, h4, m5, m1, htf, pip, digits, self.name, self.id + "_watch")
+        out += scan_reports(sym, h4, m5, m1, htf, pip, digits, self.name, self.id)
 
         # WATCH — a tapped setup broke before it triggered: alert (at-least-once), then stop watching.
         locked = self._locked.get(sym)
@@ -138,7 +138,7 @@ class BXStrategy(BaseStrategy):
         self._locked.pop(sym, None)             # setup resolved into a signal — stop watching
         self._log(sym, "SIGNAL", f"{trig.direction.upper()} entry {trig.entry:.{digits}f} "
                   f"SL {trig.sl:.{digits}f} TP {trig.tp:.{digits}f} RR {trig.rr} (grade {conf.grade})")
-        sig = build_signal(sym, setup, conf, trig, pip, digits, self.id + "_watch", self.name)
+        sig = build_signal(sym, setup, conf, trig, pip, digits, self.id, self.name)
         sig.dedup_key = key
         out.append(sig)
         return StrategyResult(signals=out)

@@ -41,18 +41,21 @@ def build_signal(symbol: str, setup: SetupResult, conf: LTFConfluence, trig: Ent
     return Signal(
         symbol            = symbol,
         direction         = Direction.BUY if buy else Direction.SELL,
-        strategy_id       = strategy_id,          # _watch → private DM (Phase 1)
+        strategy_id       = strategy_id,          # `bx_sd` → channel; `bx_sd_watch` → DM
         strategy_name     = strategy_name,
         label             = "451HRZ",             # 4H zone + 1M/5M entry tag (retest / continuation / core)
-        to_channel        = True,                 # BX entries are PUBLIC (signal channel); its mitigation
-                                                  # heads-up + invalidation stay in the admin DM.
         entry_price       = round(trig.entry, digits),
         stop_loss         = round(trig.sl, digits),
         take_profit       = round(trig.tp, digits),
         risk_reward       = trig.rr,
         confidence        = min(0.95, 0.60 + conf.score / 400.0),
         primary_timeframe = TF.H4,
-        alert_only        = True,                 # Phase 1 = DM-only alert (no DB / AssetPage yet)
+        # A REAL signal: saved to the DB, shown on AssetPage, and — the point — MONITORED, so the
+        # monitor closes it on TP/SL and the channel is told how it ended. As an alert_only signal it
+        # bypassed the validator entirely and was never saved, so BX posted entries into the channel
+        # and then went silent on every one of them. Routing is by strategy_id now, like VOCANT.1:
+        # `bx_sd` -> channel, `bx_sd_watch` -> admin DM.
+        alert_only        = False,
         technical_reasons = reasons,
         smc_factors       = smc,
         market_context    = (f"BX-S/D (confirmed) — {side} {symbol} off a fresh 4H {zdir} zone, "

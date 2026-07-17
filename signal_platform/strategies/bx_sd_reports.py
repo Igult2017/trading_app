@@ -28,6 +28,7 @@ def scan_reports(symbol: str, h4: list[Candle], m5: list[Candle], m1: list[Candl
                  htf_candles: dict[str, list[Candle]], pip: float, digits: int,
                  name: str, sid: str) -> list[Signal]:
     out: list[Signal] = []
+    dm_id   = f"{sid}_watch"   # the mitigation heads-up is a heads-up, not a signal -> admin DM
     htf_map = htf_zone_map(htf_candles)
     tmin = _MIN_PIPS * pip
     # Key on the IFC, not the origin: there is exactly ONE zone per IFC, so the IFC identifies a zone
@@ -43,10 +44,10 @@ def scan_reports(symbol: str, h4: list[Candle], m5: list[Candle], m1: list[Candl
     for z in newly_mitigated_zones(h4, zones=zones):
         if (z.top - z.bottom) < tmin:
             continue
-        key = f"{sid}_mit_{ztime(z)}_{z.direction}"
+        key = f"{dm_id}_mit_{ztime(z)}_{z.direction}"
         if delivery_ledger.is_delivered(key):
             continue
-        sig = mitigation_signal(z, symbol, htf_backing(z, htf_map), digits, name, sid)
+        sig = mitigation_signal(z, symbol, htf_backing(z, htf_map), digits, name, dm_id)
         sig.dedup_key = key                 # committed only when the DM actually lands
         out.append(sig)
 

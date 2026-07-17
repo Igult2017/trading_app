@@ -110,9 +110,25 @@ still face the 15M CHoCH and the 1M/5M ≥2R trigger, so **actual entries are fe
 `bx_sd_entry.py` (1M/5M trigger) · `bx_sd_confluence.py` · `bx_sd_htf.py` · `bx_sd_mitigation.py` ·
 `bx_sd_retest.py` · `bx_sd_continuation.py` · `bx_sd_reports.py` · `bx_sd_signal.py` · `bx_sd_watch.py`
 
+### Routing — entries are REAL signals
+**ENTRIES → the public channel** (`strategy_id = "bx_sd"`, `alert_only=False`): saved to the DB,
+shown on AssetPage, and **MONITORED** — so the monitor closes them on TP/SL and the channel is told
+how each one ended (`✅ TP HIT · +2.0R` / `❌ SL HIT · -1R`). They were `alert_only` until 2026-07-17,
+which bypassed the validator and skipped the save entirely: BX posted entries into the channel and
+then went silent on every one of them.
+The **mitigation heads-up and the invalidation keep `bx_sd_watch` and stay DMs** — they are not
+signals.
+
+Two consequences of persisting, both correct but both new:
+- BX entries now face the validator. Confidence is safe by construction: `_PASS = 65` gates the entry
+  TF, so confidence is at least `0.60 + 65/400 = 0.7625`, above `min_confidence = 0.70`. RR is >= 2 by
+  the cascade's own rule.
+- BX can emit up to THREE entries in one scan (core cascade + retest + continuation). The
+  per-strategy dedup allows ONE active signal per symbol+direction, so the others are dropped — you
+  cannot hold three positions on the same pair and direction anyway.
+
 ## Open / not done
 - **`self._locked` is RAM-only** — a redeploy forgets a watched setup, losing its invalidation alert.
 - Deliberately deferred (user's call): G2 latency (by design — it's the win-rate), G6 zone selection
   by strength, G7 counter-trend (out of scope).
 - Phase 2: auto-execute (cTrader orders) + management.
-- BX channel signals aren't DB-saved → no TP/SL close notification in the channel.
