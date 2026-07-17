@@ -1,7 +1,8 @@
 # VOCANT.1 — the Volume Strategy
 
 Source: the "Volume Strategy" playbook (`VOCANT11.pdf`, 7pp, user's Desktop — not in the repo).
-Pairs: **EUR/USD, GBP/USD**. Sessions: **London/NY**. Phase 1 = signals only (DM); Phase 2/3 pending.
+Pairs: **EUR/USD, GBP/USD**. Sessions: **London / NY / Asian** (all three). Phase 1 = signals only
+(DM); Phase 2/3 pending.
 
 ---
 
@@ -151,6 +152,12 @@ against the 1M's **own average body** — what is a real body in London is noise
   *(Reasoned, not tested — re-check if it ever looks suspect.)*
 - **GAP 3 (the wick estimate)** — dead. Measure candle 2's wick live off the M1; never estimate.
   ~8.5k real pairs: correlation ~0.2, beats a random shuffle by 3 points.
+
+## Known gap — SPREAD IS NOT MODELLED AT ALL
+`risk/spread_filter` exists and `strategy_runner:133` consults it, but only `if strategy.requires_spread`
+— which both strategies leave `False` — and `build_context` is never passed a spread, so it is always
+`None`. Nothing sees spreads. This matters most in the Asian session (widest spreads, and a 5.3p
+structural SL is small next to a 2-3p spread). Enabling Asian did not create this; it made it matter.
 
 ## Open / not done
 - **GAP 1** — CLOSED (`e8d2935`). It was never a gap: I framed it on *line = invalidation*. Far from

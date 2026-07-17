@@ -50,8 +50,11 @@ class Vocant1Strategy(BaseStrategy):
     requires_news       = True
     candle_counts       = {TF.M1: 250, TF.H1: 120}
 
-    # H1: London/NY only — skip thin Asian hours (wide spreads, low participation, fake breakouts).
-    allowed_sessions    = [Session.LONDON, Session.NEW_YORK]
+    # All three sessions. The playbook has no session rule at all — the London/NY gate was an
+    # addition, and the strategy already filters thin hours by itself: no volume candle (a bigger body
+    # than the previous one, wicks <= 33%) means no bias means no trade, and quiet Asian hours produce
+    # few of them. GBP/USD in Tokyo will simply stay silent; USD/JPY finally gets its HOME session.
+    allowed_sessions    = [Session.LONDON, Session.NEW_YORK, Session.ASIAN]
     allowed_trends      = [Trend.ANY]        # VOCANT.1 reads its own 1HR trend
     allowed_instruments = ["EUR/USD", "GBP/USD"]
     news_stance         = NewsStance.NEWS_AGNOSTIC   # news candle + news-window guards applied in analyze()

@@ -2,7 +2,8 @@
 
 Source: *Smart Money Concept (SMC) Trading Forex Market*, Dixit Vekariya (`docs/reference/SD.pdf`,
 167pp, **gitignored** — 5.5MB; original on the user's Desktop).
-Pairs: **EUR/USD, GBP/USD, USD/JPY**. Sessions: **London/NY**. Phase 1 = signals only; Phase 2 pending.
+Pairs: **EUR/USD, GBP/USD, USD/JPY**. Sessions: **London / NY / Asian** (all three — USD/JPY's home
+session is Tokyo). Phase 1 = signals only; Phase 2 pending.
 
 **Reading the book's images:** they are embedded in the PDF and extract fine with `pypdf`
 (`page.images`). poppler is only needed to *render* pages, which is never necessary. I once claimed
