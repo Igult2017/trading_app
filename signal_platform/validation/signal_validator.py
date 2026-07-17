@@ -60,8 +60,21 @@ def _load_active_from_db() -> None:
 
 
 def register_confirmed(signal: Signal) -> None:
-    """No-op — _is_duplicate pre-registers the key. Kept for call-site clarity."""
-    pass
+    """Called by the runner the instant a signal becomes REAL — saved to the DB and about to
+    dispatch. THIS is where a producer's dedup_key is committed, and nowhere earlier.
+
+    A strategy that burns its own key at BUILD time (fired.add right after build_signal) kills the
+    setup even when the signal is rejected a moment later by a risk filter, the AI validator or a
+    save failure. The key survives in the DB, so that setup is dead FOREVER and never re-fires —
+    silently. Stamp signal.dedup_key instead and let this commit it, and a rejected signal simply
+    re-fires on the next scan, which is what at-least-once means.
+
+    (alert_only signals never reach here — they are not saved, so their only delivery is the DM and
+    the dispatcher commits them on a confirmed send. Same rule, different definition of "real".)
+    """
+    if signal.dedup_key:
+        from core import delivery_ledger
+        delivery_ledger.mark_delivered(signal.dedup_key)
 
 
 def release(symbol: str, direction: str, strategy: str = "") -> None:

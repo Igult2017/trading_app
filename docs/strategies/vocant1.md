@@ -160,6 +160,17 @@ stop — so it goes out as a full signal card. It is a real saved signal, so the
 on TP/SL and the channel gets that. The **invalidation alert keeps `vocant1_watch` and stays a DM**:
 it is a correction, not a signal.
 
+### NEVER burn a dedup key at build time
+`self.fired.add(key)` right after `build_signal` burns the key the instant the signal is BUILT —
+before the validator, the risk filters, the AI validator or the save. Anything that rejects it
+downstream then kills that setup **forever**, silently, because the registry is DB-persisted.
+
+The key is stamped as `signal.dedup_key` and committed by `signal_validator.register_confirmed`,
+which the runner calls the instant a signal is REAL (saved, about to dispatch). Rejected → not
+committed → re-fires next scan. That is what at-least-once means.
+(`alert_only` signals never reach there — they are not saved, so the dispatcher commits them on a
+confirmed send instead. Same rule, different definition of "real".)
+
 ### Dedup is PER STRATEGY — `strategy:symbol:direction`
 It used to be `symbol:direction` across ALL strategies, so whichever tenant fired first that tick took
 the pair+direction and every other strategy's signal vanished with a debug line. A strategy still

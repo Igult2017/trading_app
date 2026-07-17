@@ -96,7 +96,13 @@ async def run_strategy(
 
     valid_signals = signal_validator.validate(result, instrument)
     if not valid_signals:
-        log.info(f"[runner] {strategy.id}/{instrument}: analyze() ran — no valid signal (rr/confidence/dedup filter)")
+        # Say WHICH of the two happened. They are completely different failures and the old wording
+        # ("no valid signal (rr/confidence/dedup filter)") covered both, so a strategy emitting
+        # nothing looked identical to the validator dropping something.
+        why = ("the strategy produced no signal this tick"
+               if not result.has_signals()
+               else f"the validator dropped all {len(result.signals)} (rr / confidence / dedup)")
+        log.info(f"[runner] {strategy.id}/{instrument}: analyze() ran — {why}")
         return
 
     htf         = max(deps.timeframes, key=to_minutes)

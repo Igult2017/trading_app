@@ -12,13 +12,11 @@ Built ONLY from the Volume Strategy playbook — a self-contained strategy, unre
 
 Once a setup fires it is LOCKED and WATCHED on both timeframes (vocant1_watch) — if the 1HR bias
 flips or the 1M reverses past the stop before entry, it is invalidated (alert) so we never keep
-assuming a stale bias. Trades EUR/USD + GBP/USD, London/NY sessions, both directions. The only things
-shared with other strategies are platform RESOURCES (candle feed, news feed, pip-size, dedup, signal
-types) — never trading logic.
+assuming a stale bias. EUR/USD + GBP/USD, all 3 sessions, both directions. The only things shared
+with other strategies are platform RESOURCES (candles, news, pip-size, dedup) — never trading logic.
 
-ENTRIES go to the public channel (the 1M pullback = place the stop now); the invalidation alert
-stays a private DM. Phase 2 (2% pending stop orders on demo, with spread/slippage + position caps)
-+ Phase 3 (BE / partial / trail) follow.
+ENTRIES go to the public channel (the 1M pullback = place the stop now); the invalidation alert stays
+a private DM. Phase 2 (2% pending stop orders) + Phase 3 (BE / partial / trail) follow.
 """
 import logging
 import time
@@ -27,7 +25,7 @@ from core.base_strategy import BaseStrategy
 from core.types import (Session, Trend, NewsStance, NewsImpact,
                         StrategyResult, TF, Signal)
 from core.strategy_context import StrategyContext
-from core.fired_registry import FiredRegistry
+from core import delivery_ledger
 from strategies.vocant1_bias import detect_bias
 from strategies.vocant1_entry import m1_signals
 from strategies.vocant1_signal import build_signal
@@ -62,8 +60,9 @@ class Vocant1Strategy(BaseStrategy):
     news_impact_filter  = [NewsImpact.HIGH]
 
     def __init__(self):
-        self.fired = FiredRegistry(self.id)                  # M2: DB-persisted dedup, survives restarts
-        self._recent: dict[str, tuple[bool, float]] = {}     # C4: symbol -> (bullish, ts) of last signal
+        # dedup = the shared delivery_ledger, committed only once a signal is REAL (never at build
+        # time) by signal_validator.register_confirmed — see that docstring for why.
+        self._recent: dict[str, tuple[bool, float]] = {}     # C4: symbol -> (bullish, ts) last signal
         self._locked: dict[str, dict] = {}                   # WATCH: symbol -> pending locked setup
 
     async def analyze(self, context: StrategyContext) -> StrategyResult:
@@ -107,7 +106,7 @@ class Vocant1Strategy(BaseStrategy):
             return StrategyResult(signals=out)
 
         # 1M — align (structure, or a fractal break), then the pullback entry.
-        self.fired.cleanup(_STATE_TTL)
+        delivery_ledger.cleanup(_STATE_TTL)
         log.info(f"[vocant1] {sym} 1HR bias OK ({'BUY' if bullish else 'SELL'}, {origin}, "
                  f"{vol_count} vol candle{'s' if vol_count != 1 else ''}, from 1st) — checking 1M")
         raw = m1_signals(m1, bullish, vc, pip=pip, symbol=sym)
@@ -119,11 +118,10 @@ class Vocant1Strategy(BaseStrategy):
                 if inst != sym and b == bullish and (now - t) < _CORR_WINDOW]
 
         for s in raw:                                       # each = {"kind", "entry", "sl"}
-            # ONE entry per volume candle. The key must NOT include the kind: the same setup can
-            # reach the entry via either alignment path as the 1M develops, and a second
-            # same-direction signal would be dropped by the validator as a duplicate — silently.
-            key = f"{sym}_{'B' if bullish else 'S'}_{vc.time}"
-            if self.fired.has(key):
+            # ONE entry per volume candle, NOT keyed by kind: the same setup can reach the entry via
+            # either alignment path, and the second would be silently dropped as a duplicate.
+            key = f"{self.id}_{sym}_{'B' if bullish else 'S'}_{vc.time}"
+            if delivery_ledger.is_delivered(key):
                 continue
             entry, sl = s["entry"], s["sl"]
             risk = abs(entry - sl)
@@ -135,10 +133,11 @@ class Vocant1Strategy(BaseStrategy):
             # so it goes to the PUBLIC CHANNEL as a full signal card. It is a real saved signal too,
             # so the monitor closes it on TP/SL and the channel gets that as well. The invalidation
             # alert keeps `vocant1_watch` and stays a DM — it is a correction, not a signal.
-            out.append(build_signal(s["kind"], sym, bullish, origin, vol_count, entry, sl, tp,
-                                    risk, pip, digits, corr, context.news, self.id,
-                                    self.name, sl_note=s.get("sl_note", "")))
-            self.fired.add(key)
+            sig = build_signal(s["kind"], sym, bullish, origin, vol_count, entry, sl, tp, risk, pip,
+                               digits, corr, context.news, self.id, self.name,
+                               sl_note=s.get("sl_note", ""))
+            sig.dedup_key = key          # committed ONLY once the signal is real — never here
+            out.append(sig)
             self._recent[sym] = (bullish, now)
             # Assign, don't setdefault: this is a new volume candle, so it SUPERSEDES any older
             # pending setup. setdefault left the watch tracking the stale entry/sl and the live one
