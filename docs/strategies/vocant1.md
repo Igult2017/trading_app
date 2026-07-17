@@ -116,11 +116,24 @@ against the 1M's **own average body** — what is a real body in London is noise
 `vocant1_pullback.py` (the entry level) · `vocant1_entry.py` (assembly) · `vocant1_signal.py` ·
 `vocant1_watch.py`
 
+## Closed — do NOT re-raise these
+- **GAP 2 (the fixed 60-minute alignment window)** — CLOSED by `54eff8d`, incidentally. `clear_trend`
+  used `m1[-60:]` always, so a setup that lined up 3h ago but chopped in the last hour read "not
+  aligned" forever — judging a 5-hour story through a 1-hour window. The alignment test now uses **no
+  window at all**: it asks where price *is* vs the line. Where a window is still used
+  (`fractal_broken`, `find_pullback`) it is `win` = **everything since the line was drawn**.
+  Verified: line drawn 3h ago, aligned 2h ago, last hour pure chop -> entry still fires.
+- **GAP 2b (M1 holds ~4.2h, so a 5h-old line truncates the window)** — dissolved by the same change.
+  All three consumers of `win` are unaffected: the alignment test reads current price (no window);
+  `fractal_broken` only needs the LAST fractal (recent); `find_pullback` needs the latest retrace
+  (recent) and `traded_past` is trivially true whenever price is currently past the line.
+  *(Reasoned, not tested — re-check if it ever looks suspect.)*
+- **GAP 3 (the wick estimate)** — dead. Measure candle 2's wick live off the M1; never estimate.
+  ~8.5k real pairs: correlation ~0.2, beats a random shuffle by 3 points.
+
 ## Open / not done
 - **GAP 1** — risk disconnected from the setup's own invalidation. **Needs restating**: my write-up
-  assumed *line = invalidation*, which is wrong (see above).
-- **GAP 2b** — a 12h-old volume candle vs ~4h of M1: "everything since the line" silently becomes
-  "the last 4h". Errs safe; it's a missing log, not a missing rule.
+  assumed *line = invalidation*, which is wrong (see above), so the gap as I stated it may not exist.
 - **`_MAX_SL_PIPS` GBP 20p vs EUR 15p** — my number, never the user's. User only ever said **15**.
 - **`_MIN_SL_PIPS = 5`** — mine, never discussed.
 - **`self._locked` is RAM-only** — a redeploy forgets a pending setup, so its invalidation alert is
