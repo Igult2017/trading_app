@@ -9,6 +9,13 @@ import { useTranslation } from 'react-i18next';
 /* ─────────────────────────────────────────────────────────────────────
    DESIGN TOKENS  (matches attached reference)
 ───────────────────────────────────────────────────────────────────── */
+// Dark text tiers meet WCAG AA (4.5:1) on bg #0A0C10. label/muted/sub/dim all used to FAIL
+// (2.60 / 3.22 / 1.89 / 1.59) — dim is the colour of the 7-9px section labels (REGIME,
+// VOLATILITY STATE...), so those were effectively invisible. Now 5.82 / 6.45 / 5.24 / 4.81:
+// each keeps its hue, and the tiers stay in their original order (dim < sub < label < muted
+// < text) so the emphasis hierarchy survives. `gray` is a CHIP colour, measured against grayBg
+// rather than the page bg — it failed there too (2.43:1) and is lifted to 4.63:1. Every other
+// chip colour already passed on its own background (4.84-11.21) and is untouched.
 const D = {
   bg:       'var(--mp-bg,  #0A0C10)',
   bg2:      'var(--mp-bg2, #111318)',
@@ -19,10 +26,10 @@ const D = {
   bdRow:    'var(--mp-bdr, #12161E)',
   bdDiv:    'var(--mp-bdd, #141820)',
   text:     'var(--mp-txt, #C8CDD8)',
-  label:    'var(--mp-lbl, #4A5568)',
-  muted:    'var(--mp-mut, #5A6278)',
-  dim:      'var(--mp-dim, #2E3545)',
-  sub:      'var(--mp-sub, #3A4050)',
+  label:    'var(--mp-lbl, #7F8DA4)',
+  muted:    'var(--mp-mut, #8C94A9)',
+  dim:      'var(--mp-dim, #6F7E9F)',
+  sub:      'var(--mp-sub, #7A849E)',
   green:    'var(--mp-green,  #1D9E75)',
   greenBg:  'var(--mp-grbg, #0A2016)',
   greenBd:  'var(--mp-grbd, #0F3020)',
@@ -41,7 +48,7 @@ const D = {
   cyan:     'var(--mp-cyan,   #4AE8D8)',
   cyanBg:   'var(--mp-cybg, #0A2028)',
   cyanBd:   'var(--mp-cybd, #0F3038)',
-  gray:     'var(--mp-gray,   #4A5568)',
+  gray:     'var(--mp-gray,   #72819B)',   // was #4A5568 — 2.43:1 on grayBg, the worst text in the panel; now 4.63:1
   grayBg:   'var(--mp-gybg, #12151C)',
   grayBd:   'var(--mp-gybd, #1A1F2E)',
 };

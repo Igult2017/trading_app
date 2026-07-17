@@ -69,7 +69,7 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
     sidebarBg: '#010409',
     surface: '#0d1117',
     text: '#cbd5e1',
-    textMuted: 'rgba(148,163,184,0.6)',
+    textMuted: 'rgba(148,163,184,0.8)',   // .6 was 3.38:1 on bg — below AA; .8 = 5.34:1
     border: 'rgba(255,255,255,0.05)',
     accent: '#38bdf8',
     swatches: ['#010409', '#0d1117', '#38bdf8'],
@@ -81,7 +81,7 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
     sidebarBg: '#040610',
     surface: '#0D0F1C',
     text: '#E2E6F4',
-    textMuted: '#505880',
+    textMuted: '#7981AB',   // was #505880 — 2.92:1 on bg, below AA; now 5.30:1
     border: '#161930',
     accent: '#818cf8',
     swatches: ['#06070F', '#0D0F1C', '#818cf8'],
@@ -93,7 +93,7 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
     sidebarBg: '#07101C',
     surface: '#111E2D',
     text: '#D0DAEC',
-    textMuted: '#5A7090',
+    textMuted: '#768BA9',   // was #5A7090 — 3.68:1 on bg, below AA; now 5.35:1
     border: '#1A2840',
     accent: '#7dd3fc',
     swatches: ['#0B1320', '#111E2D', '#7dd3fc'],
@@ -105,7 +105,7 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
     sidebarBg: '#040A07',
     surface: '#0B1610',
     text: '#C4D9CB',
-    textMuted: '#4A7260',
+    textMuted: '#5E9079',   // was #4A7260 — 3.57:1 on bg, below AA; now 5.31:1
     border: '#142018',
     accent: '#34d399',
     swatches: ['#070F0A', '#0B1610', '#34d399'],
@@ -117,7 +117,7 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
     sidebarBg: '#0D0608',
     surface: '#1C0F14',
     text: '#EDD4DC',
-    textMuted: '#7A4A58',
+    textMuted: '#AC7786',   // was #7A4A58 — 2.74:1 on bg, below AA; now 5.32:1
     border: '#2A1420',
     accent: '#fb7185',
     swatches: ['#130A0E', '#1C0F14', '#fb7185'],

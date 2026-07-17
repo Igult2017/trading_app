@@ -17,7 +17,7 @@
 export const DP_CSS = `
 .dp{
   --bg:#090C11; --bg2:#0D1119; --raise:rgba(255,255,255,.022);
-  --ink:#ECEFEA; --ink2:#8A94A1; --ink3:#535C67;
+  --ink:#ECEFEA; --ink2:#8A94A1; --ink3:#737F8E;  /* was #535C67 — 2.89:1 on --bg, below WCAG AA; now 4.81:1 */
   --line:rgba(255,255,255,.06); --line2:rgba(255,255,255,.10);
   --loss:#F2596A; --lossdeep:#FF3C4F; --loss-d:rgba(242,89,106,.14);
   --gain:#4FD8A6; --gain-d:rgba(79,216,166,.13);
