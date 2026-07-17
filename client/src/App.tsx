@@ -26,7 +26,6 @@ import { useInactivityLogout } from "@/hooks/useInactivityLogout";
 import HomeHeader from "@/components/HomeHeader";
 import HomeFooter from "@/components/HomeFooter";
 import { PublicThemeContext, usePublicTheme } from "@/context/PublicThemeContext";
-import { TradeSyncApp } from "@/features/trade-sync";
 import HomePage from "@/pages/HomePage";
 import TradeHistoryPage from "@/pages/TradeHistoryPage";
 import Analytics from "@/pages/Analytics";
@@ -229,12 +228,6 @@ function AppRoutes() {
       {/* Journal — protected, has its own header */}
       <Route path="/journal">
         {() => <RequireAuth><InactivityWatcher /><Journal /></RequireAuth>}
-      </Route>
-
-      {/* Trade Sync — protected, brings its own header, sidebar and mobile nav.
-          Presentation only for now: every value on the page is local demo state. */}
-      <Route path="/trade-sync">
-        {() => <RequireAuth><InactivityWatcher /><TradeSyncApp /></RequireAuth>}
       </Route>
 
       {/* Admin */}

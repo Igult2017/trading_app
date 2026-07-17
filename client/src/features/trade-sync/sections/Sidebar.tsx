@@ -8,13 +8,17 @@ interface SidebarProps {
   setCollapsed: (collapsed: boolean) => void;
   activePage: PageId;
   setActivePage: (page: PageId) => void;
+  /** Panel mode: nested in a host scroll container, so drop the viewport-anchored sizing. */
+  panel?: boolean;
 }
 
-export function Sidebar({ collapsed, setCollapsed, activePage, setActivePage }: SidebarProps) {
+export function Sidebar({ collapsed, setCollapsed, activePage, setActivePage, panel }: SidebarProps) {
   return (
     <aside
       className={`ct-sidebar ${collapsed ? "collapsed" : ""} hidden md:flex flex-col border-r border-surface-container-highest bg-surface shrink-0`}
-      style={{ height: "calc(100vh - 3.5rem)", position: "sticky", top: "3.5rem" }}
+      // Standalone: pin to the viewport under the 3.5rem header. Panel: the host's <main> is the
+      // scroll container, so calc(100vh…) would overshoot it — stretch to the panel instead.
+      style={panel ? undefined : { height: "calc(100vh - 3.5rem)", position: "sticky", top: "3.5rem" }}
     >
       <div className={`flex ${collapsed ? "justify-center" : "justify-end"} p-2 border-b border-surface-container-highest`}>
         <button
