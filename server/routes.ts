@@ -40,7 +40,6 @@ import {
 import { remapJournalEntry } from "./lib/remapJournalEntry";
 import { getEconomicCalendar } from "./services/fmp";
 import { cacheService } from "./scrapers/cacheService";
-import { economicCalendarScraper } from "./scrapers/economicCalendarScraper";
 import { interestRateScraper } from "./scrapers/interestRateScraper";
 import { analyzeEventSentiment, updateEventWithSentiment } from "./services/sentimentAnalysis";
 import { telegramNotificationService } from "./services/telegramNotification";
@@ -1818,7 +1817,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/calendar/today", async (req, res) => {
     try {
-      const events = await cacheService.getOrFetchEvents('today', economicCalendarScraper);
+      const events = await cacheService.getOrFetchEvents('today');
       
       const filters = {
         region: req.query.region as string | undefined,
@@ -1840,7 +1839,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/calendar/week", async (req, res) => {
     try {
-      const events = await cacheService.getOrFetchEvents('week', economicCalendarScraper);
+      const events = await cacheService.getOrFetchEvents('week');
       
       const filters = {
         region: req.query.region as string | undefined,
@@ -1862,7 +1861,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/economic-events", async (req, res) => {
     try {
-      const events = await cacheService.getOrFetchEvents('upcoming', economicCalendarScraper);
+      const events = await cacheService.getOrFetchEvents('upcoming');
       
       const filters = {
         region: req.query.region as string | undefined,

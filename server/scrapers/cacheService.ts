@@ -1,8 +1,24 @@
 import { db } from '../db';
 import { economicEvents, InsertEconomicEvent } from '@shared/schema';
 import { eq, gte, lte, and, sql, inArray, isNull } from 'drizzle-orm';
-import { ScrapedEvent } from './economicCalendarScraper';
 import { scraperSettings } from './config';
+
+/** Shape of a scraped calendar event. Owned here (the cache/DB layer) now that the cloudscraper
+ *  EconomicCalendarScraper is deleted — the economic_events table is kept fresh by the curl_cffi
+ *  homepageCalendar path (server/python/news_calendar.py) instead. */
+export interface ScrapedEvent {
+  title: string;
+  country: string;
+  countryCode?: string;
+  eventTime: Date;
+  impactLevel: string;
+  expectedValue?: string;
+  previousValue?: string;
+  actualValue?: string;
+  currency?: string;
+  sourceSite: string;
+  sourceUrl: string;
+}
 
 export class CacheService {
   private cacheDuration = scraperSettings.cacheSettings.cacheDuration;
@@ -211,17 +227,10 @@ export class CacheService {
   }
 
   async getOrFetchEvents(
-    type: 'today' | 'week' | 'upcoming',
-    scraper: any
+    type: 'today' | 'week' | 'upcoming'
   ): Promise<typeof economicEvents.$inferSelect[]> {
-    const isFresh = await this.isCacheFresh();
-
-    if (!isFresh) {
-      console.log('Cache is stale, fetching new data...');
-      const scrapedEvents = await scraper.scrapeWithRetry();
-      await this.storeEvents(scrapedEvents);
-    }
-
+    // Freshness is owned by the curl_cffi homepageCalendar path, which upserts economic_events on
+    // its own background interval. This just reads that table — there is no scraper to fetch from.
     switch (type) {
       case 'today':
         return this.getTodayEvents();

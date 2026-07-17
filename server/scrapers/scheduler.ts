@@ -1,5 +1,4 @@
 import * as cron from 'node-cron';
-import { economicCalendarScraper } from './economicCalendarScraper';
 import { interestRateScraper } from './interestRateScraper';
 import { cacheService } from './cacheService';
 import { scraperSettings } from './config';
@@ -28,46 +27,10 @@ export class ScraperScheduler {
 
   getStatus() { return this._jobs; }
 
-  async fetchEvents(): Promise<void> {
-    // DISABLED — redundant. The economic_events table is kept fresh by the curl_cffi MyFXBook
-    // scraper (server/python/news_calendar.py, via services/homepageCalendar), which works from the
-    // datacenter IP where this cloudscraper path is Cloudflare-challenged. Leaving it on only
-    // produced "All scrapers failed" 403 noise every scrape, and it never returned events (0 rows →
-    // no notifications), so disabling it is a no-op beyond removing the log spam.
-    // Re-enable with CALENDAR_TS_SCRAPER=true only if the curl_cffi path is ever removed.
-    if ((process.env.CALENDAR_TS_SCRAPER ?? 'false').toLowerCase() !== 'true') {
-      return;
-    }
-    if (this.isRunning) {
-      console.log('[Calendar] Fetch already in progress, skipping...');
-      return;
-    }
-
-    try {
-      this.isRunning = true;
-      console.log('[Calendar] Starting web scraper...');
-      const events = await economicCalendarScraper.scrapeWithRetry();
-      if (events.length > 0) {
-        await cacheService.storeEvents(events);
-        telegramNotificationService?.scheduleEventNotifications(events as any);
-        console.log(`[Calendar] Scraper fetched ${events.length} events`);
-      } else {
-        console.log('[Calendar] Scraper returned no events');
-      }
-    } catch (error) {
-      console.error('[Calendar] Error during fetch:', error);
-    } finally {
-      this.isRunning = false;
-    }
-  }
-
-  async runUpcomingEventsScrape(): Promise<void> {
-    await this.fetchEvents();
-  }
-
-  async runFullWeekScrape(): Promise<void> {
-    await this.fetchEvents();
-  }
+  // The economic_events table is kept fresh by the curl_cffi homepageCalendar path
+  // (server/python/news_calendar.py). The old cloudscraper EconomicCalendarScraper that used to be
+  // driven from here was redundant (Cloudflare-challenged from the datacenter IP, only ever logged
+  // "All scrapers failed") and has been deleted, along with its fetch/scrape methods and cron jobs.
 
   async runCleanup(): Promise<void> {
     try {
@@ -138,92 +101,13 @@ export class ScraperScheduler {
     console.log('  - NY open (12:00-15:00 UTC): every 15 minutes');
   }
 
-  private setupScraperSchedule(): void {
-    this.scraperJobs.forEach(job => job.stop());
-    this.scraperJobs = [];
-
-    // Pre-London session fetch (10 min before open)
-    this.scraperJobs.push(
-      cron.schedule('50 7 * * 1-5', async () => {
-        console.log('[Calendar] Pre-London fetch (10 min before open)');
-        await this.fetchEvents();
-      }, { timezone: 'Europe/London' })
-    );
-
-    // Pre-NY session fetch (10 min before open)
-    this.scraperJobs.push(
-      cron.schedule('20 9 * * 1-5', async () => {
-        console.log('[Calendar] Pre-NY fetch (10 min before open)');
-        await this.fetchEvents();
-      }, { timezone: 'America/New_York' })
-    );
-
-    // Hourly fetch during trading hours (every 2 hours)
-    this.scraperJobs.push(
-      cron.schedule('0 */2 * * 1-5', async () => {
-        console.log('[Calendar] Scheduled hourly fetch');
-        await this.fetchEvents();
-      }, { timezone: 'UTC' })
-    );
-
-    // Weekend fetch
-    this.scraperJobs.push(
-      cron.schedule('0 12 * * 0,6', async () => {
-        console.log('[Calendar] Weekend fetch');
-        await this.fetchEvents();
-      }, { timezone: 'UTC' })
-    );
-
-    console.log('[Calendar] Web scraper scheduled:');
-    console.log('  - Pre-London session (7:50 London time)');
-    console.log('  - Pre-NY session (9:20 NY time)');
-    console.log('  - Every 2 hours on weekdays');
-    console.log('  - Weekend maintenance at noon UTC');
-  }
-
   start(): void {
     console.log('Starting economic calendar scheduler...');
 
-    // ── 1. Daily full scrape — midnight UTC ──────────────────────────────────
-    // Populates the full week of events so the watchdog has data to check.
-    this._jobs.myfxbook.enabled = true;
-    this.fullWeekJob = cron.schedule('0 0 * * *', async () => {
-      console.log('[Calendar] Daily full scrape (midnight UTC)');
-      await this.fetchEvents();
-      this._jobs.myfxbook.lastRunAt = Date.now();
-      this._jobs.myfxbook.lastResult = 'success';
-    }, { timezone: 'UTC' });
+    // Calendar scraping is handled by the curl_cffi homepageCalendar path, not here — the
+    // redundant cloudscraper EconomicCalendarScraper and its cron jobs were deleted.
 
-    // ── 2. Every-5-min event watchdog ────────────────────────────────────────
-    // Pure DB query — no network cost unless a High/Medium event is imminent.
-    // Fires a real Myfxbook scrape only when an unreleased High/Medium event
-    // is within 35 minutes (or released up to 10 min ago with no actual yet).
-    this.upcomingEventsJob = cron.schedule('*/5 * * * *', async () => {
-      try {
-        const imminent = await cacheService.hasImminentHighMediumEvent(35);
-        if (!imminent) return;
-        console.log('[Calendar] Imminent High/Medium event detected — fetching actuals from Myfxbook');
-        await this.fetchEvents();
-        this._jobs.myfxbook.lastRunAt = Date.now();
-        this._jobs.myfxbook.lastResult = 'success';
-      } catch (err: any) {
-        this._jobs.myfxbook.lastResult = 'error';
-        console.error('[Calendar] Watchdog error:', err?.message);
-      }
-    }, { timezone: 'UTC' });
-
-    // ── 3. Safety-net every-2-hour scrape on weekdays ────────────────────────
-    // Catches any data drift and refreshes Low-impact events the watchdog skips.
-    this.scraperJobs.push(
-      cron.schedule('0 */2 * * 1-5', async () => {
-        console.log('[Calendar] Safety-net 2-hour scrape');
-        await this.fetchEvents();
-        this._jobs.myfxbook.lastRunAt = Date.now();
-        this._jobs.myfxbook.lastResult = 'success';
-      }, { timezone: 'UTC' })
-    );
-
-    // ── 4. Cleanup — remove events older than retention window ───────────────
+    // ── Cleanup — remove events older than retention window ───────────────────
     this.cleanupJob = cron.schedule('0 1 * * *', async () => {
       await this.runCleanup();
     }, { timezone: 'UTC' });
@@ -240,9 +124,8 @@ export class ScraperScheduler {
     // Signal scanning disabled
     // Interest rate scraper disabled
 
-    console.log('MyFXBook (cloudscraper) scraper: DISABLED — redundant with the curl_cffi');
-    console.log('  homepageCalendar path (news_calendar.py) that keeps economic_events fresh.');
-    console.log('  The cron jobs are still registered but fetchEvents() short-circuits.');
+    console.log('MyFXBook (cloudscraper) scraper: DELETED — economic_events is fed by the curl_cffi');
+    console.log('  homepageCalendar path (news_calendar.py).');
     console.log('  • Cleanup:              01:00 UTC daily (still active)');
     console.log('Interest rate scraper:   DISABLED');
     console.log('Telegram notifications:  event-driven (scheduled per event)');
