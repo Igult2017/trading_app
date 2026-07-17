@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 
 export type ThemeId = 'navy' | 'midnight' | 'slate' | 'forest' | 'rose' | 'light';
-export type FontId = 'montserrat' | 'dm-mono' | 'inter' | 'manrope' | 'sora' | 'jetbrains-mono' | 'plus-jakarta-sans';
+export type FontId = 'playfair-display' | 'montserrat' | 'dm-mono' | 'inter' | 'manrope' | 'sora' | 'jetbrains-mono' | 'plus-jakarta-sans';
 
 export interface JournalSettings {
   theme: ThemeId;
@@ -51,6 +51,14 @@ export interface FontDef {
   label: string;
   stack: string;
   sample: string;
+  /**
+   * Weight Journal force-sets on every element (font-weight:<n>!important).
+   * 900 suits the geometric sans faces it was chosen for. `null` means DON'T force one — each
+   * panel keeps its own weights, so headings stay bold and body stays regular. Playfair is a
+   * high-contrast display serif that turns to mush at 900 in 10-12px UI text, and the look people
+   * actually like from it (see features/trade-sync) comes from its natural 400-700 range.
+   */
+  forceWeight: number | null;
 }
 
 export const THEMES: Record<ThemeId, ThemeDef> = {
@@ -132,58 +140,90 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
 // Fonts request. Variable packages register a "<Name> Variable" family, so those
 // stacks list the variable name first with the static name as a fallback.
 export const FONTS: Record<FontId, FontDef> = {
+  // Self-hosted already: index.css imports @fontsource-variable/playfair-display, which
+  // registers the 'Playfair Display Variable' family — no Google Fonts request needed.
+  'playfair-display': {
+    label: 'Playfair Display',
+    stack: "'Playfair Display Variable', 'Playfair Display', Georgia, serif",
+    sample: 'Aa Bb 0123',
+    forceWeight: null,   // keep each panel's own weights — see FontDef.forceWeight
+  },
   montserrat: {
     label: 'Montserrat',
     stack: "'Montserrat', sans-serif",
     sample: 'Aa Bb 0123',
+    forceWeight: 900,
   },
   'dm-mono': {
     label: 'DM Mono',
     stack: "'DM Mono', monospace",
     sample: 'Aa Bb 0123',
+    forceWeight: 900,
   },
   inter: {
     label: 'Inter',
     stack: "'Inter Variable', 'Inter', sans-serif",
     sample: 'Aa Bb 0123',
+    forceWeight: 900,
   },
   manrope: {
     label: 'Manrope',
     stack: "'Manrope Variable', 'Manrope', sans-serif",
     sample: 'Aa Bb 0123',
+    forceWeight: 900,
   },
   sora: {
     label: 'Sora',
     stack: "'Sora Variable', 'Sora', sans-serif",
     sample: 'Aa Bb 0123',
+    forceWeight: 900,
   },
   'jetbrains-mono': {
     label: 'JetBrains Mono',
     stack: "'JetBrains Mono Variable', 'JetBrains Mono', monospace",
     sample: 'Aa Bb 0123',
+    forceWeight: 900,
   },
   'plus-jakarta-sans': {
     label: 'Plus Jakarta Sans',
     stack: "'Plus Jakarta Sans', sans-serif",
     sample: 'Aa Bb 0123',
+    forceWeight: 900,
   },
 };
 
+const SETTINGS_KEY = 'journal_settings_v2';
+const DEFAULT_FONT: FontId = 'playfair-display';
+/** Marker for the one-time move off the old 'montserrat' default. Presence = already applied. */
+const FONT_DEFAULT_MIGRATION_KEY = 'journal_settings_font_default_playfair';
+
 function load(): JournalSettings {
   try {
-    const raw = localStorage.getItem('journal_settings_v2');
+    const raw = localStorage.getItem(SETTINGS_KEY);
     if (raw) {
       const parsed = JSON.parse(raw) as JournalSettings;
       // Validate every field — a stale/invalid persisted theme (e.g. a renamed theme
       // from an older build) must fall back to the default, not leave THEMES[theme]
       // undefined (which renders a white background).
       if (!THEMES[parsed.theme]) parsed.theme = 'navy';
-      if (!FONTS[parsed.font]) parsed.font = 'montserrat';
+      if (!FONTS[parsed.font]) parsed.font = DEFAULT_FONT;
       if (!Array.isArray(parsed.hiddenPanels)) parsed.hiddenPanels = [];
+
+      // Changing DEFAULT_FONT only reaches people with nothing saved — everyone else already has
+      // font:'montserrat' persisted and would never see the new default. Move that group across
+      // ONCE. Runs a single time, so re-picking Montserrat afterwards sticks, and it leaves theme
+      // and hiddenPanels alone (bumping the whole settings key would have wiped both).
+      if (!localStorage.getItem(FONT_DEFAULT_MIGRATION_KEY)) {
+        localStorage.setItem(FONT_DEFAULT_MIGRATION_KEY, '1');
+        if (parsed.font === 'montserrat') {
+          parsed.font = DEFAULT_FONT;
+          localStorage.setItem(SETTINGS_KEY, JSON.stringify(parsed));
+        }
+      }
       return parsed;
     }
   } catch {}
-  return { theme: 'navy', font: 'montserrat', hiddenPanels: [] };
+  return { theme: 'navy', font: DEFAULT_FONT, hiddenPanels: [] };
 }
 
 export function useJournalSettings() {
@@ -192,7 +232,7 @@ export function useJournalSettings() {
   const setSettings = useCallback((next: Partial<JournalSettings>) => {
     setSettingsState(prev => {
       const updated = { ...prev, ...next };
-      localStorage.setItem('journal_settings_v2', JSON.stringify(updated));
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify(updated));
       return updated;
     });
   }, []);

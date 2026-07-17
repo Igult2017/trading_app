@@ -742,6 +742,12 @@ export default function Journal() {
   const { settings, setSettings } = useJournalSettings();
   const T = THEMES[settings.theme] ?? THEMES.navy;   // never undefined → never a white fallback
   const F = FONTS[settings.font];
+  // Built OUT HERE with string concatenation, NOT as a nested template literal inside the style
+  // block below: a backtick anywhere in that block — even in a comment — closes the template early
+  // and crashes at runtime while still building clean. (No backticks in this comment either: they
+  // break greps that scan the style block for exactly that mistake.)
+  // forceWeight null (Playfair) => emit nothing, so each panel keeps its own weights.
+  const forcedWeightRule = F.forceWeight ? 'font-weight:' + F.forceWeight + '!important;' : '';
   const [location] = useLocation();
   const [activeNav, setActiveNav] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -955,7 +961,7 @@ export default function Journal() {
            specificity. Any panel with its own font MUST be listed here. Trade Sync learned this
            the hard way: every Material Icon rendered as its literal ligature text
            ("light_mode", "chevron_left") because font-family was forced to the journal stack. */
-        .journal-root *:where(:not(.dp):not(.dp *):not(.ct-app):not(.ct-app *):not(.ts-page):not(.ts-page *)){font-family:${F.stack}!important;font-weight:900!important;}
+        .journal-root *:where(:not(.dp):not(.dp *):not(.ct-app):not(.ct-app *):not(.ts-page):not(.ts-page *)){font-family:${F.stack}!important;${forcedWeightRule}}
         /* Same exemption as the rule above — this one bites SVG <text>, which the font-family rule
            does not reach. Without it the "1x" labels in the Trade Sync hero diagram stayed Montserrat
            while everything around them was Playfair. */
