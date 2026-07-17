@@ -943,11 +943,18 @@ export default function Journal() {
   return (
     <div style={{ fontFamily: F.stack, height:'100dvh', overflow:'hidden', display:'flex', flexDirection:'column', background: T.bg, color: T.text, transition: 'background 0.3s, color 0.3s' }}>
       <style>{`
-        .journal-root *{letter-spacing:.02em;box-sizing:border-box;}
-        /* Force the selected journal font everywhere EXCEPT the Drawdown "Dive Profile"
-           (.dp), which owns its Montserrat/DM-Mono typography. :where() keeps this at
-           zero specificity so no panel-specific font override is affected. */
-        .journal-root *:where(:not(.dp):not(.dp *)){font-family:${F.stack}!important;font-weight:900!important;}
+        .journal-root *{box-sizing:border-box;}
+        .journal-root *:where(:not(.ct-app):not(.ct-app *)){letter-spacing:.02em;}
+        /* Force the selected journal font everywhere EXCEPT panels that own their own
+           typography: the Drawdown "Dive Profile" (.dp, Montserrat/DM-Mono) and Trade Sync
+           (.ct-app, Playfair Display/DM Mono/Material Icons). :where() keeps this at zero
+           specificity so no panel-specific font override is affected.
+           NOTE: this rule is !important, so an exempted panel CANNOT defend itself with
+           specificity alone — !important always wins over a normal declaration, whatever its
+           specificity. Any panel with its own font MUST be listed here. Trade Sync learned this
+           the hard way: every Material Icon rendered as its literal ligature text
+           ("light_mode", "chevron_left") because font-family was forced to the journal stack. */
+        .journal-root *:where(:not(.dp):not(.dp *):not(.ct-app):not(.ct-app *)){font-family:${F.stack}!important;font-weight:900!important;}
         .journal-root svg text{font-family:${F.stack}!important;}
         .journal-root ::-webkit-scrollbar{display:none;}
         .journal-root *{scrollbar-width:none;-ms-overflow-style:none;}
