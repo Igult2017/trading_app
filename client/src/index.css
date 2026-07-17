@@ -7,6 +7,11 @@
 /* Variable fonts — single file covers all weights */
 @import '@fontsource-variable/inter';
 @import '@fontsource-variable/playfair-display';
+/* Static 'Playfair Display' family too — many inline styles request "'Playfair Display', serif"
+   (the family name Google Fonts uses, which Trade Sync loads at runtime). Without this the
+   variable package only registers 'Playfair Display Variable', so those inline refs silently fell
+   back to Times on the public pages. This registers the plain 'Playfair Display' name, self-hosted. */
+@import '@fontsource/playfair-display';
 @import '@fontsource-variable/jetbrains-mono';
 @import '@fontsource-variable/manrope';
 @import '@fontsource-variable/sora';

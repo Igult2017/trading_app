@@ -62,7 +62,7 @@ export default function HomePage() {
               Trusted by 10,000+ retail traders
             </div>
 
-            <h1 style={{ ...serif, fontSize: 'clamp(2.1rem,4.7vw,4rem)', lineHeight: 1.07, marginBottom: 20, color: text, fontWeight: 900 }}>
+            <h1 style={{ ...serif, fontSize: 'clamp(1.9rem,4.1vw,3.4rem)', lineHeight: 1.08, marginBottom: 20, color: text, fontWeight: 900 }}>
               Trade and<br />
               Journal,<br />
               <span style={{ color: '#2563eb' }}>Find your edge</span>
