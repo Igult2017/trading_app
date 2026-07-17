@@ -21,7 +21,8 @@ import { SessionsList, GhostSessionsPanel } from '@/components/CreateSession';
 import DrawdownPanel from '@/components/DrawdownPanel';
 import TFMetricsPanel from '@/components/TFMetricsPanel';
 import TraderAI from '@/components/TraderAI';
-import TradeSyncPage from '@/pages/TradeSyncPage';
+// NOTE: the old inline TradeSyncPage is retired but still on disk. Trade Sync is now the
+// standalone app at /trade-sync (client/src/features/trade-sync) — see TradeSyncRedirect below.
 import AccountsPage from '@/pages/AccountsPage';
 import AssetPage from '@/pages/AssetPage';
 import Leaderboard from '@/components/Leaderboard';
@@ -124,6 +125,20 @@ const NavButton = ({ item, isActive, onClick, showLabels, darkMode = true, label
     </div>
   );
 };
+
+/**
+ * Trade Sync is a STANDALONE full-page app: it ships its own header, its own 264px sidebar
+ * (height: calc(100vh - 3.5rem)) and its own fixed bottom nav. Rendered inline here it would sit
+ * inside Journal's fixed 185px sidebar + overflowY:auto <main>, producing two sidebars, two
+ * headers, and sticky/100vh resolving against the wrong container. So the tab navigates to the
+ * real route instead of rendering. Covers BOTH entry points — the sidebar click and /journal?tab=sync
+ * — because both funnel through activeNav === 'sync'.
+ */
+function TradeSyncRedirect() {
+  const [, navigate] = useLocation();
+  useEffect(() => { navigate('/trade-sync', { replace: true }); }, [navigate]);
+  return null;
+}
 
 const Sidebar = ({ activeNav, setActiveNav, open, isMobile, onClose, darkMode, sidebarBg, accentColor }: { activeNav: string; setActiveNav: (id: string) => void; open: boolean; isMobile: boolean; onClose: () => void; darkMode?: boolean; sidebarBg?: string; accentColor?: string }) => {
   const showLabels = isMobile || open;
@@ -1360,7 +1375,7 @@ export default function Journal() {
           ) : activeNav === 'fsdai' ? (
             <TraderAI sessionId={activeSessionId ?? undefined} darkMode={T.dark} />
           ) : activeNav === 'sync' ? (
-            <TradeSyncPage />
+            <TradeSyncRedirect />
           ) : activeNav === 'accounts' ? (
             <AccountsPage darkMode={T.dark} onViewSession={handleSelectSession} />
           ) : activeNav === 'addaccount' ? (
