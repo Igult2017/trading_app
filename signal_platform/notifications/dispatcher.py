@@ -15,9 +15,8 @@ import os
 from config.settings import settings
 from core import event_bus
 from core.types import Signal
-from notifications.telegram_formatter import (
-    format_setup_alert, format_signal_confirmed, format_signal_watch, format_signal_closed,
-)
+from notifications.telegram_formatter import format_setup_alert, format_signal_watch
+from notifications.telegram_cards import format_signal_confirmed, format_signal_closed
 from notifications.telegram_system_formatter import format_scan_started, format_session_open
 
 log = logging.getLogger(__name__)
@@ -196,18 +195,17 @@ async def on_signal_closed(signal_id: str) -> None:
                 row = s.get(SignalModel, signal_id)
                 if row is None:
                     return None
-                return (
-                    row.symbol, row.type, row.status,
-                    float(row.entry_price) if row.entry_price else None,
-                    row.strategy or "",
-                )
+                f = lambda v: float(v) if v else None
+                return (row.symbol, row.type, row.status, f(row.entry_price),
+                        row.strategy or "", f(row.take_profit), f(row.stop_loss))
 
         data = await loop.run_in_executor(None, _load_row)
         if data is None:
             return
-        symbol, direction, status, entry, strategy = data
+        symbol, direction, status, entry, strategy, tp, sl = data
         message = format_signal_closed(
             symbol=symbol, direction=direction, status=status, entry=entry, strategy=strategy,
+            take_profit=tp, stop_loss=sl,
         )
         await _send_text(message)
     except Exception as exc:
