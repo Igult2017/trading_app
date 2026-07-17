@@ -197,4 +197,27 @@ export const DP_CSS = `
 }
 @media(max-width:560px){.dp .kpis{grid-template-columns:1fr;}}
 @media(prefers-reduced-motion:reduce){.dp *{transition:none!important;}}
+
+/* ── Word labels follow the JOURNAL font (var(--disp)); numbers do not ───────────────────────
+ * .dp is exempted from the journal's global font rule because it owns its typography, so a new
+ * journal default never reaches this panel on its own — these opt in explicitly.
+ * Everything omitted here stays DM Mono (var(--mono)) on purpose:
+ *   .kpi .v / .foot .v / svg text — figures and chart axes need equal-width digits
+ *   .hh / .hp                     — heatmap axes, where a grid must stay column-aligned
+ *   .rr .nm                       — R:R ratios ("1:2"), numeric rather than prose
+ * That split — prose in the journal font, figures in DM Mono — is the pairing Trade Sync uses.
+ */
+.dp .eyebrow,
+.dp .rule .sub,
+.dp .seg button,
+.dp .equity .slabel,
+.dp .equity .t,
+.dp .kpi .k,
+.dp .foot .k,
+.dp .colh span,
+.dp .empty-row,
+.dp .dl .r .k,
+.dp .sess .wp .l,
+.dp .ls .k,
+.dp .mtbl th{font-family:var(--disp);}
 `;

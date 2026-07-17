@@ -82,7 +82,20 @@ function Seg({ options, value, onChange, accents }: {
 }
 
 // ── component ───────────────────────────────────────────────────────────────
-export default function DrawdownPanel({ sessionId }: { sessionId?: string | null }) {
+/**
+ * `dispFont` is the journal's selected font stack, passed in from Journal (it owns that state, so
+ * passing it keeps this panel live when the font changes instead of re-reading a stale copy).
+ *
+ * It drives `--disp`, this panel's DISPLAY role (headings, section titles, labels). `--mono` is
+ * deliberately left alone: numeric readouts and chart axes stay DM Mono, so figures keep their
+ * tabular alignment. That pairing — journal font for words, DM Mono for numbers — is the same one
+ * Trade Sync uses.
+ *
+ * Needed because `.dp` is exempted from Journal's global font rule (it owns its typography), which
+ * is why a new journal default does NOT reach this page on its own.
+ */
+export default function DrawdownPanel({ sessionId, dispFont }: { sessionId?: string | null; dispFont?: string }) {
+  const dpStyle = dispFont ? ({ ['--disp' as any]: dispFont } as React.CSSProperties) : undefined;
   const [ddView, setDdView] = useState('STRATEGY');
   const [dir,    setDir]    = useState('BULLISH');
   const [freq,   setFreq]   = useState('SESSION');
@@ -142,7 +155,7 @@ export default function DrawdownPanel({ sessionId }: { sessionId?: string | null
   if (showLoader) return <PanelSkeleton />;
 
   const centered = (icon: React.ReactNode, title: string, subtitle: string, titleColor = 'text-slate-500') => (
-    <div className="dp"><style>{DP_CSS}</style>
+    <div className="dp" style={dpStyle}><style>{DP_CSS}</style>
       <div style={{ minHeight: 420, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
         {icon}
         <p className={`${titleColor}`} style={{ fontSize: 11, letterSpacing: '.18em', textTransform: 'uppercase', fontWeight: 600, color: 'var(--ink2)' }}>{title}</p>
@@ -270,7 +283,7 @@ export default function DrawdownPanel({ sessionId }: { sessionId?: string | null
 
   // ── render ──────────────────────────────────────────────────────────────────
   return (
-    <div className="dp">
+    <div className="dp" style={dpStyle}>
       <style>{DP_CSS}</style>
       <div className="shell">
 
