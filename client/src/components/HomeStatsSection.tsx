@@ -2,7 +2,7 @@ import { Calendar, BarChart2, Diamond, PieChart, ArrowRight } from 'lucide-react
 import { openAuthModal } from "@/components/auth/AuthModal";
 
 const serif = { fontFamily: "'Playfair Display', serif" } as const;
-const sans  = { fontFamily: "'Inter', sans-serif" } as const;
+const sans  = { fontFamily: "'Playfair Display', serif" } as const;
 
 const features = [
   {

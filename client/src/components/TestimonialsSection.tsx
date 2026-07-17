@@ -1,7 +1,7 @@
 import { Star } from 'lucide-react';
 
 const serif = { fontFamily: "'Playfair Display', serif" } as const;
-const sans  = { fontFamily: "'Inter', sans-serif" } as const;
+const sans  = { fontFamily: "'Playfair Display', serif" } as const;
 
 const reviews = [
   {

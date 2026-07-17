@@ -225,7 +225,7 @@ function ShareBar({ post, isDark, border, accent, muted, cardBg }: {
   const btnBase: React.CSSProperties = {
     display: 'flex', alignItems: 'center', gap: 7, padding: '8px 14px',
     borderRadius: 8, border: '1px solid', cursor: 'pointer', fontSize: 12,
-    fontFamily: '"Montserrat",sans-serif', fontWeight: 700, transition: 'all 0.15s',
+    fontFamily: '"Playfair Display",serif', fontWeight: 700, transition: 'all 0.15s',
     whiteSpace: 'nowrap' as const, textDecoration: 'none',
   };
 
@@ -347,7 +347,7 @@ function Initials({ name }: { name: string }) {
       background: 'linear-gradient(135deg,#1e3a5f,#2563eb)',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       fontSize: 18, fontWeight: 700, color: '#93c5fd',
-      fontFamily: '"Montserrat",sans-serif',
+      fontFamily: '"Playfair Display",serif',
     }}>{ini}</div>
   );
 }
@@ -476,8 +476,8 @@ export default function BlogPostPage() {
 
   if (notFound || !post) return (
     <div style={{ minHeight: '100vh', background: bg, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
-      <p style={{ color: muted, fontFamily: '"Montserrat",sans-serif', fontSize: 14 }}>Post not found.</p>
-      <button onClick={() => navigate('/blog')} style={{ color: accentL, background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, fontFamily: '"Montserrat",sans-serif', textDecoration: 'underline' }}>← Back to Blog</button>
+      <p style={{ color: muted, fontFamily: '"Playfair Display",serif', fontSize: 14 }}>Post not found.</p>
+      <button onClick={() => navigate('/blog')} style={{ color: accentL, background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, fontFamily: '"Playfair Display",serif', textDecoration: 'underline' }}>← Back to Blog</button>
     </div>
   );
 
@@ -506,7 +506,7 @@ export default function BlogPostPage() {
         publisher: { '@type': 'Organization', name: 'Trade&Journal', url: 'https://tradeandjournal.com' },
       }}
     />
-    <div style={{ minHeight: '100vh', background: bg, color: text, fontFamily: '"Montserrat",sans-serif', transition: 'background 0.5s,color 0.5s' }}>
+    <div style={{ minHeight: '100vh', background: bg, color: text, fontFamily: '"Playfair Display",serif', transition: 'background 0.5s,color 0.5s' }}>
       <ReadingProgress isDark={isDark} />
 
       {/* ── Responsive grid styles ─────────────────────────────────────────── */}
@@ -639,7 +639,7 @@ export default function BlogPostPage() {
             <div style={{ marginBottom: 28 }}>
               <button
                 onClick={() => navigate('/blog')}
-                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: muted, background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, fontFamily: '"Montserrat",sans-serif', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', padding: 0, transition: 'color 0.2s' }}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: muted, background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, fontFamily: '"Playfair Display",serif', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', padding: 0, transition: 'color 0.2s' }}
                 onMouseEnter={e => (e.currentTarget.style.color = accentL)}
                 onMouseLeave={e => (e.currentTarget.style.color = muted)}
               >

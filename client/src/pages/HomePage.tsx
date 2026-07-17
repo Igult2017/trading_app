@@ -9,7 +9,7 @@ import HomeStatsSection from "@/components/HomeStatsSection";
 
 const display = { fontFamily: "'Playfair Display', serif" } as const;
 const serif   = { fontFamily: "'Playfair Display', serif" } as const;
-const sans    = { fontFamily: "'Inter', sans-serif" } as const;
+const sans    = { fontFamily: "'Playfair Display', serif" } as const;
 
 const features = [
   { icon: <BookOpen size={18} />,  title: "Trade Journal",   sub: "Free forever" },

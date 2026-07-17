@@ -49,7 +49,7 @@ export default function HomeFooter({ darkMode = false }: HomeFooterProps) {
   const descClr = dm ? '#475569' : '#64748b';
 
   const hFont = { fontFamily: "'DM Serif Display', serif", fontWeight: 400, letterSpacing: "0.01em" } as const;
-  const bFont = { fontFamily: "'Inter', sans-serif" } as const;
+  const bFont = { fontFamily: "'Playfair Display', serif" } as const;
   const cap: React.CSSProperties = { ...bFont, fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: capClr, marginBottom: 20, display: "block" };
 
   const scrollToHash = (hash: string) => {

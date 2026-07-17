@@ -80,7 +80,7 @@ export default function HomeHeader({ darkMode, setDarkMode, activePath }: HomeHe
     : "none";
 
   const hFont = { fontFamily: "'DM Serif Display', serif",     fontWeight: 400, letterSpacing: "0.01em" } as const;
-  const nFont = { fontFamily: "'Inter', sans-serif", fontWeight: 400 } as const;
+  const nFont = { fontFamily: "'Playfair Display', serif", fontWeight: 400 } as const;
 
   const handleLinkHover = useCallback((href: string) => {
     if (!PREFETCH_HREFS.has(href) || prefetchedRef.current.has(href)) return;

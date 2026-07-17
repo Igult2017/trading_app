@@ -3,7 +3,7 @@ import { useLocation } from 'wouter';
 import { usePublicTheme } from '@/context/PublicThemeContext';
 import SEOHead from '@/components/SEOHead';
 
-const F = "'DM Mono', 'Courier New', monospace";
+const F = "'Playfair Display', serif";
 
 const SECTIONS = ['Privacy Policy', 'Terms of Service', 'Contact & Support'] as const;
 type Section = typeof SECTIONS[number];

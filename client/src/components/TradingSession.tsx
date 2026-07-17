@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { getActiveSessions, getSessionElapsedMinutes, getSessionTimeRemaining, getMinutesUntilSessionOpen } from '@/lib/tradingSessions';
 
 // ── Font import ───────────────────────────────────────────────────────────────
-const FONT_IMPORT = `@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;700;800;900&family=DM+Mono:wght@400;500&display=swap');`;
+const FONT_IMPORT = `@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap');`;
 
 // ── Per-session colour tokens (dark-theme adapted) ────────────────────────────
 const SESSION_META: Record<string, {
@@ -83,7 +83,7 @@ export default function TradingSession() {
   return (
     <div
       data-testid="card-trading-session"
-      style={{ fontFamily: "'Montserrat', sans-serif", background: '#0d1117', color: '#c9d1d9' }}
+      style={{ fontFamily: "'Playfair Display', serif", background: '#0d1117', color: '#c9d1d9' }}
     >
       <style>{FONT_IMPORT}{`
         .ts-root * { box-sizing: border-box; }
@@ -100,7 +100,7 @@ export default function TradingSession() {
             <p style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, letterSpacing: '0.15em', textTransform: 'uppercase', color: '#4b5563', marginBottom: 4 }}>
               Market Sessions
             </p>
-            <h2 style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 13, fontWeight: 800, letterSpacing: '0.25em', textTransform: 'uppercase', color: '#e5e7eb' }}>
+            <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 13, fontWeight: 800, letterSpacing: '0.25em', textTransform: 'uppercase', color: '#e5e7eb' }}>
               Trading Sessions
             </h2>
           </div>
@@ -124,7 +124,7 @@ export default function TradingSession() {
         {/* ── 24-Hour Timeline ─────────────────────────────────────────────── */}
         <div style={{ padding: '16px 20px 0' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-            <h3 style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 13, fontWeight: 700, color: '#e5e7eb' }}>
+            <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: 13, fontWeight: 700, color: '#e5e7eb' }}>
               24-Hour Market Timeline
             </h3>
             <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: '#4b5563' }}>

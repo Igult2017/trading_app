@@ -157,9 +157,9 @@ export default function EconomicCalendarPage({ active = true }: { active?: boole
 
   // Memoized so the browser only re-parses CSS when dark mode actually changes.
   const pageStyles = useMemo(() => `
-    .ec-filter-btn { font-family:'Inter',sans-serif; font-size:12px; font-weight:600; letter-spacing:0.03em; padding:10px 18px; border:none; cursor:pointer; transition:all 0.18s; white-space:nowrap; }
+    .ec-filter-btn { font-family:'Playfair Display',serif; font-size:12px; font-weight:600; letter-spacing:0.03em; padding:10px 18px; border:none; cursor:pointer; transition:all 0.18s; white-space:nowrap; }
     .ec-tr:hover td { background:${dm ? 'rgba(255,255,255,0.03)' : '#f8fafc'} !important; }
-    .ec-input { font-family:'Inter',sans-serif; font-size:13px; font-weight:400; background:${inputBg}; border:1px solid ${border}; border-radius:8px; padding:10px 14px; color:${textPrim}; outline:none; width:100%; transition:border-color 0.2s; }
+    .ec-input { font-family:'Playfair Display',serif; font-size:13px; font-weight:400; background:${inputBg}; border:1px solid ${border}; border-radius:8px; padding:10px 14px; color:${textPrim}; outline:none; width:100%; transition:border-color 0.2s; }
     .ec-input::placeholder { color:${dm ? '#334155' : '#94a3b8'}; }
     .ec-input:focus { border-color:#2563eb; }
     .ec-card { background:${cardBg}; border:1px solid ${border}; border-radius:12px; overflow:hidden; }
@@ -184,7 +184,7 @@ export default function EconomicCalendarPage({ active = true }: { active?: boole
   const selectStyle: React.CSSProperties = {
     appearance: 'none', background: inputBg, border: `1px solid ${border}`,
     borderRadius: 8, padding: '10px 36px 10px 14px',
-    color: textPrim, fontSize: 12, fontFamily: "'Inter',sans-serif",
+    color: textPrim, fontSize: 12, fontFamily: "'Playfair Display',serif",
     fontWeight: 500, outline: 'none', cursor: 'pointer',
     transition: 'border-color 0.2s',
   };
@@ -208,7 +208,7 @@ export default function EconomicCalendarPage({ active = true }: { active?: boole
         canonical="/calendar"
       />
     )}
-    <div style={{ minHeight: '100vh', background: pageBg, fontFamily: "'Inter',sans-serif", transition: 'background 0.3s' }}>
+    <div style={{ minHeight: '100vh', background: pageBg, fontFamily: "'Playfair Display',serif", transition: 'background 0.3s' }}>
       <style>{pageStyles}</style>
 
       <main style={{ maxWidth: 1280, margin: '0 auto', padding: '36px 28px 64px' }}>
@@ -264,7 +264,7 @@ export default function EconomicCalendarPage({ active = true }: { active?: boole
 
               {(ccyFilter !== 'All' || impactFilter !== 'All' || searchQuery) && (
                 <button onClick={() => { setCcyFilter('All'); setImpactFilter('All'); setSearchQuery(''); }}
-                  style={{ background: cardBg, border: `1px solid ${border}`, borderRadius: 8, padding: '10px 16px', fontSize: 12, fontWeight: 600, color: textMut, cursor: 'pointer', fontFamily: "'Inter',sans-serif" }}>
+                  style={{ background: cardBg, border: `1px solid ${border}`, borderRadius: 8, padding: '10px 16px', fontSize: 12, fontWeight: 600, color: textMut, cursor: 'pointer', fontFamily: "'Playfair Display',serif" }}>
                   Clear
                 </button>
               )}

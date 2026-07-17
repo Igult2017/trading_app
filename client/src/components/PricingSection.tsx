@@ -83,7 +83,7 @@ export default function PricingSection({ darkMode }: { darkMode: boolean }) {
                     {plan.name}
                   </div>
                   <div className="flex items-baseline gap-1 mt-1">
-                    <span className="text-4xl font-extrabold" style={{ fontFamily: "'Inter', sans-serif" }}>
+                    <span className="text-4xl font-extrabold" style={{ fontFamily: "'Playfair Display', serif" }}>
                       {plan.price}
                     </span>
                     <span className={cn('text-sm', darkMode && !plan.popular ? 'text-slate-400' : 'text-slate-500')}>
@@ -118,7 +118,7 @@ export default function PricingSection({ darkMode }: { darkMode: boolean }) {
                           ? 'border-2 border-slate-600 text-white hover:border-blue-500'
                           : 'border-2 border-slate-200 text-slate-800 hover:border-blue-400'
                     )}
-                    style={{ fontFamily: "'Inter', sans-serif", display: 'block' }}
+                    style={{ fontFamily: "'Playfair Display', serif", display: 'block' }}
                   >
                     {plan.cta}
                   </button>
