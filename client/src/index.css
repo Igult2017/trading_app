@@ -10,8 +10,13 @@
 /* Static 'Playfair Display' family too — many inline styles request "'Playfair Display', serif"
    (the family name Google Fonts uses, which Trade Sync loads at runtime). Without this the
    variable package only registers 'Playfair Display Variable', so those inline refs silently fell
-   back to Times on the public pages. This registers the plain 'Playfair Display' name, self-hosted. */
-@import '@fontsource/playfair-display';
+   back to Times on the public pages. This registers the plain 'Playfair Display' name, self-hosted.
+   Load 400/500/600/700 explicitly (the default `/playfair-display` import ships weight 400 only, so
+   bold headings would render as faux-bold 400) — matches the weights Trade Sync loads. */
+@import '@fontsource/playfair-display/400.css';
+@import '@fontsource/playfair-display/500.css';
+@import '@fontsource/playfair-display/600.css';
+@import '@fontsource/playfair-display/700.css';
 @import '@fontsource-variable/jetbrains-mono';
 @import '@fontsource-variable/manrope';
 @import '@fontsource-variable/sora';
