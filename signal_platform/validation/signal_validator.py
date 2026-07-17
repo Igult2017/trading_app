@@ -1,8 +1,21 @@
 """
 Signal validation gate.
-Uses an in-memory duplicate set — avoids hitting the DB on every signal,
-and fails safe: if the DB is unavailable at startup, signals are still
-deduplicated within the current process lifetime.
+
+DEDUP IS SCOPED PER STRATEGY: "strategy:symbol:direction". Each strategy is an independent tenant
+with its OWN opinion, so one must never be able to silently swallow another's. Two strategies both
+seeing EUR/USD BUY is two signals — that is the point of running more than one. This holds however
+many strategies are added.
+
+It used to be "symbol:direction" across ALL strategies, which meant whichever tenant happened to fire
+first that tick took the pair+direction and every other strategy's signal vanished with only a debug
+line. A comment claimed that scope was also "enforced by the DB unique constraint" — it is not.
+There is no unique constraint on trading_signals (checked models.py, schema.ts and
+docker-migrate.sql), so signal_repo.save's `except IntegrityError` never fired for this.
+
+A strategy still cannot duplicate ITSELF: one active signal per symbol+direction per strategy.
+
+Uses an in-memory duplicate set — avoids hitting the DB on every signal, and fails safe: if the DB is
+unavailable at startup, signals are still deduplicated within the current process lifetime.
 
 Dedup is atomic within the asyncio event loop (single-threaded, no lock needed).
 _is_duplicate() reserves the key immediately; callers must call release() if
@@ -15,10 +28,15 @@ from config.settings import settings
 
 log = logging.getLogger(__name__)
 
-# In-memory duplicate guard: "symbol:direction" keyed lowercase
-# Populated from DB at first use, then kept in sync via _is_duplicate() / release()
+# In-memory duplicate guard, keyed "strategy:symbol:direction" (lowercase).
+# Populated from DB at first use, then kept in sync via _is_duplicate() / release().
 _seen:   set[str] = set()
 _loaded: bool = False
+
+
+def _key(strategy: str, symbol: str, direction: str) -> str:
+    """The one place the dedup scope is defined. Per STRATEGY, so tenants never collide."""
+    return f"{(strategy or '').lower()}:{symbol.lower()}:{direction.lower()}"
 
 
 def _load_active_from_db() -> None:
@@ -29,7 +47,7 @@ def _load_active_from_db() -> None:
     try:
         from storage import signal_repo
         for row in signal_repo.get_active():
-            _seen.add(f"{row.symbol}:{row.type.lower()}")
+            _seen.add(_key(row.strategy, row.symbol, row.type))
         _loaded = True
         log.info(f"[validator] loaded {len(_seen)} active signals into duplicate guard")
     except Exception as exc:
@@ -46,9 +64,10 @@ def register_confirmed(signal: Signal) -> None:
     pass
 
 
-def release(symbol: str, direction: str) -> None:
-    """Remove a reserved signal so that symbol+direction can trade again."""
-    _seen.discard(f"{symbol}:{direction.lower()}")
+def release(symbol: str, direction: str, strategy: str = "") -> None:
+    """Free a reservation so THAT strategy can signal this symbol+direction again. Releasing one
+    tenant's key must never free another's, which is why the strategy is part of the key."""
+    _seen.discard(_key(strategy, symbol, direction))
 
 
 def validate(result: StrategyResult, instrument: str) -> list[Signal]:
@@ -94,13 +113,9 @@ def _check_confidence(signal: Signal) -> bool:
 
 
 def _is_duplicate(signal: Signal) -> bool:
-    # INVARIANT: dedup is scoped to symbol+direction, NOT per-strategy. This is
-    # intentional and load-bearing — the same scope is assumed by the monitor
-    # (closes/releases by symbol:direction) and enforced by the DB unique
-    # constraint (signal_repo.save raises IntegrityError on a duplicate). One
-    # active signal per symbol+direction across ALL strategies. Do not scope this
-    # key by strategy_id without updating the monitor and DB constraint together.
-    key = f"{signal.symbol}:{signal.direction.value.lower()}"
+    # Per-strategy scope — see the module docstring. A strategy cannot duplicate itself; it can never
+    # block another. The monitor releases with the row's own strategy, so the two stay symmetrical.
+    key = _key(signal.strategy_id, signal.symbol, signal.direction.value)
     if key in _seen:
         log.debug(f"[validator] duplicate skipped: {key}")
         return True

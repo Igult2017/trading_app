@@ -153,6 +153,21 @@ against the 1M's **own average body** — what is a real body in London is noise
 - **GAP 3 (the wick estimate)** — dead. Measure candle 2's wick live off the M1; never estimate.
   ~8.5k real pairs: correlation ~0.2, beats a random shuffle by 3 points.
 
+### Routing
+**ENTRIES → the public channel** (`strategy_id = "vocant1"`; the `_watch` suffix is what the
+dispatcher reads as "unconfirmed, DM only"). The entry IS the 1M pullback — the moment to place the
+stop — so it goes out as a full signal card. It is a real saved signal, so the monitor also closes it
+on TP/SL and the channel gets that. The **invalidation alert keeps `vocant1_watch` and stays a DM**:
+it is a correction, not a signal.
+
+### Dedup is PER STRATEGY — `strategy:symbol:direction`
+It used to be `symbol:direction` across ALL strategies, so whichever tenant fired first that tick took
+the pair+direction and every other strategy's signal vanished with a debug line. A strategy still
+cannot duplicate itself; it can never block another. Holds for any number of strategies (tested to
+20). Defined in ONE place: `signal_validator._key`. The old comment claimed the scope was also
+"enforced by the DB unique constraint" — **there is no such constraint** (checked models.py,
+schema.ts, docker-migrate.sql).
+
 ## Known gap — SPREAD IS NOT MODELLED AT ALL
 `risk/spread_filter` exists and `strategy_runner:133` consults it, but only `if strategy.requires_spread`
 — which both strategies leave `False` — and `build_context` is never passed a spread, so it is always

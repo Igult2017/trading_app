@@ -122,23 +122,23 @@ async def run_strategy(
         # Risk filters — only run when strategy opted in
         if strategy.requires_volatility:
             if not pri_candles:
-                signal_validator.release(signal.symbol, signal.direction.value)
+                signal_validator.release(signal.symbol, signal.direction.value, signal.strategy_id)
                 continue
             if not volatility_filter.check(signal, pri_candles):
-                signal_validator.release(signal.symbol, signal.direction.value)
+                signal_validator.release(signal.symbol, signal.direction.value, signal.strategy_id)
                 continue
             if not sl_validator.check(signal, pri_candles):
-                signal_validator.release(signal.symbol, signal.direction.value)
+                signal_validator.release(signal.symbol, signal.direction.value, signal.strategy_id)
                 continue
         if strategy.requires_spread and context.spread is not None:
             if not spread_filter.check(signal, context.spread):
-                signal_validator.release(signal.symbol, signal.direction.value)
+                signal_validator.release(signal.symbol, signal.direction.value, signal.strategy_id)
                 continue
 
         if ai_validator.is_available():
             if not await ai_validator.validate_signal(signal, pri_candles):
                 log.info(f"[runner] {instrument} rejected by AI validator")
-                signal_validator.release(signal.symbol, signal.direction.value)
+                signal_validator.release(signal.symbol, signal.direction.value, signal.strategy_id)
                 continue
 
         # Release the dedup reservation on a hard save failure — else this
@@ -147,7 +147,7 @@ async def run_strategy(
             await loop.run_in_executor(None, signal_repo.save, signal)
         except Exception as exc:
             log.error(f"[runner] {instrument} save failed ({exc}) — releasing dedup reservation")
-            signal_validator.release(signal.symbol, signal.direction.value)
+            signal_validator.release(signal.symbol, signal.direction.value, signal.strategy_id)
             continue
         signal_validator.register_confirmed(signal)
         await event_bus.emit(event_bus.SIGNAL_CONFIRMED, signal)

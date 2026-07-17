@@ -16,8 +16,9 @@ assuming a stale bias. Trades EUR/USD + GBP/USD, London/NY sessions, both direct
 shared with other strategies are platform RESOURCES (candle feed, news feed, pip-size, dedup, signal
 types) — never trading logic.
 
-PHASE 1 = signal generation only (tagged `_watch` → private DM). Phase 2 (2% pending stop orders on
-demo, with spread/slippage + position caps) + Phase 3 (BE / partial / trail) follow.
+ENTRIES go to the public channel (the 1M pullback = place the stop now); the invalidation alert
+stays a private DM. Phase 2 (2% pending stop orders on demo, with spread/slippage + position caps)
++ Phase 3 (BE / partial / trail) follow.
 """
 import logging
 import time
@@ -129,8 +130,13 @@ class Vocant1Strategy(BaseStrategy):
             tp   = entry + 2.0 * risk if bullish else entry - 2.0 * risk
             # One entry per setup, so it is SAVED (AssetPage + DM + TP/SL monitoring) and holds the
             # single symbol:direction reservation the validator/monitor/DB invariant assumes.
+            # `vocant1`, NOT `vocant1_watch`: the _watch suffix is what the dispatcher reads to mean
+            # "unconfirmed — admin DM only". This IS the entry (the 1M pullback: place the stop now),
+            # so it goes to the PUBLIC CHANNEL as a full signal card. It is a real saved signal too,
+            # so the monitor closes it on TP/SL and the channel gets that as well. The invalidation
+            # alert keeps `vocant1_watch` and stays a DM — it is a correction, not a signal.
             out.append(build_signal(s["kind"], sym, bullish, origin, vol_count, entry, sl, tp,
-                                    risk, pip, digits, corr, context.news, self.id + "_watch",
+                                    risk, pip, digits, corr, context.news, self.id,
                                     self.name, sl_note=s.get("sl_note", "")))
             self.fired.add(key)
             self._recent[sym] = (bullish, now)

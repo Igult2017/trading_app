@@ -67,7 +67,7 @@ async def _check_signal(row) -> None:
             None, signal_repo.update_status, row.id, new_status, ts_field
         )
         from validation.signal_validator import release
-        release(row.symbol, row.type)
+        release(row.symbol, row.type, row.strategy)   # free THIS strategy's key only
         await event_bus.emit(event_bus.SIGNAL_CLOSED, row.id)
         log.info(f"[signal_monitor] {row.symbol} → {new_status.value} (H={hi} L={lo})")
 
