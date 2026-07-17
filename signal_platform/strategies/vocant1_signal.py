@@ -11,8 +11,8 @@ from news.news_filter import news_note
 # (panel label, human blurb) per entry kind — both are the same motion (pullback at the volume-candle
 # handover, stop beyond the level it came from); they differ only in where the stop could be anchored.
 _KIND = {
-    "pullback": ("PULLBACK",                  "1M already aligned at the line — stop beyond the one-candle pullback"),
-    "fractal":  ("FRACTAL BREAK -> PULLBACK", "fractal break confirmed the 1M turned — stop beyond the pullback after it"),
+    "pullback": ("PULLBACK",                 "the 1M was already aligned at the line; stop beyond the one-candle pullback"),
+    "fractal":  ("FRACTAL BREAK → PULLBACK", "the fractal break confirmed the 1M turned; stop beyond the pullback after it"),
 }
 
 
@@ -27,9 +27,8 @@ def build_signal(kind, symbol, bullish, origin, vol_count, entry, sl, tp,
         (f"1HR RANGE BREAKOUT ({side.lower()}) — {vlabel} from the 1st, trend building"
          if origin == "range" else
          f"1HR clear {'up (HH+HL)' if bullish else 'down (LH+LL)'} trend + {vlabel} from the 1st ({side.lower()})"),
-        f"1M {label} — place {side} STOP at {entry:.{digits}f} ({blurb})",
-        f"SL {sl:.{digits}f} | TP {tp:.{digits}f} | Risk {risk / pip:.1f} pips | RR 2:1"
-        + (f" — SL {sl_note}" if sl_note else ""),
+        f"1M {label} — {blurb}",
+        (f"SL sits {sl_note}" if sl_note else f"SL {sl:.{digits}f}"),
     ]
     if corr:
         reasons.insert(0, f"⚠️ CORRELATED: {', '.join(corr)} already {side.lower()} (same USD direction) — size down or skip")
