@@ -29,6 +29,15 @@ export class ScraperScheduler {
   getStatus() { return this._jobs; }
 
   async fetchEvents(): Promise<void> {
+    // DISABLED — redundant. The economic_events table is kept fresh by the curl_cffi MyFXBook
+    // scraper (server/python/news_calendar.py, via services/homepageCalendar), which works from the
+    // datacenter IP where this cloudscraper path is Cloudflare-challenged. Leaving it on only
+    // produced "All scrapers failed" 403 noise every scrape, and it never returned events (0 rows →
+    // no notifications), so disabling it is a no-op beyond removing the log spam.
+    // Re-enable with CALENDAR_TS_SCRAPER=true only if the curl_cffi path is ever removed.
+    if ((process.env.CALENDAR_TS_SCRAPER ?? 'false').toLowerCase() !== 'true') {
+      return;
+    }
     if (this.isRunning) {
       console.log('[Calendar] Fetch already in progress, skipping...');
       return;
@@ -231,11 +240,10 @@ export class ScraperScheduler {
     // Signal scanning disabled
     // Interest rate scraper disabled
 
-    console.log('MyFXBook scraper: ENABLED (event-aware)');
-    console.log('  • Daily full scrape:    midnight UTC');
-    console.log('  • Watchdog (5-min):     scrapes only when High/Medium event imminent');
-    console.log('  • Safety-net:           every 2 hours on weekdays');
-    console.log('  • Cleanup:              01:00 UTC daily');
+    console.log('MyFXBook (cloudscraper) scraper: DISABLED — redundant with the curl_cffi');
+    console.log('  homepageCalendar path (news_calendar.py) that keeps economic_events fresh.');
+    console.log('  The cron jobs are still registered but fetchEvents() short-circuits.');
+    console.log('  • Cleanup:              01:00 UTC daily (still active)');
     console.log('Interest rate scraper:   DISABLED');
     console.log('Telegram notifications:  event-driven (scheduled per event)');
     console.log('Signal scanning:         PYTHON SIGNAL PLATFORM (EUR/USD — see [SignalPlatform] logs)');
