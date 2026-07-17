@@ -48,9 +48,14 @@ def traded_past(win: list[Candle], bullish: bool, line: float) -> bool:
 
 
 def find_pullback(win: list[Candle], bullish: bool,
-                  line: float, wick_line: float) -> tuple[float | None, str]:
-    """Return (entry level, "") — the FIRST candle of the latest retrace, once price has gone past
-    line 1 and the retrace has held within the lines — or (None, why-we-wait)."""
+                  line: float, wick_line: float) -> tuple[Candle | None, str]:
+    """Return (the pullback CANDLE, "") — the FIRST candle of the latest retrace, once price has gone
+    past line 1 and the retrace has held within the lines — or (None, why-we-wait).
+
+    The whole candle, not just a level: the caller needs BOTH edges. Its extreme on the trend side is
+    the entry (the stop goes just beyond it); its extreme on the other side is what the SL must clear,
+    since the candle we entered off cannot be the thing that stops us out (vocant1_roi).
+    """
     if not traded_past(win, bullish, line):
         return None, (f"price has not traded past line 1 ({line:.5f}) yet — an entry does not "
                       f"belong here")
@@ -65,4 +70,4 @@ def find_pullback(win: list[Candle], bullish: bool,
     if (lvl < wick_line) if bullish else (lvl > wick_line):
         return None, (f"the pullback ({lvl:.5f}) ran beyond the lines "
                       f"({line:.5f} / wick {wick_line:.5f}) — not a pullback any more")
-    return lvl, ""
+    return win[p], ""

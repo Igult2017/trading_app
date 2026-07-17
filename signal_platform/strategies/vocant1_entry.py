@@ -18,14 +18,14 @@ The line is what answers "is the 1M with us?" — not swing structure. A spike-a
 hour never prints the two highs and two lows a trend read needs, so structure said "not aligned" in
 every long-wick case and real entries were thrown away.
 
-Two lines come off candle 1 (vocant1_lines) and they have separate jobs. LINE 1 is THE line: it gates
-the entry (vocant1_pullback). LINE 2 only adjusts the STOP — it marks where an opposite move is
-expected to reverse, so the SL sits just beyond it and cannot be wicked out; with a no-wick candle it
-IS line 1, the ordinary case. Unreachable or on the wrong side of the entry -> the instrument's
-standard. TP = 2R.
+Two lines come off candle 1 (vocant1_lines). LINE 1 gates the entry (vocant1_pullback) and decides
+which side of the market we are on. LINE 2 is where an opposite move is expected to reverse — one
+region of interest among several, not the stop by right.
 
-Nothing here is a knife-edge: the fractal tolerates equal highs/lows, and the pullback's own
-thresholds come off the 1M's recent candles and the volume candle's wick (vocant1_pullback).
+The SL is the nearest 1M REGION OF INTEREST beyond the pullback (vocant1_roi) — where price would go
+against us in the worst case. Never a pip count: the floor is structural (clear the pullback candle
+itself), the ceiling is one 1HR candle's range, because "2 candles of 1HR gives 2R" makes one candle
+1R. TP = 2R, which is that same two-candle move; "or more" is the Phase 3 trailing stop.
 """
 import logging
 
@@ -34,36 +34,11 @@ from shared.mtf_utils import seconds
 from strategies.vocant1_lines import draw_lines
 from strategies.vocant1_pullback import find_pullback
 from strategies.vocant1_fractal import fractal_broken
+from strategies.vocant1_roi import regions, sl_from_regions
 
 log = logging.getLogger(__name__)
 
-# The standard stop, per instrument — GBP/USD ranges ~1.3-1.5x EUR/USD, so one flat number for both
-# would stop GBP inside its own noise. A stop must be reasonable and 2R has to stay reachable.
-_MAX_SL_PIPS     = {"EUR/USD": 15.0, "GBP/USD": 20.0}
-_MAX_SL_FALLBACK = 15.0
-_MIN_SL_PIPS     = 5.0   # never stop tighter than this, however close the line sits
-_ENTRY_BUFFER    = 1     # pips — the stop sits JUST beyond the pullback, never resting on it
-_SL_BUFFER       = 2     # pips — the stop sits slightly BEYOND the line, not on it
-
-
-def _max_sl(symbol: str) -> float:
-    return _MAX_SL_PIPS.get(symbol, _MAX_SL_FALLBACK)
-
-
-def _dynamic_sl(entry: float, wick_line: float, bullish: bool,
-                pip: float, max_sl: float) -> tuple[float, float, bool]:
-    """Stop slightly beyond LINE 2 — past where an opposite move ends, so its wick cannot take us out
-    (no wick on candle 1 -> line 2 IS line 1). Line unreachably far, or on the wrong side of the
-    entry -> the instrument's standard instead. Returns (sl, risk, standard)."""
-    ideal  = (wick_line - _SL_BUFFER * pip) if bullish else (wick_line + _SL_BUFFER * pip)
-    beyond = (ideal < entry) if bullish else (ideal > entry)
-    risk   = abs(entry - ideal)
-    # A line level with the entry yields ~0 risk; floor-rescuing that would hand back a tight stop
-    # that is NOT actually beyond the line. It must be protective AND a real distance away.
-    if beyond and _MIN_SL_PIPS * pip <= risk <= max_sl * pip:
-        return (entry - risk if bullish else entry + risk), risk, False
-    risk = max_sl * pip
-    return (entry - risk if bullish else entry + risk), risk, True
+_ENTRY_BUFFER = 1   # pips — the stop sits JUST beyond the pullback, never resting on it
 
 
 def m1_signals(m1: list[Candle], bullish: bool, vc: Candle,
@@ -104,13 +79,28 @@ def m1_signals(m1: list[Candle], bullish: bool, vc: Candle,
         kind = "fractal"
 
     # THE ENTRY — the first pullback candle PAST the line, in both cases.
-    lvl, why = find_pullback(win, bullish, line, wick_line)
-    if lvl is None:
+    pb, why = find_pullback(win, bullish, line, wick_line)
+    if pb is None:
         log.info(f"[vocant1] {symbol} 1M: aligned ({kind}) but {why} — waiting")
         return []
 
+    lvl   = pb.high if bullish else pb.low          # the trend side — the stop goes just beyond it
     entry = lvl + _ENTRY_BUFFER * pip if bullish else lvl - _ENTRY_BUFFER * pip
-    sl, risk, standard = _dynamic_sl(entry, wick_line, bullish, pip, _max_sl(symbol))
+
+    # THE SL — the nearest 1M region of interest beyond the pullback: where price would go against us
+    # in the worst case. Not a pip count, and not the line either (the line is for entry accuracy, not
+    # for the stop). Capped at ONE 1HR candle's range, because the user's own backtesting says two 1HR
+    # candles deliver 2R — so one candle is 1R, and a wider stop makes the 2R target a move this setup
+    # does not produce. No region on the protective side = no honest stop = no trade.
+    max_risk = vc.high - vc.low
+    got = sl_from_regions(entry, pb.low if bullish else pb.high, bullish,
+                          regions(win, bullish, wick_line), pip, max_risk)
+    if got is None:
+        log.info(f"[vocant1] {symbol} 1M: aligned ({kind}) with a pullback at {lvl:.{digits}f}, but no "
+                 f"1M region of interest sits beyond it within one 1HR candle ({max_risk / pip:.0f}p) "
+                 f"— nowhere honest to put the stop; skipping")
+        return []
+    sl, risk, sl_note = got
 
     # The stop must still be UNFILLED — strictly beyond price in the trend direction. If the pullback
     # is already taken out, an order there is a LIMIT filling INTO the move: the inverse of this entry.
@@ -121,7 +111,6 @@ def m1_signals(m1: list[Candle], bullish: bool, vc: Candle,
         return []
 
     log.info(f"[vocant1] {symbol} 1M PULLBACK entry ({kind} path) — {'BUY' if bullish else 'SELL'} "
-             f"stop {entry:.{digits}f} SL {sl:.{digits}f} ({risk / pip:.1f}p, "
-             f"{'standard' if standard else 'beyond the line'}; line {line:.{digits}f}"
+             f"stop {entry:.{digits}f} SL {sl:.{digits}f} ({sl_note}; line {line:.{digits}f}"
              f"{'' if wick_line == line else f' wick-line {wick_line:.{digits}f}'})")
     return [{"kind": kind, "entry": round(entry, digits), "sl": round(sl, digits)}]
