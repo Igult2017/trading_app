@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { TradeSyncApp, useCtFonts } from '@/features/trade-sync';
 import {
   Shield, ShieldCheck, Settings2, Link2, Globe, User, ChevronRight, CheckCircle2,
   Bell, ArrowRight, Radio, Users, GitFork, Scale, Anchor, TrendingUp,
@@ -1774,10 +1775,10 @@ const landingStyles = `
     --ts-border: #1e2d45; --ts-blue: #2d8cf0; --ts-blue-bright: #3d9fff;
     --ts-green: #00c896; --ts-gold: #f0a500; --ts-text: #e8edf5; --ts-muted: #8a99b3;
   }
-  .ts-page { min-height:100vh; background:var(--ts-bg); overflow-x:hidden; color:var(--ts-text); font-family:'Poppins',sans-serif; }
+  .ts-page { min-height:100vh; background:var(--ts-bg); overflow-x:hidden; color:var(--ts-text); font-family:'Playfair Display',serif; }
   .ts-hero { display:grid; grid-template-columns:1fr 1fr; align-items:center; gap:48px; padding:64px 48px 56px; max-width:1200px; margin:0 auto; }
   .ts-hero-badge { display:inline-flex; align-items:center; gap:6px; background:rgba(45,140,240,0.12); border:1px solid rgba(45,140,240,0.3); padding:5px 12px; font-size:0.75rem; color:var(--ts-blue); font-weight:600; margin-bottom:20px; }
-  .ts-hero h1 { font-family:'Montserrat',sans-serif; font-size:clamp(2rem,6vw,3.5rem); font-weight:800; line-height:1.1; margin-bottom:20px; background:linear-gradient(135deg,#fff 40%,var(--ts-blue)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+  .ts-hero h1 { font-family:'Playfair Display',serif; font-size:clamp(2rem,6vw,3.5rem); font-weight:800; line-height:1.1; margin-bottom:20px; background:linear-gradient(135deg,#fff 40%,var(--ts-blue)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
   .ts-hero p { font-size:clamp(0.9rem,2vw,1.05rem); color:var(--ts-muted); line-height:1.7; max-width:440px; margin-bottom:32px; }
   .ts-hero-actions { display:flex; gap:14px; align-items:center; flex-wrap:wrap; }
   .ts-btn-primary { background:var(--ts-blue); color:#fff; border:none; padding:13px 28px; font-size:1rem; font-weight:600; cursor:pointer; transition:all 0.2s; display:flex; align-items:center; gap:8px; }
@@ -1789,7 +1790,7 @@ const landingStyles = `
   .ts-diagram { display:flex; flex-direction:column; align-items:center; gap:0; width:100%; }
   .ts-diagram-master { border:2px solid var(--ts-blue); padding:14px 20px; background:rgba(45,140,240,0.08); display:flex; align-items:center; gap:12px; min-width:0; max-width:100%; width:100%; max-width:280px; }
   .ts-diag-icon { width:38px; height:38px; background:rgba(45,140,240,0.2); display:flex; align-items:center; justify-content:center; font-size:1.1rem; flex-shrink:0; }
-  .ts-diag-label { font-family:'Montserrat',sans-serif; font-weight:600; font-size:0.9rem; }
+  .ts-diag-label { font-family:'Playfair Display',serif; font-weight:600; font-size:0.9rem; }
   .ts-diag-id { font-size:0.75rem; color:var(--ts-muted); }
   .ts-badge-master { background:var(--ts-blue); color:#fff; padding:3px 10px; font-size:0.72rem; font-weight:700; margin-left:auto; flex-shrink:0; }
   .ts-badge-slave  { background:var(--ts-green); color:#000; padding:3px 10px; font-size:0.72rem; font-weight:700; margin-left:auto; flex-shrink:0; }
@@ -1798,12 +1799,12 @@ const landingStyles = `
   .ts-diagram-slave { border:2px solid var(--ts-green); padding:14px 18px; background:rgba(0,200,150,0.06); display:flex; align-items:center; gap:10px; min-width:0; flex:1 1 180px; max-width:240px; }
   .ts-section { padding:64px 48px; max-width:1200px; margin:0 auto; }
   .ts-section-header { text-align:center; margin-bottom:48px; }
-  .ts-section-title { font-family:'Montserrat',sans-serif; font-size:clamp(1.4rem,3.5vw,1.8rem); font-weight:700; color:var(--ts-blue); margin-bottom:10px; }
+  .ts-section-title { font-family:'Playfair Display',serif; font-size:clamp(1.4rem,3.5vw,1.8rem); font-weight:700; color:var(--ts-blue); margin-bottom:10px; }
   .ts-section-sub { color:var(--ts-muted); font-size:clamp(0.85rem,1.8vw,1rem); }
   .ts-steps { display:grid; grid-template-columns:repeat(4,1fr); gap:20px; }
   .ts-step-card { background:var(--ts-card); border:1px solid var(--ts-border); padding:28px 22px; transition:border-color 0.2s,transform 0.2s; }
   .ts-step-card:hover { border-color:var(--ts-blue); transform:translateY(-3px); }
-  .ts-step-num { width:42px; height:42px; background:var(--ts-blue); color:#fff; font-family:'Montserrat',sans-serif; font-weight:700; font-size:1.1rem; display:flex; align-items:center; justify-content:center; margin-bottom:18px; }
+  .ts-step-num { width:42px; height:42px; background:var(--ts-blue); color:#fff; font-family:'Playfair Display',serif; font-weight:700; font-size:1.1rem; display:flex; align-items:center; justify-content:center; margin-bottom:18px; }
   .ts-step-title { font-weight:600; font-size:0.95rem; margin-bottom:8px; }
   .ts-step-desc { color:var(--ts-muted); font-size:0.85rem; line-height:1.6; }
   .ts-platforms-section { padding:64px 48px; background:var(--ts-bg2); }
@@ -1824,7 +1825,7 @@ const landingStyles = `
   .ts-vote-btn.unvote:hover { background:rgba(45,140,240,0.35); }
   .ts-vote-count { font-size:0.8rem; color:var(--ts-muted); font-weight:500; }
   .ts-fp-grid { display:grid; grid-template-columns:1fr 1fr; gap:56px; align-items:start; }
-  .ts-features-title { font-family:'Montserrat',sans-serif; font-weight:700; font-size:0.9rem; color:var(--ts-blue); display:flex; align-items:center; gap:8px; margin-bottom:6px; }
+  .ts-features-title { font-family:'Playfair Display',serif; font-weight:700; font-size:0.9rem; color:var(--ts-blue); display:flex; align-items:center; gap:8px; margin-bottom:6px; }
   .ts-features-sub { color:var(--ts-muted); font-size:0.85rem; margin-bottom:32px; }
   .ts-feature-item { display:flex; gap:16px; margin-bottom:24px; }
   .ts-feat-icon { width:44px; height:44px; background:var(--ts-card2); display:flex; align-items:center; justify-content:center; font-size:1.2rem; flex-shrink:0; border:1px solid var(--ts-border); }
@@ -1835,13 +1836,13 @@ const landingStyles = `
   .ts-toggle-btn { flex:1; padding:8px; border:none; font-size:0.875rem; font-weight:600; cursor:pointer; transition:all 0.2s; background:transparent; color:var(--ts-muted); }
   .ts-toggle-btn.active { background:var(--ts-blue); color:#fff; }
   .ts-price-label { font-size:0.78rem; color:var(--ts-muted); margin-bottom:6px; }
-  .ts-price-amount { font-family:'Montserrat',sans-serif; font-weight:800; font-size:2.4rem; color:var(--ts-text); margin-bottom:4px; }
+  .ts-price-amount { font-family:'Playfair Display',serif; font-weight:800; font-size:2.4rem; color:var(--ts-text); margin-bottom:4px; }
   .ts-price-amount span { font-size:0.9rem; font-weight:400; color:var(--ts-muted); }
   .ts-price-original { font-size:0.85rem; color:var(--ts-muted); text-decoration:line-through; display:inline-block; margin-right:8px; }
   .ts-price-limited { color:var(--ts-blue); font-size:0.8rem; font-weight:600; }
   .ts-price-note { font-size:0.82rem; color:var(--ts-muted); margin-top:10px; margin-bottom:24px; }
   .ts-checkout-card { background:var(--ts-card2); padding:22px; margin-top:20px; }
-  .ts-checkout-title { font-family:'Montserrat',sans-serif; font-weight:700; font-size:0.9rem; display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+  .ts-checkout-title { font-family:'Playfair Display',serif; font-weight:700; font-size:0.9rem; display:flex; align-items:center; gap:8px; margin-bottom:8px; }
   .ts-checkout-sub { color:var(--ts-muted); font-size:0.82rem; margin-bottom:16px; }
   .ts-btn-start { width:100%; background:var(--ts-card); color:var(--ts-muted); border:1px solid var(--ts-border); padding:13px; font-size:0.95rem; font-weight:600; cursor:pointer; transition:all 0.2s; }
   .ts-btn-start:hover { background:var(--ts-blue); color:#fff; border-color:var(--ts-blue); }
@@ -1849,7 +1850,7 @@ const landingStyles = `
   .ts-faq-inner { max-width:760px; margin:0 auto; }
   .ts-faq-item { border:1px solid var(--ts-border); margin-bottom:10px; overflow:hidden; transition:border-color 0.2s; }
   .ts-faq-item.open { border-color:var(--ts-blue); }
-  .ts-faq-q { width:100%; background:var(--ts-card); color:var(--ts-text); border:none; text-align:left; padding:18px 20px; font-size:0.9rem; font-weight:600; cursor:pointer; display:flex; justify-content:space-between; align-items:center; font-family:'Poppins',sans-serif; }
+  .ts-faq-q { width:100%; background:var(--ts-card); color:var(--ts-text); border:none; text-align:left; padding:18px 20px; font-size:0.9rem; font-weight:600; cursor:pointer; display:flex; justify-content:space-between; align-items:center; font-family:'Playfair Display',serif; }
   .ts-faq-chevron { transition:transform 0.25s; font-size:0.8rem; color:var(--ts-muted); }
   .ts-faq-item.open .ts-faq-chevron { transform:rotate(180deg); }
   .ts-faq-a { background:var(--ts-card2); padding:0 20px; color:var(--ts-muted); font-size:0.875rem; line-height:1.7; max-height:0; overflow:hidden; transition:max-height 0.3s ease,padding 0.3s; }
@@ -1949,7 +1950,11 @@ const faqs = [
 // MAIN EXPORT
 // ═══════════════════════════════════════════════════════════════════════════════
 export default function TradeSyncPage() {
-  const [showCopier, setShowCopier] = usePersistedState('ts-copier', false);
+  // Same faces as the new UI. Loaded here too because the landing renders BEFORE that UI mounts.
+  useCtFonts();
+  // Key bumped from 'ts-copier': anyone who pressed Start Now under the old wizard had this
+  // persisted true and would skip straight past the restored landing.
+  const [showCopier, setShowCopier] = usePersistedState('ts-copier-v2', false);
   const [showDashboard, setShowDashboard] = usePersistedState<null | 'provider' | 'follower'>('ts-dashboard', null);
   const [billing, setBilling] = useState<"monthly"|"yearly">("monthly");
   const [openFaq, setOpenFaq] = useState<number|null>(null);
@@ -1964,7 +1969,10 @@ export default function TradeSyncPage() {
   };
 
   if (showDashboard) return <CopyManagementDashboard initialTab={showDashboard} onBack={() => setShowDashboard(null)} />;
-  if (showCopier) return <CopierWizard onBack={() => setShowCopier(false)} onOpenDashboard={(tab) => setShowDashboard(tab)} />;
+  // "Start Now" opens the NEW Trade Sync UI (features/trade-sync); the old CopierWizard it used to
+  // open is retired but still on disk. `panel` re-anchors that UI's viewport-sized frame to
+  // Journal's scrolling <main> — see features/trade-sync/styles/panel.ts.
+  if (showCopier) return <TradeSyncApp panel />;
 
   const PlatformCard = ({ p }: { p: typeof platformsRow1[0] }) => (
     <div className="ts-platform-card">
@@ -1991,7 +1999,7 @@ export default function TradeSyncPage() {
              so it reads correctly in BOTH dark and light. Role keywords use the
              accent so they stand out and never vanish on a light background. The hex
              fallbacks keep the dark look if the vars aren't present. */}
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, background: 'var(--jr-panel, #0d1117)', border: '1px solid var(--jr-border, #1e293b)', borderRadius: 8, padding: '12px 16px', marginBottom: 0, fontSize: 11, color: 'var(--jr-muted, #94a3b8)', lineHeight: 1.6, fontFamily: "'Inter', sans-serif" }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, background: 'var(--jr-panel, #0d1117)', border: '1px solid var(--jr-border, #1e293b)', borderRadius: 8, padding: '12px 16px', marginBottom: 0, fontSize: 11, color: 'var(--jr-muted, #94a3b8)', lineHeight: 1.6, fontFamily: "'Playfair Display', serif" }}>
           <PiInfoFill style={{ flexShrink: 0, marginTop: 2 }} size={16} color="var(--jr-accent, #38bdf8)" />
           <span><strong style={{ color: 'var(--jr-text, #e2e8f0)', fontWeight: 700 }}>What is Trade Sync?</strong> — Trade Sync is an automated copy-trading engine that links multiple brokerage accounts and replicates positions in real time. You can operate as a <strong style={{ color: 'var(--jr-accent, #38bdf8)', fontWeight: 600 }}>Provider</strong> (broadcasting your trades to followers), a <strong style={{ color: 'var(--jr-accent, #38bdf8)', fontWeight: 600 }}>Follower</strong> (mirroring a master account with configurable lot sizing and risk controls), perform <strong style={{ color: 'var(--jr-accent, #38bdf8)', fontWeight: 600 }}>Self-Copy</strong> between your own accounts, or route signals directly from a <strong style={{ color: 'var(--jr-accent, #38bdf8)', fontWeight: 600 }}>Telegram</strong> channel. All copying happens through an isolated bridge — no withdrawal permissions or sensitive credentials are ever required.</span>
         </div>

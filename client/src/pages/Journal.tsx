@@ -21,9 +21,9 @@ import { SessionsList, GhostSessionsPanel } from '@/components/CreateSession';
 import DrawdownPanel from '@/components/DrawdownPanel';
 import TFMetricsPanel from '@/components/TFMetricsPanel';
 import TraderAI from '@/components/TraderAI';
-// The old inline TradeSyncPage is retired but still on disk; Trade Sync is now the new UI in
-// client/src/features/trade-sync. It renders as a PANEL here, like every other nav item.
-import { TradeSyncApp } from '@/features/trade-sync';
+// Trade Sync = the landing (TradeSyncPage, .ts-page) which gates the new UI behind "Start Now".
+// Both own their typography, so both are exempted from the global font rule below.
+import TradeSyncPage from '@/pages/TradeSyncPage';
 import AccountsPage from '@/pages/AccountsPage';
 import AssetPage from '@/pages/AssetPage';
 import Leaderboard from '@/components/Leaderboard';
@@ -944,18 +944,22 @@ export default function Journal() {
     <div style={{ fontFamily: F.stack, height:'100dvh', overflow:'hidden', display:'flex', flexDirection:'column', background: T.bg, color: T.text, transition: 'background 0.3s, color 0.3s' }}>
       <style>{`
         .journal-root *{box-sizing:border-box;}
-        .journal-root *:where(:not(.ct-app):not(.ct-app *)){letter-spacing:.02em;}
+        .journal-root *:where(:not(.ct-app):not(.ct-app *):not(.ts-page):not(.ts-page *)){letter-spacing:.02em;}
         /* Force the selected journal font everywhere EXCEPT panels that own their own
-           typography: the Drawdown "Dive Profile" (.dp, Montserrat/DM-Mono) and Trade Sync
-           (.ct-app, Playfair Display/DM Mono/Material Icons). :where() keeps this at zero
-           specificity so no panel-specific font override is affected.
+           typography: the Drawdown "Dive Profile" (.dp, Montserrat/DM-Mono) and Trade Sync —
+           both its landing (.ts-page) and the app behind it (.ct-app), which share Playfair
+           Display / DM Mono / Material Icons. :where() keeps this at zero specificity so no
+           panel-specific font override is affected.
            NOTE: this rule is !important, so an exempted panel CANNOT defend itself with
            specificity alone — !important always wins over a normal declaration, whatever its
            specificity. Any panel with its own font MUST be listed here. Trade Sync learned this
            the hard way: every Material Icon rendered as its literal ligature text
            ("light_mode", "chevron_left") because font-family was forced to the journal stack. */
-        .journal-root *:where(:not(.dp):not(.dp *):not(.ct-app):not(.ct-app *)){font-family:${F.stack}!important;font-weight:900!important;}
-        .journal-root svg text{font-family:${F.stack}!important;}
+        .journal-root *:where(:not(.dp):not(.dp *):not(.ct-app):not(.ct-app *):not(.ts-page):not(.ts-page *)){font-family:${F.stack}!important;font-weight:900!important;}
+        /* Same exemption as the rule above — this one bites SVG <text>, which the font-family rule
+           does not reach. Without it the "1x" labels in the Trade Sync hero diagram stayed Montserrat
+           while everything around them was Playfair. */
+        .journal-root svg text:where(:not(.ct-app *):not(.ts-page *)){font-family:${F.stack}!important;}
         .journal-root ::-webkit-scrollbar{display:none;}
         .journal-root *{scrollbar-width:none;-ms-overflow-style:none;}
         .primary-btn { background: ${T.accent}; transition: all 0.2s; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 800; font-size: 11px; border-radius: 0 !important; }
@@ -1369,7 +1373,7 @@ export default function Journal() {
           ) : activeNav === 'fsdai' ? (
             <TraderAI sessionId={activeSessionId ?? undefined} darkMode={T.dark} />
           ) : activeNav === 'sync' ? (
-            <TradeSyncApp panel />
+            <TradeSyncPage />
           ) : activeNav === 'accounts' ? (
             <AccountsPage darkMode={T.dark} onViewSession={handleSelectSession} />
           ) : activeNav === 'addaccount' ? (
