@@ -29,11 +29,19 @@ export function serveStatic(app: Express) {
     immutable: true,
   }));
 
-  // Everything else — cache for 1 hour, must revalidate
+  // Everything else — cache for 1 hour, must revalidate.
+  // index:false is load-bearing: without it, express.static serves index.html for "/" with the
+  // 1h maxAge below, so returning visitors keep a STALE HTML shell (pointing at old hashed asset
+  // filenames) for up to an hour after every deploy — new code deployed but invisible until the
+  // cache expires or the user hard-refreshes. With index:false, "/" and all SPA routes fall
+  // through to the no-cache handler below, so the shell is always fresh and references the latest
+  // assets (which stay immutably cached by their hash). This is what makes a deploy show up
+  // immediately instead of needing Ctrl+Shift+R.
   app.use(express.static(distPath, {
     maxAge: '1h',
     etag: true,
     lastModified: true,
+    index: false,
   }));
 
   // SPA fallback — inject prefetch data then serve; never cache the HTML shell
