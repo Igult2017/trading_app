@@ -28,6 +28,11 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm ci --omit=dev --registry https://registry.npmjs.org
 
+# Chromium for Playwright — the economic-calendar scraper uses a real browser to solve MyFXBook's
+# Cloudflare managed challenge (server/scrapers/browserFetch.ts). --with-deps pulls the browser's
+# OS libraries. Only Chromium is installed (not firefox/webkit) to keep the image lean.
+RUN npx playwright install --with-deps chromium
+
 # Compiled JS from builder
 COPY --from=builder /app/dist ./dist
 

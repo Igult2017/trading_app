@@ -4,6 +4,7 @@ import { createRequire } from 'module';
 const _require = createRequire(import.meta.url);
 const cloudscraper = _require('cloudscraper') as any;
 import { ScraperConfig, scraperSettings, getRandomUserAgent, getActiveScrapers } from './config';
+import { browserFetch, browserFetchEnabled } from './browserFetch';
 
 export interface ScrapedEvent {
   title: string;
@@ -43,9 +44,12 @@ export class EconomicCalendarScraper {
     return /Just a moment|cf-browser-verification|_cf_chl_opt|cdn-cgi\/challenge-platform/i.test(html);
   }
 
-  private async fetchHTML(url: string): Promise<string> {
+  private async fetchHTML(url: string, waitForSelector?: string): Promise<string> {
     await this.respectRateLimit();
 
+    // Fast path: cloudscraper. Cheap when it works (and still valid for sources that aren't
+    // Cloudflare-challenged). On a challenge — which is every request from our datacenter IP for
+    // MyFXBook — fall through to a real browser rather than failing.
     try {
       const html = (await cloudscraper.get(url, {
         headers: {
@@ -63,10 +67,25 @@ export class EconomicCalendarScraper {
       }
       return html;
     } catch (error: any) {
-      // Log only the message — the raw error object embeds the full Cloudflare
-      // challenge HTML, which floods the logs with thousands of bytes.
-      console.error(`Failed to fetch ${url}: ${error?.message ?? error}`);
-      throw error;
+      // Log only the message — the raw error object embeds the full Cloudflare challenge HTML,
+      // which floods the logs with thousands of bytes.
+      console.error(`cloudscraper failed for ${url}: ${error?.message ?? error}`);
+
+      if (!browserFetchEnabled()) throw error;
+
+      // Managed-challenge fallback: a real browser solves the JS challenge and earns cf_clearance.
+      try {
+        console.log(`Retrying ${url} via headless browser…`);
+        const html = await browserFetch(url, { waitForSelector });
+        if (this.isCloudflareChallenge(html)) {
+          throw new Error('browser fetch still returned a challenge page (IP likely hard-flagged)');
+        }
+        console.log(`Browser fetch succeeded for ${url}`);
+        return html;
+      } catch (browserErr: any) {
+        console.error(`Browser fetch failed for ${url}: ${browserErr?.message ?? browserErr}`);
+        throw browserErr;
+      }
     }
   }
 
@@ -295,7 +314,9 @@ export class EconomicCalendarScraper {
     for (const config of scrapers) {
       try {
         console.log(`Attempting to scrape from ${config.name}...`);
-        const html = await this.fetchHTML(config.url);
+        // Pass the row selector so the browser fallback waits for REAL data to render, not just
+        // for the challenge to clear.
+        const html = await this.fetchHTML(config.url, config.selectors.eventRow);
         const events = this.parseEvents(html, config);
         
         console.log(`Successfully scraped ${events.length} events from ${config.name}`);
