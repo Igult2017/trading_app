@@ -98,6 +98,24 @@ def _is_mitigated(candles: list[Candle], after: int, direction: str, top: float,
     return False
 
 
+def zone_broken(candles: list[Candle], zone: Zone, after: int | None = None) -> bool:
+    """Is the zone DEAD? Price CLOSING beyond its distal — the far edge — means the orders that made
+    it are gone. It is not support any more; it is a level price went through. The book calls the
+    aftermath an "S/D flip" (Ch.8): a broken demand becomes supply. Either way it is finished as what
+    it was, and nothing should trade it.
+
+    By body close, never a wick — BX's rule everywhere. A wick beyond the distal is a SWEEP (the
+    book's own liquidity grab, and a REASON to trade the zone); a close beyond it is a break. Reading
+    wicks here would throw away exactly the setups the book wants.
+    """
+    for j in range(((zone.ifc_index if after is None else after)) + 1, len(candles)):
+        if zone.direction == "demand" and candles[j].close < zone.bottom:
+            return True
+        if zone.direction == "supply" and candles[j].close > zone.top:
+            return True
+    return False
+
+
 def find_zones(candles: list[Candle]) -> list[Zone]:
     """Every IFC-backed S/D zone with its mitigation state — one per IFC, most-recent last.
 

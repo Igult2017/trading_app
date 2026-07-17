@@ -17,7 +17,7 @@ from dataclasses import dataclass, field
 from core.types import Candle
 from shared.swing_points import find_swing_points
 from strategies.bx_sd_structure import map_structure
-from strategies.bx_sd_zones import find_zones, Zone
+from strategies.bx_sd_zones import find_zones, zone_broken, Zone
 from strategies.bx_sd_liquidity import find_liquidity, swept_before, defensive_ok
 from strategies.bx_sd_validity import broke_structure, grabbed_liquidity, LIQ_WINDOW
 from strategies.bx_sd_confluence import premium_discount, pricing_aligned, fib_target, rsi_divergence
@@ -61,7 +61,8 @@ def detect_setup(h4: list[Candle], pip: float = 0.0001) -> SetupResult:
     tdir  = "buy"    if pro == "up" else "sell"
     up    = pro == "up"
 
-    zones = [z for z in find_zones(h4) if z.direction == zdir]
+    # a zone price has CLOSED through is dead (bx_sd_zones.zone_broken) — never trade it
+    zones = [z for z in find_zones(h4) if z.direction == zdir and not zone_broken(h4, z)]
     pools = find_liquidity(h4, pip)
     price = h4[-1].close
 

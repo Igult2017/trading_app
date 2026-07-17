@@ -69,6 +69,28 @@ day"; `is_swept` reads wicks, which are live facts. Nothing to fix.
 **15M / D1 / W1 / MN** get it free — the trim sits inside the builders, not the callers. (A forming
 **MN** bar is "forming" for a month.)
 
+### A zone price has CLOSED through is DEAD — everywhere
+The book's Ch.8 flip: a broken demand *becomes* supply. It is finished as what it was, so nothing
+trades it. `bx_sd_zones.zone_broken`, applied in `bx_sd_validity.is_valid` (every report path) and in
+`bx_sd_setup` (the core cascade, which picks from raw candidates).
+
+**By body close, never a wick** — BX's rule everywhere. A wick beyond the distal is a **sweep** (the
+book's own liquidity grab, and a *reason* to trade the zone); a close beyond it is a break. Reading
+wicks here would throw away exactly the setups the book wants. Verified: a wick through the distal
+that closes back inside still fires.
+
+**Measured cost of not having this: 52% of respected-retests (344 of 657, 2y real data, all 3 pairs)
+were on zones price had already closed through** — BX proposing to buy support that no longer existed.
+The retest test is `low <= zone.top`, which is trivially true forever once price is below the zone.
+The continuation path had it too.
+
+### The 3 report paths, measured (2y real, H4 gates only — the 1M/5M check sits after)
+| path | reaches the 1M/5M check |
+|---|---|
+| respected retest (mitigated → respected → retested) | ~27/month, 3 pairs |
+| FVG-tap continuation | ~42/month |
+| core 4H cascade | ~4/month |
+
 ### Zone identity is the IFC, never the origin
 One zone per IFC ⇒ the IFC is unique. `origin_index` is **not**: a wick zone sits **on** its impulse
 (`origin == ifc`) while the next IFC's ordinary zone sits on that same candle (`origin == ifc-1`).

@@ -14,7 +14,7 @@ Reuses BX's own primitives (zones, structure, liquidity, confluence, entry trigg
 """
 from core.types import Candle
 from shared.swing_points import find_swing_points
-from strategies.bx_sd_zones import Zone
+from strategies.bx_sd_zones import Zone, zone_broken
 from strategies.bx_sd_structure import map_structure
 from strategies.bx_sd_setup import _first_tap, SetupResult
 from strategies.bx_sd_confluence import premium_discount, fib_target
@@ -24,7 +24,8 @@ from strategies.bx_sd_entry import entry_trigger
 
 def is_respected_retest(h4: list[Candle], zone: Zone, pip: float = 0.0001,
                         recent: int = 6, react_mult: float = 1.0) -> bool:
-    """True when `zone` was respected (a real reaction away) and price is now retesting it."""
+    """True when `zone` was respected (a real reaction away), is STILL ALIVE, and price is now
+    retesting it."""
     t1 = _first_tap(h4, zone)
     if t1 is None:
         return False
@@ -37,6 +38,11 @@ def is_respected_retest(h4: list[Candle], zone: Zone, pip: float = 0.0001,
         if not demand and h4[j].close <= zone.bottom - react:
             away = j; break
     if away is None:
+        return False
+    # The zone must still EXIST. Without this, price smashing through a demand makes every later bar
+    # satisfy `low <= zone.top` trivially — so a destroyed zone reported a "respected retest" forever
+    # and BX would buy a level price had already gone through.
+    if zone_broken(h4, zone, t1):
         return False
     for j in range(away + 1, len(h4)):                      # returned to retest, recently
         tapped = (h4[j].low <= zone.top) if demand else (h4[j].high >= zone.bottom)

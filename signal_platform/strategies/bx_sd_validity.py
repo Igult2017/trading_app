@@ -18,7 +18,7 @@ One definition, used by every path: the entry cascade (bx_sd_setup) and the 4H z
 (bx_sd_reports) must agree on what a zone is, or we DM about zones we would never trade.
 """
 from core.types import Candle
-from strategies.bx_sd_zones import Zone
+from strategies.bx_sd_zones import Zone, zone_broken
 from strategies.bx_sd_structure import map_structure
 from strategies.bx_sd_liquidity import find_liquidity, swept_before
 
@@ -41,7 +41,15 @@ def grabbed_liquidity(pools, h4: list[Candle], zone: Zone) -> bool:
 
 
 def is_valid(h4: list[Candle], zone: Zone, structure=None, pools=None, pip: float = 0.0001) -> bool:
-    """All three factors (the IFC is implied by the candidate existing at all)."""
+    """All three factors (the IFC is implied by the candidate existing at all) — AND still alive.
+
+    A zone price has CLOSED through is finished, whatever factors it once had (bx_sd_zones.zone_broken;
+    the book's Ch.8 flip). It belongs here because this is the one place that answers "is this a zone,
+    right now", and every path asks it. Measured: 52% of respected-retests were on zones price had
+    already gone through — BX proposing to buy support that no longer existed.
+    """
+    if zone_broken(h4, zone):
+        return False
     st = structure if structure is not None else map_structure(h4)
     pl = pools if pools is not None else find_liquidity(h4, pip)
     want = "up" if zone.direction == "demand" else "down"
