@@ -154,8 +154,10 @@ unswept opposing pool between entry and SL) · ≥2R.
 The book's Standard Operating Procedure, which BX follows (verified against the book's own diagrams):
 - **4H = Macro / bias.** Mark valid 4H zones; a zone *only matters when price REACTS from it* (Checklist
   step 1). D1 = premium/discount context + when the 4H trend is likely to end.
-- **15M = Micro analysis (the POI).** "Loosely used" — cycle **30M / 1H** if 15M has no clean POI
-  (book: "10M–30M will be cycled through"). In BX this is a **confluence**, not a hard gate.
+- **15M / 30M / 1H = analysis TF: it REFINES the 4H setup** into a tight POI before the entry (book
+  Ch.15 steps 2–5: "refine the same zone… if refinement gives more than one obvious zone, go back **up**
+  to the TF which gives one clear zone"). The **clearest** of the three wins. Alignment here (a
+  supporting zone / CHoCH in the 4H bias direction) is the **A-grade** confluence — it is NOT a hard gate.
 - **1M (or 5M) = execution + CONFIRMATION ENTRY.** A **BMS** — CHoCH / S/D-flip / continuation, by body
   CLOSE, **inside** the 4H zone. **Mandatory.** The book's **"Entry-2 Justification"** (wait for the
   BMS); its **"Entry-1 Risk"** (blind limit) is **banned** — every fired BX signal is a confirmation entry.
@@ -173,7 +175,9 @@ fire to the channel — **graded, never bare C** (a mitigated zone must earn re-
 A mitigated *lower*-TF zone respected again is **not tradeable**. This REPLACES the old
 `is_respected_retest` (move a full zone-height away, then return, on any valid zone), which wrongly
 traded already-mitigated zones as if they were fresh 2nd touches — the rule is **only fresh unmitigated
-4H zones fire at bare C**; mitigated majors need B/A confluence.
+4H zones fire at bare C**; mitigated majors need B/A confluence. The **same** 4H + 15M/30M/1H + 1M/5M
+MTF-alignment grade applies to retests, and requiring that alignment (B/A) is exactly what filters the
+low-quality retests out.
 
 ### Rate (measured, 2y real data, 3 pairs)
 **~4.1 setups/month** combined (98 in 24 months) — roughly one a week. Valid-zone mitigations
