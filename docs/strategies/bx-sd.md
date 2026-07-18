@@ -148,7 +148,32 @@ Measured: **5 of 9** unmitigated zones the picker saw were invalid.
 ### Locked constraints (user)
 EUR/USD + GBP/USD + USD/JPY · **pro-trend only** · **confirmed entries only** (a CHoCH must print —
 never a blind limit) · **liquidity-aware both ways** (a pool must be swept = fuel; never enter with an
-unswept opposing pool between entry and SL) · **4H confirms the setup and only the 4H** · ≥2R.
+unswept opposing pool between entry and SL) · ≥2R.
+
+### MTF, confirmation entry & grading — the SOP (book Ch. "Understanding Time-Frames" + Ch.15 Checklist)
+The book's Standard Operating Procedure, which BX follows (verified against the book's own diagrams):
+- **4H = Macro / bias.** Mark valid 4H zones; a zone *only matters when price REACTS from it* (Checklist
+  step 1). D1 = premium/discount context + when the 4H trend is likely to end.
+- **15M = Micro analysis (the POI).** "Loosely used" — cycle **30M / 1H** if 15M has no clean POI
+  (book: "10M–30M will be cycled through"). In BX this is a **confluence**, not a hard gate.
+- **1M (or 5M) = execution + CONFIRMATION ENTRY.** A **BMS** — CHoCH / S/D-flip / continuation, by body
+  CLOSE, **inside** the 4H zone. **Mandatory.** The book's **"Entry-2 Justification"** (wait for the
+  BMS); its **"Entry-1 Risk"** (blind limit) is **banned** — every fired BX signal is a confirmation entry.
+- Book entry types (Ch.15 step 7): **DS/SD Flip · Continuation · CHoCH**. (A standalone "respected
+  retest" is NOT a book entry type — see below.)
+
+**Grade (shown on the signal card):**
+- **C** = valid fresh 4H zone + 1M/5M confirmation entry (no Micro confluence).
+- **B** = C + one Micro-TF (15M/30M/1H) confluence (a supporting zone/CHoCH aligned with the 4H bias).
+- **A** = full MTF: 4H + Micro confluence + entry + D1/W1/MN backing (+ RSI div / premium-discount).
+
+**Retest = a re-entry on a MITIGATED but MAJOR zone.** Only a *previously-valid* **4H / D1 / W1 / MN**
+zone (never lower) that is respected **again** WITH a 1M/5M confirmation entry AND other confluence may
+fire to the channel — **graded, never bare C** (a mitigated zone must earn re-entry with confluence).
+A mitigated *lower*-TF zone respected again is **not tradeable**. This REPLACES the old
+`is_respected_retest` (move a full zone-height away, then return, on any valid zone), which wrongly
+traded already-mitigated zones as if they were fresh 2nd touches — the rule is **only fresh unmitigated
+4H zones fire at bare C**; mitigated majors need B/A confluence.
 
 ### Rate (measured, 2y real data, 3 pairs)
 **~4.1 setups/month** combined (98 in 24 months) — roughly one a week. Valid-zone mitigations
