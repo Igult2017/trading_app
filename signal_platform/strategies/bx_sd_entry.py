@@ -21,6 +21,7 @@ from core.types import Candle
 from shared.swing_points import find_swing_points
 from strategies.bx_sd_zones import find_zones
 from strategies.bx_sd_validity import valid_zones
+from strategies.bx_sd_liquidity import find_liquidity, is_swept
 from strategies.bx_sd_ltf import find_ltf_choch, _choch_valid, refine_zone, LTFConfluence
 from strategies.bx_sd_setup import SetupResult
 
@@ -58,15 +59,21 @@ def _rr(entry: float, sl: float, tp: float, buy: bool) -> float:
 
 def _tp_candidates(setup: SetupResult, h4: list[Candle], entry: float, buy: bool,
                    pip: float = 0.0001) -> list[float]:
-    """Next unmitigated opposite zone(s) first (real liquidity targets), fib extensions as fallback.
+    """TP targets, nearest-first: the next unmitigated opposite ZONE, plus the book's LIQUIDITY targets
+    — unswept buy-side pools ABOVE (a buy) / sell-side pools BELOW (a sell): weak highs/lows, EQH/EQL and
+    prior day/week/month H/L, where the resting stops the move is hunting sit (Ch.10). Fib extensions
+    fallback.
 
-    The target must be a BOOK-VALID zone (3 factors), not any candle beside a gap. We take the FIRST
-    candidate clearing min RR, so an invalid one sitting nearer would be picked ahead of a real zone
+    A zone target must be a BOOK-VALID zone (3 factors), not any candle beside a gap. We take the FIRST
+    candidate clearing min RR, so an invalid one sitting nearer would be picked ahead of a real target
     and we would aim at a level with no orders resting behind it — a TP that never fills.
     """
     opp = "supply" if buy else "demand"
     cands = [z.proximal for z in valid_zones(h4, find_zones(h4), pip)
              if z.direction == opp and not z.mitigated]
+    # LIQUIDITY targets — unswept pools on the TP side (the book targets weak highs/lows / resting stops)
+    want = "buy" if buy else "sell"
+    cands += [p.price for p in find_liquidity(h4, pip) if p.side == want and not is_swept(h4, p)]
     cands += [setup.tp1, setup.tp2]
     if buy:
         return sorted(c for c in cands if c > entry)

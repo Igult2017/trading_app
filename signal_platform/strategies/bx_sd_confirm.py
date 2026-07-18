@@ -15,6 +15,7 @@ from core.types import Candle
 from strategies.bx_sd_setup import SetupResult
 from strategies.bx_sd_analysis import analysis_refine
 from strategies.bx_sd_entry import entry_trigger
+from strategies.bx_sd_liquidity import find_liquidity, defensive_ok
 from strategies.bx_sd_htf import htf_backing
 
 _SCORE = {"A": 85, "B": 72, "C": 66}
@@ -33,6 +34,15 @@ def confirm_grade(setup: SetupResult, h4: list[Candle],
     conf = analysis_refine(setup, analysis_tfs, pip)
     trig = entry_trigger(conf, setup, entry_tf, h4, pip)
     if not trig.triggered:
+        return None
+    # DEFENSE — "don't be the liquidity" (locked constraint), on the FINAL entry/SL. Every path that
+    # confirms an entry goes through here (fresh cascade + retest), so the guard can't be skipped again.
+    # Exclude the zone's own distal — the SL is tucked 2 pip beyond it by design.
+    buy    = setup.direction == "buy"
+    distal = trig.sl + 2 * pip if buy else trig.sl - 2 * pip
+    zdir   = "demand" if buy else "supply"
+    ok, _  = defensive_ok(find_liquidity(h4, pip), h4, zdir, trig.entry, trig.sl, pip, exclude=distal)
+    if not ok:
         return None
     backing = htf_backing(setup.zone, htf_map)
     grade   = grade_of(conf.confirmed, backing)
