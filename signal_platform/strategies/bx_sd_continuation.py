@@ -11,6 +11,7 @@ from strategies.bx_sd_zones import Zone
 from strategies.bx_sd_structure import map_structure
 from strategies.bx_sd_ltf import LTFConfluence
 from strategies.bx_sd_entry import _flip_ok, _rr, _tp_candidates, EntryTrigger
+from strategies.bx_sd_liquidity import find_liquidity, defensive_ok
 from strategies.bx_sd_retest import _setup_for_zone
 
 
@@ -30,6 +31,7 @@ def confirm_continuation(fvg: Zone, h4: list[Candle], m5: list[Candle], m1: list
         return None
     buy   = fvg.direction == "demand"
     setup = _setup_for_zone(h4, fvg, pip)
+    pools = find_liquidity(h4, pip)                    # for the defensive-liquidity guard below
     best = None
     for entry_tf, label in ((m5, "5M"), (m1, "1M")):
         if len(entry_tf) < 20 or not _continues(entry_tf, want):
@@ -39,6 +41,11 @@ def confirm_continuation(fvg: Zone, h4: list[Candle], m5: list[Candle], m1: list
         sl    = fvg.distal - 2 * pip if buy else fvg.distal + 2 * pip
         tp = next((c for c in _tp_candidates(setup, h4, entry, buy) if _rr(entry, sl, c, buy) >= min_rr), None)
         if tp is None:
+            continue
+        # DEFENSE — locked "liquidity-aware both ways" rule (was only enforced in the core cascade):
+        # never enter with an unswept opposing pool between entry and SL, nor park the SL on a pool.
+        ok, _ = defensive_ok(pools, h4, fvg.direction, entry, sl, pip, exclude=fvg.distal)
+        if not ok:
             continue
         rr = round(_rr(entry, sl, tp, buy), 2)
         if best is None or rr > best[0].rr:

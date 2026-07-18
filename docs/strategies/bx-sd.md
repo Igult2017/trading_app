@@ -85,6 +85,9 @@ A **level must stay put; an event is live.**
 - `map_structure` → **closed only**. Its own rule is "by body CLOSE, never wicks" — a forming bar has
   no close, so its "close" is just live price, and a BOS could confirm then un-confirm.
 - `detect_setup`'s `price = h4[-1].close` and `_first_tap` → **LIVE, untouched**
+- `check_invalidation` → **closed only**. "Broken" = a body CLOSE beyond the distal (a level), so the
+  still-forming M15/H4 bar is dropped; reading its live close fired false stand-downs. The last CLOSED
+  M15 keeps the alert responsive (15-min granularity) without waiting the full 4H.
 
 Proven before fixing: the same zone appeared/vanished purely from the forming H4 bar's low
 (1.2860 EXISTS → 1.2844 GONE). On the 4H that flicker lasts **hours**.
@@ -148,6 +151,7 @@ still face the 15M CHoCH and the 1M/5M ≥2R trigger, so **actual entries are fe
 
 | commit | what |
 |---|---|
+| _audit-liq-inval_ | full-BX audit: (1) the locked **defensive-liquidity** guard (`defensive_ok`) was enforced only in the core cascade — the **retest + continuation report paths fired blind**; now both reject an SL parked on a pool or an unswept opposing pool between entry and SL; (2) `check_invalidation` read the **forming** M15/H4 bar's close for a body-close "broken" call → false stand-downs; now reads **CLOSED** bars only (last closed M15 keeps it responsive). Both verified on the real functions |
 | _fresh-book_ | book-confirmed freshness (Ch.6/7/9): (1) `is_respected_retest` now requires the **mitigation itself** recent (`fresh_within`), not just the 2nd touch — the book trades the *most recent unmitigated* zone; (2) `is_fvg_tap` continuation now requires the **FVG's FIRST tap** to be the recent one, not a re-tap ("targeting the next unmitigated", p48). Both verified on the real functions |
 | _retest-fresh_ | respected-retest fired on **drained** zones (any later recent tap). Bound it to the FRESH 2nd touch: the FIRST return after the reaction must itself be the recent event, else don't fire. Clean 2nd touch still fires; drained multi-touch no longer does (verified) |
 | `bae83bb` | zones + structure from **CLOSED** candles; taps and price stay live |

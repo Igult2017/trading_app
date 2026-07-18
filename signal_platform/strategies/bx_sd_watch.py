@@ -8,16 +8,23 @@ fails below its low / the supply fails above its high). Phase 1 = DM-only alert.
 import time
 
 from core.types import Signal, Direction, TF
+from shared.mtf_utils import closed_only
 
 _WATCH_TTL = 3 * 24 * 3600   # drop a stale watch after 3 days (wall-clock)
 
 
 def check_invalidation(locked: dict, h4: list, m15: list) -> str | None:
-    """'broken' once price has body-closed beyond the zone distal, 'expired' if the watch is stale,
-    else None (still live)."""
+    """'broken' once price has body-CLOSED beyond the zone distal, 'expired' if the watch is stale,
+    else None (still live).
+
+    A break is a body CLOSE — a LEVEL determination — so it must read CLOSED bars only. The feed's
+    newest M15/H4 bar is still forming: its 'close' is just live price, which can dip beyond the distal
+    and recover, so reading it would fire a false 'stand down'. The last CLOSED M15 keeps this
+    responsive (15-min granularity) without waiting the full 4H."""
     buy    = locked["direction"] == "buy"
     distal = locked["distal"]
-    for c in list(m15[-3:]) + (list(h4[-1:]) if h4 else []):
+    m15c, h4c = closed_only(m15), closed_only(h4)
+    for c in list(m15c[-3:]) + (list(h4c[-1:]) if h4c else []):
         if buy and c.close < distal:
             return "broken"
         if (not buy) and c.close > distal:

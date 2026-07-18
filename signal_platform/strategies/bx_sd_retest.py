@@ -19,6 +19,7 @@ from strategies.bx_sd_zones import Zone, zone_broken
 from strategies.bx_sd_structure import map_structure
 from strategies.bx_sd_setup import _first_tap, SetupResult
 from strategies.bx_sd_confluence import premium_discount, fib_target
+from strategies.bx_sd_liquidity import find_liquidity, defensive_ok
 from strategies.bx_sd_ltf import ltf_confluence
 from strategies.bx_sd_entry import entry_trigger
 
@@ -126,6 +127,7 @@ def confirm_retest(zone: Zone, h4: list[Candle], m5: list[Candle], m1: list[Cand
     if map_structure(h4).pro_trend() != want:
         return None
     setup = _setup_for_zone(h4, zone, pip)
+    pools = find_liquidity(h4, pip)                     # for the defensive-liquidity guard below
     best = None
     for entry_tf, label in ((m5, "5M"), (m1, "1M")):
         if len(entry_tf) < 20:
@@ -134,6 +136,14 @@ def confirm_retest(zone: Zone, h4: list[Candle], m5: list[Candle], m1: list[Cand
         if not conf.passed:
             continue
         trig = entry_trigger(conf, setup, entry_tf, h4, pip, min_rr)
-        if trig.triggered and (best is None or trig.rr > best[0].rr):
+        if not trig.triggered:
+            continue
+        # DEFENSE — the locked "liquidity-aware both ways" rule applies to EVERY BX entry, but only the
+        # core cascade enforced it; the retest fired blind. Reject if the SL sits on a pool or an
+        # UNSWEPT opposing pool sits between entry and SL (we'd be the liquidity). Exclude the zone's
+        # own distal (our SL is tucked beyond it by design).
+        excl = (conf.refined_zone or zone).distal
+        ok, _ = defensive_ok(pools, h4, zone.direction, trig.entry, trig.sl, pip, exclude=excl)
+        if ok and (best is None or trig.rr > best[0].rr):
             best = (trig, conf, label, setup)
     return best
