@@ -88,7 +88,7 @@ const chipColors: Record<ChipVariant, { bg: string; color: string; border: strin
 const Chip = ({ children, variant = 'neutral' as ChipVariant }: { children: React.ReactNode; variant?: ChipVariant }) => {
   const c = chipColors[variant] || chipColors.neutral;
   return (
-    <span className="mp-num" style={{
+    <span style={{
       ...MONO,
       fontSize: 9, fontWeight: 600,
       padding: '1px 6px', borderRadius: 20,
@@ -150,7 +150,7 @@ const Scroll = ({ children }: { children: React.ReactNode }) => (
 /* ─── DATA ROW helpers ─────────────────────────────────────────────── */
 const DR = ({ label, value, vc }: { label: string; value: string; vc?: string }) => (
   <Row label={label}>
-    <span className="mp-num" style={{ ...MONO, fontSize: 10, fontWeight: 600, color: vc || D.text }}>{value}</span>
+    <span style={{ ...MONO, fontSize: 10, fontWeight: 600, color: vc || D.text }}>{value}</span>
   </Row>
 );
 
@@ -159,7 +159,7 @@ const Bar = ({ label, pct, sub, count }: { label: string; pct: number | null | u
   return (
     <Row label={label}>
       {count != null && <Chip variant="gray">{count}</Chip>}
-      {sub && <span className="mp-num" style={{ ...MONO, fontSize: 9, color: D.dim }}>{sub}</span>}
+      {sub && <span style={{ ...MONO, fontSize: 9, color: D.dim }}>{sub}</span>}
       <Chip variant={pVariant(v)}>{v != null ? `${v}%` : '—'}</Chip>
     </Row>
   );
@@ -366,11 +366,6 @@ export default function MetricsPanel({ sessionId, darkMode = true }: { sessionId
     @keyframes mp-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
     .mp-root, .mp-root *, .mp-root *::before, .mp-root *::after { box-sizing: border-box; margin: 0; padding: 0; }
     .mp-root { font-family: 'JetBrains Mono Variable', 'JetBrains Mono', 'Fira Mono', 'Courier New', monospace; background: ${D.bg}; color: ${D.text}; }
-    /* Journal forces its font (Playfair) on this panel — .mp-root is not exempted — which is what
-       puts the LABELS in Playfair (matches the calendar / sessions pages). But numbers, chips and
-       tables must stay monospace for tabular alignment, so re-assert mono on the data elements.
-       Two classes (0,2,0) + !important beat the journal rule's `.journal-root *` (0,1,0) !important. */
-    .mp-root .mp-num { font-family: 'JetBrains Mono Variable', 'JetBrains Mono', 'Fira Mono', 'Courier New', monospace !important; }
     .mp-kpi  { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; padding: 8px 0; background: ${D.bg}; border-bottom: 0.5px solid ${D.bdInner}; }
     .mp-page { padding: 12px 0; display: flex; flex-direction: column; gap: 10px; }
     .mp-g4   { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
@@ -380,10 +375,10 @@ export default function MetricsPanel({ sessionId, darkMode = true }: { sessionId
     .mp-scroll::-webkit-scrollbar { width: 3px; }
     .mp-scroll::-webkit-scrollbar-thumb { background: ${D.bdInner}; border-radius: 2px; }
     .mp-dtable      { width: 100%; border-collapse: collapse; }
-    .mp-dtable th   { font-family: 'JetBrains Mono Variable', 'JetBrains Mono', monospace !important; font-size: 8px; color: ${D.label}; text-transform: uppercase; letter-spacing: 0.1em; padding: 7px 10px; text-align: left; border-bottom: 0.5px solid ${D.bdInner}; font-weight: 500; }
-    .mp-dtable td   { font-family: 'JetBrains Mono Variable', 'JetBrains Mono', monospace !important; font-size: 10px; padding: 7px 10px; border-bottom: 0.5px solid ${D.bdRow}; color: ${D.text}; }
+    .mp-dtable th   { font-family: 'JetBrains Mono Variable', 'JetBrains Mono', monospace; font-size: 8px; color: ${D.label}; text-transform: uppercase; letter-spacing: 0.1em; padding: 7px 10px; text-align: left; border-bottom: 0.5px solid ${D.bdInner}; font-weight: 500; }
+    .mp-dtable td   { font-family: 'JetBrains Mono Variable', 'JetBrains Mono', monospace; font-size: 10px; padding: 7px 10px; border-bottom: 0.5px solid ${D.bdRow}; color: ${D.text}; }
     .mp-dtable tr:last-child td { border-bottom: none; }
-    .mp-select      { font-family: 'JetBrains Mono Variable', 'JetBrains Mono', monospace !important; font-size: 9px; background: ${D.bg4}; color: ${D.muted}; border: 0.5px solid ${D.bdInner}; padding: 2px 6px; outline: none; cursor: pointer; border-radius: 4px; letter-spacing: 0.06em; }
+    .mp-select      { font-family: 'JetBrains Mono Variable', 'JetBrains Mono', monospace; font-size: 9px; background: ${D.bg4}; color: ${D.muted}; border: 0.5px solid ${D.bdInner}; padding: 2px 6px; outline: none; cursor: pointer; border-radius: 4px; letter-spacing: 0.06em; }
     .mp-strat-grid  { display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
     .mp-eq-grid     { display: grid; grid-template-columns: 2fr 1fr; gap: 8px; }
     @media (max-width: 1024px) {
@@ -619,7 +614,7 @@ export default function MetricsPanel({ sessionId, darkMode = true }: { sessionId
         {kpis.map((k, i) => (
           <div key={i} className="mp-kpi-cell" data-testid={`metric-kpi-${i}`} style={{ background: D.bg2, border: `0.5px solid ${D.bdOuter}`, borderRadius: 8, padding: '10px 12px' }}>
             <div style={{ ...MONO, fontSize: 9, color: D.label, textTransform: 'uppercase' as const, letterSpacing: '0.08em', marginBottom: 5 }}>{k.l}</div>
-            <div className="mp-num" style={{ ...MONO, fontSize: 8, fontWeight: 600, lineHeight: 1.1, color: k.positive === true ? D.green : k.positive === false ? D.red : D.text, marginBottom: 3 }}>{k.v}</div>
+            <div style={{ ...MONO, fontSize: 8, fontWeight: 600, lineHeight: 1.1, color: k.positive === true ? D.green : k.positive === false ? D.red : D.text, marginBottom: 3 }}>{k.v}</div>
             <div style={{ ...MONO, fontSize: 9, color: D.sub }}>{k.s}</div>
           </div>
         ))}
