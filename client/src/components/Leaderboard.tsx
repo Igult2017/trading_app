@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Trophy, TrendingUp, Percent, Loader2, Users, Layers } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
-import { authFetch } from '@/lib/queryClient';
+import { fetchJson } from '@/lib/queryClient';
 import { useAuth } from '@/context/AuthContext';
 import { countryToIso } from '@/lib/countryToIso';
 import { formatProfitFactor } from '@/lib/tradeStats';
@@ -103,8 +103,9 @@ export default function Leaderboard() {
   const { data: lbData, isLoading: loadingOverall, error: overallError } = useQuery<{ leaderboard: Trader[]; summary: Summary | null }>({
     queryKey: ['/api/leaderboard/by-session', activePeriod, '__overall__'],
     queryFn: async () => {
-      const r = await authFetch(`/api/leaderboard/by-session?period=${activePeriod}`);
-      const d = await r.json();
+      // fetchJson throws a clean "<status>: <text>" on any non-OK response (502/500/…) BEFORE
+      // parsing, so a "Bad Gateway" body never hits JSON.parse — and React Query keeps last-good data.
+      const d = await fetchJson<{ leaderboard?: Trader[]; summary?: Summary | null; error?: string }>(`/api/leaderboard/by-session?period=${activePeriod}`);
       if (d.error) throw new Error(d.error);
       return { leaderboard: d.leaderboard || [], summary: d.summary || null };
     },
@@ -121,8 +122,7 @@ export default function Leaderboard() {
   const { data: sessionData, isLoading: loadingSession, error: sessionError } = useQuery<{ leaderboard: Trader[]; summary: Summary | null }>({
     queryKey: ['/api/leaderboard/by-session', activePeriod, selectedSession],
     queryFn: async () => {
-      const r = await authFetch(`/api/leaderboard/by-session?period=${activePeriod}${sessionParam}`);
-      const d = await r.json();
+      const d = await fetchJson<{ leaderboard?: Trader[]; summary?: Summary | null; error?: string }>(`/api/leaderboard/by-session?period=${activePeriod}${sessionParam}`);
       if (d.error) throw new Error(d.error);
       return { leaderboard: d.leaderboard || [], summary: d.summary || null };
     },
@@ -136,8 +136,7 @@ export default function Leaderboard() {
   const { data: sessionNamesData } = useQuery<{ sessionNames: string[] }>({
     queryKey: ['/api/leaderboard/session-names'],
     queryFn: async () => {
-      const r = await authFetch('/api/leaderboard/session-names');
-      return r.json();
+      return fetchJson<{ sessionNames: string[] }>('/api/leaderboard/session-names');
     },
     staleTime: 5 * 60 * 1000,
     enabled: viewMode === 'session',
