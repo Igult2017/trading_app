@@ -17,9 +17,10 @@ from core.strategy_context import StrategyContext
 from core import delivery_ledger
 from shared.pip import pip_size, price_digits
 from strategies.bx_sd_setup import detect_setup
-from strategies.bx_sd_ltf import ltf_confluence
+from strategies.bx_sd_analysis import analysis_refine
 from strategies.bx_sd_entry import entry_trigger
 from strategies.bx_sd_signal import build_signal
+from strategies.bx_sd_htf import htf_zone_map, htf_backing
 from strategies.bx_sd_watch import check_invalidation, invalidation_signal
 from strategies.bx_sd_reports import scan_reports
 
@@ -63,10 +64,10 @@ class BXStrategy(BaseStrategy):
         # Entry TF: prefer 1M, fall back to 5M. The book uses whichever is clearer, and this also
         # keeps BX alive when the 1M feed lags (stale bars get dropped upstream by the fail-safe).
         entry_tf = m1 if len(m1) >= 30 else (m5 if len(m5) >= 30 else [])
-        higher = [c for c in (context.candles.get(TF.H1), context.candles.get(TF.M30)) if len(c) >= 20]
         htf    = {"Daily":   context.candles.get(TF.D1),
                   "Weekly":  context.candles.get(TF.W1),
                   "Monthly": context.candles.get(TF.MN)}
+        htf_map = htf_zone_map(htf)                       # D1/W1/MN zones — the A-grade backing check
         pip    = pip_size(sym)
         digits = price_digits(sym)
         out: list[Signal] = []
@@ -92,11 +93,10 @@ class BXStrategy(BaseStrategy):
                 elif inval == "expired":
                     self._locked.pop(sym, None)
 
-        # The fresh-zone cascade needs the 15M confluence AND an entry TF. If either feed is missing
-        # we still return the reports above — and SAY SO, rather than dying silently.
-        if len(m15) < 30 or len(entry_tf) < 30:
-            self._log(sym, "AWAIT_DATA", f"cascade needs 15M + an entry TF "
-                      f"(M15={len(m15)} M1={len(m1)} M5={len(m5)}) — reports still ran")
+        # The cascade needs an ENTRY TF (the mandatory confirm). The analysis TFs (15M/30M/1H) are
+        # optional now — their absence only caps the grade, it never drops the setup.
+        if len(entry_tf) < 30:
+            self._log(sym, "AWAIT_DATA", f"cascade needs an entry TF (M1={len(m1)} M5={len(m5)}) — reports still ran")
             return StrategyResult(signals=out)
 
         # STAGE 1 — 4H setup (confirmed, pro-trend, valid fresh zone, tapped, priced, liquidity-safe)
@@ -115,29 +115,34 @@ class BXStrategy(BaseStrategy):
             self._locked.setdefault(sym, {"direction": setup.direction, "distal": setup.zone.distal,
                                           "zone_time": zone_time, "locked_at": time.time()})
 
-        # STAGE 2 — LTF confluence: 15M CHoCH inside the zone (confirm) + refine + score;
-        #           1H/30M CHoCH inside the zone add strength (bonus, never required — they lag).
-        conf = ltf_confluence(setup, m15, pip, higher=higher)
-        if not conf.confirmed:
-            self._log(sym, "4H_ZONE_TAPPED", f"await 15M CHoCH — {conf.reason}")
-            return StrategyResult(signals=out)
-        if not conf.passed:
-            self._log(sym, "AWAIT_SCORE", f"15M confirmed but {conf.reason}")
-            return StrategyResult(signals=out)
+        # STAGE 2 — analysis-TF REFINEMENT + MTF alignment (15M/30M/1H, clearest wins). NOT a gate:
+        # a missing/quiet analysis TF only lowers the grade, it never drops the setup.
+        analysis_tfs = [(m15, "15M"),
+                        (context.candles.get(TF.M30), "30M"),
+                        (context.candles.get(TF.H1),  "1H")]
+        conf = analysis_refine(setup, analysis_tfs, pip)
 
-        # STAGE 3 — entry trigger off the refined POI (1M, or 5M when the 1M feed is lagging)
+        # STAGE 3 — MANDATORY confirmation entry on the entry TF (1M, or 5M when 1M lags): a CHoCH /
+        # S/D-flip BMS inside the (refined) 4H zone. THIS is the confirm now — never a blind limit.
         trig = entry_trigger(conf, setup, entry_tf, h4, pip)
         if not trig.triggered:
-            self._log(sym, "REFINED_SCORED", f"await 1M trigger — {trig.reason}")
+            self._log(sym, "4H_ZONE_TAPPED", f"await entry-TF confirmation — {trig.reason}")
             return StrategyResult(signals=out)
 
-        # SIGNAL — one per 4H zone, DM-only alert (Phase 1). Dedup committed ON CONFIRMED DELIVERY.
+        # GRADE — C: 4H + entry · B: + analysis-TF alignment · A: + HTF (D1/W1/MN) backing.
+        backing = htf_backing(setup.zone, htf_map)
+        grade   = "A" if (conf.confirmed and backing) else "B" if conf.confirmed else "C"
+        conf.grade = grade
+        conf.score = {"A": 85, "B": 72, "C": 66}[grade]
+        conf.details["backing"] = backing
+
+        # SIGNAL — real channel entry. Dedup committed ON CONFIRMED DELIVERY.
         delivery_ledger.cleanup(_STATE_TTL)
         if delivery_ledger.is_delivered(key):
             return StrategyResult(signals=out)
         self._locked.pop(sym, None)             # setup resolved into a signal — stop watching
-        self._log(sym, "SIGNAL", f"{trig.direction.upper()} entry {trig.entry:.{digits}f} "
-                  f"SL {trig.sl:.{digits}f} TP {trig.tp:.{digits}f} RR {trig.rr} (grade {conf.grade})")
+        self._log(sym, "SIGNAL", f"{trig.direction.upper()} [{grade}] entry {trig.entry:.{digits}f} "
+                  f"SL {trig.sl:.{digits}f} TP {trig.tp:.{digits}f} RR {trig.rr}")
         sig = build_signal(sym, setup, conf, trig, pip, digits, self.id, self.name)
         sig.dedup_key = key
         out.append(sig)

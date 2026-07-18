@@ -164,10 +164,10 @@ The book's Standard Operating Procedure, which BX follows (verified against the 
 - Book entry types (Ch.15 step 7): **DS/SD Flip · Continuation · CHoCH**. (A standalone "respected
   retest" is NOT a book entry type — see below.)
 
-**Grade (shown on the signal card):**
-- **C** = valid fresh 4H zone + 1M/5M confirmation entry (no Micro confluence).
-- **B** = C + one Micro-TF (15M/30M/1H) confluence (a supporting zone/CHoCH aligned with the 4H bias).
-- **A** = full MTF: 4H + Micro confluence + entry + D1/W1/MN backing (+ RSI div / premium-discount).
+**Grade (shown on the signal card) — each tier adds one MTF layer:**
+- **C** = 4H zone + entry TF (1M/5M) only.
+- **B** = 4H zone + **analysis TF (15M/30M/1H) alignment** + entry TF (1M/5M).
+- **A** = B + **HTF confluence** (a D1 / W1 / MN zone aligned with the 4H bias).
 
 **Retest = a re-entry on a MITIGATED but MAJOR zone.** Only a *previously-valid* **4H / D1 / W1 / MN**
 zone (never lower) that is respected **again** WITH a 1M/5M confirmation entry AND other confluence may

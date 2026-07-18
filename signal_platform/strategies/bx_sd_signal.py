@@ -17,13 +17,17 @@ def build_signal(symbol: str, setup: SetupResult, conf: LTFConfluence, trig: Ent
     zdir  = "demand" if buy else "supply"
     pricing = setup.confluences.get("pricing", "")
     divergent = bool(setup.confluences.get("rsi_divergence") or conf.details.get("ltf_divergence"))
+    aligned   = conf.details.get("aligned_tfs", [])          # analysis TFs (15M/30M/1H) that aligned
+    backing   = conf.details.get("backing", [])              # HTF (D1/W1/MN) zones that back it
+    align_txt = f"{', '.join(aligned)} aligned" if aligned else "no analysis-TF alignment"
+    back_txt  = f" + HTF backing ({', '.join(backing)})" if backing else ""
 
     reasons = [
         f"4H {'UPTREND' if buy else 'DOWNTREND'} — confirmed, pro-trend; fresh {zdir} zone tapped",
-        f"Valid zone: IFC + broke structure + liquidity grabbed (fuel), priced in {pricing}",
-        f"LTF CHoCH inside the zone (confirmed entry) — refined to a {conf.risk_pips:.1f} pip POI, "
-        f"grade {conf.grade} (score {conf.score})",
-        f"1M {trig.details.get('method', 'CHoCH')} trigger — {side} {trig.entry:.{digits}f}",
+        f"Valid 4H zone: IFC + broke structure + liquidity grabbed (fuel), priced in {pricing}",
+        f"GRADE {conf.grade} — {align_txt}{back_txt}; refined to a {conf.risk_pips:.1f} pip POI",
+        f"Confirmation entry: {trig.details.get('method', 'CHoCH')} BMS inside the zone on the entry TF "
+        f"— {side} {trig.entry:.{digits}f}",
         f"SL {trig.sl:.{digits}f} | TP {trig.tp:.{digits}f} | "
         f"Risk {trig.details['risk_pips']:.1f} pips | RR {trig.rr}:1",
     ]
@@ -31,9 +35,9 @@ def build_signal(symbol: str, setup: SetupResult, conf: LTFConfluence, trig: Ent
         f"CTX::4H TREND::{'UPTREND' if buy else 'DOWNTREND'} (PRO-TREND, CONFIRMED)",
         f"CTX::4H ZONE::FRESH {zdir.upper()} (IFC + BOS + LIQUIDITY GRAB)",
         f"CTX::PRICING::{pricing.upper()}",
-        f"PA::LTF CHoCH CONFIRMED — REFINED {conf.risk_pips:.1f}PIP POI (GRADE {conf.grade})",
-        f"PA::1M {trig.details.get('method', 'CHoCH').upper()} — {trig.details['entry_mode'].upper()} ENTRY, "
-        f"{trig.rr}R (TP {trig.details['tp_source'].replace('_', ' ').upper()})",
+        f"MTF::GRADE {conf.grade} — {align_txt.upper()}{(' + HTF ' + ', '.join(backing)) if backing else ''}",
+        f"PA::CONFIRMATION ENTRY {trig.details.get('method', 'CHoCH').upper()} — "
+        f"{trig.details['entry_mode'].upper()}, {trig.rr}R (TP {trig.details['tp_source'].replace('_', ' ').upper()})",
     ]
     if divergent:
         smc.append("PA::RSI DIVERGENCE ALIGNED")
@@ -58,7 +62,7 @@ def build_signal(symbol: str, setup: SetupResult, conf: LTFConfluence, trig: Ent
         alert_only        = False,
         technical_reasons = reasons,
         smc_factors       = smc,
-        market_context    = (f"BX-S/D (confirmed) — {side} {symbol} off a fresh 4H {zdir} zone, "
-                             f"LTF CHoCH-confirmed, refined {conf.risk_pips:.1f}pip, grade {conf.grade}, "
+        market_context    = (f"BX-S/D [{conf.grade}] — {side} {symbol} off a fresh 4H {zdir} zone, "
+                             f"{align_txt}{back_txt}, entry-TF confirmed, refined {conf.risk_pips:.1f}pip, "
                              f"{trig.rr}R entry {trig.entry:.{digits}f}"),
     )
