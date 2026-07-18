@@ -90,7 +90,7 @@ const Chip = ({ children, variant = 'neutral' as ChipVariant }: { children: Reac
   return (
     <span style={{
       ...MONO,
-      fontSize: 9, fontWeight: 600,
+      fontSize: 11, fontWeight: 600,
       padding: '1px 6px', borderRadius: 20,
       background: c.bg, color: c.color, border: `0.5px solid ${c.border}`,
       letterSpacing: '0.04em', whiteSpace: 'nowrap' as const, lineHeight: '16px',
@@ -103,7 +103,7 @@ const Chip = ({ children, variant = 'neutral' as ChipVariant }: { children: Reac
 const Panel = ({ title, badge, badgeColor = 'gray' as ChipVariant, children, style = {} as React.CSSProperties }: any) => (
   <div style={{ background: D.bg3, border: `0.5px solid ${D.bdInner}`, borderRadius: 10, overflow: 'hidden', ...style }}>
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '9px 12px', borderBottom: `0.5px solid ${D.bdInner}`, background: D.bg4 }}>
-      <span style={{ ...MONO, fontSize: 9, fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: '0.1em', color: D.label }}>
+      <span style={{ ...MONO, fontSize: 11, fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: '0.1em', color: D.label }}>
         {title}
       </span>
       {badge && <Chip variant={badgeColor as ChipVariant}>{badge}</Chip>}
@@ -113,7 +113,7 @@ const Panel = ({ title, badge, badgeColor = 'gray' as ChipVariant, children, sty
 );
 
 const DivLabel = ({ children }: { children: React.ReactNode }) => (
-  <div style={{ ...MONO, fontSize: 8, textTransform: 'uppercase' as const, letterSpacing: '0.1em', color: D.dim, padding: '7px 0 3px', borderBottom: `0.5px solid ${D.bdDiv}`, marginBottom: 1 }}>
+  <div style={{ ...MONO, fontSize: 10, textTransform: 'uppercase' as const, letterSpacing: '0.1em', color: D.dim, padding: '7px 0 3px', borderBottom: `0.5px solid ${D.bdDiv}`, marginBottom: 1 }}>
     {children}
   </div>
 );
@@ -121,20 +121,20 @@ const DivLabel = ({ children }: { children: React.ReactNode }) => (
 const SectionDivider = ({ label }: { label: string }) => (
   <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '2px 0' }}>
     <div style={{ flex: 1, height: '0.5px', background: D.bdInner }} />
-    <span style={{ ...MONO, fontSize: 8, textTransform: 'uppercase' as const, letterSpacing: '0.12em', color: D.dim }}>{label}</span>
+    <span style={{ ...MONO, fontSize: 10, textTransform: 'uppercase' as const, letterSpacing: '0.12em', color: D.dim }}>{label}</span>
     <div style={{ flex: 1, height: '0.5px', background: D.bdInner }} />
   </div>
 );
 
 const SubLabel = ({ children, style = {} as React.CSSProperties }: any) => (
-  <div style={{ ...MONO, fontSize: 8, color: D.dim, textTransform: 'uppercase' as const, letterSpacing: '0.1em', borderTop: `0.5px solid ${D.bdRow}`, paddingTop: 7, marginTop: 9, marginBottom: 5, ...style }}>
+  <div style={{ ...MONO, fontSize: 10, color: D.dim, textTransform: 'uppercase' as const, letterSpacing: '0.1em', borderTop: `0.5px solid ${D.bdRow}`, paddingTop: 7, marginTop: 9, marginBottom: 5, ...style }}>
     {children}
   </div>
 );
 
 const Row = ({ label, children, noBorder = false }: { label: React.ReactNode; children?: React.ReactNode; noBorder?: boolean }) => (
   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '5px 0', borderBottom: noBorder ? 'none' : `0.5px solid ${D.bdRow}` }}>
-    <span style={{ ...MONO, fontSize: 10, color: D.muted, display: 'flex', alignItems: 'center', gap: 6 }}>{label}</span>
+    <span style={{ ...MONO, fontSize: 12, color: D.muted, display: 'flex', alignItems: 'center', gap: 6 }}>{label}</span>
     <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexShrink: 0 }}>{children}</div>
   </div>
 );
@@ -150,7 +150,7 @@ const Scroll = ({ children }: { children: React.ReactNode }) => (
 /* ─── DATA ROW helpers ─────────────────────────────────────────────── */
 const DR = ({ label, value, vc }: { label: string; value: string; vc?: string }) => (
   <Row label={label}>
-    <span style={{ ...MONO, fontSize: 10, fontWeight: 600, color: vc || D.text }}>{value}</span>
+    <span style={{ ...MONO, fontSize: 12, fontWeight: 600, color: vc || D.text }}>{value}</span>
   </Row>
 );
 
@@ -159,7 +159,7 @@ const Bar = ({ label, pct, sub, count }: { label: string; pct: number | null | u
   return (
     <Row label={label}>
       {count != null && <Chip variant="gray">{count}</Chip>}
-      {sub && <span style={{ ...MONO, fontSize: 9, color: D.dim }}>{sub}</span>}
+      {sub && <span style={{ ...MONO, fontSize: 11, color: D.dim }}>{sub}</span>}
       <Chip variant={pVariant(v)}>{v != null ? `${v}%` : '—'}</Chip>
     </Row>
   );
@@ -287,10 +287,10 @@ const EquityChart = ({ equityCurve, equityGrowth }: { equityCurve: any[]; equity
   return (
     <div style={{ background: D.bg3, border: `0.5px solid ${D.bdInner}`, borderRadius: 10, overflow: 'hidden' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, padding: '9px 12px', borderBottom: `0.5px solid ${D.bdInner}`, background: D.bg4 }}>
-        <span style={{ ...MONO, fontSize: 9, fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: '0.1em', color: D.label }}>Equity Curve</span>
+        <span style={{ ...MONO, fontSize: 11, fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: '0.1em', color: D.label }}>Equity Curve</span>
         <div style={{ display: 'flex', gap: 2 }}>
           {(['DAILY', 'WEEKLY', 'MONTHLY'] as const).map(v => (
-            <button key={v} onClick={() => setView(v)} style={{ ...MONO, fontSize: 8, letterSpacing: '0.1em', textTransform: 'uppercase' as const, padding: '2px 8px', border: `0.5px solid ${view === v ? D.cyan : D.bdInner}`, background: view === v ? `${D.cyan}18` : 'transparent', color: view === v ? D.cyan : D.label, cursor: 'pointer', outline: 'none', borderRadius: 4 }}>
+            <button key={v} onClick={() => setView(v)} style={{ ...MONO, fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase' as const, padding: '2px 8px', border: `0.5px solid ${view === v ? D.cyan : D.bdInner}`, background: view === v ? `${D.cyan}18` : 'transparent', color: view === v ? D.cyan : D.label, cursor: 'pointer', outline: 'none', borderRadius: 4 }}>
               {v}
             </button>
           ))}
@@ -298,8 +298,8 @@ const EquityChart = ({ equityCurve, equityGrowth }: { equityCurve: any[]; equity
         <div style={{ display: 'flex', gap: 16 }}>
           {([['Balance', fmtBal(balance), isPos2 ? D.green : D.red], ['Return', retPct ? `${retPct >= 0 ? '+' : ''}${retPct.toFixed(2)}%` : '--', isPos2 ? D.green : D.red], ['Start', fmtBal(startBal), D.text]] as [string, string, string][]).map(([l, v, c], i) => (
             <div key={i} style={{ textAlign: 'right' as const }}>
-              <div style={{ ...MONO, fontSize: 7, color: D.dim, letterSpacing: '0.1em', textTransform: 'uppercase' as const, marginBottom: 1 }}>{l}</div>
-              <span style={{ ...MONO, fontSize: 9, fontWeight: 600, color: c }}>{v}</span>
+              <div style={{ ...MONO, fontSize: 9, color: D.dim, letterSpacing: '0.1em', textTransform: 'uppercase' as const, marginBottom: 1 }}>{l}</div>
+              <span style={{ ...MONO, fontSize: 11, fontWeight: 600, color: c }}>{v}</span>
             </div>
           ))}
         </div>
@@ -307,7 +307,7 @@ const EquityChart = ({ equityCurve, equityGrowth }: { equityCurve: any[]; equity
       <div style={{ padding: '10px 14px 8px' }}>
         <div style={{ display: 'flex', gap: 8 }}>
           <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', paddingRight: 6, paddingBottom: 18 }}>
-            {yLabels.map((l, i) => <span key={i} style={{ ...MONO, fontSize: 7, color: D.dim }}>{l}</span>)}
+            {yLabels.map((l, i) => <span key={i} style={{ ...MONO, fontSize: 9, color: D.dim }}>{l}</span>)}
           </div>
           <div style={{ flex: 1 }}>
             <svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none">
@@ -324,7 +324,7 @@ const EquityChart = ({ equityCurve, equityGrowth }: { equityCurve: any[]; equity
               <circle cx={last[0]} cy={last[1]} r="1.5" fill={D.cyan} />
             </svg>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
-              {labs.map((l: string, i: number) => <span key={i} style={{ ...MONO, fontSize: 7, color: D.dim }}>{l}</span>)}
+              {labs.map((l: string, i: number) => <span key={i} style={{ ...MONO, fontSize: 9, color: D.dim }}>{l}</span>)}
             </div>
           </div>
         </div>
@@ -365,7 +365,7 @@ export default function MetricsPanel({ sessionId, darkMode = true }: { sessionId
   const css = `
     @keyframes mp-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
     .mp-root, .mp-root *, .mp-root *::before, .mp-root *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    .mp-root { font-family: 'JetBrains Mono Variable', 'JetBrains Mono', 'Fira Mono', 'Courier New', monospace; background: ${D.bg}; color: ${D.text}; }
+    .mp-root { font-family: 'JetBrains Mono Variable', 'JetBrains Mono', 'Fira Mono', 'Courier New', monospace; font-weight: 500; background: ${D.bg}; color: ${D.text}; }
     .mp-kpi  { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; padding: 8px 0; background: ${D.bg}; border-bottom: 0.5px solid ${D.bdInner}; }
     .mp-page { padding: 12px 0; display: flex; flex-direction: column; gap: 10px; }
     .mp-g4   { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
@@ -375,10 +375,10 @@ export default function MetricsPanel({ sessionId, darkMode = true }: { sessionId
     .mp-scroll::-webkit-scrollbar { width: 3px; }
     .mp-scroll::-webkit-scrollbar-thumb { background: ${D.bdInner}; border-radius: 2px; }
     .mp-dtable      { width: 100%; border-collapse: collapse; }
-    .mp-dtable th   { font-family: 'JetBrains Mono Variable', 'JetBrains Mono', monospace; font-size: 8px; color: ${D.label}; text-transform: uppercase; letter-spacing: 0.1em; padding: 7px 10px; text-align: left; border-bottom: 0.5px solid ${D.bdInner}; font-weight: 500; }
-    .mp-dtable td   { font-family: 'JetBrains Mono Variable', 'JetBrains Mono', monospace; font-size: 10px; padding: 7px 10px; border-bottom: 0.5px solid ${D.bdRow}; color: ${D.text}; }
+    .mp-dtable th   { font-family: 'JetBrains Mono Variable', 'JetBrains Mono', monospace; font-size: 10px; color: ${D.label}; text-transform: uppercase; letter-spacing: 0.1em; padding: 7px 10px; text-align: left; border-bottom: 0.5px solid ${D.bdInner}; font-weight: 500; }
+    .mp-dtable td   { font-family: 'JetBrains Mono Variable', 'JetBrains Mono', monospace; font-size: 12px; padding: 7px 10px; border-bottom: 0.5px solid ${D.bdRow}; color: ${D.text}; }
     .mp-dtable tr:last-child td { border-bottom: none; }
-    .mp-select      { font-family: 'JetBrains Mono Variable', 'JetBrains Mono', monospace; font-size: 9px; background: ${D.bg4}; color: ${D.muted}; border: 0.5px solid ${D.bdInner}; padding: 2px 6px; outline: none; cursor: pointer; border-radius: 4px; letter-spacing: 0.06em; }
+    .mp-select      { font-family: 'JetBrains Mono Variable', 'JetBrains Mono', monospace; font-size: 11px; background: ${D.bg4}; color: ${D.muted}; border: 0.5px solid ${D.bdInner}; padding: 2px 6px; outline: none; cursor: pointer; border-radius: 4px; letter-spacing: 0.06em; }
     .mp-strat-grid  { display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
     .mp-eq-grid     { display: grid; grid-template-columns: 2fr 1fr; gap: 8px; }
     @media (max-width: 1024px) {
@@ -605,7 +605,7 @@ export default function MetricsPanel({ sessionId, darkMode = true }: { sessionId
       {isFetching && !isLoading && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '3px 16px', background: D.bg, borderBottom: `0.5px solid ${D.bdRow}` }}>
           <div style={{ width: 5, height: 5, borderRadius: '50%', background: D.cyan, flexShrink: 0, animation: 'mp-pulse 1.2s ease-in-out infinite' }} />
-          <span style={{ ...MONO, fontSize: 8, color: D.dim, letterSpacing: '0.12em', textTransform: 'uppercase' as const }}>Syncing…</span>
+          <span style={{ ...MONO, fontSize: 10, color: D.dim, letterSpacing: '0.12em', textTransform: 'uppercase' as const }}>Syncing…</span>
         </div>
       )}
 
@@ -613,9 +613,9 @@ export default function MetricsPanel({ sessionId, darkMode = true }: { sessionId
       <div className="mp-kpi">
         {kpis.map((k, i) => (
           <div key={i} className="mp-kpi-cell" data-testid={`metric-kpi-${i}`} style={{ background: D.bg2, border: `0.5px solid ${D.bdOuter}`, borderRadius: 8, padding: '10px 12px' }}>
-            <div style={{ ...MONO, fontSize: 9, color: D.label, textTransform: 'uppercase' as const, letterSpacing: '0.08em', marginBottom: 5 }}>{k.l}</div>
-            <div style={{ ...MONO, fontSize: 8, fontWeight: 600, lineHeight: 1.1, color: k.positive === true ? D.green : k.positive === false ? D.red : D.text, marginBottom: 3 }}>{k.v}</div>
-            <div style={{ ...MONO, fontSize: 9, color: D.sub }}>{k.s}</div>
+            <div style={{ ...MONO, fontSize: 11, color: D.label, textTransform: 'uppercase' as const, letterSpacing: '0.08em', marginBottom: 5 }}>{k.l}</div>
+            <div style={{ ...MONO, fontSize: 10, fontWeight: 600, lineHeight: 1.1, color: k.positive === true ? D.green : k.positive === false ? D.red : D.text, marginBottom: 3 }}>{k.v}</div>
+            <div style={{ ...MONO, fontSize: 11, color: D.sub }}>{k.s}</div>
           </div>
         ))}
       </div>
@@ -655,7 +655,7 @@ export default function MetricsPanel({ sessionId, darkMode = true }: { sessionId
           {/* Execution Precision */}
           <Panel title={t('metrics.executionPrecision')} badge="Score → Win%" badgeColor="blue">
             <Scroll>
-              <div style={{ ...MONO, fontSize: 8, color: D.dim, marginBottom: 4, letterSpacing: '0.06em', textTransform: 'uppercase' as const }}>Blended win rate by score</div>
+              <div style={{ ...MONO, fontSize: 10, color: D.dim, marginBottom: 4, letterSpacing: '0.06em', textTransform: 'uppercase' as const }}>Blended win rate by score</div>
               <ScoreRow label="Entry Precision"   impact={scoreImpacts.entryPrecisionScore} />
               <ScoreRow label="Timing Quality"    impact={scoreImpacts.timingQualityScore} />
               <ScoreRow label="Market Alignment"  impact={scoreImpacts.marketAlignmentScore} />
@@ -682,7 +682,7 @@ export default function MetricsPanel({ sessionId, darkMode = true }: { sessionId
           {/* Clarity & Confluence */}
           <Panel title={t('metrics.clarity')} badge="Confluence" badgeColor="purple">
             <Scroll>
-              <div style={{ ...MONO, fontSize: 8, color: D.dim, marginBottom: 4, letterSpacing: '0.06em', textTransform: 'uppercase' as const }}>High / Low split</div>
+              <div style={{ ...MONO, fontSize: 10, color: D.dim, marginBottom: 4, letterSpacing: '0.06em', textTransform: 'uppercase' as const }}>High / Low split</div>
               <Multi label="Clarity Level" options={[
                 { label: 'High', pct: (() => { const arr = scoreImpacts.setupClarityScore; if (!arr) return null; const hi = arr.find((b: any) => b.score === '4.5'); return hi?.winRate ?? null; })() },
                 { label: 'Low',  pct: (() => { const arr = scoreImpacts.setupClarityScore; if (!arr) return null; const lo = arr.find((b: any) => b.score === '3.0'); return lo?.winRate ?? null; })() },
@@ -707,7 +707,7 @@ export default function MetricsPanel({ sessionId, darkMode = true }: { sessionId
                 ? Object.entries(catBreakdown.keyLevelType || {}).map(([label, d]: [string, any], i) => (
                     <Bar key={i} label={label} pct={d?.winRate ?? null} count={d?.count || 0} />
                   ))
-                : <span style={{ ...MONO, fontSize: 9, color: D.dim }}>No key level data yet</span>
+                : <span style={{ ...MONO, fontSize: 11, color: D.dim }}>No key level data yet</span>
               }
               <Multi label="Momentum" options={['Strong', 'Moderate', 'Weak'].map(l => ({ label: l, pct: catBreakdown.momentumValidity?.[l]?.winRate ?? null }))} />
               <BoolYN label="Target Logic" data={boolImpacts.targetLogic} />
@@ -718,7 +718,7 @@ export default function MetricsPanel({ sessionId, darkMode = true }: { sessionId
           {/* Psychology & Discipline */}
           <Panel title={t('metrics.psychology')} badge="Psychology" badgeColor="amber">
             <Scroll>
-              <div style={{ ...MONO, fontSize: 8, color: D.dim, marginBottom: 4, letterSpacing: '0.06em', textTransform: 'uppercase' as const }}>High / Medium / Low</div>
+              <div style={{ ...MONO, fontSize: 10, color: D.dim, marginBottom: 4, letterSpacing: '0.06em', textTransform: 'uppercase' as const }}>High / Medium / Low</div>
               <Multi label="Rules Followed"      options={['High', 'Medium', 'Low'].map(l => ({ label: l, pct: catBreakdown.rulesFollowed?.[l]?.winRate ?? null }))} />
               <Multi label="Confidence"          options={['High', 'Medium', 'Low'].map(l => ({ label: l, pct: catBreakdown.confidenceLevel?.[l]?.winRate ?? null }))} />
               <Multi label="Energy Level"        options={['High', 'Medium', 'Low'].map(l => ({ label: l, pct: catBreakdown.energyLevel?.[l]?.winRate ?? null }))} />
@@ -729,7 +729,7 @@ export default function MetricsPanel({ sessionId, darkMode = true }: { sessionId
                 ? Object.entries(catBreakdown.emotionalState || {}).map(([label, d]: [string, any], i) => (
                     <Bar key={`emo-${i}`} label={label} pct={d?.winRate ?? null} count={d?.count || 0} />
                   ))
-                : <span style={{ ...MONO, fontSize: 9, color: D.dim }}>No emotional-state data yet</span>
+                : <span style={{ ...MONO, fontSize: 11, color: D.dim }}>No emotional-state data yet</span>
               }
               <DivLabel>Yes / No</DivLabel>
               <BoolYN label="External Distraction" data={boolImpacts.externalDistraction} />
@@ -781,7 +781,7 @@ export default function MetricsPanel({ sessionId, darkMode = true }: { sessionId
               {Object.entries(setupTags).map(([name, d]: [string, any], i) => (
                 <Bar key={i} label={name} pct={d.winRate ?? null} count={d.count || 0} />
               ))}
-              {Object.keys(setupTags).length === 0 && <span style={{ ...MONO, fontSize: 9, color: D.dim }}>No setup data yet</span>}
+              {Object.keys(setupTags).length === 0 && <span style={{ ...MONO, fontSize: 11, color: D.dim }}>No setup data yet</span>}
               <DivLabel>Trade Grade</DivLabel>
               {(['A', 'B', 'C', 'D', 'F'] as const).map(g => (
                 <Bar key={g} label={g} pct={tradeGrades[g]?.winRate ?? null} count={tradeGrades[g]?.count || 0} />
@@ -799,7 +799,7 @@ export default function MetricsPanel({ sessionId, darkMode = true }: { sessionId
                       <Chip variant={pVariant(x.pct)}>{x.pct}%</Chip>
                     </Row>
                   ))
-                : <span style={{ ...MONO, fontSize: 9, color: D.dim }}>No exit data yet</span>
+                : <span style={{ ...MONO, fontSize: 11, color: D.dim }}>No exit data yet</span>
               }
               <DivLabel>Planned vs Achieved R:R</DivLabel>
               <DR label="Avg Planned R:R"  value={rrAnalysis.avgPlannedRR  != null ? `1:${rrAnalysis.avgPlannedRR.toFixed(1)}`  : '--'} />
@@ -843,11 +843,11 @@ export default function MetricsPanel({ sessionId, darkMode = true }: { sessionId
           <Panel title="ATF + Session + Instrument" badge="Asset · TF · Session" badgeColor="green">
             {instrSessEntries.length > 0
               ? instrSessEntries.slice(0, 8).map((x, i) => <SplitBar key={i} label={x.k} win={x.win} loss={x.loss} count={x.count} />)
-              : <span style={{ ...MONO, fontSize: 9, color: D.dim }}>No combined data yet — ensure Analysis TF, Session, and Instrument are all filled</span>
+              : <span style={{ ...MONO, fontSize: 11, color: D.dim }}>No combined data yet — ensure Analysis TF, Session, and Instrument are all filled</span>
             }
             {instrSessEntries.length > 8 && (
               <div style={{ borderTop: `0.5px solid ${D.bdRow}`, paddingTop: 6, textAlign: 'center' as const }}>
-                <span style={{ ...MONO, fontSize: 8, color: D.dim }}>+ {instrSessEntries.length - 8} more</span>
+                <span style={{ ...MONO, fontSize: 10, color: D.dim }}>+ {instrSessEntries.length - 8} more</span>
               </div>
             )}
           </Panel>
@@ -857,7 +857,7 @@ export default function MetricsPanel({ sessionId, darkMode = true }: { sessionId
             <DivLabel>By Session Name</DivLabel>
             {sessEntries.length > 0
               ? sessEntries.map((x, i) => <Bar key={i} label={x.name} pct={x.wr || null} count={x.count} />)
-              : <span style={{ ...MONO, fontSize: 9, color: D.dim }}>No session data yet</span>
+              : <span style={{ ...MONO, fontSize: 11, color: D.dim }}>No session data yet</span>
             }
             <DivLabel>By Session Phase</DivLabel>
             {(() => {
@@ -947,7 +947,7 @@ export default function MetricsPanel({ sessionId, darkMode = true }: { sessionId
           {/* Candle Pattern × Timeframe */}
           <Panel title={t('metrics.candlePatterns')} badge="Patterns · Indicators" badgeColor="green">
             <Scroll>
-              <div style={{ ...MONO, fontSize: 8, color: D.dim, marginBottom: 4, letterSpacing: '0.06em', textTransform: 'uppercase' as const }}>Pattern · Indicator · TF → Performance</div>
+              <div style={{ ...MONO, fontSize: 10, color: D.dim, marginBottom: 4, letterSpacing: '0.06em', textTransform: 'uppercase' as const }}>Pattern · Indicator · TF → Performance</div>
               {Object.entries(candleIndicatorTFMatrix).length > 0
                 ? Object.entries(candleIndicatorTFMatrix).map(([key, d]: [string, any], i) => (
                     <Row key={i} label={key}>
@@ -957,7 +957,7 @@ export default function MetricsPanel({ sessionId, darkMode = true }: { sessionId
                   ))
                 : (
                   <div>
-                    <span style={{ ...MONO, fontSize: 9, color: D.dim }}>No combined data yet — fill Candle Pattern, Indicator State, and Entry TF on journal entries</span>
+                    <span style={{ ...MONO, fontSize: 11, color: D.dim }}>No combined data yet — fill Candle Pattern, Indicator State, and Entry TF on journal entries</span>
                     {candleEntries.length > 0 && (
                       <div style={{ marginTop: 10 }}>
                         <DivLabel>Candle Patterns (standalone)</DivLabel>
@@ -987,7 +987,7 @@ export default function MetricsPanel({ sessionId, darkMode = true }: { sessionId
                     <Chip variant={pVariant(x.wr)}>{x.wr != null ? `${x.wr}%` : '—'}</Chip>
                   </Row>
                 ))
-              : <span style={{ ...MONO, fontSize: 9, color: D.dim }}>No order type data</span>
+              : <span style={{ ...MONO, fontSize: 11, color: D.dim }}>No order type data</span>
             }
             <DivLabel>Entry Method</DivLabel>
             {entryMethodOpts.map((x, i) => <Bar key={i} label={x.l} pct={x.wr} />)}
@@ -1004,7 +1004,7 @@ export default function MetricsPanel({ sessionId, darkMode = true }: { sessionId
               <DivLabel>Instrument × Phase × Momentum</DivLabel>
               {instrPhaseMomEntries.length > 0
                 ? instrPhaseMomEntries.map((x, i) => <SplitBar key={i} label={x.k} win={x.win} loss={x.loss} count={x.count} />)
-                : <span style={{ ...MONO, fontSize: 9, color: D.dim }}>No combined data yet — ensure Instrument, Session Phase, and Momentum Validity are all filled</span>
+                : <span style={{ ...MONO, fontSize: 11, color: D.dim }}>No combined data yet — ensure Instrument, Session Phase, and Momentum Validity are all filled</span>
               }
             </Scroll>
           </Panel>
@@ -1031,7 +1031,7 @@ export default function MetricsPanel({ sessionId, darkMode = true }: { sessionId
                       </div>
                     );
                   })
-                : <span style={{ ...MONO, fontSize: 9, color: D.dim }}>No strategy/regime data yet</span>
+                : <span style={{ ...MONO, fontSize: 11, color: D.dim }}>No strategy/regime data yet</span>
               }
             </Scroll>
           </Panel>
@@ -1047,7 +1047,7 @@ export default function MetricsPanel({ sessionId, darkMode = true }: { sessionId
                       <Chip variant={pVariant(x.wr || null)}>{x.wr ? `${x.wr}%` : '—'}</Chip>
                     </Row>
                   ))
-                : <span style={{ ...MONO, fontSize: 9, color: D.dim }}>No entry TF data</span>
+                : <span style={{ ...MONO, fontSize: 11, color: D.dim }}>No entry TF data</span>
               }
               <DivLabel>Analysis TF</DivLabel>
               {Object.entries(tfAnalysis).map(([tf, d]: [string, any], i) => (
@@ -1056,7 +1056,7 @@ export default function MetricsPanel({ sessionId, darkMode = true }: { sessionId
                   <Chip variant={pVariant(d.winRate ?? null)}>{d.winRate != null ? `${Math.round(d.winRate)}%` : '—'}</Chip>
                 </Row>
               ))}
-              {Object.keys(tfAnalysis).length === 0 && <span style={{ ...MONO, fontSize: 9, color: D.dim }}>No analysis TF data</span>}
+              {Object.keys(tfAnalysis).length === 0 && <span style={{ ...MONO, fontSize: 11, color: D.dim }}>No analysis TF data</span>}
               <DivLabel>Context TF</DivLabel>
               {Object.entries(tfContext).map(([tf, d]: [string, any], i) => (
                 <Row key={i} label={tf}>
@@ -1064,7 +1064,7 @@ export default function MetricsPanel({ sessionId, darkMode = true }: { sessionId
                   <Chip variant={pVariant(d.winRate ?? null)}>{d.winRate != null ? `${Math.round(d.winRate)}%` : '—'}</Chip>
                 </Row>
               ))}
-              {Object.keys(tfContext).length === 0 && <span style={{ ...MONO, fontSize: 9, color: D.dim }}>No context TF data</span>}
+              {Object.keys(tfContext).length === 0 && <span style={{ ...MONO, fontSize: 11, color: D.dim }}>No context TF data</span>}
             </Scroll>
           </Panel>
         </div>
@@ -1073,7 +1073,7 @@ export default function MetricsPanel({ sessionId, darkMode = true }: { sessionId
         <SectionDivider label="Strategy Drill-Down" />
         <div style={{ background: D.bg3, border: `0.5px solid ${D.bdInner}`, borderRadius: 10, overflow: 'hidden' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '9px 12px', borderBottom: `0.5px solid ${D.bdInner}`, background: D.bg4 }}>
-            <span style={{ ...MONO, fontSize: 9, fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: '0.1em', color: D.label }}>Strategy Drill-Down</span>
+            <span style={{ ...MONO, fontSize: 11, fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: '0.1em', color: D.label }}>Strategy Drill-Down</span>
             <select value={strat} onChange={e => setStrat(e.target.value)} className="mp-select" data-testid="select-strategy-drill">
               {strategies.map(s => <option key={s}>{s}</option>)}
             </select>
@@ -1086,12 +1086,12 @@ export default function MetricsPanel({ sessionId, darkMode = true }: { sessionId
                 { bias: 'Bearish', ct: `(${shortTrades})`,   wr2: `${Math.round(shortWR)}%`,   c: D.red,   show: true },
                 { bias: 'Unknown', ct: `(${unknownTrades})`, wr2: `${Math.round(unknownWR)}%`, c: D.amber, show: unknownTrades > 0 },
               ].filter(x => x.show).map((x, i) => (
-                <Row key={i} label={<><Dot color={x.c} />{x.bias} <span style={{ ...MONO, fontSize: 8, color: D.dim }}>{x.ct}</span></>}>
-                  <span style={{ ...MONO, fontSize: 10, fontWeight: 600, color: x.c }}>{x.wr2}</span>
+                <Row key={i} label={<><Dot color={x.c} />{x.bias} <span style={{ ...MONO, fontSize: 10, color: D.dim }}>{x.ct}</span></>}>
+                  <span style={{ ...MONO, fontSize: 12, fontWeight: 600, color: x.c }}>{x.wr2}</span>
                 </Row>
               ))}
               <Row label="Current Streak" noBorder>
-                <span style={{ ...MONO, fontSize: 9, fontWeight: 600, color: streaks.currentStreakType === 'win' ? D.green : D.red }}>
+                <span style={{ ...MONO, fontSize: 11, fontWeight: 600, color: streaks.currentStreakType === 'win' ? D.green : D.red }}>
                   {(streaks.currentStreakType || '--').toUpperCase()} × {streaks.currentStreakCount || 0}
                 </span>
               </Row>
@@ -1107,7 +1107,7 @@ export default function MetricsPanel({ sessionId, darkMode = true }: { sessionId
                   <DR label="Trades"   value={`${topStrat.trades}`} />
                   <DR label="Net P/L"  value={fmtPL(topStrat.pl)} vc={topStrat.pl >= 0 ? D.green : D.red} />
                 </>
-              ) : <span style={{ ...MONO, fontSize: 9, color: D.dim }}>No strategy data yet</span>}
+              ) : <span style={{ ...MONO, fontSize: 11, color: D.dim }}>No strategy data yet</span>}
             </div>
           </div>
         </div>
@@ -1173,7 +1173,7 @@ export default function MetricsPanel({ sessionId, darkMode = true }: { sessionId
         <SectionDivider label="Strategy Performance — Market Conditions" />
         <div style={{ background: D.bg3, border: `0.5px solid ${D.bdInner}`, borderRadius: 10, overflow: 'hidden' }}>
           <div style={{ padding: '9px 12px', borderBottom: `0.5px solid ${D.bdInner}`, background: D.bg4 }}>
-            <span style={{ ...MONO, fontSize: 9, fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: '0.1em', color: D.label }}>
+            <span style={{ ...MONO, fontSize: 11, fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: '0.1em', color: D.label }}>
               Strategy Performance in Bullish, Bearish and Ranging Markets
             </span>
           </div>
@@ -1205,7 +1205,7 @@ export default function MetricsPanel({ sessionId, darkMode = true }: { sessionId
                           <td style={{ color: D.amber }}>{rangWR != null ? `${Math.round(rangWR)}%` : '--'}</td>
                           <td style={{ color: D.muted }}>{s.trades}</td>
                           <td style={{ color: pColor(s.wr ?? null) }}>{s.wr != null ? `${Math.round(s.wr)}%` : '--'}</td>
-                          <td style={{ ...MONO, fontSize: 10, fontWeight: 600, color: s.pl >= 0 ? D.green : D.red, textAlign: 'right' as const }}>{fmtPL(s.pl)}</td>
+                          <td style={{ ...MONO, fontSize: 12, fontWeight: 600, color: s.pl >= 0 ? D.green : D.red, textAlign: 'right' as const }}>{fmtPL(s.pl)}</td>
                         </tr>
                       );
                     })
@@ -1220,7 +1220,7 @@ export default function MetricsPanel({ sessionId, darkMode = true }: { sessionId
         <SectionDivider label="Setup Occurrence Frequency" />
         <div style={{ background: D.bg3, border: `0.5px solid ${D.bdInner}`, borderRadius: 10, overflow: 'hidden', marginBottom: 8 }}>
           <div style={{ padding: '9px 12px', borderBottom: `0.5px solid ${D.bdInner}`, background: D.bg4 }}>
-            <span style={{ ...MONO, fontSize: 9, fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: '0.1em', color: D.label }}>
+            <span style={{ ...MONO, fontSize: 11, fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: '0.1em', color: D.label }}>
               Setup Occurrence Frequency — Per Day / Week / Month / Year
             </span>
           </div>
