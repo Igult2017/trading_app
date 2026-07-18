@@ -101,15 +101,12 @@ async def _send_photo(chart_path: str, caption: str, chat_id: str | None = None)
 
 
 async def on_setup_alert(signal: Signal) -> None:
-    # Default: setup / pre-signal heads-ups are UNCONFIRMED → admin DM only, never the channel.
-    # Opt-in: a strategy may mark an alert `to_channel` when its OWN cascade already confirmed it,
-    # and it goes PUBLIC with the full signal card instead of the DM heads-up. No strategy uses this
-    # today — BX entries were the one user and are now REAL signals (saved + monitored), routed by
-    # strategy_id like VOCANT.1's. Kept because an alert that is genuinely public is a real case.
-    if signal.to_channel:
-        ok = await _send_text(format_signal_confirmed(signal))     # public signal channel
-    else:
-        ok = await _send_private(format_setup_alert(signal))
+    # Heads-up / pre-signal alerts. DM by default; a strategy can opt its heads-ups into the public
+    # CHANNEL via `to_channel` — still the HEADS-UP card (format_setup_alert), never a trade card. BX
+    # sends its FULL lifecycle to the channel (zone tapped → entry → invalidation), so subscribers see
+    # the setup form and resolve, not just the entry.
+    msg = format_setup_alert(signal)
+    ok  = await (_send_text(msg) if signal.to_channel else _send_private(msg))
     # At-least-once delivery: commit the producer's dedup key ONLY once the DM actually landed,
     # so a failed send (or crash before send) re-fires next scan instead of being lost forever.
     if ok and signal.dedup_key:

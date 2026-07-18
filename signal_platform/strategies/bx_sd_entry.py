@@ -21,7 +21,7 @@ from core.types import Candle
 from shared.swing_points import find_swing_points
 from strategies.bx_sd_zones import find_zones
 from strategies.bx_sd_validity import valid_zones
-from strategies.bx_sd_ltf import find_ltf_choch, refine_zone, LTFConfluence
+from strategies.bx_sd_ltf import find_ltf_choch, _choch_valid, refine_zone, LTFConfluence
 from strategies.bx_sd_setup import SetupResult
 
 
@@ -86,10 +86,15 @@ def entry_trigger(conf: LTFConfluence, setup: SetupResult, entry_tf: list[Candle
     z        = conf.refined_zone or setup.zone
 
     # Book entry methods on the entry TF (CHoCH and/or S/D flip). Both = "god setup".
-    choch = find_ltf_choch(entry_tf, want_dir, z, zdir) is not None
+    # INDUCEMENT GUARD — the book's "enter AFTER the manipulation": the CHoCH must reverse off a SWEPT
+    # swing (a LIQUIDITY GRAB). A reversal that left resting liquidity below (demand) / above (supply)
+    # is premature — that liquidity is a magnet. This is the entry-time liquidity sweep the whole
+    # method hinges on; the S/D flip already requires its reaction point to be taken out (a sweep too).
+    choch_e = find_ltf_choch(entry_tf, want_dir, z, zdir)
+    choch = choch_e is not None and _choch_valid(entry_tf, choch_e, zdir)
     flip  = _flip_ok(entry_tf, want_dir)
     if not (choch or flip):
-        r.reason = "no entry-TF CHoCH or S/D-flip off the refined zone (no trigger yet)"; return r
+        r.reason = "no entry-TF CHoCH (inducement swept) or S/D-flip off the zone (no trigger yet)"; return r
     r.triggered = True
     method = "CHoCH+Flip (god setup)" if (choch and flip) else ("CHoCH" if choch else "S/D Flip")
 

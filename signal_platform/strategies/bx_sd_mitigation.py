@@ -36,6 +36,7 @@ def mitigation_signal(zone: Zone, symbol: str, backing: list[str], digits: int,
         strategy_id       = strategy_id,
         strategy_name     = strategy_name,
         alert_only        = True,
+        to_channel        = True,        # everything about BX goes to the channel, not a DM
         qualified         = True,
         primary_timeframe = TF.H4,
         technical_reasons = [
