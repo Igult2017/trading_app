@@ -5,8 +5,9 @@ The book's highest-quality entry: price REACTS from a 4H zone (respects it), mov
 PULLS BACK to retest it. At the retest we watch the 4H zone and the entry TF simultaneously and
 only fire once the entry TF (1M or 5M — whichever is clearer) confirms an aligned entry.
 
-  is_respected_retest — zone mitigated, price body-moved away >= the zone's own height (a genuine
-                        reaction, not a wick), then returned to retest within the recent window.
+  is_respected_retest — zone mitigated (its FIRST tap), price body-moved away >= the zone's own height
+                        (a genuine reaction, not a wick), then its FIRST return — the fresh 2nd touch —
+                        falls in the recent window. A zone already retested + drained does NOT re-fire.
   confirm_retest      — runs the confluence + entry trigger on 5M AND 1M against the retested zone
                         and returns the CLEARER confirmed entry (better RR), or None.
 
@@ -44,10 +45,15 @@ def is_respected_retest(h4: list[Candle], zone: Zone, pip: float = 0.0001,
     # and BX would buy a level price had already gone through.
     if zone_broken(h4, zone, t1):
         return False
-    for j in range(away + 1, len(h4)):                      # returned to retest, recently
+    # The retest must be the zone's FRESH 2nd touch — the FIRST return after the reaction, happening
+    # NOW. Firing on any *later* recent tap would trade a zone that already had its respected retest
+    # and has since been tapped again (drained): the orders that made it are being consumed, so it is
+    # no longer the fresh zone the book trades (p27 "only unmitigated"; p32 "most RECENT S/D"). Stop at
+    # the first return and require IT to be recent, instead of scanning past earlier retests.
+    for j in range(away + 1, len(h4)):                      # the FIRST return after the reaction...
         tapped = (h4[j].low <= zone.top) if demand else (h4[j].high >= zone.bottom)
-        if tapped and j >= len(h4) - recent:
-            return True
+        if tapped:
+            return j >= len(h4) - recent                    # ...must be the recent event (fresh 2nd touch)
     return False
 
 

@@ -49,6 +49,15 @@ puts a limit at a level price has already swept.
 BX only ever trades **unmitigated** zones. Selection: **"Always use the most RECENT S/D that gives us
 the 3 factors."** (p32)
 
+**The respected-retest is the ONE sanctioned exception — and it is the FRESH zone's 2nd touch, not any
+later touch.** `is_respected_retest` = first tap (mitigation) → body-move away ≥ 1 zone-height
+(respected) → the **FIRST return after that reaction, happening now**. It must stop at that first
+return and require IT to be recent — **not** scan forward for *any* recent tap. A zone mitigated →
+respected → retested → reacted → retested again (tapped 3–4+ times) is **drained**: its orders are
+being consumed, so it is no longer fresh and must not fire. The old loop skipped past earlier retests
+and fired on the latest recent one, so drained zones re-fired forever (proven: a synthetic drained
+multi-touch fired under the old loop, does not under the fix; a clean 2nd touch still fires).
+
 ### Levels closed, taps and price live
 A **level must stay put; an event is live.**
 - `find_zones` → IFCs from `closed_only()`; **mitigation reads the FULL series** (a tap is happening now)
@@ -118,6 +127,7 @@ still face the 15M CHoCH and the 1M/5M ≥2R trigger, so **actual entries are fe
 
 | commit | what |
 |---|---|
+| _retest-fresh_ | respected-retest fired on **drained** zones (any later recent tap). Bound it to the FRESH 2nd touch: the FIRST return after the reaction must itself be the recent event, else don't fire. Clean 2nd touch still fires; drained multi-touch no longer does (verified) |
 | `bae83bb` | zones + structure from **CLOSED** candles; taps and price stay live |
 | `4d55ffc` | TP targeted **invalid** zones; `analyze`'s signal key was still origin-based |
 | `a69a207` | only **book-valid** zones (3 factors) reach any report — **67% fewer DMs** (4.9 → 1.6/day) |
