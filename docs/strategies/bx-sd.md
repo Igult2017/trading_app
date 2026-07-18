@@ -22,6 +22,16 @@ the images were unreadable and deferred a real rule (p33-35) on that basis — d
 `bx_sd_validity.py` applies factors 2+3, and that is what makes it a zone. **Only 33% of candidates
 qualify.** One definition, used by every path (entry cascade *and* reports) so they cannot drift.
 
+**The cascade PRE-MARKS valid zones, then waits for price to respect one — like the report paths.**
+`detect_setup` now selects with `is_valid` as a *pre-filter* (`[z for z in find_zones(h4) if … is_valid(…)]`)
+and takes the most-recent VALID zone freshly tapped. It used to grab the single newest *touched*
+candidate and check the factors on **only that one** — so a nearer **non-zone** could shadow a real
+valid zone right behind it and the whole scan bailed. This is the user's model: mark only qualifying
+zones (imbalance + structure break + liquidity grab), then wait; if price disrespects one it is dead,
+if it respects one it is traded then mitigated — we only ever hunt fresh, unmitigated, *valid* zones.
+Proven on real functions: with a newer INVALID zone and an older VALID zone both freshly tapped, the
+old selection bailed on the invalid one; the new selection falls through to the valid one.
+
 ### THE ZONE = the candle before the IFC, ANY COLOUR (p29, near-verbatim)
 > "Find areas where IFC has been created. Find the **LAST RECENT CANDLE BEFORE THE IFC**. **It doesn't
 > have to be in the opposite direction!** (For example: if the IFC was created on the long side, you
@@ -151,6 +161,7 @@ still face the 15M CHoCH and the 1M/5M ≥2R trigger, so **actual entries are fe
 
 | commit | what |
 |---|---|
+| _premark-valid_ | core cascade (`detect_setup`) now **pre-marks valid zones** (`is_valid` as a filter) and takes the most-recent VALID freshly-tapped zone, instead of grabbing the single newest *touched* candidate and bailing if it fails the factors. A nearer non-zone can no longer shadow a real valid zone behind it — brings the cascade in line with the report paths and the user's "pre-mark valid, then wait for respect" model. Fallback proven on the real functions |
 | _audit-liq-inval_ | full-BX audit: (1) the locked **defensive-liquidity** guard (`defensive_ok`) was enforced only in the core cascade — the **retest + continuation report paths fired blind**; now both reject an SL parked on a pool or an unswept opposing pool between entry and SL; (2) `check_invalidation` read the **forming** M15/H4 bar's close for a body-close "broken" call → false stand-downs; now reads **CLOSED** bars only (last closed M15 keeps it responsive). Both verified on the real functions |
 | _fresh-book_ | book-confirmed freshness (Ch.6/7/9): (1) `is_respected_retest` now requires the **mitigation itself** recent (`fresh_within`), not just the 2nd touch — the book trades the *most recent unmitigated* zone; (2) `is_fvg_tap` continuation now requires the **FVG's FIRST tap** to be the recent one, not a re-tap ("targeting the next unmitigated", p48). Both verified on the real functions |
 | _retest-fresh_ | respected-retest fired on **drained** zones (any later recent tap). Bound it to the FRESH 2nd touch: the FIRST return after the reaction must itself be the recent event, else don't fire. Clean 2nd touch still fires; drained multi-touch no longer does (verified) |

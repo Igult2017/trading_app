@@ -17,9 +17,9 @@ from dataclasses import dataclass, field
 from core.types import Candle
 from shared.swing_points import find_swing_points
 from strategies.bx_sd_structure import map_structure
-from strategies.bx_sd_zones import find_zones, zone_broken, Zone
-from strategies.bx_sd_liquidity import find_liquidity, swept_before, defensive_ok
-from strategies.bx_sd_validity import broke_structure, grabbed_liquidity, LIQ_WINDOW
+from strategies.bx_sd_zones import find_zones, Zone
+from strategies.bx_sd_liquidity import find_liquidity, defensive_ok
+from strategies.bx_sd_validity import is_valid
 from strategies.bx_sd_confluence import premium_discount, pricing_aligned, fib_target, rsi_divergence
 
 _RECENT     = 6    # a live tap must be within the last N 4H bars (leaves time for the LTF to confirm)
@@ -61,10 +61,16 @@ def detect_setup(h4: list[Candle], pip: float = 0.0001) -> SetupResult:
     tdir  = "buy"    if pro == "up" else "sell"
     up    = pro == "up"
 
-    # a zone price has CLOSED through is dead (bx_sd_zones.zone_broken) — never trade it
-    zones = [z for z in find_zones(h4) if z.direction == zdir and not zone_broken(h4, z)]
     pools = find_liquidity(h4, pip)
     price = h4[-1].close
+
+    # PRE-MARK only book-VALID zones (imbalance + structure break + liquidity grab, and not already
+    # closed through) — `is_valid` is the SAME definition the report paths use. A non-qualifying candle
+    # beside a gap is never a candidate, so a nearer non-zone can no longer SHADOW a real zone behind
+    # it. We then scan newest→oldest and take the most-recent VALID zone freshly tapped now — exactly
+    # "pre-mark the zones, then wait for price to respect one". Factors 2+3 are proven by is_valid, so
+    # there is no separate re-check below.
+    zones = [z for z in find_zones(h4) if z.direction == zdir and is_valid(h4, z, st, pools, pip)]
 
     cand = None
     for z in reversed(zones):
@@ -72,12 +78,7 @@ def detect_setup(h4: list[Candle], pip: float = 0.0001) -> SetupResult:
         if ft is not None and ft >= len(h4) - _RECENT:
             cand = z; break
     if cand is None:
-        r.reason = f"no fresh {zdir} zone tapped in the last {_RECENT} 4H bars"; return r
-
-    if not broke_structure(st, cand, "up" if up else "down"):
-        r.reason = "zone did not break structure (factor 2 fail)"; return r
-    if not swept_before(pools, h4, "sell" if up else "buy", cand.ifc_index, LIQ_WINDOW):
-        r.reason = "no liquidity grab before the zone (no fuel)"; return r
+        r.reason = f"no fresh VALID {zdir} zone tapped in the last {_RECENT} 4H bars"; return r
 
     pts   = find_swing_points(h4)
     highs = [p.price for p in pts if p.is_high]
