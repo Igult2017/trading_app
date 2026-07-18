@@ -169,15 +169,17 @@ The book's Standard Operating Procedure, which BX follows (verified against the 
 - **B** = 4H zone + **analysis TF (15M/30M/1H) alignment** + entry TF (1M/5M).
 - **A** = B + **HTF confluence** (a D1 / W1 / MN zone aligned with the 4H bias).
 
-**Retest = a re-entry on a MITIGATED but MAJOR zone.** Only a *previously-valid* **4H / D1 / W1 / MN**
-zone (never lower) that is respected **again** WITH a 1M/5M confirmation entry AND other confluence may
-fire to the channel — **graded, never bare C** (a mitigated zone must earn re-entry with confluence).
-A mitigated *lower*-TF zone respected again is **not tradeable**. This REPLACES the old
-`is_respected_retest` (move a full zone-height away, then return, on any valid zone), which wrongly
-traded already-mitigated zones as if they were fresh 2nd touches — the rule is **only fresh unmitigated
-4H zones fire at bare C**; mitigated majors need B/A confluence. The **same** 4H + 15M/30M/1H + 1M/5M
-MTF-alignment grade applies to retests, and requiring that alignment (B/A) is exactly what filters the
-low-quality retests out.
+**EVERYTHING revolves around the UNMITIGATED 4H zone.** It is the one anchor; D1/W1/MN, the analysis
+TFs, RSI, pricing — *everything else is only confluence to it* (grade), never a standalone setup. There
+is **no** standalone D1/W1/MN retest: a HTF zone matters only when it *backs* a 4H zone (→ A grade).
+
+**Retest = re-entry on a MITIGATED 4H zone, ONLY with strong evidence it was RESPECTED** (`retapped_now`):
+first tap OLD (mitigated), then a real **reaction away** ≥ one zone-height (the respect — a body move,
+not a wick), the zone not closed through, and price back inside it now. **No reaction = not respected =
+not considered.** It then still needs a 1M/5M confirmation entry and fires **only at B/A** (never bare
+C — a mitigated zone must EARN re-entry with MTF confluence). This REPLACES the old `is_respected_retest`
+(which treated a mitigated zone's return as a "fresh 2nd touch"). Rule: **only fresh unmitigated 4H
+zones fire at bare C**; a respected mitigated 4H zone needs B/A.
 
 ### Rate (measured, 2y real data, 3 pairs)
 **~4.1 setups/month** combined (98 in 24 months) — roughly one a week. Valid-zone mitigations

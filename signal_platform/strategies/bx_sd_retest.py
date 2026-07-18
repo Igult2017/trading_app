@@ -1,12 +1,12 @@
 """
 BX-S/D — retest & continuation CANDIDATE detectors (the confirm + grade is shared, bx_sd_confirm).
 
-  retapped_now  — a MITIGATED but still-alive MAJOR zone being RE-TAPPED now: its first tap is OLD
-                  (already mitigated, so NOT the fresh cascade's job) and price is back inside it. The
-                  "respected again" proof is the 1M/5M confirmation entry (confirm_grade), which the
-                  retest path requires at B/A — a mitigated zone must EARN its re-entry with MTF
-                  confluence, never bare C. This REPLACES the old is_respected_retest (move a full
-                  zone-height away then return), which wrongly traded already-mitigated zones as fresh.
+  retapped_now  — a MITIGATED 4H zone RE-TAPPED now WITH strong evidence it was RESPECTED (first tap
+                  OLD, then a real reaction away = the respect, not closed through, back inside now).
+                  No reaction = not respected = not considered. Everything revolves around the
+                  UNMITIGATED zone; a mitigated one is re-traded only when it clearly held, and then
+                  only at B/A (confirm_grade) — a mitigated zone must EARN its re-entry with MTF
+                  confluence, never bare C.
   fvg_zone / is_fvg_tap — the book's CONTINUATION entry: price taps the FRESH imbalance the impulse
                   left and continues, instead of fully retesting the zone.
   _setup_for_zone — a minimal SetupResult so a retest/continuation zone reuses the shared cascade.
@@ -20,18 +20,25 @@ from strategies.bx_sd_setup import _first_tap, SetupResult
 from strategies.bx_sd_confluence import premium_discount, fib_target
 
 
-def retapped_now(h4: list[Candle], zone: Zone, recent: int = 6) -> bool:
-    """A MITIGATED but still-alive zone being RE-TAPPED now: first tap is OLD (already mitigated — not
-    the fresh cascade's job), price is back inside it within the last `recent` bars, and it has NOT
-    closed through. Finds the candidate only; the 'respected again' proof is the 1M/5M entry."""
+def retapped_now(h4: list[Candle], zone: Zone, recent: int = 6, react_mult: float = 1.0) -> bool:
+    """A MITIGATED 4H zone RE-TAPPED now WITH strong evidence it was RESPECTED. Everything revolves
+    around the UNMITIGATED zone; a mitigated one is re-traded ONLY when it clearly held: its first tap
+    is OLD (already mitigated — not the fresh cascade's job), price then REACTED away by >= one
+    zone-height (a body move, not a wick — the RESPECT), the zone has NOT closed through, and price is
+    back inside it now. No reaction = not respected = NOT considered. (Final proof is the 1M/5M entry.)"""
     ft = _first_tap(h4, zone)
-    if ft is None or ft >= len(h4) - recent:        # never tapped, or FRESH (first tap is the recent one)
+    if ft is None or ft >= len(h4) - recent:        # never tapped, or FRESH (the core cascade's job)
         return False
     if zone_broken(h4, zone):                        # a zone price CLOSED through is dead
         return False
     demand = zone.direction == "demand"
+    react  = react_mult * (zone.top - zone.bottom)
+    respected = any((h4[j].close >= zone.top + react) if demand else (h4[j].close <= zone.bottom - react)
+                    for j in range(ft + 1, len(h4)))   # STRONG respect: a real reaction away after the tap
+    if not respected:
+        return False
     return any((h4[j].low <= zone.top) if demand else (h4[j].high >= zone.bottom)
-               for j in range(len(h4) - recent, len(h4)))
+               for j in range(len(h4) - recent, len(h4)))   # price back inside the zone now
 
 
 def fvg_zone(h4: list[Candle], zone: Zone) -> Zone | None:
