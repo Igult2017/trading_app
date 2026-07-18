@@ -39,5 +39,6 @@ def confirm_grade(setup: SetupResult, h4: list[Candle],
     if _RANK[grade] < _RANK[min_grade]:
         return None
     conf.grade, conf.score = grade, _SCORE[grade]
+    conf.risk_pips = trig.details["risk_pips"]     # the FINAL entry-TF-refined POI, not the analysis one
     conf.details["backing"] = backing
     return conf, trig, grade
