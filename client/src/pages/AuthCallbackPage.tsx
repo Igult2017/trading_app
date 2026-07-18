@@ -147,7 +147,7 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 18,
     fontWeight: 400,
     letterSpacing: '0.01em',
-    fontFamily: "'DM Serif Display', serif",
+    fontFamily: "'Playfair Display', serif",
   },
   spinner: {
     width: 44,

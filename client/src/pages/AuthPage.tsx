@@ -538,7 +538,7 @@ const S: Record<string, React.CSSProperties> = {
   logoText: {
     fontSize: 17,
     fontWeight: 400,
-    fontFamily: "'DM Serif Display', serif",
+    fontFamily: "'Playfair Display', serif",
     letterSpacing: '0.01em',
     display: 'flex',
     alignItems: 'baseline',

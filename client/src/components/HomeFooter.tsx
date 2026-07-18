@@ -48,7 +48,7 @@ export default function HomeFooter({ darkMode = false }: HomeFooterProps) {
   const capClr  = dm ? '#334155' : '#94a3b8';
   const descClr = dm ? '#475569' : '#64748b';
 
-  const hFont = { fontFamily: "'DM Serif Display', serif", fontWeight: 400, letterSpacing: "0.01em" } as const;
+  const hFont = { fontFamily: "'Playfair Display', serif", fontWeight: 400, letterSpacing: "0.01em" } as const;
   const bFont = { fontFamily: "'Playfair Display', serif" } as const;
   const cap: React.CSSProperties = { ...bFont, fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: capClr, marginBottom: 20, display: "block" };
 

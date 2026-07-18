@@ -79,7 +79,7 @@ export default function HomeHeader({ darkMode, setDarkMode, activePath }: HomeHe
     ? dm ? "0 4px 24px rgba(0,0,0,0.5)" : "0 2px 16px rgba(0,0,0,0.06)"
     : "none";
 
-  const hFont = { fontFamily: "'DM Serif Display', serif",     fontWeight: 400, letterSpacing: "0.01em" } as const;
+  const hFont = { fontFamily: "'Playfair Display', serif",     fontWeight: 400, letterSpacing: "0.01em" } as const;
   const nFont = { fontFamily: "'Playfair Display', serif", fontWeight: 400 } as const;
 
   const handleLinkHover = useCallback((href: string) => {

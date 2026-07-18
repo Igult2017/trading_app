@@ -53,7 +53,7 @@ function UL({ items, dm }: { items: string[]; dm: boolean }) {
 
 function Brand({ dm }: { dm: boolean }) {
   return (
-    <span style={{ fontFamily: "'DM Serif Display', serif", fontWeight: 400, letterSpacing: '0.01em', whiteSpace: 'nowrap' }}>
+    <span style={{ fontFamily: "'Playfair Display', serif", fontWeight: 400, letterSpacing: '0.01em', whiteSpace: 'nowrap' }}>
       <span style={{ color: dm ? '#f1f5f9' : '#0f172a' }}>Trade</span><span style={{ color: '#2563eb' }}>&</span><span style={{ color: dm ? '#f1f5f9' : '#0f172a' }}>Journal</span>
     </span>
   );

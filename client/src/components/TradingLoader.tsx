@@ -94,7 +94,7 @@ export default function TradingLoader({
         <div
           style={{
             marginBottom: 4,
-            fontFamily: "'DM Serif Display', serif",
+            fontFamily: "'Playfair Display', serif",
             fontWeight: 400,
             fontSize: 17,
             letterSpacing: "0.01em",

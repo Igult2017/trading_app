@@ -3286,7 +3286,7 @@ export default function AdminPanel() {
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           {/* Logo */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontWeight: 400, fontSize: '14px', letterSpacing: '0.01em', fontFamily: "'DM Serif Display', serif" }}>
+            <span style={{ fontWeight: 400, fontSize: '14px', letterSpacing: '0.01em', fontFamily: "'Playfair Display', serif" }}>
               <span style={{ color: '#ffffff' }}>Trade</span><span style={{ color: '#2563eb' }}>&amp;</span><span style={{ color: '#ffffff' }}>Journal</span>
             </span>
           </div>
