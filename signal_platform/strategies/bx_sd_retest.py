@@ -1,67 +1,37 @@
 """
-BX-S/D — Report ②: respected 4H zone → retest → 1M/5M-aligned CONFIRMED entry (priority).
+BX-S/D — retest & continuation CANDIDATE detectors (the confirm + grade is shared, bx_sd_confirm).
 
-The book's highest-quality entry: price REACTS from a 4H zone (respects it), moves away, then
-PULLS BACK to retest it. At the retest we watch the 4H zone and the entry TF simultaneously and
-only fire once the entry TF (1M or 5M — whichever is clearer) confirms an aligned entry.
+  retapped_now  — a MITIGATED but still-alive MAJOR zone being RE-TAPPED now: its first tap is OLD
+                  (already mitigated, so NOT the fresh cascade's job) and price is back inside it. The
+                  "respected again" proof is the 1M/5M confirmation entry (confirm_grade), which the
+                  retest path requires at B/A — a mitigated zone must EARN its re-entry with MTF
+                  confluence, never bare C. This REPLACES the old is_respected_retest (move a full
+                  zone-height away then return), which wrongly traded already-mitigated zones as fresh.
+  fvg_zone / is_fvg_tap — the book's CONTINUATION entry: price taps the FRESH imbalance the impulse
+                  left and continues, instead of fully retesting the zone.
+  _setup_for_zone — a minimal SetupResult so a retest/continuation zone reuses the shared cascade.
 
-  is_respected_retest — zone mitigated (its FIRST tap), price body-moved away >= the zone's own height
-                        (a genuine reaction, not a wick), then its FIRST return — the fresh 2nd touch —
-                        falls in the recent window. A zone already retested + drained does NOT re-fire.
-  confirm_retest      — runs the confluence + entry trigger on 5M AND 1M against the retested zone
-                        and returns the CLEARER confirmed entry (better RR), or None.
-
-Reuses BX's own primitives (zones, structure, liquidity, confluence, entry trigger).
+Reuses BX's own primitives only.
 """
 from core.types import Candle
 from shared.swing_points import find_swing_points
 from strategies.bx_sd_zones import Zone, zone_broken
-from strategies.bx_sd_structure import map_structure
 from strategies.bx_sd_setup import _first_tap, SetupResult
 from strategies.bx_sd_confluence import premium_discount, fib_target
-from strategies.bx_sd_liquidity import find_liquidity, defensive_ok
-from strategies.bx_sd_ltf import ltf_confluence
-from strategies.bx_sd_entry import entry_trigger
 
 
-def is_respected_retest(h4: list[Candle], zone: Zone, pip: float = 0.0001,
-                        recent: int = 6, react_mult: float = 1.0, fresh_within: int = 12) -> bool:
-    """True when `zone` was respected (a real reaction away), is STILL ALIVE, and price is now
-    retesting it — and the whole event is FRESH (the book trades unmitigated zones)."""
-    t1 = _first_tap(h4, zone)
-    if t1 is None:
+def retapped_now(h4: list[Candle], zone: Zone, recent: int = 6) -> bool:
+    """A MITIGATED but still-alive zone being RE-TAPPED now: first tap is OLD (already mitigated — not
+    the fresh cascade's job), price is back inside it within the last `recent` bars, and it has NOT
+    closed through. Finds the candidate only; the 'respected again' proof is the 1M/5M entry."""
+    ft = _first_tap(h4, zone)
+    if ft is None or ft >= len(h4) - recent:        # never tapped, or FRESH (first tap is the recent one)
         return False
-    # The MITIGATION itself must be recent, not just the 2nd touch. The book trades FRESH zones: "use
-    # the one that has not been mitigated yet" (Ch.9 Third Step) and "targeting the recent unmitigated
-    # supply" (Ch.9 Second Step). A zone whose first tap is ancient is stale even if it is only now
-    # retesting, so the whole mitigation→reaction→retest must sit inside a fresh window.
-    if t1 < len(h4) - fresh_within:
+    if zone_broken(h4, zone):                        # a zone price CLOSED through is dead
         return False
     demand = zone.direction == "demand"
-    react  = react_mult * (zone.top - zone.bottom)          # a genuine reaction = >= 1 zone height
-    away   = None
-    for j in range(t1 + 1, len(h4)):                        # body move away = respected (not a wick)
-        if demand and h4[j].close >= zone.top + react:
-            away = j; break
-        if not demand and h4[j].close <= zone.bottom - react:
-            away = j; break
-    if away is None:
-        return False
-    # The zone must still EXIST. Without this, price smashing through a demand makes every later bar
-    # satisfy `low <= zone.top` trivially — so a destroyed zone reported a "respected retest" forever
-    # and BX would buy a level price had already gone through.
-    if zone_broken(h4, zone, t1):
-        return False
-    # The retest must be the zone's FRESH 2nd touch — the FIRST return after the reaction, happening
-    # NOW. Firing on any *later* recent tap would trade a zone that already had its respected retest
-    # and has since been tapped again (drained): the orders that made it are being consumed, so it is
-    # no longer the fresh zone the book trades (p27 "only unmitigated"; p32 "most RECENT S/D"). Stop at
-    # the first return and require IT to be recent, instead of scanning past earlier retests.
-    for j in range(away + 1, len(h4)):                      # the FIRST return after the reaction...
-        tapped = (h4[j].low <= zone.top) if demand else (h4[j].high >= zone.bottom)
-        if tapped:
-            return j >= len(h4) - recent                    # ...must be the recent event (fresh 2nd touch)
-    return False
+    return any((h4[j].low <= zone.top) if demand else (h4[j].high >= zone.bottom)
+               for j in range(len(h4) - recent, len(h4)))
 
 
 def fvg_zone(h4: list[Candle], zone: Zone) -> Zone | None:
@@ -100,7 +70,7 @@ def is_fvg_tap(h4: list[Candle], zone: Zone, fvg: Zone, recent: int = 6) -> bool
 
 
 def _setup_for_zone(h4: list[Candle], zone: Zone, pip: float) -> SetupResult:
-    """A minimal SetupResult so the retested zone can reuse ltf_confluence + entry_trigger."""
+    """A minimal SetupResult so a retest/continuation zone can reuse the shared confirm + grade."""
     buy = zone.direction == "demand"
     pts   = find_swing_points(h4)
     highs = [p.price for p in pts if p.is_high]
@@ -116,34 +86,3 @@ def _setup_for_zone(h4: list[Candle], zone: Zone, pip: float) -> SetupResult:
     r.confluences = {"pricing": premium_discount(leg_low, leg_high, h4[-1].close),
                      "pro_trend": "up" if buy else "down"}
     return r
-
-
-def confirm_retest(zone: Zone, h4: list[Candle], m5: list[Candle], m1: list[Candle],
-                   pip: float = 0.0001, min_rr: float = 2.0):
-    """Watch the entry TFs at the retest: run confluence + trigger on 5M AND 1M and return the
-    CLEARER confirmed entry (higher RR) as (trigger, confluence, tf_label), else None. Pro-trend +
-    confirmed still required (the zone direction must match the confirmed 4H trend)."""
-    want = "up" if zone.direction == "demand" else "down"
-    if map_structure(h4).pro_trend() != want:
-        return None
-    setup = _setup_for_zone(h4, zone, pip)
-    pools = find_liquidity(h4, pip)                     # for the defensive-liquidity guard below
-    best = None
-    for entry_tf, label in ((m5, "5M"), (m1, "1M")):
-        if len(entry_tf) < 20:
-            continue
-        conf = ltf_confluence(setup, entry_tf, pip)
-        if not conf.passed:
-            continue
-        trig = entry_trigger(conf, setup, entry_tf, h4, pip, min_rr)
-        if not trig.triggered:
-            continue
-        # DEFENSE — the locked "liquidity-aware both ways" rule applies to EVERY BX entry, but only the
-        # core cascade enforced it; the retest fired blind. Reject if the SL sits on a pool or an
-        # UNSWEPT opposing pool sits between entry and SL (we'd be the liquidity). Exclude the zone's
-        # own distal (our SL is tucked beyond it by design).
-        excl = (conf.refined_zone or zone).distal
-        ok, _ = defensive_ok(pools, h4, zone.direction, trig.entry, trig.sl, pip, exclude=excl)
-        if ok and (best is None or trig.rr > best[0].rr):
-            best = (trig, conf, label, setup)
-    return best

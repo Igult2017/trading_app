@@ -17,10 +17,9 @@ from core.strategy_context import StrategyContext
 from core import delivery_ledger
 from shared.pip import pip_size, price_digits
 from strategies.bx_sd_setup import detect_setup
-from strategies.bx_sd_analysis import analysis_refine
-from strategies.bx_sd_entry import entry_trigger
+from strategies.bx_sd_confirm import confirm_grade
 from strategies.bx_sd_signal import build_signal
-from strategies.bx_sd_htf import htf_zone_map, htf_backing
+from strategies.bx_sd_htf import htf_zone_map
 from strategies.bx_sd_watch import check_invalidation, invalidation_signal
 from strategies.bx_sd_reports import scan_reports
 
@@ -64,6 +63,10 @@ class BXStrategy(BaseStrategy):
         # Entry TF: prefer 1M, fall back to 5M. The book uses whichever is clearer, and this also
         # keeps BX alive when the 1M feed lags (stale bars get dropped upstream by the fail-safe).
         entry_tf = m1 if len(m1) >= 30 else (m5 if len(m5) >= 30 else [])
+        # Analysis TFs (Micro) — refine the 4H zone + MTF alignment; any of 15M/30M/1H, clearest wins.
+        analysis_tfs = [(m15, "15M"),
+                        (context.candles.get(TF.M30), "30M"),
+                        (context.candles.get(TF.H1),  "1H")]
         htf    = {"Daily":   context.candles.get(TF.D1),
                   "Weekly":  context.candles.get(TF.W1),
                   "Monthly": context.candles.get(TF.MN)}
@@ -72,10 +75,9 @@ class BXStrategy(BaseStrategy):
         digits = price_digits(sym)
         out: list[Signal] = []
 
-        # REPORTS — 4H zone mitigation heads-ups + respected-retest confirmed entries.
-        # Independent of the fresh-zone cascade below; deduped once per zone ON CONFIRMED DELIVERY
-        # (at-least-once — a failed DM re-fires next scan instead of being lost).
-        out += scan_reports(sym, h4, m5, m1, htf, pip, digits, self.name, self.id)
+        # REPORTS — mitigation heads-ups (DM) + RETEST (mitigated major zone, B/A) + CONTINUATION.
+        # Independent of the fresh-zone cascade below; deduped once per zone ON CONFIRMED DELIVERY.
+        out += scan_reports(sym, h4, analysis_tfs, entry_tf, m5, m1, htf, pip, digits, self.name, self.id)
 
         # WATCH — a tapped setup broke before it triggered: alert (at-least-once), then stop watching.
         locked = self._locked.get(sym)
@@ -115,26 +117,13 @@ class BXStrategy(BaseStrategy):
             self._locked.setdefault(sym, {"direction": setup.direction, "distal": setup.zone.distal,
                                           "zone_time": zone_time, "locked_at": time.time()})
 
-        # STAGE 2 — analysis-TF REFINEMENT + MTF alignment (15M/30M/1H, clearest wins). NOT a gate:
-        # a missing/quiet analysis TF only lowers the grade, it never drops the setup.
-        analysis_tfs = [(m15, "15M"),
-                        (context.candles.get(TF.M30), "30M"),
-                        (context.candles.get(TF.H1),  "1H")]
-        conf = analysis_refine(setup, analysis_tfs, pip)
-
-        # STAGE 3 — MANDATORY confirmation entry on the entry TF (1M, or 5M when 1M lags): a CHoCH /
-        # S/D-flip BMS inside the (refined) 4H zone. THIS is the confirm now — never a blind limit.
-        trig = entry_trigger(conf, setup, entry_tf, h4, pip)
-        if not trig.triggered:
-            self._log(sym, "4H_ZONE_TAPPED", f"await entry-TF confirmation — {trig.reason}")
+        # STAGE 2-3 — analysis-TF refine + MANDATORY 1M/5M confirmation entry + grade (shared helper).
+        # A FRESH 4H zone fires at any grade (C and up); the retest path reuses this at min_grade="B".
+        res = confirm_grade(setup, h4, analysis_tfs, entry_tf, htf_map, pip)
+        if res is None:
+            self._log(sym, "4H_ZONE_TAPPED", "await entry-TF confirmation (1M/5M BMS inside the zone)")
             return StrategyResult(signals=out)
-
-        # GRADE — C: 4H + entry · B: + analysis-TF alignment · A: + HTF (D1/W1/MN) backing.
-        backing = htf_backing(setup.zone, htf_map)
-        grade   = "A" if (conf.confirmed and backing) else "B" if conf.confirmed else "C"
-        conf.grade = grade
-        conf.score = {"A": 85, "B": 72, "C": 66}[grade]
-        conf.details["backing"] = backing
+        conf, trig, grade = res
 
         # SIGNAL — real channel entry. Dedup committed ON CONFIRMED DELIVERY.
         delivery_ledger.cleanup(_STATE_TTL)

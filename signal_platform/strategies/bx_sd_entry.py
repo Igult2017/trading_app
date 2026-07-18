@@ -21,7 +21,7 @@ from core.types import Candle
 from shared.swing_points import find_swing_points
 from strategies.bx_sd_zones import find_zones
 from strategies.bx_sd_validity import valid_zones
-from strategies.bx_sd_ltf import find_ltf_choch, LTFConfluence
+from strategies.bx_sd_ltf import find_ltf_choch, refine_zone, LTFConfluence
 from strategies.bx_sd_setup import SetupResult
 
 
@@ -93,9 +93,14 @@ def entry_trigger(conf: LTFConfluence, setup: SetupResult, entry_tf: list[Candle
     r.triggered = True
     method = "CHoCH+Flip (god setup)" if (choch and flip) else ("CHoCH" if choch else "S/D Flip")
 
+    # Refine DOWN to the ENTRY TF for a tight SL (book Ch.15 steps 3-4: "refine down to 1M"). The CHoCH
+    # above is checked against the wider (analysis/4H) zone; the SL comes off the tightest entry-TF POI.
+    # This is what lets a bare-C setup (no analysis-TF refinement) still fit a ~2-pip SL and clear RR.
+    z = refine_zone(entry_tf, zdir, z, pip) or z
+
     # entry: proximal when the zone already fits a 2-pip SL, else the 50% EQUILIBRIUM (book: use 50%
     # when a max-2-pip SL can't cover the whole zone) so the SL stays ~<= 2 pip.
-    use_eq50 = conf.refined_zone is not None and (z.top - z.bottom) / pip > 2.0
+    use_eq50 = (z.top - z.bottom) / pip > 2.0
     entry = z.eq50 if use_eq50 else z.proximal
     sl    = z.distal - 2 * pip if buy else z.distal + 2 * pip
     r.entry, r.sl = entry, sl
