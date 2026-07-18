@@ -35,7 +35,8 @@ def confirm_continuation(fvg: Zone, zone: Zone, h4: list[Candle], m5: list[Candl
         return None
     buy   = fvg.direction == "demand"
     setup = _setup_for_zone(h4, fvg, pip)
-    pools = find_liquidity(h4, pip)                    # for the defensive-liquidity guard below
+    finer = next((cs for cs, _ in analysis_tfs if len(cs) >= 20), None)   # M15/M30/1H — session-H/L feed
+    pools = find_liquidity(h4, pip, session_candles=finer)   # for the defensive-liquidity guard below
     # grade once (analysis-TF alignment + HTF backing on the ORIGIN zone) — independent of the entry TF
     arc     = analysis_refine(setup, analysis_tfs, pip)
     backing = htf_backing(zone, htf_map)
@@ -48,7 +49,8 @@ def confirm_continuation(fvg: Zone, zone: Zone, h4: list[Candle], m5: list[Candl
         use_eq50 = (fvg.top - fvg.bottom) / pip > 2.0
         entry = fvg.eq50 if use_eq50 else fvg.proximal
         sl    = fvg.distal - 2 * pip if buy else fvg.distal + 2 * pip
-        tp = next((c for c in _tp_candidates(setup, h4, entry, buy) if _rr(entry, sl, c, buy) >= min_rr), None)
+        tp = next((c for c in _tp_candidates(setup, h4, entry, buy, pip, session_candles=finer)
+                   if _rr(entry, sl, c, buy) >= min_rr), None)
         if tp is None:
             continue
         # DEFENSE — locked "liquidity-aware both ways" rule (was only enforced in the core cascade):

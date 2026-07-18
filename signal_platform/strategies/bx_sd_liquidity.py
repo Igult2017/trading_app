@@ -13,9 +13,15 @@ Two roles:
 Reuses only the generic shared RESOURCE find_swing_points.
 """
 from dataclasses import dataclass
+from datetime import datetime, timezone
 
 from core.types import Candle
 from shared.swing_points import find_swing_points
+
+# Session windows in UTC (fixed — a ±1h DST shift doesn't move a session's high/low materially).
+# Aligned with the app's clock: Tokyo 00-09 UTC (server/lib/marketHours), London open ~07:00 UTC
+# (server/scrapers/scheduler), NY ~12-21 UTC.
+_SESSIONS = (("asia", 0, 9), ("lon", 7, 16), ("ny", 12, 21))
 
 
 @dataclass
@@ -48,11 +54,50 @@ def _period_pools(candles: list[Candle], span: int, hi_kind: str, lo_kind: str) 
     return out
 
 
-def find_liquidity(candles: list[Candle], pip: float = 0.0001,
-                   eq_tol_pips: float = 2.0, n: int = 3) -> list[LiquidityPool]:
-    """All liquidity pools — every swing is a pool; near-equal swings are EQH/EQL (stronger); plus
-    prior DAY / WEEK / MONTH highs/lows (PDH/PDL · PWH/PWL · PMH/PML — the major pools the book weights).
-    (Session H/L still needs a finer feed than H4 — deferred; trend-line liquidity not auto-detected.)"""
+def _session_pools(finer: list[Candle], h4: list[Candle]) -> list[LiquidityPool]:
+    """Asian / London / NY SESSION highs/lows from a FINER feed (M15/M30) — H4 is too coarse to isolate
+    a session boundary. Retail stops rest beyond each session's extreme (book Ch.5 "Session high/low");
+    the still-forming current session is skipped. Sessions OVERLAP, so a bar feeds every session it is
+    in. Each pool is indexed into the H4 stream (the H4 bar at the session's end) so is_swept /
+    swept_before operate on the same series as the other pools."""
+    if not finer or not h4:
+        return []
+    def _utc(t): return datetime.fromtimestamp(t, tz=timezone.utc)
+    buckets: dict[tuple, dict] = {}
+    order: list[tuple] = []
+    for c in finer:
+        u = _utc(c.time); d = u.toordinal(); hr = u.hour
+        for name, s, e in _SESSIONS:
+            if s <= hr < e:                                  # no break — overlapping sessions both count
+                k = (d, name)
+                b = buckets.get(k)
+                if b is None:
+                    buckets[k] = {"hi": c.high, "lo": c.low, "end": c.time}; order.append(k)
+                else:
+                    b["hi"] = max(b["hi"], c.high); b["lo"] = min(b["lo"], c.low); b["end"] = c.time
+    lu = _utc(finer[-1].time)
+    forming = {(lu.toordinal(), n) for n, s, e in _SESSIONS if s <= lu.hour < e}
+    def _h4_idx(t):                                          # last H4 bar at/before the session end
+        idx = 0
+        for i, c in enumerate(h4):
+            if c.time <= t: idx = i
+            else: break
+        return idx
+    out: list[LiquidityPool] = []
+    for k in order:
+        if k in forming:
+            continue
+        b = buckets[k]; name = k[1]; idx = _h4_idx(b["end"])
+        out.append(LiquidityPool("buy",  b["hi"], f"{name}_high", idx))
+        out.append(LiquidityPool("sell", b["lo"], f"{name}_low",  idx))
+    return out
+
+
+def find_liquidity(candles: list[Candle], pip: float = 0.0001, eq_tol_pips: float = 2.0, n: int = 3,
+                   session_candles: list[Candle] | None = None) -> list[LiquidityPool]:
+    """All liquidity pools — every swing is a pool; near-equal swings are EQH/EQL (stronger); prior
+    DAY / WEEK / MONTH highs/lows (PDH/PDL · PWH/PWL · PMH/PML); and — when a finer `session_candles`
+    feed (M15/M30) is given — Asian/London/NY SESSION highs/lows. (Trend-line liquidity not auto-detected.)"""
     pts   = find_swing_points(candles, n)
     highs = [(p.index, p.price) for p in pts if p.is_high]
     lows  = [(p.index, p.price) for p in pts if not p.is_high]
@@ -71,6 +116,8 @@ def find_liquidity(candles: list[Candle], pip: float = 0.0001,
     pools.extend(_period_pools(candles, 86_400,    "pdh", "pdl"))   # prior DAY  high/low
     pools.extend(_period_pools(candles, 604_800,   "pwh", "pwl"))   # prior WEEK high/low
     pools.extend(_period_pools(candles, 2_592_000, "pmh", "pml"))   # prior MONTH (~30d) high/low
+    if session_candles:
+        pools.extend(_session_pools(session_candles, candles))      # Asian/London/NY session H/L
     return pools
 
 

@@ -58,7 +58,7 @@ def _rr(entry: float, sl: float, tp: float, buy: bool) -> float:
 
 
 def _tp_candidates(setup: SetupResult, h4: list[Candle], entry: float, buy: bool,
-                   pip: float = 0.0001) -> list[float]:
+                   pip: float = 0.0001, session_candles: list[Candle] | None = None) -> list[float]:
     """TP targets, nearest-first: the next unmitigated opposite ZONE, plus the book's LIQUIDITY targets
     — unswept buy-side pools ABOVE (a buy) / sell-side pools BELOW (a sell): weak highs/lows, EQH/EQL and
     prior day/week/month H/L, where the resting stops the move is hunting sit (Ch.10). Fib extensions
@@ -71,9 +71,11 @@ def _tp_candidates(setup: SetupResult, h4: list[Candle], entry: float, buy: bool
     opp = "supply" if buy else "demand"
     cands = [z.proximal for z in valid_zones(h4, find_zones(h4), pip)
              if z.direction == opp and not z.mitigated]
-    # LIQUIDITY targets — unswept pools on the TP side (the book targets weak highs/lows / resting stops)
+    # LIQUIDITY targets — unswept pools on the TP side (the book targets weak highs/lows / resting stops,
+    # incl. Asian/London/NY session H/L when the finer feed is passed)
     want = "buy" if buy else "sell"
-    cands += [p.price for p in find_liquidity(h4, pip) if p.side == want and not is_swept(h4, p)]
+    cands += [p.price for p in find_liquidity(h4, pip, session_candles=session_candles)
+              if p.side == want and not is_swept(h4, p)]
     cands += [setup.tp1, setup.tp2]
     if buy:
         return sorted(c for c in cands if c > entry)
@@ -81,7 +83,8 @@ def _tp_candidates(setup: SetupResult, h4: list[Candle], entry: float, buy: bool
 
 
 def entry_trigger(conf: LTFConfluence, setup: SetupResult, entry_tf: list[Candle],
-                  h4: list[Candle], pip: float = 0.0001, min_rr: float = 2.0) -> EntryTrigger:
+                  h4: list[Candle], pip: float = 0.0001, min_rr: float = 2.0,
+                  session_candles: list[Candle] | None = None) -> EntryTrigger:
     r = EntryTrigger(direction=setup.direction)
     if not conf.passed:
         r.reason = "LTF confluence did not pass"; return r
@@ -117,7 +120,7 @@ def entry_trigger(conf: LTFConfluence, setup: SetupResult, entry_tf: list[Candle
     sl    = z.distal - 2 * pip if buy else z.distal + 2 * pip
     r.entry, r.sl = entry, sl
 
-    tp = next((c for c in _tp_candidates(setup, h4, entry, buy, pip)
+    tp = next((c for c in _tp_candidates(setup, h4, entry, buy, pip, session_candles)
               if _rr(entry, sl, c, buy) >= min_rr), None)
     if tp is None:
         r.reason = f"no TP clears {min_rr}R"; r.triggered = False; return r
