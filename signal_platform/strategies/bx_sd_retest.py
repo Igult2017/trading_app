@@ -24,11 +24,17 @@ from strategies.bx_sd_entry import entry_trigger
 
 
 def is_respected_retest(h4: list[Candle], zone: Zone, pip: float = 0.0001,
-                        recent: int = 6, react_mult: float = 1.0) -> bool:
+                        recent: int = 6, react_mult: float = 1.0, fresh_within: int = 12) -> bool:
     """True when `zone` was respected (a real reaction away), is STILL ALIVE, and price is now
-    retesting it."""
+    retesting it — and the whole event is FRESH (the book trades unmitigated zones)."""
     t1 = _first_tap(h4, zone)
     if t1 is None:
+        return False
+    # The MITIGATION itself must be recent, not just the 2nd touch. The book trades FRESH zones: "use
+    # the one that has not been mitigated yet" (Ch.9 Third Step) and "targeting the recent unmitigated
+    # supply" (Ch.9 Second Step). A zone whose first tap is ancient is stale even if it is only now
+    # retesting, so the whole mitigation→reaction→retest must sit inside a fresh window.
+    if t1 < len(h4) - fresh_within:
         return False
     demand = zone.direction == "demand"
     react  = react_mult * (zone.top - zone.bottom)          # a genuine reaction = >= 1 zone height
@@ -76,15 +82,20 @@ def fvg_zone(h4: list[Candle], zone: Zone) -> Zone | None:
 
 
 def is_fvg_tap(h4: list[Candle], zone: Zone, fvg: Zone, recent: int = 6) -> bool:
-    """A SHALLOW continuation pullback: price recently tapped the FVG but stayed ABOVE the zone origin
-    (a demand never fully retested), and the latest bar is back on the trend side of the FVG."""
+    """A SHALLOW continuation pullback on a FRESH FVG: price's FIRST tap of the FVG is recent (the book
+    enters continuations "targeting the next UNMITIGATED supply", Ch.9 p48 — the imbalance must be
+    unmitigated, not re-tapped), that first tap stayed ABOVE the zone origin (a demand never fully
+    retested), and the latest bar is back on the trend side of the FVG."""
     demand = zone.direction == "demand"
-    lo = max(fvg.ifc_index + 1, len(h4) - recent)
-    tapped = any((h4[j].low <= fvg.top and h4[j].low > zone.top) if demand
-                 else (h4[j].high >= fvg.bottom and h4[j].high < zone.bottom)
-                 for j in range(lo, len(h4)))
-    cont = (h4[-1].close > fvg.bottom) if demand else (h4[-1].close < fvg.top)
-    return tapped and cont
+    ft = None
+    for j in range(fvg.ifc_index + 1, len(h4)):             # the FIRST tap (mitigation) of the FVG
+        if (h4[j].low <= fvg.top) if demand else (h4[j].high >= fvg.bottom):
+            ft = j; break
+    if ft is None or ft < len(h4) - recent:                 # the FVG must be FRESH — first tap is recent
+        return False
+    shallow = (h4[ft].low > zone.top) if demand else (h4[ft].high < zone.bottom)  # didn't reach the zone
+    cont    = (h4[-1].close > fvg.bottom) if demand else (h4[-1].close < fvg.top)
+    return shallow and cont
 
 
 def _setup_for_zone(h4: list[Candle], zone: Zone, pip: float) -> SetupResult:

@@ -58,6 +58,27 @@ being consumed, so it is no longer fresh and must not fire. The old loop skipped
 and fired on the latest recent one, so drained zones re-fired forever (proven: a synthetic drained
 multi-touch fired under the old loop, does not under the fix; a clean 2nd touch still fires).
 
+**FRESH = UNMITIGATED, confirmed from the book across four chapters — every POI we ENTER on must be
+fresh, never a re-tap.**
+> Ch.6 (def): "When price taps into a d/s zone, **that has not been tapped yet**, it becomes mitigated
+> from unmitigated."
+> Ch.9 Trading Plan — Second Step: "**Finding unmitigated** supply and demand on 15m" · "targeting the
+> **recent unmitigated** supply". Third Step: "if it gives you two zones, but only one has been
+> mitigated, **you can use the one that has not been mitigated yet**."
+> Ch.7: "**ALWAYS (!!) check if the price comes from an unmitigated zone**."
+> Ch.9 p48 (Continuation): a scale-in "if you missed the flip/choch", entering the pro-trend
+> continuation "targeting the **next unmitigated** supply".
+
+Two freshness bounds this principle forces, both now enforced in `bx_sd_retest.py`:
+1. **The mitigation itself must be recent** (`is_respected_retest`, `fresh_within` — default 12 H4 bars,
+   ~2 days). Bounding only the 2nd touch let an *ancient* first mitigation retest now and fire; the book
+   trades the **most recent unmitigated** zone, so the whole mitigation→reaction→retest must sit inside a
+   fresh window. (Proven: t1 beyond the window no longer fires; a clean recent cycle still does.)
+2. **The continuation FVG must be fresh** (`is_fvg_tap`): its **FIRST** tap must be the recent one, not a
+   re-tap. The book's continuation targets the *next unmitigated* imbalance — a re-tapped FVG is
+   mitigated, so it must not fire. (Proven: a stale FVG re-tap fired under the old any-recent-tap loop,
+   does not under the fix; a fresh first tap still fires.)
+
 ### Levels closed, taps and price live
 A **level must stay put; an event is live.**
 - `find_zones` → IFCs from `closed_only()`; **mitigation reads the FULL series** (a tap is happening now)
@@ -127,6 +148,7 @@ still face the 15M CHoCH and the 1M/5M ≥2R trigger, so **actual entries are fe
 
 | commit | what |
 |---|---|
+| _fresh-book_ | book-confirmed freshness (Ch.6/7/9): (1) `is_respected_retest` now requires the **mitigation itself** recent (`fresh_within`), not just the 2nd touch — the book trades the *most recent unmitigated* zone; (2) `is_fvg_tap` continuation now requires the **FVG's FIRST tap** to be the recent one, not a re-tap ("targeting the next unmitigated", p48). Both verified on the real functions |
 | _retest-fresh_ | respected-retest fired on **drained** zones (any later recent tap). Bound it to the FRESH 2nd touch: the FIRST return after the reaction must itself be the recent event, else don't fire. Clean 2nd touch still fires; drained multi-touch no longer does (verified) |
 | `bae83bb` | zones + structure from **CLOSED** candles; taps and price stay live |
 | `4d55ffc` | TP targeted **invalid** zones; `analyze`'s signal key was still origin-based |
