@@ -72,18 +72,24 @@ def defensive_ok(pools: list[LiquidityPool], candles: list[Candle], direction: s
                  entry: float, sl: float, pip: float = 0.0001, sl_tol_pips: float = 1.5,
                  exclude: float | None = None, exclude_tol_pips: float = 1.5):
     """DEFENSE — 'don't be the liquidity'. Returns (ok, reason).
-    Rejects if the SL sits on a pool, or an UNSWEPT opposing pool sits between entry and SL
-    (price would grab it and stop us out). `exclude` is the zone's own distal edge — the low/high
-    we are trading FROM (our SL is already tucked beyond it), so it is not counted as a hazard pool."""
+    Rejects if the SL sits on an unswept pool, or an unswept opposing pool sits between entry and SL
+    (price would grab it and stop us out). `exclude` is the zone's own distal edge — the low/high we
+    are trading FROM (our SL is already tucked beyond it), so it is not counted as a hazard pool.
+
+    ONLY UNSWEPT pools count, in BOTH tests. A pool price has already taken out has no resting stops
+    left — it can neither hunt our SL nor stop us on the way, so it must not block us. The SL-on-pool
+    test used to skip this filter (the between-test did not), which with the full pool set (swings +
+    EQH/EQL + day/week/month + session = 300+ levels) put ~98% of all prices "on a pool" and silently
+    rejected valid setups. Filtering swept pools drops that to ~20%, which is the real resting liquidity.
+    """
     tol = sl_tol_pips * pip
     ex  = exclude_tol_pips * pip
-    def _skip(p):
-        return exclude is not None and abs(p.price - exclude) <= ex
-    if any(abs(p.price - sl) <= tol for p in pools if not _skip(p)):
-        return False, "SL sits on a liquidity pool (it would get hunted)"
-    for p in pools:
-        if is_swept(candles, p) or _skip(p):
-            continue
+    live = [p for p in pools
+            if not (exclude is not None and abs(p.price - exclude) <= ex)
+            and not is_swept(candles, p)]
+    if any(abs(p.price - sl) <= tol for p in live):
+        return False, "SL sits on an unswept liquidity pool (it would get hunted)"
+    for p in live:
         if direction == "demand" and p.side == "sell" and sl < p.price < entry:
             return False, f"unswept sell-side pool @ {p.price:.5f} between SL and entry — we'd be the liquidity"
         if direction == "supply" and p.side == "buy" and entry < p.price < sl:
