@@ -157,6 +157,3 @@ def find_zones(candles: list[Candle]) -> list[Zone]:
     return zones
 
 
-def unmitigated(zones: list[Zone], direction: str | None = None) -> list[Zone]:
-    """Fresh zones only (optionally filtered to 'demand' / 'supply'), most-recent last."""
-    return [z for z in zones if not z.mitigated and (direction is None or z.direction == direction)]

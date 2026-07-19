@@ -18,7 +18,7 @@ from core.types import Candle
 from shared.swing_points import find_swing_points
 from strategies.bx_sd_structure import map_structure
 from strategies.bx_sd_zones import find_zones, Zone
-from strategies.bx_sd_liquidity import find_liquidity, defensive_ok
+from strategies.bx_sd_liquidity import find_liquidity
 from strategies.bx_sd_validity import is_valid
 from strategies.bx_sd_confluence import premium_discount, pricing_aligned, fib_target, rsi_divergence
 
@@ -89,11 +89,13 @@ def detect_setup(h4: list[Candle], pip: float = 0.0001) -> SetupResult:
     if not pricing_aligned(leg_low, leg_high, price, tdir):
         r.reason = f"badly priced ({premium_discount(leg_low, leg_high, price)} for a {tdir})"; return r
 
+    # These are the WIDE 4H zone's levels — informational only. We never trade them: the real entry/SL
+    # come from the entry-TF refinement in entry_trigger, and bx_sd_confirm.confirm_grade runs the
+    # defensive-liquidity guard on THOSE final levels (every entry-confirming path goes through it).
+    # The guard used to run here too, on these wide levels, which only produced FALSE REJECTS — a pool
+    # sitting on the 4H distal killed setups whose real SL is nowhere near it.
     entry = cand.proximal
     sl    = cand.distal - 2 * pip if up else cand.distal + 2 * pip
-    ok, why = defensive_ok(pools, h4, zdir, entry, sl, pip, exclude=cand.distal)
-    if not ok:
-        r.reason = f"defensive-liquidity block: {why}"; return r
 
     r.active, r.direction, r.zone = True, tdir, cand
     r.entry, r.sl = entry, sl
