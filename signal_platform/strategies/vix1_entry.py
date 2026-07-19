@@ -43,7 +43,14 @@ from strategies.vix1_roi import regions, sl_from_regions
 
 log = logging.getLogger(__name__)
 
-_ENTRY_BUFFER = 1   # pips — the stop sits JUST beyond the pullback, never resting on it
+_ENTRY_BUFFER    = 1   # pips — the stop sits JUST beyond the pullback, never resting on it
+_PULLBACK_NEAR   = 7   # pips — the pullback must form THIS close to Line 1. The setup is "price
+                       # reaches the line, THEN pull back near it": a pullback far from the line is a
+                       # different, worse entry the trader would skip. Measured on real winners the
+                       # pullback sat within ~4p of the line; 7p leaves margin.
+_MIN_SL_ROOM     = 5   # pips — the SL needs ROOM so normal noise cannot wick us out of a good trade.
+                       # If the nearest region gives less, push the stop out to this floor (still
+                       # capped at one 1HR candle). "Enough room to be filled or left out" (user).
 
 
 def m1_signals(m1: list[Candle], bullish: bool, vc: Candle,
@@ -90,6 +97,16 @@ def m1_signals(m1: list[Candle], bullish: bool, vc: Candle,
         log.info(f"[vix1] {symbol} 1M: aligned ({kind}) but {why} — waiting")
         return []
 
+    # NEAR THE LINE — the pullback's line-side extreme must sit within _PULLBACK_NEAR of Line 1. The
+    # method is "price reaches the line, then a pullback forms THERE"; a pullback far from the line is
+    # a setup the trader looks at and skips, and taking it is what dragged the automated win rate down.
+    near = pb.low if bullish else pb.high
+    off  = abs(near - line) / pip
+    if off > _PULLBACK_NEAR:
+        log.info(f"[vix1] {symbol} 1M: pullback formed {off:.1f}p from the line (> {_PULLBACK_NEAR}p) "
+                 f"— too far from Line 1, not the setup; waiting")
+        return []
+
     lvl   = pb.high if bullish else pb.low          # the trend side — the stop goes just beyond it
     entry = lvl + _ENTRY_BUFFER * pip if bullish else lvl - _ENTRY_BUFFER * pip
 
@@ -107,6 +124,19 @@ def m1_signals(m1: list[Candle], bullish: bool, vc: Candle,
                  f"— nowhere honest to put the stop; skipping")
         return []
     sl, risk, sl_note = got
+
+    # SL ROOM — a stop tighter than _MIN_SL_ROOM gets wicked out of a trade that then runs our way.
+    # Push it out to the floor (still never beyond one 1HR candle); if even the floor won't fit, the
+    # setup has no honest room and we skip it rather than take a stop that noise will hunt.
+    if risk < _MIN_SL_ROOM * pip:
+        want = _MIN_SL_ROOM * pip
+        if want > max_risk:
+            log.info(f"[vix1] {symbol} 1M: nearest region gives only {risk/pip:.1f}p and one 1HR "
+                     f"candle is {max_risk/pip:.0f}p — no room for a {_MIN_SL_ROOM}p stop; skipping")
+            return []
+        sl   = entry - want if bullish else entry + want
+        risk = want
+        sl_note = f"{_MIN_SL_ROOM:.0f}p (min room; nearest region was tighter)"
 
     # The stop must still be UNFILLED — strictly beyond price in the trend direction. If the pullback
     # is already taken out, an order there is a LIMIT filling INTO the move: the inverse of this entry.
