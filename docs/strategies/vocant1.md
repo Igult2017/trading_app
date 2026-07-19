@@ -108,6 +108,46 @@ A **level must stay put; a trigger must be live.**
   price. Proven: price 1.2686/1.2678/1.2670 → line 1.2686/1.2678/1.2670.
 - 1M forming bar → **kept on purpose**. There, live price is the whole point.
 
+### It is a MOMENTUM candle, not a volume candle
+> "VOCANT should use momentum candles."
+
+Settled 2026-07-19. The playbook's "volume" means **decisive price movement**, judged on candle
+shape — not participation. cTrader *does* send real tick volume on every bar and nothing reads it;
+that is deliberate, not an oversight. A momentum candle answers three questions:
+
+| | Rule | Why this number |
+|---|---|---|
+| **BIG** | body ≥ **4×** the MEDIAN body of the last 100 closed bars | "bigger than the previous candle" rejected **21–23%** of genuinely strong candles and admitted **24–27%** below-normal ones — smallest qualifier **0.79 pips**, under the spread |
+| **CLEAN** | body ≥ **75%** of its own range | real clean legs run 57% median; 75% isolates the near-wickless look |
+| **UNREJECTED** | wick **against** the move ≤ **15%** | asymmetric on purpose — on a bull candle an upper wick is price being *sold back*, a lower wick is a dip being *bought* |
+
+**MEDIAN, never mean** — on 11–21% of bars one news spike drags the mean past 1.6× the median and
+then blocks every genuine candle behind it for hours.
+
+### The run is ONE candle — the market says so, do not "fix" it
+`_MIN_RUN = 1` is correct and I was wrong to call it inert. Measured on **1,433 real momentum
+candles**: a second momentum candle follows only **2–5%** of the time, and **2–3 in a row happen
+0–2%**. Requiring confirmation forfeits the setup.
+
+The *move* does continue — **65%** reach 2 more bars of extension, **47%** three, **23%** five — but
+it continues **through a pullback**. A clean unbroken run reaches 5 bars **0%** of the time. That is
+the whole justification for the 1M pullback entry: demanding the unbroken version takes 23% → 0%.
+
+**Never add multi-candle confirmation to the 1HR.**
+
+### Three tradeable contexts, all momentum-led
+| origin | what it is | ~signals/mo (EUR/GBP) |
+|---|---|---|
+| `trend` | established HH+HL / LH+LL, momentum candle **with** it | 5.0 / 6.0 |
+| `range` | no trend, momentum candle closes beyond the 8-bar range | 4.2 / 4.6 |
+| `choch` | momentum candle **against** an established trend that **closes beyond the swing defining it** | 2.3 / 3.6 |
+
+`choch` is a **body close**, never a wick — a wick through the level is a liquidity grab (the
+platform-wide rule). Without the break it is a deep pullback and we stand aside. ~90% of
+against-trend momentum candles do break structure, so this filters little; it is there for
+correctness. Structure comes from `shared/swing_points` via `vocant1_trend` — **never** BX's
+structure module (strategy independence).
+
 ### Nothing hardcoded where the market can say it
 Thresholds come off the 1M's own recent candles or the volume candle itself. A real body is judged
 against the 1M's **own average body** — what is a real body in London is noise in Tokyo.
@@ -118,6 +158,7 @@ against the 1M's **own average body** — what is a real body in London is noise
 
 | commit | what |
 |---|---|
+| `089b3fe` | **momentum-candle rebuild** — size vs the 100-bar MEDIAN body (not the previous candle), body ≥75% of range, asymmetric wick cap; `vocant1_momentum.py` split out. Plus the **`choch` context** (structure change), and the rename throughout. `_MIN_RUN` stays 1 — **that is the market, not a bug** |
 | `a4d9cb2` | **the WATCH judged a setup on price from before it existed** (`locked_at - 3600`). 70% of 214 real setups resolved on pre-lock bars — 65 false "INVALIDATED" DMs, 44 silently dropped as "triggered" and left unwatched. Now bars that opened at/after the lock; `_WATCH_M1` 120 → 200 so the slice spans `_LOCK_TTL` |
 | `a4d9cb2` | **wrong-direction bug in the RANGE branch** — no freshness guard, always tried bullish first, so it returned the STALE run when both qualified (18/26 EUR, 12/18 GBP → 0 after). `0b24492` fixed exactly this for the TREND branch and it was never applied here — **if you touch either branch, apply it to BOTH** |
 | `e8d2935` | **the SL is a 1M region of interest**, not a number I made up. `15`/`20`/`5` deleted; floor structural, ceiling = one 1HR candle |
