@@ -43,8 +43,7 @@ def invalidation_signal(locked: dict, symbol: str, strategy_name: str, strategy_
         direction         = Direction.BUY if buy else Direction.SELL,
         strategy_id       = strategy_id,          # _watch → private DM
         strategy_name     = strategy_name,
-        alert_only        = True,
-        to_channel        = True,        # everything about BX goes to the channel, not a DM
+        alert_only        = True,        # heads-up, NOT a confirmed signal -> admin DM, never the channel
         qualified         = False,
         primary_timeframe = TF.H4,
         technical_reasons = [f"BX-S/D {side} setup INVALIDATED — price closed beyond the 4H {zdir} "

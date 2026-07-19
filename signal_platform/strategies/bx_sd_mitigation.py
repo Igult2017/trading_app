@@ -35,8 +35,7 @@ def mitigation_signal(zone: Zone, symbol: str, backing: list[str], digits: int,
         direction         = Direction.BUY if buy else Direction.SELL,
         strategy_id       = strategy_id,
         strategy_name     = strategy_name,
-        alert_only        = True,
-        to_channel        = True,        # everything about BX goes to the channel, not a DM
+        alert_only        = True,        # heads-up, NOT a confirmed signal -> admin DM, never the channel
         qualified         = True,
         primary_timeframe = TF.H4,
         technical_reasons = [
