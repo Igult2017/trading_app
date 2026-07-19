@@ -1,6 +1,6 @@
-# VOCANT.1 — the Volume Strategy
+# VIX.1 — the Volume Strategy
 
-Source: the "Volume Strategy" playbook (`VOCANT11.pdf`, 7pp, user's Desktop — not in the repo).
+Source: the "Volume Strategy" playbook (`VIX11.pdf`, 7pp, user's Desktop — not in the repo).
 Pairs: **EUR/USD, GBP/USD**. Sessions: **London / NY / Asian** (all three). Phase 1 = signals only
 (DM); Phase 2/3 pending.
 
@@ -91,7 +91,7 @@ between *this* candle 1 and *this* candle 2.
 **"Far from the line is an ADVANTAGE"** — the trend is confirmed. (I built a whole "GAP 1" on the
 opposite assumption, because I still had *line = invalidation* in my head.)
 
-SL = just beyond the **nearest** region on the protective side (`vocant1_roi`): line 2, the last 1M
+SL = just beyond the **nearest** region on the protective side (`vix1_roi`): line 2, the last 1M
 fractals, recent 1M swings, unmitigated 1M S/D zones. Both bounds are the market's, not mine:
 - **floor** — structural: the SL must clear **the pullback candle's own extreme**
 - **ceiling** — **one 1HR candle's range**, from "2 candles of 1HR gives 2R" → 1 candle = 1R
@@ -109,7 +109,7 @@ A **level must stay put; a trigger must be live.**
 - 1M forming bar → **kept on purpose**. There, live price is the whole point.
 
 ### It is a MOMENTUM candle, not a volume candle
-> "VOCANT should use momentum candles."
+> "VIX should use momentum candles."
 
 Settled 2026-07-19. The playbook's "volume" means **decisive price movement**, judged on candle
 shape — not participation. cTrader *does* send real tick volume on every bar and nothing reads it;
@@ -145,7 +145,7 @@ the whole justification for the 1M pullback entry: demanding the unbroken versio
 `choch` is a **body close**, never a wick — a wick through the level is a liquidity grab (the
 platform-wide rule). Without the break it is a deep pullback and we stand aside. ~90% of
 against-trend momentum candles do break structure, so this filters little; it is there for
-correctness. Structure comes from `shared/swing_points` via `vocant1_trend` — **never** BX's
+correctness. Structure comes from `shared/swing_points` via `vix1_trend` — **never** BX's
 structure module (strategy independence).
 
 ### Nothing hardcoded where the market can say it
@@ -158,12 +158,12 @@ against the 1M's **own average body** — what is a real body in London is noise
 
 | commit | what |
 |---|---|
-| `089b3fe` | **momentum-candle rebuild** — size vs the 100-bar MEDIAN body (not the previous candle), body ≥75% of range, asymmetric wick cap; `vocant1_momentum.py` split out. Plus the **`choch` context** (structure change), and the rename throughout. `_MIN_RUN` stays 1 — **that is the market, not a bug** |
+| `089b3fe` | **momentum-candle rebuild** — size vs the 100-bar MEDIAN body (not the previous candle), body ≥75% of range, asymmetric wick cap; `vix1_momentum.py` split out. Plus the **`choch` context** (structure change), and the rename throughout. `_MIN_RUN` stays 1 — **that is the market, not a bug** |
 | `a4d9cb2` | **the WATCH judged a setup on price from before it existed** (`locked_at - 3600`). 70% of 214 real setups resolved on pre-lock bars — 65 false "INVALIDATED" DMs, 44 silently dropped as "triggered" and left unwatched. Now bars that opened at/after the lock; `_WATCH_M1` 120 → 200 so the slice spans `_LOCK_TTL` |
 | `a4d9cb2` | **wrong-direction bug in the RANGE branch** — no freshness guard, always tried bullish first, so it returned the STALE run when both qualified (18/26 EUR, 12/18 GBP → 0 after). `0b24492` fixed exactly this for the TREND branch and it was never applied here — **if you touch either branch, apply it to BOTH** |
 | `e8d2935` | **the SL is a 1M region of interest**, not a number I made up. `15`/`20`/`5` deleted; floor structural, ceiling = one 1HR candle |
 | `54eff8d` | fractal = 1–4 candles (not Williams); **the LINE decides alignment**, `clear_trend` out of the 1M. 3/6 → **6/6** |
-| `34ba9ca` | volume candle + line must come from a **CLOSED** 1HR candle. Was **70 of 82** prod log lines — VOCANT.1 idle ~85% of the time |
+| `34ba9ca` | volume candle + line must come from a **CLOSED** 1HR candle. Was **70 of 82** prod log lines — VIX.1 idle ~85% of the time |
 | `0bc6a58` | line 1 gates the entry, line 2 only adjusts the stop; price must have **traded past** line 1 |
 | `0b24492` | **wrong-direction bug**: stale structure + fresh opposing volume signalled SELL off a 10-bar-old candle. Also tie-proofed `clear_trend` |
 | `c847c1c` | dynamism: doji inside a retrace, at-the-line, 0.2-pip knife-edge, 0.1-pip body, equal-low fractals — all were coding a clean chart |
@@ -176,10 +176,10 @@ against the 1M's **own average body** — what is a real body in London is noise
 | `ef6ff8b` | root cause of the original misses: `_VOL_LOOKBACK` allowed a 12h-old candle but the 1M slice was 2h |
 
 ## Files
-`vocant1.py` (orchestration) · `vocant1_bias.py` (1HR volume rules) · `vocant1_trend.py` (structure —
-**1HR only**) · `vocant1_lines.py` (the two lines) · `vocant1_fractal.py` (1–4 candle fractal) ·
-`vocant1_pullback.py` (the entry level) · `vocant1_roi.py` (**regions of interest = the SL**) ·
-`vocant1_entry.py` (assembly) · `vocant1_signal.py` · `vocant1_watch.py`
+`vix1.py` (orchestration) · `vix1_bias.py` (1HR volume rules) · `vix1_trend.py` (structure —
+**1HR only**) · `vix1_lines.py` (the two lines) · `vix1_fractal.py` (1–4 candle fractal) ·
+`vix1_pullback.py` (the entry level) · `vix1_roi.py` (**regions of interest = the SL**) ·
+`vix1_entry.py` (assembly) · `vix1_signal.py` · `vix1_watch.py`
 
 ## Closed — do NOT re-raise these
 - **GAP 2 (the fixed 60-minute alignment window)** — CLOSED by `54eff8d`, incidentally. `clear_trend`
@@ -197,10 +197,10 @@ against the 1M's **own average body** — what is a real body in London is noise
   ~8.5k real pairs: correlation ~0.2, beats a random shuffle by 3 points.
 
 ### Routing
-**ENTRIES → the public channel** (`strategy_id = "vocant1"`; the `_watch` suffix is what the
+**ENTRIES → the public channel** (`strategy_id = "vix1"`; the `_watch` suffix is what the
 dispatcher reads as "unconfirmed, DM only"). The entry IS the 1M pullback — the moment to place the
 stop — so it goes out as a full signal card. It is a real saved signal, so the monitor also closes it
-on TP/SL and the channel gets that. The **invalidation alert keeps `vocant1_watch` and stays a DM**:
+on TP/SL and the channel gets that. The **invalidation alert keeps `vix1_watch` and stays a DM**:
 it is a correction, not a signal.
 
 ### NEVER burn a dedup key at build time

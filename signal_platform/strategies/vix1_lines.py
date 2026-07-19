@@ -1,5 +1,5 @@
 """
-VOCANT.1 — the 1HR lines, drawn off the FIRST momentum candle.
+VIX.1 — the 1HR lines, drawn off the FIRST momentum candle.
 
 LINE 1 — the BODY CLOSE line, at candle 1's close. THE line. That price is also candle 2's open, so
          it is the level the whole setup pivots on. It exists to make the 1M accurate: it says where

@@ -1,5 +1,5 @@
 """
-VOCANT.1 — the 1HR MOMENTUM candle.
+VIX.1 — the 1HR MOMENTUM candle.
 
 The strategy's OWN rule, from the playbook — NO indicators. A MOMENTUM CANDLE is the market moving
 decisively one way and HOLDING it. It has to answer three questions:
@@ -18,7 +18,7 @@ decisively one way and HOLDING it. It has to answer three questions:
                is a dip being BOUGHT (strength). Only the counter-wick is capped — the old rule
                capped both at 33% and so rejected candles that sold off and were bought back hard.
 
-A RUN is consecutive momentum candles and VOCANT.1 operates from the FIRST — its close opens the 1M
+A RUN is consecutive momentum candles and VIX.1 operates from the FIRST — its close opens the 1M
 watch. _MIN_RUN STAYS 1 ON PURPOSE: measured on 1,433 real momentum candles, a second one follows
 only 2-5% of the time and 2-3 in a row happen 0-2% of the time. The market gives runs of one, so
 waiting for confirmation forfeits the setup. The MOVE does continue — 65% reach 2 more bars of

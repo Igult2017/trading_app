@@ -1,28 +1,28 @@
 """
-VOCANT.1 — 1M entry. The 1HR sets the bias and the lines; the 1M decides WHEN.
+VIX.1 — 1M entry. The 1HR sets the bias and the lines; the 1M decides WHEN.
 
 Playbook p2: "if the 1M is still not aligned with the 1HR, wait — do nothing until the 1M lines up."
 That wait is OPEN-ENDED — the 1HR can be ready for hours while the 1M is not. A bias flip
-(vocant1_watch) ends a setup; a timer never does.
+(vix1_watch) ends a setup; a timer never does.
 
-THE ENTRY IS ALWAYS THE PULLBACK (vocant1_pullback) — 1M only, past the line, stop just beyond it:
+THE ENTRY IS ALWAYS THE PULLBACK (vix1_pullback) — 1M only, past the line, stop just beyond it:
 continue and it fills us along the way, reverse and we are never in ("no trade, no risk", p6).
 Setups differ ONLY in how the 1M's ALIGNMENT is established:
 
   price OUR side of the line -> the 1M is running with the 1HR. Wait for the pullback, enter.
   price the WRONG side       -> the 1M is running against us. The LAST fractal of that counter-move
-                     must break first (vocant1_fractal) — that CONFIRMS the turn, it is NOT the
+                     must break first (vix1_fractal) — that CONFIRMS the turn, it is NOT the
                      entry. Then the pullback, exactly as above.
 
 The line is what answers "is the 1M with us?" — not swing structure. A spike-and-return inside one
 hour never prints the two highs and two lows a trend read needs, so structure said "not aligned" in
 every long-wick case and real entries were thrown away.
 
-Two lines come off candle 1 (vocant1_lines). LINE 1 gates the entry (vocant1_pullback) and decides
+Two lines come off candle 1 (vix1_lines). LINE 1 gates the entry (vix1_pullback) and decides
 which side of the market we are on. LINE 2 is where an opposite move is expected to reverse — one
 region of interest among several, not the stop by right.
 
-The SL is the nearest 1M REGION OF INTEREST beyond the pullback (vocant1_roi) — where price would go
+The SL is the nearest 1M REGION OF INTEREST beyond the pullback (vix1_roi) — where price would go
 against us in the worst case. Never a pip count: the floor is structural (clear the pullback candle
 itself), the ceiling is one 1HR candle's range, because "2 candles of 1HR gives 2R" makes one candle
 1R. TP = 2R, which is that same two-candle move; "or more" is the Phase 3 trailing stop.
@@ -31,10 +31,10 @@ import logging
 
 from core.types import Candle
 from shared.mtf_utils import seconds
-from strategies.vocant1_lines import draw_lines
-from strategies.vocant1_pullback import find_pullback
-from strategies.vocant1_fractal import fractal_broken
-from strategies.vocant1_roi import regions, sl_from_regions
+from strategies.vix1_lines import draw_lines
+from strategies.vix1_pullback import find_pullback
+from strategies.vix1_fractal import fractal_broken
+from strategies.vix1_roi import regions, sl_from_regions
 
 log = logging.getLogger(__name__)
 
@@ -56,7 +56,7 @@ def m1_signals(m1: list[Candle], bullish: bool, vc: Candle,
     win    = [c for c in m1 if c.time >= vc.time + hr]     # only price action since the line was set
 
     if len(win) < 2:
-        log.info(f"[vocant1] {symbol} 1M: only {len(win)} bars since the 1st momentum candle closed — waiting")
+        log.info(f"[vix1] {symbol} 1M: only {len(win)} bars since the 1st momentum candle closed — waiting")
         return []
 
     # ALIGNMENT (playbook p2) — THE LINE decides which side we are on, and that is the whole reason it
@@ -73,7 +73,7 @@ def m1_signals(m1: list[Candle], bullish: bool, vc: Candle,
         broke, lvl = fractal_broken(win, bullish)
         if not broke:
             seen = "none formed yet" if lvl is None else f"{lvl:.{digits}f}"
-            log.info(f"[vocant1] {symbol} 1M: price {last:.{digits}f} is the wrong side of the lines "
+            log.info(f"[vix1] {symbol} 1M: price {last:.{digits}f} is the wrong side of the lines "
                      f"({line:.{digits}f}/{wick_line:.{digits}f}) and the counter-move's last fractal ({seen}) has not "
                      f"broken — waiting (playbook: do nothing until the 1M lines up)")
             return []
@@ -82,7 +82,7 @@ def m1_signals(m1: list[Candle], bullish: bool, vc: Candle,
     # THE ENTRY — the first pullback candle PAST the line, in both cases.
     pb, why = find_pullback(win, bullish, line, wick_line)
     if pb is None:
-        log.info(f"[vocant1] {symbol} 1M: aligned ({kind}) but {why} — waiting")
+        log.info(f"[vix1] {symbol} 1M: aligned ({kind}) but {why} — waiting")
         return []
 
     lvl   = pb.high if bullish else pb.low          # the trend side — the stop goes just beyond it
@@ -97,7 +97,7 @@ def m1_signals(m1: list[Candle], bullish: bool, vc: Candle,
     got = sl_from_regions(entry, pb.low if bullish else pb.high, bullish,
                           regions(win, bullish, wick_line), pip, max_risk)
     if got is None:
-        log.info(f"[vocant1] {symbol} 1M: aligned ({kind}) with a pullback at {lvl:.{digits}f}, but no "
+        log.info(f"[vix1] {symbol} 1M: aligned ({kind}) with a pullback at {lvl:.{digits}f}, but no "
                  f"1M region of interest sits beyond it within one 1HR candle ({max_risk / pip:.0f}p) "
                  f"— nowhere honest to put the stop; skipping")
         return []
@@ -107,11 +107,11 @@ def m1_signals(m1: list[Candle], bullish: bool, vc: Candle,
     # is already taken out, an order there is a LIMIT filling INTO the move: the inverse of this entry.
     last = win[-1].close
     if (entry <= last) if bullish else (entry >= last):
-        log.info(f"[vocant1] {symbol} 1M: the pullback is already taken out (price {last:.{digits}f} "
+        log.info(f"[vix1] {symbol} 1M: the pullback is already taken out (price {last:.{digits}f} "
                  f"vs stop {entry:.{digits}f}) — a stop there would fill into the move; entry gone")
         return []
 
-    log.info(f"[vocant1] {symbol} 1M PULLBACK entry ({kind} path) — {'BUY' if bullish else 'SELL'} "
+    log.info(f"[vix1] {symbol} 1M PULLBACK entry ({kind} path) — {'BUY' if bullish else 'SELL'} "
              f"stop {entry:.{digits}f} SL {sl:.{digits}f} ({sl_note}; line {line:.{digits}f}"
              f"{'' if wick_line == line else f' wick-line {wick_line:.{digits}f}'})")
     return [{"kind": kind, "entry": round(entry, digits), "sl": round(sl, digits),

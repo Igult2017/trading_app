@@ -57,7 +57,7 @@ def build_signal(symbol: str, setup: SetupResult, conf: LTFConfluence, trig: Ent
         # A REAL signal: saved to the DB, shown on AssetPage, and — the point — MONITORED, so the
         # monitor closes it on TP/SL and the channel is told how it ended. As an alert_only signal it
         # bypassed the validator entirely and was never saved, so BX posted entries into the channel
-        # and then went silent on every one of them. Routing is by strategy_id now, like VOCANT.1:
+        # and then went silent on every one of them. Routing is by strategy_id now, like VIX.1:
         # `bx_sd` -> channel, `bx_sd_watch` -> admin DM.
         alert_only        = False,
         technical_reasons = reasons,

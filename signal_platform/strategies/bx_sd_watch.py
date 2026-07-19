@@ -1,6 +1,6 @@
 """
 BX-S/D — WATCH: alert when a LOCKED 4H setup (zone tapped, awaiting the LTF/entry trigger) is
-invalidated before it fires, so we never silently drop a setup (mirrors the VOCANT.1 WATCH).
+invalidated before it fires, so we never silently drop a setup (mirrors the VIX.1 WATCH).
 
 A 4H demand/supply is invalidated the moment price BODY-CLOSES beyond its distal edge (the demand
 fails below its low / the supply fails above its high). Phase 1 = DM-only alert.

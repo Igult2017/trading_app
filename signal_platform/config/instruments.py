@@ -1,9 +1,9 @@
 """
 Instruments the platform will scan.
 
-EURUSD + GBPUSD (VOCANT.1 trades both) + USDJPY (BX-S/D scans all three).
+EURUSD + GBPUSD (VIX.1 trades both) + USDJPY (BX-S/D scans all three).
 A strategy still opts in via its own allowed_instruments, so adding one here only means the
-platform CAN fetch it — VOCANT.1 keeps its own narrower list.
+platform CAN fetch it — VIX.1 keeps its own narrower list.
 """
 
 TRADEABLE_INSTRUMENTS: list[tuple[str, str, str]] = [

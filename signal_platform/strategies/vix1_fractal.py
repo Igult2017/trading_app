@@ -1,5 +1,5 @@
 """
-VOCANT.1 — the 1M fractal: proof that a counter-move has ended.
+VIX.1 — the 1M fractal: proof that a counter-move has ended.
 
 A fractal is a pullback of 1 to 4 candles against the way price is currently running, after which
 price CONTINUES. That continuation is what makes it a fractal rather than a reversal, so a fractal is
@@ -16,7 +16,7 @@ A fractal and an entry pullback are the same kind of shape in different roles, a
 them is what has to follow:
   fractal  — 1 to 4 candles, and price MUST have continued afterwards. It marks a level (here).
   pullback — the FIRST candle of a live retrace, and nothing has to follow it, because the stop order
-             is the test: continue and it fills us, reverse and we were never in (vocant1_pullback).
+             is the test: continue and it fills us, reverse and we were never in (vix1_pullback).
 
 This is NOT the Williams 5-bar fractal. That shape needs a bar to be the extreme of its 2 neighbours
 either side, which a spike-and-return rarely produces — it found no fractal at all in half of the

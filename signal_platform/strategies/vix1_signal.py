@@ -1,7 +1,7 @@
 """
-VOCANT.1 — assemble a Signal from a resolved 1M entry (a 'pullback' or a 'fractal' path).
+VIX.1 — assemble a Signal from a resolved 1M entry (a 'pullback' or a 'fractal' path).
 
-Kept separate so vocant1.analyze() stays lean (150-line rule) and both entry kinds share ONE place
+Kept separate so vix1.analyze() stays lean (150-line rule) and both entry kinds share ONE place
 that builds the panel-labelled factors, reasons and market context. No trading logic here — pure
 formatting of an already-decided entry/SL/TP.
 """
@@ -71,9 +71,9 @@ def build_signal(kind, symbol, bullish, origin, vol_count, entry, sl, tp,
         technical_reasons = reasons,
         smc_factors       = smc,
         # NOT "(validating)" — this builder is only ever called for a resolved entry that ships to
-        # the public channel as a full signal card (strategy_id `vocant1`, alert_only False). The
+        # the public channel as a full signal card (strategy_id `vix1`, alert_only False). The
         # old label described the card as provisional on the one message that is not.
-        market_context    = (f"VOCANT.1 — {side} {symbol} 1M {label} "
+        market_context    = (f"VIX.1 — {side} {symbol} 1M {label} "
                              f"[{_SHORT.get(origin, 'trend')}]"
                              f"{' correlated' if corr else ''} stop at {entry:.{digits}f}"),
         # Currencies come from the SYMBOL, not a hardcoded list. ["USD","EUR","GBP"] matched the

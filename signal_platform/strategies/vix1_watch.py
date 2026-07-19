@@ -1,5 +1,5 @@
 """
-VOCANT.1 — setup LOCK + invalidation WATCH.
+VIX.1 — setup LOCK + invalidation WATCH.
 
 Once a setup fires it is LOCKED (one pending setup per instrument). Every scan tick we watch BOTH
 timeframes together, so we never keep assuming the bias still holds after price has actually turned:
@@ -9,7 +9,7 @@ Also detects 'triggered' (the entry stop was hit → hand off / stop watching) a
 pending setup went stale). On a genuine invalidation the strategy sends a DM alert and drops the lock.
 """
 from core.types import Candle, Signal, Direction, TF
-from strategies.vocant1_bias import detect_bias
+from strategies.vix1_bias import detect_bias
 
 _LOCK_TTL = 3 * 3600   # a pending setup that neither triggers nor invalidates expires after 3h
 _WATCH_M1 = 200        # recent M1 bars inspected for a trigger / reversal — must SPAN _LOCK_TTL
@@ -63,7 +63,7 @@ def invalidation_signal(locked: dict, reason: str, symbol: str, strategy_name: s
     return Signal(
         symbol            = symbol,
         direction         = Direction.BUY if locked["bullish"] else Direction.SELL,
-        strategy_id       = "vocant1_watch",     # → private DM
+        strategy_id       = "vix1_watch",     # → private DM
         strategy_name     = strategy_name,
         entry_price       = locked["entry"],
         stop_loss         = locked["sl"],
@@ -76,5 +76,5 @@ def invalidation_signal(locked: dict, reason: str, symbol: str, strategy_name: s
             f"⚠️ {side} setup INVALIDATED — {reason}.",
             "Price no longer obeys the 1HR/1M bias — do NOT take this setup.",
         ],
-        market_context    = f"VOCANT.1 INVALIDATED — {side} {symbol}: {reason}",
+        market_context    = f"VIX.1 INVALIDATED — {side} {symbol}: {reason}",
     )

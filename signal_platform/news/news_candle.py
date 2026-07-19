@@ -3,7 +3,7 @@ News-candle identifier — a shared PLATFORM RESOURCE, independent of any strate
 
 A "news candle" is a candle whose OWN time window contains a scheduled news release of the
 requested impact(s) for the instrument's currencies. Any strategy that declares `requires_news`
-can consume this to honour a "never trade the news candle" rule (e.g. VOCANT.1's playbook) — the
+can consume this to honour a "never trade the news candle" rule (e.g. VIX.1's playbook) — the
 identifier lives here, in the news resource layer, not inside a strategy.
 
 Reuses the platform's own building blocks only: the currency map (`news_filter._currencies_for`)

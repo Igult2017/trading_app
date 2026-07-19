@@ -1,5 +1,5 @@
 """
-VOCANT.1 — the structure rule: HH+HL is up, LH+LL is down, anything else is no clear trend.
+VIX.1 — the structure rule: HH+HL is up, LH+LL is down, anything else is no clear trend.
 
 Pure price structure, no indicators. The 1HR bias ONLY. The 1M deliberately does not use it: a
 spike-and-return inside one hour never prints the two highs and two lows this needs, so it read

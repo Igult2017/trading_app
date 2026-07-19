@@ -1,5 +1,5 @@
 """
-VOCANT.1 — regions of interest on the 1M: where price could go against us after entry.
+VIX.1 — regions of interest on the 1M: where price could go against us after entry.
 
 The rule, in the user's words:
   "put our SL at a region of interest where price might pullback to in the worst case scenario...
@@ -24,8 +24,8 @@ are gone. The market draws these levels itself:
     than that and the 2R we are targeting is not a two-candle move any more.
 
 Sources of a region, all of them levels the market drew:
-  * LINE 2 — the 1HR wick line (vocant1_lines): where an opposite move is expected to reverse
-  * the last 1M FRACTALS (vocant1_fractal): by definition places price pulled back to and turned from
+  * LINE 2 — the 1HR wick line (vix1_lines): where an opposite move is expected to reverse
+  * the last 1M FRACTALS (vix1_fractal): by definition places price pulled back to and turned from
   * recent 1M SWINGS (shared/swing_points — a generic platform resource)
   * unmitigated 1M SUPPLY/DEMAND zones (shared/zone_detection — a generic platform resource)
 
@@ -37,7 +37,7 @@ from here. Two strategies, two zone concepts, no shared trading logic.
 from core.types import Candle
 from shared.swing_points import find_swing_points
 from shared.zone_detection import find_zones, unmitigated
-from strategies.vocant1_fractal import fractals
+from strategies.vix1_fractal import fractals
 
 _SWING_N   = 3   # generic pivot half-width
 _SL_BUFFER = 2   # pips — the SL sits slightly BEYOND the region, never resting on it

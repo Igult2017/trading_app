@@ -1,5 +1,5 @@
 """
-VOCANT.1 — the 1M pullback: the entry level.
+VIX.1 — the 1M pullback: the entry level.
 
 Observed on the 1M ONLY. The 1HR never has a pullback in this strategy — it is there for momentum, for
 trend, and to give us the lines.
@@ -54,7 +54,7 @@ def find_pullback(win: list[Candle], bullish: bool,
 
     The whole candle, not just a level: the caller needs BOTH edges. Its extreme on the trend side is
     the entry (the stop goes just beyond it); its extreme on the other side is what the SL must clear,
-    since the candle we entered off cannot be the thing that stops us out (vocant1_roi).
+    since the candle we entered off cannot be the thing that stops us out (vix1_roi).
     """
     if not traded_past(win, bullish, line):
         return None, (f"price has not traded past line 1 ({line:.5f}) yet — an entry does not "

@@ -33,10 +33,16 @@ def _tick(reason: str) -> str:
     return f"✅ {reason}" if reason[:1].isascii() else reason
 
 
+# Ids that are no longer registered but are still stored on historical signal rows. Without this a
+# trade opened under the old id closes months later, finds nothing in the registry, and the card
+# falls back to the bare id — the exact "same trade, two names" problem this function exists to stop.
+_LEGACY_IDS = {"vocant1": "VIX.1"}     # renamed 2026-07-19 (VOCANT.1 -> VIX.1)
+
+
 def _strategy_name(strategy_id: str) -> str:
     """Display name for a strategy id. The DB stores the ID, so a close card would otherwise say
-    "vocant1" under an entry card that said "VOCANT.1" — same trade, same channel, two names.
-    The registry already knows; ask it, and fall back to the bare id if it does not."""
+    "vix1" under an entry card that said "VIX.1" — same trade, same channel, two names.
+    The registry already knows; ask it, then fall back to the legacy map, then to the bare id."""
     base = (strategy_id or "").removesuffix("_watch").removesuffix("_setup")
     try:
         from core import strategy_registry
@@ -45,7 +51,7 @@ def _strategy_name(strategy_id: str) -> str:
                 return st.name
     except Exception:
         pass
-    return base
+    return _LEGACY_IDS.get(base, base)
 
 
 def _risk_pips(signal: Signal) -> float | None:

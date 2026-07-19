@@ -90,8 +90,8 @@ cd signal_platform && python main.py
 
 **Signals display on the existing `AssetPage.tsx` — never create a new signals dashboard.**
 
-### Before touching VOCANT.1 or BX-S/D — READ THE DOC FIRST
-`docs/strategies/vocant1.md` and `docs/strategies/bx-sd.md` hold the SETTLED rules (in the user's own
+### Before touching VIX.1 or BX-S/D — READ THE DOC FIRST
+`docs/strategies/vix1.md` and `docs/strategies/bx-sd.md` hold the SETTLED rules (in the user's own
 words / the book's own quotes), the fix log, and what is still open. They exist because the same rules
 kept being re-derived and re-broken. Do not re-derive them; if a change contradicts one, it is wrong.
 

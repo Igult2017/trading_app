@@ -1,8 +1,8 @@
 """
-VOCANT.1 — the 1HR bias: WHICH WAY, and on what grounds.
+VIX.1 — the 1HR bias: WHICH WAY, and on what grounds.
 
-This module is the ROUTER. What counts as a momentum candle lives in vocant1_momentum; the structure
-rules (HH+HL / LH+LL, and CHoCH) live in vocant1_trend. Here we only decide which of the three
+This module is the ROUTER. What counts as a momentum candle lives in vix1_momentum; the structure
+rules (HH+HL / LH+LL, and CHoCH) live in vix1_trend. Here we only decide which of the three
 tradeable situations we are in, all three of them momentum-led and none using an indicator:
 
   'trend' — an ESTABLISHED trend (HH+HL up / LH+LL down) with a momentum candle running WITH it.
@@ -17,14 +17,14 @@ never reach back past the opposing candle for an aligned one from hours ago — 
 is the truth. Before 'choch' existed that case was simply dropped; now it is read for what it is.
 
 Structure is read from CLOSED candles only. The 1M does NOT use any of this: there the LINE says
-whether price is with us (vocant1_entry), because swing structure cannot read a spike-and-return
+whether price is with us (vix1_entry), because swing structure cannot read a spike-and-return
 inside a single hour.
 """
 import logging
 
 from core.types import Candle
-from strategies.vocant1_momentum import momentum_run, veto_reason
-from strategies.vocant1_trend import broke_structure, clear_trend
+from strategies.vix1_momentum import momentum_run, veto_reason
+from strategies.vix1_trend import broke_structure, clear_trend
 
 log = logging.getLogger(__name__)
 
@@ -47,7 +47,7 @@ def _run_breaks_range(h1: list[Candle], first_idx: int, run_len: int, bullish: b
 def detect_bias(h1: list[Candle], symbol: str = "") -> tuple[bool, int, str, int] | None:
     """
     Returns (bullish, mc_idx, origin, run_len) or None. `mc_idx` is the FIRST momentum candle of the
-    run — VOCANT.1 operates from it and its close opens the 1M watch. `origin` is 'trend', 'range' or
+    run — VIX.1 operates from it and its close opens the 1M watch. `origin` is 'trend', 'range' or
     'choch'. Logs the exact reason at INFO when it returns None, so a miss stays diagnosable.
     """
     trend = clear_trend(h1)
@@ -67,17 +67,17 @@ def detect_bias(h1: list[Candle], symbol: str = "") -> tuple[bool, int, str, int
             # it actually took out the swing that defined the old trend — otherwise it is a deep
             # pullback inside a trend that still stands, and trading it would be fading the trend.
             if broke_structure(h1, opp_last, not with_trend):
-                log.info(f"[vocant1] {symbol} 1HR STRUCTURE CHANGE: "
+                log.info(f"[vix1] {symbol} 1HR STRUCTURE CHANGE: "
                          f"{'up' if with_trend else 'down'} trend broken by a "
                          f"{'down' if with_trend else 'up'} momentum candle closing through its "
                          f"defining swing — bias flips to {'SELL' if with_trend else 'BUY'}")
                 return (not with_trend, opp[0], "choch", opp[1])
-            log.info(f"[vocant1] {symbol} 1HR bias=NONE: momentum runs against the "
+            log.info(f"[vix1] {symbol} 1HR bias=NONE: momentum runs against the "
                      f"{'up' if with_trend else 'down'} trend but has NOT closed through its defining "
                      f"swing — a deep pullback, not a change of direction; standing aside")
             return None
 
-        log.info(f"[vocant1] {symbol} 1HR bias=NONE: clear {'up (HH+HL)' if with_trend else 'down (LH+LL)'} "
+        log.info(f"[vix1] {symbol} 1HR bias=NONE: clear {'up (HH+HL)' if with_trend else 'down (LH+LL)'} "
                  f"trend, but {veto_reason(h1, with_trend)}")
         return None
 
@@ -97,6 +97,6 @@ def detect_bias(h1: list[Candle], symbol: str = "") -> tuple[bool, int, str, int
         _, bullish, vr = best
         return (bullish, vr[0], "range", vr[1])
 
-    log.info(f"[vocant1] {symbol} 1HR bias=NONE: no clear HH+HL/LH+LL trend and no momentum-led range "
+    log.info(f"[vix1] {symbol} 1HR bias=NONE: no clear HH+HL/LH+LL trend and no momentum-led range "
              f"breakout (up: {veto_reason(h1, True)})")
     return None
