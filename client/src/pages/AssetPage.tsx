@@ -453,7 +453,7 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
 
   // Row/line ICONS always render (scaffold); the TEXT fills in green only where a
   // live setup actually has a data-point. No signal ⇒ icons only, no text.
-  // Show the strategy's real rows; when a panel has none (e.g. VOCANT.1 uses no indicators), fall
+  // Show the strategy's real rows; when a panel has none (e.g. VIX.1 uses no indicators), fall
   // back to the blank icon scaffold — icons only, no fabricated text.
   const displayContext     = data?.context?.length     ? data.context     : _ICON_CTX;
   const displayTech        = data?.tech?.length         ? data.tech        : _ICON_TECH;
