@@ -25,15 +25,18 @@ we're wrong" twice and built on it twice. It isn't.)
 ### Two lines, separate jobs
 | | Where | Job |
 |---|---|---|
-| **LINE 1** | 1st volume candle's **close** (== candle 2's open) | **gates the entry** — where an entry belongs |
+| **LINE 1** | 1st momentum candle's **close** (== candle 2's open) | **gates the entry** — where an entry belongs |
 | **LINE 2** | **inside the body**, the open wick's height off line 1 | **only adjusts the stop** — where an opposite move is expected to reverse |
 
 > "Line 2 is only important as it can help us adjust our SL based on where we expect the price to reverse."
 
 Line 2 **never gates**. With a small/no-wick candle it collapses onto line 1 — which is the ordinary
-case, because small-or-no wicks **is** the volume-candle filter. Line 2 is inside the body by
-construction: the 33% wick cap forces body ≥34% of range, so the open wick is always shorter than the
-body (verified on 20k random volume candles, zero violations).
+case, because small-or-no wicks **is** the momentum-candle filter. Line 2 is inside the body by
+construction: the momentum filter requires **body ≥ 75% of range**, so both wicks together take at
+most 25% and the open wick can never exceed a third of the body. (This used to rest on the OLD
+symmetric 33% wick cap forcing body ≥34%; that cap is now asymmetric — only the wick AGAINST the move
+is limited, ≤15% — so the body-share rule is what carries the guarantee, and it is the stronger of
+the two. Re-verified on 789 real momentum candles: zero violations, worst open-wick/body = 0.33.)
 
 ### Fractal vs pullback — the same shape, different roles
 > "a fractal is a 1 candle pullback when the price is going a particular direction... the candle
@@ -149,7 +152,7 @@ correctness. Structure comes from `shared/swing_points` via `vix1_trend` — **n
 structure module (strategy independence).
 
 ### Nothing hardcoded where the market can say it
-Thresholds come off the 1M's own recent candles or the volume candle itself. A real body is judged
+Thresholds come off the 1M's own recent candles or the momentum candle itself. A real body is judged
 against the 1M's **own average body** — what is a real body in London is noise in Tokyo.
 
 ---

@@ -18,9 +18,14 @@ The line is what answers "is the 1M with us?" — not swing structure. A spike-a
 hour never prints the two highs and two lows a trend read needs, so structure said "not aligned" in
 every long-wick case and real entries were thrown away.
 
-Two lines come off candle 1 (vix1_lines). LINE 1 gates the entry (vix1_pullback) and decides
-which side of the market we are on. LINE 2 is where an opposite move is expected to reverse — one
-region of interest among several, not the stop by right.
+Two lines come off candle 1 (vix1_lines), with SEPARATE jobs — do not merge them:
+  LINE 1 GATES THE ENTRY — price must have TRADED past it (vix1_pullback.traded_past), and the
+         pullback is measured against it.
+  LINE 2 DECIDES WHICH SIDE we are on, and adjusts the stop. It is the tolerance band: an opposite
+         move is allowed to push past line 1 and reverse at line 2, so no fifth decimal decides
+         alignment. It is also one region of interest among several, not the stop by right.
+(This docstring used to credit line 1 with the alignment decision, which is what the code and the
+settled rules have never done — corrected so nobody "fixes" the comparison to match the prose.)
 
 The SL is the nearest 1M REGION OF INTEREST beyond the pullback (vix1_roi) — where price would go
 against us in the worst case. Never a pip count: the floor is structural (clear the pullback candle

@@ -39,8 +39,12 @@ _MIN_BODY_MULT  = 4.0   # body >= this x the baseline (4.0 -> ~4-5 candidates/pa
 _MIN_BODY_FRAC  = 0.75  # body >= this share of the candle's OWN range (the wickless look)
 _MAX_CWICK_FRAC = 0.15  # wick AGAINST the move, as a share of range
 _MIN_RUN        = 1     # see the docstring — the market gives runs of one
-_LOOKBACK       = 12    # recent 1HR bars scanned for the candle (an established trend's impulse can
-                        # be several bars old while the fresh 1M entry is still forming)
+LOOKBACK       = 12    # recent 1HR bars scanned for the candle (an established trend's impulse can
+                        # be several bars old while the fresh 1M entry is still forming).
+                        # PUBLIC on purpose: vix1.candle_counts DERIVES the M1 request size from it,
+                        # so the 1M window always spans the oldest candle this can return. Those two
+                        # numbers drifted apart twice (see fix log ef6ff8b) and the entry then judged
+                        # a setup on a window that started hours after its own line was drawn.
 
 
 def baseline_body(h1: list[Candle], i: int) -> float:
@@ -78,7 +82,7 @@ def momentum_run(h1: list[Candle], bullish: bool) -> tuple[int, int] | None:
     bodies; inside real vertical legs that holds only ~50% of the time (median ratio 1.00x), so a
     4-candle leg needed four coin-flips in a row and 91% of runs came out length 1 by construction.
     """
-    start = max(1, len(h1) - _LOOKBACK)
+    start = max(1, len(h1) - LOOKBACK)
     for i in range(len(h1) - 1, start - 1, -1):
         if not is_momentum_candle(h1, i, bullish):
             continue
@@ -95,7 +99,7 @@ def momentum_run(h1: list[Candle], bullish: bool) -> tuple[int, int] | None:
 
 def veto_reason(h1: list[Candle], bullish: bool) -> str:
     """Why the recent bars produced no momentum candle — for diagnostics only."""
-    start = max(1, len(h1) - _LOOKBACK)
+    start = max(1, len(h1) - LOOKBACK)
     in_dir = too_small = wrong_shape = 0
     for i in range(len(h1) - 1, start - 1, -1):
         c = h1[i]
@@ -109,7 +113,7 @@ def veto_reason(h1: list[Candle], bullish: bool) -> str:
                           or counter_wick(c, bullish) > _MAX_CWICK_FRAC * rng):
             wrong_shape += 1
     if in_dir == 0:
-        return f"no in-direction ({'up' if bullish else 'down'}) H1 candle in the last {_LOOKBACK} bars"
+        return f"no in-direction ({'up' if bullish else 'down'}) H1 candle in the last {LOOKBACK} bars"
     return (f"{in_dir} in-direction bars but none was a momentum candle "
             f"(too small x{too_small}, wicky/shape x{wrong_shape} — needs body >= "
             f"{_MIN_BODY_MULT:.1f}x the {_BASELINE_BARS}-bar median body, >= {_MIN_BODY_FRAC:.0%} of "

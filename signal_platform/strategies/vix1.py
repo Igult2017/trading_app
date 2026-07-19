@@ -28,6 +28,7 @@ from core.strategy_context import StrategyContext
 from core import delivery_ledger
 from strategies.vix1_bias import detect_bias
 from strategies.vix1_entry import m1_signals
+from strategies.vix1_momentum import LOOKBACK      # candle_counts[M1] derives from this — see below
 from strategies.vix1_signal import build_signal
 from strategies.vix1_watch import check_invalidation, invalidation_signal
 from shared.pip import pip_size, price_digits
@@ -47,7 +48,13 @@ class Vix1Strategy(BaseStrategy):
 
     required_timeframes = [TF.M1, TF.H1]     # no D1 — VIX.1 uses no higher-TF indicator
     requires_news       = True
-    candle_counts       = {TF.M1: 250, TF.H1: 120}
+    # The 1M window MUST span the oldest momentum candle the bias can return, because the entry reads
+    # everything "since the line was drawn": the line-1 gate (traded_past), the FIRST candle of the
+    # retrace, the fractals, and the SL regions. A flat 250 bars covered only 4.2h against a 12h
+    # lookback, so on 51% of bias hits the entry judged a setup on a window that began hours after
+    # its own line — silently rejecting valid entries and mis-siting the ones it took. DERIVED, never
+    # a literal, so the two cannot drift apart a third time (fix log ef6ff8b).
+    candle_counts       = {TF.M1: (LOOKBACK + 2) * 60, TF.H1: 120}
 
     # All three sessions. The playbook has no session rule at all — the London/NY gate was an
     # addition, and the strategy already filters thin hours by itself: no momentum candle (a bigger body
