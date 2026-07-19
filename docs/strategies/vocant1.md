@@ -118,6 +118,8 @@ against the 1M's **own average body** — what is a real body in London is noise
 
 | commit | what |
 |---|---|
+| `a4d9cb2` | **the WATCH judged a setup on price from before it existed** (`locked_at - 3600`). 70% of 214 real setups resolved on pre-lock bars — 65 false "INVALIDATED" DMs, 44 silently dropped as "triggered" and left unwatched. Now bars that opened at/after the lock; `_WATCH_M1` 120 → 200 so the slice spans `_LOCK_TTL` |
+| `a4d9cb2` | **wrong-direction bug in the RANGE branch** — no freshness guard, always tried bullish first, so it returned the STALE run when both qualified (18/26 EUR, 12/18 GBP → 0 after). `0b24492` fixed exactly this for the TREND branch and it was never applied here — **if you touch either branch, apply it to BOTH** |
 | `e8d2935` | **the SL is a 1M region of interest**, not a number I made up. `15`/`20`/`5` deleted; floor structural, ceiling = one 1HR candle |
 | `54eff8d` | fractal = 1–4 candles (not Williams); **the LINE decides alignment**, `clear_trend` out of the 1M. 3/6 → **6/6** |
 | `34ba9ca` | volume candle + line must come from a **CLOSED** 1HR candle. Was **70 of 82** prod log lines — VOCANT.1 idle ~85% of the time |
@@ -178,6 +180,18 @@ cannot duplicate itself; it can never block another. Holds for any number of str
 20). Defined in ONE place: `signal_validator._key`. The old comment claimed the scope was also
 "enforced by the DB unique constraint" — **there is no such constraint** (checked models.py,
 schema.ts, docker-migrate.sql).
+
+## Testing trap — you CANNOT backtest the 1M entry with yfinance
+Every yfinance forex **1m** bar is `open == high == low == close` — 9,887/9,887 on `EURUSD=X`.
+Not "sparse": no bodies at all, so `avg_body` is 0, no candle is bullish or bearish, and the entry
+reports *"aligned but no pullback candle with a real body"* on every tick forever. A harness fed that
+sees **zero signals across the whole history** and looks exactly like a broken strategy — the trap is
+that the log line is a legitimate one, so nothing announces the data is dead. Degeneracy by interval:
+`1m` 100%, `2m` 57%, `5m` 14%, `15m` 1.1%, `30m`/`1h` <1%. **Use `5m` bars as the entry stream when
+replaying** (the entry logic is TF-agnostic — it only reads `vc.timeframe`) or pull real M1 from
+cTrader. Production is unaffected: `data/data_source.py` is cTrader-only and raises rather than
+falling back. Filter `O==H==L==C` bars out of any fixture before trusting a funnel count.
+(`data/candle_fetcher.py:4` still documents a "cTrader → MT5 → yfinance" fallback that no longer exists.)
 
 ## Known gap — SPREAD IS NOT MODELLED AT ALL
 `risk/spread_filter` exists and `strategy_runner:133` consults it, but only `if strategy.requires_spread`
