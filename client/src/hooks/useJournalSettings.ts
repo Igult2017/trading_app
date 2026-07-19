@@ -196,6 +196,14 @@ const SETTINGS_KEY = 'journal_settings_v2';
 const DEFAULT_FONT: FontId = 'playfair-display';
 /** Marker for the one-time move off the old 'montserrat' default. Presence = already applied. */
 const FONT_DEFAULT_MIGRATION_KEY = 'journal_settings_font_default_playfair';
+/**
+ * v2 — the pass above only rescued devices saved on 'montserrat', yet it stamped its marker on EVERY
+ * device it ran on, so anything saved on any other font can never be reached by it again.
+ * localStorage is PER-DEVICE, so a phone that had some other font saved kept showing it while the
+ * same account on desktop showed Playfair — which is exactly how this surfaced ("the whole journal
+ * is not using playfair on mobile"). Move the remainder across, once.
+ */
+const FONT_DEFAULT_MIGRATION_KEY_V2 = 'journal_settings_font_default_playfair_v2';
 
 function load(): JournalSettings {
   try {
@@ -216,6 +224,17 @@ function load(): JournalSettings {
       if (!localStorage.getItem(FONT_DEFAULT_MIGRATION_KEY)) {
         localStorage.setItem(FONT_DEFAULT_MIGRATION_KEY, '1');
         if (parsed.font === 'montserrat') {
+          parsed.font = DEFAULT_FONT;
+          localStorage.setItem(SETTINGS_KEY, JSON.stringify(parsed));
+        }
+      }
+      // v2 (see the constant): catches every device the first pass stamped but did not move — any
+      // saved font that is not the default, on any device. Touches ONLY `font`; theme and
+      // hiddenPanels are left exactly as they are. Runs a single time, so a font picked after this
+      // still sticks.
+      if (!localStorage.getItem(FONT_DEFAULT_MIGRATION_KEY_V2)) {
+        localStorage.setItem(FONT_DEFAULT_MIGRATION_KEY_V2, '1');
+        if (parsed.font !== DEFAULT_FONT) {
           parsed.font = DEFAULT_FONT;
           localStorage.setItem(SETTINGS_KEY, JSON.stringify(parsed));
         }
