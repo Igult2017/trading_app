@@ -137,10 +137,21 @@ def detect_bias(h1: list[Candle], symbol: str = "") -> tuple[bool, int, str, int
         return None
 
     # No established trend — accept a RANGE breaking into a trend (volume-led, playbook-valid).
+    # Take the FRESHEST qualifying run, never "whichever we test first". In a range BOTH directions
+    # routinely qualify inside the lookback (measured on 60d of H1: 26 such bars on EUR/USD, 18 on
+    # GBP/USD), and returning the bullish one traded a STALE move against the live one in ~68% of them
+    # — e.g. a bullish run ending 7 bars before the live bearish run still signalled BUY. That is the
+    # same wrong-direction bug already fixed in the trend branch above: freshest volume wins.
+    best: tuple[int, bool, tuple[int, int]] | None = None
     for bullish in (True, False):
         vr = volume_run(h1, bullish)
         if vr is not None and _run_breaks_range(h1, vr[0], vr[1], bullish):
-            return (bullish, vr[0], "range", vr[1])
+            last = vr[0] + vr[1] - 1                     # index of the run's LAST candle = its freshness
+            if best is None or last > best[0]:
+                best = (last, bullish, vr)
+    if best is not None:
+        _, bullish, vr = best
+        return (bullish, vr[0], "range", vr[1])
     log.info(f"[vocant1] {symbol} 1HR bias=NONE: no clear HH+HL/LH+LL trend and no volume-led range "
              f"breakout (up: {_volume_veto_reason(h1, True)})")
     return None

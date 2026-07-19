@@ -17,7 +17,8 @@ _SWING_N = 3   # generic swing-pivot half-width
 
 
 def _levels(pts, is_high: bool) -> list[float]:
-    """Distinct swing levels, oldest last — consecutive ties collapse into one."""
+    """Distinct swing levels, NEWEST last (find_swing_points returns chronological order, so [-1] is
+    the most recent and [-2] the one before it) — consecutive ties collapse into one."""
     out: list[float] = []
     for p in pts:
         if p.is_high == is_high and (not out or abs(p.price - out[-1]) > 1e-9):

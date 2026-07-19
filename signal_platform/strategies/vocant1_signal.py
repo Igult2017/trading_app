@@ -56,8 +56,14 @@ def build_signal(kind, symbol, bullish, origin, vol_count, entry, sl, tp,
         alert_only        = alert_only,   # pull-back = DM alert (bypasses the symbol:direction dedup)
         technical_reasons = reasons,
         smc_factors       = smc,
-        market_context    = (f"VOCANT.1 (validating) — {side} {symbol} 1M {label} "
+        # NOT "(validating)" — this builder is only ever called for a resolved entry that ships to
+        # the public channel as a full signal card (strategy_id `vocant1`, alert_only False). The
+        # old label described the card as provisional on the one message that is not.
+        market_context    = (f"VOCANT.1 — {side} {symbol} 1M {label} "
                              f"[{'range breakout' if origin == 'range' else 'trend'}]"
                              f"{' correlated' if corr else ''} stop at {entry:.{digits}f}"),
-        news_note         = news_note(news_context, ["USD", "EUR", "GBP"]) if news_context else "",
+        # Currencies come from the SYMBOL, not a hardcoded list. ["USD","EUR","GBP"] matched the
+        # current allowed_instruments exactly, so the day USD/JPY is added (the class docstring
+        # already contemplates it) every JPY event would drop off the card silently.
+        news_note         = news_note(news_context, symbol.split("/")) if news_context else "",
     )
