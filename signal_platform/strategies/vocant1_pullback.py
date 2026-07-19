@@ -1,11 +1,11 @@
 """
 VOCANT.1 — the 1M pullback: the entry level.
 
-Observed on the 1M ONLY. The 1HR never has a pullback in this strategy — it is there for volume, for
+Observed on the 1M ONLY. The 1HR never has a pullback in this strategy — it is there for momentum, for
 trend, and to give us the lines.
 
 The market is never tidy, so nothing here is measured in fixed pips — every threshold comes off the
-1M's own recent candles or off the volume candle itself:
+1M's own recent candles or off the momentum candle itself:
 
   A PROPER candle the other way — a real body, judged against the 1M's own recent average body, not
   a pip count. A doji is indecision and a tick of noise is noise; neither may place a stop. What is
@@ -20,7 +20,7 @@ The market is never tidy, so nothing here is measured in fixed pips — every th
   band below is just a corridor, and a setup where price never reached the line at all would still
   produce an entry, which is the exact thing the line exists to prevent. Then the pullback itself
   must not have run beyond LINE 2: an opposite move is allowed to push past line 1 and reverse at
-  line 2, so that band is the tolerance and no fifth decimal decides a trade. The band is the volume
+  line 2, so that band is the tolerance and no fifth decimal decides a trade. The band is the momentum
   candle's own open wick, so the market sizes it — no wick, no slack; a wicky candle, more.
 """
 from core.types import Candle

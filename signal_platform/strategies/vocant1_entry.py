@@ -44,7 +44,7 @@ _ENTRY_BUFFER = 1   # pips — the stop sits JUST beyond the pullback, never res
 def m1_signals(m1: list[Candle], bullish: bool, vc: Candle,
                pip: float = 0.0001, symbol: str = "") -> list[dict]:
     """
-    The 1M entry — [{"kind", "entry", "sl", "sl_note"}] or [] (logs why). `vc` is the FIRST volume
+    The 1M entry — [{"kind", "entry", "sl", "sl_note"}] or [] (logs why). `vc` is the FIRST momentum
     candle of the 1HR run: its close is THE LINE. `sl_note` says WHICH region the stop sits behind, so
     the card can tell the reader too — the number alone does not explain itself.
     """
@@ -56,7 +56,7 @@ def m1_signals(m1: list[Candle], bullish: bool, vc: Candle,
     win    = [c for c in m1 if c.time >= vc.time + hr]     # only price action since the line was set
 
     if len(win) < 2:
-        log.info(f"[vocant1] {symbol} 1M: only {len(win)} bars since the 1st volume candle closed — waiting")
+        log.info(f"[vocant1] {symbol} 1M: only {len(win)} bars since the 1st momentum candle closed — waiting")
         return []
 
     # ALIGNMENT (playbook p2) — THE LINE decides which side we are on, and that is the whole reason it
