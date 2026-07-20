@@ -1,16 +1,18 @@
 """
-VIX.1 — the 1HR bias: WHICH WAY, and on what grounds.
+VIX.1 — the bias: WHICH WAY, and on what grounds. TREND on 4HR, MOMENTUM candle on 1HR.
 
-This module is the ROUTER. What counts as a momentum candle lives in vix1_momentum; the structure
-rules (HH+HL / LH+LL, and CHoCH) live in vix1_trend. Here we only decide which of the three
-tradeable situations we are in, all three of them momentum-led and none using an indicator:
+This module is the ROUTER. What counts as a momentum candle lives in vix1_momentum (1HR); the trend
+rules (HH+HL / LH+LL, and CHoCH) live in vix1_trend and now run on the **4HR** — the higher timeframe
+is more reliable and is established sooner relative to the 1HR, so an aligned 1HR momentum candle is
+caught EARLIER instead of waiting for 1HR structure to form. Here we only decide which of the three
+tradeable situations we are in, all three momentum-led and none using an indicator:
 
-  'trend' — an ESTABLISHED trend (HH+HL up / LH+LL down) with a momentum candle running WITH it.
-  'range' — NO established trend, and a momentum candle CLOSES beyond the recent range: a range
+  'trend' — an ESTABLISHED 4HR trend (HH+HL up / LH+LL down) with a 1HR momentum candle running WITH it.
+  'range' — NO 4HR trend, and a 1HR momentum candle CLOSES beyond the recent 1HR range: a range
             breaking into a trend.
-  'choch' — an established trend, and the freshest momentum candle runs AGAINST it AND closes beyond
-            the swing that defined it. The market is CHANGING DIRECTION (bull -> bear or bear ->
-            bull). Without that break it is only a deep pullback and we stand aside.
+  'choch' — a 4HR trend, and the freshest 1HR momentum candle runs AGAINST it AND closes beyond the
+            H4 swing that defined it. The market is CHANGING DIRECTION (bull -> bear or bear -> bull).
+            Without that break it is only a deep pullback and we stand aside.
 
 The trend must be the thing CARRYING the momentum (p1). So when structure and momentum disagree we
 never reach back past the opposing candle for an aligned one from hours ago — the freshest momentum
@@ -44,17 +46,22 @@ def _run_breaks_range(h1: list[Candle], first_idx: int, run_len: int, bullish: b
     return min(c.close for c in run) < min(c.low for c in prior)
 
 
-def detect_bias(h1: list[Candle], symbol: str = "") -> tuple[bool, int, str, int] | None:
+def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "") -> tuple[bool, int, str, int] | None:
     """
-    Returns (bullish, mc_idx, origin, run_len) or None. `mc_idx` is the FIRST momentum candle of the
-    run — VIX.1 operates from it and its close opens the 1M watch. `origin` is 'trend', 'range' or
-    'choch'. Logs the exact reason at INFO when it returns None, so a miss stays diagnosable.
+    Returns (bullish, mc_idx, origin, run_len) or None. `mc_idx` indexes into H1 — the FIRST momentum
+    candle of the run; VIX.1 operates from it and its close opens the 1M watch. `origin` is 'trend',
+    'range' or 'choch'. Logs the exact reason at INFO when it returns None, so a miss stays diagnosable.
+
+    TREND is read on the **4HR** (`clear_trend(h4)`), the MOMENTUM candle on the **1HR** (`momentum_run
+    (h1)`). The 4HR trend is slower and more reliable, and it is established sooner *relative to the
+    1HR*, so an aligned 1HR momentum candle qualifies EARLIER (it does not wait for 1HR structure to
+    print). CHoCH tests the 1HR momentum candle's close against the H4 swings.
     """
-    trend = clear_trend(h1)
+    trend = clear_trend(h4)                     # 4HR trend
 
     if trend != 0:
         with_trend = trend > 0
-        vr  = momentum_run(h1, with_trend)
+        vr  = momentum_run(h1, with_trend)      # 1HR momentum
         opp = momentum_run(h1, not with_trend)
         last     = (vr[0] + vr[1] - 1) if vr else -1
         opp_last = (opp[0] + opp[1] - 1) if opp else -1
@@ -63,21 +70,21 @@ def detect_bias(h1: list[Candle], symbol: str = "") -> tuple[bool, int, str, int
             return (with_trend, vr[0], "trend", vr[1])
 
         if opp is not None:
-            # The freshest momentum runs AGAINST the structure. That is a CHANGE OF DIRECTION only if
-            # it actually took out the swing that defined the old trend — otherwise it is a deep
-            # pullback inside a trend that still stands, and trading it would be fading the trend.
-            if broke_structure(h1, opp_last, not with_trend):
-                log.info(f"[vix1] {symbol} 1HR STRUCTURE CHANGE: "
-                         f"{'up' if with_trend else 'down'} trend broken by a "
-                         f"{'down' if with_trend else 'up'} momentum candle closing through its "
-                         f"defining swing — bias flips to {'SELL' if with_trend else 'BUY'}")
+            # The freshest 1HR momentum runs AGAINST the 4HR trend. That is a CHANGE OF DIRECTION only
+            # if the 1HR candle CLOSED beyond the 4HR swing that defined the trend — otherwise it is a
+            # deep pullback inside a trend that still stands, and trading it would be fading the trend.
+            if broke_structure(h4, h1[opp_last].close, not with_trend):
+                log.info(f"[vix1] {symbol} 4HR STRUCTURE CHANGE: "
+                         f"{'up' if with_trend else 'down'} 4HR trend broken by a "
+                         f"{'down' if with_trend else 'up'} 1HR momentum candle closing through its "
+                         f"defining H4 swing — bias flips to {'SELL' if with_trend else 'BUY'}")
                 return (not with_trend, opp[0], "choch", opp[1])
-            log.info(f"[vix1] {symbol} 1HR bias=NONE: momentum runs against the "
-                     f"{'up' if with_trend else 'down'} trend but has NOT closed through its defining "
+            log.info(f"[vix1] {symbol} bias=NONE: 1HR momentum runs against the "
+                     f"{'up' if with_trend else 'down'} 4HR trend but has NOT closed through the H4 "
                      f"swing — a deep pullback, not a change of direction; standing aside")
             return None
 
-        log.info(f"[vix1] {symbol} 1HR bias=NONE: clear {'up (HH+HL)' if with_trend else 'down (LH+LL)'} "
+        log.info(f"[vix1] {symbol} bias=NONE: clear 4HR {'up (HH+HL)' if with_trend else 'down (LH+LL)'} "
                  f"trend, but {veto_reason(h1, with_trend)}")
         return None
 
@@ -97,6 +104,6 @@ def detect_bias(h1: list[Candle], symbol: str = "") -> tuple[bool, int, str, int
         _, bullish, vr = best
         return (bullish, vr[0], "range", vr[1])
 
-    log.info(f"[vix1] {symbol} 1HR bias=NONE: no clear HH+HL/LH+LL trend and no momentum-led range "
+    log.info(f"[vix1] {symbol} bias=NONE: no clear 4HR HH+HL/LH+LL trend and no momentum-led 1HR range "
              f"breakout (up: {veto_reason(h1, True)})")
     return None

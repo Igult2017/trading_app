@@ -17,7 +17,7 @@ _WATCH_M1 = 200        # recent M1 bars inspected for a trigger / reversal — m
                        # earliest post-lock bars outside the slice and their trigger unseen
 
 
-def check_invalidation(locked: dict, h1: list[Candle], m1: list[Candle],
+def check_invalidation(locked: dict, h1: list[Candle], h4: list[Candle], m1: list[Candle],
                        now_ts: float, symbol: str = "") -> str | None:
     """
     Watch a LOCKED (pending) setup on BOTH timeframes. Returns:
@@ -31,10 +31,10 @@ def check_invalidation(locked: dict, h1: list[Candle], m1: list[Candle],
     if now_ts - locked["locked_at"] > _LOCK_TTL:
         return "expired"
 
-    # 1HR — has the higher-timeframe bias flipped to the other side?
-    bias = detect_bias(h1, symbol)
+    # HTF bias — has it flipped to the other side? (trend on H4, momentum on H1)
+    bias = detect_bias(h1, h4, symbol)
     if bias is not None and bias[0] != bullish:
-        return "1HR bias flipped against the setup"
+        return "HTF bias flipped against the setup"
 
     # 1M — SINCE THE LOCK, did the entry trigger, or did price reverse past the stop first?
     # Strictly bars that OPENED at/after the lock. This window used to reach back a full hour

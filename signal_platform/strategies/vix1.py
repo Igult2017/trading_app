@@ -46,7 +46,7 @@ class Vix1Strategy(BaseStrategy):
     id      = "vix1"
     enabled = True
 
-    required_timeframes = [TF.M1, TF.H1]     # no D1 — VIX.1 uses no higher-TF indicator
+    required_timeframes = [TF.M1, TF.H1, TF.H4]   # H4 = the TREND timeframe; H1 = momentum; M1 = entry
     requires_news       = True
     # The 1M window MUST span the oldest momentum candle the bias can return, because the entry reads
     # everything "since the line was drawn": the line-1 gate (traded_past), the FIRST candle of the
@@ -54,14 +54,15 @@ class Vix1Strategy(BaseStrategy):
     # lookback, so on 51% of bias hits the entry judged a setup on a window that began hours after
     # its own line — silently rejecting valid entries and mis-siting the ones it took. DERIVED, never
     # a literal, so the two cannot drift apart a third time (fix log ef6ff8b).
-    candle_counts       = {TF.M1: (LOOKBACK + 2) * 60, TF.H1: 120}
+    # H4: 120 bars = 20 days — ample to print the HH+HL/LH+LL structure clear_trend reads.
+    candle_counts       = {TF.M1: (LOOKBACK + 2) * 60, TF.H1: 120, TF.H4: 120}
 
     # All three sessions. The playbook has no session rule at all — the London/NY gate was an
     # addition, and the strategy already filters thin hours by itself: no momentum candle (a bigger body
     # than the previous one, wicks <= 33%) means no bias means no trade, and quiet Asian hours produce
     # few of them. GBP/USD in Tokyo will simply stay silent; USD/JPY finally gets its HOME session.
     allowed_sessions    = [Session.LONDON, Session.NEW_YORK, Session.ASIAN]
-    allowed_trends      = [Trend.ANY]        # VIX.1 reads its own 1HR trend
+    allowed_trends      = [Trend.ANY]        # VIX.1 reads its own trend (now on 4HR)
     allowed_instruments = ["EUR/USD", "GBP/USD"]
     news_stance         = NewsStance.NEWS_AGNOSTIC   # news candle + news-window guards applied in analyze()
     news_impact_filter  = [NewsImpact.HIGH]
@@ -79,7 +80,8 @@ class Vix1Strategy(BaseStrategy):
         # moves every scan is not a line, and its "close" is simply the current price. The 1M's
         # forming bar is KEPT on purpose: there, live price is exactly what the entry reacts to.
         h1 = closed_only(context.candles.get(TF.H1))
-        if len(m1) < 12 or len(h1) < 20:
+        h4 = closed_only(context.candles.get(TF.H4))   # TREND timeframe (clear_trend runs on this)
+        if len(m1) < 12 or len(h1) < 20 or len(h4) < 20:
             return StrategyResult.empty()
         pip    = pip_size(context.symbol)
         digits = price_digits(context.symbol)
@@ -90,7 +92,7 @@ class Vix1Strategy(BaseStrategy):
         # WATCH — a LOCKED pending setup: alert on invalidation, but never block a fresh setup.
         locked = self._locked.get(sym)
         if locked is not None:
-            reason = check_invalidation(locked, h1, m1, now, sym)
+            reason = check_invalidation(locked, h1, h4, m1, now, sym)
             if reason in ("triggered", "expired"):
                 del self._locked[sym]                       # cleared — look for a fresh setup
             elif reason is not None:
@@ -100,7 +102,7 @@ class Vix1Strategy(BaseStrategy):
             # reason is None → still valid: keep the lock, fall through (the pull-back may have formed)
 
         # 1HR BIAS — from the FIRST momentum candle of the run.
-        bias = detect_bias(h1, sym)                         # logs its own reason at INFO when None
+        bias = detect_bias(h1, h4, sym)                     # trend on H4, momentum on H1; logs when None
         if bias is None:
             return StrategyResult(signals=out)
         bullish, vc_idx, origin, vol_count = bias

@@ -26,9 +26,9 @@ def _origin_reason(origin: str, bullish: bool, mlabel: str, side: str) -> str:
     if origin == "range":
         return f"1HR RANGE BREAKOUT ({side}) — {mlabel} from the 1st, trend building"
     if origin == "choch":
-        return (f"1HR STRUCTURE CHANGE ({side}) — the {'down' if bullish else 'up'} trend broke: "
-                f"{mlabel} from the 1st closed through the swing that defined it")
-    return (f"1HR clear {'up (HH+HL)' if bullish else 'down (LH+LL)'} trend + {mlabel} "
+        return (f"4HR STRUCTURE CHANGE ({side}) — the {'down' if bullish else 'up'} 4HR trend broke: "
+                f"1HR {mlabel} from the 1st closed through the H4 swing that defined it")
+    return (f"4HR clear {'up (HH+HL)' if bullish else 'down (LH+LL)'} trend + 1HR {mlabel} "
             f"from the 1st ({side})")
 
 
@@ -48,7 +48,7 @@ def build_signal(kind, symbol, bullish, origin, vol_count, entry, sl, tp,
         reasons.insert(0, f"⚠️ CORRELATED: {', '.join(corr)} already {side.lower()} (same USD direction) — size down or skip")
 
     smc = [
-        f"CTX::1HR TREND::{_CTX.get(origin) or ('UPTREND' if bullish else 'DOWNTREND')}",
+        f"CTX::4HR TREND::{_CTX.get(origin) or ('UPTREND' if bullish else 'DOWNTREND')}",
         f"CTX::1HR MOMENTUM::{vol_count} CANDLE{'S' if vol_count != 1 else ''} (FROM 1ST)",
         f"CTX::1M ENTRY::{label}",
         f"PA::{label} STOP-ENTRY (2R)",

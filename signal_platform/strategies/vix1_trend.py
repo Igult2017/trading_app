@@ -40,19 +40,20 @@ def clear_trend(candles: list[Candle]) -> int:
     return 0
 
 
-def broke_structure(candles: list[Candle], idx: int, bullish: bool) -> bool:
+def broke_structure(trend_candles: list[Candle], close_price: float, bullish: bool) -> bool:
     """
-    CHoCH — did the candle at `idx` CLOSE beyond the swing point that defined the OLD trend?
-    A bullish reversal must close above the last swing HIGH; a bearish one below the last swing LOW.
+    CHoCH — did `close_price` CLOSE beyond the swing point that defined the OLD trend, on the
+    TREND timeframe's structure? A bullish reversal must close above the last swing HIGH; a bearish
+    one below the last swing LOW. Takes an explicit close so it works CROSS-TF: the trend now lives on
+    H4, but the candle doing the breaking is the 1HR momentum candle — we test that 1HR close against
+    the H4 swings.
 
-    This is what separates a REVERSAL from a deep pullback: a big candle running against the trend is
-    ordinary retracement until it takes out the structure. It is a BODY CLOSE, never a wick — a wick
-    through the level is a liquidity grab, which is the platform-wide rule for both strategies.
-    Measured on 2y of H1, ~90% of against-trend momentum candles do break structure, so this filters
-    little; it is here for correctness, so a pullback is never traded as a change of direction.
+    This separates a REVERSAL from a deep pullback: a big candle running against the trend is ordinary
+    retracement until it takes out the structure. It is a BODY CLOSE, never a wick — a wick through the
+    level is a liquidity grab (platform-wide rule for both strategies).
     """
-    pts = [p for p in find_swing_points(candles[:idx], n=_SWING_N) if p.is_high == bullish]
+    pts = [p for p in find_swing_points(trend_candles, n=_SWING_N) if p.is_high == bullish]
     if not pts:
         return False
     level = pts[-1].price
-    return candles[idx].close > level if bullish else candles[idx].close < level
+    return close_price > level if bullish else close_price < level

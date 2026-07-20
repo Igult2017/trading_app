@@ -10,10 +10,19 @@ Pairs: **EUR/USD, GBP/USD**. Sessions: **London / NY / Asian** (all three). Phas
 
 Each of these was corrected at least once. If a change would contradict one, it is wrong.
 
-### The 1HR does two jobs, and only two
-Volume + trend confirmation, and it gives us **the lines**. Nothing else. The 1HR **never puts a
-clock on the entry** — it can be ready for hours while the 1M is not. The wait is **open-ended**; a
-bias flip ends a setup, a timer never does.
+### TREND on 4HR, MOMENTUM candle on 1HR (changed 2026-07-20)
+The **4HR** carries the TREND (`clear_trend(h4)` — HH+HL / LH+LL, and the CHoCH structure break); the
+**1HR** carries the MOMENTUM candle and gives us **the lines**. The user's call: *"change trend
+detection to 4HR TF — I can see that is more reliable than 1HR."* The 4HR trend is slower and steadier
+and is established SOONER *relative to the 1HR*, so an aligned 1HR momentum candle qualifies EARLIER
+instead of waiting for 1HR structure to print. The three contexts now classify off the 4HR trend:
+`trend` = 4HR trend + aligned 1HR momentum · `range` = no 4HR trend + 1HR momentum breaks the 1HR range
+· `choch` = 1HR momentum closes through the **H4** swing that defined the 4HR trend. Trade-off: 4HR
+flips slower, so reversals (`choch`) are seen a little later. `detect_bias(h1, h4)`; H4 added to
+`candle_counts` (120 bars). (Was: "the 1HR does volume + trend + lines".)
+
+The trend TF **never puts a clock on the entry** — it can be ready for hours while the 1M is not. The
+wait is **open-ended**; a bias flip ends a setup, a timer never does.
 
 ### The line is for CLARITY AND ACCURACY — not invalidation
 > "The 1HR line consideration in 1M is just for accuracy during entry and to ensure we dont enter at
