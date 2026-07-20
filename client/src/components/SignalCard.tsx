@@ -66,13 +66,9 @@ export default function SignalCard({ signal, isWatchlist = false }: SignalCardPr
   const entryPrice = signal.entryPrice?.toString() || '—';
   const hasCompleteData = entryPrice !== '—' && entryPrice !== 'N/A';
 
-  // `sig-pf` = exempt from the journal-root font override (Journal.tsx) so this card ALWAYS renders in
-  // Playfair, whatever font the journal is set to. The inline family covers the non-journal (public)
-  // render path where no !important rule is in play.
   return (
     <div
-      className={`sig-pf p-6 sm:p-8 space-y-6 ${isWatchlist ? 'opacity-90' : ''}`}
-      style={{ fontFamily: "'Playfair Display', serif" }}
+      className={`p-6 sm:p-8 space-y-6 ${isWatchlist ? 'opacity-90' : ''}`}
       data-testid={`card-signal-${signal.id}`}
     >
       {/* Header Section: Action, Pair, and Entry */}
@@ -129,7 +125,7 @@ export default function SignalCard({ signal, isWatchlist = false }: SignalCardPr
         </div>
         {/* Timeframe and Age */}
         <div className="flex items-center gap-3 text-sm font-medium text-muted-foreground">
-          <span className="px-2 py-0.5 bg-muted text-foreground rounded text-xs font-semibold">
+          <span className="px-2 py-0.5 bg-muted text-foreground rounded text-xs font-mono font-semibold">
             {signal.primaryTimeframe || '4H'}
           </span>
           {signal.createdAt && (

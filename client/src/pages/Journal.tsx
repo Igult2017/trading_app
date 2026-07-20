@@ -961,7 +961,7 @@ export default function Journal() {
            specificity. Any panel with its own font MUST be listed here. Trade Sync learned this
            the hard way: every Material Icon rendered as its literal ligature text
            ("light_mode", "chevron_left") because font-family was forced to the journal stack. */
-        .journal-root *:where(:not(.dp):not(.dp *):not(.ct-app):not(.ct-app *):not(.ts-page):not(.ts-page *):not(.sig-pf):not(.sig-pf *)){font-family:${F.stack}!important;${forcedWeightRule}}
+        .journal-root *:where(:not(.dp):not(.dp *):not(.ct-app):not(.ct-app *):not(.ts-page):not(.ts-page *)){font-family:${F.stack}!important;${forcedWeightRule}}
         /* Same exemption as the rule above — this one bites SVG <text>, which the font-family rule
            does not reach. Without it the "1x" labels in the Trade Sync hero diagram stayed Montserrat
            while everything around them was Playfair. */
