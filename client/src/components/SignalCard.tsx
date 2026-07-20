@@ -67,8 +67,9 @@ export default function SignalCard({ signal, isWatchlist = false }: SignalCardPr
   const hasCompleteData = entryPrice !== '—' && entryPrice !== 'N/A';
 
   return (
-    <div 
+    <div
       className={`p-6 sm:p-8 space-y-6 ${isWatchlist ? 'opacity-90' : ''}`}
+      style={{ fontFamily: "'Playfair Display', serif" }}
       data-testid={`card-signal-${signal.id}`}
     >
       {/* Header Section: Action, Pair, and Entry */}
