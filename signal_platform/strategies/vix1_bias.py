@@ -43,7 +43,8 @@ def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "") -> tuple[b
       'trend'  — clear 1HR trend + aligned 1HR momentum
       'choch'  — clear 1HR trend, 1HR momentum AGAINST it, closing through the 1HR swing that defined it
       'trend4' — 1HR trend UNCLEAR, but the 1HR momentum aligns with a clear 4HR trend (the fallback)
-      'range'  — no 1HR trend, no backing 4HR trend, 1HR momentum breaks the recent 1HR range
+    Neither TF shows a confirmed trend -> None (NO TRADE). We trade TRENDS ONLY; there is no 'range'
+    origin — a bare momentum breakout with no confirmed trend is not taken.
     """
     t1 = clear_trend(h1)                          # 1HR trend — PRIMARY
 
