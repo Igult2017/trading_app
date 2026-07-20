@@ -2,8 +2,10 @@
 VIX.1 — "Volume Strategy".
 
 Built ONLY from the Volume Strategy playbook — a self-contained strategy, unrelated to any other:
-  1HR = bias: a CLEAR TREND (HH+HL up / LH+LL down) OR a range breaking into a trend, carried by
-        MOMENTUM (a run of 1-3 momentum candles). OPERATE FROM THE 1ST momentum candle. NO indicators.
+  1HR = bias: a CONFIRMED TREND, carried by MOMENTUM (a run of 1-3 momentum candles). TRENDS ONLY —
+        a clear 1HR trend (HH+HL up / LH+LL down), or, when the 1HR is unclear, 1HR momentum backed by
+        a clear 4HR trend. A range->trend transition is taken only once the trend is CONFIRMED, never
+        on the bare breakout. OPERATE FROM THE 1ST momentum candle. NO indicators.
   1M  = entry, and the 1M alone decides WHEN — the 1HR never puts a clock on it. THE LINE says which
         side we are on: our side -> the PULLBACK is the entry; the wrong side -> the counter-move's
         last FRACTAL must break first. Entry = a stop just beyond the first pullback candle, so a
@@ -62,7 +64,7 @@ class Vix1Strategy(BaseStrategy):
     # than the previous one, wicks <= 33%) means no bias means no trade, and quiet Asian hours produce
     # few of them. GBP/USD in Tokyo will simply stay silent; USD/JPY finally gets its HOME session.
     allowed_sessions    = [Session.LONDON, Session.NEW_YORK, Session.ASIAN]
-    allowed_trends      = [Trend.ANY]        # VIX.1 reads its own trend (now on 4HR)
+    allowed_trends      = [Trend.ANY]        # VIX.1 reads its own trend — 1HR primary, 4HR fallback (cascade)
     allowed_instruments = ["EUR/USD", "GBP/USD"]
     news_stance         = NewsStance.NEWS_AGNOSTIC   # news candle + news-window guards applied in analyze()
     news_impact_filter  = [NewsImpact.HIGH]

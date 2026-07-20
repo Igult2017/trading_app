@@ -69,7 +69,8 @@ def build_signal(kind, symbol, bullish, origin, vol_count, entry, sl, tp,
         risk_reward       = 2.0,
         confidence        = 0.72,
         primary_timeframe = TF.H1,
-        alert_only        = alert_only,   # pull-back = DM alert (bypasses the symbol:direction dedup)
+        alert_only        = alert_only,   # FALSE for the pull-back entry -> PUBLIC CHANNEL (a real card).
+                                          # The param is a passthrough; only the invalidation DM sets it True.
         technical_reasons = reasons,
         smc_factors       = smc,
         # NOT "(validating)" — this builder is only ever called for a resolved entry that ships to
