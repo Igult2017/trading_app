@@ -16,17 +16,20 @@ _KIND = {
 }
 
 
-# How each origin describes itself. 'choch' is a REVERSAL — it must never render as "clear up trend",
-# because the trend it names is the one that just broke. 'trend4' = 1HR trend unclear, 4HR-backed.
-# (No 'range' — VIX.1 trades trends only.)
-_CTX   = {"choch": "STRUCTURE CHANGE", "trend4": "4HR-BACKED TREND"}
-_SHORT = {"choch": "structure change", "trend4": "4HR-backed trend"}
+# How each origin describes itself. 'choch'/'choch4' are REVERSALS — they must never render as "clear
+# up trend", because the structure they name is the one that just broke. 'trend4' = 1HR trend unclear,
+# 4HR-backed. (No 'range' — VIX.1 trades trends & CHoCH only.)
+_CTX   = {"choch": "STRUCTURE CHANGE", "choch4": "4HR STRUCTURE CHANGE", "trend4": "4HR-BACKED TREND"}
+_SHORT = {"choch": "structure change", "choch4": "4HR structure change", "trend4": "4HR-backed trend"}
 
 
 def _origin_reason(origin: str, bullish: bool, mlabel: str, side: str) -> str:
     if origin == "choch":
-        return (f"1HR STRUCTURE CHANGE ({side}) — the {'down' if bullish else 'up'} 1HR trend broke: "
-                f"{mlabel} from the 1st closed through the swing that defined it")
+        return (f"1HR STRUCTURE CHANGE ({side}) — the prior {'down' if bullish else 'up'} 1HR structure "
+                f"broke: {mlabel} from the 1st closed through the swing that defined it")
+    if origin == "choch4":
+        return (f"4HR STRUCTURE CHANGE ({side}) — 1HR trend unclear; the prior {'down' if bullish else 'up'} "
+                f"4HR structure broke: {mlabel} from the 1st closed through the 4HR swing that defined it")
     if origin == "trend4":
         return (f"4HR-BACKED TREND ({side}) — 1HR trend unclear, but the 1HR {mlabel} aligns with a "
                 f"clear 4HR {'up (HH+HL)' if bullish else 'down (LH+LL)'} trend")

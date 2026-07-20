@@ -20,11 +20,17 @@ candle is always the 1HR; the 1HR also gives us **the lines**. **We trade TRENDS
 markets** (user 2026-07-20: *"if we don't see a trend in 1HR we go to 4HR, but if we don't see it there
 either we don't take the trade… a range→trend transition is only taken once the trend is CONFIRMED"*).
 `detect_bias(h1, h4)` returns one of:
-- `trend`  — clear 1HR trend + aligned 1HR momentum
-- `choch`  — clear 1HR trend, 1HR momentum against it, closing through the 1HR swing that defined it
-- `trend4` — **the fallback**: 1HR trend UNCLEAR, but the 1HR momentum aligns with a clear **4HR** trend
-- **no confirmed trend on either TF → None (NO TRADE).** The old `range` origin (bare breakout with no
-  confirmed trend) is REMOVED.
+Momentum-led: the **freshest 1HR momentum candle leads**, then we ask on what grounds we may take it,
+in this order:
+- `trend`  — momentum runs WITH a clear 1HR trend
+- `trend4` — 1HR trend UNCLEAR, momentum runs WITH a clear **4HR** trend (the fallback)
+- `choch`  — momentum CLOSED through the 1HR structure the OTHER way (a lower high broken up / a higher
+  low broken down) — a reversal. **Decoupled from `clear_trend`** (2026-07-20): a CHoCH is exactly when
+  the slope reads flat, so gating it behind "clear trend" made every such reversal escape
+- `choch4` — 1HR trend unclear, momentum closed through the **4HR** structure the other way
+- **none of these → None (NO TRADE).** The old `range` origin (bare breakout, no confirmed direction)
+  is REMOVED. Fixing CHoCH lifted combined trend+CHoCH recognition of the user's 87 real trades from
+  **70% → 89%** (the residual ~11% is timezone/no-price matching noise in the log, not a detector miss).
 
 (An earlier pass made 4HR the *only* trend source — wrong; reverted to this cascade.) H4 added to
 `candle_counts` (120 bars). `broke_structure` takes an explicit close so choch can test a 1HR close vs
