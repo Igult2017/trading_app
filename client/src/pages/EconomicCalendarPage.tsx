@@ -191,7 +191,7 @@ export default function EconomicCalendarPage({ active = true }: { active?: boole
   const thStyle: React.CSSProperties = {
     padding: '12px 20px', fontSize: 9, fontWeight: 500,
     letterSpacing: '0.12em', textTransform: 'uppercase',
-    fontFamily: "'DM Mono',monospace", color: textMut,
+    fontFamily: "'Playfair Display',serif", color: textMut,
     background: thBg, borderBottom: `1px solid ${border}`,
     whiteSpace: 'nowrap',
   };
@@ -230,14 +230,14 @@ export default function EconomicCalendarPage({ active = true }: { active?: boole
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
 
               {/* Live dot + timestamps */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontFamily: "'DM Mono',monospace", fontSize: 10, fontWeight: 500, letterSpacing: '0.12em', color: '#22c55e' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontFamily: "'Playfair Display',serif", fontSize: 10, fontWeight: 500, letterSpacing: '0.12em', color: '#22c55e' }}>
                 <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#22c55e', display: 'inline-block', animation: 'ec-live 2s infinite' }} />
                 LIVE
                 <LiveClock lastUpdate={lastUpdate} textMut={textMut} />
               </div>
 
               {/* UTC badge */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: cardBg, border: `1px solid ${border}`, borderRadius: 8, padding: '8px 14px', fontFamily: "'DM Mono',monospace", fontSize: 11, fontWeight: 500, color: textMut, letterSpacing: '0.12em' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: cardBg, border: `1px solid ${border}`, borderRadius: 8, padding: '8px 14px', fontFamily: "'Playfair Display',serif", fontSize: 11, fontWeight: 500, color: textMut, letterSpacing: '0.12em' }}>
                 <Clock size={13} color="#3b82f6" />
                 <span>UTC</span>
               </div>
@@ -305,8 +305,8 @@ export default function EconomicCalendarPage({ active = true }: { active?: boole
               {indices.length > 0 && (
                 <div className="ec-card" style={{ overflowX: 'auto' }}>
                   <div style={{ padding: '14px 20px', borderBottom: `1px solid ${border}`, display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, fontWeight: 600, color: textPrim, letterSpacing: '0.2em', textTransform: 'uppercase' }}>Major Indices</span>
-                    <span style={{ marginLeft: 'auto', fontFamily: "'DM Mono',monospace", fontSize: 9, color: textMut, letterSpacing: '0.1em' }}>SOURCE: INVESTING.COM</span>
+                    <span style={{ fontFamily: "'Playfair Display',serif", fontSize: 11, fontWeight: 600, color: textPrim, letterSpacing: '0.2em', textTransform: 'uppercase' }}>Major Indices</span>
+                    <span style={{ marginLeft: 'auto', fontFamily: "'Playfair Display',serif", fontSize: 9, color: textMut, letterSpacing: '0.1em' }}>SOURCE: INVESTING.COM</span>
                   </div>
                   <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <thead>
@@ -322,10 +322,10 @@ export default function EconomicCalendarPage({ active = true }: { active?: boole
                         const chgColor = idx.change === '-' ? textMut : isUp ? '#16a34a' : '#dc2626';
                         return (
                           <tr key={i} className="ec-tr">
-                            <td style={{ padding: '12px 20px', borderBottom: `1px solid ${border}`, fontFamily: "'DM Mono',monospace", fontSize: 12, fontWeight: 500, color: textPrim }}>{idx.name}</td>
-                            <td style={{ padding: '12px 20px', borderBottom: `1px solid ${border}`, textAlign: 'right', fontFamily: "'DM Mono',monospace", fontSize: 12, fontWeight: 500, color: textPrim }}>{idx.price}</td>
-                            <td style={{ padding: '12px 20px', borderBottom: `1px solid ${border}`, textAlign: 'right', fontFamily: "'DM Mono',monospace", fontSize: 12, fontWeight: 500, color: chgColor }}>{idx.change}</td>
-                            <td style={{ padding: '12px 20px', borderBottom: `1px solid ${border}`, textAlign: 'right', fontFamily: "'DM Mono',monospace", fontSize: 12, fontWeight: 600, color: chgColor }}>{idx.pctChange}</td>
+                            <td style={{ padding: '12px 20px', borderBottom: `1px solid ${border}`, fontFamily: "'Playfair Display',serif", fontSize: 12, fontWeight: 500, color: textPrim }}>{idx.name}</td>
+                            <td style={{ padding: '12px 20px', borderBottom: `1px solid ${border}`, textAlign: 'right', fontFamily: "'Playfair Display',serif", fontSize: 12, fontWeight: 500, color: textPrim }}>{idx.price}</td>
+                            <td style={{ padding: '12px 20px', borderBottom: `1px solid ${border}`, textAlign: 'right', fontFamily: "'Playfair Display',serif", fontSize: 12, fontWeight: 500, color: chgColor }}>{idx.change}</td>
+                            <td style={{ padding: '12px 20px', borderBottom: `1px solid ${border}`, textAlign: 'right', fontFamily: "'Playfair Display',serif", fontSize: 12, fontWeight: 600, color: chgColor }}>{idx.pctChange}</td>
                           </tr>
                         );
                       })}
@@ -338,8 +338,8 @@ export default function EconomicCalendarPage({ active = true }: { active?: boole
               {stocks.length > 0 && (
                 <div className="ec-card" style={{ overflowX: 'auto' }}>
                   <div style={{ padding: '14px 20px', borderBottom: `1px solid ${border}`, display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, fontWeight: 600, color: textPrim, letterSpacing: '0.2em', textTransform: 'uppercase' }}>Stock Quotes</span>
-                    <span style={{ marginLeft: 'auto', fontFamily: "'DM Mono',monospace", fontSize: 9, color: textMut, letterSpacing: '0.1em' }}>SOURCE: INVESTING.COM</span>
+                    <span style={{ fontFamily: "'Playfair Display',serif", fontSize: 11, fontWeight: 600, color: textPrim, letterSpacing: '0.2em', textTransform: 'uppercase' }}>Stock Quotes</span>
+                    <span style={{ marginLeft: 'auto', fontFamily: "'Playfair Display',serif", fontSize: 9, color: textMut, letterSpacing: '0.1em' }}>SOURCE: INVESTING.COM</span>
                   </div>
                   <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <thead>
@@ -356,13 +356,13 @@ export default function EconomicCalendarPage({ active = true }: { active?: boole
                         return (
                           <tr key={i} className="ec-tr">
                             <td style={{ padding: '12px 20px', borderBottom: `1px solid ${border}` }}>
-                              <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '2px 8px', background: dm ? '#1e2d3d' : '#eff6ff', color: '#2563eb', fontSize: 10, fontWeight: 600, fontFamily: "'DM Mono',monospace", borderRadius: 4, letterSpacing: '0.08em' }}>{s.symbol}</span>
+                              <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '2px 8px', background: dm ? '#1e2d3d' : '#eff6ff', color: '#2563eb', fontSize: 10, fontWeight: 600, fontFamily: "'Playfair Display',serif", borderRadius: 4, letterSpacing: '0.08em' }}>{s.symbol}</span>
                             </td>
-                            <td style={{ padding: '12px 20px', borderBottom: `1px solid ${border}`, fontFamily: "'DM Mono',monospace", fontSize: 12, color: textMut }}>{s.name}</td>
-                            <td style={{ padding: '12px 20px', borderBottom: `1px solid ${border}`, textAlign: 'right', fontFamily: "'DM Mono',monospace", fontSize: 12, fontWeight: 500, color: textPrim }}>{s.price}</td>
-                            <td style={{ padding: '12px 20px', borderBottom: `1px solid ${border}`, textAlign: 'right', fontFamily: "'DM Mono',monospace", fontSize: 12, fontWeight: 500, color: chgColor }}>{s.change}</td>
-                            <td style={{ padding: '12px 20px', borderBottom: `1px solid ${border}`, textAlign: 'right', fontFamily: "'DM Mono',monospace", fontSize: 12, fontWeight: 600, color: chgColor }}>{s.pctChange}</td>
-                            <td style={{ padding: '12px 20px', borderBottom: `1px solid ${border}`, fontFamily: "'DM Mono',monospace", fontSize: 10, color: textMut }}>{s.exchange}</td>
+                            <td style={{ padding: '12px 20px', borderBottom: `1px solid ${border}`, fontFamily: "'Playfair Display',serif", fontSize: 12, color: textMut }}>{s.name}</td>
+                            <td style={{ padding: '12px 20px', borderBottom: `1px solid ${border}`, textAlign: 'right', fontFamily: "'Playfair Display',serif", fontSize: 12, fontWeight: 500, color: textPrim }}>{s.price}</td>
+                            <td style={{ padding: '12px 20px', borderBottom: `1px solid ${border}`, textAlign: 'right', fontFamily: "'Playfair Display',serif", fontSize: 12, fontWeight: 500, color: chgColor }}>{s.change}</td>
+                            <td style={{ padding: '12px 20px', borderBottom: `1px solid ${border}`, textAlign: 'right', fontFamily: "'Playfair Display',serif", fontSize: 12, fontWeight: 600, color: chgColor }}>{s.pctChange}</td>
+                            <td style={{ padding: '12px 20px', borderBottom: `1px solid ${border}`, fontFamily: "'Playfair Display',serif", fontSize: 10, color: textMut }}>{s.exchange}</td>
                           </tr>
                         );
                       })}
@@ -391,8 +391,8 @@ export default function EconomicCalendarPage({ active = true }: { active?: boole
               {commodities.length > 0 && (
                 <div className="ec-card" style={{ overflowX: 'auto' }}>
                   <div style={{ padding: '14px 20px', borderBottom: `1px solid ${border}`, display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, fontWeight: 600, color: textPrim, letterSpacing: '0.2em', textTransform: 'uppercase' }}>Commodities</span>
-                    <span style={{ marginLeft: 'auto', fontFamily: "'DM Mono',monospace", fontSize: 9, color: textMut, letterSpacing: '0.1em' }}>SOURCE: INVESTING.COM</span>
+                    <span style={{ fontFamily: "'Playfair Display',serif", fontSize: 11, fontWeight: 600, color: textPrim, letterSpacing: '0.2em', textTransform: 'uppercase' }}>Commodities</span>
+                    <span style={{ marginLeft: 'auto', fontFamily: "'Playfair Display',serif", fontSize: 9, color: textMut, letterSpacing: '0.1em' }}>SOURCE: INVESTING.COM</span>
                   </div>
                   <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <thead>
@@ -408,10 +408,10 @@ export default function EconomicCalendarPage({ active = true }: { active?: boole
                         const chgColor = c.change === '-' ? textMut : isUp ? '#16a34a' : '#dc2626';
                         return (
                           <tr key={i} className="ec-tr">
-                            <td style={{ padding: '12px 20px', borderBottom: `1px solid ${border}`, fontFamily: "'DM Mono',monospace", fontSize: 12, fontWeight: 500, color: textPrim }}>{c.name}</td>
-                            <td style={{ padding: '12px 20px', borderBottom: `1px solid ${border}`, textAlign: 'right', fontFamily: "'DM Mono',monospace", fontSize: 12, fontWeight: 500, color: textPrim }}>{c.price}</td>
-                            <td style={{ padding: '12px 20px', borderBottom: `1px solid ${border}`, textAlign: 'right', fontFamily: "'DM Mono',monospace", fontSize: 12, fontWeight: 500, color: chgColor }}>{c.change}</td>
-                            <td style={{ padding: '12px 20px', borderBottom: `1px solid ${border}`, textAlign: 'right', fontFamily: "'DM Mono',monospace", fontSize: 12, fontWeight: 600, color: chgColor }}>{c.pctChange}</td>
+                            <td style={{ padding: '12px 20px', borderBottom: `1px solid ${border}`, fontFamily: "'Playfair Display',serif", fontSize: 12, fontWeight: 500, color: textPrim }}>{c.name}</td>
+                            <td style={{ padding: '12px 20px', borderBottom: `1px solid ${border}`, textAlign: 'right', fontFamily: "'Playfair Display',serif", fontSize: 12, fontWeight: 500, color: textPrim }}>{c.price}</td>
+                            <td style={{ padding: '12px 20px', borderBottom: `1px solid ${border}`, textAlign: 'right', fontFamily: "'Playfair Display',serif", fontSize: 12, fontWeight: 500, color: chgColor }}>{c.change}</td>
+                            <td style={{ padding: '12px 20px', borderBottom: `1px solid ${border}`, textAlign: 'right', fontFamily: "'Playfair Display',serif", fontSize: 12, fontWeight: 600, color: chgColor }}>{c.pctChange}</td>
                           </tr>
                         );
                       })}
@@ -428,8 +428,8 @@ export default function EconomicCalendarPage({ active = true }: { active?: boole
               <div className="ec-card" style={{ minWidth: 0 }}>
                 <div style={{ padding: '16px 20px', borderBottom: `1px solid ${border}`, display: 'flex', alignItems: 'center', gap: 8 }}>
                   <Globe size={14} color="#2563eb" />
-                  <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, fontWeight: 500, color: textPrim, letterSpacing: '0.2em', textTransform: 'uppercase' }}>Terminal Rates</span>
-                  <span style={{ marginLeft: 'auto', fontFamily: "'DM Mono',monospace", fontSize: 11, fontWeight: 500, color: textMut, letterSpacing: '0.08em' }}>Real Yields</span>
+                  <span style={{ fontFamily: "'Playfair Display',serif", fontSize: 11, fontWeight: 500, color: textPrim, letterSpacing: '0.2em', textTransform: 'uppercase' }}>Terminal Rates</span>
+                  <span style={{ marginLeft: 'auto', fontFamily: "'Playfair Display',serif", fontSize: 11, fontWeight: 500, color: textMut, letterSpacing: '0.08em' }}>Real Yields</span>
                 </div>
                 <div style={{ overflowX: 'auto' }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -449,9 +449,9 @@ export default function EconomicCalendarPage({ active = true }: { active?: boole
                               <div style={{ fontWeight: 700, fontSize: 11, color: textPrim }}>{ccy}</div>
                               {data.live && <div style={{ fontSize: 8, fontWeight: 700, color: '#16a34a', letterSpacing: '0.08em', textTransform: 'uppercase' }}>live</div>}
                             </td>
-                            <td style={{ padding: '10px 16px', borderBottom: `1px solid ${border}`, textAlign: 'right', fontFamily: "'DM Mono',monospace", fontSize: 11, fontWeight: 500, color: textMut }}>{data.nominal.toFixed(2)}%</td>
-                            <td style={{ padding: '10px 16px', borderBottom: `1px solid ${border}`, textAlign: 'right', fontFamily: "'DM Mono',monospace", fontSize: 11, fontWeight: 500, color: textMut }}>{data.inflation != null ? `${data.inflation.toFixed(2)}%` : '—'}</td>
-                            <td style={{ padding: '10px 16px', borderBottom: `1px solid ${border}`, textAlign: 'right', fontFamily: "'DM Mono',monospace", fontSize: 11, fontWeight: 500, color: realRate == null ? textMut : realRate > 0 ? '#2563eb' : '#dc2626' }}>
+                            <td style={{ padding: '10px 16px', borderBottom: `1px solid ${border}`, textAlign: 'right', fontFamily: "'Playfair Display',serif", fontSize: 11, fontWeight: 500, color: textMut }}>{data.nominal.toFixed(2)}%</td>
+                            <td style={{ padding: '10px 16px', borderBottom: `1px solid ${border}`, textAlign: 'right', fontFamily: "'Playfair Display',serif", fontSize: 11, fontWeight: 500, color: textMut }}>{data.inflation != null ? `${data.inflation.toFixed(2)}%` : '—'}</td>
+                            <td style={{ padding: '10px 16px', borderBottom: `1px solid ${border}`, textAlign: 'right', fontFamily: "'Playfair Display',serif", fontSize: 11, fontWeight: 500, color: realRate == null ? textMut : realRate > 0 ? '#2563eb' : '#dc2626' }}>
                               {realRate != null ? `${realRate.toFixed(2)}%` : '—'}
                             </td>
                           </tr>
@@ -465,7 +465,7 @@ export default function EconomicCalendarPage({ active = true }: { active?: boole
               <div className="ec-card" style={{ minWidth: 0 }}>
                 <div style={{ padding: '16px 20px', borderBottom: `1px solid ${border}`, display: 'flex', alignItems: 'center', gap: 8 }}>
                   <ArrowRightLeft size={14} color="#2563eb" />
-                  <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, fontWeight: 500, color: textPrim, letterSpacing: '0.2em', textTransform: 'uppercase' }}>Pair Differentials</span>
+                  <span style={{ fontFamily: "'Playfair Display',serif", fontSize: 11, fontWeight: 500, color: textPrim, letterSpacing: '0.2em', textTransform: 'uppercase' }}>Pair Differentials</span>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
                   {currencyPairs.filter(p => bankData[p.base] && bankData[p.quote]).map(pair => {
@@ -474,13 +474,13 @@ export default function EconomicCalendarPage({ active = true }: { active?: boole
                     return (
                       <div key={`${pair.base}${pair.quote}`} style={{ padding: '12px 16px', borderBottom: `1px solid ${border}`, borderRight: `1px solid ${border}` }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                          <span style={{ fontFamily: "'DM Mono',monospace", fontWeight: 500, fontSize: 11, color: textPrim }}>{pair.base}/{pair.quote}</span>
-                          <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, fontWeight: 500, letterSpacing: '0.12em', color: diff > 0 ? '#16a34a' : '#dc2626' }}>{diff > 0 ? 'BULLISH' : 'BEARISH'}</span>
+                          <span style={{ fontFamily: "'Playfair Display',serif", fontWeight: 500, fontSize: 11, color: textPrim }}>{pair.base}/{pair.quote}</span>
+                          <span style={{ fontFamily: "'Playfair Display',serif", fontSize: 9, fontWeight: 500, letterSpacing: '0.12em', color: diff > 0 ? '#16a34a' : '#dc2626' }}>{diff > 0 ? 'BULLISH' : 'BEARISH'}</span>
                         </div>
-                        <div style={{ fontFamily: "'DM Mono',monospace", fontWeight: 500, fontSize: 13, color: textPrim, marginBottom: 4 }}>
+                        <div style={{ fontFamily: "'Playfair Display',serif", fontWeight: 500, fontSize: 13, color: textPrim, marginBottom: 4 }}>
                           {diff > 0 ? '+' : ''}{diff.toFixed(2)}%
                         </div>
-                        <div style={{ fontFamily: "'DM Mono',monospace", display: 'flex', justifyContent: 'space-between', fontSize: 10, fontWeight: 500, color: textMut, borderTop: `1px solid ${border}`, paddingTop: 6, marginTop: 6 }}>
+                        <div style={{ fontFamily: "'Playfair Display',serif", display: 'flex', justifyContent: 'space-between', fontSize: 10, fontWeight: 500, color: textMut, borderTop: `1px solid ${border}`, paddingTop: 6, marginTop: 6 }}>
                           <span>{pair.base} {bankData[pair.base].nominal.toFixed(2)}%</span>
                           {isCarry && <span style={{ color: '#2563eb', letterSpacing: '0.1em' }}>CARRY</span>}
                           <span>{pair.quote} {bankData[pair.quote].nominal.toFixed(2)}%</span>
@@ -519,25 +519,25 @@ export default function EconomicCalendarPage({ active = true }: { active?: boole
                     const rowBorder = `1px solid ${border}`;
                     return (
                       <tr key={idx} className="ec-tr">
-                        <td style={{ padding: '14px 20px', borderBottom: rowBorder, background: rowBg, whiteSpace: 'nowrap', fontSize: 12, fontWeight: 500, color: textPrim, fontFamily: "'DM Mono',monospace" }}>{item.date}</td>
-                        <td style={{ padding: '14px 20px', borderBottom: rowBorder, background: rowBg, whiteSpace: 'nowrap', fontFamily: "'DM Mono',monospace", fontSize: 12, fontWeight: 500, color: textMut }}>{item.time}</td>
+                        <td style={{ padding: '14px 20px', borderBottom: rowBorder, background: rowBg, whiteSpace: 'nowrap', fontSize: 12, fontWeight: 500, color: textPrim, fontFamily: "'Playfair Display',serif" }}>{item.date}</td>
+                        <td style={{ padding: '14px 20px', borderBottom: rowBorder, background: rowBg, whiteSpace: 'nowrap', fontFamily: "'Playfair Display',serif", fontSize: 12, fontWeight: 500, color: textMut }}>{item.time}</td>
                         <td style={{ padding: '14px 20px', borderBottom: rowBorder, background: rowBg, whiteSpace: 'nowrap' }}>
-                          <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '2px 8px', background: dm ? '#1e2d3d' : '#eff6ff', color: '#2563eb', fontSize: 10, fontWeight: 500, fontFamily: "'DM Mono',monospace", borderRadius: 4, letterSpacing: '0.08em' }}>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '2px 8px', background: dm ? '#1e2d3d' : '#eff6ff', color: '#2563eb', fontSize: 10, fontWeight: 500, fontFamily: "'Playfair Display',serif", borderRadius: 4, letterSpacing: '0.08em' }}>
                             {item.currency}
                           </span>
                         </td>
                         <td style={{ padding: '14px 20px', borderBottom: rowBorder, background: rowBg }}>
-                          <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 13, fontWeight: 500, color: textPrim, lineHeight: 1.4 }}>{item.event}</div>
-                          <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, fontWeight: 500, color: textMut, letterSpacing: '0.15em', textTransform: 'uppercase', marginTop: 2 }}>{item.category}</div>
+                          <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 13, fontWeight: 500, color: textPrim, lineHeight: 1.4 }}>{item.event}</div>
+                          <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 9, fontWeight: 500, color: textMut, letterSpacing: '0.15em', textTransform: 'uppercase', marginTop: 2 }}>{item.category}</div>
                         </td>
                         <td style={{ padding: '14px 20px', borderBottom: rowBorder, background: rowBg, whiteSpace: 'nowrap', textAlign: 'center' }}>
-                          <span style={{ ...impactStyle(item.importance), padding: '3px 10px', fontSize: 9, fontWeight: 500, letterSpacing: '0.1em', textTransform: 'uppercase', borderRadius: 4, display: 'inline-block', fontFamily: "'DM Mono',monospace" }}>
+                          <span style={{ ...impactStyle(item.importance), padding: '3px 10px', fontSize: 9, fontWeight: 500, letterSpacing: '0.1em', textTransform: 'uppercase', borderRadius: 4, display: 'inline-block', fontFamily: "'Playfair Display',serif" }}>
                             {item.importance}
                           </span>
                         </td>
-                        <td style={{ padding: '14px 20px', borderBottom: rowBorder, background: rowBg, whiteSpace: 'nowrap', textAlign: 'right', fontFamily: "'DM Mono',monospace", fontSize: 12, fontWeight: 500, color: actualColor }}>{item.actual}</td>
-                        <td style={{ padding: '14px 20px', borderBottom: rowBorder, background: rowBg, whiteSpace: 'nowrap', textAlign: 'right', fontFamily: "'DM Mono',monospace", fontSize: 12, fontWeight: 500, color: textMut }}>{item.forecast}</td>
-                        <td style={{ padding: '14px 20px', borderBottom: rowBorder, background: rowBg, whiteSpace: 'nowrap', textAlign: 'right', fontFamily: "'DM Mono',monospace", fontSize: 12, fontWeight: 500, color: textMut }}>{item.previous}</td>
+                        <td style={{ padding: '14px 20px', borderBottom: rowBorder, background: rowBg, whiteSpace: 'nowrap', textAlign: 'right', fontFamily: "'Playfair Display',serif", fontSize: 12, fontWeight: 500, color: actualColor }}>{item.actual}</td>
+                        <td style={{ padding: '14px 20px', borderBottom: rowBorder, background: rowBg, whiteSpace: 'nowrap', textAlign: 'right', fontFamily: "'Playfair Display',serif", fontSize: 12, fontWeight: 500, color: textMut }}>{item.forecast}</td>
+                        <td style={{ padding: '14px 20px', borderBottom: rowBorder, background: rowBg, whiteSpace: 'nowrap', textAlign: 'right', fontFamily: "'Playfair Display',serif", fontSize: 12, fontWeight: 500, color: textMut }}>{item.previous}</td>
                       </tr>
                     );
                   })}

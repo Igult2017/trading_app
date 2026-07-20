@@ -72,6 +72,7 @@ const ADMIN_THEMES: Record<string, Record<string, string>> = {
 };
 
 const ADMIN_FONTS: Record<string, string> = {
+  playfair:   "'Playfair Display', 'Playfair Display Variable', Georgia, serif",
   outfit:     "'Outfit', sans-serif",
   inter:      "'Inter', sans-serif",
   montserrat: "'Montserrat', sans-serif",
@@ -85,10 +86,12 @@ function applyAdminTheme(id: string) {
   Object.entries(t).forEach(([k, v]) => r.style.setProperty(`--admin-${k}`, v));
 }
 
-function applyAdminFont(id: string) {
-  const stack = ADMIN_FONTS[id] ?? ADMIN_FONTS.inter;
-  document.documentElement.style.setProperty('--admin-font', stack);
-  document.documentElement.style.setProperty('--admin-header-font', ADMIN_FONTS.outfit);
+function applyAdminFont(_id: string) {
+  // PERMANENTLY Playfair Display (locked 2026-07-20 per request). The stored/selected font id is
+  // ignored on purpose, so neither localStorage nor the settings picker can change it. Both the body
+  // and header vars are set, so the whole panel renders in Playfair.
+  document.documentElement.style.setProperty('--admin-font', ADMIN_FONTS.playfair);
+  document.documentElement.style.setProperty('--admin-header-font', ADMIN_FONTS.playfair);
 }
 
 // Apply saved preferences immediately on module load
