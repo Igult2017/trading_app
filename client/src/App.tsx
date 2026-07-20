@@ -29,10 +29,6 @@ import { PublicThemeContext, usePublicTheme } from "@/context/PublicThemeContext
 import HomePage from "@/pages/HomePage";
 import TradeHistoryPage from "@/pages/TradeHistoryPage";
 import Analytics from "@/pages/Analytics";
-import Stocks from "@/pages/Stocks";
-import MajorPairs from "@/pages/MajorPairs";
-import Commodities from "@/pages/Commodities";
-import Cryptocurrency from "@/pages/Cryptocurrency";
 import Join from "@/pages/Join";
 import Journal from "@/pages/Journal";
 import AssetPage from "@/pages/AssetPage";
@@ -106,12 +102,6 @@ function InnerPages() {
           <Route path="/analytics"   component={Analytics} />
           <Route path="/assets"      component={AssetPage as React.ComponentType<any>} />
           <Route path="/accounts"    component={AccountsPage as React.ComponentType<any>} />
-          <Route path="/stocks"      component={Stocks} />
-          <Route path="/major-pairs" component={MajorPairs} />
-          <Route path="/commodities" component={Commodities} />
-          <Route path="/crypto"      component={Cryptocurrency} />
-          <Route path="/markets"     component={Stocks} />
-          <Route path="/signals"     component={Stocks} />
           <Route component={NotFound} />
         </Switch>
       </main>
@@ -240,12 +230,6 @@ function AppRoutes() {
       <Route path="/analytics">  <RequireAuth><InnerPages /></RequireAuth></Route>
       <Route path="/assets">     <RequireAuth><InnerPages /></RequireAuth></Route>
       <Route path="/accounts">   <RequireAuth><InnerPages /></RequireAuth></Route>
-      <Route path="/stocks">     <RequireAuth><InnerPages /></RequireAuth></Route>
-      <Route path="/major-pairs"><RequireAuth><InnerPages /></RequireAuth></Route>
-      <Route path="/commodities"><RequireAuth><InnerPages /></RequireAuth></Route>
-      <Route path="/crypto">     <RequireAuth><InnerPages /></RequireAuth></Route>
-      <Route path="/markets">    <RequireAuth><InnerPages /></RequireAuth></Route>
-      <Route path="/signals">    <RequireAuth><InnerPages /></RequireAuth></Route>
 
       {/* Public sub-pages — shared layout keeps HomeHeader mounted across navigations.
           This catch-all also handles 404 via NotFound inside PublicPagesGroup. */}

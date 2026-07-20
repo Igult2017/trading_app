@@ -5722,8 +5722,6 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
     if (p.startsWith('/analytics'))                     return 'Analytics';
     if (p.startsWith('/asset'))                         return 'Assets';
     if (p.startsWith('/accounts'))                      return 'Accounts';
-    if (/^\/(stocks|major-pairs|commodities|crypto|markets)/.test(p)) return 'Markets';
-    if (p.startsWith('/signals'))                       return 'Signals';
     if (p.startsWith('/economic-calendar') || p.startsWith('/calendar')) return 'Economic Calendar';
     if (p.startsWith('/auth'))                          return 'Auth';
     return 'Other';
