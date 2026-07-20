@@ -35,6 +35,32 @@ def _is_valid_row(o: float, h: float, l: float, c: float) -> bool:
     return h >= max(o, c) and l <= min(o, c)
 
 
+# Price-continuity guard. The AGE fail-safe only catches OLD-timestamped bars. On 2026-07-20 the
+# USD/JPY feed served bars with recent-enough timestamps to pass the 20h H4 age gate but PRICES from
+# 2023 (~134 while the market was ~162) — BX fired a "fresh demand zone" on a level that had not
+# existed for 3.2 years. Age cannot see that; a price jump can. We keep the most recent accepted
+# close PER SYMBOL (shared across TFs, so a good M5 fetch protects a corrupt H4 fetch on the same
+# symbol) and reject any series whose latest close deviates more than _MAX_JUMP from it. FX never
+# moves this much between 60s scans — a bigger jump is corrupt/stale data, not a real move. Erring
+# toward rejection is SAFE: the worst case is no data -> no signal, never a false signal.
+_last_good_close: dict[str, float] = {}
+_MAX_JUMP = 0.10   # 10% — orders of magnitude above any real between-fetch FX move, well below the
+                   # 18% USD/JPY corruption that triggered this
+
+
+def _price_continuity_ok(latest_close: float, symbol: str, tf: str) -> bool:
+    ref = _last_good_close.get(symbol)
+    if ref and ref > 0:
+        dev = abs(latest_close - ref) / ref
+        if dev > _MAX_JUMP:
+            log.error(f"[candle_fetcher] {symbol} {tf}: latest close {latest_close:g} deviates "
+                      f"{dev:.0%} from the last good {symbol} price {ref:g} — corrupt/stale feed, "
+                      f"dropping the series (does NOT re-baseline on a rejected value)")
+            return False
+    _last_good_close[symbol] = latest_close   # only good data updates the reference
+    return True
+
+
 def _validate(candles: list[Candle], symbol: str, tf: str) -> list[Candle]:
     valid = [c for c in candles if _is_valid_row(c.open, c.high, c.low, c.close)]
     if len(valid) < len(candles):
@@ -52,6 +78,9 @@ def _validate(candles: list[Candle], symbol: str, tf: str) -> list[Candle]:
         return []
     if age > 2 * bar_secs:
         log.warning(f"[candle_fetcher] {symbol} {tf}: data is stale ({age/60:.0f}m old)")
+    # Price-sanity: a wild jump from the last good price for this symbol = corrupt feed (see above).
+    if not _price_continuity_ok(valid[-1].close, symbol, tf):
+        return []
     return valid
 
 
