@@ -134,6 +134,19 @@ async def fetch_bars(
     res = ProtoOAGetTrendbarsRes()
     res.ParseFromString(resp.payload)
 
+    # Verify this response is FOR THE REQUEST WE SENT. recv() returns the next message off a SHARED
+    # connection and the payloadType check above only proves it is *a* trendbar response — it cannot
+    # tell GBP/USD's bars from EUR/USD's. If a response ever misaligns (a slow/late one picked up by
+    # the wrong request, or a reset that left a buffered reply), symbolId/period will not match. That
+    # is the root of "GBP/USD priced as EUR/USD" and "USD/JPY at a 2023 level": we were blindly
+    # trusting stream order. Both fields are always populated (verified live). On a mismatch, reset
+    # the connection and fail the fetch — never return another pair's / another period's candles.
+    if res.symbolId != sid or res.period != period_val:
+        _sess.reset_connection()
+        raise RuntimeError(
+            f"[ctrader] {symbol} {tf}: MISALIGNED response — got symbolId={res.symbolId}/"
+            f"period={res.period}, expected symbolId={sid}/period={period_val}; connection reset")
+
     bars: list[dict] = []
     for tb in res.trendbar:
         ts_ms = tb.utcTimestampInMinutes * 60_000

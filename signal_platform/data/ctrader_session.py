@@ -214,5 +214,15 @@ async def get_connection() -> tuple[asyncio.StreamReader, asyncio.StreamWriter]:
 
 
 def reset_connection() -> None:
-    global _writer
+    # CLOSE the socket and drop BOTH ends, not just the writer. Nulling only _writer left the old
+    # StreamReader (with any buffered/late reply) alive; the next request could then read a stale
+    # message off it — a source of response misalignment. Closing forces get_connection() to build a
+    # fully fresh reader+writer, so no leftover data can cross into the next request.
+    global _reader, _writer
+    if _writer is not None:
+        try:
+            _writer.close()
+        except Exception:
+            pass
+    _reader = None
     _writer = None
