@@ -35,7 +35,12 @@ log = logging.getLogger(__name__)
 
 _BASELINE_BARS  = 100   # bars whose MEDIAN body defines "normal size" for this pair right now
 _MIN_BASELINE   = 20    # fewer than this and we cannot say what normal is — never qualify
-_MIN_BODY_MULT  = 4.0   # body >= this x the baseline (4.0 -> ~4-5 candidates/pair/month)
+_MIN_BODY_MULT  = 2.5   # body >= this x the 100-bar MEDIAN body. CALIBRATED 2026-07-20 against 87
+                        # real GBP/USD trades: the user's actual momentum candles run ~2.7-6x median
+                        # (~14-31 pips, median ~22). 2.5x captures 91% of them; the old 4.0x captured
+                        # only 60% — it threw away 4 in 10 real setups (top-5% candles only). The
+                        # SELECTIVITY belongs to the trend/line-break/pullback gates that follow, not
+                        # to making the momentum candle itself freakishly rare.
 _MIN_BODY_FRAC  = 0.75  # body >= this share of the candle's OWN range (the wickless look)
 _MAX_CWICK_FRAC = 0.15  # wick AGAINST the move, as a share of range
 _MIN_RUN        = 1     # see the docstring — the market gives runs of one

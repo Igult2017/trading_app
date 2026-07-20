@@ -136,7 +136,7 @@ that is deliberate, not an oversight. A momentum candle answers three questions:
 
 | | Rule | Why this number |
 |---|---|---|
-| **BIG** | body ≥ **4×** the MEDIAN body of the last 100 closed bars | "bigger than the previous candle" rejected **21–23%** of genuinely strong candles and admitted **24–27%** below-normal ones — smallest qualifier **0.79 pips**, under the spread |
+| **BIG** | body ≥ **2.5×** the MEDIAN body of the last 100 closed bars | CALIBRATED 2026-07-20 on **87 real GBP/USD trades**: the user's own momentum candles run **~2.7–6× median** (~14–31 pips). 2.5× captures **91%** of them; the old **4.0× captured only 60%** — it rejected 4 in 10 real setups (top-5% candles only). Selectivity lives in the trend/line/pullback gates, not here. ("bigger than the previous candle" also failed — rejected 21–23% of strong candles, admitted 24–27% below-normal, smallest 0.79 pips) |
 | **CLEAN** | body ≥ **75%** of its own range | real clean legs run 57% median; 75% isolates the near-wickless look |
 | **UNREJECTED** | wick **against** the move ≤ **15%** | asymmetric on purpose — on a bull candle an upper wick is price being *sold back*, a lower wick is a dip being *bought* |
 
@@ -154,12 +154,15 @@ the whole justification for the 1M pullback entry: demanding the unbroken versio
 
 **Never add multi-candle confirmation to the 1HR.**
 
-### Three tradeable contexts, all momentum-led
-| origin | what it is | ~signals/mo (EUR/GBP) |
-|---|---|---|
-| `trend` | established HH+HL / LH+LL, momentum candle **with** it | 5.0 / 6.0 |
-| `range` | no trend, momentum candle closes beyond the 8-bar range | 4.2 / 4.6 |
-| `choch` | momentum candle **against** an established trend that **closes beyond the swing defining it** | 2.3 / 3.6 |
+### Three tradeable contexts, all momentum-led — TRENDS ONLY
+| origin | what it is |
+|---|---|
+| `trend` | clear **1HR** HH+HL / LH+LL, momentum candle **with** it (PRIMARY) |
+| `choch` | momentum candle **against** an established 1HR trend that **closes beyond the swing defining it** |
+| `trend4` | 1HR trend UNCLEAR, but the 1HR momentum aligns with a clear **4HR** trend (the fallback) |
+
+The old `range` origin (a bare breakout with no confirmed trend on either TF) was **removed 2026-07-20** —
+we trade **trends only**. Neither TF shows a confirmed trend → **no trade**.
 
 `choch` is a **body close**, never a wick — a wick through the level is a liquidity grab (the
 platform-wide rule). Without the break it is a deep pullback and we stand aside. ~90% of
