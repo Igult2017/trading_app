@@ -106,9 +106,10 @@ async def on_setup_alert(signal: Signal) -> None:
     # + entry) — those are real signals (alert_only=False) and route via on_signal_confirmed.
     # Opt-in: a strategy may mark an alert `to_channel` when its OWN cascade already confirmed it, and
     # it goes PUBLIC with the full signal card instead of the DM heads-up. No strategy uses this today.
-    if signal.to_channel:
+    if signal.to_channel and not settings.signals_dm_only:
         ok = await _send_text(format_signal_confirmed(signal))     # public signal channel
     else:
+        # DM: either an unconfirmed heads-up, or SIGNALS_DM_ONLY holding a confirmed alert back.
         ok = await _send_private(format_setup_alert(signal))
     # At-least-once delivery: commit the producer's dedup key ONLY once the DM actually landed,
     # so a failed send (or crash before send) re-fires next scan instead of being lost forever.
@@ -123,7 +124,12 @@ async def on_signal_confirmed(signal: Signal) -> None:
     chart    = signal.chart_path
     # CONFIRMED signals → public channel. WATCH (unconfirmed) alerts → admin DM only;
     # if no private chat is set the watch is dropped, never leaked to the channel.
-    target = settings.watchdog_chat_id if is_watch else settings.telegram_chat_id
+    # KILL-SWITCH: SIGNALS_DM_ONLY forces EVERY signal to the admin DM, holding all strategy output
+    # back from subscribers while a bug is fixed (see settings.signals_dm_only).
+    if settings.signals_dm_only:
+        target = settings.watchdog_chat_id
+    else:
+        target = settings.watchdog_chat_id if is_watch else settings.telegram_chat_id
     if not target:
         log.debug("[dispatcher] no target for %s signal — skipping", "watch" if is_watch else "confirmed")
     elif chart and os.path.isfile(chart):

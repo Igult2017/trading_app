@@ -37,6 +37,10 @@ class Settings(BaseSettings):
     # session open) so it never spams the public channel. Same chat the Node health
     # watchdog uses (env WATCHDOG_CHAT_ID). If unset, those system messages are dropped.
     watchdog_chat_id: str = ""
+    # KILL-SWITCH: route ALL strategy signals (confirmed included) to the admin DM instead of the
+    # public channel. Set SIGNALS_DM_ONLY=true to hold every strategy's output back from subscribers
+    # while a bug is being fixed, without disabling the scanner. Reversible via env, no code change.
+    signals_dm_only: bool = False
 
     # ── AI validation ─────────────────────────────────────────────────────────
     # Optional. When absent: signals pass AI validation automatically.
