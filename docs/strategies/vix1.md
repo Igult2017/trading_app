@@ -16,11 +16,15 @@ Each of these was corrected at least once. If a change would contradict one, it 
 > go to 4HR to find out if that momentum is because of a trend in 4HR or not."
 
 The **1HR trend is PRIMARY**. The 4HR is consulted **only when the 1HR trend is unclear**. The MOMENTUM
-candle is always the 1HR; the 1HR also gives us **the lines**. `detect_bias(h1, h4)` returns one of:
+candle is always the 1HR; the 1HR also gives us **the lines**. **We trade TRENDS ONLY — no ranging
+markets** (user 2026-07-20: *"if we don't see a trend in 1HR we go to 4HR, but if we don't see it there
+either we don't take the trade… a range→trend transition is only taken once the trend is CONFIRMED"*).
+`detect_bias(h1, h4)` returns one of:
 - `trend`  — clear 1HR trend + aligned 1HR momentum
 - `choch`  — clear 1HR trend, 1HR momentum against it, closing through the 1HR swing that defined it
 - `trend4` — **the fallback**: 1HR trend UNCLEAR, but the 1HR momentum aligns with a clear **4HR** trend
-- `range`  — no 1HR trend, no backing 4HR trend, 1HR momentum breaks the recent 1HR range
+- **no confirmed trend on either TF → None (NO TRADE).** The old `range` origin (bare breakout with no
+  confirmed trend) is REMOVED.
 
 (An earlier pass made 4HR the *only* trend source — wrong; reverted to this cascade.) H4 added to
 `candle_counts` (120 bars). `broke_structure` takes an explicit close so choch can test a 1HR close vs

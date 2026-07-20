@@ -2,17 +2,16 @@
 VIX.1 — the bias: WHICH WAY, and on what grounds. TREND CASCADE: 1HR first, 4HR only as a fallback.
 
 This module is the ROUTER. The momentum candle lives in vix1_momentum (always 1HR); the trend rules
-(HH+HL / LH+LL, and CHoCH) live in vix1_trend. The 1HR trend is PRIMARY — when a 1HR momentum candle
-forms and the 1HR trend is clear, we go with it. ONLY WHEN THE 1HR TREND IS UNCLEAR do we consult the
-4HR, to ask "is this 1HR momentum because of a 4HR trend?". Four momentum-led situations, no indicator:
+(HH+HL / LH+LL, and CHoCH) live in vix1_trend. We trade TRENDS ONLY — never ranging markets. The 1HR
+trend is PRIMARY; ONLY WHEN THE 1HR TREND IS UNCLEAR do we consult the 4HR ("is this 1HR momentum
+because of a 4HR trend?"). If NEITHER timeframe shows a confirmed trend, we DO NOT TRADE — a
+range->trend transition is taken only once the trend is CONFIRMED. Three momentum-led origins:
 
   'trend'  — clear 1HR trend + a 1HR momentum candle running WITH it.
   'choch'  — clear 1HR trend, the freshest 1HR momentum runs AGAINST it and CLOSES beyond the 1HR
              swing that defined it: the market is CHANGING DIRECTION. No break = a deep pullback, skip.
   'trend4' — the FALLBACK: 1HR trend UNCLEAR, but the 1HR momentum aligns with a clear 4HR trend, so
-             the momentum IS trend-driven (just on the higher timeframe).
-  'range'  — no 1HR trend, no backing 4HR trend, and a 1HR momentum candle CLOSES beyond the recent
-             1HR range: a range breaking into a trend.
+             the momentum IS trend-driven (just on the higher timeframe). No 4HR trend either -> None.
 
 The trend must be the thing CARRYING the momentum (p1). So when structure and momentum disagree we
 never reach back past the opposing candle for an aligned one from hours ago — the freshest momentum
@@ -29,21 +28,6 @@ from strategies.vix1_momentum import momentum_run, veto_reason
 from strategies.vix1_trend import broke_structure, clear_trend
 
 log = logging.getLogger(__name__)
-
-_RANGE_LOOKBACK = 8   # bars before the breakout that define the range being broken
-
-
-def _run_breaks_range(h1: list[Candle], first_idx: int, run_len: int, bullish: bool) -> bool:
-    """True if the momentum RUN closes beyond the range set by the bars BEFORE it started — a real
-    break out of a range, not a wiggle inside it. Checks the run's furthest close (any candle in the
-    run), so a breakout completing on the 2nd/3rd candle still counts, not only the first."""
-    prior = h1[max(0, first_idx - 1 - _RANGE_LOOKBACK): first_idx - 1]
-    if len(prior) < 3:
-        return False
-    run = h1[first_idx: first_idx + run_len]
-    if bullish:
-        return max(c.close for c in run) > max(c.high for c in prior)
-    return min(c.close for c in run) < min(c.low for c in prior)
 
 
 def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "") -> tuple[bool, int, str, int] | None:
@@ -89,7 +73,11 @@ def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "") -> tuple[b
                  f"trend, but {veto_reason(h1, with_trend)}")
         return None
 
-    # 1HR TREND UNCLEAR — go to the 4HR to see if the 1HR momentum is backed by a 4HR trend.
+    # 1HR TREND UNCLEAR — go to the 4HR. We trade TRENDS ONLY (user 2026-07-20: "we are not trading
+    # ranging markets; if we don't see a trend in 1HR we go to 4HR, but if we don't see it there either
+    # we don't take the trade"). A range->trend transition is valid, but ONLY once the trend is
+    # CONFIRMED (a clear HH+HL / LH+LL) on the 1HR or the 4HR. A bare momentum breakout with no
+    # confirmed trend on either TF is NOT taken.
     t4 = clear_trend(h4)
     if t4 != 0:
         with4 = t4 > 0
@@ -101,22 +89,7 @@ def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "") -> tuple[b
             log.info(f"[vix1] {symbol} 4HR-BACKED TREND: 1HR trend unclear, but the 1HR momentum aligns "
                      f"with a clear 4HR {'up (HH+HL)' if with4 else 'down (LH+LL)'} trend")
             return (with4, vr[0], "trend4", vr[1])       # 4HR-backed trend
-        # 1HR momentum is not aligned with the 4HR trend — fall through to the range test.
 
-    # No trend backing on either TF — a RANGE BREAKING INTO A TREND (1HR momentum + 1HR range break).
-    # Take the FRESHEST qualifying run, never "whichever we test first" (both directions routinely
-    # qualify in a range; returning the stale one is the wrong-direction bug fixed in the trend branch).
-    best: tuple[int, bool, tuple[int, int]] | None = None
-    for bullish in (True, False):
-        vr = momentum_run(h1, bullish)
-        if vr is not None and _run_breaks_range(h1, vr[0], vr[1], bullish):
-            last = vr[0] + vr[1] - 1
-            if best is None or last > best[0]:
-                best = (last, bullish, vr)
-    if best is not None:
-        _, bullish, vr = best
-        return (bullish, vr[0], "range", vr[1])
-
-    log.info(f"[vix1] {symbol} bias=NONE: no clear 1HR trend, no backing 4HR trend, no 1HR range "
-             f"breakout (up: {veto_reason(h1, True)})")
+    log.info(f"[vix1] {symbol} bias=NONE: no confirmed trend on 1HR or 4HR — we trade trends only, "
+             f"standing aside (up: {veto_reason(h1, True)})")
     return None

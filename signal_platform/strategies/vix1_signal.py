@@ -18,13 +18,12 @@ _KIND = {
 
 # How each origin describes itself. 'choch' is a REVERSAL — it must never render as "clear up trend",
 # because the trend it names is the one that just broke. 'trend4' = 1HR trend unclear, 4HR-backed.
-_CTX   = {"range": "RANGE BREAKOUT", "choch": "STRUCTURE CHANGE", "trend4": "4HR-BACKED TREND"}
-_SHORT = {"range": "range breakout", "choch": "structure change", "trend4": "4HR-backed trend"}
+# (No 'range' — VIX.1 trades trends only.)
+_CTX   = {"choch": "STRUCTURE CHANGE", "trend4": "4HR-BACKED TREND"}
+_SHORT = {"choch": "structure change", "trend4": "4HR-backed trend"}
 
 
 def _origin_reason(origin: str, bullish: bool, mlabel: str, side: str) -> str:
-    if origin == "range":
-        return f"1HR RANGE BREAKOUT ({side}) — {mlabel} from the 1st, trend building"
     if origin == "choch":
         return (f"1HR STRUCTURE CHANGE ({side}) — the {'down' if bullish else 'up'} 1HR trend broke: "
                 f"{mlabel} from the 1st closed through the swing that defined it")
