@@ -4,7 +4,8 @@ cTrader Open API — symbol cache + historical bar fetch.
 Public API: fetch_bars(symbol, tf, count) → list[dict]
 
 Symbol names: cTrader format without slash — "EURUSD", "USDJPY".
-Price encoding: all prices are integers scaled by 10^digits.
+Price encoding: TRENDBAR prices are integers scaled by a FIXED 1e5 for every symbol (NOT the
+symbol's display digits — JPY shows 3 digits but its trendbars are still 1e5-scaled).
   FX (non-JPY): divide by 100,000 (5 decimal places)
   JPY crosses:  divide by 1,000   (3 decimal places)
 ProtoOATrendbarPeriod enum: sequential ints 1–14 (M1→MN1), NOT minutes.
@@ -82,8 +83,12 @@ async def fetch_bars(
     if not is_native(tf):
         raise ValueError(f"[ctrader] '{tf}' is not a native period — caller aggregates")
 
-    digits  = 3 if "JPY" in symbol else 5
-    divisor = 10 ** digits
+    # cTrader TRENDBAR prices are scaled by a FIXED 1e5 for EVERY symbol — NOT by the symbol's
+    # display digits. `10 ** (3 if JPY else 5)` worked for 5-digit pairs by coincidence but divided
+    # JPY pairs (digits=3) by 1e3, making USD/JPY come back 100x too large (16233 instead of 162.33)
+    # — every JPY zone/signal was at a phantom level. cTrader reports USD/JPY digits=3 for tick
+    # DISPLAY, but the trendbar low/deltas are 1e5-scaled regardless. Always divide by 1e5.
+    divisor = 100_000
     bar_ms  = to_minutes(tf) * 60_000
     to_ts   = to_ms if to_ms is not None else int(time.time() * 1000)
     from_ts = to_ts - (count + 10) * bar_ms   # +10 bars buffer for edge candle
