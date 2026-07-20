@@ -48,6 +48,38 @@ def _first_tap(candles: list[Candle], zone: Zone) -> int | None:
     return None
 
 
+_LEVEL_WINDOW = 18   # H4 bars (~3 days): how recently before a zone forms the level must have been
+                     # worked to count as pre-mitigated. Beyond this, price left and came back — a
+                     # genuinely new zone, not a re-worked level. Loosely tracks the ~2-day fresh window.
+
+
+def level_pre_mitigated(candles: list[Candle], zone: Zone, all_zones: list[Zone]) -> bool:
+    """Was this zone's PRICE LEVEL already worked SHORTLY BEFORE it formed (same consolidation)?
+
+    Freshness is otherwise keyed to a single IFC — `_first_tap` only looks AFTER `zone.ifc_index`. So a
+    newer zone born at a level price has ALREADY swept reads "fresh" when its resting orders are gone.
+    We prove the level was worked by an OLDER same-direction zone that (a) overlaps it — its proximal
+    sits inside this zone's range — and (b) was first-tapped inside [zone.ifc − _LEVEL_WINDOW, this
+    zone's own first tap): i.e. the same swing, not an ancient revisit. That earlier tap is a tap of the
+    same level, before this zone's "fresh" tap. (fix 2026-07-20: EUR/USD fired a "fresh" 14-Jul demand
+    [1.13838-1.14055] that an overlapping 13-Jul demand had already been tapped through 6 times — the
+    wicks the user marked. An ancient overlap from weeks earlier, price having left and returned, does
+    NOT suppress — that is a genuinely new zone.)
+    """
+    ft = _first_tap(candles, zone)
+    if ft is None:
+        return False
+    for z in all_zones:
+        if z.direction != zone.direction or z.ifc_index >= zone.ifc_index:
+            continue                                       # only strictly OLDER same-direction zones
+        if not (zone.bottom <= z.proximal <= zone.top):
+            continue                                       # must sit at the SAME level (overlap)
+        zft = _first_tap(candles, z)
+        if zft is not None and zft < ft and zft >= zone.ifc_index - _LEVEL_WINDOW:
+            return True                                    # overlapping level worked in the same swing
+    return False
+
+
 def detect_setup(h4: list[Candle], pip: float = 0.0001) -> SetupResult:
     r = SetupResult()
     if len(h4) < 30:
@@ -70,12 +102,14 @@ def detect_setup(h4: list[Candle], pip: float = 0.0001) -> SetupResult:
     # it. We then scan newest→oldest and take the most-recent VALID zone freshly tapped now — exactly
     # "pre-mark the zones, then wait for price to respect one". Factors 2+3 are proven by is_valid, so
     # there is no separate re-check below.
-    zones = [z for z in find_zones(h4) if z.direction == zdir and is_valid(h4, z, st, pools, pip)]
+    all_c = find_zones(h4)
+    zones = [z for z in all_c if z.direction == zdir and is_valid(h4, z, st, pools, pip)]
 
     cand = None
     for z in reversed(zones):
         ft = _first_tap(h4, z)
-        if ft is not None and ft >= len(h4) - _RECENT:
+        # FRESH = tapped now AND its level was not already mitigated by an overlapping older zone.
+        if ft is not None and ft >= len(h4) - _RECENT and not level_pre_mitigated(h4, z, all_c):
             cand = z; break
     if cand is None:
         r.reason = f"no fresh VALID {zdir} zone tapped in the last {_RECENT} 4H bars"; return r

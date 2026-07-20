@@ -7,19 +7,22 @@ a 4H zone that falls within a Daily/Weekly/Monthly zone is tagged premium and pr
 """
 from core.types import Candle, Signal, Direction, TF
 from strategies.bx_sd_zones import find_zones, Zone
-from strategies.bx_sd_setup import _first_tap
+from strategies.bx_sd_setup import _first_tap, level_pre_mitigated
 
 _RECENT = 6   # first tap within the last N 4H bars = "just mitigated"
 
 
 def newly_mitigated_zones(h4: list[Candle], recent: int = _RECENT,
                           zones: list[Zone] | None = None) -> list[Zone]:
-    """4H zones whose FIRST tap (mitigation) landed within the last `recent` bars — any direction.
-    Pass `zones` to restrict to the book-valid ones (3 factors); defaults to every IFC candidate."""
+    """4H zones whose FIRST tap (mitigation) landed within the last `recent` bars — any direction, and
+    whose LEVEL was not already mitigated by an overlapping older zone (`level_pre_mitigated`; else a
+    newer IFC at an already-worked level fires as 'fresh'). Pass `zones` to restrict to the book-valid
+    ones (3 factors); defaults to every IFC candidate."""
+    all_c = find_zones(h4)
     out: list[Zone] = []
-    for z in (find_zones(h4) if zones is None else zones):
+    for z in (all_c if zones is None else zones):
         ft = _first_tap(h4, z)
-        if ft is not None and ft >= len(h4) - recent:
+        if ft is not None and ft >= len(h4) - recent and not level_pre_mitigated(h4, z, all_c):
             out.append(z)
     return out
 

@@ -59,6 +59,19 @@ puts a limit at a level price has already swept.
 BX only ever trades **unmitigated** zones. Selection: **"Always use the most RECENT S/D that gives us
 the 3 factors."** (p32)
 
+**FRESHNESS IS LEVEL-AWARE, not per-IFC (fix 2026-07-20).** `_first_tap` / `_is_mitigated` only look
+AFTER a zone's own `ifc_index`, so a NEWER IFC born at a level price has ALREADY swept read "fresh"
+even though the resting orders were gone. Real case: EUR/USD fired a "Fresh 4H demand MITIGATED
+[1.13838–1.14055]" (IFC 14-Jul) that an **overlapping 13-Jul demand had been tapped through 6 times**
+the day before (the wicks the user marked) — the tap that mitigated the *level* pre-dated this zone's
+IFC, so the forward-only check never saw it. `bx_sd_setup.level_pre_mitigated` now suppresses a zone
+whose level was worked by an **overlapping older same-direction zone** (its proximal inside this
+zone's range) first-tapped inside `[ifc − _LEVEL_WINDOW(18 H4 ≈ 3d), this zone's own first tap)` — the
+same swing, not an ancient revisit. Applied in BOTH the mitigation heads-up (`newly_mitigated_zones`)
+and the entry cascade (`detect_setup`) — one definition, every path. Measured on ~1yr H4, 3 pairs:
+suppresses **33–43%** of tapped zones (re-worked levels); genuinely fresh zones — price left and
+returned — still fire. **Do not revert freshness to the bare per-IFC `_first_tap`.**
+
 **The respected-retest is the ONE sanctioned exception — and it is the FRESH zone's 2nd touch, not any
 later touch.** `is_respected_retest` = first tap (mitigation) → body-move away ≥ 1 zone-height
 (respected) → the **FIRST return after that reaction, happening now**. It must stop at that first
