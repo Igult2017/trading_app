@@ -31,6 +31,20 @@ either we don't take the trade… a range→trend transition is only taken once 
 the relevant swings. The trend TF **never puts a clock on the entry** — it can be ready for hours while
 the 1M is not. The wait is **open-ended**; a bias flip ends a setup, a timer never does.
 
+### HOW the trend is detected — SLOPE of the leg, not the last two swings (changed 2026-07-20)
+> User, shown a plain EUR/USD downtrend the code called "no trend": *"that is a fucking downtrend… it
+> ranged just a little within the downtrend, which is normal behaviour of a trend."* He was right.
+
+`clear_trend` used to compare **only the last two swing highs and last two swing lows** (HH+HL /
+LH+LL). It was blind to everything before the last two pivots, so a **normal pullback** — which puts the
+two freshest swings side by side, or prints a temporary higher low inside a downtrend — made it report
+**"no trend"** and threw the whole trend away. Measured on the user's 87 real trend trades it saw the
+trend at only **47%**. It now reads the **least-squares slope of the closes over the recent leg**
+(`_TREND_LOOKBACK = 36` bars) and requires the net drift to clear the leg's own noise
+(`|drift| ≥ 2.0 × avg bar range`). This sees a trend **through** a consolidation — real-trade
+recognition **47% → 70%**, coverage a sane 67% of bars (not always-on). `broke_structure` (choch) still
+uses swing structure — it is a level-break test, which genuinely *is* a pivot question.
+
 ### The line is for CLARITY AND ACCURACY — not invalidation
 > "The 1HR line consideration in 1M is just for accuracy during entry and to ensure we dont enter at
 > the wrong point."
