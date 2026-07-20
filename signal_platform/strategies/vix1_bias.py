@@ -1,18 +1,18 @@
 """
-VIX.1 — the bias: WHICH WAY, and on what grounds. TREND on 4HR, MOMENTUM candle on 1HR.
+VIX.1 — the bias: WHICH WAY, and on what grounds. TREND CASCADE: 1HR first, 4HR only as a fallback.
 
-This module is the ROUTER. What counts as a momentum candle lives in vix1_momentum (1HR); the trend
-rules (HH+HL / LH+LL, and CHoCH) live in vix1_trend and now run on the **4HR** — the higher timeframe
-is more reliable and is established sooner relative to the 1HR, so an aligned 1HR momentum candle is
-caught EARLIER instead of waiting for 1HR structure to form. Here we only decide which of the three
-tradeable situations we are in, all three momentum-led and none using an indicator:
+This module is the ROUTER. The momentum candle lives in vix1_momentum (always 1HR); the trend rules
+(HH+HL / LH+LL, and CHoCH) live in vix1_trend. The 1HR trend is PRIMARY — when a 1HR momentum candle
+forms and the 1HR trend is clear, we go with it. ONLY WHEN THE 1HR TREND IS UNCLEAR do we consult the
+4HR, to ask "is this 1HR momentum because of a 4HR trend?". Four momentum-led situations, no indicator:
 
-  'trend' — an ESTABLISHED 4HR trend (HH+HL up / LH+LL down) with a 1HR momentum candle running WITH it.
-  'range' — NO 4HR trend, and a 1HR momentum candle CLOSES beyond the recent 1HR range: a range
-            breaking into a trend.
-  'choch' — a 4HR trend, and the freshest 1HR momentum candle runs AGAINST it AND closes beyond the
-            H4 swing that defined it. The market is CHANGING DIRECTION (bull -> bear or bear -> bull).
-            Without that break it is only a deep pullback and we stand aside.
+  'trend'  — clear 1HR trend + a 1HR momentum candle running WITH it.
+  'choch'  — clear 1HR trend, the freshest 1HR momentum runs AGAINST it and CLOSES beyond the 1HR
+             swing that defined it: the market is CHANGING DIRECTION. No break = a deep pullback, skip.
+  'trend4' — the FALLBACK: 1HR trend UNCLEAR, but the 1HR momentum aligns with a clear 4HR trend, so
+             the momentum IS trend-driven (just on the higher timeframe).
+  'range'  — no 1HR trend, no backing 4HR trend, and a 1HR momentum candle CLOSES beyond the recent
+             1HR range: a range breaking into a trend.
 
 The trend must be the thing CARRYING the momentum (p1). So when structure and momentum disagree we
 never reach back past the opposing candle for an aligned one from hours ago — the freshest momentum
@@ -49,61 +49,74 @@ def _run_breaks_range(h1: list[Candle], first_idx: int, run_len: int, bullish: b
 def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "") -> tuple[bool, int, str, int] | None:
     """
     Returns (bullish, mc_idx, origin, run_len) or None. `mc_idx` indexes into H1 — the FIRST momentum
-    candle of the run; VIX.1 operates from it and its close opens the 1M watch. `origin` is 'trend',
-    'range' or 'choch'. Logs the exact reason at INFO when it returns None, so a miss stays diagnosable.
+    candle of the run; VIX.1 operates from it and its close opens the 1M watch. Logs the exact reason
+    at INFO when it returns None, so a miss stays diagnosable.
 
-    TREND is read on the **4HR** (`clear_trend(h4)`), the MOMENTUM candle on the **1HR** (`momentum_run
-    (h1)`). The 4HR trend is slower and more reliable, and it is established sooner *relative to the
-    1HR*, so an aligned 1HR momentum candle qualifies EARLIER (it does not wait for 1HR structure to
-    print). CHoCH tests the 1HR momentum candle's close against the H4 swings.
+    TREND CASCADE (user 2026-07-20): the **1HR** trend is PRIMARY. If a 1HR momentum candle forms and
+    the 1HR trend is clear, we go with it. ONLY WHEN THE 1HR TREND IS UNCLEAR do we consult the 4HR —
+    "is this 1HR momentum because of a 4HR trend?" — and if it aligns with a clear 4HR trend we take it.
+    The MOMENTUM candle is always the 1HR. `origin`:
+      'trend'  — clear 1HR trend + aligned 1HR momentum
+      'choch'  — clear 1HR trend, 1HR momentum AGAINST it, closing through the 1HR swing that defined it
+      'trend4' — 1HR trend UNCLEAR, but the 1HR momentum aligns with a clear 4HR trend (the fallback)
+      'range'  — no 1HR trend, no backing 4HR trend, 1HR momentum breaks the recent 1HR range
     """
-    trend = clear_trend(h4)                     # 4HR trend
+    t1 = clear_trend(h1)                          # 1HR trend — PRIMARY
 
-    if trend != 0:
-        with_trend = trend > 0
-        vr  = momentum_run(h1, with_trend)      # 1HR momentum
+    if t1 != 0:
+        with_trend = t1 > 0
+        vr  = momentum_run(h1, with_trend)
         opp = momentum_run(h1, not with_trend)
         last     = (vr[0] + vr[1] - 1) if vr else -1
         opp_last = (opp[0] + opp[1] - 1) if opp else -1
 
         if vr is not None and last > opp_last:
-            return (with_trend, vr[0], "trend", vr[1])
+            return (with_trend, vr[0], "trend", vr[1])   # 1HR trend
 
         if opp is not None:
-            # The freshest 1HR momentum runs AGAINST the 4HR trend. That is a CHANGE OF DIRECTION only
-            # if the 1HR candle CLOSED beyond the 4HR swing that defined the trend — otherwise it is a
-            # deep pullback inside a trend that still stands, and trading it would be fading the trend.
-            if broke_structure(h4, h1[opp_last].close, not with_trend):
-                log.info(f"[vix1] {symbol} 4HR STRUCTURE CHANGE: "
-                         f"{'up' if with_trend else 'down'} 4HR trend broken by a "
-                         f"{'down' if with_trend else 'up'} 1HR momentum candle closing through its "
-                         f"defining H4 swing — bias flips to {'SELL' if with_trend else 'BUY'}")
+            # The freshest 1HR momentum runs AGAINST the 1HR trend. A CHANGE OF DIRECTION only if the
+            # 1HR candle CLOSED beyond the 1HR swing that defined the trend — else a deep pullback.
+            if broke_structure(h1, h1[opp_last].close, not with_trend):
+                log.info(f"[vix1] {symbol} 1HR STRUCTURE CHANGE: {'up' if with_trend else 'down'} 1HR "
+                         f"trend broken by a {'down' if with_trend else 'up'} momentum candle closing "
+                         f"through its defining swing — bias flips to {'SELL' if with_trend else 'BUY'}")
                 return (not with_trend, opp[0], "choch", opp[1])
-            log.info(f"[vix1] {symbol} bias=NONE: 1HR momentum runs against the "
-                     f"{'up' if with_trend else 'down'} 4HR trend but has NOT closed through the H4 "
-                     f"swing — a deep pullback, not a change of direction; standing aside")
+            log.info(f"[vix1] {symbol} bias=NONE: 1HR momentum against the {'up' if with_trend else 'down'} "
+                     f"1HR trend, no structure break — a deep pullback; standing aside")
             return None
 
-        log.info(f"[vix1] {symbol} bias=NONE: clear 4HR {'up (HH+HL)' if with_trend else 'down (LH+LL)'} "
+        log.info(f"[vix1] {symbol} bias=NONE: clear 1HR {'up (HH+HL)' if with_trend else 'down (LH+LL)'} "
                  f"trend, but {veto_reason(h1, with_trend)}")
         return None
 
-    # No established trend — accept a RANGE BREAKING INTO A TREND (momentum-led, playbook-valid).
-    # Take the FRESHEST qualifying run, never "whichever we test first". In a range BOTH directions
-    # routinely qualify inside the lookback, and returning the bullish one traded a STALE move
-    # against the live one in ~68% of the contested bars — the same wrong-direction bug already fixed
-    # in the trend branch above. Freshest momentum wins, in every branch.
+    # 1HR TREND UNCLEAR — go to the 4HR to see if the 1HR momentum is backed by a 4HR trend.
+    t4 = clear_trend(h4)
+    if t4 != 0:
+        with4 = t4 > 0
+        vr  = momentum_run(h1, with4)
+        opp = momentum_run(h1, not with4)
+        last     = (vr[0] + vr[1] - 1) if vr else -1
+        opp_last = (opp[0] + opp[1] - 1) if opp else -1
+        if vr is not None and last > opp_last:
+            log.info(f"[vix1] {symbol} 4HR-BACKED TREND: 1HR trend unclear, but the 1HR momentum aligns "
+                     f"with a clear 4HR {'up (HH+HL)' if with4 else 'down (LH+LL)'} trend")
+            return (with4, vr[0], "trend4", vr[1])       # 4HR-backed trend
+        # 1HR momentum is not aligned with the 4HR trend — fall through to the range test.
+
+    # No trend backing on either TF — a RANGE BREAKING INTO A TREND (1HR momentum + 1HR range break).
+    # Take the FRESHEST qualifying run, never "whichever we test first" (both directions routinely
+    # qualify in a range; returning the stale one is the wrong-direction bug fixed in the trend branch).
     best: tuple[int, bool, tuple[int, int]] | None = None
     for bullish in (True, False):
         vr = momentum_run(h1, bullish)
         if vr is not None and _run_breaks_range(h1, vr[0], vr[1], bullish):
-            last = vr[0] + vr[1] - 1                     # index of the run's LAST candle = freshness
+            last = vr[0] + vr[1] - 1
             if best is None or last > best[0]:
                 best = (last, bullish, vr)
     if best is not None:
         _, bullish, vr = best
         return (bullish, vr[0], "range", vr[1])
 
-    log.info(f"[vix1] {symbol} bias=NONE: no clear 4HR HH+HL/LH+LL trend and no momentum-led 1HR range "
+    log.info(f"[vix1] {symbol} bias=NONE: no clear 1HR trend, no backing 4HR trend, no 1HR range "
              f"breakout (up: {veto_reason(h1, True)})")
     return None

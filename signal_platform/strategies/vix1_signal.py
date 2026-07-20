@@ -16,19 +16,22 @@ _KIND = {
 }
 
 
-# How each 1HR origin describes itself. 'choch' is a REVERSAL — it must never render as "clear up
-# trend", because the trend it names is the one that just broke.
-_CTX   = {"range": "RANGE BREAKOUT", "choch": "STRUCTURE CHANGE"}
-_SHORT = {"range": "range breakout", "choch": "structure change"}
+# How each origin describes itself. 'choch' is a REVERSAL — it must never render as "clear up trend",
+# because the trend it names is the one that just broke. 'trend4' = 1HR trend unclear, 4HR-backed.
+_CTX   = {"range": "RANGE BREAKOUT", "choch": "STRUCTURE CHANGE", "trend4": "4HR-BACKED TREND"}
+_SHORT = {"range": "range breakout", "choch": "structure change", "trend4": "4HR-backed trend"}
 
 
 def _origin_reason(origin: str, bullish: bool, mlabel: str, side: str) -> str:
     if origin == "range":
         return f"1HR RANGE BREAKOUT ({side}) — {mlabel} from the 1st, trend building"
     if origin == "choch":
-        return (f"4HR STRUCTURE CHANGE ({side}) — the {'down' if bullish else 'up'} 4HR trend broke: "
-                f"1HR {mlabel} from the 1st closed through the H4 swing that defined it")
-    return (f"4HR clear {'up (HH+HL)' if bullish else 'down (LH+LL)'} trend + 1HR {mlabel} "
+        return (f"1HR STRUCTURE CHANGE ({side}) — the {'down' if bullish else 'up'} 1HR trend broke: "
+                f"{mlabel} from the 1st closed through the swing that defined it")
+    if origin == "trend4":
+        return (f"4HR-BACKED TREND ({side}) — 1HR trend unclear, but the 1HR {mlabel} aligns with a "
+                f"clear 4HR {'up (HH+HL)' if bullish else 'down (LH+LL)'} trend")
+    return (f"1HR clear {'up (HH+HL)' if bullish else 'down (LH+LL)'} trend + {mlabel} "
             f"from the 1st ({side})")
 
 
@@ -48,7 +51,7 @@ def build_signal(kind, symbol, bullish, origin, vol_count, entry, sl, tp,
         reasons.insert(0, f"⚠️ CORRELATED: {', '.join(corr)} already {side.lower()} (same USD direction) — size down or skip")
 
     smc = [
-        f"CTX::4HR TREND::{_CTX.get(origin) or ('UPTREND' if bullish else 'DOWNTREND')}",
+        f"CTX::TREND::{_CTX.get(origin) or ('UPTREND' if bullish else 'DOWNTREND')}",
         f"CTX::1HR MOMENTUM::{vol_count} CANDLE{'S' if vol_count != 1 else ''} (FROM 1ST)",
         f"CTX::1M ENTRY::{label}",
         f"PA::{label} STOP-ENTRY (2R)",
