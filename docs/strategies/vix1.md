@@ -158,7 +158,7 @@ that is deliberate, not an oversight. A momentum candle answers three questions:
 |---|---|---|
 | **BIG** | body ≥ **2.5×** the MEDIAN body of the last 100 closed bars | CALIBRATED 2026-07-20 on **87 real GBP/USD trades**: the user's own momentum candles run **~2.7–6× median** (~14–31 pips). 2.5× captures **91%** of them; the old **4.0× captured only 60%** — it rejected 4 in 10 real setups (top-5% candles only). Selectivity lives in the trend/line/pullback gates, not here. ("bigger than the previous candle" also failed — rejected 21–23% of strong candles, admitted 24–27% below-normal, smallest 0.79 pips) |
 | **CLEAN** | body ≥ **75%** of its own range | real clean legs run 57% median; 75% isolates the near-wickless look |
-| **UNREJECTED** | wick **against** the move ≤ **15%** | asymmetric on purpose — on a bull candle an upper wick is price being *sold back*, a lower wick is a dip being *bought* |
+| **UNREJECTED** | wick **against** the move ≤ **25%** | asymmetric on purpose — on a bull candle an upper wick is price being *sold back*, a lower wick is a dip being *bought*. Raised 15%→25% (user 2026-07-21): 15% demanded a near-wickless marubozu and rejected real volume candles (GBP/USD 20-Jul 18:00: 21p, 3.62×, 81% body, **19% wick** — a genuine momentum candle). 25% admits it; rate 34.6→41.3/mo |
 
 **MEDIAN, never mean** — on 11–21% of bars one news spike drags the mean past 1.6× the median and
 then blocks every genuine candle behind it for hours.

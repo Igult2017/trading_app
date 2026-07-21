@@ -42,7 +42,12 @@ _MIN_BODY_MULT  = 2.5   # body >= this x the 100-bar MEDIAN body. CALIBRATED 202
                         # SELECTIVITY belongs to the trend/line-break/pullback gates that follow, not
                         # to making the momentum candle itself freakishly rare.
 _MIN_BODY_FRAC  = 0.75  # body >= this share of the candle's OWN range (the wickless look)
-_MAX_CWICK_FRAC = 0.15  # wick AGAINST the move, as a share of range
+_MAX_CWICK_FRAC = 0.25  # wick AGAINST the move, as a share of range. Raised 15%->25% (user 2026-07-21):
+                        # real volume candles get bought/sold back a little — a strict 15% demanded an
+                        # almost-wickless marubozu and threw away genuine momentum. Live proof: GBP/USD
+                        # 20-Jul 18:00 was a 21-pip, 3.62x-median, 81%-body BEAR that VIX.1 rejected
+                        # ONLY because its counter-wick was 19%. 25% admits it. (Body-fraction 75% still
+                        # open — the 100-trade pass sets the final value.)
 _MIN_RUN        = 1     # see the docstring — the market gives runs of one
 LOOKBACK       = 12    # recent 1HR bars scanned for the candle (an established trend's impulse can
                         # be several bars old while the fresh 1M entry is still forming).
