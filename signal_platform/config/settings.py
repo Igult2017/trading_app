@@ -41,6 +41,12 @@ class Settings(BaseSettings):
     # public channel. Set SIGNALS_DM_ONLY=true to hold every strategy's output back from subscribers
     # while a bug is being fixed, without disabling the scanner. Reversible via env, no code change.
     signals_dm_only: bool = False
+    # EXEMPTIONS from the kill-switch: comma-separated strategy ids whose CONFIRMED signals still go to
+    # the PUBLIC channel even while SIGNALS_DM_ONLY holds everyone else in the DM. Lets a trusted,
+    # fixed strategy go live while a still-in-refinement one stays held. (2026-07-21: BX-S/D is
+    # trusted post-fix and goes public; VIX.1 stays DM until the 100-trade selection pass.) Env:
+    # DM_ONLY_EXEMPT="bx_sd,other". Their _watch heads-ups still go to the DM (unconfirmed).
+    dm_only_exempt: str = "bx_sd"
 
     # ── AI validation ─────────────────────────────────────────────────────────
     # Optional. When absent: signals pass AI validation automatically.

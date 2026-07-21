@@ -92,6 +92,19 @@ fresh, never a re-tap.**
 > Ch.9 p48 (Continuation): a scale-in "if you missed the flip/choch", entering the pro-trend
 > continuation "targeting the **next unmitigated** supply".
 
+**A TAP IS A RETURN, never the gap's own creation candle (fix 2026-07-21, `is_fvg_tap`).** The FVG is
+the 3-candle pattern (ifc-1, ifc, ifc+1); its far edge is DEFINED by candle **ifc+1** (demand
+top = `h4[ifc+1].low`, supply bottom = `h4[ifc+1].high`). The continuation tap loop started at
+`ifc+1` and tested `h4[ifc+1].low <= fvg.top` — i.e. candle ifc+1 vs its OWN boundary, **trivially
+true**. So **every** fresh FVG read as "instantly tapped" by the wick of the candle that created the
+gap (measured: 100% of FVGs, both directions). That fired a false USD/JPY CONTINUATION on a zone price
+had broken UP and away from and NEVER returned to. Per the book (p27: price taps INTO a zone that has
+not been tapped yet), a tap is a LATER candle coming back into the gap — the loop now starts at
+**`ifc+2`**. Validated: the false signal is gone, all 289 genuine return-taps kept, and the 8 demand
+FVGs that never returned no longer fire. **`_first_tap` (zone mitigation) is NOT affected** — a zone's
+top is `h4[ifc-1].high`, and the FVG condition (`h4[ifc-1].high < h4[ifc+1].low`) guarantees ifc+1
+cannot self-tap it. Same fix covers supply. **Do not revert the tap search to ifc+1.**
+
 Two freshness bounds this principle forces, both now enforced in `bx_sd_retest.py`:
 1. **The mitigation itself must be recent** (`is_respected_retest`, `fresh_within` — default 12 H4 bars,
    ~2 days). Bounding only the 2nd touch let an *ancient* first mitigation retest now and fire; the book

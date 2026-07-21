@@ -124,12 +124,17 @@ async def on_signal_confirmed(signal: Signal) -> None:
     chart    = signal.chart_path
     # CONFIRMED signals → public channel. WATCH (unconfirmed) alerts → admin DM only;
     # if no private chat is set the watch is dropped, never leaked to the channel.
-    # KILL-SWITCH: SIGNALS_DM_ONLY forces EVERY signal to the admin DM, holding all strategy output
-    # back from subscribers while a bug is fixed (see settings.signals_dm_only).
-    if settings.signals_dm_only:
+    # KILL-SWITCH: SIGNALS_DM_ONLY forces signals to the admin DM, EXCEPT strategies listed in
+    # DM_ONLY_EXEMPT — their confirmed signals still go public (a trusted, fixed strategy goes live
+    # while a still-in-refinement one stays held). _watch heads-ups always stay in the DM.
+    base   = signal.strategy_id[:-len("_watch")] if is_watch else signal.strategy_id
+    exempt = base in {s.strip() for s in settings.dm_only_exempt.split(",") if s.strip()}
+    if is_watch:
+        target = settings.watchdog_chat_id
+    elif settings.signals_dm_only and not exempt:
         target = settings.watchdog_chat_id
     else:
-        target = settings.watchdog_chat_id if is_watch else settings.telegram_chat_id
+        target = settings.telegram_chat_id
     if not target:
         log.debug("[dispatcher] no target for %s signal — skipping", "watch" if is_watch else "confirmed")
     elif chart and os.path.isfile(chart):
