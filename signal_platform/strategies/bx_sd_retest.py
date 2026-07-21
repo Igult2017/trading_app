@@ -66,7 +66,14 @@ def is_fvg_tap(h4: list[Candle], zone: Zone, fvg: Zone, recent: int = 6) -> bool
     retested), and the latest bar is back on the trend side of the FVG."""
     demand = zone.direction == "demand"
     ft = None
-    for j in range(fvg.ifc_index + 1, len(h4)):             # the FIRST tap (mitigation) of the FVG
+    # Start AFTER the FVG is fully formed. The gap is the 3-candle pattern (ifc-1, ifc, ifc+1); its far
+    # edge is DEFINED by candle ifc+1 (demand top = h4[ifc+1].low, supply bottom = h4[ifc+1].high). So
+    # candle ifc+1 satisfies `low <= top` / `high >= bottom` TRIVIALLY against its own boundary — the
+    # gap's own creation candle is not a return-tap. A book "tap" (p27: price taps INTO a zone that has
+    # NOT been tapped yet) is a LATER candle coming back into the gap, so we search from ifc+2.
+    # (fix 2026-07-21: USD/JPY fired a false CONTINUATION — every fresh FVG read as instantly tapped by
+    # ifc+1's wick. Same self-reference existed for supply; ifc+2 fixes both directions.)
+    for j in range(fvg.ifc_index + 2, len(h4)):             # the FIRST genuine RETURN-tap of the FVG
         if (h4[j].low <= fvg.top) if demand else (h4[j].high >= fvg.bottom):
             ft = j; break
     if ft is None or ft < len(h4) - recent:                 # the FVG must be FRESH — first tap is recent
