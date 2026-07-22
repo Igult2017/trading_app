@@ -19,6 +19,11 @@ class Settings(BaseSettings):
     scan_enabled: bool = True
     min_rr: float = 2.0
     min_confidence: float = 0.70
+    # Per-strategy overrides of min_confidence, "id:floor" comma-separated. VIX.1 GRADES its
+    # momentum candle by shape (A=0.85 down to C=0.60) — the grade is information, not a filter,
+    # so its floor sits at the bottom of the grading scale or the global 0.70 gate would silently
+    # eat every B/C signal and the grading system would look like a detection bug. (2026-07-21)
+    min_confidence_overrides: str = "vix1:0.60"
 
     # Runtime pause: create .scan_paused in the signal_platform/ directory to
     # stop scanning without restarting. Delete the file to resume.

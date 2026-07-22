@@ -68,11 +68,10 @@ we're wrong" twice and built on it twice. It isn't.)
 
 Line 2 **never gates**. With a small/no-wick candle it collapses onto line 1 — which is the ordinary
 case, because small-or-no wicks **is** the momentum-candle filter. Line 2 is inside the body by
-construction: the momentum filter requires **body ≥ 75% of range**, so both wicks together take at
-most 25% and the open wick can never exceed a third of the body. (This used to rest on the OLD
-symmetric 33% wick cap forcing body ≥34%; that cap is now asymmetric — only the wick AGAINST the move
-is limited, ≤15% — so the body-share rule is what carries the guarantee, and it is the stronger of
-the two. Re-verified on 789 real momentum candles: zero violations, worst open-wick/body = 0.33.)
+construction: the momentum filter requires **body ≥ 60% of range**, so the open wick (≤ 40% of range
+at worst) is always shorter than the body and line 2 always lands inside it. (The margin weakened
+when the body gate went 75%→60% on 2026-07-21 — worst-case open-wick/body went from ⅓ to ⅔ — but the
+invariant "line 2 inside the body" holds for any body ≥ 50%, so the stop-adjust logic is unaffected.)
 
 ### Fractal vs pullback — the same shape, different roles
 > "a fractal is a 1 candle pullback when the price is going a particular direction... the candle
@@ -157,8 +156,27 @@ that is deliberate, not an oversight. A momentum candle answers three questions:
 | | Rule | Why this number |
 |---|---|---|
 | **BIG** | body ≥ **2.5×** the MEDIAN body of the last 100 closed bars | CALIBRATED 2026-07-20 on **87 real GBP/USD trades**: the user's own momentum candles run **~2.7–6× median** (~14–31 pips). 2.5× captures **91%** of them; the old **4.0× captured only 60%** — it rejected 4 in 10 real setups (top-5% candles only). Selectivity lives in the trend/line/pullback gates, not here. ("bigger than the previous candle" also failed — rejected 21–23% of strong candles, admitted 24–27% below-normal, smallest 0.79 pips) |
-| **CLEAN** | body ≥ **75%** of its own range | real clean legs run 57% median; 75% isolates the near-wickless look |
+| **CLEAN** | body ≥ **60%** of its own range | Lowered 75%→60% (user 2026-07-21): 75% demanded a near-wickless marubozu; real volume candles run thinner. 60% is the GATE floor — the shape is now **graded**, not just gated (see below) |
 | **UNREJECTED** | wick **against** the move ≤ **25%** | asymmetric on purpose — on a bull candle an upper wick is price being *sold back*, a lower wick is a dip being *bought*. Raised 15%→25% (user 2026-07-21): 15% demanded a near-wickless marubozu and rejected real volume candles (GBP/USD 20-Jul 18:00: 21p, 3.62×, 81% body, **19% wick** — a genuine momentum candle). 25% admits it; rate 34.6→41.3/mo |
+
+### The GRADE — shape decides confidence, not entry (added 2026-07-21)
+> "For the signals with candle with perfect wicks and 75% candle body, we grade the signal A however
+> for those with wicks 25% and body 60%, we grade them starting from 74% coming to 60%."
+
+A candle that passes the gate is **graded by shape** (`momentum_grade` in `vix1_momentum.py`) and the
+grade IS the signal's confidence — shown on the card as `Momentum candle grade X (NN% confidence)`:
+
+| Grade | Shape | Confidence |
+|---|---|---|
+| **A** | body ≥ 75% of range AND counter-wick ≤ 15% (the "perfect" candle) | **0.85** |
+| **B/C** | anything weaker, down to the gate (body 60% / wick 25%) | **0.74 → 0.60**, sliding — the WEAKER of the two axes sets it, so a good body can't hide a bad wick. B ≥ 0.68, C below |
+
+Measured on 799 recent GBP/USD H1 bars: 89 momentum candles → **A=46, B=14, C=29** — a real spread.
+The grade never blocks a setup; the entry/trend/line gates decide THAT. To keep B/C signals alive, the
+validator got a per-strategy confidence floor (`min_confidence_overrides = "vix1:0.60"` in
+`config/settings.py`) — without it the global `min_confidence=0.70` would have silently eaten every
+signal graded below 70% and the grading would have looked like a detection bug. BX-S/D keeps its own
+independent confidence formula and the global 0.70 floor — untouched.
 
 **MEDIAN, never mean** — on 11–21% of bars one news spike drags the mean past 1.6× the median and
 then blocks every genuine candle behind it for hours.

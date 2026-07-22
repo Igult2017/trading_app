@@ -30,7 +30,7 @@ from core.strategy_context import StrategyContext
 from core import delivery_ledger
 from strategies.vix1_bias import detect_bias
 from strategies.vix1_entry import m1_signals
-from strategies.vix1_momentum import LOOKBACK      # candle_counts[M1] derives from this — see below
+from strategies.vix1_momentum import LOOKBACK, momentum_grade   # candle_counts[M1] derives from LOOKBACK
 from strategies.vix1_signal import build_signal
 from strategies.vix1_watch import check_invalidation, invalidation_signal
 from shared.pip import pip_size, price_digits
@@ -128,6 +128,10 @@ class Vix1Strategy(BaseStrategy):
         corr = [inst for inst, (b, t) in self._recent.items()
                 if inst != sym and b == bullish and (now - t) < _CORR_WINDOW]
 
+        # GRADE the momentum candle by SHAPE (user 2026-07-21): A (75% body / 15% wick) -> 0.85;
+        # weaker-but-passing shapes slide 0.74 -> 0.60. The grade IS the signal's confidence.
+        grade, conf = momentum_grade(vc, bullish)
+
         for s in raw:                                       # each = {"kind", "entry", "sl"}
             # ONE entry per momentum candle, NOT keyed by kind: the same setup can reach the entry via
             # either alignment path, and the second would be silently dropped as a duplicate.
@@ -146,7 +150,7 @@ class Vix1Strategy(BaseStrategy):
             # alert keeps `vix1_watch` and stays a DM — it is a correction, not a signal.
             sig = build_signal(s["kind"], sym, bullish, origin, vol_count, entry, sl, tp, risk, pip,
                                digits, corr, context.news, self.id, self.name,
-                               sl_note=s.get("sl_note", ""))
+                               grade, conf, sl_note=s.get("sl_note", ""))
             sig.dedup_key = key          # committed ONLY once the signal is real — never here
             out.append(sig)
             self._recent[sym] = (bullish, now)

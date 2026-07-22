@@ -41,13 +41,17 @@ _MIN_BODY_MULT  = 2.5   # body >= this x the 100-bar MEDIAN body. CALIBRATED 202
                         # only 60% — it threw away 4 in 10 real setups (top-5% candles only). The
                         # SELECTIVITY belongs to the trend/line-break/pullback gates that follow, not
                         # to making the momentum candle itself freakishly rare.
-_MIN_BODY_FRAC  = 0.75  # body >= this share of the candle's OWN range (the wickless look)
+_MIN_BODY_FRAC  = 0.60  # GATE: body >= this share of the candle's OWN range. Lowered 75%->60% (user
+                        # 2026-07-21) — 75% demanded a near-wickless marubozu; real volume candles run
+                        # thinner. 60% is the floor; the SHAPE is now GRADED, not just gated (momentum_grade).
+_A_BODY_FRAC    = 0.75  # A-grade body: >= 75% of range  (the "perfect" wickless look)
+_A_CWICK_FRAC   = 0.15  # A-grade counter-wick: <= 15%   (a "perfect" wick)
+_A_CONF         = 0.85  # confidence assigned to an A-grade (perfect) momentum candle
 _MAX_CWICK_FRAC = 0.25  # wick AGAINST the move, as a share of range. Raised 15%->25% (user 2026-07-21):
                         # real volume candles get bought/sold back a little — a strict 15% demanded an
                         # almost-wickless marubozu and threw away genuine momentum. Live proof: GBP/USD
                         # 20-Jul 18:00 was a 21-pip, 3.62x-median, 81%-body BEAR that VIX.1 rejected
-                        # ONLY because its counter-wick was 19%. 25% admits it. (Body-fraction 75% still
-                        # open — the 100-trade pass sets the final value.)
+                        # ONLY because its counter-wick was 19%. 25% admits it.
 _MIN_RUN        = 1     # see the docstring — the market gives runs of one
 LOOKBACK       = 12    # recent 1HR bars scanned for the candle (an established trend's impulse can
                         # be several bars old while the fresh 1M entry is still forming).
@@ -82,6 +86,29 @@ def is_momentum_candle(h1: list[Candle], i: int, bullish: bool) -> bool:
     return (body_size(c) >= _MIN_BODY_MULT * base
             and body_size(c) >= _MIN_BODY_FRAC * rng
             and counter_wick(c, bullish) <= _MAX_CWICK_FRAC * rng)
+
+
+def momentum_grade(c: Candle, bullish: bool) -> tuple[str, float]:
+    """Grade a momentum candle by SHAPE (body-fraction + counter-wick) -> (letter, confidence).
+
+    User 2026-07-21: "candle with perfect wicks and 75% body = A; wicks up to 25% and body down to 60% =
+    graded 74% down to 60%." So:
+      A  — body >= 75% of range AND counter-wick <= 15% (a clean, near-wickless candle) -> conf 0.85.
+      B/C — anything weaker, down to the gate (body 60% / wick 25%): confidence scales from 0.74 (best
+            non-A) to 0.60 (worst). The WEAKER of the two dimensions sets the grade, so one bad axis is
+            not hidden by a good one. Only reached for a candle that already PASSED is_momentum_candle.
+    """
+    rng = full_range(c)
+    if rng <= 0:
+        return ("C", 0.60)
+    bf = body_size(c) / rng
+    cw = counter_wick(c, bullish) / rng
+    if bf >= _A_BODY_FRAC and cw <= _A_CWICK_FRAC:
+        return ("A", _A_CONF)
+    body_q = min(max((bf - _MIN_BODY_FRAC) / (_A_BODY_FRAC - _MIN_BODY_FRAC), 0.0), 1.0)
+    wick_q = min(max((_MAX_CWICK_FRAC - cw) / (_MAX_CWICK_FRAC - _A_CWICK_FRAC), 0.0), 1.0)
+    conf   = round(0.60 + min(body_q, wick_q) * (0.74 - 0.60), 3)   # 0.60 .. 0.74
+    return ("B" if conf >= 0.68 else "C", conf)
 
 
 def momentum_run(h1: list[Candle], bullish: bool) -> tuple[int, int] | None:

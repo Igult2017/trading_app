@@ -115,11 +115,26 @@ def _check_rr(signal: Signal) -> bool:
     return True
 
 
+def _min_confidence_for(strategy_id: str) -> float:
+    """The confidence floor for THIS strategy — global default unless overridden ("id:floor" CSV).
+    VIX.1 grades its momentum candle 0.85..0.60 by shape; the grade is information carried on the
+    card, so its floor matches the bottom of that scale instead of the global gate."""
+    for part in settings.min_confidence_overrides.split(","):
+        sid, _, floor = part.strip().partition(":")
+        if sid and sid == (strategy_id or "").lower():
+            try:
+                return float(floor)
+            except ValueError:
+                break
+    return settings.min_confidence
+
+
 def _check_confidence(signal: Signal) -> bool:
-    if signal.confidence < settings.min_confidence:
+    floor = _min_confidence_for(signal.strategy_id)
+    if signal.confidence < floor:
         log.debug(
             f"[validator] {signal.symbol} conf={signal.confidence:.0%} "
-            f"< min {settings.min_confidence:.0%}"
+            f"< min {floor:.0%} ({signal.strategy_id})"
         )
         return False
     return True
