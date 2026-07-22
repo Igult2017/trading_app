@@ -340,6 +340,7 @@ export class DbStorage implements IStorage {
       strength: insertSignal.strength ?? null,
       zonesTested: insertSignal.zonesTested ?? 0,
       expiresAt: insertSignal.expiresAt ?? null,
+      triggeredAt: insertSignal.triggeredAt ?? null,
       executedAt: insertSignal.executedAt ?? null,
       invalidatedAt: insertSignal.invalidatedAt ?? null,
       createdAt: new Date(),

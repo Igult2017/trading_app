@@ -7,6 +7,19 @@ DATABASE_URL      = os.environ["DATABASE_URL"]
 ENCRYPTION_KEY    = os.environ["COPY_ENCRYPTION_KEY"]
 CTRADER_CLIENT_ID = os.environ["CTRADER_CLIENT_ID"]
 CTRADER_CLIENT_SECRET = os.environ["CTRADER_CLIENT_SECRET"]
+# The "Journal Trade Sync" cTrader app — accounts CONNECTED under it carry `app: "sync"` in their
+# stored creds, and their tokens only authenticate under THIS app's credentials. Optional: when
+# unset, everything falls back to the legacy pair above.
+CTRADER_SYNC_CLIENT_ID     = os.environ.get("CTRADER_SYNC_CLIENT_ID", "")
+CTRADER_SYNC_CLIENT_SECRET = os.environ.get("CTRADER_SYNC_CLIENT_SECRET", "")
+
+
+def ctrader_app_creds(creds: dict | None) -> tuple[str, str]:
+    """(client_id, client_secret) for the app that ISSUED this account's tokens — tokens are
+    app-bound, so authenticating with the other app's credentials fails (invalid client)."""
+    if (creds or {}).get("app") == "sync" and CTRADER_SYNC_CLIENT_ID and CTRADER_SYNC_CLIENT_SECRET:
+        return CTRADER_SYNC_CLIENT_ID, CTRADER_SYNC_CLIENT_SECRET
+    return CTRADER_CLIENT_ID, CTRADER_CLIENT_SECRET
 
 # Telegram copy-bot — added as ADMIN to provider channels; one shared poller reads
 # their posts. Optional: if unset, Telegram providers are simply skipped.

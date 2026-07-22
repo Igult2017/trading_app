@@ -22,7 +22,7 @@ from ctrader_open_api.messages.OpenApiMessages_pb2 import (
 from ctrader_open_api.messages.OpenApiModelMessages_pb2 import ProtoOAPositionStatus
 
 from config import CT_LIVE_HOST, CT_DEMO_HOST, CT_PORT, RECONNECT_DELAY, \
-    RECONCILE_INTERVAL, CTRADER_CLIENT_ID, CTRADER_CLIENT_SECRET
+    RECONCILE_INTERVAL
 
 log = logging.getLogger("provider.ctrader")
 
@@ -96,9 +96,11 @@ class CTraderProvider:
     def _on_connected(self, client):
         self._connected = True
         self._disconnected_since = None
+        from config import ctrader_app_creds
+        cid, csec = ctrader_app_creds(self.creds)   # the app that issued THIS account's tokens
         req = ProtoOAApplicationAuthReq()
-        req.clientId     = CTRADER_CLIENT_ID
-        req.clientSecret = CTRADER_CLIENT_SECRET
+        req.clientId     = cid
+        req.clientSecret = csec
         client.send(req)
 
     def _on_disconnected(self, client, reason):

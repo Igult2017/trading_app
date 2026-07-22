@@ -2,6 +2,18 @@
  * cTrader Open API adapter (JSON over WebSocket, port 5036)
  * Auth: OAuth2 (authorization code flow via connect.spotware.com)
  * Requires: CTRADER_CLIENT_ID, CTRADER_CLIENT_SECRET, CTRADER_REDIRECT_URI
+ * Optional: CTRADER_SYNC_CLIENT_ID, CTRADER_SYNC_CLIENT_SECRET (the "Journal Trade Sync" app)
+ *
+ * TWO cTrader applications share the workload (Spotware rate-limits PER APPLICATION):
+ *   legacy — the original app: the signal platform's candle feed + every account connected
+ *            before the split. Its quota must never be consumed by user account syncs again
+ *            (a single first-connect 2-year backfill is ~100 history requests, and a user
+ *            token-refresh storm on /apps/token once 429'd the scanner).
+ *   sync   — the "Journal Trade Sync" app: ALL NEW account connects, their history pulls,
+ *            balance fetches, realtime feeds and token refreshes.
+ * Tokens are BOUND to the app that issued them, so every stored credential JSON records its
+ * issuer (`app: "sync"`; absent = legacy) and refresh/appAuth MUST use that same app's
+ * credentials — using the other app's yields invalid_client.
  *
  * Payload types sourced from:
  * github.com/spotware/openapi-proto-messages/OpenApiModelMessages.proto
@@ -11,6 +23,22 @@ import type { RawBrokerTrade } from '../brokerSyncService';
 
 const CONNECT   = 'https://connect.spotware.com';
 const TOKEN_URL = `${CONNECT}/apps/token`;
+
+// ── App credential pairs ──────────────────────────────────────────────────────
+
+export function appCreds(app?: string): { clientId: string; clientSecret: string } {
+  if (app === 'sync' && process.env.CTRADER_SYNC_CLIENT_ID && process.env.CTRADER_SYNC_CLIENT_SECRET) {
+    return { clientId: process.env.CTRADER_SYNC_CLIENT_ID, clientSecret: process.env.CTRADER_SYNC_CLIENT_SECRET };
+  }
+  return { clientId: process.env.CTRADER_CLIENT_ID ?? '', clientSecret: process.env.CTRADER_CLIENT_SECRET ?? '' };
+}
+
+/** Which app NEW account connects are issued under: the sync app when configured, else legacy.
+ *  (While the sync app is still pending Spotware approval its credentials fail — deploy the
+ *  cutover only once the portal shows the app Active.) */
+export function newConnectApp(): 'sync' | 'legacy' {
+  return process.env.CTRADER_SYNC_CLIENT_ID && process.env.CTRADER_SYNC_CLIENT_SECRET ? 'sync' : 'legacy';
+}
 
 export const LIVE_WS = 'wss://live.ctraderapi.com:5036';
 export const DEMO_WS = 'wss://demo.ctraderapi.com:5036';
@@ -68,9 +96,8 @@ export function waitFor(ws: WebSocket, targetType: number, timeoutMs = 20000): P
   });
 }
 
-export async function appAuth(ws: WebSocket) {
-  const clientId     = process.env.CTRADER_CLIENT_ID;
-  const clientSecret = process.env.CTRADER_CLIENT_SECRET;
+export async function appAuth(ws: WebSocket, app?: string) {
+  const { clientId, clientSecret } = appCreds(app);
   if (!clientId || !clientSecret) throw new Error('CTRADER_CLIENT_ID or CTRADER_CLIENT_SECRET is not configured');
   send(ws, PT_APP_AUTH_REQ, { clientId, clientSecret });
   await waitFor(ws, PT_APP_AUTH_RES);
@@ -78,15 +105,16 @@ export async function appAuth(ws: WebSocket) {
 
 // ── OAuth2 ────────────────────────────────────────────────────────────────────
 
-export function getCTraderAuthUrl(state: string): string {
-  const clientId    = process.env.CTRADER_CLIENT_ID ?? '';
+export function getCTraderAuthUrl(state: string, app?: string): string {
+  const { clientId } = appCreds(app ?? newConnectApp());
   const redirectUri = process.env.CTRADER_REDIRECT_URI ?? '';
   if (!clientId) throw new Error('CTRADER_CLIENT_ID is not set');
   const params = new URLSearchParams({ client_id: clientId, redirect_uri: redirectUri, scope: 'trading', response_type: 'code', state });
   return `${CONNECT}/apps/auth?${params}`;
 }
 
-export async function exchangeCodeForTokens(code: string): Promise<{ accessToken: string; refreshToken: string; expiresIn: number }> {
+export async function exchangeCodeForTokens(code: string, app?: string): Promise<{ accessToken: string; refreshToken: string; expiresIn: number }> {
+  const { clientId, clientSecret } = appCreds(app ?? newConnectApp());
   const res = await fetch(TOKEN_URL, {
     method:  'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -94,8 +122,8 @@ export async function exchangeCodeForTokens(code: string): Promise<{ accessToken
       grant_type:    'authorization_code',
       code,
       redirect_uri:  process.env.CTRADER_REDIRECT_URI ?? '',
-      client_id:     process.env.CTRADER_CLIENT_ID ?? '',
-      client_secret: process.env.CTRADER_CLIENT_SECRET ?? '',
+      client_id:     clientId,
+      client_secret: clientSecret,
     }),
   });
   const data = await res.json() as any;
@@ -103,15 +131,16 @@ export async function exchangeCodeForTokens(code: string): Promise<{ accessToken
   return { accessToken: data.access_token, refreshToken: data.refresh_token, expiresIn: data.expires_in ?? 3600 };
 }
 
-export async function refreshAccessToken(refreshToken: string): Promise<{ accessToken: string; refreshToken: string; expiresIn: number }> {
+export async function refreshAccessToken(refreshToken: string, app?: string): Promise<{ accessToken: string; refreshToken: string; expiresIn: number }> {
+  const { clientId, clientSecret } = appCreds(app);
   const res = await fetch(TOKEN_URL, {
     method:  'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body:    new URLSearchParams({
       grant_type:    'refresh_token',
       refresh_token: refreshToken,
-      client_id:     process.env.CTRADER_CLIENT_ID ?? '',
-      client_secret: process.env.CTRADER_CLIENT_SECRET ?? '',
+      client_id:     clientId,
+      client_secret: clientSecret,
     }),
   });
   const data = await res.json() as any;
@@ -130,10 +159,10 @@ export interface CTraderAccount {
   currency:    string;
 }
 
-async function fetchAccountsFromEndpoint(wsUrl: string, accessToken: string): Promise<CTraderAccount[]> {
+async function fetchAccountsFromEndpoint(wsUrl: string, accessToken: string, app?: string): Promise<CTraderAccount[]> {
   const ws = await openWS(wsUrl);
   try {
-    await appAuth(ws);
+    await appAuth(ws, app);
     send(ws, PT_ACCOUNTS_REQ, { accessToken });
     const payload = await waitFor(ws, PT_ACCOUNTS_RES);
     return (payload?.ctidTraderAccount ?? []).map((a: any): CTraderAccount => ({
@@ -149,10 +178,10 @@ async function fetchAccountsFromEndpoint(wsUrl: string, accessToken: string): Pr
   }
 }
 
-export async function getCTraderAccounts(accessToken: string): Promise<CTraderAccount[]> {
+export async function getCTraderAccounts(accessToken: string, app?: string): Promise<CTraderAccount[]> {
   const [liveResult, demoResult] = await Promise.allSettled([
-    fetchAccountsFromEndpoint(LIVE_WS, accessToken),
-    fetchAccountsFromEndpoint(DEMO_WS, accessToken),
+    fetchAccountsFromEndpoint(LIVE_WS, accessToken, app),
+    fetchAccountsFromEndpoint(DEMO_WS, accessToken, app),
   ]);
   const accounts: CTraderAccount[] = [
     ...(liveResult.status === 'fulfilled' ? liveResult.value : []),
@@ -174,11 +203,12 @@ export async function fetchCTraderBalance(
   accessToken: string,
   ctraderId:   string,
   isLive:      boolean = false,
+  app?:        string,
 ): Promise<{ balance: number; currency: string } | null> {
   const acctId = Number(ctraderId);
   const ws = await openWS(isLive ? LIVE_WS : DEMO_WS);
   try {
-    await appAuth(ws);
+    await appAuth(ws, app);
     send(ws, PT_ACCT_AUTH_REQ, { ctidTraderAccountId: acctId, accessToken });
     await waitFor(ws, PT_ACCT_AUTH_RES);
     send(ws, PT_TRADER_REQ, { ctidTraderAccountId: acctId });
@@ -254,13 +284,14 @@ export async function fetchCTraderTrades(
   fromMs:      number,
   toMs:        number,
   isLive:      boolean = false,
+  app?:        string,
 ): Promise<RawBrokerTrade[]> {
   const acctId = Number(ctraderId);
   const wsUrl  = isLive ? LIVE_WS : DEMO_WS;
 
   const ws = await openWS(wsUrl);
   try {
-    await appAuth(ws);
+    await appAuth(ws, app);
 
     send(ws, PT_ACCT_AUTH_REQ, { ctidTraderAccountId: acctId, accessToken });
     await waitFor(ws, PT_ACCT_AUTH_RES);

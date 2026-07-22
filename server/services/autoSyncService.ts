@@ -43,7 +43,7 @@ async function _refreshCTraderTokenInner(account: BrokerAccount): Promise<Broker
     if (!plain) return null;
     const creds = JSON.parse(plain);
     if (!creds.refreshToken) return null;
-    const tokens = await refreshAccessToken(creds.refreshToken);
+    const tokens = await refreshAccessToken(creds.refreshToken, creds.app);   // issuing app's creds
     const newCreds = {
       ...creds,
       accessToken:    tokens.accessToken,
@@ -114,7 +114,7 @@ async function updateCTraderBalance(account: BrokerAccount): Promise<void> {
     const creds = JSON.parse(safeDecrypt(fresh?.passwordEnc ?? account.passwordEnc) ?? '{}');
     if (!creds.accessToken || !creds.ctraderId) return;
     const isLive = (fresh ?? account).accountType?.toLowerCase() !== 'demo';
-    const bal = await fetchCTraderBalance(creds.accessToken, creds.ctraderId, isLive);
+    const bal = await fetchCTraderBalance(creds.accessToken, creds.ctraderId, isLive, creds.app);
     if (bal !== null) {
       await db.update(brokerAccounts)
         .set({ balance: String(bal.balance), currency: bal.currency || (fresh ?? account).currency })

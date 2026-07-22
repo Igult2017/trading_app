@@ -9,7 +9,7 @@ import { encrypt, safeDecrypt, safeEncrypt } from "./lib/crypto";
 import { geolocateIp } from "./lib/geoIp";
 import { processIncomingTrades } from "./services/brokerSyncService";
 import { fetchTradesForAccount, API_PLATFORMS } from "./services/brokerAdapters/index";
-import { getCTraderAuthUrl, exchangeCodeForTokens, getCTraderAccounts, fetchCTraderBalance, refreshAccessToken } from "./services/brokerAdapters/ctrader";
+import { getCTraderAuthUrl, exchangeCodeForTokens, getCTraderAccounts, fetchCTraderBalance, refreshAccessToken, newConnectApp } from "./services/brokerAdapters/ctrader";
 import { addCTraderAccount, removeCTraderAccount } from "./services/ctraderRealtime";
 import { sessionAt } from "./lib/forexSession";
 import { syncAccount, refreshCTraderToken } from "./services/autoSyncService";
@@ -3525,9 +3525,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!creds.accessToken || !creds.ctraderId) return res.status(400).json({ error: "No cTrader credentials stored" });
 
     try {
-      // Refresh access token if expired (or within 60s of expiry)
+      // Refresh access token if expired (or within 60s of expiry) — with the ISSUING app's creds
       if (!creds.tokenExpiresAt || Date.now() > creds.tokenExpiresAt - 60_000) {
-        const fresh = await refreshAccessToken(creds.refreshToken);
+        const fresh = await refreshAccessToken(creds.refreshToken, creds.app);
         creds.accessToken      = fresh.accessToken;
         creds.refreshToken     = fresh.refreshToken;
         creds.tokenExpiresAt   = Date.now() + fresh.expiresIn * 1000;
@@ -3535,7 +3535,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const isLive = account.accountType?.toLowerCase() !== 'demo';
-      const bal = await fetchCTraderBalance(creds.accessToken, creds.ctraderId, isLive);
+      const bal = await fetchCTraderBalance(creds.accessToken, creds.ctraderId, isLive, creds.app);
       if (!bal) return res.status(502).json({ error: "Balance fetch failed — check logs" });
 
       await storage.updateBrokerAccount(account.id, { balance: String(bal.balance), currency: bal.currency || account.currency || undefined });
@@ -3618,7 +3618,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/admin/ctrader/signal-platform-setup", (req: Request, res: Response) => {
     if (req.query.secret !== process.env.ADMIN_SECRET) return res.status(401).send('Unauthorized');
     try {
-      const authUrl = getCTraderAuthUrl('signal_platform');
+      // LEGACY app on purpose: the signal platform's own tokens must be issued under ITS app,
+      // never the Journal Trade Sync app — the two quotas are separated by design.
+      const authUrl = getCTraderAuthUrl('signal_platform', 'legacy');
       const clientId    = process.env.CTRADER_CLIENT_ID    || '(NOT SET)';
       const redirectUri = process.env.CTRADER_REDIRECT_URI || '(NOT SET)';
       if (req.query.debug === '1') {
@@ -3721,7 +3723,7 @@ ${authUrl}</pre>
     if (isSignalPlatform) {
       _signalPlatformPending = false;
       try {
-        const tokens = await exchangeCodeForTokens(code);
+        const tokens = await exchangeCodeForTokens(code, 'legacy');   // signal platform stays on ITS app
         return res.send(`<!DOCTYPE html><html><head><title>Signal Platform Tokens</title>
 <style>body{font-family:monospace;padding:40px;background:#0d1117;color:#e6edf3}
 pre{background:#161b22;padding:20px;border-radius:8px;border:1px solid #30363d;white-space:pre-wrap;word-break:break-all}
@@ -3739,14 +3741,19 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
     }
 
     try {
-      const tokens     = await exchangeCodeForTokens(code);
-      const ctAccounts = await getCTraderAccounts(tokens.accessToken);
+      // NEW connects go on the Journal Trade Sync app (when configured) so a user's history
+      // backfill / refreshes can never eat the signal platform's quota. The tokens are bound to
+      // this app, so `app` is recorded in the stored creds and every later call reuses it.
+      const oauthApp   = newConnectApp();
+      const tokens     = await exchangeCodeForTokens(code, oauthApp);
+      const ctAccounts = await getCTraderAccounts(tokens.accessToken, oauthApp);
 
       // If multiple accounts, store choices in DB and redirect to selection UI
       // (DB storage survives server restarts; token = brokerAccountId is already a secret UUID)
       if (ctAccounts.length > 1) {
         const pendingCreds = JSON.stringify({
           multiPending: true,
+          app: oauthApp,
           accounts: ctAccounts.map(a => ({
             ctidTraderAccountId: String(a.ctidTraderAccountId),
             traderLogin:         String(a.traderLogin),
@@ -3768,7 +3775,7 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
       const ct          = ctAccounts[0];
       const ctraderId   = String(ct?.ctidTraderAccountId ?? '');
       const traderLogin = String(ct?.traderLogin ?? ctraderId);
-      const credJson = JSON.stringify({ accessToken: tokens.accessToken, refreshToken: tokens.refreshToken, ctraderId, tokenExpiresAt: Date.now() + (tokens.expiresIn * 1000) });
+      const credJson = JSON.stringify({ accessToken: tokens.accessToken, refreshToken: tokens.refreshToken, ctraderId, tokenExpiresAt: Date.now() + (tokens.expiresIn * 1000), app: oauthApp });
 
       await storage.updateBrokerAccount(resolvedAccountId, {
         loginId:     traderLogin,
@@ -3789,7 +3796,7 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
             const creds = JSON.parse(safeDecrypt(freshAccount.passwordEnc) ?? '{}');
             if (!creds.accessToken || !creds.ctraderId) return;
             const isLive = freshAccount.accountType?.toLowerCase() !== 'demo';
-            const bal = await fetchCTraderBalance(creds.accessToken, creds.ctraderId, isLive);
+            const bal = await fetchCTraderBalance(creds.accessToken, creds.ctraderId, isLive, creds.app);
             if (bal !== null) {
               await storage.updateBrokerAccount(freshAccount.id, { balance: String(bal.balance), currency: bal.currency || freshAccount.currency || undefined });
               console.log(`[cTrader] balance updated on connect: ${bal.balance} ${bal.currency}`);
@@ -3852,7 +3859,7 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
     if (!pending?.multiPending || pending.expiry < Date.now()) return res.status(410).json({ error: 'Selection expired. Please reconnect.' });
     const chosen = (pending.accounts as any[]).find(a => String(a.ctidTraderAccountId) === String(ctidTraderAccountId));
     if (!chosen) return res.status(400).json({ error: 'Account not in selection list' });
-    const credJson = JSON.stringify({ accessToken: chosen.accessToken, refreshToken: chosen.refreshToken, ctraderId: chosen.ctidTraderAccountId, tokenExpiresAt: Date.now() + ((chosen.expiresIn ?? 3600) * 1000) });
+    const credJson = JSON.stringify({ accessToken: chosen.accessToken, refreshToken: chosen.refreshToken, ctraderId: chosen.ctidTraderAccountId, tokenExpiresAt: Date.now() + ((chosen.expiresIn ?? 3600) * 1000), app: pending.app });
     await storage.updateBrokerAccount(token, {
       loginId:     String(chosen.traderLogin ?? chosen.ctidTraderAccountId),
       passwordEnc: safeEncrypt(credJson),
@@ -3871,7 +3878,7 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
         try {
           const creds = JSON.parse(safeDecrypt(freshAccount.passwordEnc) ?? '{}');
           if (!creds.accessToken || !creds.ctraderId) return;
-          const bal = await fetchCTraderBalance(creds.accessToken, creds.ctraderId, freshAccount.accountType?.toLowerCase() !== 'demo');
+          const bal = await fetchCTraderBalance(creds.accessToken, creds.ctraderId, freshAccount.accountType?.toLowerCase() !== 'demo', creds.app);
           if (bal !== null) {
             await storage.updateBrokerAccount(freshAccount.id, { balance: String(bal.balance), currency: bal.currency || freshAccount.currency || undefined });
             console.log(`[cTrader] balance updated on select: ${bal.balance} ${bal.currency}`);

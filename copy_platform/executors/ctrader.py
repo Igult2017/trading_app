@@ -22,8 +22,7 @@ from ctrader_open_api.messages.OpenApiMessages_pb2 import (
 )
 from ctrader_open_api.messages.OpenApiModelMessages_pb2 import ProtoOAOrderType, ProtoOAExecutionType
 
-from config import CT_LIVE_HOST, CT_DEMO_HOST, CT_PORT, \
-    CTRADER_CLIENT_ID, CTRADER_CLIENT_SECRET
+from config import CT_LIVE_HOST, CT_DEMO_HOST, CT_PORT
 
 log = logging.getLogger("executor.ctrader")
 
@@ -163,9 +162,11 @@ class CTraderExecutor:
             self._result_future.set_result(result)
 
     def _on_connected(self, client):
+        from config import ctrader_app_creds
+        cid, csec = ctrader_app_creds(self.creds)   # the app that issued THIS account's tokens
         req = ProtoOAApplicationAuthReq()
-        req.clientId     = CTRADER_CLIENT_ID
-        req.clientSecret = CTRADER_CLIENT_SECRET
+        req.clientId     = cid
+        req.clientSecret = csec
         client.send(req)
 
     def _on_message(self, client, message):

@@ -68,7 +68,7 @@ async function openFeed(id: string, attempt: number): Promise<void> {
 
   try {
     const ws = await openWS(isLive ? LIVE_WS : DEMO_WS);
-    await appAuth(ws);
+    await appAuth(ws, creds.app);       // the app that ISSUED this account's tokens
     send(ws, PT_ACCT_AUTH_REQ, { ctidTraderAccountId: acctId, accessToken: creds.accessToken });
     await waitFor(ws, PT_ACCT_AUTH_RES);
 
