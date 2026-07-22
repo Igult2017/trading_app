@@ -89,8 +89,13 @@ invariant "line 2 inside the body" holds for any body ≥ 50%, so the stop-adjus
 - **Fractals are 1M-ONLY.** Their whole job: confirm the opposite direction is over and price is
   aligning with the 1HR bias.
 - **A fractal break is CONFIRMATION, never an entry.** The pullback is always the entry.
-- A pullback may run several candles; **only the first matters** — it sits nearest the resumption. A
-  doji is not a pullback.
+- A pullback may run several candles; **only the first matters** — it sits nearest the resumption.
+- **The pullback candle is ANY type — doji included** (user 2026-07-22: "just look for one pullback
+  candle of any type... so long as that pullback is not volatility candle and not violent candle
+  typical of market choppiness"). This SUPERSEDED the old "a doji is not a pullback / real-body"
+  filter. The only disqualifiers are ABNORMAL bars: a **volatility candle** (body ≥ 1.5× the 1M's
+  own 14-bar avg body) or a **violent candle** (range ≥ 2.5× it) — the platform's own pattern
+  thresholds. A retrace that OPENS with one gives no entry: that is chop, stand aside.
 
 ### The entry — always a STOP order
 > "price can either align with our bias and fill us or go the opposite direction and leave without
@@ -215,8 +220,9 @@ correctness. Structure comes from `shared/swing_points` via `vix1_trend` — **n
 structure module (strategy independence).
 
 ### Nothing hardcoded where the market can say it
-Thresholds come off the 1M's own recent candles or the momentum candle itself. A real body is judged
-against the 1M's **own average body** — what is a real body in London is noise in Tokyo.
+Thresholds come off the 1M's own recent candles or the momentum candle itself. The pullback's
+volatility/violent exclusion is judged against the 1M's **own average body** — what is abnormal in
+Tokyo is routine in London.
 
 ---
 
@@ -226,7 +232,8 @@ against the 1M's **own average body** — what is a real body in London is noise
 |---|---|
 | 2026-07-22 | **the pullback must TAKE PLACE past (or ON) line 1 — BOTH paths, fractal included** (user: "even fractal break requires pullback only after price has gone past 1HR line or on 1HR line. No entry takes place in pullbacks that dont take place past the 1HR candle close line"). `traded_past` alone only proved price crossed the line at SOME point — the latest retrace could still be a pullback that formed BEFORE the break, or back on the wrong side after price collapsed through the line, and it anchored the entry. Now the pullback candle's line-side extreme must sit at/past line 1 ("on" = touching allowed). 2-yr backtest: trims ~8% of signals, win rate unchanged — a fidelity fix, not a filter |
 | 2026-07-22 | **PENDING-ENTRY lifecycle** — the monitor scored every saved signal as an open position from birth, but a VIX.1 entry is a STOP ORDER: setups that reversed before filling were recorded as SL losses (and TP touches as wins) for trades that never opened. New `triggered_at` column (models.py + schema.ts + docker-migrate.sql): NULL = pending; entry touch stamps it; SL touch while pending = **CANCELLED (expired, never a loss)**. Monitor now releases dedup keys on `expire_stale` too — an expired signal used to hold `vix1:symbol:direction` until restart, silently MUTING the strategy for that pair+direction (guaranteed by any Friday-evening signal) |
-| 2026-07-22 | **1M LEVELS off the forming bar** — pullback candle, fractal levels+break and SL regions now read the CLOSED slice only; live bar keeps answering the trigger questions (see "Levels closed, triggers live"). Plus: a doji that opens the retrace can no longer anchor the entry (a doji may not place a stop) |
+| 2026-07-22 | **the pullback candle is ANY type — volatility/violent excluded** (user rule). The old filter demanded a real body and skipped dojis; now the FIRST candle of the retrace anchors whatever its shape, and only an ABNORMAL bar disqualifies (body ≥1.5× / range ≥2.5× the 1M's 14-bar avg body — the platform's volume/violent-candle thresholds). Retrace opening on such a bar = chop, no entry. 2-yr backtest: GBP 30.1→32.7% WR, EUR 31.1→29.9%, net +0.7pt — entries anchor earlier/tighter |
+| 2026-07-22 | **1M LEVELS off the forming bar** — pullback candle, fractal levels+break and SL regions now read the CLOSED slice only; live bar keeps answering the trigger questions (see "Levels closed, triggers live"). (Its companion "doji may not anchor" rule was superseded the same day by the any-type rule above) |
 | 2026-07-22 | **WATCH aligned with the settled rules** — `_LOCK_TTL` 3h → 24h ("a bias flip ends a setup; a timer never does" — the only clock left is the signal's own 24h DB expiry; hours 3-24 used to be publicly active but unwatched). M1 trigger scan now runs BEFORE the bias-flip check so a FILLED trade can never come back "invalidated". Invalidation now also RETRACTS: DM only if the signal was actually delivered (`_locked["key"]` + delivery_ledger), cancels the pending DB row (`signal_repo.cancel_active` — the public card must not stay live after the strategy called the setup dead) and frees the dedup key. Correlation warnings likewise count only DELIVERED signals |
 | 2026-07-22 | **AI/Gemini validator REMOVED** (user: "remove AI from validation i dont use it anymore") — `validation/ai_validator.py` deleted, runner step + `gemini_api_key` gone. Also fixed: close cards (`on_signal_closed`) now follow the same DM-only routing as entry cards — they used to always hit the PUBLIC channel, leaking a DM-held strategy's outcomes to subscribers who never saw the entry |
 | `089b3fe` | **momentum-candle rebuild** — size vs the 100-bar MEDIAN body (not the previous candle), body ≥75% of range, asymmetric wick cap; `vix1_momentum.py` split out. Plus the **`choch` context** (structure change), and the rename throughout. `_MIN_RUN` stays 1 — **that is the market, not a bug** |

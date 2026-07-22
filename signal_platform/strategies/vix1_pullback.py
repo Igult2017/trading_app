@@ -4,41 +4,55 @@ VIX.1 — the 1M pullback: the entry level.
 Observed on the 1M ONLY. The 1HR never has a pullback in this strategy — it is there for momentum, for
 trend, and to give us the lines.
 
-The market is never tidy, so nothing here is measured in fixed pips — every threshold comes off the
-1M's own recent candles or off the momentum candle itself:
+THE PULLBACK IS ONE CANDLE OF ANY TYPE (user 2026-07-22: "just look for one pullback candle of any
+type at 1m entry so long as that pullback is not volatility candle and not violent candle typical of
+market choppiness"). This SUPERSEDES the old "real body, never a doji" filter — a doji or a small
+candle opening the retrace IS the pullback now. The filter points the other way: what disqualifies a
+pullback candle is being ABNORMALLY BIG for the 1M right now —
+  * a VOLATILITY candle — body >= 1.5x the 1M's own recent (14-bar) average body, or
+  * a VIOLENT candle    — full range >= 2.5x that average (the huge-wick whipsaw bar),
+the platform's own volume/violent-candle thresholds (patterns/volume_patterns, patterns/wick_patterns
+— shared platform definitions, not another strategy's logic). Those bars are market choppiness, and a
+stop anchored just beyond one is both wide and placed exactly where chop hunts.
 
-  A PROPER candle the other way — a real body, judged against the 1M's own recent average body, not
-  a pip count. A doji is indecision and a tick of noise is noise; neither may place a stop. What is
-  a real body in London is noise in Tokyo, so the bar has to move with the market.
+Only the FIRST candle of the retrace matters — it sits nearest the resumption, so a stop just beyond
+it fills us along the way, where a later one drags the stop deeper with every candle. A retrace ENDS
+only when price actually resumes the trend: any non-resuming candle inside it is part of the retrace.
+If the retrace OPENS with a volatility/violent candle, that retrace gives no entry — we stand aside
+rather than anchor a stop on chop.
 
-  Only the FIRST candle of the retrace matters — it sits nearest the resumption, so a stop just
-  beyond it fills us along the way, where a later one drags the stop deeper with every candle. A
-  retrace ENDS only when price actually resumes the trend: a doji or a stray tick inside it is part
-  of the retrace, not the end of it.
-
-  LINE 1 gates it, and in two parts. Price must actually have TRADED past line 1 — without that the
-  band below is just a corridor, and a setup where price never reached the line at all would still
-  produce an entry, which is the exact thing the line exists to prevent. Then the pullback itself
-  must not have run beyond LINE 2: an opposite move is allowed to push past line 1 and reverse at
-  line 2, so that band is the tolerance and no fifth decimal decides a trade. The band is the momentum
-  candle's own open wick, so the market sizes it — no wick, no slack; a wicky candle, more.
+LINE 1 gates it, and in two parts (enforced by the caller, vix1_entry): price must actually have
+TRADED past line 1, and the pullback itself must TAKE PLACE past (or on) line 1 — never on the wrong
+side of it. The wick-line check here is the third guard: a retrace that has run beyond LINE 2 is not
+a pullback any more.
 """
 from core.types import Candle
-from shared.candle_math import is_bullish, is_bearish, body_size, avg_body
+from shared.candle_math import is_bullish, is_bearish, body_size, full_range, avg_body
 
-_BODY_FRAC = 0.25   # share of the 1M's own recent average body below which a candle is noise
+_VOLA_BODY_MULT  = 1.5   # body >= this x the 1M's 14-bar avg body  -> volatility candle (excluded)
+_VIOLENT_RNG_MULT = 2.5  # range >= this x the 1M's 14-bar avg body -> violent candle    (excluded)
+_AVG_N            = 14   # same baseline the platform's volume/violent patterns use
 
 
-def is_pullback_candle(c: Candle, bullish: bool, min_body: float = 0.0) -> bool:
-    """A proper candle the other way — a real body, never a doji or a tick of noise."""
-    if not (is_bearish(c) if bullish else is_bullish(c)):
+def is_pullback_candle(c: Candle, bullish: bool, avg: float = 0.0) -> bool:
+    """ANY candle not going WITH the bias (an opposite candle or a doji) — except an abnormal one.
+    A volatility candle (body >= 1.5x the recent avg body) or a violent candle (range >= 2.5x it)
+    is market choppiness, not a pullback, and may not anchor a stop."""
+    if is_bullish(c) if bullish else is_bearish(c):     # a candle WITH the bias is not a pullback
         return False
-    return body_size(c) >= min_body
+    if avg > 0 and (body_size(c) >= _VOLA_BODY_MULT * avg
+                    or full_range(c) >= _VIOLENT_RNG_MULT * avg):
+        return False
+    return True
+
+
+def _counter(c: Candle, bullish: bool) -> bool:
+    """Any candle NOT carrying the bias on — what a retrace is made of (dojis included)."""
+    return not (is_bullish(c) if bullish else is_bearish(c))
 
 
 def _resumes(c: Candle, bullish: bool) -> bool:
-    """Price going WITH the trend again — the only thing that ends a retrace. A doji or a stray tick
-    inside the retrace is part of it, so it must not split the run."""
+    """Price going WITH the trend again — the only thing that ends a retrace."""
     return is_bullish(c) if bullish else is_bearish(c)
 
 
@@ -49,30 +63,28 @@ def traded_past(win: list[Candle], bullish: bool, line: float) -> bool:
 
 def find_pullback(win: list[Candle], bullish: bool,
                   line: float, wick_line: float) -> tuple[Candle | None, str]:
-    """Return (the pullback CANDLE, "") — the FIRST proper candle of the latest retrace — or
+    """Return (the pullback CANDLE, "") — the FIRST candle of the latest retrace — or
     (None, why-we-wait). `win` must be CLOSED bars only: the candle's edges become the entry and
     the SL clearance, and a level read from the forming bar drifts until it closes (the hard rule).
-    The line-1 traded-past gate is the CALLER's job, on the LIVE window — that one is a tick test.
+    The line-1 gates are the CALLER's job (traded-past on the LIVE window; pullback past/on the line).
 
     The whole candle, not just a level: the caller needs BOTH edges. Its extreme on the trend side is
     the entry (the stop goes just beyond it); its extreme on the other side is what the SL must clear,
     since the candle we entered off cannot be the thing that stops us out (vix1_roi).
     """
-    min_body = _BODY_FRAC * avg_body(win)          # the 1M's own scale, not a fixed pip count
-    p = next((i for i in range(len(win) - 1, -1, -1)
-              if is_pullback_candle(win[i], bullish, min_body)), None)
+    p = next((i for i in range(len(win) - 1, -1, -1) if _counter(win[i], bullish)), None)
     if p is None:
-        return None, "no pullback candle with a real body yet — price is running"
-    anchor = p
-    while p > 0 and not _resumes(win[p - 1], bullish):    # noise inside the retrace is still retrace
+        return None, "no pullback candle yet — price is running"
+    while p > 0 and not _resumes(win[p - 1], bullish):    # anything non-resuming is still retrace
         p -= 1
-    # The retrace can OPEN on a doji/noise bar. A doji may not place a stop (module rule), so anchor
-    # on the first PROPER pullback candle of the retrace — guaranteed to exist at or before `anchor`,
-    # which is the proper candle the backward scan found.
-    while p < anchor and not is_pullback_candle(win[p], bullish, min_body):
-        p += 1
-    lvl = win[p].high if bullish else win[p].low
+    c   = win[p]
+    avg = avg_body(win, n=_AVG_N)
+    if not is_pullback_candle(c, bullish, avg):
+        return None, (f"the retrace opened with a volatility/violent candle "
+                      f"(body {body_size(c):.5f} / range {full_range(c):.5f} vs avg body {avg:.5f}) "
+                      f"— market choppiness, not a pullback to anchor")
+    lvl = c.high if bullish else c.low
     if (lvl < wick_line) if bullish else (lvl > wick_line):
         return None, (f"the pullback ({lvl:.5f}) ran beyond the lines "
                       f"({line:.5f} / wick {wick_line:.5f}) — not a pullback any more")
-    return win[p], ""
+    return c, ""
