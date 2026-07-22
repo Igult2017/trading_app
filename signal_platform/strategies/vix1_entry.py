@@ -115,11 +115,23 @@ def m1_signals(m1: list[Candle], bullish: bool, vc: Candle,
         log.info(f"[vix1] {symbol} 1M: aligned ({kind}) but {why} — waiting")
         return []
 
+    # PAST THE LINE — the pullback itself must TAKE PLACE past (or on) Line 1, on BOTH paths, the
+    # fractal one included (user 2026-07-22: "even fractal break requires pullback only after price
+    # has gone past the 1HR line or on the 1HR line. No entry takes place in pullbacks that dont take
+    # place past the 1HR candle close line."). traded_past alone only proved price crossed the line at
+    # SOME point — the latest retrace could still be a pullback that formed BEFORE the break, or one
+    # that formed back on the wrong side after price collapsed through the line again, and either
+    # anchored the entry. The candle's line-side extreme may touch the line ("on"), never sit beyond it.
+    near = pb.low if bullish else pb.high
+    if (near < line - 1e-9) if bullish else (near > line + 1e-9):
+        log.info(f"[vix1] {symbol} 1M: the pullback ({near:.{digits}f}) took place on the WRONG side "
+                 f"of line 1 ({line:.{digits}f}) — no entry in pullbacks that are not past the line; waiting")
+        return []
+
     # NEAR THE LINE — the pullback's line-side extreme must sit within _PULLBACK_NEAR of Line 1. The
     # method is "price reaches the line, then a pullback forms THERE"; a pullback far from the line is
     # a setup the trader looks at and skips, and taking it is what dragged the automated win rate down.
-    near = pb.low if bullish else pb.high
-    off  = abs(near - line) / pip
+    off = abs(near - line) / pip
     if off > _PULLBACK_NEAR:
         log.info(f"[vix1] {symbol} 1M: pullback formed {off:.1f}p from the line (> {_PULLBACK_NEAR}p) "
                  f"— too far from Line 1, not the setup; waiting")
