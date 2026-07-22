@@ -121,7 +121,7 @@ def _min_confidence_for(strategy_id: str) -> float:
     card, so its floor matches the bottom of that scale instead of the global gate."""
     for part in settings.min_confidence_overrides.split(","):
         sid, _, floor = part.strip().partition(":")
-        if sid and sid == (strategy_id or "").lower():
+        if sid and sid.lower() == (strategy_id or "").lower():   # env-side ids may arrive any case
             try:
                 return float(floor)
             except ValueError:

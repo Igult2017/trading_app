@@ -51,6 +51,7 @@ class SignalModel(Base):
 
     # Lifecycle
     expires_at     = Column("expires_at",     DateTime)
+    triggered_at   = Column("triggered_at",   DateTime)   # entry filled; NULL = stop order pending
     executed_at    = Column("executed_at",    DateTime)
     invalidated_at = Column("invalidated_at", DateTime)
     created_at     = Column("created_at",     DateTime, default=lambda: datetime.now(timezone.utc))

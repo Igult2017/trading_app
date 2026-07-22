@@ -32,7 +32,7 @@ from strategies.vix1_bias import detect_bias
 from strategies.vix1_entry import m1_signals
 from strategies.vix1_momentum import LOOKBACK, momentum_grade   # candle_counts[M1] derives from LOOKBACK
 from strategies.vix1_signal import build_signal
-from strategies.vix1_watch import check_invalidation, invalidation_signal
+from strategies.vix1_watch import check_invalidation, invalidation_signal, WATCH_M1
 from shared.pip import pip_size, price_digits
 from shared.mtf_utils import closed_only
 from news.news_candle import is_news_candle, in_news_window   # shared platform resources
@@ -57,7 +57,9 @@ class Vix1Strategy(BaseStrategy):
     # its own line — silently rejecting valid entries and mis-siting the ones it took. DERIVED, never
     # a literal, so the two cannot drift apart a third time (fix log ef6ff8b).
     # H4: 120 bars = 20 days — ample to print the HH+HL/LH+LL structure clear_trend reads.
-    candle_counts       = {TF.M1: (LOOKBACK + 2) * 60, TF.H1: 120, TF.H4: 120}
+    # M1 must span BOTH consumers: the entry window (LOOKBACK+2 hours) and the invalidation watch
+    # (WATCH_M1 bars, sized to the 24h lock TTL) — derived, never a literal, same no-drift rule.
+    candle_counts       = {TF.M1: max((LOOKBACK + 2) * 60, WATCH_M1 + 30), TF.H1: 120, TF.H4: 120}
 
     # All three sessions. The playbook has no session rule at all — the London/NY gate was an
     # addition, and the strategy already filters thin hours by itself: no momentum candle (a bigger body
@@ -100,7 +102,22 @@ class Vix1Strategy(BaseStrategy):
             elif reason is not None:
                 del self._locked[sym]
                 log.info(f"[vix1] {sym} setup invalidated — {reason}")
-                out.append(invalidation_signal(locked, reason, sym, self.name))
+                # Only if the signal was actually DELIVERED: the lock is taken at BUILD time, but the
+                # validator/save can still drop the signal downstream — an invalidation DM for a
+                # setup nobody was ever told about is pure confusion. When it WAS delivered, also
+                # RETRACT it: cancel the still-pending DB row (the public card must not stay live
+                # after the strategy itself has called the setup dead) and free the dedup key so a
+                # fresh setup can fire. cancel_active leaves a triggered row alone by design.
+                if delivery_ledger.is_delivered(locked.get("key", "")):
+                    side = "buy" if locked["bullish"] else "sell"
+                    try:
+                        from storage import signal_repo
+                        from validation import signal_validator
+                        signal_repo.cancel_active(self.id, sym, side)
+                        signal_validator.release(sym, side, self.id)
+                    except Exception as exc:
+                        log.warning(f"[vix1] {sym} could not retract the cancelled signal: {exc}")
+                    out.append(invalidation_signal(locked, reason, sym, self.name))
             # reason is None → still valid: keep the lock, fall through (the pull-back may have formed)
 
         # 1HR BIAS — from the FIRST momentum candle of the run.
@@ -124,9 +141,12 @@ class Vix1Strategy(BaseStrategy):
         if not raw:
             return StrategyResult(signals=out)
 
-        # C4: correlation — another USD pair already the SAME direction within the window (warn, don't block).
-        corr = [inst for inst, (b, t) in self._recent.items()
-                if inst != sym and b == bullish and (now - t) < _CORR_WINDOW]
+        # C4: correlation — another USD pair already the SAME direction within the window (warn, don't
+        # block). Only signals that were actually DELIVERED count — _recent is stamped at build time,
+        # and a signal the validator dropped must not put a phantom warning on a real one.
+        corr = [inst for inst, (b, t, k) in self._recent.items()
+                if inst != sym and b == bullish and (now - t) < _CORR_WINDOW
+                and delivery_ledger.is_delivered(k)]
 
         # GRADE the momentum candle by SHAPE (user 2026-07-21): A (75% body / 15% wick) -> 0.85;
         # weaker-but-passing shapes slide 0.74 -> 0.60. The grade IS the signal's confidence.
@@ -153,11 +173,12 @@ class Vix1Strategy(BaseStrategy):
                                grade, conf, sl_note=s.get("sl_note", ""))
             sig.dedup_key = key          # committed ONLY once the signal is real — never here
             out.append(sig)
-            self._recent[sym] = (bullish, now)
+            self._recent[sym] = (bullish, now, key)
             # Assign, don't setdefault: this is a new momentum candle, so it SUPERSEDES any older
             # pending setup. setdefault left the watch tracking the stale entry/sl and the live one
-            # unwatched.
-            self._locked[sym] = {"bullish": bullish, "entry": entry, "sl": sl, "locked_at": now}
+            # unwatched. "key" lets the invalidation path ask whether this setup was ever DELIVERED.
+            self._locked[sym] = {"bullish": bullish, "entry": entry, "sl": sl,
+                                 "locked_at": now, "key": key}
             log.info(f"[vix1] {sym} 1M {s['kind'].upper()} signal — {'BUY' if bullish else 'SELL'} "
                      f"stop {entry:.{digits}f} SL {sl:.{digits}f}")
 

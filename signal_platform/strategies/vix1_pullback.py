@@ -49,23 +49,28 @@ def traded_past(win: list[Candle], bullish: bool, line: float) -> bool:
 
 def find_pullback(win: list[Candle], bullish: bool,
                   line: float, wick_line: float) -> tuple[Candle | None, str]:
-    """Return (the pullback CANDLE, "") — the FIRST candle of the latest retrace, once price has gone
-    past line 1 and the retrace has held within the lines — or (None, why-we-wait).
+    """Return (the pullback CANDLE, "") — the FIRST proper candle of the latest retrace — or
+    (None, why-we-wait). `win` must be CLOSED bars only: the candle's edges become the entry and
+    the SL clearance, and a level read from the forming bar drifts until it closes (the hard rule).
+    The line-1 traded-past gate is the CALLER's job, on the LIVE window — that one is a tick test.
 
     The whole candle, not just a level: the caller needs BOTH edges. Its extreme on the trend side is
     the entry (the stop goes just beyond it); its extreme on the other side is what the SL must clear,
     since the candle we entered off cannot be the thing that stops us out (vix1_roi).
     """
-    if not traded_past(win, bullish, line):
-        return None, (f"price has not traded past line 1 ({line:.5f}) yet — an entry does not "
-                      f"belong here")
     min_body = _BODY_FRAC * avg_body(win)          # the 1M's own scale, not a fixed pip count
     p = next((i for i in range(len(win) - 1, -1, -1)
               if is_pullback_candle(win[i], bullish, min_body)), None)
     if p is None:
         return None, "no pullback candle with a real body yet — price is running"
+    anchor = p
     while p > 0 and not _resumes(win[p - 1], bullish):    # noise inside the retrace is still retrace
         p -= 1
+    # The retrace can OPEN on a doji/noise bar. A doji may not place a stop (module rule), so anchor
+    # on the first PROPER pullback candle of the retrace — guaranteed to exist at or before `anchor`,
+    # which is the proper candle the backward scan found.
+    while p < anchor and not is_pullback_candle(win[p], bullish, min_body):
+        p += 1
     lvl = win[p].high if bullish else win[p].low
     if (lvl < wick_line) if bullish else (lvl > wick_line):
         return None, (f"the pullback ({lvl:.5f}) ran beyond the lines "

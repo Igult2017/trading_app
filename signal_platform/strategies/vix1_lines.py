@@ -13,13 +13,14 @@ A candle's OPEN wick is the one at the end it opened from: a bull candle opens a
 (so, its lower wick), a bear candle at the top (its upper wick).
 
 Line 2 is INSIDE the body by construction, never merely by luck. The momentum filter requires the
-body to be >= 75% of the candle's range, so BOTH wicks together take at most 25% — the open wick is
-therefore never more than a third of the body (0.25 range / 0.75 range). This used to rest on the old
-filter capping EACH wick at 33% (body >= 34%); that cap is now asymmetric — only the wick AGAINST the
-move is limited (<= 15%), because on a bull candle a lower wick is a dip being bought, not weakness.
-The body-share rule is what carries the guarantee now, and it is the stronger of the two. In most
-cases there is barely a line 2 to speak of — small or no wicks IS the momentum filter, so it
-collapses onto line 1.
+body to be >= 60% of the candle's range (the graded gate, lowered from 75% on 2026-07-21), so the
+open wick — at most 40% of range in the worst case — is always shorter than the body and line 2
+always lands inside it (the invariant holds for any body >= 50%). The margin is thinner than under
+the old 75% gate (worst-case open-wick/body went from a third to two-thirds), but the stop-adjust
+logic never depended on the margin, only on the invariant. Only the wick AGAINST the move is capped
+(<= 25%, asymmetric on purpose — on a bull candle a lower wick is a dip being bought, not weakness).
+In most cases there is barely a line 2 to speak of — small or no wicks IS the A-grade momentum look,
+so it collapses onto line 1.
 """
 from core.types import Candle
 from shared.candle_math import is_bullish, upper_wick, lower_wick

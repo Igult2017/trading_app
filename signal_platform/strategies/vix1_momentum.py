@@ -11,8 +11,9 @@ decisively one way and HOLDING it. It has to answer three questions:
                were BELOW normal size — the smallest was 0.79 pips, less than the spread. MEDIAN, not
                mean: on 11-21% of bars a single spike drags the mean past 1.6x the median and then
                blocks every real candle behind it for hours.
-  CLEAN      — the body is most of the candle. Real vertical legs run ~57% body; 75% isolates the
-               near-wickless look the playbook draws.
+  CLEAN      — the body is most of the candle. The GATE floor is 60% of its own range; the shape
+               above the floor is GRADED, not just gated (momentum_grade): a 75%+ body with a tiny
+               counter-wick is the A-grade "near-wickless look the playbook draws".
   UNREJECTED — the wick AGAINST the move is tiny. The two wicks are NOT the same thing: on a bull
                candle an upper wick is price being SOLD back (momentum failing), while a lower wick
                is a dip being BOUGHT (strength). Only the counter-wick is capped — the old rule
@@ -103,7 +104,9 @@ def momentum_grade(c: Candle, bullish: bool) -> tuple[str, float]:
         return ("C", 0.60)
     bf = body_size(c) / rng
     cw = counter_wick(c, bullish) / rng
-    if bf >= _A_BODY_FRAC and cw <= _A_CWICK_FRAC:
+    # 1e-9 epsilon: a candle sitting EXACTLY on the A boundary must grade A — float division off
+    # 5-decimal prices can land a true 75.000% body at 0.74999999…, silently demoting it.
+    if bf >= _A_BODY_FRAC - 1e-9 and cw <= _A_CWICK_FRAC + 1e-9:
         return ("A", _A_CONF)
     body_q = min(max((bf - _MIN_BODY_FRAC) / (_A_BODY_FRAC - _MIN_BODY_FRAC), 0.0), 1.0)
     wick_q = min(max((_MAX_CWICK_FRAC - cw) / (_MAX_CWICK_FRAC - _A_CWICK_FRAC), 0.0), 1.0)

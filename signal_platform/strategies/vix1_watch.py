@@ -11,10 +11,18 @@ pending setup went stale). On a genuine invalidation the strategy sends a DM ale
 from core.types import Candle, Signal, Direction, TF
 from strategies.vix1_bias import detect_bias
 
-_LOCK_TTL = 3 * 3600   # a pending setup that neither triggers nor invalidates expires after 3h
-_WATCH_M1 = 200        # recent M1 bars inspected for a trigger / reversal — must SPAN _LOCK_TTL
-                       # (180 1M bars) or a tick missed while the scanner was down leaves the
-                       # earliest post-lock bars outside the slice and their trigger unseen
+_LOCK_TTL = 24 * 3600  # matches the platform's own signal lifetime (signal_repo.expire_stale, 24h).
+                       # The playbook's wait is OPEN-ENDED — "a bias flip ends a setup; a timer never
+                       # does" — so the only clock left is the signal's own DB expiry, and the watch
+                       # covers that ENTIRE life. The old 3h TTL contradicted the settled rule and
+                       # left the signal publicly active but unwatched for hours 3-24: an
+                       # invalidation in that window alerted nobody.
+WATCH_M1  = 1500       # recent M1 bars inspected for a trigger / reversal — must SPAN _LOCK_TTL
+                       # (1440 1M bars) or a tick missed while the scanner was down leaves the
+                       # earliest post-lock bars outside the slice and their trigger unseen.
+                       # PUBLIC: vix1.candle_counts derives its M1 request size from this so the
+                       # fetched window can actually contain the slice (same never-drift rule as
+                       # vix1_momentum.LOOKBACK).
 
 
 def check_invalidation(locked: dict, h1: list[Candle], h4: list[Candle], m1: list[Candle],
@@ -31,19 +39,18 @@ def check_invalidation(locked: dict, h1: list[Candle], h4: list[Candle], m1: lis
     if now_ts - locked["locked_at"] > _LOCK_TTL:
         return "expired"
 
-    # HTF bias — has it flipped to the other side? (trend on H4, momentum on H1)
-    bias = detect_bias(h1, h4, symbol)
-    if bias is not None and bias[0] != bullish:
-        return "HTF bias flipped against the setup"
-
-    # 1M — SINCE THE LOCK, did the entry trigger, or did price reverse past the stop first?
+    # 1M FIRST — SINCE THE LOCK, did the entry trigger, or did price reverse past the stop?
+    # This runs BEFORE the bias check on purpose: once the entry has filled, the trade is LIVE and
+    # belongs to the monitor — a bias flip after the fill is Phase-3 management, not an invalidation,
+    # and reporting it as one would retract a position that actually exists. (The old order checked
+    # the bias first, so an already-triggered setup could still come back "invalidated".)
     # Strictly bars that OPENED at/after the lock. This window used to reach back a full hour
     # (locked_at - 3600) and so judged the setup on price action from BEFORE it existed: measured on
     # 214 real GBP/USD setups, 70% were resolved by pre-lock bars — 65 valid setups got a false
     # "INVALIDATED" DM and 44 were silently dropped as "triggered" and left unwatched. A bar that
     # opened before the lock cannot say anything about a setup that did not exist yet.
     entry, sl = locked["entry"], locked["sl"]
-    for c in [c for c in m1[-_WATCH_M1:] if c.time >= locked["locked_at"]]:
+    for c in [c for c in m1[-WATCH_M1:] if c.time >= locked["locked_at"]]:
         if bullish:
             if c.high >= entry:
                 return "triggered"
@@ -54,6 +61,11 @@ def check_invalidation(locked: dict, h1: list[Candle], h4: list[Candle], m1: lis
                 return "triggered"
             if c.high >= sl:
                 return "1M reversed above the stop before entry"
+
+    # HTF bias — has it flipped to the other side while the setup is still PENDING?
+    bias = detect_bias(h1, h4, symbol)
+    if bias is not None and bias[0] != bullish:
+        return "HTF bias flipped against the setup"
     return None
 
 

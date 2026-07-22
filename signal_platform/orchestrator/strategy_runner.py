@@ -20,7 +20,7 @@ from news import news_filter
 from shared import trend_detector
 from shared.mtf_utils import to_minutes
 from storage import signal_repo
-from validation import signal_validator, ai_validator
+from validation import signal_validator
 from risk import spread_filter, volatility_filter, sl_validator
 
 log = logging.getLogger(__name__)
@@ -138,12 +138,6 @@ async def run_strategy(
                 continue
         if strategy.requires_spread and context.spread is not None:
             if not spread_filter.check(signal, context.spread):
-                signal_validator.release(signal.symbol, signal.direction.value, signal.strategy_id)
-                continue
-
-        if ai_validator.is_available():
-            if not await ai_validator.validate_signal(signal, pri_candles):
-                log.info(f"[runner] {instrument} rejected by AI validator")
                 signal_validator.release(signal.symbol, signal.direction.value, signal.strategy_id)
                 continue
 

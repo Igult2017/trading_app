@@ -218,7 +218,14 @@ async def on_signal_closed(signal_id: str) -> None:
             symbol=symbol, direction=direction, status=status, entry=entry, strategy=strategy,
             take_profit=tp, stop_loss=sl,
         )
-        await _send_text(message)
+        # Close cards follow the SAME routing as the entry card. Before this, on_signal_closed
+        # always sent to the public channel — so a DM-held strategy's outcome leaked to
+        # subscribers who never saw its entry.
+        exempt = strategy in {s.strip() for s in settings.dm_only_exempt.split(",") if s.strip()}
+        if settings.signals_dm_only and not exempt:
+            await _send_private(message)
+        else:
+            await _send_text(message)
     except Exception as exc:
         log.warning(f"[dispatcher] on_signal_closed error: {exc}")
 

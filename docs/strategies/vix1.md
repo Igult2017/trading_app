@@ -144,7 +144,13 @@ No region within one candle → **skip**. We never invent a stop. Measured: risk
 A **level must stay put; a trigger must be live.**
 - 1HR → `closed_only()`. A forming candle's close **is the current price**, so the line would track
   price. Proven: price 1.2686/1.2678/1.2670 → line 1.2686/1.2678/1.2670.
-- 1M forming bar → **kept on purpose**. There, live price is the whole point.
+- 1M forming bar → kept **for TRIGGERS only** (traded-past, which side of the line, stop-unfilled) —
+  there, live price is the whole point. **LEVELS never read it** (fixed 2026-07-22): the pullback
+  candle (its high = entry, its low = SL clearance), the fractal levels **and the fractal BREAK**
+  (a break is a body CLOSE, and a forming bar's "close" is just live price — a spike that closes
+  back inside must not count), and the SL regions all come from the closed slice (`wcl`). Before the
+  fix the entry could snapshot a half-formed pullback candle whose edges were still moving — the
+  same class of bug that shipped twice on the 1HR.
 
 ### It is a MOMENTUM candle, not a volume candle
 > "VIX should use momentum candles."
@@ -218,6 +224,10 @@ against the 1M's **own average body** — what is a real body in London is noise
 
 | commit | what |
 |---|---|
+| 2026-07-22 | **PENDING-ENTRY lifecycle** — the monitor scored every saved signal as an open position from birth, but a VIX.1 entry is a STOP ORDER: setups that reversed before filling were recorded as SL losses (and TP touches as wins) for trades that never opened. New `triggered_at` column (models.py + schema.ts + docker-migrate.sql): NULL = pending; entry touch stamps it; SL touch while pending = **CANCELLED (expired, never a loss)**. Monitor now releases dedup keys on `expire_stale` too — an expired signal used to hold `vix1:symbol:direction` until restart, silently MUTING the strategy for that pair+direction (guaranteed by any Friday-evening signal) |
+| 2026-07-22 | **1M LEVELS off the forming bar** — pullback candle, fractal levels+break and SL regions now read the CLOSED slice only; live bar keeps answering the trigger questions (see "Levels closed, triggers live"). Plus: a doji that opens the retrace can no longer anchor the entry (a doji may not place a stop) |
+| 2026-07-22 | **WATCH aligned with the settled rules** — `_LOCK_TTL` 3h → 24h ("a bias flip ends a setup; a timer never does" — the only clock left is the signal's own 24h DB expiry; hours 3-24 used to be publicly active but unwatched). M1 trigger scan now runs BEFORE the bias-flip check so a FILLED trade can never come back "invalidated". Invalidation now also RETRACTS: DM only if the signal was actually delivered (`_locked["key"]` + delivery_ledger), cancels the pending DB row (`signal_repo.cancel_active` — the public card must not stay live after the strategy called the setup dead) and frees the dedup key. Correlation warnings likewise count only DELIVERED signals |
+| 2026-07-22 | **AI/Gemini validator REMOVED** (user: "remove AI from validation i dont use it anymore") — `validation/ai_validator.py` deleted, runner step + `gemini_api_key` gone. Also fixed: close cards (`on_signal_closed`) now follow the same DM-only routing as entry cards — they used to always hit the PUBLIC channel, leaking a DM-held strategy's outcomes to subscribers who never saw the entry |
 | `089b3fe` | **momentum-candle rebuild** — size vs the 100-bar MEDIAN body (not the previous candle), body ≥75% of range, asymmetric wick cap; `vix1_momentum.py` split out. Plus the **`choch` context** (structure change), and the rename throughout. `_MIN_RUN` stays 1 — **that is the market, not a bug** |
 | `a4d9cb2` | **the WATCH judged a setup on price from before it existed** (`locked_at - 3600`). 70% of 214 real setups resolved on pre-lock bars — 65 false "INVALIDATED" DMs, 44 silently dropped as "triggered" and left unwatched. Now bars that opened at/after the lock; `_WATCH_M1` 120 → 200 so the slice spans `_LOCK_TTL` |
 | `a4d9cb2` | **wrong-direction bug in the RANGE branch** — no freshness guard, always tried bullish first, so it returned the STALE run when both qualified (18/26 EUR, 12/18 GBP → 0 after). `0b24492` fixed exactly this for the TREND branch and it was never applied here — **if you touch either branch, apply it to BOTH** |

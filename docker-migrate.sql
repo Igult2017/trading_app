@@ -419,5 +419,11 @@ INSERT INTO copy_engine_heartbeat (id) VALUES (1) ON CONFLICT DO NOTHING;
 -- Added here so the leaderboard routes no longer need a per-request ALTER guard.
 ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS leaderboard_hidden BOOLEAN DEFAULT false;
 
+-- ── trading_signals — pending-entry lifecycle ────────────────────────────────
+-- triggered_at: when the ENTRY actually filled (stop-entry strategies fire an ORDER,
+-- not a position). NULL = still pending — the monitor must not score TP/SL touches
+-- as wins/losses for a trade that never opened. Added 2026-07-22.
+ALTER TABLE trading_signals ADD COLUMN IF NOT EXISTS triggered_at TIMESTAMP;
+
 -- ── Done ─────────────────────────────────────────────────────────────────────
 DO $$ BEGIN RAISE NOTICE 'docker-migrate.sql complete'; END $$;

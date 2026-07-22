@@ -67,8 +67,44 @@ def update_status(signal_id: str, status: SignalStatus,
             setattr(row, timestamp_field, datetime.now(timezone.utc))
 
 
-def expire_stale(older_than_hours: int = 24) -> int:
-    """Mark expired signals and return the count updated.
+def mark_triggered(signal_id: str) -> None:
+    """Stamp the moment the ENTRY actually filled. Status stays 'active' — the card is live either
+    way; triggered_at is what separates an open POSITION (TP/SL outcomes are real) from a pending
+    stop ORDER (nothing has been won or lost yet)."""
+    with get_session() as s:
+        row = s.get(SignalModel, signal_id)
+        if row and row.triggered_at is None:
+            row.triggered_at = datetime.now(timezone.utc)
+
+
+def cancel_active(strategy: str, symbol: str, direction: str) -> int:
+    """Expire the still-PENDING active signal(s) a strategy has retracted (setup invalidated before
+    the entry filled). EXPIRED, not INVALIDATED: invalidated is a real SL loss; a retracted setup
+    never opened a trade and must not be scored as one. Rows already triggered are left alone —
+    the monitor owns a live position. Returns the count cancelled."""
+    with get_session() as s:
+        rows = s.query(SignalModel).filter(
+            SignalModel.status == "active",
+            SignalModel.strategy == strategy,
+            SignalModel.symbol == symbol,
+            SignalModel.type == direction,
+            SignalModel.triggered_at.is_(None),
+        ).all()
+        for row in rows:
+            row.status = SignalStatus.EXPIRED.value
+            row.invalidated_at = datetime.now(timezone.utc)
+        if rows:
+            log.info(f"[signal_repo] cancelled {len(rows)} retracted pending signal(s) "
+                     f"{strategy}/{symbol}/{direction}")
+        return len(rows)
+
+
+def expire_stale(older_than_hours: int = 24) -> list[tuple[str, str, str]]:
+    """Mark expired signals; returns (symbol, type, strategy) per expired row so the CALLER can
+    free the in-memory dedup reservations. Without that release an expired signal held its
+    strategy:symbol:direction key for the whole process lifetime, silently muting the strategy
+    for that pair+direction until a restart (guaranteed for any Friday-evening signal — the
+    weekend passes, nothing touches TP/SL, the 24h cap expires it).
 
     Honours each signal's own expires_at when set (e.g. a 4h intraday setup);
     falls back to created_at + older_than_hours as a blanket cap when expires_at
@@ -83,7 +119,10 @@ def expire_stale(older_than_hours: int = 24) -> int:
                 and_(SignalModel.expires_at.is_(None), SignalModel.created_at < cutoff),
             ),
         ).all()
+        freed = [(row.symbol, row.type, row.strategy or "") for row in rows]
         for row in rows:
             row.status = SignalStatus.EXPIRED.value
-        log.info(f"[signal_repo] expired {len(rows)} stale signals")
+        if rows:
+            log.info(f"[signal_repo] expired {len(rows)} stale signals")
+        return freed
         return len(rows)

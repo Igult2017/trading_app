@@ -14,7 +14,7 @@ A full-stack forex/crypto/stocks trading journal and signal platform. Built for 
 - **ORM**: Drizzle ORM + `drizzle-kit push` (no migration files, schema-push only)
 - **DB**: PostgreSQL via `pg` / `@neondatabase/serverless`; signal platform uses SQLite (`signal_platform/signals.db`)
 - **Auth**: Supabase JWT (`@supabase/supabase-js`) + Passport.js local fallback + `express-session`
-- **AI**: Google Gemini 2.5 Flash (`@google/genai`) for screenshot analysis, signal validation, AI Q&A
+- **AI**: Google Gemini 2.5 Flash (`@google/genai`) for screenshot analysis and AI Q&A (Node side only — signal-platform AI validation removed 2026-07-22)
 - **Signal Platform**: Python 3, asyncio, APScheduler, SQLAlchemy, yfinance, mplfinance, `python-telegram-bot`
 - **Real-time**: WebSockets (`ws`), Telegram Bot API (event-driven, never polled)
 
@@ -80,13 +80,14 @@ cd signal_platform && python main.py
 2. `candle_fetcher.prefetch_all()` — concurrent yfinance fetch, skips cache hits
 3. `candle_cache` — TTL cache keyed `(symbol, tf)`, TTL = `max(55s, bar_duration * 0.80)`
 4. Per instrument × strategy: 4 pre-filters (whitelist, session, trend, news) then `strategy.analyze()`
-5. `signal_validator` — drops signals below `min_rr=2.0` or `min_confidence=0.70`, deduplicates
+5. `signal_validator` — drops signals below `min_rr=2.0` or the strategy's confidence floor (`min_confidence=0.70` global, per-strategy overrides e.g. `vix1:0.60`), deduplicates
 6. `chart_generator` — mplfinance PNG to temp file
-7. `ai_validator` — Gemini chart validation (no-op if `GEMINI_API_KEY` absent)
-8. `signal_repo.save()` → PostgreSQL `trading_signals` table
-9. `event_bus.emit(SIGNAL_CONFIRMED)` → `dispatcher` sends Telegram photo
+7. `signal_repo.save()` → PostgreSQL `trading_signals` table
+8. `event_bus.emit(SIGNAL_CONFIRMED)` → `dispatcher` sends Telegram photo
 
-**Monitor loop** (every 30s): fetches `yfinance.fast_info.last_price`, checks TP/SL, emits `SIGNAL_CLOSED`.
+(AI/Gemini signal validation was REMOVED 2026-07-22 — the user no longer uses it; there is no `ai_validator` step.)
+
+**Monitor loop** (every 30s): latest M1 bar's high/low from cTrader. Two phases per signal, split by `triggered_at`: PENDING (stop order — entry touch stamps `triggered_at`; SL touch first = CANCELLED/expired, never a loss) then TRIGGERED (TP/SL as a real position). Emits `SIGNAL_CLOSED`; releases dedup keys on close AND on 24h expiry.
 
 **Signals display on the existing `AssetPage.tsx` — never create a new signals dashboard.**
 
@@ -137,7 +138,7 @@ All IDs are UUID strings (`varchar`, `gen_random_uuid()`). All categoricals are 
 - **OANDA demo** (planned): free live forex candles; swap in by replacing `candle_fetcher._fetch_sync()` — same signature, nothing else changes; credentials go in `signal_platform/.env`
 - **TradingView Screener**: live indicator values across all timeframes, no API key required
 - **MyFXBook scraper**: homepage economic calendar and central bank rates
-- **Gemini 2.5 Flash**: screenshot OCR, chart AI validation, Trader AI Q&A
+- **Gemini 2.5 Flash**: screenshot OCR, Trader AI Q&A (Node side only)
 
 ---
 
@@ -149,7 +150,7 @@ All vars live in `.env` at project root (loaded by `dotenv/config`). Signal plat
 |---|---|---|
 | `DATABASE_URL` | Yes | PostgreSQL connection string |
 | `ADMIN_SECRET` | Yes | Admin login password / bearer token |
-| `GOOGLE_API_KEY` | Optional | Gemini AI (screenshot analysis, signal validation, AI Q&A) |
+| `GOOGLE_API_KEY` | Optional | Gemini AI (screenshot analysis, AI Q&A — Node side only) |
 | `TELEGRAM_BOT_TOKEN` | Optional | Telegram trade alerts (event-driven only, never polled) |
 | `VITE_SUPABASE_URL` | Optional | Supabase auth URL |
 | `VITE_SUPABASE_ANON_KEY` | Optional | Supabase publishable key |

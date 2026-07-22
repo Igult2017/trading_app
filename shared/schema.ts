@@ -454,9 +454,10 @@ export const tradingSignals = pgTable("trading_signals", {
   zonesTested: integer("zones_tested").default(0),
   
   expiresAt: timestamp("expires_at"),
+  triggeredAt: timestamp("triggered_at"),   // entry actually filled; NULL = stop order still pending
   executedAt: timestamp("executed_at"),
   invalidatedAt: timestamp("invalidated_at"),
-  
+
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (t) => [

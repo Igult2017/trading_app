@@ -53,11 +53,6 @@ class Settings(BaseSettings):
     # DM_ONLY_EXEMPT="bx_sd,other". Their _watch heads-ups still go to the DM (unconfirmed).
     dm_only_exempt: str = "bx_sd"
 
-    # ── AI validation ─────────────────────────────────────────────────────────
-    # Optional. When absent: signals pass AI validation automatically.
-    # Failure policy: Gemini errors → signal approved (non-blocking).
-    gemini_api_key: str = ""
-
     # ── Data source 1: cTrader Open API (primary, run auth_setup.py once) ────
     # Credentials: https://ctrader.com/your-app-portal → Applications
     # Account ID: cTrader platform → Settings → Account Info

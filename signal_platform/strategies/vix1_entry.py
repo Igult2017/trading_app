@@ -37,7 +37,7 @@ import logging
 from core.types import Candle
 from shared.mtf_utils import seconds
 from strategies.vix1_lines import draw_lines
-from strategies.vix1_pullback import find_pullback
+from strategies.vix1_pullback import find_pullback, traded_past
 from strategies.vix1_fractal import fractal_broken
 from strategies.vix1_roi import regions, sl_from_regions
 
@@ -71,6 +71,13 @@ def m1_signals(m1: list[Candle], bullish: bool, vc: Candle,
         log.info(f"[vix1] {symbol} 1M: only {len(win)} bars since the 1st momentum candle closed — waiting")
         return []
 
+    # LEVELS vs TRIGGERS (the hard rule): the feed's newest M1 bar is still FORMING — its high, low
+    # and close move every scan, so nothing read from it may set a level. `win` (live) answers only
+    # trigger questions: has price traded past the line, which side is it on, is the stop unfilled.
+    # `wcl` (closed) is what the pullback candle, fractal levels/breaks and SL regions are read from
+    # — the entry/SL used to be drawn off the live bar's edges, which drift until it closes.
+    wcl = win[:-1] if win[-1].time == m1[-1].time else win
+
     # ALIGNMENT (playbook p2) — THE LINE decides which side we are on, and that is the whole reason it
     # is drawn. Price on our side of it = the 1M is running with the 1HR, so the pullback alone is the
     # entry. Price the WRONG side = the 1M is running against us, and the LAST fractal of that
@@ -82,7 +89,10 @@ def m1_signals(m1: list[Candle], bullish: bool, vc: Candle,
     if (last > wick_line) if bullish else (last < wick_line):
         kind = "pullback"
     else:
-        broke, lvl = fractal_broken(win, bullish)
+        # The break is a CLOSE beyond the fractal level, so it is read from CLOSED bars only — the
+        # forming bar's "close" is just the live price, and a spike that later closes back inside
+        # must not count as a close (same body-close rule as CHoCH).
+        broke, lvl = fractal_broken(wcl, bullish)
         if not broke:
             seen = "none formed yet" if lvl is None else f"{lvl:.{digits}f}"
             log.info(f"[vix1] {symbol} 1M: price {last:.{digits}f} is the wrong side of the lines "
@@ -91,8 +101,16 @@ def m1_signals(m1: list[Candle], bullish: bool, vc: Candle,
             return []
         kind = "fractal"
 
-    # THE ENTRY — the first pullback candle PAST the line, in both cases.
-    pb, why = find_pullback(win, bullish, line, wick_line)
+    # LINE 1 GATE — has price actually TRADED past it since it was drawn? A tick test, so the LIVE
+    # window answers it (an intrabar push past the line counts the moment it happens).
+    if not traded_past(win, bullish, line):
+        log.info(f"[vix1] {symbol} 1M: price has not traded past line 1 ({line:.{digits}f}) yet "
+                 f"— an entry does not belong here; waiting")
+        return []
+
+    # THE ENTRY — the first pullback candle PAST the line, in both cases. CLOSED bars only: the
+    # candle's edges become the entry and the SL clearance, and a level must not drift.
+    pb, why = find_pullback(wcl, bullish, line, wick_line)
     if pb is None:
         log.info(f"[vix1] {symbol} 1M: aligned ({kind}) but {why} — waiting")
         return []
@@ -117,7 +135,7 @@ def m1_signals(m1: list[Candle], bullish: bool, vc: Candle,
     # does not produce. No region on the protective side = no honest stop = no trade.
     max_risk = vc.high - vc.low
     got = sl_from_regions(entry, pb.low if bullish else pb.high, bullish,
-                          regions(win, bullish, wick_line), pip, max_risk)
+                          regions(wcl, bullish, wick_line), pip, max_risk)
     if got is None:
         log.info(f"[vix1] {symbol} 1M: aligned ({kind}) with a pullback at {lvl:.{digits}f}, but no "
                  f"1M region of interest sits beyond it within one 1HR candle ({max_risk / pip:.0f}p) "
