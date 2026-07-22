@@ -57,10 +57,15 @@ async def _check_signal(row) -> None:
     buy    = row.type == Direction.BUY.value
     loop   = asyncio.get_running_loop()
 
-    # PENDING phase — the entry is a stop ORDER that has not filled yet.
+    # PENDING phase — the entry order has not filled yet. "Touched" = the bar CONTAINS the entry
+    # level: a fill happens when price actually TRADES AT the level, and that containment test is
+    # correct for BOTH order styles — VIX.1's stop entries (price comes up through the level) and
+    # BX's limit entries (price comes back down to it). The old one-sided test (hi >= entry for a
+    # BUY) was trivially true for a limit BUY sitting below market, so every BX signal read as
+    # instantly filled and the pending protection never applied to it.
     entry = float(row.entry_price) if row.entry_price else None
     if entry is not None and row.triggered_at is None:
-        if not ((hi >= entry) if buy else (lo <= entry)):
+        if not (lo <= entry <= hi):
             # Entry untouched. If the SL side was taken out first, the order would simply never
             # fill — the setup reversed before entry. CANCEL (expired), never a loss: the trader
             # following the card was never in a trade.

@@ -107,7 +107,14 @@ def zone_broken(candles: list[Candle], zone: Zone, after: int | None = None) -> 
     By body close, never a wick — BX's rule everywhere. A wick beyond the distal is a SWEEP (the
     book's own liquidity grab, and a REASON to trade the zone); a close beyond it is a break. Reading
     wicks here would throw away exactly the setups the book wants.
+
+    CLOSED bars only (fix 2026-07-22): a break is a body-CLOSE determination, and the feed's newest
+    bar has no close yet — its "close" is live price. Reading it killed the zone intra-bar EXACTLY
+    during the sweep wick below it (live price beyond the distal), i.e. at the precise moment the
+    book says to prepare the entry; the zone then resurrected when the bar closed back inside. Same
+    rule check_invalidation already follows.
     """
+    candles = closed_only(candles)
     for j in range(((zone.ifc_index if after is None else after)) + 1, len(candles)):
         if zone.direction == "demand" and candles[j].close < zone.bottom:
             return True

@@ -14,6 +14,7 @@ BX-S/D — retest & continuation CANDIDATE detectors (the confirm + grade is sha
 Reuses BX's own primitives only.
 """
 from core.types import Candle
+from shared.mtf_utils import closed_only
 from shared.swing_points import find_swing_points
 from strategies.bx_sd_zones import Zone, zone_broken
 from strategies.bx_sd_setup import _first_tap, SetupResult
@@ -33,8 +34,12 @@ def retapped_now(h4: list[Candle], zone: Zone, recent: int = 6, react_mult: floa
         return False
     demand = zone.direction == "demand"
     react  = react_mult * (zone.top - zone.bottom)
-    respected = any((h4[j].close >= zone.top + react) if demand else (h4[j].close <= zone.bottom - react)
-                    for j in range(ft + 1, len(h4)))   # STRONG respect: a real reaction away after the tap
+    # The RESPECT is a body-CLOSE determination (a real reaction away, not a wick) — CLOSED bars only;
+    # the forming bar's "close" is live price and could flash a reaction that retreats before closing.
+    # The back-inside test below stays LIVE on purpose: a tap is an event happening now.
+    h4c = closed_only(h4)
+    respected = any((h4c[j].close >= zone.top + react) if demand else (h4c[j].close <= zone.bottom - react)
+                    for j in range(ft + 1, len(h4c)))
     if not respected:
         return False
     return any((h4[j].low <= zone.top) if demand else (h4[j].high >= zone.bottom)

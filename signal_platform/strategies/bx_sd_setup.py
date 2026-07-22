@@ -23,6 +23,9 @@ from strategies.bx_sd_validity import is_valid
 from strategies.bx_sd_confluence import premium_discount, pricing_aligned, fib_target, rsi_divergence
 
 _RECENT     = 6    # a live tap must be within the last N 4H bars (leaves time for the LTF to confirm)
+_MIN_PIPS   = 3.0  # ignore micro-FVG zones — same noise floor the 3 report paths already apply
+                   # (bx_sd_reports._MIN_PIPS); the core cascade lacked it, so a sub-3-pip candidate
+                   # could drive a real channel entry the reports would have skipped as noise
 
 
 @dataclass
@@ -103,7 +106,8 @@ def detect_setup(h4: list[Candle], pip: float = 0.0001) -> SetupResult:
     # "pre-mark the zones, then wait for price to respect one". Factors 2+3 are proven by is_valid, so
     # there is no separate re-check below.
     all_c = find_zones(h4)
-    zones = [z for z in all_c if z.direction == zdir and is_valid(h4, z, st, pools, pip)]
+    zones = [z for z in all_c if z.direction == zdir and (z.top - z.bottom) >= _MIN_PIPS * pip
+             and is_valid(h4, z, st, pools, pip)]
 
     cand = None
     for z in reversed(zones):

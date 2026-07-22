@@ -113,9 +113,14 @@ class BXStrategy(BaseStrategy):
         key = f"{sym}_{setup.direction}_{zone_time}"     # one fire + one watch per 4H zone
         # lock the tapped setup so a break before the trigger is reported — but never re-watch a
         # zone that already fired (else we'd 'invalidate' a trade we already signalled).
+        # A NEW zone SUPERSEDES an old lock (setdefault left the fresh setup unwatched while a stale
+        # lock lived out its TTL — its invalidation alert was silently lost); the SAME zone keeps its
+        # original locked_at so the watch TTL cannot be reset by every rescan.
         if not delivery_ledger.is_delivered(key):
-            self._locked.setdefault(sym, {"direction": setup.direction, "distal": setup.zone.distal,
-                                          "zone_time": zone_time, "locked_at": time.time()})
+            cur = self._locked.get(sym)
+            if cur is None or cur.get("zone_time") != zone_time:
+                self._locked[sym] = {"direction": setup.direction, "distal": setup.zone.distal,
+                                     "zone_time": zone_time, "locked_at": time.time()}
 
         # STAGE 2-3 — analysis-TF refine + MANDATORY 1M/5M confirmation entry + grade (shared helper).
         # A FRESH 4H zone fires at any grade (C and up); the retest path reuses this at min_grade="B".

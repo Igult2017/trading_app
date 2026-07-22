@@ -8,7 +8,7 @@ HTF-backed zone — the 4H report is tagged with that backing and its priority i
 Reuses only BX's own find_zones — no other strategy's logic.
 """
 from core.types import Candle
-from strategies.bx_sd_zones import find_zones, Zone
+from strategies.bx_sd_zones import find_zones, zone_broken, Zone
 
 _MIN_BARS = 20   # a TF needs enough candles for a meaningful zone map
 
@@ -18,8 +18,14 @@ def _overlaps(a: Zone, b: Zone) -> bool:
 
 
 def htf_zone_map(candles_by_label: dict[str, list[Candle]]) -> dict[str, list[Zone]]:
-    """{'Daily': [zones], 'Weekly': [...], 'Monthly': [...]} — only TFs with enough history."""
-    return {label: find_zones(cs) for label, cs in candles_by_label.items() if len(cs) >= _MIN_BARS}
+    """{'Daily': [zones], 'Weekly': [...], 'Monthly': [...]} — only TFs with enough history.
+
+    A zone price has CLOSED through is DEAD — EVERYWHERE (settled BX rule), the HTF included: a
+    broken Monthly demand is a flipped level, and letting it "back" a 4H zone upgraded setups to
+    A-grade on confluence that no longer exists. MITIGATED HTF zones stay — a tapped-but-held
+    D1/W1/MN zone is still a real POI, and demanding unmitigated HTF would kill nearly every A."""
+    return {label: [z for z in find_zones(cs) if not zone_broken(cs, z)]
+            for label, cs in candles_by_label.items() if cs and len(cs) >= _MIN_BARS}
 
 
 def htf_backing(zone: Zone, htf_map: dict[str, list[Zone]]) -> list[str]:
