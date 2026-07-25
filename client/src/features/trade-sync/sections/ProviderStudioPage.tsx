@@ -1,6 +1,5 @@
 import { Icon } from "../components/Icon";
 import { StatRow } from "../components/StatRow";
-import { PROVIDER_STATS } from "../data/providerStudio";
 import { BusinessSetup } from "./provider/BusinessSetup";
 import { FollowRequestList } from "./provider/FollowRequestList";
 import { ActiveFollowerList } from "./provider/ActiveFollowerList";
@@ -29,7 +28,14 @@ export function ProviderStudioPage({ ts }: ProviderStudioPageProps) {
         </button>
       </div>
 
-      <StatRow stats={PROVIDER_STATS} />
+      <StatRow
+        stats={[
+          { label: "AUM COPIED", value: `$${studio.stats.aum.toLocaleString()}`, sub: "across all followers" },
+          { label: "ACTIVE FOLLOWERS", value: String(studio.stats.activeFollowers), sub: "copying you now" },
+          { label: "30D RETURN", value: studio.stats.ret30d, sub: "your service" },
+          { label: "AVG RATING", value: studio.stats.avgRating, sub: "reviews coming soon" },
+        ]}
+      />
 
       <div className="p-6 space-y-8">
         <BusinessSetup studio={studio} providerAccount={providerAccount} setToast={setToast} />

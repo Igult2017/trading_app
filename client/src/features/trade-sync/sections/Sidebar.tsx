@@ -1,7 +1,8 @@
 import { Icon } from "../components/Icon";
 import { TelegramIcon } from "../components/TelegramIcon";
-import { NAV_ITEMS, RECENT_ACTIVITY } from "../data/navigation";
+import { NAV_ITEMS } from "../data/navigation";
 import type { PageId } from "../types";
+import type { Overview } from "../hooks/useOverview";
 
 interface SidebarProps {
   collapsed: boolean;
@@ -10,9 +11,15 @@ interface SidebarProps {
   setActivePage: (page: PageId) => void;
   /** Panel mode: nested in a host scroll container, so drop the viewport-anchored sizing. */
   panel?: boolean;
+  overview: Overview | undefined;
 }
 
-export function Sidebar({ collapsed, setCollapsed, activePage, setActivePage, panel }: SidebarProps) {
+export function Sidebar({ collapsed, setCollapsed, activePage, setActivePage, panel, overview }: SidebarProps) {
+  // Recent activity is DERIVED from the real mirror feed — never invented copy.
+  const activity = (overview?.feed ?? []).slice(0, 4).map((f) => ({
+    text: `Copied ${f.side} ${f.symbol} ${f.lot} lot`,
+    time: f.time,
+  }));
   return (
     <aside
       className={`ct-sidebar ${collapsed ? "collapsed" : ""} hidden md:flex flex-col border-r border-surface-container-highest bg-surface shrink-0`}
@@ -70,12 +77,15 @@ export function Sidebar({ collapsed, setCollapsed, activePage, setActivePage, pa
             <span className="font-label-xs text-on-surface opacity-50 uppercase">Recent activity</span>
           </div>
           <div className="px-6 space-y-4 ct-sidebar-text">
-            {RECENT_ACTIVITY.map((a, i) => (
+            {activity.map((a, i) => (
               <div key={i} className="text-[10px] leading-tight border-l border-surface-container-highest pl-3">
                 <p className="text-on-surface font-body-md">{a.text}</p>
                 <p className="opacity-50 mt-1 font-dm-mono text-[9px]">{a.time}</p>
               </div>
             ))}
+            {activity.length === 0 && (
+              <p className="text-[10px] text-on-surface opacity-40 font-body-md">No copied trades yet.</p>
+            )}
           </div>
         </div>
       </div>

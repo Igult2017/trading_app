@@ -14,6 +14,11 @@ export function ConnectedAccounts({ accounts, onToggle }: ConnectedAccountsProps
         <h3 className="font-headline-md text-on-surface">Connected accounts</h3>
       </div>
       <div className="divide-y divide-surface-container-highest">
+        {accounts.length === 0 && (
+          <p className="p-4 text-[12px] text-on-surface opacity-50 font-body-md">
+            Nothing connected yet — follow a provider, set up self-copy or link a Telegram channel.
+          </p>
+        )}
         {accounts.map((a) => (
           <div
             key={a.id}
@@ -33,8 +38,12 @@ export function ConnectedAccounts({ accounts, onToggle }: ConnectedAccountsProps
               </div>
             </div>
             <div className="text-right">
-              <p className={`font-dm-mono text-[11px] font-medium ${a.pnl >= 0 ? "text-tertiary" : "text-error"}`}>
-                {money(a.pnl)}
+              <p
+                className={`font-dm-mono text-[11px] font-medium ${
+                  a.pnl == null ? "text-on-surface opacity-50" : a.pnl >= 0 ? "text-tertiary" : "text-error"
+                }`}
+              >
+                {a.pnl == null ? "—" : money(a.pnl)}
               </p>
               <div className="flex items-center justify-end gap-1">
                 <span

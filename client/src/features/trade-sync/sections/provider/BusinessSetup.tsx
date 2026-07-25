@@ -75,7 +75,7 @@ export function BusinessSetup({ studio, providerAccount, setToast }: BusinessSet
       </label>
       <button
         className="px-5 py-2 rounded bg-primary text-on-primary font-body-md font-bold text-[12px]"
-        onClick={() => setToast("Business setup saved.")}
+        onClick={() => void studio.saveProfile()}
       >
         Save changes
       </button>

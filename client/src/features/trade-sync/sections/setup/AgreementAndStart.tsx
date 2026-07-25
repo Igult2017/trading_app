@@ -7,8 +7,10 @@ interface AgreementAndStartProps {
 
 /** The commit step. Start stays disabled until the terms are accepted AND every blocker clears. */
 export function AgreementAndStart({ setup }: AgreementAndStartProps) {
-  const { agreed, setAgreed, startBlockers, handleStart, mirroring } = setup;
-  const canStart = agreed && startBlockers.length === 0;
+  const { agreed, setAgreed, startBlockers, handleStart, mirroring, busy } = setup;
+  // `busy` blocks a double-click from firing the start mutations twice (each one creates real
+  // follower rows / self-copy links server-side).
+  const canStart = agreed && startBlockers.length === 0 && !busy;
 
   return (
     <div className="pt-4">
@@ -51,8 +53,8 @@ export function AgreementAndStart({ setup }: AgreementAndStartProps) {
         disabled={!canStart}
         onClick={handleStart}
       >
-        <Icon name={mirroring ? "stop" : "play_arrow"} filled />
-        {mirroring ? "Stop mirroring" : "Start mirroring"}
+        <Icon name={busy ? "hourglass_top" : mirroring ? "stop" : "play_arrow"} filled />
+        {busy ? "Working…" : mirroring ? "Stop mirroring" : "Start mirroring"}
       </button>
     </div>
   );

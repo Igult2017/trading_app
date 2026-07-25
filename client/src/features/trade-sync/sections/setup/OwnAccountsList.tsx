@@ -1,5 +1,4 @@
 import { Avatar } from "../../components/Avatar";
-import { OWN_ACCOUNTS } from "../../data/accounts";
 import type { CopySetup } from "../../hooks/useCopySetup";
 
 interface OwnAccountsListProps {
@@ -7,10 +6,11 @@ interface OwnAccountsListProps {
 }
 
 /** Self-copy: one account is the master, any others can be mirror destinations. The master can't
- *  mirror to itself, so its "Add as mirror" button is withheld. */
+ *  mirror to itself, so its "Add as mirror" button is withheld. Accounts are the user's REAL
+ *  linked broker accounts (overview.ownAccounts). */
 export function OwnAccountsList({ setup }: OwnAccountsListProps) {
-  const { masterAccountId, selectedOwnAccounts, setMasterAccount, toggleOwnAccount } = setup;
-  const masterAccount = OWN_ACCOUNTS.find((a) => a.id === masterAccountId);
+  const { ownAccounts, masterAccountId, selectedOwnAccounts, setMasterAccount, toggleOwnAccount } = setup;
+  const masterAccount = ownAccounts.find((a) => a.id === masterAccountId);
 
   return (
     <div className="mb-8 space-y-3">
@@ -24,7 +24,12 @@ export function OwnAccountsList({ setup }: OwnAccountsListProps) {
         Declare one account as the master — its trades get copied into whichever other accounts you mark as mirrors.
       </p>
       <div className="border border-surface-container-highest rounded-lg divide-y divide-surface-container-highest overflow-hidden">
-        {OWN_ACCOUNTS.map((a) => {
+        {ownAccounts.length === 0 && (
+          <p className="p-4 text-[12px] text-on-surface opacity-50 font-body-md">
+            No linked accounts yet — connect one above to set up self-copy.
+          </p>
+        )}
+        {ownAccounts.map((a) => {
           const isMaster = masterAccountId === a.id;
           const isMirrorTarget = selectedOwnAccounts.includes(a.id);
           return (

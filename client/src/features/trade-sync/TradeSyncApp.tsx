@@ -45,13 +45,14 @@ export function TradeSyncApp({ panel = false }: TradeSyncAppProps = {}) {
           activePage={activePage}
           setActivePage={setActivePage}
           panel={panel}
+          overview={ts.overview}
         />
 
         <main className="flex-1 overflow-x-hidden p-6 pb-24 md:pb-6">
-          {activePage !== "history" && activePage !== "provider" && <KpiRow />}
+          {activePage !== "history" && activePage !== "provider" && <KpiRow overview={ts.overview} />}
 
           {activePage === "history" ? (
-            <HistoryPage />
+            <HistoryPage overview={ts.overview} />
           ) : activePage === "provider" ? (
             <ProviderStudioPage ts={ts} />
           ) : (

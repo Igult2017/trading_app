@@ -1,17 +1,16 @@
 import { useMemo, useState } from "react";
-import { AVAILABLE_PROVIDERS } from "../data/accounts";
+import type { Overview } from "./useOverview";
 
-/** Free-text filter over the marketplace directory, matching name or handle. */
-export function useProviderSearch() {
+/** Free-text filter over the REAL marketplace directory (public masters from the overview). */
+export function useProviderSearch(overview: Overview | undefined) {
   const [providerQuery, setProviderQuery] = useState("");
 
   const filteredProviders = useMemo(() => {
+    const all = overview?.providers ?? [];
     const q = providerQuery.trim().toLowerCase();
-    if (!q) return AVAILABLE_PROVIDERS;
-    return AVAILABLE_PROVIDERS.filter(
-      (p) => p.name.toLowerCase().includes(q) || p.handle.toLowerCase().includes(q)
-    );
-  }, [providerQuery]);
+    if (!q) return all;
+    return all.filter((p) => p.name.toLowerCase().includes(q) || p.handle.toLowerCase().includes(q));
+  }, [overview?.providers, providerQuery]);
 
   return { providerQuery, setProviderQuery, filteredProviders };
 }

@@ -2778,6 +2778,154 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (err: any) { console.error(err); return res.status(500).json({ error: "Internal server error" }); }
   });
 
+  /** Trade Sync panel aggregate — ONE call shapes the whole panel (client/src/features/trade-sync).
+   *  All user-scoped. Dollar PnL is only reported where it truly exists (journal trades / balances);
+   *  copy rows carry no profit column, so per-trade PnL is null (the UI renders "—"), while win/loss
+   *  is computed honestly from entry vs closed price direction. */
+  app.get("/api/copy/overview", async (req: Request, res: Response) => {
+    try {
+      const user = await verifyToken(req.headers.authorization);
+      if (!user) return res.status(401).json({ error: "Unauthorized" });
+      const uid = user.id;
+
+      const [own, rels, feedR, provR, studioM, kpiT, histR] = await Promise.all([
+        pool.query(`SELECT id, name, platform, balance, currency, connection_type, login_id
+                      FROM broker_accounts WHERE user_id = $1 ORDER BY created_at`, [uid]),
+        pool.query(`SELECT f.id, f.is_active, f.lot_mode, f.lot_multiplier, f.fixed_lot, f.risk_percent,
+                           f.master_id, m.strategy_name, m.source_type, m.require_approval
+                      FROM copy_followers f JOIN copy_masters m ON m.id = f.master_id
+                     WHERE f.user_id = $1 ORDER BY f.created_at DESC`, [uid]),
+        pool.query(`SELECT cf.id, cf.symbol, cf.action, cf.volume, cf.entry_price, cf.closed_price,
+                           cf.event_type, COALESCE(cf.executed_at, cf.created_at) AS at,
+                           EXTRACT(EPOCH FROM (cf.executed_at - ctm.created_at)) * 1000 AS ms,
+                           m.strategy_name AS source
+                      FROM copy_trades_follower cf
+                      JOIN copy_followers f ON f.id = cf.follower_id AND f.user_id = $1
+                      LEFT JOIN copy_trades_master ctm ON ctm.id = cf.master_trade_id
+                      LEFT JOIN copy_masters m ON m.id = f.master_id
+                     WHERE cf.status = 'executed'
+                     ORDER BY COALESCE(cf.executed_at, cf.created_at) DESC LIMIT 40`, [uid]),
+        pool.query(`SELECT m.id, m.strategy_name, m.source_type, m.trading_style, m.require_approval,
+                           (SELECT COUNT(*) FROM copy_followers cf2 WHERE cf2.master_id = m.id AND cf2.is_active) AS followers
+                      FROM copy_masters m
+                     WHERE m.is_public = true AND m.is_active = true AND m.user_id <> $1
+                     ORDER BY followers DESC, m.created_at DESC LIMIT 30`, [uid]),
+        pool.query(`SELECT m.id, m.strategy_name, m.description, m.is_public, m.require_approval
+                      FROM copy_masters m
+                     WHERE m.user_id = $1 AND m.source_type NOT IN ('telegram', 'telegram_user')
+                       AND COALESCE(m.description, '') <> 'Self-copy source'
+                     ORDER BY m.created_at DESC LIMIT 1`, [uid]),
+        pool.query(`SELECT COALESCE(SUM(pnl), 0) AS today
+                      FROM trades WHERE user_id = $1 AND created_at >= date_trunc('day', now())`, [uid]),
+        // EVERY column qualified: copy_trades_follower and copy_followers BOTH have created_at,
+        // so an unqualified reference is ambiguous and Postgres errors the whole endpoint out.
+        pool.query(`SELECT COUNT(*) FILTER (WHERE cf.closed_price IS NOT NULL) AS closed,
+                           COUNT(*) FILTER (WHERE cf.closed_price IS NOT NULL AND
+                             ((cf.action = 'BUY'  AND cf.closed_price > cf.entry_price) OR
+                              (cf.action = 'SELL' AND cf.closed_price < cf.entry_price))) AS won,
+                           COUNT(*) FILTER (WHERE COALESCE(cf.executed_at, cf.created_at) >= date_trunc('day', now())) AS today
+                      FROM copy_trades_follower cf
+                      JOIN copy_followers f ON f.id = cf.follower_id AND f.user_id = $1
+                     WHERE cf.status = 'executed'`, [uid]),
+      ]);
+
+      const myMaster = studioM.rows[0] ?? null;
+      const [reqsR, folsR] = myMaster
+        ? await Promise.all([
+            pool.query(`SELECT f.id, f.user_id, f.lot_mode, f.lot_multiplier, f.fixed_lot, f.risk_percent, f.created_at
+                          FROM copy_followers f JOIN copy_masters m ON m.id = f.master_id
+                         WHERE m.user_id = $1 AND f.is_active = false ORDER BY f.created_at DESC LIMIT 20`, [uid]),
+            pool.query(`SELECT f.id, f.user_id, f.lot_mode, f.lot_multiplier, f.fixed_lot, f.risk_percent, f.created_at,
+                           (SELECT COALESCE(SUM(ba.balance::numeric), 0) FROM broker_accounts ba WHERE ba.id = f.broker_account_id) AS bal
+                          FROM copy_followers f JOIN copy_masters m ON m.id = f.master_id
+                         WHERE m.user_id = $1 AND f.is_active = true ORDER BY f.created_at DESC LIMIT 50`, [uid]),
+          ])
+        : [{ rows: [] }, { rows: [] }] as any[];
+
+      const num = (v: any) => (v == null ? 0 : Number(v));
+      const lotTag = (r: any) =>
+        r.lot_mode === 'fixed' ? `${num(r.fixed_lot).toFixed(2)} fixed`
+        : r.lot_mode === 'risk' ? `${num(r.risk_percent)}% risk`
+        : `${num(r.lot_multiplier || 1).toFixed(1)}x lot`;
+      const ago = (d: any) => {
+        const s = Math.max(0, (Date.now() - new Date(d).getTime()) / 1000);
+        return s < 90 ? `${Math.round(s)}s ago` : s < 5400 ? `${Math.round(s / 60)}m ago`
+          : s < 129600 ? `${Math.round(s / 3600)}h ago` : `${Math.round(s / 86400)}d ago`;
+      };
+      const short = (id: string) => `Trader ${String(id).slice(0, 6)}`;
+      const equity = own.rows.reduce((a: number, r: any) => a + num(r.balance), 0);
+      const active = rels.rows.filter((r: any) => r.is_active);
+      const closed = num(histR.rows[0]?.closed), won = num(histR.rows[0]?.won);
+
+      return res.json({
+        kpis: {
+          totalEquity: equity, todayPnl: num(kpiT.rows[0]?.today),
+          activeCopies: active.length, masters: new Set(rels.rows.map((r: any) => r.master_id)).size,
+          tradesToday: num(histR.rows[0]?.today),
+        },
+        copies: rels.rows.map((r: any, i: number) => ({
+          id: i + 1, followerId: r.id, masterId: r.master_id,
+          name: r.strategy_name || 'Copy relationship',
+          handle: r.source_type === 'telegram' ? 'Telegram' : (r.source_type || 'cTrader'),
+          tag: lotTag(r), pnl: null, status: r.is_active ? 'live' : 'paused',
+        })),
+        feed: feedR.rows.slice(0, 8).map((r: any, i: number) => ({
+          id: i + 1, side: r.action === 'SELL' ? 'SELL' : 'BUY', symbol: r.symbol,
+          lot: num(r.volume).toFixed(2), price: String(num(r.closed_price) || num(r.entry_price) || '—'),
+          ms: Math.min(9999, Math.max(0, Math.round(num(r.ms)))), pnl: null, time: ago(r.at),
+        })),
+        ownAccounts: own.rows.map((r: any) => ({
+          id: r.id, name: r.name, platform: r.platform,
+          broker: r.connection_type === 'api' ? 'API-connected' : 'Manual',
+          balance: r.balance != null ? `$${num(r.balance).toLocaleString()}` : '—',
+          connected: r.connection_type === 'api' && !String(r.login_id || '').startsWith('pending_'),
+          loginId: r.login_id, isCtrader: String(r.platform).toLowerCase() === 'ctrader',
+        })),
+        providers: provR.rows.map((r: any) => ({
+          id: r.id, name: r.strategy_name || 'Provider', handle: `@${(r.source_type || 'ctrader')}`,
+          verified: false, rating: 0, winRate: 0, monthlyReturn: '—',
+          followers: String(r.followers ?? 0),
+          risk: ['scalp', 'hft'].includes(r.trading_style) ? 'High' : ['swing', 'position'].includes(r.trading_style) ? 'Low' : 'Medium',
+          requireApproval: !!r.require_approval,
+        })),
+        followStatus: Object.fromEntries(rels.rows.map((r: any) => [r.master_id, {
+          followerId: r.id,
+          status: (!r.is_active && r.require_approval) ? 'pending' : 'following',
+        }])),
+        studio: {
+          master: myMaster ? {
+            id: myMaster.id, serviceName: myMaster.strategy_name || '', strategyDesc: myMaster.description || '',
+            listed: !!myMaster.is_public,
+          } : null,
+          stats: {
+            aum: folsR.rows.reduce((a: number, r: any) => a + num(r.bal), 0),
+            activeFollowers: folsR.rows.length, ret30d: '—', avgRating: '—',
+          },
+          requests: reqsR.rows.map((r: any) => ({
+            id: r.id, name: short(r.user_id), handle: `@${String(r.user_id).slice(0, 8)}`,
+            allocation: lotTag(r), time: ago(r.created_at),
+          })),
+          followers: folsR.rows.map((r: any) => ({
+            id: r.id, name: short(r.user_id), handle: `@${String(r.user_id).slice(0, 8)}`,
+            allocation: lotTag(r), joined: ago(r.created_at),
+          })),
+        },
+        history: {
+          trades: feedR.rows.map((r: any, i: number) => ({
+            id: i + 1, date: new Date(r.at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+            symbol: r.symbol, side: r.action === 'SELL' ? 'SELL' : 'BUY', lot: num(r.volume).toFixed(2),
+            source: r.source || 'Copy', pnl: null,
+          })),
+          stats: {
+            winRate: closed ? `${Math.round((100 * won) / closed)}%` : '—',
+            profitFactor: '—', maxDrawdown: '—', totalTrades: String(closed),
+          },
+        },
+        mirroring: active.length > 0,
+      });
+    } catch (err: any) { console.error('[copy/overview]', err); return res.status(500).json({ error: "Internal server error" }); }
+  });
+
   /** Public provider marketplace — every connected account + realized performance.
    *  Only accounts whose owner enabled copying carry a masterId (followable). */
   app.get("/api/copy/providers", async (_req, res) => {

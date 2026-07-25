@@ -1,4 +1,4 @@
-import type { ActivityItem, NavItem } from "../types";
+import type { NavItem } from "../types";
 
 export const NAV_ITEMS: NavItem[] = [
   { id: "dashboard", label: "Dashboard", icon: "dashboard" },
@@ -17,7 +17,5 @@ export const MOBILE_TABS: NavItem[] = [
   { id: "self", label: "Settings", icon: "settings" },
 ];
 
-export const RECENT_ACTIVITY: ActivityItem[] = [
-  { text: "Copied BUY XAU/USD from Titan Scalper Pro", time: "2m ago" },
-  { text: "Paused Kingsman Signals", time: "18m ago" },
-];
+// RECENT_ACTIVITY was mock copy — the sidebar now derives it from the real mirror feed
+// (see Sidebar.tsx), so nothing invented appears there.

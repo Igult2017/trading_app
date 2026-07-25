@@ -82,6 +82,22 @@ export function EngineSetup({ ts }: EngineSetupProps) {
 
           {source === "self-copy" && <OwnAccountsList setup={setup} />}
 
+          {source === "telegram" && (
+            <div className="mb-8 space-y-2">
+              <label className="font-label-xs text-on-surface opacity-70 uppercase block">Telegram channel</label>
+              <input
+                className="w-full bg-surface border border-surface-container-highest rounded py-3 px-4 font-body-md focus:ring-1 focus:ring-primary focus:border-primary placeholder:opacity-40"
+                placeholder="@channel, t.me/channel or a -100… chat id"
+                type="text"
+                value={setup.telegramChannel}
+                onChange={(e) => setup.setTelegramChannel(e.target.value)}
+              />
+              <p className="font-body-md text-on-surface opacity-60 text-[11px] leading-snug">
+                Add the platform copy-bot as an admin to the channel so it can read the signals.
+              </p>
+            </div>
+          )}
+
           {source === "provider" && (
             <ProviderDirectory
               providers={search.filteredProviders}

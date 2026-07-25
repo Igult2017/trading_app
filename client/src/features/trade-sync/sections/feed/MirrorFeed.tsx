@@ -44,8 +44,12 @@ export function MirrorFeed({ feed, mirroring }: MirrorFeedProps) {
                 </div>
               </div>
               <div className="text-right">
-                <p className={`font-dm-mono text-[11px] font-medium ${f.pnl >= 0 ? "text-tertiary" : "text-error"}`}>
-                  {money(f.pnl)}
+                <p
+                  className={`font-dm-mono text-[11px] font-medium ${
+                    f.pnl == null ? "text-on-surface opacity-50" : f.pnl >= 0 ? "text-tertiary" : "text-error"
+                  }`}
+                >
+                  {f.pnl == null ? "—" : money(f.pnl)}
                 </p>
                 <p className="text-[9px] text-on-surface opacity-50 font-body-md">{f.time}</p>
               </div>

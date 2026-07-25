@@ -44,8 +44,12 @@ export interface CopyAccount {
   name: string;
   handle: string;
   tag: string;
-  pnl: number;
+  /** Dollar PnL where it truly exists; null when the backend has no honest figure ("—" in the UI). */
+  pnl: number | null;
   status: "live" | "paused";
+  /** Real copy_followers row id — what pause/resume mutations act on. */
+  followerId?: string;
+  masterId?: string;
 }
 
 export interface FeedRow {
@@ -55,7 +59,7 @@ export interface FeedRow {
   lot: string;
   price: string;
   ms: number;
-  pnl: number;
+  pnl: number | null;
   time: string;
 }
 
@@ -86,7 +90,7 @@ export interface TradeRow {
   side: "BUY" | "SELL";
   lot: string;
   source: string;
-  pnl: number;
+  pnl: number | null;
 }
 
 export interface Stat {
