@@ -44,6 +44,9 @@ from strategies.vix1_roi import regions, sl_from_regions
 log = logging.getLogger(__name__)
 
 _ENTRY_BUFFER    = 1   # pips — the stop sits JUST beyond the pullback, never resting on it
+_SL_BEYOND_LINE  = 1   # pips past LINE 2 (the wick line) where the stop rests — measured from the
+                       # user's own trades: his stop sits a median 2.3p from line 2, and never on the
+                       # line itself, so a small pad keeps a touch of the line from stopping him out.
 _MIN_SL_ROOM     = 5   # pips — the SL needs ROOM so normal noise cannot wick us out of a good trade.
                        # If the nearest region gives less, push the stop out to this floor (still
                        # capped at one 1HR candle). "Enough room to be filled or left out" (user).
@@ -165,20 +168,33 @@ def m1_signals(m1: list[Candle], bullish: bool, vc: Candle,
     lvl   = pb.high if bullish else pb.low          # the trend side — the stop goes just beyond it
     entry = lvl + _ENTRY_BUFFER * pip if bullish else lvl - _ENTRY_BUFFER * pip
 
-    # THE SL — the nearest 1M region of interest beyond the pullback: where price would go against us
-    # in the worst case. Not a pip count, and not the line either (the line is for entry accuracy, not
-    # for the stop). Capped at ONE 1HR candle's range, because the user's own backtesting says two 1HR
-    # candles deliver 2R — so one candle is 1R, and a wider stop makes the 2R target a move this setup
-    # does not produce. No region on the protective side = no honest stop = no trade.
+    # THE SL — ANCHORED TO LINE 2, the 1HR wick line. This is what line 2 was always FOR ("it has
+    # exactly one job: adjusting the STOP", vix1_lines) and the code had drifted off it: it used to
+    # hunt "the nearest 1M region beyond the pullback", which anchors the stop to a tiny 1-minute
+    # feature instead of the hourly level the whole setup is built on.
+    #
+    # MEASURED on 19 of the user's real 2021 GBP/USD trades (entry + SL prices recovered from his
+    # JForex screenshots, line computed from real H1). Mean |distance| of his stop from each
+    # candidate anchor:
+    #     LINE 2 (wick line) ->  5.1p, MEDIAN 2.3p   <- his stop sits ON it
+    #     LINE 1 (body close) -> 4.7p, median 3.8p
+    #     the pullback / candle extreme -> 30.9p, median 28.2p   <- what the old code used
+    # The old anchor produced 5-7 pip stops where his are 9-13 (median 11.0p), which is why the
+    # reconstruction was stopped out of trades he won. Scaling the old distance could never fix it:
+    # multiplying a distance measured from the wrong reference just makes it wrong by a varying
+    # amount, which is exactly what the 1.0x-2.0x sweep showed (no multiplier worked out-of-sample).
+    #
+    # The risk is now EMERGENT, not chosen: entry sits past line 1 off the pullback, the stop sits
+    # just beyond line 2, and the gap between them IS the risk — "the gap it should leave between
+    # stop entry for it to decide to fill me or move towards the pullback direction" (user).
+    sl   = wick_line - _SL_BEYOND_LINE * pip if bullish else wick_line + _SL_BEYOND_LINE * pip
+    risk = abs(entry - sl)
+    sl_note = f"{risk / pip:.1f}p — just beyond the 1HR wick line ({wick_line:.{digits}f})"
     max_risk = vc.high - vc.low
-    got = sl_from_regions(entry, pb.low if bullish else pb.high, bullish,
-                          regions(wcl, bullish, wick_line), pip, max_risk)
-    if got is None:
-        log.info(f"[vix1] {symbol} 1M: aligned ({kind}) with a pullback at {lvl:.{digits}f}, but no "
-                 f"1M region of interest sits beyond it within one 1HR candle ({max_risk / pip:.0f}p) "
-                 f"— nowhere honest to put the stop; skipping")
+    if risk > max_risk:
+        log.info(f"[vix1] {symbol} 1M: stop at the wick line is {risk/pip:.1f}p, wider than one 1HR "
+                 f"candle ({max_risk/pip:.0f}p) — the 2R target is not a two-candle move; skipping")
         return []
-    sl, risk, sl_note = got
 
     # SL ROOM — a stop tighter than _MIN_SL_ROOM gets wicked out of a trade that then runs our way.
     # Push it out to the floor (still never beyond one 1HR candle); if even the floor won't fit, the
