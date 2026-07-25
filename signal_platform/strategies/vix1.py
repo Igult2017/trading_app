@@ -160,7 +160,17 @@ class Vix1Strategy(BaseStrategy):
                 continue
             entry, sl = s["entry"], s["sl"]
             risk = abs(entry - sl)
-            tp   = entry + 2.0 * risk if bullish else entry - 2.0 * risk
+            late = bool(s.get("late"))
+            # TP: normally 2R from the entry. On a LATE entry the price is worse, so the target stays
+            # where the ORIGINAL move was aiming (2R measured from the 1HR line, which the late entry
+            # has already eaten into) and the RR is reported as whatever actually remains — >= 1R by
+            # the entry gate. Never advertise 2R on a trade that can no longer deliver it.
+            if late and s.get("ideal_tp") is not None:
+                tp = s["ideal_tp"]
+                rr = (abs(tp - entry) / risk) if risk > 0 else 0.0
+            else:
+                tp = entry + 2.0 * risk if bullish else entry - 2.0 * risk
+                rr = 2.0
             # One entry per setup, so it is SAVED (AssetPage + DM + TP/SL monitoring) and holds the
             # single symbol:direction reservation the validator/monitor/DB invariant assumes.
             # `vix1`, NOT `vix1_watch`: the _watch suffix is what the dispatcher reads to mean
@@ -170,7 +180,8 @@ class Vix1Strategy(BaseStrategy):
             # alert keeps `vix1_watch` and stays a DM — it is a correction, not a signal.
             sig = build_signal(s["kind"], sym, bullish, origin, vol_count, entry, sl, tp, risk, pip,
                                digits, corr, context.news, self.id, self.name,
-                               grade, conf, sl_note=s.get("sl_note", ""))
+                               grade, conf, sl_note=s.get("sl_note", ""),
+                               late=late, late_note=s.get("late_note", ""), rr=rr)
             sig.dedup_key = key          # committed ONLY once the signal is real — never here
             out.append(sig)
             self._recent[sym] = (bullish, now, key)

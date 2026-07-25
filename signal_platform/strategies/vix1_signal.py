@@ -39,7 +39,8 @@ def _origin_reason(origin: str, bullish: bool, mlabel: str, side: str) -> str:
 
 def build_signal(kind, symbol, bullish, origin, vol_count, entry, sl, tp,
                  risk, pip, digits, corr, news_context, strategy_id, strategy_name,
-                 grade, confidence, alert_only=False, sl_note="") -> Signal:
+                 grade, confidence, alert_only=False, sl_note="",
+                 late=False, late_note="", rr=2.0) -> Signal:
     side         = "BUY" if bullish else "SELL"
     label, blurb = _KIND[kind]
     mlabel       = f"{vol_count} momentum candle{'s' if vol_count != 1 else ''}"
@@ -50,6 +51,10 @@ def build_signal(kind, symbol, bullish, origin, vol_count, entry, sl, tp,
         f"Momentum candle grade {grade} ({confidence:.0%} confidence) — body/wick shape, not size",
         (f"SL sits {sl_note}" if sl_note else f"SL {sl:.{digits}f}"),
     ]
+    # A LATE entry still ships (>=1R remains) but must SAY SO at the top — the reader is being
+    # offered a worse price than the method's own recommended one.
+    if late and late_note:
+        reasons.insert(0, late_note)
     if corr:
         reasons.insert(0, f"⚠️ CORRELATED: {', '.join(corr)} already {side.lower()} (same USD direction) — size down or skip")
 
@@ -58,8 +63,10 @@ def build_signal(kind, symbol, bullish, origin, vol_count, entry, sl, tp,
         f"CTX::1HR MOMENTUM::{vol_count} CANDLE{'S' if vol_count != 1 else ''} (FROM 1ST)",
         f"CTX::MOMENTUM GRADE::{grade} ({confidence:.0%})",
         f"CTX::1M ENTRY::{label}",
-        f"PA::{label} STOP-ENTRY (2R)",
+        f"PA::{label} STOP-ENTRY ({rr:.1f}R{' — LATE' if late else ''})",
     ]
+    if late:
+        smc.append("PA::PAST THE RECOMMENDED ENTRY PRICE")
     if corr:
         smc.append("PA::CORRELATED USD — SIZE DOWN")
 
@@ -71,7 +78,7 @@ def build_signal(kind, symbol, bullish, origin, vol_count, entry, sl, tp,
         entry_price       = round(entry, digits),
         stop_loss         = round(sl, digits),
         take_profit       = round(tp, digits),
-        risk_reward       = 2.0,
+        risk_reward       = round(rr, 2),   # a LATE entry is honestly < 2R — never claim the full 2R
         confidence        = confidence,
         primary_timeframe = TF.H1,
         alert_only        = alert_only,   # FALSE for the pull-back entry -> PUBLIC CHANNEL (a real card).
@@ -83,6 +90,7 @@ def build_signal(kind, symbol, bullish, origin, vol_count, entry, sl, tp,
         # old label described the card as provisional on the one message that is not.
         market_context    = (f"VIX.1 — {side} {symbol} 1M {label} "
                              f"[{_SHORT.get(origin, 'trend')}]"
+                             f"{' PAST-ENTRY' if late else ''}"
                              f"{' correlated' if corr else ''} stop at {entry:.{digits}f}"),
         # Currencies come from the SYMBOL, not a hardcoded list. ["USD","EUR","GBP"] matched the
         # current allowed_instruments exactly, so the day USD/JPY is added (the class docstring

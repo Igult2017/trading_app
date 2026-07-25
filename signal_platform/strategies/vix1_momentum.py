@@ -42,9 +42,21 @@ _MIN_BODY_MULT  = 2.5   # body >= this x the 100-bar MEDIAN body. CALIBRATED 202
                         # only 60% — it threw away 4 in 10 real setups (top-5% candles only). The
                         # SELECTIVITY belongs to the trend/line-break/pullback gates that follow, not
                         # to making the momentum candle itself freakishly rare.
-_MIN_BODY_FRAC  = 0.60  # GATE: body >= this share of the candle's OWN range. Lowered 75%->60% (user
-                        # 2026-07-21) — 75% demanded a near-wickless marubozu; real volume candles run
-                        # thinner. 60% is the floor; the SHAPE is now GRADED, not just gated (momentum_grade).
+_MIN_BODY_FRAC  = 0.50  # GATE: body >= this share of the candle's OWN range. 75%->60% (2026-07-21),
+                        # then 60%->50% (2026-07-25) CALIBRATED on 22 of the user's own trades: his
+                        # thinnest real momentum candle was 51% body (a 14.6p body in a 28.5p range
+                        # that went on to hit TP). The 60% gate was rejecting 3 of those 22 outright.
+                        # 50% is the measured floor, not a guess; the SHAPE above it is GRADED
+                        # (momentum_grade), so a thin-but-valid candle still scores lower.
+_MIN_VS_PREV    = 1.0   # GATE: body must be BIGGER THAN THE PREVIOUS CANDLE'S body — the user's own
+                        # stated theory, and it holds in 22/22 of his real trades (median 2.96x, min
+                        # 1.06x; robust at every timezone offset tested). This test USED to exist, was
+                        # removed in the 2026-07-20 rebuild in favour of the 100-bar median, and the
+                        # removal was wrong: measured over 41,900 H1 bars, 596 of the 4,980 candles
+                        # that pass the other three gates (12.0%) FAIL this one — i.e. it strips 12%
+                        # of the scanner's output at ZERO cost to the real setups. It is a COMPANION
+                        # to the median test, never a replacement: alone it admits tiny candles that
+                        # merely beat a tinier neighbour, which is why the median rule exists too.
 _A_BODY_FRAC    = 0.75  # A-grade body: >= 75% of range  (the "perfect" wickless look)
 _A_CWICK_FRAC   = 0.15  # A-grade counter-wick: <= 15%   (a "perfect" wick)
 _A_CONF         = 0.85  # confidence assigned to an A-grade (perfect) momentum candle
@@ -76,7 +88,8 @@ def counter_wick(c: Candle, bullish: bool) -> float:
 
 
 def is_momentum_candle(h1: list[Candle], i: int, bullish: bool) -> bool:
-    """BIG for this pair right now + CLEAN + UNREJECTED. The wick WITH the move is not capped."""
+    """BIG for this pair right now + BIGGER THAN THE ONE BEFORE IT + CLEAN + UNREJECTED.
+    The wick WITH the move is not capped (a 48% with-wick appears in the user's real winners)."""
     c = h1[i]
     if is_bullish(c) != bullish:
         return False
@@ -84,7 +97,9 @@ def is_momentum_candle(h1: list[Candle], i: int, bullish: bool) -> bool:
     base = baseline_body(h1, i)
     if rng <= 0 or base <= 0:
         return False
+    prev = body_size(h1[i - 1]) if i > 0 else 0.0
     return (body_size(c) >= _MIN_BODY_MULT * base
+            and body_size(c) > _MIN_VS_PREV * prev          # the user's own rule — 22/22 of his trades
             and body_size(c) >= _MIN_BODY_FRAC * rng
             and counter_wick(c, bullish) <= _MAX_CWICK_FRAC * rng)
 
@@ -140,21 +155,25 @@ def momentum_run(h1: list[Candle], bullish: bool) -> tuple[int, int] | None:
 def veto_reason(h1: list[Candle], bullish: bool) -> str:
     """Why the recent bars produced no momentum candle — for diagnostics only."""
     start = max(1, len(h1) - LOOKBACK)
-    in_dir = too_small = wrong_shape = 0
+    in_dir = too_small = not_bigger = wrong_shape = 0
     for i in range(len(h1) - 1, start - 1, -1):
         c = h1[i]
         if is_bullish(c) != bullish:
             continue
         in_dir += 1
         rng, base = full_range(c), baseline_body(h1, i)
+        prev = body_size(h1[i - 1]) if i > 0 else 0.0
         if base > 0 and body_size(c) < _MIN_BODY_MULT * base:
             too_small += 1
+        elif body_size(c) <= _MIN_VS_PREV * prev:
+            not_bigger += 1
         elif rng > 0 and (body_size(c) < _MIN_BODY_FRAC * rng
                           or counter_wick(c, bullish) > _MAX_CWICK_FRAC * rng):
             wrong_shape += 1
     if in_dir == 0:
         return f"no in-direction ({'up' if bullish else 'down'}) H1 candle in the last {LOOKBACK} bars"
     return (f"{in_dir} in-direction bars but none was a momentum candle "
-            f"(too small x{too_small}, wicky/shape x{wrong_shape} — needs body >= "
-            f"{_MIN_BODY_MULT:.1f}x the {_BASELINE_BARS}-bar median body, >= {_MIN_BODY_FRAC:.0%} of "
-            f"its own range, counter-wick <= {_MAX_CWICK_FRAC:.0%})")
+            f"(too small x{too_small}, not bigger than the previous candle x{not_bigger}, "
+            f"wicky/shape x{wrong_shape} — needs body >= "
+            f"{_MIN_BODY_MULT:.1f}x the {_BASELINE_BARS}-bar median body, > the previous candle's "
+            f"body, >= {_MIN_BODY_FRAC:.0%} of its own range, counter-wick <= {_MAX_CWICK_FRAC:.0%})")

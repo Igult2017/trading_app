@@ -44,13 +44,39 @@ from strategies.vix1_roi import regions, sl_from_regions
 log = logging.getLogger(__name__)
 
 _ENTRY_BUFFER    = 1   # pips — the stop sits JUST beyond the pullback, never resting on it
-_PULLBACK_NEAR   = 7   # pips — the pullback must form THIS close to Line 1. The setup is "price
-                       # reaches the line, THEN pull back near it": a pullback far from the line is a
-                       # different, worse entry the trader would skip. Measured on real winners the
-                       # pullback sat within ~4p of the line; 7p leaves margin.
 _MIN_SL_ROOM     = 5   # pips — the SL needs ROOM so normal noise cannot wick us out of a good trade.
                        # If the nearest region gives less, push the stop out to this floor (still
                        # capped at one 1HR candle). "Enough room to be filled or left out" (user).
+_LATE_MIN_RR     = 1.0 # a pullback past the allowed distance is a WORSE price, not a dead setup: it
+                       # still ships if at least 1R remains (user 2026-07-25: "when the signal goes
+                       # too far and we can still get 1R, send it"). Normal entries keep needing 2R.
+
+# HOW FAR THE PULLBACK MAY SIT FROM LINE 1 — DYNAMIC, never a pip count (user 2026-07-25: "make this
+# dynamic. If you hardcode it wont work because the market is not perfect"). This REPLACED a hardcoded
+# 7-pip limit that rejected 3 of the user's 22 real setups (pullbacks at 7.7p / 10.1p / 12.7p).
+#
+# THE YARDSTICK IS THE MOMENTUM CANDLE'S OWN HEIGHT — and that is a DELIBERATE correction of the
+# literal instruction ("height of the 1HR candle that comes AFTER the first volume candle"), because
+# the literal version is geometrically VACUOUS. Proof: the candle after the momentum candle is the
+# hour the pullback happens in, so the pullback's distance from the line and that candle's height are
+# measured over THE SAME BARS. The line sits at the window's start, and the pullback's extreme lies
+# inside the window, so distance <= window range ALWAYS — the flag could never fire, at any threshold.
+# Verified numerically on all 19 reconstructable setups: 0 flagged under that reading, and no
+# threshold changes it. The same bound defeats every variant (distance past the line, retrace depth).
+#
+# The momentum candle's height keeps everything the user actually wanted — it is dynamic (it IS the
+# current 1HR volatility), it needs no lookahead, and it cannot drift because that candle is closed —
+# while being a DIFFERENT candle from the one the pullback forms in, so the comparison is real.
+# Measured on the real setups: pullbacks sit a median 6% and a MAX 35% of the momentum candle's
+# height from the line, so a full-height allowance clears every genuine entry with wide margin and
+# only fires when price has run an entire momentum-candle's worth away from the recommended price.
+_LATE_MULT = 1.0   # allowance = this x the momentum candle's height
+
+
+def _allowed_offset(vc: Candle, pip: float) -> float:
+    """The dynamic allowance: the momentum candle's own height (high-low). Floored at 1 pip so a
+    degenerate flat candle cannot make the allowance zero and reject everything."""
+    return max(1.0 * pip, _LATE_MULT * (vc.high - vc.low))
 
 
 def m1_signals(m1: list[Candle], bullish: bool, vc: Candle,
@@ -115,27 +141,26 @@ def m1_signals(m1: list[Candle], bullish: bool, vc: Candle,
         log.info(f"[vix1] {symbol} 1M: aligned ({kind}) but {why} — waiting")
         return []
 
-    # PAST THE LINE — the pullback itself must TAKE PLACE past (or on) Line 1, on BOTH paths, the
-    # fractal one included (user 2026-07-22: "even fractal break requires pullback only after price
-    # has gone past the 1HR line or on the 1HR line. No entry takes place in pullbacks that dont take
-    # place past the 1HR candle close line."). traded_past alone only proved price crossed the line at
-    # SOME point — the latest retrace could still be a pullback that formed BEFORE the break, or one
-    # that formed back on the wrong side after price collapsed through the line again, and either
-    # anchored the entry. The candle's line-side extreme may touch the line ("on"), never sit beyond it.
-    near = pb.low if bullish else pb.high
-    if (near < line - 1e-9) if bullish else (near > line + 1e-9):
-        log.info(f"[vix1] {symbol} 1M: the pullback ({near:.{digits}f}) took place on the WRONG side "
-                 f"of line 1 ({line:.{digits}f}) — no entry in pullbacks that are not past the line; waiting")
-        return []
+    # NOTE — there is deliberately NO "the pullback must stay on the far side of line 1" test.
+    # One was added on 2026-07-22 and REMOVED on 2026-07-25 after measuring the user's own trades:
+    # only 9-10 of 19 real pullbacks kept their extreme past the line (robust at every timezone
+    # offset), so it was blocking about HALF of his real setups. His rule — "pullback only after
+    # price has gone past the 1HR line" — is about ORDER, not geography: price crosses the line
+    # first, THEN the retrace forms, and a retrace naturally pulls back through that line by a pip
+    # or two. The ordering is already enforced: traded_past() above, then find_pullback() below,
+    # with the line-2 tolerance band catching a retrace that runs too far. Do not re-add it.
 
-    # NEAR THE LINE — the pullback's line-side extreme must sit within _PULLBACK_NEAR of Line 1. The
-    # method is "price reaches the line, then a pullback forms THERE"; a pullback far from the line is
-    # a setup the trader looks at and skips, and taking it is what dragged the automated win rate down.
-    off = abs(near - line) / pip
-    if off > _PULLBACK_NEAR:
-        log.info(f"[vix1] {symbol} 1M: pullback formed {off:.1f}p from the line (> {_PULLBACK_NEAR}p) "
-                 f"— too far from Line 1, not the setup; waiting")
-        return []
+    # HOW FAR FROM THE LINE — the DYNAMIC allowance (see _allowed_offset): the height so far of the
+    # 1HR candle following the momentum candle. Beyond it the price is WORSE, not invalid, so the
+    # setup is not dropped — it is flagged `late` and must still clear _LATE_MIN_RR below.
+    near    = pb.low if bullish else pb.high
+    off     = abs(near - line)
+    allowed = _allowed_offset(vc, pip)
+    late    = off > allowed
+    if late:
+        log.info(f"[vix1] {symbol} 1M: pullback formed {off/pip:.1f}p from the line vs an allowance of "
+                 f"{allowed/pip:.1f}p (the momentum candle's height) — PAST the recommended "
+                 f"entry price; will ship only if >= {_LATE_MIN_RR:.0f}R remains")
 
     lvl   = pb.high if bullish else pb.low          # the trend side — the stop goes just beyond it
     entry = lvl + _ENTRY_BUFFER * pip if bullish else lvl - _ENTRY_BUFFER * pip
@@ -176,8 +201,29 @@ def m1_signals(m1: list[Candle], bullish: bool, vc: Candle,
                  f"vs stop {entry:.{digits}f}) — a stop there would fill into the move; entry gone")
         return []
 
-    log.info(f"[vix1] {symbol} 1M PULLBACK entry ({kind} path) — {'BUY' if bullish else 'SELL'} "
-             f"stop {entry:.{digits}f} SL {sl:.{digits}f} ({sl_note}; line {line:.{digits}f}"
+    # A LATE entry (pullback past the dynamic allowance) is a worse PRICE, so the 2R target may no
+    # longer sit where the move can reach. It ships only while at least 1R of the original move is
+    # still ahead of it: the distance from the entry to where the 2R target WOULD have been, measured
+    # from the line (the untainted reference), must still be >= _LATE_MIN_RR x risk.
+    if late:
+        ideal_tp  = line + 2.0 * risk if bullish else line - 2.0 * risk
+        remaining = (ideal_tp - entry) if bullish else (entry - ideal_tp)
+        if remaining < _LATE_MIN_RR * risk:
+            log.info(f"[vix1] {symbol} 1M: late entry at {entry:.{digits}f} leaves only "
+                     f"{remaining/risk if risk else 0:.2f}R to the original target — under "
+                     f"{_LATE_MIN_RR:.0f}R; skipping")
+            return []
+
+    log.info(f"[vix1] {symbol} 1M PULLBACK entry ({kind} path{', LATE' if late else ''}) — "
+             f"{'BUY' if bullish else 'SELL'} stop {entry:.{digits}f} SL {sl:.{digits}f} "
+             f"({sl_note}; line {line:.{digits}f}"
              f"{'' if wick_line == line else f' wick-line {wick_line:.{digits}f}'})")
     return [{"kind": kind, "entry": round(entry, digits), "sl": round(sl, digits),
-             "sl_note": sl_note}]
+             "sl_note": sl_note, "late": late,
+             # where the move was ORIGINALLY aiming (2R off the line) — the honest target for a late
+             # entry, so the card reports the reward that actually remains instead of a fictional 2R
+             "ideal_tp": round(line + 2.0 * risk if bullish else line - 2.0 * risk, digits) if late else None,
+             "late_note": (f"⚠️ price has gone PAST the recommended entry price — the pullback formed "
+                           f"{off/pip:.1f} pips from the 1HR line (allowance {allowed/pip:.1f}p). "
+                           f"Reduced reward: at least {_LATE_MIN_RR:.0f}R remains, not the usual 2R.")
+                          if late else ""}]
