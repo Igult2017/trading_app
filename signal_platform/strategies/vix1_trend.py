@@ -25,36 +25,98 @@ prints the structure a trend read needs, so there the LINE answers direction (vi
 from core.types import Candle
 from shared.swing_points import find_swing_points
 
-_SWING_N        = 3     # generic swing-pivot half-width (is_choch)
-_TREND_LOOKBACK = 36    # bars of the recent leg the slope is read over (H1 ~1.5 days; H4 ~6 days)
-_MIN_DRIFT_ATR  = 2.0   # net move across the leg must exceed this x the avg bar range to be a trend
-                        # (calibrated 2026-07-20: 70% real-trade recognition at 67% coverage; 1.0-1.5
-                        # pushed coverage to 75-85% = nearly always-on, no better recognition)
+_SWING_N   = 3     # generic swing-pivot half-width (used by both the trend state and is_choch)
+_MIN_BARS  = 20    # below this there is not enough structure to call anything
 
 
 def clear_trend(candles: list[Candle]) -> int:
-    """+1 uptrend / -1 downtrend / 0 no clear trend — the SLOPE of the recent leg, filtered by noise.
+    """+1 uptrend / -1 downtrend / 0 not yet established — the trend as MARKET STRUCTURE, and it
+    PERSISTS until price decisively breaks it.
 
-    The net move the regression implies across the leg must exceed _MIN_DRIFT_ATR x the leg's own
-    average bar range, so a flat/ranging stretch (small net move relative to its noise) reads as 0 while
-    a leg that has genuinely travelled — even one that paused to consolidate midway — reads as a trend.
+    THE MODEL (user 2026-07-26: "we have the main trend and inside it we can have ranging market or a
+    movement we can't understand. But until the market shows decisively that the trend has changed, we
+    trade the main trend"). This is Dow's own rule — a trend remains intact until the structure
+    changes — and modern market structure gives the precise test: a trend continues through a BOS and
+    only turns on a CHoCH, i.e. a close through the swing that was protecting it.
+
+      ESTABLISH  two higher highs + higher lows -> up;  two lower highs + lower lows -> down
+      HOLD       consolidation, a range, an unreadable stretch: the trend does NOT change
+      FLIP       only when a BODY CLOSE takes out the last protected swing the other way
+                 (in an uptrend, the last higher LOW; in a downtrend, the last lower HIGH)
+
+    WHAT THIS REPLACED, and why. It used to be a least-squares SLOPE over a fixed 36-bar window with
+    a drift >= 2x ATR filter. That is stateless and instantaneous: it recomputes from scratch every
+    bar, has no memory of the prevailing trend, and cannot express persistence at all. Measured over
+    3,075 H1 bars of GBP/USD (Jan-Jun 2021) it read FLAT on 35% of bars and made 29 'round trips'
+    (trend -> flat -> the SAME trend again with no reversal in between) — pure amnesia, not analysis.
+    The user's own 30-Jun-2021 example is the case in miniature: an obvious multi-day downtrend that
+    the 36-bar window called flat, missing the threshold by 2.7 pips, purely because its window sat
+    inside the consolidation at the bottom of the move.
+
+    MEASURED against his 34 logged trades: the slope agreed with 14/34 (41%) and read FLAT on 13 of
+    them — those 13 are setups silently dropped for want of a trend. This version agrees with 26/34
+    (76%) and reads flat on none.
+
+    Deliberately DERIVED, never stored: the state is replayed from the passed window every call, so
+    there is no hidden global that a restart, a redeploy or a second process could desynchronise.
+    The caller's signature is unchanged.
     """
-    leg = candles[-_TREND_LOOKBACK:]
-    n   = len(leg)
-    if n < 20:
+    n = len(candles)
+    if n < _MIN_BARS:
         return 0
-    closes = [c.close for c in leg]
-    mx  = (n - 1) / 2
-    my  = sum(closes) / n
-    sxx = sum((i - mx) ** 2 for i in range(n))
-    if sxx == 0:
+    pts = sorted(find_swing_points(candles, _SWING_N), key=lambda p: p.index)
+    if not pts:
         return 0
-    slope = sum((i - mx) * (closes[i] - my) for i in range(n)) / sxx
-    drift = slope * (n - 1)                          # net move the slope implies across the whole leg
-    atr   = sum(c.high - c.low for c in leg) / n     # the leg's own average bar range = its noise floor
-    if atr <= 0 or abs(drift) < _MIN_DRIFT_ATR * atr:
-        return 0
-    return 1 if slope > 0 else -1
+
+    trend = 0
+    protected: float | None = None     # the swing whose CLOSE-through would END the current trend
+    highs: list[float] = []
+    lows:  list[float] = []
+    since: list[float] = []            # counter-swings formed since the last BOS (see below)
+    last_ext: float | None = None      # the last swing that EXTENDED the trend (last LL / last HH)
+    k = 0                              # pointer into pts — a swing at j is only KNOWN j+N bars later
+
+    for i, c in enumerate(candles):
+        while k < len(pts) and pts[k].index + _SWING_N <= i:
+            p = pts[k]; k += 1
+            (highs if p.is_high else lows).append(p.price)
+            if trend == 0:
+                continue
+            # An UPTREND is extended by a higher HIGH; a DOWNTREND by a lower LOW. The swing on the
+            # OTHER side is the one that PROTECTS the trend (the higher low / the lower high).
+            extends = p.is_high if trend == 1 else (not p.is_high)
+            if not extends:
+                # A protective-side swing: bank it, but it does NOT move the protection yet. This is
+                # the whole point — the highs printed while a downtrend consolidates are noise INSIDE
+                # the trend, not the level that defines it. Moving protection to each of them is what
+                # made the first version flip 8 times in 8 days.
+                since.append(p.price)
+                continue
+            # A swing in the trend's own direction. It is a BOS (continuation) only if it actually
+            # EXTENDED the trend. Only then does protection advance — to the most conservative
+            # counter-swing of the leg just completed — and the accumulator resets.
+            if last_ext is None or (p.price > last_ext if trend == 1 else p.price < last_ext):
+                if since:
+                    protected = min(since) if trend == 1 else max(since)
+                last_ext = p.price
+                since = []
+
+        if trend == 0:
+            # ESTABLISH from two consecutive swings each way
+            if len(highs) >= 2 and len(lows) >= 2:
+                if highs[-1] > highs[-2] and lows[-1] > lows[-2]:
+                    trend, protected, last_ext, since = 1, lows[-2], lows[-1], []
+                elif highs[-1] < highs[-2] and lows[-1] < lows[-2]:
+                    trend, protected, last_ext, since = -1, highs[-2], highs[-1], []
+        elif protected is not None:
+            # FLIP only on a BODY CLOSE through the protected swing — a wick through it is a
+            # liquidity grab, the platform-wide rule for both strategies.
+            if trend == 1 and c.close < protected:
+                trend, protected, last_ext, since = -1, (max(since) if since else None), None, []
+            elif trend == -1 and c.close > protected:
+                trend, protected, last_ext, since = 1, (min(since) if since else None), None, []
+
+    return trend
 
 
 def is_choch(candles: list[Candle], close_price: float, bullish: bool) -> bool:
