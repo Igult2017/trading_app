@@ -51,6 +51,17 @@ async def _check_signal(row) -> None:
     if bar is None:
         return
 
+    # VIX.1 TRADE MANAGEMENT (advice only — emits DM alerts, moves nothing). Runs before the
+    # TP/SL checks so a ratchet step is announced on the same poll it is earned. Isolated in its
+    # own try: management is a convenience, and a fault in it must never stop the monitor from
+    # closing a real position below.
+    if (row.strategy or "") == "vix1" and row.triggered_at is not None:
+        try:
+            from monitor.vix1_alerts import check as _manage
+            await _manage(row, await _get_window(row.symbol))
+        except Exception as exc:
+            log.warning(f"[signal_monitor] vix1 management alert failed for {row.symbol}: {exc}")
+
     # Use the bar's HIGH/LOW, not just the close: a spike/wick that pierces a level
     # intrabar and closes back inside would otherwise be missed entirely.
     hi, lo = bar.high, bar.low
@@ -112,6 +123,18 @@ async def _check_signal(row) -> None:
         release(row.symbol, row.type, row.strategy)   # free THIS strategy's key only
         await event_bus.emit(event_bus.SIGNAL_CLOSED, row.id)
         log.info(f"[signal_monitor] {row.symbol} → {new_status.value} (H={hi} L={lo})")
+
+
+async def _get_window(symbol: str, count: int = 600):
+    """A WINDOW of 1M bars (default 10h) — what trade management needs to replay the ratchet and
+    read 1M structure. Separate from _get_bar, which stays a single-bar fetch for the TP/SL check
+    so the hot path is unchanged."""
+    from data.candle_fetcher import fetch_candles
+    try:
+        return await fetch_candles(symbol, "M1", count) or []
+    except Exception as exc:
+        log.debug(f"[signal_monitor] window fetch failed for {symbol}: {exc}")
+        return []
 
 
 async def _get_bar(symbol: str):

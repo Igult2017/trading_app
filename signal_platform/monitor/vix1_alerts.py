@@ -1,0 +1,101 @@
+"""
+VIX.1 — TRADE-MANAGEMENT ALERTS (advice only; nothing here moves a broker stop).
+
+Phase 1 is signals-only: the user places and manages the trade himself, so the ratchet in
+`strategies/vix1_manage` decides WHAT TO TELL HIM and this module delivers it:
+
+    "+3R reached — move your stop to +2R"        (a ratchet step)
+    "1M structure changed — close it"            (the exit)
+
+STATELESS BY DESIGN. Every poll re-reads the 1M bars since the entry filled and replays the whole
+ratchet from scratch, so `peak_r` and the stop are DERIVED, never stored. That means a restart, a
+missed poll, or a redeploy cannot corrupt the sequence — there is no state to corrupt. The only
+thing persisted is WHICH ALERTS HAVE ALREADY BEEN SENT, and that rides on the existing DB-backed
+delivery_ledger (at-least-once: a failed send re-fires next poll instead of being lost).
+
+R IS PAIR-AGNOSTIC — checked against cTrader's own conventions (the ctrader-mcp-servers skill).
+R is a RATIO of price distances, (price - entry) / (entry - stop), so it needs no pip size, no
+contract size and no currency conversion; it is identical for EUR/USD, USD/JPY and XAU/USD. Only
+the PRINTED price needs per-symbol precision, which comes from shared.pip.price_digits (corrected
+2026-07-25 against cTrader's precision table — it was wrong for metals/indices/crypto).
+"""
+import logging
+
+from core import delivery_ledger, event_bus
+from core.types import Signal, Direction, TF
+from shared.pip import price_digits
+from strategies.vix1_manage import run, ARM_R
+
+log = logging.getLogger(__name__)
+
+_MAX_BARS = 600      # 10h of 1M — comfortably past the 4.7h longest real trade
+
+
+def _alert(symbol: str, buy: bool, text: str, ctx: str, key: str) -> Signal:
+    return Signal(
+        symbol            = symbol,
+        direction         = Direction.BUY if buy else Direction.SELL,
+        strategy_id       = "vix1_watch",     # _watch -> admin DM, never the public channel
+        strategy_name     = "VIX.1",
+        alert_only        = True,             # management advice, NOT a new signal
+        qualified         = False,
+        primary_timeframe = TF.M1,
+        technical_reasons = [text],
+        market_context    = ctx,
+        dedup_key         = key,
+    )
+
+
+async def check(row, bars) -> None:
+    """Emit any management alerts due for one live VIX.1 position.
+
+    `row` is the trading_signals row; `bars` are 1M candles covering the trade. Only runs for a
+    signal that has actually FILLED (triggered_at set) — a pending stop order has no position to
+    manage, and alerting on one would be advice about a trade that does not exist.
+    """
+    if (row.strategy or "") != "vix1" or row.triggered_at is None:
+        return
+    entry = float(row.entry_price or 0)
+    sl0   = float(row.stop_loss or 0)
+    if entry <= 0 or sl0 <= 0:
+        return
+    buy = row.type == Direction.BUY.value
+
+    since = [c for c in bars if c.time >= row.triggered_at.timestamp()][-_MAX_BARS:]
+    if len(since) < 3:
+        return
+
+    st = run(entry, sl0, buy, since)
+    d  = price_digits(row.symbol)
+
+    # 1) ratchet steps — one alert per NEW locked level, deduped so a level is announced once
+    for reached_r, locked_r in st.events:
+        key = f"vix1_mgmt_{row.id}_lock{locked_r:.1f}"
+        if delivery_ledger.is_delivered(key):
+            continue
+        stop = entry + locked_r * abs(entry - sl0) if buy else entry - locked_r * abs(entry - sl0)
+        sig = _alert(
+            row.symbol, buy,
+            f"🔒 +{reached_r:.1f}R reached — move your stop to +{locked_r:.0f}R "
+            f"({stop:.{d}f}). Locking {locked_r:.0f}R and staying in while price runs.",
+            f"VIX.1 MANAGE — {row.symbol} {'BUY' if buy else 'SELL'}: stop to +{locked_r:.0f}R",
+            key,
+        )
+        await event_bus.emit(event_bus.SIGNAL_ALERT, sig)
+        log.info(f"[vix1-manage] {row.symbol} ratchet {reached_r:.2f}R -> lock {locked_r:.1f}R")
+
+    # 2) the exit — structure turned against the trade (the trailing stop itself is handled by the
+    #    monitor's own SL check, which already reads the amended stop)
+    if st.exited and st.exit_why == "structure":
+        key = f"vix1_mgmt_{row.id}_exit"
+        if not delivery_ledger.is_delivered(key):
+            sig = _alert(
+                row.symbol, buy,
+                f"🚪 1M STRUCTURE CHANGED at +{st.exit_r:.1f}R — close it. Price closed through the "
+                f"last 1M swing against the trade, which is the exit condition for the ratchet.",
+                f"VIX.1 MANAGE — {row.symbol} {'BUY' if buy else 'SELL'}: structure exit "
+                f"at +{st.exit_r:.1f}R",
+                key,
+            )
+            await event_bus.emit(event_bus.SIGNAL_ALERT, sig)
+            log.info(f"[vix1-manage] {row.symbol} structure exit at {st.exit_r:.2f}R")
