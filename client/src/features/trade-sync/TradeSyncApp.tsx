@@ -1,4 +1,4 @@
-import { CT_STYLES } from "./styles";
+import "./styles/install";   // installs the stylesheet + fonts into <head> BEFORE first paint
 import { useTradeSync } from "./hooks/useTradeSync";
 import { Toast } from "./components/Toast";
 import { AppHeader } from "./sections/AppHeader";
@@ -33,8 +33,6 @@ export function TradeSyncApp({ panel = false }: TradeSyncAppProps = {}) {
 
   return (
     <div className={`ct-app ${panel ? "ct-panel" : ""} ${theme === "dark" ? "theme-dark" : ""}`}>
-      <style>{CT_STYLES}</style>
-
       <AppHeader ts={ts} />
       {(helpOpen || accountOpen) && <div className="fixed inset-0 z-30" onClick={closeMenus} />}
 

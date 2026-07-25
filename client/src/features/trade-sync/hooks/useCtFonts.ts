@@ -1,24 +1,13 @@
-import { useEffect } from "react";
-
-const FONT_HREFS = [
-  "https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&display=swap",
-  "https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap",
-  "https://fonts.googleapis.com/icon?family=Material+Icons",
-];
+import { installCtStyles } from "../styles/install";
 
 /**
- * Loads this UI's own faces (Playfair Display, DM Mono) and the Material Icons ligature font,
- * and removes them again on unmount so nothing is left behind in the host app's <head>.
+ * Ensures this UI's stylesheet + fonts are in <head>.
+ *
+ * The real work happens at IMPORT time (styles/install runs its side effect immediately), which is
+ * the whole point: doing it in a useEffect meant the first paint had no type scale and every
+ * heading flashed at the browser default size before snapping down. This function stays as the
+ * public entry point the landing page calls, and is now a no-op after the first install.
  */
 export function useCtFonts(): void {
-  useEffect(() => {
-    const created = FONT_HREFS.map((href) => {
-      const el = document.createElement("link");
-      el.rel = "stylesheet";
-      el.href = href;
-      document.head.appendChild(el);
-      return el;
-    });
-    return () => created.forEach((el) => el.remove());
-  }, []);
+  installCtStyles();
 }

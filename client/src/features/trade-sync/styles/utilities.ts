@@ -52,14 +52,27 @@ export const CT_UTILITIES = `
 .ct-app .rounded-xl{border-radius:var(--radius-lg)}
 .ct-app .rounded-full{border-radius:var(--radius-full)}
 
-/* type scale --------------------------------------------------------*/
-.ct-app .font-label-xs{font-family:'Playfair Display',serif;font-size:9px;line-height:12px;letter-spacing:.08em;font-weight:500}
-.ct-app .font-label-sm{font-family:'Playfair Display',serif;font-size:11px;line-height:14px;letter-spacing:.05em;font-weight:500}
-.ct-app .font-body-md{font-family:'Playfair Display',serif;font-size:12px;line-height:17px;font-weight:400}
-.ct-app .font-body-lg{font-family:'Playfair Display',serif;font-size:14px;line-height:20px;font-weight:400}
-.ct-app .font-headline-md{font-family:'Playfair Display',serif;font-size:16px;line-height:22px;font-weight:600}
-.ct-app .font-headline-lg{font-family:'Playfair Display',serif;font-size:26px;line-height:32px;letter-spacing:-.02em;font-weight:700}
-.ct-app .font-dm-mono{font-family:'DM Mono',monospace}
+/* type scale --------------------------------------------------------
+   Fallback is Georgia, NOT the bare serif default: Georgia's metrics are far closer to Playfair
+   Display, so the one frame before the webfont arrives does not visibly resize the layout. */
+.ct-app .font-label-xs{font-family:'Playfair Display',Georgia,serif;font-size:9px;line-height:12px;letter-spacing:.08em;font-weight:500}
+.ct-app .font-label-sm{font-family:'Playfair Display',Georgia,serif;font-size:11px;line-height:14px;letter-spacing:.05em;font-weight:500}
+.ct-app .font-body-md{font-family:'Playfair Display',Georgia,serif;font-size:12px;line-height:17px;font-weight:400}
+.ct-app .font-body-lg{font-family:'Playfair Display',Georgia,serif;font-size:14px;line-height:20px;font-weight:400}
+.ct-app .font-headline-md{font-family:'Playfair Display',Georgia,serif;font-size:16px;line-height:22px;font-weight:600}
+.ct-app .font-headline-lg{font-family:'Playfair Display',Georgia,serif;font-size:26px;line-height:32px;letter-spacing:-.02em;font-weight:700}
+
+/* NUMBERS — Playfair too (user, 2026-07-25). The class name is historical: it used to load DM Mono
+   and is applied at ~27 call sites, so it is repointed rather than renamed everywhere. DM Mono is
+   no longer requested at all (styles/install.ts).
+
+   MEASURED, do not assume otherwise: Google's Playfair Display has NO tnum feature — its figures
+   are PROPORTIONAL. Verified in a browser against the real stylesheet: at 16px "1111111111" is
+   59px wide and "0000000000" is 96px. The tabular-nums request below is therefore INERT today; it
+   is kept only so the font shipping tnum later fixes this for free. The practical consequence is
+   that digits do not sit on a fixed grid, so number cells must stay RIGHT-ALIGNED (they are) —
+   right alignment plus a fixed 2-decimal format keeps the decimal points lined up regardless. */
+.ct-app .font-dm-mono{font-family:'Playfair Display',Georgia,serif;font-variant-numeric:tabular-nums}
 
 /* hidden scrollbars (content stays scrollable) ----------------------*/
 .ct-hide-scrollbar{scrollbar-width:none;-ms-overflow-style:none;overflow-x:hidden}
