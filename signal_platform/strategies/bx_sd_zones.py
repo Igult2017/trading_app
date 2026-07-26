@@ -52,6 +52,7 @@ class Zone:
     origin_index: int      # the zone candle (last before the IFC)
     ifc_index:    int      # the FVG that validates it
     mitigated:    bool = False
+    kind:         str = "institutional"   # which BOOK technique marked it — see mark_zone
 
 
 def find_fvgs(candles: list[Candle]) -> list[FVG]:
@@ -85,6 +86,64 @@ def _wick_zone(candles: list[Candle], ifc: int, bull: bool) -> tuple[float, floa
     elif imp.high >= zc.high and imp.high > body_hi:     # upper wick swept the whole prior candle
         return imp.high, body_hi
     return None
+
+
+def is_engulfed(candles: list[Candle], zi: int) -> bool:
+    """p72 — the book's preferred zone: the candle to the RIGHT closes beyond the zone candle's WICK.
+
+    > "Personally for me when picking the areas of supply and demand I like the candle to be
+    >  engulfed. What I mean by this is the next candle to the right has to close above the wick of a
+    >  bullish candle and below the wick of a bearish candle."
+
+    Not a filter — the book explicitly marks HTF zones "even if they aren't engulfed" and only then
+    cycles timeframes hunting an engulfed one. So this TAGS the better zone rather than dropping the
+    others, and the tag is what a confluence/grade step can reward.
+    """
+    if zi < 0 or zi + 1 >= len(candles):
+        return False
+    z, nxt = candles[zi], candles[zi + 1]
+    return nxt.close > z.high if z.close >= z.open else nxt.close < z.low
+
+
+def mark_institutional(candle: Candle, bull: bool) -> tuple[float, float]:
+    """Ch.4 p17 — the INSTITUTIONAL CANDLE, marked the book's way.
+
+    > "We will then place a horizontal ray and note on the line: the timeframe the candle formed, if
+    >  it is Bullish/bearish candle, then illustrate the OPEN of the candle and the MIDDLE; the
+    >  middle of the candle we will caption MTH (stand for 'mean threshold')."
+
+    So the marked band is OPEN → MTH, not high → low. That distinction is not cosmetic: a candle with
+    a long wick marked high-to-low is far wider, so it reads as TAPPED much earlier and carries a
+    stop much further away than the book's zone. The code marked high/low until 2026-07-26.
+
+    MTH is the midpoint of the WHOLE candle (high..low) — the "mean threshold" of the candle, which
+    is what the book captions — and the zone runs from the open to it, ordered so `top >= bottom`.
+    """
+    mth = (candle.high + candle.low) / 2.0
+    top, bottom = max(candle.open, mth), min(candle.open, mth)
+    return top, bottom
+
+
+def mark_zone(candles: list[Candle], ifc: int, bull: bool) -> tuple[float, float, int, str]:
+    """(top, bottom, origin_index, kind) — the right BOOK technique for THIS zone.
+
+    The book does not have one way of marking a zone; it has several, chosen by what kind of zone is
+    in front of you. Dispatch, in the order the book resolves them:
+
+      wick          p33-35 — the impulse candle's own wick swept the prior candle, so that candle is
+                    dead and "orders are sitting on THIS WICK". Checked FIRST: when it applies, the
+                    ordinary zone candle has no orders left to mark.
+      engulfed      p72    — the next candle closed beyond the zone candle's wick. Same geometry as
+                    institutional, tagged as the stronger zone.
+      institutional Ch.4   — the default: the candle before the IFC, any colour (p29), marked
+                    open → MTH.
+    """
+    wick = _wick_zone(candles, ifc, bull)
+    if wick is not None:
+        return wick[0], wick[1], ifc, "wick"
+    zi = ifc - 1
+    top, bottom = mark_institutional(candles[zi], bull)
+    return top, bottom, zi, ("engulfed" if is_engulfed(candles, zi) else "institutional")
 
 
 def _is_mitigated(candles: list[Candle], after: int, direction: str, top: float, bottom: float) -> bool:
@@ -142,14 +201,8 @@ def find_zones(candles: list[Candle]) -> list[Zone]:
             continue
         bull      = fvg.direction == "bull"
         direction = "demand" if bull else "supply"
-        wick      = _wick_zone(closed, fvg.index, bull)
-        if wick is not None:
-            top, bottom = wick              # p33-35: the prior candle is mitigated; orders rest here
-            origin = fvg.index
-        else:
-            z = closed[zi]
-            top, bottom = z.high, z.low     # p29: the last candle before the IFC, any colour
-            origin = zi
+        # TYPE-AWARE MARKING — the book has several techniques and picks by zone type (mark_zone).
+        top, bottom, origin, kind = mark_zone(closed, fvg.index, bull)
         zones.append(Zone(
             direction    = direction,
             top          = top,
@@ -158,9 +211,30 @@ def find_zones(candles: list[Candle]) -> list[Zone]:
             distal       = bottom if bull else top,     # SL edge is the far side
             eq50         = (top + bottom) / 2.0,
             origin_index = origin,
+            kind         = kind,
             ifc_index    = fvg.index,
             mitigated    = _is_mitigated(candles, fvg.index, direction, top, bottom),
         ))
     return zones
 
 
+
+
+def wick_dominant(candle: Candle) -> bool:
+    """p50-51 — the book's EQUILIBRIUM-entry test, and it is about the candle's SHAPE.
+
+    > "I use 50% entry if the WICK of the candle is bigger than the 50% of the WHOLE candle."
+    > (worked example, p51: "the wick is 66% of the whole candle. In this case I use 50% of the
+    >  candle for the limit.")
+
+    So: total wick > half the candle's range -> enter at the 50% (MTH) instead of the proximal edge.
+    The code used `zone width > 2 pips` instead — an unrelated size threshold that happens to
+    correlate with wickiness and is not the book's rule. A 40-pip clean marubozu would take the 50%
+    entry it should not, and a 1.5-pip candle that is nearly all wick would not take the 50% entry it
+    should.
+    """
+    rng = candle.high - candle.low
+    if rng <= 0:
+        return False
+    body = abs(candle.close - candle.open)
+    return (rng - body) > 0.5 * rng

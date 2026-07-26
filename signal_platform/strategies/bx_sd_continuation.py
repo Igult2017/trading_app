@@ -7,7 +7,7 @@ a trend-direction BOS (the continuation itself) or an S/D flip — NOT the rever
 needs. Entry off the FVG (or 50% equilibrium), SL ~<=2 pip beyond it, TP = opposite zone / fib, >=2R.
 """
 from core.types import Candle
-from strategies.bx_sd_zones import Zone
+from strategies.bx_sd_zones import wick_dominant, Zone
 from strategies.bx_sd_structure import map_structure
 from strategies.bx_sd_ltf import LTFConfluence
 from strategies.bx_sd_entry import _flip_ok, _rr, _tp_candidates, EntryTrigger
@@ -46,7 +46,8 @@ def confirm_continuation(fvg: Zone, zone: Zone, h4: list[Candle], m5: list[Candl
     for entry_tf, label in ((m5, "5M"), (m1, "1M")):
         if len(entry_tf) < 20 or not _continues(entry_tf, want):
             continue
-        use_eq50 = (fvg.top - fvg.bottom) / pip > 2.0
+        # Same book rule as the main entry (p50-51): the zone CANDLE'S shape decides, not size.
+        use_eq50 = wick_dominant(h4[fvg.origin_index]) if 0 <= fvg.origin_index < len(h4) else False
         entry = fvg.eq50 if use_eq50 else fvg.proximal
         sl    = fvg.distal - 2 * pip if buy else fvg.distal + 2 * pip
         tp = next((c for c in _tp_candidates(setup, h4, entry, buy, pip, session_candles=finer)

@@ -53,6 +53,36 @@ If the impulse candle's own wick traded back **through** the candle before it, t
 its orders were mitigated in flight. The zone becomes **the impulse candle's wick**. Marking the body
 puts a limit at a level price has already swept.
 
+### ZONE MARKING IS TYPE-AWARE — one technique per zone type (2026-07-26)
+
+The book does not have one way to mark a zone; it has several, chosen by what kind of zone is in
+front of you. `bx_sd_zones.mark_zone` dispatches, and every zone carries the `kind` that marked it.
+
+| kind | technique | book |
+|---|---|---|
+| `wick` | the impulse candle's own wick — checked FIRST, because when it applies the prior candle has no orders left to mark | p33-35 |
+| `engulfed` | same geometry as institutional, TAGGED: the next candle closed beyond the zone candle's wick | p72 |
+| `institutional` | the default — the candle before the IFC, any colour, marked **OPEN → MTH** | Ch.4 p17, p29 |
+
+> p17: *"illustrate the **open of the candle** and the **middle**; the middle of the candle we will
+> caption **MTH** (stand for 'mean threshold')."*
+
+**It marked high→low until 2026-07-26**, which is not what the book says and is not cosmetic: a
+long-wicked candle marked high-to-low is far wider, so it reads as TAPPED much earlier and carries a
+stop much further away. Measured over 6,719 H4 bars per pair: median zone width **27.7p → 7.9p**
+(GBP/USD) and **21.6p → 6.1p** (EUR/USD), zone count essentially unchanged (1399→1397, 1443→1441),
+taps down ~1%. The `engulfed` tag lands on ~63% of non-wick zones, so the book's preferred zone is
+the common case, not a rarity.
+
+**EQUILIBRIUM ENTRY IS A SHAPE TEST, NOT A SIZE TEST.**
+> p50-51: *"I use 50% entry if the **WICK of the candle is bigger than the 50% of the WHOLE
+> candle**."* (worked example p51: *"the wick is 66% of the whole candle. In this case I use 50% of
+> the candle for the limit."*)
+
+`bx_sd_zones.wick_dominant`. This was `zone width > 2 pips` until 2026-07-26 — an unrelated
+threshold that only correlates with wickiness. It took the 50% entry on a wide clean candle that
+should use the proximal edge, and refused it on a narrow all-wick candle that should use 50%.
+
 ### Mitigated / unmitigated (p27)
 > "When price taps into a d/s zone, that has not been tapped yet, it becomes mitigated from unmitigated."
 

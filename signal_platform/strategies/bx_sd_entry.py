@@ -19,7 +19,7 @@ from dataclasses import dataclass, field
 
 from core.types import Candle
 from shared.swing_points import find_swing_points
-from strategies.bx_sd_zones import find_zones
+from strategies.bx_sd_zones import wick_dominant, find_zones
 from strategies.bx_sd_validity import valid_zones
 from strategies.bx_sd_liquidity import find_liquidity, is_swept
 from strategies.bx_sd_ltf import find_ltf_choch, _choch_valid, refine_zone, LTFConfluence
@@ -113,9 +113,13 @@ def entry_trigger(conf: LTFConfluence, setup: SetupResult, entry_tf: list[Candle
     # This is what lets a bare-C setup (no analysis-TF refinement) still fit a ~2-pip SL and clear RR.
     z = refine_zone(entry_tf, zdir, z, pip) or z
 
-    # entry: proximal when the zone already fits a 2-pip SL, else the 50% EQUILIBRIUM (book: use 50%
-    # when a max-2-pip SL can't cover the whole zone) so the SL stays ~<= 2 pip.
-    use_eq50 = (z.top - z.bottom) / pip > 2.0
+    # ENTRY: proximal edge, or the 50% EQUILIBRIUM (MTH) — and the book decides by the ZONE
+    # CANDLE'S SHAPE, not by the zone's size: "I use 50% entry if the WICK of the candle is bigger
+    # than the 50% of the WHOLE candle" (p50-51). This was `zone width > 2 pips` until 2026-07-26,
+    # an unrelated threshold that only correlates with wickiness — it took the 50% entry on a wide
+    # clean candle that should use the proximal edge, and refused it on a narrow all-wick candle
+    # that should use 50%.
+    use_eq50 = wick_dominant(h4[z.origin_index]) if 0 <= z.origin_index < len(h4) else False
     entry = z.eq50 if use_eq50 else z.proximal
     sl    = z.distal - 2 * pip if buy else z.distal + 2 * pip
     r.entry, r.sl = entry, sl
