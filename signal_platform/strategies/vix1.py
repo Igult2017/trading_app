@@ -160,17 +160,15 @@ class Vix1Strategy(BaseStrategy):
                 continue
             entry, sl = s["entry"], s["sl"]
             risk = abs(entry - sl)
-            late = bool(s.get("late"))
-            # TP: normally 2R from the entry. On a LATE entry the price is worse, so the target stays
-            # where the ORIGINAL move was aiming (2R measured from the 1HR line, which the late entry
-            # has already eaten into) and the RR is reported as whatever actually remains — >= 1R by
-            # the entry gate. Never advertise 2R on a trade that can no longer deliver it.
-            if late and s.get("ideal_tp") is not None:
-                tp = s["ideal_tp"]
-                rr = (abs(tp - entry) / risk) if risk > 0 else 0.0
-            else:
-                tp = entry + 2.0 * risk if bullish else entry - 2.0 * risk
-                rr = 2.0
+            # TP is 2R from the entry — the two-1HR-candle move ("2 candles of 1HR gives me 2R").
+            # There used to be a LATE branch here that retargeted to where the original move was
+            # aiming. It is gone with the late path itself (vix1_entry, 2026-07-26): that path was
+            # provably unreachable, because the stop sits behind the line and the entry past it, so
+            # more than 1R to the original target is structurally guaranteed. `late` is now always
+            # False and its keys are kept only so this card and the DB row need no schema change.
+            late = False
+            tp = entry + 2.0 * risk if bullish else entry - 2.0 * risk
+            rr = 2.0
             # One entry per setup, so it is SAVED (AssetPage + DM + TP/SL monitoring) and holds the
             # single symbol:direction reservation the validator/monitor/DB invariant assumes.
             # `vix1`, NOT `vix1_watch`: the _watch suffix is what the dispatcher reads to mean

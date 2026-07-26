@@ -18,19 +18,19 @@ The line is what answers "is the 1M with us?" — not swing structure. A spike-a
 hour never prints the two highs and two lows a trend read needs, so structure said "not aligned" in
 every long-wick case and real entries were thrown away.
 
-Two lines come off candle 1 (vix1_lines), with SEPARATE jobs — do not merge them:
-  LINE 1 GATES THE ENTRY — price must have TRADED past it (vix1_pullback.traded_past), and the
-         pullback is measured against it.
-  LINE 2 DECIDES WHICH SIDE we are on, and adjusts the stop. It is the tolerance band: an opposite
-         move is allowed to push past line 1 and reverse at line 2, so no fifth decimal decides
-         alignment. It is also one region of interest among several, not the stop by right.
-(This docstring used to credit line 1 with the alignment decision, which is what the code and the
-settled rules have never done — corrected so nobody "fixes" the comparison to match the prose.)
+ONE LINE comes off candle 1 (vix1_lines) — its body close — and it does every job:
+  it DECIDES WHICH SIDE we are on, it GATES the entry (price must have TRADED past it,
+  vix1_pullback.traded_past), the pullback must sit wholly past it, and the stop must sit behind it.
+(A second "wick line" shared those jobs until 2026-07-26. It was never the user's rule and it is
+deleted — vix1_lines carries the post-mortem. This docstring described it as settled fact, which is
+exactly how an invention survives review; do not reintroduce it in prose or in code.)
 
 The SL is the nearest 1M REGION OF INTEREST beyond the pullback (vix1_roi) — where price would go
-against us in the worst case. Never a pip count: the floor is structural (clear the pullback candle
-itself), the ceiling is one 1HR candle's range, because "2 candles of 1HR gives 2R" makes one candle
-1R. TP = 2R, which is that same two-candle move; "or more" is the Phase 3 trailing stop.
+against us in the worst case — and it may NEVER rest past the line: a stop between the entry and the
+line can be hit while price is still on the winning side of the level the setup is built on. When
+the nearest region falls short of the line, the stop is pushed to the line plus a derived gap.
+Never a pip count anywhere: the floor is the 1M's own recent range, the ceiling is one 1HR candle's
+range, because "2 candles of 1HR gives 2R" makes one candle 1R. TP = 2R, that same two-candle move.
 """
 import logging
 
@@ -49,40 +49,9 @@ _SL_GAP_MULT     = 0.5 # when the stop has to be pushed behind the line, it goes
                        # 1M's recent average RANGE beyond it. DERIVED, not a pip count. His
                        # setup 1: a 2.6p gap against a 4.3p 1M average range = 0.60x.
 _GAP_AVG_N       = 14  # bars of 1M for that average — the platform's usual baseline
-_MIN_SL_ROOM     = 5   # pips — the SL needs ROOM so normal noise cannot wick us out of a good trade.
-                       # If the nearest region gives less, push the stop out to this floor (still
-                       # capped at one 1HR candle). "Enough room to be filled or left out" (user).
-_LATE_MIN_RR     = 1.0 # a pullback past the allowed distance is a WORSE price, not a dead setup: it
-                       # still ships if at least 1R remains (user 2026-07-25: "when the signal goes
-                       # too far and we can still get 1R, send it"). Normal entries keep needing 2R.
-
-# HOW FAR THE PULLBACK MAY SIT FROM LINE 1 — DYNAMIC, never a pip count (user 2026-07-25: "make this
-# dynamic. If you hardcode it wont work because the market is not perfect"). This REPLACED a hardcoded
-# 7-pip limit that rejected 3 of the user's 22 real setups (pullbacks at 7.7p / 10.1p / 12.7p).
-#
-# THE YARDSTICK IS THE MOMENTUM CANDLE'S OWN HEIGHT — and that is a DELIBERATE correction of the
-# literal instruction ("height of the 1HR candle that comes AFTER the first volume candle"), because
-# the literal version is geometrically VACUOUS. Proof: the candle after the momentum candle is the
-# hour the pullback happens in, so the pullback's distance from the line and that candle's height are
-# measured over THE SAME BARS. The line sits at the window's start, and the pullback's extreme lies
-# inside the window, so distance <= window range ALWAYS — the flag could never fire, at any threshold.
-# Verified numerically on all 19 reconstructable setups: 0 flagged under that reading, and no
-# threshold changes it. The same bound defeats every variant (distance past the line, retrace depth).
-#
-# The momentum candle's height keeps everything the user actually wanted — it is dynamic (it IS the
-# current 1HR volatility), it needs no lookahead, and it cannot drift because that candle is closed —
-# while being a DIFFERENT candle from the one the pullback forms in, so the comparison is real.
-# Measured on the real setups: pullbacks sit a median 6% and a MAX 35% of the momentum candle's
-# height from the line, so a full-height allowance clears every genuine entry with wide margin and
-# only fires when price has run an entire momentum-candle's worth away from the recommended price.
-_LATE_MULT = 1.0   # allowance = this x the momentum candle's height
-
-
-def _allowed_offset(vc: Candle, pip: float) -> float:
-    """The dynamic allowance: the momentum candle's own height (high-low). Floored at 1 pip so a
-    degenerate flat candle cannot make the allowance zero and reject everything."""
-    return max(1.0 * pip, _LATE_MULT * (vc.high - vc.low))
-
+_MIN_ROOM_MULT   = 1.0 # the SL floor, as a multiple of the 1M's recent average RANGE — the noise it
+                       # has to survive. DERIVED, replacing a flat 5-pip count on 2026-07-26.
+                       # "Enough room to be filled or left out" (user).
 
 def m1_signals(m1: list[Candle], bullish: bool, vc: Candle,
                pip: float = 0.0001, symbol: str = "") -> list[dict]:
@@ -152,17 +121,17 @@ def m1_signals(m1: list[Candle], bullish: bool, vc: Candle,
     # make sure any pullback is past the 1HR line." Measured on Jan-Jun 2021 before the fix, 53% of
     # the pullbacks the code anchored on were not fully past the line.
 
-    # HOW FAR FROM THE LINE — the DYNAMIC allowance (see _allowed_offset): the height so far of the
-    # 1HR candle following the momentum candle. Beyond it the price is WORSE, not invalid, so the
-    # setup is not dropped — it is flagged `late` and must still clear _LATE_MIN_RR below.
-    near    = pb.low if bullish else pb.high
-    off     = abs(near - line)
-    allowed = _allowed_offset(vc, pip)
-    late    = off > allowed
-    if late:
-        log.info(f"[vix1] {symbol} 1M: pullback formed {off/pip:.1f}p from the line vs an allowance of "
-                 f"{allowed/pip:.1f}p (the momentum candle's height) — PAST the recommended "
-                 f"entry price; will ship only if >= {_LATE_MIN_RR:.0f}R remains")
+    # NO "LATE ENTRY" PATH — DELETED 2026-07-26, it was provably unreachable. It flagged a pullback
+    # sitting further from the line than the momentum candle's own height and then required >= 1R of
+    # the original move to remain. Both halves are dead:
+    #   * the flag: real pullbacks sit at a median 30% and a MAX 96% of that height, so a 100%
+    #     allowance can never fire — the same geometric vacuity this file already documents for the
+    #     literal reading of the rule, reintroduced by choosing a 1.00x multiplier.
+    #   * the guard it protected: with d = entry's distance past the line and gap = stop's distance
+    #     BEHIND it, risk = d + gap, and remaining = 2*risk - d. So remaining >= 1R reduces to
+    #     gap >= 0, which the stop-behind-the-line invariant guarantees. Measured max d/risk = 0.99.
+    # It is therefore redundant as well as unreachable: more than 1R to the original target is
+    # structurally assured. Do not re-add it without first breaking one of those two invariants.
 
     lvl   = pb.high if bullish else pb.low          # the trend side — the stop goes just beyond it
     entry = lvl + _ENTRY_BUFFER * pip if bullish else lvl - _ENTRY_BUFFER * pip
@@ -205,9 +174,9 @@ def m1_signals(m1: list[Candle], bullish: bool, vc: Candle,
     # to the line plus a derived gap. The gap is the 1M's own recent range — the noise a stop has to
     # survive — never a pip count.
     # >= / <= on purpose: a stop resting EXACTLY on the line is stopped out by a touch of it.
+    m1_rng = (sum(full_range(c) for c in wcl[-_GAP_AVG_N:]) / min(len(wcl), _GAP_AVG_N)) if wcl else 0.0
     wrong_side = (sl >= line) if bullish else (sl <= line)
     if wrong_side:
-        m1_rng = (sum(full_range(c) for c in wcl[-_GAP_AVG_N:]) / min(len(wcl), _GAP_AVG_N)) if wcl else 0.0
         gap    = max(_SL_GAP_MULT * m1_rng, pip)
         sl     = line - gap if bullish else line + gap
         risk   = abs(entry - sl)
@@ -217,18 +186,22 @@ def m1_signals(m1: list[Candle], bullish: bool, vc: Candle,
                      f"is {risk/pip:.1f}p, wider than one 1HR candle ({max_risk/pip:.0f}p); skipping")
             return []
 
-    # SL ROOM — a stop tighter than _MIN_SL_ROOM gets wicked out of a trade that then runs our way.
-    # Push it out to the floor (still never beyond one 1HR candle); if even the floor won't fit, the
-    # setup has no honest room and we skip it rather than take a stop that noise will hunt.
-    if risk < _MIN_SL_ROOM * pip:
-        want = _MIN_SL_ROOM * pip
-        if want > max_risk:
-            log.info(f"[vix1] {symbol} 1M: nearest region gives only {risk/pip:.1f}p and one 1HR "
-                     f"candle is {max_risk/pip:.0f}p — no room for a {_MIN_SL_ROOM}p stop; skipping")
+    # SL ROOM — a stop too tight gets wicked out of a trade that then runs our way. The floor is the
+    # NOISE the stop has to survive, so it is measured in the 1M's own recent range, never in pips
+    # ("make this dynamic. If you hardcode it wont work because the market is not perfect"). It was a
+    # flat 5 pips until 2026-07-26 — an invented number that fired on 9.7% of signals and pinned them
+    # all to the same risk whatever the market was doing. Push out to the floor (never beyond one 1HR
+    # candle); if even that will not fit, the setup has no honest room and we skip it.
+    room = max(_MIN_ROOM_MULT * m1_rng, pip)
+    if risk < room:
+        if room > max_risk:
+            log.info(f"[vix1] {symbol} 1M: the region gives only {risk/pip:.1f}p, the 1M needs "
+                     f"{room/pip:.1f}p of room and one 1HR candle is {max_risk/pip:.0f}p — no honest "
+                     f"stop fits; skipping")
             return []
-        sl   = entry - want if bullish else entry + want
-        risk = want
-        sl_note = f"{_MIN_SL_ROOM:.0f}p (min room; nearest region was tighter)"
+        sl   = entry - room if bullish else entry + room
+        risk = room
+        sl_note = f"{room/pip:.1f}p (min room = {_MIN_ROOM_MULT:.1f}x the 1M's recent range)"
 
     # The stop must still be UNFILLED — strictly beyond price in the trend direction. If the pullback
     # is already taken out, an order there is a LIMIT filling INTO the move: the inverse of this entry.
@@ -238,28 +211,10 @@ def m1_signals(m1: list[Candle], bullish: bool, vc: Candle,
                  f"vs stop {entry:.{digits}f}) — a stop there would fill into the move; entry gone")
         return []
 
-    # A LATE entry (pullback past the dynamic allowance) is a worse PRICE, so the 2R target may no
-    # longer sit where the move can reach. It ships only while at least 1R of the original move is
-    # still ahead of it: the distance from the entry to where the 2R target WOULD have been, measured
-    # from the line (the untainted reference), must still be >= _LATE_MIN_RR x risk.
-    if late:
-        ideal_tp  = line + 2.0 * risk if bullish else line - 2.0 * risk
-        remaining = (ideal_tp - entry) if bullish else (entry - ideal_tp)
-        if remaining < _LATE_MIN_RR * risk:
-            log.info(f"[vix1] {symbol} 1M: late entry at {entry:.{digits}f} leaves only "
-                     f"{remaining/risk if risk else 0:.2f}R to the original target — under "
-                     f"{_LATE_MIN_RR:.0f}R; skipping")
-            return []
-
-    log.info(f"[vix1] {symbol} 1M PULLBACK entry ({kind} path{', LATE' if late else ''}) — "
+    log.info(f"[vix1] {symbol} 1M PULLBACK entry ({kind} path) — "
              f"{'BUY' if bullish else 'SELL'} stop {entry:.{digits}f} SL {sl:.{digits}f} "
              f"({sl_note}; line {line:.{digits}f})")
+    # `late` / `ideal_tp` / `late_note` are kept in the payload as constants so downstream readers
+    # (vix1.py's card, the DB row) need no change; the path that could set them is gone, see above.
     return [{"kind": kind, "entry": round(entry, digits), "sl": round(sl, digits),
-             "sl_note": sl_note, "late": late,
-             # where the move was ORIGINALLY aiming (2R off the line) — the honest target for a late
-             # entry, so the card reports the reward that actually remains instead of a fictional 2R
-             "ideal_tp": round(line + 2.0 * risk if bullish else line - 2.0 * risk, digits) if late else None,
-             "late_note": (f"⚠️ price has gone PAST the recommended entry price — the pullback formed "
-                           f"{off/pip:.1f} pips from the 1HR line (allowance {allowed/pip:.1f}p). "
-                           f"Reduced reward: at least {_LATE_MIN_RR:.0f}R remains, not the usual 2R.")
-                          if late else ""}]
+             "sl_note": sl_note, "late": False, "ideal_tp": None, "late_note": ""}]
