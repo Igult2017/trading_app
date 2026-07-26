@@ -33,6 +33,7 @@ Never a pip count anywhere: the floor is the 1M's own recent range, the ceiling 
 range, because "2 candles of 1HR gives 2R" makes one candle 1R. TP = 2R, that same two-candle move.
 """
 import logging
+import math
 
 from core.types import Candle
 from shared.candle_math import full_range
@@ -62,7 +63,14 @@ def m1_signals(m1: list[Candle], bullish: bool, vc: Candle,
     """
     if not m1:
         return []
-    digits = 5 if pip < 0.005 else 3
+    # PRICE PRECISION — derived EXACTLY from the pip, never guessed. cTrader's convention is
+    # pip = 10^-(pipDigits-1), so pipDigits = 1 - log10(pip); that inverts it with no symbol lookup,
+    # so a harness passing an odd symbol string cannot silently pick the wrong precision.
+    # This was `5 if pip < 0.005 else 3` until 2026-07-26 — right for 5-digit FX and for
+    # JPY/XAU/XAG, WRONG for oil and crypto (2, we said 3) and for indices (1, we said 3). Same
+    # class of bug as the one already fixed in shared/pip.py, and latent for the same reason:
+    # VIX.1 trades EUR/USD and GBP/USD, which the guess happens to get right.
+    digits = max(0, round(1.0 - math.log10(pip))) if pip > 0 else 5
     hr     = seconds(vc.timeframe)
     line   = draw_line(vc)             # THE line — the momentum candle's body close
     win    = [c for c in m1 if c.time >= vc.time + hr]     # only price action since the line was set

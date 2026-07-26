@@ -68,15 +68,28 @@ async def _check_signal(row) -> None:
     buy    = row.type == Direction.BUY.value
     loop   = asyncio.get_running_loop()
 
-    # PENDING phase — the entry order has not filled yet. "Touched" = the bar CONTAINS the entry
-    # level: a fill happens when price actually TRADES AT the level, and that containment test is
-    # correct for BOTH order styles — VIX.1's stop entries (price comes up through the level) and
-    # BX's limit entries (price comes back down to it). The old one-sided test (hi >= entry for a
-    # BUY) was trivially true for a limit BUY sitting below market, so every BX signal read as
-    # instantly filled and the pending protection never applied to it.
+    # PENDING phase — the entry order has not filled yet, and HOW it fills depends on the ORDER TYPE.
+    #
+    #   STOP entry (VIX.1 — always; vix1_entry rejects any entry already on the near side of price,
+    #     so it is a stop by construction): fills the moment price REACHES the level from the far
+    #     side, and on a GAP it fills at the open, worse. The test is ONE-SIDED — hi >= entry for a
+    #     BUY, lo <= entry for a SELL.
+    #   LIMIT entry (BX — price comes back down/up to a zone): the bar must actually CONTAIN the
+    #     level, because a one-sided test is trivially true for a limit resting the other side of
+    #     market and would read every BX signal as instantly filled.
+    #
+    # A single containment test was used for both until 2026-07-26. It is correct for BX and WRONG
+    # for VIX.1 on any bar that gaps clean past the entry (lo > entry on a BUY): the fill is missed,
+    # the signal stays pending to the 24h expiry and is then recorded as "cancelled, never a loss"
+    # — when in reality it filled and went on to win or lose. Silent, and it drops both outcomes.
     entry = float(row.entry_price) if row.entry_price else None
     if entry is not None and row.triggered_at is None:
-        if not (lo <= entry <= hi):
+        stop_entry = (row.strategy or "").startswith("vix1")
+        if stop_entry:
+            touched = (hi >= entry) if buy else (lo <= entry)
+        else:
+            touched = lo <= entry <= hi
+        if not touched:
             # Entry untouched. If the SL side was taken out first, the order would simply never
             # fill — the setup reversed before entry. CANCEL (expired), never a loss: the trader
             # following the card was never in a trade.
