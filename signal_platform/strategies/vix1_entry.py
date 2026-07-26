@@ -35,6 +35,7 @@ itself), the ceiling is one 1HR candle's range, because "2 candles of 1HR gives 
 import logging
 
 from core.types import Candle
+from shared.candle_math import full_range
 from shared.mtf_utils import seconds
 from strategies.vix1_lines import draw_line
 from strategies.vix1_pullback import find_pullback, traded_past
@@ -44,6 +45,10 @@ from strategies.vix1_roi import regions, sl_from_regions
 log = logging.getLogger(__name__)
 
 _ENTRY_BUFFER    = 1   # pips — the stop sits JUST beyond the pullback, never resting on it
+_SL_GAP_MULT     = 0.5 # when the stop has to be pushed behind the line, it goes this x the
+                       # 1M's recent average RANGE beyond it. DERIVED, not a pip count. His
+                       # setup 1: a 2.6p gap against a 4.3p 1M average range = 0.60x.
+_GAP_AVG_N       = 14  # bars of 1M for that average — the platform's usual baseline
 _MIN_SL_ROOM     = 5   # pips — the SL needs ROOM so normal noise cannot wick us out of a good trade.
                        # If the nearest region gives less, push the stop out to this floor (still
                        # capped at one 1HR candle). "Enough room to be filled or left out" (user).
@@ -182,6 +187,35 @@ def m1_signals(m1: list[Candle], bullish: bool, vc: Candle,
                  f"1HR candle ({max_risk/pip:.0f}p) — no honest place for the stop; skipping")
         return []
     sl, risk, sl_note = got
+
+    # THE STOP MAY NEVER SIT PAST THE LINE. His rule: "I put stop loss abit behind the 1HR line."
+    # Behind means the far side — ABOVE the line on a sell, BELOW it on a buy. A stop on the near
+    # side sits BETWEEN the entry and the line, so the trade can be stopped out while price is still
+    # on the winning side of the level the whole setup is built on.
+    #
+    # REGRESSION, introduced 2026-07-26 and caught the same day. While the stop was anchored to
+    # "line 2" this was guaranteed for free — line 2 always lay beyond line 1, so the stop always
+    # landed behind it (178 of 178 signals). Deleting line 2 removed the guarantee and nothing
+    # replaced it: the region-of-interest stop hunts the NEAREST 1M level beyond the pullback, and
+    # the nearest one is usually still short of the line. Measured immediately after: only 58 of 146
+    # signals kept the stop behind the line, median 0.8 pips on the WRONG side.
+    #
+    # The fix is a FLOOR, not a replacement: a region that already sits behind the line is kept (it
+    # is a level the market drew, which is the point of vix1_roi); one that does not is pushed back
+    # to the line plus a derived gap. The gap is the 1M's own recent range — the noise a stop has to
+    # survive — never a pip count.
+    # >= / <= on purpose: a stop resting EXACTLY on the line is stopped out by a touch of it.
+    wrong_side = (sl >= line) if bullish else (sl <= line)
+    if wrong_side:
+        m1_rng = (sum(full_range(c) for c in wcl[-_GAP_AVG_N:]) / min(len(wcl), _GAP_AVG_N)) if wcl else 0.0
+        gap    = max(_SL_GAP_MULT * m1_rng, pip)
+        sl     = line - gap if bullish else line + gap
+        risk   = abs(entry - sl)
+        sl_note = f"{risk/pip:.1f}p — {gap/pip:.1f}p behind the line ({line:.{digits}f})"
+        if risk > max_risk:
+            log.info(f"[vix1] {symbol} 1M: the nearest region sat PAST the line and a stop behind it "
+                     f"is {risk/pip:.1f}p, wider than one 1HR candle ({max_risk/pip:.0f}p); skipping")
+            return []
 
     # SL ROOM — a stop tighter than _MIN_SL_ROOM gets wicked out of a trade that then runs our way.
     # Push it out to the floor (still never beyond one 1HR candle); if even the floor won't fit, the
