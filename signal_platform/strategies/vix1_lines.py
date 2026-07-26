@@ -1,34 +1,40 @@
 """
-VIX.1 — the 1HR lines, drawn off the FIRST momentum candle.
+VIX.1 — THE line, drawn off the FIRST momentum candle of the 1HR run.
 
-LINE 1 — the BODY CLOSE line, at candle 1's close. THE line. That price is also candle 2's open, so
-         it is the level the whole setup pivots on. It exists to make the 1M accurate: it says where
-         an entry belongs and where it does not, and it is what the 1M is read against.
-LINE 2 — the WICK line, and it has exactly one job: adjusting the STOP. Drawn INSIDE the body, candle
-         1's OPEN wick height off line 1, it marks where we expect an opposite move to reverse if it
-         first pushes past line 1 — so the stop goes beyond it and that move cannot wick us out.
-         It never gates an entry; line 1 does that.
+There is ONE line: the momentum candle's BODY CLOSE. That price is also the next candle's open, so
+it is the level the whole setup pivots on. Its job is to make the 1M accurate — it says where an
+entry belongs and where it does not, and it is what the 1M is read against.
 
-A candle's OPEN wick is the one at the end it opened from: a bull candle opens at the body's bottom
-(so, its lower wick), a bear candle at the top (its upper wick).
+THERE IS NO LINE 2. A second "wick line" (line 1 offset by the momentum candle's open wick) existed
+here until 2026-07-26 and was DELETED. It was never the user's — he uses one line and said so
+plainly ("I dont know where the second line is coming from i dont use second line"; "that line 2 is
+BS. It has no work"). The docs justified it with a quote attributed to him that he has disowned.
 
-Line 2 is INSIDE the body by construction, never merely by luck. The momentum filter requires the
-body to be >= 60% of the candle's range (the graded gate, lowered from 75% on 2026-07-21), so the
-open wick — at most 40% of range in the worst case — is always shorter than the body and line 2
-always lands inside it (the invariant holds for any body >= 50%). The margin is thinner than under
-the old 75% gate (worst-case open-wick/body went from a third to two-thirds), but the stop-adjust
-logic never depended on the margin, only on the invariant. Only the wick AGAINST the move is capped
-(<= 25%, asymmetric on purpose — on a bull candle a lower wick is a dip being bought, not weakness).
-In most cases there is barely a line 2 to speak of — small or no wicks IS the A-grade momentum look,
-so it collapses onto line 1.
+What it actually did, measured over 1,518 real momentum candles before removal:
+  * it decided ALIGNMENT (which side of the market the 1M was on) instead of line 1;
+  * it ANCHORED THE STOP — and this is the damage. Line 2 sat a median 2.0 pips from line 1, so the
+    stop was the open wick plus a pip: a ~3 pip median risk on a pair whose spread is 1-2 pips.
+  * it killed a pullback that retraced beyond it.
+
+The removal is not a preference, it is a correctness fix. On a bear momentum candle the open wick IS
+the counter-wick — the very quantity the momentum filter forces to be tiny (<=25% of range, <=15%
+for an A grade). So line 2 was derived from a number the strategy independently drove toward zero,
+and the stop shrank as the SETUP GOT BETTER: A-grade candles got a 2.2 pip stop, weaker ones 6.5.
+That is backwards, and it is why the reconstruction ran 3-9 pip stops against the user's 15 and why
+nothing survived a 1-pip spread. Do not reintroduce it in any form.
+
+The stop now comes from where he actually puts it — the nearest 1M REGION OF INTEREST beyond the
+pullback (vix1_roi), which is his own rule in his own words and had been sitting orphaned (imported
+but never called) since the line-2 anchor replaced it.
 """
 from core.types import Candle
-from shared.candle_math import is_bullish, upper_wick, lower_wick
 
 
-def draw_lines(vc: Candle) -> tuple[float, float]:
-    """Return (line 1 body-close, line 2 wick) for the first momentum candle. Direction is read off the
-    candle itself — a momentum candle is in the trend direction by definition, so there is nothing to
-    pass in and nothing that can disagree. With no open wick the two lines are equal."""
-    w = lower_wick(vc) if is_bullish(vc) else upper_wick(vc)
-    return vc.close, (vc.close - w if is_bullish(vc) else vc.close + w)
+def draw_line(vc: Candle) -> float:
+    """THE line: the body close of the first momentum candle of the run.
+
+    `vc` must be a CLOSED candle — a level read from the still-forming bar drifts until it closes
+    (the platform-wide levels-closed/triggers-live rule). The caller guarantees this: vix1.analyze
+    passes H1 through `closed_only`, and the backtests slice the same way.
+    """
+    return vc.close

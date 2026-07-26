@@ -58,7 +58,7 @@ uses swing structure — it is a level-break test, which genuinely *is* a pivot 
 Price crossing back over the line does **NOT** mean the idea was wrong. (I assumed "line = where
 we're wrong" twice and built on it twice. It isn't.)
 
-### ONE line — there is no line 2 (corrected 2026-07-26)
+### ONE line — line 2 DELETED FROM THE CODE (2026-07-26)
 | | Where | Job |
 |---|---|---|
 | **THE LINE** | 1st momentum candle's **close** (== candle 2's open) | **gates the entry** — where an entry belongs |
@@ -73,9 +73,35 @@ them at all. Do not re-derive it. The code still computes `wick_line` (`draw_lin
 the SL anchor and the alignment tolerance band — that is **unverified scaffolding, not his method**,
 and it is the next thing to reconcile with him, not to defend.
 
-Measured 2026-07-26: switching the SL anchor between the wick line, the body-close line, the
-momentum candle's extreme and the pullback's extreme changes the 2021 result by at most 5R over 40
-trades and **none of them is profitable** — so the anchor is not where the edge lives either way.
+**DELETED from the code on 2026-07-26** (user: *"that line 2 is BS. It has no work. Delete it"*).
+`draw_lines` is now `draw_line` and returns one float. It had THREE jobs, not the one the docstring
+claimed: it decided alignment, it anchored the stop, and it killed a pullback that retraced past it.
+
+**Why its removal is a correctness fix, not a preference.** Line 2 was line 1 offset by the momentum
+candle's OPEN wick — and on a bear momentum candle the open wick IS the counter-wick, the quantity
+the momentum filter forces toward zero (≤25% of range, ≤15% for an A grade). Measured over 1,518
+real momentum candles the gap was a **median 2.0 pips** (52% inside 2p, 6% exactly zero), so the
+stop was the wick plus a pip — a **~3 pip risk on a pair that spreads 1-2**. Worse, it scaled the
+wrong way: **A-grade candles got a 2.2p stop, weaker ones 6.5p.** The better the setup, the tighter
+its stop. That single fact explains the 3-9 pip stops against his 15, the shake-outs, and why
+nothing survived a 1-pip spread.
+
+The stop now comes from `vix1_roi` — the nearest 1M REGION OF INTEREST beyond the pullback, which is
+his own rule in his own words and had been **imported but never called** for weeks after the line-2
+anchor displaced it. `regions()` no longer seeds itself with the wick line (being the counter-wick it
+won "nearest region" nearly every time, which is how it collapsed the stop even via that path).
+
+**MEASURED (deleting line 2 + restoring the ROI stop), GBP+EUR 26 months out of sample:**
+| | before | after |
+|---|---|---|
+| trades | 910 | 545 |
+| win rate | 33.2% | **36.5%** |
+| total | −3.5R | **+39.0R** |
+
+Best out-of-sample result of the whole investigation, and it came from DELETING something. It is
+still only **t = 1.33** — not significant — and at a 5.9p median stop a 1-pip spread costs ~0.17R a
+trade against a +0.072R mean, so it does not survive costs. In-sample 2021 is flat (68 trades,
+33.3%, +0.0R).
 
 ### Fractal vs pullback — the same shape, different roles
 > "a fractal is a 1 candle pullback when the price is going a particular direction... the candle

@@ -26,8 +26,7 @@ rather than anchor a stop on chop.
 LINE 1 gates it in two parts: price must actually have TRADED past line 1 (the caller's job, on the
 LIVE window), and the pullback candle itself must TAKE PLACE past (or on) line 1 — enforced HERE,
 whole-candle, on the edge that faces the line. A retrace that has not cleared the line is not an
-entry; we wait for one that has. The wick-line check is the third guard: a retrace that has run
-beyond LINE 2 is not a pullback any more.
+entry; we wait for one that has. There is no second line — see vix1_lines.
 """
 from core.types import Candle
 from shared.candle_math import is_bullish, is_bearish, body_size, full_range, avg_body
@@ -99,8 +98,7 @@ def traded_past(win: list[Candle], bullish: bool, line: float) -> bool:
     return max(c.high for c in win) > line if bullish else min(c.low for c in win) < line
 
 
-def find_pullback(win: list[Candle], bullish: bool,
-                  line: float, wick_line: float) -> tuple[Candle | None, str]:
+def find_pullback(win: list[Candle], bullish: bool, line: float) -> tuple[Candle | None, str]:
     """Return (the pullback CANDLE, "") — the FIRST candle of the latest retrace — or
     (None, why-we-wait). `win` must be CLOSED bars only: the candle's edges become the entry and
     the SL clearance, and a level read from the forming bar drifts until it closes (the hard rule).
@@ -136,8 +134,7 @@ def find_pullback(win: list[Candle], bullish: bool,
     if (near < line) if bullish else (near > line):
         return None, (f"the pullback candle ({near:.5f}) is not past line 1 ({line:.5f}) — "
                       f"the whole candle must sit past (or on) the line; waiting for one that does")
-    lvl = c.high if bullish else c.low
-    if (lvl < wick_line) if bullish else (lvl > wick_line):
-        return None, (f"the pullback ({lvl:.5f}) ran beyond the lines "
-                      f"({line:.5f} / wick {wick_line:.5f}) — not a pullback any more")
+    # (A "ran beyond LINE 2" guard sat here until 2026-07-26. Line 2 is deleted, and the guard was
+    #  already dead: the past-the-line test above requires the WHOLE candle on our side of line 1,
+    #  which is strictly stronger than anything line 2 could have caught.)
     return c, ""

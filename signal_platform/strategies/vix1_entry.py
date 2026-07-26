@@ -36,7 +36,7 @@ import logging
 
 from core.types import Candle
 from shared.mtf_utils import seconds
-from strategies.vix1_lines import draw_lines
+from strategies.vix1_lines import draw_line
 from strategies.vix1_pullback import find_pullback, traded_past
 from strategies.vix1_fractal import fractal_broken
 from strategies.vix1_roi import regions, sl_from_regions
@@ -44,9 +44,6 @@ from strategies.vix1_roi import regions, sl_from_regions
 log = logging.getLogger(__name__)
 
 _ENTRY_BUFFER    = 1   # pips — the stop sits JUST beyond the pullback, never resting on it
-_SL_BEYOND_LINE  = 1   # pips past LINE 2 (the wick line) where the stop rests — measured from the
-                       # user's own trades: his stop sits a median 2.3p from line 2, and never on the
-                       # line itself, so a small pad keeps a touch of the line from stopping him out.
 _MIN_SL_ROOM     = 5   # pips — the SL needs ROOM so normal noise cannot wick us out of a good trade.
                        # If the nearest region gives less, push the stop out to this floor (still
                        # capped at one 1HR candle). "Enough room to be filled or left out" (user).
@@ -93,7 +90,7 @@ def m1_signals(m1: list[Candle], bullish: bool, vc: Candle,
         return []
     digits = 5 if pip < 0.005 else 3
     hr     = seconds(vc.timeframe)
-    line, wick_line = draw_lines(vc)   # 1: body close = THE line;  2: wick = the stop's anchor
+    line   = draw_line(vc)             # THE line — the momentum candle's body close
     win    = [c for c in m1 if c.time >= vc.time + hr]     # only price action since the line was set
 
     if len(win) < 2:
@@ -111,11 +108,10 @@ def m1_signals(m1: list[Candle], bullish: bool, vc: Candle,
     # is drawn. Price on our side of it = the 1M is running with the 1HR, so the pullback alone is the
     # entry. Price the WRONG side = the 1M is running against us, and the LAST fractal of that
     # counter-move has to break before anything means a thing.
-    # LINE 2 is the boundary, not line 1: an opposite move is allowed to push past line 1 and reverse
-    # at line 2, so that band is the tolerance and no fifth decimal decides which side we are on. Past
-    # line 2 the counter-move is real. (No wick on candle 1 -> line 2 IS line 1, the ordinary case.)
+    # THE LINE is the boundary. This used to test a second "wick line" — deleted 2026-07-26, it was
+    # never the user's (vix1_lines). One line decides it, which is what he draws and what he reads.
     last = win[-1].close
-    if (last > wick_line) if bullish else (last < wick_line):
+    if (last > line) if bullish else (last < line):
         kind = "pullback"
     else:
         # The break is a CLOSE beyond the fractal level, so it is read from CLOSED bars only — the
@@ -125,7 +121,7 @@ def m1_signals(m1: list[Candle], bullish: bool, vc: Candle,
         if not broke:
             seen = "none formed yet" if lvl is None else f"{lvl:.{digits}f}"
             log.info(f"[vix1] {symbol} 1M: price {last:.{digits}f} is the wrong side of the lines "
-                     f"({line:.{digits}f}/{wick_line:.{digits}f}) and the counter-move's last fractal ({seen}) has not "
+                     f"({line:.{digits}f}) and the counter-move's last fractal ({seen}) has not "
                      f"broken — waiting (playbook: do nothing until the 1M lines up)")
             return []
         kind = "fractal"
@@ -139,7 +135,7 @@ def m1_signals(m1: list[Candle], bullish: bool, vc: Candle,
 
     # THE ENTRY — the first pullback candle PAST the line, in both cases. CLOSED bars only: the
     # candle's edges become the entry and the SL clearance, and a level must not drift.
-    pb, why = find_pullback(wcl, bullish, line, wick_line)
+    pb, why = find_pullback(wcl, bullish, line)
     if pb is None:
         log.info(f"[vix1] {symbol} 1M: aligned ({kind}) but {why} — waiting")
         return []
@@ -166,33 +162,26 @@ def m1_signals(m1: list[Candle], bullish: bool, vc: Candle,
     lvl   = pb.high if bullish else pb.low          # the trend side — the stop goes just beyond it
     entry = lvl + _ENTRY_BUFFER * pip if bullish else lvl - _ENTRY_BUFFER * pip
 
-    # THE SL — ANCHORED TO LINE 2, the 1HR wick line. This is what line 2 was always FOR ("it has
-    # exactly one job: adjusting the STOP", vix1_lines) and the code had drifted off it: it used to
-    # hunt "the nearest 1M region beyond the pullback", which anchors the stop to a tiny 1-minute
-    # feature instead of the hourly level the whole setup is built on.
+    # THE SL — the NEAREST 1M REGION OF INTEREST beyond the pullback (vix1_roi), which is his own
+    # rule in his own words: "put our SL at a region of interest where price might pullback to in
+    # the worst case scenario... any zone where the price might revisit in 1M... think of all the
+    # zones that can reverse the price or act as a road block."
     #
-    # MEASURED on 19 of the user's real 2021 GBP/USD trades (entry + SL prices recovered from his
-    # JForex screenshots, line computed from real H1). Mean |distance| of his stop from each
-    # candidate anchor:
-    #     LINE 2 (wick line) ->  5.1p, MEDIAN 2.3p   <- his stop sits ON it
-    #     LINE 1 (body close) -> 4.7p, median 3.8p
-    #     the pullback / candle extreme -> 30.9p, median 28.2p   <- what the old code used
-    # The old anchor produced 5-7 pip stops where his are 9-13 (median 11.0p), which is why the
-    # reconstruction was stopped out of trades he won. Scaling the old distance could never fix it:
-    # multiplying a distance measured from the wrong reference just makes it wrong by a varying
-    # amount, which is exactly what the 1.0x-2.0x sweep showed (no multiplier worked out-of-sample).
-    #
-    # The risk is now EMERGENT, not chosen: entry sits past line 1 off the pullback, the stop sits
-    # just beyond line 2, and the gap between them IS the risk — "the gap it should leave between
-    # stop entry for it to decide to fill me or move towards the pullback direction" (user).
-    sl   = wick_line - _SL_BEYOND_LINE * pip if bullish else wick_line + _SL_BEYOND_LINE * pip
-    risk = abs(entry - sl)
-    sl_note = f"{risk / pip:.1f}p — just beyond the 1HR wick line ({wick_line:.{digits}f})"
-    max_risk = vc.high - vc.low
-    if risk > max_risk:
-        log.info(f"[vix1] {symbol} 1M: stop at the wick line is {risk/pip:.1f}p, wider than one 1HR "
-                 f"candle ({max_risk/pip:.0f}p) — the 2R target is not a two-candle move; skipping")
+    # RESTORED 2026-07-26. This module was still imported and had not been called for weeks: the SL
+    # had been re-anchored to "line 2", a wick line that was never his (see vix1_lines for the full
+    # post-mortem). That anchor produced a ~3 pip median risk because it was derived from the
+    # momentum candle's counter-wick — the one thing the momentum filter drives toward zero — so the
+    # better the setup scored, the tighter its stop. The region-of-interest stop is a level the
+    # MARKET drew, so it cannot collapse just because the entry candle was clean.
+    max_risk = vc.high - vc.low          # "2 candles of 1HR gives 2R" -> one candle is 1R
+    pb_protective = pb.low if bullish else pb.high
+    got = sl_from_regions(entry, pb_protective, bullish,
+                          regions(wcl, bullish), pip, max_risk)
+    if got is None:
+        log.info(f"[vix1] {symbol} 1M: no 1M region of interest sits beyond the pullback within one "
+                 f"1HR candle ({max_risk/pip:.0f}p) — no honest place for the stop; skipping")
         return []
+    sl, risk, sl_note = got
 
     # SL ROOM — a stop tighter than _MIN_SL_ROOM gets wicked out of a trade that then runs our way.
     # Push it out to the floor (still never beyond one 1HR candle); if even the floor won't fit, the
@@ -230,8 +219,7 @@ def m1_signals(m1: list[Candle], bullish: bool, vc: Candle,
 
     log.info(f"[vix1] {symbol} 1M PULLBACK entry ({kind} path{', LATE' if late else ''}) — "
              f"{'BUY' if bullish else 'SELL'} stop {entry:.{digits}f} SL {sl:.{digits}f} "
-             f"({sl_note}; line {line:.{digits}f}"
-             f"{'' if wick_line == line else f' wick-line {wick_line:.{digits}f}'})")
+             f"({sl_note}; line {line:.{digits}f})")
     return [{"kind": kind, "entry": round(entry, digits), "sl": round(sl, digits),
              "sl_note": sl_note, "late": late,
              # where the move was ORIGINALLY aiming (2R off the line) — the honest target for a late

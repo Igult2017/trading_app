@@ -24,7 +24,6 @@ are gone. The market draws these levels itself:
     than that and the 2R we are targeting is not a two-candle move any more.
 
 Sources of a region, all of them levels the market drew:
-  * LINE 2 — the 1HR wick line (vix1_lines): where an opposite move is expected to reverse
   * the last 1M FRACTALS (vix1_fractal): by definition places price pulled back to and turned from
   * recent 1M SWINGS (shared/swing_points — a generic platform resource)
   * unmitigated 1M SUPPLY/DEMAND zones (shared/zone_detection — a generic platform resource)
@@ -44,9 +43,15 @@ _SL_BUFFER = 2   # pips — the SL sits slightly BEYOND the region, never restin
                  # (unchanged from the previous SL; the user never asked to move it)
 
 
-def regions(win: list[Candle], bullish: bool, wick_line: float) -> list[float]:
-    """Every 1M level that could reverse price or block it. Unsorted, duplicates harmless."""
-    out: list[float] = [wick_line]
+def regions(win: list[Candle], bullish: bool) -> list[float]:
+    """Every 1M level that could reverse price or block it. Unsorted, duplicates harmless.
+
+    Every source here is a level the MARKET drew on the 1M. The list used to be seeded with the 1HR
+    "line 2" (a wick line) as well — removed 2026-07-26 along with line 2 itself (vix1_lines): it
+    was not the user's, and being the momentum candle's counter-wick it was always the nearest
+    candidate, so it won the "nearest region" contest almost every time and collapsed the stop.
+    """
+    out: list[float] = []
     out += [lvl for _, lvl in fractals(win, bullish)]
     out += [p.price for p in find_swing_points(win, _SWING_N)]
     for z in unmitigated(find_zones(win, "M1")):
