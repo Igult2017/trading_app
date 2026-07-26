@@ -7,8 +7,50 @@ import uuid
 from datetime import datetime, timezone
 from sqlalchemy import Boolean, Column, DateTime, Integer, JSON, Numeric, String, Text, ARRAY
 from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.types import TypeDecorator
 
 from storage.db import Base
+
+
+class UtcDateTime(TypeDecorator):
+    """A DateTime that is ALWAYS timezone-aware UTC in Python, whatever the column type is.
+
+    THE BUG THIS EXISTS TO KILL (2026-07-26). These columns are `timestamp WITHOUT time zone` in
+    Postgres — that is what Drizzle declares in shared/schema.ts and what production runs — so
+    SQLAlchemy handed back NAIVE datetimes even though every writer stored UTC. A naive datetime is
+    a loaded gun in both directions:
+
+      READING   `naive.timestamp()` makes Python interpret the value as LOCAL time, silently
+                shifting it by the host's UTC offset. `naive.astimezone()` does the same. Both are
+                invisible on a UTC host and wrong the instant one isn't — a container with TZ set,
+                a laptop, a CI runner. It had already produced two live defects: the monitor's
+                replay window and vix1_alerts' ratchet window, each patched at its own call site.
+      WRITING   an aware non-UTC datetime (or a naive LOCAL one from `datetime.now()`) was stored
+                with whatever wall-clock it carried, so the row said 16:13 for a 14:13 event.
+
+    Patching each read site does not scale — the next one added gets it wrong again. This fixes it
+    at the ORM boundary instead: aware UTC comes out, aware-anything goes in and is converted.
+
+    DELIBERATELY NOT a schema migration. Changing the columns to `timestamptz` would mean an
+    ALTER on a live table AND a matching change in shared/schema.ts, or drizzle-kit would push it
+    straight back. The column type is untouched, so the Node side sees exactly what it always has.
+    """
+    impl = DateTime
+    cache_ok = True
+
+    def process_bind_param(self, value, dialect):
+        if value is None:
+            return None
+        if value.tzinfo is None:
+            return value                                    # already naive — taken as UTC, stored as-is
+        return value.astimezone(timezone.utc).replace(tzinfo=None)
+
+    def process_result_value(self, value, dialect):
+        if value is None:
+            return None
+        if value.tzinfo is None:
+            return value.replace(tzinfo=timezone.utc)       # the DB stores UTC; say so explicitly
+        return value.astimezone(timezone.utc)
 
 
 class SignalModel(Base):
@@ -50,12 +92,12 @@ class SignalModel(Base):
     status = Column("status", String, default="active")
 
     # Lifecycle
-    expires_at     = Column("expires_at",     DateTime)
-    triggered_at   = Column("triggered_at",   DateTime)   # entry filled; NULL = stop order pending
-    executed_at    = Column("executed_at",    DateTime)
-    invalidated_at = Column("invalidated_at", DateTime)
-    created_at     = Column("created_at",     DateTime, default=lambda: datetime.now(timezone.utc))
-    updated_at     = Column("updated_at",     DateTime, default=lambda: datetime.now(timezone.utc),
+    expires_at     = Column("expires_at",     UtcDateTime)
+    triggered_at   = Column("triggered_at",   UtcDateTime)   # entry filled; NULL = stop order pending
+    executed_at    = Column("executed_at",    UtcDateTime)
+    invalidated_at = Column("invalidated_at", UtcDateTime)
+    created_at     = Column("created_at",     UtcDateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at     = Column("updated_at",     UtcDateTime, default=lambda: datetime.now(timezone.utc),
                             onupdate=lambda: datetime.now(timezone.utc))
 
 
@@ -67,5 +109,5 @@ class StrategyStateModel(Base):
 
     strategy_id = Column("strategy_id", String, primary_key=True)
     state       = Column("state",       JSONB, nullable=False, default=dict)
-    updated_at  = Column("updated_at",  DateTime, default=lambda: datetime.now(timezone.utc),
+    updated_at  = Column("updated_at",  UtcDateTime, default=lambda: datetime.now(timezone.utc),
                          onupdate=lambda: datetime.now(timezone.utc))
