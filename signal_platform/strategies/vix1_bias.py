@@ -25,7 +25,7 @@ import logging
 
 from core.types import Candle
 from strategies.vix1_momentum import momentum_run, veto_reason
-from strategies.vix1_trend import clear_trend, is_choch
+from strategies.vix1_trend import clear_trend   # is_choch no longer used: the trend itself now flips on a CHoCH
 
 log = logging.getLogger(__name__)
 
@@ -65,20 +65,13 @@ def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "") -> tuple[b
                  f"4HR {'up' if bullish else 'down'} trend")
         return (bullish, mc_idx, "trend4", run[1])
 
-    # 3) CHoCH on the 1HR — momentum closed through the 1HR structure the other way. Independent of
-    #    clear_trend: this is the reversal case, where the slope is ambiguous BY DEFINITION.
-    if is_choch(h1, close, bullish):
-        log.info(f"[vix1] {symbol} 1HR CHoCH: {'up' if bullish else 'down'} momentum closed through the "
-                 f"opposite 1HR structure — bias {'BUY' if bullish else 'SELL'}")
-        return (bullish, mc_idx, "choch", run[1])
-
-    # 4) CHoCH on the 4HR — 1HR unclear, momentum closed through the 4HR structure the other way.
-    if t1 == 0 and is_choch(h4, close, bullish):
-        log.info(f"[vix1] {symbol} 4HR CHoCH: 1HR unclear, {'up' if bullish else 'down'} momentum closed "
-                 f"through the opposite 4HR structure — bias {'BUY' if bullish else 'SELL'}")
-        return (bullish, mc_idx, "choch4", run[1])
-
-    # 5) momentum, but no confirmed trend on either TF and no structure break — a bare move; stand aside.
-    log.info(f"[vix1] {symbol} bias=NONE: {'up' if bullish else 'down'} momentum but no confirmed trend "
-             f"(1HR={t1}, 4HR={t4}) and no structure break — we trade trends & CHoCH only, standing aside")
+    # PRO-TREND ONLY (user 2026-07-25/26: "Only trade pro trend"). The `choch` and `choch4` origins are
+    # REMOVED — they took a reversal against the prevailing trend, which is by definition not
+    # pro-trend. They are also redundant now: since 2026-07-26 the trend is STRUCTURE THAT PERSISTS
+    # and flips on exactly the event `is_choch` was testing for (a body close through the protected
+    # swing), so the moment a genuine change of character completes, clear_trend has ALREADY turned
+    # and the next momentum candle that way qualifies as plain `trend`. Taking the reversal candle
+    # itself was the strategy front-running its own trend rule.
+    log.info(f"[vix1] {symbol} bias=NONE: {'up' if bullish else 'down'} momentum but it is NOT with the "
+             f"trend (1HR={t1}, 4HR={t4}) — pro-trend only, standing aside")
     return None

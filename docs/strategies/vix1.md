@@ -58,20 +58,24 @@ uses swing structure — it is a level-break test, which genuinely *is* a pivot 
 Price crossing back over the line does **NOT** mean the idea was wrong. (I assumed "line = where
 we're wrong" twice and built on it twice. It isn't.)
 
-### Two lines, separate jobs
+### ONE line — there is no line 2 (corrected 2026-07-26)
 | | Where | Job |
 |---|---|---|
-| **LINE 1** | 1st momentum candle's **close** (== candle 2's open) | **gates the entry** — where an entry belongs |
-| **LINE 2** | **inside the body**, the open wick's height off line 1 | **only adjusts the stop** — where an opposite move is expected to reverse |
+| **THE LINE** | 1st momentum candle's **close** (== candle 2's open) | **gates the entry** — where an entry belongs |
 
-> "Line 2 is only important as it can help us adjust our SL based on where we expect the price to reverse."
+> **"I dont know where the second line is coming from i dont use second line."** — user, 2026-07-26
 
-Line 2 **never gates**. With a small/no-wick candle it collapses onto line 1 — which is the ordinary
-case, because small-or-no wicks **is** the momentum-candle filter. Line 2 is inside the body by
-construction: the momentum filter requires **body ≥ 60% of range**, so the open wick (≤ 40% of range
-at worst) is always shorter than the body and line 2 always lands inside it. (The margin weakened
-when the body gate went 75%→60% on 2026-07-21 — worst-case open-wick/body went from ⅓ to ⅔ — but the
-invariant "line 2 inside the body" holds for any body ≥ 50%, so the stop-adjust logic is unaffected.)
+This doc previously described a "LINE 2" (the open wick's height off line 1) with a quote attributed
+to the user about it adjusting the SL. **That attribution was wrong and the concept is not his.** It
+was my construction, and the measurement that appeared to justify it was noise: the two lines sit a
+median **2.6 pips** apart, so "his stop is 2.3p from line 2 vs 3.8p from line 1" cannot distinguish
+them at all. Do not re-derive it. The code still computes `wick_line` (`draw_lines`) and uses it as
+the SL anchor and the alignment tolerance band — that is **unverified scaffolding, not his method**,
+and it is the next thing to reconcile with him, not to defend.
+
+Measured 2026-07-26: switching the SL anchor between the wick line, the body-close line, the
+momentum candle's extreme and the pullback's extreme changes the 2021 result by at most 5R over 40
+trades and **none of them is profitable** — so the anchor is not where the edge lives either way.
 
 ### Fractal vs pullback — the same shape, different roles
 > "a fractal is a 1 candle pullback when the price is going a particular direction... the candle
@@ -230,6 +234,7 @@ Tokyo is routine in London.
 
 | commit | what |
 |---|---|
+| 2026-07-26 | **PRO-TREND ONLY + BOTH WICKS ≤10%** (user: "Only trade pro trend"; "trade only when the first momentum candle has no wicks or very short wicks. Don't use the wick rule you created for this"). `choch`/`choch4` origins REMOVED from `vix1_bias` — a reversal against the prevailing trend is by definition not pro-trend, and they are redundant since the trend now flips on exactly the CHoCH event, so the next momentum candle that way qualifies as plain `trend`. `_MAX_WICK_FRAC = 0.10` in `vix1_momentum` REPLACES the asymmetric counter-wick cap (each wick ≤10% of range, i.e. body ≥80%). **Measured effect, GBP/USD Jan–Jun 2021:** momentum candles 56.5/mo → 14.0/mo on the wick rule alone → **8.7/mo** with pro-trend; full pipeline lands at **6.7 trades/month vs his logged 5.7**. The frequency gap that this whole line of work chased is now CLOSED. **The performance gap is not.** See "Where the edge actually isn't" below. |
 | `ea5c19c` 2026-07-26 | **THE TREND IS NOW MARKET STRUCTURE THAT PERSISTS, not a 36-bar slope.** His model, which is Dow's own rule: there is a MAIN trend, inside it there can be ranging or unreadable movement, and it stands until the market shows DECISIVELY that it changed. Modern structure gives the test - a trend continues through a BOS and turns only on a CHoCH (a BODY CLOSE through the swing protecting it). ESTABLISH on HH+HL / LH+LL; HOLD through consolidation; FLIP only on that close. **The old slope was stateless and instantaneous** - recomputed from scratch every bar, no memory, structurally unable to express persistence: over 3,075 H1 bars it read FLAT on **35%** and made **29 round trips** (trend -> flat -> the SAME trend, no reversal). His 30-Jun-2021 example is the case in miniature: an obvious multi-day downtrend the 36-bar window called flat, missing its own threshold by **2.7 pips** because the window sat inside the consolidation at the bottom of the move. MEASURED on his 34 logged trades at the production 120-bar window: agreement **41% -> 74%**, reads-flat (which silently kills a setup) **35% -> 0%**, state changes **165 -> 57** (~1 every 2.2 days), and his 30-Jun example **0 -> -1**. A first attempt flipped 8 times in 8 days because it advanced the protected level to EVERY counter-swing; protection now advances only on a real BOS, so highs printed while a downtrend consolidates are noise INSIDE the trend, not the level defining it. **CONSEQUENCE (deliberate, approved):** the 1HR trend is never 'unclear' any more, so the **4HR fallback (trend4/choch4) no longer fires** - it existed to cover the old detector's blindness. 1HR stays primary. **KNOWN LIMIT:** the verdict still varies on **4%** of bars across the 118-121 bars the feed delivers; a warm-up margin (0/5/10/15/20/30) was tested and did not help, so no complexity was added for no gain. |
 | 2026-07-25 | **CALIBRATED ON 22 REAL TRADES (2021 GBP/USD, real cTrader H1+M1).** Five changes. (1) **REVERTED the past-the-line pullback gate** added 3 days earlier: measured on the real setups only **9-10 of 19** pullbacks kept their extreme past line 1 (robust at every timezone offset), so it was blocking ~HALF his trades. His rule is about ORDER (price crosses the line, THEN the retrace forms), not geography - a retrace naturally pulls back through the line by a pip or two. `traded_past` + the line-2 tolerance already enforce it. **Do not re-add.** (2) **Body gate 60%->50%** - his thinnest real momentum candle is 51% body (a TP winner); 60% rejected 3 of 22. (3) **RESTORED `body > previous candle body`** - his own theory, **22/22** of his trades pass (median 2.96x, min 1.06x); measured over 41,900 H1 bars it strips **596 of 4,980 (12%)** of the scanner's output at zero cost to real setups. It is a COMPANION to the 2.5x-median test, never a replacement (alone it admits a tiny candle that merely beats a tinier neighbour). (4) **Pullback distance is now DYNAMIC** - allowance = the momentum candle's own height, replacing a hardcoded 7p that rejected 3 of 22 (their pullbacks sat 7.7p/10.1p/12.7p out). (5) **A pullback past the allowance no longer dies** - it ships flagged "past the recommended entry price" if **>=1R** of the original move remains (normal entries still need 2R), and the card reports the REAL remaining RR, never a fictional 2R. **Detector now accepts 22/22 of his momentum candles (was 16/19); total signal volume -5.8%.** |
 | 2026-07-25 | **WHY THE DYNAMIC RULE IS NOT THE LITERAL INSTRUCTION - read before "fixing" it.** He asked for "the height of the 1HR candle that comes AFTER the first volume candle". That is geometrically VACUOUS: the candle after the momentum candle is the hour the pullback happens in, so the pullback's distance from the line and that candle's height are measured over THE SAME BARS - the line sits at the window's start and the pullback's extreme lies inside the window, so distance <= range ALWAYS, at any threshold. Proven numerically (0/19 flagged, and no threshold changes it); the same bound defeats every variant (distance past the line, retrace depth). The MOMENTUM CANDLE's height keeps everything intended - dynamic (it IS current 1HR volatility), no lookahead, cannot drift (closed candle) - while being a DIFFERENT candle, so the comparison is real. Real pullbacks sit a median **6%** and a max **35%** of it from the line. |
@@ -320,6 +325,42 @@ falling back. Filter `O==H==L==C` bars out of any fixture before trusting a funn
 — which both strategies leave `False` — and `build_context` is never passed a spread, so it is always
 `None`. Nothing sees spreads. This matters most in the Asian session (widest spreads, and a 5.3p
 structural SL is small next to a 2-3p spread). Enabling Asian did not create this; it made it matter.
+
+## Where the edge actually isn't (measured 2026-07-26 — read before proposing another fix)
+
+With his own filters applied (pro-trend + both wicks ≤10%) and his management (BE at 1R, out at 0R
+on a return, target 2R), the coded strategy was run against his own logged months and then
+out-of-sample. **It does not reproduce his results, and four candidate explanations are now ruled
+out by measurement, not by argument.**
+
+| | code | his log |
+|---|---|---|
+| GBP/USD Jan–Jun 2021 | **6.7 trades/mo, 35.5% WR, +2.0R** | 5.7 trades/mo, 72.4% WR, +52.0R |
+| OOS GBP+EUR, 22 May 2024 – 17 Jul 2026, **267 trades** | **10.3/mo (both pairs), 30.5% WR, −15.3R** | — |
+
+**Ruled out:**
+1. **Detection volume** — 6.7/mo vs 5.7/mo. Closed.
+2. **Direction** — on the 12 days both he and the code traded, direction agreed on **11**.
+3. **SL anchor** — swapping the anchor between the wick line, the body-close line, the momentum
+   candle's extreme and the pullback's extreme moves 2021 by ≤5R over 40 trades; **every variant is
+   unprofitable**. Ditto the `_MIN_SL_ROOM` floor swept 5/8/11/14p.
+4. **Exit sizing** — his wins average +2.86R against the backtest's flat +2.0R cap, but capping
+   *his* wins at 2.0R still leaves him at **+34R**. The gap is the WIN RATE, not the target.
+
+**What is left, and it is the only thing left:** on the same day, on the same setup, in the same
+direction, his entry fills and holds where the code's gets stopped. On the 12 shared days he is
+**12 wins / 14 trades, +34.6R**; the code is **6 / 14, +6.0R**. His fills are consistently
+*earlier* than the code's (e.g. 22-Apr 08:58 vs 09:39; 12-May 16:41 vs 18:10) — the code waits for a
+completed 1M pullback candle past the line, and by the time that candle closes the good entry has
+gone. **Do not tune parameters against this.** The next step is his step-by-step walk-through of
+individual setups (offered 2026-07-26), read as *where exactly did the order go and why*.
+
+One real defect surfaced along the way and is NOT yet fixed: `_MIN_SL_ROOM` pushes a structurally
+tighter stop out to a flat 5 pips, which happened on **15 of 40** 2021 trades — those 15 returned
+**23% WR / −4.0R** while everything else was positive. Skipping such setups instead of flooring them
+scores better in-sample (+2.0R → +5.0R, 35.5% → 40.0% WR, 6.7 → 5.5 trades/mo) and out-of-sample
+(−15.3R → −6.3R). It was left unshipped because it improves a system that is still net-negative, and
+shipping it would be tuning ahead of understanding.
 
 ## Open / not done
 - **GAP 1** — CLOSED (`e8d2935`). It was never a gap: I framed it on *line = invalidation*. Far from
