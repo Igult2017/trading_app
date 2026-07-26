@@ -207,16 +207,20 @@ async def on_signal_closed(signal_id: str) -> None:
                 if row is None:
                     return None
                 f = lambda v: float(v) if v else None
+                # closed_at is whichever stamp this outcome wrote; opened_at is the fill, which
+                # is NULL for a pending order that expired without ever filling.
+                closed_at = row.executed_at or row.invalidated_at
                 return (row.symbol, row.type, row.status, f(row.entry_price),
-                        row.strategy or "", f(row.take_profit), f(row.stop_loss))
+                        row.strategy or "", f(row.take_profit), f(row.stop_loss),
+                        closed_at, row.triggered_at)
 
         data = await loop.run_in_executor(None, _load_row)
         if data is None:
             return
-        symbol, direction, status, entry, strategy, tp, sl = data
+        symbol, direction, status, entry, strategy, tp, sl, closed_at, opened_at = data
         message = format_signal_closed(
             symbol=symbol, direction=direction, status=status, entry=entry, strategy=strategy,
-            take_profit=tp, stop_loss=sl,
+            take_profit=tp, stop_loss=sl, closed_at=closed_at, opened_at=opened_at,
         )
         # Close cards follow the SAME routing as the entry card. Before this, on_signal_closed
         # always sent to the public channel — so a DM-held strategy's outcome leaked to

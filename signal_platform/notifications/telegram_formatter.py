@@ -5,6 +5,10 @@ These go to ONE person who already knows the system, so they carry every diagnos
 public channel cards live in telegram_cards.py and are deliberately leaner.
 """
 from core.types import Signal, Direction
+# One implementation of "what precision does this instrument quote in" and "when did this happen",
+# shared with the channel cards. Duplicating either is how they drift apart.
+from notifications.telegram_cards import _digits, _stamp
+
 
 def _h(text: str) -> str:
     """Escape HTML special chars."""
@@ -35,14 +39,16 @@ def format_setup_alert(signal: Signal) -> str:
         "──────────────────────────",
         f"{arrow} <b>Strategy:</b> {_h(name)}",
         f"⏱ <b>Timeframe:</b> {_h(signal.primary_timeframe or '—')}",
+        f"🕐 <b>Fired:</b>     {_stamp(signal.created_at)}",
         status,
     ]
     if signal.entry_price:
-        lines += ["", f"📍 <b>Entry:</b>  <code>{signal.entry_price:.5f}</code>"]
+        d = _digits(signal.symbol)
+        lines += ["", f"📍 <b>Entry:</b>  <code>{signal.entry_price:.{d}f}</code>"]
         if signal.stop_loss:
-            lines.append(f"🛑 <b>SL:</b>     <code>{signal.stop_loss:.5f}</code>")
+            lines.append(f"🛑 <b>SL:</b>     <code>{signal.stop_loss:.{d}f}</code>")
         if signal.take_profit:
-            lines.append(f"🎯 <b>TP:</b>     <code>{signal.take_profit:.5f}</code>")
+            lines.append(f"🎯 <b>TP:</b>     <code>{signal.take_profit:.{d}f}</code>")
     if signal.technical_reasons:
         lines += ["", "📝 <b>Details:</b>"]
         for r in signal.technical_reasons[:5]:
@@ -81,15 +87,17 @@ def format_signal_watch(signal: Signal) -> str:
         f"{arrow} <b>{_h(signal.symbol)}</b> — <b>{side}</b>",
         f"🏷 <b>Strategy:</b> {_h(signal.strategy_name or signal.strategy_id or '—')}",
         f"⏱ <b>Timeframe:</b> {_h(signal.primary_timeframe or '—')}",
+        f"🕐 <b>Fired:</b>     {_stamp(signal.created_at)}",
         "",
     ]
 
+    d = _digits(signal.symbol)
     if signal.entry_price is not None:
-        lines.append(f"💰 <b>Entry:</b>        <code>{signal.entry_price:.5f}</code>")
+        lines.append(f"💰 <b>Entry:</b>        <code>{signal.entry_price:.{d}f}</code>")
     if signal.stop_loss is not None:
-        lines.append(f"🛑 <b>Stop Loss:</b>    <code>{signal.stop_loss:.5f}</code>")
+        lines.append(f"🛑 <b>Stop Loss:</b>    <code>{signal.stop_loss:.{d}f}</code>")
     if signal.take_profit is not None:
-        lines.append(f"🎯 <b>Take Profit:</b>  <code>{signal.take_profit:.5f}</code>")
+        lines.append(f"🎯 <b>Take Profit:</b>  <code>{signal.take_profit:.{d}f}</code>")
     if signal.risk_reward is not None:
         lines.append(f"⚖️ <b>R:R:</b>          <code>1:{signal.risk_reward:.1f}</code>")
 

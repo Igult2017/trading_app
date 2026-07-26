@@ -138,6 +138,7 @@ async def _check_signal(row) -> None:
                     await loop.run_in_executor(
                         None, signal_repo.update_status, row.id,
                         SignalStatus.EXPIRED, "invalidated_at",
+                        datetime.fromtimestamp(bar.time, timezone.utc),
                     )
                     release(row.symbol, row.type, row.strategy)
                     await event_bus.emit(event_bus.SIGNAL_CLOSED, row.id)
@@ -164,8 +165,11 @@ async def _check_signal(row) -> None:
         if hit_tp or hit_sl:
             new_status = SignalStatus.EXECUTED if hit_tp else SignalStatus.INVALIDATED
             ts_field   = "executed_at" if hit_tp else "invalidated_at"
+            # the BAR's time, not now(): replay can spot a close minutes after it happened, and
+            # the outcome card and the trade record must both say when it actually closed.
             await loop.run_in_executor(
-                None, signal_repo.update_status, row.id, new_status, ts_field
+                None, signal_repo.update_status, row.id, new_status, ts_field,
+                datetime.fromtimestamp(bar.time, timezone.utc),
             )
             release(row.symbol, row.type, row.strategy)   # free THIS strategy's key only
             await event_bus.emit(event_bus.SIGNAL_CLOSED, row.id)

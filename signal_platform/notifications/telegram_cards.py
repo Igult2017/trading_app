@@ -11,6 +11,8 @@ padding only looks aligned in the editor and arrives ragged on a phone.
 Split from telegram_formatter (the DM cards): different audience, different job — these are read by
 strangers deciding whether to take a trade.
 """
+from datetime import datetime, timezone
+
 from core.types import Signal, Direction, SignalStatus
 from shared.pip import pip_size, price_digits
 
@@ -24,6 +26,27 @@ def _digits(symbol: str) -> int:
     """Decimals for THIS instrument. Never hardcode 5: USD/JPY prices are 3-decimal, so a .5f
     JPY signal renders as 150.12300 — a price that does not exist."""
     return price_digits(symbol)
+
+
+def _stamp(dt) -> str:
+    """WHEN this happened, in UTC — added 2026-07-26; the cards carried no time at all, so a reader
+    could not tell a signal fired a minute ago from one that fired overnight.
+
+    Two accuracy rules, both easy to get wrong:
+      * NAIVE means UTC. `trading_signals` declares its DateTime columns without `timezone=True`, so
+        Postgres hands back naive values even though every writer stores UTC. Formatting one without
+        pinning the tz would print the right clock but compare wrong everywhere else, and
+        `.astimezone()` on a naive value silently assumes LOCAL time.
+      * It is the time of the EVENT, not of the message. The monitor replays candles, so it can
+        detect a fill or a close minutes after the fact; the repo stamps the BAR's time and the card
+        prints that. A `now()` here would quietly re-introduce the lag the replay exists to remove.
+    UTC because every other message on this platform says UTC (telegram_system_formatter).
+    """
+    if dt is None:
+        return ""
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc).strftime("%d %b %H:%M UTC")
 
 
 def _tick(reason: str) -> str:
@@ -75,8 +98,11 @@ def format_signal_confirmed(signal: Signal) -> str:
     head = f"{dot} <b>{side}</b>  ·  <b>{_h(signal.symbol)}</b>"
     if signal.label:
         head += f"  ·  <b>{_h(signal.label)}</b>"
-    lines = [head, f"<i>{_h(signal.strategy_name or signal.strategy_id)}"
-                   f" · {_h(signal.primary_timeframe or '—')}</i>", rule]
+    sub = f"{_h(signal.strategy_name or signal.strategy_id)} · {_h(signal.primary_timeframe or '—')}"
+    when = _stamp(signal.created_at)          # when the SETUP fired, not when the message was built
+    if when:
+        sub += f" · {when}"
+    lines = [head, f"<i>{sub}</i>", rule]
 
     # 2. THE THREE PRICES — the only things you type into a broker. Kept adjacent and uninterrupted.
     if signal.entry_price:
@@ -118,7 +144,9 @@ def format_signal_closed(symbol: str, direction: str, status: str,
                           close_price: float | None = None,
                           strategy: str = "",
                           take_profit: float | None = None,
-                          stop_loss: float | None = None) -> str:
+                          stop_loss: float | None = None,
+                          closed_at=None,
+                          opened_at=None) -> str:
     """The outcome card — the other half of an entry the channel already saw. Same shape as the
     entry card so the pair reads as one story, and it leads with the ONE thing a follower wants:
     did it win, and by how much."""
@@ -143,8 +171,16 @@ def format_signal_closed(symbol: str, direction: str, status: str,
                 tag = "  ·  <b>-1R</b>"
 
     lines = [f"{emoji} <b>{result}</b>  ·  <b>{_h(symbol)}</b> {'BUY' if buy else 'SELL'}{tag}"]
-    if (name := _strategy_name(strategy)):
-        lines.append(f"<i>{_h(name)}</i>")
+    # WHEN it closed — and when it opened, because "how long was this trade on?" is the first thing
+    # asked of an outcome and the pair of times answers it without a second message.
+    sub = _strategy_name(strategy)
+    when = _stamp(closed_at)
+    if when:
+        sub = f"{sub} · {when}" if sub else when
+    if (opened := _stamp(opened_at)):
+        sub += f"  (opened {opened})"
+    if sub:
+        lines.append(f"<i>{_h(sub)}</i>")
     lines.append("━━━━━━━━━━━━━━━━━━━")
     if entry:
         lines.append(f"📍 Entry    <code>{entry:.{d}f}</code>")

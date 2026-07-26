@@ -56,15 +56,22 @@ def get_active() -> list[SignalModel]:
 
 
 def update_status(signal_id: str, status: SignalStatus,
-                  timestamp_field: str | None = None) -> None:
-    """Update the status of a signal and optionally stamp a timestamp field."""
+                  timestamp_field: str | None = None,
+                  when: datetime | None = None) -> None:
+    """Update the status of a signal and optionally stamp a timestamp field.
+
+    `when` is the time the thing ACTUALLY HAPPENED — the close bar's time — not the time we noticed
+    it. Since the monitor replays candles it can detect a close minutes after the fact (a missed
+    poll, a restart), and a now() stamp would put the wrong time on the outcome card and in the
+    trade record. Same reasoning as mark_triggered. Defaults to now() for callers with no bar.
+    """
     with get_session() as s:
         row = s.get(SignalModel, signal_id)
         if not row:
             return
         row.status = status.value
         if timestamp_field:
-            setattr(row, timestamp_field, datetime.now(timezone.utc))
+            setattr(row, timestamp_field, when or datetime.now(timezone.utc))
 
 
 def mark_triggered(signal_id: str, when: datetime | None = None) -> None:
