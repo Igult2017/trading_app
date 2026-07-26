@@ -97,3 +97,45 @@ def is_symbol_allowed(symbol: str, follower) -> bool:
     if symbol in bl:
         return False
     return True
+
+
+def volume_for(spec: dict, lots: float) -> tuple[int, str | None]:
+    """Lots -> the Open API's `volume` field. Returns (volume, refusal_reason).
+
+    BOTH `volume` and `lotSize` are in CENTS (cTrader: "Volume in cents (e.g. 1000 in protocol
+    means 10.00 units)" / "Lot size of the Symbol (in cents)"), so the conversion is one
+    multiplication and NOT the x100 that looks right:
+
+        volume = lots x lotSize          correct
+        volume = lots x lotSize x 100    100x too big — see symbol_details for why it tempts
+
+    THE ANSWER IS VALIDATED, NOT TRUSTED. Whatever the arithmetic produces is checked against the
+    broker's own minVolume/maxVolume and stepVolume, and a value outside them is REFUSED rather
+    than sent. That is the whole safety property here: if the units are ever transposed again — in
+    either direction, by anyone — the result lands outside the broker's published bounds and stops,
+    instead of placing an order 100x or 100,000x off. `int(lots * 100)`, the expression this
+    replaces, fails exactly this check.
+
+    A missing spec is a refusal too. Guessing the contract size is the original defect; a caller
+    that cannot fetch it must not trade rather than fall back to a constant.
+    """
+    if not spec or not spec.get("known"):
+        return 0, "no contract spec from the broker — refusing to guess the lot size"
+    if lots is None or lots <= 0:
+        return 0, f"no valid lot size ({lots})"
+
+    lot_size = int(spec["lot_size"])
+    step     = max(1, int(spec.get("step") or 1))
+    lo       = int(spec.get("min_volume") or 0)
+    hi       = int(spec.get("max_volume") or 0)
+
+    volume = int(round(lots * lot_size))
+    volume = (volume // step) * step                 # DOWN to the step: never round a trade UP
+    if lo and volume < lo:
+        return 0, (f"{lots} lots = {volume} is below the broker's minVolume {lo} — "
+                   f"the account cannot trade a position this small")
+    if hi and volume > hi:
+        return 0, (f"{lots} lots = {volume} is above the broker's maxVolume {hi}")
+    if volume <= 0:
+        return 0, f"{lots} lots quantised to {volume} at step {step}"
+    return volume, None

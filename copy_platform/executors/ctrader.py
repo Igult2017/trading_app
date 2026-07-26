@@ -24,6 +24,7 @@ from ctrader_open_api.messages.OpenApiMessages_pb2 import (
 from ctrader_open_api.messages.OpenApiModelMessages_pb2 import ProtoOAOrderType, ProtoOAExecutionType
 
 import symbol_details
+from lot_calc import volume_for
 from config import CT_LIVE_HOST, CT_DEMO_HOST, CT_PORT
 
 log = logging.getLogger("executor.ctrader")
@@ -135,9 +136,12 @@ class CTraderExecutor:
         self._pending_cmd = ("open", symbol, action, volume_lots, sl, tp)
         return await self._run()
 
-    async def close_position(self, position_id: int,
-                             volume_lots: float) -> ExecResult:
-        self._pending_cmd = ("close", position_id, volume_lots)
+    async def close_position(self, position_id: int, volume_lots: float,
+                             symbol: str = "") -> ExecResult:
+        # `symbol` is required to size the close: volume is per-symbol (lotSize), and a close sized
+        # from the wrong contract UNDER-closes and strands the remainder on the follower's account.
+        # Optional in the signature so older callers still import, but a close without it refuses.
+        self._pending_cmd = ("close", position_id, volume_lots, symbol)
         return await self._run()
 
     async def modify_position(self, position_id: int,
@@ -189,7 +193,7 @@ class CTraderExecutor:
             # missing side; only when BOTH fields are supplied do we skip reconcile
             # and send straight away (the cTrader live-copy path, unchanged).
             # Close uses a positionId → send straight away.
-            if self._pending_cmd and self._pending_cmd[0] == "open":
+            if self._pending_cmd and self._pending_cmd[0] in ("open", "close"):
                 req = ProtoOASymbolsListReq()
                 req.ctidTraderAccountId = int(self.creds["ctraderId"])
                 client.send(req)
@@ -206,7 +210,7 @@ class CTraderExecutor:
             # The light list carries symbolId and name and NOTHING else — no lotSize, no
             # minVolume, no stepVolume. Ask for the full ProtoOASymbol before sizing anything.
             # OBSERVE-ONLY for now: the numbers are logged, not used (see _volume_audit).
-            sid = self._open_symbol_id()
+            sid = self._cmd_symbol_id()
             if sid is not None and symbol_details.get(int(self.creds["ctraderId"]), sid) is None:
                 client.send(symbol_details.build_request(int(self.creds["ctraderId"]), sid))
                 return
@@ -249,36 +253,38 @@ class CTraderExecutor:
                     entry_price = float(pos.price) if pos.price else None,
                 ))
 
-    def _open_symbol_id(self) -> int | None:
-        """symbolId for a pending OPEN, once the light list has resolved it."""
-        if not self._pending_cmd or self._pending_cmd[0] != "open":
+    def _cmd_symbol_id(self) -> int | None:
+        """symbolId for a pending OPEN or CLOSE, once the light list has resolved it. Both need it:
+        the open to size the entry, the close to size the exit."""
+        cmd = self._pending_cmd
+        if not cmd:
             return None
-        return resolve_symbol_id(self._pending_cmd[1], self._symbol_map)
+        if cmd[0] == "open":
+            return resolve_symbol_id(cmd[1], self._symbol_map)
+        if cmd[0] == "close" and len(cmd) > 3 and cmd[3]:
+            return resolve_symbol_id(cmd[3], self._symbol_map)
+        return None
 
-    def _volume_audit(self, symbol: str, lots: float, sent: int) -> None:
-        """Log what we SEND against what the broker's own contract spec implies. OBSERVE ONLY —
-        this changes nothing about the order.
+    def _volume(self, symbol: str, lots: float) -> tuple[int, str | None]:
+        """Lots -> the wire `volume`, from the BROKER's contract spec. (volume, refusal_reason).
 
-        `volume` on the wire is in HUNDREDTHS OF A UNIT, so for a symbol with lotSize 100,000 one
-        lot is 10,000,000. This code sends `int(lots * 100)`, which is 100 for one lot. If that
-        reading is right, every order is 100,000x under and should be failing minVolume — and the
-        rejections would already be in the trade log. If it is wrong, this line says so from a real
-        account instead of from an argument. Either way, one session of logs settles it.
+        This replaced `max(1, int(lots * 100))`. cTrader documents `volume` as "Volume in cents
+        (e.g. 1000 in protocol means 10.00 units)", so one lot of a 100,000-unit forex symbol is
+        10,000,000 — the old expression sent 100, i.e. 1.00 unit, 100,000x under and below every
+        realistic minVolume. lot_calc.volume_for does the conversion AND validates the result
+        against the broker's own minVolume/maxVolume/stepVolume, so a units mistake in either
+        direction refuses instead of trading.
         """
-        sid = resolve_symbol_id(symbol, self._symbol_map)
+        sid = resolve_symbol_id(symbol, self._symbol_map) if symbol else None
         spec = symbol_details.describe(
             symbol_details.get(int(self.creds["ctraderId"]), sid) if sid else None)
-        if not spec["known"]:
-            log.warning(f"[volume-audit] {symbol}: no contract spec fetched — cannot compare")
-            return
-        implied = int(round(lots * spec["lot_size"] * 100))
-        ok_min  = (spec["min_volume"] == 0) or (sent >= spec["min_volume"])
-        ok_step = (spec["step"] <= 1) or (sent % spec["step"] == 0)
-        log.warning(
-            f"[volume-audit] {symbol} {lots} lots | SENDING {sent} | broker implies {implied} "
-            f"(lotSize {spec['lot_size']}) | ratio {implied / sent if sent else 0:.0f}x | "
-            f"minVolume {spec['min_volume']} {'OK' if ok_min else 'VIOLATED'} | "
-            f"step {spec['step']} {'OK' if ok_step else 'VIOLATED'}")
+        volume, refusal = volume_for(spec, lots)
+        if refusal:
+            log.error(f"[executor] {symbol} {lots} lots REFUSED — {refusal}")
+        else:
+            log.info(f"[executor] {symbol} {lots} lots -> volume {volume} "
+                     f"(lotSize {spec['lot_size']}, step {spec['step']}, min {spec['min_volume']})")
+        return volume, refusal
 
     def _modify_needs_reconcile(self) -> bool:
         """A modify with a missing SL or TP needs the position's current values first.
@@ -323,18 +329,28 @@ class CTraderExecutor:
             req.symbolId            = symbol_id
             req.orderType           = ProtoOAOrderType.Value("MARKET")
             req.tradeSide           = 1 if action == "BUY" else 2
-            req.volume              = max(1, int(lots * 100))   # centilots, never 0
-            self._volume_audit(symbol, lots, req.volume)         # OBSERVE ONLY — see the method
+            volume, refusal = self._volume(symbol, lots)
+            if refusal:
+                self._resolve(ExecResult(ok=False, error=refusal))
+                return
+            req.volume = volume
             if sl: req.stopLoss   = sl
             if tp: req.takeProfit = tp
             client.send(req)
 
         elif cmd[0] == "close":
-            _, pos_id, lots = cmd
+            _, pos_id, lots, close_symbol = cmd
             req = ProtoOAClosePositionReq()
             req.ctidTraderAccountId = acct_id
             req.positionId          = int(pos_id)
-            req.volume              = max(1, int(lots * 100))
+            # The close path carried the IDENTICAL expression. Left alone it would close the wrong
+            # quantity and strand the remainder of a position — worse than a bad open, because the
+            # follower is left holding size they cannot see.
+            volume, refusal = self._volume(close_symbol or "", lots)
+            if refusal:
+                self._resolve(ExecResult(ok=False, error=f"close: {refusal}"))
+                return
+            req.volume = volume
             client.send(req)
 
         elif cmd[0] == "modify":

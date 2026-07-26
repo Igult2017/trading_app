@@ -228,7 +228,8 @@ async def _exec_follower(master_trade_id: str, follower: CopyFollower,
                         if len(parts) == 2:
                             result = await executor.close_by_symbol(parts[0], parts[1], lots)
                     else:
-                        result = await executor.close_position(int(follower_pos_id), lots)
+                        result = await executor.close_position(int(follower_pos_id), lots,
+                                                               symbol=snap.symbol)
                 elif etype == "MODIFY":
                     if platform != "binance":   # Binance modify not supported
                         result = await executor.modify_position(

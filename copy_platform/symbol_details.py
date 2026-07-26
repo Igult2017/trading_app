@@ -15,13 +15,26 @@ only through `ProtoOASymbolByIdReq` — a request no code in this repo sends. So
 been one round trip away and nobody made the trip.
 
 WHAT THE NUMBERS MEAN, because they are easy to transpose:
-    lotSize     units of the base currency in ONE lot. Usually 100,000 for forex — but this is
-                per-symbol and per-broker, which is exactly why it must be read and not assumed.
-    volume      the wire field on an order, in HUNDREDTHS OF A UNIT. So for a symbol whose lotSize
-                is 100,000:  1 lot -> 100,000 * 100 = 10,000,000.
-    stepVolume  the granularity the broker will accept, in those same hundredths.
-    min/maxVolume  the bounds, same units. An order under minVolume is rejected.
+    volume      the wire field on an order. cTrader's own words: "Volume in cents (e.g. 1000 in
+                protocol means 10.00 units)." So volume = units x 100.
+    lotSize     "Lot size of the Symbol (in cents)." ALREADY IN CENTS — for a forex symbol whose
+                lot is 100,000 units, lotSize is 10,000,000, not 100,000.
+    stepVolume  "Step of the volume in cents for an order."
+    min/maxVolume  "Minimum/Maximum allowed volume in cents." Under minVolume = rejected.
     digits      price decimals. pipPosition gives the pip. Authoritative, unlike our table.
+
+    THE TRANSPOSITION TRAP, written down because it nearly shipped. Because both `volume` and
+    `lotSize` are in cents, the conversion is simply:
+
+        volume = lots x lotSize                    <-- correct
+        volume = lots x lotSize x 100              <-- WRONG, 100x too big
+
+    The x100 is seductive because "cents = units x 100" is true for VOLUME, and lotSize is quoted
+    in units everywhere a human writes it down — the ctrader-mcp-servers asset table lists
+    lotSize_baseline 100000 for EURUSD (units) while the protobuf field of the same name holds
+    10000000 (cents). Same word, two meanings, a factor of 100 between them. This is why
+    lot_calc.volume_for validates its own answer against the broker's minVolume/maxVolume rather
+    than trusting the arithmetic.
 
 This module only READS and CACHES. It deliberately performs no arithmetic on orders — `lot_calc`
 owns that — so a caching bug can never silently resize a trade.
@@ -72,10 +85,12 @@ def describe(symbol) -> dict:
     log the difference between measured and assumed instead of blurring them.
     """
     if symbol is None:
-        return dict(known=False, lot_size=100_000, step=1, min_volume=0, max_volume=0, digits=5)
+        # Defaults are the forex norm IN CENTS, and are a fallback for a missing field only —
+        # never a licence to skip the fetch. volume_for refuses when known is False.
+        return dict(known=False, lot_size=10_000_000, step=1, min_volume=0, max_volume=0, digits=5)
     return dict(
         known      = True,
-        lot_size   = int(getattr(symbol, "lotSize", 0) or 100_000),
+        lot_size   = int(getattr(symbol, "lotSize", 0) or 10_000_000),
         step       = int(getattr(symbol, "stepVolume", 0) or 1),
         min_volume = int(getattr(symbol, "minVolume", 0) or 0),
         max_volume = int(getattr(symbol, "maxVolume", 0) or 0),
