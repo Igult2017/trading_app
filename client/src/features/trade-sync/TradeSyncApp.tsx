@@ -36,6 +36,16 @@ export function TradeSyncApp({ panel = false }: TradeSyncAppProps = {}) {
       <AppHeader ts={ts} />
       {(helpOpen || accountOpen) && <div className="fixed inset-0 z-30" onClick={closeMenus} />}
 
+      {/*
+        THE COPY NAV RENDERS ON THE RIGHT. This UI is a PANEL inside Journal, which keeps its own
+        left sidebar — so a left-hand copy rail put two vertical navs an inch apart and left the
+        user working out which one governed what. One rail per flank instead.
+
+        `md:order-last`, NOT a DOM move. DOM order drives tab and screen-reader order, so keeping
+        the nav first in the markup means keyboard users still reach navigation before content
+        while it paints on the right. Moving it below <main> would look identical and quietly make
+        the page worse for anyone not using a mouse.
+      */}
       <div className="flex">
         <Sidebar
           collapsed={collapsed}
@@ -56,7 +66,18 @@ export function TradeSyncApp({ panel = false }: TradeSyncAppProps = {}) {
           ) : (
             <div className="flex flex-col lg:flex-row">
               <EngineSetup ts={ts} />
-              <div className="w-full lg:w-96 flex flex-col bg-surface">
+              {/*
+                This column takes the slot the copy nav vacated, so the two rails now flank the
+                content instead of stacking on the left. It moves as a UNIT — Connected accounts
+                and the Mirror feed belong together, the feed being the trades those accounts are
+                mirroring.
+
+                `lg:order-first`, and the DOM order left alone, for two reasons. Tab order still
+                reaches Engine setup — the primary action — first. And below `lg` this stack is
+                `flex-col`, so a DOM move would push the accounts list above Engine setup on every
+                phone; `order` only applies at the breakpoint, the reading order does not.
+              */}
+              <div className="w-full lg:w-96 lg:order-first flex flex-col bg-surface">
                 <ConnectedAccounts accounts={setup.accounts} onToggle={setup.toggleAccountStatus} />
                 <MirrorFeed feed={feed} mirroring={setup.mirroring} />
               </div>

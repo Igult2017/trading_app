@@ -22,18 +22,25 @@ export function Sidebar({ collapsed, setCollapsed, activePage, setActivePage, pa
   }));
   return (
     <aside
-      className={`ct-sidebar ${collapsed ? "collapsed" : ""} hidden md:flex flex-col border-r border-surface-container-highest bg-surface shrink-0`}
+      // RIGHT-HAND RAIL. `md:order-last` paints it on the right while the markup keeps it first,
+      // so tab and screen-reader order still reach navigation before content (see TradeSyncApp).
+      // border-L, not border-R: the divider belongs against the CONTENT, not the viewport edge.
+      className={`ct-sidebar ${collapsed ? "collapsed" : ""} hidden md:flex md:order-last flex-col border-l border-surface-container-highest bg-surface shrink-0`}
       // Standalone: pin to the viewport under the 3.5rem header. Panel: the host's <main> is the
       // scroll container, so calc(100vh…) would overshoot it — stretch to the panel instead.
       style={panel ? undefined : { height: "calc(100vh - 3.5rem)", position: "sticky", top: "3.5rem" }}
     >
-      <div className={`flex ${collapsed ? "justify-center" : "justify-end"} p-2 border-b border-surface-container-highest`}>
+      {/* Collapse control, mirrored for the right edge: the button sits at the rail's INNER edge
+          and the arrow always points the way the rail will travel. On a left rail that was
+          justify-end + chevron_left; here it is justify-start + chevron_right. An arrow pointing
+          the wrong way is the first thing anyone notices about a moved panel. */}
+      <div className={`flex ${collapsed ? "justify-center" : "justify-start"} p-2 border-b border-surface-container-highest`}>
         <button
           className="text-on-surface hover:text-primary p-1 rounded"
           onClick={() => setCollapsed(!collapsed)}
           aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
-          <Icon name={collapsed ? "chevron_right" : "chevron_left"} />
+          <Icon name={collapsed ? "chevron_left" : "chevron_right"} />
         </button>
       </div>
 
