@@ -144,14 +144,12 @@ def m1_signals(m1: list[Candle], bullish: bool, vc: Candle,
         log.info(f"[vix1] {symbol} 1M: aligned ({kind}) but {why} — waiting")
         return []
 
-    # NOTE — there is deliberately NO "the pullback must stay on the far side of line 1" test.
-    # One was added on 2026-07-22 and REMOVED on 2026-07-25 after measuring the user's own trades:
-    # only 9-10 of 19 real pullbacks kept their extreme past the line (robust at every timezone
-    # offset), so it was blocking about HALF of his real setups. His rule — "pullback only after
-    # price has gone past the 1HR line" — is about ORDER, not geography: price crosses the line
-    # first, THEN the retrace forms, and a retrace naturally pulls back through that line by a pip
-    # or two. The ordering is already enforced: traded_past() above, then find_pullback() below,
-    # with the line-2 tolerance band catching a retrace that runs too far. Do not re-add it.
+    # THE PULLBACK MUST SIT PAST LINE 1 — enforced inside find_pullback (see its comment). This
+    # note used to say the opposite ("deliberately NO such test... do not re-add it"), on the
+    # strength of my own screenshot reconstruction of his pullbacks. He corrected it directly on
+    # 2026-07-26: "that pullback has to be past the 1HR line when I look at it in 1M TF... just
+    # make sure any pullback is past the 1HR line." Measured on Jan-Jun 2021 before the fix, 53% of
+    # the pullbacks the code anchored on were not fully past the line.
 
     # HOW FAR FROM THE LINE — the DYNAMIC allowance (see _allowed_offset): the height so far of the
     # 1HR candle following the momentum candle. Beyond it the price is WORSE, not invalid, so the

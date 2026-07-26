@@ -21,10 +21,11 @@ only when price actually resumes the trend: any non-resuming candle inside it is
 If the retrace OPENS with a volatility/violent candle, that retrace gives no entry — we stand aside
 rather than anchor a stop on chop.
 
-LINE 1 gates it, and in two parts (enforced by the caller, vix1_entry): price must actually have
-TRADED past line 1, and the pullback itself must TAKE PLACE past (or on) line 1 — never on the wrong
-side of it. The wick-line check here is the third guard: a retrace that has run beyond LINE 2 is not
-a pullback any more.
+LINE 1 gates it in two parts: price must actually have TRADED past line 1 (the caller's job, on the
+LIVE window), and the pullback candle itself must TAKE PLACE past (or on) line 1 — enforced HERE,
+whole-candle, on the edge that faces the line. A retrace that has not cleared the line is not an
+entry; we wait for one that has. The wick-line check is the third guard: a retrace that has run
+beyond LINE 2 is not a pullback any more.
 """
 from core.types import Candle
 from shared.candle_math import is_bullish, is_bearish, body_size, full_range, avg_body
@@ -83,6 +84,21 @@ def find_pullback(win: list[Candle], bullish: bool,
         return None, (f"the retrace opened with a volatility/violent candle "
                       f"(body {body_size(c):.5f} / range {full_range(c):.5f} vs avg body {avg:.5f}) "
                       f"— market choppiness, not a pullback to anchor")
+    # PAST THE LINE — the WHOLE pullback candle must sit past (or on) line 1. The edge that faces
+    # the line is the one that has to clear it: the LOW on a buy, the HIGH on a sell. Touching is
+    # allowed ("past the 1HR line or on the 1HR line").
+    #
+    # This gate existed, was REMOVED on 2026-07-25, and is RE-ADDED on 2026-07-26 on the user's
+    # direct instruction ("just make sure any pullback is past the 1HR line"). The removal was based
+    # on my own reconstruction of his pullbacks from screenshots — which measured only 9-10 of 19
+    # keeping their extreme past the line. That reconstruction has since been wrong twice (the
+    # invented "line 2", the symmetric wick cap), and he is the authority on his own method.
+    # Measured before re-adding: 53% of the pullbacks the code anchored on were NOT fully past the
+    # line, and the 8% of entries that landed outright behind it returned 12% WR / -5.0R.
+    near = c.low if bullish else c.high
+    if (near < line) if bullish else (near > line):
+        return None, (f"the pullback candle ({near:.5f}) is not past line 1 ({line:.5f}) — "
+                      f"the whole candle must sit past (or on) the line; waiting for one that does")
     lvl = c.high if bullish else c.low
     if (lvl < wick_line) if bullish else (lvl > wick_line):
         return None, (f"the pullback ({lvl:.5f}) ran beyond the lines "
