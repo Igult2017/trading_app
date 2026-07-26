@@ -8,6 +8,12 @@ import math
 from decimal import Decimal
 
 # Safety backstop: a corrupt multiplier / fixed-lot must never place a giant order.
+# A BACKSTOP, NOT THE SIZE CONTROL. This clamp was the only ceiling on a copied trade's size for
+# the platform's whole life, and it ended up load-bearing by accident: the provider read every
+# master position as 100,000 lots, so calc_lots clamped EVERY mult-mode trade to exactly this
+# number. 100 lots is ruinous on a retail account — it was never a safety limit, it just stopped
+# the absurd value being more absurd. The real control is risk_guard.check_trade_risk (3% of the
+# follower's balance per trade). Leave this here as a last resort; do not treat it as protection.
 MAX_LOTS = 100.0
 
 
@@ -139,3 +145,31 @@ def volume_for(spec: dict, lots: float) -> tuple[int, str | None]:
     if volume <= 0:
         return 0, f"{lots} lots quantised to {volume} at step {step}"
     return volume, None
+
+
+def lots_from_volume(spec: dict, volume: int) -> float:
+    """The EXACT INVERSE of volume_for: the broker's wire `volume` back into lots.
+
+    These two live side by side deliberately. They were separated before — the write side in
+    executors/ctrader, the read side in providers/ctrader — and they drifted into being wrong in
+    OPPOSITE directions, each by 100,000x:
+
+        write   volume = int(lots * 100)      100,000x too SMALL
+        read    lots   = volume / 100         100,000x too LARGE
+
+    The errors partly cancelled, which is precisely why neither was ever noticed. Fixing one alone
+    is more dangerous than fixing neither, because it removes the cancellation: a 1-lot master read
+    as 100,000 lots, clamped to MAX_LOTS=100, then written CORRECTLY is a real 100-lot order.
+
+    Both directions now share one definition of the units — `volume` and `lotSize` are both in
+    cents, so the conversion is a single division — and a round-trip test asserts they invert.
+
+    Returns 0.0 when there is no contract spec. calc_lots already treats 0.0 as "no valid size,
+    SKIP", so an unreadable master position produces no trade rather than a guessed one.
+    """
+    if not spec or not spec.get("known"):
+        return 0.0
+    lot_size = int(spec.get("lot_size") or 0)
+    if lot_size <= 0 or not volume:
+        return 0.0
+    return round(float(volume) / lot_size, 4)

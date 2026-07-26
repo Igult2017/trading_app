@@ -15,7 +15,7 @@ from db import Session, CopyMaster, CopyFollower, BrokerAccount, \
     CopyTradeMaster, CopyTradeFollower, CopyExecutionLog
 from cred_manager import get_creds
 from lot_calc import calc_lots, apply_direction, is_symbol_allowed, pip_size, pip_value
-from risk_guard import check_follower_allowed
+from risk_guard import check_follower_allowed, check_trade_risk
 from providers.ctrader import PositionSnapshot
 
 log = logging.getLogger("dispatcher")
@@ -192,6 +192,17 @@ async def _exec_follower(master_trade_id: str, follower: CopyFollower,
             # (re-calculating could under/over-fill and strand size). Fall back to calc_lots.
             lots = open_vol if (open_vol and open_vol > 0) else calc_lots(
                 follower, snap.volume_lots, follower_equity=None)
+
+        # 3% PER-TRADE RISK CAP — checked HERE, not with the other guards, because it needs the
+        # FINAL lot size and the stop distance, and both are computed above. A follower may never
+        # risk more than 3% of their account on one copied trade; no stop loss is a refusal, since
+        # unbounded risk cannot be checked against a cap.
+        if etype == "OPEN":
+            ok_risk, risk_reason = check_trade_risk(
+                follower, broker_account, lots, sl_pips, pip_value(snap.symbol))
+            if not ok_risk:
+                _log(fid, master_trade_id, "WARN", "RISK_CAP", risk_reason)
+                return
 
         # ── THE SAFETY CHOKEPOINT ──────────────────────────────────────────────
         # Every OPEN, CLOSE and MODIFY for every platform passes through here, so this is the one

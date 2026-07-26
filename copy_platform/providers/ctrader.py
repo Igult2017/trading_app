@@ -16,6 +16,7 @@ from ctrader_open_api.messages.OpenApiMessages_pb2 import (
     ProtoOAApplicationAuthReq, ProtoOAApplicationAuthRes,
     ProtoOAAccountAuthReq, ProtoOAAccountAuthRes,
     ProtoOASymbolsListReq, ProtoOASymbolsListRes,
+    ProtoOASymbolByIdReq, ProtoOASymbolByIdRes,
     ProtoOAReconcileReq, ProtoOAReconcileRes,
     ProtoOAExecutionEvent,
 )
@@ -23,6 +24,9 @@ from ctrader_open_api.messages.OpenApiModelMessages_pb2 import ProtoOAPositionSt
 
 from config import CT_LIVE_HOST, CT_DEMO_HOST, CT_PORT, RECONNECT_DELAY, \
     RECONCILE_INTERVAL
+
+import symbol_details
+from lot_calc import lots_from_volume
 
 log = logging.getLogger("provider.ctrader")
 
@@ -51,6 +55,7 @@ class CTraderProvider:
         self.account_type = account_type
         self.on_event     = on_event
         self._positions: dict[int, PositionSnapshot] = {}
+        self._spec_requested: set[int] = set()   # symbolIds whose contract spec we asked for
         self._symbols: dict[int, str] = {}   # symbolId → symbolName (cTrader trades carry only ids)
         self._authed      = False
         self._reconciled  = False
@@ -131,6 +136,9 @@ class CTraderProvider:
         elif ptype == ProtoOASymbolsListRes().payloadType:
             res = Protobuf.extract(message, ProtoOASymbolsListRes)
             self._symbols = {s.symbolId: s.symbolName for s in res.symbol}
+            # The light list gives names only. Reading a master's SIZE needs lotSize, which lives on
+            # the full ProtoOASymbol — see _snap for the 100,000x bug that came of guessing it.
+            # Fetched lazily per symbol, on first sight of a position in it.
             log.info(f"[{self.master_id}] {len(self._symbols)} symbols — requesting open positions")
             req = ProtoOAReconcileReq()
             req.ctidTraderAccountId = int(self.creds["ctraderId"])
@@ -138,6 +146,13 @@ class CTraderProvider:
             if not self._reconcile_scheduled:   # one chain for the provider's lifetime
                 self._reconcile_scheduled = True
                 self._loop.call_later(RECONCILE_INTERVAL, self._request_reconcile)
+
+        elif ptype == ProtoOASymbolByIdRes().payloadType:
+            res = Protobuf.extract(message, ProtoOASymbolByIdRes)
+            symbol_details.absorb(int(self.creds["ctraderId"]), res)
+            spec_n = len(getattr(res, "symbol", []))
+            log.info(f"[{self.master_id}] contract spec loaded for {spec_n} symbol(s)")
+            self._replay_pending()
 
         elif ptype == ProtoOAReconcileRes().payloadType:
             res = Protobuf.extract(message, ProtoOAReconcileRes)
@@ -206,13 +221,60 @@ class CTraderProvider:
                 self._positions[pid] = snap   # volume/other change — track silently
 
     def _snap(self, pos) -> PositionSnapshot:
-        td = pos.tradeData
+        """A master position as a copy event.
+
+        THE SIZE IS THE DANGEROUS FIELD. This read `td.volume / 100` with the comment "cTrader
+        volume = centilots". It is not centilots — cTrader's own words are "Volume in cents (e.g.
+        1000 in protocol means 10.00 units)", and lotSize is in those same cents. So a 1.00-lot
+        forex position (volume 10,000,000) was read as 100,000 LOTS. In mult mode calc_lots then
+        computed 100,000 x the multiplier and clamped to MAX_LOTS=100, so every copied trade
+        silently became exactly 100 lots whatever the master actually did.
+
+        It survived because the WRITE side was wrong by the same factor in the other direction
+        (int(lots * 100)) and the two cancelled into something merely tiny. Fixing the write side
+        alone removed the cancellation and turned a harmless bug into a 100-lot order — which is
+        why both sides now go through lot_calc, where they sit together and a round-trip test
+        asserts they invert.
+
+        No contract spec -> volume_lots 0.0. calc_lots reads 0.0 as "no valid size, SKIP", so an
+        unreadable position produces no trade instead of a guessed one.
+        """
+        td   = pos.tradeData
+        spec = symbol_details.describe(
+            symbol_details.get(int(self.creds["ctraderId"]), td.symbolId))
+        if not spec["known"]:
+            self._want_spec(td.symbolId)
+        lots = lots_from_volume(spec, td.volume)
+        if lots <= 0:
+            log.warning(f"[{self.master_id}] {self._symbols.get(td.symbolId, td.symbolId)}: "
+                        f"no contract spec yet — size unreadable, event will SKIP")
         return PositionSnapshot(
             position_id = pos.positionId,
             symbol      = self._symbols.get(td.symbolId, str(td.symbolId)),
             action      = "BUY" if td.tradeSide == 1 else "SELL",
-            volume_lots = td.volume / 100,   # cTrader volume = centilots
+            volume_lots = lots,
             entry_price = float(pos.price) if pos.price else 0.0,
             stop_loss   = float(pos.stopLoss)   if pos.stopLoss   else None,
             take_profit = float(pos.takeProfit) if pos.takeProfit else None,
         )
+
+    def _want_spec(self, symbol_id: int) -> None:
+        """Ask for a symbol's contract spec once. Cheap, idempotent, and the response re-drives
+        whatever was waiting on it (_replay_pending)."""
+        if symbol_id in self._spec_requested or self._client is None:
+            return
+        self._spec_requested.add(symbol_id)
+        try:
+            self._client.send(symbol_details.build_request(int(self.creds["ctraderId"]), symbol_id))
+        except Exception as exc:
+            self._spec_requested.discard(symbol_id)
+            log.warning(f"[{self.master_id}] could not request contract spec for {symbol_id}: {exc}")
+
+    def _replay_pending(self) -> None:
+        """A spec arriving can make a previously-unreadable position readable. Re-reconcile rather
+        than replay stale bytes: reconcile is idempotent and is the same safety net the provider
+        already runs on a timer."""
+        try:
+            self._request_reconcile()
+        except Exception:
+            pass
