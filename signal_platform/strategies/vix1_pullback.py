@@ -31,9 +31,34 @@ entry; we wait for one that has. There is no second line — see vix1_lines.
 from core.types import Candle
 from shared.candle_math import is_bullish, is_bearish, body_size, full_range, avg_body
 
-_VOLA_BODY_MULT  = 1.5   # body >= this x the 1M's 14-bar avg body  -> volatility candle (excluded)
-_VIOLENT_RNG_MULT = 2.5  # range >= this x the 1M's 14-bar avg body -> violent candle    (excluded)
 _AVG_N            = 14   # same baseline the platform's volume/violent patterns use
+
+# CHOP — and what it is NOT. The user's rule is "not a volatility candle and not a violent candle
+# TYPICAL OF MARKET CHOPPINESS". The qualifier is the whole rule: chop is a WHIPSAW — an abnormally
+# wide bar whose body settles nowhere, buyers and sellers trading through each other. It is not a
+# big candle.
+#
+# WHAT WAS HERE UNTIL 2026-07-26, AND WHY IT WAS WRONG. Two caps, ORed: body >= 1.5x avg OR range >=
+# 2.5x avg -> rejected, with a comment claiming these were "the platform's own volume/violent-candle
+# thresholds". Three errors in one:
+#   * INVERTED. patterns/volume_patterns fires a VOLUME CANDLE at body >= 1.5x avg and grades its
+#     STRENGTH from 0 at 1.5x to 1.0 at 3x. patterns/wick_patterns calls its violent candle "large
+#     body AND long wick - high volatility, DIRECTIONAL CONVICTION". Both are conviction signals.
+#     This code took the platform's threshold for "strong" and used it as "reject as chop".
+#   * OR, where the platform's violent candle needs BOTH (body >= 1.5x avg AND range >= 2.5x avg).
+#     So a wide bar with any body at all was thrown out on the range test alone.
+#   * It cost a real trade: his setup-1 pullback (2021-07-06 14:07 UTC) is a 5.9-pip body in a
+#     5.9-pip range - 100% body, 2.6x the 14-bar average, the cleanest pullback in that hour. Both
+#     caps rejected it. The code waited five more minutes and anchored on a weaker candle instead.
+#
+# The anti-chop test is now what chop actually is, and it needs BOTH halves: abnormally wide AND not
+# decisive. A candle that is 60%+ body cannot be a whipsaw however large it is, so in practice the
+# _MIN_BODY_FRAC gate below already does this work - which is the point. Size alone never disqualifies.
+_CHOP_RNG_MULT   = 2.5   # range >= this x the 14-bar avg body ... (first half of the whipsaw test)
+_CHOP_BODY_FRAC  = 0.60  # ... AND body < this share of its own range -> a whipsaw, not a pullback
+_MAX_BODY_VS_AVG = 0.0   # optional ceiling on body/avg; 0 = NONE, and none is correct: a big
+                         # DECISIVE pullback is the best anchor there is, and one 1HR candle's
+                         # range already caps the risk downstream (vix1_roi.max_risk).
 
 # A PROPER pullback candle, the OTHER end of the same scale (user 2026-07-26: "I just waited for a
 # PROPER pullback candle, not an insignificant candle that shows the STRUGGLE between the buyers and
@@ -66,19 +91,20 @@ _MIN_BODY_FRAC   = 0.60  # body >= this share of its own range        -> it is D
 
 def is_pullback_candle(c: Candle, bullish: bool, avg: float = 0.0) -> bool:
     """A candle not going WITH the bias, that is neither ABNORMAL nor INSIGNIFICANT.
-    Too big  -> a volatility candle (body >= 1.5x the recent avg body) or a violent candle
-                (range >= 2.5x it): market choppiness, and a stop beyond it sits where chop hunts.
+    Chop     -> a WHIPSAW: an abnormally wide bar (range >= 2.5x the recent avg body) whose body
+                settles nowhere (< 60% of its range). Size alone is NOT a disqualifier.
     Too small-> a body under the recent average, or under 60% of its own range: indecision, which
                 marks no level worth anchoring an entry and a stop to."""
     if is_bullish(c) if bullish else is_bearish(c):     # a candle WITH the bias is not a pullback
         return False
-    if avg > 0 and (body_size(c) >= _VOLA_BODY_MULT * avg
-                    or full_range(c) >= _VIOLENT_RNG_MULT * avg):
-        return False
-    if avg > 0 and body_size(c) < _MIN_BODY_VS_AVG * avg:
-        return False
     rng = full_range(c)
+    if avg > 0 and body_size(c) < _MIN_BODY_VS_AVG * avg:
+        return False                                   # insignificant — a pause, not a pullback
     if rng > 0 and body_size(c) < _MIN_BODY_FRAC * rng:
+        return False                                   # indecision — the struggle he described
+    if avg > 0 and rng > 0 and rng >= _CHOP_RNG_MULT * avg and body_size(c) < _CHOP_BODY_FRAC * rng:
+        return False                                   # a WHIPSAW: wide AND settles nowhere
+    if _MAX_BODY_VS_AVG and avg > 0 and body_size(c) >= _MAX_BODY_VS_AVG * avg:
         return False
     return True
 
