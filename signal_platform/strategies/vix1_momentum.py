@@ -60,17 +60,20 @@ _MIN_VS_PREV    = 1.0   # GATE: body must be BIGGER THAN THE PREVIOUS CANDLE'S b
 _A_BODY_FRAC    = 0.75  # A-grade body: >= 75% of range  (the "perfect" wickless look)
 _A_CWICK_FRAC   = 0.15  # A-grade counter-wick: <= 15%   (a "perfect" wick)
 _A_CONF         = 0.85  # confidence assigned to an A-grade (perfect) momentum candle
-_MAX_WICK_FRAC  = 0.10  # BOTH wicks, each as a share of range — the user's rule, 2026-07-25: "trade
-                        # only when the first momentum candle has no wicks or very short wicks. Don't
-                        # use the wick rule you created for this." So the asymmetric cap below is
-                        # REPLACED, not added to: each wick must be <= 10%, i.e. body >= 80% of range.
-                        # This is deliberately stricter than his own trade sample suggested (one real
-                        # winner ran a 48% with-move wick) — his instruction is explicit and it is his
-                        # method. Measured effect on GBP/USD Jan-Jun 2021: momentum candles fall from
-                        # 56.5/month to 14.0/month on the wick rule alone, and to 8.7/month once
-                        # pro-trend is also required — against 5.7/month in his own trade log.
-_MAX_CWICK_FRAC = 0.25  # SUPERSEDED by _MAX_WICK_FRAC (kept: veto_reason still reports against it).
-                        # wick AGAINST the move, as a share of range. Raised 15%->25% (user 2026-07-21):
+                        # "SHORT WICKS" MEANS THE COUNTER-WICK — settled 2026-07-26 by his own trade.
+                        # A symmetric cap (each wick <= 10%) was shipped on his instruction "trade only
+                        # when the first momentum candle has no wicks or very short wicks; don't use the
+                        # wick rule you created for this". His FIRST walked-through setup then killed it:
+                        # GBP/USD 2021-07-06 13:00 UTC, a 25.2p / 5.48x-median / 70%-body BEAR he traded
+                        # to +2.28R — upper (counter) wick 2.7p = 7.5%, lower (with-move) wick 8.2p =
+                        # 22.7%. He called it himself: "the 1HR first candle is not a perfect one but i
+                        # loved the momentum." The symmetric cap REJECTED it; the asymmetric one admits
+                        # it. Both statements are satisfied at once because the wick he means by "very
+                        # short" IS the counter-wick (7.5% here — genuinely very short); the with-move
+                        # wick is the move overshooting and settling back, which is not rejection.
+                        # The near-wickless look he describes is still rewarded — as a GRADE, not a gate
+                        # (momentum_grade: A needs body >= 75% AND counter-wick <= 15%).
+_MAX_CWICK_FRAC = 0.25  # wick AGAINST the move, as a share of range. Raised 15%->25% (user 2026-07-21):
                         # real volume candles get bought/sold back a little — a strict 15% demanded an
                         # almost-wickless marubozu and threw away genuine momentum. Live proof: GBP/USD
                         # 20-Jul 18:00 was a 21-pip, 3.62x-median, 81%-body BEAR that VIX.1 rejected
@@ -111,9 +114,7 @@ def is_momentum_candle(h1: list[Candle], i: int, bullish: bool) -> bool:
     return (body_size(c) >= _MIN_BODY_MULT * base
             and body_size(c) > _MIN_VS_PREV * prev          # the user's own rule — 22/22 of his trades
             and body_size(c) >= _MIN_BODY_FRAC * rng
-            # BOTH wicks capped — "no wicks or very short wicks". Not the asymmetric counter-wick rule.
-            and upper_wick(c) <= _MAX_WICK_FRAC * rng
-            and lower_wick(c) <= _MAX_WICK_FRAC * rng)
+            and counter_wick(c, bullish) <= _MAX_CWICK_FRAC * rng)
 
 
 def momentum_grade(c: Candle, bullish: bool) -> tuple[str, float]:
