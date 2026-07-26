@@ -55,8 +55,32 @@ CT_TOKEN_URL  = "https://connect.ctrader.com/oauth2/token"
 # COPY_DRY_RUN runs the entire path — risk guard, sizing, symbol resolution, credential decrypt —
 # and LOGS the order it would have placed instead of sending it. That is what makes a change to
 # order sizing verifiable against a real account before a single real order is sized by it.
-COPY_ENABLED = os.environ.get("COPY_ENABLED", "true").strip().lower() not in ("false", "0", "no")
-COPY_DRY_RUN = os.environ.get("COPY_DRY_RUN", "false").strip().lower() in ("true", "1", "yes")
+def _flag(name: str, default: bool) -> bool:
+    """A boolean env var, tolerant of how the value actually arrives.
+
+    QUOTES ARE STRIPPED, and that is not cosmetic. Coolify stored COPY_DRY_RUN as the six
+    characters 'true' — WITH the single quotes — and the naive parse then read it as neither true
+    nor false and fell through to the default. For a kill switch that means the safety silently
+    reads OFF while the dashboard shows it ON: the worst possible failure for a flag whose entire
+    job is to stop trading. Verified on the live Coolify instance, not hypothesised.
+
+    Also accepts on/off/yes/no, and anything unrecognised falls back to `default` with a WARNING
+    rather than being quietly coerced — a typo in a safety flag should be loud.
+    """
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    val = raw.strip().strip('"').strip("'").strip().lower()
+    if val in ("true", "1", "yes", "on"):
+        return True
+    if val in ("false", "0", "no", "off"):
+        return False
+    print(f"[config] WARNING: {name}={raw!r} is not a recognised boolean — using {default}")
+    return default
+
+
+COPY_ENABLED = _flag("COPY_ENABLED", True)
+COPY_DRY_RUN = _flag("COPY_DRY_RUN", False)
 
 POLL_INTERVAL_SEC = 2      # fallback REST poll interval
 RECONNECT_DELAY   = 5      # seconds before reconnecting a dropped provider
