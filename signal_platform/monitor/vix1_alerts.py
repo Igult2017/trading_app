@@ -61,7 +61,11 @@ async def check(row, bars) -> None:
         return
     buy = row.type == Direction.BUY.value
 
-    since = [c for c in bars if c.time >= row.triggered_at.timestamp()][-_MAX_BARS:]
+    # _epoch, not .timestamp(): trading_signals stores naive UTC datetimes (DateTime without
+    # timezone=True), and a naive .timestamp() is read as LOCAL time — shifting this window by the
+    # host's UTC offset. Invisible on a UTC host, wrong the moment one isn't.
+    from monitor.signal_monitor import _epoch
+    since = [c for c in bars if c.time >= _epoch(row.triggered_at)][-_MAX_BARS:]
     if len(since) < 3:
         return
 

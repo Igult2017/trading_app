@@ -67,14 +67,23 @@ def update_status(signal_id: str, status: SignalStatus,
             setattr(row, timestamp_field, datetime.now(timezone.utc))
 
 
-def mark_triggered(signal_id: str) -> None:
+def mark_triggered(signal_id: str, when: datetime | None = None) -> None:
     """Stamp the moment the ENTRY actually filled. Status stays 'active' — the card is live either
     way; triggered_at is what separates an open POSITION (TP/SL outcomes are real) from a pending
-    stop ORDER (nothing has been won or lost yet)."""
+    stop ORDER (nothing has been won or lost yet).
+
+    `when` is the time of the BAR the fill happened on, not the time we noticed it. The monitor
+    replays candles from this timestamp forward, so a `now()` stamp would silently skip every bar
+    between the real fill and the poll that spotted it — which is the whole class of bug the replay
+    exists to remove. Defaults to now() for callers with no bar to point at.
+
+    Idempotent: an already-triggered row is left alone, so re-running the replay over the same
+    window cannot move the fill time.
+    """
     with get_session() as s:
         row = s.get(SignalModel, signal_id)
         if row and row.triggered_at is None:
-            row.triggered_at = datetime.now(timezone.utc)
+            row.triggered_at = when or datetime.now(timezone.utc)
 
 
 def cancel_active(strategy: str, symbol: str, direction: str) -> int:
