@@ -25,6 +25,7 @@ Consequence worth keeping: because BX never places an unconfirmed limit, p35's p
 can't trade demand without a confirmation" when supply is in control) is satisfied structurally, not
 by a check that could be forgotten.
 """
+from strategies.bx_sd_control import NEUTRAL
 
 
 def classify(structure, control_side: str, zone_direction: str) -> dict:
@@ -35,7 +36,9 @@ def classify(structure, control_side: str, zone_direction: str) -> dict:
     no longer GATES on the trend.
     """
     confirmed = bool(getattr(structure, "confirmed", False))
-    against   = control_side not in ("none", zone_direction)
+    # NEUTRAL covers both "none" and "contested" — neither is a side, so neither can be traded
+    # against. Testing `!= "none"` alone would have read a contested bar as an against-control trade.
+    against   = control_side not in NEUTRAL and control_side != zone_direction
 
     why = []
     if confirmed:

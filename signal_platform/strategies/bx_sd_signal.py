@@ -39,7 +39,7 @@ def build_signal(symbol: str, setup: SetupResult, conf: LTFConfluence, trig: Ent
         # THREE states, not two. `with_control` is None when no side is in control — printing
         # "AGAINST" there would assert something untrue about an untested market.
         f"CTX::CONTROL::{_ctl_side.upper()} ("
-        f"{'UNTESTED' if _with is None else ('WITH' if _with else 'AGAINST')}"
+        f"{('CONTESTED' if _ctl_side == 'contested' else 'UNTESTED') if _with is None else ('WITH' if _with else 'AGAINST')}"
         f"-CONTROL {zdir.upper()} ENTRY, CONFIRMED)",
         f"CTX::ENTRY TYPE::{(setup.confluences.get('entry_type') or {}).get('book_situation', 'Entry-2')}"
         f" — JUSTIFICATION (LTF BMS/CHoCH, NEVER AN UNCONFIRMED LIMIT)",
