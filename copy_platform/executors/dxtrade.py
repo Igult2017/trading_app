@@ -73,8 +73,12 @@ class DXTradeExecutor:
             log.error(f"[DXTrade] open_position failed: {e}")
             return ExecResult(ok=False, error=str(e))
 
-    async def close_position(self, position_id: int,
-                             volume_lots: float) -> ExecResult:
+    async def close_position(self, position_id: int, volume_lots: float,
+                             symbol: str = "") -> ExecResult:
+        # `symbol` is part of the shared executor signature: cTrader needs it to size a close from
+        # the broker's per-symbol contract spec. Accepted and ignored here — this API sizes closes
+        # without it — so the dispatcher can call every platform the same way.
+
         try:
             async with aiohttp.ClientSession() as session:
                 token  = await self._auth(session)
