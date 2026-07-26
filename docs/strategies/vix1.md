@@ -234,7 +234,8 @@ Tokyo is routine in London.
 
 | commit | what |
 |---|---|
-| 2026-07-26 | **PRO-TREND ONLY + BOTH WICKS ≤10%** (user: "Only trade pro trend"; "trade only when the first momentum candle has no wicks or very short wicks. Don't use the wick rule you created for this"). `choch`/`choch4` origins REMOVED from `vix1_bias` — a reversal against the prevailing trend is by definition not pro-trend, and they are redundant since the trend now flips on exactly the CHoCH event, so the next momentum candle that way qualifies as plain `trend`. `_MAX_WICK_FRAC = 0.10` in `vix1_momentum` REPLACES the asymmetric counter-wick cap (each wick ≤10% of range, i.e. body ≥80%). **Measured effect, GBP/USD Jan–Jun 2021:** momentum candles 56.5/mo → 14.0/mo on the wick rule alone → **8.7/mo** with pro-trend; full pipeline lands at **6.7 trades/month vs his logged 5.7**. The frequency gap that this whole line of work chased is now CLOSED. **The performance gap is not.** See "Where the edge actually isn't" below. |
+| `3f383c0` 2026-07-26 | **"SHORT WICKS" MEANS THE COUNTER-WICK** — the symmetric 10% cap shipped hours earlier is REVERTED. His own setup 1 rejected it: a 70%-body bear he traded to +2.28R has a 7.5% counter-wick and a **22.7% with-move wick**. Both his statements hold at once because the wick he calls "very short" is the one against the move. See the setup 1 walk-through below. |
+| `8811288` 2026-07-26 | **PRO-TREND ONLY** (user: "Only trade pro trend"). `choch`/`choch4` origins REMOVED from `vix1_bias` — a reversal against the prevailing trend is by definition not pro-trend, and they are redundant since the trend now flips on exactly the CHoCH event, so the next momentum candle that way qualifies as plain `trend`. Confirmed by setup 1, where his "it broke the BOS and confirmed it" reasoning IS `origin='trend'` at the production window. (The same commit shipped a both-wicks ≤10% cap and claimed the frequency gap was closed at 6.7 trades/mo — **both wrong**, see the row above and the harness-bug section.) |
 | `ea5c19c` 2026-07-26 | **THE TREND IS NOW MARKET STRUCTURE THAT PERSISTS, not a 36-bar slope.** His model, which is Dow's own rule: there is a MAIN trend, inside it there can be ranging or unreadable movement, and it stands until the market shows DECISIVELY that it changed. Modern structure gives the test - a trend continues through a BOS and turns only on a CHoCH (a BODY CLOSE through the swing protecting it). ESTABLISH on HH+HL / LH+LL; HOLD through consolidation; FLIP only on that close. **The old slope was stateless and instantaneous** - recomputed from scratch every bar, no memory, structurally unable to express persistence: over 3,075 H1 bars it read FLAT on **35%** and made **29 round trips** (trend -> flat -> the SAME trend, no reversal). His 30-Jun-2021 example is the case in miniature: an obvious multi-day downtrend the 36-bar window called flat, missing its own threshold by **2.7 pips** because the window sat inside the consolidation at the bottom of the move. MEASURED on his 34 logged trades at the production 120-bar window: agreement **41% -> 74%**, reads-flat (which silently kills a setup) **35% -> 0%**, state changes **165 -> 57** (~1 every 2.2 days), and his 30-Jun example **0 -> -1**. A first attempt flipped 8 times in 8 days because it advanced the protected level to EVERY counter-swing; protection now advances only on a real BOS, so highs printed while a downtrend consolidates are noise INSIDE the trend, not the level defining it. **CONSEQUENCE (deliberate, approved):** the 1HR trend is never 'unclear' any more, so the **4HR fallback (trend4/choch4) no longer fires** - it existed to cover the old detector's blindness. 1HR stays primary. **KNOWN LIMIT:** the verdict still varies on **4%** of bars across the 118-121 bars the feed delivers; a warm-up margin (0/5/10/15/20/30) was tested and did not help, so no complexity was added for no gain. |
 | 2026-07-25 | **CALIBRATED ON 22 REAL TRADES (2021 GBP/USD, real cTrader H1+M1).** Five changes. (1) **REVERTED the past-the-line pullback gate** added 3 days earlier: measured on the real setups only **9-10 of 19** pullbacks kept their extreme past line 1 (robust at every timezone offset), so it was blocking ~HALF his trades. His rule is about ORDER (price crosses the line, THEN the retrace forms), not geography - a retrace naturally pulls back through the line by a pip or two. `traded_past` + the line-2 tolerance already enforce it. **Do not re-add.** (2) **Body gate 60%->50%** - his thinnest real momentum candle is 51% body (a TP winner); 60% rejected 3 of 22. (3) **RESTORED `body > previous candle body`** - his own theory, **22/22** of his trades pass (median 2.96x, min 1.06x); measured over 41,900 H1 bars it strips **596 of 4,980 (12%)** of the scanner's output at zero cost to real setups. It is a COMPANION to the 2.5x-median test, never a replacement (alone it admits a tiny candle that merely beats a tinier neighbour). (4) **Pullback distance is now DYNAMIC** - allowance = the momentum candle's own height, replacing a hardcoded 7p that rejected 3 of 22 (their pullbacks sat 7.7p/10.1p/12.7p out). (5) **A pullback past the allowance no longer dies** - it ships flagged "past the recommended entry price" if **>=1R** of the original move remains (normal entries still need 2R), and the card reports the REAL remaining RR, never a fictional 2R. **Detector now accepts 22/22 of his momentum candles (was 16/19); total signal volume -5.8%.** |
 | 2026-07-25 | **WHY THE DYNAMIC RULE IS NOT THE LITERAL INSTRUCTION - read before "fixing" it.** He asked for "the height of the 1HR candle that comes AFTER the first volume candle". That is geometrically VACUOUS: the candle after the momentum candle is the hour the pullback happens in, so the pullback's distance from the line and that candle's height are measured over THE SAME BARS - the line sits at the window's start and the pullback's extreme lies inside the window, so distance <= range ALWAYS, at any threshold. Proven numerically (0/19 flagged, and no threshold changes it); the same bound defeats every variant (distance past the line, retrace depth). The MOMENTUM CANDLE's height keeps everything intended - dynamic (it IS current 1HR volatility), no lookahead, cannot drift (closed candle) - while being a DIFFERENT candle, so the comparison is real. Real pullbacks sit a median **6%** and a max **35%** of it from the line. |
@@ -326,41 +327,59 @@ falling back. Filter `O==H==L==C` bars out of any fixture before trusting a funn
 `None`. Nothing sees spreads. This matters most in the Asian session (widest spreads, and a 5.3p
 structural SL is small next to a 2-3p spread). Enabling Asian did not create this; it made it matter.
 
-## Where the edge actually isn't (measured 2026-07-26 — read before proposing another fix)
+## TWO BACKTEST-HARNESS BUGS — every number produced before 2026-07-26 was wrong
 
-With his own filters applied (pro-trend + both wicks ≤10%) and his management (BE at 1R, out at 0R
-on a return, target 2R), the coded strategy was run against his own logged months and then
-out-of-sample. **It does not reproduce his results, and four candidate explanations are now ruled
-out by measurement, not by argument.**
+Found by replaying his walked-through setup 1 (GBP/USD 2021-07-06) by hand. Neither was in the
+strategy; both were in the harness, so they silently corrupted every backtest conclusion.
 
-| | code | his log |
-|---|---|---|
-| GBP/USD Jan–Jun 2021 | **6.7 trades/mo, 35.5% WR, +2.0R** | 5.7 trades/mo, 72.4% WR, +52.0R |
-| OOS GBP+EUR, 22 May 2024 – 17 Jul 2026, **267 trades** | **10.3/mo (both pairs), 30.5% WR, −15.3R** | — |
+1. **The M1 search started at minute 30.** `for k in range(30, …)` — the harness did not call
+   `m1_signals` until 30 minutes of the entry hour had passed. `m1_signals` needs **2** bars and the
+   live scanner evaluates every 60s, so production can fire at minute 2. On setup 1 the live path
+   fires at **14:03** with entry 1.38316 / risk 7.6p; the harness first looked at 14:29 and produced
+   entry 1.38072 / risk **32.0p** — a completely different trade, because `find_pullback` anchors the
+   LATEST retrace. This is the mechanical source of "his fills are always earlier than the code's".
+2. **A 140-bar H1 window where production requests 120** (`vix1.candle_counts[H1] = 120`). On setup 1
+   `clear_trend` reads **+1 (up) at 140 bars and −1 (down) at 120** — the harness rejected as
+   counter-trend a trade production would have taken pro-trend. This is the documented ~4%
+   window-sensitivity, and it is enough to flip whole trades.
 
-**Ruled out:**
-1. **Detection volume** — 6.7/mo vs 5.7/mo. Closed.
-2. **Direction** — on the 12 days both he and the code traded, direction agreed on **11**.
-3. **SL anchor** — swapping the anchor between the wick line, the body-close line, the momentum
-   candle's extreme and the pullback's extreme moves 2021 by ≤5R over 40 trades; **every variant is
-   unprofitable**. Ditto the `_MIN_SL_ROOM` floor swept 5/8/11/14p.
-4. **Exit sizing** — his wins average +2.86R against the backtest's flat +2.0R cap, but capping
-   *his* wins at 2.0R still leaves him at **+34R**. The gap is the WIN RATE, not the target.
+**Any harness that replays this strategy must use `candle_counts` verbatim and start the M1 search at
+bar 2.** Corrected GBP/USD Jan–Jun 2021: 18.5 trades/mo, 29.4% WR, −10.0R; same-day agreement with
+his log rose 12 → **20 of his 30 trade-days**.
 
-**What is left, and it is the only thing left:** on the same day, on the same setup, in the same
-direction, his entry fills and holds where the code's gets stopped. On the 12 shared days he is
-**12 wins / 14 trades, +34.6R**; the code is **6 / 14, +6.0R**. His fills are consistently
-*earlier* than the code's (e.g. 22-Apr 08:58 vs 09:39; 12-May 16:41 vs 18:10) — the code waits for a
-completed 1M pullback candle past the line, and by the time that candle closes the good entry has
-gone. **Do not tune parameters against this.** The next step is his step-by-step walk-through of
-individual setups (offered 2026-07-26), read as *where exactly did the order go and why*.
+## Setup 1 walk-through — GBP/USD 2021-07-06 (his first worked example)
 
-One real defect surfaced along the way and is NOT yet fixed: `_MIN_SL_ROOM` pushes a structurally
-tighter stop out to a flat 5 pips, which happened on **15 of 40** 2021 trades — those 15 returned
-**23% WR / −4.0R** while everything else was positive. Skipping such setups instead of flooring them
-scores better in-sample (+2.0R → +5.0R, 35.5% → 40.0% WR, 6.7 → 5.5 trades/mo) and out-of-sample
-(−15.3R → −6.3R). It was left unshipped because it improves a system that is still net-negative, and
-shipping it would be tuning ahead of understanding.
+His trade: SELL **1.38231**, SL **1.38381**, TP **1.37889** = **+2.28R**. The momentum candle is
+**13:00 UTC** (14:00 on his JForex chart — reconfirms **UTC+1**), close **1.38355** = the line he
+drew at 1.38353. His reasoning: *"the price was in uptrend but it started downtrending so i took the
+trade because it broke the BOS and confirmed it"* — i.e. pro-trend **relative to the newly confirmed
+trend**, which is exactly what `clear_trend`'s flip-on-CHoCH is supposed to express, and it does
+(−1 at the production window).
+
+What the fixed code produces: **right direction, right grounds (`trend`), SL 1.38392 vs his 1.38381 —
+1.1 pips apart.** The SL anchor is not the problem. **The ENTRY is:**
+
+| | entry | distance below the line | risk | result |
+|---|---|---|---|---|
+| him | 1.38231 | 12.4p | 15.0p | **+2.28R** |
+| code | 1.38316 | 3.9p | 7.6p | **BE, +0.00R** |
+
+The code fires at 14:03, when price had travelled **2 pips** past the line, and anchors on that
+micro-retrace. It reaches +1R at 14:05, moves to breakeven, and the ordinary retrace to 1.38324 at
+**14:08** takes it out — before the move ran on to 1.37877. He waited for a real ~17-pip impulse leg
+away from the line, then sold the break of its low; his 15p stop absorbed the same retrace.
+
+**HYPOTHESIS (n=1, do not implement until setups 2–4 confirm it):** the 1M needs a *completed impulse
+leg* past the line before a retrace counts as the pullback. `_allowed_offset` bounds how far the
+pullback may sit from the line (an upper bound); there is **no lower bound**, so any 2-pip wiggle at
+the line qualifies. That single missing condition would explain both the over-firing (18.5/mo against
+his 5.7) and the shake-outs.
+
+Also unshipped, and still true: `_MIN_SL_ROOM` floors a structurally tighter stop at a flat 5 pips —
+33 of the 111 corrected 2021 trades. Skipping those instead of flooring them scored better on the
+pre-fix harness; re-measure it on the fixed harness before deciding, and only after the entry
+question above is settled, because a 7.6p stop that should never have been taken is not a stop-size
+problem.
 
 ## Open / not done
 - **GAP 1** — CLOSED (`e8d2935`). It was never a gap: I framed it on *line = invalidation*. Far from
