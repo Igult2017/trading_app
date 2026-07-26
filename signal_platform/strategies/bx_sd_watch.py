@@ -51,3 +51,43 @@ def invalidation_signal(locked: dict, symbol: str, strategy_name: str, strategy_
         smc_factors       = ["PA::4H ZONE BROKEN — SETUP VOID"],
         market_context    = f"BX-S/D {side} {symbol} — 4H {zdir} zone broken before entry; setup invalidated",
     )
+
+
+def zone_broken_after_signal(locked: dict, symbol: str, strategy_name: str, strategy_id: str) -> Signal:
+    """The zone a LIVE signal was based on has broken. Heads-up, NOT a retraction.
+
+    Until 2026-07-26 the watch was switched off the instant a signal fired — `bx_sd.py` popped the
+    lock with the comment "setup resolved into a signal — stop watching". The reasoning was right
+    (never 'invalidate' a trade already signalled; the monitor owns its TP/SL) but the conclusion was
+    wrong: the answer to "we must not retract it" is a DIFFERENT message, not silence. So a trader
+    watched the zone their entry rested on break, and the platform said nothing until the stop was
+    hit.
+
+    The book's own model is why this matters: a broken institutional candle FLIPS — "the bullish
+    Institutional candle will then act as resistance when price breaks below it". The level that was
+    supporting the trade is now working against it. That is worth knowing while the trade is open,
+    whatever the trader decides to do about it.
+
+    Deliberately advisory: alert_only, DM-routed, and it never touches the signal's status. The
+    monitor still closes the trade on its real TP/SL.
+    """
+    buy  = locked["direction"] == "buy"
+    side = "BUY" if buy else "SELL"
+    zdir = "demand" if buy else "supply"
+    flip = "resistance" if buy else "support"
+    return Signal(
+        symbol            = symbol,
+        direction         = Direction.BUY if buy else Direction.SELL,
+        strategy_id       = strategy_id,          # _watch → private DM
+        strategy_name     = strategy_name,
+        alert_only        = True,        # heads-up, never the channel
+        qualified         = False,
+        primary_timeframe = TF.H4,
+        technical_reasons = [f"⚠️ BX-S/D {side} {symbol} — the 4H {zdir} zone this signal was based on "
+                             f"has BROKEN (body close beyond its distal edge). The trade is still live "
+                             f"and its TP/SL still stand; this is information, not a retraction.",
+                             f"A broken {zdir} zone flips — expect it to act as {flip} now."],
+        smc_factors       = ["PA::4H ZONE BROKEN AFTER ENTRY — LEVEL FLIPPED"],
+        market_context    = (f"BX-S/D {side} {symbol} — 4H {zdir} zone broken AFTER the signal fired; "
+                             f"the level that supported the entry has flipped to {flip}"),
+    )

@@ -5,7 +5,9 @@ cascade (bx_sd.analyze).
   ② RETEST (channel) — a MITIGATED but still-valid pro-trend 4H zone RE-TAPPED now, confirmed on
      1M/5M with MTF confluence (B/A ONLY — a mitigated zone must EARN its re-entry; fresh zones are
      the core cascade's job).
-  ③ CONTINUATION (channel) — a FRESH 4H FVG tapped & holding, confirmed on 1M/5M, graded C/B/A.
+  ③ FVG CONTINUATION (channel) — an FVG whose 4H zone beneath is STILL UNMITIGATED, tapped &
+     holding, 1M/5M-confirmed. The card says so: this is a bet price continues from the
+     imbalance and never returns for the zone. BX trades ZONES; the FVG only qualifies one.
 Every producer works from BOOK-VALID zones (bx_sd_validity: IFC + broke structure + liquidity grab).
 
 Dedup is DELIVERY-CONFIRMED (at-least-once): each signal is stamped with its dedup_key, committed by
@@ -20,6 +22,7 @@ from strategies.bx_sd_structure import map_structure
 from strategies.bx_sd_htf import htf_zone_map, htf_backing
 from strategies.bx_sd_mitigation import newly_mitigated_zones, mitigation_signal
 from strategies.bx_sd_retest import retapped_now, fvg_zone, is_fvg_tap, _setup_for_zone
+from strategies.bx_sd_setup import _first_tap, level_pre_mitigated
 from strategies.bx_sd_continuation import confirm_continuation
 from strategies.bx_sd_confirm import confirm_grade
 from strategies.bx_sd_signal import build_signal
@@ -70,12 +73,32 @@ def scan_reports(symbol: str, h4: list[Candle], analysis_tfs: list, entry_tf: li
         sig.dedup_key = key
         out.append(sig)
 
-    # ③ CONTINUATION — a FRESH 4H FVG tapped & holding, confirmed on 1M/5M, graded C/B/A.
+    # ③ CONTINUATION — an FVG whose 4H zone beneath is STILL FRESH, tapped & holding, 1M/5M-confirmed.
+    #
+    # BX TRADES ZONES, NOT FVGs. The book is explicit that an imbalance is "more of an ADDITIONAL
+    # CONFLUENCE and reference point of where price may revisit" (Ch.3) — it qualifies a zone, it does
+    # not decide a trade. This path exists only for the case the book describes elsewhere: price taps
+    # the imbalance in FRONT of an untouched zone and continues, never coming back for the zone.
+    #
+    # That premise requires the zone beneath to be UNMITIGATED. Until 2026-07-26 nothing checked it:
+    # the loop ran over every valid zone, drained ones included, and the FVG tap was the sole trigger —
+    # which is what made BX look like it was trading FVGs.
     for z in zones:
         if (z.top - z.bottom) < tmin:
             continue
+        # (a) THE ZONE BENEATH MUST BE FRESH. If price has already traded into it, "it may never reach
+        #     the zone" is simply false — it already did — and the retest/main path owns that case.
+        if _first_tap(h4, z) is not None:
+            continue
         fvg = fvg_zone(h4, z)
         if fvg is None or not is_fvg_tap(h4, z, fvg):
+            continue
+        # (b) FRESHNESS IS LEVEL-AWARE. is_fvg_tap scans forward from the FVG's own ifc_index+2, so an
+        #     FVG sitting on a level older overlapping zones already swept reads "fresh". That is the
+        #     bare per-IFC pattern docs/strategies/bx-sd.md forbids ("Do not revert freshness to the
+        #     bare per-IFC _first_tap"); it was applied in bx_sd_mitigation and bx_sd_setup and missed
+        #     here, which is the other half of the tapped-FVG complaint.
+        if level_pre_mitigated(h4, fvg, zones):
             continue
         key = f"{sid}_cont_{ztime(z)}_{z.direction}"
         if delivery_ledger.is_delivered(key):
@@ -85,10 +108,18 @@ def scan_reports(symbol: str, h4: list[Candle], analysis_tfs: list, entry_tf: li
             continue
         trig, conf, label, setup = res
         sig = build_signal(symbol, setup, conf, trig, pip, digits, sid, name)
+        # SAY WHAT THIS IS. It is not an ordinary zone entry and must not read like one: the zone
+        # itself has never been touched, so this is a bet that price continues from the imbalance in
+        # front of it. Leads the card, before any grade or confluence.
         sig.technical_reasons.insert(
-            0, f"➡️ CONTINUATION [{conf.grade}] — 4H {z.direction} FVG tapped & holding, confirmed on {label}")
-        sig.market_context = (f"BX-S/D CONTINUATION [{conf.grade}] — {symbol} tapped the 4H {z.direction} "
-                              f"FVG and continued, {trig.rr}R")
+            0, f"⚠️ FVG CONTINUATION [{conf.grade}] — the 4H {z.direction} zone below has NOT been "
+               f"mitigated. Price tapped and respected the imbalance in front of it, confirmed on "
+               f"{label}. It may continue from here and never reach the zone — lower conviction than "
+               f"a mitigated-and-respected zone entry.")
+        sig.market_context = (f"BX-S/D FVG CONTINUATION [{conf.grade}] — {symbol}: the 4H {z.direction} "
+                              f"zone is still UNMITIGATED; price tapped and held the imbalance in front "
+                              f"of it and continued, {label}-confirmed, {trig.rr}R. May never reach the "
+                              f"zone.")
         sig.dedup_key = key
         out.append(sig)
     return out

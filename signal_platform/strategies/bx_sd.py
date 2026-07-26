@@ -20,7 +20,8 @@ from strategies.bx_sd_setup import detect_setup
 from strategies.bx_sd_confirm import confirm_grade
 from strategies.bx_sd_signal import build_signal
 from strategies.bx_sd_htf import htf_zone_map
-from strategies.bx_sd_watch import check_invalidation, invalidation_signal
+from strategies.bx_sd_watch import (check_invalidation, invalidation_signal,
+                                    zone_broken_after_signal)
 from strategies.bx_sd_reports import scan_reports
 
 log = logging.getLogger(__name__)
@@ -82,12 +83,24 @@ class BXStrategy(BaseStrategy):
         # WATCH — a tapped setup broke before it triggered: alert (at-least-once), then stop watching.
         locked = self._locked.get(sym)
         if locked is not None:
-            ikey = f"{sym}_{locked['direction']}_{locked['zone_time']}"
-            if delivery_ledger.is_delivered(ikey):
-                self._locked.pop(sym, None)     # entry fired OR invalidation delivered — stop watching
+            ikey  = f"{sym}_{locked['direction']}_{locked['zone_time']}"
+            fired = bool(locked.get("fired"))
+            # A FIRED setup keeps its watch, so it cannot use `ikey` to decide it is finished — that
+            # key was committed by the signal itself. It gets its own key for the break advisory.
+            bkey  = f"{ikey}_broke"
+            done  = delivery_ledger.is_delivered(bkey) if fired else delivery_ledger.is_delivered(ikey)
+            if done:
+                self._locked.pop(sym, None)     # alert delivered (or pre-fire invalidation) — stop
             else:
                 inval = check_invalidation(locked, h4, m15)
-                if inval == "broken":
+                if inval == "broken" and fired:
+                    # The trade is LIVE and its zone just broke. Advisory only: the monitor still owns
+                    # TP/SL, and a fired signal is never retracted.
+                    self._log(sym, "ZONE_BROKEN_AFTER_SIGNAL", "4H zone broke with the entry live")
+                    sig = zone_broken_after_signal(locked, sym, self.name, self.id + "_watch")
+                    sig.dedup_key = bkey
+                    out.append(sig)
+                elif inval == "broken":
                     self._log(sym, "INVALIDATED", "4H zone broken before the entry triggered")
                     sig = invalidation_signal(locked, sym, self.name, self.id + "_watch")
                     sig.dedup_key = ikey        # committed on delivery; the lock is popped next scan
@@ -134,7 +147,12 @@ class BXStrategy(BaseStrategy):
         delivery_ledger.cleanup(_STATE_TTL)
         if delivery_ledger.is_delivered(key):
             return StrategyResult(signals=out)
-        self._locked.pop(sym, None)             # setup resolved into a signal — stop watching
+        # KEEP WATCHING. This used to pop the lock — "setup resolved into a signal, stop watching" —
+        # which switched the zone-break watch off at exactly the moment a real trade went live. The
+        # trader then had no way to learn the zone had broken until the stop was hit. The lock now
+        # survives, flagged `fired`, and a break sends an advisory (never a retraction) instead.
+        if sym in self._locked:
+            self._locked[sym]["fired"] = True
         self._log(sym, "SIGNAL", f"{trig.direction.upper()} [{grade}] entry {trig.entry:.{digits}f} "
                   f"SL {trig.sl:.{digits}f} TP {trig.tp:.{digits}f} RR {trig.rr}")
         sig = build_signal(sym, setup, conf, trig, pip, digits, self.id, self.name)
