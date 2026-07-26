@@ -74,6 +74,20 @@ class Settings(BaseSettings):
     admin_secret:   str = ""
     node_api_url:   str = "http://localhost:5000"
 
+    # ── AUTOTRADE — real pending stop orders (VIX.1) ──────────────────────────
+    # OFF by default and it must stay that way. The purpose is DIAGNOSTIC: place the order the
+    # strategy actually computed, then report where it really filled against where the model said
+    # it would, so entry quality is measured instead of argued about. Every backtest number this
+    # platform has produced is gross of spread and assumes a fill exactly at the stop price;
+    # neither survives contact with a broker, and this is how we find out by how much.
+    autotrade_enabled:     bool  = False   # THE KILL SWITCH. Nothing is placed while this is False.
+    autotrade_demo_only:   bool  = True    # refuse to place on a live account, checked at runtime
+    autotrade_risk_pct:    float = 0.5     # % of equity risked per trade
+    autotrade_max_per_day: int   = 6       # hard cap on orders placed in a rolling 24h
+    autotrade_symbols:     str   = ""      # CSV allow-list; empty = every symbol the strategy fires
+    autotrade_strategies:  str   = "vix1"  # CSV of strategy ids allowed to place. VIX.1 only for now
+    autotrade_fixed_lots:  float = 0.0     # >0 pins the size and IGNORES risk_pct — for diagnostics,
+                                           # where the point is observing fills, not sizing exposure
 
 
 settings = Settings()

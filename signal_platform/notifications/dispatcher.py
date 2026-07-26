@@ -147,6 +147,34 @@ async def on_signal_confirmed(signal: Signal) -> None:
         except OSError:
             pass
 
+    # AUTOTRADE — place the real pending stop order, AFTER the card has gone out. Order:
+    # the card is the product and must never be delayed or lost by a broker fault, so placement
+    # runs last, in its own try, and its failure is logged rather than raised. A _watch alert is an
+    # unconfirmed heads-up and is never traded.
+    if not is_watch:
+        try:
+            await _autotrade(signal)
+        except Exception as exc:
+            log.error(f"[dispatcher] autotrade failed for {signal.symbol}: {exc}")
+
+
+async def _autotrade(signal) -> None:
+    """Place the stop order for a confirmed signal, if autotrade is on.
+
+    Everything expensive — the credential fetch, the balance call, the broker connection — sits
+    BEHIND the kill switch, so with autotrade off this costs one boolean and touches no network.
+    """
+    from config.settings import settings as _s
+    if not _s.autotrade_enabled:
+        return
+    from execution.placer import place_for_signal
+    from execution.account import load_account
+    acct = await load_account()
+    if acct is None:
+        log.warning("[dispatcher] autotrade ON but no usable account — nothing placed")
+        return
+    await place_for_signal(signal, acct.creds, acct.account_type, acct.equity)
+
 
 async def on_scan_started(payload: dict) -> None:
     await _send_private(format_scan_started(payload))   # admin DM, not the channel
