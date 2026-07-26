@@ -5,8 +5,10 @@ records everything in the database.
 """
 import asyncio
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import uuid4
+
+from config import COPY_ENABLED, COPY_DRY_RUN
 
 from sqlalchemy.orm import Session as DBSession
 from db import Session, CopyMaster, CopyFollower, BrokerAccount, \
@@ -191,6 +193,21 @@ async def _exec_follower(master_trade_id: str, follower: CopyFollower,
             lots = open_vol if (open_vol and open_vol > 0) else calc_lots(
                 follower, snap.volume_lots, follower_equity=None)
 
+        # ── THE SAFETY CHOKEPOINT ──────────────────────────────────────────────
+        # Every OPEN, CLOSE and MODIFY for every platform passes through here, so this is the one
+        # place a global stop can be honest. Placed AFTER sizing and the risk guard on purpose: in
+        # dry-run we want the whole computation to have happened so the logged order is the real
+        # one, not a sketch of it.
+        if not COPY_ENABLED:
+            _log(fid, master_trade_id, "WARN", "DISABLED",
+                 f"COPY_ENABLED=false — {etype} {snap.symbol} {lots} lots NOT sent")
+            return
+        if COPY_DRY_RUN:
+            _log(fid, master_trade_id, "INFO", "DRY_RUN",
+                 f"WOULD {etype} {snap.symbol} {lots} lots SL={sl_price} TP={tp_price} "
+                 f"on {platform} — dry run, nothing sent")
+            return
+
         executor = _get_executor(broker_account, creds)
         result   = None
 
@@ -311,7 +328,7 @@ def _record_follower_trade(master_trade_id: str, follower: CopyFollower,
             take_profit     = exec_tp if exec_tp is not None else snap.take_profit,
             status          = "executed" if ok else "failed",
             error_message   = None if ok else err,
-            executed_at     = datetime.utcnow() if ok else None,
+            executed_at     = datetime.now(timezone.utc) if ok else None,
         ))
         db.commit()
     level = "INFO" if ok else "ERROR"

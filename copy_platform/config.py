@@ -48,6 +48,16 @@ CT_PORT       = 5035
 # OAuth token refresh
 CT_TOKEN_URL  = "https://connect.ctrader.com/oauth2/token"
 
+# ── COPY ENGINE SAFETY ─────────────────────────────────────────────────────────
+# COPY_ENABLED defaults TRUE so deploying this changes nothing. It exists because until now there
+# was NO way to stop the copy engine trading short of killing the process — and "kill the process"
+# is not a control you want to reach for while positions are open.
+# COPY_DRY_RUN runs the entire path — risk guard, sizing, symbol resolution, credential decrypt —
+# and LOGS the order it would have placed instead of sending it. That is what makes a change to
+# order sizing verifiable against a real account before a single real order is sized by it.
+COPY_ENABLED = os.environ.get("COPY_ENABLED", "true").strip().lower() not in ("false", "0", "no")
+COPY_DRY_RUN = os.environ.get("COPY_DRY_RUN", "false").strip().lower() in ("true", "1", "yes")
+
 POLL_INTERVAL_SEC = 2      # fallback REST poll interval
 RECONNECT_DELAY   = 5      # seconds before reconnecting a dropped provider
 MAX_EXEC_RETRIES  = 3

@@ -110,7 +110,21 @@ class CopyEngine:
                     await self._start_telegram(master)
                     continue
                 if not master.broker_account_id or master.broker_account_id not in accounts:
-                    log.warning(f"[engine] master {master.id}: broker account not found")
+                    # DEACTIVATE, don't just complain. A master whose broker account is gone can
+                    # never start, so warning about it once per cycle is noise forever — this one
+                    # has been shouting every 30-60s since June. Flipping is_active makes the state
+                    # match reality, stops the log spam, and is reversible: reconnect the account
+                    # and re-activate the master from the UI.
+                    log.warning(f"[engine] master {master.id}: broker account "
+                                f"{master.broker_account_id or 'MISSING'} not found — DEACTIVATING")
+                    try:
+                        with Session() as s:
+                            row = s.get(CopyMaster, master.id)
+                            if row is not None and row.is_active:
+                                row.is_active = False
+                                s.commit()
+                    except Exception:
+                        log.exception("[engine] could not deactivate orphaned master %s", master.id)
                     continue
                 broker_account = accounts[master.broker_account_id]
                 platform = (broker_account.platform or "").lower()
