@@ -29,26 +29,53 @@ REPORTED, never used to reject. If an unconfirmed limit path is ever added, p35 
 the function that decides.
 """
 from core.types import Candle
+from strategies.bx_sd_freshness import _first_tap
 from strategies.bx_sd_zones import Zone, break_index
 
 
 def control(h4: list[Candle], zones: list[Zone]) -> str:
-    """Which side is in control right now: "demand", "supply", or "none" if nothing has broken yet.
+    """Which side is in control right now: "demand", "supply", or "none" if nothing has happened yet.
 
-    Whichever zone was broken LAST hands control to the opposite side. Ties (both sides broken on the
-    same bar) resolve to "none" — genuinely contested, and the book's own "tug of war" (p81); saying
-    nothing is honest where saying either side would be a coin flip.
+    TWO mechanisms, and the LATEST event of either kind wins:
+
+      MITIGATION — price taps a zone that had not been tapped -> THAT zone's side takes control.
+        p36: "the price mitigated an unmitigated supply zone, SO NOW SUPPLY IS IN CONTROL"
+        p38: "the price was rejected on the major supply, causing the supply to be in control again"
+        Ch.6 p26 defines the word: "When price taps into a d/s zone, that has not been tapped yet, it
+        becomes MITIGATED from unmitigated." Mitigated = tapped.
+
+      BREAK — price closes through a zone -> the OPPOSITE side takes control.
+        p38: "We broke through the minor supply, forcing demand to be in control"
+        p58: "Price broke through our last supply level, demand is in control now"
+
+    No separate "reaction" test, though p36 mentions a rejection: the two mechanisms already resolve
+    it. Tap a supply zone and turn away -> the tap is the latest event and supply holds control.
+    Tap it and drive straight through -> the break lands LATER and demand takes control. Latest wins
+    is self-correcting, so this needs no threshold constant of its own.
+
+    Ties (both sides on the same bar) resolve to "none" — genuinely contested, the book's own "tug of
+    war" (p81); saying nothing is honest where naming either side would be a coin flip.
     """
     last_at, winner = -1, None
     for z in zones:
-        j = break_index(h4, z)
-        if j is None or j < last_at:
-            continue
-        side = "demand" if z.direction == "supply" else "supply"
-        if j == last_at and side != winner:
-            winner = None                      # both sides broken on the same bar — contested
-            continue
-        last_at, winner = j, side
+        events = []
+        tap = _first_tap(h4, z)
+        brk = break_index(h4, z)
+        # A tap only confers control if the zone HELD — p36's "rejection/reaction". Price cannot
+        # break a zone without passing through it, so on a bar that closes beyond the distal the
+        # touch is part of the break, not a separate mitigation. Counting both would tie the two
+        # sides on one bar and report "none" for what is simply a break.
+        if tap is not None and not (brk is not None and brk <= tap):
+            events.append((tap, z.direction))                # mitigation -> this zone's own side
+        if brk is not None:                                  # break -> the opposite side
+            events.append((brk, "demand" if z.direction == "supply" else "supply"))
+        for j, side in events:
+            if j < last_at:
+                continue
+            if j == last_at and side != winner:
+                winner = None                                # contested on the same bar
+                continue
+            last_at, winner = j, side
     return winner or "none"
 
 

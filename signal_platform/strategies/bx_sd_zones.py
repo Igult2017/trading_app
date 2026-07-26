@@ -238,13 +238,36 @@ def wick_dominant(candle: Candle) -> bool:
     >  candle for the limit.")
 
     So: total wick > half the candle's range -> enter at the 50% (MTH) instead of the proximal edge.
-    The code used `zone width > 2 pips` instead — an unrelated size threshold that happens to
-    correlate with wickiness and is not the book's rule. A 40-pip clean marubozu would take the 50%
-    entry it should not, and a 1.5-pip candle that is nearly all wick would not take the 50% entry it
-    should.
+
+    THIS IS ONLY THE FIRST OF THE BOOK'S TWO EQ50 TRIGGERS — see `needs_eq50`, which is what callers
+    must use. When this rule was introduced it REPLACED the pre-existing `zone width > 2 pips` test,
+    described at the time as "an unrelated size threshold". That was wrong: p53-54 is the book's
+    second scenario, and 2 pips is its MAX SL, not a coincidence. Removing it stopped wide zones
+    getting the equilibrium entry that keeps their stop inside 2 pips.
     """
     rng = candle.high - candle.low
     if rng <= 0:
         return False
     body = abs(candle.close - candle.open)
     return (rng - body) > 0.5 * rng
+
+
+_MAX_SL_PIPS = 2.0   # p53: "the maximum 2 pip SL"
+
+
+def needs_eq50(zone: Zone, candle: Candle | None, pip: float) -> bool:
+    """The book uses the 50% (equilibrium) entry in TWO scenarios — EITHER is sufficient.
+
+      1. SHAPE (p51-52) — "I use 50% entry if the WICK of the candle is bigger than the 50% of the
+         WHOLE candle." (worked example: "the wick is 66% of the whole candle.")
+      2. WIDTH (p53-54) — "I use 50% entry in ONE MORE SCENARIO, if the maximum 2 pip SL can't fit.
+         As you can see, the candle is more than 2 pips, so the SL can't cover the whole zone." /
+         "In this case I also use equilibrium entry, to make sure the whole zone is covered, and my
+         SL isn't bigger than 2 pips."
+
+    Scenario 2 was the ORIGINAL implementation and was deleted when scenario 1 was added, on the
+    mistaken view that a pip threshold could not be a book rule. Both are the book's; they are ORed.
+    """
+    if candle is not None and wick_dominant(candle):
+        return True
+    return (zone.top - zone.bottom) / pip > _MAX_SL_PIPS

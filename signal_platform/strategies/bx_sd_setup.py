@@ -30,6 +30,7 @@ from strategies.bx_sd_liquidity import find_liquidity
 from strategies.bx_sd_validity import is_valid
 from strategies.bx_sd_confluence import premium_discount, pricing_aligned, fib_target, rsi_divergence
 from strategies.bx_sd_control import control, describe, phrase
+from strategies.bx_sd_entry_type import classify, phrase as et_phrase
 from strategies.bx_sd_freshness import _first_tap, level_pre_mitigated
 
 _RECENT     = 6    # a live tap must be within the last N 4H bars (leaves time for the LTF to confirm)
@@ -116,7 +117,9 @@ def detect_setup(h4: list[Candle], pip: float = 0.0001) -> SetupResult:
     r.tp1 = fib_target(leg_low, leg_high, tdir, 0.272)
     r.tp2 = fib_target(leg_low, leg_high, tdir, 0.618)
     side = control(h4, all_c)
+    etype = classify(st, side, cand.direction)      # Ch.2 naming — classification only, never a gate
     r.confluences = {"control": describe(side, cand.direction), "control_phrase": phrase(side, cand.direction),
+                     "entry_type": etype, "entry_type_phrase": et_phrase(etype),
                      "broke_structure": True, "liquidity_grab": True,
                      "pricing": premium_discount(leg_low, leg_high, price),
                      "rsi_divergence": rsi_divergence(h4, tdir)}

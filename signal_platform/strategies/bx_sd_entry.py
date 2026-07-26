@@ -19,7 +19,7 @@ from dataclasses import dataclass, field
 
 from core.types import Candle
 from shared.swing_points import find_swing_points
-from strategies.bx_sd_zones import wick_dominant, find_zones
+from strategies.bx_sd_zones import needs_eq50, find_zones
 from strategies.bx_sd_validity import valid_zones
 from strategies.bx_sd_liquidity import find_liquidity, is_swept
 from strategies.bx_sd_ltf import find_ltf_choch, _choch_valid, refine_zone, LTFConfluence
@@ -119,7 +119,8 @@ def entry_trigger(conf: LTFConfluence, setup: SetupResult, entry_tf: list[Candle
     # an unrelated threshold that only correlates with wickiness — it took the 50% entry on a wide
     # clean candle that should use the proximal edge, and refused it on a narrow all-wick candle
     # that should use 50%.
-    use_eq50 = wick_dominant(h4[z.origin_index]) if 0 <= z.origin_index < len(h4) else False
+    _zc = h4[z.origin_index] if 0 <= z.origin_index < len(h4) else None
+    use_eq50 = needs_eq50(z, _zc, pip)          # EITHER book trigger: wicky shape OR > 2-pip width
     entry = z.eq50 if use_eq50 else z.proximal
     sl    = z.distal - 2 * pip if buy else z.distal + 2 * pip
     r.entry, r.sl = entry, sl

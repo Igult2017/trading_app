@@ -216,10 +216,13 @@ be swept = fuel; never enter with an unswept opposing pool between entry and SL)
 never uses, and BX gated on it. Control is decided by **which zone was broken through to propel the
 move** — `bx_sd_control.control()`:
 
+**Control is taken TWO ways, and the LATEST event of either kind holds it:**
+
 | The book says | Page | Code |
 |---|---|---|
 | *"You want to trade the **controlling side**… if the price comes from an unmitigated supply zone, SUPPLY IS IN CONTROL, **YOU CAN'T TRADE DEMAND WITHOUT A CONFIRMATION**"* | p35 | control is **reported, never a gate** — every BX entry is already confirmed |
-| *"We broke through the minor supply, **forcing demand to be in control**… rejected on the major supply, causing supply to be in control again"* | p38 | break a supply zone → demand in control; latest break wins |
+| **MITIGATION** — *"the price **mitigated an unmitigated supply zone, so now SUPPLY IS IN CONTROL**"* (diagram) | **p36** | tap an unmitigated zone → **that zone's own side** takes control (`_first_tap`) |
+| *"We broke through the minor supply, **forcing demand to be in control**… **rejected on the major supply, causing supply to be in control again**"* | p38 | **both** mechanisms in one sentence — break, then a rejection (= a tap) |
 | *"**We do not place a limit order here!**"* | p38 | the ONLY thing control forbids is the unconfirmed **risk entry** — BX has no such path |
 | *"**supply is in control, but we expect a Flip or CHoCH after we tapped in H4 demand**"* | p57 | the book taking the against-control trade, on confirmation |
 | *"Price broke through our last supply level, **demand is in control now**, so we can look for long entries on the 1m"* | p58 | `break_index` on the opposing zone |
@@ -229,7 +232,61 @@ rule BX is entitled to trade both sides — it was already paying the price of a
 denied the trade. Control travels onto the card (`with_control`: `True` / `False` / **`None` when no
 side is in control** — "untested" is not "against").
 
+Ch.6 p26 fixes the vocabulary: *"When price taps into a d/s zone, that has not been tapped yet, it
+becomes **mitigated** from unmitigated."* **Mitigated = tapped**, not broken.
+
+A tap only confers control if the zone **held**. On a bar that closes beyond the distal, the touch is
+part of the break — counting both would tie the two sides on one bar and report "none" for what is
+plainly a break.
+
 **If an unconfirmed limit/risk-entry path is ever added, p35 binds it and `control()` is the gate.**
+
+### Entry types — the book's own two (Ch.2), and which one BX takes
+The book splits entries on ONE axis: **has the HTF trend been confirmed by a second BMS?**
+
+| | Book | The book's conditions | BX |
+|---|---|---|---|
+| **Entry-1 — risk entry** | a limit order on the refined zone. *"There is minimal confirmation for entry therefore the **likelihood of being stopped out is increased**"* | with trend + momentum; after the **first** BMS — diagram p9: *"Risk entry: **Trend has yet to be confirmed**/justified"* | **never taken** |
+| **Entry-2 — justification entry** | *"Waiting for a **BMS to occur on a LTF** in the direction of the trend gives you additional confirmation… more safely than simply setting a limit order"* | price returning aggressively, **"you're looking to take a counter trend trade"**, multiple zones; after the **second** BMS — diagram p9: *"Trend has now been confirmed/justified"* | **always** |
+
+`StructureState.confirmed` is exactly the book's axis (True after two same-direction breaks), which is
+why it is still computed even though BX no longer *gates* on the trend. `bx_sd_entry_type.classify()`
+names the situation on the card; **it never rejects a setup.**
+
+Because BX always waits for the LTF BMS/CHoCH, p35's prohibition — no unconfirmed limit against
+control — is satisfied **structurally**, not by a check that could be forgotten. The book naming
+counter-trend as a justification-entry case (Ch.2 p6) is independent corroboration of the control
+model reached from p35/p57.
+
+### Zone marking — what is DIAGRAM-verified (2026-07-27)
+Previously derived from extracted text alone; the book's diagrams were unreadable until the PDF was
+supplied. Verified against the actual drawings:
+
+| Technique | Page | Verdict |
+|---|---|---|
+| Institutional zone = **open → MTH** | Ch.4 p17 | ✅ text is explicit; unchanged |
+| Wick zone = the **IFC candle's own wick** when the prior candle's orders were consumed | **p34 diagram** *"There aren't any resting orders left on this candle… **orders are sitting on THIS WICK!**"* | ✅ `_wick_zone` correct |
+| Zone candle's **colour is irrelevant** | p29 text + **p42 diagram** (demand marked on a red candle, supply on a blue one) | ✅ correct |
+| **eq50 has TWO triggers** | p51-52 **and p53-54** | ❌ **was wrong — fixed**, see below |
+
+**The eq50 defect.** The marking rebuild replaced `zone width > 2 pips` with the wick rule, calling the
+pip threshold *"an unrelated size threshold"*. It is not — it is the book's **second** eq50 scenario:
+*"I use 50% entry in **one more scenario, if the maximum 2 pip SL can't fit**… the candle is more than
+2 pips, so the SL can't cover the whole zone"* (p53), *"to make sure the whole zone is covered, and my
+SL isn't bigger than 2 pips"* (p54). Both are the book's and they are **ORed** — `bx_sd_zones.needs_eq50`.
+Wide zones had stopped receiving the equilibrium entry that keeps their stop inside 2 pips.
+
+**Not implemented (known gap):** the book cycles timeframes to find an engulfed zone — *"on the H4 the
+demand was not engulfed so I went on the H3 and it was"* (p75) — and Ch.4's institutional **decay**
+(*"comes back to that same area a numerous number of times… the Institutional candle is losing
+strength"*). Neither is modelled.
+
+### The source book
+`C:\Users\FSD\trading_app_data\reference\SND.pdf` — **kept OUTSIDE the git tree deliberately** (a Stop
+hook auto-pushes to GitHub; the book is copyrighted). `pdftoppm` is absent, so pages render via
+`pypdf` + `PIL`. **Much of this book is diagrams** — pp 9, 10, 17, 30, 34, 35, 37, 40, 50, 57, 63, 66,
+67, 69, 74 carry no text at all. Any rule derived from `SD_text.txt` alone is derived with those pages
+missing, which is how the eq50 defect and the half-built control model both survived review.
 
 ### MTF, confirmation entry & grading — the SOP (book Ch. "Understanding Time-Frames" + Ch.15 Checklist)
 The book's Standard Operating Procedure, which BX follows (verified against the book's own diagrams):
@@ -287,6 +344,7 @@ trigger, which remove more again.
 
 | commit | what |
 |---|---|
+| _book-diagrams_ | **The PDF arrived and reading the DIAGRAMS found two defects that text-only review could not.** (Book now at `trading_app_data/reference/SND.pdf`, outside the git tree — the Stop hook auto-pushes and it is copyrighted.) **(1) `control()` implemented HALF the rule.** Control is taken two ways and only the break half was coded. p36's diagram: *"the price **mitigated an unmitigated supply zone, so now SUPPLY IS IN CONTROL**"* — tapping an unmitigated zone hands control to **that zone's own side**. p38 contains both mechanisms in one sentence (*"broke through the minor supply, forcing demand to be in control… **rejected on the major supply, causing supply to be in control again**"*) and only the first was read. Ch.6 p26 settles the word: *"When price taps into a d/s zone, that has not been tapped yet, it becomes **mitigated** from unmitigated"* — **mitigated = tapped**, which is exactly what the user had said (*"the zone that was mitigated to propel the move"*). Now: latest event of either kind wins; a tap confers control only if the zone HELD (on a bar closing beyond the distal the touch belongs to the break, else the two sides tie on one bar and a plain break reports "none" — caught by test, fixed). **(2) The eq50 rule lost a real book trigger.** The marking rebuild replaced `zone width > 2 pips` with the p51 wick rule, dismissing the pip threshold as *"an unrelated size threshold"*. It is the book's **second** scenario: *"I use 50% entry in **one more scenario, if the maximum 2 pip SL can't fit**"* (p53-54). Both triggers now ORed in `bx_sd_zones.needs_eq50`; wide zones get the equilibrium entry again. **(3) Entry types named (Ch.2, diagrams pp9-10):** Entry-1 risk = after the 1st BMS (*"trend has yet to be confirmed"*), Entry-2 justification = after the 2nd (*"trend has now been confirmed"*) — exactly `StructureState.confirmed`. New `bx_sd_entry_type.py` labels every card; **no risk-entry path added** (user's decision), so p35 stays satisfied structurally. The book independently names counter-trend as a justification-entry case, corroborating the control model. **Verified:** 26 unit tests incl. both control mechanisms and their interaction; selection **unchanged** (control/entry-type are informational — the /mo and buy/sell mix must not move, and did not); marking impact re-run (median width 21.6p → 6.1p, taps −1%); card renders in all 3 control states. Also fixed `bx_phases_verify` asserting card lines **by index** — the card legitimately gained a line and a correct card failed the test |
 | _control-not-trend_ | **THE TREND GATE WAS THE BIGGEST DEFECT IN BX AND IT WAS NOT A BOOK RULE.** User: *"Zones and being tapped cannot be less that 5 per month. Lets be realistic. Your testing tool is flawed."* He was right twice. **(a) My measurement was broken** — the funnel called `map_structure(h4).pro_trend()` ONCE over 27 months (it returns the FINAL state), applying the Jul-2026 trend to 2024 zones; on US100 that alone cut 51 setups to 8. Re-measured **walk-forward** (rolling 200-bar window, as production runs): the true rate was **1.1–1.5/month**. **(b) The gate itself was the defect.** `pro_trend()` is a swing-structure trend — **a concept this book never uses**. The book asks who is IN CONTROL (Ch.7), and control **never forbids a direction**; it forbids only the unconfirmed **risk entry** (*"We do not place a limit order here!"*, p38). The book itself takes the against-control trade: *"supply is in control, but we expect a Flip or CHoCH after we tapped in H4 demand"* (p57). **Every BX signal already passes the MANDATORY 1M/5M confirmation**, so BX was paying the book's price of admission and still being denied the trade. Removed the gate from **all three paths** — setup (`bx_sd_setup`), retest (`bx_sd_reports`, where an UNCONFIRMED trend had been silently killing *every* retest ≈ half of all bars) and continuation (`bx_sd_continuation`, which keeps its own entry-TF BOS/flip requirement = the book's p57 condition). Measured on 27 months of **real broker H4**, five instruments: **1.2 → ~5.0 setups/month (3.3–4.6×)**; **70–78% of book-valid freshly-tapped zones had been discarded purely for facing the wrong way** — matching the user's own estimate of ≥5/month. Quality split under an identical proxy showed **no material gap** (PRO 10% / COUNTER 7% / NO-TREND 13% win rate), so **no asymmetric grade bar** was added. New `bx_sd_control.py` models control the book's way (break the opposing zone → take control, latest break wins); `zone_broken` now delegates to a new `break_index` so the two can never drift. Cards state control instead of asserting a trend, with **three** states — `with_control` is `None`, not `False`, when no side is in control. `bx_sd_setup` split (150-line rule): freshness helpers → new `bx_sd_freshness.py`, verbatim |
 | _audit-2026-07-22_ | **full audit (user: "audit BX… fix. Also check how demand and supply zones are implemented"). Six fixes:** (1) **`zone_broken` read the FORMING bar's live close** — the zone died intra-bar exactly during the sweep wick below it (the entry moment) and resurrected when the bar closed back inside; now `closed_only`, same rule check_invalidation already followed. Hit every path (is_valid → setup + all reports + retest). (2) **Monitor entry-trigger was one-sided (`hi >= entry` for a BUY) — trivially true for BX's LIMIT-style entries**, so every BX signal read as instantly filled and the pending-order protection never applied to BX; now CONTAINMENT (`lo <= entry <= hi`), correct for stop (VIX) and limit (BX) alike. (3) **`retapped_now`'s RESPECT (a body-close reaction) read live closes** — now closed bars only; the back-inside re-tap stays live (an event). (4) **`htf_backing` counted CLOSED-THROUGH D1/W1/MN zones** — "a zone price closed through is DEAD — everywhere" now includes the HTF map (mitigated HTF zones still back — demanding unmitigated HTF would kill nearly every A). (5) **Core cascade lacked the micro-zone floor** all 3 report paths had — a sub-3-pip candidate could drive a channel entry; `_MIN_PIPS=3` now in detect_setup too. (6) **`_locked` setdefault never re-locked a NEW zone while an old lock lived** — its invalidation alert was silently lost; a new zone now supersedes, the same zone keeps its original TTL. All verified on synthetic tapes + a real GBPUSD H4 pipeline run (52 candidates → 9 valid, no crash) |
 | _e2e-defensive_ | **END-TO-END test on REAL data (yfinance H4/M15/M30/H1/M5/M1, 3 pairs, 120-bar replay) found a live bug.** `defensive_ok`'s **SL-on-pool** test did NOT filter `is_swept` (the between-entry-and-SL test did). With the full pool set after Phase 5/6 (swings + EQH/EQL + day/week/month + session = **339 pools on EUR/USD**), **98% of all price levels** sat within 1.5 pip of some pool — the guard blocked almost every possible stop and silently killed valid setups. A swept pool has **no resting stops left**, so it must not block. Fixed: both tests now use one `live` (unswept, non-excluded) set. Blocked levels 98% → **26%**; replay signals **4 → 8**, defensive false-blocks **4 → 0**. Funnel also confirmed the cascade completes end-to-end (graded A/C signals on GBP/USD + USD/JPY) |

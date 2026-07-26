@@ -24,6 +24,7 @@ def build_signal(symbol: str, setup: SetupResult, conf: LTFConfluence, trig: Ent
 
     reasons = [
         setup.confluences.get("control_phrase") or f"Fresh 4H {zdir} zone tapped",
+        setup.confluences.get("entry_type_phrase") or "Entry-2 justification (LTF BMS/CHoCH)",
         f"Valid 4H zone: IFC + broke structure + liquidity grabbed (fuel), priced in {pricing}",
         f"GRADE {conf.grade} — {align_txt}{back_txt}; refined to a {conf.risk_pips:.1f} pip POI",
         f"Confirmation entry: {trig.details.get('method', 'CHoCH')} BMS inside the zone on the entry TF "
@@ -40,6 +41,8 @@ def build_signal(symbol: str, setup: SetupResult, conf: LTFConfluence, trig: Ent
         f"CTX::CONTROL::{_ctl_side.upper()} ("
         f"{'UNTESTED' if _with is None else ('WITH' if _with else 'AGAINST')}"
         f"-CONTROL {zdir.upper()} ENTRY, CONFIRMED)",
+        f"CTX::ENTRY TYPE::{(setup.confluences.get('entry_type') or {}).get('book_situation', 'Entry-2')}"
+        f" — JUSTIFICATION (LTF BMS/CHoCH, NEVER AN UNCONFIRMED LIMIT)",
         f"CTX::4H ZONE::FRESH {zdir.upper()} (IFC + BOS + LIQUIDITY GRAB)",
         f"CTX::PRICING::{pricing.upper()}",
         f"MTF::GRADE {conf.grade} — {align_txt.upper()}{(' + HTF ' + ', '.join(backing)) if backing else ''}",
