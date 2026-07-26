@@ -4,16 +4,18 @@ VIX.1 — the 1M pullback: the entry level.
 Observed on the 1M ONLY. The 1HR never has a pullback in this strategy — it is there for momentum, for
 trend, and to give us the lines.
 
-THE PULLBACK IS ONE CANDLE OF ANY TYPE (user 2026-07-22: "just look for one pullback candle of any
-type at 1m entry so long as that pullback is not volatility candle and not violent candle typical of
-market choppiness"). This SUPERSEDES the old "real body, never a doji" filter — a doji or a small
-candle opening the retrace IS the pullback now. The filter points the other way: what disqualifies a
-pullback candle is being ABNORMALLY BIG for the 1M right now —
+THE PULLBACK IS ONE CANDLE, AND IT MUST SAY SOMETHING. It is disqualified at BOTH ends of the scale.
+ABNORMALLY BIG for the 1M right now —
   * a VOLATILITY candle — body >= 1.5x the 1M's own recent (14-bar) average body, or
   * a VIOLENT candle    — full range >= 2.5x that average (the huge-wick whipsaw bar),
 the platform's own volume/violent-candle thresholds (patterns/volume_patterns, patterns/wick_patterns
 — shared platform definitions, not another strategy's logic). Those bars are market choppiness, and a
 stop anchored just beyond one is both wide and placed exactly where chop hunts.
+INSIGNIFICANT — a body under the 1M's own recent average, or under 60% of its own range (user
+2026-07-26: "a PROPER pullback candle, not an insignificant candle that shows the STRUGGLE between
+the buyers and sellers"). This REPLACED the 2026-07-22 "any type, doji included" rule, which had
+the code anchoring entries on 1-2 pip dojis. See the constants below for what it did and did not
+change — it fixes individual trades and is FLAT in aggregate.
 
 Only the FIRST candle of the retrace matters — it sits nearest the resumption, so a stop just beyond
 it fills us along the way, where a later one drags the stop deeper with every candle. A retrace ENDS
@@ -34,15 +36,50 @@ _VOLA_BODY_MULT  = 1.5   # body >= this x the 1M's 14-bar avg body  -> volatilit
 _VIOLENT_RNG_MULT = 2.5  # range >= this x the 1M's 14-bar avg body -> violent candle    (excluded)
 _AVG_N            = 14   # same baseline the platform's volume/violent patterns use
 
+# A PROPER pullback candle, the OTHER end of the same scale (user 2026-07-26: "I just waited for a
+# PROPER pullback candle, not an insignificant candle that shows the STRUGGLE between the buyers and
+# sellers"). The two tests above throw out bars that are abnormally BIG (chop); these throw out the
+# ones that say NOTHING. Both are measured against the 1M's own recent activity, never a pip count.
+#   SIGNIFICANT — its body is a real share of what a 1M candle is doing right now. An 0.9-pip body
+#                 when the market is running 3-pip bars is not a pullback, it is a pause.
+#   DECISIVE    — its body is a real share of its OWN range. A candle that opens and closes in the
+#                 same place IS the struggle between buyers and sellers; neither side won, so it
+#                 marks nothing and a stop just beyond it rests on noise.
+# Measured before this existed (GBP/USD Jan-Jun 2021): the median pullback the code anchored on was
+# a 2.2-pip candle with an 0.9-pip body, and 31% of them had a body under 25% of their range. His
+# own setup-1 pullback was a 5.9-pip candle with a 5.9-pip body — 100%. The code took a 1.4-pip
+# ZERO-body doji four minutes earlier and was stopped out of a trade he made +2.28R on.
+#
+# MEASURED, AND IT DOES NOT PAY — read this before tuning these two numbers. Swept over 1,518
+# structural setups (GBP/USD + EUR/USD, 26 months) the rule is FLAT at every strictness:
+#     anything (the old rule)          871 trades  33% WR   -1.5R
+#     body >=0.25x avg, >=20% of range 851 trades  33% WR  -10.5R
+#     body >=0.50x avg, >=35% of range 816 trades  32% WR  -23.7R
+#     body >=0.75x avg, >=50% of range 766 trades  32% WR  -17.3R
+#     body >=1.00x avg, >=60% of range 674 trades  33% WR   -3.8R   <- shipped
+# It changes individual trades a lot (his setup 1 goes from breakeven to +2.00R) and the changes
+# CANCEL — which is the signature of noise, not edge. The setting below is kept because it is the
+# most faithful reading of his rule and costs nothing measurable against the old one, NOT because
+# it improves anything. Do not tune these to chase R; the lever is not here.
+_MIN_BODY_VS_AVG = 1.00  # body >= this x the 1M's 14-bar avg body   -> it is SIGNIFICANT
+_MIN_BODY_FRAC   = 0.60  # body >= this share of its own range        -> it is DECISIVE, not a doji
+
 
 def is_pullback_candle(c: Candle, bullish: bool, avg: float = 0.0) -> bool:
-    """ANY candle not going WITH the bias (an opposite candle or a doji) — except an abnormal one.
-    A volatility candle (body >= 1.5x the recent avg body) or a violent candle (range >= 2.5x it)
-    is market choppiness, not a pullback, and may not anchor a stop."""
+    """A candle not going WITH the bias, that is neither ABNORMAL nor INSIGNIFICANT.
+    Too big  -> a volatility candle (body >= 1.5x the recent avg body) or a violent candle
+                (range >= 2.5x it): market choppiness, and a stop beyond it sits where chop hunts.
+    Too small-> a body under the recent average, or under 60% of its own range: indecision, which
+                marks no level worth anchoring an entry and a stop to."""
     if is_bullish(c) if bullish else is_bearish(c):     # a candle WITH the bias is not a pullback
         return False
     if avg > 0 and (body_size(c) >= _VOLA_BODY_MULT * avg
                     or full_range(c) >= _VIOLENT_RNG_MULT * avg):
+        return False
+    if avg > 0 and body_size(c) < _MIN_BODY_VS_AVG * avg:
+        return False
+    rng = full_range(c)
+    if rng > 0 and body_size(c) < _MIN_BODY_FRAC * rng:
         return False
     return True
 
@@ -81,9 +118,9 @@ def find_pullback(win: list[Candle], bullish: bool,
     c   = win[p]
     avg = avg_body(win, n=_AVG_N)
     if not is_pullback_candle(c, bullish, avg):
-        return None, (f"the retrace opened with a volatility/violent candle "
+        return None, (f"the retrace opened with an unusable candle "
                       f"(body {body_size(c):.5f} / range {full_range(c):.5f} vs avg body {avg:.5f}) "
-                      f"— market choppiness, not a pullback to anchor")
+                      f"— either chop or indecision, not a pullback to anchor; waiting")
     # PAST THE LINE — the WHOLE pullback candle must sit past (or on) line 1. The edge that faces
     # the line is the one that has to clear it: the LOW on a buy, the HIGH on a sell. Touching is
     # allowed ("past the 1HR line or on the 1HR line").
