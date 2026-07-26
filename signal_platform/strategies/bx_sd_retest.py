@@ -16,8 +16,10 @@ Reuses BX's own primitives only.
 from core.types import Candle
 from shared.mtf_utils import closed_only
 from shared.swing_points import find_swing_points
-from strategies.bx_sd_zones import Zone, zone_broken
-from strategies.bx_sd_setup import _first_tap, SetupResult
+from strategies.bx_sd_zones import Zone, zone_broken, find_zones
+from strategies.bx_sd_control import control, describe, phrase
+from strategies.bx_sd_freshness import _first_tap
+from strategies.bx_sd_setup import SetupResult
 from strategies.bx_sd_confluence import premium_discount, fib_target
 
 
@@ -102,6 +104,8 @@ def _setup_for_zone(h4: list[Candle], zone: Zone, pip: float) -> SetupResult:
     r = SetupResult(active=True, direction=d, zone=zone)
     r.tp1 = fib_target(leg_low, leg_high, d, 0.272)
     r.tp2 = fib_target(leg_low, leg_high, d, 0.618)
+    side = control(h4, find_zones(h4))
     r.confluences = {"pricing": premium_discount(leg_low, leg_high, h4[-1].close),
-                     "pro_trend": "up" if buy else "down"}
+                     "control": describe(side, zone.direction),
+                     "control_phrase": phrase(side, zone.direction)}
     return r

@@ -202,9 +202,34 @@ we aim at a level with no orders behind it — it never fills and the RR on the 
 Measured: **5 of 9** unmitigated zones the picker saw were invalid.
 
 ### Locked constraints (user)
-EUR/USD + GBP/USD + USD/JPY · **pro-trend only** · **confirmed entries only** (a CHoCH must print —
-never a blind limit) · **liquidity-aware both ways** (a pool must be swept = fuel; never enter with an
-unswept opposing pool between entry and SL) · ≥2R.
+EUR/USD + GBP/USD + USD/JPY · **either direction — see "Who is in control" below** · **confirmed
+entries only** (a CHoCH must print — never a blind limit) · **liquidity-aware both ways** (a pool must
+be swept = fuel; never enter with an unswept opposing pool between entry and SL) · ≥2R.
+
+> **"pro-trend only" was WRONG and was removed 2026-07-26.** The user: *"Im trading both pro trend and
+> against trend. I dont care about trend so long as a zone is respected"* / *"Per the book there is no
+> pro or counter trend. It is either demand is in control or supply is in control depending on the zone
+> that was mitigated to propel the move or direction."*
+
+### Who is in control — the book's model (Ch.7), NOT a trend
+**The book has no swing-structure trend.** `map_structure().pro_trend()` implemented a concept the book
+never uses, and BX gated on it. Control is decided by **which zone was broken through to propel the
+move** — `bx_sd_control.control()`:
+
+| The book says | Page | Code |
+|---|---|---|
+| *"You want to trade the **controlling side**… if the price comes from an unmitigated supply zone, SUPPLY IS IN CONTROL, **YOU CAN'T TRADE DEMAND WITHOUT A CONFIRMATION**"* | p35 | control is **reported, never a gate** — every BX entry is already confirmed |
+| *"We broke through the minor supply, **forcing demand to be in control**… rejected on the major supply, causing supply to be in control again"* | p38 | break a supply zone → demand in control; latest break wins |
+| *"**We do not place a limit order here!**"* | p38 | the ONLY thing control forbids is the unconfirmed **risk entry** — BX has no such path |
+| *"**supply is in control, but we expect a Flip or CHoCH after we tapped in H4 demand**"* | p57 | the book taking the against-control trade, on confirmation |
+| *"Price broke through our last supply level, **demand is in control now**, so we can look for long entries on the 1m"* | p58 | `break_index` on the opposing zone |
+
+**Every BX signal passes the MANDATORY 1M/5M confirmation (`bx_sd.py` STAGE 2-3).** So by the book's own
+rule BX is entitled to trade both sides — it was already paying the price of admission while being
+denied the trade. Control travels onto the card (`with_control`: `True` / `False` / **`None` when no
+side is in control** — "untested" is not "against").
+
+**If an unconfirmed limit/risk-entry path is ever added, p35 binds it and `control()` is the gate.**
 
 ### MTF, confirmation entry & grading — the SOP (book Ch. "Understanding Time-Frames" + Ch.15 Checklist)
 The book's Standard Operating Procedure, which BX follows (verified against the book's own diagrams):
@@ -237,10 +262,24 @@ C — a mitigated zone must EARN re-entry with MTF confluence). This REPLACES th
 (which treated a mitigated zone's return as a "fresh 2nd touch"). Rule: **only fresh unmitigated 4H
 zones fire at bare C**; a respected mitigated 4H zone needs B/A.
 
-### Rate (measured, 2y real data, 3 pairs)
-**~4.1 setups/month** combined (98 in 24 months) — roughly one a week. Valid-zone mitigations
-(the DM heads-up rate): **~37/month ≈ 1.2/day**. The 4H gate passes ~11% of tapped valid zones; those
-still face the 15M CHoCH and the 1M/5M ≥2R trigger, so **actual entries are fewer than 4/month**.
+### Rate (measured 2026-07-26 — walk-forward, 27 months of REAL broker H4, 5 instruments)
+**~5 4H setups/month PER INSTRUMENT** after the trend gate was removed (was 1.1–1.5):
+
+| | before | after |
+|---|---|---|
+| GBP/USD | 1.2 /mo | **5.0** |
+| EUR/USD | 1.4 /mo | **4.7** |
+| GBP/JPY | 1.1 /mo | **5.1** |
+| US100 | 1.2 /mo | **4.9** |
+| US30 | 1.5 /mo | **4.9** |
+
+These are **4H setups**, not entries — each still faces the mandatory 1M/5M confirmation and the ≥2R
+trigger, which remove more again.
+
+> **Measure this WALK-FORWARD or the number is fiction.** Filtering whole history in one pass applies
+> today's structure to the past. `map_structure()` returns the FINAL state — calling it once over 27
+> months is the exact bug that produced the old 1.2/month figure. Step bar by bar with a rolling
+> 200-bar window (`candle_counts[H4]`), which is what production actually does.
 
 ---
 
@@ -248,6 +287,7 @@ still face the 15M CHoCH and the 1M/5M ≥2R trigger, so **actual entries are fe
 
 | commit | what |
 |---|---|
+| _control-not-trend_ | **THE TREND GATE WAS THE BIGGEST DEFECT IN BX AND IT WAS NOT A BOOK RULE.** User: *"Zones and being tapped cannot be less that 5 per month. Lets be realistic. Your testing tool is flawed."* He was right twice. **(a) My measurement was broken** — the funnel called `map_structure(h4).pro_trend()` ONCE over 27 months (it returns the FINAL state), applying the Jul-2026 trend to 2024 zones; on US100 that alone cut 51 setups to 8. Re-measured **walk-forward** (rolling 200-bar window, as production runs): the true rate was **1.1–1.5/month**. **(b) The gate itself was the defect.** `pro_trend()` is a swing-structure trend — **a concept this book never uses**. The book asks who is IN CONTROL (Ch.7), and control **never forbids a direction**; it forbids only the unconfirmed **risk entry** (*"We do not place a limit order here!"*, p38). The book itself takes the against-control trade: *"supply is in control, but we expect a Flip or CHoCH after we tapped in H4 demand"* (p57). **Every BX signal already passes the MANDATORY 1M/5M confirmation**, so BX was paying the book's price of admission and still being denied the trade. Removed the gate from **all three paths** — setup (`bx_sd_setup`), retest (`bx_sd_reports`, where an UNCONFIRMED trend had been silently killing *every* retest ≈ half of all bars) and continuation (`bx_sd_continuation`, which keeps its own entry-TF BOS/flip requirement = the book's p57 condition). Measured on 27 months of **real broker H4**, five instruments: **1.2 → ~5.0 setups/month (3.3–4.6×)**; **70–78% of book-valid freshly-tapped zones had been discarded purely for facing the wrong way** — matching the user's own estimate of ≥5/month. Quality split under an identical proxy showed **no material gap** (PRO 10% / COUNTER 7% / NO-TREND 13% win rate), so **no asymmetric grade bar** was added. New `bx_sd_control.py` models control the book's way (break the opposing zone → take control, latest break wins); `zone_broken` now delegates to a new `break_index` so the two can never drift. Cards state control instead of asserting a trend, with **three** states — `with_control` is `None`, not `False`, when no side is in control. `bx_sd_setup` split (150-line rule): freshness helpers → new `bx_sd_freshness.py`, verbatim |
 | _audit-2026-07-22_ | **full audit (user: "audit BX… fix. Also check how demand and supply zones are implemented"). Six fixes:** (1) **`zone_broken` read the FORMING bar's live close** — the zone died intra-bar exactly during the sweep wick below it (the entry moment) and resurrected when the bar closed back inside; now `closed_only`, same rule check_invalidation already followed. Hit every path (is_valid → setup + all reports + retest). (2) **Monitor entry-trigger was one-sided (`hi >= entry` for a BUY) — trivially true for BX's LIMIT-style entries**, so every BX signal read as instantly filled and the pending-order protection never applied to BX; now CONTAINMENT (`lo <= entry <= hi`), correct for stop (VIX) and limit (BX) alike. (3) **`retapped_now`'s RESPECT (a body-close reaction) read live closes** — now closed bars only; the back-inside re-tap stays live (an event). (4) **`htf_backing` counted CLOSED-THROUGH D1/W1/MN zones** — "a zone price closed through is DEAD — everywhere" now includes the HTF map (mitigated HTF zones still back — demanding unmitigated HTF would kill nearly every A). (5) **Core cascade lacked the micro-zone floor** all 3 report paths had — a sub-3-pip candidate could drive a channel entry; `_MIN_PIPS=3` now in detect_setup too. (6) **`_locked` setdefault never re-locked a NEW zone while an old lock lived** — its invalidation alert was silently lost; a new zone now supersedes, the same zone keeps its original TTL. All verified on synthetic tapes + a real GBPUSD H4 pipeline run (52 candidates → 9 valid, no crash) |
 | _e2e-defensive_ | **END-TO-END test on REAL data (yfinance H4/M15/M30/H1/M5/M1, 3 pairs, 120-bar replay) found a live bug.** `defensive_ok`'s **SL-on-pool** test did NOT filter `is_swept` (the between-entry-and-SL test did). With the full pool set after Phase 5/6 (swings + EQH/EQL + day/week/month + session = **339 pools on EUR/USD**), **98% of all price levels** sat within 1.5 pip of some pool — the guard blocked almost every possible stop and silently killed valid setups. A swept pool has **no resting stops left**, so it must not block. Fixed: both tests now use one `live` (unswept, non-excluded) set. Blocked levels 98% → **26%**; replay signals **4 → 8**, defensive false-blocks **4 → 0**. Funnel also confirmed the cascade completes end-to-end (graded A/C signals on GBP/USD + USD/JPY) |
 | _full-audit_ | full structural + practical audit. **BUG:** `detect_setup` ran the defensive-liquidity guard on the **WIDE 4H zone's** entry/SL — levels we never trade (`setup.entry/sl` are unused downstream; the real entry/SL come from the entry-TF refinement, and `confirm_grade` guards THOSE). It was a pure **false-reject** source (a pool on the 4H distal killed setups whose real SL is nowhere near it) → removed. **STRUCTURAL:** dead code deleted — `ltf_confluence` (orphaned by the MTF rebuild, 133→80 lines), `sweep_grab`, `bx_sd_zones.unmitigated` (VIX.1 uses the *shared* module); `bx_sd_liquidity` was 176 lines → split the pool BUILDERS into new **`bx_sd_pools.py`** (LiquidityPool + period + session), leaving the QUERIES (find_liquidity/is_swept/swept_before/defensive_ok). Verified: chain imports, pools build, defensive + retest behavior unchanged. Known deviation: `bx_sd_zones.py` = 159 (>150) — kept whole, it is one responsibility and the overage is settled-rule documentation |

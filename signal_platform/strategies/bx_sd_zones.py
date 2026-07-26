@@ -173,13 +173,23 @@ def zone_broken(candles: list[Candle], zone: Zone, after: int | None = None) -> 
     book says to prepare the entry; the zone then resurrected when the bar closed back inside. Same
     rule check_invalidation already follows.
     """
+    return break_index(candles, zone, after) is not None
+
+
+def break_index(candles: list[Candle], zone: Zone, after: int | None = None) -> int | None:
+    """WHERE the zone broke — the first closed bar beyond its distal, else None.
+
+    Identical rule to `zone_broken` (which delegates here, so the two cannot drift). The index is
+    what "who is in control" needs: control belongs to whoever broke the OTHER side most recently
+    (Ch.7 p58 — "Price broke through our last supply level, demand is in control now").
+    """
     candles = closed_only(candles)
     for j in range(((zone.ifc_index if after is None else after)) + 1, len(candles)):
         if zone.direction == "demand" and candles[j].close < zone.bottom:
-            return True
+            return j
         if zone.direction == "supply" and candles[j].close > zone.top:
-            return True
-    return False
+            return j
+    return None
 
 
 def find_zones(candles: list[Candle]) -> list[Zone]:

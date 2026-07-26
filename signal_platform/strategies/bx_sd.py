@@ -1,7 +1,7 @@
 """
 BX-S/D — Smart-Money supply/demand (EUR/USD, GBP/USD, USD/JPY), from the SMC (Vekariya) book.
 READ docs/strategies/bx-sd.md FIRST — the book's rules verbatim, and what is already settled.
-Cascade — 4H: the SETUP is confirmed there and ONLY there (confirmed pro-trend + a fresh 3-factor
+Cascade — 4H: the SETUP is confirmed there and ONLY there (a fresh 3-factor
 zone: IFC + broke structure + liquidity grabbed, tapped, priced right, defensive-liquidity clear).
 15M: a CHoCH INSIDE the zone confirms (never a blind limit), refines it to a tight POI, and grades it.
 1M/5M: the trigger locks entry (proximal/50%), SL ~2 pip beyond the distal, TP = the next opposite
@@ -114,7 +114,7 @@ class BXStrategy(BaseStrategy):
             self._log(sym, "AWAIT_DATA", f"cascade needs an entry TF (M1={len(m1)} M5={len(m5)}) — reports still ran")
             return StrategyResult(signals=out)
 
-        # STAGE 1 — 4H setup (confirmed, pro-trend, valid fresh zone, tapped, priced, liquidity-safe)
+        # STAGE 1 — 4H setup (valid fresh zone EITHER SIDE, tapped, priced, liquidity-safe)
         setup = detect_setup(h4, pip)
         if not setup.active:
             self._log(sym, "SCANNING", f"4H: {setup.reason}")

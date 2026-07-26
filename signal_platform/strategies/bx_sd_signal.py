@@ -23,7 +23,7 @@ def build_signal(symbol: str, setup: SetupResult, conf: LTFConfluence, trig: Ent
     back_txt  = f" + HTF backing ({', '.join(backing)})" if backing else ""
 
     reasons = [
-        f"4H {'UPTREND' if buy else 'DOWNTREND'} — confirmed, pro-trend; fresh {zdir} zone tapped",
+        setup.confluences.get("control_phrase") or f"Fresh 4H {zdir} zone tapped",
         f"Valid 4H zone: IFC + broke structure + liquidity grabbed (fuel), priced in {pricing}",
         f"GRADE {conf.grade} — {align_txt}{back_txt}; refined to a {conf.risk_pips:.1f} pip POI",
         f"Confirmation entry: {trig.details.get('method', 'CHoCH')} BMS inside the zone on the entry TF "
@@ -31,8 +31,15 @@ def build_signal(symbol: str, setup: SetupResult, conf: LTFConfluence, trig: Ent
         f"SL {trig.sl:.{digits}f} | TP {trig.tp:.{digits}f} | "
         f"Risk {trig.details['risk_pips']:.1f} pips | RR {trig.rr}:1",
     ]
+    _ctl      = setup.confluences.get("control") or {}
+    _ctl_side = _ctl.get("side", "none")
+    _with     = _ctl.get("with_control")
     smc = [
-        f"CTX::4H TREND::{'UPTREND' if buy else 'DOWNTREND'} (PRO-TREND, CONFIRMED)",
+        # THREE states, not two. `with_control` is None when no side is in control — printing
+        # "AGAINST" there would assert something untrue about an untested market.
+        f"CTX::CONTROL::{_ctl_side.upper()} ("
+        f"{'UNTESTED' if _with is None else ('WITH' if _with else 'AGAINST')}"
+        f"-CONTROL {zdir.upper()} ENTRY, CONFIRMED)",
         f"CTX::4H ZONE::FRESH {zdir.upper()} (IFC + BOS + LIQUIDITY GRAB)",
         f"CTX::PRICING::{pricing.upper()}",
         f"MTF::GRADE {conf.grade} — {align_txt.upper()}{(' + HTF ' + ', '.join(backing)) if backing else ''}",

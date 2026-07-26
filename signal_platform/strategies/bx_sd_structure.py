@@ -6,7 +6,11 @@ BOS / CHoCH by CANDLE BODY CLOSE — never wicks — per the SMC book (Ch. 11-12
   * BOS  = a body close beyond the last swing in the SAME direction as the trend (continuation).
   * CHoCH = a body close beyond the last swing AGAINST the trend (flips character).
 A trend is only CONFIRMED after TWO same-direction breaks (2 highs / 2 lows); the first
-break leaves it unconfirmed. BX-S/D trades ONLY the confirmed pro-trend direction.
+break leaves it unconfirmed.
+
+NOTE: BX-S/D no longer GATES on pro_trend() — the book has no trend, it has "who is in control"
+(bx_sd_control). `map_structure` remains essential for its EVENTS (BOS/CHoCH), which drive the
+3-factor validity test and the LTF confirmation. pro_trend() itself is now unused by BX.
 
 Reuses only the generic shared RESOURCE find_swing_points (pivot detection) — no other
 strategy's logic.

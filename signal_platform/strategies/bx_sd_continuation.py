@@ -30,9 +30,11 @@ def confirm_continuation(fvg: Zone, zone: Zone, h4: list[Candle], m5: list[Candl
     """Continuation confirm on 5M AND 1M off the FVG; return the CLEARER (higher-RR) entry as
     (trigger, confluence, tf_label, setup), else None. GRADED on the same C/B/A ladder as the rest of
     BX (analysis-TF alignment + HTF backing). A fresh-FVG continuation may fire at any grade (C+)."""
-    want = "up" if fvg.direction == "demand" else "down"
-    if map_structure(h4).pro_trend() != want:
-        return None
+    # NO trend gate. Continuation continues the IMPULSE THAT MADE THE FVG, not a swing-structure
+    # trend the book never uses — and `_continues()` below already demands an entry-TF BOS or an S/D
+    # flip in the FVG's own direction, which is precisely the book's against-control condition
+    # ("supply is in control, but we expect a Flip or CHoCH after we tapped in H4 demand", p57).
+    want  = "up" if fvg.direction == "demand" else "down"
     buy   = fvg.direction == "demand"
     setup = _setup_for_zone(h4, fvg, pip)
     finer = next((cs for cs, _ in analysis_tfs if len(cs) >= 20), None)   # M15/M30/1H — session-H/L feed

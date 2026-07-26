@@ -2,7 +2,7 @@
 BX-S/D — report orchestrator: the 4H-zone-centred outputs, run every scan alongside the fresh-zone
 cascade (bx_sd.analyze).
   ① 4H zone MITIGATION heads-up (DM) — a fresh zone just first-tapped; any direction, HTF-tagged.
-  ② RETEST (channel) — a MITIGATED but still-valid pro-trend 4H zone RE-TAPPED now, confirmed on
+  ② RETEST (channel) — a MITIGATED but still-valid 4H zone RE-TAPPED now (either side), confirmed on
      1M/5M with MTF confluence (B/A ONLY — a mitigated zone must EARN its re-entry; fresh zones are
      the core cascade's job).
   ③ FVG CONTINUATION (channel) — an FVG whose 4H zone beneath is STILL UNMITIGATED, tapped &
@@ -18,11 +18,10 @@ from core.types import Candle, Signal
 from core import delivery_ledger
 from strategies.bx_sd_zones import find_zones
 from strategies.bx_sd_validity import valid_zones
-from strategies.bx_sd_structure import map_structure
 from strategies.bx_sd_htf import htf_zone_map, htf_backing
 from strategies.bx_sd_mitigation import newly_mitigated_zones, mitigation_signal
 from strategies.bx_sd_retest import retapped_now, fvg_zone, is_fvg_tap, _setup_for_zone
-from strategies.bx_sd_setup import _first_tap, level_pre_mitigated
+from strategies.bx_sd_freshness import _first_tap, level_pre_mitigated
 from strategies.bx_sd_continuation import confirm_continuation
 from strategies.bx_sd_confirm import confirm_grade
 from strategies.bx_sd_signal import build_signal
@@ -39,8 +38,8 @@ def scan_reports(symbol: str, h4: list[Candle], analysis_tfs: list, entry_tf: li
     tmin = _MIN_PIPS * pip
     def ztime(z): return h4[z.ifc_index].time
     zones = valid_zones(h4, find_zones(h4), pip)          # the book's 3 factors — one definition
-    pro   = map_structure(h4).pro_trend()                 # retest is pro-trend only
-    pdir  = None if pro is None else ("demand" if pro == "up" else "supply")
+    # Retest is NOT trend-filtered. It used to require the zone to face a confirmed 4H trend, which
+    # also meant an UNCONFIRMED trend (pdir=None) silently killed every retest — half of all bars.
 
     # ① mitigation heads-ups — significant, freshly-tapped zones, once each (on confirmed delivery)
     for z in newly_mitigated_zones(h4, zones=zones):
@@ -53,9 +52,9 @@ def scan_reports(symbol: str, h4: list[Candle], analysis_tfs: list, entry_tf: li
         sig.dedup_key = key                 # committed only when the DM actually lands
         out.append(sig)
 
-    # ② RETEST — a MITIGATED but valid pro-trend 4H zone re-tapped now, 1M/5M-confirmed at B/A only.
+    # ② RETEST — a MITIGATED but valid 4H zone re-tapped now, either side, 1M/5M-confirmed at B/A only.
     for z in zones:
-        if z.direction != pdir or (z.top - z.bottom) < tmin or not retapped_now(h4, z):
+        if (z.top - z.bottom) < tmin or not retapped_now(h4, z):
             continue
         key = f"{sid}_retest_{ztime(z)}_{z.direction}"
         if delivery_ledger.is_delivered(key):

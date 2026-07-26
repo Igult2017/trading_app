@@ -7,7 +7,7 @@ a 4H zone that falls within a Daily/Weekly/Monthly zone is tagged premium and pr
 """
 from core.types import Candle, Signal, Direction, TF
 from strategies.bx_sd_zones import find_zones, Zone
-from strategies.bx_sd_setup import _first_tap, level_pre_mitigated
+from strategies.bx_sd_freshness import _first_tap, level_pre_mitigated
 
 _RECENT = 6   # first tap within the last N 4H bars = "just mitigated"
 
