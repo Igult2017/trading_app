@@ -92,7 +92,7 @@ def detect_setup(h4: list[Candle], pip: float = 0.0001, book=None) -> SetupResul
     # duplicate the replay and risk two paths disagreeing. The fallback keeps this callable
     # standalone (tests, harnesses) without forcing every caller to know about the registry.
     marked = build(h4, pip) if book is None else book
-    recent_cut = bars[-_RECENT].time if len(bars) >= _RECENT else bars[0].time
+    live = h4[-1]          # the FORMING bar — 'is price at this zone right now?'
 
     # A zone is a candidate once price has MITIGATED it (tapped it) recently and it is still alive.
     # The 1M/5M confirmation downstream is what proves it was RESPECTED.
@@ -102,7 +102,21 @@ def detect_setup(h4: list[Candle], pip: float = 0.0001, book=None) -> SetupResul
         # path's job (bx_sd_reports, min_grade="B"). Accepting it here let one zone fire BOTH —
         # a duplicate signal, and the fresh cascade fires at C+, bypassing the B/A bar the retest
         # deliberately requires of a zone that has already been worked.
-        if mz.state != "mitigated" or mz.mitigated_at is None or mz.mitigated_at < recent_cut:
+        # unmitigated OR mitigated — NOT `respected` (that is the retest path's, min_grade="B";
+        # accepting it here fired one zone twice, the second time at C+).
+        #
+        # It must include `unmitigated`: the registry is built from CLOSED bars, so a tap by the
+        # FORMING bar is not in the book yet and the zone still reads unmitigated. Demanding
+        # state=="mitigated" AND a live tap can never both hold at the same instant — by the time the
+        # state flips at bar close, the live bar has moved on. That would have silenced the cascade.
+        if mz.state not in ("unmitigated", "mitigated"):
+            continue
+        # THE TAP MUST BE HAPPENING NOW — live price, not "sometime in the last 6 bars".
+        # This used to accept any mitigation inside a 24-HOUR window, so a zone tapped 20 hours ago
+        # still fired today: a signal for an event that had already come and gone. A tap is an EVENT
+        # HAPPENING NOW, so it reads the LIVE forming bar (the settled rule: a LEVEL comes from a
+        # CLOSED candle, a TRIGGER or current price stays LIVE).
+        if not mz.tapped_by(live):
             continue
         if (mz.top - mz.bottom) < _MIN_PIPS * pip:
             continue
@@ -117,7 +131,7 @@ def detect_setup(h4: list[Candle], pip: float = 0.0001, book=None) -> SetupResul
     if cand is None:
         r.reason = (f"{priced_out} marked zone(s) mitigated but badly priced "
                     f"({premium_discount(leg_low, leg_high, price)})" if priced_out else
-                    f"no marked zone mitigated in the last {_RECENT} 4H bars "
+                    f"no marked zone being tapped right now "
                     f"({sum(1 for m in marked if m.live)} live zones on the book)")
         return r
 

@@ -120,6 +120,7 @@ Win rate (full cascade, M1-confirmed, spread-netted): **EUR/USD 6.9% / −4.1R**
 
 | | rule | constant |
 |---|---|---|
+| **Tap must be LIVE** | the zone must be tapped by the **FORMING bar**, right now — not "sometime in the last N bars". A tap is an EVENT HAPPENING NOW | — |
 | **Trigger** | any of the book's THREE methods on 1M/5M: **CHoCH · S/D flip · continuation BOS** (Ch.9 step 4) | — |
 | **Respect** | the confirming close must sit this far inside the 4H zone from the **distal** — *"moved away from it a little, not struggling to break it"* | `_RESPECT_BUFFER = 0.25` (of zone height) |
 | **Entry** | the **confirming bar's close** — the confirmation IS the signal, so enter where price is, not at a level it just left | — |
@@ -143,10 +144,22 @@ because a backtest prefers something else.
 3. **`pro_trend()` is dead code** in `bx_sd_structure` — no callers, kept only because removing a
    public method risks callers outside `strategies/`.
 
+> **THE TAP IS LIVE, THE ZONE IS CLOSED-BAR.** The registry marks and ages zones from CLOSED bars
+> (a level must come from a closed candle). But "is price at this zone?" is asked of the **FORMING**
+> bar. The cascade therefore accepts a zone in state `unmitigated` **or** `mitigated` plus a live tap —
+> requiring `mitigated` alone is impossible, because the forming bar's tap is not in the book yet and
+> by the time the state flips at bar close the live bar has moved on. **That combination silences the
+> strategy; it was caught in review, do not reintroduce it.**
+
 ### Closed, with what closed them
 - ~~Stop/target scale mismatch (median 20R)~~ — stop now off the 4H distal, TP fixed at 3R.
 - ~~`trade_management.py` dead~~ — wired into `monitor/signal_monitor.py` for `bx_sd*` signals.
 - ~~Signals firing behind price~~ — entry is the confirming close; **market entry cannot expire**.
+- ~~Signals for events that had already passed~~ — both paths defined "now" as *any tap inside the last
+  6 H4 bars (24 HOURS)* and read only closed bars, so a zone tapped 20 hours ago still fired. Reported
+  live by the user (EUR/USD RETEST, 27 Jul 15:48). Both now require a tap by the **forming** bar.
+  Measured over 60 H4 bars: 7 candidate bars under the old window vs 5 under the live rule — **2 of 7
+  were stale**.
 - **Confirmation "rejecting only 3 of 126" was investigated and is NOT a defect.** The filter in this
   strategy is the ZONE, not the confirmation. A tapped zone usually does produce a CHoCH within 24h —
   that is the confirmation confirming, which is its job. Tightening it would cut setups to chase a

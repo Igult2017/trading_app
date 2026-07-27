@@ -43,11 +43,15 @@ def scan_reports(symbol: str, h4: list[Candle], analysis_tfs: list, entry_tf: li
         return out
     # built once per scan by bx_sd.analyze; the fallback keeps this callable standalone
     marked  = build(h4, pip) if book is None else book
-    cut     = bars[-_RECENT].time
+    live    = h4[-1]        # the FORMING bar — a tap is an event happening NOW
 
     # ① MITIGATION heads-up — the zone was tapped for the first time, recently.
     for mz in marked:
-        if mz.state != "mitigated" or mz.mitigated_at is None or mz.mitigated_at < cut:
+        # tapped RIGHT NOW (live bar), not "sometime in the last 24h" — see bx_sd_setup
+        # unmitigated OR mitigated + a LIVE tap: the forming bar's tap is not in the book yet
+        # (the registry reads CLOSED bars), so requiring state=="mitigated" here would mean
+        # the heads-up could never coincide with the tap actually happening.
+        if mz.state not in ("unmitigated", "mitigated") or not mz.tapped_by(live):
             continue
         if (mz.top - mz.bottom) < tmin:
             continue
@@ -66,8 +70,8 @@ def scan_reports(symbol: str, h4: list[Candle], analysis_tfs: list, entry_tf: li
     for mz in marked:
         if mz.state != "respected" or (mz.top - mz.bottom) < tmin:
             continue
-        if not any(mz.tapped_by(c) for c in bars[-_RECENT:]):
-            continue                        # respected, but price is not back at it right now
+        if not mz.tapped_by(live):
+            continue                        # respected, but price is not back at it RIGHT NOW
         key = f"{sid}_retest_{mz.ifc_time}_{mz.direction}"
         if delivery_ledger.is_delivered(key):
             continue
