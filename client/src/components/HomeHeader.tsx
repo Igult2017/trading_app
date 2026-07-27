@@ -44,7 +44,10 @@ const NAV_LINKS = [
   { label: "Reviews",   href: "/#reviews"  },
   { label: "Calendar",  href: "/calendar"  },
   { label: "Blog",      href: "/blog"      },
-  { label: "Sessions",  href: "/tsc"       },
+  // Sessions (trading-sessions clock) pulled from the landing header 2026-07-27 — parked, not
+  // removed: the /tsc route and TscPage are untouched and still reachable directly, and the footer
+  // still links to it. Uncomment this line to put it back.
+  // { label: "Sessions",  href: "/tsc"       },
 ];
 
 const PREFETCH_HREFS = new Set(["/calendar", "/blog"]);
