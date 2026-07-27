@@ -96,6 +96,26 @@ cd signal_platform && python main.py
 words / the book's own quotes), the fix log, and what is still open. They exist because the same rules
 kept being re-derived and re-broken. Do not re-derive them; if a change contradicts one, it is wrong.
 
+**BX-S/D: read `docs/strategies/bx-sd-architecture.md` FIRST** — it holds the SHAPE (module map,
+the zone-book model, the lifecycle, and the KNOWN OPEN DEFECTS). `bx-sd.md` holds the RULES; parts of
+its implementation description are superseded and it says so at the top.
+
+### THE STRATEGY DOCS ARE UPDATED IN THE SAME CHANGE — never afterwards, never "later"
+**Any change to a strategy updates its doc as part of that change**, before it is committed. User's
+instruction, 2026-07-27: *"you will be changing that documentation every time we make a change so that
+you dont forget any change and how the strategy works."*
+
+What must be updated, every time:
+- **architecture doc** — if the SHAPE moved (a module added/deleted/rewired, a new state, a new
+  invariant, a changed constant)
+- **fix log in `bx-sd.md` / `vix1.md`** — what broke, the ROOT CAUSE, the fix, and the measured
+  before/after
+- **KNOWN OPEN DEFECTS** — add what you found and did not fix; delete what you actually fixed. A stale
+  "open defect" list is worse than none, because the next session trusts it.
+
+A change is not done until the doc matches the code. This exists because the code has repeatedly
+drifted from the doc, and the next session then guesses — which is how the same defects came back.
+
 **The rule that spans both:** a **LEVEL must be read from a CLOSED candle** (`shared/mtf_utils.closed_only`),
 a **TRIGGER or current price stays LIVE**. The feed returns the still-forming bar as its newest — both
 strategies shipped a bug from reading it as a level, and a backtest can never catch it (every
