@@ -8,6 +8,7 @@ The copy engine ships inside the app container (a watchdog in `start.sh`, defaul
 | `DATABASE_URL` | everything | already set |
 | `COPY_ENCRYPTION_KEY` | decrypting cTrader OAuth tokens | **Must be set BEFORE connecting any cTrader account.** Accounts connected before this was set store base64, not encrypted, tokens → decrypt-to-None → no trades. Reconnect any such account. |
 | `CTRADER_CLIENT_ID` / `CTRADER_CLIENT_SECRET` | cTrader Open API | missing → engine import-crashes, watchdog loops every 60s |
+| `CTRADER_SYNC_CLIENT_ID` / `CTRADER_SYNC_CLIENT_SECRET` | selects the **second** Open API app for NEW account connects | ⚠️ **OPEN ISSUE — these are currently SET in production and the second app is NOT approved, so its credentials fail.** `newConnectApp()` switches to it the moment both are present, so every new broker-account connect is issued under a credential that does not work. The signal platform is unaffected (pinned to `legacy`). Unset both + redeploy to fall back to the approved app. Full diagnosis, blast radius and the Open API research: [ctrader-open-api-apps.md](./ctrader-open-api-apps.md) |
 
 ## Telegram-channel copying (the bot path)
 | Var | Notes |
