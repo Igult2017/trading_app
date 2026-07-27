@@ -36,6 +36,10 @@ from strategies.bx_sd_entry_type import classify, phrase as et_phrase
 from strategies.bx_sd_registry import build, to_zone
 from shared.mtf_utils import closed_only
 
+_SL_BUFFER_PIPS = 6.0  # the stop sits this far BEYOND the 4H zone's distal edge — the user's
+                       # "5 to 6 pips behind the 4H zone", so a wick cannot take us out.
+                       # Lives here because bx_sd_entry imports from this module.
+_TP_R           = 3.0  # fixed 3R target (user: "just leave TP at 3R")
 _RECENT     = 6    # a live tap must be within the last N 4H bars (leaves time for the LTF to confirm)
 _MIN_PIPS   = 3.0  # ignore micro-FVG zones — same noise floor the 3 report paths already apply
                    # (bx_sd_reports._MIN_PIPS); the core cascade lacked it, so a sub-3-pip candidate
@@ -123,7 +127,8 @@ def detect_setup(h4: list[Candle], pip: float = 0.0001, book=None) -> SetupResul
     # The guard used to run here too, on these wide levels, which only produced FALSE REJECTS — a pool
     # sitting on the 4H distal killed setups whose real SL is nowhere near it.
     entry = cand.proximal
-    sl    = cand.distal - 2 * pip if up else cand.distal + 2 * pip
+    # same buffer the entry uses — one definition of where the stop goes (bx_sd_entry)
+    sl    = cand.distal - _SL_BUFFER_PIPS * pip if up else cand.distal + _SL_BUFFER_PIPS * pip
 
     r.active, r.direction, r.zone = True, tdir, cand
     r.entry, r.sl = entry, sl
