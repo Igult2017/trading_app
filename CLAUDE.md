@@ -100,6 +100,19 @@ kept being re-derived and re-broken. Do not re-derive them; if a change contradi
 the zone-book model, the lifecycle, and the KNOWN OPEN DEFECTS). `bx-sd.md` holds the RULES; parts of
 its implementation description are superseded and it says so at the top.
 
+### NEVER RUN A BACKTEST WITHOUT EXPLICIT APPROVAL
+User, 2026-07-27: *"Never backtest without my approval."* Ask first, every time — **including when an
+approved plan lists one under verification. Plan approval is not backtest approval.**
+
+Covers any historical simulation that scores the strategy (`bx_winrate.py`, `bx_walkforward.py`,
+win-rate / frequency / fixed-R sweeps). Unit tests, invariants, regressions and live-log checks need
+no approval; a backtest does.
+
+**Why:** every BX number produced so far measured parameters that were NOT the user's — a ~3-pip stop
+off the M1 POI instead of his 4H-distal stop, and a ~20R structural target instead of his 3R. Poor
+results from the wrong parameters are noise presented as evidence. Never present a backtest as a
+verdict on his method; at most it is a check on the CODE, once the parameters are confirmed to be his.
+
 ### THE STRATEGY DOCS ARE UPDATED IN THE SAME CHANGE — never afterwards, never "later"
 **Any change to a strategy updates its doc as part of that change**, before it is committed. User's
 instruction, 2026-07-27: *"you will be changing that documentation every time we make a change so that
