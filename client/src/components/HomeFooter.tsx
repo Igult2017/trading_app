@@ -7,7 +7,9 @@ const PLATFORM = [
   { label: "Analytics",     href: "/analytics" },
   { label: "Blog",          href: "/blog"      },
   { label: "Calendar",      href: "/calendar"  },
-  { label: "Sessions",      href: "/tsc"       },
+  // Sessions (trading-sessions clock) pulled from the public surface 2026-07-27 — parked, not
+  // removed. Uncomment to put it back; see the matching line in HomeHeader.tsx.
+  // { label: "Sessions",      href: "/tsc"       },
 ];
 const COMPANY = [
   { label: "Pricing",  href: "/#pricing"  },
