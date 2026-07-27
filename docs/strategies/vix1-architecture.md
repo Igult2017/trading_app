@@ -95,9 +95,7 @@ A-grade: `_A_BODY_FRAC 0.75` + `_A_CWICK_FRAC 0.15` → `_A_CONF 0.85`.
    position himself. Whether VIX.1 should manage the stop programmatically is his call, not an
    oversight to silently fix.
 3. **`ARM_R` imported but unused** in `monitor/vix1_alerts.py` — cosmetic, fixed 2026-07-27.
-4. **No automated test suite in the repo.** The scratchpad harnesses are throwaway, so nothing
-   guards VIX.1 against regressions and nothing exercises its real code paths on real data. This is
-   the biggest structural gap.
+*(The "no test suite" gap was closed 2026-07-27 — see below.)*
 
 ## What is NOT a defect — checked 2026-07-27
 
@@ -106,6 +104,28 @@ A-grade: `_A_BODY_FRAC 0.75` + `_A_CWICK_FRAC 0.15` → `_A_CONF 0.85`.
   pullback from hours or days ago can never become an entry. Verified 2026-07-27.
 - **Only one genuinely unused import** across all 13 files (AST-verified, not grep-guessed).
 - **No dead functions**, no TODO/FIXME/HACK markers.
+
+## The test suite — `signal_platform/tests/vix1/`
+
+```
+python signal_platform/tests/vix1/run_all.py     # 71 checks, ~90s, exit non-zero on failure
+```
+
+No framework, no network, no DB. **Run it before writing the doc entry for a change, not after.**
+
+| file | covers |
+|---|---|
+| `test_momentum.py` | every gate BOTH ways (accepts and rejects): size vs median, body fraction, bigger-than-previous, counter-wick cap; grading incl. the A boundary; the run; `baseline_body` |
+| `test_line_pullback.py` | the line is the BODY CLOSE; **past-the-line accepted / refused / straddling refused / exactly ON accepted**, both directions; `traded_past`; the shape filters |
+| `test_manage.py` | ratchet 2R→1R, 3R→2R, whole-R steps, **forward-only**; the structure exit by body close, wicks never counting |
+| `test_invariants_real_data.py` | drives `m1_signals` over 4,000 real M1 bars per pair: entry is a **STOP**, SL on the losing side, **TP exactly 2R**, crash-freedom — plus the governing invariant, by **mutating the forming bar and asserting no level moves** |
+
+**Every invariant has a TEETH case** — the assertion is deliberately broken and shown to fail. A suite
+that cannot fail proves nothing; that is not a slogan here, it is the reason this exists.
+
+**When a test fails, that is a FINDING to report.** It is not a licence to re-tune a threshold — the
+momentum gates were calibrated against the user's real candles, and the pending redesign is blocked on
+his trade data.
 
 ## Verification without a backtest
 
