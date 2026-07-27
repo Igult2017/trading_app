@@ -103,7 +103,7 @@ async def scan_markets() -> None:
         _was_scanning = False
         return
     if not settings.scan_enabled:
-        log.debug("[scanner] SCAN_ENABLED=false — skipping tick")
+        log.info("[scanner] SCAN_ENABLED=false — tick skipped, no signals will be produced")
         _was_scanning = False
         return
 
@@ -137,7 +137,9 @@ async def scan_markets() -> None:
 
     strategies = strategy_registry.get_enabled()
     if not strategies:
-        log.debug("[scanner] no strategies registered — nothing to do")
+        # WARNING: zero strategies means the platform cannot produce a signal at all. That is the
+        # single most important thing to know when nothing has arrived, and it was hidden at DEBUG.
+        log.warning("[scanner] NO STRATEGIES REGISTERED — no signal can be produced this tick")
         _was_scanning = False
         return
 
@@ -155,10 +157,24 @@ async def scan_markets() -> None:
 
     log.info(f"[scanner] {len(instruments)} instruments × {len(strategies)} strategies")
 
-    await asyncio.gather(
+    results = await asyncio.gather(
         *[_scan_instrument(inst, strategies, news_context, current_sessions, tick_now)
           for inst in instruments],
         return_exceptions=True,
     )
+    # SAME BUG THE MONITOR HAD (fixed 2026-07-27): `return_exceptions=True` with the results thrown
+    # away means an instrument whose scan raised is skipped in total silence — the tick still logs
+    # "complete". An instrument can stop producing signals indefinitely with nothing to show for it.
+    failed = 0
+    for inst, res in zip(instruments, results):
+        if isinstance(res, BaseException):
+            failed += 1
+            log.error(f"[scanner] {inst} scan raised {type(res).__name__}: {res}", exc_info=res)
 
-    log.info(f"[scanner] tick complete — cache: {candle_fetcher.candle_cache.stats()}")
+    # HEARTBEAT — a completed tick is the liveness signal. Its age at the next boot IS the outage.
+    from storage import observability_repo as obs
+    await asyncio.get_running_loop().run_in_executor(None, obs.beat)
+
+    log.info(f"[scanner] tick complete — {len(instruments) - failed}/{len(instruments)} instruments "
+             f"scanned{f', {failed} FAILED' if failed else ''} — "
+             f"cache: {candle_fetcher.candle_cache.stats()}")

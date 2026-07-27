@@ -215,6 +215,11 @@ class Signal:
     zone_notes:         list[str] = field(default_factory=list)  # nearby unmitigated S/D zones (info only)
     news_note:          str = ""   # high-impact news context (info only — never blocks)
     dedup_key:          str = ""   # producer's dedup key; committed to the delivery ledger only ON a confirmed send
+    db_id:              str = ""   # the saved trading_signals.id — stamped by the runner AFTER save,
+                                   # so the audit trail (signal_events) can be joined end to end:
+                                   # a row with `dispatched` and no `delivered` is a signal that was
+                                   # saved, handed to the notifier and never sent. That exact case
+                                   # happened on 2026-07-27 and was undiagnosable without this link.
     label:              str = ""   # short code shown prominently on the card (e.g. "451HRZ")
     to_channel:         bool = False  # alert_only signal that goes PUBLIC (signal channel) not the admin DM
 

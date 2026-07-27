@@ -8,18 +8,30 @@ many strategies are added.
 
 It used to be "symbol:direction" across ALL strategies, which meant whichever tenant happened to fire
 first that tick took the pair+direction and every other strategy's signal vanished with only a debug
-line. A comment claimed that scope was also "enforced by the DB unique constraint" — it is not.
-There is no unique constraint on trading_signals (checked models.py, schema.ts and
-docker-migrate.sql), so signal_repo.save's `except IntegrityError` never fired for this.
+line.
 
-A strategy still cannot duplicate ITSELF: one active signal per symbol+direction per strategy.
+A strategy still cannot duplicate ITSELF: ONE ACTIVE SIGNAL PER SYMBOL+DIRECTION PER STRATEGY. The
+user's rule, 2026-07-27: "One ticker cannot send 2 signals at the same time using this strategy."
 
-Uses an in-memory duplicate set — avoids hitting the DB on every signal, and fails safe: if the DB is
-unavailable at startup, signals are still deduplicated within the current process lifetime.
+THREE LAYERS ENFORCE IT, deliberately, because the top one alone failed in production:
 
-Dedup is atomic within the asyncio event loop (single-threaded, no lock needed).
+  1. `_seen`, an in-memory set. Fast, and atomic within the single-threaded asyncio loop.
+  2. `_active_in_db()`, asked of the DATABASE on every admission — `_seen` is only a cache of it.
+  3. A UNIQUE PARTIAL INDEX, `trading_signals (strategy, symbol, type) WHERE status = 'active'`
+     (docker-migrate.sql). This one cannot be bypassed by any process state, restart or race, and it
+     is what makes `signal_repo.save`'s `except IntegrityError` a REACHABLE path — the runner now
+     treats an empty return from save as "not saved, do not dispatch".
+
+WHY THREE. On 27 Jul 2026 two `vix1 EUR/USD sell` signals were active simultaneously — a state this
+module has always claimed to make impossible. Layer 1 was the only layer, and it was empty: it is
+seeded by `_load_active_from_db()`, which raised `DetachedInstanceError` on every row (see
+storage/db.py — `get_active()` returned expired, detached ORM instances) and swallowed the error in
+its own `except`, leaving `_loaded` False and the guard blank forever. An in-memory guard cannot
+survive a restart, a seeding failure, or a second process; a database constraint survives all three.
+The earlier version of this docstring asserted there was no such constraint — there is now.
+
 _is_duplicate() reserves the key immediately; callers must call release() if
-the signal is rejected downstream (risk filter, AI validator, etc.).
+the signal is rejected downstream (risk filter, save failure, etc.).
 """
 
 import logging
@@ -57,6 +69,31 @@ def _load_active_from_db() -> None:
         # Leave _loaded False so a transient DB outage at startup is retried on the
         # next validation tick, instead of permanently leaving the guard empty
         # (which would let already-active DB signals slip past the dup check).
+
+
+def _active_in_db(signal: Signal) -> bool:
+    """Is there ALREADY a live signal for this strategy+symbol+direction, per the DATABASE?
+
+    THE IN-MEMORY SET IS NOT ENOUGH, and 27 Jul proved it. `_seen` lives in one process's RAM: a
+    restart empties it, `_load_active_from_db` failing leaves it empty while only logging a warning,
+    and a second process would never see it at all. On 27 Jul the reservation for
+    `vix1:eur/usd:sell` was lost while the 11:17 signal was still live, so a second signal was
+    admitted at 14:46 — two active rows for a key the validator guarantees is unique, and the worse
+    of the two setups was the one delivered.
+
+    So ask the DB, which is the actual system of record, on every admission. On a DB error this
+    returns False and defers to `_seen` plus the unique partial index on
+    `(strategy, symbol, type) WHERE status='active'` — a defence in depth where the last layer
+    cannot be bypassed by any process state.
+    """
+    try:
+        from storage import signal_repo
+        want = _key(signal.strategy_id, signal.symbol, signal.direction.value)
+        return any(_key(r.strategy, r.symbol, r.type) == want for r in signal_repo.get_active())
+    except Exception as exc:
+        log.warning(f"[validator] active-signal check failed ({type(exc).__name__}: {exc}) — "
+                    f"falling back to the in-memory guard and the DB constraint")
+        return False
 
 
 def register_confirmed(signal: Signal) -> None:
@@ -108,8 +145,11 @@ def validate(result: StrategyResult, instrument: str) -> list[Signal]:
 
 def _check_rr(signal: Signal) -> bool:
     if signal.risk_reward < settings.min_rr:
-        log.debug(
-            f"[validator] {signal.symbol} RR={signal.risk_reward:.2f} < min {settings.min_rr}"
+        # INFO: this DISCARDS a signal the strategy worked to produce. At DEBUG it was invisible in
+        # production, so "the strategy found nothing" and "we threw away what it found" read the same.
+        log.info(
+            f"[validator] {signal.symbol} {signal.strategy_id} REJECTED — "
+            f"RR={signal.risk_reward:.2f} < min {settings.min_rr}"
         )
         return False
     return True
@@ -132,9 +172,9 @@ def _min_confidence_for(strategy_id: str) -> float:
 def _check_confidence(signal: Signal) -> bool:
     floor = _min_confidence_for(signal.strategy_id)
     if signal.confidence < floor:
-        log.debug(
-            f"[validator] {signal.symbol} conf={signal.confidence:.0%} "
-            f"< min {floor:.0%} ({signal.strategy_id})"
+        log.info(
+            f"[validator] {signal.symbol} {signal.strategy_id} REJECTED — "
+            f"conf={signal.confidence:.0%} < min {floor:.0%}"
         )
         return False
     return True
@@ -145,7 +185,16 @@ def _is_duplicate(signal: Signal) -> bool:
     # block another. The monitor releases with the row's own strategy, so the two stay symmetrical.
     key = _key(signal.strategy_id, signal.symbol, signal.direction.value)
     if key in _seen:
-        log.debug(f"[validator] duplicate skipped: {key}")
+        # INFO, not DEBUG: "the strategy found nothing" and "the strategy found something and we
+        # refused it because one is already live" are completely different facts about the system,
+        # and at DEBUG the second was invisible in production.
+        log.info(f"[validator] duplicate skipped — {key} already has a live signal")
+        return True
+    # The DB is the system of record; `_seen` is only a cache of it. See _active_in_db.
+    if _active_in_db(signal):
+        log.warning(f"[validator] {key} is ACTIVE in the database but was missing from the "
+                    f"in-memory guard — refusing, and re-seeding the guard")
+        _seen.add(key)
         return True
     # Reserve immediately — asyncio is single-threaded so this is atomic.
     # Caller must call release() if the signal is rejected downstream.

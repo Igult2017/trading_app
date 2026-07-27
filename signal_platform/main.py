@@ -27,6 +27,14 @@ async def _startup() -> None:
     create_tables()
     log.info("[boot] database ready")
 
+    # 1b. HOW LONG WERE WE GONE? Read the heartbeat BEFORE anything overwrites it — its age is the
+    # outage. A signal that never arrived has two very different explanations, "the strategy declined
+    # it" and "the process was not running", and until 2026-07-27 nothing in the system could tell
+    # them apart: container logs start at boot, so an outage erases its own evidence.
+    from storage import observability_repo as obs
+    obs.detect_downtime()
+    obs.beat()
+
     # 2. Bootstrap tokens from Node DB (always fresh — overrides potentially-stale env vars)
     await bootstrap_ctrader_tokens(settings)
 

@@ -824,3 +824,52 @@ export const priceAlerts = pgTable("price_alerts", {
 
 export type PriceAlert = typeof priceAlerts.$inferSelect;
 export type InsertPriceAlert = typeof priceAlerts.$inferInsert;
+
+// ── Signal Platform Observability ─────────────────────────────────────────────
+// Written by the Python signal platform (storage/observability_models.py), declared here so
+// drizzle-kit push does not drop tables it cannot see. Node does not write these — it only reads
+// them for post-mortems.
+//
+// WHY: on 2026-07-27 a VIX.1 signal was built, validated and saved but never delivered to Telegram.
+// The container restarted before anyone looked and took every log line with it, making "where did it
+// die?" permanently unanswerable. stdout logging cannot survive a restart; a table can.
+
+// One row per stage transition: built → validated → saved → dispatched → delivered, or dropped.
+// signalId is nullable by design — the most valuable events happen before the signal row exists.
+export const signalEvents = pgTable("signal_events", {
+  id:        varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  signalId:  varchar("signal_id"),
+  strategy:  text("strategy").notNull(),
+  symbol:    text("symbol").notNull(),
+  stage:     text("stage").notNull(),
+  detail:    text("detail"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (t) => [
+  index("signal_events_created_idx").on(t.createdAt),
+  index("signal_events_signal_idx").on(t.signalId),
+  index("signal_events_lookup_idx").on(t.strategy, t.symbol, t.createdAt),
+]);
+
+// Single row (id is always 1), rewritten every scan. Its age at boot IS the downtime measurement.
+export const platformHeartbeat = pgTable("platform_heartbeat", {
+  id:      integer("id").primaryKey().default(1),
+  beatAt:  timestamp("beat_at").defaultNow().notNull(),
+  scans:   integer("scans").default(0),
+});
+
+// One row per detected outage. Answers "was the platform even up when that candle closed?" —
+// a missing signal means either the strategy declined it or the process was not running.
+export const platformDowntime = pgTable("platform_downtime", {
+  id:         varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  downFrom:   timestamp("down_from").notNull(),
+  downTo:     timestamp("down_to").notNull(),
+  seconds:    integer("seconds").notNull(),
+  note:       text("note"),
+  detectedAt: timestamp("detected_at").defaultNow().notNull(),
+}, (t) => [
+  index("platform_downtime_from_idx").on(t.downFrom),
+]);
+
+export type SignalEvent = typeof signalEvents.$inferSelect;
+export type PlatformHeartbeat = typeof platformHeartbeat.$inferSelect;
+export type PlatformDowntime = typeof platformDowntime.$inferSelect;

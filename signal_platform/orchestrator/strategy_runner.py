@@ -19,11 +19,24 @@ from data.candle_fetcher import fetch_candles
 from news import news_filter
 from shared import trend_detector
 from shared.mtf_utils import to_minutes
+from storage import observability_repo as obs
 from storage import signal_repo
 from validation import signal_validator
 from risk import spread_filter, volatility_filter, sl_validator
 
 log = logging.getLogger(__name__)
+
+
+async def _stage(loop, stage: str, strategy_id: str, symbol: str,
+                 signal_id: str | None = None, detail: str = "") -> None:
+    """Append one row to the restart-proof audit trail, off the event loop.
+
+    Every exit from the delivery path gets one of these. The point is that a signal which never
+    arrives can be traced to the exact stage that dropped it, WITHOUT needing the container's stdout
+    — which a restart destroys. `obs.record` never raises, so this cannot break a dispatch.
+    """
+    await loop.run_in_executor(None, lambda: obs.record(stage, strategy_id, symbol,
+                                                        signal_id, detail))
 
 
 async def run_strategy(
@@ -94,6 +107,14 @@ async def run_strategy(
         log.error(f"[runner] {strategy.id} on {instrument}:\n{traceback.format_exc()}")
         return
 
+    loop = asyncio.get_running_loop()
+    if result.has_signals():
+        # Record BEFORE validation: a signal the validator drops leaves no DB row and, until now,
+        # no trace of any kind. This is the row that proves the strategy did its job.
+        for s in result.signals:
+            await _stage(loop, obs.STAGE_BUILT, s.strategy_id or strategy.id, instrument,
+                         detail=f"{s.direction.value} entry={s.entry_price} sl={s.stop_loss}")
+
     valid_signals = signal_validator.validate(result, instrument)
     if not valid_signals:
         # Say WHICH of the two happened. They are completely different failures and the old wording
@@ -103,11 +124,13 @@ async def run_strategy(
                if not result.has_signals()
                else f"the validator dropped all {len(result.signals)} (rr / confidence / dedup)")
         log.info(f"[runner] {strategy.id}/{instrument}: analyze() ran — {why}")
+        if result.has_signals():
+            await _stage(loop, obs.STAGE_DROPPED, strategy.id, instrument,
+                         detail="validator dropped all (rr / confidence / dedup)")
         return
 
     htf         = max(deps.timeframes, key=to_minutes)
     pri_candles = candle_view.get(htf, [])
-    loop        = asyncio.get_running_loop()
 
     for signal in valid_signals:
         # Preserve strategy-set strategy_id (e.g. _watch / _setup suffixes)
@@ -125,31 +148,62 @@ async def run_strategy(
             )
             continue
 
-        # Risk filters — only run when strategy opted in
+        await _stage(loop, obs.STAGE_VALIDATED, signal.strategy_id, instrument,
+                     detail=f"conf={signal.confidence:.0%} rr={signal.risk_reward}")
+
+        # Risk filters — only run when strategy opted in. Each rejection is recorded with its own
+        # reason: "the signal vanished" and "the spread filter refused it" are different facts, and
+        # a silent `continue` made them indistinguishable after the fact.
+        async def _refuse(reason: str) -> None:
+            signal_validator.release(signal.symbol, signal.direction.value, signal.strategy_id)
+            log.info(f"[runner] {instrument} {signal.strategy_id} refused — {reason}")
+            await _stage(loop, obs.STAGE_DROPPED, signal.strategy_id, instrument, detail=reason)
+
         if strategy.requires_volatility:
             if not pri_candles:
-                signal_validator.release(signal.symbol, signal.direction.value, signal.strategy_id)
+                await _refuse("no primary-timeframe candles for the risk filters")
                 continue
             if not volatility_filter.check(signal, pri_candles):
-                signal_validator.release(signal.symbol, signal.direction.value, signal.strategy_id)
+                await _refuse("volatility filter")
                 continue
             if not sl_validator.check(signal, pri_candles):
-                signal_validator.release(signal.symbol, signal.direction.value, signal.strategy_id)
+                await _refuse("SL too tight vs ATR")
                 continue
         if strategy.requires_spread and context.spread is not None:
             if not spread_filter.check(signal, context.spread):
-                signal_validator.release(signal.symbol, signal.direction.value, signal.strategy_id)
+                await _refuse(f"spread filter (spread={context.spread})")
                 continue
 
         # Release the dedup reservation on a hard save failure — else this
         # symbol+direction stays locked for the process lifetime with nothing saved.
         try:
-            await loop.run_in_executor(None, signal_repo.save, signal)
+            signal_id = await loop.run_in_executor(None, signal_repo.save, signal)
         except Exception as exc:
             log.error(f"[runner] {instrument} save failed ({exc}) — releasing dedup reservation")
             signal_validator.release(signal.symbol, signal.direction.value, signal.strategy_id)
+            await _stage(loop, obs.STAGE_DROPPED, signal.strategy_id, instrument,
+                         detail=f"save failed: {type(exc).__name__}: {exc}")
             continue
+        if not signal_id:
+            # `signal_repo.save` returns "" when the insert hits an IntegrityError — which is now a
+            # REACHABLE path: the unique partial index on (strategy, symbol, type) WHERE
+            # status='active' rejects a second live signal for the same key. Nothing was saved, so
+            # nothing may be dispatched. Before this check the runner ignored the return value and
+            # went on to emit SIGNAL_CONFIRMED for a row that does not exist — a card with no
+            # signal behind it, which the monitor could never close.
+            log.warning(f"[runner] {instrument} {signal.strategy_id} NOT saved (duplicate active "
+                        f"signal for this strategy+symbol+direction) — not dispatching")
+            signal_validator.release(signal.symbol, signal.direction.value, signal.strategy_id)
+            await _stage(loop, obs.STAGE_DROPPED, signal.strategy_id, instrument,
+                         detail="duplicate active signal — rejected by the DB uniqueness constraint")
+            continue
+        signal.db_id = signal_id            # lets the notifier close the audit chain on this row
+        await _stage(loop, obs.STAGE_SAVED, signal.strategy_id, instrument, signal_id=signal_id)
         signal_validator.register_confirmed(signal)
+        # DISPATCHED is stamped before the emit and DELIVERED by the notifier after a confirmed send.
+        # A row with `dispatched` and no `delivered` is precisely the 27 Jul failure — saved, handed
+        # over, never sent — and it is now a one-line query instead of an unanswerable question.
+        await _stage(loop, obs.STAGE_DISPATCHED, signal.strategy_id, instrument, signal_id=signal_id)
         await event_bus.emit(event_bus.SIGNAL_CONFIRMED, signal)
         log.info(
             f"[runner] CONFIRMED — {instrument} "

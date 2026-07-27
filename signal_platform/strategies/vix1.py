@@ -32,6 +32,7 @@ from strategies.vix1_bias import detect_bias
 from strategies.vix1_entry import m1_signals
 from strategies.vix1_momentum import LOOKBACK, momentum_grade   # candle_counts[M1] derives from LOOKBACK
 from strategies.vix1_signal import build_signal
+from strategies import vix1_spacing
 from strategies.vix1_watch import check_invalidation, invalidation_signal, WATCH_M1
 from shared.pip import pip_size, price_digits
 from shared.mtf_utils import closed_only
@@ -131,6 +132,15 @@ class Vix1Strategy(BaseStrategy):
             return StrategyResult(signals=out)
         if in_news_window(context.news, sym):               # H2: skip entries in a high-impact window
             log.info(f"[vix1] {sym} inside a high-impact news window — skip entry")
+            return StrategyResult(signals=out)
+
+        # SPACING — is this instrument still busy with the last signal? Checked here, AFTER the bias
+        # is known (so the log says which setup was refused) and BEFORE the 1M entry work, which is
+        # the expensive part and pointless if the instrument is shut. See strategies/vix1_spacing.py
+        # for the rule in the user's own words.
+        ok, why = vix1_spacing.check(h1, sym, self.id, now)
+        if not ok:
+            log.info(f"[vix1] {sym} setup SKIPPED by spacing — {why}")
             return StrategyResult(signals=out)
 
         # 1M — align (structure, or a fractal break), then the pullback entry.

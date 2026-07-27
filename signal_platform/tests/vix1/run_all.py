@@ -16,6 +16,7 @@ TESTS = [
     "test_line_pullback.py",        # the line, and the past-the-line rule
     "test_manage.py",               # the R ratchet and the structure exit
     "test_invariants_real_data.py", # the real functions over real candles
+    "test_spacing.py",              # signal spacing + the 27 Jul duplicate-signal regression
 ]
 
 worst = 0

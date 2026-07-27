@@ -425,5 +425,73 @@ ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS leaderboard_hidden BOOLEAN DE
 -- as wins/losses for a trade that never opened. Added 2026-07-22.
 ALTER TABLE trading_signals ADD COLUMN IF NOT EXISTS triggered_at TIMESTAMP;
 
+-- ── Signal platform observability ────────────────────────────────────────────
+-- Added 2026-07-27. A VIX.1 signal was built, validated and saved at 11:17 UTC and never reached
+-- Telegram; the container restarted before anyone looked and took every log line with it, so "where
+-- did it die?" could not be answered at all. stdout cannot survive a restart. These tables can.
+
+-- One row per stage transition: built → validated → saved → dispatched → delivered, or dropped.
+-- signal_id is nullable BY DESIGN: the most valuable events happen before the signal row exists.
+CREATE TABLE IF NOT EXISTS signal_events (
+  id         VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+  signal_id  VARCHAR,
+  strategy   TEXT      NOT NULL,
+  symbol     TEXT      NOT NULL,
+  stage      TEXT      NOT NULL,
+  detail     TEXT,
+  created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS signal_events_created_idx ON signal_events (created_at);
+CREATE INDEX IF NOT EXISTS signal_events_signal_idx  ON signal_events (signal_id);
+CREATE INDEX IF NOT EXISTS signal_events_lookup_idx  ON signal_events (strategy, symbol, created_at);
+
+-- Single row, rewritten every scan. Its age at boot IS the downtime measurement.
+CREATE TABLE IF NOT EXISTS platform_heartbeat (
+  id      INTEGER   PRIMARY KEY DEFAULT 1,
+  beat_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  scans   INTEGER   DEFAULT 0,
+  CONSTRAINT platform_heartbeat_single CHECK (id = 1)
+);
+INSERT INTO platform_heartbeat (id) VALUES (1) ON CONFLICT DO NOTHING;
+
+-- One row per detected outage: "was the platform even up when that candle closed?"
+CREATE TABLE IF NOT EXISTS platform_downtime (
+  id          VARCHAR   PRIMARY KEY DEFAULT gen_random_uuid(),
+  down_from   TIMESTAMP NOT NULL,
+  down_to     TIMESTAMP NOT NULL,
+  seconds     INTEGER   NOT NULL,
+  note        TEXT,
+  detected_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS platform_downtime_from_idx ON platform_downtime (down_from);
+
+-- ── trading_signals — one active signal per strategy+symbol+direction ────────
+-- Added 2026-07-27. validation/signal_validator.py has always intended this invariant ("a strategy
+-- cannot duplicate itself"), but enforced it ONLY in an in-memory set. On 27 Jul that set lost its
+-- reservation and two `vix1 EUR/USD sell` rows went active simultaneously — the second was the worse
+-- setup and it was the one delivered. An in-memory guard cannot survive a restart, a race or a second
+-- process; a database constraint survives all three. Enforce the invariant where the data lives.
+
+-- The index cannot be created while duplicates exist, so resolve them first: keep the NEWEST active
+-- row per key and expire the rest. Expiring here is deliberately SILENT — a plain status change,
+-- emitting no SIGNAL_CLOSED event, so no "trade closed" card is sent for a signal the user may never
+-- have received in the first place (which is exactly the 11:17 case).
+WITH ranked AS (
+  SELECT id, ROW_NUMBER() OVER (
+           PARTITION BY strategy, symbol, type ORDER BY created_at DESC
+         ) AS rn
+    FROM trading_signals
+   WHERE status = 'active'
+)
+UPDATE trading_signals ts
+   SET status = 'expired',
+       invalidated_at = COALESCE(ts.invalidated_at, NOW())
+  FROM ranked r
+ WHERE ts.id = r.id AND r.rn > 1;
+
+CREATE UNIQUE INDEX IF NOT EXISTS trading_signals_one_active_per_key
+    ON trading_signals (strategy, symbol, type)
+ WHERE status = 'active';
+
 -- ── Done ─────────────────────────────────────────────────────────────────────
 DO $$ BEGIN RAISE NOTICE 'docker-migrate.sql complete'; END $$;

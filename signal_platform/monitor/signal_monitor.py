@@ -66,25 +66,55 @@ def _epoch(dt) -> float:
 
 
 async def check_all() -> None:
-    """Iterate all active signals and update their status."""
+    """Iterate all active signals and update their status.
+
+    EVERY POLL REPORTS WHAT IT DID. Until 2026-07-27 this function ran `gather(...,
+    return_exceptions=True)` and THREW THE RESULTS AWAY: any exception inside `_check_signal` was
+    captured by gather and never logged, never raised, never counted. Production ran 158 consecutive
+    polls that looked perfectly healthy while every signal sat unexamined with `triggered_at` NULL —
+    the monitor was doing nothing and saying nothing, and that combination is undiagnosable after the
+    fact. Exceptions are now logged per row (with the row's identity, so it is actionable), and each
+    poll emits one INFO summary line. A quiet monitor must be quiet because there was nothing to do,
+    never because it failed silently.
+    """
     try:
         loop = asyncio.get_running_loop()
         active = await loop.run_in_executor(None, signal_repo.get_active)
+        tally: dict[str, int] = {}
         if active:
-            await asyncio.gather(*[_check_signal(row) for row in active],
-                                 return_exceptions=True)
+            results = await asyncio.gather(*[_check_signal(row) for row in active],
+                                           return_exceptions=True)
+            for row, res in zip(active, results):
+                if isinstance(res, BaseException):
+                    # The bug this file shipped with: this branch used to not exist.
+                    tally["error"] = tally.get("error", 0) + 1
+                    log.error(f"[signal_monitor] {row.symbol} {row.strategy} id={row.id} raised "
+                              f"{type(res).__name__}: {res}", exc_info=res)
+                else:
+                    tally[res or "watching"] = tally.get(res or "watching", 0) + 1
         freed = await loop.run_in_executor(None, signal_repo.expire_stale, 24)
         for sym, direction, strat in freed:
             release(sym, direction, strat)
+            log.info(f"[signal_monitor] {sym} {strat} {direction} expired at 24h — reservation freed")
+
+        log.info(f"[signal_monitor] poll: {len(active or [])} active "
+                 f"({', '.join(f'{k}={v}' for k, v in sorted(tally.items())) or 'none'})"
+                 f"{f', {len(freed)} expired' if freed else ''}")
 
     except Exception as exc:
-        log.error(f"[signal_monitor] check_all error: {exc}")
+        log.error(f"[signal_monitor] check_all error: {exc}", exc_info=True)
 
 
-async def _check_signal(row) -> None:
+async def _check_signal(row) -> str:
+    """Judge one signal against every bar since its own clock. Returns a one-word outcome for the
+    poll summary — never None, so a row that did nothing is distinguishable from a row that failed."""
     bars = await _get_window(row.symbol)
     if not bars:
-        return
+        # NOT a normal case: no bars means the fetch failed or returned empty, and the signal was
+        # not judged at all this poll. It used to return silently and look identical to "nothing
+        # happened", which is how a dead monitor stayed invisible.
+        log.warning(f"[signal_monitor] {row.symbol} id={row.id} NOT JUDGED — no M1 bars available")
+        return "no-bars"
 
     # VIX.1 TRADE MANAGEMENT (advice only — emits DM alerts, moves nothing). Once per poll, on the
     # same window. Isolated in its own try: management is a convenience, and a fault in it must
@@ -101,7 +131,7 @@ async def _check_signal(row) -> None:
     start  = _epoch(row.triggered_at) if row.triggered_at is not None else _epoch(row.created_at)
     window = [c for c in bars if c.time >= start]
     if not window:
-        return                                   # nothing new since the last poll — the normal case
+        return "no-new-bars"                     # nothing new since the last poll — the normal case
     if bars and bars[0].time > start + 60:
         # The cached series does not reach back to where this signal begins. Judge what we have and
         # say so: a bounded, visible gap beats a silent one. Only possible if the scanner's M1 count
@@ -124,6 +154,7 @@ async def _check_signal(row) -> None:
     #     and would read every BX signal as instantly filled.
     stop_entry = (row.strategy or "").startswith("vix1")
     pending    = row.triggered_at is None
+    filled     = False                            # set when THIS poll fills the entry (for the tally)
 
     # BREAKEVEN (BX only) — at 1R the stop moves to entry, so a trade that ran our way and came back
     # is a SCRATCH, not a loss ("breakeven is not a loss"). strategies.trade_management implements it
@@ -154,7 +185,7 @@ async def _check_signal(row) -> None:
                     await event_bus.emit(event_bus.SIGNAL_CLOSED, row.id)
                     log.info(f"[signal_monitor] {row.symbol} cancelled — SL side touched before the "
                              f"entry ever filled (H={hi} L={lo})")
-                    return
+                    return "cancelled"
                 continue
             # Filled. Stamp the BAR's time, not now(): triggered_at anchors the next replay, so a
             # now() stamp would skip every bar between the real fill and the poll that saw it.
@@ -163,6 +194,7 @@ async def _check_signal(row) -> None:
                 datetime.fromtimestamp(bar.time, timezone.utc),
             )
             pending = False
+            filled = True
             log.info(f"[signal_monitor] {row.symbol} entry TRIGGERED (H={hi} L={lo})")
             # fall through — the SAME bar can also take out TP or SL after filling
 
@@ -193,7 +225,9 @@ async def _check_signal(row) -> None:
             release(row.symbol, row.type, row.strategy)   # free THIS strategy's key only
             await event_bus.emit(event_bus.SIGNAL_CLOSED, row.id)
             log.info(f"[signal_monitor] {row.symbol} → {new_status.value} (H={hi} L={lo})")
-            return
+            return f"closed:{new_status.value}"
+
+    return "triggered" if filled else "watching"
 
 
 def _window_size() -> int:
@@ -209,16 +243,29 @@ def _window_size() -> int:
         if counts:
             return max(counts)
     except Exception as exc:
-        log.debug(f"[signal_monitor] could not derive window size: {exc}")
+        # WARNING, not DEBUG: falling back to the literal means the replay window may no longer match
+        # what the strategies ask for, which silently reintroduces the blind spot this module exists
+        # to close. DEBUG is invisible at production log level — that is how it stayed hidden.
+        log.warning(f"[signal_monitor] could not derive window size ({exc}) — "
+                    f"falling back to {_WINDOW_FALLBACK}")
     return _WINDOW_FALLBACK
 
 
 async def _get_window(symbol: str, count: int | None = None):
     """The M1 series the replay walks — TTL cache when the scanner ran recently, else a fresh
-    cTrader fetch. Bars come back oldest-first."""
+    cTrader fetch. Bars come back oldest-first.
+
+    A failure here means NO SIGNAL ON THIS SYMBOL IS JUDGED this poll, so it is a WARNING, never
+    DEBUG. Logged at DEBUG until 2026-07-27, which is why a monitor that judged nothing for hours
+    produced no evidence of it.
+    """
     from data.candle_fetcher import fetch_candles
     try:
-        return await fetch_candles(symbol, "M1", count or _window_size()) or []
+        bars = await fetch_candles(symbol, "M1", count or _window_size()) or []
+        if not bars:
+            log.warning(f"[signal_monitor] {symbol}: M1 fetch returned NO bars — nothing judged")
+        return bars
     except Exception as exc:
-        log.debug(f"[signal_monitor] window fetch failed for {symbol}: {exc}")
+        log.warning(f"[signal_monitor] window fetch failed for {symbol}: "
+                    f"{type(exc).__name__}: {exc} — nothing judged this poll")
         return []

@@ -44,11 +44,12 @@ VIX.1 has shipped a bug from reading the forming bar as a level, and **a backtes
 
 ---
 
-## Module map — 13 files, ~1,600 lines
+## Module map — 14 files, ~1,730 lines
 
 | file | owns |
 |---|---|
-| `vix1.py` | orchestrator: watch → bias → news gates → 1M signals → grade → build |
+| `vix1.py` | orchestrator: watch → bias → news gates → **spacing** → 1M signals → grade → build |
+| `vix1_spacing.py` | **how long the instrument stays shut after a signal** (added 2026-07-27) |
 | `vix1_bias.py` | `detect_bias(h1, h4)` — trend on H4, momentum on H1 |
 | `vix1_momentum.py` | momentum-candle detection + `momentum_grade` (A/B/C → confidence) |
 | `vix1_trend.py` | `clear_trend` — HH+HL / LH+LL |
@@ -73,6 +74,32 @@ VIX.1 has shipped a bug from reading the forming bar as a level, and **a backtes
 | **SL** | nearest 1M region of interest beyond the pullback (`vix1_roi`) — **never a pip count** |
 | **TP** | **2R** — the two-1HR-candle move |
 | **Management** | R ratchet: 2R → lock 1R, 3R → lock 2R … **ADVICE ONLY** (see below) |
+| **Spacing** | while a signal on this INSTRUMENT is still running, the next needs **3 momentum candles closed after the previous signal's anchor candle**. A closed previous signal — *including a loss* — voids the wait |
+
+### Signal spacing (`vix1_spacing.py`) — added 2026-07-27
+
+The user's rule verbatim: *"if a viable signal is detected immediate[ly] the previous one was taken
+and is still running, it must be after 3 momentum candles preceding the 1HR momentum candle where the
+first signal was taken has been achieved… However, if the first signal was a loss, the second one if
+meets conditions can be fired. This only applies for signals from the same instrument."*
+
+| aspect | rule |
+|---|---|
+| **scope** | the INSTRUMENT — EUR/USD never gates GBP/USD, and it covers buy and sell alike |
+| **when** | only while a previous signal on that instrument is `active` (a resting stop order counts) |
+| **anchor** | the 1HR **momentum candle** that produced the previous signal — NOT its creation time |
+| **gate** | `_MIN_CANDLES = 3` momentum candles must have CLOSED after the anchor |
+| **counting** | any momentum candle, either direction (`_COUNT_BOTH_DIRECTIONS = True`) |
+| **release** | a CLOSED previous signal voids the wait entirely, **loss included** |
+| **failure** | fails OPEN on a DB error (other guards stand), but always logs why |
+
+**The invariant: DERIVED, NEVER STORED.** The anchor is re-derived from the H1 window (the freshest
+momentum candle that had closed when the previous signal was created) and "is one still running" is
+asked of the DATABASE. Nothing lives in RAM — deliberately, because the duplicate-signal defect found
+the same day was caused by exactly that kind of process-local state.
+
+**This stacks with one-signal-at-a-time; neither replaces the other.** That rule is per
+instrument+direction and is enforced in the database; this one is per instrument.
 
 ### Momentum-candle gates (`vix1_momentum.py`)
 `_MIN_BODY_MULT 2.5` × the 100-bar median body · `_MIN_BODY_FRAC 0.50` of its own range ·
@@ -95,6 +122,20 @@ A-grade: `_A_BODY_FRAC 0.75` + `_A_CWICK_FRAC 0.15` → `_A_CONF 0.85`.
    position himself. Whether VIX.1 should manage the stop programmatically is his call, not an
    oversight to silently fix.
 3. **`ARM_R` imported but unused** in `monitor/vix1_alerts.py` — cosmetic, fixed 2026-07-27.
+4. **`clear_trend` is WINDOW-DEPENDENT — its answer depends on the buffer size, not the market.**
+   120-bar vs 400-bar windows agree only **64%** of the time over 379 EUR/USD H1 timestamps, and every
+   disagreement is an outright opposite reading; 13 trend flips in 22 days at production's 120 vs 5 at
+   400. It replays state from wherever the window starts and the trend then persists, so the starting
+   point seeds the verdict. **Left unfixed on purpose (user decision, 2026-07-27):** it did not cause
+   the 27 Jul missed signals — it read DOWN steadily all day — and changing it changes which trades
+   fire everywhere, so it needs its own decision against his trade data. The `ea5c19c` "KNOWN LIMIT …
+   4% of bars" note understates this badly; that measured jitter across a three-bar span.
+5. **No exhaustion / "price ran too far" rule exists.** All 9 `vix1_entry` rejection reasons are about
+   the pullback's shape and position; none asks how extended the move is, so a late entry at the tail
+   of a finished move is accepted. Deferred (user decision, 2026-07-27) because the spacing rule
+   already refuses the specific 27 Jul case and stacking two new filters at once would make any
+   frequency change unattributable.
+
 *(The "no test suite" gap was closed 2026-07-27 — see below.)*
 
 ## What is NOT a defect — checked 2026-07-27

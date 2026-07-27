@@ -50,7 +50,8 @@ async def _send_text(message: str, chat_id: str | None = None) -> bool:
     bot = _get_bot()
     target = chat_id or settings.telegram_chat_id
     if not bot or not target:
-        log.debug("[dispatcher] Telegram not configured — skipping")
+        # WARNING: every message the platform produces is being thrown away. Silent at DEBUG.
+        log.warning("[dispatcher] Telegram NOT CONFIGURED — message discarded, nothing will be sent")
         return False
 
     for attempt in range(1, _MAX_RETRIES + 1):
@@ -76,16 +77,24 @@ async def _send_private(message: str) -> bool:
     channel. If no private chat is configured we DROP it rather than spam subscribers.
     Returns True iff delivered."""
     if not settings.watchdog_chat_id:
-        log.debug("[dispatcher] no WATCHDOG_CHAT_ID set — dropping system message (kept off channel)")
+        log.warning("[dispatcher] no WATCHDOG_CHAT_ID set — system message DROPPED "
+                    "(deliberately kept off the public channel, but nobody received it)")
         return False
     return await _send_text(message, chat_id=settings.watchdog_chat_id)
 
 
-async def _send_photo(chart_path: str, caption: str, chat_id: str | None = None) -> None:
+async def _send_photo(chart_path: str, caption: str, chat_id: str | None = None) -> bool:
+    """Returns whether the card actually went out — by photo or by the text fallback.
+
+    Returned `None` unconditionally until 2026-07-27, so every caller treated a total send failure
+    as success. A signal that was never delivered looked exactly like one that was.
+    """
     bot = _get_bot()
     target = chat_id or settings.telegram_chat_id
     if not bot or not target:
-        return
+        log.error("[dispatcher] cannot send chart — %s",
+                  "no bot configured" if not bot else "no target chat id")
+        return False
     try:
         with open(chart_path, "rb") as f:
             await bot.send_photo(
@@ -95,9 +104,10 @@ async def _send_photo(chart_path: str, caption: str, chat_id: str | None = None)
                 parse_mode="HTML",
             )
         log.info("[dispatcher] chart photo sent")
+        return True
     except Exception as exc:
         log.warning(f"[dispatcher] photo send failed ({exc}) — falling back to text")
-        await _send_text(caption, chat_id=chat_id)
+        return await _send_text(caption, chat_id=chat_id)
 
 
 async def on_setup_alert(signal: Signal) -> None:
@@ -118,6 +128,25 @@ async def on_setup_alert(signal: Signal) -> None:
         delivery_ledger.mark_delivered(signal.dedup_key)
 
 
+async def _record_delivery(signal: Signal, sent: bool, is_watch: bool) -> None:
+    """Write the terminal audit row for a signal card. Best-effort; never breaks a send."""
+    import asyncio
+
+    from storage import observability_repo as obs
+    stage  = obs.STAGE_DELIVERED if sent else obs.STAGE_DROPPED
+    detail = ("telegram send confirmed" if sent
+              else "telegram send FAILED or no target — the card never reached the user")
+    if is_watch:
+        detail += " (watch/DM)"
+    loop = asyncio.get_running_loop()
+    await loop.run_in_executor(
+        None, lambda: obs.record(stage, signal.strategy_id, signal.symbol,
+                                 signal.db_id or None, detail))
+    if not sent:
+        log.error(f"[dispatcher] {signal.symbol} {signal.strategy_id} NOT DELIVERED — "
+                  f"the signal exists in the DB but the user never received it")
+
+
 async def on_signal_confirmed(signal: Signal) -> None:
     is_watch = signal.strategy_id.endswith("_watch")
     message  = format_signal_watch(signal) if is_watch else format_signal_confirmed(signal)
@@ -136,11 +165,26 @@ async def on_signal_confirmed(signal: Signal) -> None:
     else:
         target = settings.telegram_chat_id
     if not target:
-        log.debug("[dispatcher] no target for %s signal — skipping", "watch" if is_watch else "confirmed")
+        # ERROR, not DEBUG. This branch DISCARDS a fully-formed, already-saved signal because of a
+        # missing config value, and at DEBUG it was invisible at production log level — a signal
+        # could vanish here without leaving a single line. It is a misconfiguration, and it must be
+        # the loudest thing in the log, not the quietest.
+        log.error("[dispatcher] NO TARGET CHAT for %s signal %s %s — SIGNAL DISCARDED "
+                  "(signals_dm_only=%s, watchdog_chat_id set=%s, telegram_chat_id set=%s)",
+                  "watch" if is_watch else "confirmed", signal.symbol, signal.strategy_id,
+                  settings.signals_dm_only, bool(settings.watchdog_chat_id),
+                  bool(settings.telegram_chat_id))
+        sent = False
     elif chart and os.path.isfile(chart):
-        await _send_photo(chart, message, chat_id=target)
+        sent = await _send_photo(chart, message, chat_id=target)
     else:
-        await _send_text(message, chat_id=target)
+        sent = await _send_text(message, chat_id=target)
+
+    # CLOSE THE AUDIT CHAIN. `dispatched` is written by the runner before the emit; this writes
+    # `delivered` or `dropped`. A `dispatched` with no matching `delivered` is precisely the 27 Jul
+    # failure — saved, handed over, never sent — and it is now one query instead of guesswork.
+    await _record_delivery(signal, sent, is_watch)
+
     if chart and os.path.isfile(chart):
         try:
             os.unlink(chart)
