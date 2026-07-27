@@ -118,3 +118,26 @@ may never have received.
 
 `signal_events` is append-only. `observability_repo.purge_older_than(days=30)` exists for pruning; it
 is not scheduled yet, so watch the table size if the platform runs for months.
+
+## Telegram routing — the channel carries entry signals and nothing else
+
+Changed 2026-07-27. User: *"take those TP HIT and other unnecessary messages to DM for now. Only send
+BX entry signals to the channel."*
+
+| message | destination |
+|---|---|
+| confirmed ENTRY signal, strategy in `DM_ONLY_EXEMPT` (today `bx_sd`) | **public channel** |
+| confirmed entry, any other strategy (VIX.1) | admin DM |
+| `_watch` / setup heads-ups | admin DM |
+| outcome cards — TP hit, SL, cancelled (`on_signal_closed`) | admin DM |
+| session opens (`on_session_open`) | admin DM |
+| boot heartbeat, "Scanner Active" | admin DM |
+
+Controlled by `CHANNEL_ENTRIES_ONLY` (default **true**). While it is on, `DM_ONLY_EXEMPT` acts as a
+positive **allowlist** for the channel.
+
+That allowlist is deliberately **not** gated behind `SIGNALS_DM_ONLY`. Making "only BX reaches the
+channel" true only while a separate kill-switch happened to be on would mean that turning the
+kill-switch off silently republishes every other strategy to subscribers — the guarantee has to hold
+on its own. Set `CHANNEL_ENTRIES_ONLY=false` to restore the previous behaviour (outcome cards and
+session opens public) without a code change.

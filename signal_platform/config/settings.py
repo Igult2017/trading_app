@@ -52,6 +52,14 @@ class Settings(BaseSettings):
     # trusted post-fix and goes public; VIX.1 stays DM until the 100-trade selection pass.) Env:
     # DM_ONLY_EXEMPT="bx_sd,other". Their _watch heads-ups still go to the DM (unconfirmed).
     dm_only_exempt: str = "bx_sd"
+    # THE PUBLIC CHANNEL CARRIES ENTRY SIGNALS AND NOTHING ELSE.
+    # User, 2026-07-27: "take those TP HIT and other unnecessary messages to DM for now. Only send BX
+    # entry signals to the channel." So outcome cards (TP hit / SL / cancelled) and session-open
+    # announcements go to the admin DM, leaving the channel as a clean feed of tradeable entries only.
+    # Which STRATEGY may reach the channel is still DM_ONLY_EXEMPT's job — this flag only decides
+    # which KINDS of message are eligible at all. Set CHANNEL_ENTRIES_ONLY=false to put outcomes and
+    # session opens back on the channel; no code change needed ("for now").
+    channel_entries_only: bool = True
 
     # ── Data source 1: cTrader Open API (primary, run auth_setup.py once) ────
     # Credentials: https://ctrader.com/your-app-portal → Applications

@@ -160,6 +160,13 @@ async def on_signal_confirmed(signal: Signal) -> None:
     exempt = base in {s.strip() for s in settings.dm_only_exempt.split(",") if s.strip()}
     if is_watch:
         target = settings.watchdog_chat_id
+    elif settings.channel_entries_only and not exempt:
+        # While CHANNEL_ENTRIES_ONLY is on, DM_ONLY_EXEMPT is a positive ALLOWLIST for the channel:
+        # an entry reaches subscribers only if its strategy is named there. Deliberately NOT
+        # conditional on SIGNALS_DM_ONLY — the user's rule is "only BX entry signals to the channel",
+        # and making that hold only while a separate kill-switch happens to be on would mean flipping
+        # that switch off silently republishes every other strategy to the channel.
+        target = settings.watchdog_chat_id
     elif settings.signals_dm_only and not exempt:
         target = settings.watchdog_chat_id
     else:
@@ -225,8 +232,12 @@ async def on_scan_started(payload: dict) -> None:
 
 
 async def on_session_open(session_name: str) -> None:
-    # Session opens (London/NY/Sydney/Tokyo + overlaps) are public → the channel.
-    await _send_text(format_session_open(session_name))
+    # Session opens (London/NY/Sydney/Tokyo + overlaps) were public. They are NOT a tradeable entry,
+    # so under CHANNEL_ENTRIES_ONLY they go to the admin DM and the channel stays a clean signal feed.
+    if settings.channel_entries_only:
+        await _send_private(format_session_open(session_name))
+    else:
+        await _send_text(format_session_open(session_name))
 
 
 async def announce_status() -> None:
@@ -294,11 +305,15 @@ async def on_signal_closed(signal_id: str) -> None:
             symbol=symbol, direction=direction, status=status, entry=entry, strategy=strategy,
             take_profit=tp, stop_loss=sl, closed_at=closed_at, opened_at=opened_at,
         )
-        # Close cards follow the SAME routing as the entry card. Before this, on_signal_closed
-        # always sent to the public channel — so a DM-held strategy's outcome leaked to
-        # subscribers who never saw its entry.
+        # OUTCOME CARDS GO TO THE DM (user, 2026-07-27: "take those TP HIT and other unnecessary
+        # messages to DM for now. Only send BX entry signals to the channel"). The channel is a feed
+        # of tradeable entries; a TP/SL notice is a record, not something to act on.
+        #
+        # The rule below this remains: close cards otherwise follow the SAME routing as the entry
+        # card, because before that was fixed a DM-held strategy's outcome leaked to subscribers who
+        # had never seen its entry.
         exempt = strategy in {s.strip() for s in settings.dm_only_exempt.split(",") if s.strip()}
-        if settings.signals_dm_only and not exempt:
+        if settings.channel_entries_only or (settings.signals_dm_only and not exempt):
             await _send_private(message)
         else:
             await _send_text(message)
