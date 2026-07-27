@@ -1,30 +1,12 @@
 """
-BX-S/D — Report ①: 4H supply/demand mitigation heads-up.
+BX-S/D — the MITIGATION heads-up card.
 
-When price FIRST-TAPS (mitigates) a previously-unmitigated 4H S/D zone, DM a heads-up — any
-direction, informational, independent of the trend/entry cascade. Enriched with HTF confluence:
-a 4H zone that falls within a Daily/Weekly/Monthly zone is tagged premium and prioritised.
+`newly_mitigated_zones` used to live here and is gone: "which zones were just tapped" is a lifecycle
+question the zone book answers (state == "mitigated"), not something to recompute from candles. This
+file is now only the card.
 """
-from core.types import Candle, Signal, Direction, TF
-from strategies.bx_sd_zones import find_zones, Zone
-from strategies.bx_sd_freshness import _first_tap, level_pre_mitigated
-
-_RECENT = 6   # first tap within the last N 4H bars = "just mitigated"
-
-
-def newly_mitigated_zones(h4: list[Candle], recent: int = _RECENT,
-                          zones: list[Zone] | None = None) -> list[Zone]:
-    """4H zones whose FIRST tap (mitigation) landed within the last `recent` bars — any direction, and
-    whose LEVEL was not already mitigated by an overlapping older zone (`level_pre_mitigated`; else a
-    newer IFC at an already-worked level fires as 'fresh'). Pass `zones` to restrict to the book-valid
-    ones (3 factors); defaults to every IFC candidate."""
-    all_c = find_zones(h4)
-    out: list[Zone] = []
-    for z in (all_c if zones is None else zones):
-        ft = _first_tap(h4, z)
-        if ft is not None and ft >= len(h4) - recent and not level_pre_mitigated(h4, z, all_c):
-            out.append(z)
-    return out
+from core.types import Signal, Direction, TF
+from strategies.bx_sd_zones import Zone
 
 
 def mitigation_signal(zone: Zone, symbol: str, backing: list[str], digits: int,

@@ -19,8 +19,8 @@ from dataclasses import dataclass, field
 
 from core.types import Candle
 from shared.swing_points import find_swing_points
-from strategies.bx_sd_zones import needs_eq50, find_zones
-from strategies.bx_sd_validity import valid_zones
+from strategies.bx_sd_zones import needs_eq50
+from strategies.bx_sd_registry import build as build_registry
 from strategies.bx_sd_liquidity import find_liquidity, is_swept
 from strategies.bx_sd_ltf import find_ltf_choch, _choch_valid, refine_zone, LTFConfluence
 from strategies.bx_sd_setup import SetupResult
@@ -69,8 +69,10 @@ def _tp_candidates(setup: SetupResult, h4: list[Candle], entry: float, buy: bool
     and we would aim at a level with no orders resting behind it — a TP that never fills.
     """
     opp = "supply" if buy else "demand"
-    cands = [z.proximal for z in valid_zones(h4, find_zones(h4), pip)
-             if z.direction == opp and not z.mitigated]
+    # Targets are MARKED zones off the book — the same zones the entry side uses. An unmitigated
+    # opposite zone is where price is headed; a re-derived candidate beside a gap is not.
+    cands = [mz.proximal for mz in build_registry(h4, pip)
+             if mz.direction == opp and mz.state == "unmitigated"]
     # LIQUIDITY targets — unswept pools on the TP side (the book targets weak highs/lows / resting stops,
     # incl. Asian/London/NY session H/L when the finer feed is passed)
     want = "buy" if buy else "sell"

@@ -17,6 +17,7 @@ from core.strategy_context import StrategyContext
 from core import delivery_ledger
 from shared.pip import pip_size, price_digits
 from strategies.bx_sd_setup import detect_setup
+from strategies.bx_sd_registry import build as build_registry
 from strategies.bx_sd_confirm import confirm_grade
 from strategies.bx_sd_signal import build_signal
 from strategies.bx_sd_htf import htf_zone_map
@@ -74,11 +75,16 @@ class BXStrategy(BaseStrategy):
         htf_map = htf_zone_map(htf)                       # D1/W1/MN zones — the A-grade backing check
         pip    = pip_size(sym)
         digits = price_digits(sym)
+        # THE ZONE BOOK — built ONCE per scan and passed down. Every path reads the same marked
+        # zones; nothing re-derives them. Building it per-consumer would duplicate the replay and,
+        # worse, let two paths disagree about what a zone is — which is the bug this replaced.
+        book = build_registry(h4, pip)
         out: list[Signal] = []
 
         # REPORTS — mitigation heads-ups (DM) + RETEST (mitigated major zone, B/A) + CONTINUATION.
         # Independent of the fresh-zone cascade below; deduped once per zone ON CONFIRMED DELIVERY.
-        out += scan_reports(sym, h4, analysis_tfs, entry_tf, m5, m1, htf, pip, digits, self.name, self.id)
+        out += scan_reports(sym, h4, analysis_tfs, entry_tf, m5, m1, htf, pip, digits, self.name, self.id,
+                            book=book)
 
         # WATCH — a tapped setup broke before it triggered: alert (at-least-once), then stop watching.
         locked = self._locked.get(sym)
@@ -115,7 +121,7 @@ class BXStrategy(BaseStrategy):
             return StrategyResult(signals=out)
 
         # STAGE 1 — 4H setup (valid fresh zone EITHER SIDE, tapped, priced, liquidity-safe)
-        setup = detect_setup(h4, pip)
+        setup = detect_setup(h4, pip, book=book)
         if not setup.active:
             self._log(sym, "SCANNING", f"4H: {setup.reason}")
             return StrategyResult(signals=out)

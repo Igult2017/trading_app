@@ -29,16 +29,18 @@ REPORTED, never used to reject. If an unconfirmed limit path is ever added, p35 
 the function that decides.
 """
 from core.types import Candle
-from strategies.bx_sd_freshness import _first_tap
-from strategies.bx_sd_zones import Zone, break_index
 
 
 CONTESTED = "contested"      # both sides acted on the same bar — NOT the same as "nothing happened"
 NEUTRAL   = ("none", CONTESTED)
 
 
-def control(h4: list[Candle], zones: list[Zone]) -> str:
+def control(marked) -> str:
     """Who is in control: "demand", "supply", "none" (nothing yet) or "contested" (tied on one bar).
+
+    Reads LIFECYCLE STATE off the zone book (bx_sd_registry) — `mitigated_at` / `broken_at`, which are
+    TIMES. It used to re-derive both by scanning candles per zone; the book already knows, and one
+    source of truth is the point of the restructure.
 
     "none" and "contested" are DIFFERENT and must not be merged. Measured over 27 months on five
     instruments, ~25-30% of setups land on "contested" — a single 4H bar can tap an unmitigated
@@ -67,10 +69,9 @@ def control(h4: list[Candle], zones: list[Zone]) -> str:
     war" (p81); saying nothing is honest where naming either side would be a coin flip.
     """
     last_at, winner = -1, None
-    for z in zones:
+    for z in marked:
         events = []
-        tap = _first_tap(h4, z)
-        brk = break_index(h4, z)
+        tap, brk = z.mitigated_at, z.broken_at
         # A tap only confers control if the zone HELD — p36's "rejection/reaction". Price cannot
         # break a zone without passing through it, so on a bar that closes beyond the distal the
         # touch is part of the break, not a separate mitigation. Counting both would tie the two

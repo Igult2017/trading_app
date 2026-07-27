@@ -55,7 +55,7 @@ class SetupResult:
     reason:      str  = ""        # diagnostics — why inactive
 
 
-def detect_setup(h4: list[Candle], pip: float = 0.0001) -> SetupResult:
+def detect_setup(h4: list[Candle], pip: float = 0.0001, book=None) -> SetupResult:
     r = SetupResult()
     if len(h4) < 30:
         r.reason = "not enough 4H history"; return r
@@ -81,7 +81,10 @@ def detect_setup(h4: list[Candle], pip: float = 0.0001) -> SetupResult:
     # candle marked as a zone off a BOS at lag -1). This function's job is only to ask which marked
     # zone price is working right now.
     bars   = closed_only(h4)
-    marked = build(h4, pip)
+    # The book is built ONCE per scan by bx_sd.analyze and passed in; building it here would
+    # duplicate the replay and risk two paths disagreeing. The fallback keeps this callable
+    # standalone (tests, harnesses) without forcing every caller to know about the registry.
+    marked = build(h4, pip) if book is None else book
     recent_cut = bars[-_RECENT].time if len(bars) >= _RECENT else bars[0].time
 
     # A zone is a candidate once price has MITIGATED it (tapped it) recently and it is still alive.
@@ -122,9 +125,7 @@ def detect_setup(h4: list[Candle], pip: float = 0.0001) -> SetupResult:
     r.entry, r.sl = entry, sl
     r.tp1 = fib_target(leg_low, leg_high, tdir, 0.272)
     r.tp2 = fib_target(leg_low, leg_high, tdir, 0.618)
-    # control reads the same MARKED zones — one book of zones, not a re-derived set
-    reg_zones = [z for z in (to_zone(m, bars) for m in marked) if z is not None]
-    side = control(bars, reg_zones)
+    side = control(marked)          # control reads the SAME book — one set of zones, never re-derived
     etype = classify(st, side, cand.direction)      # Ch.2 naming — classification only, never a gate
     r.confluences = {"control": describe(side, cand.direction), "control_phrase": phrase(side, cand.direction),
                      "entry_type": etype, "entry_type_phrase": et_phrase(etype),
