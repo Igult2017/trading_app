@@ -92,11 +92,13 @@ def detect_setup(h4: list[Candle], pip: float = 0.0001, book=None) -> SetupResul
     # duplicate the replay and risk two paths disagreeing. The fallback keeps this callable
     # standalone (tests, harnesses) without forcing every caller to know about the registry.
     marked = build(h4, pip) if book is None else book
-    live = h4[-1]          # the FORMING bar — 'is price at this zone right now?'
+    live_bar = h4[-1]      # the FORMING bar — 'is price at this zone RIGHT NOW?'
+                           # NOT named `live`: the counter below shadowed it and
+                           # tapped_by() got an int. Caught by bx_live_tap_test.
 
     # A zone is a candidate once price has MITIGATED it (tapped it) recently and it is still alive.
     # The 1M/5M confirmation downstream is what proves it was RESPECTED.
-    cand, priced_out, live = None, 0, 0
+    cand, priced_out, n_live = None, 0, 0
     for mz in sorted(marked, key=lambda m: m.ifc_time, reverse=True):
         # state == "mitigated", NOT `live`. `live` also covers "respected", which is the RETEST
         # path's job (bx_sd_reports, min_grade="B"). Accepting it here let one zone fire BOTH —
@@ -116,11 +118,11 @@ def detect_setup(h4: list[Candle], pip: float = 0.0001, book=None) -> SetupResul
         # still fired today: a signal for an event that had already come and gone. A tap is an EVENT
         # HAPPENING NOW, so it reads the LIVE forming bar (the settled rule: a LEVEL comes from a
         # CLOSED candle, a TRIGGER or current price stays LIVE).
-        if not mz.tapped_by(live):
+        if not mz.tapped_by(live_bar):
             continue
         if (mz.top - mz.bottom) < _MIN_PIPS * pip:
             continue
-        live += 1
+        n_live += 1
         if not pricing_aligned(leg_low, leg_high, price, mz.direction):
             priced_out += 1
             continue
