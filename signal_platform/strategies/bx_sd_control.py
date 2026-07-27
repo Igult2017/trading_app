@@ -28,9 +28,6 @@ STAGE 2-3. So BX already pays what the book charges for an against-control trade
 REPORTED, never used to reject. If an unconfirmed limit path is ever added, p35 binds it and this is
 the function that decides.
 """
-from core.types import Candle
-
-
 CONTESTED = "contested"      # both sides acted on the same bar — NOT the same as "nothing happened"
 NEUTRAL   = ("none", CONTESTED)
 

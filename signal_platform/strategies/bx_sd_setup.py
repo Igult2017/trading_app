@@ -91,7 +91,11 @@ def detect_setup(h4: list[Candle], pip: float = 0.0001, book=None) -> SetupResul
     # The 1M/5M confirmation downstream is what proves it was RESPECTED.
     cand, priced_out, live = None, 0, 0
     for mz in sorted(marked, key=lambda m: m.ifc_time, reverse=True):
-        if not mz.live or mz.mitigated_at is None or mz.mitigated_at < recent_cut:
+        # state == "mitigated", NOT `live`. `live` also covers "respected", which is the RETEST
+        # path's job (bx_sd_reports, min_grade="B"). Accepting it here let one zone fire BOTH —
+        # a duplicate signal, and the fresh cascade fires at C+, bypassing the B/A bar the retest
+        # deliberately requires of a zone that has already been worked.
+        if mz.state != "mitigated" or mz.mitigated_at is None or mz.mitigated_at < recent_cut:
             continue
         if (mz.top - mz.bottom) < _MIN_PIPS * pip:
             continue

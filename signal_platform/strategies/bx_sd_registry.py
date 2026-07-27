@@ -25,7 +25,7 @@ Zones are keyed on the IFC's TIME, never a window index: indices shift as bars a
 Built by replaying CLOSED bars in order, so it is a pure function of history — it rebuilds identically
 after a restart, needs no table or migration, and cannot see the future by construction.
 """
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from core.types import Candle
 from shared.mtf_utils import closed_only
