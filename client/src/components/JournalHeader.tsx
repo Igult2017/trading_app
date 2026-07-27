@@ -57,7 +57,7 @@ const PROFILE_CARD_CSS = `
   .pc-root, .pc-root * { margin: 0; padding: 0; box-sizing: border-box; }
 
   .pc-root {
-    font-family: 'DM Mono', monospace;
+    font-family: 'Playfair Display Variable', 'Playfair Display', Georgia, serif;
     width: 300px;
     max-width: calc(100vw - 24px);
     max-height: calc(100vh - 120px);
@@ -119,7 +119,7 @@ const PROFILE_CARD_CSS = `
     border-radius: 3px; padding: 2px 7px;
     font-size: 8.5px; font-weight: 500; color: #9585f5;
     letter-spacing: 1.2px; text-transform: uppercase;
-    font-family: 'DM Mono', monospace;
+    font-family: 'Playfair Display Variable', 'Playfair Display', Georgia, serif;
   }
   .pc-dot {
     width: 6px; height: 6px; border-radius: 50%; background: #9585f5;
@@ -154,7 +154,7 @@ const PROFILE_CARD_CSS = `
   .pc-sk-label {
     font-size: 9px; color: rgba(255,255,255,.28);
     letter-spacing: 1.4px; text-transform: uppercase;
-    font-family: 'DM Mono', monospace; margin-bottom: 3px;
+    font-family: 'Playfair Display Variable', 'Playfair Display', Georgia, serif; margin-bottom: 3px;
   }
   .pc-sk-val { font-size: 14px; font-weight: 500; color: #ede9ff; letter-spacing: -.3px; }
 
@@ -170,7 +170,7 @@ const PROFILE_CARD_CSS = `
     display: flex; align-items: center; gap: 11px;
     padding: 10px 12px; border-radius: 5px; cursor: pointer;
     color: rgba(255,255,255,.5); font-size: 12.5px; font-weight: 400;
-    font-family: 'DM Mono', monospace;
+    font-family: 'Playfair Display Variable', 'Playfair Display', Georgia, serif;
     transition: all .15s; background: transparent; border: none;
     width: 100%; text-align: left;
     animation: pc-fadex .35s ease both;
@@ -484,7 +484,7 @@ export default function JournalHeader({ onToggleSidebar, darkMode, onToggleDarkM
     <div>
       <style>{`
         @keyframes mfj-spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
-        .nav-a { text-decoration:none; font-size:10px; font-weight:500; letter-spacing:0.12em; padding:6px 12px; border-radius:4px; border:1px solid transparent; cursor:pointer; background:none; display:inline-flex; align-items:center; transition:all 0.15s; white-space:nowrap; font-family:'DM Mono',monospace; }
+        .nav-a { text-decoration:none; font-size:10px; font-weight:500; letter-spacing:0.12em; padding:6px 12px; border-radius:4px; border:1px solid transparent; cursor:pointer; background:none; display:inline-flex; align-items:center; transition:all 0.15s; white-space:nowrap; font-family:'Playfair Display Variable','Playfair Display',Georgia,serif; }
         .nav-links { display:flex; align-items:center; gap:6px; }
         .nav-mob-controls { display:none; align-items:center; gap:8px; }
         .jh-icon-btn:hover { background: ${dm ? '#0c1219' : '#f1f5f9'} !important; }

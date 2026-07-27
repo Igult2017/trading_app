@@ -16,7 +16,7 @@ type Tab = 'all' | 'messages' | 'alerts';
 const PANEL_STYLES = `
   .anp-root, .anp-root * { box-sizing: border-box; margin: 0; padding: 0; }
   .anp-root {
-    font-family: 'DM Mono', 'Montserrat', monospace;
+    font-family: 'Playfair Display Variable', 'Playfair Display', Georgia, serif;
     width: 400px;
     max-width: calc(100vw - 16px);
     max-height: calc(100vh - 80px);
