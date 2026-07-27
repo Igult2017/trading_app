@@ -1,5 +1,13 @@
 # VIX.1 — the Volume Strategy
 
+> ## ⚠️ READ [vix1-architecture.md](./vix1-architecture.md) FIRST
+>
+> That file holds the SHAPE — the module map, the pipeline, the entry/SL/TP rules, and the KNOWN OPEN
+> DEFECTS (including the pending redesign that is blocked on your trade data, and the fact that the R
+> ratchet is ADVICE ONLY and moves no broker stop). **This file holds the RULES** — your words and the
+> playbook's — and the fix log.
+
+
 Source: the "Volume Strategy" playbook (`VIX11.pdf`, 7pp, user's Desktop — not in the repo).
 Pairs: **EUR/USD, GBP/USD**. Sessions: **London / NY / Asian** (all three). Phase 1 = signals only
 (DM); Phase 2/3 pending.

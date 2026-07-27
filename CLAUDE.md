@@ -96,6 +96,9 @@ cd signal_platform && python main.py
 words / the book's own quotes), the fix log, and what is still open. They exist because the same rules
 kept being re-derived and re-broken. Do not re-derive them; if a change contradicts one, it is wrong.
 
+**Each strategy has an ARCHITECTURE doc — read it FIRST**: `docs/strategies/bx-sd-architecture.md`
+and `docs/strategies/vix1-architecture.md`.
+
 **BX-S/D: read `docs/strategies/bx-sd-architecture.md` FIRST** — it holds the SHAPE (module map,
 the zone-book model, the lifecycle, and the KNOWN OPEN DEFECTS). `bx-sd.md` holds the RULES; parts of
 its implementation description are superseded and it says so at the top.

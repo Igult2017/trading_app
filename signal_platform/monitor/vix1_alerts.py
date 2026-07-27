@@ -24,7 +24,7 @@ import logging
 from core import delivery_ledger, event_bus
 from core.types import Signal, Direction, TF
 from shared.pip import price_digits
-from strategies.vix1_manage import run, ARM_R
+from strategies.vix1_manage import run
 
 log = logging.getLogger(__name__)
 
