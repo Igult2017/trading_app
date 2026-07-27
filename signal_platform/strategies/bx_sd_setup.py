@@ -13,25 +13,28 @@ sides. The old `pro_trend()` gate was a foreign filter, and it discarded 70-78% 
 freshly-tapped zones — measured over 27 months on five instruments, 1.2 -> ~5.0 setups/month.
 Control is still computed and REPORTED (bx_sd_control), never used to reject.
 
-Hard gates (ALL must pass, else inactive with a diagnostic reason):
-  1. A fresh unmitigated zone freshly TAPPED now, either side (zones)
-  2. That zone broke structure  (factor 2)                 (structure ∩ zone)
-  3. Liquidity was grabbed before the zone (factor 3, fuel)(liquidity)
-  4. Priced right — discount for buys / premium for sells  (confluence)
-  5. Defensive-liquidity clear — we are NOT the liquidity   (liquidity)
+ZONES ARE NOT FOUND HERE. They are marked ONCE when they qualify and kept in bx_sd_registry; this
+function only asks which marked zone price is working right now. That ordering is the point: a zone
+judged later, against a window that has since moved, can be validated by a break that happened BEFORE
+it existed — which is exactly how a mid-waterfall candle was sold as a zone on 27 Jul 2026.
+
+  1. registry   the zone was marked when it qualified (IFC + its impulse broke structure + fuel)
+  2. mitigated  price has tapped it within the last _RECENT 4H bars and it is not broken
+  3. priced     discount for buys / premium for sells                      (confluence)
+  4. the 1M/5M confirmation downstream is what proves the zone was RESPECTED
 """
 from dataclasses import dataclass, field
 
 from core.types import Candle
 from shared.swing_points import find_swing_points
 from strategies.bx_sd_structure import map_structure
-from strategies.bx_sd_zones import find_zones, Zone
+from strategies.bx_sd_zones import Zone
 from strategies.bx_sd_liquidity import find_liquidity
-from strategies.bx_sd_validity import is_valid
 from strategies.bx_sd_confluence import premium_discount, pricing_aligned, fib_target, rsi_divergence
 from strategies.bx_sd_control import control, describe, phrase
 from strategies.bx_sd_entry_type import classify, phrase as et_phrase
-from strategies.bx_sd_freshness import _first_tap, level_pre_mitigated
+from strategies.bx_sd_registry import build, to_zone
+from shared.mtf_utils import closed_only
 
 _RECENT     = 6    # a live tap must be within the last N 4H bars (leaves time for the LTF to confirm)
 _MIN_PIPS   = 3.0  # ignore micro-FVG zones — same noise floor the 3 report paths already apply
@@ -72,33 +75,36 @@ def detect_setup(h4: list[Candle], pip: float = 0.0001) -> SetupResult:
         r.reason = "no leg for premium/discount"; return r
     leg_low, leg_high = min(lows[-1], highs[-1]), max(lows[-1], highs[-1])
 
-    # PRE-MARK only book-VALID zones (imbalance + structure break + liquidity grab, and not already
-    # closed through) — `is_valid` is the SAME definition the report paths use. A non-qualifying candle
-    # beside a gap is never a candidate, so a nearer non-zone can no longer SHADOW a real zone behind
-    # it. We then scan newest→oldest and take the most-recent VALID zone freshly tapped now — exactly
-    # "pre-mark the zones, then wait for price to respect one". Factors 2+3 are proven by is_valid, so
-    # there is no separate re-check below.
-    all_c = find_zones(h4)
-    zones = [z for z in all_c if (z.top - z.bottom) >= _MIN_PIPS * pip
-             and is_valid(h4, z, st, pools, pip)]
+    # ZONES COME FROM THE REGISTRY — marked once when they qualified, and kept. Nothing is re-derived
+    # here. The registry decided each zone's validity from the bars available AT ITS FORMATION, which
+    # is what stops a break that PREDATES a zone from validating it (the 27 Jul defect: a mid-waterfall
+    # candle marked as a zone off a BOS at lag -1). This function's job is only to ask which marked
+    # zone price is working right now.
+    bars   = closed_only(h4)
+    marked = build(h4, pip)
+    recent_cut = bars[-_RECENT].time if len(bars) >= _RECENT else bars[0].time
 
-    # BOTH directions are candidates. Pricing is tested INSIDE the loop, not after selection: with two
-    # sides live, a badly-priced demand zone must not veto the whole bar and hide a well-priced supply
-    # zone behind it. (Pre-change there was only ever one direction, so testing after was equivalent.)
-    cand, priced_out = None, 0
-    for z in reversed(zones):
-        ft = _first_tap(h4, z)
-        # FRESH = tapped now AND its level was not already mitigated by an overlapping older zone.
-        if ft is None or ft < len(h4) - _RECENT or level_pre_mitigated(h4, z, all_c):
+    # A zone is a candidate once price has MITIGATED it (tapped it) recently and it is still alive.
+    # The 1M/5M confirmation downstream is what proves it was RESPECTED.
+    cand, priced_out, live = None, 0, 0
+    for mz in sorted(marked, key=lambda m: m.ifc_time, reverse=True):
+        if not mz.live or mz.mitigated_at is None or mz.mitigated_at < recent_cut:
             continue
-        if not pricing_aligned(leg_low, leg_high, price, z.direction):
+        if (mz.top - mz.bottom) < _MIN_PIPS * pip:
+            continue
+        live += 1
+        if not pricing_aligned(leg_low, leg_high, price, mz.direction):
             priced_out += 1
             continue
+        z = to_zone(mz, bars)
+        if z is None:
+            continue                      # older than this window — cannot resolve indices
         cand = z; break
     if cand is None:
-        r.reason = (f"{priced_out} fresh VALID zone(s) tapped but badly priced "
+        r.reason = (f"{priced_out} marked zone(s) mitigated but badly priced "
                     f"({premium_discount(leg_low, leg_high, price)})" if priced_out else
-                    f"no fresh VALID zone tapped in the last {_RECENT} 4H bars")
+                    f"no marked zone mitigated in the last {_RECENT} 4H bars "
+                    f"({sum(1 for m in marked if m.live)} live zones on the book)")
         return r
 
     tdir = "buy" if cand.direction == "demand" else "sell"
@@ -116,7 +122,9 @@ def detect_setup(h4: list[Candle], pip: float = 0.0001) -> SetupResult:
     r.entry, r.sl = entry, sl
     r.tp1 = fib_target(leg_low, leg_high, tdir, 0.272)
     r.tp2 = fib_target(leg_low, leg_high, tdir, 0.618)
-    side = control(h4, all_c)
+    # control reads the same MARKED zones — one book of zones, not a re-derived set
+    reg_zones = [z for z in (to_zone(m, bars) for m in marked) if z is not None]
+    side = control(bars, reg_zones)
     etype = classify(st, side, cand.direction)      # Ch.2 naming — classification only, never a gate
     r.confluences = {"control": describe(side, cand.direction), "control_phrase": phrase(side, cand.direction),
                      "entry_type": etype, "entry_type_phrase": et_phrase(etype),
