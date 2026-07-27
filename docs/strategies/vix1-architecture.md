@@ -3,8 +3,9 @@
 **Read this before changing anything in VIX.1.** `vix1.md` holds the settled RULES (his words, the
 playbook's words) and the fix log; this holds the SHAPE.
 
-VIX.1 and BX-S/D share **nothing but platform resources** (candles, news, pip size, dedup, the
-monitor). No trading logic crosses between them — see the strategy-independence rule.
+**VIX.1 is self-contained.** It uses only platform RESOURCES — candles, news, pip size, dedup, the
+monitor — and no trading logic from anywhere else. Build it, judge it and fix it on its own terms and
+on the playbook; never by analogy to anything else.
 
 ---
 
@@ -38,8 +39,8 @@ beyond it, so a reversal never fills. SL is the nearest 1M region of interest; T
   read from **closed** bars; `win` (live) answers only *trigger* questions: has price traded past the
   line, which side is it on, is the stop still unfilled.
 
-Both strategies have shipped a bug from reading the forming bar as a level, and **a backtest can never
-catch it** — every historical bar is closed.
+VIX.1 has shipped a bug from reading the forming bar as a level, and **a backtest can never catch it**
+— every historical bar is closed, so the error is invisible to replay and only appears live.
 
 ---
 
@@ -90,19 +91,19 @@ A-grade: `_A_BODY_FRAC 0.75` + `_A_CWICK_FRAC 0.15` → `_A_CONF 0.85`.
    to take when several qualify), and move the trend read 1HR → 4HR. **Do not "fix" this by guessing at
    thresholds.**
 2. **The R ratchet is ADVICE ONLY.** `vix1_manage` decides what to TELL him ("+3R reached — move your
-   stop to +2R"); `vix1_alerts` DMs it. **Nothing moves a broker stop.** Contrast BX, whose breakeven
-   now actually moves the stop in the monitor. Whether VIX.1 should do the same is his call, not an
+   stop to +2R"); `vix1_alerts` DMs it. **Nothing moves a broker stop** — the user manages the
+   position himself. Whether VIX.1 should manage the stop programmatically is his call, not an
    oversight to silently fix.
 3. **`ARM_R` imported but unused** in `monitor/vix1_alerts.py` — cosmetic, fixed 2026-07-27.
-4. **No automated test suite.** BX has registry/control/marking/live-tap tests; VIX.1 has none in the
-   repo. The scratchpad harnesses are throwaway. This is the biggest structural gap.
+4. **No automated test suite in the repo.** The scratchpad harnesses are throwaway, so nothing
+   guards VIX.1 against regressions and nothing exercises its real code paths on real data. This is
+   the biggest structural gap.
 
 ## What is NOT a defect — checked 2026-07-27
 
-- **VIX.1 does not have BX's "stale event" bug.** `find_pullback` scans **backwards from the newest
-  bar** and takes the most recent counter candle, and the M1 window is sized to `LOOKBACK + 2` hours,
-  so it cannot fire on a pullback from days ago. This was checked specifically after the same class of
-  bug was found in BX.
+- **VIX.1 cannot fire on a stale pullback.** `find_pullback` scans **backwards from the newest bar**
+  and takes the most recent counter candle, and the M1 window is sized to `LOOKBACK + 2` hours — so a
+  pullback from hours or days ago can never become an entry. Verified 2026-07-27.
 - **Only one genuinely unused import** across all 13 files (AST-verified, not grep-guessed).
 - **No dead functions**, no TODO/FIXME/HACK markers.
 

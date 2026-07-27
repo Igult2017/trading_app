@@ -103,6 +103,15 @@ and `docs/strategies/vix1-architecture.md`.
 the zone-book model, the lifecycle, and the KNOWN OPEN DEFECTS). `bx-sd.md` holds the RULES; parts of
 its implementation description are superseded and it says so at the top.
 
+### STRATEGIES ARE INDEPENDENT — never reference one while discussing another
+User, 2026-07-27: *"Do not reference another strategy when talking about one. All strategies are
+independent."* This covers **docs, audits, reports and explanations**, not just code. No "unlike X",
+no "X does it this way", no "the same bug we found in X", no comparing their coverage or results.
+
+Describe, judge and fix each strategy on **its own terms and its own playbook**. If something is
+genuinely shared platform infrastructure (candle feed, monitor, dispatcher), name the INFRASTRUCTURE,
+never the other strategy that also uses it. Comparison is how one strategy's rules leak into another.
+
 ### NEVER RUN A BACKTEST WITHOUT EXPLICIT APPROVAL
 User, 2026-07-27: *"Never backtest without my approval."* Ask first, every time — **including when an
 approved plan lists one under verification. Plan approval is not backtest approval.**
