@@ -38,6 +38,7 @@ def update(
     state: TradeState,
     current_price: float,
     h1_recent: list[Candle] | None = None,
+    allow_trailing: bool = False,
 ) -> TradeState:
     """
     Advance trade state for the current price tick.
@@ -68,12 +69,16 @@ def update(
             state.current_sl = state.entry
             state.phase      = "breakeven"
 
-    elif state.phase == "breakeven":
+    elif state.phase == "breakeven" and allow_trailing:
+        # TRAILING IS OFF by default (user, 2026-07-27: "deactivate trailing SL for now"). Blocking the
+        # TRANSITION, not just the trail itself: passing h1_recent=None already stopped _trail() running,
+        # but the state still entered "trailing", which becomes live the moment someone passes H1
+        # candles. With this off a trade exits only at TP, BE, or its original SL.
         target_2r = state.entry + 2 * state.risk if buy else state.entry - 2 * state.risk
         if (buy and current_price >= target_2r) or (not buy and current_price <= target_2r):
             state.phase = "trailing"
 
-    elif state.phase == "trailing" and h1_recent:
+    elif state.phase == "trailing" and h1_recent and allow_trailing:
         _trail(state, h1_recent)
 
     return state

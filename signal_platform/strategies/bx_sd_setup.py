@@ -40,6 +40,9 @@ _SL_BUFFER_PIPS = 6.0  # the stop sits this far BEYOND the 4H zone's distal edge
                        # "5 to 6 pips behind the 4H zone", so a wick cannot take us out.
                        # Lives here because bx_sd_entry imports from this module.
 _TP_R           = 3.0  # fixed 3R target (user: "just leave TP at 3R")
+_RESPECT_BUFFER = 0.25 # the confirming close must sit this fraction of the 4H zone height
+                       # INSIDE the zone from the distal — the user's "moved away from it a
+                       # little, not struggling to break it". One constant, tune on evidence.
 _RECENT     = 6    # a live tap must be within the last N 4H bars (leaves time for the LTF to confirm)
 _MIN_PIPS   = 3.0  # ignore micro-FVG zones — same noise floor the 3 report paths already apply
                    # (bx_sd_reports._MIN_PIPS); the core cascade lacked it, so a sub-3-pip candidate

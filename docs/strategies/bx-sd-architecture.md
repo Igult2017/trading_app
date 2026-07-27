@@ -116,18 +116,45 @@ regression to guard against.
 Win rate (full cascade, M1-confirmed, spread-netted): **EUR/USD 6.9% / −4.1R**, **GBP/USD 1.1% /
 −79.9R**. Confirmation arrives a median **19–22 min** after the H4 close.
 
+## Entry, stop and target — the user's rules (2026-07-27)
+
+| | rule | constant |
+|---|---|---|
+| **Trigger** | any of the book's THREE methods on 1M/5M: **CHoCH · S/D flip · continuation BOS** (Ch.9 step 4) | — |
+| **Respect** | the confirming close must sit this far inside the 4H zone from the **distal** — *"moved away from it a little, not struggling to break it"* | `_RESPECT_BUFFER = 0.25` (of zone height) |
+| **Entry** | the **confirming bar's close** — the confirmation IS the signal, so enter where price is, not at a level it just left | — |
+| **Stop** | beyond the **4H zone's distal** — never the refined POI | `_SL_BUFFER_PIPS = 6.0` |
+| **Target** | fixed R multiple — *"TP can take care of itself if we take care of entry well"* | `_TP_R = 3.0` |
+| **Breakeven** | SL → entry at 1R; a return to entry is a **scratch, not a loss** | — |
+| **Trailing** | **OFF**, blocked at the transition (`allow_trailing=False`) | — |
+
+All constants live in `bx_sd_setup.py` (`bx_sd_entry` imports from it, so that direction is acyclic).
+
+**These are the user's numbers, not derived ones.** Change them on his instruction or on evidence, not
+because a backtest prefers something else.
+
 ## KNOWN OPEN DEFECTS — not fixed, do not assume otherwise
 
-1. **Stop/target scale mismatch.** The stop comes from the M1 refinement (~3 pips); the target comes
-   from H4 structure (60+ pips). Median TP is **20.0R / 21.7R**, so TP fills 7 and 1 times in 26
-   months. This is the dominant reason BX loses.
-2. **~48% hit rate at a 1R barrier** — the entry direction is currently no better than chance, and
-   ~30% of risk goes to spread on a 3-pip stop.
-3. **Confirmation is not selective** — rejects 3 of 126 setups. A qualifying M1 CHoCH/flip appears
-   within ~20 min of nearly every tap; the criterion, not the 24h window, is what is weak.
-4. **`trade_management.py` is dead code** — no importer, so live BX has **no breakeven rule**.
-5. **Replay depth** — `candle_counts[TF.H4] = 200`; zones persist until mitigated or broken, and the
+1. **Entry-price model is provisional.** "Enter at the confirming close" is the minimum change that
+   stops signals firing behind price. The user has explicitly parked anything cleverer: *"keep it that
+   way until I have a data-backed approach on how the entry signal should be."* **Do not invent one.**
+2. **Replay depth** — `candle_counts[TF.H4] = 200`; zones persist until mitigated or broken, and the
    same history shows 7 live zones at 200 bars vs 13 at 797. Older live zones are invisible.
+3. **`pro_trend()` is dead code** in `bx_sd_structure` — no callers, kept only because removing a
+   public method risks callers outside `strategies/`.
+
+### Closed, with what closed them
+- ~~Stop/target scale mismatch (median 20R)~~ — stop now off the 4H distal, TP fixed at 3R.
+- ~~`trade_management.py` dead~~ — wired into `monitor/signal_monitor.py` for `bx_sd*` signals.
+- ~~Signals firing behind price~~ — entry is the confirming close; **market entry cannot expire**.
+- **Confirmation "rejecting only 3 of 126" was investigated and is NOT a defect.** The filter in this
+  strategy is the ZONE, not the confirmation. A tapped zone usually does produce a CHoCH within 24h —
+  that is the confirmation confirming, which is its job. Tightening it would cut setups to chase a
+  number. Do not "fix" this.
+
+> **Setup frequency is a market output, never an acceptance criterion.** How many zones form per month
+> is the market's business. Report it as an observation; never gate a change on it, and never tune
+> toward a preferred number. (User, 2026-07-27.)
 
 ## Verification harnesses (scratchpad)
 

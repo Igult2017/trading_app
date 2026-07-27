@@ -42,6 +42,7 @@ from datetime import datetime, timezone
 from core.types import Direction, SignalStatus, TF
 from core import event_bus
 from storage import signal_repo
+from strategies.trade_management import TradeState, update as update_trade
 from validation.signal_validator import release
 
 log = logging.getLogger(__name__)
@@ -124,6 +125,15 @@ async def _check_signal(row) -> None:
     stop_entry = (row.strategy or "").startswith("vix1")
     pending    = row.triggered_at is None
 
+    # BREAKEVEN (BX only) — at 1R the stop moves to entry, so a trade that ran our way and came back
+    # is a SCRATCH, not a loss ("breakeven is not a loss"). strategies.trade_management implements it
+    # and had never been called by anything until now. TRAILING IS OFF: `allow_trailing` defaults to
+    # False, so the stop moves exactly once, at 1R, and never again. VIX.1 manages its own exits.
+    be = None
+    if (row.strategy or "").startswith("bx_sd") and None not in (entry, sl, tp):
+        be = TradeState(symbol=row.symbol, direction="BUY" if buy else "SELL", entry=entry,
+                        initial_sl=sl, tp=tp, current_sl=sl, phase="initial")
+
     for bar in window:                           # chronological — the FIRST bar to do a thing wins
         hi, lo = bar.high, bar.low               # HIGH/LOW, never the close: an intrabar spike counts
 
@@ -155,6 +165,15 @@ async def _check_signal(row) -> None:
             pending = False
             log.info(f"[signal_monitor] {row.symbol} entry TRIGGERED (H={hi} L={lo})")
             # fall through — the SAME bar can also take out TP or SL after filling
+
+        # BREAKEVEN — advance the state with THIS bar. `be` was built before the loop, so the 1R
+        # step persists across bars: reach 1R on one bar, come back to entry ten bars later, and it
+        # still closes as a scratch. Building it inside the loop would reset the phase every bar and
+        # the stop would never actually move.
+        if be is not None and not pending:
+            for px in ((lo, hi) if buy else (hi, lo)):   # ADVERSE extreme first
+                update_trade(be, px)
+            sl = be.current_sl                            # entry price once BE has armed
 
         hit_tp = bool(tp is not None and ((hi >= tp) if buy else (lo <= tp)))
         hit_sl = bool(sl is not None and ((lo <= sl) if buy else (hi >= sl)))
