@@ -121,9 +121,13 @@ def build(h4: list[Candle], pip: float = 0.0001) -> list[MarkedZone]:
             if _broke_structure(events, want, ifc_i) and swept_before(pools, bars, side, ifc_i, LIQ_WINDOW):
                 z.state, z.marked_at = "unmitigated", bar.time
                 zones.append(z)
-                # catch the state up: price may have tapped it while the break was still forming
-                for c in bars[ifc_i + 1:i + 1]:
-                    _advance(z, c)
+                # NO catch-up replay from the IFC. The bars between the IFC and here ARE the impulse
+                # that created the zone — it is moving AWAY from it. Replaying them made the zone
+                # "mitigated" by its own creation candle (whose high still touches the zone) and then
+                # "respected" by the next impulse bar closing a zone-height away. Measured: it put
+                # EVERY zone straight into respected/broken and `mitigated` never occurred at all.
+                # Mitigation is price COMING BACK (Ch.6 p27), so the clock starts once the zone is
+                # marked. Same trap as an FVG's own creation candle counting as a tap.
             elif i <= ifc_i + BREAK_SPAN:
                 still.append((z, ifc_i))               # still time for the break to print
             # else: the window closed without a break — never a zone, dropped
