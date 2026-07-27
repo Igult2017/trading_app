@@ -44,7 +44,7 @@ class BXStrategy(BaseStrategy):
     # All 3 sessions: the 4H cascade IS the filter, and USD/JPY gets Tokyo — its home session.
     allowed_sessions    = [Session.LONDON, Session.NEW_YORK, Session.ASIAN]
     allowed_trends      = [Trend.ANY]
-    allowed_instruments = ["EUR/USD", "GBP/USD", "USD/JPY"]
+    allowed_instruments = ["EUR/USD", "GBP/USD", "USD/JPY", "GBP/JPY"]
     news_stance         = NewsStance.NEWS_AGNOSTIC
     news_impact_filter  = [NewsImpact.HIGH]
 
