@@ -2,12 +2,12 @@
  * dpStyles.ts — scoped CSS for the Drawdown "Dive Profile" page (.dp scope).
  *
  * Adapted from the provided design:
- *  • Google-Fonts @import REMOVED — Montserrat + DM Mono are self-hosted via
- *    Fontsource (client/src/index.css), so no external request.
+ *  • Google-Fonts @import REMOVED — fonts are self-hosted via Fontsource
+ *    (client/src/index.css), so no external request.
  *  • Added a `.journal-light .dp` block that remaps every colour token for the
  *    journal's light theme (the design itself is dark-only).
- *  • Added `.journal-root .dp svg text` so chart labels keep DM Mono (the global
- *    `.journal-root svg text` rule would otherwise force the selected journal font).
+ *  • `.journal-root .dp svg text` pins chart labels to var(--mono), which since
+ *    2026-07-29 IS the journal font — so axes match the rest of the page.
  *
  * NOTE: the journal forces `font-family/weight/letter-spacing !important` on every
  * descendant of `.journal-root`. Journal.tsx exempts the `.dp` subtree via a
@@ -23,9 +23,17 @@ export const DP_CSS = `
   --gain:#4FD8A6; --gain-d:rgba(79,216,166,.13);
   --warn:#F2B33D; --warn-d:rgba(242,179,61,.13);
   --heat-neg-ink:#FFFFFF;
-  --mono:'DM Mono',ui-monospace,monospace;
-  --disp:'Montserrat',sans-serif;
+  /* BOTH roles are the journal font now (user, 2026-07-29: "change font used for both numbers and
+     letters in drawdown page to playfair"). These are only the FALLBACKS — DrawdownPanel overrides
+     both from the journal's live selection, so the page tracks the journal instead of pinning a
+     second font that would drift the moment the journal's default changed. */
+  --mono:'Playfair Display',Georgia,serif;
+  --disp:'Playfair Display',Georgia,serif;
   background:var(--bg); color:var(--ink); font-family:var(--mono);
+  /* Playfair's figures are PROPORTIONAL by default, so KPI columns and chart axes would go ragged
+     the moment DM Mono left — the very thing DM Mono was here for. tabular-nums restores
+     equal-width digits; on a face without the feature it is simply ignored, so it cannot hurt. */
+  font-variant-numeric:tabular-nums;
   min-height:100%; -webkit-font-smoothing:antialiased;
   /* top gap comes from <main> (14px, uniform with every other journal page); keep
      the horizontal + bottom padding here. */
@@ -198,14 +206,21 @@ export const DP_CSS = `
 @media(max-width:560px){.dp .kpis{grid-template-columns:1fr;}}
 @media(prefers-reduced-motion:reduce){.dp *{transition:none!important;}}
 
-/* ── Word labels follow the JOURNAL font (var(--disp)); numbers do not ───────────────────────
+/* ── EVERYTHING follows the journal font now — words via --disp, figures via --mono ──────────
  * .dp is exempted from the journal's global font rule because it owns its typography, so a new
  * journal default never reaches this panel on its own — these opt in explicitly.
- * Everything omitted here stays DM Mono (var(--mono)) on purpose:
- *   .kpi .v / .foot .v / svg text — figures and chart axes need equal-width digits
- *   .hh / .hp                     — heatmap axes, where a grid must stay column-aligned
- *   .rr .nm                       — R:R ratios ("1:2"), numeric rather than prose
- * That split — prose in the journal font, figures in DM Mono — is the pairing Trade Sync uses.
+ *
+ * CHANGED 2026-07-29 (user: "change font used for both numbers and letters ... to playfair").
+ * --mono used to stay DM Mono so figures kept equal-width digits; DrawdownPanel now points BOTH
+ * variables at the journal's live selection, and the tabular-nums declaration on .dp carries the
+ * alignment the monospace face used to provide. The rules below therefore no longer mark a
+ * words/numbers split — they remain only because this subtree must opt in by hand.
+ * The old split was: .kpi .v / .foot .v / svg text (figures and axes), .hh / .hp (heatmap axes),
+ * .rr .nm (R:R ratios).
+ *
+ * NO BACKTICKS ANYWHERE BELOW THIS LINE — this comment sits INSIDE the DP_CSS template literal, so
+ * a single backtick (even in a comment) closes the string and breaks the module. Adding this note
+ * cost exactly that mistake.
  */
 .dp .eyebrow,
 .dp .rule .sub,

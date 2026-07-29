@@ -86,16 +86,21 @@ function Seg({ options, value, onChange, accents }: {
  * `dispFont` is the journal's selected font stack, passed in from Journal (it owns that state, so
  * passing it keeps this panel live when the font changes instead of re-reading a stale copy).
  *
- * It drives `--disp`, this panel's DISPLAY role (headings, section titles, labels). `--mono` is
- * deliberately left alone: numeric readouts and chart axes stay DM Mono, so figures keep their
- * tabular alignment. That pairing — journal font for words, DM Mono for numbers — is the same one
- * Trade Sync uses.
+ * It drives BOTH of this panel's font roles: `--disp` (headings, section titles, labels) and, since
+ * 2026-07-29, `--mono` (numeric readouts and chart axes) — the user asked for numbers and letters
+ * alike in the journal face. `--mono` previously stayed DM Mono so figures kept tabular alignment;
+ * `dpStyles` now sets `font-variant-numeric: tabular-nums` on `.dp` to preserve that instead.
  *
  * Needed because `.dp` is exempted from Journal's global font rule (it owns its typography), which
  * is why a new journal default does NOT reach this page on its own.
  */
 export default function DrawdownPanel({ sessionId, dispFont }: { sessionId?: string | null; dispFont?: string }) {
-  const dpStyle = dispFont ? ({ ['--disp' as any]: dispFont } as React.CSSProperties) : undefined;
+  // BOTH roles get the journal font: `--disp` (headings, labels) and `--mono` (figures, chart axes).
+  // `--mono` used to stay DM Mono so digits kept tabular alignment; the user asked for numbers and
+  // letters alike in the journal face, and dpStyles restores the alignment with tabular-nums instead.
+  const dpStyle = dispFont
+    ? ({ ['--disp' as any]: dispFont, ['--mono' as any]: dispFont } as React.CSSProperties)
+    : undefined;
   const [ddView, setDdView] = useState('STRATEGY');
   const [dir,    setDir]    = useState('BULLISH');
   const [freq,   setFreq]   = useState('SESSION');
