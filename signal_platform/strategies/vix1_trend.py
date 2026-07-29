@@ -29,7 +29,7 @@ _SWING_N   = 3     # generic swing-pivot half-width (used by both the trend stat
 _MIN_BARS  = 20    # below this there is not enough structure to call anything
 
 
-def clear_trend(candles: list[Candle]) -> int:
+def clear_trend(candles: list[Candle], n: int = _SWING_N) -> int:
     """+1 uptrend / -1 downtrend / 0 not yet established — the trend as MARKET STRUCTURE, and it
     PERSISTS until price decisively breaks it.
 
@@ -61,10 +61,10 @@ def clear_trend(candles: list[Candle]) -> int:
     there is no hidden global that a restart, a redeploy or a second process could desynchronise.
     The caller's signature is unchanged.
     """
-    n = len(candles)
-    if n < _MIN_BARS:
+    bars_n = len(candles)
+    if bars_n < _MIN_BARS:
         return 0
-    pts = sorted(find_swing_points(candles, _SWING_N), key=lambda p: p.index)
+    pts = sorted(find_swing_points(candles, n), key=lambda p: p.index)
     if not pts:
         return 0
 
@@ -77,7 +77,7 @@ def clear_trend(candles: list[Candle]) -> int:
     k = 0                              # pointer into pts — a swing at j is only KNOWN j+N bars later
 
     for i, c in enumerate(candles):
-        while k < len(pts) and pts[k].index + _SWING_N <= i:
+        while k < len(pts) and pts[k].index + n <= i:
             p = pts[k]; k += 1
             (highs if p.is_high else lows).append(p.price)
             if trend == 0:

@@ -60,7 +60,12 @@ class Vix1Strategy(BaseStrategy):
     # H4: 120 bars = 20 days — ample to print the HH+HL/LH+LL structure clear_trend reads.
     # M1 must span BOTH consumers: the entry window (LOOKBACK+2 hours) and the invalidation watch
     # (WATCH_M1 bars, sized to the 24h lock TTL) — derived, never a literal, same no-drift rule.
-    candle_counts       = {TF.M1: max((LOOKBACK + 2) * 60, WATCH_M1 + 30), TF.H1: 120, TF.H4: 120}
+    # H1 = 1500 bars (~62 days). NOT a round number picked for comfort: the 1HR trend is read from
+    # 48-bar swings (vix1_bias._H1_SWING_N) and needs enough history for several of them to form.
+    # At the old 120 the detector could see nothing older than two days and reported UP inside a
+    # two-month decline. One request returns all 1500 and the fetcher throttles per REQUEST, not per
+    # bar, so the extra bars cost queue time, never rate.
+    candle_counts       = {TF.M1: max((LOOKBACK + 2) * 60, WATCH_M1 + 30), TF.H1: 1500, TF.H4: 120}
 
     # All three sessions. The playbook has no session rule at all — the London/NY gate was an
     # addition, and the strategy already filters thin hours by itself: no momentum candle (a bigger body

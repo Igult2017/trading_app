@@ -30,6 +30,26 @@ from strategies.vix1_trend import clear_trend   # is_choch no longer used: the t
 
 log = logging.getLogger(__name__)
 
+# THE 1HR SWING HALF-WIDTH. 48 bars either side = a swing spanning ~2 DAYS, read over the 1,500-bar
+# (~62-day) window `vix1.candle_counts[TF.H1]` now supplies.
+#
+# WHY IT IS NOT 3 (fixed 2026-07-29). At n=3 a "swing" is a 7-hour wiggle, and with only 120 bars the
+# detector could see nothing older than two days. On 29 Jul it reported the 1HR trend as UP in the
+# middle of a two-month decline — correct about the last two days, blind to every lower high in the
+# move — and because VIX.1 is pro-trend only, a valid SELL that day would have been discarded as
+# counter-trend while price fell 24 pips.
+#
+# MEASURED over 4.18 years of real H1, both pairs: agreement across window sizes 79%->84% (EUR/USD)
+# and 76%->80% (GBP/USD), and trend changes 183->37 and 166->36. One flip every ~6 weeks is a main
+# trend; one every ~6 days is not.
+#
+# TWO SIMPLER FIXES WERE TESTED AND REJECTED — do not retry them:
+#   n=12 on the existing 120-bar window: 55% agreement (worse than the 82% it replaced) and flat 24%
+#       of the time. It only looked right because it was first checked on a single day.
+#   the DAILY timeframe: 65% agreement, and on 29 Jul it read flat/DOWN/UP/DOWN at 40/60/90/120 days.
+#       It contradicts itself too.
+_H1_SWING_N = 48
+
 
 def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "") -> tuple[bool, int, str, int] | None:
     """
@@ -52,7 +72,10 @@ def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "") -> tuple[b
     mc_idx  = run[0]
     close   = h1[run[0] + run[1] - 1].close          # the breaking/leading candle's CLOSED price
     want    = 1 if bullish else -1
-    t1 = clear_trend(h1)
+    # THE 1HR TREND IS READ FROM WIDE SWINGS OVER A LONG WINDOW — see _H1_SWING_N.
+    # The H4 read keeps the default: measured at its current settings it already agrees with itself
+    # 89%/77% across window sizes, and widening its swing width made it markedly WORSE (56%/47%).
+    t1 = clear_trend(h1, n=_H1_SWING_N)
     t4 = clear_trend(h4)
 
     # 1) momentum WITH a clear 1HR trend.

@@ -115,21 +115,24 @@ A-grade: `_A_BODY_FRAC 0.75` + `_A_CWICK_FRAC 0.15` → `_A_CONF 0.85`.
 1. **PENDING REDESIGN, blocked on the user.** The code reproduced only **16% of his real trades** —
    detection is too strict (an earlier 4× threshold rejected 80% of his candles; now 2.5×). Blocked on
    him supplying ~20 trades with entry/SL/TP. Then: recalibrate detection, add *selection* (which setup
-   to take when several qualify), and move the trend read 1HR → 4HR. **Do not "fix" this by guessing at
+   to take when several qualify). ~~move the trend read 1HR → 4HR~~ — **that instruction is WRONG and
+   is superseded (2026-07-29): measured, H4 at 120 bars still reported UP during the two-month
+   decline. The trend problem was the swing SCALE, not the timeframe, and it is now fixed on the 1HR
+   itself (see defect 4).** **Do not "fix" this by guessing at
    thresholds.**
 2. **The R ratchet is ADVICE ONLY.** `vix1_manage` decides what to TELL him ("+3R reached — move your
    stop to +2R"); `vix1_alerts` DMs it. **Nothing moves a broker stop** — the user manages the
    position himself. Whether VIX.1 should manage the stop programmatically is his call, not an
    oversight to silently fix.
 3. **`ARM_R` imported but unused** in `monitor/vix1_alerts.py` — cosmetic, fixed 2026-07-27.
-4. **`clear_trend` is WINDOW-DEPENDENT — its answer depends on the buffer size, not the market.**
-   120-bar vs 400-bar windows agree only **64%** of the time over 379 EUR/USD H1 timestamps, and every
-   disagreement is an outright opposite reading; 13 trend flips in 22 days at production's 120 vs 5 at
-   400. It replays state from wherever the window starts and the trend then persists, so the starting
-   point seeds the verdict. **Left unfixed on purpose (user decision, 2026-07-27):** it did not cause
-   the 27 Jul missed signals — it read DOWN steadily all day — and changing it changes which trades
-   fire everywhere, so it needs its own decision against his trade data. The `ea5c19c` "KNOWN LIMIT …
-   4% of bars" note understates this badly; that measured jitter across a three-bar span.
+4. ~~**`clear_trend` is WINDOW-DEPENDENT.**~~ **FIXED 2026-07-29.** The cause was the swing SCALE,
+   not the algorithm. At `n=3` over 120 bars it resolved 7-hour wiggles and could see nothing older
+   than two days, so it reported UP inside a two-month decline. Now **`n=48` (≈2 days) over 1,500
+   H1 bars (~62 days)**: agreement across window sizes 79%→84% (EUR/USD), 76%→80% (GBP/USD); trend
+   changes 183→37 and 166→36 over 4.18 years. **H4 keeps `n=3`** — already 89%/77%, and widening it
+   made it worse (56%/47%). Guarded by `tests/vix1/test_trend.py`, which asserts the STABILITY
+   property rather than a single day's verdict — two candidate fixes each looked right on the day
+   they were tried and were worse over four years.
 5. **No exhaustion / "price ran too far" rule exists.** All 9 `vix1_entry` rejection reasons are about
    the pullback's shape and position; none asks how extended the move is, so a late entry at the tail
    of a finished move is accepted. Deferred (user decision, 2026-07-27) because the spacing rule
