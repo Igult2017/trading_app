@@ -39,7 +39,13 @@ class BXStrategy(BaseStrategy):
     # H4 is the only HARD one; OPTIONAL = a flaky feed degrades a path, never kills the strategy.
     required_timeframes = [TF.H4]
     optional_timeframes = [TF.H1, TF.M30, TF.M15, TF.M5, TF.M1, TF.D1, TF.W1, TF.MN]
-    candle_counts       = {TF.H4: 200, TF.H1: 200, TF.M30: 200, TF.M15: 200, TF.M5: 250,
+    # H4 = 1000 bars (~166 days). A ZONE DOES NOT EXPIRE — the book (p27) says only a tap changes its
+    # state, and the user's rule is that an unmitigated zone stays unmitigated "even in the next 10
+    # years". At 200 bars a zone older than ~33 days did not expire, it simply CEASED TO EXIST when it
+    # scrolled off the replay window, which makes premarking pointless: the whole purpose is to have
+    # the zone written down when price finally comes back. Widening the replay keeps the registry a
+    # pure function of closed bars (no stored state to desynchronise), which storing it would not.
+    candle_counts       = {TF.H4: 1000, TF.H1: 200, TF.M30: 200, TF.M15: 200, TF.M5: 250,
                            TF.M1: 250, TF.D1: 200, TF.W1: 120, TF.MN: 60}
 
     # All 3 sessions: the 4H cascade IS the filter, and USD/JPY gets Tokyo — its home session.

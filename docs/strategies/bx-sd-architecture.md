@@ -14,7 +14,7 @@ lifecycle. Nothing re-derives a zone later. Everything else in the strategy read
 ```
  H4 bars ──► REGISTRY (bx_sd_registry.build)  ── the ONE zone book
                 │  formation decided once, boundaries frozen
-                │  pending → unmitigated → mitigated → respected → broken
+                │  pending → unmitigated → wick/body_mitigated ⇄ respected → broken
                 ▼
         ┌───────┴────────┬──────────────┬──────────────┬─────────────┐
    detect_setup      scan_reports     control      _tp_candidates   htf_zone_map
@@ -40,27 +40,36 @@ N. If that ever fails, zones are being re-judged and this class of bug is back.
 
 ## The lifecycle
 
+**Rewritten 2026-07-30.** Mitigation is by **wick OR body** and the two are different events; a tap
+never ends a zone; only a body close beyond the distal does.
+
 | state | meaning | transition |
 |---|---|---|
-| `pending` | imbalance printed, waiting to see if the impulse breaks structure | up to `BREAK_SPAN`(6) bars; no break → **dropped, never a zone** |
-| `unmitigated` | qualified and MARKED — waiting for price | |
-| `mitigated` | price tapped it (Ch.6 p27) | transient: median **1 bar** before it resolves |
-| `respected` | after the tap, price closed a full zone-height away | the RETEST path's input |
-| `broken` | body closed beyond the distal — dead (Ch.8 flip) | terminal |
+| `pending` | imbalance printed, waiting for its leg to break structure | dropped only if **price returns to it before any break** — no candle count |
+| `unmitigated` | qualified and MARKED — waiting for price, **however long that takes** | |
+| `wick_mitigated` | wick entered, **body stayed outside** — a sweep. Orders unfilled, zone still loaded | signals, and the card says *wicked only* |
+| `body_mitigated` | the body traded the zone (Ch.6 p27) — **spent** | a retap still signals, with a caution |
+| `respected` | after a tap, price closed a full zone-height away | retappable, not terminal |
+| `broken` | **body** closed beyond the distal — dead (Ch.8 flip) | the ONLY terminal state |
 
-Measured on GBP/USD, 27 months: **361 zones marked, 69% ever mitigated, 45% ever respected**, end state
-`broken 339 / unmitigated 13 / respected 9`.
+`retaps` counts return visits; `last_tap_at` stamps the most recent.
 
-**`live` = unmitigated | mitigated | respected.** Do **not** select on `live` in the cascade — that
-was a real bug: `respected` belongs to the retest path (min_grade `B`), and accepting it in the fresh
-cascade fired the same zone twice, the second time at C+, bypassing the higher bar the retest requires.
-The cascade selects `state == "mitigated"` only.
+**`live` = every state except `broken`.** Do **not** select on `live` in the cascade — `respected`
+belongs to the retest path (min_grade `B`), and accepting it in the fresh cascade fired the same zone
+twice, the second time at C+. The cascade selects `unmitigated | wick_mitigated | body_mitigated`.
+
+**Live-zone counts after the 2026-07-30 change:** EUR/USD 7→25, GBP/USD 14→22, USD/JPY 15→39,
+GBP/JPY 19→31.
 
 ## Formation — the book's three factors, all at formation time
 
 1. **IFC** — a real 3-candle imbalance (`find_fvgs`: candle1.low > candle3.high, wick to wick)
-2. **Its impulse broke structure** — the break must be at or **after** the IFC (`ifc_i <= e.index <=
-   ifc_i + BREAK_SPAN`). *Starting this window at the origin candle is what caused the 27 Jul defect.*
+2. **Its leg broke structure** — the most recent structure event at or before the IFC is already in
+   the zone's direction (a **pullback origin** inside an established leg), OR a break in that
+   direction prints afterwards. **There is NO candle window**: `BREAK_SPAN = 6` was invented, appears
+   nowhere in the book's 167 pages, and discarded pullback-origin zones — it cost a real GBP/JPY
+   setup on 15/29 Jul. The 27 Jul defect is still rejected because there the prevailing structure ran
+   *against* the candidate.
 3. **Liquidity grabbed before it** (`swept_before`, 20-bar look-back)
 
 Then marked by the book's technique (`mark_zone`): **wick** (p33-35) → **engulfed** (p72) →
@@ -77,6 +86,7 @@ zero mitigations are missed by starting the clock at `marked_at` (27 months, bot
 | file | owns |
 |---|---|
 | **`bx_sd_registry.py`** | **the zone book** — formation, lifecycle, `to_zone()` |
+| **`bx_sd_strength.py`** | **zone strength** — HTF confluence + violent departure + stack depth + retaps. Labels, never gates |
 | `bx_sd_zones.py` | MARKING techniques + `Zone`, `find_fvgs`, `zone_broken`/`break_index`, `needs_eq50` |
 | `bx_sd.py` | orchestrator — **builds the book ONCE per scan** and passes it down |
 | `bx_sd_setup.py` | the cascade: which marked zone is price working now |
@@ -102,7 +112,7 @@ regression to guard against.
 | `bx_sd_freshness.py` | `mitigated_at`; **`level_pre_mitigated` is impossible by construction** when zones persist |
 | `bx_sd_continuation.py`, `fvg_zone`, `is_fvg_tap` | removed — they entered off an **imbalance**, not a zone. BX trades zones only |
 | `retapped_now` | the `respected` state |
-| `newly_mitigated_zones` | `state == "mitigated"` |
+| `newly_mitigated_zones` | the `wick_mitigated` / `body_mitigated` states |
 | the `pro_trend()` gate | Ch.7 control (reported, never a gate) — it cost 70-78% of valid zones |
 
 ---

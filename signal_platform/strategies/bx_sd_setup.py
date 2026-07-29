@@ -34,6 +34,7 @@ from strategies.bx_sd_confluence import premium_discount, pricing_aligned, fib_t
 from strategies.bx_sd_control import control, describe, phrase
 from strategies.bx_sd_entry_type import classify, phrase as et_phrase
 from strategies.bx_sd_registry import build, to_zone
+from strategies.bx_sd_strength import mitigation_note, score as zone_strength
 from shared.mtf_utils import closed_only
 
 _SL_BUFFER_PIPS = 6.0  # the stop sits this far BEYOND the 4H zone's distal edge — the user's
@@ -98,20 +99,21 @@ def detect_setup(h4: list[Candle], pip: float = 0.0001, book=None) -> SetupResul
 
     # A zone is a candidate once price has MITIGATED it (tapped it) recently and it is still alive.
     # The 1M/5M confirmation downstream is what proves it was RESPECTED.
-    cand, priced_out, n_live = None, 0, 0
+    cand, cand_mz, priced_out, n_live = None, None, 0, 0
     for mz in sorted(marked, key=lambda m: m.ifc_time, reverse=True):
-        # state == "mitigated", NOT `live`. `live` also covers "respected", which is the RETEST
-        # path's job (bx_sd_reports, min_grade="B"). Accepting it here let one zone fire BOTH —
-        # a duplicate signal, and the fresh cascade fires at C+, bypassing the B/A bar the retest
-        # deliberately requires of a zone that has already been worked.
-        # unmitigated OR mitigated — NOT `respected` (that is the retest path's, min_grade="B";
-        # accepting it here fired one zone twice, the second time at C+).
+        # NOT `respected` — that is the RETEST path's job (bx_sd_reports, min_grade="B"). Accepting
+        # it here let one zone fire BOTH: a duplicate signal, and the fresh cascade firing at C+,
+        # bypassing the B/A bar the retest deliberately requires of a zone already worked.
         #
         # It must include `unmitigated`: the registry is built from CLOSED bars, so a tap by the
-        # FORMING bar is not in the book yet and the zone still reads unmitigated. Demanding
-        # state=="mitigated" AND a live tap can never both hold at the same instant — by the time the
+        # FORMING bar is not in the book yet and the zone still reads unmitigated. Demanding a
+        # mitigated state AND a live tap can never both hold at the same instant — by the time the
         # state flips at bar close, the live bar has moved on. That would have silenced the cascade.
-        if mz.state not in ("unmitigated", "mitigated"):
+        #
+        # `wick_mitigated` and `body_mitigated` replaced the single `mitigated` (2026-07-30). BOTH
+        # trade: the user's rule is that a wick tap signals AND its later retap signals again, and a
+        # body-mitigated zone still signals on a retap, carrying a caution on the card.
+        if mz.state not in ("unmitigated", "wick_mitigated", "body_mitigated"):
             continue
         # THE TAP MUST BE HAPPENING NOW — live price, not "sometime in the last 6 bars".
         # This used to accept any mitigation inside a 24-HOUR window, so a zone tapped 20 hours ago
@@ -129,7 +131,7 @@ def detect_setup(h4: list[Candle], pip: float = 0.0001, book=None) -> SetupResul
         z = to_zone(mz, bars)
         if z is None:
             continue                      # older than this window — cannot resolve indices
-        cand = z; break
+        cand, cand_mz = z, mz; break     # keep the MarkedZone too — it carries state/retaps
     if cand is None:
         if priced_out:
             r.reason = (f"{priced_out} marked zone(s) mitigated but badly priced "
@@ -170,5 +172,14 @@ def detect_setup(h4: list[Candle], pip: float = 0.0001, book=None) -> SetupResul
                      "broke_structure": True, "liquidity_grab": True,
                      "pricing": premium_discount(leg_low, leg_high, price),
                      "rsi_divergence": rsi_divergence(h4, tdir)}
+    # HOW it was mitigated and HOW STRONG it is — both read off the zone book, both previously
+    # invisible on the card. A wick-only tap and a full body mitigation used to look identical.
+    if cand_mz is not None:
+        _s = zone_strength(cand_mz, marked, bars)
+        r.confluences["mitigation_note"] = mitigation_note(cand_mz)
+        r.confluences["strength_phrase"] = (f"Zone strength {_s.label} ({_s.score}) — "
+                                            f"{', '.join(_s.reasons())}")
+        r.confluences["zone_state"] = cand_mz.state
+        r.confluences["zone_retaps"] = cand_mz.retaps
     r.reason = "active"
     return r

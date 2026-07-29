@@ -2,8 +2,8 @@
 BX-S/D — the MITIGATION heads-up card.
 
 `newly_mitigated_zones` used to live here and is gone: "which zones were just tapped" is a lifecycle
-question the zone book answers (state == "mitigated"), not something to recompute from candles. This
-file is now only the card.
+question the zone book answers (the `wick_mitigated` / `body_mitigated` states), not something to
+recompute from candles. This file is now only the card.
 """
 from core.types import Signal, Direction, TF
 from strategies.bx_sd_zones import Zone

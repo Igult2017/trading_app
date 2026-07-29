@@ -22,6 +22,14 @@ def build_signal(symbol: str, setup: SetupResult, conf: LTFConfluence, trig: Ent
     align_txt = f"{', '.join(aligned)} aligned" if aligned else "no analysis-TF alignment"
     back_txt  = f" + HTF backing ({', '.join(backing)})" if backing else ""
 
+    # HOW the zone was mitigated, and how strong it is. Both come from the zone book and were
+    # previously invisible on the card: a wick-only tap and a full body mitigation read identically,
+    # so there was no way to tell a still-loaded zone from a spent one. The user's rule (2026-07-30):
+    # a wick tap means the orders were never filled and price is expected back; a retap of a
+    # body-mitigated zone is tradeable but must carry a caution.
+    mit_note = setup.confluences.get("mitigation_note") or ""
+    strength = setup.confluences.get("strength_phrase") or ""
+
     reasons = [
         setup.confluences.get("control_phrase") or f"Fresh 4H {zdir} zone tapped",
         setup.confluences.get("entry_type_phrase") or "Entry-2 justification (LTF BMS/CHoCH)",
@@ -32,6 +40,10 @@ def build_signal(symbol: str, setup: SetupResult, conf: LTFConfluence, trig: Ent
         f"SL {trig.sl:.{digits}f} | TP {trig.tp:.{digits}f} | "
         f"Risk {trig.details['risk_pips']:.1f} pips | RR {trig.rr}:1",
     ]
+    if strength:
+        reasons.insert(3, strength)
+    if mit_note:
+        reasons.insert(1, mit_note)
     _ctl      = setup.confluences.get("control") or {}
     _ctl_side = _ctl.get("side", "none")
     _with     = _ctl.get("with_control")

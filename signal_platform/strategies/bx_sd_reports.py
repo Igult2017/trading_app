@@ -48,10 +48,12 @@ def scan_reports(symbol: str, h4: list[Candle], analysis_tfs: list, entry_tf: li
     # ① MITIGATION heads-up — the zone was tapped for the first time, recently.
     for mz in marked:
         # tapped RIGHT NOW (live bar), not "sometime in the last 24h" — see bx_sd_setup
-        # unmitigated OR mitigated + a LIVE tap: the forming bar's tap is not in the book yet
-        # (the registry reads CLOSED bars), so requiring state=="mitigated" here would mean
-        # the heads-up could never coincide with the tap actually happening.
-        if mz.state not in ("unmitigated", "mitigated") or not mz.tapped_by(live):
+        # untapped OR already-mitigated + a LIVE tap: the forming bar's tap is not in the book yet
+        # (the registry reads CLOSED bars), so demanding a mitigated state here would mean the
+        # heads-up could never coincide with the tap actually happening.
+        # `wick_mitigated`/`body_mitigated` replaced `mitigated` (2026-07-30) — a retap of either is
+        # still worth a heads-up, and the card distinguishes them.
+        if mz.state not in ("unmitigated", "wick_mitigated", "body_mitigated") or not mz.tapped_by(live):
             continue
         if (mz.top - mz.bottom) < tmin:
             continue

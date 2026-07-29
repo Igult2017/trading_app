@@ -33,8 +33,16 @@ from strategies.bx_sd_zones import Zone, find_fvgs, mark_zone
 from strategies.bx_sd_structure import map_structure
 from strategies.bx_sd_liquidity import find_liquidity, swept_before
 
-BREAK_SPAN = 6    # a slow impulse can body-close beyond the swing several bars AFTER the IFC
+# NOTE: there is deliberately NO break-window constant here any more. `BREAK_SPAN = 6` used to
+# require structure to break within 6 bars AFTER the IFC. It appears nowhere in the book (167 pages
+# searched, zero mentions of any candle count on the break) and it discarded pullback-origin zones,
+# which are the most common kind there is. See `_broke_structure`.
 LIQ_WINDOW = 20   # look-back for the fuel grab that must precede the zone
+
+# A zone is finished only when its distal is BODY-CLOSED through. Everything else is still tradeable,
+# including a zone that has already been mitigated — the user's rule: a zone can be retapped, and an
+# unmitigated zone stays unmitigated however long it takes ("even in the next 10 years").
+LIVE_STATES = ("unmitigated", "wick_mitigated", "body_mitigated", "respected")
 REACT_MULT = 1.0  # "respected" = a body close a full zone-height away from the zone
 
 
@@ -55,9 +63,32 @@ class MarkedZone:
     respected_at: int | None = None
     broken_at:    int | None = None
 
+    # Set when the zone is tapped again after it had already been mitigated. The card must say so —
+    # a retap of a zone that was properly (body) mitigated is a CAUTION, not a fresh setup.
+    retaps: int = 0
+    last_tap_at: int | None = None
+
     @property
     def live(self) -> bool:
-        return self.state in ("unmitigated", "mitigated", "respected")
+        return self.state in LIVE_STATES
+
+    @property
+    def wick_only(self) -> bool:
+        """Tapped by a wick but never by a body — the sweep case. The user: 'where a wick mitigates a
+        zone, chances are that it's gonna be retapped.' The orders were never filled, so the zone is
+        still loaded and price is expected back."""
+        return self.state == "wick_mitigated"
+
+    @property
+    def spent(self) -> bool:
+        """A body traded the zone. Still tradeable on a retap, but flagged with caution."""
+        return self.state in ("body_mitigated", "respected") or self.retaps > 0
+
+    def body_in(self, c: Candle) -> bool:
+        """Did the candle's BODY enter the zone? Mitigation is by wick OR body (the user's rule); this
+        separates the two so the card can say which happened."""
+        hi, lo = max(c.open, c.close), min(c.open, c.close)
+        return lo <= self.top and hi >= self.bottom
 
     @property
     def height(self) -> float:
@@ -78,13 +109,33 @@ class MarkedZone:
 
 
 def _broke_structure(events, want: str, ifc_i: int) -> bool:
-    """FACTOR 2 — the zone's own impulse must break structure.
+    """FACTOR 2 — the zone must belong to a leg that broke structure IN ITS OWN DIRECTION.
 
-    The window starts AT THE IFC. A break before the imbalance existed cannot have been led to by it;
-    accepting one is exactly the 27 Jul defect (BOS at lag -1 sold a mid-waterfall candle as a zone).
-    `>=` and not `>` because a close beyond the swing ON the impulse bar is caused by that impulse.
+    THE RULE, and why it is not a candle count. The book asks only *"Did it create IFC? Did it break
+    structure, or change character?"* (p26) and *"don't forget that it has to break structure"* (p29).
+    Searched all 167 pages: there is NO bar or candle count attached to the break anywhere. The
+    previous `ifc_i <= e.index <= ifc_i + BREAK_SPAN` window was invented, and it silently destroyed
+    the most ordinary zone there is — a PULLBACK ORIGIN inside an already-broken leg.
+
+    THE CASE THAT EXPOSED IT (GBP/JPY H4, 2026-07-15). Structure broke UP at 01:00. Price pulled back,
+    printed its imbalance at 09:00 and 13:00, and left the zone by 160 pips. The break was two bars
+    BEFORE the IFC, the window only looked forward, and both candidates were dropped. Price returned
+    on 29 Jul, launched 100+ pips, and no signal existed because the zone had never been written down.
+
+    So the test is now about the LEG, not the clock:
+      * the most recent structure event at or before the IFC is already in the zone's direction
+        (the pullback-origin case), OR
+      * a break in that direction prints after the IFC.
+
+    IT STILL REJECTS THE 27 JUL DEFECT (a BOS at lag -1 selling a mid-waterfall candle as a zone),
+    because there the prevailing structure ran AGAINST the zone: the latest event before that IFC was
+    a DOWN break while the candidate was demand, so neither arm passes. That is asserted as a
+    regression test, not assumed.
     """
-    return any(e.direction == want and ifc_i <= e.index <= ifc_i + BREAK_SPAN for e in events)
+    prior = [e for e in events if e.index <= ifc_i]
+    if prior and prior[-1].direction == want:
+        return True                                  # the zone sits inside a leg already broken its way
+    return any(e.direction == want and e.index > ifc_i for e in events)
 
 
 def build(h4: list[Candle], pip: float = 0.0001) -> list[MarkedZone]:
@@ -128,9 +179,13 @@ def build(h4: list[Candle], pip: float = 0.0001) -> list[MarkedZone]:
                 # EVERY zone straight into respected/broken and `mitigated` never occurred at all.
                 # Mitigation is price COMING BACK (Ch.6 p27), so the clock starts once the zone is
                 # marked. Same trap as an FVG's own creation candle counting as a tap.
-            elif i <= ifc_i + BREAK_SPAN:
-                still.append((z, ifc_i))               # still time for the break to print
-            # else: the window closed without a break — never a zone, dropped
+            elif not z.tapped_by(bar):
+                # KEEP WAITING — with no candle count, the bound is STRUCTURAL, not a clock: the zone
+                # must break structure BEFORE price comes back to it. A zone price returns to without
+                # ever having launched a break never launched anything, so it was never a zone. That
+                # replaces the invented 6-bar window with the thing the window was standing in for.
+                still.append((z, ifc_i))
+            # else: price came back before any break — never a zone, dropped
         pending = still
 
         # 3. Advance every live zone with this bar.
@@ -156,12 +211,33 @@ def to_zone(mz: MarkedZone, bars: list[Candle]) -> Zone | None:
 
 
 def _advance(z: MarkedZone, c: Candle) -> None:
-    """One bar of lifecycle. Break is checked FIRST — a bar that taps and closes through is a break."""
+    """One bar of lifecycle. Break is checked FIRST — a bar that taps and closes through is a break.
+
+    MITIGATION IS BY WICK **OR** BODY, AND THE TWO ARE NOT THE SAME EVENT (the user's rule):
+      wick only  — price reached in, took the liquidity and left. The orders were never filled, so the
+                   zone is still loaded and a return is EXPECTED. Signals, and says it was only wicked.
+      body       — the zone actually traded. It is spent; a later retap still signals but with caution.
+
+    A tap NEVER ends the zone. Only a body close beyond the distal does. That is what makes premarking
+    worth anything: the zone sits on the book until price does something decisive to it.
+    """
     if not z.live:
         return
     if z.broken_by(c):
         z.state, z.broken_at = "broken", c.time
-    elif z.state == "unmitigated" and z.tapped_by(c):
-        z.state, z.mitigated_at = "mitigated", c.time
-    elif z.state == "mitigated" and z.reacted_by(c):
-        z.state, z.respected_at = "respected", c.time
+        return
+    if not z.tapped_by(c):
+        # Away from the zone — a body close a full zone-height clear counts as respected.
+        if z.state in ("wick_mitigated", "body_mitigated") and z.reacted_by(c):
+            z.state, z.respected_at = "respected", c.time
+        return
+
+    # --- price is IN the zone on this bar -------------------------------------------------------
+    if z.state != "unmitigated":
+        z.retaps += 1                      # a return visit; the card reports it
+    z.last_tap_at = c.time
+    if z.body_in(c):
+        z.state = "body_mitigated"
+        z.mitigated_at = z.mitigated_at or c.time
+    elif z.state == "unmitigated":
+        z.state, z.mitigated_at = "wick_mitigated", c.time
