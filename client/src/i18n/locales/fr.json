@@ -6,7 +6,7 @@
     "logout": "Déconnexion", "loginStreak": "Série", "days": "jours", "free": "Gratuit",
     "language": "Langue", "newTrade": "Nouveau trade", "sessions": "Sessions",
     "vault": "Coffre", "calendar": "Calendrier", "drawdown": "Drawdown",
-    "metrics": "Métriques", "strategy": "Audit", "fsdai": "IA du trader", "sync": "Synchroniser"
+    "metrics": "Métriques", "strategy": "Audit", "fsdai": "IA du trader", "sync": "Streava"
   },
   "common": {
     "save": "Enregistrer", "cancel": "Annuler", "edit": "Modifier", "close": "Fermer",
