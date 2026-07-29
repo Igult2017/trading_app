@@ -10,15 +10,15 @@ export const FEATURES = [
 export const PRICING_PLANS = [
   { name: "Free",    price: "$0",   period: "forever",  badge: null,                 highlight: false, cta: "Get Started Free",  features: ["Core trade stats", "Trade calendar view", "MT4/MT5 integration", "Basic P&L tracking", "Up to 50 trades/month"] },
   { name: "Weekly",  price: "$7",   period: "/ week",   badge: null,                 highlight: false, cta: "Start Weekly",       features: ["Everything in Free", "Full trade journal", "Detailed analytics", "Strategy audit", "Unlimited trades"] },
-  { name: "Monthly", price: "$20",  period: "/ month",  badge: "Most Popular",        highlight: true,  cta: "Start Monthly",      features: ["Everything in Weekly", "AI Coach (Trader AI)", "Behaviour analysis", "Export reports (PDF/CSV)", "TradeSync Copier add-on"] },
-  { name: "Yearly",  price: "$180", period: "/ year",   badge: "Best Value — $15/mo", highlight: false, cta: "Start Yearly",       features: ["Everything in Monthly", "SMC Signal Scanner", "Priority support", "Onboarding session", "TradeSync Copier add-on"] },
+  { name: "Monthly", price: "$20",  period: "/ month",  badge: "Most Popular",        highlight: true,  cta: "Start Monthly",      features: ["Everything in Weekly", "AI Coach (Trader AI)", "Behaviour analysis", "Export reports (PDF/CSV)", "Streava Trades add-on"] },
+  { name: "Yearly",  price: "$180", period: "/ year",   badge: "Best Value — $15/mo", highlight: false, cta: "Start Yearly",       features: ["Everything in Monthly", "SMC Signal Scanner", "Priority support", "Onboarding session", "Streava Trades add-on"] },
 ];
 
 export const TESTIMONIALS = [
   { name: "James O.",  flag: "🇬🇧", role: "Forex Trader · 3 yrs",   quote: "The drawdown analysis alone is worth the subscription. I cut my max DD from 14% to 6% in two months just by following the AI recommendations." },
   { name: "Amara K.",  flag: "🇿🇦", role: "Crypto Trader · 1 yr",   quote: "Finally a journal that doesn't feel like a spreadsheet. The strategy audit gave me an A- grade after cleaning up my late entries." },
   { name: "Lucas M.",  flag: "🇧🇷", role: "Swing Trader · 5 yrs",   quote: "The timeframe matrix showed me I was losing money trading M15 when 80% of my profitable trades were on H4. Game changer." },
-  { name: "Fatima R.", flag: "🇳🇬", role: "SMC Trader · 2 yrs",     quote: "TradeSync lets me share my trades with my students automatically. The signal provider mode is exactly what I needed to monetise my edge." },
+  { name: "Fatima R.", flag: "🇳🇬", role: "SMC Trader · 2 yrs",     quote: "Streava Trades lets me share my trades with my students automatically. The signal provider mode is exactly what I needed to monetise my edge." },
   { name: "Chen W.",   flag: "🇨🇳", role: "Day Trader · 4 yrs",     quote: "I was sceptical about the AI coach but it pinpointed a pattern I had missed for 2 years — I was overtrading on Friday afternoons consistently." },
   { name: "Sophie D.", flag: "🇫🇷", role: "Options Trader · 2 yrs", quote: "The economic calendar integration means I never trade into a news event unaware. The sentiment overlay is a feature I didn't know I needed." },
 ];

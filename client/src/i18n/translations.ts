@@ -59,7 +59,7 @@ export const STATIC_T = {
     edit:'Edit', close:'Close',
     sessions:'Sessions', vault:'Trade Vault', calendar:'Calendar',
     drawdown:'Drawdown', metrics:'Metrics', strategy:'Audit',
-    fsdai:'Trader AI', sync:'Trade Sync',
+    fsdai:'Trader AI', sync:'Streava',
   },
   es: {
     dashboard:'Panel', journal:'Diario', tradeHistory:'Historial',
@@ -70,7 +70,7 @@ export const STATIC_T = {
     edit:'Editar', close:'Cerrar',
     sessions:'Sesiones', vault:'Bóveda', calendar:'Calendario',
     drawdown:'Reducción', metrics:'Métricas', strategy:'Auditoría',
-    fsdai:'IA del trader', sync:'Sincronizar',
+    fsdai:'IA del trader', sync:'Streava',
   },
   fr: {
     dashboard:'Tableau de bord', journal:'Journal', tradeHistory:'Historique',
@@ -81,7 +81,7 @@ export const STATIC_T = {
     edit:'Modifier', close:'Fermer',
     sessions:'Sessions', vault:'Coffre', calendar:'Calendrier',
     drawdown:'Drawdown', metrics:'Métriques', strategy:'Audit',
-    fsdai:'IA du trader', sync:'Synchroniser',
+    fsdai:'IA du trader', sync:'Streava',
   },
   pt: {
     dashboard:'Painel', journal:'Diário', tradeHistory:'Histórico',
@@ -92,7 +92,7 @@ export const STATIC_T = {
     edit:'Editar', close:'Fechar',
     sessions:'Sessões', vault:'Cofre', calendar:'Calendário',
     drawdown:'Drawdown', metrics:'Métricas', strategy:'Auditoria',
-    fsdai:'IA do trader', sync:'Sincronizar',
+    fsdai:'IA do trader', sync:'Streava',
   },
   de: {
     dashboard:'Dashboard', journal:'Journal', tradeHistory:'Handelshistorie',
@@ -103,7 +103,7 @@ export const STATIC_T = {
     edit:'Bearbeiten', close:'Schließen',
     sessions:'Sitzungen', vault:'Tresor', calendar:'Kalender',
     drawdown:'Drawdown', metrics:'Metriken', strategy:'Prüfung',
-    fsdai:'Trader KI', sync:'Synchronisieren',
+    fsdai:'Trader KI', sync:'Streava',
   },
   ar: {
     dashboard:'لوحة القيادة', journal:'مجلة', tradeHistory:'سجل الصفقات',
@@ -114,7 +114,7 @@ export const STATIC_T = {
     edit:'تعديل', close:'إغلاق',
     sessions:'الجلسات', vault:'الخزنة', calendar:'التقويم',
     drawdown:'الانخفاض', metrics:'المقاييس', strategy:'تدقيق',
-    fsdai:'ذكاء تاجر', sync:'مزامنة',
+    fsdai:'ذكاء تاجر', sync:'Streava',
   },
   zh: {
     dashboard:'仪表板', journal:'交易日志', tradeHistory:'交易历史',
@@ -125,7 +125,7 @@ export const STATIC_T = {
     edit:'编辑', close:'关闭',
     sessions:'会话', vault:'交易库', calendar:'日历',
     drawdown:'回撤', metrics:'指标', strategy:'审计',
-    fsdai:'交易AI', sync:'同步',
+    fsdai:'交易AI', sync:'Streava',
   },
   sw: {
     dashboard:'Dashibodi', journal:'Jarida', tradeHistory:'Historia ya Biashara',
@@ -136,6 +136,6 @@ export const STATIC_T = {
     edit:'Hariri', close:'Funga',
     sessions:'Vikao', vault:'Hazina', calendar:'Kalenda',
     drawdown:'Kupungua', metrics:'Vipimo', strategy:'Ukaguzi',
-    fsdai:'AI ya Mfanyabiashara', sync:'Oanisha',
+    fsdai:'AI ya Mfanyabiashara', sync:'Streava',
   },
 } as const;

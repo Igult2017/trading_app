@@ -77,7 +77,7 @@ const NAV_SECTIONS: NavGroup[] = [
     { id: 'metrics',     label: 'Metrics',         icon: SI.Metrics },
     { id: 'strategy',    label: 'Audit',           icon: SI.Strategy },
     { id: 'fsdai',       label: 'Trader AI',       icon: SI.FsdAi },
-    { id: 'sync',        label: 'Trade Sync',      icon: SI.Sync },
+    { id: 'sync',        label: 'Streava',         icon: SI.Sync },
     { id: 'assets',      label: 'Assets',          icon: SI.Assets },
     { id: 'leaderboard', label: 'Leaderboard',     icon: SI.Leaderboard },
   ]},

@@ -311,10 +311,10 @@ const features = [
 ];
 
 const faqs = [
-  { q: "Does TraderWaves trade for me?", a: "No. Trade Sync is a copy trading tool that mirrors your own trades from a master account to one or more slave accounts. You remain in full control of all trading decisions." },
-  { q: "Is this for accounts I own?", a: "Yes. Trade Sync is designed for traders who manage multiple accounts of their own. You must have authorized access to all accounts you connect to the platform." },
+  { q: "Does TraderWaves trade for me?", a: "No. Streava Trades is a copy trading tool that mirrors your own trades from a master account to one or more slave accounts. You remain in full control of all trading decisions." },
+  { q: "Is this for accounts I own?", a: "Yes. Streava Trades is designed for traders who manage multiple accounts of their own. You must have authorized access to all accounts you connect to the platform." },
   { q: "Which platforms are supported?", a: "MT4, MT5, MatchTrader, cTrader, DXTrade, TradeLocker, and Binance (USDM Futures) are fully supported — all via API, no desktop terminal needed. More platforms are coming soon — vote for your favorites." },
-  { q: "Do you provide signals or advice?", a: "No. Trade Sync does not provide trading signals, advice, or recommendations. It solely syncs trades between accounts you control." },
+  { q: "Do you provide signals or advice?", a: "No. Streava Trades does not provide trading signals, advice, or recommendations. It solely syncs trades between accounts you control." },
   { q: "How are my credentials handled?", a: "Your account credentials are encrypted and stored securely. We use industry-standard encryption and never share your data with third parties." },
   { q: "Are alerts available?", a: "Yes! You can receive real-time alerts via Telegram or email whenever a trade is copied, modified, or closed across your accounts." },
 ];
@@ -366,7 +366,7 @@ export default function TradeSync() {
         <div className="ts-hero">
           <div>
             <div className="ts-hero-badge">⚡ Automated Trade Copying</div>
-            <h1>Trade Sync</h1>
+            <h1>Streava Trades</h1>
             <p>Control all your trading accounts from one place—automatically and in real time.</p>
             <div className="ts-hero-actions">
               <button className="ts-btn-primary">Start Now →</button>
@@ -427,7 +427,7 @@ export default function TradeSync() {
         <div style={{ background: "#0d1220", padding: "1px 0" }}>
           <div className="ts-section">
             <div className="ts-section-header">
-              <div className="ts-section-title">How Trade Sync Works</div>
+              <div className="ts-section-title">How Streava Trades Works</div>
               <div className="ts-section-sub">Easily manage multiple accounts from one master—everything stays synced in real time:</div>
             </div>
             <div className="ts-steps">
@@ -495,7 +495,7 @@ export default function TradeSync() {
                 </div>
                 <div className="ts-price-note">Unlimited trade copying on supported platforms</div>
                 <div className="ts-checkout-card">
-                  <div className="ts-checkout-title">⚡ Start Trade Sync</div>
+                  <div className="ts-checkout-title">⚡ Start Streava Trades</div>
                   <div className="ts-checkout-sub">Choose your plan and number of accounts, then proceed to secure checkout.</div>
                   <button className="ts-btn-start">Start Now</button>
                 </div>
@@ -509,7 +509,7 @@ export default function TradeSync() {
           <div className="ts-faq-inner">
             <div className="ts-section-header">
               <div className="ts-section-title">Frequently Asked Questions</div>
-              <div className="ts-section-sub">Everything you need to know about TradeWaves Trade Sync</div>
+              <div className="ts-section-sub">Everything you need to know about Streava Trades</div>
             </div>
             {faqs.map((f, i) => (
               <div key={i} className={`ts-faq-item ${openFaq === i ? "open" : ""}`}>

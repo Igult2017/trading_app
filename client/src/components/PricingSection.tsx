@@ -25,13 +25,13 @@ const plans: Plan[] = [
   {
     name: 'Monthly', price: '$20', period: 'month',
     tagline: 'The complete platform for serious traders.',
-    features: ['Everything in Weekly', 'AI Coach (Trader AI)', 'Behaviour analysis', 'Export reports (PDF/CSV)', 'TradeSync Copier add-on'],
+    features: ['Everything in Weekly', 'AI Coach (Trader AI)', 'Behaviour analysis', 'Export reports (PDF/CSV)', 'Streava Trades add-on'],
     cta: 'Start Monthly', popular: true, badge: 'Most Popular',
   },
   {
     name: 'Yearly', price: '$180', period: 'year',
     tagline: 'Maximum value for committed traders.',
-    features: ['Everything in Monthly', 'Priority support', 'Onboarding session', 'TradeSync Copier add-on'],
+    features: ['Everything in Monthly', 'Priority support', 'Onboarding session', 'Streava Trades add-on'],
     cta: 'Start Yearly', popular: false, badge: 'Best Value — $15/mo',
   },
 ];
