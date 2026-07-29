@@ -131,10 +131,20 @@ def detect_setup(h4: list[Candle], pip: float = 0.0001, book=None) -> SetupResul
             continue                      # older than this window — cannot resolve indices
         cand = z; break
     if cand is None:
-        r.reason = (f"{priced_out} marked zone(s) mitigated but badly priced "
-                    f"({premium_discount(leg_low, leg_high, price)})" if priced_out else
-                    f"no marked zone being tapped right now "
-                    f"({sum(1 for m in marked if m.live)} live zones on the book)")
+        if priced_out:
+            r.reason = (f"{priced_out} marked zone(s) mitigated but badly priced "
+                        f"({premium_discount(leg_low, leg_high, price)})")
+            return r
+        # HOW FAR IS PRICE FROM THE NEAREST LIVE ZONE? This is the one number that answers "why no
+        # signal" during a quiet stretch — the cascade fires on a tap, so the distance to the closest
+        # zone IS the distance to a possible setup. It was computed nowhere and the reason line said
+        # only how many zones exist, which cannot distinguish "price is 2 pips away, watch closely"
+        # from "price is 200 pips away, nothing is going to happen today".
+        live_zones = [m for m in marked if m.live]
+        near = min((abs(m.proximal - price) for m in live_zones), default=None)
+        gap = f", nearest {near / pip:.0f} pips away" if near is not None else ""
+        r.reason = (f"no marked zone being tapped right now "
+                    f"({len(live_zones)} live zones on the book{gap})")
         return r
 
     tdir = "buy" if cand.direction == "demand" else "sell"

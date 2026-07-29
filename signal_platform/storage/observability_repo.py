@@ -17,13 +17,14 @@ from datetime import datetime, timedelta, timezone
 from storage.db import get_session
 from storage.observability_models import (
     PlatformDowntimeModel, PlatformHeartbeatModel, SignalEventModel,
-    STAGE_BUILT, STAGE_DELIVERED, STAGE_DISPATCHED, STAGE_DROPPED, STAGE_SAVED, STAGE_VALIDATED,
+    STAGE_BUILT, STAGE_DELIVERED, STAGE_DISPATCHED, STAGE_DROPPED, STAGE_EVALUATED,
+    STAGE_SAVED, STAGE_VALIDATED,
 )
 
 log = logging.getLogger(__name__)
 
 __all__ = ["record", "beat", "detect_downtime", "STAGE_BUILT", "STAGE_VALIDATED", "STAGE_SAVED",
-           "STAGE_DISPATCHED", "STAGE_DELIVERED", "STAGE_DROPPED"]
+           "STAGE_DISPATCHED", "STAGE_DELIVERED", "STAGE_DROPPED", "STAGE_EVALUATED"]
 
 # A gap larger than this at boot counts as an outage worth recording. The scan loop runs every
 # 45-60s, so anything past 5 minutes is a real absence rather than a slow tick or a clock nudge.

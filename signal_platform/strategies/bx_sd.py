@@ -14,7 +14,8 @@ import time
 from core.base_strategy import BaseStrategy
 from core.types import Session, Trend, NewsStance, NewsImpact, StrategyResult, TF, Signal
 from core.strategy_context import StrategyContext
-from core import delivery_ledger
+from core import delivery_ledger, stage_tracker
+from storage import observability_repo as obs
 from shared.pip import pip_size, price_digits
 from strategies.bx_sd_setup import detect_setup
 from strategies.bx_sd_registry import build as build_registry
@@ -50,7 +51,7 @@ class BXStrategy(BaseStrategy):
 
     def __init__(self):
         # dedup is the shared delivery_ledger — committed only on a confirmed DM (at-least-once)
-        self._stage:  dict[str, str]  = {}       # symbol -> last logged stage (observability only)
+        # (stage de-duplication now lives in core.stage_tracker — see _log)
         self._locked: dict[str, dict] = {}       # symbol -> tapped setup, watched to invalidation
 
     async def analyze(self, context: StrategyContext) -> StrategyResult:
@@ -167,7 +168,22 @@ class BXStrategy(BaseStrategy):
         return StrategyResult(signals=out)
 
     def _log(self, sym: str, stage: str, detail: str) -> None:
-        """Log only on stage change — a 'missed setup' is diagnosable without spamming every scan."""
-        if self._stage.get(sym) != stage:
-            self._stage[sym] = stage
-            log.info(f"[bx_sd] {sym} -> {stage} | {detail}")
+        """Log on stage change, AND re-state an unchanged stage every heartbeat.
+
+        The change-trigger alone was right in principle and blind in practice. This method used to
+        keep its own `self._stage` dict and speak only on a transition, so once a symbol settled it
+        went quiet indefinitely — correct, and useless when the question is "what is it doing right
+        now". Measured 2026-07-29: a 3h29m log window contained ZERO lines from this strategy while
+        every instrument sat in a perfectly healthy state, and answering "is it working" needed a
+        broker query and a local replay instead of one grep.
+
+        `core.stage_tracker` adds the floor: the transition still prints immediately, and an
+        unchanged stage reprints every HEARTBEAT_S so a recent window always names the current state.
+        The stage change is ALSO recorded durably (signal_events) because the log buffer is finite
+        and a restart empties it entirely.
+        """
+        line = f"[bx_sd] {sym} -> {stage} | {detail}"
+        # Key on the symbol, value on stage+detail: a stage that stays SCANNING while its detail
+        # changes (a zone tapped, price closing in) is a real change worth printing.
+        if stage_tracker.emit("bx_sd", sym, f"{stage}|{detail}", line, logger=log):
+            obs.record(obs.STAGE_EVALUATED, self.id, sym, detail=f"{stage} | {detail}")

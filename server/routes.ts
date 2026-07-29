@@ -994,6 +994,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // --- Signal platform audit trail (signal_events) ---
+  // The Python signal platform writes every stage of a signal's life here — built, validated, saved,
+  // dispatched, delivered, dropped — plus `evaluated` strategy-state changes. It had NO reader
+  // outside the container, which is exactly why "check the events and confirm the strategy is
+  // working" could not be answered: the data existed and nothing could see it.
+  //
+  // requireAdmin (X-Admin-Secret header) is deliberate — these rows expose strategy internals and
+  // must not sit on a public route the way /api/trading-signals does.
+  app.get("/api/admin/signal-events", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const { strategy, symbol, stage, since, limit = "200" } = req.query as Record<string, string>;
+      const where: string[] = [];
+      const params: any[] = [];
+      const add = (clause: string, value: any) => { params.push(value); where.push(`${clause} $${params.length}`); };
+      if (strategy) add("strategy =", strategy);
+      if (symbol)   add("symbol =", symbol);
+      if (stage)    add("stage =", stage);
+      // `since` accepts an interval like '2 hours' or an ISO timestamp; default to the last day so a
+      // bare call is cheap on an append-only table.
+      if (since && /^\d+\s+(minute|hour|day|week)s?$/.test(since)) {
+        where.push(`created_at > now() - interval '${since}'`);
+      } else if (since) {
+        add("created_at >", since);
+      } else {
+        where.push(`created_at > now() - interval '1 day'`);
+      }
+      const n = Math.min(Math.max(parseInt(limit, 10) || 200, 1), 1000);
+      params.push(n);
+      const { rows } = await pool.query(
+        `SELECT id, signal_id, strategy, symbol, stage, detail, created_at
+           FROM signal_events
+          ${where.length ? "WHERE " + where.join(" AND ") : ""}
+          ORDER BY created_at DESC
+          LIMIT $${params.length}`, params);
+      res.json(rows);
+    } catch (error) {
+      console.error('[Admin/signal-events]', error);
+      res.status(500).json({ error: 'Failed to fetch signal events' });
+    }
+  });
+
   // --- Leaderboard: distinct session names (for filter dropdown) ---
   app.get("/api/leaderboard/session-names", async (req, res) => {
     try {

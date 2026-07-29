@@ -141,3 +141,60 @@ channel" true only while a separate kill-switch happened to be on would mean tha
 kill-switch off silently republishes every other strategy to subscribers — the guarantee has to hold
 on its own. Set `CHANNEL_ENTRIES_ONLY=false` to restore the previous behaviour (outcome cards and
 session opens public) without a code change.
+
+## Making the CURRENT state discoverable — the log throttle
+
+Added 2026-07-29, after "I haven't received any signal from BX, is it working?" took a broker query
+and a local replay to answer instead of one grep.
+
+**The log buffer is a fixed budget.** A 6,000-line pull came back covering **3h29m**. Two opposite
+habits both waste it:
+
+| | lines in that window | problem |
+|---|---|---|
+| BX-S/D | **0** | logged only on stage CHANGE, so a settled state is invisible |
+| VIX.1 | 627, one reason repeated 209× | logged every tick, drowning the buffer |
+
+`core/stage_tracker.py` is the shared mechanism: **emit on change, and re-emit every `HEARTBEAT_S`
+(900s) even when unchanged.** A floor for the quiet producer, a ceiling for the noisy one. It knows
+nothing about trading — callers own their own wording and keys, which is what lets independent
+strategies share it without their rules leaking into each other.
+
+**Measured on the real captured window, not estimated:** VIX.1 627 → 5 lines (99% fewer) with all
+5 distinct reasons preserved and none lost. In production the 15-minute restate makes that ~70 lines
+over the same window — still ~89% fewer, and every instrument's state always present.
+
+### The keying mistake worth not repeating
+
+Keying the throttle on the **symbol alone** gave only a 33% reduction. VIX.1 emits more than one
+reason per scan (the bias line, then the 1M line), so consecutive calls alternate A,B,A,B — every one
+looks "changed" and nothing is suppressed. The key must be **(symbol, reason-shape)** so each reason
+throttles independently. This was caught by measuring against the real log, not by reasoning about it.
+
+**The shape strips DECIMALS only** (`strategies/vix1_log.shape`). Prices move every tick and would
+defeat de-duplication; integers are kept, because `1HR=-1` → `1HR=1` is a trend flip and must print.
+
+### `evaluated` — strategy state that survives a restart
+
+Every line that actually prints is also written to `signal_events` as `stage='evaluated'`. Only
+emitted lines, so the volume is the de-duplicated one — never per tick (~7,700 scans/day would swamp
+the table and add nothing). This is what answers "what was it doing at 3am on Tuesday" after the log
+buffer has rolled and the container has restarted.
+
+### Reading it — `GET /api/admin/signal-events`
+
+`signal_events` had no reader outside the container, which is precisely why "check the events" could
+not be answered. Behind `requireAdmin` (`X-Admin-Secret` header) because these rows expose strategy
+internals — unlike `/api/trading-signals`, this must not be public.
+
+```bash
+curl -s -H "X-Admin-Secret: $ADMIN_SECRET" \
+  "https://www.fsdzones.cloud/api/admin/signal-events?strategy=bx_sd&limit=50"
+
+# what is each instrument doing right now
+curl -s -H "X-Admin-Secret: $ADMIN_SECRET" \
+  "https://www.fsdzones.cloud/api/admin/signal-events?stage=evaluated&since=2%20hours"
+```
+
+Filters: `strategy`, `symbol`, `stage`, `since` (an interval like `2 hours`, or an ISO timestamp),
+`limit` (default 200, max 1000). Defaults to the last day.

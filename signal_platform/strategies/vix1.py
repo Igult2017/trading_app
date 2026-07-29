@@ -32,7 +32,7 @@ from strategies.vix1_bias import detect_bias
 from strategies.vix1_entry import m1_signals
 from strategies.vix1_momentum import LOOKBACK, momentum_grade   # candle_counts[M1] derives from LOOKBACK
 from strategies.vix1_signal import build_signal
-from strategies import vix1_spacing
+from strategies import vix1_spacing, vix1_log
 from strategies.vix1_watch import check_invalidation, invalidation_signal, WATCH_M1
 from shared.pip import pip_size, price_digits
 from shared.mtf_utils import closed_only
@@ -102,7 +102,7 @@ class Vix1Strategy(BaseStrategy):
                 del self._locked[sym]                       # cleared — look for a fresh setup
             elif reason is not None:
                 del self._locked[sym]
-                log.info(f"[vix1] {sym} setup invalidated — {reason}")
+                vix1_log.say_always(f"[vix1] {sym} setup invalidated — {reason}")
                 # Only if the signal was actually DELIVERED: the lock is taken at BUILD time, but the
                 # validator/save can still drop the signal downstream — an invalidation DM for a
                 # setup nobody was ever told about is pure confusion. When it WAS delivered, also
@@ -128,10 +128,10 @@ class Vix1Strategy(BaseStrategy):
         bullish, vc_idx, origin, vol_count = bias
         vc = h1[vc_idx]
         if is_news_candle(vc, context.news, sym):           # NEVER trade the news candle itself
-            log.info(f"[vix1] {sym} 1st momentum candle is a news candle — skip")
+            vix1_log.say(sym, f"[vix1] {sym} 1st momentum candle is a news candle — skip")
             return StrategyResult(signals=out)
         if in_news_window(context.news, sym):               # H2: skip entries in a high-impact window
-            log.info(f"[vix1] {sym} inside a high-impact news window — skip entry")
+            vix1_log.say(sym, f"[vix1] {sym} inside a high-impact news window — skip entry")
             return StrategyResult(signals=out)
 
         # SPACING — is this instrument still busy with the last signal? Checked here, AFTER the bias
@@ -140,12 +140,12 @@ class Vix1Strategy(BaseStrategy):
         # for the rule in the user's own words.
         ok, why = vix1_spacing.check(h1, sym, self.id, now)
         if not ok:
-            log.info(f"[vix1] {sym} setup SKIPPED by spacing — {why}")
+            vix1_log.say(sym, f"[vix1] {sym} setup SKIPPED by spacing — {why}")
             return StrategyResult(signals=out)
 
         # 1M — align (structure, or a fractal break), then the pullback entry.
         delivery_ledger.cleanup(_STATE_TTL)
-        log.info(f"[vix1] {sym} 1HR bias OK ({'BUY' if bullish else 'SELL'}, {origin}, "
+        vix1_log.say(sym, f"[vix1] {sym} 1HR bias OK ({'BUY' if bullish else 'SELL'}, {origin}, "
                  f"{vol_count} vol candle{'s' if vol_count != 1 else ''}, from 1st) — checking 1M")
         raw = m1_signals(m1, bullish, vc, pip=pip, symbol=sym)
         if not raw:
@@ -198,7 +198,7 @@ class Vix1Strategy(BaseStrategy):
             # unwatched. "key" lets the invalidation path ask whether this setup was ever DELIVERED.
             self._locked[sym] = {"bullish": bullish, "entry": entry, "sl": sl,
                                  "locked_at": now, "key": key}
-            log.info(f"[vix1] {sym} 1M {s['kind'].upper()} signal — {'BUY' if bullish else 'SELL'} "
+            vix1_log.say_always(f"[vix1] {sym} 1M {s['kind'].upper()} signal — {'BUY' if bullish else 'SELL'} "
                      f"stop {entry:.{digits}f} SL {sl:.{digits}f}")
 
         return StrategyResult(signals=out)

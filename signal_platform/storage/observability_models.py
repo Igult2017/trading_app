@@ -29,6 +29,12 @@ STAGE_SAVED     = "saved"       # the DB row exists
 STAGE_DISPATCHED= "dispatched"  # handed to the notifier
 STAGE_DELIVERED = "delivered"   # the notifier confirmed the send
 STAGE_DROPPED   = "dropped"     # refused or failed — `detail` says why
+# Not part of a signal's life — a STRATEGY STATE change ("scanning, nothing tapped", "zone tapped,
+# awaiting confirmation"). Written only when the state actually changes or the heartbeat elapses,
+# never per tick: at ~7,700 scans/day per-tick rows would swamp the table and tell you nothing the
+# previous row did not. This is what makes "what was it doing at 3am on Tuesday" answerable after the
+# log buffer has rolled and the container has restarted.
+STAGE_EVALUATED = "evaluated"
 
 
 class SignalEventModel(Base):

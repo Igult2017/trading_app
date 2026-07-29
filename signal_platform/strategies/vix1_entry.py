@@ -42,6 +42,7 @@ from strategies.vix1_lines import draw_line
 from strategies.vix1_pullback import find_pullback, traded_past
 from strategies.vix1_fractal import fractal_broken
 from strategies.vix1_roi import regions, sl_from_regions
+from strategies import vix1_log
 
 log = logging.getLogger(__name__)
 
@@ -76,7 +77,7 @@ def m1_signals(m1: list[Candle], bullish: bool, vc: Candle,
     win    = [c for c in m1 if c.time >= vc.time + hr]     # only price action since the line was set
 
     if len(win) < 2:
-        log.info(f"[vix1] {symbol} 1M: only {len(win)} bars since the 1st momentum candle closed — waiting")
+        vix1_log.say(symbol, f"[vix1] {symbol} 1M: only {len(win)} bars since the 1st momentum candle closed — waiting")
         return []
 
     # LEVELS vs TRIGGERS (the hard rule): the feed's newest M1 bar is still FORMING — its high, low
@@ -102,7 +103,7 @@ def m1_signals(m1: list[Candle], bullish: bool, vc: Candle,
         broke, lvl = fractal_broken(wcl, bullish)
         if not broke:
             seen = "none formed yet" if lvl is None else f"{lvl:.{digits}f}"
-            log.info(f"[vix1] {symbol} 1M: price {last:.{digits}f} is the wrong side of the lines "
+            vix1_log.say(symbol, f"[vix1] {symbol} 1M: price {last:.{digits}f} is the wrong side of the lines "
                      f"({line:.{digits}f}) and the counter-move's last fractal ({seen}) has not "
                      f"broken — waiting (playbook: do nothing until the 1M lines up)")
             return []
@@ -111,7 +112,7 @@ def m1_signals(m1: list[Candle], bullish: bool, vc: Candle,
     # LINE 1 GATE — has price actually TRADED past it since it was drawn? A tick test, so the LIVE
     # window answers it (an intrabar push past the line counts the moment it happens).
     if not traded_past(win, bullish, line):
-        log.info(f"[vix1] {symbol} 1M: price has not traded past line 1 ({line:.{digits}f}) yet "
+        vix1_log.say(symbol, f"[vix1] {symbol} 1M: price has not traded past line 1 ({line:.{digits}f}) yet "
                  f"— an entry does not belong here; waiting")
         return []
 
@@ -119,7 +120,7 @@ def m1_signals(m1: list[Candle], bullish: bool, vc: Candle,
     # candle's edges become the entry and the SL clearance, and a level must not drift.
     pb, why = find_pullback(wcl, bullish, line)
     if pb is None:
-        log.info(f"[vix1] {symbol} 1M: aligned ({kind}) but {why} — waiting")
+        vix1_log.say(symbol, f"[vix1] {symbol} 1M: aligned ({kind}) but {why} — waiting")
         return []
 
     # THE PULLBACK MUST SIT PAST LINE 1 — enforced inside find_pullback (see its comment). This
@@ -157,11 +158,19 @@ def m1_signals(m1: list[Candle], bullish: bool, vc: Candle,
     # MARKET drew, so it cannot collapse just because the entry candle was clean.
     max_risk = vc.high - vc.low          # "2 candles of 1HR gives 2R" -> one candle is 1R
     pb_protective = pb.low if bullish else pb.high
-    got = sl_from_regions(entry, pb_protective, bullish,
-                          regions(wcl, bullish), pip, max_risk)
+    rois = regions(wcl, bullish)
+    got = sl_from_regions(entry, pb_protective, bullish, rois, pip, max_risk)
     if got is None:
-        log.info(f"[vix1] {symbol} 1M: no 1M region of interest sits beyond the pullback within one "
-                 f"1HR candle ({max_risk/pip:.0f}p) — no honest place for the stop; skipping")
+        # Say WHICH of the two happened. "The market drew no levels here" and "levels exist but every
+        # one of them is further than a 1HR candle" are different market conditions with different
+        # implications, and the single old wording covered both — so a run of these lines could not
+        # be read as either "wait, structure is forming" or "this setup is geometrically dead".
+        beyond = [r for r in rois if ((r < pb_protective) if bullish else (r > pb_protective))]
+        why = ("the 1M drew no regions of interest at all" if not rois else
+               f"none of the {len(rois)} 1M regions sit beyond the pullback" if not beyond else
+               f"all {len(beyond)} regions beyond the pullback are further than one 1HR candle")
+        vix1_log.say(symbol, f"[vix1] {symbol} 1M: no honest place for the stop within one 1HR candle "
+                             f"({max_risk/pip:.0f}p) — {why}; skipping")
         return []
     sl, risk, sl_note = got
 
@@ -190,7 +199,7 @@ def m1_signals(m1: list[Candle], bullish: bool, vc: Candle,
         risk   = abs(entry - sl)
         sl_note = f"{risk/pip:.1f}p — {gap/pip:.1f}p behind the line ({line:.{digits}f})"
         if risk > max_risk:
-            log.info(f"[vix1] {symbol} 1M: the nearest region sat PAST the line and a stop behind it "
+            vix1_log.say(symbol, f"[vix1] {symbol} 1M: the nearest region sat PAST the line and a stop behind it "
                      f"is {risk/pip:.1f}p, wider than one 1HR candle ({max_risk/pip:.0f}p); skipping")
             return []
 
@@ -203,7 +212,7 @@ def m1_signals(m1: list[Candle], bullish: bool, vc: Candle,
     room = max(_MIN_ROOM_MULT * m1_rng, pip)
     if risk < room:
         if room > max_risk:
-            log.info(f"[vix1] {symbol} 1M: the region gives only {risk/pip:.1f}p, the 1M needs "
+            vix1_log.say(symbol, f"[vix1] {symbol} 1M: the region gives only {risk/pip:.1f}p, the 1M needs "
                      f"{room/pip:.1f}p of room and one 1HR candle is {max_risk/pip:.0f}p — no honest "
                      f"stop fits; skipping")
             return []
@@ -215,11 +224,11 @@ def m1_signals(m1: list[Candle], bullish: bool, vc: Candle,
     # is already taken out, an order there is a LIMIT filling INTO the move: the inverse of this entry.
     last = win[-1].close
     if (entry <= last) if bullish else (entry >= last):
-        log.info(f"[vix1] {symbol} 1M: the pullback is already taken out (price {last:.{digits}f} "
+        vix1_log.say(symbol, f"[vix1] {symbol} 1M: the pullback is already taken out (price {last:.{digits}f} "
                  f"vs stop {entry:.{digits}f}) — a stop there would fill into the move; entry gone")
         return []
 
-    log.info(f"[vix1] {symbol} 1M PULLBACK entry ({kind} path) — "
+    vix1_log.say_always(f"[vix1] {symbol} 1M PULLBACK entry ({kind} path) — "
              f"{'BUY' if bullish else 'SELL'} stop {entry:.{digits}f} SL {sl:.{digits}f} "
              f"({sl_note}; line {line:.{digits}f})")
     # `late` / `ideal_tp` / `late_note` are kept in the payload as constants so downstream readers
