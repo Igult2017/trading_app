@@ -236,6 +236,19 @@ def _advance(z: MarkedZone, c: Candle) -> None:
     if z.state != "unmitigated":
         z.retaps += 1                      # a return visit; the card reports it
     z.last_tap_at = c.time
+
+    # ONCE RESPECTED, ALWAYS RESPECTED (until broken). A zone that reacted a full height away has
+    # PROVEN it holds, and that fact does not un-happen when price comes back to it — coming back is
+    # the retest, which is the whole point of the state.
+    #
+    # THE REGRESSION THIS PREVENTS: letting a body retap demote `respected` to `body_mitigated` moved
+    # the zone out of the RETEST path (bx_sd_reports ②, which demands grade B/A) and into the fresh
+    # cascade (C+). A zone with a track record would have been traded at a LOWER bar than a zone
+    # without one, which is backwards. Before the wick/body split, `respected` simply had no outgoing
+    # transition and the retest path kept it by default; the split broke that silently.
+    if z.state == "respected":
+        return
+
     if z.body_in(c):
         z.state = "body_mitigated"
         z.mitigated_at = z.mitigated_at or c.time

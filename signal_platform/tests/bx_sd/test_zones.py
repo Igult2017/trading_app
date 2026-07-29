@@ -121,7 +121,15 @@ chk("moved a zone-height away -> respected", z5.state, "respected")
 _advance(z5, C(3, 1.1030, 1.1035, 1.1005, 1.1012))      # comes BACK
 chk("a respected zone that is retapped is NOT dead", z5.live, True)
 chk("  the retap is counted", z5.retaps >= 1, True)
-chk("  and it reads as body-mitigated now", z5.state, "body_mitigated")
+# ONCE RESPECTED, ALWAYS RESPECTED. Letting a body retap demote it to body_mitigated moved the zone
+# out of the RETEST path (grade B/A) into the fresh cascade (C+) — trading a PROVEN zone at a LOWER
+# bar than an unproven one. Caught in review; this pins it.
+chk("  and it STAYS respected (retest path keeps it, at the B/A bar)", z5.state, "respected")
+z5b = demand(state="respected")
+_advance(z5b, C(9, 1.1030, 1.1035, 1.0980, 1.0985))     # body close beyond the distal
+chk("  but a respected zone can still BREAK", z5b.state, "broken")
+teeth("the once-respected rule", demand(state="respected") is not None
+      and z5.state == "respected" and z5.retaps >= 1)
 
 print()
 print("PERSISTENCE — every non-broken state stays live")

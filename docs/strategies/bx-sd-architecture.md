@@ -49,7 +49,7 @@ never ends a zone; only a body close beyond the distal does.
 | `unmitigated` | qualified and MARKED — waiting for price, **however long that takes** | |
 | `wick_mitigated` | wick entered, **body stayed outside** — a sweep. Orders unfilled, zone still loaded | signals, and the card says *wicked only* |
 | `body_mitigated` | the body traded the zone (Ch.6 p27) — **spent** | a retap still signals, with a caution |
-| `respected` | after a tap, price closed a full zone-height away | retappable, not terminal |
+| `respected` | after a tap, price closed a full zone-height away | retappable; **ONCE RESPECTED IT STAYS RESPECTED** (until broken) so the RETEST path keeps it at the B/A bar |
 | `broken` | **body** closed beyond the distal — dead (Ch.8 flip) | the ONLY terminal state |
 
 `retaps` counts return visits; `last_tap_at` stamps the most recent.
