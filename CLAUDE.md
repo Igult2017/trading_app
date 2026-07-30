@@ -149,10 +149,17 @@ historical bar is closed).
 ### Adding a Strategy
 1. Subclass `core.base_strategy.BaseStrategy`
 2. Declare all 8 required class attributes: `name`, `id`, `enabled`, `required_timeframes`, `required_indicators`, `required_patterns`, `allowed_sessions`, `allowed_trends`; also `allowed_instruments`, `news_stance`, `news_impact_filter`
-3. Implement `async analyze(candles: MTFCandles, indicators: IndicatorBundle, patterns: PatternBundle, news_context: NewsContext) -> StrategyResult`
+3. Implement `async analyze(self, context: StrategyContext) -> StrategyResult`. **One argument.** The
+   platform builds the context (`core/strategy_context.py`) and it carries `symbol`, `candles`
+   (`MTFCandles`, read with `.get(TF.H4)`), `indicators`, `patterns`, `features`, `session`, `news`,
+   `spread`, `volatility`. Build `MTFCandles` as `MTFCandles(_data={TF.H4: bars})` — it has no
+   `symbol` field.
 4. Register in `strategies/__init__.py`: `strategy_registry.register(MyStrategy())`
 
-**Currently stubbed**: zero strategies registered, zero indicators registered. The scan loop runs but produces no signals.
+**Registered**: two strategies — `Vix1Strategy` (`vix1`) and `BXStrategy` (`bx_sd`). Zero *indicators*
+are registered; both strategies compute what they need internally, so the scan loop produces signals
+without the indicator registry. (This block read "zero strategies registered, the scan loop produces
+no signals" until 2026-07-30, long after both shipped.)
 
 ### Key shared utilities for strategy authors
 - `shared/pullback_detector.py` — `latest_pullback()`, full Fibonacci analysis (0, 0.236, 0.382, 0.5, 0.618, 0.786, 1.0)
