@@ -52,14 +52,24 @@ never ends a zone; only a body close beyond the distal does.
 | `respected` | after a tap, price closed a full zone-height away | retappable; **ONCE RESPECTED IT STAYS RESPECTED** (until broken) so the RETEST path keeps it at the B/A bar |
 | `broken` | **body** closed beyond the distal — dead (Ch.8 flip) | the ONLY terminal state |
 
-`retaps` counts return visits; `last_tap_at` stamps the most recent.
+`retaps` counts **return VISITS** — `in_zone` remembers whether the previous closed bar was inside, so
+only the edge of a visit increments. It counted BARS until 2026-07-30 (a zone visited twice reported
+16), which inflated `bx_sd_strength` exactly where a zone was weakest: grinding sideways inside a zone
+is the opposite of respecting it. `last_tap_at` stamps the most recent bar inside.
+
+**`live_visit()` is the dedup unit for the mitigation heads-up**, not the zone. The registry ages on
+CLOSED bars, so at the instant of a live tap the counters have not moved; `live_visit()` returns a
+number stable across one visit and incrementing on the next. Keying the heads-up on the zone alone
+sent exactly one alert per zone for its entire life and swallowed every retap.
 
 **`live` = every state except `broken`.** Do **not** select on `live` in the cascade — `respected`
 belongs to the retest path (min_grade `B`), and accepting it in the fresh cascade fired the same zone
 twice, the second time at C+. The cascade selects `unmitigated | wick_mitigated | body_mitigated`.
 
-**Live-zone counts after the 2026-07-30 change:** EUR/USD 7→25, GBP/USD 14→22, USD/JPY 15→39,
-GBP/JPY 19→31.
+**Live-zone counts after the 2026-07-30 lifecycle change:** EUR/USD 7→25, GBP/USD 14→22,
+USD/JPY 15→39, GBP/JPY 19→31. **The marking fix later the same day barely moved the COUNT** (1000 H4
+bars: GBP/JPY 32→35 live, GBP/USD 22→23, EUR/USD 28→30) — it changed the SIZE of each band, which is
+the point.
 
 ## Formation — the book's three factors, all at formation time
 
@@ -73,7 +83,21 @@ GBP/JPY 19→31.
 3. **Liquidity grabbed before it** (`swept_before`, 20-bar look-back)
 
 Then marked by the book's technique (`mark_zone`): **wick** (p33-35) → **engulfed** (p72) →
-**institutional** open→MTH (Ch.4).
+**institutional** (Ch.4).
+
+**THE BAND IS THE WHOLE CANDLE, HIGH TO LOW** (p16 and p19 both box the entire candle; p72: *"Demand
+is the last bearish candle before a break of sub structure"*). p17's **open and MTH are two
+monitoring RAYS drawn on the candle, not its edges** — *"By putting these horizontal lines allows us
+to constantly monitor these Institutional candles."* Coding them as the edges (2026-07-26 → 07-30)
+cropped the band to a third of its size, produced 0.1-pip "zones", and turned an ordinary sweep into
+a body break — it deleted a live GBP/JPY zone four bars before it ran 77 pips. **The error is not
+symmetric:** too narrow invents breaks and misses taps; too wide can do neither, because
+`bx_sd_ltf.refine_zone` collapses a wide 4H zone onto a tight LTF POI for the entry (the book's Ch.9
+third step). Do not "tighten" this. Pinned by `tests/bx_sd/test_marking.py`.
+
+**Zone width scales the trade.** The stop is `_SL_BUFFER_PIPS` beyond the 4H distal and
+`_RESPECT_BUFFER` is a fraction of zone height, so both track the band. Median H4 zone width is
+~18–38 pips depending on the pair; TP is a fixed 3R, so R:R holds and absolute risk moves with it.
 
 **No catch-up replay from the IFC.** The bars between the IFC and the marking are the impulse *moving
 away* from the zone; replaying them makes the zone mitigated by its own creation candle. Measured:
@@ -86,7 +110,7 @@ zero mitigations are missed by starting the clock at `marked_at` (27 months, bot
 | file | owns |
 |---|---|
 | **`bx_sd_registry.py`** | **the zone book** — formation, lifecycle, `to_zone()` |
-| **`bx_sd_strength.py`** | **zone strength** — HTF confluence + violent departure + stack depth + retaps. Labels, never gates |
+| **`bx_sd_strength.py`** | **zone strength** — HTF confluence + violent departure + stack depth + retaps. Labels, never gates. **`score()` MUST be passed `htf_map` and `as_zone`** or HTF confluence — the heaviest weight — silently scores zero; that call was wrong for a day and backed 0 of 196 zones |
 | `bx_sd_zones.py` | MARKING techniques + `Zone`, `find_fvgs`, `zone_broken`/`break_index`, `needs_eq50` |
 | `bx_sd.py` | orchestrator — **builds the book ONCE per scan** and passes it down |
 | `bx_sd_setup.py` | the cascade: which marked zone is price working now |
@@ -149,10 +173,24 @@ because a backtest prefers something else.
 1. **Entry-price model is provisional.** "Enter at the confirming close" is the minimum change that
    stops signals firing behind price. The user has explicitly parked anything cleverer: *"keep it that
    way until I have a data-backed approach on how the entry signal should be."* **Do not invent one.**
-2. **Replay depth** — `candle_counts[TF.H4] = 200`; zones persist until mitigated or broken, and the
-   same history shows 7 live zones at 200 bars vs 13 at 797. Older live zones are invisible.
+2. ~~**Replay depth** — `candle_counts[TF.H4] = 200`~~ **CLOSED** — it is 1000 (~166 days). This entry
+   was stale for three days; a stale open-defect list is worse than none, because the next session
+   trusts it.
 3. **`pro_trend()` is dead code** in `bx_sd_structure` — no callers, kept only because removing a
    public method risks callers outside `strategies/`.
+4. **Four files are over the 150-line limit** and were before the 2026-07-30 work: `bx_sd_zones.py`
+   289, `bx_sd_registry.py` 282, `bx_sd.py` 195, `bx_sd_setup.py` 193. `bx_sd_zones` splits cleanly
+   (the marking techniques are one responsibility) but it is imported widely, so it is a planned
+   refactor, not something to do inside a bug fix.
+5. **`bx_sd_analysis.analysis_refine` sets `entry`, `sl` and `risk_pips` that are all superseded.**
+   `confirm_grade` overwrites `risk_pips` from the trigger, and the card and the `Signal` both read
+   `trig.*`, so **no wrong number reaches the user** — but the object carries a stop computed at
+   `distal ± 2 pip` while the real stop is `_SL_BUFFER_PIPS = 6` off the **4H** distal. Read `trig`,
+   never `conf`, for prices.
+6. **The RETEST card carries no zone strength or mitigation note.** `bx_sd_retest._setup_for_zone`
+   builds its own minimal `SetupResult` rather than going through `detect_setup`, so the two
+   enrichments added on 2026-07-30 reach the fresh cascade only. The retest path says `🔁 RETEST [B]`
+   and the grade, which is not nothing, but it cannot say *wicked only* or *STRONG*.
 
 > **THE TAP IS LIVE, THE ZONE IS CLOSED-BAR.** The registry marks and ages zones from CLOSED bars
 > (a level must come from a closed candle). But "is price at this zone?" is asked of the **FORMING**
@@ -181,8 +219,12 @@ because a backtest prefers something else.
 
 ## Verification harnesses (scratchpad)
 
-`bx_registry_test.py` (invariants + determinism + the 27 Jul case) · `bx_walkforward.py` (setups/month)
-· `bx_winrate.py` (full cascade win rate) · `bx_control_test.py` · `bx_marking_test.py` · `bx_e2e.py`.
+In the repo (**72 checks**): `tests/bx_sd/test_zones.py` (28, lifecycle) ·
+`tests/bx_sd/test_marking.py` (19, band geometry + the 29 Jul regression, on REAL cTrader bars) ·
+`tests/bx_sd/test_visits.py` (25, retap-as-visit, `live_visit()` dedup, strength HTF wiring, card).
+
+Scratchpad: `bx_registry_test.py` (invariants + determinism + the 27 Jul case) · `bx_walkforward.py`
+(setups/month) · `bx_winrate.py` (full cascade win rate) · `bx_control_test.py` · `bx_e2e.py`.
 
 **Measure walk-forward or the number is fiction** — `map_structure()` returns the FINAL state, so
 filtering whole history in one pass applies today's structure to the past. That mistake produced a

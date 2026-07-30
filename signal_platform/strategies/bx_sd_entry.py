@@ -20,7 +20,7 @@ from dataclasses import dataclass, field
 
 from core.types import Candle
 from shared.swing_points import find_swing_points
-from strategies.bx_sd_ltf import find_ltf_choch, _choch_valid, refine_zone, LTFConfluence
+from strategies.bx_sd_ltf import find_ltf_choch, _choch_valid, LTFConfluence
 from strategies.bx_sd_structure import map_structure
 from strategies.bx_sd_setup import SetupResult, _SL_BUFFER_PIPS, _TP_R, _RESPECT_BUFFER
 
@@ -57,8 +57,11 @@ def _rr(entry: float, sl: float, tp: float, buy: bool) -> float:
 
 
 def entry_trigger(conf: LTFConfluence, setup: SetupResult, entry_tf: list[Candle],
-                  h4: list[Candle], pip: float = 0.0001, min_rr: float = 2.0,
+                  h4: list[Candle], pip: float = 0.0001,
                   session_candles: list[Candle] | None = None) -> EntryTrigger:
+    # `min_rr` was a parameter here and was never read: TP is a fixed _TP_R multiple of the risk, so
+    # RR is 3.0 by construction and there is nothing to threshold. Removed rather than left as a knob
+    # that looks like it does something.
     r = EntryTrigger(direction=setup.direction)
     if not conf.passed:
         r.reason = "LTF confluence did not pass"; return r
@@ -90,10 +93,12 @@ def entry_trigger(conf: LTFConfluence, setup: SetupResult, entry_tf: list[Candle
     method = ("CHoCH+Flip (god setup)" if (choch and flip)
               else "CHoCH" if choch else "S/D Flip" if flip else "Continuation")
 
-    # Refine DOWN to the ENTRY TF for a tight SL (book Ch.15 steps 3-4: "refine down to 1M"). The CHoCH
-    # above is checked against the wider (analysis/4H) zone; the SL comes off the tightest entry-TF POI.
-    # This is what lets a bare-C setup (no analysis-TF refinement) still fit a ~2-pip SL and clear RR.
-    z = refine_zone(entry_tf, zdir, z, pip) or z
+    # NO SECOND REFINEMENT HERE. There used to be a `z = refine_zone(entry_tf, zdir, z, pip) or z`
+    # on this line, commented "the SL comes off the tightest entry-TF POI". That stopped being true
+    # when the stop moved to the 4H distal (the user's rule, see below) — `z` was never read again,
+    # so the call scanned every entry-TF bar for zones on every trigger and threw the answer away,
+    # while its comment told the next reader the stop came from somewhere it does not. `refine_zone`
+    # still runs once upstream (bx_sd_analysis) where its result IS used.
 
     # THE ZONE MUST BE RESPECTED, not being ground against. User's rule: "the 4H distal will only guide
     # to ensure the 4H zone has been respected and the price has moved away from it a little, not

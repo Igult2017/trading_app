@@ -106,22 +106,38 @@ def is_engulfed(candles: list[Candle], zi: int) -> bool:
 
 
 def mark_institutional(candle: Candle, bull: bool) -> tuple[float, float]:
-    """Ch.4 p17 — the INSTITUTIONAL CANDLE, marked the book's way.
+    """Ch.4 — the INSTITUTIONAL CANDLE. The zone is the WHOLE CANDLE, high to low.
+
+    READ THE BOOK'S PICTURES BEFORE CHANGING THIS. p16 (the schematic) and p19 (the live example,
+    labelled "1HR Institutional candle (IC)") both draw the zone box around the ENTIRE candle. p72
+    says the same in words: "Demand is the last bearish candle before a break of sub structure."
+
+    WHY THIS IS NOT open → MTH, AND WHAT THAT MISTAKE COST. p17 says:
 
     > "We will then place a horizontal ray and note on the line: the timeframe the candle formed, if
     >  it is Bullish/bearish candle, then illustrate the OPEN of the candle and the MIDDLE; the
-    >  middle of the candle we will caption MTH (stand for 'mean threshold')."
+    >  middle of the candle we will caption MTH (stand for 'mean threshold'). By putting these
+    >  HORIZONTAL LINES allows us to constantly MONITOR these Institutional candles."
 
-    So the marked band is OPEN → MTH, not high → low. That distinction is not cosmetic: a candle with
-    a long wick marked high-to-low is far wider, so it reads as TAPPED much earlier and carries a
-    stop much further away than the book's zone. The code marked high/low until 2026-07-26.
+    The open and the MTH are two reference RAYS drawn ON the candle to monitor it — they are not the
+    zone's edges. From 2026-07-26 to 2026-07-30 this function returned (open, MTH), which crops the
+    band to whatever happens to lie between the open and the midpoint. When a candle opens near its
+    own midpoint that is nearly nothing: the smallest zone the registry produced was 0.1 pips, and
+    43/192 GBP/JPY zones came out under 5 pips wide.
 
-    MTH is the midpoint of the WHOLE candle (high..low) — the "mean threshold" of the candle, which
-    is what the book captions — and the zone runs from the open to it, ordered so `top >= bottom`.
+    THE CASE THAT EXPOSED IT (GBP/JPY H4, 15 Jul -> 29 Jul 2026). The 15 Jul 13:00 demand zone is
+    217.312-217.807 (49 pips). open->MTH marked it 217.415-217.560 — 14 of the 49. On 29 Jul 01:00
+    price wicked to 217.166 and CLOSED 217.319: ten pips under the cropped floor, so the zone was
+    declared broken and deleted — but 0.7 pips ABOVE the real floor, so the real zone held and the
+    wick beneath it was a liquidity sweep, which the book calls a reason to TRADE the zone. Four bars
+    later, 29 Jul 17:00 ran 217.796 -> 218.482. The setup was missed because a sweep of a correctly
+    marked zone read as a body break of an incorrectly marked one.
+
+    A zone marked too NARROW invents breaks and misses taps. A zone marked too WIDE cannot do either;
+    `refine_zone` (bx_sd_ltf) collapses it onto a tight LTF POI for the entry, which is the book's own
+    Ch.9 third step. The error is not symmetric — do not "tighten" this.
     """
-    mth = (candle.high + candle.low) / 2.0
-    top, bottom = max(candle.open, mth), min(candle.open, mth)
-    return top, bottom
+    return candle.high, candle.low
 
 
 def mark_zone(candles: list[Candle], ifc: int, bull: bool) -> tuple[float, float, int, str]:

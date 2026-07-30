@@ -65,8 +65,16 @@ class MarkedZone:
 
     # Set when the zone is tapped again after it had already been mitigated. The card must say so —
     # a retap of a zone that was properly (body) mitigated is a CAUTION, not a fresh setup.
+    #
+    # A RETAP IS A RETURN VISIT, NOT A BAR. This counted every bar price spent inside the zone until
+    # 2026-07-30, so a zone price consolidated in for 17 bars reported `retaps=16` when it had been
+    # visited twice. That is not a cosmetic slip: `bx_sd_strength` rewards retaps as evidence the zone
+    # is respected, and grinding sideways inside a zone is the OPPOSITE of respecting it — the count
+    # was strongest exactly where the zone was weakest. `in_zone` remembers whether the PREVIOUS bar
+    # was inside, so only a fresh entry increments.
     retaps: int = 0
     last_tap_at: int | None = None
+    in_zone: bool = False        # was the previous CLOSED bar inside? (visit-edge detection)
 
     @property
     def live(self) -> bool:
@@ -83,6 +91,20 @@ class MarkedZone:
     def spent(self) -> bool:
         """A body traded the zone. Still tradeable on a retap, but flagged with caution."""
         return self.state in ("body_mitigated", "respected") or self.retaps > 0
+
+    def live_visit(self) -> int:
+        """Which VISIT a tap by the FORMING bar belongs to — the dedup unit for the heads-up.
+
+        The registry ages zones from CLOSED bars, so at the moment a live tap happens the counters
+        have not moved yet. Without this, `bx_sd_reports` keyed its mitigation heads-up on the zone
+        alone and therefore sent exactly ONE per zone for its entire life — every later retap was
+        silently swallowed, which contradicts the rule that a wick tap signals AND its later retap
+        signals again. Returns a number that is stable for the duration of one visit and increments
+        on the next.
+        """
+        if self.state == "unmitigated" or self.in_zone:
+            return self.retaps
+        return self.retaps + 1
 
     def body_in(self, c: Candle) -> bool:
         """Did the candle's BODY enter the zone? Mitigation is by wick OR body (the user's rule); this
@@ -227,14 +249,18 @@ def _advance(z: MarkedZone, c: Candle) -> None:
         z.state, z.broken_at = "broken", c.time
         return
     if not z.tapped_by(c):
+        z.in_zone = False                  # the visit (if any) has ended
         # Away from the zone — a body close a full zone-height clear counts as respected.
         if z.state in ("wick_mitigated", "body_mitigated") and z.reacted_by(c):
             z.state, z.respected_at = "respected", c.time
         return
 
     # --- price is IN the zone on this bar -------------------------------------------------------
-    if z.state != "unmitigated":
+    # Count the EDGE of a visit, not its duration. `z.in_zone` is the previous closed bar's answer,
+    # so this fires once when price comes back and stays silent while it lingers.
+    if z.state != "unmitigated" and not z.in_zone:
         z.retaps += 1                      # a return visit; the card reports it
+    z.in_zone = True
     z.last_tap_at = c.time
 
     # ONCE RESPECTED, ALWAYS RESPECTED (until broken). A zone that reacted a full height away has

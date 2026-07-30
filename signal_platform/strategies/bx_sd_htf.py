@@ -19,8 +19,16 @@ def _overlaps(a: Zone, b: Zone) -> bool:
     return a.bottom <= b.top and b.bottom <= a.top
 
 
-def htf_zone_map(candles_by_label: dict[str, list[Candle]]) -> dict[str, list[Zone]]:
+def htf_zone_map(candles_by_label: dict[str, list[Candle]],
+                 pip: float = 0.0001) -> dict[str, list[Zone]]:
     """{'Daily': [zones], 'Weekly': [...], 'Monthly': [...]} — only TFs with enough history.
+
+    PASS THE INSTRUMENT'S PIP. `build_registry` uses it for the equal-high/low tolerance that marks
+    EQH/EQL liquidity pools, which is factor 3 of zone formation. This called `build_registry(cs)`
+    with no pip until 2026-07-30, so every HTF map on a JPY pair or an index was built with a
+    tolerance 100x too tight. No zone actually flipped on the data measured (GBP/JPY D1 and W1 were
+    identical either way, because plain swing pools already satisfied the sweep) — it is a latent
+    correctness defect, fixed rather than left to bite on a series where it does matter.
 
     A zone price has CLOSED through is DEAD — EVERYWHERE (settled BX rule), the HTF included: a
     broken Monthly demand is a flipped level, and letting it "back" a 4H zone upgraded setups to
@@ -33,7 +41,7 @@ def htf_zone_map(candles_by_label: dict[str, list[Candle]]) -> dict[str, list[Zo
     for label, cs in candles_by_label.items():
         if not cs or len(cs) < _MIN_BARS:
             continue
-        out[label] = [to_zone(mz, closed_only(cs)) for mz in build_registry(cs) if mz.live]
+        out[label] = [to_zone(mz, closed_only(cs)) for mz in build_registry(cs, pip) if mz.live]
         out[label] = [z for z in out[label] if z is not None]
     return out
 

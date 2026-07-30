@@ -19,7 +19,9 @@ judged later, against a window that has since moved, can be validated by a break
 it existed — which is exactly how a mid-waterfall candle was sold as a zone on 27 Jul 2026.
 
   1. registry   the zone was marked when it qualified (IFC + its impulse broke structure + fuel)
-  2. mitigated  price has tapped it within the last _RECENT 4H bars and it is not broken
+  2. tapped     the FORMING bar is in the zone RIGHT NOW, and the zone is not broken. Not "within
+                the last N bars" — that window existed, was 24 hours wide, and fired signals for
+                taps that had already come and gone
   3. priced     discount for buys / premium for sells                      (confluence)
   4. the 1M/5M confirmation downstream is what proves the zone was RESPECTED
 """
@@ -44,7 +46,8 @@ _TP_R           = 3.0  # fixed 3R target (user: "just leave TP at 3R")
 _RESPECT_BUFFER = 0.25 # the confirming close must sit this fraction of the 4H zone height
                        # INSIDE the zone from the distal — the user's "moved away from it a
                        # little, not struggling to break it". One constant, tune on evidence.
-_RECENT     = 6    # a live tap must be within the last N 4H bars (leaves time for the LTF to confirm)
+# NOTE: no `_RECENT` window here. It was 6 bars and became dead when the tap rule moved to the
+# FORMING bar; it sat unread for three days while the docstring above still described it as the rule.
 _MIN_PIPS   = 3.0  # ignore micro-FVG zones — same noise floor the 3 report paths already apply
                    # (bx_sd_reports._MIN_PIPS); the core cascade lacked it, so a sub-3-pip candidate
                    # could drive a real channel entry the reports would have skipped as noise
@@ -63,7 +66,12 @@ class SetupResult:
     reason:      str  = ""        # diagnostics — why inactive
 
 
-def detect_setup(h4: list[Candle], pip: float = 0.0001, book=None) -> SetupResult:
+def detect_setup(h4: list[Candle], pip: float = 0.0001, book=None,
+                 htf_map: dict | None = None) -> SetupResult:
+    """`htf_map` is the D1/W1/MN zone map (bx_sd_htf.htf_zone_map). It is only used to SCORE the
+    zone's strength, never to gate it. It must be passed: HTF confluence is the user's first-named
+    and highest-weighted strength input (`_W_HTF = 3` per timeframe), and omitting it silently
+    scored 0 of 196 zones as HTF-backed and capped every score at 6 — see the fix log."""
     r = SetupResult()
     if len(h4) < 30:
         r.reason = "not enough 4H history"; return r
@@ -175,7 +183,7 @@ def detect_setup(h4: list[Candle], pip: float = 0.0001, book=None) -> SetupResul
     # HOW it was mitigated and HOW STRONG it is — both read off the zone book, both previously
     # invisible on the card. A wick-only tap and a full body mitigation used to look identical.
     if cand_mz is not None:
-        _s = zone_strength(cand_mz, marked, bars)
+        _s = zone_strength(cand_mz, marked, bars, htf_map=htf_map, as_zone=cand)
         r.confluences["mitigation_note"] = mitigation_note(cand_mz)
         r.confluences["strength_phrase"] = (f"Zone strength {_s.label} ({_s.score}) — "
                                             f"{', '.join(_s.reasons())}")

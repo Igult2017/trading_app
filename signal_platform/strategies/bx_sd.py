@@ -79,9 +79,9 @@ class BXStrategy(BaseStrategy):
         htf    = {"Daily":   context.candles.get(TF.D1),
                   "Weekly":  context.candles.get(TF.W1),
                   "Monthly": context.candles.get(TF.MN)}
-        htf_map = htf_zone_map(htf)                       # D1/W1/MN zones — the A-grade backing check
         pip    = pip_size(sym)
         digits = price_digits(sym)
+        htf_map = htf_zone_map(htf, pip)                  # D1/W1/MN zones — the A-grade backing check
         # THE ZONE BOOK — built ONCE per scan and passed down. Every path reads the same marked
         # zones; nothing re-derives them. Building it per-consumer would duplicate the replay and,
         # worse, let two paths disagree about what a zone is — which is the bug this replaced.
@@ -128,7 +128,7 @@ class BXStrategy(BaseStrategy):
             return StrategyResult(signals=out)
 
         # STAGE 1 — 4H setup (valid fresh zone EITHER SIDE, tapped, priced, liquidity-safe)
-        setup = detect_setup(h4, pip, book=book)
+        setup = detect_setup(h4, pip, book=book, htf_map=htf_map)
         if not setup.active:
             self._log(sym, "SCANNING", f"4H: {setup.reason}")
             return StrategyResult(signals=out)

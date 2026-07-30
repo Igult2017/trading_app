@@ -10,11 +10,21 @@ from strategies.bx_sd_zones import Zone
 
 
 def mitigation_signal(zone: Zone, symbol: str, backing: list[str], digits: int,
-                      strategy_name: str, strategy_id: str) -> Signal:
+                      strategy_name: str, strategy_id: str,
+                      note: str = "", retaps: int = 0) -> Signal:
+    """`note` is `bx_sd_strength.mitigation_note` — HOW the zone was mitigated.
+
+    It is not optional in practice. Until 2026-07-30 this card said only "zone MITIGATED" for every
+    case, so a WICK-ONLY sweep (orders unfilled, price expected back) and a full body mitigation
+    (zone spent) were indistinguishable to the reader — while a comment in `bx_sd_reports` claimed
+    "the card distinguishes them". The default is empty so the signature stays back-compatible for
+    tests, never because a caller should omit it.
+    """
     buy  = zone.direction == "demand"
     side = "BUY" if buy else "SELL"
     tag  = f" — backed by {', '.join(backing)}" if backing else ""
     prio = "🔥 premium (HTF-backed)" if backing else "⚡ standard"
+    extra = ([note] if note else []) + ([f"Return visit #{retaps} to this zone"] if retaps else [])
     return Signal(
         symbol            = symbol,
         direction         = Direction.BUY if buy else Direction.SELL,
@@ -24,8 +34,9 @@ def mitigation_signal(zone: Zone, symbol: str, backing: list[str], digits: int,
         qualified         = True,
         primary_timeframe = TF.H4,
         technical_reasons = [
-            f"Fresh 4H {zone.direction} zone MITIGATED "
+            f"4H {zone.direction} zone MITIGATED "
             f"[{zone.bottom:.{digits}f}–{zone.top:.{digits}f}]{tag}",
+            *extra,
             f"Priority: {prio} — watching for a reaction, then a 1M/5M-aligned retest entry",
         ],
         market_context    = (f"BX-S/D heads-up — {symbol} tapped a fresh 4H {zone.direction} "

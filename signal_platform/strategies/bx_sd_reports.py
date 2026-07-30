@@ -23,6 +23,7 @@ from shared.mtf_utils import closed_only
 from strategies.bx_sd_registry import build, to_zone
 from strategies.bx_sd_htf import htf_zone_map, htf_backing
 from strategies.bx_sd_mitigation import mitigation_signal
+from strategies.bx_sd_strength import mitigation_note
 from strategies.bx_sd_retest import _setup_for_zone
 from strategies.bx_sd_confirm import confirm_grade
 from strategies.bx_sd_signal import build_signal
@@ -36,7 +37,7 @@ def scan_reports(symbol: str, h4: list[Candle], analysis_tfs: list, entry_tf: li
                  name: str, sid: str, book=None) -> list[Signal]:
     out: list[Signal] = []
     dm_id   = f"{sid}_watch"   # a heads-up is not a signal -> admin DM, never the channel
-    htf_map = htf_zone_map(htf_candles)
+    htf_map = htf_zone_map(htf_candles, pip)
     tmin    = _MIN_PIPS * pip
     bars    = closed_only(h4)
     if len(bars) < _RECENT:
@@ -57,13 +58,18 @@ def scan_reports(symbol: str, h4: list[Candle], analysis_tfs: list, entry_tf: li
             continue
         if (mz.top - mz.bottom) < tmin:
             continue
-        key = f"{dm_id}_mit_{mz.ifc_time}_{mz.direction}"
+        # PER VISIT, not per zone. Keying on the zone alone sent exactly ONE heads-up for its whole
+        # life, so every later retap was swallowed — the opposite of the rule that a wick tap signals
+        # AND its retap signals again. `live_visit()` is stable while price lingers inside and
+        # increments when it comes back, so a lingering zone does not spam either.
+        key = f"{dm_id}_mit_{mz.ifc_time}_{mz.direction}_v{mz.live_visit()}"
         if delivery_ledger.is_delivered(key):
             continue
         z = to_zone(mz, bars)
         if z is None:
             continue
-        sig = mitigation_signal(z, symbol, htf_backing(z, htf_map), digits, name, dm_id)
+        sig = mitigation_signal(z, symbol, htf_backing(z, htf_map), digits, name, dm_id,
+                                note=mitigation_note(mz), retaps=mz.retaps)
         sig.dedup_key = key                 # committed only when the DM actually lands
         out.append(sig)
 

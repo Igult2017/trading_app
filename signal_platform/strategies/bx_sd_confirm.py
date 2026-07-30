@@ -12,7 +12,7 @@ The fresh cascade fires at any grade (min_grade="C"); the retest requires B/A (m
 mitigated major zone must EARN its re-entry with confluence.
 """
 from core.types import Candle
-from strategies.bx_sd_setup import SetupResult
+from strategies.bx_sd_setup import SetupResult, _SL_BUFFER_PIPS
 from strategies.bx_sd_analysis import analysis_refine
 from strategies.bx_sd_entry import entry_trigger
 from strategies.bx_sd_liquidity import find_liquidity, defensive_ok
@@ -38,9 +38,12 @@ def confirm_grade(setup: SetupResult, h4: list[Candle],
         return None
     # DEFENSE — "don't be the liquidity" (locked constraint), on the FINAL entry/SL. Every path that
     # confirms an entry goes through here (fresh cascade + retest), so the guard can't be skipped again.
-    # Exclude the zone's own distal — the SL is tucked 2 pip beyond it by design.
+    # Exclude the zone's own distal — the SL is tucked _SL_BUFFER_PIPS beyond it by design
+    # (bx_sd_entry: sl = zone4h.distal -/+ _SL_BUFFER_PIPS * pip), so inverting the SL recovers it.
+    # This read "+ 2 * pip" until 2026-07-30, a leftover from when the buffer was 2; it excluded a
+    # price 4 pips off the real distal, so the distal's own liquidity was never actually exempted.
     buy    = setup.direction == "buy"
-    distal = trig.sl + 2 * pip if buy else trig.sl - 2 * pip
+    distal = trig.sl + _SL_BUFFER_PIPS * pip if buy else trig.sl - _SL_BUFFER_PIPS * pip
     zdir   = "demand" if buy else "supply"
     ok, _  = defensive_ok(find_liquidity(h4, pip, session_candles=finer), h4, zdir,
                           trig.entry, trig.sl, pip, exclude=distal)
