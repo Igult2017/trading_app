@@ -1154,11 +1154,20 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
                 {(card.createdAt || card.strategy) && (
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center",
                                 marginBottom: 8, fontSize: 10, fontWeight: 700, letterSpacing: "0.05em" }}>
-                    <span
-                      style={{ color: "#9fb3c8" }}
-                      title={card.createdAt ? new Date(card.createdAt).toLocaleString() : ""}
-                    >
-                      {timeAgo(card.createdAt)}
+                    {/* BOTH: relative answers "how fresh", absolute answers "which candle" — a
+                        signal you are checking against a chart needs the second. The absolute is a
+                        step dimmer so the pair reads as one field, not two competing ones, but it
+                        is still 6.6:1, well clear of AA. */}
+                    <span style={{ display: "flex", alignItems: "baseline", gap: 5 }}>
+                      <span style={{ color: "#9fb3c8" }}>{timeAgo(card.createdAt)}</span>
+                      {card.createdAt && (
+                        <span style={{ color: "#6f849b", fontWeight: 600 }}>
+                          {new Date(card.createdAt).toLocaleString(undefined, {
+                            month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
+                            hour12: false,
+                          })}
+                        </span>
+                      )}
                     </span>
                     {card.strategy && (
                       <span style={{ color: "#c3a8f5", textTransform: "uppercase" }}>{card.strategy}</span>
