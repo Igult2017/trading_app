@@ -45,6 +45,14 @@ export interface ThemeDef {
   border: string;
   accent: string;
   swatches: [string, string, string];
+  /**
+   * Light-theme-only extras. Optional so the five dark themes are untouched — they were brought to
+   * AA in their own pass and nothing here should disturb them. Consumers must fall back:
+   * `T.panelAlt ?? T.surface`, `T.faint ?? T.textMuted`, `T.borderStrong ?? T.border`.
+   */
+  panelAlt?: string;
+  borderStrong?: string;
+  faint?: string;
 }
 
 export interface FontDef {
@@ -125,14 +133,20 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
   light: {
     label: 'Light',
     dark: false,
-    bg: '#EEF2F8',          // soft cool-gray canvas so white cards have real depth (was flat #FFFFFF)
-    sidebarBg: '#FFFFFF',   // clean white rail against the gray canvas
-    surface: '#FFFFFF',     // white cards/panels — they now pop off the canvas
-    text: '#0F172A',        // slate-900 — crisp headings/values (~16:1 on white)
-    textMuted: '#5A6679',   // slate-ish muted — labels readable at small sizes (~6:1)
-    border: '#E2E8F0',      // slate-200 — soft, designed to pair with the card shadows below
-    accent: '#2563eb',      // blue-600
-    swatches: ['#EEF2F8', '#FFFFFF', '#2563eb'],
+    // WARM off-white palette, adopted 2026-08-01 from the reference design the user supplied.
+    // Only the COLOUR TOKENS and the text-weight rules crossed over from it — no layout, no
+    // components, no accent palette. The previous cool-grey canvas (#EEF2F8 / #E2E8F0) is gone.
+    bg: '#FFFEFB',          // warm canvas
+    sidebarBg: '#FFFFFF',   // clean white rail
+    surface: '#FFFFFF',     // cards/panels
+    text: '#141310',        // near-black, ~19:1 on surface
+    textMuted: '#5C5646',   // labels — 7.4:1 on surface, comfortably AA at 11-12px
+    border: '#E7E2D5',      // warm hairline
+    accent: '#2563eb',      // blue-600 — kept; the existing accent was never the problem
+    swatches: ['#FFFEFB', '#FFFFFF', '#2563eb'],
+    panelAlt: '#FBFAF6',    // progress tracks, wells, zebra rows
+    borderStrong: '#D9D2BF',
+    faint: '#7A735F',       // axes, timestamps — 4.9:1, still AA
   },
 };
 

@@ -29,13 +29,24 @@ const styles = `
     font-size: 0.75rem; color: #2d8cf0; font-weight: 600;
     margin-bottom: 20px;
   }
+  /* .ct-app is EXEMPT from the Journal's global font rule (it must be, or its icon glyphs render
+     as text), so this subtree does not inherit the app font and has to opt in by hand. It said
+     'Montserrat' until 2026-08-01 — the last non-Playfair surface in the Journal. */
   .ts-hero h1 {
-    font-family: 'Montserrat', sans-serif !important;
+    font-family: 'Playfair Display Variable', 'Playfair Display', Georgia, serif !important;
     font-size: 3.5rem !important; font-weight: 800 !important; line-height: 1.1 !important;
     margin-bottom: 20px !important;
     background: linear-gradient(135deg, #fff 40%, #2d8cf0) !important;
     -webkit-background-clip: text !important; -webkit-text-fill-color: transparent !important;
     letter-spacing: normal !important;
+  }
+  /* The gradient starts at #fff, so on the light theme this heading was white-on-white for its
+     first 40% and invisible. Drop the gradient entirely there rather than tint it — a clipped
+     gradient cannot be made reliably legible on a white canvas. */
+  .journal-light .ts-hero h1 {
+    background: none !important;
+    -webkit-text-fill-color: currentColor !important;
+    color: #141310 !important;
   }
   .ts-hero p {
     font-size: 1.05rem; color: var(--jr-muted); line-height: 1.7;
@@ -85,7 +96,7 @@ const styles = `
     display: flex; align-items: center; justify-content: center;
     font-size: 1.1rem;
   }
-  .ts-diag-label { font-family: 'Montserrat', sans-serif !important; font-weight: 600 !important; font-size: 0.9rem !important; letter-spacing: normal !important; }
+  .ts-diag-label { font-family: 'Playfair Display Variable', 'Playfair Display', Georgia, serif !important; font-weight: 600 !important; font-size: 0.9rem !important; letter-spacing: normal !important; }
   .ts-diag-id { font-size: 0.75rem; color: var(--jr-muted); font-weight: 400 !important; }
   .ts-badge-master {
     background: #2d8cf0; color: #fff;
@@ -113,7 +124,7 @@ const styles = `
   .ts-section { padding: 72px 48px; max-width: 1200px; margin: 0 auto; }
   .ts-section-header { text-align: center; margin-bottom: 48px; }
   .ts-section-title {
-    font-family: 'Montserrat', sans-serif !important;
+    font-family: 'Playfair Display Variable', 'Playfair Display', Georgia, serif !important;
     font-size: 1.8rem !important; font-weight: 700 !important;
     color: #2d8cf0; margin-bottom: 10px;
     letter-spacing: normal !important;
@@ -130,7 +141,7 @@ const styles = `
   .ts-step-num {
     width: 42px; height: 42px;
     background: #2d8cf0; color: #fff;
-    font-family: 'Montserrat', sans-serif !important; font-weight: 700 !important; font-size: 1.1rem !important;
+    font-family: 'Playfair Display Variable', 'Playfair Display', Georgia, serif !important; font-weight: 700 !important; font-size: 1.1rem !important;
     display: flex; align-items: center; justify-content: center;
     margin-bottom: 18px; letter-spacing: normal !important;
   }
@@ -175,7 +186,7 @@ const styles = `
 
   .ts-fp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 56px; align-items: start; }
   .ts-features-title {
-    font-family: 'Montserrat', sans-serif !important; font-weight: 700 !important;
+    font-family: 'Playfair Display Variable', 'Playfair Display', Georgia, serif !important; font-weight: 700 !important;
     font-size: 0.9rem !important; color: #2d8cf0;
     display: flex; align-items: center; gap: 8px; margin-bottom: 6px;
     letter-spacing: normal !important;
@@ -208,7 +219,7 @@ const styles = `
   .ts-toggle-btn.active { background: #2d8cf0; color: #fff; }
   .ts-price-label { font-size: 0.78rem; color: var(--jr-muted); margin-bottom: 6px; font-weight: 400 !important; }
   .ts-price-amount {
-    font-family: 'Montserrat', sans-serif !important; font-weight: 800 !important;
+    font-family: 'Playfair Display Variable', 'Playfair Display', Georgia, serif !important; font-weight: 800 !important;
     font-size: 2.4rem !important; color: var(--jr-text); margin-bottom: 4px;
     letter-spacing: normal !important;
   }
@@ -224,7 +235,7 @@ const styles = `
     padding: 22px; margin-top: 20px;
   }
   .ts-checkout-title {
-    font-family: 'Montserrat', sans-serif !important; font-weight: 700 !important;
+    font-family: 'Playfair Display Variable', 'Playfair Display', Georgia, serif !important; font-weight: 700 !important;
     font-size: 0.9rem !important; display: flex; align-items: center; gap: 8px;
     margin-bottom: 8px; letter-spacing: normal !important;
   }

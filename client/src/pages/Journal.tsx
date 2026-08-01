@@ -1334,6 +1334,86 @@ export default function Journal() {
         .journal-light [style*="border:1px solid #334155"] { border-color: ${T.border} !important; }
         .journal-light .accounts-root [style*="color: #38bdf8"],
         .journal-light .accounts-root [style*="color:#38bdf8"] { color: #1d4ed8 !important; }
+
+        /* ══ READABILITY LAYER — last in the cascade, 2026-08-01 ═══════════════════════════
+           The white theme read as "blurred". It is not blur: nothing filters page text. It is
+           light TINTS designed for dark backgrounds, landing on white. Measured with
+           scripts/contrast-audit.mjs: 79 distinct hardcoded foreground colours across these
+           panels, 39 remapped by the sheet above, 40 falling through at 1.1-3.4:1.
+
+           These map the TINT FAMILIES, not one component at a time. Do not answer the next
+           washed-out colour with another per-component selector - that habit is what produced
+           the 144-rule sheet above and the gaps in it. */
+
+        /* Blue tints -> blue-700 (6.3:1 on white) */
+        .journal-light [style*="color: #60a5fa"], .journal-light [style*="color:#60a5fa"],
+        .journal-light [style*="color: #93c5fd"], .journal-light [style*="color:#93c5fd"],
+        .journal-light [style*="color: #4f9cf9"], .journal-light [style*="color:#4f9cf9"],
+        .journal-light [style*="color: #3b82f6"], .journal-light [style*="color:#3b82f6"],
+        .journal-light [style*="color: #2d8cf0"], .journal-light [style*="color:#2d8cf0"],
+        .journal-light [style*="color: #3d9fd3"], .journal-light [style*="color:#3d9fd3"],
+        .journal-light [style*="color: #5b8cf8"], .journal-light [style*="color:#5b8cf8"] { color: #1d4ed8 !important; }
+
+        /* Green tints -> emerald-700 (5.0:1) */
+        .journal-light [style*="color: #4ade80"], .journal-light [style*="color:#4ade80"],
+        .journal-light [style*="color: #6b8f72"], .journal-light [style*="color:#6b8f72"],
+        .journal-light [style*="color: #22d3a5"], .journal-light [style*="color:#22d3a5"],
+        .journal-light [style*="color: #00c896"], .journal-light [style*="color:#00c896"] { color: #047857 !important; }
+
+        /* Red tints -> rose-700 (6.1:1) */
+        .journal-light [style*="color: #fca5a5"], .journal-light [style*="color:#fca5a5"],
+        .journal-light [style*="color: #f87171"], .journal-light [style*="color:#f87171"],
+        .journal-light [style*="color: #ef4444"], .journal-light [style*="color:#ef4444"] { color: #be123c !important; }
+
+        /* Amber tints -> amber-700 (4.9:1) */
+        .journal-light [style*="color: #f3ba2f"], .journal-light [style*="color:#f3ba2f"],
+        .journal-light [style*="color: #f7a600"], .journal-light [style*="color:#f7a600"],
+        .journal-light [style*="color: #f0a500"], .journal-light [style*="color:#f0a500"],
+        .journal-light [style*="color: #c8a84b"], .journal-light [style*="color:#c8a84b"],
+        .journal-light [style*="color: #f0c040"], .journal-light [style*="color:#f0c040"] { color: #b45309 !important; }
+
+        /* Pink -> rose-700 */
+        .journal-light [style*="color: #f4617f"], .journal-light [style*="color:#f4617f"] { color: #be123c !important; }
+
+        /* Violet tints -> violet-800 (8.0:1) */
+        .journal-light [style*="color: #a78bfa"], .journal-light [style*="color:#a78bfa"],
+        .journal-light [style*="color: #6c63ff"], .journal-light [style*="color:#6c63ff"],
+        .journal-light [style*="color: #a899ff"], .journal-light [style*="color:#a899ff"],
+        .journal-light [style*="color: #9585f5"], .journal-light [style*="color:#9585f5"],
+        .journal-light [style*="color: #ede9ff"], .journal-light [style*="color:#ede9ff"] { color: #5b21b6 !important; }
+
+        /* Grey tints built for dark surfaces -> the muted token (7.4:1) */
+        .journal-light [style*="color: #9ca3af"], .journal-light [style*="color:#9ca3af"],
+        .journal-light [style*="color: #c9ccd4"], .journal-light [style*="color:#c9ccd4"],
+        .journal-light [style*="color: #e8e9eb"], .journal-light [style*="color:#e8e9eb"],
+        .journal-light [style*="color: #7c85a2"], .journal-light [style*="color:#7c85a2"],
+        .journal-light [style*="color: #c8d8e8"], .journal-light [style*="color:#c8d8e8"],
+        .journal-light [style*="color: #94a3b8"], .journal-light [style*="color:#94a3b8"] { color: ${T.textMuted} !important; }
+
+        /* White text on what is now a white surface - the worst case, 1:1 */
+        .journal-light [style*="color: #fff"], .journal-light [style*="color:#fff"],
+        .journal-light [style*="color: #FFF"], .journal-light [style*="color:#FFF"] { color: ${T.text} !important; }
+        /* ...except where it sits on a filled accent chip, which keeps its own contrast. */
+        .journal-light .badge [style*="color:#fff"], .journal-light button[style*="background: #2563eb"] { color: #fff !important; }
+
+        /* ── NUMBERS: Playfair 700. The reference design owes its legibility as much to weight
+           as to colour - a 400-weight display serif at 12px is what actually reads as blurry.
+           Applied BY SELECTOR, never blanket: FONTS.playfair-display sets forceWeight null on
+           purpose because Playfair turns to mush at 900 in small UI text. */
+        .journal-light .stat-value, .journal-light .kpi-value, .journal-light .metric-value,
+        .journal-light .num, .journal-light [data-num], .journal-light td[align="right"] {
+          font-weight: 700;
+          font-variant-numeric: tabular-nums;
+        }
+
+        /* ── UPPERCASE MICRO-LABELS: 700 + tracking. Uppercase at 11px without extra spacing
+           is the other half of the mush. */
+        .journal-light .label, .journal-light .kpi-label, .journal-light .stat-label,
+        .journal-light [style*="text-transform: uppercase"],
+        .journal-light [style*="text-transform:uppercase"] {
+          font-weight: 700;
+          letter-spacing: 0.09em;
+        }
       `}</style>
 
       <JournalHeader
