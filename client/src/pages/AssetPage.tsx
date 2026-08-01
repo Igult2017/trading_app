@@ -392,9 +392,18 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
   const sidebarInstruments: Instrument[] = (() => {
     const seen = new Set<string>();
     const list: Instrument[] = [];
-    // Signals, LATEST FIRST — the top of the sidebar is the newest signal (auto-selected below).
-    const sorted = [...allSignals].sort((a, b) =>
-      new Date(b?.createdAt || 0).getTime() - new Date(a?.createdAt || 0).getTime());
+    // Ordered by WHAT NEEDS ATTENTION, then by recency inside each group:
+    //   1. IN PROGRESS  — a live trade, the only thing that can still move against you
+    //   2. WATCHING     — a setup that may still become one
+    //   3. CLOSED       — finished, kept for the week as a record
+    // Sorting purely by time buried a live trade under a pile of closed ones the moment a few
+    // resolved, which is backwards for a board whose job is to show what is happening now.
+    const RANK = { live: 0, watching: 1, closed: 2 } as const;
+    const sorted = [...allSignals].sort((a, b) => {
+      const ra = RANK[signalState(a)] - RANK[signalState(b)];
+      if (ra !== 0) return ra;
+      return new Date(b?.createdAt || 0).getTime() - new Date(a?.createdAt || 0).getTime();
+    });
     for (const s of sorted) {
       if (s?.symbol && !seen.has(s.symbol)) {
         seen.add(s.symbol);
@@ -465,7 +474,11 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
     queryKey: ["asset-signal", selected],
     queryFn: async () => {
       if (!selected) return null;
-      const res = await fetch(`/api/trading-signals?symbol=${encodeURIComponent(selected)}&status=active`);
+      // Must match the sidebar's status set. This was pinned to 'active', so clicking any row that
+      // was not currently live — every CLOSED one — fetched nothing and the whole detail panel
+      // (entry, TP, SL, R:R) rendered as dashes.
+      const res = await fetch(
+        `/api/trading-signals?symbol=${encodeURIComponent(selected)}&status=watching,active,executed,invalidated`);
       if (!res.ok) return null;
       const json = await res.json();
       return Array.isArray(json) ? (json[0] ?? null) : null;
@@ -1108,16 +1121,21 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
 
                 {/* Row 1b: when it was recorded + which strategy produced it. Both were asked for
                     explicitly; both come straight off the row (created_at, strategy). */}
+                {/* Fixed colours, NOT the C.muted2 / C.dim tokens. On the dark palette those are
+                    #3a5470 and #2d4a63 — 2.46:1 and 2.09:1 on this background, which is why the
+                    timestamp and strategy were on screen but unreadable. These measure 8.97:1 and
+                    9.41:1. Size also up from 8px to 10px; 8px uppercase with tracking is
+                    unreadable whatever colour it is. */}
                 {(card.createdAt || card.strategy) && (
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center",
-                                marginBottom: 8, fontSize: 8, fontWeight: 600, letterSpacing: "0.06em" }}>
-                    <span style={{ color: C.muted2 }}>
+                                marginBottom: 8, fontSize: 10, fontWeight: 700, letterSpacing: "0.05em" }}>
+                    <span style={{ color: "#9fb3c8" }}>
                       {card.createdAt ? new Date(card.createdAt).toLocaleString(undefined, {
                         month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false,
                       }) : ""}
                     </span>
                     {card.strategy && (
-                      <span style={{ color: C.dim, textTransform: "uppercase" }}>{card.strategy}</span>
+                      <span style={{ color: "#c3a8f5", textTransform: "uppercase" }}>{card.strategy}</span>
                     )}
                   </div>
                 )}
@@ -1125,19 +1143,29 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
                 {/* Row 2: Arrow + Price + Change % */}
                 {(() => {
                   const tp = tickerPrices[card.symbol];
-                  const dir = tp?.direction ?? "flat";
                   const chg = tp?.changePercent;
+                  // Tick direction — used ONLY by TickingPrice for the price-flash colour. It is a
+                  // different fact from the signal's side and must not be confused with it again.
+                  const dir = tp?.direction ?? "flat";
+                  // THE ARROW IS THE SIGNAL'S SIDE, not the tick direction. It used to read
+                  // tickerPrices[...].direction — live price movement — which defaults to "flat"
+                  // when no tick has arrived, so every row rendered the same grey up-triangle
+                  // regardless of whether the signal was a buy or a sell. These rows exist because
+                  // a signal exists; its side is the fact worth showing.
+                  const side = String(card.direction ?? "").toLowerCase();
+                  const isSell = side === "sell" || side === "short";
+                  const isBuy  = side === "buy"  || side === "long";
+                  const col    = isSell ? "#f4617f" : isBuy ? "#22d3a5" : C.dim;
                   return (
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                         <div style={{
                           width: 26, height: 26, borderRadius: 4,
-                          background: dir === "up" ? "rgba(34,211,165,0.12)" : dir === "down" ? "rgba(244,97,127,0.12)" : "rgba(255,255,255,0.04)",
+                          background: isSell ? "rgba(244,97,127,0.14)" : isBuy ? "rgba(34,211,165,0.14)" : "rgba(255,255,255,0.04)",
                           display: "flex", alignItems: "center", justifyContent: "center"
                         }}>
-                          <svg width="12" height="12" viewBox="0 0 12 12"
-                            fill={dir === "up" ? "#22d3a5" : dir === "down" ? "#f4617f" : "#2d4a63"}>
-                            {dir === "down"
+                          <svg width="12" height="12" viewBox="0 0 12 12" fill={col}>
+                            {isSell
                               ? <polygon points="6,11 11,2 1,2" />
                               : <polygon points="6,1 11,10 1,10" />}
                           </svg>
