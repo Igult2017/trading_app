@@ -27,8 +27,9 @@ it existed — which is exactly how a mid-waterfall candle was sold as a zone on
 """
 from dataclasses import dataclass, field
 
-from core.types import Candle
+from core.types import Candle, Trend
 from shared.swing_points import find_swing_points
+from shared.trend_detector import detect
 from strategies.bx_sd_structure import map_structure
 from strategies.bx_sd_zones import Zone
 from strategies.bx_sd_liquidity import find_liquidity
@@ -66,8 +67,49 @@ class SetupResult:
     reason:      str  = ""        # diagnostics — why inactive
 
 
+def regime(h4: list[Candle], d1: list[Candle] | None) -> int:
+    """+1 uptrend, -1 downtrend, 0 ranging. TRENDING ONLY WHEN 4H AND 1D AGREE.
+
+    The book takes direction from who is in control — *"demand is in control now, so we can look for
+    long entries"* (p58) — and names the main vs counter trend explicitly (p57). Gating on it is the
+    book applied, not abandoned.
+
+    THE DAILY IS THE POINT. A 4H uptrend inside a 1D downtrend is itself a pullback, and treating it
+    as a trend is how BX came to buy GBP/JPY demand five times across 30-31 Jul while it fell ~580
+    pips. All five failed. Requiring agreement makes that case RANGING, which lifts the gate and
+    lets both directions through on a respected zone — deliberately permissive, because a
+    disagreement is genuinely ambiguous and not a licence to pick a side.
+
+    THE 4H SETS THE DIRECTION; THE DAILY IS A VETO, NOT A SECOND VOTE.
+
+    The first cut required BOTH to agree and it gated NOTHING — replayed against the six real
+    GBP/JPY signals, all six read ranging and every one was still taken. The diagnosis: at
+    2026-07-30 17:00, mid-decline, detect(H4) was correctly DOWNTREND while detect(D1) was RANGING
+    — and at an 80-bar lookback the Daily read UPTREND, the opposite of what was happening. Over 50
+    DAYS the pair was net HIGHER (213.85 -> 214.81); the 580-pip fall is a three-day move and is
+    simply not visible at daily scale.
+
+    So agreement is the wrong test: a fresh 4H trend would never qualify until the Daily caught up,
+    which is far too late to be useful. The Daily's job is the one it was asked to do — stop us
+    trading INTO a 1D pullback — and that is a veto: if the Daily clearly opposes the 4H, treat the
+    4H move as a pullback within it and open the gate. Otherwise the 4H decides.
+
+    Missing or short D1 -> the 4H alone. `detect` returns RANGING when ambiguous, so it fails open.
+    """
+    t4 = detect(closed_only(h4))
+    if t4 == Trend.RANGING:
+        return 0
+    want = 1 if t4 == Trend.UPTREND else -1
+    if d1 and len(d1) >= 20:
+        td = detect(closed_only(d1))
+        opposed = (want > 0 and td == Trend.DOWNTREND) or (want < 0 and td == Trend.UPTREND)
+        if opposed:
+            return 0        # the 4H move is a pullback inside the Daily — gate lifts
+    return want
+
+
 def detect_setup(h4: list[Candle], pip: float = 0.0001, book=None,
-                 htf_map: dict | None = None) -> SetupResult:
+                 htf_map: dict | None = None, d1: list[Candle] | None = None) -> SetupResult:
     """`htf_map` is the D1/W1/MN zone map (bx_sd_htf.htf_zone_map). It is only used to SCORE the
     zone's strength, never to gate it. It must be passed: HTF confluence is the user's first-named
     and highest-weighted strength input (`_W_HTF = 3` per timeframe), and omitting it silently
@@ -107,7 +149,9 @@ def detect_setup(h4: list[Candle], pip: float = 0.0001, book=None,
 
     # A zone is a candidate once price has MITIGATED it (tapped it) recently and it is still alive.
     # The 1M/5M confirmation downstream is what proves it was RESPECTED.
-    cand, cand_mz, priced_out, n_live = None, None, 0, 0
+    # REGIME. In a trend take only zones on the trend's side; in a range take either.
+    reg = regime(h4, d1)
+    off_trend = 0
     for mz in sorted(marked, key=lambda m: m.ifc_time, reverse=True):
         # NOT `respected` — that is the RETEST path's job (bx_sd_reports, min_grade="B"). Accepting
         # it here let one zone fire BOTH: a duplicate signal, and the fresh cascade firing at C+,
@@ -132,6 +176,15 @@ def detect_setup(h4: list[Candle], pip: float = 0.0001, book=None,
             continue
         if (mz.top - mz.bottom) < _MIN_PIPS * pip:
             continue
+        # PRO-TREND ONLY WHILE TRENDING. A supply zone in an uptrend produces a PULLBACK, not a
+        # move: its upside is capped by the prevailing trend while its stop is sized for a real
+        # one — structurally poor even when it wins. In a range (reg == 0) this does nothing and
+        # both directions run exactly as before.
+        if reg:
+            want = "demand" if reg > 0 else "supply"
+            if mz.direction != want:
+                off_trend += 1
+                continue
         n_live += 1
         if not pricing_aligned(leg_low, leg_high, price, mz.direction):
             priced_out += 1
@@ -141,6 +194,11 @@ def detect_setup(h4: list[Candle], pip: float = 0.0001, book=None,
             continue                      # older than this window — cannot resolve indices
         cand, cand_mz = z, mz; break     # keep the MarkedZone too — it carries state/retaps
     if cand is None:
+        if off_trend:
+            r.reason = (f"{off_trend} zone(s) tapped but COUNTER-TREND — 4H and 1D both "
+                        f"{'up' if reg > 0 else 'down'}, so only "
+                        f"{'demand' if reg > 0 else 'supply'} zones are taken")
+            return r
         if priced_out:
             r.reason = (f"{priced_out} marked zone(s) mitigated but badly priced "
                         f"({premium_discount(leg_low, leg_high, price)})")

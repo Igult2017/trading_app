@@ -128,7 +128,8 @@ class BXStrategy(BaseStrategy):
             return StrategyResult(signals=out)
 
         # STAGE 1 — 4H setup (valid fresh zone EITHER SIDE, tapped, priced, liquidity-safe)
-        setup = detect_setup(h4, pip, book=book, htf_map=htf_map)
+        setup = detect_setup(h4, pip, book=book, htf_map=htf_map,
+                             d1=context.candles.get(TF.D1))
         if not setup.active:
             self._log(sym, "SCANNING", f"4H: {setup.reason}")
             return StrategyResult(signals=out)
