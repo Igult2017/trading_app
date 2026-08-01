@@ -1392,6 +1392,14 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
       ? (startingBalance ?? 0)
       : (sessionStartingBalance ?? 0);
 
+  // Always-current copy of the two inputs a P&L needs. `applyAnalyzedFields` is a
+  // useCallback([]) — without this it would read the FIRST render's balance and risk%, which are
+  // both empty/zero at mount, so anything it tried to compute would silently come out as nothing.
+  const pnlInputsRef = useRef({ riskPercent: "", balance: 0 });
+  useEffect(() => {
+    pnlInputsRef.current = { riskPercent: s2.riskPercent, balance: effectiveBalance };
+  }, [s2.riskPercent, effectiveBalance]);
+
   // ── Parse "1:8.07" or "8.07" → 8.07
   const parseRRNum = (v: string) => {
     if (!v) return 0;
@@ -1635,7 +1643,41 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
     if (mfeVal != null) set4("mfe", `${mfeVal} pts`);
     if (fields.plannedRR  != null) set4("plannedRR",  fmtRR(fields.plannedRR));
     if (fields.riskReward != null && fields.plannedRR == null) set4("plannedRR", fmtRR(fields.riskReward));
-    if (fields.achievedRR != null) set4("achievedRR", fmtRR(fields.achievedRR));
+    if (fields.achievedRR != null) {
+      const rrStr = fmtRR(fields.achievedRR);
+      set4("achievedRR", rrStr);
+
+      // ── P&L IS CALCULATED HERE, THE MOMENT achievedRR IS CAPTURED ──────────
+      // Screenshots are mostly post-trade, so achievedRR is the field that
+      // actually arrives — and it is what the P&L is calculated from.
+      //
+      // This used to be left entirely to the auto-calc effect below. That effect
+      // is correct but it only fires when one of ITS dependencies changes, and
+      // it produces nothing unless riskPercent and the balance are both already
+      // settled at that instant. When OCR landed achievedRR before those were
+      // ready, the effect ran once, computed nothing, and had no reason to run
+      // again — so the P&L stayed empty until the field was touched by hand,
+      // which is what forced a recompute. Calculating here removes the timing
+      // dependency: capture and calculation are the same step.
+      //
+      // OCR's own profitLoss still wins — set4("profitLoss", ...) runs above, so
+      // if the screenshot reported a real figure this leaves it alone.
+      if (s4Up.profitLoss == null) {
+        const { riskPercent, balance } = pnlInputsRef.current;
+        const pct   = parseFloat(riskPercent);
+        const rrNum = rrStr ? parseRRNum(rrStr) : 0;   // fmtRR can return null
+        if (pct > 0 && balance > 0 && rrNum !== 0) {
+          const risk = calcDollarRisk(balance, pct);
+          // Sign comes from the outcome, never from the R:R string — "1:-1" style
+          // values would otherwise double-negate a loss.
+          const oc  = fields.outcome;
+          const pnl = oc === "Loss" ? -risk : oc === "BE" ? 0 : rrNum * risk;
+          set4("monetaryRisk",   risk.toFixed(2));
+          set4("profitLoss",     pnl.toFixed(2));
+          set4("accountBalance", (balance + pnl).toFixed(2));
+        }
+      }
+    }
 
     // Pips gained/lost: prefer direct closed P&L, fall back to calculated from SL/TP distance
     const isLoss   = fields.outcome === "Loss";
