@@ -1,7 +1,10 @@
 """
 Candle fetcher — TTL cache + in-flight deduplication over any data source.
 
-data_source.py owns which provider is active (cTrader → MT5 → yfinance).
+data_source.py owns which provider is active — **cTrader, and only cTrader**. This line used to read
+"cTrader → MT5 → yfinance", describing a fallback chain that does not exist: `data_source` imports
+`ctrader_client` and nothing else. The MT5 and yfinance clients were orphaned modules and were
+deleted 2026-08-01.
 This module owns caching and concurrency: strategies always call
 fetch_candles() and two concurrent requests for the same (symbol, tf)
 share exactly one network call via the in-flight future registry.
