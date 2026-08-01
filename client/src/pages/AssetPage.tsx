@@ -1160,11 +1160,17 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
                         is still 6.6:1, well clear of AA. */}
                     <span style={{ display: "flex", alignItems: "baseline", gap: 5 }}>
                       <span style={{ color: "#9fb3c8" }}>{timeAgo(card.createdAt)}</span>
+                      {/* NAME THE TIMEZONE. This rendered via toLocaleString with no label, so it
+                          showed the BROWSER's zone while the Telegram card stamps UTC — the same
+                          signal carried two different clock times and neither said which. Checking
+                          one against a UTC+3 chart then lands three hours from the candle that
+                          produced it, which is exactly how a correct SELL came to be read off a
+                          green candle. `timeZoneName: short` renders e.g. "GMT+3". */}
                       {card.createdAt && (
                         <span style={{ color: "#6f849b", fontWeight: 600 }}>
                           {new Date(card.createdAt).toLocaleString(undefined, {
                             month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
-                            hour12: false,
+                            hour12: false, timeZoneName: "short",
                           })}
                         </span>
                       )}
