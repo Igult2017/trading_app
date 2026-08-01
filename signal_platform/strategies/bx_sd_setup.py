@@ -40,6 +40,17 @@ from strategies.bx_sd_registry import build, to_zone
 from strategies.bx_sd_strength import mitigation_note, score as zone_strength
 from shared.mtf_utils import closed_only
 
+_SL_BEHIND_PULLBACK_PIPS = 15.0
+"""The stop sits 15 pips behind THE PULLBACK'S OWN EXTREME — the user's rule, 2026-08-01:
+*"the stop is 15 pips just behind the pullback, whether the pullback happens on the zone or far
+from it."*
+
+NOT behind the 4H zone. The entry is no longer at the zone: after a zone is respected, price runs,
+pulls back a little WITHIN that move, and the entry is where that pullback ends — which is usually
+nowhere near the zone. Anchoring the stop to the zone from an entry 60 pips away would give a
+66-pip stop and, at a fixed 3R, a ~200-pip target: a different trade entirely.
+"""
+
 _SL_BUFFER_PIPS = 6.0  # the stop sits this far BEYOND the 4H zone's distal edge — the user's
                        # "5 to 6 pips behind the 4H zone", so a wick cannot take us out.
                        # Lives here because bx_sd_entry imports from this module.
@@ -185,12 +196,20 @@ def detect_setup(h4: list[Candle], pip: float = 0.0001, book=None,
         # a mitigated state AND a live tap in the same instant — does not apply here.
         if mz.state != "respected":
             continue
-        # THE TAP MUST BE HAPPENING NOW — live price, not "sometime in the last 6 bars".
-        # This used to accept any mitigation inside a 24-HOUR window, so a zone tapped 20 hours ago
-        # still fired today: a signal for an event that had already come and gone. A tap is an EVENT
-        # HAPPENING NOW, so it reads the LIVE forming bar (the settled rule: a LEVEL comes from a
-        # CLOSED candle, a TRIGGER or current price stays LIVE).
-        if not mz.tapped_by(live_bar):
+        # PRICE MUST BE IN THE MOVE AWAY FROM THE ZONE — not back inside it.
+        #
+        # A PULLBACK IS NOT A RETAP. This required `mz.tapped_by(live_bar)`, i.e. price back INSIDE
+        # the zone right now, which is a retap. The user's model is different: once the zone is
+        # respected, price LEAVES and runs, then pulls back a little WITHIN that move and continues
+        # — and that pullback usually never reaches the zone again. Demanding a tap therefore missed
+        # nearly every entry the model is built on.
+        #
+        # So the zone's job ends once it has been respected: it established the direction and the
+        # move. From there the only requirement is that price is still on the working side of it —
+        # above a demand zone, below a supply zone. The pullback itself is found on the entry
+        # timeframe by the book's three models, which is what `confirm_grade` already does.
+        px_ok = (live_bar.close > mz.top) if mz.direction == "demand" else (live_bar.close < mz.bottom)
+        if not px_ok:
             continue
         if (mz.top - mz.bottom) < _MIN_PIPS * pip:
             continue

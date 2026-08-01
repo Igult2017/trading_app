@@ -22,7 +22,13 @@ from core.types import Candle
 from shared.swing_points import find_swing_points
 from strategies.bx_sd_ltf import find_ltf_choch, _choch_valid, LTFConfluence
 from strategies.bx_sd_structure import map_structure
-from strategies.bx_sd_setup import SetupResult, _SL_BUFFER_PIPS, _TP_R, _RESPECT_BUFFER
+from strategies.bx_sd_setup import (SetupResult, _SL_BEHIND_PULLBACK_PIPS, _TP_R,
+                                    _RESPECT_BUFFER)
+
+# How many entry-TF bars back to look for the pullback's extreme. 24 bars = 2h on 5M, 24min on 1M —
+# long enough to contain the retracement being entered, short enough not to reach back into the
+# previous leg and place the stop behind a move that is already over.
+_PULLBACK_LOOKBACK = 24
 
 
 def _flip_ok(entry_tf: list[Candle], want_dir: str, n: int = 3) -> bool:
@@ -129,7 +135,23 @@ def entry_trigger(conf: LTFConfluence, setup: SetupResult, entry_tf: list[Candle
     # This used to take the SL off the REFINED zone, which produced ~3 pip stops sitting inside noise:
     # spread was 20-30% of risk and any wick took the trade out. The 4H stop was already computed in
     # detect_setup and then silently discarded here.
-    sl = zone4h.distal - _SL_BUFFER_PIPS * pip if buy else zone4h.distal + _SL_BUFFER_PIPS * pip
+    # STOP: 15 pips behind THE PULLBACK'S OWN EXTREME, wherever the pullback happened.
+    # User's rule, 2026-08-01: *"the stop is 15 pips just behind the pullback, whether the pullback
+    # happens on the zone or far from it."*
+    #
+    # The pullback extreme is the lowest low (buy) / highest high (sell) of the recent entry-TF
+    # bars — the turn the confirmation just fired off. It is read from the bars themselves rather
+    # than a swing-point helper because a swing needs confirmation bars either side, and by then
+    # price has already left; the extreme of the leg we are entering is what the stop must clear.
+    #
+    # This replaced a stop anchored to the 4H zone distal. That was right while the entry WAS at
+    # the zone; it is wrong now the entry is a pullback that may be far from it — from 60 pips
+    # away it would have given a 66-pip stop and, at a fixed 3R, a ~200-pip target.
+    leg = entry_tf[-_PULLBACK_LOOKBACK:]
+    if buy:
+        sl = min(b.low for b in leg) - _SL_BEHIND_PULLBACK_PIPS * pip
+    else:
+        sl = max(b.high for b in leg) + _SL_BEHIND_PULLBACK_PIPS * pip
     r.entry, r.sl = entry, sl
 
     # TP is a FIXED 3R. User: "just leave TP at 3R — TP can take care of itself if we take care of
