@@ -168,7 +168,22 @@ def detect_setup(h4: list[Candle], pip: float = 0.0001, book=None,
         # `wick_mitigated` and `body_mitigated` replaced the single `mitigated` (2026-07-30). BOTH
         # trade: the user's rule is that a wick tap signals AND its later retap signals again, and a
         # body-mitigated zone still signals on a retap, carrying a caution on the card.
-        if mz.state not in ("unmitigated", "wick_mitigated", "body_mitigated"):
+        # RESPECTED ONLY — move away first, then enter the pullback (user's rule, 2026-08-01).
+        #
+        # `respected` means the registry saw price tap this zone and then CLOSE a full zone-height
+        # away: the reaction actually happened. Combined with the live tap below, that is exactly
+        # the sequence asked for — tapped, moved away, pulled back, and the 1M/5M confirmation
+        # downstream proves the pullback is turning.
+        #
+        # This used to accept unmitigated / wick_mitigated / body_mitigated, i.e. enter on the FIRST
+        # TOUCH with no reaction required. That is where the losses came from: the zone had proven
+        # nothing. BX was running two entry models side by side, and only the retest path matched
+        # the rule; the first-touch path fired at a LOWER grade bar despite having LESS evidence.
+        #
+        # No timing contradiction: `respected` is set from CLOSED bars on an EARLIER visit, and the
+        # live tap is the pullback happening now. The trap noted in the architecture doc — demanding
+        # a mitigated state AND a live tap in the same instant — does not apply here.
+        if mz.state != "respected":
             continue
         # THE TAP MUST BE HAPPENING NOW — live price, not "sometime in the last 6 bars".
         # This used to accept any mitigation inside a 24-HOUR window, so a zone tapped 20 hours ago

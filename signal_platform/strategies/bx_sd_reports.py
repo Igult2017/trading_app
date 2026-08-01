@@ -73,9 +73,18 @@ def scan_reports(symbol: str, h4: list[Candle], analysis_tfs: list, entry_tf: li
         sig.dedup_key = key                 # committed only when the DM actually lands
         out.append(sig)
 
-    # ② RETEST — the zone was mitigated, then RESPECTED (price reacted a full zone-height away), and
-    #    price is back inside it now. The respect is a lifecycle fact, not something re-derived here.
-    for mz in marked:
+    # ② RETEST — REMOVED 2026-08-01. It is now the SAME trade as the core cascade.
+    #
+    # This path required: state == respected, tapped live, 1M/5M confirmed. As of today the cascade
+    # (`bx_sd_setup.detect_setup`) requires exactly that too — the user's rule is that every entry
+    # waits for the move away and enters the pullback, so there is no longer a "fresh" model to
+    # distinguish it from. Leaving both would emit two signals for one zone, which is the duplicate
+    # the architecture doc warns about, with the added twist that they would carry different grades
+    # and different dedup keys and so could not even suppress each other.
+    #
+    # The cascade absorbed the model, not the reverse: it owns the entry, the watch lock and the
+    # invalidation alert, which this path never had.
+    for mz in []:
         if mz.state != "respected" or (mz.top - mz.bottom) < tmin:
             continue
         if not mz.tapped_by(live):

@@ -63,8 +63,14 @@ number stable across one visit and incrementing on the next. Keying the heads-up
 sent exactly one alert per zone for its entire life and swallowed every retap.
 
 **`live` = every state except `broken`.** Do **not** select on `live` in the cascade — `respected`
-belongs to the retest path (min_grade `B`), and accepting it in the fresh cascade fired the same zone
-twice, the second time at C+. The cascade selects `unmitigated | wick_mitigated | body_mitigated`.
+**SUPERSEDED 2026-08-01 — there is now ONE entry model.** The cascade selects **`respected` only**:
+tapped, closed a full zone-height away, and tapped again now. The user's rule — *"wait for the price
+to move away from the zone and then when it pulls back we use that for entry"*. Entering on the
+FIRST touch is gone; that path had no evidence the zone held and is where the losses came from.
+
+The separate RETEST path in `bx_sd_reports` ② is **removed**, because it became the same trade. The
+cascade absorbed it, not the reverse — the cascade owns the entry, the watch lock and the
+invalidation alert, which the retest path never had.
 
 **Live-zone counts after the 2026-07-30 lifecycle change:** EUR/USD 7→25, GBP/USD 14→22,
 USD/JPY 15→39, GBP/JPY 19→31. **The marking fix later the same day barely moved the COUNT** (1000 H4
