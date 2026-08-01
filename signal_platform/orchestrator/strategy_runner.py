@@ -152,6 +152,14 @@ async def run_strategy(
                     None, partial(signal_repo.save, signal, signal_repo.STATUS_WATCHING))
                 if watch_id:
                     signal.db_id = watch_id
+                else:
+                    # Row already there (the partial unique index rejected a second one). The setup
+                    # is STILL being watched, so stamp it — `drop_abandoned` reads updated_at to
+                    # decide what has gone stale, and without this it would freeze at first
+                    # sighting and drop a live setup 24h later.
+                    await loop.run_in_executor(
+                        None, partial(signal_repo.touch_watch, signal.strategy_id,
+                                      signal.symbol, signal.direction.value))
             except Exception as exc:
                 # A heads-up is a courtesy, not a trade. If the row cannot be written the Telegram
                 # alert must still go out, so this never raises past here.
@@ -213,6 +221,16 @@ async def run_strategy(
                          detail="duplicate active signal — rejected by the DB uniqueness constraint")
             continue
         signal.db_id = signal_id            # lets the notifier close the audit chain on this row
+
+        # WATCHING -> IN PROGRESS. The heads-up row for this setup has done its job; remove it so
+        # the board shows the setup once, as a live trade, rather than twice in two states.
+        try:
+            await loop.run_in_executor(
+                None, partial(signal_repo.drop_watch, signal.strategy_id,
+                              signal.symbol, signal.direction.value))
+        except Exception as exc:
+            # Cosmetic only — a duplicate card on the board is not worth losing a confirmed signal.
+            log.warning(f"[runner] {instrument} could not drop the watch row ({exc})")
         await _stage(loop, obs.STAGE_SAVED, signal.strategy_id, instrument, signal_id=signal_id)
         signal_validator.register_confirmed(signal)
         # DISPATCHED is stamped before the emit and DELIVERED by the notifier after a confirmed send.

@@ -59,6 +59,78 @@ def save(signal: Signal, status: str | None = None) -> str:
         return row.id
 
 
+def touch_watch(strategy_id: str, symbol: str, direction: str,
+                when: datetime | None = None) -> int:
+    """Refresh a WATCHING row's `updated_at` — i.e. "still being watched, as of now".
+
+    LOAD-BEARING for `drop_abandoned`. `save()` writes `updated_at` once at insert, and the partial
+    unique index means a repeat heads-up for the same key cannot insert again. So without this,
+    `updated_at` would freeze at FIRST sighting, and a setup still being actively watched would be
+    dropped 24h later as stale. Called whenever a heads-up is re-emitted for a key that already
+    exists.
+    """
+    with get_session() as s:
+        n = s.query(SignalModel).filter(
+            SignalModel.status == STATUS_WATCHING,
+            SignalModel.strategy == strategy_id,
+            SignalModel.symbol == symbol,
+            SignalModel.type == direction,
+        ).update({SignalModel.updated_at: when or datetime.now(timezone.utc)},
+                 synchronize_session=False)
+    return n
+
+
+def drop_watch(strategy_id: str, symbol: str, direction: str) -> int:
+    """Delete the WATCHING row for a setup whose entry has now confirmed.
+
+    The watch row and the confirmed entry are separate rows written by separate paths (the heads-up
+    carries strategy id `<id>_watch`, the entry carries `<id>`). Without this the board would show
+    the same setup twice — once as WATCHING FOR ENTRY and once as IN PROGRESS — which is exactly the
+    confusion the labels exist to remove. The watch has served its purpose the moment the entry
+    fires, so it is removed rather than left to expire.
+    """
+    with get_session() as s:
+        n = s.query(SignalModel).filter(
+            SignalModel.status == STATUS_WATCHING,
+            SignalModel.strategy == f"{strategy_id}_watch",
+            SignalModel.symbol == symbol,
+            SignalModel.type == direction,
+        ).delete(synchronize_session=False)
+    if n:
+        log.info(f"[signal_repo] {symbol} {strategy_id} entry confirmed — watch row promoted")
+    return n
+
+
+def drop_abandoned(now: datetime | None = None, stale_hours: int = 24) -> int:
+    """Delete setups that never produced an entry. Returns the row count.
+
+    The user's rule: a signal that does not go past WATCHING is dropped the moment the system stops
+    watching it — its entry never aligned, so it is not a record of anything worth keeping.
+
+    Two kinds:
+      * WATCHING rows that have gone stale. A heads-up re-fires while the setup is live, so one that
+        has not been refreshed within `stale_hours` is no longer being watched. This is an
+        APPROXIMATION of "immediately": nothing in the strategy emits a stop-watching event, so
+        staleness is the only honest signal available. If such an event is ever added, key off it
+        instead and delete this window.
+      * EXPIRED rows — a signal that fired but whose entry was never filled (the stop order was
+        cancelled). It went past watching, but never became a trade, so it is dropped rather than
+        shown as closed.
+    """
+    now = now or datetime.now(timezone.utc)
+    cutoff = now - timedelta(hours=stale_hours)
+    with get_session() as s:
+        n = s.query(SignalModel).filter(
+            or_(
+                and_(SignalModel.status == STATUS_WATCHING, SignalModel.updated_at < cutoff),
+                SignalModel.status == SignalStatus.EXPIRED.value,
+            )
+        ).delete(synchronize_session=False)
+    if n:
+        log.info(f"[signal_repo] dropped {n} setup(s) that never produced an entry")
+    return n
+
+
 def week_start(now: datetime | None = None) -> datetime:
     """Most recent Monday 00:00 UTC, at or before `now`.
 

@@ -55,6 +55,17 @@ def build(scan_fn, monitor_fn) -> AsyncIOScheduler:
         coalesce=True,     # a missed Monday fires once on resume, not once per missed week
     )
 
+    # Abandoned setups — hourly. A watch that stopped refreshing, or a stop order that was
+    # cancelled before it filled, never became a trade and is dropped rather than shown.
+    _scheduler.add_job(
+        _drop_abandoned,
+        trigger=IntervalTrigger(hours=1),
+        id="drop_abandoned_setups",
+        name="Drop setups with no entry",
+        max_instances=1,
+        coalesce=True,
+    )
+
     # AND once at boot. A container that restarts over a weekend would otherwise sail past its
     # Monday and carry two weeks on the board. `purge_before_week_start` is idempotent — it deletes
     # by an absolute cutoff, so running it twice on the same Monday is a no-op the second time.
@@ -74,6 +85,22 @@ async def _weekly_reset() -> None:
         log.info(f"[scheduler] weekly reset done — {n} signal(s) purged")
     except Exception as exc:
         log.error(f"[scheduler] weekly reset FAILED ({type(exc).__name__}: {exc})")
+
+
+async def _drop_abandoned() -> None:
+    """Remove setups that never produced an entry — stale watches and cancelled stop orders.
+
+    Hourly rather than daily: a setup that stopped being watched should leave the board promptly,
+    not sit there implying the system is still tracking it.
+    """
+    import asyncio
+    from storage import signal_repo
+    try:
+        n = await asyncio.get_running_loop().run_in_executor(None, signal_repo.drop_abandoned)
+        if n:
+            log.info(f"[scheduler] dropped {n} setup(s) with no entry")
+    except Exception as exc:
+        log.error(f"[scheduler] drop_abandoned FAILED ({type(exc).__name__}: {exc})")
 
 
 def _weekly_reset_on_boot(sched: AsyncIOScheduler) -> None:

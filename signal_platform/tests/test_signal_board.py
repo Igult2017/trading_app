@@ -50,34 +50,41 @@ def UTC(s):
 # The label rule, mirroring signalState() in AssetPage.tsx. Kept here as the single written
 # statement of the mapping — the TS side is one expression and cannot be imported from Python.
 def label(status: str, triggered_at) -> str:
+    if status in ("executed", "invalidated"):
+        return "CLOSED"                      # the entry filled and the trade resolved
     if status not in ("active", STATUS_WATCHING):
-        return "hidden"                      # closed / cancelled / expired never reach the panel
+        return "dropped"                     # expired / anything else never reaches the panel
     return "IN PROGRESS" if (status == "active" and triggered_at) else "WATCHING FOR ENTRY"
 
 
-print("STATE MAPPING — two labels, and everything else stays off the board")
+print("LIFECYCLE — watching -> in progress -> closed, and dropped never shows")
 chk("a watch heads-up", label("watching", None), "WATCHING FOR ENTRY")
 chk("a fired signal with no fill yet (stop order resting)", label("active", None), "WATCHING FOR ENTRY")
 chk("a fired signal that filled", label("active", UTC("2026-08-01T10:00:00")), "IN PROGRESS")
-chk("a closed signal is not shown at all", label("closed", UTC("2026-08-01T10:00:00")), "hidden")
-chk("cancelled is not shown either", label("cancelled", None), "hidden")
-chk("expired is not shown either", label("expired", None), "hidden")
+chk("TP hit -> closed", label("executed", UTC("2026-08-01T10:00:00")), "CLOSED")
+chk("SL hit -> closed (NOT 'loss')", label("invalidated", UTC("2026-08-01T10:00:00")), "CLOSED")
+chk("cancelled before the entry filled -> dropped, never shown", label("expired", None), "dropped")
 # A watching row can never carry triggered_at (only the monitor stamps it, and only on active
 # rows) — but if one ever did, it must NOT read as a live trade.
 chk("a watching row with a stray triggered_at is still WATCHING",
     label("watching", UTC("2026-08-01T10:00:00")), "WATCHING FOR ENTRY")
-teeth("the two live states are distinguishable",
-      label("active", None) != label("active", UTC("2026-08-01T10:00:00")))
-teeth("closed rows are excluded, not relabelled", label("closed", None) == "hidden")
+teeth("the three visible states are distinguishable",
+      len({label("watching", None), label("active", UTC("2026-08-01T10:00:00")),
+           label("executed", UTC("2026-08-01T10:00:00"))}) == 3)
+teeth("a cancelled stop order is dropped, not relabelled closed",
+      label("expired", None) == "dropped")
 
 print()
 print("NO OUTCOME IS RECORDED — there is no entry logic, so a win/loss would be invented")
-chk("the label vocabulary is exactly two visible values",
-    sorted({label(s, t) for s in ("watching", "active", "closed", "cancelled")
+chk("TP and SL produce the SAME label — the board never says which",
+    label("executed", UTC("2026-08-01T10:00:00")), label("invalidated", UTC("2026-08-01T10:00:00")))
+chk("the visible vocabulary is exactly three values",
+    sorted({label(s, t) for s in ("watching", "active", "executed", "invalidated", "expired")
             for t in (None, UTC("2026-08-01T10:00:00"))}),
-    ["IN PROGRESS", "WATCHING FOR ENTRY", "hidden"])
+    ["CLOSED", "IN PROGRESS", "WATCHING FOR ENTRY", "dropped"])
 teeth("no label mentions a win, loss or P&L",
-      not any(w in " ".join({label(s, None) for s in ("watching", "active")}).lower()
+      not any(w in " ".join({label(s, UTC("2026-08-01T10:00:00"))
+                             for s in ("watching", "active", "executed", "invalidated")}).lower()
               for w in ("win", "loss", "profit", "pnl", "p&l")))
 
 print()
