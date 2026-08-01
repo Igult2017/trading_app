@@ -25,4 +25,14 @@ export const CT_PANEL = `
 .ct-app.ct-panel .ct-sidebar{
   align-self:stretch;
 }
+
+/* HUG THE JOURNAL NAV. Standalone, this UI sits in a browser window and its content main carries
+   p-6 (24px) all round, which is right — it needs breathing room against the viewport edge. In
+   PANEL mode the left edge is not the viewport, it is Journal's nav rail, and 24px there reads as
+   the card floating with its border hanging in space rather than sitting against the rail.
+   Only the LEFT is dropped: top, right and bottom padding still do their job.
+   Panel-scoped, so the standalone /trade-sync page is unaffected. */
+.ct-app.ct-panel > .flex > main{
+  padding-left:0;
+}
 `;
