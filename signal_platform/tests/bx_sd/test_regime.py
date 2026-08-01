@@ -9,12 +9,17 @@ direction gate at all.
 The book supports the gate: it takes direction from who is in control (*"demand is in control now,
 so we can look for long entries"*, p58) and names the main vs counter trend explicitly (p57).
 
-THE 4H SETS DIRECTION; THE DAILY IS A VETO. Requiring both to AGREE was tried first and gated
-NOTHING — replayed against the six real signals, all six read ranging and every one was still taken.
-Mid-decline, detect(H4) was correctly DOWNTREND while detect(D1) read RANGING (and UPTREND at an
-80-bar lookback): over 50 DAYS the pair was net HIGHER, because a three-day fall is invisible at
-daily scale. So the Daily only vetoes when it clearly OPPOSES the 4H — which is the job it was
-actually asked to do, stopping entries into a 1D pullback.
+TREND IS A 4H QUESTION, AND ONLY A 4H QUESTION (user, 2026-08-01). D1/W1/MN do a different job:
+they earn their place through ZONE CONFLUENCE — an HTF zone over the 4H zone is what makes an
+A-grade setup — not by voting on direction.
+
+Two earlier attempts are recorded so neither is rebuilt:
+  * requiring 4H and 1D to AGREE gated NOTHING. Replayed against the six real signals, all six read
+    ranging and every one was still taken: mid-decline detect(H4) was correctly DOWNTREND while
+    detect(D1) read RANGING, and UPTREND at an 80-bar lookback, because over 50 DAYS the pair was
+    net HIGHER — a three-day 580-pip fall is invisible at daily scale.
+  * the Daily as a VETO passed that one case but cut DOWNTREND readings from 20.5% to 5.1% across
+    293 sampled H4 points — three quarters suppressed for one confirmed catch.
 
 This is not the old pro_trend() gate, which fired unconditionally and discarded 70-78% of book-valid
 setups. This one does nothing at all while the 4H is ranging.
@@ -98,31 +103,22 @@ def choppy(base, n=60, tf="H4"):
 UP4, DN4, FLAT4 = series(1.10, 0.004), series(1.30, -0.004), choppy(1.20)
 UP1, DN1, FLAT1 = series(1.10, 0.004, tf="D1"), series(1.30, -0.004, tf="D1"), choppy(1.20, tf="D1")
 
-print("REGIME — trending ONLY when 4H and 1D agree")
-chk("4H up + 1D up   -> uptrend",   regime(UP4, UP1), 1)
-chk("4H down + 1D down -> downtrend", regime(DN4, DN1), -1)
-chk("4H up + 1D DOWN -> ranging (the 4H is a pullback inside the Daily)", regime(UP4, DN1), 0)
-chk("4H down + 1D UP -> ranging", regime(DN4, UP1), 0)
-# THE VETO, NOT A SECOND VOTE. Requiring agreement gated NOTHING on the real signals: mid-decline
-# the Daily read RANGING (and UPTREND at some lookbacks) because a 3-day fall is invisible at daily
-# scale. A fresh 4H trend must not have to wait for the Daily to catch up.
-#
-# "Daily does not oppose" is tested with NO Daily rather than a synthetic ranging one. Building a
-# series `detect` calls RANGING proved unreliable — it returns RANGING on only ~17% of real H4
-# windows and reads a perfect sawtooth as DOWNTREND — so a fixture asserting it would be testing
-# the fixture, not the rule. Absent and non-opposing take the same branch, which is the branch
-# under test.
-chk("4H up, Daily does not oppose -> UPTREND", regime(UP4, None), 1)
-chk("4H down, Daily does not oppose -> DOWNTREND — the real GBP/JPY case", regime(DN4, None), -1)
-teeth("a non-opposing Daily does not veto", regime(DN4, None) == -1)
-teeth("an opposing Daily does veto", regime(DN4, UP1) == 0)
+print("REGIME — read from the 4H alone")
+chk("4H up -> uptrend",   regime(UP4), 1)
+chk("4H down -> downtrend", regime(DN4), -1)
+# THE HIGHER TIMEFRAMES DO NOT VOTE ON TREND. Passing an opposing Daily must change NOTHING —
+# D1/W1/MN earn their place through zone confluence (A grade), not by overruling the 4H.
+chk("an opposing Daily does NOT change the 4H read (up)",   regime(UP4, DN1), 1)
+chk("an opposing Daily does NOT change the 4H read (down)", regime(DN4, UP1), -1)
+chk("the real GBP/JPY case reads DOWNTREND", regime(DN4), -1)
+teeth("the Daily cannot veto in either direction",
+      regime(DN4, UP1) == regime(DN4, None) == regime(DN4) == -1)
 
 print()
-print("FAIL-OPEN — a missing or short Daily must never invent a trend")
+print("THE DAILY ARGUMENT IS INERT — kept in the signature, ignored by design")
 chk("no D1 at all -> the 4H alone", regime(UP4, None), 1)
-chk("D1 too short -> the 4H alone", regime(UP4, UP1[:5]), 1)
-chk("empty D1 -> the 4H alone", regime(UP4, []), 1)
-teeth("a missing Daily cannot invent a veto", regime(DN4, None) == -1)
+chk("D1 passed but ignored", regime(UP4, DN1), 1)
+teeth("the Daily argument is inert", regime(UP4) == regime(UP4, DN1) == regime(UP4, UP1) == 1)
 
 print()
 print("THE GATE ITSELF — which zone side survives")
@@ -143,10 +139,10 @@ teeth("and really does bite in a trend",
       allowed(-1, "demand") is False and allowed(1, "supply") is False)
 
 print()
-print("THE REPORTED CASE — GBP/JPY buys into a 1D+4H downtrend")
-chk("regime reads downtrend", regime(DN4, FLAT1), -1)
-chk("  so a demand (buy) zone is rejected", allowed(regime(DN4, FLAT1), "demand"), False)
-chk("  while a supply (sell) zone still fires", allowed(regime(DN4, FLAT1), "supply"), True)
+print("THE REPORTED CASE — GBP/JPY buys into a 4H downtrend")
+chk("regime reads downtrend", regime(DN4), -1)
+chk("  so a demand (buy) zone is rejected", allowed(regime(DN4), "demand"), False)
+chk("  while a supply (sell) zone still fires", allowed(regime(DN4), "supply"), True)
 
 print()
 print(f"{'ALL PASS' if not F else str(len(F)) + ' FAILED: ' + str(F)}  ({N} checks)")

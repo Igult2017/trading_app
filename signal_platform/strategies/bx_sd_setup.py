@@ -67,8 +67,8 @@ class SetupResult:
     reason:      str  = ""        # diagnostics — why inactive
 
 
-def regime(h4: list[Candle], d1: list[Candle] | None) -> int:
-    """+1 uptrend, -1 downtrend, 0 ranging. TRENDING ONLY WHEN 4H AND 1D AGREE.
+def regime(h4: list[Candle], d1: list[Candle] | None = None) -> int:
+    """+1 uptrend, -1 downtrend, 0 ranging — READ FROM THE 4H, AND ONLY THE 4H.
 
     The book takes direction from who is in control — *"demand is in control now, so we can look for
     long entries"* (p58) — and names the main vs counter trend explicitly (p57). Gating on it is the
@@ -80,32 +80,30 @@ def regime(h4: list[Candle], d1: list[Candle] | None) -> int:
     lets both directions through on a respected zone — deliberately permissive, because a
     disagreement is genuinely ambiguous and not a licence to pick a side.
 
-    THE 4H SETS THE DIRECTION; THE DAILY IS A VETO, NOT A SECOND VOTE.
+    THE HIGHER TIMEFRAMES DO NOT VOTE ON TREND. User's rule, 2026-08-01: pro-trend and ranging are
+    BOTH decided on the 4H. D1/W1/MN earn their place through ZONE CONFLUENCE — a higher-timeframe
+    zone sitting over the 4H zone is what makes an A-grade setup (`bx_sd_htf.htf_backing`, applied
+    in `bx_sd_confirm.grade_of`), and one sitting against it is a conflict worth reporting. That is
+    a different question from which way the market is trending, and mixing the two made both worse.
 
-    The first cut required BOTH to agree and it gated NOTHING — replayed against the six real
-    GBP/JPY signals, all six read ranging and every one was still taken. The diagnosis: at
-    2026-07-30 17:00, mid-decline, detect(H4) was correctly DOWNTREND while detect(D1) was RANGING
-    — and at an 80-bar lookback the Daily read UPTREND, the opposite of what was happening. Over 50
-    DAYS the pair was net HIGHER (213.85 -> 214.81); the 580-pip fall is a three-day move and is
-    simply not visible at daily scale.
+    Two earlier attempts are recorded so neither returns:
+      * requiring 4H and 1D to AGREE gated NOTHING — replayed against the six real GBP/JPY signals,
+        all six read ranging and every one was still taken. Mid-decline, detect(H4) was correctly
+        DOWNTREND while detect(D1) read RANGING (and UPTREND at an 80-bar lookback), because over
+        50 DAYS the pair was net HIGHER: a three-day, 580-pip fall is invisible at daily scale.
+      * the Daily as a VETO worked on that case but was doing far too much elsewhere — measured
+        over 293 sampled H4 points it cut DOWNTREND readings from 20.5% to 5.1%, suppressing three
+        quarters of them for one confirmed catch.
 
-    So agreement is the wrong test: a fresh 4H trend would never qualify until the Daily caught up,
-    which is far too late to be useful. The Daily's job is the one it was asked to do — stop us
-    trading INTO a 1D pullback — and that is a veto: if the Daily clearly opposes the 4H, treat the
-    4H move as a pullback within it and open the gate. Otherwise the 4H decides.
-
-    Missing or short D1 -> the 4H alone. `detect` returns RANGING when ambiguous, so it fails open.
+    `d1` is kept in the signature, unused, so callers do not all have to change and so the next
+    reader sees deliberately-ignored rather than forgotten.
     """
     t4 = detect(closed_only(h4))
-    if t4 == Trend.RANGING:
-        return 0
-    want = 1 if t4 == Trend.UPTREND else -1
-    if d1 and len(d1) >= 20:
-        td = detect(closed_only(d1))
-        opposed = (want > 0 and td == Trend.DOWNTREND) or (want < 0 and td == Trend.UPTREND)
-        if opposed:
-            return 0        # the 4H move is a pullback inside the Daily — gate lifts
-    return want
+    if t4 == Trend.UPTREND:
+        return 1
+    if t4 == Trend.DOWNTREND:
+        return -1
+    return 0
 
 
 def detect_setup(h4: list[Candle], pip: float = 0.0001, book=None,
