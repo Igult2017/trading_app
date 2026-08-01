@@ -45,14 +45,6 @@ export interface ThemeDef {
   border: string;
   accent: string;
   swatches: [string, string, string];
-  /**
-   * Light-theme-only extras. Optional so the five dark themes are untouched — they were brought to
-   * AA in their own pass and nothing here should disturb them. Consumers must fall back:
-   * `T.panelAlt ?? T.surface`, `T.faint ?? T.textMuted`, `T.borderStrong ?? T.border`.
-   */
-  panelAlt?: string;
-  borderStrong?: string;
-  faint?: string;
 }
 
 export interface FontDef {
@@ -144,9 +136,6 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
     border: '#E7E2D5',      // warm hairline
     accent: '#2563eb',      // blue-600 — kept; the existing accent was never the problem
     swatches: ['#FFFEFB', '#FFFFFF', '#2563eb'],
-    panelAlt: '#FBFAF6',    // progress tracks, wells, zebra rows
-    borderStrong: '#D9D2BF',
-    faint: '#7A735F',       // axes, timestamps — 4.9:1, still AA
   },
 };
 

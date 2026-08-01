@@ -1391,11 +1391,20 @@ export default function Journal() {
         .journal-light [style*="color: #c8d8e8"], .journal-light [style*="color:#c8d8e8"],
         .journal-light [style*="color: #94a3b8"], .journal-light [style*="color:#94a3b8"] { color: ${T.textMuted} !important; }
 
-        /* White text on what is now a white surface - the worst case, 1:1 */
-        .journal-light [style*="color: #fff"], .journal-light [style*="color:#fff"],
-        .journal-light [style*="color: #FFF"], .journal-light [style*="color:#FFF"] { color: ${T.text} !important; }
-        /* ...except where it sits on a filled accent chip, which keeps its own contrast. */
-        .journal-light .badge [style*="color:#fff"], .journal-light button[style*="background: #2563eb"] { color: #fff !important; }
+        /* White text on what is now a white surface - the worst case, 1:1.
+           :not([style*="background"]) is load-bearing, for TWO reasons:
+             1. a filled chip (a red delete button, an active blue tab) sets its own background AND
+                white text on purpose. Forcing those dark puts near-black on red, which is worse
+                than what we started with - 6 real buttons across Accounts/Leaderboard/Assets.
+             2. [style*="color: #fff"] is a SUBSTRING match, so it also hits
+                "background-color: #fff". Excluding anything that declares a background drops that
+                false match too.
+           The earlier attempt used .badge and a hardcoded button background as the exception. Both
+           were guesses - .badge appears in no Journal panel - so the exception never fired. */
+        .journal-light [style*="color: #fff"]:not([style*="background"]),
+        .journal-light [style*="color:#fff"]:not([style*="background"]),
+        .journal-light [style*="color: #FFF"]:not([style*="background"]),
+        .journal-light [style*="color:#FFF"]:not([style*="background"]) { color: ${T.text} !important; }
 
         /* ── NUMBERS: Playfair 700. The reference design owes its legibility as much to weight
            as to colour - a 400-weight display serif at 12px is what actually reads as blurry.
