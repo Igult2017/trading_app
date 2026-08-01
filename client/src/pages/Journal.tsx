@@ -83,6 +83,24 @@ const NAV_SECTIONS: NavGroup[] = [
   ]},
 ];
 
+// Browser-tab titles: "<Panel>-Trade&Journal", e.g. "Trade Vault-Trade&Journal".
+//
+// Derived from the SIDEBAR LABELS above, never hand-written. There used to be a second map inside
+// the component spelling all thirteen again in lowercase ("journal | trade vault"), and it had
+// already drifted from the nav it was meant to mirror: "sync trade" where the sidebar says
+// Streava, "strategy audit" where it says Audit. One list, one spelling.
+const SUITE_TITLE = 'Trade&Journal';
+const NAV_LABELS: Record<string, string> = Object.fromEntries(
+  NAV_SECTIONS.flatMap(g => g.items.map(i => [i.id, i.label])),
+);
+// Panels reachable without their own sidebar entry, so they have no label to borrow.
+const EXTRA_TITLES: Record<string, string> = { tfmetrics: 'TF Metrics', settings: 'Settings' };
+
+export function tabTitle(navId: string): string {
+  const label = NAV_LABELS[navId] ?? EXTRA_TITLES[navId];
+  return label ? `${label}-${SUITE_TITLE}` : SUITE_TITLE;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 const NavButton = ({ item, isActive, onClick, showLabels, darkMode = true, label }: { item: NavItem; isActive: boolean; onClick: () => void; showLabels: boolean; darkMode?: boolean; label?: string }) => {
@@ -777,27 +795,10 @@ export default function Journal() {
     window.history.replaceState(null, '', url.toString());
   }, [activeNav]);
 
-  // Update browser tab title whenever the active panel changes
+  // Update browser tab title whenever the active panel changes. See tabTitle above.
   useEffect(() => {
-    const map: Record<string, string> = {
-      dashboard:   "journal | dashboard",
-      sessions:    "journal | sessions",
-      accounts:    "journal | accounts",
-      journal:     "journal | trading journal",
-      vault:       "journal | trade vault",
-      calendar:    "journal | calendar",
-      drawdown:    "journal | drawdown",
-      metrics:     "journal | metrics",
-      tfmetrics:   "journal | tf metrics",
-      strategy:    "journal | strategy audit",
-      fsdai:       "journal | trader ai",
-      sync:        "journal | sync trade",
-      assets:      "journal | assets",
-      leaderboard: "journal | leaderboard",
-      settings:    "journal | settings",
-    };
-    document.title = map[activeNav] ?? "journal";
-    return () => { document.title = "journal"; };
+    document.title = tabTitle(activeNav);
+    return () => { document.title = SUITE_TITLE; };
   }, [activeNav]);
 
   const [sidebarOpen, setSidebarOpen] = useState(true);
