@@ -40,16 +40,20 @@ def classify(structure, control_side: str, zone_direction: str) -> dict:
     # against. Testing `!= "none"` alone would have read a contested bar as an against-control trade.
     against   = control_side not in NEUTRAL and control_side != zone_direction
 
+    # READER-FACING TEXT CARRIES NO SOURCE CITATIONS. These strings go on the live signal card, and
+    # a chapter or page number is noise to someone deciding whether to take a trade — it also puts
+    # the method on display for anyone the card is forwarded to. The book remains the source of the
+    # logic and stays cited in the code comments and the strategy docs, which is where a citation is
+    # useful: it tells the next engineer where a rule came from. (User, 2026-08-01.)
     why = []
     if confirmed:
-        why.append("HTF trend confirmed (2nd BMS) — the book's Entry-2 situation (p7, diagram p9)")
+        why.append("HTF trend confirmed (2nd BMS) — justification entry")
     else:
-        why.append("HTF trend NOT yet confirmed (1st BMS) — the book calls this an Entry-1/risk "
-                   "situation; BX still confirms on 1M/5M, so it is taken as Entry-2")
+        why.append("HTF trend NOT yet confirmed (1st BMS) — a risk-entry situation; "
+                   "BX still confirms on 1M/5M, so it is taken as a justification entry")
     if against:
-        why.append(f"{control_side} in control — the book names a counter-trend trade as a "
-                   f"justification-entry case (Ch.2 p6)")
-    why.append("BX always waits for the LTF BMS/CHoCH — never an unconfirmed limit (p35)")
+        why.append(f"{control_side} in control — counter-trend, taken as a justification entry")
+    why.append("BX always waits for the LTF BMS/CHoCH — never an unconfirmed limit")
 
     return {"entry_type": "Entry-2 (justification)",
             "book_situation": "Entry-2" if confirmed else "Entry-1",
@@ -59,9 +63,8 @@ def classify(structure, control_side: str, zone_direction: str) -> dict:
 
 
 def phrase(info: dict) -> str:
-    """One card line."""
-    sit = info["book_situation"]
+    """One card line. No source citations — see the note in `classify`."""
     tail = ("trend confirmed" if info["trend_confirmed"]
-            else "trend not yet confirmed — book would allow a risk entry here; BX confirms anyway")
-    extra = ", counter-trend (book: use justification)" if info["against_control"] else ""
-    return f"Entry-2 justification (LTF BMS/CHoCH) — book situation {sit}: {tail}{extra}"
+            else "trend not yet confirmed — a risk-entry situation; BX confirms anyway")
+    extra = ", counter-trend" if info["against_control"] else ""
+    return f"Justification entry (LTF BMS/CHoCH) — {tail}{extra}"
