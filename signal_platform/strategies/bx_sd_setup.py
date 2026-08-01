@@ -151,7 +151,12 @@ def detect_setup(h4: list[Candle], pip: float = 0.0001, book=None,
     # The 1M/5M confirmation downstream is what proves it was RESPECTED.
     # REGIME. In a trend take only zones on the trend's side; in a range take either.
     reg = regime(h4, d1)
-    off_trend = 0
+    # These MUST be initialised here. An edit that added the regime lines replaced this
+    # initialisation instead of preceding it, and `detect_setup` then raised UnboundLocalError on
+    # every scan where the loop below found no candidate — the common case. The unit tests passed
+    # (they exercise `regime` directly) and a single e2e run passed (it happened to find one), so
+    # only a walk-forward replay over hundreds of bars surfaced it.
+    cand, cand_mz, priced_out, n_live, off_trend = None, None, 0, 0, 0
     for mz in sorted(marked, key=lambda m: m.ifc_time, reverse=True):
         # NOT `respected` — that is the RETEST path's job (bx_sd_reports, min_grade="B"). Accepting
         # it here let one zone fire BOTH: a duplicate signal, and the fresh cascade firing at C+,
