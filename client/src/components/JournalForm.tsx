@@ -33,10 +33,37 @@ const OBS_CSS = `
   .obs-jf a,
   .obs-jf h1, .obs-jf h2, .obs-jf h3, .obs-jf h4, .obs-jf h5, .obs-jf h6,
   .obs-jf [class*="font-"] {
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
-                 "Liberation Mono", "Courier New", monospace !important;
+    /* Playfair, like the rest of the Journal. This forced ui-monospace with !important at
+       (0,1,1), which outranks the Journal's own font rule at (0,1,0) - so the form was the one
+       surface in the app that never took the app face, whatever the font setting said. */
+    font-family: 'Playfair Display Variable', 'Playfair Display', Georgia, serif !important;
     box-sizing: border-box;
   }
+
+  /* ── LEGIBILITY ────────────────────────────────────────────────────────────
+     The form was 9px type at roughly 2:1. Measured against its own #09090b
+     background: #3f3f46 (used 35 times) is 1.91:1, #27272a 1.34:1, #52525b
+     2.57:1, #71717a 4.12:1 - every one of them below AA, most of them far
+     below. Nothing renders legibly at that contrast, in any typeface, which is
+     why the form read as both "wrong font" and "invisible".
+     Sizes go up a step and the greys are lifted to AA. Tailwind's arbitrary
+     classes are what set these, so they are overridden by class here rather
+     than edited across ~100 call sites. */
+     ATTRIBUTE selectors, not class selectors. A Tailwind arbitrary class contains brackets, which
+     a class selector must escape as .text-\\[9px\\] - and this string is a JS template literal, so
+     the backslashes get doubled on the way out and the rule silently never matches. Matching on
+     the class ATTRIBUTE sidesteps escaping altogether. */
+  .obs-jf [class~="text-[9px]"]  { font-size: 11px !important; }
+  .obs-jf [class~="text-[10px]"] { font-size: 12px !important; }
+  .obs-jf [class~="text-[11px]"] { font-size: 13px !important; }
+  .obs-jf .text-xs               { font-size: 13.5px !important; line-height: 1.5 !important; }
+  .obs-jf [class~="text-[#3f3f46]"] { color: #a1a1aa !important; }   /* 1.91:1 -> 7.76:1 */
+  .obs-jf [class~="text-[#52525b]"] { color: #a1a1aa !important; }   /* 2.57:1 -> 7.76:1 */
+  .obs-jf [class~="text-[#27272a]"] { color: #8b8b94 !important; }   /* 1.34:1 -> 5.89:1 */
+  .obs-jf [class~="text-[#71717a]"] { color: #a1a1aa !important; }   /* 4.12:1 -> 7.76:1 */
+  /* Uppercase micro-labels need the weight back - Playfair is lighter than a mono at the same
+     size, so a straight family swap would have lost contrast the mono was carrying. */
+  .obs-jf .uppercase { font-weight: 700 !important; }
   .obs-rating-btn { display:flex; align-items:center; justify-content:center; width:36px; height:36px; border-radius:6px; border:1px solid #27272a; background:#0c0c0e; color:#71717a; font-size:13px; font-weight:700; cursor:pointer; transition:all 0.15s; font-family:inherit; flex-shrink:0; }
   .obs-rating-btn:hover:not(.obs-rating-active) { border-color:#4e8cff80; color:#4e8cff; background:#4e8cff0d; }
   .obs-rating-active { background:#4e8cff; border-color:#4e8cff; color:#fff; box-shadow:0 0 0 2px #4e8cff30; }
@@ -1991,7 +2018,7 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <div className="obs-jf font-mono flex flex-col lg:flex-row bg-[#09090b] text-[#d4d4d8]" style={{ minHeight:"100%", height:"100%", fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace' }}>
+    <div className="obs-jf flex flex-col lg:flex-row bg-[#09090b] text-[#d4d4d8]" style={{ minHeight:"100%", height:"100%", fontFamily: "'Playfair Display Variable', 'Playfair Display', Georgia, serif" }}>
       <style dangerouslySetInnerHTML={{ __html: OBS_CSS }} />
 
       {/* ── Form column ──────────────────────────────────────────────────── */}
