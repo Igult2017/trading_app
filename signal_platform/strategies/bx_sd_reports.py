@@ -24,9 +24,9 @@ from strategies.bx_sd_registry import build, to_zone
 from strategies.bx_sd_htf import htf_zone_map, htf_backing
 from strategies.bx_sd_mitigation import mitigation_signal
 from strategies.bx_sd_strength import mitigation_note
-from strategies.bx_sd_retest import _setup_for_zone
-from strategies.bx_sd_confirm import confirm_grade
-from strategies.bx_sd_signal import build_signal
+# `_setup_for_zone`, `confirm_grade` and `build_signal` were imported for the RETEST path and went
+# unused when it was deleted (2026-08-01). `_setup_for_zone` still lives in bx_sd_retest and is still
+# used by bx_sd_watch — it is the import here that was dead, not the function.
 
 _MIN_PIPS = 3.0   # ignore micro zones — same noise floor the cascade applies
 _RECENT   = 6     # "now" = within the last N 4H bars
@@ -73,38 +73,19 @@ def scan_reports(symbol: str, h4: list[Candle], analysis_tfs: list, entry_tf: li
         sig.dedup_key = key                 # committed only when the DM actually lands
         out.append(sig)
 
-    # ② RETEST — REMOVED 2026-08-01. It is now the SAME trade as the core cascade.
+    # ② RETEST — DELETED 2026-08-01. It became a strict SUBSET of the core cascade.
     #
-    # This path required: state == respected, tapped live, 1M/5M confirmed. As of today the cascade
-    # (`bx_sd_setup.detect_setup`) requires exactly that too — the user's rule is that every entry
-    # waits for the move away and enters the pullback, so there is no longer a "fresh" model to
-    # distinguish it from. Leaving both would emit two signals for one zone, which is the duplicate
-    # the architecture doc warns about, with the added twist that they would carry different grades
-    # and different dedup keys and so could not even suppress each other.
+    # It required: `state == respected`, a LIVE tap, and a B/A 1M/5M confirmation. The cascade
+    # (`bx_sd_setup.detect_setup`) now requires `respected` plus EITHER a live tap OR a 4H pullback,
+    # then confirms on the same entry models — so every zone this path could fire on, the cascade
+    # already fires on, and BOTH would emit for one zone. They carry different grades and different
+    # dedup keys, so they could not even suppress each other: the exact duplicate the architecture
+    # doc warns about.
     #
-    # The cascade absorbed the model, not the reverse: it owns the entry, the watch lock and the
-    # invalidation alert, which this path never had.
-    for mz in []:
-        if mz.state != "respected" or (mz.top - mz.bottom) < tmin:
-            continue
-        if not mz.tapped_by(live):
-            continue                        # respected, but price is not back at it RIGHT NOW
-        key = f"{sid}_retest_{mz.ifc_time}_{mz.direction}"
-        if delivery_ledger.is_delivered(key):
-            continue
-        z = to_zone(mz, bars)
-        if z is None:
-            continue
-        setup = _setup_for_zone(h4, z, pip, book=marked)
-        res = confirm_grade(setup, h4, analysis_tfs, entry_tf, htf_map, pip, min_grade="B")
-        if res is None:                     # no 1M/5M confirmation, or below B
-            continue
-        conf, trig, grade = res
-        sig = build_signal(symbol, setup, conf, trig, pip, digits, sid, name)
-        sig.technical_reasons.insert(
-            0, f"🔁 RETEST [{grade}] — mitigated 4H {z.direction} zone respected, re-tapped, MTF-confirmed")
-        sig.market_context = (f"BX-S/D RETEST [{grade}] — {symbol} mitigated 4H {z.direction} re-tapped, "
-                              f"{grade}-grade MTF, {trig.rr}R")
-        sig.dedup_key = key
-        out.append(sig)
+    # The cascade absorbed the model rather than the reverse, because it owns the entry trigger, the
+    # watch lock and the invalidation alert — none of which this path ever had. The retap did NOT
+    # disappear with it; it is one of the cascade's two ways in.
+    #
+    # The dead loop that stood here (`for mz in []:`) is gone with it. A disabled branch that still
+    # reads like live code is how the next session concludes the feature exists.
     return out

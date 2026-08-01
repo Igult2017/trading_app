@@ -63,10 +63,12 @@ number stable across one visit and incrementing on the next. Keying the heads-up
 sent exactly one alert per zone for its entire life and swallowed every retap.
 
 **`live` = every state except `broken`.** Do **not** select on `live` in the cascade — `respected`
-**SUPERSEDED 2026-08-01 — there is now ONE entry model.** The cascade selects **`respected` only**:
-tapped, closed a full zone-height away, and tapped again now. The user's rule — *"wait for the price
-to move away from the zone and then when it pulls back we use that for entry"*. Entering on the
-FIRST touch is gone; that path had no evidence the zone held and is where the losses came from.
+**SUPERSEDED 2026-08-01 — there is now ONE entry model.** The cascade selects **`respected` only**
+(tapped, then closed a full zone-height away), and then requires **a live RETAP *or* a 4H PULLBACK**.
+The user's rule — *"wait for the price to move away from the zone and then when it pulls back we use
+that for entry"*, plus *"keep the retap and add a pullback"*. Entering on the FIRST touch is gone;
+that path had no evidence the zone held and is where the losses came from. See "A RETAP and a
+PULLBACK are different things" below — the OR is the part that keeps getting broken.
 
 The separate RETEST path in `bx_sd_reports` ② is **removed**, because it became the same trade. The
 cascade absorbed it, not the reverse — the cascade owns the entry, the watch lock and the
@@ -143,7 +145,9 @@ regression to guard against.
 | `bx_sd_continuation.py`, `fvg_zone`, `is_fvg_tap` | removed — they entered off an **imbalance**, not a zone. BX trades zones only |
 | `retapped_now` | the `respected` state |
 | `newly_mitigated_zones` | the `wick_mitigated` / `body_mitigated` states |
-| the `pro_trend()` gate | Ch.7 control (reported, never a gate) — it cost 70-78% of valid zones |
+| the `pro_trend()` gate | Ch.7 control (reported, never a gate) — it cost 70-78% of valid zones. **A narrower, regime-conditional gate returned 2026-08-01**: pro-trend only while the 4H is trending, both directions in a range (`bx_sd_setup.regime`) |
+| the **RETEST path** (`bx_sd_reports` ②) | the core cascade — 2026-08-01. It required `respected` + live retap + B/A confirmation, which is now a strict SUBSET of the cascade's retap branch, so both would emit for one zone with different grades and different dedup keys (unable to suppress each other). The retap did **not** go with it; it is one of the cascade's two ways in |
+| `_PULLBACK_LOOKBACK` (entry-TF, 24 bars) | `_PB_LOOKBACK_H4` — the pullback is a **4H** event; a second, tighter definition on the entry TF was silently the one the stop used |
 
 ---
 
@@ -160,11 +164,14 @@ Win rate (full cascade, M1-confirmed, spread-netted): **EUR/USD 6.9% / −4.1R**
 
 | | rule | constant |
 |---|---|---|
-| **Tap must be LIVE** | the zone must be tapped by the **FORMING bar**, right now — not "sometime in the last N bars". A tap is an EVENT HAPPENING NOW | — |
-| **Trigger** | any of the book's THREE methods on 1M/5M: **CHoCH · S/D flip · continuation BOS** (Ch.9 step 4) | — |
-| **Respect** | the confirming close must sit this far inside the 4H zone from the **distal** — *"moved away from it a little, not struggling to break it"* | `_RESPECT_BUFFER = 0.25` (of zone height) |
+| **Zone must be RESPECTED first** | `state == "respected"` — price tapped it and then CLOSED a full zone-height clear of it. Nothing fires on a first touch any more | `REACT_MULT = 1.0` (registry) |
+| **Then a RETAP *or* a 4H PULLBACK** | *"Keep the retap and add a pullback"* (2026-08-01). Two ways in, an **OR**, never one replacing the other | `_PB_LOOKBACK_H4 = 12` bars |
+| **Retap must be LIVE** | back INSIDE the zone by the **FORMING bar**, right now. A tap is an EVENT HAPPENING NOW | — |
+| **Pullback is 4H and CLOSED** | price left the zone, ran, and is retracing on the 4H — **one candle or many**, and it *"might not"* reach the zone. A pullback is a LEVEL, so closed bars only | `_PB_LOOKBACK_H4 = 12` |
+| **Trigger** | any of the book's THREE methods on 1M/5M: **CHoCH · S/D flip · continuation BOS** (Ch.9 step 4). This is what confirms the pullback has **ENDED** | — |
+| **Respect (distal guard)** | the confirming close must sit this far inside the 4H zone from the **distal** — *"moved away from it a little, not struggling to break it"* | `_RESPECT_BUFFER = 0.25` (of zone height) |
 | **Entry** | the **confirming bar's close** — the confirmation IS the signal, so enter where price is, not at a level it just left | — |
-| **Stop** | beyond the **4H zone's distal** — never the refined POI | `_SL_BUFFER_PIPS = 6.0` |
+| **Stop** | **15 pips behind the 4H pullback's own extreme**, *"whether the pullback happens on the zone or far from it"*. On a bare retap (no 4H pullback) it falls back beyond the 4H zone's distal | `_SL_BEHIND_PULLBACK_PIPS = 15.0` / `_SL_BUFFER_PIPS = 6.0` |
 | **Target** | fixed R multiple — *"TP can take care of itself if we take care of entry well"* | `_TP_R = 3.0` |
 | **Breakeven** | SL → entry at 1R; a return to entry is a **scratch, not a loss** | — |
 | **Trailing** | **OFF**, blocked at the transition (`allow_trailing=False`) | — |
@@ -173,6 +180,53 @@ All constants live in `bx_sd_setup.py` (`bx_sd_entry` imports from it, so that d
 
 **These are the user's numbers, not derived ones.** Change them on his instruction or on evidence, not
 because a backtest prefers something else.
+
+### A RETAP and a PULLBACK are different things — and both are entries
+
+This is the single most re-broken rule in BX. It was got wrong twice in one day, in opposite
+directions. In the user's words (2026-08-01):
+
+> *"A tap and a retap of the zone is different from a pullback. A pullback means the price has left
+> that zone and on its way it just pulls back abit — not back to the zone, but just a pullback then
+> continuation. A pullback can take the price back to the zone but in some cases it might not."*
+
+| | RETAP | PULLBACK |
+|---|---|---|
+| what | price is back **inside** the zone | price left the zone, ran, and is **retracing within that move** |
+| where | at the zone | usually **nowhere near** the zone |
+| timeframe | the zone's, read from the **FORMING** bar (a trigger) | **4H**, read from **CLOSED** bars (a level) |
+| size | n/a | **one candle or many** — no minimum depth; the entry TF decides where it ENDS |
+| detector | `MarkedZone.tapped_by(live_bar)` | `bx_sd_setup.pullback_4h(closed_bars, buy)` |
+| stop anchors to | the 4H zone's distal + 6 pips | the pullback's own extreme + 15 pips |
+
+**The gate is `respected AND (retap OR pullback)`.** `tests/bx_sd/test_pullback_4h.py` writes that
+out as a truth table precisely so a future edit that collapses it back to one branch fails loudly.
+
+**Measured, real broker H4** (600 sampled bars, 400-bar context, EUR/USD + GBP/USD + GBP/JPY):
+343 active setups — **retap only 59 (17%) · 4H pullback 255 (74%) · both 29 (8%)**. The retap is the
+minority path, which is why requiring it alone missed most entries; and it is not redundant, because
+for 17% it is the only way in. Rejected: counter-trend 164, badly priced 70, no entry event 23.
+
+**Full path, through `BXStrategy.analyze` with real M1 bars** — 400 calls, EUR/USD + GBP/USD, **0
+exceptions**: 19 real entries (8 + 11) and 343 heads-up/alert-only, all at `rr = 3.0`. Real entry→SL
+**median 40.2 / 40.1 pips**, min 18.5 / 25.5, **max 93.8 / 114.9**. At a fixed 3R the median target
+is ~120 pips. The 90-115-pip tail is defect 7 below, and it is the number to watch in production.
+(An isolated measurement with a permissive confluence gave a tighter max of 64/74 — the full path is
+the authoritative one.)
+
+The "retap before price ever left the zone" case needs no extra test: `respected` already demands a
+close a full zone-height clear, so a zone price never left is never respected and simply waits —
+which is the rule *"in case the retap happens before the price leaves the zone, we wait for the
+pullback in 4HR"*.
+
+**Both wrong readings, recorded so neither returns:**
+
+1. **Retap only.** Missed every pullback that never came back to the zone — most of them. This was
+   the state for weeks.
+2. **"Price on the working side of the zone".** Dropped the retap entirely and admitted any bar in
+   the move away as if it were a pullback. Shipped and corrected the same day. It also read the
+   pullback off the **entry TF** (24 bars = 24 minutes on 1M), which is a wiggle inside a pullback,
+   not a pullback, and produced 15-pip stops with no structure behind them.
 
 ## KNOWN OPEN DEFECTS — not fixed, do not assume otherwise
 
@@ -193,17 +247,37 @@ because a backtest prefers something else.
    `trig.*`, so **no wrong number reaches the user** — but the object carries a stop computed at
    `distal ± 2 pip` while the real stop is `_SL_BUFFER_PIPS = 6` off the **4H** distal. Read `trig`,
    never `conf`, for prices.
-6. **The RETEST card carries no zone strength or mitigation note.** `bx_sd_retest._setup_for_zone`
-   builds its own minimal `SetupResult` rather than going through `detect_setup`, so the two
-   enrichments added on 2026-07-30 reach the fresh cascade only. The retest path says `🔁 RETEST [B]`
-   and the grade, which is not nothing, but it cannot say *wicked only* or *STRONG*.
+6. ~~**The RETEST card carries no zone strength or mitigation note.**~~ **MOOT** — the RETEST path was
+   deleted 2026-08-01 (it became a strict subset of the cascade). `bx_sd_retest._setup_for_zone` still
+   exists and is still imported by `bx_sd_watch`; if anything else starts calling it, the missing
+   enrichment comes back with it.
+7. **A pullback measured from an EARLIER leg's high can widen the stop — MEASURED, and smaller than
+   it looks.** `pullback_4h` takes the highest high in the 12-bar window as the move's extreme and
+   the lowest low since it as the turning point, so in principle a deep fall followed by a rally back
+   toward that high puts the entry far from the stop. **The H4 close is NOT a usable proxy for the
+   entry here** — used as one it reports a 350-pip worst case the real path never produces, because
+   the confirmation fires at the pullback's turn, near its own extreme. **Measured on the FULL path**
+   (400 `analyze` calls, real M1, EUR/USD + GBP/USD): median **40.2 / 40.1 pips**, min 18.5 / 25.5,
+   **max 93.8 / 114.9**. So the tail is real, just far smaller than the proxy suggested. Not capped:
+   the rule as stated is "15 pips behind the pullback" with no bound, and `details.risk_pips` puts the
+   number on every card. **GBP/JPY is unmeasured** — no M1 history that deep — and its H4-proxy
+   figures were the widest of the three, so watch it first. If the tail proves troublesome, the fix is
+   to take the extreme from the most recent SWING instead of the window's global extreme — not an
+   arbitrary pip cap.
+8. **`_RESPECT_BUFFER` is close to vacuous on the pullback path.** It requires the confirming close to
+   sit 25% of zone height inside the 4H zone, off the distal — a test written when the entry WAS at
+   the zone. On a pullback entry that never returns to the zone, the close is outside it entirely and
+   the check passes trivially. It still does real work on the retap path. Not removed, because it is
+   the only thing standing between a retap entry and a zone being ground through.
 
-> **THE TAP IS LIVE, THE ZONE IS CLOSED-BAR.** The registry marks and ages zones from CLOSED bars
-> (a level must come from a closed candle). But "is price at this zone?" is asked of the **FORMING**
-> bar. The cascade therefore accepts a zone in state `unmitigated` **or** `mitigated` plus a live tap —
-> requiring `mitigated` alone is impossible, because the forming bar's tap is not in the book yet and
-> by the time the state flips at bar close the live bar has moved on. **That combination silences the
-> strategy; it was caught in review, do not reintroduce it.**
+> **THE TAP IS LIVE, THE ZONE IS CLOSED-BAR — and the PULLBACK is closed-bar too.** The registry marks
+> and ages zones from CLOSED bars (a level must come from a closed candle), and `pullback_4h` reads
+> closed bars for the same reason: where a move turned is a LEVEL. But "is price at this zone?" is
+> asked of the **FORMING** bar, because a tap is an EVENT. The cascade therefore pairs a closed-bar
+> state (`respected`) with a live-bar trigger (the retap). Requiring a *mitigated* state AND a live tap
+> in the same instant is impossible — the forming bar's tap is not in the book yet, and by the time the
+> state flips at bar close the live bar has moved on. **That combination silences the strategy; it was
+> caught in review, do not reintroduce it.**
 
 ### Closed, with what closed them
 - ~~Stop/target scale mismatch (median 20R)~~ — stop now off the 4H distal, TP fixed at 3R.
@@ -225,9 +299,11 @@ because a backtest prefers something else.
 
 ## Verification harnesses (scratchpad)
 
-In the repo (**72 checks**): `tests/bx_sd/test_zones.py` (28, lifecycle) ·
+In the repo (**94 checks**): `tests/bx_sd/test_zones.py` (28, lifecycle) ·
 `tests/bx_sd/test_marking.py` (19, band geometry + the 29 Jul regression, on REAL cTrader bars) ·
-`tests/bx_sd/test_visits.py` (25, retap-as-visit, `live_visit()` dedup, strength HTF wiring, card).
+`tests/bx_sd/test_visits.py` (25, retap-as-visit, `live_visit()` dedup, strength HTF wiring, card) ·
+`tests/bx_sd/test_pullback_4h.py` (22, the 4H pullback detector + the retap-OR-pullback gate as a
+truth table) · `tests/bx_sd/test_regime.py` (the 4H-only regime gate).
 
 Scratchpad: `bx_registry_test.py` (invariants + determinism + the 27 Jul case) · `bx_walkforward.py`
 (setups/month) · `bx_winrate.py` (full cascade win rate) · `bx_control_test.py` · `bx_e2e.py`.

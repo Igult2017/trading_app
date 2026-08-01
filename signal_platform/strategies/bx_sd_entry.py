@@ -11,7 +11,8 @@ trigger before locking a signal:
     _RESPECT_BUFFER of the zone height inside it, off the distal.
   * ENTRY  — the CONFIRMING BAR'S CLOSE. The confirmation is the signal, so we enter where price is,
     not at a level it has just reacted away from.
-  * SL     — _SL_BUFFER_PIPS beyond the 4H ZONE's distal (never the refined POI).
+  * SL     — _SL_BEHIND_PULLBACK_PIPS beyond the 4H PULLBACK's own extreme (`setup.pb_extreme`),
+    falling back to _SL_BUFFER_PIPS beyond the 4H ZONE's distal on a bare retap. Never the POI.
   * TP     — a fixed _TP_R multiple of that risk.
 
 Assembles Phases 1-6; reuses only generic shared resources.
@@ -22,13 +23,12 @@ from core.types import Candle
 from shared.swing_points import find_swing_points
 from strategies.bx_sd_ltf import find_ltf_choch, _choch_valid, LTFConfluence
 from strategies.bx_sd_structure import map_structure
-from strategies.bx_sd_setup import (SetupResult, _SL_BEHIND_PULLBACK_PIPS, _TP_R,
-                                    _RESPECT_BUFFER)
+from strategies.bx_sd_setup import (SetupResult, _SL_BEHIND_PULLBACK_PIPS, _SL_BUFFER_PIPS,
+                                    _TP_R, _RESPECT_BUFFER)
 
-# How many entry-TF bars back to look for the pullback's extreme. 24 bars = 2h on 5M, 24min on 1M —
-# long enough to contain the retracement being entered, short enough not to reach back into the
-# previous leg and place the stop behind a move that is already over.
-_PULLBACK_LOOKBACK = 24
+# `_PULLBACK_LOOKBACK = 24` (entry-TF bars) lived here and is DELETED. The pullback is a 4H event
+# and is found by `bx_sd_setup.pullback_4h`; a second lookback on the entry TF was a second, tighter
+# definition of the same word, and the stop silently used the tighter one.
 
 
 def _flip_ok(entry_tf: list[Candle], want_dir: str, n: int = 3) -> bool:
@@ -135,23 +135,36 @@ def entry_trigger(conf: LTFConfluence, setup: SetupResult, entry_tf: list[Candle
     # This used to take the SL off the REFINED zone, which produced ~3 pip stops sitting inside noise:
     # spread was 20-30% of risk and any wick took the trade out. The 4H stop was already computed in
     # detect_setup and then silently discarded here.
-    # STOP: 15 pips behind THE PULLBACK'S OWN EXTREME, wherever the pullback happened.
+    # STOP: 15 pips behind THE 4H PULLBACK'S OWN EXTREME, wherever that pullback happened.
     # User's rule, 2026-08-01: *"the stop is 15 pips just behind the pullback, whether the pullback
     # happens on the zone or far from it."*
     #
-    # The pullback extreme is the lowest low (buy) / highest high (sell) of the recent entry-TF
-    # bars — the turn the confirmation just fired off. It is read from the bars themselves rather
-    # than a swing-point helper because a swing needs confirmation bars either side, and by then
-    # price has already left; the extreme of the leg we are entering is what the stop must clear.
+    # THE PULLBACK IS A 4H EVENT. *"The pullback I was talking about is in 4HR TF."* `detect_setup`
+    # found it (`bx_sd_setup.pullback_4h`) and put its turning point on `setup.pb_extreme` — the
+    # low of the retracement for a buy, its high for a sell. Reading it there rather than
+    # recomputing keeps ONE definition of where the pullback turned; two would drift.
     #
-    # This replaced a stop anchored to the 4H zone distal. That was right while the entry WAS at
-    # the zone; it is wrong now the entry is a pullback that may be far from it — from 60 pips
-    # away it would have given a 66-pip stop and, at a fixed 3R, a ~200-pip target.
-    leg = entry_tf[-_PULLBACK_LOOKBACK:]
-    if buy:
-        sl = min(b.low for b in leg) - _SL_BEHIND_PULLBACK_PIPS * pip
+    # This corrects a stop read off the ENTRY TF's own recent extreme. That measured the last 24
+    # entry-TF bars — 24 minutes on 1M — which is a wiggle inside the pullback, not the pullback,
+    # and produced stops as tight as 15.1 pips with no structure behind them.
+    #
+    # NO 4H PULLBACK — a bare retap — falls back to the 4H ZONE's distal: on a retap the zone IS
+    # the structure being entered, and its distal is what a wick has to clear. That is the older
+    # rule, kept for the case it was written for rather than deleted with the case it was wrong for.
+    if setup.pb_extreme:
+        sl = (setup.pb_extreme - _SL_BEHIND_PULLBACK_PIPS * pip if buy
+              else setup.pb_extreme + _SL_BEHIND_PULLBACK_PIPS * pip)
     else:
-        sl = max(b.high for b in leg) + _SL_BEHIND_PULLBACK_PIPS * pip
+        sl = (zone4h.distal - _SL_BUFFER_PIPS * pip if buy
+              else zone4h.distal + _SL_BUFFER_PIPS * pip)
+    # A stop on the wrong side of the entry is unusable. It happens when the confirming close lands
+    # BELOW the pullback's low on a buy — the confirmation fired past the level the stop hangs off.
+    # `risk <= 0` below would catch it, but silently; this says which of the two is at fault.
+    if (buy and sl >= entry) or (not buy and sl <= entry):
+        r.reason = (f"stop ({sl:.5f}) is on the wrong side of the entry ({entry:.5f}) — "
+                    f"the confirmation fired beyond the pullback's own extreme")
+        r.triggered = False
+        return r
     r.entry, r.sl = entry, sl
 
     # TP is a FIXED 3R. User: "just leave TP at 3R — TP can take care of itself if we take care of

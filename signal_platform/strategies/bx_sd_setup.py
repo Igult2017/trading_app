@@ -65,6 +65,12 @@ _MIN_PIPS   = 3.0  # ignore micro-FVG zones — same noise floor the 3 report pa
                    # could drive a real channel entry the reports would have skipped as noise
 
 
+_PB_LOOKBACK_H4 = 12
+"""How many CLOSED 4H bars back to look for the move's extreme and the pullback off it.
+12 bars = two days — long enough to contain the run away from the zone and the retracement in it,
+short enough that the extreme found is this move's and not the previous one's."""
+
+
 @dataclass
 class SetupResult:
     active:      bool = False
@@ -76,6 +82,50 @@ class SetupResult:
     tp2:         float = 0.0
     confluences: dict = field(default_factory=dict)
     reason:      str  = ""        # diagnostics — why inactive
+    entry_via:   str  = ""        # "pullback" | "retap" | "pullback+retap" — HOW we got in
+    pb_extreme:  float = 0.0      # the 4H pullback's own extreme; 0.0 when there is no pullback.
+                                  # bx_sd_entry puts the stop 15 pips behind THIS.
+
+
+def pullback_4h(bars: list[Candle], buy: bool,
+                lookback: int = _PB_LOOKBACK_H4) -> tuple[bool, float]:
+    """Is there a PULLBACK on the 4H right now, and what is its own extreme?
+
+    User's rule, 2026-08-01: *"a pullback means the price has left that zone and on its way it just
+    pulls back abit — not back to the zone, but just a pullback, then continuation. A pullback can
+    take the price back to the zone but in some cases it might not."* And: *"A pullback in 4HR TF
+    can be 1 candle or many but its end will be confirmed in entry tf using our confirmed entry
+    models."*
+
+    So the 4H's whole job here is to say the retracement EXISTS and where it turned. Finding where
+    it ENDS is the entry timeframe's job (`bx_sd_entry` — CHoCH / S/D flip / continuation), which is
+    why nothing here asks for a minimum depth or a fixed number of candles.
+
+    The test, for a buy (mirrored for a sell):
+      1. find the highest high of the last `lookback` CLOSED 4H bars — the move's extreme
+      2. require at least one CLOSED bar AFTER it — the pullback is one candle or many
+      3. require the latest close to be back below that high — price actually came off it
+
+    Returns `(pulled_back, extreme)` where `extreme` is the LOW of the pullback for a buy (its own
+    turning point, not the move's), which is what the stop sits 15 pips behind.
+
+    READ FROM CLOSED BARS. A pullback is a LEVEL — where the move turned — and the forming bar's
+    high/low are still moving. The retap beside it is a TRIGGER and stays live.
+    """
+    win = bars[-lookback:]
+    if len(win) < 3:
+        return False, 0.0
+    if buy:
+        i = max(range(len(win)), key=lambda k: win[k].high)
+        after = win[i + 1:]
+        if not after or win[-1].close >= win[i].high:
+            return False, 0.0
+        return True, min(b.low for b in after)
+    i = min(range(len(win)), key=lambda k: win[k].low)
+    after = win[i + 1:]
+    if not after or win[-1].close <= win[i].low:
+        return False, 0.0
+    return True, max(b.high for b in after)
 
 
 def regime(h4: list[Candle], d1: list[Candle] | None = None) -> int:
@@ -166,6 +216,7 @@ def detect_setup(h4: list[Candle], pip: float = 0.0001, book=None,
     # (they exercise `regime` directly) and a single e2e run passed (it happened to find one), so
     # only a walk-forward replay over hundreds of bars surfaced it.
     cand, cand_mz, priced_out, n_live, off_trend = None, None, 0, 0, 0
+    cand_via, cand_pb, no_entry_event = "", 0.0, 0
     for mz in sorted(marked, key=lambda m: m.ifc_time, reverse=True):
         # NOT `respected` — that is the RETEST path's job (bx_sd_reports, min_grade="B"). Accepting
         # it here let one zone fire BOTH: a duplicate signal, and the fresh cascade firing at C+,
@@ -196,21 +247,39 @@ def detect_setup(h4: list[Candle], pip: float = 0.0001, book=None,
         # a mitigated state AND a live tap in the same instant — does not apply here.
         if mz.state != "respected":
             continue
-        # PRICE MUST BE IN THE MOVE AWAY FROM THE ZONE — not back inside it.
+        # RETAP **OR** 4H PULLBACK. Both qualify. Neither replaces the other.
         #
-        # A PULLBACK IS NOT A RETAP. This required `mz.tapped_by(live_bar)`, i.e. price back INSIDE
-        # the zone right now, which is a retap. The user's model is different: once the zone is
-        # respected, price LEAVES and runs, then pulls back a little WITHIN that move and continues
-        # — and that pullback usually never reaches the zone again. Demanding a tap therefore missed
-        # nearly every entry the model is built on.
+        # User's rule, 2026-08-01: *"Keep the retap and add a pullback. If the pullback happens
+        # before the retap, it serves as both the pullback and the retap. However, in case the retap
+        # happens before the price leaves the zone, we wait for the pullback in 4HR."*
         #
-        # So the zone's job ends once it has been respected: it established the direction and the
-        # move. From there the only requirement is that price is still on the working side of it —
-        # above a demand zone, below a supply zone. The pullback itself is found on the entry
-        # timeframe by the book's three models, which is what `confirm_grade` already does.
-        px_ok = (live_bar.close > mz.top) if mz.direction == "demand" else (live_bar.close < mz.bottom)
-        if not px_ok:
+        #   RETAP    price is back INSIDE the zone right now. An event, so read from the LIVE bar.
+        #   PULLBACK price left the zone, ran, and is retracing on the 4H — one candle or many —
+        #            without necessarily reaching the zone again. A level, so read from CLOSED bars.
+        #
+        # Both readings before this were wrong in opposite directions. Requiring ONLY a retap missed
+        # every pullback that never came back to the zone, which is most of them. Then replacing it
+        # with "price on the working side of the zone" dropped the retap altogether and let anything
+        # in the move away qualify. It is an OR of two specific events, not either one alone.
+        #
+        # The "retap before price left the zone" case needs no separate test: `respected` above
+        # already requires a CLOSE a full zone-height clear of the zone, so price cannot reach this
+        # line without having left. A retap that never left the zone never sets `respected`, and the
+        # zone waits — which is exactly "we wait for the pullback in 4HR".
+        buy_side = mz.direction == "demand"
+        retap    = mz.tapped_by(live_bar)
+        away     = (live_bar.close > mz.top) if buy_side else (live_bar.close < mz.bottom)
+        pulled, pb_ext = pullback_4h(bars, buy_side)
+        pullback = pulled and away        # a pullback is only a pullback OUTSIDE the zone;
+                                          # inside it, it is the retap on the line above
+        if not (retap or pullback):
+            no_entry_event += 1
             continue
+        cand_via = ("pullback+retap" if (pullback and retap)
+                    else "pullback" if pullback else "retap")
+        # The stop anchors to the pullback's extreme when there is one. On a bare retap there is no
+        # 4H pullback to sit behind, and bx_sd_entry falls back to the 4H zone's distal.
+        cand_pb = pb_ext if pulled else 0.0
         if (mz.top - mz.bottom) < _MIN_PIPS * pip:
             continue
         # PRO-TREND ONLY WHILE TRENDING. A supply zone in an uptrend produces a PULLBACK, not a
@@ -248,7 +317,11 @@ def detect_setup(h4: list[Candle], pip: float = 0.0001, book=None,
         live_zones = [m for m in marked if m.live]
         near = min((abs(m.proximal - price) for m in live_zones), default=None)
         gap = f", nearest {near / pip:.0f} pips away" if near is not None else ""
-        r.reason = (f"no marked zone being tapped right now "
+        if no_entry_event:
+            r.reason = (f"{no_entry_event} respected zone(s) but no entry event — price has "
+                        f"neither retapped them nor pulled back on the 4H{gap}")
+            return r
+        r.reason = (f"no respected zone with a retap or a 4H pullback right now "
                     f"({len(live_zones)} live zones on the book{gap})")
         return r
 
@@ -266,6 +339,7 @@ def detect_setup(h4: list[Candle], pip: float = 0.0001, book=None,
 
     r.active, r.direction, r.zone = True, tdir, cand
     r.entry, r.sl = entry, sl
+    r.entry_via, r.pb_extreme = cand_via, cand_pb
     r.tp1 = fib_target(leg_low, leg_high, tdir, 0.272)
     r.tp2 = fib_target(leg_low, leg_high, tdir, 0.618)
     side = control(marked)          # control reads the SAME book — one set of zones, never re-derived
@@ -274,7 +348,8 @@ def detect_setup(h4: list[Candle], pip: float = 0.0001, book=None,
                      "entry_type": etype, "entry_type_phrase": et_phrase(etype),
                      "broke_structure": True, "liquidity_grab": True,
                      "pricing": premium_discount(leg_low, leg_high, price),
-                     "rsi_divergence": rsi_divergence(h4, tdir)}
+                     "rsi_divergence": rsi_divergence(h4, tdir),
+                     "entry_via": cand_via}
     # HOW it was mitigated and HOW STRONG it is — both read off the zone book, both previously
     # invisible on the card. A wick-only tap and a full body mitigation used to look identical.
     if cand_mz is not None:
