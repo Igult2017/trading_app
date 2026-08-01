@@ -382,6 +382,31 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
    * Deliberately NO win/loss anywhere: there is no entry logic yet, so an outcome would be a guess
    * presented as a record.
    */
+  /**
+   * "2m ago", "15m ago", "3h ago", "1d ago" — how long since the signal was generated.
+   *
+   * A signal board is read as "what is happening and how fresh is it". An absolute date makes you
+   * do that subtraction in your head, and on a board that only ever holds one week the date adds
+   * nothing. The absolute time is kept on the element's title so precision is still one hover away.
+   *
+   * Re-renders on the 60s refetch the list already does, so the value never drifts by more than a
+   * minute — which is inside its own resolution.
+   */
+  function timeAgo(iso?: string): string {
+    if (!iso) return "";
+    const t = new Date(iso).getTime();
+    if (!isFinite(t)) return "";
+    const secs = Math.floor((Date.now() - t) / 1000);
+    if (secs < 0) return "just now";          // clock skew — never render "in -3m"
+    if (secs < 60) return "just now";
+    const mins = Math.floor(secs / 60);
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}h ago`;
+    const days = Math.floor(hrs / 24);
+    return `${days}d ago`;
+  }
+
   function signalState(s: any): "watching" | "live" | "closed" {
     const status = s?.status;
     if (status === "executed" || status === "invalidated") return "closed";
@@ -1129,10 +1154,11 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
                 {(card.createdAt || card.strategy) && (
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center",
                                 marginBottom: 8, fontSize: 10, fontWeight: 700, letterSpacing: "0.05em" }}>
-                    <span style={{ color: "#9fb3c8" }}>
-                      {card.createdAt ? new Date(card.createdAt).toLocaleString(undefined, {
-                        month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false,
-                      }) : ""}
+                    <span
+                      style={{ color: "#9fb3c8" }}
+                      title={card.createdAt ? new Date(card.createdAt).toLocaleString() : ""}
+                    >
+                      {timeAgo(card.createdAt)}
                     </span>
                     {card.strategy && (
                       <span style={{ color: "#c3a8f5", textTransform: "uppercase" }}>{card.strategy}</span>
