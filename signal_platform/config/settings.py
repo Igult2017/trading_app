@@ -51,7 +51,16 @@ class Settings(BaseSettings):
     # fixed strategy go live while a still-in-refinement one stays held. (2026-07-21: BX-S/D is
     # trusted post-fix and goes public; VIX.1 stays DM until the 100-trade selection pass.) Env:
     # DM_ONLY_EXEMPT="bx_sd,other". Their _watch heads-ups still go to the DM (unconfirmed).
-    dm_only_exempt: str = "bx_sd"
+    # Positive ALLOWLIST for the public channel while `channel_entries_only` is on: a strategy's
+    # CONFIRMED ENTRIES reach subscribers only if it is named here. VIX.1 added 2026-08-01 on the
+    # user's instruction ("take confirmed entry VIX1 signals to the channel").
+    #
+    # This widens ENTRIES ONLY. It cannot leak anything else:
+    #   * _watch heads-ups   — routed to the DM before this list is consulted (dispatcher: is_watch)
+    #   * TP/SL close cards  — `on_signal_closed` sends privately whenever channel_entries_only is
+    #                          on, regardless of this list
+    #   * session opens / scan status — never touch this path at all
+    dm_only_exempt: str = "bx_sd,vix1"
     # THE PUBLIC CHANNEL CARRIES ENTRY SIGNALS AND NOTHING ELSE.
     # User, 2026-07-27: "take those TP HIT and other unnecessary messages to DM for now. Only send BX
     # entry signals to the channel." So outcome cards (TP hit / SL / cancelled) and session-open
