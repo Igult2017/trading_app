@@ -1414,14 +1414,39 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
   useEffect(() => {
     const s4Up: Record<string,string> = {};
     const outcome      = s2.outcome as "Win"|"Loss"|"BE";
-    const plannedRRNum = parseRRNum(s4.plannedRR);
+
+    // ── Planned R:R, DERIVED from the SL/TP distances ────────────────────────
+    // This is the link that was missing, and it is why P&L would not populate
+    // until you touched a R:R field. plannedRR was only ever set two ways: a
+    // keystroke, or OCR off a screenshot. With neither, plannedRR stayed empty
+    // -> the achievedRR auto-fill below produced nothing (its Win branch copies
+    // plannedRR) -> effectiveWinRR was "" -> achievedRRNum was 0 -> the Win
+    // branch of the P&L block is guarded by `achievedRRNum !== 0` and never ran.
+    // Typing into either R:R field re-fired this effect with a real number and
+    // the P&L appeared, which is exactly the reported symptom.
+    // The two pip distances were already in this effect's deps and used ten
+    // lines below for pipsGainedLost, so nothing new is being watched.
+    let plannedRRStr = s4.plannedRR;
+    if (!plannedRRStr && s2.stopLossDistancePips && s2.takeProfitDistancePips) {
+      const slP = Math.abs(parseFloat(s2.stopLossDistancePips));
+      const tpP = Math.abs(parseFloat(s2.takeProfitDistancePips));
+      if (slP > 0 && tpP > 0 && isFinite(slP) && isFinite(tpP)) {
+        // Trim trailing zeros so 2.00 reads "1:2", not "1:2.00".
+        plannedRRStr   = `1:${(tpP / slP).toFixed(2).replace(/\.?0+$/, "")}`;
+        s4Up.plannedRR = plannedRRStr;
+      }
+    }
+    const plannedRRNum = parseRRNum(plannedRRStr);
 
     // P&L = balance × risk% × achievedRR (signed by outcome).
     // Use achievedRR when available; fall back to plannedRR for Win when
     // achievedRR hasn't been set yet (e.g. auto-fill hasn't committed yet).
     // For Loss and BE the sign comes from outcome directly — we never use
     // plannedRR as a fallback for those because it would give the wrong sign.
-    const effectiveWinRR = s4.achievedRR || s4.plannedRR;
+    // Falls back to the DERIVED planned R:R (plannedRRStr), not the raw state field —
+    // otherwise the first pass after deriving it would still see "" here and skip the P&L
+    // for one more render.
+    const effectiveWinRR = s4.achievedRR || plannedRRStr;
     const achievedRRNum  = parseRRNum(effectiveWinRR);
 
     // ── Monetary risk ─────────────────────────────────────────────────────────
