@@ -1,5 +1,27 @@
 # Open Items — found, recorded, NOT fixed
 
+## THE PHASE PLAN (agreed 2026-08-01)
+
+Work is split so each phase finishes cleanly on its own. **Nothing below is urgent** — BX-S/D is
+working and production is stable.
+
+| phase | what | blocked on | risk |
+|---|---|---|---|
+| **1 — DONE** | Record every finding; delete 11 orphaned files; write the delete-dead-files rule; fix 2 runtime bugs | — | none, verified |
+| **2** | `tsc` hygiene — raise `target` to `es2015`+ (clears 11 of 18), fix the remaining 7, then **add `tsc --noEmit` to the build** so type errors can never ship again | — | low; do it first, it is what hid the two bugs |
+| **3** | Journal sidebar live data — add `bestTrade`/`worstTrade`/`totalFees` server-side, then point the sidebar at `/api/metrics/compute` | — | low |
+| **4** | Unset `CTRADER_SYNC_*` in prod so new connects stop routing through the blocked app | **the user's Spotware reply** | medium — touches live auth |
+| **5** | BX 94–115 pip stop tail | **live production data** — only act if it actually hurts | do nothing yet |
+
+**Two decisions belong to the user, not to the next session:**
+1. **Telegram charts** — restore them, or delete `charting/chart_generator.py` (item 1 below).
+2. **Deploy** — `dfb38b7` (2 runtime bug fixes) and `c0a8b67` (11 deletions) are **pushed to GitHub
+   but NOT deployed**. Production runs `f329e94`. Coolify does not auto-deploy on push. Both are
+   verified safe but neither ships without an explicit instruction.
+
+---
+
+
 Everything below was **found by an audit and deliberately left**, either because fixing it is a
 behaviour change the user has not asked for, or because it is pre-existing and out of the scope of
 the change that surfaced it. Recorded 2026-08-01.
@@ -50,6 +72,10 @@ remaining 18 are config-level:
 **Why it matters more than it looks:** the noise is what let two genuine bugs sit unnoticed. Raising
 `target` to `es2015`+ in `tsconfig.json` would clear 11 of the 18 at a stroke. **Run `npx tsc
 --noEmit` as part of any Node-side change** — the build will not do it for you.
+
+**Phase 2 finishes with the durable fix:** add `tsc --noEmit` to the `build` script. Clearing the
+errors without that only resets the clock — esbuild still will not typecheck, and the next unimported
+symbol ships exactly the same way `PYTHON_BIN` did.
 
 ---
 
