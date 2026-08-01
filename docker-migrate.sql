@@ -493,5 +493,14 @@ CREATE UNIQUE INDEX IF NOT EXISTS trading_signals_one_active_per_key
     ON trading_signals (strategy, symbol, type)
  WHERE status = 'active';
 
+-- Watch heads-ups ("zone mitigated, watching for a reaction") are persisted as status='watching'
+-- so the Assets panel can show what is being watched for entry. They re-fire on every return visit
+-- by design, so without this they would accumulate a row per visit. Separate from the 'active'
+-- index above on purpose: a heads-up must never occupy the keyspace a real entry needs, and the two
+-- partial indexes cannot see each other.
+CREATE UNIQUE INDEX IF NOT EXISTS trading_signals_one_watching_per_key
+    ON trading_signals (strategy, symbol, type)
+ WHERE status = 'watching';
+
 -- ── Done ─────────────────────────────────────────────────────────────────────
 DO $$ BEGIN RAISE NOTICE 'docker-migrate.sql complete'; END $$;

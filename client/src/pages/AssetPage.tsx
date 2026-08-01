@@ -17,6 +17,8 @@ interface Instrument {
   direction?: string;      // signal side (BUY/SELL) for the sidebar
   createdAt?: string;      // signal time — sidebar is ordered latest-first
   confirmed?: boolean;     // valid signal that can be taken vs a watch/validating one
+  state?: "watching" | "live";  // watching for entry vs entry filled and running (see signalState)
+  strategy?: string;       // which strategy produced it — shown on the card
 }
 
 interface ContextItem { label: string; value: string; color: string; loading?: boolean }
@@ -336,11 +338,14 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
     document.addEventListener('mouseup', onUp);
   }
 
-  // ── All active signals → sidebar instrument list ─────────────────────────
+  // ── Live signal board → sidebar instrument list ──────────────────────────
+  // BOTH statuses: 'watching' is a setup being watched for entry (a zone tapped, no order yet),
+  // 'active' is a signal that fired. Fetching only 'active' is why this panel had never displayed
+  // anything — heads-ups are the common case and were not being persisted at all.
   const { data: allSignals = [] } = useQuery<any[]>({
     queryKey: ["all-active-signals"],
     queryFn: async () => {
-      const res = await fetch("/api/trading-signals?status=active");
+      const res = await fetch("/api/trading-signals?status=watching,active");
       if (!res.ok) return [];
       const json = await res.json();
       return Array.isArray(json) ? json : [];
@@ -363,6 +368,23 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
     staleTime: 30_000,
   });
 
+  /**
+   * The two states the user asked to see, derived — no new column.
+   *
+   *   WATCHING FOR ENTRY  status 'watching', or 'active' with no fill yet (a stop order resting)
+   *   IN PROGRESS         'active' AND triggered_at set — the entry filled, the trade is running
+   *
+   * `triggered_at` is stamped by the monitor the moment price touches the entry, so this reads the
+   * same fact the monitor acts on rather than inventing a parallel notion of "taken".
+   *
+   * Deliberately NO win/loss anywhere: there is no entry logic yet, so an outcome would be a guess
+   * presented as a record.
+   */
+  function signalState(s: any): "watching" | "live" {
+    const triggered = s?.triggeredAt ?? s?.triggered_at ?? null;
+    return s?.status === "active" && triggered ? "live" : "watching";
+  }
+
   const sidebarInstruments: Instrument[] = (() => {
     const seen = new Set<string>();
     const list: Instrument[] = [];
@@ -376,6 +398,7 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
           symbol: s.symbol, assetClass: s.assetClass as Instrument["assetClass"],
           category: assetClassToCategory(s.assetClass),
           direction: s.type, createdAt: s.createdAt, confirmed: isConfirmedSignal(s.marketContext),
+          state: signalState(s), strategy: s.strategy || "",
         });
       }
     }
@@ -1050,6 +1073,17 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
                   <span style={{ fontSize: 10, fontWeight: 700, color: isActive ? "#7c6ff7" : C.muted, letterSpacing: "0.04em" }}>
                     {card.symbol}
                   </span>
+                  {card.state && (
+                    <span style={{
+                      fontSize: 8, fontWeight: 700, letterSpacing: "0.1em", padding: "2px 6px",
+                      borderRadius: 3, whiteSpace: "nowrap",
+                      color:      card.state === "live" ? "#34d399" : "#fbbf24",
+                      background: card.state === "live" ? "#34d39918" : "#fbbf2418",
+                      border: `1px solid ${card.state === "live" ? "#34d39940" : "#fbbf2440"}`,
+                    }}>
+                      {card.state === "live" ? "IN PROGRESS" : "WATCHING FOR ENTRY"}
+                    </span>
+                  )}
                   {sidebarWidth >= 200 && (
                     card.unconfirmed
                       ? <span style={{ fontSize: 8, fontWeight: 800, color: "#f59e0b", letterSpacing: "0.08em",
@@ -1062,6 +1096,22 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
                         </span>
                   )}
                 </div>
+
+                {/* Row 1b: when it was recorded + which strategy produced it. Both were asked for
+                    explicitly; both come straight off the row (created_at, strategy). */}
+                {(card.createdAt || card.strategy) && (
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center",
+                                marginBottom: 8, fontSize: 8, fontWeight: 600, letterSpacing: "0.06em" }}>
+                    <span style={{ color: C.muted2 }}>
+                      {card.createdAt ? new Date(card.createdAt).toLocaleString(undefined, {
+                        month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false,
+                      }) : ""}
+                    </span>
+                    {card.strategy && (
+                      <span style={{ color: C.dim, textTransform: "uppercase" }}>{card.strategy}</span>
+                    )}
+                  </div>
+                )}
 
                 {/* Row 2: Arrow + Price + Change % */}
                 {(() => {

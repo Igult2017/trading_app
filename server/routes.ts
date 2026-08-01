@@ -4,7 +4,7 @@ import { supabaseAdmin, verifyToken } from "./lib/supabaseAdmin";
 import { cacheGet, cacheSet, cacheDel, cacheDelPattern } from "./lib/cache";
 import { db, pool } from "./db";
 import { userProfiles, adminAccessLogs, tradingSignals, priceAlerts, emailTracking } from "@shared/schema";
-import { eq, desc, and, lt, gte, isNotNull, count, sql as drizzleSql } from "drizzle-orm";
+import { eq, desc, and, lt, gte, isNotNull, inArray, count, sql as drizzleSql } from "drizzle-orm";
 import { encrypt, safeDecrypt, safeEncrypt } from "./lib/crypto";
 import { geolocateIp } from "./lib/geoIp";
 import { processIncomingTrades } from "./services/brokerSyncService";
@@ -2229,21 +2229,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { symbol, status = "active", limit = "50" } = req.query as Record<string, string>;
 
+      // `status` accepts a comma-separated list, e.g. ?status=watching,active — the Assets panel
+      // needs both in one call: 'watching' is a setup being watched for entry, 'active' is a live
+      // signal. A single value behaves exactly as before.
+      const statuses = status.split(",").map(s => s.trim()).filter(Boolean);
+      const statusFilter = statuses.length > 1
+        ? inArray(tradingSignals.status, statuses)
+        : eq(tradingSignals.status, statuses[0] ?? "active");
+
       if (symbol) {
         // AssetPage use case: latest signal for a specific instrument
         const rows = await db.select().from(tradingSignals)
-          .where(and(
-            eq(tradingSignals.symbol, symbol),
-            eq(tradingSignals.status, status),
-          ))
+          .where(and(eq(tradingSignals.symbol, symbol), statusFilter))
           .orderBy(desc(tradingSignals.createdAt))
           .limit(1);
         return res.json(rows);
       }
 
-      // Default: all active signals ordered newest first
+      // Default: all matching signals ordered newest first
       const rows = await db.select().from(tradingSignals)
-        .where(eq(tradingSignals.status, status))
+        .where(statusFilter)
         .orderBy(desc(tradingSignals.createdAt))
         .limit(Number(limit) || 50);
       return res.json(rows);

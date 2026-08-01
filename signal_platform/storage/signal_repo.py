@@ -14,8 +14,20 @@ from storage.models import SignalModel
 log = logging.getLogger(__name__)
 
 
-def save(signal: Signal) -> str:
-    """Persist a new signal. Returns the generated ID, or '' on duplicate."""
+STATUS_WATCHING = "watching"   # a setup being watched for entry — NOT a live trade
+
+
+def save(signal: Signal, status: str | None = None) -> str:
+    """Persist a new signal. Returns the generated ID, or '' on duplicate.
+
+    `status` overrides the signal's own. It exists for the WATCH heads-ups: those are setups being
+    watched for entry, not live trades, and they must not occupy the live keyspace. The partial
+    unique index `trading_signals_one_active_per_key` is scoped `WHERE status='active'`, so a
+    watching row and an active row for the same strategy+symbol+direction cannot suppress each
+    other. There is a mirrored index for `'watching'` so repeated heads-ups do not accumulate.
+
+    One insert path on purpose — a second `save_watch()` would drift from this one.
+    """
     with get_session() as s:
         row = SignalModel(
             symbol=signal.symbol,
@@ -32,7 +44,7 @@ def save(signal: Signal) -> str:
             technical_reasons=signal.technical_reasons,
             market_context=signal.market_context,
             trend_direction=signal.direction.value,
-            status=signal.status.value,
+            status=status or signal.status.value,
             expires_at=signal.expires_at,
             created_at=signal.created_at,
             updated_at=signal.created_at,
@@ -45,6 +57,43 @@ def save(signal: Signal) -> str:
             return ""
         log.info(f"[signal_repo] saved signal {row.id} for {signal.symbol}")
         return row.id
+
+
+def week_start(now: datetime | None = None) -> datetime:
+    """Most recent Monday 00:00 UTC, at or before `now`.
+
+    Taken as a parameter so the boundary is testable against fixed dates — a purge that is only
+    ever exercised against `now()` is a purge nobody has actually checked.
+    """
+    now = now or datetime.now(timezone.utc)
+    midnight = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    return midnight - timedelta(days=midnight.weekday())      # Monday == 0
+
+
+def purge_before_week_start(now: datetime | None = None) -> int:
+    """Delete every signal created before this week's Monday. Returns the row count.
+
+    The user's rule: the board carries ONE WEEK and starts fresh every Monday. Deliberately deletes
+    rather than archives — there is no win/loss logic, so an older signal carries no outcome worth
+    keeping, and a growing table would only make the Assets panel slower to no benefit.
+
+    Runs on a Monday cron AND once at boot: a container that restarts over a weekend would otherwise
+    skip its Monday entirely and carry two weeks.
+    """
+    cutoff = week_start(now)
+    with get_session() as s:
+        # NEVER delete a row that is still ACTIVE. In practice `expire_stale` closes anything older
+        # than 24h so an active row cannot reach a week, but "in practice" is not a guarantee: if
+        # one ever did, deleting it would drop a LIVE trade the monitor is tracking, and the monitor
+        # would simply stop watching a position that is still open. A stale row on the board is a
+        # cosmetic problem; a silently abandoned trade is not.
+        n = s.query(SignalModel).filter(
+            SignalModel.created_at < cutoff,
+            SignalModel.status != "active",
+        ).delete(synchronize_session=False)
+    if n:
+        log.info(f"[signal_repo] weekly reset — purged {n} signal(s) created before {cutoff:%Y-%m-%d}")
+    return n
 
 
 def get_active() -> list[SignalModel]:

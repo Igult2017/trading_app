@@ -10,6 +10,7 @@ import asyncio
 import logging
 import traceback
 from datetime import datetime
+from functools import partial
 
 from core import event_bus
 from core.types import Session, Trend
@@ -139,8 +140,22 @@ async def run_strategy(
         signal.strategy_name = strategy.name
         signal.symbol        = instrument
 
-        # Setup alerts: Telegram only — no DB save, no dedup registration
+        # Setup alerts: Telegram AND a 'watching' row, so the Assets panel can show what is being
+        # watched for entry. This used to `continue` straight past the save with the comment
+        # "Telegram only — no DB save", which is why that panel had never displayed anything in its
+        # life: heads-ups are the common case, confirmed entries are rare, so nothing was ever
+        # written for it to read. Still no dedup registration — a heads-up must not reserve the
+        # live keyspace that a real entry needs.
         if signal.alert_only:
+            try:
+                watch_id = await loop.run_in_executor(
+                    None, partial(signal_repo.save, signal, signal_repo.STATUS_WATCHING))
+                if watch_id:
+                    signal.db_id = watch_id
+            except Exception as exc:
+                # A heads-up is a courtesy, not a trade. If the row cannot be written the Telegram
+                # alert must still go out, so this never raises past here.
+                log.error(f"[runner] {instrument} watch-row save failed ({exc}) — alerting anyway")
             await event_bus.emit(event_bus.SIGNAL_ALERT, signal)
             log.info(
                 f"[runner] SETUP ALERT — {instrument} "
