@@ -87,6 +87,11 @@ import { getCurrentBalance, enrichTradeWithBalance } from "./services/balanceTra
 import { getHomepageCalendar, getHomepageRates, getCalendarServiceStatus } from "./services/homepageCalendar";
 import { getCryptoData } from "./services/cryptoService";
 import { getStocksData } from "./services/stocksService";
+// PYTHON_BIN was USED at /api/gemini/status and never imported. The reference sits inside a try, so
+// it did not crash — it threw a ReferenceError the catch swallowed into `pythonError`, so the
+// endpoint always reported google-genai as unavailable with a misleading reason. esbuild does not
+// typecheck, so this shipped; `tsc --noEmit` is what surfaced it.
+import { PYTHON_BIN } from "./lib/pythonBin";
 
 // ── Metrics in-memory cache ───────────────────────────────────────────────────
 // Avoids spawning a Python process on every request when data hasn't changed.

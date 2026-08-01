@@ -20,13 +20,29 @@ let _source = "unknown";
 let _count  = 0;
 let _calErr: string | null = null;
 
+/** Shape matches what `/api/admin/services-state` reads: `.calendar` and `.rates`.
+ *
+ *  It used to return the calendar fields FLAT, so that endpoint's `calStatus.calendar` and
+ *  `calStatus.rates` were both `undefined` and the admin panel showed nothing for either. `tsc`
+ *  had been reporting it (TS2339) the whole time; the build uses esbuild, which does not typecheck,
+ *  so it shipped.
+ *
+ *  `rates` reports only what is actually tracked — there is one shared `_lastAttemptAt` and no
+ *  per-rates count/source/error. Inventing fields here would be worse than an honest null: it would
+ *  put a number on the panel that no code maintains. */
 export function getCalendarServiceStatus() {
   return {
-    lastAttemptAt: _lastAttemptAt || null,
-    eventCount:    _count,
-    source:        _source,
-    inFlight:      _calInFlight !== null,
-    lastError:     _calErr,
+    calendar: {
+      lastAttemptAt: _lastAttemptAt || null,
+      eventCount:    _count,
+      source:        _source,
+      inFlight:      _calInFlight !== null,
+      lastError:     _calErr,
+    },
+    rates: {
+      lastAttemptAt: _lastAttemptAt || null,
+      inFlight:      _ratesInFlight !== null,
+    },
   };
 }
 
