@@ -2,12 +2,12 @@
 BX-S/D — the 4H-zone reports, driven by the ZONE BOOK (bx_sd_registry).
 
   ① MITIGATION heads-up (DM) — a marked zone just moved unmitigated → mitigated (price tapped it).
-  ② RETEST (channel) — a zone that was mitigated and then RESPECTED is re-tapped now, 1M/5M-confirmed
-     at B/A only. A mitigated zone must EARN its re-entry; fresh zones are the core cascade's job.
+  ② RETEST — DELETED 2026-08-01, see the note at the end of `scan_reports`.
 
-Both read LIFECYCLE STATE off zones that were marked once when they qualified. Nothing here re-derives
-a zone, recomputes a tap, or re-tests validity — that is what let a candle beside a gap masquerade as a
-zone (27 Jul: a break at lag −1, before its own imbalance existed).
+**This module is now the heads-up path and nothing else.** ① reads LIFECYCLE STATE off zones marked
+once when they qualified. Nothing here re-derives a zone, recomputes a tap, or re-tests validity —
+that is what let a candle beside a gap masquerade as a zone (27 Jul: a break at lag −1, before its
+own imbalance existed).
 
 The FVG-continuation path was REMOVED 2026-07-27. It entered off an imbalance rather than a zone, by
 wrapping a raw FVG in a Zone (`fvg_zone`). The user's instruction is that BX trades supply and demand
@@ -25,8 +25,9 @@ from strategies.bx_sd_htf import htf_zone_map, htf_backing
 from strategies.bx_sd_mitigation import mitigation_signal
 from strategies.bx_sd_strength import mitigation_note
 # `_setup_for_zone`, `confirm_grade` and `build_signal` were imported for the RETEST path and went
-# unused when it was deleted (2026-08-01). `_setup_for_zone` still lives in bx_sd_retest and is still
-# used by bx_sd_watch — it is the import here that was dead, not the function.
+# unused when it was deleted (2026-08-01). `bx_sd_retest.py` went with them: this was its ONLY
+# importer, so the module was orphaned outright. (A first pass at this comment claimed bx_sd_watch
+# still used it — it does not, and the audit caught that.)
 
 _MIN_PIPS = 3.0   # ignore micro zones — same noise floor the cascade applies
 _RECENT   = 6     # "now" = within the last N 4H bars

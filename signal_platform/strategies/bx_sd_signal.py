@@ -30,8 +30,22 @@ def build_signal(symbol: str, setup: SetupResult, conf: LTFConfluence, trig: Ent
     mit_note = setup.confluences.get("mitigation_note") or ""
     strength = setup.confluences.get("strength_phrase") or ""
 
+    # HOW WE GOT IN — a retap and a pullback are different trades and the card must say which.
+    # The zone is RESPECTED in both cases (price tapped it and closed a full zone-height clear);
+    # what differs is whether price came back TO the zone or is retracing within the move away
+    # from it. Before this the card said "Fresh 4H zone tapped" for both, which was wrong twice
+    # over: the zone is not fresh (freshness stopped being the trigger when `respected` became
+    # mandatory), and "tapped" describes only one of the two ways in.
+    _via = setup.confluences.get("entry_via") or ""
+    via_txt = {
+        "retap":          f"Respected 4H {zdir} zone RE-TAPPED — price is back at the zone",
+        "pullback":       f"Respected 4H {zdir} zone — price left it and PULLED BACK on the 4H",
+        "pullback+retap": f"Respected 4H {zdir} zone — 4H PULLBACK that also re-tapped the zone",
+    }.get(_via, f"Respected 4H {zdir} zone")
+
     reasons = [
-        setup.confluences.get("control_phrase") or f"Fresh 4H {zdir} zone tapped",
+        setup.confluences.get("control_phrase") or via_txt,
+        via_txt if setup.confluences.get("control_phrase") else None,
         setup.confluences.get("entry_type_phrase") or "Entry-2 justification (LTF BMS/CHoCH)",
         f"Valid 4H zone: IFC + broke structure + liquidity grabbed (fuel), priced in {pricing}",
         f"GRADE {conf.grade} — {align_txt}{back_txt}; refined to a {conf.risk_pips:.1f} pip POI",
@@ -40,6 +54,7 @@ def build_signal(symbol: str, setup: SetupResult, conf: LTFConfluence, trig: Ent
         f"SL {trig.sl:.{digits}f} | TP {trig.tp:.{digits}f} | "
         f"Risk {trig.details['risk_pips']:.1f} pips | RR {trig.rr}:1",
     ]
+    reasons = [x for x in reasons if x]      # via_txt is None when it duplicates control_phrase
     if strength:
         reasons.insert(3, strength)
     if mit_note:
@@ -55,7 +70,11 @@ def build_signal(symbol: str, setup: SetupResult, conf: LTFConfluence, trig: Ent
         f"-CONTROL {zdir.upper()} ENTRY, CONFIRMED)",
         f"CTX::ENTRY TYPE::{(setup.confluences.get('entry_type') or {}).get('book_situation', 'Entry-2')}"
         f" — JUSTIFICATION (LTF BMS/CHoCH, NEVER AN UNCONFIRMED LIMIT)",
-        f"CTX::4H ZONE::FRESH {zdir.upper()} (IFC + BOS + LIQUIDITY GRAB)",
+        # NOT "FRESH" — a fresh zone is exactly what no longer qualifies. The cascade requires the
+        # zone to have been tapped and RESPECTED first; entering on a first touch is the model that
+        # produced the losses and was removed 2026-08-01.
+        f"CTX::4H ZONE::RESPECTED {zdir.upper()} (IFC + BOS + LIQUIDITY GRAB)"
+        f"{' — ' + _via.upper().replace('+', ' + ') if _via else ''}",
         f"CTX::PRICING::{pricing.upper()}",
         f"MTF::GRADE {conf.grade} — {align_txt.upper()}{(' + HTF ' + ', '.join(backing)) if backing else ''}",
         f"PA::CONFIRMATION ENTRY {trig.details.get('method', 'CHoCH').upper()} — "
@@ -84,7 +103,11 @@ def build_signal(symbol: str, setup: SetupResult, conf: LTFConfluence, trig: Ent
         alert_only        = False,
         technical_reasons = reasons,
         smc_factors       = smc,
-        market_context    = (f"BX-S/D [{conf.grade}] — {side} {symbol} off a fresh 4H {zdir} zone, "
+        # "off a fresh 4H zone" was false from 2026-08-01: the cascade requires the zone to have
+        # been RESPECTED, so a fresh zone is precisely what does not fire. This is the line the
+        # user reads on Telegram, so it names the actual way in.
+        market_context    = (f"BX-S/D [{conf.grade}] — {side} {symbol} off a respected 4H {zdir} zone"
+                             f"{' (' + _via.replace('+', ' + ') + ')' if _via else ''}, "
                              f"{align_txt}{back_txt}, entry-TF confirmed, refined {conf.risk_pips:.1f}pip, "
                              f"{trig.rr}R entry {trig.entry:.{digits}f}"),
     )

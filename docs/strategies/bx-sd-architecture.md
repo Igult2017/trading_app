@@ -148,6 +148,7 @@ regression to guard against.
 | the `pro_trend()` gate | Ch.7 control (reported, never a gate) — it cost 70-78% of valid zones. **A narrower, regime-conditional gate returned 2026-08-01**: pro-trend only while the 4H is trending, both directions in a range (`bx_sd_setup.regime`) |
 | the **RETEST path** (`bx_sd_reports` ②) | the core cascade — 2026-08-01. It required `respected` + live retap + B/A confirmation, which is now a strict SUBSET of the cascade's retap branch, so both would emit for one zone with different grades and different dedup keys (unable to suppress each other). The retap did **not** go with it; it is one of the cascade's two ways in |
 | `_PULLBACK_LOOKBACK` (entry-TF, 24 bars) | `_PB_LOOKBACK_H4` — the pullback is a **4H** event; a second, tighter definition on the entry TF was silently the one the stop used |
+| `bx_sd_retest.py` (whole module) | nothing — `bx_sd_reports` was its **only** importer, so deleting the retest path orphaned it outright. Found by the 2026-08-01 audit, not by the change that caused it |
 
 ---
 
@@ -247,10 +248,10 @@ pullback in 4HR"*.
    `trig.*`, so **no wrong number reaches the user** — but the object carries a stop computed at
    `distal ± 2 pip` while the real stop is `_SL_BUFFER_PIPS = 6` off the **4H** distal. Read `trig`,
    never `conf`, for prices.
-6. ~~**The RETEST card carries no zone strength or mitigation note.**~~ **MOOT** — the RETEST path was
-   deleted 2026-08-01 (it became a strict subset of the cascade). `bx_sd_retest._setup_for_zone` still
-   exists and is still imported by `bx_sd_watch`; if anything else starts calling it, the missing
-   enrichment comes back with it.
+6. ~~**The RETEST card carries no zone strength or mitigation note.**~~ **CLOSED** — the RETEST path was
+   deleted 2026-08-01 (it became a strict subset of the cascade), and `bx_sd_retest.py` was deleted
+   with it: `bx_sd_reports` was its only importer. (This entry first claimed `bx_sd_watch` still used
+   it. It does not — the audit caught that, which is the entire argument for running one.)
 7. **A pullback measured from an EARLIER leg's high can widen the stop — MEASURED, and smaller than
    it looks.** `pullback_4h` takes the highest high in the 12-bar window as the move's extreme and
    the lowest low since it as the turning point, so in principle a deep fall followed by a rally back
@@ -264,7 +265,14 @@ pullback in 4HR"*.
    figures were the widest of the three, so watch it first. If the tail proves troublesome, the fix is
    to take the extreme from the most recent SWING instead of the window's global extreme — not an
    arbitrary pip cap.
-8. **`_RESPECT_BUFFER` is close to vacuous on the pullback path.** It requires the confirming close to
+8. **Telegram signals carry NO CHART, and have not for some time.** `charting/chart_generator.py`
+   defines `generate_chart()` and **nothing calls it**; `Signal.chart_path` is declared on the type
+   and read by `notifications/dispatcher._send_photo`, but **nothing ever sets it**, so every card
+   takes the text fallback. Platform-wide (not BX-specific) and **pre-existing** — it was found by
+   the 2026-08-01 audit, not caused by it. Left as-is because restoring charts is a behaviour change
+   the user has not asked for. `CLAUDE.md` listed chart generation as step 6 of the scan loop and has
+   been corrected.
+9. **`_RESPECT_BUFFER` is close to vacuous on the pullback path.** It requires the confirming close to
    sit 25% of zone height inside the 4H zone, off the distal — a test written when the entry WAS at
    the zone. On a pullback entry that never returns to the zone, the close is outside it entirely and
    the check passes trivially. It still does real work on the retap path. Not removed, because it is

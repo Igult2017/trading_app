@@ -1,15 +1,16 @@
 """
 BX-S/D — shared confirm + grade: analysis-TF refine -> mandatory 1M/5M confirmation entry -> C/B/A.
 
-ONE definition used by BOTH the fresh-zone cascade (bx_sd.analyze) and the retest path
-(bx_sd_reports), so the confirmation method and the grade ladder cannot drift between them.
+ONE definition, used by the cascade (bx_sd.analyze). It took a `min_grade` because a second caller —
+the RETEST path — required B/A while the fresh cascade fired at C. **Both of those are gone as of
+2026-08-01**: there is no fresh-zone path (the zone must be RESPECTED first) and no separate retest
+path (it became the same trade). The parameter stays because it is the natural place to raise the
+bar if that is ever wanted, but today there is exactly one caller and it passes the default.
 
 Grade ladder (each tier adds one MTF layer):
   C = 4H zone + entry TF (1M/5M)
   B = 4H zone + analysis-TF (15M/30M/1H) alignment + entry TF
   A = B + HTF (D1/W1/MN) backing
-The fresh cascade fires at any grade (min_grade="C"); the retest requires B/A (min_grade="B") so a
-mitigated major zone must EARN its re-entry with confluence.
 """
 from core.types import Candle
 from strategies.bx_sd_setup import SetupResult, _SL_BUFFER_PIPS

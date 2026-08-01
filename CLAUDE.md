@@ -81,7 +81,11 @@ cd signal_platform && python main.py
 3. `candle_cache` — TTL cache keyed `(symbol, tf)`, TTL = `max(55s, bar_duration * 0.80)`
 4. Per instrument × strategy: 4 pre-filters (whitelist, session, trend, news) then `strategy.analyze()`
 5. `signal_validator` — drops signals below `min_rr=2.0` or the strategy's confidence floor (`min_confidence=0.70` global, per-strategy overrides e.g. `vix1:0.60`), deduplicates
-6. `chart_generator` — mplfinance PNG to temp file
+6. ~~`chart_generator` — mplfinance PNG to temp file~~ **THIS STEP DOES NOT RUN.**
+   `charting/chart_generator.generate_chart()` has **no callers** and nothing ever sets
+   `Signal.chart_path`, so `dispatcher._send_photo` never fires and every card goes out as TEXT.
+   Verified 2026-08-01. Restoring it is a deliberate choice, not a bug fix — do not wire it back
+   in without asking.
 7. `signal_repo.save()` → PostgreSQL `trading_signals` table
 8. `event_bus.emit(SIGNAL_CONFIRMED)` → `dispatcher` sends Telegram photo
 

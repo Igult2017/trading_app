@@ -9,9 +9,14 @@ CONTROL (Ch.7), and control never forbids a side — it only forbids the unconfi
 ("We do not place a limit order here!", p38). The book itself takes the against-control trade:
 "supply is in control, but we expect a Flip or CHoCH after we tapped in H4 demand" (p57). Every BX
 signal is 1M/5M-confirmed (bx_sd.py STAGE 2-3), so BX always pays that price and may trade both
-sides. The old `pro_trend()` gate was a foreign filter, and it discarded 70-78% of book-valid
-freshly-tapped zones — measured over 27 months on five instruments, 1.2 -> ~5.0 setups/month.
+sides. The old unconditional `pro_trend()` gate was a foreign filter, and it discarded 70-78% of
+book-valid zones — measured over 27 months on five instruments, 1.2 -> ~5.0 setups/month.
 Control is still computed and REPORTED (bx_sd_control), never used to reject.
+
+**Direction is gated again as of 2026-08-01, but only while the 4H is TRENDING** (`regime()` below):
+the user's revision — pro-trend in a trend, either direction in a range. That is narrower than the
+gate removed above, which applied always. And zones are no longer "freshly tapped": the cascade
+requires `respected` plus a retap or a 4H pullback.
 
 ZONES ARE NOT FOUND HERE. They are marked ONCE when they qualify and kept in bx_sd_registry; this
 function only asks which marked zone price is working right now. That ordering is the point: a zone
