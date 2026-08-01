@@ -40,10 +40,21 @@ def _origin_reason(origin: str, bullish: bool, mlabel: str, side: str) -> str:
 def build_signal(kind, symbol, bullish, origin, vol_count, entry, sl, tp,
                  risk, pip, digits, corr, news_context, strategy_id, strategy_name,
                  grade, confidence, alert_only=False, sl_note="",
-                 late=False, late_note="", rr=2.0) -> Signal:
+                 late=False, late_note="", rr=2.0, mc_time: int | None = None) -> Signal:
     side         = "BUY" if bullish else "SELL"
     label, blurb = _KIND[kind]
     mlabel       = f"{vol_count} momentum candle{'s' if vol_count != 1 else ''}"
+
+    # WHICH CANDLE THIS CAME FROM, in UTC. The card carried the signal's own time but never named
+    # the H1 candle that produced it, so verifying a signal against a chart meant guessing — and on
+    # a chart in any zone but UTC, guessing wrong. A correct EUR/USD sell (31 Jul 10:37 UTC, off a
+    # RED momentum candle that closed at 09:00 UTC) was read off a green candle four hours later
+    # for exactly this reason. Stated in UTC and labelled, like every other time on this platform.
+    mc_line = None
+    if mc_time:
+        from datetime import datetime, timezone as _tz
+        mc_line = ("🕯 Momentum candle  "
+                   f"{datetime.fromtimestamp(mc_time, _tz.utc).strftime('%d %b %H:%M UTC')} (H1 open)")
 
     reasons = [
         _origin_reason(origin, bullish, mlabel, side.lower()),
@@ -57,6 +68,9 @@ def build_signal(kind, symbol, bullish, origin, vol_count, entry, sl, tp,
         reasons.insert(0, late_note)
     if corr:
         reasons.insert(0, f"⚠️ CORRELATED: {', '.join(corr)} already {side.lower()} (same USD direction) — size down or skip")
+    # Last, so it reads as the footnote it is — the fact you check the chart against.
+    if mc_line:
+        reasons.append(mc_line)
 
     smc = [
         f"CTX::TREND::{_CTX.get(origin) or ('UPTREND' if bullish else 'DOWNTREND')}",

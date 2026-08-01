@@ -193,7 +193,7 @@ class Vix1Strategy(BaseStrategy):
             # alert keeps `vix1_watch` and stays a DM — it is a correction, not a signal.
             sig = build_signal(s["kind"], sym, bullish, origin, vol_count, entry, sl, tp, risk, pip,
                                digits, corr, context.news, self.id, self.name,
-                               grade, conf, sl_note=s.get("sl_note", ""),
+                               grade, conf, mc_time=vc.time, sl_note=s.get("sl_note", ""),
                                late=late, late_note=s.get("late_note", ""), rr=rr)
             sig.dedup_key = key          # committed ONLY once the signal is real — never here
             out.append(sig)
