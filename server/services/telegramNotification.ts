@@ -3,17 +3,11 @@ import { db } from '../db';
 import { telegramSubscribers, economicEvents } from '@shared/schema';
 import { eq, and, lte, gte } from 'drizzle-orm';
 import { format } from 'date-fns';
+import { buildDailySchedule, shouldStillFire } from './marketSessionAlerts';
 
-interface TradingSession {
-  name: string;
-  openUTC: number;
-  closeUTC: number;
-}
-
-const HIGH_VOLUME_SESSIONS: TradingSession[] = [
-  { name: 'London', openUTC: 8, closeUTC: 16.5 },
-  { name: 'New York', openUTC: 13, closeUTC: 22 }
-];
+// Session definitions and the whole "what fires when" decision live in marketSessionAlerts so the
+// weekend rule is testable on any day of the week. The local HIGH_VOLUME_SESSIONS const that used
+// to sit here is gone — it was only read by the scheduler this now delegates.
 
 export class TelegramNotificationService {
   private bot: TelegramBot | null = null;
@@ -478,28 +472,38 @@ export class TelegramNotificationService {
     console.log(`[Telegram] Scheduled ${this._eventTimers.length} event alert(s)`);
   }
 
+  /**
+   * Schedule today's market-week alerts. Re-run by cron at midnight UTC.
+   *
+   * The schedule itself lives in `marketSessionAlerts.buildDailySchedule` so it can be tested
+   * without waiting for a Saturday. This method only owns timers. It used to compute the times
+   * inline with NO weekday check at all, which announced "London Session Opening in 15 min" every
+   * Saturday and Sunday morning with the market shut.
+   */
   scheduleTradingSessionNotifications(): void {
     if (!this.bot || !this.isInitialized) return;
 
     this._sessionTimers.forEach(t => clearTimeout(t));
     this._sessionTimers = [];
 
-    const now = new Date();
-    const ALERT_MINS = 15;
-
-    for (const session of HIGH_VOLUME_SESSIONS) {
-      const openMs = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), session.openUTC)).getTime() - ALERT_MINS * 60 * 1000;
-      const delay  = openMs - Date.now();
-      if (delay < 0) continue;
-
+    const planned = buildDailySchedule(new Date());
+    for (const alert of planned) {
+      const delay = alert.at.getTime() - Date.now();
+      if (delay < 0) continue;                         // already past today
       const t = setTimeout(async () => {
-        const message = `🔔 *${session.name} Session Opening in 15 min*\n\n${session.name} opens at ${session.openUTC}:00 UTC. Expect increased volatility and volume.`;
-        const result = await this.broadcastMessage(message, { parse_mode: 'Markdown' }).catch(() => ({ sent: 0 }));
-        if (result.sent > 0) console.log(`[Telegram] Session alert sent: ${session.name} (${result.sent} subscribers)`);
+        // Re-check on FIRING, not only on scheduling — hours pass in between.
+        if (!shouldStillFire(alert.kind)) {
+          console.log(`[Telegram] ${alert.kind} suppressed — market closed at fire time`);
+          return;
+        }
+        const result = await this.broadcastMessage(alert.message, { parse_mode: 'Markdown' })
+          .catch(() => ({ sent: 0 }));
+        if (result.sent > 0) console.log(`[Telegram] ${alert.kind} sent (${result.sent} subscribers)`);
       }, delay);
       this._sessionTimers.push(t);
     }
-    console.log(`[Telegram] Scheduled ${this._sessionTimers.length} session alert(s) for today`);
+    const kinds = planned.map(a => a.kind).join(', ') || 'none';
+    console.log(`[Telegram] Scheduled ${this._sessionTimers.length} market alert(s) today [${kinds}]`);
   }
 
   stopPolling(): void {
