@@ -186,7 +186,10 @@ const isPrimaryWorker = !process.env.NODE_APP_INSTANCE || process.env.NODE_APP_I
   server.listen({
     port,
     host: "0.0.0.0",
-    reusePort: true,
+    // Windows does not implement SO_REUSEPORT: Node throws ENOTSUP from listen() and the process
+    // dies before binding, so `npm run dev` could not start on Windows at all. Production runs
+    // Linux containers where it still applies (it is what lets the cluster workers share the port).
+    reusePort: process.platform !== "win32",
   }, () => {
     log(`serving on port ${port}`);
     logServiceStatus();
