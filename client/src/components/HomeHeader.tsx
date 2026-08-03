@@ -75,7 +75,11 @@ export default function HomeHeader({ darkMode, setDarkMode, activePath }: HomeHe
   const navBg     = dm ? "rgba(2,8,23,0.92)"  : "rgba(255,255,255,0.96)";
   const navBorder = dm ? "#1e293b"             : "#f1f5f9";
   const logoClr   = dm ? "#ffffff"             : "#0f172a";
-  const linkClr   = dm ? "#94a3b8"             : "#64748b";
+  // BLUE nav links, matching JournalHeader and the Assets page accent so the app reads as one
+  // system. Theme-aware because no single blue clears 4.5:1 on both backgrounds — measured here
+  // against this header's own navBg: #60a5fa 7.87:1 on dark, #2563eb 5.17:1 on white. #2563eb is
+  // already this header's "Start free" button colour, so the two now agree.
+  const linkClr   = dm ? "#60a5fa"             : "#2563eb";
   const linkHov   = dm ? "#ffffff"             : "#0f172a";
   const mobBg     = dm ? "#0c1322"             : "#ffffff";
   const shadow    = scrolled
