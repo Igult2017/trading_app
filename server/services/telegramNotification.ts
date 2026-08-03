@@ -496,7 +496,10 @@ export class TelegramNotificationService {
           console.log(`[Telegram] ${alert.kind} suppressed — market closed at fire time`);
           return;
         }
-        const result = await this.broadcastMessage(alert.message, { parse_mode: 'Markdown' })
+        // HTML, not Markdown: the session copy uses <blockquote> for the risk rule, which legacy
+        // Markdown cannot express. `sessionMessages` builds HTML and escapes `&` in "Trade&Journal"
+        // — the two must stay in step, or Telegram rejects the message and nobody is told anything.
+        const result = await this.broadcastMessage(alert.message, { parse_mode: 'HTML' })
           .catch(() => ({ sent: 0 }));
         if (result.sent > 0) console.log(`[Telegram] ${alert.kind} sent (${result.sent} subscribers)`);
       }, delay);
