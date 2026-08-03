@@ -23,18 +23,19 @@ def draw(ax, candles: list[Candle], entry: float, stop: float, target: float,
     # figure (its own fig, axes and style) fights the layout this card needs, and the bars are ~15
     # lines. `mplfinance` was a declared dependency for exactly this and was never imported by
     # anything — it was removed 2026-08-03 rather than left in the image.
-    width = 0.58
+    # SOLID BODIES, BOTH DIRECTIONS. Up bars were drawn hollow (white fill, coloured outline) as an
+    # editorial flourish; the user: *"use real full green candles not green candles with white
+    # inside."* Hollow bodies also lose almost all their colour once Telegram scales the card down,
+    # which is the opposite of what a glanceable card needs.
+    width = 0.62
     for i, c in enumerate(candles):
         up = c.close >= c.open
         col = theme.UP if up else theme.DOWN
-        ax.plot([i, i], [c.low, c.high], color=col, linewidth=0.8, solid_capstyle="round", zorder=3)
+        ax.plot([i, i], [c.low, c.high], color=col, linewidth=1.3, solid_capstyle="round", zorder=3)
         lo, hi = (c.open, c.close) if up else (c.close, c.open)
         h = hi - lo
         if h <= 0:                      # doji — a hairline so the bar is still visible
-            ax.plot([i - width / 2, i + width / 2], [lo, lo], color=col, linewidth=1.0, zorder=4)
-        elif up:                        # hollow body for up bars — the editorial look
-            ax.add_patch(Rectangle((i - width / 2, lo), width, h, facecolor=theme.PAPER,
-                                   edgecolor=col, linewidth=0.8, zorder=4))
+            ax.plot([i - width / 2, i + width / 2], [lo, lo], color=col, linewidth=1.6, zorder=4)
         else:
             ax.add_patch(Rectangle((i - width / 2, lo), width, h, facecolor=col,
                                    edgecolor=col, linewidth=0.8, zorder=4))
@@ -44,19 +45,19 @@ def draw(ax, candles: list[Candle], entry: float, stop: float, target: float,
     for lo, hi, colour, _label in (bands or []):
         ax.axhspan(lo, hi, xmax=(right + 1) / span, color=colour, alpha=0.10, zorder=1)
         for edge in (lo, hi):
-            ax.plot([-1, right], [edge, edge], color=colour, linewidth=0.7, alpha=0.55, zorder=2)
+            ax.plot([-1, right], [edge, edge], color=colour, linewidth=1.2, alpha=0.6, zorder=2)
 
     for price, colour, label, dashed in ((stop, theme.STOP, "STOP", False),
                                          (entry, theme.ENTRY, "ENTRY", True),
                                          (target, theme.TARGET, "TARGET", False)):
         if not price:
             continue
-        ax.plot([-1, right], [price, price], color=colour, linewidth=1.0,
+        ax.plot([-1, right], [price, price], color=colour, linewidth=1.8,
                 linestyle=((0, (4, 3)) if dashed else "-"), zorder=5)
         ax.text(right + 1.2, price, label, va="bottom", ha="left", color=colour,
-                fontproperties=theme.font(8.5, bold=True), zorder=7)
+                fontproperties=theme.font(13, bold=True), zorder=7)
         ax.text(right + 1.2, price, f"{price:.{digits}f}", va="top", ha="left",
-                color=theme.INK_DIM, fontproperties=theme.font(7.5), zorder=7)
+                color=theme.INK_DIM, fontproperties=theme.font(11), zorder=7)
 
     _projection(ax, n, entry, target, buy)
 
@@ -71,13 +72,13 @@ def draw(ax, candles: list[Candle], entry: float, stop: float, target: float,
     ax.set_facecolor(theme.PAPER)
     ax.grid(True, axis="y", color=theme.GRID, linewidth=0.6)
     ax.set_axisbelow(True)
-    ax.tick_params(colors=theme.INK_DIM, labelsize=7, length=0, pad=2)
+    ax.tick_params(colors=theme.INK_DIM, labelsize=11, length=0, pad=3)
     for s in ax.spines.values():
         s.set_visible(False)
     ax.set_xticks([])
     ax.yaxis.tick_right()
     for lbl in ax.get_yticklabels():
-        lbl.set_fontproperties(theme.font(7))
+        lbl.set_fontproperties(theme.font(10.5))
 
 
 def _projection(ax, n: int, entry: float, target: float, buy: bool) -> None:
@@ -96,5 +97,5 @@ def _projection(ax, n: int, entry: float, target: float, buy: bool) -> None:
     ax.add_patch(FancyArrowPatch(
         (x0, entry), (x1, target),
         connectionstyle="arc3,rad=" + ("0.22" if buy else "-0.22"),
-        arrowstyle="-|>", mutation_scale=13, linewidth=1.5,
+        arrowstyle="-|>", mutation_scale=20, linewidth=2.6,
         color=colour, alpha=0.75, zorder=6))

@@ -23,18 +23,18 @@ def _blank(ax, face=None):
 def masthead(ax, sig: Signal, buy: bool, subtitle: str) -> None:
     _blank(ax)
     accent = theme.UP if buy else theme.DOWN
-    ax.plot([0.0, 0.022], [0.86, 0.86], color=accent, linewidth=2, zorder=3)
+    ax.plot([0.0, 0.022], [0.86, 0.86], color=accent, linewidth=3, zorder=3)
     ax.text(0.032, 0.845, f"{'BUY' if buy else 'SELL'} SETUP", color=accent, va="center",
-            ha="left", fontproperties=theme.font(9.5, bold=True))
+            ha="left", fontproperties=theme.font(15, bold=True))
     if sig.label:
         ax.text(0.995, 0.845, f" {sig.label} ", color=theme.INK_MID, va="center", ha="right",
-                fontproperties=theme.font(8.5),
+                fontproperties=theme.font(13),
                 bbox=dict(facecolor=theme.WASH, edgecolor="none", pad=4.5))
     ax.text(0.0, 0.44, sig.symbol.replace("/", " / "), color=theme.INK, va="center", ha="left",
-            fontproperties=theme.font(30, bold=True))
+            fontproperties=theme.font(46, bold=True))
     line = f"{sig.strategy_name}  ·  {subtitle}" if subtitle else sig.strategy_name
     ax.text(0.004, 0.10, line, color=theme.INK_DIM, va="center", ha="left",
-            fontproperties=theme.font(9.5))
+            fontproperties=theme.font(14))
 
 
 def levels(ax, sig: Signal, digits: int, notes: list[str]) -> None:
@@ -47,13 +47,13 @@ def levels(ax, sig: Signal, digits: int, notes: list[str]) -> None:
         x = 0.035 + i * 0.333
         if i:
             ax.plot([x - 0.028, x - 0.028], [0.12, 0.88], color=theme.RULE, linewidth=1)
-        ax.scatter([x], [0.80], s=22, color=colour, zorder=3)
+        ax.scatter([x], [0.80], s=42, color=colour, zorder=3)
         ax.text(x + 0.022, 0.80, label, color=theme.INK_MID, va="center", ha="left",
-                fontproperties=theme.font(8.5, bold=True))
+                fontproperties=theme.font(13, bold=True))
         ax.text(x, 0.44, f"{value:.{digits}f}", color=theme.INK, va="center", ha="left",
-                fontproperties=theme.font(20, bold=True))
+                fontproperties=theme.font(31, bold=True))
         ax.text(x, 0.14, note, color=theme.INK_DIM, va="center", ha="left",
-                fontproperties=theme.font(8.5))
+                fontproperties=theme.font(12.5))
 
 
 def stats(ax, sig: Signal, digits: int) -> None:
@@ -69,6 +69,6 @@ def stats(ax, sig: Signal, digits: int) -> None:
         if i:
             ax.plot([x - 0.1667, x - 0.1667], [0.18, 0.82], color=theme.RULE, linewidth=1)
         ax.text(x, 0.62, big, color=theme.INK, va="center", ha="center",
-                fontproperties=theme.font(17, bold=True))
+                fontproperties=theme.font(27, bold=True))
         ax.text(x, 0.24, small, color=theme.INK_DIM, va="center", ha="center",
-                fontproperties=theme.font(8))
+                fontproperties=theme.font(12))
