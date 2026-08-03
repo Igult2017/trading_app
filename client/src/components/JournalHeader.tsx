@@ -445,7 +445,10 @@ export default function JournalHeader({ onToggleSidebar, darkMode, onToggleDarkM
     navBg: 'rgba(8,12,16,0.97)',
     navBorder: '#172233',
     logoWhite: '#ffffff',
-    navLink: '#4a6580',
+    // BLUE, and readable. This was #4a6580 — measured 3.24:1 on the nav background, under the
+    // 4.5:1 AA floor, which is why "Brokers / Propfirms / New Features" were barely visible.
+    // #60a5fa measures 7.72:1 here. Same accent the Assets page uses, so the app stays consistent.
+    navLink: '#60a5fa',
     navLinkHover: '#c8d8e8',
     text: '#ffffff',
     iconColor: '#3b82f6',
@@ -454,7 +457,9 @@ export default function JournalHeader({ onToggleSidebar, darkMode, onToggleDarkM
     navBg: 'rgba(255,255,255,0.97)',
     navBorder: '#e2e8f0',
     logoWhite: '#0f172a',
-    navLink: '#475569',
+    // The light-theme pair — no single blue clears 4.5:1 on both themes. #2563eb is 5.17:1 on
+    // white; the dark theme's #60a5fa would be 2.54:1 here and unreadable.
+    navLink: '#2563eb',
     navLinkHover: '#0f172a',
     text: '#0f172a',
     iconColor: '#3b82f6',
