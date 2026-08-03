@@ -29,7 +29,27 @@ from charting import signal_card
 log = logging.getLogger(__name__)
 
 
-async def _attach_chart(signal, candles, symbol: str) -> None:
+def _chart_candles(signal, candle_view: dict, fallback: list) -> list:
+    """The candles the CARD should draw: the signal's OWN primary timeframe.
+
+    It used to draw `pri_candles`, the strategy's HIGHEST timeframe. For BX that is H4 and also its
+    signal timeframe, so its cards were right. For VIX.1 the highest is H4 while every VIX.1 signal
+    is about an H1 momentum candle — so the card plotted a completely different timeframe from the
+    one the signal describes, and its subtitle even said "H4" under an H1 setup.
+
+    The user caught it against his own cTrader chart, 2026-08-03: *"the chart displays green where
+    there is no green ... in sell signals for VIX there can never be green as the first momentum
+    candle."* Quite right — an H4 bar can close bullish across an hour that closed bearish, so the
+    card disagreed with his own platform bar for bar.
+    """
+    tf = getattr(signal.primary_timeframe, "value", signal.primary_timeframe) or ""
+    for key, bars in candle_view.items():
+        if bars and str(getattr(key, "value", key)) == str(tf):
+            return bars
+    return fallback
+
+
+async def _attach_chart(signal, candles, symbol: str, candle_view: dict | None = None) -> None:
     """Render the signal's chart card and stamp `chart_path`, so the dispatcher sends a PHOTO.
 
     ONE CALL SITE PER EMIT, HERE — not in the strategies. Both strategies return from ~7 different
@@ -41,13 +61,16 @@ async def _attach_chart(signal, candles, symbol: str) -> None:
     strategy means by them. Never raises — `render` returns None on any failure and the dispatcher
     falls back to text.
     """
-    if not candles:
+    # Draw the SIGNAL's timeframe, not the strategy's highest — see `_chart_candles`.
+    bars = _chart_candles(signal, candle_view or {}, candles)
+    if not bars:
         return
     digits = 3 if symbol.upper().endswith("JPY") else 5
-    tf = getattr(candles[-1], "timeframe", "") or ""
-    _set_order_type(signal, candles[-1].close, digits)
+    tf = getattr(bars[-1], "timeframe", "") or ""
+    _set_order_type(signal, bars[-1].close, digits)
     signal.chart_path = await signal_card.render_async(
-        signal, candles, digits, list(signal.chart_bands or []), subtitle=tf)
+        signal, bars, digits, list(signal.chart_bands or []), subtitle=tf,
+        marks=list(signal.chart_marks or []))
 
 
 def _set_order_type(signal, price: float, digits: int) -> None:
@@ -217,7 +240,7 @@ async def run_strategy(
                 # A heads-up is a courtesy, not a trade. If the row cannot be written the Telegram
                 # alert must still go out, so this never raises past here.
                 log.error(f"[runner] {instrument} watch-row save failed ({exc}) — alerting anyway")
-            await _attach_chart(signal, pri_candles, instrument)
+            await _attach_chart(signal, pri_candles, instrument, candle_view)
             await event_bus.emit(event_bus.SIGNAL_ALERT, signal)
             log.info(
                 f"[runner] SETUP ALERT — {instrument} "
@@ -291,7 +314,7 @@ async def run_strategy(
         # A row with `dispatched` and no `delivered` is precisely the 27 Jul failure — saved, handed
         # over, never sent — and it is now a one-line query instead of an unanswerable question.
         await _stage(loop, obs.STAGE_DISPATCHED, signal.strategy_id, instrument, signal_id=signal_id)
-        await _attach_chart(signal, pri_candles, instrument)
+        await _attach_chart(signal, pri_candles, instrument, candle_view)
         await event_bus.emit(event_bus.SIGNAL_CONFIRMED, signal)
         log.info(
             f"[runner] CONFIRMED — {instrument} "

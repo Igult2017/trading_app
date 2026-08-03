@@ -17,7 +17,6 @@ when the candle closes and stays quiet for every scan tick after — the bias ca
 a heads-up that repeated every 60s would train the user to ignore the channel.
 """
 from core.types import Candle, Signal, Direction, TF
-from charting import theme
 
 
 def building_signal(symbol: str, buy: bool, vc: Candle, origin: str, vol_count: int,
@@ -38,10 +37,12 @@ def building_signal(symbol: str, buy: bool, vc: Candle, origin: str, vol_count: 
         confidence        = 0.0,            # nothing to be confident about until the entry confirms
         # No entry/stop/target: they are decided on the 1M and do not exist yet. The card prints an
         # em dash for each rather than inventing a level a reader might act on.
-        # The momentum candle itself is the subject, so it is what the chart shades.
-        chart_bands       = [(min(vc.open, vc.close), max(vc.open, vc.close),
-                              theme.ZONE_DEMAND if buy else theme.ZONE_SUPPLY,
-                              "MOMENTUM CANDLE")],
+        #
+        # MARK THE CANDLE, DO NOT SHADE A BAND. This used to pass a `chart_bands` entry spanning the
+        # momentum candle's body, which draws a horizontal level across the whole chart — the user:
+        # *"display the real momentum candles, these one doesnt look like a momentum candle."* It is
+        # a CANDLE, so the card rings the bar itself and the reader sees its real body and wicks.
+        chart_marks       = [(vc.time, "MOMENTUM")],
         technical_reasons = [
             f"Momentum candle CLOSED on the 1H — {side} bias confirmed, {body:.0f} pip body",
             f"Bias origin: {origin} — {vol_count} momentum candle{'s' if vol_count != 1 else ''} "

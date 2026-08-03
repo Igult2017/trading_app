@@ -241,6 +241,10 @@ class Signal:
     # Deliberately NOT derived from `alert_only`: that field routes a message (DM vs channel), which
     # is a delivery decision, and conflating it with the trade's readiness is how a routing change
     # would silently relabel every card.
+    # Candles to HIGHLIGHT on the card, as [(bar_time, label)]. Generic on purpose: the renderer
+    # outlines the bar at that timestamp and never learns why it matters. VIX.1 marks its momentum
+    # candle; a strategy with nothing to point at leaves it empty.
+    chart_marks:        list = field(default_factory=list)
     stage:              str = "ready"
     # How the trader places it: "BUY STOP" / "SELL STOP" / "BUY LIMIT" / "SELL LIMIT" /
     # "MARKET BUY" / "MARKET SELL". A strategy may set it; otherwise the runner derives it by

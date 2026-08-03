@@ -83,7 +83,7 @@ check("it carries NO entry", hs.entry_price, 0.0)
 check("it carries NO stop", hs.stop_loss, 0.0)
 check("it carries NO target", hs.take_profit, 0.0)
 check("confidence is 0 until the entry confirms", hs.confidence, 0.0)
-check("the momentum candle is shaded on the chart", len(hs.chart_bands), 1)
+check("the momentum candle is pointed at on the chart", len(hs.chart_marks), 1)
 check("it says plainly that it is not a trade",
       any("HEADS-UP" in r for r in hs.technical_reasons), True)
 
@@ -96,6 +96,34 @@ check("...and differs for the next candle",
       k1 != vix1_building.dedup_key("vix1", "GBP/USD", True, vc2), True)
 check("...and differs by direction",
       k1 != vix1_building.dedup_key("vix1", "GBP/USD", False, vc), True)
+
+print("\nTHE CHART MUST DRAW THE SIGNAL'S OWN TIMEFRAME")
+# The user checked a VIX.1 card against his cTrader H1 chart, 2026-08-03: "the chart displays green
+# where there is no green ... in sell signals for VIX there can never be green as the first momentum
+# candle." The card was drawing the strategy's HIGHEST timeframe (H4) under an H1 signal, so it
+# disagreed with his platform bar for bar. An H4 bar can close bullish across a bearish hour.
+from orchestrator.strategy_runner import _chart_candles
+
+
+def series(tf, n=30, base=1.30):
+    return [Candle(time=1_700_000_000 + i * 60, open=base, high=base + 1e-3, low=base - 1e-3,
+                   close=base, volume=1, timeframe=tf) for i in range(n)]
+
+
+view = {"M1": series("M1"), "H1": series("H1"), "H4": series("H4")}
+fallback = view["H4"]
+check("an H1 signal charts H1, not the strategy's highest TF",
+      _chart_candles(sig(primary_timeframe="H1"), view, fallback)[0].timeframe, "H1")
+check("an H4 signal charts H4", _chart_candles(sig(primary_timeframe="H4"), view, fallback)[0].timeframe, "H4")
+check("an M1 signal charts M1", _chart_candles(sig(primary_timeframe="M1"), view, fallback)[0].timeframe, "M1")
+check("an unknown TF falls back rather than drawing nothing",
+      _chart_candles(sig(primary_timeframe="W1"), view, fallback)[0].timeframe, "H4")
+check("an empty series is skipped, not chosen",
+      _chart_candles(sig(primary_timeframe="H1"), {"H1": [], "H4": fallback}, fallback)[0].timeframe, "H4")
+
+print("\nTHE MOMENTUM CANDLE IS MARKED, NOT SHADED AS A BAND")
+check("VIX.1 stage 1 marks a candle by TIMESTAMP", hs.chart_marks, [(vc.time, "MOMENTUM")])
+check("...and shades no horizontal band", hs.chart_bands, [])
 
 print("\nRENDERING — the two stages must be visually distinguishable")
 from charting import signal_card

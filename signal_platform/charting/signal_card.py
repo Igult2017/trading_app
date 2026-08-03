@@ -62,7 +62,8 @@ def _notes(sig: Signal, buy: bool, digits: int) -> list[str]:
 
 
 def render(sig: Signal, candles: list[Candle], digits: int = 5,
-           bands: list[tuple] | None = None, subtitle: str = "") -> str | None:
+           bands: list[tuple] | None = None, subtitle: str = "",
+           marks: list[tuple] | None = None) -> str | None:
     """PNG path, or None if anything at all goes wrong."""
     try:
         if not candles or len(candles) < 5:
@@ -97,7 +98,8 @@ def render(sig: Signal, candles: list[Candle], digits: int = 5,
         # entry; on a "building" heads-up there is no confirmed entry, so drawing it would promise a
         # trade that has not been agreed yet.
         price_panel.draw(fig.add_subplot(gs[1]), view, sig.entry_price, sig.stop_loss,
-                         sig.take_profit, digits, bands, buy, arrow=sig.stage == "ready")
+                         sig.take_profit, digits, bands, buy, arrow=sig.stage == "ready",
+                         marks=marks)
         card_panel.levels(fig.add_subplot(gs[2]), sig, digits, _notes(sig, buy, digits))
         card_panel.stats(fig.add_subplot(gs[3]), sig, digits)
 
@@ -112,11 +114,12 @@ def render(sig: Signal, candles: list[Candle], digits: int = 5,
 
 
 async def render_async(sig: Signal, candles: list[Candle], digits: int = 5,
-                       bands: list[tuple] | None = None, subtitle: str = "") -> str | None:
+                       bands: list[tuple] | None = None, subtitle: str = "",
+                       marks: list[tuple] | None = None) -> str | None:
     """`render` on the default executor — matplotlib would otherwise block the scan loop."""
     loop = asyncio.get_running_loop()
     return await loop.run_in_executor(
-        None, partial(render, sig, candles, digits, bands, subtitle))
+        None, partial(render, sig, candles, digits, bands, subtitle, marks))
 
 # NO cleanup() HERE. `notifications/dispatcher` already unlinks the file after the send, on both the
 # confirmed and the alert path, and two owners of one file's lifetime is how a card gets deleted

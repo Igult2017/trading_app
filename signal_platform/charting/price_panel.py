@@ -16,7 +16,7 @@ _PROJECT = 0.30      # the arrow reaches this fraction of the chart width past t
 
 def draw(ax, candles: list[Candle], entry: float, stop: float, target: float,
          digits: int, bands: list[tuple] | None = None, buy: bool = False,
-         arrow: bool = True) -> None:
+         arrow: bool = True, marks: list[tuple] | None = None) -> None:
     """Draw `candles` with the three levels, any `bands` = [(lo, hi, colour, label)], and an arrow
     projecting from the entry toward the target — where price is expected to go if the setup works."""
     n = len(candles)
@@ -60,6 +60,7 @@ def draw(ax, candles: list[Candle], entry: float, stop: float, target: float,
         ax.text(right + 1.2, price, f"{price:.{digits}f}", va="top", ha="left",
                 color=theme.INK_DIM, fontproperties=theme.font(11), zorder=7)
 
+    _mark_candles(ax, candles, marks)
     if arrow:
         _projection(ax, n, entry, target, buy)
 
@@ -81,6 +82,36 @@ def draw(ax, candles: list[Candle], entry: float, stop: float, target: float,
     ax.yaxis.tick_right()
     for lbl in ax.get_yticklabels():
         lbl.set_fontproperties(theme.font(10.5))
+
+
+def _mark_candles(ax, candles: list[Candle], marks: list[tuple] | None) -> None:
+    """Ring the candle(s) a strategy pointed at, by TIMESTAMP, and label them.
+
+    The user, 2026-08-03: *"also display the real momentum candles, these one doesnt look like a
+    momentum candle."* It did not, because the card shaded a horizontal price BAND across the whole
+    chart at that candle's body range — which is a level, not a candle. Marking the bar itself means
+    the reader sees the actual candle, with its real body and wicks, exactly as their platform draws
+    it.
+
+    Matched on time so it is immune to indexing: the view is a tail slice of a longer series, and an
+    index would silently point at the wrong bar the moment the slice length changed.
+    """
+    if not marks:
+        return
+    by_time = {c.time: i for i, c in enumerate(candles)}
+    for mark in marks:
+        t, label = (mark + ("",))[:2] if isinstance(mark, tuple) else (mark, "")
+        i = by_time.get(int(t))
+        if i is None:                       # older than the window — nothing to point at
+            continue
+        c = candles[i]
+        pad = (c.high - c.low) * 0.16 or 0.0002
+        ax.add_patch(Rectangle((i - 0.52, c.low - pad), 1.04, (c.high - c.low) + 2 * pad,
+                               facecolor="none", edgecolor=theme.INK, linewidth=1.6,
+                               linestyle=(0, (3, 2)), zorder=6))
+        if label:
+            ax.text(i, c.high + pad * 1.9, label, va="bottom", ha="center", color=theme.INK,
+                    fontproperties=theme.font(11, bold=True), zorder=7)
 
 
 def _projection(ax, n: int, entry: float, target: float, buy: bool) -> None:
