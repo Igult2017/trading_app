@@ -44,13 +44,28 @@ export default function HomeFooter({ darkMode = false }: HomeFooterProps) {
   const footBg  = dm ? '#0a0f1e' : '#f8fafc';
   const divider = dm ? '#1e293b' : '#e2e8f0';
   const logoClr = dm ? '#f1f5f9' : '#0f172a';
-  const linkClr = dm ? '#64748b' : '#64748b';
+  // BLUE, theme-aware, matching the header and the rest of the app. The old value was the SAME
+  // grey on both themes — measured against this footer's own backgrounds that is 4.01:1 on dark
+  // (#0a0f1e), under the 4.5:1 AA floor, and 4.55:1 on light. The new pair: #60a5fa 7.51:1 dark,
+  // #2563eb 4.94:1 light. So this is a legibility fix on dark, not only a colour change.
+  const linkClr = dm ? '#60a5fa' : '#2563eb';
   const hover   = dm ? '#f1f5f9' : '#0f172a';
-  const muted   = dm ? '#475569' : '#94a3b8';
-  const capClr  = dm ? '#334155' : '#94a3b8';
-  const descClr = dm ? '#475569' : '#64748b';
+  // The copyright line and the bottom-bar LEGAL links (Privacy Policy, Terms, Cookie Policy,
+  // Contact). Measured against this footer's own backgrounds the old values were 2.52:1 on dark and
+  // 2.45:1 on light — roughly half the 4.5:1 AA floor, on links a site is legally expected to make
+  // findable. They are secondary text, not invisible text. New pair: 7.45:1 dark, 4.55:1 light.
+  const muted   = dm ? '#94a3b8' : '#64748b';
+  // Column headings (FOLLOW US / PLATFORM / COMPANY / LEGAL). Were 1.84:1 on dark and 2.45:1 on
+  // light — the dark value was very nearly invisible. 11px bold is still SMALL text, so the 4.5:1
+  // floor applies, not the 3:1 large-text allowance.
+  const capClr  = dm ? '#94a3b8' : '#64748b';
+  // "Professional trading journal for serious traders." — was 2.52:1 on dark, failing AA like the
+  // rest of this footer's secondary text. #94a3b8 is 7.45:1 there.
+  const descClr = dm ? '#94a3b8' : '#64748b';
 
-  const hFont = { fontFamily: "'Playfair Display', serif", fontWeight: 400, letterSpacing: "0.01em" } as const;
+  // Logo at 700, matching the header. Playfair is a VARIABLE font here (400-900 in one file), so
+  // this is a real weight rather than a faux-bold.
+  const hFont = { fontFamily: "'Playfair Display', serif", fontWeight: 700, letterSpacing: "0.01em" } as const;
   const bFont = { fontFamily: "'Playfair Display', serif" } as const;
   const cap: React.CSSProperties = { ...bFont, fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: capClr, marginBottom: 20, display: "block" };
 
@@ -117,7 +132,7 @@ export default function HomeFooter({ darkMode = false }: HomeFooterProps) {
             <div key={heading}>
               <span style={cap}>{heading}</span>
               {links.map(({ label, href }) => {
-                const base: React.CSSProperties = { display: "block", fontSize: 13.5, color: linkClr, textDecoration: "none", marginBottom: 11, ...bFont, transition: "color 0.18s" };
+                const base: React.CSSProperties = { display: "block", fontSize: 13, color: linkClr, textDecoration: "none", marginBottom: 11, ...bFont, transition: "color 0.18s" };
                 if (href.includes("#")) return (
                   <a key={label} href={href} style={base}
                     onClick={e => handleHashClick(e, href)}
