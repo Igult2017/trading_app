@@ -49,15 +49,32 @@ alert emit — not in the strategies, which return from ~7 places each and would
 Both strategies render. `Signal.chart_bands` is a generic `(low, high, colour, label)` contract so
 the renderer never learns what a supply zone is.
 
-## 1b. npm audit — 21 vulnerabilities, DELIBERATELY NOT FIXED
+## 1b. npm audit — AUDITED 2026-08-03. 21 → 14. Two left, both assessed and accepted.
 
-3 critical / 6 high / 11 moderate / 1 low, all pre-existing and all transitive under
-`node-telegram-bot-api → request → …`. `npm audit fix` cannot clear them; it requires a **breaking
-major bump of `node-telegram-bot-api`**, which is the library every signal is delivered through.
+The first pass reported "21, all transitive under node-telegram-bot-api". That was **wrong** — it
+was reading the summary rather than enumerating. Enumerated properly, they split by *reachability*,
+which is the only thing that decides priority:
 
-**Not fixed during an unattended deploy on purpose.** Breaking Telegram delivery is a worse outcome
-than transitive CVEs in a server-side HTTP client that never parses untrusted input. Do this one
-attended, with a delivery test straight after.
+**FIXED — non-breaking (`npm audit fix`), 1 critical + 4 high:**
+`shell-quote` (critical, but only under `drizzle-kit`, a CLI tool) · `axios` · `brace-expansion` ·
+`postcss` · `undici`.
+
+**FIXED — `sharp` 0.34.5 → 0.35.3 (HIGH, the one that actually mattered).** libvips CVE-2026-33327
+/ 33328 / 35590 / 35591, and `sharp` processes **user-uploaded screenshots**
+(`server/services/screenshotExtract.ts`) — attacker-controlled bytes reaching libvips. npm marks it
+"breaking" only because 0.x minor bumps are semver-major; the five methods used (`metadata`,
+`resize`, `jpeg`, `toBuffer`) are unchanged. **Verified by running the exact production call chain
+on a real PNG**: libvips 8.18.3, 81698 → 51183 bytes, valid JPEG magic.
+
+**ACCEPTED, NOT FIXED — 2 critical + 1 high:**
+
+| pkg | why it stays |
+|---|---|
+| `request` (critical, SSRF) | transitive under `node-telegram-bot-api`. SSRF needs an attacker-controlled URL; every call goes to a hardcoded `api.telegram.org`. Fix = breaking bump of the library **every signal is delivered through**. |
+| `form-data` (critical, weak boundary RNG) | same chain. Exploiting it needs injection into a multipart body we construct ourselves. |
+| `vite` (high, path traversal in `.map`) | **devDependency**. The flaw is in the vite DEV SERVER; production serves static files through express and never runs it. Fix = vite 5 → 8, a large config migration for zero production exposure. |
+
+Re-check `node-telegram-bot-api` when a non-breaking release lands. Do the vite 8 migration attended.
 
 ---
 

@@ -1,4 +1,5 @@
 from pathlib import Path
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Resolved once at import time — CWD-independent regardless of where python is invoked from
@@ -36,6 +37,16 @@ class Settings(BaseSettings):
     news_calendar_api_key: str = ""
 
     # ── Notifications ─────────────────────────────────────────────────────────
+    #
+    # QUOTES AND WHITESPACE ARE STRIPPED FROM THESE — see `_clean_ids` at the bottom of the class.
+    # WATCHDOG_CHAT_ID was stored in the deployment dashboard as `'761…3'`, WITH literal single
+    # quotes. There is no `.env` file in the image, so pydantic reads `os.environ` directly and a
+    # dotenv-style unquoting never happens: the app passed the quotes to Telegram, which answered
+    # `chat not found`, and EVERY DM-routed message was silently dropped — watch heads-ups, health
+    # alerts, and any confirmed entry not exempted to the public channel. Nothing logged a failure
+    # loudly enough to notice, because the send simply returned False.
+    # Found 2026-08-03 while sending a sample chart. A pasted value is easy to re-break; this makes
+    # it impossible to break the same way twice.
     telegram_bot_token: str = ""
     telegram_chat_id: str = ""      # public signal channel — signal cards only
     # Private admin DM for SYSTEM/STATUS telemetry (scanner active, platform online,
@@ -105,6 +116,19 @@ class Settings(BaseSettings):
     autotrade_strategies:  str   = "vix1"  # CSV of strategy ids allowed to place. VIX.1 only for now
     autotrade_fixed_lots:  float = 0.0     # >0 pins the size and IGNORES risk_pct — for diagnostics,
                                            # where the point is observing fills, not sizing exposure
+
+    @field_validator("telegram_bot_token", "telegram_chat_id", "watchdog_chat_id", mode="after")
+    @classmethod
+    def _clean_ids(cls, v: str) -> str:
+        """Strip surrounding quotes and whitespace from Telegram credentials.
+
+        A deployment dashboard stores whatever was pasted into it. `'761…3'` and `761…3` look
+        identical in a web form and are different strings to Telegram, which answers `chat not
+        found` for the first and drops the message. There is no `.env` in the image to unquote them,
+        so this is the only place it can be caught. Applied to the token too: a quoted token fails
+        auth on every send, which presents as "Telegram is down" rather than as a config typo.
+        """
+        return v.strip().strip("'\"").strip() if isinstance(v, str) else v
 
 
 settings = Settings()
