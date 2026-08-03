@@ -232,6 +232,20 @@ class Signal:
     # in its own words; when empty the renderer derives neutral captions, so it never has to know
     # which strategy it is drawing for. Must be exactly 3 entries or it is ignored.
     level_notes:        list = field(default_factory=list)
+    # TWO-STAGE SIGNALLING (user, 2026-08-03): "send one signal twice — the first when the higher TF
+    # is building up ... then the second only sends a ready entry setup."
+    #   "building" — the higher-timeframe condition is in place but the entry is NOT confirmed.
+    #                BX: a zone has been mitigated. VIX.1: the first momentum candle has closed.
+    #                Levels may be absent or provisional; nothing is tradeable yet.
+    #   "ready"    — a confirmed entry with a stop, a target and an order type.
+    # Deliberately NOT derived from `alert_only`: that field routes a message (DM vs channel), which
+    # is a delivery decision, and conflating it with the trade's readiness is how a routing change
+    # would silently relabel every card.
+    stage:              str = "ready"
+    # How the trader places it: "BUY STOP" / "SELL STOP" / "BUY LIMIT" / "SELL LIMIT" /
+    # "MARKET BUY" / "MARKET SELL". A strategy may set it; otherwise the runner derives it by
+    # comparing the entry to live price, which is the honest answer regardless of strategy.
+    order_type:         str = ""
     to_channel:         bool = False  # alert_only signal that goes PUBLIC (signal channel) not the admin DM
 
 

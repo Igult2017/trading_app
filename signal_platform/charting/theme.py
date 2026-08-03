@@ -42,6 +42,8 @@ STOP = DOWN
 TARGET = UP
 ZONE_SUPPLY = "#C8443F"
 ZONE_DEMAND = "#1F9D63"
+WAIT = "#B8860B"        # stage 1 "building" — amber, deliberately neither the buy nor the sell
+WAIT_WASH = "#F6EFD9"   # its chip background
 
 
 def font(size: float, bold: bool = False):

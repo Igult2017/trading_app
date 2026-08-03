@@ -96,6 +96,10 @@ def build_signal(kind, symbol, bullish, origin, vol_count, entry, sl, tp,
         confidence        = confidence,
         primary_timeframe = TF.H1,
         alert_only        = alert_only,   # FALSE for the pull-back entry -> PUBLIC CHANNEL (a real card).
+        # STAGE 2 — a placeable entry with a stop and a target. The stage-1 heads-up that precedes
+        # it lives in vix1_building; the runner derives the order type (BUY/SELL STOP vs MARKET)
+        # from the entry against live price at card time.
+        stage             = "ready",
                                           # The param is a passthrough; only the invalidation DM sets it True.
         technical_reasons = reasons,
         smc_factors       = smc,

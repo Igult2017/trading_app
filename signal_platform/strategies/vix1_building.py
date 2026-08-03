@@ -1,0 +1,60 @@
+"""VIX.1 — STAGE 1: the momentum candle has closed, we are waiting for the 1M entry.
+
+The user, 2026-08-03: *"send one signal twice. The first signal when higher TF is building up ...
+if its VIX the first volume candle has closed so we are waiting for entry. Then the second signal
+only sends a ready entry setup."*
+
+THE GAP THIS FILLS. `vix1.analyze` confirmed the 1HR bias off the first momentum candle and then, if
+`m1_signals` produced no entry yet, returned SILENTLY. So the only VIX.1 message that ever existed
+was the ready entry — there was no way to know a setup was forming, which is exactly the moment a
+trader wants to be at the screen.
+
+`vix1_watch` is NOT this. That watches an ALREADY-FIRED setup for invalidation; this fires before
+any setup exists.
+
+ONE HEADS-UP PER MOMENTUM CANDLE. The dedup key is the candle's own timestamp, so the alert goes out
+when the candle closes and stays quiet for every scan tick after — the bias can hold for hours, and
+a heads-up that repeated every 60s would train the user to ignore the channel.
+"""
+from core.types import Candle, Signal, Direction, TF
+from charting import theme
+
+
+def building_signal(symbol: str, buy: bool, vc: Candle, origin: str, vol_count: int,
+                    grade: str, digits: int, strategy_name: str, pip: float) -> Signal:
+    """The stage-1 card: bias confirmed, entry pending."""
+    side = "BUY" if buy else "SELL"
+    body = abs(vc.close - vc.open) / pip
+    return Signal(
+        symbol            = symbol,
+        direction         = Direction.BUY if buy else Direction.SELL,
+        strategy_id       = "vix1_watch",   # the _watch suffix routes it to the admin DM, never the
+                                            # channel — an unconfirmed setup is not a signal
+        strategy_name     = strategy_name,
+        alert_only        = True,
+        stage             = "building",     # amber card, "WAIT FOR ENTRY", no projection arrow
+        qualified         = True,
+        primary_timeframe = TF.H1,
+        confidence        = 0.0,            # nothing to be confident about until the entry confirms
+        # No entry/stop/target: they are decided on the 1M and do not exist yet. The card prints an
+        # em dash for each rather than inventing a level a reader might act on.
+        # The momentum candle itself is the subject, so it is what the chart shades.
+        chart_bands       = [(min(vc.open, vc.close), max(vc.open, vc.close),
+                              theme.ZONE_DEMAND if buy else theme.ZONE_SUPPLY,
+                              "MOMENTUM CANDLE")],
+        technical_reasons = [
+            f"Momentum candle CLOSED on the 1H — {side} bias confirmed, {body:.0f} pip body",
+            f"Bias origin: {origin} — {vol_count} momentum candle{'s' if vol_count != 1 else ''} "
+            f"in the run, grade {grade}",
+            "Waiting for the 1M pullback entry — no entry, stop or target until it confirms",
+            "This is a HEADS-UP, not a trade. The ready card follows if the entry confirms.",
+        ],
+        market_context    = (f"VIX.1 BUILDING — {symbol} {side} bias confirmed on the 1H "
+                             f"momentum candle; waiting for the 1M entry"),
+    )
+
+
+def dedup_key(strategy_id: str, symbol: str, buy: bool, vc: Candle) -> str:
+    """One heads-up per momentum candle, per direction. Keyed on the CANDLE TIME, not the scan tick:
+    the bias survives many ticks and the alert must not repeat on each one."""
+    return f"{strategy_id}_building_{symbol}_{'B' if buy else 'S'}_{vc.time}"

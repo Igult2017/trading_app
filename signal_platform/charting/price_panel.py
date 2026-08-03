@@ -15,7 +15,8 @@ _PROJECT = 0.30      # the arrow reaches this fraction of the chart width past t
 
 
 def draw(ax, candles: list[Candle], entry: float, stop: float, target: float,
-         digits: int, bands: list[tuple] | None = None, buy: bool = False) -> None:
+         digits: int, bands: list[tuple] | None = None, buy: bool = False,
+         arrow: bool = True) -> None:
     """Draw `candles` with the three levels, any `bands` = [(lo, hi, colour, label)], and an arrow
     projecting from the entry toward the target — where price is expected to go if the setup works."""
     n = len(candles)
@@ -59,7 +60,8 @@ def draw(ax, candles: list[Candle], entry: float, stop: float, target: float,
         ax.text(right + 1.2, price, f"{price:.{digits}f}", va="top", ha="left",
                 color=theme.INK_DIM, fontproperties=theme.font(11), zorder=7)
 
-    _projection(ax, n, entry, target, buy)
+    if arrow:
+        _projection(ax, n, entry, target, buy)
 
     ax.set_xlim(-1.5, span)
     lows = [c.low for c in candles] + [p for p in (entry, stop, target) if p]

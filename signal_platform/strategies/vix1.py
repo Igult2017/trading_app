@@ -31,6 +31,7 @@ from core import delivery_ledger
 from strategies.vix1_bias import detect_bias
 from strategies.vix1_entry import m1_signals
 from strategies.vix1_momentum import LOOKBACK, momentum_grade   # candle_counts[M1] derives from LOOKBACK
+from strategies import vix1_building
 from strategies.vix1_signal import build_signal
 from strategies import vix1_spacing, vix1_log
 from strategies.vix1_watch import check_invalidation, invalidation_signal, WATCH_M1
@@ -154,6 +155,19 @@ class Vix1Strategy(BaseStrategy):
                  f"{vol_count} vol candle{'s' if vol_count != 1 else ''}, from 1st) — checking 1M")
         raw = m1_signals(m1, bullish, vc, pip=pip, symbol=sym)
         if not raw:
+            # STAGE 1 — bias confirmed, no 1M entry yet. This branch used to return SILENTLY, so the
+            # only VIX.1 message that ever existed was the ready entry and there was no way to know
+            # a setup was forming. The user's rule, 2026-08-03: the first signal fires when the
+            # higher timeframe is building — "the first volume candle has closed so we are waiting
+            # for entry". Deduped on the momentum candle's own time, so it goes out once per candle
+            # and not on every 60s tick while the bias holds.
+            bkey = vix1_building.dedup_key(self.id, sym, bullish, vc)
+            if not delivery_ledger.is_delivered(bkey):
+                bgrade, _ = momentum_grade(vc, bullish)
+                heads_up = vix1_building.building_signal(
+                    sym, bullish, vc, origin, vol_count, bgrade, digits, self.name, pip)
+                heads_up.dedup_key = bkey        # committed only once the DM actually lands
+                out.append(heads_up)
             return StrategyResult(signals=out)
 
         # C4: correlation — another USD pair already the SAME direction within the window (warn, don't

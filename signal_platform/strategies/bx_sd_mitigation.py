@@ -32,6 +32,9 @@ def mitigation_signal(zone: Zone, symbol: str, backing: list[str], digits: int,
         strategy_id       = strategy_id,
         strategy_name     = strategy_name,
         alert_only        = True,        # heads-up, NOT a confirmed signal -> admin DM, never the channel
+        # STAGE 1 — the higher timeframe is building: a zone has been mitigated, the entry has not
+        # been confirmed. The card renders amber and says WAIT FOR ENTRY.
+        stage             = "building",
         qualified         = True,
         primary_timeframe = TF.H4,
         # The zone that was just tapped — the whole subject of this heads-up, so it is what the

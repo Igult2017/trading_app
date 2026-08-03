@@ -25,6 +25,7 @@ from data import candle_cache
 from data.candle_aggregator import aggregate
 from data.data_source import fetch_raw
 from shared.mtf_utils import to_minutes, is_native, native_base_for
+from shared import market_clock
 
 log = logging.getLogger(__name__)
 
@@ -70,17 +71,29 @@ def _validate(candles: list[Candle], symbol: str, tf: str) -> list[Candle]:
         log.warning(f"[candle_fetcher] {symbol} {tf}: dropped {len(candles)-len(valid)} invalid rows")
     if not valid:
         return []
-    age      = time.time() - valid[-1].time
     bar_secs = to_minutes(tf) * 60
+    # AGE IS MEASURED FROM THE BAR'S CLOSE, IN MARKET-OPEN TIME ONLY.
+    #
+    # It used to be `time.time() - valid[-1].time`, i.e. wall-clock age from the bar's OPEN. That is
+    # wrong twice on any higher timeframe:
+    #   * a bar is stamped at its open, so the newest CLOSED daily bar is already `bar_secs` old the
+    #     instant it closes — a full day for D1;
+    #   * the market is shut all weekend, and nothing published then is late.
+    # Together they logged `D1: data is stale (5353m old)` for every pair on every Monday against a
+    # feed that was current, and pushed a healthy series toward the DROP threshold below — which
+    # would have discarded the Daily context that HTF zone confluence grades on.
+    age = market_clock.bar_age_seconds(valid[-1].time, bar_secs)
     # Fail-safe: an egregiously old last bar means a feed gap / outage. Returning
     # it would let strategies trade on stale prices, so drop the whole series —
     # downstream length guards then reject the tick. Floor at 15m so a single
     # slightly-late bar on fast TFs is not nuked.
     if age > max(5 * bar_secs, 900):
-        log.error(f"[candle_fetcher] {symbol} {tf}: last bar {age/60:.0f}m old — dropping (stale fail-safe)")
+        log.error(f"[candle_fetcher] {symbol} {tf}: last bar closed {age/60:.0f}m of market time ago "
+                  f"— dropping (stale fail-safe)")
         return []
     if age > 2 * bar_secs:
-        log.warning(f"[candle_fetcher] {symbol} {tf}: data is stale ({age/60:.0f}m old)")
+        log.warning(f"[candle_fetcher] {symbol} {tf}: data is stale ({age/60:.0f}m of market time "
+                    f"since the last bar closed)")
     # Price-sanity: a wild jump from the last good price for this symbol = corrupt feed (see above).
     if not _price_continuity_ok(valid[-1].close, symbol, tf):
         return []

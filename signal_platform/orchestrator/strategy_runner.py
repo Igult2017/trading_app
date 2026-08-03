@@ -45,8 +45,36 @@ async def _attach_chart(signal, candles, symbol: str) -> None:
         return
     digits = 3 if symbol.upper().endswith("JPY") else 5
     tf = getattr(candles[-1], "timeframe", "") or ""
+    _set_order_type(signal, candles[-1].close, digits)
     signal.chart_path = await signal_card.render_async(
         signal, candles, digits, list(signal.chart_bands or []), subtitle=tf)
+
+
+def _set_order_type(signal, price: float, digits: int) -> None:
+    """Name the order the trader has to place, from the entry against LIVE price.
+
+    The user asked the card to say "whether it is buy stop, sell stop or market buy or sell". That
+    is not a property of the strategy, it is a property of where the entry sits RIGHT NOW relative
+    to price — the same setup is a stop order a minute before it fills and a market order after. So
+    it is derived here, at card time, from the freshest close, unless the strategy has already
+    stated it.
+
+    Only for a READY entry. A `building` heads-up has no entry to place, and printing an order type
+    on one would invite exactly the premature entry the two-stage split exists to prevent.
+    """
+    if signal.order_type or signal.stage != "ready" or not signal.entry_price or not price:
+        return
+    buy = str(getattr(signal.direction, "value", signal.direction)).lower() == "buy"
+    # "At market" needs a tolerance: an exact float match never happens. Half a pip is inside the
+    # spread on every pair traded here, so anything closer is not worth a pending order.
+    tol = (0.01 if digits <= 3 else 0.0001) * 0.5
+    diff = signal.entry_price - price
+    if abs(diff) <= tol:
+        signal.order_type = "MARKET BUY" if buy else "MARKET SELL"
+    elif buy:
+        signal.order_type = "BUY STOP" if diff > 0 else "BUY LIMIT"
+    else:
+        signal.order_type = "SELL STOP" if diff < 0 else "SELL LIMIT"
 
 
 async def _stage(loop, stage: str, strategy_id: str, symbol: str,

@@ -111,6 +111,7 @@ def build_signal(symbol: str, setup: SetupResult, conf: LTFConfluence, trig: Ent
         # and then went silent on every one of them. Routing is by strategy_id now, like VIX.1:
         # `bx_sd` -> channel, `bx_sd_watch` -> admin DM.
         alert_only        = False,
+        stage             = "ready",   # STAGE 2 — a placeable entry with a stop and a target
         technical_reasons = reasons,
         smc_factors       = smc,
         # "off a fresh 4H zone" was false from 2026-08-01: the cascade requires the zone to have

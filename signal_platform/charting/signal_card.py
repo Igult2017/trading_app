@@ -93,8 +93,11 @@ def render(sig: Signal, candles: list[Candle], digits: int = 5,
         gs = fig.add_gridspec(4, 1, height_ratios=[1.05, 4.05, 1.30, 0.80], hspace=0.0,
                               left=0.058, right=0.942, top=0.968, bottom=0.032)
         card_panel.masthead(fig.add_subplot(gs[0]), sig, buy, subtitle)
+        # NO PROJECTION ARROW ON A STAGE-1 CARD. The arrow asserts where price should go after an
+        # entry; on a "building" heads-up there is no confirmed entry, so drawing it would promise a
+        # trade that has not been agreed yet.
         price_panel.draw(fig.add_subplot(gs[1]), view, sig.entry_price, sig.stop_loss,
-                         sig.take_profit, digits, bands, buy)
+                         sig.take_profit, digits, bands, buy, arrow=sig.stage == "ready")
         card_panel.levels(fig.add_subplot(gs[2]), sig, digits, _notes(sig, buy, digits))
         card_panel.stats(fig.add_subplot(gs[3]), sig, digits)
 

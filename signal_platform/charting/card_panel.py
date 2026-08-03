@@ -22,14 +22,25 @@ def _blank(ax, face=None):
 
 def masthead(ax, sig: Signal, buy: bool, subtitle: str) -> None:
     _blank(ax)
-    accent = theme.UP if buy else theme.DOWN
+    building = sig.stage == "building"
+    # STAGE 1 IS AMBER AND SAYS SO. The two cards must be unmistakable at a glance in a thread:
+    # a "building" heads-up is a reason to WATCH, and a reader who mistakes it for a ready entry
+    # takes the trade early — which is the exact failure the two-stage split exists to prevent.
+    accent = theme.WAIT if building else (theme.UP if buy else theme.DOWN)
+    head = (f"{'BUY' if buy else 'SELL'} SETUP BUILDING" if building
+            else f"{'BUY' if buy else 'SELL'} — READY")
     ax.plot([0.0, 0.022], [0.86, 0.86], color=accent, linewidth=3, zorder=3)
-    ax.text(0.032, 0.845, f"{'BUY' if buy else 'SELL'} SETUP", color=accent, va="center",
+    ax.text(0.032, 0.845, head, color=accent, va="center",
             ha="left", fontproperties=theme.font(15, bold=True))
-    if sig.label:
-        ax.text(0.995, 0.845, f" {sig.label} ", color=theme.INK_MID, va="center", ha="right",
-                fontproperties=theme.font(13),
-                bbox=dict(facecolor=theme.WASH, edgecolor="none", pad=4.5))
+    # THE ORDER TYPE IS THE HEADLINE OF A READY CARD — it is the instruction. It replaces the
+    # strategy label chip, which was decoration next to it.
+    chip = sig.order_type if (sig.order_type and not building) else ("WAIT FOR ENTRY" if building
+                                                                    else sig.label)
+    if chip:
+        ax.text(0.995, 0.845, f" {chip} ", color=theme.PAPER if not building else theme.INK,
+                va="center", ha="right", fontproperties=theme.font(13, bold=True),
+                bbox=dict(facecolor=accent if not building else theme.WAIT_WASH,
+                          edgecolor="none", pad=5.0))
     ax.text(0.0, 0.44, sig.symbol.replace("/", " / "), color=theme.INK, va="center", ha="left",
             fontproperties=theme.font(46, bold=True))
     line = f"{sig.strategy_name}  ·  {subtitle}" if subtitle else sig.strategy_name
@@ -47,13 +58,16 @@ def levels(ax, sig: Signal, digits: int, notes: list[str]) -> None:
         x = 0.035 + i * 0.333
         if i:
             ax.plot([x - 0.028, x - 0.028], [0.12, 0.88], color=theme.RULE, linewidth=1)
-        ax.scatter([x], [0.80], s=42, color=colour, zorder=3)
+        ax.scatter([x], [0.80], s=42, color=colour if value else theme.INK_DIM, zorder=3)
         ax.text(x + 0.022, 0.80, label, color=theme.INK_MID, va="center", ha="left",
                 fontproperties=theme.font(13, bold=True))
-        ax.text(x, 0.44, f"{value:.{digits}f}", color=theme.INK, va="center", ha="left",
-                fontproperties=theme.font(31, bold=True))
-        ax.text(x, 0.14, note, color=theme.INK_DIM, va="center", ha="left",
-                fontproperties=theme.font(12.5))
+        # AN UNSET LEVEL PRINTS AN EM DASH, NOT 0.00000. A stage-1 heads-up has no entry yet, and a
+        # card showing a price of zero reads as a broken signal rather than as "not decided".
+        shown = f"{value:.{digits}f}" if value else "—"
+        ax.text(x, 0.44, shown, color=theme.INK if value else theme.INK_DIM, va="center",
+                ha="left", fontproperties=theme.font(31, bold=True))
+        ax.text(x, 0.14, note if value else "set on confirmation", color=theme.INK_DIM,
+                va="center", ha="left", fontproperties=theme.font(12.5))
 
 
 def stats(ax, sig: Signal, digits: int) -> None:
