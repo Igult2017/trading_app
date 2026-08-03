@@ -43,6 +43,38 @@ function valueColor(val?: string | null): string {
   return "#c8d8e8";
 }
 
+/** Sentence case for strategy-authored text.
+ *
+ * The strategies emit SHOUTED tokens ("RESPECTED SUPPLY", "PULLBACK STOP-ENTRY (2.0R)") because
+ * this panel used to upper-case everything anyway. The user: *"write in no caps because it is not
+ * visible."* All-caps at 9px with wide tracking is genuinely harder to read than sentence case.
+ *
+ * Only the first word keeps its capital. A word is left ALONE when lower-casing it would be wrong
+ * rather than merely different: real acronyms (BOS, FVG, CHoCH), anything containing a digit (4H,
+ * 1M, 2.0R, 1.34546), and one- or two-letter tokens. Surrounding punctuation is stripped before the
+ * test and put back after, or "(FROM" would never match as a word and would stay shouting.
+ */
+const ACRONYMS = new Set([
+  "BOS", "CHOCH", "FVG", "SMC", "POI", "HTF", "LTF", "RSI", "EMA", "ADX", "ATR",
+  "SL", "TP", "RR", "UTC", "BX", "VIX", "OB", "EQH", "EQL",
+]);
+
+function sentence(raw?: string | null): string {
+  if (!raw) return "";
+  const words = String(raw).trim().split(/\s+/).map((w, i) => {
+    const m = w.match(/^([^A-Za-z0-9]*)(.*?)([^A-Za-z0-9]*)$/);
+    if (!m) return w;
+    const [, pre, core, post] = m;
+    if (!core || /[0-9]/.test(core) || core.length <= 2) return w;
+    if (ACRONYMS.has(core.toUpperCase())) return pre + core.toUpperCase() + post;
+    if (!/^[A-Z][A-Z'’\-]*$/.test(core)) return w;      // already mixed case — the author's choice
+    const lower = core.toLowerCase();
+    return pre + (i === 0 ? lower.charAt(0).toUpperCase() + lower.slice(1) : lower) + post;
+  });
+  const s = words.join(" ");
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
 function parseReason(reasons: string[] | null | undefined, keyword: string): string {
   if (!reasons?.length) return "—";
   const match = reasons.find(r => r.toLowerCase().includes(keyword.toLowerCase()));
@@ -64,10 +96,28 @@ function deriveOptimalRisk(confidence?: number | null): string {
   return "0.5% - 1.0% CAPITAL";
 }
 
-// A signal is CONFIRMED (a valid setup that can be taken) unless it's a watch / validating /
-// invalidated alert. Derived from the market context the strategy writes.
-function isConfirmedSignal(marketContext?: string | null): boolean {
-  return !/validating|watch|invalidated/i.test(String(marketContext || ""));
+// The signal's REAL state, for the status badge.
+//
+// This used to be a boolean sniffed out of the free-text market context with
+// `!/validating|watch|invalidated/i.test(...)`, ignoring the row's own `status` column — which is
+// the authoritative field the platform actually sets and the monitor actually updates. So the badge
+// tracked wording, not state: an invalidated signal whose context happened not to contain the word
+// "invalidated" still showed CONFIRMED, and it could never distinguish a setup being WATCHED from a
+// live entry, which is precisely the two-stage distinction the cards now make.
+//
+// Reads `status` first and falls back to the old text sniff only when a row has none.
+export type SignalState = "watching" | "confirmed" | "closed" | "invalidated" | "unknown";
+
+function badgeState(sig?: { status?: string | null; marketContext?: string | null } | null): SignalState {
+  if (!sig) return "unknown";
+  switch (String(sig.status || "").toLowerCase()) {
+    case "watching":               return "watching";
+    case "active":                 return "confirmed";
+    case "executed": case "closed": return "closed";
+    case "invalidated": case "expired": return "invalidated";
+  }
+  return /validating|watch|invalidated/i.test(String(sig.marketContext || ""))
+    ? "watching" : "confirmed";
 }
 
 // Split the strategy's smcFactors into the three panels by an explicit prefix, so each panel is
@@ -82,10 +132,10 @@ function splitFactors(smcFactors?: string[] | null) {
     const s = String(raw);
     if (s.startsWith("CTX::")) {
       const [, label, note] = s.split("::");
-      ctx.push({ label: (label ?? "").toUpperCase(), value: (note ?? "").toUpperCase(), color: valueColor(note) });
+      ctx.push({ label: sentence(label), value: sentence(note), color: valueColor(note) });
     } else if (s.startsWith("IND::")) {
       const [, name, status] = s.split("::");
-      ind.push({ label: (name ?? "").toUpperCase(), value: (status ?? "").toUpperCase(), color: valueColor(status) });
+      ind.push({ label: sentence(name), value: sentence(status), color: valueColor(status) });
     } else {
       pa.push(s.startsWith("PA::") ? s.slice(4) : s);
     }
@@ -98,7 +148,7 @@ function buildPriceAction(sig: any, pa: string[]): { icon: "layers" | "layers2" 
   const items: { icon: "layers" | "layers2" | "zoom"; text: string; bold?: string }[] = [];
 
   // Strategy-authored price-action notes first (dynamic, short — no free-text stories).
-  for (const p of pa) items.push({ icon: icons[items.length] ?? "zoom", text: p.toUpperCase(), bold: undefined });
+  for (const p of pa) items.push({ icon: icons[items.length] ?? "zoom", text: sentence(p), bold: undefined });
 
   // Then any SMC field the strategy set (order block / FVG / liquidity), appended if there's room.
   if (items.length < 3 && sig.bocChochDetected)   items.push({ icon: "layers",  text: `${sig.bocChochDetected.toUpperCase()} CONFIRMED.`, bold: sig.bocChochDetected.toUpperCase() });
@@ -303,6 +353,7 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
     border:   '#0f1923', border2: '#172233', border3: '#131d2b', border4: '#1e2d45',
     text:     '#c8d8e8', textB: '#c8d8ec', heroText: '#ffffff',
     muted:    '#4a6580', muted2: '#3a5470', dim: '#2d4a63', dim2: '#1e3045',
+    accent:   '#60a5fa',   // signal-info blue — 7.56:1 on bg2, measured
   } : {
     bg:       '#f0f4f8', bg2: '#ffffff', bg3: '#f1f5f9',
     probBg:   '#f8fafc', scoreBg: '#eef2f7', activeBg: '#e8f0fb',
@@ -310,6 +361,7 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
     border:   '#e2e8f0', border2: '#cbd5e1', border3: '#dde4ed', border4: '#c8d3e0',
     text:     '#1e293b', textB: '#1e293b', heroText: '#0f172a',
     muted:    '#475569', muted2: '#64748b', dim: '#94a3b8', dim2: '#b0bec5',
+    accent:   '#2563eb',   // the light-theme pair — 5.17:1 on white, measured
   };
 
   // Right sidebar resize
@@ -435,7 +487,7 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
         list.push({
           symbol: s.symbol, assetClass: s.assetClass as Instrument["assetClass"],
           category: assetClassToCategory(s.assetClass),
-          direction: s.type, createdAt: s.createdAt, confirmed: isConfirmedSignal(s.marketContext),
+          direction: s.type, createdAt: s.createdAt, confirmed: signalState(s) === "live",
           state: signalState(s), strategy: s.strategy || "",
         });
       }
@@ -629,9 +681,9 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
                     {row.loading
                       ? <Loader2 size={10} color="#f59e0b" style={{ animation: "spin 1.5s linear infinite" }} />
                       : <ChevronRight size={10} color={C.dim} />}
-                    {has && <span style={{ fontSize: 9, fontWeight: 700, color: "#22d3a5", letterSpacing: "0.08em" }}>{row.label}</span>}
+                    {has && <span style={{ fontSize: 11, fontWeight: 600, color: C.accent, letterSpacing: "0.01em" }}>{row.label}</span>}
                   </div>
-                  {has && <span style={{ fontSize: 9, fontWeight: 800, color: "#22d3a5", letterSpacing: "0.1em", display: "inline-block", maxWidth: "62%", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", textAlign: "right" }}>{row.value}</span>}
+                  {has && <span style={{ fontSize: 11, fontWeight: 700, color: C.accent, letterSpacing: "0.01em", display: "inline-block", maxWidth: "62%", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", textAlign: "right" }}>{row.value}</span>}
                 </div>
                 );
               })}
@@ -649,9 +701,9 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
                 <div key={i} className="ctx-row" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 4px", borderRadius: 3, minHeight: 24 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                     <ChevronRight size={10} color={C.dim} />
-                    {has && <span style={{ fontSize: 9, fontWeight: 700, color: "#22d3a5", letterSpacing: "0.08em" }}>{row.label}</span>}
+                    {has && <span style={{ fontSize: 11, fontWeight: 600, color: C.accent, letterSpacing: "0.01em" }}>{row.label}</span>}
                   </div>
-                  {has && <span style={{ fontSize: 9, fontWeight: 800, color: "#22d3a5", letterSpacing: "0.1em", display: "inline-block", maxWidth: "62%", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", textAlign: "right" }}>{row.value}</span>}
+                  {has && <span style={{ fontSize: 11, fontWeight: 700, color: C.accent, letterSpacing: "0.01em", display: "inline-block", maxWidth: "62%", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", textAlign: "right" }}>{row.value}</span>}
                 </div>
                 );
               })}
@@ -673,7 +725,7 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
                         ? <ZoomIcon color="#f59e0b" />
                         : <LayersIcon color={item.icon === "layers" ? "#3b82f6" : "#3b82f6"} />}
                     </div>
-                    {has && <p style={{ fontSize: 9, fontWeight: 600, color: "#22d3a5", letterSpacing: "0.06em", lineHeight: 1.7, margin: 0 }}>
+                    {has && <p style={{ fontSize: 11, fontWeight: 500, color: C.accent, letterSpacing: "0.01em", lineHeight: 1.6, margin: 0 }}>
                       {boldify(item.text, item.bold)}
                     </p>}
                   </div>
@@ -841,7 +893,7 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
           })()}
 
           {/* ── Signal Platform Status (replaces live chart — signal-only mode) ── */}
-          <SignalPlatformStatus darkMode={darkMode} selectedSymbol={selected} confirmed={rawSignal ? isConfirmedSignal(rawSignal.marketContext) : null} />
+          <SignalPlatformStatus darkMode={darkMode} selectedSymbol={selected} state={rawSignal ? badgeState(rawSignal) : null} />
 
           {/* ── Live Visualizer Chart (disabled — signal-only mode) ── */}
           {false && <div style={{ background: C.bg2, border: `1px solid ${C.border}`, borderRadius: 4, overflow: "hidden" }}>

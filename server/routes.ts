@@ -2242,10 +2242,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ? inArray(tradingSignals.status, statuses)
         : eq(tradingSignals.status, statuses[0] ?? "active");
 
+      // THE BOARD CARRIES ONE WEEK, ENFORCED HERE TOO — not only by the Monday purge.
+      //
+      // The user's rule is that the panel starts fresh every Monday. A scheduled job in the Python
+      // platform (`signal_repo.purge_before_week_start`, Mon 00:05 UTC + once at boot) deletes the
+      // old rows, and this endpoint had NO date filter at all — so the board was only ever as
+      // correct as that job. Any run it missed (a DB blip, which it logs and swallows so a purge
+      // failure can never take the scanner down) left last week's signals on screen with nothing to
+      // correct them.
+      //
+      // Filtering at read time makes the DISPLAY right regardless. The purge still runs: it keeps
+      // the table small. This makes the board correct even when the purge has not.
+      const weekStart = new Date();
+      weekStart.setUTCHours(0, 0, 0, 0);
+      // getUTCDay(): 0=Sun … 6=Sat. Monday is the week start, so Sunday looks back a full 6 days.
+      weekStart.setUTCDate(weekStart.getUTCDate() - ((weekStart.getUTCDay() + 6) % 7));
+      const thisWeek = gte(tradingSignals.createdAt, weekStart);
+
       if (symbol) {
         // AssetPage use case: latest signal for a specific instrument
         const rows = await db.select().from(tradingSignals)
-          .where(and(eq(tradingSignals.symbol, symbol), statusFilter))
+          .where(and(eq(tradingSignals.symbol, symbol), statusFilter, thisWeek))
           .orderBy(desc(tradingSignals.createdAt))
           .limit(1);
         return res.json(rows);
@@ -2253,7 +2270,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Default: all matching signals ordered newest first
       const rows = await db.select().from(tradingSignals)
-        .where(statusFilter)
+        .where(and(statusFilter, thisWeek))
         .orderBy(desc(tradingSignals.createdAt))
         .limit(Number(limit) || 50);
       return res.json(rows);

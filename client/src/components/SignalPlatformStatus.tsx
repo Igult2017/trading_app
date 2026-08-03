@@ -5,9 +5,20 @@ import { fetchJson } from "@/lib/queryClient";
 interface LastSignal { id: string; symbol: string; type: string; status: string; strategy: string | null; confidence: number; createdAt: string; }
 interface PlatformStatus { status: "starting" | "ok" | "error"; error: string; hint: string; ts: number; }
 interface StatusData { ctraderConfigured: boolean; dataSource: string; platformStatus: PlatformStatus | null; lastSignal: LastSignal | null; signalsLast24h: number; activeSignalsLast24h: number; error?: string; }
-interface Props { darkMode?: boolean; selectedSymbol?: string; confirmed?: boolean | null; }
+type SignalState = "watching" | "confirmed" | "closed" | "invalidated" | "unknown";
+interface Props { darkMode?: boolean; selectedSymbol?: string; state?: SignalState | null; }
 
-export default function SignalPlatformStatus({ darkMode = true, selectedSymbol = "", confirmed = null }: Props) {
+/** Label and colour per lifecycle state. Amber for "watching" deliberately matches the amber the
+ *  Telegram stage-1 card uses, so the two surfaces say the same thing in the same colour. */
+const STATE_UI: Record<SignalState, { label: string; color: string }> = {
+  watching:    { label: "Watching for entry", color: "#f59e0b" },
+  confirmed:   { label: "Entry confirmed",    color: "#22d3a5" },
+  closed:      { label: "Closed",             color: "#4a6580" },
+  invalidated: { label: "Invalidated",        color: "#f4617f" },
+  unknown:     { label: "No signal",          color: "#4a6580" },
+};
+
+export default function SignalPlatformStatus({ darkMode = true, selectedSymbol = "", state = null }: Props) {
   const C = darkMode
     ? { bg: "#080c10", bg2: "#0a0f16", bg3: "#0c1219", border: "#0f1923", border2: "#172233",
         text: "#c8d8e8", muted: "#4a6580", dim: "#2d4a63", hero: "#ffffff" }
@@ -45,9 +56,13 @@ export default function SignalPlatformStatus({ darkMode = true, selectedSymbol =
               style={{ width: 9, height: 9, borderRadius: "50%", background: lightScanner, boxShadow: `0 0 7px ${lightScanner}`, animation: "sp-blink 1.4s ease-in-out infinite", animationDelay: "0.7s" }} />
           </div>
         </div>
-        <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.1em", fontFamily: "monospace",
-          color: confirmed == null ? C.muted : confirmed ? "#22d3a5" : "#f59e0b" }}>
-          {confirmed == null ? "STATUS: —" : confirmed ? "STATUS: CONFIRMED" : "STATUS: NOT CONFIRMED"}
+        {/* THE REAL LIFECYCLE STATE, from the signal's `status` column.
+            It used to be a boolean sniffed out of the free-text market context, so it could only
+            ever say CONFIRMED or NOT CONFIRMED and could not tell a setup being WATCHED from a
+            live entry — the distinction the two-stage cards are built on. */}
+        <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.04em",
+          color: STATE_UI[state ?? "unknown"].color }}>
+          {STATE_UI[state ?? "unknown"].label}
         </div>
         <button style={{ background: C.bg3, border: `1px solid ${C.border2}`, color: C.text, fontSize: 9, fontWeight: 700, letterSpacing: "0.08em", padding: "5px 12px", cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
           <Bell size={11} /> ALERT
