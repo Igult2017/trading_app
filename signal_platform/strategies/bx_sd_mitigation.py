@@ -33,6 +33,11 @@ def mitigation_signal(zone: Zone, symbol: str, backing: list[str], digits: int,
         alert_only        = True,        # heads-up, NOT a confirmed signal -> admin DM, never the channel
         qualified         = True,
         primary_timeframe = TF.H4,
+        # The zone that was just tapped — the whole subject of this heads-up, so it is what the
+        # card must show. Generic (low, high, colour, label); the renderer stays zone-unaware.
+        chart_bands       = [(zone.bottom, zone.top,
+                              "#26A96C" if buy else "#E5484D",
+                              f"4H {zone.direction.upper()}")],
         technical_reasons = [
             f"4H {zone.direction} zone MITIGATED "
             f"[{zone.bottom:.{digits}f}–{zone.top:.{digits}f}]{tag}",

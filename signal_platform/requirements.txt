@@ -15,7 +15,6 @@ psycopg2-binary>=2.9.0
 
 # Chart generation
 matplotlib>=3.7.0
-mplfinance>=0.12.10b0
 pandas>=2.0.0
 
 # Data source: cTrader Open API

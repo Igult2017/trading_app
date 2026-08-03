@@ -34,23 +34,30 @@ the change that surfaced it. Recorded 2026-08-01.
 
 ---
 
-## 1. Telegram signals carry NO CHART
+## 1. ~~Telegram signals carry NO CHART~~ — **DONE 2026-08-03**
 
-**Where:** `signal_platform/charting/chart_generator.py`, `notifications/dispatcher.py`
+Charts were **rebuilt from scratch** at the user's instruction (*"This is not just wiring but full
+rebuilt because the existing may not be reliable"*). The orphaned `chart_generator.py` was deleted
+rather than revived — it had no callers for months and nothing ever set `chart_path`, so it was
+never exercised, and unexercised code is untrusted code.
 
-`generate_chart()` is defined and **nothing calls it**. `Signal.chart_path` is declared on the type
-(`core/types.py:209`) and read by `dispatcher._send_photo`, but **nothing anywhere sets it**, so
-`_send_photo` never fires and every card goes out as TEXT.
+New package: `charting/` — `theme.py` (Playfair + palette), `price_panel.py` (candles, levels,
+generic bands), `card_panel.py` (the text card), `signal_card.py` (public `render` / `render_async`).
+Wired at ONE choke point, `strategy_runner._attach_chart`, covering both the confirmed and the
+alert emit — not in the strategies, which return from ~7 places each and would drift.
 
-Platform-wide, not BX-specific, and **pre-existing** — the audit found it, it did not cause it.
-`CLAUDE.md` listed chart generation as step 6 of the scan loop and has been corrected to say the
-step does not run.
+Both strategies render. `Signal.chart_bands` is a generic `(low, high, colour, label)` contract so
+the renderer never learns what a supply zone is.
 
-**Why not fixed:** restoring charts is a behaviour change, not a bug fix. Ask before wiring it back.
+## 1b. npm audit — 21 vulnerabilities, DELIBERATELY NOT FIXED
 
-**Note the tension with the delete-dead-files rule:** `chart_generator.py` is currently an orphaned
-module and by that rule should be deleted. It is kept only pending the user's decision on whether
-charts come back. **If the answer is no, delete the file** — do not leave it sitting there.
+3 critical / 6 high / 11 moderate / 1 low, all pre-existing and all transitive under
+`node-telegram-bot-api → request → …`. `npm audit fix` cannot clear them; it requires a **breaking
+major bump of `node-telegram-bot-api`**, which is the library every signal is delivered through.
+
+**Not fixed during an unattended deploy on purpose.** Breaking Telegram delivery is a worse outcome
+than transitive CVEs in a server-side HTTP client that never parses untrusted input. Do this one
+attended, with a delivery test straight after.
 
 ---
 

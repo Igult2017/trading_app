@@ -221,6 +221,12 @@ class Signal:
                                    # saved, handed to the notifier and never sent. That exact case
                                    # happened on 2026-07-27 and was undiagnosable without this link.
     label:              str = ""   # short code shown prominently on the card (e.g. "451HRZ")
+    # Optional price BANDS to shade on the rendered chart card: [(low, high, colour, label)].
+    # DELIBERATELY GENERIC. The renderer must not know what any strategy means by a band — one
+    # strategy's supply zone and another's range are the same four numbers to it, and a renderer
+    # that special-cases either is how one strategy's ideas leak into another's picture. A strategy
+    # that has nothing to shade leaves this empty and still gets candles + entry/stop/target.
+    chart_bands:        list = field(default_factory=list)
     to_channel:         bool = False  # alert_only signal that goes PUBLIC (signal channel) not the admin DM
 
 

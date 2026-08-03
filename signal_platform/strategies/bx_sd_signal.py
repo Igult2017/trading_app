@@ -95,6 +95,12 @@ def build_signal(symbol: str, setup: SetupResult, conf: LTFConfluence, trig: Ent
         risk_reward       = trig.rr,
         confidence        = min(0.95, 0.60 + conf.score / 400.0),
         primary_timeframe = TF.H4,
+        # The 4H zone, shaded on the rendered card. `chart_bands` is a GENERIC (low, high, colour,
+        # label) contract on Signal — the renderer never learns what a supply zone is, so nothing
+        # about BX leaks into how another strategy's card is drawn.
+        chart_bands       = ([(setup.zone.bottom, setup.zone.top,
+                               "#E5484D" if not buy else "#26A96C",
+                               f"4H {zdir.upper()}")] if setup.zone else []),
         # A REAL signal: saved to the DB, shown on AssetPage, and — the point — MONITORED, so the
         # monitor closes it on TP/SL and the channel is told how it ended. As an alert_only signal it
         # bypassed the validator entirely and was never saved, so BX posted entries into the channel

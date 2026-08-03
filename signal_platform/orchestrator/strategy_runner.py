@@ -24,8 +24,29 @@ from storage import observability_repo as obs
 from storage import signal_repo
 from validation import signal_validator
 from risk import spread_filter, volatility_filter, sl_validator
+from charting import signal_card
 
 log = logging.getLogger(__name__)
+
+
+async def _attach_chart(signal, candles, symbol: str) -> None:
+    """Render the signal's chart card and stamp `chart_path`, so the dispatcher sends a PHOTO.
+
+    ONE CALL SITE PER EMIT, HERE — not in the strategies. Both strategies return from ~7 different
+    places each; attaching there would be forgotten at the next `return` added, which is how this
+    feature died the first time (`generate_chart` had no callers for months and nothing ever set
+    `chart_path`, so every card silently went out as text).
+
+    Strategy-agnostic: it passes `signal.chart_bands` straight through without knowing what the
+    strategy means by them. Never raises — `render` returns None on any failure and the dispatcher
+    falls back to text.
+    """
+    if not candles:
+        return
+    digits = 3 if symbol.upper().endswith("JPY") else 5
+    tf = getattr(candles[-1], "timeframe", "") or ""
+    signal.chart_path = await signal_card.render_async(
+        signal, candles, digits, list(signal.chart_bands or []), subtitle=tf)
 
 
 async def _stage(loop, stage: str, strategy_id: str, symbol: str,
@@ -164,6 +185,7 @@ async def run_strategy(
                 # A heads-up is a courtesy, not a trade. If the row cannot be written the Telegram
                 # alert must still go out, so this never raises past here.
                 log.error(f"[runner] {instrument} watch-row save failed ({exc}) — alerting anyway")
+            await _attach_chart(signal, pri_candles, instrument)
             await event_bus.emit(event_bus.SIGNAL_ALERT, signal)
             log.info(
                 f"[runner] SETUP ALERT — {instrument} "
@@ -237,6 +259,7 @@ async def run_strategy(
         # A row with `dispatched` and no `delivered` is precisely the 27 Jul failure — saved, handed
         # over, never sent — and it is now a one-line query instead of an unanswerable question.
         await _stage(loop, obs.STAGE_DISPATCHED, signal.strategy_id, instrument, signal_id=signal_id)
+        await _attach_chart(signal, pri_candles, instrument)
         await event_bus.emit(event_bus.SIGNAL_CONFIRMED, signal)
         log.info(
             f"[runner] CONFIRMED — {instrument} "

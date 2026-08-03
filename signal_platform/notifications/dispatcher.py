@@ -83,6 +83,31 @@ async def _send_private(message: str) -> bool:
     return await _send_text(message, chat_id=settings.watchdog_chat_id)
 
 
+_CAPTION_LIMIT = 1024
+"""Telegram allows 4096 characters in a MESSAGE but only 1024 in a photo CAPTION."""
+
+
+def _fit_caption(text: str) -> str:
+    """Trim a card to Telegram's photo-caption limit, on a line boundary.
+
+    Measured on a real BX card: the confirmed card is 729 chars and the setup alert 910 — both fit,
+    but 910 is one extra reason line away from the cliff. Over the limit, `send_photo` raises and
+    the caller silently falls back to TEXT, which loses the rendered image — i.e. the feature fails
+    exactly on the richest signals. Trimming on a line boundary keeps the header and levels (which
+    lead the card) and drops trailing reasons, all of which are also drawn ON the image itself.
+    """
+    if len(text) <= _CAPTION_LIMIT:
+        return text
+    keep, out = _CAPTION_LIMIT - 2, []
+    for line in text.split("\n"):
+        if sum(len(x) + 1 for x in out) + len(line) > keep:
+            break
+        out.append(line)
+    log.info("[dispatcher] caption trimmed %d -> %d chars for the photo limit "
+             "(full detail is on the image)", len(text), sum(len(x) + 1 for x in out))
+    return "\n".join(out) or text[:keep]
+
+
 async def _send_photo(chart_path: str, caption: str, chat_id: str | None = None) -> bool:
     """Returns whether the card actually went out — by photo or by the text fallback.
 
@@ -95,6 +120,7 @@ async def _send_photo(chart_path: str, caption: str, chat_id: str | None = None)
         log.error("[dispatcher] cannot send chart — %s",
                   "no bot configured" if not bot else "no target chat id")
         return False
+    caption = _fit_caption(caption)
     try:
         with open(chart_path, "rb") as f:
             await bot.send_photo(
@@ -116,11 +142,26 @@ async def on_setup_alert(signal: Signal) -> None:
     # + entry) — those are real signals (alert_only=False) and route via on_signal_confirmed.
     # Opt-in: a strategy may mark an alert `to_channel` when its OWN cascade already confirmed it, and
     # it goes PUBLIC with the full signal card instead of the DM heads-up. No strategy uses this today.
+    # HEADS-UPS ARE IMAGE CARDS TOO. This path was text-only, so when chart rendering was added
+    # every alert still went out as text AND leaked its rendered PNG — nothing unlinked it, so the
+    # container would accumulate one file per heads-up for its whole life. Both fixed here: send the
+    # photo when there is one, and delete it afterwards exactly as `on_signal_confirmed` does.
+    chart = signal.chart_path
+    has_chart = bool(chart) and os.path.isfile(chart)
     if signal.to_channel and not settings.signals_dm_only:
-        ok = await _send_text(format_signal_confirmed(signal))     # public signal channel
+        caption = format_signal_confirmed(signal)                  # public signal channel
+        ok = (await _send_photo(chart, caption) if has_chart
+              else await _send_text(caption))
     else:
         # DM: either an unconfirmed heads-up, or SIGNALS_DM_ONLY holding a confirmed alert back.
-        ok = await _send_private(format_setup_alert(signal))
+        caption = format_setup_alert(signal)
+        ok = (await _send_photo(chart, caption, chat_id=settings.watchdog_chat_id) if has_chart
+              else await _send_private(caption))
+    if has_chart:
+        try:
+            os.unlink(chart)
+        except OSError:
+            pass
     # At-least-once delivery: commit the producer's dedup key ONLY once the DM actually landed,
     # so a failed send (or crash before send) re-fires next scan instead of being lost forever.
     if ok and signal.dedup_key:
