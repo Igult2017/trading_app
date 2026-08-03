@@ -2,7 +2,7 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import { prefetchIfEmpty } from "@/lib/prefetchCalendar";
-import { Menu, Sun, Moon, X } from "lucide-react";
+import { Menu, Sun, Moon, X, Sparkles } from "lucide-react";
 import { openAuthModal } from "@/components/auth/AuthModal";
 
 const TICKER_ITEMS = [
@@ -118,7 +118,7 @@ export default function HomeHeader({ darkMode, setDarkMode, activePath }: HomeHe
   }, [navigate]);
 
   const linkStyle = (isActive: boolean): React.CSSProperties => ({
-    ...nFont, fontSize: 12.5,
+    ...nFont, fontSize: 13,
     color: isActive ? "#2563eb" : linkClr,
     textDecoration: "none",
     padding: "4px 2px",
@@ -186,11 +186,30 @@ export default function HomeHeader({ darkMode, setDarkMode, activePath }: HomeHe
               onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = linkClr; }}>
               Sign in
             </button>
+            {/* PILL CTA, after the reference header the user shared. What makes that button read as
+                "neat" is not the colour: it is the fully-rounded radius, the icon sitting inside the
+                pill with a real gap, generous horizontal padding against tight vertical padding, and
+                a shadow tinted with the button's OWN hue rather than black — a grey shadow under a
+                saturated button always looks muddy. Hover darkens and lifts a pixel instead of
+                fading opacity, which washed the white label out with it. */}
             <button type="button" onClick={() => openAuthModal("signup")}
-              style={{ ...nFont, fontSize: 13, fontWeight: 600, padding: "9px 18px", borderRadius: 4, background: "#2563eb", color: "#ffffff", border: "none", cursor: "pointer", transition: "opacity 0.2s", whiteSpace: "nowrap" }}
-              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = "0.88"; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = "1"; }}>
-              Start free →
+              style={{
+                ...nFont, fontSize: 13, fontWeight: 700, letterSpacing: "0.01em",
+                display: "inline-flex", alignItems: "center", gap: 7,
+                padding: "10px 22px", borderRadius: 999,
+                background: "#2563eb", color: "#ffffff", border: "none", cursor: "pointer",
+                boxShadow: "0 1px 2px rgba(37,99,235,0.28), 0 4px 12px rgba(37,99,235,0.22)",
+                transition: "background 0.18s, box-shadow 0.18s, transform 0.18s",
+                whiteSpace: "nowrap",
+              }}
+              onMouseEnter={e => { const s = (e.currentTarget as HTMLElement).style;
+                s.background = "#1d4ed8"; s.transform = "translateY(-1px)";
+                s.boxShadow = "0 2px 4px rgba(37,99,235,0.30), 0 8px 20px rgba(37,99,235,0.28)"; }}
+              onMouseLeave={e => { const s = (e.currentTarget as HTMLElement).style;
+                s.background = "#2563eb"; s.transform = "none";
+                s.boxShadow = "0 1px 2px rgba(37,99,235,0.28), 0 4px 12px rgba(37,99,235,0.22)"; }}>
+              <Sparkles size={14} strokeWidth={2.4} />
+              Start free
             </button>
             <DarkToggle />
           </div>
