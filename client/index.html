@@ -4,6 +4,17 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
 
+    <!-- PRELOAD THE BODY FACE — this is what stops the font swapping in after the page has drawn.
+         Playfair Display is the default body font (index.css `body`) and the face the landing page
+         and Trade Sync both use. It was reaching the browser only via `@import '@fontsource-...'`
+         inside the CSS bundle, so the chain was: HTML -> CSS file -> parse -> discover @font-face ->
+         fetch woff2. Text painted in Georgia meanwhile and swapped when the font finally landed.
+         Preloading starts that fetch during HTML parse, in parallel with the CSS and JS.
+         One VARIABLE file covers every weight (38 KB), so this costs a single request.
+         `crossorigin` is REQUIRED even same-origin: fonts are fetched in CORS mode, and without it
+         the browser downloads the file TWICE and the preload does nothing. -->
+    <link rel="preload" href="/fonts/playfair-display-var-latin.woff2" as="font" type="font/woff2" crossorigin />
+
     <!-- Primary SEO -->
     <title>Trade&amp;Journal – Professional Trading Journal for Forex, Crypto &amp; Commodities</title>
     <meta name="description" content="The professional trading journal built for serious traders. Log trades, track psychology, analyze drawdown, and unlock your edge with AI-powered analytics. Free forever plan available." />

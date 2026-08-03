@@ -44,6 +44,46 @@
 @import '@fontsource/plus-jakarta-sans/700.css';
 @import '@fontsource/plus-jakarta-sans/800.css';
 
+/* ── THE BODY FACE, SERVED FROM A STABLE URL SO IT CAN BE PRELOADED ──────────────────────────────
+   Declared AFTER the Fontsource imports on purpose: two @font-face rules for the same family and
+   weight resolve to the LAST one, so this is the src the browser actually fetches — and it is the
+   exact file `client/index.html` preloads.
+
+   Why it exists at all: Fontsource emits HASHED filenames at build time
+   (playfair-display-latin-wght-normal-<hash>.woff2), so no static <link rel="preload"> in the HTML
+   can name them. Without a preload the browser cannot discover the font until it has downloaded
+   and parsed the CSS bundle, which is why the landing page and Trade Sync painted in Georgia and
+   then swapped once the font arrived. A copy at a fixed path under public/ is the only way to give
+   the preload something to point at.
+
+   `swap`, not `optional` or `block`: `block` hides the text until the font loads (a flash of
+   NOTHING is worse than a flash of Georgia), and `optional` lets the browser skip the webfont
+   entirely on a slow first visit, which would leave the page in Georgia permanently. With the
+   preload in place the swap window is short enough not to be seen.
+
+   Both family names are declared because the codebase asks for both — 'Playfair Display Variable'
+   from index.css, and plain 'Playfair Display' from the many inline styles that use Google's name. */
+@font-face {
+  font-family: 'Playfair Display Variable';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400 900;
+  src: url('/fonts/playfair-display-var-latin.woff2') format('woff2-variations');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+                 U+0304, U+0308, U+0329, U+2000-206F, U+2074, U+20AC, U+2122, U+2191,
+                 U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Playfair Display';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400 900;
+  src: url('/fonts/playfair-display-var-latin.woff2') format('woff2-variations');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+                 U+0304, U+0308, U+0329, U+2000-206F, U+2074, U+20AC, U+2122, U+2191,
+                 U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
