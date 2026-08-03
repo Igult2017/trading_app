@@ -3,9 +3,14 @@
  * so the COPY can be edited without touching the scheduling logic, and so the scheduler stays
  * under the 150-line limit.
  *
- * Written by the user, 2026-08-03. Three obvious typos in the original were corrected — "Hellow"
- * -> "Hello", "lets home" -> "let's hope", "financial advise" -> "financial advice" — because this
- * is customer-facing copy sent to every subscriber. Nothing else was reworded.
+ * Written by the user, 2026-08-03. Corrections made to the original, because this is customer-facing
+ * copy sent to every subscriber:
+ *   "Hellow"                     -> "Hello"
+ *   "lets home"                  -> "let's hope"
+ *   "financial advise"           -> "financial advice"
+ *   "another dollar another day" -> "another day, another dollar"   (the set phrase, reversed)
+ * Nothing else was reworded. The last one was missed on the first pass and the user caught it —
+ * proofread the whole line, not the words that look misspelled.
  *
  * THE RISK DISCLAIMER IS NOT DECORATION. Every one of these messages carries, in the user's own
  * words, that Trade&Journal does not offer financial advice, is not liable for losses, and that
@@ -32,7 +37,7 @@ const DISCLAIMER =
 export function weekOpenMessage(minutes: number): string {
   return (
     `👋 *Hello fellow traders!*\n\n` +
-    `I hope your weekend was fantastic, and welcome back for another dollar another day. ` +
+    `I hope your weekend was fantastic, and welcome back — another day, another dollar. ` +
     `The market will open in *${minutes} minutes*, and so let's hope our agents *VIX.1* and ` +
     `*BX-S/D* will find us great opportunities to grow our portfolios.\n\n` +
     `${RISK_LINE}\n\n` +
