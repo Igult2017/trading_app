@@ -77,6 +77,36 @@ check("garbage candles -> None (no exception escapes)",
 check("zero levels still render (a watch alert has no entry/stop/tp)",
       bool(signal_card.render(sig(entry_price=0, stop_loss=0, take_profit=0), bars(), 5)), True)
 
+print("\nLAYOUT — the read section is sized to its content, in inches")
+from charting import card_panel, read_panel
+
+short = sig(technical_reasons=["One short reason."])
+long5 = sig(technical_reasons=["Reason %d — %s" % (i, "long body text " * 12) for i in range(5)])
+h_short, h_long = read_panel.read_inches(short), read_panel.read_inches(long5)
+check("a long read needs more height than a short one", h_long > h_short * 2.5, True)
+check("an empty read still reserves a line", read_panel.estimate_lines(sig(technical_reasons=[])), 1)
+check("MAX_REASONS caps the section",
+      read_panel.estimate_lines(sig(technical_reasons=["x"] * 40)) <= read_panel.MAX_REASONS * 2, True)
+
+import PIL.Image as _I
+ps, pl = signal_card.render(short, bars(), 5), signal_card.render(long5, bars(), 5)
+hs, hl = _I.open(ps).size[1], _I.open(pl).size[1]
+check("the rendered card actually grows with the text", hl > hs + 200, True)
+check("...and both are the same width (one column)",
+      _I.open(ps).size[0] == _I.open(pl).size[0], True)
+os.unlink(ps); os.unlink(pl)
+
+print("\nREASON SPLITTING — bold lead-in, capitalised body")
+check("em-dash splits into lead + body",
+      read_panel._split("Zone respected — price left it and came back"),
+      ("Zone respected.", "Price left it and came back"))
+check("colon splits too", read_panel._split("Confirmation: a candle closed inside"),
+      ("Confirmation.", "A candle closed inside"))
+check("a short reason with no separator keeps its text",
+      read_panel._split("Momentum candle")[0], "Momentum candle.")
+check("an already-punctuated lead is not double-punctuated",
+      read_panel._split("Sample card. A preview of the format")[0], "Sample card.")
+
 print("\nCONCURRENCY — the scan loop renders several instruments at once")
 
 

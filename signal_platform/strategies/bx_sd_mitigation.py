@@ -6,6 +6,7 @@ question the zone book answers (the `wick_mitigated` / `body_mitigated` states),
 recompute from candles. This file is now only the card.
 """
 from core.types import Signal, Direction, TF
+from charting import theme   # card palette — one source of truth for band colour
 from strategies.bx_sd_zones import Zone
 
 
@@ -36,7 +37,7 @@ def mitigation_signal(zone: Zone, symbol: str, backing: list[str], digits: int,
         # The zone that was just tapped — the whole subject of this heads-up, so it is what the
         # card must show. Generic (low, high, colour, label); the renderer stays zone-unaware.
         chart_bands       = [(zone.bottom, zone.top,
-                              "#26A96C" if buy else "#E5484D",
+                              theme.ZONE_DEMAND if buy else theme.ZONE_SUPPLY,
                               f"4H {zone.direction.upper()}")],
         technical_reasons = [
             f"4H {zone.direction} zone MITIGATED "

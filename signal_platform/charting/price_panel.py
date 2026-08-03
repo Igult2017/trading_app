@@ -1,4 +1,4 @@
-"""The price half of a signal card: candles, the entry/stop/target levels, and an optional zone band.
+"""The chart at the top of a signal card: candles, the levels, the zone band, and the projection.
 
 STRATEGY-AGNOSTIC BY CONSTRUCTION. This module knows about candles and three price levels. It does
 not know what a supply zone, a momentum candle, a CHoCH or a pullback is, and it must not learn —
@@ -6,82 +6,95 @@ each strategy is independent, and a renderer that special-cases one is how one s
 into another's picture. Anything strategy-specific arrives as the generic `bands` argument, already
 reduced to (low, high, colour, label) by the caller.
 """
+from matplotlib.patches import Rectangle, FancyArrowPatch
+
 from core.types import Candle
 from charting import theme
 
+_PROJECT = 0.30      # the arrow reaches this fraction of the chart width past the last candle
+
 
 def draw(ax, candles: list[Candle], entry: float, stop: float, target: float,
-         digits: int, bands: list[tuple] | None = None) -> None:
-    """Draw `candles` on `ax` with the three levels and any `bands` = [(lo, hi, colour, label)]."""
+         digits: int, bands: list[tuple] | None = None, buy: bool = False) -> None:
+    """Draw `candles` with the three levels, any `bands` = [(lo, hi, colour, label)], and an arrow
+    projecting from the entry toward the target — where price is expected to go if the setup works."""
     n = len(candles)
     # Candles drawn directly rather than with a charting library. A library that owns the whole
-    # figure (its own fig, axes and style) fights the text panel this card needs beside it, and the
-    # bars are ~15 lines. `mplfinance` was a declared dependency for exactly this and was never
-    # imported by anything — it was removed 2026-08-03 rather than left in the image.
-    width = 0.62
+    # figure (its own fig, axes and style) fights the layout this card needs, and the bars are ~15
+    # lines. `mplfinance` was a declared dependency for exactly this and was never imported by
+    # anything — it was removed 2026-08-03 rather than left in the image.
+    width = 0.58
     for i, c in enumerate(candles):
         up = c.close >= c.open
         col = theme.UP if up else theme.DOWN
-        ax.plot([i, i], [c.low, c.high], color=col, linewidth=0.9, solid_capstyle="round", zorder=2)
+        ax.plot([i, i], [c.low, c.high], color=col, linewidth=0.8, solid_capstyle="round", zorder=3)
         lo, hi = (c.open, c.close) if up else (c.close, c.open)
         h = hi - lo
-        if h <= 0:                      # doji — draw a hairline so the bar is still visible
-            ax.plot([i - width / 2, i + width / 2], [lo, lo], color=col, linewidth=1.1, zorder=3)
+        if h <= 0:                      # doji — a hairline so the bar is still visible
+            ax.plot([i - width / 2, i + width / 2], [lo, lo], color=col, linewidth=1.0, zorder=4)
+        elif up:                        # hollow body for up bars — the editorial look
+            ax.add_patch(Rectangle((i - width / 2, lo), width, h, facecolor=theme.PAPER,
+                                   edgecolor=col, linewidth=0.8, zorder=4))
         else:
-            ax.add_patch(_rect(i - width / 2, lo, width, h, col))
+            ax.add_patch(Rectangle((i - width / 2, lo), width, h, facecolor=col,
+                                   edgecolor=col, linewidth=0.8, zorder=4))
 
-    # LINES STOP AT THE LAST CANDLE; LABELS LIVE IN THE MARGIN BEYOND IT.
-    # `axhline` spans the whole axis, so labels drawn at the right edge sat ON TOP of their own
-    # dashed line and were struck through — caught by looking at the rendered PNG, which is the
-    # only way this kind of defect shows up. The margin is reserved below and nothing is drawn into
-    # it except these labels.
-    right = n - 0.4                      # where every line ends
-    label_x = n + 0.6                    # where every label starts — clear of the lines
-
-    for lo, hi, colour, label in (bands or []):
-        ax.axhspan(lo, hi, xmax=_frac(right, n), color=colour, alpha=0.13, zorder=1)
+    span = n + n * _PROJECT + 2
+    right = n - 0.4                     # every line and band stops here; labels live past it
+    for lo, hi, colour, _label in (bands or []):
+        ax.axhspan(lo, hi, xmax=(right + 1) / span, color=colour, alpha=0.10, zorder=1)
         for edge in (lo, hi):
-            ax.plot([-0.5, right], [edge, edge], color=colour, linewidth=0.7, alpha=0.55, zorder=1)
-        if label:
-            ax.text(label_x, (lo + hi) / 2, label, va="center", ha="left", color=colour,
-                    fontproperties=theme.font(8), alpha=0.95, zorder=6)
+            ax.plot([-1, right], [edge, edge], color=colour, linewidth=0.7, alpha=0.55, zorder=2)
 
-    for price, colour, label in ((entry, theme.ENTRY, "ENTRY"),
-                                 (stop, theme.STOP, "STOP"),
-                                 (target, theme.TARGET, "TARGET")):
+    for price, colour, label, dashed in ((stop, theme.STOP, "STOP", False),
+                                         (entry, theme.ENTRY, "ENTRY", True),
+                                         (target, theme.TARGET, "TARGET", False)):
         if not price:
             continue
-        ax.plot([-0.5, right], [price, price], color=colour, linewidth=1.15,
-                linestyle=(0, (5, 3)), zorder=5)
-        ax.text(label_x, price, f"{label}  {price:.{digits}f}", va="center", ha="left",
-                color=colour, fontproperties=theme.font(9, bold=True), zorder=6)
+        ax.plot([-1, right], [price, price], color=colour, linewidth=1.0,
+                linestyle=((0, (4, 3)) if dashed else "-"), zorder=5)
+        ax.text(right + 1.2, price, label, va="bottom", ha="left", color=colour,
+                fontproperties=theme.font(8.5, bold=True), zorder=7)
+        ax.text(right + 1.2, price, f"{price:.{digits}f}", va="top", ha="left",
+                color=theme.INK_DIM, fontproperties=theme.font(7.5), zorder=7)
 
-    ax.set_xlim(-1, n + max(11, n * 0.42))    # reserved right margin — labels only
+    _projection(ax, n, entry, target, buy)
+
+    ax.set_xlim(-1.5, span)
     lows = [c.low for c in candles] + [p for p in (entry, stop, target) if p]
     highs = [c.high for c in candles] + [p for p in (entry, stop, target) if p]
     for lo, hi, _, _ in (bands or []):
         lows.append(lo); highs.append(hi)
-    pad = (max(highs) - min(lows)) * 0.08 or 0.001
+    pad = (max(highs) - min(lows)) * 0.06 or 0.001
     ax.set_ylim(min(lows) - pad, max(highs) + pad)
 
-    ax.set_facecolor(theme.BG)
-    ax.grid(True, color=theme.GRID, linewidth=0.5, alpha=0.6)
+    ax.set_facecolor(theme.PAPER)
+    ax.grid(True, axis="y", color=theme.GRID, linewidth=0.6)
     ax.set_axisbelow(True)
-    ax.tick_params(colors=theme.INK_DIM, labelsize=8, length=0)
+    ax.tick_params(colors=theme.INK_DIM, labelsize=7, length=0, pad=2)
     for s in ax.spines.values():
         s.set_visible(False)
     ax.set_xticks([])
+    ax.yaxis.tick_right()
     for lbl in ax.get_yticklabels():
-        lbl.set_fontproperties(theme.font(8))
+        lbl.set_fontproperties(theme.font(7))
 
 
-def _rect(x, y, w, h, colour):
-    from matplotlib.patches import Rectangle
-    return Rectangle((x, y), w, h, facecolor=colour, edgecolor=colour, linewidth=0.5, zorder=3)
+def _projection(ax, n: int, entry: float, target: float, buy: bool) -> None:
+    """The arrow: from the entry, into the empty margin, toward the target.
 
-
-def _frac(x: float, n: int) -> float:
-    """`axhspan`'s xmax is an AXES FRACTION (0-1), not a data coordinate — so the band shading has
-    to be converted, or it silently spans the full width including the label margin."""
-    lo, hi = -1, n + max(11, n * 0.42)
-    return max(0.0, min(1.0, (x - lo) / (hi - lo)))
+    The user asked for *"an arrow that shows where we expect price to move after entry"*. It is
+    drawn in the reserved space to the RIGHT of the last candle — i.e. in the future — so it can
+    never be mistaken for something price has already done. It ends AT the target level, which is
+    the claim the signal is actually making.
+    """
+    if not entry or not target:
+        return
+    x0 = n - 0.5
+    x1 = n + n * _PROJECT * 0.78
+    colour = theme.UP if buy else theme.DOWN
+    ax.add_patch(FancyArrowPatch(
+        (x0, entry), (x1, target),
+        connectionstyle="arc3,rad=" + ("0.22" if buy else "-0.22"),
+        arrowstyle="-|>", mutation_scale=13, linewidth=1.5,
+        color=colour, alpha=0.75, zorder=6))

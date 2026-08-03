@@ -4,6 +4,11 @@ The user's rule for the image cards, 2026-08-03: *"The telegram signals will now
 playfiar font because it is image."* Telegram cannot style text, so the typography has to live in
 the pixels — which is the whole reason these cards are rendered rather than sent as text.
 
+LIGHT, EDITORIAL PALETTE. The first build was a dark two-column card and the user rejected it as
+"not clear": *"at the top we have the chart and below it an explanation follows."* A tall light card
+reads on a phone the way a page does — one column, top to bottom — instead of asking the eye to
+jump between two columns in a thumbnail.
+
 THE FONT IS BUNDLED, NOT DOWNLOADED. `fonts/PlayfairDisplay-{Regular,Bold}.ttf` are committed next
 to this module, converted from the `@fontsource` woff2 the client already uses so the Telegram card
 and the web UI are the same typeface. A runtime download would add a network dependency to every
@@ -23,20 +28,20 @@ _FONT_DIR = Path(__file__).parent / "fonts"
 REGULAR = _FONT_DIR / "PlayfairDisplay-Regular.ttf"
 BOLD = _FONT_DIR / "PlayfairDisplay-Bold.ttf"
 
-# Dark card. Chosen to read on a phone in a Telegram thread, which is where every one of these is
-# actually looked at — not on a desktop monitor.
-BG = "#0E1117"          # page
-PANEL = "#151A23"       # the text panel behind the numbers
-GRID = "#222834"
-INK = "#F2F4F8"         # primary text
-INK_DIM = "#9AA4B5"     # labels
-UP = "#26A96C"          # bullish candle / buy
-DOWN = "#E5484D"        # bearish candle / sell
-ENTRY = "#E8B339"       # entry line
-STOP = "#E5484D"        # stop line
-TARGET = "#26A96C"      # target line
-ZONE_SUPPLY = "#E5484D"
-ZONE_DEMAND = "#26A96C"
+PAPER = "#FFFFFF"       # card background
+WASH = "#F4F3F0"        # the stats band — a warm grey, not a blue-grey
+RULE = "#E4E2DD"        # hairlines between sections
+GRID = "#EFEDE9"        # chart gridlines, lighter than the rules
+INK = "#14171A"         # headline / numbers
+INK_MID = "#4A5057"     # body text
+INK_DIM = "#8B9198"     # labels, axis ticks, captions
+UP = "#1F9D63"          # bullish candle / buy / target
+DOWN = "#C8443F"        # bearish candle / sell / stop
+ENTRY = "#14171A"       # entry line — ink, not a colour: it is a fact, not a warning
+STOP = DOWN
+TARGET = UP
+ZONE_SUPPLY = "#C8443F"
+ZONE_DEMAND = "#1F9D63"
 
 
 def font(size: float, bold: bool = False):

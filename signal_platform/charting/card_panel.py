@@ -1,8 +1,7 @@
-"""The text half of a signal card — everything the reader acts on, set in Playfair.
+"""The non-chart parts of the card: the masthead, the levels band, and the numbered read.
 
-This is the reason the cards became images. Telegram renders one font and cannot weight or align
-anything; the numbers a trader acts on deserve better than a monospace blob. Rendering also means
-the strategy name, the levels and the reasons all arrive as ONE artefact that survives forwarding.
+Laid out top-to-bottom the way the user asked for: *"at the top we have the chart and below it an
+explanation follows."* Every string here is drawn in Playfair via `theme.font`.
 
 NO SOURCE CITATIONS REACH THIS PANEL. It renders `signal.technical_reasons` verbatim, and those are
 kept citation-free at the producer (`tests/test_no_book_citations.py`). Do not add a chapter or page
@@ -11,76 +10,65 @@ reference here — a page number is noise to someone deciding whether to take a 
 from core.types import Signal
 from charting import theme
 
-_MAX_REASONS = 6          # beyond this the card stops being scannable on a phone
-_WRAP = 62                # characters per reason line at the panel's width
 
 
-def draw(ax, sig: Signal, digits: int, subtitle: str = "") -> None:
-    ax.set_facecolor(theme.PANEL)
-    ax.set_xlim(0, 1)
-    ax.set_ylim(0, 1)
+def _blank(ax, face=None):
+    ax.set_xlim(0, 1); ax.set_ylim(0, 1)
     ax.set_xticks([]); ax.set_yticks([])
     for s in ax.spines.values():
         s.set_visible(False)
+    ax.set_facecolor(face or theme.PAPER)
 
-    buy = str(getattr(sig.direction, "value", sig.direction)).lower() == "buy"
+
+def masthead(ax, sig: Signal, buy: bool, subtitle: str) -> None:
+    _blank(ax)
     accent = theme.UP if buy else theme.DOWN
-    side = "BUY" if buy else "SELL"
-    y = 0.955
-
-    ax.text(0.04, y, f"{side}  {sig.symbol}", color=accent,
-            fontproperties=theme.font(19, bold=True), va="top", ha="left")
+    ax.plot([0.0, 0.022], [0.86, 0.86], color=accent, linewidth=2, zorder=3)
+    ax.text(0.032, 0.845, f"{'BUY' if buy else 'SELL'} SETUP", color=accent, va="center",
+            ha="left", fontproperties=theme.font(9.5, bold=True))
     if sig.label:
-        ax.text(0.96, y, sig.label, color=theme.INK_DIM,
-                fontproperties=theme.font(11), va="top", ha="right")
-    y -= 0.075
-    # STRATEGY IS ALWAYS NAMED. Standing rule: every card says which strategy produced it, and the
-    # template stays strategy-agnostic — no hardcoded indicator or setup wording.
-    ax.text(0.04, y, f"{sig.strategy_name}  ·  {subtitle}" if subtitle else sig.strategy_name,
-            color=theme.INK_DIM, fontproperties=theme.font(10), va="top", ha="left")
-    y -= 0.055
-    ax.plot([0.04, 0.96], [y, y], color=theme.GRID, linewidth=1)
-    y -= 0.055
+        ax.text(0.995, 0.845, f" {sig.label} ", color=theme.INK_MID, va="center", ha="right",
+                fontproperties=theme.font(8.5),
+                bbox=dict(facecolor=theme.WASH, edgecolor="none", pad=4.5))
+    ax.text(0.0, 0.44, sig.symbol.replace("/", " / "), color=theme.INK, va="center", ha="left",
+            fontproperties=theme.font(30, bold=True))
+    line = f"{sig.strategy_name}  ·  {subtitle}" if subtitle else sig.strategy_name
+    ax.text(0.004, 0.10, line, color=theme.INK_DIM, va="center", ha="left",
+            fontproperties=theme.font(9.5))
 
-    for label, value, colour in (("Entry", sig.entry_price, theme.ENTRY),
-                                 ("Stop", sig.stop_loss, theme.STOP),
-                                 ("Target", sig.take_profit, theme.TARGET)):
-        ax.text(0.04, y, label, color=theme.INK_DIM, fontproperties=theme.font(10.5),
-                va="top", ha="left")
-        ax.text(0.44, y, f"{value:.{digits}f}", color=colour,
-                fontproperties=theme.font(13, bold=True), va="top", ha="left")
-        y -= 0.062
 
-    risk = abs(sig.entry_price - sig.stop_loss)
+def levels(ax, sig: Signal, digits: int, notes: list[str]) -> None:
+    """ENTRY / STOP / TARGET as three columns, each with a caption underneath."""
+    _blank(ax)
+    cols = (("ENTRY", sig.entry_price, theme.INK, notes[0]),
+            ("STOP", sig.stop_loss, theme.STOP, notes[1]),
+            ("TARGET", sig.take_profit, theme.TARGET, notes[2]))
+    for i, (label, value, colour, note) in enumerate(cols):
+        x = 0.035 + i * 0.333
+        if i:
+            ax.plot([x - 0.028, x - 0.028], [0.12, 0.88], color=theme.RULE, linewidth=1)
+        ax.scatter([x], [0.80], s=22, color=colour, zorder=3)
+        ax.text(x + 0.022, 0.80, label, color=theme.INK_MID, va="center", ha="left",
+                fontproperties=theme.font(8.5, bold=True))
+        ax.text(x, 0.44, f"{value:.{digits}f}", color=theme.INK, va="center", ha="left",
+                fontproperties=theme.font(20, bold=True))
+        ax.text(x, 0.14, note, color=theme.INK_DIM, va="center", ha="left",
+                fontproperties=theme.font(8.5))
+
+
+def stats(ax, sig: Signal, digits: int) -> None:
+    """The washed band: reward:risk, pips risked, confidence."""
+    _blank(ax, theme.WASH)
     pip = 0.01 if digits <= 3 else 0.0001
-    bits = [f"{sig.risk_reward:g}R"] if sig.risk_reward else []
-    if risk:
-        bits.append(f"{risk / pip:.1f} pips risk")
-    if sig.confidence:
-        bits.append(f"{sig.confidence * 100:.0f}%")
-    if bits:
-        y -= 0.012
-        ax.text(0.04, y, "   ·   ".join(bits), color=theme.INK,
-                fontproperties=theme.font(11), va="top", ha="left")
-        y -= 0.06
-
-    ax.plot([0.04, 0.96], [y, y], color=theme.GRID, linewidth=1)
-    y -= 0.05
-    for line in _reasons(sig):
-        ax.text(0.04, y, line, color=theme.INK, fontproperties=theme.font(9.2),
-                va="top", ha="left")
-        y -= 0.042
-        if y < 0.04:
-            break
-
-
-def _reasons(sig: Signal) -> list[str]:
-    """Wrapped, bulleted, capped. Long reasons are wrapped rather than truncated — a reason cut
-    mid-sentence reads as a bug and the reader cannot tell what was lost."""
-    import textwrap
-    out: list[str] = []
-    for r in sig.technical_reasons[:_MAX_REASONS]:
-        chunks = textwrap.wrap(str(r), _WRAP) or [""]
-        out.append(f"•  {chunks[0]}")
-        out.extend(f"    {c}" for c in chunks[1:])
-    return out
+    risk = abs(sig.entry_price - sig.stop_loss) / pip if sig.entry_price and sig.stop_loss else 0
+    cells = ((f"{sig.risk_reward:g}R" if sig.risk_reward else "—", "REWARD : RISK"),
+             (f"{risk:.1f}" if risk else "—", "PIPS RISK"),
+             (f"~{sig.confidence * 100:.0f}%" if sig.confidence else "—", "CONFIDENCE"))
+    for i, (big, small) in enumerate(cells):
+        x = 0.1667 + i * 0.3333
+        if i:
+            ax.plot([x - 0.1667, x - 0.1667], [0.18, 0.82], color=theme.RULE, linewidth=1)
+        ax.text(x, 0.62, big, color=theme.INK, va="center", ha="center",
+                fontproperties=theme.font(17, bold=True))
+        ax.text(x, 0.24, small, color=theme.INK_DIM, va="center", ha="center",
+                fontproperties=theme.font(8))

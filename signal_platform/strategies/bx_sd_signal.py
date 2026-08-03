@@ -5,6 +5,7 @@ Kept separate so bx_sd.analyze() stays lean (150-line rule). No trading logic he
 formatting of an already-decided entry/SL/TP into the platform's panel-labelled Signal.
 """
 from core.types import TF, Signal, Direction
+from charting import theme   # card palette — one source of truth for band colour
 from strategies.bx_sd_setup import SetupResult
 from strategies.bx_sd_ltf import LTFConfluence
 from strategies.bx_sd_entry import EntryTrigger
@@ -98,8 +99,11 @@ def build_signal(symbol: str, setup: SetupResult, conf: LTFConfluence, trig: Ent
         # The 4H zone, shaded on the rendered card. `chart_bands` is a GENERIC (low, high, colour,
         # label) contract on Signal — the renderer never learns what a supply zone is, so nothing
         # about BX leaks into how another strategy's card is drawn.
+        # Colour comes from the CARD THEME, never a literal. Two hex codes were pasted here when the
+        # card was dark; the card is light now and they no longer matched anything, which is what a
+        # duplicated constant always eventually does.
         chart_bands       = ([(setup.zone.bottom, setup.zone.top,
-                               "#E5484D" if not buy else "#26A96C",
+                               theme.ZONE_DEMAND if buy else theme.ZONE_SUPPLY,
                                f"4H {zdir.upper()}")] if setup.zone else []),
         # A REAL signal: saved to the DB, shown on AssetPage, and — the point — MONITORED, so the
         # monitor closes it on TP/SL and the channel is told how it ended. As an alert_only signal it

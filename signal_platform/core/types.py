@@ -227,6 +227,11 @@ class Signal:
     # that special-cases either is how one strategy's ideas leak into another's picture. A strategy
     # that has nothing to shade leaves this empty and still gets candles + entry/stop/target.
     chart_bands:        list = field(default_factory=list)
+    # Optional captions under ENTRY / STOP / TARGET on the card, in that order — e.g.
+    # ["Sell on the tap", "Above the zone", "Prior demand low"]. A strategy explains its own levels
+    # in its own words; when empty the renderer derives neutral captions, so it never has to know
+    # which strategy it is drawing for. Must be exactly 3 entries or it is ignored.
+    level_notes:        list = field(default_factory=list)
     to_channel:         bool = False  # alert_only signal that goes PUBLIC (signal channel) not the admin DM
 
 
