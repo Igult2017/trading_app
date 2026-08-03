@@ -43,7 +43,20 @@ def draw(ax, candles: list[Candle], entry: float, stop: float, target: float,
 
     span = n + n * _PROJECT + 2
     right = n - 0.4                     # every line and band stops here; labels live past it
-    for lo, hi, colour, _label in (bands or []):
+    for lo, hi, colour, label in (bands or []):
+        # A ZERO-HEIGHT BAND IS A LINE, and is drawn as one. Some levels are a band (a supply zone);
+        # others are a single price (VIX.1's line — the body close of the first momentum candle, the
+        # level its whole entry model is read against). Rather than invent a second concept, a band
+        # whose edges coincide renders as one solid, labelled line. `chart_bands` stays the only
+        # overlay contract the strategies have to know about.
+        if abs(hi - lo) < 1e-9:
+            ax.plot([-1, right], [lo, lo], color=colour, linewidth=1.6, alpha=0.9, zorder=2)
+            if label:
+                ax.text(right + 1.2, lo, label, va="bottom", ha="left", color=colour,
+                        fontproperties=theme.font(11, bold=True), zorder=7)
+                ax.text(right + 1.2, lo, f"{lo:.{digits}f}", va="top", ha="left",
+                        color=theme.INK_DIM, fontproperties=theme.font(9.5), zorder=7)
+            continue
         ax.axhspan(lo, hi, xmax=(right + 1) / span, color=colour, alpha=0.10, zorder=1)
         for edge in (lo, hi):
             ax.plot([-1, right], [edge, edge], color=colour, linewidth=1.2, alpha=0.6, zorder=2)

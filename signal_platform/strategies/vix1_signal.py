@@ -5,6 +5,7 @@ Kept separate so vix1.analyze() stays lean (150-line rule) and both entry kinds 
 that builds the panel-labelled factors, reasons and market context. No trading logic here — pure
 formatting of an already-decided entry/SL/TP.
 """
+from charting import theme
 from core.types import TF, Signal, Direction
 from news.news_filter import news_note
 
@@ -40,7 +41,8 @@ def _origin_reason(origin: str, bullish: bool, mlabel: str, side: str) -> str:
 def build_signal(kind, symbol, bullish, origin, vol_count, entry, sl, tp,
                  risk, pip, digits, corr, news_context, strategy_id, strategy_name,
                  grade, confidence, alert_only=False, sl_note="",
-                 late=False, late_note="", rr=2.0, mc_time: int | None = None) -> Signal:
+                 late=False, late_note="", rr=2.0, mc_time: int | None = None,
+                 line: float | None = None) -> Signal:
     side         = "BUY" if bullish else "SELL"
     label, blurb = _KIND[kind]
     mlabel       = f"{vol_count} momentum candle{'s' if vol_count != 1 else ''}"
@@ -95,6 +97,13 @@ def build_signal(kind, symbol, bullish, origin, vol_count, entry, sl, tp,
         risk_reward       = round(rr, 2),   # a LATE entry is honestly < 2R — never claim the full 2R
         confidence        = confidence,
         primary_timeframe = TF.H1,
+        # THE LINE — the body close of the first momentum candle (vix1_lines.draw_line). The 1M
+        # entry model is read entirely against it: which side price is on decides whether the
+        # pullback is the entry or a fractal must break first, and the stop may never rest past it.
+        # A card that omits it cannot be checked against a chart. Passed as a zero-height band,
+        # which `price_panel` renders as a single labelled line.
+        chart_bands       = ([(line, line, theme.LEVEL, "1H LINE")] if line else []),
+        chart_marks       = ([(mc_time, "MOMENTUM")] if mc_time else []),
         alert_only        = alert_only,   # FALSE for the pull-back entry -> PUBLIC CHANNEL (a real card).
         # STAGE 2 — a placeable entry with a stop and a target. The stage-1 heads-up that precedes
         # it lives in vix1_building; the runner derives the order type (BUY/SELL STOP vs MARKET)

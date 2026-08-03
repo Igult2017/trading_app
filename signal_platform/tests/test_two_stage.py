@@ -121,9 +121,20 @@ check("an unknown TF falls back rather than drawing nothing",
 check("an empty series is skipped, not chosen",
       _chart_candles(sig(primary_timeframe="H1"), {"H1": [], "H4": fallback}, fallback)[0].timeframe, "H4")
 
-print("\nTHE MOMENTUM CANDLE IS MARKED, NOT SHADED AS A BAND")
+print("\nTHE MOMENTUM CANDLE IS MARKED, AND THE 1H LINE IS DRAWN")
 check("VIX.1 stage 1 marks a candle by TIMESTAMP", hs.chart_marks, [(vc.time, "MOMENTUM")])
-check("...and shades no horizontal band", hs.chart_bands, [])
+# THE LINE is the body close of the first momentum candle (vix1_lines.draw_line) — the level the
+# whole 1M entry model is read against: which side price is on decides whether the pullback is the
+# entry, and the stop may never rest past it. A card without it cannot be checked against a chart.
+# It is passed as a ZERO-HEIGHT band, which price_panel renders as one labelled line rather than a
+# shaded span — so the strategies only ever learn one overlay contract.
+from strategies.vix1_lines import draw_line
+check("the card carries exactly one band — the line", len(hs.chart_bands), 1)
+lo, hi, _colour, lbl = hs.chart_bands[0]
+check("it is zero-height, i.e. a LINE not a zone", lo, hi)
+check("...drawn at the momentum candle's CLOSE", lo, vc.close)
+check("...which is what draw_line returns", lo, draw_line(vc))
+check("...and it is labelled", lbl, "1H LINE")
 
 print("\nRENDERING — the two stages must be visually distinguishable")
 from charting import signal_card

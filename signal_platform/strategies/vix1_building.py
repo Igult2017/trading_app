@@ -17,6 +17,8 @@ when the candle closes and stays quiet for every scan tick after — the bias ca
 a heads-up that repeated every 60s would train the user to ignore the channel.
 """
 from core.types import Candle, Signal, Direction, TF
+from charting import theme
+from strategies.vix1_lines import draw_line
 
 
 def building_signal(symbol: str, buy: bool, vc: Candle, origin: str, vol_count: int,
@@ -42,6 +44,10 @@ def building_signal(symbol: str, buy: bool, vc: Candle, origin: str, vol_count: 
         # momentum candle's body, which draws a horizontal level across the whole chart — the user:
         # *"display the real momentum candles, these one doesnt look like a momentum candle."* It is
         # a CANDLE, so the card rings the bar itself and the reader sees its real body and wicks.
+        # THE LINE is known the instant the momentum candle closes — it IS that candle's body
+        # close — so the stage-1 card carries it too. The reader can see the level the entry will be
+        # judged against before any entry exists, which is the whole point of a heads-up.
+        chart_bands       = [(draw_line(vc), draw_line(vc), theme.LEVEL, "1H LINE")],
         chart_marks       = [(vc.time, "MOMENTUM")],
         technical_reasons = [
             f"Momentum candle CLOSED on the 1H — {side} bias confirmed, {body:.0f} pip body",

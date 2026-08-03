@@ -30,6 +30,7 @@ from core.strategy_context import StrategyContext
 from core import delivery_ledger
 from strategies.vix1_bias import detect_bias
 from strategies.vix1_entry import m1_signals
+from strategies.vix1_lines import draw_line
 from strategies.vix1_momentum import LOOKBACK, momentum_grade   # candle_counts[M1] derives from LOOKBACK
 from strategies import vix1_building
 from strategies.vix1_signal import build_signal
@@ -207,7 +208,8 @@ class Vix1Strategy(BaseStrategy):
             # alert keeps `vix1_watch` and stays a DM — it is a correction, not a signal.
             sig = build_signal(s["kind"], sym, bullish, origin, vol_count, entry, sl, tp, risk, pip,
                                digits, corr, context.news, self.id, self.name,
-                               grade, conf, mc_time=vc.time, sl_note=s.get("sl_note", ""),
+                               grade, conf, mc_time=vc.time, line=draw_line(vc),
+                               sl_note=s.get("sl_note", ""),
                                late=late, late_note=s.get("late_note", ""), rr=rr)
             sig.dedup_key = key          # committed ONLY once the signal is real — never here
             out.append(sig)

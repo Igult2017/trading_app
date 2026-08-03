@@ -42,6 +42,8 @@ STOP = DOWN
 TARGET = UP
 ZONE_SUPPLY = "#C8443F"
 ZONE_DEMAND = "#1F9D63"
+LEVEL = "#7C3AED"       # a strategy's own reference level (VIX.1's line) — violet, so it
+                        # is never confused with entry/stop/target or a zone
 WAIT = "#B8860B"        # stage 1 "building" — amber, deliberately neither the buy nor the sell
 WAIT_WASH = "#F6EFD9"   # its chip background
 
