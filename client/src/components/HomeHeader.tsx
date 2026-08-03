@@ -86,7 +86,9 @@ export default function HomeHeader({ darkMode, setDarkMode, activePath }: HomeHe
     ? dm ? "0 4px 24px rgba(0,0,0,0.5)" : "0 2px 16px rgba(0,0,0,0.06)"
     : "none";
 
-  const hFont = { fontFamily: "'Playfair Display', serif",     fontWeight: 400, letterSpacing: "0.01em" } as const;
+  // Logo at 700. Playfair is loaded as a VARIABLE font (400-900 in one file), so this is a real
+  // weight, not the browser faux-bolding a 400 face.
+  const hFont = { fontFamily: "'Playfair Display', serif",     fontWeight: 700, letterSpacing: "0.01em" } as const;
   const nFont = { fontFamily: "'Playfair Display', serif", fontWeight: 400 } as const;
 
   const handleLinkHover = useCallback((href: string) => {
@@ -116,7 +118,7 @@ export default function HomeHeader({ darkMode, setDarkMode, activePath }: HomeHe
   }, [navigate]);
 
   const linkStyle = (isActive: boolean): React.CSSProperties => ({
-    ...nFont, fontSize: 14,
+    ...nFont, fontSize: 12.5,
     color: isActive ? "#2563eb" : linkClr,
     textDecoration: "none",
     padding: "4px 2px",
