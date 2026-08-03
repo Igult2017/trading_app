@@ -194,33 +194,56 @@ directions. In the user's words (2026-08-01):
 | | RETAP | PULLBACK |
 |---|---|---|
 | what | price is back **inside** the zone | price left the zone, ran, and is **retracing within that move** |
-| where | at the zone | usually **nowhere near** the zone |
+| where | at the zone | usually **nowhere near** the zone — but always measured FROM it |
 | timeframe | the zone's, read from the **FORMING** bar (a trigger) | **4H**, read from **CLOSED** bars (a level) |
-| size | n/a | **one candle or many** — no minimum depth; the entry TF decides where it ENDS |
-| detector | `MarkedZone.tapped_by(live_bar)` | `bx_sd_setup.pullback_4h(closed_bars, buy)` |
+| size | n/a | a fraction of the move away: `_PB_MIN_RETRACE` (0.236) to `_PB_MAX_RETRACE` (1.0) |
+| detector | `MarkedZone.tapped_by(live_bar)` | `pullback_4h(bars, zone_edge, zone_height, respected_at, buy)` |
 | stop anchors to | the 4H zone's distal + 6 pips | the pullback's own extreme + 15 pips |
+
+**THE PULLBACK IS ANCHORED TO THE ZONE, AND THAT IS THE WHOLE DESIGN.** It takes `zone_edge`,
+`zone_height` and `respected_at` because all three questions it asks are relative to the zone:
+
+1. **move away** — since `respected_at`, price travelled `_PB_MIN_MOVE` (1.0) zone-heights from the
+   near edge. Deliberately the same multiple as `bx_sd_registry.REACT_MULT`, so "price really left"
+   has ONE definition platform-wide.
+2. **it turned** — the move's extreme is inside `_PB_LOOKBACK_H4` (12) closed bars, and a bar has
+   printed after it.
+3. **retracement** — price came back 0.236–1.0 **of that move**. At 1.0 it is exactly at the zone
+   edge; beyond that it is a retap or a break, which is the other branch.
+
+**Proximity is structural, not a separate check.** Because the move is measured from the zone and
+the retrace is a fraction of it, a zone price never left cannot produce a pullback. That matters
+because the previous version had no zone at all, and a forgotten proximity check is precisely how it
+sold an 82-day-old zone 28 pips away.
 
 **The gate is `respected AND (retap OR pullback)`.** `tests/bx_sd/test_pullback_4h.py` writes that
 out as a truth table precisely so a future edit that collapses it back to one branch fails loudly.
 
-**Measured, real broker H4** (600 sampled bars, 400-bar context, EUR/USD + GBP/USD + GBP/JPY):
-343 active setups — **retap only 59 (17%) · 4H pullback 255 (74%) · both 29 (8%)**. The retap is the
-minority path, which is why requiring it alone missed most entries; and it is not redundant, because
-for 17% it is the only way in. Rejected: counter-trend 164, badly priced 70, no entry event 23.
+> **THE 2026-08-01 FIGURES ON THIS SECTION ARE VOID.** They read "retap only 59 (17%) · 4H pullback
+> 255 (74%) · both 29 (8%)" and were quoted as a property of the market. They were measuring a
+> broken detector: `pullback_4h` fired on 85% of random walks and returned True for a pure one-way
+> move. A 74% pullback share was evidence of the bug, not of the market. Numbers below are from the
+> rebuilt detector.
 
-**Full path, through `BXStrategy.analyze` with real M1 bars** — 400 calls, EUR/USD + GBP/USD, **0
-exceptions**: 19 real entries (8 + 11) and 343 heads-up/alert-only, all at `rr = 3.0`. Real entry→SL
-**median 40.2 / 40.1 pips**, min 18.5 / 25.5, **max 93.8 / 114.9**. At a fixed 3R the median target
-is ~120 pips. The 90-115-pip tail is defect 7 below, and it is the number to watch in production.
-(An isolated measurement with a permissive confluence gave a tighter max of 64/74 — the full path is
-the authoritative one.)
+**Measured, real broker H4** (600 sampled bars, 400-bar context, EUR/USD + GBP/USD + GBP/JPY):
+**240 active setups (40.0% of sampled bars)** — **retap only 88 · 4H pullback 151 · both 1**.
+Rejected: no entry event 145, counter-trend 130, badly priced 85. The "no entry event" count rose
+from 23 to 145 against the old detector, which is the gate actually doing its job.
+
+**Full path, through `BXStrategy.analyze` with real M1 bars** — 160 calls, EUR/USD + GBP/USD, **0
+exceptions**, every entry at `rr = 3.0`. Real entry→SL **median 17.8 (EUR/USD) / 58.9 (GBP/USD)
+pips**, max 47.0 / 130.2. The wide tail is defect 7 below and remains the number to watch.
+
+**Do not quote an H4-close proxy for the stop.** Measured that way the tail reads 349.9 pips on
+GBP/JPY; the full path never produces it, because the entry is the entry-TF confirming close, which
+fires at the pullback's turn. Only full-path figures belong in this doc.
 
 The "retap before price ever left the zone" case needs no extra test: `respected` already demands a
 close a full zone-height clear, so a zone price never left is never respected and simply waits —
 which is the rule *"in case the retap happens before the price leaves the zone, we wait for the
 pullback in 4HR"*.
 
-**Both wrong readings, recorded so neither returns:**
+**Three wrong readings, recorded so none returns:**
 
 1. **Retap only.** Missed every pullback that never came back to the zone — most of them. This was
    the state for weeks.
@@ -228,6 +251,13 @@ pullback in 4HR"*.
    the move away as if it were a pullback. Shipped and corrected the same day. It also read the
    pullback off the **entry TF** (24 bars = 24 minutes on 1M), which is a wiggle inside a pullback,
    not a pullback, and produced 15-pip stops with no structure behind them.
+3. **A bare 12-bar window with no zone** (2026-08-01 → 03). Took the window's extreme and called
+   everything after it the pullback. Measured: **True for a pure one-way collapse, True for a pure
+   rally, and 1704/2000 = 85.2% of random walks** — approximately "the window extreme is not the
+   newest bar". It shipped a live GBP/USD SELL off a 13 May zone price never came within 27.7 pips
+   of, describing a **+174 pip four-day RALLY** as the pullback and hanging the stop off its high.
+   **The user caught it from one chart.** `tests/bx_sd/test_aug03_regression.py` holds the real
+   cTrader bars and asserts it can never fire again.
 
 ## KNOWN OPEN DEFECTS — not fixed, do not assume otherwise
 
@@ -252,19 +282,14 @@ pullback in 4HR"*.
    deleted 2026-08-01 (it became a strict subset of the cascade), and `bx_sd_retest.py` was deleted
    with it: `bx_sd_reports` was its only importer. (This entry first claimed `bx_sd_watch` still used
    it. It does not — the audit caught that, which is the entire argument for running one.)
-7. **A pullback measured from an EARLIER leg's high can widen the stop — MEASURED, and smaller than
-   it looks.** `pullback_4h` takes the highest high in the 12-bar window as the move's extreme and
-   the lowest low since it as the turning point, so in principle a deep fall followed by a rally back
-   toward that high puts the entry far from the stop. **The H4 close is NOT a usable proxy for the
-   entry here** — used as one it reports a 350-pip worst case the real path never produces, because
-   the confirmation fires at the pullback's turn, near its own extreme. **Measured on the FULL path**
-   (400 `analyze` calls, real M1, EUR/USD + GBP/USD): median **40.2 / 40.1 pips**, min 18.5 / 25.5,
-   **max 93.8 / 114.9**. So the tail is real, just far smaller than the proxy suggested. Not capped:
-   the rule as stated is "15 pips behind the pullback" with no bound, and `details.risk_pips` puts the
-   number on every card. **GBP/JPY is unmeasured** — no M1 history that deep — and its H4-proxy
-   figures were the widest of the three, so watch it first. If the tail proves troublesome, the fix is
-   to take the extreme from the most recent SWING instead of the window's global extreme — not an
-   arbitrary pip cap.
+7. **The wide-stop tail — RE-MEASURED 2026-08-03 after the detector was rebuilt.** Full path, real
+   M1: median **17.8 (EUR/USD) / 58.9 (GBP/USD)** pips, max **47.0 / 130.2**. GBP/USD widened
+   (114.9 → 130.2) because the stop now sits behind the *real* retracement instead of a window
+   extreme — more correct, not tighter. **GBP/JPY is still unmeasured on the full path** (no M1
+   history that deep) and is the one to watch. Not capped: the rule is "15 pips behind the
+   pullback" with no bound, and `details.risk_pips` is on every card. **Never quote an H4-close
+   proxy for this** — measured that way the tail reads 349.9 pips, which the full path never
+   produces, because the entry is the confirming close at the pullback's turn.
 8. **Telegram signals carry NO CHART, and have not for some time.** `charting/chart_generator.py`
    defines `generate_chart()` and **nothing calls it**; `Signal.chart_path` is declared on the type
    and read by `notifications/dispatcher._send_photo`, but **nothing ever sets it**, so every card
@@ -307,11 +332,19 @@ pullback in 4HR"*.
 
 ## Verification harnesses (scratchpad)
 
-In the repo (**94 checks**): `tests/bx_sd/test_zones.py` (28, lifecycle) ·
+In the repo: `tests/bx_sd/test_zones.py` (28, lifecycle) ·
 `tests/bx_sd/test_marking.py` (19, band geometry + the 29 Jul regression, on REAL cTrader bars) ·
 `tests/bx_sd/test_visits.py` (25, retap-as-visit, `live_visit()` dedup, strength HTF wiring, card) ·
-`tests/bx_sd/test_pullback_4h.py` (22, the 4H pullback detector + the retap-OR-pullback gate as a
-truth table) · `tests/bx_sd/test_regime.py` (the 4H-only regime gate).
+`tests/bx_sd/test_pullback_4h.py` (26, the zone-anchored pullback + the gate as a truth table) ·
+**`tests/bx_sd/test_aug03_regression.py` (12, REAL cTrader bars — the signal that must never fire
+again)** · `tests/bx_sd/test_regime.py` (the 4H-only regime gate) ·
+`tests/test_no_book_citations.py` (14 modules).
+
+> **A test that passes is not a test that works.** `test_pullback_4h.py` contained a case named
+> *"an unbroken run with no retracement is NOT a pullback"* which passed for weeks against a
+> detector that returned True for exactly that — the fixture put the extreme on the last bar, the
+> only shape the broken code rejected. **Build the fixture to break the code, not to pass it**, and
+> where the bug came from live data, pin the live data (`test_aug03_regression.py`).
 
 Scratchpad: `bx_registry_test.py` (invariants + determinism + the 27 Jul case) · `bx_walkforward.py`
 (setups/month) · `bx_winrate.py` (full cascade win rate) · `bx_control_test.py` · `bx_e2e.py`.

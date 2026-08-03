@@ -71,9 +71,28 @@ _MIN_PIPS   = 3.0  # ignore micro-FVG zones — same noise floor the 3 report pa
 
 
 _PB_LOOKBACK_H4 = 12
-"""How many CLOSED 4H bars back to look for the move's extreme and the pullback off it.
-12 bars = two days — long enough to contain the run away from the zone and the retracement in it,
-short enough that the extreme found is this move's and not the previous one's."""
+"""How recent the move's turning point must be, in CLOSED 4H bars. 12 bars = two days.
+
+This bounds RECENCY ONLY. It used to be the whole definition of a pullback, which is what let a zone
+respected months ago produce a "pullback" today — see the fix log for 2026-08-03."""
+
+_PB_MIN_MOVE = 1.0
+"""The move away from the zone must be at least this many ZONE HEIGHTS before a retracement in it
+can be called a pullback. Deliberately the same multiple as `bx_sd_registry.REACT_MULT`, so the
+platform has ONE definition of "price really left the zone" rather than two that can drift.
+`respected` already implies it, so this is a consistency assertion, not a second hurdle."""
+
+_PB_MIN_RETRACE = 0.236
+"""A pullback must retrace at least this fraction of the move away. Below it, price paused; it did
+not pull back. 0.236 is the shallowest level in the fib set this codebase already speaks
+(`shared/pullback_detector`: 0, .236, .382, .5, .618, .786, 1.0) — reused vocabulary rather than an
+invented number."""
+
+_PB_MAX_RETRACE = 1.0
+"""...and at most this fraction. At 1.0 price is exactly back at the zone's near edge. The user:
+*"A pullback can take the price back to the zone but in some cases it might not."* Beyond 1.0 price
+is inside or through the zone, which is a RETAP or a break — the other branch of the entry gate,
+not this one."""
 
 
 @dataclass
@@ -92,45 +111,76 @@ class SetupResult:
                                   # bx_sd_entry puts the stop 15 pips behind THIS.
 
 
-def pullback_4h(bars: list[Candle], buy: bool,
+def pullback_4h(bars: list[Candle], zone_edge: float, zone_height: float,
+                respected_at: int | None, buy: bool,
                 lookback: int = _PB_LOOKBACK_H4) -> tuple[bool, float]:
-    """Is there a PULLBACK on the 4H right now, and what is its own extreme?
+    """Is price PULLING BACK on the 4H, within a move away from THIS zone? And where did it turn?
 
     User's rule, 2026-08-01: *"a pullback means the price has left that zone and on its way it just
     pulls back abit — not back to the zone, but just a pullback, then continuation. A pullback can
-    take the price back to the zone but in some cases it might not."* And: *"A pullback in 4HR TF
-    can be 1 candle or many but its end will be confirmed in entry tf using our confirmed entry
-    models."*
+    take the price back to the zone but in some cases it might not."*
 
-    So the 4H's whole job here is to say the retracement EXISTS and where it turned. Finding where
-    it ENDS is the entry timeframe's job (`bx_sd_entry` — CHoCH / S/D flip / continuation), which is
-    why nothing here asks for a minimum depth or a fixed number of candles.
+    Three ordered facts, ALL ANCHORED TO THE ZONE:
+      1. MOVE AWAY   — since the zone was respected, price travelled `_PB_MIN_MOVE` zone-heights
+                       away from `zone_edge` (the near edge: bottom for supply, top for demand).
+      2. IT TURNED   — the move's extreme is RECENT (inside `lookback` closed bars) and at least one
+                       closed bar has printed after it.
+      3. RETRACEMENT — price has come back `_PB_MIN_RETRACE`..`_PB_MAX_RETRACE` OF THAT MOVE. Not a
+                       fixed pip figure: a pullback is a fraction of the move it belongs to.
 
-    The test, for a buy (mirrored for a sell):
-      1. find the highest high of the last `lookback` CLOSED 4H bars — the move's extreme
-      2. require at least one CLOSED bar AFTER it — the pullback is one candle or many
-      3. require the latest close to be back below that high — price actually came off it
+    Returns `(pulled_back, extreme)` — the pullback's OWN turning point (its high for a sell, low
+    for a buy), which is what the stop sits 15 pips behind.
 
-    Returns `(pulled_back, extreme)` where `extreme` is the LOW of the pullback for a buy (its own
-    turning point, not the move's), which is what the stop sits 15 pips behind.
+    ============================ WHY THIS IS WRITTEN THIS WAY ============================
+    The previous version took the extreme of an arbitrary 12-bar window and called everything after
+    it a pullback. It had NO connection to the zone, so it could not distinguish a retracement from
+    a trend. Measured: a synthetic pure one-way collapse returned True for buy, a pure rally
+    returned True for sell, and it fired on 1704/2000 = 85.2% of random walks. It was approximately
+    "the window extreme is not the newest bar".
+
+    It shipped, and on 2026-08-03 it sold GBP/USD off a zone from 13 MAY that price never came
+    within 27.7 pips of, describing a +174 pip four-day RALLY as the pullback and hanging the stop
+    off its high. The user caught it from one chart.
+
+    The anchor is the fix. Because the move is measured FROM the zone and the retracement is a
+    fraction OF that move, a zone price never left cannot produce a pullback, and a zone whose move
+    happened months ago is rejected by the recency bound. Proximity is therefore structural — it is
+    not a separate check that could be forgotten, which is exactly how it was forgotten before.
+    ======================================================================================
 
     READ FROM CLOSED BARS. A pullback is a LEVEL — where the move turned — and the forming bar's
     high/low are still moving. The retap beside it is a TRIGGER and stays live.
     """
-    win = bars[-lookback:]
-    if len(win) < 3:
+    if zone_height <= 0 or respected_at is None:
         return False, 0.0
+    # 1. ANCHOR: only bars after the zone was respected are part of the move away from it.
+    move = [b for b in bars if b.time > respected_at]
+    if len(move) < 2:                       # need a run and at least one bar off its extreme
+        return False, 0.0
+    # A BUY works a DEMAND zone: price moves UP away from its top, so the run's extreme is a HIGH.
+    # A SELL works a SUPPLY zone: price moves DOWN away from its bottom, so the extreme is a LOW.
     if buy:
-        i = max(range(len(win)), key=lambda k: win[k].high)
-        after = win[i + 1:]
-        if not after or win[-1].close >= win[i].high:
-            return False, 0.0
-        return True, min(b.low for b in after)
-    i = min(range(len(win)), key=lambda k: win[k].low)
-    after = win[i + 1:]
-    if not after or win[-1].close <= win[i].low:
+        j = max(range(len(move)), key=lambda k: move[k].high)
+        run_extreme = move[j].high
+        travelled = run_extreme - zone_edge
+    else:
+        j = min(range(len(move)), key=lambda k: move[k].low)
+        run_extreme = move[j].low
+        travelled = zone_edge - run_extreme
+    # 2. The move must be real, and its turn must be RECENT.
+    if travelled < _PB_MIN_MOVE * zone_height:
         return False, 0.0
-    return True, max(b.high for b in after)
+    if (len(move) - 1 - j) > lookback:      # the extreme is older than the recency window
+        return False, 0.0
+    after = move[j + 1:]
+    if not after:                           # still extending; nothing has turned yet
+        return False, 0.0
+    # 3. The retracement, as a FRACTION of the move away.
+    pb_extreme = min(b.low for b in after) if buy else max(b.high for b in after)
+    retrace = (run_extreme - pb_extreme) / travelled if buy else (pb_extreme - run_extreme) / travelled
+    if not (_PB_MIN_RETRACE <= retrace <= _PB_MAX_RETRACE):
+        return False, 0.0
+    return True, pb_extreme
 
 
 def regime(h4: list[Candle], d1: list[Candle] | None = None) -> int:
@@ -274,7 +324,11 @@ def detect_setup(h4: list[Candle], pip: float = 0.0001, book=None,
         buy_side = mz.direction == "demand"
         retap    = mz.tapped_by(live_bar)
         away     = (live_bar.close > mz.top) if buy_side else (live_bar.close < mz.bottom)
-        pulled, pb_ext = pullback_4h(bars, buy_side)
+        # THE PULLBACK IS MEASURED FROM THIS ZONE, not from a bare window. `zone_edge` is the edge
+        # price moves away FROM: a demand zone's top, a supply zone's bottom. Passing `mz` itself
+        # would drag the registry's type into the detector for two floats and a timestamp.
+        pulled, pb_ext = pullback_4h(bars, mz.top if buy_side else mz.bottom,
+                                     mz.top - mz.bottom, mz.respected_at, buy_side)
         pullback = pulled and away        # a pullback is only a pullback OUTSIDE the zone;
                                           # inside it, it is the retap on the line above
         if not (retap or pullback):

@@ -6,27 +6,36 @@ The user's rule, 2026-08-01, in his own words:
   that zone and on its way it just pulls back abit — not back to the zone, but just a pullback then
   continuation. A pullback can take the price back to the zone but in some cases it might not."*
 
-  *"Keep the retap and add a pullback. If the pullback happens before the retap, it serves as both
-  the pullback and the retap. However, in case the retap happens before the price leaves the zone,
-  we wait for the pullback in 4HR."*
-
-  *"The pullback I was talking about is in 4HR TF."*
-
+  *"Keep the retap and add a pullback."*  *"The pullback I was talking about is in 4HR TF."*
   *"The stop is 15 pips just behind the pullback, whether the pullback happens on the zone or far
   from it."*
 
-These tests exist because the entry model was got wrong twice in a row in opposite directions —
-first requiring ONLY a retap (which missed every pullback that never returned to the zone), then
-replacing the retap with "price is on the working side" (which dropped the retap entirely and
-admitted any bar in the move away). It is an OR of two specific events.
+===========================================================================================
+WHY THIS FILE WAS REWRITTEN ON 2026-08-03 — READ BEFORE CHANGING A FIXTURE
+
+The previous version of this file contained a test literally named
+    "buy: an unbroken run with no retracement is NOT a pullback"
+and it PASSED — against a detector that returned True for a pure one-way collapse, fired on 85% of
+random walks, and shipped a live GBP/USD SELL built on a +174 pip RALLY mislabelled as a pullback.
+
+It passed because the fixture put the run's extreme on the LAST bar of the window, which is the one
+shape the broken code rejected. The fixture tested the guard, not the claim.
+
+THE LESSON, and the standard every fixture below is held to: BUILD THE FIXTURE TO BREAK THE CODE,
+NOT TO PASS IT. A one-way move whose extreme is at the START of the window is the case that matters,
+because that is what a trend looks like. If a test here starts passing for a reason you cannot state
+in one sentence, distrust the test before you trust the code.
+===========================================================================================
 """
+import random
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from core.types import Candle
-from strategies.bx_sd_setup import pullback_4h, _PB_LOOKBACK_H4
+from strategies.bx_sd_setup import (pullback_4h, _PB_LOOKBACK_H4, _PB_MIN_MOVE,
+                                    _PB_MIN_RETRACE, _PB_MAX_RETRACE)
 
 PASS = FAIL = 0
 
@@ -41,86 +50,130 @@ def check(label: str, got, want):
         print(f"  FAIL  {label}: got {got!r}, want {want!r}")
 
 
-def bar(o, h, l, c, t=0):
+def bar(o, h, l, c, t):
     return Candle(time=t * 14400, open=o, high=h, low=l, close=c, volume=100, timeframe="H4")
 
 
-def run(o, h, l, c, n, start=0):
-    """n identical-shape bars, timestamps increasing."""
-    return [bar(o, h, l, c, start + i) for i in range(n)]
+# A supply zone 1.3500-1.3530 (30 pips), respected at t=0. Price should move DOWN away from 1.3500.
+SUP_EDGE, SUP_H, RESPECTED = 1.3500, 0.0030, 0
+# A demand zone 1.3000-1.3030 (30 pips). Price should move UP away from 1.3030.
+DEM_EDGE, DEM_H = 1.3030, 0.0030
+
+sell = lambda bars: pullback_4h(bars, SUP_EDGE, SUP_H, RESPECTED, buy=False)
+buy = lambda bars: pullback_4h(bars, DEM_EDGE, DEM_H, RESPECTED, buy=True)
 
 
-# ---------------------------------------------------------------- the detector
-print("\npullback_4h — a RUN then a RETRACEMENT")
+# ------------------------------------------------- THE TEST THAT WOULD HAVE CAUGHT THE BUG
+print("\nA PURE ONE-WAY MOVE IS NOT A PULLBACK  (extreme at the START — the shape that broke it)")
 
-# A clean buy case: price rallies to 1.1100, then three bars pull back to 1.1040 and the last
-# closes below the high. One pullback, extreme = 1.1040.
-rally = [bar(1.1000 + i * 0.0020, 1.1020 + i * 0.0020, 1.0995 + i * 0.0020, 1.1015 + i * 0.0020, i)
-         for i in range(5)]                       # high of the run = 1.1100 on the last bar
-pull = [bar(1.1095, 1.1098, 1.1060, 1.1065, 5),
-        bar(1.1065, 1.1070, 1.1040, 1.1045, 6),
-        bar(1.1045, 1.1055, 1.1042, 1.1050, 7)]
-ok, ext = pullback_4h(rally + pull, buy=True)
-check("buy: rally then 3-bar pullback is detected", ok, True)
-check("buy: extreme is the pullback's own LOW (1.1040), not the run's", round(ext, 4), 1.1040)
+# (a) STILL EXTENDING — price falls away from supply and keeps falling, nothing retraces.
+collapse = [bar(1.3500 - i * .0020, 1.3505 - i * .0020, 1.3495 - i * .0020, 1.3496 - i * .0020, i + 1)
+            for i in range(12)]
+check("pure collapse away from supply: still extending, no pullback", sell(collapse)[0], False)
 
-# "A pullback can be 1 candle or many" — one bar off the high must qualify.
-ok1, ext1 = pullback_4h(rally + [bar(1.1095, 1.1098, 1.1060, 1.1065, 5)], buy=True)
-check("buy: a ONE-candle pullback qualifies", ok1, True)
-check("buy: one-candle extreme is that candle's low", round(ext1, 4), 1.1060)
+rally_up = [bar(1.3030 + i * .0020, 1.3035 + i * .0020, 1.3025 + i * .0020, 1.3034 + i * .0020, i + 1)
+            for i in range(12)]
+check("pure rally away from demand: still extending, no pullback", buy(rally_up)[0], False)
 
-# Still making highs = no pullback. This is the case that must NOT fire: price is running away and
-# there is nothing to enter or to hang a stop behind.
-ok2, _ = pullback_4h(rally, buy=True)
-check("buy: an unbroken run with no retracement is NOT a pullback", ok2, False)
+# (b) THE EXACT SHAPE THAT SHIPPED THE BAD SIGNAL — a sustained rally with NO move away first.
+# On 2026-08-03 the old code took the lowest low of a bare window, called the +174 pip rally after
+# it "the pullback", and sold into it. Here price simply rallies off a SUPPLY zone: there is no
+# fall, so there is no move to pull back within, and `travelled` never reaches one zone height.
+rally_off_supply = [bar(1.3495 + i * .0020, 1.3500 + i * .0020, 1.3493 + i * .0020,
+                        1.3499 + i * .0020, i + 1) for i in range(12)]
+check("A RALLY OFF SUPPLY IS NOT A SELL PULLBACK  <-- the 03 Aug regression",
+      sell(rally_off_supply)[0], False)
+fall_off_demand = [bar(1.3035 - i * .0020, 1.3037 - i * .0020, 1.3030 - i * .0020,
+                       1.3031 - i * .0020, i + 1) for i in range(12)]
+check("a fall off demand is not a BUY pullback (mirror)", buy(fall_off_demand)[0], False)
 
-# The extreme is at the very last bar -> nothing after it -> no pullback yet.
-ok3, _ = pullback_4h(rally + [bar(1.1090, 1.1200, 1.1085, 1.1195, 5)], buy=True)
-check("buy: a new high on the newest bar is not a pullback", ok3, False)
-
-# Mirror: a sell.
-drop = [bar(1.3000 - i * 0.0020, 1.3005 - i * 0.0020, 1.2980 - i * 0.0020, 1.2985 - i * 0.0020, i)
-        for i in range(5)]                        # low of the run = 1.2900
-bounce = [bar(1.2905, 1.2940, 1.2902, 1.2935, 5),
-          bar(1.2935, 1.2960, 1.2930, 1.2955, 6)]
-oks, exts = pullback_4h(drop + bounce, buy=False)
-check("sell: drop then bounce is detected", oks, True)
-check("sell: extreme is the pullback's own HIGH (1.2960)", round(exts, 4), 1.2960)
-
-oks2, _ = pullback_4h(drop, buy=False)
-check("sell: an unbroken drop is NOT a pullback", oks2, False)
-
-# Too little history to tell.
-check("under 3 bars returns no pullback", pullback_4h(run(1.1, 1.1, 1.1, 1.1, 2), True), (False, 0.0))
-
-# The lookback must not reach into the PREVIOUS move. A long prior down-leg that bottoms BELOW the
-# new up-leg, then the rally and its pullback: the extreme must come from the recent leg.
-old = [bar(1.0980, 1.0985, 1.0960, 1.0965, i) for i in range(30)]
-ok4, ext4 = pullback_4h(old + rally + pull, buy=True)
-check("the window is bounded — an old leg does not supply the extreme", ok4, True)
-check("bounded-window extreme is still the recent pullback's low", round(ext4, 4), 1.1040)
-check("_PB_LOOKBACK_H4 is 12 bars (two days of 4H)", _PB_LOOKBACK_H4, 12)
-
-# KNOWN AND ACCEPTED: if the window's highest high belongs to an EARLIER leg that price has since
-# fallen a long way from, the extreme is the lowest low since THAT high, and the stop is wide. This
-# is the rule as stated — 15 pips behind the pullback — and the pullback is measured from the
-# highest point in the window. It is asserted rather than left implicit so the behaviour is a
-# decision, not a surprise: the risk is reported in pips on every card (`details.risk_pips`).
-tall  = [bar(1.1200, 1.1300, 1.1190, 1.1195, 0)]
-deep  = [bar(1.1195 - i * 0.0030, 1.1200 - i * 0.0030, 1.1150 - i * 0.0030, 1.1155 - i * 0.0030,
-             1 + i) for i in range(6)]
-turn  = [bar(1.1010, 1.1060, 1.1005, 1.1055, 7)]
-ok5, ext5 = pullback_4h(tall + deep + turn, buy=True)
-check("a deep fall from an earlier high still reads as one pullback", ok5, True)
-check("...and its extreme is the lowest low since that high", round(ext5, 4), 1.1000)
+# (c) A FULL REVERSAL IS NOT A PULLBACK — price left the zone, then came all the way back through
+# it. That is a retap or a break; the retap branch owns it.
+reversal = [bar(1.3500 - i * .0020, 1.3502 - i * .0020, 1.3480 - i * .0020, 1.3482 - i * .0020, i + 1)
+            for i in range(5)] + \
+           [bar(1.3402 + i * .0030, 1.3405 + i * .0030, 1.3400 + i * .0030, 1.3404 + i * .0030, 6 + i)
+            for i in range(6)]
+check("a full reversal back through the zone is not a pullback", sell(reversal)[0], False)
 
 
-# ------------------------------------------------------- the OR, stated as truth table
+# ------------------------------------------------------------------- the real thing
+print("\nA REAL PULLBACK — move away, then a retracement of it")
+
+# SELL: fall 1.3500 -> 1.3400 (100 pips = 3.3 zone heights), then retrace up to 1.3440 (40% of it).
+fall = [bar(1.3500 - i * .0020, 1.3502 - i * .0020, 1.3480 - i * .0020, 1.3482 - i * .0020, i + 1)
+        for i in range(5)]                                   # low reaches 1.3400
+back = [bar(1.3402, 1.3425, 1.3400, 1.3423, 6), bar(1.3423, 1.3440, 1.3420, 1.3437, 7)]
+ok, ext = sell(fall + back)
+check("SELL: 100-pip fall then a 40% retrace IS a pullback", ok, True)
+check("SELL: extreme is the pullback's own HIGH (1.3440)", round(ext, 4), 1.3440)
+
+# BUY mirror: rise 1.3030 -> 1.3130, retrace down to 1.3090.
+rise = [bar(1.3030 + i * .0020, 1.3050 + i * .0020, 1.3028 + i * .0020, 1.3048 + i * .0020, i + 1)
+        for i in range(5)]                                   # high reaches 1.3130
+dip = [bar(1.3128, 1.3130, 1.3105, 1.3107, 6), bar(1.3107, 1.3109, 1.3090, 1.3092, 7)]
+okb, extb = buy(rise + dip)
+check("BUY: 100-pip rise then a retrace IS a pullback", okb, True)
+check("BUY: extreme is the pullback's own LOW (1.3090)", round(extb, 4), 1.3090)
+
+
+# ------------------------------------------------------------------- the boundaries
+print("\nBOUNDARIES — each constant must actually bite")
+
+# Retrace too shallow: fall to 1.3400, tick up only 10 pips = 10% < 23.6%.
+shallow = fall + [bar(1.3402, 1.3410, 1.3400, 1.3408, 6)]
+check("a 10% tick-up is a PAUSE, not a pullback", sell(shallow)[0], False)
+
+# Retrace beyond the zone: back above 1.3500 is a retap/break, not a pullback.
+through = fall + [bar(1.3402, 1.3560, 1.3400, 1.3555, 6)]
+check("retracing past the zone edge is NOT a pullback (that is a retap)", sell(through)[0], False)
+
+# Move away too small: only 20 pips = 0.67 zone heights, under _PB_MIN_MOVE = 1.0.
+tiny = [bar(1.3500, 1.3502, 1.3480, 1.3482, 1), bar(1.3482, 1.3484, 1.3480, 1.3483, 2),
+        bar(1.3483, 1.3495, 1.3482, 1.3493, 3)]
+check("a 20-pip move (0.67 zone heights) is too small to have a pullback", sell(tiny)[0], False)
+
+# Stale: the move's extreme is older than the recency window.
+stale = fall + [bar(1.3400 + i * .00001, 1.3402, 1.3399, 1.3401, 6 + i) for i in range(_PB_LOOKBACK_H4 + 3)]
+check("an extreme older than the lookback is stale, not a pullback", sell(stale)[0], False)
+
+# Never respected -> there is no move to pull back within.
+check("a zone never respected has no pullback",
+      pullback_4h(fall + back, SUP_EDGE, SUP_H, None, buy=False), (False, 0.0))
+check("zero-height zone is rejected rather than dividing by zero",
+      pullback_4h(fall + back, SUP_EDGE, 0.0, RESPECTED, buy=False), (False, 0.0))
+
+# Bars at or before respected_at are not part of the move away from it.
+before = [bar(1.3500, 1.3600, 1.3400, 1.3450, -5)]
+check("bars before respected_at are ignored", sell(before + fall + back)[1] > 0, True)
+
+check("_PB_MIN_MOVE is 1.0 zone heights (same as REACT_MULT)", _PB_MIN_MOVE, 1.0)
+check("_PB_MIN_RETRACE is the shallowest fib the codebase speaks", _PB_MIN_RETRACE, 0.236)
+check("_PB_MAX_RETRACE is 1.0 — the zone's own edge", _PB_MAX_RETRACE, 1.0)
+
+
+# ------------------------------------------------------------------- random-walk sanity
+print("\nRANDOM WALKS — the old detector fired on 85.2% of these")
+random.seed(7)
+hits = N = 0
+for _ in range(2000):
+    p = 1.3500
+    bars = []
+    for i in range(14):
+        o = p
+        p += random.uniform(-0.002, 0.002)
+        bars.append(bar(o, max(o, p) + .0002, min(o, p) - .0002, p, i + 1))
+    N += 1
+    if sell(bars)[0]:
+        hits += 1
+rate = 100 * hits / N
+print(f"  fires on {hits}/{N} = {rate:.1f}%  (was 85.2%)")
+check("random-walk fire rate is far below the old 85.2%", rate < 40.0, True)
+
+
+# ------------------------------------------------- the OR, stated as a truth table
 print("\nthe entry gate — retap OR pullback, on a RESPECTED zone")
 
-# The gate itself lives inside detect_setup's loop and needs a full zone book to exercise, so what
-# is asserted here is the LOGIC it implements, written out so a future edit that collapses the OR
-# back into one branch fails visibly.
+
 def gate(respected: bool, retap: bool, pulled: bool, away: bool) -> bool:
     if not respected:
         return False
@@ -134,7 +187,6 @@ check("respected, price ran away, no pb  -> WAIT", gate(True, False, False, True
 check("respected, pullback but inside    -> retap decides", gate(True, False, True, False), False)
 check("NOT respected + retap             -> WAIT for the 4H pullback",
       gate(False, True, False, False), False)
-check("NOT respected + pullback          -> WAIT", gate(False, False, True, True), False)
 
 print(f"\n{PASS} passed, {FAIL} failed")
 sys.exit(1 if FAIL else 0)

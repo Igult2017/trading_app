@@ -113,13 +113,27 @@ def score(z: MarkedZone, book: list[MarkedZone], bars: list[Candle],
 
 
 def mitigation_note(z: MarkedZone) -> str:
-    """What the card must say about HOW this zone was mitigated — the user's rule, in his terms."""
+    """What the card must say about HOW this zone was mitigated — the user's rule, in his terms.
+
+    THE `respected` BRANCH IS NOT OPTIONAL. The cascade fires ONLY on respected zones, so before it
+    existed every entry card fell through to "Fresh — never tapped." — on a zone that had by
+    definition been tapped. The user was shown that on a zone he had watched get wicked, alongside a
+    line saying the same zone had been respected and pulled back from. Two claims that cannot both
+    be true. `MarkedZone.mitigation_kind` retains the fact `state` overwrites; read it here.
+    """
     if z.state == "wick_mitigated":
         return ("WICKED ONLY — the body never entered, so the orders were not filled. "
                 "Price is likely to come back for a proper mitigation.")
     if z.retaps and z.state in ("body_mitigated", "respected"):
         return ("CAUTION: retap of a zone that had already been properly mitigated. "
                 "The body traded it before, so it is largely spent.")
+    if z.state == "respected":
+        if z.mitigation_kind == "wick":
+            return ("Respected after a WICK-ONLY tap — the body never entered, so the orders are "
+                    "still loaded and price reacted away from it.")
+        if z.mitigation_kind == "body":
+            return "Respected — the body traded the zone and price reacted away from it."
+        return "Respected — price reacted a full zone-height away from it."
     if z.state == "body_mitigated":
         return "Properly mitigated — the body entered the zone."
     return "Fresh — never tapped."

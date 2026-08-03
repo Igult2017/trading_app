@@ -76,6 +76,17 @@ class MarkedZone:
     last_tap_at: int | None = None
     in_zone: bool = False        # was the previous CLOSED bar inside? (visit-edge detection)
 
+    # HOW the zone was FIRST mitigated: "wick" | "body" | "" (never tapped). Set once, never
+    # overwritten.
+    #
+    # This exists because `state` cannot carry it. When a zone reacts away, `state` is overwritten
+    # wick_mitigated/body_mitigated -> "respected", and the wick-vs-body fact was simply lost. Since
+    # the cascade only ever fires on `respected` zones, that meant the card could never report it —
+    # `mitigation_note` fell through every branch to "Fresh — never tapped." and said so on a zone
+    # the user had watched get wicked. He caught it on 2026-08-03. A state machine that destroys
+    # information on a transition needs a field, not a better message.
+    mitigation_kind: str = ""
+
     @property
     def live(self) -> bool:
         return self.state in LIVE_STATES
@@ -278,5 +289,9 @@ def _advance(z: MarkedZone, c: Candle) -> None:
     if z.body_in(c):
         z.state = "body_mitigated"
         z.mitigated_at = z.mitigated_at or c.time
+        # A body ALWAYS upgrades the record: a zone first wicked and later body-traded is spent, and
+        # the card must say so. This is the one case where mitigation_kind changes after being set.
+        z.mitigation_kind = "body"
     elif z.state == "unmitigated":
         z.state, z.mitigated_at = "wick_mitigated", c.time
+        z.mitigation_kind = z.mitigation_kind or "wick"

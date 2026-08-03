@@ -23,11 +23,27 @@ ROOT = os.path.abspath(os.path.join(HERE, ".."))
 sys.path.insert(0, ROOT)
 
 # Modules whose string literals can reach a reader.
+#
+# THIS LIST IS THE TEST. A module missing from it is not covered, and the test still passes — which
+# is exactly what happened: `bx_sd_control.phrase()` shipped `(the book's "tug of war", p81)` onto
+# the first line of every entry card while this file reported ALL PASS. The user found it.
+#
+# The rule for adding one: if any string it returns can end up in `technical_reasons`,
+# `smc_factors`, `market_context`, or a Telegram message, it belongs here. Everything the card
+# assembles from `setup.confluences` qualifies — that dict is built from bx_sd_control (control
+# phrase), bx_sd_entry_type (entry type), bx_sd_confluence (pricing), and bx_sd_strength
+# (mitigation note, strength phrase).
 TARGETS = [
     "strategies/bx_sd_signal.py",
     "strategies/bx_sd_entry_type.py",
     "strategies/bx_sd_mitigation.py",
     "strategies/bx_sd_reports.py",
+    "strategies/bx_sd_control.py",       # control_phrase — the card's FIRST line
+    "strategies/bx_sd_strength.py",      # mitigation_note + strength_phrase
+    "strategies/bx_sd_confluence.py",    # pricing wording
+    "strategies/bx_sd_entry.py",         # trigger method + rejection reasons
+    "strategies/bx_sd_setup.py",         # setup reasons (watch/skip messages)
+    "strategies/bx_sd_watch.py",         # invalidation + zone-broken messages
     "strategies/vix1_signal.py",
     "strategies/vix1_watch.py",
     "notifications/telegram_cards.py",

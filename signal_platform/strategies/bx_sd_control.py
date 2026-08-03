@@ -100,13 +100,23 @@ def describe(side: str, zone_direction: str) -> dict:
 
 
 def phrase(side: str, zone_direction: str) -> str:
-    """One line for the signal card, in the book's own vocabulary."""
+    """One line for the signal card.
+
+    NO SOURCE CITATIONS IN THE RETURNED STRINGS. This function is reader-facing — its output is the
+    first line of every entry card. The "tug of war" idea is the book's (p81) and the against-control
+    allowance is p35/p57; those references belong HERE, in the docstring, and in the module comments
+    — never on the card. A page number tells the reader nothing about whether to take the trade and
+    puts the method on display for anyone the card is forwarded to.
+
+    Both citations shipped to production because `test_no_book_citations.py` did not scan this file.
+    It does now.
+    """
     if side == CONTESTED:
         return (f"Control CONTESTED — supply and demand both acted on the same bar "
-                f"(the book's \"tug of war\", p81); {zone_direction} entry, confirmed")
+                f"(a tug of war); {zone_direction} entry, confirmed")
     if side == "none":
         return f"No side in control yet — {zone_direction} entry"
     if side == zone_direction:
         return f"{side.capitalize()} in control — with-control {zone_direction} entry"
     return (f"{side.capitalize()} in control — against-control {zone_direction} entry, "
-            f"allowed on confirmation (p35/p57)")
+            f"allowed on confirmation")
