@@ -197,8 +197,12 @@ async def run_strategy(
         # live keyspace that a real entry needs.
         if signal.alert_only:
             try:
+                # `ref_price` = the price being watched. A stage-1 heads-up has no entry, and
+                # `trading_signals.entry_price` is NOT NULL, so without this the row never saved
+                # and the setup never appeared on the Assets board.
+                _ref = pri_candles[-1].close if pri_candles else None
                 watch_id = await loop.run_in_executor(
-                    None, partial(signal_repo.save, signal, signal_repo.STATUS_WATCHING))
+                    None, partial(signal_repo.save, signal, signal_repo.STATUS_WATCHING, _ref))
                 if watch_id:
                     signal.db_id = watch_id
                 else:

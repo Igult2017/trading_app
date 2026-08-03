@@ -17,7 +17,7 @@ log = logging.getLogger(__name__)
 STATUS_WATCHING = "watching"   # a setup being watched for entry — NOT a live trade
 
 
-def save(signal: Signal, status: str | None = None) -> str:
+def save(signal: Signal, status: str | None = None, ref_price: float | None = None) -> str:
     """Persist a new signal. Returns the generated ID, or '' on duplicate.
 
     `status` overrides the signal's own. It exists for the WATCH heads-ups: those are setups being
@@ -34,7 +34,14 @@ def save(signal: Signal, status: str | None = None) -> str:
             asset_class=signal.asset_class,
             type=signal.direction.value,
             strategy=signal.strategy_id,
-            entry_price=signal.entry_price or None,
+            # `trading_signals.entry_price` is NOT NULL. `signal.entry_price or None` therefore
+            # turned a legitimate 0.0 into NULL and the INSERT died on the constraint — so EVERY
+            # heads-up without an entry (a stage-1 "building" alert: BX zone mitigated, VIX.1
+            # momentum candle closed) failed to reach the Assets board, while the Telegram alert
+            # still went out. It logged and continued, so the board just stayed empty.
+            # `ref_price` is the price being WATCHED — not a level to trade, and the card still
+            # renders an em dash because it reads `signal.entry_price`, which stays 0.
+            entry_price=signal.entry_price or ref_price or None,
             stop_loss=signal.stop_loss or None,
             take_profit=signal.take_profit or None,
             risk_reward=signal.risk_reward or None,
