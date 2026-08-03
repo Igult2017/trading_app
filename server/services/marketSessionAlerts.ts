@@ -14,6 +14,7 @@
  * used by the app and matching the Python platform's `is_forex_open`. Do not add a second one here;
  * two definitions of "is the market open" is how they drift apart.
  */
+import { weekOpenMessage, sessionOpenMessage, weekCloseMessage } from './sessionMessages';
 import { isMarketOpen } from '../lib/marketHours';
 
 export type AlertKind = 'session_open' | 'week_close' | 'week_preopen';
@@ -56,10 +57,7 @@ export function buildDailySchedule(now: Date = new Date()): ScheduledAlert[] {
     out.push({
       at: new Date(open.getTime() - SESSION_ALERT_MINS * 60_000),
       kind: 'session_open',
-      message:
-        `🔔 *${s.name} Session Opening in ${SESSION_ALERT_MINS} min*\n\n` +
-        `${s.name} opens at ${String(s.openUTC).padStart(2, '0')}:00 UTC. ` +
-        `Expect increased volatility and volume.`,
+      message: sessionOpenMessage(s.name, SESSION_ALERT_MINS, s.openUTC),
     });
   }
 
@@ -70,10 +68,7 @@ export function buildDailySchedule(now: Date = new Date()): ScheduledAlert[] {
     out.push({
       at: close,
       kind: 'week_close',
-      message:
-        `🔴 *Markets Closed for the Weekend*\n\n` +
-        `Forex closed at ${WEEK_CLOSE_UTC_HOUR}:00 UTC. No signals will fire until it reopens.\n\n` +
-        `🔔 Reopens ${fmt(reopen)} (Sydney open).`,
+      message: weekCloseMessage(WEEK_CLOSE_UTC_HOUR, fmt(reopen)),
     });
   }
 
@@ -83,11 +78,7 @@ export function buildDailySchedule(now: Date = new Date()): ScheduledAlert[] {
     out.push({
       at: new Date(open.getTime() - PREOPEN_ALERT_MINS * 60_000),
       kind: 'week_preopen',
-      message:
-        `🟢 *Markets Open in ${PREOPEN_ALERT_MINS} min*\n\n` +
-        `Forex reopens at ${WEEK_OPEN_UTC_HOUR}:00 UTC with the Sydney session — ` +
-        `Monday morning in Asia.\n\n` +
-        `Scanning resumes automatically. Watch the open for gaps against Friday's close.`,
+      message: weekOpenMessage(PREOPEN_ALERT_MINS),
     });
   }
 
