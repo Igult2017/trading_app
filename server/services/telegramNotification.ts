@@ -4,6 +4,7 @@ import { telegramSubscribers, economicEvents } from '@shared/schema';
 import { eq, and, lte, gte } from 'drizzle-orm';
 import { format } from 'date-fns';
 import { buildDailySchedule, shouldStillFire } from './marketSessionAlerts';
+import { buildNewsSchedule, type NewsEventLike } from './newsAlerts';
 
 // Session definitions and the whole "what fires when" decision live in marketSessionAlerts so the
 // weekend rule is testable on any day of the week. The local HIGH_VOLUME_SESSIONS const that used
@@ -467,31 +468,35 @@ export class TelegramNotificationService {
     }
   }
 
-  scheduleEventNotifications(events: Array<{ id: string | number; eventTime: Date | string; impactLevel: string; currency?: string; title: string; expectedValue?: string; previousValue?: string }>): void {
+  /**
+   * HIGH-IMPACT NEWS warnings — 15 minutes out, then 5 minutes out, to the CHANNEL.
+   *
+   * Replaces `scheduleEventNotifications`, which was DEAD CODE: nothing ever called it, it warned
+   * only at 15 minutes, it filtered no instruments, and it broadcast to /start subscribers instead
+   * of the channel. The schedule itself lives in `newsAlerts.buildNewsSchedule` so the rule is
+   * testable on a fixed clock rather than by waiting for a real release.
+   *
+   * Re-runnable: existing timers are cleared first, so an hourly refresh cannot double-book a
+   * warning that is already pending.
+   */
+  scheduleNewsNotifications(events: NewsEventLike[]): void {
     if (!this.bot || !this.isInitialized) return;
 
     this._eventTimers.forEach(t => clearTimeout(t));
     this._eventTimers = [];
 
-    const now = Date.now();
-    const ALERT_MS = 15 * 60 * 1000;
-    const MAX_MS   = 48 * 60 * 60 * 1000;
-
-    for (const event of events) {
-      if (event.impactLevel?.toLowerCase() !== 'high') continue;
-      const eventMs  = new Date(event.eventTime).getTime();
-      const fireAt   = eventMs - ALERT_MS;
-      const delay    = fireAt - now;
-      if (delay < 0 || delay > MAX_MS) continue;
-
+    const planned = buildNewsSchedule(events, new Date());
+    for (const alert of planned) {
+      const delay = alert.at.getTime() - Date.now();
+      if (delay < 0) continue;
       const t = setTimeout(async () => {
-        const message = `📊 *HIGH IMPACT EVENT — 15 MIN WARNING*\n\n${event.currency ?? ''} - ${event.title}\nTime: ${format(new Date(event.eventTime), 'HH:mm')} UTC${event.expectedValue ? `\nForecast: ${event.expectedValue}` : ''}${event.previousValue ? `\nPrevious: ${event.previousValue}` : ''}`;
-        const result = await this.broadcastMessage(message, { parse_mode: 'Markdown' }).catch(() => ({ sent: 0 }));
-        if (result.sent > 0) console.log(`[Telegram] Event alert sent: ${event.title} (${result.sent} subscribers)`);
+        const ok = await this.sendToChannel(alert.message, { parse_mode: 'HTML' }).catch(() => false);
+        console.log(`[Telegram] news T-${alert.leadMinutes}m -> channel: ${ok ? 'sent' : 'FAILED'} (${alert.key})`);
       }, delay);
       this._eventTimers.push(t);
     }
-    console.log(`[Telegram] Scheduled ${this._eventTimers.length} event alert(s)`);
+    console.log(`[Telegram] Scheduled ${planned.length} news warning(s) [${
+      planned.map(a => `T-${a.leadMinutes}m`).join(', ') || 'none'}]`);
   }
 
   /**

@@ -5,12 +5,17 @@ import { scraperSettings } from './config';
 import { telegramNotificationService, telegramReady } from '../services/telegramNotification';
 import { signalScannerService } from '../services/signalScanner';
 import { storage } from '../storage';
+import { db } from '../db';
+import { economicEvents } from '@shared/schema';
+import { and, eq, gte, lte } from 'drizzle-orm';
+import { MAX_HORIZON_MS } from '../services/newsAlerts';
 
 export class ScraperScheduler {
   private upcomingEventsJob: ReturnType<typeof cron.schedule> | null = null;
   private fullWeekJob: ReturnType<typeof cron.schedule> | null = null;
   private cleanupJob: ReturnType<typeof cron.schedule> | null = null;
   private notificationJob: ReturnType<typeof cron.schedule> | null = null;
+  private newsAlertJob: ReturnType<typeof cron.schedule> | null = null;
   private signalScanJob: ReturnType<typeof cron.schedule> | null = null;
   private signalCleanupJob: ReturnType<typeof cron.schedule> | null = null;
   private interestRateJob: ReturnType<typeof cron.schedule> | null = null;
@@ -31,6 +36,28 @@ export class ScraperScheduler {
   // (server/python/news_calendar.py). The old cloudscraper EconomicCalendarScraper that used to be
   // driven from here was redundant (Cloudflare-challenged from the datacenter IP, only ever logged
   // "All scrapers failed") and has been deleted, along with its fetch/scrape methods and cron jobs.
+
+  /** Load the next few hours of HIGH-impact events and (re)arm their 15m / 5m warnings.
+   *
+   * Only rows still AHEAD of us are fetched — a past event cannot produce a future warning, and
+   * pulling the whole calendar would make `buildNewsSchedule` sift thousands of rows every hour to
+   * find a handful.
+   */
+  private async refreshNewsAlerts(): Promise<void> {
+    try {
+      const now = new Date();
+      const horizon = new Date(now.getTime() + MAX_HORIZON_MS);
+      const rows = await db.select().from(economicEvents)
+        .where(and(gte(economicEvents.eventTime, now),
+                   lte(economicEvents.eventTime, horizon),
+                   eq(economicEvents.impactLevel, 'high')));
+      telegramNotificationService?.scheduleNewsNotifications(rows as any);
+    } catch (err) {
+      // Never allowed to take the scheduler down — a missed news warning is a missed courtesy;
+      // a dead scheduler also stops the session alerts and the cleanup.
+      console.error('[scheduler] news alert refresh failed:', err);
+    }
+  }
 
   async runCleanup(): Promise<void> {
     try {
@@ -122,10 +149,20 @@ export class ScraperScheduler {
     // The midnight cron below would have recovered the next day, but every deploy restarts the
     // container and loses the rest of that day again — which is why it never appeared to work.
     telegramReady
-      .then(() => telegramNotificationService?.scheduleTradingSessionNotifications())
-      .catch(err => console.error('[scheduler] session alerts not scheduled:', err));
+      .then(() => {
+        telegramNotificationService?.scheduleTradingSessionNotifications();
+        return this.refreshNewsAlerts();
+      })
+      .catch(err => console.error('[scheduler] session/news alerts not scheduled:', err));
+
+    // NEWS WARNINGS — refreshed HOURLY, not daily. `buildNewsSchedule` only looks 6 hours ahead
+    // (a timer days long would outlive a revision to the calendar), so a once-a-day pass would
+    // miss every release after the first six hours.
+    this.newsAlertJob = cron.schedule('5 * * * *', () => this.refreshNewsAlerts(),
+                                      { timezone: 'UTC' });
     this.notificationJob = cron.schedule('0 0 * * *', () => {
       telegramNotificationService?.scheduleTradingSessionNotifications();
+      void this.refreshNewsAlerts();
       this._jobs.notifications.lastRunAt = Date.now();
       this._jobs.notifications.lastResult = 'success';
     }, { timezone: 'UTC' });
