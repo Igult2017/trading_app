@@ -18,6 +18,7 @@ from core.types import Signal
 from notifications.telegram_formatter import format_setup_alert, format_signal_watch
 from notifications.telegram_cards import format_signal_confirmed, format_signal_closed
 from notifications.telegram_system_formatter import format_scan_started, format_session_open
+from notifications.telegram_tap_alert import format_tap_alert
 
 log = logging.getLogger(__name__)
 
@@ -140,8 +141,16 @@ async def on_setup_alert(signal: Signal) -> None:
     # Setup / pre-signal heads-ups are UNCONFIRMED → admin DM only, never the channel. The channel
     # carries CONFIRMED signals only (a zone mitigated + entry alignment, or MTF alignment + confluence
     # + entry) — those are real signals (alert_only=False) and route via on_signal_confirmed.
-    # Opt-in: a strategy may mark an alert `to_channel` when its OWN cascade already confirmed it, and
-    # it goes PUBLIC with the full signal card instead of the DM heads-up. No strategy uses this today.
+    # Opt-in: a strategy may mark an alert `to_channel` to go PUBLIC instead of to the DM heads-up.
+    # FIRST AND ONLY CALLER: BX's tap alert (`strategies/bx_sd_tap_alert`) — the pre-pullback "cheeky
+    # one". It renders with `format_tap_alert`, NOT `format_signal_confirmed`: that card leads with
+    # entry / stop / target and this signal deliberately has none, so it printed three 0.00000 prices
+    # under a BUY header — the one thing a not-a-trade card must never look like.
+    #
+    # This is the documented exception to CHANNEL_ENTRIES_ONLY (which gates `on_signal_confirmed`,
+    # not this path). The user asked for it — *"make the signal room look fun, engaging but accurate
+    # and informational"* — and the card states outright that it is not an entry. Reverting is one
+    # line: drop `to_channel` in bx_sd_tap_alert and it goes to the DM instead.
     # HEADS-UPS ARE IMAGE CARDS TOO. This path was text-only, so when chart rendering was added
     # every alert still went out as text AND leaked its rendered PNG — nothing unlinked it, so the
     # container would accumulate one file per heads-up for its whole life. Both fixed here: send the
@@ -149,7 +158,7 @@ async def on_setup_alert(signal: Signal) -> None:
     chart = signal.chart_path
     has_chart = bool(chart) and os.path.isfile(chart)
     if signal.to_channel and not settings.signals_dm_only:
-        caption = format_signal_confirmed(signal)                  # public signal channel
+        caption = format_tap_alert(signal)                         # public signal channel
         ok = (await _send_photo(chart, caption) if has_chart
               else await _send_text(caption))
     else:

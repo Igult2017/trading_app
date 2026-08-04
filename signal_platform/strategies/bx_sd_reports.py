@@ -24,6 +24,8 @@ from strategies.bx_sd_registry import build, to_zone
 from strategies.bx_sd_htf import htf_zone_map, htf_backing
 from strategies.bx_sd_mitigation import mitigation_signal
 from strategies.bx_sd_strength import mitigation_note
+from strategies.bx_sd_entry import reaction_on
+from strategies.bx_sd_tap_alert import tap_alert_signal, REVERSAL_ONLY
 # `_setup_for_zone`, `confirm_grade` and `build_signal` were imported for the RETEST path and went
 # unused when it was deleted (2026-08-01). `bx_sd_retest.py` went with them: this was its ONLY
 # importer, so the module was orphaned outright. (A first pass at this comment claimed bx_sd_watch
@@ -33,9 +35,12 @@ _MIN_PIPS = 3.0   # ignore micro zones — same noise floor the cascade applies
 _RECENT   = 6     # "now" = within the last N 4H bars
 
 
-def scan_reports(symbol: str, h4: list[Candle], analysis_tfs: list, entry_tf: list[Candle],
-                 m5: list[Candle], m1: list[Candle], htf_candles: dict, pip: float, digits: int,
+def scan_reports(symbol: str, entry_tf: list[Candle], m5: list[Candle], m1: list[Candle],
+                 h4: list[Candle], htf_candles: dict, pip: float, digits: int,
                  name: str, sid: str, book=None) -> list[Signal]:
+    """`analysis_tfs` was a parameter here and is GONE. It, along with `entry_tf`/`m5`/`m1`, was
+    left behind when the retest path was deleted (2026-08-01) and read by nothing for three days.
+    The other three come back into real use below as path ③; `analysis_tfs` did not, so it went."""
     out: list[Signal] = []
     dm_id   = f"{sid}_watch"   # a heads-up is not a signal -> admin DM, never the channel
     htf_map = htf_zone_map(htf_candles, pip)
@@ -73,6 +78,54 @@ def scan_reports(symbol: str, h4: list[Candle], analysis_tfs: list, entry_tf: li
                                 note=mitigation_note(mz), retaps=mz.retaps)
         sig.dedup_key = key                 # committed only when the DM actually lands
         out.append(sig)
+
+    # ③ TAP ALERT ("cheeky one") — the tap ① just reported, PLUS a 1M/5M reaction. PUBLIC.
+    #
+    # User's rule, 2026-08-04: *"For price taps into 4HR zone and there is a confirmation in 5M or
+    # 1M a cheeky signal should be sent. … So I am asking for the first signal before the pullback."*
+    #
+    # The divider from the real entry is `respected`, and it is absolute: this path requires the zone
+    # NOT to be respected, `detect_setup` requires that it IS. One zone can never produce both at the
+    # same moment, so there is never a question of which message means "place a trade".
+    #
+    # ① and ③ can both fire on one tap, and that is intended: ① is the admin's diagnostic in the DM
+    # and fires on the tap alone; ③ is the room's card and needs the reaction too. Different
+    # audiences, different bars to clear.
+    tap = None
+    # NEWEST FIRST, explicitly. `build()` appends as it replays bars in order, so `marked` is
+    # OLDEST-first — taking `marked[0]` would have published the stalest tapped zone on the book
+    # while a fresher one was also being tapped. `detect_setup` sorts for the same reason.
+    for mz in sorted(marked, key=lambda m: m.ifc_time, reverse=True):
+        if mz.state not in ("unmitigated", "wick_mitigated", "body_mitigated"):
+            continue                        # `respected` and `broken` are not this path's business
+        if not mz.tapped_by(live) or (mz.top - mz.bottom) < tmin:
+            continue
+        key = f"{sid}_tap_{mz.ifc_time}_{mz.direction}_v{mz.live_visit()}"
+        if delivery_ledger.is_delivered(key):
+            continue
+        z = to_zone(mz, bars)
+        if z is None:
+            continue
+        # THE SAME confirmation the real entry uses (`bx_sd_entry.reaction_on`), never a second
+        # definition — see that function. 5M first, then 1M: the user named them in that order, and
+        # the slower one is the less noisy read of the same reaction.
+        want = "up" if mz.direction == "demand" else "down"
+        for cs, tf_label in ((m5, "5M"), (m1, "1M"), (entry_tf, "entry TF")):
+            if not cs or len(cs) < 20:
+                continue
+            method = reaction_on(cs, want, z, mz.direction, reversal_only=REVERSAL_ONLY)
+            if method:
+                tap = tap_alert_signal(z, symbol, method, tf_label, digits, name, sid,
+                                       htf_backing(z, htf_map), live.time,
+                                       mitigation_kind=mz.mitigation_kind, retaps=mz.retaps)
+                tap.dedup_key = key          # committed only once the channel post lands
+                break
+        if tap is not None:
+            break                            # ONE per symbol per scan — sorted newest-first above,
+                                             # so this is the freshest tapped zone, and a multi-zone
+                                             # tap cannot burst the channel with four cards at once.
+    if tap is not None:
+        out.append(tap)
 
     # ② RETEST — DELETED 2026-08-01. It became a strict SUBSET of the core cascade.
     #

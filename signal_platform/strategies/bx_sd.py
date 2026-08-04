@@ -88,9 +88,11 @@ class BXStrategy(BaseStrategy):
         book = build_registry(h4, pip)
         out: list[Signal] = []
 
-        # REPORTS — mitigation heads-ups (DM) + RETEST (mitigated major zone, B/A) + CONTINUATION.
-        # Independent of the fresh-zone cascade below; deduped once per zone ON CONFIRMED DELIVERY.
-        out += scan_reports(sym, h4, analysis_tfs, entry_tf, m5, m1, htf, pip, digits, self.name, self.id,
+        # REPORTS — the mitigation heads-up (admin DM) and the TAP ALERT (public, pre-pullback).
+        # Independent of the entry cascade below; deduped once per zone VISIT on confirmed delivery.
+        # The tap alert is the earlier of BX's two public moments and fires only while the zone is
+        # NOT yet respected; the cascade below owns everything from `respected` onward.
+        out += scan_reports(sym, entry_tf, m5, m1, h4, htf, pip, digits, self.name, self.id,
                             book=book)
 
         # WATCH — a tapped setup broke before it triggered: alert (at-least-once), then stop watching.

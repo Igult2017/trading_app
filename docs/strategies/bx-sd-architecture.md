@@ -38,6 +38,35 @@ N. If that ever fails, zones are being re-judged and this class of bug is back.
 
 ---
 
+## BX publishes TWO moments (2026-08-04)
+
+The user asked for the earlier one: *"For price taps into 4HR zone and there is a confirmation in 5M
+or 1M a cheeky signal should be sent … I am asking for the first signal before the pullback."*
+
+| | **TAP ALERT** ("cheeky one") | **ENTRY** |
+|---|---|---|
+| fires when | zone TAPPED + a 1M/5M **reversal** reaction | zone RESPECTED → moved away → first 4H pullback → 1M/5M confirmation |
+| zone state | **NOT** `respected` | `respected` |
+| carries | no entry, no stop, no target | all three, plus the order type |
+| goes to | the channel, `alert_only` + `to_channel` | the channel, a real signal |
+| owned by | `bx_sd_reports` ③ → `bx_sd_tap_alert` | `bx_sd_setup` + `bx_sd_confirm` |
+
+**`respected` is the divider, and it is absolute.** The tap alert requires the zone NOT to be
+respected; the entry requires that it is. One zone can never produce both at the same moment, so
+there is never a question of which card means "place a trade". Do not relax either side of that
+without replacing the guarantee.
+
+**The confirmation is ONE function** — `bx_sd_entry.reaction_on`, shared by both. It was inline in
+`entry_trigger` until the tap alert needed the same question answered without an entry. Two copies
+would drift, and the drift would be invisible: the room told a zone is confirmed while the cascade
+that decides whether to trade it disagrees.
+
+**The tap alert passes `reversal_only=True`.** The continuation arm asks only "is the last entry-TF
+BOS in my direction" — i.e. the move is still going. At a zone that has already proven itself that is
+evidence; at an unproven zone it is nearly nothing, and it fires on most trending pairs.
+`test_tap_alert` pins this with a faded-rally fixture that the reversal arms decline and continuation
+accepts.
+
 ## The lifecycle
 
 **Rewritten 2026-07-30.** Mitigation is by **wick OR body** and the two are different events; a tap
@@ -122,7 +151,8 @@ zero mitigations are missed by starting the clock at `marked_at` (27 months, bot
 | `bx_sd_zones.py` | MARKING techniques + `Zone`, `find_fvgs`, `zone_broken`/`break_index`, `needs_eq50` |
 | `bx_sd.py` | orchestrator — **builds the book ONCE per scan** and passes it down |
 | `bx_sd_setup.py` | the cascade: which marked zone is price working now |
-| `bx_sd_reports.py` | ① mitigation heads-up (DM) ② retest (channel, B/A) |
+| `bx_sd_reports.py` | ① mitigation heads-up (DM) ③ **TAP ALERT — the public pre-pullback card** (② retest deleted) |
+| **`bx_sd_tap_alert.py`** | **the tap alert's FACTS** — zone, tap kind, reaction method. No entry/stop/target, ever |
 | `bx_sd_control.py` | Ch.7 "who is in control" — reads `mitigated_at`/`broken_at` |
 | `bx_sd_entry.py` | entry trigger (CHoCH / S/D flip), refinement, TP candidates |
 | `bx_sd_ltf.py` | 1M/5M confirmation + `refine_zone` |

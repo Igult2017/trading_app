@@ -44,6 +44,45 @@ def _flip_ok(entry_tf: list[Candle], want_dir: str, n: int = 3) -> bool:
         and entry_tf[-1].close < lows[-1].price
 
 
+def reaction_on(entry_tf: list[Candle], want_dir: str, zone, zdir: str,
+                reversal_only: bool = False) -> str:
+    """Is the entry TF (1M/5M) REACTING off this zone, and by which book method?
+
+    Returns the method name — "CHoCH+Flip (god setup)" / "CHoCH" / "S/D Flip" / "Continuation" —
+    or "" for no reaction.
+
+    ONE DEFINITION OF "a confirmation in 1M or 5M", shared by the entry trigger and the tap alert
+    (`bx_sd_tap_alert`). It was inline in `entry_trigger` until the tap alert needed the same
+    question answered without an entry, a stop or a target. Two copies would drift, and the drift
+    would be invisible: the room would be told a zone is "confirmed" while the cascade that decides
+    whether to actually trade it disagrees.
+
+    `reversal_only` drops the CONTINUATION arm. Continuation asks only "is the last entry-TF BOS in
+    my direction", i.e. the move is still going — which is evidence at a zone price has already
+    reacted from, and nearly nothing at a zone that has proven nothing yet. The tap alert fires on
+    the unproven case, so it asks for a reversal signature; the entry trigger keeps all three.
+    """
+    # INDUCEMENT GUARD — the book's "enter AFTER the manipulation": the CHoCH must reverse off a
+    # SWEPT swing (a LIQUIDITY GRAB). A reversal that left resting liquidity below (demand) / above
+    # (supply) is premature — that liquidity is a magnet.
+    choch_e = find_ltf_choch(entry_tf, want_dir, zone, zdir)
+    choch = choch_e is not None and _choch_valid(entry_tf, choch_e, zdir)
+    flip  = _flip_ok(entry_tf, want_dir)
+    if choch and flip:
+        return "CHoCH+Flip (god setup)"
+    if choch:
+        return "CHoCH"
+    if flip:
+        return "S/D Flip"
+    if reversal_only:
+        return ""
+    # THIRD book method (Ch.9 step 4: "S/D flips - CHoCH - Continuation"): the entry TF's last
+    # structure break is a BOS in the trade direction, i.e. the move is continuing. Built from
+    # map_structure only — no FVG is wrapped as a zone; that path stays deleted.
+    _last = map_structure(entry_tf).last_bos
+    return "Continuation" if (_last is not None and _last.direction == want_dir) else ""
+
+
 @dataclass
 class EntryTrigger:
     triggered: bool = False
@@ -83,21 +122,12 @@ def entry_trigger(conf: LTFConfluence, setup: SetupResult, entry_tf: list[Candle
     # swing (a LIQUIDITY GRAB). A reversal that left resting liquidity below (demand) / above (supply)
     # is premature — that liquidity is a magnet. This is the entry-time liquidity sweep the whole
     # method hinges on; the S/D flip already requires its reaction point to be taken out (a sweep too).
-    choch_e = find_ltf_choch(entry_tf, want_dir, z, zdir)
-    choch = choch_e is not None and _choch_valid(entry_tf, choch_e, zdir)
-    flip  = _flip_ok(entry_tf, want_dir)
-    # THIRD book method (Ch.9 step 4: "S/D flips - CHoCH - Continuation"): the entry TF's last
-    # structure break is a BOS in the trade direction, i.e. the move is continuing. Built from
-    # map_structure only — no FVG is wrapped as a zone; that path stays deleted.
-    _last = map_structure(entry_tf).last_bos
-    cont  = _last is not None and _last.direction == want_dir
-    if not (choch or flip or cont):
+    method = reaction_on(entry_tf, want_dir, z, zdir)
+    if not method:
         r.reason = ("no entry-TF reaction off the zone — none of CHoCH (inducement swept), "
                     "S/D flip, or continuation BOS")
         return r
     r.triggered = True
-    method = ("CHoCH+Flip (god setup)" if (choch and flip)
-              else "CHoCH" if choch else "S/D Flip" if flip else "Continuation")
 
     # NO SECOND REFINEMENT HERE. There used to be a `z = refine_zone(entry_tf, zdir, z, pip) or z`
     # on this line, commented "the SL comes off the tightest entry-TF POI". That stopped being true
