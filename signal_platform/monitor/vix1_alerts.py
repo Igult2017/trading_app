@@ -22,6 +22,7 @@ the PRINTED price needs per-symbol precision, which comes from shared.pip.price_
 import logging
 
 from core import delivery_ledger, event_bus
+from charting import signal_card
 from core.types import Signal, Direction, TF
 from shared.pip import price_digits
 from strategies.vix1_manage import run
@@ -29,6 +30,27 @@ from strategies.vix1_manage import run
 log = logging.getLogger(__name__)
 
 _MAX_BARS = 600      # 10h of 1M — comfortably past the 4.7h longest real trade
+
+
+async def _emit(sig: Signal, bars, symbol: str) -> None:
+    """Attach a chart, then emit.
+
+    THE ONLY EMIT PATH THAT BYPASSED THE CHART. `strategy_runner._attach_chart` covers the two
+    emits in the runner, but these management alerts are produced by the MONITOR and went out as
+    bare text — an audit of every `event_bus.emit` call turned that up. The 1M bars are already in
+    hand here (`check` re-reads them every poll), so the card costs nothing extra to draw, and
+    "move your stop to +2R" is far easier to act on next to the price action it refers to.
+
+    Never raises: `render_async` returns None on any failure and the dispatcher falls back to text.
+    """
+    try:
+        digits = 3 if symbol.upper().endswith("JPY") else 5
+        sig.chart_path = await signal_card.render_async(
+            sig, bars, digits, list(sig.chart_bands or []), subtitle="M1",
+            marks=list(sig.chart_marks or []))
+    except Exception as exc:                      # noqa: BLE001 — a chart never blocks an alert
+        log.warning(f"[vix1-manage] chart render failed for {symbol}: {exc}")
+    await event_bus.emit(event_bus.SIGNAL_ALERT, sig)
 
 
 def _alert(symbol: str, buy: bool, text: str, ctx: str, key: str) -> Signal:
@@ -85,7 +107,7 @@ async def check(row, bars) -> None:
             f"VIX.1 MANAGE — {row.symbol} {'BUY' if buy else 'SELL'}: stop to +{locked_r:.0f}R",
             key,
         )
-        await event_bus.emit(event_bus.SIGNAL_ALERT, sig)
+        await _emit(sig, bars, row.symbol)
         log.info(f"[vix1-manage] {row.symbol} ratchet {reached_r:.2f}R -> lock {locked_r:.1f}R")
 
     # 2) the exit — structure turned against the trade (the trailing stop itself is handled by the
@@ -101,5 +123,5 @@ async def check(row, bars) -> None:
                 f"at +{st.exit_r:.1f}R",
                 key,
             )
-            await event_bus.emit(event_bus.SIGNAL_ALERT, sig)
+            await _emit(sig, bars, row.symbol)
             log.info(f"[vix1-manage] {row.symbol} structure exit at {st.exit_r:.2f}R")
