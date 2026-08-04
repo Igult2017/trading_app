@@ -287,6 +287,28 @@ export class TelegramNotificationService {
     }
   }
 
+  /** Post to the PUBLIC CHANNEL (TELEGRAM_CHAT_ID) — one message, one destination.
+   *
+   * `broadcastMessage` fans out to `telegram_subscribers`, i.e. people who DM'd the bot /start.
+   * Session-open announcements are not that: they are a public post, and routing them through the
+   * subscriber fan-out meant they never reached the channel at all — which is what the user saw.
+   */
+  async sendToChannel(message: string, options?: any): Promise<boolean> {
+    const chatId = (process.env.TELEGRAM_CHAT_ID || "").trim().replace(/^['"]|['"]$/g, "");
+    if (!this.bot || !chatId) {
+      console.warn("[Telegram] channel post skipped — %s",
+        !this.bot ? "no bot" : "TELEGRAM_CHAT_ID not set");
+      return false;
+    }
+    try {
+      await this.bot.sendMessage(chatId, message, options);
+      return true;
+    } catch (error) {
+      console.error("[Telegram] channel post FAILED:", error);
+      return false;
+    }
+  }
+
   async broadcastMessage(message: string, options?: any): Promise<{ sent: number; failed: number }> {
     if (!this.bot) {
       return { sent: 0, failed: 0 };
@@ -499,9 +521,8 @@ export class TelegramNotificationService {
         // HTML, not Markdown: the session copy uses <blockquote> for the risk rule, which legacy
         // Markdown cannot express. `sessionMessages` builds HTML and escapes `&` in "Trade&Journal"
         // — the two must stay in step, or Telegram rejects the message and nobody is told anything.
-        const result = await this.broadcastMessage(alert.message, { parse_mode: 'HTML' })
-          .catch(() => ({ sent: 0 }));
-        if (result.sent > 0) console.log(`[Telegram] ${alert.kind} sent (${result.sent} subscribers)`);
+        const ok = await this.sendToChannel(alert.message, { parse_mode: 'HTML' }).catch(() => false);
+        console.log(`[Telegram] ${alert.kind} -> channel: ${ok ? 'sent' : 'FAILED'}`);
       }, delay);
       this._sessionTimers.push(t);
     }
@@ -522,7 +543,7 @@ let telegramNotificationService: TelegramNotificationService | null = null;
 // Re-enabled so price alerts (and other Telegram notifications) actually fire.
 const TELEGRAM_MUTED = false;
 
-(async () => {
+export const telegramReady: Promise<void> = (async () => {
   if (TELEGRAM_MUTED) {
     console.log('[Telegram] Service is muted. Notifications disabled.');
     return;
@@ -536,5 +557,14 @@ const TELEGRAM_MUTED = false;
     console.error('[Telegram] Failed to initialize:', error);
   }
 })();
+// `telegramReady` resolves when the bot has finished initialising. The scrapers scheduler used to
+// call `telegramNotificationService?.scheduleTradingSessionNotifications()` at startup, while this
+// IIFE was still running — the optional chain hit `null`, no timers were ever created, and NO
+// session alert fired all day. The startup log ordering shows it plainly:
+//     [Telegram] Initializing bot...
+//     Starting economic calendar scheduler...      <- schedules against null
+//     [Telegram] Bot ready with polling enabled    <- service exists only now
+// The midnight cron would have recovered it, but every deploy restarts the container and loses the
+// rest of that day again.
 
 export { telegramNotificationService };

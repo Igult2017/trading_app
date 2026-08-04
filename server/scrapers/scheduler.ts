@@ -2,7 +2,7 @@ import * as cron from 'node-cron';
 import { interestRateScraper } from './interestRateScraper';
 import { cacheService } from './cacheService';
 import { scraperSettings } from './config';
-import { telegramNotificationService } from '../services/telegramNotification';
+import { telegramNotificationService, telegramReady } from '../services/telegramNotification';
 import { signalScannerService } from '../services/signalScanner';
 import { storage } from '../storage';
 
@@ -114,7 +114,16 @@ export class ScraperScheduler {
 
     // ── 5. Telegram session alerts — reschedule at midnight UTC each day ────
     this._jobs.notifications.enabled = true;
-    telegramNotificationService?.scheduleTradingSessionNotifications();
+    // WAIT FOR THE BOT. `telegramNotificationService` is created by an async IIFE in
+    // telegramNotification.ts, and this line ran while that was still in flight — the optional
+    // chain hit `null`, no timers were created, and NOT ONE session alert fired. The startup log
+    // ordering shows it: "Starting economic calendar scheduler..." lands BETWEEN "[Telegram]
+    // Initializing bot..." and "[Telegram] Bot ready".
+    // The midnight cron below would have recovered the next day, but every deploy restarts the
+    // container and loses the rest of that day again — which is why it never appeared to work.
+    telegramReady
+      .then(() => telegramNotificationService?.scheduleTradingSessionNotifications())
+      .catch(err => console.error('[scheduler] session alerts not scheduled:', err));
     this.notificationJob = cron.schedule('0 0 * * *', () => {
       telegramNotificationService?.scheduleTradingSessionNotifications();
       this._jobs.notifications.lastRunAt = Date.now();
