@@ -80,13 +80,18 @@ console.log('\nTHE NODE PAIR LIST MATCHES THE PLATFORM (instruments.py)');
 // and not here, news for its currency goes unwatched — silently. This parses the Python and fails.
 const py = readFileSync(join(process.cwd(), 'signal_platform/config/instruments.py'), 'utf8');
 const block = py.slice(py.indexOf('TRADEABLE_INSTRUMENTS'), py.indexOf('SYMBOL_TO_CURRENCIES'));
-const pyPairs = [...block.matchAll(/\("([A-Z]{3}\/[A-Z]{3})",\s*"([A-Z]{3})",\s*"([A-Z]{3})"\)/g)]
-  .map(m => [m[1], m[2], m[3]]);
+// `Array.from`, not a spread. tsc's target here predates downlevelIteration, so spreading an
+// iterator (matchAll's result, a Set) is a TS2802 error even though tsx runs it happily — this file
+// shipped with three of them and I reported the typecheck as unchanged. It wasn't.
+const pyPairs = Array.from(
+  block.matchAll(/\("([A-Z]{3}\/[A-Z]{3})",\s*"([A-Z]{3})",\s*"([A-Z]{3})"\)/g),
+).map(m => [m[1], m[2], m[3]]);
 check(`parsed ${pyPairs.length} pairs from instruments.py`, pyPairs.length > 0, true);
 check('Node TRADED_PAIRS equals the Python list',
       TRADED_PAIRS.map(p => [...p]), pyPairs);
 check('currency set derived from it',
-      [...TRADED_CURRENCIES].sort(), [...new Set(pyPairs.flatMap(p => [p[1], p[2]]))].sort());
+      Array.from(TRADED_CURRENCIES).sort(),
+      Array.from(new Set(pyPairs.flatMap(p => [p[1], p[2]]))).sort());
 
 console.log(`\n${fail === 0 ? 'ALL PASS' : `${fail} FAILED`}  (${pass + fail} checks)`);
 process.exit(fail === 0 ? 0 : 1);

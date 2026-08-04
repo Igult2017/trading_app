@@ -511,11 +511,18 @@ function DeleteSessionModal({ session, onClose, onConfirm, isPending }: {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// GRID FILL — minimum tiles to keep the grid looking full. NOT a cap on how many
-// sessions a user can create; a create slot is always shown beyond this count.
+// GRID FILL — the MINIMUM number of tiles drawn, so a near-empty page still looks
+// like a grid rather than one lonely card. It is NOT a cap: `ghostsNeeded` below
+// is `Math.max(1, …)`, so a create slot is appended however many sessions exist,
+// and nothing on the server limits the count either.
+//
+// It was called TOTAL_SLOTS, which says the opposite of what it does. The user
+// read the six tiles as a limit and asked for sessions to be "unlimited" — they
+// already were; what he was seeing was the grid deforming past six (see the
+// container comment below). A name that contradicts its own comment loses.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const TOTAL_SLOTS = 6;
+const MIN_GRID_TILES = 6;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // GHOST CARD — exact reference design
@@ -524,7 +531,7 @@ const TOTAL_SLOTS = 6;
 function GhostCard({ onCreate }: { onCreate: () => void }) {
   return (
     <div
-      className="bg-[#0d1117] flex flex-col min-h-[320px] group hover:bg-[#111827] transition-colors cursor-pointer border-l border-t border-[#1e2740]"
+      className="bg-[#0d1117] flex flex-col min-h-[320px] group hover:bg-[#111827] transition-colors cursor-pointer border-r border-b border-[#1e2740]"
       style={{ fontFamily: UI }}
       onClick={onCreate}
     >
@@ -582,7 +589,7 @@ const SessionCard = ({ session, isActive, onSelect, onEdit, onDelete }: {
 
   return (
     <div
-      className="bg-[#0d1117] flex flex-col min-h-[320px] group cursor-pointer hover:bg-[#111827] transition-colors"
+      className="bg-[#0d1117] flex flex-col min-h-[320px] group cursor-pointer hover:bg-[#111827] transition-colors border-r border-b border-[#1e2740]"
       style={{ fontFamily: UI }}
       onClick={onSelect}
       data-testid={`card-session-${session.id}`}
@@ -675,8 +682,17 @@ export function GhostSessionsPanel({ onCreated }: { onCreated?: (id: string) => 
   return (
     <div className="obs-sessions-root">
       <style>{SESSION_CARDS_CSS}</style>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-[1px] bg-[#1e2740] border border-[#1e2740]">
-        {Array.from({ length: TOTAL_SLOTS }).map((_, i) => (
+      {/* SEPARATORS COME FROM THE TILES, NOT FROM THIS CONTAINER.
+          It used to fake the grid lines with `gap-[1px] bg-[#1e2740]` — the container's background
+          showing through 1px gaps. That only works while the last row is FULL: any leftover cell
+          has no tile over it, so the background rendered as a SOLID PALE BLOCK the size of a card.
+          At the default 6 tiles it never showed (6 divides by 1, 2 and 3, so the last row was
+          always full); at 7 sessions on a wide screen, or 6 on a medium one, it appeared — which is
+          why it read as "past a certain number everything deforms", and why the number moved with
+          the window width. Each tile now draws its own right/bottom edge, so a part-filled row is
+          simply fewer bordered tiles. */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 border-t border-l border-[#1e2740]">
+        {Array.from({ length: MIN_GRID_TILES }).map((_, i) => (
           <GhostCard key={i} onCreate={() => setShowCreate(true)} />
         ))}
       </div>
@@ -738,14 +754,23 @@ export const SessionsList = ({ onSelectSession, activeSessionId, onDeleteSession
   }
 
   // Always keep at least one "+ Create Session" slot so there's no cap — below
-  // TOTAL_SLOTS we fill the grid up to 6; at/above it we still show one create slot.
-  const ghostsNeeded = Math.max(1, TOTAL_SLOTS - sessions.length);
+  // MIN_GRID_TILES we fill the grid up to 6; at/above it we still show one create slot.
+  const ghostsNeeded = Math.max(1, MIN_GRID_TILES - sessions.length);
 
   return (
     <div className="obs-sessions-root">
       <style>{SESSION_CARDS_CSS}</style>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-[1px] bg-[#1e2740] border border-[#1e2740]">
+      {/* SEPARATORS COME FROM THE TILES, NOT FROM THIS CONTAINER.
+          It used to fake the grid lines with `gap-[1px] bg-[#1e2740]` — the container's background
+          showing through 1px gaps. That only works while the last row is FULL: any leftover cell
+          has no tile over it, so the background rendered as a SOLID PALE BLOCK the size of a card.
+          At the default 6 tiles it never showed (6 divides by 1, 2 and 3, so the last row was
+          always full); at 7 sessions on a wide screen, or 6 on a medium one, it appeared — which is
+          why it read as "past a certain number everything deforms", and why the number moved with
+          the window width. Each tile now draws its own right/bottom edge, so a part-filled row is
+          simply fewer bordered tiles. */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 border-t border-l border-[#1e2740]">
         {sessions.map((session) => (
           <SessionCard
             key={session.id}
