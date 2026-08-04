@@ -601,8 +601,13 @@ const SessionCard = ({ session, isActive, onSelect, onEdit, onDelete }: {
             ? <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)] shrink-0" />
             : <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${hasData ? 'bg-amber-400 opacity-60' : 'bg-[#374151]'}`} />
           }
+          {/* #60a5fa is the app's dark-theme accent (JournalHeader: "the same accent the Assets
+              page uses"), not a blue invented here. 6.98:1 on this header's #111827 — the title is
+              12px, i.e. normal-size text, so the bar is 4.5:1 and #3b82f6 at 4.82:1 was too close
+              to it. This subtree is dark-only (.obs-sessions-root pins its own palette), so unlike
+              the header it needs no second light-theme blue. */}
           <span
-            className="text-[12px] font-semibold text-[#c9d1d9] truncate"
+            className="text-[12px] font-semibold text-[#60a5fa] truncate"
             data-testid={`text-session-name-${session.id}`}
           >{session.sessionName}</span>
         </div>
