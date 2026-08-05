@@ -37,7 +37,6 @@ from shared.swing_points import find_swing_points
 from shared.trend_detector import detect
 from strategies.bx_sd_structure import map_structure
 from strategies.bx_sd_zones import Zone
-from strategies.bx_sd_liquidity import find_liquidity
 from strategies.bx_sd_confluence import premium_discount, pricing_aligned, fib_target, rsi_divergence
 from strategies.bx_sd_control import control, describe, phrase
 from strategies.bx_sd_entry_type import classify, phrase as et_phrase
@@ -222,7 +221,7 @@ def regime(h4: list[Candle], d1: list[Candle] | None = None) -> int:
     return 0
 
 
-def detect_setup(h4: list[Candle], pip: float = 0.0001, book=None,
+def detect_setup(h4: list[Candle], pip: float = 0.0001, book=None, session_candles=None,
                  htf_map: dict | None = None, d1: list[Candle] | None = None) -> SetupResult:
     """`htf_map` is the D1/W1/MN zone map (bx_sd_htf.htf_zone_map). It is only used to SCORE the
     zone's strength, never to gate it. It must be passed: HTF confluence is the user's first-named
@@ -236,7 +235,11 @@ def detect_setup(h4: list[Candle], pip: float = 0.0001, book=None,
     # required direction from the ZONE's own direction, so it was always direction-agnostic. Only
     # st.pro_trend() is gone: it decided WHICH SIDE to hunt, which is what cost 70-78% of setups.
     st    = map_structure(h4)
-    pools = find_liquidity(h4, pip)
+    # `pools = find_liquidity(h4, pip)` stood here and was NEVER READ — a full liquidity scan
+    # (swings + EQH/EQL + every day/week/month level across the whole H4 history) run on every
+    # detect_setup call and thrown away. Liquidity is consumed in exactly two places, both of which
+    # build their own pools: the registry at zone formation (`swept_before`) and `bx_sd_confirm` at
+    # entry (`defensive_ok`). Deleted 2026-08-05.
     price = h4[-1].close
 
     # The leg is needed INSIDE the selection loop now (see below), so it is computed up front.
@@ -256,7 +259,7 @@ def detect_setup(h4: list[Candle], pip: float = 0.0001, book=None,
     # The book is built ONCE per scan by bx_sd.analyze and passed in; building it here would
     # duplicate the replay and risk two paths disagreeing. The fallback keeps this callable
     # standalone (tests, harnesses) without forcing every caller to know about the registry.
-    marked = build(h4, pip) if book is None else book
+    marked = build(h4, pip, session_candles=session_candles) if book is None else book
     live_bar = h4[-1]      # the FORMING bar — 'is price at this zone RIGHT NOW?'
                            # NOT named `live`: the counter below shadowed it and
                            # tapped_by() got an int. Caught by bx_live_tap_test.

@@ -38,6 +38,29 @@ N. If that ever fails, zones are being re-judged and this class of bug is back.
 
 ---
 
+## Liquidity pools — one day definition, three period keys (2026-08-05)
+
+The book's four pool types (Ch.5) all feed `swept_before` at zone FORMATION and `defensive_ok` at
+entry. `bx_sd_pools.forex_day()` is the single rule everything else derives from:
+
+| pool | key | note |
+|---|---|---|
+| swing high/low, EQH/EQL (2-pip tol) | — | built directly in `find_liquidity` |
+| PDH/PDL | `forex_day(t)` | |
+| PWH/PWL | ISO week of `forex_day(t)` | Mon–Fri forex days share one ISO week = Sun 21:00 → Fri 21:00 |
+| PMH/PML | `(year, month)` of `forex_day(t)` | real calendar months |
+| Asia/London/NY high/low | `_SESSIONS` + a **finer feed** | absent unless `session_candles` is passed |
+
+**The day rolls at 21:00 UTC, and 21 is not a guess.** The broker's H4 grid moves with DST — bar
+starts are `{01,05,09,13,17,21}` in EEST and `{02,06,10,14,18,22}` in EET, both its own midnight. A
+22:00 roll is exact in winter and files every summer day's FIRST bar under the previous day. Nothing
+starts between 19:00 and 21:00, so 21:00 is exact in **both** regimes — not a compromise between them.
+
+**`session_candles` must be passed to `build()` or session pools do not exist.** They are optional
+by signature and were fed to only one of three call sites for as long as the parameter existed, so
+factor 3 could not see a single Asia/London/NY level while the entry-time defensive check two modules
+away had been reading them all along.
+
 ## BX publishes TWO moments (2026-08-04)
 
 The user asked for the earlier one: *"For price taps into 4HR zone and there is a confirmation in 5M
@@ -153,6 +176,7 @@ zero mitigations are missed by starting the clock at `marked_at` (27 months, bot
 | `bx_sd_setup.py` | the cascade: which marked zone is price working now |
 | `bx_sd_reports.py` | ① mitigation heads-up (DM) ③ **TAP ALERT — the public pre-pullback card** (② retest deleted) |
 | **`bx_sd_tap_alert.py`** | **the tap alert's FACTS** — zone, tap kind, reaction method. No entry/stop/target, ever |
+| **`bx_sd_pools.py`** | where the resting stops are: **`forex_day()`** (the 21:00-UTC roll every period key derives from), period pools (PDH/PWH/PMH), session pools (Asia/London/NY) |
 | `bx_sd_control.py` | Ch.7 "who is in control" — reads `mitigated_at`/`broken_at` |
 | `bx_sd_entry.py` | entry trigger (CHoCH / S/D flip), refinement, TP candidates |
 | `bx_sd_ltf.py` | 1M/5M confirmation + `refine_zone` |

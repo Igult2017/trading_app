@@ -13,7 +13,7 @@ and naive detection yields false levels — worse than none.
 queries module — one direction only, no cycle.
 """
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 
 from core.types import Candle
 
@@ -21,6 +21,38 @@ from core.types import Candle
 # Aligned with the app's clock: Tokyo 00-09 UTC (server/lib/marketHours), London open ~07:00 UTC
 # (server/scrapers/scheduler), NY ~12-21 UTC.
 _SESSIONS = (("asia", 0, 9), ("lon", 7, 16), ("ny", 12, 21))
+
+# THE TRADING DAY ROLLS AT 22:00 UTC, not at midnight — the same anchor the app's own week
+# open/close already uses (server/services/marketSessionAlerts.ts: "Sunday 22:00 UTC — the forex
+# week opens"). Everything below derives from this one rule, so day, week and month can never drift
+# apart from each other again.
+#
+# They had. The period pools used to bucket on `time // span` — arithmetic from the UNIX EPOCH,
+# which was a THURSDAY. So "previous weekly high" was measured Thursday->Wednesday: half of one real
+# trading week glued to half of the next, a level no trader watches and therefore a level with no
+# stops resting on it. "Previous month" was a sliding 30-day block (by Aug 2026 it began on the
+# 5th), and "previous day" ran to UTC midnight while the broker's day ends at 22:00.
+#
+# That is not a cosmetic error: these levels answer "where do the stops sit", and a phantom level
+# makes `swept_before` believe stops were grabbed when none were (marking a zone that should not
+# exist) while the real weekly high goes unwatched (missing one that should).
+# 21, NOT 22 — and the broker's own data is why. Its H4 grid SHIFTS WITH DST: bar start hours are
+# {01,05,09,13,17,21} in EEST summer and {02,06,10,14,18,22} in EET winter (counted over the saved
+# cTrader history: 407 bars at each summer hour, 176 at each winter one). Both are that broker's
+# midnight — UTC+3 then UTC+2.
+#
+# A fixed 22:00 roll is exact in winter and one bar out all summer: the 21:00 bar is the broker's
+# FIRST bar of the new day, and a 22:00 boundary files it under the old one. Rolling at 21:00 lands
+# both regimes on the right date, because NO H4 bar ever starts between 19:00 and 21:00 — the last
+# bar before the roll is 17:00 (summer) or 18:00 (winter), and +3h keeps both inside the same date.
+# So this is not a compromise between the two; it is correct for each.
+_FX_DAY_ROLL_H = 21
+
+
+def forex_day(ts: int) -> date:
+    """The TRADING day a timestamp belongs to. 21:30 UTC Monday is already Tuesday's session."""
+    u = datetime.fromtimestamp(ts, tz=timezone.utc)
+    return (u + timedelta(hours=24 - _FX_DAY_ROLL_H)).date()
 
 
 @dataclass
@@ -31,15 +63,31 @@ class LiquidityPool:
     index: int    # candle index (into the H4 stream) where the pool level formed
 
 
-def _period_pools(candles: list[Candle], span: int, hi_kind: str, lo_kind: str) -> list[LiquidityPool]:
+def _period_key(period: str, ts: int):
+    """Which day / week / month a timestamp belongs to, all three derived from `forex_day`.
+
+    WEEK uses the ISO week of the forex day. Forex days Mon–Fri share one ISO week, so a week runs
+    exactly Sunday 22:00 -> Friday 22:00 UTC — the real trading week, matching the app's own clock.
+    MONTH uses the forex day's calendar month, so 31 Jul 22:30 UTC (already 1 Aug's session) is
+    August, where the old sliding 30-day block would have called it neither.
+    """
+    d = forex_day(ts)
+    if period == "day":
+        return d
+    if period == "week":
+        return d.isocalendar()[:2]        # (ISO year, ISO week)
+    return (d.year, d.month)
+
+
+def _period_pools(candles: list[Candle], period: str, hi_kind: str, lo_kind: str) -> list[LiquidityPool]:
     """Prior completed-period highs/lows (PDH/PDL · PWH/PWL · PMH/PML) from the candle stream — EXACT,
     since a period's high is just the max of that period's H4 highs. Major resting liquidity the book
-    weights heavily (Ch. 5 & 10: "Daily/Weekly/Monthly high/low"). `span` = period length in seconds;
+    weights heavily (Ch. 5 & 10: "Daily/Weekly/Monthly high/low"). `period` is "day"/"week"/"month";
     the CURRENT still-forming period is skipped (its high/low is not final yet)."""
-    by_p: dict[int, dict] = {}
-    order: list[int] = []
+    by_p: dict = {}
+    order: list = []
     for i, c in enumerate(candles):
-        p = int(c.time // span)
+        p = _period_key(period, c.time)
         e = by_p.get(p)
         if e is None:
             by_p[p] = {"hi": c.high, "lo": c.low, "last": i}; order.append(p)

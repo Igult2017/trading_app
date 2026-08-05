@@ -35,9 +35,12 @@ def find_liquidity(candles: list[Candle], pip: float = 0.0001, eq_tol_pips: floa
     for a, b in zip(lows, lows[1:]):
         if abs(a[1] - b[1]) <= tol:
             pools.append(LiquidityPool("sell", min(a[1], b[1]), "eql", b[0]))
-    pools.extend(_period_pools(candles, 86_400,    "pdh", "pdl"))   # prior DAY  high/low
-    pools.extend(_period_pools(candles, 604_800,   "pwh", "pwl"))   # prior WEEK high/low
-    pools.extend(_period_pools(candles, 2_592_000, "pmh", "pml"))   # prior MONTH (~30d) high/low
+    # Real forex day / week / month — see bx_sd_pools.forex_day. These were `time // 86_400`,
+    # `// 604_800` and `// 2_592_000`: epoch arithmetic that put the week boundary on a THURSDAY and
+    # made the month a sliding 30-day block.
+    pools.extend(_period_pools(candles, "day",   "pdh", "pdl"))   # prior DAY   high/low
+    pools.extend(_period_pools(candles, "week",  "pwh", "pwl"))   # prior WEEK  high/low
+    pools.extend(_period_pools(candles, "month", "pmh", "pml"))   # prior MONTH high/low
     if session_candles:
         pools.extend(_session_pools(session_candles, candles))      # Asian/London/NY session H/L
     return pools

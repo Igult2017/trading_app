@@ -171,13 +171,23 @@ def _broke_structure(events, want: str, ifc_i: int) -> bool:
     return any(e.direction == want and e.index > ifc_i for e in events)
 
 
-def build(h4: list[Candle], pip: float = 0.0001) -> list[MarkedZone]:
-    """Replay closed H4 bars in order and return every zone, with its state as of the last bar."""
+def build(h4: list[Candle], pip: float = 0.0001,
+          session_candles: list[Candle] | None = None) -> list[MarkedZone]:
+    """Replay closed H4 bars in order and return every zone, with its state as of the last bar.
+
+    `session_candles` is a FINER feed (M15/M30). Without it `find_liquidity` cannot isolate a
+    session boundary, so Asia/London/NY highs and lows are simply absent from the pool set — and
+    factor 3 below (`swept_before`: did this zone's move grab liquidity first?) was therefore blind
+    to every session level. It stayed blind for as long as this parameter did not exist, while the
+    entry-time defensive check two modules away had been fed the same levels all along.
+
+    Optional, defaulting to None, so tests and standalone harnesses keep working unchanged.
+    """
     bars = closed_only(h4)
     if len(bars) < 5:
         return []
     events = map_structure(bars).events
-    pools = find_liquidity(bars, pip)
+    pools = find_liquidity(bars, pip, session_candles=session_candles)
     fvgs = {f.index: f for f in find_fvgs(bars)}
 
     zones: list[MarkedZone] = []

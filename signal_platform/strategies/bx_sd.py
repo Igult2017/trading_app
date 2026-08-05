@@ -85,7 +85,11 @@ class BXStrategy(BaseStrategy):
         # THE ZONE BOOK — built ONCE per scan and passed down. Every path reads the same marked
         # zones; nothing re-derives them. Building it per-consumer would duplicate the replay and,
         # worse, let two paths disagree about what a zone is — which is the bug this replaced.
-        book = build_registry(h4, pip)
+        # m15 is the SESSION feed: without a sub-H4 series `find_liquidity` cannot isolate an
+        # Asia/London/NY boundary, so factor 3 (did this zone's move grab liquidity first?) could
+        # not see a single session high or low. It is the one production call, so passing it here
+        # is what actually turns session liquidity on.
+        book = build_registry(h4, pip, session_candles=m15)
         out: list[Signal] = []
 
         # REPORTS — the mitigation heads-up (admin DM) and the TAP ALERT (public, pre-pullback).

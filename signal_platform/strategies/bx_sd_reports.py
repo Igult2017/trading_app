@@ -49,7 +49,7 @@ def scan_reports(symbol: str, entry_tf: list[Candle], m5: list[Candle], m1: list
     if len(bars) < _RECENT:
         return out
     # built once per scan by bx_sd.analyze; the fallback keeps this callable standalone
-    marked  = build(h4, pip) if book is None else book
+    marked  = build(h4, pip, session_candles=m5 or entry_tf) if book is None else book
     live    = h4[-1]        # the FORMING bar — a tap is an event happening NOW
 
     # ① MITIGATION heads-up — the zone was tapped for the first time, recently.
