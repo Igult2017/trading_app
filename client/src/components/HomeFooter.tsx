@@ -1,6 +1,7 @@
 import { useCallback } from "react";
 import { Link, useLocation } from "wouter";
 import { FaXTwitter, FaYoutube, FaInstagram, FaTelegram, FaLinkedinIn } from "react-icons/fa6";
+import Wordmark from '@/components/Wordmark';
 
 const PLATFORM = [
   { label: "Trade Journal", href: "/journal"   },
@@ -105,7 +106,7 @@ export default function HomeFooter({ darkMode = false }: HomeFooterProps) {
           <div>
             <Link href="/" style={{ textDecoration: "none", display: "inline-block", marginBottom: 14 }}>
               <span style={{ ...hFont, fontSize: 20, color: logoClr }}>
-                Trade<span style={{ color: "#2563eb" }}>&</span>Journal
+                <Wordmark />
               </span>
             </Link>
             <p style={{ fontSize: 13, color: descClr, lineHeight: 1.8, margin: 0, ...bFont }}>

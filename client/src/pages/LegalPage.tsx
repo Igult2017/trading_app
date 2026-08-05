@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useLocation } from 'wouter';
 import { usePublicTheme } from '@/context/PublicThemeContext';
 import SEOHead from '@/components/SEOHead';
+import Wordmark from '@/components/Wordmark';
 
 const F = "'Playfair Display', serif";
 
@@ -54,7 +55,7 @@ function UL({ items, dm }: { items: string[]; dm: boolean }) {
 function Brand({ dm }: { dm: boolean }) {
   return (
     <span style={{ fontFamily: "'Playfair Display', serif", fontWeight: 400, letterSpacing: '0.01em', whiteSpace: 'nowrap' }}>
-      <span style={{ color: dm ? '#f1f5f9' : '#0f172a' }}>Trade</span><span style={{ color: '#2563eb' }}>&</span><span style={{ color: dm ? '#f1f5f9' : '#0f172a' }}>Journal</span>
+      <Wordmark color={dm ? '#f1f5f9' : '#0f172a'} />
     </span>
   );
 }

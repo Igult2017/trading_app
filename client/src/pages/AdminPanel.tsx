@@ -15,6 +15,7 @@ import { useLocation } from 'wouter';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
 import BlogPostEditor, { type BlogEditorData } from '@/components/BlogPostEditor';
+import Wordmark from '@/components/Wordmark';
 import {
   Users, FileText, Megaphone, Settings, Search, TrendingUp,
   MoreVertical, Plus, Mail, Bell, AlertCircle, UserPlus, ShieldCheck,
@@ -3290,7 +3291,7 @@ export default function AdminPanel() {
           {/* Logo */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span style={{ fontWeight: 400, fontSize: '14px', letterSpacing: '0.01em', fontFamily: "'Playfair Display', serif" }}>
-              <span style={{ color: '#ffffff' }}>Trade</span><span style={{ color: '#2563eb' }}>&amp;</span><span style={{ color: '#ffffff' }}>Journal</span>
+              <Wordmark color="#ffffff" />
             </span>
           </div>
 

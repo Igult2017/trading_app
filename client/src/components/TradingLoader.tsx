@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import Wordmark from '@/components/Wordmark';
 
 const MESSAGES = [
   "Crunching your trade data…",
@@ -100,7 +101,7 @@ export default function TradingLoader({
             letterSpacing: "0.01em",
           }}
         >
-          <span style={{ color: "#ffffff" }}>Trade</span><span style={{ color: "#2563eb" }}>&amp;</span><span style={{ color: "#ffffff" }}>Journal</span>
+          <Wordmark color="#ffffff" />
         </div>
       )}
 

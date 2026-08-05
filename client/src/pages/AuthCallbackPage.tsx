@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useLocation } from 'wouter';
 import { supabase } from '@/lib/supabase';
+import Wordmark from '@/components/Wordmark';
 
 export default function AuthCallbackPage() {
   const [, navigate] = useLocation();
@@ -68,7 +69,7 @@ export default function AuthCallbackPage() {
       <div style={styles.card}>
         <div style={styles.brand}>
           <span style={styles.brandName}>
-            <span style={{ color: '#ffffff' }}>Trade</span><span style={{ color: '#2563eb' }}>&amp;</span><span style={{ color: '#ffffff' }}>Journal</span>
+            <Wordmark color="#ffffff" />
           </span>
         </div>
 

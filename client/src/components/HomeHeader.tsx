@@ -4,6 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { prefetchIfEmpty } from "@/lib/prefetchCalendar";
 import { Menu, Sun, Moon, X, Sparkles } from "lucide-react";
 import { openAuthModal } from "@/components/auth/AuthModal";
+import Wordmark from '@/components/Wordmark';
 
 const TICKER_ITEMS = [
   { symbol: "BTC/USD",  price: "67,204",  change: "-1.34%", up: false },
@@ -150,7 +151,7 @@ export default function HomeHeader({ darkMode, setDarkMode, activePath }: HomeHe
           {/* Logo */}
           <Link href="/" style={{ textDecoration: "none", flexShrink: 0 }}>
             <span style={{ ...hFont, fontSize: 21, color: logoClr }}>
-              Trade<span style={{ color: "#2563eb" }}>&</span>Journal
+              <Wordmark />
             </span>
           </Link>
 

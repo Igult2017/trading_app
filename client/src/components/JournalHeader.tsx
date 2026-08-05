@@ -9,6 +9,7 @@ import { useLang } from "@/context/LanguageContext";
 import { useTranslation } from "react-i18next";
 import { ALL_LANGUAGES } from "@/i18n/languages";
 import type { LangCode } from "@/i18n/languages";
+import Wordmark from '@/components/Wordmark';
 
 const TICKER_DATA = [
   { symbol: "EUR/USD", price: "1.0842", change: "+0.12%", up: true },
@@ -537,7 +538,7 @@ export default function JournalHeader({ onToggleSidebar, darkMode, onToggleDarkM
           {/* Left: Logo + Sidebar Toggle */}
           <div className="jh-left" style={{ display: 'flex', alignItems: 'center', gap: 14, flexShrink: 0 }}>
             <span className="jh-logo" style={{ fontSize: 17, fontWeight: 400, letterSpacing: '0.01em', fontFamily: "'Playfair Display', serif", cursor: 'pointer' }}>
-              <span style={{ color: theme.logoWhite }}>Trade</span><span style={{ color: '#2563eb' }}>&</span><span style={{ color: theme.logoWhite }}>Journal</span>
+              <Wordmark color={theme.logoWhite} />
             </span>
             <button
               className="jh-sidebar-desktop"

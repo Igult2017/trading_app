@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useLocation, useSearch } from 'wouter';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
+import Wordmark from '@/components/Wordmark';
 
 type Mode = 'login' | 'signup' | 'forgot';
 
@@ -215,7 +216,7 @@ export default function AuthPage() {
       <div style={S.page}>
         <div style={S.logoRow}>
           <span style={S.logoText}>
-            <span style={{ color: '#ffffff' }}>Trade</span><span style={{ color: '#2563eb' }}>&amp;</span><span style={{ color: '#ffffff' }}>Journal</span>
+            <Wordmark color="#ffffff" />
             <span style={{ color: 'rgba(255,255,255,0.2)', margin: '0 5px' }}>.</span>
             <span style={{ color: '#94a3b8', fontFamily: "'Poppins','Inter',sans-serif", fontWeight: 500, fontSize: 15 }}>Reset password</span>
           </span>
@@ -321,7 +322,7 @@ export default function AuthPage() {
       {/* One-line header */}
       <div style={S.logoRow}>
         <span style={S.logoText}>
-          <span style={{ color: '#ffffff' }}>Trade</span><span style={{ color: '#2563eb' }}>&amp;</span><span style={{ color: '#ffffff' }}>Journal</span>
+          <Wordmark color="#ffffff" />
           {mode === 'login' && isReturning ? (
             <>
               <span style={{ color: 'rgba(255,255,255,0.2)', margin: '0 5px' }}>.</span>
