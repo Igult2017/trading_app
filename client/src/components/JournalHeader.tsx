@@ -538,7 +538,7 @@ export default function JournalHeader({ onToggleSidebar, darkMode, onToggleDarkM
           {/* Left: Logo + Sidebar Toggle */}
           <div className="jh-left" style={{ display: 'flex', alignItems: 'center', gap: 14, flexShrink: 0 }}>
             <span className="jh-logo" style={{ fontSize: 17, fontWeight: 400, letterSpacing: '0.01em', fontFamily: "'Playfair Display', serif", cursor: 'pointer' }}>
-              <Wordmark />
+              <Wordmark dark={dm} />
             </span>
             <button
               className="jh-sidebar-desktop"

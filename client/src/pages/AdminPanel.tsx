@@ -3291,7 +3291,7 @@ export default function AdminPanel() {
           {/* Logo */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span style={{ fontWeight: 400, fontSize: '14px', letterSpacing: '0.01em', fontFamily: "'Playfair Display', serif" }}>
-              <Wordmark />
+              <Wordmark dark />
             </span>
           </div>
 

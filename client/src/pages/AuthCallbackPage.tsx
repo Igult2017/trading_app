@@ -69,7 +69,7 @@ export default function AuthCallbackPage() {
       <div style={styles.card}>
         <div style={styles.brand}>
           <span style={styles.brandName}>
-            <Wordmark />
+            <Wordmark dark />
           </span>
         </div>
 

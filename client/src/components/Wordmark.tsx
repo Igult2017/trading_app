@@ -27,14 +27,28 @@ export interface WordmarkProps {
   /** Height of the lockup, in `em` so it tracks the site's own font-size. Width follows the
    *  artwork's aspect ratio. */
   height?: string;
+  /**
+   * Use the REVERSED colourway, for dark surfaces.
+   *
+   * The supplied artwork is navy on transparent, which measured **1.63–1.76:1** on the app's dark
+   * shells — the teal bands survived and the entire wordmark disappeared. `logo-dark.png` remaps
+   * only the navy to near-white (keeping the render's bevel, and turning the panel enclosed in the
+   * mark transparent since it is negative space, not paint). The teals are untouched; they already
+   * read on dark. Measured after: **10.9–11.8:1**.
+   *
+   * An explicit flag rather than a CSS `.dark img` swap, because the landing page carries its theme
+   * in React state (`usePublicTheme`) and never sets `html.dark` — a CSS-only rule would silently
+   * miss exactly the page where this was first reported.
+   */
+  dark?: boolean;
   style?: React.CSSProperties;
   className?: string;
 }
 
-export default function Wordmark({ height = '2.4em', style, className }: WordmarkProps) {
+export default function Wordmark({ height = '2.4em', dark = false, style, className }: WordmarkProps) {
   return (
     <img
-      src="/logo.png"
+      src={dark ? '/logo-dark.png' : '/logo.png'}
       // The accessible name the ten sites had before, preserved exactly.
       alt="Trade&Journal"
       className={className}
