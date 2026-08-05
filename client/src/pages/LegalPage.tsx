@@ -55,7 +55,7 @@ function UL({ items, dm }: { items: string[]; dm: boolean }) {
 function Brand({ dm }: { dm: boolean }) {
   return (
     <span style={{ fontFamily: "'Playfair Display', serif", fontWeight: 400, letterSpacing: '0.01em', whiteSpace: 'nowrap' }}>
-      <Wordmark color={dm ? '#f1f5f9' : '#0f172a'} />
+      <Wordmark />
     </span>
   );
 }

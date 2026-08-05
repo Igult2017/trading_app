@@ -101,7 +101,7 @@ export default function TradingLoader({
             letterSpacing: "0.01em",
           }}
         >
-          <Wordmark color="#ffffff" />
+          <Wordmark />
         </div>
       )}
 
