@@ -2,9 +2,10 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import { prefetchIfEmpty } from "@/lib/prefetchCalendar";
-import { Menu, Sun, Moon, X, Sparkles } from "lucide-react";
+import { Menu, Sun, Moon, X } from "lucide-react";
 import { openAuthModal } from "@/components/auth/AuthModal";
 import Wordmark from '@/components/Wordmark';
+import StartFreeButton from '@/components/StartFreeButton';
 
 const TICKER_ITEMS = [
   { symbol: "BTC/USD",  price: "67,204",  change: "-1.34%", up: false },
@@ -193,25 +194,7 @@ export default function HomeHeader({ darkMode, setDarkMode, activePath }: HomeHe
                 a shadow tinted with the button's OWN hue rather than black — a grey shadow under a
                 saturated button always looks muddy. Hover darkens and lifts a pixel instead of
                 fading opacity, which washed the white label out with it. */}
-            <button type="button" onClick={() => openAuthModal("signup")}
-              style={{
-                ...nFont, fontSize: 13, fontWeight: 700, letterSpacing: "0.01em",
-                display: "inline-flex", alignItems: "center", gap: 7,
-                padding: "10px 22px", borderRadius: 999,
-                background: "#2563eb", color: "#ffffff", border: "none", cursor: "pointer",
-                boxShadow: "0 1px 2px rgba(37,99,235,0.28), 0 4px 12px rgba(37,99,235,0.22)",
-                transition: "background 0.18s, box-shadow 0.18s, transform 0.18s",
-                whiteSpace: "nowrap",
-              }}
-              onMouseEnter={e => { const s = (e.currentTarget as HTMLElement).style;
-                s.background = "#1d4ed8"; s.transform = "translateY(-1px)";
-                s.boxShadow = "0 2px 4px rgba(37,99,235,0.30), 0 8px 20px rgba(37,99,235,0.28)"; }}
-              onMouseLeave={e => { const s = (e.currentTarget as HTMLElement).style;
-                s.background = "#2563eb"; s.transform = "none";
-                s.boxShadow = "0 1px 2px rgba(37,99,235,0.28), 0 4px 12px rgba(37,99,235,0.22)"; }}>
-              <Sparkles size={14} strokeWidth={2.4} />
-              Start free
-            </button>
+            <StartFreeButton />
             <DarkToggle />
           </div>
 

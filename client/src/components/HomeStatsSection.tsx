@@ -1,5 +1,6 @@
 import { Calendar, BarChart2, Diamond, PieChart, ArrowRight } from 'lucide-react';
 import { openAuthModal } from "@/components/auth/AuthModal";
+import StartFreeButton from '@/components/StartFreeButton';
 
 const serif = { fontFamily: "'Playfair Display', serif" } as const;
 const sans  = { fontFamily: "'Playfair Display', serif" } as const;
@@ -115,10 +116,7 @@ export default function HomeStatsSection({ darkMode }: { darkMode: boolean }) {
             Connect your broker in under a minute and let the platform track, analyse, and sharpen your trading — no credit card required.
           </p>
           <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
-            <button type="button" onClick={() => openAuthModal("signup")}
-              style={{ ...sans, padding: '13px 28px', borderRadius: 4, background: '#2563eb', color: '#fff', fontSize: 14, fontWeight: 700, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
-              Start free <ArrowRight size={16} />
-            </button>
+            <StartFreeButton />
             <a href="/#pricing"
               style={{ ...sans, padding: '13px 28px', borderRadius: 4, border: `1.5px solid ${border}`, color: text, fontSize: 14, fontWeight: 600, textDecoration: 'none' }}>
               View pricing

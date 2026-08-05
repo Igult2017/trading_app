@@ -6,6 +6,8 @@ import HomeFooter from "@/components/HomeFooter";
 import PricingSection from "@/components/PricingSection";
 import TestimonialsSection from "@/components/TestimonialsSection";
 import HomeStatsSection from "@/components/HomeStatsSection";
+import Brand from '@/components/Brand';
+import StartFreeButton from '@/components/StartFreeButton';
 
 const display = { fontFamily: "'Playfair Display', serif" } as const;
 const serif   = { fontFamily: "'Playfair Display', serif" } as const;
@@ -75,10 +77,7 @@ export default function HomePage() {
             <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
               <input type="email" placeholder="Enter your email address"
                 style={{ flex: 1, padding: '13px 16px', borderRadius: 10, border: 'none', fontSize: 14, background: dm ? card : '#ffffff', color: text, outline: 'none', ...sans, boxShadow: dm ? `0 0 0 1.5px ${border}` : '0 1px 6px rgba(0,0,0,0.09)', minWidth: 0 }} />
-              <button type="button" onClick={() => openAuthModal("signup")}
-                style={{ padding: '13px 22px', borderRadius: 10, background: '#2563eb', color: '#fff', fontSize: 14, fontWeight: 700, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap', ...sans }}>
-                Start free <ArrowRight size={15} />
-              </button>
+              <StartFreeButton />
             </div>
 
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 20px' }}>
@@ -130,7 +129,7 @@ export default function HomePage() {
       <section id="features" style={{ padding: '96px 24px', background: bg, transition: 'all 0.4s ease' }}>
         <div className="max-w-6xl mx-auto">
           <h2 style={{ ...display, fontSize: 'clamp(1.7rem,2.8vw,2.4rem)', textAlign: 'center', marginBottom: 12, color: text, fontWeight: 700 }}>
-            How Trade&amp;Journal works
+            How <Brand /> works
           </h2>
           <p style={{ textAlign: 'center', fontSize: 15, color: muted, marginBottom: 72, maxWidth: 480, margin: '0 auto 72px', lineHeight: 1.75, ...sans }}>
             From broker connection to edge-building in three steps — no manual entry, no hassle.

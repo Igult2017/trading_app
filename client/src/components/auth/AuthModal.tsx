@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useLocation } from 'wouter';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
+import Brand from '@/components/Brand';
 
 export type AuthModalMode = 'login' | 'signup' | 'forgot';
 
@@ -115,8 +116,9 @@ export default function AuthModal() {
     } finally { setBusy(false); }
   }
 
-  const title = mode === 'forgot' ? 'Reset your password'
-    : mode === 'login' ? 'Sign in to Trade&Journal' : 'Create your account';
+  // ReactNode, not string, so the brand name can carry the logo's typeface (see Brand.tsx).
+  const title: React.ReactNode = mode === 'forgot' ? 'Reset your password'
+    : mode === 'login' ? <>Sign in to <Brand /></> : 'Create your account';
   const sub = mode === 'forgot' ? "Enter your email and we'll send you a reset link."
     : mode === 'login' ? 'Welcome back! Please sign in to continue'
     : 'Welcome! Please fill in the details to get started.';

@@ -1,4 +1,5 @@
 import { Star } from 'lucide-react';
+import Brand from '@/components/Brand';
 
 const serif = { fontFamily: "'Playfair Display', serif" } as const;
 const sans  = { fontFamily: "'Playfair Display', serif" } as const;
@@ -36,7 +37,7 @@ export default function TestimonialsSection({ darkMode }: { darkMode: boolean })
           Loved by thousands across the globe
         </h2>
         <p style={{ textAlign: 'center', fontSize: 15, color: muted, marginBottom: 56, ...sans }}>
-          Real reviews from verified Trade&amp;Journal traders
+          Real reviews from verified <Brand /> traders
         </p>
 
         <div className="grid md:grid-cols-3 gap-8">
