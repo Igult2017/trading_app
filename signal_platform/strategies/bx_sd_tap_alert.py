@@ -29,18 +29,57 @@ from strategies.bx_sd_zones import Zone
 REVERSAL_ONLY = True
 
 
-def _tap_words(mitigation_kind: str, retaps: int) -> str:
-    """How the zone was touched, in the reader's words. `mitigation_kind` is the registry's retained
-    fact (`bx_sd_registry.MarkedZone`) and survives the `respected` transition; empty means this is
-    the first touch and the book has not closed a bar on it yet."""
-    kind = {"wick": "wick tap — only the wick is in so far",
-            "body": "body tap — price has traded into it"}.get(mitigation_kind, "first touch")
-    return f"{kind}, return visit #{retaps}" if retaps else kind
+# `_tap_words()` stood here and is DELETED (2026-08-05). It phrased the tap kind for
+# `technical_reasons`; that fact moved into `_viability` below, where "first touch" is part of WHY
+# the setup qualifies. Its last caller went with the move, so the function was orphaned in the same
+# change that orphaned it — swept rather than left to rot.
+
+
+def _viability(is_newest: bool, mitigation_kind: str, retaps: int, method_tf: str,
+               method: str) -> list[str]:
+    """Why the METHOD would already call this an entry, stated only as far as it is true.
+
+    User, 2026-08-05: *"make cheeky alert inform that it would also be viable and explain why."*
+    His diagram takes the FIRST touch of the most recent valid zone once the entry TF confirms. BX
+    does not trade that — it waits for the zone to be respected first — but the card should say the
+    setup qualifies by the book rather than only listing what is missing.
+
+    TWO THINGS THIS MUST NOT OVERCLAIM, because the reader may act on it:
+
+      * "most recent valid zone" is COMPUTED upstream, not assumed. The alert picks the freshest
+        *tapped* zone, which is not the same as the freshest zone — a newer one may exist and simply
+        not have been touched. When it does, that line is dropped.
+      * "first touch" only when the zone has never been mitigated. This alert also fires on
+        wick/body-mitigated zones — return visits that never earned a reaction — and the diagram is
+        about the first arrival, so a return visit says so instead of borrowing its authority.
+
+    The three-factor line needs no guard: every zone in the registry has an imbalance, a structure
+    break and a liquidity sweep before it, or `bx_sd_registry.build` would not have marked it.
+    """
+    out = []
+    if is_newest:
+        out.append("most recent valid zone on this side")
+    else:
+        out.append("a valid zone, though a fresher one exists on this side")
+    out.append("imbalance + structure break + liquidity taken first")
+    # THE TAP STATE ALWAYS SAYS SOMETHING. The first version emitted a line only for a first touch
+    # or a counted retap, so a wick/body-mitigated zone with retaps=0 — touched once, never reacted —
+    # produced NO tap-state line at all, and the fact had already moved out of `technical_reasons`.
+    # A real rendered card is what showed it; the unit tests only exercised the two cases I wrote.
+    if not mitigation_kind:
+        out.append("first touch — the zone is unspent")
+    elif retaps:
+        out.append(f"return visit #{retaps} — worked before")
+    else:
+        out.append(f"{mitigation_kind} tap — touched, never reacted")
+    out.append(f"confirmed on {method_tf} ({method})")
+    return out
 
 
 def tap_alert_signal(zone: Zone, symbol: str, method: str, method_tf: str, digits: int,
                      strategy_name: str, strategy_id: str, backing: list[str],
-                     tap_time: int, mitigation_kind: str = "", retaps: int = 0) -> Signal:
+                     tap_time: int, mitigation_kind: str = "", retaps: int = 0,
+                     is_newest: bool = False) -> Signal:
     """The cheeky alert. `method` / `method_tf` come from `bx_sd_entry.reaction_on` — the SAME
     confirmation definition the real entry uses, never a second one."""
     buy  = zone.direction == "demand"
@@ -57,9 +96,10 @@ def tap_alert_signal(zone: Zone, symbol: str, method: str, method_tf: str, digit
         to_channel        = True,
         # STAGE 1. Levels are absent, not provisional — the card must not imply a tradeable setup.
         stage             = "building",
-        # NOT QUALIFIED, and that is the whole message. `disqualifiers` below is the honest list of
-        # what is still missing, and the formatter renders it as "WHAT'S MISSING" rather than hiding
-        # it. A reader who acts on this alert should be able to see exactly what it does not have.
+        # NOT QUALIFIED *by our rule* — and the card now says both halves: `smc_factors` is why the
+        # method would already take this, `disqualifiers` is why we stand aside anyway. Listing only
+        # the absence (which is all this did until 2026-08-05) told the reader the setup was
+        # incomplete, when by the book it is complete and we are simply stricter.
         qualified         = False,
         primary_timeframe = TF.H4,
         # No entry / stop / target ANYWHERE. The runner stamps `ref_price` for the DB row (the
@@ -68,15 +108,22 @@ def tap_alert_signal(zone: Zone, symbol: str, method: str, method_tf: str, digit
                               theme.ZONE_DEMAND if buy else theme.ZONE_SUPPLY,
                               f"4H {zone.direction.upper()}")],
         chart_marks       = [(tap_time, "TAP")],
+        # The tap-kind line used to sit here too. It moved into `_viability` — saying "first touch"
+        # is part of WHY the setup qualifies, and repeating it in both blocks cost caption budget
+        # the new section needs (Telegram REJECTS a photo caption over 1024 chars).
         technical_reasons = [
             f"4H {zone.direction} zone tapped [{zone.bottom:.{digits}f}–{zone.top:.{digits}f}]"
             f"{tag}",
-            _tap_words(mitigation_kind, retaps),
             f"{method_tf} {method}",
         ],
+        # WHY THE METHOD WOULD TAKE THIS. Rendered as its own block on the card, so the reader sees
+        # that what is present is already a complete setup by the book — not only what is absent.
+        smc_factors       = _viability(is_newest, mitigation_kind, retaps, method_tf, method),
+        # ...and why BX still stands aside. This replaces a bare "what's missing" list: the same two
+        # facts, but as the REASON rather than as an absence, which is what the user asked for.
         disqualifiers     = [
-            "the zone has NOT been respected yet — no close a full zone-height away",
-            "no 4H pullback, so there is no level to hang a stop off",
+            "the zone hasn't closed a full height away — reaction unproven",
+            "so no 4H pullback yet, and no level for a stop",
         ],
         market_context    = (f"BX-S/D — {symbol} just tapped a 4H {zone.direction} zone "
                              f"({side} area) with a {method_tf} {method}{tag}. Watching, not trading."),

@@ -115,9 +115,16 @@ def scan_reports(symbol: str, entry_tf: list[Candle], m5: list[Candle], m1: list
                 continue
             method = reaction_on(cs, want, z, mz.direction, reversal_only=REVERSAL_ONLY)
             if method:
+                # IS THIS THE MOST RECENT VALID ZONE ON ITS SIDE? The card says so, so it is
+                # COMPUTED, never assumed — the alert takes the freshest *tapped* zone, which is not
+                # the same thing as the freshest zone. A newer zone that is BROKEN does not count:
+                # it is no longer a candidate for anything.
+                is_newest = not any(m.direction == mz.direction and m.ifc_time > mz.ifc_time
+                                    and m.state != "broken" for m in marked)
                 tap = tap_alert_signal(z, symbol, method, tf_label, digits, name, sid,
                                        htf_backing(z, htf_map), live.time,
-                                       mitigation_kind=mz.mitigation_kind, retaps=mz.retaps)
+                                       mitigation_kind=mz.mitigation_kind, retaps=mz.retaps,
+                                       is_newest=is_newest)
                 tap.dedup_key = key          # committed only once the channel post lands
                 break
         if tap is not None:

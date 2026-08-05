@@ -23,9 +23,9 @@ from core.types import Signal, Direction
 # sheepish about having spoken up at all. The FIRST is his line, near-verbatim.
 _SIGNOFFS = (
     "Anyway — what do I know. I'm just an agent. I should stick to what I know better.",
-    "But what do I know? I just stare at candles all day. You're the one with the account.",
+    "But what do I know? I just stare at candles all day.",
     "Could be nothing. I've been wrong before — I'll be wrong again by Thursday.",
-    "I'll go back to watching now. Someone has to, and it's not going to be my day off.",
+    "I'll go back to watching now. Someone has to.",
     "Don't let me talk you into anything. I'm a script with opinions.",
 )
 
@@ -58,7 +58,8 @@ def format_tap_alert(signal: Signal) -> str:
     dot   = "🟢" if buy else "🔴"
     zone  = "DEMAND" if buy else "SUPPLY"
     facts = list(signal.technical_reasons or [])
-    miss  = list(signal.disqualifiers or [])
+    why   = list(signal.smc_factors or [])          # why the METHOD would already take this
+    miss  = list(signal.disqualifiers or [])        # why WE do not
 
     lines = [
         # NOT the word "SIGNAL", and no BUY/SELL in the headline. The room has been trained that a
@@ -67,20 +68,25 @@ def format_tap_alert(signal: Signal) -> str:
         f"<i>{_h(signal.strategy_name or signal.strategy_id)} · watching, not trading</i>",
         _RULE,
         "",
-        f"Price just tapped the 4H <b>{zone}</b> zone, and the entry timeframe is reacting.",
-        "",
-        "Worth a look? Maybe. Me, I'm holding out for the zone to be <b>RESPECTED</b> and the 4H "
-        "pullback after it — that's when I shout properly.",
+        f"Price just tapped the 4H <b>{zone}</b> zone and the entry timeframe is reacting.",
         "",
         "✅ <b>WHAT'S THERE</b>",
     ]
     lines += [f"   · {_h(f)}" for f in facts] or ["   · —"]
+    # THE POINT OF THIS CARD, added 2026-08-05 on the user's instruction: say that what is present is
+    # already a complete setup by the book, instead of only listing what is absent. The lines are
+    # built in `bx_sd_tap_alert._viability` and are conditioned on real state — "most recent valid
+    # zone" is computed, "first touch" only when the zone is genuinely unspent.
+    if why:
+        lines += ["", "📘 <b>BY THE METHOD, THIS ALREADY QUALIFIES</b>"]
+        lines += [f"   · {_h(w)}" for w in why]
     if miss:
-        lines += ["", "⏳ <b>WHAT'S MISSING</b>"]
+        lines += ["", "⏳ <b>WHY WE STILL WAIT</b>"]
         lines += [f"   · {_h(m)}" for m in miss]
     lines += [
         "",
-        "<blockquote>Not an entry. No stop, no target, nothing to place yet.</blockquote>",
+        "<blockquote>Not an entry from us — we take this zone one step later. No stop, no "
+        "target here.</blockquote>",
         "",
         f"<i>{_h(_signoff(signal.dedup_key))}</i>",
         "",

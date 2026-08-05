@@ -70,7 +70,7 @@ or 1M a cheeky signal should be sent … I am asking for the first signal before
 |---|---|---|
 | fires when | zone TAPPED + a 1M/5M **reversal** reaction | zone RESPECTED → moved away → first 4H pullback → 1M/5M confirmation |
 | zone state | **NOT** `respected` | `respected` |
-| carries | no entry, no stop, no target | all three, plus the order type |
+| carries | no entry, no stop, no target — **plus why the method would already take it, and why we don't** | all three, plus the order type |
 | goes to | the channel, `alert_only` + `to_channel` | the channel, a real signal |
 | owned by | `bx_sd_reports` ③ → `bx_sd_tap_alert` | `bx_sd_setup` + `bx_sd_confirm` |
 

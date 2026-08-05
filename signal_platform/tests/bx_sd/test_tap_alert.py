@@ -186,7 +186,10 @@ msg = format_tap_alert(sig)
 chk("never calls itself a signal", "SIGNAL" in msg.upper().replace("SIGNAL PLATFORM", ""), False)
 chk("says plainly it is not an entry", "Not an entry" in msg, True)
 chk("shows what is there", "WHAT'S THERE" in msg, True)
-chk("shows what is missing", "WHAT'S MISSING" in msg, True)
+chk("says the setup already qualifies by the method", "ALREADY QUALIFIES" in msg, True)
+chk("explains why we still stand aside", "WHY WE STILL WAIT" in msg, True)
+chk("  and names the reason, not just the absence",
+    "reaction unproven" in msg, True)
 chk("carries the disclaimer", "does not offer financial advice" in msg, True)
 chk("escapes the ampersand for HTML mode", "Trade&amp;Journal" in msg, True)
 chk("no raw unescaped ampersand", "&" in msg.replace("&amp;", ""), False)
@@ -195,6 +198,49 @@ chk("no raw unescaped ampersand", "&" in msg.replace("&amp;", ""), False)
 chk("the sign-off is stable for one signal",
     format_tap_alert(sig) == msg, True)
 chk("  and different keys can draw different sign-offs", len(set(_SIGNOFFS)), len(_SIGNOFFS))
+
+# ── 6. THE CARD MUST NOT OVERCLAIM ─────────────────────────────────────────────────────────────
+# The "already qualifies" block can move a reader to trade. Every line in it therefore has to be
+# earned by real state, not by the alert having fired.
+print("\nTHE VIABILITY CLAIMS ARE EARNED, NOT ASSUMED")
+from strategies.bx_sd_tap_alert import _viability, tap_alert_signal     # noqa: E402
+
+newest = _viability(True, "", 0, "5M", "CHoCH")
+older  = _viability(False, "", 0, "5M", "CHoCH")
+chk("with no newer zone it claims most-recent",
+    any("most recent valid zone" in v for v in newest), True)
+chk("with a fresher zone on the side it does NOT",
+    any("most recent valid zone" in v for v in older), False)
+chk("  ...and says what IS true instead",
+    any("a fresher one exists" in v for v in older), True)
+chk("an unspent zone is called a first touch",
+    any("first touch" in v for v in newest), True)
+# A wick/body-mitigated zone reaches this alert too — a return visit that never earned a reaction.
+# The diagram is about the FIRST arrival, so a return visit must not borrow its authority.
+revisit = _viability(True, "body", 2, "1M", "S/D Flip")
+chk("a return visit does NOT claim first touch",
+    any("first touch" in v for v in revisit), False)
+chk("  ...it says it is a return visit", any("return visit #2" in v for v in revisit), True)
+# A zone touched once and never reacted (mitigated, retaps=0) fell between both branches in the
+# first version and produced NO tap-state line at all — caught by rendering a real card, not by the
+# two cases I had thought to write. Every state must say something.
+touched = _viability(True, "wick", 0, "5M", "CHoCH")
+chk("a touched-but-unreacted zone still reports its tap state",
+    any("tap — touched, never reacted" in v for v in touched), True)
+chk("  ...and every state produces the same number of lines",
+    len({len(newest), len(revisit), len(touched)}), 1)
+# The three-factor line needs no guard — every zone in the registry has all three by construction.
+chk("the three factors are always stated",
+    all(any("imbalance + structure break" in v for v in s) for s in (newest, older, revisit)), True)
+
+# THE WHOLE CARD, on a zone that is NOT the newest — the claim must be absent end to end
+older_sig = tap_alert_signal(z, "EUR/USD", "CHoCH", "5M", 5, "BX-S/D", "bx_sd", [], T0,
+                             mitigation_kind="", retaps=0, is_newest=False)
+older_sig.dedup_key = "k"
+chk("the rendered card omits the claim when it is not true",
+    "most recent valid zone" in format_tap_alert(older_sig), False)
+chk("  but still says the setup qualifies",
+    "ALREADY QUALIFIES" in format_tap_alert(older_sig), True)
 
 # THE CAPTION CAP. This card always ships with a chart, and Telegram REJECTS a photo caption over
 # 1024 chars — it does not truncate. Over the line and the send fails, the reader gets text with no
@@ -206,7 +252,7 @@ from strategies.bx_sd_tap_alert import tap_alert_signal                   # noqa
 
 worst_zone = to_zone(zone(retaps=9, mitigation_kind="body"), closed_only(h4_bars(tap=True)))
 worst = tap_alert_signal(worst_zone, "GBP/JPY", "CHoCH+Flip (god setup)", "entry TF", 3,
-                         "BX-S/D", "bx_sd", ["D1", "W1", "MN"], T0, "body", 9)
+                         "BX-S/D", "bx_sd", ["D1", "W1", "MN"], T0, "body", 9, is_newest=True)
 longest = 0
 for i in range(len(_SIGNOFFS) * 4):          # enough keys to land on every sign-off
     worst.dedup_key = f"key{i}"
