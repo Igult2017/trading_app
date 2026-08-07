@@ -69,23 +69,74 @@ s.check("bull: price never reached the line",
 
 # ---------------------------------------------------------------- candle shape
 print()
-print("   is_pullback_candle rejects the shapes that mark no level:")
+# THE PULLBACK IS ANY CANDLE (user, 2026-08-07). The only shape rejection left is the WHIPSAW he
+# named himself. The three checks below that changed on that date are marked — they changed because
+# THE RULE CHANGED, not to turn a red test green. See the vix1.md fix log for the round trip.
+print("   is_pullback_candle takes ANY counter candle, rejecting only a whipsaw:")
 AVG = 0.0010
 s.check("a candle WITH the bias is not a pullback",
         is_pullback_candle(body(1.1000, 1.1015), True, AVG), False)
 s.check("a clean counter candle is a pullback",
         is_pullback_candle(body(1.1015, 1.1000), True, AVG), True)
-s.check("an insignificant body (under the recent average) is refused",
-        is_pullback_candle(body(1.1000, 1.09998), True, AVG), False)
-s.check("indecision (body under 60% of its own range) is refused",
+# CHANGED 2026-08-07: was asserted False under the "significant body" rule. A tiny body is now a
+# perfectly good pullback — this is the exact shape that made his 06 Aug entry arrive late.
+s.check("a TINY body (far under the recent average) is ACCEPTED",
+        is_pullback_candle(body(1.1000, 1.09998), True, AVG), True)
+# Still refused, but for the OTHER reason: 0.0010 body in a 0.0050 range, on a 0.0010 average, is
+# wide (>= 2.5x) AND settles nowhere (< 60%) — a whipsaw. It was previously labelled as failing the
+# 60%-of-range "indecision" gate, which no longer exists.
+s.check("a wide bar that settles nowhere is refused as a WHIPSAW",
         is_pullback_candle(body(1.1010, 1.1000, wick_up=0.0020, wick_dn=0.0020), True, AVG), False)
 s.check("a WHIPSAW (wide, settles nowhere) is refused",
         is_pullback_candle(body(1.1010, 1.1004, wick_up=0.0015, wick_dn=0.0015), True, AVG), False)
+# A small body is only refused when it is ALSO abnormally wide. Narrow + indecisive is fine now.
+s.check("a narrow doji (not wide) is ACCEPTED",
+        is_pullback_candle(body(1.1010, 1.10099, wick_up=0.0002, wick_dn=0.0002), True, AVG), True)
 
 # ---------------------------------------------------------------- teeth
 print()
 s.teeth("the past-the-line gate", find_pullback(below, True, LINE)[0] is None)
 s.teeth("the straddle rule", find_pullback(straddle, True, LINE)[0] is None)
-s.teeth("the shape filter", is_pullback_candle(body(1.1000, 1.09998), True, AVG) is False)
+# TEETH RE-AIMED 2026-08-07. It used to assert that a tiny body was refused — the very gate that has
+# been deleted, so left alone it would have failed and tempted the next reader to "fix" it by
+# restoring the gate. The shape filter still HAS teeth; they are the whipsaw, so that is what it now
+# guards. A test whose teeth are removed rather than re-aimed is worse than no test.
+s.teeth("the shape filter (whipsaw)",
+        is_pullback_candle(body(1.1010, 1.1004, wick_up=0.0015, wick_dn=0.0015), True, AVG) is False)
+
+# ---------------------------------------------------------------- the first pullback IS the entry
+# The point of the 2026-08-07 change. `find_pullback` RETURNS NONE when the first candle of a
+# retrace fails, rather than falling through to a later one — so a rejected first candle skipped the
+# WHOLE retrace and the entry waited for a later one that opened bigger. That is what he saw on
+# GBP/USD 06 Aug: "I got it late... the entry should be immediately at the first pullback."
+print()
+print("   the FIRST candle of the retrace anchors, whatever its shape:")
+SELL_LINE = 1.1050
+
+
+def _run_then_pullback(pb_candle):
+    """A bearish run that breaks below the line, then retraces with `pb_candle` FIRST."""
+    run = [body(1.1040 - i * 0.0005, 1.1036 - i * 0.0005, t=i) for i in range(4)]
+    return run + [pb_candle]
+
+
+for shape, c in (
+    ("a doji",              body(1.1021, 1.10211, t=9, wick_up=0.0001, wick_dn=0.0001)),
+    ("a tiny body",         body(1.1021, 1.10215, t=9)),
+    # Wicked, but NOT abnormally wide. My first attempt here used 4-pip wicks on a 0.4-pip body
+    # against a ~0.33-pip average — range 2.5x the average with the body settling nowhere, which is
+    # a WHIPSAW by his own definition. The code was right to refuse it and the FIXTURE was wrong;
+    # kept small so it tests "a wicked small body is fine" rather than smuggling in chop.
+    ("a wicked small body", body(1.1021, 1.10214, t=9, wick_up=0.0002, wick_dn=0.0002)),
+):
+    win = _run_then_pullback(c)
+    pb, why = find_pullback(win, False, SELL_LINE)
+    s.check(f"{shape} first pullback anchors the entry", pb is win[-1], True)
+
+# ...and the whipsaw still stops one, even as the FIRST candle of a retrace — the one rejection he
+# kept. Without this the block above would only prove the gate is gone, not that it is gone SAFELY.
+whip = body(1.1021, 1.10214, t=9, wick_up=0.0006, wick_dn=0.0006)
+pbw, whyw = find_pullback(_run_then_pullback(whip), False, SELL_LINE)
+s.check("a WHIPSAW first candle still gives no entry", pbw, None)
 
 s.done()

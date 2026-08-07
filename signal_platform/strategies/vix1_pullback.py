@@ -51,57 +51,48 @@ _AVG_N            = 14   # same baseline the platform's volume/violent patterns 
 #     5.9-pip range - 100% body, 2.6x the 14-bar average, the cleanest pullback in that hour. Both
 #     caps rejected it. The code waited five more minutes and anchored on a weaker candle instead.
 #
-# The anti-chop test is now what chop actually is, and it needs BOTH halves: abnormally wide AND not
-# decisive. A candle that is 60%+ body cannot be a whipsaw however large it is, so in practice the
-# _MIN_BODY_FRAC gate below already does this work - which is the point. Size alone never disqualifies.
+# The anti-chop test is what chop actually is, and it needs BOTH halves: abnormally wide AND not
+# decisive. A candle that is 60%+ body cannot be a whipsaw however large it is. Size alone never
+# disqualifies — at EITHER end.
+#
+# (This paragraph used to add "the _MIN_BODY_FRAC gate below already does this work". That gate was
+#  deleted on 2026-08-07, so the whipsaw test is now the ONLY shape rejection and carries the job
+#  alone. Left uncorrected it would tell the next reader this test is partly redundant.)
 _CHOP_RNG_MULT   = 2.5   # range >= this x the 14-bar avg body ... (first half of the whipsaw test)
 _CHOP_BODY_FRAC  = 0.60  # ... AND body < this share of its own range -> a whipsaw, not a pullback
 _MAX_BODY_VS_AVG = 0.0   # optional ceiling on body/avg; 0 = NONE, and none is correct: a big
                          # DECISIVE pullback is the best anchor there is, and one 1HR candle's
                          # range already caps the risk downstream (vix1_roi.max_risk).
 
-# A PROPER pullback candle, the OTHER end of the same scale (user 2026-07-26: "I just waited for a
-# PROPER pullback candle, not an insignificant candle that shows the STRUGGLE between the buyers and
-# sellers"). The two tests above throw out bars that are abnormally BIG (chop); these throw out the
-# ones that say NOTHING. Both are measured against the 1M's own recent activity, never a pip count.
-#   SIGNIFICANT — its body is a real share of what a 1M candle is doing right now. An 0.9-pip body
-#                 when the market is running 3-pip bars is not a pullback, it is a pause.
-#   DECISIVE    — its body is a real share of its OWN range. A candle that opens and closes in the
-#                 same place IS the struggle between buyers and sellers; neither side won, so it
-#                 marks nothing and a stop just beyond it rests on noise.
-# Measured before this existed (GBP/USD Jan-Jun 2021): the median pullback the code anchored on was
-# a 2.2-pip candle with an 0.9-pip body, and 31% of them had a body under 25% of their range. His
-# own setup-1 pullback was a 5.9-pip candle with a 5.9-pip body — 100%. The code took a 1.4-pip
-# ZERO-body doji four minutes earlier and was stopped out of a trade he made +2.28R on.
+# NO MINIMUM SIZE. THE PULLBACK IS ANY CANDLE — user, 2026-08-07: *"make it to be pullback of any
+# candle. Any other thing I will decide on my own."*
 #
-# MEASURED, AND IT DOES NOT PAY — read this before tuning these two numbers. Swept over 1,518
-# structural setups (GBP/USD + EUR/USD, 26 months) the rule is FLAT at every strictness:
-#     anything (the old rule)          871 trades  33% WR   -1.5R
-#     body >=0.25x avg, >=20% of range 851 trades  33% WR  -10.5R
-#     body >=0.50x avg, >=35% of range 816 trades  32% WR  -23.7R
-#     body >=0.75x avg, >=50% of range 766 trades  32% WR  -17.3R
-#     body >=1.00x avg, >=60% of range 674 trades  33% WR   -3.8R   <- shipped
-# It changes individual trades a lot (his setup 1 goes from breakeven to +2.00R) and the changes
-# CANCEL — which is the signature of noise, not edge. The setting below is kept because it is the
-# most faithful reading of his rule and costs nothing measurable against the old one, NOT because
-# it improves anything. Do not tune these to chase R; the lever is not here.
-_MIN_BODY_VS_AVG = 1.00  # body >= this x the 1M's 14-bar avg body   -> it is SIGNIFICANT
-_MIN_BODY_FRAC   = 0.60  # body >= this share of its own range        -> it is DECISIVE, not a doji
+# A `_MIN_BODY_VS_AVG = 1.00` / `_MIN_BODY_FRAC = 0.60` pair lived here from 2026-07-26. DO NOT
+# RESTORE IT without him asking — the full round trip is in the vix1.md fix log. In short: it was
+# added on his "I just waited for a PROPER pullback candle" and it did the opposite of what he
+# wanted in practice, because `find_pullback` RETURNS NONE when the first candle of a retrace fails
+# rather than falling through to a later one. So a small first pullback did not merely get skipped,
+# the whole retrace did, and the entry waited for a later retrace that happened to open big — later
+# in time and further from the line. He caught it on a live GBP/USD chart (06 Aug 2026): *"I got it
+# late… the entry should be immediately at the first pullback… The first pullback ever."*
+#
+# Measured at the time it was removed: with a 4.16-pip average body, a 1.1-pip first pullback was
+# rejected AND so was a 3.8-pip later one — in a trending move a retrace candle is normally SMALLER
+# than the average bar, so "body >= the average" is rarely satisfied at all.
 
 
 def is_pullback_candle(c: Candle, bullish: bool, avg: float = 0.0) -> bool:
-    """A candle not going WITH the bias, that is neither ABNORMAL nor INSIGNIFICANT.
-    Chop     -> a WHIPSAW: an abnormally wide bar (range >= 2.5x the recent avg body) whose body
-                settles nowhere (< 60% of its range). Size alone is NOT a disqualifier.
-    Too small-> a body under the recent average, or under 60% of its own range: indecision, which
-                marks no level worth anchoring an entry and a stop to."""
+    """A candle not going WITH the bias, of ANY shape — doji included — that is not ABNORMAL.
+
+    Size is never a disqualifier, at either end. The only rejection is the one he stated himself
+    (2026-07-22): *"so long as that pullback is not volatility candle and not violent candle typical
+    of market choppiness"* — a WHIPSAW: an abnormally wide bar (range >= 2.5x the recent avg body)
+    whose body settles nowhere (< 60% of its range). Both halves are required; a wide DECISIVE
+    candle is conviction, not chop.
+    """
     if is_bullish(c) if bullish else is_bearish(c):     # a candle WITH the bias is not a pullback
         return False
     rng = full_range(c)
-    if avg > 0 and body_size(c) < _MIN_BODY_VS_AVG * avg:
-        return False                                   # insignificant — a pause, not a pullback
-    if rng > 0 and body_size(c) < _MIN_BODY_FRAC * rng:
-        return False                                   # indecision — the struggle he described
     if avg > 0 and rng > 0 and rng >= _CHOP_RNG_MULT * avg and body_size(c) < _CHOP_BODY_FRAC * rng:
         return False                                   # a WHIPSAW: wide AND settles nowhere
     if _MAX_BODY_VS_AVG and avg > 0 and body_size(c) >= _MAX_BODY_VS_AVG * avg:
