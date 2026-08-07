@@ -77,7 +77,7 @@ export default function HomePage() {
             <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
               <input type="email" placeholder="Enter your email address"
                 style={{ flex: 1, padding: '13px 16px', borderRadius: 10, border: 'none', fontSize: 14, background: dm ? card : '#ffffff', color: text, outline: 'none', ...sans, boxShadow: dm ? `0 0 0 1.5px ${border}` : '0 1px 6px rgba(0,0,0,0.09)', minWidth: 0 }} />
-              <StartFreeButton />
+              <StartFreeButton dark={dm} />
             </div>
 
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 20px' }}>

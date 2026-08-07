@@ -116,7 +116,7 @@ export default function HomeStatsSection({ darkMode }: { darkMode: boolean }) {
             Connect your broker in under a minute and let the platform track, analyse, and sharpen your trading — no credit card required.
           </p>
           <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
-            <StartFreeButton />
+            <StartFreeButton dark={dm} />
             <a href="/#pricing"
               style={{ ...sans, padding: '13px 28px', borderRadius: 4, border: `1.5px solid ${border}`, color: text, fontSize: 14, fontWeight: 600, textDecoration: 'none' }}>
               View pricing

@@ -194,7 +194,7 @@ export default function HomeHeader({ darkMode, setDarkMode, activePath }: HomeHe
                 a shadow tinted with the button's OWN hue rather than black — a grey shadow under a
                 saturated button always looks muddy. Hover darkens and lifts a pixel instead of
                 fading opacity, which washed the white label out with it. */}
-            <StartFreeButton />
+            <StartFreeButton dark={dm} />
             <DarkToggle />
           </div>
 
