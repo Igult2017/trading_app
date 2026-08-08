@@ -64,39 +64,61 @@ const OBS_CSS = `
   .obs-jf [class~="text-[10px]"] { font-size: 12px !important; }
   .obs-jf [class~="text-[11px]"] { font-size: 13px !important; }
   .obs-jf .text-xs               { font-size: 13.5px !important; line-height: 1.5 !important; }
-  .obs-jf [class~="text-[#3f3f46]"] { color: #a1a1aa !important; }   /* 1.91:1 -> 7.76:1 */
-  .obs-jf [class~="text-[#52525b]"] { color: #a1a1aa !important; }   /* 2.57:1 -> 7.76:1 */
-  .obs-jf [class~="text-[#27272a]"] { color: #8b8b94 !important; }   /* 1.34:1 -> 5.89:1 */
-  .obs-jf [class~="text-[#71717a]"] { color: #a1a1aa !important; }   /* 4.12:1 -> 7.76:1 */
-  /* UPPERCASE MICRO-LABELS — matched to Trade Sync, which is the panel the user pointed at as the
-     one that reads cleanly (2026-08-08: "that white there is blurred. Can you use the white used in
-     text in Straeva (tradesync)").
+  /* THE TRADE SYNC PALETTE. User, 2026-08-08: "did you use the text and number color values used in
+     tradesync? I prefer it because it makes the text and numbers so visible."
 
-     It is NOT a different typeface. Trade Sync uses Playfair too (features/trade-sync/styles/
-     utilities.ts .font-label-sm) — I assumed a serif-at-small-size problem and was wrong. Rendered
-     side by side on this same #09090b, the whole difference is these three values:
+     Trade Sync's dark theme declares exactly TWO text colours (features/trade-sync/styles/tokens.ts,
+     .ct-app.theme-dark), and every piece of text in it is one or the other:
 
-                       colour      weight   tracking
-       journal (was)   #a1a1aa      700      .10em     <- dim and clotted
-       Trade Sync      #e8edf9      500      .05em     <- what he is comparing against
+         --md-on-surface          #e8edf9    main text AND numbers     16.97:1 on this #09090b
+         --md-on-surface-variant  #a6b3d1    secondary text             9.46:1
 
-     Colour does most of the work: #a1a1aa is 7.76:1 on #09090b, #e8edf9 is 16.97:1 — more than
-     double. The weight drop matters because Playfair is a HIGH-CONTRAST serif: at 13px its thick
-     strokes already crowd the letter's own gaps, and 700 closes them up into a smudge. 500 opens
-     them again. The tighter tracking lets the words read as words rather than spaced-out letters.
+     Both journal greys map onto those two. Nothing else gets invented: a third grey is how the form
+     ended up with #3f3f46, #27272a, #52525b and #71717a in the first place - four greys nobody
+     chose, all of them below AA.
 
-     The 700 here was added when these labels moved from a mono to Playfair, to "keep the weight the
-     mono was carrying". That reasoning is spent: the contrast is now carried by the colour.
+     They are BLUE-TINTED, because Trade Sync sits on a blue-black (#0a1220) and this form sits on a
+     neutral black (#09090b). On this background they read very slightly cool. That is the known and
+     accepted cost of matching the panel he asked to match, not an oversight.
 
-     TRACKING IS DELIBERATELY LEFT ALONE. Trade Sync's .05em looked tightest in the comparison, but
-     forcing it here would flatten this form's own hierarchy — its labels run .25em and the section
-     headings .3em, which is a design choice, not an accident. Colour and weight are what turn to
-     mush at 13px; spacing does not. Changing only what is broken. */
-  .obs-jf .uppercase { font-weight: 500 !important; color: #e8edf9 !important; }
-  .obs-rating-btn { display:flex; align-items:center; justify-content:center; width:36px; height:36px; border-radius:6px; border:1px solid #27272a; background:#0c0c0e; color:#71717a; font-size:13px; font-weight:700; cursor:pointer; transition:all 0.15s; font-family:inherit; flex-shrink:0; }
+     COLOUR IS DRIVEN FROM THESE CLASSES, NEVER FROM .uppercase. An earlier attempt put
+     color: #e8edf9 !important on the .obs-jf .uppercase rule, which also caught the blue section
+     headings, the blue "Analyzing...", the green "Entry Successful", the red losses count and the
+     active tab - every one of them flattened to white. Anything that carries its own meaningful
+     colour must keep it, so the caps rule below sets WEIGHT ONLY.
+
+     NO BACKTICKS IN THIS BLOCK, EVER - not even in a comment. This is a JS template literal, so a
+     backtick ends the string. Writing this very paragraph with backticks around the rule names is
+     what broke the file on 2026-08-08; the same mistake shipped twice before. Quote with "..".
+
+     DARK THEMES ONLY - note the :not(.journal-light). The journal ships six themes, five dark and
+     one light (#FFFEFB), and Journal.tsx already remaps these same hex classes for the light one:
+         .journal-light [class*="text-[#3f3f46]"] { color: #5C5646 !important }
+     That rule and the rule below have IDENTICAL specificity and both carry !important, so the tie is
+     settled by source order - and JournalForm renders inside Journal, so its style tag lands later
+     and wins. Unscoped, these dark-theme colours therefore painted themselves onto the white page:
+     measured 2.08:1 for a label and 1.16:1 for a checkbox line. Scoping to :not(.journal-light)
+     makes them apply only where they are correct and leaves light mode to the rules that own it. */
+  .journal-root:not(.journal-light) .obs-jf [class~="text-[#3f3f46]"],
+  .journal-root:not(.journal-light) .obs-jf [class~="text-[#52525b]"],
+  .journal-root:not(.journal-light) .obs-jf [class~="text-[#27272a]"],
+  .journal-root:not(.journal-light) .obs-jf [class~="text-[#71717a]"],
+  .journal-root:not(.journal-light) .obs-jf [class~="text-[#a1a1aa]"] { color: #a6b3d1 !important; }
+  .journal-root:not(.journal-light) .obs-jf [class~="text-[#e4e4e7]"],
+  .journal-root:not(.journal-light) .obs-jf [class~="text-[#d4d4d8]"] { color: #e8edf9 !important; }
+  /* WEIGHT, for whatever is still in capitals. Playfair is a HIGH-CONTRAST serif: its thick strokes
+     and hairlines alternate, so at 9-13px a 700 weight fattens the thick strokes until they close up
+     the letter's own counters (the holes in e, a, g) and the word turns to a smudge. 500 opens them.
+
+     This rule sets WEIGHT ONLY - see the palette note above for why colour must not live here.
+
+     It is NOT a typeface problem. Trade Sync uses Playfair too (features/trade-sync/styles/
+     utilities.ts .font-label-sm); an early read of this blamed the serif and was wrong. */
+  .obs-jf .uppercase { font-weight: 500 !important; }
+  .obs-rating-btn { display:flex; align-items:center; justify-content:center; width:36px; height:36px; border-radius:6px; border:1px solid #27272a; background:#0c0c0e; color:#a6b3d1; font-size:13px; font-weight:500; cursor:pointer; transition:all 0.15s; font-family:inherit; flex-shrink:0; }
   .obs-rating-btn:hover:not(.obs-rating-active) { border-color:#4e8cff80; color:#4e8cff; background:#4e8cff0d; }
   .obs-rating-active { background:#4e8cff; border-color:#4e8cff; color:#fff; box-shadow:0 0 0 2px #4e8cff30; }
-  .obs-jf select option { background: #0c0c0e; color: #e4e4e7; }
+  .obs-jf select option { background: #0c0c0e; color: #e8edf9; }
   .obs-jf textarea::placeholder, .obs-jf input::placeholder { opacity: 0.35; }
   .obs-jf .obs-scrollbar::-webkit-scrollbar { width: 2px; }
   .obs-jf .obs-scrollbar::-webkit-scrollbar-track { background: transparent; }
@@ -212,12 +234,12 @@ const SectionLabel = ({ children }: { children: React.ReactNode }) => (
 );
 
 const FieldLabel = ({ children }: { children: React.ReactNode }) => (
-  <div className="text-[9px] uppercase tracking-[0.25em] font-bold text-[#3f3f46] mb-1.5">{children as any}</div>
+  <div className="text-[9px] tracking-normal font-medium text-[#3f3f46] mb-1.5">{children as any}</div>
 );
 
 const Txt = ({ label, value, onChange, placeholder, rows = 3, danger }: any) => (
   <div className="group space-y-1.5">
-    <label className={`text-[9px] uppercase tracking-[0.25em] font-bold text-[#3f3f46] ${danger ? "group-focus-within:text-rose-500" : "group-focus-within:text-white"} transition-colors`}>{label}</label>
+    <label className={`text-[9px] tracking-normal font-medium text-[#3f3f46] ${danger ? "group-focus-within:text-rose-500" : "group-focus-within:text-white"} transition-colors`}>{label}</label>
     <textarea rows={rows} value={value || ""} onChange={e => onChange(e.target.value)} placeholder={placeholder || ""}
       className={`w-full bg-[#0c0c0e] border border-[#18181b] ${danger ? "focus:border-rose-500/30" : "focus:border-[#4e8cff]/50"} p-3 rounded-sm outline-none text-[#e4e4e7] placeholder:text-[#3f3f46] text-xs leading-relaxed transition-all resize-none`}
     />
@@ -226,7 +248,7 @@ const Txt = ({ label, value, onChange, placeholder, rows = 3, danger }: any) => 
 
 const Inp = ({ label, type = "text", value, onChange, placeholder, readOnly }: any) => (
   <div className="group space-y-1.5">
-    {label && <label className="text-[9px] uppercase tracking-[0.25em] font-bold text-[#3f3f46] group-focus-within:text-white transition-colors">{label}</label>}
+    {label && <label className="text-[9px] tracking-normal font-medium text-[#3f3f46] group-focus-within:text-white transition-colors">{label}</label>}
     <input type={type} value={value ?? ""} onChange={e => onChange?.(e.target.value)} placeholder={placeholder || ""} readOnly={readOnly}
       className="w-full bg-[#0c0c0e] border border-[#18181b] focus:border-[#4e8cff]/50 px-3 py-2 rounded-sm outline-none text-[#e4e4e7] placeholder:text-[#3f3f46] text-xs transition-all"
     />
@@ -257,7 +279,7 @@ function PinTxt({ storageKey, label, value, onChange, placeholder, rows = 2 }: {
   return (
     <div className="group space-y-1.5">
       <div className="flex items-center justify-between">
-        <label className="text-[9px] uppercase tracking-[0.25em] font-bold text-[#3f3f46] group-focus-within:text-white transition-colors">{label}</label>
+        <label className="text-[9px] tracking-normal font-medium text-[#3f3f46] group-focus-within:text-white transition-colors">{label}</label>
         {sticky ? (
           <div className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-[#4e8cff]/10 border border-[#4e8cff]/40 rounded-sm">
             <span className="text-[9px] text-[#4e8cff] font-bold">pinned</span>
@@ -299,7 +321,7 @@ function PinInp({ storageKey, label, value, onChange, placeholder }: {
   return (
     <div className="group space-y-1.5">
       <div className="flex items-center justify-between">
-        <label className="text-[9px] uppercase tracking-[0.25em] font-bold text-[#3f3f46] group-focus-within:text-white transition-colors">{label}</label>
+        <label className="text-[9px] tracking-normal font-medium text-[#3f3f46] group-focus-within:text-white transition-colors">{label}</label>
         {sticky ? (
           <div className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-[#4e8cff]/10 border border-[#4e8cff]/40 rounded-sm">
             <span className="text-[9px] text-[#4e8cff] font-bold">pinned</span>
@@ -331,7 +353,7 @@ function Sel({ label, options, value, onChange }: any) {
 
   return (
     <div className="group space-y-1.5">
-      {label && <label className="text-[9px] uppercase tracking-[0.25em] font-bold text-[#3f3f46] group-focus-within:text-white transition-colors">{label}</label>}
+      {label && <label className="text-[9px] tracking-normal font-medium text-[#3f3f46] group-focus-within:text-white transition-colors">{label}</label>}
       {other ? (
         <div className="flex gap-1">
           <input autoFocus type="text" value={value || ""} placeholder="Type custom value…"
@@ -363,7 +385,7 @@ const Radio = ({ label, options, value, onChange }: any) => (
         <button key={o} type="button" onClick={() => onChange(o)}
           className={`px-3 py-1.5 text-[11px] border rounded-sm transition-all ${value === o
             ? "bg-[#4e8cff]/10 border-[#4e8cff]/70 text-[#4e8cff] font-bold"
-            : "bg-[#0c0c0e] border-[#27272a] text-[#71717a] hover:border-[#4e8cff]/30 hover:text-[#a1a1aa]"}`}
+            : "bg-[#0c0c0e] border-[#27272a] text-[#71717a] hover:border-[#4e8cff]/30 hover:text-[#e4e4e7]"}`}
         >{o}</button>
       ))}
     </div>
@@ -439,7 +461,7 @@ const Checkbox = ({ label, checked, onChange }: any) => (
       <input type="checkbox" checked={!!checked} onChange={e => onChange(e.target.checked)} className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" />
       {checked && <span className="text-[9px] text-[#4e8cff] font-bold leading-none pointer-events-none">✓</span>}
     </div>
-    <span className="text-[11px] font-bold text-[#71717a] group-hover:text-[#a1a1aa] transition-colors uppercase tracking-widest">{label}</span>
+    <span className="text-[12px] font-medium text-[#e4e4e7] group-hover:text-white transition-colors tracking-normal">{label}</span>
   </label>
 );
 
@@ -525,7 +547,7 @@ function StickyChip({ storageKey, label, value, options, onChoose }: {
       ) : (
         textInputRow
       )}
-      <div className="text-[8px] text-[#27272a] uppercase tracking-widest">
+      <div className="text-[8px] text-[#27272a] tracking-normal">
         {sticky ? "Auto-fills until removed" : "Pin once, reuse all session"}
       </div>
     </div>
@@ -546,7 +568,7 @@ function StickyTF({ storageKey, label, options, value, onChange }: {
 
   return (
     <div className="group space-y-1.5">
-      <label className="text-[9px] uppercase tracking-[0.25em] font-bold text-[#3f3f46] group-focus-within:text-white transition-colors">{label}</label>
+      <label className="text-[9px] tracking-normal font-medium text-[#3f3f46] group-focus-within:text-white transition-colors">{label}</label>
       <select value={value || ""} onChange={e => { const v = e.target.value; try { sessionStorage.setItem(storageKey, v); } catch {} onChange(v); }}
         className="w-full bg-[#0c0c0e] border border-[#18181b] focus:border-[#4e8cff]/50 px-3 py-2 rounded-sm outline-none text-[#e4e4e7] text-xs transition-all appearance-none cursor-pointer"
         style={{ backgroundImage: OBS_ARROW, backgroundRepeat:"no-repeat", backgroundPosition:"right 10px center", paddingRight:28 }}
@@ -616,14 +638,14 @@ function UploadBox({ label, value, onChange, inputId, onPasteText, analyzing }: 
             {analyzing ? (
               <>
                 <svg className="animate-spin" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#4e8cff" strokeWidth="2"><circle cx="12" cy="12" r="10" strokeOpacity=".25"/><path d="M12 2a10 10 0 0 1 10 10" stroke="#4e8cff"/></svg>
-                <span className="text-[9px] text-[#4e8cff] uppercase tracking-[0.2em]">Analyzing…</span>
+                <span className="text-[9px] text-[#4e8cff] tracking-normal">Analyzing…</span>
               </>
             ) : (
               <>
                 <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#16a34a18', border: '1px solid #16a34a50', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
                 </div>
-                <span className="text-[9px] text-emerald-400 uppercase tracking-[0.2em]">Entry Successful</span>
+                <span className="text-[9px] text-emerald-400 tracking-normal">Entry Successful</span>
                 <div className="flex gap-2 w-full mt-1" style={{ maxWidth: 200 }}>
                   <label htmlFor={inputId} className="flex-1 text-center text-[9px] text-[#4e8cff] border border-[#4e8cff]/30 rounded-sm py-1 cursor-pointer hover:bg-[#4e8cff]/5 transition-all leading-none flex items-center justify-center">↺ Replace</label>
                   <button type="button" onClick={(e) => { e.stopPropagation(); onChange(null); }}
@@ -635,7 +657,7 @@ function UploadBox({ label, value, onChange, inputId, onPasteText, analyzing }: 
         ) : (
           <>
             <span className="text-[20px] text-[#3f3f46] leading-none select-none">↑</span>
-            <span className="text-[9px] text-[#3f3f46] uppercase tracking-[0.2em]">click or paste screenshot</span>
+            <span className="text-[9px] text-[#3f3f46] tracking-normal">click or paste screenshot</span>
             {analyzing && (
               <span className="flex items-center gap-1 text-[9px] text-[#4e8cff] mt-1">
                 <svg className="animate-spin" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#4e8cff" strokeWidth="2"><circle cx="12" cy="12" r="10" strokeOpacity=".25"/><path d="M12 2a10 10 0 0 1 10 10" stroke="#4e8cff"/></svg>
@@ -847,11 +869,11 @@ function Step2({ d, set, onScreenshotUpload, analyzing, currentBalance, hiddenPa
         </div>
         <div className="mt-4 flex gap-3 flex-wrap">
           <div className="flex items-center gap-3 px-4 py-2.5 bg-[#0c0c0e] border border-[#18181b] rounded-sm flex-1 min-w-[160px]">
-            <span className="text-[8px] text-[#3f3f46] uppercase tracking-widest font-bold">Balance</span>
+            <span className="text-[8px] text-[#3f3f46] tracking-normal font-medium">Balance</span>
             <span className="text-xs text-white font-bold ml-auto">{currentBalance > 0 ? "$" + currentBalance.toFixed(2) : "—"}</span>
           </div>
           <div className="flex items-center gap-3 px-4 py-2.5 bg-[#0c0c0e] border border-[#18181b] rounded-sm flex-1 min-w-[160px]">
-            <span className="text-[8px] text-[#3f3f46] uppercase tracking-widest font-bold">Risk Amount</span>
+            <span className="text-[8px] text-[#3f3f46] tracking-normal font-medium">Risk Amount</span>
             <span className="text-xs text-rose-400 font-bold ml-auto">{riskAmt ? "-$" + riskAmt : "—"}</span>
           </div>
         </div>
@@ -1115,14 +1137,14 @@ const DM: React.CSSProperties = { fontFamily: "'DM Mono', monospace" };
 
 const StatItem = ({ label, value, colorCls }: any) => (
   <div className="flex justify-between items-center group py-1.5 border-b border-[#18181b] last:border-0">
-    <span className="text-[10px] text-[#3f3f46] font-bold uppercase tracking-[0.2em] group-hover:text-[#71717a] transition-colors">{label}</span>
+    <span className="text-[10px] text-[#3f3f46] font-medium tracking-normal group-hover:text-[#e4e4e7] transition-colors">{label}</span>
     <span className={`text-xs font-bold ${colorCls || "text-white"}`} style={DM}>{value}</span>
   </div>
 );
 
 const StatBox = ({ label, value, colorCls }: any) => (
   <div className="bg-[#0c0c0e] border border-[#18181b] p-3 rounded-sm space-y-1">
-    <span className="text-[8px] text-[#3f3f46] font-bold uppercase tracking-[0.2em] block">{label}</span>
+    <span className="text-[8px] text-[#3f3f46] font-medium tracking-normal block">{label}</span>
     <div className={`text-xs font-bold ${colorCls || "text-white"}`} style={DM}>{value}</div>
   </div>
 );
@@ -1233,7 +1255,7 @@ function Sidebar({ startingBalance, sessionId }: { allEntries?: any[]; startingB
 
         {/* Net P&L */}
         <div className="space-y-3">
-          <div className="text-[9px] font-bold text-[#3f3f46] uppercase tracking-[0.2em]">Net P&amp;L</div>
+          <div className="text-[9px] font-medium text-[#3f3f46] tracking-normal">Net P&amp;L</div>
           <div className={`text-sm font-bold tabular-nums ${has ? (stats!.netPnL > 0 ? "text-emerald-400" : stats!.netPnL < 0 ? "text-rose-400" : "text-white") : "text-white"}`} style={DM}>
             {has ? fmtUsd(stats!.netPnL) : "+$0.00"}
           </div>
@@ -1241,11 +1263,11 @@ function Sidebar({ startingBalance, sessionId }: { allEntries?: any[]; startingB
           {/* Start / End */}
           <div className="grid grid-cols-2 gap-2">
             <div className="p-3 bg-[#0c0c0e] border border-[#18181b] rounded-sm">
-              <div className="text-[8px] text-[#3f3f46] uppercase font-bold tracking-widest mb-1">Start</div>
+              <div className="text-[8px] text-[#3f3f46] font-medium tracking-normal mb-1">Start</div>
               <div className="text-xs text-[#a1a1aa]" style={DM}>${has ? stats!.startBalance.toFixed(2) : sb.toFixed(2)}</div>
             </div>
             <div className="p-3 bg-[#0c0c0e] border border-[#18181b] rounded-sm text-right">
-              <div className="text-[8px] text-[#3f3f46] uppercase font-bold tracking-widest mb-1">End</div>
+              <div className="text-[8px] text-[#3f3f46] font-medium tracking-normal mb-1">End</div>
               <div className="text-xs text-white" style={DM}>${has ? stats!.endBalance.toFixed(2) : sb.toFixed(2)}</div>
             </div>
           </div>
@@ -1257,7 +1279,7 @@ function Sidebar({ startingBalance, sessionId }: { allEntries?: any[]; startingB
               disabled={!canPrev}
               className={`w-6 text-center text-base font-bold leading-none transition-colors ${canPrev ? "text-[#4e8cff] hover:text-white" : "text-[#27272a] cursor-default"}`}
             >‹</button>
-            <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-[#a1a1aa]">{monthLabel}</span>
+            <span className="text-[9px] font-medium tracking-normal text-[#a1a1aa]">{monthLabel}</span>
             <button
               onClick={() => { if (canNext) { userNavigated.current = true; setSelectedKey(navKeys[idx + 1]); } }}
               disabled={!canNext}
@@ -1268,19 +1290,19 @@ function Sidebar({ startingBalance, sessionId }: { allEntries?: any[]; startingB
           {/* Carried deficit in / outstanding */}
           {has && stats!.carriedDeficitIn > 0 && (
             <div className="flex justify-between text-[9px] px-2 py-1.5 bg-[#0c0c0e]/40 border border-[#27272a] rounded-sm">
-              <span className="text-[#3f3f46] uppercase tracking-widest font-bold">Deficit carried in</span>
+              <span className="text-[#3f3f46] tracking-normal font-medium">Deficit carried in</span>
               <span className="text-rose-500 font-bold">-${stats!.carriedDeficitIn.toFixed(2)}</span>
             </div>
           )}
           {has && stats!.carriedDeficit > 0 && (
             <div className="flex justify-between text-[9px] px-2 py-1.5 bg-[#0c0c0e]/40 border border-rose-900/30 rounded-sm">
-              <span className="text-rose-800 uppercase tracking-widest font-bold">Outstanding deficit</span>
+              <span className="text-rose-400 tracking-normal font-medium">Outstanding deficit</span>
               <span className="text-rose-500 font-bold">-${stats!.carriedDeficit.toFixed(2)}</span>
             </div>
           )}
           {has && stats!.withdrawn > 0 && (
             <div className="flex justify-between text-[9px] px-2 py-1.5 bg-[#0c0c0e]/40 border border-emerald-900/30 rounded-sm">
-              <span className="text-emerald-800 uppercase tracking-widest font-bold">Withdrawn</span>
+              <span className="text-emerald-400 tracking-normal font-medium">Withdrawn</span>
               <span className="text-emerald-400 font-bold" style={DM}>+${stats!.withdrawn.toFixed(2)}</span>
             </div>
           )}
@@ -1290,7 +1312,7 @@ function Sidebar({ startingBalance, sessionId }: { allEntries?: any[]; startingB
         <section className="space-y-2">
           <div className="flex items-center gap-2 pb-2 border-b border-[#18181b]">
             <div className="w-[2px] h-3 bg-[#3f3f46] flex-shrink-0" />
-            <h3 className="text-[9px] font-bold uppercase tracking-[0.3em] text-[#3f3f46]">Trading Stats</h3>
+            <h3 className="text-[9px] font-bold uppercase tracking-[0.3em] text-[#e4e4e7]">Trading Stats</h3>
           </div>
           <StatItem label="Buys"         value={has ? stats!.buys  : 0} />
           <StatItem label="Sells"        value={has ? stats!.sells : 0} />
@@ -1305,7 +1327,7 @@ function Sidebar({ startingBalance, sessionId }: { allEntries?: any[]; startingB
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="w-[2px] h-3 bg-[#3f3f46] flex-shrink-0" />
-              <h3 className="text-[9px] font-bold uppercase tracking-[0.3em] text-[#3f3f46]">Win Rate</h3>
+              <h3 className="text-[9px] font-bold uppercase tracking-[0.3em] text-[#e4e4e7]">Win Rate</h3>
             </div>
             <span className="text-xs font-bold text-white" style={DM}>{has ? Math.round(stats!.winRate) + "%" : "0%"}</span>
           </div>
@@ -1313,9 +1335,9 @@ function Sidebar({ startingBalance, sessionId }: { allEntries?: any[]; startingB
             <div className="h-full bg-[#4e8cff] transition-all duration-500" style={{ width: has ? stats!.winRate + "%" : "0%" }} />
           </div>
           <div className="flex justify-between text-[9px] font-bold tracking-[0.1em]">
-            <span className="text-[#4e8cff] uppercase">Wins {String(has ? stats!.wins : 0).padStart(2,"0")}</span>
+            <span className="text-[#4e8cff]">Wins {String(has ? stats!.wins : 0).padStart(2,"0")}</span>
             <span className="text-[#3f3f46]">{has ? stats!.wins + " / " + stats!.total : "0 / 0"}</span>
-            <span className="text-rose-500 uppercase">Losses {String(has ? stats!.losses : 0).padStart(2,"0")}</span>
+            <span className="text-rose-500">Losses {String(has ? stats!.losses : 0).padStart(2,"0")}</span>
           </div>
         </section>
 
@@ -2065,7 +2087,7 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
               <div key={s.n} className="flex items-center">
                 <button onClick={() => setStep(s.n)}
                   className={`flex items-center space-x-2 text-[9px] uppercase tracking-[0.2em] font-bold transition-all whitespace-nowrap py-4 border-b-2 -mb-px ${
-                    step === s.n ? "text-[#4e8cff] border-[#4e8cff]" : "text-[#3f3f46] hover:text-[#71717a] border-transparent"
+                    step === s.n ? "text-[#4e8cff] border-[#4e8cff]" : "text-[#3f3f46] hover:text-[#e4e4e7] border-transparent"
                   }`}>
                   <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[8px] border flex-shrink-0 transition-all ${
                     step === s.n ? "bg-[#4e8cff] text-[#0d0f10] border-[#4e8cff]" :
@@ -2097,7 +2119,7 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
                   <button key={i} onClick={() => { setStep(u.step); setUnfilledSections(null); }}
                     className="flex justify-between items-center text-left px-3 py-2.5 bg-white/[0.035] hover:bg-indigo-500/10 border border-white/[0.07] hover:border-indigo-500/35 rounded-lg text-sm text-white/85 transition-all">
                     <span>{u.name}</span>
-                    <span className="text-[10px] font-semibold text-white/40 uppercase tracking-wider">Step {u.step} →</span>
+                    <span className="text-[10px] font-medium text-white/60 tracking-normal">Step {u.step} →</span>
                   </button>
                 ))}
               </div>
