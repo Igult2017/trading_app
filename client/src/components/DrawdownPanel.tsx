@@ -159,7 +159,7 @@ export default function DrawdownPanel({ sessionId, dispFont }: { sessionId?: str
   const showLoader = useDelayedLoading(!!sessionId && isLoading);
   if (showLoader) return <PanelSkeleton />;
 
-  const centered = (icon: React.ReactNode, title: string, subtitle: string, titleColor = 'text-slate-500') => (
+  const centered = (icon: React.ReactNode, title: string, subtitle: string, titleColor = 'text-[var(--jr-ink-dim)]') => (
     <div className="dp" style={dpStyle}><style>{DP_CSS}</style>
       <div style={{ minHeight: 420, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
         {icon}

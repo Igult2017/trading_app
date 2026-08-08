@@ -63,9 +63,9 @@ function StatCard({ label, value, color, sub, compact }: { label: string; value:
       background: CARD, border: `2px solid ${BORDER}`, borderTop: `4px solid ${color}`,
       padding: compact ? "12px 14px" : "20px 24px", flex: 1, minWidth: 0,
     }} data-testid={`stat-${label.toLowerCase().replace(/[^a-z0-9]/g, "-")}`}>
-      <div style={{ fontFamily: FONT, fontSize: compact ? 7 : 9, fontWeight: 800, letterSpacing: "0.15em", color: "#4A556A", textTransform: "uppercase" as const, marginBottom: compact ? 5 : 10 }}>{label}</div>
+      <div style={{ fontFamily: FONT, fontSize: compact ? 7 : 9, fontWeight: 800, letterSpacing: "0.15em", color: "var(--jr-ink-dim)", textTransform: "uppercase" as const, marginBottom: compact ? 5 : 10 }}>{label}</div>
       <div style={{ fontFamily: FONT, fontSize: compact ? 13 : 18, fontWeight: 900, color, letterSpacing: "-0.03em", lineHeight: 1 }}>{value}</div>
-      {sub && !compact && <div style={{ fontFamily: FONT, fontSize: 10, fontWeight: 600, color: "#3A4558", marginTop: 6, letterSpacing: "0.05em" }}>{sub}</div>}
+      {sub && !compact && <div style={{ fontFamily: FONT, fontSize: 10, fontWeight: 600, color: "var(--jr-ink-dim)", marginTop: 6, letterSpacing: "0.05em" }}>{sub}</div>}
     </div>
   );
 }
@@ -114,7 +114,7 @@ function DayCell({ day, data, maxPnl, cellHeight, isMobile }: { day: number | nu
             wordBreak: "break-all" as const,
           }}>{fmt(d.pnl)}</div>
           {!isMobile && (
-            <div style={{ fontFamily: FONT, fontSize: 9, fontWeight: 700, color: "#2D3D52", marginTop: 3 }}>
+            <div style={{ fontFamily: FONT, fontSize: 9, fontWeight: 700, color: "var(--jr-ink-dim)", marginTop: 3 }}>
               {d.trades}T · {d.winRate}%W
             </div>
           )}
@@ -136,7 +136,7 @@ function DayCell({ day, data, maxPnl, cellHeight, isMobile }: { day: number | nu
             { l: "WIN RATE", v: `${d.winRate}%`,      c: "#E8EDF5" },
           ].map(r => (
             <div key={r.l} style={{ display: "flex", justifyContent: "space-between", gap: 20, marginBottom: 5 }}>
-              <span style={{ fontFamily: FONT, fontSize: 9, fontWeight: 800, letterSpacing: "0.1em", color: "#3A4558" }}>{r.l}</span>
+              <span style={{ fontFamily: FONT, fontSize: 9, fontWeight: 800, letterSpacing: "0.1em", color: "var(--jr-ink-dim)" }}>{r.l}</span>
               <span style={{ fontFamily: FONT, fontSize: 11, fontWeight: 900, color: r.c }}>{r.v}</span>
             </div>
           ))}
@@ -260,7 +260,7 @@ function NavSearch({ onNavigate }: { onNavigate: (year: number, month: number) =
       {val && (
         <button
           onClick={() => { setVal(""); setState("idle"); inputRef.current?.focus(); }}
-          style={{ position: "absolute", right: 8, background: "none", border: "none", color: "#3A4A60", cursor: "pointer", fontSize: 14, lineHeight: 1, padding: 2 }}
+          style={{ position: "absolute", right: 8, background: "none", border: "none", color: "var(--jr-ink-dim)", cursor: "pointer", fontSize: 14, lineHeight: 1, padding: 2 }}
         >×</button>
       )}
     </div>
@@ -374,7 +374,7 @@ export default function TradingCalendar({ sessionId, darkMode = true }: { sessio
       }}>
         <div style={{ paddingLeft: 8 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 5 }}>
-            <div style={{ fontSize: 8, fontWeight: 800, letterSpacing: "0.28em", color: "#2A3348" }}>{t('calendar.overview')}</div>
+            <div style={{ fontSize: 8, fontWeight: 800, letterSpacing: "0.28em", color: "var(--jr-ink-dim)" }}>{t('calendar.overview')}</div>
             {isFetching && !isLoading && (
               <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                 <div style={{ width: 4, height: 4, borderRadius: "50%", background: GREEN, animation: "dotBlink 1s ease infinite" }} />
@@ -480,7 +480,7 @@ export default function TradingCalendar({ sessionId, darkMode = true }: { sessio
             background: "rgba(10,13,20,0.82)", gap: 10,
           }}>
             <div style={{ fontSize: 28, opacity: 0.15 }}>—</div>
-            <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 900, letterSpacing: "0.2em", color: "#2A3A55" }}>{t('calendar.noData')}</div>
+            <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 900, letterSpacing: "0.2em", color: "var(--jr-ink-dim)" }}>{t('calendar.noData')}</div>
           </div>
         )}
 
@@ -524,12 +524,12 @@ export default function TradingCalendar({ sessionId, darkMode = true }: { sessio
           {[{ dot: GREEN, label: t('calendar.profit') }, { dot: RED, label: t('calendar.loss') }, { dot: "#2A3348", label: t('calendar.noTrade') }].map(({ dot, label }) => (
             <div key={label} style={{ display: "flex", alignItems: "center", gap: 6 }}>
               <div style={{ width: 8, height: 8, background: dot }} />
-              <span style={{ fontSize: isMobile ? 7 : 9, fontWeight: 800, letterSpacing: "0.12em", color: "#2A3348" }}>{label}</span>
+              <span style={{ fontSize: isMobile ? 7 : 9, fontWeight: 800, letterSpacing: "0.12em", color: "var(--jr-ink-dim)" }}>{label}</span>
             </div>
           ))}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 8 : 12, flexWrap: "wrap" as const }}>
-          <span style={{ fontSize: isMobile ? 7 : 9, fontWeight: 800, letterSpacing: "0.18em", color: "#2A3348" }}>{t('calendar.monthTotal')}</span>
+          <span style={{ fontSize: isMobile ? 7 : 9, fontWeight: 800, letterSpacing: "0.18em", color: "var(--jr-ink-dim)" }}>{t('calendar.monthTotal')}</span>
           <div style={{ width: 1, height: 14, background: BORDER }} />
           <span style={{ fontSize: isMobile ? 11 : 13, fontWeight: 900, color: netColor }} data-testid="text-month-total">{fmt(stats.net)}</span>
           <div style={{ width: 1, height: 14, background: BORDER }} />
@@ -538,8 +538,8 @@ export default function TradingCalendar({ sessionId, darkMode = true }: { sessio
       </div>
 
       {!isMobile && (
-        <div style={{ marginTop: 8, textAlign: "right" as const, fontSize: 8, fontWeight: 800, letterSpacing: "0.12em", color: "#1C2A3A", paddingRight: 8 }}>
-          SEARCH: TYPE <span style={{ color: "#2A3A55" }}>MMM YYYY</span> OR <span style={{ color: "#2A3A55" }}>MM/YYYY</span> AND PRESS ENTER
+        <div style={{ marginTop: 8, textAlign: "right" as const, fontSize: 8, fontWeight: 800, letterSpacing: "0.12em", color: "var(--jr-ink-dim)", paddingRight: 8 }}>
+          SEARCH: TYPE <span style={{ color: "var(--jr-ink-dim)" }}>MMM YYYY</span> OR <span style={{ color: "var(--jr-ink-dim)" }}>MM/YYYY</span> AND PRESS ENTER
         </div>
       )}
     </div>

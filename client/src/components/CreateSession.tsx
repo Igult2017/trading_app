@@ -288,7 +288,7 @@ export const CreateSessionForm = ({ onCreated }: CreateSessionFormProps) => {
 
         <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
           <div style={{ fontSize: 9, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.35)' }}>
-            Status: <span style={{ color: '#6366f1' }}>Ready</span>
+            Status: <span style={{ color: '#818cf8' }}>Ready</span>
           </div>
           <div style={{ width: 48, height: 2, background: '#4f46e5' }} />
         </div>
@@ -537,22 +537,22 @@ function GhostCard({ onCreate }: { onCreate: () => void }) {
     >
       {/* Tab header */}
       <div className="flex justify-between items-center bg-[#111827]/60 px-3 py-2 border-b border-[#080d14]">
-        <span className="text-[11px] text-[#374151] font-medium">
+        <span className="text-[11px] text-[var(--jr-ink-dim)] font-medium">
           Untitled Session
         </span>
-        <Plus size={12} className="text-[#374151] group-hover:text-[#64748b]" />
+        <Plus size={12} className="text-[var(--jr-ink-dim)] group-hover:text-[var(--jr-ink-dim)]" />
       </div>
 
       {/* Body */}
       <div className="flex-1 flex flex-col items-center justify-center space-y-3 opacity-30 group-hover:opacity-100 transition-opacity">
-        <Terminal size={22} className="text-[#374151]" />
-        <p className="text-[11px] font-medium text-[#4b5563]">New session slot</p>
+        <Terminal size={22} className="text-[var(--jr-ink-dim)]" />
+        <p className="text-[11px] font-medium text-[var(--jr-ink-dim)]">New session slot</p>
       </div>
 
       {/* Footer */}
       <div className="p-4">
         <button
-          className="w-full border border-dashed border-[#1e2740] group-hover:border-[#3b4fd8]/60 py-2 text-[11px] font-semibold text-[#374151] group-hover:text-[#7c8cf8] transition-all"
+          className="w-full border border-dashed border-[#1e2740] group-hover:border-[#3b4fd8]/60 py-2 text-[11px] font-semibold text-[var(--jr-ink-dim)] group-hover:text-[#7c8cf8] transition-all"
           style={{ fontFamily: UI }}
         >+ Create Session</button>
       </div>
@@ -578,7 +578,7 @@ const SessionCard = ({ session, isActive, onSelect, onEdit, onDelete }: {
   const returnPct = startBal > 0 ? (totalPnL / startBal) * 100 : 0;
   const pnlPos    = totalPnL >= 0;
 
-  const pnlClass = !hasData ? 'text-[#4b5563]' : pnlPos ? 'text-emerald-400' : 'text-red-400';
+  const pnlClass = !hasData ? 'text-[var(--jr-ink-dim)]' : pnlPos ? 'text-emerald-400' : 'text-red-400';
 
   const pnlVal = !hasData ? '—'
     : `${pnlPos ? '+' : '-'}$${Math.abs(totalPnL).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -611,7 +611,7 @@ const SessionCard = ({ session, isActive, onSelect, onEdit, onDelete }: {
             data-testid={`text-session-name-${session.id}`}
           >{session.sessionName}</span>
         </div>
-        <MoreVertical size={14} className="text-[#4b5563] hover:text-[#c9d1d9] cursor-pointer shrink-0" />
+        <MoreVertical size={14} className="text-[var(--jr-ink-dim)] hover:text-[#c9d1d9] cursor-pointer shrink-0" />
       </div>
 
       {/* Body */}
@@ -620,7 +620,7 @@ const SessionCard = ({ session, isActive, onSelect, onEdit, onDelete }: {
         {/* Equity */}
         <div className="flex justify-between items-start mb-6">
           <div className="space-y-0.5">
-            <p className="text-[10px] font-medium text-[#64748b]">Current Equity</p>
+            <p className="text-[10px] font-medium text-[var(--jr-ink-dim)]">Current Equity</p>
             <h2 className="text-[11px] font-bold text-[#f0f6fc]">{equityStr}</h2>
           </div>
           <ArrowUpRight
@@ -632,15 +632,15 @@ const SessionCard = ({ session, isActive, onSelect, onEdit, onDelete }: {
         {/* Stat rows */}
         <div className="space-y-3 flex-1">
           <div className="flex justify-between items-center text-[11px] border-b border-[#1a2035] pb-2.5">
-            <span className="text-[#64748b]">Net P&L</span>
+            <span className="text-[var(--jr-ink-dim)]">Net P&L</span>
             <span className={`${pnlClass} font-semibold`}>{pnlVal}</span>
           </div>
           <div className="flex justify-between items-center text-[11px] border-b border-[#1a2035] pb-2.5">
-            <span className="text-[#64748b]">Total Return</span>
+            <span className="text-[var(--jr-ink-dim)]">Total Return</span>
             <span className="text-[#818cf8] font-semibold">{retVal}</span>
           </div>
           <div className="flex justify-between items-center text-[11px] border-b border-[#1a2035] pb-2.5">
-            <span className="text-[#64748b]">Trades</span>
+            <span className="text-[var(--jr-ink-dim)]">Trades</span>
             <span className="text-[#c9d1d9] font-semibold">{tradeCount}</span>
           </div>
         </div>
@@ -655,7 +655,7 @@ const SessionCard = ({ session, isActive, onSelect, onEdit, onDelete }: {
             onClick={onEdit}
           >Edit Session</button>
           <button
-            className="px-3 bg-[#111827] hover:bg-red-900/20 border border-[#1e2740] text-[#4b5563] hover:text-red-400 transition-colors rounded-sm flex items-center"
+            className="px-3 bg-[#111827] hover:bg-red-900/20 border border-[#1e2740] text-[var(--jr-ink-dim)] hover:text-red-400 transition-colors rounded-sm flex items-center"
             onClick={onDelete}
             data-testid={`button-delete-session-${session.id}`}
           >

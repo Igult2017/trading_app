@@ -950,6 +950,22 @@ export default function Journal() {
   return (
     <div style={{ fontFamily: F.stack, height:'100dvh', overflow:'hidden', display:'flex', flexDirection:'column', background: T.bg, color: T.text, transition: 'background 0.3s, color 0.3s' }}>
       <style>{`
+        /* ── READABLE INK, one pair of values for the whole journal ──────────────────────────
+           --jr-ink      text and numbers
+           --jr-ink-dim  labels and captions
+           Dark themes take Trade Sync's own two text colours (features/trade-sync/styles/tokens.ts,
+           .ct-app.theme-dark), which is the panel the user pointed at as the one that reads cleanly:
+               #e8edf9  16.97:1 on the panel ground        #a6b3d1  9.46:1
+           Light mode falls through to the theme's own text colours, so nothing is hardcoded twice.
+
+           WHY VARIABLES AND NOT A COLOUR. Panels like TradingCalendar set colour with INLINE styles,
+           and an inline style beats any stylesheet - the light-theme remaps below cannot reach them.
+           Worse, they cannot reach them even in principle: React applies inline styles through the
+           CSSOM, so "style={{color:'#4A556A'}}" serialises to "color: rgb(74, 85, 106)" and every
+           .journal-light [style*="color:#..."] rule silently fails to match. Measured 2026-08-08.
+           A variable is resolved per theme at the root, so one inline value is correct in both. */
+        .journal-root            { --jr-ink:#e8edf9; --jr-ink-dim:#a6b3d1; }
+        .journal-root.journal-light { --jr-ink:var(--jr-text); --jr-ink-dim:var(--jr-muted); }
         .journal-root *{box-sizing:border-box;}
         .journal-root *:where(:not(.ct-app):not(.ct-app *):not(.ts-page):not(.ts-page *)){letter-spacing:.02em;}
         /* Force the selected journal font everywhere EXCEPT panels that own their own

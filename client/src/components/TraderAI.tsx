@@ -506,7 +506,7 @@ export default function TraderAI({ sessionId, darkMode = true }: { sessionId?: s
         .tai-badge-ok{background:#0d1f12;color:#34d399;border:1px solid #163324;}
         .tai-hl{color:#e8e9eb;font-weight:600;}
         .tai-rule{height:1px;background:#1e2228;margin:14px 0;}
-        .tai-footer-note{margin-top:12px;padding:10px 14px;background:#11131a;border-left:2px solid #6c63ff;border-radius:0 8px 8px 0;font-size:13px;color:#6b7280;line-height:1.65;}
+        .tai-footer-note{margin-top:12px;padding:10px 14px;background:#11131a;border-left:2px solid #6c63ff;border-radius:0 8px 8px 0;font-size:13px;color:var(--jr-ink-dim);line-height:1.65;}
         .tai-pre{font-size:12px;background:#11131a;border:1px solid #1e2228;border-radius:8px;padding:10px 14px;overflow-x:auto;margin:10px 0;color:#9ca3af;line-height:1.6;white-space:pre;}
         .tai-p{font-size:14px;color:#9ca3af;line-height:1.7;margin-bottom:4px;}
         .tai-bold-line{font-size:14px;font-weight:700;color:#e8e9eb;margin-bottom:4px;}
