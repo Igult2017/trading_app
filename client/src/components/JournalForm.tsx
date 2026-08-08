@@ -48,11 +48,18 @@ const OBS_CSS = `
      why the form read as both "wrong font" and "invisible".
      Sizes go up a step and the greys are lifted to AA. Tailwind's arbitrary
      classes are what set these, so they are overridden by class here rather
-     than edited across ~100 call sites. */
-     ATTRIBUTE selectors, not class selectors. A Tailwind arbitrary class contains brackets, which
-     a class selector must escape as .text-\\[9px\\] - and this string is a JS template literal, so
-     the backslashes get doubled on the way out and the rule silently never matches. Matching on
-     the class ATTRIBUTE sidesteps escaping altogether. */
+     than edited across ~100 call sites.
+
+     They are matched with ATTRIBUTE selectors, not class selectors. A Tailwind arbitrary class
+     contains brackets, which a class selector must escape as .text-\\[9px\\] - and this string is a
+     JS template literal, so the backslashes get doubled on the way out and the rule silently never
+     matches. Matching on the class ATTRIBUTE sidesteps escaping altogether.
+
+     THIS PARAGRAPH'S OPENING COMMENT MARKER WAS MISSING until 2026-08-08, so four lines sat loose
+     in the stylesheet. A CSS parser recovering from that eats forward to the next {, which took the
+     9px rule below down with it - measured 9px, not the 11px it claims. That is why the form still
+     read as tiny "despite having big font sizes". The 10px and 11px rules were never affected,
+     which is what made it look like the sizes had been applied. */
   .obs-jf [class~="text-[9px]"]  { font-size: 11px !important; }
   .obs-jf [class~="text-[10px]"] { font-size: 12px !important; }
   .obs-jf [class~="text-[11px]"] { font-size: 13px !important; }
@@ -61,9 +68,31 @@ const OBS_CSS = `
   .obs-jf [class~="text-[#52525b]"] { color: #a1a1aa !important; }   /* 2.57:1 -> 7.76:1 */
   .obs-jf [class~="text-[#27272a]"] { color: #8b8b94 !important; }   /* 1.34:1 -> 5.89:1 */
   .obs-jf [class~="text-[#71717a]"] { color: #a1a1aa !important; }   /* 4.12:1 -> 7.76:1 */
-  /* Uppercase micro-labels need the weight back - Playfair is lighter than a mono at the same
-     size, so a straight family swap would have lost contrast the mono was carrying. */
-  .obs-jf .uppercase { font-weight: 700 !important; }
+  /* UPPERCASE MICRO-LABELS — matched to Trade Sync, which is the panel the user pointed at as the
+     one that reads cleanly (2026-08-08: "that white there is blurred. Can you use the white used in
+     text in Straeva (tradesync)").
+
+     It is NOT a different typeface. Trade Sync uses Playfair too (features/trade-sync/styles/
+     utilities.ts .font-label-sm) — I assumed a serif-at-small-size problem and was wrong. Rendered
+     side by side on this same #09090b, the whole difference is these three values:
+
+                       colour      weight   tracking
+       journal (was)   #a1a1aa      700      .10em     <- dim and clotted
+       Trade Sync      #e8edf9      500      .05em     <- what he is comparing against
+
+     Colour does most of the work: #a1a1aa is 7.76:1 on #09090b, #e8edf9 is 16.97:1 — more than
+     double. The weight drop matters because Playfair is a HIGH-CONTRAST serif: at 13px its thick
+     strokes already crowd the letter's own gaps, and 700 closes them up into a smudge. 500 opens
+     them again. The tighter tracking lets the words read as words rather than spaced-out letters.
+
+     The 700 here was added when these labels moved from a mono to Playfair, to "keep the weight the
+     mono was carrying". That reasoning is spent: the contrast is now carried by the colour.
+
+     TRACKING IS DELIBERATELY LEFT ALONE. Trade Sync's .05em looked tightest in the comparison, but
+     forcing it here would flatten this form's own hierarchy — its labels run .25em and the section
+     headings .3em, which is a design choice, not an accident. Colour and weight are what turn to
+     mush at 13px; spacing does not. Changing only what is broken. */
+  .obs-jf .uppercase { font-weight: 500 !important; color: #e8edf9 !important; }
   .obs-rating-btn { display:flex; align-items:center; justify-content:center; width:36px; height:36px; border-radius:6px; border:1px solid #27272a; background:#0c0c0e; color:#71717a; font-size:13px; font-weight:700; cursor:pointer; transition:all 0.15s; font-family:inherit; flex-shrink:0; }
   .obs-rating-btn:hover:not(.obs-rating-active) { border-color:#4e8cff80; color:#4e8cff; background:#4e8cff0d; }
   .obs-rating-active { background:#4e8cff; border-color:#4e8cff; color:#fff; box-shadow:0 0 0 2px #4e8cff30; }
