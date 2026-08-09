@@ -11,6 +11,7 @@ import { ALL_LANGUAGES } from "@/i18n/languages";
 import type { LangCode } from "@/i18n/languages";
 import Wordmark from '@/components/Wordmark';
 import ProfileSettings from '@/components/profile/ProfileSettings';
+import StreakDetail from '@/components/profile/StreakDetail';
 
 const TICKER_DATA = [
   { symbol: "EUR/USD", price: "1.0842", change: "+0.12%", up: true },
@@ -65,15 +66,15 @@ const PROFILE_CARD_CSS = `
     max-height: calc(100vh - 120px);
     overflow-y: auto;
     overflow-x: hidden;
-    background: #13131f;
-    border: 1px solid rgba(255,255,255,0.07);
+    background: #ffffff;
+    border: 1px solid #e0e6e1;
     border-radius: 10px;
     animation: pc-rise .4s cubic-bezier(.34,1.56,.64,1) both;
-    box-shadow: 0 24px 64px rgba(0,0,0,0.55);
+    box-shadow: 0 24px 64px rgba(20,35,28,0.28);
     -webkit-overflow-scrolling: touch;
   }
   .pc-root::-webkit-scrollbar { width: 6px; }
-  .pc-root::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 3px; }
+  .pc-root::-webkit-scrollbar-thumb { background: #d5ded8; border-radius: 3px; }
 
   @media (max-width: 640px) {
     .pc-root { max-height: calc(100vh - 80px); }
@@ -96,85 +97,80 @@ const PROFILE_CARD_CSS = `
 
   .pc-av {
     width: 48px; height: 48px; border-radius: 8px;
-    background: #1e1b3a;
-    border: 1px solid rgba(120,100,255,0.25);
+    background: #eef3f0;
+    border: 1px solid #d9e2dc;
     display: flex; align-items: center; justify-content: center;
-    font-size: 17px; font-weight: 500; color: #a899ff;
+    font-size: 17px; font-weight: 600; color: #1f6b4f;
     flex-shrink: 0; position: relative;
   }
   .pc-av-ring {
     position: absolute; inset: -3px; border-radius: 11px;
-    border: 1.5px solid rgba(120,100,255,0.18);
+    border: 1.5px solid rgba(31,107,79,0.14);
     pointer-events: none;
   }
 
   .pc-meta { flex: 1; min-width: 0; }
   .pc-name {
-    font-size: 12px; font-weight: 500; color: #ede9ff;
+    font-size: 12.5px; font-weight: 600; color: #16232b;
     letter-spacing: -.2px;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
   .pc-pill {
     display: inline-flex; align-items: center; gap: 5px; margin-top: 5px;
-    background: rgba(120,100,255,0.12);
-    border: 1px solid rgba(120,100,255,0.22);
-    border-radius: 3px; padding: 2px 7px;
-    font-size: 8.5px; font-weight: 500; color: #9585f5;
+    background: #f0f5f2;
+    border: 1px solid #d9e2dc;
+    border-radius: 999px; padding: 2px 8px;
+    font-size: 8.5px; font-weight: 700; color: #1f6b4f;
     letter-spacing: 1.2px; text-transform: uppercase;
     font-family: 'Playfair Display Variable', 'Playfair Display', Georgia, serif;
   }
   .pc-dot {
-    width: 6px; height: 6px; border-radius: 50%; background: #9585f5;
+    width: 6px; height: 6px; border-radius: 50%; background: #1f6b4f;
     animation: pc-pulse 2.2s ease-in-out infinite; flex-shrink: 0;
   }
 
-  /* The settings view is a light card inside the same popover — the user liked the white surface
-     from the standalone page, so it survives the move back into the panel. Only the shell changes;
-     the settings styles themselves live in profile/profileSettingsCss.ts. */
-  .pc-root.pc-light {
-    background: #ffffff;
-    border-color: #e0e6e1;
-    box-shadow: 0 24px 64px rgba(20,35,28,0.28);
-  }
-  .pc-root.pc-light::-webkit-scrollbar-thumb { background: #d5ded8; }
-
   .pc-rule {
     height: 1px;
-    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06) 20%, rgba(255,255,255,0.06) 80%, transparent);
+    background: linear-gradient(90deg, transparent, #e6ece8 20%, #e6ece8 80%, transparent);
     margin: 0 18px;
   }
 
   .pc-streak {
     margin: 10px 8px 6px; padding: 13px 14px;
-    background: #0f0f1a;
-    border: 1px solid rgba(255,255,255,0.06);
-    border-radius: 6px;
+    background: #f6f8f6;
+    border: 1px solid #e6ece8;
+    border-radius: 8px;
+    width: calc(100% - 16px);
+    text-align: left; cursor: pointer; font-family: inherit;
     display: flex; align-items: center; gap: 12px;
     transition: background .18s, border-color .18s;
     animation: pc-fadex .35s .1s ease both;
   }
-  .pc-streak:hover { background: #161625; border-color: rgba(255,255,255,0.1); }
+  .pc-streak:hover { background: #eef2ee; border-color: #d9e2dc; }
 
   .pc-sk-ico {
     width: 36px; height: 36px; border-radius: 6px; flex-shrink: 0;
-    background: rgba(255,130,40,.1);
-    border: 1px solid rgba(255,130,40,.2);
+    background: #fff3e8;
+    border: 1px solid #f4d9c0;
     display: flex; align-items: center; justify-content: center;
   }
   .pc-sk-body { flex: 1; }
   .pc-sk-label {
-    font-size: 9px; color: rgba(255,255,255,.28);
+    font-size: 9px; color: #616f68;
     letter-spacing: 1.4px; text-transform: uppercase;
     font-family: 'Playfair Display Variable', 'Playfair Display', Georgia, serif; margin-bottom: 3px;
   }
-  .pc-sk-val { font-size: 14px; font-weight: 500; color: #ede9ff; letter-spacing: -.3px; }
+  .pc-sk-val { font-size: 14px; font-weight: 700; color: #16232b; letter-spacing: -.3px; }
+
+  .pc-chev { color:#8a978f; font-size:15px; line-height:1; transition:transform .18s; }
+  .pc-streak:hover .pc-chev { transform: translateX(2px); }
 
   .pc-menu { padding: 4px 8px 10px; display: flex; flex-direction: column; gap: 1px; }
 
   .pc-item {
     display: flex; align-items: center; gap: 11px;
     padding: 10px 12px; border-radius: 5px; cursor: pointer;
-    color: rgba(255,255,255,.5); font-size: 12.5px; font-weight: 400;
+    color: #4d5c55; font-size: 12.5px; font-weight: 500;
     font-family: 'Playfair Display Variable', 'Playfair Display', Georgia, serif;
     transition: all .15s; background: transparent; border: none;
     width: 100%; text-align: left;
@@ -182,14 +178,14 @@ const PROFILE_CARD_CSS = `
   }
   .pc-item:nth-child(1) { animation-delay: .14s; }
   .pc-item:nth-child(2) { animation-delay: .2s; }
-  .pc-item:hover { background: rgba(255,255,255,.04); color: rgba(255,255,255,.82); }
-  .pc-item.danger { color: rgba(235,80,75,.65); }
-  .pc-item.danger:hover { background: rgba(235,80,75,.07); color: rgba(235,100,95,.9); }
+  .pc-item:hover { background: #f2f6f3; color: #16232b; }
+  .pc-item.danger { color: #b91c1c; }
+  .pc-item.danger:hover { background: #fdf1f1; color: #991b1b; }
 
   .pc-ico {
     width: 30px; height: 30px; border-radius: 4px; flex-shrink: 0;
-    background: rgba(255,255,255,.05);
-    border: 1px solid rgba(255,255,255,.07);
+    background: #f4f7f5;
+    border: 1px solid #e6ece8;
     display: flex; align-items: center; justify-content: center;
     transition: background .15s;
   }
@@ -219,7 +215,7 @@ const PcLogoutIcon = () => (
   </svg>
 );
 
-function ProfileDropdown({ dropdownRef, displayName, avatarLetter, avatarUrl, plan, email, loginStreak, onLogout, onUploadAvatar, uploading }: {
+function ProfileDropdown({ dropdownRef, displayName, avatarLetter, avatarUrl, plan, email, loginStreak, longestStreak, activeDays, onLogout, onUploadAvatar, uploading }: {
   dm: boolean;
   dropdownRef: RefObject<HTMLDivElement>;
   displayName: string;
@@ -228,6 +224,8 @@ function ProfileDropdown({ dropdownRef, displayName, avatarLetter, avatarUrl, pl
   plan: string;
   email: string | null;
   loginStreak: number;
+  longestStreak: number;
+  activeDays: string[];
   onLogout: () => void;
   onUploadAvatar: () => void;
   uploading: boolean;
@@ -246,7 +244,7 @@ function ProfileDropdown({ dropdownRef, displayName, avatarLetter, avatarUrl, pl
 
   // Two views in the SAME popover — never a navigation. Opening settings used to leave the journal
   // entirely; see ProfileSettings for why that was wrong.
-  const [view, setView] = useState<'profile' | 'settings'>('profile');
+  const [view, setView] = useState<'profile' | 'settings' | 'streak'>('profile');
   const [name, setName] = useState(displayName);
 
   return createPortal(
@@ -254,8 +252,11 @@ function ProfileDropdown({ dropdownRef, displayName, avatarLetter, avatarUrl, pl
       ref={dropdownRef}
       style={{ position: 'fixed', top: 104, right: 12, zIndex: 9999 }}
     >
-      <div className={view === 'settings' ? 'pc-root pc-light' : 'pc-root'}>
-        {view === 'settings' ? (
+      <div className="pc-root">
+        {view === 'streak' ? (
+          <StreakDetail streak={streakDays} longest={longestStreak} activeDays={activeDays}
+                        onBack={() => setView('profile')} />
+        ) : view === 'settings' ? (
           <ProfileSettings
             email={email}
             plan={plan}
@@ -306,13 +307,15 @@ function ProfileDropdown({ dropdownRef, displayName, avatarLetter, avatarUrl, pl
         {/* The chevron was removed on 2026-08-08. It signalled "clickable" on a plain div with no
             handler — one of the things that made the panel feel dead. There is nowhere for it to go,
             so it no longer pretends there is. */}
-        <div className="pc-streak" title="Consecutive days you have opened your journal">
+        <button className="pc-streak" type="button" onClick={() => setView('streak')}
+                title="Days you logged a trade — tap for detail">
           <div className="pc-sk-ico"><PcFlameIcon /></div>
           <div className="pc-sk-body">
-            <div className="pc-sk-label">login streak</div>
+            <div className="pc-sk-label">journal streak</div>
             <div className="pc-sk-val">{streakLabel}</div>
           </div>
-        </div>
+          <span className="pc-chev">&rsaquo;</span>
+        </button>
 
         <div className="pc-menu">
           <button className="pc-item" type="button" onClick={() => setView('settings')}>
@@ -388,14 +391,14 @@ export default function JournalHeader({ onToggleSidebar, darkMode, onToggleDarkM
 
   const { user, signOut } = useAuth();
   const [, navigate] = useLocation();
-  const [profile, setProfile] = useState<{ fullName: string; email: string | null; plan: string; loginStreak: number; avatarUrl: string | null } | null>(null);
+  const [profile, setProfile] = useState<{ fullName: string; email: string | null; plan: string; loginStreak: number; longestStreak: number; activeDays: string[]; avatarUrl: string | null } | null>(null);
 
   useEffect(() => {
     if (!user) { setProfile(null); return; }
     let cancelled = false;
     authFetch('/api/me/profile')
       .then(r => r.ok ? r.json() : null)
-      .then(d => { if (!cancelled && d) setProfile({ fullName: d.fullName || '', email: d.email ?? null, plan: d.plan || 'Free', loginStreak: d.loginStreak || 0, avatarUrl: d.avatarUrl || null }); })
+      .then(d => { if (!cancelled && d) setProfile({ fullName: d.fullName || '', email: d.email ?? null, plan: d.plan || 'Free', loginStreak: d.loginStreak || 0, longestStreak: d.longestStreak || 0, activeDays: Array.isArray(d.activeDays) ? d.activeDays : [], avatarUrl: d.avatarUrl || null }); })
       .catch(() => {});
     return () => { cancelled = true; };
   }, [user?.id]);
@@ -633,6 +636,8 @@ export default function JournalHeader({ onToggleSidebar, darkMode, onToggleDarkM
                   plan={plan}
                   email={profile?.email ?? user?.email ?? null}
                   loginStreak={loginStreak}
+                  longestStreak={profile?.longestStreak ?? 0}
+                  activeDays={profile?.activeDays ?? []}
                   onLogout={handleLogout}
                   onUploadAvatar={triggerAvatarUpload}
                   uploading={avatarUploading}

@@ -473,6 +473,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         [auth.id],
       );
 
+      // Longest run in the last 365 days, and the recent active days, so the profile panel can show
+      // the streak as something a user can check rather than a bare number. Same dayRows — no extra
+      // query. NOTE: this counts days with a JOURNAL ENTRY, not days signed in; a user who logs in
+      // daily but has not journalled sees 0, which reads as broken unless the UI says what it means.
+      let longestStreak = 0;
+      {
+        const oneDayMs = 24 * 60 * 60 * 1000;
+        let run = 0;
+        let prev: number | null = null;
+        for (const r of dayRows) {
+          const d = new Date(r.day).getTime();
+          run = (prev !== null && prev - d === oneDayMs) ? run + 1 : 1;
+          if (run > longestStreak) longestStreak = run;
+          prev = d;
+        }
+      }
+      const activeDays = dayRows
+        .slice(0, 30)
+        .map((r: any) => new Date(r.day).toISOString().slice(0, 10));
+
       let streak = 0;
       if (dayRows.length > 0) {
         const today = new Date();
@@ -510,6 +530,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         country:     profile?.country ?? '',
         avatarUrl:   profile?.avatar_url ?? null,
         loginStreak: streak,
+        longestStreak,
+        activeDays,
       });
     } catch (err: any) {
       console.error('[Me/Profile] Error:', err?.message);
