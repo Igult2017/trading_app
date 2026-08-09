@@ -14,16 +14,16 @@ export function sTokens(dm: boolean) {
     bg:      dm ? '#0b1120' : '#f2f7f4',
     card:    dm ? '#111827' : '#ffffff',
     ink:     dm ? '#e8edf9' : '#16232b',   // headings
-    body:    dm ? '#c7d0e4' : '#4d5c55',   // 8.4:1 on the mint ground
+    body:    dm ? '#c7d0e4' : '#24322b',   // 15.2:1 on the mint ground
     // Placeholders and small print. The design's grey measured 4.17:1 on this mint ground — under
-    // the 4.5 minimum — so it is one step darker here. Placeholder text is the first thing a user
-    // reads in an empty form; it has to be legible.
-    dim:     dm ? '#a6b3d1' : '#616f68',   // 4.87:1
+    // the 4.5 minimum. Darkened again on 2026-08-08 ("make the contrast and be visibly dark") to
+    // match the profile panel, so every light surface in the app now uses the same two values.
+    dim:     dm ? '#a6b3d1' : '#36423b',   // 11.8:1
     rule:    dm ? 'rgba(255,255,255,0.09)' : '#e6ece8',
     field:   dm ? '#0d1526' : '#ffffff',
     fieldBd: dm ? 'rgba(255,255,255,0.12)' : '#e2e8e4',
-    accent:  dm ? '#5fbf95' : '#1f6b4f',   // the button green
-    accentHv:dm ? '#6fd0a4' : '#185840',
+    accent:  dm ? '#5fbf95' : '#175540',   // the button green
+    accentHv:dm ? '#6fd0a4' : '#0f4433',
     onAccent:'#ffffff',
     link:    dm ? '#7aa7ff' : '#2f6f97',
     okBg:    dm ? 'rgba(95,191,149,0.10)' : '#eef7f2',

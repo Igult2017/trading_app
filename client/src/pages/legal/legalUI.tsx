@@ -23,8 +23,8 @@ export function tokens(dm: boolean) {
     bg:      dm ? '#0b1120' : '#f4f6f4',
     card:    dm ? '#111827' : '#ffffff',
     ink:     dm ? '#e8edf9' : '#111827',   // 16.9:1 dark / 16.1:1 light
-    body:    dm ? '#c7d0e4' : '#374151',   // 11.4:1 dark /  9.7:1 light
-    dim:     dm ? '#a6b3d1' : '#5b6474',   //  9.5:1 dark /  6.1:1 light
+    body:    dm ? '#c7d0e4' : '#232c38',   // 11.4:1 dark / 13.9:1 light
+    dim:     dm ? '#a6b3d1' : '#3b4553',   //  9.5:1 dark / 10.3:1 light
     rule:    dm ? 'rgba(255,255,255,0.09)' : '#e5e7eb',
     accent:  dm ? '#7aa7ff' : '#1d4ed8',
     noteBg:  dm ? 'rgba(122,167,255,0.07)' : '#f1f5fd',

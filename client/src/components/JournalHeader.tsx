@@ -603,7 +603,7 @@ export default function JournalHeader({ onToggleSidebar, darkMode, onToggleDarkM
                       >
                         <span style={{ fontSize: 14 }}>{meta.flag}</span>
                         <span style={{ fontSize: 11, fontWeight: lang === code ? 700 : 500, color: lang === code ? '#3b82f6' : (dm ? '#cbd5e1' : '#374151'), fontFamily: "'DM Mono',monospace", letterSpacing: '0.02em', flex: 1 }}>{meta.name}</span>
-                        {meta.static && <span style={{ fontSize: 7, color: dm ? '#334155' : '#94a3b8', fontFamily: "'DM Mono',monospace" }}>INSTANT</span>}
+                        {meta.static && <span style={{ fontSize: 8, color: dm ? '#8fa3bf' : '#55617a', fontFamily: "'DM Mono',monospace" }}>INSTANT</span>}
                         {lang === code && <span style={{ fontSize: 9, color: '#3b82f6', marginLeft: 4 }}>✓</span>}
                       </button>
                     ))}
