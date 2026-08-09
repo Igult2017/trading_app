@@ -36,7 +36,7 @@ import TscPage from "@/pages/TscPage";
 import BlogPage from "@/pages/BlogPage";
 import BlogPostPage from "@/pages/BlogPostPage";
 import EconomicCalendarPage from "@/pages/EconomicCalendarPage";
-import SupportPage from "@/pages/SupportPage";
+import SupportPage from "@/pages/support/SupportPage";
 import LegalPage from "@/pages/legal/LegalPage";
 import AuthCallbackPage from "@/pages/AuthCallbackPage";
 import ResetPasswordPage from "@/pages/ResetPasswordPage";
