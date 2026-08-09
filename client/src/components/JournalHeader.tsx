@@ -128,6 +128,16 @@ const PROFILE_CARD_CSS = `
     animation: pc-pulse 2.2s ease-in-out infinite; flex-shrink: 0;
   }
 
+  /* The settings view is a light card inside the same popover — the user liked the white surface
+     from the standalone page, so it survives the move back into the panel. Only the shell changes;
+     the settings styles themselves live in profile/profileSettingsCss.ts. */
+  .pc-root.pc-light {
+    background: #ffffff;
+    border-color: #e0e6e1;
+    box-shadow: 0 24px 64px rgba(20,35,28,0.28);
+  }
+  .pc-root.pc-light::-webkit-scrollbar-thumb { background: #d5ded8; }
+
   .pc-rule {
     height: 1px;
     background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06) 20%, rgba(255,255,255,0.06) 80%, transparent);
@@ -244,7 +254,7 @@ function ProfileDropdown({ dropdownRef, displayName, avatarLetter, avatarUrl, pl
       ref={dropdownRef}
       style={{ position: 'fixed', top: 104, right: 12, zIndex: 9999 }}
     >
-      <div className="pc-root">
+      <div className={view === 'settings' ? 'pc-root pc-light' : 'pc-root'}>
         {view === 'settings' ? (
           <ProfileSettings
             email={email}
