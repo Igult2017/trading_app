@@ -1952,10 +1952,18 @@ const faqs = [
 export default function TradeSyncPage() {
   // Same faces as the new UI. Loaded here too because the landing renders BEFORE that UI mounts.
   useCtFonts();
-  // Key bumped from 'ts-copier': anyone who pressed Start Now under the old wizard had this
-  // persisted true and would skip straight past the restored landing.
-  const [showCopier, setShowCopier] = usePersistedState('ts-copier-v2', false);
+  // NOT persisted, deliberately. This used to be usePersistedState('ts-copier-v2'), which meant one
+  // press of "Start Now" pinned every future visit — and every reload, in every later session — to
+  // the copier UI. Combined with there being no exit control anywhere in that UI, the landing page
+  // became permanently unreachable. User, 2026-08-08: "it is staying in the UI ... forever."
+  // Session state is the right scope: entering is a deliberate act, and leaving or reloading should
+  // put you back where you started.
+  const [showCopier, setShowCopier] = useState(false);
   const [showDashboard, setShowDashboard] = usePersistedState<null | 'provider' | 'follower'>('ts-dashboard', null);
+
+  // One-time sweep of the key that caused the lock-in. Nothing reads it any more, so leaving it in
+  // storage would only confuse whoever finds it next.
+  useEffect(() => { try { localStorage.removeItem('ts-copier-v2'); } catch {} }, []);
   const [billing, setBilling] = useState<"monthly"|"yearly">("monthly");
   const [openFaq, setOpenFaq] = useState<number|null>(null);
   const [votes, setVotes] = useState<Record<string,{count:number;voted:boolean}>>(() => {
@@ -1972,7 +1980,7 @@ export default function TradeSyncPage() {
   // "Start Now" opens the NEW Trade Sync UI (features/trade-sync); the old CopierWizard it used to
   // open is retired but still on disk. `panel` re-anchors that UI's viewport-sized frame to
   // Journal's scrolling <main> — see features/trade-sync/styles/panel.ts.
-  if (showCopier) return <TradeSyncApp panel />;
+  if (showCopier) return <TradeSyncApp panel onExit={() => setShowCopier(false)} />;
 
   const PlatformCard = ({ p }: { p: typeof platformsRow1[0] }) => (
     <div className="ts-platform-card">

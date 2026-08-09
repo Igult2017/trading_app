@@ -12,9 +12,12 @@ interface SidebarProps {
   /** Panel mode: nested in a host scroll container, so drop the viewport-anchored sizing. */
   panel?: boolean;
   overview: Overview | undefined;
+  /** Leaves the copier and returns to the Trade Sync landing page. Optional so the standalone
+   *  mount (which has nothing to go back to) simply omits it. */
+  onExit?: () => void;
 }
 
-export function Sidebar({ collapsed, setCollapsed, activePage, setActivePage, panel, overview }: SidebarProps) {
+export function Sidebar({ collapsed, setCollapsed, activePage, setActivePage, panel, overview, onExit }: SidebarProps) {
   // Recent activity is DERIVED from the real mirror feed — never invented copy.
   const activity = (overview?.feed ?? []).slice(0, 4).map((f) => ({
     text: `Copied ${f.side} ${f.symbol} ${f.lot} lot`,
@@ -45,6 +48,23 @@ export function Sidebar({ collapsed, setCollapsed, activePage, setActivePage, pa
       </div>
 
       <div className="flex-1 flex flex-col overflow-hidden">
+        {/* THE WAY OUT. Until 2026-08-08 the copier had no exit of any kind: once "Start Now" set
+            showCopier, nothing could unset it, and the flag was persisted, so the landing page was
+            unreachable for good. */}
+        {onExit && (
+          <div className="shrink-0 border-b border-surface-container-highest py-2">
+            <button
+              type="button"
+              onClick={onExit}
+              title="Back to Trade Sync overview"
+              className={`ct-nav-item w-full ${collapsed ? "justify-center px-0" : "px-6"} py-3 flex items-center gap-3`}
+            >
+              <Icon name="arrow_back" className="shrink-0 text-on-surface" />
+              <span className="font-body-md ct-sidebar-text truncate text-on-surface">Back to overview</span>
+            </button>
+          </div>
+        )}
+
         <nav className="shrink-0 py-4 border-b border-surface-container-highest">
           <div className="px-6 mb-4 ct-sidebar-label">
             <span className="font-label-xs text-on-surface opacity-50 uppercase">Main menu</span>

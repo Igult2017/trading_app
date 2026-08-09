@@ -18,6 +18,8 @@ interface TradeSyncAppProps {
    * the host's scroll container; see styles/panel.ts. Omit for a standalone full-page render.
    */
   panel?: boolean;
+  /** Called when the user leaves the copier — the host returns to its landing page. */
+  onExit?: () => void;
 }
 
 /**
@@ -27,7 +29,7 @@ interface TradeSyncAppProps {
  * this screen neither reads nor leaks the host app's theme. See styles/fontGuard.ts for why the
  * scoping is load-bearing rather than cosmetic.
  */
-export function TradeSyncApp({ panel = false }: TradeSyncAppProps = {}) {
+export function TradeSyncApp({ panel = false, onExit }: TradeSyncAppProps = {}) {
   const ts = useTradeSync();
   const { theme, collapsed, setCollapsed, activePage, setActivePage, helpOpen, accountOpen, closeMenus, toast, setup, feed } = ts;
 
@@ -48,6 +50,7 @@ export function TradeSyncApp({ panel = false }: TradeSyncAppProps = {}) {
       */}
       <div className="flex">
         <Sidebar
+          onExit={onExit}
           collapsed={collapsed}
           setCollapsed={setCollapsed}
           activePage={activePage}
