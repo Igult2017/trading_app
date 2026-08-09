@@ -55,7 +55,12 @@ export default function PricingSection({ darkMode }: { darkMode: boolean }) {
           Choose the plan that fits your trading journey. No hidden fees, cancel anytime.
         </p>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-start">
+        {/* items-STRETCH, not items-start. With items-start each card collapsed to its own content
+            height, so Yearly — which has fewer features — sat visibly short next to the others. The
+            Card already carried h-full and CardContent flex-1, but h-full is 100% of a grid item
+            that had already shrunk to fit, so it did nothing. Stretching the row makes h-full mean
+            something, and flex-1 then pushes every CTA button down to a common baseline. */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-stretch">
           {plans.map((plan) => (
             <div key={plan.name} className="relative pt-3">
               {plan.badge && (
