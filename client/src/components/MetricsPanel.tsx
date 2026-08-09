@@ -25,11 +25,25 @@ const D = {
   bdInner:  'var(--mp-bdi, #1A1F2E)',
   bdRow:    'var(--mp-bdr, #12161E)',
   bdDiv:    'var(--mp-bdd, #141820)',
-  text:     'var(--mp-txt, #C8CDD8)',
-  label:    'var(--mp-lbl, #7F8DA4)',
-  muted:    'var(--mp-mut, #8C94A9)',
-  dim:      'var(--mp-dim, #6F7E9F)',
-  sub:      'var(--mp-sub, #7A849E)',
+  // TEXT SCALE — adopted from the copier UI (components/copy/qcTheme.ts) on 2026-08-08, at the
+  // user's request: "can we use white that is being used in copier UI".
+  //
+  // The old values were not unreadable — every one of them cleared AA on this #0A0C10 ground
+  // (12.28 / 6.45 / 5.82 / 5.24 / 4.81). They just read as grey next to the copier, which runs its
+  // primary text at #ECEEF2. This is a preference, not a defect fix, so the only thing that changes
+  // is the two-step scale below:
+  //
+  //   t1  #ECEEF2  16.85:1   values and row labels — everything you actually read
+  //   t2  #A8AEB8   8.77:1   the small uppercase captions and panel titles, which sit BEHIND the
+  //                          content in the hierarchy and would flatten it if they went white too
+  //
+  // The panel carries its own dark palette in every theme (nothing overrides --mp-*), so this is
+  // safe in light mode as well.
+  text:     'var(--mp-txt, #ECEEF2)',
+  label:    'var(--mp-lbl, #A8AEB8)',
+  muted:    'var(--mp-mut, #ECEEF2)',
+  dim:      'var(--mp-dim, #A8AEB8)',
+  sub:      'var(--mp-sub, #A8AEB8)',
   green:    'var(--mp-green,  #1D9E75)',
   greenBg:  'var(--mp-grbg, #0A2016)',
   greenBd:  'var(--mp-grbd, #0F3020)',
