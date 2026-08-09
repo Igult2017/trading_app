@@ -1002,50 +1002,83 @@ function AIGate({ label, description, onRun }: { label: string; description: str
  */
 const AI_ENABLED = false;
 
-/** The section skeletons — what each AI page will contain once the model runs. */
-const AI_SECTIONS: Record<'analysis' | 'strategy', { title: string; rows: string[] }[]> = {
+/** What each AI page will contain once the model runs.
+ *  `blurb` says in one plain line what the section gives you; `lines` is how many placeholder bars
+ *  to draw, which is what makes the card read as "content lands here" rather than as a bullet list
+ *  of things that are missing. */
+type AISection = { title: string; blurb: string; lines: number; wide?: boolean };
+const AI_SECTIONS: Record<'analysis' | 'strategy', AISection[]> = {
   analysis: [
-    { title: 'Win Profile',  rows: ['Setups that worked', 'Conditions they shared', 'What to repeat'] },
-    { title: 'Loss Profile', rows: ['Setups that failed', 'Conditions they shared', 'What to stop'] },
-    { title: 'Behavioural Patterns', rows: ['Recurring habits found in your log', 'Where discipline slipped', 'Emotional triggers'] },
-    { title: 'Pre-Trade Checklist',  rows: ['Checks derived from your winners', 'Filters derived from your losers'] },
-    { title: 'Final Verdict & Next Actions', rows: ['The single change with the biggest expected effect'] },
+    { title: 'Win Profile',   blurb: 'What your winning trades had in common.', lines: 3 },
+    { title: 'Loss Profile',  blurb: 'What your losing trades had in common.', lines: 3 },
+    { title: 'Behavioural Patterns', blurb: 'The habits your log keeps showing, and where discipline slipped.', lines: 4 },
+    { title: 'Pre-Trade Checklist',  blurb: 'Checks drawn from your winners, filters drawn from your losers.', lines: 4 },
+    { title: 'Final Verdict & Next Actions', blurb: 'The one change with the biggest expected effect on your results.', lines: 2, wide: true },
   ],
   strategy: [
-    { title: 'Entry Conditions', rows: ['Conditions present in your confirmed winners', 'Session and timing constraints'] },
-    { title: 'Avoid Conditions', rows: ['Conditions present in your losers', 'When to stand aside'] },
-    { title: 'Risk Rules',       rows: ['Position sizing derived from your results', 'Stop and target placement'] },
-    { title: 'Projected Edge',   rows: ['Expected win rate, and the sample it rests on'] },
-    { title: 'Final Verdict & Next Actions', rows: ['What to trade next, and what to prove first'] },
+    { title: 'Entry Conditions', blurb: 'The conditions that were present when you won.', lines: 3 },
+    { title: 'Avoid Conditions', blurb: 'The conditions that were present when you lost.', lines: 3 },
+    { title: 'Risk Rules',       blurb: 'Sizing, stops and targets derived from your own results.', lines: 4 },
+    { title: 'Projected Edge',   blurb: 'Expected win rate, and the size of the sample it rests on.', lines: 2 },
+    { title: 'Final Verdict & Next Actions', blurb: 'What to trade next, and what to prove before you scale it.', lines: 2, wide: true },
   ],
 };
+
+/** Placeholder bars. Widths taper so a card reads like a paragraph waiting to be written rather
+ *  than a loading spinner — deliberately static, because an animated shimmer on a page that is not
+ *  actually loading anything would be a lie. */
+function SkeletonLines({ n }: { n: number }) {
+  const widths = ['100%', '92%', '78%', '64%', '85%'];
+  return (
+    <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 9 }}>
+      {Array.from({ length: n }).map((_, i) => (
+        <div key={i} style={{ height: 7, width: widths[i % widths.length], borderRadius: 4,
+                              background: `linear-gradient(90deg, ${T.line2}, ${T.line})` }} />
+      ))}
+    </div>
+  );
+}
 
 /** The page shown while AI is switched off — real structure, honest empty state, no API call. */
 function AIPending({ kind, label, description }: { kind: 'analysis' | 'strategy'; label: string; description: string }) {
   return (
     <div>
-      <div style={{ background: T.bg2, border: `1px solid ${T.line2}`, borderRadius: 4, padding: "18px 22px", marginBottom: 3 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-          <Brain style={{ width: 16, height: 16, color: T.blue }} />
+      {/* Header — an accent rail on the left ties it to the rest of the audit page's card language */}
+      <div style={{ background: T.bg2, border: `1px solid ${T.line2}`, borderLeft: `2px solid ${T.blue}`,
+                    borderRadius: 4, padding: "20px 24px", marginBottom: 3 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 11, flexWrap: "wrap", marginBottom: 10 }}>
+          <span style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 26, height: 26,
+                         borderRadius: 5, background: `${T.blue}1f`, border: `1px solid ${T.blue}33`, flexShrink: 0 }}>
+            <Brain style={{ width: 14, height: 14, color: T.blue }} />
+          </span>
           <span style={{ ...mono, fontSize: 11, color: T.text, letterSpacing: ".16em", textTransform: "uppercase" }}>{label}</span>
-          <span style={{ ...mono, fontSize: 8, letterSpacing: ".12em", padding: "2px 7px", border: `1px solid ${T.amber}`, color: T.amber }}>NOT YET ENABLED</span>
+          <span style={{ ...mono, fontSize: 8, letterSpacing: ".12em", padding: "3px 8px", borderRadius: 3,
+                         background: `${T.amber}14`, border: `1px solid ${T.amber}55`, color: T.amber }}>
+            AWAITING AI
+          </span>
         </div>
-        <p style={{ fontFamily: FONT, fontSize: 12, color: T.muted, lineHeight: 1.7, fontWeight: 400, margin: 0, maxWidth: 620 }}>
-          {description} The sections below are the ones this page will fill in. They stay empty until
-          AI analysis is switched on — nothing is sent anywhere in the meantime.
+        <p style={{ fontFamily: FONT, fontSize: 12.5, color: T.muted, lineHeight: 1.75, fontWeight: 400, margin: 0, maxWidth: 640 }}>
+          {description}
+        </p>
+        <p style={{ fontFamily: FONT, fontSize: 11.5, color: T.dim, lineHeight: 1.7, fontWeight: 400, margin: "9px 0 0", maxWidth: 640 }}>
+          These are the sections it writes. They fill the moment AI analysis is switched on — until
+          then nothing is generated and none of your trades leave the platform.
         </p>
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 3, marginBottom: 3 }}>
         {AI_SECTIONS[kind].map((s, i) => (
-          <Cell key={i} span={i >= AI_SECTIONS[kind].length - 1 ? 2 : undefined}>
-            <CellTitle>{s.title}</CellTitle>
-            {s.rows.map((r, j) => (
-              <div key={j} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 0", borderBottom: j < s.rows.length - 1 ? `1px solid ${T.line}` : "none" }}>
-                <span style={{ width: 4, height: 4, borderRadius: "50%", background: T.dim, flexShrink: 0 }} />
-                <span style={{ fontFamily: FONT, fontSize: 12, color: T.dim, fontWeight: 400 }}>{r}</span>
-              </div>
-            ))}
+          <Cell key={i} span={s.wide ? 2 : undefined}>
+            <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12 }}>
+              <CellTitle>{s.title}</CellTitle>
+              <span style={{ ...mono, fontSize: 9, color: T.dim, letterSpacing: ".1em", flexShrink: 0 }}>
+                {String(i + 1).padStart(2, "0")}
+              </span>
+            </div>
+            <p style={{ fontFamily: FONT, fontSize: 12, color: T.muted, lineHeight: 1.65, fontWeight: 400, margin: 0 }}>
+              {s.blurb}
+            </p>
+            <SkeletonLines n={s.lines} />
           </Cell>
         ))}
       </div>
