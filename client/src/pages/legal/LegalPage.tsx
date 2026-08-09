@@ -31,8 +31,13 @@ export default function LegalPage() {
   const [active, setActive] = useState('terms');
   const t = tokens(dm);
 
+  // Links that predate the 2026-08-08 rebuild. Without this, ?tab=contact fell through to Terms and
+  // showed the wrong document with no sign anything was wrong — the footer pointed there for months.
+  const LEGACY: Record<string, string> = { contact: 'notice' };
+
   useEffect(() => {
-    const p = new URLSearchParams(window.location.search).get('tab');
+    const raw = new URLSearchParams(window.location.search).get('tab');
+    const p = raw ? (LEGACY[raw] ?? raw) : null;
     if (p && DOCS.some(d => d.param === p)) setActive(p);
   }, [location]);
 

@@ -256,8 +256,8 @@ export default function AuthPage() {
         </div>
 
         <div style={S.footer}>
-          <a href="/legal" style={{ color: '#3d5070', fontSize: 12, textDecoration: 'none', fontFamily: "'Poppins','Inter',sans-serif" }}>Terms</a>
-          <a href="/legal" style={{ color: '#3d5070', fontSize: 12, textDecoration: 'none', fontFamily: "'Poppins','Inter',sans-serif" }}>Privacy</a>
+          <a href="/legal?tab=terms" style={{ color: '#3d5070', fontSize: 12, textDecoration: 'none', fontFamily: "'Poppins','Inter',sans-serif" }}>Terms</a>
+          <a href="/legal?tab=privacy" style={{ color: '#3d5070', fontSize: 12, textDecoration: 'none', fontFamily: "'Poppins','Inter',sans-serif" }}>Privacy</a>
           <a href="/support" style={{ color: '#3d5070', fontSize: 12, textDecoration: 'none', fontFamily: "'Poppins','Inter',sans-serif" }}>Support</a>
         </div>
       </div>
@@ -496,8 +496,8 @@ export default function AuthPage() {
 
       {/* Footer links */}
       <div style={S.footer}>
-        <a href="/legal" className="auth-footer-link">Terms</a>
-        <a href="/legal" className="auth-footer-link">Privacy</a>
+        <a href="/legal?tab=terms" className="auth-footer-link">Terms</a>
+        <a href="/legal?tab=privacy" className="auth-footer-link">Privacy</a>
         <a href="/support" className="auth-footer-link">Support</a>
       </div>
     </div>

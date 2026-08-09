@@ -19,11 +19,19 @@ const COMPANY = [
   { label: "Reviews",  href: "/#reviews"  },
   { label: "Support",  href: "/support"   },
 ];
+// Kept in step with client/src/pages/legal/docsIndex.ts — a tab that does not exist there silently
+// falls back to Terms, so a wrong href shows the wrong document rather than erroring. Two were wrong
+// here until 2026-08-08: Cookie Policy pointed at ?tab=privacy, and Contact pointed at ?tab=contact,
+// a tab that was removed when Contact & Support moved to /support.
 const LEGAL = [
-  { label: "Privacy Policy",   href: "/legal?tab=privacy" },
-  { label: "Terms of Service", href: "/legal?tab=terms"   },
-  { label: "Cookie Policy",    href: "/legal?tab=privacy" },
-  { label: "Contact",          href: "/legal?tab=contact" },
+  { label: "Terms of Service",  href: "/legal?tab=terms"   },
+  { label: "Risk Disclosure",   href: "/legal?tab=risk"    },
+  { label: "Privacy Policy",    href: "/legal?tab=privacy" },
+  { label: "Cookie Policy",     href: "/legal?tab=cookies" },
+  { label: "Refunds",           href: "/legal?tab=refunds" },
+  { label: "Acceptable Use",    href: "/legal?tab=use"     },
+  { label: "Legal Notice",      href: "/legal?tab=notice"  },
+  { label: "Contact",           href: "/support"           },
 ];
 const LINK_COLS = [
   { heading: "Platform", links: PLATFORM },
