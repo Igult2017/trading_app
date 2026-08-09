@@ -10,6 +10,7 @@ import { useTranslation } from "react-i18next";
 import { ALL_LANGUAGES } from "@/i18n/languages";
 import type { LangCode } from "@/i18n/languages";
 import Wordmark from '@/components/Wordmark';
+import ProfileSettings from '@/components/profile/ProfileSettings';
 
 const TICKER_DATA = [
   { symbol: "EUR/USD", price: "1.0842", change: "+0.12%", up: true },
@@ -139,7 +140,6 @@ const PROFILE_CARD_CSS = `
     border: 1px solid rgba(255,255,255,0.06);
     border-radius: 6px;
     display: flex; align-items: center; gap: 12px;
-    cursor: pointer;
     transition: background .18s, border-color .18s;
     animation: pc-fadex .35s .1s ease both;
   }
@@ -209,16 +209,16 @@ const PcLogoutIcon = () => (
   </svg>
 );
 
-function ProfileDropdown({ dropdownRef, displayName, avatarLetter, avatarUrl, plan, loginStreak, onLogout, onAccountSettings, onUploadAvatar, uploading }: {
+function ProfileDropdown({ dropdownRef, displayName, avatarLetter, avatarUrl, plan, email, loginStreak, onLogout, onUploadAvatar, uploading }: {
   dm: boolean;
   dropdownRef: RefObject<HTMLDivElement>;
   displayName: string;
   avatarLetter: string;
   avatarUrl: string | null;
   plan: string;
+  email: string | null;
   loginStreak: number;
   onLogout: () => void;
-  onAccountSettings: () => void;
   onUploadAvatar: () => void;
   uploading: boolean;
 }) {
@@ -234,12 +234,27 @@ function ProfileDropdown({ dropdownRef, displayName, avatarLetter, avatarUrl, pl
   const streakDays = Math.max(0, loginStreak | 0);
   const streakLabel = streakDays === 1 ? '1 day' : `${streakDays} days`;
 
+  // Two views in the SAME popover — never a navigation. Opening settings used to leave the journal
+  // entirely; see ProfileSettings for why that was wrong.
+  const [view, setView] = useState<'profile' | 'settings'>('profile');
+  const [name, setName] = useState(displayName);
+
   return createPortal(
     <div
       ref={dropdownRef}
       style={{ position: 'fixed', top: 104, right: 12, zIndex: 9999 }}
     >
       <div className="pc-root">
+        {view === 'settings' ? (
+          <ProfileSettings
+            email={email}
+            plan={plan}
+            displayName={name}
+            onBack={() => setView('profile')}
+            onNameSaved={setName}
+          />
+        ) : (
+        <>
         <div className="pc-top">
           <div
             className="pc-av"
@@ -268,7 +283,7 @@ function ProfileDropdown({ dropdownRef, displayName, avatarLetter, avatarUrl, pl
             </div>
           </div>
           <div className="pc-meta">
-            <div className="pc-name">{displayName}</div>
+            <div className="pc-name">{name}</div>
             <div className="pc-pill">
               <span className="pc-dot" />
               {(plan || 'Free').toLowerCase()}
@@ -290,7 +305,7 @@ function ProfileDropdown({ dropdownRef, displayName, avatarLetter, avatarUrl, pl
         </div>
 
         <div className="pc-menu">
-          <button className="pc-item" type="button" onClick={onAccountSettings}>
+          <button className="pc-item" type="button" onClick={() => setView('settings')}>
             <span className="pc-ico"><PcSettingsIcon /></span>
             account settings
           </button>
@@ -299,6 +314,8 @@ function ProfileDropdown({ dropdownRef, displayName, avatarLetter, avatarUrl, pl
             logout
           </button>
         </div>
+        </>
+        )}
       </div>
     </div>,
     document.body
@@ -361,14 +378,14 @@ export default function JournalHeader({ onToggleSidebar, darkMode, onToggleDarkM
 
   const { user, signOut } = useAuth();
   const [, navigate] = useLocation();
-  const [profile, setProfile] = useState<{ fullName: string; plan: string; loginStreak: number; avatarUrl: string | null } | null>(null);
+  const [profile, setProfile] = useState<{ fullName: string; email: string | null; plan: string; loginStreak: number; avatarUrl: string | null } | null>(null);
 
   useEffect(() => {
     if (!user) { setProfile(null); return; }
     let cancelled = false;
     authFetch('/api/me/profile')
       .then(r => r.ok ? r.json() : null)
-      .then(d => { if (!cancelled && d) setProfile({ fullName: d.fullName || '', plan: d.plan || 'Free', loginStreak: d.loginStreak || 0, avatarUrl: d.avatarUrl || null }); })
+      .then(d => { if (!cancelled && d) setProfile({ fullName: d.fullName || '', email: d.email ?? null, plan: d.plan || 'Free', loginStreak: d.loginStreak || 0, avatarUrl: d.avatarUrl || null }); })
       .catch(() => {});
     return () => { cancelled = true; };
   }, [user?.id]);
@@ -404,15 +421,6 @@ export default function JournalHeader({ onToggleSidebar, darkMode, onToggleDarkM
   const plan = profile?.plan || 'Free';
   const loginStreak = profile?.loginStreak || 0;
   const avatarUrl = profile?.avatarUrl || null;
-
-  // Was: set localStorage.admin_active_tab = 'journal-settings' and navigate('/admin'). That was
-  // wrong twice over — those are JOURNAL settings, not account settings, and /admin is behind the
-  // admin guard, so an ordinary user was redirected to /journal and the click appeared to do
-  // nothing at all. Fixed 2026-08-08; /settings is a real page every signed-in user can open.
-  function openAccountSettings() {
-    setProfileOpen(false);
-    navigate('/settings');
-  }
 
   async function handleLogout() {
     setProfileOpen(false);
@@ -613,9 +621,9 @@ export default function JournalHeader({ onToggleSidebar, darkMode, onToggleDarkM
                   avatarLetter={avatarLetter}
                   avatarUrl={avatarUrl}
                   plan={plan}
+                  email={profile?.email ?? user?.email ?? null}
                   loginStreak={loginStreak}
                   onLogout={handleLogout}
-                  onAccountSettings={openAccountSettings}
                   onUploadAvatar={triggerAvatarUpload}
                   uploading={avatarUploading}
                 />
