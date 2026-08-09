@@ -8,7 +8,7 @@
  * Text sits directly on the page ground, not in a card, for the same reason.
  */
 import { useEffect, useState } from 'react';
-import { useLocation } from 'wouter';
+import { useSearch, useLocation } from 'wouter';
 import SEOHead from '@/components/SEOHead';
 import { usePublicTheme } from '@/context/PublicThemeContext';
 import { tokens, SERIF, SANS, DocHeader } from './legalUI';
@@ -27,7 +27,14 @@ const BODIES: Record<string, (p: { dm: boolean }) => JSX.Element> = {
 
 export default function LegalPage() {
   const { darkMode: dm } = usePublicTheme();
-  const [location] = useLocation();
+  // useSearch, NOT useLocation. wouter's useLocation returns the PATHNAME ONLY, and the footer links
+  // here differ only in their query string (/legal?tab=terms vs ?tab=privacy). Because the footer
+  // uses wouter's <Link>, clicking is client-side with no reload — so with useLocation the pathname
+  // never changed, the effect below never re-ran, and clicking a different legal link did nothing at
+  // all once you were already on /legal. Reported 2026-08-08: "I am clicking some and I can't see
+  // change in the pages". useSearch subscribes to the query string, which is what actually changes.
+  const search = useSearch();
+  const [, navigate] = useLocation();
   const [active, setActive] = useState('terms');
   const t = tokens(dm);
 
@@ -36,16 +43,17 @@ export default function LegalPage() {
   const LEGACY: Record<string, string> = { contact: 'notice' };
 
   useEffect(() => {
-    const raw = new URLSearchParams(window.location.search).get('tab');
+    const raw = new URLSearchParams(search).get('tab');
     const p = raw ? (LEGACY[raw] ?? raw) : null;
     if (p && DOCS.some(d => d.param === p)) setActive(p);
-  }, [location]);
+  }, [search]);
 
+  // Navigate through wouter, not window.history. A raw pushState updates the address bar but wouter
+  // never sees it, so useSearch would keep returning the old query and the two navigation routes
+  // (footer links vs the cross-links inside a document) would drift apart. The URL is the single
+  // source of truth; the effect above turns it into state. Back and forward work as a result.
   function go(param: string) {
-    setActive(param);
-    const url = new URL(window.location.href);
-    url.searchParams.set('tab', param);
-    window.history.pushState({}, '', url.toString());
+    navigate(`/legal?tab=${param}`);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 

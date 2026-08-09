@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect, useRef } from 'react';
 import { useDelayedLoading } from '@/components/TradingLoader';
 import { DashboardSkeleton, JournalBootSkeleton } from '@/components/skeletons/DashboardSkeletons';
 import { usePageTracking } from '@/hooks/usePageTracking';
-import { Link, useLocation } from 'wouter';
+import { Link, useSearch } from 'wouter';
 import { Activity, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -766,7 +766,8 @@ export default function Journal() {
   // break greps that scan the style block for exactly that mistake.)
   // forceWeight null (Playfair) => emit nothing, so each panel keeps its own weights.
   const forcedWeightRule = F.forceWeight ? 'font-weight:' + F.forceWeight + '!important;' : '';
-  const [location] = useLocation();
+  // useSearch, not useLocation — see the effect below.
+  const search = useSearch();
   const [activeNav, setActiveNav] = useState(() => {
     if (typeof window !== 'undefined') {
       const tab = new URLSearchParams(window.location.search).get('tab');
@@ -779,14 +780,19 @@ export default function Journal() {
   // Sync activeNav whenever the URL ?tab= param changes (e.g. from the
   // "account settings" button in the profile dropdown which navigates to
   // /journal?tab=settings while already on the journal page).
+  //
+  // This depended on [location] until 2026-08-08, which meant it never fired in the one situation
+  // the comment above describes: wouter's useLocation returns the PATHNAME only, so navigating from
+  // /journal to /journal?tab=settings left it unchanged. useSearch tracks the query string, which is
+  // the thing that actually changes. Same defect as the legal pages, found by sweeping for it.
   useEffect(() => {
-    const tab = new URLSearchParams(window.location.search).get('tab');
+    const tab = new URLSearchParams(search).get('tab');
     const valid = NAV_SECTIONS.flatMap(g => g.items).map(i => i.id);
     if (tab && valid.includes(tab) && tab !== activeNav) {
       setActiveNav(tab);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location]);
+  }, [search]);
 
   // Keep ?tab= in sync with the active section so reloads restore the correct view
   useEffect(() => {
