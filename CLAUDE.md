@@ -221,7 +221,9 @@ All vars live in `.env` at project root (loaded by `dotenv/config`). Signal plat
 ## Important Rules
 
 - **No new signal dashboards** — signals always display on the existing `client/src/pages/AssetPage.tsx`
-- **150-line file limit** — split files before they exceed this; one responsibility per file
+- **File length: aim for 150 lines, 200 is the limit** — split when a file passes 200 or when it
+  stops having one responsibility. A 160-line file is fine and should be left alone; splitting it to
+  reach 150 is churn. (Corrected 2026-08-09 — this read as a flat 150 and caused needless splits.)
 - **Dynamic timeframes only** — never hardcode TF values as enum constants; use string literals (`"M15"`, `"H4"`) or derive from `shared/mtf_utils.py`
 - **Telegram is event-driven** — `dispatcher.py` fires on `SIGNAL_CONFIRMED` / `SIGNAL_CLOSED` events; never add polling loops
 - **OANDA replaces yfinance** — when `OANDA_API_TOKEN` is present, swap `candle_fetcher._fetch_sync()`; no other code changes needed
