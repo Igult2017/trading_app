@@ -42,10 +42,11 @@ export default function TermsBoilerplate({ dm }: Themed) {
 
       <H2 dm={dm}>11. Ending the agreement</H2>
       <P dm={dm}>
-        You can delete your account at any time from your settings. We may suspend or close an
+        You can close your account at any time by emailing support@tradeandjournal.com with the
+        subject "Account Deletion". We export your data for you first, then remove or anonymise it
+        within 90 days, keeping only what the law requires us to keep. We may suspend or close an
         account that breaches these terms or is used fraudulently, and where it is reasonable to do
-        so we will tell you why. Export your data before you close your account; we will help for at
-        least 14 days afterwards.
+        so we will tell you why.
       </P>
 
       <H2 dm={dm}>12. Governing law and disputes</H2>

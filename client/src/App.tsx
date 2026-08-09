@@ -38,6 +38,7 @@ import BlogPostPage from "@/pages/BlogPostPage";
 import EconomicCalendarPage from "@/pages/EconomicCalendarPage";
 import SupportPage from "@/pages/support/SupportPage";
 import AboutPage from "@/pages/AboutPage";
+import AccountSettingsPage from "@/pages/account/AccountSettingsPage";
 import LegalPage from "@/pages/legal/LegalPage";
 import AuthCallbackPage from "@/pages/AuthCallbackPage";
 import ResetPasswordPage from "@/pages/ResetPasswordPage";
@@ -103,6 +104,7 @@ function InnerPages() {
           <Route path="/analytics"   component={Analytics} />
           <Route path="/assets"      component={AssetPage as React.ComponentType<any>} />
           <Route path="/accounts"    component={AccountsPage as React.ComponentType<any>} />
+          <Route path="/settings"    component={AccountSettingsPage} />
           <Route component={NotFound} />
         </Switch>
       </main>
@@ -232,6 +234,7 @@ function AppRoutes() {
       <Route path="/analytics">  <RequireAuth><InnerPages /></RequireAuth></Route>
       <Route path="/assets">     <RequireAuth><InnerPages /></RequireAuth></Route>
       <Route path="/accounts">   <RequireAuth><InnerPages /></RequireAuth></Route>
+      <Route path="/settings">   <RequireAuth><InnerPages /></RequireAuth></Route>
 
       {/* Public sub-pages — shared layout keeps HomeHeader mounted across navigations.
           This catch-all also handles 404 via NotFound inside PublicPagesGroup. */}

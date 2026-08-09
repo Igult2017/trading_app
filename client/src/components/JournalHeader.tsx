@@ -159,12 +159,6 @@ const PROFILE_CARD_CSS = `
   }
   .pc-sk-val { font-size: 14px; font-weight: 500; color: #ede9ff; letter-spacing: -.3px; }
 
-  .pc-chevron {
-    color: rgba(255,255,255,.18); font-size: 16px;
-    transition: all .18s; line-height: 1;
-  }
-  .pc-streak:hover .pc-chevron { color: rgba(255,255,255,.45); transform: translateX(2px); }
-
   .pc-menu { padding: 4px 8px 10px; display: flex; flex-direction: column; gap: 1px; }
 
   .pc-item {
@@ -284,13 +278,15 @@ function ProfileDropdown({ dropdownRef, displayName, avatarLetter, avatarUrl, pl
 
         <div className="pc-rule" />
 
-        <div className="pc-streak">
+        {/* The chevron was removed on 2026-08-08. It signalled "clickable" on a plain div with no
+            handler — one of the things that made the panel feel dead. There is nowhere for it to go,
+            so it no longer pretends there is. */}
+        <div className="pc-streak" title="Consecutive days you have opened your journal">
           <div className="pc-sk-ico"><PcFlameIcon /></div>
           <div className="pc-sk-body">
             <div className="pc-sk-label">login streak</div>
             <div className="pc-sk-val">{streakLabel}</div>
           </div>
-          <span className="pc-chevron">›</span>
         </div>
 
         <div className="pc-menu">
@@ -409,10 +405,13 @@ export default function JournalHeader({ onToggleSidebar, darkMode, onToggleDarkM
   const loginStreak = profile?.loginStreak || 0;
   const avatarUrl = profile?.avatarUrl || null;
 
+  // Was: set localStorage.admin_active_tab = 'journal-settings' and navigate('/admin'). That was
+  // wrong twice over — those are JOURNAL settings, not account settings, and /admin is behind the
+  // admin guard, so an ordinary user was redirected to /journal and the click appeared to do
+  // nothing at all. Fixed 2026-08-08; /settings is a real page every signed-in user can open.
   function openAccountSettings() {
     setProfileOpen(false);
-    try { localStorage.setItem('admin_active_tab', 'journal-settings'); } catch {}
-    navigate('/admin');
+    navigate('/settings');
   }
 
   async function handleLogout() {
