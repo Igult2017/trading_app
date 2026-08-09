@@ -9,13 +9,24 @@ import {
   clearInactivityTracking,
 } from "@/lib/inactivity";
 
+/** The timeout in words, for the toast — derived so it can never disagree with the constant. */
+function humanTimeout(): string {
+  const mins = Math.round(TIMEOUT_MS / 60000);
+  if (mins < 60) return mins + (mins === 1 ? " minute" : " minutes");
+  const hrs = mins / 60;
+  const whole = Number.isInteger(hrs) ? String(hrs) : hrs.toFixed(1);
+  return whole + (hrs === 1 ? " hour" : " hours");
+}
+
 const ACTIVITY_EVENTS: (keyof WindowEventMap)[] = [
   "mousemove", "mousedown", "keydown", "scroll", "touchstart", "wheel", "click",
 ];
 
 /**
- * Auto-logs the user out after 10 minutes of inactivity — including while the
- * tab was closed.
+ * Auto-logs the user out after INACTIVITY_TIMEOUT_MS of inactivity (3 hours as of 2026-08-08) —
+ * including while the tab was closed. The duration lives in lib/inactivity.ts; the message below is
+ * derived from it rather than written out, because the old copy still said "10 minutes" after the
+ * constant had already been changed and would have told users something untrue.
  *
  * The activity clock is keyed on the STABLE user id, NOT the access token.
  * Supabase rotates the access token on refresh, so keying on it made a
@@ -60,7 +71,7 @@ export function useInactivityLogout() {
     clearInactivityTracking();
     toast({
       title: "Signed out due to inactivity",
-      description: "You were automatically signed out after 10 minutes of inactivity. Please log in again.",
+      description: `You were automatically signed out after ${humanTimeout()} of inactivity. Please log in again.`,
       duration: 7_000,
     });
     await signOutRef.current();
