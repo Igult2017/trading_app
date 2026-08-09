@@ -16,13 +16,10 @@ import { DOCS, docByParam } from './docsIndex';
 import Terms from './docs/terms';
 import Privacy from './docs/privacy';
 import Risk from './docs/risk';
-import Refunds from './docs/refunds';
 import Notice from './docs/notice';
-import { AcceptableUse, Cookies } from './docs/useAndCookies';
 
 const BODIES: Record<string, (p: { dm: boolean }) => JSX.Element> = {
-  terms: Terms, risk: Risk, privacy: Privacy, cookies: Cookies,
-  refunds: Refunds, use: AcceptableUse, notice: Notice,
+  terms: Terms, risk: Risk, privacy: Privacy, notice: Notice,
 };
 
 export default function LegalPage() {
@@ -40,7 +37,16 @@ export default function LegalPage() {
 
   // Links that predate the 2026-08-08 rebuild. Without this, ?tab=contact fell through to Terms and
   // showed the wrong document with no sign anything was wrong — the footer pointed there for months.
-  const LEGACY: Record<string, string> = { contact: 'notice' };
+  // Links that predate a restructure. Without this, an unknown ?tab= falls through to Terms and
+  // shows the wrong document with no sign anything is wrong — the footer pointed at a dead tab for
+  // months that way. `cookies`, `refunds` and `use` were their own pages until the 2026-08-08 merge;
+  // they now land on the document that absorbed them.
+  const LEGACY: Record<string, string> = {
+    contact: 'notice',
+    cookies: 'privacy',
+    refunds: 'terms',
+    use:     'terms',
+  };
 
   useEffect(() => {
     const raw = new URLSearchParams(search).get('tab');

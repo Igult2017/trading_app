@@ -14,6 +14,8 @@
  * worse. See ~/.claude/plugins/config/claude-for-legal/company-profile.md.
  */
 import { H2, P, UL, DL, Note, PENDING_ENTITY, type Themed } from '../legalUI';
+import TermsBilling from './termsBilling';
+import TermsUse from './termsUse';
 import TermsBoilerplate from './termsBoilerplate';
 
 export default function Terms({ dm }: Themed) {
@@ -80,21 +82,10 @@ export default function Terms({ dm }: Themed) {
         'Any broker credentials or API keys you connect are used only to operate the features you switched on.',
       ]} />
 
-      <H2 dm={dm}>6. Paying, cancelling and refunds</H2>
-      <P dm={dm}>Some features need a paid subscription. Full terms are in our Cancellation &amp; Refunds policy; the essentials are:</P>
-      <UL dm={dm} items={[
-        'Fees are charged on the cycle shown at purchase and renew automatically until you cancel.',
-        'You can cancel at any time, and cancellation takes effect at the end of the period you have paid for.',
-        'If you are a consumer in the EU or UK you have 14 days to change your mind — see the Cancellation & Refunds policy, which explains the one situation where that right ends early.',
-        'We give at least 30 days notice before a price change affecting you.',
-      ]} />
-
-      <H2 dm={dm}>7. Acceptable use</H2>
-      <P dm={dm}>
-        The full list is in our Acceptable Use policy. In short: do not break the law with it, do not
-        attack it, do not scrape it, do not resell it, and do not use it to mislead other users —
-        including by publishing false performance or presenting yourself as licensed when you are not.
-      </P>
+      {/* Sections 6 and 7 were separate documents until the 2026-08-08 merge. They are full
+          sections now, not summaries pointing elsewhere. */}
+      <TermsBilling dm={dm} />
+      <TermsUse dm={dm} />
 
       <H2 dm={dm}>8. Your content and your data</H2>
       <UL dm={dm} items={[

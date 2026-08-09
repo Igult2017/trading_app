@@ -108,7 +108,25 @@ export default function Privacy({ dm }: Themed) {
         delete it if we discover it.
       </P>
 
-      <H2 dm={dm}>10. Changes</H2>
+      {/* Was a separate Cookie Policy until the 2026-08-08 merge. Cookies are a subset of privacy,
+          so this is where a reader looks for them anyway. */}
+      <H2 dm={dm}>10. Cookies and what we store on your device</H2>
+      <P dm={dm}>
+        Cookies are small files a site stores in your browser. The law here covers anything stored on
+        your device, not only cookies, so this section also covers the browser storage the platform
+        uses. We keep it to the minimum.
+      </P>
+      <DL dm={dm} items={[
+        ['Strictly necessary.', 'Keeping you signed in, keeping your session secure, and carrying you through a broker connection. The service cannot work without these, so they do not require your consent.'],
+        ['Preferences.', 'Remembering choices you have made, such as your theme and which panel you were last on. Set because you chose them.'],
+      ]} />
+      <Note dm={dm}>
+        <strong>We do not use advertising or tracking cookies</strong>, and we do not share any of
+        this with advertisers. Every browser lets you block or delete cookies in its settings —
+        blocking the strictly necessary ones will stop you being able to sign in.
+      </Note>
+
+      <H2 dm={dm}>11. Changes</H2>
       <P dm={dm}>
         We will post material changes here at least 14 days before they take effect and update the
         date above.

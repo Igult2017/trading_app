@@ -37,6 +37,7 @@ import BlogPage from "@/pages/BlogPage";
 import BlogPostPage from "@/pages/BlogPostPage";
 import EconomicCalendarPage from "@/pages/EconomicCalendarPage";
 import SupportPage from "@/pages/support/SupportPage";
+import AboutPage from "@/pages/AboutPage";
 import LegalPage from "@/pages/legal/LegalPage";
 import AuthCallbackPage from "@/pages/AuthCallbackPage";
 import ResetPasswordPage from "@/pages/ResetPasswordPage";
@@ -178,6 +179,7 @@ function PublicPagesGroup() {
           <Route path="/tsc"        component={TscPage} />
           <Route path="/legal"      component={LegalPage} />
           <Route path="/support"    component={SupportPage} />
+          <Route path="/about"      component={AboutPage} />
           <Route component={NotFound} />
         </Switch>
       )}

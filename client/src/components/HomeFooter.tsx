@@ -14,6 +14,7 @@ const PLATFORM = [
   // { label: "Sessions",      href: "/tsc"       },
 ];
 const COMPANY = [
+  { label: "About",    href: "/about"     },
   { label: "Pricing",  href: "/#pricing"  },
   { label: "Features", href: "/#features" },
   { label: "Reviews",  href: "/#reviews"  },
@@ -23,15 +24,16 @@ const COMPANY = [
 // falls back to Terms, so a wrong href shows the wrong document rather than erroring. Two were wrong
 // here until 2026-08-08: Cookie Policy pointed at ?tab=privacy, and Contact pointed at ?tab=contact,
 // a tab that was removed when Contact & Support moved to /support.
+// Four documents since the 2026-08-08 merge, not seven — Refunds and Acceptable Use are sections of
+// the Terms now, and the Cookie Policy is a section of Privacy. Keep this list in step with
+// client/src/pages/legal/docsIndex.ts: an unknown ?tab= silently shows Terms rather than erroring,
+// so a stale href here shows the WRONG document with nothing to warn you.
 const LEGAL = [
-  { label: "Terms of Service",  href: "/legal?tab=terms"   },
-  { label: "Risk Disclosure",   href: "/legal?tab=risk"    },
-  { label: "Privacy Policy",    href: "/legal?tab=privacy" },
-  { label: "Cookie Policy",     href: "/legal?tab=cookies" },
-  { label: "Refunds",           href: "/legal?tab=refunds" },
-  { label: "Acceptable Use",    href: "/legal?tab=use"     },
-  { label: "Legal Notice",      href: "/legal?tab=notice"  },
-  { label: "Contact",           href: "/support"           },
+  { label: "Terms & Conditions",     href: "/legal?tab=terms"   },
+  { label: "Risk & No Advice",       href: "/legal?tab=risk"    },
+  { label: "Privacy & Cookies",      href: "/legal?tab=privacy" },
+  { label: "Legal Notice",           href: "/legal?tab=notice"  },
+  { label: "Contact",                href: "/support"           },
 ];
 const LINK_COLS = [
   { heading: "Platform", links: PLATFORM },
