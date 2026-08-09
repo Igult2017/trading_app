@@ -10,14 +10,11 @@
  * WHEN REGISTRATION COMPLETES: fill the fields in section 1 and delete the pending note. That is the
  * only edit this page should ever need.
  */
-import { H1, H2, P, DL, UL, Note, Stamp, type Themed } from '../legalUI';
+import { H2, P, DL, UL, Note, type Themed } from '../legalUI';
 
 export default function Notice({ dm }: Themed) {
   return (
     <>
-      <H1 dm={dm}>Legal Notice &amp; Complaints</H1>
-      <Stamp dm={dm}>Last updated 8 August 2026 · Who operates this service, and how to complain</Stamp>
-
       <H2 dm={dm}>1. Who operates this service</H2>
       <P dm={dm}>Trade &amp; Journal is operated by:</P>
       <DL dm={dm} items={[

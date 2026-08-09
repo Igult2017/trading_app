@@ -9,14 +9,11 @@
  * below describes categories without asserting that a banner is live. If a banner is added, say so
  * here explicitly.
  */
-import { H1, H2, P, UL, DL, Note, Stamp, type Themed } from '../legalUI';
+import { H2, P, UL, DL, Note, type Themed } from '../legalUI';
 
 export function AcceptableUse({ dm }: Themed) {
   return (
     <>
-      <H1 dm={dm}>Acceptable Use</H1>
-      <Stamp dm={dm}>Last updated 8 August 2026</Stamp>
-
       <P dm={dm}>
         These rules exist so the platform stays safe to use. Breaking them can get your account
         suspended or closed.
@@ -65,9 +62,6 @@ export function AcceptableUse({ dm }: Themed) {
 export function Cookies({ dm }: Themed) {
   return (
     <>
-      <H1 dm={dm}>Cookie Policy</H1>
-      <Stamp dm={dm}>Last updated 8 August 2026</Stamp>
-
       <P dm={dm}>
         Cookies are small files stored by your browser. We use as few as we can, in three categories.
       </P>

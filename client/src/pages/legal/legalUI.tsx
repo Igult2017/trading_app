@@ -8,16 +8,19 @@
  * it — the same trap that put pale text on a white page earlier the same day.
  */
 import type { ReactNode } from 'react';
+import { DOCS, docByParam, ORG, EFFECTIVE, REVIEWED, VERSION } from './docsIndex';
 
 export const SERIF = "'Playfair Display', Georgia, serif";
 export const SANS  = "'Inter', system-ui, -apple-system, sans-serif";
 
 export interface Themed { dm: boolean }
 
-/** One place for every colour, so a contrast fix lands everywhere at once. */
+/** One place for every colour, so a contrast fix lands everywhere at once.
+ *  `card` is retained as a token but the layout no longer draws a card — the reference page sets
+ *  the text directly on the page ground, and the sidebar was removed with it (user, 2026-08-08). */
 export function tokens(dm: boolean) {
   return {
-    bg:      dm ? '#0b1120' : '#f7f8fa',
+    bg:      dm ? '#0b1120' : '#f4f6f4',
     card:    dm ? '#111827' : '#ffffff',
     ink:     dm ? '#e8edf9' : '#111827',   // 16.9:1 dark / 16.1:1 light
     body:    dm ? '#c7d0e4' : '#374151',   // 11.4:1 dark /  9.7:1 light
@@ -99,6 +102,41 @@ export const Stamp = ({ dm, children }: Themed & { children: ReactNode }) => (
     {children}
   </p>
 );
+
+/** The masthead every document opens with — matches the reference page's structure exactly:
+ *  title, bold org line, an effective/reviewed/version line, the scope paragraph with the sibling
+ *  documents linked inline, then a rule. Replaces the sidebar as the way between documents. */
+export const DocHeader = ({ dm, param, go }: Themed & { param: string; go: (p: string) => void }) => {
+  const t = tokens(dm);
+  const doc = docByParam(param);
+  const others = DOCS.filter(d => d.param !== param);
+  return (
+    <header>
+      <H1 dm={dm}>{doc.title}</H1>
+      <p style={{ fontFamily: SERIF, fontSize: 15, fontWeight: 700, color: t.ink, margin: '0 0 6px' }}>{ORG}</p>
+      <p style={{ fontFamily: SERIF, fontSize: 14, color: t.body, margin: '0 0 20px' }}>
+        <strong style={{ color: t.ink }}>Effective date:</strong> {EFFECTIVE}{' '}
+        <strong style={{ color: t.ink }}>Last reviewed:</strong> {REVIEWED}{' '}
+        <strong style={{ color: t.ink }}>Version:</strong> {VERSION}
+      </p>
+      <p style={{ fontFamily: SERIF, fontSize: 15, lineHeight: 1.75, color: t.body, margin: '0 0 8px' }}>
+        {doc.intro} For our other legal documents, see{' '}
+        {others.map((d, i) => (
+          <span key={d.param}>
+            <button onClick={() => go(d.param)}
+                    style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer',
+                             font: 'inherit', color: t.accent, textDecoration: 'underline',
+                             textUnderlineOffset: 2 }}>
+              {d.label}
+            </button>
+            {i < others.length - 2 ? ', ' : i === others.length - 2 ? ' and ' : '.'}
+          </span>
+        ))}
+      </p>
+      <hr style={{ border: 0, borderTop: `1px solid ${t.rule}`, margin: '30px 0 4px' }} />
+    </header>
+  );
+};
 
 /** Repeated verbatim across documents — one definition, so it cannot drift. */
 export const PENDING_ENTITY =

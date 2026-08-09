@@ -6,14 +6,11 @@
  *   - BROKER CREDENTIALS. The old policy never mentioned them. They are the most sensitive thing
  *     the platform holds and needed saying out loud.
  */
-import { H1, H2, P, UL, DL, Note, Stamp, type Themed } from '../legalUI';
+import { H2, P, UL, DL, Note, type Themed } from '../legalUI';
 
 export default function Privacy({ dm }: Themed) {
   return (
     <>
-      <H1 dm={dm}>Privacy Policy</H1>
-      <Stamp dm={dm}>Last updated 8 August 2026 · What we collect, why, and what you can demand of us</Stamp>
-
       <Note dm={dm}>
         <strong>The short version.</strong> We collect what we need to run your journal and the
         features you switch on. We do not sell your data. We never sell or share your individual

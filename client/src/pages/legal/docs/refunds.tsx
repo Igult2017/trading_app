@@ -8,14 +8,11 @@
  * 14 days becoming a free month — but it only works if the user genuinely asks for immediate access
  * and is told they lose the right. Both halves must stay true in the product, not just on this page.
  */
-import { H1, H2, P, UL, DL, Note, Stamp, type Themed } from '../legalUI';
+import { H2, P, UL, DL, Note, type Themed } from '../legalUI';
 
 export default function Refunds({ dm }: Themed) {
   return (
     <>
-      <H1 dm={dm}>Cancellation &amp; Refunds</H1>
-      <Stamp dm={dm}>Last updated 8 August 2026</Stamp>
-
       <H2 dm={dm}>1. Cancelling a subscription</H2>
       <UL dm={dm} items={[
         'You can cancel at any time from your account settings — you do not need to ask us.',

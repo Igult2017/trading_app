@@ -6,14 +6,11 @@
  *
  * This page has to work standing alone: it is the one a regulator or a complaining user reads first.
  */
-import { H1, H2, P, DL, UL, Note, Stamp, type Themed } from '../legalUI';
+import { H2, P, DL, UL, Note, type Themed } from '../legalUI';
 
 export default function Risk({ dm }: Themed) {
   return (
     <>
-      <H1 dm={dm}>Risk Disclosure &amp; No Advice</H1>
-      <Stamp dm={dm}>Last updated 8 August 2026 · Please read this before using signals or copy trading</Stamp>
-
       <Note dm={dm} tone="warn">
         <strong>Most retail traders lose money.</strong> Trading foreign exchange, CFDs,
         cryptocurrencies, shares and commodities carries a high risk to your capital. Leverage

@@ -13,15 +13,12 @@
  * when it becomes operational. Silence would invite the wrong inference; a false claim would be far
  * worse. See ~/.claude/plugins/config/claude-for-legal/company-profile.md.
  */
-import { H1, H2, P, UL, DL, Note, Stamp, PENDING_ENTITY, type Themed } from '../legalUI';
+import { H2, P, UL, DL, Note, PENDING_ENTITY, type Themed } from '../legalUI';
 import TermsBoilerplate from './termsBoilerplate';
 
 export default function Terms({ dm }: Themed) {
   return (
     <>
-      <H1 dm={dm}>Terms of Service</H1>
-      <Stamp dm={dm}>Last updated 8 August 2026 · These terms form a contract between you and us</Stamp>
-
       <Note dm={dm} tone="warn">
         <strong>Read section 3 before you use anything on this platform.</strong> We are a software
         company. We are not a broker, we are not your adviser, and we do not hold your money.
