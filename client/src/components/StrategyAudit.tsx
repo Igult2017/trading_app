@@ -343,7 +343,7 @@ function Page1({ d }: { d: AuditData }) {
   return (
     <div>
       {/* Row 1 */}
-      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 12, marginBottom: 12 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 6, marginBottom: 6 }}>
         <Cell>
           <CellTitle>{t('strategy.executiveSummary')}</CellTitle>
           <p style={{ fontSize: 13, color: T.muted, lineHeight: 1.75, fontFamily: FONT, fontWeight: 400 }}>
@@ -374,7 +374,7 @@ function Page1({ d }: { d: AuditData }) {
       </div>
 
       {/* Row 2 */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 12 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6, marginBottom: 6 }}>
         <Cell>
           <CellTitle>{t('strategy.probabilisticEdge')}</CellTitle>
           <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
@@ -433,7 +433,7 @@ function Page1({ d }: { d: AuditData }) {
       </div>
 
       {/* Row 3 */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 6 }}>
         <Cell>
           <CellTitle>{t('strategy.weaknesses')}</CellTitle>
           {weakness ? (
@@ -466,7 +466,7 @@ function Page1({ d }: { d: AuditData }) {
       </div>
 
       {/* Row 4 */}
-      <div style={{ background: "var(--jr-panel)", border: "1px solid var(--jr-border)", borderRadius: 4, padding: "20px 22px", marginBottom: 12 }}>
+      <div style={{ background: "var(--jr-panel)", border: "1px solid var(--jr-border)", borderRadius: 4, padding: "20px 22px", marginBottom: 6 }}>
         <CellTitle>Logical Verification</CellTitle>
         <div className="sa-lv-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 0 }}>
           {lvRows.map((item, i) => (
@@ -514,7 +514,7 @@ function Page2({ d }: { d: AuditData }) {
 
   return (
     <div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 12 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6, marginBottom: 6 }}>
         <Cell>
           <CellTitle>Variance &amp; Distribution</CellTitle>
           <StatRow label="Win Rate" value={`${v.winRate.toFixed(1)}%`} color={T.green} />
@@ -568,7 +568,7 @@ function Page2({ d }: { d: AuditData }) {
         </Cell>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 6 }}>
         <Cell>
           <CellTitle>Trade Quality Stratification</CellTitle>
           {[
@@ -608,7 +608,7 @@ function Page2({ d }: { d: AuditData }) {
         </Cell>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 6 }}>
         <Cell>
           <CellTitle>Correlation Heatmap — Win Factors</CellTitle>
           <Heatmap factors={winFactors} corr={winCorr} instruments={instruments} isWin={true} />
@@ -644,7 +644,7 @@ function Page3({ d }: { d: AuditData }) {
 
   return (
     <div>
-      <div style={{ background: "var(--jr-panel)", border: "1px solid var(--jr-border)", borderRadius: 4, padding: "20px 22px", marginBottom: 12 }}>
+      <div style={{ background: "var(--jr-panel)", border: "1px solid var(--jr-border)", borderRadius: 4, padding: "20px 22px", marginBottom: 6 }}>
         <CellTitle>Core Robustness</CellTitle>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", borderBottom: `1px solid ${T.line}`, padding: "8px 0" }}>
           <span style={{ fontFamily: FONT, fontWeight: 600, fontSize: 9, letterSpacing: ".25em", color: T.dim, textTransform: "uppercase" }}>Status Bar</span>
@@ -666,7 +666,7 @@ function Page3({ d }: { d: AuditData }) {
         ))}
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 12 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6, marginBottom: 6 }}>
         <Cell>
           <CellTitle>Loss Cluster Severity</CellTitle>
           <MiniGrid cols="1fr 1fr">
@@ -757,7 +757,7 @@ function Page4({ d }: { d: AuditData }) {
   return (
     <div>
       <StrategyBlueprintPanel d={d} />
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 6 }}>
         <Cell>
           <CellTitle>AI Policy Suggestions</CellTitle>
           {suggestions.length > 0 ? suggestions.slice(0, 3).map((item, i) => (
@@ -788,7 +788,7 @@ function Page4({ d }: { d: AuditData }) {
         </Cell>
       </div>
 
-      <div style={{ background: "var(--jr-panel)", border: "1px solid var(--jr-border)", borderRadius: 4, padding: "20px 22px", marginBottom: 12 }}>
+      <div style={{ background: "var(--jr-panel)", border: "1px solid var(--jr-border)", borderRadius: 4, padding: "20px 22px", marginBottom: 6 }}>
         <CellTitle>Final Verdict &amp; Next Actions</CellTitle>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 4 }}>
           {(d.finalVerdict?.nextActions ?? []).slice(0, 2).map((action, i) => (
@@ -1010,7 +1010,7 @@ function Page5({ sessionId, userId }: { sessionId?: string; userId?: string }) {
   return (
     <div>
       {/* Health strip — mirrors Action panel's top 2-col grid */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 6 }}>
         <Cell>
           <CellTitle icon={<Brain size={13} />}>Trader Archetype</CellTitle>
           <div style={{ ...mono, fontSize: 16, color: T.blue, marginBottom: 8 }}>{data.trader_archetype ?? "—"}</div>
@@ -1030,7 +1030,7 @@ function Page5({ sessionId, userId }: { sessionId?: string; userId?: string }) {
       </div>
 
       {/* Win / Loss profiles — like AI Policy Suggestions + Guardrails */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 6 }}>
         {[data.win_profile, data.loss_profile].map((profile, i) => {
           const isWin = i === 0;
           const accent = isWin ? T.green : T.red;
@@ -1060,7 +1060,7 @@ function Page5({ sessionId, userId }: { sessionId?: string; userId?: string }) {
 
       {/* Proofed Findings — full-width panel like "Final Verdict & Next Actions" in Page4 */}
       {findings.length > 0 && (
-        <div style={{ background: T.bg2, border: `1px solid ${T.line}`, borderRadius: 4, padding: "20px 22px", marginBottom: 12 }}>
+        <div style={{ background: T.bg2, border: `1px solid ${T.line}`, borderRadius: 4, padding: "20px 22px", marginBottom: 6 }}>
           <CellTitle icon={<BarChart3 size={13} />}>Proofed Findings</CellTitle>
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {findings.map((f, i) => {
@@ -1082,7 +1082,7 @@ function Page5({ sessionId, userId }: { sessionId?: string; userId?: string }) {
       )}
 
       {/* Checklist + Risk alert */}
-      <div style={{ display: "grid", gridTemplateColumns: checklist.length && data.risk_alert ? "1fr 1fr" : "1fr", gap: 12, marginBottom: 12 }}>
+      <div style={{ display: "grid", gridTemplateColumns: checklist.length && data.risk_alert ? "1fr 1fr" : "1fr", gap: 6, marginBottom: 6 }}>
         {checklist.length > 0 && (
           <Cell style={{ borderRight: data.risk_alert ? `1px solid ${T.line}` : "none" }}>
             <CellTitle icon={<ShieldCheck size={13} />}>Pre-Trade Checklist</CellTitle>
@@ -1152,7 +1152,7 @@ function Page6({ sessionId, userId }: { sessionId?: string; userId?: string }) {
     <div>
 
       {/* Top 2-col grid — Entry Conditions + Avoid Conditions, mirrors Page4's Policy + Guardrails */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 6 }}>
 
         {/* Entry Conditions — styled like AI Policy Suggestions */}
         <Cell>
@@ -1197,7 +1197,7 @@ function Page6({ sessionId, userId }: { sessionId?: string; userId?: string }) {
       </div>
 
       {/* Risk Rules + Projected Edge — full-width panel, mirrors "Final Verdict & Next Actions" */}
-      <div style={{ background: T.bg2, border: `1px solid ${T.line}`, borderRadius: 4, padding: "20px 22px", marginBottom: 12 }}>
+      <div style={{ background: T.bg2, border: `1px solid ${T.line}`, borderRadius: 4, padding: "20px 22px", marginBottom: 6 }}>
         <CellTitle icon={<ShieldCheck size={13} />}>Risk Rules &amp; Projected Edge</CellTitle>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 4 }}>
           {/* Risk rules */}
