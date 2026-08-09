@@ -9,9 +9,9 @@ interface SupportBoxProps {
 export function SupportBox({ studio, setToast }: SupportBoxProps) {
   return (
     <div className="space-y-3 border-t border-surface-container-highest pt-8">
-      <span className="font-label-xs text-on-surface opacity-70 uppercase">Talk to support</span>
+      <span className="font-label-xs text-on-surface-variant uppercase">Talk to support</span>
       <div className="border border-surface-container-highest rounded-lg p-4 space-y-3">
-        <p className="text-on-surface opacity-70 font-body-md text-[12px]">
+        <p className="text-on-surface-variant font-body-md text-[12px]">
           Questions about payouts, verification, or your marketplace listing? Send a message and the support team will
           reply within one business day.
         </p>

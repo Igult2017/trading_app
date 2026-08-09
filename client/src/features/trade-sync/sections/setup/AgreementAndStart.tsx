@@ -28,10 +28,10 @@ export function AgreementAndStart({ setup }: AgreementAndStartProps) {
           </label>
         </div>
         <div className="pl-7 space-y-2 border-l-2 border-surface-container-highest">
-          <p className="text-[10px] leading-tight text-on-surface opacity-70 font-body-md italic">
+          <p className="text-[10px] leading-tight text-on-surface-variant font-body-md italic">
             Disclaimer: This service is provided for educational purposes only and does not constitute financial advice.
           </p>
-          <p className="text-[10px] leading-tight text-on-surface opacity-70 font-body-md">
+          <p className="text-[10px] leading-tight text-on-surface-variant font-body-md">
             The trader is solely responsible for their actions, risk management, and all trading decisions made using
             this platform.
           </p>

@@ -25,9 +25,9 @@ export function HistoryPage({ overview }: { overview: Overview | undefined }) {
       <StatRow stats={stats} />
 
       <div className="p-6">
-        <p className="font-label-xs text-on-surface opacity-70 mb-4 uppercase">Recent trades</p>
+        <p className="font-label-xs text-on-surface-variant mb-4 uppercase">Recent trades</p>
         <div className="border border-surface-container-highest rounded-lg overflow-hidden">
-          <div className="hidden md:grid grid-cols-6 gap-2 px-4 py-2 bg-surface-container-low border-b border-surface-container-highest font-label-xs text-on-surface opacity-70 uppercase">
+          <div className="hidden md:grid grid-cols-6 gap-2 px-4 py-2 bg-surface-container-low border-b border-surface-container-highest font-label-xs text-on-surface-variant uppercase">
             <span>Date</span>
             <span>Symbol</span>
             <span>Side</span>
@@ -38,7 +38,7 @@ export function HistoryPage({ overview }: { overview: Overview | undefined }) {
           <div className="divide-y divide-surface-container-highest">
             {trades.map((t) => (
               <div key={t.id} className="grid grid-cols-2 md:grid-cols-6 gap-2 px-4 py-3 items-center">
-                <span className="font-dm-mono text-[10px] text-on-surface opacity-70">{t.date}</span>
+                <span className="font-dm-mono text-[10px] text-on-surface-variant">{t.date}</span>
                 <span className="font-body-md font-bold text-on-surface">{t.symbol}</span>
                 <span
                   className={`w-fit px-1.5 py-0.5 text-[9px] font-bold rounded border border-surface-bright ${
@@ -47,11 +47,11 @@ export function HistoryPage({ overview }: { overview: Overview | undefined }) {
                 >
                   {t.side}
                 </span>
-                <span className="font-dm-mono text-[11px] text-on-surface opacity-70">{t.lot}</span>
-                <span className="font-body-md text-on-surface opacity-70 truncate">{t.source}</span>
+                <span className="font-dm-mono text-[11px] text-on-surface-variant">{t.lot}</span>
+                <span className="font-body-md text-on-surface-variant truncate">{t.source}</span>
                 <span
                   className={`font-dm-mono text-[12px] font-medium text-right ${
-                    t.pnl == null ? "text-on-surface opacity-50" : t.pnl >= 0 ? "text-tertiary" : "text-error"
+                    t.pnl == null ? "text-on-surface-variant" : t.pnl >= 0 ? "text-tertiary" : "text-error"
                   }`}
                 >
                   {t.pnl == null ? "—" : money(t.pnl)}
@@ -59,7 +59,7 @@ export function HistoryPage({ overview }: { overview: Overview | undefined }) {
               </div>
             ))}
             {trades.length === 0 && (
-              <p className="p-4 text-[12px] text-on-surface opacity-50 font-body-md">
+              <p className="p-4 text-[12px] text-on-surface-variant font-body-md">
                 No copied trades yet — they'll appear here as soon as the engine mirrors one.
               </p>
             )}

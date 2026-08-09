@@ -67,7 +67,7 @@ export function Sidebar({ collapsed, setCollapsed, activePage, setActivePage, pa
 
         <nav className="shrink-0 py-4 border-b border-surface-container-highest">
           <div className="px-6 mb-4 ct-sidebar-label">
-            <span className="font-label-xs text-on-surface opacity-50 uppercase">Main menu</span>
+            <span className="font-label-xs text-on-surface-variant uppercase">Main menu</span>
           </div>
           <ul className="space-y-1">
             {NAV_ITEMS.map((item) => (
@@ -101,7 +101,7 @@ export function Sidebar({ collapsed, setCollapsed, activePage, setActivePage, pa
 
         <div className="flex-1 overflow-y-auto ct-hide-scrollbar py-4">
           <div className="px-6 mb-4 ct-sidebar-label">
-            <span className="font-label-xs text-on-surface opacity-50 uppercase">Recent activity</span>
+            <span className="font-label-xs text-on-surface-variant uppercase">Recent activity</span>
           </div>
           <div className="px-6 space-y-4 ct-sidebar-text">
             {activity.map((a, i) => (
@@ -111,7 +111,7 @@ export function Sidebar({ collapsed, setCollapsed, activePage, setActivePage, pa
               </div>
             ))}
             {activity.length === 0 && (
-              <p className="text-[10px] text-on-surface opacity-40 font-body-md">No copied trades yet.</p>
+              <p className="text-[10px] text-on-surface-variant font-body-md">No copied trades yet.</p>
             )}
           </div>
         </div>

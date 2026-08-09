@@ -15,8 +15,8 @@ export function ProviderDirectory({ providers, query, followStatus, onToggleFoll
   return (
     <div className="mb-8 space-y-3">
       <div className="flex items-center justify-between">
-        <span className="font-label-xs text-on-surface opacity-70 uppercase">Available to follow</span>
-        <span className="font-label-xs text-on-surface opacity-50">
+        <span className="font-label-xs text-on-surface-variant uppercase">Available to follow</span>
+        <span className="font-label-xs text-on-surface-variant">
           {providers.length} provider{providers.length === 1 ? "" : "s"}
         </span>
       </div>
@@ -34,9 +34,9 @@ export function ProviderDirectory({ providers, query, followStatus, onToggleFoll
                   </div>
                   <div className="flex items-center gap-1.5 my-0.5">
                     <Stars rating={p.rating} size="11px" />
-                    <span className="font-dm-mono text-[9px] text-on-surface opacity-60">{p.rating.toFixed(1)}</span>
+                    <span className="font-dm-mono text-[9px] text-on-surface-variant">{p.rating.toFixed(1)}</span>
                   </div>
-                  <p className="text-[9px] text-on-surface opacity-70 font-dm-mono">
+                  <p className="text-[9px] text-on-surface-variant font-dm-mono">
                     {p.winRate}% win • {p.monthlyReturn} 30D • {p.followers} followers • {p.risk} risk
                   </p>
                 </div>
@@ -58,7 +58,7 @@ export function ProviderDirectory({ providers, query, followStatus, onToggleFoll
           );
         })}
         {providers.length === 0 && (
-          <p className="p-4 text-[12px] text-on-surface opacity-50 font-body-md">No providers match "{query}".</p>
+          <p className="p-4 text-[12px] text-on-surface-variant font-body-md">No providers match "{query}".</p>
         )}
       </div>
     </div>

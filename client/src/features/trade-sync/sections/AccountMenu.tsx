@@ -13,7 +13,7 @@ export function AccountMenu({ setToast, setActivePage, close }: AccountMenuProps
     <div className="absolute right-0 top-9 w-52 bg-surface border border-surface-container-highest rounded-lg shadow-lg z-50 overflow-hidden">
       <div className="px-4 py-3 border-b border-surface-container-highest">
         <p className="font-body-md font-bold text-on-surface text-[12px]">Alex Warren</p>
-        <p className="font-label-xs text-on-surface opacity-60 uppercase mt-0.5">Prestige plan</p>
+        <p className="font-label-xs text-on-surface-variant uppercase mt-0.5">Prestige plan</p>
       </div>
       <button
         className="w-full text-left px-4 py-2.5 font-body-md text-[12px] text-on-surface hover:bg-surface-container-high flex items-center gap-2"

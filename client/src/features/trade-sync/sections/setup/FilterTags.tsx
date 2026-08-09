@@ -19,7 +19,7 @@ function TagGroup({ icon, label, options, selected, onToggle }: TagGroupProps) {
     <div className="space-y-4">
       <div className="flex items-center gap-2">
         <Icon name={icon} className="text-on-surface-variant text-[15px]" />
-        <span className="font-label-xs text-on-surface opacity-70 uppercase">{label}</span>
+        <span className="font-label-xs text-on-surface-variant uppercase">{label}</span>
       </div>
       <div className="flex flex-wrap gap-2">
         {options.map((s) => (

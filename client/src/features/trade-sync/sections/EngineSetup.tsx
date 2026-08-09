@@ -49,7 +49,7 @@ export function EngineSetup({ ts }: EngineSetupProps) {
 
         {(source === "provider" || source === "self-copy") && (
           <section>
-            <p className="font-label-xs text-on-surface opacity-70 mb-4 uppercase">Step 2 — Add account</p>
+            <p className="font-label-xs text-on-surface-variant mb-4 uppercase">Step 2 — Add account</p>
             <AddAccountCard
               platform={account.platform}
               onPlatformChange={account.setPlatform}
@@ -63,7 +63,7 @@ export function EngineSetup({ ts }: EngineSetupProps) {
 
         <section>
           <div className="relative mb-6">
-            <Icon name="search" className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface opacity-50" />
+            <Icon name="search" className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant" />
             <input
               className="w-full bg-surface border border-surface-container-highest rounded py-3 pl-10 pr-4 font-body-md focus:ring-1 focus:ring-primary focus:border-primary placeholder:opacity-40"
               placeholder="Search verified providers by name or ID"
@@ -76,7 +76,7 @@ export function EngineSetup({ ts }: EngineSetupProps) {
           {(source === "self-copy" || source === "telegram") && (
             <div className="mb-8 flex items-start gap-2 p-3 rounded border border-surface-container-highest bg-surface-container-low">
               <Icon name="bolt" className="text-tertiary text-[14px] mt-0.5" />
-              <p className="font-body-md text-on-surface opacity-80 text-[12px] leading-snug">{INSTANT_NOTE[source]}</p>
+              <p className="font-body-md text-on-surface-variant text-[12px] leading-snug">{INSTANT_NOTE[source]}</p>
             </div>
           )}
 
@@ -84,7 +84,7 @@ export function EngineSetup({ ts }: EngineSetupProps) {
 
           {source === "telegram" && (
             <div className="mb-8 space-y-2">
-              <label className="font-label-xs text-on-surface opacity-70 uppercase block">Telegram channel</label>
+              <label className="font-label-xs text-on-surface-variant uppercase block">Telegram channel</label>
               <input
                 className="w-full bg-surface border border-surface-container-highest rounded py-3 px-4 font-body-md focus:ring-1 focus:ring-primary focus:border-primary placeholder:opacity-40"
                 placeholder="@channel, t.me/channel or a -100… chat id"
@@ -92,7 +92,7 @@ export function EngineSetup({ ts }: EngineSetupProps) {
                 value={setup.telegramChannel}
                 onChange={(e) => setup.setTelegramChannel(e.target.value)}
               />
-              <p className="font-body-md text-on-surface opacity-60 text-[11px] leading-snug">
+              <p className="font-body-md text-on-surface-variant text-[11px] leading-snug">
                 Add the platform copy-bot as an admin to the channel so it can read the signals.
               </p>
             </div>

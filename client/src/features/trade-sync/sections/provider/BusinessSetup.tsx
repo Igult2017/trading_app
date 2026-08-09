@@ -13,10 +13,10 @@ interface BusinessSetupProps {
 export function BusinessSetup({ studio, providerAccount, setToast }: BusinessSetupProps) {
   return (
     <div className="space-y-4">
-      <p className="font-label-xs text-on-surface opacity-70 uppercase">Business setup</p>
+      <p className="font-label-xs text-on-surface-variant uppercase">Business setup</p>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <label className="font-label-xs text-on-surface opacity-70 uppercase block mb-1">Service name</label>
+          <label className="font-label-xs text-on-surface-variant uppercase block mb-1">Service name</label>
           <input
             className="w-full bg-surface border border-surface-container-highest rounded py-2 px-3 font-body-md"
             value={studio.serviceName}
@@ -24,7 +24,7 @@ export function BusinessSetup({ studio, providerAccount, setToast }: BusinessSet
           />
         </div>
         <div>
-          <label className="font-label-xs text-on-surface opacity-70 uppercase block mb-1">Fee model</label>
+          <label className="font-label-xs text-on-surface-variant uppercase block mb-1">Fee model</label>
           <select
             className="w-full bg-surface border border-surface-container-highest rounded py-2 px-3 font-body-md"
             value={studio.feeModel}
@@ -37,7 +37,7 @@ export function BusinessSetup({ studio, providerAccount, setToast }: BusinessSet
         </div>
       </div>
       <div className="space-y-2">
-        <label className="font-label-xs text-on-surface opacity-70 uppercase block">Add account</label>
+        <label className="font-label-xs text-on-surface-variant uppercase block">Add account</label>
         <AddAccountCard
           platform={providerAccount.platform}
           onPlatformChange={providerAccount.setPlatform}
@@ -54,7 +54,7 @@ export function BusinessSetup({ studio, providerAccount, setToast }: BusinessSet
         )}
       </div>
       <div>
-        <label className="font-label-xs text-on-surface opacity-70 uppercase block mb-1">
+        <label className="font-label-xs text-on-surface-variant uppercase block mb-1">
           Strategy description (shown to prospective followers)
         </label>
         <textarea

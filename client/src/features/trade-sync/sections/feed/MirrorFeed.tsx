@@ -32,11 +32,11 @@ export function MirrorFeed({ feed, mirroring }: MirrorFeedProps) {
                   </span>
                   <span className="font-body-md font-bold">{f.symbol}</span>
                 </div>
-                <p className="text-on-surface opacity-70 font-body-md">
+                <p className="text-on-surface-variant font-body-md">
                   <span className="font-dm-mono text-[10px]">{f.lot}</span> lot @{" "}
                   <span className="font-dm-mono text-[10px]">{f.price}</span>
                 </p>
-                <div className="flex items-center gap-1 text-[9px] text-on-surface opacity-50 font-body-md">
+                <div className="flex items-center gap-1 text-[9px] text-on-surface-variant font-body-md">
                   <Icon name="south" className="text-[10px]" />
                   <span>
                     <span className="font-dm-mono text-[8px]">{f.ms}</span>ms to copy
@@ -46,18 +46,18 @@ export function MirrorFeed({ feed, mirroring }: MirrorFeedProps) {
               <div className="text-right">
                 <p
                   className={`font-dm-mono text-[11px] font-medium ${
-                    f.pnl == null ? "text-on-surface opacity-50" : f.pnl >= 0 ? "text-tertiary" : "text-error"
+                    f.pnl == null ? "text-on-surface-variant" : f.pnl >= 0 ? "text-tertiary" : "text-error"
                   }`}
                 >
                   {f.pnl == null ? "—" : money(f.pnl)}
                 </p>
-                <p className="text-[9px] text-on-surface opacity-50 font-body-md">{f.time}</p>
+                <p className="text-[9px] text-on-surface-variant font-body-md">{f.time}</p>
               </div>
             </div>
           </div>
         ))}
         {feed.length === 0 && (
-          <p className="p-4 text-[10px] text-on-surface opacity-50 font-body-md">No trades copied yet.</p>
+          <p className="p-4 text-[10px] text-on-surface-variant font-body-md">No trades copied yet.</p>
         )}
       </div>
     </div>

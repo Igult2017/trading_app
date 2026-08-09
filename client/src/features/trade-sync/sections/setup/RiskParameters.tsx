@@ -14,7 +14,7 @@ export function RiskParameters({ setup }: RiskParametersProps) {
       <div className="space-y-4">
         <div className="flex items-center gap-2">
           <Icon name="ads_click" className="text-on-surface-variant text-[15px]" />
-          <span className="font-label-xs text-on-surface opacity-70 uppercase">Allocation sizing</span>
+          <span className="font-label-xs text-on-surface-variant uppercase">Allocation sizing</span>
         </div>
         <div className="flex gap-2">
           <select
@@ -38,10 +38,10 @@ export function RiskParameters({ setup }: RiskParametersProps) {
       <div className="space-y-4">
         <div className="flex items-center gap-2">
           <Icon name="security" className="text-on-surface-variant text-[15px]" />
-          <span className="font-label-xs text-on-surface opacity-70 uppercase">Equity stop limit</span>
+          <span className="font-label-xs text-on-surface-variant uppercase">Equity stop limit</span>
         </div>
         <div className="flex items-center gap-4">
-          <p className="font-body-md text-on-surface opacity-70">Disconnect at drawdown:</p>
+          <p className="font-body-md text-on-surface-variant">Disconnect at drawdown:</p>
           <div className="flex items-center bg-surface border border-surface-container-highest rounded overflow-hidden">
             <input
               className="bg-transparent border-none text-right font-dm-mono py-2 px-3 w-16 focus:ring-0"
@@ -49,7 +49,7 @@ export function RiskParameters({ setup }: RiskParametersProps) {
               value={drawdown}
               onChange={(e) => setDrawdown(e.target.value)}
             />
-            <span className="px-3 text-on-surface opacity-70 border-l border-surface-container-highest bg-surface-container font-dm-mono">
+            <span className="px-3 text-on-surface-variant border-l border-surface-container-highest bg-surface-container font-dm-mono">
               %
             </span>
           </div>

@@ -12,7 +12,7 @@ export function FollowRequestList({ requests, onAccept, onDecline }: FollowReque
   return (
     <div className="space-y-3 border-t border-surface-container-highest pt-8">
       <div className="flex items-center justify-between">
-        <span className="font-label-xs text-on-surface opacity-70 uppercase">Follow requests</span>
+        <span className="font-label-xs text-on-surface-variant uppercase">Follow requests</span>
         {requests.length > 0 && (
           <span className="font-dm-mono text-[10px] text-primary">{requests.length} pending</span>
         )}
@@ -24,7 +24,7 @@ export function FollowRequestList({ requests, onAccept, onDecline }: FollowReque
               <Avatar name={r.name} />
               <div className="min-w-0">
                 <p className="font-body-md font-bold leading-tight truncate">{r.name}</p>
-                <p className="text-[9px] text-on-surface opacity-70 font-dm-mono truncate">
+                <p className="text-[9px] text-on-surface-variant font-dm-mono truncate">
                   {r.handle} • wants to allocate {r.allocation} • {r.time}
                 </p>
               </div>
@@ -46,7 +46,7 @@ export function FollowRequestList({ requests, onAccept, onDecline }: FollowReque
           </div>
         ))}
         {requests.length === 0 && (
-          <p className="p-4 text-[12px] text-on-surface opacity-50 font-body-md">No pending requests.</p>
+          <p className="p-4 text-[12px] text-on-surface-variant font-body-md">No pending requests.</p>
         )}
       </div>
     </div>

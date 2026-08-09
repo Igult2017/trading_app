@@ -14,7 +14,7 @@ export function SourceCards({ setup }: SourceCardsProps) {
 
   return (
     <section>
-      <p className="font-label-xs text-on-surface opacity-70 mb-4 uppercase">Step 1 — Choose a source</p>
+      <p className="font-label-xs text-on-surface-variant mb-4 uppercase">Step 1 — Choose a source</p>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-0 border border-surface-container-highest overflow-hidden rounded-lg">
         {SOURCES.map((s, i) => (
           <div
@@ -30,11 +30,11 @@ export function SourceCards({ setup }: SourceCardsProps) {
               ) : (
                 <Icon
                   name={s.icon ?? ""}
-                  className={`mb-4 text-[24px] ${source === s.id ? "text-primary" : "text-on-surface opacity-50"}`}
+                  className={`mb-4 text-[24px] ${source === s.id ? "text-primary" : "text-on-surface-variant"}`}
                 />
               )}
               <h3 className="font-body-lg font-bold text-on-surface mb-1">{s.title}</h3>
-              <p className="text-on-surface opacity-70 font-body-md leading-snug mb-4">{s.desc}</p>
+              <p className="text-on-surface-variant font-body-md leading-snug mb-4">{s.desc}</p>
             </div>
             <select
               className="mt-auto bg-surface border border-surface-container-highest text-on-surface font-body-md py-1 px-2 rounded w-full text-sm"

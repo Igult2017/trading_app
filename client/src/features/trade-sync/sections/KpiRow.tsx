@@ -19,7 +19,7 @@ export function KpiRow({ overview }: { overview: Overview | undefined }) {
     <section className="grid grid-cols-2 md:grid-cols-4 border-b border-surface-container-highest">
       {kpis.map((kpi, i) => (
         <div key={i} className={`p-6 ${i < 3 ? "md:border-r" : ""} border-surface-container-highest`}>
-          <p className="font-label-xs text-on-surface opacity-70 mb-1 uppercase">{kpi.label}</p>
+          <p className="font-label-xs text-on-surface-variant mb-1 uppercase">{kpi.label}</p>
           <div className="flex items-baseline gap-2">
             <span
               className={`font-dm-mono text-[16px] font-medium leading-tight ${
@@ -29,7 +29,7 @@ export function KpiRow({ overview }: { overview: Overview | undefined }) {
               {kpi.value}
             </span>
             {kpi.sub && (
-              <span className="font-label-sm text-on-surface opacity-70">
+              <span className="font-label-sm text-on-surface-variant">
                 <span className="font-dm-mono text-[10px]">{kpi.sub}</span>
               </span>
             )}

@@ -15,7 +15,7 @@ export function ConnectedAccounts({ accounts, onToggle }: ConnectedAccountsProps
       </div>
       <div className="divide-y divide-surface-container-highest">
         {accounts.length === 0 && (
-          <p className="p-4 text-[12px] text-on-surface opacity-50 font-body-md">
+          <p className="p-4 text-[12px] text-on-surface-variant font-body-md">
             Nothing connected yet — follow a provider, set up self-copy or link a Telegram channel.
           </p>
         )}
@@ -32,7 +32,7 @@ export function ConnectedAccounts({ accounts, onToggle }: ConnectedAccountsProps
               </div>
               <div>
                 <p className="font-body-md font-bold leading-tight">{a.name}</p>
-                <p className="text-[9px] text-on-surface opacity-70 font-body-md">
+                <p className="text-[9px] text-on-surface-variant font-body-md">
                   {a.handle} • <span className="font-dm-mono text-[8px]">{a.tag}</span>
                 </p>
               </div>
@@ -40,7 +40,7 @@ export function ConnectedAccounts({ accounts, onToggle }: ConnectedAccountsProps
             <div className="text-right">
               <p
                 className={`font-dm-mono text-[11px] font-medium ${
-                  a.pnl == null ? "text-on-surface opacity-50" : a.pnl >= 0 ? "text-tertiary" : "text-error"
+                  a.pnl == null ? "text-on-surface-variant" : a.pnl >= 0 ? "text-tertiary" : "text-error"
                 }`}
               >
                 {a.pnl == null ? "—" : money(a.pnl)}

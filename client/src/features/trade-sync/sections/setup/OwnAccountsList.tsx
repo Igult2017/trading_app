@@ -15,17 +15,17 @@ export function OwnAccountsList({ setup }: OwnAccountsListProps) {
   return (
     <div className="mb-8 space-y-3">
       <div className="flex items-center justify-between">
-        <span className="font-label-xs text-on-surface opacity-70 uppercase">Your accounts</span>
-        <span className="font-label-xs text-on-surface opacity-50">
+        <span className="font-label-xs text-on-surface-variant uppercase">Your accounts</span>
+        <span className="font-label-xs text-on-surface-variant">
           {masterAccount ? `mirroring to ${selectedOwnAccounts.length}` : "no master set"}
         </span>
       </div>
-      <p className="font-body-md text-on-surface opacity-70 text-[12px] leading-snug">
+      <p className="font-body-md text-on-surface-variant text-[12px] leading-snug">
         Declare one account as the master — its trades get copied into whichever other accounts you mark as mirrors.
       </p>
       <div className="border border-surface-container-highest rounded-lg divide-y divide-surface-container-highest overflow-hidden">
         {ownAccounts.length === 0 && (
-          <p className="p-4 text-[12px] text-on-surface opacity-50 font-body-md">
+          <p className="p-4 text-[12px] text-on-surface-variant font-body-md">
             No linked accounts yet — connect one above to set up self-copy.
           </p>
         )}
@@ -45,7 +45,7 @@ export function OwnAccountsList({ setup }: OwnAccountsListProps) {
                       </span>
                     )}
                   </div>
-                  <p className="text-[9px] text-on-surface opacity-70 font-dm-mono truncate">
+                  <p className="text-[9px] text-on-surface-variant font-dm-mono truncate">
                     {a.platform} • {a.broker} • {a.balance} balance
                   </p>
                 </div>

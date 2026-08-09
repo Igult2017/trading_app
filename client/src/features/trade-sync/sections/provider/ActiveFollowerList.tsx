@@ -8,7 +8,7 @@ interface ActiveFollowerListProps {
 export function ActiveFollowerList({ followers }: ActiveFollowerListProps) {
   return (
     <div className="space-y-3 border-t border-surface-container-highest pt-8">
-      <span className="font-label-xs text-on-surface opacity-70 uppercase">
+      <span className="font-label-xs text-on-surface-variant uppercase">
         Active followers ({followers.length})
       </span>
       <div className="border border-surface-container-highest rounded-lg divide-y divide-surface-container-highest overflow-hidden">
@@ -18,7 +18,7 @@ export function ActiveFollowerList({ followers }: ActiveFollowerListProps) {
               <Avatar name={f.name} />
               <div>
                 <p className="font-body-md font-bold leading-tight">{f.name}</p>
-                <p className="text-[9px] text-on-surface opacity-70 font-dm-mono">
+                <p className="text-[9px] text-on-surface-variant font-dm-mono">
                   {f.handle} • {f.allocation} allocated • joined {f.joined}
                 </p>
               </div>
@@ -30,7 +30,7 @@ export function ActiveFollowerList({ followers }: ActiveFollowerListProps) {
           </div>
         ))}
         {followers.length === 0 && (
-          <p className="p-4 text-[12px] text-on-surface opacity-50 font-body-md">No active followers yet.</p>
+          <p className="p-4 text-[12px] text-on-surface-variant font-body-md">No active followers yet.</p>
         )}
       </div>
     </div>

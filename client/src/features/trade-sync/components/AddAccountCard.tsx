@@ -26,7 +26,7 @@ export function AddAccountCard({
   return (
     <div className="border border-surface-container-highest rounded-lg p-5 space-y-3">
       <div className="flex items-center gap-3">
-        <label className="font-label-xs text-on-surface opacity-70 uppercase shrink-0">Platform</label>
+        <label className="font-label-xs text-on-surface-variant uppercase shrink-0">Platform</label>
         <select
           className="bg-surface border border-surface-container-highest rounded py-1.5 px-3 font-body-md text-[12px]"
           value={platform}
@@ -57,7 +57,7 @@ export function AddAccountCard({
         </div>
       ) : (
         <div className="flex items-center justify-between flex-wrap gap-3">
-          <p className="font-body-md text-on-surface opacity-70 text-[12px] max-w-sm">
+          <p className="font-body-md text-on-surface-variant text-[12px] max-w-sm">
             {platform} requires linking your account before trades can be mirrored or broadcast.
           </p>
           <button
