@@ -991,6 +991,68 @@ function AIGate({ label, description, onRun }: { label: string; description: str
   );
 }
 
+/** ── THE AI SWITCH ──────────────────────────────────────────────────────────────────────────────
+ *  The two AI tabs are REAL pages: they show the sections the model will fill, laid out exactly as
+ *  the finished output will be, so the tab is a page you can read rather than a dead end.
+ *
+ *  They do NOT call Gemini while this is false. User's instruction, 2026-08-08: "make these... to be
+ *  real pages but will only fill when gemini is enabled. Right now dont enable gemini for these
+ *  pages." Flipping this ONE constant to true restores the run-on-demand behaviour that is already
+ *  written below — nothing else needs changing, and no request can fire until it is flipped.
+ */
+const AI_ENABLED = false;
+
+/** The section skeletons — what each AI page will contain once the model runs. */
+const AI_SECTIONS: Record<'analysis' | 'strategy', { title: string; rows: string[] }[]> = {
+  analysis: [
+    { title: 'Win Profile',  rows: ['Setups that worked', 'Conditions they shared', 'What to repeat'] },
+    { title: 'Loss Profile', rows: ['Setups that failed', 'Conditions they shared', 'What to stop'] },
+    { title: 'Behavioural Patterns', rows: ['Recurring habits found in your log', 'Where discipline slipped', 'Emotional triggers'] },
+    { title: 'Pre-Trade Checklist',  rows: ['Checks derived from your winners', 'Filters derived from your losers'] },
+    { title: 'Final Verdict & Next Actions', rows: ['The single change with the biggest expected effect'] },
+  ],
+  strategy: [
+    { title: 'Entry Conditions', rows: ['Conditions present in your confirmed winners', 'Session and timing constraints'] },
+    { title: 'Avoid Conditions', rows: ['Conditions present in your losers', 'When to stand aside'] },
+    { title: 'Risk Rules',       rows: ['Position sizing derived from your results', 'Stop and target placement'] },
+    { title: 'Projected Edge',   rows: ['Expected win rate, and the sample it rests on'] },
+    { title: 'Final Verdict & Next Actions', rows: ['What to trade next, and what to prove first'] },
+  ],
+};
+
+/** The page shown while AI is switched off — real structure, honest empty state, no API call. */
+function AIPending({ kind, label, description }: { kind: 'analysis' | 'strategy'; label: string; description: string }) {
+  return (
+    <div>
+      <div style={{ background: T.bg2, border: `1px solid ${T.line2}`, borderRadius: 4, padding: "18px 22px", marginBottom: 3 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+          <Brain style={{ width: 16, height: 16, color: T.blue }} />
+          <span style={{ ...mono, fontSize: 11, color: T.text, letterSpacing: ".16em", textTransform: "uppercase" }}>{label}</span>
+          <span style={{ ...mono, fontSize: 8, letterSpacing: ".12em", padding: "2px 7px", border: `1px solid ${T.amber}`, color: T.amber }}>NOT YET ENABLED</span>
+        </div>
+        <p style={{ fontFamily: FONT, fontSize: 12, color: T.muted, lineHeight: 1.7, fontWeight: 400, margin: 0, maxWidth: 620 }}>
+          {description} The sections below are the ones this page will fill in. They stay empty until
+          AI analysis is switched on — nothing is sent anywhere in the meantime.
+        </p>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 3, marginBottom: 3 }}>
+        {AI_SECTIONS[kind].map((s, i) => (
+          <Cell key={i} span={i >= AI_SECTIONS[kind].length - 1 ? 2 : undefined}>
+            <CellTitle>{s.title}</CellTitle>
+            {s.rows.map((r, j) => (
+              <div key={j} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 0", borderBottom: j < s.rows.length - 1 ? `1px solid ${T.line}` : "none" }}>
+                <span style={{ width: 4, height: 4, borderRadius: "50%", background: T.dim, flexShrink: 0 }} />
+                <span style={{ fontFamily: FONT, fontSize: 12, color: T.dim, fontWeight: 400 }}>{r}</span>
+              </div>
+            ))}
+          </Cell>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function Page5({ sessionId, userId }: { sessionId?: string; userId?: string }) {
   const { t } = useTranslation();
   const params = new URLSearchParams();
@@ -1007,6 +1069,11 @@ function Page5({ sessionId, userId }: { sessionId?: string; userId?: string }) {
     retry: 1,
   });
 
+  // Gemini off: show the real page, never the run button, so no request can be triggered at all.
+  if (!AI_ENABLED) return (
+    <AIPending kind="analysis" label="AI Performance Analysis"
+               description="Reads your logged trades and reports what your winners had in common, what your losers had in common, and the habits behind both." />
+  );
   if (!requested) return (
     <AIGate label="AI Performance Analysis" description="Analyses your win/loss profiles, behavioural patterns, and pre-trade checklist from your logged trades." onRun={() => setRequested(true)} />
   );
@@ -1146,6 +1213,11 @@ function Page6({ sessionId, userId }: { sessionId?: string; userId?: string }) {
     retry: 1,
   });
 
+  // Gemini off: show the real page, never the run button, so no request can be triggered at all.
+  if (!AI_ENABLED) return (
+    <AIPending kind="strategy" label="AI Strategy Builder"
+               description="Turns the patterns in your confirmed trades into a written strategy: when to enter, when to stand aside, and how much to risk." />
+  );
   if (!requested) return (
     <AIGate label="AI Strategy Builder" description="Derives entry conditions, avoid conditions, and risk rules from your confirmed trading patterns." onRun={() => setRequested(true)} />
   );
