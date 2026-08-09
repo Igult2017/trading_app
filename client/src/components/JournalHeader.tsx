@@ -100,7 +100,7 @@ const PROFILE_CARD_CSS = `
     background: #eef3f0;
     border: 1px solid #d9e2dc;
     display: flex; align-items: center; justify-content: center;
-    font-size: 17px; font-weight: 600; color: #1f6b4f;
+    font-size: 17px; font-weight: 600; color: #175540;
     flex-shrink: 0; position: relative;
   }
   .pc-av-ring {
@@ -120,12 +120,12 @@ const PROFILE_CARD_CSS = `
     background: #f0f5f2;
     border: 1px solid #d9e2dc;
     border-radius: 999px; padding: 2px 8px;
-    font-size: 8.5px; font-weight: 700; color: #1f6b4f;
+    font-size: 8.5px; font-weight: 700; color: #175540;
     letter-spacing: 1.2px; text-transform: uppercase;
     font-family: 'Playfair Display Variable', 'Playfair Display', Georgia, serif;
   }
   .pc-dot {
-    width: 6px; height: 6px; border-radius: 50%; background: #1f6b4f;
+    width: 6px; height: 6px; border-radius: 50%; background: #175540;
     animation: pc-pulse 2.2s ease-in-out infinite; flex-shrink: 0;
   }
 
@@ -156,13 +156,13 @@ const PROFILE_CARD_CSS = `
   }
   .pc-sk-body { flex: 1; }
   .pc-sk-label {
-    font-size: 9px; color: #616f68;
+    font-size: 9px; color: #36423b;
     letter-spacing: 1.4px; text-transform: uppercase;
     font-family: 'Playfair Display Variable', 'Playfair Display', Georgia, serif; margin-bottom: 3px;
   }
   .pc-sk-val { font-size: 14px; font-weight: 700; color: #16232b; letter-spacing: -.3px; }
 
-  .pc-chev { color:#8a978f; font-size:15px; line-height:1; transition:transform .18s; }
+  .pc-chev { color:#3f4c45; font-size:15px; line-height:1; transition:transform .18s; }
   .pc-streak:hover .pc-chev { transform: translateX(2px); }
 
   .pc-menu { padding: 4px 8px 10px; display: flex; flex-direction: column; gap: 1px; }
@@ -170,7 +170,7 @@ const PROFILE_CARD_CSS = `
   .pc-item {
     display: flex; align-items: center; gap: 11px;
     padding: 10px 12px; border-radius: 5px; cursor: pointer;
-    color: #4d5c55; font-size: 12.5px; font-weight: 500;
+    color: #24322b; font-size: 12.5px; font-weight: 500;
     font-family: 'Playfair Display Variable', 'Playfair Display', Georgia, serif;
     transition: all .15s; background: transparent; border: none;
     width: 100%; text-align: left;
