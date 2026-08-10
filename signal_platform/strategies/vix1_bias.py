@@ -30,7 +30,8 @@ import logging
 from core.types import Candle
 from strategies.vix1_momentum import momentum_run, veto_reason
 from strategies import vix1_log
-from strategies.vix1_trend import clear_trend   # is_choch no longer used: the trend itself now flips on a CHoCH
+from strategies.vix1_structure import leg_state
+from strategies.vix1_trend import trend_state
 
 log = logging.getLogger(__name__)
 
@@ -66,10 +67,14 @@ _H1_SWING_N = 48
 _H1_TREND_BARS = 1500
 
 
-def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "") -> tuple[bool, int, str, int] | None:
+def detect_bias(h1: list[Candle], h4: list[Candle],
+                symbol: str = "") -> tuple[bool, int, str, int, str] | None:
     """
-    Returns (bullish, mc_idx, origin, run_len) or None. `mc_idx` indexes into H1 — the FIRST candle of
-    the freshest momentum run; VIX.1 operates from it and its close opens the 1M watch.
+    Returns (bullish, mc_idx, origin, run_len, reason) or None.
+
+    `mc_idx` indexes into H1 — the FIRST candle of the freshest momentum run; VIX.1 operates from it
+    and its close opens the 1M watch. `reason` names the BOS/CHoCH and the leg that justify the
+    trade, so the card and the log can show VIX.1's own working instead of asserting a direction.
 
     The freshest 1HR momentum candle decides which way we are reasoning; trend/CHoCH then decide whether
     there are grounds to take it. `origin` is one of trend / trend4 / choch / choch4 (see module doc).
@@ -90,19 +95,35 @@ def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "") -> tuple[b
     # THE 1HR TREND IS READ FROM WIDE SWINGS OVER A LONG WINDOW — see _H1_SWING_N.
     # The H4 read keeps the default: measured at its current settings it already agrees with itself
     # 89%/77% across window sizes, and widening its swing width made it markedly WORSE (56%/47%).
-    t1 = clear_trend(h1[-_H1_TREND_BARS:], n=_H1_SWING_N)
-    t4 = clear_trend(h4)
+    window = h1[-_H1_TREND_BARS:]
+    tstate = trend_state(window, n=_H1_SWING_N)
+    t1 = tstate.direction
+    t4 = trend_state(h4).direction
 
     # 1) momentum WITH a clear 1HR trend.
     if t1 == want:
-        return (bullish, mc_idx, "trend", run[1])
+        # THE LEG GATE (user 2026-08-11): "we must at least have the first HH and then HL, then our
+        # momentum candle can come from after HL... we don't trade pullbacks, we don't trade ranging
+        # markets and we are always in trend." A trend agreeing is NOT enough — the leg must have
+        # proved itself, or we are buying/selling somewhere in the middle of a move.
+        leg = leg_state(window, t1)
+        if not leg.ready:
+            vix1_log.say(symbol, f"[vix1] {symbol} bias=NONE: {'up' if bullish else 'down'} momentum WITH the "
+                                 f"trend, but the leg does not permit it — {leg.why}")
+            return None
+        return (bullish, mc_idx, "trend", run[1], f"{tstate.reason()}; {leg.why}")
 
     # 2) 1HR trend UNCLEAR, momentum WITH a clear 4HR trend (the fallback). Preferred over a 1HR CHoCH:
     #    if the 4HR is already trending our way, the 1HR is catching up to it, not reversing.
     if t1 == 0 and t4 == want:
+        leg = leg_state(window, want)
+        if not leg.ready:
+            vix1_log.say(symbol, f"[vix1] {symbol} bias=NONE: 4HR-backed direction but the leg does not "
+                                 f"permit it — {leg.why}")
+            return None
         vix1_log.say(symbol, f"[vix1] {symbol} 4HR-BACKED TREND: 1HR trend unclear, 1HR momentum aligns with a clear "
                  f"4HR {'up' if bullish else 'down'} trend")
-        return (bullish, mc_idx, "trend4", run[1])
+        return (bullish, mc_idx, "trend4", run[1], f"4HR-backed; {leg.why}")
 
     # PRO-TREND ONLY (user 2026-07-25/26: "Only trade pro trend"). The `choch` and `choch4` origins are
     # REMOVED — they took a reversal against the prevailing trend, which is by definition not

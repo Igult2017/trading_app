@@ -42,7 +42,7 @@ def build_signal(kind, symbol, bullish, origin, vol_count, entry, sl, tp,
                  risk, pip, digits, corr, news_context, strategy_id, strategy_name,
                  grade, confidence, alert_only=False, sl_note="",
                  late=False, late_note="", rr=2.0, mc_time: int | None = None,
-                 line: float | None = None) -> Signal:
+                 line: float | None = None, bias_reason: str = "") -> Signal:
     side         = "BUY" if bullish else "SELL"
     label, blurb = _KIND[kind]
     mlabel       = f"{vol_count} momentum candle{'s' if vol_count != 1 else ''}"
@@ -60,6 +60,10 @@ def build_signal(kind, symbol, bullish, origin, vol_count, entry, sl, tp,
 
     reasons = [
         _origin_reason(origin, bullish, mlabel, side.lower()),
+        # VIX.1'S OWN WORKING, in structure terms — which BOS or CHoCH put the trend where it is, and
+        # which leg permits this trade. Added 2026-08-11: verifying the 10-Aug signal against his
+        # chart took an hour precisely because the card asserted a direction and never said why.
+        *( [f"Structure — {bias_reason}"] if bias_reason else [] ),
         f"1M {label} — {blurb}",
         f"Momentum candle grade {grade} ({confidence:.0%} confidence) — body/wick shape, not size",
         (f"SL sits {sl_note}" if sl_note else f"SL {sl:.{digits}f}"),

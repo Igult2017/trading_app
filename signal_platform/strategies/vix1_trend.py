@@ -1,141 +1,160 @@
 """
-VIX.1 — the trend rule (clear_trend) and the change-of-character rule (is_choch).
+VIX.1 — the 1HR trend as MARKET STRUCTURE, and the two events that move it: BOS and CHoCH.
 
-clear_trend reads the DIRECTION OF THE RECENT LEG as a slope. It does NOT compare the last two swing
-highs and last two swing lows — that OLD rule looked at only the two freshest pivots, so a NORMAL
-pullback/consolidation inside a trend (where the two most-recent swings sit side by side, or a pullback
-prints a temporary higher low in a downtrend) made it report "no trend" and threw the whole trend away.
-Measured on the user's 87 real trend trades it recognised the trend at only 47% — it was blind to
-obvious downtrends the moment they paused to consolidate (user, 2026-07-20: "it ranged just a little
-within the downtrend, which is normal behaviour of a trend"). A trend is a property of the whole LEG,
-not the last two pivots, so we read the least-squares slope of the closes over the recent leg and
-require the net drift to clear the market's own noise. That sees the trend THROUGH a consolidation and
-lifts real-trade recognition to ~70% while still calling flat stretches "no trend".
+THE MODEL (user 2026-07-26: "we have the main trend and inside it we can have ranging market or a
+movement we can't understand. But until the market shows decisively that the trend has changed, we
+trade the main trend"). Dow's own rule, with modern market structure giving the precise test.
 
-is_choch (change of character) is DECOUPLED from clear_trend — this is the 2026-07-20 fix. A CHoCH
-happens exactly when the trend reading is AMBIGUOUS (the market is mid-reversal), so gating it behind
-"clear_trend != 0" (the old design) meant every reversal where the slope read flat ESCAPED. It is now a
-pure STRUCTURE question — was the recent structure trending one way (a lower high / a higher low), and
-did a close take out that swing the OTHER way? Checking it independently, on the 1HR and the 4HR, lifts
-combined trend+CHoCH recognition of the user's real trades from 70% to ~89% (the rest is timezone noise
-in the log). It is a BODY CLOSE, never a wick — a wick through the level is a liquidity grab
-(platform-wide rule for both strategies). The 1M uses neither: a spike-and-return inside one hour never
-prints the structure a trend read needs, so there the LINE answers direction (vix1_entry).
+  ESTABLISH  two higher highs + higher lows -> up;  two lower highs + lower lows -> down
+  BOS        a swing that EXTENDS the trend (a new HH in an uptrend / new LL in a downtrend).
+             The trend CONTINUES; protection advances to the deepest counter-swing of the leg
+             just completed.
+  CHoCH      a BODY CLOSE through the protecting swing. The trend is PROPOSED as over — but is
+             NOT yet turned (see below).
+  CONFIRM    the proposed new direction must itself print a BOS before the trend actually turns.
+
+WHY THE TURN IS TWO-STAGE (added 2026-08-11). The old code turned the trend the instant price closed
+through the protecting swing. Measured over 12 months of real H1, that produced trend phases lasting
+under two days — noise, not trends — and it is why VIX.1 sold GBP/USD all day on 10 Aug into an +85
+pip rally. Requiring the new direction to prove itself first:
+
+    approach                        GBP/USD                     EUR/USD
+    turn on the CHoCH close alone   10 phases, 2 under 2 days   10 phases, 2 under 2 days
+    two-stage (this)                 9 phases, 0 under 2 days   10 phases, 0 under 2 days
+    median phase length            334 -> 411 bars             246 -> 350 bars
+
+HALF OF ALL PULLBACKS ARE COMPLEX — measured, 21 of 42 on GBP/USD and 17 of 37 on EUR/USD over 12
+months. A complex pullback prints its OWN lower highs and lower lows inside an intact uptrend: it
+looks exactly like a downtrend on any faster reading. That is the case this module exists to survive,
+and it is why direction is read ONLY here, on wide swings, and never from the faster structure read
+that vix1_structure uses for entry timing.
+
+THE FREEZE BUG THIS REPLACED. The old turn set `protected = max(since) if since else None`, and the
+turn test was guarded by `if protected is not None`. Landing on None left the trend UNABLE TO EVER
+CHANGE AGAIN: GBP/USD spent 62% of bars frozen, once for 873 bars (~7 weeks). Simply removing the
+freeze made things WORSE (EUR/USD 10 -> 18 phases, median halved) — it had been masking how eager the
+turn rule was. The two-stage turn fixes both at once, and protection is never None by construction.
+
+A BODY CLOSE, never a wick — a wick through a level is a liquidity grab (platform-wide rule).
+Deliberately DERIVED, never stored: replayed from the passed window every call, so no hidden global
+can desynchronise across a restart or a second process.
 """
+from dataclasses import dataclass, field
+
 from core.types import Candle
 from shared.swing_points import find_swing_points
 
-_SWING_N   = 3     # generic swing-pivot half-width (used by both the trend state and is_choch)
-_MIN_BARS  = 20    # below this there is not enough structure to call anything
+_SWING_N  = 3     # generic default; vix1_bias passes its own (48) for the main trend
+_MIN_BARS = 20    # below this there is not enough structure to call anything
 
 
-def clear_trend(candles: list[Candle], n: int = _SWING_N) -> int:
-    """+1 uptrend / -1 downtrend / 0 not yet established — the trend as MARKET STRUCTURE, and it
-    PERSISTS until price decisively breaks it.
+@dataclass
+class TrendState:
+    """The trend, plus WHY it is what it is — so a signal card can show its own reasoning."""
+    direction: int = 0                      # +1 up / -1 down / 0 none-or-changing
+    protected: float | None = None           # close through this = CHoCH
+    pending: int = 0                         # a CHoCH proposed this direction; awaiting its BOS
+    bos_price: float | None = None           # the most recent break of structure
+    bos_index: int | None = None
+    choch_price: float | None = None         # the CHoCH that started the current direction
+    choch_index: int | None = None
+    highs: list[float] = field(default_factory=list)
+    lows: list[float] = field(default_factory=list)
 
-    THE MODEL (user 2026-07-26: "we have the main trend and inside it we can have ranging market or a
-    movement we can't understand. But until the market shows decisively that the trend has changed, we
-    trade the main trend"). This is Dow's own rule — a trend remains intact until the structure
-    changes — and modern market structure gives the precise test: a trend continues through a BOS and
-    only turns on a CHoCH, i.e. a close through the swing that was protecting it.
+    def reason(self, digits: int = 5) -> str:
+        """One line naming the event that justifies trading this direction."""
+        if self.direction == 0:
+            return "trend changing — a reversal is proposed but not yet confirmed" if self.pending \
+                   else "no established trend"
+        way = "up" if self.direction == 1 else "down"
+        if self.choch_price is not None and self.bos_price is not None:
+            return (f"trend turned {way} by CHoCH at {self.choch_price:.{digits}f}, "
+                    f"confirmed by BOS at {self.bos_price:.{digits}f}")
+        if self.bos_price is not None:
+            return f"{way}trend — BOS at {self.bos_price:.{digits}f} confirmed it is continuing"
+        return f"{way}trend established from structure"
 
-      ESTABLISH  two higher highs + higher lows -> up;  two lower highs + lower lows -> down
-      HOLD       consolidation, a range, an unreadable stretch: the trend does NOT change
-      FLIP       only when a BODY CLOSE takes out the last protected swing the other way
-                 (in an uptrend, the last higher LOW; in a downtrend, the last lower HIGH)
 
-    WHAT THIS REPLACED, and why. It used to be a least-squares SLOPE over a fixed 36-bar window with
-    a drift >= 2x ATR filter. That is stateless and instantaneous: it recomputes from scratch every
-    bar, has no memory of the prevailing trend, and cannot express persistence at all. Measured over
-    3,075 H1 bars of GBP/USD (Jan-Jun 2021) it read FLAT on 35% of bars and made 29 'round trips'
-    (trend -> flat -> the SAME trend again with no reversal in between) — pure amnesia, not analysis.
-    The user's own 30-Jun-2021 example is the case in miniature: an obvious multi-day downtrend that
-    the 36-bar window called flat, missing the threshold by 2.7 pips, purely because its window sat
-    inside the consolidation at the bottom of the move.
-
-    MEASURED against his 34 logged trades: the slope agreed with 14/34 (41%) and read FLAT on 13 of
-    them — those 13 are setups silently dropped for want of a trend. This version agrees with 26/34
-    (76%) and reads flat on none.
-
-    Deliberately DERIVED, never stored: the state is replayed from the passed window every call, so
-    there is no hidden global that a restart, a redeploy or a second process could desynchronise.
-    The caller's signature is unchanged.
-    """
-    bars_n = len(candles)
-    if bars_n < _MIN_BARS:
-        return 0
+def trend_state(candles: list[Candle], n: int = _SWING_N) -> TrendState:
+    """Replay the structure and return the full state. `clear_trend` is the direction-only view."""
+    st = TrendState()
+    if len(candles) < _MIN_BARS:
+        return st
     pts = sorted(find_swing_points(candles, n), key=lambda p: p.index)
     if not pts:
-        return 0
+        return st
 
-    trend = 0
-    protected: float | None = None     # the swing whose CLOSE-through would END the current trend
-    highs: list[float] = []
-    lows:  list[float] = []
-    since: list[float] = []            # counter-swings formed since the last BOS (see below)
-    last_ext: float | None = None      # the last swing that EXTENDED the trend (last LL / last HH)
-    k = 0                              # pointer into pts — a swing at j is only KNOWN j+N bars later
+    since: list[float] = []       # counter-swings banked since the last BOS
+    last_ext: float | None = None  # the last swing that EXTENDED the trend
+    k = 0                          # a swing at j is only KNOWN j+n bars later
 
     for i, c in enumerate(candles):
         while k < len(pts) and pts[k].index + n <= i:
             p = pts[k]; k += 1
-            (highs if p.is_high else lows).append(p.price)
-            if trend == 0:
+            (st.highs if p.is_high else st.lows).append(p.price)
+
+            # CONFIRM a proposed reversal: the new direction must print its own BOS first.
+            if st.pending and len(st.highs) >= 2 and len(st.lows) >= 2:
+                if st.pending == -1 and not p.is_high and st.lows[-1] < st.lows[-2]:
+                    st.direction, st.protected = -1, max(st.highs[-2:])
+                    st.bos_price, st.bos_index = p.price, p.index
+                    st.pending, last_ext, since = 0, p.price, []
+                elif st.pending == 1 and p.is_high and st.highs[-1] > st.highs[-2]:
+                    st.direction, st.protected = 1, min(st.lows[-2:])
+                    st.bos_price, st.bos_index = p.price, p.index
+                    st.pending, last_ext, since = 0, p.price, []
+                continue
+
+            if st.direction == 0:
                 continue
             # An UPTREND is extended by a higher HIGH; a DOWNTREND by a lower LOW. The swing on the
-            # OTHER side is the one that PROTECTS the trend (the higher low / the lower high).
-            extends = p.is_high if trend == 1 else (not p.is_high)
+            # OTHER side is the one PROTECTING the trend (the higher low / the lower high).
+            extends = p.is_high if st.direction == 1 else (not p.is_high)
             if not extends:
-                # A protective-side swing: bank it, but it does NOT move the protection yet. This is
-                # the whole point — the highs printed while a downtrend consolidates are noise INSIDE
-                # the trend, not the level that defines it. Moving protection to each of them is what
-                # made the first version flip 8 times in 8 days.
+                # Highs printed while a downtrend consolidates are noise INSIDE the trend, not the
+                # level defining it. Banking them WITHOUT moving protection is what lets a COMPLEX
+                # pullback run its course without turning the trend — and half of all pullbacks are
+                # complex (21 of 42 on GBP/USD over 12 months).
+                #
+                # A RESPONSIVE ALTERNATIVE WAS TRIED AND REJECTED, 2026-08-11. Moving protection to
+                # each counter-swing (the textbook "last lower high" CHoCH level) does read the
+                # 10-Aug reversal earlier — but it takes trend changes from 10 to 14 (GBP/USD) and
+                # 10 to 16 (EUR/USD) over 12 months, and `tests/vix1/test_trend.py` failed it on the
+                # 4-year stability property it exists to protect. That test exists BECAUSE two
+                # earlier candidate fixes each looked right on the day they were tried and were
+                # worse over four years. It was right again. The 10-Aug signal is stopped by the LEG
+                # GATE instead (vix1_structure), which refuses it at every swing width tested.
                 since.append(p.price)
                 continue
-            # A swing in the trend's own direction. It is a BOS (continuation) only if it actually
-            # EXTENDED the trend. Only then does protection advance — to the most conservative
-            # counter-swing of the leg just completed — and the accumulator resets.
-            if last_ext is None or (p.price > last_ext if trend == 1 else p.price < last_ext):
+            if last_ext is None or (p.price > last_ext if st.direction == 1 else p.price < last_ext):
                 if since:
-                    protected = min(since) if trend == 1 else max(since)
-                last_ext = p.price
-                since = []
+                    st.protected = min(since) if st.direction == 1 else max(since)
+                st.bos_price, st.bos_index = p.price, p.index      # BOS: the trend continues
+                last_ext, since = p.price, []
 
-        if trend == 0:
-            # ESTABLISH from two consecutive swings each way
-            if len(highs) >= 2 and len(lows) >= 2:
-                if highs[-1] > highs[-2] and lows[-1] > lows[-2]:
-                    trend, protected, last_ext, since = 1, lows[-2], lows[-1], []
-                elif highs[-1] < highs[-2] and lows[-1] < lows[-2]:
-                    trend, protected, last_ext, since = -1, highs[-2], highs[-1], []
-        elif protected is not None:
-            # FLIP only on a BODY CLOSE through the protected swing — a wick through it is a
-            # liquidity grab, the platform-wide rule for both strategies.
-            if trend == 1 and c.close < protected:
-                trend, protected, last_ext, since = -1, (max(since) if since else None), None, []
-            elif trend == -1 and c.close > protected:
-                trend, protected, last_ext, since = 1, (min(since) if since else None), None, []
+        if st.direction == 0 and not st.pending:
+            if len(st.highs) >= 2 and len(st.lows) >= 2:
+                if st.highs[-1] > st.highs[-2] and st.lows[-1] > st.lows[-2]:
+                    st.direction, st.protected, last_ext, since = 1, st.lows[-2], st.lows[-1], []
+                elif st.highs[-1] < st.highs[-2] and st.lows[-1] < st.lows[-2]:
+                    st.direction, st.protected, last_ext, since = -1, st.highs[-2], st.highs[-1], []
+        elif st.direction != 0 and st.protected is not None:
+            # CHoCH — PROPOSE the reversal. The trend does not turn until that direction confirms.
+            if st.direction == 1 and c.close < st.protected:
+                st.pending, st.direction = -1, 0
+                st.choch_price, st.choch_index = st.protected, i
+                st.protected, last_ext, since = None, None, []
+            elif st.direction == -1 and c.close > st.protected:
+                st.pending, st.direction = 1, 0
+                st.choch_price, st.choch_index = st.protected, i
+                st.protected, last_ext, since = None, None, []
 
-    return trend
+    return st
 
 
-def is_choch(candles: list[Candle], close_price: float, bullish: bool) -> bool:
+def clear_trend(candles: list[Candle], n: int = _SWING_N) -> int:
+    """+1 uptrend / -1 downtrend / 0 not established (or a reversal proposed but not yet confirmed).
+
+    The direction-only view of `trend_state`. Callers wanting to SAY WHY should use trend_state().
     """
-    CHoCH — did `close_price` reverse the recent structure? Two conditions, both required:
-      1. the recent structure was trending the OTHER way — a bullish CHoCH needs the last swing HIGH to
-         be a LOWER high (a down leg), a bearish one needs the last swing LOW to be a HIGHER low; and
-      2. `close_price` CLOSED beyond that swing — above the last swing high (bull) / below the last swing
-         low (bear).
-
-    Condition 1 is what separates a CHoCH (a reversal) from a plain trend continuation, and it is why
-    this is safe to check WITHOUT a clear_trend gate: a continuation in a live trend has an ascending
-    (bull) / descending (bear) last swing and so fails condition 1. Takes an explicit close so it works
-    CROSS-TF — the momentum candle is 1HR, but its close can be tested against the 1HR or the 4HR swings.
-    BODY CLOSE only; a wick through the level is a liquidity grab, not a change of character.
-    """
-    same = [p.price for p in find_swing_points(candles, n=_SWING_N) if p.is_high == bullish]
-    if len(same) < 2:
-        return False
-    prior_opposite = (same[-1] < same[-2]) if bullish else (same[-1] > same[-2])   # lower-high / higher-low
-    broke          = (close_price > same[-1]) if bullish else (close_price < same[-1])
-    return prior_opposite and broke
+    return trend_state(candles, n).direction
