@@ -18,6 +18,10 @@ from strategies import vix1_spacing
 from strategies.vix1_spacing import _MIN_CANDLES, anchor_time, candles_since, check
 from strategies.vix1_momentum import is_momentum_candle
 
+# The momentum test needs the pair to turn pips into a price. These fixtures are
+# 5-digit-major sized, matching GBP/USD.
+SYM = "GBP/USD"
+
 s = Suite("VIX.1 — signal spacing, and the two-active-signals regression")
 
 
@@ -61,11 +65,11 @@ have_case = bool(h1) and h1[-1].time >= DELIVER.timestamp()
 
 if have_case:
     print("   the 27 Jul EUR/USD case, on real broker candles:")
-    anchor = anchor_time(h1, TAKEN.timestamp())
+    anchor = anchor_time(h1, TAKEN.timestamp(), SYM)
     s.check("the anchor is the 07:00 momentum candle (derived, not stored)",
             time.strftime("%H:%M", time.gmtime(anchor)), "07:00")
 
-    n = candles_since(h1, anchor, DELIVER.timestamp())
+    n = candles_since(h1, anchor, DELIVER.timestamp(), SYM)
     s.check("only 2 momentum candles closed before the 14:46 setup", n, 2)
     s.check(f"  which is under the {_MIN_CANDLES}-candle requirement", n < _MIN_CANDLES, True)
 
@@ -107,13 +111,13 @@ if have_case:
     now_far = h1[-1].time + 3600
     old = None
     for i in range(len(h1)):
-        if candles_since(h1, h1[i].time, now_far) >= _MIN_CANDLES:
+        if candles_since(h1, h1[i].time, now_far, SYM) >= _MIN_CANDLES:
             old = h1[i].time
         else:
             break
     s.check("found an anchor old enough to clear the gate", old is not None, True)
     if old is not None:
-        n_old = candles_since(h1, old, now_far)
+        n_old = candles_since(h1, old, now_far, SYM)
         s.check(f"  it has {n_old} momentum candles after it (>= {_MIN_CANDLES})",
                 n_old >= _MIN_CANDLES, True)
         # a still-RUNNING signal taken off that old anchor must now be allowed through

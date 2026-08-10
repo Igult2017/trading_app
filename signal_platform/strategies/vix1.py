@@ -67,7 +67,10 @@ class Vix1Strategy(BaseStrategy):
     # At the old 120 the detector could see nothing older than two days and reported UP inside a
     # two-month decline. One request returns all 1500 and the fetcher throttles per REQUEST, not per
     # bar, so the extra bars cost queue time, never rate.
-    candle_counts       = {TF.M1: max((LOOKBACK + 2) * 60, WATCH_M1 + 30), TF.H1: 1500, TF.H4: 120}
+    # H1 3000 (was 1500) — the momentum test's SECOND yardstick is the median body over ~6 months
+    # (vix1_momentum._LONG_BARS). The trend read does NOT widen with it: vix1_bias pins itself to the
+    # last 1500 explicitly, because that is the window its 2026-07-29 calibration was measured on.
+    candle_counts       = {TF.M1: max((LOOKBACK + 2) * 60, WATCH_M1 + 30), TF.H1: 3000, TF.H4: 120}
 
     # All three sessions. The playbook has no session rule at all — the London/NY gate was an
     # addition, and the strategy already filters thin hours by itself: no momentum candle (a bigger body

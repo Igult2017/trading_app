@@ -50,6 +50,16 @@ log = logging.getLogger(__name__)
 #       It contradicts itself too.
 _H1_SWING_N = 48
 
+# THE TREND WINDOW IS PINNED, NOT "whatever we were handed".
+# The 2026-07-29 fix calibrated the trend on exactly 1,500 H1 bars (~62 days) — agreement across
+# window sizes 79%->84% EUR/USD, 76%->80% GBP/USD. On 2026-08-10 the H1 request was raised to 3,000
+# bars so the momentum test could measure a 6-month median body; had this read stayed "all the bars
+# we were given" it would silently have started judging trend over twice the history, changing
+# verdicts with nothing to catch it. Two candidate trend fixes have already looked right on the day
+# they were tried and been worse over four years, so the window is stated here and asserted in
+# tests/vix1/test_trend.py.
+_H1_TREND_BARS = 1500
+
 
 def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "") -> tuple[bool, int, str, int] | None:
     """
@@ -59,12 +69,12 @@ def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "") -> tuple[b
     The freshest 1HR momentum candle decides which way we are reasoning; trend/CHoCH then decide whether
     there are grounds to take it. `origin` is one of trend / trend4 / choch / choch4 (see module doc).
     """
-    up = momentum_run(h1, True)
-    dn = momentum_run(h1, False)
+    up = momentum_run(h1, True, symbol)
+    dn = momentum_run(h1, False, symbol)
     up_last = (up[0] + up[1] - 1) if up else -1
     dn_last = (dn[0] + dn[1] - 1) if dn else -1
     if up_last < 0 and dn_last < 0:
-        vix1_log.say(symbol, f"[vix1] {symbol} bias=NONE: no 1HR momentum candle either way — {veto_reason(h1, True)}")
+        vix1_log.say(symbol, f"[vix1] {symbol} bias=NONE: no 1HR momentum candle either way — {veto_reason(h1, True, symbol)}")
         return None
 
     # The FRESHEST momentum candle is the truth — never reach past it for an older, aligned one.
@@ -75,7 +85,7 @@ def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "") -> tuple[b
     # THE 1HR TREND IS READ FROM WIDE SWINGS OVER A LONG WINDOW — see _H1_SWING_N.
     # The H4 read keeps the default: measured at its current settings it already agrees with itself
     # 89%/77% across window sizes, and widening its swing width made it markedly WORSE (56%/47%).
-    t1 = clear_trend(h1, n=_H1_SWING_N)
+    t1 = clear_trend(h1[-_H1_TREND_BARS:], n=_H1_SWING_N)
     t4 = clear_trend(h4)
 
     # 1) momentum WITH a clear 1HR trend.

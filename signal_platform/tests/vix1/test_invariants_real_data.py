@@ -39,7 +39,7 @@ for label, m1f, h1f, pip in PAIRS:
 
     # a real momentum candle from this pair's own H1 history, so the line is a real level
     vc = next((h1[i] for i in range(len(h1) - 1, 30, -1)
-               if is_momentum_candle(h1, i, True) or is_momentum_candle(h1, i, False)), None)
+               if is_momentum_candle(h1, i, True, label) or is_momentum_candle(h1, i, False, label)), None)
     if vc is None:
         skipped.append(f"{label} (no momentum candle in H1 window)")
         continue
@@ -95,7 +95,7 @@ for label, m1f, h1f, pip in PAIRS:
     if not m1 or not h1:
         continue
     vc = next((h1[i] for i in range(len(h1) - 1, 30, -1)
-               if is_momentum_candle(h1, i, True) or is_momentum_candle(h1, i, False)), None)
+               if is_momentum_candle(h1, i, True, label) or is_momentum_candle(h1, i, False, label)), None)
     if vc is None:
         continue
     bullish = vc.close > vc.open

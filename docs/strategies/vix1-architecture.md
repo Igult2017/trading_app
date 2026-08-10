@@ -44,14 +44,16 @@ VIX.1 has shipped a bug from reading the forming bar as a level, and **a backtes
 
 ---
 
-## Module map — 14 files, ~1,730 lines
+## Module map — 16 files, ~2,070 lines
 
 | file | owns |
 |---|---|
 | `vix1.py` | orchestrator: watch → bias → news gates → **spacing** → 1M signals → grade → build |
 | `vix1_spacing.py` | **how long the instrument stays shut after a signal** (added 2026-07-27) |
-| `vix1_bias.py` | `detect_bias(h1, h4)` — trend on H4, momentum on H1 |
+| `vix1_bias.py` | `detect_bias(h1, h4, symbol)` — momentum on H1, trend on H1 (H4 only as a fallback) |
 | `vix1_momentum.py` | momentum-candle detection + `momentum_grade` (A/B/C → confidence) |
+| `vix1_building.py` | the "setup building" card — a setup seen before its entry exists |
+| `vix1_log.py` | per-symbol log throttling, so a silent scan does not spam |
 | `vix1_trend.py` | `clear_trend` — HH+HL / LH+LL |
 | `vix1_lines.py` | `draw_line` — ONE line, the momentum candle's body close |
 | `vix1_pullback.py` | `find_pullback` — the counter candle, and the past-the-line gate |
@@ -102,11 +104,43 @@ the same day was caused by exactly that kind of process-local state.
 instrument+direction and is enforced in the database; this one is per instrument.
 
 ### Momentum-candle gates (`vix1_momentum.py`)
-`_MIN_BODY_MULT 2.5` × the 100-bar median body · `_MIN_BODY_FRAC 0.50` of its own range ·
-`_MIN_VS_PREV 1.0` (bigger than the previous body) · `_MAX_CWICK_FRAC 0.25` counter-wick.
+`_MIN_BODY_MULT 2.5` × the 100-bar median body · **`_LONG_BODY_MULT 2.12` × the 2,000-bar median
+body** · `_MIN_BODY_FRAC 0.50` of its own range · `_MIN_VS_PREV 1.0` (bigger than the previous body) ·
+`_MAX_CWICK_FRAC 0.25` counter-wick.
 A-grade: `_A_BODY_FRAC 0.75` + `_A_CWICK_FRAC 0.15` → `_A_CONF 0.85`.
 
 **These were calibrated 2026-07-20/21 against his real candles. Do not re-tune them without his data.**
+
+### The SECOND size test — the long window (added 2026-08-10)
+
+**Two size tests, ANDed.** The 100-bar one is only ~4 trading days and a quiet spell collapses it:
+GBP/USD 10-Aug 09:00 UTC, median body 2.9p, so `2.5×` asked for just **7.25 pips** and a 7.5-pip
+nothing candle fired a signal. The second test asks `2.12 ×` the median body of the last **2,000
+bars** as well, a window a quiet week cannot move.
+
+| | |
+|---|---|
+| **where 2.12 came from** | HIS standard, not a chosen number. Two GBP/USD candles he named as the minimum he would trade (06-Aug 14:00 and 15:00 UTC, bodies **11.3p** and **12.4p**): 11.0 / 5.20 = **×2.12**; the equally-rare EUR/USD body (8.4p) / 3.95 = **×2.13**. One number serves both pairs |
+| **today it asks** | ~**11.0p** GBP/USD · ~**8.4p** EUR/USD |
+| **how often it BINDS** | 14% GBP/USD · 16% EUR/USD — the dead patches only; ~85% of the time the 100-bar test is already stricter and nothing changes |
+| **cost** | ~1.7 momentum candles per month per pair (55.5→53.8 GBP/USD, 56.2→54.3 EUR/USD) |
+| **why 2,000 and not 3,000** | the fetch asks for a WINDOW of `(count+10)` HOURS, but H1 bars exist only while the market is open — 120 a week, not 168. `count=3000` spans 125 calendar days and delivers **~2,150** real bars. 2,000 is what can be relied on |
+| **short history** | under `_LONG_MIN_BARS` (1,800) the test SKIPS rather than rejects — a strategy going silent on a short window is a worse bug |
+| **float tolerance** | `_LONG_EPS 1e-6` pips. His own 11.3p candle computes as `11.30000000000075`; without tolerance a candle genuinely on the line could be refused by the rule built from it |
+| **satisfies** | his settled rule *"nothing hardcoded where the market can say it"* — a flat 11-pip floor would have broken it, and would also have gone stale (GBP/USD's median body halved between 2022 and 2024) |
+
+**`symbol` is a REQUIRED argument** on `is_momentum_candle` / `momentum_run` / `veto_reason` and is
+threaded through `vix1_spacing` too. Not defaulted: `pip_size("")` returns the right value for these
+two pairs and would be **silently wrong** for a yen pair. A caller that forgets must fail loudly.
+`vix1_spacing` uses the same test on purpose — **a momentum candle must mean ONE thing**, or the
+spacing gate would count candles the setup would not.
+
+### The trend window is PINNED (`vix1_bias._H1_TREND_BARS = 1500`)
+
+`vix1.candle_counts[TF.H1]` was raised 1500 → 3000 on 2026-08-10 to feed the long size test. The
+trend read does **not** widen with it — it slices the last 1,500 explicitly, because that is the
+window its 2026-07-29 calibration was measured on. **Measured: unpinned, 18% of GBP/USD and 11% of
+EUR/USD trend verdicts change.** Pinned, 260/260 and 154/154 identical.
 
 ---
 
@@ -133,7 +167,14 @@ A-grade: `_A_BODY_FRAC 0.75` + `_A_CWICK_FRAC 0.15` → `_A_CONF 0.85`.
    made it worse (56%/47%). Guarded by `tests/vix1/test_trend.py`, which asserts the STABILITY
    property rather than a single day's verdict — two candidate fixes each looked right on the day
    they were tried and were worse over four years.
-5. **No exhaustion / "price ran too far" rule exists.** All 9 `vix1_entry` rejection reasons are about
+5. **THE 4HR FALLBACK IS DEAD CODE IN PRACTICE — found 2026-08-10, not removed.** `detect_bias`
+   reaches for the H4 trend only when the 1HR trend is UNREADABLE (`t1 == 0`). Measured over the last
+   year on both pairs, sampled every 20 bars: **0 of 622 reads were unreadable** (GBP/USD 25% up /
+   75% down, EUR/USD 41% / 59%). So the `trend4` branch never executes, yet `vix1.py` fetches 120 H4
+   bars every scan and `clear_trend` runs on them. It is wasted work and an untested path that would
+   come alive silently if the trend settings ever changed. **Removal is the user's call** — flagged,
+   deliberately not done in the 08-10 change.
+6. **No exhaustion / "price ran too far" rule exists.** All 9 `vix1_entry` rejection reasons are about
    the pullback's shape and position; none asks how extended the move is, so a late entry at the tail
    of a finished move is accepted. Deferred (user decision, 2026-07-27) because the spacing rule
    already refuses the specific 27 Jul case and stacking two new filters at once would make any

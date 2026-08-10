@@ -60,14 +60,21 @@ def _closed_by(candle: Candle, when: float, tf: str = "H1") -> bool:
     return candle.time + to_minutes(tf) * 60 <= when
 
 
-def _is_momentum(h1: list[Candle], i: int) -> bool:
+def _is_momentum(h1: list[Candle], i: int, symbol: str) -> bool:
+    """`symbol` is threaded all the way down on purpose: A MOMENTUM CANDLE MUST MEAN ONE THING.
+
+    This module counts momentum candles for the spacing gate while vix1_bias counts them for the
+    setup. If the long-window size test applied to one and not the other, the two halves of the
+    strategy would be counting different things and the spacing gate would release early.
+    """
     if _COUNT_BOTH_DIRECTIONS:
-        return is_momentum_candle(h1, i, True) or is_momentum_candle(h1, i, False)
+        return (is_momentum_candle(h1, i, True, symbol)
+                or is_momentum_candle(h1, i, False, symbol))
     bullish = h1[i].close > h1[i].open
-    return is_momentum_candle(h1, i, bullish)
+    return is_momentum_candle(h1, i, bullish, symbol)
 
 
-def anchor_time(h1: list[Candle], taken_at: float) -> int | None:
+def anchor_time(h1: list[Candle], taken_at: float, symbol: str) -> int | None:
     """The momentum candle that produced the signal taken at `taken_at`.
 
     Derived rather than stored: it is the freshest momentum candle that had already CLOSED when the
@@ -77,15 +84,15 @@ def anchor_time(h1: list[Candle], taken_at: float) -> int | None:
     for i in range(len(h1) - 1, 0, -1):
         if not _closed_by(h1[i], taken_at):
             continue
-        if _is_momentum(h1, i):
+        if _is_momentum(h1, i, symbol):
             return h1[i].time
     return None
 
 
-def candles_since(h1: list[Candle], anchor: int, now: float) -> int:
+def candles_since(h1: list[Candle], anchor: int, now: float, symbol: str) -> int:
     """How many momentum candles have CLOSED strictly after the anchor candle."""
     return sum(1 for i in range(len(h1))
-               if h1[i].time > anchor and _closed_by(h1[i], now) and _is_momentum(h1, i))
+               if h1[i].time > anchor and _closed_by(h1[i], now) and _is_momentum(h1, i, symbol))
 
 
 def check(h1: list[Candle], symbol: str, strategy_id: str, now: float) -> tuple[bool, str]:
@@ -111,13 +118,13 @@ def check(h1: list[Candle], symbol: str, strategy_id: str, now: float) -> tuple[
     # Oldest running signal is the one whose anchor governs the wait.
     prev = min(live, key=lambda r: r.created_at)
     taken_at = prev.created_at.timestamp()
-    anchor = anchor_time(h1, taken_at)
+    anchor = anchor_time(h1, taken_at, symbol)
     if anchor is None:
         log.info(f"[vix1_spacing] {symbol}: previous signal's momentum candle is outside the H1 "
                  f"window — cannot measure spacing, allowing")
         return True, "anchor outside the window"
 
-    n = candles_since(h1, anchor, now)
+    n = candles_since(h1, anchor, now, symbol)
     if n >= _MIN_CANDLES:
         return True, f"{n} momentum candles since the running signal's setup (need {_MIN_CANDLES})"
     return False, (f"only {n} of {_MIN_CANDLES} momentum candles since the running signal's setup "

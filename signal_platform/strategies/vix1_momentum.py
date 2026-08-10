@@ -31,6 +31,7 @@ from statistics import median
 
 from core.types import Candle
 from shared.candle_math import body_size, full_range, upper_wick, lower_wick, is_bullish
+from shared.pip import pip_size
 
 log = logging.getLogger(__name__)
 
@@ -78,6 +79,41 @@ _MAX_CWICK_FRAC = 0.25  # wick AGAINST the move, as a share of range. Raised 15%
                         # almost-wickless marubozu and threw away genuine momentum. Live proof: GBP/USD
                         # 20-Jul 18:00 was a 21-pip, 3.62x-median, 81%-body BEAR that VIX.1 rejected
                         # ONLY because its counter-wick was 19%. 25% admits it.
+_LONG_BARS      = 2000  # ~4 months of H1 (bars, not calendar days). The SECOND size test's yardstick.
+                        # WHY 2000 AND NOT 3000: the fetch asks for a WINDOW of (count+10) hours, but
+                        # H1 bars only exist while the market is open — 120 bars a week, not 168. A
+                        # request for 3000 spans 125 calendar days and delivers only ~2150 real bars.
+                        # 2000 is therefore what can be RELIED ON to arrive; asking the median for
+                        # 3000 and silently getting 2150 would measure a different window than the
+                        # multiplier below was calibrated on, and nothing would say so.
+_LONG_MIN_BARS  = 1800  # below this we cannot say what 4 months looks like — the test then SKIPS
+                        # rather than rejects (see long_baseline). The median is flat across
+                        # 1800-2150 bars (GBP/USD 5.20-5.30p), so delivery wobble cannot move it.
+_LONG_BODY_MULT = 2.12  # body >= this x the MEDIAN body of the last 2000 bars, ON TOP of the 100-bar
+                        # test above. WHY IT EXISTS: the 100-bar yardstick is only ~4 trading days, and
+                        # four quiet days collapse it. GBP/USD 10-Aug 09:00 UTC — the median body had
+                        # fallen to 2.9 pips, so 2.5x asked for just 7.25, and a 7.5-pip nothing candle
+                        # qualified and fired a signal the user caught. Measured over 4 years: the
+                        # 100-bar requirement drops as low as 7.4 pips, the 3000-bar one never below 10.5.
+                        #
+                        # WHERE 2.12 COMES FROM — his own standard, not a number I chose. He named two
+                        # GBP/USD candles as the minimum he would trade (06-Aug 14:00 and 15:00 UTC,
+                        # bodies 11.3p and 12.4p) and said "the body that size or bigger but not smaller".
+                        # 11.0 / (2000-bar median 5.20) = x2.12 on GBP/USD; the equally-rare EUR/USD
+                        # body (8.4p) / 3.95 = x2.13. The SAME multiple on both pairs to within 0.01,
+                        # so ONE number serves both — and it satisfies his settled rule "nothing
+                        # hardcoded where the market can say it" (vix1.md), which a flat 11-pip floor
+                        # would have broken.
+                        #
+                        # Today it asks ~11.0p on GBP/USD and ~8.4p on EUR/USD — his standard exactly.
+                        # It is the stricter of the two tests only 14-16% of the time (the dead
+                        # patches), so ~85% of the time nothing changes; it costs ~1.7 momentum
+                        # candles/month/pair. Over 4 years it moved between 8.7 and 23.5 pips on its
+                        # own, so it never needs re-tuning as volatility regimes change.
+_LONG_EPS       = 1e-6  # pip tolerance. His own 11.3p candle computes as 11.30000000000075 and clears
+                        # 11.3 by 7.5e-13 — luck, not safety. A different price pair lands microscopically
+                        # BELOW and the rule built from his candles would reject his candles. Far smaller
+                        # than a tenth of a pip, so it can never admit anything real.
 _MIN_RUN        = 1     # see the docstring — the market gives runs of one
 LOOKBACK       = 12    # recent 1HR bars scanned for the candle (an established trend's impulse can
                         # be several bars old while the fresh 1M entry is still forming).
@@ -100,15 +136,47 @@ def counter_wick(c: Candle, bullish: bool) -> float:
     return upper_wick(c) if bullish else lower_wick(c)
 
 
-def is_momentum_candle(h1: list[Candle], i: int, bullish: bool) -> bool:
-    """BIG for this pair right now + BIGGER THAN THE ONE BEFORE IT + CLEAN + UNREJECTED.
-    The wick WITH the move is not capped (a 48% with-wick appears in the user's real winners)."""
+def long_baseline(h1: list[Candle], i: int) -> float:
+    """The MEDIAN body over ~4 months — the yardstick that a quiet week cannot collapse.
+
+    Returns 0.0 when there is not enough history to say, and the caller then SKIPS this test rather
+    than failing it: a strategy that goes silent because its window is short would be a worse bug
+    than the one this exists to fix. In production `vix1.candle_counts[TF.H1]` requests 3000, which
+    delivers ~2150 real bars (weekends are not bars) — comfortably above _LONG_MIN_BARS.
+    """
+    window = h1[max(0, i - _LONG_BARS):i]
+    if len(window) < _LONG_MIN_BARS:
+        return 0.0
+    return median([body_size(c) for c in window])
+
+
+def long_requirement(h1: list[Candle], i: int, symbol: str) -> float:
+    """What the 6-month test demands of this candle, in PIPS. 0.0 = not enough history to ask."""
+    base = long_baseline(h1, i)
+    pip = pip_size(symbol)
+    if base <= 0 or pip <= 0:
+        return 0.0
+    return _LONG_BODY_MULT * base / pip
+
+
+def is_momentum_candle(h1: list[Candle], i: int, bullish: bool, symbol: str) -> bool:
+    """BIG for this pair right now + BIG FOR THE LAST SIX MONTHS + BIGGER THAN THE ONE BEFORE IT
+    + CLEAN + UNREJECTED. The wick WITH the move is not capped (a 48% with-wick appears in the
+    user's real winners).
+
+    `symbol` is REQUIRED, not defaulted: the long-window test converts pips to a price and needs the
+    pair. `pip_size("")` happens to return the right value for EUR/USD and GBP/USD and would be
+    SILENTLY wrong for a yen pair, so a caller that forgets must fail loudly instead.
+    """
     c = h1[i]
     if is_bullish(c) != bullish:
         return False
     rng  = full_range(c)
     base = baseline_body(h1, i)
     if rng <= 0 or base <= 0:
+        return False
+    need = long_requirement(h1, i, symbol)
+    if need > 0 and body_size(c) / pip_size(symbol) < need - _LONG_EPS:
         return False
     prev = body_size(h1[i - 1]) if i > 0 else 0.0
     return (body_size(c) >= _MIN_BODY_MULT * base
@@ -142,7 +210,7 @@ def momentum_grade(c: Candle, bullish: bool) -> tuple[str, float]:
     return ("B" if conf >= 0.68 else "C", conf)
 
 
-def momentum_run(h1: list[Candle], bullish: bool) -> tuple[int, int] | None:
+def momentum_run(h1: list[Candle], bullish: bool, symbol: str) -> tuple[int, int] | None:
     """
     Most recent run of consecutive momentum candles. Returns (first_idx, run_len) or None.
     Each candle qualifies ON ITS OWN MERIT against the baseline — NOT against the one before it. The
@@ -152,11 +220,11 @@ def momentum_run(h1: list[Candle], bullish: bool) -> tuple[int, int] | None:
     """
     start = max(1, len(h1) - LOOKBACK)
     for i in range(len(h1) - 1, start - 1, -1):
-        if not is_momentum_candle(h1, i, bullish):
+        if not is_momentum_candle(h1, i, bullish, symbol):
             continue
         run, first = 1, i
         j = i - 1
-        while j >= 1 and is_momentum_candle(h1, j, bullish):
+        while j >= 1 and is_momentum_candle(h1, j, bullish, symbol):
             run  += 1
             first = j
             j    -= 1
@@ -165,10 +233,16 @@ def momentum_run(h1: list[Candle], bullish: bool) -> tuple[int, int] | None:
     return None
 
 
-def veto_reason(h1: list[Candle], bullish: bool) -> str:
-    """Why the recent bars produced no momentum candle — for diagnostics only."""
+def veto_reason(h1: list[Candle], bullish: bool, symbol: str) -> str:
+    """Why the recent bars produced no momentum candle — for diagnostics only.
+
+    The long-window gate is counted SEPARATELY from the 100-bar one. Folding them together would have
+    made the 10-Aug defect invisible in the logs: the candle passed the short test and was only ever
+    going to be stopped by the long one, and a single "too small" tally cannot say which.
+    """
     start = max(1, len(h1) - LOOKBACK)
-    in_dir = too_small = not_bigger = wrong_shape = 0
+    in_dir = too_small = under_long = not_bigger = wrong_shape = 0
+    pip = pip_size(symbol)
     for i in range(len(h1) - 1, start - 1, -1):
         c = h1[i]
         if is_bullish(c) != bullish:
@@ -176,8 +250,11 @@ def veto_reason(h1: list[Candle], bullish: bool) -> str:
         in_dir += 1
         rng, base = full_range(c), baseline_body(h1, i)
         prev = body_size(h1[i - 1]) if i > 0 else 0.0
+        need = long_requirement(h1, i, symbol)
         if base > 0 and body_size(c) < _MIN_BODY_MULT * base:
             too_small += 1
+        elif need > 0 and pip > 0 and body_size(c) / pip < need - _LONG_EPS:
+            under_long += 1
         elif body_size(c) <= _MIN_VS_PREV * prev:
             not_bigger += 1
         elif rng > 0 and (body_size(c) < _MIN_BODY_FRAC * rng
@@ -185,8 +262,12 @@ def veto_reason(h1: list[Candle], bullish: bool) -> str:
             wrong_shape += 1
     if in_dir == 0:
         return f"no in-direction ({'up' if bullish else 'down'}) H1 candle in the last {LOOKBACK} bars"
+    long_now = long_requirement(h1, len(h1) - 1, symbol)
     return (f"{in_dir} in-direction bars but none was a momentum candle "
-            f"(too small x{too_small}, not bigger than the previous candle x{not_bigger}, "
+            f"(too small x{too_small}, under the 6-month floor x{under_long}, "
+            f"not bigger than the previous candle x{not_bigger}, "
             f"wicky/shape x{wrong_shape} — needs body >= "
-            f"{_MIN_BODY_MULT:.1f}x the {_BASELINE_BARS}-bar median body, > the previous candle's "
+            f"{_MIN_BODY_MULT:.1f}x the {_BASELINE_BARS}-bar median body, "
+            f">= {long_now:.1f} pips ({_LONG_BODY_MULT:.2f}x the {_LONG_BARS}-bar median), "
+            f"> the previous candle's "
             f"body, >= {_MIN_BODY_FRAC:.0%} of its own range, counter-wick <= {_MAX_CWICK_FRAC:.0%})")
