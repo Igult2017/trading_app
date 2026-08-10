@@ -44,7 +44,7 @@ VIX.1 has shipped a bug from reading the forming bar as a level, and **a backtes
 
 ---
 
-## Module map — 16 files, ~2,070 lines
+## Module map — 17 files, ~2,200 lines
 
 | file | owns |
 |---|---|
@@ -54,7 +54,8 @@ VIX.1 has shipped a bug from reading the forming bar as a level, and **a backtes
 | `vix1_momentum.py` | momentum-candle detection + `momentum_grade` (A/B/C → confidence) |
 | `vix1_building.py` | the "setup building" card — a setup seen before its entry exists |
 | `vix1_log.py` | per-symbol log throttling, so a silent scan does not spam |
-| `vix1_trend.py` | `clear_trend` — HH+HL / LH+LL |
+| `vix1_trend.py` | `trend_state` / `clear_trend` — the trend as structure, plus the BOS and CHoCH that move it |
+| `vix1_structure.py` | `leg_state` — WHERE IN THE LEG we are; the rule that refuses pullbacks and ranges |
 | `vix1_lines.py` | `draw_line` — ONE line, the momentum candle's body close |
 | `vix1_pullback.py` | `find_pullback` — the counter candle, and the past-the-line gate |
 | `vix1_fractal.py` | fractal levels/breaks for the wrong-side case |
@@ -134,6 +135,32 @@ threaded through `vix1_spacing` too. Not defaulted: `pip_size("")` returns the r
 two pairs and would be **silently wrong** for a yen pair. A caller that forgets must fail loudly.
 `vix1_spacing` uses the same test on purpose — **a momentum candle must mean ONE thing**, or the
 spacing gate would count candles the setup would not.
+
+### The turn is TWO-STAGE, and the leg must prove itself (added 2026-08-11)
+
+A body close through the protecting swing no longer flips the trend. It raises a **CHoCH — reversal
+proposed**; the trend turns only once the new direction **confirms with a BOS**. Until then it reads
+`0` ("changing") and nothing may be traded.
+
+| | measured over 12 months |
+|---|---|
+| phases under two days (noise) | **2 -> 0** on both pairs |
+| median phase length | GBP/USD 334 -> 411 bars · EUR/USD 246 -> 350 |
+| the old FREEZE (`protected = None`, trend could never turn) | GBP/USD 62% of bars, once 873 bars — **gone by construction** |
+| does a reversal mean anything? | median phase catches **+177 pips** (EUR/USD) / **+227** (GBP/USD) its own way; **1 of 70** phases never moved that way |
+
+**A responsive protection level was tried and REJECTED** — moving protection to each counter-swing
+reads a reversal earlier but takes trend changes 10 -> 14 / 10 -> 16, and `test_trend.py` failed it on
+the 4-year stability property. Do not retry it without new evidence.
+
+**`test_trend.py` counts COMPLETED reversals** (UP<->DOWN, ignoring the "changing" step) and prints
+the OLD raw count beside it. The definition changed because a turn now has three states, not to
+flatter the numbers — the user insisted both be kept visible.
+
+**`vix1_structure.leg_state` is the leg gate.** Direction NEVER comes from it (half of pullbacks are
+complex and read as the opposite trend on a fast scale); it only answers "has the pullback finished?"
+Swing width **8**, provisional — 5/8/12 open the gate 14.7% / 11.5% / 8.3% of the time, to be settled
+later on live results.
 
 ### The trend window is PINNED (`vix1_bias._H1_TREND_BARS = 1500`)
 

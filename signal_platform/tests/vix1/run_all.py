@@ -16,7 +16,8 @@ TESTS = [
     "test_line_pullback.py",        # the line, and the past-the-line rule
     "test_manage.py",               # the R ratchet and the structure exit
     "test_invariants_real_data.py", # the real functions over real candles
-    "test_trend.py",              # the 1HR trend read — stability across window sizes
+    "test_trend.py",              # the 1HR trend read — stability + do reversals mean anything
+    "test_structure.py",            # the leg gate (no pullbacks/ranges) + the freeze regression
     "test_stage_tracker.py",       # the log throttle + VIX.1 reason-shape keying
     "test_spacing.py",              # signal spacing + the 27 Jul duplicate-signal regression
 ]

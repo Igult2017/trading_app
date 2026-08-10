@@ -56,6 +56,27 @@ class LegState:
     why: str = ""
 
 
+def _distinct(points, n: int):
+    """Collapse pivots that are really the SAME turn seen twice.
+
+    `find_swing_points` marks every bar that is the extreme of its window, so a flat top prints two
+    or three pivots at an identical price on consecutive bars. Comparing only the last two then reads
+    "no higher high" because the last two ARE the same high — and equal highs (a double top, a level
+    tested twice) are ordinary market behaviour, not a synthetic artefact.
+
+    Keeps the most extreme of any group of same-side pivots within `n` bars of each other.
+    """
+    out = []
+    for p in points:
+        if out and out[-1].is_high == p.is_high and p.index - out[-1].index <= n:
+            better = p.price > out[-1].price if p.is_high else p.price < out[-1].price
+            if better:
+                out[-1] = p
+            continue
+        out.append(p)
+    return out
+
+
 def leg_state(candles: list[Candle], direction: int, n: int = _FAST_N) -> LegState:
     """Has this trend printed its pair, and is the pullback over?
 
@@ -68,7 +89,7 @@ def leg_state(candles: list[Candle], direction: int, n: int = _FAST_N) -> LegSta
     pts = sorted(find_swing_points(candles, n), key=lambda p: p.index)
     # Only swings CONFIRMED by the end of the window: a pivot at index j needs n bars after it.
     cutoff = len(candles) - 1 - n
-    pts = [p for p in pts if p.index <= cutoff]
+    pts = _distinct([p for p in pts if p.index <= cutoff], n)
     highs = [p for p in pts if p.is_high]
     lows = [p for p in pts if not p.is_high]
     if len(highs) < 2 or len(lows) < 2:
