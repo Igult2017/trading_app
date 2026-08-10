@@ -10,11 +10,15 @@ order, on what grounds we may take it:
 
   'trend'  — the momentum runs WITH a clear 1HR trend.
   'trend4' — the 1HR trend is UNCLEAR, but the momentum runs WITH a clear 4HR trend (the fallback).
-  'choch'  — the momentum CLOSED through the 1HR structure the OTHER way (a lower high broken up / a
-             higher low broken down): the market is CHANGING DIRECTION. Decoupled from clear_trend on
-             purpose — a reversal is exactly when the slope reads flat, so gating CHoCH behind a clear
-             trend made every such reversal escape (fixed 2026-07-20).
-  'choch4' — the 1HR trend is unclear and the momentum closed through the 4HR structure the other way.
+
+  ('choch' and 'choch4' were REMOVED 2026-07-26 — pro-trend only. This docstring still listed them as
+   live origins until 2026-08-10; see the note at the foot of detect_bias for why they went.)
+
+MEASURED 2026-08-10: 'trend4' NEVER FIRES. It is reached only when the 1HR trend is unreadable, and
+across the last year on both pairs the 1HR trend was unreadable in 0 of 622 samples (GBP/USD 25% up /
+75% down, EUR/USD 41% / 59%). The h4 argument, and the 120 H4 bars vix1.py fetches every scan to
+build it, are therefore dead weight in practice. Recorded as an open defect, not removed — the
+user's call.
 
 If none hold — momentum with no confirmed trend and no structure break — we DO NOT TRADE. Logs the exact
 reason at INFO when it returns None. Structure is read from CLOSED candles only; the 1M uses none of
@@ -30,8 +34,9 @@ from strategies.vix1_trend import clear_trend   # is_choch no longer used: the t
 
 log = logging.getLogger(__name__)
 
-# THE 1HR SWING HALF-WIDTH. 48 bars either side = a swing spanning ~2 DAYS, read over the 1,500-bar
-# (~62-day) window `vix1.candle_counts[TF.H1]` now supplies.
+# THE 1HR SWING HALF-WIDTH. 48 bars either side = a swing spanning ~2 DAYS, read over a 1,500-bar
+# (~62-day) window. That window is now PINNED here (_H1_TREND_BARS) rather than being whatever
+# candle_counts happens to supply — see the note below.
 #
 # WHY IT IS NOT 3 (fixed 2026-07-29). At n=3 a "swing" is a 7-hour wiggle, and with only 120 bars the
 # detector could see nothing older than two days. On 29 Jul it reported the 1HR trend as UP in the
@@ -53,7 +58,7 @@ _H1_SWING_N = 48
 # THE TREND WINDOW IS PINNED, NOT "whatever we were handed".
 # The 2026-07-29 fix calibrated the trend on exactly 1,500 H1 bars (~62 days) — agreement across
 # window sizes 79%->84% EUR/USD, 76%->80% GBP/USD. On 2026-08-10 the H1 request was raised to 3,000
-# bars so the momentum test could measure a 6-month median body; had this read stayed "all the bars
+# bars so the momentum test could measure a long-window median body; had this read stayed "all the bars
 # we were given" it would silently have started judging trend over twice the history, changing
 # verdicts with nothing to catch it. Two candidate trend fixes have already looked right on the day
 # they were tried and been worse over four years, so the window is stated here and asserted in

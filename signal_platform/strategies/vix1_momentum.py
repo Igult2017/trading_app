@@ -136,6 +136,9 @@ def counter_wick(c: Candle, bullish: bool) -> float:
     return upper_wick(c) if bullish else lower_wick(c)
 
 
+_warned_short_window = False
+
+
 def long_baseline(h1: list[Candle], i: int) -> float:
     """The MEDIAN body over ~4 months — the yardstick that a quiet week cannot collapse.
 
@@ -143,15 +146,28 @@ def long_baseline(h1: list[Candle], i: int) -> float:
     than failing it: a strategy that goes silent because its window is short would be a worse bug
     than the one this exists to fix. In production `vix1.candle_counts[TF.H1]` requests 3000, which
     delivers ~2150 real bars (weekends are not bars) — comfortably above _LONG_MIN_BARS.
+
+    IT SAYS SO WHEN IT SKIPS. Silently falling back to the 100-bar test alone is EXACTLY the state
+    that produced the 10-Aug signal, and a protection that can disappear without a word is one nobody
+    will notice is gone. Warned once per process, not per scan — this runs on every candle.
     """
+    global _warned_short_window
     window = h1[max(0, i - _LONG_BARS):i]
+    if len(window) < _LONG_MIN_BARS and not _warned_short_window:
+        _warned_short_window = True
+        log.warning(
+            "[vix1] only %d H1 bars available (need %d) — the long-window size floor is NOT being "
+            "applied; the momentum test is running on the 100-bar yardstick alone, which is the "
+            "state that admitted the 10-Aug 7.5-pip candle. Check candle_counts[H1] and the feed.",
+            len(window), _LONG_MIN_BARS,
+        )
     if len(window) < _LONG_MIN_BARS:
         return 0.0
     return median([body_size(c) for c in window])
 
 
 def long_requirement(h1: list[Candle], i: int, symbol: str) -> float:
-    """What the 6-month test demands of this candle, in PIPS. 0.0 = not enough history to ask."""
+    """What the long-window test demands of this candle, in PIPS. 0.0 = not enough history."""
     base = long_baseline(h1, i)
     pip = pip_size(symbol)
     if base <= 0 or pip <= 0:
@@ -160,7 +176,7 @@ def long_requirement(h1: list[Candle], i: int, symbol: str) -> float:
 
 
 def is_momentum_candle(h1: list[Candle], i: int, bullish: bool, symbol: str) -> bool:
-    """BIG for this pair right now + BIG FOR THE LAST SIX MONTHS + BIGGER THAN THE ONE BEFORE IT
+    """BIG for this pair right now + BIG FOR THE LAST ~4 MONTHS + BIGGER THAN THE ONE BEFORE IT
     + CLEAN + UNREJECTED. The wick WITH the move is not capped (a 48% with-wick appears in the
     user's real winners).
 
@@ -176,7 +192,8 @@ def is_momentum_candle(h1: list[Candle], i: int, bullish: bool, symbol: str) -> 
     if rng <= 0 or base <= 0:
         return False
     need = long_requirement(h1, i, symbol)
-    if need > 0 and body_size(c) / pip_size(symbol) < need - _LONG_EPS:
+    pip = pip_size(symbol)
+    if need > 0 and pip > 0 and body_size(c) / pip < need - _LONG_EPS:
         return False
     prev = body_size(h1[i - 1]) if i > 0 else 0.0
     return (body_size(c) >= _MIN_BODY_MULT * base
@@ -264,7 +281,7 @@ def veto_reason(h1: list[Candle], bullish: bool, symbol: str) -> str:
         return f"no in-direction ({'up' if bullish else 'down'}) H1 candle in the last {LOOKBACK} bars"
     long_now = long_requirement(h1, len(h1) - 1, symbol)
     return (f"{in_dir} in-direction bars but none was a momentum candle "
-            f"(too small x{too_small}, under the 6-month floor x{under_long}, "
+            f"(too small x{too_small}, under the long-window floor x{under_long}, "
             f"not bigger than the previous candle x{not_bigger}, "
             f"wicky/shape x{wrong_shape} — needs body >= "
             f"{_MIN_BODY_MULT:.1f}x the {_BASELINE_BARS}-bar median body, "
