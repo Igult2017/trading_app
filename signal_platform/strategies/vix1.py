@@ -28,7 +28,7 @@ from core.types import (Session, Trend, NewsStance, NewsImpact,
                         StrategyResult, TF, Signal)
 from core.strategy_context import StrategyContext
 from core import delivery_ledger
-from strategies.vix1_bias import detect_bias
+from strategies.vix1_bias import _ALLOW_H4, detect_bias
 from strategies.vix1_entry import m1_signals
 from strategies.vix1_lines import draw_line
 from strategies.vix1_momentum import LOOKBACK, momentum_grade   # candle_counts[M1] derives from LOOKBACK
@@ -95,8 +95,13 @@ class Vix1Strategy(BaseStrategy):
         # moves every scan is not a line, and its "close" is simply the current price. The 1M's
         # forming bar is KEPT on purpose: there, live price is exactly what the entry reacts to.
         h1 = closed_only(context.candles.get(TF.H1))
-        h4 = closed_only(context.candles.get(TF.H4))   # TREND timeframe (clear_trend runs on this)
-        if len(m1) < 12 or len(h1) < 20 or len(h4) < 20:
+        h4 = closed_only(context.candles.get(TF.H4))   # only read when the 4HR fallback is un-muted
+        # H4 IS NOT REQUIRED WHILE THE FALLBACK IS MUTED. It used to be part of this guard, so a
+        # failed or thin H4 fetch stopped the strategy producing ANY signal — on data nothing reads.
+        # The 1HR trend and the 1M entry do not touch H4 at all (vix1_bias._ALLOW_H4).
+        if len(m1) < 12 or len(h1) < 20:
+            return StrategyResult.empty()
+        if _ALLOW_H4 and len(h4) < 20:
             return StrategyResult.empty()
         pip    = pip_size(context.symbol)
         digits = price_digits(context.symbol)
