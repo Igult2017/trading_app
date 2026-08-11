@@ -1,4 +1,8 @@
-"""The chart at the top of a signal card: candles, the levels, the zone band, and the projection.
+"""The chart at the top of a signal card: the candles, the zone bands, and the axis.
+
+Everything drawn ON TOP of the bars — the risk/reward shading, the level labels, the marked candle
+and the projection arrow — lives in `charting/annotations.py`. That split happened 2026-08-11: this
+module draws what price DID, that one draws what the signal CLAIMS.
 
 STRATEGY-AGNOSTIC BY CONSTRUCTION. This module knows about candles and three price levels. It does
 not know what a supply zone, a momentum candle, a CHoCH or a pullback is, and it must not learn —
@@ -6,12 +10,11 @@ each strategy is independent, and a renderer that special-cases one is how one s
 into another's picture. Anything strategy-specific arrives as the generic `bands` argument, already
 reduced to (low, high, colour, label) by the caller.
 """
-from matplotlib.patches import Rectangle, FancyArrowPatch
+from matplotlib.patches import Rectangle
 
 from core.types import Candle
+from charting import annotations as ann
 from charting import theme
-
-_PROJECT = 0.30      # the arrow reaches this fraction of the chart width past the last candle
 
 
 def draw(ax, candles: list[Candle], entry: float, stop: float, target: float,
@@ -41,8 +44,9 @@ def draw(ax, candles: list[Candle], entry: float, stop: float, target: float,
             ax.add_patch(Rectangle((i - width / 2, lo), width, h, facecolor=col,
                                    edgecolor=col, linewidth=0.8, zorder=4))
 
-    span = n + n * _PROJECT + 2
-    right = n - 0.4                     # every line and band stops here; labels live past it
+    extra: list[tuple] = []             # band labels join the level labels in one column
+    full = ann.span(n)
+    right = n - 0.4                     # every line and band stops here
     for lo, hi, colour, label in (bands or []):
         # A ZERO-HEIGHT BAND IS A LINE, and is drawn as one. Some levels are a band (a supply zone);
         # others are a single price (VIX.1's line — the body close of the first momentum candle, the
@@ -52,38 +56,42 @@ def draw(ax, candles: list[Candle], entry: float, stop: float, target: float,
         if abs(hi - lo) < 1e-9:
             ax.plot([-1, right], [lo, lo], color=colour, linewidth=1.6, alpha=0.9, zorder=2)
             if label:
-                ax.text(right + 1.2, lo, label, va="bottom", ha="left", color=colour,
-                        fontproperties=theme.font(11, bold=True), zorder=7)
-                ax.text(right + 1.2, lo, f"{lo:.{digits}f}", va="top", ha="left",
-                        color=theme.INK_DIM, fontproperties=theme.font(9.5), zorder=7)
+                # DEFERRED to the single spacing pass below. Drawing it here is what put VIX.1's
+                # "LINE" on top of "ENTRY": one label column can only be laid out once, with every
+                # label in it considered together. The price IS shown — a zero-height band is a
+                # real single level.
+                extra.append((lo, colour, label, None, True))
             continue
-        ax.axhspan(lo, hi, xmax=(right + 1) / span, color=colour, alpha=0.10, zorder=1)
+        ax.axhspan(lo, hi, xmax=(right + 1) / full, color=colour, alpha=0.10, zorder=1)
         for edge in (lo, hi):
             ax.plot([-1, right], [edge, edge], color=colour, linewidth=1.2, alpha=0.6, zorder=2)
+        if label:
+            # A BAND'S NAME WAS BEING THROWN AWAY. Only the zero-height case ever drew one, so a
+            # zone's name arrived on every card and rendered nowhere — the shaded box had no label
+            # on it. Named at the band's middle, and with NO number: a zone is its two edges, and
+            # printing the midpoint would put a price on the card at a level that is not a level.
+            extra.append(((lo + hi) / 2, colour, label, None, False))
 
-    for price, colour, label, dashed in ((stop, theme.STOP, "STOP", False),
-                                         (entry, theme.ENTRY, "ENTRY", True),
-                                         (target, theme.TARGET, "TARGET", False)):
-        if not price:
-            continue
-        ax.plot([-1, right], [price, price], color=colour, linewidth=1.8,
-                linestyle=((0, (4, 3)) if dashed else "-"), zorder=5)
-        ax.text(right + 1.2, price, label, va="bottom", ha="left", color=colour,
-                fontproperties=theme.font(13, bold=True), zorder=7)
-        ax.text(right + 1.2, price, f"{price:.{digits}f}", va="top", ha="left",
-                color=theme.INK_DIM, fontproperties=theme.font(11), zorder=7)
-
-    _mark_candles(ax, candles, marks)
-    if arrow:
-        _projection(ax, n, entry, target, buy)
-
-    ax.set_xlim(-1.5, span)
+    # LIMITS ARE SET BEFORE THE LABELS ARE PLACED. `level_labels` spaces the text by a fraction of
+    # the visible price range, so it has to be able to ask the axis what that range is. Setting the
+    # limits afterwards (as this did) left it reading matplotlib's autoscale — a different number,
+    # and the spacing came out wrong.
+    ax.set_xlim(-1.5, full)
     lows = [c.low for c in candles] + [p for p in (entry, stop, target) if p]
     highs = [c.high for c in candles] + [p for p in (entry, stop, target) if p]
     for lo, hi, _, _ in (bands or []):
         lows.append(lo); highs.append(hi)
     pad = (max(highs) - min(lows)) * 0.06 or 0.001
     ax.set_ylim(min(lows) - pad, max(highs) + pad)
+
+    ann.risk_reward_zones(ax, entry, stop, target, right, full)
+    ann.level_labels(ax, [(stop, theme.STOP, "STOP", False, True),
+                          (entry, theme.ENTRY, "ENTRY", True, True),
+                          (target, theme.TARGET, "TARGET", False, True)] + extra,
+                     right, ann.label_x(n), digits, candles)
+    ann.mark_candles(ax, candles, marks)
+    if arrow:
+        ann.projection(ax, n, entry, target, buy)
 
     ax.set_facecolor(theme.PAPER)
     ax.grid(True, axis="y", color=theme.GRID, linewidth=0.6)
@@ -95,53 +103,3 @@ def draw(ax, candles: list[Candle], entry: float, stop: float, target: float,
     ax.yaxis.tick_right()
     for lbl in ax.get_yticklabels():
         lbl.set_fontproperties(theme.font(10.5))
-
-
-def _mark_candles(ax, candles: list[Candle], marks: list[tuple] | None) -> None:
-    """Ring the candle(s) a strategy pointed at, by TIMESTAMP, and label them.
-
-    The user, 2026-08-03: *"also display the real momentum candles, these one doesnt look like a
-    momentum candle."* It did not, because the card shaded a horizontal price BAND across the whole
-    chart at that candle's body range — which is a level, not a candle. Marking the bar itself means
-    the reader sees the actual candle, with its real body and wicks, exactly as their platform draws
-    it.
-
-    Matched on time so it is immune to indexing: the view is a tail slice of a longer series, and an
-    index would silently point at the wrong bar the moment the slice length changed.
-    """
-    if not marks:
-        return
-    by_time = {c.time: i for i, c in enumerate(candles)}
-    for mark in marks:
-        t, label = (mark + ("",))[:2] if isinstance(mark, tuple) else (mark, "")
-        i = by_time.get(int(t))
-        if i is None:                       # older than the window — nothing to point at
-            continue
-        c = candles[i]
-        pad = (c.high - c.low) * 0.16 or 0.0002
-        ax.add_patch(Rectangle((i - 0.52, c.low - pad), 1.04, (c.high - c.low) + 2 * pad,
-                               facecolor="none", edgecolor=theme.INK, linewidth=1.6,
-                               linestyle=(0, (3, 2)), zorder=6))
-        if label:
-            ax.text(i, c.high + pad * 1.9, label, va="bottom", ha="center", color=theme.INK,
-                    fontproperties=theme.font(11, bold=True), zorder=7)
-
-
-def _projection(ax, n: int, entry: float, target: float, buy: bool) -> None:
-    """The arrow: from the entry, into the empty margin, toward the target.
-
-    The user asked for *"an arrow that shows where we expect price to move after entry"*. It is
-    drawn in the reserved space to the RIGHT of the last candle — i.e. in the future — so it can
-    never be mistaken for something price has already done. It ends AT the target level, which is
-    the claim the signal is actually making.
-    """
-    if not entry or not target:
-        return
-    x0 = n - 0.5
-    x1 = n + n * _PROJECT * 0.78
-    colour = theme.UP if buy else theme.DOWN
-    ax.add_patch(FancyArrowPatch(
-        (x0, entry), (x1, target),
-        connectionstyle="arc3,rad=" + ("0.22" if buy else "-0.22"),
-        arrowstyle="-|>", mutation_scale=20, linewidth=2.6,
-        color=colour, alpha=0.75, zorder=6))

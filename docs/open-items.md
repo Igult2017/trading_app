@@ -41,13 +41,37 @@ rebuilt because the existing may not be reliable"*). The orphaned `chart_generat
 rather than revived — it had no callers for months and nothing ever set `chart_path`, so it was
 never exercised, and unexercised code is untrusted code.
 
-New package: `charting/` — `theme.py` (Playfair + palette), `price_panel.py` (candles, levels,
-generic bands), `card_panel.py` (the text card), `signal_card.py` (public `render` / `render_async`).
-Wired at ONE choke point, `strategy_runner._attach_chart`, covering both the confirmed and the
-alert emit — not in the strategies, which return from ~7 places each and would drift.
+New package: `charting/` — `theme.py` (Playfair + palette), `price_panel.py` (candles, generic
+bands, the axis), `annotations.py` (everything drawn on top: risk/reward shading, level labels,
+the marked candle, the projection arrow), `card_panel.py` (the text card), `signal_card.py` (public
+`render` / `render_async`). Wired at ONE choke point, `strategy_runner._attach_chart`, covering both
+the confirmed and the alert emit — not in the strategies, which return from ~7 places each and would
+drift.
 
 Both strategies render. `Signal.chart_bands` is a generic `(low, high, colour, label)` contract so
 the renderer never learns what a supply zone is.
+
+**REDESIGNED 2026-08-11** — the user, with a reference card: *"Can you make our chart card look
+this cool"* and *"the arrow that shows expected price direction — style it properly."* What changed,
+and the two real defects found while doing it:
+
+- **Labels could sit on top of each other.** Every label was drawn at its own price with no regard
+  for the others, so the tighter the stop the less readable the card: a 4.3-pip GBP/USD stop printed
+  STOP, ENTRY and both prices in the same place. Labels are now spaced to a minimum 9.8% of the
+  visible range and joined back to their true price with a hairline — **the lines never move, only
+  the text.**
+- **A band's name was thrown away.** Only a zero-height band ever drew a label, so BX's `4H SUPPLY`
+  arrived on every card and rendered nowhere. Bands now share the one label column. A zone is named
+  but shows **no** number — printing its midpoint would put a price on the card at a level that is
+  not a level.
+- Risk and reward are **shaded areas** now, not three bare rules; the arrow is heavy, opaque and
+  drawn in the reserved margin to the right (i.e. in the future) so it can't be read as something
+  price already did; the marked candle gets a soft filled column instead of a dashed ring that
+  vanished once Telegram scaled the card down.
+- Both were invisible to `test_signal_card.py`, which only asks whether a PNG came out.
+  `tests/test_card_annotations.py` (33 checks) reads back what was actually drawn on the axis.
+  Its first fixture spanned 19 pips and **passed with the anti-collision spacing set to zero** — a
+  label collides relative to what is ON SCREEN, so the fixture now spans a realistic ~112 pips.
 
 ## 1b. npm audit — AUDITED 2026-08-03. 21 → 14. Two left, both assessed and accepted.
 

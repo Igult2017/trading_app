@@ -44,6 +44,10 @@ ZONE_SUPPLY = "#C8443F"
 ZONE_DEMAND = "#1F9D63"
 LEVEL = "#7C3AED"       # a strategy's own reference level (VIX.1's line) — violet, so it
                         # is never confused with entry/stop/target or a zone
+MARK = "#C9A227"        # the candle a strategy pointed at — amber ring
+MARK_WASH = "#FBF3D4"   # and its wash, so the candle itself stays the loudest thing
+PROJECT = "#E8622A"     # the expected-move arrow. Deliberately NOT the buy/sell colour:
+                        # it is a forecast, not a level, and must not read as one.
 WAIT = "#B8860B"        # stage 1 "building" — amber, deliberately neither the buy nor the sell
 WAIT_WASH = "#F6EFD9"   # its chip background
 
