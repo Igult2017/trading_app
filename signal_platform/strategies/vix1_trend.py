@@ -95,6 +95,50 @@ class TrendState:
         return f"{way}trend established from structure"
 
 
+def _establish(seq: list[tuple[bool, float]]) -> tuple[int, float] | None:
+    """Has a trend just STARTED? Returns (direction, the swing that protects it) or None.
+
+    HIS RULE, verbatim (2026-08-12):
+
+        "When a trend starts, it has a high then a low, and if it is a real trend it will print
+         another high after the first low. So when it starts printing the second high after the first
+         low, we start looking for a momentum candle."
+
+    So an uptrend starts on **three** turning points — a high, a low, then a HIGHER high — and the low
+    between them is what protects it. Mirrored for a downtrend: a low, a high, then a LOWER low.
+
+    THIS REPLACED A FOUR-POINT TEST (fixed 2026-08-12). The old rule needed the last TWO highs AND the
+    last TWO lows all rising, i.e. four pivots, so it began looking one whole swing later than he
+    does. He caught it: *"Did you fix this or you have my rule and still kept the old code?"* — I had
+    written the difference into the docs instead of closing it.
+
+    AN EXPANDING RANGE ESTABLISHES NOTHING. Higher highs AND lower lows can both be true at once
+    (price broadening out). The old four-point test could never see that case because it demanded
+    both sides move together; this one can, so it is refused explicitly rather than letting whichever
+    branch is written first silently win.
+    """
+    highs = [i for i, (is_high, _) in enumerate(seq) if is_high]
+    lows = [i for i, (is_high, _) in enumerate(seq) if not is_high]
+    up = down = None
+
+    if len(highs) >= 2:
+        a, b = highs[-2], highs[-1]
+        if seq[b][1] > seq[a][1]:
+            between = [i for i in lows if a < i < b]
+            if between:                                  # the HL that protects the uptrend
+                up = (1, seq[max(between)][1])
+    if len(lows) >= 2:
+        a, b = lows[-2], lows[-1]
+        if seq[b][1] < seq[a][1]:
+            between = [i for i in highs if a < i < b]
+            if between:                                  # the LH that protects the downtrend
+                down = (-1, seq[max(between)][1])
+
+    if up and down:
+        return None
+    return up or down
+
+
 def trend_state(candles: list[Candle], n: int = _SWING_N) -> TrendState:
     """Replay the structure and return the full state. `clear_trend` is the direction-only view."""
     st = TrendState()
@@ -108,11 +152,14 @@ def trend_state(candles: list[Candle], n: int = _SWING_N) -> TrendState:
     last_ext: float | None = None  # the last swing that EXTENDED the trend
     k = 0                          # a swing at j is only KNOWN j+n bars later
     last_pi: int | None = None     # where the most recent pivot actually sits — see direction_since
+    seq: list[tuple[bool, float]] = []   # confirmed pivots IN ORDER — `highs`/`lows` lose the order,
+                                         # and his establishment rule is about a sequence
 
     for i, c in enumerate(candles):
         while k < len(pts) and pts[k].index + n <= i:
             p = pts[k]; k += 1
             (st.highs if p.is_high else st.lows).append(p.price)
+            seq.append((p.is_high, p.price))
             last_pi = p.index
 
             # CONFIRM a proposed reversal: the new direction must print its own BOS first.
@@ -158,13 +205,15 @@ def trend_state(candles: list[Candle], n: int = _SWING_N) -> TrendState:
                 last_ext, since = p.price, []
 
         if st.direction == 0 and not st.pending:
-            if len(st.highs) >= 2 and len(st.lows) >= 2:
-                if st.highs[-1] > st.highs[-2] and st.lows[-1] > st.lows[-2]:
-                    st.direction, st.protected, last_ext, since = 1, st.lows[-2], st.lows[-1], []
-                    st.breaks, st.direction_since = 1, last_pi
-                elif st.highs[-1] < st.highs[-2] and st.lows[-1] < st.lows[-2]:
-                    st.direction, st.protected, last_ext, since = -1, st.highs[-2], st.highs[-1], []
-                    st.breaks, st.direction_since = 1, last_pi
+            started = _establish(seq)
+            if started:
+                # `last_ext` is set to the SAME swing as `protected`, which is what the four-point
+                # version did too (it used the two lows). Deliberately unchanged: fixing the
+                # establishment rule and the BOS reference in one go would make any measured
+                # difference unattributable.
+                st.direction, st.protected = started
+                last_ext, since = st.protected, []
+                st.breaks, st.direction_since = 1, last_pi
         elif st.direction != 0 and st.protected is not None:
             # CHoCH — PROPOSE the reversal. The trend does not turn until that direction confirms.
             if st.direction == 1 and c.close < st.protected:
