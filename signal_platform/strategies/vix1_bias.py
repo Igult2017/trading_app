@@ -4,9 +4,10 @@ change of character.
 
 This module is the ROUTER. The momentum candle lives in vix1_momentum (always 1HR); the trend rule
 (the leg's slope) and the CHoCH rule (structure reversal) live in vix1_trend. We trade TRENDS ONLY —
-never a bare breakout with no confirmed direction. The freshest 1HR MOMENTUM candle leads (p1: the
-trend must be the thing CARRYING the momentum, so the freshest momentum is the truth). We then ask, in
-order, on what grounds we may take it:
+never a bare breakout with no confirmed direction. THE TREND LEADS: it is established first and it
+decides which direction is even worth looking for, then momentum is sought only that way. (Until
+2026-08-11 the freshest momentum candle in EITHER direction led, which discarded a valid pro-trend
+setup in 15%/13% of windows — see the note in detect_bias.) The grounds we may take it on:
 
   'trend'  — the momentum runs WITH a clear 1HR trend.
   'trend4' — the 1HR trend is UNCLEAR, but the momentum runs WITH a clear 4HR trend (the fallback).
@@ -90,6 +91,17 @@ _H1_TREND_BARS = 1500
 _ALLOW_H4 = False
 
 
+def _upto(window: list[Candle], h1: list[Candle], mc_idx: int) -> list[Candle]:
+    """`window` truncated to end AT the momentum candle.
+
+    `mc_idx` indexes into the FULL h1; `window` is its tail. Falls back to the whole window if the
+    candle sits outside it, which cannot happen while LOOKBACK << _H1_TREND_BARS but must not
+    silently produce a wrong slice if either ever changes.
+    """
+    pos = mc_idx - (len(h1) - len(window))
+    return window[:pos + 1] if 0 <= pos < len(window) else window
+
+
 def detect_bias(h1: list[Candle], h4: list[Candle],
                 symbol: str = "") -> tuple[bool, int, str, int, str] | None:
     """
@@ -99,37 +111,52 @@ def detect_bias(h1: list[Candle], h4: list[Candle],
     and its close opens the 1M watch. `reason` names the BOS/CHoCH and the leg that justify the
     trade, so the card and the log can show VIX.1's own working instead of asserting a direction.
 
-    The freshest 1HR momentum candle decides which way we are reasoning; trend/CHoCH then decide whether
-    there are grounds to take it. `origin` is `trend` or `trend4` — the reversal origins were
-    removed 2026-07-26 (pro-trend only).
+    THE TREND DECIDES THE DIRECTION, then momentum is sought only that way — see the note in the
+    body for the "freshest candle wins" defect this replaced. `origin` is `trend` or `trend4`; the
+    reversal origins were removed 2026-07-26 (pro-trend only).
     """
-    up = momentum_run(h1, True, symbol)
-    dn = momentum_run(h1, False, symbol)
-    up_last = (up[0] + up[1] - 1) if up else -1
-    dn_last = (dn[0] + dn[1] - 1) if dn else -1
-    if up_last < 0 and dn_last < 0:
-        vix1_log.say(symbol, f"[vix1] {symbol} bias=NONE: no 1HR momentum candle either way — {veto_reason(h1, True, symbol)}")
-        return None
-
-    # The FRESHEST momentum candle is the truth — never reach past it for an older, aligned one.
-    bullish, run = (True, up) if up_last > dn_last else (False, dn)
-    mc_idx  = run[0]
-    close   = h1[run[0] + run[1] - 1].close          # the breaking/leading candle's CLOSED price
-    want    = 1 if bullish else -1
-    # THE 1HR TREND IS READ FROM WIDE SWINGS OVER A LONG WINDOW — see _H1_SWING_N.
-    # The H4 read keeps the default: measured at its current settings it already agrees with itself
-    # 89%/77% across window sizes, and widening its swing width made it markedly WORSE (56%/47%).
+    # THE TREND IS ESTABLISHED FIRST, AND IT DECIDES WHICH DIRECTION IS EVEN WORTH LOOKING FOR.
+    #
+    # THE DEFECT THIS REPLACED (found in review 2026-08-11, measured before fixing). The old code
+    # found the freshest momentum candle in EITHER direction and tested only that one:
+    #     bullish, run = (True, up) if up_last > dn_last else (False, dn)
+    # So a perfectly valid pro-trend candle was DISCARDED whenever a newer counter-trend candle
+    # existed — not rejected on merit, never looked at. Measured over 2 years: this threw away a
+    # valid pro-trend setup in **15% of GBP/USD windows and 13% of EUR/USD**, about one in seven.
+    #
+    # VIX.1 is pro-trend only, so a counter-trend momentum candle can never be traded. Asking the
+    # trend first and then looking for momentum ONLY that way is both correct and simpler.
     window = h1[-_H1_TREND_BARS:]
     tstate = trend_state(window, n=_H1_SWING_N)
     t1 = tstate.direction
-    t4 = trend_state(h4).direction
+    t4 = trend_state(h4).direction if _ALLOW_H4 else 0
+
+    want = t1 if t1 != 0 else (t4 if _ALLOW_H4 else 0)
+    if want == 0:
+        vix1_log.say(symbol, f"[vix1] {symbol} bias=NONE: no established 1HR trend "
+                             f"({tstate.reason()}) — pro-trend only, standing aside")
+        return None
+
+    bullish = want == 1
+    run = momentum_run(h1, bullish, symbol)
+    if run is None:
+        vix1_log.say(symbol, f"[vix1] {symbol} bias=NONE: {'up' if bullish else 'down'} trend but no "
+                             f"momentum candle that way — {veto_reason(h1, bullish, symbol)}")
+        return None
+    mc_idx = run[0]
 
     # 1) momentum WITH a clear 1HR trend.
     if t1 == want:
         # THE PULLBACK REFUSAL (user 2026-08-11). The trend agreeing is not quite enough: if the
         # FASTER structure is trending the other way we are in a retrace, not a continuation. That is
         # the whole of 10 Aug — 2-day trend DOWN, 8-hour structure UP, and it sold the rally.
-        leg = leg_state(window, t1)
+        #
+        # JUDGED AT THE MOMENTUM CANDLE, not at the latest bar. The question is causal — "had the
+        # pullback finished when this candle formed?" — and the candle can be up to LOOKBACK hours
+        # old. Reading the structure as it is NOW would let a pullback that formed AFTER the candle
+        # decide the candle's fate. Measured: this changes the verdict on 6% of GBP/USD setups and
+        # 4% of EUR/USD.
+        leg = leg_state(_upto(window, h1, mc_idx), t1)
         if not leg.ready:
             vix1_log.say(symbol, f"[vix1] {symbol} bias=NONE: {'up' if bullish else 'down'} momentum WITH the "
                                  f"trend, but the leg does not permit it — {leg.why}")
@@ -139,7 +166,7 @@ def detect_bias(h1: list[Candle], h4: list[Candle],
 
     # 2) 1HR trend UNCLEAR, momentum WITH a clear 4HR trend (the fallback) — MUTED, see _ALLOW_H4.
     if _ALLOW_H4 and t1 == 0 and t4 == want:
-        leg = leg_state(window, want)
+        leg = leg_state(_upto(window, h1, mc_idx), want)
         if not leg.ready:
             vix1_log.say(symbol, f"[vix1] {symbol} bias=NONE: 4HR-backed direction but the leg does not "
                                  f"permit it — {leg.why}")
@@ -149,13 +176,9 @@ def detect_bias(h1: list[Candle], h4: list[Candle],
         return (bullish, mc_idx, "trend4", run[1],
                 f"4HR-backed ({tstate.maturity}); {leg.why}")
 
-    # PRO-TREND ONLY (user 2026-07-25/26: "Only trade pro trend"). The `choch` and `choch4` origins are
-    # REMOVED — they took a reversal against the prevailing trend, which is by definition not
-    # pro-trend. They are also redundant now: since 2026-07-26 the trend is STRUCTURE THAT PERSISTS
-    # and flips on exactly the event `is_choch` was testing for (a body close through the protected
-    # swing), so the moment a genuine change of character completes, clear_trend has ALREADY turned
-    # and the next momentum candle that way qualifies as plain `trend`. Taking the reversal candle
-    # itself was the strategy front-running its own trend rule.
-    vix1_log.say(symbol, f"[vix1] {symbol} bias=NONE: {'up' if bullish else 'down'} momentum but it is NOT with the "
-             f"trend (1HR={t1}, 4HR={t4}) — pro-trend only, standing aside")
-    return None
+    # UNREACHABLE BY CONSTRUCTION, and deliberately left as an assertion rather than a silent path.
+    # PRO-TREND ONLY (user 2026-07-25/26: "Only trade pro trend"). Since the trend now chooses the
+    # direction, `want` is either t1 (branch 1 fires) or, when muted-H4 is on, t4 (branch 2 fires);
+    # a zero `want` already returned above. The old "momentum but NOT with the trend" rejection this
+    # replaced can no longer happen — a counter-trend candle is never even looked for.
+    raise AssertionError(f"vix1 detect_bias reached an impossible state: t1={t1} t4={t4} want={want}")
