@@ -42,6 +42,7 @@ from dataclasses import dataclass
 
 from core.types import Candle
 from shared.swing_points import find_swing_points
+from strategies.vix1_retracement import Retracement
 
 # The faster structure's swing width. NOT the trend's (48). A swing needs `n` bars EITHER SIDE to be
 # confirmed, so at 48 a pullback low is known two days and a median 92 pips later — far too late to
@@ -122,3 +123,68 @@ def leg_state(candles: list[Candle], direction: int, n: int = _FAST_N) -> LegSta
     return LegState(True, pattern,
                     f"the faster structure ({pattern}) does not contradict the trend "
                     f"— ride the continuation")
+
+
+# ── IS THE MARKET IN A STATE WORTH TRADING? ─────────────────────────────────────────────────────
+#
+# HIS SETTLED DESIGN, in his own words (2026-08-11):
+#     "The retracement should work with reversal or CHOCH detector and range detector hand in hand to
+#      determine if what is going on is still a trend or a range or the CHOCH is developing again."
+#
+# and the condition on the candle (2026-08-12):
+#     "that candle must not be in a retracement, because retracements can sometimes turn into a
+#      reversal."
+#
+# WHAT THIS FUNCTION IS NOT. It does NOT interrogate the momentum candle about whether the
+# retracement has finished. He settled that separately and it is not re-openable:
+#     "Momentum candle is a proof of the continuation of the trend."
+# The candle IS the evidence the retracement ended. So the only question left is whether the MARKET
+# is in a safe state, and that is what the three readings answer between them:
+#
+#     reversal forming   -> vix1_trend, already refusing (a pending CHoCH gives direction 0)
+#     the market ranging -> HERE, from directional efficiency
+#     the pullback deep  -> HERE, from depth measured against volatility
+#
+# WHY DEPTH IS HERE AT ALL. The level protecting the trend sits a long way off by construction —
+# 48-bar swings, a median 57-candle leg — so "price has not closed through it yet" is a weak test on
+# an hourly chart. Between "an ordinary pullback" and "a confirmed reversal" is a wide zone neither
+# of the other two readings speaks for, and depth is what speaks for it. Measured against ATR, never
+# against the leg: the leg needs the far-away pivot and would drag that delay straight back in.
+
+# THE TWO NUMBERS ARE HIS, AND THEY ARE NOT SET YET.
+#
+# `None` means "not set" and the gate is inert — not "zero". They ship unset ON PURPOSE. He reserved
+# them: thresholds are to come from real signals, because the measured distributions have no natural
+# break to cut at and anything picked from one year of two pairs is a fitted number. Two changes have
+# already looked right on the day they were tried and were worse over four years (the n=12 swing
+# width at 55% agreement, the daily timeframe at 65%).
+#
+# WHAT THE DATA SAYS, so the choice is informed rather than invented — 12 months, both pairs:
+#   efficiency across ALL bars   median 0.21 (GBP/USD) / 0.22 (EUR/USD)
+#   efficiency at the candles we currently allow   0.25 / 0.24  — i.e. the SAME market; the momentum
+#                                                  candle does nothing to avoid chop today
+#   a cut at 0.15 calls ~37% of all time ranging and removes ~26% of trades
+#   a cut at 0.20 calls ~47% and removes ~41%
+#   a cut at 0.25 calls ~58% and removes ~50%
+#   retracement depth at those same candles   median 5.2x ATR (GBP/USD) / 6.8x (EUR/USD),
+#                                             upper quartile 12.3x / 13.2x
+_RANGE_EFFICIENCY: float | None = None      # below this = ranging, do not trade
+_MAX_DEPTH_ATR: float | None = None         # deeper than this = too far gone to call a pullback
+
+
+def market_permits(ret: Retracement, efficiency: float | None) -> str | None:
+    """Is the market in a state worth trading? Returns the refusal reason, or None to allow.
+
+    Inert until the two thresholds above are set, so wiring this in changes nothing by itself — the
+    reversal half of his rule is already enforced by `vix1_trend` returning no direction while a
+    CHoCH is unconfirmed.
+    """
+    if _RANGE_EFFICIENCY is not None and efficiency is not None and efficiency < _RANGE_EFFICIENCY:
+        return (f"the market is ranging — it travelled only {efficiency:.2f} of the distance it "
+                f"walked over the last 20 bars (below {_RANGE_EFFICIENCY:.2f}); "
+                f"this is not a trend to continue")
+    if _MAX_DEPTH_ATR is not None and ret.atr > _MAX_DEPTH_ATR:
+        return (f"price is {ret.atr:.2f}x ATR below the trend's own extreme (limit "
+                f"{_MAX_DEPTH_ATR:.2f}x) — too far back to call this a pullback, and a retracement "
+                f"this deep can be turning into a reversal")
+    return None

@@ -250,6 +250,50 @@ So there is **no separate developing rule**. There is one condition on the candl
 in a retracement* — and it applies at every maturity. That is the same job `vix1_structure.leg_state`
 is doing today, badly (see the table above); replacing it is open work, not a settled design.
 
+### THE MARKET-STATE GATE — his "not in a retracement", built 2026-08-12, SHIPS INERT
+
+`vix1_structure.market_permits(retracement, efficiency)`. His settled design, in his words:
+
+> *"The retracement should work with reversal or CHOCH detector and range detector hand in hand to
+> determine if what is going on is still a trend or a range or the CHOCH is developing again."*
+> *"...that candle must not be in a retracement, because retracements can sometimes turn into a
+> reversal."*
+
+**IT DOES NOT INTERROGATE THE CANDLE.** He settled that separately and it is not re-openable:
+*"Momentum candle is a proof of the continuation of the trend."* The candle IS the evidence the
+retracement ended, so the only question left is whether the MARKET is in a safe state.
+
+| the three readings | where it lives | status |
+|---|---|---|
+| a reversal is forming | `vix1_trend` — a pending CHoCH gives direction 0 | **already refusing** |
+| the market is ranging | `market_permits`, from directional efficiency | built, **threshold unset** |
+| the pullback has gone too deep | `market_permits`, from depth ÷ ATR | built, **threshold unset** |
+
+**THE TWO NUMBERS ARE HIS AND SHIP AS `None`** — "not set", not zero. He reserved them: they are to
+come from real signals, because the measured distributions have no natural break and anything picked
+from one year of two pairs is fitted. **Proven inert:** with both unset, a 12-month replay produces
+the identical setup list whether the gate runs or is forced open (GBP/USD 158 = 158).
+
+Why depth belongs here at all: the level protecting the trend sits far away by construction (48-bar
+swings, median 57-candle leg), so "price has not closed through it yet" is weak on an hourly chart.
+Between an ordinary pullback and a confirmed reversal is a zone neither other reading covers.
+**Measured against ATR, never against the leg** — the leg needs the far-away pivot and drags that
+delay back in.
+
+**What the data says, so the choice is informed rather than invented (12 months, both pairs):**
+
+| efficiency cut | of ALL time called "ranging" | current trades removed |
+|---|---|---|
+| 0.15 | ~37% | ~26% |
+| 0.20 | ~47% | ~41% |
+| 0.25 | ~58% | ~50% |
+
+Depth at the candles currently traded: median **5.2× ATR** (GBP/USD) / **6.8×** (EUR/USD), upper
+quartile **12.3× / 13.2×**.
+
+**STILL OPEN after this:** the real-time *"second high after the first low"* trigger. Nothing
+implements it — the code waits for a 48-bar swing to confirm, a median 209 bars later.
+
 ### The trend window is PINNED (`vix1_bias._H1_TREND_BARS = 1500`)
 
 `vix1.candle_counts[TF.H1]` was raised 1500 → 3000 on 2026-08-10 to feed the long size test. The

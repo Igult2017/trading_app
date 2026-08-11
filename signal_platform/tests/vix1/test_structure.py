@@ -16,9 +16,10 @@ properties. NOT A BACKTEST: no P&L, no win rate, no trades simulated.
 """
 from _harness import Suite, body, load
 
-from strategies import vix1_bias
+from strategies import vix1_bias, vix1_structure
 from strategies.vix1_bias import _H1_SWING_N, _H1_TREND_BARS
-from strategies.vix1_structure import _FAST_N, fast_pattern, leg_state
+from strategies.vix1_retracement import Retracement
+from strategies.vix1_structure import _FAST_N, fast_pattern, leg_state, market_permits
 from strategies.vix1_trend import trend_state
 from strategies.vix1_watch import check_invalidation
 
@@ -132,10 +133,57 @@ for pair in ("EURUSD", "GBPUSD"):
 print()
 s.check("the 4HR fallback ships MUTED", vix1_bias._ALLOW_H4, False)
 
+# ── IS THE MARKET WORTH TRADING AT ALL — range and depth ────────────────────────────────────────
+# His settled design: "The retracement should work with reversal or CHOCH detector and range detector
+# hand in hand." The reversal half is already enforced by vix1_trend (a pending CHoCH = no direction);
+# these two are the other half.
+#
+# NOTE WHAT IS *NOT* TESTED HERE, deliberately: nothing asks the momentum candle whether the
+# retracement has ended. He settled that — "Momentum candle is a proof of the continuation of the
+# trend" — and a test that re-introduced the question would re-introduce the rule.
+print()
+print("   the market-state gate — SHIPS INERT, the two numbers are his:")
+shallow = Retracement(active=True, bars=2, pips=0.0008, atr=1.5)
+deep = Retracement(active=True, bars=2, pips=0.0090, atr=18.0)
+
+s.check("thresholds ship UNSET (None, not zero)",
+        (vix1_structure._RANGE_EFFICIENCY, vix1_structure._MAX_DEPTH_ATR), (None, None))
+s.check("unset -> a dead-flat market is still allowed", market_permits(shallow, 0.01), None)
+s.check("unset -> an 18x-ATR retracement is still allowed", market_permits(deep, 0.9), None)
+s.check("unset -> unknown efficiency is allowed", market_permits(shallow, None), None)
+
+# ...and each gate works the moment a number IS set. Restored in a finally so one failing check
+# cannot leave the module armed for every test after it.
+_saved = (vix1_structure._RANGE_EFFICIENCY, vix1_structure._MAX_DEPTH_ATR)
+try:
+    vix1_structure._RANGE_EFFICIENCY = 0.20
+    s.check("range gate set -> a chopping market is REFUSED",
+            market_permits(shallow, 0.05) is not None, True)
+    s.check("   ...and it says the market is ranging",
+            "ranging" in market_permits(shallow, 0.05), True)
+    s.check("range gate set -> a directional market is allowed", market_permits(shallow, 0.60), None)
+    s.check("range gate set -> exactly AT the threshold is allowed (strictly below refuses)",
+            market_permits(shallow, 0.20), None)
+    s.check("range gate set -> unknown efficiency is still allowed, never refused on a guess",
+            market_permits(shallow, None), None)
+
+    vix1_structure._RANGE_EFFICIENCY = None
+    vix1_structure._MAX_DEPTH_ATR = 8.0
+    s.check("depth gate set -> a deep retracement is REFUSED",
+            market_permits(deep, 0.60) is not None, True)
+    s.check("   ...and it says why, in words a chart can be checked against",
+            "below the trend's own extreme" in market_permits(deep, 0.60), True)
+    s.check("depth gate set -> a shallow one is allowed", market_permits(shallow, 0.60), None)
+finally:
+    vix1_structure._RANGE_EFFICIENCY, vix1_structure._MAX_DEPTH_ATR = _saved
+s.check("the thresholds were restored after the test",
+        (vix1_structure._RANGE_EFFICIENCY, vix1_structure._MAX_DEPTH_ATR), (None, None))
+
 # ── teeth ────────────────────────────────────────────────────────────────────────────────────────
 print()
 s.teeth("the pullback refusal", leg_state(rising, -1).ready is False)
 s.teeth("the no-trend guard", leg_state(rising, 0).ready is False)
 s.teeth("the permissive rule", leg_state(choppy, 1).ready is True)
+s.teeth("the market gate is inert while unset", market_permits(deep, 0.01) is None)
 
 s.done()

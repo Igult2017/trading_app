@@ -32,7 +32,7 @@ from core.types import Candle
 from strategies.vix1_momentum import momentum_run, veto_reason
 from strategies import vix1_log
 from strategies.vix1_state import Bias, market_state
-from strategies.vix1_structure import leg_state
+from strategies.vix1_structure import leg_state, market_permits
 from strategies.vix1_trend import trend_state
 
 log = logging.getLogger(__name__)
@@ -182,6 +182,15 @@ def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "") -> Bias | 
         if not leg.ready:
             vix1_log.say(symbol, f"[vix1] {symbol} bias=NONE: {'up' if bullish else 'down'} momentum WITH the "
                                  f"trend, but the leg does not permit it — {leg.why} | {state_mc}")
+            return None
+
+        # IS THE MARKET WORTH TRADING AT ALL — his "not in a retracement", answered by the market
+        # state rather than by interrogating the candle (the candle is the proof the retracement
+        # ended; that is settled). Inert until he sets the two thresholds, so this changes nothing
+        # today; the reversal half of the same rule is already enforced by `t1 == 0` above.
+        refusal = market_permits(ret, eff)
+        if refusal:
+            vix1_log.say(symbol, f"[vix1] {symbol} bias=NONE: {refusal} | {state_mc}")
             return None
 
         return Bias(bullish, mc_idx, "trend", run[1],
