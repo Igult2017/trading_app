@@ -286,6 +286,33 @@ and look exactly like a downtrend at 8 bars.
 **Swing width 8 is provisional**, his decision: *"keep it at 8 hours for now... We can test 5, 8, and
 12 later using the actual trading results."*
 
+**DOES THE PULLBACK REFUSAL ACTUALLY HELP? TESTED 2026-08-11, and it earns its place.** He asked for
+the evidence before accepting it: *"Test it and the result determine whether you add it or not."*
+Every momentum candle pointing the same way as an established trend, 2 years, both pairs, split ONLY
+by what the rule decided, then the same measurement applied to both piles — where price actually went
+in the signal's direction. No stop, no target, nothing borrowed from his method.
+
+| | went the signal's way | median move |
+|---|---|---|
+| GBP/USD 12h — allowed (n=301) | 48% | −1.7 pips |
+| GBP/USD 12h — **refused** (n=136) | **42%** | **−9.7 pips** |
+| GBP/USD 24h — allowed | 43% | −5.9 |
+| GBP/USD 24h — **refused** | **35%** | **−14.8** |
+| EUR/USD 12h — allowed (n=357) | 50% | +0.6 |
+| EUR/USD 12h — **refused** (n=142) | **44%** | **−3.4** |
+| EUR/USD 24h — allowed | 50% | +0.3 |
+| EUR/USD 24h — **refused** | **44%** | **−2.7** |
+
+**4 of 4 comparisons agree**: the refused group is 6-8 points worse on direction and materially worse
+on median move, on both pairs and both horizons. The rule is removing the worse quarter, not a random
+quarter.
+
+**WHAT THIS DOES NOT SHOW, and must not be read as.** These percentages are measured FROM THE
+MOMENTUM CANDLE'S CLOSE. That is NOT where VIX.1 enters — the real entry is a stop order beyond a 1M
+pullback, at a better price, and only if price pulls back and then resumes. So "48% went the right
+way" is NOT the strategy's win rate and says nothing about its profitability. It is a test of a
+FILTER, nothing more.
+
 **MEASURED OVER 2 YEARS, both pairs** (setups, not delivered signals — the 1M entry, spacing, news
 and RR checks all still apply):
 
