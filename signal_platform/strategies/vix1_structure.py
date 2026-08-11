@@ -1,58 +1,64 @@
 """
-VIX.1 — WHERE IN THE LEG ARE WE? The rule that stops the strategy trading pullbacks.
+VIX.1 — IS THIS A CONTINUATION, OR ARE WE IN A PULLBACK? The refusal that stops the wrong trades.
 
-THE USER'S RULE, 2026-08-10/11, in his words:
+THE USER'S RULE, settled 2026-08-10/11 across several corrections:
 
-    "For a trend, we must at least have the first HH and then HL, then our momentum candle can come
-     from after HL which means the next HH is developing after pullback. In the downtrend it is LL
-     and then LH then the momentum candle shows another LL is developing. So, we don't trade
-     pullbacks, we don't trade ranging markets and we are always in trend."
+    "We can only take a trade after the first HH and HL (or LL and LH). Then when a momentum candle
+     comes in the same direction, we anticipate a trend and we want to ride with it. For a trend that
+     has developed, it is easy because we only need the candle to qualify."
 
-    "the CHOCH on the other hand tells us the trend has ended and the market is reversing so we take
-     trades in the new direction after LL and LH."
+    "A momentum candle in a developing HH cannot break structure — it will only break structure if
+     the HH develops fully... it is not easy for 1 candle to break structure in most cases."
 
-So a momentum candle is only tradeable once the leg it belongs to has PROVED itself:
+    "So, we don't trade pullbacks, we don't trade ranging markets and we are always in trend."
 
-    UPTREND    a higher high, then a higher low (the pullback has ENDED), then the momentum candle
-               — which is the proof the next higher high is developing.
-    DOWNTREND  a lower low, then a lower high, then the momentum candle.
+So the momentum candle is the EARLY SIGN that the next leg is starting — never the thing that
+completes it. Nothing here asks a candle to break anything.
 
-TWO SCALES, AND WHY THIS FILE IS SEPARATE FROM vix1_trend.
+WHAT THIS MODULE ACTUALLY DECIDES. Direction is settled entirely by vix1_trend on WIDE (48-bar)
+swings. This module asks ONE question of the faster (8-bar) structure:
 
-DIRECTION comes only from vix1_trend, on WIDE swings (n=48). This module NEVER decides direction —
-it only answers "has the pullback finished?" inside a direction already fixed. That separation is not
-tidiness, it is the whole point: **half of all pullbacks are COMPLEX** (measured over 12 months: 21 of
-42 on GBP/USD, 17 of 37 on EUR/USD). A complex pullback prints its own lower highs and lower lows and
-looks exactly like a downtrend on any fast reading. Let a fast read decide direction and the strategy
-sells the pullback of a rally — which is precisely what it was doing on 10 Aug.
+    is the faster structure trending the OPPOSITE way to the trend we are about to trade?
 
-WHY A FASTER SWING WIDTH IS UNAVOIDABLE HERE. A swing is only confirmed once `n` bars have printed on
-EACH side of it. At the trend's n=48 a higher low is known 48 bars — two days — later, by which time
-price has already moved a median 92 pips and the leg is over. Measured on 12 months of GBP/USD:
+If it is, we are in a pullback — or in a reversal the slow read has not caught yet — and we stand
+aside. If it is not, the trend's own direction stands and the momentum candle is the trigger.
 
-    width   confirmed after   higher lows/month   price already moved
-      5       5 bars               15.1                25 pips
-      8       8 bars                9.7                33 pips
-     12      12 bars                7.0                38 pips
-     48      48 bars                1.9                92 pips   <- the trend's own width
+THIS IS THE 10-AUG CASE, EXACTLY. At 09:00 UTC the 2-day trend said DOWN and the 8-hour structure
+said UP — highs 1.34854 -> 1.34790 -> 1.35081 and lows 1.34396 -> 1.34336 -> 1.34788, both rising.
+Not unclear: actively opposite. VIX.1 sold that, and price ran +85 pips the other way over the week.
 
-The width is a real dial between "in time" and "certain", and it caps how many trades can exist.
+WHY "MUST NOT CONTRADICT" AND NOT "MUST CONFIRM". The first version of this file demanded the faster
+structure positively show the trend's own pattern AND that the pullback had ended. Measured, that
+permitted trading only 15-18% of the time a trend existed — against his "we are always in trend", and
+it refused both candles he had named as good. The weaker test still refuses 10 Aug, because there the
+faster structure was not merely quiet, it pointed the other way.
+
+WHY THE FAST READ MUST NEVER DECIDE DIRECTION. Half of all pullbacks are COMPLEX — measured over 12
+months, 21 of 42 on GBP/USD and 17 of 37 on EUR/USD. A complex pullback prints its own lower highs
+and lower lows inside an intact uptrend and looks exactly like a downtrend at 8 bars. Let this read
+choose direction and the strategy sells the pullbacks of a rally, which is the bug it exists to stop.
 """
 from dataclasses import dataclass
 
 from core.types import Candle
 from shared.swing_points import find_swing_points
 
-# The entry-timing swing width. NOT the trend's width (48) — see the table above.
+# The faster structure's swing width. NOT the trend's (48). A swing needs `n` bars EITHER SIDE to be
+# confirmed, so at 48 a pullback low is known two days and a median 92 pips later — far too late to
+# say anything about the leg being entered. Measured alternatives, GBP/USD over 12 months:
+#     width 5 -> confirmed 5 bars later, 15.1 higher lows/month, price already moved 25 pips
+#     width 8 -> 8 bars,  9.7/month, 33 pips
+#     width 12 -> 12 bars, 7.0/month, 38 pips
+# HIS DECISION, 2026-08-11: "keep it at 8 hours for now. I don't want to change that at the same time
+# as the trend logic. We can test 5, 8, and 12 later using the actual trading results."
 _FAST_N = 8
 
 
 @dataclass
 class LegState:
-    """Where price sits in the current leg, and whether that permits a trade."""
+    """May this trend be traded right now, and on what grounds?"""
     ready: bool = False
-    pivot: float | None = None      # the higher low / lower high the momentum candle must follow
-    pivot_index: int | None = None
+    pattern: str = "unclear"        # what the FASTER structure shows: up / down / unclear / mixed
     why: str = ""
 
 
@@ -77,44 +83,42 @@ def _distinct(points, n: int):
     return out
 
 
-def leg_state(candles: list[Candle], direction: int, n: int = _FAST_N) -> LegState:
-    """Has this trend printed its pair, and is the pullback over?
+def fast_pattern(candles: list[Candle], n: int = _FAST_N) -> str:
+    """What the faster structure is doing: 'up' (HH+HL), 'down' (LH+LL), 'mixed', or 'unclear'.
 
-    `direction` MUST come from vix1_trend — this function never infers it. Returns not-ready with a
-    stated reason rather than a bare False, because a refusal nobody can explain is how the last
-    round of defects survived so long.
+    Only swings CONFIRMED by the end of the window count — a pivot at index j needs n bars after it,
+    so the last n bars can never contain one. This is a LEVEL read, and a level must come from
+    settled structure (the platform-wide closed-candle rule).
     """
-    if direction == 0:
-        return LegState(why="no established trend — nothing may be traded")
     pts = sorted(find_swing_points(candles, n), key=lambda p: p.index)
-    # Only swings CONFIRMED by the end of the window: a pivot at index j needs n bars after it.
-    cutoff = len(candles) - 1 - n
-    pts = _distinct([p for p in pts if p.index <= cutoff], n)
+    pts = _distinct([p for p in pts if p.index <= len(candles) - 1 - n], n)
     highs = [p for p in pts if p.is_high]
     lows = [p for p in pts if not p.is_high]
     if len(highs) < 2 or len(lows) < 2:
-        return LegState(why=f"not enough confirmed structure yet ({len(highs)} highs, {len(lows)} lows)")
+        return "unclear"
+    if highs[-1].price > highs[-2].price and lows[-1].price > lows[-2].price:
+        return "up"
+    if highs[-1].price < highs[-2].price and lows[-1].price < lows[-2].price:
+        return "down"
+    return "mixed"
 
-    if direction == 1:
-        if not highs[-1].price > highs[-2].price:
-            return LegState(why="no higher high yet — the uptrend has not printed its first leg")
-        if not lows[-1].price > lows[-2].price:
-            return LegState(why="no higher low yet — the pullback has not made a higher low")
-        # The momentum candle must come AFTER the higher low. If the newest confirmed swing is the
-        # HIGH, price is on its way down from it — we are INSIDE the pullback, which is exactly what
-        # he does not want traded.
-        if lows[-1].index < highs[-1].index:
-            return LegState(why="inside the pullback — the higher low has not formed since the high")
-        return LegState(True, lows[-1].price, lows[-1].index,
-                        f"HH then HL confirmed; momentum after the HL at {lows[-1].price:.5f} "
-                        f"— the next HH is developing")
 
-    if not lows[-1].price < lows[-2].price:
-        return LegState(why="no lower low yet — the downtrend has not printed its first leg")
-    if not highs[-1].price < highs[-2].price:
-        return LegState(why="no lower high yet — the pullback has not made a lower high")
-    if highs[-1].index < lows[-1].index:
-        return LegState(why="inside the pullback — the lower high has not formed since the low")
-    return LegState(True, highs[-1].price, highs[-1].index,
-                    f"LL then LH confirmed; momentum after the LH at {highs[-1].price:.5f} "
-                    f"— the next LL is developing")
+def leg_state(candles: list[Candle], direction: int, n: int = _FAST_N) -> LegState:
+    """May we ride this trend right now?
+
+    `direction` MUST come from vix1_trend — this function never infers it, by design. Refusals carry
+    a stated reason rather than a bare False: a refusal nobody can explain is how the last round of
+    defects survived so long, and it is what made the 10-Aug signal take an hour to diagnose.
+    """
+    if direction == 0:
+        return LegState(why="no established trend — nothing may be traded")
+    pattern = fast_pattern(candles, n)
+    opposite = "down" if direction == 1 else "up"
+    if pattern == opposite:
+        way = "up" if direction == 1 else "down"
+        return LegState(pattern=pattern,
+                        why=f"the faster structure is trending {pattern} against the {way}trend "
+                            f"— this is a pullback, not a continuation")
+    return LegState(True, pattern,
+                    f"the faster structure ({pattern}) does not contradict the trend "
+                    f"— ride the continuation")

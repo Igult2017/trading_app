@@ -58,8 +58,24 @@ class TrendState:
     bos_index: int | None = None
     choch_price: float | None = None         # the CHoCH that started the current direction
     choch_index: int | None = None
+    breaks: int = 0                          # BOS since this direction began — see `maturity`
     highs: list[float] = field(default_factory=list)
     lows: list[float] = field(default_factory=list)
+
+    @property
+    def maturity(self) -> str:
+        """DEVELOPING or DEVELOPED — his distinction, 2026-08-11.
+
+        "The trend has developed" = it has already continued at least once, so there is a break of
+        structure behind it. "The trend is developing... after a ranging market, pullback or a
+        reversal" = it has just printed its first pair and this is the first continuation.
+
+        BOTH are tradeable. The label exists so the card can say which, and so the difference can be
+        judged later on real results rather than assumed now.
+        """
+        if self.direction == 0:
+            return "none"
+        return "developed" if self.breaks >= 2 else "developing"
 
     def reason(self, digits: int = 5) -> str:
         """One line naming the event that justifies trading this direction."""
@@ -98,11 +114,11 @@ def trend_state(candles: list[Candle], n: int = _SWING_N) -> TrendState:
                 if st.pending == -1 and not p.is_high and st.lows[-1] < st.lows[-2]:
                     st.direction, st.protected = -1, max(st.highs[-2:])
                     st.bos_price, st.bos_index = p.price, p.index
-                    st.pending, last_ext, since = 0, p.price, []
+                    st.pending, last_ext, since, st.breaks = 0, p.price, [], 1
                 elif st.pending == 1 and p.is_high and st.highs[-1] > st.highs[-2]:
                     st.direction, st.protected = 1, min(st.lows[-2:])
                     st.bos_price, st.bos_index = p.price, p.index
-                    st.pending, last_ext, since = 0, p.price, []
+                    st.pending, last_ext, since, st.breaks = 0, p.price, [], 1
                 continue
 
             if st.direction == 0:
@@ -130,24 +146,27 @@ def trend_state(candles: list[Candle], n: int = _SWING_N) -> TrendState:
                 if since:
                     st.protected = min(since) if st.direction == 1 else max(since)
                 st.bos_price, st.bos_index = p.price, p.index      # BOS: the trend continues
+                st.breaks += 1
                 last_ext, since = p.price, []
 
         if st.direction == 0 and not st.pending:
             if len(st.highs) >= 2 and len(st.lows) >= 2:
                 if st.highs[-1] > st.highs[-2] and st.lows[-1] > st.lows[-2]:
                     st.direction, st.protected, last_ext, since = 1, st.lows[-2], st.lows[-1], []
+                    st.breaks = 1
                 elif st.highs[-1] < st.highs[-2] and st.lows[-1] < st.lows[-2]:
                     st.direction, st.protected, last_ext, since = -1, st.highs[-2], st.highs[-1], []
+                    st.breaks = 1
         elif st.direction != 0 and st.protected is not None:
             # CHoCH — PROPOSE the reversal. The trend does not turn until that direction confirms.
             if st.direction == 1 and c.close < st.protected:
                 st.pending, st.direction = -1, 0
                 st.choch_price, st.choch_index = st.protected, i
-                st.protected, last_ext, since = None, None, []
+                st.protected, last_ext, since, st.breaks = None, None, [], 0
             elif st.direction == -1 and c.close > st.protected:
                 st.pending, st.direction = 1, 0
                 st.choch_price, st.choch_index = st.protected, i
-                st.protected, last_ext, since = None, None, []
+                st.protected, last_ext, since, st.breaks = None, None, [], 0
 
     return st
 

@@ -1,112 +1,132 @@
-"""VIX.1 — the leg gate (`vix1_structure.leg_state`) and the trend's freeze regression.
+"""VIX.1 — the pullback refusal (`vix1_structure`), trend maturity, and two shipped regressions.
 
 THE RULE UNDER TEST, in the user's words (2026-08-11):
 
-    "We can only take a trade after the first HH and HL (or LL and LH). Then when a momentum candle
-     comes that forms the next HH (or LL), we take the trade — it is proof the trend is continuing.
-     ... we don't trade pullbacks, we don't trade ranging markets and we are always in trend."
+    "The trend has developed — HH and HL (or LL and LH) ... then we see a momentum candle in the same
+     direction, we anticipate a trend and we want to ride with it."
+    "A momentum candle in a developing HH cannot break structure ... it is not easy for 1 candle to
+     break structure in most cases."
+    "we don't trade pullbacks, we don't trade ranging markets and we are always in trend."
 
-Every case is checked BOTH ways: the gate opens when the leg has proved itself and REFUSES when it
-has not. A gate only ever tested with passing input cannot catch a regression that deletes it.
+So: direction comes from the TREND; the faster structure only gets to say NO, and only when it is
+trending the OPPOSITE way. Nothing here asks a candle to break anything.
 
-Offline — synthetic zigzags for the logic, the saved CSVs for the properties.
-NOT A BACKTEST: no P&L, no win rate, no trades simulated.
+Every case is checked BOTH ways. Offline — synthetic zigzags for the logic, saved CSVs for the
+properties. NOT A BACKTEST: no P&L, no win rate, no trades simulated.
 """
 from _harness import Suite, body, load
 
-from strategies.vix1_bias import _H1_SWING_N
-from strategies.vix1_structure import _FAST_N, leg_state
+from strategies.vix1_bias import _H1_SWING_N, _H1_TREND_BARS
+from strategies.vix1_structure import _FAST_N, fast_pattern, leg_state
 from strategies.vix1_trend import trend_state
+from strategies.vix1_watch import check_invalidation
 
-s = Suite("VIX.1 — the leg gate: no pullbacks, no ranges, always in trend")
+s = Suite("VIX.1 — ride the trend, refuse the pullback")
 
-LEG = _FAST_N * 2 + 2      # bars per leg: a pivot needs _FAST_N bars either side to be confirmed
+LEG = _FAST_N * 2 + 2       # a pivot needs _FAST_N bars either side before it is confirmed
 
 
 def zigzag(points, leg=LEG):
-    """Build H1 candles walking straight between the given prices, so each turn is a real pivot."""
+    """H1 candles walking straight between the given prices, so every turn is a real pivot."""
     out, t = [], 0
     for a, b in zip(points, points[1:]):
         for k in range(leg):
-            o = a + (b - a) * k / leg
-            c = a + (b - a) * (k + 1) / leg
-            out.append(body(round(o, 5), round(c, 5), tf="H1", t=t)); t += 1
+            out.append(body(round(a + (b - a) * k / leg, 5),
+                            round(a + (b - a) * (k + 1) / leg, 5), tf="H1", t=t)); t += 1
     return out
 
 
-# ── an UPTREND: high -> low -> HIGHER high -> HIGHER low -> now ──────────────────────────────────
-print("   UPTREND — the gate opens only after HH then HL:")
-up_ready = zigzag([1.1000, 1.1100, 1.1050, 1.1200, 1.1150, 1.1170])   # ends AFTER the higher low
-r = leg_state(up_ready, 1)
-s.check("HH then HL, momentum after the HL -> ALLOWED", r.ready, True)
-s.check("  and it says which level it is following", r.pivot is not None, True)
+rising = zigzag([1.1000, 1.1100, 1.1050, 1.1200, 1.1150, 1.1170])     # HH + HL
+falling = zigzag([1.1200, 1.1100, 1.1150, 1.1000, 1.1050, 1.1030])    # LL + LH
+choppy = zigzag([1.1000, 1.1100, 1.1000, 1.1100, 1.1000, 1.1050])     # equal highs/lows
 
-# A FULL leg, then price makes a new high and is on its way DOWN from it. The pair (HH+HL) exists,
-# so only the "after the HL" part can refuse this — which is the exact case he does not want traded:
-# a momentum candle appearing INSIDE the pullback rather than after it.
-up_mid = zigzag([1.1000, 1.1100, 1.1050, 1.1200, 1.1150, 1.1300, 1.1250])
-r2 = leg_state(up_mid, 1)
-s.check("inside the pullback (price falling off a new high) -> REFUSED", r2.ready, False)
-s.check("  and it names the pullback as the reason", "pullback" in r2.why, True)
+print("   what the faster structure reads:")
+s.check("a rising zigzag reads UP", fast_pattern(rising), "up")
+s.check("a falling zigzag reads DOWN", fast_pattern(falling), "down")
+s.check("a flat range does NOT read as a trend", fast_pattern(choppy) in ("mixed", "unclear"), True)
 
-# and with too little history it refuses for a DIFFERENT, stated reason
-r3 = leg_state(zigzag([1.1000, 1.1100, 1.1050]), 1)
-s.check("too little structure -> REFUSED, and says so", "not enough" in r3.why, True)
-
-# no higher high at all — a range, not a trend
-rng = zigzag([1.1000, 1.1100, 1.1000, 1.1100, 1.1000, 1.1050])
-s.check("a RANGE (no higher high) -> REFUSED", leg_state(rng, 1).ready, False)
-
-# ── a DOWNTREND: the mirror ──────────────────────────────────────────────────────────────────────
+# ── the refusal, and it is the ONLY one ──────────────────────────────────────────────────────────
 print()
-print("   DOWNTREND — the gate opens only after LL then LH:")
-dn_ready = zigzag([1.1200, 1.1100, 1.1150, 1.1000, 1.1050, 1.1030])
-s.check("LL then LH, momentum after the LH -> ALLOWED", leg_state(dn_ready, -1).ready, True)
-dn_mid = zigzag([1.1200, 1.1100, 1.1150, 1.1000])
-s.check("inside the pullback (no lower high yet) -> REFUSED", leg_state(dn_mid, -1).ready, False)
+print("   the faster structure may only say NO, and only when it points the other way:")
+s.check("uptrend + faster structure UP -> ride it", leg_state(rising, 1).ready, True)
+s.check("downtrend + faster structure DOWN -> ride it", leg_state(falling, -1).ready, True)
+s.check("uptrend + faster structure DOWN -> REFUSED (a pullback)", leg_state(falling, 1).ready, False)
+s.check("downtrend + faster structure UP -> REFUSED (a pullback)", leg_state(rising, -1).ready, False)
+s.check("  and the refusal says it is a pullback", "pullback" in leg_state(rising, -1).why, True)
 
-# ── direction is NEVER inferred here ─────────────────────────────────────────────────────────────
+# NOT contradicting is enough — an unclear or mixed reading must NOT block the trend.
+# This is the difference from the first version of this gate, which demanded confirmation and so
+# permitted trading only 15-18% of the time a trend existed.
+s.check("uptrend + a flat/mixed faster reading -> still ride it", leg_state(choppy, 1).ready, True)
+s.check("no trend -> nothing may be traded", leg_state(rising, 0).ready, False)
+
+# ── trend maturity: both are tradeable, they just differ ─────────────────────────────────────────
 print()
-s.check("no trend -> nothing may be traded", leg_state(up_ready, 0).ready, False)
-s.check("  the SAME candles judged the other way are refused",
-        leg_state(up_ready, -1).ready, False)
+print("   developing vs developed — a label, never a gate:")
+for pair in ("EURUSD", "GBPUSD"):
+    bars = load(f"{pair}_H1.csv", "H1")
+    if not bars:
+        continue
+    seen = set()
+    for end in range(1600, len(bars), 400):
+        st = trend_state(bars[:end][-_H1_TREND_BARS:], n=_H1_SWING_N)
+        seen.add(st.maturity)
+    print(f"      {pair}: labels seen -> {sorted(seen)}")
+    s.check(f"{pair}: both maturities really occur", {"developing", "developed"} <= seen, True)
 
 # ── THE 10-AUG SIGNAL, on real bars ──────────────────────────────────────────────────────────────
 print()
-print("   the signal that caused this change (GBP/USD 10 Aug, sell off the 09:00 candle):")
+print("   the signal that caused this rebuild (GBP/USD 10 Aug, sell off the 09:00 candle):")
 real = load("GBPUSD_H1_to10Aug.csv", "H1")
 if real:
-    # the 09:00 UTC bar is 9 bars before the last (18:00) in this file
-    upto = [i for i, c in enumerate(real) if c.time == 1786352400 + 3 * 3600]
-    idx = upto[0] if upto else len(real) - 10
-    w = real[max(0, idx - 1500):idx + 1]
+    idx = next((i for i, c in enumerate(real) if c.time == 1786363200), len(real) - 10)
+    w = real[max(0, idx - _H1_TREND_BARS):idx + 1]
     st = trend_state(w, n=_H1_SWING_N)
     leg = leg_state(w, st.direction)
-    print(f"      trend={st.direction:+d}  leg allows={leg.ready}  ({leg.why[:56]})")
-    s.check("the 10-Aug sell is REFUSED by the leg gate", leg.ready, False)
+    print(f"      trend={st.direction:+d} ({st.maturity})  faster structure={leg.pattern}  "
+          f"allows={leg.ready}")
+    s.check("the 2-day trend said DOWN", st.direction, -1)
+    s.check("the 8-hour structure was pointing UP", leg.pattern, "up")
+    s.check("so the sell is REFUSED as a pullback", leg.ready, False)
 else:
     print("      SKIP — no local data")
 
+# ── regression: a PENDING setup must still be invalidated when the trend flips ───────────────────
+# SHIPPED AND CAUGHT IN REVIEW 2026-08-11. vix1_watch asked `detect_bias`, which since the pullback
+# refusal returns None whenever a NEW trade is not permitted — so a setup whose trend had genuinely
+# flipped stopped being invalidated, because the flip itself suppressed the answer.
+print()
+print("   a pending setup is judged on the TREND, not on whether a new trade is allowed:")
+eur = load("EURUSD_H1.csv", "H1")
+if eur:
+    w = eur[-_H1_TREND_BARS:]
+    d = trend_state(w, n=_H1_SWING_N).direction
+    if d != 0:
+        wrong = {"bullish": d != 1, "entry": w[-1].close, "sl": w[-1].close * 0.99,
+                 "locked_at": w[-1].time + 3600}
+        right = {**wrong, "bullish": d == 1}
+        s.check("a setup facing the WRONG way is invalidated",
+                check_invalidation(wrong, w, w, [], wrong["locked_at"] + 60),
+                "1HR trend flipped against the setup")
+        s.check("a setup facing the RIGHT way is left alone",
+                check_invalidation(right, w, w, [], right["locked_at"] + 60), None)
+
 # ── the freeze regression ────────────────────────────────────────────────────────────────────────
-# The old trend could set its protecting level to None and then NEVER turn again: GBP/USD spent 62%
-# of bars frozen, once for 873 bars (~7 weeks), which is why it sold a rally for a whole day.
 print()
 print("   a trend must ALWAYS be able to turn:")
 for pair in ("EURUSD", "GBPUSD"):
     bars = load(f"{pair}_H1.csv", "H1")
     if not bars:
         continue
-    frozen = 0
-    for end in range(1600, len(bars), 240):
-        st = trend_state(bars[:end][-1500:], n=_H1_SWING_N)
-        if st.direction != 0 and st.protected is None:
-            frozen += 1
+    frozen = sum(1 for end in range(1600, len(bars), 240)
+                 if (lambda st: st.direction != 0 and st.protected is None)(
+                     trend_state(bars[:end][-_H1_TREND_BARS:], n=_H1_SWING_N)))
     s.check(f"{pair}: never in a trend with no level that could end it", frozen, 0)
 
 # ── teeth ────────────────────────────────────────────────────────────────────────────────────────
 print()
-s.teeth("the leg gate", leg_state(up_mid, 1).ready is False)
-s.teeth("the pullback rule", "pullback" in leg_state(up_mid, 1).why)
-s.teeth("the direction guard", leg_state(up_ready, 0).ready is False)
+s.teeth("the pullback refusal", leg_state(rising, -1).ready is False)
+s.teeth("the no-trend guard", leg_state(rising, 0).ready is False)
+s.teeth("the permissive rule", leg_state(choppy, 1).ready is True)
 
 s.done()

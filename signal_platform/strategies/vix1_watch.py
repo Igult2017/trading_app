@@ -3,13 +3,14 @@ VIX.1 — setup LOCK + invalidation WATCH.
 
 Once a setup fires it is LOCKED (one pending setup per instrument). Every scan tick we watch BOTH
 timeframes together, so we never keep assuming the bias still holds after price has actually turned:
-  - 1HR: if detect_bias now points the OTHER way, the higher-timeframe bias has flipped → invalidate.
+  - 1HR: if the TREND now points the OTHER way, the higher-timeframe view has flipped → invalidate.
   - 1M : if price reversed past the stop before the entry triggered → invalidate.
 Also detects 'triggered' (the entry stop was hit → hand off / stop watching) and 'expired' (the
 pending setup went stale). On a genuine invalidation the strategy sends a DM alert and drops the lock.
 """
 from core.types import Candle, Signal, Direction, TF
-from strategies.vix1_bias import detect_bias
+from strategies.vix1_bias import _H1_SWING_N, _H1_TREND_BARS
+from strategies.vix1_trend import trend_state
 
 _LOCK_TTL = 24 * 3600  # matches the platform's own signal lifetime (signal_repo.expire_stale, 24h).
                        # The playbook's wait is OPEN-ENDED — "a bias flip ends a setup; a timer never
@@ -62,10 +63,19 @@ def check_invalidation(locked: dict, h1: list[Candle], h4: list[Candle], m1: lis
             if c.high >= sl:
                 return "1M reversed above the stop before entry"
 
-    # HTF bias — has it flipped to the other side while the setup is still PENDING?
-    bias = detect_bias(h1, h4, symbol)
-    if bias is not None and bias[0] != bullish:
-        return "HTF bias flipped against the setup"
+    # HTF TREND — has it flipped to the other side while the setup is still PENDING?
+    #
+    # THIS ASKS THE TREND, NOT `detect_bias`, AND THE DIFFERENCE IS A REAL DEFECT THAT WAS SHIPPED
+    # AND CAUGHT IN REVIEW (2026-08-11). `detect_bias` answers "may a NEW trade be taken", and since
+    # the pullback refusal was added it returns None whenever one may not — no momentum candle, or
+    # the faster structure contradicting. Asking it here meant a pending setup whose trend had
+    # GENUINELY FLIPPED was no longer invalidated, because the flip itself suppressed the answer.
+    #
+    # A resting order must be judged on WHERE THE TREND POINTS. Whether a fresh entry is currently
+    # permitted is a different question and has no business in this one.
+    trend = trend_state(h1[-_H1_TREND_BARS:], n=_H1_SWING_N).direction
+    if trend != 0 and (trend == 1) != bullish:
+        return "1HR trend flipped against the setup"
     return None
 
 

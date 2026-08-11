@@ -11,8 +11,8 @@ order, on what grounds we may take it:
   'trend'  — the momentum runs WITH a clear 1HR trend.
   'trend4' — the 1HR trend is UNCLEAR, but the momentum runs WITH a clear 4HR trend (the fallback).
 
-  ('choch' and 'choch4' were REMOVED 2026-07-26 — pro-trend only. This docstring still listed them as
-   live origins until 2026-08-10; see the note at the foot of detect_bias for why they went.)
+  ('choch' and 'choch4' were REMOVED 2026-07-26 — pro-trend only. A reversal is now expressed by the
+   TREND ITSELF turning, so a trade after one is a plain `trend` continuation in the new direction.)
 
 MEASURED 2026-08-10: 'trend4' NEVER FIRES. It is reached only when the 1HR trend is unreadable, and
 across the last year on both pairs the 1HR trend was unreadable in 0 of 622 samples (GBP/USD 25% up /
@@ -77,7 +77,8 @@ def detect_bias(h1: list[Candle], h4: list[Candle],
     trade, so the card and the log can show VIX.1's own working instead of asserting a direction.
 
     The freshest 1HR momentum candle decides which way we are reasoning; trend/CHoCH then decide whether
-    there are grounds to take it. `origin` is one of trend / trend4 / choch / choch4 (see module doc).
+    there are grounds to take it. `origin` is `trend` or `trend4` — the reversal origins were
+    removed 2026-07-26 (pro-trend only).
     """
     up = momentum_run(h1, True, symbol)
     dn = momentum_run(h1, False, symbol)
@@ -102,16 +103,16 @@ def detect_bias(h1: list[Candle], h4: list[Candle],
 
     # 1) momentum WITH a clear 1HR trend.
     if t1 == want:
-        # THE LEG GATE (user 2026-08-11): "we must at least have the first HH and then HL, then our
-        # momentum candle can come from after HL... we don't trade pullbacks, we don't trade ranging
-        # markets and we are always in trend." A trend agreeing is NOT enough — the leg must have
-        # proved itself, or we are buying/selling somewhere in the middle of a move.
+        # THE PULLBACK REFUSAL (user 2026-08-11). The trend agreeing is not quite enough: if the
+        # FASTER structure is trending the other way we are in a retrace, not a continuation. That is
+        # the whole of 10 Aug — 2-day trend DOWN, 8-hour structure UP, and it sold the rally.
         leg = leg_state(window, t1)
         if not leg.ready:
             vix1_log.say(symbol, f"[vix1] {symbol} bias=NONE: {'up' if bullish else 'down'} momentum WITH the "
                                  f"trend, but the leg does not permit it — {leg.why}")
             return None
-        return (bullish, mc_idx, "trend", run[1], f"{tstate.reason()}; {leg.why}")
+        return (bullish, mc_idx, "trend", run[1],
+                f"{tstate.maturity} {tstate.reason()}; {leg.why}")
 
     # 2) 1HR trend UNCLEAR, momentum WITH a clear 4HR trend (the fallback). Preferred over a 1HR CHoCH:
     #    if the 4HR is already trending our way, the 1HR is catching up to it, not reversing.
@@ -123,7 +124,8 @@ def detect_bias(h1: list[Candle], h4: list[Candle],
             return None
         vix1_log.say(symbol, f"[vix1] {symbol} 4HR-BACKED TREND: 1HR trend unclear, 1HR momentum aligns with a clear "
                  f"4HR {'up' if bullish else 'down'} trend")
-        return (bullish, mc_idx, "trend4", run[1], f"4HR-backed; {leg.why}")
+        return (bullish, mc_idx, "trend4", run[1],
+                f"4HR-backed ({tstate.maturity}); {leg.why}")
 
     # PRO-TREND ONLY (user 2026-07-25/26: "Only trade pro trend"). The `choch` and `choch4` origins are
     # REMOVED — they took a reversal against the prevailing trend, which is by definition not
