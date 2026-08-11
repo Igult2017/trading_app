@@ -294,6 +294,40 @@ quartile **12.3× / 13.2×**.
 **STILL OPEN after this:** the real-time *"second high after the first low"* trigger. Nothing
 implements it — the code waits for a 48-bar swing to confirm, a median 209 bars later.
 
+### A TREND STARTS ON THREE TURNING POINTS, NOT FOUR (fixed 2026-08-12)
+
+His rule, verbatim:
+
+> *"When a trend starts, it has a high then a low, and if it is a real trend it will print another
+> high after the first low. So when it starts printing the second high after the first low, we start
+> looking for a momentum candle."*
+
+An uptrend starts on **high -> low -> HIGHER high**, and the low between them protects it. Mirrored
+for a downtrend. `vix1_trend._establish`.
+
+**It used to need four pivots** - the last two highs AND the last two lows all rising - so it began
+looking one whole swing later than he does. I had measured that difference, written it into this
+document, and left the code alone. He caught it: *"Did you fix this or you have my rule and still
+kept the old code?"* Documenting a gap is not closing it.
+
+**An expanding range now establishes nothing.** Higher highs and lower lows can both hold at once;
+the four-point test could never see that case because it demanded both sides move together.
+
+**MEASURED COST over 4 years, reported before it was accepted:**
+
+| | before (4 pivots) | after (3 pivots) |
+|---|---|---|
+| GBP/USD | 37 phases, median +227 pips, **0** dud | **identical** |
+| EUR/USD | 33 phases, median +177 pips, **1** dud | 35 phases, median **+142** pips, **2** dud |
+
+The single phase his rule adds: **DOWN, 21 Feb -> 08 Mar 2024, 288 bars, best move +8.8 pips** - a
+downtrend that never went down. One bad call in four years, on one pair, against starting when he
+actually starts. `test_trend.py`'s bar moved 1 -> 2 for that reason and names both phases, so a third
+would still fail it.
+
+**`last_ext` was deliberately NOT changed** at the same time. Fixing the establishment rule and the
+BOS reference together would make any measured difference unattributable.
+
 ### The trend window is PINNED (`vix1_bias._H1_TREND_BARS = 1500`)
 
 `vix1.candle_counts[TF.H1]` was raised 1500 → 3000 on 2026-08-10 to feed the long size test. The

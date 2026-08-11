@@ -132,7 +132,24 @@ for pair in ("EURUSD", "GBPUSD"):
           f"{dead} never moved the trend's way")
     s.check(f"{pair}: NO trend phase lasts under two days (false reversals)", short, 0)
     s.check(f"{pair}: the median phase catches at least 80 pips its own way", med >= 80.0, True)
-    s.check(f"{pair}: at most one phase never moves the trend's way at all", dead <= 1, True)
+    # THE BAR MOVED FROM 1 TO 2 ON 2026-08-12, and only because HIS establishment rule changed.
+    #
+    # A trend now starts on THREE turning points (a high, a low, a higher high) instead of four,
+    # because that is what he actually watches: "when it starts printing the second high after the
+    # first low, we start looking for a momentum candle." Starting a swing earlier is the point of
+    # the change, and it costs exactly one extra bad call in four years, on one pair:
+    #
+    #   GBP/USD  37 phases, median best +227 pips, 0 dud   — IDENTICAL before and after
+    #   EUR/USD  33 -> 35 phases, median +177 -> +142 pips, 1 -> 2 dud
+    #
+    # The two EUR/USD duds, named so a THIRD one still fails this check:
+    #   UP    20 Sep 2022 -> 30 Sep 2022  (192 bars, best +8.4 pips)  — pre-existing
+    #   DOWN  21 Feb 2024 -> 08 Mar 2024  (288 bars, best +8.8 pips)  — added by the 3-point rule
+    #
+    # This is a baseline updated for a deliberate, user-mandated rule change, with the old numbers
+    # kept above so nothing is hidden. It is NOT licence to raise it again: if a fourth-year dud
+    # appears, that is a finding to report, exactly as this one was.
+    s.check(f"{pair}: at most two phases never move the trend's way at all", dead <= 2, True)
 
 # ── teeth ────────────────────────────────────────────────────────────────────────────────────────
 print()
