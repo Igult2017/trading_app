@@ -207,12 +207,39 @@ pivots, so no delay. **There is deliberately no threshold constant in the file**
 distribution is perfectly smooth with no natural break, and cutting at 0.20 would call ~47% of all
 time "ranging" and remove ~41% of current trades.
 
-**PHASE A DECIDES NOTHING.** Both are computed, printed on the card, on the heads-up DM, and on
-**every** log line including the refusals (the refused setups are the comparison group). The 8-bar
-leg gate is still the only thing that can refuse. **Proven, not asserted:** the 12-month replay
-produces byte-identical setups before and after. Thresholds are Phase B, set by the user from real
-signals — picking them from one year of two pairs is how the n=12 swing width (55% agreement) and the
-daily timeframe (65%) each looked right on the day and were worse over four years.
+**THE MEASUREMENTS DECIDE NOTHING — with ONE exception, added the same day at his instruction.**
+Both numbers are computed, printed on the card, on the heads-up DM, and on **every** log line
+including the refusals (the refused setups are the comparison group). **Proven, not asserted:** the
+12-month replay of the measurement-only step produced identical setups before and after (GBP/USD
+377/377, EUR/USD 422/422, zero disagreements). Efficiency thresholds are still Phase B, set by the
+user from real signals — picking them from one year of two pairs is how the n=12 swing width (55%
+agreement) and the daily timeframe (65%) each looked right on the day and were worse over four years.
+
+### THE ONE RULE THAT DOES DECIDE — a new trend must show its first pullback
+
+`vix1_structure.developing_needs_retracement(maturity, retracement)`. His rule, and his instruction
+to build it rather than hold it: *"So the first retracement and then when a momentum candle builds
+showing the potential continuation of the price, we trade. If not, the trend is now confirmed and we
+can get any momentum candle along the trend."*
+
+| trend maturity | retracement before the momentum candle | verdict |
+|---|---|---|
+| **developing** (first HH+HL / LL+LH, no continuation yet) | none | **REFUSED** |
+| **developing** | 1 candle or more — *length never disqualifies* | allowed |
+| **developed** (≥1 break of structure behind it) | anything, including none | allowed — the rule does not apply |
+
+**Measured through the live `detect_bias` over 12 months:** GBP/USD **167 → 120** distinct setups
+(**28.1% removed**); on setups the leg gate already allows it refuses 24.9% (GBP/USD) / 14.0%
+(EUR/USD) and **0 developed setups on either pair** — asserted in `test_structure.py`, not assumed.
+
+**MATURITY IS READ AT THE MOMENTUM CANDLE, not at the latest bar.** The candle can be up to
+`LOOKBACK=12` bars old (median 5) and a swing's confirmation can land inside that gap: measured, the
+two reads differ on **0.9% of GBP/USD and 1.8% of EUR/USD** setups. So `detect_bias` replays the
+trend on the truncated window (`t_mc`) and uses that for maturity, for the retracement's starting
+point, and for the card's reason. If the candle formed mid-reversal (no direction at that point) it
+falls back to the current read rather than refusing — that would be a second, unasked-for rule.
+
+**Applied AFTER the leg gate**, deliberately, so its refusals are attributable to it alone.
 
 **Measured at the momentum candles, 12 months:** retracement median 0–1 candles (quartiles 0/2);
 **91–95% of retracements are 3 candles or fewer**, i.e. invisible to the 8-bar read.
@@ -267,12 +294,11 @@ EUR/USD trend verdicts change.** Pinned, 260/260 and 154/154 identical.
    against a whole-market median of **0.21 / 0.22** — no different — with **17% / 24%** of trades in
    the choppiest tenth of the market. Nothing acts on this yet, by design. The cut point is his to
    set from real signals; there is no natural break in the distribution to find automatically.
-8. **The developing-trend requirement is NOT implemented — Phase B (2026-08-11).** His rule: when a
-   trend has only just formed (HH + HL, or LL + LH), the momentum candle must come **after** a
-   retracement. Measured, requiring it would remove **26% of GBP/USD and 16% of EUR/USD** momentum
-   candles. That is a real behaviour change, so it was deliberately held back from Phase A, which
-   changes nothing. `Retracement.bars` and `TrendState.maturity` are both already carried, so the
-   rule is a comparison away when he asks for it.
+8. ~~**The developing-trend requirement is NOT implemented.**~~ **BUILT 2026-08-11**, same day, on
+   his instruction: *"You cant hold this back. I need it build."* I had deferred it as "a real
+   behaviour change" — that was my call to make about sequencing, not about whether to build it, and
+   he overruled it correctly. See the section above; it removes 28.1% of GBP/USD setups and refuses
+   0 developed ones.
 
 *(The "no test suite" gap was closed 2026-07-27 — see below.)*
 

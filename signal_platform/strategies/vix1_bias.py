@@ -32,7 +32,7 @@ from core.types import Candle
 from strategies.vix1_momentum import momentum_run, veto_reason
 from strategies import vix1_log
 from strategies.vix1_state import Bias, market_state
-from strategies.vix1_structure import leg_state
+from strategies.vix1_structure import developing_needs_retracement, leg_state
 from strategies.vix1_trend import trend_state
 
 log = logging.getLogger(__name__)
@@ -154,11 +154,18 @@ def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "") -> Bias | 
         return None
     mc_idx = run[0]
 
-    # MEASURED AT THE MOMENTUM CANDLE, for the same causal reason the leg gate is (see below): "how
-    # many retracement candles did THIS candle come after" is a question about the candle, and it
-    # can be hours old. Reading it as of now would count a retracement that started afterwards.
+    # EVERYTHING ABOUT THE MOMENTUM CANDLE IS READ AT THE MOMENTUM CANDLE, for the same causal
+    # reason the leg gate is (see below). The candle can be up to LOOKBACK=12 bars old (median 5),
+    # so the trend read is replayed on the truncated window too: measured, its MATURITY differs from
+    # the latest-bar read on 0.9% of GBP/USD and 1.8% of EUR/USD setups, because a swing's
+    # confirmation can land inside that gap. Small, but "had this trend already continued when the
+    # candle formed?" is a question about the candle.
     at_mc = _upto(window, h1, mc_idx)
-    ret, eff, state_mc = market_state(at_mc, tstate, symbol)
+    t_mc = trend_state(at_mc, n=_H1_SWING_N)
+    # If the candle formed mid-reversal (no direction yet at that point), fall back to the current
+    # read rather than refusing — that would be a second, unasked-for rule.
+    mstate = t_mc if t_mc.direction else tstate
+    ret, eff, state_mc = market_state(at_mc, mstate, symbol)
 
     # 1) momentum WITH a clear 1HR trend.
     if t1 == want:
@@ -171,17 +178,28 @@ def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "") -> Bias | 
         # old. Reading the structure as it is NOW would let a pullback that formed AFTER the candle
         # decide the candle's fate. Measured: this changes the verdict on 6% of GBP/USD setups and
         # 4% of EUR/USD.
-        leg = leg_state(_upto(window, h1, mc_idx), t1)
+        leg = leg_state(at_mc, t1)
         if not leg.ready:
             vix1_log.say(symbol, f"[vix1] {symbol} bias=NONE: {'up' if bullish else 'down'} momentum WITH the "
                                  f"trend, but the leg does not permit it — {leg.why} | {state_mc}")
             return None
+
+        # A NEW TREND MUST SHOW ITS FIRST PULLBACK BEFORE IT IS TRADED (his rule, 2026-08-11).
+        # Applied AFTER the leg gate on purpose: it speaks only for setups that previously passed,
+        # so the refusal counts are attributable to this rule alone.
+        why = developing_needs_retracement(mstate.maturity, ret)
+        if why:
+            vix1_log.say(symbol, f"[vix1] {symbol} bias=NONE: {why} | {state_mc}")
+            return None
+
         return Bias(bullish, mc_idx, "trend", run[1],
-                    f"{tstate.maturity} {tstate.reason()}; {leg.why}", ret, eff)
+                    f"{mstate.maturity} {mstate.reason()}; {leg.why}"
+                    + (f"; permitted because it came after a {ret.bars}-candle retracement"
+                       if mstate.maturity == "developing" else ""), ret, eff)
 
     # 2) 1HR trend UNCLEAR, momentum WITH a clear 4HR trend (the fallback) — MUTED, see _ALLOW_H4.
     if _ALLOW_H4 and t1 == 0 and t4 == want:
-        leg = leg_state(_upto(window, h1, mc_idx), want)
+        leg = leg_state(at_mc, want)
         if not leg.ready:
             vix1_log.say(symbol, f"[vix1] {symbol} bias=NONE: 4HR-backed direction but the leg does not "
                                  f"permit it — {leg.why} | {state_mc}")
@@ -189,7 +207,7 @@ def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "") -> Bias | 
         vix1_log.say(symbol, f"[vix1] {symbol} 4HR-BACKED TREND: 1HR trend unclear, 1HR momentum aligns with a clear "
                  f"4HR {'up' if bullish else 'down'} trend | {state_mc}")
         return Bias(bullish, mc_idx, "trend4", run[1],
-                    f"4HR-backed ({tstate.maturity}); {leg.why}", ret, eff)
+                    f"4HR-backed ({mstate.maturity}); {leg.why}", ret, eff)
 
     # UNREACHABLE BY CONSTRUCTION, and deliberately left as an assertion rather than a silent path.
     # PRO-TREND ONLY (user 2026-07-25/26: "Only trade pro trend"). Since the trend now chooses the

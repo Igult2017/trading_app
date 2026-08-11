@@ -18,7 +18,9 @@ from _harness import Suite, body, load
 
 from strategies import vix1_bias
 from strategies.vix1_bias import _H1_SWING_N, _H1_TREND_BARS
-from strategies.vix1_structure import _FAST_N, fast_pattern, leg_state
+from strategies.vix1_retracement import Retracement
+from strategies.vix1_structure import (_FAST_N, developing_needs_retracement, fast_pattern,
+                                       leg_state)
 from strategies.vix1_trend import trend_state
 from strategies.vix1_watch import check_invalidation
 
@@ -132,10 +134,45 @@ for pair in ("EURUSD", "GBPUSD"):
 print()
 s.check("the 4HR fallback ships MUTED", vix1_bias._ALLOW_H4, False)
 
+# ── A NEW TREND MUST SHOW ITS FIRST PULLBACK BEFORE IT IS TRADED ────────────────────────────────
+# His rule, 2026-08-11: "So the first retracement and then when a momentum candle builds showing the
+# potential continuation of the price, we trade. If not, the trend is now confirmed and we can get
+# any momentum candle along the trend but not in a retracement or a reversal or a ranging market."
+#
+# Measured over 12 months on setups the leg gate already allows: refuses 24.9% of GBP/USD and 14.0%
+# of EUR/USD, and 0 developed setups on either pair.
+print("\n   the developing-trend rule — a first pullback is required, and ONLY when developing:")
+none_yet = Retracement()                                    # no retracement before the candle
+after_1 = Retracement(active=True, bars=1)
+after_4 = Retracement(active=True, bars=4)
+
+s.check("DEVELOPING + no retracement -> REFUSED",
+        developing_needs_retracement("developing", none_yet) is not None, True)
+s.check("   ...and the refusal says why, in words",
+        "did not come after a retracement" in developing_needs_retracement("developing", none_yet),
+        True)
+s.check("DEVELOPING + a 1-candle retracement -> allowed",
+        developing_needs_retracement("developing", after_1), None)
+s.check("DEVELOPING + a 4-candle retracement -> allowed (length never disqualifies)",
+        developing_needs_retracement("developing", after_4), None)
+
+# The other half of the rule, and the half that is easiest to break silently: once a trend has
+# continued at least once, a momentum candle ANYWHERE along it is tradeable.
+s.check("DEVELOPED + no retracement -> allowed (the rule does not apply)",
+        developing_needs_retracement("developed", none_yet), None)
+s.check("DEVELOPED + a retracement -> allowed",
+        developing_needs_retracement("developed", after_4), None)
+s.check("an unknown maturity is never refused by this rule",
+        developing_needs_retracement("none", none_yet), None)
+
 # ── teeth ────────────────────────────────────────────────────────────────────────────────────────
 print()
 s.teeth("the pullback refusal", leg_state(rising, -1).ready is False)
 s.teeth("the no-trend guard", leg_state(rising, 0).ready is False)
 s.teeth("the permissive rule", leg_state(choppy, 1).ready is True)
+s.teeth("the developing-trend rule refuses",
+        developing_needs_retracement("developing", none_yet) is not None)
+s.teeth("...and lets a developed trend through",
+        developing_needs_retracement("developed", none_yet) is None)
 
 s.done()
