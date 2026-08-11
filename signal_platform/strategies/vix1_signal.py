@@ -8,6 +8,8 @@ formatting of an already-decided entry/SL/TP.
 from charting import theme
 from core.types import TF, Signal, Direction
 from news.news_filter import news_note
+from strategies.vix1_retracement import Retracement
+from strategies.vix1_state import state_line
 
 # (panel label, human blurb) per entry kind — both are the same motion (pullback at the momentum-candle
 # handover, stop beyond the level it came from); they differ only in where the stop could be anchored.
@@ -38,7 +40,9 @@ def build_signal(kind, symbol, bullish, origin, vol_count, entry, sl, tp,
                  risk, pip, digits, corr, news_context, strategy_id, strategy_name,
                  grade, confidence, alert_only=False, sl_note="",
                  late=False, late_note="", rr=2.0, mc_time: int | None = None,
-                 line: float | None = None, bias_reason: str = "") -> Signal:
+                 line: float | None = None, bias_reason: str = "",
+                 retracement: Retracement | None = None,
+                 efficiency: float | None = None) -> Signal:
     side         = "BUY" if bullish else "SELL"
     label, blurb = _KIND[kind]
     mlabel       = f"{vol_count} momentum candle{'s' if vol_count != 1 else ''}"
@@ -60,6 +64,12 @@ def build_signal(kind, symbol, bullish, origin, vol_count, entry, sl, tp,
         # which leg permits this trade. Added 2026-08-11: verifying the 10-Aug signal against his
         # chart took an hour precisely because the card asserted a direction and never said why.
         *( [f"Structure — {bias_reason}"] if bias_reason else [] ),
+        # THE MARKET STATE THIS WAS TAKEN IN — how far into a retracement, and how directional the
+        # market still is. Added 2026-08-11 and it DECIDES NOTHING (Phase A): it is here so the real
+        # values can be read off real signals before any threshold is chosen. Picking one from a
+        # year of two pairs is how two earlier changes looked right on the day and were worse over
+        # four years.
+        *( [state_line(retracement, efficiency, pip)] if retracement is not None else [] ),
         f"1M {label} — {blurb}",
         f"Momentum candle grade {grade} ({confidence:.0%} confidence) — body/wick shape, not size",
         (f"SL sits {sl_note}" if sl_note else f"SL {sl:.{digits}f}"),
@@ -81,6 +91,18 @@ def build_signal(kind, symbol, bullish, origin, vol_count, entry, sl, tp,
         f"CTX::1M ENTRY::{label}",
         f"PA::{label} STOP-ENTRY ({rr:.1f}R{' — LATE' if late else ''})",
     ]
+    if retracement is not None:
+        # THE DEPTH BELONGS TO THE STALL, NOT TO THE RETRACEMENT — they are separate facts and the
+        # first version of this panel ran them together as "1 CANDLE · 235.8 PIPS", which reads as a
+        # 235-pip one-candle pullback. The candle count is the pullback; the pips are how far below
+        # the trend's own extreme price now sits.
+        smc.insert(3, f"CTX::RETRACEMENT::{retracement.bars} CANDLE"
+                      f"{'S' if retracement.bars != 1 else ''}"
+                  if retracement.active else "CTX::RETRACEMENT::NONE BEFORE THIS CANDLE")
+        smc.insert(4, f"CTX::BELOW THE TREND EXTREME::{retracement.pips / pip:.1f} PIPS "
+                      f"({retracement.atr:.2f}x ATR) · {retracement.stall_bars} CANDLES OLD")
+        smc.insert(5, f"CTX::DIRECTIONAL EFFICIENCY::"
+                      f"{'—' if efficiency is None else f'{efficiency:.2f}'}")
     if late:
         smc.append("PA::PAST THE RECOMMENDED ENTRY PRICE")
     if corr:

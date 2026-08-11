@@ -31,6 +31,7 @@ import logging
 from core.types import Candle
 from strategies.vix1_momentum import momentum_run, veto_reason
 from strategies import vix1_log
+from strategies.vix1_state import Bias, market_state
 from strategies.vix1_structure import leg_state
 from strategies.vix1_trend import trend_state
 
@@ -102,14 +103,14 @@ def _upto(window: list[Candle], h1: list[Candle], mc_idx: int) -> list[Candle]:
     return window[:pos + 1] if 0 <= pos < len(window) else window
 
 
-def detect_bias(h1: list[Candle], h4: list[Candle],
-                symbol: str = "") -> tuple[bool, int, str, int, str] | None:
+def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "") -> Bias | None:
     """
-    Returns (bullish, mc_idx, origin, run_len, reason) or None.
+    Returns a `Bias`, or None when no trade may be taken.
 
-    `mc_idx` indexes into H1 — the FIRST candle of the freshest momentum run; VIX.1 operates from it
-    and its close opens the 1M watch. `reason` names the BOS/CHoCH and the leg that justify the
-    trade, so the card and the log can show VIX.1's own working instead of asserting a direction.
+    `Bias.mc_idx` indexes into H1 — the FIRST candle of the freshest momentum run; VIX.1 operates
+    from it and its close opens the 1M watch. `Bias.reason` names the BOS/CHoCH and the leg that
+    justify the trade, so the card and the log can show VIX.1's own working instead of asserting a
+    direction.
 
     THE TREND DECIDES THE DIRECTION, then momentum is sought only that way — see the note in the
     body for the "freshest candle wins" defect this replaced. `origin` is `trend` or `trend4`; the
@@ -131,19 +132,33 @@ def detect_bias(h1: list[Candle], h4: list[Candle],
     t1 = tstate.direction
     t4 = trend_state(h4).direction if _ALLOW_H4 else 0
 
+    # MEASURED, NOT ENFORCED (Phase A). The 8-bar leg gate is still the only thing that can refuse;
+    # see vix1_state for why these decide nothing yet. Printed on EVERY path below — the refusals
+    # are the comparison group, and leaving them out would show half the picture.
+    #
+    # THIS ONE IS "AS OF NOW", for the two paths that have no momentum candle to speak of. The one
+    # that reaches the CARD is measured AT the momentum candle instead — see below.
+    _, _, state = market_state(window, tstate, symbol)
+
     want = t1 if t1 != 0 else (t4 if _ALLOW_H4 else 0)
     if want == 0:
         vix1_log.say(symbol, f"[vix1] {symbol} bias=NONE: no established 1HR trend "
-                             f"({tstate.reason()}) — pro-trend only, standing aside")
+                             f"({tstate.reason()}) — pro-trend only, standing aside | {state}")
         return None
 
     bullish = want == 1
     run = momentum_run(h1, bullish, symbol)
     if run is None:
         vix1_log.say(symbol, f"[vix1] {symbol} bias=NONE: {'up' if bullish else 'down'} trend but no "
-                             f"momentum candle that way — {veto_reason(h1, bullish, symbol)}")
+                             f"momentum candle that way — {veto_reason(h1, bullish, symbol)} | {state}")
         return None
     mc_idx = run[0]
+
+    # MEASURED AT THE MOMENTUM CANDLE, for the same causal reason the leg gate is (see below): "how
+    # many retracement candles did THIS candle come after" is a question about the candle, and it
+    # can be hours old. Reading it as of now would count a retracement that started afterwards.
+    at_mc = _upto(window, h1, mc_idx)
+    ret, eff, state_mc = market_state(at_mc, tstate, symbol)
 
     # 1) momentum WITH a clear 1HR trend.
     if t1 == want:
@@ -159,22 +174,22 @@ def detect_bias(h1: list[Candle], h4: list[Candle],
         leg = leg_state(_upto(window, h1, mc_idx), t1)
         if not leg.ready:
             vix1_log.say(symbol, f"[vix1] {symbol} bias=NONE: {'up' if bullish else 'down'} momentum WITH the "
-                                 f"trend, but the leg does not permit it — {leg.why}")
+                                 f"trend, but the leg does not permit it — {leg.why} | {state_mc}")
             return None
-        return (bullish, mc_idx, "trend", run[1],
-                f"{tstate.maturity} {tstate.reason()}; {leg.why}")
+        return Bias(bullish, mc_idx, "trend", run[1],
+                    f"{tstate.maturity} {tstate.reason()}; {leg.why}", ret, eff)
 
     # 2) 1HR trend UNCLEAR, momentum WITH a clear 4HR trend (the fallback) — MUTED, see _ALLOW_H4.
     if _ALLOW_H4 and t1 == 0 and t4 == want:
         leg = leg_state(_upto(window, h1, mc_idx), want)
         if not leg.ready:
             vix1_log.say(symbol, f"[vix1] {symbol} bias=NONE: 4HR-backed direction but the leg does not "
-                                 f"permit it — {leg.why}")
+                                 f"permit it — {leg.why} | {state_mc}")
             return None
         vix1_log.say(symbol, f"[vix1] {symbol} 4HR-BACKED TREND: 1HR trend unclear, 1HR momentum aligns with a clear "
-                 f"4HR {'up' if bullish else 'down'} trend")
-        return (bullish, mc_idx, "trend4", run[1],
-                f"4HR-backed ({tstate.maturity}); {leg.why}")
+                 f"4HR {'up' if bullish else 'down'} trend | {state_mc}")
+        return Bias(bullish, mc_idx, "trend4", run[1],
+                    f"4HR-backed ({tstate.maturity}); {leg.why}", ret, eff)
 
     # UNREACHABLE BY CONSTRUCTION, and deliberately left as an assertion rather than a silent path.
     # PRO-TREND ONLY (user 2026-07-25/26: "Only trade pro trend"). Since the trend now chooses the

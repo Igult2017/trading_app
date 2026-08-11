@@ -140,8 +140,9 @@ class Vix1Strategy(BaseStrategy):
         bias = detect_bias(h1, h4, sym)                     # trend on H4, momentum on H1; logs when None
         if bias is None:
             return StrategyResult(signals=out)
-        bullish, vc_idx, origin, vol_count, bias_reason = bias
-        vc = h1[vc_idx]
+        bullish, origin, vol_count = bias.bullish, bias.origin, bias.run_len
+        bias_reason = bias.reason
+        vc = h1[bias.mc_idx]
         if is_news_candle(vc, context.news, sym):           # NEVER trade the news candle itself
             vix1_log.say(sym, f"[vix1] {sym} 1st momentum candle is a news candle — skip")
             return StrategyResult(signals=out)
@@ -174,7 +175,8 @@ class Vix1Strategy(BaseStrategy):
             if not delivery_ledger.is_delivered(bkey):
                 bgrade, _ = momentum_grade(vc, bullish)
                 heads_up = vix1_building.building_signal(
-                    sym, bullish, vc, origin, vol_count, bgrade, digits, self.name, pip)
+                    sym, bullish, vc, origin, vol_count, bgrade, digits, self.name, pip,
+                    retracement=bias.retracement, efficiency=bias.efficiency)
                 heads_up.dedup_key = bkey        # committed only once the DM actually lands
                 out.append(heads_up)
             return StrategyResult(signals=out)
@@ -219,7 +221,8 @@ class Vix1Strategy(BaseStrategy):
                                grade, conf, mc_time=vc.time, line=draw_line(vc),
                                sl_note=s.get("sl_note", ""),
                                late=late, late_note=s.get("late_note", ""), rr=rr,
-                               bias_reason=bias_reason)
+                               bias_reason=bias_reason,
+                               retracement=bias.retracement, efficiency=bias.efficiency)
             sig.dedup_key = key          # committed ONLY once the signal is real — never here
             out.append(sig)
             self._recent[sym] = (bullish, now, key)

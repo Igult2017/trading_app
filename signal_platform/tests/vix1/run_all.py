@@ -12,6 +12,9 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 TESTS = [
+    "test_atr.py",                  # the volatility yardstick every depth is divided by
+    "test_retracement.py",          # the retracement, counted in real time (bars + depth)
+    "test_regime.py",               # directional efficiency — the range detector
     "test_momentum.py",             # the gates and grading, hand-built candles
     "test_line_pullback.py",        # the line, and the past-the-line rule
     "test_manage.py",               # the R ratchet and the structure exit

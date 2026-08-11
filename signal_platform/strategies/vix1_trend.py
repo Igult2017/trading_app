@@ -59,6 +59,10 @@ class TrendState:
     choch_price: float | None = None         # the CHoCH that started the current direction
     choch_index: int | None = None
     breaks: int = 0                          # BOS since this direction began — see `maturity`
+    # THE BAR THIS DIRECTION WAS ESTABLISHED ON. Exposed for the retracement tracker, which measures
+    # from the trend's best price SINCE THE TREND BEGAN and would otherwise have to replay this whole
+    # function a second time to find the start. Indexes into the window passed to `trend_state`.
+    direction_since: int | None = None
     highs: list[float] = field(default_factory=list)
     lows: list[float] = field(default_factory=list)
 
@@ -103,11 +107,13 @@ def trend_state(candles: list[Candle], n: int = _SWING_N) -> TrendState:
     since: list[float] = []       # counter-swings banked since the last BOS
     last_ext: float | None = None  # the last swing that EXTENDED the trend
     k = 0                          # a swing at j is only KNOWN j+n bars later
+    last_pi: int | None = None     # where the most recent pivot actually sits — see direction_since
 
     for i, c in enumerate(candles):
         while k < len(pts) and pts[k].index + n <= i:
             p = pts[k]; k += 1
             (st.highs if p.is_high else st.lows).append(p.price)
+            last_pi = p.index
 
             # CONFIRM a proposed reversal: the new direction must print its own BOS first.
             if st.pending and len(st.highs) >= 2 and len(st.lows) >= 2:
@@ -115,10 +121,12 @@ def trend_state(candles: list[Candle], n: int = _SWING_N) -> TrendState:
                     st.direction, st.protected = -1, max(st.highs[-2:])
                     st.bos_price, st.bos_index = p.price, p.index
                     st.pending, last_ext, since, st.breaks = 0, p.price, [], 1
+                    st.direction_since = p.index
                 elif st.pending == 1 and p.is_high and st.highs[-1] > st.highs[-2]:
                     st.direction, st.protected = 1, min(st.lows[-2:])
                     st.bos_price, st.bos_index = p.price, p.index
                     st.pending, last_ext, since, st.breaks = 0, p.price, [], 1
+                    st.direction_since = p.index
                 continue
 
             if st.direction == 0:
@@ -153,20 +161,22 @@ def trend_state(candles: list[Candle], n: int = _SWING_N) -> TrendState:
             if len(st.highs) >= 2 and len(st.lows) >= 2:
                 if st.highs[-1] > st.highs[-2] and st.lows[-1] > st.lows[-2]:
                     st.direction, st.protected, last_ext, since = 1, st.lows[-2], st.lows[-1], []
-                    st.breaks = 1
+                    st.breaks, st.direction_since = 1, last_pi
                 elif st.highs[-1] < st.highs[-2] and st.lows[-1] < st.lows[-2]:
                     st.direction, st.protected, last_ext, since = -1, st.highs[-2], st.highs[-1], []
-                    st.breaks = 1
+                    st.breaks, st.direction_since = 1, last_pi
         elif st.direction != 0 and st.protected is not None:
             # CHoCH — PROPOSE the reversal. The trend does not turn until that direction confirms.
             if st.direction == 1 and c.close < st.protected:
                 st.pending, st.direction = -1, 0
                 st.choch_price, st.choch_index = st.protected, i
                 st.protected, last_ext, since, st.breaks = None, None, [], 0
+                st.direction_since = None      # no direction, so nothing to measure a leg from
             elif st.direction == -1 and c.close > st.protected:
                 st.pending, st.direction = 1, 0
                 st.choch_price, st.choch_index = st.protected, i
                 st.protected, last_ext, since, st.breaks = None, None, [], 0
+                st.direction_since = None
 
     return st
 

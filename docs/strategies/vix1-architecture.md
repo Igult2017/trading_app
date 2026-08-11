@@ -44,13 +44,16 @@ VIX.1 has shipped a bug from reading the forming bar as a level, and **a backtes
 
 ---
 
-## Module map — 17 files, ~2,200 lines
+## Module map — 20 files, ~2,400 lines
 
 | file | owns |
 |---|---|
 | `vix1.py` | orchestrator: watch → bias → news gates → **spacing** → 1M signals → grade → build |
 | `vix1_spacing.py` | **how long the instrument stays shut after a signal** (added 2026-07-27) |
-| `vix1_bias.py` | `detect_bias(h1, h4, symbol)` — momentum on H1, trend on H1 (H4 only as a fallback) |
+| `vix1_bias.py` | `detect_bias(h1, h4, symbol) -> Bias \| None` — momentum on H1, trend on H1 (H4 only as a fallback) |
+| `vix1_state.py` | **`Bias` (what the 1HR decided) + `market_state` (the state it decided it in)** — added 2026-08-11 |
+| `vix1_retracement.py` | **the retracement, counted in real time** — `bars` (the pullback this candle came after) and `stall_bars` (how long since the trend made progress). Added 2026-08-11, decides nothing yet |
+| `vix1_regime.py` | **directional efficiency — the range detector VIX.1 never had.** Added 2026-08-11, decides nothing yet |
 | `vix1_momentum.py` | momentum-candle detection + `momentum_grade` (A/B/C → confidence) |
 | `vix1_building.py` | the "setup building" card — a setup seen before its entry exists |
 | `vix1_log.py` | per-symbol log throttling, so a silent scan does not spam |
@@ -169,6 +172,51 @@ and the two-stage turn would have revived it into the reversal window (18% / 11%
 **Measured over 2 years, both pairs:** 11.4 setups/month GBP/USD, 14.4 EUR/USD; the pullback refusal
 removes 26% of all momentum candles on BOTH pairs.
 
+### PHASE A — the retracement is COUNTED, and a range is DETECTED (added 2026-08-11)
+
+His rule: *"A pullback can be from 1 candle or more so it should count candles... After a rally we
+start counting retracement candles and if a momentum candle comes after them we trade."* And:
+*"length never disqualifies — the retracement, the reversal detector and the range detector work hand
+in hand."*
+
+**Why the 8-bar structure read could not answer it** — measured over 12 months, both pairs:
+
+| | |
+|---|---|
+| it fires on the wrong SIZE of move | refuses at a median **58 pips / 43 bars**, allows at **19 pips / 14 bars** |
+| it says nothing about a live pullback | counter candles just before: **0** when it allows, **1** when it refuses |
+| it is 8 hours late by construction | a pivot needs 8 bars *after* it before it can be confirmed |
+| it is blind to short retracements | **99%** of retracements run under 8 candles (48% are one candle, 26% two) |
+| its most common answer is "cannot tell" | **40%** of momentum candles read "mixed" — which passes |
+| nothing detected a range, ever | the trend reader **never once** said "no trend" in 12 months |
+| so we trade chop routinely | our trades sit at efficiency **0.25** vs the market's **0.21** — the same market |
+
+**Three layers now, one question each.** `vix1_trend` (48-bar structure) owns direction and the
+reversal — **unchanged**. `vix1_retracement` owns the pullback. `vix1_regime` owns "is this still a
+trend at all".
+
+**`vix1_retracement` carries TWO numbers, and conflating them was a real defect** caught by measuring
+after the plan was approved. `bars` is the retracement the latest candle **came after** — the candle
+itself is stepped over, because a momentum candle goes the trend's way and a walk-back straight from
+the end reported **0 at 100% of setups on both pairs**. `stall_bars` is candles since the trend last
+made a new extreme — a different fact, median **156**, which is a true statement about the trend and
+a useless answer to "how long is this pullback". Depth is given in pips **and** in ATR.
+
+**`vix1_regime`** is directional efficiency: net distance ÷ path walked, over 20 closed bars. No
+pivots, so no delay. **There is deliberately no threshold constant in the file** — the measured
+distribution is perfectly smooth with no natural break, and cutting at 0.20 would call ~47% of all
+time "ranging" and remove ~41% of current trades.
+
+**PHASE A DECIDES NOTHING.** Both are computed, printed on the card, on the heads-up DM, and on
+**every** log line including the refusals (the refused setups are the comparison group). The 8-bar
+leg gate is still the only thing that can refuse. **Proven, not asserted:** the 12-month replay
+produces byte-identical setups before and after. Thresholds are Phase B, set by the user from real
+signals — picking them from one year of two pairs is how the n=12 swing width (55% agreement) and the
+daily timeframe (65%) each looked right on the day and were worse over four years.
+
+**Measured at the momentum candles, 12 months:** retracement median 0–1 candles (quartiles 0/2);
+**91–95% of retracements are 3 candles or fewer**, i.e. invisible to the 8-bar read.
+
 ### The trend window is PINNED (`vix1_bias._H1_TREND_BARS = 1500`)
 
 `vix1.candle_counts[TF.H1]` was raised 1500 → 3000 on 2026-08-10 to feed the long size test. The
@@ -213,6 +261,18 @@ EUR/USD trend verdicts change.** Pinned, 260/260 and 154/154 identical.
    of a finished move is accepted. Deferred (user decision, 2026-07-27) because the spacing rule
    already refuses the specific 27 Jul case and stacking two new filters at once would make any
    frequency change unattributable.
+7. **RANGES ARE MEASURED BUT STILL TRADED — Phase B, awaiting his thresholds (2026-08-11).**
+   `vix1_regime` now reports directional efficiency, and it shows the strategy trading chop routinely:
+   the momentum candles it allows sit at a median efficiency of **0.25 (GBP/USD) / 0.24 (EUR/USD)**
+   against a whole-market median of **0.21 / 0.22** — no different — with **17% / 24%** of trades in
+   the choppiest tenth of the market. Nothing acts on this yet, by design. The cut point is his to
+   set from real signals; there is no natural break in the distribution to find automatically.
+8. **The developing-trend requirement is NOT implemented — Phase B (2026-08-11).** His rule: when a
+   trend has only just formed (HH + HL, or LL + LH), the momentum candle must come **after** a
+   retracement. Measured, requiring it would remove **26% of GBP/USD and 16% of EUR/USD** momentum
+   candles. That is a real behaviour change, so it was deliberately held back from Phase A, which
+   changes nothing. `Retracement.bars` and `TrendState.maturity` are both already carried, so the
+   rule is a comparison away when he asks for it.
 
 *(The "no test suite" gap was closed 2026-07-27 — see below.)*
 
@@ -221,19 +281,28 @@ EUR/USD trend verdicts change.** Pinned, 260/260 and 154/154 identical.
 - **VIX.1 cannot fire on a stale pullback.** `find_pullback` scans **backwards from the newest bar**
   and takes the most recent counter candle, and the M1 window is sized to `LOOKBACK + 2` hours — so a
   pullback from hours or days ago can never become an entry. Verified 2026-07-27.
-- **Only one genuinely unused import** across all 13 files (AST-verified, not grep-guessed).
-- **No dead functions**, no TODO/FIXME/HACK markers.
+- **No unused imports** across the strategy files (AST-verified, not grep-guessed; re-checked
+  2026-08-11 after the retracement/regime work).
+- **No dead functions**, no TODO/FIXME/HACK markers. A `max(0.0, …)` clamp in `vix1_retracement`
+  was deleted on 2026-08-11 when breaking it on purpose left every test green — the signature of a
+  branch that cannot run.
 
 ## The test suite — `signal_platform/tests/vix1/`
 
 ```
-python signal_platform/tests/vix1/run_all.py     # 71 checks, ~90s, exit non-zero on failure
+python signal_platform/tests/vix1/run_all.py     # 11 files, exit non-zero on failure
 ```
 
 No framework, no network, no DB. **Run it before writing the doc entry for a change, not after.**
+Every file bootstraps through `_harness.py` — it puts the platform on the path AND sets a dummy
+`DATABASE_URL`, which anything importing `strategies/` needs. Skip it and the file passes from the
+platform root and fails under `run_all.py`, which runs from the test directory.
 
 | file | covers |
 |---|---|
+| `test_atr.py` | the volatility yardstick: true range vs plain high-minus-low (the gap case), the window, the edges |
+| `test_retracement.py` | the pullback counted by hand (1/2/3/7/12 candles), a doji continuing it, the retracement a candle CAME AFTER vs a rally, the two counts differing, real-time (no 8-bar wait), the closed-candle rule |
+| `test_regime.py` | efficiency: 1.0 on a straight line, 0 on a zigzag, ordered in between, "too little history" ≠ "a range" |
 | `test_momentum.py` | every gate BOTH ways (accepts and rejects): size vs median, body fraction, bigger-than-previous, counter-wick cap; grading incl. the A boundary; the run; `baseline_body` |
 | `test_line_pullback.py` | the line is the BODY CLOSE; **past-the-line accepted / refused / straddling refused / exactly ON accepted**, both directions; `traded_past`; the shape filters |
 | `test_manage.py` | ratchet 2R→1R, 3R→2R, whole-R steps, **forward-only**; the structure exit by body close, wicks never counting |
