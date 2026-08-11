@@ -16,6 +16,7 @@ properties. NOT A BACKTEST: no P&L, no win rate, no trades simulated.
 """
 from _harness import Suite, body, load
 
+from strategies import vix1_bias
 from strategies.vix1_bias import _H1_SWING_N, _H1_TREND_BARS
 from strategies.vix1_structure import _FAST_N, fast_pattern, leg_state
 from strategies.vix1_trend import trend_state
@@ -122,6 +123,14 @@ for pair in ("EURUSD", "GBPUSD"):
                  if (lambda st: st.direction != 0 and st.protected is None)(
                      trend_state(bars[:end][-_H1_TREND_BARS:], n=_H1_SWING_N)))
     s.check(f"{pair}: never in a trend with no level that could end it", frozen, 0)
+
+# ── the 4HR fallback is MUTED, and must stay muted until deliberately switched ───────────────────
+# Kept, not deleted, on his instruction: "Dont remove it. Just mute it so that we can turn it on when
+# we ever need it in future." It is off because the two-stage turn gave `t1 == 0` a second meaning
+# ("a reversal is pending"), which would have let it trade mid-reversal — measured, 5 times in the
+# last 600 GBP/USD bars alone.
+print()
+s.check("the 4HR fallback ships MUTED", vix1_bias._ALLOW_H4, False)
 
 # ── teeth ────────────────────────────────────────────────────────────────────────────────────────
 print()

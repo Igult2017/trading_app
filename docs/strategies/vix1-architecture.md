@@ -55,7 +55,7 @@ VIX.1 has shipped a bug from reading the forming bar as a level, and **a backtes
 | `vix1_building.py` | the "setup building" card — a setup seen before its entry exists |
 | `vix1_log.py` | per-symbol log throttling, so a silent scan does not spam |
 | `vix1_trend.py` | `trend_state` / `clear_trend` — the trend as structure, plus the BOS and CHoCH that move it |
-| `vix1_structure.py` | `leg_state` — WHERE IN THE LEG we are; the rule that refuses pullbacks and ranges |
+| `vix1_structure.py` | `fast_pattern` / `leg_state` — the ONE refusal: is the faster structure trending the opposite way (a pullback)? Never decides direction |
 | `vix1_lines.py` | `draw_line` — ONE line, the momentum candle's body close |
 | `vix1_pullback.py` | `find_pullback` — the counter candle, and the past-the-line gate |
 | `vix1_fractal.py` | fractal levels/breaks for the wrong-side case |
@@ -157,10 +157,17 @@ the 4-year stability property. Do not retry it without new evidence.
 the OLD raw count beside it. The definition changed because a turn now has three states, not to
 flatter the numbers — the user insisted both be kept visible.
 
-**`vix1_structure.leg_state` is the leg gate.** Direction NEVER comes from it (half of pullbacks are
-complex and read as the opposite trend on a fast scale); it only answers "has the pullback finished?"
-Swing width **8**, provisional — 5/8/12 open the gate 14.7% / 11.5% / 8.3% of the time, to be settled
-later on live results.
+**`vix1_structure` may only say NO.** Direction comes solely from `vix1_trend`; this module refuses
+only when the faster (8-bar) structure is trending the OPPOSITE way — "the candle is in a pullback".
+An unclear or mixed faster reading does NOT block a trade. Requiring positive confirmation was tried
+and rejected: it permitted trading only 15-18% of the time a trend existed.
+
+**The 4HR fallback is MUTED, not deleted** (`vix1_bias._ALLOW_H4 = False`) — kept on his explicit
+instruction, with the dead-code rule waived in the comment. It was already dead (0 of 622 samples),
+and the two-stage turn would have revived it into the reversal window (18% / 11% of momentum candles).
+
+**Measured over 2 years, both pairs:** 11.4 setups/month GBP/USD, 14.4 EUR/USD; the pullback refusal
+removes 26% of all momentum candles on BOTH pairs.
 
 ### The trend window is PINNED (`vix1_bias._H1_TREND_BARS = 1500`)
 

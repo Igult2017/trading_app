@@ -66,6 +66,29 @@ _H1_SWING_N = 48
 # tests/vix1/test_trend.py.
 _H1_TREND_BARS = 1500
 
+# THE 4HR FALLBACK — MUTED 2026-08-11, KEPT ON PURPOSE. Flip to True to bring it back.
+#
+# DO NOT DELETE THIS AS DEAD CODE. The standing rule is that unused code is removed; this is the
+# exception, on his explicit instruction: "Dont remove it. Just mute it so that we can turn it on
+# when we ever need it in future." The H4 candles are still fetched (vix1.candle_counts[TF.H4]) so
+# switching this back on needs nothing else.
+#
+# WHAT IT DID: when the 1HR trend was UNCLEAR but the 4HR trend agreed with the momentum candle,
+# take the trade anyway — "the 1HR is catching up to the 4HR, not reversing".
+#
+# WHY IT IS OFF. It was already dead: measured over 12 months on both pairs, the 1HR trend was never
+# unclear (0 of 622 samples), so the branch never ran. Then the two-stage turn (2026-08-11) gave
+# `t1 == 0` a SECOND meaning — "a reversal is proposed but not yet confirmed" — and that state now
+# occurs on 18% of GBP/USD momentum candles and 11% of EUR/USD. So a branch that had never executed
+# would suddenly start trading in the single worst window: while the 1HR trend is mid-reversal. That
+# is the opposite of "I want the system to be cautious about calling a reversal", and of "we don't
+# trade ranging markets". It also printed nonsense on the card ("4HR-backed (none)"), because there
+# is no maturity to report when there is no 1HR trend.
+#
+# IF IT IS EVER TURNED BACK ON: `t1 == 0` must first be split into its two meanings — "no trend has
+# ever formed" and "a reversal is pending" — because only the first is arguably safe here.
+_ALLOW_H4 = False
+
 
 def detect_bias(h1: list[Candle], h4: list[Candle],
                 symbol: str = "") -> tuple[bool, int, str, int, str] | None:
@@ -114,9 +137,8 @@ def detect_bias(h1: list[Candle], h4: list[Candle],
         return (bullish, mc_idx, "trend", run[1],
                 f"{tstate.maturity} {tstate.reason()}; {leg.why}")
 
-    # 2) 1HR trend UNCLEAR, momentum WITH a clear 4HR trend (the fallback). Preferred over a 1HR CHoCH:
-    #    if the 4HR is already trending our way, the 1HR is catching up to it, not reversing.
-    if t1 == 0 and t4 == want:
+    # 2) 1HR trend UNCLEAR, momentum WITH a clear 4HR trend (the fallback) — MUTED, see _ALLOW_H4.
+    if _ALLOW_H4 and t1 == 0 and t4 == want:
         leg = leg_state(window, want)
         if not leg.ready:
             vix1_log.say(symbol, f"[vix1] {symbol} bias=NONE: 4HR-backed direction but the leg does not "
