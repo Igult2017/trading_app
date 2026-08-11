@@ -215,45 +215,40 @@ including the refusals (the refused setups are the comparison group). **Proven, 
 user from real signals — picking them from one year of two pairs is how the n=12 swing width (55%
 agreement) and the daily timeframe (65%) each looked right on the day and were worse over four years.
 
-### THE ONE RULE THAT DOES DECIDE — a new trend must show its first pullback
+### THE DEVELOPING-TREND RULE WAS BUILT AND REVERTED THE SAME DAY — read this before rebuilding it
 
-`vix1_structure.developing_needs_retracement(maturity, retracement)`. His rule, and his instruction
-to build it rather than hold it: *"So the first retracement and then when a momentum candle builds
-showing the potential continuation of the price, we trade. If not, the trend is now confirmed and we
-can get any momentum candle along the trend."*
+Built 2026-08-11 on his instruction, reverted 2026-08-12 on his own correction. **Do not re-add it
+without reading why it was wrong**, because it looked entirely reasonable and it measured cleanly.
 
-| trend maturity | retracement before the momentum candle | verdict |
-|---|---|---|
-| **developing** (first HH+HL / LL+LH, no continuation yet) | none | **REFUSED** |
-| **developing** | 1 candle or more — *length never disqualifies* | allowed |
-| **developed** (≥1 break of structure behind it) | anything, including none | allowed — the rule does not apply |
+**What was built:** a `developing` trend could only be traded off a momentum candle that came AFTER a
+retracement. It removed 28.1% of GBP/USD and 15.1% of EUR/USD setups — half of every developing
+setup — and refused 0 developed ones. Mechanically flawless, and answering the wrong question.
 
-**Measured through the live `detect_bias` over 12 months, both pairs:**
+**WHY IT WAS WRONG — two separate errors, and the second is the one to remember.**
 
-| | setups without the rule | with it | removed |
-|---|---|---|---|
-| GBP/USD | 167 | 120 | **28.1%** |
-| EUR/USD | 185 | 157 | **15.1%** |
+1. *His stated rule was already guaranteed.* "The momentum candle comes after the first HH and HL" is
+   structural, not a filter: a 48-bar swing cannot be confirmed until 48 bars after it prints, and
+   the momentum candle is only ever sought in the last `LOOKBACK=12` bars. Measured over 12 months,
+   the gap between the establishing swing and the momentum candle was **never** negative — min 41
+   bars, median 209, on both pairs. The rule as he described it can never fail, so anything that DOES
+   fail is a different rule wearing its name.
 
-It refuses **0 developed setups on either pair** — asserted in `test_structure.py`, not assumed,
-because that is the half of the rule easiest to break silently. (On the narrower slice of setups the
-leg gate already allows, the same measurement reads 24.9% / 14.0%.)
+2. *The `developing` label does not mean what it sounds like.* A trend stays `developing` until its
+   NEXT swing high is confirmed at the 48-bar scale, which takes a median of **209 bars — over eight
+   trading days**. His "we start looking once the second high begins printing after the first low" is
+   a REAL-TIME observation, made as the second high forms. The label is a CONFIRMED-STRUCTURE
+   reading, made a week later. They are not the same event, and gating on the label was therefore
+   gating on something he had never described.
 
-**The two pairs differ by nearly 2×, and that is the trend mix, not a bug:** GBP/USD spends far more
-of the year in *developing* trends (409 of 752 setups) than EUR/USD (257 of 844), so the rule has
-more to bite on. Worth remembering before reading any per-pair frequency change as a defect.
+**His rule, corrected 2026-08-12 and stated plainly:**
 
-**MATURITY IS READ AT THE MOMENTUM CANDLE, not at the latest bar.** The candle can be up to
-`LOOKBACK=12` bars old (median 5) and a swing's confirmation can land inside that gap: measured, the
-two reads differ on **0.9% of GBP/USD and 1.8% of EUR/USD** setups. So `detect_bias` replays the
-trend on the truncated window (`t_mc`) and uses that for maturity, for the retracement's starting
-point, and for the card's reason. If the candle formed mid-reversal (no direction at that point) it
-falls back to the current read rather than refusing — that would be a second, unasked-for rule.
+> "It is not a rule that the momentum candle must only come in the high after the first retracement —
+> it can come anywhere along the trend so long as we are in trend, and that candle must not be in a
+> retracement, because retracements can sometimes turn into a reversal."
 
-**Applied AFTER the leg gate**, deliberately, so its refusals are attributable to it alone.
-
-**Measured at the momentum candles, 12 months:** retracement median 0–1 candles (quartiles 0/2);
-**91–95% of retracements are 3 candles or fewer**, i.e. invisible to the 8-bar read.
+So there is **no separate developing rule**. There is one condition on the candle — *it must not be
+in a retracement* — and it applies at every maturity. That is the same job `vix1_structure.leg_state`
+is doing today, badly (see the table above); replacing it is open work, not a settled design.
 
 ### The trend window is PINNED (`vix1_bias._H1_TREND_BARS = 1500`)
 
@@ -305,11 +300,13 @@ EUR/USD trend verdicts change.** Pinned, 260/260 and 154/154 identical.
    against a whole-market median of **0.21 / 0.22** — no different — with **17% / 24%** of trades in
    the choppiest tenth of the market. Nothing acts on this yet, by design. The cut point is his to
    set from real signals; there is no natural break in the distribution to find automatically.
-8. ~~**The developing-trend requirement is NOT implemented.**~~ **BUILT 2026-08-11**, same day, on
-   his instruction: *"You cant hold this back. I need it build."* I had deferred it as "a real
-   behaviour change" — that was my call to make about sequencing, not about whether to build it, and
-   he overruled it correctly. See the section above; it removes 28.1% of GBP/USD setups and refuses
-   0 developed ones.
+8. **THE ONE CONDITION ON THE MOMENTUM CANDLE IS "NOT IN A RETRACEMENT" — and nothing implements it
+   properly yet (2026-08-12).** His corrected rule: the candle may come anywhere along the trend, at
+   any maturity, provided it is not inside a retracement. `leg_state` is the current stand-in and it
+   is measurably the wrong instrument (58 pips / 43 bars to refuse; blind to 99% of retracements).
+   The real-time retracement numbers now exist to build it on. **Blocked on one decision:** what
+   "still in a retracement" means at the instant a momentum candle appears, given the candle itself
+   goes the trend's way.
 
 *(The "no test suite" gap was closed 2026-07-27 — see below.)*
 

@@ -32,7 +32,7 @@ from core.types import Candle
 from strategies.vix1_momentum import momentum_run, veto_reason
 from strategies import vix1_log
 from strategies.vix1_state import Bias, market_state
-from strategies.vix1_structure import developing_needs_retracement, leg_state
+from strategies.vix1_structure import leg_state
 from strategies.vix1_trend import trend_state
 
 log = logging.getLogger(__name__)
@@ -184,18 +184,8 @@ def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "") -> Bias | 
                                  f"trend, but the leg does not permit it — {leg.why} | {state_mc}")
             return None
 
-        # A NEW TREND MUST SHOW ITS FIRST PULLBACK BEFORE IT IS TRADED (his rule, 2026-08-11).
-        # Applied AFTER the leg gate on purpose: it speaks only for setups that previously passed,
-        # so the refusal counts are attributable to this rule alone.
-        why = developing_needs_retracement(mstate.maturity, ret)
-        if why:
-            vix1_log.say(symbol, f"[vix1] {symbol} bias=NONE: {why} | {state_mc}")
-            return None
-
         return Bias(bullish, mc_idx, "trend", run[1],
-                    f"{mstate.maturity} {mstate.reason()}; {leg.why}"
-                    + (f"; permitted because it came after a {ret.bars}-candle retracement"
-                       if mstate.maturity == "developing" else ""), ret, eff)
+                    f"{mstate.maturity} {mstate.reason()}; {leg.why}", ret, eff)
 
     # 2) 1HR trend UNCLEAR, momentum WITH a clear 4HR trend (the fallback) — MUTED, see _ALLOW_H4.
     if _ALLOW_H4 and t1 == 0 and t4 == want:

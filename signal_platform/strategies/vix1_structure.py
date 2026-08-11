@@ -42,7 +42,6 @@ from dataclasses import dataclass
 
 from core.types import Candle
 from shared.swing_points import find_swing_points
-from strategies.vix1_retracement import Retracement
 
 # The faster structure's swing width. NOT the trend's (48). A swing needs `n` bars EITHER SIDE to be
 # confirmed, so at 48 a pullback low is known two days and a median 92 pips later — far too late to
@@ -102,37 +101,6 @@ def fast_pattern(candles: list[Candle], n: int = _FAST_N) -> str:
     if highs[-1].price < highs[-2].price and lows[-1].price < lows[-2].price:
         return "down"
     return "mixed"
-
-
-def developing_needs_retracement(maturity: str, ret: Retracement) -> str | None:
-    """A DEVELOPING trend may only be traded off a momentum candle that came AFTER a retracement.
-    Returns the refusal reason, or None to allow.
-
-    HIS RULE, 2026-08-11, in his own words: *"So the first retracement and then when a momentum
-    candle builds showing the potential continuation of the price, we trade. If not, the trend is now
-    confirmed and we can get any momentum candle along the trend but not in a retracement or a
-    reversal or a ranging market."*
-
-    So the sequence a NEW trend must show is: first HH + HL (or LL + LH) -> retracement -> momentum
-    candle. The retracement is what makes the momentum candle evidence of CONTINUATION rather than
-    just another bar in the first push. Once the trend has continued at least once — `developed` — it
-    has already proved itself, and a momentum candle anywhere along it is tradeable; that case is not
-    this function's business.
-
-    MEASURED over 12 months on setups the leg gate already allows: this refuses **24.9% of GBP/USD
-    and 14.0% of EUR/USD**, and **0 developed setups on either pair** — the rule cannot touch a trend
-    it does not apply to, which is asserted in the tests rather than assumed.
-
-    `maturity` MUST be read at the momentum candle, not at the latest bar. Measured, the two differ
-    on 0.9% (GBP/USD) / 1.8% (EUR/USD) of setups, because the candle can be up to LOOKBACK=12 bars
-    old (median 5) and a swing's confirmation can land inside that window. Small, but the question is
-    causal — "had this trend already continued when the candle formed?" — and the caller passes the
-    at-the-candle read.
-    """
-    if maturity != "developing" or ret.active:
-        return None
-    return ("the trend has only just formed (developing) and this momentum candle did not come "
-            "after a retracement — a new trend must show its first pullback before it is traded")
 
 
 def leg_state(candles: list[Candle], direction: int, n: int = _FAST_N) -> LegState:
