@@ -228,9 +228,20 @@ can get any momentum candle along the trend."*
 | **developing** | 1 candle or more — *length never disqualifies* | allowed |
 | **developed** (≥1 break of structure behind it) | anything, including none | allowed — the rule does not apply |
 
-**Measured through the live `detect_bias` over 12 months:** GBP/USD **167 → 120** distinct setups
-(**28.1% removed**); on setups the leg gate already allows it refuses 24.9% (GBP/USD) / 14.0%
-(EUR/USD) and **0 developed setups on either pair** — asserted in `test_structure.py`, not assumed.
+**Measured through the live `detect_bias` over 12 months, both pairs:**
+
+| | setups without the rule | with it | removed |
+|---|---|---|---|
+| GBP/USD | 167 | 120 | **28.1%** |
+| EUR/USD | 185 | 157 | **15.1%** |
+
+It refuses **0 developed setups on either pair** — asserted in `test_structure.py`, not assumed,
+because that is the half of the rule easiest to break silently. (On the narrower slice of setups the
+leg gate already allows, the same measurement reads 24.9% / 14.0%.)
+
+**The two pairs differ by nearly 2×, and that is the trend mix, not a bug:** GBP/USD spends far more
+of the year in *developing* trends (409 of 752 setups) than EUR/USD (257 of 844), so the rule has
+more to bite on. Worth remembering before reading any per-pair frequency change as a defect.
 
 **MATURITY IS READ AT THE MOMENTUM CANDLE, not at the latest bar.** The candle can be up to
 `LOOKBACK=12` bars old (median 5) and a swing's confirmation can land inside that gap: measured, the
