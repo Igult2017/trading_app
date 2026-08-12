@@ -10,6 +10,7 @@ pending setup went stale). On a genuine invalidation the strategy sends a DM ale
 """
 from core.types import Candle, Signal, Direction, TF
 from strategies.vix1_bias import _H1_SWING_N, _H1_TREND_BARS
+from strategies.vix1_swings import structure_turns
 from strategies.vix1_trend import trend_state
 
 _LOCK_TTL = 24 * 3600  # matches the platform's own signal lifetime (signal_repo.expire_stale, 24h).
@@ -73,7 +74,18 @@ def check_invalidation(locked: dict, h1: list[Candle], h4: list[Candle], m1: lis
     #
     # A resting order must be judged on WHERE THE TREND POINTS. Whether a fresh entry is currently
     # permitted is a different question and has no business in this one.
-    trend = trend_state(h1[-_H1_TREND_BARS:], n=_H1_SWING_N).direction
+    #
+    # AND IT MUST BE THE SAME TREND READER THAT OPENED THE SETUP (2026-08-12, audit fix). This called
+    # `trend_state` with no turning points, so it still read the OLD 48-bar lookback trend while the
+    # setup had been created from the real-time one. Measured over 12 months, the two disagreed on
+    # **56% of GBP/USD and 60% of EUR/USD** momentum candles — so more than half of all resting orders
+    # were being judged for cancellation by a reader that contradicted the one that opened them:
+    # cancelled while the real trend was intact, or left alive after it had genuinely flipped.
+    #
+    # This is the SAME CLASS OF DEFECT caught in this same file on 11 Aug — asking a question that no
+    # longer means what it used to. Both times the fix is to ask exactly what the entry asked.
+    win = h1[-_H1_TREND_BARS:]
+    trend = trend_state(win, n=_H1_SWING_N, turns=structure_turns(win, _H1_SWING_N)).direction
     if trend != 0 and (trend == 1) != bullish:
         return "1HR trend flipped against the setup"
     return None

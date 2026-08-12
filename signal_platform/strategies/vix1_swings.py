@@ -101,7 +101,31 @@ def turning_points(candles: list[Candle]) -> list[Turn]:
     return out
 
 
-def as_sequence(turns: list[Turn]) -> list[tuple[bool, float]]:
-    """The (is_high, price) form `vix1_trend._establish` reads, so his trend rule is applied to these
-    turning points exactly as it is to any others — one rule, two possible sources."""
-    return [(t.is_high, t.price) for t in turns]
+# ONE SOURCE OF TRUTH FOR WHERE TURNING POINTS COME FROM (2026-08-12, audit fix).
+#
+# It used to be a private helper in `vix1_bias` that returned None for the fallback, and two things
+# went wrong with that:
+#   * `vix1_watch` never got the memo and kept reading the OLD lookback trend, so a resting order was
+#     judged for cancellation by a reader that DISAGREED with the one that opened it — measured, on
+#     56% of GBP/USD and 60% of EUR/USD momentum candles.
+#   * `classify(turns or [], ...)` turned that None into an empty list, so flipping the flag off made
+#     the regime UNCERTAIN forever and silently muted the strategy: 24 setups -> 0. A switch that
+#     reads like a fallback and behaves like a kill switch.
+#
+# So the flag lives here, every consumer asks this function, and the fallback returns REAL pivots in
+# the same shape — an A/B switch, not an off switch.
+REALTIME = True
+
+
+def structure_turns(candles: list[Candle], n: int = 48) -> list[Turn]:
+    """The turning points the whole strategy reads. Never empty-by-accident.
+
+    With `REALTIME` on, turns are marked when price closes through the candle that made the extreme.
+    With it off, the n-bar lookback pivots are adapted to the same shape — knowable `n` bars after
+    they print, which is exactly what that detector means.
+    """
+    if REALTIME:
+        return turning_points(candles)
+    from shared.swing_points import find_swing_points
+    return [Turn(p.is_high, p.price, p.index, p.index + n)
+            for p in find_swing_points(candles, n)]

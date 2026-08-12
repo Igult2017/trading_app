@@ -20,13 +20,15 @@ from core.types import Candle, Signal, Direction, TF
 from charting import theme
 from strategies.vix1_lines import draw_line
 from strategies.vix1_retracement import Retracement
+from strategies.vix1_regime import Regime
 from strategies.vix1_state import state_line
 
 
 def building_signal(symbol: str, buy: bool, vc: Candle, origin: str, vol_count: int,
                     grade: str, digits: int, strategy_name: str, pip: float,
                     retracement: Retracement | None = None,
-                    efficiency: float | None = None) -> Signal:
+                    efficiency: float | None = None,
+                    regime: Regime | None = None) -> Signal:
     """The stage-1 card: bias confirmed, entry pending."""
     side = "BUY" if buy else "SELL"
     body = abs(vc.close - vc.open) / pip
@@ -59,7 +61,7 @@ def building_signal(symbol: str, buy: bool, vc: Candle, origin: str, vol_count: 
             f"in the run, grade {grade}",
             # The same market-state line the ready card carries, so a heads-up and the entry that
             # follows it can be compared directly. Decides nothing (Phase A).
-            *( [state_line(retracement, efficiency, pip)] if retracement is not None else [] ),
+            *( [state_line(retracement, efficiency, pip, regime)] if retracement is not None else [] ),
             "Waiting for the 1M pullback entry — no entry, stop or target until it confirms",
             "This is a HEADS-UP, not a trade. The ready card follows if the entry confirms.",
         ],

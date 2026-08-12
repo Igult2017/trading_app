@@ -176,7 +176,8 @@ class Vix1Strategy(BaseStrategy):
                 bgrade, _ = momentum_grade(vc, bullish)
                 heads_up = vix1_building.building_signal(
                     sym, bullish, vc, origin, vol_count, bgrade, digits, self.name, pip,
-                    retracement=bias.retracement, efficiency=bias.efficiency)
+                    retracement=bias.retracement, efficiency=bias.efficiency,
+                    regime=bias.regime)
                 heads_up.dedup_key = bkey        # committed only once the DM actually lands
                 out.append(heads_up)
             return StrategyResult(signals=out)
@@ -222,7 +223,8 @@ class Vix1Strategy(BaseStrategy):
                                sl_note=s.get("sl_note", ""),
                                late=late, late_note=s.get("late_note", ""), rr=rr,
                                bias_reason=bias_reason,
-                               retracement=bias.retracement, efficiency=bias.efficiency)
+                               retracement=bias.retracement, efficiency=bias.efficiency,
+                    regime=bias.regime)
             sig.dedup_key = key          # committed ONLY once the signal is real — never here
             out.append(sig)
             self._recent[sym] = (bullish, now, key)

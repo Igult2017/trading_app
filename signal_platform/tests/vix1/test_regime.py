@@ -14,7 +14,7 @@ import sys
 import _harness  # noqa: F401
 
 from core.types import Candle                                                    # noqa: E402
-from strategies.vix1_regime import (CHOP, RANGE, TREND, UNCERTAIN, _BOUNDARY_ATR,  # noqa: E402
+from strategies.vix1_regime import (CHOP, RANGE, TREND, UNCERTAIN, Regime, _BOUNDARY_ATR,  # noqa: E402
                                     _PROGRESS_ATR, _WINDOW, classify, describe,
                                     efficiency)
 from strategies.vix1_swings import Turn                                          # noqa: E402
@@ -52,11 +52,13 @@ print("\nTREND — both sides must progress by more than 0.50 ATR")
 up = turns((True, 1.1000), (False, 1.0950), (True, 1.1000 + 0.6 * ATR + 0.0001),
            (False, 1.0950 + 0.6 * ATR + 0.0001))
 check("higher high AND higher low, both clearing 0.5 ATR -> TREND", classify(up, ATR).kind, TREND)
-check("...and it says which way", classify(up, ATR).direction, 1)
 dn = turns((False, 1.1000), (True, 1.1050), (False, 1.1000 - 0.6 * ATR - 0.0001),
            (True, 1.1050 - 0.6 * ATR - 0.0001))
-check("lower high AND lower low -> TREND down", (classify(dn, ATR).kind, classify(dn, ATR).direction),
-      (TREND, -1))
+check("lower high AND lower low -> TREND down", classify(dn, ATR).kind, TREND)
+# `Regime.direction` was DELETED 2026-08-12: it had zero uses. Direction comes from vix1_trend, which
+# has the CHoCH and two-stage machinery; a second opinion here would be a rule nobody asked for.
+check("the regime does NOT carry a direction — vix1_trend owns that",
+      "direction" in Regime.__dataclass_fields__, False)
 
 print("\n...but ONE side progressing is not a trend")
 # a higher high with a LOWER low is price broadening out, not a trend

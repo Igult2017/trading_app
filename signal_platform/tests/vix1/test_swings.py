@@ -14,7 +14,8 @@ import sys
 import _harness  # noqa: F401
 
 from core.types import Candle                                        # noqa: E402
-from strategies.vix1_swings import Turn, as_sequence, turning_points  # noqa: E402
+from strategies import vix1_swings                                    # noqa: E402
+from strategies.vix1_swings import Turn, structure_turns, turning_points  # noqa: E402
 from strategies.vix1_trend import _establish                          # noqa: E402
 
 PASS = FAIL = 0
@@ -106,11 +107,40 @@ check("each is confirmed AFTER the bar that made it",
 
 # ---------------------------------------------------------------- 5. it feeds HIS trend rule
 print("\nIT FEEDS HIS TREND RULE UNCHANGED — high, low, HIGHER high")
-seq = as_sequence([Turn(True, 1.1000, 0, 1), Turn(False, 1.0950, 2, 3), Turn(True, 1.1100, 4, 5)])
+seq = [(True, 1.1000), (False, 1.0950), (True, 1.1100)]
 check("high -> low -> higher high establishes an UPTREND", _establish(seq)[0], 1)
 check("...protected by the low between them", round(_establish(seq)[1], 4), 1.0950)
-seq_dn = as_sequence([Turn(False, 1.0900, 0, 1), Turn(True, 1.0950, 2, 3), Turn(False, 1.0800, 4, 5)])
+seq_dn = [(False, 1.0900), (True, 1.0950), (False, 1.0800)]
 check("low -> high -> lower low establishes a DOWNTREND", _establish(seq_dn)[0], -1)
+
+# ── THE SOURCE SWITCH IS AN A/B, NOT AN OFF SWITCH ──────────────────────────────────────────────
+# AUDIT BUG 2 (2026-08-12). The flag used to live in `vix1_bias` and its fallback returned None,
+# which a downstream `or []` turned into an empty list — no turning points, so the regime read
+# UNCERTAIN forever and the strategy silently stopped trading: 24 setups -> 0. A switch labelled
+# "fallback" that mutes the system is the worst kind, because it is the one you reach for in a hurry.
+print("\nTHE SOURCE SWITCH — a fallback must FALL BACK, never go silent")
+# A series that genuinely oscillates, so BOTH detectors have something to find. `zig` climbs as it
+# zigzags, so at n=3 the lookback detector finds no confirmed high at all and the check would fail on
+# an empty list rather than on the property under test.
+osc = series([(1.0000 + (0.0000 if k % 2 else 0.0020),
+               1.0020 + (0.0000 if k % 2 else 0.0020),
+               1.0010 + (0.0000 if k % 2 else 0.0020)) for k in range(24)])
+_saved = vix1_swings.REALTIME
+try:
+    vix1_swings.REALTIME = True
+    rt = structure_turns(osc)
+    vix1_swings.REALTIME = False
+    lb = structure_turns(osc, n=3)
+finally:
+    vix1_swings.REALTIME = _saved
+check("REALTIME on -> turning points", len(rt) > 0, True)
+check("REALTIME OFF -> STILL turning points, never an empty list", len(lb) > 0, True)
+check("...in the same shape, so every consumer works either way",
+      all(hasattr(t, "is_high") and hasattr(t, "confirmed") for t in lb), True)
+check("...and a lookback pivot is knowable n bars later, which is what it means",
+      all(t.confirmed == t.index + 3 for t in lb), True)
+check("the flag was restored", vix1_swings.REALTIME, _saved)
+check("`Turn` is what both sources produce", isinstance(lb[0], Turn), True)
 
 # ---------------------------------------------------------------- 6. must never raise
 print("\nEDGES — nothing here may raise")

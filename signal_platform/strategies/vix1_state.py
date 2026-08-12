@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from core.types import Candle
 from shared.pip import pip_size
 from strategies import vix1_regime
+from strategies.vix1_regime import Regime
 from strategies.vix1_retracement import Retracement, measure
 
 
@@ -34,6 +35,10 @@ class Bias:
     reason: str                  # the BOS/CHoCH and the leg that justify the trade
     retracement: Retracement = Retracement()
     efficiency: float | None = None
+    # WHAT KIND OF MARKET IT WAS. His requirement, 2026-08-12: "The card and log should record the
+    # actual regime, not just 'stand aside'." It was reaching the refusal log line only, so a card
+    # that actually shipped said nothing about TREND / RANGE / CHOP at all.
+    regime: Regime = Regime()
 
 
 def market_state(window: list[Candle], tstate, symbol: str) -> tuple[Retracement, float | None, str]:
@@ -54,9 +59,11 @@ def market_state(window: list[Candle], tstate, symbol: str) -> tuple[Retracement
     return ret, eff, f"{ret.describe(pip_size(symbol))}; {vix1_regime.describe(eff)}"
 
 
-def state_line(retracement: Retracement | None, efficiency: float | None, pip: float) -> str:
-    """The card's own wording for the same two numbers. Empty when there is nothing measured, so a
+def state_line(retracement: Retracement | None, efficiency: float | None, pip: float,
+               regime: Regime | None = None) -> str:
+    """The card's own wording for what the market was doing. Empty when nothing was measured, so a
     caller can splat it into a reasons list without a branch."""
     if retracement is None:
         return ""
-    return f"Market state — {retracement.describe(pip)}; {vix1_regime.describe(efficiency)}"
+    head = f"{regime.kind.upper()} — {regime.why}. " if regime and regime.kind else ""
+    return f"Market state — {head}{retracement.describe(pip)}; {vix1_regime.describe(efficiency)}"

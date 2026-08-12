@@ -60,7 +60,6 @@ TREND, RANGE, CHOP, UNCERTAIN = "trend", "range", "chop", "uncertain"
 class Regime:
     """What kind of market this is, and why — the card records the verdict, not just 'stand aside'."""
     kind: str = UNCERTAIN
-    direction: int = 0          # +1/-1 when kind is TREND, else 0
     why: str = ""
 
     @property
@@ -89,20 +88,20 @@ def classify(turns, atr_value: float) -> Regime:
     # 1. PROGRESSION FIRST. Both sides must move together — a higher high with a lower low is price
     #    broadening out, not a trend.
     if dh > prog + _EPS and dl > prog + _EPS:
-        return Regime(TREND, 1, f"higher high and higher low, both by more than "
+        return Regime(TREND, f"higher high and higher low, both by more than "
                                 f"{_PROGRESS_ATR:.2f}x ATR — the trend is progressing")
     if dh < -prog - _EPS and dl < -prog - _EPS:
-        return Regime(TREND, -1, f"lower high and lower low, both by more than "
+        return Regime(TREND, f"lower high and lower low, both by more than "
                                  f"{_PROGRESS_ATR:.2f}x ATR — the trend is progressing")
 
     # 2. NO PROGRESSION — so is it bounded (a range) or not (chop)?
     bound = _BOUNDARY_ATR * atr_value
     hs, ls = abs(dh), abs(dl)
     if hs <= bound + _EPS and ls <= bound + _EPS:
-        return Regime(RANGE, 0, f"no structural progress, and the highs sit within "
+        return Regime(RANGE, f"no structural progress, and the highs sit within "
                                 f"{_BOUNDARY_ATR:.2f}x ATR of each other and the lows likewise "
                                 f"— a bounded range")
-    return Regime(CHOP, 0, f"no structural progress and no stable boundary — "
+    return Regime(CHOP, f"no structural progress and no stable boundary — "
                            f"{'highs' if hs > bound else 'lows'} "
                            f"{'and lows ' if hs > bound and ls > bound else ''}"
                            f"are scattered wider than {_BOUNDARY_ATR:.2f}x ATR")

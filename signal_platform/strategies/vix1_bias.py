@@ -34,7 +34,7 @@ from strategies import vix1_log
 from shared.candle_math import atr
 from strategies import vix1_regime
 from strategies.vix1_state import Bias, market_state
-from strategies.vix1_swings import turning_points
+from strategies.vix1_swings import structure_turns
 from strategies.vix1_structure import leg_state, market_permits
 from strategies.vix1_trend import trend_state
 
@@ -71,25 +71,16 @@ _H1_SWING_N = 48
 # tests/vix1/test_trend.py.
 _H1_TREND_BARS = 1500
 
-# HIGHS AND LOWS ARE READ IN REAL TIME (2026-08-12). His question, and it had no good answer:
-# "Why cant we detect Highs and lows in real time by monitoring the candles in real time?"
+# WHERE TURNING POINTS COME FROM: `vix1_swings.structure_turns`, which owns both the reading and the
+# REALTIME flag. The full reasoning lives in that module's docstring and is deliberately NOT repeated
+# here — it was, and the copy immediately started drifting.
 #
-# The n-bar detector defines a peak as "nothing higher for n bars EITHER SIDE", which cannot be
-# answered until n bars AFTER the peak — so at n=48 the trend read sat a median 2.2 days behind the
-# chart, and his rule ("when it STARTS printing the second high... we start looking") could not be
-# expressed at all. `vix1_swings` marks a turn the bar price closes through the candle that made it:
-# median 1 bar, and 100% of turns known sooner than 48 bars could ever allow.
+# Two defects came from this being a private helper in this file: `vix1_watch` never got the memo and
+# judged resting orders on the OLD reader (disagreeing 56%/60% of the time), and the None it returned
+# for the fallback became an empty list downstream, muting the strategy whenever the flag was off.
 #
-# MEASURED like-for-like (same bars, same rules, only the eyesight changed), 3 years both pairs:
-#     in a trend      86% -> 90% (GBP/USD) · 90% -> 91% (EUR/USD)   — no trading time lost
-#     phases          12 -> 37 · 12 -> 31                            — it turns ~3x more often
-#     under two days  0 -> 0 · 0 -> 0                                — none of them are noise flips
-#     typical move    +148p -> +114p · +70p -> +84p
-#     dud phases      0 -> 0 · 3 -> 3                                — no worse
-#
-# `_H1_SWING_N` still exists: it is the fallback pivot width when `turns` is not supplied, and
-# `trend_state` keeps that path for anything that wants the old eyesight.
-_REALTIME_STRUCTURE = True
+# `_H1_SWING_N` above still earns its place: it is the FALLBACK pivot width, used when `REALTIME` is
+# off, and `trend_state` keeps that path alive.
 
 # THE 4HR FALLBACK — MUTED 2026-08-11, KEPT ON PURPOSE. Flip to True to bring it back.
 #
@@ -113,11 +104,6 @@ _REALTIME_STRUCTURE = True
 # IF IT IS EVER TURNED BACK ON: `t1 == 0` must first be split into its two meanings — "no trend has
 # ever formed" and "a reversal is pending" — because only the first is arguably safe here.
 _ALLOW_H4 = False
-
-
-def _turns(window: list[Candle]):
-    """The turning points the trend is read from — real-time, or None for the n-bar fallback."""
-    return turning_points(window) if _REALTIME_STRUCTURE else None
 
 
 def _upto(window: list[Candle], h1: list[Candle], mc_idx: int) -> list[Candle]:
@@ -156,7 +142,8 @@ def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "") -> Bias | 
     # VIX.1 is pro-trend only, so a counter-trend momentum candle can never be traded. Asking the
     # trend first and then looking for momentum ONLY that way is both correct and simpler.
     window = h1[-_H1_TREND_BARS:]
-    tstate = trend_state(window, n=_H1_SWING_N, turns=_turns(window))
+    turns = structure_turns(window, _H1_SWING_N)      # computed ONCE per window
+    tstate = trend_state(window, n=_H1_SWING_N, turns=turns)
     t1 = tstate.direction
     t4 = trend_state(h4).direction if _ALLOW_H4 else 0
 
@@ -167,7 +154,6 @@ def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "") -> Bias | 
     # THIS ONE IS "AS OF NOW", for the two paths that have no momentum candle to speak of. The one
     # that reaches the CARD is measured AT the momentum candle instead — see below.
     _, _, state = market_state(window, tstate, symbol)
-    regime = vix1_regime.classify(_turns(window) or [], atr(window, 14))
 
     want = t1 if t1 != 0 else (t4 if _ALLOW_H4 else 0)
     if want == 0:
@@ -190,11 +176,16 @@ def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "") -> Bias | 
     # confirmation can land inside that gap. Small, but "had this trend already continued when the
     # candle formed?" is a question about the candle.
     at_mc = _upto(window, h1, mc_idx)
-    t_mc = trend_state(at_mc, n=_H1_SWING_N, turns=_turns(at_mc))
+    turns_mc = structure_turns(at_mc, _H1_SWING_N)    # ...and ONCE per truncated window
+    t_mc = trend_state(at_mc, n=_H1_SWING_N, turns=turns_mc)
     # If the candle formed mid-reversal (no direction yet at that point), fall back to the current
     # read rather than refusing — that would be a second, unasked-for rule.
     mstate = t_mc if t_mc.direction else tstate
     ret, eff, state_mc = market_state(at_mc, mstate, symbol)
+    # THE REGIME IS READ AT THE MOMENTUM CANDLE, for the same causal reason as everything else about
+    # it. Read as of NOW instead, it differed on 30% of GBP/USD and 33% of EUR/USD momentum candles
+    # — a third of setups judged on a market state that arrived AFTER the candle they rest on.
+    regime = vix1_regime.classify(turns_mc, atr(at_mc, 14))
 
     # 1) momentum WITH a clear 1HR trend.
     if t1 == want:
@@ -207,7 +198,7 @@ def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "") -> Bias | 
         # old. Reading the structure as it is NOW would let a pullback that formed AFTER the candle
         # decide the candle's fate. Measured: this changes the verdict on 6% of GBP/USD setups and
         # 4% of EUR/USD.
-        leg = leg_state(at_mc, t1, turns=_turns(at_mc))
+        leg = leg_state(at_mc, t1, turns=turns_mc)
         if not leg.ready:
             vix1_log.say(symbol, f"[vix1] {symbol} bias=NONE: {'up' if bullish else 'down'} momentum WITH the "
                                  f"trend, but the leg does not permit it — {leg.why} | {state_mc}")
@@ -223,11 +214,11 @@ def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "") -> Bias | 
             return None
 
         return Bias(bullish, mc_idx, "trend", run[1],
-                    f"{mstate.maturity} {mstate.reason()}; {leg.why}", ret, eff)
+                    f"{mstate.maturity} {mstate.reason()}; {leg.why}", ret, eff, regime)
 
     # 2) 1HR trend UNCLEAR, momentum WITH a clear 4HR trend (the fallback) — MUTED, see _ALLOW_H4.
     if _ALLOW_H4 and t1 == 0 and t4 == want:
-        leg = leg_state(at_mc, want, turns=_turns(at_mc))
+        leg = leg_state(at_mc, want, turns=turns_mc)
         if not leg.ready:
             vix1_log.say(symbol, f"[vix1] {symbol} bias=NONE: 4HR-backed direction but the leg does not "
                                  f"permit it — {leg.why} | {state_mc}")
@@ -235,7 +226,7 @@ def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "") -> Bias | 
         vix1_log.say(symbol, f"[vix1] {symbol} 4HR-BACKED TREND: 1HR trend unclear, 1HR momentum aligns with a clear "
                  f"4HR {'up' if bullish else 'down'} trend | {state_mc}")
         return Bias(bullish, mc_idx, "trend4", run[1],
-                    f"4HR-backed ({mstate.maturity}); {leg.why}", ret, eff)
+                    f"4HR-backed ({mstate.maturity}); {leg.why}", ret, eff, regime)
 
     # UNREACHABLE BY CONSTRUCTION, and deliberately left as an assertion rather than a silent path.
     # PRO-TREND ONLY (user 2026-07-25/26: "Only trade pro trend"). Since the trend now chooses the

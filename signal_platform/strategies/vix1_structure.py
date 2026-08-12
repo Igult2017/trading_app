@@ -42,7 +42,6 @@ from dataclasses import dataclass
 
 from core.types import Candle
 from shared.swing_points import find_swing_points
-from strategies.vix1_retracement import Retracement
 
 # The faster structure's swing width. NOT the trend's (48). A swing needs `n` bars EITHER SIDE to be
 # confirmed, so at 48 a pullback low is known two days and a median 92 pips later — far too late to

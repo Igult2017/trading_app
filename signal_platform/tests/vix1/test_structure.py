@@ -16,8 +16,11 @@ properties. NOT A BACKTEST: no P&L, no win rate, no trades simulated.
 """
 from _harness import Suite, body, load
 
+from shared.candle_math import atr
 from strategies import vix1_bias, vix1_structure
 from strategies.vix1_bias import _H1_SWING_N, _H1_TREND_BARS
+from strategies.vix1_regime import classify
+from strategies.vix1_swings import structure_turns
 from strategies.vix1_structure import _FAST_N, fast_pattern, leg_state, market_permits
 from strategies.vix1_trend import trend_state
 from strategies.vix1_watch import check_invalidation
@@ -78,17 +81,28 @@ for pair in ("EURUSD", "GBPUSD"):
 # ── THE 10-AUG SIGNAL, on real bars ──────────────────────────────────────────────────────────────
 print()
 print("   the signal that caused this rebuild (GBP/USD 10 Aug, sell off the 09:00 candle):")
+# REWRITTEN 2026-08-12 (audit finding 5). This asserted trend -1, structure "up", refused — all
+# measured on the OLD lookback path, which production stopped using. It passed and guarded NOTHING.
+#
+# AND THE NEW ANSWER IS BETTER, which is the point worth pinning. The real-time reader has that trend
+# as UP, and UP was CORRECT: price rose +85 pips over the following week. The old reader saying DOWN
+# was the original defect. So the sell is not merely refused now — it can never be SOUGHT, because
+# VIX.1 is pro-trend only and would be hunting for a BUY.
 real = load("GBPUSD_H1_to10Aug.csv", "H1")
 if real:
     idx = next((i for i, c in enumerate(real) if c.time == 1786363200), len(real) - 10)
     w = real[max(0, idx - _H1_TREND_BARS):idx + 1]
-    st = trend_state(w, n=_H1_SWING_N)
-    leg = leg_state(w, st.direction)
-    print(f"      trend={st.direction:+d} ({st.maturity})  faster structure={leg.pattern}  "
-          f"allows={leg.ready}")
-    s.check("the 2-day trend said DOWN", st.direction, -1)
-    s.check("the 8-hour structure was pointing UP", leg.pattern, "up")
-    s.check("so the sell is REFUSED as a pullback", leg.ready, False)
+    turns = structure_turns(w, _H1_SWING_N)
+    st = trend_state(w, n=_H1_SWING_N, turns=turns)
+    leg = leg_state(w, st.direction, turns=turns)
+    reg = classify(turns, atr(w, 14))
+    print(f"      trend={st.direction:+d} ({st.maturity})  structure={leg.pattern}  "
+          f"regime={reg.kind}  leg allows={leg.ready}")
+    s.check("the real-time trend reads UP — which is what price actually did (+85 pips)",
+            st.direction, 1)
+    s.check("so a SELL is never even sought (pro-trend only)", st.direction == -1, False)
+    s.check("and the market is not tradeable anyway", reg.kind in ("range", "chop"), True)
+    s.check("   ...so the gate refuses it", market_permits(reg) is not None, True)
 else:
     print("      SKIP — no local data")
 
@@ -101,7 +115,14 @@ print("   a pending setup is judged on the TREND, not on whether a new trade is 
 eur = load("EURUSD_H1.csv", "H1")
 if eur:
     w = eur[-_H1_TREND_BARS:]
-    d = trend_state(w, n=_H1_SWING_N).direction
+    # THE TREND MUST BE READ THE WAY `check_invalidation` READS IT — audit bug 1, and this test found
+    # it the moment the fix landed. It used to compute `d` with no turning points, i.e. the old 48-bar
+    # lookback, then build a setup "facing the wrong way" against THAT. Production now judges a
+    # resting order on the real-time reader, and the two disagreed on 56% of GBP/USD and 60% of
+    # EUR/USD momentum candles — so the fixture was labelling setups wrong-way that the code
+    # (correctly) saw as right-way. A test that computes its own expectation a different way from the
+    # code under test proves nothing.
+    d = trend_state(w, n=_H1_SWING_N, turns=structure_turns(w, _H1_SWING_N)).direction
     if d != 0:
         wrong = {"bullish": d != 1, "entry": w[-1].close, "sl": w[-1].close * 0.99,
                  "locked_at": w[-1].time + 3600}
@@ -144,14 +165,14 @@ print()
 print("   the market gate — only a TREND is tradeable (his rule, 2026-08-12):")
 from strategies.vix1_regime import CHOP, RANGE, TREND, UNCERTAIN, Regime   # noqa: E402
 
-s.check("a trend is allowed", market_permits(Regime(TREND, 1, "progressing")), None)
-s.check("a RANGE is refused", market_permits(Regime(RANGE, 0, "bounded")) is not None, True)
-s.check("   ...and the card can say which", "RANGE" in market_permits(Regime(RANGE, 0, "b")), True)
-s.check("CHOP is refused", market_permits(Regime(CHOP, 0, "scattered")) is not None, True)
+s.check("a trend is allowed", market_permits(Regime(TREND, "progressing")), None)
+s.check("a RANGE is refused", market_permits(Regime(RANGE, "bounded")) is not None, True)
+s.check("   ...and the card can say which", "RANGE" in market_permits(Regime(RANGE, "b")), True)
+s.check("CHOP is refused", market_permits(Regime(CHOP, "scattered")) is not None, True)
 s.check("   ...and is named separately from a range",
-        "CHOP" in market_permits(Regime(CHOP, 0, "scattered")), True)
+        "CHOP" in market_permits(Regime(CHOP, "scattered")), True)
 s.check("UNCERTAIN is refused - never trade on 'cannot tell'",
-        market_permits(Regime(UNCERTAIN, 0, "not enough swings")) is not None, True)
+        market_permits(Regime(UNCERTAIN, "not enough swings")) is not None, True)
 s.check("no regime at all -> allowed, so a missing reading can never silently mute the strategy",
         market_permits(None), None)
 
@@ -166,7 +187,7 @@ print()
 s.teeth("the pullback refusal", leg_state(rising, -1).ready is False)
 s.teeth("the no-trend guard", leg_state(rising, 0).ready is False)
 s.teeth("the permissive rule", leg_state(choppy, 1).ready is True)
-s.teeth("the market gate refuses a range", market_permits(Regime(RANGE, 0, "b")) is not None)
-s.teeth("...and allows a trend", market_permits(Regime(TREND, 1, "p")) is None)
+s.teeth("the market gate refuses a range", market_permits(Regime(RANGE, "b")) is not None)
+s.teeth("...and allows a trend", market_permits(Regime(TREND, "p")) is None)
 
 s.done()

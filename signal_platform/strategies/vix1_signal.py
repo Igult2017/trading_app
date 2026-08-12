@@ -9,6 +9,7 @@ from charting import theme
 from core.types import TF, Signal, Direction
 from news.news_filter import news_note
 from strategies.vix1_retracement import Retracement
+from strategies.vix1_regime import Regime
 from strategies.vix1_state import state_line
 
 # (panel label, human blurb) per entry kind — both are the same motion (pullback at the momentum-candle
@@ -42,7 +43,8 @@ def build_signal(kind, symbol, bullish, origin, vol_count, entry, sl, tp,
                  late=False, late_note="", rr=2.0, mc_time: int | None = None,
                  line: float | None = None, bias_reason: str = "",
                  retracement: Retracement | None = None,
-                 efficiency: float | None = None) -> Signal:
+                 efficiency: float | None = None,
+                 regime: Regime | None = None) -> Signal:
     side         = "BUY" if bullish else "SELL"
     label, blurb = _KIND[kind]
     mlabel       = f"{vol_count} momentum candle{'s' if vol_count != 1 else ''}"
@@ -69,7 +71,7 @@ def build_signal(kind, symbol, bullish, origin, vol_count, entry, sl, tp,
         # values can be read off real signals before any threshold is chosen. Picking one from a
         # year of two pairs is how two earlier changes looked right on the day and were worse over
         # four years.
-        *( [state_line(retracement, efficiency, pip)] if retracement is not None else [] ),
+        *( [state_line(retracement, efficiency, pip, regime)] if retracement is not None else [] ),
         f"1M {label} — {blurb}",
         f"Momentum candle grade {grade} ({confidence:.0%} confidence) — body/wick shape, not size",
         (f"SL sits {sl_note}" if sl_note else f"SL {sl:.{digits}f}"),
@@ -101,7 +103,10 @@ def build_signal(kind, symbol, bullish, origin, vol_count, entry, sl, tp,
                   if retracement.active else "CTX::RETRACEMENT::NONE BEFORE THIS CANDLE")
         smc.insert(4, f"CTX::BELOW THE TREND EXTREME::{retracement.pips / pip:.1f} PIPS "
                       f"({retracement.atr:.2f}x ATR) · {retracement.stall_bars} CANDLES OLD")
-        smc.insert(5, f"CTX::DIRECTIONAL EFFICIENCY::"
+        if regime is not None and regime.kind:
+            smc.insert(3, f"CTX::REGIME::{regime.kind.upper()}")
+        smc.insert(6 if regime is not None and regime.kind else 5,
+                   f"CTX::DIRECTIONAL EFFICIENCY::"
                       f"{'—' if efficiency is None else f'{efficiency:.2f}'}")
     if late:
         smc.append("PA::PAST THE RECOMMENDED ENTRY PRICE")

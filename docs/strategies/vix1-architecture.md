@@ -53,7 +53,7 @@ VIX.1 has shipped a bug from reading the forming bar as a level, and **a backtes
 | `vix1_bias.py` | `detect_bias(h1, h4, symbol) -> Bias \| None` — momentum on H1, trend on H1 (H4 only as a fallback) |
 | `vix1_state.py` | **`Bias` (what the 1HR decided) + `market_state` (the state it decided it in)** — added 2026-08-11 |
 | `vix1_retracement.py` | **the retracement, counted in real time** — `bars` (the pullback this candle came after) and `stall_bars` (how long since the trend made progress). Added 2026-08-11, decides nothing yet |
-| `vix1_swings.py` | **highs and lows in REAL TIME** - a turn is marked the bar price closes through the candle that made it. No 48-bar wait. Added 2026-08-12 |
+| `vix1_swings.py` | **highs and lows in REAL TIME** + `structure_turns()` — the ONE place that decides where turning points come from, and the `REALTIME` flag. - a turn is marked the bar price closes through the candle that made it. No 48-bar wait. Added 2026-08-12 |
 | `vix1_regime.py` | **THE REGIME ENGINE — TREND / RANGE / CHOP** on his locked 0.50 / 0.75 ATR numbers. `efficiency()` survives as a reported number only |
 | `vix1_momentum.py` | momentum-candle detection + `momentum_grade` (A/B/C → confidence) |
 | `vix1_building.py` | the "setup building" card — a setup seen before its entry exists |
@@ -450,6 +450,29 @@ window its 2026-07-29 calibration was measured on. **Measured: unpinned, 18% of 
 EUR/USD trend verdicts change.** Pinned, 260/260 and 154/154 identical.
 
 ---
+
+## THE 2026-08-12 AUDIT — six findings, all fixed
+
+He asked for an end-to-end audit before anything went live. Every one was proved on real data, not
+asserted.
+
+| # | finding | proof |
+|---|---|---|
+| 1 🔴 | `vix1_watch` judged a resting order with a trend reader **nothing else used** — the old lookback, while the setup was created from the real-time one. **Disagreed on 56% / 60% of momentum candles.** Same class of defect caught in this same file on 11 Aug. | **0%** disagreement now, measured through `check_invalidation` itself |
+| 2 🔴 | The "fallback" flag was a **kill switch**: `_turns()` returned None, a downstream `or []` emptied it, no turns meant UNCERTAIN, UNCERTAIN is refused. **24 setups → 0.** | root-fixed in `structure_turns`; `REALTIME=False` now gives **17** setups |
+| 3 🟠 | The regime was read as of NOW while everything else about the candle is read AT the candle. **Differed on 30% / 33%.** | the `Bias` carries the at-the-candle regime on **103 of 103** setups |
+| 4 🟠 | The card did not carry the regime, against his explicit requirement. | rendered real TREND and CHOP cards and read it off both |
+| 5 🟠 | The 10-Aug regression test asserted the **old** path and guarded nothing. | rewritten on production's path — and it pins that the real-time trend reads **UP**, which was correct: price rose +85 pips that week |
+| 6 🟡 | `Regime.direction` and `as_sequence` — 0 uses each. An orphaned `Retracement` import. | deleted; the three test files repaired |
+
+**Also:** `turning_points` was recomputed 5× per `detect_bias`, now twice. Cost was already trivial
+(20 ms per instrument, 0.08 s per 60-second scan for four) — this was for readability.
+
+**A TEST BUG THE FIX EXPOSED.** `test_structure` computed its own "wrong way" fixture with the OLD
+reader and asserted against code using the new one, so it labelled setups wrong-way that the code
+correctly saw as right-way. **A test that derives its expectation differently from the code under
+test proves nothing** — the same trap as the tautological first draft of the fix-1 proof, which
+computed both sides identically and could never fail.
 
 ## KNOWN OPEN DEFECTS / GAPS — not fixed, do not assume otherwise
 
