@@ -31,6 +31,8 @@ import logging
 from core.types import Candle
 from strategies.vix1_momentum import momentum_run, veto_reason
 from strategies import vix1_log
+from shared.candle_math import atr
+from strategies import vix1_regime
 from strategies.vix1_state import Bias, market_state
 from strategies.vix1_swings import turning_points
 from strategies.vix1_structure import leg_state, market_permits
@@ -165,6 +167,7 @@ def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "") -> Bias | 
     # THIS ONE IS "AS OF NOW", for the two paths that have no momentum candle to speak of. The one
     # that reaches the CARD is measured AT the momentum candle instead — see below.
     _, _, state = market_state(window, tstate, symbol)
+    regime = vix1_regime.classify(_turns(window) or [], atr(window, 14))
 
     want = t1 if t1 != 0 else (t4 if _ALLOW_H4 else 0)
     if want == 0:
@@ -214,7 +217,7 @@ def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "") -> Bias | 
         # state rather than by interrogating the candle (the candle is the proof the retracement
         # ended; that is settled). Inert until he sets the two thresholds, so this changes nothing
         # today; the reversal half of the same rule is already enforced by `t1 == 0` above.
-        refusal = market_permits(ret, eff)
+        refusal = market_permits(regime)
         if refusal:
             vix1_log.say(symbol, f"[vix1] {symbol} bias=NONE: {refusal} | {state_mc}")
             return None

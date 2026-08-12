@@ -54,7 +54,7 @@ VIX.1 has shipped a bug from reading the forming bar as a level, and **a backtes
 | `vix1_state.py` | **`Bias` (what the 1HR decided) + `market_state` (the state it decided it in)** — added 2026-08-11 |
 | `vix1_retracement.py` | **the retracement, counted in real time** — `bars` (the pullback this candle came after) and `stall_bars` (how long since the trend made progress). Added 2026-08-11, decides nothing yet |
 | `vix1_swings.py` | **highs and lows in REAL TIME** - a turn is marked the bar price closes through the candle that made it. No 48-bar wait. Added 2026-08-12 |
-| `vix1_regime.py` | **directional efficiency — the range detector VIX.1 never had.** Added 2026-08-11, decides nothing yet |
+| `vix1_regime.py` | **THE REGIME ENGINE — TREND / RANGE / CHOP** on his locked 0.50 / 0.75 ATR numbers. `efficiency()` survives as a reported number only |
 | `vix1_momentum.py` | momentum-candle detection + `momentum_grade` (A/B/C → confidence) |
 | `vix1_building.py` | the "setup building" card — a setup seen before its entry exists |
 | `vix1_log.py` | per-symbol log throttling, so a silent scan does not spam |
@@ -294,6 +294,44 @@ quartile **12.3× / 13.2×**.
 
 **STILL OPEN after this:** the real-time *"second high after the first low"* trigger. Nothing
 implements it — the code waits for a 48-bar swing to confirm, a median 209 bars later.
+
+### THE REGIME ENGINE — TREND / RANGE / CHOP (2026-08-12), SWITCHED ON
+
+He challenged the previous approach head-on: *"Why have you switched them off? If they were to be
+switched off then why are we building"*. He was right, and the underlying reason was worse than the
+symptom: the range test had been built on EFFICIENCY, no defensible cut existed in the distribution,
+and it shipped inert instead of me concluding **the instrument was wrong**.
+
+**His locked numbers:** material HH/LL progress **0.50 x ATR** · same-boundary tolerance
+**0.75 x ATR** · minimum swing-size filter **none** · efficiency **removed from the decision**.
+
+```
+confirmed swings -> did BOTH sides progress by > 0.50 ATR ?
+                      yes -> TREND
+                      no  -> two highs within 0.75 ATR of each other, AND two lows ?
+                               yes -> RANGE   (bounded, orderly - his clean-range chart)
+                               no  -> CHOP    (reversals without stable boundaries)
+```
+
+**THE ORDER IS LOAD-BEARING** and is pinned by a test. The thresholds overlap on purpose: a high
+clearing the previous one by 0.6 ATR is BOTH progress (>0.50) and the same boundary (<=0.75).
+Progression is asked first. Swap them and a shallow uptrend reads as a range.
+
+**MEASURED over 3 years:**
+
+| | GBP/USD | EUR/USD |
+|---|---|---|
+| how the time splits | 44.4% trend · 12.9% range · **42.8% chop** | 43.4% · 12.2% · **44.4%** |
+| setups it would refuse | **90 of 198 (45%)** | **93 of 191 (49%)** |
+
+**That refusal rate is corroborated, not a surprise.** A separate measurement from a different angle
+found our momentum candles sitting at a median efficiency of 0.25 against a market median of 0.21 —
+the strategy was trading chop at the market's own background rate. Two independent instruments
+agreeing that roughly half of what we take is not in a trend is the finding.
+
+**TWO THRESHOLDS WERE DELETED, and the tests assert they are GONE rather than unset:** the
+retracement DEPTH test (his argument — a retracement deep enough to matter breaks the protected low
+and the CHoCH detector has it) and the EFFICIENCY cut.
 
 ### THE PULLBACK GATE GOT REAL-TIME EYES TOO (2026-08-12) - four defects, one cause
 

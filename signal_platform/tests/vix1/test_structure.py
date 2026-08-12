@@ -18,7 +18,6 @@ from _harness import Suite, body, load
 
 from strategies import vix1_bias, vix1_structure
 from strategies.vix1_bias import _H1_SWING_N, _H1_TREND_BARS
-from strategies.vix1_retracement import Retracement
 from strategies.vix1_structure import _FAST_N, fast_pattern, leg_state, market_permits
 from strategies.vix1_trend import trend_state
 from strategies.vix1_watch import check_invalidation
@@ -142,43 +141,32 @@ s.check("the 4HR fallback ships MUTED", vix1_bias._ALLOW_H4, False)
 # retracement has ended. He settled that — "Momentum candle is a proof of the continuation of the
 # trend" — and a test that re-introduced the question would re-introduce the rule.
 print()
-print("   the market-state gate — SHIPS INERT, the range number is his:")
-shallow = Retracement(active=True, bars=2, pips=0.0008, atr=1.5)
-deep = Retracement(active=True, bars=2, pips=0.0090, atr=18.0)
+print("   the market gate — only a TREND is tradeable (his rule, 2026-08-12):")
+from strategies.vix1_regime import CHOP, RANGE, TREND, UNCERTAIN, Regime   # noqa: E402
 
-s.check("the range threshold ships UNSET (None, not zero)", vix1_structure._RANGE_EFFICIENCY, None)
-s.check("unset -> a dead-flat market is still allowed", market_permits(shallow, 0.01), None)
-s.check("unset -> unknown efficiency is allowed", market_permits(shallow, None), None)
+s.check("a trend is allowed", market_permits(Regime(TREND, 1, "progressing")), None)
+s.check("a RANGE is refused", market_permits(Regime(RANGE, 0, "bounded")) is not None, True)
+s.check("   ...and the card can say which", "RANGE" in market_permits(Regime(RANGE, 0, "b")), True)
+s.check("CHOP is refused", market_permits(Regime(CHOP, 0, "scattered")) is not None, True)
+s.check("   ...and is named separately from a range",
+        "CHOP" in market_permits(Regime(CHOP, 0, "scattered")), True)
+s.check("UNCERTAIN is refused - never trade on 'cannot tell'",
+        market_permits(Regime(UNCERTAIN, 0, "not enough swings")) is not None, True)
+s.check("no regime at all -> allowed, so a missing reading can never silently mute the strategy",
+        market_permits(None), None)
 
-# DEPTH IS NOT TESTED HERE BECAUSE IT NO LONGER EXISTS. Removed 2026-08-12 on his argument: "if a
-# retracement breaks a protected low of a trend the CHOCH detector detects it and it stops being a
-# retracement." Turning points are real-time now, so the protecting level is current and a
-# retracement deep enough to matter breaks it. Do NOT re-add a depth threshold without new reasoning.
-s.check("no depth threshold exists any more",
-        hasattr(vix1_structure, "_MAX_DEPTH_ATR"), False)
-s.check("...so an 18x-ATR retracement is not refused on depth", market_permits(deep, 0.9), None)
-
-_saved = vix1_structure._RANGE_EFFICIENCY
-try:
-    vix1_structure._RANGE_EFFICIENCY = 0.20
-    s.check("range gate set -> a chopping market is REFUSED",
-            market_permits(shallow, 0.05) is not None, True)
-    s.check("   ...and it says the market is ranging",
-            "ranging" in market_permits(shallow, 0.05), True)
-    s.check("range gate set -> a directional market is allowed", market_permits(shallow, 0.60), None)
-    s.check("range gate set -> exactly AT the threshold is allowed (strictly below refuses)",
-            market_permits(shallow, 0.20), None)
-    s.check("range gate set -> unknown efficiency is still allowed, never refused on a guess",
-            market_permits(shallow, None), None)
-finally:
-    vix1_structure._RANGE_EFFICIENCY = _saved
-s.check("the threshold was restored after the test", vix1_structure._RANGE_EFFICIENCY, None)
+# THE THRESHOLDS THAT WERE REMOVED MUST STAY REMOVED. Depth went on his argument (a retracement deep
+# enough to matter breaks the protected low and the CHoCH detector has it); the efficiency cut went
+# because the distribution has no natural break. Re-adding either silently fails here.
+s.check("no depth threshold exists", hasattr(vix1_structure, "_MAX_DEPTH_ATR"), False)
+s.check("no efficiency threshold exists", hasattr(vix1_structure, "_RANGE_EFFICIENCY"), False)
 
 # ── teeth ────────────────────────────────────────────────────────────────────────────────────────
 print()
 s.teeth("the pullback refusal", leg_state(rising, -1).ready is False)
 s.teeth("the no-trend guard", leg_state(rising, 0).ready is False)
 s.teeth("the permissive rule", leg_state(choppy, 1).ready is True)
-s.teeth("the market gate is inert while unset", market_permits(deep, 0.01) is None)
+s.teeth("the market gate refuses a range", market_permits(Regime(RANGE, 0, "b")) is not None)
+s.teeth("...and allows a trend", market_permits(Regime(TREND, 1, "p")) is None)
 
 s.done()

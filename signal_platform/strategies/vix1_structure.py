@@ -153,50 +153,35 @@ def leg_state(candles: list[Candle], direction: int, n: int = _FAST_N, turns=Non
 #     "that candle must not be in a retracement, because retracements can sometimes turn into a
 #      reversal."
 #
-# WHAT THIS FUNCTION IS NOT. It does NOT interrogate the momentum candle about whether the
-# retracement has finished. He settled that separately and it is not re-openable:
+# WHAT THIS DOES NOT DO. It never interrogates the momentum candle about whether the retracement has
+# finished. He settled that and it is not re-openable:
 #     "Momentum candle is a proof of the continuation of the trend."
-# The candle IS the evidence the retracement ended. So the only question left is whether the MARKET
-# is in a safe state, and that is what the three readings answer between them:
+# The candle IS the evidence. So the only question left is whether the MARKET is in a state worth
+# trading, and the three readings answer it between them:
 #
-#     reversal forming   -> vix1_trend, already refusing (a pending CHoCH gives direction 0)
-#     the market ranging -> HERE, from directional efficiency
-#     the pullback deep  -> HERE, from depth measured against volatility
+#     a reversal forming   -> vix1_trend, already refusing (a pending CHoCH gives direction 0)
+#     a range, or chop     -> vix1_regime, structural, on his locked 0.50 / 0.75 ATR numbers
+#     how deep a pullback  -> REMOVED, and deliberately. His argument: "if a retracement breaks a
+#                             protected low of a trend the CHOCH detector detects it and it stops
+#                             being a retracement." I had argued for depth because the protecting
+#                             level sat far away (48-bar swings, median 57-candle leg); real-time
+#                             turning points closed that gap the same day, so depth was covering a
+#                             hole that no longer exists.
 #
-# WHY DEPTH IS HERE AT ALL. The level protecting the trend sits a long way off by construction —
-# 48-bar swings, a median 57-candle leg — so "price has not closed through it yet" is a weak test on
-# an hourly chart. Between "an ordinary pullback" and "a confirmed reversal" is a wide zone neither
-# of the other two readings speaks for, and depth is what speaks for it. Measured against ATR, never
-# against the leg: the leg needs the far-away pivot and would drag that delay straight back in.
-
-# THE DEPTH TEST WAS REMOVED ON 2026-08-12, BEFORE IT EVER HAD A NUMBER. His argument, and it is
-# right: *"Do we really care on how deep a retracement should be? because if a retracement breaks a
-# protected low of a trend i think now the CHOCH detector detects it and it stops being a
-# retracement."*
-#
-# I HAD ARGUED FOR IT ON A PREMISE THAT NO LONGER HOLDS. The case for depth was that the level
-# protecting the trend sat far away by construction — 48-bar swings, a median 57-candle leg — leaving
-# a wide zone between "an ordinary pullback" and "a confirmed reversal" that nothing spoke for.
-# Turning points are read in REAL TIME since the same day, so the protecting level is now the most
-# recent real higher low, and a retracement deep enough to matter breaks it and becomes a CHoCH. The
-# gap depth existed to cover has closed. Keeping it would be a second opinion on a question already
-# answered, with a threshold nobody needs to choose.
-#
-# THE RANGE THRESHOLD IS STILL HIS, and its definition changed the same day — see vix1_regime. It is
-# no longer "efficiency below X"; his rule is structural: *"a market that can't print stable or
-# distinctive and directional highs and lows is ranging."*
-_RANGE_EFFICIENCY: float | None = None      # below this = ranging, do not trade
+# THE EFFICIENCY THRESHOLD WENT TOO. It was the first range detector and the wrong instrument — no
+# natural break in the distribution, so every candidate cut was arbitrary and any useful one deleted
+# a quarter to half of all setups. His reasoning is the general form of the same finding: "a
+# perfectly respectable range can have extremely low efficiency, while a messy transition can also
+# have low efficiency. It doesn't tell us the structure."
 
 
-def market_permits(ret: Retracement, efficiency: float | None) -> str | None:
-    """Is the market in a state worth trading? Returns the refusal reason, or None to allow.
+def market_permits(regime) -> str | None:
+    """Is the market in a state worth trading? The refusal reason, or None to allow.
 
-    Inert until the two thresholds above are set, so wiring this in changes nothing by itself — the
-    reversal half of his rule is already enforced by `vix1_trend` returning no direction while a
-    CHoCH is unconfirmed.
+    ONE QUESTION: only a TREND is tradeable. A range and chop mean the same thing to a trend
+    strategy, but they are named separately because they ARE different — his diagram lists both and
+    his two charts show why: a range respects its ceiling and floor, chop stabs through them.
     """
-    if _RANGE_EFFICIENCY is not None and efficiency is not None and efficiency < _RANGE_EFFICIENCY:
-        return (f"the market is ranging — it travelled only {efficiency:.2f} of the distance it "
-                f"walked over the last 20 bars (below {_RANGE_EFFICIENCY:.2f}); "
-                f"this is not a trend to continue")
-    return None
+    if regime is None or regime.tradeable:
+        return None
+    return f"the market is not trending — {regime.kind.upper()}: {regime.why}"
