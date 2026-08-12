@@ -453,52 +453,45 @@ EUR/USD trend verdicts change.** Pinned, 260/260 and 154/154 identical.
 
 ## KNOWN OPEN DEFECTS / GAPS — not fixed, do not assume otherwise
 
-1. **PENDING REDESIGN, blocked on the user.** The code reproduced only **16% of his real trades** —
-   detection is too strict (an earlier 4× threshold rejected 80% of his candles; now 2.5×). Blocked on
-   him supplying ~20 trades with entry/SL/TP. Then: recalibrate detection, add *selection* (which setup
-   to take when several qualify). ~~move the trend read 1HR → 4HR~~ — **that instruction is WRONG and
-   is superseded (2026-07-29): measured, H4 at 120 bars still reported UP during the two-month
-   decline. The trend problem was the swing SCALE, not the timeframe, and it is now fixed on the 1HR
-   itself (see defect 4).** **Do not "fix" this by guessing at
+**Four items were DELETED from this list on 2026-08-12 because they were actually done** — a stale
+open-defect list is worse than none, and the reasoning for each lives in the `vix1.md` fix log:
+`clear_trend` window-dependence (fixed 07-29), the unused `ARM_R` import (fixed 07-27), "ranges are
+measured but still traded" (the regime engine went live 08-12), and "nothing implements *not in a
+retracement*" (the same change, plus real-time turning points feeding `leg_state`).
+
+1. **THE BIGGEST ONE, AND IT IS BLOCKED ON HIM.** The code reproduced only **16% of his real trades**.
+   Detection was too strict (an earlier 4× threshold rejected 80% of his candles; now 2.5×). Blocked
+   on him supplying ~20 trades with entry/SL/TP. Then: recalibrate detection, and add *selection* —
+   which setup to take when several qualify. ~~move the trend read 1HR → 4HR~~ — **that instruction is
+   WRONG and superseded (2026-07-29): H4 at 120 bars still reported UP during the two-month decline.
+   The problem was the swing SCALE, not the timeframe.** **Do not "fix" this by guessing at
    thresholds.**
-2. **The R ratchet is ADVICE ONLY.** `vix1_manage` decides what to TELL him ("+3R reached — move your
-   stop to +2R"); `vix1_alerts` DMs it. **Nothing moves a broker stop** — the user manages the
-   position himself. Whether VIX.1 should manage the stop programmatically is his call, not an
-   oversight to silently fix.
-3. **`ARM_R` imported but unused** in `monitor/vix1_alerts.py` — cosmetic, fixed 2026-07-27.
-4. ~~**`clear_trend` is WINDOW-DEPENDENT.**~~ **FIXED 2026-07-29.** The cause was the swing SCALE,
-   not the algorithm. At `n=3` over 120 bars it resolved 7-hour wiggles and could see nothing older
-   than two days, so it reported UP inside a two-month decline. Now **`n=48` (≈2 days) over 1,500
-   H1 bars (~62 days)**: agreement across window sizes 79%→84% (EUR/USD), 76%→80% (GBP/USD); trend
-   changes 183→37 and 166→36 over 4.18 years. **H4 keeps `n=3`** — already 89%/77%, and widening it
-   made it worse (56%/47%). Guarded by `tests/vix1/test_trend.py`, which asserts the STABILITY
-   property rather than a single day's verdict — two candidate fixes each looked right on the day
-   they were tried and were worse over four years.
-5. **THE 4HR FALLBACK IS DEAD CODE IN PRACTICE — found 2026-08-10, not removed.** `detect_bias`
-   reaches for the H4 trend only when the 1HR trend is UNREADABLE (`t1 == 0`). Measured over the last
-   year on both pairs, sampled every 20 bars: **0 of 622 reads were unreadable** (GBP/USD 25% up /
-   75% down, EUR/USD 41% / 59%). So the `trend4` branch never executes, yet `vix1.py` fetches 120 H4
-   bars every scan and `clear_trend` runs on them. It is wasted work and an untested path that would
-   come alive silently if the trend settings ever changed. **Removal is the user's call** — flagged,
-   deliberately not done in the 08-10 change.
-6. **No exhaustion / "price ran too far" rule exists.** All 9 `vix1_entry` rejection reasons are about
+2. **NOTHING BUILT SINCE 2026-08-11 HAS BEEN VALIDATED AGAINST A CHART HE MARKED.** Every figure in
+   this document is the code measured against its own past behaviour — trend stability, swing lag,
+   regime split, refusal rates. Whether the regime engine calls the same trends, ranges and chop that
+   HE would call has never been tested, because no marked chart has ever been supplied. This is the
+   cheapest open item to close and probably the most valuable.
+3. **NONE OF IT IS DEPLOYED.** Eight commits sit on `main` as of 2026-08-12. The regime engine is the
+   first change that would materially alter what fires (it refuses 45%/49% of setups), so it has
+   never run against a live market.
+4. **NOT PROVEN TO TRADE BETTER.** Everything measured is about the READING — how fast, how stable,
+   what it refuses. Whether any of it improves results needs outcomes scored on history, which is a
+   backtest and therefore his decision, never taken unilaterally.
+5. **The R ratchet is ADVICE ONLY.** `vix1_manage` decides what to TELL him ("+3R reached — move your
+   stop to +2R"); `vix1_alerts` DMs it. **Nothing moves a broker stop.** Whether VIX.1 should manage
+   the stop programmatically is his call, not an oversight to silently fix.
+6. **THE 4HR FALLBACK IS DEAD CODE IN PRACTICE — found 2026-08-10, muted not removed.** `detect_bias`
+   reaches for the H4 trend only when the 1HR trend is UNREADABLE (`t1 == 0`), and over 12 months on
+   both pairs **0 of 622 reads were unreadable**. `vix1.py` still fetches 120 H4 bars every scan.
+   Kept on his explicit instruction ("just mute it so that we can turn it on when we ever need it").
+7. **No exhaustion / "price ran too far" rule exists.** All 9 `vix1_entry` rejection reasons are about
    the pullback's shape and position; none asks how extended the move is, so a late entry at the tail
-   of a finished move is accepted. Deferred (user decision, 2026-07-27) because the spacing rule
-   already refuses the specific 27 Jul case and stacking two new filters at once would make any
-   frequency change unattributable.
-7. **RANGES ARE MEASURED BUT STILL TRADED — Phase B, awaiting his thresholds (2026-08-11).**
-   `vix1_regime` now reports directional efficiency, and it shows the strategy trading chop routinely:
-   the momentum candles it allows sit at a median efficiency of **0.25 (GBP/USD) / 0.24 (EUR/USD)**
-   against a whole-market median of **0.21 / 0.22** — no different — with **17% / 24%** of trades in
-   the choppiest tenth of the market. Nothing acts on this yet, by design. The cut point is his to
-   set from real signals; there is no natural break in the distribution to find automatically.
-8. **THE ONE CONDITION ON THE MOMENTUM CANDLE IS "NOT IN A RETRACEMENT" — and nothing implements it
-   properly yet (2026-08-12).** His corrected rule: the candle may come anywhere along the trend, at
-   any maturity, provided it is not inside a retracement. `leg_state` is the current stand-in and it
-   is measurably the wrong instrument (58 pips / 43 bars to refuse; blind to 99% of retracements).
-   The real-time retracement numbers now exist to build it on. **Blocked on one decision:** what
-   "still in a retracement" means at the instant a momentum candle appears, given the candle itself
-   goes the trend's way.
+   of a finished move is accepted. Deferred by him 2026-07-27 — the spacing rule already refuses the
+   specific case, and stacking two new filters at once would make any frequency change
+   unattributable.
+8. **The number of swings the regime engine needs (2 highs + 2 lows) is NOT tuned.** His call:
+   *"I would not hard-code yet the number of swings required... test the detector against actual
+   chart data before changing that."* It follows item 2.
 
 *(The "no test suite" gap was closed 2026-07-27 — see below.)*
 
