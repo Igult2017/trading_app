@@ -32,6 +32,7 @@ from core.types import Candle
 from strategies.vix1_momentum import momentum_run, veto_reason
 from strategies import vix1_log
 from strategies.vix1_state import Bias, market_state
+from strategies.vix1_swings import turning_points
 from strategies.vix1_structure import leg_state, market_permits
 from strategies.vix1_trend import trend_state
 
@@ -68,6 +69,26 @@ _H1_SWING_N = 48
 # tests/vix1/test_trend.py.
 _H1_TREND_BARS = 1500
 
+# HIGHS AND LOWS ARE READ IN REAL TIME (2026-08-12). His question, and it had no good answer:
+# "Why cant we detect Highs and lows in real time by monitoring the candles in real time?"
+#
+# The n-bar detector defines a peak as "nothing higher for n bars EITHER SIDE", which cannot be
+# answered until n bars AFTER the peak — so at n=48 the trend read sat a median 2.2 days behind the
+# chart, and his rule ("when it STARTS printing the second high... we start looking") could not be
+# expressed at all. `vix1_swings` marks a turn the bar price closes through the candle that made it:
+# median 1 bar, and 100% of turns known sooner than 48 bars could ever allow.
+#
+# MEASURED like-for-like (same bars, same rules, only the eyesight changed), 3 years both pairs:
+#     in a trend      86% -> 90% (GBP/USD) · 90% -> 91% (EUR/USD)   — no trading time lost
+#     phases          12 -> 37 · 12 -> 31                            — it turns ~3x more often
+#     under two days  0 -> 0 · 0 -> 0                                — none of them are noise flips
+#     typical move    +148p -> +114p · +70p -> +84p
+#     dud phases      0 -> 0 · 3 -> 3                                — no worse
+#
+# `_H1_SWING_N` still exists: it is the fallback pivot width when `turns` is not supplied, and
+# `trend_state` keeps that path for anything that wants the old eyesight.
+_REALTIME_STRUCTURE = True
+
 # THE 4HR FALLBACK — MUTED 2026-08-11, KEPT ON PURPOSE. Flip to True to bring it back.
 #
 # DO NOT DELETE THIS AS DEAD CODE. The standing rule is that unused code is removed; this is the
@@ -90,6 +111,11 @@ _H1_TREND_BARS = 1500
 # IF IT IS EVER TURNED BACK ON: `t1 == 0` must first be split into its two meanings — "no trend has
 # ever formed" and "a reversal is pending" — because only the first is arguably safe here.
 _ALLOW_H4 = False
+
+
+def _turns(window: list[Candle]):
+    """The turning points the trend is read from — real-time, or None for the n-bar fallback."""
+    return turning_points(window) if _REALTIME_STRUCTURE else None
 
 
 def _upto(window: list[Candle], h1: list[Candle], mc_idx: int) -> list[Candle]:
@@ -128,7 +154,7 @@ def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "") -> Bias | 
     # VIX.1 is pro-trend only, so a counter-trend momentum candle can never be traded. Asking the
     # trend first and then looking for momentum ONLY that way is both correct and simpler.
     window = h1[-_H1_TREND_BARS:]
-    tstate = trend_state(window, n=_H1_SWING_N)
+    tstate = trend_state(window, n=_H1_SWING_N, turns=_turns(window))
     t1 = tstate.direction
     t4 = trend_state(h4).direction if _ALLOW_H4 else 0
 
@@ -161,7 +187,7 @@ def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "") -> Bias | 
     # confirmation can land inside that gap. Small, but "had this trend already continued when the
     # candle formed?" is a question about the candle.
     at_mc = _upto(window, h1, mc_idx)
-    t_mc = trend_state(at_mc, n=_H1_SWING_N)
+    t_mc = trend_state(at_mc, n=_H1_SWING_N, turns=_turns(at_mc))
     # If the candle formed mid-reversal (no direction yet at that point), fall back to the current
     # read rather than refusing — that would be a second, unasked-for rule.
     mstate = t_mc if t_mc.direction else tstate

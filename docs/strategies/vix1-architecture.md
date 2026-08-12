@@ -53,6 +53,7 @@ VIX.1 has shipped a bug from reading the forming bar as a level, and **a backtes
 | `vix1_bias.py` | `detect_bias(h1, h4, symbol) -> Bias \| None` — momentum on H1, trend on H1 (H4 only as a fallback) |
 | `vix1_state.py` | **`Bias` (what the 1HR decided) + `market_state` (the state it decided it in)** — added 2026-08-11 |
 | `vix1_retracement.py` | **the retracement, counted in real time** — `bars` (the pullback this candle came after) and `stall_bars` (how long since the trend made progress). Added 2026-08-11, decides nothing yet |
+| `vix1_swings.py` | **highs and lows in REAL TIME** - a turn is marked the bar price closes through the candle that made it. No 48-bar wait. Added 2026-08-12 |
 | `vix1_regime.py` | **directional efficiency — the range detector VIX.1 never had.** Added 2026-08-11, decides nothing yet |
 | `vix1_momentum.py` | momentum-candle detection + `momentum_grade` (A/B/C → confidence) |
 | `vix1_building.py` | the "setup building" card — a setup seen before its entry exists |
@@ -293,6 +294,48 @@ quartile **12.3× / 13.2×**.
 
 **STILL OPEN after this:** the real-time *"second high after the first low"* trigger. Nothing
 implements it — the code waits for a 48-bar swing to confirm, a median 209 bars later.
+
+### HIGHS AND LOWS ARE READ IN REAL TIME (2026-08-12) - the change that mattered
+
+His question, and it had no good answer: *"Why cant we detect Highs and lows in real time by
+monitoring the candles in real time?"*
+
+**The old detector could not, by construction.** `find_swing_points(candles, n)` defines a peak as
+"the highest bar with nothing higher for n bars EITHER SIDE" - it needs the future. At the trend's
+n=48 that put the trend read a **median 2.2 days behind the chart** (min 49 bars, both pairs), so his
+rule - *"when it STARTS printing the second high... we start looking"* - could not be expressed at
+all. Three separate times I reported that lag as a fact about the system instead of treating it as
+the defect. It was the defect.
+
+**`vix1_swings.turning_points`** marks a turn the moment price **closes through the candle that made
+the extreme**. No tuned number in it.
+
+| | 48-bar lookback | real-time |
+|---|---|---|
+| how late a turn is known | **always >= 48 bars** | median **1 bar**, 75th pct 2, max 54 |
+| turns known sooner than 48 bars allows | - | **100%** (1418/1419, 1353/1353) |
+| turns found in 3 years | 121, 120 | 1,419, 1,353 (~11x) |
+
+**`trend_state(candles, n, turns=...)` takes either source** and runs every rule unchanged - establish,
+BOS, CHoCH, the two-stage confirm. Only the eyesight changes.
+
+**MEASURED LIKE-FOR-LIKE over 4 years, same rules, same bars:**
+
+| | 48-bar | real-time |
+|---|---|---|
+| GBP/USD | 37 phases, median +227p, 0 dud | 105 phases, median **+117p**, **0** dud |
+| EUR/USD | 35 phases, median +142p, 2 dud | 97 phases, median **+81p**, **5** dud |
+| phases under two days (noise flips) | 0 | **0** - none, either pair |
+| in a trend at all (3yr sample) | 86% / 90% | **90% / 91%** |
+
+It turns about **3x more often**, each phase is shorter, EUR/USD gains three dud phases in four
+years - and **not one phase on either pair lasts under two days**, which is what a noise flip would
+look like. No trading time is lost.
+
+`_REALTIME_STRUCTURE = True` in `vix1_bias` switches it; the n-bar path stays as the fallback, and
+`test_trend.py` now measures BOTH so the calibrated guard watches what production runs.
+
+**NOT PROVEN: whether it trades better.** That needs outcomes scored on history - a backtest, his call.
 
 ### A TREND STARTS ON THREE TURNING POINTS, NOT FOUR (fixed 2026-08-12)
 

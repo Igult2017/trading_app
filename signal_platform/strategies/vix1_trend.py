@@ -44,6 +44,14 @@ from dataclasses import dataclass, field
 from core.types import Candle
 from shared.swing_points import find_swing_points
 
+@dataclass(frozen=True)
+class _Pivot:
+    """One turning point as the replay below wants it, whichever source produced it."""
+    is_high: bool
+    price: float
+    index: int
+
+
 _SWING_N  = 3     # generic default; vix1_bias passes its own (48) for the main trend
 _MIN_BARS = 20    # below this there is not enough structure to call anything
 
@@ -139,25 +147,42 @@ def _establish(seq: list[tuple[bool, float]]) -> tuple[int, float] | None:
     return up or down
 
 
-def trend_state(candles: list[Candle], n: int = _SWING_N) -> TrendState:
-    """Replay the structure and return the full state. `clear_trend` is the direction-only view."""
+def trend_state(candles: list[Candle], n: int = _SWING_N, turns=None) -> TrendState:
+    """Replay the structure and return the full state. `clear_trend` is the direction-only view.
+
+    `turns` lets a DIFFERENT source of turning points drive the same rules — pass the real-time ones
+    from `vix1_swings.turning_points` and every rule below (establish, BOS, CHoCH, the two-stage
+    confirm) runs unchanged on them. Left as None it uses the n-bar lookback detector as before.
+
+    THE ONLY THING THE TWO SOURCES DISAGREE ABOUT IS *WHEN A TURN BECOMES KNOWN*, so that is what
+    was generalised. A lookback pivot is knowable `n` bars after it prints; a real-time turn is
+    knowable the bar price closes through the candle that made it — a median of 1 bar, against a
+    hard floor of 48. Everything downstream is identical, which is the point: the rules are his,
+    only the eyesight changes.
+    """
     st = TrendState()
     if len(candles) < _MIN_BARS:
         return st
-    pts = sorted(find_swing_points(candles, n), key=lambda p: p.index)
+    if turns is None:
+        pts = [(p.index + n, p.is_high, p.price, p.index)
+               for p in find_swing_points(candles, n)]
+    else:
+        pts = [(t.confirmed, t.is_high, t.price, t.index) for t in turns]
+    pts.sort()
     if not pts:
         return st
 
     since: list[float] = []       # counter-swings banked since the last BOS
     last_ext: float | None = None  # the last swing that EXTENDED the trend
-    k = 0                          # a swing at j is only KNOWN j+n bars later
+    k = 0                          # pivots are consumed at the bar they become KNOWN
     last_pi: int | None = None     # where the most recent pivot actually sits — see direction_since
     seq: list[tuple[bool, float]] = []   # confirmed pivots IN ORDER — `highs`/`lows` lose the order,
                                          # and his establishment rule is about a sequence
 
     for i, c in enumerate(candles):
-        while k < len(pts) and pts[k].index + n <= i:
-            p = pts[k]; k += 1
+        while k < len(pts) and pts[k][0] <= i:
+            _, _is_high, _price, _pidx = pts[k]; k += 1
+            p = _Pivot(_is_high, _price, _pidx)
             (st.highs if p.is_high else st.lows).append(p.price)
             seq.append((p.is_high, p.price))
             last_pi = p.index

@@ -17,7 +17,8 @@ NOT A BACKTEST — no P&L, no win rate. Purely "is the trend label stable and no
 from _harness import Suite, load
 
 from strategies.vix1_bias import _H1_SWING_N
-from strategies.vix1_trend import _SWING_N, clear_trend
+from strategies.vix1_swings import turning_points
+from strategies.vix1_trend import _SWING_N, clear_trend, trend_state
 
 s = Suite("VIX.1 — the 1HR trend is read from wide swings over a long window")
 
@@ -97,10 +98,21 @@ print("   a reversal must be RARE and it must be RIGHT:")
 PIP = 0.0001
 
 
-def phase_quality(bars, n, step=96, window=1500):
-    """(phases, how many were under 2 days, median best favourable move in pips, how many never moved)"""
+def phase_quality(bars, n, step=96, window=1500, realtime=False):
+    """(phases, how many were under 2 days, median best favourable move in pips, how many never moved)
+
+    `realtime=True` drives the SAME rules from `vix1_swings` turning points — the source production
+    actually uses since 2026-08-12. Without this the calibrated guard below would be watching a path
+    nothing runs.
+    """
     idx = list(range(window + 40, len(bars), step))
-    seq = [clear_trend(bars[:e][-window:], n=n) for e in idx]
+    if realtime:
+        seq = []
+        for e in idx:
+            w = bars[:e][-window:]
+            seq.append(trend_state(w, n=n, turns=turning_points(w)).direction)
+    else:
+        seq = [clear_trend(bars[:e][-window:], n=n) for e in idx]
     settled = [(i, t) for i, t in zip(idx, seq) if t != 0]
     phases, cur, start = [], None, None
     for i, t in settled:
@@ -161,5 +173,21 @@ if eur:
     # The old settings really are less stable — if this ever fails, the premise of the whole change
     # is gone and the numbers above mean nothing.
     s.teeth("the stability comparison", not c_old < c_new)
+
+# ── THE SAME PROPERTIES, ON THE SOURCE PRODUCTION ACTUALLY USES ─────────────────────────────────
+# Turning points are read in REAL TIME since 2026-08-12 (vix1_bias._REALTIME_STRUCTURE). The checks
+# above still cover the n-bar fallback; these cover what actually runs. Same three questions.
+print()
+print("   the REAL-TIME source — no 48-bar wait (what vix1_bias runs):")
+for pair in ("EURUSD", "GBPUSD"):
+    bars = load(f"{pair}_H1.csv", "H1")
+    if not bars:
+        continue
+    n_ph, short, med, dead = phase_quality(bars, _H1_SWING_N, realtime=True)
+    print(f"      {pair}: {n_ph} phases, {short} under 2 days, median best move {med:+.0f} pips, "
+          f"{dead} never moved the trend's way")
+    s.check(f"{pair} [real-time]: NO trend phase lasts under two days", short, 0)
+    s.check(f"{pair} [real-time]: the median phase catches at least 60 pips its own way",
+            med >= 60.0, True)
 
 s.done()
