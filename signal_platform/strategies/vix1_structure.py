@@ -169,25 +169,23 @@ def leg_state(candles: list[Candle], direction: int, n: int = _FAST_N, turns=Non
 # of the other two readings speaks for, and depth is what speaks for it. Measured against ATR, never
 # against the leg: the leg needs the far-away pivot and would drag that delay straight back in.
 
-# THE TWO NUMBERS ARE HIS, AND THEY ARE NOT SET YET.
+# THE DEPTH TEST WAS REMOVED ON 2026-08-12, BEFORE IT EVER HAD A NUMBER. His argument, and it is
+# right: *"Do we really care on how deep a retracement should be? because if a retracement breaks a
+# protected low of a trend i think now the CHOCH detector detects it and it stops being a
+# retracement."*
 #
-# `None` means "not set" and the gate is inert — not "zero". They ship unset ON PURPOSE. He reserved
-# them: thresholds are to come from real signals, because the measured distributions have no natural
-# break to cut at and anything picked from one year of two pairs is a fitted number. Two changes have
-# already looked right on the day they were tried and were worse over four years (the n=12 swing
-# width at 55% agreement, the daily timeframe at 65%).
+# I HAD ARGUED FOR IT ON A PREMISE THAT NO LONGER HOLDS. The case for depth was that the level
+# protecting the trend sat far away by construction — 48-bar swings, a median 57-candle leg — leaving
+# a wide zone between "an ordinary pullback" and "a confirmed reversal" that nothing spoke for.
+# Turning points are read in REAL TIME since the same day, so the protecting level is now the most
+# recent real higher low, and a retracement deep enough to matter breaks it and becomes a CHoCH. The
+# gap depth existed to cover has closed. Keeping it would be a second opinion on a question already
+# answered, with a threshold nobody needs to choose.
 #
-# WHAT THE DATA SAYS, so the choice is informed rather than invented — 12 months, both pairs:
-#   efficiency across ALL bars   median 0.21 (GBP/USD) / 0.22 (EUR/USD)
-#   efficiency at the candles we currently allow   0.25 / 0.24  — i.e. the SAME market; the momentum
-#                                                  candle does nothing to avoid chop today
-#   a cut at 0.15 calls ~37% of all time ranging and removes ~26% of trades
-#   a cut at 0.20 calls ~47% and removes ~41%
-#   a cut at 0.25 calls ~58% and removes ~50%
-#   retracement depth at those same candles   median 5.2x ATR (GBP/USD) / 6.8x (EUR/USD),
-#                                             upper quartile 12.3x / 13.2x
+# THE RANGE THRESHOLD IS STILL HIS, and its definition changed the same day — see vix1_regime. It is
+# no longer "efficiency below X"; his rule is structural: *"a market that can't print stable or
+# distinctive and directional highs and lows is ranging."*
 _RANGE_EFFICIENCY: float | None = None      # below this = ranging, do not trade
-_MAX_DEPTH_ATR: float | None = None         # deeper than this = too far gone to call a pullback
 
 
 def market_permits(ret: Retracement, efficiency: float | None) -> str | None:
@@ -201,8 +199,4 @@ def market_permits(ret: Retracement, efficiency: float | None) -> str | None:
         return (f"the market is ranging — it travelled only {efficiency:.2f} of the distance it "
                 f"walked over the last 20 bars (below {_RANGE_EFFICIENCY:.2f}); "
                 f"this is not a trend to continue")
-    if _MAX_DEPTH_ATR is not None and ret.atr > _MAX_DEPTH_ATR:
-        return (f"price is {ret.atr:.2f}x ATR below the trend's own extreme (limit "
-                f"{_MAX_DEPTH_ATR:.2f}x) — too far back to call this a pullback, and a retracement "
-                f"this deep can be turning into a reversal")
     return None

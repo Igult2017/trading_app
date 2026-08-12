@@ -142,19 +142,23 @@ s.check("the 4HR fallback ships MUTED", vix1_bias._ALLOW_H4, False)
 # retracement has ended. He settled that — "Momentum candle is a proof of the continuation of the
 # trend" — and a test that re-introduced the question would re-introduce the rule.
 print()
-print("   the market-state gate — SHIPS INERT, the two numbers are his:")
+print("   the market-state gate — SHIPS INERT, the range number is his:")
 shallow = Retracement(active=True, bars=2, pips=0.0008, atr=1.5)
 deep = Retracement(active=True, bars=2, pips=0.0090, atr=18.0)
 
-s.check("thresholds ship UNSET (None, not zero)",
-        (vix1_structure._RANGE_EFFICIENCY, vix1_structure._MAX_DEPTH_ATR), (None, None))
+s.check("the range threshold ships UNSET (None, not zero)", vix1_structure._RANGE_EFFICIENCY, None)
 s.check("unset -> a dead-flat market is still allowed", market_permits(shallow, 0.01), None)
-s.check("unset -> an 18x-ATR retracement is still allowed", market_permits(deep, 0.9), None)
 s.check("unset -> unknown efficiency is allowed", market_permits(shallow, None), None)
 
-# ...and each gate works the moment a number IS set. Restored in a finally so one failing check
-# cannot leave the module armed for every test after it.
-_saved = (vix1_structure._RANGE_EFFICIENCY, vix1_structure._MAX_DEPTH_ATR)
+# DEPTH IS NOT TESTED HERE BECAUSE IT NO LONGER EXISTS. Removed 2026-08-12 on his argument: "if a
+# retracement breaks a protected low of a trend the CHOCH detector detects it and it stops being a
+# retracement." Turning points are real-time now, so the protecting level is current and a
+# retracement deep enough to matter breaks it. Do NOT re-add a depth threshold without new reasoning.
+s.check("no depth threshold exists any more",
+        hasattr(vix1_structure, "_MAX_DEPTH_ATR"), False)
+s.check("...so an 18x-ATR retracement is not refused on depth", market_permits(deep, 0.9), None)
+
+_saved = vix1_structure._RANGE_EFFICIENCY
 try:
     vix1_structure._RANGE_EFFICIENCY = 0.20
     s.check("range gate set -> a chopping market is REFUSED",
@@ -166,18 +170,9 @@ try:
             market_permits(shallow, 0.20), None)
     s.check("range gate set -> unknown efficiency is still allowed, never refused on a guess",
             market_permits(shallow, None), None)
-
-    vix1_structure._RANGE_EFFICIENCY = None
-    vix1_structure._MAX_DEPTH_ATR = 8.0
-    s.check("depth gate set -> a deep retracement is REFUSED",
-            market_permits(deep, 0.60) is not None, True)
-    s.check("   ...and it says why, in words a chart can be checked against",
-            "below the trend's own extreme" in market_permits(deep, 0.60), True)
-    s.check("depth gate set -> a shallow one is allowed", market_permits(shallow, 0.60), None)
 finally:
-    vix1_structure._RANGE_EFFICIENCY, vix1_structure._MAX_DEPTH_ATR = _saved
-s.check("the thresholds were restored after the test",
-        (vix1_structure._RANGE_EFFICIENCY, vix1_structure._MAX_DEPTH_ATR), (None, None))
+    vix1_structure._RANGE_EFFICIENCY = _saved
+s.check("the threshold was restored after the test", vix1_structure._RANGE_EFFICIENCY, None)
 
 # ── teeth ────────────────────────────────────────────────────────────────────────────────────────
 print()
