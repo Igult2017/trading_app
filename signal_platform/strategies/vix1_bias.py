@@ -204,7 +204,7 @@ def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "") -> Bias | 
         # old. Reading the structure as it is NOW would let a pullback that formed AFTER the candle
         # decide the candle's fate. Measured: this changes the verdict on 6% of GBP/USD setups and
         # 4% of EUR/USD.
-        leg = leg_state(at_mc, t1)
+        leg = leg_state(at_mc, t1, turns=_turns(at_mc))
         if not leg.ready:
             vix1_log.say(symbol, f"[vix1] {symbol} bias=NONE: {'up' if bullish else 'down'} momentum WITH the "
                                  f"trend, but the leg does not permit it — {leg.why} | {state_mc}")
@@ -224,7 +224,7 @@ def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "") -> Bias | 
 
     # 2) 1HR trend UNCLEAR, momentum WITH a clear 4HR trend (the fallback) — MUTED, see _ALLOW_H4.
     if _ALLOW_H4 and t1 == 0 and t4 == want:
-        leg = leg_state(at_mc, want)
+        leg = leg_state(at_mc, want, turns=_turns(at_mc))
         if not leg.ready:
             vix1_log.say(symbol, f"[vix1] {symbol} bias=NONE: 4HR-backed direction but the leg does not "
                                  f"permit it — {leg.why} | {state_mc}")

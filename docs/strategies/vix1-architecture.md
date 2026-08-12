@@ -59,7 +59,7 @@ VIX.1 has shipped a bug from reading the forming bar as a level, and **a backtes
 | `vix1_building.py` | the "setup building" card — a setup seen before its entry exists |
 | `vix1_log.py` | per-symbol log throttling, so a silent scan does not spam |
 | `vix1_trend.py` | `trend_state` / `clear_trend` — the trend as structure, plus the BOS and CHoCH that move it |
-| `vix1_structure.py` | `fast_pattern` / `leg_state` — the ONE refusal: is the faster structure trending the opposite way (a pullback)? Never decides direction |
+| `vix1_structure.py` | `fast_pattern` / `leg_state` (real-time turns since 2026-08-12) + `market_permits` — the refusals: is the faster structure trending the opposite way (a pullback)? Never decides direction |
 | `vix1_lines.py` | `draw_line` — ONE line, the momentum candle's body close |
 | `vix1_pullback.py` | `find_pullback` — the counter candle, and the past-the-line gate |
 | `vix1_fractal.py` | fractal levels/breaks for the wrong-side case |
@@ -294,6 +294,39 @@ quartile **12.3× / 13.2×**.
 
 **STILL OPEN after this:** the real-time *"second high after the first low"* trigger. Nothing
 implements it — the code waits for a 48-bar swing to confirm, a median 209 bars later.
+
+### THE PULLBACK GATE GOT REAL-TIME EYES TOO (2026-08-12) - four defects, one cause
+
+He asked how many of the catalogued problems were actually solved, then pointed out that some I had
+marked "unsolved" already had an agreed solution. Checking found `fast_pattern` - the gate that
+decides *"this is a pullback, not a continuation"*, the module whose defects started the whole
+conversation - **still calling the 8-bar lookback detector, completely untouched.**
+
+So VIX.1 had **two eyesights inside one decision**: the trend read in real time, the pullback gate
+8 hours late and blind to any retracement under 8 candles (99% of them). I had fixed the lag in the
+reader I was looking at and left the identical lag in the one catalogued first.
+
+Four of the five defects against this module were the SAME cause - a turning point it could not see
+until n bars later - so one change addresses them together. `fast_pattern`/`leg_state` now take
+`turns=`; the RULE is untouched.
+
+**MEASURED, 12 months, both pairs, like-for-like (same trend source, only these eyes differ):**
+
+| | before (8-bar) | after (real-time) |
+|---|---|---|
+| "cannot tell" - and it PASSES - GBP/USD | **41%** | **26%** |
+| "cannot tell" EUR/USD | 34% | 23% |
+| GBP/USD allowed vs refused | 12.2p / 9 bars vs 19.5p / **5** bars | 11.9p / 7 vs 19.4p / **17** |
+| EUR/USD allowed vs refused | 8.4p / 7 vs 18.0p / 36 | 7.7p / 5 vs 19.0p / 21 |
+| refusals | 49 of 264 · 39 of 256 | 61 of 264 · 57 of 256 |
+
+**GBP/USD's separation was BACKWARDS before** - it refused setups FEWER bars into a counter-move than
+the ones it allowed. Right way round on both pairs now.
+
+**NOT fixed by this, and it would not be:** the counter-candle count immediately before the momentum
+candle still fails to separate allowed from refused (median 1 vs 1). `leg_state` reads STRUCTURE, not
+candle runs. The live pullback count already exists in `vix1_retracement`, is reported everywhere, and
+is not a gate because that needs his threshold.
 
 ### HIGHS AND LOWS ARE READ IN REAL TIME (2026-08-12) - the change that mattered
 

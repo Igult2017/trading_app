@@ -84,15 +84,33 @@ def _distinct(points, n: int):
     return out
 
 
-def fast_pattern(candles: list[Candle], n: int = _FAST_N) -> str:
-    """What the faster structure is doing: 'up' (HH+HL), 'down' (LH+LL), 'mixed', or 'unclear'.
+def fast_pattern(candles: list[Candle], n: int = _FAST_N, turns=None) -> str:
+    """What the recent structure is doing: 'up' (HH+HL), 'down' (LH+LL), 'mixed', or 'unclear'.
 
-    Only swings CONFIRMED by the end of the window count — a pivot at index j needs n bars after it,
-    so the last n bars can never contain one. This is a LEVEL read, and a level must come from
-    settled structure (the platform-wide closed-candle rule).
+    `turns` — real-time turning points from `vix1_swings`. This is what production passes since
+    2026-08-12, and it is the fix for four of the defects catalogued against this module:
+
+        it was 8 HOURS LATE by construction  — a lookback pivot needs n bars after it, so the last
+                                               n bars could never contain one and were discarded
+        it was BLIND TO SHORT RETRACEMENTS   — 99% of retracements run under 8 candles, i.e. under
+                                               the width it needed to see anything at all
+        it answered "cannot tell" 40% of the time — too few confirmed pivots to compare
+        it fired on the WRONG SIZE of move   — refusing at a median 58 pips / 43 bars while allowing
+                                               at 19 pips / 14, because only large old swings were
+                                               visible to it
+
+    None of those are the RULE being wrong. They are all the same cause: a definition of a turning
+    point that cannot be evaluated until n bars later. Feeding it turns that are known when the
+    market makes them removes all four at once, and the rule below is untouched.
+
+    Left as None it uses the n-bar lookback exactly as before.
     """
-    pts = sorted(find_swing_points(candles, n), key=lambda p: p.index)
-    pts = _distinct([p for p in pts if p.index <= len(candles) - 1 - n], n)
+    if turns is not None:
+        pts = sorted(turns, key=lambda p: p.index)
+    else:
+        pts = sorted(find_swing_points(candles, n), key=lambda p: p.index)
+        # a lookback pivot at index j is not knowable until j+n, so the last n bars hold none
+        pts = _distinct([p for p in pts if p.index <= len(candles) - 1 - n], n)
     highs = [p for p in pts if p.is_high]
     lows = [p for p in pts if not p.is_high]
     if len(highs) < 2 or len(lows) < 2:
@@ -104,7 +122,7 @@ def fast_pattern(candles: list[Candle], n: int = _FAST_N) -> str:
     return "mixed"
 
 
-def leg_state(candles: list[Candle], direction: int, n: int = _FAST_N) -> LegState:
+def leg_state(candles: list[Candle], direction: int, n: int = _FAST_N, turns=None) -> LegState:
     """May we ride this trend right now?
 
     `direction` MUST come from vix1_trend — this function never infers it, by design. Refusals carry
@@ -113,7 +131,7 @@ def leg_state(candles: list[Candle], direction: int, n: int = _FAST_N) -> LegSta
     """
     if direction == 0:
         return LegState(why="no established trend — nothing may be traded")
-    pattern = fast_pattern(candles, n)
+    pattern = fast_pattern(candles, n, turns=turns)
     opposite = "down" if direction == 1 else "up"
     if pattern == opposite:
         way = "up" if direction == 1 else "down"
