@@ -53,6 +53,17 @@ class Zone:
     ifc_index:    int      # the FVG that validates it
     mitigated:    bool = False
     kind:         str = "institutional"   # which BOOK technique marked it — see mark_zone
+    # WHERE THIS ZONE SITS IN ITS OWN GROUP — "extreme" | "decisional" | "" (alone / unclassified).
+    #
+    # Smart Risk, "Double Zone Break Out": when a move leaves more than one same-side zone behind, the
+    # FURTHEST one is the extreme and the nearer one is DECISIONAL — *"Don't use the decisional zones,
+    # you will be a liquidity."* Price pushes past the decisional to sweep the stops resting above it
+    # and to mitigate the extreme, so an order at the decisional is the fuel for that push.
+    role:         str = ""
+    # How many opposite-side zones the move that created this one CLOSED THROUGH. Two or more is the
+    # document's strong case ("break & close below or above the two successive supply or demand
+    # zones"). A label and a strength input, never a gate on its own.
+    broke_through: int = 0
 
 
 def find_fvgs(candles: list[Candle]) -> list[FVG]:

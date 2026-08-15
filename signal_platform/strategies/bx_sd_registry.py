@@ -76,6 +76,10 @@ class MarkedZone:
     last_tap_at: int | None = None
     in_zone: bool = False        # was the previous CLOSED bar inside? (visit-edge detection)
 
+    # EXTREME vs DECISIONAL — see `classify_roles`. "" while a zone stands alone in its group.
+    role: str = ""
+    broke_through: int = 0       # opposite-side zones this zone's move closed through
+
     # HOW the zone was FIRST mitigated: "wick" | "body" | "" (never tapped). Set once, never
     # overwritten.
     #
@@ -177,6 +181,99 @@ def _broke_structure(events, want: str, ifc_i: int, upto_i: int | None = None) -
                and (upto_i is None or e.index <= upto_i) for e in events)
 
 
+def classify_roles(zones: list[MarkedZone], events, bar_index: dict[int, int]) -> None:
+    """Label each live zone EXTREME or DECISIONAL within its own group. Mutates in place.
+
+    SMART RISK, "Double Zone Break Out" — the rule this exists for, in his document's own words:
+
+        "the upper supply zone is the extreme one and the second supply zone located a bit lower is
+         called the decisional zone. Please consider that we cannot place any trades based on the
+         decisional supply zone because there is a high chance that the price will push higher to
+         sweep the liquidity accumulated above the double tops and trigger the stop-loss of traders
+         who entered from the decisional supply zone."
+
+        "Don't use the decisional zones, you will be a liquidity."
+
+    WHAT A GROUP IS. Same-side zones left behind by ONE move — so a group ends at the first structure
+    event AGAINST that side, because that is a different move. Within a group the zone furthest from
+    where price went is the EXTREME (highest supply / lowest demand) and every other is DECISIONAL.
+
+    ORDER DOES NOT DECIDE IT, PRICE DOES. The extreme is not "the first one formed": a later zone can
+    print higher than an earlier one inside the same leg, and it is then the extreme. Reading it off
+    formation order would label by accident of sequence rather than by where the liquidity sits.
+
+    A zone ALONE in its group keeps role "" — not "extreme". There is no decisional zone to be
+    preferred over, so calling it extreme would claim a distinction the market never drew.
+
+    ONLY LIVE ZONES ARE GROUPED. A broken zone is dead and cannot be traded, so including it could
+    hand `extreme` to a corpse and demote the one zone actually on offer.
+    """
+    for z in zones:
+        z.role = ""
+
+    live = [z for z in zones if z.live and z.marked_at in bar_index]
+    for side in ("supply", "demand"):
+        same = sorted((z for z in live if z.direction == side),
+                      key=lambda z: bar_index[z.marked_at])
+        if not same:
+            continue
+        # a break the OTHER way ends the move that was leaving these zones behind
+        against = "up" if side == "supply" else "down"
+        cuts = sorted(e.index for e in events if e.direction == against)
+
+        group: list[MarkedZone] = []
+        for z in same:
+            zi = bar_index[z.marked_at]
+            if group and any(bar_index[group[-1].marked_at] < c <= zi for c in cuts):
+                _label(group, side)
+                group = []
+            group.append(z)
+        _label(group, side)
+
+
+def count_breakthroughs(zones: list[MarkedZone], events, bar_index: dict[int, int]) -> None:
+    """How many OPPOSITE zones the move that follows each zone closed through. Mutates in place.
+
+    SMART RISK, criterion 3: *"Price should break & close below or above the two successive supply or
+    demand zones along its path."* Two or more is the document's strong case — it means the move left
+    real inefficiency behind it rather than drifting through one level.
+
+    THE DIRECTION OF TIME HERE IS EASY TO GET BACKWARDS. A supply zone is marked at the TOP, and the
+    demand zones it breaks are broken AFTERWARDS, as price falls away from it. So the count looks
+    FORWARD from `marked_at`, not back — and it stops at the first structure event the other way,
+    because that is a different move.
+
+    A LABEL AND A STRENGTH INPUT, NEVER A GATE ON ITS OWN. The document offers it as confluence
+    ("this pattern will be a strong confluence and confirmation"), not as a veto, and the standing
+    rule here is that setup frequency is a market output rather than something to tune toward.
+    """
+    idx_of = bar_index
+    for z in zones:
+        z.broke_through = 0
+    for z in zones:
+        if z.marked_at not in idx_of:
+            continue
+        start = idx_of[z.marked_at]
+        against = "up" if z.direction == "supply" else "down"
+        later = [e.index for e in events if e.direction == against and e.index > start]
+        end = min(later) if later else None
+        opp = "demand" if z.direction == "supply" else "supply"
+        z.broke_through = sum(
+            1 for o in zones
+            if o.direction == opp and o.broken_at in idx_of
+            and idx_of[o.broken_at] > start and (end is None or idx_of[o.broken_at] <= end))
+
+
+def _label(group: list[MarkedZone], side: str) -> None:
+    """Furthest-from-price zone in the group is the extreme; the rest are decisional."""
+    if len(group) < 2:
+        return                              # alone: no distinction exists, so none is claimed
+    best = max(group, key=lambda z: z.proximal) if side == "supply" \
+        else min(group, key=lambda z: z.proximal)
+    for z in group:
+        z.role = "extreme" if z is best else "decisional"
+
+
 def build(h4: list[Candle], pip: float = 0.0001,
           session_candles: list[Candle] | None = None) -> list[MarkedZone]:
     """Replay closed H4 bars in order and return every zone, with its state as of the last bar.
@@ -260,6 +357,15 @@ def build(h4: list[Candle], pip: float = 0.0001,
         for z in zones:
             if z.live and z.marked_at is not None and bar.time > z.marked_at:
                 _advance(z, bar)
+
+    # 4. EXTREME vs DECISIONAL, once, over the finished book. Roles are a property of the CURRENT
+    #    picture (which zones are still live and where they sit), not of formation, so they are read
+    #    at the end rather than frozen per zone — a zone that was decisional becomes the extreme the
+    #    moment the one above it breaks, and that is the market changing its mind, not a re-judgement
+    #    of the zone itself. Its boundaries, marking and lifecycle are untouched by this.
+    bar_index = {c.time: i for i, c in enumerate(bars)}
+    classify_roles(zones, events, bar_index)
+    count_breakthroughs(zones, events, bar_index)
     return zones
 
 
@@ -275,7 +381,8 @@ def to_zone(mz: MarkedZone, bars: list[Candle]) -> Zone | None:
         return None                      # older than the window handed to us
     return Zone(direction=mz.direction, top=mz.top, bottom=mz.bottom, proximal=mz.proximal,
                 distal=mz.distal, eq50=mz.eq50, origin_index=idx[mz.origin_time],
-                ifc_index=idx[mz.ifc_time], mitigated=mz.state != "unmitigated", kind=mz.kind)
+                ifc_index=idx[mz.ifc_time], mitigated=mz.state != "unmitigated", kind=mz.kind,
+                role=mz.role, broke_through=mz.broke_through)
 
 
 def _advance(z: MarkedZone, c: Candle) -> None:

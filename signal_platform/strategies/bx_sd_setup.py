@@ -305,6 +305,19 @@ def detect_setup(h4: list[Candle], pip: float = 0.0001, book=None, session_candl
         # a mitigated state AND a live tap in the same instant — does not apply here.
         if mz.state != "respected":
             continue
+        # NEVER THE DECISIONAL ZONE (Smart Risk, "Double Zone Break Out", 2026-08-15).
+        #
+        #     "we cannot place any trades based on the decisional supply zone because there is a high
+        #      chance that the price will push higher to sweep the liquidity accumulated above the
+        #      double tops and trigger the stop-loss of traders who entered from the decisional supply
+        #      zone."   ...   "Don't use the decisional zones, you will be a liquidity."
+        #
+        # When one move leaves several same-side zones behind, only the FURTHEST (`extreme`) is on
+        # offer; the nearer ones are what price runs through to reach it, so an order resting there is
+        # the fuel for that run. `role` is "" when a zone stands alone in its group — no decisional
+        # zone exists to be preferred over, so it trades normally. See `bx_sd_registry.classify_roles`.
+        if mz.role == "decisional":
+            continue
         # RETAP **OR** 4H PULLBACK. Both qualify. Neither replaces the other.
         #
         # User's rule, 2026-08-01: *"Keep the retap and add a pullback. If the pullback happens

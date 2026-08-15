@@ -131,6 +131,77 @@ USD/JPY 15→39, GBP/JPY 19→31. **The marking fix later the same day barely mo
 bars: GBP/JPY 32→35 live, GBP/USD 22→23, EUR/USD 28→30) — it changed the SIZE of each band, which is
 the point.
 
+## A ZONE IS MARKED WHEN ITS BREAK PRINTS, NOT BEFORE (fixed 2026-08-15)
+
+**His rule:** *"zones dont form immediately but as its features develop along the way. For example BOS
+is not instant so we cant make it instantly."*
+
+`build` computes every structure event over the whole bar array once, then `_broke_structure` asked
+`any(e.index > ifc_i)` — matching a break **anywhere later in the array**, including one that had not
+printed at the bar being replayed. So a zone was promoted on the bar after its imbalance rather than
+on the bar its break arrived.
+
+| real broker H4, 3,500 bars | GBP/USD | EUR/USD |
+|---|---|---|
+| marked BEFORE their break printed | **247 of 720 (34%)** | **236 of 724 (33%)** |
+| how early | median **10** bars, worst **111** (18.5 days) | median **10**, worst **104** |
+| zone book after the fix | 720 → **569** | 724 → **575** |
+| tradeable (`respected`) | 25 → **18** | 28 → **21** |
+| surviving zones whose STATE changed | **1** | **0** |
+
+`marked_at` starts the zone's clock, so a zone marked early is aged across bars on which it was not
+yet a zone — taps, mitigations and `respected` all accrue from price that predates its existence, and
+`respected` is exactly what the cascade selects on. ~150 zones per pair were being kept alive by a
+break they had not earned; the survivors are almost unchanged, so this removes bad zones rather than
+disturbing good ones.
+
+**Replay determinism could not see it** — a short build and a long build both mark on the same early
+bar, so N-vs-N+1 agreed. `test_zones.py` now checks the real property: a zone is never marked before
+its qualifying break, on synthetic events and on both real pairs.
+
+## EXTREME vs DECISIONAL — never trade the near zone (added 2026-08-15)
+
+**Smart Risk, "3. Double Zone Break Out":** *"we cannot place any trades based on the decisional
+supply zone because there is a high chance that the price will push higher to sweep the liquidity
+accumulated above the double tops and trigger the stop-loss of traders who entered from the decisional
+supply zone."* — *"Don't use the decisional zones, you will be a liquidity."*
+
+`bx_sd_registry.classify_roles` labels every LIVE zone within its group; `bx_sd_setup` refuses
+`decisional` outright.
+
+- **A group** is same-side zones left by ONE move — it ends at the first structure event the other way.
+- **The extreme** is the zone furthest from where price went (highest supply / lowest demand).
+  **Order of formation does not decide it**; a later zone printing higher is still the extreme.
+- **A zone alone in its group keeps role `""`** and trades normally — there is no decisional zone to
+  be preferred over, so no distinction is claimed.
+- **Broken zones are excluded**, or `extreme` could be handed to a corpse and demote the live one.
+
+**NOTHING IS MINTED — this is labelling only.** He settled it: *"the qualities that make a zone are not
+different from what the book we have been using says."* Measured over 3,500 H4 bars, the opposite zone
+is **already in the book within 12 bars of a break 86% of the time** (median 1 bar, 43% same-bar), so
+BX's existing formation rules already produce it. Do not add a second way to mint a zone.
+
+Roles are read **once over the finished book**, not frozen per zone: a decisional zone becomes the
+extreme the moment the one above it breaks. That is the market changing its mind, not a re-judgement
+of the zone — boundaries, marking and lifecycle are untouched, so the formation invariant holds.
+
+**`broke_through`** (`count_breakthroughs`) counts the opposite zones the move AFTER each zone closed
+through — the document's criterion 3, *"break & close below or above the two successive supply or
+demand zones along its path."* It looks **forward** from `marked_at` (a supply zone is marked at the
+top; the demand zones it breaks are broken afterwards) and stops at the first opposite structure
+event. A label and a strength input, **never a gate on its own**.
+
+**Measured effect of the decisional refusal**, standing book at the end of ~2 years:
+
+| | GBP/USD | EUR/USD |
+|---|---|---|
+| respected zones | 18 | 21 |
+| tradeable after the refusal | **2** | **5** |
+| live zones with a double break (2+) | 31 of 40 | 36 of 51 |
+
+That is a deliberate, large cut. His instruction: *"I would prefer 4 signals the whole month but
+quality."* Reported as an observation — **never tune toward a number.**
+
 ## Formation — the book's three factors, all at formation time
 
 1. **IFC** — a real 3-candle imbalance (`find_fvgs`: candle1.low > candle3.high, wick to wick)
@@ -314,6 +385,23 @@ pullback in 4HR"*.
    cTrader bars and asserts it can never fire again.
 
 ## KNOWN OPEN DEFECTS — not fixed, do not assume otherwise
+
+0. **The document's CHoCH definition is NOT built, and it is blocked on a design decision.** Smart
+   Risk: a change of character is a close beyond the last major swing **AND through the latest
+   opposite zone**. BX's `map_structure` breaks on the swing alone. **It cannot simply be made
+   zone-aware: `bx_sd_registry.build` calls `map_structure` to BUILD the zone book (line ~189), so a
+   zone-aware structure engine is circular.** The options are (a) apply the zone half only to the
+   entry-side CHoCH in `bx_sd_ltf.find_ltf_choch`, which already requires the reversal to have tapped
+   the 4H zone, or (b) a two-pass build — structure first without zones, then a zone-aware second
+   pass. Flagged to the user rather than guessed. **Do not resolve this by inventing a rule.**
+0b. **Criterion 2 — liquidity swept BEFORE the tap — is not built.** BX checks `swept_before` at zone
+   FORMATION, which is a different moment from "was liquidity taken before price tapped this zone".
+   The document is explicit that a zone tapped without a prior sweep tends to fail and become
+   liquidity itself.
+0c. **The card does not show `role` or `broke_through`.** Both are computed and the cascade acts on
+   `role`, but a trader reading the card cannot see that the zone was the extreme, or how many
+   opposite zones the move broke through.
+
 
 1. **Entry-price model is provisional.** "Enter at the confirming close" is the minimum change that
    stops signals firing behind price. The user has explicitly parked anything cleverer: *"keep it that
