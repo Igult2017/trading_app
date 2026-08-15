@@ -44,7 +44,7 @@ VIX.1 has shipped a bug from reading the forming bar as a level, and **a backtes
 
 ---
 
-## Module map — 20 files, ~2,400 lines
+## Module map — 21 files, ~2,520 lines
 
 | file | owns |
 |---|---|
@@ -60,6 +60,7 @@ VIX.1 has shipped a bug from reading the forming bar as a level, and **a backtes
 | `vix1_log.py` | per-symbol log throttling, so a silent scan does not spam |
 | `vix1_trend.py` | `trend_state` / `clear_trend` — the trend as structure, plus the BOS and CHoCH that move it |
 | `vix1_structure.py` | `fast_pattern` / `leg_state` (real-time turns since 2026-08-12) + `market_permits` — the refusals: is the faster structure trending the opposite way (a pullback)? Never decides direction |
+| `vix1_choch.py` | **the change-of-character route — the ONE place a pullback is not asked for** (added 2026-08-15). `choch_entry()` returns a `Bias` while a turn is proposed-but-unconfirmed, if momentum developed the new way out of a trending market. Re-detects nothing: reads `pending` / `choch_price` / `choch_index` off `TrendState` |
 | `vix1_lines.py` | `draw_line` — ONE line, the momentum candle's body close |
 | `vix1_pullback.py` | `find_pullback` — the counter candle, and the past-the-line gate |
 | `vix1_fractal.py` | fractal levels/breaks for the wrong-side case |
@@ -188,6 +189,55 @@ and the two-stage turn would have revived it into the reversal window (18% / 11%
 
 **Measured over 2 years, both pairs:** 11.4 setups/month GBP/USD, 14.4 EUR/USD; the pullback refusal
 removes 26% of all momentum candles on BOTH pairs.
+
+### THE CHANGE-OF-CHARACTER ROUTE — the exemption from the pullback rule (added 2026-08-15)
+
+**There are now TWO ways into a trade.** The normal one needs an established trend and passes the
+pullback refusal. The second exists because that refusal blocked the trade he actually takes.
+
+**Replayed on his own chart — EUR/USD 28 Jul 2026, real cTrader bars.** Low 1.13527, his marked level
+1.13722 (the 11:00 high), then the 17:00 candle: 13.6 pips, 89% body, closing through it.
+
+| chart time | before this change |
+|---|---|
+| 17:00 (his candle) | refused — "trend is changing, waiting for confirmation" |
+| 18:00, 19:00 | refused — same |
+| 20:00 → 05:00 | trend UP, candle recognised — refused, **"the leg says pullback"**, ten hours |
+| 06:00 | candle older than `LOOKBACK`, gone |
+
+**Two independent refusals**, so removing either alone changes nothing — hence a route, not a patch.
+
+**The four conditions** (`vix1_choch.choch_entry`), all of which must hold:
+
+1. a turn is **proposed but not yet confirmed** (`TrendState.pending`)
+2. a **momentum candle going the new way** — the break alone is never a trade
+3. that candle sits **at or after the break** — one from before it belongs to the reversed move
+4. the market **before the break** read **TREND**, not CHOP or RANGE
+
+Then the pullback refusal and the two-stage wait are **both skipped**.
+
+**WHERE THE WINDOW ENDS, WITH NO TUNED NUMBER.** His definition closes it — *"a pullback ends when
+CHOCH begins"* — so "the beginning" is exactly the proposed-but-unconfirmed span. When the new
+direction confirms, `pending` clears, this route stops answering and the normal one resumes.
+Measured: median **4h** (EUR/USD) / **5h** (GBP/USD), 97% inside 24h. His chart was 3h.
+
+| | EUR/USD | GBP/USD |
+|---|---|---|
+| changes of character in 12 months | 98 | 93 |
+| **setups produced** | **30 (2.5/month)** | **16 (1.3/month)** |
+| existing route: bias-hours before → after | **1005 → 1005** | **971 → 971** |
+| lost / altered | **0 / 0** | **0 / 0** |
+
+That last row is the proof it only ADDS: the real `detect_bias` run twice over 12 months with the new
+route stubbed out for the before-run.
+
+**THIS IS THE ONLY REVERSAL ENTRY IN THE STRATEGY**, and it re-opens "pro-trend only"
+(2026-07-25/26) knowingly, on his instruction, with the frequency shown before he approved. The
+2026-07-26 `choch4` origin stays deleted; this is not that rule — that one fired on a bare structure
+break, this one requires momentum out of a trending market.
+
+**KNOWN TAIL:** 2% of EUR/USD episodes stay unconfirmed past 72h (worst 104h) and the exemption stays
+open throughout. **He was offered a cap and declined one.** Do not add one without him.
 
 ### PHASE A — the retracement is COUNTED, and a range is DETECTED (added 2026-08-11)
 

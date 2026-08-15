@@ -21,18 +21,22 @@ _KIND = {
 
 
 # How each origin describes itself. 'trend4' = 1HR trend unclear, 4HR-backed.
-# The 'choch'/'choch4' entries were DELETED 2026-08-11: those origins were removed on 2026-07-26 when
-# the strategy went pro-trend only, and their branches sat here for six weeks reading like live
-# features. A reversal is now expressed by the TREND ITSELF turning (vix1_trend: CHoCH proposes, BOS
-# confirms), so a trade taken after one is a plain `trend` continuation in the new direction.
-_CTX   = {"trend4": "4HR-BACKED TREND"}
-_SHORT = {"trend4": "4HR-backed trend"}
+#
+# 'choch' RETURNED 2026-08-15, and it is NOT the old one. The 2026-07-26 origins fired on a bare
+# structure break; this one is his rule and needs momentum to have developed the new way, out of a
+# trending market, while the turn is still unconfirmed (vix1_choch). The old 'choch4' stays deleted.
+_CTX   = {"trend4": "4HR-BACKED TREND", "choch": "CHANGE OF CHARACTER"}
+_SHORT = {"trend4": "4HR-backed trend", "choch": "change of character"}
 
 
 def _origin_reason(origin: str, bullish: bool, mlabel: str, side: str) -> str:
     if origin == "trend4":
         return (f"4HR-BACKED TREND ({side}) — 1HR trend unclear, but the 1HR {mlabel} aligns with a "
                 f"clear 4HR {'up (HH+HL)' if bullish else 'down (LH+LL)'} trend")
+    if origin == "choch":
+        return (f"CHANGE OF CHARACTER ({side}) — price closed through the level protecting the old "
+                f"trend and the {mlabel} developed {'up' if bullish else 'down'} after it; taken "
+                f"without waiting for a pullback, which applies again once this trend confirms")
     return (f"1HR clear {'up (HH+HL)' if bullish else 'down (LH+LL)'} trend + {mlabel} "
             f"from the 1st ({side})")
 

@@ -30,7 +30,7 @@ class Bias:
     """
     bullish: bool
     mc_idx: int                  # indexes into H1 — the FIRST candle of the freshest momentum run
-    origin: str                  # 'trend' | 'trend4'
+    origin: str                  # 'trend' | 'trend4' | 'choch' (vix1_choch, added 2026-08-15)
     run_len: int
     reason: str                  # the BOS/CHoCH and the leg that justify the trade
     retracement: Retracement = Retracement()

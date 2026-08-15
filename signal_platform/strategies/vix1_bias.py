@@ -32,6 +32,7 @@ from core.types import Candle
 from strategies.vix1_momentum import momentum_run, veto_reason
 from strategies import vix1_log
 from shared.candle_math import atr
+from strategies import vix1_choch
 from strategies import vix1_regime
 from strategies.vix1_state import Bias, market_state
 from strategies.vix1_swings import structure_turns
@@ -157,8 +158,20 @@ def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "") -> Bias | 
 
     want = t1 if t1 != 0 else (t4 if _ALLOW_H4 else 0)
     if want == 0:
+        # HIS CHANGE-OF-CHARACTER ROUTE (2026-08-15). THIS IS THE EXACT LINE THAT REFUSED HIS TRADE.
+        #
+        # A pending turn reads direction 0, so everything below used to give up here — and on his own
+        # chart (EUR/USD 28 Jul 2026 17:00) that threw away the setup at the moment he takes it.
+        # `vix1_choch` grants ONE exemption, and only while the turn is proposed but unconfirmed:
+        # momentum the new way, out of a trending market, with no pullback required. The instant the
+        # new direction confirms, `pending` clears, that route stops answering and the normal path
+        # below owns the decision again — pullback rule and all. See vix1_choch for his wording.
+        bias, why = vix1_choch.choch_entry(window, h1, tstate, _H1_SWING_N, symbol)
+        if bias is not None:
+            vix1_log.say(symbol, f"[vix1] {symbol} CHoCH ENTRY: {why} | {state}")
+            return bias
         vix1_log.say(symbol, f"[vix1] {symbol} bias=NONE: no established 1HR trend "
-                             f"({tstate.reason()}) — pro-trend only, standing aside | {state}")
+                             f"({tstate.reason()}) — {why} | {state}")
         return None
 
     bullish = want == 1
