@@ -99,18 +99,19 @@ UP = [(1.1050, 10), (1.1025, 5), (1.1075, 10), (1.1050, 5), (1.1100, 10),
 
 def state_of(bars):
     w = bars[-_H1_TREND_BARS:]
-    return w, trend_state(w, n=_H1_SWING_N, turns=structure_turns(w, _H1_SWING_N))
+    turns = structure_turns(w, _H1_SWING_N)
+    return w, trend_state(w, n=_H1_SWING_N, turns=turns), turns
 
 
-def entry_for(bars):
-    w, t = state_of(bars)
-    return choch_entry(w, bars, t, _H1_SWING_N, "EUR/USD")
+def entry_for(bars, turns=None):
+    w, t, tn = state_of(bars)
+    return choch_entry(w, bars, t, tn if turns is None else turns, _H1_SWING_N, "EUR/USD")
 
 
 # 1. THE BREAK IS ITSELF A BIG CANDLE -> trades. (Bodies in the staircase are ~5 pips, so the
 #    100-bar median is ~5 and a momentum candle needs ~12.5; this one is 25.)
 fires = zigzag(UP) + [body(1.1108, 1.1083, tf="H1", t=200, wick_up=0.00005, wick_dn=0.00005)]
-w, t = state_of(fires)
+w, t, _tn = state_of(fires)
 s.check("the staircase established an uptrend then turned", t.pending, -1)
 bias, why = entry_for(fires)
 s.check("a big candle breaking the protecting low IS traded", bias is not None, True)
@@ -121,7 +122,7 @@ if bias:
 # 2. THE BREAK IS A SMALL CANDLE AND NOTHING BIG FOLLOWS -> refused.
 #    His rule: "a CHOCH is not a qualification for momentum".
 quiet = zigzag(UP) + [body(1.1108, 1.1098, tf="H1", t=200, wick_up=0.00005, wick_dn=0.00005)]
-_, tq = state_of(quiet)
+_, tq, _ = state_of(quiet)
 s.check("the small break still counts as a change of character", tq.pending, -1)
 bias_q, why_q = entry_for(quiet)
 s.check("a change of character with NO momentum is refused", bias_q is None, True)
@@ -134,7 +135,7 @@ pre = (zigzag(PRE)
        + [body(1.1115, 1.1112, tf="H1", t=201, wick_up=0.00005, wick_dn=0.00005)]
        + [body(1.1112, 1.1109, tf="H1", t=202, wick_up=0.00005, wick_dn=0.00005)]
        + [body(1.1109, 1.1098, tf="H1", t=203, wick_up=0.00005, wick_dn=0.00005)])  # small break
-_, tp = state_of(pre)
+_, tp, _ = state_of(pre)
 bias_p, why_p = entry_for(pre)
 if tp.pending == -1 and bias_p is None:
     s.check("a big candle from BEFORE the break does not qualify",
@@ -145,10 +146,28 @@ else:
 
 # 4. NO PENDING TURN AT ALL -> the route never answers.
 plain = zigzag(UP[:-1])
-_, tpl = state_of(plain)
+_, tpl, _ = state_of(plain)
 bias_n, why_n = entry_for(plain)
 s.check("with no change of character pending, the route stands aside", bias_n is None, True)
 s.check("...and says why", "no change of character is pending" in why_n, True)
+
+# 5. THE FIRST PULLBACK AFTER THE BREAK CLOSES THE WINDOW (his refinement, 2026-08-15):
+#    "the exemption ends when we have the first pullback after CHOCH so that we dont trade in
+#     pullbacks again."
+#
+#    TESTED BY INJECTING THE SWING, and that is deliberate. Measured over 12 months on both pairs
+#    this guard never bites on real data — after a turn, the first confirmed swing the counter way is
+#    almost always the very one that CONFIRMS the trend, so `pending` clears on the same bar. The
+#    guard exists so the rule is stated rather than emergent: change `vix1_trend`'s confirm rule and
+#    the two would come apart silently. A fixture cannot show a case the market does not produce, so
+#    the guard is exercised directly instead of faking a market to reach it.
+_w, _t, _turns = state_of(fires)
+_pull = type(_turns[-1])(is_high=False, price=1.1080, index=_t.choch_index + 1,
+                         confirmed=_t.choch_index + 2)     # a LOW = a pullback off a down-turn
+bias_pb, why_pb = entry_for(fires, turns=list(_turns) + [_pull])
+s.check("once the first pullback after the break is confirmed, the route stops", bias_pb is None, True)
+s.check("...and says the pullback rule is back", "first pullback has already begun" in why_pb, True)
+s.check("...while the SAME bars without that swing still trade", entry_for(fires)[0] is not None, True)
 
 # ── THE CHOP / RANGE FILTER, ON REAL BARS ────────────────────────────────────────────────────────
 # His answer (a): "if the break is... arising from a choppy or a ranging market we don't trade."
@@ -158,10 +177,11 @@ if eur:
     reasons = set()
     if end > 0:
         for i in range(max(H1_COUNT, end - 700), end):
-            w, t = state_of(eur[max(0, i - H1_COUNT):i + 1])
+            w, t, tn = state_of(eur[max(0, i - H1_COUNT):i + 1])
             if t.pending == 0:
                 continue
-            _, why_i = choch_entry(w, eur[max(0, i - H1_COUNT):i + 1], t, _H1_SWING_N, "EUR/USD")
+            _, why_i = choch_entry(w, eur[max(0, i - H1_COUNT):i + 1], t, tn,
+                                   _H1_SWING_N, "EUR/USD")
             if "came out of a" in why_i:
                 reasons.add(why_i.split("came out of a ")[1].split(" market")[0])
     s.check("real bars show breaks refused for the market they came out of",

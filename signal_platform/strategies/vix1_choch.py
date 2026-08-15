@@ -30,11 +30,22 @@ WHERE THE WINDOW ENDS, AND WHY IT NEEDS NO TUNED NUMBER. His own definition clos
     "a pullback ends when CHOCH begins. So until a move is considered CHOCH it is still a pullback
      no matter how deep."
 
-So "the beginning of the CHoCH" is precisely the span in which the turn is PROPOSED but not yet
-CONFIRMED — `TrendState.pending`. The moment the new direction prints its own BOS, `pending` clears,
-this route switches itself off, and the normal route resumes WITH the pullback rule. Measured over 12
-months that span is a median 4h (EUR/USD) / 5h (GBP/USD), 97% of episodes inside 24h. His own chart
-was 3h. Nothing here is calibrated; the market sets the length.
+    "the exemption ends when we have the first pullback after CHOCH so that we dont trade in
+     pullbacks again."
+
+So the window runs from the break to the FIRST PULLBACK after it — and a pullback is only knowable
+once its turning point is CONFIRMED, so that is the test: a confirmed swing AGAINST the new direction
+sitting after the break bar. Both edges come from his own rules; nothing here is calibrated.
+
+    MEASURED: 12 months, both pairs, this ends the window on exactly the same bar as waiting for the
+    new direction to CONFIRM — 0 setups and 0 open-hours differ. That is not a coincidence worth
+    relying on, and it is why the test is written out rather than left implicit: after an up-turn
+    price has just closed ABOVE the old lower high, so the first confirmed high after the break is
+    almost always a HIGHER high — which is itself what confirms the trend. The two collapse together
+    TODAY. Change `vix1_trend`'s confirm rule and they would come apart silently, with this route
+    quietly trading pullbacks again — the exact thing he asked to prevent.
+
+The span is a median 4h (EUR/USD) / 5h (GBP/USD), 97% of episodes inside 24h. His own chart was 3h.
 
     KNOWN TAIL, reported to him before this shipped: 2% of EUR/USD episodes stay unconfirmed past
     72h, the worst 104h, and the exemption stays open that whole time. He was asked and chose NO CAP
@@ -65,12 +76,12 @@ ORIGIN = "choch"
 
 
 def choch_entry(window: list[Candle], h1: list[Candle], tstate: TrendState,
-                n: int, symbol: str) -> tuple[Bias | None, str]:
+                turns, n: int, symbol: str) -> tuple[Bias | None, str]:
     """His change-of-character route. Returns (Bias or None, the reason either way).
 
-    `window` is the trend window (the tail of `h1`); `tstate` was already replayed from it by the
-    caller, so nothing here re-reads structure. The reason is returned rather than logged so the
-    caller keeps one log line per scan.
+    `window` is the trend window (the tail of `h1`); `tstate` and `turns` were already computed from
+    it by the caller, so nothing here re-reads structure. The reason is returned rather than logged
+    so the caller keeps one log line per scan.
     """
     # 1. A TURN IS PROPOSED AND NOT YET CONFIRMED. Outside this span there is no exemption to grant:
     #    before it there is no break, after it the normal route owns the decision.
@@ -81,6 +92,18 @@ def choch_entry(window: list[Candle], h1: list[Candle], tstate: TrendState,
     way = "up" if bullish else "down"
     ci = tstate.choch_index                      # indexes into `window`
     broke = tstate.choch_price
+
+    # 1b. THE FIRST PULLBACK AFTER THE BREAK CLOSES THE WINDOW — his refinement, 2026-08-15:
+    #     "the exemption ends when we have the first pullback after CHOCH so that we dont trade in
+    #      pullbacks again."
+    #
+    #     After an UP-turn a pullback is a move down, which begins at a HIGH; mirrored for a
+    #     down-turn. So the counter-swing to look for is one whose `is_high` MATCHES `bullish`.
+    #     Only CONFIRMED turns are considered — an unconfirmed one is not knowable in real time, and
+    #     `structure_turns` returns only confirmed ones by construction.
+    if any(p.is_high == bullish and p.index > ci for p in turns):
+        return None, (f"change of character {way} at {broke:.5f}, but its first pullback has already "
+                      f"begun — from here the pullback rule applies again")
 
     # 2. MOMENTUM MUST HAVE DEVELOPED THE NEW WAY — "a CHOCH is not a qualification for momentum".
     run = momentum_run(h1, bullish, symbol)

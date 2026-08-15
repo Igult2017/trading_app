@@ -166,7 +166,7 @@ def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "") -> Bias | 
         # momentum the new way, out of a trending market, with no pullback required. The instant the
         # new direction confirms, `pending` clears, that route stops answering and the normal path
         # below owns the decision again — pullback rule and all. See vix1_choch for his wording.
-        bias, why = vix1_choch.choch_entry(window, h1, tstate, _H1_SWING_N, symbol)
+        bias, why = vix1_choch.choch_entry(window, h1, tstate, turns, _H1_SWING_N, symbol)
         if bias is not None:
             vix1_log.say(symbol, f"[vix1] {symbol} CHoCH ENTRY: {why} | {state}")
             return bias

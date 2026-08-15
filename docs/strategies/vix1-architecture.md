@@ -210,16 +210,25 @@ pullback refusal. The second exists because that refusal blocked the trade he ac
 **The four conditions** (`vix1_choch.choch_entry`), all of which must hold:
 
 1. a turn is **proposed but not yet confirmed** (`TrendState.pending`)
-2. a **momentum candle going the new way** — the break alone is never a trade
-3. that candle sits **at or after the break** — one from before it belongs to the reversed move
-4. the market **before the break** read **TREND**, not CHOP or RANGE
+2. **no pullback has begun since the break** — no confirmed swing against the new direction after it
+3. a **momentum candle going the new way** — the break alone is never a trade
+4. that candle sits **at or after the break** — one from before it belongs to the reversed move
+5. the market **before the break** read **TREND**, not CHOP or RANGE
 
 Then the pullback refusal and the two-stage wait are **both skipped**.
 
-**WHERE THE WINDOW ENDS, WITH NO TUNED NUMBER.** His definition closes it — *"a pullback ends when
-CHOCH begins"* — so "the beginning" is exactly the proposed-but-unconfirmed span. When the new
-direction confirms, `pending` clears, this route stops answering and the normal one resumes.
-Measured: median **4h** (EUR/USD) / **5h** (GBP/USD), 97% inside 24h. His chart was 3h.
+**WHERE THE WINDOW ENDS, WITH NO TUNED NUMBER.** Two of his rules set the edges:
+*"a pullback ends when CHOCH begins"* opens it, and *"the exemption ends when we have the first
+pullback after CHOCH so that we dont trade in pullbacks again"* closes it. Measured: median **4h**
+(EUR/USD) / **5h** (GBP/USD), 97% inside 24h. His chart was 3h.
+
+**CONDITION 2 IS DELIBERATELY REDUNDANT TODAY** — measured over 12 months on both pairs it closes the
+window on the same bar as waiting for confirmation, so 0 setups and 0 open-hours differ. It is
+written out anyway because the equivalence is an accident of the current confirm rule: after an
+up-turn price has just closed above the old lower high, so the first confirmed high is almost always
+a HIGHER high, and a higher high is what confirms. **Change `vix1_trend`'s confirm rule and the two
+come apart silently, with this route trading pullbacks again.** Tested by injecting the swing, since
+the market does not currently produce the case.
 
 | | EUR/USD | GBP/USD |
 |---|---|---|
