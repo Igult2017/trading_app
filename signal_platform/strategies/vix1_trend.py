@@ -23,6 +23,28 @@ pip rally. Requiring the new direction to prove itself first:
     two-stage (this)                 9 phases, 0 under 2 days   10 phases, 0 under 2 days
     median phase length            334 -> 411 bars             246 -> 350 bars
 
+    ^ THAT TABLE MEASURED THE 48-BAR LOOKBACK SOURCE AND IS NOT WHAT SHIPS (corrected 2026-08-15).
+    It was taken on 11 Aug. Real-time turning points went in on 12 Aug (`vix1_swings.REALTIME`) and
+    find ~11x more turns — a median 229 in the 1500-bar window against 20 — so there are far more BOS
+    and CHoCH events and the trend turns far more often. Nobody re-measured. What actually runs, over
+    12 months of real H1:
+
+        source        direction reversals   median time in one direction   runs under 2 days
+        real-time              87 / 94          40 bars / 36 bars              49 of 91 / 55 of 97
+        48-bar lookback        10 /  9         412 bars / 618 bars                  0 /  0
+
+    Proved rather than assumed: flipping REALTIME off reproduces the top table almost exactly (10
+    reversals, median 412 bars against the documented 411). Ruled out as a cause: the sliding 1500-bar
+    window — a fixed start gives identical counts, so this is the rule as read bar-by-bar.
+
+    THE TWO-STAGE RULE ITSELF IS UNCHANGED AND STILL DOES ITS JOB; what moved is the eyesight feeding
+    it. This is a consequence of a change he asked for, not a defect. Operationally it costs little:
+    of 111 / 108 signals in 12 months, the trend flipped against the resting order inside its 24-hour
+    life on only 18% / 21%, and never sooner than 4 hours after the signal.
+
+    `tests/vix1/test_trend.py` could not see any of this: it sampled the trend every 96 bars while
+    calling a phase "noise" below 48, so its count was arithmetically pinned at 0. Fixed 2026-08-15.
+
 HALF OF ALL PULLBACKS ARE COMPLEX — measured, 21 of 42 on GBP/USD and 17 of 37 on EUR/USD over 12
 months. A complex pullback prints its OWN lower highs and lower lows inside an intact uptrend: it
 looks exactly like a downtrend on any faster reading. That is the case this module exists to survive,

@@ -153,6 +153,22 @@ proposed**; the trend turns only once the new direction **confirms with a BOS**.
 | the old FREEZE (`protected = None`, trend could never turn) | GBP/USD 62% of bars, once 873 bars — **gone by construction** |
 | does a reversal mean anything? | median phase catches **+177 pips** (EUR/USD) / **+227** (GBP/USD) its own way; **1 of 70** phases never moved that way |
 
+> ⚠ **THAT TABLE MEASURED THE 48-BAR LOOKBACK SOURCE AND IS NOT WHAT SHIPS** (corrected 2026-08-15).
+> It was taken on 11 Aug; real-time turning points went in on 12 Aug and nobody re-measured. The
+> two-stage rule is unchanged and still works — the eyesight feeding it got ~11x sharper, so the
+> trend turns far more often. What actually runs, over 12 months of real H1:
+>
+> | source | direction reversals | median time in one direction | runs under two days |
+> |---|---|---|---|
+> | **real-time (ships)** | **87 / 94** | **40 bars / 36 bars** | **49 of 91 / 55 of 97** |
+> | 48-bar lookback | 10 / 9 | 412 bars / 618 bars | 0 / 0 |
+>
+> Proved, not assumed: flipping `REALTIME` off reproduces the original table almost exactly (10
+> reversals, median 412 bars vs the documented 411). The sliding 1500-bar window is **not** the cause
+> — a fixed start gives identical counts. **Operational cost is small:** of 111 / 108 signals in 12
+> months, the trend flipped against the resting order inside its 24-hour life on only **18% / 21%**,
+> median 13–17 hours in, never sooner than 4. See "the noise guard was blind" below.
+
 **A responsive protection level was tried and REJECTED** — moving protection to each counter-swing
 reads a reversal earlier but takes trend changes 10 -> 14 / 10 -> 16, and `test_trend.py` failed it on
 the 4-year stability property. Do not retry it without new evidence.
@@ -394,14 +410,45 @@ BOS, CHoCH, the two-stage confirm. Only the eyesight changes.
 
 | | 48-bar | real-time |
 |---|---|---|
-| GBP/USD | 37 phases, median +227p, 0 dud | 105 phases, median **+117p**, **0** dud |
-| EUR/USD | 35 phases, median +142p, 2 dud | 97 phases, median **+81p**, **5** dud |
-| phases under two days (noise flips) | 0 | **0** - none, either pair |
+| GBP/USD | 43 phases, median +168p, 1 dud | **265** phases, median **+58p**, **19** dud |
+| EUR/USD | 37 phases, median +134p, 1 dud | **263** phases, median **+46p**, **26** dud |
+| phases under two days (noise flips) | **0** | **61 / 61** |
 | in a trend at all (3yr sample) | 86% / 90% | **90% / 91%** |
 
-It turns about **3x more often**, each phase is shorter, EUR/USD gains three dud phases in four
-years - and **not one phase on either pair lasts under two days**, which is what a noise flip would
-look like. No trading time is lost.
+It turns about **6x more often**, each phase is much shorter, and roughly **23% of phases last under
+two days**. No trading time is lost.
+
+### THE NOISE GUARD WAS BLIND — the row above used to read "0" (fixed 2026-08-15)
+
+This table previously claimed **0 phases under two days for the real-time source, on both pairs**.
+That was false, and the reason is a defect in `tests/vix1/test_trend.py`, not in the strategy:
+
+```python
+idx  = list(range(window + 40, len(bars), step))   # step = 96
+short = sum(1 for d, a, b in phases if (b - a) < 48)
+```
+
+Phase boundaries are only ever observed **at sampling points**, so every measured phase length was a
+multiple of **96** bars — and `short`, which counts phases under **48**, was **arithmetically
+incapable of being anything but 0**. The check had passed since the day it was written without ever
+testing anything. Same function, same 3 years of data, only the sampling changed:
+
+| step | GBP/USD real-time | EUR/USD real-time |
+|---|---|---|
+| 96 (the blind setting) | 105 phases, **0** under two days | 97 phases, **0** under two days |
+| 48 | 185 phases, 0 | 191 phases, 1 |
+| **24 (now)** | 265 phases, **61** | 263 phases, **61** |
+
+**The 48-bar source's stability was real** — it still reads 0 under honest sampling, so only the
+real-time row was ever wrong.
+
+Fixes: `_STEP = 24` (half the threshold, so a short phase is always straddled; costs 3 seconds), and
+a new check — *"the phase sampling is finer than the two-day threshold it tests"* — that fails if
+anyone raises it back. The real-time bars were **set for the first time, not lowered**: the values
+they replaced were the output of a measurement that could not fail.
+
+**This is reported, not endorsed.** Whether ~23% of phases lasting under two days is acceptable is
+his call; a minimum swing size is the obvious lever and *"no minimum swing"* is currently locked.
 
 `_REALTIME_STRUCTURE = True` in `vix1_bias` switches it; the n-bar path stays as the fallback, and
 `test_trend.py` now measures BOTH so the calibrated guard watches what production runs.
