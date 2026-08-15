@@ -141,7 +141,7 @@ class MarkedZone:
         return (c.close >= away) if self.direction == "demand" else (c.close <= away)
 
 
-def _broke_structure(events, want: str, ifc_i: int) -> bool:
+def _broke_structure(events, want: str, ifc_i: int, upto_i: int | None = None) -> bool:
     """FACTOR 2 — the zone must belong to a leg that broke structure IN ITS OWN DIRECTION.
 
     THE RULE, and why it is not a candle count. The book asks only *"Did it create IFC? Did it break
@@ -164,11 +164,17 @@ def _broke_structure(events, want: str, ifc_i: int) -> bool:
     because there the prevailing structure ran AGAINST the zone: the latest event before that IFC was
     a DOWN break while the candidate was demand, so neither arm passes. That is asserted as a
     regression test, not assumed.
+
+    `upto_i` — THE BAR BEING REPLAYED. A break that has not printed yet cannot qualify anything, and
+    without this bound the second arm below searched the WHOLE event list, matching breaks from the
+    future. See the note in `build` for what that cost. None means unbounded, kept only so the
+    pullback-origin arm can still be reasoned about in isolation by a test.
     """
     prior = [e for e in events if e.index <= ifc_i]
     if prior and prior[-1].direction == want:
         return True                                  # the zone sits inside a leg already broken its way
-    return any(e.direction == want and e.index > ifc_i for e in events)
+    return any(e.direction == want and ifc_i < e.index
+               and (upto_i is None or e.index <= upto_i) for e in events)
 
 
 def build(h4: list[Candle], pip: float = 0.0001,
@@ -212,7 +218,26 @@ def build(h4: list[Candle], pip: float = 0.0001,
         for z, ifc_i in pending:
             want = "up" if z.direction == "demand" else "down"
             side = "sell" if z.direction == "demand" else "buy"
-            if _broke_structure(events, want, ifc_i) and swept_before(pools, bars, side, ifc_i, LIQ_WINDOW):
+            # A ZONE IS MARKED ON THE BAR ITS QUALIFYING BREAK PRINTS — NOT BEFORE IT (2026-08-15).
+            #
+            # HIS RULE: "zones dont form immediately but as its features develop along the way. For
+            # example BOS is not instant so we cant make it instantly."
+            #
+            # `_broke_structure` used to search the WHOLE event list, so a break 10 or 100 bars in
+            # the future qualified a zone on the bar right after its imbalance. MEASURED over 3,500
+            # real broker H4 bars: 247 of 720 GBP/USD zones (34%) and 236 of 724 EUR/USD (33%) were
+            # marked before their break had printed — median 10 bars early, worst 111 (18.5 days).
+            #
+            # It is not a cosmetic timestamp. `marked_at` starts the zone's clock (see step 3 below),
+            # so a zone marked early is AGED across bars on which it was not yet a zone: taps,
+            # mitigations and "respected" all accrue from price action that predates its existence —
+            # and `respected` is exactly what the cascade selects on.
+            #
+            # It survived because REPLAY DETERMINISM could not see it: a short build and a long build
+            # both mark on the same early bar, so N vs N+1 agreed. `test_zones` now checks the real
+            # property instead — a zone is never marked before its qualifying break.
+            if (_broke_structure(events, want, ifc_i, i)
+                    and swept_before(pools, bars, side, ifc_i, LIQ_WINDOW)):
                 z.state, z.marked_at = "unmitigated", bar.time
                 zones.append(z)
                 # NO catch-up replay from the IFC. The bars between the IFC and here ARE the impulse

@@ -139,5 +139,63 @@ chk("'broken' is not live", "broken" in LIVE_STATES, False)
 teeth("the persistence rule", demand(state="broken").live is False)
 
 print()
+print("A ZONE IS MARKED ONLY ONCE ITS QUALIFYING BREAK HAS PRINTED (2026-08-15)")
+# HIS RULE: "zones dont form immediately but as its features develop along the way. For example BOS
+# is not instant so we cant make it instantly."
+#
+# THE PROPERTY REPLAY DETERMINISM COULD NOT SEE. `_broke_structure` searched the whole event list, so
+# a break 10 or 100 bars in the FUTURE qualified a zone on the bar after its imbalance. Both a short
+# and a long build did that identically, so N-vs-N+1 agreed and the check passed. Measured on 3,500
+# real H4 bars before the fix: 247 of 720 GBP/USD zones (34%) and 236 of 724 EUR/USD (33%) were
+# marked early — median 10 bars, worst 111 (18.5 days). A zone marked early is AGED across bars on
+# which it was not a zone, so taps and "respected" accrue from price that predates it.
+from strategies.bx_sd_registry import _broke_structure, build          # noqa: E402
+from strategies.bx_sd_structure import map_structure                   # noqa: E402
+from shared.mtf_utils import closed_only                               # noqa: E402
+import csv as _csv                                                     # noqa: E402
+
+_CT = r"C:\Users\FSD\trading_app_data\ctrader"
+
+
+def _load_bars(fn):
+    """Real broker H4. Returns [] when the file is absent so this section SKIPS rather than errors."""
+    p = os.path.join(_CT, fn)
+    if not os.path.exists(p):
+        return []
+    out = []
+    for r in _csv.reader(open(p, newline="")):
+        if r and r[0].strip().lstrip("-").isdigit():
+            out.append(Candle(time=int(r[0]), open=float(r[1]), high=float(r[2]), low=float(r[3]),
+                              close=float(r[4]), volume=0.0, timeframe="H4"))
+    return sorted(out, key=lambda c: c.time)
+
+_ev = [type("E", (), {"direction": "up", "index": 40})()]
+chk("a FUTURE break does not qualify a zone now", _broke_structure(_ev, "up", 10, 20), False)
+chk("  ...and does once the bar arrives", _broke_structure(_ev, "up", 10, 40), True)
+chk("  unbounded still sees it (the isolated-arm case)", _broke_structure(_ev, "up", 10, None), True)
+teeth("the future-break bound", _broke_structure(_ev, "up", 10, 39) is False)
+
+for _pair, _f in (("GBP/USD", "GBPUSD_H4real.csv"), ("EUR/USD", "EURUSD_H4real.csv")):
+    _bars = _load_bars(_f)
+    if len(_bars) < 400:
+        continue
+    _cb = closed_only(_bars)
+    _idx = {c.time: i for i, c in enumerate(_cb)}
+    _events = map_structure(_cb).events
+    _early = 0
+    for _z in build(_bars):
+        if _z.marked_at is None or _z.ifc_time not in _idx or _z.marked_at not in _idx:
+            continue
+        _ifc, _mk = _idx[_z.ifc_time], _idx[_z.marked_at]
+        _want = "up" if _z.direction == "demand" else "down"
+        _prior = [e for e in _events if e.index <= _ifc]
+        if _prior and _prior[-1].direction == _want:
+            continue                                   # pullback origin: the break already existed
+        _fut = [e.index for e in _events if e.direction == _want and e.index > _ifc]
+        if _fut and min(_fut) > _mk:
+            _early += 1
+    chk(f"{_pair}: zones marked before their break printed", _early, 0)
+
+print()
 print(f"{'ALL PASS' if not F else str(len(F)) + ' FAILED: ' + str(F)}  ({N} checks)")
 sys.exit(1 if F else 0)
