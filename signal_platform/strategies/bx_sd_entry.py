@@ -9,10 +9,11 @@ trigger before locking a signal:
     CHoCH, S/D flip, or continuation BOS. Never a blind limit.
   * RESPECT — the 4H zone must be HELD, not ground against: the confirming close must sit
     _RESPECT_BUFFER of the zone height inside it, off the distal.
-  * ENTRY  — the CONFIRMING BAR'S CLOSE. The confirmation is the signal, so we enter where price is,
-    not at a level it has just reacted away from.
-  * SL     — _SL_BEHIND_PULLBACK_PIPS beyond the 4H PULLBACK's own extreme (`setup.pb_extreme`),
-    falling back to _SL_BUFFER_PIPS beyond the 4H ZONE's distal on a bare retap. Never the POI.
+  * ENTRY  — a STOP ORDER just beyond the confirming bar's extreme (2026-08-15). The confirmation
+    says the reaction happened; the stop says price then CONTINUED, so it fills only if the move
+    carries on and never if the reaction fails.
+  * SL     — _SL_BUFFER_PIPS beyond the 4H ZONE's distal — the document's "a few pips above the
+    highest point of the zone". One rule now, no fallback.
   * TP     — a fixed _TP_R multiple of that risk.
 
 Assembles Phases 1-6; reuses only generic shared resources.
@@ -23,12 +24,17 @@ from core.types import Candle
 from shared.swing_points import find_swing_points
 from strategies.bx_sd_ltf import find_ltf_choch, _choch_valid, LTFConfluence
 from strategies.bx_sd_structure import map_structure
-from strategies.bx_sd_setup import (SetupResult, _SL_BEHIND_PULLBACK_PIPS, _SL_BUFFER_PIPS,
+from strategies.bx_sd_setup import (SetupResult, _SL_BUFFER_PIPS,
                                     _TP_R, _RESPECT_BUFFER)
 
-# `_PULLBACK_LOOKBACK = 24` (entry-TF bars) lived here and is DELETED. The pullback is a 4H event
-# and is found by `bx_sd_setup.pullback_4h`; a second lookback on the entry TF was a second, tighter
-# definition of the same word, and the stop silently used the tighter one.
+# `_PULLBACK_LOOKBACK = 24` (entry-TF bars) lived here and is DELETED, as is the 4H `pullback_4h` it
+# was a second, tighter definition of — the whole pullback model went with the 2026-08-15 change to
+# the document's entry.
+
+_ENTRY_STOP_BUFFER_PIPS = 1.0
+"""How far beyond the confirming bar's extreme the STOP ORDER rests, so it does not sit exactly on a
+price the market has already printed. One pip: small enough not to move the risk materially against a
+stop that is `_SL_BUFFER_PIPS` off the 4H distal, large enough that a single tick does not fill it."""
 
 
 def _flip_ok(entry_tf: list[Candle], want_dir: str, n: int = 3) -> bool:
@@ -151,12 +157,24 @@ def entry_trigger(conf: LTFConfluence, setup: SetupResult, entry_tf: list[Candle
             r.triggered = False
             return r
 
-    # ENTRY = WHERE THE REACTION IS, not a limit behind it. The confirmation IS the signal ("we enter in
-    # 5M or 1M using confirmed entry so we are sure the price is in our favour"), so entering at the
-    # confirming close is the whole point. It used to post a limit back at the refined POI — a level
-    # price had just reacted away from — which is why 13-14% of signals fired with price ALREADY past
-    # the entry and 22-29% never filled at all inside 24h.
-    entry = entry_tf[-1].close
+    # ENTRY = A STOP ORDER JUST BEYOND THE CONFIRMING BAR (his instruction, 2026-08-15:
+    # "we will do confirmation in LTF plus we use stop orders").
+    #
+    # The confirmation says the reaction happened; the stop order says price then CONTINUED. Placed
+    # beyond the confirming bar's own extreme in the trade direction, so it fills only if the move
+    # carries on and never if the reaction fails — the "no trade, no risk" property.
+    #
+    # THIS REPLACES A MARKET ENTRY AT THE CONFIRMING CLOSE, and that trade-off is real: a market
+    # entry cannot expire, a resting stop can. Some signals will now never become trades. That is
+    # accepted deliberately, not overlooked — it is the same property that stops us paying for a
+    # reaction that immediately reverses. `bx_sd_watch` already invalidates a locked setup.
+    #
+    # NOT a limit back inside the zone. The document draws a limit, but he chose a stop, and the
+    # older limit-at-the-POI behaviour is exactly what once fired 13-14% of signals with price
+    # already past the entry and left 22-29% unfilled inside 24h. A stop cannot fire behind price.
+    last = entry_tf[-1]
+    entry = (last.high + _ENTRY_STOP_BUFFER_PIPS * pip if buy
+             else last.low - _ENTRY_STOP_BUFFER_PIPS * pip)
 
     # STOP comes from the 4H ZONE, never from the refined POI. User's rule: "mark zone in 4H and then
     # use it to enter where price can't wick us out — ~5 to 6 pips behind the 4H zone; we enter in 5M
@@ -165,28 +183,20 @@ def entry_trigger(conf: LTFConfluence, setup: SetupResult, entry_tf: list[Candle
     # This used to take the SL off the REFINED zone, which produced ~3 pip stops sitting inside noise:
     # spread was 20-30% of risk and any wick took the trade out. The 4H stop was already computed in
     # detect_setup and then silently discarded here.
-    # STOP: 15 pips behind THE 4H PULLBACK'S OWN EXTREME, wherever that pullback happened.
-    # User's rule, 2026-08-01: *"the stop is 15 pips just behind the pullback, whether the pullback
-    # happens on the zone or far from it."*
+    # STOP: BEYOND THE 4H ZONE'S DISTAL — the document's rule, *"setting the stop-loss a few pips
+    # above the highest point of the zone"* (mirrored below a demand zone).
     #
-    # THE PULLBACK IS A 4H EVENT. *"The pullback I was talking about is in 4HR TF."* `detect_setup`
-    # found it (`bx_sd_setup.pullback_4h`) and put its turning point on `setup.pb_extreme` — the
-    # low of the retracement for a buy, its high for a sell. Reading it there rather than
-    # recomputing keeps ONE definition of where the pullback turned; two would drift.
+    # The trade is now the FIRST return to the zone, so the zone IS the structure being entered and
+    # its distal is what a wick has to clear. `_SL_BUFFER_PIPS = 6` is his own "5 to 6 pips behind
+    # the 4H zone".
     #
-    # This corrects a stop read off the ENTRY TF's own recent extreme. That measured the last 24
-    # entry-TF bars — 24 minutes on 1M — which is a wiggle inside the pullback, not the pullback,
-    # and produced stops as tight as 15.1 pips with no structure behind them.
-    #
-    # NO 4H PULLBACK — a bare retap — falls back to the 4H ZONE's distal: on a retap the zone IS
-    # the structure being entered, and its distal is what a wick has to clear. That is the older
-    # rule, kept for the case it was written for rather than deleted with the case it was wrong for.
-    if setup.pb_extreme:
-        sl = (setup.pb_extreme - _SL_BEHIND_PULLBACK_PIPS * pip if buy
-              else setup.pb_extreme + _SL_BEHIND_PULLBACK_PIPS * pip)
-    else:
-        sl = (zone4h.distal - _SL_BUFFER_PIPS * pip if buy
-              else zone4h.distal + _SL_BUFFER_PIPS * pip)
+    # THIS WAS TWO BRANCHES until 2026-08-15. The other put the stop 15 pips behind the 4H
+    # PULLBACK's extreme — correct for the model where price left the zone, ran, and was entered on
+    # a retracement far from it. That model is gone (`bx_sd_setup` now triggers on the tap itself),
+    # so the pullback branch, `setup.pb_extreme` and `pullback_4h` went with it rather than being
+    # left as an unreachable path that reads like a live rule.
+    sl = (zone4h.distal - _SL_BUFFER_PIPS * pip if buy
+          else zone4h.distal + _SL_BUFFER_PIPS * pip)
     # A stop on the wrong side of the entry is unusable. It happens when the confirming close lands
     # BELOW the pullback's low on a buy — the confirmation fired past the level the stop hangs off.
     # `risk <= 0` below would catch it, but silently; this says which of the two is at fault.

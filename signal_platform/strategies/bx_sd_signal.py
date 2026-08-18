@@ -37,22 +37,28 @@ def build_signal(symbol: str, setup: SetupResult, conf: LTFConfluence, trig: Ent
     # from it. Before this the card said "Fresh 4H zone tapped" for both, which was wrong twice
     # over: the zone is not fresh (freshness stopped being the trigger when `respected` became
     # mandatory), and "tapped" describes only one of the two ways in.
-    _via = setup.confluences.get("entry_via") or ""
-    via_txt = {
-        "retap":          f"Respected 4H {zdir} zone RE-TAPPED — price is back at the zone",
-        "pullback":       f"Respected 4H {zdir} zone — price left it and PULLED BACK on the 4H",
-        "pullback+retap": f"Respected 4H {zdir} zone — 4H PULLBACK that also re-tapped the zone",
-    }.get(_via, f"Respected 4H {zdir} zone")
+    # THE CARD SAYS WHICH ZONE OF THE STACK THIS IS. The document's whole warning is that entering
+    # the near zone makes you the liquidity that carries price to the far one, so "which one is this"
+    # is the single most important fact on the card — and it was computed but never shown.
+    _role = setup.confluences.get("zone_role") or ""
+    _through = setup.confluences.get("broke_through") or 0
+    via_txt = (f"EXTREME 4H {zdir} zone TAPPED — the furthest of its group, so the decisional zones "
+               f"between price and here are liquidity on the way" if _role == "extreme"
+               else f"4H {zdir} zone TAPPED — it stands alone in its group")
+    through_txt = (f"Double zone breakout: the move that left this zone closed through {_through} "
+                   f"opposite zones" if _through >= 2 else None)
 
     reasons = [
         setup.confluences.get("control_phrase") or via_txt,
         via_txt if setup.confluences.get("control_phrase") else None,
+        through_txt,
         setup.confluences.get("entry_type_phrase") or "Entry-2 justification (LTF BMS/CHoCH)",
         f"Valid 4H zone: IFC + broke structure + liquidity grabbed (fuel), priced in {pricing}",
         f"GRADE {conf.grade} — {align_txt}{back_txt}; refined to a {conf.risk_pips:.1f} pip POI",
-        f"Confirmation entry: {trig.details.get('method', 'CHoCH')} BMS inside the zone on the entry TF "
-        f"— {side} {trig.entry:.{digits}f}",
-        f"SL {trig.sl:.{digits}f} | TP {trig.tp:.{digits}f} | "
+        f"Confirmation: {trig.details.get('method', 'CHoCH')} BMS inside the zone on the entry TF",
+        f"STOP ORDER {side} {trig.entry:.{digits}f} — fills only if price continues past the "
+        f"confirmation, never if the reaction fails",
+        f"SL {trig.sl:.{digits}f} (beyond the 4H zone distal) | TP {trig.tp:.{digits}f} | "
         f"Risk {trig.details['risk_pips']:.1f} pips | RR {trig.rr}:1",
     ]
     reasons = [x for x in reasons if x]      # via_txt is None when it duplicates control_phrase

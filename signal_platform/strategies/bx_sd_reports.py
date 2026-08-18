@@ -84,9 +84,22 @@ def scan_reports(symbol: str, entry_tf: list[Candle], m5: list[Candle], m1: list
     # User's rule, 2026-08-04: *"For price taps into 4HR zone and there is a confirmation in 5M or
     # 1M a cheeky signal should be sent. … So I am asking for the first signal before the pullback."*
     #
-    # The divider from the real entry is `respected`, and it is absolute: this path requires the zone
-    # NOT to be respected, `detect_setup` requires that it IS. One zone can never produce both at the
-    # same moment, so there is never a question of which message means "place a trade".
+    # THE DIVIDER FROM THE REAL ENTRY IS `role`, AND IT IS ABSOLUTE (rewritten 2026-08-15).
+    #
+    # It used to be `respected`: this path required the zone NOT to be respected, `detect_setup`
+    # required that it WAS, so one zone could never produce both at the same moment. The document's
+    # entry model removed the `respected` requirement — the trigger is now the tap itself — which
+    # deleted that guarantee. Without a replacement, a tapped extreme zone would fire a "cheeky"
+    # heads-up AND a real signal on the same scan, and the whole point of having two cards is that
+    # you never have to ask which one means "place a trade".
+    #
+    # THE REPLACEMENT: `detect_setup` takes ONLY zones whose role is not `decisional` — in practice
+    # the `extreme` of a stack, or a zone standing alone. This path therefore takes only the zones
+    # the entry will never take: the DECISIONAL ones. Same guarantee, drawn on the line the document
+    # itself draws, and it makes the tap alert genuinely informative — it is now the card that says
+    # "price is at a zone, but it is the decisional one, so we are standing aside."
+    #
+    # Do not relax either side of this without replacing the guarantee again.
     #
     # ① and ③ can both fire on one tap, and that is intended: ① is the admin's diagnostic in the DM
     # and fires on the tap alone; ③ is the room's card and needs the reaction too. Different
@@ -96,8 +109,10 @@ def scan_reports(symbol: str, entry_tf: list[Candle], m5: list[Candle], m1: list
     # OLDEST-first — taking `marked[0]` would have published the stalest tapped zone on the book
     # while a fresher one was also being tapped. `detect_setup` sorts for the same reason.
     for mz in sorted(marked, key=lambda m: m.ifc_time, reverse=True):
-        if mz.state not in ("unmitigated", "wick_mitigated", "body_mitigated"):
-            continue                        # `respected` and `broken` are not this path's business
+        if not mz.live:
+            continue                        # a broken zone is nobody's business
+        if mz.role != "decisional":
+            continue                        # the entry takes these — see the divider note above
         if not mz.tapped_by(live) or (mz.top - mz.bottom) < tmin:
             continue
         key = f"{sid}_tap_{mz.ifc_time}_{mz.direction}_v{mz.live_visit()}"

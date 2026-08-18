@@ -44,16 +44,6 @@ from strategies.bx_sd_registry import build, to_zone
 from strategies.bx_sd_strength import mitigation_note, score as zone_strength
 from shared.mtf_utils import closed_only
 
-_SL_BEHIND_PULLBACK_PIPS = 15.0
-"""The stop sits 15 pips behind THE PULLBACK'S OWN EXTREME — the user's rule, 2026-08-01:
-*"the stop is 15 pips just behind the pullback, whether the pullback happens on the zone or far
-from it."*
-
-NOT behind the 4H zone. The entry is no longer at the zone: after a zone is respected, price runs,
-pulls back a little WITHIN that move, and the entry is where that pullback ends — which is usually
-nowhere near the zone. Anchoring the stop to the zone from an entry 60 pips away would give a
-66-pip stop and, at a fixed 3R, a ~200-pip target: a different trade entirely.
-"""
 
 _SL_BUFFER_PIPS = 6.0  # the stop sits this far BEYOND the 4H zone's distal edge — the user's
                        # "5 to 6 pips behind the 4H zone", so a wick cannot take us out.
@@ -69,31 +59,6 @@ _MIN_PIPS   = 3.0  # ignore micro-FVG zones — same noise floor the 3 report pa
                    # could drive a real channel entry the reports would have skipped as noise
 
 
-_PB_LOOKBACK_H4 = 12
-"""How recent the move's turning point must be, in CLOSED 4H bars. 12 bars = two days.
-
-This bounds RECENCY ONLY. It used to be the whole definition of a pullback, which is what let a zone
-respected months ago produce a "pullback" today — see the fix log for 2026-08-03."""
-
-_PB_MIN_MOVE = 1.0
-"""The move away from the zone must be at least this many ZONE HEIGHTS before a retracement in it
-can be called a pullback. Deliberately the same multiple as `bx_sd_registry.REACT_MULT`, so the
-platform has ONE definition of "price really left the zone" rather than two that can drift.
-`respected` already implies it, so this is a consistency assertion, not a second hurdle."""
-
-_PB_MIN_RETRACE = 0.236
-"""A pullback must retrace at least this fraction of the move away. Below it, price paused; it did
-not pull back. 0.236 is the shallowest level in the fib set this codebase already speaks
-(`shared/pullback_detector`: 0, .236, .382, .5, .618, .786, 1.0) — reused vocabulary rather than an
-invented number."""
-
-_PB_MAX_RETRACE = 1.0
-"""...and at most this fraction. At 1.0 price is exactly back at the zone's near edge. The user:
-*"A pullback can take the price back to the zone but in some cases it might not."* Beyond 1.0 price
-is inside or through the zone, which is a RETAP or a break — the other branch of the entry gate,
-not this one."""
-
-
 @dataclass
 class SetupResult:
     active:      bool = False
@@ -105,81 +70,8 @@ class SetupResult:
     tp2:         float = 0.0
     confluences: dict = field(default_factory=dict)
     reason:      str  = ""        # diagnostics — why inactive
-    entry_via:   str  = ""        # "pullback" | "retap" | "pullback+retap" — HOW we got in
-    pb_extreme:  float = 0.0      # the 4H pullback's own extreme; 0.0 when there is no pullback.
-                                  # bx_sd_entry puts the stop 15 pips behind THIS.
-
-
-def pullback_4h(bars: list[Candle], zone_edge: float, zone_height: float,
-                respected_at: int | None, buy: bool,
-                lookback: int = _PB_LOOKBACK_H4) -> tuple[bool, float]:
-    """Is price PULLING BACK on the 4H, within a move away from THIS zone? And where did it turn?
-
-    User's rule, 2026-08-01: *"a pullback means the price has left that zone and on its way it just
-    pulls back abit — not back to the zone, but just a pullback, then continuation. A pullback can
-    take the price back to the zone but in some cases it might not."*
-
-    Three ordered facts, ALL ANCHORED TO THE ZONE:
-      1. MOVE AWAY   — since the zone was respected, price travelled `_PB_MIN_MOVE` zone-heights
-                       away from `zone_edge` (the near edge: bottom for supply, top for demand).
-      2. IT TURNED   — the move's extreme is RECENT (inside `lookback` closed bars) and at least one
-                       closed bar has printed after it.
-      3. RETRACEMENT — price has come back `_PB_MIN_RETRACE`..`_PB_MAX_RETRACE` OF THAT MOVE. Not a
-                       fixed pip figure: a pullback is a fraction of the move it belongs to.
-
-    Returns `(pulled_back, extreme)` — the pullback's OWN turning point (its high for a sell, low
-    for a buy), which is what the stop sits 15 pips behind.
-
-    ============================ WHY THIS IS WRITTEN THIS WAY ============================
-    The previous version took the extreme of an arbitrary 12-bar window and called everything after
-    it a pullback. It had NO connection to the zone, so it could not distinguish a retracement from
-    a trend. Measured: a synthetic pure one-way collapse returned True for buy, a pure rally
-    returned True for sell, and it fired on 1704/2000 = 85.2% of random walks. It was approximately
-    "the window extreme is not the newest bar".
-
-    It shipped, and on 2026-08-03 it sold GBP/USD off a zone from 13 MAY that price never came
-    within 27.7 pips of, describing a +174 pip four-day RALLY as the pullback and hanging the stop
-    off its high. The user caught it from one chart.
-
-    The anchor is the fix. Because the move is measured FROM the zone and the retracement is a
-    fraction OF that move, a zone price never left cannot produce a pullback, and a zone whose move
-    happened months ago is rejected by the recency bound. Proximity is therefore structural — it is
-    not a separate check that could be forgotten, which is exactly how it was forgotten before.
-    ======================================================================================
-
-    READ FROM CLOSED BARS. A pullback is a LEVEL — where the move turned — and the forming bar's
-    high/low are still moving. The retap beside it is a TRIGGER and stays live.
-    """
-    if zone_height <= 0 or respected_at is None:
-        return False, 0.0
-    # 1. ANCHOR: only bars after the zone was respected are part of the move away from it.
-    move = [b for b in bars if b.time > respected_at]
-    if len(move) < 2:                       # need a run and at least one bar off its extreme
-        return False, 0.0
-    # A BUY works a DEMAND zone: price moves UP away from its top, so the run's extreme is a HIGH.
-    # A SELL works a SUPPLY zone: price moves DOWN away from its bottom, so the extreme is a LOW.
-    if buy:
-        j = max(range(len(move)), key=lambda k: move[k].high)
-        run_extreme = move[j].high
-        travelled = run_extreme - zone_edge
-    else:
-        j = min(range(len(move)), key=lambda k: move[k].low)
-        run_extreme = move[j].low
-        travelled = zone_edge - run_extreme
-    # 2. The move must be real, and its turn must be RECENT.
-    if travelled < _PB_MIN_MOVE * zone_height:
-        return False, 0.0
-    if (len(move) - 1 - j) > lookback:      # the extreme is older than the recency window
-        return False, 0.0
-    after = move[j + 1:]
-    if not after:                           # still extending; nothing has turned yet
-        return False, 0.0
-    # 3. The retracement, as a FRACTION of the move away.
-    pb_extreme = min(b.low for b in after) if buy else max(b.high for b in after)
-    retrace = (run_extreme - pb_extreme) / travelled if buy else (pb_extreme - run_extreme) / travelled
-    if not (_PB_MIN_RETRACE <= retrace <= _PB_MAX_RETRACE):
-        return False, 0.0
-    return True, pb_extreme
+    entry_via:   str  = ""        # "tap" — HOW we got in. The pullback/retap pair went with the
+                                  # pre-2026-08-15 model; the trigger is now the tap itself.
 
 
 def regime(h4: list[Candle], d1: list[Candle] | None = None) -> int:
@@ -274,7 +166,7 @@ def detect_setup(h4: list[Candle], pip: float = 0.0001, book=None, session_candl
     # (they exercise `regime` directly) and a single e2e run passed (it happened to find one), so
     # only a walk-forward replay over hundreds of bars surfaced it.
     cand, cand_mz, priced_out, n_live, off_trend = None, None, 0, 0, 0
-    cand_via, cand_pb, no_entry_event = "", 0.0, 0
+    cand_via, no_entry_event = "", 0
     for mz in sorted(marked, key=lambda m: m.ifc_time, reverse=True):
         # NOT `respected` — that is the RETEST path's job (bx_sd_reports, min_grade="B"). Accepting
         # it here let one zone fire BOTH: a duplicate signal, and the fresh cascade firing at C+,
@@ -337,24 +229,31 @@ def detect_setup(h4: list[Candle], pip: float = 0.0001, book=None, session_candl
         # already requires a CLOSE a full zone-height clear of the zone, so price cannot reach this
         # line without having left. A retap that never left the zone never sets `respected`, and the
         # zone waits — which is exactly "we wait for the pullback in 4HR".
-        buy_side = mz.direction == "demand"
-        retap    = mz.tapped_by(live_bar)
-        away     = (live_bar.close > mz.top) if buy_side else (live_bar.close < mz.bottom)
-        # THE PULLBACK IS MEASURED FROM THIS ZONE, not from a bare window. `zone_edge` is the edge
-        # price moves away FROM: a demand zone's top, a supply zone's bottom. Passing `mz` itself
-        # would drag the registry's type into the detector for two floats and a timestamp.
-        pulled, pb_ext = pullback_4h(bars, mz.top if buy_side else mz.bottom,
-                                     mz.top - mz.bottom, mz.respected_at, buy_side)
-        pullback = pulled and away        # a pullback is only a pullback OUTSIDE the zone;
-                                          # inside it, it is the retap on the line above
-        if not (retap or pullback):
+        # THE TRIGGER IS THE TAP (Smart Risk entry model, 2026-08-15).
+        #
+        # HIS INSTRUCTION: *"Just build the CHOCH document entry model then we will do confirmation in
+        # LTF plus we use stop orders."*
+        #
+        # WHAT THIS REPLACED, and why the replacement is not a regression to the old first-touch bug.
+        # Until now the cascade required `respected` (tapped, then a close a full zone-height away)
+        # AND a live retap OR a 4H pullback. That model put the evidence AFTER the zone formed: the
+        # zone had to prove itself before it could be traded. The document puts the evidence BEFORE
+        # it — price mitigated an HTF zone, swept liquidity, broke through two zones, and left THIS
+        # one at the extreme — so the first return is the trade, entered on a stop with the stop
+        # beyond the zone.
+        #
+        # The 2026-08-01 note "entering on the FIRST touch is gone; that path had no evidence the
+        # zone held and is where the losses came from" was TRUE OF THAT MODEL, where any respected
+        # zone qualified and nothing upstream filtered. It is not this one: `role != "decisional"`
+        # above means only the extreme of a stack is ever offered. **THREE OF THE DOCUMENT'S FOUR
+        # QUALITY CRITERIA ARE STILL UNBUILT** (HTF mitigation as a gate, liquidity swept before the
+        # tap, the double-zone break as a requirement) — that is a knowing trade-off recorded in the
+        # open-defects list, not an oversight. If this model underperforms, build those before
+        # reinstating the pullback.
+        if not mz.tapped_by(live_bar):
             no_entry_event += 1
             continue
-        cand_via = ("pullback+retap" if (pullback and retap)
-                    else "pullback" if pullback else "retap")
-        # The stop anchors to the pullback's extreme when there is one. On a bare retap there is no
-        # 4H pullback to sit behind, and bx_sd_entry falls back to the 4H zone's distal.
-        cand_pb = pb_ext if pulled else 0.0
+        cand_via = "tap"
         if (mz.top - mz.bottom) < _MIN_PIPS * pip:
             continue
         # PRO-TREND ONLY WHILE TRENDING. A supply zone in an uptrend produces a PULLBACK, not a
@@ -414,7 +313,7 @@ def detect_setup(h4: list[Candle], pip: float = 0.0001, book=None, session_candl
 
     r.active, r.direction, r.zone = True, tdir, cand
     r.entry, r.sl = entry, sl
-    r.entry_via, r.pb_extreme = cand_via, cand_pb
+    r.entry_via = cand_via
     r.tp1 = fib_target(leg_low, leg_high, tdir, 0.272)
     r.tp2 = fib_target(leg_low, leg_high, tdir, 0.618)
     side = control(marked)          # control reads the SAME book — one set of zones, never re-derived
@@ -434,5 +333,11 @@ def detect_setup(h4: list[Candle], pip: float = 0.0001, book=None, session_candl
                                             f"{', '.join(_s.reasons())}")
         r.confluences["zone_state"] = cand_mz.state
         r.confluences["zone_retaps"] = cand_mz.retaps
+        # WHICH ZONE OF THE STACK, and how much inefficiency the move left. Computed in the registry
+        # (`classify_roles` / `count_breakthroughs`) and carried here so the card can say it — the
+        # extreme/decisional distinction is the document's central warning and was invisible on the
+        # card until 2026-08-15.
+        r.confluences["zone_role"] = cand_mz.role
+        r.confluences["broke_through"] = cand_mz.broke_through
     r.reason = "active"
     return r

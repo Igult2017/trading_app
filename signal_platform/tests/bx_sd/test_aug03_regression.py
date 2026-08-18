@@ -29,7 +29,7 @@ sys.path.insert(0, str(ROOT))
 from core.types import Candle
 from shared.pip import pip_size
 from strategies.bx_sd_registry import build
-from strategies.bx_sd_setup import detect_setup, pullback_4h
+from strategies.bx_sd_setup import detect_setup
 from strategies.bx_sd_strength import mitigation_note
 
 PASS = FAIL = 0
@@ -70,9 +70,12 @@ old = [z for z in book if z.direction == "supply" and abs(z.top - 1.35510) < 1e-
 check("that zone is still on the book (it was never the zone book's fault)", len(old), 1)
 if old:
     z = old[0]
-    ok, ext = pullback_4h(win, z.bottom, z.top - z.bottom, z.respected_at, buy=False)
-    check("a 174-pip RALLY is not a pullback from it", ok, False)
-    check("...and so it yields no stop level", ext, 0.0)
+    # THE PULLBACK ASSERTIONS ARE GONE BECAUSE THE PULLBACK IS GONE (2026-08-15). This used to check
+    # that `pullback_4h` did not call a 174-pip rally a pullback. The document's entry model deleted
+    # `pullback_4h`, `pb_extreme` and the stop that hung off them, so that whole class of defect —
+    # a stop anchored to a "pullback" that was really a four-day rally — cannot recur by
+    # construction. What still matters is the OUTCOME, asserted above and below: this bar produces
+    # no setup, and the stop can now only come from the zone's own distal.
     hi = max(b.high for b in win[-12:])
     check("price never reached within 20 pips of that zone", (z.bottom - hi) / pip > 20, True)
 

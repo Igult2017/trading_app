@@ -44,9 +44,14 @@ def h4_bars(tap: bool):
 
 
 def zone(**kw):
+    # `role="decisional"` since 2026-08-15 — THE DIVIDER MOVED. The tap alert used to take any zone
+    # that was NOT `respected`, because `respected` was what the entry required. The document's entry
+    # model dropped that requirement (the trigger is the tap itself), so the divider is now `role`:
+    # the entry takes the extreme (and lone) zones, this path takes the DECISIONAL ones. A default of
+    # "" here would silently produce zero alerts and every case below would pass vacuously.
     d = dict(direction="demand", top=ZTOP, bottom=ZBOT, proximal=ZTOP, distal=ZBOT, eq50=1.1010,
              kind="institutional", ifc_time=T0 + 2 * 14400, origin_time=T0 + 1 * 14400,
-             state="wick_mitigated", mitigation_kind="wick")
+             state="wick_mitigated", mitigation_kind="wick", role="decisional")
     d.update(kw)
     return MarkedZone(**d)
 
@@ -133,10 +138,16 @@ print("\nWHEN THE CHEEKY ALERT FIRES — and when it must not")
 chk("tap + a real 5M reaction -> exactly one public alert", len(taps(run([zone()], m5_reversal()))), 1)
 chk("tap but NO reaction -> nothing public", len(taps(run([zone()], m5_stepped_down()))), 0)
 
-# RESPECTED is the divider. This is the whole design: past this state the ENTRY cascade owns the
-# zone, and a cheeky alert here would be a second card for a moment that already has one.
-chk("a RESPECTED zone -> nothing (the entry cascade owns it)",
-    len(taps(run([zone(state="respected", respected_at=T0)], m5_reversal()))), 0)
+# `role` IS THE DIVIDER (2026-08-15). The whole design: the ENTRY cascade owns the extreme and lone
+# zones, this path owns the decisional ones, and a card from both for one moment is exactly what the
+# divider exists to prevent. It was `respected` until the document's entry model dropped that
+# requirement — see the note in bx_sd_reports.
+chk("an EXTREME zone -> nothing (the entry cascade owns it)",
+    len(taps(run([zone(role="extreme")], m5_reversal()))), 0)
+chk("a LONE zone (no role) -> nothing (the entry owns it too)",
+    len(taps(run([zone(role="")], m5_reversal()))), 0)
+chk("a DECISIONAL zone that is RESPECTED still alerts — state is no longer the divider",
+    len(taps(run([zone(state="respected", respected_at=T0)], m5_reversal()))), 1)
 chk("a BROKEN zone -> nothing", len(taps(run([zone(state="broken")], m5_reversal()))), 0)
 
 # No live tap: the reaction alone must not publish. `tapped_by` reads the LIVE bar (levels vs

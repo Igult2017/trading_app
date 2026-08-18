@@ -202,6 +202,57 @@ event. A label and a strength input, **never a gate on its own**.
 That is a deliberate, large cut. His instruction: *"I would prefer 4 signals the whole month but
 quality."* Reported as an observation — **never tune toward a number.**
 
+## THE ENTRY IS THE DOCUMENT'S (rewritten 2026-08-15) — tap, confirm, stop order
+
+His instruction: *"Just build the CHOCH document entry model then we will do confirmation in LTF plus
+we use stop orders. That is enough."*
+
+| | before | now |
+|---|---|---|
+| which zone | any `respected` zone | **`role != "decisional"`** — the extreme of a stack, or one standing alone |
+| trigger | `respected` **and** (live retap **or** 4H pullback) | **the tap itself** |
+| confirmation | 1M/5M `reaction_on` | **unchanged** |
+| entry | the confirming CLOSE (a market fill) | **a STOP ORDER `_ENTRY_STOP_BUFFER_PIPS` beyond the confirming bar's extreme** |
+| stop | 15 pips behind the 4H pullback's extreme | **`_SL_BUFFER_PIPS` beyond the 4H zone distal** — the document's *"a few pips above the highest point of the zone"* |
+| target | 3R | **unchanged** |
+
+**WHY THIS IS NOT A RETURN TO THE OLD FIRST-TOUCH BUG.** The 2026-08-01 note — *"entering on the
+FIRST touch is gone; that path had no evidence the zone held and is where the losses came from"* —
+was true of THAT model, where any respected zone qualified and nothing upstream filtered. The two
+models put the evidence in different places: the old one waited for the zone to prove itself AFTER
+forming; the document's is satisfied by the move that CREATED it (HTF mitigation, liquidity sweep,
+double-zone break, extreme not decisional). **Only the last of those four is built** — see the open
+defects. That is a knowing trade-off he scoped, not an oversight.
+
+**DELETED WITH IT, not disabled:** `pullback_4h`, `SetupResult.pb_extreme`, `_PB_LOOKBACK_H4`,
+`_PB_MIN_MOVE`, `_PB_MIN_RETRACE`, `_PB_MAX_RETRACE`, `_SL_BEHIND_PULLBACK_PIPS`, and
+`tests/bx_sd/test_pullback_4h.py`. `test_choch_zones.py` asserts each name is **absent**, because a
+behaviour-only test would pass if someone reintroduced the constants.
+
+**A STOP ORDER CAN GO UNFILLED**, where the old market entry could not. Some signals will now never
+become trades — that is the *"no trade, no risk"* property, deliberate. `bx_sd_watch` already owns
+invalidation of a locked setup.
+
+### The tap-alert divider moved from `respected` to `role`
+
+`respected` was what guaranteed the tap alert and the entry could never fire on one zone at one
+moment. The new trigger removed that requirement, so the guarantee was rebuilt on `role`:
+
+| | takes |
+|---|---|
+| **ENTRY** (`bx_sd_setup`) | `role != "decisional"` — the extreme, or a lone zone |
+| **TAP ALERT** (`bx_sd_reports` ③) | **`role == "decisional"` only** |
+
+Disjoint by construction, and it makes the alert genuinely informative: it is now the card that says
+*"price is at a zone, but it is the decisional one, so we are standing aside."* **Do not relax either
+side without replacing the guarantee again.** Pinned in `test_tap_alert.py` — an extreme zone and a
+lone zone must both produce nothing.
+
+**Measured on real broker H4** (every 3rd bar, 25 months): GBP/USD **31 setups (1.3/month)**,
+EUR/USD **26 (1.1/month)**; **0 decisional zones taken** and **0 stops not beyond the zone distal**
+on either pair. Reported as an observation — his standing rule is that setup frequency is a market
+output, never an acceptance criterion.
+
 ## Formation — the book's three factors, all at formation time
 
 1. **IFC** — a real 3-candle imbalance (`find_fvgs`: candle1.low > candle3.high, wick to wick)
@@ -385,6 +436,15 @@ pullback in 4HR"*.
    cTrader bars and asserts it can never fire again.
 
 ## KNOWN OPEN DEFECTS — not fixed, do not assume otherwise
+
+0a. **THREE OF THE DOCUMENT'S FOUR QUALITY CRITERIA ARE NOT BUILT, and the entry now depends on
+   them.** The 2026-08-15 entry change removed the `respected`+pullback protection on the argument
+   that the document's pre-formation evidence replaces it. Of that evidence only **"extreme not
+   decisional"** exists. Still missing: **HTF mitigation as a gate**, **liquidity swept before the
+   tap**, and **the double-zone break as a requirement** (`broke_through` is computed and shown, but
+   gates nothing). **If this model underperforms, build these three before reinstating the
+   pullback** — reinstating it would discard the document's model on evidence that was never
+   gathered.
 
 0. **The document's CHoCH definition is NOT built, and it is blocked on a design decision.** Smart
    Risk: a change of character is a close beyond the last major swing **AND through the latest
