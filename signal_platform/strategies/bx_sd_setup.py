@@ -173,6 +173,7 @@ def detect_setup(h4: list[Candle], pip: float = 0.0001, book=None, session_candl
     # only a walk-forward replay over hundreds of bars surfaced it.
     cand, cand_mz, priced_out, n_live, off_trend = None, None, 0, 0, 0
     cand_via, no_entry_event, cand_swept = "", 0, False
+    decisional_skipped, spent_skipped = 0, 0     # why a tapped zone was passed over — see the reasons
     for mz in sorted(marked, key=lambda m: m.ifc_time, reverse=True):
         # NOT `respected` — that is the RETEST path's job (bx_sd_reports, min_grade="B"). Accepting
         # it here let one zone fire BOTH: a duplicate signal, and the fresh cascade firing at C+,
@@ -214,6 +215,29 @@ def detect_setup(h4: list[Candle], pip: float = 0.0001, book=None, session_candl
         # the fuel for that run. `role` is "" when a zone stands alone in its group — no decisional
         # zone exists to be preferred over, so it trades normally. See `bx_sd_registry.classify_roles`.
         if mz.role == "decisional":
+            decisional_skipped += 1
+            continue
+
+        # ...AND THE ZONE MUST STILL BE UNMITIGATED (his rule, 2026-08-19).
+        #
+        #     "we are only trading unmitigated and extreme zones"
+        #
+        # THIS WAS NEVER CHECKED. The cascade refused `decisional` and nothing else, so a zone that
+        # had already been tapped, reacted and finished was still on offer — and measured, that is
+        # almost the whole of what BX was trading: of 86 EUR/USD taps and 73 GBP/USD taps in a
+        # sampled walk, ONE was on an unmitigated zone. The rest were return visits to spent zones.
+        #
+        # THE DOCUMENT IS EXPLICIT that the reaction comes from a zone that has not been used. A Fake
+        # CHoCH is *"price did not reverse from a major UNMITIGATED demand zone"* (§9), and §21's
+        # sequence ENDS at "extreme zone mitigated" — that is the close of its life, not a state to
+        # keep trading. His own annotation on p10 names the failure mode: a zone tapped without the
+        # conditions met *"is likely to fail and act as liquidity"*.
+        #
+        # A WICK TAP DOES NOT SPEND A ZONE. `wick_only` is the sweep case — his rule, "where a wick
+        # mitigates a zone, chances are that it's gonna be retapped": the orders were never filled,
+        # so the zone is still loaded. A BODY through it is what spends it.
+        if not (mz.state == "unmitigated" or mz.wick_only):
+            spent_skipped += 1
             continue
         # RETAP **OR** 4H PULLBACK. Both qualify. Neither replaces the other.
         #
@@ -323,6 +347,18 @@ def detect_setup(h4: list[Candle], pip: float = 0.0001, book=None, session_candl
         if priced_out:
             r.reason = (f"{priced_out} marked zone(s) mitigated but badly priced "
                         f"({premium_discount(leg_low, leg_high, price)})")
+            return r
+        # THE TWO REFUSALS THAT CARRY HIS RULE. Reported separately because they are different
+        # facts: "price is in a zone we deliberately never trade" vs "price is in a zone that has
+        # already been used up". Both used to fall through to the generic "no zone tapped" line,
+        # which reads as a quiet market when in fact price is sitting inside a zone right now.
+        if spent_skipped:
+            r.reason = (f"{spent_skipped} zone(s) tapped but ALREADY MITIGATED — only unmitigated "
+                        f"zones are traded, a spent zone has done its job")
+            return r
+        if decisional_skipped:
+            r.reason = (f"{decisional_skipped} zone(s) tapped but DECISIONAL — price is expected to "
+                        f"run through these to reach the extreme")
             return r
         # HOW FAR IS PRICE FROM THE NEAREST LIVE ZONE? This is the one number that answers "why no
         # signal" during a quiet stretch — the cascade fires on a tap, so the distance to the closest

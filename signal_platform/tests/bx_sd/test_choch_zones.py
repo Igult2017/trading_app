@@ -54,14 +54,19 @@ class E:
         self.index, self.direction = index, direction
 
 
-def supply(t, lo, hi, state="respected"):
+# DEFAULT IS `unmitigated`, which is what `build()` actually stamps on a zone when it marks it.
+# It was "respected" — a leftover from the model where the cascade REQUIRED respected — and
+# since only an unmitigated zone may be the extreme (2026-08-19) that default silently turned
+# every role fixture into a no-extreme case. Pass state= explicitly where mitigation is the
+# thing under test.
+def supply(t, lo, hi, state="unmitigated"):
     """A supply zone: price approaches from BELOW, so proximal is the bottom edge."""
     return MarkedZone(direction="supply", top=hi, bottom=lo, proximal=lo, distal=hi,
                       eq50=(lo + hi) / 2, kind="institutional", ifc_time=t, origin_time=t,
                       state=state, marked_at=t)
 
 
-def demand(t, lo, hi, state="respected"):
+def demand(t, lo, hi, state="unmitigated"):
     return MarkedZone(direction="demand", top=hi, bottom=lo, proximal=hi, distal=lo,
                       eq50=(lo + hi) / 2, kind="institutional", ifc_time=t, origin_time=t,
                       state=state, marked_at=t)
@@ -228,8 +233,13 @@ print("EVERY ZONE CARRIES ITS GROUP — so the extreme named is the RIGHT extrem
 # run to. It looked up "any live extreme on this side" and took the furthest — which on real EUR/USD
 # told a decisional zone at 1.14066 that its extreme was 1.19601: 550 pips away, from a different
 # move entirely. Right side, wrong zone, printed as fact on a card a reader may act on.
-g1 = [supply(10, 1.3100, 1.3130), supply(14, 1.3040, 1.3070)]
-g2 = [supply(40, 1.2500, 1.2530), supply(44, 1.2440, 1.2470)]
+# UNMITIGATED on purpose: since 2026-08-19 only an unmitigated zone may be the extreme, so a
+# fixture built from the helper's default ("respected") would produce no extreme at all and this
+# test would be measuring the mitigation rule instead of the group scoping it exists for.
+g1 = [supply(10, 1.3100, 1.3130, state="unmitigated"),
+      supply(14, 1.3040, 1.3070, state="unmitigated")]
+g2 = [supply(40, 1.2500, 1.2530, state="unmitigated"),
+      supply(44, 1.2440, 1.2470, state="unmitigated")]
 classify_roles(g1 + g2, [E(25, "up")], BI)      # an up-break between them = two separate moves
 chk("two moves produce two groups", len({z.group for z in g1 + g2}), 2)
 chk("  each group has its own extreme", sum(1 for z in g1 + g2 if z.role == "extreme"), 2)
@@ -239,6 +249,31 @@ chk("  a decisional zone's extreme is in ITS OWN group", len(_same), 1)
 chk("  ...and it is the near one, not the far one", _same[0].proximal, 1.2500)
 teeth("the group scoping", _same[0].proximal != max(z.proximal for z in g1 + g2))
 chk("a lone zone still gets a group id", supply(10, 1.31, 1.312).group == -1, True)
+
+# ── ONLY AN UNMITIGATED ZONE MAY BE THE EXTREME (his rule, 2026-08-19) ──────────────────────────
+# "we are only trading unmitigated and extreme zones."
+#
+# THE DEFECT THIS PINS. His EUR/USD card said "the extreme at 1.16380 is the one we take" while that
+# zone was `respected` — already tapped, reacted and finished — with SIX unmitigated supply zones
+# above it. Price ran through it and the monitor logged "4H zone broken before the entry triggered".
+# The document says the same twice: a Fake CHoCH is "price did not reverse from a major UNMITIGATED
+# demand zone" (§9), and §21's sequence ENDS at "extreme zone mitigated".
+print()
+print("only an UNMITIGATED zone may be the extreme:")
+spent_far = supply(10, 1.3100, 1.3130, state="respected")      # furthest, but spent
+fresh_near = supply(14, 1.3040, 1.3070, state="unmitigated")   # nearer, still loaded
+classify_roles([spent_far, fresh_near], [], BI)
+chk("the furthest zone does NOT win the label when it is spent", spent_far.role, "decisional")
+chk("  ...the nearest UNMITIGATED zone does instead", fresh_near.role, "extreme")
+
+allspent = [supply(10, 1.3100, 1.3130, state="respected"),
+            supply(14, 1.3040, 1.3070, state="body_mitigated")]
+classify_roles(allspent, [], BI)
+chk("a group with nothing unmitigated has NO extreme at all",
+    sum(1 for z in allspent if z.role == "extreme"), 0)
+chk("  ...and every zone in it is decisional, so none is tradeable",
+    all(z.role == "decisional" for z in allspent), True)
+teeth("the unmitigated-extreme rule", spent_far.role == "decisional" and fresh_near.role == "extreme")
 
 
 # ── CRITERION 2: LIQUIDITY SWEPT ON THE WAY IN ──────────────────────────────────────────────────

@@ -149,6 +149,33 @@ def scan_reports(symbol: str, entry_tf: list[Candle], m5: list[Candle], m1: list
                        and m.group == mz.group]
                 _extreme_at = (max(m.proximal for m in _ex) if mz.direction == "supply"
                                else min(m.proximal for m in _ex)) if _ex else None
+                # NO LIVE EXTREME IN THIS GROUP -> LOOK BEYOND IT (2026-08-19).
+                #
+                # Since only an UNMITIGATED zone may be the extreme, a group whose zones are all
+                # spent has none — and the card then said only "an order here is the liquidity that
+                # carries price to the extreme" without naming where that is. His point: *"the card
+                # at least was supposed to report the one that has been respected above it."*
+                #
+                # So fall back to the nearest zone FURTHER OUT on the same side that is still
+                # unmitigated, whatever group it belongs to. That is genuinely where price is
+                # travelling: on his EUR/USD case the named level was 1.16380 (spent) while six
+                # unmitigated supply zones sat above it. Nearest-first, not furthest — the next
+                # untouched zone is the next thing price has to deal with, and the 550-pip
+                # cross-move mistake this file already guards against came from taking the furthest.
+                if _extreme_at is None:
+                    # TRADEABLE ONLY — unmitigated AND not decisional. The card's wording is "the
+                    # extreme at X is the one we take", so naming a decisional zone there would tell
+                    # him to take the very thing the rule forbids. On his EUR/USD case the nearest
+                    # unmitigated zone above was 1.17430 (decisional, grp3); the right answer is
+                    # 1.17701 — that group's extreme, and the next level actually on offer.
+                    _beyond = [m for m in marked
+                               if m.live and m.direction == mz.direction
+                               and m.state == "unmitigated" and m.role != "decisional"
+                               and (m.proximal > mz.proximal if mz.direction == "supply"
+                                    else m.proximal < mz.proximal)]
+                    if _beyond:
+                        _extreme_at = (min(m.proximal for m in _beyond) if mz.direction == "supply"
+                                       else max(m.proximal for m in _beyond))
                 tap = tap_alert_signal(z, symbol, method, tf_label, digits, name, sid,
                                        htf_backing(z, htf_map), live.time,
                                        mitigation_kind=mz.mitigation_kind, retaps=mz.retaps,

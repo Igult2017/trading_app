@@ -275,16 +275,37 @@ def count_breakthroughs(zones: list[MarkedZone], events, bar_index: dict[int, in
 
 
 def _label(group: list[MarkedZone], side: str, gid: int) -> None:
-    """Furthest-from-price zone in the group is the extreme; the rest are decisional.
+    """Furthest-from-price UNMITIGATED zone in the group is the extreme; the rest are decisional.
 
     The group id is stamped even on a LONE zone, so "which extreme belongs to this decisional zone"
-    is answerable without re-deriving the grouping in every consumer."""
+    is answerable without re-deriving the grouping in every consumer.
+
+    ONLY AN UNMITIGATED ZONE MAY BE THE EXTREME (2026-08-19). Until now this ranked every LIVE zone,
+    and `LIVE_STATES` includes `respected` — a zone already tapped, reacted and finished. So a spent
+    zone could win the label and the tap card would name it as the level to wait for.
+
+    IT DID. On EUR/USD the card said "the extreme at 1.16380 is the one we take" while that zone was
+    `respected`, with SIX unmitigated supply zones above it. Price ran straight through and the
+    monitor logged "4H zone broken before the entry triggered". He caught it: *"we are only trading
+    unmitigated and extreme zones."*
+
+    THE DOCUMENT SAYS THE SAME THING TWICE. A Fake CHoCH is *"price did not reverse from a major
+    UNMITIGATED demand zone"* (Smart Risk §9), and §21's sequence ENDS with "extreme zone mitigated"
+    — mitigation is the close of the extreme's life, not a state to wait in.
+
+    A GROUP WHOSE ZONES ARE ALL SPENT THEREFORE HAS NO EXTREME, and nothing in it is tradeable. That
+    is the intended consequence of his rule, not a gap: the furthest still-unmitigated zone on that
+    side — which lives in another group — is what price is actually travelling to.
+    """
     for z in group:
         z.group = gid
     if len(group) < 2:
         return                              # alone: no distinction exists, so none is claimed
-    best = max(group, key=lambda z: z.proximal) if side == "supply" \
-        else min(group, key=lambda z: z.proximal)
+    fresh = [z for z in group if z.state == "unmitigated"]
+    best = None
+    if fresh:
+        best = max(fresh, key=lambda z: z.proximal) if side == "supply" \
+            else min(fresh, key=lambda z: z.proximal)
     for z in group:
         z.role = "extreme" if z is best else "decisional"
 
