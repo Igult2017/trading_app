@@ -408,6 +408,67 @@ agreeing that roughly half of what we take is not in a trend is the finding.
 retracement DEPTH test (his argument — a retracement deep enough to matter breaks the protected low
 and the CHoCH detector has it) and the EFFICIENCY cut.
 
+### THE DECISION WAS FROZEN AT THE MOMENTUM CANDLE (root cause, fixed 2026-08-19)
+
+**This is the actual cause of the gold incident.** The pullback-gate repair below is real and stays,
+but it is not why he got that signal.
+
+**What happened:** one momentum candle (18 Aug 14:00) produced a SELL on **every scan for 13 straight
+hours**, ageing 0h → 11h, while price fell $33 and bounced $23 back. He read the alert and said
+*"there is no momentum candle that has CLOSED there"* — correct, it was eleven hours behind him.
+
+**Why:** the leg gate, the regime and the retracement are all computed on a window truncated to the
+momentum candle (`_upto`). As the candle ages, the whole judgement ages with it. The same call, two
+ways, over those twelve hours:
+
+| | as the code read it (frozen at the candle) | the same call at the latest bar |
+|---|---|---|
+| hour 0 | 1 bar · $3.00 · 0.19 ATR | 1 bar · $3.00 · **0.19 ATR** |
+| hour 8 | 1 bar · $3.00 · 0.19 ATR | 0 bars |
+| **hour 10** | 1 bar · $3.00 · 0.19 ATR | 2 bars · $31.92 · **1.72 ATR** |
+
+The left column does not move for twelve hours. `vix1_retracement` **already computed** the right
+column — it was read at the frozen point and was not a gate.
+
+The freezing was deliberate: *"reading the structure as it is NOW would let a pullback that formed
+AFTER the candle decide the candle's fate."* That is correct for *"was this good evidence when it
+formed"* and **backwards for *"should an order go out right now"*.** Only the first was ever asked.
+
+**A — `core/instrument_debut.py`, the backfill guard (threshold-free).** A candle that closed before
+the instrument was first scanned is history the platform never watched. Gold was switched on
+mid-session and its first scan reached straight into `LOOKBACK = 12` hours of it. Measured over 600
+possible cold starts per instrument:
+
+| | first scan fires | **of those, on backfill** | with the guard |
+|---|---|---|---|
+| XAU/USD | 124 | **107 (86%)** | **0** |
+| EUR/USD | 95 | 78 | 0 |
+| GBP/USD | 111 | 93 | 0 |
+
+Debut is recorded in **bar time, not wall clock** — a wall-clock debut would make every replay and
+test refuse everything. Persisted in its own `strategy_state` row (`<id>:debut`), because
+`FiredRegistry._persist` replaces the whole blob and would silently wipe a shared one. In continuous
+running it changes **nothing** (0 of 120 bars differ) — it is a guard, not a filter.
+
+**The CHoCH route needed the same guard and was missed on the first pass** — it returns from
+`detect_bias` before the main path's check, leaving 24 of 107 still firing. The test caught it, not
+a reading of the code. Any route that emits a `Bias` needs the guard.
+
+**B — the live re-check.** Every causal read stays; the leg gate and regime are now ALSO asked about
+the present, and a setup that was valid when the candle formed but is not valid now is refused with
+that stated reason. Measured cost on its own: 2 / 1 / 1 setups over 1500 bars.
+
+**STILL OPEN — his decision, not mine.** The only measurement that separates the good hour-0 entry
+(0.19 ATR) from the bounce he complained about (1.72 ATR) is **live retracement depth**, and it needs
+a threshold. Four alternatives were built and measured and none of them see it: a shortened real-time
+window, a causal 8-bar detector (right window 6/4/3/2/1), the live leg gate (reads *allow* at hours
+8-11), and "a counter-turn confirmed since the candle" (never confirms — $23 is not a decisive
+close). Depth was deleted on the grounds that *"if a retracement breaks a protected low the CHOCH
+detector detects it"* — **measurably false here**: 1.7 ATR and no CHoCH fired. Costs of each cut are
+in the fix log; **not built, and not to be chosen without him.**
+
+---
+
 ### ⚠ THE SECTION BELOW WAS REVERSED ON 2026-08-19 — read this first
 
 **Giving the pullback gate the trend's real-time turning points was wrong, and it cost a live

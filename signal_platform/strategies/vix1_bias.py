@@ -118,9 +118,13 @@ def _upto(window: list[Candle], h1: list[Candle], mc_idx: int) -> list[Candle]:
     return window[:pos + 1] if 0 <= pos < len(window) else window
 
 
-def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "") -> Bias | None:
+def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "", debut=None) -> Bias | None:
     """
     Returns a `Bias`, or None when no trade may be taken.
+
+    `debut` — an optional `core.instrument_debut.InstrumentDebut`. When given, a momentum candle
+    that closed BEFORE this instrument was first scanned is refused as backfill. Left None (tests,
+    ad-hoc replays) nothing is refused, so this can never silently mute an existing measurement.
 
     `Bias.mc_idx` indexes into H1 — the FIRST candle of the freshest momentum run; VIX.1 operates
     from it and its close opens the 1M watch. `Bias.reason` names the BOS/CHoCH and the leg that
@@ -168,6 +172,14 @@ def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "") -> Bias | 
         # below owns the decision again — pullback rule and all. See vix1_choch for his wording.
         bias, why = vix1_choch.choch_entry(window, h1, tstate, turns, _H1_SWING_N, symbol)
         if bias is not None:
+            # THE BACKFILL GUARD APPLIES HERE TOO. This route returns before the main path's check,
+            # so guarding only that one left 24 of 107 cold-start signals still firing on history —
+            # found by the test, not by reading. Any route that emits a Bias needs the guard.
+            if debut is not None and debut.is_backfill(symbol, h1[bias.mc_idx].time):
+                vix1_log.say(symbol, f"[vix1] {symbol} bias=NONE: the change-of-character momentum "
+                                     f"candle closed before this instrument was first scanned — "
+                                     f"backfill, not a live setup | {state}")
+                return None
             vix1_log.say(symbol, f"[vix1] {symbol} CHoCH ENTRY: {why} | {state}")
             return bias
         vix1_log.say(symbol, f"[vix1] {symbol} bias=NONE: no established 1HR trend "
@@ -181,6 +193,21 @@ def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "") -> Bias | 
                              f"momentum candle that way — {veto_reason(h1, bullish, symbol)} | {state}")
         return None
     mc_idx = run[0]
+
+    # BACKFILL GUARD (2026-08-19). A candle that closed before this instrument was first scanned is
+    # history the platform never watched, and trading it is what produced the gold incident: XAU/USD
+    # was switched on mid-session, its first scan reached 11 hours back to the 18 Aug 14:00 candle
+    # still inside LOOKBACK, and sold it. His words on seeing the alert — "there is no momentum
+    # candle that has CLOSED there" — were exactly right; it was eleven hours behind him.
+    #
+    # This is not a staleness threshold. In continuous running the momentum candle is a median 0
+    # bars old (p90 also 0, all three instruments), so this refuses nothing in normal operation —
+    # it only stops a cold start mining the past. See core/instrument_debut.py.
+    if debut is not None and debut.is_backfill(symbol, h1[mc_idx].time):
+        vix1_log.say(symbol, f"[vix1] {symbol} bias=NONE: the {'up' if bullish else 'down'} momentum "
+                             f"candle closed before this instrument was first scanned — backfill, "
+                             f"not a live setup | {state}")
+        return None
 
     # EVERYTHING ABOUT THE MOMENTUM CANDLE IS READ AT THE MOMENTUM CANDLE, for the same causal
     # reason the leg gate is (see below). The candle can be up to LOOKBACK=12 bars old (median 5),
@@ -238,6 +265,27 @@ def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "") -> Bias | 
         refusal = market_permits(regime)
         if refusal:
             vix1_log.say(symbol, f"[vix1] {symbol} bias=NONE: {refusal} | {state_mc}")
+            return None
+
+        # ── AND IS THE MARKET STILL IN THAT STATE *NOW*? (2026-08-19) ───────────────────────────
+        # THE DEFECT THIS CLOSES. Every check above reads a window truncated to the momentum candle.
+        # That is right for "was this good evidence when it formed" and useless for "should an order
+        # go out right now" — and only the second question places a trade. Because the candle can be
+        # up to LOOKBACK hours old, the ENTIRE judgement aged with it: on the gold incident the live
+        # pullback reading sat frozen at "1 bar, $3.00, 0.19x ATR" for twelve hours while the real
+        # one went to 2 bars / $31.92 / 1.72x ATR. Nothing in the decision could see that.
+        #
+        # So the causal checks stay exactly as they are, and the same two are asked a second time
+        # about the present. Measured cost of this on its own: 2 / 1 / 1 setups over 1500 bars on
+        # XAU/USD / EUR/USD / GBP/USD — it is a guard, not a filter.
+        live_leg = leg_state(window, t1, n=_FAST_N)
+        live_regime = vix1_regime.classify(turns, atr(window, 14))
+        live_refusal = market_permits(live_regime)
+        if not live_leg.ready or live_refusal:
+            why = live_refusal or live_leg.why
+            vix1_log.say(symbol, f"[vix1] {symbol} bias=NONE: the setup was valid when the candle "
+                                 f"formed {len(h1) - 1 - mc_idx}h ago, but the market has moved on "
+                                 f"— {why} | {state}")
             return None
 
         return Bias(bullish, mc_idx, "trend", run[1],

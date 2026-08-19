@@ -28,6 +28,7 @@ from core.types import (Session, Trend, NewsStance, NewsImpact,
                         StrategyResult, TF, Signal)
 from core.strategy_context import StrategyContext
 from core import delivery_ledger
+from core.instrument_debut import InstrumentDebut
 from strategies.vix1_bias import _ALLOW_H4, detect_bias
 from strategies.vix1_entry import m1_signals
 from strategies.vix1_lines import draw_line
@@ -101,6 +102,10 @@ class Vix1Strategy(BaseStrategy):
         # time) by signal_validator.register_confirmed — see that docstring for why.
         self._recent: dict[str, tuple[bool, float]] = {}     # C4: symbol -> (bullish, ts) last signal
         self._locked: dict[str, dict] = {}                   # WATCH: symbol -> pending locked setup
+        # When was each instrument first scanned? A momentum candle older than that is backfill, not
+        # a live setup — the gold incident, 2026-08-19. Persisted, so a redeploy is not mistaken for
+        # a new instrument. See core/instrument_debut.py.
+        self._debut = InstrumentDebut(self.id)
 
     async def analyze(self, context: StrategyContext) -> StrategyResult:
         m1 = context.candles.get(TF.M1)
@@ -151,7 +156,10 @@ class Vix1Strategy(BaseStrategy):
             # reason is None → still valid: keep the lock, fall through (the pull-back may have formed)
 
         # 1HR BIAS — from the FIRST momentum candle of the run.
-        bias = detect_bias(h1, h4, sym)                     # trend on H4, momentum on H1; logs when None
+        # Record this instrument's debut against the newest CLOSED bar — bar time, not wall clock, so
+        # a replay behaves exactly like a cold start instead of refusing all of history.
+        self._debut.note(sym, h1[-1].time)
+        bias = detect_bias(h1, h4, sym, debut=self._debut)   # trend on H4, momentum on H1; logs when None
         if bias is None:
             return StrategyResult(signals=out)
         bullish, origin, vol_count = bias.bullish, bias.origin, bias.run_len

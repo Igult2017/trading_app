@@ -18,6 +18,13 @@ if _PLATFORM not in sys.path:
     sys.path.insert(0, _PLATFORM)
 os.environ.setdefault("DATABASE_URL", "postgresql://x/x")   # no DB is touched; imports need it set
 
+# ...and MAKE that true. `detect_bias` calls `observability_repo.record` on every evaluation, which
+# retries the unreachable DB and prints a multi-line SQLAlchemy error EACH TIME. With three calls
+# that is noise; a suite that replays hundreds of bars drowns in it and a real FAIL scrolls away.
+# Stubbed here rather than per file so every suite gets the behaviour the docstring above promises.
+import storage.observability_repo as _obs                   # noqa: E402
+_obs.record = lambda *a, **k: None
+
 from core.types import Candle          # noqa: E402
 
 DATA = r"C:\Users\FSD\trading_app_data\ctrader"

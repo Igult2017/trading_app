@@ -26,6 +26,7 @@ TESTS = [
     # shipped. The CHoCH route is the ONE entry that does not ask for a pullback, so it is exactly
     # the file that must run whenever the pullback gate is touched.
     "test_choch.py",                # the change-of-character entry route
+    "test_staleness.py",            # backfill on a cold start + the frozen-at-the-candle decision
     "test_stage_tracker.py",       # the log throttle + VIX.1 reason-shape keying
     "test_spacing.py",              # signal spacing + the 27 Jul duplicate-signal regression
 ]
