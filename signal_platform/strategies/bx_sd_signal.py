@@ -83,9 +83,6 @@ def build_signal(symbol: str, setup: SetupResult, conf: LTFConfluence, trig: Ent
         f"-CONTROL {zdir.upper()} ENTRY, CONFIRMED)",
         f"CTX::ENTRY TYPE::{(setup.confluences.get('entry_type') or {}).get('book_situation', 'Entry-2')}"
         f" — JUSTIFICATION (LTF BMS/CHoCH, NEVER AN UNCONFIRMED LIMIT)",
-        # NOT "FRESH" — a fresh zone is exactly what no longer qualifies. The cascade requires the
-        # zone to have been tapped and RESPECTED first; entering on a first touch is the model that
-        # produced the losses and was removed 2026-08-01.
         # NOT "RESPECTED" — that requirement went with the document's entry model (2026-08-15).
         # The trigger is the TAP of a non-decisional zone, so the panel says which zone of the stack
         # it was, which is the fact that now decides whether it is tradeable at all.

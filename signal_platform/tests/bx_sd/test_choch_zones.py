@@ -201,6 +201,26 @@ for _dead in ("pullback_4h", "_PB_LOOKBACK_H4", "_PB_MIN_MOVE", "_PB_MIN_RETRACE
 chk("SetupResult no longer carries pb_extreme",
     "pb_extreme" in SetupResult.__dataclass_fields__, False)
 
+# ── GROUPS: "THE EXTREME" IS ONLY MEANINGFUL INSIDE ONE ─────────────────────────────────────────
+print()
+print("EVERY ZONE CARRIES ITS GROUP — so the extreme named is the RIGHT extreme")
+# THE BUG THIS PINS (found by audit, 2026-08-15). The tap alert names the level price is expected to
+# run to. It looked up "any live extreme on this side" and took the furthest — which on real EUR/USD
+# told a decisional zone at 1.14066 that its extreme was 1.19601: 550 pips away, from a different
+# move entirely. Right side, wrong zone, printed as fact on a card a reader may act on.
+g1 = [supply(10, 1.3100, 1.3130), supply(14, 1.3040, 1.3070)]
+g2 = [supply(40, 1.2500, 1.2530), supply(44, 1.2440, 1.2470)]
+classify_roles(g1 + g2, [E(25, "up")], BI)      # an up-break between them = two separate moves
+chk("two moves produce two groups", len({z.group for z in g1 + g2}), 2)
+chk("  each group has its own extreme", sum(1 for z in g1 + g2 if z.role == "extreme"), 2)
+_d = next(z for z in g2 if z.role == "decisional")
+_same = [z for z in g1 + g2 if z.role == "extreme" and z.group == _d.group]
+chk("  a decisional zone's extreme is in ITS OWN group", len(_same), 1)
+chk("  ...and it is the near one, not the far one", _same[0].proximal, 1.2500)
+teeth("the group scoping", _same[0].proximal != max(z.proximal for z in g1 + g2))
+chk("a lone zone still gets a group id", supply(10, 1.31, 1.312).group == -1, True)
+
+
 # ── CRITERION 2: LIQUIDITY SWEPT ON THE WAY IN ──────────────────────────────────────────────────
 print()
 print("LIQUIDITY MUST BE SWEPT BEFORE PRICE TAPS THE ZONE")

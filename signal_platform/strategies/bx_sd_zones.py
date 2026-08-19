@@ -64,6 +64,7 @@ class Zone:
     # document's strong case ("break & close below or above the two successive supply or demand
     # zones"). A label and a strength input, never a gate on its own.
     broke_through: int = 0
+    group:        int = -1    # which same-move group it belongs to (see classify_roles)
 
 
 def find_fvgs(candles: list[Candle]) -> list[FVG]:

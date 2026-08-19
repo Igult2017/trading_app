@@ -15,8 +15,13 @@ Control is still computed and REPORTED (bx_sd_control), never used to reject.
 
 **Direction is gated again as of 2026-08-01, but only while the 4H is TRENDING** (`regime()` below):
 the user's revision — pro-trend in a trend, either direction in a range. That is narrower than the
-gate removed above, which applied always. And zones are no longer "freshly tapped": the cascade
-requires `respected` plus a retap or a 4H pullback.
+gate removed above, which applied always.
+
+**THE TRIGGER IS THE TAP, as of 2026-08-15** (the Smart Risk entry model). This paragraph used to end
+"the cascade requires `respected` plus a retap or a 4H pullback" — all three of those requirements
+are gone. What the cascade asks now: the zone is LIVE, its `role` is not `decisional`, and the
+FORMING bar is tapping it. Everything else the document grades is confluence, scored in
+`bx_sd_strength`, never a refusal.
 
 ZONES ARE NOT FOUND HERE. They are marked ONCE when they qualify and kept in bx_sd_registry; this
 function only asks which marked zone price is working right now. That ordering is the point: a zone
@@ -181,12 +186,11 @@ def detect_setup(h4: list[Candle], pip: float = 0.0001, book=None, session_candl
         # `wick_mitigated` and `body_mitigated` replaced the single `mitigated` (2026-07-30). BOTH
         # trade: the user's rule is that a wick tap signals AND its later retap signals again, and a
         # body-mitigated zone still signals on a retap, carrying a caution on the card.
-        # RESPECTED ONLY — move away first, then enter the pullback (user's rule, 2026-08-01).
-        #
-        # `respected` means the registry saw price tap this zone and then CLOSE a full zone-height
-        # away: the reaction actually happened. Combined with the live tap below, that is exactly
-        # the sequence asked for — tapped, moved away, pulled back, and the 1M/5M confirmation
-        # downstream proves the pullback is turning.
+        # THE `respected` REQUIREMENT IS GONE (2026-08-15) — see the trigger note below. It read
+        # "RESPECTED ONLY — move away first, then enter the pullback (user's rule, 2026-08-01)",
+        # which was the model the document's entry replaced. The surrounding lines about wick vs
+        # body mitigation still hold: both states trade, and a body-mitigated retap carries a
+        # caution on the card.
         #
         # This used to accept unmitigated / wick_mitigated / body_mitigated, i.e. enter on the FIRST
         # TOUCH with no reaction required. That is where the losses came from: the zone had proven

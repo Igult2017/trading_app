@@ -25,6 +25,8 @@ Zones are keyed on the IFC's TIME, never a window index: indices shift as bars a
 Built by replaying CLOSED bars in order, so it is a pure function of history — it rebuilds identically
 after a restart, needs no table or migration, and cannot see the future by construction.
 """
+import itertools
+
 from dataclasses import dataclass
 
 from core.types import Candle
@@ -79,6 +81,13 @@ class MarkedZone:
     # EXTREME vs DECISIONAL — see `classify_roles`. "" while a zone stands alone in its group.
     role: str = ""
     broke_through: int = 0       # opposite-side zones this zone's move closed through
+    # WHICH GROUP — the set of same-side zones left by ONE move. -1 = ungrouped.
+    #
+    # NEEDED BECAUSE "the extreme" IS ONLY MEANINGFUL WITHIN A GROUP. The tap alert names the level
+    # price is expected to run to, and without this it named the globally furthest extreme on the
+    # book: measured on EUR/USD, a decisional zone at 1.14066 was told the extreme was 1.19601 —
+    # 550 pips away and from a different move entirely. Right side, wrong zone, stated as fact.
+    group: int = -1
 
     # HOW the zone was FIRST mitigated: "wick" | "body" | "" (never tapped). Set once, never
     # overwritten.
@@ -209,7 +218,8 @@ def classify_roles(zones: list[MarkedZone], events, bar_index: dict[int, int]) -
     hand `extreme` to a corpse and demote the one zone actually on offer.
     """
     for z in zones:
-        z.role = ""
+        z.role, z.group = "", -1
+    _gid = itertools.count()
 
     live = [z for z in zones if z.live and z.marked_at in bar_index]
     for side in ("supply", "demand"):
@@ -225,10 +235,10 @@ def classify_roles(zones: list[MarkedZone], events, bar_index: dict[int, int]) -
         for z in same:
             zi = bar_index[z.marked_at]
             if group and any(bar_index[group[-1].marked_at] < c <= zi for c in cuts):
-                _label(group, side)
+                _label(group, side, next(_gid))
                 group = []
             group.append(z)
-        _label(group, side)
+        _label(group, side, next(_gid))
 
 
 def count_breakthroughs(zones: list[MarkedZone], events, bar_index: dict[int, int]) -> None:
@@ -264,8 +274,13 @@ def count_breakthroughs(zones: list[MarkedZone], events, bar_index: dict[int, in
             and idx_of[o.broken_at] > start and (end is None or idx_of[o.broken_at] <= end))
 
 
-def _label(group: list[MarkedZone], side: str) -> None:
-    """Furthest-from-price zone in the group is the extreme; the rest are decisional."""
+def _label(group: list[MarkedZone], side: str, gid: int) -> None:
+    """Furthest-from-price zone in the group is the extreme; the rest are decisional.
+
+    The group id is stamped even on a LONE zone, so "which extreme belongs to this decisional zone"
+    is answerable without re-deriving the grouping in every consumer."""
+    for z in group:
+        z.group = gid
     if len(group) < 2:
         return                              # alone: no distinction exists, so none is claimed
     best = max(group, key=lambda z: z.proximal) if side == "supply" \
@@ -382,7 +397,7 @@ def to_zone(mz: MarkedZone, bars: list[Candle]) -> Zone | None:
     return Zone(direction=mz.direction, top=mz.top, bottom=mz.bottom, proximal=mz.proximal,
                 distal=mz.distal, eq50=mz.eq50, origin_index=idx[mz.origin_time],
                 ifc_index=idx[mz.ifc_time], mitigated=mz.state != "unmitigated", kind=mz.kind,
-                role=mz.role, broke_through=mz.broke_through)
+                role=mz.role, broke_through=mz.broke_through, group=mz.group)
 
 
 def _advance(z: MarkedZone, c: Candle) -> None:

@@ -11,7 +11,7 @@ padding only looks aligned in the editor and arrives ragged on a phone.
 Split from telegram_formatter (the DM cards): different audience, different job — these are read by
 strangers deciding whether to take a trade.
 """
-from datetime import datetime, timezone
+from datetime import timezone
 
 from core.types import Signal, Direction, SignalStatus
 from shared.pip import pip_size, price_digits

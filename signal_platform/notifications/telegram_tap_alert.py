@@ -64,7 +64,6 @@ def format_tap_alert(signal: Signal) -> str:
     prices under a BUY header, which is the one thing this alert must never look like."""
     buy   = signal.direction == Direction.BUY
     dot   = "🟢" if buy else "🔴"
-    zone  = "DEMAND" if buy else "SUPPLY"
     facts = list(signal.technical_reasons or [])
     why   = list(signal.smc_factors or [])          # why the METHOD would already take this
     miss  = list(signal.disqualifiers or [])        # why WE do not

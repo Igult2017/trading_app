@@ -140,8 +140,13 @@ def scan_reports(symbol: str, entry_tf: list[Candle], m5: list[Candle], m1: list
                 # decisional zone to reach the extreme, so it names that level — a warning the reader
                 # can act on beats one they have to take on trust. Same group, same side: the zone
                 # `classify_roles` marked `extreme`, if one is still live.
+                # SAME GROUP ONLY. Without the group test this took the globally furthest extreme
+                # on the book — measured on EUR/USD, a decisional zone at 1.14066 was told the
+                # extreme was 1.19601, 550 pips away and from a different move. Right side, wrong
+                # zone, printed as fact on a card a reader may act on.
                 _ex = [m for m in marked
-                       if m.live and m.direction == mz.direction and m.role == "extreme"]
+                       if m.live and m.direction == mz.direction and m.role == "extreme"
+                       and m.group == mz.group]
                 _extreme_at = (max(m.proximal for m in _ex) if mz.direction == "supply"
                                else min(m.proximal for m in _ex)) if _ex else None
                 tap = tap_alert_signal(z, symbol, method, tf_label, digits, name, sid,
@@ -160,7 +165,8 @@ def scan_reports(symbol: str, entry_tf: list[Candle], m5: list[Candle], m1: list
     # ② RETEST — DELETED 2026-08-01. It became a strict SUBSET of the core cascade.
     #
     # It required: `state == respected`, a LIVE tap, and a B/A 1M/5M confirmation. The cascade
-    # (`bx_sd_setup.detect_setup`) now requires `respected` plus EITHER a live tap OR a 4H pullback,
+    # (`bx_sd_setup.detect_setup`) absorbed it — at the time by requiring `respected` plus a tap or
+    # a 4H pullback, and since 2026-08-15 by the tap of a non-decisional zone alone,
     # then confirms on the same entry models — so every zone this path could fire on, the cascade
     # already fires on, and BOTH would emit for one zone. They carry different grades and different
     # dedup keys, so they could not even suppress each other: the exact duplicate the architecture
