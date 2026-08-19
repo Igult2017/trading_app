@@ -174,6 +174,7 @@ def detect_setup(h4: list[Candle], pip: float = 0.0001, book=None, session_candl
     cand, cand_mz, priced_out, n_live, off_trend = None, None, 0, 0, 0
     cand_via, no_entry_event, cand_swept = "", 0, False
     decisional_skipped, spent_skipped = 0, 0     # why a tapped zone was passed over — see the reasons
+    unswept_skipped, unbroken_skipped = 0, 0     # his extreme-qualification rule
     for mz in sorted(marked, key=lambda m: m.ifc_time, reverse=True):
         # NOT `respected` — that is the RETEST path's job (bx_sd_reports, min_grade="B"). Accepting
         # it here let one zone fire BOTH: a duplicate signal, and the fresh cascade firing at C+,
@@ -319,6 +320,38 @@ def detect_setup(h4: list[Candle], pip: float = 0.0001, book=None, session_candl
         _tap_i = len(bars) - 1
         cand_swept = swept_within(find_liquidity(bars, pip, session_candles=session_candles),
                                   bars, _side, max(0, _tap_i - LIQ_WINDOW), _tap_i)
+        # ── HIS QUALIFICATION FOR THE EXTREME (2026-08-19) ──────────────────────────────────────
+        #
+        #     "Price comes from the demand side, meaning price originates from a demand zone. Then
+        #      obviously it is going to break a supply zone or 2, then sweep static liquidity or any
+        #      other liquidity that was on the other side of the broken zone, before tapping the
+        #      extreme zone. One zone break is a rule but two is a bonus."
+        #
+        # The transcript is the same sequence: price rallies, breaks the nearer supply zones (those
+        # ARE the decisionals), sweeps the liquidity resting above them, and only then taps the
+        # extreme. A zone reached without that fight is not an extreme — it is the liquidity.
+        #
+        # WHY IT LIVES HERE AND NOT IN `classify_roles`. The registry labels the whole book at once
+        # from STATIC facts (position, unmitigated). "Has liquidity been swept on the approach" is a
+        # LIVE fact about this moment — measured, it is the same answer for every zone on an
+        # instrument at a given bar, because it describes the approach, not the zone. Putting it in
+        # the book was my error and it read 0/30 and 0/21 there: `swept_within` only counts pools
+        # resting at the START of its window, and measured from a zone's marking almost every pool
+        # formed later. On the approach window it reads 16/30 and 12/21. Same rule, right place.
+        #
+        # ONE BREAK, NOT TWO. *"One zone break is a rule but 2 zones break is a bonus"* — and the
+        # document agrees three ways (§4 singular; §22 step 8 unconditional vs step 9 "IF... becomes
+        # STRONGER"; §16 "stronger than breaking ONLY ONE"). The count of two stays a strength input
+        # in `bx_sd_strength` and must never be a gate.
+        if not cand_swept:
+            unswept_skipped += 1
+            continue
+        _nearer = ((lambda o: o.proximal < mz.proximal) if mz.direction == "supply"
+                   else (lambda o: o.proximal > mz.proximal))
+        if not any(o is not mz and o.direction == mz.direction
+                   and o.state == "broken" and _nearer(o) for o in marked):
+            unbroken_skipped += 1
+            continue
         if (mz.top - mz.bottom) < _MIN_PIPS * pip:
             continue
         # PRO-TREND ONLY WHILE TRENDING. A supply zone in an uptrend produces a PULLBACK, not a
@@ -359,6 +392,14 @@ def detect_setup(h4: list[Candle], pip: float = 0.0001, book=None, session_candl
         if decisional_skipped:
             r.reason = (f"{decisional_skipped} zone(s) tapped but DECISIONAL — price is expected to "
                         f"run through these to reach the extreme")
+            return r
+        if unswept_skipped:
+            r.reason = (f"{unswept_skipped} zone(s) tapped but NO LIQUIDITY SWEPT on the approach — "
+                        f"without the sweep the zone itself is the liquidity")
+            return r
+        if unbroken_skipped:
+            r.reason = (f"{unbroken_skipped} zone(s) tapped but no decisional zone was BROKEN on the "
+                        f"way in — price has not fought through anything to get here")
             return r
         # HOW FAR IS PRICE FROM THE NEAREST LIVE ZONE? This is the one number that answers "why no
         # signal" during a quiet stretch — the cascade fires on a tap, so the distance to the closest
