@@ -233,6 +233,53 @@ behaviour-only test would pass if someone reintroduced the constants.
 become trades — that is the *"no trade, no risk"* property, deliberate. `bx_sd_watch` already owns
 invalidation of a locked setup.
 
+### THE CHEEKY CARD WAS UNREACHABLE FOR ITS ENTIRE LIFE (fixed 2026-08-15)
+
+The user: *"the cheeky messages component has never worked because I have never received cheeky
+messages."* He was right, and the cause was not frequency.
+
+`dispatcher.on_setup_alert` chose the FORMAT and the DESTINATION with one condition:
+
+```python
+if signal.to_channel and not settings.signals_dm_only:
+    caption = format_tap_alert(signal)      # the cheeky card
+else:
+    caption = format_setup_alert(signal)    # generic heads-up
+```
+
+Production runs **`SIGNALS_DM_ONLY=true`**, so the first branch could never execute and
+`format_tap_alert` was dead code in practice. **Measured: the alert fired 334 times over ~2 years of
+real bars** — it was never rare, it just never LOOKED like itself. A destination switch silently
+disabled a card design.
+
+**Fixed:** `to_channel` chooses the FORMAT, `signals_dm_only` chooses only WHERE. Pinned by a test
+that reads the dispatcher's own source and fails if the two are ever re-coupled.
+
+**Where the taps go** (2,199 tapped zones, real H4 + M1, GBP/USD):
+
+| | count |
+|---|---|
+| no 1M reversal reaction (`REVERSAL_ONLY = True`) | **1,704 (77%)** |
+| reaction found | 495 |
+| would fire | **334** (~14/month) |
+
+`REVERSAL_ONLY` is the big filter and it is doing its job — it drops the continuation arm, which at
+an unproven zone is nearly no evidence.
+
+### The card now WARNS instead of listing absences
+
+His rule: *"for decisional, you can send a cheeky message when they are confirmed on LTF but warn
+that it is a decisional zone. But for extreme zones, provide a complete signal."*
+
+The card's two "why we wait" lines were stale — they described the `respected`/pullback model deleted
+earlier the same day. Replaced with the document's own reason, and the headline carries it too, so a
+skim-reader cannot miss it. The closing line was also corrected: *"we take this zone one step later"*
+was true of the old model and is now false — a decisional zone is never taken.
+
+**Caption length is a hard constraint, not a preference.** Telegram REJECTS a photo caption over 1024
+chars, so a wordier warning does not degrade the card, it deletes it. Two drafts breached it (1040
+and 1045) and the test caught both.
+
 ### The tap-alert divider moved from `respected` to `role`
 
 `respected` was what guaranteed the tap alert and the entry could never fire on one zone at one

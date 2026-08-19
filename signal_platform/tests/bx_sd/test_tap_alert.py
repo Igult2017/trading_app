@@ -200,7 +200,11 @@ chk("shows what is there", "WHAT'S THERE" in msg, True)
 chk("says the setup already qualifies by the method", "ALREADY QUALIFIES" in msg, True)
 chk("explains why we still stand aside", "WHY WE STILL WAIT" in msg, True)
 chk("  and names the reason, not just the absence",
-    "reaction unproven" in msg, True)
+    "DECISIONAL zone" in msg, True)
+# THE WARNING IS THE POINT OF THIS CARD (2026-08-15). His rule: *"for decisional, you can send a
+# cheeky message when they are confirmed on LTF but warn that it is a decisional zone."*
+chk("  the headline itself carries the warning", "we do NOT trade these" in msg, True)
+chk("  and says WHY — price runs through it", "run THROUGH it" in msg, True)
 chk("carries the disclaimer", "does not offer financial advice" in msg, True)
 chk("escapes the ampersand for HTML mode", "Trade&amp;Journal" in msg, True)
 chk("no raw unescaped ampersand", "&" in msg.replace("&amp;", ""), False)
@@ -270,6 +274,34 @@ for i in range(len(_SIGNOFFS) * 4):          # enough keys to land on every sign
     longest = max(longest, len(format_tap_alert(worst)))
 print(f"      (worst-case caption: {longest} chars, cap {CAPTION_CAP})")
 chk("the worst-case caption still fits a photo", longest < CAPTION_CAP, True)
+
+# ── THE CARD MUST RENDER UNDER PRODUCTION SETTINGS ──────────────────────────────────────────────
+# THE BUG THIS PINS, reported by the user: "the cheeky messages component has never worked because I
+# have never received cheeky messages." The dispatcher chose the FORMAT and the DESTINATION with one
+# condition — `to_channel and not signals_dm_only` — and production runs SIGNALS_DM_ONLY=true, so
+# `format_tap_alert` was UNREACHABLE. Every alert that fired went to the DM as a generic heads-up.
+#
+# This asserts the two decisions are now independent: the cheeky card renders as itself whichever way
+# the destination switch is set. It fails if anyone re-couples them.
+print("\nTHE CHEEKY CARD RENDERS WHATEVER THE DESTINATION SWITCH SAYS")
+import inspect                                                            # noqa: E402
+from notifications import dispatcher as _disp                             # noqa: E402
+
+_src = inspect.getsource(_disp.on_setup_alert)
+_fmt_line = next((ln.strip() for ln in _src.splitlines()
+                  if "format_tap_alert" in ln and "=" in ln), "")
+chk("the format is chosen by to_channel alone", "signals_dm_only" in _fmt_line, False)
+chk("  ...and to_channel does choose it", "to_channel" in _fmt_line, True)
+chk("  TEETH: re-coupling them would fail this",
+    ("signals_dm_only" not in _fmt_line) and ("to_channel" in _fmt_line), True)
+
+# and the card itself still carries NO trade instruction — the property that makes it unmistakable
+_card = tap_alert_signal(z, "GBPUSD", "CHoCH", "5M", 5, "BX-S/D", "bx_sd", [], T0,
+                         extreme_at=1.10500)
+chk("the cheeky card still has no entry", _card.entry_price, 0.0)
+chk("  no stop", _card.stop_loss, 0.0)
+chk("  no target", _card.take_profit, 0.0)
+chk("  and names where the extreme is", "1.10500" in " ".join(_card.disqualifiers), True)
 
 print(f"\n{'ALL PASS' if not F else str(len(F)) + ' FAILED: ' + ', '.join(F)}  ({N} checks)")
 sys.exit(1 if F else 0)

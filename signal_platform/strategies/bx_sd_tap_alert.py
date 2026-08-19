@@ -76,10 +76,33 @@ def _viability(is_newest: bool, mitigation_kind: str, retaps: int, method_tf: st
     return out
 
 
+def _standing_aside(zone: Zone, extreme_at: float | None, digits: int) -> list[str]:
+    """Why BX will not trade this tap. Written as a WARNING, not as a list of missing things.
+
+    A decisional zone is not "an incomplete setup" — by the method it is a complete one that we
+    deliberately refuse, because price is expected to run THROUGH it to reach the extreme. An order
+    resting here is the fuel for that run. Naming the extreme's level makes that concrete: the reader
+    can see where price is headed instead of being told only that we declined.
+    """
+    if zone.role != "decisional":
+        # Defensive: the cascade only routes decisional zones here. If that ever changes, say
+        # something true rather than asserting a warning that does not apply.
+        return ["BX is watching this zone, not trading it"]
+    # KEPT SHORT ON PURPOSE. Telegram REJECTS a photo caption over 1024 chars, and the first version
+    # of these lines pushed the worst case to 1040 — the card would simply not have sent. Two lines,
+    # with the extreme's level folded into the second rather than given its own.
+    out = ["DECISIONAL zone — expect price to run THROUGH it"]
+    if extreme_at is not None:
+        out.append(f"an order here is the fuel; the extreme at {extreme_at:.{digits}f} is the one we take")
+    else:
+        out.append("an order here is the liquidity that carries price to the extreme")
+    return out
+
+
 def tap_alert_signal(zone: Zone, symbol: str, method: str, method_tf: str, digits: int,
                      strategy_name: str, strategy_id: str, backing: list[str],
                      tap_time: int, mitigation_kind: str = "", retaps: int = 0,
-                     is_newest: bool = False) -> Signal:
+                     is_newest: bool = False, extreme_at: float | None = None) -> Signal:
     """The cheeky alert. `method` / `method_tf` come from `bx_sd_entry.reaction_on` — the SAME
     confirmation definition the real entry uses, never a second one."""
     buy  = zone.direction == "demand"
@@ -121,10 +144,19 @@ def tap_alert_signal(zone: Zone, symbol: str, method: str, method_tf: str, digit
         smc_factors       = _viability(is_newest, mitigation_kind, retaps, method_tf, method),
         # ...and why BX still stands aside. This replaces a bare "what's missing" list: the same two
         # facts, but as the REASON rather than as an absence, which is what the user asked for.
-        disqualifiers     = [
-            "the zone hasn't closed a full height away — reaction unproven",
-            "so no 4H pullback yet, and no level for a stop",
-        ],
+        # WHY WE STAND ASIDE — the DECISIONAL warning (2026-08-15).
+        #
+        # These two lines used to read "the zone hasn't closed a full height away — reaction
+        # unproven" and "so no 4H pullback yet, and no level for a stop". Both went stale the moment
+        # the document's entry model landed: there is no `respected` requirement and no 4H pullback
+        # any more, so the card was explaining a rule the strategy no longer has.
+        #
+        # The real reason is the document's own, and it is a WARNING rather than an absence:
+        #     "we cannot place any trades based on the decisional supply zone because there is a high
+        #      chance that the price will push higher to sweep the liquidity ... and trigger the
+        #      stop-loss of traders who entered from the decisional supply zone."
+        #     "Don't use the decisional zones, you will be a liquidity."
+        disqualifiers     = _standing_aside(zone, extreme_at, digits),
         market_context    = (f"BX-S/D — {symbol} just tapped a 4H {zone.direction} zone "
                              f"({side} area) with a {method_tf} {method}{tag}. Watching, not trading."),
     )

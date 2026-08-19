@@ -157,13 +157,29 @@ async def on_setup_alert(signal: Signal) -> None:
     # photo when there is one, and delete it afterwards exactly as `on_signal_confirmed` does.
     chart = signal.chart_path
     has_chart = bool(chart) and os.path.isfile(chart)
+
+    # FORMAT AND DESTINATION ARE TWO DECISIONS, NOT ONE (fixed 2026-08-15).
+    #
+    # THE BUG, reported by the user as "the cheeky messages component has never worked because I have
+    # never received cheeky messages". Both were decided by ONE condition:
+    #
+    #     if signal.to_channel and not settings.signals_dm_only:  -> format_tap_alert()   (cheeky)
+    #     else:                                                    -> format_setup_alert() (generic)
+    #
+    # Production runs with SIGNALS_DM_ONLY=true, so the first branch could NEVER be taken and
+    # `format_tap_alert` was unreachable. Every tap alert that fired went to the DM rendered as an
+    # ordinary heads-up — so the feature looked broken when it was really just invisible: nothing
+    # ever LOOKED like a cheeky card. A destination switch silently disabled a card design.
+    #
+    # `to_channel` now chooses the FORMAT (this card was built for the room, so it renders as itself
+    # wherever it lands) and `signals_dm_only` chooses only WHERE. A card that says "watching, not
+    # trading" and carries no entry, stop or target is safe in either place.
+    caption = format_tap_alert(signal) if signal.to_channel else format_setup_alert(signal)
     if signal.to_channel and not settings.signals_dm_only:
-        caption = format_tap_alert(signal)                         # public signal channel
-        ok = (await _send_photo(chart, caption) if has_chart
+        ok = (await _send_photo(chart, caption) if has_chart          # public signal channel
               else await _send_text(caption))
     else:
-        # DM: either an unconfirmed heads-up, or SIGNALS_DM_ONLY holding a confirmed alert back.
-        caption = format_setup_alert(signal)
+        # DM: either an unconfirmed heads-up, or SIGNALS_DM_ONLY holding a channel card back.
         ok = (await _send_photo(chart, caption, chat_id=settings.watchdog_chat_id) if has_chart
               else await _send_private(caption))
     if has_chart:
