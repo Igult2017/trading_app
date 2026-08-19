@@ -59,7 +59,7 @@ VIX.1 has shipped a bug from reading the forming bar as a level, and **a backtes
 | `vix1_building.py` | the "setup building" card — a setup seen before its entry exists |
 | `vix1_log.py` | per-symbol log throttling, so a silent scan does not spam |
 | `vix1_trend.py` | `trend_state` / `clear_trend` — the trend as structure, plus the BOS and CHoCH that move it |
-| `vix1_structure.py` | `fast_pattern` / `leg_state` (real-time turns since 2026-08-12) + `market_permits` — the refusals: is the faster structure trending the opposite way (a pullback)? Never decides direction |
+| `vix1_structure.py` | `fast_pattern` / `leg_state` (**its OWN 8-bar lookback** — the `turns=` parameter was deleted 2026-08-19, see the reversal note below) + `market_permits` — the refusals: is the faster structure trending the opposite way (a pullback)? Never decides direction |
 | `vix1_choch.py` | **the change-of-character route — the ONE place a pullback is not asked for** (added 2026-08-15). `choch_entry()` returns a `Bias` while a turn is proposed-but-unconfirmed, if momentum developed the new way out of a trending market. Re-detects nothing: reads `pending` / `choch_price` / `choch_index` off `TrendState` |
 | `vix1_lines.py` | `draw_line` — ONE line, the momentum candle's body close |
 | `vix1_pullback.py` | `find_pullback` — the counter candle, and the past-the-line gate |
@@ -408,7 +408,74 @@ agreeing that roughly half of what we take is not in a trend is the finding.
 retracement DEPTH test (his argument — a retracement deep enough to matter breaks the protected low
 and the CHoCH detector has it) and the EFFICIENCY cut.
 
-### THE PULLBACK GATE GOT REAL-TIME EYES TOO (2026-08-12) - four defects, one cause
+### ⚠ THE SECTION BELOW WAS REVERSED ON 2026-08-19 — read this first
+
+**Giving the pullback gate the trend's real-time turning points was wrong, and it cost a live
+misfire.** The trend needed real-time eyes; the GATE did not. Both readings became the same source,
+so `leg_state` was asking the trend to contradict itself and the "faster structure" left the decision
+entirely. Gold sold into a visible bounce on **18 Aug 14:00** because of it — he spotted it by eye.
+
+**Root cause:** `vix1_swings` marks a turn only when price **closes decisively through** the candle
+that made the extreme. That is a change-of-character test, and his settled rule is *a pullback ends
+when CHoCH begins* — so that source cannot see a pullback until the pullback is finished.
+
+**Measured over 900 bars — counter-trend bounces the real-time source NEVER flagged, start to end:**
+
+| | XAU/USD | EUR/USD | GBP/USD |
+|---|---|---|---|
+| bounces missed entirely | **71%** | **82%** | **50%** |
+
+**The lag it was swapped out for is not real.** An n-bar pivot needs n bars on its right, but the
+VERDICT compares the last two highs and lows and flips on pivots already confirmed — it calls a
+bounce a median **1-4 bars** after the turn, not 8.
+
+**A causal variant was built and measured before this was settled** (left window 8, right window
+swept 6/4/3/2/1; right=8 reproduces the current detector as a control). It fixes nothing extra, and at
+right ≤ 4 it **allows MORE** on gold — early pivots un-turn, the verdict falls to "mixed", and "mixed"
+does not refuse. The symmetric 8 stays; no new detector was added.
+
+**THE ONE MEASUREMENT THAT STILL ARGUES THE OTHER WAY, kept rather than buried.** The separation
+table below was re-taken through the production path (`market_state`, both sources, same momentum
+candles). The bar counts in the original were an artefact — `direction_since` indexes the full window
+while the gate reads a truncated one — but the DEPTH column reproduces, and it still favours the old
+wiring:
+
+| | setups | refused | ALLOWED at | REFUSED at | "cannot tell" |
+|---|---|---|---|---|---|
+| EUR/USD real-time | 280 | 70 | 5.5p | 6.2p | 0% |
+| EUR/USD **8-bar** | 280 | 62 | 4.0p | 6.1p | 32% |
+| GBP/USD real-time | 301 | 68 | 18.9p | **48.6p** | 0% |
+| GBP/USD **8-bar** | 301 | 45 | 21.4p | 2.2p | 47% |
+| XAU/USD real-time | 404 | 65 | 602p | **3543p** | 0% |
+| XAU/USD **8-bar** | 404 | **124** | 637p | 572p | 38% |
+
+**Why it was not treated as decisive:** refusing at 48 pips / $35 into a counter-move is refusing when
+the move is long over — that is a reversal detector, not a pullback filter. The gold misfire had
+bounced **$31** and the real-time source still allowed it. The 8-bar source refuses shallow because it
+is catching the bounce as it starts, which is the job. **The metric rewards lateness.** That reading
+is an interpretation, and it is flagged as one. The two hard facts it rests on are not: his own eye on
+the gold chart, and the missed-bounce percentages above.
+
+**Honest cost:** the 8-bar source answers "cannot tell" 32-47% of the time (the real-time source
+always gave a verdict), and mixed/unclear ALLOWS. It is more often silent AND more often refusing —
+on gold it refuses 124 setups against 65.
+
+**SIGNAL IMPACT, through the real `detect_bias`** (old wiring patched back in for the before-run, so
+both routes are included — the CHoCH route deliberately skips this gate and a trend-route-only
+replication misses it):
+
+| | before | after | trend route alone |
+|---|---|---|---|
+| XAU/USD | 45 (15.0/mo) | **38 (12.6/mo)** −16% | 36 → 31 |
+| EUR/USD | 37 (13.0/mo) | 37 (13.0/mo) 0% | 22 → 24 |
+| GBP/USD | 33 (11.4/mo) | 34 (11.7/mo) +3% | 28 → 30 |
+
+Gold loses the pullback trades; the FX pairs are flat-to-up, because the gate releases setups the old
+wiring wrongly blocked.
+
+---
+
+### THE PULLBACK GATE GOT REAL-TIME EYES TOO (2026-08-12) - four defects, one cause — ⚠ REVERSED, see above
 
 He asked how many of the catalogued problems were actually solved, then pointed out that some I had
 marked "unsolved" already had an agreed solution. Checking found `fast_pattern` - the gate that

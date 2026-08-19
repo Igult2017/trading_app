@@ -36,7 +36,7 @@ from strategies import vix1_choch
 from strategies import vix1_regime
 from strategies.vix1_state import Bias, market_state
 from strategies.vix1_swings import structure_turns
-from strategies.vix1_structure import leg_state, market_permits
+from strategies.vix1_structure import _FAST_N, leg_state, market_permits
 from strategies.vix1_trend import trend_state
 
 log = logging.getLogger(__name__)
@@ -211,7 +211,21 @@ def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "") -> Bias | 
         # old. Reading the structure as it is NOW would let a pullback that formed AFTER the candle
         # decide the candle's fate. Measured: this changes the verdict on 6% of GBP/USD setups and
         # 4% of EUR/USD.
-        leg = leg_state(at_mc, t1, turns=turns_mc)
+        #
+        # ON ITS OWN 8-BAR STRUCTURE — *NOT* `turns_mc`. Restored 2026-08-19; between 08-12 and then
+        # this passed `turns=turns_mc`, the TREND's own real-time turning points, and so had no
+        # faster structure in it at all. Those turns mark a turn only when price CLOSES DECISIVELY
+        # THROUGH the candle that made the extreme — a change-of-character test. His settled rule is
+        # "a pullback ends when CHoCH begins", so that read cannot see a pullback until it is over.
+        # Measured over 900 bars it NEVER flagged 71% / 82% / 50% of the counter-trend bounces on
+        # XAU/USD / EUR/USD / GBP/USD, and it is why gold sold into a visible bounce on 18 Aug.
+        #
+        # The feared 8-hour lag does not materialise: the verdict compares the LAST TWO highs and
+        # lows and flips on pivots already confirmed, so it calls a bounce a median 1-4 bars after
+        # the turn. A causal variant (right-hand window swept 6/4/3/2/1) was built and measured —
+        # it fixes nothing extra and at right<=4 it ALLOWS MORE on gold, because early pivots un-turn,
+        # the verdict falls to "mixed", and "mixed" does not refuse. So the symmetric 8 stays.
+        leg = leg_state(at_mc, t1, n=_FAST_N)
         if not leg.ready:
             vix1_log.say(symbol, f"[vix1] {symbol} bias=NONE: {'up' if bullish else 'down'} momentum WITH the "
                                  f"trend, but the leg does not permit it — {leg.why} | {state_mc}")
@@ -231,7 +245,10 @@ def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "") -> Bias | 
 
     # 2) 1HR trend UNCLEAR, momentum WITH a clear 4HR trend (the fallback) — MUTED, see _ALLOW_H4.
     if _ALLOW_H4 and t1 == 0 and t4 == want:
-        leg = leg_state(at_mc, want, turns=turns_mc)
+        # Same 8-bar source as branch 1 — changed together so the two can never drift apart. This
+        # branch is muted, and a muted branch holding the OLD wiring is exactly how a defect comes
+        # back the day someone flips `_ALLOW_H4`.
+        leg = leg_state(at_mc, want, n=_FAST_N)
         if not leg.ready:
             vix1_log.say(symbol, f"[vix1] {symbol} bias=NONE: 4HR-backed direction but the leg does not "
                                  f"permit it — {leg.why} | {state_mc}")

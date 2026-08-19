@@ -94,7 +94,7 @@ if real:
     w = real[max(0, idx - _H1_TREND_BARS):idx + 1]
     turns = structure_turns(w, _H1_SWING_N)
     st = trend_state(w, n=_H1_SWING_N, turns=turns)
-    leg = leg_state(w, st.direction, turns=turns)
+    leg = leg_state(w, st.direction)
     reg = classify(turns, atr(w, 14))
     print(f"      trend={st.direction:+d} ({st.maturity})  structure={leg.pattern}  "
           f"regime={reg.kind}  leg allows={leg.ready}")
@@ -181,6 +181,45 @@ s.check("no regime at all -> allowed, so a missing reading can never silently mu
 # because the distribution has no natural break. Re-adding either silently fails here.
 s.check("no depth threshold exists", hasattr(vix1_structure, "_MAX_DEPTH_ATR"), False)
 s.check("no efficiency threshold exists", hasattr(vix1_structure, "_RANGE_EFFICIENCY"), False)
+
+# ── THE GOLD MISFIRE, 18 Aug 14:00 — and the wiring that caused it ──────────────────────────────
+# He spotted it by eye: "gold is misfiring, it has just sent sell signal and there is no sell, there
+# is no momentum candle that has closed there... you can see the market in a pullback."
+#
+# ROOT CAUSE was not the rule. `vix1_bias` passed `turns=turns_mc` — the TREND's own real-time
+# turning points — so this gate had no faster structure in it and was asking the trend to contradict
+# itself. Real-time turns mark a turn only on a DECISIVE CLOSE THROUGH the extreme, which is a
+# change-of-character test; his rule is "a pullback ends when CHoCH begins", so it could not see a
+# pullback until the pullback was over. Measured over 900 bars, that read NEVER flagged 71% / 82% /
+# 50% of counter-trend bounces on XAU/USD / EUR/USD / GBP/USD.
+print()
+print("   gold's 18 Aug sell — fired into a visible bounce:")
+gold = load("XAUUSD_H1.csv", "H1")
+if gold:
+    # 18 Aug 2026 14:00 UTC. If the file is here the bar must be too — a silent skip on a bar that
+    # should exist is a test that proves nothing, so this is asserted rather than skipped.
+    gi = next((i for i, c in enumerate(gold) if c.time == 1787061600), None)
+    s.check("the 18 Aug 14:00 bar is present in the saved gold data", gi is not None, True)
+    if gi is not None:
+        gw = gold[max(0, gi - _H1_TREND_BARS):gi + 1]
+        gd = trend_state(gw, n=_H1_SWING_N, turns=structure_turns(gw, _H1_SWING_N)).direction
+        gleg = leg_state(gw, gd)
+        print(f"      trend={gd:+d}  faster structure={gleg.pattern}  leg allows={gleg.ready}")
+        s.check("the trend at the misfire was DOWN", gd, -1)
+        s.check("the faster structure was pointing UP — price was bouncing",
+                fast_pattern(gw), "up")
+        s.check("so the gate REFUSES the sell", gleg.ready, False)
+        s.check("   ...and says it is a pullback", "pullback" in gleg.why, True)
+        s.teeth("the gold 18-Aug refusal", leg_state(gw, gd).ready is False)
+else:
+    print("      SKIP — no local gold data")
+
+# THE WIRING GUARD. The defect was one keyword argument, not a rule. `turns=` is deleted rather than
+# defaulted off precisely so it cannot be passed again; this fails the moment someone re-adds it.
+s.check("leg_state takes no turning-point source — it reads its OWN 8-bar structure",
+        "turns" in leg_state.__code__.co_varnames[:leg_state.__code__.co_argcount], False)
+s.check("fast_pattern takes none either",
+        "turns" in fast_pattern.__code__.co_varnames[:fast_pattern.__code__.co_argcount], False)
 
 # ── teeth ────────────────────────────────────────────────────────────────────────────────────────
 print()

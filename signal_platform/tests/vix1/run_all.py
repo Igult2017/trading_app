@@ -22,6 +22,10 @@ TESTS = [
     "test_invariants_real_data.py", # the real functions over real candles
     "test_trend.py",              # the 1HR trend read — stability + do reversals mean anything
     "test_structure.py",            # the leg gate (no pullbacks/ranges) + the freeze regression
+    # MISSING FROM THIS LIST UNTIL 2026-08-19, and it had been passing unrun since the route
+    # shipped. The CHoCH route is the ONE entry that does not ask for a pullback, so it is exactly
+    # the file that must run whenever the pullback gate is touched.
+    "test_choch.py",                # the change-of-character entry route
     "test_stage_tracker.py",       # the log throttle + VIX.1 reason-shape keying
     "test_spacing.py",              # signal spacing + the 27 Jul duplicate-signal regression
 ]

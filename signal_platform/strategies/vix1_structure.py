@@ -37,6 +37,13 @@ WHY THE FAST READ MUST NEVER DECIDE DIRECTION. Half of all pullbacks are COMPLEX
 months, 21 of 42 on GBP/USD and 17 of 37 on EUR/USD. A complex pullback prints its own lower highs
 and lower lows inside an intact uptrend and looks exactly like a downtrend at 8 bars. Let this read
 choose direction and the strategy sells the pullbacks of a rally, which is the bug it exists to stop.
+
+AND THE FAST READ MUST BE ITS OWN READ. From 2026-08-12 to 2026-08-19 this paragraph was FALSE while
+sitting directly above the code: `vix1_bias` passed the TREND's own turning points in, so "the faster
+structure" was the trend, and the gate was asking direction to contradict itself. It went unnoticed
+because the docstring still described the intent and the tests still called the 8-bar path — the only
+thing that changed was the one argument production passed. Gold sold into a visible bounce on 18 Aug
+because of it. If you are about to feed this module a turning-point source, read `fast_pattern` first.
 """
 from dataclasses import dataclass
 
@@ -83,33 +90,34 @@ def _distinct(points, n: int):
     return out
 
 
-def fast_pattern(candles: list[Candle], n: int = _FAST_N, turns=None) -> str:
+def fast_pattern(candles: list[Candle], n: int = _FAST_N) -> str:
     """What the recent structure is doing: 'up' (HH+HL), 'down' (LH+LL), 'mixed', or 'unclear'.
 
-    `turns` — real-time turning points from `vix1_swings`. This is what production passes since
-    2026-08-12, and it is the fix for four of the defects catalogued against this module:
+    THE SOURCE IS THE n-BAR LOOKBACK, AND THAT IS DELIBERATE (restored 2026-08-19). Between
+    2026-08-12 and then this took a `turns=` argument and production passed the TREND's own
+    real-time turning points — so the "faster structure" this module exists to read was not in the
+    decision at all. The parameter is gone rather than defaulted off, because a switch nothing flips
+    is how the wiring drifted back the first time.
 
-        it was 8 HOURS LATE by construction  — a lookback pivot needs n bars after it, so the last
-                                               n bars could never contain one and were discarded
-        it was BLIND TO SHORT RETRACEMENTS   — 99% of retracements run under 8 candles, i.e. under
-                                               the width it needed to see anything at all
-        it answered "cannot tell" 40% of the time — too few confirmed pivots to compare
-        it fired on the WRONG SIZE of move   — refusing at a median 58 pips / 43 bars while allowing
-                                               at 19 pips / 14, because only large old swings were
-                                               visible to it
+    WHY REAL-TIME TURNS ARE WRONG *HERE*, having been right for the trend. `vix1_swings` marks a
+    turn when price CLOSES DECISIVELY THROUGH the candle that made the extreme. That is a
+    change-of-character test, and his settled rule is "a pullback ends when CHoCH begins" — so it
+    can only see a pullback once the pullback is finished. Measured over 900 bars it NEVER flagged
+    71% / 82% / 50% of counter-trend bounces on XAU/USD / EUR/USD / GBP/USD, start to finish.
 
-    None of those are the RULE being wrong. They are all the same cause: a definition of a turning
-    point that cannot be evaluated until n bars later. Feeding it turns that are known when the
-    market makes them removes all four at once, and the rule below is untouched.
+    AND THE LAG IT WAS SWAPPED OUT FOR IS NOT REAL. The worry was that an n-bar pivot needs n bars
+    on its right, so a turn is n hours late. The VERDICT is not: it compares the LAST TWO highs and
+    lows and flips on pivots already confirmed — measured, it calls a bounce a median 1-4 bars after
+    the turn, not 8. A causal variant (left 8, right window swept 6/4/3/2/1) was built and measured
+    before this was settled: it fixes nothing extra, and at right<=4 it ALLOWS MORE on gold, because
+    early pivots un-turn, the verdict falls to "mixed", and "mixed" does not refuse.
 
-    Left as None it uses the n-bar lookback exactly as before.
+    What WAS a genuine defect in the old wiring — a trend read 2.2 days behind the chart — belongs
+    to `vix1_trend`, and it still uses real-time turns. Two readings, two different questions.
     """
-    if turns is not None:
-        pts = sorted(turns, key=lambda p: p.index)
-    else:
-        pts = sorted(find_swing_points(candles, n), key=lambda p: p.index)
-        # a lookback pivot at index j is not knowable until j+n, so the last n bars hold none
-        pts = _distinct([p for p in pts if p.index <= len(candles) - 1 - n], n)
+    pts = sorted(find_swing_points(candles, n), key=lambda p: p.index)
+    # a lookback pivot at index j is not knowable until j+n, so the last n bars hold none
+    pts = _distinct([p for p in pts if p.index <= len(candles) - 1 - n], n)
     highs = [p for p in pts if p.is_high]
     lows = [p for p in pts if not p.is_high]
     if len(highs) < 2 or len(lows) < 2:
@@ -121,16 +129,21 @@ def fast_pattern(candles: list[Candle], n: int = _FAST_N, turns=None) -> str:
     return "mixed"
 
 
-def leg_state(candles: list[Candle], direction: int, n: int = _FAST_N, turns=None) -> LegState:
+def leg_state(candles: list[Candle], direction: int, n: int = _FAST_N) -> LegState:
     """May we ride this trend right now?
 
     `direction` MUST come from vix1_trend — this function never infers it, by design. Refusals carry
     a stated reason rather than a bare False: a refusal nobody can explain is how the last round of
     defects survived so long, and it is what made the 10-Aug signal take an hour to diagnose.
+
+    TWO EYESIGHTS, ON PURPOSE. `direction` arrives from a read that uses real-time turning points;
+    the pattern below is read from the n-bar lookback. They are deliberately NOT the same source —
+    see `fast_pattern`. When they were made the same (2026-08-12 to 2026-08-19) this gate was asking
+    the trend to contradict itself, and it stopped refusing pullbacks.
     """
     if direction == 0:
         return LegState(why="no established trend — nothing may be traded")
-    pattern = fast_pattern(candles, n, turns=turns)
+    pattern = fast_pattern(candles, n)
     opposite = "down" if direction == 1 else "up"
     if pattern == opposite:
         way = "up" if direction == 1 else "down"
