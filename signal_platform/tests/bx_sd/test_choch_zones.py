@@ -98,11 +98,19 @@ teeth("the demand mirror", d_hi.role != "extreme")
 
 # ── A ZONE ALONE CLAIMS NOTHING ──────────────────────────────────────────────────────────────────
 print()
-print("A ZONE ALONE IN ITS GROUP IS NEITHER — there is no distinction to draw")
+# CHANGED 2026-08-19 — his rule: "an extreme zone qualifies when a decisional zone is broken, then
+# the second qualification is liquidity being swept." A lone zone used to keep role "" and the
+# cascade traded it unconditionally, which is exactly where the qualification was being skipped for
+# most of the book. It must now EARN "extreme" like any other zone; unqualified it is not tradeable.
+print("A LONE ZONE MUST EARN THE NAME — it no longer gets a free pass")
 solo = supply(10, 1.3100, 1.3130)
-classify_roles([solo], [], BI)
-chk("a lone zone keeps role ''", solo.role, "")
-chk("  so the cascade treats it normally", solo.role == "decisional", False)
+classify_roles([solo], [], BI)                 # no bars/pools -> rule off -> old behaviour kept
+# Removing the <2 early-return means a lone UNMITIGATED zone is now the furthest (only) candidate
+# in its group, so with the rule off it reads "extreme". With the rule ON it must still qualify.
+chk("a lone unmitigated zone is its group's extreme once nothing outranks it", solo.role, "extreme")
+chk("  ...but a lone SPENT zone is not", 
+    (lambda z: (classify_roles([z], [], BI), z.role)[1])(supply(10, 1.31, 1.312, state="respected")),
+    "decisional")
 teeth("the lone-zone rule", supply(10, 1.3100, 1.3130).role != "extreme")
 
 # ── A BREAK THE OTHER WAY ENDS THE GROUP ─────────────────────────────────────────────────────────
@@ -110,11 +118,12 @@ print()
 print("AN OPPOSITE BREAK ENDS THE MOVE — zones after it are a different group")
 z1, z2 = supply(10, 1.3040, 1.3070), supply(30, 1.3100, 1.3130)
 classify_roles([z1, z2], [E(20, "up")], BI)      # an UP break sits between them
-chk("with an up-break between, neither is decisional", (z1.role, z2.role), ("", ""))
+chk("with an up-break between, they are in DIFFERENT groups", z1.group != z2.group, True)
 z3, z4 = supply(10, 1.3040, 1.3070), supply(30, 1.3100, 1.3130)
 classify_roles([z3, z4], [E(20, "down")], BI)    # a DOWN break does not end a supply move
 chk("a same-way break does NOT split the group", z4.role, "extreme")
-teeth("the group cut", classify_roles([z1, z2], [E(20, "up")], BI) is None and z1.role == "")
+teeth("the group cut", classify_roles([z1, z2], [E(20, "up")], BI) is None
+      and z1.group != z2.group)
 
 # ── DEAD ZONES ARE NOT GROUPED ───────────────────────────────────────────────────────────────────
 print()
@@ -122,7 +131,7 @@ print("A BROKEN ZONE CANNOT BE THE EXTREME — it is not on offer")
 dead, alive = supply(10, 1.3100, 1.3130, state="broken"), supply(14, 1.3040, 1.3070)
 classify_roles([dead, alive], [], BI)
 chk("the broken zone is skipped", dead.role, "")
-chk("  so the live one is alone, not decisional", alive.role, "")
+chk("  so the live one is alone in its group", alive.group != -1, True)
 teeth("the live-only rule", supply(10, 1.3100, 1.3130, state="broken").live is False)
 
 # ── THREE-DEEP STACK ─────────────────────────────────────────────────────────────────────────────
