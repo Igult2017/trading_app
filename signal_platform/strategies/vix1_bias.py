@@ -279,26 +279,29 @@ def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "", debut=None
         # So the causal checks stay exactly as they are, and the same two are asked a second time
         # about the present. Measured cost of this on its own: 2 / 1 / 1 setups over 1500 bars on
         # XAU/USD / EUR/USD / GBP/USD — it is a guard, not a filter.
-        # HIS RULE, and it costs almost nothing (2026-08-19): *"why do we need a number? I thought we
-        # were tracing pullback in real time."* He was right — a SIMPLE swing back needs no threshold
-        # at all, only the count of candles at the end going the wrong way. Measured cost on top of
-        # everything else here: 0 / 1 / 0 setups over 1500 bars on XAU/USD / EUR/USD / GBP/USD.
+        # HIS COMPLETE RULE, and it needs NO threshold (2026-08-19). He gave it in two corrections:
+        #     "why do we need a number? I thought we were tracing pullback in real time."
+        #     "if the first candle that goes against the pullback is a momentum candle we take a
+        #      trade. But if it is not we wait until we get one."
         #
-        # WHAT IT DOES NOT CATCH, and he named this before I measured it: a COMPLEX pullback, where a
-        # trend-way candle inside the retracement resets the count. On the 19 Aug gold bounce this
-        # refuses at +1 and +2 candles and then reads 0 while price is still $22 off the low. A
-        # threshold-free rule for that case has not been found — "run until price makes a new
-        # extreme" was tried and is worse (it refuses the strongest part of a trend and still allows
-        # the bounce, at 28-48% of setups). Only retracement DEPTH separates it, and that is a
-        # number he has not set. Documented as open rather than papered over.
-        pulling_back = vix1_retracement.running_now(window, t1)
+        # So a momentum candle does not merely survive a pullback — it is what ENDS one, which is his
+        # settled "momentum candle is a proof of the continuation of the trend". The question is
+        # therefore NOT "is a pullback running" (that would refuse every continuation entry, ~40% of
+        # setups) but "did this candle come BEFORE the pullback that is running now". A candle from
+        # before it cannot be the candle that ended it.
+        #
+        # THAT IS EXACTLY THE GOLD DEFECT: the signal's momentum candle was 18 Aug 14:00 and the
+        # bounce began 19 Aug 00:00, eleven hours later. Measured cost of the whole rule: 1 / 2 / 0
+        # setups over 1500 bars on XAU/USD / EUR/USD / GBP/USD.
+        pb_since = vix1_retracement.pullback_since(window, t1, since=mstate.direction_since)
+        stale_evidence = pb_since is not None and h1[mc_idx].time < pb_since
         live_leg = leg_state(window, t1, n=_FAST_N)
         live_regime = vix1_regime.classify(turns, atr(window, 14))
         live_refusal = market_permits(live_regime)
-        if pulling_back or not live_leg.ready or live_refusal:
+        if stale_evidence or not live_leg.ready or live_refusal:
             why = (live_refusal or (live_leg.why if not live_leg.ready else
-                   f"price is pulling back right now — {pulling_back} candle"
-                   f"{'s' if pulling_back != 1 else ''} against the trend"))
+                   "a pullback has begun since this momentum candle closed, so the candle is not "
+                   "the one that ended it — waiting for a momentum candle out of THIS pullback"))
             vix1_log.say(symbol, f"[vix1] {symbol} bias=NONE: the setup was valid when the candle "
                                  f"formed {len(h1) - 1 - mc_idx}h ago, but the market has moved on "
                                  f"— {why} | {state}")

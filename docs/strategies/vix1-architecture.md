@@ -458,31 +458,59 @@ a reading of the code. Any route that emits a `Bias` needs the guard.
 the present, and a setup that was valid when the candle formed but is not valid now is refused with
 that stated reason. Measured cost on its own: 2 / 1 / 1 setups over 1500 bars.
 
-**C — THE SIMPLE PULLBACK IS COUNTED, NOT MEASURED (his correction, and he was right).** I proposed a
-depth threshold; he pushed back: *"why do we need a number? I thought we were tracing pullback in real
-time. I thought the challenge would only be complex pullback not a simple swing."* Measured, both
-halves hold. `vix1_retracement.running_now()` counts the candles at the END going against the trend —
-**no threshold** — and costs **0 / 1 / 0 setups** on XAU/USD / EUR/USD / GBP/USD. The step-over in
-`measure()` is what made this look like it needed a number: that belongs to *"did the candle come
-after a retracement"*, a question about the candle, not about the present.
+**C — THE PULLBACK IS HELD AS STATE AND A MOMENTUM CANDLE ENDS IT. NO THRESHOLD. His rule, and he
+corrected me twice to get here.**
 
-**ITS LIMIT IS HIS COMPLEX PULLBACK, and he named it before it was measured.** A trend-way candle
-INSIDE the retracement resets the count. On the 19 Aug gold bounce it refuses at +1 and +2 candles and
-then reads 0 while price is still **$22 above the low**. Asserted in `test_staleness.py` so it can
-never be mistaken for solved.
+First: *"why do we need a number? I thought we were tracing pullback in real time. I thought the
+challenge would only be complex pullback not a simple swing."* Then, decisively: *"if the first candle
+that goes against the pullback is a momentum candle we take a trade. But if it is not we wait until we
+get one."*
 
-**"Run until price makes a new extreme" was tried for the complex case and is WORSE** — it refuses the
-strongest part of a trend (gold hours 2-4, price falling hard) while still allowing the bounce at hour
-10, and costs 28-48% of setups. Rejected on numbers.
+**That second correction is the whole design.** A momentum candle does not merely survive a pullback —
+it is what ENDS one, which is his settled *"momentum candle is a proof of the continuation of the
+trend"*. So the question is **not** "is a pullback running" (that refuses every continuation entry —
+measured, ~40% of setups) but **"did this candle come BEFORE the pullback that is running now"**. A
+candle from before it cannot be the candle that ended it.
 
-**STILL OPEN — his decision, not mine.** The only measurement that separates the good hour-0 entry
-(0.19 ATR) from the bounce he complained about (1.72 ATR) is **live retracement depth**, and it needs
-a threshold. Four alternatives were built and measured and none of them see it: a shortened real-time
-window, a causal 8-bar detector (right window 6/4/3/2/1), the live leg gate (reads *allow* at hours
-8-11), and "a counter-turn confirmed since the candle" (never confirms — $23 is not a decisive
-close). Depth was deleted on the grounds that *"if a retracement breaks a protected low the CHOCH
-detector detects it"* — **measurably false here**: 1.7 ATR and no CHoCH fired. Costs of each cut are
-in the fix log; **not built, and not to be chosen without him.**
+**That is precisely the gold defect:** the signal's momentum candle was 18 Aug 14:00 and the bounce
+began 19 Aug 00:00, eleven hours later.
+
+`vix1_retracement.pullback_since()` — **stateless**, derived from the window each scan so a restart
+cannot lose a running pullback and a replay behaves like production. Cost of the whole rule:
+**1 / 2 / 0 setups** over 1500 bars.
+
+**MEASURED ON CLOSES, NOT WICKS — and that decided the case it was built for.** The 19 Aug 01:00 gold
+bar wicked to a NEW LOW at 4324.54 and closed at 4356.46, **$32 higher**. Read by the wick the
+downtrend "resumed" and the pullback ended; read by the close it plainly did not. His framework is
+body-based wherever it matters — a CHoCH needs *"the body of a candle"*, a momentum candle is a body
+test — so a wick through an extreme is not the trend carrying on.
+
+**HIS MODEL TILES THE SPACE — no complex-pullback detector is needed.** He asked: *"past the pullback
+we have CHOCH, so it's either a pullback or a CHOCH."* Measured over 1500 bars, every pullback ended
+in exactly one of his ways and nothing else:
+
+| | episodes | ended in CHoCH | ended with the trend resuming | third case |
+|---|---|---|---|---|
+| XAU/USD | 102 | 22% | 77% | **none** |
+| EUR/USD | 63 | 33% | 65% | **none** |
+| GBP/USD | 69 | 19% | 80% | **none** |
+
+**An earlier run of mine reported 0% ending in a CHoCH and was WRONG** — a CHoCH sets `direction = 0`,
+and that script treated `direction == 0` as "no data" and discarded exactly those episodes. It briefly
+made his model look broken when the fault was the measurement.
+
+**CHoCH vs reversal, since it came up:** the code splits one event in two. A **CHoCH** is the body
+close through the protected level ([vix1_trend.py:266](../../signal_platform/strategies/vix1_trend.py#L266)) — it sets
+the trend to NONE at once, so nothing trades that direction. A **reversal** is the new direction then
+proving itself with its own break. They are the same event at two moments; the gap exists only because
+a break can fail. **That two-stage design is his own** (2026-08-11: *"a temporary break should not
+automatically become a new trend"*).
+
+**A DEPTH THRESHOLD IS NO LONGER NEEDED and was never the right instrument.** Four alternatives were
+measured and rejected on the way here — a shortened real-time window, a causal 8-bar detector (right
+window 6/4/3/2/1), the live leg gate (reads *allow* during the bounce), and "a counter-turn confirmed
+since the candle" (never confirms). A trailing counter-candle count was built and then **deleted** once
+this replaced it, rather than left as dead code.
 
 ---
 

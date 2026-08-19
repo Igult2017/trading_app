@@ -82,33 +82,58 @@ class Retracement:
                 f"which is {self.stall_bars} candles old")
 
 
-def running_now(candles: list[Candle], direction: int) -> int:
-    """Is a retracement running RIGHT NOW? The count of candles at the END going against the trend.
+def pullback_since(candles: list[Candle], direction: int,
+                   since: int | None = None) -> int | None:
+    """When did the pullback that is running RIGHT NOW begin? Its bar time, or None if none is.
 
-    A DIFFERENT QUESTION FROM `measure`, and the difference is the step-over. `measure` answers "did
-    the momentum candle come AFTER a retracement" — a question about that candle — so it steps over
-    the candle itself. This asks "is price pulling back at this moment", which is a question about
-    the present, so nothing is stepped over: if the newest closed candle is going against the trend,
-    a retracement is running.
+    HIS COMPLETE RULE (2026-08-19). A pullback ends in exactly three ways, and the first IS the trade:
 
-    HIS RULE, and it needs NO threshold (2026-08-19): *"I thought we were tracing pullback in real
-    time. I thought the challenge would only be complex pullback not a simple swing."* He was right
-    — a simple swing is just "the last candles went the other way", and asking for a depth number to
-    see that was over-engineering on my part.
+        1. a MOMENTUM candle the trend's way  — "momentum candle is a proof of the continuation of
+                                                 the trend", so it ends the pullback and is taken
+        2. the trend RESUMES past the extreme the pullback began from
+        3. a CHoCH — the body closes through the protected level, and `vix1_trend` already sets the
+           trend to NONE there, so nothing downstream trades that direction anyway
 
-    ITS LIMIT, MEASURED AND STATED RATHER THAN HIDDEN: a single trend-way candle INSIDE a pullback
-    resets this to 0. On the 19 Aug gold bounce it correctly refused at +1 and +2 candles, then read
-    0 at the next bar while price was still $22 above the low. That is exactly the COMPLEX pullback
-    he named, and this count does not solve it. Nothing threshold-free found so far does.
+    Measured over 1500 bars, every pullback ended by (1)-(3) and nothing else: XAU/USD 102 episodes,
+    EUR/USD 63, GBP/USD 69, with 19-33% ending in a CHoCH and the rest in the trend resuming. His
+    model tiles the space completely — there is no fourth case and so no separate "complex pullback"
+    detector is needed. (An earlier run reported 0% ending in a CHoCH; that was a bug in the
+    measurement, which discarded exactly those episodes because a CHoCH sets `direction` to 0.)
+
+    WHY IT IS NOT A COUNT OF THE TRAILING COUNTER CANDLES. That was tried first and deleted: a single
+    trend-way candle INSIDE a retracement resets such a count to zero — on the 19 Aug gold bounce it
+    read 0 while price was still $22 above the low. This anchors to the trend's extreme instead: once
+    price has turned away from it, the pullback is running until price closes beyond it again,
+    whatever colour the candles in between happen to be.
+
+    STATELESS ON PURPOSE. Derived from the window every scan rather than held on the strategy, so a
+    restart cannot lose a running pullback and a replay behaves exactly like production.
     """
     if direction == 0 or not candles:
-        return 0
-    trend_way = is_bullish if direction == 1 else is_bearish
-    n, i = 0, len(candles) - 1
-    while i >= 0 and not trend_way(candles[i]):
-        n += 1
-        i -= 1
-    return n
+        return None
+    start = 0 if since is None else max(0, min(since, len(candles) - 1))
+    seg = candles[start:]
+    if len(seg) < 2:
+        return None
+
+    up = direction == 1
+    # MEASURED ON CLOSES, NOT WICKS, and that is the whole difference on the case this was built for.
+    # The 19 Aug gold bar wicked to a NEW LOW at 4324.54 and then closed at 4356.46, $32 higher — a
+    # violent rejection. Read by the wick the downtrend "resumed" and the pullback ended; read by the
+    # close it plainly did not. His framework is body-based everywhere it matters — a CHoCH needs
+    # "the body of a candle", and a momentum candle is a body test — so a wick poking through an
+    # extreme is not the trend carrying on.
+    best = max(c.close for c in seg) if up else min(c.close for c in seg)
+    e = max(i for i, c in enumerate(seg) if c.close == best)
+    after = seg[e + 1:]
+    if not after:
+        return None                      # the newest bar set the extreme — the trend is running
+
+    # A pullback only exists once price has actually turned, not merely failed to extend. The first
+    # candle after the extreme that goes against the trend is where it began.
+    trend_way = is_bullish if up else is_bearish
+    first = next((i for i, c in enumerate(after) if not trend_way(c)), None)
+    return None if first is None else after[first].time
 
 
 def measure(candles: list[Candle], direction: int, since: int | None = None) -> Retracement:
