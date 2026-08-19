@@ -167,7 +167,7 @@ def detect_setup(h4: list[Candle], pip: float = 0.0001, book=None, session_candl
     # (they exercise `regime` directly) and a single e2e run passed (it happened to find one), so
     # only a walk-forward replay over hundreds of bars surfaced it.
     cand, cand_mz, priced_out, n_live, off_trend = None, None, 0, 0, 0
-    cand_via, no_entry_event, unswept = "", 0, 0
+    cand_via, no_entry_event, cand_swept = "", 0, False
     for mz in sorted(marked, key=lambda m: m.ifc_time, reverse=True):
         # NOT `respected` — that is the RETEST path's job (bx_sd_reports, min_grade="B"). Accepting
         # it here let one zone fire BOTH: a duplicate signal, and the fresh cascade firing at C+,
@@ -279,15 +279,18 @@ def detect_setup(h4: list[Candle], pip: float = 0.0001, book=None, session_candl
         # evidence for a different value at this moment than at the other.
         #
         # `swept_within`, NOT `swept_before`. The latter asks "did any bar trade beyond this level",
-        # which is trivially true for any level already on the wrong side of price — used here it
-        # allowed 100% of taps on both pairs, a gate that refuses nothing. See its docstring.
-        # Measured with the correct question: 45-67% of taps pass, so this decides something.
+        # which is trivially true for any level already on the wrong side of price — asked here it
+        # answered YES on 100% of taps on both pairs, a check that decides nothing. See its docstring.
+        #
+        # THIS IS A CONFLUENCE, NOT A GATE (corrected 2026-08-15, same day it shipped as a gate).
+        # The document calls it *"additional confirmation"* and *"a confirmation factor"*, and
+        # reserves "must" for criterion 1 alone. As a refusal it was cutting 33-55% of taps on top of
+        # the two confirmations BX already requires (the 4H zone and the 1M/5M reaction) — the user's
+        # point: *"we still have double checks"*. It now feeds `bx_sd_strength` instead.
         _side = "sell" if mz.direction == "demand" else "buy"
         _tap_i = len(bars) - 1
-        if not swept_within(find_liquidity(bars, pip, session_candles=session_candles),
-                            bars, _side, max(0, _tap_i - LIQ_WINDOW), _tap_i):
-            unswept += 1
-            continue
+        cand_swept = swept_within(find_liquidity(bars, pip, session_candles=session_candles),
+                                  bars, _side, max(0, _tap_i - LIQ_WINDOW), _tap_i)
         if (mz.top - mz.bottom) < _MIN_PIPS * pip:
             continue
         # PRO-TREND ONLY WHILE TRENDING. A supply zone in an uptrend produces a PULLBACK, not a
@@ -330,10 +333,6 @@ def detect_setup(h4: list[Candle], pip: float = 0.0001, book=None, session_candl
         # the cascade no longer asks for. A diagnostic that names a rule the code does not have
         # sends the next reader to the wrong file, which is exactly what a reason line exists to
         # prevent.
-        if unswept:
-            r.reason = (f"{unswept} zone(s) tapped but NO liquidity was swept on the way in — "
-                        f"the zone is likely to act as liquidity itself, so we stand aside{gap}")
-            return r
         if no_entry_event:
             r.reason = (f"{no_entry_event} tradeable zone(s) marked, but price is not tapping "
                         f"any of them right now{gap}")
@@ -370,7 +369,8 @@ def detect_setup(h4: list[Candle], pip: float = 0.0001, book=None, session_candl
     # HOW it was mitigated and HOW STRONG it is — both read off the zone book, both previously
     # invisible on the card. A wick-only tap and a full body mitigation used to look identical.
     if cand_mz is not None:
-        _s = zone_strength(cand_mz, marked, bars, htf_map=htf_map, as_zone=cand)
+        _s = zone_strength(cand_mz, marked, bars, htf_map=htf_map, as_zone=cand,
+                           swept=cand_swept)
         r.confluences["mitigation_note"] = mitigation_note(cand_mz)
         r.confluences["strength_phrase"] = (f"Zone strength {_s.label} ({_s.score}) — "
                                             f"{', '.join(_s.reasons())}")
@@ -382,5 +382,6 @@ def detect_setup(h4: list[Candle], pip: float = 0.0001, book=None, session_candl
         # card until 2026-08-15.
         r.confluences["zone_role"] = cand_mz.role
         r.confluences["broke_through"] = cand_mz.broke_through
+        r.confluences["swept"] = cand_swept
     r.reason = "active"
     return r

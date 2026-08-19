@@ -33,6 +33,23 @@ _W_HTF = 3          # per higher timeframe backing it (max 3 -> D1 + W1 + MN)
 _W_VIOLENT = 2      # departure of >= _VIOLENT_MULT zone-heights
 _W_DEEPEST = 2      # furthest in a stack of overlapping same-side zones
 _W_RETAP = 1        # per retap it survived (capped)
+# THE SMART RISK DOCUMENT'S CRITERIA 2 AND 3 — CONFLUENCE, NOT GATES (2026-08-15).
+#
+# The document grades its own criteria and only ONE of them is absolute:
+#   1. HTF mitigation   "valid ONLY under one condition ... CANNOT be considered a valid CHoCH"
+#   2. liquidity sweep  "to obtain ADDITIONAL CONFIRMATION" ... "we use it as a CONFIRMATION FACTOR"
+#   3. double zone      "MORE EFFECTIVE, HIGHER CHANCE of success" ... "a STRONG CONFLUENCE"
+#
+# Criterion 1 is satisfied by construction — BX only ever trades a tapped 4H zone. The other two
+# belong HERE, as weights, because the document reserves "must" for the first alone.
+#
+# CRITERION 2 SHIPPED AS A HARD GATE FOR ONE DAY and was refusing 33-55% of taps. That was my
+# inference from its failure warning ("high chance that price will continue moving in the opposite
+# side"), not the document's instruction, and the user caught it: BX already requires the 4H zone
+# AND a 1M/5M confirmation, so a third mandatory refusal is how a strategy stops trading.
+_W_SWEPT = 2        # liquidity was still resting and got grabbed on the way in (criterion 2)
+_W_DOUBLE = 2       # the move closed through >= 2 opposite zones (criterion 3)
+_DOUBLE_MIN = 2     # "the TWO successive supply or demand zones along its path"
 _VIOLENT_MULT = 3.0
 _MAX_RETAP_POINTS = 2
 
@@ -44,6 +61,8 @@ class Strength:
     violent: bool
     deepest: bool
     retaps: int
+    swept: bool = False         # criterion 2 — liquidity taken on the way in
+    broke_through: int = 0      # criterion 3 — opposite zones the move closed through
 
     @property
     def label(self) -> str:
@@ -96,8 +115,13 @@ def _is_deepest(z: MarkedZone, book: list[MarkedZone]) -> bool:
 
 
 def score(z: MarkedZone, book: list[MarkedZone], bars: list[Candle],
-          htf_map: dict | None = None, as_zone=None) -> Strength:
-    """Rank one zone. `as_zone` is the plain Zone form htf_backing expects (bx_sd_registry.to_zone)."""
+          htf_map: dict | None = None, as_zone=None, swept: bool = False) -> Strength:
+    """Rank one zone. `as_zone` is the plain Zone form htf_backing expects (bx_sd_registry.to_zone).
+
+    `swept` — was resting liquidity grabbed on the way to this tap (the document's criterion 2)?
+    Passed in rather than computed here: the caller already has the pools and the tap index, and
+    recomputing a full liquidity scan per zone would be the same waste that got the old
+    `find_liquidity` call in `detect_setup` deleted."""
     htf: list[str] = []
     if htf_map and as_zone is not None:
         try:
@@ -107,9 +131,12 @@ def score(z: MarkedZone, book: list[MarkedZone], bars: list[Candle],
     violent = _departure(z, bars)
     deepest = _is_deepest(z, book)
     retap_pts = min(z.retaps, _MAX_RETAP_POINTS)
+    double = z.broke_through >= _DOUBLE_MIN
     total = (_W_HTF * len(htf) + (_W_VIOLENT if violent else 0)
-             + (_W_DEEPEST if deepest else 0) + _W_RETAP * retap_pts)
-    return Strength(score=total, htf=htf, violent=violent, deepest=deepest, retaps=z.retaps)
+             + (_W_DEEPEST if deepest else 0) + _W_RETAP * retap_pts
+             + (_W_SWEPT if swept else 0) + (_W_DOUBLE if double else 0))
+    return Strength(score=total, htf=htf, violent=violent, deepest=deepest, retaps=z.retaps,
+                    swept=swept, broke_through=z.broke_through)
 
 
 def mitigation_note(z: MarkedZone) -> str:

@@ -484,13 +484,16 @@ pullback in 4HR"*.
 
 ## KNOWN OPEN DEFECTS — not fixed, do not assume otherwise
 
-0a. **TWO OF THE DOCUMENT'S FOUR QUALITY CRITERIA ARE STILL NOT BUILT.** The 2026-08-15 entry change
-   removed the `respected`+pullback protection on the argument that the document's pre-formation
-   evidence replaces it. Built so far: **"extreme not decisional"** and **"liquidity swept before the
-   tap"** (`swept_within`, ~45-67% of taps pass). Still missing: **HTF mitigation as a gate**, and
-   **the double-zone break as a requirement** (`broke_through` is computed and shown on the card, but
-   gates nothing). **If this model underperforms, build those two before reinstating the pullback** —
-   reinstating it would discard the document's model on evidence never gathered.
+0a. ~~The document's quality criteria are not built~~ **CLOSED 2026-08-15 — all four are in, graded
+   as the document grades them.** Only criterion 1 is absolute (*"valid only under one condition"*),
+   and it holds **by construction**: BX only ever trades a tapped 4H zone. Criterion 2 (liquidity
+   swept, `_W_SWEPT`) and criterion 3 (double-zone break, `_W_DOUBLE`) are **weights in
+   `bx_sd_strength`**, matching the document's own *"additional confirmation"* / *"strong
+   confluence"*. Extreme-vs-decisional is the one refusal added on top, and that is the document's
+   *"we cannot place any trades based on the decisional zone"* — also absolute language.
+   **DO NOT PROMOTE 2 OR 3 TO GATES.** Criterion 2 shipped as a gate for one day and refused 33-55%
+   of taps; BX already requires the 4H zone AND a 1M/5M confirmation, so a third mandatory refusal
+   stops the strategy trading. The user's rule: *"we still have double checks."*
 
 0. **The document's CHoCH definition is NOT built, and it is blocked on a design decision.** Smart
    Risk: a change of character is a close beyond the last major swing **AND through the latest
