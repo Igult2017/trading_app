@@ -129,34 +129,37 @@ chk("one extreme in the group", sum(1 for z in stack if z.role == "extreme"), 1)
 chk("  and it is the highest", stack[0].role, "extreme")
 chk("  the other two are decisional", [z.role for z in stack[1:]], ["decisional", "decisional"])
 
-# ── THE ENTRY MODEL: A STOP ORDER, AND THE STOP OFF THE ZONE ─────────────────────────────────────
-# His instruction, 2026-08-15: *"we will do confirmation in LTF plus we use stop orders."*
+# ── THE ENTRY MODEL: THE BOOK'S, p81 ─────────────────────────────────────────────────────────────
 print()
-print("THE ENTRY IS A STOP ORDER BEYOND THE CONFIRMING BAR, STOP BEYOND THE ZONE DISTAL")
-
+print("ENTRY = START OF THE REFINED 5M ZONE, SL = ITS FURTHEST POINT (book p81)")
+#     "To enter off a CHoCH you put your ENTRY AT THE START of the supply/demand and the SL AT THE
+#      FURTHEST POINT of the supply/demand."
+#
+# WHY 5M AND NOT 1M — measured on 31 confirmed EUR/USD taps before choosing. Applying p81 to a 1M
+# refinement gave a MEDIAN STOP OF 0.8 PIPS (max 3.6, all 23 under 5) — inside the spread, so every
+# trade would have died on entry whichever way price went. 5M gives a 3.2-pip median. The user
+# settled it: "I do use 5M and it is perfect."
+#
+# NO SPREAD ADDED. The book says to add it; he said not to. A deliberate departure, recorded.
 from core.types import Candle                                            # noqa: E402
-from strategies.bx_sd_entry import entry_trigger, _ENTRY_STOP_BUFFER_PIPS  # noqa: E402
-from strategies.bx_sd_ltf import LTFConfluence                           # noqa: E402
-from strategies.bx_sd_setup import SetupResult, _SL_BUFFER_PIPS          # noqa: E402
+from strategies.bx_sd_entry import entry_trigger                         # noqa: E402
+from strategies.bx_sd_ltf import LTFConfluence, refine_zone              # noqa: E402
+from strategies.bx_sd_setup import SetupResult                           # noqa: E402
 from strategies.bx_sd_zones import Zone                                  # noqa: E402
 
 PIP = 0.0001
 
 
-def m1(seq):
-    """M1 candles from (open, close) pairs, small wicks so swings are unambiguous."""
-    out = []
-    for i, (o, c) in enumerate(seq):
-        out.append(Candle(time=1700000000 + i * 60, open=o, high=max(o, c) + 0.00003,
-                          low=min(o, c) - 0.00003, close=c, volume=0, timeframe="M1"))
-    return out
+def m1(seq, tf="M1"):
+    return [Candle(time=1700000000 + i * 60, open=o, high=max(o, c) + 0.00003,
+                   low=min(o, c) - 0.00003, close=c, volume=0, timeframe=tf)
+            for i, (o, c) in enumerate(seq)]
 
 
 def zig(legs, start=1.3100):
-    """A zigzag of (target, bars) legs. A MONOTONIC staircase will not do: `find_swing_points` needs
-    local extremes, so a straight descent produces no swings, no BOS, and `reaction_on` returns "" —
-    which is how the first version of this fixture failed to fire and briefly looked like a bug in
-    the code rather than in the test."""
+    """A zigzag. A MONOTONIC staircase will not do: `find_swing_points` needs local extremes, so a
+    straight descent produces no swings, no BOS, and `reaction_on` returns "" — which is how the
+    first version of this fixture failed to fire and briefly looked like a bug in the code."""
     seq, p = [], start
     for tgt, n in legs:
         step = (tgt - p) / n
@@ -165,32 +168,36 @@ def zig(legs, start=1.3100):
     return m1(seq)
 
 
-# Lower highs and lower lows -> a DOWN BOS, which gives `reaction_on` its continuation arm.
 down = zig([(1.3080, 6), (1.3088, 4), (1.3062, 6), (1.3070, 4), (1.3044, 6), (1.3052, 4), (1.3026, 6)])
 zsup = Zone(direction="supply", top=1.3120, bottom=1.3110, proximal=1.3110, distal=1.3120,
             eq50=1.3115, origin_index=0, ifc_index=1)
 setup_s = SetupResult(active=True, direction="sell", zone=zsup)
-trig = entry_trigger(LTFConfluence(passed=True), setup_s, down, [], pip=PIP)
 
-chk("a sell fires on the descending fixture", trig.triggered, True)
-if trig.triggered:
-    last = down[-1]
-    chk("entry is a STOP below the confirming bar's low, not its close",
-        round(trig.entry, 5), round(last.low - _ENTRY_STOP_BUFFER_PIPS * PIP, 5))
-    chk("  ...so it is BELOW the close (a stop, never a market fill)", trig.entry < last.close, True)
-    chk("stop sits beyond the zone's DISTAL",
-        round(trig.sl, 5), round(zsup.distal + _SL_BUFFER_PIPS * PIP, 5))
-    chk("  and above the entry, as a sell stop must be", trig.sl > trig.entry, True)
-    chk("target is on the far side", trig.tp < trig.entry, True)
-teeth("the stop-order rule", trig.triggered and trig.entry != down[-1].close)
+# a 5M series carrying a supply zone whose proximal sits INSIDE the 4H zone
+_r5 = [(1.3100 - i * 0.00004, 1.3100 - (i + 1) * 0.00004) for i in range(20)]
+_r5 += [(1.3092, 1.3118), (1.3118, 1.3115), (1.3113, 1.3090),
+        (1.3090, 1.3086), (1.3086, 1.3082), (1.3082, 1.3078)]
+five = m1(_r5, tf="M5")
+rz = refine_zone(five, "supply", zsup, PIP)
+chk("the 5M fixture yields a refined zone inside the 4H zone", rz is not None, True)
 
-# The wrong-side guard must survive: a zone whose distal sits BELOW a sell entry is unusable.
-bad_zone = Zone(direction="supply", top=1.2000, bottom=1.1990, proximal=1.1990, distal=1.2000,
-                eq50=1.1995, origin_index=0, ifc_index=1)
-bad = entry_trigger(LTFConfluence(passed=True),
-                    SetupResult(active=True, direction="sell", zone=bad_zone), down, [], pip=PIP)
-chk("a stop on the wrong side of the entry is refused", bad.triggered, False)
-teeth("the wrong-side guard", bad.triggered is False)
+trig = entry_trigger(LTFConfluence(passed=True), setup_s, down, [], pip=PIP, refine_tf=five)
+chk("a sell fires with a 5M zone to enter at", trig.triggered, True)
+if trig.triggered and rz is not None:
+    chk("entry is the START (proximal) of the 5M zone", round(trig.entry, 5), round(rz.proximal, 5))
+    chk("stop is the FURTHEST POINT (distal) of that same zone", round(trig.sl, 5), round(rz.distal, 5))
+    chk("  no spread or buffer is added to either",
+        abs(trig.sl - trig.entry) == abs(rz.distal - rz.proximal), True)
+    chk("  the stop is above the entry, as a sell must be", trig.sl > trig.entry, True)
+    chk("  risk is a tradeable size, not sub-pip", abs(trig.sl - trig.entry) / PIP > 1.0, True)
+teeth("the book entry", trig.triggered and round(trig.entry, 5) == round(rz.proximal, 5))
+
+# NO 5M ZONE -> NO ENTRY. The book enters AT the supply/demand the reaction left; with none there is
+# nothing to enter at, and inventing a level would be exactly the blind limit the book forbids.
+none_trig = entry_trigger(LTFConfluence(passed=True), setup_s, down, [], pip=PIP, refine_tf=None)
+chk("no refined 5M zone -> refused", none_trig.triggered, False)
+chk("  ...and says why", "no refined 5M zone" in none_trig.reason, True)
+teeth("the no-zone refusal", none_trig.triggered is False)
 
 # THE PULLBACK MODEL IS GONE — not disabled, deleted. A test that only checked behaviour would pass
 # if someone reintroduced the constants, so this checks the names are actually absent.

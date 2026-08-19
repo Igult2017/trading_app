@@ -29,12 +29,14 @@ def grade_of(analysis_aligned: bool, backing: list) -> str:
 
 def confirm_grade(setup: SetupResult, h4: list[Candle],
                   analysis_tfs: list[tuple[list[Candle], str]], entry_tf: list[Candle],
-                  htf_map: dict, pip: float = 0.0001, min_grade: str = "C"):
+                  htf_map: dict, pip: float = 0.0001, min_grade: str = "C",
+                  refine_tf: list[Candle] | None = None):
     """Refine on the analysis TFs, require a 1M/5M confirmation entry, grade the stack.
     Returns (conf, trig, grade) or None when there is no entry trigger or grade < min_grade."""
     conf  = analysis_refine(setup, analysis_tfs, pip)
     finer = next((cs for cs, _ in analysis_tfs if len(cs) >= 20), None)   # M15/M30/1H — session-H/L feed
-    trig  = entry_trigger(conf, setup, entry_tf, h4, pip, session_candles=finer)
+    trig  = entry_trigger(conf, setup, entry_tf, h4, pip, session_candles=finer,
+                          refine_tf=refine_tf)
     if not trig.triggered:
         return None
     # DEFENSE — "don't be the liquidity" (locked constraint), on the FINAL entry/SL. Every path that

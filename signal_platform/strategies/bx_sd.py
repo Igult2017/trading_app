@@ -157,7 +157,10 @@ class BXStrategy(BaseStrategy):
 
         # STAGE 2-3 — analysis-TF refine + MANDATORY 1M/5M confirmation entry + grade (shared helper).
         # A FRESH 4H zone fires at any grade (C and up); the retest path reuses this at min_grade="B".
-        res = confirm_grade(setup, h4, analysis_tfs, entry_tf, htf_map, pip)
+        # THE ENTRY ZONE IS REFINED ON 5M, and that is his own timeframe: *"I do use 5M and it
+        # is perfect."* Measured first — refining on 1M gave a 0.8-pip median stop, inside
+        # the spread, so every trade would have died on entry regardless of direction.
+        res = confirm_grade(setup, h4, analysis_tfs, entry_tf, htf_map, pip, refine_tf=m5)
         if res is None:
             self._log(sym, "4H_ZONE_TAPPED", "await entry-TF confirmation (1M/5M BMS inside the zone)")
             return StrategyResult(signals=out)

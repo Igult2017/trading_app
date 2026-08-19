@@ -9,11 +9,10 @@ trigger before locking a signal:
     CHoCH, S/D flip, or continuation BOS. Never a blind limit.
   * RESPECT — the 4H zone must be HELD, not ground against: the confirming close must sit
     _RESPECT_BUFFER of the zone height inside it, off the distal.
-  * ENTRY  — a STOP ORDER just beyond the confirming bar's extreme (2026-08-15). The confirmation
-    says the reaction happened; the stop says price then CONTINUED, so it fills only if the move
-    carries on and never if the reaction fails.
-  * SL     — _SL_BUFFER_PIPS beyond the 4H ZONE's distal — the document's "a few pips above the
-    highest point of the zone". One rule now, no fallback.
+  * ENTRY  — the START (proximal) of the refined 5M zone. The BOOK, p81: "you put your entry at
+    the START of the supply/demand and the sl at the FURTHEST POINT of the supply/demand."
+  * SL     — the FURTHEST POINT (distal) of that same 5M zone. No buffer, and NO SPREAD ADDED —
+    the book says to add spread, the user said not to (2026-08-15).
   * TP     — a fixed _TP_R multiple of that risk.
 
 Assembles Phases 1-6; reuses only generic shared resources.
@@ -22,19 +21,13 @@ from dataclasses import dataclass, field
 
 from core.types import Candle
 from shared.swing_points import find_swing_points
-from strategies.bx_sd_ltf import find_ltf_choch, _choch_valid, LTFConfluence
+from strategies.bx_sd_ltf import find_ltf_choch, _choch_valid, refine_zone, LTFConfluence
 from strategies.bx_sd_structure import map_structure
-from strategies.bx_sd_setup import (SetupResult, _SL_BUFFER_PIPS,
-                                    _TP_R, _RESPECT_BUFFER)
+from strategies.bx_sd_setup import SetupResult, _TP_R, _RESPECT_BUFFER
 
 # `_PULLBACK_LOOKBACK = 24` (entry-TF bars) lived here and is DELETED, as is the 4H `pullback_4h` it
 # was a second, tighter definition of — the whole pullback model went with the 2026-08-15 change to
 # the document's entry.
-
-_ENTRY_STOP_BUFFER_PIPS = 1.0
-"""How far beyond the confirming bar's extreme the STOP ORDER rests, so it does not sit exactly on a
-price the market has already printed. One pip: small enough not to move the risk materially against a
-stop that is `_SL_BUFFER_PIPS` off the 4H distal, large enough that a single tick does not fill it."""
 
 
 def _flip_ok(entry_tf: list[Candle], want_dir: str, n: int = 3) -> bool:
@@ -109,7 +102,8 @@ def _rr(entry: float, sl: float, tp: float, buy: bool) -> float:
 
 def entry_trigger(conf: LTFConfluence, setup: SetupResult, entry_tf: list[Candle],
                   h4: list[Candle], pip: float = 0.0001,
-                  session_candles: list[Candle] | None = None) -> EntryTrigger:
+                  session_candles: list[Candle] | None = None,
+                  refine_tf: list[Candle] | None = None) -> EntryTrigger:
     # `min_rr` was a parameter here and was never read: TP is a fixed _TP_R multiple of the risk, so
     # RR is 3.0 by construction and there is nothing to threshold. Removed rather than left as a knob
     # that looks like it does something.
@@ -157,46 +151,39 @@ def entry_trigger(conf: LTFConfluence, setup: SetupResult, entry_tf: list[Candle
             r.triggered = False
             return r
 
-    # ENTRY = A STOP ORDER JUST BEYOND THE CONFIRMING BAR (his instruction, 2026-08-15:
-    # "we will do confirmation in LTF plus we use stop orders").
+    # ENTRY AND STOP COME FROM THE REFINED 5M ZONE — the BOOK's method (p81), 2026-08-15.
     #
-    # The confirmation says the reaction happened; the stop order says price then CONTINUED. Placed
-    # beyond the confirming bar's own extreme in the trade direction, so it fills only if the move
-    # carries on and never if the reaction fails — the "no trade, no risk" property.
+    #     "To enter off a CHoCH you put your ENTRY AT THE START of the supply/demand and the SL AT
+    #      THE FURTHEST POINT of the supply/demand."
+    #     "I will only use these entry methods in HTF supply or demand ... I personally use anywhere
+    #      from the 15M to the 1M to enter trades in these HTF zones."
     #
-    # THIS REPLACES A MARKET ENTRY AT THE CONFIRMING CLOSE, and that trade-off is real: a market
-    # entry cannot expire, a resting stop can. Some signals will now never become trades. That is
-    # accepted deliberately, not overlooked — it is the same property that stops us paying for a
-    # reaction that immediately reverses. `bx_sd_watch` already invalidates a locked setup.
+    # WHICH TIMEFRAME IS THE WHOLE BALL GAME, and it was measured before choosing. Applying p81 to
+    # the refinement BX already had produced unusable stops — on 31 confirmed EUR/USD taps:
     #
-    # NOT a limit back inside the zone. The document draws a limit, but he chose a stop, and the
-    # older limit-at-the-POI behaviour is exactly what once fired 13-14% of signals with price
-    # already past the entry and left 22-29% unfilled inside 24h. A stop cannot fire behind price.
-    last = entry_tf[-1]
-    entry = (last.high + _ENTRY_STOP_BUFFER_PIPS * pip if buy
-             else last.low - _ENTRY_STOP_BUFFER_PIPS * pip)
+    #        refine on   median stop   max    under 5 pips
+    #        1M               0.8      3.6      23 of 23     <- inside the spread; every trade dies
+    #        5M               3.2      9.8      22 of 25
+    #        15M              4.3     11.4      15 of 21
+    #        30M              6.0     15.1       4 of 14
+    #
+    # The user settled it: *"I do use 5M and it is perfect."* So the entry zone is refined on 5M
+    # specifically, not on whatever `analysis_refine` happened to find tightest across 15M/30M/1H —
+    # that path exists for GRADING and its `entry`/`sl` were always overwritten here (open defect 5).
+    #
+    # NO SPREAD ADDED. The book says to add it; he said not to (2026-08-15). Recorded rather than
+    # silently followed, because it is a deliberate departure from p81.
+    ez = refine_zone(refine_tf, zdir, zone4h, pip) if refine_tf else None
+    if ez is None:
+        # NO CITATION IN A USER-FACING STRING — `test_no_book_citations` failed the first version of
+        # this line for saying "the book". The reader wants the reason, not the source.
+        r.reason = ("no refined 5M zone inside the 4H zone — the entry sits at the START of the "
+                    "supply/demand the reaction left, and there is none to enter at")
+        r.triggered = False
+        return r
+    entry = ez.proximal
+    sl = ez.distal
 
-    # STOP comes from the 4H ZONE, never from the refined POI. User's rule: "mark zone in 4H and then
-    # use it to enter where price can't wick us out — ~5 to 6 pips behind the 4H zone; we enter in 5M
-    # or 1M using confirmed entry so we are sure price is in our favour, so we won't need a broader SL."
-    #
-    # This used to take the SL off the REFINED zone, which produced ~3 pip stops sitting inside noise:
-    # spread was 20-30% of risk and any wick took the trade out. The 4H stop was already computed in
-    # detect_setup and then silently discarded here.
-    # STOP: BEYOND THE 4H ZONE'S DISTAL — the document's rule, *"setting the stop-loss a few pips
-    # above the highest point of the zone"* (mirrored below a demand zone).
-    #
-    # The trade is now the FIRST return to the zone, so the zone IS the structure being entered and
-    # its distal is what a wick has to clear. `_SL_BUFFER_PIPS = 6` is his own "5 to 6 pips behind
-    # the 4H zone".
-    #
-    # THIS WAS TWO BRANCHES until 2026-08-15. The other put the stop 15 pips behind the 4H
-    # PULLBACK's extreme — correct for the model where price left the zone, ran, and was entered on
-    # a retracement far from it. That model is gone (`bx_sd_setup` now triggers on the tap itself),
-    # so the pullback branch, `setup.pb_extreme` and `pullback_4h` went with it rather than being
-    # left as an unreachable path that reads like a live rule.
-    sl = (zone4h.distal - _SL_BUFFER_PIPS * pip if buy
-          else zone4h.distal + _SL_BUFFER_PIPS * pip)
     # A stop on the wrong side of the entry is unusable. It happens when the confirming close lands
     # BELOW the pullback's low on a buy — the confirmation fired past the level the stop hangs off.
     # `risk <= 0` below would catch it, but silently; this says which of the two is at fault.
