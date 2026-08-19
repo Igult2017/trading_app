@@ -82,6 +82,35 @@ class Retracement:
                 f"which is {self.stall_bars} candles old")
 
 
+def running_now(candles: list[Candle], direction: int) -> int:
+    """Is a retracement running RIGHT NOW? The count of candles at the END going against the trend.
+
+    A DIFFERENT QUESTION FROM `measure`, and the difference is the step-over. `measure` answers "did
+    the momentum candle come AFTER a retracement" — a question about that candle — so it steps over
+    the candle itself. This asks "is price pulling back at this moment", which is a question about
+    the present, so nothing is stepped over: if the newest closed candle is going against the trend,
+    a retracement is running.
+
+    HIS RULE, and it needs NO threshold (2026-08-19): *"I thought we were tracing pullback in real
+    time. I thought the challenge would only be complex pullback not a simple swing."* He was right
+    — a simple swing is just "the last candles went the other way", and asking for a depth number to
+    see that was over-engineering on my part.
+
+    ITS LIMIT, MEASURED AND STATED RATHER THAN HIDDEN: a single trend-way candle INSIDE a pullback
+    resets this to 0. On the 19 Aug gold bounce it correctly refused at +1 and +2 candles, then read
+    0 at the next bar while price was still $22 above the low. That is exactly the COMPLEX pullback
+    he named, and this count does not solve it. Nothing threshold-free found so far does.
+    """
+    if direction == 0 or not candles:
+        return 0
+    trend_way = is_bullish if direction == 1 else is_bearish
+    n, i = 0, len(candles) - 1
+    while i >= 0 and not trend_way(candles[i]):
+        n += 1
+        i -= 1
+    return n
+
+
 def measure(candles: list[Candle], direction: int, since: int | None = None) -> Retracement:
     """Measure the live retracement. `candles` must be CLOSED bars; `direction` +1 up / -1 down.
 

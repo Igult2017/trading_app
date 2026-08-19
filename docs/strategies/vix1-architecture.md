@@ -458,6 +458,23 @@ a reading of the code. Any route that emits a `Bias` needs the guard.
 the present, and a setup that was valid when the candle formed but is not valid now is refused with
 that stated reason. Measured cost on its own: 2 / 1 / 1 setups over 1500 bars.
 
+**C — THE SIMPLE PULLBACK IS COUNTED, NOT MEASURED (his correction, and he was right).** I proposed a
+depth threshold; he pushed back: *"why do we need a number? I thought we were tracing pullback in real
+time. I thought the challenge would only be complex pullback not a simple swing."* Measured, both
+halves hold. `vix1_retracement.running_now()` counts the candles at the END going against the trend —
+**no threshold** — and costs **0 / 1 / 0 setups** on XAU/USD / EUR/USD / GBP/USD. The step-over in
+`measure()` is what made this look like it needed a number: that belongs to *"did the candle come
+after a retracement"*, a question about the candle, not about the present.
+
+**ITS LIMIT IS HIS COMPLEX PULLBACK, and he named it before it was measured.** A trend-way candle
+INSIDE the retracement resets the count. On the 19 Aug gold bounce it refuses at +1 and +2 candles and
+then reads 0 while price is still **$22 above the low**. Asserted in `test_staleness.py` so it can
+never be mistaken for solved.
+
+**"Run until price makes a new extreme" was tried for the complex case and is WORSE** — it refuses the
+strongest part of a trend (gold hours 2-4, price falling hard) while still allowing the bounce at hour
+10, and costs 28-48% of setups. Rejected on numbers.
+
 **STILL OPEN — his decision, not mine.** The only measurement that separates the good hour-0 entry
 (0.19 ATR) from the bounce he complained about (1.72 ATR) is **live retracement depth**, and it needs
 a threshold. Four alternatives were built and measured and none of them see it: a shortened real-time

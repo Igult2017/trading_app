@@ -132,6 +132,35 @@ if gold:
 else:
     print("      SKIP — no local gold data")
 
+# ── HIS RULE: a simple pullback is COUNTED, never measured against a threshold ───────────────────
+# "why do we need a number? I thought we were tracing pullback in real time. I thought the challenge
+# would only be complex pullback not a simple swing." (2026-08-19) — and he was right on both halves.
+print()
+print("   a simple pullback needs no threshold, only a count:")
+from strategies.vix1_retracement import running_now                     # noqa: E402
+from _harness import body                                              # noqa: E402
+
+up3 = [body(1.1000, 1.1010, tf="H1", t=0), body(1.1010, 1.1020, tf="H1", t=1),
+       body(1.1020, 1.1030, tf="H1", t=2)]
+down2 = [body(1.1030, 1.1020, tf="H1", t=3), body(1.1020, 1.1010, tf="H1", t=4)]
+
+s.check("no trend -> nothing is running", running_now(up3, 0), 0)
+s.check("in an uptrend, rising candles mean no pullback", running_now(up3, 1), 0)
+s.check("two falling candles at the end IS a 2-candle pullback", running_now(up3 + down2, 1), 2)
+s.check("one candle counts — length never disqualifies", running_now(up3 + down2[:1], 1), 1)
+s.check("mirrored on a downtrend", running_now(
+    [body(1.1030, 1.1020, tf="H1", t=i) for i in range(3)] + [body(1.1020, 1.1030, tf="H1", t=4)],
+    -1), 1)
+
+# THE KNOWN LIMIT, asserted so it can never be mistaken for solved. A trend-way candle INSIDE a
+# pullback resets the count — this is the COMPLEX pullback he named before it was measured. On the
+# 19 Aug gold bounce the count read 0 while price was still $22 above the low.
+mixed = up3 + [body(1.1030, 1.1020, tf="H1", t=3),      # down
+               body(1.1020, 1.1025, tf="H1", t=4)]       # one UP candle inside the pullback
+s.check("KNOWN LIMIT — a trend-way candle inside a pullback resets the count to 0",
+        running_now(mixed, 1), 0)
+s.teeth("the simple-pullback count", running_now(up3 + down2, 1) == 2)
+
 # ── the wiring cannot silently come undone ───────────────────────────────────────────────────────
 print()
 s.check("detect_bias accepts a debut registry",

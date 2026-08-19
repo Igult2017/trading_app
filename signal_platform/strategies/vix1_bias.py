@@ -34,6 +34,7 @@ from strategies import vix1_log
 from shared.candle_math import atr
 from strategies import vix1_choch
 from strategies import vix1_regime
+from strategies import vix1_retracement
 from strategies.vix1_state import Bias, market_state
 from strategies.vix1_swings import structure_turns
 from strategies.vix1_structure import _FAST_N, leg_state, market_permits
@@ -278,11 +279,26 @@ def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "", debut=None
         # So the causal checks stay exactly as they are, and the same two are asked a second time
         # about the present. Measured cost of this on its own: 2 / 1 / 1 setups over 1500 bars on
         # XAU/USD / EUR/USD / GBP/USD — it is a guard, not a filter.
+        # HIS RULE, and it costs almost nothing (2026-08-19): *"why do we need a number? I thought we
+        # were tracing pullback in real time."* He was right — a SIMPLE swing back needs no threshold
+        # at all, only the count of candles at the end going the wrong way. Measured cost on top of
+        # everything else here: 0 / 1 / 0 setups over 1500 bars on XAU/USD / EUR/USD / GBP/USD.
+        #
+        # WHAT IT DOES NOT CATCH, and he named this before I measured it: a COMPLEX pullback, where a
+        # trend-way candle inside the retracement resets the count. On the 19 Aug gold bounce this
+        # refuses at +1 and +2 candles and then reads 0 while price is still $22 off the low. A
+        # threshold-free rule for that case has not been found — "run until price makes a new
+        # extreme" was tried and is worse (it refuses the strongest part of a trend and still allows
+        # the bounce, at 28-48% of setups). Only retracement DEPTH separates it, and that is a
+        # number he has not set. Documented as open rather than papered over.
+        pulling_back = vix1_retracement.running_now(window, t1)
         live_leg = leg_state(window, t1, n=_FAST_N)
         live_regime = vix1_regime.classify(turns, atr(window, 14))
         live_refusal = market_permits(live_regime)
-        if not live_leg.ready or live_refusal:
-            why = live_refusal or live_leg.why
+        if pulling_back or not live_leg.ready or live_refusal:
+            why = (live_refusal or (live_leg.why if not live_leg.ready else
+                   f"price is pulling back right now — {pulling_back} candle"
+                   f"{'s' if pulling_back != 1 else ''} against the trend"))
             vix1_log.say(symbol, f"[vix1] {symbol} bias=NONE: the setup was valid when the candle "
                                  f"formed {len(h1) - 1 - mc_idx}h ago, but the market has moved on "
                                  f"— {why} | {state}")
