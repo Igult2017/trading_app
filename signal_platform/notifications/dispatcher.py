@@ -193,6 +193,18 @@ async def on_setup_alert(signal: Signal) -> None:
         from core import delivery_ledger
         delivery_ledger.mark_delivered(signal.dedup_key)
 
+    # THE AUDIT TRAIL ENDED AT `built` FOR EVERY SETUP ALERT UNTIL 2026-08-19. `_record_delivery`
+    # had exactly one caller — `on_signal_confirmed` — so confirmed entries logged the full chain
+    # (built -> validated -> saved -> dispatched -> delivered) while alerts logged `built` and then
+    # nothing at all. Not a delivery failure: nobody wrote the row.
+    #
+    # THE COST WAS REAL AND IMMEDIATE. He asked which BX signal he had been sent; the trail showed
+    # 29 alerts built over 35 hours and zero delivered, which reads exactly like a broken dispatcher.
+    # It was not broken — the alerts had gone out and were invisible. An audit trail that is silent
+    # on the MAJORITY of what a strategy emits (BX's output is almost entirely tap alerts) is worse
+    # than none, because it invites precisely that wrong conclusion.
+    await _record_delivery(signal, ok, is_watch=not signal.to_channel)
+
 
 async def _record_delivery(signal: Signal, sent: bool, is_watch: bool) -> None:
     """Write the terminal audit row for a signal card. Best-effort; never breaks a send."""
