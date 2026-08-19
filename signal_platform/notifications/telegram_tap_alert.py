@@ -84,8 +84,10 @@ def format_tap_alert(signal: Signal) -> str:
         f"{'DECISIONAL zone — we do NOT trade these' if _is_decisional(signal) else 'watching, not trading'}</i>",
         _RULE,
         "",
-        f"Price just tapped the 4H <b>{zone}</b> zone and the entry timeframe is reacting.",
-        "",
+        # NOTES, NOT PARAGRAPHS. User, 2026-08-15: *"They should only be notes not paragraphs."*
+        # This line was a full sentence AND it duplicated the first fact below it ("4H supply zone
+        # tapped ... 5M CHoCH"). Dropped rather than shortened: the bullets already say it, with the
+        # actual prices attached.
         "✅ <b>WHAT'S THERE</b>",
     ]
     lines += [f"   · {_h(f)}" for f in facts] or ["   · —"]
@@ -109,10 +111,11 @@ def format_tap_alert(signal: Signal) -> str:
         # LENGTH IS A HARD CONSTRAINT, not a preference: Telegram REJECTS a photo caption over 1024
         # chars, so a wordier line does not degrade the card, it deletes it. The first version of
         # this pushed the worst case to 1045 and the test caught it.
-        ("<blockquote>Not an entry, now or later — we wait for the extreme beyond it. "
-         "No stop, no target.</blockquote>" if _is_decisional(signal)
-         else "<blockquote>Not an entry from us — watching only. No stop, no target here."
-              "</blockquote>"),
+        # A NOTE, not a sentence. Kept in a blockquote so it reads as the verdict rather than as
+        # another fact — this is the one line that must survive a skim.
+        ("<blockquote>❌ Not an entry · now or later · we want the extreme"
+         "</blockquote>" if _is_decisional(signal)
+         else "<blockquote>❌ Not an entry · watching only</blockquote>"),
         "",
         f"<i>{_h(_signoff(signal.dedup_key))}</i>",
         "",
