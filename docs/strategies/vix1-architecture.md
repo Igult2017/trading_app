@@ -473,6 +473,54 @@ replication misses it):
 Gold loses the pullback trades; the FX pairs are flat-to-up, because the gate releases setups the old
 wiring wrongly blocked.
 
+#### "CANNOT TELL" — measured, because a review argued it is the next bug (2026-08-19)
+
+The argument: mixed/unclear ALLOWS, and "the detector has no clean evidence" is not the same as
+"this is not a pullback", so uncertainty is being silently converted into permission.
+
+**FIRST, THE PREMISE IS NOT NEW.** This is not something the 08-19 change introduced — it is the
+8-bar detector's behaviour for the strategy's whole life. Recorded above for the pre-08-12 detector:
+*"its most common answer is 'cannot tell' — 40% of momentum candles read mixed, which passes"*,
+GBP/USD 41% / EUR/USD 34%. Today's 32-47% is that same number restored, not a regression.
+
+**SECOND, MIXED IS THE SAFEST BUCKET, not the most dangerous one.** Momentum candles grouped by
+verdict, scored against counter-trend legs from symmetric ±8 pivots (lookahead allowed — it scores a
+detector, it never trades):
+
+| | WITH trend | AGAINST (refuses) | **MIXED (allows)** |
+|---|---|---|---|
+| XAU/USD | 32% of candles · 65% in a leg | 31% · 63% | **38% · 26%** |
+| EUR/USD | 46% · 52% | 22% · 53% | **32% · 51%** |
+| GBP/USD | 38% · 57% | 15% · 78% | **47% · 38%** |
+
+On every instrument MIXED is **less** likely to sit inside a real counter-trend leg than a WITH-trend
+verdict is. Allowing it is supported by the measurement, not contradicted by it. (EUR/USD's flat
+52/53/51 says the ±8 leg definition has a ~50% base rate and simply cannot discriminate there — a
+limit of the yardstick, stated rather than hidden. GBP/USD and XAU/USD do separate.)
+
+**UNCLEAR is 0% everywhere** — the ambiguity is always MIXED (a non-monotonic structure), never "too
+few pivots to compare". The two were worth separating and now need not be.
+
+**THIRD, A "WAIT" POLICY WAS MEASURED AND IS WORSE.** The proposal: hold an ambiguous setup instead
+of allowing it, and let the next bars resolve it. A momentum candle stays live for `LOOKBACK = 12`
+bars and the gate re-asks every scan, so this is measurable exactly. What an ambiguous verdict BECOMES
+(the detector's own later readings — no outcome scoring of any kind):
+
+| | resolves WITH (allowed, later) | resolves AGAINST (**WAIT refuses**) | never resolves (**WAIT drops**) |
+|---|---|---|---|
+| XAU/USD | 41% | **0%** | **59%** |
+| EUR/USD | 63% | 22% | 15% |
+| GBP/USD | 55% | 14% | 30% |
+
+**On gold — the instrument that motivated this entire fix — WAIT refuses ZERO extra pullbacks and
+drops 59% of ambiguous setups.** Pure cost, no benefit, on the exact case it was proposed to solve.
+On the FX pairs it catches 14-22% at a cost of dropping 15-30%. Not built.
+
+**AND "MIXED → REFUSE" IS A SETTLED, ALREADY-REJECTED DECISION.** It is the "must CONFIRM" rule
+described at the top of `vix1_structure.py`: built, measured at **15-18% of trend-time tradeable**,
+and rejected against his *"we are always in trend"* — it also refused two candles he had named as
+good. Re-opening it is his call and nobody else's.
+
 ---
 
 ### THE PULLBACK GATE GOT REAL-TIME EYES TOO (2026-08-12) - four defects, one cause — ⚠ REVERSED, see above
