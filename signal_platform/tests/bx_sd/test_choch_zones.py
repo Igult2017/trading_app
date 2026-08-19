@@ -201,6 +201,51 @@ for _dead in ("pullback_4h", "_PB_LOOKBACK_H4", "_PB_MIN_MOVE", "_PB_MIN_RETRACE
 chk("SetupResult no longer carries pb_extreme",
     "pb_extreme" in SetupResult.__dataclass_fields__, False)
 
+# ── CRITERION 2: LIQUIDITY SWEPT ON THE WAY IN ──────────────────────────────────────────────────
+print()
+print("LIQUIDITY MUST BE SWEPT BEFORE PRICE TAPS THE ZONE")
+#     "If the price taps unmitigated HTF zone without sweeping liquidity, the zone or mitigation is
+#      likely to fail and act as liquidity."
+from strategies.bx_sd_liquidity import swept_before, swept_within                # noqa: E402
+from strategies.bx_sd_pools import LiquidityPool                                 # noqa: E402
+
+
+def h4(seq):
+    return [Candle(time=1700000000 + i * 14400, open=o, high=max(o, c) + 0.0002,
+                   low=min(o, c) - 0.0002, close=c, volume=0, timeframe="H4")
+            for i, (o, c) in enumerate(seq)]
+
+
+# Price sits at 1.1000, dips to take out a low, then drifts DOWN and stays there. The pool at 1.0990
+# was swept long ago at bar 6 — by the time we reach bar 40 there are no stops left on it.
+_seq = [(1.1000, 1.1000)] * 5 + [(1.1000, 1.0980)] + [(1.0980, 1.0960)] * 3 \
+       + [(1.0960, 1.0960)] * 31
+_bars = h4(_seq)
+_pool = [LiquidityPool("sell", 1.0990, "eql", 2)]
+
+# THE OLD QUESTION says yes — and that is the bug. Every bar in the window has a low below 1.0990,
+# because price is simply BELOW that level now. It cannot tell "swept on the way in" from "left
+# behind ages ago", so used at the tap it allowed 100% of taps on both real pairs.
+chk("swept_before says yes (it only asks 'did any bar trade beyond this level')",
+    swept_before(_pool, _bars, "sell", 40, 20), True)
+# THE RIGHT QUESTION says no: the pool was already gone before the window opened.
+chk("swept_within says NO — the pool was already taken long before the approach",
+    swept_within(_pool, _bars, "sell", 20, 40), False)
+teeth("the resting-pool requirement",
+      swept_before(_pool, _bars, "sell", 40, 20) is True
+      and swept_within(_pool, _bars, "sell", 20, 40) is False)
+
+# ...and it says YES when a pool that WAS still resting gets grabbed inside the window.
+_seq2 = [(1.1000, 1.1000)] * 30 + [(1.1000, 1.0975)] + [(1.0975, 1.0990)] * 9
+_bars2 = h4(_seq2)
+_pool2 = [LiquidityPool("sell", 1.0985, "eql", 5)]     # untouched until bar 30
+chk("a pool still resting, then grabbed on the way in -> YES",
+    swept_within(_pool2, _bars2, "sell", 25, 39), True)
+chk("  ...and a pool on the WRONG side is not counted",
+    swept_within([LiquidityPool("buy", 1.0985, "eqh", 5)], _bars2, "sell", 25, 39), False)
+chk("a window before the sweep happened -> NO",
+    swept_within(_pool2, _bars2, "sell", 10, 20), False)
+
 print()
 print(f"{'ALL PASS' if not F else str(len(F)) + ' FAILED: ' + str(F)}  ({N} checks)")
 sys.exit(1 if F else 0)

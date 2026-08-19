@@ -71,6 +71,57 @@ def swept_before(pools: list[LiquidityPool], candles: list[Candle], side: str,
     return False
 
 
+def swept_within(pools: list[LiquidityPool], candles: list[Candle], side: str,
+                 start: int, end: int) -> bool:
+    """Was a pool that was STILL RESTING at `start` taken out during [start, end]?
+
+    THE DOCUMENT'S CRITERION 2, at the moment price arrives at a zone:
+
+        "If the price taps unmitigated HTF zone without sweeping liquidity, the zone or mitigation is
+         likely to fail and act as liquidity."
+        "Market requires liquidity for momentum. If the price doesn't sweep liquidity before a key
+         level, it often uses that zone as liquidity to fuel its momentum."
+
+    WHY `swept_before` CANNOT ANSWER THIS, even though it looks like it can. It asks "did any bar in
+    the window trade beyond this level", which is **trivially true for any level already on the wrong
+    side of price** — an equal-low from two years ago sits above today's price, so every bar in every
+    window satisfies `low < pool`. Used at the tap it returned True on 100% of taps on both pairs:
+    a gate that refuses nothing. It is correct where it is used at zone FORMATION, because there the
+    pool sits right beside the bar being judged.
+    (Found by measuring, not by reading — the first version of this shipped as `swept_before` and
+    the 100% is what exposed it. Third vacuous check caught this way in one day.)
+
+    So this asks the question the document actually poses: a pool that SURVIVED until the approach
+    and was then grabbed. Still-resting is the whole point — a level already taken has no stops left
+    to fuel anything.
+
+    O(n) precompute, O(1) per pool: the running extreme from each index to `start` answers "was it
+    already gone?" without rescanning per pool (there are ~2,200 pools on a 3,500-bar book).
+    """
+    n = len(candles)
+    if start <= 0 or start >= n or end < start:
+        return False
+    end = min(end, n - 1)
+    # extreme from index k through start-1 — how far price reached BEFORE the window
+    ext = [None] * (start + 1)
+    run = None
+    for k in range(start - 1, -1, -1):
+        v = candles[k].low if side == "sell" else candles[k].high
+        run = v if run is None else (min(run, v) if side == "sell" else max(run, v))
+        ext[k] = run
+    win = (min(candles[j].low for j in range(start, end + 1)) if side == "sell"
+           else max(candles[j].high for j in range(start, end + 1)))
+    for p in pools:
+        if p.side != side or p.index >= start:
+            continue
+        before = ext[p.index + 1] if p.index + 1 <= start - 1 else None
+        if before is not None and ((before < p.price) if side == "sell" else (before > p.price)):
+            continue                                   # already swept — no resting stops left
+        if (win < p.price) if side == "sell" else (win > p.price):
+            return True
+    return False
+
+
 def defensive_ok(pools: list[LiquidityPool], candles: list[Candle], direction: str,
                  entry: float, sl: float, pip: float = 0.0001, sl_tol_pips: float = 1.5,
                  exclude: float | None = None, exclude_tol_pips: float = 1.5):

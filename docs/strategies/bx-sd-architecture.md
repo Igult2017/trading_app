@@ -484,14 +484,13 @@ pullback in 4HR"*.
 
 ## KNOWN OPEN DEFECTS — not fixed, do not assume otherwise
 
-0a. **THREE OF THE DOCUMENT'S FOUR QUALITY CRITERIA ARE NOT BUILT, and the entry now depends on
-   them.** The 2026-08-15 entry change removed the `respected`+pullback protection on the argument
-   that the document's pre-formation evidence replaces it. Of that evidence only **"extreme not
-   decisional"** exists. Still missing: **HTF mitigation as a gate**, **liquidity swept before the
-   tap**, and **the double-zone break as a requirement** (`broke_through` is computed and shown, but
-   gates nothing). **If this model underperforms, build these three before reinstating the
-   pullback** — reinstating it would discard the document's model on evidence that was never
-   gathered.
+0a. **TWO OF THE DOCUMENT'S FOUR QUALITY CRITERIA ARE STILL NOT BUILT.** The 2026-08-15 entry change
+   removed the `respected`+pullback protection on the argument that the document's pre-formation
+   evidence replaces it. Built so far: **"extreme not decisional"** and **"liquidity swept before the
+   tap"** (`swept_within`, ~45-67% of taps pass). Still missing: **HTF mitigation as a gate**, and
+   **the double-zone break as a requirement** (`broke_through` is computed and shown on the card, but
+   gates nothing). **If this model underperforms, build those two before reinstating the pullback** —
+   reinstating it would discard the document's model on evidence never gathered.
 
 0. **The document's CHoCH definition is NOT built, and it is blocked on a design decision.** Smart
    Risk: a change of character is a close beyond the last major swing **AND through the latest
@@ -501,13 +500,9 @@ pullback in 4HR"*.
    entry-side CHoCH in `bx_sd_ltf.find_ltf_choch`, which already requires the reversal to have tapped
    the 4H zone, or (b) a two-pass build — structure first without zones, then a zone-aware second
    pass. Flagged to the user rather than guessed. **Do not resolve this by inventing a rule.**
-0b. **Criterion 2 — liquidity swept BEFORE the tap — is not built.** BX checks `swept_before` at zone
-   FORMATION, which is a different moment from "was liquidity taken before price tapped this zone".
-   The document is explicit that a zone tapped without a prior sweep tends to fail and become
-   liquidity itself.
-0c. **The card does not show `role` or `broke_through`.** Both are computed and the cascade acts on
-   `role`, but a trader reading the card cannot see that the zone was the extreme, or how many
-   opposite zones the move broke through.
+0b. ~~Criterion 2 — liquidity swept BEFORE the tap~~ **CLOSED 2026-08-15** — `swept_within` in
+   `bx_sd_liquidity`, gated in the cascade. See below for why `swept_before` could not answer it.
+0c. ~~The card does not show `role` or `broke_through`~~ **CLOSED 2026-08-15**.
 
 
 1. **Entry-price model is provisional.** "Enter at the confirming close" is the minimum change that

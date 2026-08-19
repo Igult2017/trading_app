@@ -40,7 +40,8 @@ from strategies.bx_sd_zones import Zone
 from strategies.bx_sd_confluence import premium_discount, pricing_aligned, fib_target, rsi_divergence
 from strategies.bx_sd_control import control, describe, phrase
 from strategies.bx_sd_entry_type import classify, phrase as et_phrase
-from strategies.bx_sd_registry import build, to_zone
+from strategies.bx_sd_liquidity import find_liquidity, swept_within
+from strategies.bx_sd_registry import build, to_zone, LIQ_WINDOW
 from strategies.bx_sd_strength import mitigation_note, score as zone_strength
 from shared.mtf_utils import closed_only
 
@@ -166,7 +167,7 @@ def detect_setup(h4: list[Candle], pip: float = 0.0001, book=None, session_candl
     # (they exercise `regime` directly) and a single e2e run passed (it happened to find one), so
     # only a walk-forward replay over hundreds of bars surfaced it.
     cand, cand_mz, priced_out, n_live, off_trend = None, None, 0, 0, 0
-    cand_via, no_entry_event = "", 0
+    cand_via, no_entry_event, unswept = "", 0, 0
     for mz in sorted(marked, key=lambda m: m.ifc_time, reverse=True):
         # NOT `respected` — that is the RETEST path's job (bx_sd_reports, min_grade="B"). Accepting
         # it here let one zone fire BOTH: a duplicate signal, and the fresh cascade firing at C+,
@@ -254,6 +255,39 @@ def detect_setup(h4: list[Candle], pip: float = 0.0001, book=None, session_candl
             no_entry_event += 1
             continue
         cand_via = "tap"
+
+        # LIQUIDITY MUST HAVE BEEN SWEPT BEFORE PRICE ARRIVED (Smart Risk criterion 2, 2026-08-15).
+        #
+        #     "If the price taps unmitigated HTF zone without sweeping liquidity, the zone or
+        #      mitigation is likely to fail and act as liquidity."
+        #     "Market requires liquidity for momentum. If the price doesn't sweep liquidity before a
+        #      key level, it often uses that zone as liquidity to fuel its momentum."
+        #
+        # THIS IS A DIFFERENT MOMENT FROM THE ONE ALREADY CHECKED. `bx_sd_registry` asks the same
+        # question at zone FORMATION (factor 3: did the move that BUILT this zone grab fuel first?).
+        # This asks it at the TAP: on the way BACK to the zone, did price take out resting stops, or
+        # is it arriving with the zone itself as the only liquidity left to take? Those are two
+        # different sweeps at two different times, and passing the first says nothing about the
+        # second — which is why the document lists it as its own criterion.
+        #
+        # SIDE: the same mapping the registry uses, deliberately — a demand zone is approached from
+        # above, so it is SELL-side pools (lows) that should have been taken; mirrored for supply.
+        # One convention across the platform, not two that can drift apart.
+        #
+        # WINDOW: `LIQ_WINDOW` — the SAME constant the formation check uses. A second number for
+        # "how recently must the fuel have been grabbed" would be an invented one, and there is no
+        # evidence for a different value at this moment than at the other.
+        #
+        # `swept_within`, NOT `swept_before`. The latter asks "did any bar trade beyond this level",
+        # which is trivially true for any level already on the wrong side of price — used here it
+        # allowed 100% of taps on both pairs, a gate that refuses nothing. See its docstring.
+        # Measured with the correct question: 45-67% of taps pass, so this decides something.
+        _side = "sell" if mz.direction == "demand" else "buy"
+        _tap_i = len(bars) - 1
+        if not swept_within(find_liquidity(bars, pip, session_candles=session_candles),
+                            bars, _side, max(0, _tap_i - LIQ_WINDOW), _tap_i):
+            unswept += 1
+            continue
         if (mz.top - mz.bottom) < _MIN_PIPS * pip:
             continue
         # PRO-TREND ONLY WHILE TRENDING. A supply zone in an uptrend produces a PULLBACK, not a
@@ -291,11 +325,20 @@ def detect_setup(h4: list[Candle], pip: float = 0.0001, book=None, session_candl
         live_zones = [m for m in marked if m.live]
         near = min((abs(m.proximal - price) for m in live_zones), default=None)
         gap = f", nearest {near / pip:.0f} pips away" if near is not None else ""
-        if no_entry_event:
-            r.reason = (f"{no_entry_event} respected zone(s) but no entry event — price has "
-                        f"neither retapped them nor pulled back on the 4H{gap}")
+        # THE REASON LINES DESCRIBE THE MODEL THAT IS ACTUALLY RUNNING. These said "respected
+        # zone(s)... neither retapped nor pulled back on the 4H" until 2026-08-15 — three things
+        # the cascade no longer asks for. A diagnostic that names a rule the code does not have
+        # sends the next reader to the wrong file, which is exactly what a reason line exists to
+        # prevent.
+        if unswept:
+            r.reason = (f"{unswept} zone(s) tapped but NO liquidity was swept on the way in — "
+                        f"the zone is likely to act as liquidity itself, so we stand aside{gap}")
             return r
-        r.reason = (f"no respected zone with a retap or a 4H pullback right now "
+        if no_entry_event:
+            r.reason = (f"{no_entry_event} tradeable zone(s) marked, but price is not tapping "
+                        f"any of them right now{gap}")
+            return r
+        r.reason = (f"no zone tapped right now "
                     f"({len(live_zones)} live zones on the book{gap})")
         return r
 
