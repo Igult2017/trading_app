@@ -33,7 +33,7 @@ from core.types import Candle
 from shared.mtf_utils import closed_only
 from strategies.bx_sd_zones import Zone, find_fvgs, mark_zone
 from strategies.bx_sd_structure import map_structure
-from strategies.bx_sd_liquidity import find_liquidity, swept_before, swept_within
+from strategies.bx_sd_liquidity import find_liquidity, swept_before
 
 # NOTE: there is deliberately NO break-window constant here any more. `BREAK_SPAN = 6` used to
 # require structure to break within 6 bars AFTER the IFC. It appears nowhere in the book (167 pages
@@ -190,9 +190,7 @@ def _broke_structure(events, want: str, ifc_i: int, upto_i: int | None = None) -
                and (upto_i is None or e.index <= upto_i) for e in events)
 
 
-def classify_roles(zones: list[MarkedZone], events, bar_index: dict[int, int],
-                   bars: list[Candle] | None = None, pools=None,
-                   pip: float = 0.0001) -> None:
+def classify_roles(zones: list[MarkedZone], events, bar_index: dict[int, int]) -> None:
     """Label each live zone EXTREME or DECISIONAL within its own group. Mutates in place.
 
     SMART RISK, "Double Zone Break Out" — the rule this exists for, in his document's own words:
@@ -223,9 +221,6 @@ def classify_roles(zones: list[MarkedZone], events, bar_index: dict[int, int],
         z.role, z.group = "", -1
     _gid = itertools.count()
 
-    # Inputs the extreme-qualification rule needs. None (tests calling this bare) leaves the
-    # rule off rather than guessing at liquidity it cannot see.
-    ctx = (zones, pools, bars, pip) if bars is not None and pools is not None else None
     live = [z for z in zones if z.live and z.marked_at in bar_index]
     for side in ("supply", "demand"):
         same = sorted((z for z in live if z.direction == side),
@@ -240,10 +235,10 @@ def classify_roles(zones: list[MarkedZone], events, bar_index: dict[int, int],
         for z in same:
             zi = bar_index[z.marked_at]
             if group and any(bar_index[group[-1].marked_at] < c <= zi for c in cuts):
-                _label(group, side, next(_gid), ctx)
+                _label(group, side, next(_gid))
                 group = []
             group.append(z)
-        _label(group, side, next(_gid), ctx)
+        _label(group, side, next(_gid))
 
 
 def count_breakthroughs(zones: list[MarkedZone], events, bar_index: dict[int, int]) -> None:
@@ -279,57 +274,7 @@ def count_breakthroughs(zones: list[MarkedZone], events, bar_index: dict[int, in
             and idx_of[o.broken_at] > start and (end is None or idx_of[o.broken_at] <= end))
 
 
-def _qualified(cand: MarkedZone, all_zones: list[MarkedZone],
-               pools, bars: list[Candle], pip: float) -> bool:
-    """Has this zone EARNED the name "extreme"? His rule, 2026-08-19 — a RULE, not a measurement:
-
-        "The price breaks a decisional zone, or in most cases taps it and then pulls back a bit.
-         Then after pullback, the price breaks through it and sweeps liquidity before getting to the
-         extreme zone. One zone break is a rule but 2 zones break is a bonus. So an extreme zone
-         qualifies when a decisional zone (either demand or supply) depending on the side of the
-         market we are in is broken, then the second qualification is liquidity being swept."
-
-    THE DOCUMENT'S OWN CHECKLIST (§26) lists exactly these two under "Zone Breakout" and "Liquidity":
-
-        "Has the FIRST zone broken?"   "Has the SECOND successive zone broken?"
-        "Has the liquidity been swept?"
-
-    and §25 Mistake 4 names the failure: *"Entering from a decisional zone too early - price may
-    continue toward the extreme zone and sweep liquidity first."*
-
-    ONE BREAK IS THE RULE, TWO IS THE BONUS. §22 numbers them separately (step 8 unconditional, step
-    9 "IF... becomes STRONGER") and §16 says two shows "stronger momentum than breaking ONLY ONE" -
-    which presupposes one is valid. So this requires ONE; the count of two stays a strength input in
-    `bx_sd_strength` and must never become a gate.
-
-    WHY THE FIRST ATTEMPT AT THIS DID NOTHING, recorded so it is not repeated: it was called from
-    `_label`, which returns early for any group with fewer than two zones - and most groups hold one.
-    The qualification therefore never ran on the lone zones that make up the bulk of the book, and
-    measured identical counts on five books twice. The rule was right; the placement was wrong. It is
-    now applied to EVERY unmitigated candidate, lone ones included.
-    """
-    if cand.marked_at is None:
-        return False
-    # 1. a same-side zone between price and this one was BROKEN on the approach — the decisional
-    below = (lambda o: o.proximal < cand.proximal) if cand.direction == "supply"         else (lambda o: o.proximal > cand.proximal)
-    broke = any(o is not cand and o.direction == cand.direction
-                and o.state == "broken" and o.broken_at is not None
-                and o.broken_at > cand.marked_at and below(o)
-                for o in all_zones)
-    if not broke:
-        return False
-    # 2. ...and liquidity was taken on the way in. Same side convention as everywhere else: price
-    # rises INTO a supply zone, so it is buy-side pools (highs) that get swept.
-    if not bars:
-        return False
-    side = "buy" if cand.direction == "supply" else "sell"
-    end = len(bars) - 1
-    idx = next((i for i, c in enumerate(bars) if c.time >= cand.marked_at), None)
-    start = max(0, (idx if idx is not None else end) )
-    return swept_within(pools, bars, side, start, end)
-
-
-def _label(group: list[MarkedZone], side: str, gid: int, ctx=None) -> None:
+def _label(group: list[MarkedZone], side: str, gid: int) -> None:
     """Furthest-from-price UNMITIGATED zone in the group is the extreme; the rest are decisional.
 
     The group id is stamped even on a LONE zone, so "which extreme belongs to this decisional zone"
@@ -354,12 +299,9 @@ def _label(group: list[MarkedZone], side: str, gid: int, ctx=None) -> None:
     """
     for z in group:
         z.group = gid
-    # NO EARLY RETURN FOR LONE ZONES ANY MORE. It used to bail here, so a zone alone in its group
-    # kept role "" and the cascade traded it unconditionally — which is where the qualification rule
-    # was silently skipped for most of the book. A lone zone must earn "extreme" like any other.
+    if len(group) < 2:
+        return                              # alone: no distinction exists, so none is claimed
     fresh = [z for z in group if z.state == "unmitigated"]
-    if ctx is not None:
-        fresh = [z for z in fresh if _qualified(z, ctx[0], ctx[1], ctx[2], ctx[3])]
     best = None
     if fresh:
         best = max(fresh, key=lambda z: z.proximal) if side == "supply" \
@@ -458,7 +400,7 @@ def build(h4: list[Candle], pip: float = 0.0001,
     #    moment the one above it breaks, and that is the market changing its mind, not a re-judgement
     #    of the zone itself. Its boundaries, marking and lifecycle are untouched by this.
     bar_index = {c.time: i for i, c in enumerate(bars)}
-    classify_roles(zones, events, bar_index, bars=bars, pools=pools, pip=pip)
+    classify_roles(zones, events, bar_index)
     count_breakthroughs(zones, events, bar_index)
     return zones
 
