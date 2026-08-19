@@ -75,7 +75,11 @@ def format_tap_alert(signal: Signal) -> str:
         # THE HEADLINE CARRIES THE WARNING. A reader who stops after two lines must already know
         # this is a zone we are refusing, not one we are about to take — the whole risk of this card
         # is that it gets skimmed and mistaken for a setup in waiting.
-        f"👀 <b>CHEEKY ONE</b>  ·  <b>{_h(signal.symbol)}</b>  {dot}",
+        # NOT the word "cheeky". User, 2026-08-15: *"By cheeky I meant the message was meant to be
+        # fun and engaging, you dont need to write the word 'cheeky' there."* The TONE is the brief;
+        # printing the label was taking the instruction literally. The engagement lives in the
+        # voice — the sign-off, the plain phrasing — not in a badge announcing itself as fun.
+        f"👀 <b>ON THE RADAR</b>  ·  <b>{_h(signal.symbol)}</b>  {dot}",
         f"<i>{_h(signal.strategy_name or signal.strategy_id)} · "
         f"{'DECISIONAL zone — we do NOT trade these' if _is_decisional(signal) else 'watching, not trading'}</i>",
         _RULE,
