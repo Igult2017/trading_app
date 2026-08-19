@@ -78,7 +78,21 @@ class Vix1Strategy(BaseStrategy):
     # few of them. GBP/USD in Tokyo will simply stay silent; USD/JPY finally gets its HOME session.
     allowed_sessions    = [Session.LONDON, Session.NEW_YORK, Session.ASIAN]
     allowed_trends      = [Trend.ANY]        # VIX.1 reads its own trend — 1HR primary, 4HR fallback (cascade)
-    allowed_instruments = ["EUR/USD", "GBP/USD"]
+    # THREE INSTRUMENTS as of 2026-08-19 — XAU/USD added at the user's request.
+    #
+    # MEASURED BEFORE ADDING, because the momentum-candle floor was calibrated on the two FX pairs
+    # and gold moves nothing like them. It transfers WITHOUT touching a constant, because the floor
+    # is a RATIO (2.12x the 2000-bar median body) rather than a pip count:
+    #
+    #     instrument   median body   2000-bar floor   momentum candles/mo   % of bars
+    #     XAU/USD        643.5p          1401.3p             46.7             9.5%
+    #     EUR/USD          4.1p             7.6p             52.3            10.1%
+    #     GBP/USD          5.5p            10.5p             52.1            10.1%
+    #
+    # ...and the full 1HR bias lands in the same place: gold gives 9.2 signals/month against 9.0
+    # (EUR/USD) and 9.9 (GBP/USD) over 6.1 months of real broker H1. That is the whole argument for
+    # "nothing hardcoded where the market can say it" — the pair-agnostic multiple earned its keep.
+    allowed_instruments = ["EUR/USD", "GBP/USD", "XAU/USD"]
     news_stance         = NewsStance.NEWS_AGNOSTIC   # news candle + news-window guards applied in analyze()
     news_impact_filter  = [NewsImpact.HIGH]
 
