@@ -184,13 +184,26 @@ chk("the 5M fixture yields a refined zone inside the 4H zone", rz is not None, T
 trig = entry_trigger(LTFConfluence(passed=True), setup_s, down, [], pip=PIP, refine_tf=five)
 chk("a sell fires with a 5M zone to enter at", trig.triggered, True)
 if trig.triggered and rz is not None:
-    chk("entry is the START (proximal) of the 5M zone", round(trig.entry, 5), round(rz.proximal, 5))
-    chk("stop is the FURTHEST POINT (distal) of that same zone", round(trig.sl, 5), round(rz.distal, 5))
+    chk("stop is the FURTHEST POINT (distal) of the 5M zone", round(trig.sl, 5), round(rz.distal, 5))
+    chk("  entry comes off that same zone, never invented",
+        round(trig.entry, 5) in (round(rz.proximal, 5), round(rz.eq50, 5)), True)
     chk("  no spread or buffer is added to either",
-        abs(trig.sl - trig.entry) == abs(rz.distal - rz.proximal), True)
+        min(abs(trig.sl - rz.distal), abs(trig.entry - rz.proximal),
+            abs(trig.entry - rz.eq50)) < 1e-9, True)
     chk("  the stop is above the entry, as a sell must be", trig.sl > trig.entry, True)
     chk("  risk is a tradeable size, not sub-pip", abs(trig.sl - trig.entry) / PIP > 1.0, True)
-teeth("the book entry", trig.triggered and round(trig.entry, 5) == round(rz.proximal, 5))
+# EQUILIBRIUM (50%) ENTRY — p51-54, wired 2026-08-15. `needs_eq50` was fully written with BOTH of
+# the book's triggers and had ZERO CALLERS until the audit found it.
+#   1. SHAPE  (p51-52) — wick bigger than 50% of the candle
+#   2. WIDTH  (p53-54) — "if the maximum 2 pip SL can't fit ... I also use equilibrium entry"
+# The fixture zone is 3.6 pips, so trigger 2 fires and the stop halves.
+chk("a zone wider than the 2-pip max SL takes the EQUILIBRIUM entry",
+    trig.details.get("entry_price_rule"), "equilibrium (50%)")
+chk("  entry is the zone's 50%, not its edge", round(trig.entry, 5), round(rz.eq50, 5))
+chk("  which HALVES the risk vs entering at the edge",
+    round(abs(trig.sl - trig.entry), 6) < round(abs(rz.distal - rz.proximal), 6), True)
+teeth("the equilibrium rule", trig.details.get("entry_price_rule") == "equilibrium (50%)"
+      and round(trig.entry, 5) != round(rz.proximal, 5))
 
 # NO 5M ZONE -> NO ENTRY. The book enters AT the supply/demand the reaction left; with none there is
 # nothing to enter at, and inventing a level would be exactly the blind limit the book forbids.

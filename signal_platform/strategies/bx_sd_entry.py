@@ -22,6 +22,7 @@ from dataclasses import dataclass, field
 from core.types import Candle
 from shared.swing_points import find_swing_points
 from strategies.bx_sd_ltf import find_ltf_choch, _choch_valid, refine_zone, LTFConfluence
+from strategies.bx_sd_zones import needs_eq50
 from strategies.bx_sd_structure import map_structure
 from strategies.bx_sd_setup import SetupResult, _TP_R, _RESPECT_BUFFER
 
@@ -181,7 +182,27 @@ def entry_trigger(conf: LTFConfluence, setup: SetupResult, entry_tf: list[Candle
                     "supply/demand the reaction left, and there is none to enter at")
         r.triggered = False
         return r
-    entry = ez.proximal
+    # EQUILIBRIUM (50%) ENTRY — the book's OTHER entry price, p51-54. Wired 2026-08-15.
+    #
+    #   1. SHAPE (p51-52): "I use 50% entry if the WICK of the candle is bigger than the 50% of the
+    #      WHOLE candle."
+    #   2. WIDTH (p53-54): "if the maximum 2 pip SL can't fit ... I also use equilibrium entry, to
+    #      make sure the whole zone is covered, and my SL isn't bigger than 2 pips."
+    #
+    # `needs_eq50` was fully written, with BOTH triggers, and had ZERO CALLERS — dead code found by
+    # the audit. It is the book's own answer to the risk this entry otherwise carries: measured, the
+    # 5M zone gives a 3.2-pip median stop, and p53 says exactly that case takes the 50% entry so the
+    # stop stays inside 2 pips. Entering at the edge instead was leaving the book's own risk control
+    # on the floor.
+    #
+    # The candle is the ZONE's own — `origin_index` is the candle the zone was marked from, which is
+    # what p51's wick test is about. Out of range (a refined zone indexes into the 5M feed, not the
+    # 4H window) falls back to the WIDTH trigger alone, which needs no candle.
+    zc = refine_tf[ez.origin_index] if 0 <= ez.origin_index < len(refine_tf) else None
+    if needs_eq50(ez, zc, pip):
+        entry, price_rule = ez.eq50, "equilibrium (50%)"
+    else:
+        entry, price_rule = ez.proximal, "zone start (proximal)"
     sl = ez.distal
 
     # A stop on the wrong side of the entry is unusable. It happens when the confirming close lands
@@ -189,7 +210,7 @@ def entry_trigger(conf: LTFConfluence, setup: SetupResult, entry_tf: list[Candle
     # `risk <= 0` below would catch it, but silently; this says which of the two is at fault.
     if (buy and sl >= entry) or (not buy and sl <= entry):
         r.reason = (f"stop ({sl:.5f}) is on the wrong side of the entry ({entry:.5f}) — "
-                    f"the confirmation fired beyond the pullback's own extreme")
+                    f"the refined zone is inverted for this direction")
         r.triggered = False
         return r
     r.entry, r.sl = entry, sl
@@ -203,8 +224,11 @@ def entry_trigger(conf: LTFConfluence, setup: SetupResult, entry_tf: list[Candle
     tp = entry + _TP_R * risk if buy else entry - _TP_R * risk
     r.tp = tp
     r.rr = round(_rr(entry, sl, tp, buy), 2)
+    # `r.details` is REBUILT here, so anything set on it earlier is discarded — which silently ate
+    # the first version of `entry_price_rule`. Assemble once, at the end.
     r.details = {"risk_pips": round(risk / pip, 1),
-                 "entry_mode": "confirmation_close", "method": method,
+                 "entry_mode": price_rule, "method": method,
+                 "entry_price_rule": price_rule,
                  "tp_source": f"fixed_{_TP_R:g}R"}
     r.reason = "triggered"
     return r
