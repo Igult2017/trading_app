@@ -34,6 +34,25 @@ the change that surfaced it. Recorded 2026-08-01.
 
 ---
 
+## 0. THREE THINGS I RAISED ON 2026-08-20 — one was real, two were not (settled same day)
+
+Recorded in full because **two of the three were my own measurement errors reported as platform
+defects**, and the pattern that produced them will otherwise repeat.
+
+| # | claim | verdict | what actually happened |
+|---|---|---|---|
+| 1 | The card's chart draws the still-forming bar, so every on-time alert looks a candle late | **REAL — fixed** | `_attach_chart` passed the raw feed to the renderer and `closed_only` appeared nowhere in `charting/` or `orchestrator/`. A card sent seconds after an H1 close drew the momentum candle SECOND from the right with a near-zero-range stub beside it. Trimmed now, unless the signal MARKS that bar. The order type still reads the raw last close — that is a trigger, not a level |
+| 2 | The heartbeat is dead — 58 minutes stale while audit writes work fine | **NOT REAL — my error** | The `ts` I read as a stale heartbeat is `platformStatus.ts`, the Python **BOOT** timestamp from `/app/.signal_platform_status.json`. It matched my own deploy time. The heartbeat is written by every completed scan tick and was fine. **The real gap was that it was write-only** — read once at boot by `detect_downtime()`, exposed by no API — so neither of us could observe it, which is exactly why a boot timestamp got mistaken for it. Now returned by `/api/signal-platform/status` |
+| 3 | Scan cycles occasionally take 174 seconds against a 5-second median | **UNPROVEN — my method could not support it** | Measured from gaps between `signal_events` rows, treating a >45s gap as a cycle boundary. Those rows are **throttled** (`STAGE_EVALUATED` is written only when strategy state changes), so a gap between them is not a tick and never was. Nothing in the platform measured tick duration, so the figure could be neither confirmed nor refuted. It is measured now — `platform_heartbeat.last_tick_ms`, plus a `SLOW TICK` warning naming the three slowest instruments whenever a tick overruns its interval |
+
+**The rule this is evidence for** (`~/.claude/CLAUDE.md`, "FIX THE UNDERLYING PROBLEM"): a number
+produced by a harness I wrote is a claim about the harness until it is a claim about the platform.
+Both bad calls here came from reading a value that was *available* rather than the value that was
+*meant*. **What to do differently: before reporting a metric as a defect, name the exact field it
+came from and what writes it.** Item 2 dies instantly under that question; so does item 3.
+
+---
+
 ## 1. ~~Telegram signals carry NO CHART~~ — **DONE 2026-08-03**
 
 Charts were **rebuilt from scratch** at the user's instruction (*"This is not just wiring but full

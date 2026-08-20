@@ -19,7 +19,7 @@ from core.strategy_context_builder import build as build_context
 from data.candle_fetcher import fetch_candles
 from news import news_filter
 from shared import trend_detector
-from shared.mtf_utils import to_minutes
+from shared.mtf_utils import closed_only, to_minutes
 from storage import observability_repo as obs
 from storage import signal_repo
 from validation import signal_validator
@@ -67,9 +67,26 @@ async def _attach_chart(signal, candles, symbol: str, candle_view: dict | None =
         return
     digits = 3 if symbol.upper().endswith("JPY") else 5
     tf = getattr(bars[-1], "timeframe", "") or ""
+    # THE ORDER TYPE READS THE RAW LAST BAR ON PURPOSE. It answers "where is price RIGHT NOW relative
+    # to the entry", which is a trigger, not a level — the forming bar's close IS the current price
+    # and is exactly what should decide between a stop and a market order.
     _set_order_type(signal, bars[-1].close, digits)
+    # THE CARD DOES NOT DRAW THE UNFINISHED BAR. The feed hands back the bar currently forming as its
+    # newest, so a card sent seconds after an H1 close drew the momentum candle SECOND from the right
+    # with a fresh near-zero-range stub beside it. To a reader that stub is a whole candle that has
+    # already come and gone, which makes an alert that arrived 14 seconds after the close look a full
+    # candle late — the exact impression that sent us hunting a lateness bug that was not there.
+    #
+    # UNLESS THE SIGNAL IS ABOUT THAT BAR. A pre-close warning is a statement about the candle still
+    # forming, and it says so by marking it (`chart_marks`); dropping it would leave that card showing
+    # the wrong candle entirely. So the rule is: the unfinished bar is drawn only when the producer
+    # has named it. `or bars` is the floor — a feed whose bars all read as unclosed (a clock skew, a
+    # replay) must still produce a picture rather than silently losing the chart.
+    marked = {t for t, _ in (signal.chart_marks or [])}
+    drawn = closed_only(bars)
+    drawn = (drawn + [c for c in bars[len(drawn):] if c.time in marked]) or bars
     signal.chart_path = await signal_card.render_async(
-        signal, bars, digits, list(signal.chart_bands or []), subtitle=tf,
+        signal, drawn, digits, list(signal.chart_bands or []), subtitle=tf,
         marks=list(signal.chart_marks or []))
 
 
@@ -219,27 +236,32 @@ async def run_strategy(
         # written for it to read. Still no dedup registration — a heads-up must not reserve the
         # live keyspace that a real entry needs.
         if signal.alert_only:
-            try:
-                # `ref_price` = the price being watched. A stage-1 heads-up has no entry, and
-                # `trading_signals.entry_price` is NOT NULL, so without this the row never saved
-                # and the setup never appeared on the Assets board.
-                _ref = pri_candles[-1].close if pri_candles else None
-                watch_id = await loop.run_in_executor(
-                    None, partial(signal_repo.save, signal, signal_repo.STATUS_WATCHING, _ref))
-                if watch_id:
-                    signal.db_id = watch_id
-                else:
-                    # Row already there (the partial unique index rejected a second one). The setup
-                    # is STILL being watched, so stamp it — `drop_abandoned` reads updated_at to
-                    # decide what has gone stale, and without this it would freeze at first
-                    # sighting and drop a live setup 24h later.
-                    await loop.run_in_executor(
-                        None, partial(signal_repo.touch_watch, signal.strategy_id,
-                                      signal.symbol, signal.direction.value))
-            except Exception as exc:
-                # A heads-up is a courtesy, not a trade. If the row cannot be written the Telegram
-                # alert must still go out, so this never raises past here.
-                log.error(f"[runner] {instrument} watch-row save failed ({exc}) — alerting anyway")
+            # A FORECAST IS NOT A WATCHED SETUP. See `Signal.persist_watch`: the pre-close warning is
+            # about a bar that has not closed, so it must neither post a setup to the Assets board nor
+            # take the single watching row the genuine heads-up needs five minutes later. It still
+            # gets its chart and its Telegram message — everything below this block.
+            if signal.persist_watch:
+                try:
+                    # `ref_price` = the price being watched. A stage-1 heads-up has no entry, and
+                    # `trading_signals.entry_price` is NOT NULL, so without this the row never saved
+                    # and the setup never appeared on the Assets board.
+                    _ref = pri_candles[-1].close if pri_candles else None
+                    watch_id = await loop.run_in_executor(
+                        None, partial(signal_repo.save, signal, signal_repo.STATUS_WATCHING, _ref))
+                    if watch_id:
+                        signal.db_id = watch_id
+                    else:
+                        # Row already there (the partial unique index rejected a second one). The
+                        # setup is STILL being watched, so stamp it — `drop_abandoned` reads
+                        # updated_at to decide what has gone stale, and without this it would freeze
+                        # at first sighting and drop a live setup 24h later.
+                        await loop.run_in_executor(
+                            None, partial(signal_repo.touch_watch, signal.strategy_id,
+                                          signal.symbol, signal.direction.value))
+                except Exception as exc:
+                    # A heads-up is a courtesy, not a trade. If the row cannot be written the Telegram
+                    # alert must still go out, so this never raises past here.
+                    log.error(f"[runner] {instrument} watch-row save failed ({exc}) — alerting anyway")
             await _attach_chart(signal, pri_candles, instrument, candle_view)
             await event_bus.emit(event_bus.SIGNAL_ALERT, signal)
             log.info(

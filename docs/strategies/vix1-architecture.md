@@ -44,11 +44,12 @@ VIX.1 has shipped a bug from reading the forming bar as a level, and **a backtes
 
 ---
 
-## Module map — 21 files, ~2,520 lines
+## Module map — 22 files, ~2,660 lines
 
 | file | owns |
 |---|---|
-| `vix1.py` | orchestrator: watch → bias → news gates → **spacing** → 1M signals → grade → build |
+| `vix1.py` | orchestrator: **pre-close** → watch → bias → news gates → **spacing** → **heads-up** → 1M signals → grade → build |
+| `vix1_preclose.py` | **the warning BEFORE the momentum candle closes** (added 2026-08-20). The ONE place in VIX.1 that reads the bar still FORMING on purpose. Fires at T-5, DM only, no entry/stop/target |
 | `vix1_spacing.py` | **how long the instrument stays shut after a signal** (added 2026-07-27) |
 | `vix1_bias.py` | `detect_bias(h1, h4, symbol) -> Bias \| None` — momentum on H1, trend on H1 (H4 only as a fallback) |
 | `vix1_state.py` | **`Bias` (what the 1HR decided) + `market_state` (the state it decided it in)** — added 2026-08-11 |
@@ -56,7 +57,7 @@ VIX.1 has shipped a bug from reading the forming bar as a level, and **a backtes
 | `vix1_swings.py` | **highs and lows in REAL TIME** + `structure_turns()` — the ONE place that decides where turning points come from, and the `REALTIME` flag. - a turn is marked the bar price closes through the candle that made it. No 48-bar wait. Added 2026-08-12 |
 | `vix1_regime.py` | **THE REGIME ENGINE — TREND / RANGE / CHOP** on his locked 0.50 / 0.75 ATR numbers. `efficiency()` survives as a reported number only |
 | `vix1_momentum.py` | momentum-candle detection + `momentum_grade` (A/B/C → confidence) |
-| `vix1_building.py` | the "setup building" card — a setup seen before its entry exists |
+| `vix1_building.py` | the heads-up card — the momentum candle has CLOSED, the entry is not decided yet. **Emitted on the candle alone since 2026-08-20; it used to be the else-branch of the entry search** |
 | `vix1_log.py` | per-symbol log throttling, so a silent scan does not spam |
 | `vix1_trend.py` | `trend_state` / `clear_trend` — the trend as structure, plus the BOS and CHoCH that move it |
 | `vix1_structure.py` | `fast_pattern` / `leg_state` (**its OWN 8-bar lookback** — the `turns=` parameter was deleted 2026-08-19, see the reversal note below) + `market_permits` — the refusals: is the faster structure trending the opposite way (a pullback)? Never decides direction |
@@ -859,7 +860,7 @@ retracement*" (the same change, plus real-time turning points feeding `leg_state
 ## The test suite — `signal_platform/tests/vix1/`
 
 ```
-python signal_platform/tests/vix1/run_all.py     # 11 files, exit non-zero on failure
+python signal_platform/tests/vix1/run_all.py     # 16 files, exit non-zero on failure
 ```
 
 No framework, no network, no DB. **Run it before writing the doc entry for a change, not after.**
@@ -876,6 +877,8 @@ platform root and fails under `run_all.py`, which runs from the test directory.
 | `test_line_pullback.py` | the line is the BODY CLOSE; **past-the-line accepted / refused / straddling refused / exactly ON accepted**, both directions; `traded_past`; the shape filters |
 | `test_manage.py` | ratchet 2R→1R, 3R→2R, whole-R steps, **forward-only**; the structure exit by body close, wicks never counting |
 | `test_invariants_real_data.py` | drives `m1_signals` over 4,000 real M1 bars per pair: entry is a **STOP**, SL on the losing side, **TP exactly 2R**, crash-freedom — plus the governing invariant, by **mutating the forming bar and asserting no level moves** |
+| `test_preclose.py` | the pre-close warning: the window (too early / at the edge / one second past / already closed), the shape, **that it fires exactly when `is_momentum_candle` would pass**, the dedup key, the card carrying no levels, and 400 real bars on which it never once fires on a closed bar |
+| `test_headsup_untied.py` | drives the REAL `analyze`: with no entry it emits the heads-up; **with an entry on the same tick it emits BOTH, heads-up first** — the case that used to emit nothing. Bias and entry are stubbed on purpose; what is under test is the wiring between them |
 
 **Every invariant has a TEETH case** — the assertion is deliberately broken and shown to fail. A suite
 that cannot fail proves nothing; that is not a slogan here, it is the reason this exists.

@@ -75,6 +75,12 @@ class PlatformHeartbeatModel(Base):
     beat_at = Column("beat_at", UtcDateTime,
                      default=lambda: datetime.now(timezone.utc), nullable=False)
     scans   = Column("scans", Integer, default=0)
+    # How long the tick that wrote this beat took, in milliseconds. NULLABLE — a boot that has not
+    # completed a tick yet has no answer, and inventing a 0 would read as "instant" rather than
+    # "unknown". Added 2026-08-20: the scan loop's duration was measured by NOTHING, so "ticks
+    # sometimes take three minutes" could be neither confirmed nor refuted. It is one number and it
+    # settles the question every time it is asked, instead of once by inference.
+    last_tick_ms = Column("last_tick_ms", Integer, nullable=True)
 
     __table_args__ = (CheckConstraint("id = 1", name="platform_heartbeat_single"),)
 

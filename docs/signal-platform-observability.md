@@ -69,6 +69,34 @@ SELECT created_at, symbol, stage, detail FROM signal_events
 Its **age at boot is the downtime measurement**. Read it before anything overwrites it; `main.py`
 calls `observability_repo.detect_downtime()` at startup, ahead of the first `beat()`.
 
+**IT WAS WRITE-ONLY UNTIL 2026-08-20, and that is worth knowing about.** It was written by every scan
+and read exactly once — at boot, by `detect_downtime()`. No API exposed it and nothing else consumed
+it, so the one number that says whether the platform is scanning **could not be observed at all**
+without direct database access, and `detect_downtime()`'s own verdict was never surfaced either. I
+then mistook a different timestamp for it and reported the heartbeat dead on that basis. It was not:
+
+> `GET /api/signal-platform/status` → `platformStatus.ts` is the **BOOT** time, written to
+> `/app/.signal_platform_status.json` by `main.py` when Python starts. On a container that has been
+> up for a while it looks hours old, **which is what a healthy platform looks like.** It is not the
+> heartbeat and must never be read as one.
+
+The same endpoint now returns the real thing, so the question is answerable in one request:
+
+```jsonc
+"heartbeat":    { "beatAt": …, "ageSec": 47, "scans": 18432, "lastTickMs": 4812, "stale": false },
+"lastDowntime": { "downFrom": …, "downTo": …, "seconds": 3480, "note": "heartbeat stale at boot …" }
+```
+
+`stale` uses the same 300s threshold Python does. `lastTickMs` is **how long the tick that wrote the
+beat took** — added because nothing measured the scan loop's duration, so "ticks sometimes take three
+minutes" could be neither confirmed nor refuted, and I asserted a 174-second figure inferred from the
+spacing of throttled audit rows, which cannot support that claim. The scanner also logs
+`SLOW TICK — 174.0s against a 60s interval; slowest: XAU/USD 171.4s, …` whenever a tick overruns its
+own interval, naming the three slowest instruments — the total alone says a tick was slow without
+saying why, and the answer is nearly always one instrument's feed.
+
+Two reads of `scans` a minute apart give the true tick rate independently of any of this.
+
 ### `platform_downtime` — one row per detected outage
 
 Answers the question nothing in the system could answer before: *was the platform even up when that

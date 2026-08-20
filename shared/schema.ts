@@ -855,6 +855,9 @@ export const platformHeartbeat = pgTable("platform_heartbeat", {
   id:      integer("id").primaryKey().default(1),
   beatAt:  timestamp("beat_at").defaultNow().notNull(),
   scans:   integer("scans").default(0),
+  // How long the tick that wrote this beat took. Nullable — a boot that has not finished a tick has
+  // no answer, and a 0 would read as "instant" rather than "not yet known".
+  lastTickMs: integer("last_tick_ms"),
 });
 
 // One row per detected outage. Answers "was the platform even up when that candle closed?" —

@@ -43,6 +43,11 @@ def building_signal(symbol: str, buy: bool, vc: Candle, origin: str, vol_count: 
         qualified         = True,
         primary_timeframe = TF.H1,
         confidence        = 0.0,            # nothing to be confident about until the entry confirms
+        # THIS CARD NAMES ITS OWN MOMENT. The panel used to derive the headline from `stage` alone,
+        # so this card was captioned with another strategy's zone vocabulary — it told the reader to
+        # "AWAIT THE RETURN" when what he is actually waiting for is the 1M pullback entry.
+        headline          = f"{side} — MOMENTUM CANDLE CLOSED",
+        label             = "WAIT FOR 1M ENTRY",
         # No entry/stop/target: they are decided on the 1M and do not exist yet. The card prints an
         # em dash for each rather than inventing a level a reader might act on.
         #

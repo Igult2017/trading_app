@@ -33,7 +33,7 @@ from strategies.vix1_bias import _ALLOW_H4, detect_bias
 from strategies.vix1_entry import m1_signals
 from strategies.vix1_lines import draw_line
 from strategies.vix1_momentum import LOOKBACK, momentum_grade   # candle_counts[M1] derives from LOOKBACK
-from strategies import vix1_building
+from strategies import vix1_building, vix1_preclose
 from strategies.vix1_signal import build_signal
 from strategies import vix1_spacing, vix1_log
 from strategies.vix1_watch import check_invalidation, invalidation_signal, WATCH_M1
@@ -113,7 +113,8 @@ class Vix1Strategy(BaseStrategy):
         # close all keep changing, so it can be neither the momentum candle nor the line — a line that
         # moves every scan is not a line, and its "close" is simply the current price. The 1M's
         # forming bar is KEPT on purpose: there, live price is exactly what the entry reacts to.
-        h1 = closed_only(context.candles.get(TF.H1))
+        h1_raw = context.candles.get(TF.H1)            # the forming bar KEPT — vix1_preclose reads it
+        h1 = closed_only(h1_raw)
         h4 = closed_only(context.candles.get(TF.H4))   # only read when the 4HR fallback is un-muted
         # H4 IS NOT REQUIRED WHILE THE FALLBACK IS MUTED. It used to be part of this guard, so a
         # failed or thin H4 fetch stopped the strategy producing ANY signal — on data nothing reads.
@@ -127,6 +128,25 @@ class Vix1Strategy(BaseStrategy):
         now    = time.time()
         sym    = context.symbol
         out: list[Signal] = []
+
+        # PRE-CLOSE — "a momentum candle is about to close, be at the screen". FIRST, and deliberately
+        # ahead of everything else: it is the only message here that is about a bar still forming, and
+        # it has a five-minute window to land in. It depends on nothing below it — no bias, no lock,
+        # no entry — so nothing below it can delay or swallow it.
+        #
+        # NOT GATED BY NEWS OR SPACING. Those two decide whether a TRADE may be taken; this announces
+        # a CANDLE. Five minutes out we cannot yet know which setup, if any, the close will produce,
+        # and staying silent about a candle he might want to watch is the more expensive mistake.
+        pc = vix1_preclose.check(h1, h1_raw, sym, now)
+        if pc is not None:
+            bar, pc_bull, left = pc
+            pkey = vix1_preclose.dedup_key(self.id, sym, pc_bull, bar)
+            if not delivery_ledger.is_delivered(pkey):
+                warn = vix1_preclose.preclose_signal(sym, pc_bull, bar, left, pip, self.name)
+                warn.dedup_key = pkey     # committed only once the DM actually lands
+                out.append(warn)
+                vix1_log.say_always(f"[vix1] {sym} PRE-CLOSE warning — {'BUY' if pc_bull else 'SELL'} "
+                                    f"momentum candle forming, {left/60:.1f} min to close")
 
         # WATCH — a LOCKED pending setup: alert on invalidation, but never block a fresh setup.
         locked = self._locked.get(sym)
@@ -185,23 +205,31 @@ class Vix1Strategy(BaseStrategy):
         delivery_ledger.cleanup(_STATE_TTL)
         vix1_log.say(sym, f"[vix1] {sym} 1HR bias OK ({'BUY' if bullish else 'SELL'}, {origin}, "
                  f"{vol_count} vol candle{'s' if vol_count != 1 else ''}, from 1st) — checking 1M")
+        # STAGE 1 — THE MOMENTUM CANDLE HAS CLOSED AND THE BIAS IS CONFIRMED. His rule, 2026-08-03:
+        # the first signal fires when the higher timeframe is building — "the first volume candle has
+        # closed so we are waiting for entry". Deduped on the momentum candle's own time, so it goes
+        # out once per candle and not on every 60s tick while the bias holds.
+        #
+        # NOT TIED TO THE ENTRY — his instruction, 2026-08-20: *"the headsup signal should not be
+        # tied to entry, it should be fired immediately the momentum candle closes."* This used to sit
+        # inside `if not raw:`, i.e. it was the ELSE-branch of the 1M entry search: the heads-up
+        # existed only as "no entry yet", so it was emitted AFTER `m1_signals` had run and it was
+        # cancelled outright whenever the entry happened to be available on the same tick. Both are
+        # wrong for a message whose entire purpose is to be early. It is now emitted the moment the
+        # bias is known, BEFORE any 1M work, and the entry search continues underneath it — if both
+        # land on the same tick he gets the heads-up and then the entry, in that order.
+        bkey = vix1_building.dedup_key(self.id, sym, bullish, vc)
+        if not delivery_ledger.is_delivered(bkey):
+            bgrade, _ = momentum_grade(vc, bullish)
+            heads_up = vix1_building.building_signal(
+                sym, bullish, vc, origin, vol_count, bgrade, digits, self.name, pip,
+                retracement=bias.retracement, efficiency=bias.efficiency,
+                regime=bias.regime)
+            heads_up.dedup_key = bkey        # committed only once the DM actually lands
+            out.append(heads_up)
+
         raw = m1_signals(m1, bullish, vc, pip=pip, symbol=sym)
         if not raw:
-            # STAGE 1 — bias confirmed, no 1M entry yet. This branch used to return SILENTLY, so the
-            # only VIX.1 message that ever existed was the ready entry and there was no way to know
-            # a setup was forming. The user's rule, 2026-08-03: the first signal fires when the
-            # higher timeframe is building — "the first volume candle has closed so we are waiting
-            # for entry". Deduped on the momentum candle's own time, so it goes out once per candle
-            # and not on every 60s tick while the bias holds.
-            bkey = vix1_building.dedup_key(self.id, sym, bullish, vc)
-            if not delivery_ledger.is_delivered(bkey):
-                bgrade, _ = momentum_grade(vc, bullish)
-                heads_up = vix1_building.building_signal(
-                    sym, bullish, vc, origin, vol_count, bgrade, digits, self.name, pip,
-                    retracement=bias.retracement, efficiency=bias.efficiency,
-                    regime=bias.regime)
-                heads_up.dedup_key = bkey        # committed only once the DM actually lands
-                out.append(heads_up)
             return StrategyResult(signals=out)
 
         # C4: correlation — another USD pair already the SAME direction within the window (warn, don't

@@ -66,17 +66,25 @@ def record(stage: str, strategy: str, symbol: str,
                     f"{type(exc).__name__}: {exc}")
 
 
-def beat(scans: int = 0) -> None:
-    """Stamp the heartbeat. Called once per scan — its age at boot is the downtime measurement."""
+def beat(scans: int = 0, tick_ms: int | None = None) -> None:
+    """Stamp the heartbeat. Called once per scan — its age at boot is the downtime measurement.
+
+    `tick_ms` is how long the tick that is writing this beat took. It is the ONLY record of the scan
+    loop's speed anywhere in the platform; without it the question "are ticks running slow?" can only
+    be guessed at from the spacing of unrelated rows, which is how a 174-second figure got asserted
+    on evidence that could not support it.
+    """
     try:
         now = datetime.now(timezone.utc)
         with get_session() as s:
             row = s.get(PlatformHeartbeatModel, 1)
             if row is None:
-                s.add(PlatformHeartbeatModel(id=1, beat_at=now, scans=scans))
+                s.add(PlatformHeartbeatModel(id=1, beat_at=now, scans=scans, last_tick_ms=tick_ms))
             else:
                 row.beat_at = now
                 row.scans = (row.scans or 0) + 1
+                if tick_ms is not None:
+                    row.last_tick_ms = int(tick_ms)
     except Exception as exc:
         log.warning(f"[observability] heartbeat write failed: {type(exc).__name__}: {exc}")
 

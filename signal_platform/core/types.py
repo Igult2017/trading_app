@@ -251,6 +251,19 @@ class Signal:
     # comparing the entry to live price, which is the honest answer regardless of strategy.
     order_type:         str = ""
     to_channel:         bool = False  # alert_only signal that goes PUBLIC (signal channel) not the admin DM
+    # The card's own headline, when the default two ("UNCONFIRMED ENTRY" / "CONFIRMED ENTRY") do not
+    # describe what the reader is looking at. THE STRATEGY NAMES ITS OWN MOMENT — the panel derived
+    # the headline from `stage` alone, so every "building" card in the platform got one strategy's
+    # wording ("AWAIT THE RETURN") regardless of what it was actually waiting for. Left empty, the
+    # panel's defaults apply and nothing changes.
+    headline:           str = ""
+    # Does this alert deserve a WATCHING row on the Assets board? Every `alert_only` signal writes one
+    # by default, because a heads-up means a real setup exists and is waiting for its entry. A
+    # PRE-CLOSE warning does not: it is a forecast about a bar that has not finished, wrong about one
+    # time in five, and there is one watching row per strategy+symbol+direction — so letting it claim
+    # that row would both post a setup that may never exist AND take the slot from the genuine
+    # heads-up five minutes later, which would then find the row already taken.
+    persist_watch:      bool = True
 
 
 # ── Strategy result ────────────────────────────────────────────────────────────

@@ -453,6 +453,10 @@ CREATE TABLE IF NOT EXISTS platform_heartbeat (
   CONSTRAINT platform_heartbeat_single CHECK (id = 1)
 );
 INSERT INTO platform_heartbeat (id) VALUES (1) ON CONFLICT DO NOTHING;
+-- How long the tick that wrote the beat took. Added 2026-08-20 — nothing measured the scan loop's
+-- duration, so a slow tick was invisible. ALTER, not a column in the CREATE above: the table already
+-- exists in prod and CREATE TABLE IF NOT EXISTS would skip it silently.
+ALTER TABLE platform_heartbeat ADD COLUMN IF NOT EXISTS last_tick_ms INTEGER;
 
 -- One row per detected outage: "was the platform even up when that candle closed?"
 CREATE TABLE IF NOT EXISTS platform_downtime (

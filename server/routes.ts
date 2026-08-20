@@ -3,7 +3,8 @@ import { createServer, type Server } from "http";
 import { supabaseAdmin, verifyToken } from "./lib/supabaseAdmin";
 import { cacheGet, cacheSet, cacheDel, cacheDelPattern } from "./lib/cache";
 import { db, pool } from "./db";
-import { userProfiles, adminAccessLogs, tradingSignals, priceAlerts, emailTracking } from "@shared/schema";
+import { userProfiles, adminAccessLogs, tradingSignals, priceAlerts, emailTracking,
+         platformHeartbeat, platformDowntime } from "@shared/schema";
 import { eq, desc, and, lt, gte, isNotNull, inArray, count, sql as drizzleSql } from "drizzle-orm";
 import { encrypt, safeDecrypt, safeEncrypt } from "./lib/crypto";
 import { geolocateIp } from "./lib/geoIp";
@@ -2316,7 +2317,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       ((env.CTRADER_ACCESS_TOKEN && env.CTRADER_REFRESH_TOKEN) || env.ADMIN_SECRET)
     );
 
-    // Read Python boot status file written by signal_platform/main.py
+    // Read Python boot status file written by signal_platform/main.py.
+    // NOTE: `platformStatus.ts` is the BOOT time — when Python last started — and it is NOT the
+    // heartbeat. Reading it as one is a mistake already made once: it looks stale the moment the
+    // container has been up a while, which is exactly what a healthy platform looks like. Liveness
+    // is `heartbeat` below, which is rewritten on every scan tick.
     let platformStatus: { status: string; error: string; hint: string; ts: number } | null = null;
     try {
       const { readFileSync } = await import("fs");
@@ -2341,9 +2346,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .from(tradingSignals)
         .where(and(eq(tradingSignals.status, "active"), gte(tradingSignals.createdAt, since24h)));
 
+      // THE HEARTBEAT — is the scanner alive RIGHT NOW? Rewritten by every completed scan tick
+      // (signal_platform/orchestrator/scanner.py). Until now it was written and never read back
+      // except once, at Python boot, by detect_downtime() — so the one number that says whether the
+      // platform is scanning was invisible to everything, and "is the heartbeat stale?" could not be
+      // answered without direct DB access. `stale` uses the same 5-minute threshold Python does.
+      let heartbeat: {
+        beatAt: Date | null; ageSec: number | null; scans: number | null;
+        lastTickMs: number | null; stale: boolean;
+      } | null = null;
+      let lastDowntime: { downFrom: Date; downTo: Date; seconds: number; note: string | null } | null = null;
+      try {
+        const [hb] = await db.select().from(platformHeartbeat).limit(1);
+        if (hb) {
+          const ageSec = hb.beatAt ? Math.round((Date.now() - new Date(hb.beatAt).getTime()) / 1000) : null;
+          heartbeat = {
+            beatAt: hb.beatAt, ageSec, scans: hb.scans,
+            lastTickMs: hb.lastTickMs, stale: ageSec === null || ageSec > 300,
+          };
+        }
+        const [dt] = await db.select({
+          downFrom: platformDowntime.downFrom, downTo: platformDowntime.downTo,
+          seconds: platformDowntime.seconds, note: platformDowntime.note,
+        }).from(platformDowntime).orderBy(desc(platformDowntime.downFrom)).limit(1);
+        lastDowntime = dt ?? null;
+      } catch { /* observability must never take the status endpoint down */ }
+
       return res.json({
         ctraderConfigured,
         platformStatus,
+        heartbeat,
+        lastDowntime,
         lastSignal: lastSignal ?? null,
         signalsLast24h: Number(total),
         activeSignalsLast24h: Number(active),

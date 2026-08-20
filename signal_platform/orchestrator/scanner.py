@@ -14,7 +14,9 @@ Tenant/house model:
 import asyncio
 import logging
 import os
+import time
 from datetime import datetime, timezone
+from functools import partial
 
 from core import strategy_registry, event_bus
 from config.settings import settings
@@ -157,11 +159,25 @@ async def scan_markets() -> None:
 
     log.info(f"[scanner] {len(instruments)} instruments × {len(strategies)} strategies")
 
-    results = await asyncio.gather(
-        *[_scan_instrument(inst, strategies, news_context, current_sessions, tick_now)
-          for inst in instruments],
-        return_exceptions=True,
-    )
+    # TIMED, PER INSTRUMENT AND OVERALL. Nothing measured how long a tick took, so a slow tick was
+    # invisible and could only be inferred from the spacing of other rows — which is exactly how a
+    # "174-second tick" got asserted on evidence that could not support it. `_timed` costs one
+    # `perf_counter` per instrument and turns that into a fact.
+    t0 = time.perf_counter()
+    per_instrument: dict[str, float] = {}
+
+    async def _timed(inst):
+        started = time.perf_counter()
+        try:
+            return await _scan_instrument(inst, strategies, news_context, current_sessions, tick_now)
+        finally:
+            # `finally`, so an instrument that RAISED is still timed. A scan that blows up after two
+            # minutes is precisely the one worth seeing, and it is the one a success-path timer misses.
+            per_instrument[inst] = time.perf_counter() - started
+
+    results = await asyncio.gather(*[_timed(inst) for inst in instruments],
+                                   return_exceptions=True)
+    tick_s = time.perf_counter() - t0
     # SAME BUG THE MONITOR HAD (fixed 2026-07-27): `return_exceptions=True` with the results thrown
     # away means an instrument whose scan raised is skipped in total silence — the tick still logs
     # "complete". An instrument can stop producing signals indefinitely with nothing to show for it.
@@ -171,10 +187,23 @@ async def scan_markets() -> None:
             failed += 1
             log.error(f"[scanner] {inst} scan raised {type(res).__name__}: {res}", exc_info=res)
 
-    # HEARTBEAT — a completed tick is the liveness signal. Its age at the next boot IS the outage.
-    from storage import observability_repo as obs
-    await asyncio.get_running_loop().run_in_executor(None, obs.beat)
+    # A TICK THAT OVERRUNS ITS OWN INTERVAL SAYS SO, AND NAMES WHO. APScheduler will not start the
+    # next tick until this one returns, so an overrun is lost scanning time — the window in which a
+    # closing candle is missed. Logging only the total would say a tick was slow without saying why,
+    # and the answer is nearly always one instrument's feed, so the three slowest are named.
+    if tick_s > _current_interval:
+        slowest = sorted(per_instrument.items(), key=lambda kv: -kv[1])[:3]
+        log.warning("[scanner] SLOW TICK — %.1fs against a %ds interval; slowest: %s",
+                    tick_s, _current_interval,
+                    ", ".join(f"{i} {d:.1f}s" for i, d in slowest) or "n/a")
 
-    log.info(f"[scanner] tick complete — {len(instruments) - failed}/{len(instruments)} instruments "
+    # HEARTBEAT — a completed tick is the liveness signal. Its age at the next boot IS the outage,
+    # and its `last_tick_ms` is the only record of how long the loop actually takes.
+    from storage import observability_repo as obs
+    await asyncio.get_running_loop().run_in_executor(
+        None, partial(obs.beat, tick_ms=int(tick_s * 1000)))
+
+    log.info(f"[scanner] tick complete in {tick_s:.1f}s — "
+             f"{len(instruments) - failed}/{len(instruments)} instruments "
              f"scanned{f', {failed} FAILED' if failed else ''} — "
              f"cache: {candle_fetcher.candle_cache.stats()}")

@@ -32,15 +32,21 @@ def masthead(ax, sig: Signal, buy: bool, subtitle: str) -> None:
     # "SETUP BUILDING" / "READY" described the old one-zone two-stage split, which no longer exists.
     # Signal 1 is the reaction at the extreme (no entry price yet); signal 2 is the return to the
     # zone that reaction created, with entry, stop and target on it.
-    head = (f"{'BUY' if buy else 'SELL'} — UNCONFIRMED ENTRY" if building
-            else f"{'BUY' if buy else 'SELL'} — CONFIRMED ENTRY")
+    #
+    # A STRATEGY MAY NAME ITS OWN MOMENT. These two defaults describe one strategy's zone sequence,
+    # and deriving the headline from `stage` alone put that strategy's vocabulary on every amber card
+    # in the platform — a card whose reader is waiting for something else entirely was still told to
+    # "AWAIT THE RETURN". `headline` / `label` let the producer say what its own moment is; unset,
+    # these defaults apply exactly as before.
+    head = sig.headline or (f"{'BUY' if buy else 'SELL'} — UNCONFIRMED ENTRY" if building
+                            else f"{'BUY' if buy else 'SELL'} — CONFIRMED ENTRY")
     ax.plot([0.0, 0.022], [0.86, 0.86], color=accent, linewidth=3, zorder=3)
     ax.text(0.032, 0.845, head, color=accent, va="center",
             ha="left", fontproperties=theme.font(15, bold=True))
     # THE ORDER TYPE IS THE HEADLINE OF A READY CARD — it is the instruction. It replaces the
     # strategy label chip, which was decoration next to it.
-    chip = sig.order_type if (sig.order_type and not building) else ("AWAIT THE RETURN" if building
-                                                                    else sig.label)
+    chip = sig.order_type if (sig.order_type and not building) else (
+        (sig.label or "AWAIT THE RETURN") if building else sig.label)
     if chip:
         ax.text(0.995, 0.845, f" {chip} ", color=theme.PAPER if not building else theme.INK,
                 va="center", ha="right", fontproperties=theme.font(13, bold=True),
