@@ -72,7 +72,33 @@ def build_cancel(acct: int, order_id: int):
     return req
 
 
-def read_execution(event, is_cancel: bool) -> OrderResult | None:
+def build_amend(acct: int, position_id: int, symbol: str, sl: float, tp: float | None):
+    """Move a live position's stop (and re-state its target).
+
+    BOTH LEGS GO EVERY TIME, and this is the single most important line in the file. cTrader's REST
+    surface DELETES a leg that is omitted from an amend (the ctrader-mcp-servers skill flags it as
+    critical, `Q-R10`). `ProtoOAAmendPositionSLTPReq` has both fields optional-with-presence, so the
+    protobuf API can tell "omitted" from "set" and may well behave the same way. Rather than rely on
+    finding out which, the caller reads the position's CURRENT take profit moments before and re-
+    passes it here — correct under either behaviour, and the cost is one field.
+
+    A position genuinely without a target is the one case where `tp` is None, and then it is left
+    unset because there is nothing to preserve.
+    """
+    from ctrader_open_api.messages.OpenApiMessages_pb2 import ProtoOAAmendPositionSLTPReq
+    d = price_digits(symbol)
+    req = ProtoOAAmendPositionSLTPReq()
+    req.ctidTraderAccountId = acct
+    req.positionId = int(position_id)
+    req.stopLoss = round(float(sl), d)
+    if tp:
+        req.takeProfit = round(float(tp), d)
+    log.info(f"[execution] AMEND position {position_id} {symbol} SL -> {req.stopLoss} "
+             f"TP {'preserved at ' + str(req.takeProfit) if tp else 'none on this position'}")
+    return req
+
+
+def read_execution(event, is_cancel: bool, is_amend: bool = False) -> OrderResult | None:
     """Interpret an execution event. None = not a verdict yet, keep waiting.
 
     ACCEPTED IS SUCCESS for a pending order — a stop order that is resting is precisely what was
@@ -90,6 +116,14 @@ def read_execution(event, is_cancel: bool) -> OrderResult | None:
 
     if is_cancel and is_type("ORDER_CANCELLED"):
         return OrderResult(ok=True)
+    # AN AMEND IS ACKNOWLEDGED BY A POSITION EVENT, not an order one. cTrader reports the change as
+    # a MODIFY on the position; the ORDER_* verdicts below describe pending orders and would never
+    # arrive, so without this branch every successful amend would sit until the timeout and then be
+    # reported as a failure — the same trap ACCEPTED-is-success exists to avoid for stop orders.
+    if is_amend:
+        for good in ("POSITION_MODIFY", "ORDER_ACCEPTED", "ORDER_REPLACED"):
+            if is_type(good):
+                return OrderResult(ok=True)
     for bad in ("ORDER_REJECTED", "ORDER_CANCELLED", "ORDER_EXPIRED"):
         if is_type(bad):
             return OrderResult(ok=False, error=f"cTrader: {bad}")

@@ -98,6 +98,32 @@ def _lines(p, r: float, price: float) -> list[tuple[str, str]]:
     return out
 
 
+async def _auto_breakeven(p, send) -> None:
+    """Move the stop for real, when `auto_breakeven_enabled` says so. Reports what it did.
+
+    SILENT WHEN SWITCHED OFF. `why_not` returns a reason for every refusal, but the ordinary one —
+    "auto-breakeven is off" — must not become a message on every trade; only a refusal that happened
+    while the feature was ON is worth telling him about.
+    """
+    from config.settings import settings as _s
+    if not _s.auto_breakeven_enabled:
+        return
+    try:
+        from execution.account import load_account
+        from execution import breakeven
+        acct = await load_account()
+        if acct is None:
+            log.warning("[position_tracker] auto-breakeven ON but no usable account")
+            return
+        out = await breakeven.move_to_breakeven(p, acct.creds, acct.account_type)
+        head = "🔴 AUTO-BREAKEVEN" if out.alarm else ("🔧 AUTO-BREAKEVEN" if out.moved
+                                                     else "🔧 AUTO-BREAKEVEN — not moved")
+        await send(f"{head} — {p.symbol} #{p.position_id}\n\n{out.message}")
+    except Exception as exc:
+        log.error(f"[position_tracker] auto-breakeven failed: {type(exc).__name__}: {exc}",
+                  exc_info=True)
+
+
 async def check_all(send) -> None:
     """One poll. `send` is an async callable taking the message text — the dispatcher's private DM.
 
@@ -136,5 +162,10 @@ async def check_all(send) -> None:
                 if await send(message):
                     delivery_ledger.mark_delivered(k)
                     log.info(f"[position_tracker] {p.symbol} #{p.position_id}: {tag} at {r:.2f}R")
+                # AND THEN ACTUALLY MOVE IT, if he has switched that on. The advice DM above is sent
+                # either way and first: if the amend fails he still knows what to do by hand, which
+                # is the behaviour that must survive every failure here.
+                if tag == "breakeven":
+                    await _auto_breakeven(p, send)
     except Exception as exc:
         log.error(f"[position_tracker] poll failed: {type(exc).__name__}: {exc}", exc_info=True)

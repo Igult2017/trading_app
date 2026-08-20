@@ -114,6 +114,11 @@ class Settings(BaseSettings):
     autotrade_max_per_day: int   = 6       # hard cap on orders placed in a rolling 24h
     autotrade_symbols:     str   = ""      # CSV allow-list; empty = every symbol the strategy fires
     autotrade_strategies:  str   = "vix1"  # CSV of strategy ids allowed to place. VIX.1 only for now
+    # AUTO-BREAKEVEN — the platform MOVING a stop on a live position, which is a different act from
+    # placing a new order and so gets its own switch. Off by default; nothing is amended until this
+    # is set. Demo-only is enforced at runtime the same way autotrade's is.
+    auto_breakeven_enabled:   bool = False
+    auto_breakeven_demo_only: bool = True
     autotrade_fixed_lots:  float = 0.0     # >0 pins the size and IGNORES risk_pct — for diagnostics,
                                            # where the point is observing fills, not sizing exposure
 

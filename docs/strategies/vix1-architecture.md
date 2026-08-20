@@ -65,6 +65,7 @@ VIX.1 has shipped a bug from reading the forming bar as a level, and **a backtes
 | `vix1.py` | orchestrator: **pre-close** → watch → bias → news gates → **spacing** → **heads-up** → 1M signals → grade → build |
 | `data/ctrader_spread.py` | **the live spread** (added 2026-08-21) — GetTickData BID+ASK, request/response so it can take the candle fetch's `_req_lock`; cached 5 min. Fills `context.spread`, which NOTHING had ever populated |
 | `data/ctrader_positions.py` | **his REAL open positions** (added 2026-08-21) — one `ProtoOAReconcileReq`; real fill, stop, commission, swap. `Position.r_at()` and `Position.breakeven()` |
+| `execution/breakeven.py` | **THE FIRST CODE THAT CHANGES THE ACCOUNT** (added 2026-08-21) — moves a live stop to its net-zero price at 1R. Ratchet-only, demo-only, both SL+TP legs always sent, re-read afterwards. `AUTO_BREAKEVEN_ENABLED` is OFF by default |
 | `monitor/position_tracker.py` | **the trade tracker** (added 2026-08-21) — breakeven at 1R, trail-to-1R and 2R-reached, measured on the REAL position. Advice only |
 | `vix1_cross.py` | **THE CROSS and the order level** (added 2026-08-20) — a 1M CLOSE past the line, then one candle, then one tick beyond how far price got. The whole of the 1M's job |
 | `vix1_preclose.py` | **the warning BEFORE the momentum candle closes** (added 2026-08-20). The ONE place in VIX.1 that reads the bar still FORMING on purpose. Fires at T-5, DM only, no entry/stop/target |
@@ -103,7 +104,7 @@ VIX.1 has shipped a bug from reading the forming bar as a level, and **a backtes
 | **Already through** | price past the level at the decision -> a **MARKET** entry at current price, not a refusal (~25-29%) |
 | **SL** | beyond the **LINE**, or beyond the pullback's far edge when it dipped through — **never a pip count**. Gap 0.5x the 1M's recent range; floor **1.0x that range PLUS the spread** (a stop shorter than the cost of getting in cannot win); ceiling one 1HR candle |
 | **TP** | **2R** — the two-1HR-candle move |
-| **Management** | **1R → breakeven (the NET-ZERO price, not the entry)**, 2R → lock 1R, 3R → lock 2R … **ADVICE ONLY**. Measured on the REAL position since 2026-08-21 — `monitor/position_tracker` |
+| **Management** | **1R → breakeven (the NET-ZERO price, not the entry) — ADVICE, and OPTIONALLY MOVED FOR HIM** (`AUTO_BREAKEVEN_ENABLED`, off by default, demo-only, ratchet-only), 2R → lock 1R, 3R → lock 2R … **ADVICE ONLY**. Measured on the REAL position since 2026-08-21 — `monitor/position_tracker` |
 | **Spacing** | while a signal on this INSTRUMENT is still running, the next needs **3 momentum candles closed after the previous signal's anchor candle**. A closed previous signal — *including a loss* — voids the wait |
 
 ### Signal spacing (`vix1_spacing.py`) — added 2026-07-27
@@ -881,7 +882,7 @@ retracement*" (the same change, plus real-time turning points feeding `leg_state
 ## The test suite — `signal_platform/tests/vix1/`
 
 ```
-python signal_platform/tests/vix1/run_all.py     # 19 files, exit non-zero on failure
+python signal_platform/tests/vix1/run_all.py     # 20 files, exit non-zero on failure
 ```
 
 No framework, no network, no DB. **Run it before writing the doc entry for a change, not after.**
@@ -900,6 +901,7 @@ platform root and fails under `run_all.py`, which runs from the test directory.
 | `test_invariants_real_data.py` | drives `m1_signals` over 4,000 real M1 bars per pair: entry is a **STOP**, SL on the losing side, **TP exactly 2R**, crash-freedom — plus the governing invariant, by **mutating the forming bar and asserting no level moves** |
 | `test_cross.py` | the rebuilt entry's core: a CLOSE is a cross and a wick is not, the one-candle wait, the level is one tick beyond the reach, assumed vs seen, a whipsaw counts as no-pullback — and **his own 5 Aug 2019 bars, asserting the order price 1.11734** |
 | `test_entry_real_events.py` | the REAL `m1_signals` on three real events: **his trade must come out at 1.11734**, XAU/USD 20 Aug must fire earlier than the old 12:09, and EUR/USD 20 Aug (which the audit found correct) must still fire |
+| `test_auto_breakeven.py` | every guard on the account-changing path: the amend carries BOTH legs, the ratchet refuses a backwards move (both directions), no-stop and live-account refusals, a vanished take profit raising the ALARM, a success that moved nothing reported as not moved, and an unverifiable amend saying so |
 | `test_position_tracker.py` | R from a real position both directions and on gold (no conversion), the **net-zero breakeven with commission DOUBLED for the round trip**, the alert sequence at 1R and 2R, a position with no stop, and **a failed broker read sending nothing** (None != []) |
 | `test_preclose.py` | the pre-close warning: the window (too early / at the edge / one second past / already closed), the shape, **that it fires exactly when `is_momentum_candle` would pass**, the dedup key, the card carrying no levels, and 400 real bars on which it never once fires on a closed bar |
 | `test_headsup_untied.py` | drives the REAL `analyze`: with no entry it emits the heads-up; **with an entry on the same tick it emits BOTH, heads-up first** — the case that used to emit nothing. Bias and entry are stubbed on purpose; what is under test is the wiring between them |

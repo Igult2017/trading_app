@@ -11,7 +11,7 @@ The wire format lives in execution/orders.py — this file only owns the convers
 import asyncio
 import logging
 
-from execution.orders import OrderResult, build_cancel, build_stop, read_execution
+from execution.orders import OrderResult, build_amend, build_cancel, build_stop, read_execution
 
 log = logging.getLogger(__name__)
 
@@ -37,6 +37,13 @@ class StopOrderClient:
 
     async def cancel(self, order_id: int) -> OrderResult:
         self._cmd = ("cancel", int(order_id))
+        return await self._run()
+
+    async def amend_sltp(self, position_id: int, symbol: str, sl: float,
+                         tp: float | None) -> OrderResult:
+        """Move a live position's stop. `tp` is the position's CURRENT target, re-passed so the
+        broker cannot read its absence as a removal — see `orders.build_amend`."""
+        self._cmd = ("amend", int(position_id), symbol, float(sl), tp)
         return await self._run()
 
     # ── internals ──────────────────────────────────────────────────────────────
@@ -88,6 +95,8 @@ class StopOrderClient:
         elif ptype == ProtoOAAccountAuthRes().payloadType:
             # A stop order needs symbolId, so fetch the symbol list first. A cancel takes an
             # orderId and can go straight out.
+            # Only a NEW order needs the symbol list (it resolves a symbolId). A cancel keys on
+            # orderId and an amend on positionId, so both go straight out.
             if self._cmd and self._cmd[0] == "stop":
                 req = ProtoOASymbolsListReq()
                 req.ctidTraderAccountId = int(self.creds["ctraderId"])
@@ -102,7 +111,9 @@ class StopOrderClient:
 
         elif ptype == ProtoOAExecutionEvent().payloadType:
             event = Protobuf.extract(message, ProtoOAExecutionEvent)
-            verdict = read_execution(event, is_cancel=bool(self._cmd and self._cmd[0] == "cancel"))
+            verdict = read_execution(event,
+                                     is_cancel=bool(self._cmd and self._cmd[0] == "cancel"),
+                                     is_amend=bool(self._cmd and self._cmd[0] == "amend"))
             if verdict is not None:
                 self._resolve(verdict)
 
@@ -110,6 +121,10 @@ class StopOrderClient:
         acct = int(self.creds["ctraderId"])
         if self._cmd[0] == "cancel":
             client.send(build_cancel(acct, self._cmd[1]))
+            return
+        if self._cmd[0] == "amend":
+            _, position_id, symbol, sl, tp = self._cmd
+            client.send(build_amend(acct, position_id, symbol, sl, tp))
             return
         _, symbol, side, volume, stop_price, sl, tp, expiry_ms = self._cmd
         req, err = build_stop(acct, symbol, side, volume, stop_price, sl, tp,
