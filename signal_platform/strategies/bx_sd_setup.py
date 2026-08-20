@@ -46,6 +46,7 @@ from strategies.bx_sd_confluence import premium_discount, pricing_aligned, fib_t
 from strategies.bx_sd_control import control, describe, phrase
 from strategies.bx_sd_entry_type import classify, phrase as et_phrase
 from strategies.bx_sd_liquidity import find_liquidity, swept_within
+from strategies.bx_sd_htf import htf_backing
 from strategies.bx_sd_registry import build, to_zone, LIQ_WINDOW
 from strategies.bx_sd_strength import mitigation_note, score as zone_strength
 from shared.mtf_utils import closed_only
@@ -175,6 +176,7 @@ def detect_setup(h4: list[Candle], pip: float = 0.0001, book=None, session_candl
     cand_via, no_entry_event, cand_swept = "", 0, False
     decisional_skipped, spent_skipped = 0, 0     # why a tapped zone was passed over — see the reasons
     unswept_skipped, unbroken_skipped = 0, 0     # his extreme-qualification rule
+    no_htf_skipped = 0                           # criterion 1 — HTF mitigation
     for mz in sorted(marked, key=lambda m: m.ifc_time, reverse=True):
         # NOT `respected` — that is the RETEST path's job (bx_sd_reports, min_grade="B"). Accepting
         # it here let one zone fire BOTH: a duplicate signal, and the fresh cascade firing at C+,
@@ -346,12 +348,49 @@ def detect_setup(h4: list[Candle], pip: float = 0.0001, book=None, session_candl
         if not cand_swept:
             unswept_skipped += 1
             continue
-        _nearer = ((lambda o: o.proximal < mz.proximal) if mz.direction == "supply"
-                   else (lambda o: o.proximal > mz.proximal))
-        if not any(o is not mz and o.direction == mz.direction
-                   and o.state == "broken" and _nearer(o) for o in marked):
+
+        # ── CRITERION 3: THE ZONE'S MOVE BROKE AN OPPOSITE ZONE (the CHoCH) ─────────────────────
+        #
+        # His sequence: the reversal at the HTF zone creates this supply, price then FALLS and
+        # breaks the DEMAND zones below — that break is the change of character, and it is what
+        # says order flow has flipped. Only then do we wait for the return to this zone.
+        #
+        # OPPOSITE SIDE, NOT SAME SIDE. My first build of this asked for a broken SAME-side zone and
+        # was wrong: a supply extreme is confirmed by broken DEMAND, not by broken supply.
+        # `count_breakthroughs` already counts exactly that — opposite zones this zone's move closed
+        # through, up to the next structure event the other way — and it was computed and discarded.
+        #
+        # ONE IS THE RULE, TWO IS THE BONUS. His words, and the document three ways (§4 singular;
+        # §22 step 8 unconditional vs step 9 "IF ... becomes STRONGER"; §16 "stronger than breaking
+        # ONLY ONE"). Two stays a strength input in `bx_sd_strength` and must never gate here.
+        if mz.broke_through < 1:
             unbroken_skipped += 1
             continue
+
+        # ── CRITERION 1: HTF MITIGATION — the zone must sit at a higher-timeframe zone ──────────
+        #
+        #     "Price must reverse & originate from a higher time frame's supply or demand zone."
+        #     "If it did not come from a higher TF zone, it is invalid."
+        #
+        # THE FAKE-CHoCH FILTER, AND IT WAS ENTIRELY MISSING. `htf_backing` has been computed on
+        # every scan since it was written and used ONLY to grade and score — never to refuse. So BX
+        # has been taking exactly the setup his two diagrams contrast: identical structure, identical
+        # break, and the only difference is whether price actually reached the HTF zone. He called
+        # this "the first criteria" and "very important... prevents us from falling into the trap of
+        # a fake CHOCH".
+        #
+        # WHY THIS IS ALSO THE REAL EXTREME/DECISIONAL TEST. In his final diagrams the EXTREME sits
+        # inside the HTF Supply band and the DECISIONAL sits below it, outside. The registry's
+        # positional rule (furthest unmitigated in the group) gets the same answer by accident when
+        # the stack is clean, and the wrong answer when it is not. This asks the question directly.
+        #
+        # `htf_map` is None for callers that do not supply D1/W1/MN (tests, ad-hoc replays); the gate
+        # is then skipped rather than refusing everything on data it cannot see.
+        if htf_map:
+            _z_for_htf = to_zone(mz, bars)
+            if _z_for_htf is None or not htf_backing(_z_for_htf, htf_map):
+                no_htf_skipped += 1
+                continue
         if (mz.top - mz.bottom) < _MIN_PIPS * pip:
             continue
         # PRO-TREND ONLY WHILE TRENDING. A supply zone in an uptrend produces a PULLBACK, not a
@@ -398,8 +437,13 @@ def detect_setup(h4: list[Candle], pip: float = 0.0001, book=None, session_candl
                         f"without the sweep the zone itself is the liquidity")
             return r
         if unbroken_skipped:
-            r.reason = (f"{unbroken_skipped} zone(s) tapped but no decisional zone was BROKEN on the "
-                        f"way in — price has not fought through anything to get here")
+            r.reason = (f"{unbroken_skipped} zone(s) tapped but their move broke NO opposite zone — "
+                        f"no change of character, so order flow has not flipped")
+            return r
+        if no_htf_skipped:
+            r.reason = (f"{no_htf_skipped} zone(s) tapped but NOT AT A HIGHER-TIMEFRAME ZONE — the "
+                        f"reversal did not originate from D1/W1/MN supply or demand, so this is a "
+                        f"fake change of character")
             return r
         # HOW FAR IS PRICE FROM THE NEAREST LIVE ZONE? This is the one number that answers "why no
         # signal" during a quiet stretch — the cascade fires on a tap, so the distance to the closest

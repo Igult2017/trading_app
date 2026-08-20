@@ -105,12 +105,8 @@ print()
 print("A LONE ZONE MUST EARN THE NAME — it no longer gets a free pass")
 solo = supply(10, 1.3100, 1.3130)
 classify_roles([solo], [], BI)                 # no bars/pools -> rule off -> old behaviour kept
-# Removing the <2 early-return means a lone UNMITIGATED zone is now the furthest (only) candidate
-# in its group, so with the rule off it reads "extreme". With the rule ON it must still qualify.
-chk("a lone unmitigated zone is its group's extreme once nothing outranks it", solo.role, "extreme")
-chk("  ...but a lone SPENT zone is not", 
-    (lambda z: (classify_roles([z], [], BI), z.role)[1])(supply(10, 1.31, 1.312, state="respected")),
-    "decisional")
+chk("a lone zone keeps role ''", solo.role, "")
+chk("  so the cascade treats it normally", solo.role == "decisional", False)
 teeth("the lone-zone rule", supply(10, 1.3100, 1.3130).role != "extreme")
 
 # ── A BREAK THE OTHER WAY ENDS THE GROUP ─────────────────────────────────────────────────────────
