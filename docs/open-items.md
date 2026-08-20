@@ -50,6 +50,26 @@ defects**, and the pattern that produced them will otherwise repeat.
 utilisation, comfortable headroom, no outliers. Item 3 is **closed**: the real median is 12 s, not the
 5 s I claimed, and nothing resembling 174 s occurred.
 
+## 0c. THE LATE SIGNAL HAD A CAUSE AFTER ALL — the 1HR feed was cached for 48 minutes
+
+**Found 2026-08-20 by reading production logs, and it corrects an earlier "all clear" from me.**
+
+`candle_cache._ttl_for` returned a flat `max(55, duration × 0.80)` — **2,880s on H1**. Right for bars
+that have already closed (a finished bar never changes); wrong for the forming bar, and wrong for
+noticing a bar has closed at all. A candle closing at 15:00 was seen whenever the copy next expired:
+**anywhere from seconds to 48 minutes later**, because the 48-minute refresh cycle drifts against the
+60-minute bar cycle.
+
+**That intermittency is why one measurement cleared it and the user's experience did not.** I timed a
+single delivery at 13.7s after the close and told him the platform was correct. One fast sample from
+a process whose delay varies from 0 to 48 minutes proves nothing, and I presented it as proof.
+
+Fixed: a copy never spans a bar close, and refreshes every ~55s through the last 6 minutes. New TTL
+is always ≤ the old, so it can only make candles fresher. **How it was found is the transferable
+part:** the pre-close warning fired zero times in its first hour, which is statistically normal — and
+instead of accepting that, the question asked was *"can I prove the path is REACHABLE, not just
+quiet?"* That question found a defect that had been live for months.
+
 ## 0b. THE PLATFORM WAS DOWN FOR 4h45m ON 15 AUGUST — nobody knew
 
 `platform_downtime` held this the whole time and nothing surfaced it, because the heartbeat was

@@ -78,7 +78,11 @@ cd signal_platform && python main.py
 **Scan loop** (every 60s via APScheduler):
 1. `instrument_filter` — returns open forex pairs (Mon 00:00 – Fri 22:00 UTC)
 2. `candle_fetcher.prefetch_all()` — concurrent yfinance fetch, skips cache hits
-3. `candle_cache` — TTL cache keyed `(symbol, tf)`, TTL = `max(55s, bar_duration * 0.80)`
+3. `candle_cache` — TTL cache keyed `(symbol, tf)`. **A copy NEVER spans a bar close**, and inside
+   the last 6 minutes of a bar it refreshes every ~55s so the FORMING bar is current. (Was a flat
+   `max(55s, bar_duration * 0.80)` until 2026-08-20 — 48 minutes on H1, which is right for closed
+   bars and wrong both for the forming bar and for noticing that a bar has closed at all. That is
+   what made signal delivery intermittently late. M1/M2 keep their flat 20s.)
 4. Per instrument × strategy: 4 pre-filters (whitelist, session, trend, news) then `strategy.analyze()`
 5. `signal_validator` — drops signals below `min_rr=2.0` or the strategy's confidence floor (`min_confidence=0.70` global, per-strategy overrides e.g. `vix1:0.60`), deduplicates
 6. `charting/signal_card.render_async()` — the PNG card (candles + entry/stop/target + the numbers
