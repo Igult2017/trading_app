@@ -159,35 +159,53 @@ disturbing good ones.
 bar, so N-vs-N+1 agreed. `test_zones.py` now checks the real property: a zone is never marked before
 its qualifying break, on synthetic events and on both real pairs.
 
-## ⚠ THE FOUR GATES — what actually refuses a setup (rewritten 2026-08-19)
+## ⚠ WHAT ACTUALLY REFUSES A SETUP (corrected 2026-08-19)
 
-Until this date **three of his four validity criteria were computed on every scan and used only to
-grade or score. None could refuse anything.** They are gates now, in `bx_sd_setup.detect_setup`:
+Only two things, in `bx_sd_setup.detect_setup`:
 
-| # | gate | source | what it asks |
-|---|---|---|---|
-| 1 | **Unmitigated** | *"we are only trading unmitigated and extreme zones"* | `state == "unmitigated"` or wick-only (a wick leaves the orders unfilled) |
-| 2 | **Liquidity swept on the approach** | *"if the price doesn't sweep liquidity before a key level, it often uses that zone as liquidity"* | `swept_within` over the last `LIQ_WINDOW` bars before the tap |
-| 3 | **CHoCH — an OPPOSITE zone was broken** | *"every time a zone breaks, an opposite side zone automatically forms"* | `broke_through >= 1`. **One is the rule, two is the bonus** — two stays a strength input and must never gate |
-| 4 | **HTF mitigation** | *"Price must reverse & originate from a higher time frame's supply or demand zone"* | `htf_backing(zone, htf_map)` non-empty (D1/W1/MN) |
+| gate | source | what it asks |
+|---|---|---|
+| **Unmitigated** | *"we are only trading unmitigated and extreme zones"* | `state == "unmitigated"` or wick-only (a wick leaves the orders unfilled) |
+| **CHoCH — an OPPOSITE zone was broken** | *"the CHOCH will later be complete when it breaks through the opposite zone"* | `broke_through >= 1`. **One is the rule, two is the bonus** — two stays a strength input and must never gate |
 
-**Gate 4 is the fake-CHoCH filter and it was absent entirely.** His two diagrams differ *only* in
-whether price reached the HTF zone — identical structure, identical break, one valid and one fake —
-and BX took both.
+**A third requirement lives upstream and always has:** `bx_sd_registry` will not MARK a zone unless
+liquidity was swept before its imbalance (`swept_before` at the IFC). That is his *"there is no valid
+CHOCH if no liquidity was swept on the way to tapping the HTF zone"* — enforced at formation, which
+is the right moment.
 
-**POSITION DOES NOT DECIDE THE EXTREME ANY MORE.** The cascade used to refuse on
-`role == "decisional"` *before* any of the four ran. His model defines extreme and decisional by
-their PROPERTIES — the extreme is the zone made by the reversal out of an HTF zone with a sweep
-behind it; the decisional is one formed on a rally that failed to reach it — so position is the
-consequence, not the test. Filtering positionally first threw away zones that satisfy every real
-criterion. **Measured: EUR/USD 18 → 46 setups (2.14 → 5.46/month), GBP/USD 16 → 39 (1.90 → 4.63).**
-`role` is still computed and REPORTED on the tap card; it no longer refuses.
+**TWO GATES WERE ADDED AND REMOVED THE SAME DAY. Both were mine, not his:**
 
-**Measuring this correctly is harder than it looks — three harness faults produced wrong numbers
-first:** building the zone book from a window that INCLUDES the bar whose tap is under test (the
-registry ages the zone to `mitigated` first — this reported **0 setups**); feeding only Daily instead
-of D1+W1+MN; and counting distinct zones rather than per-visit while sampling every 4th bar.
-**Tap records are cached at `trading_app_data/bx_cache/`** so variants are evaluated in seconds.
+- **D1/W1/MN backing as a requirement.** His correction: *"HTF is not D/W/Monthly, it only means the
+  extreme and sometimes it can be 4HR... D/W/Monthly are confluences and not rules. HTF can be 4HR
+  so long as it qualifies."* `htf_backing` scores in `bx_sd_strength` and grades in `bx_sd_confirm`
+  — **it must never refuse.** Cost while it did: 84 → 71 and 60 → 45 setups.
+- **A second liquidity sweep at the RETURN tap.** The sweep belongs before price taps the HTF zone —
+  the move that *births* the tradeable zone — not before the return visit that trades it. Re-asking
+  it at the tap was a different, later question wearing the same name. Cost: 84 → 51 and 60 → 48.
+
+**HIS SEQUENCE — the two errors above both came from blurring it. The HTF zone and the CHoCH are
+different things:**
+
+```
+liquidity swept  →  price taps the HTF zone  →  it REACTS there, leaving an unmitigated zone
+                 →  CHoCH completes when price breaks the opposite zone(s)
+                 →  price RETURNS to that unmitigated zone  →  1M/5M confirmation  →  entry
+```
+
+**POSITION DOES NOT DECIDE THE EXTREME.** The cascade used to refuse on `role == "decisional"`
+before any real criterion ran. The extreme is the zone made by the reaction at the HTF zone; the
+decisional is one formed on a later rally that failed to reach it — position is the consequence, not
+the test. Measured: EUR/USD 18 → 46, GBP/USD 16 → 39. `role` is still computed and REPORTED on the
+tap card; it no longer refuses.
+
+**QUALIFYING 4H TAPS (not signals): EUR/USD ~10/month, GBP/USD ~7/month.** The 1M/5M confirmation
+downstream is what turns those into signals, and it is not counted here.
+
+**Measuring this is harder than it looks — four wrong numbers preceded the right one**, every one a
+harness fault: building the zone book from a window that INCLUDES the bar whose tap is under test
+(the registry ages the zone to `mitigated` first — reported **0 setups**); feeding Daily only instead
+of D1+W1+MN; counting distinct zones rather than per-visit; and sampling every 4th bar. **Tap records
+are cached at `trading_app_data/bx_cache/`** so a variant is evaluated in seconds.
 
 ## EXTREME vs DECISIONAL — never trade the near zone (added 2026-08-15)
 
@@ -239,7 +257,7 @@ we use stop orders. That is enough."*
 
 | | before | now |
 |---|---|---|
-| which zone | any `respected` zone | **the four gates** (unmitigated · swept · CHoCH · HTF-backed) — `role` is reported, not a refusal, since 2026-08-19 |
+| which zone | any `respected` zone | **unmitigated + CHoCH** — `role` is reported, not a refusal, since 2026-08-19 |
 | trigger | `respected` **and** (live retap **or** 4H pullback) | **the tap itself** |
 | confirmation | 1M/5M `reaction_on` | **unchanged** |
 | entry | the confirming CLOSE (a market fill) | **a STOP ORDER `_ENTRY_STOP_BUFFER_PIPS` beyond the confirming bar's extreme** |
@@ -317,7 +335,7 @@ moment. The new trigger removed that requirement, so the guarantee was rebuilt o
 
 | | takes |
 |---|---|
-| **ENTRY** (`bx_sd_setup`) | the four gates — unmitigated · swept · CHoCH · HTF-backed (2026-08-19; `role` no longer refuses) |
+| **ENTRY** (`bx_sd_setup`) | unmitigated + the CHoCH (an opposite zone broken). Sweep is enforced at FORMATION; D/W/M is confluence only (2026-08-19) |
 | **TAP ALERT** (`bx_sd_reports` ③) | **`role == "decisional"` only** |
 
 Disjoint by construction, and it makes the alert genuinely informative: it is now the card that says

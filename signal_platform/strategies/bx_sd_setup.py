@@ -34,6 +34,30 @@ it existed — which is exactly how a mid-waterfall candle was sold as a zone on
                 taps that had already come and gone
   3. priced     discount for buys / premium for sells                      (confluence)
   4. the 1M/5M confirmation downstream is what proves the zone was RESPECTED
+
+WHAT REFUSES A SETUP HERE (settled 2026-08-19, after I got it wrong twice):
+
+  * the zone is UNMITIGATED (or wick-only — a wick leaves the orders unfilled)
+  * its move BROKE AN OPPOSITE ZONE — the CHoCH. One is the rule, two is the bonus.
+
+AND NOTHING ELSE. Two gates were added and removed the same day, both my inventions:
+
+  D1/W1/MN BACKING AS A REQUIREMENT. His correction: *"HTF is not D/W/Monthly, it only means the
+  extreme and sometimes it can be 4HR. W/D/M are a strong confluence supporting the HTF zone... So
+  in other words D/W/Monthly are confluences and not rules. HTF can be 4HR so long as it
+  qualifies."* `htf_backing` stays exactly where it was — scoring in `bx_sd_strength` and grading in
+  `bx_sd_confirm` — and must never gate. It was costing 84 -> 71 and 60 -> 45 setups.
+
+  A SECOND LIQUIDITY SWEEP AT THE RETURN TAP. The sweep belongs BEFORE PRICE TAPS THE HTF ZONE —
+  the move that BIRTHS the zone — not before the return visit that trades it: *"there is no valid
+  CHOCH if no liquidity was swept on the way to tapping the HTF zone."* `bx_sd_registry` has
+  required exactly that at formation all along (`swept_before` at the IFC), so re-asking it here was
+  a different, later question wearing the same name. It was costing 84 -> 51 and 60 -> 48.
+
+HIS SEQUENCE, kept here because these two errors both came from blurring it: liquidity is swept ->
+price taps the HTF zone -> it REACTS there, and that reaction leaves an unmitigated zone -> the CHoCH
+completes when price breaks through the opposite zone(s) -> price returns to that unmitigated zone ->
+1M/5M confirmation -> entry. The HTF zone and the CHoCH are two different things.
 """
 from dataclasses import dataclass, field
 
@@ -46,7 +70,6 @@ from strategies.bx_sd_confluence import premium_discount, pricing_aligned, fib_t
 from strategies.bx_sd_control import control, describe, phrase
 from strategies.bx_sd_entry_type import classify, phrase as et_phrase
 from strategies.bx_sd_liquidity import find_liquidity, swept_within
-from strategies.bx_sd_htf import htf_backing
 from strategies.bx_sd_registry import build, to_zone, LIQ_WINDOW
 from strategies.bx_sd_strength import mitigation_note, score as zone_strength
 from shared.mtf_utils import closed_only
@@ -175,8 +198,7 @@ def detect_setup(h4: list[Candle], pip: float = 0.0001, book=None, session_candl
     cand, cand_mz, priced_out, n_live, off_trend = None, None, 0, 0, 0
     cand_via, no_entry_event, cand_swept = "", 0, False
     spent_skipped = 0                            # why a tapped zone was passed over — see the reasons
-    unswept_skipped, unbroken_skipped = 0, 0     # his extreme-qualification rule
-    no_htf_skipped = 0                           # criterion 1 — HTF mitigation
+    unbroken_skipped = 0                         # the CHoCH — an opposite zone broken
     for mz in sorted(marked, key=lambda m: m.ifc_time, reverse=True):
         # NOT `respected` — that is the RETEST path's job (bx_sd_reports, min_grade="B"). Accepting
         # it here let one zone fire BOTH: a duplicate signal, and the fresh cascade firing at C+,
@@ -357,9 +379,6 @@ def detect_setup(h4: list[Candle], pip: float = 0.0001, book=None, session_candl
         # document agrees three ways (§4 singular; §22 step 8 unconditional vs step 9 "IF... becomes
         # STRONGER"; §16 "stronger than breaking ONLY ONE"). The count of two stays a strength input
         # in `bx_sd_strength` and must never be a gate.
-        if not cand_swept:
-            unswept_skipped += 1
-            continue
 
         # ── CRITERION 3: THE ZONE'S MOVE BROKE AN OPPOSITE ZONE (the CHoCH) ─────────────────────
         #
@@ -379,30 +398,6 @@ def detect_setup(h4: list[Candle], pip: float = 0.0001, book=None, session_candl
             unbroken_skipped += 1
             continue
 
-        # ── CRITERION 1: HTF MITIGATION — the zone must sit at a higher-timeframe zone ──────────
-        #
-        #     "Price must reverse & originate from a higher time frame's supply or demand zone."
-        #     "If it did not come from a higher TF zone, it is invalid."
-        #
-        # THE FAKE-CHoCH FILTER, AND IT WAS ENTIRELY MISSING. `htf_backing` has been computed on
-        # every scan since it was written and used ONLY to grade and score — never to refuse. So BX
-        # has been taking exactly the setup his two diagrams contrast: identical structure, identical
-        # break, and the only difference is whether price actually reached the HTF zone. He called
-        # this "the first criteria" and "very important... prevents us from falling into the trap of
-        # a fake CHOCH".
-        #
-        # WHY THIS IS ALSO THE REAL EXTREME/DECISIONAL TEST. In his final diagrams the EXTREME sits
-        # inside the HTF Supply band and the DECISIONAL sits below it, outside. The registry's
-        # positional rule (furthest unmitigated in the group) gets the same answer by accident when
-        # the stack is clean, and the wrong answer when it is not. This asks the question directly.
-        #
-        # `htf_map` is None for callers that do not supply D1/W1/MN (tests, ad-hoc replays); the gate
-        # is then skipped rather than refusing everything on data it cannot see.
-        if htf_map:
-            _z_for_htf = to_zone(mz, bars)
-            if _z_for_htf is None or not htf_backing(_z_for_htf, htf_map):
-                no_htf_skipped += 1
-                continue
         if (mz.top - mz.bottom) < _MIN_PIPS * pip:
             continue
         # PRO-TREND ONLY WHILE TRENDING. A supply zone in an uptrend produces a PULLBACK, not a
@@ -440,18 +435,9 @@ def detect_setup(h4: list[Candle], pip: float = 0.0001, book=None, session_candl
             r.reason = (f"{spent_skipped} zone(s) tapped but ALREADY MITIGATED — only unmitigated "
                         f"zones are traded, a spent zone has done its job")
             return r
-        if unswept_skipped:
-            r.reason = (f"{unswept_skipped} zone(s) tapped but NO LIQUIDITY SWEPT on the approach — "
-                        f"without the sweep the zone itself is the liquidity")
-            return r
         if unbroken_skipped:
             r.reason = (f"{unbroken_skipped} zone(s) tapped but their move broke NO opposite zone — "
                         f"no change of character, so order flow has not flipped")
-            return r
-        if no_htf_skipped:
-            r.reason = (f"{no_htf_skipped} zone(s) tapped but NOT AT A HIGHER-TIMEFRAME ZONE — the "
-                        f"reversal did not originate from D1/W1/MN supply or demand, so this is a "
-                        f"fake change of character")
             return r
         # HOW FAR IS PRICE FROM THE NEAREST LIVE ZONE? This is the one number that answers "why no
         # signal" during a quiet stretch — the cascade fires on a tap, so the distance to the closest
