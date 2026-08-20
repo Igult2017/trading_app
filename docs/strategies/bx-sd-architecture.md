@@ -159,6 +159,36 @@ disturbing good ones.
 bar, so N-vs-N+1 agreed. `test_zones.py` now checks the real property: a zone is never marked before
 its qualifying break, on synthetic events and on both real pairs.
 
+## ⚠ THE FOUR GATES — what actually refuses a setup (rewritten 2026-08-19)
+
+Until this date **three of his four validity criteria were computed on every scan and used only to
+grade or score. None could refuse anything.** They are gates now, in `bx_sd_setup.detect_setup`:
+
+| # | gate | source | what it asks |
+|---|---|---|---|
+| 1 | **Unmitigated** | *"we are only trading unmitigated and extreme zones"* | `state == "unmitigated"` or wick-only (a wick leaves the orders unfilled) |
+| 2 | **Liquidity swept on the approach** | *"if the price doesn't sweep liquidity before a key level, it often uses that zone as liquidity"* | `swept_within` over the last `LIQ_WINDOW` bars before the tap |
+| 3 | **CHoCH — an OPPOSITE zone was broken** | *"every time a zone breaks, an opposite side zone automatically forms"* | `broke_through >= 1`. **One is the rule, two is the bonus** — two stays a strength input and must never gate |
+| 4 | **HTF mitigation** | *"Price must reverse & originate from a higher time frame's supply or demand zone"* | `htf_backing(zone, htf_map)` non-empty (D1/W1/MN) |
+
+**Gate 4 is the fake-CHoCH filter and it was absent entirely.** His two diagrams differ *only* in
+whether price reached the HTF zone — identical structure, identical break, one valid and one fake —
+and BX took both.
+
+**POSITION DOES NOT DECIDE THE EXTREME ANY MORE.** The cascade used to refuse on
+`role == "decisional"` *before* any of the four ran. His model defines extreme and decisional by
+their PROPERTIES — the extreme is the zone made by the reversal out of an HTF zone with a sweep
+behind it; the decisional is one formed on a rally that failed to reach it — so position is the
+consequence, not the test. Filtering positionally first threw away zones that satisfy every real
+criterion. **Measured: EUR/USD 18 → 46 setups (2.14 → 5.46/month), GBP/USD 16 → 39 (1.90 → 4.63).**
+`role` is still computed and REPORTED on the tap card; it no longer refuses.
+
+**Measuring this correctly is harder than it looks — three harness faults produced wrong numbers
+first:** building the zone book from a window that INCLUDES the bar whose tap is under test (the
+registry ages the zone to `mitigated` first — this reported **0 setups**); feeding only Daily instead
+of D1+W1+MN; and counting distinct zones rather than per-visit while sampling every 4th bar.
+**Tap records are cached at `trading_app_data/bx_cache/`** so variants are evaluated in seconds.
+
 ## EXTREME vs DECISIONAL — never trade the near zone (added 2026-08-15)
 
 **Smart Risk, "3. Double Zone Break Out":** *"we cannot place any trades based on the decisional
@@ -209,7 +239,7 @@ we use stop orders. That is enough."*
 
 | | before | now |
 |---|---|---|
-| which zone | any `respected` zone | **`role != "decisional"`** — the extreme of a stack, or one standing alone |
+| which zone | any `respected` zone | **the four gates** (unmitigated · swept · CHoCH · HTF-backed) — `role` is reported, not a refusal, since 2026-08-19 |
 | trigger | `respected` **and** (live retap **or** 4H pullback) | **the tap itself** |
 | confirmation | 1M/5M `reaction_on` | **unchanged** |
 | entry | the confirming CLOSE (a market fill) | **a STOP ORDER `_ENTRY_STOP_BUFFER_PIPS` beyond the confirming bar's extreme** |
@@ -287,7 +317,7 @@ moment. The new trigger removed that requirement, so the guarantee was rebuilt o
 
 | | takes |
 |---|---|
-| **ENTRY** (`bx_sd_setup`) | `role != "decisional"` — the extreme, or a lone zone |
+| **ENTRY** (`bx_sd_setup`) | the four gates — unmitigated · swept · CHoCH · HTF-backed (2026-08-19; `role` no longer refuses) |
 | **TAP ALERT** (`bx_sd_reports` ③) | **`role == "decisional"` only** |
 
 Disjoint by construction, and it makes the alert genuinely informative: it is now the card that says
