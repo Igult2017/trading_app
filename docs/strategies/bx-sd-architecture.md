@@ -61,34 +61,56 @@ by signature and were fed to only one of three call sites for as long as the par
 factor 3 could not see a single Asia/London/NY level while the entry-time defensive check two modules
 away had been reading them all along.
 
-## BX publishes TWO moments (2026-08-04)
+## BX publishes TWO moments — rewritten 2026-08-19 to HIS sequence
 
-The user asked for the earlier one: *"For price taps into 4HR zone and there is a confirmation in 5M
-or 1M a cheeky signal should be sent … I am asking for the first signal before the pullback."*
+    liquidity swept -> price taps the EXTREME HTF unmitigated zone -> it is RESPECTED
+    -> the CHoCH breaks the opposite zone -> price RETURNS to tap the zone that reaction created
+    -> confirmed entry.        "This means the signal fires twice."
 
-| | **TAP ALERT** ("cheeky one") | **ENTRY** |
+| | **SIGNAL 1 — the reaction** | **SIGNAL 2 — the confirmed entry** |
 |---|---|---|
-| fires when | zone TAPPED + a 1M/5M **reversal** reaction | zone RESPECTED → moved away → first 4H pullback → 1M/5M confirmation |
-| zone state | **NOT** `respected` | `respected` |
-| carries | no entry, no stop, no target — **plus why the method would already take it, and why we don't** | all three, plus the order type |
-| goes to | the channel, `alert_only` + `to_channel` | the channel, a real signal |
-| owned by | `bx_sd_reports` ③ → `bx_sd_tap_alert` | `bx_sd_setup` + `bx_sd_confirm` |
+| fires when | the extreme zone is **RESPECTED** (price closed a full zone-height away) + a 5M/1M confirmation | price **returns** to the zone that reaction created, the CHoCH complete behind it |
+| zone | the **parent** — the HTF extreme | the **child** — a different 4H zone |
+| carries | no entry/stop/target — a heads-up | entry, stop, target |
+| owned by | `bx_sd_reports` ① | `bx_sd_setup` + `bx_sd_confirm` |
 
-**`respected` is the divider, and it is absolute.** The tap alert requires the zone NOT to be
-respected; the entry requires that it is. One zone can never produce both at the same moment, so
-there is never a question of which card means "place a trade". Do not relax either side of that
-without replacing the guarantee.
+**THE DIVIDER IS NO LONGER `respected` vs not-respected ON ONE ZONE.** It is **two different zones at
+two different times**, and that is the whole correction. Previously signal 1 fired on a zone that was
+*not* respected and signal 2 re-traded the *same* zone — so BX announced a setup before price had
+reacted at all, then entered the zone it had just announced.
 
-**The confirmation is ONE function** — `bx_sd_entry.reaction_on`, shared by both. It was inline in
-`entry_trigger` until the tap alert needed the same question answered without an entry. Two copies
-would drift, and the drift would be invisible: the room told a zone is confirmed while the cascade
-that decides whether to trade it disagrees.
+**HTF MEANS THE EXTREME ZONE, NOT A D/W/M CHART.** His correction: *"HTF is not D/W/Monthly, it only
+means the extreme and sometimes it can be 4HR... D/W/M are a strong confluence supporting the HTF
+zone."* `htf_backing` scores and grades; it must never gate.
 
-**The tap alert passes `reversal_only=True`.** The continuation arm asks only "is the last entry-TF
-BOS in my direction" — i.e. the move is still going. At a zone that has already proven itself that is
-evidence; at an unproven zone it is nearly nothing, and it fires on most trending pairs.
-`test_tap_alert` pins this with a faded-rally fixture that the reversal arms decline and continuation
-accepts.
+**THE CHILD IS A 4H ZONE.** His correction after I misread the diagram's `1M Supply` label: *"The LTF
+is for entry. The zone created is a 4HR zone."* `bx_sd_ltf.refine_zone` prices the entry INSIDE it,
+exactly as before — the LTF never becomes the zone.
+
+**THE LINK IS DERIVED, NOT REMEMBERED** (`bx_sd_lineage`). Both zones are already in the book; the
+only thing missing was the sentence *"this zone was born of the reaction at that one"*. The first
+design stored the child on `self._locked` at signal 1; deriving it survives restarts, replays
+identically, and cannot disagree with the registry.
+
+- `child_of(parent, zones)` — same side, marked at/after `parent.respected_at`, nearest in price
+- `parent_of(child, zones)` — the inverse; **no parent means not an entry candidate**
+- `choch_complete(child)` — `broke_through >= 1`. One is the rule, two is a bonus and never gates
+- `is_entry_zone(mz, zones, live)` — signal 2: has a parent, CHoCH done, still loaded, tapped now
+
+**MEASURED, 5.6 months, book windowed to 1000 H4 bars as production does:**
+
+| | signal 1 | signal 2 |
+|---|---|---|
+| EUR/USD | 62 (**11.1/mo**) | 44 (**7.9/mo**) |
+| GBP/USD | 61 (**11.0/mo**) | 37 (**6.6/mo**) |
+
+Signal 2 is properly rarer than signal 1 — every entry follows a reaction, not every reaction earns a
+return visit.
+
+**A HARNESS BUG THAT READ 0 ENTRIES FIRST, recorded because it is the fifth of its family today:** the
+replay added *every live zone* to its "already seen this visit" set instead of only the **tapped**
+ones, so from the second bar onward nothing could ever count. The book was healthy throughout — 26 of
+51 live zones were entry-eligible but for the tap. **Verify a 0 against the book before believing it.**
 
 ## The lifecycle
 

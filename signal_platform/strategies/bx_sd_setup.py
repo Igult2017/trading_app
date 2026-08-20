@@ -70,6 +70,7 @@ from strategies.bx_sd_confluence import premium_discount, pricing_aligned, fib_t
 from strategies.bx_sd_control import control, describe, phrase
 from strategies.bx_sd_entry_type import classify, phrase as et_phrase
 from strategies.bx_sd_liquidity import find_liquidity, swept_within
+from strategies.bx_sd_lineage import is_entry_zone
 from strategies.bx_sd_registry import build, to_zone, LIQ_WINDOW
 from strategies.bx_sd_strength import mitigation_note, score as zone_strength
 from shared.mtf_utils import closed_only
@@ -394,7 +395,20 @@ def detect_setup(h4: list[Candle], pip: float = 0.0001, book=None, session_candl
         # ONE IS THE RULE, TWO IS THE BONUS. His words, and the document three ways (§4 singular;
         # §22 step 8 unconditional vs step 9 "IF ... becomes STRONGER"; §16 "stronger than breaking
         # ONLY ONE"). Two stays a strength input in `bx_sd_strength` and must never gate here.
-        if mz.broke_through < 1:
+        # ── SIGNAL 2: THIS MUST BE THE ZONE THE CHoCH CREATED, AND PRICE MUST BE BACK AT IT ────
+        #
+        #     "After the price breaking an opposite zone or two, it is anticipated to go back and tap
+        #      the unmitigated zone it formed when it tapped the HTF zone to birth the CHoCH... the
+        #      second one is a confirmed entry when the price comes back to tap that zone."
+        #
+        # BX USED TO RE-TRADE THE SAME ZONE. It entered on whichever zone price was tapping, with no
+        # notion of which zone was born of which reaction — so the "second signal" was just the first
+        # one again. `bx_sd_lineage` supplies the missing sentence: this zone has a PARENT whose
+        # reaction created it, and the CHoCH behind it has completed.
+        #
+        # `is_entry_zone` folds in the CHoCH check (`broke_through >= 1`) that used to sit here on its
+        # own, so the two are asked together and cannot drift apart.
+        if not is_entry_zone(mz, marked, live_bar):
             unbroken_skipped += 1
             continue
 

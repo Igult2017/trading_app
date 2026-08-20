@@ -60,7 +60,36 @@ def scan_reports(symbol: str, entry_tf: list[Candle], m5: list[Candle], m1: list
         # heads-up could never coincide with the tap actually happening.
         # `wick_mitigated`/`body_mitigated` replaced `mitigated` (2026-07-30) — a retap of either is
         # still worth a heads-up, and the card distinguishes them.
-        if mz.state not in ("unmitigated", "wick_mitigated", "body_mitigated") or not mz.tapped_by(live):
+        # SIGNAL 1 = THE HTF EXTREME HAS BEEN TAPPED **AND RESPECTED** (2026-08-19). His sequence:
+        #
+        #     "The first one is when, after liquidity sweep, a valid extreme HTF zone is tapped and
+        #      RESPECTED and there is a confirmation in 5M TF."
+        #
+        # THIS INVERTS WHAT WAS HERE. The condition read `state not in (unmitigated, wick_mitigated,
+        # body_mitigated)` — i.e. it fired on any tapped zone EXCEPT a respected one, the opposite of
+        # his rule. BX was announcing the setup before price had reacted at all, which is the moment
+        # that carries no evidence: a tap proves only that price arrived.
+        #
+        # `respected` means price closed a full zone-height away (bx_sd_registry.REACT_MULT) — the
+        # reaction itself, which is what births the child zone signal 2 waits for. So this is not a
+        # stricter version of the old alert, it is a different event: the old one said "price is
+        # here", this one says "price came here and turned".
+        #
+        # THE TRIGGER IS THE REACTION, NOT A LIVE TAP — and those are mutually exclusive, which is
+        # what makes this worth spelling out. `respected` means price closed a full zone-height AWAY
+        # (`bx_sd_registry.REACT_MULT`), so at that instant price is by definition NOT in the zone.
+        # The old line asked for `tapped_by(live)`; keeping it alongside `respected` would have been
+        # a condition that can never be satisfied — the kind of check that reads correctly and
+        # silently fires nothing. `respected_at` is the bar the reaction completed on, so recency on
+        # THAT is the honest trigger.
+        #
+        # WITHIN THE LAST TWO CLOSED BARS, not exactly the newest: the scan runs every 60s against
+        # 4H bars, so the transition bar stays newest for hours, and a two-bar window only tolerates
+        # a scan landing across a boundary. Repeats are handled by the dedup key below, which is
+        # keyed on `respected_at` for this path — one alert per reaction, not per visit.
+        if mz.state != "respected" or mz.respected_at is None:
+            continue
+        if mz.respected_at not in {c.time for c in bars[-2:]}:
             continue
         if (mz.top - mz.bottom) < tmin:
             continue
@@ -68,11 +97,24 @@ def scan_reports(symbol: str, entry_tf: list[Candle], m5: list[Candle], m1: list
         # life, so every later retap was swallowed — the opposite of the rule that a wick tap signals
         # AND its retap signals again. `live_visit()` is stable while price lingers inside and
         # increments when it comes back, so a lingering zone does not spam either.
-        key = f"{dm_id}_mit_{mz.ifc_time}_{mz.direction}_v{mz.live_visit()}"
+        # ONE PER REACTION, not per visit. `live_visit()` counts return taps — the right unit while
+        # this path fired on a tap, and the wrong one now that it fires on the zone being RESPECTED,
+        # which happens once per reaction. Keying on `respected_at` means a later retap of the same
+        # zone cannot re-open an alert that has already been sent for this reaction.
+        key = f"{dm_id}_react_{mz.ifc_time}_{mz.direction}_{mz.respected_at}"
         if delivery_ledger.is_delivered(key):
             continue
         z = to_zone(mz, bars)
         if z is None:
+            continue
+        # ...AND A 5M CONFIRMATION, which his rule requires and this path never asked for:
+        #     "a valid extreme HTF zone is tapped and respected and there is a confirmation in 5M TF"
+        # The SAME function the entry uses (`bx_sd_entry.reaction_on`) — never a second definition of
+        # "confirmed", which is the drift this codebase has already paid for once.
+        want = "up" if mz.direction == "demand" else "down"
+        if not any(reaction_on(cs, want, z, mz.direction, reversal_only=REVERSAL_ONLY)
+                   for cs, _lbl in ((m5, "5M"), (m1, "1M"), (entry_tf, "entry TF"))
+                   if cs and len(cs) >= 20):
             continue
         sig = mitigation_signal(z, symbol, htf_backing(z, htf_map), digits, name, dm_id,
                                 note=mitigation_note(mz), retaps=mz.retaps)
