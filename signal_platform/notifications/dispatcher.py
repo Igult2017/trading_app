@@ -175,7 +175,18 @@ async def on_setup_alert(signal: Signal) -> None:
     # wherever it lands) and `signals_dm_only` chooses only WHERE. A card that says "watching, not
     # trading" and carries no entry, stop or target is safe in either place.
     caption = format_tap_alert(signal) if signal.to_channel else format_setup_alert(signal)
-    if signal.to_channel and not settings.signals_dm_only:
+    # DM_ONLY_EXEMPT APPLIES HERE TOO (2026-08-19). `on_signal_confirmed` has always honoured the
+    # exemption list — a trusted strategy still reaches the channel while SIGNALS_DM_ONLY holds the
+    # rest in the DM — but this path never did, so a `to_channel` alert was silently forced private
+    # whenever the kill-switch was on. Production runs with SIGNALS_DM_ONLY=true, so BX's unconfirmed
+    # entry would have gone to the DM no matter what the strategy asked for.
+    #
+    # The `_watch` suffix is stripped before the lookup, exactly as the confirmed path does it — the
+    # exemption is a property of the STRATEGY, not of which of its two cards is being sent.
+    _sid  = signal.strategy_id or ""
+    _base = _sid[:-len("_watch")] if _sid.endswith("_watch") else _sid
+    _exempt = _base in {x.strip() for x in settings.dm_only_exempt.split(",") if x.strip()}
+    if signal.to_channel and (not settings.signals_dm_only or _exempt):
         ok = (await _send_photo(chart, caption) if has_chart          # public signal channel
               else await _send_text(caption))
     else:

@@ -71,13 +71,22 @@ away had been reading them all along.
 |---|---|---|
 | fires when | the extreme zone is **RESPECTED** (price closed a full zone-height away) + a 5M/1M confirmation | price **returns** to the zone that reaction created, the CHoCH complete behind it |
 | zone | the **parent** — the HTF extreme | the **child** — a different 4H zone |
-| carries | no entry/stop/target — a heads-up | entry, stop, target |
+| labelled | **UNCONFIRMED ENTRY** | **CONFIRMED ENTRY** |
+| goes to | **the channel** | **the channel** |
+| carries | no entry/stop/target — the reaction, not a trade | entry, stop, target |
 | owned by | `bx_sd_reports` ① | `bx_sd_setup` + `bx_sd_confirm` |
 
 **THE DIVIDER IS NO LONGER `respected` vs not-respected ON ONE ZONE.** It is **two different zones at
 two different times**, and that is the whole correction. Previously signal 1 fired on a zone that was
 *not* respected and signal 2 re-traded the *same* zone — so BX announced a setup before price had
 reacted at all, then entered the zone it had just announced.
+
+**BOTH CARDS GO TO THE CHANNEL** (his instruction, 2026-08-19). This supersedes the 2026-07-27
+rule *"only send BX entry signals to the channel"* — the room now sees both halves of the
+sequence. Signal 1 still carries no entry, stop or target, so it cannot be mistaken for a
+trade. Delivering it required `on_setup_alert` to honour `DM_ONLY_EXEMPT`, which only the
+confirmed path had done: production runs `SIGNALS_DM_ONLY=true`, so a `to_channel` alert was
+being forced private no matter what the strategy asked for.
 
 **HTF MEANS THE EXTREME ZONE, NOT A D/W/M CHART.** His correction: *"HTF is not D/W/Monthly, it only
 means the extreme and sometimes it can be 4HR... D/W/M are a strong confluence supporting the HTF

@@ -27,14 +27,19 @@ def masthead(ax, sig: Signal, buy: bool, subtitle: str) -> None:
     # a "building" heads-up is a reason to WATCH, and a reader who mistakes it for a ready entry
     # takes the trade early — which is the exact failure the two-stage split exists to prevent.
     accent = theme.WAIT if building else (theme.UP if buy else theme.DOWN)
-    head = (f"{'BUY' if buy else 'SELL'} SETUP BUILDING" if building
-            else f"{'BUY' if buy else 'SELL'} — READY")
+    # HIS LABELS, 2026-08-19: *"Signal 1 should be labelled UNCONFIRMED ENTRY and signal 2 should be
+    # labelled CONFIRMED ENTRY."* They name what the reader is looking at in his own vocabulary —
+    # "SETUP BUILDING" / "READY" described the old one-zone two-stage split, which no longer exists.
+    # Signal 1 is the reaction at the extreme (no entry price yet); signal 2 is the return to the
+    # zone that reaction created, with entry, stop and target on it.
+    head = (f"{'BUY' if buy else 'SELL'} — UNCONFIRMED ENTRY" if building
+            else f"{'BUY' if buy else 'SELL'} — CONFIRMED ENTRY")
     ax.plot([0.0, 0.022], [0.86, 0.86], color=accent, linewidth=3, zorder=3)
     ax.text(0.032, 0.845, head, color=accent, va="center",
             ha="left", fontproperties=theme.font(15, bold=True))
     # THE ORDER TYPE IS THE HEADLINE OF A READY CARD — it is the instruction. It replaces the
     # strategy label chip, which was decoration next to it.
-    chip = sig.order_type if (sig.order_type and not building) else ("WAIT FOR ENTRY" if building
+    chip = sig.order_type if (sig.order_type and not building) else ("AWAIT THE RETURN" if building
                                                                     else sig.label)
     if chip:
         ax.text(0.995, 0.845, f" {chip} ", color=theme.PAPER if not building else theme.INK,

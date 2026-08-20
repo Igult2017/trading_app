@@ -31,7 +31,15 @@ def mitigation_signal(zone: Zone, symbol: str, backing: list[str], digits: int,
         direction         = Direction.BUY if buy else Direction.SELL,
         strategy_id       = strategy_id,
         strategy_name     = strategy_name,
-        alert_only        = True,        # heads-up, NOT a confirmed signal -> admin DM, never the channel
+        alert_only        = True,        # no entry/stop/target on this card — it is not a trade yet
+        # TO THE CHANNEL, on his instruction 2026-08-19: *"Signal 1 should be labelled unconfirmed
+        # entry and signal 2 should be labelled confirmed entry. Both should be sent to the channel."*
+        #
+        # THIS CHANGES THE 2026-07-27 RULE — *"Only send BX entry signals to the channel"* — which is
+        # why it is called out rather than slipped in. The room now gets both halves of the sequence:
+        # the reaction at the extreme (unconfirmed) and the return to the zone it created (confirmed).
+        # The card still carries NO entry, stop or target, so it cannot be mistaken for a trade.
+        to_channel        = True,
         # STAGE 1 — the higher timeframe is building: a zone has been mitigated, the entry has not
         # been confirmed. The card renders amber and says WAIT FOR ENTRY.
         stage             = "building",
