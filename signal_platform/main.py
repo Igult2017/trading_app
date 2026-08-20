@@ -31,8 +31,14 @@ async def _startup() -> None:
     # outage. A signal that never arrived has two very different explanations, "the strategy declined
     # it" and "the process was not running", and until 2026-07-27 nothing in the system could tell
     # them apart: container logs start at boot, so an outage erases its own evidence.
+    # ...AND SAY SO. Recording the outage was only half of it: the row went into the database and
+    # nothing ever read it, so the 4h45m absence on 15 Aug 2026 surfaced five days later by accident.
+    # The existing S3 alert cannot cover this case — it fires from `write_status` on a boot ERROR, so
+    # a process that was KILLED (or a container that died) reports nothing at all. See
+    # `startup_helpers.report_downtime`.
     from storage import observability_repo as obs
-    obs.detect_downtime()
+    from core.startup_helpers import report_downtime
+    report_downtime(obs.detect_downtime())
     obs.beat()
 
     # 2. Bootstrap tokens from Node DB (always fresh — overrides potentially-stale env vars)

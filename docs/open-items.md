@@ -62,8 +62,13 @@ write-only (item 2 above):
 are long gone, which is exactly why that table exists — but it also means the CAUSE is not
 recoverable now. Nothing to fix retroactively; the open question is whether this recurs. Now that the
 heartbeat is exposed, `lastDowntime` on `/api/signal-platform/status` answers *"was it up when that
-candle closed?"* in one request. **Decision for the user:** whether a detected outage should also
-send a Telegram DM at boot rather than waiting to be asked.
+candle closed?"* in one request.
+
+**BOOT ALERT BUILT the same day, at his request.** `startup_helpers.report_downtime` DMs the coded
+private chat (`🛰️ S3 ⏫`) with the window, the length in plain words, and what it means. **It is not a
+duplicate of the existing S3 alert** — that one fires from `write_status` on a boot *error*, so a
+killed process or a dead container reports nothing at all, which is exactly why 15 Aug was silent.
+No dedup needed: a crash-loop sees a fresh heartbeat and falls under the 300s threshold.
 
 **The rule this is evidence for** (`~/.claude/CLAUDE.md`, "FIX THE UNDERLYING PROBLEM"): a number
 produced by a harness I wrote is a claim about the harness until it is a claim about the platform.

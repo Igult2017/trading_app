@@ -31,6 +31,57 @@ def _send_coded(text: str) -> None:
         pass
 
 
+def _spell_duration(seconds: int) -> str:
+    """"4h 45m", "12m", "2d 3h" — a length someone can feel, not a count of seconds."""
+    m = max(1, int(seconds // 60))
+    d, rem = divmod(m, 1440)
+    h, mm = divmod(rem, 60)
+    if d:
+        return f"{d}d {h}h" if h else f"{d}d"
+    if h:
+        return f"{h}h {mm:02d}m" if mm else f"{h}h"
+    return f"{mm}m"
+
+
+def report_downtime(outage) -> None:
+    """THE OUTAGE THAT LEAVES NO PROCESS BEHIND TO REPORT IT.
+
+    The existing S3 alert fires from `write_status` on a BOOT ERROR — Python started, ran its checks
+    and found a fault. That covers a misconfigured or unreachable start, and it covers nothing else:
+    if the process is KILLED, or the container dies, or the host goes away, `write_status` is never
+    called, so no down alert is sent and no recovery is sent either (⏫ only fires when a prior ⏬ left
+    the marker behind). An absence with nothing running is invisible to it BY CONSTRUCTION.
+
+    That is exactly what happened on 15 Aug 2026: the platform was gone 09:00 → 13:45 UTC, 4h 45m,
+    and nothing said a word. The outage WAS detected and written to `platform_downtime` at the next
+    boot — and then sat in the database, because nothing read it. It surfaced five days later only
+    because the heartbeat was finally exposed through the API.
+
+    THE HEARTBEAT'S AGE AT BOOT IS THE ONLY WITNESS to that class of failure, so this is the only
+    place such an outage can be announced from. Sent through the same private coded channel as the
+    other S3 telemetry, and ⏫ because by the time this runs the platform is back.
+
+    NO DEDUP NEEDED, and none is added: `detect_downtime` compares the heartbeat's age at THIS boot,
+    so a crash-loop restarting every 60s sees a 60-second-old heartbeat, falls under the 300s
+    threshold and returns None. The alert can only fire on a genuine absence.
+    """
+    if outage is None:
+        return
+    try:
+        _send_coded(
+            f"🛰️ S3 ⏫\n\n"
+            f"The signal engine was NOT RUNNING for {_spell_duration(outage.seconds)} —\n"
+            f"   from  {outage.down_from:%d %b %H:%M} UTC\n"
+            f"   to    {outage.down_to:%d %b %H:%M} UTC\n\n"
+            f"No signal of any kind could have been sent in that window. Anything that set up while "
+            f"it was down was MISSED, not declined — that is the difference this tells you.\n\n"
+            f"It is back up and scanning now."
+        )
+    except Exception:
+        # Telemetry must never be able to stop the platform booting.
+        pass
+
+
 def write_status(status: str, error: str = "", hint: str = "") -> None:
     try:
         _STATUS_FILE.write_text(json.dumps({

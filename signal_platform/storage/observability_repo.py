@@ -12,6 +12,7 @@ blocks are exactly what made 27 Jul undiagnosable.
 
 import logging
 import re
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
 from storage.db import get_session
@@ -23,7 +24,8 @@ from storage.observability_models import (
 
 log = logging.getLogger(__name__)
 
-__all__ = ["record", "beat", "detect_downtime", "STAGE_BUILT", "STAGE_VALIDATED", "STAGE_SAVED",
+__all__ = ["record", "beat", "detect_downtime", "Outage",
+           "STAGE_BUILT", "STAGE_VALIDATED", "STAGE_SAVED",
            "STAGE_DISPATCHED", "STAGE_DELIVERED", "STAGE_DROPPED", "STAGE_EVALUATED"]
 
 # A gap larger than this at boot counts as an outage worth recording. The scan loop runs every
@@ -89,8 +91,21 @@ def beat(scans: int = 0, tick_ms: int | None = None) -> None:
         log.warning(f"[observability] heartbeat write failed: {type(exc).__name__}: {exc}")
 
 
-def detect_downtime(threshold_s: int = _DOWNTIME_THRESHOLD_S) -> float | None:
-    """At boot: how long were we gone? Records the span and returns it in seconds.
+@dataclass(frozen=True)
+class Outage:
+    """One detected absence. Returned so the caller can REPORT it, not just record it.
+
+    `detect_downtime` used to return a bare `float` of seconds, and main.py threw it away. That was
+    enough to write the row and no more — the outage went into the database and nothing ever told
+    anyone. Handing back the window as well is what makes the boot alert possible.
+    """
+    down_from: datetime
+    down_to: datetime
+    seconds: int
+
+
+def detect_downtime(threshold_s: int = _DOWNTIME_THRESHOLD_S) -> Outage | None:
+    """At boot: how long were we gone? Records the span and returns it.
 
     Returns None when there is no previous heartbeat (first ever boot) or the gap is under the
     threshold. Reads the heartbeat BEFORE anything overwrites it, so call this at startup, ahead of
@@ -116,7 +131,7 @@ def detect_downtime(threshold_s: int = _DOWNTIME_THRESHOLD_S) -> float | None:
             log.warning(f"[observability] PLATFORM WAS DOWN for {gap/60:.1f} min "
                         f"({last:%Y-%m-%d %H:%M:%S} → {now:%Y-%m-%d %H:%M:%S} UTC) — "
                         f"no signal could have been sent in that window")
-            return gap
+            return Outage(down_from=last, down_to=now, seconds=int(gap))
     except Exception as exc:
         log.warning(f"[observability] downtime detection failed: {type(exc).__name__}: {exc}")
         return None

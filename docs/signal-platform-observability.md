@@ -111,6 +111,29 @@ saying why, and the answer is nearly always one instrument's feed.
 
 Two reads of `scans` a minute apart give the true tick rate independently of any of this.
 
+### The outage now ANNOUNCES ITSELF at boot (added 2026-08-20)
+
+Recording it was only half the job. The 15 Aug outage was detected and written correctly at the next
+boot — and then sat in the database for five days, because nothing read it.
+
+**The existing S3 health alert cannot cover this case, by construction.** It fires from
+`startup_helpers.write_status` on a boot **error** — Python started, ran its checks, found a fault.
+A process that is KILLED, a container that dies, a host that goes away: none of them call
+`write_status`, so no ⏬ is sent, and no ⏫ either (recovery only fires when a prior ⏬ left the
+`/app/.s3_down` marker). **An absence with nothing running is invisible to it.**
+
+`startup_helpers.report_downtime(obs.detect_downtime())` in `main.py` closes that gap — the
+heartbeat's age at boot is the only witness such an outage leaves, so this is the only place it can
+be announced from. It goes to the private coded chat as `🛰️ S3 ⏫`, with the window and the length in
+plain words, and says what it MEANS: *"Anything that set up while it was down was MISSED, not
+declined."*
+
+**No dedup is needed and none was added.** `detect_downtime` measures the heartbeat's age at THIS
+boot, so a crash-loop restarting every 60s sees a 60-second-old heartbeat, falls under the 300s
+threshold and returns None. The alert can only fire on a real absence. Confirmed against a real
+deploy: the 2026-08-20 redeploy did **not** create a downtime row, so ordinary deploys stay under the
+line and this will not become deploy noise.
+
 ### `platform_downtime` — one row per detected outage
 
 Answers the question nothing in the system could answer before: *was the platform even up when that
