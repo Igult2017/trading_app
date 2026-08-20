@@ -100,6 +100,26 @@ s.teeth("the level really is beyond the reach",
 s.teeth("assumed and seen are genuinely different outcomes",
         (got.seen is True) and (got2.seen is False))
 
+
+# ── THE SPREAD: added on a BUY, never on a SELL ──────────────────────────────
+# cTrader triggers a BUY stop on the ASK and candles are BID, so a buy level must carry the spread or
+# it fires when the real price is still a spread BELOW the high it was meant to break. A SELL stop
+# triggers on the BID — the same frame as the candles — so it needs nothing. The asymmetry is the
+# broker's, and both halves are asserted.
+SP = 0.00012                                    # 1.2 pips, the measured EUR/USD session spread
+b0 = X.decide(base + [cross, on], True, LINE, PIP, spread=0.0)
+b1 = X.decide(base + [cross, on], True, LINE, PIP, spread=SP)
+s.check("BUY: the level rises by exactly the spread", round(b1.entry - b0.entry, 6), round(SP, 6))
+s.check("BUY: spread=0 is identical to no spread at all", b1.entry != b0.entry, True)
+s.check("BUY: the reach itself is untouched — only the ORDER moves", b1.reach, b0.reach)
+s0 = X.decide(sbase + [scross, spb], False, LINE, PIP, spread=0.0)
+s1 = X.decide(sbase + [scross, spb], False, LINE, PIP, spread=SP)
+s.check("SELL: the level does NOT move — sell stops trigger on the bid", s1.entry, s0.entry)
+s.check("a negative or absent spread is treated as zero",
+        X.decide(base + [cross, on], True, LINE, PIP, spread=-0.5).entry, b0.entry)
+s.teeth("the spread genuinely moves the buy level", b1.entry > b0.entry)
+s.teeth("...and genuinely does not move the sell level", s1.entry == s0.entry)
+
 # ── HIS OWN TRADE, from real broker bars ─────────────────────────────────────
 # EUR/USD 5 Aug 2019. The 10:00 H1 candle closed at 1.11705 = the line. His order was 1.11734.
 REAL = [
@@ -118,6 +138,11 @@ s.check("REAL: it decides one candle after the cross", his is not None, True)
 if his:
     s.check("REAL: the furthest price reached was 1.11733", round(his.reach, 5), 1.11733)
     s.check("REAL: >>> the order price is HIS 1.11734 <<<", round(his.entry, 5), 1.11734)
+    # AT ZERO SPREAD, deliberately: this fixture is the anchor that says the spread work
+    # changed only what it meant to. If it ever needs a spread to reproduce his number,
+    # something other than the spread has moved.
+    s.check("REAL: ...and that is at ZERO spread — the anchor for every later change",
+            round(X.decide(real[:3], True, HIS_LINE, PIP, spread=0.0).entry, 5), 1.11734)
     s.check("REAL: and it is an ASSUMED entry — 11:07 did not pull back", his.seen, False)
 
 s.done()

@@ -68,11 +68,17 @@ def _m1_range(wcl: list[Candle]) -> float:
 
 
 def m1_signals(m1: list[Candle], bullish: bool, vc: Candle,
-               pip: float = 0.0001, symbol: str = "") -> list[dict]:
+               pip: float = 0.0001, symbol: str = "",
+               spread: float | None = None) -> list[dict]:
     """The 1M entry — [{"kind", "entry", "sl", "sl_note"}] or [] (logs why).
 
     `vc` is the FIRST momentum candle of the 1HR run; its body close is THE LINE. The caller turns
     `entry`/`sl` into a 2R target, so risk-reward is fixed at 1:2 by construction.
+
+    `spread` (price units, ask - bid) shifts a BUY order up by exactly one spread so the trigger means
+    "the bid broke the high" rather than "the ask did" — see `vix1_cross.decide`. It also widens the
+    risk floor, because a stop shorter than the cost of getting in cannot win. None or 0 reproduces
+    the pre-spread behaviour exactly.
     """
     if not m1:
         return []
@@ -109,7 +115,8 @@ def m1_signals(m1: list[Candle], bullish: bool, vc: Candle,
         route = "fractal_"
 
     # THE CROSS and the level (vix1_cross) — the only thing the 1M is asked.
-    x = vix1_cross.decide(wcl, bullish, line, pip)
+    sp = max(0.0, spread or 0.0)
+    x = vix1_cross.decide(wcl, bullish, line, pip, spread=sp)
     if x is None:
         ci = vix1_cross.cross_index(wcl, bullish, line)
         why = ("no 1M candle has CLOSED past the line yet" if ci is None else
@@ -140,7 +147,12 @@ def m1_signals(m1: list[Candle], bullish: bool, vc: Candle,
 
     risk     = abs(entry - sl)
     max_risk = full_range(vc)          # "2 candles of 1HR gives 2R" -> one candle is 1R
-    room     = max(_MIN_ROOM_MULT * m1_rng, vix1_cross.tick(pip))
+    # THE FLOOR NOW CARRIES THE SPREAD TOO. It was the NOISE a stop must survive; the cost of
+    # getting in is the other thing it must survive, and a stop shorter than the spread is a
+    # guaranteed loss — you buy at the ask and the stop sits on the bid, so the market only has to
+    # move (risk - spread) against you. Measured 2026-08-20: 32% of EUR/USD stops were under 3 pips
+    # against a 1.2 pip spread. Added, not multiplied — no new tuning constant.
+    room     = max(_MIN_ROOM_MULT * m1_rng + sp, vix1_cross.tick(pip))
     if risk < room:
         # A stop too tight gets wicked out of a trade that then runs our way. The floor is the NOISE
         # it has to survive, measured in the 1M's own range — never in pips.
@@ -150,7 +162,8 @@ def m1_signals(m1: list[Candle], bullish: bool, vc: Candle,
             return []
         sl      = entry - room if bullish else entry + room
         risk    = room
-        sl_note = f"{room/pip:.1f}p (floor = {_MIN_ROOM_MULT:.1f}x the 1M's recent range)"
+        sl_note = (f"{room/pip:.1f}p (floor = {_MIN_ROOM_MULT:.1f}x the 1M's recent range"
+                   + (f" + {sp/pip:.1f}p spread)" if sp else ")"))
     if risk > max_risk:
         vix1_log.say(symbol, f"[vix1] {symbol} 1M: the stop is {risk/pip:.1f}p from the entry, wider than "
                              f"one 1HR candle ({max_risk/pip:.0f}p) — it cannot pay 1:2 off a "

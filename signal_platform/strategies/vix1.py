@@ -57,6 +57,11 @@ class Vix1Strategy(BaseStrategy):
 
     required_timeframes = [TF.M1, TF.H1, TF.H4]   # H4 = the TREND timeframe; H1 = momentum; M1 = entry
     requires_news       = True
+    # THE SPREAD IS A TRADING INPUT HERE, not a filter preference. cTrader triggers a BUY stop on
+    # the ASK while candles are BID, so without it every buy order fires a spread early — on a break
+    # that never happened (vix1_cross.decide). Asking for it also switches on `risk/spread_filter`,
+    # which had never run on real data because nothing ever populated `context.spread`.
+    requires_spread     = True
     # The 1M window MUST span the oldest momentum candle the bias can return, because the entry reads
     # everything "since the line was drawn": the cross, the candle after it, and the fractals that
     # gate the wrong-side route. A flat 250 bars covered only 4.2h against a 12h
@@ -231,7 +236,7 @@ class Vix1Strategy(BaseStrategy):
             heads_up.dedup_key = bkey        # committed only once the DM actually lands
             out.append(heads_up)
 
-        raw = m1_signals(m1, bullish, vc, pip=pip, symbol=sym)
+        raw = m1_signals(m1, bullish, vc, pip=pip, symbol=sym, spread=context.spread)
         if not raw:
             return StrategyResult(signals=out)
 

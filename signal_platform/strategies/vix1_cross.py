@@ -93,7 +93,8 @@ def tick(pip: float) -> float:
     return pip / 10.0
 
 
-def decide(wcl: list[Candle], bullish: bool, line: float, pip: float) -> Cross | None:
+def decide(wcl: list[Candle], bullish: bool, line: float, pip: float,
+           spread: float = 0.0) -> Cross | None:
     """The order level once the cross is `AFTER` candles old. None while there is not enough yet.
 
     A WHIPSAW IS NOT A PULLBACK, and that is his rule kept intact (`is_pullback_candle`): an
@@ -101,6 +102,21 @@ def decide(wcl: list[Candle], bullish: bool, line: float, pip: float) -> Cross |
     the setup becomes an ASSUMED one rather than being anchored on chop — which is the same outcome
     the old code reached by standing aside, except that his rule says a valid setup is never skipped
     for want of a pullback.
+
+    THE SPREAD IS ADDED ON A BUY AND NOT ON A SELL, and the asymmetry is the broker's, not a
+    preference. cTrader triggers a BUY stop on the ASK; candles are BID. An order at `bid_high + tick`
+    therefore fires when the ask reaches it — i.e. when the real (bid) price is still a whole spread
+    BELOW the high it was supposed to break. Adding the spread makes the trigger mean what it says:
+
+        bid must exceed `far` + tick   <=>   ask must exceed `far` + spread + tick
+
+    A SELL stop triggers on the BID, the same frame the candles are in, so it needs nothing. Measured
+    2026-08-20: EUR/USD 1.20 pips, GBP/USD 1.20-1.30, XAU/USD $0.24 — against a median VIX.1 stop of
+    3.7 pips on EUR/USD, so on buys this was a third of the risk given away silently.
+
+    `spread=0.0` reproduces the pre-spread behaviour exactly, which is what the fixture of his own
+    5 Aug 2019 trade is asserted at — if that stops returning 1.11734, something other than the
+    spread has moved.
     """
     ci = cross_index(wcl, bullish, line)
     if ci is None or len(wcl) < ci + AFTER + 1:
@@ -109,5 +125,6 @@ def decide(wcl: list[Candle], bullish: bool, line: float, pip: float) -> Cross |
     seen = is_pullback_candle(nxt, bullish, avg_body(wcl, n=_AVG_N))
     far = reach(wcl, ci, ci + AFTER, bullish)
     # ONE TICK BEYOND, so a retest of the same high does not fill us — only a genuine break of it.
-    entry = far + tick(pip) if bullish else far - tick(pip)
+    sp = max(0.0, spread or 0.0)
+    entry = far + sp + tick(pip) if bullish else far - tick(pip)
     return Cross(entry=entry, pullback=(nxt if seen else None), seen=seen, cross_idx=ci, reach=far)

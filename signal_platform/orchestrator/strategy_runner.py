@@ -17,6 +17,7 @@ from core.types import Session, Trend
 from core.dependency_resolver import resolve
 from core.strategy_context_builder import build as build_context
 from data.candle_fetcher import fetch_candles
+from data import ctrader_spread
 from news import news_filter
 from shared import trend_detector
 from shared.mtf_utils import closed_only, to_minutes
@@ -184,9 +185,19 @@ async def run_strategy(
         for tf, r in zip(deps.timeframes, fetched)
     }
 
+    # THE SPREAD — read only when a strategy actually asks for it, so an instrument whose strategies
+    # do not care costs nothing. It is CACHED for minutes inside `ctrader_spread`, so this is a
+    # network call rarely and a dict lookup the rest of the time. None means "could not read it", and
+    # every consumer treats that as "carry on without" rather than going silent.
+    #
+    # This slot has existed in `build_context` since it was written and NOTHING EVER FILLED IT, which
+    # is why `risk/spread_filter.py` has never run on real data in its life.
+    spread = await ctrader_spread.spread_for(instrument) if deps.needs_spread else None
+
     context = build_context(
         symbol=instrument, deps=deps, candle_view=candle_view,
         news_context=news_context, current_sessions=current_sessions,
+        spread=spread,
     )
     if context is None:
         return
