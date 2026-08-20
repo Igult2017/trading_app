@@ -97,6 +97,14 @@ async def check_all() -> None:
             release(sym, direction, strat)
             log.info(f"[signal_monitor] {sym} {strat} {direction} expired at 24h — reservation freed")
 
+        # THE TRADE TRACKER — his REAL open positions, not the signals. Runs on this tick because a
+        # position's R has to be watched at the same cadence as a signal's TP/SL, and because a
+        # second scheduler entry for the same 30s job would be two things to keep in step. It never
+        # raises (its own try/except) so it cannot cost him TP/SL watching, which matters more.
+        from monitor import position_tracker
+        from notifications.dispatcher import _send_private
+        await position_tracker.check_all(_send_private)
+
         log.info(f"[signal_monitor] poll: {len(active or [])} active "
                  f"({', '.join(f'{k}={v}' for k, v in sorted(tally.items())) or 'none'})"
                  f"{f', {len(freed)} expired' if freed else ''}")

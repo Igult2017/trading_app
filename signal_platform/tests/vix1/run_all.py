@@ -31,6 +31,7 @@ TESTS = [
     "test_spacing.py",              # signal spacing + the 27 Jul duplicate-signal regression
     "test_cross.py",                # THE REBUILT ENTRY's core: the cross, the level, assumed vs seen
     "test_entry_real_events.py",    # his own 5 Aug 2019 trade must come out at 1.11734, to the tick
+    "test_position_tracker.py",     # R and breakeven from the REAL position, not the signal
     "test_preclose.py",             # the warning BEFORE the momentum candle closes (the only place
                                     # VIX.1 reads the forming bar on purpose)
     "test_headsup_untied.py",       # the heads-up fires on the CANDLE, never as the entry's else-branch
