@@ -45,6 +45,26 @@ defects**, and the pattern that produced them will otherwise repeat.
 | 2 | The heartbeat is dead — 58 minutes stale while audit writes work fine | **NOT REAL — my error** | The `ts` I read as a stale heartbeat is `platformStatus.ts`, the Python **BOOT** timestamp from `/app/.signal_platform_status.json`. It matched my own deploy time. The heartbeat is written by every completed scan tick and was fine. **The real gap was that it was write-only** — read once at boot by `detect_downtime()`, exposed by no API — so neither of us could observe it, which is exactly why a boot timestamp got mistaken for it. Now returned by `/api/signal-platform/status` |
 | 3 | Scan cycles occasionally take 174 seconds against a 5-second median | **UNPROVEN — my method could not support it** | Measured from gaps between `signal_events` rows, treating a >45s gap as a cycle boundary. Those rows are **throttled** (`STAGE_EVALUATED` is written only when strategy state changes), so a gap between them is not a tick and never was. Nothing in the platform measured tick duration, so the figure could be neither confirmed nor refuted. It is measured now — `platform_heartbeat.last_tick_ms`, plus a `SLOW TICK` warning naming the three slowest instruments whenever a tick overruns its interval |
 
+**MEASURED AFTER DEPLOY, same day.** Eight consecutive production ticks: **11.5–12.5 s, median
+12.0 s**, against a 30 s interval (London/NY overlap — the tightest the platform ever uses). ~40%
+utilisation, comfortable headroom, no outliers. Item 3 is **closed**: the real median is 12 s, not the
+5 s I claimed, and nothing resembling 174 s occurred.
+
+## 0b. THE PLATFORM WAS DOWN FOR 4h45m ON 15 AUGUST — nobody knew
+
+`platform_downtime` held this the whole time and nothing surfaced it, because the heartbeat was
+write-only (item 2 above):
+
+> `down_from` 2026-08-15 **09:00:15 UTC** → `down_to` **13:45:25 UTC** — 17,109 s, *"heartbeat stale
+> at boot (285.2 min)"*
+
+**No signal could have been sent in that window**, on either strategy. The container logs from then
+are long gone, which is exactly why that table exists — but it also means the CAUSE is not
+recoverable now. Nothing to fix retroactively; the open question is whether this recurs. Now that the
+heartbeat is exposed, `lastDowntime` on `/api/signal-platform/status` answers *"was it up when that
+candle closed?"* in one request. **Decision for the user:** whether a detected outage should also
+send a Telegram DM at boot rather than waiting to be asked.
+
 **The rule this is evidence for** (`~/.claude/CLAUDE.md`, "FIX THE UNDERLYING PROBLEM"): a number
 produced by a harness I wrote is a claim about the harness until it is a claim about the platform.
 Both bad calls here came from reading a value that was *available* rather than the value that was

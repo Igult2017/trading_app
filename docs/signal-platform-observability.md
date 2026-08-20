@@ -83,9 +83,23 @@ then mistook a different timestamp for it and reported the heartbeat dead on tha
 The same endpoint now returns the real thing, so the question is answerable in one request:
 
 ```jsonc
-"heartbeat":    { "beatAt": …, "ageSec": 47, "scans": 18432, "lastTickMs": 4812, "stale": false },
-"lastDowntime": { "downFrom": …, "downTo": …, "seconds": 3480, "note": "heartbeat stale at boot …" }
+"heartbeat":    { "beatAt": …, "ageSec": 24, "scans": 33476, "lastTickMs": 11980, "stale": false },
+"lastDowntime": { "downFrom": …, "downTo": …, "seconds": 17109, "note": "heartbeat stale at boot …" }
 ```
+
+**MEASURED IN PRODUCTION, 2026-08-20 14:15 UTC** — eight consecutive ticks, sampled through this
+endpoint:
+
+| | |
+|---|---|
+| tick duration | **11.5 – 12.5 s**, median **12.0 s**. No outliers across eight ticks |
+| interval at the time | **30 s** — London + New York overlap (`scan_interval_seconds`: 30 s on the overlap, 45 s on a single major session, 60 s otherwise) |
+| utilisation | ~40% of the *tightest* interval the platform ever uses |
+| first tick after a cold boot | 12.0 s — the empty-cache case is not meaningfully slower, because the fetch is concurrent |
+
+So the "174 s against a 5 s median" I asserted was **wrong on both numbers**: the real median is 12 s,
+not 5, and nothing resembling 174 s occurred. The scan loop has comfortable headroom. If a genuine
+overrun ever happens, the `SLOW TICK` warning fires and names the instruments responsible.
 
 `stale` uses the same 300s threshold Python does. `lastTickMs` is **how long the tick that wrote the
 beat took** — added because nothing measured the scan loop's duration, so "ticks sometimes take three
