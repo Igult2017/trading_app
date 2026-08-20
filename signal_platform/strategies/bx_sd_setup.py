@@ -174,7 +174,7 @@ def detect_setup(h4: list[Candle], pip: float = 0.0001, book=None, session_candl
     # only a walk-forward replay over hundreds of bars surfaced it.
     cand, cand_mz, priced_out, n_live, off_trend = None, None, 0, 0, 0
     cand_via, no_entry_event, cand_swept = "", 0, False
-    decisional_skipped, spent_skipped = 0, 0     # why a tapped zone was passed over — see the reasons
+    spent_skipped = 0                            # why a tapped zone was passed over — see the reasons
     unswept_skipped, unbroken_skipped = 0, 0     # his extreme-qualification rule
     no_htf_skipped = 0                           # criterion 1 — HTF mitigation
     for mz in sorted(marked, key=lambda m: m.ifc_time, reverse=True):
@@ -217,9 +217,21 @@ def detect_setup(h4: list[Candle], pip: float = 0.0001, book=None, session_candl
         # offer; the nearer ones are what price runs through to reach it, so an order resting there is
         # the fuel for that run. `role` is "" when a zone stands alone in its group — no decisional
         # zone exists to be preferred over, so it trades normally. See `bx_sd_registry.classify_roles`.
-        if mz.role == "decisional":
-            decisional_skipped += 1
-            continue
+        # POSITION NO LONGER DECIDES THIS (2026-08-19). `classify_roles` labels the furthest
+        # unmitigated zone in a group "extreme" and every nearer one "decisional" — a purely
+        # positional test. His model defines the two by their PROPERTIES instead:
+        #
+        #     the EXTREME is the zone created by the reversal OUT OF an HTF zone, with a liquidity
+        #     sweep behind it; the DECISIONAL is one formed on a later rally that FAILED to reach it.
+        #
+        # In his diagrams the extreme sits inside the HTF band and the decisional sits below it,
+        # outside — so position is the CONSEQUENCE of those properties, not the test for them.
+        #
+        # Filtering positionally here and then testing HTF / sweep / CHoCH below meant filtering
+        # twice on the same idea, with the first pass using the weaker definition — and it threw
+        # away zones that satisfy every real criterion before those criteria ever ran. The three
+        # gates below now decide it alone. `role` is still computed and REPORTED (the tap card names
+        # the extreme price is travelling to), it just no longer refuses on its own.
 
         # ...AND THE ZONE MUST STILL BE UNMITIGATED (his rule, 2026-08-19).
         #
@@ -427,10 +439,6 @@ def detect_setup(h4: list[Candle], pip: float = 0.0001, book=None, session_candl
         if spent_skipped:
             r.reason = (f"{spent_skipped} zone(s) tapped but ALREADY MITIGATED — only unmitigated "
                         f"zones are traded, a spent zone has done its job")
-            return r
-        if decisional_skipped:
-            r.reason = (f"{decisional_skipped} zone(s) tapped but DECISIONAL — price is expected to "
-                        f"run through these to reach the extreme")
             return r
         if unswept_skipped:
             r.reason = (f"{unswept_skipped} zone(s) tapped but NO LIQUIDITY SWEPT on the approach — "
