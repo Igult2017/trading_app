@@ -145,6 +145,45 @@ trade against a +0.072R mean, so it does not survive costs. In-sample 2021 is fl
   candle of a retrace fails, instead of falling through to a later candle in the same retrace, so a
   size filter does not skip a candle, **it skips the whole retrace**.
 
+### THE CROSS, THE ONE CANDLE, AND THE ASSUMED PULLBACK (settled 2026-08-20)
+
+His own words, and the whole of what the 1M does:
+
+> "The whole point is that the price crosses the 1HR candle close line when we are in 1M entry. Then
+> immediately after that cross, the price pulls back. Since we are using stop orders, we leave space
+> on the predicted path of the price and also expect the price to pullback and never fill us. So if
+> the price finishes pullback and fills us we are fine. And if it goes the pullback direction without
+> filling us we are safe too. However, in some cases the price tend to be volatile so it would just
+> knock us and then goes the pullback direction. In that case, we are out and wait for the next trade."
+
+| | his answer, verbatim |
+|---|---|
+| what is a cross | *"going past 1HR candle closing line marked in 1HR by one 1M candle or more. **At least one 1M candle has to close past it**."* — a CLOSE, never a touch |
+| how long we wait | *"just **1 candle** after price crossing 1HR line"* |
+| no pullback there | *"A valid setup is **not skipped** because there is no pullback. If there is no pullback where we expect it, **we assume it is there and enter but report that in the signal**."* |
+| the stop | *"The stop can be behind the 1HR line **or on it** depending on when we get the pullback."* … *"Make it dynamic and conforming to market dynamics. Not hardcoded but practical."* |
+| the target | *"I risk 1 for 2"* — exactly 2R |
+| after a stop-out | *"The setup dies."* |
+| why no 1M analysis | *"Everything has been settled in 1HR, in 1 min we are only looking for entries."* |
+
+**THE ORDER LEVEL WAS MEASURED, NOT DESCRIBED.** His EUR/USD trade of 5 Aug 2019, from real broker
+bars — the 10:00 H1 candle closed at 1.11705, so that is the line:
+
+```
+11:06  high 1.11716  close 1.11716   CROSS (first 1M close past the line)
+11:07  high 1.11733  close 1.11726   one candle later, still going up  ->  no pullback  ->  ASSUMED
+11:08  high 1.11725  close 1.11716   pulls back — his screenshot is taken here
+11:11  high 1.11735                  comes back through and FILLS
+```
+
+**His order sat at 1.11734. The furthest price had reached was 1.11733.** One tick beyond it. That
+number is asserted in two test files; if the code stops producing it, the code is wrong.
+
+**HIS OWN EXAMPLE IS AN "ASSUMED" ONE** — 11:07 carried on instead of turning. Measured over 145 days
+of real M1: about **half** of all entries are assumed, the median entry fires **3 minutes** after the
+momentum candle closes (the floor is 2), and **25-29%** are market entries because price is already
+through the level by the time we decide.
+
 ### The entry — always a STOP order
 > "price can either align with our bias and fill us or go the opposite direction and leave without
 > filling us."
@@ -153,10 +192,13 @@ Continue → it fills us along the way. Reverse → we were never in. "No trade,
 
 ### Alignment is decided by THE LINE, not swing structure
 ```
-price OUR side of line 2?
-├── YES → the 1M is with us      → wait for the pullback → stop entry
-└── NO  → the 1M is against us   → the LAST fractal must break first → then the pullback → stop entry
+price OUR side of THE line?
+├── YES → the 1M is with us      → wait for the CROSS → one candle → stop entry
+└── NO  → the 1M is against us   → the LAST fractal must break first → then the cross → stop entry
 ```
+(The fractal route STAYS — his instruction, 2026-08-20: *"this is used when the 1HR momentum candle
+has closed but the 1M is still not aligned with it, so we wait for a 1M fractal break to confirm the
+price will go to our predicted direction."*)
 Swing structure (`clear_trend`) said "not aligned" in **6 of 6** long-wick cases — a spike-and-return
 inside one hour never prints the two highs and two lows it needs. `clear_trend` is now **1HR bias
 only**; the 1M does not use it.
@@ -405,6 +447,7 @@ Tokyo is routine in London.
 
 | commit | what |
 |---|---|
+| 2026-08-20 (d) | **THE 1M ENTRY WAS REBUILT WHOLESALE** — his instruction: *"I want us to rebuild the entry logic. The whole of it."* **WHAT WENT:** the entry used to search backwards for the latest retrace (`find_pullback`), gate it on a wick-based past-the-line test (`traded_past`), and place the stop at the nearest 1M "region of interest" — fractals, swing points and zones (`vix1_roi`). All four are DELETED. A swing point needs 7 bars and that hunt searched a window starting at the momentum candle's close, so **every entry was blocked for ~8 minutes after any momentum candle, on any pair** — on XAU/USD 20 Aug it moved the entry from 4457.92 to 4450.58 and the risk from $11.19 to $18.58. None of it answered a question he had asked: *"Everything has been settled in 1HR, in 1 min we are only looking for entries."* **WHAT REPLACED IT** (`vix1_cross.py`): a 1M candle must CLOSE past the line; exactly one candle later the order goes one tick beyond the furthest price reached across those two candles. No pullback in that candle means the pullback is ASSUMED and the card says `PULLBACK ASSUMED` — never a refusal. The stop anchors to the LINE, or to the pullback's far edge when it dipped through, with the gap/floor/ceiling multipliers carried over unchanged (0.5x and 1.0x the 1M's recent range; one 1HR candle) because they were already his and already derived. Price already through the level is a MARKET entry rather than a refusal, which is current price and so is inside the levels-closed/triggers-live rule, not an exception to it. **PROVED AGAINST HIS OWN TRADE:** EUR/USD 5 Aug 2019, real broker bars through the real functions, order price **1.11734 to the tick**, kind `assumed`, stop 1.11695, risk 3.9p. XAU/USD 20 Aug now fires **12:02 @ 4459.00, risk $10.26** against the old 12:09 @ 4450.58, $18.58 — 7 minutes earlier, selling $8.42 higher, 45% less risk. EUR/USD 20 Aug (which the audit found CORRECT) still fires, at 10:09 rather than 10:15. **MEASURED over 145 days of real M1, no outcomes scored:** 84% of momentum candles produce an entry, median **3 minutes** after the close (floor 2, was ~8), ~half `assumed`, 25-29% market entries. |
 | 2026-08-20 (c) | **CORRECTION TO (b) BELOW, from the audit trail — the cache was NOT what he saw.** `signal_events` for the two signals he reported as late: EUR/USD momentum candle closed 10:00:00, heads-up **DELIVERED 10:00:38**; XAU/USD closed 12:00:00, **delivered 12:00:13**. Neither was late. What arrived 9–15 min later was the **ENTRY** card (10:15:39, 12:09:25) — the 1M pullback entry. The cache defect in (b) is real and the fix stands, but calling it "the cause" was asserting a mechanism that COULD produce the symptom before reading the record that says whether it DID. **The record was there the whole time and was read only after the fix shipped.** What it actually locates is his original question — the entry came 9–15 minutes after the momentum candle and he says the one he wanted was the first pullback right after it. That is the 1M entry search, not the feed. **Not investigated; do not assume.** |
 | 2026-08-20 (b) | **THE CANDLE CACHE HELD THE 1HR FEED FOR 48 MINUTES — a real defect, latent (see (c) above).** Found by checking production logs after the pre-close warning shipped, when zero firings prompted "prove the path is reachable rather than assume it is quiet". `candle_cache._ttl_for` returned a flat `max(55, duration × 0.80)`; on H1 that is **2,880 seconds**. Its docstring — *"80% of the bar duration so we refresh before the next bar closes"* — is sound for reading bars that have ALREADY CLOSED, because a finished bar never changes, and covers neither of the two things that do: **(a) the bar still FORMING**, whose high/low/close move continuously — a 48-minute-old copy of a 60-minute bar is that bar a third grown; **(b) whether a new bar has closed AT ALL** — a candle closing at 15:00 was seen whenever the copy next happened to expire, **anywhere from seconds to 48 minutes later**. The 48-minute refresh cycle drifts against the 60-minute bar cycle, so the SAME signal was sometimes instant and sometimes very late — which is exactly the intermittency reported twice, and exactly why measuring one fast delivery (13.7s) and concluding "the platform is correct" was unsafe. **THE FIX, two rules:** a copy never spans a bar close (so a closed bar is picked up on the very next tick, every time), and inside the last 6 minutes it refreshes every ~55s (so anything reading the forming bar reads it as it stands). Rule 1 alone fixes the lateness and leaves the forming bar stale for most of the hour; rule 2 alone lets a closed bar go unseen. **The new TTL is ALWAYS ≤ the old one** — the safety argument for touching the shared data path: it can only make candles fresher. Cost ~7 fetches/hour/instrument against the ~1,440/day the cache exists to save. **RE-MEASURED the pre-close warning on realistically stale data** (the copy may be up to 55s old in the window, so the candle is judged as it stood a minute earlier): T-6 **77.7% / 74.6%** correct against T-5's 80.3% / 76.0% — so the real production figure is **75–80%**, essentially what was promised. Without the fix it would have been reading up to 48 minutes stale, far below even the T-15 row (64%). |
 | 2026-08-20 (a) | **THE PRE-CLOSE WARNING, AND THE HEADS-UP UNTIED FROM THE ENTRY.** His two instructions: *"Can we change it so that I receive a message that the momentum candle is about to close so that I can be there when it closes? ... Being there exactly when the momentum candle closes is the leverage I have"* and *"the headsup signal should not be tied to entry, it should be fired immediately the momentum candle closes."* **(a) THE HEADS-UP WAS THE ELSE-BRANCH OF THE ENTRY SEARCH.** It lived inside `if not raw:` — so it was never a message in its own right, it was *"we looked for an entry and did not find one"*. Two consequences: it could only be emitted AFTER `m1_signals` had run, and on a tick where the entry DID exist it was **cancelled outright** — the case where the momentum candle matters most produced no heads-up at all. It is now emitted the moment the bias is known, before any 1M work, and the entry search continues underneath it; if both land on the same tick he gets the heads-up and then the entry, in that order. **(b) THE PRE-CLOSE WARNING (`vix1_preclose.py`) — the only place in VIX.1 that reads the forming bar on purpose.** Every other message is about a bar that has already closed, which is the platform being correct and is also why none of them can reach him before the hour turns. **T-5 IS MEASURED, NOT CHOSEN:** 145 days of real cTrader M1, each H1 bar rebuilt as it stood with N minutes left, the real `is_momentum_candle` run on it and on the finished bar — T-5 **80.3% / 76.0%** correct and **74.8% / 69.3%** of all momentum candles caught (EUR/GBP); T-10 69.5/69.6 and 55.7/61.1; T-15 64.0/64.3 and 43.5/46.7. T-5 wins on **both** axes at once, so there is no trade-off: earlier is not more warning, it is a worse one. ~1.7 alerts per pair per day, DM only, no entry/stop/target. **(c) THE CARD DREW THE UNFINISHED BAR** — `_attach_chart` passed the raw feed to the renderer, so a card sent seconds after an H1 close drew the momentum candle SECOND from the right with a fresh near-zero-range stub beside it. To a reader that stub is a whole candle already come and gone, which is what made an alert arriving 14s after the close **look a full candle late** — days went into hunting a lateness bug that was in the picture. Now trimmed, unless the signal MARKS that bar (which is exactly what the pre-close card does). The order type still reads the raw last close: that is a trigger, not a level. **(d) ONE STRATEGY'S VOCABULARY WAS ON EVERY AMBER CARD** — the panel derived the headline from `stage` alone, so this strategy's heads-up told the reader to "AWAIT THE RETURN". Cards now name their own moment (`Signal.headline` / `label`). |

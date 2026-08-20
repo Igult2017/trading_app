@@ -14,9 +14,16 @@ from strategies.vix1_state import state_line
 
 # (panel label, human blurb) per entry kind — both are the same motion (pullback at the momentum-candle
 # handover, stop beyond the level it came from); they differ only in where the stop could be anchored.
+#
+# THE "ASSUMED" PAIR EXISTS BECAUSE HE ASKED FOR IT TO BE VISIBLE, 2026-08-20: *"If there is no
+# pullback where we expect it, we assume it is there and enter but report that in the signal."* The
+# reader is being shown a retrace that has not actually happened, and must be told so on the card's
+# face rather than in a footnote.
 _KIND = {
-    "pullback": ("PULLBACK",                 "the 1M was already aligned at the line; stop beyond the one-candle pullback"),
-    "fractal":  ("FRACTAL BREAK → PULLBACK", "the fractal break confirmed the 1M turned; stop beyond the pullback after it"),
+    "pullback":         ("PULLBACK",                 "price crossed the line and pulled back; order one tick beyond how far it got"),
+    "assumed":          ("PULLBACK ASSUMED",         "price crossed the line and did NOT pull back in the candle after — the pullback is assumed, order one tick beyond how far it got"),
+    "fractal_pullback": ("FRACTAL BREAK → PULLBACK", "the fractal break confirmed the 1M turned, then price crossed and pulled back"),
+    "fractal_assumed":  ("FRACTAL BREAK → ASSUMED",  "the fractal break confirmed the 1M turned; price crossed but did NOT pull back — the pullback is assumed"),
 }
 
 
@@ -122,6 +129,20 @@ def build_signal(kind, symbol, bullish, origin, vol_count, entry, sl, tp,
         direction         = Direction.BUY if bullish else Direction.SELL,
         strategy_id       = strategy_id,          # _watch → private DM (Phase 1)
         strategy_name     = strategy_name,
+        # THE KIND GOES ON THE CARD'S FACE, not only into the caption. His instruction for the
+        # assumed case, 2026-08-20: *"we assume it is there and enter but report that in the
+        # signal."* A card headed "CONFIRMED ENTRY" while the pullback has NOT happened is the one
+        # thing that message must never look like — and that default wording is another strategy's
+        # vocabulary anyway, which the panel used to put on every card in the platform.
+        headline          = f"{side} — {label}",
+        # ...and the captions under the three numbers, for the same reason. The renderer's generic
+        # fallback reads "Confirmed entry", which is exactly wrong on an assumed one. Supplying them
+        # here keeps `charting/` strategy-agnostic, which is the standing rule.
+        level_notes       = [
+            "Pullback ASSUMED — none formed" if "assumed" in kind else "One tick beyond the reach",
+            (sl_note.split("—", 1)[-1].strip() if "—" in sl_note else "Beyond the invalidation"),
+            "2R — the two-candle move",
+        ],
         entry_price       = round(entry, digits),
         stop_loss         = round(sl, digits),
         take_profit       = round(tp, digits),

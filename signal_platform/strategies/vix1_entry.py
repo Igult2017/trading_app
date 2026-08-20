@@ -1,36 +1,42 @@
 """
-VIX.1 — 1M entry. The 1HR sets the bias and the lines; the 1M decides WHEN.
+VIX.1 — 1M entry. The 1HR sets the bias and the line; the 1M decides WHEN, and NOTHING ELSE.
 
-Playbook p2: "if the 1M is still not aligned with the 1HR, wait — do nothing until the 1M lines up."
-That wait is OPEN-ENDED — the 1HR can be ready for hours while the 1M is not. A bias flip
-(vix1_watch) ends a setup; a timer never does.
+His instruction, 2026-08-20: *"Everything has been settled in 1HR, in 1 min we are only looking for
+entries."* So this file reads no structure on the 1M — no swing points, no zones, no retrace search.
+It waits for the cross and puts an order one tick beyond how far price got. That is the whole thing.
 
-THE ENTRY IS ALWAYS THE PULLBACK (vix1_pullback) — 1M only, past the line, stop just beyond it:
-continue and it fills us along the way, reverse and we are never in ("no trade, no risk", p6).
-Setups differ ONLY in how the 1M's ALIGNMENT is established:
+    price CLOSES a 1M candle past the line  ->  wait exactly ONE candle  ->  order one tick beyond
+    the furthest point reached across those two candles.
 
-  price OUR side of the line -> the 1M is running with the 1HR. Wait for the pullback, enter.
-  price the WRONG side       -> the 1M is running against us. The LAST fractal of that counter-move
-                     must break first (vix1_fractal) — that CONFIRMS the turn, it is NOT the
-                     entry. Then the pullback, exactly as above.
+WHY IT WORKS AS A STOP ORDER, in his words:
 
-The line is what answers "is the 1M with us?" — not swing structure. A spike-and-return inside one
-hour never prints the two highs and two lows a trend read needs, so structure said "not aligned" in
-every long-wick case and real entries were thrown away.
+    "we leave space on the predicted path of the price and also expect the price to pullback and
+     never fill us. So if the price finishes pullback and fills us we are fine. And if it goes the
+     pullback direction without filling us we are safe too. However, in some cases the price tend to
+     be volatile so it would just knock us and then goes the pullback direction. In that case, we
+     are out and wait for the next trade."
 
-ONE LINE comes off candle 1 (vix1_lines) — its body close — and it does every job:
-  it DECIDES WHICH SIDE we are on, it GATES the entry (price must have TRADED past it,
-  vix1_pullback.traded_past), the pullback must sit wholly past it, and the stop must sit behind it.
-(A second "wick line" shared those jobs until 2026-07-26. It was never the user's rule and it is
-deleted — vix1_lines carries the post-mortem. This docstring described it as settled fact, which is
-exactly how an invention survives review; do not reintroduce it in prose or in code.)
+NO PULLBACK IS NOT A REASON TO STAND ASIDE: *"A valid setup is not skipped because there is no
+pullback. If there is no pullback where we expect it, we assume it is there and enter but report that
+in the signal."* The card says PULLBACK ASSUMED on its face when that happens.
 
-The SL is the nearest 1M REGION OF INTEREST beyond the pullback (vix1_roi) — where price would go
-against us in the worst case — and it may NEVER rest past the line: a stop between the entry and the
-line can be hit while price is still on the winning side of the level the setup is built on. When
-the nearest region falls short of the line, the stop is pushed to the line plus a derived gap.
-Never a pip count anywhere: the floor is the 1M's own recent range, the ceiling is one 1HR candle's
-range, because "2 candles of 1HR gives 2R" makes one candle 1R. TP = 2R, that same two-candle move.
+ALIGNMENT IS UNCHANGED and stays his: price on our side of the line means the 1M is running with the
+1HR. Price the WRONG side means the 1M is running against us, and the last fractal of that counter-
+move must break first — *"we wait for a 1M fractal break to confirm the price will go to our
+predicted direction"* (vix1_fractal). The break confirms; the cross still sets the level.
+
+THE STOP — his rule, 2026-08-20: *"The stop can be behind the 1HR line or on it depending on when we
+get the pullback."* So it anchors to whichever is FURTHER from the trade: the line, or the pullback's
+own far edge when the pullback dipped through the line. Never a pip count; every size below is a
+multiple of something the market drew, which is what he asked for: *"Make it dynamic and conforming
+to market dynamics. Not hardcoded but practical."*
+
+WHAT WAS DELETED HERE, 2026-08-20, and must not come back. The stop used to hunt the nearest 1M
+"region of interest" — fractals, swing points and zones (`vix1_roi`, now gone). A swing point needs
+seven bars, and the window it searched began at the momentum candle's close, so for the first ~8
+minutes after ANY momentum candle there was nothing to find and the setup was refused outright. On
+XAU/USD 20 Aug that moved the entry from 4457.92 to 4450.58 and the risk from $11.19 to $18.58. It
+answered a question he never asked.
 """
 import logging
 import math
@@ -38,200 +44,123 @@ import math
 from core.types import Candle
 from shared.candle_math import full_range
 from shared.mtf_utils import seconds
-from strategies.vix1_lines import draw_line
-from strategies.vix1_pullback import find_pullback, traded_past
+from strategies import vix1_cross, vix1_log
 from strategies.vix1_fractal import fractal_broken
-from strategies.vix1_roi import regions, sl_from_regions
-from strategies import vix1_log
+from strategies.vix1_lines import draw_line
 
 log = logging.getLogger(__name__)
 
-_ENTRY_BUFFER    = 1   # pips — the stop sits JUST beyond the pullback, never resting on it
-_SL_GAP_MULT     = 0.5 # when the stop has to be pushed behind the line, it goes this x the
-                       # 1M's recent average RANGE beyond it. DERIVED, not a pip count. His
-                       # setup 1: a 2.6p gap against a 4.3p 1M average range = 0.60x.
-_GAP_AVG_N       = 14  # bars of 1M for that average — the platform's usual baseline
-_MIN_ROOM_MULT   = 1.0 # the SL floor, as a multiple of the 1M's recent average RANGE — the noise it
-                       # has to survive. DERIVED, replacing a flat 5-pip count on 2026-07-26.
-                       # "Enough room to be filled or left out" (user).
+# Every size here is a MULTIPLE OF SOMETHING THE MARKET DREW. These three are his, settled
+# 2026-07-26 when a flat 5-pip stop was removed: *"make this dynamic. If you hardcode it wont work
+# because the market is not perfect."* They are carried into the rebuild unchanged, because changing
+# a settled multiplier while rebuilding around it is how a rebuild quietly becomes a re-tune.
+_SL_GAP_MULT   = 0.5   # how far BEYOND the anchor the stop sits, x the 1M's recent average range
+_GAP_AVG_N     = 14    # bars of 1M in that average — the platform's usual baseline
+_MIN_ROOM_MULT = 1.0   # the floor: the noise a stop has to survive, x that same average
+
+
+def _m1_range(wcl: list[Candle]) -> float:
+    """The 1M's own recent average RANGE — the yardstick every size here is measured in."""
+    if not wcl:
+        return 0.0
+    tail = wcl[-_GAP_AVG_N:]
+    return sum(full_range(c) for c in tail) / len(tail)
+
 
 def m1_signals(m1: list[Candle], bullish: bool, vc: Candle,
                pip: float = 0.0001, symbol: str = "") -> list[dict]:
-    """
-    The 1M entry — [{"kind", "entry", "sl", "sl_note"}] or [] (logs why). `vc` is the FIRST momentum
-    candle of the 1HR run: its close is THE LINE. `sl_note` says WHICH region the stop sits behind, so
-    the card can tell the reader too — the number alone does not explain itself.
+    """The 1M entry — [{"kind", "entry", "sl", "sl_note"}] or [] (logs why).
+
+    `vc` is the FIRST momentum candle of the 1HR run; its body close is THE LINE. The caller turns
+    `entry`/`sl` into a 2R target, so risk-reward is fixed at 1:2 by construction.
     """
     if not m1:
         return []
-    # PRICE PRECISION — derived EXACTLY from the pip, never guessed. cTrader's convention is
-    # pip = 10^-(pipDigits-1), so pipDigits = 1 - log10(pip); that inverts it with no symbol lookup,
-    # so a harness passing an odd symbol string cannot silently pick the wrong precision.
-    # This was `5 if pip < 0.005 else 3` until 2026-07-26 — right for 5-digit FX and for
-    # JPY/XAU/XAG, WRONG for oil and crypto (2, we said 3) and for indices (1, we said 3). Same
-    # class of bug as the one already fixed in shared/pip.py, and latent for the same reason:
-    # VIX.1 trades EUR/USD and GBP/USD, which the guess happens to get right.
+    # PRICE PRECISION derived EXACTLY from the pip, never guessed — cTrader's convention is
+    # pip = 10^-(pipDigits-1), so this inverts it with no symbol lookup.
     digits = max(0, round(1.0 - math.log10(pip))) if pip > 0 else 5
     hr     = seconds(vc.timeframe)
-    line   = draw_line(vc)             # THE line — the momentum candle's body close
-    win    = [c for c in m1 if c.time >= vc.time + hr]     # only price action since the line was set
-
+    line   = draw_line(vc)
+    win    = [c for c in m1 if c.time >= vc.time + hr]   # only since the line was set
     if len(win) < 2:
-        vix1_log.say(symbol, f"[vix1] {symbol} 1M: only {len(win)} bars since the 1st momentum candle closed — waiting")
+        vix1_log.say(symbol, f"[vix1] {symbol} 1M: only {len(win)} bars since the momentum candle "
+                             f"closed — waiting")
         return []
 
-    # LEVELS vs TRIGGERS (the hard rule): the feed's newest M1 bar is still FORMING — its high, low
-    # and close move every scan, so nothing read from it may set a level. `win` (live) answers only
-    # trigger questions: has price traded past the line, which side is it on, is the stop unfilled.
-    # `wcl` (closed) is what the pullback candle, fractal levels/breaks and SL regions are read from
-    # — the entry/SL used to be drawn off the live bar's edges, which drift until it closes.
+    # LEVELS vs TRIGGERS (the hard rule). `win` is LIVE and answers only trigger questions — which
+    # side price is on right now, and whether the order is still unfilled. `wcl` is CLOSED and is
+    # what the cross, the level and the stop are read from.
     wcl = win[:-1] if win[-1].time == m1[-1].time else win
+    if len(wcl) < 2:
+        return []
 
-    # ALIGNMENT (playbook p2) — THE LINE decides which side we are on, and that is the whole reason it
-    # is drawn. Price on our side of it = the 1M is running with the 1HR, so the pullback alone is the
-    # entry. Price the WRONG side = the 1M is running against us, and the LAST fractal of that
-    # counter-move has to break before anything means a thing.
-    # THE LINE is the boundary. This used to test a second "wick line" — deleted 2026-07-26, it was
-    # never the user's (vix1_lines). One line decides it, which is what he draws and what he reads.
+    # ALIGNMENT — unchanged, and his. The line answers "is the 1M with us?"
     last = win[-1].close
     if (last > line) if bullish else (last < line):
-        kind = "pullback"
+        route = ""
     else:
-        # The break is a CLOSE beyond the fractal level, so it is read from CLOSED bars only — the
-        # forming bar's "close" is just the live price, and a spike that later closes back inside
-        # must not count as a close (same body-close rule as CHoCH).
         broke, lvl = fractal_broken(wcl, bullish)
         if not broke:
             seen = "none formed yet" if lvl is None else f"{lvl:.{digits}f}"
-            vix1_log.say(symbol, f"[vix1] {symbol} 1M: price {last:.{digits}f} is the wrong side of the lines "
-                     f"({line:.{digits}f}) and the counter-move's last fractal ({seen}) has not "
-                     f"broken — waiting (playbook: do nothing until the 1M lines up)")
+            vix1_log.say(symbol, f"[vix1] {symbol} 1M: price {last:.{digits}f} is the wrong side of the "
+                                 f"line ({line:.{digits}f}) and the counter-move's last fractal ({seen}) "
+                                 f"has not broken — waiting")
             return []
-        kind = "fractal"
+        route = "fractal_"
 
-    # LINE 1 GATE — has price actually TRADED past it since it was drawn? A tick test, so the LIVE
-    # window answers it (an intrabar push past the line counts the moment it happens).
-    if not traded_past(win, bullish, line):
-        vix1_log.say(symbol, f"[vix1] {symbol} 1M: price has not traded past line 1 ({line:.{digits}f}) yet "
-                 f"— an entry does not belong here; waiting")
+    # THE CROSS and the level (vix1_cross) — the only thing the 1M is asked.
+    x = vix1_cross.decide(wcl, bullish, line, pip)
+    if x is None:
+        ci = vix1_cross.cross_index(wcl, bullish, line)
+        why = ("no 1M candle has CLOSED past the line yet" if ci is None else
+               f"the cross closed at {wcl[ci].close:.{digits}f}; waiting for the candle after it")
+        vix1_log.say(symbol, f"[vix1] {symbol} 1M: {why} — waiting")
         return []
+    entry = x.entry
 
-    # THE ENTRY — the first pullback candle PAST the line, in both cases. CLOSED bars only: the
-    # candle's edges become the entry and the SL clearance, and a level must not drift.
-    pb, why = find_pullback(wcl, bullish, line)
-    if pb is None:
-        vix1_log.say(symbol, f"[vix1] {symbol} 1M: aligned ({kind}) but {why} — waiting")
-        return []
+    # THE STOP anchors to whichever is FURTHER from the trade — the line, or the pullback's own far
+    # edge when the pullback dipped through it. One expression covers both halves of his rule.
+    anchor = line
+    if x.pullback is not None:
+        anchor = min(anchor, x.pullback.low) if bullish else max(anchor, x.pullback.high)
+    m1_rng = _m1_range(wcl)
+    gap    = max(_SL_GAP_MULT * m1_rng, vix1_cross.tick(pip))
+    sl     = anchor - gap if bullish else anchor + gap
+    where  = "the pullback's far edge" if (x.pullback is not None and anchor != line) else "the line"
+    sl_note = f"{abs(entry - sl)/pip:.1f}p — {gap/pip:.1f}p beyond {where} ({anchor:.{digits}f})"
 
-    # THE PULLBACK MUST SIT PAST LINE 1 — enforced inside find_pullback (see its comment). This
-    # note used to say the opposite ("deliberately NO such test... do not re-add it"), on the
-    # strength of my own screenshot reconstruction of his pullbacks. He corrected it directly on
-    # 2026-07-26: "that pullback has to be past the 1HR line when I look at it in 1M TF... just
-    # make sure any pullback is past the 1HR line." Measured on Jan-Jun 2021 before the fix, 53% of
-    # the pullbacks the code anchored on were not fully past the line.
+    # ALREADY THROUGH THE LEVEL? Then the order would be a stop sitting behind the market, which the
+    # broker fills at once — so it IS a market entry, and it is priced honestly as one rather than
+    # the setup being thrown away. His rule again: a valid setup is not skipped. The ceiling below is
+    # what refuses it once price has run so far that the stop can no longer pay 1:2 off two candles.
+    market = (entry <= last) if bullish else (entry >= last)
+    if market:
+        entry   = last
+        sl_note += " — price already through the level, so this is a MARKET entry"
 
-    # NO "LATE ENTRY" PATH — DELETED 2026-07-26, it was provably unreachable. It flagged a pullback
-    # sitting further from the line than the momentum candle's own height and then required >= 1R of
-    # the original move to remain. Both halves are dead:
-    #   * the flag: real pullbacks sit at a median 30% and a MAX 96% of that height, so a 100%
-    #     allowance can never fire — the same geometric vacuity this file already documents for the
-    #     literal reading of the rule, reintroduced by choosing a 1.00x multiplier.
-    #   * the guard it protected: with d = entry's distance past the line and gap = stop's distance
-    #     BEHIND it, risk = d + gap, and remaining = 2*risk - d. So remaining >= 1R reduces to
-    #     gap >= 0, which the stop-behind-the-line invariant guarantees. Measured max d/risk = 0.99.
-    # It is therefore redundant as well as unreachable: more than 1R to the original target is
-    # structurally assured. Do not re-add it without first breaking one of those two invariants.
-
-    lvl   = pb.high if bullish else pb.low          # the trend side — the stop goes just beyond it
-    entry = lvl + _ENTRY_BUFFER * pip if bullish else lvl - _ENTRY_BUFFER * pip
-
-    # THE SL — the NEAREST 1M REGION OF INTEREST beyond the pullback (vix1_roi), which is his own
-    # rule in his own words: "put our SL at a region of interest where price might pullback to in
-    # the worst case scenario... any zone where the price might revisit in 1M... think of all the
-    # zones that can reverse the price or act as a road block."
-    #
-    # RESTORED 2026-07-26. This module was still imported and had not been called for weeks: the SL
-    # had been re-anchored to "line 2", a wick line that was never his (see vix1_lines for the full
-    # post-mortem). That anchor produced a ~3 pip median risk because it was derived from the
-    # momentum candle's counter-wick — the one thing the momentum filter drives toward zero — so the
-    # better the setup scored, the tighter its stop. The region-of-interest stop is a level the
-    # MARKET drew, so it cannot collapse just because the entry candle was clean.
-    max_risk = vc.high - vc.low          # "2 candles of 1HR gives 2R" -> one candle is 1R
-    pb_protective = pb.low if bullish else pb.high
-    rois = regions(wcl, bullish)
-    got = sl_from_regions(entry, pb_protective, bullish, rois, pip, max_risk)
-    if got is None:
-        # Say WHICH of the two happened. "The market drew no levels here" and "levels exist but every
-        # one of them is further than a 1HR candle" are different market conditions with different
-        # implications, and the single old wording covered both — so a run of these lines could not
-        # be read as either "wait, structure is forming" or "this setup is geometrically dead".
-        beyond = [r for r in rois if ((r < pb_protective) if bullish else (r > pb_protective))]
-        why = ("the 1M drew no regions of interest at all" if not rois else
-               f"none of the {len(rois)} 1M regions sit beyond the pullback" if not beyond else
-               f"all {len(beyond)} regions beyond the pullback are further than one 1HR candle")
-        vix1_log.say(symbol, f"[vix1] {symbol} 1M: no honest place for the stop within one 1HR candle "
-                             f"({max_risk/pip:.0f}p) — {why}; skipping")
-        return []
-    sl, risk, sl_note = got
-
-    # THE STOP MAY NEVER SIT PAST THE LINE. His rule: "I put stop loss abit behind the 1HR line."
-    # Behind means the far side — ABOVE the line on a sell, BELOW it on a buy. A stop on the near
-    # side sits BETWEEN the entry and the line, so the trade can be stopped out while price is still
-    # on the winning side of the level the whole setup is built on.
-    #
-    # REGRESSION, introduced 2026-07-26 and caught the same day. While the stop was anchored to
-    # "line 2" this was guaranteed for free — line 2 always lay beyond line 1, so the stop always
-    # landed behind it (178 of 178 signals). Deleting line 2 removed the guarantee and nothing
-    # replaced it: the region-of-interest stop hunts the NEAREST 1M level beyond the pullback, and
-    # the nearest one is usually still short of the line. Measured immediately after: only 58 of 146
-    # signals kept the stop behind the line, median 0.8 pips on the WRONG side.
-    #
-    # The fix is a FLOOR, not a replacement: a region that already sits behind the line is kept (it
-    # is a level the market drew, which is the point of vix1_roi); one that does not is pushed back
-    # to the line plus a derived gap. The gap is the 1M's own recent range — the noise a stop has to
-    # survive — never a pip count.
-    # >= / <= on purpose: a stop resting EXACTLY on the line is stopped out by a touch of it.
-    m1_rng = (sum(full_range(c) for c in wcl[-_GAP_AVG_N:]) / min(len(wcl), _GAP_AVG_N)) if wcl else 0.0
-    wrong_side = (sl >= line) if bullish else (sl <= line)
-    if wrong_side:
-        gap    = max(_SL_GAP_MULT * m1_rng, pip)
-        sl     = line - gap if bullish else line + gap
-        risk   = abs(entry - sl)
-        sl_note = f"{risk/pip:.1f}p — {gap/pip:.1f}p behind the line ({line:.{digits}f})"
-        if risk > max_risk:
-            vix1_log.say(symbol, f"[vix1] {symbol} 1M: the nearest region sat PAST the line and a stop behind it "
-                     f"is {risk/pip:.1f}p, wider than one 1HR candle ({max_risk/pip:.0f}p); skipping")
-            return []
-
-    # SL ROOM — a stop too tight gets wicked out of a trade that then runs our way. The floor is the
-    # NOISE the stop has to survive, so it is measured in the 1M's own recent range, never in pips
-    # ("make this dynamic. If you hardcode it wont work because the market is not perfect"). It was a
-    # flat 5 pips until 2026-07-26 — an invented number that fired on 9.7% of signals and pinned them
-    # all to the same risk whatever the market was doing. Push out to the floor (never beyond one 1HR
-    # candle); if even that will not fit, the setup has no honest room and we skip it.
-    room = max(_MIN_ROOM_MULT * m1_rng, pip)
+    risk     = abs(entry - sl)
+    max_risk = full_range(vc)          # "2 candles of 1HR gives 2R" -> one candle is 1R
+    room     = max(_MIN_ROOM_MULT * m1_rng, vix1_cross.tick(pip))
     if risk < room:
+        # A stop too tight gets wicked out of a trade that then runs our way. The floor is the NOISE
+        # it has to survive, measured in the 1M's own range — never in pips.
         if room > max_risk:
-            vix1_log.say(symbol, f"[vix1] {symbol} 1M: the region gives only {risk/pip:.1f}p, the 1M needs "
-                     f"{room/pip:.1f}p of room and one 1HR candle is {max_risk/pip:.0f}p — no honest "
-                     f"stop fits; skipping")
+            vix1_log.say(symbol, f"[vix1] {symbol} 1M: the 1M needs {room/pip:.1f}p of room and one 1HR "
+                                 f"candle is only {max_risk/pip:.0f}p — no honest stop fits; skipping")
             return []
-        sl   = entry - room if bullish else entry + room
-        risk = room
-        sl_note = f"{room/pip:.1f}p (min room = {_MIN_ROOM_MULT:.1f}x the 1M's recent range)"
-
-    # The stop must still be UNFILLED — strictly beyond price in the trend direction. If the pullback
-    # is already taken out, an order there is a LIMIT filling INTO the move: the inverse of this entry.
-    last = win[-1].close
-    if (entry <= last) if bullish else (entry >= last):
-        vix1_log.say(symbol, f"[vix1] {symbol} 1M: the pullback is already taken out (price {last:.{digits}f} "
-                 f"vs stop {entry:.{digits}f}) — a stop there would fill into the move; entry gone")
+        sl      = entry - room if bullish else entry + room
+        risk    = room
+        sl_note = f"{room/pip:.1f}p (floor = {_MIN_ROOM_MULT:.1f}x the 1M's recent range)"
+    if risk > max_risk:
+        vix1_log.say(symbol, f"[vix1] {symbol} 1M: the stop is {risk/pip:.1f}p from the entry, wider than "
+                             f"one 1HR candle ({max_risk/pip:.0f}p) — it cannot pay 1:2 off a "
+                             f"two-candle move; skipping")
         return []
 
-    vix1_log.say_always(f"[vix1] {symbol} 1M PULLBACK entry ({kind} path) — "
-             f"{'BUY' if bullish else 'SELL'} stop {entry:.{digits}f} SL {sl:.{digits}f} "
-             f"({sl_note}; line {line:.{digits}f})")
-    # `late` / `ideal_tp` / `late_note` are kept in the payload as constants so downstream readers
-    # (vix1.py's card, the DB row) need no change; the path that could set them is gone, see above.
-    return [{"kind": kind, "entry": round(entry, digits), "sl": round(sl, digits),
-             "sl_note": sl_note, "late": False, "ideal_tp": None, "late_note": ""}]
+    kind = f"{route}{'pullback' if x.seen else 'assumed'}"
+    vix1_log.say_always(f"[vix1] {symbol} 1M {kind.upper()} entry — {'BUY' if bullish else 'SELL'} "
+                        f"{'market' if market else 'stop'} {entry:.{digits}f} SL {sl:.{digits}f} "
+                        f"({sl_note}; line {line:.{digits}f})")
+    return [{"kind": kind, "entry": entry, "sl": sl, "sl_note": sl_note,
+             # kept so the card and the DB row need no schema change — the path that set them is gone
+             "late": False, "late_note": ""}]

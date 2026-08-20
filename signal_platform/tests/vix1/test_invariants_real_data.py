@@ -25,6 +25,7 @@ TP_R = 2.0             # vix1.py: tp = entry +/- 2.0 * risk
 
 produced = 0
 crashes = 0
+market  = 0
 bad_stop = []          # entry not beyond the pullback -> would fill on a reversal
 bad_sl = []            # SL not on the losing side of entry
 bad_tp = []            # TP is not 2R
@@ -60,8 +61,16 @@ for label, m1f, h1f, pip in PAIRS:
             entry, sl = sig["entry"], sig["sl"]
             last = win[-1].close
             # 1. THE ENTRY IS A STOP — beyond current price on the continuation side, so a reversal
-            #    can never fill it. vix1_entry refuses an entry already taken out.
-            if (entry <= last) if bullish else (entry >= last):
+            #    can never fill it.
+            #    ...OR IT IS A MARKET ENTRY AT CURRENT PRICE, which is `entry == last` exactly. Since
+            #    the 2026-08-20 rebuild the entry no longer refuses a setup whose level price has
+            #    already gone through — his rule, *"A valid setup is not skipped because there is no
+            #    pullback"* — it prices it at the market instead. That is not a level read from a
+            #    forming bar; the platform rule is "a LEVEL from a CLOSED candle, a TRIGGER OR
+            #    CURRENT PRICE stays LIVE", and a market fill price is current price.
+            if entry == last:
+                market += 1
+            elif (entry < last) if bullish else (entry > last):
                 bad_stop.append(f"{label}@{i}: entry {entry} vs price {last} ({'buy' if bullish else 'sell'})")
             # 2. THE SL IS ON THE LOSING SIDE of the entry
             if (sl >= entry) if bullish else (sl <= entry):
@@ -76,9 +85,10 @@ print(f"   walked {BARS} M1 bars x {len(PAIRS)} pairs (every {STEP}th), signals 
 if skipped:
     print(f"   skipped: {skipped}")
 
+print(f"   of those, {market} were MARKET entries (price already through the level)")
 s.check("the run is not vacuous — signals were produced", produced > 0, True)
 s.check("no exception on any bar (crash-freedom)", crashes, 0)
-s.check("every entry is a STOP beyond price (a reversal cannot fill)", bad_stop[:3], [])
+s.check("every entry is a STOP beyond price, or a MARKET entry AT price", bad_stop[:3], [])
 s.check("every SL sits on the losing side of its entry", bad_sl[:3], [])
 s.check("every TP is exactly 2R", bad_tp[:3], [])
 
@@ -110,6 +120,11 @@ for label, m1f, h1f, pip in PAIRS:
         wild = Candle(time=f.time, open=f.open, high=f.high + 0.0050, low=f.low - 0.0050,
                       close=f.low - 0.0040, volume=0, timeframe="M1")
         after = m1_signals(win[:-1] + [wild], bullish, vc, pip=pip, symbol=label)
+        # A MARKET entry IS current price, so of course it moves when current price is mutated —
+        # that is the trigger half of the rule, not a level drifting. Skip those and hold every
+        # other signal to the invariant exactly as before.
+        if base[0]["entry"] == win[-1].close:
+            continue
         if after and (after[0]["entry"] != base[0]["entry"] or after[0]["sl"] != base[0]["sl"]):
             mutated_ok = False
             break

@@ -1,8 +1,19 @@
 """
-VIX.1 — the 1M pullback: the entry level.
+VIX.1 — IS THIS CANDLE A PULLBACK? One question, one answer.
 
 Observed on the 1M ONLY. The 1HR never has a pullback in this strategy — it is there for momentum, for
-trend, and to give us the lines.
+trend, and to give us the line.
+
+WHAT THIS FILE IS NOW, after the 2026-08-20 entry rebuild. It used to also FIND the pullback —
+searching backwards for the latest retrace and gating it against the line — and that search is gone
+with the rest of the 1M analysis. The entry no longer looks for a retrace: it takes the ONE candle
+after the cross and asks this file whether it is a pullback (`vix1_cross.decide`). A "no" is not a
+refusal; it makes the entry an ASSUMED one, which is his rule: *"A valid setup is not skipped because
+there is no pullback."*
+
+`find_pullback`, `traded_past` and their helpers were DELETED, not left for reference — nothing
+imports them and a dead search that still reads like live code is how the next session concludes the
+feature exists. Their history is in the vix1.md fix log and in git.
 
 THE PULLBACK IS ONE CANDLE, AND IT MUST SAY SOMETHING. It is disqualified at BOTH ends of the scale.
 ABNORMALLY BIG for the 1M right now —
@@ -17,19 +28,13 @@ the buyers and sellers"). This REPLACED the 2026-07-22 "any type, doji included"
 the code anchoring entries on 1-2 pip dojis. See the constants below for what it did and did not
 change — it fixes individual trades and is FLAT in aggregate.
 
-Only the FIRST candle of the retrace matters — it sits nearest the resumption, so a stop just beyond
-it fills us along the way, where a later one drags the stop deeper with every candle. A retrace ENDS
-only when price actually resumes the trend: any non-resuming candle inside it is part of the retrace.
-If the retrace OPENS with a volatility/violent candle, that retrace gives no entry — we stand aside
-rather than anchor a stop on chop.
-
-LINE 1 gates it in two parts: price must actually have TRADED past line 1 (the caller's job, on the
-LIVE window), and the pullback candle itself must TAKE PLACE past (or on) line 1 — enforced HERE,
-whole-candle, on the edge that faces the line. A retrace that has not cleared the line is not an
-entry; we wait for one that has. There is no second line — see vix1_lines.
+THE LINE NO LONGER GATES THIS FILE. It used to, in two parts — price had to have traded past the
+line, and the pullback candle had to sit wholly past it. Both moved out with the search: the cross
+(a 1M CLOSE past the line) is now what proves price got there, and the order level is measured from
+how far price reached, not from where the pullback sits. There is no second line — see vix1_lines.
 """
 from core.types import Candle
-from shared.candle_math import is_bullish, is_bearish, body_size, full_range, avg_body
+from shared.candle_math import is_bullish, is_bearish, body_size, full_range
 
 _AVG_N            = 14   # same baseline the platform's volume/violent patterns use
 
@@ -62,7 +67,7 @@ _CHOP_RNG_MULT   = 2.5   # range >= this x the 14-bar avg body ... (first half o
 _CHOP_BODY_FRAC  = 0.60  # ... AND body < this share of its own range -> a whipsaw, not a pullback
 _MAX_BODY_VS_AVG = 0.0   # optional ceiling on body/avg; 0 = NONE, and none is correct: a big
                          # DECISIVE pullback is the best anchor there is, and one 1HR candle's
-                         # range already caps the risk downstream (vix1_roi.max_risk).
+                         # range already caps the risk downstream (vix1_entry's ceiling).
 
 # NO MINIMUM SIZE. THE PULLBACK IS ANY CANDLE — user, 2026-08-07: *"make it to be pullback of any
 # candle. Any other thing I will decide on my own."*
@@ -70,7 +75,7 @@ _MAX_BODY_VS_AVG = 0.0   # optional ceiling on body/avg; 0 = NONE, and none is c
 # A `_MIN_BODY_VS_AVG = 1.00` / `_MIN_BODY_FRAC = 0.60` pair lived here from 2026-07-26. DO NOT
 # RESTORE IT without him asking — the full round trip is in the vix1.md fix log. In short: it was
 # added on his "I just waited for a PROPER pullback candle" and it did the opposite of what he
-# wanted in practice, because `find_pullback` RETURNS NONE when the first candle of a retrace fails
+# wanted in practice, because the old `find_pullback` RETURNED NONE when the first candle of a retrace failed
 # rather than falling through to a later one. So a small first pullback did not merely get skipped,
 # the whole retrace did, and the entry waited for a later retrace that happened to open big — later
 # in time and further from the line. He caught it on a live GBP/USD chart (06 Aug 2026): *"I got it
@@ -98,60 +103,3 @@ def is_pullback_candle(c: Candle, bullish: bool, avg: float = 0.0) -> bool:
     if _MAX_BODY_VS_AVG and avg > 0 and body_size(c) >= _MAX_BODY_VS_AVG * avg:
         return False
     return True
-
-
-def _counter(c: Candle, bullish: bool) -> bool:
-    """Any candle NOT carrying the bias on — what a retrace is made of (dojis included)."""
-    return not (is_bullish(c) if bullish else is_bearish(c))
-
-
-def _resumes(c: Candle, bullish: bool) -> bool:
-    """Price going WITH the trend again — the only thing that ends a retrace."""
-    return is_bullish(c) if bullish else is_bearish(c)
-
-
-def traded_past(win: list[Candle], bullish: bool, line: float) -> bool:
-    """Has price actually gone past LINE 1 since it was drawn? The whole point of the line."""
-    return max(c.high for c in win) > line if bullish else min(c.low for c in win) < line
-
-
-def find_pullback(win: list[Candle], bullish: bool, line: float) -> tuple[Candle | None, str]:
-    """Return (the pullback CANDLE, "") — the FIRST candle of the latest retrace — or
-    (None, why-we-wait). `win` must be CLOSED bars only: the candle's edges become the entry and
-    the SL clearance, and a level read from the forming bar drifts until it closes (the hard rule).
-    The line-1 gates are the CALLER's job (traded-past on the LIVE window; pullback past/on the line).
-
-    The whole candle, not just a level: the caller needs BOTH edges. Its extreme on the trend side is
-    the entry (the stop goes just beyond it); its extreme on the other side is what the SL must clear,
-    since the candle we entered off cannot be the thing that stops us out (vix1_roi).
-    """
-    p = next((i for i in range(len(win) - 1, -1, -1) if _counter(win[i], bullish)), None)
-    if p is None:
-        return None, "no pullback candle yet — price is running"
-    while p > 0 and not _resumes(win[p - 1], bullish):    # anything non-resuming is still retrace
-        p -= 1
-    c   = win[p]
-    avg = avg_body(win, n=_AVG_N)
-    if not is_pullback_candle(c, bullish, avg):
-        return None, (f"the retrace opened with an unusable candle "
-                      f"(body {body_size(c):.5f} / range {full_range(c):.5f} vs avg body {avg:.5f}) "
-                      f"— either chop or indecision, not a pullback to anchor; waiting")
-    # PAST THE LINE — the WHOLE pullback candle must sit past (or on) line 1. The edge that faces
-    # the line is the one that has to clear it: the LOW on a buy, the HIGH on a sell. Touching is
-    # allowed ("past the 1HR line or on the 1HR line").
-    #
-    # This gate existed, was REMOVED on 2026-07-25, and is RE-ADDED on 2026-07-26 on the user's
-    # direct instruction ("just make sure any pullback is past the 1HR line"). The removal was based
-    # on my own reconstruction of his pullbacks from screenshots — which measured only 9-10 of 19
-    # keeping their extreme past the line. That reconstruction has since been wrong twice (the
-    # invented "line 2", the symmetric wick cap), and he is the authority on his own method.
-    # Measured before re-adding: 53% of the pullbacks the code anchored on were NOT fully past the
-    # line, and the 8% of entries that landed outright behind it returned 12% WR / -5.0R.
-    near = c.low if bullish else c.high
-    if (near < line) if bullish else (near > line):
-        return None, (f"the pullback candle ({near:.5f}) is not past line 1 ({line:.5f}) — "
-                      f"the whole candle must sit past (or on) the line; waiting for one that does")
-    # (A "ran beyond LINE 2" guard sat here until 2026-07-26. Line 2 is deleted, and the guard was
-    #  already dead: the past-the-line test above requires the WHOLE candle on our side of line 1,
-    #  which is strictly stronger than anything line 2 could have caught.)
-    return c, ""

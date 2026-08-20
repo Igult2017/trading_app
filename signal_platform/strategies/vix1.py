@@ -6,11 +6,14 @@ Built ONLY from the Volume Strategy playbook — a self-contained strategy, unre
         a clear 1HR trend (HH+HL up / LH+LL down), or, when the 1HR is unclear, 1HR momentum backed by
         a clear 4HR trend. A range->trend transition is taken only once the trend is CONFIRMED, never
         on the bare breakout. OPERATE FROM THE 1ST momentum candle. NO indicators.
-  1M  = entry, and the 1M alone decides WHEN — the 1HR never puts a clock on it. THE LINE says which
-        side we are on: our side -> the PULLBACK is the entry; the wrong side -> the counter-move's
-        last FRACTAL must break first. Entry = a stop just beyond the first pullback candle, so a
-        reversal never fills. SL = the nearest 1M REGION OF INTEREST beyond it (vix1_roi) — never a
-        pip count; TP = 2R, the two-1HR-candle move. See vix1_entry.
+  1M  = entry, and the 1M alone decides WHEN — the 1HR never puts a clock on it, and the 1M reads NO
+        structure of its own: *"Everything has been settled in 1HR, in 1 min we are only looking for
+        entries."* THE LINE says which side we are on: our side -> wait for the CROSS; the wrong side
+        -> the counter-move's last FRACTAL must break first. Entry = a stop order one tick beyond the
+        furthest price reached between the crossing candle and the ONE candle after it, so a pullback
+        never fills us and a resumption does. No pullback there? It is ASSUMED and the card says so.
+        SL = beyond the LINE, or beyond the pullback's far edge when it dipped through — never a pip
+        count; TP = 2R, the two-1HR-candle move. See vix1_cross and vix1_entry.
 
 Once a setup fires it is LOCKED and WATCHED on both timeframes (vix1_watch) — if the 1HR bias
 flips or the 1M reverses past the stop before entry, it is invalidated (alert) so we never keep
@@ -55,8 +58,8 @@ class Vix1Strategy(BaseStrategy):
     required_timeframes = [TF.M1, TF.H1, TF.H4]   # H4 = the TREND timeframe; H1 = momentum; M1 = entry
     requires_news       = True
     # The 1M window MUST span the oldest momentum candle the bias can return, because the entry reads
-    # everything "since the line was drawn": the line-1 gate (traded_past), the FIRST candle of the
-    # retrace, the fractals, and the SL regions. A flat 250 bars covered only 4.2h against a 12h
+    # everything "since the line was drawn": the cross, the candle after it, and the fractals that
+    # gate the wrong-side route. A flat 250 bars covered only 4.2h against a 12h
     # lookback, so on 51% of bias hits the entry judged a setup on a window that began hours after
     # its own line — silently rejecting valid entries and mis-siting the ones it took. DERIVED, never
     # a literal, so the two cannot drift apart a third time (fix log ef6ff8b).

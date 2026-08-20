@@ -23,9 +23,10 @@ and the stop shrank as the SETUP GOT BETTER: A-grade candles got a 2.2 pip stop,
 That is backwards, and it is why the reconstruction ran 3-9 pip stops against the user's 15 and why
 nothing survived a 1-pip spread. Do not reintroduce it in any form.
 
-The stop now comes from where he actually puts it — the nearest 1M REGION OF INTEREST beyond the
-pullback (vix1_roi), which is his own rule in his own words and had been sitting orphaned (imported
-but never called) since the line-2 anchor replaced it.
+The stop now comes from where he actually puts it — *"behind the 1HR line or on it depending on when
+we get the pullback"* (2026-08-20). So THIS line is the stop's anchor, pushed further only when the
+pullback itself dipped through it. The region-of-interest hunt that stood here between those two
+designs is deleted; it blocked every entry for the first ~8 minutes after a momentum candle.
 """
 from core.types import Candle
 

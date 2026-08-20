@@ -11,19 +11,29 @@ on the playbook; never by analogy to anything else.
 
 ## The model, in one paragraph
 
-**1HR says which way; 1M says when.** A confirmed trend carried by momentum sets the bias off the
-FIRST momentum candle of a run. A LINE is drawn from that candle's body close. On the 1M, price must
-be past the line, then the first pullback candle past it becomes the entry — a **stop order** just
-beyond it, so a reversal never fills. SL is the nearest 1M region of interest; TP is 2R.
+**1HR says which way; 1M says when — and NOTHING ELSE.** A confirmed trend carried by momentum sets
+the bias off the FIRST momentum candle of a run. A LINE is drawn from that candle's body close. On the
+1M a candle must CLOSE past that line; one candle later the order goes in, **one tick beyond the
+furthest price reached across those two candles**. If that next candle did not pull back, the pullback
+is ASSUMED and the card says so. SL sits beyond the line (or beyond the pullback when it dipped
+through); TP is 2R.
+
+His instruction, 2026-08-20: *"Everything has been settled in 1HR, in 1 min we are only looking for
+entries."* The 1M reads no structure of its own — no swing points, no zones, no retrace search.
 
 ```
  H4 (closed) ── clear trend ─┐
                              ├─► detect_bias ──► 1st momentum candle ──► draw_line (body close)
  H1 (closed) ── momentum ────┘                                                │
                                                                               ▼
- M1 (forming bar KEPT) ──► past the line? ──► find_pullback (CLOSED bars) ──► entry_trigger
-                                                                              │
-                                        stop order beyond the pullback · SL from ROI · TP 2R
+ M1 (forming bar KEPT) ──► a 1M candle CLOSES past the line  (vix1_cross)      │
+                                    │                                          │
+                                    ▼  wait exactly ONE candle                  │
+                          pullback there?  yes ─► kind = pullback               │
+                                          no  ─► kind = ASSUMED (never skipped) │
+                                    │                                          ▼
+                        order = one tick beyond the furthest price reached  ◄───┘
+                        SL beyond the LINE (or the pullback if it dipped through) · TP 2R
                                                                               ▼
                                             vix1_signal (card) ──► LOCK ──► vix1_watch
                                                                               │
@@ -35,20 +45,25 @@ beyond it, so a reversal never fills. SL is the nearest 1M region of interest; T
 **A LEVEL comes from a CLOSED candle; a TRIGGER or current price stays LIVE.**
 
 - `vix1.py:86-87` — H1 and H4 go through `closed_only`. A line that moves every scan is not a line.
-- `vix1_entry.py:87` — `wcl = win[:-1] …` — the pullback candle, fractal levels and SL regions are
-  read from **closed** bars; `win` (live) answers only *trigger* questions: has price traded past the
-  line, which side is it on, is the stop still unfilled.
+- `vix1_entry.py` — `wcl = win[:-1] …` — the cross, the order level and the stop are read from
+  **closed** bars; `win` (live) answers only *trigger* questions: which side is price on, and is the
+  level still ahead of it.
+- **The one deliberate exception**: when price is already through the level, the entry IS current
+  price (a market entry). That is not a level read from a forming bar — the rule's own wording is *a
+  LEVEL from a CLOSED candle, a TRIGGER **or current price** stays LIVE*. `test_invariants_real_data`
+  excludes exactly that case and holds every other signal to the invariant.
 
 VIX.1 has shipped a bug from reading the forming bar as a level, and **a backtest can never catch it**
 — every historical bar is closed, so the error is invisible to replay and only appears live.
 
 ---
 
-## Module map — 22 files, ~2,660 lines
+## Module map — 22 files, ~2,600 lines
 
 | file | owns |
 |---|---|
 | `vix1.py` | orchestrator: **pre-close** → watch → bias → news gates → **spacing** → **heads-up** → 1M signals → grade → build |
+| `vix1_cross.py` | **THE CROSS and the order level** (added 2026-08-20) — a 1M CLOSE past the line, then one candle, then one tick beyond how far price got. The whole of the 1M's job |
 | `vix1_preclose.py` | **the warning BEFORE the momentum candle closes** (added 2026-08-20). The ONE place in VIX.1 that reads the bar still FORMING on purpose. Fires at T-5, DM only, no entry/stop/target |
 | `vix1_spacing.py` | **how long the instrument stays shut after a signal** (added 2026-07-27) |
 | `vix1_bias.py` | `detect_bias(h1, h4, symbol) -> Bias \| None` — momentum on H1, trend on H1 (H4 only as a fallback) |
@@ -63,10 +78,9 @@ VIX.1 has shipped a bug from reading the forming bar as a level, and **a backtes
 | `vix1_structure.py` | `fast_pattern` / `leg_state` (**its OWN 8-bar lookback** — the `turns=` parameter was deleted 2026-08-19, see the reversal note below) + `market_permits` — the refusals: is the faster structure trending the opposite way (a pullback)? Never decides direction |
 | `vix1_choch.py` | **the change-of-character route — the ONE place a pullback is not asked for** (added 2026-08-15). `choch_entry()` returns a `Bias` while a turn is proposed-but-unconfirmed, if momentum developed the new way out of a trending market. Re-detects nothing: reads `pending` / `choch_price` / `choch_index` off `TrendState` |
 | `vix1_lines.py` | `draw_line` — ONE line, the momentum candle's body close |
-| `vix1_pullback.py` | `find_pullback` — the counter candle, and the past-the-line gate |
+| `vix1_pullback.py` | `is_pullback_candle` — IS this candle a pullback (the whipsaw rejection). The `find_pullback` search and `traded_past` were DELETED 2026-08-20 with the rest of the 1M analysis |
 | `vix1_fractal.py` | fractal levels/breaks for the wrong-side case |
-| `vix1_entry.py` | `m1_signals` — alignment, entry, SL, TP (largest file, 228 lines) |
-| `vix1_roi.py` | `regions` / `sl_from_regions` — SL from structure, **never a pip count** |
+| `vix1_entry.py` | `m1_signals` — alignment, cross, entry, SL. Rebuilt 2026-08-20 and now ~165 lines; it reads NO 1M structure |
 | `vix1_signal.py` | the card |
 | `vix1_watch.py` | invalidation of a LOCKED pending setup |
 | `vix1_manage.py` | the R ratchet state machine |
@@ -78,9 +92,12 @@ VIX.1 has shipped a bug from reading the forming bar as a level, and **a backtes
 |---|---|
 | **Bias** | 1st momentum candle of a run (`_MIN_RUN = 1` — deliberate; measured on 1,433 real momentum candles) |
 | **Line** | that candle's **body close**. ONE line — line 2 was deleted |
-| **Alignment** | our side of the line → the pullback IS the entry. Wrong side → the counter-move's last fractal must break first |
-| **Entry** | a **STOP order** just beyond the first pullback candle *past the line* — a reversal never fills |
-| **SL** | nearest 1M region of interest beyond the pullback (`vix1_roi`) — **never a pip count** |
+| **Alignment** | our side of the line -> wait for the CROSS. Wrong side -> the counter-move's last fractal must break first |
+| **Cross** | at least one 1M candle must **CLOSE** past the line — not a touch (`vix1_cross`, 2026-08-20) |
+| **Entry** | a **STOP order one tick beyond the furthest price reached** between the crossing candle and the ONE candle after it. Measured off his own trade: reach 1.11733 -> order 1.11734 |
+| **No pullback** | the setup is **NOT skipped** — the pullback is ASSUMED, the entry is taken and the card says `PULLBACK ASSUMED` on its face. About **half** of all entries |
+| **Already through** | price past the level at the decision -> a **MARKET** entry at current price, not a refusal (~25-29%) |
+| **SL** | beyond the **LINE**, or beyond the pullback's far edge when it dipped through — **never a pip count**. Gap 0.5x, floor 1.0x the 1M's recent range; ceiling one 1HR candle |
 | **TP** | **2R** — the two-1HR-candle move |
 | **Management** | R ratchet: 2R → lock 1R, 3R → lock 2R … **ADVICE ONLY** (see below) |
 | **Spacing** | while a signal on this INSTRUMENT is still running, the next needs **3 momentum candles closed after the previous signal's anchor candle**. A closed previous signal — *including a loss* — voids the wait |
@@ -860,7 +877,7 @@ retracement*" (the same change, plus real-time turning points feeding `leg_state
 ## The test suite — `signal_platform/tests/vix1/`
 
 ```
-python signal_platform/tests/vix1/run_all.py     # 16 files, exit non-zero on failure
+python signal_platform/tests/vix1/run_all.py     # 18 files, exit non-zero on failure
 ```
 
 No framework, no network, no DB. **Run it before writing the doc entry for a change, not after.**
@@ -877,6 +894,8 @@ platform root and fails under `run_all.py`, which runs from the test directory.
 | `test_line_pullback.py` | the line is the BODY CLOSE; **past-the-line accepted / refused / straddling refused / exactly ON accepted**, both directions; `traded_past`; the shape filters |
 | `test_manage.py` | ratchet 2R→1R, 3R→2R, whole-R steps, **forward-only**; the structure exit by body close, wicks never counting |
 | `test_invariants_real_data.py` | drives `m1_signals` over 4,000 real M1 bars per pair: entry is a **STOP**, SL on the losing side, **TP exactly 2R**, crash-freedom — plus the governing invariant, by **mutating the forming bar and asserting no level moves** |
+| `test_cross.py` | the rebuilt entry's core: a CLOSE is a cross and a wick is not, the one-candle wait, the level is one tick beyond the reach, assumed vs seen, a whipsaw counts as no-pullback — and **his own 5 Aug 2019 bars, asserting the order price 1.11734** |
+| `test_entry_real_events.py` | the REAL `m1_signals` on three real events: **his trade must come out at 1.11734**, XAU/USD 20 Aug must fire earlier than the old 12:09, and EUR/USD 20 Aug (which the audit found correct) must still fire |
 | `test_preclose.py` | the pre-close warning: the window (too early / at the edge / one second past / already closed), the shape, **that it fires exactly when `is_momentum_candle` would pass**, the dedup key, the card carrying no levels, and 400 real bars on which it never once fires on a closed bar |
 | `test_headsup_untied.py` | drives the REAL `analyze`: with no entry it emits the heads-up; **with an entry on the same tick it emits BOTH, heads-up first** — the case that used to emit nothing. Bias and entry are stubbed on purpose; what is under test is the wiring between them |
 
