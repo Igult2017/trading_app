@@ -115,17 +115,6 @@ def put(symbol: str, tf: str, candles: list) -> None:
     log.debug(f"[candle_cache] cached {symbol} {tf} — {len(candles)} bars, TTL={ttl:.0f}s")
 
 
-def invalidate(symbol: str | None = None) -> None:
-    """Remove entries for a symbol, or clear all if symbol is None."""
-    with _lock:
-        if symbol is None:
-            _store.clear()
-        else:
-            keys = [k for k in _store if k[0] == symbol]
-            for k in keys:
-                del _store[k]
-
-
 def stats() -> dict:
     now = time.monotonic()
     with _lock:

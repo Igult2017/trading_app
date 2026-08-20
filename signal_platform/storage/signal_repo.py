@@ -60,6 +60,19 @@ def save(signal: Signal, status: str | None = None, ref_price: float | None = No
         try:
             s.flush()
         except IntegrityError:
+            # ROLL BACK BEFORE RETURNING. A failed flush leaves the transaction in a state where the
+            # only legal next move is a rollback — and `get_session` commits on the way out of this
+            # `with`, so without this the commit raised PendingRollbackError ("This Session's
+            # transaction has been rolled back") and `save` RAISED instead of returning "".
+            #
+            # WHAT THAT COST, and it is not cosmetic: a duplicate here is the NORMAL case — a repeat
+            # heads-up for a setup already on the board. The caller's `else` branch, which calls
+            # `touch_watch` to say "still being watched", was therefore UNREACHABLE, because the
+            # caller only reaches it when `save` returns "". `updated_at` froze at first sighting and
+            # `drop_abandoned` dropped setups that were still live 24h later — exactly what the
+            # `touch_watch` docstring says it exists to prevent. Seen in production 2026-08-20 as two
+            # "watch-row save failed" errors on USD/JPY.
+            s.rollback()
             log.warning(f"[signal_repo] duplicate signal for {signal.symbol} — skipped")
             return ""
         log.info(f"[signal_repo] saved signal {row.id} for {signal.symbol}")

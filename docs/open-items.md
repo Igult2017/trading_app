@@ -50,7 +50,31 @@ defects**, and the pattern that produced them will otherwise repeat.
 utilisation, comfortable headroom, no outliers. Item 3 is **closed**: the real median is 12 s, not the
 5 s I claimed, and nothing resembling 174 s occurred.
 
-## 0c. THE LATE SIGNAL HAD A CAUSE AFTER ALL — the 1HR feed was cached for 48 minutes
+## 0d. ⚠ THE SECTION BELOW OVERCLAIMED — the audit trail says the cache was NOT what he saw
+
+**Checked 2026-08-20 against `signal_events`, which is what should have been read FIRST.** The two
+signals he reported as late:
+
+| event | momentum candle closed | heads-up DELIVERED | delay |
+|---|---|---|---|
+| EUR/USD | 10:00:00 | **10:00:38** | **38s** |
+| XAU/USD | 12:00:00 | **12:00:13** | **13s** |
+
+**Neither was late.** What arrived 9–15 minutes afterwards was the **ENTRY** card (`10:15:39`,
+`12:09:25`) — the 1M pullback entry, which forms when it forms. So the 48-minute cache defect below
+is **real and worth fixing**, but it is **NOT the cause of what he experienced**, and saying it was
+"likely" the cause was the same mistake as the other two today: a mechanism that COULD produce the
+symptom, asserted before checking the record that says whether it DID.
+
+**His rule exists for exactly this** (`~/.claude/CLAUDE.md`): *reproduce the ACTUAL event from what
+the system RECORDED, before touching anything.* The audit trail was built for this, was sitting
+there the whole time, and was read only after the fix had shipped and been announced.
+
+**What the record actually locates** is a different question, and it is his original one: the entry
+came 9–15 minutes after the momentum candle, and he says the entry he wanted was the first pullback
+right after it. That is the 1M entry search, not the feed. **Not investigated yet — do not assume.**
+
+## 0c. A REAL CACHE DEFECT — the 1HR feed was held for 48 minutes (but see 0d above)
 
 **Found 2026-08-20 by reading production logs, and it corrects an earlier "all clear" from me.**
 
@@ -60,9 +84,10 @@ noticing a bar has closed at all. A candle closing at 15:00 was seen whenever th
 **anywhere from seconds to 48 minutes later**, because the 48-minute refresh cycle drifts against the
 60-minute bar cycle.
 
-**That intermittency is why one measurement cleared it and the user's experience did not.** I timed a
-single delivery at 13.7s after the close and told him the platform was correct. One fast sample from
-a process whose delay varies from 0 to 48 minutes proves nothing, and I presented it as proof.
+**How much lateness it actually caused in practice is UNMEASURED** — see 0d: on the two occasions
+that were checked against the record, delivery was 13s and 38s, so the stale window evidently was not
+being hit on those. The defect is real in the code and the fix is strictly safer; what is not
+established is that it ever cost him a signal.
 
 Fixed: a copy never spans a bar close, and refreshes every ~55s through the last 6 minutes. New TTL
 is always ≤ the old, so it can only make candles fresher. **How it was found is the transferable
