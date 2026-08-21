@@ -1849,8 +1849,18 @@ const landingStyles = `
 /* ---- hero ---- */
 .ts-page .hero{padding:42px 0 92px;position:relative;}
 .ts-page .hero-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:56px;align-items:center;}
-.ts-page .hero h1{font-size:clamp(52px,7.4vw,92px);line-height:.94;margin:22px 0 0;}
-.ts-page .hero h1 .l2{display:block;font-style:italic;font-weight:500;color:var(--blue-soft);}
+/* THE HEADLINE, his revision: smaller, upright, and two-tone.
+   It was clamp(52px,7.4vw,92px) with the second line in italic — at 1366px that resolved to 92px,
+   which pushed "mirror every trade." onto two lines and made the block taller than the diagram
+   beside it. Now it tops out at 56px and stays on two lines.
+
+   NOT ITALIC. The distinction between the product name and the line about it is carried by COLOUR
+   and WEIGHT instead: the name in near-white at 700, the promise in sky at 500. Two different hues
+   rather than one hue plus a slant, which is what he asked for — and sky keeps the blue free for
+   the buttons, where blue means "this is clickable". */
+.ts-page .hero h1{font-size:clamp(34px,4.4vw,56px);line-height:1.06;margin:20px 0 0;}
+.ts-page .hero h1 .l1{color:var(--text);font-weight:700;}
+.ts-page .hero h1 .l2{display:block;font-weight:500;color:var(--sky);letter-spacing:0;}
 .ts-page .hero .lede{color:var(--muted);font-size:18px;max-width:440px;margin:22px 0 32px;line-height:1.6;}
 .ts-page .hero .cta-row{display:flex;gap:14px;flex-wrap:wrap;}
 .ts-page .trust{margin-top:30px;display:flex;align-items:center;gap:11px;color:var(--faint);
@@ -2239,7 +2249,7 @@ export default function TradeSyncPage() {
           <div className="fx-wrap hero-grid">
             <div>
               <span className="eyebrow pf"><span className="dot" />Automated trade copying</span>
-              <h1>FX Copier<span className="l2">mirror every trade.</span></h1>
+              <h1><span className="l1">FX Copier</span><span className="l2">mirror every trade.</span></h1>
               <p className="lede">
                 Run all of your trading accounts from one place — one master broadcasts,
                 every follower copies, automatically and in real time.
