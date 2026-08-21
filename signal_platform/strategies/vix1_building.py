@@ -17,6 +17,7 @@ when the candle closes and stays quiet for every scan tick after — the bias ca
 a heads-up that repeated every 60s would train the user to ignore the channel.
 """
 from core.types import Candle, Signal, Direction, TF
+from notifications import titles
 from charting import theme
 from strategies.vix1_lines import draw_line
 from strategies.vix1_retracement import Retracement
@@ -46,7 +47,7 @@ def building_signal(symbol: str, buy: bool, vc: Candle, origin: str, vol_count: 
         # THIS CARD NAMES ITS OWN MOMENT. The panel used to derive the headline from `stage` alone,
         # so this card was captioned with another strategy's zone vocabulary — it told the reader to
         # "AWAIT THE RETURN" when what he is actually waiting for is the 1M pullback entry.
-        headline          = f"{side} — MOMENTUM CANDLE CLOSED",
+        headline          = titles.MOMENTUM_CLOSED,
         label             = "WAIT FOR 1M ENTRY",
         # No entry/stop/target: they are decided on the 1M and do not exist yet. The card prints an
         # em dash for each rather than inventing a level a reader might act on.

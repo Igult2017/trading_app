@@ -40,6 +40,16 @@ def masthead(ax, sig: Signal, buy: bool, subtitle: str) -> None:
     # these defaults apply exactly as before.
     head = sig.headline or (f"{'BUY' if buy else 'SELL'} — UNCONFIRMED ENTRY" if building
                             else f"{'BUY' if buy else 'SELL'} — CONFIRMED ENTRY")
+    # THE STRATEGY GOES IN THE TITLE ITSELF. His instruction, 2026-08-21: *"include the strategy that
+    # produced the signal in the title."* It was already on the card, but lower down and dim; the
+    # title said only what happened, never whose.
+    #
+    # IN THE HEADLINE, NOT ON A LINE ABOVE IT. The first attempt drew a separate kicker at y=0.945
+    # and it collided with the headline against the top edge — rendered and looked at, which is the
+    # only way that was going to be caught. Same words as `notifications.titles.kicker`, so the
+    # picture and the Telegram message keep saying the same thing.
+    if sig.strategy_name:
+        head = f"{sig.strategy_name}  ·  {head}"
     ax.plot([0.0, 0.022], [0.86, 0.86], color=accent, linewidth=3, zorder=3)
     ax.text(0.032, 0.845, head, color=accent, va="center",
             ha="left", fontproperties=theme.font(15, bold=True))

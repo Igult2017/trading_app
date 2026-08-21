@@ -10,6 +10,7 @@ not a re-implementation of either. The three things that must hold:
 """
 from _harness import Suite, C, body, flat_series, load
 from shared.mtf_utils import seconds as tf_seconds
+from notifications import titles
 from strategies import vix1_preclose as pc
 from strategies.vix1_momentum import is_momentum_candle
 
@@ -105,8 +106,11 @@ s.check("_watch — the admin DM, never the channel", sig.strategy_id, "vix1_wat
 s.check("it does NOT go to the channel", sig.to_channel, False)
 # A forecast must not claim the single watching row the real heads-up needs five minutes later.
 s.check("it writes NO watching row", sig.persist_watch, False)
+# ASSERTED AGAINST THE CONSTANT, not a copy of its text. These titles are the shared vocabulary
+# (notifications/titles) and the whole point is that one edit there moves every surface; a test
+# holding its own copy of the words would silently pin them.
 s.check("the headline names ITS moment, not another strategy's",
-        sig.headline, "BUY — MOMENTUM CANDLE CLOSING")
+        sig.headline, titles.MOMENTUM_CLOSING)
 s.check("the chip counts down", sig.label, "~5 MIN LEFT")
 s.check("it marks the forming bar (that is what puts it on the chart)",
         sig.chart_marks, [(big.time, "FORMING")])
@@ -180,8 +184,10 @@ s.check("it goes to the DM, never the channel", sd.strategy_id, "vix1_watch")
 s.check("it claims no watching row — nothing is being watched", sd.persist_watch, False)
 s.check("it is not marked qualified", sd.qualified, False)
 s.check("it marks no candle on the chart (the bar has closed)", sd.chart_marks, [])
-s.check("the headline says plainly that there is no setup",
-        "NO SETUP" in sd.headline and "DID NOT QUALIFY" in sd.headline, True)
+s.check("the headline says plainly that it did not qualify",
+        sd.headline, titles.MOMENTUM_FAILED)
+s.check("...and the two VIX.1 momentum titles are distinct",
+        sd.headline != titles.MOMENTUM_CLOSING, True)
 s.check("it tells him watching continues — his actual ask",
         any("STILL WATCHING" in r for r in sd.technical_reasons), True)
 s.check("...and that another notification will come",

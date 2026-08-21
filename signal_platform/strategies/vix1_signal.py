@@ -7,6 +7,7 @@ formatting of an already-decided entry/SL/TP.
 """
 from charting import theme
 from core.types import TF, Signal, Direction
+from notifications import titles
 from news.news_filter import news_note
 from strategies.vix1_retracement import Retracement
 from strategies.vix1_regime import Regime
@@ -134,7 +135,10 @@ def build_signal(kind, symbol, bullish, origin, vol_count, entry, sl, tp,
         # signal."* A card headed "CONFIRMED ENTRY" while the pullback has NOT happened is the one
         # thing that message must never look like — and that default wording is another strategy's
         # vocabulary anyway, which the panel used to put on every card in the platform.
-        headline          = f"{side} — {label}",
+        # NAMES THE MESSAGE TYPE *AND* THE FLAVOUR: "ENTRY SIGNAL — PULLBACK ASSUMED". It used to be
+        # "BUY — PULLBACK ASSUMED", which said the direction (already on the card twice) but never
+        # that this was the entry rather than one of VIX.1's four other message types.
+        headline          = f"{titles.ENTRY_SIGNAL} — {label}",
         # ...and the captions under the three numbers, for the same reason. The renderer's generic
         # fallback reads "Confirmed entry", which is exactly wrong on an assumed one. Supplying them
         # here keeps `charting/` strategy-agnostic, which is the standing rule.

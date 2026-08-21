@@ -42,6 +42,7 @@ that did not qualify (it reached 1.16846 and bounced back to 1.16900). GBP/USD's
 import time
 
 from core.types import Candle, Signal, Direction, TF
+from notifications import titles
 from shared.mtf_utils import is_closed, seconds as tf_seconds
 from strategies.vix1_momentum import is_momentum_candle, momentum_grade
 
@@ -116,7 +117,7 @@ def preclose_signal(symbol: str, bullish: bool, bar: Candle, secs_left: float,
         qualified         = True,
         primary_timeframe = TF.H1,
         confidence        = 0.0,
-        headline          = f"{side} — MOMENTUM CANDLE CLOSING",
+        headline          = titles.MOMENTUM_CLOSING,
         label             = f"~{mins} MIN LEFT",
         # MARK THE FORMING BAR. This is also what tells the card renderer to draw it: every other
         # card drops the unfinished bar, and this one would be a picture of the wrong candle without
@@ -192,7 +193,7 @@ def standdown_signal(symbol: str, bar: Candle, bullish: bool, pip: float,
         qualified         = False,
         primary_timeframe = TF.H1,
         confidence        = 0.0,
-        headline          = "NO SETUP — CANDLE DID NOT QUALIFY",
+        headline          = titles.MOMENTUM_FAILED,
         label             = "STILL WATCHING",
         technical_reasons = [
             f"The 1H candle you were notified about ({side}) has CLOSED and did not qualify as a "

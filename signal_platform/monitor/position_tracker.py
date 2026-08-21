@@ -48,6 +48,7 @@ retries on the next poll.
 import logging
 
 from core import delivery_ledger
+from notifications import titles
 from data import ctrader_positions
 from data.candle_fetcher import fetch_candles
 from shared.pip import price_digits
@@ -104,7 +105,8 @@ def _lines(p, r: float, price: float) -> list[tuple[str, str]]:
         be = p.breakeven()
         where = (f"{be:.{d}f}" if be is not None else "your entry + costs")
         out.append(("breakeven", be,
-                    f"🟦 BREAKEVEN — {p.symbol} {side}\n\n"
+                    titles.header(titles.MOVE_TO_BREAKEVEN, titles.TRADE_MANAGEMENT,
+                                  p.symbol, side) + "\n\n"
                     f"+{r:.1f}R reached. Move your stop to {where}.\n\n"
                     f"That is the price where closing nets ZERO — it covers the round-trip "
                     f"commission and swap, not just your entry. A stop at {p.entry:.{d}f} would "
@@ -118,7 +120,8 @@ def _lines(p, r: float, price: float) -> list[tuple[str, str]]:
         tail = ("\n\nThe 4R take profit is on the order, so the broker does the exit — this locks "
                 "+3R first so a failed exit still banks it." if at_r >= 4.0 else "")
         out.append((tag, lock_at,
-                    f"🟩 LOCK +{lock_r:.0f}R — {p.symbol} {side}\n\n"
+                    titles.header(titles.lock(lock_r), titles.TRADE_MANAGEMENT, p.symbol, side,
+                                  emoji=titles.LOCK_EMOJI) + "\n\n"
                     f"+{r:.1f}R reached. Move your stop to {lock_at:.{d}f}.{tail}"))
     return out
 
@@ -150,9 +153,11 @@ async def _auto_move(p, tag: str, new_sl: float | None, send, price: float | Non
         # measured R from, so the guard costs nothing.
         out = await breakeven.move_stop_to(p, new_sl if tag != "breakeven" else None,
                                            label, acct.creds, acct.account_type, price)
-        head = "🔴 AUTO-STOP" if out.alarm else ("🔧 AUTO-STOP" if out.moved
-                                                else "🔧 AUTO-STOP — not moved")
-        await send(f"{head} — {p.symbol} #{p.position_id}\n\n{out.message}")
+        kind = (titles.TAKE_PROFIT_MISSING if out.alarm
+                else titles.STOP_MOVED if out.moved else titles.STOP_NOT_MOVED)
+        await send(titles.header(kind, titles.TRADE_MANAGEMENT, p.symbol,
+                                 "BUY" if p.bullish else "SELL",
+                                 extra=f"#{p.position_id}") + f"\n\n{out.message}")
     except Exception as exc:
         log.error(f"[position_tracker] auto-move failed: {type(exc).__name__}: {exc}",
                   exc_info=True)
@@ -201,9 +206,10 @@ async def check_all(send) -> None:
                 k = _key(p.position_id, "nostop")
                 if not delivery_ledger.is_delivered(k):
                     d = price_digits(p.symbol)
-                    if await send(f"⚠️ NO STOP — {p.symbol} {'BUY' if p.bullish else 'SELL'} at "
-                                  f"{p.entry:.{d}f}\n\nThis position has no stop loss set, so there "
-                                  f"is no R to track and no breakeven to compute."):
+                    if await send(titles.header(titles.NO_STOP, titles.TRADE_MANAGEMENT, p.symbol,
+                                                "BUY" if p.bullish else "SELL") + "\n\n"
+                                  f"Opened at {p.entry:.{d}f}. This position has no stop loss set, "
+                                  f"so there is no R to track and no breakeven to compute."):
                         delivery_ledger.mark_delivered(k)
                         log.info(f"[position_tracker] {p.symbol} #{p.position_id}: "
                                  f"no-stop notice sent")

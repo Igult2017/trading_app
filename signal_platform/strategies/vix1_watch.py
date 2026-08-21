@@ -9,6 +9,7 @@ Also detects 'triggered' (the entry stop was hit → hand off / stop watching) a
 pending setup went stale). On a genuine invalidation the strategy sends a DM alert and drops the lock.
 """
 from core.types import Candle, Signal, Direction, TF
+from notifications import titles
 from strategies.vix1_bias import _H1_SWING_N, _H1_TREND_BARS
 from strategies.vix1_swings import structure_turns
 from strategies.vix1_trend import trend_state
@@ -95,6 +96,9 @@ def invalidation_signal(locked: dict, reason: str, symbol: str, strategy_name: s
     """A DM alert telling the trader a previously-signalled setup is no longer valid."""
     side = "BUY" if locked["bullish"] else "SELL"
     return Signal(
+        # It shared "⚠️ WATCH SIGNAL" with the ordinary watch alert, so an invalidation and a live
+        # setup arrived under the same header. This one names itself.
+        headline          = titles.SETUP_INVALIDATED,
         symbol            = symbol,
         direction         = Direction.BUY if locked["bullish"] else Direction.SELL,
         strategy_id       = "vix1_watch",     # → private DM

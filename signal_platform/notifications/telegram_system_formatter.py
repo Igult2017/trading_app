@@ -3,6 +3,7 @@ Telegram HTML formatters for system/platform notifications.
 Separate from telegram_formatter.py (signal cards) to stay under 150 lines.
 """
 
+from notifications import titles
 from datetime import datetime, timezone
 
 
@@ -16,7 +17,7 @@ def format_scan_started(payload: dict) -> str:
         _SESSION_META.get(s.lower(), ("", s.replace("_", " ").title()))[1] for s in sessions
     ) if sessions else "—"
     return "\n".join([
-        "🟢 <b>Scanner Active</b>",
+        titles.header(titles.SCANNER_STARTED, titles.PLATFORM),
         "──────────────────────────",
         f"🕐 <b>Time:</b>        <code>{now_utc}</code>",
         f"📊 <b>Instruments:</b> <code>{instr_list}</code>",
@@ -39,7 +40,7 @@ def format_session_open(session_name: str) -> str:
     emoji, label = _SESSION_META.get(session_name.lower(), ("🌍", session_name.replace("_", " ").title()))
     now_utc = datetime.now(timezone.utc).strftime("%H:%M UTC")
     return "\n".join([
-        f"{emoji} <b>{label} Session Open</b>",
+        titles.header(titles.SESSION_OPEN, titles.PLATFORM, extra=label),
         "──────────────────────────",
         f"🕐 <b>Time:</b> <code>{now_utc}</code>",
         "",
@@ -58,7 +59,7 @@ def format_platform_status(is_open: bool, sessions: list[str], next_open: str | 
             _SESSION_META.get(s.lower(), ("", s.replace("_", " ").title()))[1] for s in sessions
         ) if sessions else "no major session yet"
         lines = [
-            "🟢 <b>Signal Platform Online</b>",
+            titles.header(titles.PLATFORM_ONLINE, titles.PLATFORM),
             "──────────────────────────",
             f"🕐 <b>Time:</b>   <code>{now_utc}</code>",
             "📈 <b>Market:</b> <b>OPEN</b>",
@@ -68,7 +69,7 @@ def format_platform_status(is_open: bool, sessions: list[str], next_open: str | 
         ]
     else:
         lines = [
-            "🔴 <b>Signal Platform Online</b>",
+            titles.header(titles.PLATFORM_ONLINE, titles.PLATFORM),
             "──────────────────────────",
             f"🕐 <b>Time:</b>   <code>{now_utc}</code>",
             "📉 <b>Market:</b> <b>CLOSED</b>",

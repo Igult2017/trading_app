@@ -20,6 +20,7 @@ from _harness import Suite, body, flat_series
 import asyncio
 
 from core.types import Direction, MTFCandles, NewsContext, Session, TF
+from notifications import titles
 from core.strategy_context import StrategyContext
 from core.indicator_types import IndicatorBundle
 from core.pattern_types import PatternBundle
@@ -99,7 +100,7 @@ s.check("same dedup key — one heads-up per candle either way", a.dedup_key == 
 s.check("the key is on the momentum candle's time", str(MC.time) in a.dedup_key, True)
 
 # ── 4. it names ITS OWN moment, not another strategy's ──────────────────────
-s.check("the headline is VIX.1's own", a.headline, "BUY — MOMENTUM CANDLE CLOSED")
+s.check("the headline is VIX.1's own", a.headline, titles.MOMENTUM_CLOSED)
 s.check("the chip says what is actually being waited for", a.label, "WAIT FOR 1M ENTRY")
 s.check("...and not the zone vocabulary that used to leak onto it",
         "AWAIT THE RETURN" not in (a.label or ""), True)
@@ -109,7 +110,10 @@ BIAS = Bias(bullish=False, mc_idx=len(h1) - 1, origin="trend", run_len=1, reason
 sell = run([{"kind": "pullback", "entry": 1.0930, "sl": 1.0950}])
 s.check("a SELL bias also emits both", stages(sell), ["building", "ready"])
 s.check("...and the heads-up is a SELL", sell[0].direction, Direction.SELL)
-s.check("...with the SELL headline", sell[0].headline, "SELL — MOMENTUM CANDLE CLOSED")
+# The SIDE is no longer in the headline — it is on the title's second line and twice on
+# the card. The headline names the MESSAGE TYPE, which is what was missing.
+s.check("...and a SELL carries the same title", sell[0].headline, titles.MOMENTUM_CLOSED)
+s.check("...with the side on the signal, not in the title", sell[0].direction, Direction.SELL)
 
 # ── TEETH ───────────────────────────────────────────────────────────────────
 BIAS = Bias(bullish=True, mc_idx=len(h1) - 1, origin="trend", run_len=1, reason="test leg")

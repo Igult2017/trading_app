@@ -14,6 +14,7 @@ strangers deciding whether to take a trade.
 from datetime import timezone
 
 from core.types import Signal, Direction, SignalStatus
+from notifications import titles
 from shared.pip import pip_size, price_digits
 
 
@@ -94,15 +95,16 @@ def format_signal_confirmed(signal: Signal) -> str:
     d     = _digits(signal.symbol)
     rule  = "━━━━━━━━━━━━━━━━━━━"
 
-    # 1. WHAT + WHICH WAY — the whole point of the message, first line, nothing else on it.
-    head = f"{dot} <b>{side}</b>  ·  <b>{_h(signal.symbol)}</b>"
-    if signal.label:
-        head += f"  ·  <b>{_h(signal.label)}</b>"
-    sub = f"{_h(signal.strategy_name or signal.strategy_id)} · {_h(signal.primary_timeframe or '—')}"
+    # 1. WHAT IT IS, then WHO AND WHERE — the shared two-line title (notifications/titles). This
+    # led with "🟢 BUY · EUR/USD" and named no strategy at all, so a reader scrolling the channel
+    # could not tell which strategy produced it or which of its messages this was.
+    head = titles.for_signal(signal, titles.CONFIRMED_ENTRY if not signal.headline else "")
     when = _stamp(signal.created_at)          # when the SETUP fired, not when the message was built
-    if when:
-        sub += f" · {when}"
-    lines = [head, f"<i>{sub}</i>", rule]
+    lines = [head]
+    if signal.label or when:
+        chips = "  ·  ".join([c for c in (_h(signal.label) if signal.label else "", when) if c])
+        lines.append(f"<i>{chips}</i>")
+    lines.append(rule)
 
     # 2. THE THREE PRICES — the only things you type into a broker. Kept adjacent and uninterrupted.
     if signal.entry_price:
@@ -153,11 +155,11 @@ def format_signal_closed(symbol: str, direction: str, status: str,
     d = _digits(symbol)
     buy = direction == "buy"
     if status == SignalStatus.EXECUTED.value:
-        emoji, result = "✅", "TP HIT"
+        kind = titles.TARGET_HIT
     elif status == SignalStatus.INVALIDATED.value:
-        emoji, result = "❌", "SL HIT"
+        kind = titles.STOP_HIT
     else:
-        emoji, result = "⏱", "EXPIRED"
+        kind = titles.SETUP_EXPIRED
 
     # R is what the outcome MEANS — "TP HIT" alone does not say whether it paid for two losses.
     # Computed from the signal's own prices rather than assumed to be 2R: BX's TP is a real zone.
@@ -170,7 +172,12 @@ def format_signal_closed(symbol: str, direction: str, status: str,
             elif status == SignalStatus.INVALIDATED.value:
                 tag = "  ·  <b>-1R</b>"
 
-    lines = [f"{emoji} <b>{result}</b>  ·  <b>{_h(symbol)}</b> {'BUY' if buy else 'SELL'}{tag}"]
+    # The strategy was ALREADY passed into this function and only ever used in the italic line
+    # below — the title said "✅ TP HIT · EUR/USD BUY" and left the reader to guess whose trade it
+    # was. It goes in the title now, with the R multiple as the trailing chip.
+    lines = [titles.header(kind, _strategy_name(strategy), symbol,
+                           "BUY" if buy else "SELL",
+                           extra=tag.replace("  ·  ", "").replace("<b>", "").replace("</b>", ""))]
     # WHEN it closed — and when it opened, because "how long was this trade on?" is the first thing
     # asked of an outcome and the pair of times answers it without a second message.
     sub = _strategy_name(strategy)

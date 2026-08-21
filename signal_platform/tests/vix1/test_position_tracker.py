@@ -102,27 +102,27 @@ s.check("...and it is BREAKEVEN", "BREAKEVEN" in one[0], True)
 # on the order at 4R, so this rung exists to have +3R banked before the broker exits.
 two = run([P(pid=12)], 1.1020)
 s.check("at 2R — breakeven plus the first rung", len(two), 2)
-s.check("...and the rung says LOCK +1R", "LOCK +1R" in two[1], True)
+s.check("...and the rung says LOCK +1R", "LOCK IN +1R" in two[1], True)
 s.check("...naming the +1R price", "1.10100" in two[1], True)
 
 three = run([P(pid=13)], 1.1030)
 s.check("at 3R — three messages", len(three), 3)
-s.check("...the last is LOCK +2R", "LOCK +2R" in three[2], True)
+s.check("...the last is LOCK +2R", "LOCK IN +2R" in three[2], True)
 s.check("...naming the +2R price", "1.10200" in three[2], True)
 
 four = run([P(pid=14)], 1.1040)
 s.check("at 4R — four messages", len(four), 4)
-s.check("...the last is LOCK +3R", "LOCK +3R" in four[3], True)
+s.check("...the last is LOCK +3R", "LOCK IN +3R" in four[3], True)
 s.check("...and it explains the broker does the exit", "broker does the exit" in four[3], True)
 s.check("...it does NOT claim to close the trade itself", "closing the trade" in four[3], False)
 
 # ordered, and a rung not reached ends the ladder
 s.check("at 2.9R the 3R rung has NOT fired",
-        any("LOCK +2R" in m for m in run([P(pid=15)], 1.1029)), False)
+        any("LOCK IN +2R" in m for m in run([P(pid=15)], 1.1029)), False)
 
 # SELL mirrors — the locks go DOWN
 sells = run([P(pid=16, bullish=False, entry=1.1000, stop=1.1010)], 1.0980)
-s.check("SELL: at 2R it locks +1R below the entry", "LOCK +1R" in sells[1], True)
+s.check("SELL: at 2R it locks +1R below the entry", "LOCK IN +1R" in sells[1], True)
 s.check("...at 1.09900, not above", "1.09900" in sells[1], True)
 
 nostop = run([P(pid=13, stop=None)], 1.1010)

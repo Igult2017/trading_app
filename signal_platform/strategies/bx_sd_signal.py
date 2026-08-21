@@ -5,6 +5,7 @@ Kept separate so bx_sd.analyze() stays lean (150-line rule). No trading logic he
 formatting of an already-decided entry/SL/TP into the platform's panel-labelled Signal.
 """
 from core.types import TF, Signal, Direction
+from notifications import titles
 from charting import theme   # card palette — one source of truth for band colour
 from strategies.bx_sd_setup import SetupResult
 from strategies.bx_sd_ltf import LTFConfluence
@@ -124,6 +125,7 @@ def build_signal(symbol: str, setup: SetupResult, conf: LTFConfluence, trig: Ent
         # `bx_sd` -> channel, `bx_sd_watch` -> admin DM.
         alert_only        = False,
         stage             = "ready",   # STAGE 2 — a placeable entry with a stop and a target
+        headline          = titles.CONFIRMED_ENTRY,          # signal 2, in his own label
         technical_reasons = reasons,
         smc_factors       = smc,
         # THIS LINE HAS NOW BEEN WRONG TWICE, both times because the entry model moved and the

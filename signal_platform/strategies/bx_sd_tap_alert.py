@@ -21,6 +21,7 @@ This module produces FACTS ONLY. The voice — the headline, the quips, the disc
 `notifications/telegram_tap_alert.py`, so the tone can be rewritten without touching the strategy.
 """
 from core.types import Signal, Direction, TF
+from notifications import titles
 from charting import theme   # card palette — one source of truth for band colour
 from strategies.bx_sd_zones import Zone
 
@@ -119,6 +120,10 @@ def tap_alert_signal(zone: Zone, symbol: str, method: str, method_tf: str, digit
         to_channel        = True,
         # STAGE 1. Levels are absent, not provisional — the card must not imply a tradeable setup.
         stage             = "building",
+        # A THIRD, SEPARATE MESSAGE — not a stage of the unconfirmed/confirmed sequence. It fires
+        # before either, on the tap plus a 1M/5M reaction, and its own voice ("ON THE RADAR") is
+        # deliberate: the room has been trained that this is not a trade.
+        headline          = titles.ZONE_TAPPED,
         # NOT QUALIFIED *by our rule* — and the card now says both halves: `smc_factors` is why the
         # method would already take this, `disqualifiers` is why we stand aside anyway. Listing only
         # the absence (which is all this did until 2026-08-05) told the reader the setup was

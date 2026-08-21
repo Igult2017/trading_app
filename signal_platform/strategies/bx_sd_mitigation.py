@@ -6,6 +6,7 @@ question the zone book answers (the `wick_mitigated` / `body_mitigated` states),
 recompute from candles. This file is now only the card.
 """
 from core.types import Signal, Direction, TF
+from notifications import titles
 from charting import theme   # card palette — one source of truth for band colour
 from strategies.bx_sd_zones import Zone
 
@@ -43,6 +44,11 @@ def mitigation_signal(zone: Zone, symbol: str, backing: list[str], digits: int,
         # STAGE 1 — the higher timeframe is building: a zone has been mitigated, the entry has not
         # been confirmed. The card renders amber and says WAIT FOR ENTRY.
         stage             = "building",
+        # SIGNAL 1 NAMES ITSELF. His labels, 2026-08-19: *"Signal 1 should be labelled
+        # UNCONFIRMED ENTRY and signal 2 should be labelled CONFIRMED ENTRY."* Until 2026-08-21 no
+        # BX signal set `headline` at all, so the card fell back to the panel default and the
+        # Telegram message said only "SETUP ALERT" — neither naming the strategy nor the moment.
+        headline          = titles.UNCONFIRMED_ENTRY,
         qualified         = True,
         primary_timeframe = TF.H4,
         # The zone that was just tapped — the whole subject of this heads-up, so it is what the

@@ -18,6 +18,7 @@ Only the sign-off rotates, and it is seeded from the dedup key — so a retried 
 message rather than a fresh punchline for the same event.
 """
 from core.types import Signal, Direction
+from notifications import titles
 
 # Rotating sign-offs, in the user's own register: the agent deferring to the reader, slightly
 # sheepish about having spoken up at all. The FIRST is his line, near-verbatim.
@@ -78,9 +79,11 @@ def format_tap_alert(signal: Signal) -> str:
         # fun and engaging, you dont need to write the word 'cheeky' there."* The TONE is the brief;
         # printing the label was taking the instruction literally. The engagement lives in the
         # voice — the sign-off, the plain phrasing — not in a badge announcing itself as fun.
-        f"👀 <b>ON THE RADAR</b>  ·  <b>{_h(signal.symbol)}</b>  {dot}",
-        f"<i>{_h(signal.strategy_name or signal.strategy_id)} · "
-        f"{'DECISIONAL zone — we do NOT trade these' if _is_decisional(signal) else 'watching, not trading'}</i>",
+        # The shared two-line title (notifications/titles). Its VOICE is unchanged — "ON THE RADAR"
+        # is deliberate and the room is trained on it — but the strategy now sits in the title
+        # rather than only in the italic line under it.
+        titles.for_signal(signal, titles.ZONE_TAPPED),
+        f"<i>{'DECISIONAL zone — we do NOT trade these' if _is_decisional(signal) else 'watching, not trading'}</i>",
         _RULE,
         "",
         # NOTES, NOT PARAGRAPHS. User, 2026-08-15: *"They should only be notes not paragraphs."*

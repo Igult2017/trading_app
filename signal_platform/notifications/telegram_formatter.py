@@ -8,6 +8,7 @@ from core.types import Signal, Direction
 # One implementation of "what precision does this instrument quote in" and "when did this happen",
 # shared with the channel cards. Duplicating either is how they drift apart.
 from notifications.telegram_cards import _digits, _stamp
+from notifications import titles
 
 
 def _h(text: str) -> str:
@@ -21,24 +22,20 @@ def format_setup_alert(signal: Signal) -> str:
     signal's OWN fields — the strategy supplies its own reasons/context. No hardcoded indicator or
     setup-type text (e.g. no 'D1 200 EMA' / 'ADX' / 'H1 pullback' — those belong only to whichever
     strategy actually uses them, via its own technical_reasons)."""
-    arrow = "📈" if signal.direction == Direction.BUY else "📉"
     side  = "BUY" if signal.direction == Direction.BUY else "SELL"
-    name  = signal.strategy_name or signal.strategy_id or "—"
+    status = ("✅ <b>QUALIFIED</b>" if signal.qualified
+              else "❌ <b>NOT QUALIFIED</b> — reported for review only")
 
-    if signal.qualified:
-        header = f"👁 <b>SETUP ALERT — {_h(signal.symbol)} {side}</b>"
-        status = "✅ <b>QUALIFIED</b>"
-    else:
-        header = f"🔍 <b>SETUP — {_h(signal.symbol)} {side}</b>  <i>(not qualified)</i>"
-        status = "❌ <b>NOT QUALIFIED</b> — reported for review only"
-
-    lines = [header]
+    # THE TITLE COMES FROM THE SIGNAL'S OWN `headline` (notifications/titles). This used to be a
+    # hardcoded "👁 SETUP ALERT — EUR/USD BUY", which said neither which strategy produced it nor
+    # which of that strategy's messages it was — the same header covered a pre-close notification,
+    # a heads-up and a zone reaction. `headline` already existed and the card already drew it; only
+    # this side ignored it, which is why the picture and the text disagreed.
+    lines = [titles.for_signal(signal)]
     if signal.label:
         lines.append(f"🏷 <b>{_h(signal.label)}</b>")
     lines += [
         "──────────────────────────",
-        f"{arrow} <b>Strategy:</b> {_h(name)}",
-        f"⏱ <b>Timeframe:</b> {_h(signal.primary_timeframe or '—')}",
         f"🕐 <b>Fired:</b>     {_stamp(signal.created_at)}",
         status,
     ]
@@ -76,17 +73,13 @@ def format_setup_alert(signal: Signal) -> str:
 
 
 def format_signal_watch(signal: Signal) -> str:
-    arrow = "📈" if signal.direction == Direction.BUY else "📉"
-    side  = "BUY" if signal.direction == Direction.BUY else "SELL"
-
-    lines = [f"⚠️ <b>WATCH SIGNAL — {_h(signal.symbol)} {side}</b>"]
+    # Same story as above: this was a flat "⚠️ WATCH SIGNAL", used for an invalidation and a watch
+    # alike. The strategy, the symbol, the side and the timeframe are all in the title now.
+    lines = [titles.for_signal(signal)]
     if signal.label:
         lines.append(f"🏷 <b>{_h(signal.label)}</b>")
     lines += [
         "──────────────────────────",
-        f"{arrow} <b>{_h(signal.symbol)}</b> — <b>{side}</b>",
-        f"🏷 <b>Strategy:</b> {_h(signal.strategy_name or signal.strategy_id or '—')}",
-        f"⏱ <b>Timeframe:</b> {_h(signal.primary_timeframe or '—')}",
         f"🕐 <b>Fired:</b>     {_stamp(signal.created_at)}",
         "",
     ]

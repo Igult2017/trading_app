@@ -24,6 +24,7 @@ import logging
 from core import delivery_ledger, event_bus
 from charting import signal_card
 from core.types import Signal, Direction, TF
+from notifications import titles
 from shared.pip import price_digits
 from strategies.vix1_manage import run
 
@@ -53,12 +54,17 @@ async def _emit(sig: Signal, bars, symbol: str) -> None:
     await event_bus.emit(event_bus.SIGNAL_ALERT, sig)
 
 
-def _alert(symbol: str, buy: bool, text: str, ctx: str, key: str) -> Signal:
+def _alert(symbol: str, buy: bool, text: str, ctx: str, key: str, headline: str = "") -> Signal:
     return Signal(
         symbol            = symbol,
         direction         = Direction.BUY if buy else Direction.SELL,
         strategy_id       = "vix1_watch",     # _watch -> admin DM, never the public channel
         strategy_name     = "VIX.1",
+        # THE CATEGORY IS "VIX.1", NOT "TRADE MANAGEMENT", and the difference is real. These come
+        # from VIX.1's own ratchet reading its own SIGNAL; `monitor/position_tracker` gives the same
+        # advice from the BROKER's real position and is the accurate one. Two systems can say "move
+        # your stop to +2R" about the same trade, so the category line is what tells him which spoke.
+        headline          = headline,
         alert_only        = True,             # management advice, NOT a new signal
         qualified         = False,
         primary_timeframe = TF.M1,
@@ -106,6 +112,7 @@ async def check(row, bars) -> None:
             f"({stop:.{d}f}). Locking {locked_r:.0f}R and staying in while price runs.",
             f"VIX.1 MANAGE — {row.symbol} {'BUY' if buy else 'SELL'}: stop to +{locked_r:.0f}R",
             key,
+            headline=titles.lock(locked_r),
         )
         await _emit(sig, bars, row.symbol)
         log.info(f"[vix1-manage] {row.symbol} ratchet {reached_r:.2f}R -> lock {locked_r:.1f}R")
@@ -122,6 +129,7 @@ async def check(row, bars) -> None:
                 f"VIX.1 MANAGE — {row.symbol} {'BUY' if buy else 'SELL'}: structure exit "
                 f"at +{st.exit_r:.1f}R",
                 key,
+                headline=titles.STRUCTURE_EXIT,
             )
             await _emit(sig, bars, row.symbol)
             log.info(f"[vix1-manage] {row.symbol} structure exit at {st.exit_r:.2f}R")
