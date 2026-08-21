@@ -68,7 +68,7 @@ class Vix1Strategy(BaseStrategy):
     requires_spread     = True
     # THE 1HR BAR STILL FORMING, rebuilt from the M1 bars this strategy already fetches. The feed
     # serves CLOSED bars only (measured 2026-08-21), so `vix1_preclose` — the one place here that
-    # reads a forming bar on purpose — found None every time and the T-5 warning had fired ZERO times
+    # reads a forming bar on purpose — found None every time and the T-5 notification had fired ZERO
     # in 30 days. Opt-in, at zero extra broker requests; `closed_only` still drops it, so the bias,
     # the line and every level are unchanged. See orchestrator/strategy_runner.
     wants_forming       = [TF.H1]
@@ -160,11 +160,38 @@ class Vix1Strategy(BaseStrategy):
             bar, pc_bull, left = pc
             pkey = vix1_preclose.dedup_key(self.id, sym, pc_bull, bar)
             if not delivery_ledger.is_delivered(pkey):
-                warn = vix1_preclose.preclose_signal(sym, pc_bull, bar, left, pip, self.name)
-                warn.dedup_key = pkey     # committed only once the DM actually lands
-                out.append(warn)
-                vix1_log.say_always(f"[vix1] {sym} PRE-CLOSE warning — {'BUY' if pc_bull else 'SELL'} "
-                                    f"momentum candle forming, {left/60:.1f} min to close")
+                note = vix1_preclose.preclose_signal(sym, pc_bull, bar, left, pip, self.name)
+                note.dedup_key = pkey     # committed only once the DM actually lands
+                out.append(note)
+                vix1_log.say_always(f"[vix1] {sym} PRE-CLOSE notification — "
+                                    f"{'BUY' if pc_bull else 'SELL'} momentum candle forming, "
+                                    f"{left/60:.1f} min to close")
+
+        # ...AND THE OTHER HALF: report back when that candle does NOT make it. His instruction,
+        # 2026-08-21: *"It does not report back when the momentum candle fails to qualify. It should,
+        # then we start watching to another one if it will come."* A notification fired and then
+        # nothing watched the outcome — if the candle qualified the heads-up below spoke, and if it
+        # did not, he heard nothing at all. Measured, that is one candle in four.
+        #
+        # ONLY FOR A CANDLE HE WAS TOLD ABOUT. Whether he was told is already on record in
+        # `delivery_ledger` (the notification's own dedup key, committed only on a confirmed send), so
+        # this needs no new state and survives a restart. Reporting every non-qualifying candle would
+        # be dozens of messages a day about candles he never heard of.
+        outcome = vix1_preclose.closed_outcome(h1, sym, now)
+        if outcome is not None:
+            closed_bar, was_momentum = outcome
+            # Either direction may have been notified — a candle can flip colour inside the window.
+            told = next((b for b in (True, False)
+                         if delivery_ledger.is_delivered(
+                             vix1_preclose.dedup_key(self.id, sym, b, closed_bar))), None)
+            skey = vix1_preclose.standdown_key(self.id, sym, closed_bar)
+            if told is not None and not was_momentum and not delivery_ledger.is_delivered(skey):
+                sd = vix1_preclose.standdown_signal(sym, closed_bar, told, pip, self.name)
+                sd.dedup_key = skey
+                out.append(sd)
+                vix1_log.say_always(f"[vix1] {sym} STAND-DOWN — the "
+                                    f"{'BUY' if told else 'SELL'} candle notified at "
+                                    f"{closed_bar.time} closed WITHOUT qualifying; still watching")
 
         # WATCH — a LOCKED pending setup: alert on invalidation, but never block a fresh setup.
         locked = self._locked.get(sym)

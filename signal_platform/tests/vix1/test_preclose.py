@@ -1,18 +1,19 @@
-"""VIX.1 — the PRE-CLOSE warning, and the heads-up no longer being tied to the entry.
+"""VIX.1 — the PRE-CLOSE notification, its STAND-DOWN, and the heads-up untied from the entry.
 
 Runs the REAL `vix1_preclose.check` and the REAL `is_momentum_candle` against real cTrader H1 bars,
 not a re-implementation of either. The three things that must hold:
 
   * it fires ONLY inside the last `LEAD_S` of a bar that has NOT closed
   * it fires only when the bar as it stands NOW would pass the momentum test
-  * one warning per candle per direction, so the ~5 ticks inside the window send one message
+  * one notification per candle per direction, so the ~5 ticks inside the window send one message
+  * and when the candle then FAILS to qualify, he is told — the half that did not exist
 """
 from _harness import Suite, C, body, flat_series, load
 from shared.mtf_utils import seconds as tf_seconds
 from strategies import vix1_preclose as pc
 from strategies.vix1_momentum import is_momentum_candle
 
-s = Suite("VIX.1 — PRE-CLOSE WARNING (real functions, real bars)")
+s = Suite("VIX.1 — PRE-CLOSE NOTIFICATION + STAND-DOWN (real functions, real bars)")
 
 H = 3600
 SYM = "EUR/USD"
@@ -32,7 +33,7 @@ s.check("forming() finds the unfinished trailing bar", pc.forming(raw, at(big, 3
 s.check("forming() returns None once that bar has closed", pc.forming(raw, at(big, -1)), None)
 s.check("forming() on an empty feed is None", pc.forming([], 0), None)
 # THE WHOLE POINT OF THE MODULE: it reads a bar that closed_only would throw away. If forming() ever
-# started agreeing with closed_only, the warning could never fire and nothing else would notice.
+# started agreeing with closed_only, the notification could never fire and nothing would notice.
 s.check("forming() disagrees with closed_only — that IS the feature",
         pc.forming(raw, at(big, 300)) is not None, True)
 
@@ -54,7 +55,7 @@ s.check("AT THE EDGE — LEAD_S exactly still fires",
         pc.check(base, raw, SYM, at(big, pc.LEAD_S)) is not None, True)
 s.check("ONE SECOND TOO EARLY — LEAD_S+1 does not",
         pc.check(base, raw, SYM, at(big, pc.LEAD_S + 1)), None)
-s.check("ALREADY CLOSED — a finished bar is not a warning", pc.check(base, raw, SYM, at(big, 0)), None)
+s.check("ALREADY CLOSED — a finished bar is not a notification", pc.check(base, raw, SYM, at(big, 0)), None)
 s.check("PAST ITS CLOSE — still nothing", pc.check(base, raw, SYM, at(big, -300)), None)
 
 # ── check() — the shape ──────────────────────────────────────────────────────
@@ -69,11 +70,11 @@ got = pc.check(base, base + [down], SYM, at(down, 300))
 s.check("a large bearish forming bar fires SELL", got is not None and got[1] is False, True)
 
 # Not enough history to judge against — silent rather than guessing.
-s.check("under 20 closed bars, no warning",
+s.check("under 20 closed bars, no notification",
         pc.check(base[:10], base[:10] + [big], SYM, at(big, 300)), None)
 
 # ── check() agrees with the real momentum test, bar for bar ──────────────────
-# The warning must never claim something `is_momentum_candle` would refuse: it IS that test, run on
+# The notification must never claim something `is_momentum_candle` would refuse: it IS that test, on
 # an unfinished bar. Asserted against the real function rather than trusting the wiring.
 agree = True
 for size in (0.0002, 0.0010, 0.0020, 0.0040, 0.0060, 0.0090):
@@ -81,7 +82,7 @@ for size in (0.0002, 0.0010, 0.0020, 0.0040, 0.0060, 0.0090):
     want = is_momentum_candle(base + [cand], len(base), True, SYM)
     fired = pc.check(base, base + [cand], SYM, at(cand, 240))
     agree = agree and (bool(fired) == want)
-s.check("the warning fires exactly when is_momentum_candle would pass", agree, True)
+s.check("the notification fires exactly when is_momentum_candle would pass", agree, True)
 
 # ── dedup — one message per candle, per direction ────────────────────────────
 k1 = pc.dedup_key("vix1", SYM, True, big)
@@ -135,5 +136,64 @@ if h1:
     print(f"      (fired on {fired} of {len(h1) - 200} real EUR/USD H1 bars)")
 else:
     print("   SKIP  real-bar checks — EURUSD_H1.csv not present")
+
+# ── THE STAND-DOWN — the half that did not exist ─────────────────────────────
+# His instruction, 2026-08-21: *"It does not report back when the momentum candle fails to qualify.
+# It should, then we start watching to another one if it will come."* Two real events are the reason:
+# EUR/USD's 12:00 UTC candle on 21 Aug was flagged SELL at 12:55:11 and closed at a 10.8 pip body
+# that did NOT qualify; GBP/USD's did the same at 12:56:16. Both ended in silence.
+
+# closed_outcome answers ONLY "what did the candle do" — never "was he told", which is the ledger's.
+s.check("too little history -> no outcome to report", pc.closed_outcome(flat_series(5, tf="H1"), SYM), None)
+
+# A flat run ending in a nothing-candle: closed, and did not qualify.
+quiet = flat_series(40, tf="H1")
+out = pc.closed_outcome(quiet, SYM)
+s.check("a closed non-momentum candle is reported as NOT qualified", out[1], False)
+s.check("...and it is the NEWEST closed bar that is reported", out[0] is quiet[-1], True)
+
+# The same series with a real momentum candle on the end.
+strong = flat_series(40, tf="H1") 
+strong = strong[:-1] + [body(strong[-1].open, strong[-1].open + 0.0060, tf="H1", t=len(strong) - 1)]
+out2 = pc.closed_outcome(strong, SYM)
+s.check("a closed MOMENTUM candle is reported as qualified", out2[1],
+        is_momentum_candle(strong, len(strong) - 1, True, SYM)
+        or is_momentum_candle(strong, len(strong) - 1, False, SYM))
+
+# ── the dedup keys ───────────────────────────────────────────────────────────
+b = quiet[-1]
+s.check("the stand-down key is NOT direction-keyed — one fact, one message",
+        pc.standdown_key("vix1", SYM, b), f"vix1_preclose_standdown_{SYM}_{b.time}")
+s.check("...and it cannot collide with the notification's own key",
+        pc.standdown_key("vix1", SYM, b) != pc.dedup_key("vix1", SYM, True, b)
+        and pc.standdown_key("vix1", SYM, b) != pc.dedup_key("vix1", SYM, False, b), True)
+s.check("the notification key IS direction-keyed — a colour flip is a new message",
+        pc.dedup_key("vix1", SYM, True, b) != pc.dedup_key("vix1", SYM, False, b), True)
+
+# ── the card ─────────────────────────────────────────────────────────────────
+sd = pc.standdown_signal(SYM, b, False, 0.0001, "VIX.1")
+# Signal defaults these to 0.0, not None — the same "unset" the notification card leaves them at.
+# The first draft of this check asserted None and failed against correct code.
+s.check("it carries NO entry, stop or target",
+        bool(sd.entry_price) or bool(sd.stop_loss) or bool(sd.take_profit), False)
+s.check("it goes to the DM, never the channel", sd.strategy_id, "vix1_watch")
+s.check("it claims no watching row — nothing is being watched", sd.persist_watch, False)
+s.check("it is not marked qualified", sd.qualified, False)
+s.check("it marks no candle on the chart (the bar has closed)", sd.chart_marks, [])
+s.check("the headline says plainly that there is no setup",
+        "NO SETUP" in sd.headline and "DID NOT QUALIFY" in sd.headline, True)
+s.check("it tells him watching continues — his actual ask",
+        any("STILL WATCHING" in r for r in sd.technical_reasons), True)
+s.check("...and that another notification will come",
+        any("next notification" in r for r in sd.technical_reasons), True)
+
+# HIS WORD, NOT MINE. 2026-08-21: *"dont call it a warning, call it a notification."* Asserted so it
+# cannot creep back into anything he reads.
+note = pc.preclose_signal(SYM, True, big, 300, 0.0001, "VIX.1")
+faces = " ".join(note.technical_reasons + [note.headline, note.label, note.market_context]
+                 + sd.technical_reasons + [sd.headline, sd.label, sd.market_context]).lower()
+s.check("the word 'warning' appears nowhere he can read it", "warning" in faces, False)
+s.check("...and 'notification' does", "notification" in faces, True)
+
 
 s.done()

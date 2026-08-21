@@ -69,7 +69,7 @@ VIX.1 has shipped a bug from reading the forming bar as a level, and **a backtes
 | `execution/breakeven.py` | **THE FIRST CODE THAT CHANGES THE ACCOUNT** (added 2026-08-21) — moves a live stop to its net-zero price at 1R. Ratchet-only, demo-only, both SL+TP legs always sent, re-read afterwards. `AUTO_BREAKEVEN_ENABLED` is OFF by default |
 | `monitor/position_tracker.py` | **the trade tracker** (added 2026-08-21) — breakeven at 1R, trail-to-1R and 2R-reached, measured on the REAL position. Advice only |
 | `vix1_cross.py` | **THE CROSS and the order level** (added 2026-08-20) — a 1M CLOSE past the line, then one candle, then one tick beyond how far price got. The whole of the 1M's job |
-| `vix1_preclose.py` | **the warning BEFORE the momentum candle closes** (added 2026-08-20). The ONE place in VIX.1 that reads the bar still FORMING on purpose. Fires at T-5, DM only, no entry/stop/target. **That bar does not come from the feed** — the feed serves closed bars only, so it is rebuilt from M1 by `candle_aggregator.forming_bar` and appended by the runner (`wants_forming`). Between 2026-08-20 and 08-21 there was no such bar and this fired zero times |
+| `vix1_preclose.py` | **the NOTIFICATION before the momentum candle closes, and the STAND-DOWN after it** (added 2026-08-20, loop closed 2026-08-21). The ONE place in VIX.1 that reads the bar still FORMING on purpose. Fires at T-5, DM only, no entry/stop/target. **That bar does not come from the feed** — the feed serves closed bars only, so it is rebuilt from M1 by `candle_aggregator.forming_bar` and appended by the runner (`wants_forming`). Between 2026-08-20 and 08-21 there was no such bar and this fired zero times. `standdown_signal` reports the ~1-in-4 candle that closes WITHOUT qualifying, keyed off the notification's own ledger entry so it fires only for a candle he was told about. Called a NOTIFICATION, never a warning — his word |
 | `vix1_spacing.py` | **how long the instrument stays shut after a signal** (added 2026-07-27) |
 | `vix1_bias.py` | `detect_bias(h1, h4, symbol) -> Bias \| None` — momentum on H1, trend on H1 (H4 only as a fallback) |
 | `vix1_state.py` | **`Bias` (what the 1HR decided) + `market_state` (the state it decided it in)** — added 2026-08-11 |
@@ -833,9 +833,9 @@ open-defect list is worse than none, and the reasoning for each lives in the `vi
 measured but still traded" (the regime engine went live 08-12), and "nothing implements *not in a
 retracement*" (the same change, plus real-time turning points feeding `leg_state`).
 
-0. ~~The T-5 pre-close warning cannot fire — the feed serves no forming bar~~ **CLOSED 2026-08-21,
+0. ~~The T-5 pre-close notification cannot fire — the feed serves no forming bar~~ **CLOSED 2026-08-21,
    the same day it was found.** `ProtoOAGetTrendbarsReq` does serve closed bars only (14 live polls
-   across 3 minute boundaries, never the minute in progress), and the warning had fired **0 times in
+   across 3 minute boundaries, never the minute in progress), and the notification had fired **0 times in
    30 days**. The forming 1HR bar is now **rebuilt from the M1 bars this strategy already fetches**
    (`candle_aggregator.forming_bar`, appended by the runner for any TF in `wants_forming`), at
    **zero extra broker requests** — proved 48/48 exact against the broker's own closed H1 bars across
@@ -843,7 +843,7 @@ retracement*" (the same change, plus real-time turning points feeding `leg_state
    trendbars**: subscription updates arrive unannounced on the socket the candle fetch reads with
    `send -> await recv`, which is the failure that took the feed down on 2026-08-21, and it would need
    a demultiplexing reader before it is safe. **The cost that remains:** bars are published 10-70s
-   after they close, so the warning judges the candle as it stood ~46s earlier — a T-5 warning is
+   after they close, so it judges the candle as it stood ~46s earlier — a T-5 notification is
    effectively T-6, **77.7%/74.6%** against T-5's 80.3%/76.0%.
 1. **THE BIGGEST ONE, AND IT IS BLOCKED ON HIM.** The code reproduced only **16% of his real trades**.
    Detection was too strict (an earlier 4× threshold rejected 80% of his candles; now 2.5×). Blocked
@@ -916,7 +916,7 @@ platform root and fails under `run_all.py`, which runs from the test directory.
 | `test_entry_real_events.py` | the REAL `m1_signals` on three real events: **his trade must come out at 1.11734**, XAU/USD 20 Aug must fire earlier than the old 12:09, and EUR/USD 20 Aug (which the audit found correct) must still fire |
 | `test_auto_breakeven.py` | every guard on the account-changing path: the amend carries BOTH legs, the ratchet refuses a backwards move (both directions), no-stop and live-account refusals, a vanished take profit raising the ALARM, a success that moved nothing reported as not moved, and an unverifiable amend saying so |
 | `test_position_tracker.py` | R from a real position both directions and on gold (no conversion), the **net-zero breakeven with commission DOUBLED for the round trip**, the alert sequence at 1R and 2R, a position with no stop, and **a failed broker read sending nothing** (None != []) |
-| `test_preclose.py` | the pre-close warning: the window (too early / at the edge / one second past / already closed), the shape, **that it fires exactly when `is_momentum_candle` would pass**, the dedup key, the card carrying no levels, and 400 real bars on which it never once fires on a closed bar |
+| `test_preclose.py` | the pre-close notification: the window (too early / at the edge / one second past / already closed), the shape, **that it fires exactly when `is_momentum_candle` would pass**, the dedup key, the card carrying no levels, and 400 real bars on which it never once fires on a closed bar. Plus the STAND-DOWN: `closed_outcome` on a qualifying and a non-qualifying close, the non-direction-keyed stand-down key and that it cannot collide with the notification's, the card carrying no levels and no chart mark, and **that the word 'warning' appears nowhere in any card's headline, label, reasons or context** |
 | `test_forming_bar.py` | **the bar rebuilt from finer bars**: the grid read off a real bar and the measured 21:00 broker day for timeframes that have none; the bar's OHLC, its volume, the previous period excluded, a still-forming base bar excluded; None when no minutes have printed; which series is chosen; **and the safety property — `closed_only` drops it, so the level list is unchanged** |
 | `test_live_quote.py` | **the 1M's trigger reads**: the cross seen a minute earlier now the closed window stops losing a bar (proved through `vix1_cross.decide`), alignment on the BID, stop-vs-market on the ASK for a buy and the BID for a sell, `quote=None` identical to the old behaviour, and a quote never leaking into the order level the way a spread does |
 | `test_headsup_untied.py` | drives the REAL `analyze`: with no entry it emits the heads-up; **with an entry on the same tick it emits BOTH, heads-up first** — the case that used to emit nothing. Bias and entry are stubbed on purpose; what is under test is the wiring between them |
