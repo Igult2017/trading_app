@@ -1819,46 +1819,91 @@ const landingStyles = `
   color:var(--sky);font-weight:500;display:inline-flex;align-items:center;gap:9px;}
 .ts-page .eyebrow .dot{width:5px;height:5px;border-radius:50%;background:var(--sky);
   box-shadow:0 0 0 4px var(--sky-dim);}
+/* The hero's eyebrow is editorial rather than terminal — Playfair italic, sentence case. */
+.ts-page .eyebrow.pf{font-family:var(--fd);text-transform:none;letter-spacing:.01em;
+  font-size:16px;font-style:italic;font-weight:500;}
 .ts-page h1,.ts-page h2,.ts-page h3{font-family:var(--fd);font-weight:700;margin:0;
   letter-spacing:-.01em;line-height:1.04;}
 .ts-page .mono{font-family:var(--fm);}
 
-/* ---- intro banner ---- */
-.ts-page .intro{padding:40px 0 18px;}
-.ts-page .intro-card{position:relative;overflow:hidden;display:flex;gap:20px;align-items:flex-start;
-  background:linear-gradient(180deg,var(--panel-2),var(--panel));border:1px solid var(--line);
-  border-radius:18px;padding:28px 32px 28px 30px;box-shadow:0 20px 50px rgba(0,0,0,.32);}
-.ts-page .intro-card::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;
-  background:linear-gradient(180deg,var(--blue),var(--sky));}
-.ts-page .intro-ic{flex-shrink:0;width:42px;height:42px;border-radius:11px;display:grid;
-  place-items:center;background:var(--blue-dim);color:var(--blue-soft);
-  border:1px solid rgba(76,141,255,.32);margin-top:2px;}
-.ts-page .intro-text{margin:0;font-size:19px;line-height:1.72;color:#C3CAD9;font-weight:500;max-width:60ch;}
-.ts-page .intro-text b{color:#FFFFFF;font-weight:700;}
+/* ---- intro banner ----
+   HIS REVISION: a quiet strip, not a feature card. It was a gradient panel with a blue→sky accent
+   bar, a drop shadow and 19px text — which read as the loudest thing on the page and competed with
+   the hero for the eye. Now it is a flat ink strip with small muted type: context you can read if
+   you want it, sitting under the headline rather than in front of it. */
+.ts-page .intro{padding:22px 0 6px;}
+.ts-page .intro-card{display:flex;gap:12px;align-items:flex-start;
+  background:var(--ink-2);border:1px solid var(--line-soft);border-radius:10px;padding:13px 18px;}
+.ts-page .intro-ic{flex-shrink:0;width:22px;height:22px;border-radius:50%;display:grid;
+  place-items:center;background:var(--blue);color:#FFFFFF;margin-top:1px;}
+.ts-page .intro-text{margin:0;font-size:13.5px;line-height:1.6;color:var(--muted);font-weight:400;max-width:none;}
+.ts-page .intro-text b{color:var(--text);font-weight:700;}
 .ts-page .intro-text b.hl{color:var(--blue-soft);font-weight:700;}
-.ts-page .intro-text .dash{color:var(--sky);font-style:italic;}
+.ts-page .intro-text .dash{color:var(--muted);}
 
-/* ---- nav ---- */
-/* NOT sticky. The mock's position:sticky assumes a full page; this renders inside Journal's own
-   scrolling <main>, under Journal's own header, so a second pinned bar fights the first. */
-.ts-page .nav{position:relative;z-index:5;background:rgba(9,12,21,.72);
-  border-bottom:1px solid var(--line-soft);}
-.ts-page .nav-in{display:flex;align-items:center;justify-content:space-between;height:66px;}
-.ts-page .brand{display:flex;align-items:center;gap:11px;font-family:var(--fd);font-weight:900;
-  font-size:21px;letter-spacing:-.01em;}
-.ts-page .brand .glyph{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;
-  background:linear-gradient(150deg,var(--blue),#2E63DA);color:#ffffff;font-family:var(--fm);
-  font-weight:600;font-size:15px;box-shadow:0 4px 16px rgba(76,141,255,.28);}
-.ts-page .brand b{color:#FFFFFF;font-weight:900;}
-.ts-page .nav-links{display:flex;gap:30px;align-items:center;}
-.ts-page .nav-links a{color:var(--muted);text-decoration:none;font-size:14px;font-weight:500;
-  transition:color .18s;cursor:pointer;}
-.ts-page .nav-links a:hover{color:var(--text);}
-.ts-page .sync{display:flex;align-items:center;gap:7px;font-family:var(--fm);font-size:11px;
-  color:var(--muted);padding:5px 11px;border:1px solid var(--line);border-radius:999px;background:var(--panel);}
-.ts-page .sync i{width:6px;height:6px;border-radius:50%;background:var(--up);
-  box-shadow:0 0 0 3px rgba(74,222,128,.18);animation:fxblink 2.4s ease-in-out infinite;}
-@keyframes fxblink{0%,100%{opacity:1}50%{opacity:.35}}
+/* ---- NAV REMOVED (his revision) ----
+   The landing had its own brand bar with links and a "bridge synced" pill. It sits INSIDE Journal,
+   under Journal's own header and beside Journal's own sidebar, so a second nav was a second set of
+   navigation for a page that is one scroll long. Gone; the hero carries the calls to action. */
+
+/* ---- hero ---- */
+.ts-page .hero{padding:42px 0 92px;position:relative;}
+.ts-page .hero-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:56px;align-items:center;}
+.ts-page .hero h1{font-size:clamp(52px,7.4vw,92px);line-height:.94;margin:22px 0 0;}
+.ts-page .hero h1 .l2{display:block;font-style:italic;font-weight:500;color:var(--blue-soft);}
+.ts-page .hero .lede{color:var(--muted);font-size:18px;max-width:440px;margin:22px 0 32px;line-height:1.6;}
+.ts-page .hero .cta-row{display:flex;gap:14px;flex-wrap:wrap;}
+.ts-page .trust{margin-top:30px;display:flex;align-items:center;gap:11px;color:var(--faint);
+  font-size:13.5px;max-width:430px;line-height:1.5;}
+.ts-page .trust svg{color:var(--sky);flex-shrink:0;margin-top:1px;}
+.ts-page .trust b{color:var(--muted);font-weight:600;}
+
+/* ---- the signature: live mirror diagram ----
+   One master emitting to three followers, with pulses travelling the wires. Decorative, so the
+   wrapper is aria-hidden — a screen reader gets the lede, not a description of dots moving. */
+.ts-page .dg-outer{width:100%;height:470px;display:flex;justify-content:center;overflow:hidden;}
+.ts-page .diagram{position:relative;height:470px;width:460px;flex:0 0 auto;transform-origin:top center;}
+.ts-page .dg-scene{position:absolute;inset:0;}
+.ts-page .node{position:absolute;border-radius:13px;background:var(--panel);border:1px solid var(--line);
+  padding:13px 15px;width:190px;box-shadow:0 18px 44px rgba(0,0,0,.4);}
+.ts-page .node .row{display:flex;align-items:center;gap:10px;}
+.ts-page .node .ic{width:32px;height:32px;border-radius:8px;display:grid;place-items:center;flex-shrink:0;}
+.ts-page .node .lbl{font-family:var(--fd);font-weight:700;font-size:15px;line-height:1.1;}
+.ts-page .node .id{font-family:var(--fm);font-size:10.5px;color:var(--muted);letter-spacing:.04em;margin-top:2px;}
+.ts-page .tag{font-family:var(--fm);font-size:9.5px;font-weight:600;letter-spacing:.08em;
+  text-transform:uppercase;padding:3px 8px;border-radius:6px;margin-left:auto;}
+.ts-page .tag-m{background:var(--blue-dim);color:var(--blue-soft);border:1px solid rgba(76,141,255,.3);}
+.ts-page .tag-f{background:var(--sky-dim);color:var(--sky-soft);border:1px solid rgba(84,198,242,.3);}
+.ts-page .node-master{left:50%;top:8px;transform:translateX(-50%);width:210px;
+  border-color:rgba(76,141,255,.34);background:linear-gradient(180deg,rgba(76,141,255,.07),var(--panel));}
+.ts-page .node-master .ic{background:linear-gradient(150deg,var(--blue),#2E63DA);color:#ffffff;}
+.ts-page .node-f{width:172px;}
+.ts-page .node-f .ic{background:var(--sky-dim);color:var(--sky);border:1px solid rgba(84,198,242,.3);}
+.ts-page .f-a{left:-6px;bottom:6px;}
+.ts-page .f-b{left:50%;transform:translateX(-50%);bottom:-8px;}
+.ts-page .f-c{right:-6px;bottom:6px;}
+.ts-page .lot{font-family:var(--fm);font-size:10px;color:var(--muted);margin-top:9px;display:flex;
+  justify-content:space-between;border-top:1px solid var(--line-soft);padding-top:8px;}
+.ts-page .lot .ms{color:var(--sky);}
+.ts-page .recv{animation:fxrecv 3s ease-in-out infinite;}
+.ts-page .recv.d1{animation-delay:.28s} .ts-page .recv.d2{animation-delay:.42s} .ts-page .recv.d3{animation-delay:.56s}
+@keyframes fxrecv{0%,18%,100%{border-color:var(--line)}22%,30%{border-color:rgba(84,198,242,.7);
+  box-shadow:0 18px 44px rgba(0,0,0,.4),0 0 0 1px rgba(84,198,242,.4),0 0 26px rgba(84,198,242,.18)}}
+.ts-page .wires{position:absolute;inset:0;width:100%;height:100%;overflow:visible;}
+.ts-page .wire{fill:none;stroke:var(--line);stroke-width:1.5;stroke-dasharray:4 5;}
+.ts-page .pulse{position:absolute;width:9px;height:9px;border-radius:50%;left:220px;top:96px;
+  background:var(--blue-soft);box-shadow:0 0 12px 3px rgba(76,141,255,.6);
+  animation:fxtravel 3s cubic-bezier(.4,0,.2,1) infinite;opacity:0;}
+.ts-page .p1{--ex:-128px;--ey:250px;animation-delay:0s}
+.ts-page .p2{--ex:0px;--ey:268px;animation-delay:.14s}
+.ts-page .p3{--ex:128px;--ey:250px;animation-delay:.28s}
+@keyframes fxtravel{0%{transform:translate(0,0) scale(.6);opacity:0}
+  8%{opacity:1}70%{opacity:1}
+  86%,100%{transform:translate(var(--ex),var(--ey)) scale(1);opacity:0}}
+.ts-page .emit{position:absolute;left:220px;top:96px;width:14px;height:14px;border-radius:50%;
+  transform:translate(-50%,-50%);background:var(--blue);animation:fxemit 3s ease-in-out infinite;}
+@keyframes fxemit{0%,100%{box-shadow:0 0 0 0 rgba(76,141,255,.5)}
+  10%{box-shadow:0 0 0 12px rgba(76,141,255,0)}}
 
 /* ---- buttons ---- */
 .ts-page .btn{font-family:var(--fb);font-weight:600;font-size:14.5px;border-radius:10px;cursor:pointer;
@@ -1868,8 +1913,8 @@ const landingStyles = `
 .ts-page .btn-blue{background:linear-gradient(150deg,var(--blue),#2C5AD0);color:#ffffff;padding:12px 20px;
   box-shadow:0 6px 20px rgba(76,141,255,.24);}
 .ts-page .btn-blue:hover{transform:translateY(-2px);box-shadow:0 12px 30px rgba(76,141,255,.34);}
-.ts-page .btn-nav{background:var(--text);color:var(--ink);padding:9px 17px;font-size:13.5px;border-radius:9px;}
-.ts-page .btn-nav:hover{transform:translateY(-1px);}
+.ts-page .btn-ghost{background:transparent;color:var(--text);border-color:var(--line);padding:12px 20px;}
+.ts-page .btn-ghost:hover{border-color:var(--muted);background:var(--panel);}
 
 /* ---- sections ---- */
 .ts-page .section{padding:104px 0;position:relative;}
@@ -1988,12 +2033,16 @@ const landingStyles = `
 .ts-page .faq-item.open .faq-a{max-height:340px;padding:0 2px 22px;}
 
 /* ---- responsive ---- */
-.ts-page .fp > *{min-width:0;}
+/* Grid children must be allowed to shrink or they force horizontal overflow. */
+.ts-page .fp > *,.ts-page .hero-grid > *{min-width:0;}
 @media (max-width:1000px){
   .ts-page .fx-wrap{padding:0 24px;}
   .ts-page .section{padding:88px 0;}
 }
 @media (max-width:920px){
+  .ts-page .hero{padding:48px 0 80px;}
+  .ts-page .hero-grid{grid-template-columns:1fr;gap:44px;}
+  .ts-page .dg-outer{margin-top:8px;}
   .ts-page .modes{grid-template-columns:1fr 1fr;}
   .ts-page .steps{grid-template-columns:1fr 1fr;row-gap:44px;}
   .ts-page .steps::before{display:none;}
@@ -2005,27 +2054,33 @@ const landingStyles = `
 @media (max-width:680px){
   .ts-page .section{padding:72px 0;}
   .ts-page .plat-grid{grid-template-columns:1fr 1fr;}
-  .ts-page .sync{display:none;}
-  .ts-page .nav-links{gap:18px;}
-  .ts-page .nav-links a:not(.btn-nav){display:none;}
 }
 @media (max-width:560px){
   .ts-page .fx-wrap{padding:0 18px;}
-  .ts-page .nav-in{height:60px;}
-  .ts-page .intro-card{padding:22px 20px 22px 22px;gap:15px;}
-  .ts-page .intro-text{font-size:16.5px;line-height:1.66;}
-  .ts-page .intro-ic{width:38px;height:38px;}
+  .ts-page .intro-card{padding:12px 15px;gap:11px;}
+  .ts-page .intro-text{font-size:12.5px;line-height:1.55;}
+  .ts-page .intro-ic{width:20px;height:20px;}
+  .ts-page .hero .lede{font-size:16.5px;}
+  .ts-page .cta-row .btn{flex:1;justify-content:center;}
   .ts-page .modes,.ts-page .plat-grid,.ts-page .steps{grid-template-columns:1fr;}
   .ts-page .steps{row-gap:34px;}
   .ts-page .step{padding:0;}
+  .ts-page .dg-outer{height:395px;}
+  .ts-page .diagram{transform:scale(.84);}
 }
 @media (max-width:430px){
   .ts-page .section{padding:60px 0;}
-  .ts-page .brand{font-size:19px;}
+  .ts-page .dg-outer{height:338px;}
+  .ts-page .diagram{transform:scale(.72);}
   .ts-page .pc-price .amt{font-size:50px;}
 }
+@media (max-width:360px){
+  .ts-page .dg-outer{height:296px;}
+  .ts-page .diagram{transform:scale(.62);}
+}
 @media (prefers-reduced-motion:reduce){
-  .ts-page .sync i{animation:none!important;}
+  .ts-page .pulse,.ts-page .emit,.ts-page .recv{animation:none!important;}
+  .ts-page .pulse{display:none;}
   .ts-page .reveal{opacity:1;transform:none;transition:none;}
 }
 `;
@@ -2160,26 +2215,11 @@ export default function TradeSyncPage() {
           the styling. See the note at the top of landingStyles. */}
       <div className="ts-page fx">
 
-        {/* NAV */}
-        <nav className="nav">
-          <div className="fx-wrap nav-in">
-            <div className="brand"><span className="glyph">FX</span>FX&nbsp;<b>Copier</b></div>
-            <div className="nav-links">
-              <a onClick={() => document.querySelector('.ts-page #how')?.scrollIntoView({ behavior: 'smooth' })}>How it works</a>
-              <a onClick={() => document.querySelector('.ts-page #platforms')?.scrollIntoView({ behavior: 'smooth' })}>Platforms</a>
-              <a onClick={() => document.querySelector('.ts-page #features')?.scrollIntoView({ behavior: 'smooth' })}>Features</a>
-              <a onClick={() => document.querySelector('.ts-page #pricing')?.scrollIntoView({ behavior: 'smooth' })}>Pricing</a>
-              <span className="sync"><i />bridge synced · 12 ms</span>
-              <button className="btn btn-nav" onClick={() => setShowCopier(true)}>Start now</button>
-            </div>
-          </div>
-        </nav>
-
         {/* INTRO */}
         <header className="intro">
           <div className="fx-wrap">
             <div className="intro-card reveal">
-              <span className="intro-ic"><Info size={20} /></span>
+              <span className="intro-ic"><Info size={13} /></span>
               <p className="intro-text">
                 <b>What is FX Copier?</b> <span className="dash">—</span> FX Copier is an automated
                 copy-trading engine that links multiple brokerage accounts and replicates positions
@@ -2193,6 +2233,77 @@ export default function TradeSyncPage() {
             </div>
           </div>
         </header>
+
+        {/* HERO */}
+        <section className="hero">
+          <div className="fx-wrap hero-grid">
+            <div>
+              <span className="eyebrow pf"><span className="dot" />Automated trade copying</span>
+              <h1>FX Copier<span className="l2">mirror every trade.</span></h1>
+              <p className="lede">
+                Run all of your trading accounts from one place — one master broadcasts,
+                every follower copies, automatically and in real time.
+              </p>
+              <div className="cta-row">
+                {/* Buttons, not anchors. The mock linked to #pricing; here "Start now" is the gate
+                    into the copier itself, and the ghost button scrolls to the steps below. */}
+                <button className="btn btn-blue" onClick={() => setShowCopier(true)}>
+                  Start now <ArrowRight size={17} />
+                </button>
+                <button
+                  className="btn btn-ghost"
+                  onClick={() => document.querySelector('.ts-page #how')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                >
+                  See how it works
+                </button>
+              </div>
+              <div className="trust">
+                <ShieldCheck size={18} />
+                <span>Every copy runs through an <b>isolated bridge</b> — no withdrawal permissions and no sensitive credentials, ever.</span>
+              </div>
+            </div>
+
+            {/* THE SIGNATURE — one master mirroring to three followers. Decorative only, so it is
+                hidden from screen readers: the lede above already says what it shows. */}
+            <div className="dg-outer" aria-hidden="true">
+              <div className="diagram">
+                <div className="dg-scene">
+                  <svg className="wires" viewBox="0 0 460 470" preserveAspectRatio="none">
+                    <path className="wire" d="M220 96 C 150 170, 95 250, 90 350" />
+                    <path className="wire" d="M220 96 C 220 200, 220 280, 220 366" />
+                    <path className="wire" d="M220 96 C 290 170, 345 250, 355 350" />
+                  </svg>
+
+                  <div className="node node-master">
+                    <div className="row">
+                      <span className="ic"><Radio size={17} /></span>
+                      <div><div className="lbl">Master account</div><div className="id mono">#1000001</div></div>
+                      <span className="tag tag-m">Master</span>
+                    </div>
+                  </div>
+
+                  <div className="emit" />
+                  <div className="pulse p1" /><div className="pulse p2" /><div className="pulse p3" />
+
+                  {[
+                    { cls: 'f-a d1', name: 'Follower A', lot: '1.0× lot', ms: '9 ms'  },
+                    { cls: 'f-b d2', name: 'Follower B', lot: '0.5× lot', ms: '12 ms' },
+                    { cls: 'f-c d3', name: 'Follower C', lot: '2.0× lot', ms: '15 ms' },
+                  ].map(f => (
+                    <div className={`node node-f recv ${f.cls}`} key={f.name}>
+                      <div className="row">
+                        <span className="ic"><Users size={15} /></span>
+                        <div><div className="lbl" style={{ fontSize: 14 }}>{f.name}</div></div>
+                        <span className="tag tag-f">Copy</span>
+                      </div>
+                      <div className="lot"><span>{f.lot}</span><span className="ms">{f.ms}</span></div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
 
         {/* MODES */}
         <section className="section" style={{ paddingTop: 40 }}>
