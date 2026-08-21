@@ -15,6 +15,46 @@
          the browser downloads the file TWICE and the preload does nothing. -->
     <link rel="preload" href="/fonts/playfair-display-var-latin.woff2" as="font" type="font/woff2" crossorigin />
 
+    <!-- PRELOAD THE LOGO — the same problem as the font above, and it had the same cause.
+         The logo is an <img> inside a React component, so nothing could request it until the JS
+         bundle had been fetched, parsed and executed and React had rendered. Measured 2026-08-21:
+         the request began AFTER DOMContentLoaded, which is why the header text and nav appeared
+         first and the mark arrived afterwards, on the landing page and the dashboard alike.
+         Preloading starts that fetch during HTML parse, in parallel with the CSS and JS, so by the
+         time React renders it is already in cache and paints in the same frame as the rest.
+         (The file itself was also 403 KB for a 116x50 render — now a 19 KB WebP. See Wordmark.tsx.)
+
+         ONE VARIANT, NOT BOTH. There is a light and a reversed logo, and preloading both would waste
+         a download and make the browser warn about an unused preload. This picks the one the stored
+         theme actually calls for. Two different keys because the two surfaces keep their theme
+         separately: `pub-theme` for the public pages (App.tsx) and `journal_dark_mode` for the
+         dashboard (Journal.tsx). Wrapped in try/catch because localStorage throws outright in some
+         privacy modes, and a logo preload must never be the thing that stops the page booting.
+         Worst case it guesses wrong and costs one extra 19 KB fetch. -->
+    <script>
+      (function () {
+        var dark = false;
+        try {
+          if (location.pathname.indexOf('/journal') === 0) {
+            // THE DASHBOARD DEFAULTS TO DARK when never toggled (Journal.tsx: `?? true`), so an
+            // absent key means dark here, not light. Getting this backwards would mispredict every
+            // first-ever dashboard load.
+            var j = localStorage.getItem('journal_dark_mode');
+            dark = j === null ? true : j === 'true';
+          } else {
+            dark = localStorage.getItem('pub-theme') === '1';   // public pages default to LIGHT
+          }
+        } catch (e) {}
+        var l = document.createElement('link');
+        l.rel = 'preload';
+        l.as = 'image';
+        l.type = 'image/webp';
+        l.href = dark ? '/logo-dark.webp' : '/logo.webp';
+        l.setAttribute('fetchpriority', 'high');
+        document.head.appendChild(l);
+      })();
+    </script>
+
     <!-- Primary SEO -->
     <title>Trade&amp;Journal – Professional Trading Journal for Forex, Crypto &amp; Commodities</title>
     <meta name="description" content="The professional trading journal built for serious traders. Log trades, track psychology, analyze drawdown, and unlock your edge with AI-powered analytics. Free forever plan available." />
