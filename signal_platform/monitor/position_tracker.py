@@ -73,6 +73,15 @@ _EPS = 1e-9
 
 _TTL = 7 * 24 * 3600     # forget a position's alerts a week after they were sent
 
+# WHAT THE TRACKER SAW LAST TIME, so a line is logged when it CHANGES and not on every 30s poll.
+#
+# WHY THIS EXISTS. On the night it shipped it worked perfectly — sent the right DM at the right
+# moment — and I reported it BROKEN, because it logged nothing at all and silence looked identical
+# to failure. I could not tell "no positions", "could not read the broker", "nothing has reached a
+# rung" and "working fine" apart from the outside. That is the same defect as a heartbeat nobody can
+# read: a thing whose success and failure look the same cannot be operated.
+_last_seen: str = ""
+
 
 def _key(position_id: int, tag: str) -> str:
     """One alert per position per milestone, for the life of that position."""
@@ -155,13 +164,36 @@ async def check_all(send) -> None:
     NEVER RAISES into the monitor: a tracker that can take the monitor down would cost him TP/SL
     watching on live signals, which matters far more than an advisory message.
     """
+    global _last_seen
     try:
         delivery_ledger.cleanup(_TTL)
         positions = await ctrader_positions.open_positions()
         # None and [] MEAN DIFFERENT THINGS. [] is "nothing open"; None is "could not read the
         # broker", and inventing silence-as-fact from a failed read is how a tracker lies.
         if positions is None:
+            if _last_seen != "unreadable":
+                _last_seen = "unreadable"
+                log.warning("[position_tracker] could not read the broker — NOT the same as "
+                            "'no positions open'; nothing will be tracked until it answers")
             return
+        # ONE LINE WHEN THE PICTURE CHANGES — every position, its R and what is holding it back.
+        # Logged before any alert, so the record exists even when nothing is sent, which is exactly
+        # the case that was unreadable before.
+        summary = []
+        for p in positions:
+            if p.stop is None:
+                summary.append(f"{p.symbol}#{p.position_id} NO-STOP @{p.entry}")
+                continue
+            px = await _price_now(p.symbol)
+            r = p.r_at(px) if px else None
+            summary.append(f"{p.symbol}#{p.position_id} {'BUY' if p.bullish else 'SELL'} "
+                           f"{r:+.2f}R stop={p.stop}" if r is not None
+                           else f"{p.symbol}#{p.position_id} R=? (no price)")
+        line = "; ".join(summary) or "no open positions"
+        if line != _last_seen:
+            _last_seen = line
+            log.info(f"[position_tracker] {len(positions)} position(s): {line}")
+
         for p in positions:
             if p.stop is None:
                 # No stop = no R to measure. Say so ONCE rather than tracking nothing in silence:
@@ -173,6 +205,8 @@ async def check_all(send) -> None:
                                   f"{p.entry:.{d}f}\n\nThis position has no stop loss set, so there "
                                   f"is no R to track and no breakeven to compute."):
                         delivery_ledger.mark_delivered(k)
+                        log.info(f"[position_tracker] {p.symbol} #{p.position_id}: "
+                                 f"no-stop notice sent")
                 continue
             price = await _price_now(p.symbol)
             if price is None:
