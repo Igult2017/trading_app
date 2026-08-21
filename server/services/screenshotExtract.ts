@@ -249,6 +249,39 @@ Use ALL of the following signals and pick the one with the most evidence:
   STILL OPEN:
   • "Open", "Active", "Running", "In progress", or no exit time visible → Open
 
+RISK / REWARD AND ACHIEVED R (achievedRR, plannedRR) — READ THIS, IT IS OFTEN THE POINT OF THE IMAGE:
+These two fields used to be listed in the schema with no explanation, so they came back null on
+almost every screenshot. They are frequently the ONE thing the image was captured to show.
+
+  WHAT THEY MEAN — do not mix them up:
+  • plannedRR  = the R the trade AIMED at   — from the target the trade was set to
+  • achievedRR = the R the trade ACTUALLY reached — where it really closed
+  They are equal only when a trade closes exactly at its target. When only one R is visible on a
+  CLOSED trade, it is the ACHIEVED one.
+
+  A) AN EXPLICIT RATIO LABEL (highest priority — copy the number, do not recompute it):
+  • "Ratio", "R:R", "RR", "R/R", "Risk/Reward", "Risk : Reward", "Reward:Risk"
+  • A cTrader / TradingView risk-reward tool draws TWO stacked boxes over the chart — a red RISK box
+    and a green REWARD box — each labelled with pips and/or a currency amount, with the ratio shown
+    on the tool itself (e.g. "Ratio: 2.31"). Read that ratio.
+  • Values are written as "2.31", "1:2.31", "2.31R" or "1 : 2.31" — return the number AFTER the
+    colon (2.31), never the leading 1.
+
+  B) THE TWO BOXES, when no ratio label is printed:
+  • Take the REWARD magnitude divided by the RISK magnitude, using whichever pair is shown —
+    pips/points or currency. Example: Risk "Pips: -6.2" and Reward "Pips: 14.3" → 14.3 / 6.2 = 2.31.
+  • Use pips against pips or money against money. NEVER divide a money figure by a pip figure.
+
+  C) COMPUTE IT FROM THE PRICES you are already reading, when neither of the above is present:
+  • achievedRR = |closingPrice − entryPrice| / |entryPrice − stopLoss|
+  • plannedRR  = |takeProfit   − entryPrice| / |entryPrice − stopLoss|
+  • Only do this when the stop loss is genuinely visible. Without a stop there is no R — return null
+    rather than inventing a denominator.
+
+  ALWAYS POSITIVE. Return the SIZE of the move as a positive number even on a losing trade; whether
+  it was a win or a loss is carried by the "outcome" field, not by the sign of this one. A negative
+  number here combined with a loss outcome is read as a profit.
+
 LOT SIZE (lotSize):
 - Look for labels: "Lots", "Volume", "Size", "Lot", "Qty", "Quantity" — often shown in trade panels, order tickets, or history rows
 - Common values: 0.01, 0.05, 0.10, 0.25, 0.50, 1.00 — copy the exact decimal number shown

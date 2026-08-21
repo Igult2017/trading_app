@@ -4,7 +4,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useSessionBalance } from "@/hooks/useSessionBalance";
 import { useAuth } from "@/context/AuthContext";
 import { prefetchAllPanels } from "@/lib/prefetchPanels";
-import { calcDollarRisk } from "@/lib/tradeCalculations";
+import { calcDollarRisk, deriveAchievedRR, outcomeFromPrices } from "@/lib/tradeCalculations";
 import { useTranslation } from "react-i18next";
 
 // ─── Commission estimator ─────────────────────────────────────────────────────
@@ -1367,7 +1367,12 @@ const INIT_STEP2 = {
   screenshot: null, exitScreenshot: null,
   instrument: "", pairCategory: "Major", direction: "Long", lotSize: "",
   entryPrice: "", stopLoss: "", stopLossDistancePips: "", takeProfit: "", takeProfitDistancePips: "",
-  riskPercent: "1", orderType: "Market", outcome: "Win",
+  // OUTCOME STARTS BLANK, and that is a fix, not an oversight. It defaulted to "Win" — on the one
+  // field that decides the SIGN of the money. The extractor returns "Open" whenever no exit time is
+  // visible (a risk/reward overlay on a chart, i.e. the usual screenshot), that normalises to null,
+  // the outcome was never set, and the default stood: a LOSS RECORDED AS A WIN. A blank cannot
+  // quietly become a profit. Every consumer of this field now requires an explicit "Win".
+  riskPercent: "1", orderType: "Market", outcome: "",
   entryTime: "", exitTime: "", dayOfWeek: "Monday", tradeDuration: "",
   entryTF: "5M", analysisTF: "1HR", contextTF: "1D",
   entryMethod: "Market", exitStrategy: "", managementType: "Rule-based",
@@ -1473,10 +1478,11 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
   // Always-current copy of the two inputs a P&L needs. `applyAnalyzedFields` is a
   // useCallback([]) — without this it would read the FIRST render's balance and risk%, which are
   // both empty/zero at mount, so anything it tried to compute would silently come out as nothing.
-  const pnlInputsRef = useRef({ riskPercent: "", balance: 0 });
+  const pnlInputsRef = useRef({ riskPercent: "", balance: 0, monetaryRisk: "" });
   useEffect(() => {
-    pnlInputsRef.current = { riskPercent: s2.riskPercent, balance: effectiveBalance };
-  }, [s2.riskPercent, effectiveBalance]);
+    pnlInputsRef.current = { riskPercent: s2.riskPercent, balance: effectiveBalance,
+                           monetaryRisk: s4.monetaryRisk };
+  }, [s2.riskPercent, effectiveBalance, s4.monetaryRisk]);
 
   // ── Parse "1:8.07" or "8.07" → 8.07
   const parseRRNum = (v: string) => {
@@ -1541,6 +1547,17 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
     if (riskPct > 0 && effectiveBalance > 0) {
       monetaryRisk = calcDollarRisk(effectiveBalance, riskPct);
       s4Up.monetaryRisk = monetaryRisk.toFixed(2);
+    } else {
+      // A LOSS IS −risk AND NEEDS NO BALANCE AND NO R, yet the whole P&L block below is gated on
+      // `monetaryRisk > 0`, which only a loaded balance could satisfy. With no balance a loss
+      // recorded nothing at all. If the amount at risk has been typed in directly, that is the
+      // figure — use it.
+      //
+      // READ THROUGH A REF, NEVER ADDED TO THIS EFFECT'S DEPS. The effect WRITES s4.monetaryRisk;
+      // depending on it is the circular loop documented above, which re-fired with a stale R and
+      // overwrote the P&L with "0.00".
+      const typed = parseFloat(pnlInputsRef.current.monetaryRisk || "");
+      if (isFinite(typed) && typed > 0) monetaryRisk = typed;
     }
     // No else-fallback from s4.monetaryRisk — that path was the source of the
     // circular dep. If balance isn't loaded yet the effect will re-fire once
@@ -1560,7 +1577,11 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
         pnl = -monetaryRisk;
       } else if (outcome === "BE") {
         pnl = 0;
-      } else if (achievedRRNum !== 0) {
+      } else if (outcome === "Win" && achievedRRNum !== 0) {
+        // EXPLICIT "Win" REQUIRED. This branch used to be the else — anything that was not Loss or
+        // BE earned a positive P&L, including an outcome that had never been set. With the blank
+        // default (INIT_STEP2) that would put every unanswered trade in as a profit, which is the
+        // defect this change exists to remove, not to relocate.
         pnl = achievedRRNum * monetaryRisk;
       }
       if (pnl !== null) {
@@ -1598,7 +1619,13 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
     let val: string | null = null;
     if (outcome === "Loss")       val = "1:-1";
     else if (outcome === "BE")    val = "1:0";
-    else if (s4.plannedRR)        val = s4.plannedRR; // Win or no outcome yet
+    // COPYING THE PLAN IS THE LAST RESORT, AND ONLY FOR A CONFIRMED WIN. This branch used to read
+    // "Win or no outcome yet", so the planned R was copied into the ACHIEVED slot before anyone knew
+    // how the trade ended — and the P&L was then computed from the plan. A trade that ran to 6R past
+    // a 3R target recorded 3R. The extractor now reads the real ratio and `applyAnalyzedFields`
+    // derives it from the prices as a backstop; this remains only for the case where a win closed
+    // exactly at its target and nothing else supplied a figure.
+    else if (outcome === "Win" && s4.plannedRR) val = s4.plannedRR;
     if (val) {
       setS4(prev => ({ ...prev, achievedRR: val! }));
       setOcrFields(prev => { const n = new Set(prev); n.add("achievedRR"); return n; });
@@ -1659,10 +1686,25 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
     set2("takeProfitDistancePips", tpPipVal != null ? String(tpPipVal) : null);
     // Normalize outcome: accept any casing; drop "Open" (no matching radio option)
     const rawOutcome = fields.outcome ? String(fields.outcome).trim().toLowerCase() : null;
-    const normalOutcome = rawOutcome === "win"  ? "Win"
+    let normalOutcome: string | null = rawOutcome === "win"  ? "Win"
       : rawOutcome === "loss" ? "Loss"
       : (rawOutcome === "be" || rawOutcome === "break-even" || rawOutcome === "breakeven") ? "BE"
       : null;
+    // ── WHEN THE SCREENSHOT WILL NOT SAY, WORK IT OUT FROM THE PRICES ────────────────────────
+    // The extractor returns "Open" whenever no exit time is visible — which is exactly what a
+    // risk/reward overlay drawn on a chart looks like, the kind of screenshot most often uploaded.
+    // "Open" normalises to null here and the outcome was then never set, so the form kept its
+    // default. That default was "Win" (see INIT_STEP2), so A LOSS SILENTLY RECORDED AS A WIN.
+    // The closing price against the entry says which it was, and it is the same three numbers the
+    // achieved R is derived from.
+    if (!normalOutcome) {
+      const dir = String(s2Up.direction ?? fields.direction ?? s2.direction ?? "").toLowerCase();
+      const bullish = dir.startsWith("l") || dir.startsWith("b");   // Long / Buy
+      if (dir) {
+        normalOutcome = outcomeFromPrices(
+          fields.entryPrice ?? fields.openingPrice, fields.stopLoss, fields.closingPrice, bullish);
+      }
+    }
     if (normalOutcome) set2("outcome", normalOutcome);
 
     // Strip seconds from timestamps — datetime-local inputs only accept "YYYY-MM-DDTHH:mm"
@@ -1721,6 +1763,25 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
     if (mfeVal != null) set4("mfe", `${mfeVal} pts`);
     if (fields.plannedRR  != null) set4("plannedRR",  fmtRR(fields.plannedRR));
     if (fields.riskReward != null && fields.plannedRR == null) set4("plannedRR", fmtRR(fields.riskReward));
+    // ── THE BACKSTOP: derive the achieved R when the extractor did not name it ──────────────
+    // Until 2026-08-21 `achievedRR` came back null on almost every screenshot, because the prompt
+    // listed it in the schema with no definition (now fixed in screenshotExtract.ts). When it is
+    // null the form falls through to the PLANNED R:R and records the plan as though it were the
+    // result — a 6R trade logged at its 3R target. That is the reported "not accurate above 3R".
+    //
+    // TWO LAYERS ON PURPOSE. Teaching the extractor fixes the common case; deriving it here from
+    // the prices it DOES read reliably (entry, stop, closing price — all three have their own
+    // detailed extraction rules) means a silent AI miss can never again pass the plan off as the
+    // outcome. Costs nothing when the extractor got it right: this only fills a gap.
+    const rrFromPrices = deriveAchievedRR(
+      fields.entryPrice ?? fields.openingPrice,
+      fields.stopLoss,
+      fields.closingPrice,
+    );
+    if (fields.achievedRR == null && rrFromPrices != null) {
+      fields = { ...fields, achievedRR: rrFromPrices };
+    }
+
     if (fields.achievedRR != null) {
       const rrStr = fmtRR(fields.achievedRR);
       set4("achievedRR", rrStr);
@@ -1748,7 +1809,12 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
           const risk = calcDollarRisk(balance, pct);
           // Sign comes from the outcome, never from the R:R string — "1:-1" style
           // values would otherwise double-negate a loss.
-          const oc  = fields.outcome;
+          // THE SIGN COMES FROM THE OUTCOME THAT WILL ACTUALLY BE SAVED, which is the one being set
+          // in THIS batch if the screenshot named it, and otherwise the one already on the form.
+          // It used to read `fields.outcome` alone — the SCREENSHOT's reading — so a screenshot that
+          // stated no outcome fell through to `rrNum * risk` and wrote a PROFIT on a trade the user
+          // had marked as a loss. That is not a missing row, it is a win that never happened.
+          const oc  = s2Up.outcome ?? fields.outcome ?? s2.outcome;
           const pnl = oc === "Loss" ? -risk : oc === "BE" ? 0 : rrNum * risk;
           set4("monetaryRisk",   risk.toFixed(2));
           set4("profitLoss",     pnl.toFixed(2));

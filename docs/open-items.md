@@ -100,6 +100,29 @@ zero firings were *"statistically normal"*. They were not — see 0e: the warnin
 and the zero was the symptom pointing straight at it. Having asked "is the path reachable?", I settled
 for a plausible reason it might be quiet instead of proving it. Corrected 2026-08-21.
 
+## 0f. JOURNAL P&L — past entries may be recorded wrong (OPEN, needs his data)
+
+**Fixed 2026-08-21 going forward; history NOT touched.** Two defects in the journal form, both from
+his report — *"P&L does not record accurately when R is more than 3R. i experienced it in 6R"* and
+*"loss does not autorecord sometimes."*
+
+1. **Nothing ever worked out the R a trade ACTUALLY reached.** `achievedRR` could only be typed, read
+   off a screenshot, or — the default — SILENTLY COPIED FROM THE PLANNED R. The extractor prompt
+   listed `achievedRR` in its schema with **no definition and no formula**, among 40+ fields, while
+   direction / outcome / lot size / entry price / closing price all had detailed rules. So it came
+   back null and the planned figure was recorded as though it were the result. A 6R trade planned to
+   3R logged 3R: on 2% of 10,000 that is **$600 instead of $1,200**.
+2. **The outcome field defaulted to "Win".** The extractor returns `Open` whenever no exit time is
+   visible — exactly what a risk/reward overlay on a chart looks like — that normalises to null and
+   was dropped, so the default stood. **A loss recorded as a win.**
+
+**WHAT IS OPEN:** entries already saved keep their stored numbers. Given defect 2 there may be trades
+in the database recorded as wins that were losses, and given defect 1 there may be wins recorded at
+their planned R rather than the achieved one. **Finding them needs a read over his journal entries,
+which cannot be reached from a dev machine** — the endpoints are scoped to his own login, there is no
+admin route over journal entries, and the DB host is internal to Coolify. Ask him before touching any
+historical row, and show the list first.
+
 ## 0e. THE FEED SERVES NO FORMING BAR — ~~VIX.1's T-5 pre-close warning cannot fire~~ **FIXED same day**
 
 **Found 2026-08-21** while checking the 0c fix against real broker data; **fixed 2026-08-21** once he

@@ -29,6 +29,66 @@ export function calcPnL(dollarRisk: number, rrRatio: number, outcome: "Win" | "L
 }
 
 /**
+ * deriveAchievedRR
+ * The R multiple a trade ACTUALLY reached, from the three prices that define it.
+ *
+ *   R = |exit − entry| / |entry − stop|
+ *
+ * WHY THIS EXISTS (2026-08-21). Nothing in the app worked out the achieved R. It could only ever be
+ * typed by hand, read off a screenshot, or — the default — SILENTLY COPIED FROM THE PLANNED R:R.
+ * So a trade planned to a 3R target that actually ran to 6R recorded 3R of profit. That is the
+ * reported "P&L is not accurate above 3R": 3R is not a ceiling, it is where the planned targets sat.
+ *
+ * Returned UNSIGNED. The sign of the money comes from the outcome, never from this number — a
+ * negative R multiplied by a negative outcome is how a loss becomes a profit.
+ *
+ * Returns null rather than 0 when it cannot be computed, so a caller can tell "no answer" from
+ * "an answer of zero" (a break-even). Zero risk returns null: dividing by it is not a big R, it is
+ * a missing stop.
+ */
+export function deriveAchievedRR(
+  entry: number | string | null | undefined,
+  stop:  number | string | null | undefined,
+  exit:  number | string | null | undefined,
+): number | null {
+  const e = typeof entry === "number" ? entry : parseFloat(String(entry ?? ""));
+  const s = typeof stop  === "number" ? stop  : parseFloat(String(stop  ?? ""));
+  const x = typeof exit  === "number" ? exit  : parseFloat(String(exit  ?? ""));
+  if (![e, s, x].every(n => typeof n === "number" && isFinite(n))) return null;
+  const risk = Math.abs(e - s);
+  if (risk === 0) return null;
+  return parseFloat((Math.abs(x - e) / risk).toFixed(2));
+}
+
+/**
+ * outcomeFromPrices
+ * Which side of the entry the trade closed on — Win, Loss, or BE.
+ *
+ * `bullish` is needed because the same exit price is a win on a buy and a loss on a sell. BE is a
+ * band, not a point: a close within 2% of the risk distance is flat, which stops a one-tick drift
+ * being recorded as a win or a loss.
+ *
+ * Returns null when it cannot be decided, and null must stay null — this feeds the outcome field,
+ * and guessing there is what put losses in as wins.
+ */
+export function outcomeFromPrices(
+  entry: number | string | null | undefined,
+  stop:  number | string | null | undefined,
+  exit:  number | string | null | undefined,
+  bullish: boolean,
+): "Win" | "Loss" | "BE" | null {
+  const e = typeof entry === "number" ? entry : parseFloat(String(entry ?? ""));
+  const s = typeof stop  === "number" ? stop  : parseFloat(String(stop  ?? ""));
+  const x = typeof exit  === "number" ? exit  : parseFloat(String(exit  ?? ""));
+  if (![e, s, x].every(n => typeof n === "number" && isFinite(n))) return null;
+  const risk = Math.abs(e - s);
+  if (risk === 0) return null;
+  const moved = bullish ? x - e : e - x;      // positive = in the trade's favour
+  if (Math.abs(moved) <= risk * 0.02) return "BE";
+  return moved > 0 ? "Win" : "Loss";
+}
+
+/**
  * calcNewBalance
  * Returns the account balance after a trade's P&L has been applied.
  * Formula: newBalance = currentBalance + pnl
