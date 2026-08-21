@@ -6,7 +6,7 @@
     "logout": "退出登录", "loginStreak": "登录连续", "days": "天", "free": "免费",
     "language": "语言", "newTrade": "新交易", "sessions": "会话",
     "vault": "交易库", "calendar": "日历", "drawdown": "回撤",
-    "metrics": "指标", "strategy": "审计", "fsdai": "交易AI", "sync": "Streava"
+    "metrics": "指标", "strategy": "审计", "fsdai": "交易AI", "sync": "FX Copier"
   },
   "common": {
     "save": "保存", "cancel": "取消", "edit": "编辑", "close": "关闭",

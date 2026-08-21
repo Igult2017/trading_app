@@ -638,7 +638,7 @@ export default function CopyManagementDashboard({ onBack, initialTab = 'provider
       <div style={{ borderBottom: `1px solid ${tone.border}`, background: tone.panel, padding: '20px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
         <div>
           <div style={{ color: tone.muted, fontSize: 9, fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.25em', marginBottom: 4 }}>
-            Streava Trades · Account Manager
+            FX Copier · Account Manager
           </div>
           <h1 style={{ fontSize: 16, fontWeight: 600, letterSpacing: '-0.01em', margin: 0 }}>My Terminals</h1>
         </div>

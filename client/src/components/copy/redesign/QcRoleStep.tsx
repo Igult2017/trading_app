@@ -12,7 +12,7 @@ export default function QcRoleStep({ value, onChange }: { value: string; onChang
   return (
     <>
       <div className="qc-eyebrow">Step 01 · Identity</div>
-      <h1 className="qc-h1" style={{ marginTop: 10, marginBottom: 6 }}>How do you want to use Streava Trades?</h1>
+      <h1 className="qc-h1" style={{ marginTop: 10, marginBottom: 6 }}>How do you want to use FX Copier?</h1>
       <div className="qc-sub">Pick a role to set up. You can run more than one — and change this anytime.</div>
       <div className="qc-cards">
         {ROLES.map(r => {

@@ -77,7 +77,7 @@ const NAV_SECTIONS: NavGroup[] = [
     { id: 'metrics',     label: 'Metrics',         icon: SI.Metrics },
     { id: 'strategy',    label: 'Audit',           icon: SI.Strategy },
     { id: 'fsdai',       label: 'Trader AI',       icon: SI.FsdAi },
-    { id: 'sync',        label: 'Streava',         icon: SI.Sync },
+    { id: 'sync',        label: 'FX Copier',         icon: SI.Sync },
     { id: 'assets',      label: 'Assets',          icon: SI.Assets },
     { id: 'leaderboard', label: 'Leaderboard',     icon: SI.Leaderboard },
   ]},
@@ -88,7 +88,7 @@ const NAV_SECTIONS: NavGroup[] = [
 // Derived from the SIDEBAR LABELS above, never hand-written. There used to be a second map inside
 // the component spelling all thirteen again in lowercase ("journal | trade vault"), and it had
 // already drifted from the nav it was meant to mirror: "sync trade" where the sidebar says
-// Streava, "strategy audit" where it says Audit. One list, one spelling.
+// FX Copier, "strategy audit" where it says Audit. One list, one spelling.
 const SUITE_TITLE = 'Trade&Journal';
 const NAV_LABELS: Record<string, string> = Object.fromEntries(
   NAV_SECTIONS.flatMap(g => g.items.map(i => [i.id, i.label])),
@@ -1208,21 +1208,17 @@ export default function Journal() {
         .journal-light .accounts-root td { color: ${T.text} !important; border-color: ${T.border} !important; }
         .journal-light .accounts-root tr { border-color: ${T.border} !important; }
 
-        /* ── TradeSyncPage landing — override CSS custom properties ─── */
-        .journal-light .ts-page {
-          --ts-bg:   ${T.bg}; --ts-bg2:  ${T.surface}; --ts-card: ${T.surface}; --ts-card2: ${T.bg};
-          --ts-border: ${T.border}; --ts-text: ${T.text}; --ts-muted: ${T.textMuted};
-          background: ${T.bg} !important; color: ${T.text} !important;
-        }
-        .journal-light .ts-page .ts-hero h1 { -webkit-text-fill-color: ${T.text} !important; background: none !important; }
-        .journal-light .ts-page .ts-hero p,
-        .journal-light .ts-page .ts-step p,
-        .journal-light .ts-page .ts-platform-meta { color: ${T.textMuted} !important; }
-        .journal-light .ts-page .ts-platform-card { background: ${T.surface} !important; border-color: ${T.border} !important; }
-        .journal-light .ts-page .ts-feat-item,
-        .journal-light .ts-page .ts-step { background: ${T.surface} !important; border-color: ${T.border} !important; }
-        .journal-light .ts-page section,
-        .journal-light .ts-page .ts-section { background: ${T.bg} !important; }
+        /* ── FX Copier landing — DARK IN BOTH THEMES, and that is deliberate ──
+           The whole block that used to sit here re-coloured the old landing for light mode using
+           its class names (.ts-hero h1, .ts-step p, .ts-platform-meta, .ts-platform-card,
+           .ts-feat-item). Every one of those selectors was deleted with the old markup on
+           2026-08-21, so keeping them would leave rules matching nothing — the stale-selector rot
+           that makes the next reader think light mode is handled when it is not.
+
+           The landing now owns its palette (ink-navy) as well as its typography, which is why it is
+           in the font-rule exemption above. His call: dark in both themes. If that is ever revisited,
+           map .ts-page's --ink/--panel/--text variables here rather than re-adding per-element
+           overrides — one place, not fifteen. */
 
         /* ── Session cards (obs-sessions-root + Tailwind arbitrary classes) ── */
         .journal-light .obs-sessions-root { background: ${T.bg} !important; color: ${T.text} !important; }

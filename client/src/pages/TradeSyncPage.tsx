@@ -5,6 +5,8 @@ import {
   Bell, ArrowRight, Radio, Users, GitFork, Scale, Anchor, TrendingUp,
   Rocket, AlertTriangle, Filter, Hash, Send, Zap,
   MessageSquare, Menu, X, Check,
+  // Added for the FX Copier landing (2026-08-21)
+  Cloud, SlidersHorizontal, Headphones, ChevronUp, ChevronDown, Repeat, Minus, Plus, Info,
 } from 'lucide-react';
 import { PiInfoFill } from 'react-icons/pi';
 import CopyManagementDashboard from '@/components/CopyManagementDashboard';
@@ -1387,7 +1389,7 @@ function CopierDashboard({ deployResult, role, data, onSetupAnother, onHome }: a
         </GlowButton>
         <button onClick={onHome}
           className="text-[10px] font-mono uppercase tracking-widest text-slate-600 hover:text-slate-300 transition-colors border border-white/5 hover:border-white/10 px-4 py-2">
-          ← Back to Streava Trades Home
+          ← Back to FX Copier Home
         </button>
       </div>
     </div>
@@ -1769,186 +1771,339 @@ export function CopierWizard({ onBack, onOpenDashboard }: { onBack: () => void; 
 // LANDING PAGE STYLES
 // ═══════════════════════════════════════════════════════════════════════════════
 const landingStyles = `
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  :root {
-    --ts-bg: #070b14; --ts-bg2: #0d1220; --ts-card: #111827; --ts-card2: #151e2e;
-    --ts-border: #1e2d45; --ts-blue: #2d8cf0; --ts-blue-bright: #3d9fff;
-    --ts-green: #00c896; --ts-gold: #f0a500; --ts-text: #e8edf5; --ts-muted: #8a99b3;
-  }
-  .ts-page { min-height:100vh; background:var(--ts-bg); overflow-x:hidden; color:var(--ts-text); font-family:'Playfair Display',serif; }
-  .ts-hero { display:grid; grid-template-columns:1fr 1fr; align-items:center; gap:48px; padding:64px 48px 56px; max-width:1200px; margin:0 auto; }
-  .ts-hero-badge { display:inline-flex; align-items:center; gap:6px; background:rgba(45,140,240,0.12); border:1px solid rgba(45,140,240,0.3); padding:5px 12px; font-size:0.75rem; color:var(--ts-blue); font-weight:600; margin-bottom:20px; }
-  .ts-hero h1 { font-family:'Playfair Display',serif; font-size:clamp(2rem,6vw,3.5rem); font-weight:800; line-height:1.1; margin-bottom:20px; background:linear-gradient(135deg,#fff 40%,var(--ts-blue)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
-  .ts-hero p { font-size:clamp(0.9rem,2vw,1.05rem); color:var(--ts-muted); line-height:1.7; max-width:440px; margin-bottom:32px; }
-  .ts-hero-actions { display:flex; gap:14px; align-items:center; flex-wrap:wrap; }
-  .ts-btn-primary { background:var(--ts-blue); color:#fff; border:none; padding:13px 28px; font-size:1rem; font-weight:600; cursor:pointer; transition:all 0.2s; display:flex; align-items:center; gap:8px; }
-  .ts-btn-primary:hover { background:var(--ts-blue-bright); transform:translateY(-1px); }
-  .ts-btn-ghost { background:transparent; color:var(--ts-muted); border:1px solid var(--ts-border); padding:13px 24px; font-size:1rem; font-weight:500; cursor:pointer; transition:all 0.2s; }
-  .ts-btn-ghost:hover { border-color:var(--ts-blue); color:var(--ts-text); }
-  .ts-hero-visual { background:var(--ts-bg2); border:1px solid var(--ts-border); padding:32px; position:relative; overflow:hidden; }
-  .ts-hero-visual::before { content:''; position:absolute; inset:0; background:radial-gradient(ellipse at 70% 30%,rgba(45,140,240,0.07) 0%,transparent 70%); pointer-events:none; }
-  .ts-diagram { display:flex; flex-direction:column; align-items:center; gap:0; width:100%; }
-  .ts-diagram-master { border:2px solid var(--ts-blue); padding:14px 20px; background:rgba(45,140,240,0.08); display:flex; align-items:center; gap:12px; min-width:0; max-width:100%; width:100%; max-width:280px; }
-  .ts-diag-icon { width:38px; height:38px; background:rgba(45,140,240,0.2); display:flex; align-items:center; justify-content:center; font-size:1.1rem; flex-shrink:0; }
-  .ts-diag-label { font-family:'Playfair Display',serif; font-weight:600; font-size:0.9rem; }
-  .ts-diag-id { font-size:0.75rem; color:var(--ts-muted); }
-  .ts-badge-master { background:var(--ts-blue); color:#fff; padding:3px 10px; font-size:0.72rem; font-weight:700; margin-left:auto; flex-shrink:0; }
-  .ts-badge-slave  { background:var(--ts-green); color:#000; padding:3px 10px; font-size:0.72rem; font-weight:700; margin-left:auto; flex-shrink:0; }
-  .ts-connector { width:100%; max-width:260px; height:70px; overflow:visible; }
-  .ts-diagram-slaves { display:flex; gap:16px; flex-wrap:wrap; justify-content:center; width:100%; }
-  .ts-diagram-slave { border:2px solid var(--ts-green); padding:14px 18px; background:rgba(0,200,150,0.06); display:flex; align-items:center; gap:10px; min-width:0; flex:1 1 180px; max-width:240px; }
-  .ts-section { padding:64px 48px; max-width:1200px; margin:0 auto; }
-  .ts-section-header { text-align:center; margin-bottom:48px; }
-  .ts-section-title { font-family:'Playfair Display',serif; font-size:clamp(1.4rem,3.5vw,1.8rem); font-weight:700; color:var(--ts-blue); margin-bottom:10px; }
-  .ts-section-sub { color:var(--ts-muted); font-size:clamp(0.85rem,1.8vw,1rem); }
-  .ts-steps { display:grid; grid-template-columns:repeat(4,1fr); gap:20px; }
-  .ts-step-card { background:var(--ts-card); border:1px solid var(--ts-border); padding:28px 22px; transition:border-color 0.2s,transform 0.2s; }
-  .ts-step-card:hover { border-color:var(--ts-blue); transform:translateY(-3px); }
-  .ts-step-num { width:42px; height:42px; background:var(--ts-blue); color:#fff; font-family:'Playfair Display',serif; font-weight:700; font-size:1.1rem; display:flex; align-items:center; justify-content:center; margin-bottom:18px; }
-  .ts-step-title { font-weight:600; font-size:0.95rem; margin-bottom:8px; }
-  .ts-step-desc { color:var(--ts-muted); font-size:0.85rem; line-height:1.6; }
-  .ts-platforms-section { padding:64px 48px; background:var(--ts-bg2); }
-  .ts-platforms-inner { max-width:1200px; margin:0 auto; }
-  .ts-platforms-grid { display:grid; grid-template-columns:repeat(6,1fr); gap:16px; margin-bottom:16px; }
-  .ts-platforms-grid-2 { display:grid; grid-template-columns:repeat(5,1fr); gap:16px; max-width:900px; margin:0 auto; }
-  .ts-platform-card { background:var(--ts-card); border:1px solid var(--ts-border); padding:20px 14px; text-align:center; transition:border-color 0.2s; min-width:0; }
-  .ts-platform-card:hover { border-color:var(--ts-blue); }
-  .ts-status-badge { display:inline-block; padding:2px 8px; font-size:0.68rem; font-weight:700; margin-bottom:14px; white-space:nowrap; }
-  .ts-status-available { background:rgba(0,200,150,0.15); color:var(--ts-green); border:1px solid rgba(0,200,150,0.3); }
-  .ts-status-soon { background:rgba(240,165,0,0.15); color:var(--ts-gold); border:1px solid rgba(240,165,0,0.3); }
-  .ts-platform-logo { width:48px; height:48px; background:var(--ts-card2); display:flex; align-items:center; justify-content:center; font-size:1.4rem; margin:0 auto 10px; }
-  .ts-platform-name { font-weight:600; font-size:0.85rem; margin-bottom:12px; word-break:break-word; }
-  .ts-vote-row { display:flex; align-items:center; gap:8px; justify-content:center; flex-wrap:wrap; }
-  .ts-vote-btn { display:flex; align-items:center; gap:5px; background:var(--ts-blue); color:#fff; border:none; padding:5px 12px; font-size:0.75rem; font-weight:600; cursor:pointer; transition:background 0.2s; white-space:nowrap; }
-  .ts-vote-btn:hover { background:var(--ts-blue-bright); }
-  .ts-vote-btn.unvote { background:rgba(45,140,240,0.2); color:var(--ts-blue); }
-  .ts-vote-btn.unvote:hover { background:rgba(45,140,240,0.35); }
-  .ts-vote-count { font-size:0.8rem; color:var(--ts-muted); font-weight:500; }
-  .ts-fp-grid { display:grid; grid-template-columns:1fr 1fr; gap:56px; align-items:start; }
-  .ts-features-title { font-family:'Playfair Display',serif; font-weight:700; font-size:0.9rem; color:var(--ts-blue); display:flex; align-items:center; gap:8px; margin-bottom:6px; }
-  .ts-features-sub { color:var(--ts-muted); font-size:0.85rem; margin-bottom:32px; }
-  .ts-feature-item { display:flex; gap:16px; margin-bottom:24px; }
-  .ts-feat-icon { width:44px; height:44px; background:var(--ts-card2); display:flex; align-items:center; justify-content:center; font-size:1.2rem; flex-shrink:0; border:1px solid var(--ts-border); }
-  .ts-feat-title { font-weight:600; font-size:0.9rem; margin-bottom:4px; }
-  .ts-feat-desc { color:var(--ts-muted); font-size:0.82rem; line-height:1.6; }
-  .ts-pricing-card { background:var(--ts-card); border:2px solid var(--ts-blue); padding:28px; }
-  .ts-price-toggle { display:flex; background:var(--ts-card2); padding:4px; margin-bottom:24px; }
-  .ts-toggle-btn { flex:1; padding:8px; border:none; font-size:0.875rem; font-weight:600; cursor:pointer; transition:all 0.2s; background:transparent; color:var(--ts-muted); }
-  .ts-toggle-btn.active { background:var(--ts-blue); color:#fff; }
-  .ts-price-label { font-size:0.78rem; color:var(--ts-muted); margin-bottom:6px; }
-  .ts-price-amount { font-family:'Playfair Display',serif; font-weight:800; font-size:2.4rem; color:var(--ts-text); margin-bottom:4px; }
-  .ts-price-amount span { font-size:0.9rem; font-weight:400; color:var(--ts-muted); }
-  .ts-price-original { font-size:0.85rem; color:var(--ts-muted); text-decoration:line-through; display:inline-block; margin-right:8px; }
-  .ts-price-limited { color:var(--ts-blue); font-size:0.8rem; font-weight:600; }
-  .ts-price-note { font-size:0.82rem; color:var(--ts-muted); margin-top:10px; margin-bottom:24px; }
-  .ts-checkout-card { background:var(--ts-card2); padding:22px; margin-top:20px; }
-  .ts-checkout-title { font-family:'Playfair Display',serif; font-weight:700; font-size:0.9rem; display:flex; align-items:center; gap:8px; margin-bottom:8px; }
-  .ts-checkout-sub { color:var(--ts-muted); font-size:0.82rem; margin-bottom:16px; }
-  .ts-btn-start { width:100%; background:var(--ts-card); color:var(--ts-muted); border:1px solid var(--ts-border); padding:13px; font-size:0.95rem; font-weight:600; cursor:pointer; transition:all 0.2s; }
-  .ts-btn-start:hover { background:var(--ts-blue); color:#fff; border-color:var(--ts-blue); }
-  .ts-faq-section { padding:72px 48px; }
-  .ts-faq-inner { max-width:760px; margin:0 auto; }
-  .ts-faq-item { border:1px solid var(--ts-border); margin-bottom:10px; overflow:hidden; transition:border-color 0.2s; }
-  .ts-faq-item.open { border-color:var(--ts-blue); }
-  .ts-faq-q { width:100%; background:var(--ts-card); color:var(--ts-text); border:none; text-align:left; padding:18px 20px; font-size:0.9rem; font-weight:600; cursor:pointer; display:flex; justify-content:space-between; align-items:center; font-family:'Playfair Display',serif; }
-  .ts-faq-chevron { transition:transform 0.25s; font-size:0.8rem; color:var(--ts-muted); }
-  .ts-faq-item.open .ts-faq-chevron { transform:rotate(180deg); }
-  .ts-faq-a { background:var(--ts-card2); padding:0 20px; color:var(--ts-muted); font-size:0.875rem; line-height:1.7; max-height:0; overflow:hidden; transition:max-height 0.3s ease,padding 0.3s; }
-  .ts-faq-item.open .ts-faq-a { max-height:600px; padding:14px 20px; }
+/* ── FX COPIER LANDING ─────────────────────────────────────────────────────────
+   His design, 2026-08-21, supplied as a component. Ink-navy terminal + editorial
+   Playfair; two-tone signal system where blue = master and sky = follower.
 
-  /* Tablet — 1024px and below */
-  @media (max-width:1024px) {
-    .ts-hero { padding:56px 32px 48px; gap:36px; }
-    .ts-section { padding:56px 32px; }
-    .ts-platforms-section { padding:56px 32px; }
-    .ts-platforms-grid { grid-template-columns:repeat(4,1fr); }
-    .ts-platforms-grid-2 { grid-template-columns:repeat(4,1fr); max-width:none; }
-    .ts-fp-grid { gap:36px; }
-  }
+   SCOPED UNDER .ts-page, NOT .fx, AND THAT IS LOAD-BEARING. Journal forces its own font with
+   \`!important\` on every subtree except .dp, .ct-app and .ts-page (Journal.tsx). A .fx-only root
+   would inherit that force and render the lucide icons as TEXT — which has happened here twice.
+   The wrapper carries BOTH classes: .ts-page earns the exemption for itself and its descendants,
+   .fx carries the styling below.
 
-  /* Small tablet / large mobile — 900px and below */
-  @media (max-width:900px) {
-    .ts-hero { grid-template-columns:1fr; padding:40px 20px 36px; gap:28px; }
-    .ts-hero-visual { padding:24px; }
-    .ts-steps { grid-template-columns:1fr 1fr; }
-    .ts-platforms-grid { grid-template-columns:repeat(3,1fr); }
-    .ts-platforms-grid-2 { grid-template-columns:repeat(3,1fr); }
-    .ts-fp-grid { grid-template-columns:1fr; gap:28px; }
-    .ts-section { padding:48px 20px; }
-    .ts-platforms-section { padding:48px 20px; }
-    .ts-faq-section { padding:48px 20px; }
-    .ts-pricing-card { padding:22px; }
-  }
+   NO GOOGLE FONTS IMPORT. The supplied code @imported Playfair + JetBrains Mono and also injected
+   three <link> tags into document.head at mount. Both faces are already bundled
+   (@fontsource-variable/playfair-display, @fontsource-variable/jetbrains-mono), so that would fetch
+   over the network what is already in the bundle — the same needless round-trip as the 403 KB logo.
 
-  /* Mobile — 600px and below */
-  @media (max-width:600px) {
-    .ts-hero { padding:32px 16px 28px; }
-    .ts-hero-visual { padding:18px 14px; }
-    .ts-section { padding:40px 16px; }
-    .ts-platforms-section { padding:40px 16px; }
-    .ts-faq-section { padding:40px 16px; }
-    .ts-section-header { margin-bottom:32px; }
-    .ts-platforms-grid { grid-template-columns:repeat(2,1fr); gap:12px; }
-    .ts-platforms-grid-2 { grid-template-columns:repeat(2,1fr); gap:12px; }
-    .ts-platform-card { padding:16px 10px; }
-    .ts-platform-logo { width:42px; height:42px; font-size:1.2rem; }
-    .ts-step-card { padding:22px 18px; }
-    .ts-pricing-card { padding:18px; }
-    .ts-price-amount { font-size:2rem; }
-    .ts-checkout-card { padding:18px; }
-    .ts-faq-q { padding:14px 16px; font-size:0.85rem; }
-    .ts-btn-primary, .ts-btn-ghost { width:100%; justify-content:center; }
-    .ts-hero-actions { width:100%; }
-    .ts-diagram-slaves { gap:12px; }
-    .ts-diagram-slave { padding:12px 14px; flex:1 1 100%; max-width:280px; }
-  }
+   DARK IN BOTH THEMES, his call (a1). The panel owns its typography and its palette, which is why it
+   sits behind the font exemption in the first place. Journal's old light-mode patches targeted the
+   previous markup (.ts-hero h1, .ts-step p, .ts-platform-meta) and are removed rather than left
+   pointing at selectors that no longer exist.
+──────────────────────────────────────────────────────────────────────────────── */
+.ts-page{
+  --ink:#090C15; --ink-2:#0C1120; --panel:#121826; --panel-2:#161E30;
+  --line:#232C42; --line-soft:#1B2234;
+  --text:#EEF0F7; --muted:#8B93AA; --muted-2:#5B647E; --faint:#616B85;
+  --blue:#4C8DFF; --blue-soft:#9CBEFF; --blue-dim:rgba(76,141,255,.16);
+  --sky:#54C6F2; --sky-soft:#AEE6FB; --sky-dim:rgba(84,198,242,.15);
+  --up:#4ADE80; --down:#F0726F;
+  --fd:'Playfair Display',Georgia,serif;
+  --fb:'Playfair Display',Georgia,serif;
+  --fm:'JetBrains Mono',ui-monospace,monospace;
+}
+.ts-page *,.ts-page *::before,.ts-page *::after{box-sizing:border-box;}
+.ts-page.fx{background:var(--ink);color:var(--text);font-family:var(--fb);font-weight:500;
+  -webkit-font-smoothing:antialiased;line-height:1.6;letter-spacing:.005em;position:relative;
+  overflow-x:hidden;min-height:100%;}
+/* The glow was position:fixed in the mock — a full-page assumption. Inside Journal's scrolling
+   <main> that would pin to the viewport and slide over the rest of the app, so it is absolute. */
+.ts-page.fx::before{content:"";position:absolute;inset:0;pointer-events:none;z-index:0;
+  background:
+    radial-gradient(60% 40% at 78% 0%, rgba(76,141,255,.06), transparent 70%),
+    radial-gradient(50% 45% at 8% 12%, rgba(84,198,242,.05), transparent 70%);}
+.ts-page .fx-wrap{position:relative;z-index:1;max-width:1180px;margin:0 auto;padding:0 28px;}
 
-  /* Small mobile — 400px and below */
-  @media (max-width:400px) {
-    .ts-steps { grid-template-columns:1fr; }
-    .ts-platforms-grid { grid-template-columns:repeat(2,1fr); gap:10px; }
-    .ts-platforms-grid-2 { grid-template-columns:repeat(2,1fr); gap:10px; }
-    .ts-vote-btn { padding:5px 10px; font-size:0.7rem; }
-    .ts-vote-count { font-size:0.75rem; }
-    .ts-feature-item { gap:12px; margin-bottom:18px; }
-    .ts-feat-icon { width:38px; height:38px; }
-  }
+/* ---- type ---- */
+.ts-page .eyebrow{font-family:var(--fm);font-size:11px;letter-spacing:.24em;text-transform:uppercase;
+  color:var(--sky);font-weight:500;display:inline-flex;align-items:center;gap:9px;}
+.ts-page .eyebrow .dot{width:5px;height:5px;border-radius:50%;background:var(--sky);
+  box-shadow:0 0 0 4px var(--sky-dim);}
+.ts-page h1,.ts-page h2,.ts-page h3{font-family:var(--fd);font-weight:700;margin:0;
+  letter-spacing:-.01em;line-height:1.04;}
+.ts-page .mono{font-family:var(--fm);}
+
+/* ---- intro banner ---- */
+.ts-page .intro{padding:40px 0 18px;}
+.ts-page .intro-card{position:relative;overflow:hidden;display:flex;gap:20px;align-items:flex-start;
+  background:linear-gradient(180deg,var(--panel-2),var(--panel));border:1px solid var(--line);
+  border-radius:18px;padding:28px 32px 28px 30px;box-shadow:0 20px 50px rgba(0,0,0,.32);}
+.ts-page .intro-card::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;
+  background:linear-gradient(180deg,var(--blue),var(--sky));}
+.ts-page .intro-ic{flex-shrink:0;width:42px;height:42px;border-radius:11px;display:grid;
+  place-items:center;background:var(--blue-dim);color:var(--blue-soft);
+  border:1px solid rgba(76,141,255,.32);margin-top:2px;}
+.ts-page .intro-text{margin:0;font-size:19px;line-height:1.72;color:#C3CAD9;font-weight:500;max-width:60ch;}
+.ts-page .intro-text b{color:#FFFFFF;font-weight:700;}
+.ts-page .intro-text b.hl{color:var(--blue-soft);font-weight:700;}
+.ts-page .intro-text .dash{color:var(--sky);font-style:italic;}
+
+/* ---- nav ---- */
+/* NOT sticky. The mock's position:sticky assumes a full page; this renders inside Journal's own
+   scrolling <main>, under Journal's own header, so a second pinned bar fights the first. */
+.ts-page .nav{position:relative;z-index:5;background:rgba(9,12,21,.72);
+  border-bottom:1px solid var(--line-soft);}
+.ts-page .nav-in{display:flex;align-items:center;justify-content:space-between;height:66px;}
+.ts-page .brand{display:flex;align-items:center;gap:11px;font-family:var(--fd);font-weight:900;
+  font-size:21px;letter-spacing:-.01em;}
+.ts-page .brand .glyph{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;
+  background:linear-gradient(150deg,var(--blue),#2E63DA);color:#ffffff;font-family:var(--fm);
+  font-weight:600;font-size:15px;box-shadow:0 4px 16px rgba(76,141,255,.28);}
+.ts-page .brand b{color:#FFFFFF;font-weight:900;}
+.ts-page .nav-links{display:flex;gap:30px;align-items:center;}
+.ts-page .nav-links a{color:var(--muted);text-decoration:none;font-size:14px;font-weight:500;
+  transition:color .18s;cursor:pointer;}
+.ts-page .nav-links a:hover{color:var(--text);}
+.ts-page .sync{display:flex;align-items:center;gap:7px;font-family:var(--fm);font-size:11px;
+  color:var(--muted);padding:5px 11px;border:1px solid var(--line);border-radius:999px;background:var(--panel);}
+.ts-page .sync i{width:6px;height:6px;border-radius:50%;background:var(--up);
+  box-shadow:0 0 0 3px rgba(74,222,128,.18);animation:fxblink 2.4s ease-in-out infinite;}
+@keyframes fxblink{0%,100%{opacity:1}50%{opacity:.35}}
+
+/* ---- buttons ---- */
+.ts-page .btn{font-family:var(--fb);font-weight:600;font-size:14.5px;border-radius:10px;cursor:pointer;
+  display:inline-flex;align-items:center;gap:9px;
+  transition:transform .16s,box-shadow .16s,background .16s,border-color .16s;
+  border:1px solid transparent;text-decoration:none;}
+.ts-page .btn-blue{background:linear-gradient(150deg,var(--blue),#2C5AD0);color:#ffffff;padding:12px 20px;
+  box-shadow:0 6px 20px rgba(76,141,255,.24);}
+.ts-page .btn-blue:hover{transform:translateY(-2px);box-shadow:0 12px 30px rgba(76,141,255,.34);}
+.ts-page .btn-nav{background:var(--text);color:var(--ink);padding:9px 17px;font-size:13.5px;border-radius:9px;}
+.ts-page .btn-nav:hover{transform:translateY(-1px);}
+
+/* ---- sections ---- */
+.ts-page .section{padding:104px 0;position:relative;}
+.ts-page .sec-head{max-width:640px;margin:0 auto 58px;text-align:center;}
+.ts-page .sec-head h2{font-size:clamp(30px,4vw,46px);margin:16px 0 14px;}
+.ts-page .sec-head h2 em{font-style:italic;color:var(--blue-soft);}
+.ts-page .sec-head p{color:var(--muted);font-size:16.5px;margin:0;}
+.ts-page .reveal{opacity:0;transform:translateY(22px);
+  transition:opacity .7s cubic-bezier(.2,.7,.2,1),transform .7s cubic-bezier(.2,.7,.2,1);}
+.ts-page .reveal.in{opacity:1;transform:none;}
+
+/* ---- modes ---- */
+.ts-page .modes{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;}
+.ts-page .mode{background:var(--panel);border:1px solid var(--line-soft);border-radius:14px;
+  padding:22px 20px;transition:transform .2s,border-color .2s;position:relative;overflow:hidden;
+  text-align:left;font:inherit;color:inherit;cursor:pointer;}
+.ts-page .mode:hover{transform:translateY(-4px);border-color:var(--line);}
+.ts-page .mode .mi{width:38px;height:38px;border-radius:10px;display:grid;place-items:center;
+  background:var(--sky-dim);color:var(--sky);margin-bottom:16px;}
+.ts-page .mode:nth-child(1) .mi{background:var(--blue-dim);color:var(--blue-soft);}
+.ts-page .mode h3{font-size:19px;margin-bottom:7px;}
+.ts-page .mode p{color:var(--muted);font-size:13.5px;margin:0;line-height:1.5;}
+.ts-page .mode .go{margin-top:12px;font-family:var(--fm);font-size:10.5px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--sky-soft);display:inline-flex;align-items:center;gap:6px;}
+
+/* ---- steps ---- */
+.ts-page .steps{position:relative;display:grid;grid-template-columns:repeat(4,1fr);gap:0;}
+.ts-page .steps::before{content:"";position:absolute;top:28px;left:12%;right:12%;height:1px;
+  background:linear-gradient(90deg,var(--blue),var(--sky));opacity:.4;}
+.ts-page .step{padding:0 22px;text-align:center;position:relative;}
+.ts-page .step .num{width:56px;height:56px;margin:0 auto 22px;border-radius:14px;display:grid;
+  place-items:center;font-family:var(--fd);font-weight:700;font-size:22px;background:var(--panel-2);
+  border:1px solid var(--line);color:var(--blue-soft);position:relative;z-index:1;}
+.ts-page .step:last-child .num{color:var(--sky-soft);border-color:rgba(84,198,242,.35);}
+.ts-page .step h3{font-size:17px;margin-bottom:9px;}
+.ts-page .step p{color:var(--muted);font-size:13.5px;margin:0;}
+
+/* ---- platforms ---- */
+.ts-page .plat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;}
+.ts-page .plat{background:var(--panel);border:1px solid var(--line-soft);border-radius:14px;padding:18px;
+  display:flex;flex-direction:column;align-items:center;text-align:center;
+  transition:border-color .2s,transform .2s;}
+.ts-page .plat:hover{border-color:var(--line);transform:translateY(-3px);}
+.ts-page .badge{font-family:var(--fm);font-size:9.5px;font-weight:600;letter-spacing:.06em;
+  text-transform:uppercase;padding:3px 9px;border-radius:6px;align-self:flex-start;}
+.ts-page .b-live{background:rgba(74,222,128,.12);color:var(--up);border:1px solid rgba(74,222,128,.3);}
+.ts-page .b-soon{background:var(--blue-dim);color:var(--blue-soft);border:1px solid rgba(76,141,255,.3);}
+.ts-page .mono-mark{width:46px;height:46px;border-radius:11px;display:grid;place-items:center;
+  margin:16px 0 12px;font-family:var(--fm);font-weight:600;font-size:16px;background:var(--panel-2);
+  border:1px solid var(--line);color:var(--text);}
+.ts-page .plat .pname{font-family:var(--fd);font-weight:700;font-size:16px;margin-bottom:14px;}
+.ts-page .vote{display:flex;align-items:center;gap:10px;margin-top:auto;}
+.ts-page .vbtn{display:inline-flex;align-items:center;gap:5px;font-family:var(--fb);font-weight:600;
+  font-size:12.5px;padding:7px 12px;border-radius:8px;cursor:pointer;border:1px solid var(--line);
+  background:var(--panel-2);color:var(--text);transition:all .15s;}
+.ts-page .vbtn:hover{border-color:var(--sky);color:var(--sky-soft);}
+.ts-page .vbtn.on{background:var(--sky-dim);border-color:rgba(84,198,242,.4);color:var(--sky-soft);}
+.ts-page .vcount{font-family:var(--fm);font-size:13px;color:var(--muted);font-weight:500;}
+
+/* ---- features + pricing ---- */
+.ts-page .fp{display:grid;grid-template-columns:1fr 1fr;gap:56px;align-items:start;}
+.ts-page .feat{display:flex;gap:16px;padding:18px 0;border-bottom:1px solid var(--line-soft);}
+.ts-page .feat:last-child{border-bottom:none;}
+.ts-page .feat .fic{width:42px;height:42px;border-radius:10px;flex-shrink:0;display:grid;
+  place-items:center;background:var(--panel);border:1px solid var(--line);color:var(--blue-soft);}
+.ts-page .feat h3{font-size:17px;margin-bottom:5px;}
+.ts-page .feat p{color:var(--muted);font-size:14px;margin:0;line-height:1.5;}
+.ts-page .price-card{background:linear-gradient(180deg,var(--panel-2),var(--panel));
+  border:1px solid rgba(76,141,255,.3);border-radius:20px;padding:8px;
+  box-shadow:0 24px 60px rgba(0,0,0,.4);position:sticky;top:16px;}
+.ts-page .toggle{display:flex;background:var(--ink-2);border-radius:13px;padding:5px;
+  border:1px solid var(--line-soft);}
+.ts-page .toggle button{flex:1;padding:11px;border:none;border-radius:9px;background:transparent;
+  color:var(--muted);font-family:var(--fb);font-weight:600;font-size:14px;cursor:pointer;transition:all .18s;}
+.ts-page .toggle button.act{background:linear-gradient(150deg,var(--blue),#2C5AD0);color:#ffffff;}
+.ts-page .toggle .save{font-family:var(--fm);font-size:10px;margin-left:6px;opacity:.85;}
+.ts-page .pc-body{padding:24px 22px 22px;}
+.ts-page .pc-tag{font-family:var(--fm);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--sky);}
+.ts-page .pc-price{display:flex;align-items:baseline;gap:6px;margin:14px 0 4px;}
+.ts-page .pc-price .amt{font-family:var(--fd);font-weight:900;font-size:58px;line-height:1;}
+.ts-page .pc-price .per{color:var(--muted);font-size:15px;}
+.ts-page .pc-was{font-family:var(--fm);font-size:13px;color:var(--faint);}
+.ts-page .pc-was s{margin-right:8px;}
+.ts-page .pc-was b{color:var(--blue-soft);font-weight:600;}
+.ts-page .pc-sub{color:var(--muted);font-size:14px;margin:12px 0 20px;}
+.ts-page .qty{display:flex;align-items:center;justify-content:space-between;background:var(--ink-2);
+  border:1px solid var(--line-soft);border-radius:12px;padding:14px 16px;margin-bottom:16px;}
+.ts-page .qty .qlbl{font-size:13.5px;color:var(--muted);}
+.ts-page .qty .qctl{display:flex;align-items:center;gap:14px;}
+.ts-page .qty .qbtn{width:30px;height:30px;border-radius:8px;border:1px solid var(--line);
+  background:var(--panel);color:var(--text);cursor:pointer;display:grid;place-items:center;transition:all .15s;}
+.ts-page .qty .qbtn:hover{border-color:var(--sky);color:var(--sky-soft);}
+.ts-page .qty .qnum{font-family:var(--fm);font-size:17px;font-weight:600;min-width:26px;text-align:center;}
+.ts-page .total{display:flex;justify-content:space-between;align-items:baseline;padding:0 2px 18px;}
+.ts-page .total span{color:var(--muted);font-size:14px;}
+.ts-page .total b{font-family:var(--fd);font-size:26px;font-weight:700;}
+.ts-page .total b em{font-family:var(--fm);font-size:13px;color:var(--muted);font-style:normal;font-weight:400;}
+.ts-page .pc-cta{width:100%;justify-content:center;padding:15px;font-size:15.5px;border:none;}
+.ts-page .pc-note{text-align:center;color:var(--faint);font-size:12px;margin-top:14px;display:flex;
+  align-items:center;justify-content:center;gap:7px;}
+
+/* ---- FAQ ----
+   KEPT DELIBERATELY. The supplied design has no FAQ, and these entries carry the only
+   "we do not trade for you / we do not give signals or advice" statements on the product.
+   Dropping them to match a mock would be a real regression on a copy-trading page. */
+.ts-page .faq{max-width:760px;margin:0 auto;}
+.ts-page .faq-item{border-bottom:1px solid var(--line-soft);}
+.ts-page .faq-q{width:100%;display:flex;align-items:center;justify-content:space-between;gap:16px;
+  background:none;border:none;color:var(--text);font-family:var(--fd);font-weight:700;font-size:17px;
+  text-align:left;padding:20px 2px;cursor:pointer;transition:color .18s;}
+.ts-page .faq-q:hover{color:var(--blue-soft);}
+.ts-page .faq-q svg{flex-shrink:0;color:var(--muted);transition:transform .22s,color .18s;}
+.ts-page .faq-item.open .faq-q svg{transform:rotate(180deg);color:var(--sky);}
+.ts-page .faq-a{max-height:0;overflow:hidden;color:var(--muted);font-size:14.5px;line-height:1.65;
+  transition:max-height .3s ease,padding .3s ease;padding:0 2px;}
+.ts-page .faq-item.open .faq-a{max-height:340px;padding:0 2px 22px;}
+
+/* ---- responsive ---- */
+.ts-page .fp > *{min-width:0;}
+@media (max-width:1000px){
+  .ts-page .fx-wrap{padding:0 24px;}
+  .ts-page .section{padding:88px 0;}
+}
+@media (max-width:920px){
+  .ts-page .modes{grid-template-columns:1fr 1fr;}
+  .ts-page .steps{grid-template-columns:1fr 1fr;row-gap:44px;}
+  .ts-page .steps::before{display:none;}
+  .ts-page .plat-grid{grid-template-columns:repeat(3,1fr);}
+  .ts-page .fp{grid-template-columns:1fr;gap:44px;}
+  .ts-page .price-card{position:static;max-width:460px;margin:0 auto;}
+  .ts-page .sec-head{margin-bottom:46px;}
+}
+@media (max-width:680px){
+  .ts-page .section{padding:72px 0;}
+  .ts-page .plat-grid{grid-template-columns:1fr 1fr;}
+  .ts-page .sync{display:none;}
+  .ts-page .nav-links{gap:18px;}
+  .ts-page .nav-links a:not(.btn-nav){display:none;}
+}
+@media (max-width:560px){
+  .ts-page .fx-wrap{padding:0 18px;}
+  .ts-page .nav-in{height:60px;}
+  .ts-page .intro-card{padding:22px 20px 22px 22px;gap:15px;}
+  .ts-page .intro-text{font-size:16.5px;line-height:1.66;}
+  .ts-page .intro-ic{width:38px;height:38px;}
+  .ts-page .modes,.ts-page .plat-grid,.ts-page .steps{grid-template-columns:1fr;}
+  .ts-page .steps{row-gap:34px;}
+  .ts-page .step{padding:0;}
+}
+@media (max-width:430px){
+  .ts-page .section{padding:60px 0;}
+  .ts-page .brand{font-size:19px;}
+  .ts-page .pc-price .amt{font-size:50px;}
+}
+@media (prefers-reduced-motion:reduce){
+  .ts-page .sync i{animation:none!important;}
+  .ts-page .reveal{opacity:1;transform:none;transition:none;}
+}
 `;
 
-const platformsRow1 = [
-  { name:"MT5",         icon:"5️⃣", status:"available", votes:2061, voted:true  },
-  { name:"MT4",         icon:"4️⃣", status:"available", votes:419,  voted:true  },
-  { name:"MatchTrader", icon:"🔗", status:"available", votes:182,  voted:false },
-  { name:"Bitunix",     icon:"🟢", status:"soon",      votes:19,   voted:false },
-  { name:"DXTrade",     icon:"DX", status:"available",  votes:85,   voted:false },
-  { name:"cTrader",     icon:"🔴", status:"available",  votes:370,  voted:false },
+// ═══════════════════════════════════════════════════════════════════════════════
+// LANDING DATA
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// The four ways the copier can be used. `go` names the destination each card opens, which is what
+// turns them from decoration into the entry points for the provider/follower dashboards — a path
+// that existed in state (`ts-dashboard`) but had no button anywhere until now.
+const MODES: { icon: any; t: string; d: string; go: null | 'provider' | 'follower' | 'copier' }[] = [
+  { icon: Radio,  t: "Provider",  d: "Broadcast your live trades to a network of followers in real time.", go: 'provider' },
+  { icon: Users,  t: "Follower",  d: "Mirror a master account with your own lot sizing and risk limits.",  go: 'follower' },
+  { icon: Repeat, t: "Self-copy", d: "Keep several of your own accounts moving in perfect lockstep.",      go: 'copier'   },
+  { icon: Send,   t: "Telegram",  d: "Route signals straight from a Telegram channel into live orders.",   go: 'copier'   },
 ];
-const platformsRow2 = [
-  { name:"TradeLocker", icon:"🔒", status:"available", votes:289, voted:false },
-  { name:"Binance",     icon:"🔶", status:"available", votes:170, voted:false },
-  { name:"Tradovate",   icon:"💎", status:"soon", votes:231, voted:false },
-  { name:"NinjaTrader", icon:"🥷", status:"soon", votes:124, voted:false },
-  { name:"ProjectX",    icon:"✖",  status:"soon", votes:88,  voted:false },
+
+const STEPS = [
+  { t: "Connect your master",     d: "Link the source account you want to broadcast from." },
+  { t: "Choose followers & risk", d: "Pick the accounts to copy into and set each one's risk ratio." },
+  { t: "Copying goes live",       d: "Orders replicate across every account, automatically and in real time." },
+  { t: "Monitor & adjust",        d: "Track performance and change settings whenever you like." },
 ];
-const features = [
-  { icon:"⚡", title:"Instant Trade Mirroring",      desc:"Trades copied with extremely low latency. Never miss a market move." },
-  { icon:"🔔", title:"Telegram Notifications",       desc:"Get notified via Telegram or email whenever a trading event occurs." },
-  { icon:"☁️", title:"Cloud-Based Copying",          desc:"No need to install any software on your computer. All copying is done in the cloud." },
-  { icon:"⚖️", title:"Flexible Risk Allocation",     desc:"Customize risk scaling per slave account, adjust on the fly." },
-  { icon:"🎯", title:"Priority Support & Onboarding", desc:"Get one-on-one onboarding & dedicated troubleshooting." },
+
+const FX_FEATURES = [
+  { icon: Zap,               t: "Instant trade mirroring",       d: "Orders copy with extremely low latency, so you never miss a move." },
+  { icon: Bell,              t: "Telegram notifications",        d: "Get pinged on Telegram or email the moment a trading event fires." },
+  { icon: Cloud,             t: "Cloud-based copying",           d: "Nothing to install — everything runs in the cloud, around the clock." },
+  { icon: SlidersHorizontal, t: "Flexible risk allocation",      d: "Scale risk per follower and adjust it on the fly." },
+  { icon: Headphones,        t: "Priority support & onboarding", d: "One-on-one setup and a direct line whenever you need it." },
 ];
+
+// Live/soon flags kept from the existing landing so the page does not start claiming support that
+// was not being claimed before. Vote counts are the same figures too.
+const FX_PLATFORMS = [
+  { name: "MT5",         mark: "M5", live: true,  votes: 2061 },
+  { name: "MT4",         mark: "M4", live: true,  votes: 419  },
+  { name: "cTrader",     mark: "cT", live: true,  votes: 370  },
+  { name: "TradeLocker", mark: "TL", live: true,  votes: 289  },
+  { name: "Tradovate",   mark: "Tv", live: false, votes: 231  },
+  { name: "MatchTrader", mark: "Ma", live: true,  votes: 182  },
+  { name: "Binance",     mark: "Bn", live: true,  votes: 170  },
+  { name: "NinjaTrader", mark: "Nj", live: false, votes: 124  },
+  { name: "ProjectX",    mark: "Px", live: false, votes: 88   },
+  { name: "DXTrade",     mark: "DX", live: true,  votes: 85   },
+  { name: "Bitunix",     mark: "Bu", live: false, votes: 19   },
+];
+
+// THE DISCLAIMERS LIVE HERE. Two of these are the only place on the product that says it does not
+// trade for you and does not give advice. Renamed to FX Copier; the substance is untouched.
 const faqs = [
-  { q:"Does Streava Trades trade for me?",    a:"No. Streava Trades is a copy trading tool that mirrors your own trades from a master account to one or more slave accounts. You remain in full control of all trading decisions." },
-  { q:"Is this for accounts I own?",          a:"Yes. Streava Trades is designed for traders who manage multiple accounts of their own. You must have authorized access to all accounts you connect to the platform." },
-  { q:"Which platforms are supported?",       a:"MT4, MT5, MatchTrader, cTrader, DXTrade, TradeLocker, and Binance (USDM Futures) are fully supported — all via API, no desktop terminal needed. More platforms are coming soon — vote for your favorites." },
-  { q:"Do you provide signals or advice?",    a:"No. Streava Trades does not provide trading signals, advice, or recommendations. It solely syncs trades between accounts you control." },
-  { q:"How are my credentials handled?",      a:"Your account credentials are encrypted and stored securely. We use industry-standard encryption and never share your data with third parties." },
-  { q:"Are alerts available?",               a:"Yes! You can receive real-time alerts via Telegram or email whenever a trade is copied, modified, or closed across your accounts." },
+  { q:"Does FX Copier trade for me?",   a:"No. FX Copier is a copy trading tool that mirrors your own trades from a master account to one or more follower accounts. You remain in full control of all trading decisions." },
+  { q:"Is this for accounts I own?",    a:"Yes. FX Copier is designed for traders who manage multiple accounts of their own. You must have authorized access to all accounts you connect to the platform." },
+  { q:"Which platforms are supported?", a:"MT4, MT5, MatchTrader, cTrader, DXTrade, TradeLocker, and Binance (USDM Futures) are fully supported — all via API, no desktop terminal needed. More platforms are coming soon — vote for your favorites." },
+  { q:"Do you provide signals or advice?", a:"No. FX Copier does not provide trading signals, advice, or recommendations. It solely syncs trades between accounts you control." },
+  { q:"How are my credentials handled?", a:"Your account credentials are encrypted and stored securely. We use industry-standard encryption and never share your data with third parties." },
+  { q:"Are alerts available?",          a:"Yes! You can receive real-time alerts via Telegram or email whenever a trade is copied, modified, or closed across your accounts." },
 ];
+
+/** Fade sections in as they scroll into view. Scoped to this panel's own nodes, and it disconnects
+ *  on unmount — the landing is mounted and unmounted every time the user leaves and returns. */
+function useReveal(active: boolean) {
+  useEffect(() => {
+    if (!active) return;
+    const els = document.querySelectorAll(".ts-page .reveal");
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach((e) => { if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); } });
+    }, { threshold: 0.14 });
+    els.forEach((el) => io.observe(el));
+    return () => io.disconnect();
+  }, [active]);
+}
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // MAIN EXPORT
 // ═══════════════════════════════════════════════════════════════════════════════
+
 export default function TradeSyncPage() {
   // Same faces as the new UI. Loaded here too because the landing renders BEFORE that UI mounts.
   useCtFonts();
@@ -1964,16 +2119,26 @@ export default function TradeSyncPage() {
   // One-time sweep of the key that caused the lock-in. Nothing reads it any more, so leaving it in
   // storage would only confuse whoever finds it next.
   useEffect(() => { try { localStorage.removeItem('ts-copier-v2'); } catch {} }, []);
-  const [billing, setBilling] = useState<"monthly"|"yearly">("monthly");
+  const [plan, setPlan] = useState<"monthly"|"yearly">("monthly");
+  const [qty, setQty] = useState(3);
   const [openFaq, setOpenFaq] = useState<number|null>(null);
-  const [votes, setVotes] = useState<Record<string,{count:number;voted:boolean}>>(() => {
-    const v: Record<string,{count:number;voted:boolean}> = {};
-    [...platformsRow1,...platformsRow2].forEach(p => { v[p.name]={count:p.votes,voted:p.voted}; });
+  const [votes, setVotes] = useState<Record<string,{n:number;on:boolean}>>(() => {
+    const v: Record<string,{n:number;on:boolean}> = {};
+    FX_PLATFORMS.forEach(p => { v[p.name] = { n: p.votes, on: false }; });
     return v;
   });
 
-  const toggleVote = (name: string) => {
-    setVotes(prev => ({ ...prev, [name]:{ count:prev[name].voted?prev[name].count-1:prev[name].count+1, voted:!prev[name].voted } }));
+  const onLanding = !showDashboard && !showCopier;
+  useReveal(onLanding);
+
+  const toggleVote = (name: string) =>
+    setVotes(v => ({ ...v, [name]: { n: v[name].n + (v[name].on ? -1 : 1), on: !v[name].on } }));
+
+  // WHERE EACH MODE CARD GOES. 'provider'/'follower' open the management dashboard — reachable from
+  // the landing for the first time; anything else opens the copier UI, same as Start Now.
+  const openMode = (go: null | 'provider' | 'follower' | 'copier') => {
+    if (go === 'provider' || go === 'follower') setShowDashboard(go);
+    else setShowCopier(true);
   };
 
   if (showDashboard) return <CopyManagementDashboard initialTab={showDashboard} onBack={() => setShowDashboard(null)} />;
@@ -1982,174 +2147,200 @@ export default function TradeSyncPage() {
   // Journal's scrolling <main> — see features/trade-sync/styles/panel.ts.
   if (showCopier) return <TradeSyncApp panel onExit={() => setShowCopier(false)} />;
 
-  const PlatformCard = ({ p }: { p: typeof platformsRow1[0] }) => (
-    <div className="ts-platform-card">
-      <div className={`ts-status-badge ${p.status==="available"?"ts-status-available":"ts-status-soon"}`}>
-        {p.status==="available"?"Available":"Coming Soon"}
-      </div>
-      <div className="ts-platform-logo">{p.icon}</div>
-      <div className="ts-platform-name">{p.name}</div>
-      <div className="ts-vote-row">
-        <button className={`ts-vote-btn ${votes[p.name]?.voted?"unvote":""}`} onClick={() => toggleVote(p.name)}>
-          ↑ {votes[p.name]?.voted?"Unvote":"Vote"}
-        </button>
-        <span className="ts-vote-count">{votes[p.name]?.count}</span>
-      </div>
-    </div>
-  );
+  const perAcct = plan === "monthly" ? 7.5 : 6.0;
+  const was     = plan === "monthly" ? 10.0 : 8.0;
+  const billed  = plan === "monthly" ? perAcct * qty : perAcct * qty * 12;
+  const cycle   = plan === "monthly" ? "/mo" : "/yr";
 
   return (
     <>
       <style>{landingStyles}</style>
-      <div className="ts-page">
+      {/* BOTH CLASSES ARE REQUIRED. `.ts-page` is what exempts this subtree from Journal's
+          `font-family: … !important` rule; without it the lucide icons render as text. `.fx` carries
+          the styling. See the note at the top of landingStyles. */}
+      <div className="ts-page fx">
 
-        {/* ── Overview Banner ── theme-aware via --jr-* vars (set on .journal-root)
-             so it reads correctly in BOTH dark and light. Role keywords use the
-             accent so they stand out and never vanish on a light background. The hex
-             fallbacks keep the dark look if the vars aren't present. */}
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, background: 'var(--jr-panel, #0d1117)', border: '1px solid var(--jr-border, #1e293b)', borderRadius: 8, padding: '12px 16px', marginBottom: 0, fontSize: 11, color: 'var(--jr-muted, #94a3b8)', lineHeight: 1.6, fontFamily: "'Playfair Display', serif" }}>
-          <PiInfoFill style={{ flexShrink: 0, marginTop: 2 }} size={16} color="var(--jr-accent, #38bdf8)" />
-          <span><strong style={{ color: 'var(--jr-text, #e2e8f0)', fontWeight: 700 }}>What is Streava Trades?</strong> — Streava Trades is an automated copy-trading engine that links multiple brokerage accounts and replicates positions in real time. You can operate as a <strong style={{ color: 'var(--jr-accent, #38bdf8)', fontWeight: 600 }}>Provider</strong> (broadcasting your trades to followers), a <strong style={{ color: 'var(--jr-accent, #38bdf8)', fontWeight: 600 }}>Follower</strong> (mirroring a master account with configurable lot sizing and risk controls), perform <strong style={{ color: 'var(--jr-accent, #38bdf8)', fontWeight: 600 }}>Self-Copy</strong> between your own accounts, or route signals directly from a <strong style={{ color: 'var(--jr-accent, #38bdf8)', fontWeight: 600 }}>Telegram</strong> channel. All copying happens through an isolated bridge — no withdrawal permissions or sensitive credentials are ever required.</span>
-        </div>
-
-        {/* HERO */}
-        <div className="ts-hero">
-          <div>
-            <div className="ts-hero-badge">⚡ Automated Trade Copying</div>
-            <h1>Streava Trades</h1>
-            <p>Control all your trading accounts from one place—automatically and in real time.</p>
-            <div className="ts-hero-actions">
-              <button className="ts-btn-primary" onClick={() => setShowCopier(true)}>Start Now →</button>
-              <button className="ts-btn-ghost" onClick={() => document.getElementById('ts-learn-more')?.scrollIntoView({ behavior:'smooth' })}>Learn More</button>
+        {/* NAV */}
+        <nav className="nav">
+          <div className="fx-wrap nav-in">
+            <div className="brand"><span className="glyph">FX</span>FX&nbsp;<b>Copier</b></div>
+            <div className="nav-links">
+              <a onClick={() => document.querySelector('.ts-page #how')?.scrollIntoView({ behavior: 'smooth' })}>How it works</a>
+              <a onClick={() => document.querySelector('.ts-page #platforms')?.scrollIntoView({ behavior: 'smooth' })}>Platforms</a>
+              <a onClick={() => document.querySelector('.ts-page #features')?.scrollIntoView({ behavior: 'smooth' })}>Features</a>
+              <a onClick={() => document.querySelector('.ts-page #pricing')?.scrollIntoView({ behavior: 'smooth' })}>Pricing</a>
+              <span className="sync"><i />bridge synced · 12 ms</span>
+              <button className="btn btn-nav" onClick={() => setShowCopier(true)}>Start now</button>
             </div>
           </div>
-          <div className="ts-hero-visual">
-            <div className="ts-diagram">
-              <div className="ts-diagram-master">
-                <div className="ts-diag-icon">⚙️</div>
-                <div>
-                  <div className="ts-diag-label">Master Account 1</div>
-                  <div className="ts-diag-id">1000001</div>
-                </div>
-                <span className="ts-badge-master">Master</span>
-              </div>
-              <svg className="ts-connector" viewBox="0 0 260 70">
-                <defs><marker id="ts-dot" markerWidth="6" markerHeight="6" refX="3" refY="3"><circle cx="3" cy="3" r="2.5" fill="#2d8cf0"/></marker></defs>
-                <line x1="130" y1="0"  x2="130" y2="20"  stroke="#2d8cf0" strokeWidth="2" strokeDasharray="5,3"/>
-                <line x1="130" y1="20" x2="50"  y2="20"  stroke="#2d8cf0" strokeWidth="2" strokeDasharray="5,3"/>
-                <line x1="130" y1="20" x2="210" y2="20"  stroke="#2d8cf0" strokeWidth="2" strokeDasharray="5,3"/>
-                <line x1="50"  y1="20" x2="50"  y2="62"  stroke="#2d8cf0" strokeWidth="2" strokeDasharray="5,3" markerEnd="url(#ts-dot)"/>
-                <line x1="210" y1="20" x2="210" y2="62"  stroke="#2d8cf0" strokeWidth="2" strokeDasharray="5,3" markerEnd="url(#ts-dot)"/>
-                <text x="78"  y="17" fill="#8a99b3" fontSize="10">1x</text>
-                <text x="158" y="17" fill="#8a99b3" fontSize="10">1x</text>
-              </svg>
-              <div className="ts-diagram-slaves">
-                <div className="ts-diagram-slave">
-                  <div className="ts-diag-icon">👤</div>
-                  <div><div className="ts-diag-label">Follower Account A</div><div className="ts-diag-id">1× lot</div></div>
-                  <span className="ts-badge-slave">Follower</span>
-                </div>
-                <div className="ts-diagram-slave">
-                  <div className="ts-diag-icon">👤</div>
-                  <div><div className="ts-diag-label">Follower Account B</div><div className="ts-diag-id">1× lot</div></div>
-                  <span className="ts-badge-slave">Follower</span>
-                </div>
-              </div>
+        </nav>
+
+        {/* INTRO */}
+        <header className="intro">
+          <div className="fx-wrap">
+            <div className="intro-card reveal">
+              <span className="intro-ic"><Info size={20} /></span>
+              <p className="intro-text">
+                <b>What is FX Copier?</b> <span className="dash">—</span> FX Copier is an automated
+                copy-trading engine that links multiple brokerage accounts and replicates positions
+                in real time. You can operate as a <b className="hl">Provider</b> (broadcasting your
+                trades to followers), a <b className="hl">Follower</b> (mirroring a master account with
+                configurable lot sizing and risk controls), perform <b className="hl">Self-Copy</b>{" "}
+                between your own accounts, or route signals directly from a <b className="hl">Telegram</b>{" "}
+                channel. All copying happens through an isolated bridge — no withdrawal permissions or
+                sensitive credentials are ever required.
+              </p>
             </div>
           </div>
-        </div>
+        </header>
 
-        {/* HOW IT WORKS */}
-        <div id="ts-learn-more" style={{ background:"var(--ts-bg2)", padding:"1px 0" }}>
-          <div className="ts-section">
-            <div className="ts-section-header">
-              <div className="ts-section-title">How Streava Trades Works</div>
-              <div className="ts-section-sub">Easily manage multiple accounts from one master—everything stays synced in real time:</div>
+        {/* MODES */}
+        <section className="section" style={{ paddingTop: 40 }}>
+          <div className="fx-wrap">
+            <div className="modes reveal">
+              {MODES.map((m) => (
+                <button className="mode" key={m.t} onClick={() => openMode(m.go)}>
+                  <span className="mi"><m.icon size={19} /></span>
+                  <h3>{m.t}</h3>
+                  <p>{m.d}</p>
+                  <span className="go">
+                    {m.go === 'provider' ? 'Open provider' : m.go === 'follower' ? 'Open follower' : 'Set up'}
+                    <ArrowRight size={12} />
+                  </span>
+                </button>
+              ))}
             </div>
-            <div className="ts-steps">
-              {[
-                {n:1,t:"Connect Master Account",           d:"Link your source trading account"},
-                {n:2,t:"Choose Slave Accounts & Allocation",d:"Select accounts to copy to and set risk ratios"},
-                {n:3,t:"Start Copying—Automated & Real-Time",d:"Trades execute automatically across all accounts"},
-                {n:4,t:"Monitor & Adjust as You Go",        d:"Track performance and modify settings anytime"},
-              ].map(s => (
-                <div key={s.n} className="ts-step-card">
-                  <div className="ts-step-num">{s.n}</div>
-                  <div className="ts-step-title">{s.t}</div>
-                  <div className="ts-step-desc">{s.d}</div>
+          </div>
+        </section>
+
+        {/* HOW */}
+        <section className="section" id="how">
+          <div className="fx-wrap">
+            <div className="sec-head reveal">
+              <span className="eyebrow"><span className="dot" />Four steps</span>
+              <h2>How <em>FX Copier</em> works</h2>
+              <p>Manage many accounts from a single master — everything stays synced in real time.</p>
+            </div>
+            <div className="steps reveal">
+              {STEPS.map((s, i) => (
+                <div className="step" key={s.t}>
+                  <div className="num">{i + 1}</div>
+                  <h3>{s.t}</h3>
+                  <p>{s.d}</p>
                 </div>
               ))}
             </div>
           </div>
-        </div>
+        </section>
 
         {/* PLATFORMS */}
-        <div className="ts-platforms-section">
-          <div className="ts-platforms-inner">
-            <div className="ts-section-header">
-              <div className="ts-section-title">Supported Trading Platforms</div>
-              <div className="ts-section-sub">Launch with MT4 & MT5 support, with additional platforms coming soon. Vote for your favorite platforms below.</div>
+        <section className="section" id="platforms">
+          <div className="fx-wrap">
+            <div className="sec-head reveal">
+              <span className="eyebrow"><span className="dot" />Supported platforms</span>
+              <h2>Copy across <em>every</em> terminal</h2>
+              <p>Live on MT4 &amp; MT5 today, with more on the way. Vote for the platform you want next.</p>
             </div>
-            <div className="ts-platforms-grid">{platformsRow1.map(p => <PlatformCard key={p.name} p={p} />)}</div>
-            <div className="ts-platforms-grid-2">{platformsRow2.map(p => <PlatformCard key={p.name} p={p} />)}</div>
+            <div className="plat-grid reveal">
+              {FX_PLATFORMS.map((p) => {
+                const v = votes[p.name];
+                return (
+                  <div className="plat" key={p.name}>
+                    <span className={`badge ${p.live ? "b-live" : "b-soon"}`}>{p.live ? "Live" : "Coming soon"}</span>
+                    <span className="mono-mark">{p.mark}</span>
+                    <span className="pname">{p.name}</span>
+                    <div className="vote">
+                      <button className={`vbtn ${v.on ? "on" : ""}`} onClick={() => toggleVote(p.name)}>
+                        <ChevronUp size={14} />{v.on ? "Voted" : "Vote"}
+                      </button>
+                      <span className="vcount">{v.n.toLocaleString()}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
-        </div>
+        </section>
 
         {/* FEATURES + PRICING */}
-        <div className="ts-section">
-          <div className="ts-fp-grid">
-            <div>
-              <div className="ts-features-title">⚡ Key Features & Benefits</div>
-              <div className="ts-features-sub">Everything you need for professional-grade trade copying</div>
-              {features.map(f => (
-                <div key={f.title} className="ts-feature-item">
-                  <div className="ts-feat-icon">{f.icon}</div>
-                  <div><div className="ts-feat-title">{f.title}</div><div className="ts-feat-desc">{f.desc}</div></div>
+        <section className="section" id="features">
+          <div className="fx-wrap fp">
+            <div className="reveal">
+              <span className="eyebrow"><span className="dot" />Key features &amp; benefits</span>
+              <h2 style={{ fontSize: 34, margin: "16px 0 8px" }}>
+                Built for<br /><em style={{ fontStyle: "italic", color: "var(--blue-soft)" }}>professional</em> copying
+              </h2>
+              <div style={{ marginTop: 24 }}>
+                {FX_FEATURES.map((f) => (
+                  <div className="feat" key={f.t}>
+                    <span className="fic"><f.icon size={19} /></span>
+                    <div><h3>{f.t}</h3><p>{f.d}</p></div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div id="pricing" className="reveal">
+              <div className="price-card">
+                <div className="toggle">
+                  <button className={plan === "monthly" ? "act" : ""} onClick={() => setPlan("monthly")}>Monthly</button>
+                  <button className={plan === "yearly" ? "act" : ""} onClick={() => setPlan("yearly")}>
+                    Yearly<span className="save">−20%</span>
+                  </button>
+                </div>
+                <div className="pc-body">
+                  <div className="pc-tag">Early-bird pricing</div>
+                  <div className="pc-price">
+                    <span className="amt">${perAcct.toFixed(2)}</span>
+                    <span className="per">per account / month</span>
+                  </div>
+                  <div className="pc-was"><s>${was.toFixed(2)}</s><b>Limited-time launch price</b></div>
+                  <p className="pc-sub">Unlimited trade copying across every supported platform.</p>
+
+                  <div className="qty">
+                    <span className="qlbl">Accounts</span>
+                    <div className="qctl">
+                      <button className="qbtn" onClick={() => setQty(q => Math.max(1, q - 1))} aria-label="Fewer accounts"><Minus size={15} /></button>
+                      <span className="qnum mono">{qty}</span>
+                      <button className="qbtn" onClick={() => setQty(q => Math.min(50, q + 1))} aria-label="More accounts"><Plus size={15} /></button>
+                    </div>
+                  </div>
+
+                  <div className="total">
+                    <span>You pay</span>
+                    <b>${billed.toFixed(2)}<em> {cycle}</em></b>
+                  </div>
+
+                  <button className="btn btn-blue pc-cta" onClick={() => setShowCopier(true)}>
+                    Start FX Copier <ArrowRight size={17} />
+                  </button>
+                  <div className="pc-note"><ShieldCheck size={14} />Secure checkout · cancel anytime</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* FAQ — carries the only "not advice / no signals" statements on the product. */}
+        <section className="section" style={{ paddingTop: 0 }}>
+          <div className="fx-wrap">
+            <div className="sec-head reveal">
+              <span className="eyebrow"><span className="dot" />Questions</span>
+              <h2>Before you <em>start</em></h2>
+              <p>What FX Copier does, and — just as importantly — what it does not.</p>
+            </div>
+            <div className="faq reveal">
+              {faqs.map((f, i) => (
+                <div key={f.q} className={`faq-item ${openFaq === i ? "open" : ""}`}>
+                  <button className="faq-q" onClick={() => setOpenFaq(openFaq === i ? null : i)}>
+                    {f.q}<ChevronDown size={17} />
+                  </button>
+                  <div className="faq-a">{f.a}</div>
                 </div>
               ))}
             </div>
-            <div>
-              <div className="ts-pricing-card">
-                <div className="ts-price-toggle">
-                  <button className={`ts-toggle-btn ${billing==="monthly"?"active":""}`} onClick={() => setBilling("monthly")}>Monthly</button>
-                  <button className={`ts-toggle-btn ${billing==="yearly"?"active":""}`}  onClick={() => setBilling("yearly")}>Yearly</button>
-                </div>
-                <div className="ts-price-label">Early Bird Pricing</div>
-                <div className="ts-price-amount">
-                  {billing==="monthly"?"$7.50":"$64.99"} <span>per account/{billing==="monthly"?"month":"year"}</span>
-                </div>
-                <div style={{ marginTop:6 }}>
-                  <span className="ts-price-original">{billing==="monthly"?"$10.00":"$90.00"}</span>
-                  <span className="ts-price-limited">Limited-time pricing</span>
-                </div>
-                <div className="ts-price-note">Unlimited trade copying on supported platforms</div>
-                <div className="ts-checkout-card">
-                  <div className="ts-checkout-title">⚡ Start Streava Trades</div>
-                  <div className="ts-checkout-sub">Choose your plan and number of accounts, then proceed to secure checkout.</div>
-                  <button className="ts-btn-start" onClick={() => setShowCopier(true)}>Start Now</button>
-                </div>
-              </div>
-            </div>
           </div>
-        </div>
-
-        {/* FAQ */}
-        <div className="ts-faq-section">
-          <div className="ts-faq-inner">
-            <div className="ts-section-header">
-              <div className="ts-section-title">Frequently Asked Questions</div>
-              <div className="ts-section-sub">Everything you need to know about Streava Trades</div>
-            </div>
-            {faqs.map((f,i) => (
-              <div key={i} className={`ts-faq-item ${openFaq===i?"open":""}`}>
-                <button className="ts-faq-q" onClick={() => setOpenFaq(openFaq===i?null:i)}>
-                  {f.q}<span className="ts-faq-chevron">▼</span>
-                </button>
-                <div className="ts-faq-a">{f.a}</div>
-              </div>
-            ))}
-          </div>
-        </div>
+        </section>
 
       </div>
     </>

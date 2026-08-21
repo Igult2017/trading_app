@@ -32,7 +32,7 @@ export default function TradeSyncNav({ active, onSelect, onOpenDashboard, onBack
           aria-hidden="true"
         />
         <span className="font-mono text-[10px] md:text-[11px] uppercase tracking-[0.28em] text-slate-500 truncate">
-          Streava Terminal
+          FX Copier Terminal
         </span>
       </div>
 
@@ -78,7 +78,7 @@ export default function TradeSyncNav({ active, onSelect, onOpenDashboard, onBack
         </button>
         <button
           onClick={onBack}
-          title="Back to Streava Trades home"
+          title="Back to FX Copier home"
           className="inline-flex items-center justify-center w-7 h-7 rounded-[5px] text-slate-600 hover:text-white hover:bg-white/[0.04] transition-colors"
         >
           <ArrowLeft size={14} strokeWidth={1.5} />

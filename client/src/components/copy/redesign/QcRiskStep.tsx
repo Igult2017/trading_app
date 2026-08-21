@@ -14,7 +14,7 @@ interface Props {
 const ACKS: { key: keyof RiskAcks; text: string }[] = [
   { key: 'provider', text: 'I confirm I am a genuine signal provider and the trades I broadcast are my own.' },
   { key: 'understand', text: 'I understand followers will execute real-money trades based on my signals.' },
-  { key: 'terms', text: 'I accept the Streava Trades provider terms and the risk that followers may incur losses.' },
+  { key: 'terms', text: 'I accept the FX Copier provider terms and the risk that followers may incur losses.' },
 ];
 
 /** Step — provider risk disclosure with acknowledgement checkboxes. */
@@ -28,7 +28,7 @@ export default function QcRiskStep({ acks, onToggle }: Props) {
       <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', background: 'var(--warn-s)', border: '1px solid rgba(245,166,35,.2)', borderRadius: 10, padding: '13px 15px', marginTop: 22 }}>
         <AlertTriangle size={16} style={{ color: 'var(--warn)', flexShrink: 0, marginTop: 1 }} />
         <div style={{ fontSize: 13, color: 'var(--t2)', lineHeight: 1.6 }}>
-          Past performance never guarantees future results. Streava Trades does not verify your strategy or guarantee follower profitability.
+          Past performance never guarantees future results. FX Copier does not verify your strategy or guarantee follower profitability.
         </div>
       </div>
 

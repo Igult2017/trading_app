@@ -6,7 +6,7 @@
     "logout": "Cerrar sesión", "loginStreak": "Racha", "days": "días", "free": "Gratis",
     "language": "Idioma", "newTrade": "Nueva operación", "sessions": "Sesiones",
     "vault": "Bóveda", "calendar": "Calendario", "drawdown": "Reducción",
-    "metrics": "Métricas", "strategy": "Auditoría", "fsdai": "IA del trader", "sync": "Streava"
+    "metrics": "Métricas", "strategy": "Auditoría", "fsdai": "IA del trader", "sync": "FX Copier"
   },
   "common": {
     "save": "Guardar", "cancel": "Cancelar", "edit": "Editar", "close": "Cerrar",
