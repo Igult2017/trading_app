@@ -91,9 +91,68 @@ established is that it ever cost him a signal.
 
 Fixed: a copy never spans a bar close, and refreshes every ~55s through the last 6 minutes. New TTL
 is always ≤ the old, so it can only make candles fresher. **How it was found is the transferable
-part:** the pre-close warning fired zero times in its first hour, which is statistically normal — and
-instead of accepting that, the question asked was *"can I prove the path is REACHABLE, not just
-quiet?"* That question found a defect that had been live for months.
+part:** the pre-close warning fired zero times in its first hour, and instead of accepting that, the
+question asked was *"can I prove the path is REACHABLE, not just quiet?"* That question found a
+defect that had been live for months.
+
+**It also asked the right question and then accepted the wrong answer.** This section used to say the
+zero firings were *"statistically normal"*. They were not — see 0e: the warning is **unreachable**,
+and the zero was the symptom pointing straight at it. Having asked "is the path reachable?", I settled
+for a plausible reason it might be quiet instead of proving it. Corrected 2026-08-21.
+
+## 0e. THE FEED SERVES NO FORMING BAR — VIX.1's T-5 pre-close warning cannot fire (OPEN)
+
+**Found 2026-08-21**, while checking the 0c fix against real broker data. **Not fixed — the choice of
+remedy is his.**
+
+`ProtoOAGetTrendbarsReq` returns **closed bars only**. Measured live: 14 polls, 10s apart, across 3
+minute boundaries — the newest M1 bar was **never** the minute in progress. Confirmed on every
+timeframe: at 09:41 UTC the newest H1 bar was 08:00 and the newest H4 was 05:00. Bars are also
+published **10–70s after they close**, not at the instant.
+
+The platform's data path is documented throughout as *"the feed returns the still-forming bar as its
+newest"*. On this feed it does not. Consequences:
+
+| what reads the forming bar | effect |
+|---|---|
+| `vix1_preclose.forming()` | always `None` → **the T-5 warning is unreachable, not merely unfired** |
+| `mtf_utils.closed_only()` | a no-op — it removes 0 bars (harmless; levels stay correct) |
+| the 1M entry's "live price" reads | reads the last CLOSED M1 close, so up to ~2 min behind the market |
+
+**Proved through the real functions on live bars**, not a reproduction: `closed_only` dropped 0 of 119
+H1 bars on GBP/USD, USD/JPY and GBP/JPY, `forming()` returned `None`, `check()` returned `None`. The
+audit trail agrees — **0 pre-close rows in 1,000 `signal_events` over 30 days.**
+
+Nothing here is a wrong price or a wrong level; it is a feature that cannot run and a "live" read that
+is not live. The fix is a design choice (subscribe to live trendbars, or synthesise the forming bar
+from a tick/spot subscription), so it is recorded here rather than made unilaterally.
+
+## 0d-bis. THE H4 CACHE GRID WAS ASSUMED, AND THE ASSUMPTION WAS WRONG (fixed 2026-08-21)
+
+The 0c fix shipped a guarantee — *"a copy never spans a bar close"* — that **did not hold on H4**, the
+timeframe BX-S/D's entire zone book is built on. `_ttl_for` located the next bar close with
+`period - (now % period)`, which is only true if bars start at midnight UTC. The broker's H4 bars open
+at **01:00 / 05:00 / 09:00 / 13:00 / 17:00 / 21:00 UTC** — the trading day starts at 21:00 UTC on a
+UTC+3 server, an hour off that grid.
+
+| copy taken | TTL expired | real next H4 close | spanned it? |
+|---|---|---|---|
+| 07:55 | 07:55 | 09:00 | no |
+| 08:05 | **11:17** | 09:00 | **YES — by 2h17m** |
+| 08:30 | **11:42** | 09:00 | **YES** |
+| 09:05 | 11:54 | 13:00 | no |
+| 12:30 | **15:42** | 13:00 | **YES** |
+
+**Fixed by not calculating it.** Bars are stamped at their OPEN, so any real bar reveals the grid:
+`last_open % period`. `put` already holds the bars, so the series being cached is what dates it.
+A grid (not `last_open + period`) because over a weekend or a feed gap the newest bar is long closed
+and that sum is in the past; a gap moves which bars exist, never where they sit. It also follows a
+daylight-saving shift on its own, since the grid is re-read on every store.
+
+**Why it survived a day undetected:** a wrong boundary is still a valid instant, and a redeploy empties
+the cache and hides it for hours afterwards. Verified against the live broker on 4 pairs × 4
+timeframes — grid read as +60m on H4 and +0m on H1/M15/M1, every copy expiring on or before its own
+real close.
 
 ## 0b. THE PLATFORM WAS DOWN FOR 4h45m ON 15 AUGUST — nobody knew
 

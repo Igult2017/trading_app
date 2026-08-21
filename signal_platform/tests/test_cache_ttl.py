@@ -21,8 +21,11 @@ _HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.abspath(os.path.join(_HERE, "..")))
 os.environ.setdefault("DATABASE_URL", "postgresql://x/x")
 
+import calendar  # noqa: E402
+import time  # noqa: E402
+
 from data.candle_cache import (_FAST_TF_TTL, _FINAL_STRETCH_S, _FINAL_STRETCH_TTL,  # noqa: E402
-                               _ttl_for)
+                               _phase, _to_close, _ttl_for)
 
 failed, count = [], 0
 
@@ -99,15 +102,65 @@ check("a copy taken just before the stretch expires AS it begins, not after",
       at(HOUR - _FINAL_STRETCH_S - 120) + _ttl_for("H1", at(HOUR - _FINAL_STRETCH_S - 120)),
       TOP + HOUR - _FINAL_STRETCH_S)
 
+# ── THE BAR CLOSE IS READ FROM THE FEED, NOT ASSUMED ─────────────────────────
+# Found 2026-08-21 while answering "why was this BX signal late". The broker's H4 bars open at
+# 01:00 / 05:00 / 09:00 / 13:00 / 17:00 / 21:00 UTC — an hour off the midnight grid the code assumed.
+# Rule 1 above therefore did NOT hold on H4, the timeframe BX-S/D's whole zone book is built on.
+
+
+def utc(h, m=0, day=21):
+    return float(calendar.timegm((2026, 8, day, h, m, 0, 0, 0, 0)))
+
+
+H4 = 4 * 3600
+JPY_BAR = utc(5)                      # a real bar: the 05:00 UTC H4 that closed at 09:00
+check("the grid is read off a real bar: 1 hour past midnight", _phase(H4, utc(8), JPY_BAR), 3600.0)
+check("H1 on this feed IS on the hour, so nothing changes there",
+      _phase(3600, utc(8), utc(7)), 0.0)
+check("no bar to read -> falls back to the old assumed grid", _phase(H4, utc(8), None), 0.0)
+# A units change in the feed must degrade to the old behaviour, not poison every TTL on the platform.
+check("a millisecond timestamp is rejected, not used", _phase(H4, utc(8), utc(5) * 1000), 0.0)
+check("next close from 08:05 is 09:00, not 12:00", _to_close(H4, utc(8, 5), JPY_BAR), 3300.0)
+check("...and from 09:05 it is 13:00", _to_close(H4, utc(9, 5), JPY_BAR), 14100.0)
+
+# THE EXACT TABLE THAT EXPOSED IT — each copy against the REAL close that follows it.
+print("      taken   TTL expires   real next close   spans it?")
+spans_new, spans_old = [], []
+for hh, mm, close_h in ((7, 55, 9), (8, 5, 9), (8, 30, 9), (9, 5, 13), (12, 30, 13)):
+    t, close_at = utc(hh, mm), utc(close_h)
+    new_exp = t + _ttl_for("H4", t, JPY_BAR)
+    old_exp = t + _ttl_for("H4", t)                 # last_open omitted = the old assumed grid
+    if new_exp > close_at:
+        spans_new.append((hh, mm))
+    if old_exp > close_at:
+        spans_old.append((hh, mm))
+    print(f"      {hh:02d}:{mm:02d}   {time.strftime('%H:%M', time.gmtime(new_exp))}         "
+          f"{close_h:02d}:00             {'YES' if new_exp > close_at else 'no'}"
+          f"   (was {time.strftime('%H:%M', time.gmtime(old_exp))})")
+check("no copy is served across the real H4 close", spans_new, [])
+
+# Walk a whole off-grid H4 bar the way the fetcher does — expire, refetch, repeat.
+t, spans, taken = utc(5), 0, 0
+while t < utc(9):
+    ttl = _ttl_for("H4", t, JPY_BAR)
+    taken += 1
+    if t + ttl > utc(9):
+        spans += 1
+    t += ttl
+check("walks a full off-grid H4 bar: copies that span the close", spans, 0)
+check("...in a sane number of copies", taken <= 12, True)
+print(f"      ({taken} copies across the 4 hours)")
+
 # ── the safety property that justifies touching the shared data path ─────────
 # The new value is ALWAYS <= the old one, so this can only make candles fresher, never staler.
 worse = []
 for tf, mins in (("M5", 5), ("M15", 15), ("M30", 30), ("H1", 60), ("H4", 240), ("D1", 1440)):
     old = max(55.0, mins * 60 * 0.80)
     for sec in range(0, mins * 60, max(1, mins * 60 // 200)):
-        if _ttl_for(tf, TOP + sec) > old:
+        # both grids — the assumed one and a real off-grid feed
+        if max(_ttl_for(tf, TOP + sec), _ttl_for(tf, TOP + sec, JPY_BAR)) > old:
             worse.append((tf, sec))
-check("across 6 timeframes it is NEVER longer than the old TTL", worse, [])
+check("across 6 timeframes and both grids it is NEVER longer than the old TTL", worse, [])
 
 # ── it never returns something useless ───────────────────────────────────────
 tiny = [t for tf in ("M5", "M15", "H1", "H4")
@@ -119,6 +172,14 @@ teeth("the old flat TTL would FAIL rule 1", (at(20 * 60) + OLD_FLAT) > TOP + HOU
 teeth("the final-stretch rule actually shortens it",
       _ttl_for("H1", at(HOUR - 60)) < _ttl_for("H1", at(60)))
 teeth("mid-bar is still cached, not refetched every tick", _ttl_for("H1", at(60)) > 300)
+# THE DEFECT ITSELF, asserted so it cannot quietly come back: assuming the grid DID span the close,
+# and by hours — a copy taken at 08:05 was served until 11:17, through the real 09:00 close.
+teeth("assuming the grid spanned the real H4 close at 3 of the 5 sampled times",
+      len(spans_old) == 3)
+teeth("...by more than two hours at 08:05",
+      utc(8, 5) + _ttl_for("H4", utc(8, 5)) - utc(9) > 2 * 3600)
+teeth("reading the grid actually changes the answer",
+      _ttl_for("H4", utc(8, 5), JPY_BAR) < _ttl_for("H4", utc(8, 5)))
 
 print()
 if failed:

@@ -832,6 +832,19 @@ open-defect list is worse than none, and the reasoning for each lives in the `vi
 measured but still traded" (the regime engine went live 08-12), and "nothing implements *not in a
 retracement*" (the same change, plus real-time turning points feeding `leg_state`).
 
+0. **THE T-5 PRE-CLOSE WARNING CANNOT FIRE — the feed serves no forming bar** (found 2026-08-21).
+   `ProtoOAGetTrendbarsReq` returns **closed bars only**: 14 live polls across 3 minute boundaries
+   never returned the minute in progress, and at 09:41 UTC the newest H1 bar was 08:00. So
+   `vix1_preclose.forming()` returns `None` always and `check()` never reaches its T-5 test — proved
+   on live bars through the real functions (`closed_only` dropped **0 of 119** H1 bars), and confirmed
+   by **0 pre-close rows in 1,000 `signal_events` over 30 days**. The table row below calling this
+   module *"the ONE place in VIX.1 that reads the bar still FORMING on purpose"* describes an
+   intention the data cannot satisfy. **Levels are unaffected** — `closed_only` is simply a no-op, so
+   nothing is read from an unfinished bar; what is affected is this feature, and 1M "live price" reads
+   that are up to ~2 minutes behind. Fixing it is a design choice (subscribe to live trendbars, or
+   synthesise the forming bar from a tick/spot subscription) and **is his to make** — see
+   `docs/open-items.md` §0e. Note the T-5 figure itself (80.3%/76.0%) stands: it was measured on
+   historical bars and says T-5 is the right lead time *if* a forming bar can be obtained.
 1. **THE BIGGEST ONE, AND IT IS BLOCKED ON HIM.** The code reproduced only **16% of his real trades**.
    Detection was too strict (an earlier 4× threshold rejected 80% of his candles; now 2.5×). Blocked
    on him supplying ~20 trades with entry/SL/TP. Then: recalibrate detection, and add *selection* —
