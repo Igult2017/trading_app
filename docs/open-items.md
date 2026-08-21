@@ -100,10 +100,42 @@ zero firings were *"statistically normal"*. They were not — see 0e: the warnin
 and the zero was the symptom pointing straight at it. Having asked "is the path reachable?", I settled
 for a plausible reason it might be quiet instead of proving it. Corrected 2026-08-21.
 
-## 0e. THE FEED SERVES NO FORMING BAR — VIX.1's T-5 pre-close warning cannot fire (OPEN)
+## 0e. THE FEED SERVES NO FORMING BAR — ~~VIX.1's T-5 pre-close warning cannot fire~~ **FIXED same day**
 
-**Found 2026-08-21**, while checking the 0c fix against real broker data. **Not fixed — the choice of
-remedy is his.**
+**Found 2026-08-21** while checking the 0c fix against real broker data; **fixed 2026-08-21** once he
+asked what it would cost and whether it would hit the rate limit. It costs **zero extra requests**.
+
+**THE FIX: stop asking the broker for a bar it will not give, and build it.** VIX.1 already fetches
+839 M1 bars every scan, so the hour in progress was already in memory. `candle_aggregator.forming_bar`
+assembles it; the runner appends it to `candle_view` for any timeframe a strategy lists in the new
+opt-in `wants_forming` (VIX.1 lists H1; BX-S/D lists nothing and its candle view is untouched).
+
+- **Accuracy: 48/48 exact.** Twelve CLOSED H1 bars per symbol across five instruments, rebuilt from
+  M1, matched the broker's own open/high/low/close to the last decimal.
+- **The ship/no-ship check passed.** `analyze` run twice per symbol on live data, with and without the
+  appended bar: the closed H1 window (2,999 bars), the bias, the line and every signal came out
+  **identical** — because the bar is not closed, so `closed_only` drops it.
+- **Rate cost: none for the bar itself.** Averaged over a full bar cycle: 0.41/s candles + 0.20/s for
+  the new live quote = **0.61/s against cTrader's 5/s cap, 12%**.
+- **What it still costs:** bars are published 10–70s after they close, so the warning judges the
+  candle as it stood ~46s earlier. A T-5 warning is effectively T-6 — **77.7%/74.6%** correct against
+  T-5's 80.3%/76.0%.
+
+**DO NOT "improve" this by subscribing to live trendbars.** Subscription updates arrive unannounced on
+the same socket the candle fetch reads with `send -> await recv` — that is exactly what took the feed
+down on 2026-08-21 when a position opened — and it would need a demultiplexing reader first.
+
+**The 1M "live price" was fixed in the same change**, and also for free: `ctrader_spread._newest` was
+already fetching the newest BID and ASK and discarding both, keeping only the difference. `quote_for()`
+keeps them. The 1M entry's two trigger reads now use the live quote — alignment on the BID (the line is
+drawn from bid candles), stop-vs-market on the ASK for a buy and the BID for a sell (the side the order
+actually triggers on). Measured gap between the stale close and the live bid: 0.4 pips on EUR/USD,
+0.3 on GBP/USD, **$1.63 on XAU/USD** — a sixth of a typical gold stop.
+
+**Still true and not fixable this way:** there is no forming 1-MINUTE bar, because nothing finer exists
+to build one from. The quote covers the trigger reads that needed a current price.
+
+The original finding, kept because it is what the fix was aimed at:
 
 `ProtoOAGetTrendbarsReq` returns **closed bars only**. Measured live: 14 polls, 10s apart, across 3
 minute boundaries — the newest M1 bar was **never** the minute in progress. Confirmed on every

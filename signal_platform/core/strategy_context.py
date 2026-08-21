@@ -21,4 +21,9 @@ class StrategyContext:
     session:    list[Session]       = field(default_factory=list)
     news:       NewsContext | None  = None
     spread:     float | None        = None
+    # THE LIVE (bid, ask) AT THIS TICK — the only genuinely current price the platform has, because
+    # the feed serves CLOSED bars only and the newest close can be ~2 minutes old. For TRIGGER reads
+    # ("which side of the line is price on now", "would this stop order fill immediately"), never for
+    # levels. Comes from the same two tick requests the spread already makes. None = could not read.
+    quote:      tuple[float, float] | None = None
     volatility: float | None        = None

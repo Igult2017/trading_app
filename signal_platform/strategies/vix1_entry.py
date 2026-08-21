@@ -43,7 +43,7 @@ import math
 
 from core.types import Candle
 from shared.candle_math import full_range
-from shared.mtf_utils import seconds
+from shared.mtf_utils import closed_only, seconds
 from strategies import vix1_cross, vix1_log
 from strategies.vix1_fractal import fractal_broken
 from strategies.vix1_lines import draw_line
@@ -69,39 +69,53 @@ def _m1_range(wcl: list[Candle]) -> float:
 
 def m1_signals(m1: list[Candle], bullish: bool, vc: Candle,
                pip: float = 0.0001, symbol: str = "",
-               spread: float | None = None) -> list[dict]:
+               spread: float | None = None,
+               quote: tuple[float, float] | None = None,
+               now: float | None = None) -> list[dict]:
     """The 1M entry — [{"kind", "entry", "sl", "sl_note"}] or [] (logs why).
 
     `vc` is the FIRST momentum candle of the 1HR run; its body close is THE LINE. The caller turns
-    `entry`/`sl` into a 2R target, so risk-reward is fixed at 1:2 by construction.
+    `entry`/`sl` into a 4R target, so risk-reward is fixed by construction.
 
     `spread` (price units, ask - bid) shifts a BUY order up by exactly one spread so the trigger means
     "the bid broke the high" rather than "the ask did" — see `vix1_cross.decide`. It also widens the
     risk floor, because a stop shorter than the cost of getting in cannot win. None or 0 reproduces
     the pre-spread behaviour exactly.
+
+    `quote` is the live (bid, ask). The two decisions below that are about THIS INSTANT — which side
+    of the line price is on, and whether a stop order would fill immediately — used the newest closed
+    M1 close, up to ~2 min old on this feed. None falls back to it, so a missing quote never silences
+    the instrument.
     """
     if not m1:
         return []
     # PRICE PRECISION derived EXACTLY from the pip, never guessed — cTrader's convention is
     # pip = 10^-(pipDigits-1), so this inverts it with no symbol lookup.
     digits = max(0, round(1.0 - math.log10(pip))) if pip > 0 else 5
-    hr     = seconds(vc.timeframe)
-    line   = draw_line(vc)
+    hr, line = seconds(vc.timeframe), draw_line(vc)
     win    = [c for c in m1 if c.time >= vc.time + hr]   # only since the line was set
     if len(win) < 2:
         vix1_log.say(symbol, f"[vix1] {symbol} 1M: only {len(win)} bars since the momentum candle "
                              f"closed — waiting")
         return []
 
-    # LEVELS vs TRIGGERS (the hard rule). `win` is LIVE and answers only trigger questions — which
-    # side price is on right now, and whether the order is still unfilled. `wcl` is CLOSED and is
-    # what the cross, the level and the stop are read from.
-    wcl = win[:-1] if win[-1].time == m1[-1].time else win
+    # LEVELS vs TRIGGERS (the hard rule). `wcl` is CLOSED and is what the cross, the level and the
+    # stop are read from; the live quote below answers the trigger questions.
+    #
+    # THIS LINE USED TO DROP A REAL BAR EVERY TIME (fixed 2026-08-21). It read
+    # `win[:-1] if win[-1].time == m1[-1].time else win` — and `win` is a suffix of `m1`, so
+    # `win[-1] IS m1[-1]` and the condition was ALWAYS true. Written to drop the forming bar, it
+    # binned a finished one instead (the feed serves closed bars only) and saw the cross a full
+    # minute late on every entry. `closed_only` asks whether the bar is ACTUALLY still forming.
+    wcl = closed_only(win, now)
     if len(wcl) < 2:
         return []
 
     # ALIGNMENT — unchanged, and his. The line answers "is the 1M with us?"
-    last = win[-1].close
+    #
+    # READ ON THE BID, because the line is drawn from bid candles and this compares the two. Falls
+    # back to the newest closed close when there is no quote.
+    last = quote[0] if quote else win[-1].close
     if (last > line) if bullish else (last < line):
         route = ""
     else:
@@ -139,10 +153,17 @@ def m1_signals(m1: list[Candle], bullish: bool, vc: Candle,
     # ALREADY THROUGH THE LEVEL? Then the order would be a stop sitting behind the market, which the
     # broker fills at once — so it IS a market entry, and it is priced honestly as one rather than
     # the setup being thrown away. His rule again: a valid setup is not skipped. The ceiling below is
-    # what refuses it once price has run so far that the stop can no longer pay 1:2 off two candles.
-    market = (entry <= last) if bullish else (entry >= last)
+    # what refuses it once price has run so far that the stop can no longer pay off two candles.
+    #
+    # TESTED ON THE SIDE THE ORDER ACTUALLY TRIGGERS ON. A BUY stop triggers on the ASK and a SELL
+    # stop on the BID — the same broker fact that made `vix1_cross.decide` add the spread to buys.
+    # `entry` already carries that spread, so asking "has the bid passed it" compared an ask-frame
+    # trigger against a bid price and called a live stop order a market entry a spread too early.
+    # Without a quote this falls back to the closed close on both sides, which is the old behaviour.
+    trigger = (quote[1] if bullish else quote[0]) if quote else last
+    market = (entry <= trigger) if bullish else (entry >= trigger)
     if market:
-        entry   = last
+        entry   = trigger
         sl_note += " — price already through the level, so this is a MARKET entry"
 
     risk     = abs(entry - sl)

@@ -49,11 +49,20 @@ from data.ctrader_client import _load_symbols, _req_lock, _symbols
 log = logging.getLogger(__name__)
 
 _DIVISOR = 100_000        # same fixed 1e5 as trendbars — NOT the symbol's display digits
-_TTL     = 300.0          # seconds a spread stays usable
+# THE QUOTE IS A PRICE, AND A PRICE GOES STALE FAST. The spread was cached for 300s because spreads
+# move on the timescale of session edges. The bid and ask from the SAME request are now kept too, and
+# they are a live price — so the TTL is sized to one scan tick instead. The spread simply rides along
+# and gets fresher; nothing about it needed the longer window, that was only there to save requests.
+#
+# 25s: under the 30s London/NY-overlap scan cadence, so a scan never reuses the previous scan's quote.
+# Cost is 3 symbols x 2 requests per scan — measured 0.40 -> ~0.60 req/s against cTrader's 5/s cap.
+_TTL     = 25.0           # seconds a quote (and the spread taken with it) stays usable
 _WINDOW  = 10 * 60_000    # ms of history asked for; wide enough that a quiet minute still has a tick
 _TYPE_TICK_RES = ProtoOAGetTickDataRes().payloadType
 
-_cache: dict[str, tuple[float, float]] = {}     # symbol -> (spread in PRICE units, expires_at)
+# symbol -> (bid, ask, expires_at). The spread is `ask - bid`, derived rather than stored, so the two
+# can never disagree about the same instant.
+_cache: dict[str, tuple[float, float, float]] = {}
 
 
 async def _newest(reader, writer, sid: int, quote_type: int) -> float | None:
@@ -76,16 +85,24 @@ async def _newest(reader, writer, sid: int, quote_type: int) -> float | None:
     return res.tickData[0].tick / _DIVISOR
 
 
-async def spread_for(symbol: str) -> float | None:
-    """Live spread in PRICE units (ask - bid), or None if it cannot be read.
+async def quote_for(symbol: str) -> tuple[float, float] | None:
+    """The live (bid, ask), or None if it cannot be read.
 
-    NEVER RAISES. A spread is an input to sizing, not a trading decision — if it cannot be fetched the
-    strategy must carry on with what it had rather than the instrument going silent. The caller treats
-    None as "unknown" and falls back to its no-spread behaviour.
+    THE PRICES WERE ALREADY ON THE WIRE AND WERE BEING THROWN AWAY. This function did the same two
+    tick requests, subtracted them and discarded both. Keeping them costs nothing and answers the
+    other question the platform could not: what is the price RIGHT NOW.
+
+    WHY THAT QUESTION HAD NO ANSWER. The feed serves CLOSED bars only, so the newest M1 close is up to
+    ~2 minutes old once the 10-70s publication lag is counted. The 1M entry used it for two decisions
+    that are about this instant — which side of the line price is on, and whether a stop order would
+    fill immediately. Those are TRIGGERS, and the levels-vs-triggers rule says a trigger stays LIVE.
+
+    NEVER RAISES. A quote is an input, not a decision: if it cannot be fetched the caller falls back
+    to the last closed bar rather than the instrument going silent.
     """
     hit = _cache.get(symbol)
-    if hit and time.monotonic() < hit[1]:
-        return hit[0]
+    if hit and time.monotonic() < hit[2]:
+        return (hit[0], hit[1])
     try:
         async with _req_lock:
             reader, writer = await _sess.get_connection()
@@ -96,18 +113,33 @@ async def spread_for(symbol: str) -> float | None:
             bid = await _newest(reader, writer, sid, ProtoOAQuoteType.BID)
             ask = await _newest(reader, writer, sid, ProtoOAQuoteType.ASK)
         if bid is None or ask is None or ask <= bid:
-            # ask <= bid is not a spread, it is a crossed or stale book — refuse it rather than feed
-            # a zero or a negative into a stop calculation.
+            # ask <= bid is not a book, it is a crossed or stale one — refuse it rather than feed a
+            # zero or a negative into a stop calculation or a side-of-the-line test.
             return None
-        spread = ask - bid
-        _cache[symbol] = (spread, time.monotonic() + _TTL)
-        return spread
+        _cache[symbol] = (bid, ask, time.monotonic() + _TTL)
+        return (bid, ask)
     except Exception as exc:
-        log.warning(f"[ctrader_spread] {symbol}: {type(exc).__name__}: {exc} — spread unknown")
+        log.warning(f"[ctrader_spread] {symbol}: {type(exc).__name__}: {exc} — quote unknown")
         return None
+
+
+async def spread_for(symbol: str) -> float | None:
+    """Live spread in PRICE units (ask - bid), or None if it cannot be read.
+
+    Derived from `quote_for` rather than stored, so the spread and the quote can never disagree about
+    the same instant. Callers are unchanged.
+    """
+    q = await quote_for(symbol)
+    return None if q is None else q[1] - q[0]
 
 
 def cached(symbol: str) -> float | None:
     """The last known spread without touching the network — for callers that must not block."""
     hit = _cache.get(symbol)
-    return hit[0] if hit else None
+    return (hit[1] - hit[0]) if hit else None
+
+
+def cached_quote(symbol: str) -> tuple[float, float] | None:
+    """The last known (bid, ask) without touching the network."""
+    hit = _cache.get(symbol)
+    return (hit[0], hit[1]) if hit else None

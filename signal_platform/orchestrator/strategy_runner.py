@@ -17,7 +17,7 @@ from core.types import Session, Trend
 from core.dependency_resolver import resolve
 from core.strategy_context_builder import build as build_context
 from data.candle_fetcher import fetch_candles
-from data import ctrader_spread
+from data import candle_aggregator, ctrader_spread
 from news import news_filter
 from shared import trend_detector
 from shared.mtf_utils import closed_only, to_minutes
@@ -48,6 +48,32 @@ def _chart_candles(signal, candle_view: dict, fallback: list) -> list:
         if bars and str(getattr(key, "value", key)) == str(tf):
             return bars
     return fallback
+
+
+def _forming_base(tf: str, candle_view: dict) -> list | None:
+    """The FINEST already-fetched series that builds `tf` — the source for its forming bar.
+
+    Finest, not cheapest: the reconstruction was proved exact against the broker's own bars using M1
+    (24 of 24 closed H1 bars, to the last decimal). A coarser base would put the open, high, low and
+    close on whole-M30 boundaries and stop being the same candle. Scanning 839 bars costs nothing
+    next to the network call this avoids entirely.
+
+    Returns None when nothing in the view divides `tf` evenly — then no forming bar is built and the
+    strategy sees exactly what it saw before.
+    """
+    want = to_minutes(str(getattr(tf, "value", tf)))
+    best, best_mins = None, None
+    for key, bars in candle_view.items():
+        name = str(getattr(key, "value", key))
+        if not bars:
+            continue
+        try:
+            mins = to_minutes(name)
+        except ValueError:
+            continue
+        if mins < want and want % mins == 0 and (best_mins is None or mins < best_mins):
+            best, best_mins = bars, mins
+    return best
 
 
 async def _attach_chart(signal, candles, symbol: str, candle_view: dict | None = None) -> None:
@@ -185,6 +211,30 @@ async def run_strategy(
         for tf, r in zip(deps.timeframes, fetched)
     }
 
+    # THE BAR CURRENTLY FORMING, for the timeframes that asked for it. The feed serves CLOSED bars
+    # only (measured 2026-08-21), so anything reading a forming bar was reading nothing — VIX.1's
+    # T-5 pre-close warning could not fire at all. It is rebuilt here from a finer series already in
+    # `candle_view`, at ZERO extra broker requests.
+    #
+    # HERE AND NOT INSIDE THE STRATEGY, on purpose: `_attach_chart` renders from `candle_view`, and
+    # the pre-close card marks the forming bar BY TIMESTAMP. Synthesised inside the strategy, the
+    # card would mark a bar the renderer never received and draw the wrong candle.
+    #
+    # SAFE BY CONSTRUCTION: the appended bar is not closed, so `closed_only` drops it and every LEVEL
+    # in every strategy reads exactly what it read before. Opt-in means a strategy that did not ask
+    # sees an untouched candle view.
+    for tf in deps.wants_forming:
+        bars = candle_view.get(tf) or []
+        base = _forming_base(tf, candle_view)
+        if not bars or not base:
+            continue
+        fb = candle_aggregator.forming_bar(base, tf, anchor=bars[-1].time,
+                                           now=tick_now.timestamp())
+        # A bar we already hold as CLOSED must never be re-appended as forming — that would be the
+        # same candle twice, once finished and once part-grown.
+        if fb is not None and fb.time > bars[-1].time:
+            candle_view[tf] = bars + [fb]
+
     # THE SPREAD — read only when a strategy actually asks for it, so an instrument whose strategies
     # do not care costs nothing. It is CACHED for minutes inside `ctrader_spread`, so this is a
     # network call rarely and a dict lookup the rest of the time. None means "could not read it", and
@@ -192,12 +242,17 @@ async def run_strategy(
     #
     # This slot has existed in `build_context` since it was written and NOTHING EVER FILLED IT, which
     # is why `risk/spread_filter.py` has never run on real data in its life.
-    spread = await ctrader_spread.spread_for(instrument) if deps.needs_spread else None
+    # ONE READ, BOTH ANSWERS. The bid and the ask come back from the same two tick requests, so the
+    # live quote costs nothing on top of the spread that was already being fetched — it was being
+    # computed and thrown away. The quote is what makes the 1M entry's trigger reads current; without
+    # it they run on a closed bar's close, which on this feed is up to ~2 minutes old.
+    quote = await ctrader_spread.quote_for(instrument) if deps.needs_spread else None
+    spread = (quote[1] - quote[0]) if quote else None
 
     context = build_context(
         symbol=instrument, deps=deps, candle_view=candle_view,
         news_context=news_context, current_sessions=current_sessions,
-        spread=spread,
+        spread=spread, quote=quote,
     )
     if context is None:
         return

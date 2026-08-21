@@ -97,6 +97,16 @@ print()
 print("   LEVELS come from CLOSED candles — mutating the FORMING bar must change nothing:")
 from core.types import Candle
 
+# WHAT "FORMING" MEANS HERE, and why this test used to pass for the wrong reason. The window below
+# is historical, so its last bar is a CLOSED bar — and until 2026-08-21 `m1_signals` discarded its
+# last bar unconditionally (`win[:-1] if win[-1].time == m1[-1].time else win`, a condition that is
+# always true because `win` is a suffix of `m1`). So mutating that bar could not move a level no
+# matter what the code did, and this check could not fail. It now uses `closed_only`, which asks
+# whether the bar is ACTUALLY still forming — so `now` has to say that it is.
+#
+# `now = last.time + 30` puts the clock half-way through the last bar's own minute: that bar is
+# forming, every earlier one is closed. Mutating it must move nothing. The second loop below then
+# asserts the other half — once that same bar HAS closed, a level may read it.
 mutated_ok = True
 checked = 0
 for label, m1f, h1f, pip in PAIRS:
@@ -111,7 +121,8 @@ for label, m1f, h1f, pip in PAIRS:
     bullish = vc.close > vc.open
     for i in range(len(m1) - 400, len(m1), 40):
         win = m1[:i + 1]
-        base = m1_signals(win, bullish, vc, pip=pip, symbol=label)
+        now = win[-1].time + 30          # half-way through the last bar: it is FORMING
+        base = m1_signals(win, bullish, vc, pip=pip, symbol=label, now=now)
         if not base:
             continue
         checked += 1
@@ -119,7 +130,7 @@ for label, m1f, h1f, pip in PAIRS:
         f = win[-1]
         wild = Candle(time=f.time, open=f.open, high=f.high + 0.0050, low=f.low - 0.0050,
                       close=f.low - 0.0040, volume=0, timeframe="M1")
-        after = m1_signals(win[:-1] + [wild], bullish, vc, pip=pip, symbol=label)
+        after = m1_signals(win[:-1] + [wild], bullish, vc, pip=pip, symbol=label, now=now)
         # A MARKET entry IS current price, so of course it moves when current price is mutated —
         # that is the trigger half of the rule, not a level drifting. Skip those and hold every
         # other signal to the invariant exactly as before.
@@ -131,6 +142,36 @@ for label, m1f, h1f, pip in PAIRS:
 
 s.check("levels checked against a mutated forming bar", checked > 0, True)
 s.check("entry/SL are UNCHANGED when the forming bar is mutated", mutated_ok, True)
+
+# THE OTHER HALF — a bar that HAS closed is fair game for a level, and must be USED.
+# This is the half that was silently broken: the old code threw the newest closed bar away, so the
+# cross was seen a minute late on every entry. If a future change reinstates that, this check fails.
+uses_closed = False
+for label, m1f, h1f, pip in PAIRS:
+    m1 = load(m1f, "M1", limit=BARS)
+    h1 = load(h1f, "H1", limit=400)
+    if not m1 or not h1:
+        continue
+    vc = next((h1[i] for i in range(len(h1) - 1, 30, -1)
+               if is_momentum_candle(h1, i, True, label) or is_momentum_candle(h1, i, False, label)), None)
+    if vc is None:
+        continue
+    bullish = vc.close > vc.open
+    for i in range(len(m1) - 400, len(m1), 40):
+        win = m1[:i + 1]
+        now = win[-1].time + 90          # PAST the last bar's close: every bar here is finished
+        f = win[-1]
+        wild = Candle(time=f.time, open=f.open, high=f.high + 0.0050, low=f.low - 0.0050,
+                      close=f.close, volume=0, timeframe="M1")
+        a = m1_signals(win, bullish, vc, pip=pip, symbol=label, now=now)
+        b = m1_signals(win[:-1] + [wild], bullish, vc, pip=pip, symbol=label, now=now)
+        if a and b and (a[0]["entry"] != b[0]["entry"] or a[0]["sl"] != b[0]["sl"]):
+            uses_closed = True
+            break
+    if uses_closed:
+        break
+
+s.check("a bar that HAS closed does reach the levels (it was being discarded)", uses_closed, True)
 
 # ------------------------------------------------------------------ teeth
 print()

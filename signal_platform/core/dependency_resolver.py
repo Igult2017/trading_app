@@ -21,6 +21,11 @@ class ResolvedDeps:
     # Subset of `timeframes` that is enrichment-only: fetched and passed through, but an empty
     # series must NOT null the context (see strategy_context_builder). Default empty = old behaviour.
     optional_timeframes: list[str] = field(default_factory=list)
+    # Timeframes for which the runner appends the bar CURRENTLY FORMING, built from a finer series
+    # already fetched (`candle_aggregator.forming_bar`). OPT-IN, because the feed serves closed bars
+    # only and every strategy but the one asking has been written against that. A strategy that does
+    # not list a TF here sees exactly what it saw before. Default empty = old behaviour.
+    wants_forming: list[str] = field(default_factory=list)
 
 
 def resolve(strategy) -> ResolvedDeps:
@@ -56,4 +61,5 @@ def resolve(strategy) -> ResolvedDeps:
         needs_session    = bool(strategy.requires_session),
         needs_volatility = bool(strategy.requires_volatility),
         needs_spread     = bool(strategy.requires_spread),
+        wants_forming    = [tf for tf in (getattr(strategy, "wants_forming", None) or []) if tf in tfs],
     )

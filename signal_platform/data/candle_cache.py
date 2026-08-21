@@ -24,7 +24,7 @@ lifetime of the process.
 import threading
 import time
 import logging
-from shared.mtf_utils import to_minutes
+from shared.mtf_utils import grid_phase, seconds_to_close, to_minutes
 
 log = logging.getLogger(__name__)
 
@@ -57,39 +57,26 @@ _FINAL_STRETCH_TTL = 55.0
 _grid_logged: set[tuple[str, str]] = set()
 
 
-def _phase(period: int, now: float, last_open: float | None) -> float:
+def _phase(tf: str, now: float, last_open: float | None) -> float:
     """WHERE THIS TIMEFRAME'S BARS SIT ON THE CLOCK, read from a real bar instead of assumed.
 
     WHAT WAS WRONG (found 2026-08-21, shipped 2026-08-20). `_ttl_for` computed the next bar close as
-    `period - (now % period)`, which is only true when bars start at midnight UTC and step from
-    there. The broker's H4 bars open at 01:00 / 05:00 / 09:00 / 13:00 / 17:00 / 21:00 UTC — one hour
-    off that grid. So a copy taken at 08:05 was given a TTL running to 11:17, straight through the
-    real 09:00 close: **the "never hold a copy across a bar close" guarantee did not hold on H4**,
-    which is the timeframe BX-S/D's entire zone book is built on. It went unnoticed because the
-    computed boundary is always a valid instant, just the wrong one, and because a redeploy empties
-    the cache and hides it for the next few hours.
+    `period - (now % period)`, true only if bars start at midnight UTC. The broker's H4 bars open at
+    01:00/05:00/09:00/13:00/17:00/21:00 UTC — an hour off that grid — so a copy taken at 08:05 was
+    served until 11:17, straight through the real 09:00 close. The "never hold a copy across a bar
+    close" guarantee **did not hold on H4**, the timeframe BX-S/D's whole zone book is built on. It
+    hid because a wrong boundary is still a valid instant, and a redeploy empties the cache.
 
-    THE FIX IS TO STOP CALCULATING IT. Bars are stamped at their OPEN, so any real bar's timestamp
-    reveals the grid: every bar on this timeframe opens at `last_open % period` past each period
-    boundary. `put` always has the bars in its hand, so this costs nothing and cannot drift.
-
-    A GRID, NOT A COUNTDOWN — deliberately. `last_open + period` would also give the next close, but
-    only while the newest bar really is the forming one. Over a weekend, a feed gap or a stale copy
-    the newest bar is long closed and that sum is in the past; the phase survives all three, because
-    a gap moves which bars exist, never where they sit.
-
-    Returns 0.0 (the old assumed grid) when there is no usable bar time. The bounds check also
-    rejects a millisecond timestamp, so a units change in the feed degrades to the old behaviour
-    rather than poisoning every TTL on the platform.
+    THE FIX IS TO STOP CALCULATING IT — any real bar's OPEN reveals the grid, and `put` always has
+    the bars in hand. The arithmetic lives in `shared.mtf_utils` because `candle_aggregator` needs
+    the same grid, and two private copies of it is exactly how one of them ended up wrong.
     """
-    if last_open is None or not (0 < last_open <= now + period):
-        return 0.0
-    return last_open % period
+    return grid_phase(last_open, tf, now)
 
 
-def _to_close(period: int, now: float, last_open: float | None) -> float:
+def _to_close(tf: str, now: float, last_open: float | None) -> float:
     """Seconds until the next bar close on THIS timeframe's real grid."""
-    return (_phase(period, now, last_open) - now) % period or float(period)
+    return seconds_to_close(tf, now, last_open)
 
 
 def _ttl_for(tf: str, now: float | None = None, last_open: float | None = None) -> float:
@@ -132,9 +119,8 @@ def _ttl_for(tf: str, now: float | None = None, last_open: float | None = None) 
     if mins <= 2:
         return _FAST_TF_TTL
     base   = max(55.0, mins * 60 * 0.80)         # the old value — now a ceiling, never the answer
-    period = mins * 60
     now    = time.time() if now is None else now
-    to_close = _to_close(period, now, last_open)  # seconds until this bar finishes, on its own grid
+    to_close = _to_close(tf, now, last_open)      # seconds until this bar finishes, on its own grid
     if to_close > _FINAL_STRETCH_S:
         # Expire when the final stretch BEGINS, not at the bar close — otherwise a copy taken at
         # 15:48 would be served right through the 15:54-16:00 window it is supposed to keep fresh.
@@ -166,7 +152,7 @@ def _note_grid(symbol: str, tf: str, last_open: float | None) -> None:
     period = to_minutes(tf) * 60
     if period <= 120:
         return
-    off = _phase(period, time.time(), last_open)
+    off = _phase(tf, time.time(), last_open)
     if off:
         closes = ", ".join(time.strftime("%H:%M", time.gmtime(off + i * period))
                            for i in range(min(6, 86400 // period)))

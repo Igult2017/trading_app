@@ -114,14 +114,14 @@ def utc(h, m=0, day=21):
 
 H4 = 4 * 3600
 JPY_BAR = utc(5)                      # a real bar: the 05:00 UTC H4 that closed at 09:00
-check("the grid is read off a real bar: 1 hour past midnight", _phase(H4, utc(8), JPY_BAR), 3600.0)
+check("the grid is read off a real bar: 1 hour past midnight", _phase("H4", utc(8), JPY_BAR), 3600.0)
 check("H1 on this feed IS on the hour, so nothing changes there",
-      _phase(3600, utc(8), utc(7)), 0.0)
-check("no bar to read -> falls back to the old assumed grid", _phase(H4, utc(8), None), 0.0)
+      _phase("H1", utc(8), utc(7)), 0.0)
+check("no bar to read -> falls back to the old assumed grid", _phase("H4", utc(8), None), 0.0)
 # A units change in the feed must degrade to the old behaviour, not poison every TTL on the platform.
-check("a millisecond timestamp is rejected, not used", _phase(H4, utc(8), utc(5) * 1000), 0.0)
-check("next close from 08:05 is 09:00, not 12:00", _to_close(H4, utc(8, 5), JPY_BAR), 3300.0)
-check("...and from 09:05 it is 13:00", _to_close(H4, utc(9, 5), JPY_BAR), 14100.0)
+check("a millisecond timestamp is rejected, not used", _phase("H4", utc(8), utc(5) * 1000), 0.0)
+check("next close from 08:05 is 09:00, not 12:00", _to_close("H4", utc(8, 5), JPY_BAR), 3300.0)
+check("...and from 09:05 it is 13:00", _to_close("H4", utc(9, 5), JPY_BAR), 14100.0)
 
 # THE EXACT TABLE THAT EXPOSED IT — each copy against the REAL close that follows it.
 print("      taken   TTL expires   real next close   spans it?")

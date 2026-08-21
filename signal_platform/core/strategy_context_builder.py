@@ -24,6 +24,7 @@ def build(
     news_context:     NewsContext | None,
     current_sessions: list[Session],
     spread:           float | None = None,
+    quote:            tuple[float, float] | None = None,
     volatility:       float | None = None,
 ) -> StrategyContext | None:
     """
@@ -75,5 +76,6 @@ def build(
         session    = current_sessions if deps.needs_session else [],
         news       = news_context     if deps.needs_news    else None,
         spread     = spread           if deps.needs_spread  else None,
+        quote      = quote            if deps.needs_spread  else None,
         volatility = volatility       if deps.needs_volatility else None,
     )

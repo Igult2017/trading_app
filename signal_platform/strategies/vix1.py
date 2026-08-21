@@ -66,6 +66,12 @@ class Vix1Strategy(BaseStrategy):
     # that never happened (vix1_cross.decide). Asking for it also switches on `risk/spread_filter`,
     # which had never run on real data because nothing ever populated `context.spread`.
     requires_spread     = True
+    # THE 1HR BAR STILL FORMING, rebuilt from the M1 bars this strategy already fetches. The feed
+    # serves CLOSED bars only (measured 2026-08-21), so `vix1_preclose` — the one place here that
+    # reads a forming bar on purpose — found None every time and the T-5 warning had fired ZERO times
+    # in 30 days. Opt-in, at zero extra broker requests; `closed_only` still drops it, so the bias,
+    # the line and every level are unchanged. See orchestrator/strategy_runner.
+    wants_forming       = [TF.H1]
     # The 1M window MUST span the oldest momentum candle the bias can return, because the entry reads
     # everything "since the line was drawn": the cross, the candle after it, and the fractals that
     # gate the wrong-side route. A flat 250 bars covered only 4.2h against a 12h
@@ -240,7 +246,8 @@ class Vix1Strategy(BaseStrategy):
             heads_up.dedup_key = bkey        # committed only once the DM actually lands
             out.append(heads_up)
 
-        raw = m1_signals(m1, bullish, vc, pip=pip, symbol=sym, spread=context.spread)
+        raw = m1_signals(m1, bullish, vc, pip=pip, symbol=sym, spread=context.spread,
+                         quote=context.quote, now=now)
         if not raw:
             return StrategyResult(signals=out)
 
