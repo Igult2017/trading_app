@@ -13,10 +13,17 @@ commission off the position and doubles it (the field is the opening half; closi
 
 THE FOUR RULES THAT MAKE THE WORST CASE "IT DID NOTHING":
 
-  1. BOTH LEGS, ALWAYS. cTrader's REST surface DELETES a leg omitted from an amend (`Q-R10` in the
-     ctrader-mcp-servers skill, flagged critical). The protobuf request has both fields
-     optional-with-presence, so it can tell omitted from set and may behave the same way. This code
-     does not rely on knowing which: it re-passes the position's CURRENT take profit every time.
+  1. BOTH LEGS, ALWAYS — AND THIS IS PROVED, NOT ASSUMED. Measured on a live demo position,
+     2026-08-21 (position 237946195, EUR/USD):
+
+         SL 1.16689 -> 1.16789, take profit RE-PASSED   -> stop moved, TP 1.17689 SURVIVED
+         SL 1.16789 -> 1.16839, take profit RE-PASSED   -> stop moved, TP 1.17689 SURVIVED
+         SL       -> 1.16849, take profit OMITTED       -> stop moved, TP became NONE
+
+     Omitting the take profit DELETES IT. `Q-R10` in the ctrader-mcp-servers skill says so for the
+     REST surface and this broker behaves the same way. So re-passing the position's CURRENT target
+     on every amend is LOAD-BEARING, not caution: without it, every automatic breakeven move would
+     silently destroy his take profit and the trade would run with no exit.
   2. RATCHET ONLY. A stop is moved only toward safety. If his stop already sits at or beyond
      breakeven — because he moved it himself, or a previous poll did — nothing happens. The amend
      can never widen risk.
@@ -49,7 +56,8 @@ def _better(new_sl: float, old_sl: float, bullish: bool) -> bool:
     return (new_sl > old_sl) if bullish else (new_sl < old_sl)
 
 
-def why_not(p, account_type: str) -> str | None:
+def why_not(p, account_type: str, new_sl: float | None = None,
+            price: float | None = None) -> str | None:
     """The reason this position must NOT be amended, or None if it may be. Checked before any
     network call, so a refusal costs nothing and reaches the log with its reason intact."""
     if not settings.auto_breakeven_enabled:
@@ -58,24 +66,44 @@ def why_not(p, account_type: str) -> str | None:
         return f"account is '{account_type}', not demo — refusing to amend"
     if p.stop is None:
         return "no stop on this position — leaving it alone"
-    be = p.breakeven()
-    if be is None:
-        return "breakeven price is unknown (position size not readable)"
-    if not _better(be, p.stop, p.bullish):
-        return f"stop {p.stop} already at or beyond breakeven {be:.5f} — nothing to do"
+    target_sl = new_sl if new_sl is not None else p.breakeven()
+    if target_sl is None:
+        return "the new stop price is unknown (position size not readable)"
+    if not _better(target_sl, p.stop, p.bullish):
+        return f"stop {p.stop} already at or beyond {target_sl:.5f} — nothing to do"
+    # A STOP ON THE WRONG SIDE OF THE MARKET IS A MARKET CLOSE, NOT A STOP.
+    #
+    # LEARNED THE HARD WAY, 2026-08-21, on a real demo position. A buy was opened at 1.16880 and the
+    # stop amended to 1.16887 — seven pips of "breakeven" ABOVE the entry, but ALSO above the current
+    # bid, because a buy's stop triggers on the bid and the trade was not yet in profit. cTrader
+    # accepted the amend (ORDER_REPLACED) and the position vanished on the spot: the stop fired the
+    # instant it was set. The ratchet test above passed happily, because 1.16887 IS safer than
+    # 1.16780 — safer is not the same as PLACEABLE.
+    #
+    # In the normal flow this cannot bite: the rungs only fire at 1R or better, where the market is
+    # far beyond the new stop. It bites when price snaps back between the R reading and the amend
+    # landing. The honest outcome there is "we did not move it", not a silent market exit that the
+    # message told him was a stop.
+    if price is not None:
+        if (target_sl >= price) if p.bullish else (target_sl <= price):
+            return (f"stop {target_sl:.5f} is already through the market ({price:.5f}) — setting it "
+                    f"would CLOSE the position, not protect it; leaving it alone")
     return None
 
 
-async def move_to_breakeven(p, creds: dict, account_type: str) -> Outcome:
-    """Move this position's stop to its net-zero price. Never raises.
+async def move_stop_to(p, new_sl: float | None, label: str, creds: dict,
+                       account_type: str, price: float | None = None) -> Outcome:
+    """Move this position's stop to `new_sl`. `None` means "to breakeven". Never raises.
 
-    Returns an Outcome whether it acted or not, so the caller can report the truth either way rather
-    than inferring silence.
+    ONE FUNCTION FOR EVERY RUNG. Breakeven at 1R, +1R at 2R, +2R at 3R and +3R at 4R differ only in
+    the price; every guard — ratchet-only, both legs, the re-read, demo-only, the kill switch — is
+    identical and must stay identical. A second code path for "the ladder" would be a second place
+    for the both-legs rule to be forgotten, which is the one mistake here that costs money.
     """
-    blocked = why_not(p, account_type)
+    be = new_sl if new_sl is not None else p.breakeven()
+    blocked = why_not(p, account_type, be, price)
     if blocked:
         return Outcome(False, blocked)
-    be = p.breakeven()
     old = p.stop
     try:
         from execution.broker import StopOrderClient
@@ -93,8 +121,8 @@ async def move_to_breakeven(p, creds: dict, account_type: str) -> Outcome:
     # RULE 4 — believe the position, not the call.
     after = await ctrader_positions.open_positions()
     if after is None:
-        return Outcome(True, f"stop moved to {be:.5f}, but the position could not be re-read to "
-                             f"confirm it — check your platform")
+        return Outcome(True, f"stop moved to {be:.5f} ({label}), but the position could not be "
+                             f"re-read to confirm it — check your platform")
     now = next((x for x in after if x.position_id == p.position_id), None)
     if now is None:
         return Outcome(True, f"stop moved to {be:.5f}, but the position is no longer open — it may "
@@ -110,5 +138,11 @@ async def move_to_breakeven(p, creds: dict, account_type: str) -> Outcome:
     if now.stop is None or not _better(now.stop, old, p.bullish):
         return Outcome(False, f"the amend reported success but the stop still reads {now.stop} — "
                               f"nothing was changed")
-    return Outcome(True, f"stop moved {old} → {now.stop} (breakeven, net of costs). "
+    return Outcome(True, f"stop moved {old} → {now.stop} ({label}). "
                          f"Target {now.target or 'none'} intact.")
+
+
+async def move_to_breakeven(p, creds: dict, account_type: str) -> Outcome:
+    """The 1R rung: the net-zero price. Kept as a named entry point because breakeven is the one rung
+    whose price is computed rather than given, and because it is the one he named."""
+    return await move_stop_to(p, None, "breakeven, net of costs", creds, account_type)

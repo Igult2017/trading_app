@@ -74,6 +74,26 @@ try:
     s.check("unknown size -> no breakeven -> refuse rather than guess",
             "not readable" in (breakeven.why_not(P(volume=0), "demo") or ""), True)
 
+    # ── A STOP THROUGH THE MARKET IS A MARKET CLOSE, NOT A STOP ─────────────
+    # Learned on a real demo position, 2026-08-21: a buy opened at 1.16880 had its stop amended to
+    # 1.16887 — safer than the old 1.16780, so the ratchet allowed it — but ALSO above the bid,
+    # because a buy's stop triggers on the bid. cTrader accepted it and the position vanished on the
+    # spot. "Safer" is not the same as "placeable".
+    s.check("BUY: a stop at or above the market is refused",
+            "through the market" in (breakeven.why_not(P(stop=1.09900), "demo",
+                                                       new_sl=1.10007, price=1.10000) or ""), True)
+    s.check("BUY: the same stop is fine once price is above it",
+            breakeven.why_not(P(stop=1.09900), "demo", new_sl=1.10007, price=1.10100), None)
+    s.check("SELL: a stop at or below the market is refused",
+            "through the market" in (breakeven.why_not(
+                P(bullish=False, entry=1.10000, stop=1.10100, target=1.09800), "demo",
+                new_sl=1.09993, price=1.10000) or ""), True)
+    s.check("SELL: fine once price is below it",
+            breakeven.why_not(P(bullish=False, entry=1.10000, stop=1.10100, target=1.09800),
+                              "demo", new_sl=1.09993, price=1.09900), None)
+    s.check("with no price known, the guard cannot fire and does not pretend to",
+            breakeven.why_not(P(stop=1.09900), "demo", new_sl=1.10007, price=None), None)
+
     # ── the ratchet helper itself, both directions ──────────────────────────
     s.check("BUY: higher is safer", breakeven._better(1.1001, 1.1000, True), True)
     s.check("BUY: lower is NOT", breakeven._better(1.0999, 1.1000, True), False)
@@ -128,6 +148,8 @@ try:
     s.teeth("the live-account refusal genuinely fires",
             breakeven.why_not(P(), "live") is not None)
     s.teeth("the alarm path is genuinely reachable", lost.alarm is True)
+    s.teeth("the through-the-market guard genuinely fires",
+            breakeven.why_not(P(stop=1.09900), "demo", new_sl=1.10007, price=1.10000) is not None)
 finally:
     settings.auto_breakeven_enabled = False          # leave the switch as we found it
 

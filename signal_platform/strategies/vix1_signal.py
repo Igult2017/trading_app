@@ -141,7 +141,7 @@ def build_signal(kind, symbol, bullish, origin, vol_count, entry, sl, tp,
         level_notes       = [
             "Pullback ASSUMED — none formed" if "assumed" in kind else "One tick beyond the reach",
             (sl_note.split("—", 1)[-1].strip() if "—" in sl_note else "Beyond the invalidation"),
-            "2R — the two-candle move",
+            f"{rr:.0f}R — ride the momentum",
         ],
         entry_price       = round(entry, digits),
         stop_loss         = round(sl, digits),

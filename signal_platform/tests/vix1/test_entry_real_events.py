@@ -73,10 +73,18 @@ if got:
     risk = e["entry"] - e["sl"]
     s.check("HIS TRADE: the stop is under one 1HR candle's range (22.3p)",
             risk <= (MC.high - MC.low), True)
-    s.check("HIS TRADE: ...and the 2R target sits inside the following hour's high (1.11808)",
-            e["entry"] + 2 * risk <= 1.11842, True)
+    # THE TARGET IS 4R SINCE 2026-08-21 — his instruction, *"take profit at 4R"*, and *"2R is not a
+    # rule but only applies where there is no momentum"*. The ENTRY and the STOP are untouched by
+    # that change, which is exactly what these two assertions pin: if the target moves and his
+    # 1.11734 moves with it, something other than the target has been altered.
+    from strategies.vix1 import _TP_R
+    s.check("HIS TRADE: the target multiple is 4R, not 2R", _TP_R, 4.0)
+    s.check("HIS TRADE: ...and the entry is unchanged by that", round(e["entry"], 5), 1.11734)
+    s.check("HIS TRADE: ...as is the stop", e["sl"] < 1.11705, True)
+    s.check("HIS TRADE: the 4R target is reached in the hours that followed (H1 high 1.11845+)",
+            e["entry"] + _TP_R * risk <= 1.12000, True)
     print(f"      entry {e['entry']:.5f}  SL {e['sl']:.5f}  risk {risk / PIP:.1f}p  "
-          f"TP {e['entry'] + 2 * risk:.5f}  [{e['kind']}]")
+          f"TP {e['entry'] + _TP_R * risk:.5f} ({_TP_R:.0f}R)  [{e['kind']}]")
 
 # ONE CANDLE EARLIER there is a cross but nothing after it — nothing may fire yet.
 s.check("HIS TRADE: at the cross candle itself, no entry yet",

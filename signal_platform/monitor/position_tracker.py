@@ -13,16 +13,24 @@ his own stop, closed early or never took the trade, this one is right and that o
 IT TRACKS EVERY OPEN POSITION, including trades the platform never signalled — his answer when asked:
 *"Yes"*. So a manual trade gets the same three alerts.
 
-THE THREE ALERTS
+THE LADDER, in his words (2026-08-21):
 
-    1R  ->  BREAKEVEN     move the stop to the NET-ZERO price
-    2R  ->  TRAIL TO 1R   move the stop to +1R          (the existing ratchet's arming point)
-    2R  ->  2R REACHED    the target is done
+    1R  ->  BREAKEVEN     the stop goes to the NET-ZERO price
+    2R  ->  LOCK +1R
+    3R  ->  LOCK +2R      *"At 3R, lock 2R"*
+    4R  ->  LOCK +3R      *"You first lock 3R and then take profit at 4R in that sequence"*
 
-The last two fire at the same instant on purpose. He was asked whether they should be one message or
-two and said two — *"for now it should send me these signals so that I can do everything manually"* —
-so the instruction and the milestone arrive separately rather than being merged into one line he
-might skim.
+The 4R take profit sits on the ORDER, so the broker performs the exit; this ladder's last rung
+exists to have +3R already locked when it does. A failed exit — a gap, a weekend, slippage — then
+still banks 3R. No close-position code is needed and none is added.
+
+2R IS NOT THE TARGET ANY MORE: *"when the trade has the momentum to keep going we take up to where
+the momentum starts dying down so 2R is not a rule but only applies where there is no momentum."* The
+"momentum dying" case is the 1M structure exit that `vix1_manage` already owns.
+
+Each rung sends its own message and moves the stop for real when the switch is on — he asked for
+both: *"for now it should send me these signals so that I can do everything manually"*, then
+*"can you create it such that it is moved automatically"*.
 
 BREAKEVEN IS NOT THE ENTRY PRICE. *"when the market takes us out we lose nothing and gain nothing"*,
 and *"gain just enough to cover cost"*. A stop at the entry still loses the round-trip commission and
@@ -46,9 +54,16 @@ from shared.pip import price_digits
 
 log = logging.getLogger(__name__)
 
-# The R milestones, in order. Values are HIS: breakeven then the ratchet's existing 2R arming.
+# THE LADDER, IN HIS WORDS (2026-08-21): breakeven at 1R, then "at 3R, lock 2R", and at 4R "you
+# first lock 3R and then take profit at 4R IN THAT SEQUENCE". The 2.5R rung he first mentioned was
+# withdrawn by that same answer, which lands the rungs exactly on the ratchet that already existed
+# (vix1_manage: at NR, lock N-1). Each entry is (R reached, R to lock, dedup tag).
+#
+# 4R LOCKS +3R AND DOES NOT CLOSE. The take profit sits on the ORDER at 4R, so the broker performs
+# the exit; this rung's job is to have +3R already locked when it does. If the exit ever fails — a
+# gap, a weekend, slippage — 3R is banked. That is his sequence, and it costs no close-position code.
 BREAKEVEN_R = 1.0
-ARM_R       = 2.0
+LADDER = [(2.0, 1.0, "lock_1r"), (3.0, 2.0, "lock_2r"), (4.0, 3.0, "lock_3r")]
 
 # A TRADE SITTING EXACTLY ON A MILESTONE MUST TRIGGER IT. R is a ratio of differences between
 # 5-decimal prices, so a true 1.000R lands at 0.999999999999778 and `r >= 1.0` is False — the alert
@@ -79,27 +94,32 @@ def _lines(p, r: float, price: float) -> list[tuple[str, str]]:
     if r >= BREAKEVEN_R - _EPS:
         be = p.breakeven()
         where = (f"{be:.{d}f}" if be is not None else "your entry + costs")
-        out.append(("breakeven",
+        out.append(("breakeven", be,
                     f"🟦 BREAKEVEN — {p.symbol} {side}\n\n"
                     f"+{r:.1f}R reached. Move your stop to {where}.\n\n"
                     f"That is the price where closing nets ZERO — it covers the round-trip "
                     f"commission and swap, not just your entry. A stop at {p.entry:.{d}f} would "
                     f"still take the costs off you."))
-    if r >= ARM_R - _EPS:
-        risk = abs(p.entry - p.stop) if p.stop else 0.0
-        one_r = p.entry + risk if p.bullish else p.entry - risk
-        out.append(("trail_1r",
-                    f"🟩 TRAIL TO 1R — {p.symbol} {side}\n\n"
-                    f"Move your stop to {one_r:.{d}f} (+1R locked)."))
-        out.append(("hit_2r",
-                    f"🎯 2R REACHED — {p.symbol} {side}\n\n"
-                    f"Entry {p.entry:.{d}f} · now {price:.{d}f} · +{r:.1f}R.\n"
-                    f"The target is done. From here the ratchet trails 1R behind."))
+
+    risk = abs(p.entry - p.stop) if p.stop else 0.0
+    for at_r, lock_r, tag in LADDER:
+        if r < at_r - _EPS:
+            break                       # ordered, so the first rung not reached ends the ladder
+        lock_at = p.entry + lock_r * risk if p.bullish else p.entry - lock_r * risk
+        tail = ("\n\nThe 4R take profit is on the order, so the broker does the exit — this locks "
+                "+3R first so a failed exit still banks it." if at_r >= 4.0 else "")
+        out.append((tag, lock_at,
+                    f"🟩 LOCK +{lock_r:.0f}R — {p.symbol} {side}\n\n"
+                    f"+{r:.1f}R reached. Move your stop to {lock_at:.{d}f}.{tail}"))
     return out
 
 
-async def _auto_breakeven(p, send) -> None:
-    """Move the stop for real, when `auto_breakeven_enabled` says so. Reports what it did.
+async def _auto_move(p, tag: str, new_sl: float | None, send, price: float | None = None) -> None:
+    """Move the stop for real, when the switch says so. Reports what it did, every rung.
+
+    ONE PATH FOR THE WHOLE LADDER. Breakeven and each lock differ only in the price they aim at;
+    every guard lives in `execution.breakeven.move_stop_to` and applies identically. A separate
+    branch per rung would be a separate place for the both-legs rule to be forgotten.
 
     SILENT WHEN SWITCHED OFF. `why_not` returns a reason for every refusal, but the ordinary one —
     "auto-breakeven is off" — must not become a message on every trade; only a refusal that happened
@@ -113,14 +133,19 @@ async def _auto_breakeven(p, send) -> None:
         from execution import breakeven
         acct = await load_account()
         if acct is None:
-            log.warning("[position_tracker] auto-breakeven ON but no usable account")
+            log.warning("[position_tracker] auto-move ON but no usable account")
             return
-        out = await breakeven.move_to_breakeven(p, acct.creds, acct.account_type)
-        head = "🔴 AUTO-BREAKEVEN" if out.alarm else ("🔧 AUTO-BREAKEVEN" if out.moved
-                                                     else "🔧 AUTO-BREAKEVEN — not moved")
+        label = "breakeven, net of costs" if tag == "breakeven" else tag.replace("_", " ")
+        # THE LIVE PRICE GOES WITH IT. A stop on the wrong side of the market is a market close, not
+        # a stop — proved on a real demo position, 2026-08-21. The tracker already has the price it
+        # measured R from, so the guard costs nothing.
+        out = await breakeven.move_stop_to(p, new_sl if tag != "breakeven" else None,
+                                           label, acct.creds, acct.account_type, price)
+        head = "🔴 AUTO-STOP" if out.alarm else ("🔧 AUTO-STOP" if out.moved
+                                                else "🔧 AUTO-STOP — not moved")
         await send(f"{head} — {p.symbol} #{p.position_id}\n\n{out.message}")
     except Exception as exc:
-        log.error(f"[position_tracker] auto-breakeven failed: {type(exc).__name__}: {exc}",
+        log.error(f"[position_tracker] auto-move failed: {type(exc).__name__}: {exc}",
                   exc_info=True)
 
 
@@ -155,7 +180,7 @@ async def check_all(send) -> None:
             r = p.r_at(price)
             if r is None:
                 continue
-            for tag, message in _lines(p, r, price):
+            for tag, new_sl, message in _lines(p, r, price):
                 k = _key(p.position_id, tag)
                 if delivery_ledger.is_delivered(k):
                     continue
@@ -165,7 +190,6 @@ async def check_all(send) -> None:
                 # AND THEN ACTUALLY MOVE IT, if he has switched that on. The advice DM above is sent
                 # either way and first: if the amend fails he still knows what to do by hand, which
                 # is the behaviour that must survive every failure here.
-                if tag == "breakeven":
-                    await _auto_breakeven(p, send)
+                await _auto_move(p, tag, new_sl, send, price)
     except Exception as exc:
         log.error(f"[position_tracker] poll failed: {type(exc).__name__}: {exc}", exc_info=True)

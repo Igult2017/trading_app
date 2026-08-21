@@ -103,8 +103,8 @@ VIX.1 has shipped a bug from reading the forming bar as a level, and **a backtes
 | **No pullback** | the setup is **NOT skipped** — the pullback is ASSUMED, the entry is taken and the card says `PULLBACK ASSUMED` on its face. About **half** of all entries |
 | **Already through** | price past the level at the decision -> a **MARKET** entry at current price, not a refusal (~25-29%) |
 | **SL** | beyond the **LINE**, or beyond the pullback's far edge when it dipped through — **never a pip count**. Gap 0.5x the 1M's recent range; floor **1.0x that range PLUS the spread** (a stop shorter than the cost of getting in cannot win); ceiling one 1HR candle |
-| **TP** | **2R** — the two-1HR-candle move |
-| **Management** | **1R → breakeven (the NET-ZERO price, not the entry) — ADVICE, and OPTIONALLY MOVED FOR HIM** (`AUTO_BREAKEVEN_ENABLED`, off by default, demo-only, ratchet-only), 2R → lock 1R, 3R → lock 2R … **ADVICE ONLY**. Measured on the REAL position since 2026-08-21 — `monitor/position_tracker` |
+| **TP** | **4R** (2026-08-21) — *"take profit at 4R"*; 2R is now the FLOOR, the outcome when momentum dies, not a price on the order |
+| **Management** | the LADDER, measured on the REAL position: **1R → breakeven (net-zero, not the entry) · 2R → lock +1R · 3R → lock +2R · 4R → lock +3R, then the order's own 4R take profit exits**. Advice always; MOVED FOR HIM when `AUTO_BREAKEVEN_ENABLED` is on (off by default, demo-only, ratchet-only, both SL+TP legs always sent) |
 | **Spacing** | while a signal on this INSTRUMENT is still running, the next needs **3 momentum candles closed after the previous signal's anchor candle**. A closed previous signal — *including a loss* — voids the wait |
 
 ### Signal spacing (`vix1_spacing.py`) — added 2026-07-27

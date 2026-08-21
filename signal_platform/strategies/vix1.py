@@ -46,6 +46,10 @@ from news.news_candle import is_news_candle, in_news_window   # shared platform 
 
 log = logging.getLogger(__name__)
 
+# THE TARGET, in R. His, 2026-08-21: "take profit at 4R". Named rather than inlined so the ladder in
+# monitor/position_tracker and this number cannot drift apart — the last ladder rung locks 3R
+# precisely because the exit sits here at 4R.
+_TP_R        = 4.0
 _STATE_TTL   = 48 * 3600   # forget a fired setup after 48h
 _CORR_WINDOW = 4  * 3600   # a same-direction signal on the other USD pair within 4h = correlated
 
@@ -266,8 +270,18 @@ class Vix1Strategy(BaseStrategy):
             # more than 1R to the original target is structurally guaranteed. `late` is now always
             # False and its keys are kept only so this card and the DB row need no schema change.
             late = False
-            tp = entry + 2.0 * risk if bullish else entry - 2.0 * risk
-            rr = 2.0
+            # THE TARGET IS 4R, NOT 2R — changed 2026-08-21 on his instruction. *"When the trade has
+            # the momentum to keep going we take up to where the momentum starts dying down so 2R is
+            # NOT A RULE but only applies where there is no momentum"*, and *"take profit at 4R"*,
+            # said twice.
+            #
+            # THE LADDER AND A 2R EXIT CANNOT BOTH EXIST. He wants the stop ratcheted at 2R, 3R and
+            # 4R (monitor/position_tracker.LADDER); a take profit resting at 2R would close every
+            # trade before the first rung was ever reached. So 4R goes on the order, the broker does
+            # the exit, and 2R becomes the FLOOR — the outcome when momentum dies, which is the 1M
+            # structure exit `vix1_manage` already owns, not a price sitting on the order.
+            tp = entry + _TP_R * risk if bullish else entry - _TP_R * risk
+            rr = _TP_R
             # One entry per setup, so it is SAVED (AssetPage + DM + TP/SL monitoring) and holds the
             # single symbol:direction reservation the validator/monitor/DB invariant assumes.
             # `vix1`, NOT `vix1_watch`: the _watch suffix is what the dispatcher reads to mean

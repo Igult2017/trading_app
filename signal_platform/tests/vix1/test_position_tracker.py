@@ -96,12 +96,34 @@ s.check("below 1R — nothing is sent", len(run([P(pid=10)], 1.1005)), 0)
 one = run([P(pid=11)], 1.1010)
 s.check("at 1R — exactly one alert", len(one), 1)
 s.check("...and it is BREAKEVEN", "BREAKEVEN" in one[0], True)
+
+# ── THE LADDER — his rungs, 2026-08-21 ──────────────────────────────────────
+# 2R -> lock +1R, 3R -> lock +2R, 4R -> lock +3R. The 4R rung does NOT close: the take profit sits
+# on the order at 4R, so this rung exists to have +3R banked before the broker exits.
 two = run([P(pid=12)], 1.1020)
-s.check("at 2R — three alerts (breakeven, trail, 2R)", len(two), 3)
-s.check("...breakeven first", "BREAKEVEN" in two[0], True)
-s.check("...then TRAIL TO 1R", "TRAIL TO 1R" in two[1], True)
-s.check("...then 2R REACHED", "2R REACHED" in two[2], True)
-s.check("the trail alert names the +1R price", "1.10100" in two[1], True)
+s.check("at 2R — breakeven plus the first rung", len(two), 2)
+s.check("...and the rung says LOCK +1R", "LOCK +1R" in two[1], True)
+s.check("...naming the +1R price", "1.10100" in two[1], True)
+
+three = run([P(pid=13)], 1.1030)
+s.check("at 3R — three messages", len(three), 3)
+s.check("...the last is LOCK +2R", "LOCK +2R" in three[2], True)
+s.check("...naming the +2R price", "1.10200" in three[2], True)
+
+four = run([P(pid=14)], 1.1040)
+s.check("at 4R — four messages", len(four), 4)
+s.check("...the last is LOCK +3R", "LOCK +3R" in four[3], True)
+s.check("...and it explains the broker does the exit", "broker does the exit" in four[3], True)
+s.check("...it does NOT claim to close the trade itself", "closing the trade" in four[3], False)
+
+# ordered, and a rung not reached ends the ladder
+s.check("at 2.9R the 3R rung has NOT fired",
+        any("LOCK +2R" in m for m in run([P(pid=15)], 1.1029)), False)
+
+# SELL mirrors — the locks go DOWN
+sells = run([P(pid=16, bullish=False, entry=1.1000, stop=1.1010)], 1.0980)
+s.check("SELL: at 2R it locks +1R below the entry", "LOCK +1R" in sells[1], True)
+s.check("...at 1.09900, not above", "1.09900" in sells[1], True)
 
 nostop = run([P(pid=13, stop=None)], 1.1010)
 s.check("a position with NO STOP gets one notice, not silence", len(nostop), 1)
@@ -116,6 +138,8 @@ s.check("...and an empty book also sends nothing", len(run([], 1.1010)), 0)
 
 # ── TEETH ───────────────────────────────────────────────────────────────────
 s.teeth("the 1R gate", len(run([P(pid=20)], 1.1009)) == 0)
+s.teeth("the ladder rungs are ordered and gated",
+        len(run([P(pid=21)], 1.1020)) < len(run([P(pid=22)], 1.1040)))
 s.teeth("breakeven really moves with cost",
         P(commission=3.5).breakeven() != P(commission=0.0).breakeven())
 s.teeth("R really is signed", P().r_at(1.0995) < 0)
