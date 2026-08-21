@@ -1860,7 +1860,14 @@ const landingStyles = `
    the buttons, where blue means "this is clickable". */
 .ts-page .hero h1{font-size:clamp(34px,4.4vw,56px);line-height:1.06;margin:20px 0 0;}
 .ts-page .hero h1 .l1{color:var(--text);font-weight:700;}
-.ts-page .hero h1 .l2{display:block;font-weight:500;color:var(--sky);letter-spacing:0;}
+/* BOTH LINES AT 700, and that is the point of the weight.
+   The tagline was 500 and he said it did not look like Playfair. He was reacting to something real:
+   Playfair's character is its thick-thin stroke contrast, and at 500 upright that contrast flattens
+   into a generic serif. (Measured at the time — the face WAS Playfair: "mirror every trade." came out
+   486.14px against Playfair's 486.14 and Georgia's 469.03. The font was right; the weight hid it.)
+   700 brings the contrast back, and it is also the one Playfair weight confirmed resolved on this
+   page. COLOUR now does all the separating, which is what he asked for. */
+.ts-page .hero h1 .l2{display:block;font-weight:700;color:var(--sky);letter-spacing:0;}
 .ts-page .hero .lede{color:var(--muted);font-size:18px;max-width:440px;margin:22px 0 32px;line-height:1.6;}
 .ts-page .hero .cta-row{display:flex;gap:14px;flex-wrap:wrap;}
 .ts-page .trust{margin-top:30px;display:flex;align-items:center;gap:11px;color:var(--faint);
