@@ -20,6 +20,13 @@
 @import '@fontsource-variable/jetbrains-mono';
 @import '@fontsource-variable/manrope';
 @import '@fontsource-variable/sora';
+/* Material Icons, self-hosted (2026-08-22). Trade Sync fetched this from Google at runtime, and it
+   was the SLOWER of its two remote font requests — measured cold at 629 ms for the stylesheet alone,
+   on top of Playfair's 344 ms. Until it lands, `fontGuard`'s `font-family:'Material Icons'` has
+   nothing to resolve to and every icon renders as its own ligature name ("chevron_left",
+   "light_mode"), which is the ugliest failure on that screen. This package declares the same
+   'Material Icons' family, so nothing that references it needs to change. */
+@import '@fontsource/material-icons';
 
 /* Static fonts — load only the weights actually used */
 @import '@fontsource/montserrat/400.css';
