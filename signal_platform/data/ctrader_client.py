@@ -56,7 +56,7 @@ async def _load_symbols(reader, writer) -> None:
         return
     req = ProtoOASymbolsListReq(ctidTraderAccountId=_sess._account_id)
     await _sess.send(writer, req.payloadType, req.SerializeToString())
-    resp = await asyncio.wait_for(_sess.recv(reader), timeout=15)
+    resp = await asyncio.wait_for(_sess.recv_expect(reader, TYPE_SYMBOLS_RES), timeout=15)
     if resp.payloadType != TYPE_SYMBOLS_RES:
         raise RuntimeError(f"[ctrader] symbol list failed (type={resp.payloadType})")
     res = ProtoOASymbolsListRes()
@@ -121,7 +121,14 @@ async def fetch_bars(
                 await asyncio.sleep(gap)
             _last_req = time.monotonic()
             await _sess.send(writer, req.payloadType, req.SerializeToString())
-            resp = await asyncio.wait_for(_sess.recv(reader), timeout=20)
+            # recv_expect, NOT recv. This line is the one that BROKE on 2026-08-21: a position was
+            # opened elsewhere, cTrader pushed an execution event onto this shared socket, the
+            # reconcile reader upstream consumed the wrong message and every candle fetch after it
+            # read one message behind — "unexpected payloadType" and "MISALIGNED response" for as
+            # long as the connection lived. Skipping pushes here makes the candle feed immune to
+            # anything the account does, which it never was.
+            resp = await asyncio.wait_for(
+                _sess.recv_expect(reader, TYPE_TRENDBARS_RES), timeout=20)
 
         except ValueError:
             raise  # symbol not found — logic error, no connection to reset

@@ -110,9 +110,14 @@ async def open_positions() -> list[Position] | None:
             await _load_symbols(reader, writer)
             req = ProtoOAReconcileReq(ctidTraderAccountId=_sess._account_id)
             await _sess.send(writer, req.payloadType, req.SerializeToString())
-            resp = await asyncio.wait_for(_sess.recv(reader), timeout=15)
+            # recv_expect, NOT recv — opening a position makes cTrader push an execution event, and
+            # a bare recv reads that as the reply, leaving the real one to desynchronise the shared
+            # socket for every later reader. That is exactly what this module caused on 2026-08-21.
+            resp = await asyncio.wait_for(
+                _sess.recv_expect(reader, _TYPE_RECONCILE_RES), timeout=15)
         if resp.payloadType != _TYPE_RECONCILE_RES:
-            log.warning(f"[ctrader_positions] unexpected reply type {resp.payloadType}")
+            log.warning(f"[ctrader_positions] broker answered {resp.payloadType} "
+                        f"({_sess._describe_resp(resp)})")
             return None
         res = ProtoOAReconcileRes()
         res.ParseFromString(resp.payload)

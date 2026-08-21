@@ -64,7 +64,9 @@ async def _newest(reader, writer, sid: int, quote_type: int) -> float | None:
         fromTimestamp=now_ms - _WINDOW, toTimestamp=now_ms,
     )
     await _sess.send(writer, req.payloadType, req.SerializeToString())
-    resp = await asyncio.wait_for(_sess.recv(reader), timeout=15)
+    # recv_expect: the shared socket carries unsolicited pushes, and reading one as the reply leaves
+    # the real reply behind to desynchronise every later reader. See ctrader_session.recv_expect.
+    resp = await asyncio.wait_for(_sess.recv_expect(reader, _TYPE_TICK_RES), timeout=15)
     if resp.payloadType != _TYPE_TICK_RES:
         return None
     res = ProtoOAGetTickDataRes()

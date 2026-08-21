@@ -167,6 +167,41 @@ async def recv(reader: asyncio.StreamReader) -> ProtoMessage:
 PT_OA_ERROR = 2142   # ProtoOAErrorRes — carries cTrader's real errorCode + description
 PT_ERROR    = 50     # ProtoErrorRes (common protocol error)
 
+# Unsolicited pushes we may safely step over while waiting for a reply. Named for the log line, not
+# used as a whitelist — `recv_expect` skips ANYTHING that is not the reply it wants, because the set
+# of things cTrader can push is not knowable from here and a whitelist would rot silently.
+_PUSH_NAMES = {51: "heartbeat", 2126: "execution event", 2131: "spot", 2132: "order error",
+               2142: "error", 2147: "margin change", 2164: "trailing SL change"}
+
+
+async def recv_expect(reader: asyncio.StreamReader, want: int,
+                      max_skip: int = 64) -> ProtoMessage:
+    """Read until the reply we actually asked for arrives, stepping over unsolicited pushes.
+
+    WHY THIS EXISTS — a real outage, 2026-08-21, caused by the code that was supposed to avoid it.
+    The shared socket carries PUSHES as well as replies. `recv` already skipped heartbeats for
+    exactly this reason ("a heartbeat landing between a request and its response is misread as the
+    response"), but only heartbeats. The moment a POSITION was opened, cTrader pushed a
+    ProtoOAExecutionEvent (2126); the reconcile request read that as its answer, and its real reply
+    (ProtoOAReconcileRes, 2125) stayed in the buffer for the NEXT reader — the candle fetch — which
+    then reported `unexpected payloadType=2125` and `MISALIGNED response`. One push desynchronises
+    the stream permanently, because every subsequent read is one message behind.
+
+    `_req_lock` does not help: it serialises REQUESTS, and the pushes arrive between a request and
+    its reply regardless of who holds the lock.
+
+    A REAL ERROR IS RETURNED, NOT SKIPPED. If the broker answers our request with ProtoOAErrorRes the
+    caller must see it; skipping it would spin until the timeout and report "no reply" instead of the
+    reason. The caller checks payloadType and decides.
+    """
+    for _ in range(max_skip):
+        msg = await recv(reader)
+        if msg.payloadType in (want, PT_OA_ERROR, PT_ERROR):
+            return msg
+        log.debug("[ctrader] skipped %s (%d) while waiting for %d",
+                  _PUSH_NAMES.get(msg.payloadType, "push"), msg.payloadType, want)
+    raise RuntimeError(f"[ctrader] {max_skip} messages arrived without a reply of type {want}")
+
 
 def _describe_resp(resp) -> str:
     """Decode a cTrader error response so auth failures show the REAL errorCode, not just a
