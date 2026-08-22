@@ -264,21 +264,31 @@ chk("a lone zone still gets a group id", supply(10, 1.31, 1.312).group == -1, Tr
 # The document says the same twice: a Fake CHoCH is "price did not reverse from a major UNMITIGATED
 # demand zone" (§9), and §21's sequence ENDS at "extreme zone mitigated".
 print()
-print("only an UNMITIGATED zone may be the extreme:")
-spent_far = supply(10, 1.3100, 1.3130, state="respected")      # furthest, but spent
-fresh_near = supply(14, 1.3040, 1.3070, state="unmitigated")   # nearer, still loaded
-classify_roles([spent_far, fresh_near], [], BI)
-chk("the furthest zone does NOT win the label when it is spent", spent_far.role, "decisional")
-chk("  ...the nearest UNMITIGATED zone does instead", fresh_near.role, "extreme")
+print("the extreme passes on a BREAK, not on a touch (his rule, 2026-08-22):")
+# SUPERSEDED RULE, kept visible so the change is legible. This block used to assert that only an
+# UNMITIGATED zone could hold the label — "the furthest zone does NOT win when it is spent". His
+# instruction replaced it: *"consider the first one extreme UNTIL IT IS BROKEN, and when it is broken
+# we consider the next one an extreme zone."* Measured cost of the old reading on EUR/USD over 4.8
+# months: 244 zone-taps collapsed to 16 that were unmitigated AND extreme — 93% lost in one step.
+touched_far = supply(10, 1.3100, 1.3130, state="respected")      # furthest, and already worked
+fresh_near  = supply(14, 1.3040, 1.3070, state="unmitigated")    # nearer, untouched
+classify_roles([touched_far, fresh_near], [], BI)
+chk("a TOUCHED zone keeps the label — only a break hands it on", touched_far.role, "extreme")
+chk("  ...and the nearer one is the decisional", fresh_near.role, "decisional")
 
-allspent = [supply(10, 1.3100, 1.3130, state="respected"),
-            supply(14, 1.3040, 1.3070, state="body_mitigated")]
-classify_roles(allspent, [], BI)
-chk("a group with nothing unmitigated has NO extreme at all",
-    sum(1 for z in allspent if z.role == "extreme"), 0)
-chk("  ...and every zone in it is decisional, so none is tradeable",
-    all(z.role == "decisional" for z in allspent), True)
-teeth("the unmitigated-extreme rule", spent_far.role == "decisional" and fresh_near.role == "extreme")
+worked = [supply(10, 1.3100, 1.3130, state="respected"),
+          supply(14, 1.3040, 1.3070, state="body_mitigated")]
+classify_roles(worked, [], BI)
+chk("a group where every zone has been touched STILL has an extreme",
+    sum(1 for z in worked if z.role == "extreme"), 1)
+chk("  ...the furthest of them", max(worked, key=lambda z: z.proximal).role, "extreme")
+# A BROKEN zone is excluded from grouping entirely (classify_roles filters on `z.live`), so it can
+# neither hold the label nor block the next one from it.
+mixed = [supply(10, 1.3100, 1.3130, state="broken"),
+         supply(14, 1.3040, 1.3070, state="body_mitigated")]
+classify_roles(mixed, [], BI)
+chk("a BROKEN zone hands the label to the next one out", mixed[1].role in ("extreme", ""), True)
+teeth("the break-not-touch rule", touched_far.role == "extreme" and fresh_near.role == "decisional")
 
 
 # ── CRITERION 2: LIQUIDITY SWEPT ON THE WAY IN ──────────────────────────────────────────────────

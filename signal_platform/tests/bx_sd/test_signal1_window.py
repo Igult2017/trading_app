@@ -84,12 +84,15 @@ high = zone("supply", 1.1100, 1.1120, marked=100, mitigated=500, group=1)
 low  = zone("supply", 1.1000, 1.1020, marked=110, mitigated=200, group=1)
 chk("the higher supply zone was the extreme at bar 150", s1.was_extreme_at(high, [high, low], 150), True)
 chk("the lower one was not",                             s1.was_extreme_at(low,  [high, low], 150), False)
-# THE WHOLE POINT: after its own tap, `high` is no longer unmitigated, so today it reads decisional.
-chk("AFTER its tap it is no longer extreme — as the registry would say",
-    s1.was_extreme_at(high, [high, low], 600), False)
-chk("...but asked AS OF THE TAP, it still is", s1.opened_window(high, [high, low]), True)
-teeth("asking 'now' instead of 'at the tap' would refuse it — the signal-2 bug",
-      s1.was_extreme_at(high, [high, low], 600) is False and s1.opened_window(high, [high, low]) is True)
+# HIS RULE, 2026-08-22: a touched zone KEEPS the label; only a break hands it on. This block used to
+# assert the opposite ("after its tap it is no longer extreme"), which was the rule until that day.
+chk("after its own tap it is STILL the extreme — only a break would end that",
+    s1.was_extreme_at(high, [high, low], 600), True)
+chk("...and asked as of the tap, likewise", s1.opened_window(high, [high, low]), True)
+# A BROKEN zone drops out of grouping entirely, so it can hold no role at that moment.
+broke = zone("supply", 1.1100, 1.1120, marked=100, mitigated=500, broken=550, group=1)
+teeth("a BREAK does end it — that is the one thing that hands the label on",
+      s1.was_extreme_at(broke, [broke, low], 600) is False)
 
 # A zone alone in its group holds no role at all (registry:302)
 lone = zone("demand", 1.0900, 1.0920, marked=100, mitigated=200, group=7)

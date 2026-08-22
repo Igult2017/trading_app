@@ -301,11 +301,22 @@ def _label(group: list[MarkedZone], side: str, gid: int) -> None:
         z.group = gid
     if len(group) < 2:
         return                              # alone: no distinction exists, so none is claimed
-    fresh = [z for z in group if z.state == "unmitigated"]
-    best = None
-    if fresh:
-        best = max(fresh, key=lambda z: z.proximal) if side == "supply" \
-            else min(fresh, key=lambda z: z.proximal)
+    # THE EXTREME PASSES ON A BREAK, NOT ON A TOUCH (his rule, 2026-08-22):
+    #
+    #     "if we have more than one qualifying extreme zone, consider the first one extreme UNTIL IT
+    #      IS BROKEN, and when it is broken we consider the next one an extreme zone until one is
+    #      respected."
+    #
+    # This used to read `[z for z in group if z.state == "unmitigated"]`, so the moment price touched
+    # a zone it stopped being eligible and the group could be left with NO extreme at all. Measured
+    # on EUR/USD over 4.8 months: 244 zone-taps collapsed to 16 that were "unmitigated AND extreme
+    # when tapped" — a 93% loss in one step, and the single biggest reason both signals were starved.
+    # A touched zone has not failed; only a zone price CLOSED THROUGH has.
+    #
+    # `group` already holds only LIVE zones (`classify_roles` filters on `z.live`, and `live` excludes
+    # `broken`), so every member here is by definition not-broken and the furthest one is the extreme.
+    best = (max(group, key=lambda z: z.proximal) if side == "supply"
+            else min(group, key=lambda z: z.proximal))
     for z in group:
         z.role = "extreme" if z is best else "decisional"
 

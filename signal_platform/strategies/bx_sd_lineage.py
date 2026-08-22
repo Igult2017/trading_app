@@ -138,16 +138,15 @@ def was_extreme_at(z: MarkedZone, zones: list[MarkedZone], when: int) -> bool:
     """
     if z.group is None or z.group < 0:
         return False                                # ungrouped: registry claims no role
-    if state_at(z, when) != "unmitigated":
-        return False                                # only an untouched zone can be the extreme
+    if not live_at(z, when):
+        return False                                # broken (or not yet marked) -> no role at all
     group = [o for o in zones if o.group == z.group and live_at(o, when)]
     if len(group) < 2:
         return False                                # alone in its group -> role "" (registry:302)
-    fresh = [o for o in group if state_at(o, when) == "unmitigated"]
-    if not fresh:
-        return False
-    best = (max(fresh, key=lambda o: o.proximal) if z.direction == "supply"
-            else min(fresh, key=lambda o: o.proximal))
+    # Mirrors `_label` after his 2026-08-22 change: the extreme is the furthest NOT-BROKEN zone in
+    # the group, not the furthest untouched one. `group` is already filtered to zones live at `when`.
+    best = (max(group, key=lambda o: o.proximal) if z.direction == "supply"
+            else min(group, key=lambda o: o.proximal))
     return best is z
 
 
@@ -209,7 +208,17 @@ def choch_verdict(child: MarkedZone, zones: list[MarkedZone], bars, pools) -> st
         return CHOCH_FAKE_NO_PARENT
     if not choch_complete(child):
         return CHOCH_FAKE_NO_BREAK
-    if not swept_before_tap(parent, bars, pools):
+    # A BROKEN ZONE IS ITSELF THE LIQUIDITY (his rule, 2026-08-22):
+    #
+    #     "once the first one is broken, the next one qualifies whether liquidity is swept or not,
+    #      because remember a zone itself is liquidity — so where there is no liquidity the zone
+    #      becomes liquidity and then the next zone is respected."
+    #
+    # So if price CLOSED THROUGH a same-side zone on its way to this one, that break IS the grab and
+    # the separate sweep requirement is satisfied. Without this the rule double-charges: price has to
+    # take out resting stops AND the zone it just destroyed does not count as any.
+    if not (swept_before_tap(parent, bars, pools)
+            or same_side_zone_broken_before(parent, zones)):
         return CHOCH_FAKE_NO_SWEEP
     # THE DECISIONAL TEST — HIS DEFINITION, 2026-08-22:
     #
@@ -259,6 +268,22 @@ def swept_before_tap(parent: MarkedZone, bars, pools) -> bool:
         return False                    # older than the window handed to us — cannot judge it
     side = "sell" if parent.direction == "demand" else "buy"
     return swept_within(pools, bars, side, max(0, tap_i - LIQ_WINDOW), tap_i)
+
+
+def same_side_zone_broken_before(parent: MarkedZone, zones: list[MarkedZone]) -> bool:
+    """Did price close through a zone on the SAME side before it reached this one?
+
+    His rule: a zone IS liquidity, so breaking one is a liquidity grab in its own right. Same side,
+    because those are the zones price fought through on this approach — the stack in his diagram.
+    Bounded to breaks that happened BEFORE this zone was tapped: a break afterwards belongs to what
+    came next, not to the approach.
+    """
+    tap = parent.mitigated_at
+    if tap is None:
+        return False
+    return any(o is not parent and o.direction == parent.direction
+               and o.broken_at is not None and o.broken_at < tap
+               for o in zones)
 
 
 def is_entry_zone(mz: MarkedZone, zones: list[MarkedZone], live,
