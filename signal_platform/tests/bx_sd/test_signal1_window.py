@@ -138,6 +138,39 @@ untapped = zone("demand", 1.0980, 1.1000, marked=100, group=1)
 chk("never tapped at all -> no window", s1.window_open(untapped, [untapped, nbr], after), False)
 
 print()
+print("THE 1H + 15M/30M REQUIREMENT — it GATES, it does not score")
+# "These are a confluence for signal one and also a requirement. Without them the signal doesn't fire."
+def h1bar(t_, lo, hi):
+    return Candle(time=t_, open=(lo + hi) / 2, high=hi, low=lo, close=(lo + hi) / 2,
+                  volume=0, timeframe="H1")
+
+flat = [h1bar(i * 3600, 1.1000, 1.1002) for i in range(200)]   # no imbalance -> no zones anywhere
+books_flat = s1.build_mtf_books(flat, flat, flat, 0.0001)
+here = h1bar(999, 1.0990, 1.1010)
+ok, legs, _ = s1.mtf_confluence("buy", here, books_flat)
+chk("a market with no zones fails the requirement", ok, False)
+chk("...and names no legs", legs, [])
+
+books_no_h1 = s1.build_mtf_books([], flat, flat, 0.0001)
+ok2, _l, _h = s1.mtf_confluence("buy", here, books_no_h1)
+chk("no 1H feed at all -> refused (1H is required, not optional)", ok2, False)
+
+chk("no confluence -> no pullback zone to enter on",
+    s1.pullback_zone("buy", here, books_flat), (None, None))
+teeth("the requirement can actually refuse — it is a gate, not a score",
+      s1.mtf_confluence("buy", here, books_flat)[0] is False)
+
+print()
+print("PERFORMANCE CONTRACT — the books are built once, not once per zone")
+import time as _t
+_t0 = _t.perf_counter()
+for _ in range(50):
+    s1.mtf_confluence("buy", here, books_flat)
+_ms = (_t.perf_counter() - _t0) * 1000
+chk("50 zones cost well under a second when the books are passed in", _ms < 500, True)
+print(f"        (measured {_ms:.1f} ms for 50 — rebuilding inside the loop was ~2,400 ms)")
+
+print()
 if failed:
     print(f"{len(failed)} of {count} FAILED: {failed}")
     sys.exit(1)

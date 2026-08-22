@@ -32,7 +32,11 @@ Nothing here mutates a zone. The registry stamps every transition with a timesta
 the book looked like at any earlier bar — so this module READS history rather than storing more of it.
 """
 from core.types import Candle
-from strategies.bx_sd_registry import MarkedZone
+from strategies.bx_sd_registry import MarkedZone, build as build_zones, to_zone
+from strategies.bx_sd_setup import SetupResult
+from strategies.bx_sd_ltf import LTFConfluence
+from strategies.bx_sd_entry import entry_trigger
+from shared.mtf_utils import closed_only
 
 
 def state_at(z: MarkedZone, when: int) -> str:
@@ -157,3 +161,153 @@ def window_open(z: MarkedZone, zones: list[MarkedZone], bars: list[Candle]) -> b
     if opposite_broken_since(z, zones, tap):
         return False                                # CHoCH began — signal 2's ground from here
     return True
+
+
+# ── THE PULLBACK, AND WHAT MUST BE TRUE WHERE IT LANDS ───────────────────────────────────────────
+
+def tapped_now(zones: list[MarkedZone], live: Candle) -> list[MarkedZone]:
+    """Which live zones is the FORMING bar touching right now, same-direction filtering left to the
+    caller. A tap is an EVENT happening now, so it is asked of the forming bar — the same rule the
+    rest of the cascade follows (`bx_sd_setup`: "the FORMING bar is in the zone RIGHT NOW")."""
+    return [z for z in zones if z.live and z.tapped_by(live)]
+
+
+def build_mtf_books(h1, m30, m15, pip: float) -> dict:
+    """Zone books for the confluence legs — built ONCE PER SCAN, not once per zone.
+
+    THIS IS A PERFORMANCE CONTRACT, not a tidiness preference. `find_signal1` is asked about every
+    zone on the 4H book, and the first version rebuilt all three of these inside it: ~50 zones x 3
+    replays = 150 zone replays per instrument per tick, against a tick that already takes ~12s.
+    Building them here and passing them down makes it three, whatever the book's size.
+    """
+    return {"1H":  (build_zones(h1, pip)  if h1  else [], h1),
+            "30M": (build_zones(m30, pip) if m30 else [], m30),
+            "15M": (build_zones(m15, pip) if m15 else [], m15)}
+
+
+def mtf_confluence(direction: str, live: Candle, books: dict) -> tuple[bool, list[str], list]:
+    """HIS REQUIREMENT, not a score: a 1H zone AND a 15M-or-30M zone must be tapped here.
+
+        "Also add 1HR ... and 30m or 15ms as a confluence. There has to be a zone the price is
+         tapping in those confluences which confirms the confirmation entry in 1m or 5min is genuine."
+
+    He was asked directly whether this scores or refuses and answered: *"These are a confluence for
+    signal one and also a requirement. Without them the signal doesn't fire."* So it GATES.
+
+    1H IS THE ONLY HIGHER LEG. He chose it over 2H — *"1HR is enough so lets use 1HR instead of
+    2HR"* — which also avoids building a timeframe the broker does not serve natively (H1/H4/H12
+    only; an H2 bar would have to be glued from two H1s).
+
+    THE SAME `build` THE 4H BOOK USES, on a finer series. It is generic over any candle list, so the
+    zone definition — imbalance + broke structure + liquidity swept before it — is identical on every
+    leg. A second, looser "is there a zone here" test would drift from the 4H one, and drift between
+    two copies of a rule is a failure this codebase has already paid for.
+    """
+    want = "demand" if direction == "buy" else "supply"
+    legs: list[str] = []
+    hit: list = []
+
+    h1_zones = [z for z in tapped_now(books["1H"][0], live) if z.direction == want]
+    if h1_zones:
+        legs.append("1H")
+        hit += h1_zones
+
+    lower = False
+    for label in ("30M", "15M"):
+        zs = [z for z in tapped_now(books[label][0], live) if z.direction == want]
+        if zs:
+            legs.append(label)
+            hit += zs
+            lower = True
+
+    return (bool(h1_zones) and lower), legs, hit
+
+
+def pullback_zone(direction: str, live: Candle, books: dict):
+    """The zone the pullback is landing on, and the leg it came from — nearest tapped zone to price.
+
+    His preference, and it is a preference rather than a condition: *"if we get it tapping a zone it
+    formed along the way, the better because that is a stronger confluence."* So the trigger is the
+    pullback itself; which zone it lands on decides where the entry and stop sit.
+
+    Nearest, not largest: the entry is priced INSIDE this zone, so a distant one would hang the stop
+    somewhere price is not. The LEG is returned with it because `to_zone` resolves indices against
+    the series the zone was built from — hand it the wrong one and it silently returns None.
+    """
+    ok, _legs, _hit = mtf_confluence(direction, live, books)
+    if not ok:
+        return None, None
+    want = "demand" if direction == "buy" else "supply"
+    px = live.close
+    best, best_leg, best_d = None, None, None
+    for label in ("1H", "30M", "15M"):
+        for z in tapped_now(books[label][0], live):
+            if z.direction != want:
+                continue
+            d = abs(((z.top + z.bottom) / 2.0) - px)
+            if best_d is None or d < best_d:
+                best, best_leg, best_d = z, label, d
+    return best, best_leg
+
+
+def find_signal1(direction: str, ext: MarkedZone, zones: list[MarkedZone], h4: list[Candle],
+                 books: dict, entry_tf: list[Candle], m5: list[Candle], pip: float):
+    """The whole of signal 1, in his order. Returns (setup, conf, trig, legs) or None.
+
+        tap an unmitigated extreme -> leave its band -> first pullback -> a 1H zone AND a 15M/30M
+        zone tapped there -> a 1M/5M confirmed entry.        Window dies at the first opposite break.
+
+    ENTRY, STOP AND TARGET ARE SIGNAL 2's, UNCHANGED. `entry_trigger` is reused as-is, anchored on
+    the pullback zone instead of the 4H zone: entry at the refined 5M zone's start (or its 50% when
+    the book's wick/width rule applies), stop at that zone's far edge, target a fixed 3R. Not a new
+    pricing rule — his existing rules applied to a different zone, which is the only change he asked
+    for. A separate pricing model here would be a second definition of "entry" to keep in step.
+    """
+    bars = closed_only(h4)
+    if not bars or not window_open(ext, zones, bars):
+        return None
+    live = h4[-1]                       # the FORMING bar — the pullback is an event happening now
+    pz, leg = pullback_zone(direction, live, books)
+    if pz is None:
+        return None                     # no 1H + 15M/30M zone here: his requirement, so no signal
+    _ok, legs, _hit = mtf_confluence(direction, live, books)
+
+    z = to_zone(pz, closed_only(books[leg][1]))
+    if z is None:
+        return None
+    setup = SetupResult(active=True, direction=direction, zone=z, entry_via="pullback")
+    conf  = LTFConfluence(confirmed=True, passed=True, refined_zone=z)
+    trig  = entry_trigger(conf, setup, entry_tf, h4, pip, session_candles=books["15M"][1], refine_tf=m5)
+    if not trig.triggered:
+        return None
+    return setup, conf, trig, legs
+
+
+def build_signal1(symbol: str, setup, conf, trig, legs: list[str], ext: MarkedZone,
+                  pip: float, digits: int, strategy_id: str, strategy_name: str):
+    """The signal-1 card. A REAL trade, tagged as the risky one.
+
+    His ruling when asked whether signal 1 stays an alert or becomes tradeable:
+    *"It should be a valid signal but carries unconfirmed/risky entry tag."*
+
+    So unlike the old stage-1 heads-up it carries entry, stop and target — and unlike signal 2 it
+    says plainly that the change of character has NOT completed yet. That is the whole difference
+    between the two, and the reader has to be able to see it on the card without counting fields.
+    """
+    from strategies.bx_sd_signal import build_signal
+    from notifications import titles
+
+    sig = build_signal(symbol, setup, conf, trig, pip, digits, strategy_id, strategy_name)
+    sig.headline = titles.UNCONFIRMED_ENTRY
+    sig.stage    = "building"          # amber on the card — the CHoCH has not completed
+    sig.alert_only = False             # it is a trade, so it is not an alert
+    sig.to_channel = True              # his rule, 2026-08-19: both signals go to the channel
+    sig.technical_reasons = [
+        "⚠️ RISKY / UNCONFIRMED ENTRY — the change of character has NOT completed. "
+        "This is the pullback after the extreme zone reacted, taken before the opposite zone breaks.",
+        f"4H extreme {ext.direction} zone was UNMITIGATED when price tapped it "
+        f"[{ext.bottom:.{digits}f}–{ext.top:.{digits}f}]",
+        f"Price left the zone and pulled back into a {' + '.join(legs)} zone",
+        *sig.technical_reasons,
+    ]
+    return sig

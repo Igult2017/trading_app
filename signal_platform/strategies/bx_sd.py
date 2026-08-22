@@ -25,6 +25,7 @@ from strategies.bx_sd_htf import htf_zone_map
 from strategies.bx_sd_watch import (check_invalidation, invalidation_signal,
                                     zone_broken_after_signal)
 from strategies.bx_sd_reports import scan_reports
+from strategies import bx_sd_signal1
 
 log = logging.getLogger(__name__)
 
@@ -132,6 +133,39 @@ class BXStrategy(BaseStrategy):
         if len(entry_tf) < 30:
             self._log(sym, "AWAIT_DATA", f"cascade needs an entry TF (M1={len(m1)} M5={len(m5)}) — reports still ran")
             return StrategyResult(signals=out)
+
+        # SIGNAL 1 — the pullback after the extreme zone reacted, BEFORE the CHoCH completes.
+        #
+        # His sequence, 2026-08-22: tap an unmitigated EXTREME zone -> price leaves its band -> the
+        # first pullback -> a 1H zone AND a 15M/30M zone tapped there -> a 1M/5M confirmed entry.
+        # The window dies the moment price closes through the first opposite zone, because that is
+        # the CHoCH and signal 2 owns everything from there.
+        #
+        # It runs BEFORE the signal-2 cascade and independently of it: the two are different moments
+        # on the same move, and signal 1 must not wait on a gate signal 2 owns.
+        # The confluence books are built ONCE here. Building them inside the loop meant ~50 zones x
+        # 3 zone replays per instrument per tick, on a tick that already runs ~12s.
+        _books = bx_sd_signal1.build_mtf_books(
+            context.candles.get(TF.H1), context.candles.get(TF.M30), m15, pip)
+        for _ext in book:
+            _s1 = bx_sd_signal1.find_signal1(
+                "buy" if _ext.direction == "demand" else "sell", _ext, book, h4,
+                _books, entry_tf, m5, pip)
+            if _s1 is None:
+                continue
+            _setup, _conf, _trig, _legs = _s1
+            # One per extreme zone per tap — keyed on the tap that opened the window, so a later
+            # pullback in the SAME window cannot re-fire and a new tap opens a fresh one.
+            _k1 = f"{sym}_s1_{_ext.ifc_time}_{_ext.direction}_{_ext.mitigated_at}"
+            if delivery_ledger.is_delivered(_k1):
+                continue
+            _sig1 = bx_sd_signal1.build_signal1(sym, _setup, _conf, _trig, _legs, _ext,
+                                                pip, digits, self.id, self.name)
+            _sig1.dedup_key = _k1
+            self._log(sym, "SIGNAL_1", f"{_trig.direction.upper()} risky entry {_trig.entry:.{digits}f} "
+                      f"SL {_trig.sl:.{digits}f} TP {_trig.tp:.{digits}f} [{'+'.join(_legs)}]")
+            out.append(_sig1)
+            break                      # one signal-1 per scan; the freshest window wins
 
         # STAGE 1 — 4H setup (valid fresh zone EITHER SIDE, tapped, priced, liquidity-safe)
         setup = detect_setup(h4, pip, book=book, htf_map=htf_map,

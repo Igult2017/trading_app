@@ -121,6 +121,55 @@ replay added *every live zone* to its "already seen this visit" set instead of o
 ones, so from the second bar onward nothing could ever count. The book was healthy throughout — 26 of
 51 live zones were entry-eligible but for the tap. **Verify a 0 against the book before believing it.**
 
+## SIGNAL 1 REBUILT — the pullback entry (2026-08-22)
+
+His specification, given answer-by-answer and quoted here because it supersedes the version above:
+
+| | |
+|---|---|
+| opens | price taps a zone that was **unmitigated AND extreme at that moment** |
+| then | price **leaves the zone's band** — *not* `respected`. *"any pullback that comes after the price has left the extreme zone it tapped"* |
+| fires | the **first pullback**, wherever it lands. No clock: *"we dont use time we just keep track of price action"* |
+| requires | a **1H zone AND a 15M-or-30M zone** being tapped there. Asked directly whether this scores or refuses: *"These are a confluence for signal one and also a requirement. Without them the signal doesn't fire."* It **GATES** |
+| confirms | a **1M/5M** entry, the same `reaction_on` the rest of the cascade uses |
+| closes | price closes through the **first opposite zone** — *"this stops when the price has broken the first opposite zone which is the first qualification for signal 2 after CHOCH"* |
+| carries | a real entry/stop/target, tagged **UNCONFIRMED / RISKY**: *"It should be a valid signal but carries unconfirmed/risky entry tag"* |
+| 1H, not 2H | *"1HR is enough so lets use 1HR instead of 2HR"* — which also avoids gluing a timeframe the broker does not serve natively |
+
+**EVERY CHECK IS ASKED OF THE MOMENT PRICE ARRIVED, NEVER OF NOW — and that is the whole design.**
+Both labels his rule names are destroyed by the tap that triggers it: a tapped zone is no longer
+`unmitigated`, and only an unmitigated zone may hold `extreme` (`classify_roles`, registry:304), so
+it is relabelled `decisional` when the tapping bar closes. Ask either question at entry time and the
+answer is always NO. **That is precisely the contradiction that has had signal 2 dead since 14 Aug**
+(see the gate note below), and `bx_sd_signal1.was_extreme_at` exists so signal 1 cannot inherit it.
+The reconstruction reads the registry's own transition stamps (`marked_at`, `mitigated_at`,
+`respected_at`, `broken_at`) — no new state is stored.
+
+**Entry, stop and target are signal 2's, unchanged.** `entry_trigger` is reused as-is, anchored on
+the pullback zone instead of the 4H zone. Not a new pricing rule — his existing rules applied to a
+different zone, which is the only change he asked for.
+
+**The window close does NOT use `broke_through`.** That counter looks forward from a zone's
+*creation* and stops at the first counter-side structure event, so on an extreme zone it measures the
+original impulse that left the zone behind — possibly months before price came back to tap it. Right
+for signal 2, where the child is created BY the reaction; wrong here. `broken_at` per zone answers
+his question directly.
+
+**One approximation, stated rather than hidden.** `was_extreme_at` reconstructs the group from
+`z.group`, which the registry computes over zones live NOW. A zone that was live at the tap but has
+since broken carries group -1 and is invisible, so in that narrow case this can say `extreme` where
+the registry would have said `decisional`. Grouping is not re-derived here on purpose — a second copy
+of that rule would drift from the registry's. Consequence: if the extreme zone itself later breaks,
+the window closes.
+
+**Performance contract.** `build_mtf_books` is called ONCE per scan. The first version built the
+1H/30M/15M books inside `find_signal1`, which runs per zone — ~50 zones x 3 replays per instrument
+per tick, on a tick that already takes ~12s. Measured after the fix: 48 ms once, then 8.8 ms for all
+50 zones.
+
+**Files:** `strategies/bx_sd_signal1.py` (new), wired in `strategies/bx_sd.py` before the signal-2
+cascade. Tests: `tests/bx_sd/test_signal1_window.py` (33 checks).
+
 ## The lifecycle
 
 **Rewritten 2026-07-30.** Mitigation is by **wick OR body** and the two are different events; a tap
@@ -573,6 +622,22 @@ pullback in 4HR"*.
    **DO NOT PROMOTE 2 OR 3 TO GATES.** Criterion 2 shipped as a gate for one day and refused 33-55%
    of taps; BX already requires the 4H zone AND a 1M/5M confirmation, so a third mandatory refusal
    stops the strategy trading. The user's rule: *"we still have double checks."*
+
+0z. **SIGNAL 2 IS BLOCKED SHUT — two gates in one loop that cannot both be true (found 2026-08-22).**
+   `bx_sd_setup` requires `mz.state == "respected"` (line ~230) and then, 47 lines later,
+   `mz.state == "unmitigated" or mz.wick_only` (line ~277). `respected` is neither, so **no zone in
+   any state passes both**. Verified across every state the registry can hold: unmitigated blocked by
+   the first, wick/body blocked by both, respected blocked by the second, broken blocked by both.
+   **Nothing has passed since 14 Aug 2026 12:57 UTC** — 18 confirmed entries in the 30 days before,
+   zero in the 8 days after, and zero entry candidates even BUILT. Production, 21 Aug 20:59: EUR/USD
+   14 zones tapped, GBP/USD 10, GBP/JPY 9, USD/JPY 6 — every one refused, all four pairs at once.
+   **NOT FIXED — awaiting his ruling on which gate is the intruder.** The reading offered (his, not
+   mine, to accept or reject): the parent must be `respected`, the child must be `unmitigated`, and
+   the loop applies both to the same zone. `bx_sd_signal1.was_extreme_at` shows the shape of the fix.
+
+0y. **`4c45cee` promoted the three CHoCH criteria to GATES**, which defect 0a below explicitly
+   forbids — *"DO NOT PROMOTE 2 OR 3 TO GATES… a third mandatory refusal stops the strategy
+   trading."* It postdates the 14 Aug stop so it is not the cause, but it will compound it. Untouched.
 
 0. **The document's CHoCH definition is NOT built, and it is blocked on a design decision.** Smart
    Risk: a change of character is a close beyond the last major swing **AND through the latest
