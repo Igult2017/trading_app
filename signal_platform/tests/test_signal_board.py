@@ -11,7 +11,8 @@ Measured against production before the fix: /api/trading-signals?status=active -
 
 Covers the three things that can silently break again:
   * the state mapping (a watch row must never read as a live trade)
-  * the weekly cutoff arithmetic (off-by-one on a Monday loses or keeps a week)
+  * the monthly cutoff arithmetic (off-by-one on the 1st loses or keeps a month), and
+    that the Node read-filter agrees with the Python purge to the instant
   * that NO outcome is ever recorded — there is no entry logic, so a win/loss would be a guess
 """
 import os
@@ -21,7 +22,7 @@ from datetime import datetime, timedelta, timezone
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 os.environ.setdefault("DATABASE_URL", "postgresql://x/x")
 
-from storage.signal_repo import STATUS_WATCHING, week_start          # noqa: E402
+from storage.signal_repo import STATUS_WATCHING, month_start         # noqa: E402
 
 F, N = [], 0
 
@@ -88,25 +89,50 @@ teeth("no label mentions a win, loss or P&L",
               for w in ("win", "loss", "profit", "pnl", "p&l")))
 
 print()
-print("WEEKLY CUTOFF — every Monday 00:00 UTC starts fresh")
-chk("from a Saturday -> that week's Monday",
-    week_start(UTC("2026-08-01T10:26:00")).isoformat(), "2026-07-27T00:00:00+00:00")
-chk("from the Monday itself, 00:05 -> the same day 00:00",
-    week_start(UTC("2026-08-03T00:05:00")).isoformat(), "2026-08-03T00:00:00+00:00")
-chk("from Sunday 23:59 -> still the PREVIOUS Monday",
-    week_start(UTC("2026-08-02T23:59:00")).isoformat(), "2026-07-27T00:00:00+00:00")
-chk("from Monday 00:00 exactly -> itself, not a week earlier",
-    week_start(UTC("2026-08-03T00:00:00")).isoformat(), "2026-08-03T00:00:00+00:00")
+print("MONTHLY CUTOFF — the 1st at 00:00 UTC starts fresh")
+# Was weekly (every Monday) until 2026-08-22. His instruction: "let the signals expire at the end of
+# every month."
+chk("mid-month -> the 1st of that month",
+    month_start(UTC("2026-08-21T10:26:00")).isoformat(), "2026-08-01T00:00:00+00:00")
+chk("from the 1st itself, 00:05 -> the same day 00:00",
+    month_start(UTC("2026-08-01T00:05:00")).isoformat(), "2026-08-01T00:00:00+00:00")
+chk("from the last day 23:59 -> still THIS month's 1st",
+    month_start(UTC("2026-08-31T23:59:00")).isoformat(), "2026-08-01T00:00:00+00:00")
+chk("from the 1st at 00:00 exactly -> itself, not a month earlier",
+    month_start(UTC("2026-08-01T00:00:00")).isoformat(), "2026-08-01T00:00:00+00:00")
+chk("across a YEAR boundary — 1 Jan is its own month start",
+    month_start(UTC("2027-01-01T00:00:00")).isoformat(), "2027-01-01T00:00:00+00:00")
+chk("...and 31 Dec belongs to December, not January",
+    month_start(UTC("2026-12-31T23:59:00")).isoformat(), "2026-12-01T00:00:00+00:00")
+chk("February is not special", month_start(UTC("2027-02-28T12:00:00")).isoformat(),
+    "2027-02-01T00:00:00+00:00")
 
 # The boundary that decides whether a signal survives the reset.
-cut = week_start(UTC("2026-08-03T00:05:00"))
-chk("a signal from Sunday 23:59 is purged", UTC("2026-08-02T23:59:00") < cut, True)
-chk("a signal from Monday 00:06 survives", UTC("2026-08-03T00:06:00") < cut, False)
-chk("a signal from Monday 00:00 exactly survives", UTC("2026-08-03T00:00:00") < cut, False)
-teeth("the cutoff actually separates the two weeks",
-      (UTC("2026-08-02T23:59:00") < cut) and not (UTC("2026-08-03T00:06:00") < cut))
-teeth("week_start always lands on a Monday",
-      all(week_start(UTC(f"2026-08-0{d}T12:00:00")).weekday() == 0 for d in range(1, 9)))
+cut = month_start(UTC("2026-09-01T00:05:00"))
+chk("a signal from 31 Aug 23:59 is purged", UTC("2026-08-31T23:59:00") < cut, True)
+chk("a signal from 1 Sep 00:06 survives", UTC("2026-09-01T00:06:00") < cut, False)
+chk("a signal from 1 Sep 00:00 exactly survives", UTC("2026-09-01T00:00:00") < cut, False)
+teeth("the cutoff actually separates the two months",
+      (UTC("2026-08-31T23:59:00") < cut) and not (UTC("2026-09-01T00:06:00") < cut))
+teeth("month_start always lands on day 1 at midnight",
+      all(month_start(UTC(f"2026-{m:02d}-15T12:00:00")).day == 1
+          and month_start(UTC(f"2026-{m:02d}-15T12:00:00")).hour == 0 for m in range(1, 13)))
+teeth("a whole month is kept, not a week",
+      (month_start(UTC("2026-08-31T12:00:00")) == month_start(UTC("2026-08-01T12:00:00"))))
+
+# ── THE NODE FILTER MUST AGREE WITH THE PYTHON PURGE, TO THE INSTANT ──────────
+# `server/routes.ts` recomputes this boundary independently for its read-time filter. If the two ever
+# drift, the board shows rows the purge already deleted, or hides rows it kept. Replicated here in
+# the same arithmetic the JS uses (setUTCDate(1) + setUTCHours(0,0,0,0)) so a change to either side
+# without the other fails HERE rather than on his screen.
+def node_month_start(d: datetime) -> datetime:
+    return d.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+
+for probe in ("2026-08-21T10:26:00", "2026-09-01T00:05:00", "2026-12-31T23:59:00",
+              "2027-01-01T00:00:00", "2027-02-28T12:00:00"):
+    chk(f"Node and Python agree at {probe}",
+        node_month_start(UTC(probe)).isoformat(), month_start(UTC(probe)).isoformat())
 
 print()
 print("STATUS SEPARATION — a heads-up must not occupy the live keyspace")

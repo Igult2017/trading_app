@@ -6,14 +6,17 @@ import TradingChart, { INDICATOR_DEFS, prefetchCandles, type IndicatorId, type C
 import SignalPlatformStatus from "@/components/SignalPlatformStatus";
 import { useFastBatchPrices, useFastPrice } from "@/hooks/useFastPrice";
 import TickingPrice from "@/components/TickingPrice";
+import { confirmedEntries, type SignalRow } from "./assets/confirmedEntries";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Instrument {
+  /** THE SIGNAL'S id, and the sidebar's identity. Rows are one-per-SIGNAL, so a symbol can appear
+   *  more than once and `symbol` is no longer unique — selection, React keys and the highlight all
+   *  key on this. Absent only for the pending-setup rows, which are keyed by symbol. */
+  id?: string;
   symbol: string;
   assetClass: "crypto" | "forex" | "stock" | "commodity";
   category: "Crypto" | "Forex" | "Stock" | "Index" | "Commodity";
-  unconfirmed?: boolean;   // pending_setups — scanner is watching, not yet a confirmed signal
-  setupStage?: string;
   direction?: string;      // signal side (BUY/SELL) for the sidebar
   createdAt?: string;      // signal time — sidebar is ordered latest-first
   confirmed?: boolean;     // valid signal that can be taken vs a watch/validating one
@@ -239,7 +242,12 @@ function LiveClock() {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
-  const [selected, setSelected]   = useState("");
+  // SELECTION KEYS ON THE SIGNAL id, NOT THE SYMBOL. The sidebar now lists one row per confirmed
+  // entry, so two rows can share a pair — EUR/USD traded twice in the week of 17 Aug 2026. Keyed by
+  // symbol, both rows would highlight together and the detail pane could only ever show one of them.
+  // `selected` (the symbol) is DERIVED from the chosen row below, so every downstream use of it —
+  // prices, alerts, chart — keeps working exactly as before.
+  const [selectedId, setSelectedId] = useState("");
   const [search,   setSearch]     = useState("");
   const [alertModal, setAlertModal] = useState(false);
   const [alertTarget, setAlertTarget] = useState("");
@@ -320,16 +328,19 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
     return () => window.removeEventListener("resize", check);
   }, []);
 
-  // When user switches symbol, prefetch the next few in the sidebar list ───────
+  // When the user switches row, prefetch the next few in the sidebar list ──────
+  // Found by id, not symbol: several rows can share a pair, and `findIndex` on the symbol would
+  // always land on the first of them and prefetch the wrong neighbours.
   useEffect(() => {
-    const idx = sidebarInstruments.findIndex(i => i.symbol === selected);
+    const idx = sidebarInstruments.findIndex(i => i.id === selectedId);
     if (idx === -1) return;
-    const next = sidebarInstruments.slice(idx + 1, idx + 4).map(i => i.symbol);
+    const next = Array.from(new Set(sidebarInstruments.slice(idx + 1, idx + 5).map(i => i.symbol)))
+      .slice(0, 3);
     next.forEach((sym, i) => {
       setTimeout(() => prefetchCandles(sym, currentTF.interval, currentTF.period), i * 600);
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selected]);
+  }, [selectedId]);
 
   function toggleIndicator(id: IndicatorId) {
     setActiveIndicators(prev => {
@@ -390,16 +401,20 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
     document.addEventListener('mouseup', onUp);
   }
 
-  // ── Live signal board → sidebar instrument list ──────────────────────────
-  // BOTH statuses: 'watching' is a setup being watched for entry (a zone tapped, no order yet),
-  // 'active' is a signal that fired. Fetching only 'active' is why this panel had never displayed
-  // anything — heads-ups are the common case and were not being persisted at all.
+  // ── Live signal board → the sidebar's rows AND the detail pane's data ────────
+  // This ONE query now feeds both. It carries complete rows, so the detail pane selects from it by
+  // id rather than refetching per symbol — see `selectedRow` below.
+  //
+  // `limit=300`: the endpoint defaults to 50, which was ample for a week and is not for a MONTH
+  // (his rule changed 2026-08-22). Silently truncating would drop the OLDEST entries — exactly the
+  // ones this change exists to make visible.
   const { data: allSignals = [] } = useQuery<any[]>({
     queryKey: ["all-active-signals"],
     queryFn: async () => {
       // The full lifecycle: watching -> in progress -> closed. 'expired' is deliberately absent —
       // a stop order cancelled before it filled never became a trade, so it is dropped, not shown.
-      const res = await fetch("/api/trading-signals?status=watching,active,executed,invalidated");
+      const res = await fetch(
+        "/api/trading-signals?status=watching,active,executed,invalidated&limit=300");
       if (!res.ok) return [];
       const json = await res.json();
       return Array.isArray(json) ? json : [];
@@ -408,19 +423,10 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
     staleTime: 30_000,
   });
 
-  // Unconfirmed setups the scanner is watching (pending_setups). Not yet promoted
-  // to a confirmed signal — shown in the same list, flagged so the UI marks them PENDING.
-  const { data: pendingSetups = [] } = useQuery<any[]>({
-    queryKey: ["pending-setups"],
-    queryFn: async () => {
-      const res = await fetch("/api/pending-setups");
-      if (!res.ok) return [];
-      const json = await res.json();
-      return Array.isArray(json) ? json : [];
-    },
-    refetchInterval: 60_000,
-    staleTime: 30_000,
-  });
+  // The `/api/pending-setups` query was deleted here (2026-08-22) along with its two consumers —
+  // the sidebar's PENDING rows and the UNCONFIRMED banner. A pending setup has no confirmed entry by
+  // definition, so his "only signals with confirmed entry" rule leaves it nothing to feed on this
+  // page. The endpoint itself is untouched and still serves the Telegram side.
 
   /**
    * The two states the user asked to see, derived — no new column.
@@ -466,51 +472,62 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
     return status === "active" && triggered ? "live" : "watching";
   }
 
+  // EVERY CONFIRMED ENTRY THIS MONTH, NEWEST FIRST — one row per SIGNAL, not per instrument.
+  //
+  // His rule, 2026-08-22: *"Assets page should record all the signals with confirmed entries per
+  // [month] … Only signals with confirmed entry from the newest at the top and the oldest below in
+  // that order."*
+  //
+  // What this replaces: a `seen` set that kept one row per SYMBOL. The week of 17 Aug 2026 recorded
+  // 5 confirmed entries and the board showed 3 rows — XAU/USD traded twice on the 19th and BOTH were
+  // invisible, because a watch alert on the 21st had taken the single XAU/USD slot. The old
+  // state-ranked ordering (live, then watching, then closed) goes with it: he asked for time order,
+  // and with watches filtered out there is little left for it to separate.
+  //
+  // The filter itself lives in `./assets/confirmedEntries` so it can be tested against real
+  // production rows — this page is behind RequireAuth, so an inline rule could only be eyeballed.
+  const signalRows = confirmedEntries(allSignals as SignalRow[]);
+
   const sidebarInstruments: Instrument[] = (() => {
-    const seen = new Set<string>();
-    const list: Instrument[] = [];
-    // Ordered by WHAT NEEDS ATTENTION, then by recency inside each group:
-    //   1. IN PROGRESS  — a live trade, the only thing that can still move against you
-    //   2. WATCHING     — a setup that may still become one
-    //   3. CLOSED       — finished, kept for the week as a record
-    // Sorting purely by time buried a live trade under a pile of closed ones the moment a few
-    // resolved, which is backwards for a board whose job is to show what is happening now.
-    const RANK = { live: 0, watching: 1, closed: 2 } as const;
-    const sorted = [...allSignals].sort((a, b) => {
-      const ra = RANK[signalState(a)] - RANK[signalState(b)];
-      if (ra !== 0) return ra;
-      return new Date(b?.createdAt || 0).getTime() - new Date(a?.createdAt || 0).getTime();
-    });
-    for (const s of sorted) {
-      if (s?.symbol && !seen.has(s.symbol)) {
-        seen.add(s.symbol);
-        list.push({
-          symbol: s.symbol, assetClass: s.assetClass as Instrument["assetClass"],
-          category: assetClassToCategory(s.assetClass),
-          direction: s.type, createdAt: s.createdAt, confirmed: signalState(s) === "live",
-          state: signalState(s), strategy: s.strategy || "",
-        });
-      }
-    }
-    // Unconfirmed setups the scanner is watching, after the fired signals.
-    for (const p of pendingSetups) {
-      if (p?.symbol && !seen.has(p.symbol)) {
-        seen.add(p.symbol);
-        list.push({ symbol: p.symbol, assetClass: p.assetClass as Instrument["assetClass"], category: assetClassToCategory(p.assetClass), unconfirmed: true, confirmed: false, setupStage: p.setupStage });
-      }
-    }
+    const list: Instrument[] = signalRows.map(s => ({
+      id: String(s.id ?? ""),
+      symbol: String(s.symbol ?? ""),
+      assetClass: s.assetClass as Instrument["assetClass"],
+      category: assetClassToCategory(s.assetClass as string),
+      direction: s.type as string, createdAt: s.createdAt as string,
+      confirmed: signalState(s) === "live",
+      state: signalState(s), strategy: (s.strategy as string) || "",
+    }));
+    // Pending setups are NOT listed here any more — they have no confirmed entry by definition, so
+    // his "only signals with confirmed entry" rule excludes them. The detail-pane banner that
+    // explains an unconfirmed setup is untouched; this is only about what the sidebar lists.
     return list;
   })();
 
-  // Auto-select the first active signal instrument when nothing is selected yet
-  useEffect(() => {
-    if (!selected && sidebarInstruments.length > 0) {
-      setSelected(sidebarInstruments[0].symbol);
-    }
-  }, [sidebarInstruments, selected]);
+  // THE SELECTED SIGNAL — the exact row he clicked, straight out of the list already fetched.
+  //
+  // This is what the whole detail dashboard reads (entry / stop / target / R:R, the chart's levels,
+  // the context panels). It replaces a second query, `/api/trading-signals?symbol=…`, which the
+  // server answers with `limit(1)` — the NEWEST row for that pair. That was invisible while the
+  // sidebar showed one row per symbol; the moment it lists two EUR/USD entries, clicking the older
+  // one would have shown the newer one's numbers against a real trade.
+  const selectedRow = signalRows.find(s => String(s.id ?? "") === selectedId) ?? null;
 
-  // Live prices — sidebar batch every 35s, selected instrument every 8s
-  const sidebarSymbols = sidebarInstruments.map(i => i.symbol);
+  // The symbol, DERIVED. Everything downstream — prices, alerts, chart, headings — still reads
+  // `selected` exactly as it did before, so none of it needed touching.
+  const selected = String(selectedRow?.symbol ?? "");
+
+  // Auto-select the newest confirmed entry when nothing is selected yet
+  useEffect(() => {
+    if (!selectedId && sidebarInstruments.length > 0) {
+      setSelectedId(sidebarInstruments[0].id ?? "");
+    }
+  }, [sidebarInstruments, selectedId]);
+
+  // Live prices — sidebar batch every 35s, selected instrument every 8s.
+  // De-duplicated: the same pair can now hold several rows, and asking for its price once per row
+  // would multiply the polling for no gain.
+  const sidebarSymbols = Array.from(new Set(sidebarInstruments.map(i => i.symbol)));
   const tickerPrices   = useFastBatchPrices(sidebarSymbols, 35000);
   const entryTick      = useFastPrice(selected, 8000);
 
@@ -546,24 +563,15 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["/api/price-alerts", selected] }),
   });
 
-  // ── Live signal fetch — refetches every 60s, shows empty state when no signal ──
-  const { data: rawSignal, isLoading: signalLoading } = useQuery({
-    queryKey: ["asset-signal", selected],
-    queryFn: async () => {
-      if (!selected) return null;
-      // Must match the sidebar's status set. This was pinned to 'active', so clicking any row that
-      // was not currently live — every CLOSED one — fetched nothing and the whole detail panel
-      // (entry, TP, SL, R:R) rendered as dashes.
-      const res = await fetch(
-        `/api/trading-signals?symbol=${encodeURIComponent(selected)}&status=watching,active,executed,invalidated`);
-      if (!res.ok) return null;
-      const json = await res.json();
-      return Array.isArray(json) ? (json[0] ?? null) : null;
-    },
-    enabled: Boolean(selected),
-    refetchInterval: 60_000,
-    staleTime: 30_000,
-  });
+  // ── The signal behind the dashboard — the row he clicked, nothing refetched ──
+  // Was a second query keyed on the SYMBOL (`?symbol=…`, answered `limit(1)` server-side). The
+  // sidebar list already holds every field this needs and refreshes on the same 60s interval, so
+  // reading the exact row is both fewer requests and the only way to show the right one when a pair
+  // has more than one entry in the month.
+  const rawSignal = selectedRow as any;
+  // Loading = the board itself has not arrived yet. Once it has, a missing row is genuinely "no
+  // signal selected", not a pending fetch.
+  const signalLoading = allSignals.length === 0 && !selectedId;
 
   // Transform DB signal into display-ready structure; null = no signal
   const data = signalToDisplayData(rawSignal ?? null);
@@ -873,24 +881,12 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
             </div>
           )}
 
-          {/* ── Unconfirmed-setup banner — when the selected symbol is a pending setup ── */}
-          {(() => {
-            const ps = pendingSetups.find((p: any) => p?.symbol === selected);
-            const isUnconfirmed = !!ps && !allSignals.some((s: any) => s.symbol === selected);
-            if (!isUnconfirmed) return null;
-            return (
-              <div style={{ background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.3)",
-                borderRadius: 4, padding: "10px 14px", marginBottom: 12, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                <span style={{ fontSize: 9, fontWeight: 800, color: "#f59e0b", letterSpacing: "0.1em",
-                  background: "rgba(245,158,11,0.14)", border: "1px solid rgba(245,158,11,0.4)", borderRadius: 3, padding: "3px 8px" }}>
-                  UNCONFIRMED
-                </span>
-                <span style={{ fontSize: 10, fontWeight: 600, color: C.muted, letterSpacing: "0.04em" }}>
-                  Scanner is watching this setup{ps.setupStage ? ` · ${String(ps.setupStage).toUpperCase()}` : ""} — it becomes a signal once all conditions confirm.
-                </span>
-              </div>
-            );
-          })()}
+          {/* The UNCONFIRMED-setup banner was deleted here (2026-08-22). Its condition was
+              "a pending setup exists for this symbol AND no signal does" — and the selected symbol
+              is now always derived from a confirmed-entry row, so the second half can never hold.
+              A branch that cannot run reads like a live feature to the next session, so it goes
+              rather than sitting here disabled. The `/api/pending-setups` query it was the only
+              consumer of went with it. */}
 
           {/* ── Signal Platform Status (replaces live chart — signal-only mode) ── */}
           <SignalPlatformStatus darkMode={darkMode} selectedSymbol={selected} state={rawSignal ? badgeState(rawSignal) : null} />
@@ -1143,17 +1139,19 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
         <div className="asset-scroll" style={{ flex: 1, overflowY: "auto" }}>
           {filtered.length === 0 && (
             <div style={{ padding: "32px 16px", textAlign: "center", color: C.dim, fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", lineHeight: 1.8 }}>
-              {search ? "NO MATCH" : "NO ACTIVE SIGNALS"}
-              {!search && <div style={{ fontSize: 9, fontWeight: 500, marginTop: 6, color: C.muted2 }}>Instruments appear here when the scanner identifies a setup</div>}
+              {search ? "NO MATCH" : "NO CONFIRMED ENTRIES THIS MONTH"}
+              {!search && <div style={{ fontSize: 9, fontWeight: 500, marginTop: 6, color: C.muted2 }}>A signal appears here once its entry is actually taken. The list clears on the 1st.</div>}
             </div>
           )}
           {filtered.map(card => {
-            const isActive = card.symbol === selected;
+            // Identity is the SIGNAL id — two rows can share a pair, and keying on the symbol made
+            // both highlight at once and gave React duplicate keys.
+            const isActive = card.id === selectedId;
             return (
               <div
-                key={card.symbol}
+                key={card.id}
                 className="inst-card"
-                onClick={() => setSelected(card.symbol)}
+                onClick={() => setSelectedId(card.id ?? "")}
                 style={{
                   padding: "14px 16px",
                   borderBottom: `1px solid ${C.border}`,
@@ -1183,16 +1181,13 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
                       }}>{S.text}</span>
                     );
                   })()}
+                  {/* No PENDING branch any more — every row here has a confirmed entry, so the
+                      badge could only ever read the asset class. */}
                   {sidebarWidth >= 200 && (
-                    card.unconfirmed
-                      ? <span style={{ fontSize: 8, fontWeight: 800, color: "#f59e0b", letterSpacing: "0.08em",
-                          background: "rgba(245,158,11,0.12)", border: "1px solid rgba(245,158,11,0.35)", borderRadius: 3, padding: "2px 6px" }}>
-                          PENDING
-                        </span>
-                      : <span style={{ fontSize: 8, fontWeight: 700, color: C.dim, letterSpacing: "0.08em",
-                          background: C.bg3, border: `1px solid ${C.border2}`, borderRadius: 3, padding: "2px 6px" }}>
-                          {card.category.toUpperCase()}
-                        </span>
+                    <span style={{ fontSize: 8, fontWeight: 700, color: C.dim, letterSpacing: "0.08em",
+                      background: C.bg3, border: `1px solid ${C.border2}`, borderRadius: 3, padding: "2px 6px" }}>
+                      {card.category.toUpperCase()}
+                    </span>
                   )}
                 </div>
 

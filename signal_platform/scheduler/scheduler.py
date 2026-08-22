@@ -44,15 +44,16 @@ def build(scan_fn, monitor_fn) -> AsyncIOScheduler:
         coalesce=True,
     )
 
-    # Weekly reset — the signal board carries ONE WEEK and starts fresh every Monday (user's rule).
+    # Monthly reset — the signal board carries ONE MONTH and starts fresh on the 1st (user's rule,
+    # 2026-08-22: "let the signals expire at the end of every month"; it was weekly before that).
     # 00:05 rather than 00:00 UTC so it lands just after the boundary, never a hair before it.
     _scheduler.add_job(
-        _weekly_reset,
-        trigger=CronTrigger(day_of_week="mon", hour=0, minute=5, timezone="UTC"),
-        id="weekly_signal_reset",
-        name="Weekly signal reset",
+        _monthly_reset,
+        trigger=CronTrigger(day=1, hour=0, minute=5, timezone="UTC"),
+        id="monthly_signal_reset",
+        name="Monthly signal reset",
         max_instances=1,
-        coalesce=True,     # a missed Monday fires once on resume, not once per missed week
+        coalesce=True,     # a missed 1st fires once on resume, not once per missed month
     )
 
     # Abandoned setups — hourly. A watch that stopped refreshing, or a stop order that was
@@ -66,25 +67,25 @@ def build(scan_fn, monitor_fn) -> AsyncIOScheduler:
         coalesce=True,
     )
 
-    # AND once at boot. A container that restarts over a weekend would otherwise sail past its
-    # Monday and carry two weeks on the board. `purge_before_week_start` is idempotent — it deletes
-    # by an absolute cutoff, so running it twice on the same Monday is a no-op the second time.
-    _weekly_reset_on_boot(_scheduler)
+    # AND once at boot. A container that is down across the 1st would otherwise sail past it and
+    # carry two months on the board. `purge_before_month_start` is idempotent — it deletes by an
+    # absolute cutoff, so running it twice in the same month is a no-op the second time.
+    _monthly_reset_on_boot(_scheduler)
 
-    log.info("[scheduler] built — scan every 60s, monitor every 30s, weekly reset Mon 00:05 UTC")
+    log.info("[scheduler] built — scan every 60s, monitor every 30s, monthly reset 1st 00:05 UTC")
     return _scheduler
 
 
-async def _weekly_reset() -> None:
-    """Drop signals from before this week's Monday. Never allowed to kill the scheduler."""
+async def _monthly_reset() -> None:
+    """Drop signals from before the 1st of this month. Never allowed to kill the scheduler."""
     import asyncio
     from storage import signal_repo
     try:
         n = await asyncio.get_running_loop().run_in_executor(
-            None, signal_repo.purge_before_week_start)
-        log.info(f"[scheduler] weekly reset done — {n} signal(s) purged")
+            None, signal_repo.purge_before_month_start)
+        log.info(f"[scheduler] monthly reset done — {n} signal(s) purged")
     except Exception as exc:
-        log.error(f"[scheduler] weekly reset FAILED ({type(exc).__name__}: {exc})")
+        log.error(f"[scheduler] monthly reset FAILED ({type(exc).__name__}: {exc})")
 
 
 async def _drop_abandoned() -> None:
@@ -103,15 +104,15 @@ async def _drop_abandoned() -> None:
         log.error(f"[scheduler] drop_abandoned FAILED ({type(exc).__name__}: {exc})")
 
 
-def _weekly_reset_on_boot(sched: AsyncIOScheduler) -> None:
+def _monthly_reset_on_boot(sched: AsyncIOScheduler) -> None:
     """Run the reset shortly after start-up, once."""
     from datetime import datetime, timedelta, timezone
     sched.add_job(
-        _weekly_reset,
+        _monthly_reset,
         trigger="date",
         run_date=datetime.now(timezone.utc) + timedelta(seconds=20),   # let the DB settle first
-        id="weekly_signal_reset_boot",
-        name="Weekly signal reset (boot)",
+        id="monthly_signal_reset_boot",
+        name="Monthly signal reset (boot)",
     )
 
 

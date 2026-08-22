@@ -188,6 +188,56 @@ was upstream.
 that table should treat pre-2026-08-22 rows as suspect and check them against
 `open_market_seconds(down_from, down_to)` before believing them.
 
+### The Assets board — one row per CONFIRMED ENTRY, one MONTH, newest first (2026-08-22)
+
+Two rule changes and one defect, all in the same change.
+
+**The defect.** The sidebar was an *instrument picker* wearing a signal list's clothes: it kept a
+`seen` set and pushed **one row per symbol**, so the newest signal for a pair hid every older one.
+The week of 17 Aug 2026 recorded **5 confirmed entries and displayed 3 rows** — XAU/USD traded twice
+on the 19th and *both* were invisible, because a watch alert on the 21st had taken the single
+XAU/USD slot.
+
+Worse, the detail pane refetched `/api/trading-signals?symbol=…`, which the server answers with
+`limit(1)` — the newest row for that pair. Harmless while only one row per symbol was reachable;
+the moment the list shows two EUR/USD entries, clicking the older one would have displayed the
+**newer one's entry, stop and target** against a real trade. Selection now keys on the signal id and
+the pane reads the exact row out of the list already fetched, so that second query is gone.
+
+**What counts as a confirmed entry:** `triggered_at` is set. The monitor stamps it when price
+actually touches the entry, and the status meaning the opposite is explicit — `EXPIRED` is *"the
+setup reversed before entry… whoever followed the card was never in a trade."* So the timestamp *is*
+the confirmation. Keeps `executed` (TP), `invalidated` (SL) and a live `active` trade; drops watches,
+resting stop orders that never filled, and cancelled setups. The rule lives in
+`client/src/pages/assets/confirmedEntries.ts` — pulled out of the page so it can be tested against
+real production rows, since `/assets` is behind `RequireAuth` and an inline version could only ever
+be eyeballed.
+
+**Weekly → monthly.** His rule: *"let the signals expire at the end of every month."* Four places
+encoded "Monday" and all moved together — `signal_repo.month_start` / `purge_before_month_start`, the
+scheduler cron (`day=1`, 00:05 UTC) and its boot run, and the read-time filter in `server/routes.ts`.
+The belt-and-braces design is unchanged: a cron purge **plus** an independent read filter, so the
+board is right even when the purge has not run.
+
+> **These are two implementations of one rule and they must agree to the instant.** If they drift the
+> board shows rows the purge already deleted, or hides rows it kept. `tests/test_signal_board.py`
+> replicates the JS arithmetic and asserts it against the Python `month_start` at five probes,
+> including a year boundary.
+
+The Assets query now asks for `limit=300`; the endpoint defaults to 50, which was ample for a week
+and would silently truncate a month — dropping the **oldest** entries, exactly the ones this change
+exists to reveal.
+
+**Deleted with it:** the `/api/pending-setups` query on this page, the sidebar's PENDING badge and
+the UNCONFIRMED banner. A pending setup has no confirmed entry by definition, and the banner's
+condition ("a setup exists for this symbol AND no signal does") became unreachable once the selected
+symbol always comes from a confirmed-entry row. The endpoint itself is untouched and still serves the
+Telegram side.
+
+**Measured, against the six real rows:** 5 rows render newest-first, both XAU/USD entries and both
+EUR/USD entries present, the watch excluded, exactly one row highlighted, and clicking the older
+EUR/USD row shows **its own** 1.15550 rather than the newer row's 1.16220.
+
 ### `platform_downtime` — one row per detected outage
 
 Answers the question nothing in the system could answer before: *was the platform even up when that

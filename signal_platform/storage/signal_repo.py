@@ -151,31 +151,35 @@ def drop_abandoned(now: datetime | None = None, stale_hours: int = 24) -> int:
     return n
 
 
-def week_start(now: datetime | None = None) -> datetime:
-    """Most recent Monday 00:00 UTC, at or before `now`.
+def month_start(now: datetime | None = None) -> datetime:
+    """First day of this month, 00:00 UTC, at or before `now`.
 
     Taken as a parameter so the boundary is testable against fixed dates — a purge that is only
     ever exercised against `now()` is a purge nobody has actually checked.
+
+    Was `week_start` (most recent Monday) until 2026-08-22. His instruction: *"let the signals expire
+    at the end of every month."* `server/routes.ts` computes the SAME instant independently for its
+    read-time filter; if the two ever disagree the board shows rows the purge already deleted, or
+    hides rows it kept, so they are asserted against each other in `tests/test_signal_board.py`.
     """
     now = now or datetime.now(timezone.utc)
-    midnight = now.replace(hour=0, minute=0, second=0, microsecond=0)
-    return midnight - timedelta(days=midnight.weekday())      # Monday == 0
+    return now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
 
-def purge_before_week_start(now: datetime | None = None) -> int:
-    """Delete every signal created before this week's Monday. Returns the row count.
+def purge_before_month_start(now: datetime | None = None) -> int:
+    """Delete every signal created before the 1st of this month. Returns the row count.
 
-    The user's rule: the board carries ONE WEEK and starts fresh every Monday. Deliberately deletes
+    The user's rule: the board carries ONE MONTH and starts fresh on the 1st. Deliberately deletes
     rather than archives — there is no win/loss logic, so an older signal carries no outcome worth
     keeping, and a growing table would only make the Assets panel slower to no benefit.
 
-    Runs on a Monday cron AND once at boot: a container that restarts over a weekend would otherwise
-    skip its Monday entirely and carry two weeks.
+    Runs on a monthly cron AND once at boot: a container that restarts across the 1st would otherwise
+    skip it entirely and carry two months.
     """
-    cutoff = week_start(now)
+    cutoff = month_start(now)
     with get_session() as s:
         # NEVER delete a row that is still ACTIVE. In practice `expire_stale` closes anything older
-        # than 24h so an active row cannot reach a week, but "in practice" is not a guarantee: if
+        # than 24h so an active row cannot reach a month, but "in practice" is not a guarantee: if
         # one ever did, deleting it would drop a LIVE trade the monitor is tracking, and the monitor
         # would simply stop watching a position that is still open. A stale row on the board is a
         # cosmetic problem; a silently abandoned trade is not.
@@ -184,7 +188,7 @@ def purge_before_week_start(now: datetime | None = None) -> int:
             SignalModel.status != "active",
         ).delete(synchronize_session=False)
     if n:
-        log.info(f"[signal_repo] weekly reset — purged {n} signal(s) created before {cutoff:%Y-%m-%d}")
+        log.info(f"[signal_repo] monthly reset — purged {n} signal(s) created before {cutoff:%Y-%m-%d}")
     return n
 
 
