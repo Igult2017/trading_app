@@ -56,7 +56,8 @@ def bar(t, lo, hi):
                   volume=0, timeframe="H4")
 
 
-def zone(direction, bottom, top, *, marked, mitigated=None, respected=None, through=0):
+def zone(direction, bottom, top, *, marked, mitigated=None, respected=None, through=0,
+         group=1):
     z = MarkedZone(direction=direction, top=top, bottom=bottom,
                    proximal=bottom if direction == "supply" else top,
                    distal=top if direction == "supply" else bottom,
@@ -64,6 +65,7 @@ def zone(direction, bottom, top, *, marked, mitigated=None, respected=None, thro
                    ifc_time=marked, origin_time=marked)
     z.marked_at, z.mitigated_at, z.respected_at = marked, mitigated, respected
     z.broke_through = through
+    z.group = group
     z.state = "respected" if respected else ("body_mitigated" if mitigated else "unmitigated")
     return z
 
@@ -91,13 +93,17 @@ POOL = [LiquidityPool(index=10, price=1.1090, side="buy", kind="high")]
 
 parent = zone("supply", 1.1100, 1.1120, marked=2, mitigated=40, respected=44)
 child  = zone("supply", 1.1060, 1.1080, marked=45, through=1)      # born after the reaction
+# A companion BELOW the parent. Without a second live zone in the group no zone can be the
+# extreme at all, and every verdict would read decisional — the fixture, not the code.
+lower  = zone("supply", 1.1040, 1.1060, marked=3)
+BOOK   = [parent, child, lower]
 
 print()
 print("THE SWEEP HAPPENED ON THE APPROACH — step 4 before step 5")
 chk("liquidity was swept before the extreme was tapped",
     L.swept_before_tap(parent, BARS, POOL), True)
-chk("the change of character is VALID", L.choch_verdict(child, [parent, child], BARS, POOL), L.CHOCH_VALID)
-chk("...and the yes/no form agrees", L.choch_valid(child, [parent, child], BARS, POOL), True)
+chk("the change of character is VALID", L.choch_verdict(child, BOOK, BARS, POOL), L.CHOCH_VALID)
+chk("...and the yes/no form agrees", L.choch_valid(child, BOOK, BARS, POOL), True)
 
 print()
 print("NO SWEEP ON THE APPROACH — his rule says FAKE")
@@ -105,11 +111,11 @@ print("NO SWEEP ON THE APPROACH — his rule says FAKE")
 UNSWEPT = [LiquidityPool(index=5, price=1.1200, side="buy", kind="high")]
 chk("nothing was swept before the tap", L.swept_before_tap(parent, BARS, UNSWEPT), False)
 chk("the change of character is FAKE",
-    L.choch_verdict(child, [parent, child], BARS, UNSWEPT), L.CHOCH_FAKE_NO_SWEEP)
-chk("...so it is not valid", L.choch_valid(child, [parent, child], BARS, UNSWEPT), False)
+    L.choch_verdict(child, BOOK, BARS, UNSWEPT), L.CHOCH_FAKE_NO_SWEEP)
+chk("...so it is not valid", L.choch_valid(child, BOOK, BARS, UNSWEPT), False)
 teeth("THE GATE CAN ACTUALLY REFUSE — three checks in this codebase shipped vacuous",
-      L.choch_valid(child, [parent, child], BARS, POOL) is True
-      and L.choch_valid(child, [parent, child], BARS, UNSWEPT) is False)
+      L.choch_valid(child, BOOK, BARS, POOL) is True
+      and L.choch_valid(child, BOOK, BARS, UNSWEPT) is False)
 
 print()
 print("THE WINDOW IS THE NEW ONE — a sweep AFTER the tap must not count")
@@ -128,7 +134,7 @@ print("THE OTHER TWO WAYS A CHANGE OF CHARACTER IS FAKE")
 # reaches the break test. At 25 it had no parent at all and reported that instead; fixture, not code.
 no_break = zone("supply", 1.1060, 1.1080, marked=45, through=0)
 chk("broke no opposite zone -> fake",
-    L.choch_verdict(no_break, [parent, no_break], BARS, POOL), L.CHOCH_FAKE_NO_BREAK)
+    L.choch_verdict(no_break, [parent, no_break, lower], BARS, POOL), L.CHOCH_FAKE_NO_BREAK)
 orphan = zone("demand", 1.0900, 1.0920, marked=45, through=1)      # no parent on its side
 chk("no extreme behind it -> fake",
     L.choch_verdict(orphan, [orphan], BARS, POOL), L.CHOCH_FAKE_NO_PARENT)
@@ -144,42 +150,48 @@ print()
 print("THE ENTRY GATE INHERITS IT — one rule, one place")
 live = bar(50, 1.1060, 1.1082)                     # price back at the child zone right now
 chk("swept + broken + loaded + tapped -> entry allowed",
-    L.entry_refusal(child, [parent, child], live, BARS, POOL), None)
+    L.entry_refusal(child, BOOK, live, BARS, POOL), None)
 chk("unswept -> the entry gate refuses, naming the sweep",
-    L.entry_refusal(child, [parent, child], live, BARS, UNSWEPT), L.CHOCH_FAKE_NO_SWEEP)
+    L.entry_refusal(child, BOOK, live, BARS, UNSWEPT), L.CHOCH_FAKE_NO_SWEEP)
 teeth("a caller that passes no bars/pools cannot silently skip the gate — it degrades to the old "
       "break-only answer, which is stricter than pretending it passed",
-      L.entry_refusal(child, [parent, child], live) is None)
+      L.entry_refusal(child, BOOK, live) is None)
 
 # ── THE OLD BEHAVIOUR MUST FAIL THIS FILE ───────────────────────────────────
 print()
 print("TEETH — would this have caught the old code?")
 teeth("the old rule (break only) called the unswept case VALID",
       L.choch_complete(child) is True
-      and L.choch_valid(child, [parent, child], BARS, UNSWEPT) is False)
+      and L.choch_valid(child, BOOK, BARS, UNSWEPT) is False)
 
 print()
-print("DECISIONAL vs EXTREME — the document defines it by LIQUIDITY, not position (p21 s20)")
-# "Price may create a decisional supply zone but still have liquidity sitting above it."
-# A supply zone with unswept HIGHS above it is decisional: price is going up to take them first.
-RESTING_ABOVE = [LiquidityPool(index=10, price=1.1090, side="buy", kind="high"),
-                 LiquidityPool(index=12, price=1.1300, side="buy", kind="pdh")]   # never taken out
-chk("a zone with liquidity still resting beyond it is DECISIONAL",
-    L.is_decisional(parent, BARS, RESTING_ABOVE), True)
-chk("...and it is counted, not just flagged",
-    L.unswept_liquidity_beyond(parent, BARS, RESTING_ABOVE) >= 1, True)
-chk("a zone with nothing left beyond it is the EXTREME",
-    L.is_decisional(parent, BARS, POOL), False)
-
-print()
-print("...so a change of character out of a decisional zone is FAKE")
-chk("liquidity still above the parent -> decisional CHoCH",
-    L.choch_verdict(child, [parent, child], BARS, RESTING_ABOVE), L.CHOCH_FAKE_DECISIONAL)
+print("DECISIONAL vs EXTREME — his definition: the zone that CAUSED the change of character")
+# "Any zone that causes decisional CHOCH is a decisional zone. Decisional CHOCH is caused by
+#  decisional zones." So the test is on the PARENT, as of the moment price arrived at it.
+# `parent` above sits at 1.1100-1.1120 with a NEIGHBOUR above it, so it is the lower of two supply
+# zones -> the DECISIONAL one. The higher zone is the extreme.
+higher = zone("supply", 1.1200, 1.1220, marked=3)          # untouched, further out -> the extreme
+higher.group = 1
+BOOK_STACK = [higher, parent, child, lower]
+chk("the further-out untouched supply was the extreme when price arrived",
+    L.was_extreme_at(higher, BOOK_STACK, parent.mitigated_at - 1), True)
+chk("...so the nearer one was DECISIONAL",
+    L.was_extreme_at(parent, BOOK_STACK, parent.mitigated_at - 1), False)
+chk("a change of character out of the decisional zone is FAKE",
+    L.choch_verdict(child, BOOK_STACK, BARS, POOL), L.CHOCH_FAKE_DECISIONAL)
 chk("the entry gate refuses it too",
-    L.entry_refusal(child, [parent, child], live, BARS, RESTING_ABOVE), L.CHOCH_FAKE_DECISIONAL)
-teeth("THIS is the test the sweep gate does NOT cover — the sweep passes, the decisional test refuses",
-      L.swept_before_tap(parent, BARS, RESTING_ABOVE) is True
-      and L.choch_verdict(child, [parent, child], BARS, RESTING_ABOVE) == L.CHOCH_FAKE_DECISIONAL)
+    L.entry_refusal(child, BOOK_STACK, live, BARS, POOL), L.CHOCH_FAKE_DECISIONAL)
+
+# Remove the zone above and the parent becomes the extreme again — same parent, same bars.
+BOOK_ALONE = [parent, child, lower]
+chk("with only spent zones above it, the parent WAS the extreme",
+    L.was_extreme_at(parent, BOOK_ALONE, parent.mitigated_at - 1), True)
+chk("...and the change of character is valid again",
+    L.choch_verdict(child, BOOK_ALONE, BARS, POOL), L.CHOCH_VALID)
+teeth("THE TRAP THIS AVOIDS: asked of NOW instead of the tap, the parent reads decisional and "
+      "nothing could ever pass — measured 77 of 77 on real data",
+      parent.role != "extreme"
+      and L.was_extreme_at(parent, BOOK_ALONE, parent.mitigated_at - 1) is True)
 chk("all four fake reasons are distinct",
     len({L.CHOCH_FAKE_NO_SWEEP, L.CHOCH_FAKE_NO_BREAK,
          L.CHOCH_FAKE_NO_PARENT, L.CHOCH_FAKE_DECISIONAL}), 4)

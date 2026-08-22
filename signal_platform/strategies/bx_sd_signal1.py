@@ -33,75 +33,11 @@ the book looked like at any earlier bar — so this module READS history rather 
 """
 from core.types import Candle
 from strategies.bx_sd_registry import MarkedZone, build as build_zones, to_zone
+from strategies.bx_sd_lineage import state_at, live_at, was_extreme_at  # noqa: F401
 from strategies.bx_sd_setup import SetupResult
 from strategies.bx_sd_ltf import LTFConfluence
 from strategies.bx_sd_entry import entry_trigger
 from shared.mtf_utils import closed_only
-
-
-def state_at(z: MarkedZone, when: int) -> str:
-    """The zone's state as of `when`, rebuilt from its transition stamps.
-
-    Each stamp is written ONCE, at the transition, so the latest one at or before `when` is the state
-    then. Checked newest-first because the lifecycle is one-way:
-    unmitigated -> wick/body_mitigated -> respected -> broken.
-    """
-    if z.marked_at is None or when < z.marked_at:
-        return ""                                   # did not exist yet
-    if z.broken_at is not None and z.broken_at <= when:
-        return "broken"
-    if z.respected_at is not None and z.respected_at <= when:
-        return "respected"
-    if z.mitigated_at is not None and z.mitigated_at <= when:
-        # wick vs body is not separately stamped; `mitigation_kind` carries the LATEST kind, and a
-        # body always upgrades the record. Only "was it still untouched" matters here, so both
-        # collapse to one answer rather than guessing which it was at the time.
-        return "mitigated"
-    return "unmitigated"
-
-
-def live_at(z: MarkedZone, when: int) -> bool:
-    """Was the zone on the book and untraded-through at `when`?"""
-    s = state_at(z, when)
-    return s not in ("", "broken")
-
-
-def was_extreme_at(z: MarkedZone, zones: list[MarkedZone], when: int) -> bool:
-    """Was this zone the EXTREME of its group at `when`?
-
-    Mirrors `bx_sd_registry._label` exactly — the furthest-from-price still-UNMITIGATED zone in the
-    group is the extreme — but reads each zone's state AS OF `when` instead of now. The group is the
-    one the registry already stamped (`z.group`), so the grouping rule is not re-implemented here and
-    cannot drift from it.
-
-    A zone alone in its group holds no role at all (registry:302), and that is honoured: a group of
-    one returns False rather than claiming a distinction the market never drew.
-
-    ONE HONEST APPROXIMATION, stated rather than hidden. `z.group` is the grouping the registry
-    computed for the book AS IT STANDS NOW, and `classify_roles` groups only zones that are live now
-    (registry:224). So a zone that was live when price tapped this one, but has since been broken,
-    carries group -1 and is invisible to the reconstruction below. If that zone was the furthest
-    unmitigated one at the time, this returns True where the registry would have said `decisional`.
-
-    It is not re-derived here on purpose: grouping needs the structure events and splitting on
-    counter-side cuts, and a second copy of that rule would drift from the registry's — which is the
-    failure this codebase has already paid for more than once. The narrower risk is the better trade.
-    A consequence worth knowing: if the extreme zone ITSELF is later broken, its group goes to -1 and
-    the window closes, which is the right outcome for a different reason.
-    """
-    if z.group is None or z.group < 0:
-        return False                                # ungrouped: registry claims no role
-    if state_at(z, when) != "unmitigated":
-        return False                                # only an untouched zone can be the extreme
-    group = [o for o in zones if o.group == z.group and live_at(o, when)]
-    if len(group) < 2:
-        return False                                # alone in its group -> role "" (registry:302)
-    fresh = [o for o in group if state_at(o, when) == "unmitigated"]
-    if not fresh:
-        return False
-    best = (max(fresh, key=lambda o: o.proximal) if z.direction == "supply"
-            else min(fresh, key=lambda o: o.proximal))
-    return best is z
 
 
 def first_tap_at(z: MarkedZone) -> int | None:

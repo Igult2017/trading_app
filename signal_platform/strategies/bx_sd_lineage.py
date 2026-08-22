@@ -82,6 +82,76 @@ def parent_of(child: MarkedZone, zones: list[MarkedZone]) -> MarkedZone | None:
     return min(cands, key=lambda z: abs(z.proximal - child.proximal))
 
 
+# ── WHAT A ZONE WAS AT AN EARLIER MOMENT ────────────────────────────────────────────────────
+# Moved here from `bx_sd_signal1` (2026-08-22) so BOTH signals ask the question the same way and
+# `choch_verdict` can use it without a circular import. Signal 1 needed "was it the extreme when
+# price arrived"; the decisional-CHoCH rule needs exactly the same question about the parent.
+def state_at(z: MarkedZone, when: int) -> str:
+    """The zone's state as of `when`, rebuilt from its transition stamps.
+
+    Each stamp is written ONCE, at the transition, so the latest one at or before `when` is the state
+    then. Checked newest-first because the lifecycle is one-way:
+    unmitigated -> wick/body_mitigated -> respected -> broken.
+    """
+    if z.marked_at is None or when < z.marked_at:
+        return ""                                   # did not exist yet
+    if z.broken_at is not None and z.broken_at <= when:
+        return "broken"
+    if z.respected_at is not None and z.respected_at <= when:
+        return "respected"
+    if z.mitigated_at is not None and z.mitigated_at <= when:
+        # wick vs body is not separately stamped; `mitigation_kind` carries the LATEST kind, and a
+        # body always upgrades the record. Only "was it still untouched" matters here, so both
+        # collapse to one answer rather than guessing which it was at the time.
+        return "mitigated"
+    return "unmitigated"
+
+
+def live_at(z: MarkedZone, when: int) -> bool:
+    """Was the zone on the book and untraded-through at `when`?"""
+    s = state_at(z, when)
+    return s not in ("", "broken")
+
+
+def was_extreme_at(z: MarkedZone, zones: list[MarkedZone], when: int) -> bool:
+    """Was this zone the EXTREME of its group at `when`?
+
+    Mirrors `bx_sd_registry._label` exactly — the furthest-from-price still-UNMITIGATED zone in the
+    group is the extreme — but reads each zone's state AS OF `when` instead of now. The group is the
+    one the registry already stamped (`z.group`), so the grouping rule is not re-implemented here and
+    cannot drift from it.
+
+    A zone alone in its group holds no role at all (registry:302), and that is honoured: a group of
+    one returns False rather than claiming a distinction the market never drew.
+
+    ONE HONEST APPROXIMATION, stated rather than hidden. `z.group` is the grouping the registry
+    computed for the book AS IT STANDS NOW, and `classify_roles` groups only zones that are live now
+    (registry:224). So a zone that was live when price tapped this one, but has since been broken,
+    carries group -1 and is invisible to the reconstruction below. If that zone was the furthest
+    unmitigated one at the time, this returns True where the registry would have said `decisional`.
+
+    It is not re-derived here on purpose: grouping needs the structure events and splitting on
+    counter-side cuts, and a second copy of that rule would drift from the registry's — which is the
+    failure this codebase has already paid for more than once. The narrower risk is the better trade.
+    A consequence worth knowing: if the extreme zone ITSELF is later broken, its group goes to -1 and
+    the window closes, which is the right outcome for a different reason.
+    """
+    if z.group is None or z.group < 0:
+        return False                                # ungrouped: registry claims no role
+    if state_at(z, when) != "unmitigated":
+        return False                                # only an untouched zone can be the extreme
+    group = [o for o in zones if o.group == z.group and live_at(o, when)]
+    if len(group) < 2:
+        return False                                # alone in its group -> role "" (registry:302)
+    fresh = [o for o in group if state_at(o, when) == "unmitigated"]
+    if not fresh:
+        return False
+    best = (max(fresh, key=lambda o: o.proximal) if z.direction == "supply"
+            else min(fresh, key=lambda o: o.proximal))
+    return best is z
+
+
+
 def choch_complete(child: MarkedZone) -> bool:
     """Did the move break at least one OPPOSITE zone? Half of validity — see `choch_verdict`.
 
@@ -102,8 +172,8 @@ CHOCH_VALID = "valid"
 CHOCH_FAKE_NO_SWEEP = "fake: no liquidity swept on the way to the extreme zone"
 CHOCH_FAKE_NO_BREAK = "fake: the move broke no opposite zone — structure never changed"
 CHOCH_FAKE_NO_PARENT = "fake: no extreme zone behind it — the reversal came from nowhere"
-CHOCH_FAKE_DECISIONAL = ("fake: it arose from a DECISIONAL zone — liquidity was still resting "
-                         "beyond it, so price was always going on to take that first")
+CHOCH_FAKE_DECISIONAL = ("fake: it arose from a DECISIONAL zone — that zone was not the extreme "
+                         "when price tapped it, so price was still going on to the real one")
 
 
 def choch_verdict(child: MarkedZone, zones: list[MarkedZone], bars, pools) -> str:
@@ -141,13 +211,26 @@ def choch_verdict(child: MarkedZone, zones: list[MarkedZone], bars, pools) -> st
         return CHOCH_FAKE_NO_BREAK
     if not swept_before_tap(parent, bars, pools):
         return CHOCH_FAKE_NO_SWEEP
-    # THE DECISIONAL TEST (p21 s20). His sentence: *"decisional change of character arises from the
-    # decisional zone."* So it is asked of the PARENT — the zone the reversal came out of — as of the
-    # moment price tapped it. Liquidity still resting beyond it then means price was always going on
-    # to take that first, so the zone was never the turning point and the CHoCH it birthed is fake.
-    _idx = {c.time: i for i, c in enumerate(bars)}
-    _tap_i = _idx.get(parent.mitigated_at) if parent.mitigated_at is not None else None
-    if is_decisional(parent, bars, pools, _tap_i):
+    # THE DECISIONAL TEST — HIS DEFINITION, 2026-08-22:
+    #
+    #     "Any zone that causes decisional CHOCH is a decisional zone. Decisional CHOCH is caused by
+    #      decisional zones."
+    #
+    # So it is asked of the PARENT, the zone the reversal came out of: was that zone the EXTREME when
+    # price arrived at it? If it was the decisional one, price was still on its way to the real
+    # extreme, and the change of character it produced is the fake the document warns about (p21 s20:
+    # "price may create a decisional supply zone but still have liquidity sitting above it").
+    #
+    # AS OF THE TAP, NEVER "NOW" — and this is the trap that has now bitten three times. Only an
+    # UNMITIGATED zone can hold the `extreme` label (`classify_roles`, registry:304), and a parent has
+    # by definition been tapped, so its role TODAY is always `decisional`. Measured: 77 of 77 parents
+    # read decisional now, which would refuse everything. Asked of the moment price arrived, 1 of 77
+    # had a genuinely extreme parent — and that 1% matches the note already in `bx_sd_setup`: "of 86
+    # EUR/USD taps and 73 GBP/USD taps, ONE was on an unmitigated zone."
+    #
+    # A ZONE ALONE IN ITS GROUP claims no role at all (registry:302), so `was_extreme_at` answers
+    # False for it and it is treated as decisional here — the stricter reading, deliberately.
+    if parent.mitigated_at is None or not was_extreme_at(parent, zones, parent.mitigated_at - 1):
         return CHOCH_FAKE_DECISIONAL
     return CHOCH_VALID
 
@@ -155,55 +238,6 @@ def choch_verdict(child: MarkedZone, zones: list[MarkedZone], bars, pools) -> st
 def choch_valid(child: MarkedZone, zones: list[MarkedZone], bars, pools) -> bool:
     """Is this a real change of character? The yes/no form of `choch_verdict`."""
     return choch_verdict(child, zones, bars, pools) == CHOCH_VALID
-
-
-def unswept_liquidity_beyond(zone: MarkedZone, bars, pools, upto: int | None = None) -> int:
-    """How many liquidity levels were still RESTING beyond this zone — the document's decisional test.
-
-    HIS DOCUMENT DEFINES DECISIONAL BY LIQUIDITY, NOT BY POSITION (p21-22):
-
-        s19  "The upper supply zone = Extreme Supply Zone. The lower supply zone = Decisional
-              Supply Zone."
-        s20  "Why You Should Avoid the Decisional Zone Too Early — price may create a decisional
-              supply zone but STILL HAVE LIQUIDITY SITTING ABOVE IT." Then its sequence: double top
-              -> liquidity accumulates above the highs -> decisional supply forms -> trader sells too
-              early -> price moves upward -> LIQUIDITY IS SWEPT -> EXTREME SUPPLY IS MITIGATED ->
-              the trader's stop-loss is hit.
-        s22  "Main lesson: the decisional zone may not be the final turning point. Price can move
-              beyond it to: sweep liquidity / reach the extreme zone / mitigate the extreme zone."
-        s21  "Preferred approach — instead of entering immediately from the decisional zone, wait
-              for: liquidity sweep -> extreme zone reached -> extreme zone reaction -> market
-              structure confirmation -> entry."
-
-    So a zone with liquidity still resting BEYOND it is decisional: price is expected to run past it
-    and take that liquidity first. A zone with nothing left beyond it is the extreme.
-
-    BEYOND MEANS THE FAR SIDE: for supply, unswept highs ABOVE the top; for demand, unswept lows
-    BELOW the bottom. `upto` bounds "has it been swept yet" to a moment in the past — the question is
-    what was resting WHEN PRICE REACTED from the zone, not what survives today.
-
-    THIS IS NOT THE SWEEP GATE, and the difference is the whole point. `swept_before_tap` asks "was
-    there fuel on the approach"; this asks "is there still a magnet beyond". On the 3 Aug 2026
-    GBP/USD case the first says yes (liquidity genuinely was taken on the way in) and this says
-    decisional — 33 unswept highs above, the nearest a previous-day high 22.7 pips up. Only this one
-    catches it.
-    """
-    from strategies.bx_sd_liquidity import is_swept
-    window = bars if upto is None else bars[:upto + 1]
-    if not window:
-        return 0
-    want = "buy" if zone.direction == "supply" else "sell"
-    edge = zone.top if zone.direction == "supply" else zone.bottom
-    beyond = [p for p in pools
-              if p.side == want
-              and p.index < len(window)
-              and ((p.price > edge) if zone.direction == "supply" else (p.price < edge))]
-    return sum(1 for p in beyond if not is_swept(window, p))
-
-
-def is_decisional(zone: MarkedZone, bars, pools, upto: int | None = None) -> bool:
-    """Was this zone DECISIONAL — liquidity still resting beyond it? See `unswept_liquidity_beyond`."""
-    return unswept_liquidity_beyond(zone, bars, pools, upto) > 0
 
 
 def swept_before_tap(parent: MarkedZone, bars, pools) -> bool:

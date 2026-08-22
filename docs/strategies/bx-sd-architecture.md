@@ -237,7 +237,56 @@ cutting 33-55% were judged too much. The difference is that this one is his expl
 four ways in his own document — so the number is information for him, not grounds for me to soften it.
 If it proves too tight in live trading, that is his call.
 
-### Still NOT fixed — the decisional block
+### THE DECISIONAL CHANGE OF CHARACTER — his definition, built 2026-08-22
+
+His words: *"Any zone that causes decisional CHOCH is a decisional zone. Decisional CHOCH is caused
+by decisional zones."*
+
+So the test is on the **PARENT** — the zone the reversal came out of. Was it the EXTREME when price
+arrived at it? If it was the decisional one, price was still on its way to the real extreme, and the
+change of character it produced is the fake the document warns about (p21 §20: *"price may create a
+decisional supply zone but still have liquidity sitting above it"*).
+
+**ASKED AS OF THE TAP, NEVER "NOW" — the trap that has now bitten three times.** Only an UNMITIGATED
+zone can hold the `extreme` label (`classify_roles`, registry:304), and a parent has by definition
+been tapped. **Measured: 77 of 77 parents read `decisional` today** — so the "now" form refuses
+everything, exactly like the two gates before it. Asked of the moment price arrived, **1 of 77** had
+a genuinely extreme parent, which matches the note already in `bx_sd_setup`: *"of 86 EUR/USD taps and
+73 GBP/USD taps in a sampled walk, ONE was on an unmitigated zone."*
+
+`was_extreme_at` / `state_at` / `live_at` moved from `bx_sd_signal1` into `bx_sd_lineage` so both
+signals ask the question the same way and `choch_verdict` can use it without a circular import.
+
+**A liquidity-density version was tried first and DELETED.** It asked "is unswept liquidity still
+resting beyond the zone" — faithful to §20's wording, but the pool set is dense (627 levels over 997
+bars; nearest resting level a median of **4 pips** beyond a zone, max 27), so it refused **100%** of
+candidates. Restricting to the kinds the document names (equal highs/lows — only 8 levels here)
+starved the sweep gate instead. Both extremes silenced the strategy, which is why his structural
+definition is the one built. Do not reintroduce the density version without new evidence.
+
+### MEASURED AFTER ALL THREE GATES — and the number is a warning
+
+997 real GBP/USD 4-hour candles, one instrument. **A diagnostic count, not a backtest** — no win
+rate, no R, no P&L:
+
+| | |
+|---|---|
+| entry candidates (have a parent) | 77 |
+| passed the OLD rule (one opposite zone broken) | 39 |
+| ...also swept liquidity on the approach | 10 |
+| ...**also had an extreme (not decisional) parent** | **0** |
+
+**Zero valid entries on this instrument over ~166 days.** That is the honest figure and it is not
+hidden here. It does not by itself prove the rules wrong — his document's whole argument is that most
+entries are premature, and the 1-in-86 note above says the same. But it does mean signal 2 may produce
+almost nothing in live trading, and that is his call to weigh, not mine to soften.
+
+**LIMIT OF THIS MEASUREMENT, stated so it is not over-read:** it evaluates the zone book as it stands
+at the END of the window, not bar by bar. A live scan asks the same question at every bar against a
+book that keeps changing, so the production rate can differ. A walk-forward count would need his
+approval as a backtest.
+
+### Still NOT fixed — the positional decisional block
 
 The 3 Aug regression (`test_aug03_regression.py`) STILL fires, and the sweep gate is not what lets it
 through: on that bar liquidity genuinely WAS swept before the parent tap, so the verdict is honestly
