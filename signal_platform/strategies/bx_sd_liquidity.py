@@ -29,12 +29,15 @@ def find_liquidity(candles: list[Candle], pip: float = 0.0001, eq_tol_pips: floa
     for idx, pr in lows:
         pools.append(LiquidityPool("sell", pr, "swing", idx))
     tol = eq_tol_pips * pip
-    for a, b in zip(highs, highs[1:]):
-        if abs(a[1] - b[1]) <= tol:
-            pools.append(LiquidityPool("buy", max(a[1], b[1]), "eqh", b[0]))
-    for a, b in zip(lows, lows[1:]):
-        if abs(a[1] - b[1]) <= tol:
-            pools.append(LiquidityPool("sell", min(a[1], b[1]), "eql", b[0]))
+    # EQUAL HIGHS / DOUBLE TOPS / TRIPLE TOPS, and the same for lows. These used to be a pairwise
+    # scan of NEIGHBOURING swings only, which missed any double top with a smaller swing between its
+    # two highs. See `_equal_level_pools`.
+    pools.extend(_equal_level_pools(highs, "buy", tol))
+    pools.extend(_equal_level_pools(lows, "sell", tol))
+    # DYNAMIC TREND LINES — the fourth pattern his document names, previously not detected at all.
+    last_i = len(candles) - 1
+    pools.extend(_trendline_pools(highs, "buy", last_i, tol))
+    pools.extend(_trendline_pools(lows, "sell", last_i, tol))
     # Real forex day / week / month — see bx_sd_pools.forex_day. These were `time // 86_400`,
     # `// 604_800` and `// 2_592_000`: epoch arithmetic that put the week boundary on a THURSDAY and
     # made the month a sliding 30-day block.
@@ -44,6 +47,101 @@ def find_liquidity(candles: list[Candle], pip: float = 0.0001, eq_tol_pips: floa
     if session_candles:
         pools.extend(_session_pools(session_candles, candles))      # Asian/London/NY session H/L
     return pools
+
+
+
+def _equal_level_pools(points: list[tuple[int, float]], side: str, tol: float) -> list[LiquidityPool]:
+    """EQUAL HIGHS / LOWS, DOUBLE TOPS and TRIPLE TOPS — his document's four static patterns (p17):
+
+        "Equal highs — liquidity may accumulate above equal highs."
+        "Double top  — two similar highs can create a liquidity pool."
+        "Triple top  — three highs can create liquidity above the highs."
+        (mirrored for lows)
+
+    WHY THIS REPLACES THE OLD PAIRWISE CHECK. That one walked the swing list in NEIGHBOURING pairs
+    (`zip(highs, highs[1:])`), so a double top with any smaller swing BETWEEN its two matching highs
+    was invisible — which is most of them. Measured on EUR/USD over 4.8 months it found 5 equal highs
+    and 1 equal low in the whole period, for a market that makes double tops constantly.
+
+    Matching is by PRICE, not adjacency: every later swing within `tol` of an earlier one joins its
+    cluster, however many swings sit in between.
+
+    THE POOL'S INDEX IS WHEN IT BECAME ONE — the bar of the SECOND touch, not the first. `is_swept`
+    scans forward from that index, so dating it at the first high would count a sweep that happened
+    before the pattern existed. A third touch emits its own, stronger pool at its own bar.
+
+    THE LEVEL IS THE EXTREME OF THE CLUSTER (highest of the highs / lowest of the lows). Stops rest
+    just beyond the furthest one, so a shallower member would read as swept while the stops are still
+    sitting there.
+    """
+    out: list[LiquidityPool] = []
+    used: set[int] = set()
+    for i, (idx_i, pr_i) in enumerate(points):
+        if i in used:
+            continue
+        members = [(idx_i, pr_i)]
+        for j in range(i + 1, len(points)):
+            if j in used:
+                continue
+            if abs(points[j][1] - pr_i) <= tol:
+                members.append(points[j])
+                used.add(j)
+        if len(members) < 2:
+            continue
+        level = max(m[1] for m in members) if side == "buy" else min(m[1] for m in members)
+        # NAME: "eqh"/"eql" is kept, not renamed to "double_top". His document lists "Equal highs"
+        # and "Double top" as separate entries but defines them identically — *"two similar highs
+        # can create a liquidity pool"* — so they are one detection, and one detection gets one name.
+        # Renaming would have broken every existing reader for no gain.
+        out.append(LiquidityPool(side, level, "eqh" if side == "buy" else "eql", members[1][0]))
+        if len(members) >= 3:
+            out.append(LiquidityPool(side, level, "triple_top" if side == "buy" else "triple_bottom",
+                                     members[2][0]))
+    return out
+
+
+def _trendline_pools(points: list[tuple[int, float]], side: str, last_index: int,
+                     tol: float) -> list[LiquidityPool]:
+    """DYNAMIC TREND LINES — *"Bullish and bearish trend lines can also contain liquidity"* (p17).
+
+    A bullish line joins RISING swing lows; the stops rest BELOW it. A bearish line joins FALLING
+    swing highs; they rest ABOVE it. Unlike the patterns above, this level MOVES — so the pool is
+    priced where the line sits at the most recent bar, which is where the stops are now.
+
+    THREE POINTS, NOT TWO. Any two swings define a line, so a two-point rule would draw a trend line
+    through every pair of lows on the chart and flood the pool set with lines nobody is watching.
+    Three points that actually sit on it is the weakest claim that still means something.
+
+    Collinear within `tol`: the middle point must sit on the line drawn from the first to the last,
+    inside the same tolerance the equal-highs test uses. One tolerance, not a second invented one.
+
+    APPROXIMATE BY NATURE, and said plainly rather than hidden: a projected level is where the line
+    reaches TODAY, so `is_swept` judges it against a price that was slightly different on earlier
+    bars. The alternative — recomputing per bar — would make a pool that cannot be cached or compared.
+    """
+    out: list[LiquidityPool] = []
+    n = len(points)
+    if n < 3:
+        return out
+    for a in range(n - 2):
+        for b in range(a + 2, n):
+            i0, p0 = points[a]
+            i1, p1 = points[b]
+            if i1 == i0:
+                continue
+            rising = p1 > p0
+            if side == "sell" and not rising:      # bullish line = rising lows
+                continue
+            if side == "buy" and rising:           # bearish line = falling highs
+                continue
+            slope = (p1 - p0) / (i1 - i0)
+            mids = [(ix, pr) for ix, pr in points[a + 1:b]
+                    if abs(pr - (p0 + slope * (ix - i0))) <= tol]
+            if not mids:
+                continue                            # no third point actually on the line
+            out.append(LiquidityPool(side, p0 + slope * (last_index - i0), "trendline", i1))
+            break                                   # one line per starting point is enough
+    return out
 
 
 def is_swept(candles: list[Candle], pool: LiquidityPool) -> bool:
