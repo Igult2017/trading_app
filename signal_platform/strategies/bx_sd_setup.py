@@ -70,7 +70,7 @@ from strategies.bx_sd_confluence import premium_discount, pricing_aligned, fib_t
 from strategies.bx_sd_control import control, describe, phrase
 from strategies.bx_sd_entry_type import classify, phrase as et_phrase
 from strategies.bx_sd_liquidity import find_liquidity, swept_within
-from strategies.bx_sd_lineage import is_entry_zone
+from strategies.bx_sd_lineage import is_entry_zone, choch_complete
 from strategies.bx_sd_registry import build, to_zone, LIQ_WINDOW
 from strategies.bx_sd_strength import mitigation_note, score as zone_strength
 from shared.mtf_utils import closed_only
@@ -196,7 +196,7 @@ def detect_setup(h4: list[Candle], pip: float = 0.0001, book=None, session_candl
     # every scan where the loop below found no candidate — the common case. The unit tests passed
     # (they exercise `regime` directly) and a single e2e run passed (it happened to find one), so
     # only a walk-forward replay over hundreds of bars surfaced it.
-    cand, cand_mz, priced_out, n_live, off_trend = None, None, 0, 0, 0
+    cand, cand_mz, n_live, off_trend = None, None, 0, 0
     cand_via, no_entry_event, cand_swept = "", 0, False
     spent_skipped = 0                            # why a tapped zone was passed over — see the reasons
     unbroken_skipped = 0                         # the CHoCH — an opposite zone broken
@@ -224,11 +224,30 @@ def detect_setup(h4: list[Candle], pip: float = 0.0001, book=None, session_candl
         # nothing. BX was running two entry models side by side, and only the retest path matched
         # the rule; the first-touch path fired at a LOWER grade bar despite having LESS evidence.
         #
-        # No timing contradiction: `respected` is set from CLOSED bars on an EARLIER visit, and the
-        # live tap is the pullback happening now. The trap noted in the architecture doc — demanding
-        # a mitigated state AND a live tap in the same instant — does not apply here.
-        if mz.state != "respected":
-            continue
+        # THE `respected` GATE IS GONE (2026-08-22) — AND REMOVING IT IS WHAT UNBLOCKS SIGNAL 2.
+        #
+        # HIS RULING: *"remove this because price coming back is already a confirmation that the zone
+        # held. Once the zone comes back here we only look for entry in 1m or 5m."*
+        #
+        # IT COULD NEVER PASS ALONGSIDE THE STATE CHECK BELOW. This demanded `respected`; the check
+        # 47 lines down demands `unmitigated` or wick-only. `respected` is neither, so NO zone in ANY
+        # state cleared both — verified against every state the registry can hold:
+        #
+        #     unmitigated     blocked here          wick/body   blocked by both
+        #     respected       blocked below         broken      blocked by both
+        #
+        # Measured cost: BX produced its last confirmed entry 14 Aug 2026 12:57 UTC — 18 in the 30
+        # days before, ZERO in the 8 days after, and zero candidates even BUILT. On 21 Aug 20:59 all
+        # four pairs refused simultaneously (EUR/USD 14 zones tapped, GBP/USD 10, GBP/JPY 9,
+        # USD/JPY 6). Not a market condition — arithmetic.
+        #
+        # The note that stood here claimed "no timing contradiction... does not apply here". It was
+        # reasoning about the WRONG pairing: the trap is not `respected` + a live tap, it is
+        # `respected` + `unmitigated` on the SAME zone, which is a straight contradiction.
+        #
+        # The evidence the gate was standing in for has not been dropped — it moved to where it
+        # belongs. The PARENT being reacted-from is checked by `parent_of` (bx_sd_lineage), and the
+        # return tap itself is the confirmation, which is his rule above.
         # NEVER THE DECISIONAL ZONE (Smart Risk, "Double Zone Break Out", 2026-08-15).
         #
         #     "we cannot place any trades based on the decisional supply zone because there is a high
@@ -418,15 +437,37 @@ def detect_setup(h4: list[Candle], pip: float = 0.0001, book=None, session_candl
         # move: its upside is capped by the prevailing trend while its stop is sized for a real
         # one — structurally poor even when it wins. In a range (reg == 0) this does nothing and
         # both directions run exactly as before.
-        if reg:
+        # THE CHoCH SETS THE TREND, AND IT OUTRANKS THE 4H/1D REGIME (his ruling, 2026-08-22):
+        #
+        #     "Make the trend filter to work with CHOCH in 4HR because a valid CHOCH in 4HR shows
+        #      the trend is reversing."
+        #
+        # WHY THE OLD GATE WAS BACKWARDS HERE. `regime()` reads the 4H and Daily as they stand — i.e.
+        # the trend the CHoCH has just BROKEN. A change of character IS the trend reversing, so
+        # refusing a post-CHoCH zone for being "counter-trend" refuses precisely the setups the CHoCH
+        # creates. The zone's own side is the new trend's side.
+        #
+        # In practice this makes the regime inert for signal 2, because `is_entry_zone` above already
+        # requires a completed CHoCH — every zone reaching this line has one. That is not the check
+        # being quietly deleted: it still refuses when there is no CHoCH evidence, which is what
+        # `choch_complete` decides, and it keeps working for any caller without one.
+        if reg and not choch_complete(mz):
             want = "demand" if reg > 0 else "supply"
             if mz.direction != want:
                 off_trend += 1
                 continue
         n_live += 1
-        if not pricing_aligned(leg_low, leg_high, price, mz.direction):
-            priced_out += 1
-            continue
+        # PREMIUM / DISCOUNT IS A CONFLUENCE, NOT A REFUSAL (2026-08-22). It is still computed and
+        # still reported on the card (`r.confluences["pricing"]`, below) — it just no longer drops a
+        # setup on its own.
+        #
+        # TWO REASONS, and he took the recommendation. First, it is measured against the WRONG leg
+        # after a CHoCH: `leg_low/leg_high` are the last 4H swing high and low, which belong to the
+        # move the CHoCH just broke — judging a fresh entry against a structure that no longer
+        # governs. Second, signal 2 has already established location (tapped an extreme, reacted,
+        # broke an opposite zone, returned to the child); this was a second, cruder location test on
+        # top of five existing refusals.
+        priced_ok = pricing_aligned(leg_low, leg_high, price, mz.direction)
         z = to_zone(mz, bars)
         if z is None:
             continue                      # older than this window — cannot resolve indices
@@ -437,10 +478,9 @@ def detect_setup(h4: list[Candle], pip: float = 0.0001, book=None, session_candl
                         f"{'up' if reg > 0 else 'down'}, so only "
                         f"{'demand' if reg > 0 else 'supply'} zones are taken")
             return r
-        if priced_out:
-            r.reason = (f"{priced_out} marked zone(s) mitigated but badly priced "
-                        f"({premium_discount(leg_low, leg_high, price)})")
-            return r
+        # The "badly priced" refusal was deleted with the gate it reported on (2026-08-22):
+        # premium/discount no longer drops a setup, so it can never be the reason none was found.
+        # It is still computed and still shown on the card as a confluence.
         # THE TWO REFUSALS THAT CARRY HIS RULE. Reported separately because they are different
         # facts: "price is in a zone we deliberately never trade" vs "price is in a zone that has
         # already been used up". Both used to fall through to the generic "no zone tapped" line,
