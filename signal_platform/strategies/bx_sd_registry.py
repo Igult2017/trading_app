@@ -315,6 +315,48 @@ def _label(group: list[MarkedZone], side: str, gid: int) -> None:
     #
     # `group` already holds only LIVE zones (`classify_roles` filters on `z.live`, and `live` excludes
     # `broken`), so every member here is by definition not-broken and the furthest one is the extreme.
+    # WHICH ZONE IS THE EXTREME — DECIDED BY PRICE REACTION, NOT BY POSITION (his rule, 2026-08-23):
+    #
+    #     "if we have many zones stacked here after liquidity has been swept, we wait to see which one
+    #      the price will RESPECT and use that as the extreme zone. No guesswork... However, if we
+    #      have only one extreme zone we use it. We are not doing guesswork, we deal with price
+    #      reaction. So first an extreme zone has to be where we expect it, then if they are many one
+    #      has to be respected."
+    #
+    # AND EVERY ZONE GETS ITS REAL NAME. This block used to label the furthest zone `extreme` and then
+    # call EVERY other zone in the group `decisional` — manufacturing a decisional label for zones
+    # price had genuinely reacted from. His correction: *"there is no decisional zone where the
+    # extreme zone is."* A zone price ran THROUGH is liquidity, not decisional; a zone that has been
+    # respected is the extreme; only an unproven nearer zone is decisional.
+    #
+    # WHAT IT COST. Walked against 19 REAL changes of character on EUR/USD 4H over 3 months (counted
+    # from raw candles, no BX involved): 15 of the 19 — 79% — were refused because the zone price
+    # reacted from was not the furthest one out. Every one of those had price hold there; that
+    # reaction IS what created the change of character.
+    #
+    # `respected` means price tapped it and then closed a full zone-height away (`reacted_by`), which
+    # is exactly "price held here". It was already recorded and then ignored when choosing the extreme.
+    if len(group) == 1:
+        group[0].role = "extreme"            # only one: use it, there is no contest to settle
+        return
+    _held = [z for z in group if z.state == "respected"]
+    if _held:
+        # Price has shown which one it respects. Among several, the furthest out is the extreme.
+        best = (max(_held, key=lambda z: z.proximal) if side == "supply"
+                else min(_held, key=lambda z: z.proximal))
+        for z in group:
+            if z is best:
+                z.role = "extreme"
+            elif z.state == "respected":
+                z.role = ""                  # held too, but not the furthest — not decisional either
+            else:
+                # nearer and unproven: this is the decisional zone his document describes, the one
+                # price is expected to run past on its way to the extreme.
+                z.role = "decisional"
+        return
+    # NONE RESPECTED YET — nothing has proven itself, so this is only where we EXPECT the extreme to
+    # be (his "first an extreme zone has to be where we expect it"). The furthest carries that
+    # expectation; the nearer ones are the decisional zones until price says otherwise.
     best = (max(group, key=lambda z: z.proximal) if side == "supply"
             else min(group, key=lambda z: z.proximal))
     for z in group:
