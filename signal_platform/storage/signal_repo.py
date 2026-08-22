@@ -41,10 +41,23 @@ def save(signal: Signal, status: str | None = None, ref_price: float | None = No
             # still went out. It logged and continued, so the board just stayed empty.
             # `ref_price` is the price being WATCHED — not a level to trade, and the card still
             # renders an em dash because it reads `signal.entry_price`, which stays 0.
+            # ALL FOUR ARE NOT NULL, not just `entry_price`. The fix above was made for `entry_price`
+            # alone on 2026-08-20 and the other three kept the `or None` pattern — so a stage-1 alert
+            # (no entry, no stop, no target, by design) still died on the `stop_loss` constraint. The
+            # INSERT raised, `save` returned "" as though it were a duplicate, and BX-S/D's heads-ups
+            # never reached the Assets board ONCE, in silence, for the whole life of the feature.
+            #
+            # `ref_price` is the price being WATCHED — not a level to trade. Using it for all three
+            # price columns says "no distance from the watched price", which is the truth about a
+            # heads-up, and matches the shape a VIX.1 watch row already stores (take_profit == entry).
+            # `risk_reward` goes to 0 for the same reason: there is no ratio, and 0 says so.
+            #
+            # NOTHING WRONG REACHES THE USER: the card reads `signal.*`, which stays 0, so it still
+            # renders an em dash. This only decides what the ROW holds.
             entry_price=signal.entry_price or ref_price or None,
-            stop_loss=signal.stop_loss or None,
-            take_profit=signal.take_profit or None,
-            risk_reward=signal.risk_reward or None,
+            stop_loss=signal.stop_loss or ref_price or None,
+            take_profit=signal.take_profit or ref_price or None,
+            risk_reward=signal.risk_reward or 0,
             primary_tf=signal.primary_timeframe,
             confidence=int(signal.confidence * 100),
             smc_factors=signal.smc_factors,
@@ -59,7 +72,30 @@ def save(signal: Signal, status: str | None = None, ref_price: float | None = No
         s.add(row)
         try:
             s.flush()
-        except IntegrityError:
+        except IntegrityError as exc:
+            # A DUPLICATE AND A MALFORMED ROW ARE NOT THE SAME EVENT, and treating them as one is why
+            # the bug above survived for the entire life of the feature. Both landed here, both
+            # returned "", and the caller reads "" as "a row is already there" — so a NOT NULL
+            # violation was reported to nobody, logged nowhere, and looked exactly like normal
+            # operation. Whatever the next constraint failure is, it must not get that treatment.
+            #
+            # 23505 = unique_violation, the expected case. Anything else is a real fault.
+            _pgcode = getattr(getattr(exc, "orig", None), "pgcode", "") or ""
+            _dup = _pgcode == "23505" or (not _pgcode and "unique" in str(exc).lower())
+            if not _dup:
+                s.rollback()
+                log.error(f"[signal_repo] REFUSED to store {signal.strategy_id} {signal.symbol} — "
+                          f"the row is malformed, not a duplicate (pgcode={_pgcode or '?'}): "
+                          f"{str(exc.orig or exc)[:200]}")
+                # Into `signal_events` too, so it is answerable after the log buffer has rolled —
+                # a failure nobody can query is a failure nobody finds.
+                try:
+                    from storage import observability_repo as obs
+                    obs.record(obs.STAGE_DROPPED, signal.strategy_id or "", signal.symbol or "",
+                               detail=f"save refused (pgcode={_pgcode or '?'}): {str(exc.orig or exc)[:300]}")
+                except Exception:
+                    pass
+                return ""
             # ROLL BACK BEFORE RETURNING. A failed flush leaves the transaction in a state where the
             # only legal next move is a rollback — and `get_session` commits on the way out of this
             # `with`, so without this the commit raised PendingRollbackError ("This Session's
