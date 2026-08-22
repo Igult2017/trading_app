@@ -159,6 +159,32 @@ teeth("the old rule (break only) called the unswept case VALID",
       and L.choch_valid(child, [parent, child], BARS, UNSWEPT) is False)
 
 print()
+print("DECISIONAL vs EXTREME — the document defines it by LIQUIDITY, not position (p21 s20)")
+# "Price may create a decisional supply zone but still have liquidity sitting above it."
+# A supply zone with unswept HIGHS above it is decisional: price is going up to take them first.
+RESTING_ABOVE = [LiquidityPool(index=10, price=1.1090, side="buy", kind="high"),
+                 LiquidityPool(index=12, price=1.1300, side="buy", kind="pdh")]   # never taken out
+chk("a zone with liquidity still resting beyond it is DECISIONAL",
+    L.is_decisional(parent, BARS, RESTING_ABOVE), True)
+chk("...and it is counted, not just flagged",
+    L.unswept_liquidity_beyond(parent, BARS, RESTING_ABOVE) >= 1, True)
+chk("a zone with nothing left beyond it is the EXTREME",
+    L.is_decisional(parent, BARS, POOL), False)
+
+print()
+print("...so a change of character out of a decisional zone is FAKE")
+chk("liquidity still above the parent -> decisional CHoCH",
+    L.choch_verdict(child, [parent, child], BARS, RESTING_ABOVE), L.CHOCH_FAKE_DECISIONAL)
+chk("the entry gate refuses it too",
+    L.entry_refusal(child, [parent, child], live, BARS, RESTING_ABOVE), L.CHOCH_FAKE_DECISIONAL)
+teeth("THIS is the test the sweep gate does NOT cover — the sweep passes, the decisional test refuses",
+      L.swept_before_tap(parent, BARS, RESTING_ABOVE) is True
+      and L.choch_verdict(child, [parent, child], BARS, RESTING_ABOVE) == L.CHOCH_FAKE_DECISIONAL)
+chk("all four fake reasons are distinct",
+    len({L.CHOCH_FAKE_NO_SWEEP, L.CHOCH_FAKE_NO_BREAK,
+         L.CHOCH_FAKE_NO_PARENT, L.CHOCH_FAKE_DECISIONAL}), 4)
+
+print()
 if failed:
     print(f"{len(failed)} of {count} FAILED: {failed}")
     sys.exit(1)

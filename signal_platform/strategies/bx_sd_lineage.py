@@ -102,6 +102,8 @@ CHOCH_VALID = "valid"
 CHOCH_FAKE_NO_SWEEP = "fake: no liquidity swept on the way to the extreme zone"
 CHOCH_FAKE_NO_BREAK = "fake: the move broke no opposite zone — structure never changed"
 CHOCH_FAKE_NO_PARENT = "fake: no extreme zone behind it — the reversal came from nowhere"
+CHOCH_FAKE_DECISIONAL = ("fake: it arose from a DECISIONAL zone — liquidity was still resting "
+                         "beyond it, so price was always going on to take that first")
 
 
 def choch_verdict(child: MarkedZone, zones: list[MarkedZone], bars, pools) -> str:
@@ -139,12 +141,69 @@ def choch_verdict(child: MarkedZone, zones: list[MarkedZone], bars, pools) -> st
         return CHOCH_FAKE_NO_BREAK
     if not swept_before_tap(parent, bars, pools):
         return CHOCH_FAKE_NO_SWEEP
+    # THE DECISIONAL TEST (p21 s20). His sentence: *"decisional change of character arises from the
+    # decisional zone."* So it is asked of the PARENT — the zone the reversal came out of — as of the
+    # moment price tapped it. Liquidity still resting beyond it then means price was always going on
+    # to take that first, so the zone was never the turning point and the CHoCH it birthed is fake.
+    _idx = {c.time: i for i, c in enumerate(bars)}
+    _tap_i = _idx.get(parent.mitigated_at) if parent.mitigated_at is not None else None
+    if is_decisional(parent, bars, pools, _tap_i):
+        return CHOCH_FAKE_DECISIONAL
     return CHOCH_VALID
 
 
 def choch_valid(child: MarkedZone, zones: list[MarkedZone], bars, pools) -> bool:
     """Is this a real change of character? The yes/no form of `choch_verdict`."""
     return choch_verdict(child, zones, bars, pools) == CHOCH_VALID
+
+
+def unswept_liquidity_beyond(zone: MarkedZone, bars, pools, upto: int | None = None) -> int:
+    """How many liquidity levels were still RESTING beyond this zone — the document's decisional test.
+
+    HIS DOCUMENT DEFINES DECISIONAL BY LIQUIDITY, NOT BY POSITION (p21-22):
+
+        s19  "The upper supply zone = Extreme Supply Zone. The lower supply zone = Decisional
+              Supply Zone."
+        s20  "Why You Should Avoid the Decisional Zone Too Early — price may create a decisional
+              supply zone but STILL HAVE LIQUIDITY SITTING ABOVE IT." Then its sequence: double top
+              -> liquidity accumulates above the highs -> decisional supply forms -> trader sells too
+              early -> price moves upward -> LIQUIDITY IS SWEPT -> EXTREME SUPPLY IS MITIGATED ->
+              the trader's stop-loss is hit.
+        s22  "Main lesson: the decisional zone may not be the final turning point. Price can move
+              beyond it to: sweep liquidity / reach the extreme zone / mitigate the extreme zone."
+        s21  "Preferred approach — instead of entering immediately from the decisional zone, wait
+              for: liquidity sweep -> extreme zone reached -> extreme zone reaction -> market
+              structure confirmation -> entry."
+
+    So a zone with liquidity still resting BEYOND it is decisional: price is expected to run past it
+    and take that liquidity first. A zone with nothing left beyond it is the extreme.
+
+    BEYOND MEANS THE FAR SIDE: for supply, unswept highs ABOVE the top; for demand, unswept lows
+    BELOW the bottom. `upto` bounds "has it been swept yet" to a moment in the past — the question is
+    what was resting WHEN PRICE REACTED from the zone, not what survives today.
+
+    THIS IS NOT THE SWEEP GATE, and the difference is the whole point. `swept_before_tap` asks "was
+    there fuel on the approach"; this asks "is there still a magnet beyond". On the 3 Aug 2026
+    GBP/USD case the first says yes (liquidity genuinely was taken on the way in) and this says
+    decisional — 33 unswept highs above, the nearest a previous-day high 22.7 pips up. Only this one
+    catches it.
+    """
+    from strategies.bx_sd_liquidity import is_swept
+    window = bars if upto is None else bars[:upto + 1]
+    if not window:
+        return 0
+    want = "buy" if zone.direction == "supply" else "sell"
+    edge = zone.top if zone.direction == "supply" else zone.bottom
+    beyond = [p for p in pools
+              if p.side == want
+              and p.index < len(window)
+              and ((p.price > edge) if zone.direction == "supply" else (p.price < edge))]
+    return sum(1 for p in beyond if not is_swept(window, p))
+
+
+def is_decisional(zone: MarkedZone, bars, pools, upto: int | None = None) -> bool:
+    """Was this zone DECISIONAL — liquidity still resting beyond it? See `unswept_liquidity_beyond`."""
+    return unswept_liquidity_beyond(zone, bars, pools, upto) > 0
 
 
 def swept_before_tap(parent: MarkedZone, bars, pools) -> bool:
