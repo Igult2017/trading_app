@@ -1471,7 +1471,10 @@ export default function StrategyAudit({ sessionId, userId, darkMode = true }: Pr
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: `
-        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800;900&family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300;1,400;1,500&family=Share+Tech+Mono&display=swap');
+        /* No Google Fonts request (2026-08-22). Montserrat and DM Mono — including the italic the
+           <em> renderer below needs — are self-hosted in client/src/index.css. Share Tech Mono was
+           being downloaded and then thrown away: the only rule that names it is the override two
+           lines down, which forces it back to DM Mono. */
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:.4; } }
         ::-webkit-scrollbar { width: 6px; height: 6px; }

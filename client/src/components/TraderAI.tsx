@@ -130,17 +130,9 @@ export default function TraderAI({ sessionId, darkMode = true }: { sessionId?: s
     return () => document.removeEventListener("mousedown", handler);
   }, [confirmDeleteId]);
 
-  // Inject Google Fonts into <head> so they load reliably regardless of global styles
-  useEffect(() => {
-    const id = "traderai-gfonts";
-    if (!document.getElementById(id)) {
-      const link = document.createElement("link");
-      link.id = id;
-      link.rel = "stylesheet";
-      link.href = "https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap";
-      document.head.appendChild(link);
-    }
-  }, []);
+  // The <head> injection of JetBrains Mono from Google was deleted here (2026-08-22). It ran from a
+  // useEffect, i.e. AFTER first paint, so the chat always rendered once in the fallback face and
+  // then reflowed — and the font was already self-hosted in client/src/index.css the whole time.
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });

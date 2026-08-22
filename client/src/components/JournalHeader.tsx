@@ -54,9 +54,9 @@ interface JournalHeaderProps {
   themeAccent?: string;
 }
 
+/* No Google Fonts @import (2026-08-22) — DM Mono is self-hosted in client/src/index.css, so this
+   card was waiting on the network for a face the bundle already had. Add new faces there. */
 const PROFILE_CARD_CSS = `
-  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&display=swap');
-
   .pc-root, .pc-root * { margin: 0; padding: 0; box-sizing: border-box; }
 
   .pc-root {

@@ -18,7 +18,9 @@ import { apiRequest, authFetch } from '@/lib/queryClient';
 import { useAuth } from '@/context/AuthContext';
 
 // ─── Fonts ────────────────────────────────────────────────────────────────────
-const FONTS = `@import url('https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,400&display=swap');`;
+// Nothing to import: DM Mono is self-hosted in client/src/index.css, alongside Playfair Display and
+// Material Icons (both moved there when this page's text-flash was fixed). The last Google Fonts
+// request on this page went 2026-08-22.
 
 // ─── Step Definitions ─────────────────────────────────────────────────────────
 const STEPS_FOLLOWER = [
@@ -1643,7 +1645,7 @@ export function CopierWizard({ onBack, onOpenDashboard }: { onBack: () => void; 
 
   return (
     <div className="ts-wizard-root min-h-screen bg-[#020203] text-white selection:bg-blue-500/40 font-light overflow-hidden">
-      <style>{FONTS + `
+      <style>{`
         .ts-wizard-root,.ts-wizard-root *{font-family:'DM Mono',ui-monospace,SFMono-Regular,monospace !important;}
         .ts-wizard-root{letter-spacing:-0.01em;}
         .hide-scrollbar::-webkit-scrollbar{display:none;}

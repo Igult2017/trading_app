@@ -20,6 +20,12 @@
 @import '@fontsource-variable/jetbrains-mono';
 @import '@fontsource-variable/manrope';
 @import '@fontsource-variable/sora';
+/* Outfit, Syne, DM Sans — self-hosted 2026-08-22, the last three families still being fetched from
+   Google at runtime (AdminPanel's font picker, Create Session's heading + body). Variable, so one
+   file per family covers every weight and no weight list has to be maintained. */
+@import '@fontsource-variable/outfit';
+@import '@fontsource-variable/syne';
+@import '@fontsource-variable/dm-sans';
 /* Material Icons, self-hosted (2026-08-22). Trade Sync fetched this from Google at runtime, and it
    was the SLOWER of its two remote font requests — measured cold at 629 ms for the stylesheet alone,
    on top of Playfair's 344 ms. Until it lands, `fontGuard`'s `font-family:'Material Icons'` has
@@ -38,6 +44,12 @@
 @import '@fontsource/dm-mono/300.css';
 @import '@fontsource/dm-mono/400.css';
 @import '@fontsource/dm-mono/500.css';
+/* Italic too (2026-08-22). StrategyAudit's markdown renderer emits <em style="font-style:italic">
+   inside a DM Mono block, and the Google URL it used to load DID request the italic axis. Upright-
+   only here would have swapped a real italic for a browser-slanted fake — a silent downgrade no
+   diff would show. This is the ONE real coverage gap in that whole removal; the discrete weights
+   those URLs asked for (notably 300) turned out to be used nowhere. */
+@import '@fontsource/dm-mono/400-italic.css';
 @import '@fontsource/dm-serif-display/400.css';
 @import '@fontsource/dm-serif-display/400-italic.css';
 @import '@fontsource/onest/400.css';
@@ -50,6 +62,65 @@
 @import '@fontsource/plus-jakarta-sans/600.css';
 @import '@fontsource/plus-jakarta-sans/700.css';
 @import '@fontsource/plus-jakarta-sans/800.css';
+
+/* ── PLAIN-NAME ALIASES FOR THE VARIABLE FAMILIES ────────────────────────────────────────────────
+   A Fontsource *variable* package registers only the "<Family> Variable" name. Code that asks for
+   the plain Google name — `font-family:'Inter'` — therefore matches nothing and silently falls back
+   to the system sans. Nothing errors, nothing logs; the page just renders in the wrong face. That
+   is the exact bug the Playfair Display note above describes, and it was solved there by importing
+   four extra static weight files.
+
+   These rules solve it without the extra downloads: each one declares the PLAIN family name against
+   the *same* woff2 the variable package already ships, so Vite emits one file and both names
+   resolve to it. `font-weight: 100 900` keeps the full variable range, so no weight list needs
+   maintaining and faux-bold cannot creep back in.
+
+   Found 2026-08-22 while removing the last Google Fonts requests: `document.fonts.check()` reports
+   TRUE for a family that does not exist (the fallback can render the text), so it cannot detect
+   this — enumerating `document.fonts` and reading the registered family names is what catches it.
+
+   Inter and JetBrains Mono mattered most. ~14 places ask for plain 'Inter' with no 'Inter Variable'
+   fallback (StrategyAudit, TraderAI, TFMetricsPanel, legalUI, AuthModal, CopyManagementDashboard),
+   and CopyManagementDashboard alone asks for plain 'JetBrains Mono' dozens of times. Every one of
+   them was falling back to a system face before this block existed. Only TraderAI looked right, and
+   only because it fetched JetBrains Mono from Google itself — removing that request is what exposed
+   the whole class. Manrope and Sora were checked too and are clean: they appear only as picker
+   labels, never as a font stack. */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url('@fontsource-variable/inter/files/inter-latin-wght-normal.woff2') format('woff2-variations');
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 800;
+  src: url('@fontsource-variable/jetbrains-mono/files/jetbrains-mono-latin-wght-normal.woff2') format('woff2-variations');
+}
+@font-face {
+  font-family: 'Outfit';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url('@fontsource-variable/outfit/files/outfit-latin-wght-normal.woff2') format('woff2-variations');
+}
+@font-face {
+  font-family: 'Syne';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400 800;
+  src: url('@fontsource-variable/syne/files/syne-latin-wght-normal.woff2') format('woff2-variations');
+}
+@font-face {
+  font-family: 'DM Sans';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 1000;
+  src: url('@fontsource-variable/dm-sans/files/dm-sans-latin-wght-normal.woff2') format('woff2-variations');
+}
 
 /* ── THE BODY FACE, SERVED FROM A STABLE URL SO IT CAN BE PRELOADED ──────────────────────────────
    Declared AFTER the Fontsource imports on purpose: two @font-face rules for the same family and

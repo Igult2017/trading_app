@@ -112,9 +112,9 @@ interface CreateSessionFormProps {
   onCreated: (sessionId: string) => void;
 }
 
-const FONT_IMPORT = `
-  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=Syne:wght@400;500;600;700;800&family=Montserrat:wght@400;500;600;700;800;900&display=swap');
-`;
+// No FONT_IMPORT any more (2026-08-22). DM Mono, Syne and Montserrat are all self-hosted in
+// client/src/index.css — Syne was added there in this change, the other two were already bundled.
+// Fetching them from Google made this form's headings paint in a fallback first and then snap.
 
 export const CreateSessionForm = ({ onCreated }: CreateSessionFormProps) => {
   const [sessionName, setSessionName] = useState('');
@@ -159,7 +159,7 @@ export const CreateSessionForm = ({ onCreated }: CreateSessionFormProps) => {
 
   return (
     <>
-      <style>{FONT_IMPORT}{`
+      <style>{`
         .csf-input { width: 100%; box-sizing: border-box; }
         .csf-input:focus { outline: none; border-color: rgba(99,102,241,0.6) !important; background: rgba(99,102,241,0.05) !important; }
         .csf-deploy:not(:disabled):hover { background: #5254cc !important; }
@@ -316,9 +316,8 @@ const MC = {
   red:        "#e05555",
 };
 
+/* DM Sans is self-hosted in client/src/index.css (added 2026-08-22) — no Google Fonts request. */
 const SESSION_CARDS_CSS = `
-  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap');
-
   /* ── isolation: block every inherited font/color from the journal shell ── */
   .obs-sessions-root {
     font-family: 'DM Sans', system-ui, -apple-system, sans-serif !important;

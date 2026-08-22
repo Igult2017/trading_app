@@ -1,8 +1,10 @@
 import { useState, useEffect, useMemo } from 'react';
 import { getActiveSessions, getSessionElapsedMinutes, getSessionTimeRemaining, getMinutesUntilSessionOpen } from '@/lib/tradingSessions';
 
-// ── Font import ───────────────────────────────────────────────────────────────
-const FONT_IMPORT = `@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap');`;
+// NO FONT IMPORT HERE (2026-08-22). Playfair Display and DM Mono are both self-hosted in
+// client/src/index.css, so fetching them from Google was a redundant round-trip that made this
+// panel's text paint in Georgia first and snap when the real face landed. Bundle a new face there,
+// never re-add a Google Fonts @import here.
 
 // ── Per-session colour tokens (dark-theme adapted) ────────────────────────────
 const SESSION_META: Record<string, {
@@ -85,7 +87,7 @@ export default function TradingSession() {
       data-testid="card-trading-session"
       style={{ fontFamily: "'Playfair Display', serif", background: '#0d1117', color: '#c9d1d9' }}
     >
-      <style>{FONT_IMPORT}{`
+      <style>{`
         .ts-root * { box-sizing: border-box; }
         .ts-scrollbar::-webkit-scrollbar { display: none; }
       `}</style>
