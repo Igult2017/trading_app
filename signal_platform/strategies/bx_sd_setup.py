@@ -66,7 +66,7 @@ from shared.swing_points import find_swing_points
 from shared.trend_detector import detect
 from strategies.bx_sd_structure import map_structure
 from strategies.bx_sd_zones import Zone
-from strategies.bx_sd_confluence import premium_discount, pricing_aligned, fib_target, rsi_divergence
+from strategies.bx_sd_confluence import premium_discount, fib_target, rsi_divergence
 from strategies.bx_sd_control import control, describe, phrase
 from strategies.bx_sd_entry_type import classify, phrase as et_phrase
 from strategies.bx_sd_liquidity import find_liquidity, swept_within
@@ -478,7 +478,9 @@ def detect_setup(h4: list[Candle], pip: float = 0.0001, book=None, session_candl
         # governs. Second, signal 2 has already established location (tapped an extreme, reacted,
         # broke an opposite zone, returned to the child); this was a second, cruder location test on
         # top of five existing refusals.
-        priced_ok = pricing_aligned(leg_low, leg_high, price, mz.direction)
+        # (premium/discount is no longer computed here at all — it is read straight off
+        #  `premium_discount` into the card's confluences below. Assigning it here and never
+        #  reading it left a variable that looked like a live check.)
         z = to_zone(mz, bars)
         if z is None:
             continue                      # older than this window — cannot resolve indices
