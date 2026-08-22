@@ -70,7 +70,7 @@ from strategies.bx_sd_confluence import premium_discount, pricing_aligned, fib_t
 from strategies.bx_sd_control import control, describe, phrase
 from strategies.bx_sd_entry_type import classify, phrase as et_phrase
 from strategies.bx_sd_liquidity import find_liquidity, swept_within
-from strategies.bx_sd_lineage import entry_refusal
+from strategies.bx_sd_lineage import is_entry_zone
 from strategies.bx_sd_registry import build, to_zone, LIQ_WINDOW
 from strategies.bx_sd_strength import mitigation_note, score as zone_strength
 from shared.mtf_utils import closed_only
@@ -198,9 +198,8 @@ def detect_setup(h4: list[Candle], pip: float = 0.0001, book=None, session_candl
     # only a walk-forward replay over hundreds of bars surfaced it.
     cand, cand_mz, priced_out, n_live, off_trend = None, None, 0, 0, 0
     cand_via, no_entry_event, cand_swept = "", 0, False
-    unbroken_skipped = 0                         # the entry gate refused it — see `entry_refusals`
-    # WHICH condition refused, and how often. One sentence per reason instead of one for all four.
-    entry_refusals: dict[str, int] = {}
+    spent_skipped = 0                            # why a tapped zone was passed over — see the reasons
+    unbroken_skipped = 0                         # the CHoCH — an opposite zone broken
     for mz in sorted(marked, key=lambda m: m.ifc_time, reverse=True):
         # NOT `respected` — that is the RETEST path's job (bx_sd_reports, min_grade="B"). Accepting
         # it here let one zone fire BOTH: a duplicate signal, and the fresh cascade firing at C+,
@@ -257,34 +256,27 @@ def detect_setup(h4: list[Candle], pip: float = 0.0001, book=None, session_candl
         # gates below now decide it alone. `role` is still computed and REPORTED (the tap card names
         # the extreme price is travelling to), it just no longer refuses on its own.
 
-        # NO STATE FILTER HERE — AND REMOVING IT IS THE FIX FOR AN EIGHT-DAY SILENCE (2026-08-22).
+        # ...AND THE ZONE MUST STILL BE UNMITIGATED (his rule, 2026-08-19).
         #
-        # A `state == "unmitigated" or wick_only` test stood here from 2026-08-19. It carried his rule
-        # *"we are only trading unmitigated and extreme zones"* — but it was applied to the wrong zone,
-        # and BX produced its last confirmed entry 14 Aug 12:57 UTC. Measured over the eight days
-        # after: 400 of the last 400 recorded state lines were the same refusal, "N zone(s) tapped but
-        # ALREADY MITIGATED".
+        #     "we are only trading unmitigated and extreme zones"
         #
-        # WHY IT COULD NEVER PASS. This loop chooses the zone for SIGNAL 2 — the CHILD, born of the
-        # reaction, which price is RETURNING to. The model requires that return: *tap the extreme ->
-        # it is RESPECTED -> the CHoCH breaks the opposite zone -> price RETURNS to tap the zone that
-        # reaction created -> confirmed entry.* A returning tap makes the zone `body_mitigated`, and
-        # the parent it descends from is `respected` by definition — the two states this test refused.
-        # It demanded a zone be untouched at the exact moment its being touched is the trigger.
+        # THIS WAS NEVER CHECKED. The cascade refused `decisional` and nothing else, so a zone that
+        # had already been tapped, reacted and finished was still on offer — and measured, that is
+        # almost the whole of what BX was trading: of 86 EUR/USD taps and 73 GBP/USD taps in a
+        # sampled walk, ONE was on an unmitigated zone. The rest were return visits to spent zones.
         #
-        # HIS RULE IS NOT WEAKENED, because it is enforced where it belongs: `bx_sd_registry`'s role
-        # assignment takes `fresh = [z for z in group if z.state == "unmitigated"]`, so **a spent zone
-        # can never be labelled `extreme`** and signal 1 still only fires at an unmitigated extreme.
-        # This test was a second, cruder copy of that rule applied to the entry — the exact mistake
-        # the `role` comment above describes ("filtering twice on the same idea, with the first pass
-        # using the weaker definition"), repeated three lines later with `state` instead of `role`.
+        # THE DOCUMENT IS EXPLICIT that the reaction comes from a zone that has not been used. A Fake
+        # CHoCH is *"price did not reverse from a major UNMITIGATED demand zone"* (§9), and §21's
+        # sequence ENDS at "extreme zone mitigated" — that is the close of its life, not a state to
+        # keep trading. His own annotation on p10 names the failure mode: a zone tapped without the
+        # conditions met *"is likely to fail and act as liquidity"*.
         #
-        # The doc's own closing warning names this family: *"Requiring a mitigated state AND a live tap
-        # in the same instant is impossible… That combination silences the strategy; do not
-        # reintroduce it."* This was its mirror image — requiring UNmitigated at the moment of a tap.
-        #
-        # `is_entry_zone` below is what qualifies the entry: a parent, a completed CHoCH, still loaded,
-        # tapped now. DO NOT re-add a state test here without re-reading that sequence.
+        # A WICK TAP DOES NOT SPEND A ZONE. `wick_only` is the sweep case — his rule, "where a wick
+        # mitigates a zone, chances are that it's gonna be retapped": the orders were never filled,
+        # so the zone is still loaded. A BODY through it is what spends it.
+        if not (mz.state == "unmitigated" or mz.wick_only):
+            spent_skipped += 1
+            continue
         # RETAP **OR** 4H PULLBACK. Both qualify. Neither replaces the other.
         #
         # User's rule, 2026-08-01: *"Keep the retap and add a pullback. If the pullback happens
@@ -416,15 +408,8 @@ def detect_setup(h4: list[Candle], pip: float = 0.0001, book=None, session_candl
         #
         # `is_entry_zone` folds in the CHoCH check (`broke_through >= 1`) that used to sit here on its
         # own, so the two are asked together and cannot drift apart.
-        #
-        # ASK WHY, NOT JUST WHETHER (2026-08-22). This reported every refusal as "broke NO opposite
-        # zone", which is one of the four conditions and was usually not the one that fired — so eight
-        # days of silence could not be diagnosed from the state lines at all. `entry_refusal` returns
-        # the condition that actually refused; the rules are identical.
-        _why = entry_refusal(mz, marked, live_bar)
-        if _why is not None:
+        if not is_entry_zone(mz, marked, live_bar):
             unbroken_skipped += 1
-            entry_refusals[_why] = entry_refusals.get(_why, 0) + 1
             continue
 
         if (mz.top - mz.bottom) < _MIN_PIPS * pip:
@@ -456,16 +441,17 @@ def detect_setup(h4: list[Candle], pip: float = 0.0001, book=None, session_candl
             r.reason = (f"{priced_out} marked zone(s) mitigated but badly priced "
                         f"({premium_discount(leg_low, leg_high, price)})")
             return r
-        # THE ENTRY GATE NOW SAYS WHICH CONDITION REFUSED (2026-08-22). This line used to assert
-        # "their move broke NO opposite zone" for every refusal, when that is one of four conditions
-        # and was usually not the one that fired — which is why eight days of BX silence could not be
-        # read off the state lines at all. The counts come from `bx_sd_lineage.entry_refusal`; the
-        # rules are unchanged. The separate "ALREADY MITIGATED" line was deleted with the duplicate
-        # state test it reported on — the same condition is now named here, once.
+        # THE TWO REFUSALS THAT CARRY HIS RULE. Reported separately because they are different
+        # facts: "price is in a zone we deliberately never trade" vs "price is in a zone that has
+        # already been used up". Both used to fall through to the generic "no zone tapped" line,
+        # which reads as a quiet market when in fact price is sitting inside a zone right now.
+        if spent_skipped:
+            r.reason = (f"{spent_skipped} zone(s) tapped but ALREADY MITIGATED — only unmitigated "
+                        f"zones are traded, a spent zone has done its job")
+            return r
         if unbroken_skipped:
-            top = sorted(entry_refusals.items(), key=lambda kv: -kv[1])
-            detail = "; ".join(f"{n}× {why}" for why, n in top[:3])
-            r.reason = f"{unbroken_skipped} zone(s) tapped but not entry-ready — {detail}"
+            r.reason = (f"{unbroken_skipped} zone(s) tapped but their move broke NO opposite zone — "
+                        f"no change of character, so order flow has not flipped")
             return r
         # HOW FAR IS PRICE FROM THE NEAREST LIVE ZONE? This is the one number that answers "why no
         # signal" during a quiet stretch — the cascade fires on a tap, so the distance to the closest

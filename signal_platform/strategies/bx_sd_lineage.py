@@ -113,31 +113,7 @@ def is_entry_zone(mz: MarkedZone, zones: list[MarkedZone], live) -> bool:
     refined proximal and stop at its distal (the book's p81 model). His correction stands — the LTF
     is for entry, the zone itself is 4H.
     """
-    return entry_refusal(mz, zones, live) is None
-
-
-def entry_refusal(mz: MarkedZone, zones: list[MarkedZone], live) -> str | None:
-    """WHICH of the four conditions refused this zone — None when it qualifies.
-
-    `is_entry_zone` answers yes/no, and a bare no is what made BX's eight-day silence undiagnosable:
-    the caller could only report "broke NO opposite zone", which is one of FOUR reasons and was
-    usually the wrong one. Four completely different facts — "this zone has no parent, so it is not a
-    child at all", "the CHoCH has not completed", "the zone is already spent", "price is not on it
-    right now" — arrived as a single sentence.
-
-    The architecture doc's own instruction after a 0 was misread once already: *"Verify a 0 against
-    the book before believing it."* This is what makes that verifiable from one query instead of a
-    replay. It CHANGES NO RULE — same four conditions, same order, only the answer is legible.
-    """
-    if parent_of(mz, zones) is None:
-        return "no parent zone — it was not born of a reaction, so it is not an entry candidate"
-    if not choch_complete(mz):
-        return "the CHoCH has not completed — no opposite zone broken behind it"
-    if not (mz.state == "unmitigated" or mz.wick_only):
-        return f"the zone is already spent ({mz.state}) — the return visit would not be the first fill"
-    if not mz.tapped_by(live):
-        return "price is not tapping it right now"
-    return None
+    return parent_of(mz, zones) is not None and ready_for_entry(mz, live)
 
 
 def ready_for_entry(child: MarkedZone, live) -> bool:
