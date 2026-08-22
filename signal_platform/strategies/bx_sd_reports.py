@@ -21,6 +21,7 @@ from core.types import Candle, Signal
 from core import delivery_ledger
 from shared.mtf_utils import closed_only
 from strategies.bx_sd_registry import build, to_zone
+from strategies.bx_sd_zones import min_zone_height
 from strategies.bx_sd_htf import htf_zone_map, htf_backing
 from strategies.bx_sd_mitigation import mitigation_signal
 from strategies.bx_sd_strength import mitigation_note
@@ -31,7 +32,8 @@ from strategies.bx_sd_tap_alert import tap_alert_signal, REVERSAL_ONLY
 # importer, so the module was orphaned outright. (A first pass at this comment claimed bx_sd_watch
 # still used it — it does not, and the audit caught that.)
 
-_MIN_PIPS = 3.0   # ignore micro zones — same noise floor the cascade applies
+# The micro-zone floor is `bx_sd_zones.min_zone_height` — a share of ATR, one definition
+# shared with `bx_sd_setup` rather than a second copy of the number.
 _RECENT   = 6     # "now" = within the last N 4H bars
 
 
@@ -44,10 +46,11 @@ def scan_reports(symbol: str, entry_tf: list[Candle], m5: list[Candle], m1: list
     out: list[Signal] = []
     dm_id   = f"{sid}_watch"   # a heads-up is not a signal -> admin DM, never the channel
     htf_map = htf_zone_map(htf_candles, pip)
-    tmin    = _MIN_PIPS * pip
     bars    = closed_only(h4)
     if len(bars) < _RECENT:
         return out
+    # AFTER `bars` exists: the floor is measured from the same closed bars everything else reads.
+    tmin    = min_zone_height(bars, pip)
     # built once per scan by bx_sd.analyze; the fallback keeps this callable standalone
     marked  = build(h4, pip, session_candles=m5 or entry_tf) if book is None else book
     live    = h4[-1]        # the FORMING bar — a tap is an event happening NOW

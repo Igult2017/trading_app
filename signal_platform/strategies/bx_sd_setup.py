@@ -65,7 +65,7 @@ from core.types import Candle, Trend
 from shared.swing_points import find_swing_points
 from shared.trend_detector import detect
 from strategies.bx_sd_structure import map_structure
-from strategies.bx_sd_zones import Zone
+from strategies.bx_sd_zones import Zone, min_zone_height
 from strategies.bx_sd_confluence import premium_discount, fib_target, rsi_divergence
 from strategies.bx_sd_control import control, describe, phrase
 from strategies.bx_sd_entry_type import classify, phrase as et_phrase
@@ -85,9 +85,8 @@ _RESPECT_BUFFER = 0.25 # the confirming close must sit this fraction of the 4H z
                        # little, not struggling to break it". One constant, tune on evidence.
 # NOTE: no `_RECENT` window here. It was 6 bars and became dead when the tap rule moved to the
 # FORMING bar; it sat unread for three days while the docstring above still described it as the rule.
-_MIN_PIPS   = 3.0  # ignore micro-FVG zones — same noise floor the 3 report paths already apply
-                   # (bx_sd_reports._MIN_PIPS); the core cascade lacked it, so a sub-3-pip candidate
-                   # could drive a real channel entry the reports would have skipped as noise
+# The micro-zone floor now lives in `bx_sd_zones.min_zone_height` and is a share of ATR, not a flat
+# pip count — see that function. Both this module and `bx_sd_reports` read the one definition.
 
 
 @dataclass
@@ -442,7 +441,7 @@ def detect_setup(h4: list[Candle], pip: float = 0.0001, book=None, session_candl
             entry_refusals[_why] = entry_refusals.get(_why, 0) + 1
             continue
 
-        if (mz.top - mz.bottom) < _MIN_PIPS * pip:
+        if (mz.top - mz.bottom) < min_zone_height(bars, pip):
             continue
         # PRO-TREND ONLY WHILE TRENDING. A supply zone in an uptrend produces a PULLBACK, not a
         # move: its upside is capped by the prevailing trend while its stop is sized for a real

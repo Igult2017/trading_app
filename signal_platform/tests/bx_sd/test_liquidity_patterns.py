@@ -139,6 +139,54 @@ up = bars[:6] + [Candle(time=99 * 14400, open=1.106, high=1.1060, low=1.1055,
 chk("price trading above it counts as swept", is_swept(up, pool), True)
 chk("price staying below it does not", is_swept(bars[:6], pool), False)
 
+
+
+# ── VOLATILITY-RELATIVE THRESHOLDS (his specification, 2026-08-23) ───────────────────────────────
+# "Two swing highs/lows are considered equal when their absolute price difference is <= ATR x
+#  tolerance_percentage... No instrument-specific hard-coded pip values. No manually maintained pair
+#  table. No different algorithm for FX versus stocks."
+print()
+print("THRESHOLDS SCALE WITH WHAT THE INSTRUMENT ACTUALLY MOVES")
+from shared.candle_math import atr                                     # noqa: E402
+from strategies.bx_sd_zones import min_zone_height                     # noqa: E402
+
+
+def series(step, n=60, base=1.0):
+    """n bars each spanning `step` — so ATR is `step` and the thresholds are a share of it."""
+    out = []
+    for i in range(n):
+        lo = base + (i % 3) * step
+        out.append(Candle(time=i * 14400, open=lo, high=lo + step, low=lo,
+                          close=lo + step / 2, volume=0, timeframe="H4"))
+    return out
+
+
+quiet = series(0.0010)      # a calm instrument
+wild  = series(0.0100)      # one moving ten times as far
+chk("a wilder instrument gets a WIDER equal-level tolerance",
+    atr(wild, 14) > atr(quiet, 14), True)
+chk("...and a wider minimum zone size too",
+    min_zone_height(wild) > min_zone_height(quiet), True)
+chk("the tolerance really is 3% of the typical bar",
+    round(atr(quiet, 14) * 0.03 / atr(quiet, 14), 4), 0.03)
+chk("the zone floor really is 5%",
+    round(min_zone_height(quiet) / atr(quiet, 14), 4), 0.05)
+teeth("the two instruments do NOT get the same number — that was the whole defect",
+      min_zone_height(wild) != min_zone_height(quiet))
+
+# The fallback is a guard, not a second rule: a series with no ATR must not make everything 'equal'.
+chk("an empty series falls back rather than returning zero", min_zone_height([], 0.0001) > 0, True)
+teeth("a zero ATR cannot make every level count as equal", min_zone_height([], 0.0001) > 0)
+
+# WORKS ON ANY PRICE SCALE — his point about a $20 stock versus a $500 stock.
+cheap = series(0.80, base=20.0)      # a $20 stock
+dear  = series(12.0, base=500.0)     # a $500 stock
+chk("a $500 stock gets a bigger tolerance than a $20 one, from the same formula",
+    min_zone_height(dear) > min_zone_height(cheap), True)
+chk("...and both are a 5% share of their own typical bar",
+    (round(min_zone_height(cheap) / atr(cheap, 14), 3),
+     round(min_zone_height(dear) / atr(dear, 14), 3)), (0.05, 0.05))
+
 print()
 if failed:
     print(f"{len(failed)} of {count} FAILED: {failed}")

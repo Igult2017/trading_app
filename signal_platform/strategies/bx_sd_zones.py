@@ -299,3 +299,34 @@ def needs_eq50(zone: Zone, candle: Candle | None, pip: float) -> bool:
     if candle is not None and wick_dominant(candle):
         return True
     return (zone.top - zone.bottom) / pip > _MAX_SL_PIPS
+
+
+# ── HOW SMALL IS TOO SMALL FOR A ZONE — a share of what the instrument moves ────────────────────
+#
+# His specification, 2026-08-23: *"The 3-pip minimum zone size has the same problem. Instead of
+# minimum_zone_size = 3 pips, make it volatility-relative too: minimum_zone_size = ATR(N) x
+# zone_percentage."*
+#
+# WHAT WAS WRONG WITH 3 PIPS FLAT. The number came from an unmessaged automatic commit on 3 July
+# 2026 — the day BX was created — with no measurement behind it, and it predates GBP/JPY and USD/JPY
+# joining the pair list. On his measured data 3 pips is ~4.5% of an average EUR/USD day but ~2.3% of
+# a GBP/JPY one, so the same floor throws away zones of very different real significance.
+#
+# ONE HOME, TWO CALLERS. `bx_sd_setup` and `bx_sd_reports` each carried their own `_MIN_PIPS = 3.0`,
+# and a comment in one pointed at the other to explain why they matched. Two copies of a number is
+# how one of them ends up wrong; this is the single definition both now read.
+#
+# 5% IS A STARTING VALUE. His caution: *"I would not automatically declare 3% and 5% to be the final
+# optimal values. Those should be treated as initial parameters and tested."*
+_MIN_ZONE_ATR = 0.05
+
+
+def min_zone_height(candles, pip: float = 0.0001, fallback_pips: float = 3.0) -> float:
+    """The smallest zone worth marking, in the instrument's own price units.
+
+    `fallback_pips` covers a series too short to have an ATR — a guard, not a second rule. Without it
+    a zero ATR would make every micro-gap a valid zone.
+    """
+    from shared.candle_math import atr
+    a = atr(candles, 14)
+    return a * _MIN_ZONE_ATR if a > 0 else fallback_pips * pip

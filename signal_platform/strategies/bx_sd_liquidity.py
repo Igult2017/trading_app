@@ -11,8 +11,32 @@ assembles the full pool set and answers the two questions that matter:
 Reuses only the generic shared RESOURCE find_swing_points.
 """
 from core.types import Candle
+from shared.candle_math import atr
 from shared.swing_points import find_swing_points
 from strategies.bx_sd_pools import LiquidityPool, _period_pools, _session_pools
+
+
+# HOW CLOSE IS "THE SAME LEVEL" — a share of what the instrument actually moves, not a pip count.
+#
+# His specification, 2026-08-23: *"Two swing highs/lows are considered equal when their absolute price
+# difference is less than or equal to ATR x tolerance_percentage... No instrument-specific hard-coded
+# pip values. No manually maintained pair table. No different algorithm for FX versus stocks. The only
+# thing that changes from instrument to instrument is the measured volatility."*
+#
+# WHAT WAS WRONG WITH 2 PIPS FLAT. Measured on his data over 6 months, 2 pips is 2.97% of an average
+# day on EUR/USD but only 1.56% on GBP/JPY — so the same setting demanded nearly TWICE the precision
+# on the pair that moves furthest. Two highs a trader would call a clear double top on GBP/JPY sit 4-5
+# pips apart routinely, and were being read as unrelated. A missed double top is a missed liquidity
+# pool, which is a missed sweep, which refuses a valid setup.
+#
+# AND IT IS MEASURED AT THE MOMENT IN QUESTION, from the candles handed in — not a fixed conversion
+# taken from a six-month average. His point: *"markets change... the system should calculate ATR at
+# the relevant historical point."* That also keeps a replay honest, since the window only ever holds
+# bars up to the bar being judged.
+#
+# 3% IS A STARTING VALUE, NOT A SETTLED ONE. His caution, kept here so nobody later reads it as tuned:
+# *"I would not automatically declare 3% and 5% to be the final optimal values."*
+_EQ_TOL_ATR = 0.03
 
 
 def find_liquidity(candles: list[Candle], pip: float = 0.0001, eq_tol_pips: float = 2.0, n: int = 3,
@@ -28,7 +52,11 @@ def find_liquidity(candles: list[Candle], pip: float = 0.0001, eq_tol_pips: floa
         pools.append(LiquidityPool("buy", pr, "swing", idx))
     for idx, pr in lows:
         pools.append(LiquidityPool("sell", pr, "swing", idx))
-    tol = eq_tol_pips * pip
+    # Volatility-relative, in the instrument's own price units — works unchanged on EUR/USD, a JPY
+    # pair, gold or a $500 stock. `eq_tol_pips * pip` is the fallback for a series too short to have
+    # an ATR (a guard, not a second rule): without it a zero ATR would make every level "equal".
+    _a = atr(candles, 14)
+    tol = _a * _EQ_TOL_ATR if _a > 0 else eq_tol_pips * pip
     # EQUAL HIGHS / DOUBLE TOPS / TRIPLE TOPS, and the same for lows. These used to be a pairwise
     # scan of NEIGHBOURING swings only, which missed any double top with a smaller swing between its
     # two highs. See `_equal_level_pools`.
