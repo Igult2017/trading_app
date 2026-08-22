@@ -70,7 +70,7 @@ from strategies.bx_sd_confluence import premium_discount, pricing_aligned, fib_t
 from strategies.bx_sd_control import control, describe, phrase
 from strategies.bx_sd_entry_type import classify, phrase as et_phrase
 from strategies.bx_sd_liquidity import find_liquidity, swept_within
-from strategies.bx_sd_lineage import is_entry_zone, choch_complete
+from strategies.bx_sd_lineage import entry_refusal, choch_complete
 from strategies.bx_sd_registry import build, to_zone, LIQ_WINDOW
 from strategies.bx_sd_strength import mitigation_note, score as zone_strength
 from shared.mtf_utils import closed_only
@@ -199,7 +199,14 @@ def detect_setup(h4: list[Candle], pip: float = 0.0001, book=None, session_candl
     cand, cand_mz, n_live, off_trend = None, None, 0, 0
     cand_via, no_entry_event, cand_swept = "", 0, False
     spent_skipped = 0                            # why a tapped zone was passed over — see the reasons
-    unbroken_skipped = 0                         # the CHoCH — an opposite zone broken
+    unbroken_skipped = 0                         # the entry gate refused it — see `entry_refusals`
+    # WHICH condition refused, and how often. A bare "not entry-ready" covered four different facts
+    # and was usually the wrong one, which is what made eight days of silence unreadable.
+    entry_refusals: dict[str, int] = {}
+    # THE POOLS, BUILT ONCE. `find_liquidity` replays the whole window; it was being called inside
+    # the loop, i.e. once per zone. Both the sweep-at-tap score and the CHoCH validity gate read the
+    # same pools, so there is also only one answer for them to disagree about.
+    _pools = find_liquidity(bars, pip, session_candles=session_candles)
     for mz in sorted(marked, key=lambda m: m.ifc_time, reverse=True):
         # NOT `respected` — that is the RETEST path's job (bx_sd_reports, min_grade="B"). Accepting
         # it here let one zone fire BOTH: a duplicate signal, and the fresh cascade firing at C+,
@@ -374,8 +381,7 @@ def detect_setup(h4: list[Candle], pip: float = 0.0001, book=None, session_candl
         # point: *"we still have double checks"*. It now feeds `bx_sd_strength` instead.
         _side = "sell" if mz.direction == "demand" else "buy"
         _tap_i = len(bars) - 1
-        cand_swept = swept_within(find_liquidity(bars, pip, session_candles=session_candles),
-                                  bars, _side, max(0, _tap_i - LIQ_WINDOW), _tap_i)
+        cand_swept = swept_within(_pools, bars, _side, max(0, _tap_i - LIQ_WINDOW), _tap_i)
         # ── HIS QUALIFICATION FOR THE EXTREME (2026-08-19) ──────────────────────────────────────
         #
         #     "Price comes from the demand side, meaning price originates from a demand zone. Then
@@ -427,8 +433,13 @@ def detect_setup(h4: list[Candle], pip: float = 0.0001, book=None, session_candl
         #
         # `is_entry_zone` folds in the CHoCH check (`broke_through >= 1`) that used to sit here on its
         # own, so the two are asked together and cannot drift apart.
-        if not is_entry_zone(mz, marked, live_bar):
+        # THE CHoCH VALIDITY GATE (2026-08-22). `entry_refusal` now names WHICH of its conditions
+        # refused — including his new one: a structure break with no liquidity swept on the way to
+        # the extreme is a FAKE CHoCH, and a fake one is a decisional one, never traded.
+        _why = entry_refusal(mz, marked, live_bar, bars, _pools)
+        if _why is not None:
             unbroken_skipped += 1
+            entry_refusals[_why] = entry_refusals.get(_why, 0) + 1
             continue
 
         if (mz.top - mz.bottom) < _MIN_PIPS * pip:
@@ -490,8 +501,9 @@ def detect_setup(h4: list[Candle], pip: float = 0.0001, book=None, session_candl
                         f"zones are traded, a spent zone has done its job")
             return r
         if unbroken_skipped:
-            r.reason = (f"{unbroken_skipped} zone(s) tapped but their move broke NO opposite zone — "
-                        f"no change of character, so order flow has not flipped")
+            top = sorted(entry_refusals.items(), key=lambda kv: -kv[1])
+            detail = "; ".join(f"{n}x {why}" for why, n in top[:3])
+            r.reason = f"{unbroken_skipped} zone(s) tapped but not entry-ready — {detail}"
             return r
         # HOW FAR IS PRICE FROM THE NEAREST LIVE ZONE? This is the one number that answers "why no
         # signal" during a quiet stretch — the cascade fires on a tap, so the distance to the closest

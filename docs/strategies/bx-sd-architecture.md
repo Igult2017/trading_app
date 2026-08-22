@@ -170,6 +170,81 @@ per tick, on a tick that already takes ~12s. Measured after the fix: 48 ms once,
 **Files:** `strategies/bx_sd_signal1.py` (new), wired in `strategies/bx_sd.py` before the signal-2
 cascade. Tests: `tests/bx_sd/test_signal1_window.py` (33 checks).
 
+## VALID vs FAKE CHANGE OF CHARACTER — the sweep is a GATE (2026-08-22)
+
+His rule: *"liquidity sweep is a gate for CHOCH validity. Before price taps the extreme zone, it must
+sweep liquidity then tap extreme zone to create a CHOCH. If no liquidity sweep occurred on the price
+way to tapping extreme zone, the CHOCH created becomes invalid... invalid CHOCH is a perfect
+definition of decisional CHOCH."*
+
+**His document says it four times** (`CHOCH AND DEMAND AND SUPPLY.pdf`, read page by page before this
+was built — not grepped):
+
+| where | what it says |
+|---|---|
+| p24, numbered sequence | **step 4 "Wait for liquidity sweep"**, step 5 "Price reaches the higher-time-frame demand", step 7 the CHoCH. Step 4 carries NO condition; the optional step 9 begins **"If"** |
+| p24, valid vs fake table | *"Liquidity may remain unswept"* sits on the **FAKE** side |
+| p25, Mistake 3 | *"Entering before a liquidity sweep."* |
+| p25, Mistake 4 | *"Entering from a decisional zone too early: price may continue toward the extreme zone and sweep liquidity first."* — his decisional/extreme/sweep link in one sentence |
+
+Only p16 §10 reads softer (*"additional confirmation"*, *"may be"*), **and that is the passage the old
+code was built on** — which is how the sweep became a score that could refuse nothing.
+
+### What was wrong, twice over
+
+1. **Validity ignored the sweep.** The whole test was `child.broke_through >= 1` — one opposite zone
+   broken, nothing else. The sweep was computed and fed only to the strength score and card text.
+2. **The window was the wrong moment.** It ended at the CURRENT bar — for signal 2 that is price
+   RETURNING to the child zone, the document's step 11, seven steps after the sweep that matters.
+
+### What is there now — `bx_sd_lineage`
+
+`choch_verdict(child, zones, bars, pools)` returns a NAMED verdict, because he asked the system to
+**know** the difference rather than imply it:
+
+| verdict | meaning |
+|---|---|
+| `CHOCH_VALID` | swept on the approach **and** broke an opposite zone |
+| `CHOCH_FAKE_NO_SWEEP` | structure broke but no liquidity was taken on the way to the extreme |
+| `CHOCH_FAKE_NO_BREAK` | nothing opposite was broken — structure never changed |
+| `CHOCH_FAKE_NO_PARENT` | no extreme behind it; the reversal came from nowhere |
+
+`swept_before_tap` ends the window at **`parent.mitigated_at`** — the moment price FIRST touched the
+extreme (step 5), so the sweep it sees is step 4. Reuses `swept_within` and `LIQ_WINDOW`; no second
+copy of either. **`swept_within`, never `swept_before`** — the latter is vacuous at a tap (measured:
+YES on 100% of taps on both pairs).
+
+**One enforcement point.** `entry_refusal` asks `choch_verdict` and names which condition refused, so
+every caller inherits the rule and the state line says WHICH of the four facts fired instead of the
+old catch-all.
+
+**`find_liquidity` is now called ONCE per scan**, not once per zone — it was inside the candidate loop.
+
+### Measured on real data, before deploying
+
+997 real GBP/USD 4-hour candles. **A diagnostic count, not a backtest** — no win rate, no R, no P&L:
+
+| | |
+|---|---|
+| zones on the book | 166 |
+| of those, with a parent (entry candidates) | 77 |
+| passed the OLD rule (break only) | **39** |
+| pass the NEW rule (break + sweep) | **10** |
+| refused by the sweep requirement | **29 — 74% of what used to pass** |
+
+**74% is a large refusal and it is recorded here deliberately.** The doc's own history is that gates
+cutting 33-55% were judged too much. The difference is that this one is his explicit rule, stated
+four ways in his own document — so the number is information for him, not grounds for me to soften it.
+If it proves too tight in live trading, that is his call.
+
+### Still NOT fixed — the decisional block
+
+The 3 Aug regression (`test_aug03_regression.py`) STILL fires, and the sweep gate is not what lets it
+through: on that bar liquidity genuinely WAS swept before the parent tap, so the verdict is honestly
+`valid`. What lets it through is that **nothing refuses a decisional zone any more** — the positional
+check was removed 20 Aug (`f025514`) and the two checks meant to replace it were removed the same day
+(`6396003`). Awaiting his ruling; see open defect below.
+
 ## The lifecycle
 
 **Rewritten 2026-07-30.** Mitigation is by **wick OR body** and the two are different events; a tap
@@ -623,6 +698,17 @@ pullback in 4HR"*.
    of taps; BX already requires the 4H zone AND a 1M/5M confirmation, so a third mandatory refusal
    stops the strategy trading. The user's rule: *"we still have double checks."*
 
+0x. **NOTHING REFUSES A DECISIONAL ZONE — open, and it is why the 3 Aug regression fails.**
+   The positional refusal (`if mz.role == "decisional": continue`) was removed 20 Aug by `f025514`
+   on the reasoning that *"the three gates below now decide it alone"*; those gates were removed the
+   same day by `6396003` (*"the sweep belongs at formation"*). The replacement was deleted after the
+   thing it replaced, and nothing enforces it now. His rule is absolute and the code still quotes it:
+   *"we cannot place any trades based on the decisional supply zone... Don't use the decisional zones,
+   you will be a liquidity."* Proven live on the 3 Aug GBP/USD fixture: the zone that fires is
+   `role=decisional`, `wick_mitigated`, genuinely tapped, and its CHoCH verdict is honestly `valid`
+   (liquidity WAS swept before the parent tap) — so the sweep gate does not cover this. **NOT FIXED —
+   awaiting his ruling.** The broken-decisional check from `a369846` is also gone with no replacement.
+
 0z. **SIGNAL 2 IS BLOCKED SHUT — two gates in one loop that cannot both be true (found 2026-08-22).**
    `bx_sd_setup` requires `mz.state == "respected"` (line ~230) and then, 47 lines later,
    `mz.state == "unmitigated" or mz.wick_only` (line ~277). `respected` is neither, so **no zone in
@@ -631,7 +717,9 @@ pullback in 4HR"*.
    **Nothing has passed since 14 Aug 2026 12:57 UTC** — 18 confirmed entries in the 30 days before,
    zero in the 8 days after, and zero entry candidates even BUILT. Production, 21 Aug 20:59: EUR/USD
    14 zones tapped, GBP/USD 10, GBP/JPY 9, USD/JPY 6 — every one refused, all four pairs at once.
-   **NOT FIXED — awaiting his ruling on which gate is the intruder.** The reading offered (his, not
+   **FIXED 2026-08-22** — he ruled: *"remove this because price coming back is already a
+   confirmation that the zone held."* The `respected` gate is gone; `unmitigated`/`wick`
+   now reach the entry step. Verified across every state a zone can hold. The reading offered (his, not
    mine, to accept or reject): the parent must be `respected`, the child must be `unmitigated`, and
    the loop applies both to the same zone. `bx_sd_signal1.was_extreme_at` shows the shape of the fix.
 

@@ -83,19 +83,93 @@ def parent_of(child: MarkedZone, zones: list[MarkedZone]) -> MarkedZone | None:
 
 
 def choch_complete(child: MarkedZone) -> bool:
-    """Has the CHoCH finished? His rule, and the document's:
-
-        "a valid CHoCH originates from an UNMITIGATED HTF zone and breaks ONE opposite zone;
-         breaking TWO is a stronger confirmation."
+    """Did the move break at least one OPPOSITE zone? Half of validity — see `choch_verdict`.
 
     ONE, NOT TWO. Two is a STRENGTH input (`bx_sd_strength._DOUBLE_MIN`) and must never gate — §4 is
     singular, §22 numbers step 8 unconditional against step 9 *"IF ... becomes STRONGER"*, and §16
     says two is *"stronger than breaking ONLY ONE"*, which presupposes one is already valid.
+
+    THIS ALONE USED TO BE THE WHOLE TEST, and that was the defect fixed on 2026-08-22. A structure
+    break with no liquidity swept on the way to the extreme is what his document calls a FAKE CHoCH.
+    Callers wanting the real answer must use `choch_verdict` / `choch_valid`.
     """
     return child.broke_through >= 1
 
 
-def is_entry_zone(mz: MarkedZone, zones: list[MarkedZone], live) -> bool:
+# The two verdicts, named. He asked for the system to KNOW the difference rather than imply it:
+# *"let the system know fake CHOCH and the valid CHOCH and liquidity sweep is now a gate."*
+CHOCH_VALID = "valid"
+CHOCH_FAKE_NO_SWEEP = "fake: no liquidity swept on the way to the extreme zone"
+CHOCH_FAKE_NO_BREAK = "fake: the move broke no opposite zone — structure never changed"
+CHOCH_FAKE_NO_PARENT = "fake: no extreme zone behind it — the reversal came from nowhere"
+
+
+def choch_verdict(child: MarkedZone, zones: list[MarkedZone], bars, pools) -> str:
+    """VALID OR FAKE, and WHY. `CHOCH_VALID` when it is real; a `CHOCH_FAKE_*` reason otherwise.
+
+    HIS RULE, 2026-08-22: *"liquidity sweep is a gate for CHOCH validity... Before price taps the
+    extreme zone, it must sweep liquidity then tap extreme zone to create a CHOCH. If no liquidity
+    sweep occurred on the price way to tapping extreme zone, the CHOCH created becomes invalid.
+    We dont trade invalid zones because invalid CHOCH is a perfect definition of decisional CHOCH."*
+
+    HIS DOCUMENT SAYS THE SAME THING FOUR TIMES, and it was read before this was written:
+      * p24, the numbered sequence — step 4 "Wait for liquidity sweep", step 5 "price reaches the
+        higher-time-frame demand", step 7 the CHoCH. Step 4 carries NO condition; where the document
+        means optional it says so, and step 9 begins "If".
+      * p24, valid vs fake table — "Liquidity may remain unswept" sits on the FAKE side.
+      * p25, Mistake 3 — "Entering before a liquidity sweep."
+      * p25, Mistake 4 — "Entering from a decisional zone too early: price may continue toward the
+        extreme zone and sweep liquidity first." His decisional/extreme/sweep link, in one sentence.
+    Only p16 §10 reads softer ("additional confirmation"), and THAT is the passage the old code was
+    built on — which is how the sweep ended up as a score that could refuse nothing.
+
+    THE WINDOW ENDS AT THE PARENT'S FIRST TAP, and that is the correction. The old call measured up
+    to the CURRENT bar — for signal 2 that is price RETURNING to the child zone, the document's step
+    11, seven steps after the sweep it needs to see. The sweep that matters happened before the
+    extreme was ever touched, so the window ends at `parent.mitigated_at` (stamped once, on the first
+    tap — see `bx_sd_registry._advance`).
+
+    `swept_within`, NEVER `swept_before`: at a tap the latter is vacuous — measured, it answered YES
+    on 100% of taps on both pairs. See its docstring; it is correct only at zone FORMATION.
+    """
+    parent = parent_of(child, zones)
+    if parent is None:
+        return CHOCH_FAKE_NO_PARENT
+    if not choch_complete(child):
+        return CHOCH_FAKE_NO_BREAK
+    if not swept_before_tap(parent, bars, pools):
+        return CHOCH_FAKE_NO_SWEEP
+    return CHOCH_VALID
+
+
+def choch_valid(child: MarkedZone, zones: list[MarkedZone], bars, pools) -> bool:
+    """Is this a real change of character? The yes/no form of `choch_verdict`."""
+    return choch_verdict(child, zones, bars, pools) == CHOCH_VALID
+
+
+def swept_before_tap(parent: MarkedZone, bars, pools) -> bool:
+    """Was resting liquidity taken out on the approach to this extreme zone, BEFORE price tapped it?
+
+    The document's step 4 before its step 5. `parent.mitigated_at` is the moment price first touched
+    the zone, so the window is the `LIQ_WINDOW` bars leading up to it — the same constant the
+    formation check uses, deliberately: a second number for "how recently" would be invented.
+
+    A zone never tapped has no approach to judge, so there is nothing to have swept: False.
+    """
+    from strategies.bx_sd_liquidity import swept_within
+    from strategies.bx_sd_registry import LIQ_WINDOW
+    if parent.mitigated_at is None:
+        return False
+    idx = {c.time: i for i, c in enumerate(bars)}
+    tap_i = idx.get(parent.mitigated_at)
+    if tap_i is None:
+        return False                    # older than the window handed to us — cannot judge it
+    side = "sell" if parent.direction == "demand" else "buy"
+    return swept_within(pools, bars, side, max(0, tap_i - LIQ_WINDOW), tap_i)
+
+
+def is_entry_zone(mz: MarkedZone, zones: list[MarkedZone], live,
+                  bars=None, pools=None) -> bool:
     """SIGNAL 2 — may we enter on this zone right now? His rule, end to end:
 
         "After the price breaking an opposite zone or two, it is anticipated to go back and tap the
@@ -105,24 +179,62 @@ def is_entry_zone(mz: MarkedZone, zones: list[MarkedZone], live) -> bool:
 
     Four things, all derived from the book:
       * this zone was BORN of a reaction out of a parent          (`parent_of`)
-      * the CHoCH completed — one opposite zone broken            (`choch_complete`)
+      * the CHoCH is VALID — swept, and it broke an opposite zone (`choch_verdict`)
       * the zone is still LOADED — unmitigated, or wick-only      (the return visit fills it)
       * price is TAPPING it right now
+
+    `bars` and `pools` are what the sweep is judged from. They are OPTIONAL only so the older
+    two-argument callers and tests keep working; when they are absent the sweep cannot be checked and
+    this falls back to the pre-2026-08-22 answer. Production always passes them — `bx_sd_setup` has
+    both to hand — so the gate is live where it matters.
 
     The entry PRICE inside it is unchanged: `bx_sd_ltf.refine_zone` to the entry TF, entry at the
     refined proximal and stop at its distal (the book's p81 model). His correction stands — the LTF
     is for entry, the zone itself is 4H.
     """
-    return parent_of(mz, zones) is not None and ready_for_entry(mz, live)
+    return entry_refusal(mz, zones, live, bars, pools) is None
+
+
+def entry_refusal(mz: MarkedZone, zones: list[MarkedZone], live,
+                  bars=None, pools=None) -> str | None:
+    """WHICH condition refused this zone — None when it qualifies as a signal-2 entry.
+
+    `is_entry_zone` answers yes/no, and a bare no is what made BX's eight-day silence undiagnosable:
+    the caller could only report "the move broke no opposite zone", which is one of several reasons
+    and was usually not the one that fired. Four different facts — no parent, a FAKE change of
+    character, the zone already spent, price not on it — arrived as one sentence.
+
+    The architecture doc's own instruction, after a 0 was misread once already: *"Verify a 0 against
+    the book before believing it."* This is what makes that answerable from one query.
+    """
+    if parent_of(mz, zones) is None:
+        return "no parent zone — it was not born of a reaction, so it is not an entry candidate"
+    # THE VALIDITY GATE (2026-08-22). A structure break with no liquidity swept on the way to the
+    # extreme is a FAKE CHoCH by his rule and his document, and a fake one is a decisional one.
+    # Only answerable with the bars and pools; without them this degrades to the break test alone.
+    if bars is not None and pools is not None:
+        _v = choch_verdict(mz, zones, bars, pools)
+        if _v != CHOCH_VALID:
+            return _v
+    elif not choch_complete(mz):
+        return "the CHoCH has not completed — no opposite zone broken behind it"
+    if not (mz.state == "unmitigated" or mz.wick_only):
+        return f"the zone is already spent ({mz.state}) — the return visit would not be the first fill"
+    if not mz.tapped_by(live):
+        return "price is not tapping it right now"
+    return None
 
 
 def ready_for_entry(child: MarkedZone, live) -> bool:
-    """Is price back at the child zone, with the CHoCH behind it and the zone still loaded?
+    """Is price back at the child zone, with a completed CHoCH behind it and the zone still loaded?
 
     UNMITIGATED — the return visit is the FIRST time orders there get filled. A child already traded
     through is spent, and entering it is the fake-CHoCH mistake one level down: the reaction has
     already been used. `wick_only` still qualifies, his settled rule — a wick leaves the orders
     unfilled, so the zone is still loaded.
+
+    NO SWEEP CHECK HERE, on purpose: it needs the PARENT, and this function only sees the child.
+    Validity lives in `choch_verdict`, which `is_entry_zone` asks. Do not add a second copy.
     """
     return (choch_complete(child)
             and (child.state == "unmitigated" or child.wick_only)
