@@ -39,7 +39,7 @@ async def _startup() -> None:
     from storage import observability_repo as obs
     from core.startup_helpers import report_downtime
     report_downtime(obs.detect_downtime())
-    obs.beat()
+    obs.beat(scanned=False)   # booting proves liveness; it is not a scan, so it must not count as one
 
     # 2. Bootstrap tokens from Node DB (always fresh — overrides potentially-stale env vars)
     await bootstrap_ctrader_tokens(settings)

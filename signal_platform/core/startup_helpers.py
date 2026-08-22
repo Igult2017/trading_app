@@ -43,6 +43,34 @@ def _spell_duration(seconds: int) -> str:
     return f"{mm}m"
 
 
+def open_market_seconds(start, end) -> int:
+    """How much of this window was the forex market actually OPEN?
+
+    THE DIFFERENCE BETWEEN AN OUTAGE THAT COST SOMETHING AND ONE THAT COST NOTHING. The alert used to
+    assert flatly that "anything that set up while it was down was MISSED", which is false whenever
+    the window sits in the weekend close — nothing can set up in a shut market. Sent that way on
+    21 Aug 2026 and it read as a real 30-minute loss when the market had been closed for 29 of them.
+
+    Steps the window a minute at a time through the SAME `is_forex_open` the scanner gates on, rather
+    than re-deriving the session rule here. One rule, one place: a second copy would drift, and the
+    two would disagree about exactly the boundary that matters (Fri 22:00 UTC).
+    """
+    from data.instrument_filter import is_forex_open
+    from datetime import timedelta
+    if start is None or end is None or end <= start:
+        return 0
+    step, seconds, cursor = timedelta(minutes=1), 0, start
+    # Bounded: even a fortnight-long outage is ~20k cheap iterations, and the cap stops a corrupt
+    # timestamp (a heartbeat from 1970) turning boot into an infinite loop.
+    for _ in range(60 * 24 * 31):
+        if cursor >= end:
+            break
+        if is_forex_open(cursor):
+            seconds += min(60, int((end - cursor).total_seconds()))
+        cursor += step
+    return seconds
+
+
 def report_downtime(outage) -> None:
     """THE OUTAGE THAT LEAVES NO PROCESS BEHIND TO REPORT IT.
 
@@ -68,13 +96,24 @@ def report_downtime(outage) -> None:
     if outage is None:
         return
     try:
+        # WHAT DID IT ACTUALLY COST? An outage entirely inside the weekend close costs nothing, and
+        # saying otherwise is how a real alert gets trained into noise.
+        open_s = open_market_seconds(outage.down_from, outage.down_to)
+        if open_s <= 0:
+            cost = ("The market was CLOSED for all of it, so nothing could have set up and nothing "
+                    "was missed. This is a liveness note, not a loss.")
+        elif open_s >= outage.seconds - 60:
+            cost = ("The market was OPEN throughout. Anything that set up while it was down was "
+                    "MISSED, not declined — that is the difference this tells you.")
+        else:
+            cost = (f"Of that, {_spell_duration(open_s)} fell in OPEN market — that is the only part "
+                    f"where a setup could have been missed. The rest was the weekend close.")
         _send_coded(
             f"🛰️ S3 ⏫\n\n"
             f"The signal engine was NOT RUNNING for {_spell_duration(outage.seconds)} —\n"
             f"   from  {outage.down_from:%d %b %H:%M} UTC\n"
             f"   to    {outage.down_to:%d %b %H:%M} UTC\n\n"
-            f"No signal of any kind could have been sent in that window. Anything that set up while "
-            f"it was down was MISSED, not declined — that is the difference this tells you.\n\n"
+            f"{cost}\n\n"
             f"It is back up and scanning now."
         )
     except Exception:

@@ -63,6 +63,11 @@ check("exactly a day", sh._spell_duration(24 * 3600), "1d")
 check("never rounds to zero", sh._spell_duration(20), "1m")
 
 # ── THE REAL 15 AUGUST OUTAGE ────────────────────────────────────────────────
+# 15 Aug 2026 WAS A SATURDAY. The 4h 45m absence this whole alert was built to catch happened with
+# the forex market shut, so it cost nothing — and the message as originally written would have told
+# him the opposite ("anything that set up was MISSED"). This assertion used to demand that wrong
+# sentence. Corrected 2026-08-22: the length and the window are still reported exactly as before,
+# but what it MEANS is now the truth about a closed market.
 sent.clear()
 sh.report_downtime(Outage(down_from=D(2026, 8, 15, 9, 0, 15),
                           down_to=D(2026, 8, 15, 13, 45, 25), seconds=17109))
@@ -71,11 +76,54 @@ msg = sent[0] if sent else ""
 check("coded, and ⏫ because it is back by the time this runs", msg.startswith("🛰️ S3 ⏫"), True)
 check("it states the length in plain words", "4h 45m" in msg, True)
 check("...and the window it covers", "15 Aug 09:00" in msg and "15 Aug 13:45" in msg, True)
-check("it says what that MEANS, not just that it happened",
-      "MISSED, not declined" in msg, True)
+check("it says what that MEANS — and 15 Aug was a Saturday, so it cost nothing",
+      "market was CLOSED for all of it" in msg, True)
 check("it says the platform is back", "back up and scanning" in msg, True)
 # STRATEGIES ARE INDEPENDENT — a platform message must not name one, or compare them.
 check("it names no strategy", not any(s in msg.upper() for s in ("VIX", "BX", "CHOCH")), True)
+
+# ── THE 21 AUGUST FALSE ALARM — the market was shut for 29 of those 30 minutes ───────────────
+# He received "down for 30m, 21:59 → 22:29 UTC" on a FRIDAY. Forex closes Fri 22:00 UTC, so all but
+# one minute of it was a closed market. The old message told him outright that anything setting up
+# had been MISSED, which was false. Reproduced here from the times he was actually sent.
+print()
+print("MARKET HOURS — what the outage actually cost")
+
+check("Fri 21:59 is still open",  sh.open_market_seconds(D(2026, 8, 21, 21, 59), D(2026, 8, 21, 22, 0)), 60)
+check("Fri 22:00 onward is shut", sh.open_market_seconds(D(2026, 8, 21, 22, 0), D(2026, 8, 21, 23, 0)), 0)
+check("all Saturday is shut",     sh.open_market_seconds(D(2026, 8, 22, 0, 0), D(2026, 8, 22, 23, 0)), 0)
+check("Sun before 22:00 is shut", sh.open_market_seconds(D(2026, 8, 23, 20, 0), D(2026, 8, 23, 22, 0)), 0)
+check("Sun 22:00 reopens",        sh.open_market_seconds(D(2026, 8, 23, 22, 0), D(2026, 8, 23, 23, 0)), 3600)
+check("a midweek hour counts in full",
+      sh.open_market_seconds(D(2026, 8, 18, 10, 0), D(2026, 8, 18, 11, 0)), 3600)
+check("HIS window: only 1 of the 30 minutes was open market",
+      sh.open_market_seconds(D(2026, 8, 21, 21, 59), D(2026, 8, 21, 22, 29)), 60)
+check("the 106-minute weekend 'outage' cost nothing at all",
+      sh.open_market_seconds(D(2026, 8, 21, 22, 29), D(2026, 8, 22, 0, 15)), 0)
+check("a reversed/degenerate window is 0, not a hang",
+      sh.open_market_seconds(D(2026, 8, 18, 11, 0), D(2026, 8, 18, 10, 0)), 0)
+
+# ── and the MESSAGE says which it was ────────────────────────────────────────
+sent.clear()
+sh.report_downtime(Outage(down_from=D(2026, 8, 21, 22, 29),
+                          down_to=D(2026, 8, 22, 0, 15), seconds=6368))
+weekend = sent[0] if sent else ""
+check("a weekend outage says the market was closed", "market was CLOSED for all of it" in weekend, True)
+check("...and does NOT claim anything was missed", "was MISSED" in weekend, False)
+
+sent.clear()
+sh.report_downtime(Outage(down_from=D(2026, 8, 18, 10, 0),
+                          down_to=D(2026, 8, 18, 12, 0), seconds=7200))
+midweek = sent[0] if sent else ""
+check("a midweek outage still says plainly that setups were missed",
+      "MISSED, not declined" in midweek, True)
+
+sent.clear()
+sh.report_downtime(Outage(down_from=D(2026, 8, 21, 21, 30),
+                          down_to=D(2026, 8, 21, 23, 30), seconds=7200))
+straddle = sent[0] if sent else ""
+check("an outage straddling the Friday close reports only the open part",
+      "30m fell in OPEN market" in straddle, True)
 
 # ── a clean boot says nothing ────────────────────────────────────────────────
 sent.clear()

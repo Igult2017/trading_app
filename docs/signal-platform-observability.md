@@ -125,14 +125,68 @@ A process that is KILLED, a container that dies, a host that goes away: none of 
 `startup_helpers.report_downtime(obs.detect_downtime())` in `main.py` closes that gap — the
 heartbeat's age at boot is the only witness such an outage leaves, so this is the only place it can
 be announced from. It goes to the private coded chat as `🛰️ S3 ⏫`, with the window and the length in
-plain words, and says what it MEANS: *"Anything that set up while it was down was MISSED, not
-declined."*
+plain words, and says what it MEANS.
+
+> **Superseded in part on 2026-08-22** — see *THE HEARTBEAT MEASURED THE WRONG THING* below. That
+> closing sentence used to read *"Anything that set up while it was down was MISSED, not declined"*
+> unconditionally, which is false whenever the window sits in the weekend close. It is now decided by
+> the outage's real overlap with open market hours.
 
 **No dedup is needed and none was added.** `detect_downtime` measures the heartbeat's age at THIS
 boot, so a crash-loop restarting every 60s sees a 60-second-old heartbeat, falls under the 300s
 threshold and returns None. The alert can only fire on a real absence. Confirmed against a real
 deploy: the 2026-08-20 redeploy did **not** create a downtime row, so ordinary deploys stay under the
 line and this will not become deploy noise.
+
+### THE HEARTBEAT MEASURED THE WRONG THING — fixed 2026-08-22
+
+Everything above about the heartbeat was true except for the one word that mattered: it was written
+**at the end of a completed scan**, not once per tick. `beat_at` therefore meant *"a scan finished"*
+while `detect_downtime` read it as *"the process is alive"*. Those are different things, and the gap
+between them manufactured outages that never happened.
+
+`scan_markets` returns early on four legitimate no-ops — paused, `SCAN_ENABLED=false`, **market
+closed**, and no strategies registered — and the heartbeat write sat past all of them. So the moment
+forex closed on Friday at 22:00 UTC the heartbeat froze and stayed frozen for the ~49 hours until
+Sunday 22:00. The next boot compared its age against the 300s threshold and recorded the idle
+weekend as a real absence.
+
+**A healthy engine idling through a closed market produced a byte-identical report to a dead one.**
+
+| | |
+|---|---|
+| what he was sent | *"The signal engine was NOT RUNNING for 30m — from 21 Aug 21:59 UTC to 22:29 UTC"* |
+| what actually happened | 21 Aug 2026 was a **Friday**; the market shut at 22:00. The last tick before the close wrote the heartbeat at 21:59, the engine restarted at 22:29, and the 30-minute gap was **29 minutes of closed market** |
+| real exposure | **1 minute** — a single scan cycle |
+| also recorded | a **106-minute** "outage", 22:29 Fri → 00:15 Sat, entirely inside the weekend close. Fabricated: the engine was up and idle throughout |
+| side effect | `/api/signal-platform/status` reported `stale: true` all weekend, every weekend |
+
+**The fix.** `scan_markets` is now a thin wrapper that always stamps the heartbeat in a `finally`,
+around a `_run_tick` that returns `(scanned, tick_ms)`. The `finally` is deliberate — patching each
+`return` works today and breaks at the next `return` added, which is exactly how this broke.
+`beat(scanned, tick_ms)` keeps the two facts apart: an idle tick proves liveness without inflating
+`scans` or claiming a tick duration. `beat()`'s old `scans` parameter was dead (ignored in favour of
+an unconditional `+1`) and was deleted.
+
+**And the alert now says what the outage COST.** `startup_helpers.open_market_seconds` steps the
+window a minute at a time through the same `is_forex_open` the scanner gates on — one rule, one
+place — and the message reports zero / partial / full open-market overlap instead of asserting
+flatly that setups were missed.
+
+> **15 Aug 2026 was a Saturday.** The 4h 45m outage this entire alert was built for happened with the
+> market shut. It cost nothing, and the message would have told him the opposite. The alert had never
+> once reported a real trading loss. `tests/test_downtime_alert.py` asserted that wrong sentence and
+> was corrected with the code.
+
+**Regression:** `tests/test_heartbeat_liveness.py` drives the real `scan_markets` with the clock
+forced to a Saturday and asserts the heartbeat is still written, `scanned` is false, and a tick that
+*raises* has still beaten. Its TEETH checks re-create the old shape and confirm they go red. No unit
+test of the alert could have caught this — the alert was correct on the input it was given; the lie
+was upstream.
+
+**Known, not fixed:** the fabricated weekend rows are still in `platform_downtime`. Anyone reading
+that table should treat pre-2026-08-22 rows as suspect and check them against
+`open_market_seconds(down_from, down_to)` before believing them.
 
 ### `platform_downtime` — one row per detected outage
 

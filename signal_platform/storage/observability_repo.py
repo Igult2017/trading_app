@@ -68,23 +68,35 @@ def record(stage: str, strategy: str, symbol: str,
                     f"{type(exc).__name__}: {exc}")
 
 
-def beat(scans: int = 0, tick_ms: int | None = None) -> None:
-    """Stamp the heartbeat. Called once per scan — its age at boot is the downtime measurement.
+def beat(scanned: bool = True, tick_ms: int | None = None) -> None:
+    """Stamp the heartbeat. Called once per TICK — its age at boot is the downtime measurement.
 
-    `tick_ms` is how long the tick that is writing this beat took. It is the ONLY record of the scan
-    loop's speed anywhere in the platform; without it the question "are ticks running slow?" can only
-    be guessed at from the spacing of unrelated rows, which is how a 174-second figure got asserted
-    on evidence that could not support it.
+    `beat_at` MEANS "the loop is alive", NOT "a scan happened". Those came apart before 2026-08-22:
+    this was only ever called at the end of a completed scan, so the four legitimate no-op ticks
+    (paused, scanning disabled, market closed, no strategies) never stamped it. A closed market froze
+    the heartbeat for the whole weekend and `detect_downtime` then reported the idle stretch as a
+    real outage at the next boot. Every tick beats now; see `orchestrator.scanner.scan_markets`.
+
+    `scanned` keeps the two facts separate. An idle tick proves liveness but must NOT inflate the
+    scan counter — otherwise "36,047 scans" silently becomes "ticks", and the one number that says
+    how much work the platform actually did stops meaning anything.
+
+    `tick_ms` is how long the tick took, and is None for an idle tick because there is no scan to
+    time. It is the ONLY record of the scan loop's speed anywhere in the platform; without it the
+    question "are ticks running slow?" can only be guessed at from the spacing of unrelated rows,
+    which is how a 174-second figure got asserted on evidence that could not support it.
     """
     try:
         now = datetime.now(timezone.utc)
         with get_session() as s:
             row = s.get(PlatformHeartbeatModel, 1)
             if row is None:
-                s.add(PlatformHeartbeatModel(id=1, beat_at=now, scans=scans, last_tick_ms=tick_ms))
+                s.add(PlatformHeartbeatModel(id=1, beat_at=now,
+                                             scans=1 if scanned else 0, last_tick_ms=tick_ms))
             else:
                 row.beat_at = now
-                row.scans = (row.scans or 0) + 1
+                if scanned:
+                    row.scans = (row.scans or 0) + 1
                 if tick_ms is not None:
                     row.last_tick_ms = int(tick_ms)
     except Exception as exc:

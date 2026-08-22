@@ -91,6 +91,29 @@ async def _scan_instrument(
 
 
 async def scan_markets() -> None:
+    """Scheduled entry point. ALWAYS stamps the heartbeat, whatever the tick decides to do.
+
+    THE HEARTBEAT MEANS "THIS LOOP IS ALIVE", NOT "A SCAN HAPPENED". Until 2026-08-22 the write sat
+    at the end of the tick, past four legitimate early returns, so a closed market froze it for the
+    whole weekend and the next boot reported the idle stretch as an outage. Full root cause and the
+    false alert it sent: `docs/signal-platform-observability.md`.
+
+    The write lives in a `finally` DELIBERATELY — patching each `return` works today and breaks at
+    the next `return` someone adds, which is exactly how this broke the first time.
+    """
+    scanned, tick_ms = False, None
+    try:
+        scanned, tick_ms = await _run_tick()
+    finally:
+        # Best-effort by contract (observability_repo never raises), and in an executor because the
+        # DB write is blocking. An idle tick still beats; it just does not claim to have scanned.
+        from storage import observability_repo as obs
+        await asyncio.get_running_loop().run_in_executor(
+            None, partial(obs.beat, scanned, tick_ms))
+
+
+async def _run_tick() -> tuple[bool, int | None]:
+    """The tick itself. Returns (did_a_real_scan, tick_duration_ms) for the heartbeat above."""
     global _was_scanning, _active_sessions, _current_interval
     tick_now = datetime.now(timezone.utc)
     current_sessions = get_current_sessions(tick_now)
@@ -103,11 +126,11 @@ async def scan_markets() -> None:
 
     if _is_paused():
         _was_scanning = False
-        return
+        return False, None
     if not settings.scan_enabled:
         log.info("[scanner] SCAN_ENABLED=false — tick skipped, no signals will be produced")
         _was_scanning = False
-        return
+        return False, None
 
     # Market-hours gate FIRST: when forex is closed (all Saturday, Sunday before
     # 22:00 UTC, Friday from 22:00 UTC) the whole tick is a no-op — no scanning,
@@ -117,7 +140,7 @@ async def scan_markets() -> None:
         if _was_scanning:
             log.info("[scanner] market closed — scanning paused")
         _was_scanning = False
-        return
+        return False, None
 
     # Session-open detection (market is open). Uses ONE source (the sessions API);
     # when it's unreachable (e.g. the first seconds after a restart, before Node is
@@ -143,7 +166,7 @@ async def scan_markets() -> None:
         # single most important thing to know when nothing has arrived, and it was hidden at DEBUG.
         log.warning("[scanner] NO STRATEGIES REGISTERED — no signal can be produced this tick")
         _was_scanning = False
-        return
+        return False, None
 
     # Fire SCAN_STARTED only on the closed→open transition — AND only once the
     # active session is established (sessions API reachable). After a restart we
@@ -197,13 +220,11 @@ async def scan_markets() -> None:
                     tick_s, _current_interval,
                     ", ".join(f"{i} {d:.1f}s" for i, d in slowest) or "n/a")
 
-    # HEARTBEAT — a completed tick is the liveness signal. Its age at the next boot IS the outage,
-    # and its `last_tick_ms` is the only record of how long the loop actually takes.
-    from storage import observability_repo as obs
-    await asyncio.get_running_loop().run_in_executor(
-        None, partial(obs.beat, tick_ms=int(tick_s * 1000)))
-
     log.info(f"[scanner] tick complete in {tick_s:.1f}s — "
              f"{len(instruments) - failed}/{len(instruments)} instruments "
              f"scanned{f', {failed} FAILED' if failed else ''} — "
              f"cache: {candle_fetcher.candle_cache.stats()}")
+
+    # The heartbeat is written by `scan_markets` above, for EVERY tick. This one really scanned, so
+    # it is the only kind that may claim a scan and report a meaningful tick duration.
+    return True, int(tick_s * 1000)
