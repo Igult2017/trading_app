@@ -116,8 +116,13 @@ print()
 print("RETAPS — a tap never ends a zone")
 z5 = demand()
 _advance(z5, C(1, 1.1050, 1.1055, 1.1010, 1.1045))      # wick tap
-_advance(z5, C(2, 1.1060, 1.1080, 1.1055, 1.1075))      # away, a full height clear
-chk("moved a zone-height away -> respected", z5.state, "respected")
+# CHANGED 2026-08-23 — the reaction is a CANDLE COUNT now (`REACT_BARS` consecutive closed bars
+# clear of the zone), not a distance. This used to be one bar closing a full zone-height away.
+_advance(z5, C(2, 1.1060, 1.1080, 1.1055, 1.1075))      # away — bar 1 of 3
+chk("one bar clear is not the reaction", z5.state, "wick_mitigated")
+_advance(z5, C(21, 1.1060, 1.1080, 1.1055, 1.1075))     # bar 2
+_advance(z5, C(22, 1.1060, 1.1080, 1.1055, 1.1075))     # bar 3
+chk("three consecutive bars clear -> respected", z5.state, "respected")
 _advance(z5, C(3, 1.1030, 1.1035, 1.1005, 1.1012))      # comes BACK
 chk("a respected zone that is retapped is NOT dead", z5.live, True)
 chk("  the retap is counted", z5.retaps >= 1, True)

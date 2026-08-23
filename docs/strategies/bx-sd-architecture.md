@@ -69,7 +69,7 @@ away had been reading them all along.
 
 | | **SIGNAL 1 — the reaction** | **SIGNAL 2 — the confirmed entry** |
 |---|---|---|
-| fires when | the extreme zone is **RESPECTED** (price closed a full zone-height away) + a 5M/1M confirmation | price **returns** to the zone that reaction created, the CHoCH complete behind it |
+| fires when | the extreme zone is **RESPECTED** (price stayed clear of it for `REACT_BARS` closed bars) + a 5M/1M confirmation | price **returns** to the zone that reaction created, the CHoCH complete behind it |
 | zone | the **parent** — the HTF extreme | the **child** — a different 4H zone |
 | labelled | **UNCONFIRMED ENTRY** | **CONFIRMED ENTRY** |
 | goes to | **the channel** | **the channel** |
@@ -263,13 +263,55 @@ proof the fourth test was carrying nothing. Asserted in `test_choch_validity`.
 
 `was_extreme_at`, `state_at` and `live_at` were deleted with it — nothing else called them.
 
+### THE PULLBACK, AND THE ADVISORY WHEN THERE IS NO ZONE (2026-08-23)
+
+> *"if it is a zone use the existing entry model. if it is a pullback report it when its started
+> ending and advice trader to check and set entry. If we dont have a system that detects a pullback
+> accurately you can build one."*
+
+**Signal 1 used to REFUSE when the pullback landed on no 1H/30M/15M zone**, throwing the setup away —
+while `pullback_zone`'s own docstring had called that zone *"a preference rather than a condition"*
+since the day it was written. Two more things were wrong underneath it:
+
+- the 1H-plus-lower test he had called a hard requirement was **computed and thrown away**
+  (`_ok, legs, _hit = mtf_confluence(...)`, `_ok` never read). The real refusal was `pullback_zone`
+  returning None, which called the same function inside itself. Stated rule and enforced rule had
+  drifted apart unnoticed.
+- **BX had no pullback detector at all.** `pullback_4h` went with the old entry model on 2026-08-15
+  and nothing replaced it. `shared/pullback_detector.py` cannot answer his question either: its
+  "complete" state needs a NEW CONFIRMED SWING past the pullback, which is the move already gone.
+
+**So `find_signal1` now has two outcomes at one moment** (`Signal1.kind`):
+
+| | |
+|---|---|
+| `"entry"` | the pullback landed on a zone → the existing entry model, **completely unchanged** |
+| `"advisory"` | no zone → **no entry, stop or target at all**. It reports the pullback ending and he sets his own |
+
+**NEW `strategies/bx_sd_pullback.py`** — built from BX's own primitives (`bx_sd_structure.map_structure`
+plus the generic `find_swing_points` its structure engine already uses). "Started ending" = **a body
+close beyond the pullback's own last unbroken swing, back in the trade direction**, on 15M.
+
+**ON THE PULLBACK'S SCALE, NOT THE REACTION'S — and the first version was self-contradictory here.**
+Asked of the whole window, the last unbroken swing low (on a sell) IS the reaction's own extreme, so
+"structure broke back down" could only be true once price had gone PAST it — by which point the leg
+has extended and there is no pullback left. The two conditions could never both hold. A pullback is a
+leg in its own right and its first crack is a break of its OWN minor swing.
+
+**Verified reachable on real bars**, because a branch that can never run is a bug this codebase has
+already shipped (`format_tap_alert` was dead in practice for months while its unit tests passed):
+over 425 signal-1 windows on EUR/USD, both `entry` and `advisory` executed.
+
+**`strategies/bx_sd_advisory.py`** builds the card: `alert_only=True`, `to_channel=False`. The channel
+carries BX entry signals only (`channel_entries_only`) and a message with no entry is not one.
+
 ### ONE EXTREME ZONE FOR BOTH SIGNALS, PROVED BY RESPECT (2026-08-23)
 
 > *"Signal 1 and 2 use the same extreme/respected zone however, signal one only waits for pullback
 > then it fires. The price moves away from the zone and immediately we get a pullback we look for
 > confirmations and alignments and then go to entry and look for confirmation entry."*
 
-`respected` = price tapped the zone and then **closed a full zone-height away** (`REACT_MULT = 1.0`).
+`respected` = price tapped the zone and then **stayed clear of it for `REACT_BARS` closed bars** (3).
 The registry always recorded it; nothing read it when choosing the extreme until now.
 
 | | signal 1 (unconfirmed / risky) | signal 2 (confirmed) |
@@ -279,7 +321,7 @@ The registry always recorded it; nothing read it when choosing the extreme until
 
 Signal 1's `has_left` was deleted with the same change. It accepted any closed bar not touching the
 zone, which is a weaker statement than respect and therefore the binding one, so respect never got
-asked. A full zone-height close away is by definition having left.
+asked. Staying clear for several bars is by definition having left.
 
 **Signal 1's window still closes from the TAP, not from the respect.** His rule — *"this stops when
 the price has broken the first opposite zone"* — does not say from when, and the tap is the stricter
@@ -357,7 +399,7 @@ never ends a zone; only a body close beyond the distal does.
 | `unmitigated` | qualified and MARKED — waiting for price, **however long that takes** | |
 | `wick_mitigated` | wick entered, **body stayed outside** — a sweep. Orders unfilled, zone still loaded | signals, and the card says *wicked only* |
 | `body_mitigated` | the body traded the zone (Ch.6 p27) — **spent** | a retap still signals, with a caution |
-| `respected` | after a tap, price closed a full zone-height away | retappable; **ONCE RESPECTED IT STAYS RESPECTED** (until broken) so the RETEST path keeps it at the B/A bar |
+| `respected` | after a tap, price stayed clear of the zone for `REACT_BARS` closed bars | retappable; **ONCE RESPECTED IT STAYS RESPECTED** (until broken) so the RETEST path keeps it at the B/A bar |
 | `broken` | **body** closed beyond the distal — dead (Ch.8 flip) | the ONLY terminal state |
 
 `retaps` counts **return VISITS** — `in_zone` remembers whether the previous closed bar was inside, so
@@ -372,7 +414,7 @@ sent exactly one alert per zone for its entire life and swallowed every retap.
 
 **`live` = every state except `broken`.** Do **not** select on `live` in the cascade — `respected`
 **SUPERSEDED 2026-08-01 — there is now ONE entry model.** The cascade selects **`respected` only**
-(tapped, then closed a full zone-height away), and then requires **a live RETAP *or* a 4H PULLBACK**.
+(tapped, then moved clear of the zone), and then requires **a live RETAP *or* a 4H PULLBACK**.
 The user's rule — *"wait for the price to move away from the zone and then when it pulls back we use
 that for entry"*, plus *"keep the retap and add a pullback"*. Entering on the FIRST touch is gone;
 that path had no evidence the zone held and is where the losses came from. See "A RETAP and a
@@ -692,7 +734,7 @@ Win rate (full cascade, M1-confirmed, spread-netted): **EUR/USD 6.9% / −4.1R**
 
 | | rule | constant |
 |---|---|---|
-| **Zone must be RESPECTED first** | `state == "respected"` — price tapped it and then CLOSED a full zone-height clear of it. Nothing fires on a first touch any more | `REACT_MULT = 1.0` (registry) |
+| **Zone must be RESPECTED first** | `state == "respected"` — price tapped it and then stayed CLEAR of it for three closed bars. Nothing fires on a first touch any more | `REACT_BARS = 3` (registry) |
 | **Then a RETAP *or* a 4H PULLBACK** | *"Keep the retap and add a pullback"* (2026-08-01). Two ways in, an **OR**, never one replacing the other | `_PB_LOOKBACK_H4 = 12` bars |
 | **Retap must be LIVE** | back INSIDE the zone by the **FORMING bar**, right now. A tap is an EVENT HAPPENING NOW | — |
 | **Pullback is 4H and CLOSED** | price left the zone, ran, and is retracing on the 4H — **one candle or many**, and it *"might not"* reach the zone. A pullback is a LEVEL, so closed bars only | `_PB_LOOKBACK_H4 = 12` |
@@ -731,7 +773,8 @@ directions. In the user's words (2026-08-01):
 `zone_height` and `respected_at` because all three questions it asks are relative to the zone:
 
 1. **move away** — since `respected_at`, price travelled `_PB_MIN_MOVE` (1.0) zone-heights from the
-   near edge. Deliberately the same multiple as `bx_sd_registry.REACT_MULT`, so "price really left"
+   near edge. This is a SEPARATE number from `bx_sd_registry.REACT_BARS` since 2026-08-23 — the two
+   used to share a multiple; the reaction is now a candle count and this stayed a distance, so
    has ONE definition platform-wide.
 2. **it turned** — the move's extreme is inside `_PB_LOOKBACK_H4` (12) closed bars, and a bar has
    printed after it.
@@ -766,7 +809,7 @@ GBP/JPY; the full path never produces it, because the entry is the entry-TF conf
 fires at the pullback's turn. Only full-path figures belong in this doc.
 
 The "retap before price ever left the zone" case needs no extra test: `respected` already demands a
-close a full zone-height clear, so a zone price never left is never respected and simply waits —
+stay clear of the zone for three closed bars, so a zone price never left is never respected —
 which is the rule *"in case the retap happens before the price leaves the zone, we wait for the
 pullback in 4HR"*.
 
@@ -815,11 +858,22 @@ pullback in 4HR"*.
    original defect is NOT recurring (what fires is his own 16 Jul zone 1.34928–1.35208, which price
    is inside on that bar). **The assertion has NOT been bent.** Awaiting his ruling.
 
-0v. **`REACT_MULT = 1.0` IS NOW A GATE AND HAS NEVER BEEN CALIBRATED FOR THAT — open, 2026-08-23.**
-   It was chosen when `respected` only fed a label; since 2026-08-23 it decides whether either signal
-   can fire. On the 19 hand-counted changes of character, the 5 refused for "never respected" had
-   price close clear by **0.39, 0.41, 0.66, 0.69 and 0.80** of a zone height. At 0.75× one would
-   pass; at 0.50×, three. Not changed without his ruling — the value is his rule, not a tuning knob.
+0v. ~~`REACT_MULT = 1.0` IS NOW A GATE AND HAS NEVER BEEN CALIBRATED FOR THAT~~ **CLOSED
+   2026-08-23 — replaced, not tuned.** His ruling: *"Why are we hardcoding this instead of using
+   price action. Let price move 3 candles minimum then we start looking for entries for signal 1
+   because signal 2 depends on break of zones."* The reaction is now `REACT_BARS = 3` consecutive
+   closed bars clear of the zone; `REACT_MULT` and `reacted_by` are deleted. On the 19 hand-counted
+   changes of character the reaction test now refuses 3 instead of 5, and **2 pass end to end
+   instead of 0**.
+
+0t. **`bx_sd_signal1.py` IS 327 LINES, OVER THE 200 LIMIT — open, 2026-08-23.** It was already 275
+   before the advisory work and that change added ~50 more. The advisory CARD was deliberately put in
+   its own file (`bx_sd_advisory.py`, 59 lines) to avoid making it worse, but the module now holds
+   four separate responsibilities: the window (`opened_window` / `window_open` /
+   `opposite_broken_since`), the confluence (`mtf_confluence` / `pullback_zone` / `build_mtf_books`),
+   the orchestration (`find_signal1`), and the entry card (`build_signal1`). The natural split is
+   window + confluence + card. **NOT DONE** — outside the approved plan, and mechanical rather than
+   urgent, but it should not be left indefinitely.
 
 0u. **THE REACTION LEAVES NO CHILD ZONE IN 5 OF 19 CASES — open, 2026-08-23.** `child_of` found
    **zero** same-side 4H zones marked at or after the parent's respect, not "the wrong one". Signal 2

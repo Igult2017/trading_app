@@ -25,6 +25,7 @@ from strategies.bx_sd_htf import htf_zone_map
 from strategies.bx_sd_watch import (check_invalidation, invalidation_signal,
                                     zone_broken_after_signal)
 from strategies.bx_sd_reports import scan_reports
+from strategies import bx_sd_advisory
 from strategies import bx_sd_signal1
 
 log = logging.getLogger(__name__)
@@ -153,7 +154,27 @@ class BXStrategy(BaseStrategy):
                 _books, entry_tf, m5, pip)
             if _s1 is None:
                 continue
-            _setup, _conf, _trig, _legs = _s1
+            _dir1 = "buy" if _ext.direction == "demand" else "sell"
+            # TWO OUTCOMES AT THE SAME MOMENT (his rule, 2026-08-23): *"if it is a zone use the
+            # existing entry model. if it is a pullback report it when its started ending and advice
+            # trader to check and set entry."*
+            if _s1.kind == "advisory":
+                # KEYED ON THE TURN, not on the tap. One window can hold several pullbacks and he
+                # wants telling each time one ends; keying on the tap would send only the first.
+                _k1 = f"{sym}_s1adv_{_ext.ifc_time}_{_ext.direction}_{_s1.pb.turn_at}"
+                if delivery_ledger.is_delivered(_k1):
+                    continue
+                _sig1 = bx_sd_advisory.build_advisory(sym, _dir1, _s1.pb, _ext, _s1.legs,
+                                                      digits, self.id, self.name)
+                _sig1.dedup_key = _k1
+                self._log(sym, "SIGNAL_1_ADVISORY",
+                          f"{_dir1.upper()} pullback ending, no zone — retrace "
+                          f"{_s1.pb.retrace * 100:.0f}% ({_s1.pb.depth}), turned at "
+                          f"{_s1.pb.extreme:.{digits}f}")
+                out.append(_sig1)
+                break
+
+            _setup, _conf, _trig, _legs = _s1.setup, _s1.conf, _s1.trig, _s1.legs
             # One per extreme zone per tap — keyed on the tap that opened the window, so a later
             # pullback in the SAME window cannot re-fire and a new tap opens a fresh one.
             _k1 = f"{sym}_s1_{_ext.ifc_time}_{_ext.direction}_{_ext.mitigated_at}"

@@ -33,7 +33,7 @@ def build_signal(symbol: str, setup: SetupResult, conf: LTFConfluence, trig: Ent
     strength = setup.confluences.get("strength_phrase") or ""
 
     # HOW WE GOT IN — a retap and a pullback are different trades and the card must say which.
-    # The zone is RESPECTED in both cases (price tapped it and closed a full zone-height clear);
+    # The zone is RESPECTED in both cases (price tapped it and then stayed clear of it);
     # what differs is whether price came back TO the zone or is retracing within the move away
     # from it. Before this the card said "Fresh 4H zone tapped" for both, which was wrong twice
     # over: the zone is not fresh (freshness stopped being the trigger when `respected` became

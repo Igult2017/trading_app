@@ -317,17 +317,14 @@ def detect_setup(h4: list[Candle], pip: float = 0.0001, book=None, session_candl
         # with "price on the working side of the zone" dropped the retap altogether and let anything
         # in the move away qualify. It is an OR of two specific events, not either one alone.
         #
-        # The "retap before price left the zone" case needs no separate test: `respected` above
-        # already requires a CLOSE a full zone-height clear of the zone, so price cannot reach this
-        # line without having left. A retap that never left the zone never sets `respected`, and the
-        # zone waits — which is exactly "we wait for the pullback in 4HR".
         # THE TRIGGER IS THE TAP (Smart Risk entry model, 2026-08-15).
         #
         # HIS INSTRUCTION: *"Just build the CHOCH document entry model then we will do confirmation in
         # LTF plus we use stop orders."*
         #
         # WHAT THIS REPLACED, and why the replacement is not a regression to the old first-touch bug.
-        # Until now the cascade required `respected` (tapped, then a close a full zone-height away)
+        # Before 2026-08-15 the cascade required `respected` (then: tapped, plus a close a full
+        # zone-height away — the distance rule itself was replaced by a candle count on 08-23)
         # AND a live retap OR a 4H pullback. That model put the evidence AFTER the zone formed: the
         # zone had to prove itself before it could be traded. The document puts the evidence BEFORE
         # it — price mitigated an HTF zone, swept liquidity, broke through two zones, and left THIS

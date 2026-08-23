@@ -17,7 +17,7 @@ Everything after is a LIFECYCLE the zone moves through in bar order.
     pending      the imbalance printed; waiting to see if the impulse breaks structure
     unmitigated  it did — the zone is MARKED and waiting for price
     mitigated    price tapped it (Ch.6 p27: a tap turns unmitigated into mitigated)
-    respected    after the tap, price reacted away by a full zone height
+    respected    after the tap, price stayed clear of the zone for REACT_BARS closed bars
     broken       a body closed beyond the distal — dead (Ch.8 flip territory)
 
 Zones are keyed on the IFC's TIME, never a window index: indices shift as bars arrive, times do not.
@@ -45,7 +45,23 @@ LIQ_WINDOW = 20   # look-back for the fuel grab that must precede the zone
 # including a zone that has already been mitigated — the user's rule: a zone can be retapped, and an
 # unmitigated zone stays unmitigated however long it takes ("even in the next 10 years").
 LIVE_STATES = ("unmitigated", "wick_mitigated", "body_mitigated", "respected")
-REACT_MULT = 1.0  # "respected" = a body close a full zone-height away from the zone
+
+# "RESPECTED" IS COUNTED IN CANDLES, NOT IN A DISTANCE (his rule, 2026-08-23):
+#
+#     "Why are we hardcoding this instead of using price action. Let price move 3 candles minimum
+#      then we start looking for entries for signal 1 because signal 2 depends on break of zones."
+#
+# THREE CONSECUTIVE CLOSED BARS THAT DO NOT TOUCH THE ZONE AT ALL, reset the moment price touches it
+# again. Two other readings were measured and rejected: "3 bars ELAPSED since the tap" is a timer
+# rather than a movement and refused almost nothing (10 of 11 events passed it), and "3 bars clear in
+# any order" lets price chop in and out of the zone and still qualify.
+#
+# WHAT IT REPLACED. `REACT_MULT = 1.0` asked for a body close a full ZONE-HEIGHT clear. That number
+# was chosen when the answer only printed a word on a card; it became a gate on both signals on
+# 2026-08-23 and had never been calibrated for that. Measured against 19 changes of character counted
+# BY HAND from raw EUR/USD 4H candles: the five it refused had price close clear by 0.39, 0.41, 0.66,
+# 0.69 and 0.80 of a zone height — real reactions, refused by a distance nobody had chosen for this.
+REACT_BARS = 3
 
 
 @dataclass
@@ -77,6 +93,10 @@ class MarkedZone:
     retaps: int = 0
     last_tap_at: int | None = None
     in_zone: bool = False        # was the previous CLOSED bar inside? (visit-edge detection)
+    # How many CONSECUTIVE closed bars price has been clear of the zone. Three of them is the
+    # reaction (REACT_BARS). Touching the zone resets it to 0, which is what makes the count mean
+    # "price moved away and STAYED away" rather than "price has been away at some point".
+    clear_run: int = 0
 
     # EXTREME vs DECISIONAL — see `classify_roles`. "" while a zone stands alone in its group.
     role: str = ""
@@ -148,10 +168,8 @@ class MarkedZone:
         reason to trade the zone, not a reason to kill it."""
         return (c.close < self.bottom) if self.direction == "demand" else (c.close > self.top)
 
-    def reacted_by(self, c: Candle) -> bool:
-        away = self.top + REACT_MULT * self.height if self.direction == "demand" \
-            else self.bottom - REACT_MULT * self.height
-        return (c.close >= away) if self.direction == "demand" else (c.close <= away)
+    # `reacted_by(c)` — a body close a full zone-height clear — was DELETED on 2026-08-23 with
+    # `REACT_MULT`. The reaction is now counted in candles by `clear_run`; see REACT_BARS.
 
 
 def _broke_structure(events, want: str, ifc_i: int, upto_i: int | None = None) -> bool:
@@ -283,9 +301,9 @@ def _label(group: list[MarkedZone], side: str, gid: int) -> None:
          first an extreme zone has to be where we expect it, then if they are many one has to be
          respected."
 
-    `respected` means price tapped the zone and then CLOSED A FULL ZONE-HEIGHT AWAY from it
-    (`reacted_by`, REACT_MULT) — which is exactly "price held here". The registry has always recorded
-    it and this is the first thing to read it when choosing the extreme.
+    `respected` means price tapped the zone and then STAYED CLEAR OF IT for REACT_BARS closed bars
+    — which is exactly "price held here". The registry has always recorded it and this is the first
+    thing to read it when choosing the extreme.
 
     EVERY ZONE GETS ITS REAL NAME. This used to label the furthest zone `extreme` and then call EVERY
     other zone in the group `decisional` — manufacturing a decisional label for zones price had
@@ -403,7 +421,7 @@ def build(h4: list[Candle], pip: float = 0.0001,
                 # NO catch-up replay from the IFC. The bars between the IFC and here ARE the impulse
                 # that created the zone — it is moving AWAY from it. Replaying them made the zone
                 # "mitigated" by its own creation candle (whose high still touches the zone) and then
-                # "respected" by the next impulse bar closing a zone-height away. Measured: it put
+                # "respected" by the next few bars staying clear of it. Measured: it put
                 # EVERY zone straight into respected/broken and `mitigated` never occurred at all.
                 # Mitigation is price COMING BACK (Ch.6 p27), so the clock starts once the zone is
                 # marked. Same trap as an FVG's own creation candle counting as a tap.
@@ -466,8 +484,10 @@ def _advance(z: MarkedZone, c: Candle) -> None:
         return
     if not z.tapped_by(c):
         z.in_zone = False                  # the visit (if any) has ended
-        # Away from the zone — a body close a full zone-height clear counts as respected.
-        if z.state in ("wick_mitigated", "body_mitigated") and z.reacted_by(c):
+        # AWAY FROM THE ZONE — count it. `clear_run` mirrors `in_zone`: one integer on the zone, no
+        # history scan, and it survives a restart because the registry replays the bars anyway.
+        z.clear_run += 1
+        if z.state in ("wick_mitigated", "body_mitigated") and z.clear_run >= REACT_BARS:
             z.state, z.respected_at = "respected", c.time
         return
 
@@ -477,11 +497,12 @@ def _advance(z: MarkedZone, c: Candle) -> None:
     if z.state != "unmitigated" and not z.in_zone:
         z.retaps += 1                      # a return visit; the card reports it
     z.in_zone = True
+    z.clear_run = 0                        # price is back on the zone — the run away from it is over
     z.last_tap_at = c.time
 
-    # ONCE RESPECTED, ALWAYS RESPECTED (until broken). A zone that reacted a full height away has
-    # PROVEN it holds, and that fact does not un-happen when price comes back to it — coming back is
-    # the retest, which is the whole point of the state.
+    # ONCE RESPECTED, ALWAYS RESPECTED (until broken). A zone price moved clear of and STAYED clear
+    # of has PROVEN it holds, and that fact does not un-happen when price comes back to it — coming
+    # back is the retest, which is the whole point of the state.
     #
     # THE REGRESSION THIS PREVENTS: letting a body retap demote `respected` to `body_mitigated` moved
     # the zone out of the RETEST path (bx_sd_reports ②, which demands grade B/A) and into the fresh

@@ -160,7 +160,7 @@ def mitigation_note(z: MarkedZone) -> str:
                     "still loaded and price reacted away from it.")
         if z.mitigation_kind == "body":
             return "Respected — the body traded the zone and price reacted away from it."
-        return "Respected — price reacted a full zone-height away from it."
+        return "Respected — price tapped the zone and then moved clear of it and stayed clear."
     if z.state == "body_mitigated":
         return "Properly mitigated — the body entered the zone."
     return "Fresh — never tapped."

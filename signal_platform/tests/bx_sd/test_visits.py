@@ -60,7 +60,7 @@ def demand(**kw):
 
 
 IN   = lambda t: C(t, 1.1030, 1.1035, 1.1005, 1.1012)   # body inside the zone
-AWAY = lambda t: C(t, 1.1060, 1.1080, 1.1055, 1.1075)   # a full zone-height clear
+AWAY = lambda t: C(t, 1.1060, 1.1080, 1.1055, 1.1075)   # entirely clear of the zone
 
 print("A RETAP IS A RETURN VISIT, NOT A BAR")
 z = demand()
@@ -72,7 +72,12 @@ chk("three more bars inside the same visit add nothing", z.retaps, 0)
 chk("  and the zone remembers it is inside", z.in_zone, True)
 _advance(z, AWAY(5))
 chk("leaving clears in_zone", z.in_zone, False)
-chk("  and a full-height departure earns 'respected'", z.state, "respected")
+# CHANGED 2026-08-23 — this read "a full-height departure earns 'respected'", because the reaction
+# was a DISTANCE (`REACT_MULT = 1.0`, a body close a full zone-height clear). It is now a CANDLE
+# COUNT: `REACT_BARS` consecutive closed bars clear of the zone. One bar away is no longer enough.
+chk("  ONE bar away is not yet the reaction", z.state, "body_mitigated")
+_advance(z, AWAY(51)); _advance(z, AWAY(52))
+chk("  three consecutive bars clear earns 'respected'", z.state, "respected")
 _advance(z, IN(6))
 chk("COMING BACK is the retap", z.retaps, 1)
 _advance(z, IN(7))

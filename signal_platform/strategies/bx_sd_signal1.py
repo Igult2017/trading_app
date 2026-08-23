@@ -15,8 +15,9 @@ HIS RULE, in his own words (2026-08-22):
 
 So the window is bounded by PRICE ACTION at both ends, never a clock:
 
-    opens   price taps the zone and RESPECTS it — closes a full zone-height away
-    fires   the first pullback after that, with the required 1H + 15M/30M zones being tapped
+    opens   price taps the zone and RESPECTS it — stays clear of it for REACT_BARS closed bars
+    fires   the first pullback after that: a confirmed entry if it lands on a 1H/30M/15M zone,
+            an advisory to go and set one by hand if it does not
     closes  price closes through the first OPPOSITE zone — the CHoCH, which is signal 2's ground
 
 ONE EXTREME ZONE, SHARED WITH SIGNAL 2, AND PRICE PROVES IT (his rule, 2026-08-23):
@@ -31,16 +32,19 @@ before the change of character completes, which is why it carries the unconfirme
 WHAT WAS HERE BEFORE, so it is not re-derived. The window used to open on two weaker tests — was
 this the furthest-out zone one bar before price arrived (`was_extreme_at`, position), and has any
 closed bar stopped touching the zone (`has_left`). Both are gone. The position test was the single
-biggest refusal in BX: 15 of 19 changes of character counted BY HAND from raw EUR/USD 4H candles
-(79%) died on the same test in `choch_verdict`, and nothing passed at all. `has_left` was a weaker
+biggest refusal in BX: 11 of 19 changes of character counted BY HAND from raw EUR/USD 4H candles
+died on the same test in `choch_verdict`, and nothing passed at all. `has_left` was a weaker
 statement of the same idea as respect, so it bound first and respect never got asked.
 
 Nothing here mutates a zone. The registry stamps every transition with a timestamp
 (`marked_at`, `mitigated_at`, `respected_at`, `broken_at`), and those are enough to reconstruct what
 the book looked like at any earlier bar — so this module READS history rather than storing more of it.
 """
+from dataclasses import dataclass, field
+
 from core.types import Candle
-from strategies.bx_sd_registry import MarkedZone, build as build_zones, to_zone
+from strategies.bx_sd_registry import MarkedZone, REACT_BARS, build as build_zones, to_zone
+from strategies.bx_sd_pullback import pullback_state
 from strategies.bx_sd_setup import SetupResult
 from strategies.bx_sd_ltf import LTFConfluence
 from strategies.bx_sd_entry import entry_trigger
@@ -63,8 +67,8 @@ def opened_window(z: MarkedZone) -> bool:
     HIS RULE, 2026-08-23: *"Signal 1 and 2 use the same extreme/respected zone however, signal one
     only waits for pullback then it fires. The price moves away from the zone and immediately we get
     a pullback."* So one definition of the extreme zone serves both signals, and it is proved by
-    price reaction — `respected` means price tapped the zone and then CLOSED A FULL ZONE-HEIGHT AWAY
-    from it (`bx_sd_registry.REACT_MULT`, stamped once on `respected_at`).
+    price reaction — `respected` means price tapped the zone and then STAYED CLEAR OF IT for
+    `bx_sd_registry.REACT_BARS` consecutive closed bars, stamped once on `respected_at`.
 
     Signal 2 asks for exactly the same thing: `parent_of` only accepts a zone with `respected_at`
     set. The two signals differ in ONE thing — whether the opposite zone has broken yet.
@@ -72,13 +76,13 @@ def opened_window(z: MarkedZone) -> bool:
     WHAT THIS REPLACED, and why. It used to ask `was_extreme_at(z, zones, tap - 1)`: was this the
     furthest-out zone in its group one bar BEFORE price arrived. That is a test on WHERE THE ZONE
     SAT, decided before the market had said anything, and it was the single biggest refusal in BX —
-    15 of 19 hand-counted changes of character (79%) died on the same test in `choch_verdict`.
+    11 of 19 hand-counted changes of character died on the same test in `choch_verdict`.
     Position is now an expectation only (`bx_sd_registry._label`); reaction decides.
 
     `has_left` WENT WITH IT. It accepted any closed bar not touching the zone, which is a weaker
-    statement than respect and was therefore the binding one. A full zone-height close away is, by
-    definition, having left — two tests for one idea, and the loose one won. His answer when asked
-    which: *"Signal 1 waits for respect... it replaces your 'left the band' rule."*
+    statement than respect and was therefore the binding one — staying clear for several bars is,
+    by definition, having left. Two tests for one idea, and the loose one won. His answer when
+    asked which: *"Signal 1 waits for respect... it replaces your 'left the band' rule."*
     """
     return z.respected_at is not None
 
@@ -116,7 +120,7 @@ def window_open(z: MarkedZone, zones: list[MarkedZone], bars: list[Candle]) -> b
     """
     tap = first_tap_at(z)
     if tap is None or not opened_window(z):
-        return False                                # price has not reacted a full zone-height away
+        return False                                # price has not stayed clear of the zone yet
     if opposite_broken_since(z, zones, tap):
         return False                                # CHoCH began — signal 2's ground from here
     return True
@@ -150,8 +154,19 @@ def mtf_confluence(direction: str, live: Candle, books: dict) -> tuple[bool, lis
         "Also add 1HR ... and 30m or 15ms as a confluence. There has to be a zone the price is
          tapping in those confluences which confirms the confirmation entry in 1m or 5min is genuine."
 
-    He was asked directly whether this scores or refuses and answered: *"These are a confluence for
-    signal one and also a requirement. Without them the signal doesn't fire."* So it GATES.
+    IT NO LONGER GATES (2026-08-23). He was asked directly whether this scores or refuses and
+    answered *"These are a confluence for signal one and also a requirement. Without them the signal
+    doesn't fire."* — and it was built as a gate on that. He then settled the opposite: *"if it is a
+    zone use the existing entry model. if it is a pullback report it when its started ending and
+    advice trader to check and set entry."* So a missing zone changes WHICH signal fires, not whether
+    one does.
+
+    Worth knowing: the gate never actually ran. `find_signal1` called this as `_ok, legs, _hit` and
+    read only `legs`; the real refusal was `pullback_zone` returning None, which called the SAME
+    function inside itself. The stated rule and the enforced rule had drifted apart unnoticed.
+
+    The boolean is still returned and still tested — "was the full 1H-plus-lower confluence present"
+    is a fact worth having — it simply decides nothing on its own now.
 
     1H IS THE ONLY HIGHER LEG. He chose it over 2H — *"1HR is enough so lets use 1HR instead of
     2HR"* — which also avoids building a timeframe the broker does not serve natively (H1/H4/H12
@@ -192,10 +207,14 @@ def pullback_zone(direction: str, live: Candle, books: dict):
     Nearest, not largest: the entry is priced INSIDE this zone, so a distant one would hang the stop
     somewhere price is not. The LEG is returned with it because `to_zone` resolves indices against
     the series the zone was built from — hand it the wrong one and it silently returns None.
+
+    IT NO LONGER REFUSES (2026-08-23). This opened with `ok, _, _ = mtf_confluence(...)` and returned
+    nothing when the 1H-plus-lower combination was absent — a gate, directly contradicting the
+    docstring two paragraphs up which has called this a preference since it was written. His ruling
+    settled which side was right: *"if it is a zone use the existing entry model. if it is a pullback
+    report it when its started ending and advice trader to check and set entry."* So no zone is no
+    longer no signal; it is a different signal, and `find_signal1` decides which.
     """
-    ok, _legs, _hit = mtf_confluence(direction, live, books)
-    if not ok:
-        return None, None
     want = "demand" if direction == "buy" else "supply"
     px = live.close
     best, best_leg, best_d = None, None, None
@@ -209,27 +228,59 @@ def pullback_zone(direction: str, live: Candle, books: dict):
     return best, best_leg
 
 
+@dataclass
+class Signal1:
+    """What signal 1 found. TWO SHAPES, because his rule has two outcomes at the same moment.
+
+    `kind == "entry"`   — the pullback landed on a zone, so BX prices it: setup/conf/trig are filled
+                          and the existing entry model produced them, unchanged.
+    `kind == "advisory"` — no zone, so BX has NO entry to give. `pb` carries the pullback's state and
+                          the message tells him to check the chart and set his own. Nothing here is
+                          priced, deliberately: *"advice trader to check and set entry."*
+    """
+    kind:  str
+    legs:  list = field(default_factory=list)
+    setup: object = None
+    conf:  object = None
+    trig:  object = None
+    pb:    object = None
+
+
 def find_signal1(direction: str, ext: MarkedZone, zones: list[MarkedZone], h4: list[Candle],
                  books: dict, entry_tf: list[Candle], m5: list[Candle], pip: float):
-    """The whole of signal 1, in his order. Returns (setup, conf, trig, legs) or None.
+    """The whole of signal 1, in his order. Returns a `Signal1` or None.
 
-        tap an unmitigated extreme -> leave its band -> first pullback -> a 1H zone AND a 15M/30M
-        zone tapped there -> a 1M/5M confirmed entry.        Window dies at the first opposite break.
+        zone RESPECTED -> first pullback -> EITHER it lands on a 1H/30M/15M zone, and BX gives a
+        confirmed entry, OR it does not, and BX reports the pullback ending and he sets his own.
+        Window dies at the first opposite break.
 
-    ENTRY, STOP AND TARGET ARE SIGNAL 2's, UNCHANGED. `entry_trigger` is reused as-is, anchored on
-    the pullback zone instead of the 4H zone: entry at the refined 5M zone's start (or its 50% when
-    the book's wick/width rule applies), stop at that zone's far edge, target a fixed 3R. Not a new
-    pricing rule — his existing rules applied to a different zone, which is the only change he asked
-    for. A separate pricing model here would be a second definition of "entry" to keep in step.
+    THE ZONE IS A PREFERENCE, NOT A CONDITION (his rule, 2026-08-23): *"if it is a zone use the
+    existing entry model. if it is a pullback report it when its started ending and advice trader to
+    check and set entry."* This used to `return None` when there was no zone — which threw away the
+    setup entirely — while `pullback_zone`'s own docstring had called it a preference all along.
+
+    ENTRY, STOP AND TARGET ARE SIGNAL 2's, UNCHANGED, on the zone path. `entry_trigger` is reused
+    as-is, anchored on the pullback zone instead of the 4H zone: entry at the refined 5M zone's start
+    (or its 50% when the book's wick/width rule applies), stop at that zone's far edge, target a
+    fixed 3R. A separate pricing model here would be a second definition of "entry" to keep in step —
+    which is also why the no-zone path prices NOTHING rather than inventing one.
     """
     bars = closed_only(h4)
     if not bars or not window_open(ext, zones, bars):
         return None
     live = h4[-1]                       # the FORMING bar — the pullback is an event happening now
-    pz, leg = pullback_zone(direction, live, books)
-    if pz is None:
-        return None                     # no 1H + 15M/30M zone here: his requirement, so no signal
     _ok, legs, _hit = mtf_confluence(direction, live, books)
+    pz, leg = pullback_zone(direction, live, books)
+
+    if pz is None:
+        # NO ZONE -> REPORT, DO NOT PRICE. The 15M feed, because it is the finest leg the confluence
+        # already looks at and 1M would report noise. Measured from the moment the zone was RESPECTED
+        # so the leg is the reaction, not the approach that came before it.
+        m15 = books["15M"][1] or []
+        st = pullback_state(m15, direction, ext.respected_at or 0)
+        if not st.ending:
+            return None                 # the pullback is still running, or there is none
+        return Signal1(kind="advisory", legs=legs, pb=st)
 
     z = to_zone(pz, closed_only(books[leg][1]))
     if z is None:
@@ -239,7 +290,7 @@ def find_signal1(direction: str, ext: MarkedZone, zones: list[MarkedZone], h4: l
     trig  = entry_trigger(conf, setup, entry_tf, h4, pip, session_candles=books["15M"][1], refine_tf=m5)
     if not trig.triggered:
         return None
-    return setup, conf, trig, legs
+    return Signal1(kind="entry", legs=legs, setup=setup, conf=conf, trig=trig)
 
 
 def build_signal1(symbol: str, setup, conf, trig, legs: list[str], ext: MarkedZone,
@@ -264,11 +315,12 @@ def build_signal1(symbol: str, setup, conf, trig, legs: list[str], ext: MarkedZo
     sig.technical_reasons = [
         "⚠️ RISKY / UNCONFIRMED ENTRY — the change of character has NOT completed. "
         "This is the pullback after the extreme zone reacted, taken before the opposite zone breaks.",
-        # THE CARD MUST NOT CLAIM WHAT IS NO LONGER CHECKED. This said "was UNMITIGATED when price
-        # tapped it" and "price left the zone" — both were the pre-2026-08-23 tests and neither is
-        # asked any more. The test now is RESPECT: a close a full zone-height clear of the zone.
+        # THE CARD MUST NOT CLAIM WHAT IS NO LONGER CHECKED, and this line has now been wrong twice
+        # for the same reason. It said "was UNMITIGATED when price tapped it" and "price left the
+        # zone" (both pre-2026-08-23 tests), then "REACTED a full zone-height clear" for the few
+        # hours the distance rule survived. The test is REACT_BARS closed bars clear of the zone.
         f"4H extreme {ext.direction} zone [{ext.bottom:.{digits}f}–{ext.top:.{digits}f}] — price "
-        f"tapped it and REACTED a full zone-height clear of it",
+        f"tapped it and then stayed clear of it for {REACT_BARS} candles",
         f"That reaction pulled back into a {' + '.join(legs)} zone",
         *sig.technical_reasons,
     ]

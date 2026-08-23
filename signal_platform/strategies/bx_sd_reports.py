@@ -73,14 +73,14 @@ def scan_reports(symbol: str, entry_tf: list[Candle], m5: list[Candle], m1: list
         # his rule. BX was announcing the setup before price had reacted at all, which is the moment
         # that carries no evidence: a tap proves only that price arrived.
         #
-        # `respected` means price closed a full zone-height away (bx_sd_registry.REACT_MULT) — the
+        # `respected` means price stayed clear of the zone for REACT_BARS closed bars — the
         # reaction itself, which is what births the child zone signal 2 waits for. So this is not a
         # stricter version of the old alert, it is a different event: the old one said "price is
         # here", this one says "price came here and turned".
         #
         # THE TRIGGER IS THE REACTION, NOT A LIVE TAP — and those are mutually exclusive, which is
-        # what makes this worth spelling out. `respected` means price closed a full zone-height AWAY
-        # (`bx_sd_registry.REACT_MULT`), so at that instant price is by definition NOT in the zone.
+        # what makes this worth spelling out. `respected` is stamped on a bar that does NOT touch
+        # the zone (`bx_sd_registry.REACT_BARS`), so at that instant price is by definition off it.
         # The old line asked for `tapped_by(live)`; keeping it alongside `respected` would have been
         # a condition that can never be satisfied — the kind of check that reads correctly and
         # silently fires nothing. `respected_at` is the bar the reaction completed on, so recency on
