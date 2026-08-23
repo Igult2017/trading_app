@@ -923,20 +923,6 @@ pullback in 4HR"*.
    duplicate-signal risk via the RETEST path, which was itself deleted on 2026-08-01, so the warning
    is probably stale. Verify before relying on that.
 
-0t. **`bx_sd_signal1.py` IS 327 LINES, OVER THE 200 LIMIT — open, 2026-08-23.** It was already 275
-   before the advisory work and that change added ~50 more. The advisory CARD was deliberately put in
-   its own file (`bx_sd_advisory.py`, 59 lines) to avoid making it worse, but the module now holds
-   four separate responsibilities: the window (`opened_window` / `window_open` /
-   `opposite_broken_since`), the confluence (`mtf_confluence` / `pullback_zone` / `build_mtf_books`),
-   the orchestration (`find_signal1`), and the entry card (`build_signal1`). The natural split is
-   window + confluence + card. **NOT DONE** — outside the approved plan, and mechanical rather than
-   urgent, but it should not be left indefinitely.
-
-0u. **THE REACTION LEAVES NO CHILD ZONE IN 5 OF 19 CASES — open, 2026-08-23.** `child_of` found
-   **zero** same-side 4H zones marked at or after the parent's respect, not "the wrong one". Signal 2
-   has nothing to enter on when that happens. Whether the marking criteria are too strict for that
-   zone is untested.
-
 0z. **SIGNAL 2 IS BLOCKED SHUT — two gates in one loop that cannot both be true (found 2026-08-22).**
    `bx_sd_setup` requires `mz.state == "respected"` (line ~230) and then, 47 lines later,
    `mz.state == "unmitigated" or mz.wick_only` (line ~277). `respected` is neither, so **no zone in
