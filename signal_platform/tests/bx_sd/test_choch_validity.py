@@ -165,36 +165,59 @@ teeth("the old rule (break only) called the unswept case VALID",
       and L.choch_valid(child, BOOK, BARS, UNSWEPT) is False)
 
 print()
-print("DECISIONAL vs EXTREME — his definition: the zone that CAUSED the change of character")
-# "Any zone that causes decisional CHOCH is a decisional zone. Decisional CHOCH is caused by
-#  decisional zones." So the test is on the PARENT, as of the moment price arrived at it.
-# `parent` above sits at 1.1100-1.1120 with a NEIGHBOUR above it, so it is the lower of two supply
-# zones -> the DECISIONAL one. The higher zone is the extreme.
-higher = zone("supply", 1.1200, 1.1220, marked=3)          # untouched, further out -> the extreme
+print("POSITION IS NOT A TEST — a zone further out must not make this change of character fake")
+# SUPERSEDED, 2026-08-23. This block used to assert a FOURTH verdict, `CHOCH_FAKE_DECISIONAL`: if the
+# parent was not the furthest-out zone in its group when price arrived, the change of character was
+# called fake. His correction: *"decisional zones are zones that cause fake choch. The code already
+# has logic for detecting fake choch and what qualifies as fake choch."* So DECISIONAL IS THE
+# VERDICT, not the evidence, and testing it as evidence was circular.
+#
+# It was also the single biggest refusal in BX: 15 of 19 changes of character counted BY HAND from
+# raw EUR/USD 4H candles over 3 months (79%) died on it, and nothing passed at all.
+higher = zone("supply", 1.1200, 1.1220, marked=3)          # untouched, sits further out
 higher.group = 1
 BOOK_STACK = [higher, parent, child, lower]
-chk("the further-out untouched supply was the extreme when price arrived",
-    L.was_extreme_at(higher, BOOK_STACK, parent.mitigated_at - 1), True)
-chk("...so the nearer one was DECISIONAL",
-    L.was_extreme_at(parent, BOOK_STACK, parent.mitigated_at - 1), False)
-chk("a change of character out of the decisional zone is FAKE",
-    L.choch_verdict(child, BOOK_STACK, BARS, POOL), L.CHOCH_FAKE_DECISIONAL)
-chk("the entry gate refuses it too",
-    L.entry_refusal(child, BOOK_STACK, live, BARS, POOL), L.CHOCH_FAKE_DECISIONAL)
+chk("a zone sitting further out does NOT make this change of character fake",
+    L.choch_verdict(child, BOOK_STACK, BARS, POOL), L.CHOCH_VALID)
+chk("...and the entry gate allows it",
+    L.entry_refusal(child, BOOK_STACK, live, BARS, POOL), None)
+teeth("THIS IS THE 79%: the deleted fourth test returned fake here purely because `higher` exists, "
+      "while price had visibly held at `parent`",
+      higher.proximal > parent.proximal and parent.respected_at is not None
+      and L.choch_valid(child, BOOK_STACK, BARS, POOL) is True)
 
-# Remove the zone above and the parent becomes the extreme again — same parent, same bars.
+# Removing the zone above changes nothing — which is the whole point. Position is not consulted.
 BOOK_ALONE = [parent, child, lower]
-chk("with only spent zones above it, the parent WAS the extreme",
-    L.was_extreme_at(parent, BOOK_ALONE, parent.mitigated_at - 1), True)
-chk("...and the change of character is valid again",
+chk("with nothing above it, the same answer",
     L.choch_verdict(child, BOOK_ALONE, BARS, POOL), L.CHOCH_VALID)
-teeth("THE TRAP THIS AVOIDS: asked of NOW instead of the tap, the parent reads decisional and "
-      "nothing could ever pass — measured 77 of 77 on real data",
-      parent.role != "extreme"
-      and L.was_extreme_at(parent, BOOK_ALONE, parent.mitigated_at - 1) is True)
-chk("all four fake reasons are distinct",
-    len({L.CHOCH_FAKE_NO_SWEEP, L.CHOCH_FAKE_NO_BREAK,
-         L.CHOCH_FAKE_NO_PARENT, L.CHOCH_FAKE_DECISIONAL}), 4)
+teeth("the verdict does not depend on what else happens to be on the book",
+      L.choch_verdict(child, BOOK_STACK, BARS, POOL)
+      == L.choch_verdict(child, BOOK_ALONE, BARS, POOL))
+chk("there are THREE fake reasons now, and they are distinct",
+    len({L.CHOCH_FAKE_NO_SWEEP, L.CHOCH_FAKE_NO_BREAK, L.CHOCH_FAKE_NO_PARENT}), 3)
+chk("the deleted fourth reason is gone from the module",
+    hasattr(L, "CHOCH_FAKE_DECISIONAL"), False)
+
+print()
+print("HIS `Fake CHOCH` DIAGRAM — still refused WITHOUT the deleted test, which is the proof")
+# The picture he sent: a downtrend (High -> LH -> LL -> LH -> LL), three UNTOUCHED supply zones
+# above, then a rally off a bare low that breaks the last lower high. The book calls that break a
+# Fake Change of Character and the demand zone it leaves behind a "Fake Demand" — price drops
+# straight back through it. Nothing was reacted from and nothing was swept, so tests 1 and 3 refuse
+# it on their own. That is the evidence the fourth test was carrying nothing.
+FAKE_BARS = [bar(i, 1.0900, 1.0940) for i in range(60)]
+fake_demand = zone("demand", 1.0900, 1.0920, marked=40, through=1)   # born of the rally off the low
+chk("the rally came off a bare low -> no parent -> FAKE",
+    L.choch_verdict(fake_demand, [fake_demand], FAKE_BARS, []), L.CHOCH_FAKE_NO_PARENT)
+# Give it a parent so the verdict reaches the sweep test, but leave the liquidity untaken.
+bare = zone("demand", 1.0860, 1.0880, marked=5, mitigated=20, respected=30)
+UNTAKEN = [LiquidityPool(index=2, price=1.0700, side="sell", kind="low")]   # far below, never swept
+chk("...and even given a parent, nothing was swept on the way -> FAKE",
+    L.choch_verdict(fake_demand, [bare, fake_demand], FAKE_BARS, UNTAKEN), L.CHOCH_FAKE_NO_SWEEP)
+teeth("THE WHOLE CASE FOR THE DELETION: his own fake diagram is refused twice over without the "
+      "fourth test",
+      L.choch_valid(fake_demand, [fake_demand], FAKE_BARS, []) is False
+      and L.choch_valid(fake_demand, [bare, fake_demand], FAKE_BARS, UNTAKEN) is False)
 
 print()
 if failed:

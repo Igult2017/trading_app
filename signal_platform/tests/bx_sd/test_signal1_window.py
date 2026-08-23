@@ -1,18 +1,26 @@
-"""SIGNAL 1's WINDOW — opened by price leaving the extreme zone, closed by the first opposite break.
+"""SIGNAL 1's WINDOW — opened by the zone being RESPECTED, closed by the first opposite break.
 
-His rule, 2026-08-22:
+HIS RULE, 2026-08-23, and it replaced the one this file used to assert:
 
-    "any pullback that comes after the price has left the extreme zone it tapped... we dont use time
-     we just keep track of price action."
+    "Signal 1 and 2 use the same extreme/respected zone however, signal one only waits for pullback
+     then it fires. The price moves away from the zone and immediately we get a pullback we look for
+     confirmations and alignments and then go to entry and look for confirmation entry."
+
     "this stops when the price has broken the first opposite zone which is the first qualification
      for signal 2 after CHOCH."
-    "It must be unmitigated and extreme zones, not just any zone."
 
-WHY THIS FILE EXISTS. Both labels his rule names are destroyed by the tap that opens the window — a
-tapped zone is no longer `unmitigated`, and only an unmitigated zone may hold `extreme`
-(bx_sd_registry:304). Asking either question at ENTRY time always answers NO, which is the exact
-contradiction that has had signal 2 dead since 14 Aug 2026. Every check must be AS OF THE TAP, and
-these tests are what hold that in place.
+ONE definition of the extreme zone serves both signals, and price proves it: `respected` means price
+tapped the zone and then CLOSED A FULL ZONE-HEIGHT AWAY from it (`bx_sd_registry.REACT_MULT`).
+
+WHAT THIS FILE USED TO ASSERT, so it is not re-derived. Two weaker tests, both now deleted:
+  * `was_extreme_at(z, zones, tap - 1)` — was this the furthest-out zone one bar BEFORE price
+    arrived. A test on WHERE THE ZONE SAT, decided before the market had said anything. It was the
+    single biggest refusal in BX: 15 of 19 changes of character counted BY HAND from raw EUR/USD 4H
+    candles (79%) died on the same test in `choch_verdict`, and nothing passed at all.
+  * `has_left(z, bars)` — any closed bar not touching the zone. Weaker than respect, so it was the
+    binding one and respect never got asked. A full zone-height close away IS having left.
+
+`state_at` / `live_at` existed only to serve `was_extreme_at` and went with it.
 """
 import os
 import sys
@@ -65,63 +73,45 @@ def bar(t, lo, hi):
 
 
 print()
-print("STATE AS OF A MOMENT — rebuilt from the transition stamps")
-z = zone("supply", 1.1000, 1.1020, marked=100, mitigated=200, respected=300, broken=400)
-chk("before it existed",      s1.state_at(z, 50),  "")
-chk("marked, untouched",      s1.state_at(z, 150), "unmitigated")
-chk("on the tap bar itself",  s1.state_at(z, 200), "mitigated")
-chk("after it reacted away",  s1.state_at(z, 350), "respected")
-chk("after it broke",         s1.state_at(z, 450), "broken")
-chk("live while untouched",   s1.live_at(z, 150),  True)
-chk("not live once broken",   s1.live_at(z, 450),  False)
-teeth("the stamps really do drive it — a later moment gives a later state",
-      s1.state_at(z, 150) != s1.state_at(z, 350))
-
-print()
-print("WAS IT THE EXTREME **WHEN PRICE ARRIVED** — not now")
-# Two supply zones in one group. The higher one (1.1100) is the extreme while both are untouched.
-high = zone("supply", 1.1100, 1.1120, marked=100, mitigated=500, group=1)
-low  = zone("supply", 1.1000, 1.1020, marked=110, mitigated=200, group=1)
-chk("the higher supply zone was the extreme at bar 150", s1.was_extreme_at(high, [high, low], 150), True)
-chk("the lower one was not",                             s1.was_extreme_at(low,  [high, low], 150), False)
-# HIS RULE, 2026-08-22: a touched zone KEEPS the label; only a break hands it on. This block used to
-# assert the opposite ("after its tap it is no longer extreme"), which was the rule until that day.
-chk("after its own tap it is STILL the extreme — only a break would end that",
-    s1.was_extreme_at(high, [high, low], 600), True)
-chk("...and asked as of the tap, likewise", s1.opened_window(high, [high, low]), True)
-# A BROKEN zone drops out of grouping entirely, so it can hold no role at that moment.
-broke = zone("supply", 1.1100, 1.1120, marked=100, mitigated=500, broken=550, group=1)
-teeth("a BREAK does end it — that is the one thing that hands the label on",
-      s1.was_extreme_at(broke, [broke, low], 600) is False)
-
-# A zone alone in its group holds no role at all (registry:302)
-lone = zone("demand", 1.0900, 1.0920, marked=100, mitigated=200, group=7)
-chk("a zone alone in its group is not extreme", s1.was_extreme_at(lone, [lone], 150), False)
-chk("...so it opens no window",                 s1.opened_window(lone, [lone]), False)
-# Ungrouped (broken now -> group -1) claims no role
-orphan = zone("supply", 1.1200, 1.1220, marked=100, mitigated=200, group=-1)
-chk("an ungrouped zone claims no role", s1.was_extreme_at(orphan, [orphan], 150), False)
-
-print()
-print("THE WINDOW OPENS — price leaves the band (NOT 'a full zone-height away')")
-ext = zone("demand", 1.0980, 1.1000, marked=100, mitigated=200, group=1)
-# THE NEIGHBOUR SITS ABOVE, and that is the whole point: for DEMAND the extreme is the LOWEST zone
+print("THE WINDOW OPENS ON RESPECT — price closed a full zone-height clear of the zone")
+# THE NEIGHBOUR SITS ABOVE, and that is deliberate: for DEMAND the extreme is the LOWEST zone
 # (furthest below price), the mirror of supply where it is the highest. Placing it below instead made
 # the neighbour the extreme and this file failed — the fixture was wrong, not the code.
+ext = zone("demand", 1.0980, 1.1000, marked=100, mitigated=200, respected=300, group=1)
 nbr = zone("demand", 1.1040, 1.1060, marked=110, group=1)
 before = [bar(150, 1.1050, 1.1070), bar(200, 1.0985, 1.1010)]      # arrives and taps
-chk("still inside the band -> has not left", s1.has_left(ext, before), False)
-after = before + [bar(250, 1.1010, 1.1030)]                        # clear of the zone, only just
-chk("clear of the band -> it has left", s1.has_left(ext, after), True)
-teeth("leaving does NOT require a full zone-height move (that is `respected`, and far later)",
-      s1.has_left(ext, after) is True and ext.respected_at is None)
+after  = before + [bar(250, 1.1010, 1.1030), bar(300, 1.1020, 1.1045)]
+chk("a zone price tapped and reacted a full zone-height away from -> window opens",
+    s1.opened_window(ext), True)
+
+# THE CASE THE OLD RULE LET THROUGH, and the reason respect replaced it. This zone was tapped and
+# price did step clear of the band — `has_left` said yes — but it never closed a full zone-height
+# away, so price never actually held there. It opens NOTHING now.
+touched_only = zone("demand", 1.0980, 1.1000, marked=100, mitigated=200, group=1)
+chk("tapped and stepped clear, but never reacted -> NO window", s1.opened_window(touched_only), False)
+teeth("this is exactly what the deleted `has_left` accepted — a step clear of the band with no "
+      "full-height close behind it",
+      s1.opened_window(touched_only) is False and touched_only.mitigated_at is not None)
+
+untapped = zone("demand", 1.0980, 1.1000, marked=100, group=1)
+chk("never tapped at all -> no window", s1.opened_window(untapped), False)
+chk("...and the whole check agrees", s1.window_open(untapped, [untapped, nbr], after), False)
+
+# POSITION NO LONGER DECIDES IT. The neighbour is the NEARER demand zone — under the deleted rule it
+# could never open a window because a zone sat further out. Respected, it opens one.
+nbr_held = zone("demand", 1.1040, 1.1060, marked=110, mitigated=210, respected=310, group=1)
+chk("a NEARER zone that price respected opens a window — position is not the test",
+    s1.opened_window(nbr_held), True)
+teeth("THE 79% REFUSAL: the deleted rule called this zone decisional because `ext` sat further out, "
+      "and refused it while price was visibly holding there",
+      s1.opened_window(nbr_held) is True and ext.proximal < nbr_held.proximal)
 
 print()
 print("THE WINDOW CLOSES — the first OPPOSITE zone breaks")
 opp_live   = zone("supply", 1.1100, 1.1120, marked=120, group=2)
 chk("no opposite break yet -> window open",
     s1.window_open(ext, [ext, nbr, opp_live], after), True)
-opp_broken = zone("supply", 1.1100, 1.1120, marked=120, broken=260, group=2)
+opp_broken = zone("supply", 1.1100, 1.1120, marked=120, broken=360, group=2)
 chk("an opposite zone broken AFTER the tap -> window closed",
     s1.window_open(ext, [ext, nbr, opp_broken], after), False)
 # A break BEFORE the tap belongs to an older move and must not close this window.
@@ -132,13 +122,20 @@ chk("a SAME-side break does not close it",
     s1.opposite_broken_since(ext, [zone("demand", 1.09, 1.092, marked=120, broken=260, group=3)], 200),
     False)
 
+# MEASURED FROM THE TAP, NOT FROM THE RESPECT — the decision recorded in `window_open`'s docstring.
+# Here the opposite zone breaks at 260, between the tap (200) and the respect (300). The change of
+# character had already begun before the zone proved itself, so there was never a signal-1 phase.
+opp_mid = zone("supply", 1.1100, 1.1120, marked=120, broken=260, group=2)
+chk("an opposite break BETWEEN the tap and the respect -> no signal-1 phase, straight to signal 2",
+    s1.window_open(ext, [ext, nbr, opp_mid], after), False)
+teeth("that is the TAP being the boundary, not the respect — from the respect this would be open",
+      s1.opposite_broken_since(ext, [ext, nbr, opp_mid], 200) is True
+      and s1.opposite_broken_since(ext, [ext, nbr, opp_mid], 300) is False)
+
 print()
-print("ALL THREE BOUNDARIES TOGETHER")
-chk("never extreme -> no window", s1.window_open(nbr, [ext, nbr], after), False)
-chk("extreme but price still inside -> no window", s1.window_open(ext, [ext, nbr], before), False)
-chk("extreme, left the band, no opposite break -> OPEN", s1.window_open(ext, [ext, nbr], after), True)
-untapped = zone("demand", 1.0980, 1.1000, marked=100, group=1)
-chk("never tapped at all -> no window", s1.window_open(untapped, [untapped, nbr], after), False)
+print("BOTH BOUNDARIES TOGETHER")
+chk("never respected -> no window", s1.window_open(nbr, [ext, nbr], after), False)
+chk("respected, no opposite break -> OPEN", s1.window_open(ext, [ext, nbr], after), True)
 
 print()
 print("THE 1H + 15M/30M REQUIREMENT — it GATES, it does not score")

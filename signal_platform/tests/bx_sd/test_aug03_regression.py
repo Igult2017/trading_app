@@ -62,6 +62,31 @@ book = build(win, pip)
 print("\nTHE SIGNAL THAT SHOULD NOT HAVE FIRED")
 check("the fixture reproduces the exact entry bar (close 1.34872)",
       round(win[-1].close, 5), 1.34872)
+# ⚠ THIS ASSERTION IS RED AS OF 2026-08-23, AND IS DELIBERATELY NOT BEING BENT TO PASS.
+#
+# WHAT CHANGED. `choch_verdict` had a fourth test that called a change of character fake when the
+# zone price reacted from was not the FURTHEST-OUT one in its group at the time. It was deleted
+# because it ran his definition backwards (decisional is the verdict, not the evidence) and because
+# it refused 15 of 19 hand-counted changes of character. On THIS bar it was the only thing refusing.
+#
+# WHAT FIRES NOW IS A DIFFERENT ZONE, and the original defect is NOT recurring:
+#   * the bad 2026-08-03 card sold the 82-day-old 13 May zone 1.35337-1.35510, which price's high
+#     (1.35060) never came within 27.7 pips of
+#   * what fires now is HIS OWN 16 Jul zone 1.34928-1.35208, and price IS inside it on this bar
+#     (high 1.35060). Entry 1.34928 / stop 1.35208, both read off the zone's own edges — not from
+#     `pb_extreme + 15 pips`, which no longer exists
+#
+# WHAT IT DOES EXPOSE, and this is the real question for him. The zone it reacted from
+# (1.35337-1.35510) had THREE UNTOUCHED supply zones above it at that moment — 1.35792-1.35954,
+# 1.35921-1.36105 and 1.36070-1.36449. That is the shape of his own `Fake CHOCH` diagram: price
+# still has somewhere to go. The deleted test was, by accident, the ONLY thing in BX standing in for
+# "is there still untouched supply beyond". Nothing else checks it — `bx_sd_control.control` computes
+# who is in control from exactly this but its own note says it is "REPORTED, never used to reject".
+#
+# PENDING HIS RULING: either an "untouched zone still beyond" gate goes in and this returns to green
+# on its own, or this assertion is narrowed to the zone it was written about. Do NOT do the second
+# without him saying so — the whole point of this file is that it is the receipt for a real signal
+# that cost him.
 setup = detect_setup(win, pip, book=book)
 check("detect_setup DOES NOT fire on this bar", setup.active, False)
 

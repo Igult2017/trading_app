@@ -196,10 +196,15 @@ def scan_reports(symbol: str, entry_tf: list[Candle], m5: list[Candle], m1: list
                                else min(m.proximal for m in _ex)) if _ex else None
                 # NO LIVE EXTREME IN THIS GROUP -> LOOK BEYOND IT (2026-08-19).
                 #
-                # Since only an UNMITIGATED zone may be the extreme, a group whose zones are all
-                # spent has none — and the card then said only "an order here is the liquidity that
+                # A group can still hold no extreme — every member spent without any of them being
+                # RESPECTED — and the card then said only "an order here is the liquidity that
                 # carries price to the extreme" without naming where that is. His point: *"the card
                 # at least was supposed to report the one that has been respected above it."*
+                #
+                # THIS FIRES FAR LESS OFTEN SINCE 2026-08-23. The reason given here used to be "only
+                # an UNMITIGATED zone may be the extreme", which is no longer true: a respected zone
+                # is now exactly what wins the label (`bx_sd_registry._label`). The fallback is kept
+                # because "tapped but never reacted" groups are still real, not because of that.
                 #
                 # So fall back to the nearest zone FURTHER OUT on the same side that is still
                 # unmitigated, whatever group it belongs to. That is genuinely where price is

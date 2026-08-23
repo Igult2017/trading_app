@@ -15,17 +15,25 @@ HIS RULE, in his own words (2026-08-22):
 
 So the window is bounded by PRICE ACTION at both ends, never a clock:
 
-    opens   price leaves the band of an extreme zone it tapped while that zone was unmitigated
+    opens   price taps the zone and RESPECTS it — closes a full zone-height away
     fires   the first pullback after that, with the required 1H + 15M/30M zones being tapped
     closes  price closes through the first OPPOSITE zone — the CHoCH, which is signal 2's ground
 
-WHY EVERY CHECK HERE IS "AS OF THE TAP", NOT "NOW". Both labels his rule names are destroyed by the
-very tap that opens the window: a tapped zone is no longer `unmitigated`, and `classify_roles` only
-lets an unmitigated zone hold `extreme` (`fresh = [z for z in group if z.state == "unmitigated"]`,
-bx_sd_registry:304), so it is relabelled `decisional` the moment the tapping bar closes. Asking
-"is this zone unmitigated and extreme?" at entry time therefore always answers NO — which is exactly
-the contradiction that has had signal 2 dead since 14 Aug 2026. The question has to be asked of the
-moment price arrived.
+ONE EXTREME ZONE, SHARED WITH SIGNAL 2, AND PRICE PROVES IT (his rule, 2026-08-23):
+
+    "Signal 1 and 2 use the same extreme/respected zone however, signal one only waits for pullback
+     then it fires. The price moves away from the zone and immediately we get a pullback we look for
+     confirmations and alignments and then go to entry and look for confirmation entry."
+
+The two signals differ in ONE thing: whether the opposite zone has broken yet. Signal 1 is the phase
+before the change of character completes, which is why it carries the unconfirmed/risky tag.
+
+WHAT WAS HERE BEFORE, so it is not re-derived. The window used to open on two weaker tests — was
+this the furthest-out zone one bar before price arrived (`was_extreme_at`, position), and has any
+closed bar stopped touching the zone (`has_left`). Both are gone. The position test was the single
+biggest refusal in BX: 15 of 19 changes of character counted BY HAND from raw EUR/USD 4H candles
+(79%) died on the same test in `choch_verdict`, and nothing passed at all. `has_left` was a weaker
+statement of the same idea as respect, so it bound first and respect never got asked.
 
 Nothing here mutates a zone. The registry stamps every transition with a timestamp
 (`marked_at`, `mitigated_at`, `respected_at`, `broken_at`), and those are enough to reconstruct what
@@ -33,7 +41,6 @@ the book looked like at any earlier bar — so this module READS history rather 
 """
 from core.types import Candle
 from strategies.bx_sd_registry import MarkedZone, build as build_zones, to_zone
-from strategies.bx_sd_lineage import state_at, live_at, was_extreme_at  # noqa: F401
 from strategies.bx_sd_setup import SetupResult
 from strategies.bx_sd_ltf import LTFConfluence
 from strategies.bx_sd_entry import entry_trigger
@@ -50,24 +57,30 @@ def first_tap_at(z: MarkedZone) -> int | None:
     return z.mitigated_at
 
 
-def opened_window(z: MarkedZone, zones: list[MarkedZone]) -> bool:
-    """Did this zone open a signal-1 window — i.e. was it unmitigated AND extreme when price arrived?"""
-    tap = first_tap_at(z)
-    return tap is not None and was_extreme_at(z, zones, tap - 1)
+def opened_window(z: MarkedZone) -> bool:
+    """Did this zone open a signal-1 window — has price RESPECTED it?
 
+    HIS RULE, 2026-08-23: *"Signal 1 and 2 use the same extreme/respected zone however, signal one
+    only waits for pullback then it fires. The price moves away from the zone and immediately we get
+    a pullback."* So one definition of the extreme zone serves both signals, and it is proved by
+    price reaction — `respected` means price tapped the zone and then CLOSED A FULL ZONE-HEIGHT AWAY
+    from it (`bx_sd_registry.REACT_MULT`, stamped once on `respected_at`).
 
-def has_left(z: MarkedZone, bars: list[Candle]) -> bool:
-    """Has price left the zone's band since the tap that opened the window?
+    Signal 2 asks for exactly the same thing: `parent_of` only accepts a zone with `respected_at`
+    set. The two signals differ in ONE thing — whether the opposite zone has broken yet.
 
-    HIS DEFINITION, and it is deliberately NOT the `respected` one: *"any pullback that comes after
-    the price has left the extreme zone it tapped."* `respected` means a close a FULL zone-height
-    away (registry.REACT_MULT) — a much later, much rarer event. Leaving the band is simply a closed
-    bar that is not touching the zone any more, which is what he described and fires far earlier.
+    WHAT THIS REPLACED, and why. It used to ask `was_extreme_at(z, zones, tap - 1)`: was this the
+    furthest-out zone in its group one bar BEFORE price arrived. That is a test on WHERE THE ZONE
+    SAT, decided before the market had said anything, and it was the single biggest refusal in BX —
+    15 of 19 hand-counted changes of character (79%) died on the same test in `choch_verdict`.
+    Position is now an expectation only (`bx_sd_registry._label`); reaction decides.
+
+    `has_left` WENT WITH IT. It accepted any closed bar not touching the zone, which is a weaker
+    statement than respect and was therefore the binding one. A full zone-height close away is, by
+    definition, having left — two tests for one idea, and the loose one won. His answer when asked
+    which: *"Signal 1 waits for respect... it replaces your 'left the band' rule."*
     """
-    tap = first_tap_at(z)
-    if tap is None:
-        return False
-    return any(c.time > tap and not z.tapped_by(c) for c in bars)
+    return z.respected_at is not None
 
 
 def opposite_broken_since(z: MarkedZone, zones: list[MarkedZone], since: int) -> bool:
@@ -88,12 +101,22 @@ def opposite_broken_since(z: MarkedZone, zones: list[MarkedZone], since: int) ->
 
 
 def window_open(z: MarkedZone, zones: list[MarkedZone], bars: list[Candle]) -> bool:
-    """Is this zone's signal-1 window open RIGHT NOW? All three of his boundaries, in order."""
+    """Is this zone's signal-1 window open RIGHT NOW? Both of his boundaries, in order.
+
+    `bars` is no longer read — the reaction is answered from `respected_at`, which the registry
+    stamps while replaying those same bars. It stays in the signature because `find_signal1` and the
+    harnesses call this positionally, and a silent argument shift is worse than an unused one.
+
+    THE WINDOW CLOSES FROM THE TAP, NOT FROM THE RESPECT. His rule — *"this stops when the price has
+    broken the first opposite zone which is the first qualification for signal 2 after CHOCH"* — does
+    not say from when, and the tap is the stricter reading already in the code. Consequence, stated
+    so it can be measured: if the opposite zone breaks BEFORE the zone earns its respect, signal 1
+    never opens and the setup goes straight to signal 2. That is the right outcome — there was no
+    signal-1 phase to have — but how often it happens is a number, not an opinion.
+    """
     tap = first_tap_at(z)
-    if tap is None or not opened_window(z, zones):
-        return False                                # never qualified to open one
-    if not has_left(z, bars):
-        return False                                # price has not left the band yet
+    if tap is None or not opened_window(z):
+        return False                                # price has not reacted a full zone-height away
     if opposite_broken_since(z, zones, tap):
         return False                                # CHoCH began — signal 2's ground from here
     return True
@@ -241,9 +264,12 @@ def build_signal1(symbol: str, setup, conf, trig, legs: list[str], ext: MarkedZo
     sig.technical_reasons = [
         "⚠️ RISKY / UNCONFIRMED ENTRY — the change of character has NOT completed. "
         "This is the pullback after the extreme zone reacted, taken before the opposite zone breaks.",
-        f"4H extreme {ext.direction} zone was UNMITIGATED when price tapped it "
-        f"[{ext.bottom:.{digits}f}–{ext.top:.{digits}f}]",
-        f"Price left the zone and pulled back into a {' + '.join(legs)} zone",
+        # THE CARD MUST NOT CLAIM WHAT IS NO LONGER CHECKED. This said "was UNMITIGATED when price
+        # tapped it" and "price left the zone" — both were the pre-2026-08-23 tests and neither is
+        # asked any more. The test now is RESPECT: a close a full zone-height clear of the zone.
+        f"4H extreme {ext.direction} zone [{ext.bottom:.{digits}f}–{ext.top:.{digits}f}] — price "
+        f"tapped it and REACTED a full zone-height clear of it",
+        f"That reaction pulled back into a {' + '.join(legs)} zone",
         *sig.technical_reasons,
     ]
     return sig

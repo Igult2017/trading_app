@@ -136,14 +136,13 @@ His specification, given answer-by-answer and quoted here because it supersedes 
 | carries | a real entry/stop/target, tagged **UNCONFIRMED / RISKY**: *"It should be a valid signal but carries unconfirmed/risky entry tag"* |
 | 1H, not 2H | *"1HR is enough so lets use 1HR instead of 2HR"* — which also avoids gluing a timeframe the broker does not serve natively |
 
-**EVERY CHECK IS ASKED OF THE MOMENT PRICE ARRIVED, NEVER OF NOW — and that is the whole design.**
-Both labels his rule names are destroyed by the tap that triggers it: a tapped zone is no longer
-`unmitigated`, and only an unmitigated zone may hold `extreme` (`classify_roles`, registry:304), so
-it is relabelled `decisional` when the tapping bar closes. Ask either question at entry time and the
-answer is always NO. **That is precisely the contradiction that has had signal 2 dead since 14 Aug**
-(see the gate note below), and `bx_sd_signal1.was_extreme_at` exists so signal 1 cannot inherit it.
-The reconstruction reads the registry's own transition stamps (`marked_at`, `mitigated_at`,
-`respected_at`, `broken_at`) — no new state is stored.
+**THE WINDOW OPENS ON RESPECT — one fact, asked of now (2026-08-23).** `opened_window` is
+`z.respected_at is not None`. Nothing is reconstructed and no past book is rebuilt.
+
+This replaced a whole machinery. It used to ask *"was this the furthest-out zone one bar BEFORE price
+arrived"* (`was_extreme_at`), because the labels his old rule named were destroyed by the very tap
+that triggers the window — so the question had to be asked of the past. Respect happens AFTER the
+tap, so it can simply be read. `was_extreme_at`, `state_at` and `live_at` were deleted with it.
 
 **Entry, stop and target are signal 2's, unchanged.** `entry_trigger` is reused as-is, anchored on
 the pullback zone instead of the 4H zone. Not a new pricing rule — his existing rules applied to a
@@ -154,13 +153,6 @@ different zone, which is the only change he asked for.
 original impulse that left the zone behind — possibly months before price came back to tap it. Right
 for signal 2, where the child is created BY the reaction; wrong here. `broken_at` per zone answers
 his question directly.
-
-**One approximation, stated rather than hidden.** `was_extreme_at` reconstructs the group from
-`z.group`, which the registry computes over zones live NOW. A zone that was live at the tap but has
-since broken carries group -1 and is invisible, so in that narrow case this can say `extreme` where
-the registry would have said `decisional`. Grouping is not re-derived here on purpose — a second copy
-of that rule would drift from the registry's. Consequence: if the extreme zone itself later breaks,
-the window closes.
 
 **Performance contract.** `build_mtf_books` is called ONCE per scan. The first version built the
 1H/30M/15M books inside `find_signal1`, which runs per zone — ~50 zones x 3 replays per instrument
@@ -237,62 +229,122 @@ cutting 33-55% were judged too much. The difference is that this one is his expl
 four ways in his own document — so the number is information for him, not grounds for me to soften it.
 If it proves too tight in live trading, that is his call.
 
-### THE DECISIONAL CHANGE OF CHARACTER — his definition, built 2026-08-22
+### THE DECISIONAL ZONE — his definition, SETTLED 2026-08-23
 
-His words: *"Any zone that causes decisional CHOCH is a decisional zone. Decisional CHOCH is caused
-by decisional zones."*
+His words: *"decisional zones are zones that cause fake choch. The code already has logic for
+detecting fake choch and what qualifies as fake choch."* And: *"a decisional choch is not birthed by
+an extreme valid zone."* And: *"a decisional zone that was later broken as price head towards its
+direction."*
 
-So the test is on the **PARENT** — the zone the reversal came out of. Was it the EXTREME when price
-arrived at it? If it was the decisional one, price was still on its way to the real extreme, and the
-change of character it produced is the fake the document warns about (p21 §20: *"price may create a
-decisional supply zone but still have liquidity sitting above it"*).
+**So DECISIONAL IS THE VERDICT, NOT THE EVIDENCE.** A zone is decisional *because* the change of
+character it produced failed the tests — never because another zone sits further out. It describes
+the zone you **enter from**, not the zones you break through: his `Fake CHOCH` diagram is a fake
+**demand** zone, a buy zone.
 
-**ASKED AS OF THE TAP, NEVER "NOW" — the trap that has now bitten three times.** Only an UNMITIGATED
-zone can hold the `extreme` label (`classify_roles`, registry:304), and a parent has by definition
-been tapped. **Measured: 77 of 77 parents read `decisional` today** — so the "now" form refuses
-everything, exactly like the two gates before it. Asked of the moment price arrived, **1 of 77** had
-a genuinely extreme parent, which matches the note already in `bx_sd_setup`: *"of 86 EUR/USD taps and
-73 GBP/USD taps in a sampled walk, ONE was on an unmitigated zone."*
+`choch_verdict` therefore runs **THREE tests, all about what price did**:
 
-`was_extreme_at` / `state_at` / `live_at` moved from `bx_sd_signal1` into `bx_sd_lineage` so both
-signals ask the question the same way and `choch_verdict` can use it without a circular import.
+| # | test | fake reason |
+|---|---|---|
+| 1 | was it born of a reaction out of a zone? | `CHOCH_FAKE_NO_PARENT` |
+| 2 | did the move break an opposite zone? | `CHOCH_FAKE_NO_BREAK` |
+| 3 | was liquidity taken on the way in? | `CHOCH_FAKE_NO_SWEEP` |
 
-**A liquidity-density version was tried first and DELETED.** It asked "is unswept liquidity still
-resting beyond the zone" — faithful to §20's wording, but the pool set is dense (627 levels over 997
-bars; nearest resting level a median of **4 pips** beyond a zone, max 27), so it refused **100%** of
-candidates. Restricting to the kinds the document names (equal highs/lows — only 8 levels here)
-starved the sweep gate instead. Both extremes silenced the strategy, which is why his structural
-definition is the one built. Do not reintroduce the density version without new evidence.
+**A FOURTH TEST WAS DELETED, and `CHOCH_FAKE_DECISIONAL` with it.** It asked whether the parent was
+the furthest-out zone in its group when price arrived — a test on WHERE THE ZONE SAT, decided before
+the market had said anything, then used as proof the change of character was fake. Circular.
 
-### MEASURED AFTER ALL THREE GATES — and the number is a warning
+It was also the single biggest refusal in BX. Walked against **19 changes of character counted BY
+HAND from raw EUR/USD 4H candles over 3 months** (no BX involved), it refused **11 of them**, and
+nothing passed at all.
 
-997 real GBP/USD 4-hour candles, one instrument. **A diagnostic count, not a backtest** — no win
-rate, no R, no P&L:
+**His own `Fake CHOCH` diagram is still refused without it**, twice over — the rally there comes off
+a bare low with no zone behind it (test 1) and takes no liquidity on the way (test 3). That is the
+proof the fourth test was carrying nothing. Asserted in `test_choch_validity`.
 
-| | |
-|---|---|
-| entry candidates (have a parent) | 77 |
-| passed the OLD rule (one opposite zone broken) | 39 |
-| ...also swept liquidity on the approach | 10 |
-| ...**also had an extreme (not decisional) parent** | **0** |
+`was_extreme_at`, `state_at` and `live_at` were deleted with it — nothing else called them.
 
-**Zero valid entries on this instrument over ~166 days.** That is the honest figure and it is not
-hidden here. It does not by itself prove the rules wrong — his document's whole argument is that most
-entries are premature, and the 1-in-86 note above says the same. But it does mean signal 2 may produce
-almost nothing in live trading, and that is his call to weigh, not mine to soften.
+### ONE EXTREME ZONE FOR BOTH SIGNALS, PROVED BY RESPECT (2026-08-23)
 
-**LIMIT OF THIS MEASUREMENT, stated so it is not over-read:** it evaluates the zone book as it stands
-at the END of the window, not bar by bar. A live scan asks the same question at every bar against a
-book that keeps changing, so the production rate can differ. A walk-forward count would need his
-approval as a backtest.
+> *"Signal 1 and 2 use the same extreme/respected zone however, signal one only waits for pullback
+> then it fires. The price moves away from the zone and immediately we get a pullback we look for
+> confirmations and alignments and then go to entry and look for confirmation entry."*
 
-### Still NOT fixed — the positional decisional block
+`respected` = price tapped the zone and then **closed a full zone-height away** (`REACT_MULT = 1.0`).
+The registry always recorded it; nothing read it when choosing the extreme until now.
 
-The 3 Aug regression (`test_aug03_regression.py`) STILL fires, and the sweep gate is not what lets it
-through: on that bar liquidity genuinely WAS swept before the parent tap, so the verdict is honestly
-`valid`. What lets it through is that **nothing refuses a decisional zone any more** — the positional
-check was removed 20 Aug (`f025514`) and the two checks meant to replace it were removed the same day
-(`6396003`). Awaiting his ruling; see open defect below.
+| | signal 1 (unconfirmed / risky) | signal 2 (confirmed) |
+|---|---|---|
+| the zone | respected — `bx_sd_signal1.opened_window` | respected — `bx_sd_lineage.parent_of` |
+| opposite zone broken | **not yet** — that ends signal 1's window | **yes** — `choch_complete` |
+
+Signal 1's `has_left` was deleted with the same change. It accepted any closed bar not touching the
+zone, which is a weaker statement than respect and therefore the binding one, so respect never got
+asked. A full zone-height close away is by definition having left.
+
+**Signal 1's window still closes from the TAP, not from the respect.** His rule — *"this stops when
+the price has broken the first opposite zone"* — does not say from when, and the tap is the stricter
+reading. Consequence: if the opposite zone breaks before the zone earns its respect, there was no
+signal-1 phase and the setup goes straight to signal 2.
+
+**`_label` no longer gates either signal.** It names zones for the card and the stand-aside tap alert:
+one zone alone keeps role `""`; several with one respected → the respected one (furthest, if
+several); several with none respected → the furthest carries the *expectation* and nearer unproven
+ones are decisional. Self-correcting: if price later runs past a respected zone to a further one,
+the respected zone breaks, drops out of grouping, and the expectation returns to the furthest.
+
+**A liquidity-density version of the decisional test was tried first and DELETED (2026-08-22).** It
+asked "is unswept liquidity still resting beyond the zone" — faithful to §20's wording, but the pool
+set is dense (627 levels over 997 bars; nearest resting level a median of **4 pips** beyond a zone,
+max 27), so it refused **100%** of candidates. Restricting to the kinds the document names (equal
+highs/lows — only 8 levels here) starved the sweep gate instead. Do not reintroduce it without new
+evidence.
+
+### MEASURED AFTER THE CHANGE — 19 hand-counted changes of character
+
+EUR/USD 4-hour, 3 months, events counted from raw candles with no BX involved. Each walked through
+BX's checks in order; the FIRST one that refuses it is recorded. **A diagnosis, not a backtest** — no
+win rate, no R, no P&L.
+
+| first check that refused it | before | after |
+|---|---|---|
+| my counter's structure was incomplete | 2 | 2 |
+| no live zone marked where price reacted | 1 | 5 |
+| the zone was never recorded as tapped | 1 | 1 |
+| **the zone was DECISIONAL by position when price arrived** | **11** | **— deleted** |
+| **the zone was never RESPECTED** | — | **5** |
+| the reaction left no new zone behind to enter on | — | 5 |
+| that new zone's move broke no opposite zone | — | 1 |
+| liquidity not swept on the way | 0 | 0 |
+| **passes every check** | **0** | **0** |
+
+**The dominant blocker is gone; nothing passes yet.** Three roughly equal blockers of 5 replaced one
+of 11. That is progress on the diagnosis, not on the outcome, and it is stated plainly rather than
+presented as a win.
+
+**THREE THINGS THIS EXPOSED, none of them fixed, all of them his to rule on:**
+
+1. **`REACT_MULT = 1.0` is a GATE for the first time.** It was chosen when respect only fed a label;
+   it now decides whether either signal can fire at all. Of the 5 events refused for no respect,
+   price closed clear by **0.39, 0.41, 0.66, 0.69 and 0.80** of a zone height. At 0.75× one would
+   pass, at 0.50× three would. The constant has never been calibrated for this job.
+2. **5 events left NO same-side 4H zone behind after the reaction** — zero candidates in every case,
+   not "the wrong one". Signal 2 has nothing to enter on when that happens.
+3. **5 events had no live zone marked where price reacted at all** — the zone-marking criteria, which
+   this change did not touch.
+
+### Still NOT fixed — nothing checks for an untouched zone still BEYOND
+
+His `Fake CHOCH` diagram's loudest signal is three untouched supply zones sitting above: price still
+has somewhere to go. **Nothing in BX refuses a signal on that.** `bx_sd_control.control` computes
+exactly this but its own note says it is *"REPORTED, never used to reject"*, and
+`bx_sd_entry_type` only labels the card "counter-trend".
+
+The deleted fourth test was, by accident, the only thing standing in for it — which is why
+`test_aug03_regression.py` went RED with this change. On that bar the zone price reacted from
+(1.35337–1.35510) had three untouched supply zones above it. The original defect is NOT recurring:
+what fires now is his own 16 Jul zone 1.34928–1.35208, which price IS inside on that bar (high
+1.35060), with entry and stop read off the zone's own edges. **The assertion has deliberately not
+been bent** — see the note in that file. Awaiting his ruling.
 
 ## The lifecycle
 
@@ -747,16 +799,32 @@ pullback in 4HR"*.
    of taps; BX already requires the 4H zone AND a 1M/5M confirmation, so a third mandatory refusal
    stops the strategy trading. The user's rule: *"we still have double checks."*
 
-0x. **NOTHING REFUSES A DECISIONAL ZONE — open, and it is why the 3 Aug regression fails.**
-   The positional refusal (`if mz.role == "decisional": continue`) was removed 20 Aug by `f025514`
-   on the reasoning that *"the three gates below now decide it alone"*; those gates were removed the
-   same day by `6396003` (*"the sweep belongs at formation"*). The replacement was deleted after the
-   thing it replaced, and nothing enforces it now. His rule is absolute and the code still quotes it:
-   *"we cannot place any trades based on the decisional supply zone... Don't use the decisional zones,
-   you will be a liquidity."* Proven live on the 3 Aug GBP/USD fixture: the zone that fires is
-   `role=decisional`, `wick_mitigated`, genuinely tapped, and its CHoCH verdict is honestly `valid`
-   (liquidity WAS swept before the parent tap) — so the sweep gate does not cover this. **NOT FIXED —
-   awaiting his ruling.** The broken-decisional check from `a369846` is also gone with no replacement.
+0x. ~~NOTHING REFUSES A DECISIONAL ZONE~~ **CLOSED 2026-08-23 — the premise was wrong.** This was
+   written as "the positional refusal was removed and nothing replaced it". He then settled the
+   definition: *"decisional zones are zones that cause fake choch"* — so a positional refusal was
+   never the right thing to restore. `choch_verdict`'s three behaviour tests ARE the refusal, and the
+   fourth positional test was deleted for the same reason. See "THE DECISIONAL ZONE" above.
+
+0w. **NOTHING CHECKS FOR AN UNTOUCHED ZONE STILL BEYOND — open, found 2026-08-23.**
+   His `Fake CHOCH` diagram's tell is three untouched supply zones sitting above the zone price
+   reacted from: price still has somewhere to go. Nothing in BX refuses on that.
+   `bx_sd_control.control` computes exactly this and its own note says it is *"REPORTED, never used
+   to reject"*; `bx_sd_entry_type` only labels the card "counter-trend". The deleted fourth CHoCH
+   test was, by accident, the only stand-in — which is why `test_aug03_regression.py` is RED. On that
+   bar the zone reacted from (1.35337–1.35510) had three untouched supply zones above it. The
+   original defect is NOT recurring (what fires is his own 16 Jul zone 1.34928–1.35208, which price
+   is inside on that bar). **The assertion has NOT been bent.** Awaiting his ruling.
+
+0v. **`REACT_MULT = 1.0` IS NOW A GATE AND HAS NEVER BEEN CALIBRATED FOR THAT — open, 2026-08-23.**
+   It was chosen when `respected` only fed a label; since 2026-08-23 it decides whether either signal
+   can fire. On the 19 hand-counted changes of character, the 5 refused for "never respected" had
+   price close clear by **0.39, 0.41, 0.66, 0.69 and 0.80** of a zone height. At 0.75× one would
+   pass; at 0.50×, three. Not changed without his ruling — the value is his rule, not a tuning knob.
+
+0u. **THE REACTION LEAVES NO CHILD ZONE IN 5 OF 19 CASES — open, 2026-08-23.** `child_of` found
+   **zero** same-side 4H zones marked at or after the parent's respect, not "the wrong one". Signal 2
+   has nothing to enter on when that happens. Whether the marking criteria are too strict for that
+   zone is untested.
 
 0z. **SIGNAL 2 IS BLOCKED SHUT — two gates in one loop that cannot both be true (found 2026-08-22).**
    `bx_sd_setup` requires `mz.state == "respected"` (line ~230) and then, 47 lines later,

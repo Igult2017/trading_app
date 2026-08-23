@@ -275,88 +275,62 @@ def count_breakthroughs(zones: list[MarkedZone], events, bar_index: dict[int, in
 
 
 def _label(group: list[MarkedZone], side: str, gid: int) -> None:
-    """Furthest-from-price UNMITIGATED zone in the group is the extreme; the rest are decisional.
+    """WHICH ZONE IS THE EXTREME — DECIDED BY PRICE REACTION, NOT BY POSITION (his rule, 2026-08-23):
 
-    The group id is stamped even on a LONE zone, so "which extreme belongs to this decisional zone"
-    is answerable without re-deriving the grouping in every consumer.
+        "if we have many zones stacked here after liquidity has been swept, we wait to see which one
+         the price will RESPECT and use that as the extreme zone. No guesswork... However, if we have
+         only one extreme zone we use it. We are not doing guesswork, we deal with price reaction. So
+         first an extreme zone has to be where we expect it, then if they are many one has to be
+         respected."
 
-    ONLY AN UNMITIGATED ZONE MAY BE THE EXTREME (2026-08-19). Until now this ranked every LIVE zone,
-    and `LIVE_STATES` includes `respected` — a zone already tapped, reacted and finished. So a spent
-    zone could win the label and the tap card would name it as the level to wait for.
+    `respected` means price tapped the zone and then CLOSED A FULL ZONE-HEIGHT AWAY from it
+    (`reacted_by`, REACT_MULT) — which is exactly "price held here". The registry has always recorded
+    it and this is the first thing to read it when choosing the extreme.
 
-    IT DID. On EUR/USD the card said "the extreme at 1.16380 is the one we take" while that zone was
-    `respected`, with SIX unmitigated supply zones above it. Price ran straight through and the
-    monitor logged "4H zone broken before the entry triggered". He caught it: *"we are only trading
-    unmitigated and extreme zones."*
+    EVERY ZONE GETS ITS REAL NAME. This used to label the furthest zone `extreme` and then call EVERY
+    other zone in the group `decisional` — manufacturing a decisional label for zones price had
+    genuinely reacted from. His correction: *"there is no decisional zone where the extreme zone
+    is."* A zone price ran THROUGH is liquidity, not decisional; a zone price held at is the extreme;
+    only a nearer, still-unproven zone is decisional.
 
-    THE DOCUMENT SAYS THE SAME THING TWICE. A Fake CHoCH is *"price did not reverse from a major
-    UNMITIGATED demand zone"* (Smart Risk §9), and §21's sequence ENDS with "extreme zone mitigated"
-    — mitigation is the close of the extreme's life, not a state to wait in.
+    WHAT THE OLD RULE COST. Walked against 19 changes of character counted BY HAND from raw EUR/USD
+    4H candles over 3 months (no BX involved), 15 of the 19 — 79% — were refused because the zone
+    price reacted from was not the furthest one out. Every one of those had price hold there, and
+    that reaction IS what created the change of character being counted.
 
-    A GROUP WHOSE ZONES ARE ALL SPENT THEREFORE HAS NO EXTREME, and nothing in it is tradeable. That
-    is the intended consequence of his rule, not a gap: the furthest still-unmitigated zone on that
-    side — which lives in another group — is what price is actually travelling to.
+    IT IS SELF-CORRECTING. If price later runs PAST a respected zone to reach a further one, the
+    respected zone becomes `broken`, `classify_roles` drops it from grouping entirely, and the branch
+    below puts the expectation back on the furthest survivor.
+
+    THIS LABEL NO LONGER GATES EITHER SIGNAL (2026-08-23). Both now read `respected_at` directly —
+    signal 1 in `bx_sd_signal1.opened_window`, signal 2 in `bx_sd_lineage.parent_of`. What is left
+    here drives the card and the stand-aside tap alert, so a wrong label misinforms rather than
+    silently refusing, which is the whole reason the positional version survived so long undetected.
+
+    A ZONE ALONE IN ITS GROUP KEEPS ROLE "". There is no decisional zone to be preferred over, so
+    naming it would claim a distinction the market never drew — and his *"if we have only one extreme
+    zone we use it"* still holds, because nothing refuses on an empty role (`bx_sd_setup`: role "" is
+    "no decisional zone exists to be preferred over, so it trades normally"). The group id is stamped
+    even then, so "which extreme belongs to this zone" stays answerable without re-deriving grouping.
     """
     for z in group:
         z.group = gid
     if len(group) < 2:
         return                              # alone: no distinction exists, so none is claimed
-    # THE EXTREME PASSES ON A BREAK, NOT ON A TOUCH (his rule, 2026-08-22):
-    #
-    #     "if we have more than one qualifying extreme zone, consider the first one extreme UNTIL IT
-    #      IS BROKEN, and when it is broken we consider the next one an extreme zone until one is
-    #      respected."
-    #
-    # This used to read `[z for z in group if z.state == "unmitigated"]`, so the moment price touched
-    # a zone it stopped being eligible and the group could be left with NO extreme at all. Measured
-    # on EUR/USD over 4.8 months: 244 zone-taps collapsed to 16 that were "unmitigated AND extreme
-    # when tapped" — a 93% loss in one step, and the single biggest reason both signals were starved.
-    # A touched zone has not failed; only a zone price CLOSED THROUGH has.
-    #
-    # `group` already holds only LIVE zones (`classify_roles` filters on `z.live`, and `live` excludes
-    # `broken`), so every member here is by definition not-broken and the furthest one is the extreme.
-    # WHICH ZONE IS THE EXTREME — DECIDED BY PRICE REACTION, NOT BY POSITION (his rule, 2026-08-23):
-    #
-    #     "if we have many zones stacked here after liquidity has been swept, we wait to see which one
-    #      the price will RESPECT and use that as the extreme zone. No guesswork... However, if we
-    #      have only one extreme zone we use it. We are not doing guesswork, we deal with price
-    #      reaction. So first an extreme zone has to be where we expect it, then if they are many one
-    #      has to be respected."
-    #
-    # AND EVERY ZONE GETS ITS REAL NAME. This block used to label the furthest zone `extreme` and then
-    # call EVERY other zone in the group `decisional` — manufacturing a decisional label for zones
-    # price had genuinely reacted from. His correction: *"there is no decisional zone where the
-    # extreme zone is."* A zone price ran THROUGH is liquidity, not decisional; a zone that has been
-    # respected is the extreme; only an unproven nearer zone is decisional.
-    #
-    # WHAT IT COST. Walked against 19 REAL changes of character on EUR/USD 4H over 3 months (counted
-    # from raw candles, no BX involved): 15 of the 19 — 79% — were refused because the zone price
-    # reacted from was not the furthest one out. Every one of those had price hold there; that
-    # reaction IS what created the change of character.
-    #
-    # `respected` means price tapped it and then closed a full zone-height away (`reacted_by`), which
-    # is exactly "price held here". It was already recorded and then ignored when choosing the extreme.
-    if len(group) == 1:
-        group[0].role = "extreme"            # only one: use it, there is no contest to settle
-        return
-    _held = [z for z in group if z.state == "respected"]
-    if _held:
-        # Price has shown which one it respects. Among several, the furthest out is the extreme.
-        best = (max(_held, key=lambda z: z.proximal) if side == "supply"
-                else min(_held, key=lambda z: z.proximal))
+    held = [z for z in group if z.state == "respected"]
+    if held:
+        # PRICE HAS SPOKEN. Among several that held, the furthest out is the extreme; the others held
+        # too, so they are not decisional either — they simply are not the one.
+        best = (max(held, key=lambda z: z.proximal) if side == "supply"
+                else min(held, key=lambda z: z.proximal))
         for z in group:
-            if z is best:
-                z.role = "extreme"
-            elif z.state == "respected":
-                z.role = ""                  # held too, but not the furthest — not decisional either
-            else:
-                # nearer and unproven: this is the decisional zone his document describes, the one
-                # price is expected to run past on its way to the extreme.
-                z.role = "decisional"
+            z.role = ("extreme" if z is best
+                      else "" if z.state == "respected"
+                      else "decisional")
         return
-    # NONE RESPECTED YET — nothing has proven itself, so this is only where we EXPECT the extreme to
-    # be (his "first an extreme zone has to be where we expect it"). The furthest carries that
-    # expectation; the nearer ones are the decisional zones until price says otherwise.
+    # NOTHING HAS PROVEN ITSELF YET, so this is only where we EXPECT the extreme to be — his "first an
+    # extreme zone has to be where we expect it". The furthest carries that expectation; the nearer
+    # ones are the decisional zones until price says otherwise.
     best = (max(group, key=lambda z: z.proximal) if side == "supply"
             else min(group, key=lambda z: z.proximal))
     for z in group:
