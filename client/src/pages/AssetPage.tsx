@@ -357,13 +357,43 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
   }
 
   // ── Theme palette ─────────────────────────────────────────────────────────
+  //
+  // THE FOUR GREY TEXT TOKENS WERE UNREADABLE AND ARE NOW MEASURED (2026-08-23). He reported it:
+  // "The visibility of text in assets UI is very poor, I cant even see the white text in the sidebar
+  // where signals are listed." Measured on the surfaces they actually sit on (bg / bg2 / bg3), AA
+  // needs 4.5:1 for text and 3:1 for a border or an icon:
+  //
+  //            DARK, was            ->  now          LIGHT, was          ->  now
+  //   muted    #4a6580  3.10:1  FAIL   #95acc2 8.03   #475569  6.86  ok     unchanged
+  //   muted2   #3a5470  2.40:1  FAIL   #7495b7 6.03   #64748b  4.31  FAIL   #556275 5.60
+  //   dim      #2d4a63  2.03:1  FAIL   #5386b1 4.85   #94a3b8  2.32  FAIL   #5a6c87 4.84
+  //   dim2     #1e3045  1.40:1  FAIL   #3e638e 3.03   #b0bec5  1.72  FAIL   #79909c 3.02
+  //
+  // `muted` is the PAIR NAME in the sidebar list, which is what he could not read. `dim` is the
+  // asset-class badge, the search box and the section labels. `dim2` at 1.40:1 was invisible.
+  //
+  // WHY THE TOKENS AND NOT THE CALL SITES. This was "fixed" once before by hardcoding better colours
+  // into ONE row (see the note above the timestamp/strategy row further down) and leaving the tokens
+  // broken, so every other use stayed unreadable and it came straight back. Fixing the tokens
+  // corrects all 28 uses at once, and anything added later inherits a readable colour.
+  //
+  // HUE AND SATURATION ARE PRESERVED — only lightness moved — so the page keeps its blue-grey
+  // character rather than turning into flat greys.
+  //
+  // THE LADDER STAYS DISTINCT, which is the other half of the job: readable text that still reads as
+  // primary / secondary / tertiary. Dark 12.9 > 8.0 > 6.0 > 4.8 > 3.0, light 13.2 > 6.9 > 5.6 > 4.8
+  // > 3.0. Five separate steps, not five near-identical greys.
+  //
+  // `dim2` TARGETS 3:1, NOT 4.5:1, because it is a BORDER colour and that is the right standard for
+  // an interface element carrying no text. Its one TEXT use (the category header) moved to `dim`.
+  // Forcing dim2 to 4.5 would have put dim and dim2 at 4.84 and 4.50 — indistinguishable.
   const C = darkMode ? {
     bg:       '#080c10', bg2: '#0a0f16', bg3: '#0c1219',
     probBg:   '#07090f', scoreBg: '#0b1120', activeBg: '#0e1620',
     catHdr:   '#080c10',
     border:   '#0f1923', border2: '#172233', border3: '#131d2b', border4: '#1e2d45',
     text:     '#c8d8e8', textB: '#c8d8ec', heroText: '#ffffff',
-    muted:    '#4a6580', muted2: '#3a5470', dim: '#2d4a63', dim2: '#1e3045',
+    muted:    '#95acc2', muted2: '#7495b7', dim: '#5386b1', dim2: '#3e638e',
     accent:   '#60a5fa',   // signal-info blue — 7.56:1 on bg2, measured
   } : {
     bg:       '#f0f4f8', bg2: '#ffffff', bg3: '#f1f5f9',
@@ -371,7 +401,7 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
     catHdr:   '#f1f5f9',
     border:   '#e2e8f0', border2: '#cbd5e1', border3: '#dde4ed', border4: '#c8d3e0',
     text:     '#1e293b', textB: '#1e293b', heroText: '#0f172a',
-    muted:    '#475569', muted2: '#64748b', dim: '#94a3b8', dim2: '#b0bec5',
+    muted:    '#475569', muted2: '#556275', dim: '#5a6c87', dim2: '#79909c',
     accent:   '#2563eb',   // the light-theme pair — 5.17:1 on white, measured
   };
 
@@ -1015,7 +1045,11 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
                           const catDefs = INDICATOR_DEFS.filter(d => d.category === cat);
                           return (
                             <div key={cat}>
-                              <div style={{ padding: "6px 14px 4px", fontSize: 8, fontWeight: 800, color: C.dim2, letterSpacing: "0.14em", background: C.catHdr }}>
+                              {/* C.dim, NOT C.dim2 (2026-08-23). This is TEXT, and `dim2` is now
+                                  scoped to borders — it targets 3:1, the standard for an interface
+                                  element carrying no text, so it is not bright enough to read at
+                                  8px. `dim` is 4.85:1. */}
+                              <div style={{ padding: "6px 14px 4px", fontSize: 8, fontWeight: 800, color: C.dim, letterSpacing: "0.14em", background: C.catHdr }}>
                                 {cat.toUpperCase()}
                               </div>
                               {catDefs.map(ind => {
