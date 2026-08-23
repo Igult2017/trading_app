@@ -848,15 +848,35 @@ pullback in 4HR"*.
    never the right thing to restore. `choch_verdict`'s three behaviour tests ARE the refusal, and the
    fourth positional test was deleted for the same reason. See "THE DECISIONAL ZONE" above.
 
-0w. **NOTHING CHECKS FOR AN UNTOUCHED ZONE STILL BEYOND — open, found 2026-08-23.**
-   His `Fake CHOCH` diagram's tell is three untouched supply zones sitting above the zone price
-   reacted from: price still has somewhere to go. Nothing in BX refuses on that.
-   `bx_sd_control.control` computes exactly this and its own note says it is *"REPORTED, never used
-   to reject"*; `bx_sd_entry_type` only labels the card "counter-trend". The deleted fourth CHoCH
-   test was, by accident, the only stand-in — which is why `test_aug03_regression.py` is RED. On that
-   bar the zone reacted from (1.35337–1.35510) had three untouched supply zones above it. The
-   original defect is NOT recurring (what fires is his own 16 Jul zone 1.34928–1.35208, which price
-   is inside on that bar). **The assertion has NOT been bent.** Awaiting his ruling.
+0w. ~~NOTHING CHECKS FOR AN UNTOUCHED ZONE STILL BEYOND~~ **CLOSED 2026-08-23 — MEASURED, and it
+   cannot be a gate.** It is true that nothing refuses on it (the only code that looks "beyond" is
+   `bx_sd_reports` naming the level on a card). But measured on EUR/USD 4H across **3,902 tapped,
+   live zones**: **90% had an untouched same-side zone further out**, the nearest a median of 36 pips
+   away (10th percentile 10 pips, minimum 2). As a refusal it would kill nine setups in ten.
+
+   That is the SAME failure as the liquidity-density version of this idea, built and deleted on
+   2026-08-22 for refusing 100%: the zone book, like the pool set, is dense. "Something untouched
+   beyond" is the normal state of a chart, not a warning sign.
+
+   **A CORRECTION TO THE ENTRY THAT STOOD HERE**, which claimed *"now there's evidence it matters"*
+   on the grounds that the 3 Aug signal fired with three untouched supply zones above it. If 90% of
+   zones have that, its presence on that bar is evidence of nothing. A common condition was read as a
+   smoking gun because it matched a diagram. The diagram's fake demand is already refused twice over
+   by tests 1 and 3 (no parent, no sweep), which is where its real tells are.
+
+   **WHAT IS STILL OPEN is the 3 Aug regression itself**, and it is a different question — see 0s.
+
+0s. **`test_aug03_regression.py` IS RED AND HAS NOT BEEN BENT — open, 2026-08-23, awaiting his call.**
+   The deleted fourth CHoCH test was the only thing refusing that bar. What fires now is a DIFFERENT
+   zone and the original defect is not recurring: the bad 2026-08-03 card sold the 82-day-old 13 May
+   zone 1.35337-1.35510, which price's high (1.35060) never came within 27.7 pips of; what fires now
+   is his own 16 Jul zone 1.34928-1.35208, which price IS inside on that bar, wick-only so still
+   loaded, with entry and stop read off the zone's own edges rather than the deleted
+   `pb_extreme + 15 pips`. Its parent was respected, liquidity was swept, 7 opposite zones broken.
+   By every stated rule it reads valid. So the assertion `setup.active == False` is probably BROADER
+   than the defect it was written for — "this exact bad signal must never fire again" was implemented
+   as "nothing may fire on this bar". **NOT narrowed without his ruling**: it is the receipt for a
+   signal that cost him money, and quietly weakening it is exactly the wrong move.
 
 0v. ~~`REACT_MULT = 1.0` IS NOW A GATE AND HAS NEVER BEEN CALIBRATED FOR THAT~~ **CLOSED
    2026-08-23 — replaced, not tuned.** His ruling: *"Why are we hardcoding this instead of using
