@@ -350,7 +350,7 @@ win rate, no R, no P&L.
 | first check that refused it | before | after |
 |---|---|---|
 | my counter's structure was incomplete | 2 | 2 |
-| no live zone marked where price reacted | 1 | 5 |
+| no live zone marked where price reacted — **see the correction below** | 1 | 5 |
 | the zone was never recorded as tapped | 1 | 1 |
 | **the zone was DECISIONAL by position when price arrived** | **11** | **— deleted** |
 | **the zone was never RESPECTED** | — | **5** |
@@ -362,6 +362,31 @@ win rate, no R, no P&L.
 **The dominant blocker is gone; nothing passes yet.** Three roughly equal blockers of 5 replaced one
 of 11. That is progress on the diagnosis, not on the outcome, and it is stated plainly rather than
 presented as a win.
+
+**A CORRECTION TO THIS TABLE, 2026-08-23, after he challenged the claim.** The row "no live zone
+marked where price reacted" was reported as *"BX never drew a zone where price actually turned"* and
+called the biggest remaining defect. **That was wrong in 4 of the 5 cases.** What the harness actually
+tested was whether a LIVE zone's band CONTAINED the exact price its own swing detector picked —
+`z.bottom <= extreme <= z.top and z.state != "broken"`. Four different things fail that test and they
+had not been separated. Checked one at a time:
+
+| | |
+|---|---|
+| BX DID mark a zone containing that exact price, but it was **BROKEN** by then — the harness filtered it out | **4** |
+| genuinely no live zone on that side anywhere | 1 |
+
+A zone price has CLOSED through is dead by his settled rule, everywhere. So BX declining to trade
+those four levels is **the rule working, not a defect**. Only one case is unexplained.
+
+**AND THE FRAMING OF "2 of 19" WAS WRONG WITH IT.** The 19 hand-counted changes of character were
+never a target BX should hit — some are turns at levels BX had already written off. Recounted, **9 of
+the 17 refusals are BX correctly applying his own rules** (4 broken zones, 3 not-respected, 1 no
+opposite zone broken, plus 2 that are gaps in the hand-count itself, not in BX). The genuinely open
+items are the 3 in defect `0u` and the 1 unexplained missing zone.
+
+**HOW THIS HAPPENED, so it is not repeated:** a number was produced, a story was attached to it, and
+the story was repeated several times without being checked. The harness result was real; the
+explanation of it was invented. He caught it by asking *"are you even factual?"*
 
 **THREE THINGS THIS EXPOSED, none of them fixed, all of them his to rule on:**
 
