@@ -895,6 +895,43 @@ pullback in 4HR"*.
    window + confluence + card. **NOT DONE** — outside the approved plan, and mechanical rather than
    urgent, but it should not be left indefinitely.
 
+0u. **THE REACTION LEAVES NO CHILD ZONE IN 3 OF 19 CASES — open, PLAN WRITTEN AND CLOSED UNBUILT
+   2026-08-23 at his instruction.** `child_of` finds no same-side 4H zone marked after the parent
+   reacted, so signal 2 has nothing to return to and the setup is dropped.
+
+   **HIS RULE FOR IT, recorded so it is not re-derived:** *"Where there is no zone left behind by
+   choch creation, when price comes back, it should retap the zone it tapped to create choch"* —
+   scoped by *"if that zone was tapped and respected chances are that it can be retapped again ONLY
+   IN THAT CONTEXT."* So the zone earns the retap by having REACTED, and this is a narrow exception,
+   not a general loosening of the rule that a body-traded zone is spent.
+
+   **A CORRECTION: this was reported as 5 events and it is 3.** Two of the five never produced a
+   change of character at all, so his rule does not reach them; they are refused for a different
+   reason. The group had been labelled by what the code reported (`child_of` found nothing) rather
+   than by what happened on the chart.
+
+   **THE THREE, all body-tapped** (which is why `bx_sd_setup`'s "still loaded" test refuses them):
+   supply 1.14041-1.14385, supply 1.14471-1.14630 (twice). All three had a change of character
+   complete after the reaction.
+
+   **WHAT THE BUILD WOULD BE, if it is picked up:** `opposite_broken_since` moves from
+   `bx_sd_signal1` to `bx_sd_lineage` (it must, or the imports go circular:
+   lineage -> signal1 -> setup -> lineage); `entry_refusal` gains a second accepted shape needing
+   respected + liquidity taken + a change of character after + NO child + tapped now; and
+   `bx_sd_setup`'s "still loaded" test lets `respected` through while keeping `body_mitigated`
+   refused. **WATCH `bx_sd_setup`'s own warning against accepting `respected` there** — it cites a
+   duplicate-signal risk via the RETEST path, which was itself deleted on 2026-08-01, so the warning
+   is probably stale. Verify before relying on that.
+
+0t. **`bx_sd_signal1.py` IS 327 LINES, OVER THE 200 LIMIT — open, 2026-08-23.** It was already 275
+   before the advisory work and that change added ~50 more. The advisory CARD was deliberately put in
+   its own file (`bx_sd_advisory.py`, 59 lines) to avoid making it worse, but the module now holds
+   four separate responsibilities: the window (`opened_window` / `window_open` /
+   `opposite_broken_since`), the confluence (`mtf_confluence` / `pullback_zone` / `build_mtf_books`),
+   the orchestration (`find_signal1`), and the entry card (`build_signal1`). The natural split is
+   window + confluence + card. **NOT DONE** — outside the approved plan, and mechanical rather than
+   urgent, but it should not be left indefinitely.
+
 0u. **THE REACTION LEAVES NO CHILD ZONE IN 5 OF 19 CASES — open, 2026-08-23.** `child_of` found
    **zero** same-side 4H zones marked at or after the parent's respect, not "the wrong one". Signal 2
    has nothing to enter on when that happens. Whether the marking criteria are too strict for that
