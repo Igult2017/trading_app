@@ -1208,17 +1208,47 @@ export default function Journal() {
         .journal-light .accounts-root td { color: ${T.text} !important; border-color: ${T.border} !important; }
         .journal-light .accounts-root tr { border-color: ${T.border} !important; }
 
-        /* ── FX Copier landing — DARK IN BOTH THEMES, and that is deliberate ──
-           The whole block that used to sit here re-coloured the old landing for light mode using
-           its class names (.ts-hero h1, .ts-step p, .ts-platform-meta, .ts-platform-card,
-           .ts-feat-item). Every one of those selectors was deleted with the old markup on
-           2026-08-21, so keeping them would leave rules matching nothing — the stale-selector rot
-           that makes the next reader think light mode is handled when it is not.
+        /* ── FX Copier landing — NOW FOLLOWS THE THEME (2026-08-23, his call, reversing his own) ──
+           It was DARK IN BOTH THEMES until today, deliberately. He asked for it to turn white with
+           the rest of the app, so this is a reversal of a settled decision, not a bug fix.
 
-           The landing now owns its palette (ink-navy) as well as its typography, which is why it is
-           in the font-rule exemption above. His call: dark in both themes. If that is ever revisited,
-           map .ts-page's --ink/--panel/--text variables here rather than re-adding per-element
-           overrides — one place, not fifteen. */
+           DONE THE WAY THE OLD NOTE SAID TO: "map .ts-page's --ink/--panel/--text variables here
+           rather than re-adding per-element overrides — one place, not fifteen." The panel declares
+           its whole palette as variables in ONE block (TradeSyncPage.tsx .ts-page), so overriding
+           them is the entire change. The previous attempt at light mode targeted element classes
+           (.ts-hero h1, .ts-step p, .ts-platform-meta) and rotted into rules matching nothing when
+           the markup was replaced.
+
+           WHY THE COLOURS ARE REMAPPED RATHER THAN THE BACKGROUND JUST TURNED WHITE. Measured with
+           the WCAG formula: on white, SEVEN of the panel's EIGHT text colours fail AA. --text
+           (#EEF0F7) comes out at 1.14:1 — literally invisible. Only --faint survives.
+
+           THE "SOFT" VARIANTS INVERT, and this is the easy thing to get backwards. On the dark
+           palette --blue-soft is LIGHTER than --blue; on light it must be DARKER or it vanishes.
+           Checked against all 60 uses in TradeSyncPage: --blue is a FILL (6 of 6 uses are
+           backgrounds/gradients, carrying white text), while --blue-soft / --sky / --sky-soft are
+           TEXT (8 of 11, 8 of 12, 5 of 6 are color:). The only two exceptions are a 9px pulse dot
+           and a 5px eyebrow dot — no text on either, and both NEED darkening or they disappear.
+
+           Colours come from the Journal's own warm light theme (useJournalSettings THEMES.light) so
+           the panel matches the app instead of carrying a second light palette. Contrast on white,
+           measured: text 18.6:1 · muted 7.3:1 · faint 5.2:1 · blue-soft 8.7:1 · sky 5.4:1 ·
+           sky-soft 7.3:1 · up 5.0:1. All clear AA.
+
+           The blue/sky signal system is PRESERVED — blue still means master, sky still means
+           follower. Only the lightness moves.
+
+           NOTE: --muted-2 and --down have zero uses in TradeSyncPage. They are mapped anyway so the
+           two palettes stay symmetrical; deleting tokens out of his supplied design is a separate
+           call and was not asked for. */
+        .journal-light .ts-page {
+          --ink:#FFFEFB; --ink-2:#F5F2EA; --panel:#FFFFFF; --panel-2:#FBF9F4;
+          --line:#E7E2D5; --line-soft:#F0ECE1;
+          --text:#141310; --muted:#5C5646; --muted-2:#6B6454; --faint:#736C5B;
+          --blue:#1D4ED8; --blue-soft:#1E40AF; --blue-dim:rgba(29,78,216,.10);
+          --sky:#0E7490; --sky-soft:#155E75; --sky-dim:rgba(14,116,144,.10);
+          --up:#15803D; --down:#B91C1C;
+        }
 
         /* ── Session cards (obs-sessions-root + Tailwind arbitrary classes) ── */
         .journal-light .obs-sessions-root { background: ${T.bg} !important; color: ${T.text} !important; }
