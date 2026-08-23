@@ -1,5 +1,9 @@
 # BX-S/D — architecture map (post-restructure, 2026-07-27)
 
+> **Numbers about how often BX fires live in `bx-sd-measured.md`, not here.** That doc also
+> carries the caveats each number needs and the false alarms of 2026-08-23. Do not quote a
+> frequency from this file.
+
 **Read this before changing anything in BX.** It exists because the same defects kept being
 re-derived. `bx-sd.md` holds the settled RULES and the fix log; this holds the SHAPE.
 

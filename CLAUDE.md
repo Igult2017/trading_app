@@ -108,6 +108,11 @@ kept being re-derived and re-broken. Do not re-derive them; if a change contradi
 **Each strategy has an ARCHITECTURE doc — read it FIRST**: `docs/strategies/bx-sd-architecture.md`
 and `docs/strategies/vix1-architecture.md`.
 
+**BX-S/D also has a MEASURED doc — `docs/strategies/bx-sd-measured.md`.** Read it before asking "is
+BX working?", before quoting any number about how often it fires, and before reporting a finding from
+a measurement. It holds the one-year setup counts, the two commands that re-create them, what each
+number does NOT mean, and the five false alarms of 2026-08-23 with the rules that came out of them.
+
 **BX-S/D: read `docs/strategies/bx-sd-architecture.md` FIRST** — it holds the SHAPE (module map,
 the zone-book model, the lifecycle, and the KNOWN OPEN DEFECTS). `bx-sd.md` holds the RULES; parts of
 its implementation description are superseded and it says so at the top.
