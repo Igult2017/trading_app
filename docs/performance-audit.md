@@ -43,18 +43,27 @@ distance.**
 
 ---
 
-## 2. Every request pays the handshake again — the site is on HTTP/1.1
+## 2. HTTP/2 — ~~missing~~ **ALREADY ON. This section was WRONG.**
 
-Measured: **HTTP/1.1**, not HTTP/2.
+The first version of this audit said the site was on HTTP/1.1 and recommended enabling HTTP/2.
 
-This matters more than it sounds. On HTTP/1.1 a browser opens only a handful of connections at once,
-and **each new one repeats the 250ms + 250ms handshake** before it can ask for anything. On HTTP/2
-one connection carries everything at once and the handshake is paid once.
+**That was measured with a curl that cannot speak HTTP/2 at all** (`curl 8.17.0 … Schannel`, built
+without nghttp2 — it lists no HTTP2 feature and rejects `--http2` outright). It reported HTTP/1.1
+because that is the only thing it can do, and the number was read as a fact about the server.
 
-This is what puts the logo behind the header: the page, the JavaScript, the stylesheet, the font and
-the logo are all competing for a small number of connections, each with its own setup cost.
+**Checked properly**, by asking what the server advertises during the encryption handshake:
 
----
+```
+  openssl s_client -alpn h2,http/1.1 …   ->  ALPN protocol: h2
+  python ssl.selected_alpn_protocol()    ->  h2      (TLS 1.3)
+```
+
+**HTTP/2 is enabled and working.** Traefik turns it on by default for HTTPS entrypoints, and the
+labels confirm the https router has `tls=true`. Nothing to do.
+
+**What this also invalidates:** the original explanation for the logo arriving late — "the page, the
+JavaScript, the font and the logo all compete for a handful of connections" — was built on the same
+wrong reading. On HTTP/2 they share one connection and are multiplexed. **That story is dead too.**
 
 ## 3. The JavaScript bundle is one 520 KB file
 
@@ -103,10 +112,9 @@ filename (`index-DRUFzlOj.js`), so a new build is a new name. Two honest options
 - **Best:** give the logo and font hashed filenames like the bundles have, then cache for a year.
   More work, and it touches the build.
 
-### 2. Turn on HTTP/2 — server configuration, not app code
+### 2. ~~Turn on HTTP/2~~ — WITHDRAWN, it was already on
 
-Removes the repeated handshakes and lets everything download over one connection. This is set in
-Coolify's proxy, not in the codebase, so **it changes no application code at all**. Usually a toggle.
+See section 2. The finding came from a measurement tool that cannot speak HTTP/2.
 
 ### 3. Split the JavaScript bundle
 
