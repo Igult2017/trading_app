@@ -1,4 +1,17 @@
-# Open Items — found, recorded, NOT fixed
+# Open Items — ⚠ HISTORICAL LOG ONLY
+
+> **Anything still open now lives in [OPEN.md](./OPEN.md). Read that instead.**
+>
+> This file is kept because it records HOW things were found and what was decided at the time — the
+> reasoning, the measurements and the false alarms. It is NOT a current to-do list: fixed and open
+> items are mixed together, and several claims in it are stale (it says "four BX files over the
+> 150-line limit"; the real figure on 2026-08-25 is nine files over 200). Do not act on a line here
+> without checking OPEN.md first.
+>
+> Superseded 2026-08-25, on his instruction to consolidate open issues into one place.
+
+---
+
 
 ## THE PHASE PLAN (agreed 2026-08-01)
 

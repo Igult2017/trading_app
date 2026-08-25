@@ -4,6 +4,22 @@ A full-stack forex/crypto/stocks trading journal and signal platform. Built for 
 
 ---
 
+## ⚠ READ THESE TWO FIRST — before the code, before answering anything
+
+His instruction, 2026-08-25: *"everytime i ask you a question about this code we start from scratch
+which introduces bugs along the way. Keep its map and progress."*
+
+| file | when |
+|---|---|
+| **[docs/MAP.md](docs/MAP.md)** | **always.** Where everything lives, what state it is in, and the SETTLED rulings that must not be re-derived |
+| **[docs/OPEN.md](docs/OPEN.md)** | whenever something is broken or you are picking up work. The single list of what we have NOT addressed |
+
+`docs/MAP.md` points at the one deeper doc each question needs. **Do not go straight to the code and
+work it out** — that is what keeps reintroducing defects. `docs/open-items.md` is now a HISTORICAL
+log only; `OPEN.md` supersedes it for anything still open.
+
+---
+
 ## Tech Stack
 
 - **Runtime**: Node.js (ESM, `"type": "module"`), TypeScript via `tsx` (dev) / `esbuild` (prod)

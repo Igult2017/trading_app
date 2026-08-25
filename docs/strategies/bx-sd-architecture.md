@@ -967,7 +967,16 @@ verdict reads `broke_through`. Run the other way round, every zone reads as a fa
 character and the whole book comes back `decisional` **with no error raised**. Pinned by
 `test_extreme_zone.py`.
 
-## KNOWN OPEN DEFECTS — not fixed, do not assume otherwise
+## KNOWN OPEN DEFECTS — ⚠ THE LIVE LIST IS NOW [OPEN.md](../OPEN.md)
+
+> **Open BX items are tracked in [docs/OPEN.md](../OPEN.md) as A1–A7.** Use those ids.
+>
+> This section is kept for the REASONING and the measurements behind each one — that is what a
+> one-line entry cannot carry. But it is no longer the index, because **the id scheme here collapsed**:
+> `0u`, `0v`, `0y` and `0z` each appear TWICE, naming two different defects, which is exactly how a
+> session ends up reading the wrong entry. Ids are not repaired retrospectively; they are superseded.
+>
+> Superseded 2026-08-25.
 
 0v. **NOTHING STOPS ONE TAP FIRING BOTH THE STAND-ASIDE CARD AND A REAL ENTRY.** Found 2026-08-25,
    **not fixed.** [`bx_sd_reports.py`](../../signal_platform/strategies/bx_sd_reports.py) sends the
