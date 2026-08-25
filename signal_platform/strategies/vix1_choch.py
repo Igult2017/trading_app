@@ -93,6 +93,43 @@ def choch_entry(window: list[Candle], h1: list[Candle], tstate: TrendState,
     ci = tstate.choch_index                      # indexes into `window`
     broke = tstate.choch_price
 
+    # 1a. A TURN DOWN GETS NO EXEMPTION — IT MUST PROVE ITSELF FIRST (his rule, 2026-08-25).
+    #
+    #     "price breaks down through the old higher low -> it runs down -> it pulls back up -> when
+    #      that pullback turns back down, that's the proof -> then a momentum candle down is the
+    #      trade."
+    #
+    # AND THE SCOPE IS HALF THE RULE. He said it twice, the second time as a warning:
+    #
+    #     "we do this only for CHOCH when trend is changing from uptrend to downtrend but not for
+    #      downtrend to uptrend."
+    #
+    # So this is ONE-SIDED ON PURPOSE. A turn UP keeps the exemption exactly as it always had it —
+    # every condition below is untouched and still runs for it. Nothing here is deleted.
+    #
+    # WHY IT IS A REFUSAL AND NOT A FIFTH CONDITION, which is the thing that decided the shape of
+    # this change. His proof lands AFTER this function has already returned. Traced on a synthetic
+    # bearish turn through the real `trend_state` / `structure_turns` / `classify`:
+    #
+    #     breaks down + runs      -> exemption OPEN  (this is where it used to trade)
+    #     the pullback UP begins  -> `pending` is 0 and test 2 fires; the window is already SHUT
+    #     it turns back down      -> HIS PROOF lands here, one turn later
+    #
+    # Test 2 closes the window at the first confirmed LOW after the break — the moment the pullback
+    # BEGINS — while his proof needs the pullback's HIGH to confirm. A fifth condition would sit
+    # below code that has already returned: dead on arrival, and it would have LOOKED like the rule
+    # was enforced.
+    #
+    # WHAT HAPPENS TO A BEARISH TURN INSTEAD: it falls through to the normal route (`vix1_bias`),
+    # which requires the regime to read TREND — a lower high AND a lower low, and a lower high cannot
+    # exist until the pullback has turned back down. Measured on that same synthetic shape, the
+    # regime flips to TREND on precisely the bar his proof lands. So his sequence is enforced by
+    # machinery that already exists and is already tested, rather than by a second copy of it here.
+    if not bullish:
+        return None, ("change of character down at "
+                      f"{broke:.5f} — a turn DOWN is not exempted from the pullback rule. It must "
+                      "run, pull back, and turn back down before a momentum candle can trade it.")
+
     # 1b. THE FIRST PULLBACK AFTER THE BREAK CLOSES THE WINDOW — his refinement, 2026-08-15:
     #     "the exemption ends when we have the first pullback after CHOCH so that we dont trade in
     #      pullbacks again."
