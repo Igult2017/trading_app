@@ -81,6 +81,24 @@ class Settings(BaseSettings):
     # session opens back on the channel; no code change needed ("for now").
     channel_entries_only: bool = True
 
+    # EVERY MESSAGE FROM THESE STRATEGIES GOES TO THE PUBLIC CHANNEL — his instruction, 2026-08-25:
+    # *"Send everything for BX on the channel."* Comma-separated strategy ids. Env: CHANNEL_ALL.
+    #
+    # This OVERRIDES all three of the narrowing rules above, for the named strategies only:
+    #   * `channel_entries_only`  — outcome cards (TP / SL / cancelled) now go public too
+    #   * `signals_dm_only`       — the kill-switch no longer holds them back
+    #   * the `_watch` rule       — heads-ups and invalidation alerts go public instead of to the DM
+    #
+    # NAMED, NOT GLOBAL, and that is deliberate: flipping `channel_entries_only` off would have
+    # republished EVERY strategy's outcome cards and session opens to the channel, which is not what
+    # he asked for and would break strategy independence — one strategy's routing must never be
+    # decided by a switch another strategy shares. Set CHANNEL_ALL="" to put everything back; no code
+    # change needed.
+    #
+    # WHAT IT DOES NOT TOUCH: session opens, scan-started and the boot heartbeat. Those are platform
+    # messages, not a strategy's, so they have no strategy id to match and stay on their own routing.
+    channel_all: str = "bx_sd"
+
     # ── Data source 1: cTrader Open API (primary, run auth_setup.py once) ────
     # Credentials: https://ctrader.com/your-app-portal → Applications
     # Account ID: cTrader platform → Settings → Account Info

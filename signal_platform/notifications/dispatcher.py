@@ -137,6 +137,18 @@ async def _send_photo(chart_path: str, caption: str, chat_id: str | None = None)
         return await _send_text(caption, chat_id=chat_id)
 
 
+def _channel_all(strategy_id: str | None) -> bool:
+    """Does this strategy send EVERYTHING to the public channel? His rule, 2026-08-25:
+    *"Send everything for BX on the channel."*
+
+    The `_watch` suffix is stripped first — the setting names a STRATEGY, not one of its card types,
+    the same way `dm_only_exempt` is read on both routing paths.
+    """
+    sid  = strategy_id or ""
+    base = sid[:-len("_watch")] if sid.endswith("_watch") else sid
+    return base in {x.strip() for x in settings.channel_all.split(",") if x.strip()}
+
+
 async def on_setup_alert(signal: Signal) -> None:
     # Setup / pre-signal heads-ups are UNCONFIRMED → admin DM only, never the channel. The channel
     # carries CONFIRMED signals only (a zone mitigated + entry alignment, or MTF alignment + confluence
@@ -186,7 +198,10 @@ async def on_setup_alert(signal: Signal) -> None:
     _sid  = signal.strategy_id or ""
     _base = _sid[:-len("_watch")] if _sid.endswith("_watch") else _sid
     _exempt = _base in {x.strip() for x in settings.dm_only_exempt.split(",") if x.strip()}
-    if signal.to_channel and (not settings.signals_dm_only or _exempt):
+    # CHANNEL_ALL forces the channel regardless of `to_channel` or the kill-switch — his
+    # *"send everything for BX on the channel"*. It cannot be reached by a strategy that is not
+    # named in the setting, so nothing else is republished.
+    if _channel_all(_sid) or (signal.to_channel and (not settings.signals_dm_only or _exempt)):
         ok = (await _send_photo(chart, caption) if has_chart          # public signal channel
               else await _send_text(caption))
     else:
@@ -247,7 +262,13 @@ async def on_signal_confirmed(signal: Signal) -> None:
     # while a still-in-refinement one stays held). _watch heads-ups always stay in the DM.
     base   = signal.strategy_id[:-len("_watch")] if is_watch else signal.strategy_id
     exempt = base in {s.strip() for s in settings.dm_only_exempt.split(",") if s.strip()}
-    if is_watch:
+    if _channel_all(signal.strategy_id):
+        # EVERYTHING PUBLIC, and this deliberately overrides the `is_watch` rule below. That rule
+        # exists so an UNCONFIRMED heads-up never leaks to subscribers; he has now asked for BX's
+        # to go public on purpose, so it is an instruction rather than a leak. Only strategies
+        # named in CHANNEL_ALL reach this branch.
+        target = settings.telegram_chat_id
+    elif is_watch:
         target = settings.watchdog_chat_id
     elif settings.channel_entries_only and not exempt:
         # While CHANNEL_ENTRIES_ONLY is on, DM_ONLY_EXEMPT is a positive ALLOWLIST for the channel:
@@ -402,7 +423,9 @@ async def on_signal_closed(signal_id: str) -> None:
         # card, because before that was fixed a DM-held strategy's outcome leaked to subscribers who
         # had never seen its entry.
         exempt = strategy in {s.strip() for s in settings.dm_only_exempt.split(",") if s.strip()}
-        if settings.channel_entries_only or (settings.signals_dm_only and not exempt):
+        if _channel_all(strategy):
+            await _send_text(message)          # his "everything on the channel"
+        elif settings.channel_entries_only or (settings.signals_dm_only and not exempt):
             await _send_private(message)
         else:
             await _send_text(message)
