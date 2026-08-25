@@ -75,16 +75,37 @@ wrote on 3 Aug and then repeated into three doc places.
 will bend the *code* to satisfy it. I will not quietly delete his regression test either.
 **Needs from him:** delete those assertions, or keep the file red.
 
-### A8 — The mitigation heads-up card contradicts its own comment about where it goes
-**Found 25 Aug, not fixed.** `bx_sd_reports.py` builds it with the id `bx_sd_watch` and a comment
-saying *"a heads-up is not a signal -> admin DM, never the channel"*. But `bx_sd_mitigation.py:43`
-sets `to_channel = True` on that card, and the alert path in the dispatcher routes on `to_channel` —
-so it was probably **already going to the channel**, and had been for some time.
-**Why unconfirmed:** production's `SIGNALS_DM_ONLY` and `DM_ONLY_EXEMPT` values are **not visible
-from here**, and they are the other half of that branch. I have not checked them.
-**Why it is moot for now:** every BX message goes to the channel as of 25 Aug, so the routing is
-correct either way. It matters again the moment `CHANNEL_ALL` is turned off — the comment would then
-send the next session to the wrong conclusion.
+### A8 — ~~The mitigation heads-up contradicts its own comment~~ CONFIRMED and corrected 25 Aug
+**Settled by reading production, not by reasoning.** `bx_sd_reports.py` carried the comment *"a
+heads-up is not a signal -> admin DM, never the channel"*. **It was false, and had been for as long
+as the current settings have held.** The card sets `to_channel = True`, and the alert path routes on
+exactly that — the `_watch` suffix only forces the DM on the *confirmed* path, which this card never
+takes because it is an alert.
+
+Production, read from Coolify 25 Aug: `SIGNALS_DM_ONLY=true`, `DM_ONLY_EXEMPT` **not set** so the
+default `"bx_sd,vix1"` applies and BX is exempt. That makes the branch
+`to_channel and (not dm_only or exempt)` reduce to `to_channel` — **true**. So the heads-up has been
+going to the **public channel** all along.
+
+**Comment corrected.** The suffix stays because it does real work as the dedup namespace; only the
+claim about routing was wrong. Moot for routing now that everything BX is public, but it would have
+misled the next session the moment `CHANNEL_ALL` was turned off.
+
+### A9 — A production environment variable is stored WITH quote marks
+**Found 25 Aug, not fixed — needs his say-so, it is a live setting.** `SIGNALS_DM_ONLY` is stored in
+Coolify as **six characters** — `'true'`, quote marks included — and flagged `is_literal` (pass
+through unchanged).
+
+**It works today.** The app is running and scanning with no error, so the quotes are being stripped
+somewhere between Coolify and the container. **That is inferred from the app booting, not observed —
+I cannot see the container's own environment.**
+
+**Why it is worth recording anyway:** tested locally, `'true'` with quote marks does **not** parse —
+it raises a validation error, and settings are read at import, so the app would fail to start rather
+than fall back to a default. It is one behaviour change in the platform away from a boot failure,
+and the failure would look like a crash-loop with no obvious cause.
+**Fix:** re-save the value as `true` without quotes. One `PATCH` call, applies on the next deploy.
+**Needs from him:** approval to change a live production setting.
 
 ### A5 — In 3 of 19 turns, the reaction leaves no zone behind for signal 2 to enter
 **Carried** from 23 Aug, plan written and deliberately closed unbuilt. His rule is already recorded:

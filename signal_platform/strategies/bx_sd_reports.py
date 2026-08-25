@@ -44,7 +44,22 @@ def scan_reports(symbol: str, entry_tf: list[Candle], m5: list[Candle], m1: list
     left behind when the retest path was deleted (2026-08-01) and read by nothing for three days.
     The other three come back into real use below as path ③; `analysis_tfs` did not, so it went."""
     out: list[Signal] = []
-    dm_id   = f"{sid}_watch"   # a heads-up is not a signal -> admin DM, never the channel
+    # THE `_watch` SUFFIX DOES NOT MAKE THIS PRIVATE, and the comment here claimed it did.
+    #
+    # It read: *"a heads-up is not a signal -> admin DM, never the channel"*. That was FALSE, and
+    # verified false against production on 2026-08-25 rather than reasoned about:
+    #   * `bx_sd_mitigation` sets `to_channel = True` on this very card;
+    #   * the alert path (`dispatcher.on_setup_alert`) routes on `to_channel`, and it STRIPS `_watch`
+    #     before checking the exemption list — the suffix only forces the DM on the CONFIRMED path
+    #     (`on_signal_confirmed`), which this card never takes because it is `alert_only`;
+    #   * production has `SIGNALS_DM_ONLY=true` and `DM_ONLY_EXEMPT` unset, so the default
+    #     `"bx_sd,vix1"` applies and BX is exempt — making the condition
+    #     `to_channel and (not dm_only or exempt)` reduce to `to_channel`, i.e. TRUE.
+    # So this heads-up has been going to the PUBLIC CHANNEL, not the DM, for as long as that has held.
+    #
+    # The suffix still does real work — it is the DEDUP namespace, keeping these keys from colliding
+    # with the entry's — so it stays. Only the claim about routing was wrong.
+    dm_id   = f"{sid}_watch"   # dedup namespace only — routing is decided by `to_channel`
     htf_map = htf_zone_map(htf_candles, pip)
     bars    = closed_only(h4)
     if len(bars) < _RECENT:
