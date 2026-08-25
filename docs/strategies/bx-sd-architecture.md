@@ -678,16 +678,39 @@ output, never an acceptance criterion.
 ## Formation — the book's three factors, all at formation time
 
 1. **IFC** — a real 3-candle imbalance (`find_fvgs`: candle1.low > candle3.high, wick to wick)
-2. **Its leg broke structure** — the most recent structure event at or before the IFC is already in
-   the zone's direction (a **pullback origin** inside an established leg), OR a break in that
-   direction prints afterwards. **There is NO candle window**: `BREAK_SPAN = 6` was invented, appears
-   nowhere in the book's 167 pages, and discarded pullback-origin zones — it cost a real GBP/JPY
-   setup on 15/29 Jul. The 27 Jul defect is still rejected because there the prevailing structure ran
-   *against* the candidate.
+2. **Its OWN move broke a level that already existed** — the zone's rally/drop must close through a
+   swing that was already on the chart *before the zone formed*. His rule, in his words (2026-08-25):
+
+   > *"A zone must break structure for it to qualify as a zone, and that structure is a structure that
+   > existed before the zone was formed. Before a zone causes a break of structure it is not a zone.
+   > Break of structure can be in CHOCH or when the market is marking swings like HH and HL."*
+
+   Coded at [`_broke_structure`](../../signal_platform/strategies/bx_sd_registry.py) as
+   `e.direction == want and e.index >= ifc_i and e.level_index < ifc_i` — the break comes from the
+   IFC onward (it is the move out of the zone), the level it broke pre-dates the IFC. `CHoCH` and
+   `BOS` both count, matching his last sentence. `level_index` was added to `StructureEvent` for this;
+   the value was computed and thrown away before, so the age of the broken level was unknowable.
+
+   **`>=`, not `>`** — the break may land on the impulse candle itself. His correction: *"Is the IFC
+   that broke that structure not part of the zone?"* Written as `>` it refused the GBP/USD zone he
+   drew by hand (1.35388–1.35653, 19 Aug), whose rally broke a 17 Aug level on the IFC bar.
+
+   **Two older arms are DELETED.** (a) *"the most recent structure event at or before the IFC already
+   runs the zone's way"* — that qualified a zone off a break that happened **before it existed**,
+   which is the exact thing his rule forbids; 31% of the book leaned on it. (b) any-break-afterwards,
+   which counted breaks of levels created *after* the zone. There is still **no candle window**:
+   `BREAK_SPAN = 6` was invented, appears nowhere in the book's 167 pages, and is not coming back.
 3. **Liquidity grabbed before it** (`swept_before`, 20-bar look-back)
 
 Then marked by the book's technique (`mark_zone`): **wick** (p33-35) → **engulfed** (p72) →
 **institutional** (Ch.4).
+
+**THERE IS NO FOURTH FACTOR, AND NOTHING HERE IS MEASURED.** A "the move away must be ≥2 clean
+candles and carry ≥1.5 average candles clear" rule (`departed_strongly`) was added on 2026-08-25 and
+**removed the same day**. It was mine, not his. With factor 2 in place it cut a further **38%** of the
+book (GBP/USD 80→50, GBP/JPY 69→42) while changing **neither** of his two live test cases — it earned
+nothing. His standing rule: *"zones are not measured because they are distinct with distinct
+qualities."* The qualities are the three factors above. **Do not re-add a size or distance test.**
 
 **THE BAND IS THE WHOLE CANDLE, HIGH TO LOW** (p16 and p19 both box the entire candle; p72: *"Demand
 is the last bearish candle before a break of sub structure"*). p17's **open and MTH are two
@@ -859,6 +882,23 @@ pullback in 4HR"*.
    cTrader bars and asserts it can never fire again.
 
 ## KNOWN OPEN DEFECTS — not fixed, do not assume otherwise
+
+0z. **`tapped_by` IS ONE-SIDED — it reports a tap when price is nowhere near the zone.** Found
+   2026-08-25, **not fixed.** [`bx_sd_registry.py:164`](../../signal_platform/strategies/bx_sd_registry.py#L164)
+   asks only `c.low <= self.top` for a demand zone, so any bar whose low is at or below the zone top
+   counts — **including bars sitting entirely BELOW the zone**, which is price having left, not price
+   arriving. Same shape on the supply side. This is what prints `145 zone(s) tapped` in the production
+   log. It needs the other side of the band (`c.high >= self.bottom` for demand) so a tap means the
+   bar actually **overlaps** the zone. Not fixed because it changes the lifecycle for every zone in the
+   book and wants its own measurement, not a same-day patch.
+
+0y. **`test_aug03_regression.py` — 3 of 6 assertions FAIL, and two of them assert things I invented.**
+   Verified 2026-08-25 by stashing: **already red before the zone-rule change**, so this is not a
+   regression from it. The three: a 13 May zone *"still on the book"*, a **16 Jul zone "exactly where
+   he drew it"** — no such zone was ever sent; it came from a test label written on 3 Aug and was then
+   repeated into three doc places — and a respected-zone count that follows from the first two.
+   **Needs his ruling before the file is rewritten**: an assertion that pins a fabricated fact is worse
+   than a red test, because the next session will make the CODE satisfy it.
 
 0a. ~~The document's quality criteria are not built~~ **CLOSED 2026-08-15 — all four are in, graded
    as the document grades them.** Only criterion 1 is absolute (*"valid only under one condition"*),

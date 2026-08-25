@@ -31,7 +31,7 @@ from dataclasses import dataclass
 
 from core.types import Candle
 from shared.mtf_utils import closed_only
-from strategies.bx_sd_zones import Zone, departed_strongly, find_fvgs, mark_zone
+from strategies.bx_sd_zones import Zone, find_fvgs, mark_zone
 from strategies.bx_sd_structure import map_structure
 from strategies.bx_sd_liquidity import find_liquidity, swept_before
 
@@ -228,8 +228,18 @@ def _broke_structure(events, want: str, ifc_i: int, upto_i: int | None = None) -
     # whose break printed BEFORE its imbalance (GBP/JPY 15 Jul, whose loss cost a 100+ pip move).
     # Under his rule that zone does not qualify — its own move broke nothing. That is a deliberate
     # consequence of the rule he stated, not an oversight, and it is recorded in the fix log.
+    # THE BREAK MAY LAND ON THE IFC ITSELF — `>=`, not `>`. His correction, 2026-08-25:
+    #
+    #     "the IFC broke the structure after formation of the zone... the structure broken by the
+    #      zone must exist before the zone formation and then broken by the movement that originates
+    #      from the zone. Is the IFC that broke that structure not part of the zone?"
+    #
+    # The IFC IS the move out of the zone — the zone is the candle before it. So a break printing ON
+    # the IFC is exactly "the zone's own move broke structure", not something that happened earlier.
+    # Written as `>` first, this refused the GBP/USD zone he drew by hand (1.35388-1.35653, 19 Aug),
+    # whose rally broke a 17 Aug level on the impulse candle itself.
     return any(e.direction == want
-               and e.index > ifc_i                 # the break was caused by THIS zone's move
+               and e.index >= ifc_i                # the break came from THIS zone's move (IFC onward)
                and e.level_index < ifc_i           # ...of a level that already existed
                and (upto_i is None or e.index <= upto_i)
                for e in events)
@@ -441,22 +451,15 @@ def build(h4: list[Candle], pip: float = 0.0001,
             # It survived because REPLAY DETERMINISM could not see it: a short build and a long build
             # both mark on the same early bar, so N vs N+1 agreed. `test_zones` now checks the real
             # property instead — a zone is never marked before its qualifying break.
-            # FACTOR 4 — DID PRICE ACTUALLY PUSH AWAY? (his rule, 2026-08-25)
-            #
-            # He reported radar cards for zones he could not see on the chart: *"what those signals
-            # sent are candles in a ranging market... I am tired of receiving signals of miniature
-            # zones."* The three factors above never asked how hard price LEFT the zone, so a doji in
-            # a quiet range qualified exactly like a base under a 200-pip rally.
-            #
-            # His marking images say it directly — *"The bigger and cleaner the move away from the
-            # zone, the stronger the imbalance"* — and so does the book's own definition (Ch.6 p25),
-            # which this file has quoted at the top since it was written without implementing it.
-            #
-            # Judged from the IFC forward, so it is a fact about the impulse that created the zone,
-            # never about later price action. See `departed_strongly`.
+            # NO SIZE OR DISTANCE TEST HERE. A "the move away must be N candles long and M average
+            # candles far" rule (`departed_strongly`) was added and then REMOVED on 2026-08-25 —
+            # it was mine, not his, and measurement showed it earned nothing: with his
+            # break-of-structure rule in place it cut a further 38% of zones (GBP/USD 80->50,
+            # GBP/JPY 69->42) while changing NEITHER of his two test cases. His standing rule is
+            # *"zones are not measured because they are distinct with distinct qualities"* — the
+            # qualities are the three factors below. Do not re-add a measurement here.
             if (_broke_structure(events, want, ifc_i, i)
-                    and swept_before(pools, bars, side, ifc_i, LIQ_WINDOW)
-                    and departed_strongly(bars, ifc_i, z.top, z.bottom, z.direction == "demand")):
+                    and swept_before(pools, bars, side, ifc_i, LIQ_WINDOW)):
                 z.state, z.marked_at = "unmitigated", bar.time
                 zones.append(z)
                 # NO catch-up replay from the IFC. The bars between the IFC and here ARE the impulse
