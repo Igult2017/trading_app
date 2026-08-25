@@ -201,11 +201,38 @@ def _broke_structure(events, want: str, ifc_i: int, upto_i: int | None = None) -
     future. See the note in `build` for what that cost. None means unbounded, kept only so the
     pullback-origin arm can still be reasoned about in isolation by a test.
     """
-    prior = [e for e in events if e.index <= ifc_i]
-    if prior and prior[-1].direction == want:
-        return True                                  # the zone sits inside a leg already broken its way
-    return any(e.direction == want and ifc_i < e.index
-               and (upto_i is None or e.index <= upto_i) for e in events)
+    # HIS RULE, 2026-08-25, stated three times and now the only rule here:
+    #
+    #     "a zone must break structure for it to qualify as a zone, and that structure is a structure
+    #      that existed BEFORE the zone was formed. Before a zone causes a break of structure it is
+    #      not a zone. Break of structure can be in CHOCH or when the market is marking swings like
+    #      HH and HL."
+    #
+    # THREE THINGS, ALL OF THEM HIS WORDS:
+    #   1. the break must be caused by THIS zone's move          -> the break prints AFTER the IFC
+    #   2. the level broken must PRE-DATE the zone               -> level_index < ifc_i
+    #   3. BOS and CHoCH both count                              -> `kind` is not filtered, only direction
+    #
+    # WHAT THIS REPLACED, and why both old arms were wrong:
+    #   * "the most recent break BEFORE the zone already ran its way" — that is an old break EVENT.
+    #     The zone's own move breaks nothing at all. Measured: 31% of zones qualified on this alone.
+    #   * "any break in that direction prints after it" — closer, but it never asked how OLD the
+    #     broken level was. Price making a new extreme in open space is not a break of structure;
+    #     measured, 70% of zones were breaking a level that only formed AFTER the zone existed.
+    #
+    # NO AGE THRESHOLD. "Existed before the zone was formed" is the whole test — a level three bars
+    # older still existed before it. Asking how much older would be inventing a number he has
+    # repeatedly said does not belong here: zones are distinct by their qualities, not measured.
+    #
+    # THE PULLBACK-ORIGIN CASE THIS COSTS. The old first arm was added on 2026-08-15 to save a zone
+    # whose break printed BEFORE its imbalance (GBP/JPY 15 Jul, whose loss cost a 100+ pip move).
+    # Under his rule that zone does not qualify — its own move broke nothing. That is a deliberate
+    # consequence of the rule he stated, not an oversight, and it is recorded in the fix log.
+    return any(e.direction == want
+               and e.index > ifc_i                 # the break was caused by THIS zone's move
+               and e.level_index < ifc_i           # ...of a level that already existed
+               and (upto_i is None or e.index <= upto_i)
+               for e in events)
 
 
 def classify_roles(zones: list[MarkedZone], events, bar_index: dict[int, int]) -> None:

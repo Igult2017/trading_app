@@ -57,26 +57,51 @@ def demand(**kw):
 
 
 class E:                                   # a structure event
-    def __init__(self, index, direction):
-        self.index, self.direction = index, direction
+    # `level_index` — the bar the BROKEN SWING itself formed on. Added 2026-08-25 with his rule:
+    # a zone qualifies only by breaking a level that existed BEFORE the zone. Defaults to 0 so the
+    # level is old unless a test deliberately makes it young.
+    def __init__(self, index, direction, level_index=0):
+        self.index, self.direction, self.level_index = index, direction, level_index
 
 
-# ── FACTOR 2: the break may PRECEDE the IFC ──────────────────────────────────────────────────────
-print("FACTOR 2 — a zone belongs to a leg, not to a 6-bar clock")
-# The real GBP/JPY case: UP break at 134, demand zone IFC at 136.
+# ── FACTOR 2: THE ZONE'S OWN MOVE MUST BREAK A LEVEL THAT ALREADY EXISTED ────────────────────────
+# HIS RULE, 2026-08-25, stated three times: *"a zone must break structure for it to qualify as a
+# zone, and that structure is a structure that existed BEFORE the zone was formed. Before a zone
+# causes a break of structure it is not a zone."*
+#
+# THIS SECTION ASSERTED THE OPPOSITE UNTIL TODAY. It pinned the arm that let a break which happened
+# BEFORE the imbalance qualify the zone — "a zone belongs to a leg, not to a 6-bar clock" — added on
+# 2026-08-15 to rescue the GBP/JPY 15 Jul pullback-origin zone. His rule refuses that zone, because
+# its own move broke nothing. **That is the stated consequence of his rule, not an oversight**, and
+# the test is corrected to his rule rather than his rule bent to the test.
+print("FACTOR 2 — the zone's OWN move must break a level that pre-dates it")
+# The 15 Jul shape: UP break at 134, demand zone IFC at 136. The break is BEFORE the zone existed.
 ev = [E(107, "up"), E(134, "up"), E(160, "down")]
-chk("break 2 bars BEFORE the IFC now validates a demand zone (the 15 Jul case)",
-    _broke_structure(ev, "up", 136), True)
-chk("  and at the second IFC too", _broke_structure(ev, "up", 137), True)
+chk("a break that printed BEFORE the zone no longer qualifies it (his rule)",
+    _broke_structure(ev, "up", 136), False)
+chk("  nor at the next IFC", _broke_structure(ev, "up", 137), False)
+
+# What DOES qualify: a break after the zone, of a swing that formed before it.
+after = [E(150, "up", level_index=120)]           # broke at 150 a swing that formed at 120
+chk("a break AFTER the zone, of a level older than it -> valid",
+    _broke_structure(after, "up", 136), True)
+# ...and the level's age is the other half of his rule, so it must be able to refuse on that alone.
+young = [E(150, "up", level_index=140)]           # the level only formed at 140, AFTER the IFC at 136
+chk("same break, but the level formed AFTER the zone -> refused",
+    _broke_structure(young, "up", 136), False)
+teeth("THE AGE TEST HAS TEETH — identical break, only the level's age differs",
+      _broke_structure(after, "up", 136) is True and _broke_structure(young, "up", 136) is False)
 
 # THE 27 JUL REGRESSION: prevailing structure runs AGAINST the zone -> must still be rejected.
 ev_down = [E(50, "up"), E(130, "down")]
 chk("REGRESSION 27 Jul: prevailing structure DOWN, demand candidate -> still rejected",
     _broke_structure(ev_down, "up", 131), False)
-chk("  a supply candidate in that same down leg IS valid",
-    _broke_structure(ev_down, "down", 131), True)
+chk("  a supply candidate whose break also PRE-DATES it is refused too (his rule)",
+    _broke_structure(ev_down, "down", 131), False)
 # a later break in the wanted direction still rescues a zone
-chk("a break AFTER the IFC still validates", _broke_structure([E(200, "up")], "up", 150), True)
+# A later break still validates - PROVIDED the level it broke is older than the zone.
+chk("a break AFTER the IFC validates when the level pre-dates the zone",
+    _broke_structure([E(200, "up", level_index=100)], "up", 150), True)
 chk("no break in the zone's direction at all -> rejected", _broke_structure(ev_down, "up", 200), False)
 
 teeth("the leg test", _broke_structure(ev_down, "up", 131) is False)
@@ -174,7 +199,9 @@ def _load_bars(fn):
                               close=float(r[4]), volume=0.0, timeframe="H4"))
     return sorted(out, key=lambda c: c.time)
 
-_ev = [type("E", (), {"direction": "up", "index": 40})()]
+# level_index 0 = the broken swing is older than the zone (IFC at 10), so this section
+# tests the TIME BOUND only, not the age rule.
+_ev = [E(40, "up", level_index=0)]
 chk("a FUTURE break does not qualify a zone now", _broke_structure(_ev, "up", 10, 20), False)
 chk("  ...and does once the bar arrives", _broke_structure(_ev, "up", 10, 40), True)
 chk("  unbounded still sees it (the isolated-arm case)", _broke_structure(_ev, "up", 10, None), True)

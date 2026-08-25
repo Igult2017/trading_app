@@ -30,6 +30,12 @@ class StructureEvent:
     direction: str      # "up" | "down"
     index:     int      # candle index where the body-close break confirmed
     level:     float    # the swing price that was broken
+    # WHEN THE BROKEN SWING ITSELF FORMED. Added 2026-08-25 for his zone rule: *"a zone must break
+    # structure for it to qualify as a zone, and that structure is a structure that existed BEFORE
+    # the zone was formed."* Without this the age of the level is unknowable downstream — the value
+    # was computed here all along (`ref_high.index`) and thrown away, so `_broke_structure` could
+    # only ask WHETHER something broke, never whether the thing broken pre-dated the zone.
+    level_index: int = -1
 
 
 @dataclass
@@ -88,7 +94,7 @@ def map_structure(candles: list[Candle], n: int = _SWING_N) -> StructureState:
             else:
                 kind = "BOS"; up_streak += 1
             st.trend, st.confirmed = "up", up_streak >= 2
-            st.events.append(StructureEvent(kind, "up", i, ref_high.price))
+            st.events.append(StructureEvent(kind, "up", i, ref_high.price, ref_high.index))
 
         elif ref_low is not None and c.close < ref_low.price:
             broken_low_idx = ref_low.index
@@ -98,7 +104,7 @@ def map_structure(candles: list[Candle], n: int = _SWING_N) -> StructureState:
             else:
                 kind = "BOS"; down_streak += 1
             st.trend, st.confirmed = "down", down_streak >= 2
-            st.events.append(StructureEvent(kind, "down", i, ref_low.price))
+            st.events.append(StructureEvent(kind, "down", i, ref_low.price, ref_low.index))
 
     # expose the current unbroken swings to beat (for later phases)
     tail_conf = [p for p in pts]
