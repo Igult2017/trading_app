@@ -17,6 +17,8 @@ from core.strategy_context import StrategyContext
 from core import delivery_ledger, stage_tracker
 from storage import observability_repo as obs
 from shared.pip import pip_size, price_digits
+from shared.mtf_utils import closed_only
+from strategies.bx_sd_liquidity import find_liquidity
 from strategies.bx_sd_setup import detect_setup
 from strategies.bx_sd_registry import build as build_registry
 from strategies.bx_sd_confirm import confirm_grade
@@ -148,10 +150,15 @@ class BXStrategy(BaseStrategy):
         # 3 zone replays per instrument per tick, on a tick that already runs ~12s.
         _books = bx_sd_signal1.build_mtf_books(
             context.candles.get(TF.H1), context.candles.get(TF.M30), m15, pip)
+        # THE LIQUIDITY POOLS, BUILT ONCE PER SCAN — the extreme test asks whether price swept its way
+        # to each zone (`bx_sd_extreme.extreme_candidate_at`). Built here rather than inside
+        # `find_signal1` for the same reason the confluence books are: that runs once per zone, and a
+        # full pool scan per zone would be ~50 scans per instrument per tick.
+        _s1_pools = find_liquidity(closed_only(h4), pip, session_candles=m15)
         for _ext in book:
             _s1 = bx_sd_signal1.find_signal1(
                 "buy" if _ext.direction == "demand" else "sell", _ext, book, h4,
-                _books, entry_tf, m5, pip)
+                _books, entry_tf, m5, pip, pools=_s1_pools)
             if _s1 is None:
                 continue
             _dir1 = "buy" if _ext.direction == "demand" else "sell"

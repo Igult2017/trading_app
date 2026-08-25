@@ -47,7 +47,14 @@ def find_ltf_choch(ltf: list[Candle], want_dir: str, zone: Zone, zdir: str, rece
     if e.index < len(ltf) - recent:
         return None
     lo = max(0, e.index - recent)
-    tapped = any((ltf[j].low <= zone.top) if zdir == "demand" else (ltf[j].high >= zone.bottom)
+    # THE BAR AND THE BAND MUST OVERLAP — a second copy of the one-sided tap test, fixed with
+    # `MarkedZone.tapped_by` on 2026-08-25 (see its docstring). Written one-sided, a lower-timeframe
+    # bar sitting wholly BELOW a demand zone counted as having "tapped" it, so a change of character
+    # that happened nowhere near the 4H zone could still be accepted as a reversal off it. Here the
+    # blast radius is larger than in the registry: nothing closes an LTF bar out of the running the
+    # way a body-close break retires a 4H zone, so price genuinely does sit past the band for long
+    # stretches of the `recent` window.
+    tapped = any(ltf[j].low <= zone.top and ltf[j].high >= zone.bottom
                  for j in range(lo, e.index + 1))
     return e if tapped else None
 

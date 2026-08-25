@@ -92,7 +92,14 @@ def _standing_aside(zone: Zone, extreme_at: float | None, digits: int) -> list[s
     # KEPT SHORT ON PURPOSE. Telegram REJECTS a photo caption over 1024 chars, and the first version
     # of these lines pushed the worst case to 1040 — the card would simply not have sent. Two lines,
     # with the extreme's level folded into the second rather than given its own.
-    out = ["DECISIONAL zone — expect price to run THROUGH it"]
+    #
+    # WHAT "DECISIONAL" NOW MEANS ON THIS CARD (2026-08-25). It used to mean "a zone further out won
+    # the ranking", which is why the card could point at a perfectly good untouched zone and warn the
+    # reader off it. His ruling: *"Decisional zone does not become decisional because another zone
+    # won, it is based on its creation, and most of the time they are fake zones that lead to fake
+    # CHOCH that later become liquidity."* So the label is now a fact about what this zone's own
+    # reaction produced, and the warning below is finally true of the zone it is printed on.
+    out = ["DECISIONAL zone — its last reaction was a FAKE change of character"]
     if extreme_at is not None:
         out.append(f"an order here is the fuel; the extreme at {extreme_at:.{digits}f} is the one we take")
     else:

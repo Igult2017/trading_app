@@ -71,31 +71,54 @@ def zone(direction, bottom, top, *, marked, mitigated=None, respected=None, thro
 
 
 # ── A BEARISH SEQUENCE, in his order ────────────────────────────────────────
-# `swept_within` needs the pool to have formed BEFORE the window opens, and the window itself to
-# start past bar 0 (it returns False on start <= 0). So the tap sits at bar 40, giving a window of
-# [20, 40] with LIQ_WINDOW = 20, and the resting high forms at bar 10.
+# THE APPROACH IS A REAL RALLY, and that is new as of 2026-08-25. It used to be 37 near-identical
+# flat bars, which `detect` reads as RANGING — and under his settled definition a supply zone can
+# only be an extreme when price is SWINGING UP into it (*"when the price is swinging up, it is the
+# extreme above it"*). The flat fixture made the parent fail that test and every verdict came back
+# "no extreme zone behind it". The fixture was wrong, not the code.
 #
-#   bar 10        a high prints at 1.1090 — the liquidity, left resting
-#   bars 11-19    price stays below it, so it is STILL RESTING when the window opens at bar 20
-#   bar 38        price runs through 1.1090 — THE SWEEP (step 4)
-#   bar 40        price taps the extreme supply at 1.1100 (step 5)
-#   bar 45        the reaction leaves the child zone behind (step 10)
+# A staircase of higher highs and higher lows, because a straight ramp has no swing pivots at all
+# (`find_swing_points` needs 3 lower bars either side) and reads RANGING too — the same trap.
+#
+#   bars 0-40     a rally: HH / HL all the way up
+#   bar 40        price taps the extreme supply sitting above it (step 5)
+#   bar 44        the reaction is confirmed — the zone is RESPECTED
+#   bar 45        that reaction leaves the child zone behind (step 10)
 #   bar 50        price returns to the child — where the entry would be (step 11)
-BARS = [bar(i, 1.1000, 1.1010) for i in range(10)]
-BARS.append(bar(10, 1.1050, 1.1090))          # the high that becomes the liquidity
-BARS += [bar(i, 1.1000, 1.1040) for i in range(11, 38)]   # stays below it — still resting
-BARS.append(bar(38, 1.1060, 1.1095))          # takes it out — THE SWEEP, on the approach
-BARS.append(bar(39, 1.1070, 1.1098))
-BARS.append(bar(40, 1.1080, 1.1105))          # taps the extreme supply
-BARS += [bar(i, 1.1000, 1.1050) for i in range(41, 55)]
+#
+# THE POOL IS DATA, NOT A BAR'S HIGH. `swept_within` only reads its price and index, so the resting
+# level is derived from the bars: above everything before the window opens, below the window's own
+# high. Picking a level out of a rising staircase by hand proves nothing — price took it out long
+# before the approach, and `swept_within` correctly refuses an already-swept pool.
+def _stair(n=55, start=1.0950, up=0.0012, dn=0.0006):
+    out, px, i = [], start, 0
+    while i < n:
+        for _ in range(4):
+            if i >= n: break
+            c = px + up
+            out.append(Candle(time=i, open=px, high=c + 0.0001, low=px, close=c, volume=0,
+                              timeframe="H4")); px = c; i += 1
+        for _ in range(4):
+            if i >= n: break
+            c = px - dn
+            out.append(Candle(time=i, open=px, high=px, low=c - 0.0001, close=c, volume=0,
+                              timeframe="H4")); px = c; i += 1
+    return out
 
-POOL = [LiquidityPool(index=10, price=1.1090, side="buy", kind="high")]
 
-parent = zone("supply", 1.1100, 1.1120, marked=2, mitigated=40, respected=44)
-child  = zone("supply", 1.1060, 1.1080, marked=45, through=1)      # born after the reaction
+BARS = _stair()
+_TAP = 40
+_pre_hi = max(c.high for c in BARS[:_TAP - 20])
+_win_hi = max(c.high for c in BARS[_TAP - 20:_TAP + 1])
+POOL = [LiquidityPool(index=_TAP - 21, price=(_pre_hi + _win_hi) / 2, side="buy", kind="high")]
+
+# the extreme supply sits ABOVE where price closed on the tap bar — his "the extreme above it"
+_ZBOT = BARS[_TAP].close + 0.0008
+parent = zone("supply", _ZBOT, _ZBOT + 0.0020, marked=2, mitigated=_TAP, respected=44)
+child  = zone("supply", _ZBOT - 0.0040, _ZBOT - 0.0020, marked=45, through=1)   # born of the reaction
 # A companion BELOW the parent. Without a second live zone in the group no zone can be the
 # extreme at all, and every verdict would read decisional — the fixture, not the code.
-lower  = zone("supply", 1.1040, 1.1060, marked=3)
+lower  = zone("supply", _ZBOT - 0.0080, _ZBOT - 0.0060, marked=3)
 BOOK   = [parent, child, lower]
 
 print()

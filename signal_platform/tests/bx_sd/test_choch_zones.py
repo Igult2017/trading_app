@@ -74,40 +74,53 @@ def demand(t, lo, hi, state="unmitigated"):
 
 BI = {t: t for t in range(0, 200)}          # marked_at doubles as the bar index in these fixtures
 
-# ── HIS PAGE 11: two supply zones from ONE down-move ─────────────────────────────────────────────
-print("PAGE 11 — the upper supply is the EXTREME, the lower is DECISIONAL")
+# ── POSITION DECIDES NOTHING (his ruling, 2026-08-25) ────────────────────────────────────────────
+#
+#     "Extreme zone candidates cannot be decisional zones whether one won or not... if there are
+#      others on top of it untouched, they are just extreme zones that have not been tapped."
+#
+#     "Decisional zone does not become decisional because another zone won, it is based on its
+#      creation, and most of the time they are fake zones that lead to fake CHOCH."
+#
+# THIS BLOCK USED TO ASSERT THE OPPOSITE, straight from the document's "Double Zone Break Out"
+# passage: the higher supply is the extreme, the lower is decisional, mirrored for demand. Those
+# checks PASSED for ten days while the label they pinned was wrong — measured on the live book, 8 of
+# 11 GBP/USD zones carried `decisional` purely by position and every one of them was UNTOUCHED.
+# The document describes where the two TEND to sit; it is not the test for which is which.
+print("POSITION DECIDES NOTHING — stacked untouched zones are all still candidates")
 hi_z, lo_z = supply(10, 1.3100, 1.3130), supply(14, 1.3040, 1.3070)
 classify_roles([hi_z, lo_z], [], BI)
-chk("the HIGHER supply is the extreme", hi_z.role, "extreme")
-chk("the lower one is decisional", lo_z.role, "decisional")
-# order of formation must NOT decide it — a later zone that prints HIGHER is still the extreme
+chk("the higher supply is NOT crowned extreme by position", hi_z.role, "")
+chk("the lower one is NOT demoted to decisional", lo_z.role, "")
+# order of formation must not decide it either — nor must height
 a, b = supply(10, 1.3040, 1.3070), supply(14, 1.3100, 1.3130)
 classify_roles([a, b], [], BI)
-chk("formed LATER but higher -> still the extreme", b.role, "extreme")
-chk("  and the earlier, lower one is decisional", a.role, "decisional")
-teeth("the extreme rule", supply(10, 1.3100, 1.3130).role == "")
+chk("formed later and higher -> still no free label", b.role, "")
+chk("  and the earlier, lower one is not decisional", a.role, "")
+teeth("nothing is labelled by position", not any(z.role for z in (hi_z, lo_z, a, b)))
 
 # ── MIRRORED FOR DEMAND ──────────────────────────────────────────────────────────────────────────
 print()
-print("DEMAND is mirrored — the LOWEST is the extreme")
+print("DEMAND is mirrored — the lowest is NOT automatically the extreme either")
 d_hi, d_lo = demand(10, 1.2900, 1.2930), demand(14, 1.2840, 1.2870)
 classify_roles([d_hi, d_lo], [], BI)
-chk("the LOWER demand is the extreme", d_lo.role, "extreme")
-chk("the higher one is decisional", d_hi.role, "decisional")
-teeth("the demand mirror", d_hi.role != "extreme")
+chk("the lower demand is not crowned", d_lo.role, "")
+chk("the higher one is not demoted", d_hi.role, "")
+teeth("the demand mirror", d_hi.role != "decisional" and d_lo.role != "extreme")
 
-# ── A ZONE ALONE CLAIMS NOTHING ──────────────────────────────────────────────────────────────────
+# ── UNTOUCHED MEANS CANDIDATE, WHETHER ALONE OR STACKED ──────────────────────────────────────────
 print()
-# CHANGED 2026-08-19 — his rule: "an extreme zone qualifies when a decisional zone is broken, then
-# the second qualification is liquidity being swept." A lone zone used to keep role "" and the
-# cascade traded it unconditionally, which is exactly where the qualification was being skipped for
-# most of the book. It must now EARN "extreme" like any other zone; unqualified it is not tradeable.
-print("A LONE ZONE MUST EARN THE NAME — it no longer gets a free pass")
+# His rule: a zone alone and the same zone with a neighbour must get the SAME answer. The old code
+# could not do this — a lone zone kept "" while an identical zone with a neighbour became
+# "decisional", so its label depended on whether a stranger happened to exist beside it.
+print("A ZONE ALONE AND THE SAME ZONE WITH NEIGHBOURS GET THE SAME ANSWER")
 solo = supply(10, 1.3100, 1.3130)
-classify_roles([solo], [], BI)                 # no bars/pools -> rule off -> old behaviour kept
-chk("a lone zone keeps role ''", solo.role, "")
-chk("  so the cascade treats it normally", solo.role == "decisional", False)
-teeth("the lone-zone rule", supply(10, 1.3100, 1.3130).role != "extreme")
+classify_roles([solo], [], BI)
+chk("a lone untouched zone is a candidate", solo.role, "")
+paired = supply(10, 1.3100, 1.3130)
+classify_roles([paired, supply(14, 1.3040, 1.3070)], [], BI)
+chk("  and so is the identical zone with a neighbour", paired.role, solo.role)
+teeth("neighbours cannot change a zone's name", paired.role == solo.role == "")
 
 # ── A BREAK THE OTHER WAY ENDS THE GROUP ─────────────────────────────────────────────────────────
 print()
@@ -117,7 +130,7 @@ classify_roles([z1, z2], [E(20, "up")], BI)      # an UP break sits between them
 chk("with an up-break between, they are in DIFFERENT groups", z1.group != z2.group, True)
 z3, z4 = supply(10, 1.3040, 1.3070), supply(30, 1.3100, 1.3130)
 classify_roles([z3, z4], [E(20, "down")], BI)    # a DOWN break does not end a supply move
-chk("a same-way break does NOT split the group", z4.role, "extreme")
+chk("a same-way break does NOT split the group", z3.group == z4.group, True)
 teeth("the group cut", classify_roles([z1, z2], [E(20, "up")], BI) is None
       and z1.group != z2.group)
 
@@ -132,12 +145,17 @@ teeth("the live-only rule", supply(10, 1.3100, 1.3130, state="broken").live is F
 
 # ── THREE-DEEP STACK ─────────────────────────────────────────────────────────────────────────────
 print()
-print("A DEEPER STACK — exactly one extreme, the rest decisional")
+# His rule, on exactly this shape: *"if one won and it qualifies and there are others on top of it
+# untouched, they are just extreme zones that have not been tapped. So at some point the price will
+# come back to tap them and then we consider them again."*
+print("A DEEPER STACK — three untouched zones are three candidates, not one winner and two losers")
 stack = [supply(10, 1.3100, 1.3130), supply(12, 1.3060, 1.3090), supply(14, 1.3020, 1.3050)]
 classify_roles(stack, [], BI)
-chk("one extreme in the group", sum(1 for z in stack if z.role == "extreme"), 1)
-chk("  and it is the highest", stack[0].role, "extreme")
-chk("  the other two are decisional", [z.role for z in stack[1:]], ["decisional", "decisional"])
+chk("nothing is crowned extreme by height", sum(1 for z in stack if z.role == "extreme"), 0)
+chk("  and NOTHING is called decisional", sum(1 for z in stack if z.role == "decisional"), 0)
+chk("  all three remain candidates", [z.role for z in stack], ["", "", ""])
+chk("  but they are all in ONE group", len({z.group for z in stack}), 1)
+teeth("the stack rule", all(z.role == "" for z in stack) and stack[0].group != -1)
 
 # ── THE ENTRY MODEL: THE BOOK'S, p81 ─────────────────────────────────────────────────────────────
 print()
@@ -247,13 +265,19 @@ g2 = [supply(40, 1.2500, 1.2530, state="unmitigated"),
       supply(44, 1.2440, 1.2470, state="unmitigated")]
 classify_roles(g1 + g2, [E(25, "up")], BI)      # an up-break between them = two separate moves
 chk("two moves produce two groups", len({z.group for z in g1 + g2}), 2)
-chk("  each group has its own extreme", sum(1 for z in g1 + g2 if z.role == "extreme"), 2)
-_d = next(z for z in g2 if z.role == "decisional")
-_same = [z for z in g1 + g2 if z.role == "extreme" and z.group == _d.group]
-chk("  a decisional zone's extreme is in ITS OWN group", len(_same), 1)
-chk("  ...and it is the near one, not the far one", _same[0].proximal, 1.2500)
-teeth("the group scoping", _same[0].proximal != max(z.proximal for z in g1 + g2))
-chk("a lone zone still gets a group id", supply(10, 1.31, 1.312).group == -1, True)
+# The grouping is what the tap card uses to name which extreme price is travelling to WITHIN one
+# move — an unscoped version once pointed a zone at an extreme 550 pips away from a different move.
+# It is NOT a ranking: no member is crowned or demoted for being in the group (see the top of this
+# file), so what is checked here is the CUT, not a role.
+chk("  each group holds both of its own zones",
+    sorted(len([z for z in g1 + g2 if z.group == g]) for g in {z.group for z in g1 + g2}), [2, 2])
+chk("  and the two moves never share a group", g1[0].group != g2[0].group, True)
+teeth("the group scoping", len({z.group for z in g1 + g2}) == 2)
+# The 550-pip mistake in one line: a zone from the LOWER move must never be grouped with the far
+# upper one, whatever the labels say.
+chk("  ...and the near move's zones never join the far one's group",
+    {z.group for z in g2}.isdisjoint({z.group for z in g1}), True)
+chk("a zone that never went through classify_roles has no group", supply(10, 1.31, 1.312).group, -1)
 
 # ── ONLY AN UNMITIGATED ZONE MAY BE THE EXTREME (his rule, 2026-08-19) ──────────────────────────
 # "we are only trading unmitigated and extreme zones."
@@ -264,31 +288,37 @@ chk("a lone zone still gets a group id", supply(10, 1.31, 1.312).group == -1, Tr
 # The document says the same twice: a Fake CHoCH is "price did not reverse from a major UNMITIGATED
 # demand zone" (§9), and §21's sequence ENDS at "extreme zone mitigated".
 print()
-print("the extreme passes on a BREAK, not on a touch (his rule, 2026-08-22):")
-# SUPERSEDED RULE, kept visible so the change is legible. This block used to assert that only an
-# UNMITIGATED zone could hold the label — "the furthest zone does NOT win when it is spent". His
-# instruction replaced it: *"consider the first one extreme UNTIL IT IS BROKEN, and when it is broken
-# we consider the next one an extreme zone."* Measured cost of the old reading on EUR/USD over 4.8
-# months: 244 zone-taps collapsed to 16 that were unmitigated AND extreme — 93% lost in one step.
+print("A RESPECTED NEIGHBOUR CANNOT DEMOTE AN UNTOUCHED ZONE (his ruling, 2026-08-25):")
+# SUPERSEDED TWICE, kept visible so the change is legible.
+#   v1  only an UNMITIGATED zone could hold the label — cost 93% of taps on EUR/USD over 4.8 months.
+#   v2  *"consider the first one extreme UNTIL IT IS BROKEN"* — a touched zone kept the label and
+#       every other member of the group was called `decisional`.
+# v2 is what he overturned: *"Extreme zone candidates cannot be decisional zones whether one won or
+# not... if there are others on top of it untouched, they are just extreme zones that have not been
+# tapped."* The untouched neighbour is not a loser in a contest; it has simply not had its turn.
 touched_far = supply(10, 1.3100, 1.3130, state="respected")      # furthest, and already worked
 fresh_near  = supply(14, 1.3040, 1.3070, state="unmitigated")    # nearer, untouched
 classify_roles([touched_far, fresh_near], [], BI)
-chk("a TOUCHED zone keeps the label — only a break hands it on", touched_far.role, "extreme")
-chk("  ...and the nearer one is the decisional", fresh_near.role, "decisional")
+chk("the untouched neighbour is NOT demoted to decisional", fresh_near.role, "")
+teeth("a respected neighbour cannot demote an untouched zone",
+      fresh_near.role != "decisional" and fresh_near.state == "unmitigated")
 
 worked = [supply(10, 1.3100, 1.3130, state="respected"),
           supply(14, 1.3040, 1.3070, state="body_mitigated")]
 classify_roles(worked, [], BI)
-chk("a group where every zone has been touched STILL has an extreme",
-    sum(1 for z in worked if z.role == "extreme"), 1)
-chk("  ...the furthest of them", max(worked, key=lambda z: z.proximal).role, "extreme")
+chk("no zone is crowned just because the others are spent",
+    sum(1 for z in worked if z.role == "extreme"), 0)
+chk("  ...and none is called decisional without a verdict behind it",
+    sum(1 for z in worked if z.role == "decisional"), 0)
 # A BROKEN zone is excluded from grouping entirely (classify_roles filters on `z.live`), so it can
 # neither hold the label nor block the next one from it.
 mixed = [supply(10, 1.3100, 1.3130, state="broken"),
          supply(14, 1.3040, 1.3070, state="body_mitigated")]
 classify_roles(mixed, [], BI)
-chk("a BROKEN zone hands the label to the next one out", mixed[1].role in ("extreme", ""), True)
-teeth("the break-not-touch rule", touched_far.role == "extreme" and fresh_near.role == "decisional")
+chk("a broken zone is not grouped at all", mixed[0].group, -1)
+chk("  ...and the survivor is unaffected by it", mixed[1].role, "")
+teeth("his 'the ones tapped and broken disappear'",
+      mixed[0].group == -1 and mixed[0].live is False and mixed[1].group != -1)
 
 
 # ── CRITERION 2: LIQUIDITY SWEPT ON THE WAY IN ──────────────────────────────────────────────────

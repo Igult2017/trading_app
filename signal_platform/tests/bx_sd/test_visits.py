@@ -62,6 +62,29 @@ def demand(**kw):
 IN   = lambda t: C(t, 1.1030, 1.1035, 1.1005, 1.1012)   # body inside the zone
 AWAY = lambda t: C(t, 1.1060, 1.1080, 1.1055, 1.1075)   # entirely clear of the zone
 
+# ── A TAP MEANS THE BAR AND THE BAND OVERLAP ─────────────────────────────────────────────────────
+# Fixed 2026-08-25 in THREE places at once (`MarkedZone.tapped_by`, `bx_sd_ltf.find_ltf_choch`,
+# `bx_sd_zones._is_mitigated`) — each asked only half the question. For a demand zone: "did the bar
+# reach DOWN to the top?" and never "did it also reach UP to the bottom?", so a bar sitting ENTIRELY
+# BELOW the zone reported a tap. Leaving any one copy would have made fixing the others pointless.
+print("A TAP IS AN OVERLAP — not 'the bar got past the near edge'")
+_z = demand()                                            # 1.1000 - 1.1020
+chk("a bar inside the band taps it", _z.tapped_by(C(1, 1.1030, 1.1035, 1.1005, 1.1012)), True)
+chk("a bar straddling the whole band taps it", _z.tapped_by(C(1, 1.1050, 1.1060, 1.0980, 1.0990)), True)
+chk("a bar wholly ABOVE it does not", _z.tapped_by(C(1, 1.1060, 1.1080, 1.1055, 1.1075)), False)
+chk("a bar wholly BELOW it does not — THE BUG",
+    _z.tapped_by(C(1, 1.0960, 1.0975, 1.0950, 1.0955)), False)
+chk("touching the top edge exactly still counts",
+    _z.tapped_by(C(1, 1.1030, 1.1040, 1.1020, 1.1025)), True)
+_s = demand(direction="supply", proximal=1.1000, distal=1.1020)
+chk("mirrored: a bar wholly ABOVE a supply zone does not tap it — THE BUG",
+    _s.tapped_by(C(1, 1.1080, 1.1090, 1.1070, 1.1075)), False)
+chk("  ...and a bar inside it does", _s.tapped_by(C(1, 1.1015, 1.1025, 1.1005, 1.1010)), True)
+teeth("the one-sided test would have called a bar far below a demand zone a tap",
+      C(1, 1.0960, 1.0975, 1.0950, 1.0955).low <= _z.top          # what the old code asked
+      and _z.tapped_by(C(1, 1.0960, 1.0975, 1.0950, 1.0955)) is False)
+
+print()
 print("A RETAP IS A RETURN VISIT, NOT A BAR")
 z = demand()
 _advance(z, IN(1))                                   # first mitigation — not a retap

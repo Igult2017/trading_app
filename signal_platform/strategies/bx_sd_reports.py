@@ -138,13 +138,23 @@ def scan_reports(symbol: str, entry_tf: list[Candle], m5: list[Candle], m1: list
     # heads-up AND a real signal on the same scan, and the whole point of having two cards is that
     # you never have to ask which one means "place a trade".
     #
-    # THE REPLACEMENT: `detect_setup` takes ONLY zones whose role is not `decisional` — in practice
-    # the `extreme` of a stack, or a zone standing alone. This path therefore takes only the zones
-    # the entry will never take: the DECISIONAL ones. Same guarantee, drawn on the line the document
-    # itself draws, and it makes the tap alert genuinely informative — it is now the card that says
-    # "price is at a zone, but it is the decisional one, so we are standing aside."
+    # ⚠ THAT GUARANTEE IS NOT ENFORCED ON EITHER SIDE TODAY, and this comment used to claim it was.
     #
-    # Do not relax either side of this without replacing the guarantee again.
+    # It read: *"`detect_setup` takes ONLY zones whose role is not `decisional`"*. That refusal was
+    # deleted on 2026-08-19 (see the `role` divider note in `bx_sd_setup` — the three property gates
+    # replaced it) and there is no `role` test anywhere in `bx_sd_setup.py`; grep it. So a zone can in
+    # principle fire this stand-aside card AND a real entry on the same tap. The claim survived here
+    # for six days as documentation of a rule the code did not have — the exact failure the fix-log
+    # discipline exists to stop, and it is now in the fix log for the second time.
+    #
+    # WHAT THIS PATH STILL DOES, truthfully: it takes zones labelled `decisional`, which as of
+    # 2026-08-25 means their own reaction produced a FAKE change of character
+    # (`bx_sd_lineage.choch_verdict`) — no longer "a neighbour further out won". That is a fact about
+    # the zone, so the card is saying something real: price is here, and what this zone did last time
+    # was not a genuine turn.
+    #
+    # Restoring a hard divider between the two cards is a SEPARATE defect with its own blast radius —
+    # deliberately not fixed in the same change. Recorded in the architecture doc's open defects.
     #
     # ① and ③ can both fire on one tap, and that is intended: ① is the admin's diagnostic in the DM
     # and fires on the tap alone; ③ is the room's card and needs the reaction too. Different

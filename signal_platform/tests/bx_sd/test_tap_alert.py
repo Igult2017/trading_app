@@ -204,7 +204,13 @@ chk("  and names the reason, not just the absence",
 # THE WARNING IS THE POINT OF THIS CARD (2026-08-15). His rule: *"for decisional, you can send a
 # cheeky message when they are confirmed on LTF but warn that it is a decisional zone."*
 chk("  the headline itself carries the warning", "we do NOT trade these" in msg, True)
-chk("  and says WHY — price runs through it", "run THROUGH it" in msg, True)
+# WHAT THE REASON SAYS CHANGED 2026-08-25. It read "expect price to run THROUGH it", which was the
+# consequence of the OLD positional label — a zone was decisional because a neighbour further out
+# won, so price was assumed to be heading past it. The label is now a fact about the zone's own
+# creation (his: *"it is based on its creation... fake zones that lead to fake CHOCH"*), so the card
+# states that instead of predicting where price goes next.
+chk("  and says WHY — its own reaction was a fake change of character",
+    "FAKE change of character" in msg, True)
 chk("carries the disclaimer", "does not offer financial advice" in msg, True)
 chk("escapes the ampersand for HTML mode", "Trade&amp;Journal" in msg, True)
 chk("no raw unescaped ampersand", "&" in msg.replace("&amp;", ""), False)

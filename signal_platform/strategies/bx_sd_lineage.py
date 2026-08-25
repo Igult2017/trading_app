@@ -58,7 +58,8 @@ def child_of(parent: MarkedZone, zones: list[MarkedZone]) -> MarkedZone | None:
     return min(same, key=lambda z: abs(z.proximal - parent.proximal))
 
 
-def parent_of(child: MarkedZone, zones: list[MarkedZone]) -> MarkedZone | None:
+def parent_of(child: MarkedZone, zones: list[MarkedZone],
+              bars=None, pools=None) -> MarkedZone | None:
     """The zone whose reaction created `child` — the inverse of `child_of`. None if it has no parent.
 
     DERIVED, NOT REMEMBERED. The first design for this stored the child on `self._locked[symbol]` at
@@ -68,6 +69,16 @@ def parent_of(child: MarkedZone, zones: list[MarkedZone]) -> MarkedZone | None:
 
     A zone with NO parent is not an entry candidate under his model. That is the point — it means the
     zone was not born of a reaction out of an extreme, so there is no CHoCH behind it to trade.
+
+    A PARENT MUST BE A REAL EXTREME ZONE (2026-08-25). This accepted any respected same-side zone,
+    which made "extreme" mean nothing more than "price held here" — a demand zone behind price in a
+    rally counted identically to a supply zone standing in front of it. `bx_sd_extreme.is_extreme`
+    is now the test, and it is the SAME one signal 1 opens its window on, which is his rule:
+    *"Signal 1 and 2 use the same extreme/respected zone."*
+
+    `bars`/`pools` are optional only so the older two-argument callers and tests keep working; without
+    them the candidate half cannot be judged and this degrades to the pre-2026-08-25 answer. Production
+    always passes them — `bx_sd_setup` has both to hand.
     """
     if child.marked_at is None:
         return None
@@ -77,6 +88,9 @@ def parent_of(child: MarkedZone, zones: list[MarkedZone]) -> MarkedZone | None:
              and z.respected_at is not None
              and z.respected_at <= child.marked_at
              and z.state != "broken"]
+    if bars is not None and pools is not None:
+        from strategies.bx_sd_extreme import is_extreme
+        cands = [z for z in cands if is_extreme(z, bars, pools, zones)]
     if not cands:
         return None
     return min(cands, key=lambda z: abs(z.proximal - child.proximal))
@@ -151,23 +165,28 @@ def choch_verdict(child: MarkedZone, zones: list[MarkedZone], bars, pools) -> st
     was carrying nothing: the rally there comes off a bare low with no zone behind it (test 1, no
     parent) and takes no liquidity on the way (test 3, no sweep). See `test_choch_validity`.
     """
-    parent = parent_of(child, zones)
+    parent = parent_of(child, zones, bars, pools)
     if parent is None:
+        # WHICH KIND OF "NO PARENT" — and this branch is why `CHOCH_FAKE_NO_SWEEP` still exists.
+        #
+        # The sweep moved INSIDE the definition of an extreme zone on 2026-08-25 (his rule: *"it is
+        # the extreme above it where price HAS TO SWEEP LIQUIDITY to tap"*), so `parent_of` now
+        # refuses a zone that was reached without one — and the standalone sweep test that used to
+        # sit at the end of this function became unreachable. It was DELETED rather than left as a
+        # branch that can never run.
+        #
+        # But collapsing both cases into "no extreme behind it" would lose a distinction he asked for
+        # by name: *"let the system know fake CHOCH and the valid CHOCH."* A reversal off nothing and
+        # a reversal off a real zone price reached without taking any stops are different mistakes.
+        # So: ask again WITHOUT the extreme test. If a respected zone was there all along and the only
+        # thing missing was the grab, say that.
+        loose = parent_of(child, zones)
+        if loose is not None and not (swept_before_tap(loose, bars, pools)
+                                      or same_side_zone_broken_before(loose, zones)):
+            return CHOCH_FAKE_NO_SWEEP
         return CHOCH_FAKE_NO_PARENT
     if not choch_complete(child):
         return CHOCH_FAKE_NO_BREAK
-    # A BROKEN ZONE IS ITSELF THE LIQUIDITY (his rule, 2026-08-22):
-    #
-    #     "once the first one is broken, the next one qualifies whether liquidity is swept or not,
-    #      because remember a zone itself is liquidity — so where there is no liquidity the zone
-    #      becomes liquidity and then the next zone is respected."
-    #
-    # So if price CLOSED THROUGH a same-side zone on its way to this one, that break IS the grab and
-    # the separate sweep requirement is satisfied. Without this the rule double-charges: price has to
-    # take out resting stops AND the zone it just destroyed does not count as any.
-    if not (swept_before_tap(parent, bars, pools)
-            or same_side_zone_broken_before(parent, zones)):
-        return CHOCH_FAKE_NO_SWEEP
     return CHOCH_VALID
 
 
@@ -252,17 +271,24 @@ def entry_refusal(mz: MarkedZone, zones: list[MarkedZone], live,
     The architecture doc's own instruction, after a 0 was misread once already: *"Verify a 0 against
     the book before believing it."* This is what makes that answerable from one query.
     """
-    if parent_of(mz, zones) is None:
-        return "no parent zone — it was not born of a reaction, so it is not an entry candidate"
     # THE VALIDITY GATE (2026-08-22). A structure break with no liquidity swept on the way to the
     # extreme is a FAKE CHoCH by his rule and his document, and a fake one is a decisional one.
-    # Only answerable with the bars and pools; without them this degrades to the break test alone.
+    #
+    # `choch_verdict` IS ASKED FIRST, and that ordering matters (2026-08-25). A bare
+    # `parent_of(...) is None` check used to sit above this and return its own sentence. Once the
+    # liquidity sweep moved inside the definition of an extreme zone, that check started catching the
+    # UNSWEPT case too — and reported it as "no parent zone", hiding the real reason behind a generic
+    # one. The verdict already distinguishes the two, so it is the only thing that should answer.
     if bars is not None and pools is not None:
         _v = choch_verdict(mz, zones, bars, pools)
         if _v != CHOCH_VALID:
             return _v
-    elif not choch_complete(mz):
-        return "the CHoCH has not completed — no opposite zone broken behind it"
+    else:
+        # Degraded: no bars or pools, so neither the extreme test nor the sweep can be judged.
+        if parent_of(mz, zones) is None:
+            return "no parent zone — it was not born of a reaction, so it is not an entry candidate"
+        if not choch_complete(mz):
+            return "the CHoCH has not completed — no opposite zone broken behind it"
     if not (mz.state == "unmitigated" or mz.wick_only):
         return f"the zone is already spent ({mz.state}) — the return visit would not be the first fill"
     if not mz.tapped_by(live):

@@ -534,31 +534,42 @@ harness fault: building the zone book from a window that INCLUDES the bar whose 
 of D1+W1+MN; counting distinct zones rather than per-visit; and sampling every 4th bar. **Tap records
 are cached at `trading_app_data/bx_cache/`** so a variant is evaluated in seconds.
 
-## EXTREME vs DECISIONAL — never trade the near zone (added 2026-08-15)
+## EXTREME vs DECISIONAL — ⚠ THIS SECTION IS SUPERSEDED (2026-08-25)
+
+> **Read "THE EXTREME ZONE" and "DECISIONAL" further down instead.** Everything below described a
+> POSITIONAL rule — the furthest-out zone wins, the others are decisional — and he overturned it:
+> *"Extreme zone candidates cannot be decisional zones whether one won or not."* Both comparative
+> branches are deleted from `_label`. It is kept here only so the change is legible.
 
 **Smart Risk, "3. Double Zone Break Out":** *"we cannot place any trades based on the decisional
 supply zone because there is a high chance that the price will push higher to sweep the liquidity
 accumulated above the double tops and trigger the stop-loss of traders who entered from the decisional
 supply zone."* — *"Don't use the decisional zones, you will be a liquidity."*
 
-`bx_sd_registry.classify_roles` labels every LIVE zone within its group; `bx_sd_setup` refuses
-`decisional` outright.
+**The passage is still true about the RISK; it was never the test for which zone is which.** It
+describes where the two tend to sit. What decides it is what each zone's own reaction produced.
 
-- **A group** is same-side zones left by ONE move — it ends at the first structure event the other way.
-- **The extreme** is the zone furthest from where price went (highest supply / lowest demand).
-  **Order of formation does not decide it**; a later zone printing higher is still the extreme.
-- **A zone alone in its group keeps role `""`** and trades normally — there is no decisional zone to
-  be preferred over, so no distinction is claimed.
-- **Broken zones are excluded**, or `extreme` could be handed to a corpse and demote the live one.
+~~`bx_sd_setup` refuses `decisional` outright~~ — **also false**, and was for six days: that refusal
+was deleted 2026-08-19 (open defect 0v).
+
+- **A group** is same-side zones left by ONE move — it ends at the first structure event the other
+  way. **Still true, and still used** — but as scoping for the tap card, never as a ranking.
+- ~~The extreme is the zone furthest from where price went~~ — **deleted.** See below.
+- ~~A zone alone in its group keeps role `""`~~ — **an untouched zone keeps `""` whether alone or
+  stacked**, which is the point: neighbours cannot change a zone's name.
+- **Broken zones are excluded** — still true, and it is his *"the ones tapped and broken disappear."*
 
 **NOTHING IS MINTED — this is labelling only.** He settled it: *"the qualities that make a zone are not
 different from what the book we have been using says."* Measured over 3,500 H4 bars, the opposite zone
 is **already in the book within 12 bars of a break 86% of the time** (median 1 bar, 43% same-bar), so
 BX's existing formation rules already produce it. Do not add a second way to mint a zone.
 
-Roles are read **once over the finished book**, not frozen per zone: a decisional zone becomes the
-extreme the moment the one above it breaks. That is the market changing its mind, not a re-judgement
-of the zone — boundaries, marking and lifecycle are untouched, so the formation invariant holds.
+~~Roles are read once over the finished book: a decisional zone becomes the extreme the moment the one
+above it breaks.~~ **DELETED 2026-08-25 — this was the single clearest symptom of the positional
+rule.** A zone whose reaction produced a fake change of character is fake *permanently*; nothing about
+it changes because a neighbour broke. Under the old code his 29 Jul GBP/USD zone (1.32789–1.33036),
+which by its own creation *"came from nowhere"*, would have been **re-promoted to `extreme`** the
+moment the 02 Aug zone broke. Roles are still recomputed each build, but from each zone's own history.
 
 **`broke_through`** (`count_breakthroughs`) counts the opposite zones the move AFTER each zone closed
 through — the document's criterion 3, *"break & close below or above the two successive supply or
@@ -881,16 +892,117 @@ pullback in 4HR"*.
    **The user caught it from one chart.** `tests/bx_sd/test_aug03_regression.py` holds the real
    cTrader bars and asserts it can never fire again.
 
+## THE EXTREME ZONE — what it is, and how a zone earns the name
+
+**His definition, settled 2026-08-25.** The extreme zone is **the zone that turns the market**: price
+trends one way, travels to a zone it has never touched, sweeps the stops resting in front of it, taps
+it — and the reaction out of it is what breaks structure the other way. That break is the change of
+character.
+
+> *"Extreme zone is an extreme candidate that has been respected — meaning we are not guessing, we
+> are waiting for the price to respect it."*
+>
+> *"When the price is swinging up, it is the extreme above it where price has to sweep liquidity to
+> tap. It can be respected or not... The extreme zones can be endless."*
+
+Two stages, in [`bx_sd_extreme.py`](../../signal_platform/strategies/bx_sd_extreme.py):
+
+| stage | test | function |
+|---|---|---|
+| **candidate** | untouched until this tap · **against the swing** (supply while price swings up) · still **in front of** price · **liquidity swept** to reach it, *or* a same-side zone broken on the way | `extreme_candidate_at` |
+| **extreme** | a candidate that price then **respected** — 3 closed bars clear | `is_extreme` |
+
+**BOTH SIGNALS READ THE SAME FUNCTION**, which is his *"signal 1 and 2 use the same extreme/respected
+zone"*: signal 1 through [`opened_window`](../../signal_platform/strategies/bx_sd_signal1.py), signal
+2 through [`parent_of`](../../signal_platform/strategies/bx_sd_lineage.py).
+
+**THERE IS NO BOUND ON HOW FAR OUT A CANDIDATE MAY SIT.** *"The extreme zones can be endless."* Three
+bounds were proposed — beyond the last swing, beyond the next liquidity pool, current leg only — and
+he rejected all three. D/W/M zones were named to convey **how far** these can sit, never as a
+requirement; they remain confluence and must never gate. **Do not add a distance limit or a lookback.**
+
+**WHAT THIS REPLACED.** Both signals tested `respected_at is not None` and nothing else, against the
+**whole book** — `bx_sd` loops every zone `build()` returns. A demand zone sitting *behind* price in a
+rally qualified as an "extreme" identically to a supply zone standing in front of it, and signal 1
+never required a sweep at all. Respect was never the wrong test; it had no candidate set to select
+from. That is why cards arrived for zones he could not see on the chart.
+
+**RANGING IS THE ONE CASE HIS DESCRIPTION DOES NOT COVER** — with no swing there is no "above it" to
+point at, so **no new candidate opens** (a zone that already earned `respected_at` keeps it). Coded
+that way deliberately and flagged in the open defects below rather than guessed at.
+
+## DECISIONAL — a creation fact, never a ranking
+
+> *"Decisional zone does not become decisional because another zone won, it is based on its creation,
+> and most of the time they are fake zones that lead to fake CHOCH that later become liquidity."*
+
+A zone is `decisional` when **its own reaction produced a fake change of character** —
+[`choch_verdict`](../../signal_platform/strategies/bx_sd_lineage.py)'s three tests: no extreme behind
+it, no opposite zone broken, no liquidity swept. So extreme and decisional are **one test with two
+answers**, which is why *"a decisional zone does not originate from an extreme zone"* holds by
+construction.
+
+Three outcomes, and losing a contest is not one of them:
+
+| | |
+|---|---|
+| respected, and it was a candidate | **extreme** |
+| reacted, but the change of character was fake | **decisional** |
+| untouched, or no verdict yet | **`""` — still a candidate**, *"extreme zones that have not been tapped"* |
+| tapped and **broken** | gone — excluded from grouping entirely |
+
+**THE POSITIONAL RULE IS DELETED.** `_label` used to crown the furthest-out member `extreme` and call
+every other member `decisional`; and once any member became `respected`, every other flipped to
+`decisional` on that bar with nothing about them having changed. Two proofs it was never about the
+zone: a zone **alone** in its group got role `""`, so an identical zone was "decisional" or "nothing"
+depending on whether a neighbour existed; and a zone could be **re-promoted** to `extreme` merely
+because the zone above it broke. Measured before deleting: **8 of 11 live GBP/USD zones carried
+`decisional` purely by position, and every one was untouched.**
+
+`group` is kept — **not as a ranking**, only so the tap card can name which extreme price is
+travelling to *within one move*, after an unscoped version once pointed 550 pips at a different move.
+
+**ORDER TRAP IN `build`:** `count_breakthroughs` must run **before** `classify_roles`, because the
+verdict reads `broke_through`. Run the other way round, every zone reads as a fake change of
+character and the whole book comes back `decisional` **with no error raised**. Pinned by
+`test_extreme_zone.py`.
+
 ## KNOWN OPEN DEFECTS — not fixed, do not assume otherwise
 
-0z. **`tapped_by` IS ONE-SIDED — it reports a tap when price is nowhere near the zone.** Found
-   2026-08-25, **not fixed.** [`bx_sd_registry.py:164`](../../signal_platform/strategies/bx_sd_registry.py#L164)
-   asks only `c.low <= self.top` for a demand zone, so any bar whose low is at or below the zone top
-   counts — **including bars sitting entirely BELOW the zone**, which is price having left, not price
-   arriving. Same shape on the supply side. This is what prints `145 zone(s) tapped` in the production
-   log. It needs the other side of the band (`c.high >= self.bottom` for demand) so a tap means the
-   bar actually **overlaps** the zone. Not fixed because it changes the lifecycle for every zone in the
-   book and wants its own measurement, not a same-day patch.
+0v. **NOTHING STOPS ONE TAP FIRING BOTH THE STAND-ASIDE CARD AND A REAL ENTRY.** Found 2026-08-25,
+   **not fixed.** [`bx_sd_reports.py`](../../signal_platform/strategies/bx_sd_reports.py) sends the
+   tap card only for `decisional` zones and its comment claimed *"`detect_setup` takes ONLY zones
+   whose role is not `decisional`"* — **false since 2026-08-19**, when that refusal was deleted in
+   favour of the three property gates. There is no `role` test in `bx_sd_setup.py`. The comment is
+   corrected; the guarantee is not restored, because doing so is a behaviour change with its own
+   blast radius and belongs in its own change. Until then the two cards are not mutually exclusive.
+
+0u. **THE 4H RANGING CASE IS A DECISION I MADE, NOT ONE HE GAVE.** His definition of an extreme zone
+   covers price *swinging up* and *swinging down*. With the 4H ranging there is no "above it" to point
+   at, so `extreme_candidate_at` opens **no new candidate** — a zone already respected while the market
+   was trending keeps its status. Stated here so it can be overruled with a number in front of him
+   rather than discovered later. How often the 4H reads ranging has **not** been measured.
+
+0z. ~~`tapped_by` IS ONE-SIDED~~ **CLOSED 2026-08-25 — fixed in THREE places, and it was never one.**
+   A tap now means the bar and the band **overlap**: `c.low <= top and c.high >= bottom`, one test for
+   both directions. The old form asked only half — for a demand zone *"did the bar reach DOWN to the
+   top?"* and never *"did it also reach UP to the bottom?"* — so a bar sitting **entirely below** a
+   demand zone reported a tap. Mirrored on supply.
+   **Three live copies, all fixed together**, since fixing one alone would have left the others
+   contradicting it: [`bx_sd_registry.MarkedZone.tapped_by`](../../signal_platform/strategies/bx_sd_registry.py),
+   [`bx_sd_ltf.find_ltf_choch`](../../signal_platform/strategies/bx_sd_ltf.py) (the larger blast
+   radius — nothing retires an LTF bar the way a body-close break retires a 4H zone, so price really
+   does sit past the band for long stretches), and
+   [`bx_sd_zones._is_mitigated`](../../signal_platform/strategies/bx_sd_zones.py) (scans to the end of
+   the series, so one bar far past the zone marked it mitigated for good).
+   **MEASURED impact, small and honestly stated:** 3 of 506 taps on GBP/USD and 2 of 520 on GBP/JPY,
+   every one on the bar the zone was breaking anyway — **no lifecycle changed on either pair**, and
+   the zone counts, states and roles are identical before and after. Fixed as a correctness trap
+   waiting on a gap or a fast bar, not because it was doing damage.
+   **TWO CLAIMS OF MINE WERE WRONG and are corrected here:** it does *not* produce the
+   `145 zone(s) tapped` log line (asserted, never verified), and an early "70% of taps are false"
+   figure swept in bars from before a zone existed and after it died, where the question is
+   meaningless. Under 1% is the real number.
 
 0y. **`test_aug03_regression.py` — 3 of 6 assertions FAIL, and two of them assert things I invented.**
    Verified 2026-08-25 by stashing: **already red before the zone-rule change**, so this is not a

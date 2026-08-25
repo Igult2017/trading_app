@@ -175,12 +175,16 @@ def mark_zone(candles: list[Candle], ifc: int, bull: bool) -> tuple[float, float
 
 
 def _is_mitigated(candles: list[Candle], after: int, direction: str, top: float, bottom: float) -> bool:
-    """A fresh zone is mitigated the first time price taps back to its proximal edge (p27)."""
-    for j in range(after + 1, len(candles)):
-        c = candles[j]
-        if direction == "demand" and c.low <= top:
-            return True
-        if direction == "supply" and c.high >= bottom:
+    """A fresh zone is mitigated the first time price taps back to its proximal edge (p27).
+
+    THE BAR AND THE BAND MUST OVERLAP — the third copy of the one-sided tap test, all fixed together
+    on 2026-08-25 (see `bx_sd_registry.MarkedZone.tapped_by` for the full reasoning). Written as
+    `c.low <= top` alone, a bar sitting wholly BELOW a demand zone reported it mitigated; and since
+    this scans forward to the END of the series, one bar far past the zone marked it touched for
+    good. Fixing only the registry's copy would have left this one contradicting it.
+    """
+    for c in candles[after + 1:]:
+        if c.low <= top and c.high >= bottom:
             return True
     return False
 

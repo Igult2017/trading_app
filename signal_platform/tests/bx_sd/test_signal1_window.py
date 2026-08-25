@@ -73,6 +73,12 @@ def bar(t, lo, hi):
 
 
 print()
+# WHY THIS FILE CALLS `window_open` WITHOUT POOLS (2026-08-25). `opened_window` no longer means "was
+# it respected" — it means "is this an EXTREME ZONE", and `bx_sd_extreme.is_extreme` needs real bars
+# to read the swing from and a real pool set to check the sweep. This file is about the WINDOW'S TWO
+# BOUNDARIES (it opens on respect, it closes on the first opposite break), so it deliberately uses
+# the documented degraded path — `pools=None` — which answers on respect alone. The extreme test
+# itself has its own file with its own teeth: `test_extreme_zone.py`.
 print("THE WINDOW OPENS ON RESPECT — price closed a full zone-height clear of the zone")
 # THE NEIGHBOUR SITS ABOVE, and that is deliberate: for DEMAND the extreme is the LOWEST zone
 # (furthest below price), the mirror of supply where it is the highest. Placing it below instead made
@@ -82,29 +88,29 @@ nbr = zone("demand", 1.1040, 1.1060, marked=110, group=1)
 before = [bar(150, 1.1050, 1.1070), bar(200, 1.0985, 1.1010)]      # arrives and taps
 after  = before + [bar(250, 1.1010, 1.1030), bar(300, 1.1020, 1.1045)]
 chk("a zone price tapped and reacted a full zone-height away from -> window opens",
-    s1.opened_window(ext), True)
+    s1.window_open(ext, [ext, nbr], after), True)
 
 # THE CASE THE OLD RULE LET THROUGH, and the reason respect replaced it. This zone was tapped and
 # price did step clear of the band — `has_left` said yes — but it never closed a full zone-height
 # away, so price never actually held there. It opens NOTHING now.
 touched_only = zone("demand", 1.0980, 1.1000, marked=100, mitigated=200, group=1)
-chk("tapped and stepped clear, but never reacted -> NO window", s1.opened_window(touched_only), False)
+chk("tapped and stepped clear, but never reacted -> NO window", s1.window_open(touched_only, [touched_only], after), False)
 teeth("this is exactly what the deleted `has_left` accepted — a step clear of the band with no "
       "full-height close behind it",
-      s1.opened_window(touched_only) is False and touched_only.mitigated_at is not None)
+      s1.window_open(touched_only, [touched_only], after) is False and touched_only.mitigated_at is not None)
 
 untapped = zone("demand", 1.0980, 1.1000, marked=100, group=1)
-chk("never tapped at all -> no window", s1.opened_window(untapped), False)
+chk("never tapped at all -> no window", s1.window_open(untapped, [untapped], after), False)
 chk("...and the whole check agrees", s1.window_open(untapped, [untapped, nbr], after), False)
 
 # POSITION NO LONGER DECIDES IT. The neighbour is the NEARER demand zone — under the deleted rule it
 # could never open a window because a zone sat further out. Respected, it opens one.
 nbr_held = zone("demand", 1.1040, 1.1060, marked=110, mitigated=210, respected=310, group=1)
 chk("a NEARER zone that price respected opens a window — position is not the test",
-    s1.opened_window(nbr_held), True)
+    s1.window_open(nbr_held, [nbr_held], after), True)
 teeth("THE 79% REFUSAL: the deleted rule called this zone decisional because `ext` sat further out, "
       "and refused it while price was visibly holding there",
-      s1.opened_window(nbr_held) is True and ext.proximal < nbr_held.proximal)
+      s1.window_open(nbr_held, [nbr_held], after) is True and ext.proximal < nbr_held.proximal)
 
 print()
 print("THE WINDOW CLOSES — the first OPPOSITE zone breaks")

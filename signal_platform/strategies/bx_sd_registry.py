@@ -161,7 +161,25 @@ class MarkedZone:
         return self.top - self.bottom
 
     def tapped_by(self, c: Candle) -> bool:
-        return (c.low <= self.top) if self.direction == "demand" else (c.high >= self.bottom)
+        """Did this bar actually TOUCH the band? The bar's range and the zone must OVERLAP.
+
+        ONE TEST, BOTH DIRECTIONS — and that symmetry is the fix (2026-08-25). This asked only half
+        the question: for a demand zone, *"did the bar reach DOWN to the zone's top?"* (`c.low <=
+        top`) and never *"did it also reach UP to the zone's bottom?"* So a bar sitting ENTIRELY
+        BELOW a demand zone answered "tapped" — price nowhere near it, on the far side of it.
+        Mirrored on supply: a bar entirely ABOVE reported a tap too.
+
+        WHY IT WAS RARE RATHER THAN CATASTROPHIC, measured on both live books before fixing: for
+        price to get wholly past a demand zone it has to CLOSE through it, and that closes the zone
+        as broken. So the one-sided test only misfires in that narrow window — 3 of 506 taps on
+        GBP/USD and 2 of 520 on GBP/JPY, every one of them on the bar the zone was breaking anyway,
+        changing no lifecycle on either pair. It is fixed because it is a correctness trap waiting on
+        a gap or a fast bar, not because it was doing measurable damage.
+
+        (An earlier count of mine put this at 70% — that swept in bars from BEFORE the zone existed
+        and AFTER it died, where the question is meaningless. The real figure is under 1%.)
+        """
+        return c.low <= self.top and c.high >= self.bottom
 
     def broken_by(self, c: Candle) -> bool:
         """By body CLOSE beyond the distal — a wick through it is a sweep, and the book calls that a
@@ -245,32 +263,25 @@ def _broke_structure(events, want: str, ifc_i: int, upto_i: int | None = None) -
                for e in events)
 
 
-def classify_roles(zones: list[MarkedZone], events, bar_index: dict[int, int]) -> None:
-    """Label each live zone EXTREME or DECISIONAL within its own group. Mutates in place.
-
-    SMART RISK, "Double Zone Break Out" — the rule this exists for, in his document's own words:
-
-        "the upper supply zone is the extreme one and the second supply zone located a bit lower is
-         called the decisional zone. Please consider that we cannot place any trades based on the
-         decisional supply zone because there is a high chance that the price will push higher to
-         sweep the liquidity accumulated above the double tops and trigger the stop-loss of traders
-         who entered from the decisional supply zone."
-
-        "Don't use the decisional zones, you will be a liquidity."
+def classify_roles(zones: list[MarkedZone], events, bar_index: dict[int, int],
+                   bars=None, pools=None) -> None:
+    """Name each live zone by WHAT IT IS — extreme, decisional, or an untapped candidate. In place.
 
     WHAT A GROUP IS. Same-side zones left behind by ONE move — so a group ends at the first structure
-    event AGAINST that side, because that is a different move. Within a group the zone furthest from
-    where price went is the EXTREME (highest supply / lowest demand) and every other is DECISIONAL.
+    event AGAINST that side, because that is a different move. The group is NOT a ranking and nothing
+    is decided by comparing members against each other; see `_label`, which does the naming. It exists
+    so the tap card can name which extreme price is travelling to WITHIN one move.
 
-    ORDER DOES NOT DECIDE IT, PRICE DOES. The extreme is not "the first one formed": a later zone can
-    print higher than an earlier one inside the same leg, and it is then the extreme. Reading it off
-    formation order would label by accident of sequence rather than by where the liquidity sits.
+    POSITION DECIDES NOTHING (2026-08-25). This used to call the furthest-out member `extreme` and
+    every other member `decisional`, straight out of the document's "Double Zone Break Out" passage.
+    His correction: *"Extreme zone candidates cannot be decisional zones whether one won or not...
+    Decisional zone does not become decisional because another zone won, it is based on its creation."*
+    Both comparative branches are deleted — `_label` records what came of each zone's own reaction.
 
-    A zone ALONE in its group keeps role "" — not "extreme". There is no decisional zone to be
-    preferred over, so calling it extreme would claim a distinction the market never drew.
+    ONLY LIVE ZONES ARE GROUPED, which is his *"the ones tapped and broken disappear."*
 
-    ONLY LIVE ZONES ARE GROUPED. A broken zone is dead and cannot be traded, so including it could
-    hand `extreme` to a corpse and demote the one zone actually on offer.
+    `bars`/`pools` are what the extreme and creation tests are judged from. Optional so existing
+    three-argument callers and tests keep working; `build` always passes them.
     """
     for z in zones:
         z.role, z.group = "", -1
@@ -290,10 +301,10 @@ def classify_roles(zones: list[MarkedZone], events, bar_index: dict[int, int]) -
         for z in same:
             zi = bar_index[z.marked_at]
             if group and any(bar_index[group[-1].marked_at] < c <= zi for c in cuts):
-                _label(group, side, next(_gid))
+                _label(group, side, next(_gid), bars, pools, zones)
                 group = []
             group.append(z)
-        _label(group, side, next(_gid))
+        _label(group, side, next(_gid), bars, pools, zones)
 
 
 def count_breakthroughs(zones: list[MarkedZone], events, bar_index: dict[int, int]) -> None:
@@ -329,67 +340,70 @@ def count_breakthroughs(zones: list[MarkedZone], events, bar_index: dict[int, in
             and idx_of[o.broken_at] > start and (end is None or idx_of[o.broken_at] <= end))
 
 
-def _label(group: list[MarkedZone], side: str, gid: int) -> None:
-    """WHICH ZONE IS THE EXTREME — DECIDED BY PRICE REACTION, NOT BY POSITION (his rule, 2026-08-23):
+def _label(group: list[MarkedZone], side: str, gid: int,
+           bars=None, pools=None, book: list[MarkedZone] | None = None) -> None:
+    """NAME EACH ZONE BY WHAT IT IS, NEVER BY WHERE IT SITS (his rule, 2026-08-25):
 
-        "if we have many zones stacked here after liquidity has been swept, we wait to see which one
-         the price will RESPECT and use that as the extreme zone. No guesswork... However, if we have
-         only one extreme zone we use it. We are not doing guesswork, we deal with price reaction. So
-         first an extreme zone has to be where we expect it, then if they are many one has to be
-         respected."
+        "Extreme zone candidates cannot be decisional zones whether one won or not. If one won and
+         others are broken, they disappear, and if one won and it qualifies and there are others on
+         top of it untouched, they are just extreme zones that have not been tapped. So at some point
+         the price will come back to tap them and then we consider them again."
 
-    `respected` means price tapped the zone and then STAYED CLEAR OF IT for REACT_BARS closed bars
-    — which is exactly "price held here". The registry has always recorded it and this is the first
-    thing to read it when choosing the extreme.
+        "Decisional zone does not become decisional because another zone won, it is based on its
+         creation, and most of the time they are fake zones that lead to fake CHOCH that later become
+         liquidity."
 
-    EVERY ZONE GETS ITS REAL NAME. This used to label the furthest zone `extreme` and then call EVERY
-    other zone in the group `decisional` — manufacturing a decisional label for zones price had
-    genuinely reacted from. His correction: *"there is no decisional zone where the extreme zone
-    is."* A zone price ran THROUGH is liquidity, not decisional; a zone price held at is the extreme;
-    only a nearer, still-unproven zone is decisional.
+    So there are THREE outcomes and the competition between neighbours is not one of them:
 
-    WHAT THE OLD RULE COST. Walked against 19 changes of character counted BY HAND from raw EUR/USD
-    4H candles over 3 months (no BX involved), 15 of the 19 — 79% — were refused because the zone
-    price reacted from was not the furthest one out. Every one of those had price hold there, and
-    that reaction IS what created the change of character being counted.
+        extreme     price tapped it and RESPECTED it, and it was a candidate when price arrived
+                    (`bx_sd_extreme.is_extreme`)
+        decisional  its own reaction produced a FAKE change of character
+                    (`bx_sd_lineage.choch_verdict`) — a creation fact, judged on the zone alone
+        ""          untouched, or tapped without a verdict yet — still a candidate, and his
+                    *"they are just extreme zones that have not been tapped"*
 
-    IT IS SELF-CORRECTING. If price later runs PAST a respected zone to reach a further one, the
-    respected zone becomes `broken`, `classify_roles` drops it from grouping entirely, and the branch
-    below puts the expectation back on the furthest survivor.
+    Broken zones never reach here: `classify_roles` groups only `live` zones, which is his *"the ones
+    tapped and broken disappear."*
 
-    THIS LABEL NO LONGER GATES EITHER SIGNAL (2026-08-23). Both now read `respected_at` directly —
-    signal 1 in `bx_sd_signal1.opened_window`, signal 2 in `bx_sd_lineage.parent_of`. What is left
-    here drives the card and the stand-aside tap alert, so a wrong label misinforms rather than
-    silently refusing, which is the whole reason the positional version survived so long undetected.
+    WHAT THIS DELETED, so it is not re-invented. Two comparative branches: the furthest-out zone was
+    named `extreme` and EVERY other member `decisional`; and once any member was `respected`, every
+    non-respected member flipped to `decisional` on that bar with nothing about them having changed.
+    Two proofs it was never about the zone — a zone ALONE in its group got role `""`, so the same zone
+    with the same birth was "decisional" or "nothing" depending on whether a neighbour existed; and
+    a zone could be re-promoted to `extreme` simply because the zone above it broke.
 
-    A ZONE ALONE IN ITS GROUP KEEPS ROLE "". There is no decisional zone to be preferred over, so
-    naming it would claim a distinction the market never drew — and his *"if we have only one extreme
-    zone we use it"* still holds, because nothing refuses on an empty role (`bx_sd_setup`: role "" is
-    "no decisional zone exists to be preferred over, so it trades normally"). The group id is stamped
-    even then, so "which extreme belongs to this zone" stays answerable without re-deriving grouping.
+    MEASURED before deleting it: 8 of 11 live GBP/USD zones carried `decisional` purely by position,
+    and every one of them was UNTOUCHED — by his rule all 8 are extreme zones not yet tapped. Against
+    the creation test the two definitions disagreed on roughly half the live book on both pairs.
+
+    THE GROUP ID STAYS. It is not a ranking — the tap card uses it to name which extreme price is
+    travelling to, scoped to one move, after an unscoped version once pointed 550 pips at a zone from
+    a different move entirely.
+
+    `book` IS THE WHOLE ZONE LIST, NOT THE GROUP, and that distinction is load-bearing: groups hold
+    only LIVE zones, so passing the group would hide every BROKEN zone — and his *"a zone itself is
+    liquidity, so once the first one is broken the next one qualifies"* is judged from exactly those.
+    Passing the group here silently repealed that rule for one edit.
+
+    `bars`/`pools` absent = the creation verdict cannot be asked, so no zone is called `decisional`.
+    Silence is the right degraded answer: naming a zone decisional without the evidence is the exact
+    failure this rewrite exists to remove.
     """
     for z in group:
         z.group = gid
-    if len(group) < 2:
-        return                              # alone: no distinction exists, so none is claimed
-    held = [z for z in group if z.state == "respected"]
-    if held:
-        # PRICE HAS SPOKEN. Among several that held, the furthest out is the extreme; the others held
-        # too, so they are not decisional either — they simply are not the one.
-        best = (max(held, key=lambda z: z.proximal) if side == "supply"
-                else min(held, key=lambda z: z.proximal))
-        for z in group:
-            z.role = ("extreme" if z is best
-                      else "" if z.state == "respected"
-                      else "decisional")
+    if bars is None or pools is None:
         return
-    # NOTHING HAS PROVEN ITSELF YET, so this is only where we EXPECT the extreme to be — his "first an
-    # extreme zone has to be where we expect it". The furthest carries that expectation; the nearer
-    # ones are the decisional zones until price says otherwise.
-    best = (max(group, key=lambda z: z.proximal) if side == "supply"
-            else min(group, key=lambda z: z.proximal))
+    from strategies.bx_sd_extreme import is_extreme
+    from strategies.bx_sd_lineage import CHOCH_VALID, choch_verdict
     for z in group:
-        z.role = "extreme" if z is best else "decisional"
+        if is_extreme(z, bars, pools, book):
+            z.role = "extreme"
+        elif z.respected_at is not None and choch_verdict(z, book or group, bars, pools) != CHOCH_VALID:
+            # It reacted, and what came of that reaction was a fake change of character. His
+            # *"fake zones that lead to fake CHOCH that later become liquidity."*
+            z.role = "decisional"
+        else:
+            z.role = ""                     # untouched, or no verdict yet — still a candidate
 
 
 def build(h4: list[Candle], pip: float = 0.0001,
@@ -489,8 +503,13 @@ def build(h4: list[Candle], pip: float = 0.0001,
     #    moment the one above it breaks, and that is the market changing its mind, not a re-judgement
     #    of the zone itself. Its boundaries, marking and lifecycle are untouched by this.
     bar_index = {c.time: i for i, c in enumerate(bars)}
-    classify_roles(zones, events, bar_index)
+    # ORDER MATTERS, AND GETTING IT WRONG FAILS SILENTLY. `classify_roles` now asks
+    # `bx_sd_lineage.choch_verdict`, which reads `broke_through` — and that is 0 until
+    # `count_breakthroughs` sets it. Run the other way round (as it was until 2026-08-25) EVERY zone
+    # reads as a fake change of character and the whole book comes back `decisional`, with no error
+    # raised anywhere. Pinned by `test_extreme_zone.py`.
     count_breakthroughs(zones, events, bar_index)
+    classify_roles(zones, events, bar_index, bars, pools)
     return zones
 
 

@@ -61,30 +61,33 @@ def first_tap_at(z: MarkedZone) -> int | None:
     return z.mitigated_at
 
 
-def opened_window(z: MarkedZone) -> bool:
-    """Did this zone open a signal-1 window — has price RESPECTED it?
+def opened_window(z: MarkedZone, bars: list[Candle], pools, zones=None) -> bool:
+    """Did this zone open a signal-1 window — is it an EXTREME ZONE that price has RESPECTED?
 
     HIS RULE, 2026-08-23: *"Signal 1 and 2 use the same extreme/respected zone however, signal one
-    only waits for pullback then it fires. The price moves away from the zone and immediately we get
-    a pullback."* So one definition of the extreme zone serves both signals, and it is proved by
-    price reaction — `respected` means price tapped the zone and then STAYED CLEAR OF IT for
-    `bx_sd_registry.REACT_BARS` consecutive closed bars, stamped once on `respected_at`.
+    only waits for pullback then it fires."* So one definition of the extreme zone serves both
+    signals — and as of 2026-08-25 that definition lives in ONE place, `bx_sd_extreme.is_extreme`.
 
-    Signal 2 asks for exactly the same thing: `parent_of` only accepts a zone with `respected_at`
-    set. The two signals differ in ONE thing — whether the opposite zone has broken yet.
+    RESPECT WAS NEVER THE WRONG TEST — IT JUST HAD NOTHING TO SELECT FROM. This read
+    `z.respected_at is not None` and nothing else, against the WHOLE zone book (`bx_sd` loops every
+    zone `build()` returns). So a demand zone sitting BEHIND price in a rally qualified as an
+    "extreme" exactly like a supply zone standing in front of it, and signal 1 never required a
+    liquidity sweep at all. That is why cards arrived for zones he could not see on the chart.
 
-    WHAT THIS REPLACED, and why. It used to ask `was_extreme_at(z, zones, tap - 1)`: was this the
-    furthest-out zone in its group one bar BEFORE price arrived. That is a test on WHERE THE ZONE
-    SAT, decided before the market had said anything, and it was the single biggest refusal in BX —
-    11 of 19 hand-counted changes of character died on the same test in `choch_verdict`.
-    Position is now an expectation only (`bx_sd_registry._label`); reaction decides.
+    `is_extreme` adds the half that was missing — the zone was a CANDIDATE when price arrived: it was
+    untouched, it stood AGAINST the swing (supply while price swings up), it was still in front of
+    price, and price swept liquidity to reach it. His words: *"When the price is swinging up, it is
+    the extreme above it where price has to sweep liquidity to tap."*
 
-    `has_left` WENT WITH IT. It accepted any closed bar not touching the zone, which is a weaker
-    statement than respect and was therefore the binding one — staying clear for several bars is,
-    by definition, having left. Two tests for one idea, and the loose one won. His answer when
-    asked which: *"Signal 1 waits for respect... it replaces your 'left the band' rule."*
+    WHAT WAS HERE BEFORE THAT, so it is not re-derived. `was_extreme_at(z, zones, tap - 1)` asked
+    whether this was the furthest-out zone in its group one bar BEFORE price arrived — a test on
+    WHERE THE ZONE SAT, decided before the market had said anything. It was the single biggest
+    refusal in BX: 11 of 19 hand-counted changes of character died on the same test. Position is not
+    coming back; the candidate test above is about the zone's own situation, not a ranking against
+    its neighbours. `has_left` went with it — a weaker statement of the same idea as respect.
     """
-    return z.respected_at is not None
+    from strategies.bx_sd_extreme import is_extreme
+    return is_extreme(z, bars, pools, zones)
 
 
 def opposite_broken_since(z: MarkedZone, zones: list[MarkedZone], since: int) -> bool:
@@ -104,12 +107,17 @@ def opposite_broken_since(z: MarkedZone, zones: list[MarkedZone], since: int) ->
                for o in zones)
 
 
-def window_open(z: MarkedZone, zones: list[MarkedZone], bars: list[Candle]) -> bool:
+def window_open(z: MarkedZone, zones: list[MarkedZone], bars: list[Candle], pools=None) -> bool:
     """Is this zone's signal-1 window open RIGHT NOW? Both of his boundaries, in order.
 
-    `bars` is no longer read — the reaction is answered from `respected_at`, which the registry
-    stamps while replaying those same bars. It stays in the signature because `find_signal1` and the
-    harnesses call this positionally, and a silent argument shift is worse than an unused one.
+    `bars` IS READ AGAIN as of 2026-08-25 — the extreme test needs the bar price arrived on, to ask
+    which way the market was swinging then and whether liquidity was swept to get there. (It had been
+    dead weight while `respected_at` alone answered this.)
+
+    `pools` is optional ONLY so older two- and three-argument callers keep working; with it absent the
+    candidate half cannot be judged and this falls back to the pre-2026-08-25 answer — respect alone.
+    Production always passes them (`bx_sd` builds them once per scan), so the test is live where it
+    matters. Same pattern, and the same reason, as `bx_sd_lineage.is_entry_zone`.
 
     THE WINDOW CLOSES FROM THE TAP, NOT FROM THE RESPECT. His rule — *"this stops when the price has
     broken the first opposite zone which is the first qualification for signal 2 after CHOCH"* — does
@@ -119,8 +127,13 @@ def window_open(z: MarkedZone, zones: list[MarkedZone], bars: list[Candle]) -> b
     signal-1 phase to have — but how often it happens is a number, not an opinion.
     """
     tap = first_tap_at(z)
-    if tap is None or not opened_window(z):
-        return False                                # price has not stayed clear of the zone yet
+    if tap is None:
+        return False
+    if pools is None:
+        if z.respected_at is None:
+            return False                            # degraded: respect alone, no candidate test
+    elif not opened_window(z, bars, pools, zones):
+        return False                                # not an extreme zone price has respected
     if opposite_broken_since(z, zones, tap):
         return False                                # CHoCH began — signal 2's ground from here
     return True
@@ -247,7 +260,7 @@ class Signal1:
 
 
 def find_signal1(direction: str, ext: MarkedZone, zones: list[MarkedZone], h4: list[Candle],
-                 books: dict, entry_tf: list[Candle], m5: list[Candle], pip: float):
+                 books: dict, entry_tf: list[Candle], m5: list[Candle], pip: float, pools=None):
     """The whole of signal 1, in his order. Returns a `Signal1` or None.
 
         zone RESPECTED -> first pullback -> EITHER it lands on a 1H/30M/15M zone, and BX gives a
@@ -266,7 +279,7 @@ def find_signal1(direction: str, ext: MarkedZone, zones: list[MarkedZone], h4: l
     which is also why the no-zone path prices NOTHING rather than inventing one.
     """
     bars = closed_only(h4)
-    if not bars or not window_open(ext, zones, bars):
+    if not bars or not window_open(ext, zones, bars, pools):
         return None
     live = h4[-1]                       # the FORMING bar — the pullback is an event happening now
     _ok, legs, _hit = mtf_confluence(direction, live, books)
