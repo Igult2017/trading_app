@@ -19,9 +19,16 @@ gate removed above, which applied always.
 
 **THE TRIGGER IS THE TAP, as of 2026-08-15** (the Smart Risk entry model). This paragraph used to end
 "the cascade requires `respected` plus a retap or a 4H pullback" — all three of those requirements
-are gone. What the cascade asks now: the zone is LIVE, its `role` is not `decisional`, and the
-FORMING bar is tapping it. Everything else the document grades is confluence, scored in
-`bx_sd_strength`, never a refusal.
+are gone. What the cascade asks now: the zone is LIVE, still UNMITIGATED, and the FORMING bar is
+tapping it. Everything else the document grades is confluence, scored in `bx_sd_strength`, never a
+refusal.
+
+**`role` IS NOT ONE OF THEM — corrected 2026-08-25.** This paragraph said *"its `role` is not
+`decisional`"* for six days after that refusal was deleted (2026-08-19, see the long note at the
+`role` divider below: the three property gates decide it now, and `role` "no longer refuses on its
+own"). There is no `role` test anywhere in this file — `grep` it. A docstring naming a rule the code
+does not have is what sends the next session to the wrong file; that failure is already in the fix
+log once.
 
 ZONES ARE NOT FOUND HERE. They are marked ONCE when they qualify and kept in bx_sd_registry; this
 function only asks which marked zone price is working right now. That ordering is the point: a zone
