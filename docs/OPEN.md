@@ -22,15 +22,32 @@ different defects), the VIX.1 docs, and a dozen memory notes.
 
 ## A. Supply & demand zones (BX-S/D)
 
-### A1 — 🔴 One tap can fire BOTH the stand-aside card and a real entry
-**Verified 25 Aug.** The two Telegram cards were supposed to be mutually exclusive: the "we're
-standing aside" heads-up and the real entry. The divider was `role` — and it is **enforced on
-neither side** any more. `bx_sd_setup.py` has no `role` test (that refusal was deleted 19 Aug), and
-the comment in `bx_sd_reports.py` claiming it does was false for six days. The comment is corrected;
-the guarantee is not restored.
-**Where:** `signal_platform/strategies/bx_sd_reports.py` (the tap path) and `bx_sd_setup.py`.
-**Why open:** restoring it is a behaviour change with its own blast radius.
-**Needs from him:** should a zone be able to produce both messages, or must one suppress the other?
+### A1 — The two Telegram cards can't actually collide. ⚠ I OVERSTATED THIS — corrected 25 Aug
+**Not a live defect.** I first wrote this as 🔴 *"one tap can fire both the stand-aside card and a
+real entry"*, having checked that the `role` divider was gone from both sides but **never checking
+whether anything else kept them apart.** Something does.
+
+**The chain, all four links read and then tested:**
+
+| step | file:line | what it establishes |
+|---|---|---|
+| 1 | [`bx_sd_registry.py:401`](../signal_platform/strategies/bx_sd_registry.py#L401) | a zone is only labelled `decisional` if `respected_at` is set |
+| 2 | [`bx_sd_registry.py:554`](../signal_platform/strategies/bx_sd_registry.py#L554) | `respected_at` is only ever stamped together with `state = "respected"` |
+| 3 | [`bx_sd_registry.py:575`](../signal_platform/strategies/bx_sd_registry.py#L575) | once respected, always respected — it only leaves that state by breaking |
+| 4 | [`bx_sd_setup.py:309`](../signal_platform/strategies/bx_sd_setup.py#L309) | the entry path's FIRST gate takes only `unmitigated` or wick-only zones |
+
+So **decisional ⟹ respected ⟹ the entry path skips it at its first line.** Tested on both live
+books: **0 zones satisfy both paths**, and every `decisional` zone is in state `respected`.
+
+**What IS real, and why this row stays open:** the guarantee is **accidental**. It rests on two
+unrelated rules happening to line up, and the comment that documented the *intended* divider was
+false for six days — so the next session reading `bx_sd_reports.py` was told the wrong mechanism.
+Either of these would re-open the collision without anything failing loudly:
+* labelling a zone `decisional` before it has been respected, or
+* letting the entry path take a `respected` zone.
+
+**Fix when convenient:** a test asserting no zone can satisfy both paths, so the guarantee stops
+being a coincidence and starts being enforced. **Low priority — nothing is broken today.**
 
 ### A2 — What happens when the 4H is going sideways is MY decision, not his
 **Verified 25 Aug.** His definition of an extreme zone covers price swinging **up** and **down**.
@@ -156,6 +173,9 @@ anywhere. Blocked on one question: does copy trading auto-execute on a user's ac
 ## The three mistakes of mine that this list exists to stop
 
 1. **Reporting one copy of a bug as the whole bug.** The tap fix was three places, not one.
+4. **Calling something broken after checking only the mechanism I expected.** A1 was filed 🔴
+   because the divider I looked for was gone — I never asked whether anything ELSE kept the two cards
+   apart. Something did, and the answer was four lines away in a file I had already read.
 2. **Asserting a number I had not measured.** Two claims about the tap bug — the log line it
    supposedly caused, and a "70% false" rate — were both wrong and both had to be retracted.
 3. **Inventing evidence.** A "zone he sent on 16 Jul" never existed and reached three documents
