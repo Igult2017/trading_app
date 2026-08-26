@@ -277,10 +277,14 @@ async function ensureUserProfile(
 // their real name/email even if they haven't visited an authed endpoint yet.
 async function backfillProfilesFromSupabase(userIds: string[]) {
   if (!supabaseAdmin || userIds.length === 0) return;
+  // CAPTURED, because the guard above does not survive into the async callback below. The compiler
+  // cannot prove `supabaseAdmin` was not reassigned between the check and the call, so it reports it
+  // as possibly-null inside the closure. The guard is real; this just carries it across.
+  const admin = supabaseAdmin;
   await Promise.all(userIds.map(async (id) => {
     if (_profileEnsured.has(id)) return;
     try {
-      const { data, error } = await supabaseAdmin.auth.admin.getUserById(id);
+      const { data, error } = await admin.auth.admin.getUserById(id);
       if (error || !data?.user) return;
       await ensureUserProfile(data.user as any);
     } catch (err: any) {
@@ -2181,7 +2185,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/notifications/status", async (req, res) => {
     try {
-      const isReady = telegramNotificationService.isReady();
+      // THE SERVICE CAN BE NULL, and this endpoint used to CRASH on it rather than report it. It
+      // starts as null and is only assigned by a startup routine that is skipped entirely when
+      // Telegram is muted, and which swallows its own errors — so a muted bot made this throw, the
+      // catch below turned it into an HTTP 500, and the answer the caller wanted ("is the bot
+      // active?") was exactly the fact that made it fail. Now it answers false.
+      const isReady = telegramNotificationService?.isReady() ?? false;
       res.json({ telegramBotActive: isReady, message: isReady ? "Telegram notifications are active" : "Telegram bot is not configured" });
     } catch (error) {
       res.status(500).json({ error: "Failed to get notification status" });
@@ -4849,7 +4858,9 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
       const profileMap = new Map(safeProfiles.map((p: any) => [p.id, p]));
       const countryBackfillMap = new Map<string, string>();
       for (const log of safeAccessLogs) {
-        if (!countryBackfillMap.has(log.userId) && log.country) {
+        // BOTH are nullable on the row, and `userId` was being used as a Map key BEFORE anything
+        // checked it — so a log line with no user could seed a `null` key into a Map<string,string>.
+        if (log.userId && log.country && !countryBackfillMap.has(log.userId)) {
           countryBackfillMap.set(log.userId, log.country);
         }
       }

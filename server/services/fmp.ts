@@ -192,6 +192,22 @@ export async function getEconomicCalendar(
           affectedStocks: [],
           isReleased: item.actual !== null,
           createdAt: null,
+          // THE FIELDS THIS SOURCE DOES NOT PROVIDE, stated rather than left off. The object was
+          // declared `EconomicEvent[]` while omitting ten of that type's fields — so anything reading
+          // one of them got `undefined` where the type promised a value or an explicit null. FMP's
+          // calendar carries no country code, no sentiment readings and no per-pair impact breakdown;
+          // `lastScraped` and the source fields belong to the rows this app SAVES, not to a live
+          // fetch. `null` is the honest answer to all of them.
+          countryCode: null,
+          expertSentiment: null,
+          preReleaseSentiment: null,
+          postReleaseSentiment: null,
+          currencyPairImpacts: null,
+          stockImpacts: null,
+          telegramNotified: false,
+          sourceSite: null,
+          sourceUrl: null,
+          lastScraped: null,
         };
       })
       .sort((a, b) => new Date(a.eventTime).getTime() - new Date(b.eventTime).getTime());

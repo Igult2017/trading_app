@@ -6,6 +6,19 @@
     "tsBuildInfoFile": "./node_modules/typescript/tsbuildinfo",
     "noEmit": true,
     "module": "ESNext",
+    // NO TARGET WAS SET AT ALL, so TypeScript assumed ES5 (2009) while `lib` below was already
+    // esnext. That alone produced 11 of the repo's 18 type errors — every "you can only iterate a
+    // Map/Set with a newer target" and every "no function declarations inside blocks". Measured:
+    // 18 errors -> 7 with this one line. (Measure it with `--incremental false`; the build cache
+    // serves stale results and made the first attempt look like it changed nothing.)
+    "target": "ES2022",
+    // PINNED, and this is the line that keeps the change above from touching the shipped bundle.
+    // At ES2022 this flag defaults to TRUE, which changes how class fields behave at RUNTIME — and
+    // esbuild honours it, so the emitted output would change. There are real class fields with
+    // initialisers (e.g. `server/services/aiQAWorker.ts`). Below ES2022 it defaults to false, which
+    // is what this repo has always run on. Setting it explicitly makes raising the target a
+    // typechecking change and nothing else. Verified: dist/ hashes identical before and after.
+    "useDefineForClassFields": false,
     "strict": true,
     "lib": ["esnext", "dom", "dom.iterable"],
     "jsx": "preserve",

@@ -418,7 +418,11 @@ export default function BlogPostPage() {
             })();
             return {
               id: p.slug || p.id, title: p.title, excerpt: p.excerpt ?? '',
-              content: '', category: p.category ?? 'Analysis',
+              // `content` and `videoUrl` are deliberately blank: these objects are the RELATED-POSTS
+              // sidebar — a title, an image and a link — and neither field is rendered there. They
+              // are present because `Post` requires them; `videoUrl` was simply missing, which is
+              // what made this whole list fail to typecheck.
+              content: '', videoUrl: '', category: p.category ?? 'Analysis',
               author: p.author ?? 'Admin', date: p.date ?? '',
               readTime: p.readTime ?? p.read_time ?? '5 min',
               imageUrl: firstImg, status: p.status, authorData: null,

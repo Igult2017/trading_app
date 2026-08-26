@@ -146,12 +146,43 @@ candle, and the fall-back path is unreachable.
 
 ## C. The web app
 
-### C1 — 18 TypeScript errors, and the build does not typecheck
-**Verified 25 Aug** — still exactly 18, and `npm run build` still has **no** `tsc --noEmit` step, so
-type errors can ship. Two real runtime bugs already hid in this noise once.
-**Fix:** raise the compiler `target` to `es2015`+ (clears about 11 of them), fix the rest, then add
-the typecheck to the build so it can never happen again.
-**Why open:** nobody has asked for it. It is the highest-value cleanup on this list.
+### C1 — ~~18 TypeScript errors, and the build does not typecheck~~ CLOSED 26 Aug
+**0 errors, and the build now refuses new ones.** `npm run build` gained `npm run check` (a `tsc`
+script that already existed and nothing called), placed **before** the bundlers so a type error stops
+the build instead of producing a bundle nobody checked. **Proved by breaking it on purpose:** a
+deliberate type error made the build exit 2 and vite never ran.
+
+**11 of the 18 were one missing line.** `tsconfig.json` set **no `target` at all**, so TypeScript
+assumed 2009-era JavaScript while `lib` was already modern. (Measure this with `--incremental false`
+— the build cache serves stale results and made the first attempt look like it changed nothing.)
+
+**`useDefineForClassFields: false` was pinned alongside it, and that mattered.** At ES2022 the flag
+defaults to true and changes class-field behaviour at RUNTIME, and esbuild honours it. **Measured
+A/B with only that flag differing: 649,326 vs 648,950 bytes** — so without the pin, raising the
+target would have silently changed the shipped server bundle.
+
+**Two real behaviour changes**, both improvements, both deliberate:
+* [`routes.ts:2184`](../server/routes.ts#L2184) — the notification-status endpoint called a service
+  that can be null. A muted Telegram made it throw, and the catch returned **HTTP 500** — the very
+  fact the caller was asking about is what made it fail. It now answers `telegramBotActive: false`.
+* [`signalScanner.ts:376`](../server/services/signalScanner.ts#L376) — the same unguarded call, on a
+  path `index.ts` and `index.prod.ts` both start via the scraper scheduler. A muted bot turned every
+  saved signal into a thrown error, logged as *"Error saving signal"* — **naming the wrong thing**,
+  since the signal HAD saved and only the notification failed. Now guarded, and the log says which
+  half happened.
+
+**⚠ I ALMOST DELETED A LIVE FILE.** The plan called for deleting `signalScanner.ts` as an orphan, on
+a repo-wide search that returned one match — itself. **That search was wrong.** `scrapers/scheduler.ts`
+imports it and calls `scanMarkets()` twice, and both server entry points start that scheduler. Caught
+by re-checking at delete time, which the plan required precisely because a search is not proof.
+
+The other four were ordinary: a guard that did not survive into an async callback, a Map key used
+before its null check, ten fields missing from an object that claimed a type, and a `videoUrl` the
+related-posts list never set.
+
+**NOT verified: a full local boot.** This machine has no database, Redis or Supabase credentials, so
+the app loads its modules and then blocks on infrastructure that is not here. Typecheck, build and
+the module graph are verified; the running app is not.
 
 ### C2 — The journal sidebar shows made-up numbers
 **Carried.** The data source is decided (`/api/metrics/compute`); 7 of 10 fields map, and

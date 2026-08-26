@@ -373,9 +373,19 @@ export class SignalScannerService {
         } : undefined,
       };
 
-      await telegramNotificationService.sendTradingSignalNotification(telegramSignal);
-
-      console.log(`[SignalScanner] Signal saved and notifications sent: ${signal.symbol} ${signal.direction}`);
+      // THE SERVICE CAN BE NULL AND THIS LINE HAD NO GUARD — a live crash, not a theoretical one.
+      // It starts as null and is only assigned by a startup routine that is SKIPPED ENTIRELY when
+      // Telegram is muted and which swallows its own errors. This is reached from the scraper
+      // scheduler, which `index.ts` and `index.prod.ts` both start, so a muted bot turned every
+      // saved signal into a thrown TypeError — caught below and logged as "Error saving signal",
+      // naming the wrong thing: the signal HAD been saved; only the notification failed.
+      if (telegramNotificationService) {
+        await telegramNotificationService.sendTradingSignalNotification(telegramSignal);
+        console.log(`[SignalScanner] Signal saved and notifications sent: ${signal.symbol} ${signal.direction}`);
+      } else {
+        // Say which half happened. The old line claimed "notifications sent" unconditionally.
+        console.warn(`[SignalScanner] Signal saved, but Telegram is not available — no notification sent: ${signal.symbol} ${signal.direction}`);
+      }
 
     } catch (error) {
       console.error(`[SignalScanner] Error saving signal for ${signal.symbol}:`, error);
