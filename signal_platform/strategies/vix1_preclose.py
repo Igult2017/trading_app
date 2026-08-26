@@ -120,24 +120,47 @@ def check(h1_closed: list[Candle], h1_raw: list[Candle], symbol: str,
     for bullish in (True, False):
         if not is_momentum_candle(window, len(h1_closed), bullish, symbol):
             continue
-        if not bullish and _turn_unproved(h1_closed):
+        if not _could_trade(h1_closed, bullish):
             return None
         return (bar, bullish, left)
     return None
 
 
-def _turn_unproved(h1_closed: list[Candle]) -> bool:
-    """Is a DOWNWARD turn proposed but not yet proved? (his run -> pullback -> turn back down)
+def _could_trade(h1_closed: list[Candle], bullish: bool) -> bool:
+    """Could a candle THIS WAY produce a bias at all? If not, there is nothing to be at the screen for.
 
-    Reads the same `trend_state` the rest of the strategy does, off CLOSED bars — a turn is a LEVEL,
-    and the platform rule is that a level never comes from a bar still forming. Nothing is
-    re-detected here.
+    HIS CASE, 26 Aug 2026 01:58 UTC. He was sent *"XAU/USD · BUY · closes in ~1 minute"* and asked
+    what the basis was, because he could not find one in the strategy. There was none: the 1HR trend
+    was DOWN and the candle was a BUY, and the production log said so four minutes later —
+    *"XAU/USD bias=NONE: down trend but no momentum candle that way"*. No route existed to trade it at
+    any body size. (The candle also stopped qualifying before it closed, at $19.26 against the $21.12
+    that triggered the card — the documented one-in-five.)
+
+    THIS ASKS THE SAME QUESTION `detect_bias` ASKS, and deliberately not a stricter one:
+
+      * the normal route runs only when the trend AGREES with the candle (`vix1_bias`, `if t1 == want`)
+      * when it does not, the only thing that can still trade it is the change-of-character route
+
+    So "the trend disagrees" alone is NOT a reason to stay silent — that would mute exactly the
+    reversals `vix1_choch` exists to catch. The test is whether EITHER route is open:
+
+      BUY   trend is up, OR an upward turn is pending
+      SELL  trend is down. A pending DOWNWARD turn is refused by his rule of 2026-08-25 (it must run,
+            pull back and turn back down first), so it stays refused here — the notification and the
+            entry give the same answer, which is the point.
+
+    Read off the `TrendState` the strategy already computes, from CLOSED bars only: a trend is a
+    LEVEL, and a level never comes from a bar still forming. Called only AFTER the momentum test has
+    passed, so the cost lands in the last minutes of a qualifying candle, not on every scan.
     """
     from strategies.vix1_bias import _H1_SWING_N, _H1_TREND_BARS
     from strategies.vix1_swings import structure_turns
     from strategies.vix1_trend import trend_state
     w = h1_closed[-_H1_TREND_BARS:]
-    return trend_state(w, n=_H1_SWING_N, turns=structure_turns(w, _H1_SWING_N)).pending == -1
+    st = trend_state(w, n=_H1_SWING_N, turns=structure_turns(w, _H1_SWING_N))
+    if bullish:
+        return st.direction == 1 or st.pending == 1
+    return st.direction == -1
 
 
 def preclose_signal(symbol: str, bullish: bool, bar: Candle, secs_left: float,

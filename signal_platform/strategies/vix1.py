@@ -185,6 +185,24 @@ class Vix1Strategy(BaseStrategy):
                          if delivery_ledger.is_delivered(
                              vix1_preclose.dedup_key(self.id, sym, b, closed_bar))), None)
             skey = vix1_preclose.standdown_key(self.id, sym, closed_bar)
+            # WHY THIS LINE EXISTS — a stand-down that did not fire and could not be explained.
+            #
+            # 26 Aug 2026: the XAU/USD 01:00 candle was notified at 01:58, closed WITHOUT qualifying,
+            # and no stand-down was sent. Replaying the whole sequence on the real bars, every step
+            # works and the message DOES fire — the keys match, the bar reads as not-qualified, and
+            # `told` comes back true. So the fault was not in this logic, and the two remaining
+            # explanations both live outside it: the delivery record never landed (the container had
+            # restarted three minutes earlier, and that ledger falls back to memory when its database
+            # is unreachable), or the closed bar had not published yet (bars arrive 10-70s late, and
+            # until then this examines the PREVIOUS hour, for which no notification exists).
+            #
+            # NEITHER IS VISIBLE FROM OUTSIDE — the ledger is in a database on the internal network.
+            # The two produce visibly different lines here, so the next occurrence identifies itself
+            # instead of being unprovable. `say` prints on CHANGE and stays silent on repeats, so the
+            # ~60 scans an hour where nothing moves cost nothing.
+            vix1_log.say(sym, f"[vix1] {sym} pre-close outcome — bar {closed_bar.time} "
+                              f"qualified={was_momentum} told={told} "
+                              f"standdown_already_sent={delivery_ledger.is_delivered(skey)}")
             if told is not None and not was_momentum and not delivery_ledger.is_delivered(skey):
                 sd = vix1_preclose.standdown_signal(sym, closed_bar, told, pip, self.name)
                 sd.dedup_key = skey

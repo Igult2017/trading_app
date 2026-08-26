@@ -119,16 +119,39 @@ s.check("...and it is a SELL", bool(_got_a) and _got_a[1] is False, True)
 s.teeth("the hold is doing real work — same candle, opposite answers either side of the pullback",
         _got_b is None and _got_a is not None)
 
-# ── A TURN UP IS UNTOUCHED ───────────────────────────────────────────────────────────────────────
+# ── THE HOLD IS ABOUT THE UNPROVED TURN, NOT ABOUT SELLS ─────────────────────────────────────────
 print()
-print("AND A BULLISH CANDLE IS NEVER HELD BACK — the rule is one-sided")
-_up_bar = Candle(time=_before[-1].time + 3600, open=_before[-1].close,
+print("A BULLISH CANDLE IN AN UPTREND STILL SPEAKS — the hold targets one state, not one direction")
+# THIS CONTROL WAS REPLACED ON 2026-08-26, and the reason matters. It used to put a BUY candle on the
+# PROPOSED-DOWNTURN fixture and assert it still notified — valid while the only rule was the bearish
+# hold. It is not valid now: the notification also asks whether a candle could TRADE at all, and in
+# that state a BUY has no route (the trend is not up, and the pending turn is DOWN, which his own rule
+# refuses). Silencing it is correct. So one-sidedness is shown where it can still be shown — a BUY on
+# an UPTREND, which the bearish hold must never touch.
+def uptrend():
+    b = []
+    leg(b, 1.1000, 1.1060, 14); leg(b, 1.1060, 1.1035, 8)
+    leg(b, 1.1035, 1.1110, 16); leg(b, 1.1110, 1.1085, 8)
+    leg(b, 1.1085, 1.1160, 14); leg(b, 1.1160, 1.1135, 8)
+    return b
+
+
+_up = uptrend()
+_up_bar = Candle(time=_up[-1].time + 3600, open=_up[-1].close,
+                 high=_up[-1].close + 0.0060, low=_up[-1].close - 0.0002,
+                 close=_up[-1].close + 0.0055, volume=100, timeframe="H1")
+_got_up = pc.check(_up, _up + [_up_bar], SYM, _up_bar.time + tf_seconds("H1") - 300)
+s.check("the control fixture really is an uptrend", pending_of(_up) == -1, False)
+s.check("a BUY momentum candle in an uptrend notifies", _got_up is not None, True)
+s.check("...and it is a BUY", bool(_got_up) and _got_up[1] is True, True)
+s.teeth("the bearish hold does not silence bullish candles",
+        _got_b is None and _got_up is not None)
+
+# ...AND THE SAME BUY CANDLE WHERE IT COULD NOT TRADE IS SILENT. Not the hold — the route test.
+_bad_up = Candle(time=_before[-1].time + 3600, open=_before[-1].close,
                  high=_before[-1].close + 0.0060, low=_before[-1].close - 0.0002,
                  close=_before[-1].close + 0.0055, volume=100, timeframe="H1")
-_got_up = pc.check(_before, _before + [_up_bar], SYM, _up_bar.time + tf_seconds("H1") - 300)
-s.check("a BUY momentum candle notifies even in a proposed downturn", _got_up is not None, True)
-s.check("...and it is a BUY", bool(_got_up) and _got_up[1] is True, True)
-s.teeth("the hold applies to one direction only",
-        _got_b is None and _got_up is not None and pending_of(_before) == -1)
+s.check("a BUY with no route to trade is silent (trend is not up, and the pending turn is down)",
+        pc.check(_before, _before + [_bad_up], SYM, _bad_up.time + tf_seconds("H1") - 300), None)
 
 s.done()

@@ -8,7 +8,7 @@ not a re-implementation of either. The three things that must hold:
   * one notification per candle per direction, so the ~5 ticks inside the window send one message
   * and when the candle then FAILS to qualify, he is told — the half that did not exist
 """
-from _harness import Suite, C, body, flat_series, load
+from _harness import Suite, body, flat_series, load
 from shared.mtf_utils import seconds as tf_seconds
 from notifications import titles
 from strategies import vix1_preclose as pc
@@ -25,10 +25,37 @@ def at(bar, secs_left):
     return bar.time + tf_seconds(bar.timeframe) - secs_left
 
 
+# ── FIXTURES WITH A REAL TREND (2026-08-26) ─────────────────────────────────
+# `flat_series` was the base here until the notification learned to ask whether a candle could TRADE.
+# A flat series has NO trend, so under that rule nothing can trade and every notification is
+# correctly silent — which turned four true assertions red. The fixtures were wrong for the new
+# question, not the code: a bar that "fires" has to be a bar the strategy could actually act on.
+#
+# So the base now TRENDS, and each direction gets the trend that supports it. Bodies stay small
+# (2 pips) so the 100-bar median stays low and the 60-pip test bar still reads as momentum.
+def trending(n=120, up=True, price=1.1000, step=0.0002):
+    """A staircase — 6 bars with the trend, 3 shallower against it: higher highs AND higher lows."""
+    out, p = [], price
+    while len(out) < n:
+        for _ in range(6):
+            if len(out) >= n:
+                break
+            c = p + (step if up else -step)
+            out.append(body(p, c, tf="H1", t=len(out)))
+            p = c
+        for _ in range(3):
+            if len(out) >= n:
+                break
+            c = p - (step * 0.6 if up else -step * 0.6)
+            out.append(body(p, c, tf="H1", t=len(out)))
+            p = c
+    return out
+
+
 # ── forming() — only an UNFINISHED trailing bar counts ────────────────────────
-base = flat_series(120, tf="H1")
-big = body(1.1000, 1.1060, tf="H1", t=120)          # a large bullish bar
-raw = base + [big]
+base = trending(120, up=True)                        # an UPTREND, so a BUY candle has a route
+big  = body(base[-1].close, base[-1].close + 0.0060, tf="H1", t=120)   # a large bullish bar
+raw  = base + [big]
 
 s.check("forming() finds the unfinished trailing bar", pc.forming(raw, at(big, 300)) is big, True)
 s.check("forming() returns None once that bar has closed", pc.forming(raw, at(big, -1)), None)
@@ -61,14 +88,19 @@ s.check("PAST ITS CLOSE — still nothing", pc.check(base, raw, SYM, at(big, -30
 
 # ── check() — the shape ──────────────────────────────────────────────────────
 # A bar the same age but with no body: in the window, and correctly silent.
-tiny = body(1.1000, 1.1002, tf="H1", t=120)
+tiny = body(base[-1].close, base[-1].close + 0.0002, tf="H1", t=120)
 s.check("a bar with no body does not fire, even inside the window",
-        pc.check(base, flat_series(120, tf="H1") + [tiny], SYM, at(tiny, 300)), None)
+        pc.check(base, base + [tiny], SYM, at(tiny, 300)), None)
 
-# A big bar going the OTHER way fires SELL, not BUY.
-down = body(1.1000, 1.0940, tf="H1", t=120)
-got = pc.check(base, base + [down], SYM, at(down, 300))
+# A big bar going the OTHER way fires SELL, not BUY — ON A DOWNTREND BASE. In the UPtrend base
+# above a sell candle has no route to trade and is now correctly silent, which is asserted too.
+dbase = trending(120, up=False)
+down  = body(dbase[-1].close, dbase[-1].close - 0.0060, tf="H1", t=120)
+got   = pc.check(dbase, dbase + [down], SYM, at(down, 300))
 s.check("a large bearish forming bar fires SELL", got is not None and got[1] is False, True)
+s.check("...and the SAME bar in an UPTREND is silent — it could not be traded",
+        pc.check(base, base + [body(base[-1].close, base[-1].close - 0.0060, tf="H1", t=120)],
+                 SYM, at(down, 300)), None)
 
 # Not enough history to judge against — silent rather than guessing.
 s.check("under 20 closed bars, no notification",
@@ -79,7 +111,7 @@ s.check("under 20 closed bars, no notification",
 # an unfinished bar. Asserted against the real function rather than trusting the wiring.
 agree = True
 for size in (0.0002, 0.0010, 0.0020, 0.0040, 0.0060, 0.0090):
-    cand = body(1.1000, 1.1000 + size, tf="H1", t=120)
+    cand = body(base[-1].close, base[-1].close + size, tf="H1", t=120)
     want = is_momentum_candle(base + [cand], len(base), True, SYM)
     fired = pc.check(base, base + [cand], SYM, at(cand, 240))
     agree = agree and (bool(fired) == want)
