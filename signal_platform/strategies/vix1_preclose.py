@@ -80,6 +80,35 @@ def check(h1_closed: list[Candle], h1_raw: list[Candle], symbol: str,
 
     Both directions are tried and at most one can pass: `is_momentum_candle` refuses a candidate
     whose own colour disagrees with the side being tested.
+
+    A DOWNWARD CANDLE IS HELD BACK UNTIL THE TURN HAS PROVED ITSELF — his instruction, 2026-08-26:
+
+        "disable DM notification for momentum candle closure for old downtrend without pullback that
+         you added pullback for. Send notification of momentum candle closure minutes remaining only
+         when the momentum candle occur after pullback to align with the new pullback logic."
+
+    WHY IT WAS NEEDED. On 2026-08-25 a turn DOWN lost the change-of-character shortcut: it must run,
+    pull back, and turn back down before a momentum candle can trade it. This function never learned
+    that, because it asks only three things — is a bar forming, is it inside the lead window, is it a
+    momentum candle — and the trend, regime and pullback tests all live in `detect_bias`, which runs
+    much later in `vix1.analyze`. So he was still being told to be at the screen for a candle the
+    strategy had already refused.
+
+    `pending == -1` IS THE SAME FACT THE ENTRY REFUSES ON, not a second description of it: a downward
+    turn proposed and not yet confirmed. Measured on a synthetic bearish turn through the real
+    readers — `breaks down and runs` gives -1 (held back), and once it has pulled back and turned
+    back down `pending` is 0 and the notification speaks again.
+
+    A TURN UP IS UNTOUCHED, and so is a down candle in an already-confirmed downtrend (`pending` 0) —
+    that trend proved itself long ago. This is deliberately the narrow reading of his sentence: it
+    mirrors the one-sided rule it is aligning to, and nothing else.
+
+    THE TREND IS READ ONLY AFTER the bearish momentum test has already passed, so the cost lands in
+    the few minutes before a qualifying bearish candle closes rather than on every scan of every
+    instrument.
+
+    THE STAND-DOWN NEEDS NO CHANGE: it fires only for a candle he was actually told about
+    (`vix1.analyze`, `if told is not None`), so holding the notification back silences its follow-up.
     """
     bar = forming(h1_raw, now)
     if bar is None or len(h1_closed) < 20:
@@ -89,9 +118,26 @@ def check(h1_closed: list[Candle], h1_raw: list[Candle], symbol: str,
         return None
     window = h1_closed + [bar]
     for bullish in (True, False):
-        if is_momentum_candle(window, len(h1_closed), bullish, symbol):
-            return (bar, bullish, left)
+        if not is_momentum_candle(window, len(h1_closed), bullish, symbol):
+            continue
+        if not bullish and _turn_unproved(h1_closed):
+            return None
+        return (bar, bullish, left)
     return None
+
+
+def _turn_unproved(h1_closed: list[Candle]) -> bool:
+    """Is a DOWNWARD turn proposed but not yet proved? (his run -> pullback -> turn back down)
+
+    Reads the same `trend_state` the rest of the strategy does, off CLOSED bars — a turn is a LEVEL,
+    and the platform rule is that a level never comes from a bar still forming. Nothing is
+    re-detected here.
+    """
+    from strategies.vix1_bias import _H1_SWING_N, _H1_TREND_BARS
+    from strategies.vix1_swings import structure_turns
+    from strategies.vix1_trend import trend_state
+    w = h1_closed[-_H1_TREND_BARS:]
+    return trend_state(w, n=_H1_SWING_N, turns=structure_turns(w, _H1_SWING_N)).pending == -1
 
 
 def preclose_signal(symbol: str, bullish: bool, bar: Candle, secs_left: float,
