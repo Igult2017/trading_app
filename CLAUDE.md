@@ -13,6 +13,7 @@ which introduces bugs along the way. Keep its map and progress."*
 |---|---|
 | **[docs/MAP.md](docs/MAP.md)** | **always.** Where everything lives, what state it is in, and the SETTLED rulings that must not be re-derived |
 | **[docs/OPEN.md](docs/OPEN.md)** | whenever something is broken or you are picking up work. The single list of what we have NOT addressed |
+| **[docs/RESTRUCTURE.md](docs/RESTRUCTURE.md)** | before moving ANY file, or when asked to organise the codebase. The agreed target structure, the file-by-file mapping, and what blocks each phase |
 
 `docs/MAP.md` points at the one deeper doc each question needs. **Do not go straight to the code and
 work it out** — that is what keeps reintroducing defects. `docs/open-items.md` is now a HISTORICAL
@@ -254,5 +255,5 @@ All vars live in `.env` at project root (loaded by `dotenv/config`). Signal plat
 - **OANDA replaces yfinance** — when `OANDA_API_TOKEN` is present, swap `candle_fetcher._fetch_sync()`; no other code changes needed
 - **Auto-push to GitHub** — a Stop hook is configured to push to `origin/main` after every session; do not disable it
 - **Schema changes** — edit `shared/schema.ts` then run `npm run db:push`; never write raw SQL migrations
-- **Server routes** — all API endpoints go in `server/routes.ts` via the `registerRoutes(app)` function; there is no `routes/` subdirectory
+- **Server routes** — all API endpoints go in `server/routes.ts` via the `registerRoutes(app)` function; there is no `routes/` subdirectory. **THIS RULE IS UNDER REVIEW (2026-08-29):** that file is now **6,320 lines holding 220 endpoints**, and `docs/RESTRUCTURE.md` proposes splitting it into 13 domain files. Splitting it CONTRADICTS this rule, so the rule gets changed deliberately first — do not just do it
 

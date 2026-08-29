@@ -62,6 +62,18 @@ bx_sd_reports    the heads-up and stand-aside cards
 **Read [strategies/vix1-architecture.md](./strategies/vix1-architecture.md) first**, then
 [strategies/vix1.md](./strategies/vix1.md) for the settled rules and the fix log.
 
+### "Where should this file live?" / anything about reorganising the codebase
+
+**[docs/RESTRUCTURE.md](RESTRUCTURE.md)** — the agreed target structure, written 2026-08-29 and NOT
+yet done. It holds the measured state (700 files, ~129,600 lines, 111 folders, 139 files over the
+200-line limit), the **five platforms** the product actually is, a **file-by-file mapping** for all
+four crowded folders, the phase order with effort and risk, and the two open questions that block
+specific phases.
+
+**Read it before moving anything.** It exists so the next session does not re-derive the plan — his
+instruction: *"when I tell you we need to do it, you don't start from scratch and you already know
+where everything is and where it is supposed to go."*
+
 ### "Why does the Drawdown page say that?"
 
 A **panel inside Journal**, not its own route — sidebar item `drawdown`, rendered at
