@@ -1,12 +1,12 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useLocation } from 'wouter';
-import { Bell } from 'lucide-react';
+import { Bell, Rss } from 'lucide-react';
 import { usePublicTheme } from '@/context/PublicThemeContext';
 import { useQuery } from '@tanstack/react-query';
 import SEOHead from '@/components/SEOHead';
 import { ArticleCard, type Article } from '@/components/blog/ArticleCard';
 import { BlogSkeleton, BlogNotice } from '@/components/blog/BlogStates';
-import { tone, SANS } from '@/components/blog/blogTheme';
+import { tone, SANS, SERIF } from '@/components/blog/blogTheme';
 
 /**
  * THE BLOG INDEX — rebuilt 2026-08-29 to the reference he sent:
@@ -148,6 +148,32 @@ export default function BlogPage({ active = true }: { active?: boolean }) {
         )}
 
         <main className="mx-auto max-w-[1180px] px-6 py-10">
+          {/* ── PAGE HEADER ───────────────────────────────────────────────────
+              The page had NO heading at all — it opened straight onto the filter
+              pills, so a visitor landing here had nothing telling them what they
+              were looking at (added 2026-08-30, on his reference screenshot).
+
+              THE WORDS ARE ALREADY HIS. The headline is this page's own SEO title
+              and the line under it is its SEO description, shortened. Nothing here
+              was invented; it just says on the page what it was already telling
+              search engines. */}
+          <header className="mb-9">
+            <div className="flex items-center gap-2" style={{ color: t.accent }}>
+              <Rss size={15} aria-hidden="true" />
+              <span className="text-[12px] font-semibold uppercase tracking-[0.18em]">Blog</span>
+            </div>
+            <h1
+              className="mt-3 text-[34px] font-bold leading-[1.15] sm:text-[42px]"
+              style={{ fontFamily: SERIF, color: t.title, letterSpacing: '-0.01em' }}
+            >
+              Trading insights &amp; education.
+            </h1>
+            <p className="mt-3 max-w-[620px] text-[15px] leading-relaxed" style={{ color: t.body }}>
+              Strategy breakdowns, smart-money concepts, trading psychology and market
+              analysis — from traders who log every trade.
+            </p>
+          </header>
+
           {/* Filters — pills, scrollable on a narrow screen. */}
           {categories.length > 1 && (
             <nav aria-label="Filter articles by category"
