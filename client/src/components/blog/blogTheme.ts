@@ -30,6 +30,14 @@ export type BlogTone = {
   accent: string;        // the "Load more" button
   accentHover: string;
   placeholder: string;   // card image fallback
+  // ── the ARTICLE page (added 2026-08-29 when /blog/:slug was brought in line) ──
+  link: string;          // links inside the article body
+  quoteInk: string;      // block quotes
+  quoteEdge: string;
+  codeInk: string;       // inline code and embed snippets
+  codeBg: string;
+  rule: string;          // horizontal rules and hairlines
+  subtle: string;        // faint surfaces: share buttons, comment boxes
 };
 
 export const LIGHT: BlogTone = {
@@ -50,6 +58,13 @@ export const LIGHT: BlogTone = {
   accent:        '#2C6E4A',
   accentHover:   '#245B3D',
   placeholder:   'linear-gradient(160deg,#E9F4EC 0%,#DCEDE1 100%)',
+  link:          '#2C7A52',
+  quoteInk:      '#4A5C51',
+  quoteEdge:     '#BFD9C7',
+  codeInk:       '#1F5C3D',
+  codeBg:        '#EAF4ED',
+  rule:          'rgba(16,54,34,0.10)',
+  subtle:        '#F4F9F5',
 };
 
 export const DARK: BlogTone = {
@@ -70,6 +85,13 @@ export const DARK: BlogTone = {
   accent:        '#3E9E6C',
   accentHover:   '#48B47B',
   placeholder:   'linear-gradient(160deg,#17281F 0%,#12201A 100%)',
+  link:          '#6FD8A2',
+  quoteInk:      '#9DB2A5',
+  quoteEdge:     '#2A4636',
+  codeInk:       '#7FE0AC',
+  codeBg:        'rgba(74,190,130,0.10)',
+  rule:          'rgba(255,255,255,0.09)',
+  subtle:        'rgba(255,255,255,0.04)',
 };
 
 export const tone = (dark: boolean): BlogTone => (dark ? DARK : LIGHT);

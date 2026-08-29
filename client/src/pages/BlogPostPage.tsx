@@ -4,6 +4,7 @@ import { ArrowLeft, Clock, Calendar, Image as ImageIcon, MessageCircle, Send } f
 import { usePublicTheme } from '@/context/PublicThemeContext';
 import { usePageTracking } from '@/hooks/usePageTracking';
 import SEOHead from '@/components/SEOHead';
+import { tone, SERIF, SANS } from '@/components/blog/blogTheme';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -49,14 +50,16 @@ type Comment = {
 // ── Minimal markdown renderer (no external deps) ──────────────────────────────
 
 function renderMarkdown(md: string, isDark: boolean): string {
+  // Article body colours come from the shared blog palette, not a second set invented here.
+  const T = tone(isDark);
   const esc = (s: string) => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  const hColor   = isDark ? '#f1f5f9' : '#1a1a1a';
-  const quoteClr = isDark ? '#94a3b8' : '#6b7280';
-  const quoteBdr = isDark ? '#1e3a5f' : '#cbd5e1';
-  const codeClr  = isDark ? '#93c5fd' : '#1d4ed8';
-  const codeBg   = isDark ? 'rgba(30,58,95,0.5)' : '#eff6ff';
-  const hrClr    = isDark ? '#1e293b' : '#e5e7eb';
-  const linkClr  = isDark ? '#60a5fa' : '#2563eb';
+  const hColor   = T.title;
+  const quoteClr = T.quoteInk;
+  const quoteBdr = T.quoteEdge;
+  const codeClr  = T.codeInk;
+  const codeBg   = T.codeBg;
+  const hrClr    = T.rule;
+  const linkClr  = T.link;
 
   const lines = md.split('\n');
   const out: string[] = [];
@@ -92,7 +95,9 @@ function renderMarkdown(md: string, isDark: boolean): string {
       const lvl = h[1].length;
       const sizes = ['2em','1.5em','1.2em','1em'];
       const sz = sizes[lvl - 1];
-      const ff = lvl <= 2 ? `font-family:"Playfair Display",serif;` : '';
+      // ALL heading levels, not just h1/h2 — the page font is now sans, so an unnamed h3 would
+      // silently stop being a serif heading (2026-08-29).
+      const ff = `font-family:${SERIF.replace(/'/g, '"')};`;
       out.push(`<h${lvl} style="${ff}font-size:${sz};font-weight:${lvl<=2?800:700};color:${hColor};margin:${lvl<=2?'2.2rem':'1.5rem'} 0 0.6rem;line-height:1.2;">${inlineStyles(esc(h[2]))}</h${lvl}>`);
       continue;
     }
@@ -255,7 +260,7 @@ function ShareBar({ post, isDark, border, accent, muted, cardBg }: {
           {/* Copy link */}
           <button
             onClick={copyLink}
-            style={{ ...btnBase, background: isDark ? 'rgba(255,255,255,0.05)' : '#f1f5f9', borderColor: border, color: copied ? '#4ade80' : muted }}
+            style={{ ...btnBase, background: tone(isDark).subtle, borderColor: border, color: copied ? tone(isDark).accent : muted }}
           >
             <span style={{ fontSize: 13 }}>{copied ? '✓' : '🔗'}</span>
             {copied ? 'Copied!' : 'Copy link'}
@@ -265,7 +270,7 @@ function ShareBar({ post, isDark, border, accent, muted, cardBg }: {
         {/* Embed toggle */}
         <button
           onClick={() => setShowEmbed(v => !v)}
-          style={{ ...btnBase, background: 'transparent', borderColor: isDark ? 'rgba(255,255,255,0.1)' : '#e5e7eb', color: muted, fontSize: 11 }}
+          style={{ ...btnBase, background: 'transparent', borderColor: border, color: muted, fontSize: 11 }}
         >
           <span style={{ fontSize: 13 }}>{'</>'}</span>
           {showEmbed ? 'Hide embed code' : 'Embed in your article'}
@@ -280,12 +285,12 @@ function ShareBar({ post, isDark, border, accent, muted, cardBg }: {
               </span>
               <button
                 onClick={copyEmbed}
-                style={{ ...btnBase, padding: '4px 12px', fontSize: 11, background: embedCopied ? 'rgba(74,222,128,0.1)' : isDark ? 'rgba(255,255,255,0.05)' : '#f1f5f9', borderColor: embedCopied ? 'rgba(74,222,128,0.3)' : border, color: embedCopied ? '#4ade80' : muted }}
+                style={{ ...btnBase, padding: '4px 12px', fontSize: 11, background: embedCopied ? tone(isDark).codeBg : tone(isDark).subtle, borderColor: embedCopied ? tone(isDark).accent : border, color: embedCopied ? tone(isDark).accent : muted }}
               >
                 {embedCopied ? '✓ Copied' : 'Copy code'}
               </button>
             </div>
-            <pre style={{ margin: 0, padding: '14px', fontSize: 11, fontFamily: '"DM Mono",monospace', color: isDark ? '#93c5fd' : '#1d4ed8', overflowX: 'auto' as const, lineHeight: 1.6, whiteSpace: 'pre-wrap' as const, wordBreak: 'break-all' as const }}>
+            <pre style={{ margin: 0, padding: '14px', fontSize: 11, fontFamily: '"DM Mono",monospace', color: tone(isDark).codeInk, overflowX: 'auto' as const, lineHeight: 1.6, whiteSpace: 'pre-wrap' as const, wordBreak: 'break-all' as const }}>
               {embedCode}
             </pre>
             <div style={{ padding: '8px 14px', borderTop: `1px solid ${border}`, fontSize: 10, color: muted, fontFamily: '"DM Mono",monospace' }}>
@@ -312,8 +317,8 @@ function ReadingProgress({ isDark }: { isDark: boolean }) {
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
   return (
-    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, height: 2, zIndex: 100, background: isDark ? '#1e293b' : '#e5e7eb' }}>
-      <div style={{ height: '100%', width: `${progress}%`, background: isDark ? '#3b82f6' : '#1d4ed8', transition: 'width 0.1s linear' }} />
+    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, height: 2, zIndex: 100, background: tone(isDark).rule }}>
+      <div style={{ height: '100%', width: `${progress}%`, background: tone(isDark).accent, transition: 'width 0.1s linear' }} />
     </div>
   );
 }
@@ -324,9 +329,9 @@ function SafeImage({ src, alt, className, isDark, style }: { src: string; alt: s
   const [error, setError] = useState(false);
   if (!src || error) {
     return (
-      <div className={className} style={{ ...style, display: 'flex', alignItems: 'center', justifyContent: 'center', background: isDark ? '#1e293b' : '#f1f5f9' }}>
+      <div className={className} style={{ ...style, display: 'flex', alignItems: 'center', justifyContent: 'center', background: tone(isDark).placeholder }}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', opacity: 0.3 }}>
-          <ImageIcon size={32} color={isDark ? '#60a5fa' : '#94a3b8'} />
+          <ImageIcon size={32} color={tone(isDark).tagInk} />
         </div>
       </div>
     );
@@ -344,9 +349,9 @@ function Initials({ name }: { name: string }) {
   return (
     <div style={{
       width: 52, height: 52, borderRadius: '50%', flexShrink: 0,
-      background: 'linear-gradient(135deg,#1e3a5f,#2563eb)',
+      background: 'linear-gradient(135deg,#2C6E4A,#4ABE82)',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
-      fontSize: 18, fontWeight: 700, color: '#93c5fd',
+      fontSize: 18, fontWeight: 700, color: '#FFFFFF',
       fontFamily: '"Playfair Display",serif',
     }}>{ini}</div>
   );
@@ -464,13 +469,17 @@ export default function BlogPostPage() {
     }
   };
 
-  const bg      = isDark ? '#0f172a' : '#FDFCFB';
-  const text     = isDark ? '#f1f5f9' : '#1a1a1a';
-  const muted    = isDark ? '#94a3b8' : '#6b7280';
-  const border   = isDark ? '#1e293b' : '#e5e7eb';
-  const cardBg   = isDark ? 'rgba(30,41,59,0.4)' : '#ffffff';
-  const accent   = isDark ? '#3b82f6' : '#2563eb';
-  const accentL  = isDark ? '#93c5fd' : '#1d4ed8';
+  // THE SAME PALETTE THE BLOG INDEX USES (2026-08-29). The article page had its own blue-on-slate
+  // set, so opening a post threw away the calm green look the listing had just established. These
+  // seven names are unchanged, so everything already reading them follows automatically.
+  const T        = tone(isDark);
+  const bg       = T.page;
+  const text     = T.title;
+  const muted    = T.meta;
+  const border   = T.cardBorder;
+  const cardBg   = T.card;
+  const accent   = T.accent;
+  const accentL  = T.link;
 
   if (loading) return (
     <div style={{ minHeight: '100vh', background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -510,7 +519,10 @@ export default function BlogPostPage() {
         publisher: { '@type': 'Organization', name: 'Trade&Journal', url: 'https://tradeandjournal.com' },
       }}
     />
-    <div style={{ minHeight: '100vh', background: bg, color: text, fontFamily: '"Playfair Display",serif', transition: 'background 0.5s,color 0.5s' }}>
+    /* READING TEXT IS SANS, HEADLINES ARE SERIF — the same split the blog index uses. The whole
+       page used to be set in Playfair, which is handsome on a headline and tiring over a
+       1,500-word article at 17px. Every heading below still names the serif explicitly. */
+    <div style={{ minHeight: '100vh', background: bg, color: text, fontFamily: SANS, transition: 'background 0.5s,color 0.5s' }}>
       <ReadingProgress isDark={isDark} />
 
       {/* ── Responsive grid styles ─────────────────────────────────────────── */}
@@ -561,7 +573,7 @@ export default function BlogPostPage() {
                   whiteSpace: 'nowrap',
                   flexShrink: 0,
                 }}
-                onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.color = isDark ? '#93c5fd' : '#57534e'; }}
+                onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.color = tone(isDark).link; }}
                 onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.color = isDark ? '#475569' : '#a8a29e'; }}
               >
                 {cat}
@@ -596,7 +608,7 @@ export default function BlogPostPage() {
                 </div>
               </div>
             ) : (
-              <div style={{ width: '100%', height: 480, background: isDark ? '#1e293b' : '#f1f5f9' }} />
+              <div style={{ width: '100%', height: 480, background: tone(isDark).placeholder }} />
             )}
           </div>
 
@@ -696,7 +708,7 @@ export default function BlogPostPage() {
               {ad?.expertise && ad.expertise.length > 0 && (
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 14 }}>
                   {ad.expertise.map(tag => (
-                    <span key={tag} style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', padding: '3px 10px', border: `1px solid ${isDark ? '#1e3a5f' : '#bfdbfe'}`, color: accentL, background: isDark ? 'rgba(30,58,95,0.3)' : '#eff6ff', borderRadius: 20 }}>
+                    <span key={tag} style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', padding: '3px 10px', border: `1px solid ${tone(isDark).quoteEdge}`, color: tone(isDark).tagInk, background: tone(isDark).tagBg, borderRadius: 20 }}>
                       {tag}
                     </span>
                   ))}
@@ -723,7 +735,7 @@ export default function BlogPostPage() {
             {/* Article body */}
             <article
               ref={contentRef}
-              style={{ color: isDark ? '#cbd5e1' : '#374151', fontSize: '1.06rem', lineHeight: 1.9 }}
+              style={{ color: tone(isDark).body, fontSize: '1.06rem', lineHeight: 1.9 }}
               dangerouslySetInnerHTML={{ __html: renderMarkdown(post.content || '_No content yet._', isDark) }}
             />
 
@@ -813,9 +825,9 @@ export default function BlogPostPage() {
                       <strong>{c.name || 'Anonymous'}</strong>
                       <span style={{ color: muted, fontSize: 11 }}>{c.created_at ? new Date(c.created_at).toLocaleString() : ''}</span>
                     </div>
-                    <div style={{ color: isDark ? '#cbd5e1' : '#374151', lineHeight: 1.7 }}>{c.message}</div>
+                    <div style={{ color: tone(isDark).body, lineHeight: 1.7 }}>{c.message}</div>
                     {c.reply && (
-                      <div style={{ marginTop: 12, padding: 12, borderLeft: `3px solid ${accent}`, background: isDark ? 'rgba(59,130,246,0.08)' : '#eff6ff' }}>
+                      <div style={{ marginTop: 12, padding: 12, borderLeft: `3px solid ${accent}`, background: tone(isDark).codeBg }}>
                         <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: accentL, marginBottom: 6 }}>Admin reply</div>
                         <div style={{ color: isDark ? '#e2e8f0' : '#1f2937', lineHeight: 1.7 }}>{c.reply}</div>
                       </div>
