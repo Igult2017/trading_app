@@ -1,5 +1,5 @@
 import { Switch, Route, useLocation } from "wouter";
-import { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo, lazy, Suspense } from "react";
 import { usePageTracking } from "@/hooks/usePageTracking";
 import { titleFromPath, usePageTitle } from "@/hooks/usePageTitle";
 import { queryClient, fetchJson, localStoragePersister } from "./lib/queryClient";
@@ -27,22 +27,52 @@ import HomeHeader from "@/components/HomeHeader";
 import HomeFooter from "@/components/HomeFooter";
 import { PublicThemeContext, usePublicTheme } from "@/context/PublicThemeContext";
 import HomePage from "@/pages/HomePage";
-import TradeHistoryPage from "@/pages/TradeHistoryPage";
-import Analytics from "@/pages/Analytics";
-import Join from "@/pages/Join";
-import Journal from "@/pages/Journal";
-import AssetPage from "@/pages/AssetPage";
-import TscPage from "@/pages/TscPage";
+
+/**
+ * PAGES ARE FETCHED WHEN FIRST OPENED, not all up front (2026-08-30).
+ *
+ * The whole app used to ship as ONE 2,130 KB file (583 KB compressed), so somebody arriving on a
+ * blog article from a search result downloaded the admin panel, the trading journal, the charting
+ * library and everything else before a word appeared on screen. Slow loading is also a ranking
+ * signal, so this was costing search traffic as well as patience.
+ *
+ * STAYING EAGER, DELIBERATELY:
+ *   HomePage             — the first thing most visitors see; delaying it would be the wrong trade
+ *   BlogPage
+ *   EconomicCalendarPage — these two are ALWAYS MOUNTED on purpose (see the note further down),
+ *                          so making them lazy would fetch them on every route anyway and risk the
+ *                          instant-navigation behaviour that arrangement exists to give.
+ */
+const TradeHistoryPage = lazy(() => import("@/pages/TradeHistoryPage"));
+const Analytics = lazy(() => import("@/pages/Analytics"));
+const Join = lazy(() => import("@/pages/Join"));
+const Journal = lazy(() => import("@/pages/Journal"));
+const AssetPage = lazy(() => import("@/pages/AssetPage"));
+const TscPage = lazy(() => import("@/pages/TscPage"));
+const BlogPostPage = lazy(() => import("@/pages/BlogPostPage"));
+const SupportPage = lazy(() => import("@/pages/support/SupportPage"));
+const AboutPage = lazy(() => import("@/pages/AboutPage"));
+const LegalPage = lazy(() => import("@/pages/legal/LegalPage"));
+const AuthCallbackPage = lazy(() => import("@/pages/AuthCallbackPage"));
+const ResetPasswordPage = lazy(() => import("@/pages/ResetPasswordPage"));
+const AdminPanel = lazy(() => import("@/pages/AdminPanel"));
+const AccountsPage = lazy(() => import("@/pages/AccountsPage"));
+
+
+
+
+
+
 import BlogPage from "@/pages/BlogPage";
-import BlogPostPage from "@/pages/BlogPostPage";
+
 import EconomicCalendarPage from "@/pages/EconomicCalendarPage";
-import SupportPage from "@/pages/support/SupportPage";
-import AboutPage from "@/pages/AboutPage";
-import LegalPage from "@/pages/legal/LegalPage";
-import AuthCallbackPage from "@/pages/AuthCallbackPage";
-import ResetPasswordPage from "@/pages/ResetPasswordPage";
-import AdminPanel from "@/pages/AdminPanel";
-import AccountsPage from "@/pages/AccountsPage";
+
+
+
+
+
+
+
 import NotFound from "@/pages/not-found";
 
 import TradingLoader from "@/components/TradingLoader";
@@ -93,11 +123,19 @@ function RequireAdmin({ children }: { children: React.ReactNode }) {
 }
 
 // ── Protected inner pages (require auth, include header + footer) ─────────────
+/** Shown for the moment a page's code is being fetched. Deliberately near-invisible: these files
+ *  are small and usually arrive in well under a second, so a spinner would flash and be worse than
+ *  nothing. It reserves the height so the page does not jump when the content lands. */
+function PageLoading() {
+  return <div style={{ minHeight: "60vh" }} aria-busy="true" aria-live="polite" />;
+}
+
 function InnerPages() {
   return (
     <div className="flex flex-col min-h-screen w-full">
       <HomeHeader darkMode={true} setDarkMode={() => {}} activePath={undefined} />
       <main className="flex-1 bg-background pt-16">
+        <Suspense fallback={<PageLoading />}>
         <Switch>
           <Route path="/history"     component={TradeHistoryPage} />
           <Route path="/analytics"   component={Analytics} />
@@ -105,6 +143,7 @@ function InnerPages() {
           <Route path="/accounts"    component={AccountsPage as React.ComponentType<any>} />
           <Route component={NotFound} />
         </Switch>
+        </Suspense>
       </main>
       <HomeFooter />
     </div>
@@ -174,6 +213,7 @@ function PublicPagesGroup() {
 
       {/* Remaining public routes — less frequently visited, mount/unmount is fine */}
       {isOther && (
+        <Suspense fallback={<PageLoading />}>
         <Switch>
           <Route path="/blog/:slug" component={BlogPostPage} />
           <Route path="/tsc"        component={TscPage} />
@@ -182,6 +222,7 @@ function PublicPagesGroup() {
           <Route path="/about"      component={AboutPage} />
           <Route component={NotFound} />
         </Switch>
+        </Suspense>
       )}
 
       </div>{/* end pt-16 offset wrapper */}
@@ -209,6 +250,7 @@ function AppRoutes() {
   return (
     <>
     <TitleUpdater />
+    <Suspense fallback={<PageLoading />}>
     <Switch>
       {/* Pages with their own full layouts — must come before the catch-all */}
       <Route path="/"                     component={HomePage} />
@@ -237,6 +279,7 @@ function AppRoutes() {
           This catch-all also handles 404 via NotFound inside PublicPagesGroup. */}
       <Route component={PublicPagesGroup} />
     </Switch>
+    </Suspense>
     </>
   );
 }
