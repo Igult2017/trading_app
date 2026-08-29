@@ -4,10 +4,15 @@ A full-stack forex/crypto/stocks trading journal and signal platform. Built for 
 
 ---
 
-## ⚠ READ THESE TWO FIRST — before the code, before answering anything
+## ⚠ READ THESE THREE FIRST — before the code, before answering anything
 
 His instruction, 2026-08-25: *"everytime i ask you a question about this code we start from scratch
 which introduces bugs along the way. Keep its map and progress."*
+
+And 2026-08-29, on the restructure plan specifically: *"keep that plan and never forget when I ask
+about it."* It is the third row below. **When he asks anything about organising, restructuring,
+moving files or folder layout, open `docs/RESTRUCTURE.md` and answer from it — never re-derive it,
+and never re-measure what it already records.**
 
 | file | when |
 |---|---|
