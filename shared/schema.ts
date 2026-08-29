@@ -740,7 +740,9 @@ export const blogPosts = pgTable("blog_posts", {
   title:      text("title").notNull(),
   excerpt:    text("excerpt").default(''),
   content:    text("content").default(''),
-  category:   text("category").default('Analysis'),    // Equities | Forex | Digital Assets | Analysis | Backtested Strategies
+  category:   text("category").default('Analysis'),    // FREE TEXT — the topic is typed in the
+  // editor, not chosen from a list (2026-08-30). This comment used to name five fixed values;
+  // there is no constraint here and the API does not check against a set, so any topic is valid.
   author:     text("author").default('Admin'),
   authorId:   varchar("author_id"),
   date:       text("date").notNull(),

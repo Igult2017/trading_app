@@ -1,14 +1,24 @@
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const BLOG_CATEGORIES = [
-  { value: "Equities",              label: "Equities",              sub: "Stocks & indices"    },
-  { value: "Forex",                 label: "Forex",                 sub: "Currency pairs"      },
-  { value: "Digital Assets",        label: "Digital Assets",        sub: "Crypto & DeFi"       },
-  { value: "Analysis",              label: "Analysis",              sub: "Market analysis"     },
-  { value: "Backtested Strategies", label: "Backtested Strategies", sub: "Verified strategies" },
-];
+/**
+ * TOPICS ARE TYPED, NOT CHOSEN — his instruction, 2026-08-30: *"I need you to make those topics
+ * dynamic so that I don't have to choose."*
+ *
+ * This used to be a fixed list of five. Publishing under a sixth topic meant editing this file, so
+ * in practice the blog could only ever have five topics. Now the field is free text and whatever
+ * has already been published is offered underneath as one-click suggestions — the list grows by
+ * itself as you write.
+ *
+ * NOTHING DOWNSTREAM BREAKS ON A NEW TOPIC, checked rather than assumed: AdminPanel derives the
+ * post's section with `CATEGORY_TO_SECTION[cat] ?? 'blog'`, so an unrecognised topic lands in the
+ * blog; and its coloured badge is looked up with a fallback, so a new topic still gets a badge.
+ *
+ * These five are SEEDS, shown only until real posts exist, so a fresh install is not a blank box.
+ */
+const SEED_TOPICS = ["Equities", "Forex", "Digital Assets", "Analysis", "Backtested Strategies"];
 
 const EXPERTISE_OPTIONS = [
   "Technical Analysis","Fundamental Analysis","Forex","Crypto","Stocks",
@@ -1053,7 +1063,43 @@ export default function BlogPostEditor({ initialData, editPost, onSubmit, onCanc
   const set = (partial: Partial<BlogEditorData>) => setForm(f => ({ ...f, ...partial }));
 
   const wordCount  = form.content.trim() ? form.content.trim().split(/\s+/).length : 0;
-  const activeDest = BLOG_CATEGORIES.find(d => d.value === form.category);
+
+
+  // THE TOPICS THAT ACTUALLY EXIST, counted from what has been published. Fetched with the same
+  // query key the public blog uses, so React Query serves it from cache when both have been open
+  // and no extra request goes out. Seeds fill in only while there are no posts at all.
+  const { data: publishedPosts = [] } = useQuery<any[]>({
+    queryKey: ["/api/blog"],
+    queryFn: async () => {
+      const r = await fetch("/api/blog");
+      if (!r.ok) return [];
+      const d = await r.json();
+      return Array.isArray(d) ? d : [];
+    },
+    staleTime: 2 * 60 * 1000,
+  });
+
+  const topicCounts = useMemo(() => {
+    const out: Record<string, number> = {};
+    for (const p of publishedPosts) {
+      const c = (p?.category ?? "").trim();
+      if (c) out[c] = (out[c] ?? 0) + 1;
+    }
+    return out;
+  }, [publishedPosts]);
+
+  const usedTopics = useMemo(
+    () => Object.keys(topicCounts).sort((a, b) => topicCounts[b] - topicCounts[a] || a.localeCompare(b)),
+    [topicCounts],
+  );
+
+  // Suggestions: what has been used, most-published first. Seeds appear only on an empty blog, and
+  // whatever is being typed is never suggested back.
+  const topicSuggestions = useMemo(() => {
+    const base = usedTopics.length > 0 ? usedTopics : SEED_TOPICS;
+    const typed = form.category.trim().toLowerCase();
+    return base.filter(n => n.toLowerCase() !== typed).slice(0, 8);
+  }, [usedTopics, form.category]);
 
   const mainFocusOn  = (e: any) => { e.target.style.borderColor = "rgba(99,153,34,0.5)";   e.target.style.background = "rgba(255,255,255,0.06)"; };
   const mainFocusOff = (e: any) => { e.target.style.borderColor = "rgba(255,255,255,0.1)"; e.target.style.background = "rgba(255,255,255,0.04)"; };
@@ -1322,15 +1368,37 @@ export default function BlogPostEditor({ initialData, editPost, onSubmit, onCanc
           overflowY: "auto" as const, padding: "16px 0 0",
           flexShrink: 0,
         }}>
-          <SidebarLabel style={{ padding: "0 16px 5px" }}>Destination</SidebarLabel>
-          {BLOG_CATEGORIES.map(item => (
-            <DestItem
-              key={item.value}
-              item={item}
-              active={form.category === item.value}
-              onClick={() => set({ category: item.value })}
+          <SidebarLabel style={{ padding: "0 16px 5px" }}>Topic</SidebarLabel>
+          <div style={{ padding: "0 16px 10px" }}>
+            <input
+              value={form.category}
+              onChange={e => set({ category: e.target.value })}
+              placeholder="Type a topic…"
+              aria-label="Post topic"
+              style={{
+                width: "100%", background: "rgba(255,255,255,0.04)",
+                border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6,
+                padding: "8px 10px", color: "rgba(255,255,255,0.9)", fontSize: 13, outline: "none",
+              }}
+              onFocus={e => { e.target.style.borderColor = "rgba(99,153,34,0.5)"; }}
+              onBlur={e => { e.target.style.borderColor = "rgba(255,255,255,0.1)"; }}
             />
-          ))}
+          </div>
+          {topicSuggestions.length > 0 && (
+            <>
+              <SidebarLabel style={{ padding: "0 16px 5px" }}>
+                {usedTopics.length > 0 ? "Already used" : "Suggestions"}
+              </SidebarLabel>
+              {topicSuggestions.map(name => (
+                <DestItem
+                  key={name}
+                  item={{ label: name, sub: topicCounts[name] ? `${topicCounts[name]} post${topicCounts[name] === 1 ? "" : "s"}` : "new topic" }}
+                  active={form.category.trim().toLowerCase() === name.toLowerCase()}
+                  onClick={() => set({ category: name })}
+                />
+              ))}
+            </>
+          )}
 
           <div style={{ marginTop: 10 }}>
             <SidebarAuthorPanel form={form} onChange={set} />
@@ -1431,7 +1499,7 @@ export default function BlogPostEditor({ initialData, editPost, onSubmit, onCanc
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" as const }}>
           {[
             { text: `${wordCount} ${wordCount === 1 ? "word" : "words"}`, color: "rgba(255,255,255,0.22)" },
-            { text: activeDest?.label.toLowerCase(), color: "rgba(255,255,255,0.22)" },
+            { text: form.category.trim().toLowerCase() || "no topic", color: "rgba(255,255,255,0.22)" },
             form.authorExpertise.length > 0 && {
               text: form.authorExpertise.slice(0, 2).join(", ") + (form.authorExpertise.length > 2 ? ` +${form.authorExpertise.length - 2}` : ""),
               color: "rgba(99,153,34,0.55)",

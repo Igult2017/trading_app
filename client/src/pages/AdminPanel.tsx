@@ -158,12 +158,24 @@ const SOCIAL_PLATFORMS = [
 ];
 
 const EXPERTISE_OPTIONS = ['Technical Analysis', 'Fundamental Analysis', 'Forex', 'Crypto', 'Stocks', 'Commodities', 'Scalping', 'Swing Trading', 'Risk Management', 'Price Action'];
-const BLOG_CATEGORIES = ['Equities', 'Forex', 'Digital Assets', 'Analysis', 'Backtested Strategies'];
+// A topic decides which section a post belongs to. Topics are TYPED now, not chosen from a list
+// (2026-08-30), so this map only names the exceptions — everything it does not mention falls back
+// to 'blog' at the two places it is read.
 const CATEGORY_TO_SECTION: Record<string, string> = {
   'Equities': 'blog', 'Forex': 'blog', 'Digital Assets': 'blog',
   'Analysis': 'blog', 'Backtested Strategies': 'verified-strategies',
 };
-const CATEGORY_META: Record<string, { sub: string; color: string; bg: string; border: string; dot: string }> = {
+type CatMeta = { sub: string; color: string; bg: string; border: string; dot: string };
+
+/** The badge for a topic. A TYPED topic will not be in the table below, and previously that meant
+ *  no badge at all — the post just showed nothing where every other post showed its category. Any
+ *  unlisted topic now gets a neutral badge instead of disappearing (2026-08-30). */
+const FALLBACK_CAT_META: CatMeta = {
+  sub: 'Topic', color: C.muted, bg: 'rgba(100,116,139,0.08)',
+  border: 'rgba(100,116,139,0.3)', dot: C.muted,
+};
+
+const CATEGORY_META: Record<string, CatMeta> = {
   'Equities':              { sub: 'Stocks & indices',    color: C.indigoL, bg: 'rgba(99,102,241,0.08)',  border: 'rgba(99,102,241,0.3)',  dot: C.indigo  },
   'Forex':                 { sub: 'Currency pairs',      color: C.blueL,   bg: 'rgba(59,130,246,0.08)',  border: 'rgba(59,130,246,0.3)',  dot: C.blue    },
   'Digital Assets':        { sub: 'Crypto & DeFi',       color: '#a78bfa', bg: 'rgba(167,139,250,0.08)', border: 'rgba(167,139,250,0.3)', dot: '#a78bfa' },
@@ -2332,7 +2344,7 @@ const BlogSection = ({ bp }: { bp: any }) => {
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', flexWrap: 'wrap', gap: '4px' }}>
                   <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
                     <span style={{ fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', padding: '2px 7px', background: post.status === 'Published' ? 'rgba(16,185,129,0.1)' : C.border, color: post.status === 'Published' ? C.greenL : C.muted, border: `1px solid ${post.status === 'Published' ? 'rgba(16,185,129,0.2)' : C.border2}` }}>{post.status}</span>
-                    {post.category && (() => { const m = CATEGORY_META[post.category]; return m ? <span style={{ fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', padding: '2px 7px', background: m.bg, color: m.color, border: `1px solid ${m.border}` }}>{post.category}</span> : null; })()}
+                    {post.category && (() => { const m = CATEGORY_META[post.category] ?? FALLBACK_CAT_META; return m ? <span style={{ fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', padding: '2px 7px', background: m.bg, color: m.color, border: `1px solid ${m.border}` }}>{post.category}</span> : null; })()}
                   </div>
                   <span style={{ color: C.dim, fontSize: '10px' }}>{post.date}</span>
                 </div>
