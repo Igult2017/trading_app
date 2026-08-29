@@ -120,8 +120,8 @@ export default function BlogPage({ active = true }: { active?: boolean }) {
       {active && (
         <SEOHead
           title="Trading Insights & Education Blog"
-          description="Expert articles on Forex, crypto, and commodities trading. Strategy breakdowns, SMC concepts, psychology, and market analysis from professional traders."
-          keywords="forex trading blog, trading strategies, SMC trading, smart money concepts, trading psychology, market analysis, forex education"
+          description="Expert articles on Forex, crypto, and commodities trading. Strategy breakdowns, trading psychology, and market analysis from traders who log every trade."
+          keywords="forex trading blog, trading strategies, trading journal, trading psychology, market analysis, forex education, find your edge"
           canonical="/blog"
         />
       )}
@@ -153,10 +153,10 @@ export default function BlogPage({ active = true }: { active?: boolean }) {
               pills, so a visitor landing here had nothing telling them what they
               were looking at (added 2026-08-30, on his reference screenshot).
 
-              THE WORDS ARE ALREADY HIS. The headline is this page's own SEO title
-              and the line under it is its SEO description, shortened. Nothing here
-              was invented; it just says on the page what it was already telling
-              search engines. */}
+              THE WORDS ARE HIS, from the home page hero (HomePage.tsx:70 and :74):
+              "Find your edge" and "Log trades, capture decisions, and build your
+              edge". The blog now opens on the same promise the site does, instead
+              of a second tagline invented for one page. */}
           <header className="mb-9">
             <div className="flex items-center gap-2" style={{ color: t.accent }}>
               <Rss size={15} aria-hidden="true" />
@@ -166,11 +166,11 @@ export default function BlogPage({ active = true }: { active?: boolean }) {
               className="mt-3 text-[34px] font-bold leading-[1.15] sm:text-[42px]"
               style={{ fontFamily: SERIF, color: t.title, letterSpacing: '-0.01em' }}
             >
-              Trading insights &amp; education.
+              Find your edge.
             </h1>
             <p className="mt-3 max-w-[620px] text-[15px] leading-relaxed" style={{ color: t.body }}>
-              Strategy breakdowns, smart-money concepts, trading psychology and market
-              analysis — from traders who log every trade.
+              Strategy breakdowns, trading psychology and market analysis — written for
+              traders who log their trades and capture the decisions behind them.
             </p>
           </header>
 
