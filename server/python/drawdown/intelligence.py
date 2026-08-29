@@ -13,7 +13,7 @@ Pure, never raises. Reuses the same equity-curve logic as metrics.py.
 """
 from __future__ import annotations
 from ._utils import (
-    equity_curve, get_pnl, get_pnl_pct, get_trade_dt,
+    equity_curve, get_outcome, get_pnl, get_pnl_pct, get_trade_dt,
     get_strategy, get_instrument, get_direction, safe_mean,
 )
 
@@ -48,9 +48,16 @@ def _group_drawdown(trades: list, key_fn) -> list:
     groups: dict = {}
     for t in trades:
         k = key_fn(t)
-        g = groups.setdefault(k, {"name": k, "trades": 0, "losses": 0,
-                                  "totalLossPct": 0.0, "netPct": 0.0})
+        g = groups.setdefault(k, {"name": k, "trades": 0, "losses": 0, "wins": 0,
+                                  "breakevens": 0, "totalLossPct": 0.0, "netPct": 0.0})
         g["trades"] += 1
+        # wins / breakevens carried so the row shows a coloured W/L/B split rather than the old
+        # "8L" letter notation (2026-08-29).
+        _oc = get_outcome(t)
+        if _oc == "win":
+            g["wins"] += 1
+        elif _oc == "breakeven":
+            g["breakevens"] += 1
         pct = get_pnl_pct(t)
         if pct is not None:
             g["netPct"] += pct
@@ -88,9 +95,13 @@ def _group_metrics(records: list, attr: str, sb: float) -> list:
                 k = "Unclassified"
             else:
                 continue   # Metrics omits trades with no instrument
-        g = groups.setdefault(k, {"name": k, "trades": 0, "losses": 0,
-                                  "totalLossPct": 0.0, "netPct": 0.0})
+        g = groups.setdefault(k, {"name": k, "trades": 0, "losses": 0, "wins": 0,
+                                  "breakevens": 0, "totalLossPct": 0.0, "netPct": 0.0})
         g["trades"] += 1
+        if r.outcome == "win":
+            g["wins"] += 1
+        elif r.outcome == "breakeven":
+            g["breakevens"] += 1
         pnl = r.pnl
         if pnl is not None and sb > 0:
             pct = pnl / sb * 100

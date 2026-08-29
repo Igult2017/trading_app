@@ -17,18 +17,29 @@
 export const DP_CSS = `
 .dp{
   --bg:#090C11; --bg2:#0D1119; --raise:rgba(255,255,255,.022);
-  --ink:#ECEFEA; --ink2:#8A94A1; --ink3:#737F8E;  /* was #535C67 — 2.89:1 on --bg, below WCAG AA; now 4.81:1 */
-  --line:rgba(255,255,255,.06); --line2:rgba(255,255,255,.10);
-  --loss:#F2596A; --lossdeep:#FF3C4F; --loss-d:rgba(242,89,106,.14);
-  --gain:#4FD8A6; --gain-d:rgba(79,216,166,.13);
-  --warn:#F2B33D; --warn-d:rgba(242,179,61,.13);
+  /* CONTRAST RAISED 2026-08-29 on his "improve the visibility of text in the whole page". Measured
+     against --bg (#090C11), not eyeballed. The small uppercase labels are 9–11px with wide letter
+     spacing, which is where dim text actually hurts, so the two label greys were the priority:
+        --ink2  #8A94A1  6.37:1 (AA)  ->  #AEB8C4  9.75:1 (AAA)
+        --ink3  #737F8E  4.81:1 (AA)  ->  #93A0AE  7.35:1 (AAA)
+        --loss  #F2596A  5.98:1 (AA)  ->  #FF7A87  7.82:1 (AAA)   */
+  --ink:#ECEFEA; --ink2:#AEB8C4; --ink3:#93A0AE;
+  --line:rgba(255,255,255,.09); --line2:rgba(255,255,255,.15);
+  --loss:#FF7A87; --lossdeep:#FF3C4F; --loss-d:rgba(255,122,135,.16);
+  --gain:#5FE3B4; --gain-d:rgba(95,227,180,.15);
+  --warn:#FFC155; --warn-d:rgba(255,193,85,.15);
   --heat-neg-ink:#FFFFFF;
-  /* BOTH roles are the journal font now (user, 2026-07-29: "change font used for both numbers and
-     letters in drawdown page to playfair"). These are only the FALLBACKS — DrawdownPanel overrides
-     both from the journal's live selection, so the page tracks the journal instead of pinning a
-     second font that would drift the moment the journal's default changed. */
-  --mono:'Playfair Display',Georgia,serif;
-  --disp:'Playfair Display',Georgia,serif;
+  /* BOTH roles follow the journal font: 'inherit', NOT a named face (changed 2026-08-29 on his
+     "it should inherit font type from journal").
+     WHY IT USED TO DIVERGE: these fell back to a hardcoded 'Playfair Display'. The .dp subtree is
+     deliberately exempt from the journal's global font rule (Journal.tsx:987 — that exemption
+     exists so icon fonts are not clobbered into letters), so while the fallback was in force this
+     page kept a face the journal had moved off. 'inherit' resolves to whatever .journal-root is
+     actually set to (Journal.tsx:957), so the page follows the journal by default instead of only
+     when a prop happens to be passed. DrawdownPanel still overrides both from the live selection.
+     NO BACKTICKS IN THIS FILE — it is one big template literal; a backtick here ends the CSS. */
+  --mono:inherit;
+  --disp:inherit;
   background:var(--bg); color:var(--ink); font-family:var(--mono);
   /* Playfair's figures are PROPORTIONAL by default, so KPI columns and chart axes would go ragged
      the moment DM Mono left — the very thing DM Mono was here for. tabular-nums restores
@@ -42,11 +53,17 @@ export const DP_CSS = `
 /* Light theme — remap every token; the layout/typography is unchanged. */
 .journal-light .dp{
   --bg:#FFFFFF; --bg2:#F1F5F9; --raise:rgba(15,23,42,.03);
-  --ink:#0F172A; --ink2:#475569; --ink3:#94A3B8;
-  --line:rgba(15,23,42,.08); --line2:rgba(15,23,42,.14);
-  --loss:#DC2626; --lossdeep:#B91C1C; --loss-d:rgba(220,38,38,.10);
-  --gain:#059669; --gain-d:rgba(5,150,105,.10);
-  --warn:#D97706; --warn-d:rgba(217,119,6,.10);
+  /* THREE REAL FAILURES FOUND AND FIXED HERE, 2026-08-29 — the light theme was never measured to the
+     standard the dark one was. Against white: --ink3 was 2.56:1, BELOW WCAG AA outright, and --gain
+     (3.77:1) and --warn (3.19:1) only passed at large sizes while being used on 10–12px text.
+        --ink3  #94A3B8  2.56:1 FAIL  ->  #64748B  4.76:1 (AA)
+        --gain  #059669  3.77:1 large ->  #047857  5.48:1 (AA)
+        --warn  #D97706  3.19:1 large ->  #B45309  5.02:1 (AA)   */
+  --ink:#0F172A; --ink2:#3E4C5E; --ink3:#64748B;
+  --line:rgba(15,23,42,.11); --line2:rgba(15,23,42,.18);
+  --loss:#C81E1E; --lossdeep:#991B1B; --loss-d:rgba(200,30,30,.12);
+  --gain:#047857; --gain-d:rgba(4,120,87,.12);
+  --warn:#B45309; --warn-d:rgba(180,83,9,.12);
   --heat-neg-ink:#7F1D1D;
 }
 /* Keep chart labels in DM Mono despite the global .journal-root svg text rule. */
@@ -59,7 +76,16 @@ export const DP_CSS = `
 .dp .num{font-variant-numeric:tabular-nums;letter-spacing:-.01em;font-weight:500;}
 .dp .loss{color:var(--loss);} .dp .gain{color:var(--gain);} .dp .warn{color:var(--warn);}
 .dp .dim{color:var(--ink2);} .dp .mut{color:var(--ink3);}
-.dp .eyebrow{font-size:11px;letter-spacing:.32em;text-transform:uppercase;color:var(--ink3);font-weight:500;}
+/* Wins / losses / breakevens as coloured figures (2026-08-29) — replaces the old "8L" / "7W"
+   letter notation. The slash is deliberately dimmer than the numbers so the eye lands on the
+   counts, and the numbers are 600-weight so colour is not doing all the work. */
+.dp .wlb{display:inline-flex;align-items:baseline;gap:2px;font-variant-numeric:tabular-nums;font-weight:600;}
+.dp .wlb .sl{color:var(--ink3);font-weight:400;}
+.dp .eyebrow{font-family:var(--disp);font-size:12px;letter-spacing:.22em;text-transform:uppercase;
+  color:var(--ink2);font-weight:600;margin:0;line-height:1.5;}
+/* The question half, in red. Same size as the label half — his instruction was explicitly "in normal
+   font size", replacing a banner heading that sat alone in its own space (2026-08-29). */
+.dp .eyebrow .ask{color:var(--loss);font-weight:700;}
 
 /* section rule header */
 .dp .rule{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;
@@ -78,7 +104,6 @@ export const DP_CSS = `
 
 /* HERO */
 .dp .hero-head{display:flex;justify-content:space-between;align-items:flex-start;gap:24px;flex-wrap:wrap;margin-bottom:30px;}
-.dp .hero-h1{font-family:var(--disp);font-weight:800;font-size:clamp(19px,2.4vw,27px);line-height:1;letter-spacing:-.02em;margin:12px 0 0;}
 .dp .equity{display:flex;align-items:baseline;gap:9px;}
 .dp .equity .slabel{font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink3);}
 .dp .equity .t{font-size:11px;letter-spacing:.08em;text-transform:uppercase;}
@@ -169,7 +194,7 @@ export const DP_CSS = `
 .dp .ls .s{font-size:10px;color:var(--ink3);margin-top:7px;}
 .dp .tl{display:flex;flex-wrap:wrap;gap:3px;margin-top:14px;}
 .dp .tl span{width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-size:9px;}
-.dp .tw{background:var(--gain-d);color:var(--gain);font-weight:700;} .dp .tlo{background:var(--loss-d);color:var(--loss);font-weight:700;} .dp .tb{background:var(--raise);color:var(--ink2);}
+.dp .tw{background:var(--gain-d);color:var(--gain);font-weight:700;} .dp .tlo{background:var(--loss-d);color:var(--loss);font-weight:700;} .dp .tb{background:var(--warn-d);color:var(--warn);font-weight:700;}   /* breakeven = orange (2026-08-29) */
 
 .dp .rr{padding:11px 0;border-top:1px solid var(--line);}
 .dp .rr:first-of-type{border-top:0;padding-top:2px;}

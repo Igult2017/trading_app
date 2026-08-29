@@ -240,6 +240,29 @@ def sort_by_date(trades: list) -> list:
 
 # ── Instrument / strategy / session ──────────────────────────────────────────
 
+def tally(trades: list) -> dict:
+    """How a group of trades turned out: wins, losses, breakevens, and the total.
+
+    ONE definition (added 2026-08-29), because every grouped row on this page counted only LOSSES —
+    `sum(1 for t in group if get_outcome(t) == "loss")`, written out separately in structural,
+    frequency, sessions and heatmap. That is why the page could only ever say "8L / 20T": the win and
+    breakeven counts were never carried, so the display had nothing else to show.
+
+    A trade whose outcome is unrecorded counts toward `total` and nothing else, so the three named
+    figures never add up to more than the total and an unlabelled trade is not silently called a win.
+    """
+    wins = losses = breakevens = 0
+    for t in trades:
+        oc = get_outcome(t)
+        if oc == "win":
+            wins += 1
+        elif oc == "loss":
+            losses += 1
+        elif oc == "breakeven":
+            breakevens += 1
+    return {"wins": wins, "losses": losses, "breakevens": breakevens, "total": len(trades)}
+
+
 # ── THE equity curve ─────────────────────────────────────────────────────────
 # ONE definition, because five of them drifted apart (found 2026-08-29).
 #

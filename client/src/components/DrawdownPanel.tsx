@@ -40,7 +40,9 @@ function heatBg(avgDdPct: number): React.CSSProperties {
   const v = Math.abs(avgDdPct);
   if (!v) return { background: 'var(--raise)' };
   const a = Math.min(v / 1.4, 1) * 0.5 + 0.1;
-  return { background: `rgba(242,89,106,${a.toFixed(3)})` };
+  // Uses the --loss token's own channels rather than a second hardcoded literal, so raising the
+  // red for contrast (2026-08-29) reaches the heatmap too instead of leaving it on the old colour.
+  return { background: `rgb(255 122 135 / ${a.toFixed(3)})` };
 }
 
 function sevTone(avgDdPct: number): string {
@@ -51,6 +53,35 @@ function sevTone(avgDdPct: number): string {
 }
 function toneVar(tone: string): string {
   return tone === 'loss' ? 'var(--loss)' : tone === 'warn' ? 'var(--warn)' : tone === 'gain' ? 'var(--gain)' : 'var(--ink2)';
+}
+
+/**
+ * WINS / LOSSES / BREAKEVENS as coloured figures — his instruction, 2026-08-29:
+ *
+ *   "dont write loses as 8L and wins are 7W. Instead, write wins in green and losses in red like
+ *    9/10. Breakevens are written in orange."
+ *
+ * So the letter suffixes are gone and the counts read as a slash-separated split: wins green,
+ * losses red, breakevens orange. A group with no breakevens shows just `7/3` rather than `7/3/0`,
+ * because a zero adds nothing and the orange would be misleading.
+ *
+ * `title` carries the words for anyone hovering, so the colour is not the only thing conveying
+ * meaning — colour alone fails for a colour-blind reader.
+ */
+function WLB({ wins, losses, breakevens, size = 12 }: {
+  wins?: number; losses?: number; breakevens?: number; size?: number;
+}) {
+  const w = wins ?? 0, l = losses ?? 0, b = breakevens ?? 0;
+  return (
+    <span className="wlb" style={{ fontSize: size }}
+          title={`${w} win${w === 1 ? '' : 's'}, ${l} loss${l === 1 ? '' : 'es'}` +
+                 (b > 0 ? `, ${b} breakeven${b === 1 ? '' : 's'}` : '')}>
+      <span className="gain">{w}</span>
+      <span className="sl">/</span>
+      <span className="loss">{l}</span>
+      {b > 0 && <><span className="sl">/</span><span className="warn">{b}</span></>}
+    </span>
+  );
 }
 
 function Rule({ label, sub, right }: { label: string; sub?: string; right?: React.ReactNode }) {
@@ -295,10 +326,12 @@ export default function DrawdownPanel({ sessionId, dispFont }: { sessionId?: str
         {/* ── HERO ── */}
         <section>
           <div className="hero-head">
-            <div>
-              <div className="eyebrow">Drawdown Tracking</div>
-              <h1 className="hero-h1">Where Are You Losing?</h1>
-            </div>
+            {/* ONE LINE, NOT A BANNER — his instruction, 2026-08-29: the big "Where Are You Losing?"
+                sat alone in its own space, so it moves up into the eyebrow and reads at normal size.
+                The question is in red; the "Tracking Drawdown:" half stays a quiet label. */}
+            <h1 className="eyebrow">
+              Tracking Drawdown: <span className="ask">Where Are You Losing?</span>
+            </h1>
             <div className="equity">
               <span className="slabel">Status :</span>
               <span className="t" style={{ color: !hasData ? 'var(--ink3)' : inDd ? 'var(--loss)' : 'var(--gain)' }}>
@@ -391,7 +424,7 @@ export default function DrawdownPanel({ sessionId, dispFont }: { sessionId?: str
                     {r.cells.map((c: any, i: number) => (
                       <div className="hc" key={i} style={heatBg(c.avgDdPct)}>
                         <div className="p" style={{ color: c.avgDdPct < 0 ? 'var(--heat-neg-ink)' : 'var(--ink3)' }}>{c.avgDdPct === 0 ? '0.0%' : `${c.avgDdPct.toFixed(1)}%`}</div>
-                        <div className="t">({c.total}T/{c.losses}L)</div>
+                        <div className="t"><WLB wins={c.wins} losses={c.losses} breakevens={c.breakevens} size={11} /></div>
                       </div>
                     ))}
                   </div>
@@ -407,7 +440,7 @@ export default function DrawdownPanel({ sessionId, dispFont }: { sessionId?: str
                 const tone = f.lossRate > 60 ? 'loss' : f.lossRate > 35 ? 'warn' : 'gain';
                 return (
                   <div key={i}>
-                    <div className="frow"><span className="dim" style={{ letterSpacing: '.06em' }}>{f.name}</span><span className={`num ${tone}`} style={{ fontSize: 12 }}>{f.losses}L / {f.total}T</span></div>
+                    <div className="frow"><span className="dim" style={{ letterSpacing: '.06em' }}>{f.name}</span><WLB wins={f.wins} losses={f.losses} breakevens={f.breakevens} /></div>
                     <div className="bar"><i style={{ width: `${Math.min(100, f.lossRate)}%`, background: toneVar(tone) }} /></div>
                     <div className="fsub">{f.lossRate}% loss rate</div>
                   </div>
@@ -430,7 +463,7 @@ export default function DrawdownPanel({ sessionId, dispFont }: { sessionId?: str
                   <div className="rp" key={ii}>
                     <span className="nm">{it.label}</span>
                     <span style={{ display: 'flex', gap: 12, alignItems: 'baseline' }}>
-                      <span className="v">{fmtDd(it.avgDdPct)}</span><span className="tl">{it.total}T/{it.losses}L</span>
+                      <span className="v">{fmtDd(it.avgDdPct)}</span><span className="tl"><WLB wins={it.wins} losses={it.losses} breakevens={it.breakevens} size={11} /></span>
                     </span>
                   </div>
                 ))}
@@ -446,7 +479,7 @@ export default function DrawdownPanel({ sessionId, dispFont }: { sessionId?: str
                 return (
                   <div className="sess" key={s.session}>
                     <div className="top"><span className="nm">{s.session}</span><span className={`vv ${tone}`}>{fmtDd(s.avgDdPct)}</span></div>
-                    <div className="sb">N={s.total} · {s.losses} losses</div>
+                    <div className="sb">N={s.total} · <WLB wins={s.wins} losses={s.losses} breakevens={s.breakevens} size={11} /></div>
                     <div className="sbar"><i style={{ width: `${Math.round(s.barWidthPct)}%`, background: toneVar(tone) }} /></div>
                     <div className="wp"><span className="l">Worst Pair</span><span className="r">{s.worstPair} {fmtDd(s.worstDdPct)}</span></div>
                   </div>

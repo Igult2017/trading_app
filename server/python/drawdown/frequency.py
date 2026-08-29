@@ -87,39 +87,43 @@ def compute_frequency(trades: list) -> dict:
 
     # ── Attribute groups ──────────────────────────────────────────────────────
     # Each group: { cat, name } → { total, losses }
-    attr_groups: dict[tuple, dict] = defaultdict(lambda: {"total": 0, "losses": 0})
+    attr_groups: dict[tuple, dict] = defaultdict(lambda: {"total": 0, "losses": 0, "wins": 0, "breakevens": 0})
+
+    def _bump(key, outcome):
+        """Count one trade into a group. ONE place, so a new group cannot be added that tallies
+        losses and quietly forgets wins and breakevens — which is how the page ended up with only a
+        loss count to display (2026-08-29)."""
+        g = attr_groups[key]
+        g["total"] += 1
+        if outcome == "loss":
+            g["losses"] += 1
+        elif outcome == "win":
+            g["wins"] += 1
+        elif outcome == "breakeven":
+            g["breakevens"] += 1
 
     for t in trades:
         outcome = get_outcome(t)
-        is_loss = outcome == "loss"
 
         # Strategy
         strat = get_strategy(t)
         if strat and strat != "Unknown":
-            key = ("Strategy", strat)
-            attr_groups[key]["total"]  += 1
-            attr_groups[key]["losses"] += int(is_loss)
+            _bump(("Strategy", strat), outcome)
 
         # Session
         session = get_session(t)
         if session and session != "Off-Hours":
-            key = ("Session", session)
-            attr_groups[key]["total"]  += 1
-            attr_groups[key]["losses"] += int(is_loss)
+            _bump(("Session", session), outcome)
 
         # Psychology
         psych = _psychology_tag(t)
         if psych:
-            key = ("Psychology", psych)
-            attr_groups[key]["total"]  += 1
-            attr_groups[key]["losses"] += int(is_loss)
+            _bump(("Psychology", psych), outcome)
 
         # Structure
         struct = _structural_tag(t)
         if struct:
-            key = ("Structure", struct)
-            attr_groups[key]["total"]  += 1
-            attr_groups[key]["losses"] += int(is_loss)
+            _bump(("Structure", struct), outcome)
 
     attr_list = []
     for (cat, name), d in attr_groups.items():
@@ -130,6 +134,8 @@ def compute_frequency(trades: list) -> dict:
             "name":     name,
             "total":    d["total"],
             "losses":   d["losses"],
+            "wins":     d["wins"],
+            "breakevens": d["breakevens"],
             "lossRate": _rate(d["losses"], d["total"]),
         })
     # Tie-break by name so two rows on an identical value cannot swap places depending on the
@@ -137,12 +143,18 @@ def compute_frequency(trades: list) -> dict:
     attr_list.sort(key=lambda x: (-x["lossRate"], x["name"]))
 
     # ── Instrument groups ─────────────────────────────────────────────────────
-    instr_groups: dict[str, dict] = defaultdict(lambda: {"total": 0, "losses": 0})
+    instr_groups: dict[str, dict] = defaultdict(lambda: {"total": 0, "losses": 0, "wins": 0, "breakevens": 0})
     for t in trades:
         instr   = get_instrument(t)
         outcome = get_outcome(t)
-        instr_groups[instr]["total"]  += 1
-        instr_groups[instr]["losses"] += int(outcome == "loss")
+        g = instr_groups[instr]
+        g["total"] += 1
+        if outcome == "loss":
+            g["losses"] += 1
+        elif outcome == "win":
+            g["wins"] += 1
+        elif outcome == "breakeven":
+            g["breakevens"] += 1
 
     instr_list = []
     for instr, d in instr_groups.items():
@@ -153,6 +165,8 @@ def compute_frequency(trades: list) -> dict:
             "name":     instr,
             "total":    d["total"],
             "losses":   d["losses"],
+            "wins":     d["wins"],
+            "breakevens": d["breakevens"],
             "lossRate": _rate(d["losses"], d["total"]),
         })
     # Tie-break by name so two rows on an identical value cannot swap places depending on the

@@ -42,7 +42,7 @@ def compute_heatmap(trades: list) -> list:
     # cell_data[instr][strat] = { total, losses, loss_pcts }
     cell_data: dict[str, dict[str, dict]] = {
         instr: {
-            strat: {"total": 0, "losses": 0, "loss_pcts": []}
+            strat: {"total": 0, "losses": 0, "wins": 0, "breakevens": 0, "loss_pcts": []}
             for strat in strategies
         }
         for instr in instruments
@@ -60,6 +60,10 @@ def compute_heatmap(trades: list) -> list:
             cell["losses"] += 1
             if pct is not None:
                 cell["loss_pcts"].append(pct)
+        elif outcome == "win":
+            cell["wins"] += 1
+        elif outcome == "breakeven":
+            cell["breakevens"] += 1
 
     # Build row dicts
     rows = []
@@ -77,6 +81,8 @@ def compute_heatmap(trades: list) -> list:
                 "avgDdPct": avg_dd,
                 "total":    total,
                 "losses":   losses,
+                "wins":     c["wins"],
+                "breakevens": c["breakevens"],
                 "lossRate": lr,
             })
         rows.append({

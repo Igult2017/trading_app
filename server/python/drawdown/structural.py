@@ -6,7 +6,7 @@ Labels with zero matching trades are never shown.
 """
 from __future__ import annotations
 from collections import defaultdict
-from ._utils import get_outcome, get_pnl_pct, blob_field, safe_mean, _s
+from ._utils import get_outcome, get_pnl_pct, blob_field, safe_mean, tally, _s
 
 
 def _bool_field(t: dict, key: str) -> bool | None:
@@ -28,7 +28,8 @@ def _build_item(label: str, group_trades: list, all_trades: list) -> dict:
     if total == 0:
         return None  # caller must filter
 
-    losses = sum(1 for t in group_trades if get_outcome(t) == "loss")
+    tl     = tally(group_trades)
+    losses = tl["losses"]
     loss_pcts = [
         p for t in group_trades
         if get_outcome(t) == "loss"
@@ -43,6 +44,10 @@ def _build_item(label: str, group_trades: list, all_trades: list) -> dict:
         "avgDdPct":    avg_dd,
         "total":       total,
         "losses":      losses,
+        # wins / breakevens carried so the row can be shown as a coloured W/L/B split instead of
+        # the old "8L" letter notation (2026-08-29).
+        "wins":        tl["wins"],
+        "breakevens":  tl["breakevens"],
         "lossRate":    loss_rate,
         "barWidthPct": loss_rate,
     }

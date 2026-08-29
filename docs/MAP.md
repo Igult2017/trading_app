@@ -139,6 +139,16 @@ is wrong.** Full wording lives in the linked doc; this is the index so you know 
 
 ## PROGRESS — what actually happened, newest first
 
+**2026-08-29 (b) — Drawdown page, his four presentation asks.** The font now **inherits** from the
+journal (it fell back to a hardcoded Playfair, and `.dp` is exempt from the journal's global font
+rule, so the page kept a face the journal had moved off). The banner heading is gone — it reads
+"Tracking Drawdown: **Where Are You Losing?**" on one line at label size, the question in red.
+Text contrast raised page-wide and **measured, not eyeballed**: every label now clears AAA, and the
+LIGHT theme had three real failures nobody had checked (`--ink3` at 2.56:1, below AA outright).
+Wins/losses/breakevens replace the "8L" letter notation as coloured figures — green / red / orange —
+which needed the backend to start carrying win and breakeven counts at all; it only ever counted
+losses.
+
 **2026-08-29 — the Drawdown page contradicted itself, and the cause was five copies of one rule.**
 The headline "Max Drawdown" and the Edge & Risk card's "actual max drawdown" are the same
 quantity computed in different modules; they disagreed by up to **23 percentage points**, and

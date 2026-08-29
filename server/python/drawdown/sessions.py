@@ -6,7 +6,7 @@ from __future__ import annotations
 from collections import defaultdict
 from ._utils import (
     get_session, get_outcome, get_pnl_pct,
-    get_instrument, safe_mean
+    get_instrument, safe_mean, tally
 )
 
 
@@ -33,6 +33,7 @@ def compute_sessions(trades: list) -> list:
         total  = len(group)
         losses = [t for t in group if get_outcome(t) == "loss"]
         loss_count = len(losses)
+        tl = tally(group)
 
         loss_pcts = [
             p for t in losses
@@ -65,6 +66,8 @@ def compute_sessions(trades: list) -> list:
             "avgDdPct":   avg_dd,
             "total":      total,
             "losses":     loss_count,
+            "wins":       tl["wins"],
+            "breakevens": tl["breakevens"],
             "lossRate":   loss_rate,
             "barWidthPct": loss_rate,   # frontend uses this as CSS width %
             "worstPair":  worst_pair,
