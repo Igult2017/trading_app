@@ -27,10 +27,13 @@ function TickerBand() {
         .hh-ticker-wrap { display:flex; animation: hh-ticker 40s linear infinite; will-change:transform; }
         .hh-ticker-wrap:hover { animation-play-state: paused; }
       `}</style>
-      <div className="hh-ticker-wrap">
+      {/* THE TICKER IS SANS AND LEGIBLE (2026-08-30). It was inheriting the page's Playfair Display —
+          a display serif rendering live prices at 11px — and its symbol labels measured 3.24:1 on
+          the dark bar, below the 4.5:1 floor. Found by scripts/check-readability.mjs, not by eye. */}
+      <div className="hh-ticker-wrap" style={{ fontFamily: "'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif" }}>
         {items.map((t, i) => (
           <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "0 28px", borderRight: "1px solid #0f1923", whiteSpace: "nowrap" }}>
-            <span style={{ color: "#4a6580", fontSize: 11, fontWeight: 700, letterSpacing: "0.06em" }}>{t.symbol}</span>
+            <span style={{ color: "#6B8AA8", fontSize: 11, fontWeight: 700, letterSpacing: "0.06em" }}>{t.symbol}</span>
             <span style={{ color: "#c8d8e8", fontSize: 11, fontWeight: 600 }}>{t.price}</span>
             <span style={{ fontSize: 11, fontWeight: 700, color: t.up ? "#22d3a5" : "#f4617f", background: t.up ? "rgba(34,211,165,0.08)" : "rgba(244,97,127,0.08)", padding: "1px 5px", borderRadius: 3 }}>{t.change}</span>
           </div>

@@ -74,6 +74,19 @@ specific phases.
 instruction: *"when I tell you we need to do it, you don't start from scratch and you already know
 where everything is and where it is supposed to go."*
 
+### "This page looks blurred / the text is hard to read"
+
+**[docs/READABILITY.md](READABILITY.md)** — the recipe, after five surfaces were fixed the same week
+with the same cause. **Run the tool before reading any code:**
+
+```bash
+npm run build && node scripts/check-readability.mjs "" blog calendar about
+```
+
+**The headline lesson: it is almost never the colour.** The economic calendar's greys already passed
+at 7.58:1 — the blur was a display serif at 8–10px in a dense table. The landing page had a constant
+literally named `sans` that was Playfair Display.
+
 ### "Why does the Drawdown page say that?"
 
 A **panel inside Journal**, not its own route — sidebar item `drawdown`, rendered at

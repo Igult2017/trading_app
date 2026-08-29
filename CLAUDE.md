@@ -4,7 +4,7 @@ A full-stack forex/crypto/stocks trading journal and signal platform. Built for 
 
 ---
 
-## ⚠ READ THESE THREE FIRST — before the code, before answering anything
+## ⚠ READ THESE FOUR FIRST — before the code, before answering anything
 
 His instruction, 2026-08-25: *"everytime i ask you a question about this code we start from scratch
 which introduces bugs along the way. Keep its map and progress."*
@@ -19,6 +19,7 @@ and never re-measure what it already records.**
 | **[docs/MAP.md](docs/MAP.md)** | **always.** Where everything lives, what state it is in, and the SETTLED rulings that must not be re-derived |
 | **[docs/OPEN.md](docs/OPEN.md)** | whenever something is broken or you are picking up work. The single list of what we have NOT addressed |
 | **[docs/RESTRUCTURE.md](docs/RESTRUCTURE.md)** | before moving ANY file, or when asked to organise the codebase. The agreed target structure, the file-by-file mapping, and what blocks each phase |
+| **[docs/READABILITY.md](docs/READABILITY.md)** | whenever a page is called blurred, dim or hard to read. The measuring tool, the three causes, and why it is almost never the colour |
 
 `docs/MAP.md` points at the one deeper doc each question needs. **Do not go straight to the code and
 work it out** — that is what keeps reintroducing defects. `docs/open-items.md` is now a HISTORICAL
