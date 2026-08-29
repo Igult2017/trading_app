@@ -263,8 +263,16 @@ def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "", debut=None
 
         # IS THE MARKET WORTH TRADING AT ALL — his "not in a retracement", answered by the market
         # state rather than by interrogating the candle (the candle is the proof the retracement
-        # ended; that is settled). Inert until he sets the two thresholds, so this changes nothing
-        # today; the reversal half of the same rule is already enforced by `t1 == 0` above.
+        # ended; that is settled). The reversal half of the same rule is enforced by `t1 == 0` above.
+        #
+        # ⚠ THIS IS LIVE AND IT REFUSES. The line here used to read "Inert until he sets the two
+        # thresholds, so this changes nothing today" — and that was FALSE, corrected 2026-08-29.
+        # The thresholds ARE set (`vix1_regime._PROGRESS_ATR = 0.50`, `_BOUNDARY_ATR = 0.75`) and
+        # `market_permits` refuses anything that is not a TREND: verified by calling it directly on a
+        # RANGE (refused) and a TREND (allowed), and measured live on all three instruments, where it
+        # was refusing at the time of reading. A comment claiming a working gate is switched off is
+        # how a working gate gets deleted by whoever reads it next, so it is asserted in
+        # `test_structure.py` rather than described here.
         refusal = market_permits(regime)
         if refusal:
             vix1_log.say(symbol, f"[vix1] {symbol} bias=NONE: {refusal} | {state_mc}")

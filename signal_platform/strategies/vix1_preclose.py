@@ -120,13 +120,14 @@ def check(h1_closed: list[Candle], h1_raw: list[Candle], symbol: str,
     for bullish in (True, False):
         if not is_momentum_candle(window, len(h1_closed), bullish, symbol):
             continue
-        if not _could_trade(h1_closed, bullish):
+        if not _could_trade(h1_closed, bullish, bar):
             return None
         return (bar, bullish, left)
     return None
 
 
-def _could_trade(h1_closed: list[Candle], bullish: bool) -> bool:
+def _could_trade(h1_closed: list[Candle], bullish: bool,
+                 forming_bar: Candle | None = None) -> bool:
     """Could a candle THIS WAY produce a bias at all? If not, there is nothing to be at the screen for.
 
     HIS CASE, 26 Aug 2026 01:58 UTC. He was sent *"XAU/USD · BUY · closes in ~1 minute"* and asked
@@ -135,6 +136,9 @@ def _could_trade(h1_closed: list[Candle], bullish: bool) -> bool:
     *"XAU/USD bias=NONE: down trend but no momentum candle that way"*. No route existed to trade it at
     any body size. (The candle also stopped qualifying before it closed, at $19.26 against the $21.12
     that triggered the card — the documented one-in-five.)
+
+    `forming_bar` is the bar still being built — it is what lets a BUY candle that is ITSELF turning
+    the market UP be announced; see the branch below. Omitted, this behaves exactly as before.
 
     THIS ASKS THE SAME QUESTION `detect_bias` ASKS, and deliberately not a stricter one:
 
@@ -158,6 +162,34 @@ def _could_trade(h1_closed: list[Candle], bullish: bool) -> bool:
     from strategies.vix1_trend import trend_state
     w = h1_closed[-_H1_TREND_BARS:]
     st = trend_state(w, n=_H1_SWING_N, turns=structure_turns(w, _H1_SWING_N))
+
+    # A BUY CANDLE THAT IS ITSELF TURNING THE MARKET UP (added 2026-08-29). Without this, the `pending
+    # == 1` test below can never fire on the bar that CREATES the pending turn — and that is not a
+    # tuning problem, it is arithmetic. This function is asked BEFORE the candle closes, so the state
+    # it reads is by definition the state BEFORE the break. The bar that proposes a turn up therefore
+    # always reads as counter-trend at the moment we ask, and is always silenced.
+    #
+    # NOTHING IS INVENTED. A change of character is defined ONE way in this codebase — price CLOSES
+    # through the level protecting the trend (`vix1_trend`, the CHoCH branch) — and `protected` is
+    # that level. This asks the same question of the bar in progress, which is legitimate in THIS
+    # module and nowhere else: it is the one place that deliberately reads the forming bar.
+    #
+    # ONE SIDE ONLY, AND THAT IS HIS RULE OF 2026-08-25, NOT A CHOICE MADE HERE. Traced through the
+    # real `trend_state` and `choch_entry` on a synthetic turn of each kind:
+    #
+    #     a SELL closing through an UPtrend's protection  -> pending -1 -> choch_entry REFUSES it
+    #                                                        ("a turn DOWN is not exempted from the
+    #                                                         pullback rule")
+    #     a BUY  closing through a DOWNtrend's protection -> pending +1 -> choch_entry gives a BIAS
+    #
+    # So the downward break has NO route and must stay silent — announcing it would re-open exactly
+    # what his 26 Aug instruction closed. Only the upward one is added. This mirrors `choch_entry`'s
+    # own one-sidedness rather than restating it, and it grants no permission the line below does not
+    # already grant — it grants the SAME one, one bar earlier, on the bar that earns it.
+    if (forming_bar is not None and bullish and st.direction == -1
+            and st.protected is not None and forming_bar.close > st.protected):
+        return True
+
     if bullish:
         return st.direction == 1 or st.pending == 1
     return st.direction == -1

@@ -144,6 +144,61 @@ candle, and the fall-back path is unreachable.
 
 ---
 
+### B3 — A change of character sets the trend to NOTHING, not to the new direction
+
+**Verified in the code.** `vix1_trend.py` — when price closes through the protecting level, it sets
+`st.pending = -1/+1` **and `st.direction = 0`**. So between the turn and its confirmation the strategy
+has no trend at all, rather than the new one.
+
+**His rule says otherwise:** *"the CHOCH logic is the only logic responsible for change of character
+and the trend logic must obey it at all time."*
+
+**MY EVIDENCE AGAINST CHANGING IT IS WITHDRAWN.** I measured raw direction drifting 48% of the time
+(a coin flip) and recommended against the change on that basis. That measurement was worthless: the
+strategy never trades raw direction. **Needs either his ruling or a test of what actually trades.**
+
+### B4 — The 8-bar pullback gate is never consulted on the change-of-character route
+
+**Verified:** the gate does not appear in `vix1_choch.py`, and that route returns before the normal
+route's gate is reached.
+
+**This may well be correct.** That route exists precisely to trade early *without* waiting for a
+pullback, so adding the gate would make it stricter — the opposite of its purpose. **His call, not
+mine.** Listed so it is a decision rather than an accident.
+
+### B5 — 94 sell setups a year produce nothing while the buy side trades 281 times
+
+**Measured over one year through the real `detect_bias`, both pairs:**
+
+| | bars with a **down** turn pending | of those, a SELL momentum candle | produced a trade |
+|---|---|---|---|
+| GBP/USD | 337 | 44 | **0** |
+| EUR/USD | 476 | 50 | **0** |
+| | **up** turn pending | | |
+| GBP/USD | 540 | | **128** |
+| EUR/USD | 644 | | **153** |
+
+**This is his own 25 August rule working exactly as specified** — a turn DOWN must run, pull back and
+turn back down first, and a turn UP need not. Nothing is broken. **The open question is only whether
+he wants the asymmetry at that size**, now that it has been counted.
+
+### B6 — About 1% of cases anchor the 8-bar gate to the wrong turn
+
+Measured, **not diagnosed**. It errs on the safe side (it refuses rather than allows) and the cause is
+unknown. Recorded so it is not rediscovered as new.
+
+### B7 — The gold notification case cannot be replayed, because the data stops six days short
+
+`test_preclose_needs_a_route.py` claimed to replay his 26 August gold card *"rebuilt from stored
+broker bars"*. **It did not.** The stored `XAUUSD_H1.csv` ends **19 Aug 11:00, 158 hours before** the
+card's hour, so the 26 Aug forming bar was being appended to a market with a six-day hole in it — the
+protecting level read 4403.72 while gold was actually near 4650.
+
+The false section was removed on 29 Aug and the rule it was meant to hold is now tested on clean,
+honestly-labelled fixtures. **What is still open is the replay itself:** it needs real XAU/USD H1 bars
+through 26 Aug 2026, which this machine does not have. The same gap affects any other question asked
+of gold after 19 Aug. **A paged broker pull would close it.**
+
 ## C. The web app
 
 ### C1 — ~~18 TypeScript errors, and the build does not typecheck~~ CLOSED 26 Aug

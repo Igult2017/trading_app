@@ -36,7 +36,27 @@ TESTS = [
     "test_preclose.py",             # the warning BEFORE the momentum candle closes (the only place
                                     # VIX.1 reads the forming bar on purpose)
     "test_headsup_untied.py",       # the heads-up fires on the CANDLE, never as the entry's else-branch
+    # ADDED 2026-08-29 — all four had been sitting unrun since the day each shipped, which is the
+    # SECOND time this list has silently lost a file (see test_choch.py above). Between them they
+    # hold his three most recent rulings, so the sweep was green while none of them was being asked.
+    "test_choch_bearish_proof.py",  # 25 Aug: a turn DOWN must run, pull back and turn back down
+    "test_preclose_bearish_hold.py",# 26 Aug: hold the notification until that turn has proved itself
+    "test_preclose_needs_a_route.py",# the notification may only speak when a route exists to trade
+    "test_leg_gate_obeys_choch.py", # 29 Aug: the 8-bar gate ignores structure from before the turn
+    # Found by the guard below the moment it was added — a FIFTH file nobody had noticed was unrun.
+    "test_live_quote.py",           # the live price read, and what happens when the feed is stale
 ]
+
+# AND THIS IS WHY IT WILL NOT HAPPEN A THIRD TIME. Adding a test file without listing it above is
+# invisible — the suite stays green because nothing ran it. Fail loudly instead of silently passing.
+_on_disk = {f for f in os.listdir(HERE) if f.startswith("test_") and f.endswith(".py")}
+_unlisted = sorted(_on_disk - set(TESTS))
+if _unlisted:
+    print("REFUSING TO RUN — these test files exist but are not in TESTS, so they would not run:")
+    for f in _unlisted:
+        print(f"    {f}")
+    print("Add them to the list above (or delete them if they are dead).")
+    sys.exit(2)
 
 worst = 0
 results = []
