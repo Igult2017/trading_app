@@ -86,7 +86,9 @@ def compute_heatmap(trades: list) -> list:
         })
 
     # Sort rows: worst instruments (most total losses) first
-    rows.sort(key=lambda r: r["_totalLosses"], reverse=True)
+    # Tie-break by name so two rows on an identical value cannot swap places depending on the
+    # order the trades happened to arrive in (2026-08-29).
+    rows.sort(key=lambda r: (-r["_totalLosses"], r.get("pair") or r.get("name") or ""))
 
     # Remove internal sort key before returning
     for r in rows:

@@ -3,10 +3,7 @@ drawdown/metrics.py
 Four headline KPIs: maxDrawdown, avgDrawdown, recoveryFactor, trendAlignment.
 """
 from __future__ import annotations
-from ._utils import (
-    get_pnl, get_pnl_pct, get_outcome, sort_by_date,
-    blob_field, safe_mean, _f
-)
+from ._utils import equity_curve, blob_field, safe_mean
 
 
 def compute_metrics(trades: list, starting_balance: float) -> dict:
@@ -25,20 +22,12 @@ def compute_metrics(trades: list, starting_balance: float) -> dict:
         return empty
 
     sb = float(starting_balance) if starting_balance else 10_000.0
-    sorted_trades = sort_by_date(trades)
 
-    # ── Build equity curve (pnl-based, fall back to pct-based) ───────────────
-    balance = sb
-    equity: list[float] = []
-    for t in sorted_trades:
-        pl = get_pnl(t)
-        if pl is not None:
-            balance += pl
-        else:
-            pct = get_pnl_pct(t)
-            if pct is not None:
-                balance = balance * (1 + pct / 100)
-        equity.append(balance)
+    # ── The equity curve ─────────────────────────────────────────────────────
+    # From `_utils`, which is the ONE definition this page shares. It used to be built here and in
+    # four other modules; the copies drifted and the same maximum drawdown was reported twice with
+    # two different values (2026-08-29). Sorting happens inside it, so no caller can forget it.
+    _sorted, equity = equity_curve(trades, sb)
 
     if not equity:
         return empty

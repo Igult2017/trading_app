@@ -54,7 +54,10 @@ def compute_sessions(trades: list) -> list:
         worst_pair = "N/A"
         worst_dd   = 0.0
         if instr_groups:
-            worst_pair = min(instr_groups, key=lambda k: safe_mean(instr_groups[k]))
+            # TIE-BREAK BY NAME (2026-08-29). Two instruments on an identical average is common, and
+            # `min` keeps whichever it met first — so the page could name a different "worst pair"
+            # from the very same trades, purely because they arrived in a different order.
+            worst_pair = min(instr_groups, key=lambda k: (safe_mean(instr_groups[k]), k))
             worst_dd   = round(safe_mean(instr_groups[worst_pair]), 2)
 
         result.append({
@@ -68,6 +71,7 @@ def compute_sessions(trades: list) -> list:
             "worstDdPct": worst_dd,
         })
 
-    # Sort: worst session (most negative avgDdPct) first
-    result.sort(key=lambda x: x["avgDdPct"])
+    # Sort: worst session (most negative avgDdPct) first, then by name so an exact tie cannot
+    # swap places depending on the order the trades happened to arrive in.
+    result.sort(key=lambda x: (x["avgDdPct"], x["session"]))
     return result

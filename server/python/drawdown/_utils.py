@@ -240,6 +240,85 @@ def sort_by_date(trades: list) -> list:
 
 # ── Instrument / strategy / session ──────────────────────────────────────────
 
+# ── THE equity curve ─────────────────────────────────────────────────────────
+# ONE definition, because five of them drifted apart (found 2026-08-29).
+#
+# Walking a trade list into a running balance used to be written out separately in metrics.py,
+# intelligence.py, recovery.py, distribution.py and montecarlo.py. Nothing forced the five copies to
+# agree and they had drifted into three different behaviours — so the SAME "maximum drawdown" was
+# reported twice on one page with two different values, up to 23 percentage points apart.
+#
+# Anything that needs a running balance or a drawdown reads it from here. `distribution.py` keeps its
+# own month-relative walk on purpose (it re-bases each month and measures against the starting
+# balance for comparability across months — see the comment there); that is a different quantity,
+# not another copy of this one.
+
+
+def equity_curve(trades: list, starting_balance: float) -> tuple[list, list]:
+    """Balance after each trade, in DATE ORDER. Returns (sorted trades, balances).
+
+    ORDER IS NOT OPTIONAL. A drawdown is a property of the sequence, so the same trades in a
+    different order give a different answer. The database hands entries over newest-FIRST
+    (`storage.getJournalEntries`, `orderBy(desc(createdAt))`), so anything walking the raw list is
+    reading the account backwards. Sorting HERE means a caller cannot forget.
+
+    The rule for one trade, unchanged from what metrics/intelligence/recovery already agreed on:
+    add the realised profit/loss in account currency; when a trade carries no cash amount but does
+    carry its own percentage, apply that percentage to the running balance.
+
+    Both are returned so callers that need per-trade dates or indices (intelligence) can line them
+    up against the balances without sorting a second time and risking a different order.
+    """
+    sb = float(starting_balance) if starting_balance else 10_000.0
+    st = sort_by_date(trades)
+    bal = sb
+    out: list = []
+    for t in st:
+        pl = get_pnl(t)
+        if pl is not None:
+            bal += pl
+        else:
+            pct = get_pnl_pct(t)
+            if pct is not None:
+                bal = bal * (1 + pct / 100)
+        out.append(bal)
+    return st, out
+
+
+def trade_deltas(balances: list, starting_balance: float) -> list:
+    """Each trade's effect on the balance, in account currency, from an `equity_curve`.
+
+    This is what a simulation may resample: a trade's cash result is a fact about that trade, so
+    drawing them in a different order re-runs the same account through a different sequence. Drawing
+    PERCENTAGES and compounding them would not be — see the note on `equity_curve`.
+    """
+    sb = float(starting_balance) if starting_balance else 10_000.0
+    prev = sb
+    out: list = []
+    for v in balances:
+        out.append(v - prev)
+        prev = v
+    return out
+
+
+def max_drawdown_pct(balances: list, starting_balance: float) -> float:
+    """Deepest fall from a peak, as a percent of that peak. Negative, or 0.0 if never underwater.
+
+    THE PEAK STARTS AT THE STARTING BALANCE, not at the first trade's result, so a loss on the very
+    first trade counts as a real drawdown rather than being swallowed.
+    """
+    peak = float(starting_balance) if starting_balance else 10_000.0
+    mdd = 0.0
+    for v in balances:
+        if v > peak:
+            peak = v
+        if peak > 0:
+            dd = (v - peak) / peak * 100.0
+            if dd < mdd:
+                mdd = dd
+    return mdd
+
+
 def get_instrument(t: dict) -> str:
     """Instrument/pair name, normalised IDENTICALLY to the Metrics page
     (metrics_calculator._normalize_instrument): upper-case + strip '/', '-', '_'

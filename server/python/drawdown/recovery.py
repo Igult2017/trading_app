@@ -7,7 +7,7 @@ your running peak), do you trade BIGGER (revenge-recovery) or smaller
 vs at/above the peak. Pure, never raises.
 """
 from __future__ import annotations
-from ._utils import get_pnl, get_pnl_pct, sort_by_date, safe_mean, blob_field, _f
+from ._utils import equity_curve, safe_mean, blob_field, _f
 
 _EMPTY = {
     "hasData": False, "underwaterAvgSize": 0.0, "baselineAvgSize": 0.0,
@@ -29,25 +29,28 @@ def compute_recovery(trades: list, starting_balance: float) -> dict:
         return _EMPTY
 
     sb = float(starting_balance) if starting_balance else 10_000.0
-    bal = sb
+
+    # The equity curve comes from `_utils` — the ONE definition this page shares (2026-08-29).
+    # This module needs the balance BEFORE each trade (it classifies a trade by the state you were
+    # in when you ENTERED it), which is the previous entry in the curve — starting balance for the
+    # first trade.
+    st, curve = equity_curve(trades, sb)
     peak = sb
     uw_sizes, base_sizes = [], []
 
-    for t in sort_by_date(trades):
+    bal_before = sb
+    for t, bal_after in zip(st, curve):
         # Classify by the equity state BEFORE this trade was entered.
-        underwater = bal < peak - 1e-9
+        if bal_before < peak - 1e-9:
+            target = uw_sizes
+        else:
+            target = base_sizes
         sz = _size(t)
         if sz is not None and sz > 0:
-            (uw_sizes if underwater else base_sizes).append(sz)
-        pl = get_pnl(t)
-        if pl is not None:
-            bal += pl
-        else:
-            pct = get_pnl_pct(t)
-            if pct is not None:
-                bal *= (1 + pct / 100)
-        if bal > peak:
-            peak = bal
+            target.append(sz)
+        if bal_after > peak:
+            peak = bal_after
+        bal_before = bal_after
 
     if not uw_sizes or not base_sizes:
         return _EMPTY

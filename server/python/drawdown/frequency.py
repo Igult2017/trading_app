@@ -132,7 +132,9 @@ def compute_frequency(trades: list) -> dict:
             "losses":   d["losses"],
             "lossRate": _rate(d["losses"], d["total"]),
         })
-    attr_list.sort(key=lambda x: x["lossRate"], reverse=True)
+    # Tie-break by name so two rows on an identical value cannot swap places depending on the
+    # order the trades happened to arrive in (2026-08-29).
+    attr_list.sort(key=lambda x: (-x["lossRate"], x["name"]))
 
     # ── Instrument groups ─────────────────────────────────────────────────────
     instr_groups: dict[str, dict] = defaultdict(lambda: {"total": 0, "losses": 0})
@@ -153,6 +155,8 @@ def compute_frequency(trades: list) -> dict:
             "losses":   d["losses"],
             "lossRate": _rate(d["losses"], d["total"]),
         })
-    instr_list.sort(key=lambda x: x["lossRate"], reverse=True)
+    # Tie-break by name so two rows on an identical value cannot swap places depending on the
+    # order the trades happened to arrive in (2026-08-29).
+    instr_list.sort(key=lambda x: (-x["lossRate"], x["name"]))
 
     return {"attr": attr_list, "instr": instr_list}

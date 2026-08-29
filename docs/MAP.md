@@ -62,6 +62,29 @@ bx_sd_reports    the heads-up and stand-aside cards
 **Read [strategies/vix1-architecture.md](./strategies/vix1-architecture.md) first**, then
 [strategies/vix1.md](./strategies/vix1.md) for the settled rules and the fix log.
 
+### "Why does the Drawdown page say that?"
+
+A **panel inside Journal**, not its own route — sidebar item `drawdown`, rendered at
+`client/src/pages/Journal.tsx:1516`.
+
+| layer | where |
+|---|---|
+| the panel | `client/src/components/DrawdownPanel.tsx` (527 lines), `components/drawdown/diveProfile.tsx` (the underwater chart), `components/drawdown/dpStyles.ts` |
+| the route | `server/routes.ts:1723` — `/api/drawdown/compute`, cached 5 min per user+session, dropped when the trade count changes |
+| the maths | `server/services/drawdownCalculator.ts` spawns `server/python/drawdown/main.py` -> `core.py` -> 13 modules |
+
+It runs on your **journal trade entries**; it has nothing to do with the signal platform.
+
+**Two things that will bite you if you do not know them:**
+
+* **The equity curve has ONE definition — `_utils.equity_curve`** (2026-08-29). It used to be written
+  out five times and the copies drifted, which put two different "maximum drawdown" figures on the
+  same page. `distribution.py` keeps its own month-relative walk on purpose (a different quantity,
+  documented there). `test_consistency.py` fails if a sixth copy appears.
+* **The database returns entries NEWEST-FIRST** (`storage.getJournalEntries`, `orderBy(desc(createdAt))`).
+  A drawdown is a property of the sequence, so anything walking that list raw reads the account
+  backwards. `equity_curve` sorts internally so a caller cannot forget.
+
 ### "Why is the site slow / the logo late / the theme wrong?"
 
 [performance-audit.md](./performance-audit.md), then the client files. Caching lives in
@@ -115,6 +138,14 @@ is wrong.** Full wording lives in the linked doc; this is the index so you know 
 ---
 
 ## PROGRESS — what actually happened, newest first
+
+**2026-08-29 — the Drawdown page contradicted itself, and the cause was five copies of one rule.**
+The headline "Max Drawdown" and the Edge & Risk card's "actual max drawdown" are the same
+quantity computed in different modules; they disagreed by up to **23 percentage points**, and
+risk-of-ruin was wrong in **both** directions (41.8% where it should read 17.9%). Root cause:
+"walk a trade list into a running balance" was written out five times and had drifted into three
+behaviours. Now one shared definition, plus deterministic tie-breaks so equal-valued rows cannot
+swap on reload. 11 of 12 sections byte-identical after the change; 16 checks with teeth.
 
 Kept short on purpose. The **detail** lives in each strategy's fix log; this is the timeline so you
 can see at a glance whether an area has been touched recently.

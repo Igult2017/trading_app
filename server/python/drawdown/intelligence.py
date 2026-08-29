@@ -13,7 +13,7 @@ Pure, never raises. Reuses the same equity-curve logic as metrics.py.
 """
 from __future__ import annotations
 from ._utils import (
-    get_pnl, get_pnl_pct, get_trade_dt, sort_by_date,
+    equity_curve, get_pnl, get_pnl_pct, get_trade_dt,
     get_strategy, get_instrument, get_direction, safe_mean,
 )
 
@@ -69,7 +69,9 @@ def _group_drawdown(trades: list, key_fn) -> list:
         g["totalLossPct"] = round(g["totalLossPct"], 2)
         g["netPct"]       = round(g["netPct"], 2)
         out.append(g)
-    out.sort(key=lambda x: x["totalLossPct"])   # most-negative first
+    # Tie-break by name so two rows on an identical value cannot swap places depending on the
+    # order the trades happened to arrive in (2026-08-29).
+    out.sort(key=lambda x: (x["totalLossPct"], x["name"]))   # most-negative first
     return out[:8]
 
 
@@ -103,7 +105,11 @@ def _group_metrics(records: list, attr: str, sb: float) -> list:
         g["totalLossPct"] = round(g["totalLossPct"], 2)
         g["netPct"]       = round(g["netPct"], 2)
         out.append(g)
-    out.sort(key=lambda x: x["totalLossPct"])
+    # Tie-break by name so two rows on an identical value cannot swap places depending on the
+    # order the trades happened to arrive in (2026-08-29). This is the list the panel actually
+    # shows — the sibling `_group_drawdown` above is only the fallback when the Metrics parser
+    # is unavailable, and BOTH needed it.
+    out.sort(key=lambda x: (x["totalLossPct"], x["name"]))
     return out[:8]
 
 
@@ -112,22 +118,12 @@ def compute_intelligence(trades: list, starting_balance: float) -> dict:
         return _EMPTY
 
     sb = float(starting_balance) if starting_balance else 10_000.0
-    st = sort_by_date(trades)
 
-    # Equity curve with per-trade dates (same construction as metrics.py).
-    eqs: list = []
-    dts: list = []
-    bal = sb
-    for t in st:
-        pl = get_pnl(t)
-        if pl is not None:
-            bal += pl
-        else:
-            pct = get_pnl_pct(t)
-            if pct is not None:
-                bal = bal * (1 + pct / 100)
-        eqs.append(bal)
-        dts.append(get_trade_dt(t))
+    # The equity curve comes from `_utils` — the ONE definition this page shares (2026-08-29). It
+    # returns the sorted trades alongside the balances, so the dates line up with the curve without
+    # sorting a second time and risking a different order.
+    st, eqs = equity_curve(trades, sb)
+    dts: list = [get_trade_dt(t) for t in st]
 
     n = len(eqs)
     # Peak anchored at starting balance (a first-trade loss is a real drawdown).
