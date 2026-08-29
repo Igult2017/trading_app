@@ -253,7 +253,9 @@ def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "", debut=None
         # the turn. A causal variant (right-hand window swept 6/4/3/2/1) was built and measured —
         # it fixes nothing extra and at right<=4 it ALLOWS MORE on gold, because early pivots un-turn,
         # the verdict falls to "mixed", and "mixed" does not refuse. So the symmetric 8 stays.
-        leg = leg_state(at_mc, t1, n=_FAST_N)
+        # THE TURN'S POSITION COMES FROM `t_mc`, NOT `tstate` — `t_mc` is the state computed on
+        # `at_mc`, and an index from the full window would point at the wrong bar here.
+        leg = leg_state(at_mc, t1, n=_FAST_N, choch_index=t_mc.choch_index)
         if not leg.ready:
             vix1_log.say(symbol, f"[vix1] {symbol} bias=NONE: {'up' if bullish else 'down'} momentum WITH the "
                                  f"trend, but the leg does not permit it — {leg.why} | {state_mc}")
@@ -295,7 +297,8 @@ def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "", debut=None
         # setups over 1500 bars on XAU/USD / EUR/USD / GBP/USD.
         pb_since = vix1_retracement.pullback_since(window, t1, since=mstate.direction_since)
         stale_evidence = pb_since is not None and h1[mc_idx].time < pb_since
-        live_leg = leg_state(window, t1, n=_FAST_N)
+        # ...and here the window IS the full one, so the index comes from `tstate`.
+        live_leg = leg_state(window, t1, n=_FAST_N, choch_index=tstate.choch_index)
         live_regime = vix1_regime.classify(turns, atr(window, 14))
         live_refusal = market_permits(live_regime)
         if stale_evidence or not live_leg.ready or live_refusal:
@@ -315,7 +318,7 @@ def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "", debut=None
         # Same 8-bar source as branch 1 — changed together so the two can never drift apart. This
         # branch is muted, and a muted branch holding the OLD wiring is exactly how a defect comes
         # back the day someone flips `_ALLOW_H4`.
-        leg = leg_state(at_mc, want, n=_FAST_N)
+        leg = leg_state(at_mc, want, n=_FAST_N, choch_index=t_mc.choch_index)
         if not leg.ready:
             vix1_log.say(symbol, f"[vix1] {symbol} bias=NONE: 4HR-backed direction but the leg does not "
                                  f"permit it — {leg.why} | {state_mc}")

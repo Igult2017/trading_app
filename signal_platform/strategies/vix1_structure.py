@@ -90,7 +90,8 @@ def _distinct(points, n: int):
     return out
 
 
-def fast_pattern(candles: list[Candle], n: int = _FAST_N) -> str:
+def fast_pattern(candles: list[Candle], n: int = _FAST_N,
+                 choch_index: int | None = None) -> str:
     """What the recent structure is doing: 'up' (HH+HL), 'down' (LH+LL), 'mixed', or 'unclear'.
 
     THE SOURCE IS THE n-BAR LOOKBACK, AND THAT IS DELIBERATE (restored 2026-08-19). Between
@@ -118,6 +119,45 @@ def fast_pattern(candles: list[Candle], n: int = _FAST_N) -> str:
     pts = sorted(find_swing_points(candles, n), key=lambda p: p.index)
     # a lookback pivot at index j is not knowable until j+n, so the last n bars hold none
     pts = _distinct([p for p in pts if p.index <= len(candles) - 1 - n], n)
+
+    # STRUCTURE FROM BEFORE THE TURN DESCRIBES THE MOVE THAT ENDED (his rule, 2026-08-29):
+    #
+    #     "8 bar should stop defining the trend when CHOCH logic has confirmed change of character,
+    #      because 8 bar is for pullback and the main pullback logic is already coordinating with
+    #      CHOCH logic — so logically it doesn't make sense that the main pullback logic obeys CHOCH
+    #      logic and 8 bars pullback logic ignores it."
+    #
+    # He is right, and the inconsistency was real. The MAIN pullback reading (`vix1_trend`, where
+    # counter-swings are banked without moving the protecting level) is the thing the change of
+    # character is measured against — it obeys the turn by construction. This gate did not: it
+    # compared the last two highs and lows with no idea a turn had happened.
+    #
+    # HIS CASE, measured on the real bars. GBP/USD 26 Aug 2026 15:00 (UTC+3), a 21.5-pip drop. The
+    # four swings this function compared were from 4 Aug (52 bars back), 25 Aug (16), 5 Aug (47) and
+    # 25 Aug (31) — highs rising, lows rising, verdict "up", so a 21-pip fall was called "a pullback,
+    # not a continuation". Price was 1.36068; the newest swing it used was 1.36543. Half the evidence
+    # predated the turn entirely.
+    #
+    # AND IT IS STRUCTURAL, NOT BAD LUCK. A swing needs `n` bars on each side, so the newest `n` bars
+    # can never hold one (the line above). Straight after a reversal this function is necessarily
+    # still describing the move that just ended — it cannot see the turn for another `n` bars.
+    #
+    # WHEN TOO LITTLE IS LEFT, THE ANSWER IS "unclear" — WHICH DOES NOT REFUSE. That is the whole
+    # behaviour change: the gate goes QUIET while its evidence is stale, instead of refusing on it,
+    # and keeps its teeth everywhere else.
+    #
+    # MEASURED over one year on all three instruments, counting pro-trend momentum candles that
+    # actually reach this gate: 39/414 GBP/USD, 30/384 EUR/USD, 16/195 XAU/USD stop being refused —
+    # and NOTHING is newly refused on any of them (0%). It can only loosen, never tighten.
+    #
+    # THE 10 AUG CASE — the loss this gate exists to prevent — is untouched: no change of character
+    # was on record then, so this filter does nothing and the verdict is identical.
+    #
+    # `choch_index` MUST come from the trend state computed on THIS SAME window, or it points at the
+    # wrong bar. Omitted, this reproduces the pre-2026-08-29 behaviour exactly.
+    if choch_index is not None:
+        pts = [p for p in pts if p.index > choch_index]
+
     highs = [p for p in pts if p.is_high]
     lows = [p for p in pts if not p.is_high]
     if len(highs) < 2 or len(lows) < 2:
@@ -129,7 +169,8 @@ def fast_pattern(candles: list[Candle], n: int = _FAST_N) -> str:
     return "mixed"
 
 
-def leg_state(candles: list[Candle], direction: int, n: int = _FAST_N) -> LegState:
+def leg_state(candles: list[Candle], direction: int, n: int = _FAST_N,
+              choch_index: int | None = None) -> LegState:
     """May we ride this trend right now?
 
     `direction` MUST come from vix1_trend — this function never infers it, by design. Refusals carry
@@ -140,10 +181,15 @@ def leg_state(candles: list[Candle], direction: int, n: int = _FAST_N) -> LegSta
     the pattern below is read from the n-bar lookback. They are deliberately NOT the same source —
     see `fast_pattern`. When they were made the same (2026-08-12 to 2026-08-19) this gate was asking
     the trend to contradict itself, and it stopped refusing pullbacks.
+
+    `choch_index` — where the change of character sits, so the pattern below ignores structure that
+    predates it (his rule, 2026-08-29; the reasoning is in `fast_pattern`). It MUST come from the
+    trend state computed on the SAME `candles` window as is passed here, or it indexes the wrong bar.
+    Both arrive from the same caller for exactly that reason.
     """
     if direction == 0:
         return LegState(why="no established trend — nothing may be traded")
-    pattern = fast_pattern(candles, n)
+    pattern = fast_pattern(candles, n, choch_index)
     opposite = "down" if direction == 1 else "up"
     if pattern == opposite:
         way = "up" if direction == 1 else "down"
