@@ -519,9 +519,13 @@ export default function BlogPostPage() {
         publisher: { '@type': 'Organization', name: 'Trade&Journal', url: 'https://tradeandjournal.com' },
       }}
     />
-    /* READING TEXT IS SANS, HEADLINES ARE SERIF — the same split the blog index uses. The whole
-       page used to be set in Playfair, which is handsome on a headline and tiring over a
-       1,500-word article at 17px. Every heading below still names the serif explicitly. */
+    {/* READING TEXT IS SANS, HEADLINES ARE SERIF — the same split the blog index uses. The whole
+        page used to be set in Playfair, which is handsome on a headline and tiring over a
+        1,500-word article at 17px. Every heading below still names the serif explicitly.
+
+        THE BRACES ARE LOAD-BEARING. Written as a bare /* … *​/ between two elements this is not a
+        comment at all — it is TEXT, and it printed itself across the top of every article page.
+        It typechecked and it built, because text between elements is perfectly legal. */}
     <div style={{ minHeight: '100vh', background: bg, color: text, fontFamily: SANS, transition: 'background 0.5s,color 0.5s' }}>
       <ReadingProgress isDark={isDark} />
 
