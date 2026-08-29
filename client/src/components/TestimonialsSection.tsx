@@ -10,6 +10,9 @@ import { Star } from 'lucide-react';
 import Brand from '@/components/Brand';
 
 const SERIF = { fontFamily: "'Playfair Display', Georgia, serif" } as const;
+// The pull-quote stays in the serif on purpose — a testimonial set in it reads as a quotation.
+// Everything around it (eyebrow, supporting line, name and role) is there to be read (2026-08-30).
+const SANS  = { fontFamily: "'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif" } as const;
 
 /** PLACEHOLDER COPY — these are not real customers.
  *
@@ -54,7 +57,7 @@ export default function TestimonialsSection({ darkMode }: { darkMode: boolean })
   return (
     <section id="reviews" style={{ background: t.bg, padding: '84px 0', transition: 'background .4s ease' }}>
       <div style={{ maxWidth: 1240, margin: '0 auto', padding: '0 24px' }}>
-        <p style={{ ...SERIF, textAlign: 'center', fontSize: 10.5, fontWeight: 700, letterSpacing: '0.22em',
+        <p style={{ ...SANS, textAlign: 'center', fontSize: 11.5, fontWeight: 700, letterSpacing: '0.18em',
                     textTransform: 'uppercase', color: t.dim, marginBottom: 14 }}>
           Testimonials
         </p>
@@ -62,7 +65,7 @@ export default function TestimonialsSection({ darkMode }: { darkMode: boolean })
                      color: t.ink, margin: '0 0 12px', letterSpacing: '-0.015em' }}>
           Loved by traders across the globe
         </h2>
-        <p style={{ ...SERIF, textAlign: 'center', fontSize: 15, color: t.body, margin: '0 0 52px' }}>
+        <p style={{ ...SANS, textAlign: 'center', fontSize: 15, color: t.body, margin: '0 0 52px' }}>
           What traders say about <Brand />
         </p>
 
@@ -90,7 +93,7 @@ export default function TestimonialsSection({ darkMode }: { darkMode: boolean })
               <figcaption style={{ display: 'flex', justifyContent: 'space-between',
                                    alignItems: 'flex-end', gap: 12 }}>
                 <div>
-                  <div style={{ ...SERIF, fontWeight: 700, fontSize: 14, color: t.ink }}>{r.name}</div>
+                  <div style={{ ...SANS, fontWeight: 700, fontSize: 14, color: t.ink }}>{r.name}</div>
                   <div style={{ ...SERIF, fontSize: 12.5, color: t.dim, marginTop: 2 }}>{r.city}</div>
                 </div>
                 <span style={{

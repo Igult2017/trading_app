@@ -30,9 +30,9 @@ function TickerBand() {
       <div className="hh-ticker-wrap">
         {items.map((t, i) => (
           <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "0 28px", borderRight: "1px solid #0f1923", whiteSpace: "nowrap" }}>
-            <span style={{ color: "#4a6580", fontSize: 10, fontWeight: 700, letterSpacing: "0.06em" }}>{t.symbol}</span>
-            <span style={{ color: "#c8d8e8", fontSize: 10, fontWeight: 600 }}>{t.price}</span>
-            <span style={{ fontSize: 9, fontWeight: 700, color: t.up ? "#22d3a5" : "#f4617f", background: t.up ? "rgba(34,211,165,0.08)" : "rgba(244,97,127,0.08)", padding: "1px 5px", borderRadius: 3 }}>{t.change}</span>
+            <span style={{ color: "#4a6580", fontSize: 11, fontWeight: 700, letterSpacing: "0.06em" }}>{t.symbol}</span>
+            <span style={{ color: "#c8d8e8", fontSize: 11, fontWeight: 600 }}>{t.price}</span>
+            <span style={{ fontSize: 11, fontWeight: 700, color: t.up ? "#22d3a5" : "#f4617f", background: t.up ? "rgba(34,211,165,0.08)" : "rgba(244,97,127,0.08)", padding: "1px 5px", borderRadius: 3 }}>{t.change}</span>
           </div>
         ))}
       </div>
@@ -91,7 +91,8 @@ export default function HomeHeader({ darkMode, setDarkMode, activePath }: HomeHe
   // Logo at 700. Playfair is loaded as a VARIABLE font (400-900 in one file), so this is a real
   // weight, not the browser faux-bolding a 400 face.
   const hFont = { fontFamily: "'Playfair Display', serif",     fontWeight: 700, letterSpacing: "0.01em" } as const;
-  const nFont = { fontFamily: "'Playfair Display', serif", fontWeight: 400 } as const;
+  // Navigation is READ, not admired — sans. The logo above keeps the serif (2026-08-30).
+  const nFont = { fontFamily: "'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif", fontWeight: 500 } as const;
 
   const handleLinkHover = useCallback((href: string) => {
     if (!PREFETCH_HREFS.has(href) || prefetchedRef.current.has(href)) return;

@@ -123,7 +123,8 @@ export default function PricingSection({ darkMode }: { darkMode: boolean }) {
                           ? 'border-2 border-slate-600 text-white hover:border-blue-500'
                           : 'border-2 border-slate-200 text-slate-800 hover:border-blue-400'
                     )}
-                    style={{ fontFamily: "'Playfair Display', serif", display: 'block' }}
+                    // A button is read and clicked, not admired — sans (2026-08-30).
+                    style={{ fontFamily: "'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif", fontWeight: 600, display: 'block' }}
                   >
                     {plan.cta}
                   </button>

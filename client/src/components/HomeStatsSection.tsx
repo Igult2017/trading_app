@@ -2,8 +2,9 @@ import { Calendar, BarChart2, Diamond, PieChart, ArrowRight } from 'lucide-react
 import { openAuthModal } from "@/components/auth/AuthModal";
 import StartFreeButton from '@/components/StartFreeButton';
 
-const serif = { fontFamily: "'Playfair Display', serif" } as const;
-const sans  = { fontFamily: "'Playfair Display', serif" } as const;
+// `sans` was Playfair Display here too — same misnaming as HomePage (2026-08-30).
+const serif = { fontFamily: "'Playfair Display', Georgia, serif" } as const;
+const sans  = { fontFamily: "'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif" } as const;
 
 const features = [
   {

@@ -9,9 +9,17 @@ import HomeStatsSection from "@/components/HomeStatsSection";
 import Brand from '@/components/Brand';
 import StartFreeButton from '@/components/StartFreeButton';
 
-const display = { fontFamily: "'Playfair Display', serif" } as const;
-const serif   = { fontFamily: "'Playfair Display', serif" } as const;
-const sans    = { fontFamily: "'Playfair Display', serif" } as const;
+/**
+ * THE THREE TYPE ROLES. `sans` used to be Playfair Display too (2026-08-30) — a constant named
+ * "sans" that resolved to the serif, used 15 times on this page for body copy, labels and buttons.
+ * The code READ as though it had a proper split, which is exactly why nobody caught it: there was
+ * not one sans-serif font anywhere on the landing page, headlines to footnotes.
+ *
+ * Headlines stay in the serif — that is the brand. Everything meant to be READ is sans now.
+ */
+const display = { fontFamily: "'Playfair Display', Georgia, serif" } as const;
+const serif   = { fontFamily: "'Playfair Display', Georgia, serif" } as const;
+const sans    = { fontFamily: "'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif" } as const;
 
 const features = [
   { icon: <BookOpen size={18} />,  title: "Trade Journal",   sub: "Free forever" },
@@ -91,7 +99,7 @@ export default function HomePage() {
 
           {/* Right — feature cards */}
           <div>
-            <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: muted, marginBottom: 14, ...sans }}>OUR FEATURES</p>
+            <p style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: muted, marginBottom: 14, ...sans }}>OUR FEATURES</p>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               {features.map((f, i) => (
                 <div key={i}
@@ -114,7 +122,7 @@ export default function HomePage() {
       {/* ── Trust marquee ────────────────────────────────────────────── */}
       <div style={{ background: bg2, borderTop: `1px solid ${border}`, borderBottom: `1px solid ${border}`, padding: '14px 0' }}>
         <div style={{ maxWidth: 1280, margin: '0 auto', overflow: 'hidden' }}>
-          <div className="hp-mq" style={{ gap: 56, fontWeight: 600, fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', color: muted, ...sans }}>
+          <div className="hp-mq" style={{ gap: 56, fontWeight: 600, fontSize: 11.5, letterSpacing: '0.14em', textTransform: 'uppercase', color: muted, ...sans }}>
             {[...trustItems, ...trustItems].map((t, i) => (
               <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 12, flexShrink: 0, paddingRight: 56 }}>
                 <span style={{ width: 4, height: 4, borderRadius: '50%', background: '#2563eb', display: 'inline-block', flexShrink: 0 }} />

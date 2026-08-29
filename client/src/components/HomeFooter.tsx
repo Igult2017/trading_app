@@ -78,7 +78,8 @@ export default function HomeFooter({ darkMode = false }: HomeFooterProps) {
   // Logo at 700, matching the header. Playfair is a VARIABLE font here (400-900 in one file), so
   // this is a real weight rather than a faux-bold.
   const hFont = { fontFamily: "'Playfair Display', serif", fontWeight: 700, letterSpacing: "0.01em" } as const;
-  const bFont = { fontFamily: "'Playfair Display', serif" } as const;
+  // Body/links are sans; the logo above keeps the serif (2026-08-30).
+  const bFont = { fontFamily: "'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif" } as const;
   const cap: React.CSSProperties = { ...bFont, fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: capClr, marginBottom: 20, display: "block" };
 
   const scrollToHash = (hash: string) => {
