@@ -1,6 +1,6 @@
 import { Helmet } from 'react-helmet-async';
 
-const SITE_NAME = 'Trade&Journal';
+import { pageTitle, SITE_NAME } from '@/hooks/usePageTitle';
 const DEFAULT_DESC = 'A professional-grade trading journal and signal analysis platform for Forex, Crypto, and Commodities traders. Log trades, track psychology, and unlock your edge with AI-powered analytics.';
 const DEFAULT_IMAGE = 'https://tradeandjournal.com/og-image.png';
 const SITE_URL = typeof window !== 'undefined' ? window.location.origin : 'https://tradeandjournal.com';
@@ -32,7 +32,10 @@ export default function SEOHead({
   publishedTime,
   modifiedTime,
 }: SEOHeadProps) {
-  const fullTitle = title ? `${title} | ${SITE_NAME}` : `${SITE_NAME} – Professional Trading Journal`;
+  // ONE builder for every tab title (2026-08-29) — it owns the em dash he asked for. This used to
+  // assemble its own with a pipe, and an en dash on the default, while two other files used a
+  // hyphen and a lowercase pipe. Three separators for one job.
+  const fullTitle = pageTitle(title);
   const canonicalUrl = canonical ? `${SITE_URL}${canonical}` : (typeof window !== 'undefined' ? window.location.href : SITE_URL);
 
   const schemas = jsonLd ? (Array.isArray(jsonLd) ? jsonLd : [jsonLd]) : [];

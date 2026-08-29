@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { useDelayedLoading } from '@/components/TradingLoader';
+import { pageTitle, HOME_TITLE } from '@/hooks/usePageTitle';
 import { DashboardSkeleton, JournalBootSkeleton } from '@/components/skeletons/DashboardSkeletons';
 import { usePageTracking } from '@/hooks/usePageTracking';
 import { Link, useSearch } from 'wouter';
@@ -89,7 +90,8 @@ const NAV_SECTIONS: NavGroup[] = [
 // the component spelling all thirteen again in lowercase ("journal | trade vault"), and it had
 // already drifted from the nav it was meant to mirror: "sync trade" where the sidebar says
 // FX Copier, "strategy audit" where it says Audit. One list, one spelling.
-const SUITE_TITLE = 'Trade&Journal';
+// The site name and the tab-title separator both live in usePageTitle now, so this file no
+// longer keeps its own copy of either.
 const NAV_LABELS: Record<string, string> = Object.fromEntries(
   NAV_SECTIONS.flatMap(g => g.items.map(i => [i.id, i.label])),
 );
@@ -98,7 +100,9 @@ const EXTRA_TITLES: Record<string, string> = { tfmetrics: 'TF Metrics', settings
 
 export function tabTitle(navId: string): string {
   const label = NAV_LABELS[navId] ?? EXTRA_TITLES[navId];
-  return label ? `${label}-${SUITE_TITLE}` : SUITE_TITLE;
+  // The separator comes from `pageTitle` so every tab in the app matches. This used to join with a
+  // bare hyphen and no spaces ("Drawdown-Trade&Journal"); he asked for the long dash (2026-08-29).
+  return pageTitle(label);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -804,7 +808,7 @@ export default function Journal() {
   // Update browser tab title whenever the active panel changes. See tabTitle above.
   useEffect(() => {
     document.title = tabTitle(activeNav);
-    return () => { document.title = SUITE_TITLE; };
+    return () => { document.title = HOME_TITLE; };
   }, [activeNav]);
 
   const [sidebarOpen, setSidebarOpen] = useState(true);
