@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Globe, Clock, AlertCircle, ArrowRightLeft } from 'lucide-react';
+import { Globe, Clock, AlertCircle, ArrowRightLeft, CalendarDays as CalendarIcon } from 'lucide-react';
 import { usePublicTheme } from '@/context/PublicThemeContext';
 import SEOHead from '@/components/SEOHead';
 
@@ -73,11 +73,22 @@ export default function EconomicCalendarPage({ active = true }: { active?: boole
   const [impactFilter, setImpactFilter] = useState('All');
   const { darkMode } = usePublicTheme();
   const dm = darkMode;
+
+  // TYPE. The page was set in Playfair Display THROUGHOUT — a display serif, in a dense table, at
+  // 8-10px. That is what reads as blurred; the colours were already fine in light mode (the muted
+  // grey measured 7.58:1, comfortably past the top standard). A serif of that kind has thin strokes
+  // and heavy thick/thin contrast, which is handsome on a headline and mush on a 9px table cell.
+  // Data is now sans; the serif is kept for the page heading, exactly as the blog does it.
+  const SANS  = "'Inter',system-ui,-apple-system,'Segoe UI',sans-serif";
+  const SERIF = "'Playfair Display',Georgia,serif";
   const pageBg   = dm ? 'rgba(8,12,16,0.97)'  : '#f8fafc';
   const cardBg   = dm ? '#0c1219'              : '#ffffff';
-  const border   = dm ? '#172233'              : '#e2e8f0';
+  const border   = dm ? '#1E2C3F'              : '#D8E0EA';   // was near-invisible at 1.23:1
   const textPrim = dm ? '#f1f5f9'              : '#0f172a';
-  const textMut  = dm ? '#64748b'              : '#475569';
+  // CONTRAST, measured against the card behind it rather than judged by eye:
+  //    dark  #64748b  3.95:1  FAILS for normal-size text  ->  #9DAEC2  8.30:1
+  //    light #475569  7.58:1  already fine                ->  #3F4E60  8.50:1
+  const textMut  = dm ? '#9DAEC2'              : '#3F4E60';
   const inputBg  = dm ? '#0c1219'              : '#f8fafc';
   const thBg     = dm ? '#0f1923'              : '#f8fafc';
 
@@ -157,9 +168,11 @@ export default function EconomicCalendarPage({ active = true }: { active?: boole
 
   // Memoized so the browser only re-parses CSS when dark mode actually changes.
   const pageStyles = useMemo(() => `
-    .ec-filter-btn { font-family:'Playfair Display',serif; font-size:12px; font-weight:600; letter-spacing:0.03em; padding:10px 18px; border:none; cursor:pointer; transition:all 0.18s; white-space:nowrap; }
+    .ec-filter-btn { font-family:${SANS}; font-size:13px; font-weight:500; padding:8px 16px; border-radius:999px; cursor:pointer; transition:background .15s,color .15s,border-color .15s; white-space:nowrap; }
+    .ec-filter-row { display:flex; gap:10px; flex-wrap:wrap; }
+    .ec-filter-row::-webkit-scrollbar { display:none; }
     .ec-tr:hover td { background:${dm ? 'rgba(255,255,255,0.03)' : '#f8fafc'} !important; }
-    .ec-input { font-family:'Playfair Display',serif; font-size:13px; font-weight:400; background:${inputBg}; border:1px solid ${border}; border-radius:8px; padding:10px 14px; color:${textPrim}; outline:none; width:100%; transition:border-color 0.2s; }
+    .ec-input { font-family:${SANS}; font-size:13px; font-weight:400; background:${inputBg}; border:1px solid ${border}; border-radius:8px; padding:10px 14px; color:${textPrim}; outline:none; width:100%; transition:border-color 0.2s; }
     .ec-input::placeholder { color:${dm ? '#334155' : '#94a3b8'}; }
     .ec-input:focus { border-color:#2563eb; }
     .ec-card { background:${cardBg}; border:1px solid ${border}; border-radius:12px; overflow:hidden; }
@@ -184,14 +197,14 @@ export default function EconomicCalendarPage({ active = true }: { active?: boole
   const selectStyle: React.CSSProperties = {
     appearance: 'none', background: inputBg, border: `1px solid ${border}`,
     borderRadius: 8, padding: '10px 36px 10px 14px',
-    color: textPrim, fontSize: 12, fontFamily: "'Playfair Display',serif",
+    color: textPrim, fontSize: 12, fontFamily: SANS,
     fontWeight: 500, outline: 'none', cursor: 'pointer',
     transition: 'border-color 0.2s',
   };
   const thStyle: React.CSSProperties = {
-    padding: '12px 20px', fontSize: 9, fontWeight: 500,
+    padding: '12px 20px', fontSize: 11, fontWeight: 500,
     letterSpacing: '0.12em', textTransform: 'uppercase',
-    fontFamily: "'Playfair Display',serif", color: textMut,
+    fontFamily: SANS, color: textMut,
     background: thBg, borderBottom: `1px solid ${border}`,
     whiteSpace: 'nowrap',
   };
@@ -208,36 +221,61 @@ export default function EconomicCalendarPage({ active = true }: { active?: boole
         canonical="/calendar"
       />
     )}
-    <div style={{ minHeight: '100vh', background: pageBg, fontFamily: "'Playfair Display',serif", transition: 'background 0.3s' }}>
+    <div style={{ minHeight: '100vh', background: pageBg, fontFamily: SANS, transition: 'background 0.3s' }}>
       <style>{pageStyles}</style>
 
       <main style={{ maxWidth: 1280, margin: '0 auto', padding: '36px 28px 64px' }}>
+        {/* PAGE HEADING — the page had none, opening straight onto the filter tabs so a visitor had
+            nothing telling them what they were looking at. Same shape as the blog's (2026-08-30). */}
+        <header style={{ marginBottom: 28 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#2563eb' }}>
+            <CalendarIcon size={15} aria-hidden="true" />
+            <span style={{ fontFamily: SANS, fontSize: 12, fontWeight: 600, letterSpacing: '0.18em', textTransform: 'uppercase' }}>
+              Economic Calendar
+            </span>
+          </div>
+          <h1 style={{ margin: '12px 0 0', fontFamily: SERIF, fontSize: 38, fontWeight: 700, lineHeight: 1.15, letterSpacing: '-0.01em', color: textPrim }}>
+            Know what moves the market.
+          </h1>
+          <p style={{ margin: '10px 0 0', maxWidth: 620, fontFamily: SANS, fontSize: 15, lineHeight: 1.6, color: textMut }}>
+            Central bank decisions, releases and high-impact events — live, in your timezone,
+            with the forecast and the previous figure side by side.
+          </p>
+        </header>
+
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
 
           {/* Filter tabs + status bar */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
-            <div style={{ display: 'flex', background: cardBg, border: `1px solid ${border}`, borderRadius: 4, overflow: 'hidden', flexWrap: 'nowrap', overflowX: 'auto' }}>
-              {filterCategories.map(cat => (
-                <button key={cat} className="ec-filter-btn"
-                  style={{ background: filter === cat ? '#2563eb' : 'transparent', color: filter === cat ? '#ffffff' : textMut, borderRight: `1px solid ${border}` }}
-                  onClick={() => setFilter(cat)}>
-                  {cat}
-                </button>
-              ))}
+            <div className="ec-filter-row">
+              {filterCategories.map(cat => {
+                const on = filter === cat;
+                return (
+                  <button key={cat} className="ec-filter-btn" aria-pressed={on}
+                    style={{
+                      background: on ? '#2563eb' : cardBg,
+                      color:      on ? '#ffffff' : textMut,
+                      border: `1px solid ${on ? '#2563eb' : border}`,
+                    }}
+                    onClick={() => setFilter(cat)}>
+                    {cat}
+                  </button>
+                );
+              })}
             </div>
 
             {/* Status cluster: live dot + last update + countdown + refresh btn */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
 
               {/* Live dot + timestamps */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontFamily: "'Playfair Display',serif", fontSize: 10, fontWeight: 500, letterSpacing: '0.12em', color: '#22c55e' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontFamily: SANS, fontSize: 11.5, fontWeight: 500, letterSpacing: '0.12em', color: '#22c55e' }}>
                 <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#22c55e', display: 'inline-block', animation: 'ec-live 2s infinite' }} />
                 LIVE
                 <LiveClock lastUpdate={lastUpdate} textMut={textMut} />
               </div>
 
               {/* UTC badge */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: cardBg, border: `1px solid ${border}`, borderRadius: 8, padding: '8px 14px', fontFamily: "'Playfair Display',serif", fontSize: 11, fontWeight: 500, color: textMut, letterSpacing: '0.12em' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: cardBg, border: `1px solid ${border}`, borderRadius: 8, padding: '8px 14px', fontFamily: SANS, fontSize: 11, fontWeight: 500, color: textMut, letterSpacing: '0.12em' }}>
                 <Clock size={13} color="#3b82f6" />
                 <span>UTC</span>
               </div>
@@ -264,7 +302,7 @@ export default function EconomicCalendarPage({ active = true }: { active?: boole
 
               {(ccyFilter !== 'All' || impactFilter !== 'All' || searchQuery) && (
                 <button onClick={() => { setCcyFilter('All'); setImpactFilter('All'); setSearchQuery(''); }}
-                  style={{ background: cardBg, border: `1px solid ${border}`, borderRadius: 8, padding: '10px 16px', fontSize: 12, fontWeight: 600, color: textMut, cursor: 'pointer', fontFamily: "'Playfair Display',serif" }}>
+                  style={{ background: cardBg, border: `1px solid ${border}`, borderRadius: 8, padding: '10px 16px', fontSize: 12, fontWeight: 600, color: textMut, cursor: 'pointer', fontFamily: SANS }}>
                   Clear
                 </button>
               )}
@@ -305,8 +343,8 @@ export default function EconomicCalendarPage({ active = true }: { active?: boole
               {indices.length > 0 && (
                 <div className="ec-card" style={{ overflowX: 'auto' }}>
                   <div style={{ padding: '14px 20px', borderBottom: `1px solid ${border}`, display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ fontFamily: "'Playfair Display',serif", fontSize: 11, fontWeight: 600, color: textPrim, letterSpacing: '0.2em', textTransform: 'uppercase' }}>Major Indices</span>
-                    <span style={{ marginLeft: 'auto', fontFamily: "'Playfair Display',serif", fontSize: 9, color: textMut, letterSpacing: '0.1em' }}>SOURCE: INVESTING.COM</span>
+                    <span style={{ fontFamily: SANS, fontSize: 11, fontWeight: 600, color: textPrim, letterSpacing: '0.2em', textTransform: 'uppercase' }}>Major Indices</span>
+                    <span style={{ marginLeft: 'auto', fontFamily: SANS, fontSize: 11, color: textMut, letterSpacing: '0.1em' }}>SOURCE: INVESTING.COM</span>
                   </div>
                   <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <thead>
@@ -322,10 +360,10 @@ export default function EconomicCalendarPage({ active = true }: { active?: boole
                         const chgColor = idx.change === '-' ? textMut : isUp ? '#16a34a' : '#dc2626';
                         return (
                           <tr key={i} className="ec-tr">
-                            <td style={{ padding: '12px 20px', borderBottom: `1px solid ${border}`, fontFamily: "'Playfair Display',serif", fontSize: 12, fontWeight: 500, color: textPrim }}>{idx.name}</td>
-                            <td style={{ padding: '12px 20px', borderBottom: `1px solid ${border}`, textAlign: 'right', fontFamily: "'Playfair Display',serif", fontSize: 12, fontWeight: 500, color: textPrim }}>{idx.price}</td>
-                            <td style={{ padding: '12px 20px', borderBottom: `1px solid ${border}`, textAlign: 'right', fontFamily: "'Playfair Display',serif", fontSize: 12, fontWeight: 500, color: chgColor }}>{idx.change}</td>
-                            <td style={{ padding: '12px 20px', borderBottom: `1px solid ${border}`, textAlign: 'right', fontFamily: "'Playfair Display',serif", fontSize: 12, fontWeight: 600, color: chgColor }}>{idx.pctChange}</td>
+                            <td style={{ padding: '12px 20px', borderBottom: `1px solid ${border}`, fontFamily: SANS, fontSize: 12, fontWeight: 500, color: textPrim }}>{idx.name}</td>
+                            <td style={{ padding: '12px 20px', borderBottom: `1px solid ${border}`, textAlign: 'right', fontFamily: SANS, fontSize: 12, fontWeight: 500, color: textPrim }}>{idx.price}</td>
+                            <td style={{ padding: '12px 20px', borderBottom: `1px solid ${border}`, textAlign: 'right', fontFamily: SANS, fontSize: 12, fontWeight: 500, color: chgColor }}>{idx.change}</td>
+                            <td style={{ padding: '12px 20px', borderBottom: `1px solid ${border}`, textAlign: 'right', fontFamily: SANS, fontSize: 12, fontWeight: 600, color: chgColor }}>{idx.pctChange}</td>
                           </tr>
                         );
                       })}
@@ -338,8 +376,8 @@ export default function EconomicCalendarPage({ active = true }: { active?: boole
               {stocks.length > 0 && (
                 <div className="ec-card" style={{ overflowX: 'auto' }}>
                   <div style={{ padding: '14px 20px', borderBottom: `1px solid ${border}`, display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ fontFamily: "'Playfair Display',serif", fontSize: 11, fontWeight: 600, color: textPrim, letterSpacing: '0.2em', textTransform: 'uppercase' }}>Stock Quotes</span>
-                    <span style={{ marginLeft: 'auto', fontFamily: "'Playfair Display',serif", fontSize: 9, color: textMut, letterSpacing: '0.1em' }}>SOURCE: INVESTING.COM</span>
+                    <span style={{ fontFamily: SANS, fontSize: 11, fontWeight: 600, color: textPrim, letterSpacing: '0.2em', textTransform: 'uppercase' }}>Stock Quotes</span>
+                    <span style={{ marginLeft: 'auto', fontFamily: SANS, fontSize: 11, color: textMut, letterSpacing: '0.1em' }}>SOURCE: INVESTING.COM</span>
                   </div>
                   <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <thead>
@@ -356,13 +394,13 @@ export default function EconomicCalendarPage({ active = true }: { active?: boole
                         return (
                           <tr key={i} className="ec-tr">
                             <td style={{ padding: '12px 20px', borderBottom: `1px solid ${border}` }}>
-                              <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '2px 8px', background: dm ? '#1e2d3d' : '#eff6ff', color: '#2563eb', fontSize: 10, fontWeight: 600, fontFamily: "'Playfair Display',serif", borderRadius: 4, letterSpacing: '0.08em' }}>{s.symbol}</span>
+                              <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '2px 8px', background: dm ? '#1e2d3d' : '#eff6ff', color: '#2563eb', fontSize: 11.5, fontWeight: 600, fontFamily: SANS, borderRadius: 4, letterSpacing: '0.08em' }}>{s.symbol}</span>
                             </td>
-                            <td style={{ padding: '12px 20px', borderBottom: `1px solid ${border}`, fontFamily: "'Playfair Display',serif", fontSize: 12, color: textMut }}>{s.name}</td>
-                            <td style={{ padding: '12px 20px', borderBottom: `1px solid ${border}`, textAlign: 'right', fontFamily: "'Playfair Display',serif", fontSize: 12, fontWeight: 500, color: textPrim }}>{s.price}</td>
-                            <td style={{ padding: '12px 20px', borderBottom: `1px solid ${border}`, textAlign: 'right', fontFamily: "'Playfair Display',serif", fontSize: 12, fontWeight: 500, color: chgColor }}>{s.change}</td>
-                            <td style={{ padding: '12px 20px', borderBottom: `1px solid ${border}`, textAlign: 'right', fontFamily: "'Playfair Display',serif", fontSize: 12, fontWeight: 600, color: chgColor }}>{s.pctChange}</td>
-                            <td style={{ padding: '12px 20px', borderBottom: `1px solid ${border}`, fontFamily: "'Playfair Display',serif", fontSize: 10, color: textMut }}>{s.exchange}</td>
+                            <td style={{ padding: '12px 20px', borderBottom: `1px solid ${border}`, fontFamily: SANS, fontSize: 12, color: textMut }}>{s.name}</td>
+                            <td style={{ padding: '12px 20px', borderBottom: `1px solid ${border}`, textAlign: 'right', fontFamily: SANS, fontSize: 12, fontWeight: 500, color: textPrim }}>{s.price}</td>
+                            <td style={{ padding: '12px 20px', borderBottom: `1px solid ${border}`, textAlign: 'right', fontFamily: SANS, fontSize: 12, fontWeight: 500, color: chgColor }}>{s.change}</td>
+                            <td style={{ padding: '12px 20px', borderBottom: `1px solid ${border}`, textAlign: 'right', fontFamily: SANS, fontSize: 12, fontWeight: 600, color: chgColor }}>{s.pctChange}</td>
+                            <td style={{ padding: '12px 20px', borderBottom: `1px solid ${border}`, fontFamily: SANS, fontSize: 11.5, color: textMut }}>{s.exchange}</td>
                           </tr>
                         );
                       })}
@@ -391,8 +429,8 @@ export default function EconomicCalendarPage({ active = true }: { active?: boole
               {commodities.length > 0 && (
                 <div className="ec-card" style={{ overflowX: 'auto' }}>
                   <div style={{ padding: '14px 20px', borderBottom: `1px solid ${border}`, display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ fontFamily: "'Playfair Display',serif", fontSize: 11, fontWeight: 600, color: textPrim, letterSpacing: '0.2em', textTransform: 'uppercase' }}>Commodities</span>
-                    <span style={{ marginLeft: 'auto', fontFamily: "'Playfair Display',serif", fontSize: 9, color: textMut, letterSpacing: '0.1em' }}>SOURCE: INVESTING.COM</span>
+                    <span style={{ fontFamily: SANS, fontSize: 11, fontWeight: 600, color: textPrim, letterSpacing: '0.2em', textTransform: 'uppercase' }}>Commodities</span>
+                    <span style={{ marginLeft: 'auto', fontFamily: SANS, fontSize: 11, color: textMut, letterSpacing: '0.1em' }}>SOURCE: INVESTING.COM</span>
                   </div>
                   <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <thead>
@@ -408,10 +446,10 @@ export default function EconomicCalendarPage({ active = true }: { active?: boole
                         const chgColor = c.change === '-' ? textMut : isUp ? '#16a34a' : '#dc2626';
                         return (
                           <tr key={i} className="ec-tr">
-                            <td style={{ padding: '12px 20px', borderBottom: `1px solid ${border}`, fontFamily: "'Playfair Display',serif", fontSize: 12, fontWeight: 500, color: textPrim }}>{c.name}</td>
-                            <td style={{ padding: '12px 20px', borderBottom: `1px solid ${border}`, textAlign: 'right', fontFamily: "'Playfair Display',serif", fontSize: 12, fontWeight: 500, color: textPrim }}>{c.price}</td>
-                            <td style={{ padding: '12px 20px', borderBottom: `1px solid ${border}`, textAlign: 'right', fontFamily: "'Playfair Display',serif", fontSize: 12, fontWeight: 500, color: chgColor }}>{c.change}</td>
-                            <td style={{ padding: '12px 20px', borderBottom: `1px solid ${border}`, textAlign: 'right', fontFamily: "'Playfair Display',serif", fontSize: 12, fontWeight: 600, color: chgColor }}>{c.pctChange}</td>
+                            <td style={{ padding: '12px 20px', borderBottom: `1px solid ${border}`, fontFamily: SANS, fontSize: 12, fontWeight: 500, color: textPrim }}>{c.name}</td>
+                            <td style={{ padding: '12px 20px', borderBottom: `1px solid ${border}`, textAlign: 'right', fontFamily: SANS, fontSize: 12, fontWeight: 500, color: textPrim }}>{c.price}</td>
+                            <td style={{ padding: '12px 20px', borderBottom: `1px solid ${border}`, textAlign: 'right', fontFamily: SANS, fontSize: 12, fontWeight: 500, color: chgColor }}>{c.change}</td>
+                            <td style={{ padding: '12px 20px', borderBottom: `1px solid ${border}`, textAlign: 'right', fontFamily: SANS, fontSize: 12, fontWeight: 600, color: chgColor }}>{c.pctChange}</td>
                           </tr>
                         );
                       })}
@@ -428,8 +466,8 @@ export default function EconomicCalendarPage({ active = true }: { active?: boole
               <div className="ec-card" style={{ minWidth: 0 }}>
                 <div style={{ padding: '16px 20px', borderBottom: `1px solid ${border}`, display: 'flex', alignItems: 'center', gap: 8 }}>
                   <Globe size={14} color="#2563eb" />
-                  <span style={{ fontFamily: "'Playfair Display',serif", fontSize: 11, fontWeight: 500, color: textPrim, letterSpacing: '0.2em', textTransform: 'uppercase' }}>Terminal Rates</span>
-                  <span style={{ marginLeft: 'auto', fontFamily: "'Playfair Display',serif", fontSize: 11, fontWeight: 500, color: textMut, letterSpacing: '0.08em' }}>Real Yields</span>
+                  <span style={{ fontFamily: SANS, fontSize: 11, fontWeight: 500, color: textPrim, letterSpacing: '0.2em', textTransform: 'uppercase' }}>Terminal Rates</span>
+                  <span style={{ marginLeft: 'auto', fontFamily: SANS, fontSize: 11, fontWeight: 500, color: textMut, letterSpacing: '0.08em' }}>Real Yields</span>
                 </div>
                 <div style={{ overflowX: 'auto' }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -447,11 +485,11 @@ export default function EconomicCalendarPage({ active = true }: { active?: boole
                           <tr key={ccy} className="ec-tr">
                             <td style={{ padding: '10px 16px', borderBottom: `1px solid ${border}` }}>
                               <div style={{ fontWeight: 700, fontSize: 11, color: textPrim }}>{ccy}</div>
-                              {data.live && <div style={{ fontSize: 8, fontWeight: 700, color: '#16a34a', letterSpacing: '0.08em', textTransform: 'uppercase' }}>live</div>}
+                              {data.live && <div style={{ fontSize: 11, fontWeight: 700, color: '#16a34a', letterSpacing: '0.08em', textTransform: 'uppercase' }}>live</div>}
                             </td>
-                            <td style={{ padding: '10px 16px', borderBottom: `1px solid ${border}`, textAlign: 'right', fontFamily: "'Playfair Display',serif", fontSize: 11, fontWeight: 500, color: textMut }}>{data.nominal.toFixed(2)}%</td>
-                            <td style={{ padding: '10px 16px', borderBottom: `1px solid ${border}`, textAlign: 'right', fontFamily: "'Playfair Display',serif", fontSize: 11, fontWeight: 500, color: textMut }}>{data.inflation != null ? `${data.inflation.toFixed(2)}%` : '—'}</td>
-                            <td style={{ padding: '10px 16px', borderBottom: `1px solid ${border}`, textAlign: 'right', fontFamily: "'Playfair Display',serif", fontSize: 11, fontWeight: 500, color: realRate == null ? textMut : realRate > 0 ? '#2563eb' : '#dc2626' }}>
+                            <td style={{ padding: '10px 16px', borderBottom: `1px solid ${border}`, textAlign: 'right', fontFamily: SANS, fontSize: 11, fontWeight: 500, color: textMut }}>{data.nominal.toFixed(2)}%</td>
+                            <td style={{ padding: '10px 16px', borderBottom: `1px solid ${border}`, textAlign: 'right', fontFamily: SANS, fontSize: 11, fontWeight: 500, color: textMut }}>{data.inflation != null ? `${data.inflation.toFixed(2)}%` : '—'}</td>
+                            <td style={{ padding: '10px 16px', borderBottom: `1px solid ${border}`, textAlign: 'right', fontFamily: SANS, fontSize: 11, fontWeight: 500, color: realRate == null ? textMut : realRate > 0 ? '#2563eb' : '#dc2626' }}>
                               {realRate != null ? `${realRate.toFixed(2)}%` : '—'}
                             </td>
                           </tr>
@@ -465,7 +503,7 @@ export default function EconomicCalendarPage({ active = true }: { active?: boole
               <div className="ec-card" style={{ minWidth: 0 }}>
                 <div style={{ padding: '16px 20px', borderBottom: `1px solid ${border}`, display: 'flex', alignItems: 'center', gap: 8 }}>
                   <ArrowRightLeft size={14} color="#2563eb" />
-                  <span style={{ fontFamily: "'Playfair Display',serif", fontSize: 11, fontWeight: 500, color: textPrim, letterSpacing: '0.2em', textTransform: 'uppercase' }}>Pair Differentials</span>
+                  <span style={{ fontFamily: SANS, fontSize: 11, fontWeight: 500, color: textPrim, letterSpacing: '0.2em', textTransform: 'uppercase' }}>Pair Differentials</span>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
                   {currencyPairs.filter(p => bankData[p.base] && bankData[p.quote]).map(pair => {
@@ -474,13 +512,13 @@ export default function EconomicCalendarPage({ active = true }: { active?: boole
                     return (
                       <div key={`${pair.base}${pair.quote}`} style={{ padding: '12px 16px', borderBottom: `1px solid ${border}`, borderRight: `1px solid ${border}` }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                          <span style={{ fontFamily: "'Playfair Display',serif", fontWeight: 500, fontSize: 11, color: textPrim }}>{pair.base}/{pair.quote}</span>
-                          <span style={{ fontFamily: "'Playfair Display',serif", fontSize: 9, fontWeight: 500, letterSpacing: '0.12em', color: diff > 0 ? '#16a34a' : '#dc2626' }}>{diff > 0 ? 'BULLISH' : 'BEARISH'}</span>
+                          <span style={{ fontFamily: SANS, fontWeight: 500, fontSize: 11, color: textPrim }}>{pair.base}/{pair.quote}</span>
+                          <span style={{ fontFamily: SANS, fontSize: 11, fontWeight: 500, letterSpacing: '0.12em', color: diff > 0 ? '#16a34a' : '#dc2626' }}>{diff > 0 ? 'BULLISH' : 'BEARISH'}</span>
                         </div>
-                        <div style={{ fontFamily: "'Playfair Display',serif", fontWeight: 500, fontSize: 13, color: textPrim, marginBottom: 4 }}>
+                        <div style={{ fontFamily: SANS, fontWeight: 500, fontSize: 13, color: textPrim, marginBottom: 4 }}>
                           {diff > 0 ? '+' : ''}{diff.toFixed(2)}%
                         </div>
-                        <div style={{ fontFamily: "'Playfair Display',serif", display: 'flex', justifyContent: 'space-between', fontSize: 10, fontWeight: 500, color: textMut, borderTop: `1px solid ${border}`, paddingTop: 6, marginTop: 6 }}>
+                        <div style={{ fontFamily: SANS, display: 'flex', justifyContent: 'space-between', fontSize: 11.5, fontWeight: 500, color: textMut, borderTop: `1px solid ${border}`, paddingTop: 6, marginTop: 6 }}>
                           <span>{pair.base} {bankData[pair.base].nominal.toFixed(2)}%</span>
                           {isCarry && <span style={{ color: '#2563eb', letterSpacing: '0.1em' }}>CARRY</span>}
                           <span>{pair.quote} {bankData[pair.quote].nominal.toFixed(2)}%</span>
@@ -519,25 +557,25 @@ export default function EconomicCalendarPage({ active = true }: { active?: boole
                     const rowBorder = `1px solid ${border}`;
                     return (
                       <tr key={idx} className="ec-tr">
-                        <td style={{ padding: '14px 20px', borderBottom: rowBorder, background: rowBg, whiteSpace: 'nowrap', fontSize: 12, fontWeight: 500, color: textPrim, fontFamily: "'Playfair Display',serif" }}>{item.date}</td>
-                        <td style={{ padding: '14px 20px', borderBottom: rowBorder, background: rowBg, whiteSpace: 'nowrap', fontFamily: "'Playfair Display',serif", fontSize: 12, fontWeight: 500, color: textMut }}>{item.time}</td>
+                        <td style={{ padding: '14px 20px', borderBottom: rowBorder, background: rowBg, whiteSpace: 'nowrap', fontSize: 12, fontWeight: 500, color: textPrim, fontFamily: SANS }}>{item.date}</td>
+                        <td style={{ padding: '14px 20px', borderBottom: rowBorder, background: rowBg, whiteSpace: 'nowrap', fontFamily: SANS, fontSize: 12, fontWeight: 500, color: textMut }}>{item.time}</td>
                         <td style={{ padding: '14px 20px', borderBottom: rowBorder, background: rowBg, whiteSpace: 'nowrap' }}>
-                          <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '2px 8px', background: dm ? '#1e2d3d' : '#eff6ff', color: '#2563eb', fontSize: 10, fontWeight: 500, fontFamily: "'Playfair Display',serif", borderRadius: 4, letterSpacing: '0.08em' }}>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '2px 8px', background: dm ? '#1e2d3d' : '#eff6ff', color: '#2563eb', fontSize: 11.5, fontWeight: 500, fontFamily: SANS, borderRadius: 4, letterSpacing: '0.08em' }}>
                             {item.currency}
                           </span>
                         </td>
                         <td style={{ padding: '14px 20px', borderBottom: rowBorder, background: rowBg }}>
-                          <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 13, fontWeight: 500, color: textPrim, lineHeight: 1.4 }}>{item.event}</div>
-                          <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 9, fontWeight: 500, color: textMut, letterSpacing: '0.15em', textTransform: 'uppercase', marginTop: 2 }}>{item.category}</div>
+                          <div style={{ fontFamily: SANS, fontSize: 13, fontWeight: 500, color: textPrim, lineHeight: 1.4 }}>{item.event}</div>
+                          <div style={{ fontFamily: SANS, fontSize: 11, fontWeight: 500, color: textMut, letterSpacing: '0.15em', textTransform: 'uppercase', marginTop: 2 }}>{item.category}</div>
                         </td>
                         <td style={{ padding: '14px 20px', borderBottom: rowBorder, background: rowBg, whiteSpace: 'nowrap', textAlign: 'center' }}>
-                          <span style={{ ...impactStyle(item.importance), padding: '3px 10px', fontSize: 9, fontWeight: 500, letterSpacing: '0.1em', textTransform: 'uppercase', borderRadius: 4, display: 'inline-block', fontFamily: "'Playfair Display',serif" }}>
+                          <span style={{ ...impactStyle(item.importance), padding: '3px 10px', fontSize: 11, fontWeight: 500, letterSpacing: '0.1em', textTransform: 'uppercase', borderRadius: 4, display: 'inline-block', fontFamily: SANS }}>
                             {item.importance}
                           </span>
                         </td>
-                        <td style={{ padding: '14px 20px', borderBottom: rowBorder, background: rowBg, whiteSpace: 'nowrap', textAlign: 'right', fontFamily: "'Playfair Display',serif", fontSize: 12, fontWeight: 500, color: actualColor }}>{item.actual}</td>
-                        <td style={{ padding: '14px 20px', borderBottom: rowBorder, background: rowBg, whiteSpace: 'nowrap', textAlign: 'right', fontFamily: "'Playfair Display',serif", fontSize: 12, fontWeight: 500, color: textMut }}>{item.forecast}</td>
-                        <td style={{ padding: '14px 20px', borderBottom: rowBorder, background: rowBg, whiteSpace: 'nowrap', textAlign: 'right', fontFamily: "'Playfair Display',serif", fontSize: 12, fontWeight: 500, color: textMut }}>{item.previous}</td>
+                        <td style={{ padding: '14px 20px', borderBottom: rowBorder, background: rowBg, whiteSpace: 'nowrap', textAlign: 'right', fontFamily: SANS, fontSize: 12, fontWeight: 500, color: actualColor }}>{item.actual}</td>
+                        <td style={{ padding: '14px 20px', borderBottom: rowBorder, background: rowBg, whiteSpace: 'nowrap', textAlign: 'right', fontFamily: SANS, fontSize: 12, fontWeight: 500, color: textMut }}>{item.forecast}</td>
+                        <td style={{ padding: '14px 20px', borderBottom: rowBorder, background: rowBg, whiteSpace: 'nowrap', textAlign: 'right', fontFamily: SANS, fontSize: 12, fontWeight: 500, color: textMut }}>{item.previous}</td>
                       </tr>
                     );
                   })}
