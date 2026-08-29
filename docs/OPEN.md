@@ -210,6 +210,17 @@ pro-trend rule refuses it first, and the gate's verdict is identical with and wi
 verdict on **134 of the 1,859 bars where the gate is actually consulted (7.2%)**. The docstring now
 says that instead. Nothing to fix in the code; recorded so the false justification is not re-quoted.
 
+### B9 — The metrics engine's own self-test has two red checks, and has had for a while
+
+`python server/python/metrics_calculator.py --test` fails on **"missing pnl → None"** and
+**"strategy SB present"** (the second then throws `KeyError: 'SB'` and stops the run early, so
+anything after it never gets checked).
+
+**Not caused by the monthly work of 2026-08-29** — verified by running the same self-test on the
+committed version before those changes and getting the identical two failures. Recorded because a
+red self-test that everyone steps around is how a real regression gets missed: the next person to
+break something here will see two failures and assume they are the usual two.
+
 
 ## C. The web app
 

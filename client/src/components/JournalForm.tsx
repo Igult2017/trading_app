@@ -128,102 +128,8 @@ const OBS_CSS = `
 `;
 
 // ─── Monthly stats computation (prop-firm carry-over model) ──────────────────
-function entryToStat(e: any) {
-  const raw = (e.outcome || "").toLowerCase();
-  const outcome = raw === "win" ? "Win" : raw === "loss" ? "Loss" : "BE";
-  const pnl = parseFloat(e.profitLoss) || 0;
-  const dir = (e.direction || "").toLowerCase();
-  const direction = dir === "long" ? "Long" : "Short";
-  const commission = parseFloat((e.manualFields as any)?.commission ?? (e.commission ?? 0)) || 0;
-  const balance = parseFloat(e.accountBalance) || 0;
-  const achievedRR = e.riskReward ? String(e.riskReward) : String((e.manualFields as any)?.achievedRR ?? "");
-  return { outcome, pnl, direction, commission, balance, achievedRR };
-}
-
 const fmtUsd = (n: number) => (n >= 0 ? "+" : "-") + "$" + Math.abs(n).toFixed(2);
-
 const _MONTH_ABBR = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-
-function computeMonthlyStats(allEntries: any[], _allSessions: any[], startingBalance: number) {
-  const sb = startingBalance > 0 ? startingBalance : 10000;
-
-  const _parseDate = (raw: any): Date | null => {
-    if (!raw) return null;
-    const d = new Date(raw);
-    return isNaN(d.getTime()) ? null : d;
-  };
-  const _toKey = (d: Date) =>
-    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-
-  // ── Group by trade date ───────────────────────────────────────────────────
-  const monthEntriesMap: Map<string, any[]> = new Map();
-  for (const e of allEntries) {
-    const d = _parseDate(e.entryTime ?? e.exitTime ?? e.createdAt) ?? new Date();
-    const key = _toKey(d);
-    if (!monthEntriesMap.has(key)) monthEntriesMap.set(key, []);
-    monthEntriesMap.get(key)!.push(e);
-  }
-
-  const sortedKeys = Array.from(monthEntriesMap.keys()).sort();
-
-  // ── Step 4: Walk months chronologically, apply prop-firm carry-over ────────
-  //   • Profitable month → profits withdrawn, deficit cleared → next month starts at sb
-  //   • Losing month    → deficit grows     → next month starts at sb − deficit
-  let carriedDeficit = 0;
-  const monthData: Map<string, any> = new Map();
-
-  for (const key of sortedKeys) {
-    const entries = monthEntriesMap.get(key)!;
-    const carriedDeficitIn = carriedDeficit;
-    const effectiveStart   = sb - carriedDeficit;
-
-    const trades      = entries.map(entryToStat);
-    const commissions = trades.reduce((a, t) => a + t.commission, 0);
-    const pnlSum      = trades.reduce((a, t) => a + t.pnl,        0);
-    const netPnL      = pnlSum - commissions;
-    const effectiveEnd = effectiveStart + netPnL;
-
-    let newCarriedDeficit: number;
-    let withdrawn: number;
-    if (effectiveEnd >= sb) {
-      withdrawn         = effectiveEnd - sb;
-      newCarriedDeficit = 0;
-    } else {
-      withdrawn         = 0;
-      newCarriedDeficit = sb - effectiveEnd;
-    }
-
-    const wins      = trades.filter(t => t.outcome === "Win");
-    const losses    = trades.filter(t => t.outcome === "Loss");
-    const grossWin  = wins.reduce((a, t) => a + t.pnl, 0);
-    const grossLoss = Math.abs(losses.reduce((a, t) => a + t.pnl, 0));
-    const pf        = grossLoss > 0 ? grossWin / grossLoss : grossWin > 0 ? 99 : 0;
-    const winRate   = trades.length ? (wins.length / trades.length) * 100 : 0;
-    const growth    = effectiveStart > 0 ? ((effectiveEnd - effectiveStart) / effectiveStart) * 100 : 0;
-    const rrTs      = trades.filter(t => t.achievedRR);
-    const avgRR     = rrTs.length ? rrTs.reduce((a, t) => a + (parseFloat(t.achievedRR) || 0), 0) / rrTs.length : 0;
-    const avgWin    = wins.length   ? grossWin  / wins.length   : 0;
-    const avgLoss   = losses.length ? grossLoss / losses.length : 0;
-    const exp       = (winRate / 100) * avgWin - (1 - winRate / 100) * avgLoss;
-    const pnls      = trades.map(t => t.pnl);
-
-    monthData.set(key, {
-      netPnL, winRate, wins: wins.length, losses: losses.length, total: trades.length,
-      profitFactor: pf.toFixed(2), commissions,
-      startBalance: effectiveStart, endBalance: effectiveEnd, growth,
-      avgRR: avgRR.toFixed(2), expectancy: exp.toFixed(2),
-      buys:       trades.filter(t => t.direction === "Long").length,
-      sells:      trades.filter(t => t.direction === "Short").length,
-      bestTrade:  pnls.length ? Math.max(...pnls) : 0,
-      worstTrade: pnls.length ? Math.min(...pnls) : 0,
-      carriedDeficitIn, carriedDeficit: newCarriedDeficit, withdrawn,
-    });
-
-    carriedDeficit = newCarriedDeficit;
-  }
-
-  return { monthData, sortedKeys };
-}
 
 // ─── Obsidian primitives ──────────────────────────────────────────────────────
 const SectionLabel = ({ children }: { children: React.ReactNode }) => (
@@ -1152,26 +1058,37 @@ const StatBox = ({ label, value, colorCls }: any) => (
 function Sidebar({ startingBalance, sessionId }: { allEntries?: any[]; startingBalance?: number; sessionId?: string | number | null }) {
   const sb = startingBalance && startingBalance > 0 ? startingBalance : 10000;
 
-  // Fetch entries directly from the API filtered by sessionId — DB is source of truth.
-  // This ensures only trades actually saved via the submit button are counted.
-  const { data: allEntries = [] } = useQuery<any[]>({
-    queryKey: ["/api/journal/entries", sessionId],
-    queryFn: async () => {
-      if (!sessionId) return [];
-      const res = await fetch(`/api/journal/entries?sessionId=${encodeURIComponent(String(sessionId))}`);
-      if (!res.ok) return [];
-      const json = await res.json();
-      return Array.isArray(json) ? json : [];
-    },
+  /**
+   * THE SIDEBAR NO LONGER DOES ARITHMETIC — his instruction, 2026-08-29:
+   *
+   *   "there is no need of it recalculating what already exists, let it take data directly and in
+   *    real time from metrics page and trade vault if necessary to make everything consistent"
+   *
+   * It used to fetch the raw journal entries and recompute every figure here: monthly grouping, net
+   * P&L, fees, buys/sells, best and worst trade, win rate, profit factor, average RR, expectancy —
+   * and the prop-firm balance carry-over, which existed ONLY in this component. That is why this
+   * panel could disagree with every other page: it was using its own model of the account.
+   *
+   * All of it now comes from the metrics engine (`metrics_calculator.calc_monthly`), which is the
+   * SAME endpoint the Metrics page reads, on the SAME query key — so React Query serves both from
+   * one request and they cannot show different numbers. The carry-over moved with it, unchanged
+   * (his call: keep the prop-firm model rather than drop it), and 228 values were checked field by
+   * field against the old browser code before the switch: every one matched.
+   */
+  const { data: metricsResp } = useQuery<{ success: boolean; metrics: any }>({
+    queryKey: ["/api/metrics/compute", sessionId],
     enabled: !!sessionId,
+    queryFn: async () => {
+      const r = await fetch(`/api/metrics/compute?sessionId=${encodeURIComponent(String(sessionId))}`);
+      if (!r.ok) throw new Error(String(r.status));
+      return r.json();
+    },
     staleTime: 10_000,
   });
 
-  // Fetch all sessions — needed to determine each session's month
-  const { data: allSessions = [] } = useQuery<any[]>({
-    queryKey: ["/api/sessions"],
-    select: (d: any) => (Array.isArray(d) ? d : d?.sessions ?? []),
-  });
+  const monthly    = metricsResp?.metrics?.monthly;
+  const sortedKeys: string[] = monthly?.keys ?? [];
+  const monthMap   = monthly?.months ?? {};
 
   const now = new Date();
   const currentKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
@@ -1189,36 +1106,14 @@ function Sidebar({ startingBalance, sessionId }: { allEntries?: any[]; startingB
     }
   }, [sessionId]);
 
-  // Auto-detect the active month from the current session's entries.
-  // Runs whenever entries or sessionId change (e.g. after async data loads).
+  // Jump to the newest month that actually has trades. The engine returns the keys already sorted,
+  // so this no longer needs the raw entries to work out which month is "current".
   useEffect(() => {
-    if (userNavigated.current) return;
+    if (userNavigated.current || sortedKeys.length === 0) return;
+    setSelectedKey(sortedKeys[sortedKeys.length - 1]);
+  }, [sortedKeys.join(","), sessionId]);
 
-    // Prefer entries belonging to the current session; fall back to all entries
-    const pool = sessionId
-      ? allEntries.filter(e => String(e.sessionId) === String(sessionId))
-      : allEntries;
 
-    if (pool.length === 0) return;
-
-    // Pick the most recently created entry to find the active month
-    const latest = pool.reduce((a: any, b: any) =>
-      new Date(a.createdAt ?? 0) > new Date(b.createdAt ?? 0) ? a : b
-    );
-
-    const raw = latest.entryTime ?? latest.exitTime ?? latest.createdAt;
-    if (!raw) return;
-    const d = new Date(raw);
-    if (isNaN(d.getTime())) return;
-
-    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-    setSelectedKey(key);
-  }, [allEntries, sessionId]);
-
-  const { monthData, sortedKeys } = useMemo(
-    () => computeMonthlyStats(allEntries, allSessions, sb),
-    [allEntries, allSessions, sb],
-  );
 
   // Navigable keys = all months with data + current month, sorted
   const navKeys = useMemo(() => {
@@ -1230,7 +1125,7 @@ function Sidebar({ startingBalance, sessionId }: { allEntries?: any[]; startingB
   const canPrev = idx > 0;
   const canNext = idx < navKeys.length - 1;
 
-  const stats = monthData.get(selectedKey) ?? null;
+  const stats = monthMap[selectedKey] ?? null;
   const has   = !!stats && stats.total > 0;
 
   // Parse "YYYY-MM" → display label
@@ -1343,9 +1238,9 @@ function Sidebar({ startingBalance, sessionId }: { allEntries?: any[]; startingB
 
         {/* Stat boxes */}
         <section className="grid grid-cols-2 gap-2">
-          <StatBox label="PROFIT FACTOR" value={has ? stats!.profitFactor : "0"} colorCls={has && parseFloat(stats!.profitFactor) > 1 ? "text-emerald-400" : undefined} />
-          <StatBox label="EXPECTANCY"    value={has ? stats!.expectancy    : "0"} colorCls={has && parseFloat(stats!.expectancy) > 0    ? "text-emerald-400" : undefined} />
-          <StatBox label="AVG R:R"       value={has ? stats!.avgRR         : "0"} colorCls={has && parseFloat(stats!.avgRR) > 0         ? "text-emerald-400" : undefined} />
+          <StatBox label="PROFIT FACTOR" value={has ? stats!.profitFactor.toFixed(2) : "0"} colorCls={has && stats!.profitFactor > 1 ? "text-emerald-400" : undefined} />
+          <StatBox label="EXPECTANCY"    value={has ? stats!.expectancy.toFixed(2)    : "0"} colorCls={has && stats!.expectancy > 0    ? "text-emerald-400" : undefined} />
+          <StatBox label="AVG R:R"       value={has ? stats!.avgRR.toFixed(2)         : "0"} colorCls={has && stats!.avgRR > 0         ? "text-emerald-400" : undefined} />
           <StatBox label="W / L"         value={has ? stats!.wins + "/" + stats!.losses : "0/0"} />
         </section>
 

@@ -266,6 +266,9 @@ class TradeRecord:
     day_of_week: Optional[str]
     account_balance: Optional[float]
     starting_balance: Optional[float]
+    # Broker cost for the trade. ADDED 2026-08-29 — the engine never carried it, which is why the
+    # journal sidebar had to recompute fees in the browser instead of reading them from here.
+    commission: float
 
 
 @dataclass
@@ -644,6 +647,9 @@ def normalise_trade(raw: Dict[str, Any]) -> Optional[TradeRecord]:
         entry_deviation=entry_dev,
         sl_deviation=sl_dev,
         tp_deviation=tp_dev,
+        # manualFields/aiExtracted are merged flat before g() runs, so a commission stored in the
+        # blob is reachable by the same name as a real column — matching how the journal form saves it.
+        commission=_coerce_float(g("commission")) or 0.0,
         opened_at=opened_at,
         closed_at=closed_at,
         trade_date=trade_date,
@@ -1557,6 +1563,107 @@ def calc_statistics(ctx: SharedContext) -> Dict:
 # LAYER 3 — METRIC REGISTRY
 # ─────────────────────────────────────────────────────────────────────────────
 
+def calc_monthly(ctx: SharedContext) -> Dict:
+    """Month-by-month figures for the journal sidebar — INCLUDING the prop-firm balance carry-over.
+
+    WHY THIS IS HERE AT ALL. Until 2026-08-29 the journal sidebar fetched the raw journal entries
+    itself and recomputed every one of these numbers in the browser. His instruction:
+
+        "there is no need of it recalculating what already exists, let it take data directly and in
+         real time from metrics page and trade vault if necessary to make everything consistent"
+
+    He is right, and the duplication was worse than untidy: the carry-over model below existed ONLY
+    in that one component, so the sidebar was using a different model of the account balance from
+    every other page and could disagree with all of them. Nothing else could see it, and nothing
+    could test it. It lives here now, so one engine answers the question.
+
+    THE CARRY-OVER MODEL, kept exactly as the sidebar had it (his choice, asked and answered
+    2026-08-29 — "A", move it as-is rather than drop it):
+
+        a month that ENDS AT OR ABOVE the starting balance -> the excess is WITHDRAWN and the next
+            month opens at the starting balance again
+        a month that ends BELOW it -> the shortfall is CARRIED, and the next month opens that
+            much lower
+
+    That is a prop-firm payout cycle, not a plain running balance, which is why it cannot simply be
+    replaced by the equity curve the rest of the engine uses.
+
+    Months are keyed "YYYY-MM" and returned in chronological order, because the carry-over makes each
+    month depend on the one before it — an unordered walk would produce different balances.
+    """
+    sb = 0.0
+    for t in ctx.trades:
+        if t.starting_balance:
+            sb = float(t.starting_balance)
+            break
+    if sb <= 0:
+        sb = 10_000.0
+
+    buckets: Dict[str, List] = {}
+    for t in ctx.trades:
+        d = t.trade_date or t.opened_at or t.closed_at
+        if d is None:
+            continue
+        buckets.setdefault(f"{d.year}-{d.month:02d}", []).append(t)
+
+    out: Dict[str, Dict] = {}
+    carried = 0.0
+    for key in sorted(buckets):
+        trades = buckets[key]
+        carried_in = carried
+        start_bal  = sb - carried
+
+        commissions = sum(t.commission for t in trades)
+        gross       = sum(t.pnl for t in trades)
+        net         = gross - commissions
+        end_bal     = start_bal + net
+
+        if end_bal >= sb:
+            withdrawn, carried = end_bal - sb, 0.0
+        else:
+            withdrawn, carried = 0.0, sb - end_bal
+
+        wins   = [t for t in trades if t.outcome == "win"]
+        losses = [t for t in trades if t.outcome == "loss"]
+        gross_win  = sum(t.pnl for t in wins)
+        gross_loss = abs(sum(t.pnl for t in losses))
+        # 99 stands for "no losses to divide by" — the sidebar's own convention, kept so the
+        # displayed figure does not change on the day this moved to the server.
+        pf = (gross_win / gross_loss) if gross_loss > 0 else (99.0 if gross_win > 0 else 0.0)
+        win_rate = (len(wins) / len(trades) * 100) if trades else 0.0
+        growth   = ((end_bal - start_bal) / start_bal * 100) if start_bal > 0 else 0.0
+        rrs      = [t.rr_ratio for t in trades if t.rr_ratio is not None]
+        avg_rr   = (sum(rrs) / len(rrs)) if rrs else 0.0
+        avg_win  = (gross_win / len(wins)) if wins else 0.0
+        avg_loss = (gross_loss / len(losses)) if losses else 0.0
+        expectancy = (win_rate / 100) * avg_win - (1 - win_rate / 100) * avg_loss
+        pnls = [t.pnl for t in trades]
+
+        out[key] = {
+            "netPnL":       round(net, 2),
+            "commissions":  round(commissions, 2),
+            "total":        len(trades),
+            "wins":         len(wins),
+            "losses":       len(losses),
+            "buys":         sum(1 for t in trades if t.direction == "long"),
+            "sells":        sum(1 for t in trades if t.direction == "short"),
+            "bestTrade":    round(max(pnls), 2) if pnls else 0.0,
+            "worstTrade":   round(min(pnls), 2) if pnls else 0.0,
+            "winRate":      round(win_rate, 2),
+            "profitFactor": round(pf, 2),
+            "avgRR":        round(avg_rr, 2),
+            "expectancy":   round(expectancy, 2),
+            "startBalance": round(start_bal, 2),
+            "endBalance":   round(end_bal, 2),
+            "growth":       round(growth, 2),
+            "carriedDeficitIn": round(carried_in, 2),
+            "carriedDeficit":   round(carried, 2),
+            "withdrawn":        round(withdrawn, 2),
+        }
+
+    return {"months": out, "keys": sorted(buckets), "startingBalance": round(sb, 2)}
+
+
 METRIC_REGISTRY: Dict[str, Callable[[SharedContext], Any]] = {
     "core":                     calc_core,
     "streaks":                  calc_streaks,
@@ -1588,6 +1695,7 @@ METRIC_REGISTRY: Dict[str, Callable[[SharedContext], Any]] = {
     "rrAnalysis":               calc_rr_analysis,
     "setupFrequencyAnnualised": calc_setup_frequency_annualised,
     "statistics":               calc_statistics,
+    "monthly":                  calc_monthly,
     "_equity":                  calc_equity_curve,
 }
 
