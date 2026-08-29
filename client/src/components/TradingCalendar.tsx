@@ -27,6 +27,29 @@ function fmt(pnl: number) {
   return `${sign}$${Math.abs(pnl).toFixed(2)}`;
 }
 
+/**
+ * The amount as it appears ON A DAY IN THE GRID — his instruction, 2026-08-29:
+ *
+ *   "dont write number of trades and percentages even if there were more than 2 trades. Just write
+ *    the amount like '200' in green for a win and '-200' in red for a loss and if the loss were
+ *    from 2 trades, you just add and put the total there"
+ *
+ * So the day shows ONE figure and nothing else. Two things follow:
+ *
+ *  • THE TOTAL IS ALREADY WHAT `pnl` IS — `calendar_calculator.py:101` does `daily[day]["pnl"] += pl`
+ *    for every trade that day, so a day with two losses already carries their sum. Nothing needed
+ *    adding; the trade count and win rate simply stop being printed.
+ *  • The leading "+" and a trailing ".00" are noise on a figure that is already coloured green or
+ *    red, so they go. A real fraction is kept (a $12.50 day still reads 12.50).
+ *
+ * Deliberately SEPARATE from `fmt` above, which still serves the hover panel, the month total and
+ * the stat cards — those are summaries where the explicit sign and cents still earn their place.
+ */
+function fmtCell(pnl: number) {
+  const whole = Number.isInteger(pnl);
+  return `${pnl < 0 ? "-" : ""}$${Math.abs(pnl).toFixed(whole ? 0 : 2)}`;
+}
+
 function getStats(data: MonthData) {
   const days = Object.values(data);
   if (!days.length) return { net: 0, winRate: 0, trades: 0, ratio: "—", profitDays: 0, lossDays: 0, pct: "0.00" };
@@ -112,12 +135,10 @@ function DayCell({ day, data, maxPnl, cellHeight, isMobile }: { day: number | nu
             textShadow: isProfit ? "0 0 14px rgba(0,229,160,0.4)" : "0 0 14px rgba(255,61,90,0.4)",
             letterSpacing: isMobile ? 0 : "-0.02em",
             wordBreak: "break-all" as const,
-          }}>{fmt(d.pnl)}</div>
-          {!isMobile && (
-            <div style={{ fontFamily: FONT, fontSize: 9, fontWeight: 700, color: "var(--jr-ink-dim)", marginTop: 3 }}>
-              {d.trades}T · {d.winRate}%W
-            </div>
-          )}
+          }}>{fmtCell(d.pnl)}</div>
+          {/* The trade count and win rate that used to sit here ("2T · 50%W") are gone on his
+              instruction — the day shows the total and nothing else. Both are still one hover away
+              in the panel below, so nothing is actually lost. */}
         </div>
       )}
 
