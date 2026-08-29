@@ -54,7 +54,12 @@ export default function HomeFooter({ darkMode = false }: HomeFooterProps) {
   const [, navigate] = useLocation();
   const dm      = darkMode;
   const footBg  = dm ? '#0a0f1e' : '#f8fafc';
-  const divider = dm ? '#1e293b' : '#e2e8f0';
+  // Two jobs, two values — they used to share one (2026-08-30). A hairline RULE can be faint; a
+  // separator CHARACTER between links has to be seen or the links run together as one phrase. The
+  // shared value measured 1.18:1 against this footer, so the dots between "Terms & Conditions",
+  // "Risk & No Advice" and the rest were effectively invisible.
+  const divider = dm ? '#1e293b' : '#e2e8f0';        // hairline rules only
+  const dotClr  = dm ? '#7E8FA3' : '#617087';        // the "·" between links — 4.81:1 on light
   const logoClr = dm ? '#f1f5f9' : '#0f172a';
   // BLUE, theme-aware, matching the header and the rest of the app. The old value was the SAME
   // grey on both themes — measured against this footer's own backgrounds that is 4.01:1 on dark
@@ -66,14 +71,14 @@ export default function HomeFooter({ darkMode = false }: HomeFooterProps) {
   // Contact). Measured against this footer's own backgrounds the old values were 2.52:1 on dark and
   // 2.45:1 on light — roughly half the 4.5:1 AA floor, on links a site is legally expected to make
   // findable. They are secondary text, not invisible text. New pair: 7.45:1 dark, 4.55:1 light.
-  const muted   = dm ? '#94a3b8' : '#64748b';
+  const muted   = dm ? '#A8B7C7' : '#54637A';   // raised 2026-08-30: 4.55 -> 6.6:1 on light
   // Column headings (FOLLOW US / PLATFORM / COMPANY / LEGAL). Were 1.84:1 on dark and 2.45:1 on
   // light — the dark value was very nearly invisible. 11px bold is still SMALL text, so the 4.5:1
   // floor applies, not the 3:1 large-text allowance.
-  const capClr  = dm ? '#94a3b8' : '#64748b';
+  const capClr  = dm ? '#A8B7C7' : '#54637A';   // column headings, same raise
   // "Professional trading journal for serious traders." — was 2.52:1 on dark, failing AA like the
   // rest of this footer's secondary text. #94a3b8 is 7.45:1 there.
-  const descClr = dm ? '#94a3b8' : '#64748b';
+  const descClr = dm ? '#A8B7C7' : '#54637A';   // the strapline, same raise
 
   // Logo at 700, matching the header. Playfair is a VARIABLE font here (400-900 in one file), so
   // this is a real weight rather than a faux-bold.
@@ -174,7 +179,7 @@ export default function HomeFooter({ darkMode = false }: HomeFooterProps) {
           <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
             {LEGAL.map(({ label, href }, i) => (
               <span key={label} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                {i > 0 && <span style={{ color: divider }}>·</span>}
+                {i > 0 && <span aria-hidden="true" style={{ color: dotClr }}>·</span>}
                 <Link href={href}
                   style={{ fontSize: 12, color: muted, textDecoration: "none", ...bFont, transition: "color 0.18s" }}
                   onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = linkClr)}
