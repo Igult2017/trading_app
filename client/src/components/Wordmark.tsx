@@ -32,10 +32,7 @@
  * changing the logo is one edit here and not ten.
  */
 
-/** The lettering beside the mark. Inter, matching `Brand` — that typeface was chosen by rendering
- *  every bold sans already installed against the old logo's own lettering at matched cap height, and
- *  is documented in Brand.tsx. Already imported in index.css, so 700 costs no new font file. */
-const BRAND_FONT = "'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif";
+import Brand from '@/components/Brand';
 
 export interface WordmarkProps {
   /** Height of the lockup, in `em` so it tracks the site's own font-size. Width follows the
@@ -90,20 +87,20 @@ export default function Wordmark({ height = '2.4em', dark = false, style, classN
           borderRadius: '0.22em',
         }}
       />
-      <span
-        aria-hidden="true"
+      {/* THE NAME COMES FROM `Brand`, not a second copy of it. That component owns how the name is
+          set — Playfair letters with the ampersand in a sans, his instruction of 2026-08-30 — and
+          rendering it here means the logo and the name in running prose cannot drift apart. It used
+          to be a hardcoded string in this file with its own font, which is exactly the kind of
+          duplication that had them disagreeing. */}
+      <Brand
         style={{
-          fontFamily: BRAND_FONT,
-          fontWeight: 700,
           fontSize: `calc(${height} * 0.42)`,
           letterSpacing: '-0.01em',
           lineHeight: 1,
           whiteSpace: 'nowrap',
           color: dark ? '#F1F5F9' : '#0F172A',
         }}
-      >
-        Trade&amp;Journal
-      </span>
+      />
     </span>
   );
 }
