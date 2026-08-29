@@ -187,17 +187,29 @@ he wants the asymmetry at that size**, now that it has been counted.
 Measured, **not diagnosed**. It errs on the safe side (it refuses rather than allows) and the cause is
 unknown. Recorded so it is not rediscovered as new.
 
-### B7 — The gold notification case cannot be replayed, because the data stops six days short
+### B7 — ~~The gold notification case cannot be replayed~~ CLOSED 29 Aug
 
-`test_preclose_needs_a_route.py` claimed to replay his 26 August gold card *"rebuilt from stored
-broker bars"*. **It did not.** The stored `XAUUSD_H1.csv` ends **19 Aug 11:00, 158 hours before** the
-card's hour, so the 26 Aug forming bar was being appended to a market with a six-day hole in it — the
-protecting level read 4403.72 while gold was actually near 4650.
+Real XAU/USD, GBP/USD and EUR/USD H1 bars were pulled from the broker (read-only, demo, token never
+refreshed) and now reach **28 Aug 20:00**. Validated on arrival: 0 duplicate timestamps, 0 malformed
+bars, no gap longer than a weekend.
 
-The false section was removed on 29 Aug and the rule it was meant to hold is now tested on clean,
-honestly-labelled fixtures. **What is still open is the replay itself:** it needs real XAU/USD H1 bars
-through 26 Aug 2026, which this machine does not have. The same gap affects any other question asked
-of gold after 19 Aug. **A paged broker pull would close it.**
+**Both of his events replay correctly.** The gold card is refused on the real hour, and for the
+reason claimed: the trend was DOWN and the candle's close (4656.87) never reached the level
+protecting that downtrend (**4696.78** — the broken fixture had read 4403.72, $255 too low). The test
+is restored as the real event, with a guard that the file must REACH the hour rather than merely be
+long enough — the absence of that check is what let it run for three days on a six-day hole.
+
+### B8 — The 8-bar gate change was credited to a case it never touched
+
+`test_leg_gate_obeys_choch.py` justified itself by his GBP/USD case of 26 Aug 15:00. **That was
+written against a file ending 10 August — 16 days before the event it described.** On real bars the
+gate is never consulted at that candle: the trend before it was UP and the candle was a SELL, so the
+pro-trend rule refuses it first, and the gate's verdict is identical with and without the change.
+
+**The change still earns its place** — over the last 2,000 bars (~4 months) it changes the gate's
+verdict on **134 of the 1,859 bars where the gate is actually consulted (7.2%)**. The docstring now
+says that instead. Nothing to fix in the code; recorded so the false justification is not re-quoted.
+
 
 ## C. The web app
 

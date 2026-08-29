@@ -18,27 +18,24 @@ when the trend AGREES with the candle (`vix1_bias`, `if t1 == want`) — but whe
 change-of-character route can still trade it. Refusing every counter-trend candle would silence
 exactly the reversals that route exists to catch. So the test is whether EITHER route is open.
 
-THE FIXTURE IS **NOT** THE REAL EVENT, AND THIS FILE ONCE CLAIMED IT WAS. Corrected 2026-08-29.
-The stored gold file ends **19 Aug 2026 11:00** — 158 hours (6.6 days) BEFORE the card's hour. The
-original section here appended the 26 Aug forming bar onto bars that stop on 19 Aug and read the
-trend off that, so "the trend that hour was DOWN" was the trend a week earlier, and the protecting
-level it compared against (4403.72) was $255 below where gold actually was. Every conclusion drawn
-from it was about a market that had a six-day hole in it.
+THE FIXTURE IS THE REAL EVENT AGAIN — restored 2026-08-29 after being wrong for three days.
 
-That is precisely the lookalike-instead-of-the-actual-event failure his standing rule exists to stop,
-committed in the file written to enforce that rule. The section has been REMOVED rather than left
-asserting a wrong answer on a broken fixture. **To restore it, pull real XAU/USD H1 bars through
-26 Aug 2026 and rebuild it** — until then the rule is carried by the clean fixtures below, which are
-labelled as fixtures and make no claim to be his event.
+It was written claiming to replay his gold card from stored broker bars. It did not: the file ended
+**19 Aug 11:00, 158 hours before** the card's hour, so the 26 Aug bar was being appended to a market
+with a six-day hole in it and the protecting level read **4403.72 while gold was actually near 4650**.
+The assertion passed for the wrong reason. Real bars through 28 Aug were pulled from the broker and
+the section below now runs on the actual hour. **On the real data the card is refused, and refused
+for the reason claimed** — see the numbers in the assertions.
 
 NOT A BACKTEST: nothing here scores a win, a loss or an R.
 """
-from _harness import Suite
+from _harness import Suite, load
 
 from core.types import Candle
 from strategies import vix1_preclose as pc
 from strategies.vix1_bias import _H1_SWING_N, _H1_TREND_BARS
 from strategies.vix1_choch import choch_entry
+from strategies.vix1_momentum import is_momentum_candle
 from strategies.vix1_swings import structure_turns
 from strategies.vix1_trend import trend_state
 from shared.mtf_utils import seconds as tf_seconds
@@ -54,6 +51,42 @@ def state(bars):
     w = bars[-_H1_TREND_BARS:]
     return trend_state(w, n=_H1_SWING_N, turns=structure_turns(w, _H1_SWING_N))
 
+
+# ── HIS 26 AUG GOLD CARD, ON BARS THAT ACTUALLY REACH IT ─────────────────────────────────────────
+print()
+print("HIS 26 AUG GOLD CARD — a BUY momentum candle with no route, on the real hour")
+_gold = load("XAUUSD_H1.csv", "H1")
+_HOUR = 1787706000                                   # 26 Aug 2026 01:00 UTC — the hour on the card
+_have = [c for c in _gold if c.time < _HOUR]
+if len(_gold) < 200 or not any(c.time >= _HOUR for c in _gold):
+    # The file must actually REACH the event. Length alone is not enough — that is exactly the check
+    # whose absence let this file run for three days on a six-day hole.
+    s.check("SKIPPED — XAUUSD_H1.csv does not reach 26 Aug 2026", True, True)
+else:
+    _st = state(_have)
+    s.check("the trend that hour really was DOWN", _st.direction, -1)
+    s.check("...and no upward turn was pending", _st.pending == 1, False)
+
+    _real = next(c for c in _gold if c.time == _HOUR)
+    s.check("the real bar closed at 4656.87 — a $19.26 body", round(_real.close, 2), 4656.87)
+
+    # THE CARD WAS SENT ON THE BAR AS IT STOOD AT 01:57, body $21.12 — bigger than it finished.
+    _forming = Candle(time=_HOUR, open=4637.61, high=4660.88, low=4630.32,
+                      close=4658.73, volume=0, timeframe="H1")
+    s.check("the forming bar really did qualify as a BUY momentum candle",
+            is_momentum_candle(_have + [_forming], len(_have), True, SYM), True)
+
+    # AND IT DID NOT REACH THE LEVEL PROTECTING THE DOWNTREND, so it was not a change of character
+    # either — which is what leaves it with no route at all. This is the number the broken fixture
+    # got wrong: it read 4403.72, which is $255 below where gold actually was.
+    s.check("the protecting level was 4696.78, ABOVE the candle's close",
+            round(_st.protected, 2), 4696.78)
+    s.check("...so the candle did not break it", _forming.close > _st.protected, False)
+
+    _got = pc.check(_have, _have + [_forming], SYM, _HOUR + tf_seconds("H1") - 120)
+    s.check("NO notification is sent — a BUY had no route in a downtrend", _got, None)
+    s.teeth("this is the card he received; before the rule it fired",
+            _got is None and _st.direction == -1 and _forming.close < _st.protected)
 
 # ── THE BUY CANDLE THAT IS ITSELF TURNING THE MARKET UP (added 2026-08-29) ───────────────────────
 # WITHOUT THIS THE `pending == 1` TEST CAN NEVER FIRE ON THE BAR THAT CREATES THE PENDING TURN, and

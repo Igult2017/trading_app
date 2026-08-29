@@ -12,10 +12,25 @@ MAIN one (`vix1_trend`, where counter-swings are banked without moving the prote
 the change of character is measured against, so it obeys the turn by construction. This gate did not:
 it compared the last two highs and lows with no idea a turn had happened.
 
-WHAT IT COST, on his own case. GBP/USD 26 Aug 2026 15:00 (UTC+3), a 21.5-pip drop. The four swings
-the gate compared were 52, 16, 47 and 31 bars old — highs rising, lows rising, verdict "up" — so the
-drop was called "a pullback, not a continuation". Price was 1.36068; the newest swing it used was
-1.36543.
+THAT ATTRIBUTION WAS WRONG AND IS WITHDRAWN — corrected 2026-08-29 on real bars.
+
+This file used to claim the change was worth having because of his GBP/USD case of 26 Aug 2026 15:00
+(UTC+3), a 21.5-pip drop. **It was not, and the claim was made on a file that ended 10 August — 16
+days before the event it described.** Replayed on bars pulled through 28 Aug:
+
+    the trend BEFORE his candle was UP, and his candle was a SELL
+    -> VIX.1 is pro-trend only, so it is refused there, before this gate is ever consulted
+    the gate's verdict at that bar is "up" WITH the turn's position and "up" WITHOUT it — identical
+    once it closes, its close 1.36068 is below the protecting 1.36199, so it IS the turn down,
+    and his 25 Aug rule holds a turn down back until it has proved itself
+
+So his 26 Aug candle is refused by the pro-trend rule and then by his own turn-down rule. This gate
+had nothing to do with it.
+
+WHAT THE CHANGE IS ACTUALLY WORTH, measured instead of asserted: over the last 2,000 bars (~4 months)
+of real GBP/USD it changes the gate's verdict on **134 of the 1,859 bars where the gate is actually
+consulted (7.2%)**. That is real work, and it is the honest reason to keep it — not a case it never
+touched.
 
 AND IT IS STRUCTURAL. A swing needs 8 bars either side, so the newest 8 bars can never hold one.
 Right after a reversal this gate is necessarily still describing the move that ended.
