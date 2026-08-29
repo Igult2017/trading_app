@@ -134,7 +134,8 @@ function InnerPages() {
   return (
     <div className="flex flex-col min-h-screen w-full">
       <HomeHeader darkMode={true} setDarkMode={() => {}} activePath={undefined} />
-      <main className="flex-1 bg-background pt-16">
+      {/* Same header, same real height — this was pt-16 (64px) too. */}
+      <main className="flex-1 bg-background" style={{ paddingTop: 'var(--app-header-h, 101px)' }}>
         <Suspense fallback={<PageLoading />}>
         <Switch>
           <Route path="/history"     component={TradeHistoryPage} />
@@ -190,8 +191,12 @@ function PublicPagesGroup() {
     <>
       <HomeHeader darkMode={darkMode} setDarkMode={handleSetDark} activePath={location} />
 
-      {/* pt-16 offsets the 64px fixed header so content is not hidden beneath it */}
-      <div className="pt-16">
+      {/* RESERVE EXACTLY WHAT THE HEADER OCCUPIES, measured by the header itself.
+          This was `pt-16` — a hardcoded 64px, with a comment calling the header 64px tall. It is
+          101px (the ticker band plus the 68px nav row), so 37px of every public page sat underneath
+          it, invisible. On the blog that was the entire row of category filters (2026-08-30).
+          The fallback matches today's measurement and only applies for the first paint. */}
+      <div style={{ paddingTop: 'var(--app-header-h, 101px)' }}>
 
       {/*
        * EconomicCalendarPage and BlogPage are ALWAYS mounted.

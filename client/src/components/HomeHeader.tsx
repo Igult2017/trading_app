@@ -103,11 +103,39 @@ export default function HomeHeader({ darkMode, setDarkMode, activePath }: HomeHe
     prefetchIfEmpty(qc);
   }, [qc]);
 
+  /**
+   * PUBLISH THE HEADER'S REAL HEIGHT so the page below can reserve exactly that much.
+   *
+   * The page used to reserve a hardcoded 64px (`pt-16` in App.tsx) with a comment calling the header
+   * "64px". Measured, this bar is **101px** — the ticker band plus the 68px nav row — so 37px of
+   * EVERY public page was sitting underneath it, invisible. On the blog that was the whole row of
+   * category filters (2026-08-30).
+   *
+   * Measured rather than pinned to a new number, because the height is not a constant: the ticker
+   * can wrap, the row grows with the font size, and the next thing added to this bar would put the
+   * page back under it silently. A ResizeObserver keeps it honest.
+   */
+  const navRef = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    const el = navRef.current;
+    if (!el) return;
+    const publish = () => {
+      const h = Math.round(el.getBoundingClientRect().height);
+      if (h > 0) document.documentElement.style.setProperty('--app-header-h', `${h}px`);
+    };
+    publish();
+    const ro = new ResizeObserver(publish);
+    ro.observe(el);
+    window.addEventListener('resize', publish);
+    return () => { ro.disconnect(); window.removeEventListener('resize', publish); };
+  }, []);
+
   const scrollToHash = (hash: string) => {
     const el = document.getElementById(hash);
     if (!el) return false;
+    // Same real height the page reserves — the 68 fallback only applies before first paint.
     const header = document.querySelector("nav") as HTMLElement | null;
-    const offset = header ? header.getBoundingClientRect().height : 68;
+    const offset = header ? header.getBoundingClientRect().height : 101;
     window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - offset - 16, behavior: "smooth" });
     return true;
   };
@@ -143,7 +171,7 @@ export default function HomeHeader({ darkMode, setDarkMode, activePath }: HomeHe
   );
 
   return (
-    <nav style={{
+    <nav ref={navRef} style={{
       position: "fixed", top: 0, width: "100%", zIndex: 50,
       background: navBg, backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)",
       borderBottom: `1px solid ${scrolled ? navBorder : "transparent"}`,
