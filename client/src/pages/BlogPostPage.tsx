@@ -1,7 +1,8 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useRoute, useLocation } from 'wouter';
 import { ArrowLeft, Clock, Calendar, Image as ImageIcon, MessageCircle, Send } from 'lucide-react';
 import { usePublicTheme } from '@/context/PublicThemeContext';
+import { useQuery } from '@tanstack/react-query';
 import { usePageTracking } from '@/hooks/usePageTracking';
 import SEOHead from '@/components/SEOHead';
 import { tone, SERIF, SANS } from '@/components/blog/blogTheme';
@@ -364,6 +365,24 @@ export default function BlogPostPage() {
   const [, params] = useRoute('/blog/:id');
   const [, navigate]  = useLocation();
   const { darkMode, setDarkMode } = usePublicTheme();
+  // THE REAL CATEGORIES, from the same request the blog index makes. The query key is identical, so
+  // React Query serves this from cache and no second call goes out. The nav above used to carry a
+  // hardcoded list of trading topics that none of the published posts use (2026-08-30).
+  const { data: allPosts = [] } = useQuery<any[]>({
+    queryKey: ['/api/blog'],
+    queryFn: async () => {
+      const r = await fetch('/api/blog');
+      if (!r.ok) return [];
+      const d = await r.json();
+      return Array.isArray(d) ? d : [];
+    },
+    staleTime: 2 * 60 * 1000,
+  });
+  const navCategories = useMemo(
+    () => ['All', ...Array.from(new Set(allPosts.map((p: any) => p.category).filter(Boolean))).sort()],
+    [allPosts],
+  );
+
   const [post, setPost]         = useState<Post | null>(null);
   const [related, setRelated]   = useState<Post[]>([]);
   const [comments, setComments] = useState<Comment[]>([]);
@@ -547,38 +566,49 @@ export default function BlogPostPage() {
         }
       `}</style>
 
-      {/* ── Category nav (same as blog index) ──────────────────────────────── */}
-      <nav style={{
+      {/* ── Category nav ───────────────────────────────────────────────────
+          THREE THINGS WERE WRONG HERE (fixed 2026-08-30, on his screenshot).
+
+          1. THE LIST WAS HARDCODED to trading topics — All, Equities, Forex, Digital Assets,
+             Analysis, Backtested Strategies — none of which the published posts use. The blog index
+             had the same fault and was fixed on 29 Aug; THIS COPY WAS MISSED, so the old list went
+             on showing here. One duplicate left standing is a fix that does nothing.
+          2. EVERY BUTTON DID THE SAME THING — each one navigated to /blog regardless of which was
+             clicked, so the nav looked like a filter and was decoration.
+          3. The comment above it read "same as blog index", which stopped being true the moment the
+             index was redesigned.
+
+          The categories now come from the same request the index uses (identical query key, so
+          React Query serves it from cache without a second fetch), and a click actually filters. */}
+      <nav aria-label="Browse by category" style={{
         borderTop: `1px solid ${border}`,
         borderBottom: `1px solid ${border}`,
         padding: '14px 0',
-        marginBottom: 0,
         overflowX: 'auto',
       }}>
         <div className="bpp-nav-inner">
-          {['All', 'Equities', 'Forex', 'Digital Assets', 'Analysis', 'Backtested Strategies'].map(cat => {
-            const active = post.category.toLowerCase() === cat.toLowerCase();
+          {navCategories.map(cat => {
+            const active = cat !== 'All' && post.category.toLowerCase() === cat.toLowerCase();
+            const T = tone(isDark);
             return (
               <button
                 key={cat}
-                onClick={() => navigate('/blog')}
+                onClick={() => navigate(cat === 'All' ? '/blog' : `/blog?category=${encodeURIComponent(cat)}`)}
+                aria-current={active ? 'page' : undefined}
                 style={{
-                  fontSize: 9,
-                  fontWeight: 800,
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.25em',
-                  background: 'none',
-                  border: 'none',
-                  borderBottom: active ? `2px solid ${accent}` : '2px solid transparent',
-                  paddingBottom: 2,
+                  fontSize: 13,
+                  fontWeight: 500,
+                  fontFamily: SANS,
+                  borderRadius: 999,
+                  padding: '8px 16px',
                   cursor: 'pointer',
-                  color: active ? accent : (isDark ? '#475569' : '#a8a29e'),
-                  transition: 'color 0.2s',
                   whiteSpace: 'nowrap',
                   flexShrink: 0,
+                  background: active ? T.pillActiveBg : T.pillBg,
+                  color:      active ? T.pillActiveInk : T.pillInk,
+                  border: `1px solid ${active ? T.pillActiveBg : T.pillBorder}`,
+                  transition: 'background .15s, color .15s',
                 }}
-                onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.color = tone(isDark).link; }}
-                onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.color = isDark ? '#475569' : '#a8a29e'; }}
               >
                 {cat}
               </button>

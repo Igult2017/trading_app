@@ -105,6 +105,16 @@ export default function BlogPage({ active = true }: { active?: boolean }) {
 
   const pick = (cat: string) => { setActiveCategory(cat); setShown(PAGE_SIZE); };
 
+  // Honour ?category= from a link. The article page's category nav sends people here with one, and
+  // before this it landed on an unfiltered list — the click looked like it had done nothing.
+  // Applied only when the category actually exists in the posts, so a stale or hand-typed link
+  // falls back to showing everything rather than an empty page.
+  useEffect(() => {
+    const want = new URLSearchParams(window.location.search).get('category');
+    if (want && categories.includes(want) && want !== activeCategory) pick(want);
+    // categories is what gates it, so this settles once the posts have arrived
+  }, [categories.join('|')]);
+
   return (
     <>
       {active && (
