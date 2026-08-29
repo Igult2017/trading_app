@@ -5,7 +5,7 @@ import { Check, Zap, Shield, BarChart3, Bell } from 'lucide-react';
 export default function Join() {
   const features = [
     { icon: Zap, text: 'Real-time trading signals across Forex, Stocks, Crypto & Commodities' },
-    { icon: BarChart3, text: 'Smart Money Concepts analysis with institutional methodology' },
+    { icon: BarChart3, text: 'Data-proven strategies tested against real market history' },
     { icon: Bell, text: 'Telegram notifications for new signals and economic events' },
     { icon: Shield, text: 'Multi-timeframe confirmation for higher accuracy' },
   ];
@@ -18,7 +18,7 @@ export default function Join() {
             Join <span className="text-bull-green">Find</span>Buy<span className="text-bear-red">Sell</span>Zones
           </h1>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            Get access to professional-grade trading signals powered by Smart Money Concepts
+            Get access to professional-grade trading signals built on data-proven strategies
           </p>
         </div>
 

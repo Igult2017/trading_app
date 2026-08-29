@@ -235,7 +235,10 @@ export class SignalScannerService {
         symbol: setup.symbol,
         assetClass: setup.assetClass || 'forex',
         type: setup.direction || 'buy',
-        strategy: 'Smart Money Concepts',
+        // Named for what it reads, not a school of thought — he does not want
+        // "smart money concepts" on anything a user sees (2026-08-30). Nothing matches
+        // against this string, checked before renaming.
+        strategy: 'Market Structure',
         primaryTimeframe: setup.timeframe || '15M',
         confirmationTimeframe: '1M',
         entryPrice: setup.entryZone?.midPrice?.toString() || '0',

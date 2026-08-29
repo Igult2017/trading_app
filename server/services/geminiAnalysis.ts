@@ -108,7 +108,12 @@ async function generateWithFallback(params: GenerateParams): Promise<string> {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-const SIGNAL_VALIDATION_INSTRUCTION = `Role: You are an expert Smart Money Concepts (SMC) analyst validating trading signals. You will receive:
+// The ROLE line names market structure, not "smart money concepts" — his instruction, 2026-08-30:
+// "Its about trading data proven strategies with real edge not smart money." The AI's wording ends
+// up in validation notes a user reads, so the vocabulary it is primed with matters. WHAT it is asked
+// to look for below (zones, liquidity, change of character, gaps) is deliberately unchanged: that is
+// the analysis itself, not the label on it.
+const SIGNAL_VALIDATION_INSTRUCTION = `Role: You are an expert market-structure analyst validating trading signals. You will receive:
 1. A chart image showing price action with marked zones
 2. Our analysis explaining what we observed
 3. The signal we generated
@@ -159,8 +164,8 @@ Output Format (JSON only):
   "reasoning": "explain what you see on the chart and whether it matches our analysis"
 }`;
 
-const MARKET_SCAN_INSTRUCTION = `Role: You are a quick market scanner for Smart Money Concepts.
-Analyze the price data and identify if there are potential SMC setups forming.
+const MARKET_SCAN_INSTRUCTION = `Role: You are a quick market-structure scanner.
+Analyze the price data and identify if there are potential structural setups forming.
 Look for: supply/demand zones, liquidity pools, potential CHoCH, FVGs.
 
 CRITICAL RULES:
@@ -441,7 +446,7 @@ export async function testGeminiConnection(): Promise<{ success: boolean; messag
   }
   try {
     const text = await generateWithFallback({
-      contents: "Respond with exactly: 'SMC validation ready'",
+      contents: "Respond with exactly: 'validation ready'",
     });
     if (text.toLowerCase().includes('ready')) {
       return { success: true, message: 'Gemini API connected successfully' };
@@ -467,7 +472,7 @@ export async function analyzeWithGemini(
     stopLoss: 0,
     takeProfit: 0,
     confidence: 50,
-    strategy: 'smc',
+    strategy: 'market-structure',
     entryType: 'analysis_request',
     reasoning: 'Full analysis requested',
   };
@@ -477,7 +482,7 @@ export async function analyzeWithGemini(
   return {
     validation,
     marketScan: scan,
-    note: 'Use validateSignalWithGemini() to validate specific signals from our SMC strategy',
+    note: 'Use validateSignalWithGemini() to validate specific signals from our market-structure strategy',
   };
 }
 

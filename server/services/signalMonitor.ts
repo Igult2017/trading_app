@@ -243,7 +243,10 @@ export class SignalMonitorService {
         riskReward: riskReward || null,
         outcome: outcome.outcome === 'hit_sl' ? 'loss' : 'win',
         timeframe: signal.primaryTimeframe,
-        entryReason: signal.technicalReasons?.join(', ') || signal.marketContext || 'SMC Signal',
+        // Last-resort label when a signal carried no reasons and no context. It IS user-facing —
+        // it is stored as the trade's entry reason and shown back in the journal — so it does not
+        // say "SMC" (2026-08-30).
+        entryReason: signal.technicalReasons?.join(', ') || signal.marketContext || 'Automated signal entry',
         lesson: outcome.outcome === 'hit_sl' 
           ? 'Stop loss hit - review entry timing and zone quality' 
           : 'Take profit hit - successful trade execution',

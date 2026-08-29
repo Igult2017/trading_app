@@ -303,7 +303,7 @@ export default function TradingSignals({ assetClassFilter, title }: TradingSigna
                                 )}
                                 {signal.smcScore && (
                                   <div className="flex justify-between items-center">
-                                    <span className="text-muted-foreground">SMC (15%):</span>
+                                    <span className="text-muted-foreground">Structure (15%):</span>
                                     <Badge variant="outline" className="text-xs">
                                       {parseFloat(signal.smcScore).toFixed(1)}
                                     </Badge>
@@ -358,7 +358,7 @@ export default function TradingSignals({ assetClassFilter, title }: TradingSigna
                           
                           {signal.smcFactors && signal.smcFactors.length > 0 && (
                             <div>
-                              <h5 className="font-medium text-sm mb-2">Smart Money Concepts:</h5>
+                              <h5 className="font-medium text-sm mb-2">Market Structure:</h5>
                               <ul className="space-y-1 text-xs">
                                 {signal.smcFactors.map((factor, index) => (
                                   <li key={index} className="flex items-center gap-2">

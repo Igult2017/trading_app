@@ -51,7 +51,6 @@ const VaultCell = ({ label, value, color, isMobile, first = false }: { label: st
 );
 
 const SESSIONS = ["LONDON", "NEW YORK", "ASIAN", "FRANKFURT"];
-const STRATEGIES = ["SMC Breaker", "Silver Bullet", "ICT Killzone", "OB Mitigation"];
 const ASSETS = ["EURUSD", "NAS100", "GBPUSD", "XAUUSD", "US30", "BTCUSD"];
 
 type Trade = {
