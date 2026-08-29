@@ -36,12 +36,14 @@ function fmtRange(start?: string | null, end?: string | null): string {
   } catch { return ''; }
 }
 
-function heatBg(avgDdPct: number): React.CSSProperties {
+/** Loss intensity for one heatmap tile, 0 (untouched) to 1 (worst on the page).
+ *  SCALED AGAINST THE WORST CELL PRESENT, not a fixed 1.4% — with a single pair the old fixed scale
+ *  pinned the only cell at nearly full saturation, which is how one tile became a solid red slab. */
+function heatBg(avgDdPct: number, worst: number): React.CSSProperties {
   const v = Math.abs(avgDdPct);
   if (!v) return { background: 'var(--raise)' };
-  const a = Math.min(v / 1.4, 1) * 0.5 + 0.1;
-  // Uses the --loss token's own channels rather than a second hardcoded literal, so raising the
-  // red for contrast (2026-08-29) reaches the heatmap too instead of leaving it on the old colour.
+  const rel = worst > 0 ? Math.min(v / worst, 1) : 1;
+  const a = 0.13 + rel * 0.42;          // floor so a mild cell is still legible as a cell
   return { background: `rgb(255 122 135 / ${a.toFixed(3)})` };
 }
 
@@ -254,6 +256,10 @@ export default function DrawdownPanel({ sessionId, dispFont }: { sessionId?: str
 
   const heatRows: any[]   = d.heatmap ?? [];
   const heatCols: string[] = heatRows[0]?.cells?.map((c: any) => c.strategy) ?? [];
+  // The deepest cell on the page — the colour scale is relative to it, so the map reads the same
+  // whether you trade one pair or eight. A fixed scale pinned a lone cell at full saturation.
+  const heatWorst = heatRows.reduce((m: number, r: any) =>
+    (r.cells ?? []).reduce((n: number, c: any) => Math.max(n, Math.abs(c.avgDdPct || 0)), m), 0);
 
   // Loss-frequency card: SESSION (loss contribution per trading session) or INSTRUMENT.
   // Replaces the old ATTR view that jumbled strategies + sessions + psychology together.
@@ -422,13 +428,24 @@ export default function DrawdownPanel({ sessionId, dispFont }: { sessionId?: str
                   <div className="hrow" key={r.pair}>
                     <div className="hp">{r.pair}</div>
                     {r.cells.map((c: any, i: number) => (
-                      <div className="hc" key={i} style={heatBg(c.avgDdPct)}>
+                      <div className="hc" key={i} style={heatBg(c.avgDdPct, heatWorst)}
+                           title={`${r.pair} · ${c.strategy}: ${c.avgDdPct.toFixed(2)}% average on losing trades`}>
                         <div className="p" style={{ color: c.avgDdPct < 0 ? 'var(--heat-neg-ink)' : 'var(--ink3)' }}>{c.avgDdPct === 0 ? '0.0%' : `${c.avgDdPct.toFixed(1)}%`}</div>
                         <div className="t"><WLB wins={c.wins} losses={c.losses} breakevens={c.breakevens} size={11} /></div>
                       </div>
                     ))}
                   </div>
                 ))}
+                <div className="hleg">
+                  <span className="cap">Lighter</span>
+                  <span className="sc">
+                    {[0.13, 0.24, 0.34, 0.45, 0.55].map((a) => (
+                      <i key={a} style={{ background: `rgb(255 122 135 / ${a})` }} />
+                    ))}
+                  </span>
+                  <span className="cap">Deeper average loss</span>
+                  {heatWorst > 0 && <span className="cap" style={{ marginLeft: 'auto' }}>Worst cell {heatWorst.toFixed(2)}%</span>}
+                </div>
               </div>
             )}
             <div className="freq">

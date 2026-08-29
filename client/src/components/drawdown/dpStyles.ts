@@ -23,7 +23,7 @@ export const DP_CSS = `
         --ink2  #8A94A1  6.37:1 (AA)  ->  #AEB8C4  9.75:1 (AAA)
         --ink3  #737F8E  4.81:1 (AA)  ->  #93A0AE  7.35:1 (AAA)
         --loss  #F2596A  5.98:1 (AA)  ->  #FF7A87  7.82:1 (AAA)   */
-  --ink:#ECEFEA; --ink2:#AEB8C4; --ink3:#93A0AE;
+  --ink:#F2F5F0; --ink2:#C2CBD6; --ink3:#A7B3C0;
   --line:rgba(255,255,255,.09); --line2:rgba(255,255,255,.15);
   --loss:#FF7A87; --lossdeep:#FF3C4F; --loss-d:rgba(255,122,135,.16);
   --gain:#5FE3B4; --gain-d:rgba(95,227,180,.15);
@@ -59,7 +59,7 @@ export const DP_CSS = `
         --ink3  #94A3B8  2.56:1 FAIL  ->  #64748B  4.76:1 (AA)
         --gain  #059669  3.77:1 large ->  #047857  5.48:1 (AA)
         --warn  #D97706  3.19:1 large ->  #B45309  5.02:1 (AA)   */
-  --ink:#0F172A; --ink2:#3E4C5E; --ink3:#64748B;
+  --ink:#0B1220; --ink2:#334155; --ink3:#526277;
   --line:rgba(15,23,42,.11); --line2:rgba(15,23,42,.18);
   --loss:#C81E1E; --lossdeep:#991B1B; --loss-d:rgba(200,30,30,.12);
   --gain:#047857; --gain-d:rgba(4,120,87,.12);
@@ -92,12 +92,12 @@ export const DP_CSS = `
   border-bottom:1px solid var(--line);padding-bottom:13px;margin-bottom:24px;}
 .dp .rule .lab{display:flex;align-items:center;gap:11px;}
 .dp .rule .pin{width:6px;height:6px;background:var(--gain);transform:rotate(45deg);}
-.dp .rule .t{font-family:var(--disp);font-weight:700;font-size:12.5px;letter-spacing:.18em;text-transform:uppercase;}
-.dp .rule .sub{font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink3);}
+.dp .rule .t{font-family:var(--disp);font-weight:700;font-size:12.5px;letter-spacing:.12em;text-transform:uppercase;}
+.dp .rule .sub{font-size:11px;letter-spacing:.11em;text-transform:uppercase;color:var(--ink3);;font-weight:600}
 
 /* toggle */
 .dp .seg{display:inline-flex;gap:22px;}
-.dp .seg button{font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;font-weight:500;
+.dp .seg button{font-family:var(--mono);font-size:11.5px;letter-spacing:.10em;text-transform:uppercase;font-weight:500;
   color:var(--ink3);background:none;border:0;padding:0 0 4px;cursor:pointer;border-bottom:1.5px solid transparent;transition:.16s;}
 .dp .seg button:hover{color:var(--ink2);}
 .dp .seg button.on{color:var(--ink);border-bottom-color:var(--gain);}
@@ -105,21 +105,21 @@ export const DP_CSS = `
 /* HERO */
 .dp .hero-head{display:flex;justify-content:space-between;align-items:flex-start;gap:24px;flex-wrap:wrap;margin-bottom:30px;}
 .dp .equity{display:flex;align-items:baseline;gap:9px;}
-.dp .equity .slabel{font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink3);}
+.dp .equity .slabel{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink3);;font-weight:600}
 .dp .equity .t{font-size:11px;letter-spacing:.08em;text-transform:uppercase;}
 
 /* KPI surface readouts */
 .dp .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line);
   border-top:1px solid var(--line);border-bottom:1px solid var(--line);margin-bottom:4px;}
 .dp .kpi{background:var(--bg);padding:16px 18px;}
-.dp .kpi .k{font-size:9.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink3);margin-bottom:9px;}
+.dp .kpi .k{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink3);margin-bottom:9px;;font-weight:600}
 .dp .kpi .v{font-size:clamp(10px,1.2vw,14px);font-weight:500;letter-spacing:-.03em;}
 
 /* chart */
 .dp .chart-wrap{position:relative;margin-top:14px;}
 .dp .chart-wrap svg{display:block;width:100%;height:auto;}
 .dp .chart-foot{display:flex;flex-wrap:wrap;gap:28px 40px;margin-top:16px;}
-.dp .foot .k{font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink3);}
+.dp .foot .k{font-size:11px;letter-spacing:.11em;text-transform:uppercase;color:var(--ink3);;font-weight:600}
 .dp .foot .v{font-size:14px;margin-top:5px;}
 .dp .foot .v .u{color:var(--ink3);font-size:11px;margin-left:6px;}
 
@@ -136,14 +136,14 @@ export const DP_CSS = `
 .dp .lbar i{position:absolute;inset:0 auto 0 0;display:block;height:100%;}
 .dp .lval{text-align:right;font-size:15px;font-weight:500;}
 .dp .colh{display:grid;grid-template-columns:38px 230px 1fr 84px;gap:20px;margin-bottom:6px;}
-.dp .colh span{font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink3);}
-.dp .empty-row{padding:26px 0;color:var(--ink3);font-size:11px;letter-spacing:.14em;text-transform:uppercase;text-align:center;}
+.dp .colh span{font-size:11px;letter-spacing:.11em;text-transform:uppercase;color:var(--ink3);}
+.dp .empty-row{padding:26px 0;color:var(--ink3);font-size:11px;letter-spacing:.10em;text-transform:uppercase;text-align:center;}
 
 /* TRIPLE (model) */
 .dp .trip{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;}
 .dp .trip > div{padding:0 26px;border-left:1px solid var(--line);}
 .dp .trip > div:first-child{padding-left:0;border-left:0;}
-.dp .subh{font-family:var(--disp);font-weight:700;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink2);margin-bottom:16px;}
+.dp .subh{font-family:var(--disp);font-weight:700;font-size:11px;letter-spacing:.11em;text-transform:uppercase;color:var(--ink2);margin-bottom:16px;}
 .dp .dl .r{display:flex;justify-content:space-between;align-items:baseline;gap:14px;padding:9px 0;border-top:1px solid var(--line);}
 .dp .dl .r:first-of-type{border-top:0;}
 .dp .dl .r .k{font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:var(--ink2);}
@@ -152,18 +152,37 @@ export const DP_CSS = `
 
 /* RISK SURFACE (heatmap + freq) */
 .dp .rs{display:grid;grid-template-columns:1fr 250px;gap:42px;}
-.dp .heat{display:grid;gap:3px;overflow-x:auto;}
-.dp .hrow{display:grid;grid-template-columns:84px repeat(var(--cols,5),minmax(56px,1fr));gap:3px;}
-.dp .hh{font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3);text-align:center;padding:4px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.dp .hp{display:flex;align-items:center;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2);}
-.dp .hc{padding:14px 4px;text-align:center;}
-.dp .hc .p{font-size:12.5px;font-weight:500;}
-.dp .hc .t{font-size:9px;color:var(--ink3);margin-top:4px;}
+/* HEATMAP — rebuilt 2026-08-29 so ONE pair does not become a giant slab.
+   The old grid was repeat(cols, minmax(56px,1fr)): with a single pair and a single strategy that
+   one cell stretched to the full row width and 14px of padding made it tall, so the whole section
+   read as one enormous red rectangle with a number floating in it. Cells are now CAPPED tiles that
+   sit left, so the layout looks the same whether there is one pair or eight. */
+.dp .heat{display:grid;gap:6px;overflow-x:auto;padding-bottom:4px;}
+.dp .hrow{display:grid;grid-template-columns:104px repeat(var(--cols,5),minmax(84px,150px));
+  gap:6px;justify-content:start;align-items:stretch;}
+.dp .hh{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3);text-align:center;
+  padding:2px 4px 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600;}
+.dp .hp{display:flex;align-items:center;font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--ink2);font-weight:600;padding-right:8px;}
+/* A TILE, not a stretched band: fixed height, rounded, with a hairline so an empty/pale cell still
+   reads as a cell instead of vanishing into the background. */
+.dp .hc{padding:12px 8px;text-align:center;border-radius:10px;min-height:66px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;
+  border:1px solid var(--line);transition:transform .16s cubic-bezier(.16,1,.3,1),border-color .16s;}
+.dp .hc:hover{transform:translateY(-2px);border-color:var(--line2);}
+.dp .hc .p{font-size:15px;font-weight:700;letter-spacing:-.01em;line-height:1;}
+.dp .hc .t{font-size:11px;margin-top:0;font-weight:600;}
+/* Legend — the colour meant nothing without one, which is most of why a lone red block looked wrong. */
+.dp .hleg{display:flex;align-items:center;gap:10px;margin-top:14px;font-size:11px;
+  letter-spacing:.08em;text-transform:uppercase;color:var(--ink3);font-weight:600;}
+.dp .hleg .sc{display:flex;gap:3px;}
+.dp .hleg .sc i{width:26px;height:9px;border-radius:2px;display:block;}
+.dp .hleg .cap{color:var(--ink3);}
 .dp .freq .frow{display:flex;justify-content:space-between;align-items:baseline;margin-top:16px;}
 .dp .freq .frow:first-of-type{margin-top:0;}
 .dp .freq .bar{height:2px;background:var(--line2);margin-top:8px;position:relative;overflow:hidden;}
 .dp .freq .bar i{position:absolute;inset:0 auto 0 0;background:var(--loss);}
-.dp .freq .fsub{font-size:10px;color:var(--ink3);text-align:right;margin-top:6px;}
+.dp .freq .fsub{font-size:11px;color:var(--ink3);text-align:right;margin-top:6px;}
 
 /* STRUCTURAL */
 .dp .struct-top{padding:16px 0 22px;border-bottom:1px solid var(--line);margin-bottom:24px;}
@@ -171,7 +190,7 @@ export const DP_CSS = `
 .dp .rp:first-of-type{border-top:0;}
 .dp .rp .nm{font-family:var(--disp);font-weight:600;font-size:11px;letter-spacing:.1em;text-transform:uppercase;}
 .dp .rp .v{font-size:14px;color:var(--loss);}
-.dp .rp .tl{font-size:10px;color:var(--ink3);}
+.dp .rp .tl{font-size:11px;color:var(--ink3);}
 .dp .sg{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;}
 .dp .sg > div{padding:0 26px;border-left:1px solid var(--line);}
 .dp .sg > div:first-child{padding-left:0;border-left:0;}
@@ -181,27 +200,27 @@ export const DP_CSS = `
 .dp .sess .top{display:flex;justify-content:space-between;align-items:baseline;}
 .dp .sess .nm{font-family:var(--disp);font-weight:700;font-size:12px;letter-spacing:.08em;}
 .dp .sess .vv{font-size:14px;}
-.dp .sess .sb{font-size:10.5px;color:var(--ink3);margin-top:4px;}
+.dp .sess .sb{font-size:11.5px;color:var(--ink3);margin-top:4px;}
 .dp .sbar{height:2px;background:var(--line2);margin-top:9px;position:relative;overflow:hidden;}
 .dp .sbar i{position:absolute;inset:0 auto 0 0;}
 .dp .sess .wp{display:flex;justify-content:space-between;margin-top:9px;}
-.dp .sess .wp .l{font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink3);}
-.dp .sess .wp .r{font-size:10px;color:var(--ink2);}
+.dp .sess .wp .l{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink3);}
+.dp .sess .wp .r{font-size:11px;color:var(--ink2);}
 
 .dp .ls{display:grid;grid-template-columns:1fr 1fr;gap:18px 22px;}
-.dp .ls .k{font-size:9px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink3);margin-bottom:8px;}
+.dp .ls .k{font-size:11px;letter-spacing:.10em;text-transform:uppercase;color:var(--ink3);margin-bottom:8px;;font-weight:600}
 .dp .ls .big{font-size:20px;font-weight:500;line-height:1;}
-.dp .ls .s{font-size:10px;color:var(--ink3);margin-top:7px;}
+.dp .ls .s{font-size:11px;color:var(--ink3);margin-top:7px;}
 .dp .tl{display:flex;flex-wrap:wrap;gap:3px;margin-top:14px;}
-.dp .tl span{width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-size:9px;}
+.dp .tl span{width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-size:11px;}
 .dp .tw{background:var(--gain-d);color:var(--gain);font-weight:700;} .dp .tlo{background:var(--loss-d);color:var(--loss);font-weight:700;} .dp .tb{background:var(--warn-d);color:var(--warn);font-weight:700;}   /* breakeven = orange (2026-08-29) */
 
 .dp .rr{padding:11px 0;border-top:1px solid var(--line);}
 .dp .rr:first-of-type{border-top:0;padding-top:2px;}
 .dp .rr .top{display:flex;justify-content:space-between;align-items:baseline;gap:10px;}
 .dp .rr .rng{font-size:12px;min-width:58px;}
-.dp .rr .nm{font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink2);}
-.dp .rr .ct{font-size:9.5px;color:var(--ink3);}
+.dp .rr .nm{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink2);}
+.dp .rr .ct{font-size:11px;color:var(--ink3);}
 .dp .rr .pc{font-size:13px;}
 .dp .rrbar{height:2px;background:var(--line2);margin-top:8px;position:relative;overflow:hidden;}
 .dp .rrbar i{position:absolute;inset:0 auto 0 0;}
@@ -209,7 +228,7 @@ export const DP_CSS = `
 /* MONTHLY TABLE */
 .dp .mwrap{overflow-x:auto;}
 .dp .mtbl{width:100%;border-collapse:collapse;}
-.dp .mtbl th{font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink3);
+.dp .mtbl th{font-size:11px;letter-spacing:.10em;text-transform:uppercase;color:var(--ink3);
   font-weight:500;text-align:right;padding:0 0 12px;border-bottom:1px solid var(--line);}
 .dp .mtbl th:first-child{text-align:left;}
 .dp .mtbl td{font-size:13px;padding:13px 0;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap;}
