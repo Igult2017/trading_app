@@ -8,6 +8,35 @@ import { useTranslation } from "react-i18next";
 const FONT   = "'Montserrat', sans-serif";
 const GREEN  = "#00E5A0";
 const RED    = "#FF3D5A";
+// Break-even orange, the SAME value the drawdown page uses for a breakeven (dpStyles --warn).
+// His instruction, 2026-08-29: "Breakeven day should show in the color we used in drawdown page."
+const ORANGE = "#FFC155";
+
+/**
+ * A day is a WIN, a LOSS, or FLAT — and every colour on the cell comes from here.
+ *
+ * WHY A TABLE RATHER THAN A THIRD BRANCH IN NINE PLACES. The cell used to key off a two-way
+ * `isProfit` boolean in nine separate spots (background, border, day number, the figure, its glow,
+ * the bar, the hover panel's border, its P&L row, and its little arrow). Adding a third state by
+ * hand to nine expressions is how one gets missed and a break-even day comes out orange in some
+ * places and green in others. Resolved once, read everywhere.
+ *
+ * `rgb` is the same colour as bare channels, because the translucent backgrounds and glows need it
+ * in that form; keeping it beside the hex stops the two drifting apart.
+ */
+type Tone = "win" | "loss" | "flat";
+const TONE: Record<Tone, { hex: string; rgb: string }> = {
+  win:  { hex: GREEN,  rgb: "0,229,160" },
+  loss: { hex: RED,    rgb: "255,61,90" },
+  flat: { hex: ORANGE, rgb: "255,193,85" },
+};
+/** Half a cent, so a day that nets to zero out of a +100 and a -100 reads as flat rather than as a
+ *  win off a rounding crumb. */
+const FLAT_EPS = 0.005;
+function toneOf(pnl: number): Tone {
+  if (Math.abs(pnl) < FLAT_EPS) return "flat";
+  return pnl > 0 ? "win" : "loss";
+}
 const BG     = 'var(--tc-bg,     #0A0D14)';
 const CARD   = 'var(--tc-card,   #0F1520)';
 const BORDER = 'var(--tc-border, #1C2333)';
@@ -98,15 +127,16 @@ function DayCell({ day, data, maxPnl, cellHeight, isMobile }: { day: number | nu
   if (!day) return <div style={{ background: BG, minHeight: cellHeight }} />;
 
   const d        = data[String(day)];
-  const isProfit = d && d.pnl >= 0;
+  const tone     = d ? toneOf(d.pnl) : "win";
+  const T        = TONE[tone];
   const barWidth = d ? `${Math.round((Math.abs(d.pnl) / maxPnl) * 100)}%` : "0%";
 
   const bgColor = d
-    ? isProfit ? `rgba(0,229,160,${hovered ? 0.1 : 0.06})` : `rgba(255,61,90,${hovered ? 0.1 : 0.06})`
+    ? `rgba(${T.rgb},${hovered ? 0.1 : 0.06})`
     : hovered ? "rgba(255,255,255,0.02)" : CARD;
 
   const borderColor = d
-    ? isProfit ? `rgba(0,229,160,${hovered ? 0.5 : 0.2})` : `rgba(255,61,90,${hovered ? 0.5 : 0.2})`
+    ? `rgba(${T.rgb},${hovered ? 0.5 : 0.2})`
     : BORDER;
 
   return (
@@ -123,7 +153,7 @@ function DayCell({ day, data, maxPnl, cellHeight, isMobile }: { day: number | nu
     >
       <div style={{
         fontFamily: FONT, fontSize: isMobile ? 8 : 11, fontWeight: 900,
-        color: d ? (isProfit ? "rgba(0,229,160,0.5)" : "rgba(255,61,90,0.5)") : "#2A3348",
+        color: d ? `rgba(${T.rgb},0.5)` : "#2A3348",
       }}>{String(day).padStart(2, "0")}</div>
 
       {d && (
@@ -131,8 +161,8 @@ function DayCell({ day, data, maxPnl, cellHeight, isMobile }: { day: number | nu
           <div style={{
             fontFamily: FONT, fontWeight: 900, lineHeight: 1,
             fontSize: isMobile ? 8 : 14,
-            color: isProfit ? GREEN : RED,
-            textShadow: isProfit ? "0 0 14px rgba(0,229,160,0.4)" : "0 0 14px rgba(255,61,90,0.4)",
+            color: T.hex,
+            textShadow: `0 0 14px rgba(${T.rgb},0.4)`,
             letterSpacing: isMobile ? 0 : "-0.02em",
             wordBreak: "break-all" as const,
           }}>{fmtCell(d.pnl)}</div>
@@ -142,17 +172,17 @@ function DayCell({ day, data, maxPnl, cellHeight, isMobile }: { day: number | nu
         </div>
       )}
 
-      {d && <div style={{ position: "absolute", bottom: 0, left: 0, height: 3, width: barWidth, background: isProfit ? GREEN : RED, opacity: 0.6 }} />}
+      {d && <div style={{ position: "absolute", bottom: 0, left: 0, height: 3, width: barWidth, background: T.hex, opacity: 0.6 }} />}
 
       {d && hovered && !isMobile && (
         <div style={{
           position: "absolute", bottom: "calc(100% + 8px)", left: "50%", transform: "translateX(-50%)",
-          background: CARD, border: `1px solid ${isProfit ? "rgba(0,229,160,0.3)" : "rgba(255,61,90,0.3)"}`,
+          background: CARD, border: `1px solid rgba(${T.rgb},0.3)`,
           padding: "12px 16px", zIndex: 999, minWidth: 150, pointerEvents: "none" as const,
           boxShadow: "0 12px 40px rgba(0,0,0,0.7)",
         }}>
           {[
-            { l: "P&L",      v: fmt(d.pnl),          c: isProfit ? GREEN : RED },
+            { l: "P&L",      v: fmt(d.pnl),          c: T.hex },
             { l: "TRADES",   v: String(d.trades),     c: "#E8EDF5" },
             { l: "WIN RATE", v: `${d.winRate}%`,      c: "#E8EDF5" },
           ].map(r => (
@@ -164,7 +194,7 @@ function DayCell({ day, data, maxPnl, cellHeight, isMobile }: { day: number | nu
           <div style={{
             position: "absolute", top: "100%", left: "50%", transform: "translateX(-50%)",
             borderLeft: "6px solid transparent", borderRight: "6px solid transparent",
-            borderTop: `6px solid ${isProfit ? "rgba(0,229,160,0.3)" : "rgba(255,61,90,0.3)"}`,
+            borderTop: `6px solid rgba(${T.rgb},0.3)`,
           }} />
         </div>
       )}
