@@ -62,9 +62,27 @@ def at(sec_into_hour):
 print()
 print("CANDLE CACHE — a copy must never span a bar close")
 
-# ── the fast timeframes are untouched ────────────────────────────────────────
+# ── the fast timeframes still refetch every scan ─────────────────────────────
+# `at(100)` is 100s into the hour — mid-bar for M1, so the flat 20s ceiling applies there.
 check("M1 still refetches every scan", _ttl_for("M1", at(100)), _FAST_TF_TTL)
 check("M2 too", _ttl_for("M2", at(100)), _FAST_TF_TTL)
+
+# ── AND RULE 1 APPLIES TO M1 TOO, which it did not until 2026-08-30 ──────────
+# A flat 20s on a 60s bar means a copy taken in the bar's last 20 seconds is still served AFTER that
+# bar closes — so the newest closed bar is missing from what the strategy reads, about one bar close
+# in three. That silently defeated the same day's change to scan the INSTANT a 1M bar closes: the
+# scan ran at exactly the right moment and was handed data that did not contain the bar it was
+# called for. Timing fixed, freshness not — worse than either alone, because it looks fixed.
+_m1_open = TOP                                     # any real minute boundary
+for _left in (55, 40, 25, 20, 15, 5, 1):
+    _at = _m1_open + (60 - _left)
+    check(f"M1 copy with {_left:>2}s left does NOT outlive the close",
+          _ttl_for("M1", _at, last_open=_m1_open) <= _left, True)
+# ...and it is never made STALER than it was — the safety argument for touching the data path.
+for _left in (60, 45, 30, 20, 10, 2):
+    _at = _m1_open + (60 - _left)
+    check(f"M1 ttl at {_left:>2}s left is never above the old flat value",
+          _ttl_for("M1", _at, last_open=_m1_open) <= _FAST_TF_TTL, True)
 
 # ── RULE 1 — never hold a copy across the close ──────────────────────────────
 # THE DECISIVE CHECK. Step a whole hour minute by minute, following the cache the way the fetcher

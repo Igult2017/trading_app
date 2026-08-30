@@ -116,10 +116,21 @@ def _ttl_for(tf: str, now: float | None = None, last_open: float | None = None) 
     as the boundary they are measured from.
     """
     mins = to_minutes(tf)
+    now = time.time() if now is None else now
     if mins <= 2:
-        return _FAST_TF_TTL
+        # RULE 1 APPLIES HERE TOO, and until 2026-08-30 it did not. A flat 20s on a 60s bar means a
+        # copy taken in the bar's final 20 seconds is still served AFTER that bar has closed — so the
+        # newest closed bar is missing from what the strategy reads, about one bar close in three.
+        #
+        # That silently defeated the change made the same day to scan the INSTANT a 1M bar closes
+        # (`orchestrator/scan_on_demand`): the scan ran at exactly the right moment and was handed
+        # data that did not yet contain the bar it was called for. The timing was fixed and the
+        # freshness was not, which is worse than either alone because it looks fixed.
+        #
+        # Same safety argument as the rest of this function: the result is always <= the old flat
+        # value, so this can only ever make candles fresher, never staler.
+        return min(_FAST_TF_TTL, _to_close(tf, now, last_open))
     base   = max(55.0, mins * 60 * 0.80)         # the old value — now a ceiling, never the answer
-    now    = time.time() if now is None else now
     to_close = _to_close(tf, now, last_open)      # seconds until this bar finishes, on its own grid
     if to_close > _FINAL_STRETCH_S:
         # Expire when the final stretch BEGINS, not at the bar close — otherwise a copy taken at
