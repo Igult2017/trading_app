@@ -249,6 +249,27 @@ red self-test that everyone steps around is how a real regression gets missed: t
 break something here will see two failures and assume they are the usual two.
 
 
+### B12 — Nothing records HOW LATE a signal is, so "is it still late?" cannot be answered
+
+**Opened 30 Aug, and it is the one thing left undone from the lateness work.** His claim that
+*"signal arrives late when its past entry"* was confirmed against real broker bars — two of four
+stored signals had price already through the entry when they fired, the other two by 0.1 and 0.2
+pips. **But n=4, because four is every signal that exists to measure.**
+
+Nothing stores the timing: the pre-close notifications are not persisted (`persist_watch=False`,
+`alert_only=True`), and `signal_events` is empty. So the delay between a candle closing, the platform
+looking, and a signal going out cannot be read back — it had to be reconstructed from `createdAt`
+against re-fetched M1 bars, which mixes legitimate 1M-entry waiting time with platform lateness and
+cannot separate them.
+
+**What is needed:** stamps for candle-closed / scan-started / signal-sent, so after a few live days
+the question is arithmetic. Without it, whether the bar-close scanning actually helped is a matter
+of opinion.
+
+**Not built with the fix itself** — he was out, the market was closed, and adding a new write to the
+signal path unsupervised is a bigger risk than leaving the question open for a few days.
+
+
 ### B11 — ~~Autotrade STILL cannot place an order~~ FIXED 30 Aug — the order path now has its own socket
 
 **Fixed by rewriting `execution/broker.py` onto this platform's own asyncio connection, and split
