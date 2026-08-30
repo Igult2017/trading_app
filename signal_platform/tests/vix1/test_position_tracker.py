@@ -79,7 +79,11 @@ def run(positions, price):
     for k in list(T.delivery_ledger._delivered if hasattr(T.delivery_ledger, "_delivered") else []):
         pass
     T.ctrader_positions = _Stub(positions)
-    T._price_now = lambda symbol: _price(price)
+    # TAKES THE DIRECTION TOO since 2026-08-30: the tracker reads the side of the spread its stop
+    # would actually trigger on — the BID for a buy, the ASK for a sell. A one-argument stub raised
+    # TypeError here, and `check_all` swallows exceptions by design, so the symptom was "no alert
+    # was sent" rather than an error. That is precisely the failure this suite exists to catch.
+    T._price_now = lambda symbol, bullish=None: _price(price)
     asyncio.run(T.check_all(_send))
     return list(sent)
 

@@ -142,6 +142,25 @@ async def _startup() -> None:
     write_status("ok")
     log.info("[boot] scheduler started — platform is running")
 
+    # 6a. REAL-TIME TRADE WATCHER — opt-in, and started as its own task so it cannot delay boot.
+    #     It streams prices over FIX (a different protocol, a different port, its own credential)
+    #     and spends NONE of the Open API request budget the scanner uses. Every failure inside it
+    #     is caught by its own loop; the 30s position tracker keeps working whether it runs or not,
+    #     so the worst case of this feature being broken is the behaviour we had before it existed.
+    if settings.trade_watcher_enabled:
+        try:
+            from monitor.trade_watcher import TradeWatcher
+            # The same admin-DM sender position_tracker is given (signal_monitor.py:105-106), so
+            # the watcher's messages land exactly where the 30s tracker's already do.
+            from notifications.dispatcher import _send_private
+            _watcher = TradeWatcher(_send_private)
+            asyncio.create_task(_watcher.run_forever())
+            log.info("[boot] real-time trade watcher started")
+        except Exception as exc:
+            log.warning(f"[boot] trade watcher failed to start (non-fatal): {exc}")
+    else:
+        log.info("[boot] real-time trade watcher is OFF (trade_watcher_enabled=false)")
+
     # 6b. Boot heartbeat + first scan — BEST-EFFORT. A failure here must never crash
     #     _startup: the process would exit, the watchdog would restart it, and it would
     #     re-send the boot heartbeat on every restart (a Telegram spam loop). The

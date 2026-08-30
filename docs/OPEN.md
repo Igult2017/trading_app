@@ -91,8 +91,35 @@ going to the **public channel** all along.
 claim about routing was wrong. Moot for routing now that everything BX is public, but it would have
 misled the next session the moment `CHANNEL_ALL` was turned off.
 
-### A9 — A production environment variable is stored WITH quote marks
-**Found 25 Aug, not fixed — needs his say-so, it is a live setting.** `SIGNALS_DM_ONLY` is stored in
+### A9 — SIXTEEN production environment variables are stored WITH quote marks, and 19 keys are duplicated
+**⚠ MEASURED 30 Aug AND IT IS FAR WIDER THAN THIS ENTRY SAID.** When it was written on 25 Aug it
+named ONE variable. A full scan of all 47 while adding the autotrade switches found:
+
+* **16 values stored with quote marks**, every one flagged `is_literal` — including
+  `CTRADER_ACCESS_TOKEN`, `CTRADER_REFRESH_TOKEN`, `CTRADER_ACCOUNT_ID`, `COPY_ENCRYPTION_KEY`,
+  `TELEGRAM_API_HASH`, `WATCHDOG_CHAT_ID`, `COPY_DRY_RUN` and `AUTO_BREAKEVEN_ENABLED`.
+* **19 duplicated keys.** Most duplicates are identical and harmless. Four are NOT:
+  `WATCHDOG_CHAT_ID`, `COPY_DRY_RUN`, `AUTO_BREAKEVEN_ENABLED` and `SIGNALS_DM_ONLY` each have one
+  clean copy and one QUOTED copy — so which one wins decides the behaviour, and nothing here says
+  which does.
+
+**Re-confirmed by test, not assumed:** a quoted boolean does not merely misparse, pydantic
+**rejects it outright** with a ValidationError. Settings are read at import, so the app would fail
+to START rather than fall back to a default.
+
+    env='true'    -> True          env="'true'"   -> REJECTED, ValidationError
+    env='false'   -> False         env="'false'"  -> REJECTED, ValidationError
+
+**It still works today** — the platform is running and beating — so the clean copies must be the
+ones reaching the container. **That is inferred from the app booting, not observed; the container's
+own environment is not visible from here.**
+
+**Deliberately NOT fixed while adding the autotrade switches on 30 Aug.** Cleaning 16 values and 19
+duplicates is a large change to live production config, well beyond what was approved, and his
+standing instruction is that the signal platform matters more than any feature. The three new
+variables were added clean (`is_literal=False`, no quotes) and nothing existing was touched.
+
+**Original 25 Aug note, still accurate for its one variable:** `SIGNALS_DM_ONLY` is stored in
 Coolify as **six characters** — `'true'`, quote marks included — and flagged `is_literal` (pass
 through unchanged).
 

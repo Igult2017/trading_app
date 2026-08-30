@@ -137,6 +137,15 @@ class Settings(BaseSettings):
     # is set. Demo-only is enforced at runtime the same way autotrade's is.
     auto_breakeven_enabled:   bool = False
     auto_breakeven_demo_only: bool = True
+    # THE REAL-TIME WATCHER — streams prices over cTrader's FIX price session so a stop move happens
+    # within a second instead of up to ~110s (60s of M1 bar + 20s of cache + the 30s poll). FIX is a
+    # different protocol on a different port with its own credential, and it POLLS NOTHING, so it
+    # spends none of the Open API request budget the candle fetch uses. Its own switch because it is
+    # a new connection on the path that protects money; the 30s tracker keeps working without it.
+    trade_watcher_enabled:    bool = False
+    ctrader_fix_password:     str  = ""     # CTRADER_FIX_PASSWORD — never committed, never logged
+    ctrader_fix_host:         str  = "demo-us-eqx-01.p.c-trader.com"
+    ctrader_fix_quote_port:   int  = 5211
     autotrade_fixed_lots:  float = 0.0     # >0 pins the size and IGNORES risk_pct — for diagnostics,
                                            # where the point is observing fills, not sizing exposure
 

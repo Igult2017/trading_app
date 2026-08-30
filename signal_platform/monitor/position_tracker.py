@@ -49,7 +49,7 @@ import logging
 
 from core import delivery_ledger
 from notifications import titles
-from data import ctrader_positions
+from data import ctrader_positions, ctrader_spread
 from data.candle_fetcher import fetch_candles
 from shared.pip import price_digits
 
@@ -89,8 +89,37 @@ def _key(position_id: int, tag: str) -> str:
     return f"postrack_{position_id}_{tag}"
 
 
-async def _price_now(symbol: str) -> float | None:
-    """The freshest M1 close — a TRIGGER read, so the still-forming bar is exactly right here."""
+async def _price_now(symbol: str, bullish: bool | None = None) -> float | None:
+    """The price this position's stop would actually trigger on. LIVE, and the correct SIDE of it.
+
+    WHAT THIS USED TO DO, AND WHY IT WAS WRONG (fixed 2026-08-30). It returned the last M1 close and
+    its docstring claimed that was "the still-forming bar". It was not. The feed serves CLOSED bars
+    ONLY — `candle_cache.py:43`, verified against the live broker over 14 polls — and a forming bar
+    is appended by the STRATEGY RUNNER alone, opt-in, for `wants_forming = [TF.H1]`. This module
+    calls `fetch_candles` directly, so it got the last completed minute. Stacked up:
+
+        up to 60s   the M1 bar only closes once a minute
+        up to 20s   the M1 cache (`_FAST_TF_TTL`)
+        up to 30s   the monitor's own poll interval
+
+    — a trigger price that could be nearly two minutes old, while `ctrader_spread.quote_for()` sat
+    in the same codebase describing itself as "the platform's ONLY genuinely current price".
+
+    AND THE SIDE MATTERS AS MUCH AS THE AGE. A buy's stop triggers on the BID, a sell's on the ASK.
+    That is not a refinement — `breakeven.py:78` records a real demo position CLOSED INSTANTLY on
+    2026-08-21 because a stop was set the wrong side of the market. `why_not` refuses exactly that,
+    by comparing against the price handed to it, so handing it a stale mid-ish candle close made the
+    guard check something the market had already left.
+
+    FALLS BACK to the old M1 close if the quote is unavailable. A tracker that goes silent because a
+    quote missed is worse than one reading a slightly older price, and `quote_for` returns None on
+    any failure by design.
+    """
+    if bullish is not None:
+        quote = await ctrader_spread.quote_for(symbol)
+        if quote is not None:
+            bid, ask = quote
+            return bid if bullish else ask
     bars = await fetch_candles(symbol, "M1", 2)
     return bars[-1].close if bars else None
 
@@ -189,7 +218,7 @@ async def check_all(send) -> None:
             if p.stop is None:
                 summary.append(f"{p.symbol}#{p.position_id} NO-STOP @{p.entry}")
                 continue
-            px = await _price_now(p.symbol)
+            px = await _price_now(p.symbol, p.bullish)
             r = p.r_at(px) if px else None
             summary.append(f"{p.symbol}#{p.position_id} {'BUY' if p.bullish else 'SELL'} "
                            f"{r:+.2f}R stop={p.stop}" if r is not None
@@ -214,7 +243,7 @@ async def check_all(send) -> None:
                         log.info(f"[position_tracker] {p.symbol} #{p.position_id}: "
                                  f"no-stop notice sent")
                 continue
-            price = await _price_now(p.symbol)
+            price = await _price_now(p.symbol, p.bullish)
             if price is None:
                 continue
             r = p.r_at(price)
