@@ -131,16 +131,62 @@ s.check("mismatched minutes -> None", a3.compare("Y", bar(BASE, 1, 1, 1, 1),
 s.check("...and none of that counted toward trust", a3.report().get("Y"), None)
 
 
-# ── PHASE 1 SERVES NOTHING ──────────────────────────────────────────────────
-# The whole point of the first rollout: it can only observe. If this ever fails, tick-built candles
-# are reaching a strategy before they were proved.
+# ── A MINUTE IS SCORED ONCE ─────────────────────────────────────────────────
+# `_audit_against_ticks` re-compares EVERY overlapping bar on EVERY M1 fetch, so without this the
+# scoreboard counts the same minute over and over and stops meaning what it says.
+#
+# SEEN IN PRODUCTION, 30 Aug: GBP/USD read 183/200 then 193/200, which looks like 7-17 separate
+# failures. There was exactly ONE bad minute, re-scored on every fetch. It inflates the good side
+# too — a "200/200" was about 33 real minutes counted six times each.
+a4 = TickBarAudit()
+same = bar(BASE, 1.1, 1.2, 1.0, 1.15)
+for _ in range(50):
+    a4.compare("Z", same, same)
+s.check("the same minute scored fifty times counts ONCE", a4.report()["Z"]["recent"], 1)
+s.check("...so it cannot reach the sample on its own", a4.trusted("Z"), False)
+
+# The repeat still returns the right answer to its caller — it is only the SCORING that is skipped.
+s.check("a repeat still reports whether that bar matched", a4.compare("Z", same, same), True)
+
+# A repeated MISMATCH must not fill the window either — one bad minute is one bad minute.
+a5 = TickBarAudit()
+good, bad_ours = bar(BASE, 1.1, 1.2, 1.0, 1.15), bar(BASE + M, 1.1, 1.2001, 1.0, 1.15)
+bad_theirs = bar(BASE + M, 1.1, 1.2000, 1.0, 1.15)
+a5.compare("W", good, good)
+for _ in range(30):
+    a5.compare("W", bad_ours, bad_theirs)
+s.check("one bad minute repeated thirty times is ONE entry, not thirty",
+        a5.report()["W"]["recent"], 2)
+
+# Distinct minutes still accumulate normally — the fix must not stop real evidence being counted.
+a6 = TickBarAudit()
+for i in range(MIN_SAMPLE):
+    c = bar(BASE + i * M, 1.1, 1.2, 1.0, 1.15)
+    a6.compare("V", c, c)
+s.check(f"{MIN_SAMPLE} DISTINCT minutes do reach the sample", a6.report()["V"]["recent"], MIN_SAMPLE)
+s.check("...and earn trust", a6.trusted("V"), True)
+s.teeth("the once-per-minute rule", a4.report()["Z"]["recent"] != 50)
+
+
+# ── SERVING IS GATED, AND THE GATE LIVES IN ONE PLACE ───────────────────────
+# This used to assert that candle_fetcher never serves at all. That stopped being true when
+# `tick_serving` was added, and the assertion kept passing for the wrong reason — it checked for a
+# call (`trusted`) that had simply MOVED to another file. What matters now is not that serving is
+# impossible, but that it cannot happen without BOTH locks.
 import ast, os
 _root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 _fetch = open(os.path.join(_root, "data", "candle_fetcher.py"), encoding="utf-8").read()
-_tree = ast.parse(_fetch)
+_serving = open(os.path.join(_root, "data", "tick_serving.py"), encoding="utf-8").read()
 _calls = {(n.func.attr if isinstance(n.func, ast.Attribute) else getattr(n.func, "id", ""))
-          for n in ast.walk(_tree) if isinstance(n, ast.Call)}
-s.check("candle_fetcher compares tick bars", "compare" in _calls, True)
-s.check("...but never SERVES them yet", "bars" in _calls and "trusted" in _calls, False)
+          for n in ast.walk(ast.parse(_fetch)) if isinstance(n, ast.Call)}
+s.check("candle_fetcher still compares tick bars", "compare" in _calls, True)
+s.check("candle_fetcher does not decide serving itself — it delegates",
+        "trusted" in _calls, False)
+s.check("the serving decision asks whether the symbol is trusted",
+        "audit.trusted(symbol)" in _serving, True)
+s.check("...and whether the switch is on", "serving_enabled()" in _serving, True)
+s.check("the switch defaults to OFF in settings",
+        "tick_bars_serve_enabled:  bool = False" in
+        open(os.path.join(_root, "config", "settings.py"), encoding="utf-8").read(), True)
 
 s.done()

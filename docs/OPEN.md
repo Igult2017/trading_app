@@ -299,6 +299,30 @@ costs nothing, because trust is per symbol.
 **GBP/JPY already gets that half of the win**. It removes the wait for the next scheduled scan. It
 cannot remove the broker's 10-70s publication delay - only serving our own bars does that.
 
+**READ 31 Aug, 45 minutes of live log after the deploy — and it found a flaw in the SCOREBOARD:**
+
+* **The same minute was being scored over and over.** `_audit_against_ticks` re-compares every
+  overlapping bar on every M1 fetch, and `compare()` counted each one, so the "200" window was 200
+  COMPARISONS, not 200 bars. GBP/USD read `183/200` then `193/200`, which looks like 7-17 separate
+  failures; there was exactly **ONE** bad minute (22:47), re-scored until it filled a twelfth of the
+  window. It flattered the good side just as much: a `200/200` was roughly **33 real minutes counted
+  six times each**, so `MIN_SAMPLE = 30` could be satisfied by about five minutes of evidence.
+  **Fixed** — every minute is now scored once (`tick_bar_audit.compare`, `last_scored`), which is
+  what the constant's own comment always claimed it did.
+* **⚠ So the "200/200 exact" I reported is weaker than it sounded.** It is real evidence and it is
+  still four instruments matching to the last decimal — but it is tens of distinct minutes, not two
+  hundred. The busy-session watch matters more than ever.
+* **GBP/USD produced its first genuinely wrong bar** — 22:47, and **only the OPEN**, by 0.00002
+  (0.2 pips); high, low and close were exact. The open is the first tick of the minute, so this
+  looks like a dropped first tick — precisely the failure this gate exists to catch, and it caught
+  it: trust was withdrawn automatically.
+* **GBP/JPY unchanged** — 41 consecutive minutes, every one exactly 0.005 low. Same constant.
+* **The unpinned credential read I flagged on 30 Aug did NOT recur.** Every read in this window
+  carried `?ctrader_id=47535363`. Treating that as a one-off from the earlier boot, not a live
+  defect — I have not traced what produced the original line.
+* The boot probe timed out once at 22:43 (EUR/USD H1, 20s) and self-healed; the platform scanned
+  normally for the rest of the window.
+
 **BEFORE THE SWITCH IS FLIPPED:** the 200/200 runs came from the **Sunday-night open, the thinnest
 market of the week**, and the way this fails is dropped ticks under heavy traffic. Watch a full
 London or New York session first. The design withdraws trust automatically on a single wrong bar,
@@ -535,6 +559,16 @@ side reads a field, assert the other side sends it.
 ends the noise permanently and is reversible from the UI.
 
 **The fix as first written was wrong — see D5.** It deactivated MT5 masters too.
+
+### D13 - ~~Three Telegram masters logged every 35 seconds, for ever~~ FIXED 31 Aug
+**Read from 45 minutes of live log, 31 Aug: 228 lines** — three unconfigured Telegram masters
+(`735f444b…`, `fa3da8e4…`, `7ffe8368…`) each printing *"no active source/channel — skipping"* on
+every reload. `_load_masters` runs every 60s and the supervisor calls it again every 90s.
+
+Exactly the noise problem D2 was about, in the branch D2 did not cover. Now said **once per master**
+(`engine._quiet_telegram`), and re-armed if that master ever starts working, so a later outage is
+still reported. Noise at that scale is not harmless — it is what a real fault has to be spotted
+among, and these three lines were 15% of everything the platform logged.
 
 ### D5 - ~~The engine switched off MT5 providers it does not even run~~ FIXED 31 Aug 🔴
 **Mine, introduced 30 Aug by the D2 fix.** The deactivation branch was placed **before** the test

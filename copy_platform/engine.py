@@ -72,6 +72,11 @@ class CopyEngine:
     def __init__(self):
         self._providers: dict[str, object] = {}   # master_id → provider
         self._watch_task = None
+        # Telegram masters already reported as having no channel. SAID ONCE, NOT EVERY CYCLE:
+        # `_load_masters` runs every 60s and the supervisor calls it again every 90s, so three
+        # unconfigured masters were writing ~230 log lines every 45 minutes, for ever. Noise on
+        # that scale is not harmless — it is what a real fault has to be spotted among.
+        self._quiet_telegram: set[str] = set()
 
     async def start(self) -> None:
         log.info("[engine] starting copy engine (worker %d/%d)",
@@ -220,8 +225,13 @@ class CopyEngine:
         with Session() as db:
             src = db.query(TelegramSource).filter_by(master_id=master.id, is_active=True).first()
         if not src or not src.channel_name:
-            log.info(f"[engine] telegram master {master.id}: no active source/channel — skipping")
+            if master.id not in self._quiet_telegram:
+                self._quiet_telegram.add(master.id)
+                log.info(f"[engine] telegram master {master.id}: no active source/channel — "
+                         f"skipping (said once; will report again if it starts working)")
             return
+        # It has a channel now — forget the earlier complaint so a future outage is reported again.
+        self._quiet_telegram.discard(master.id)
         cfg = {
             "entry_keyword":     src.entry_keyword,
             "sl_keyword":        src.sl_keyword,

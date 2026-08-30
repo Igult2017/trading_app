@@ -31,19 +31,25 @@ log = logging.getLogger(__name__)
 
 # How many consecutive matching bars before a symbol is trusted. One live hour gives ~60 per symbol,
 # so this is minutes of evidence, not days — but it is never zero.
+#
+# That claim was FALSE until 31 Aug and this is the note that keeps it honest: these are DISTINCT
+# MINUTES, each scored once (`compare`). They used to be raw comparisons, and the same minute was
+# re-scored on every fetch, so both numbers below meant far less than they appeared to.
 MIN_SAMPLE = 30
-# How many recent comparisons the verdict is taken over.
+# How many recent BARS the verdict is taken over — one entry per minute, never per fetch.
 _WINDOW = 200
 
 
 class _SymbolAudit:
-    __slots__ = ("results", "matched", "compared", "last_mismatch")
+    __slots__ = ("results", "matched", "compared", "last_mismatch", "last_scored")
 
     def __init__(self):
         self.results = deque(maxlen=_WINDOW)
         self.matched = 0
         self.compared = 0
         self.last_mismatch: str | None = None
+        # The newest minute already scored. EVERY MINUTE COUNTS ONCE — see `compare`.
+        self.last_scored: int = 0
 
 
 class TickBarAudit:
@@ -65,6 +71,23 @@ class TickBarAudit:
               and ours.low == theirs.low and ours.close == theirs.close)
         with self._lock:
             a = self._by_symbol.setdefault(symbol, _SymbolAudit())
+            # EVERY MINUTE IS SCORED EXACTLY ONCE, and this line is what makes the scoreboard mean
+            # what it says. `_audit_against_ticks` re-compares EVERY overlapping bar on EVERY M1
+            # fetch, so without this the same minute is scored again and again — and the window is
+            # 200 COMPARISONS, not 200 bars.
+            #
+            # MEASURED IN PRODUCTION, 30 Aug: GBP/USD showed 183/200 and later 193/200, reading like
+            # 7-17 separate failures. There was exactly ONE bad minute (22:47) — re-scored on every
+            # fetch until it filled a twelfth of the window. It cut the other way too: a "200/200"
+            # was roughly 33 distinct minutes counted six times each, so `MIN_SAMPLE = 30` could be
+            # satisfied by about five real minutes of evidence. The gate protects the money path;
+            # it must not be able to overstate what it has seen.
+            #
+            # First observation wins. A bar re-fetched later with different values is NOT re-scored:
+            # the first comparison is the honest one, made against what we actually built at the time.
+            if ours.time <= a.last_scored:
+                return ok
+            a.last_scored = ours.time
             a.results.append(ok)
             a.compared += 1
             if ok:
