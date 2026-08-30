@@ -50,10 +50,15 @@ class StopOrderClient:
 
     async def _run(self) -> OrderResult:
         from ctrader_open_api import Client, TcpProtocol
-        from copy_platform.executors.ctrader import CT_DEMO_HOST, CT_LIVE_HOST, CT_PORT
-        host = CT_DEMO_HOST if self.account_type == "demo" else CT_LIVE_HOST
+        # THIS PLATFORM'S OWN HOST AND PORT, not copy_platform's. It used to import them from there,
+        # and production launches as `cd /app/signal_platform && python3 -u main.py` (start.sh:27),
+        # so `copy_platform` is not importable and this line raised ModuleNotFoundError — swallowed
+        # by placer.py's catch-all, which logged one line and placed nothing. Invisible while the
+        # kill switch was off, total the moment it was turned on.
+        from data.ctrader_session import HOSTS, PORT
+        host = HOSTS["demo"] if self.account_type == "demo" else HOSTS["live"]
         self._future = asyncio.get_event_loop().create_future()
-        self._client = Client(host, CT_PORT, TcpProtocol)
+        self._client = Client(host, PORT, TcpProtocol)
         self._client.setConnectedCallback(self._on_connected)
         self._client.setMessageReceivedCallback(self._on_message)
         self._client.startService()

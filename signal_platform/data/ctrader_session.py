@@ -25,8 +25,13 @@ from ctrader_open_api.messages.OpenApiMessages_pb2 import (
 log = logging.getLogger(__name__)
 
 _TOKEN_URL  = "https://openapi.ctrader.com/apps/token"
-_HOSTS      = {"demo": "demo.ctraderapi.com", "live": "live.ctraderapi.com"}
-_PORT       = 5035
+
+# PUBLIC — this module owns "where cTrader lives" for the whole signal platform, so anything that
+# opens its own connection reads these rather than restating them. `execution/broker.py` used to
+# import the same three values from copy_platform, which does not import from
+# `cd /app/signal_platform` (start.sh:27) and took the entire order path down with it.
+HOSTS       = {"demo": "demo.ctraderapi.com", "live": "live.ctraderapi.com"}
+PORT        = 5035
 _MAX_BYTES  = 20 * 1024 * 1024
 _TOKEN_FILE = Path(__file__).parent.parent / ".ctrader_token.json"
 
@@ -226,10 +231,10 @@ async def get_connection() -> tuple[asyncio.StreamReader, asyncio.StreamWriter]:
         if _writer is not None and not _writer.is_closing():
             return _reader, _writer
 
-        host = _HOSTS.get(_env, _HOSTS["demo"])
+        host = HOSTS.get(_env, HOSTS["demo"])
         ctx  = ssl.create_default_context()
         _reader, _writer = await asyncio.wait_for(
-            asyncio.open_connection(host, _PORT, ssl=ctx), timeout=15
+            asyncio.open_connection(host, PORT, ssl=ctx), timeout=15
         )
         req = ProtoOAApplicationAuthReq(clientId=_client_id, clientSecret=_client_secret)
         await send(_writer, req.payloadType, req.SerializeToString())

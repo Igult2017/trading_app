@@ -9,6 +9,7 @@ import logging
 import os
 
 from data import ctrader_client, ctrader_session
+from shared.symbols import broker_symbol
 
 log = logging.getLogger(__name__)
 _TIMEOUT = 20  # seconds per fetch
@@ -39,7 +40,7 @@ async def fetch_raw(symbol: str, tf: str, count: int) -> list[dict]:
             "CTRADER_ACCESS_TOKEN, CTRADER_REFRESH_TOKEN"
         )
 
-    broker_sym = symbol.replace("/", "")
+    broker_sym = broker_symbol(symbol)
     try:
         async with _semaphore():
             return await asyncio.wait_for(

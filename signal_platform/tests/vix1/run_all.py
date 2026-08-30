@@ -45,6 +45,9 @@ TESTS = [
     "test_leg_gate_obeys_choch.py", # 29 Aug: the 8-bar gate ignores structure from before the turn
     # Found by the guard below the moment it was added — a FIFTH file nobody had noticed was unrun.
     "test_live_quote.py",           # the live price read, and what happens when the feed is stale
+    # ADDED 2026-08-30. test_auto_breakeven stubs out StopOrderClient, so it could not see that the
+    # real order path neither imported nor resolved a symbol. This one uses the real functions.
+    "test_execution_placement.py",  # the order path loads in production's cwd, and names the pair
 ]
 
 # AND THIS IS WHY IT WILL NOT HAPPEN A THIRD TIME. Adding a test file without listing it above is

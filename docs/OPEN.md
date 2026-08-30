@@ -222,6 +222,64 @@ red self-test that everyone steps around is how a real regression gets missed: t
 break something here will see two failures and assume they are the usual two.
 
 
+### B11 — Autotrade STILL cannot place an order: the order path uses a Twisted reactor that this platform never starts
+
+**Found 30 Aug by the end-to-end step of the B10 fix — the two defects there were real and are
+fixed, and they were not sufficient.**
+
+`execution/broker.py::_run()` builds a `ctrader_open_api.Client` and calls `startService()`. That is
+Twisted, and Twisted needs a reactor running. `copy_platform/main.py:13-15` installs one, with the
+comment *"MUST install asyncio reactor before any other twisted import"*, and runs it at line 45.
+**`signal_platform/main.py` contains no twisted, no reactor, no asyncioreactor** — it runs plain
+asyncio (`main.py:163-164`).
+
+**Measured, not inferred:** with the callbacks instrumented, `_on_connected` never fires at all — the
+socket is never opened. `place_stop` times out at 20s and correctly reports the order state as
+UNKNOWN rather than failed; reconcile after every attempt confirmed nothing was placed. Installing
+the reactor in a test script did **not** fix it on its own, so "just install a reactor" is an
+unconfirmed hypothesis, not a diagnosis.
+
+**This also affects `execution/breakeven.py:109`**, which moves a live stop through the same client.
+So the breakeven feature has the same problem: it has never run either.
+
+**The root cause is one sentence, and it is the same one as B10.** `execution/` was written by
+copying copy_platform's approach rather than using the signal platform's own —
+[`broker.py:22`](../signal_platform/execution/broker.py#L22) says so: *"Mirrors the copy executor's
+proven lifecycle."* Proven inside copy_platform, which supplies the path, the bare imports and the
+reactor it needs. None of those exist here.
+
+**The fix is a decision, not a detail, so it is his:** either install a Twisted reactor in the
+signal platform's startup (small diff, large blast radius — it rewires the event loop under the scan
+loop, the monitor, APScheduler and the dispatcher, to serve a feature that is switched off), or make
+`StopOrderClient` use `data/ctrader_session.py`, the pure-asyncio connection this platform already
+owns and which placed `orderId 358160376` tonight with both protective legs attached. The second is
+the same "reuse what we own" shape as the B10 fixes, but it rewrites the transport of the code that
+changes his account, so it needs its own plan.
+
+**Not yet known:** whether Linux changes the outcome. Production is Linux; my measurements are on
+Windows, where the default event loop is additionally incompatible with Twisted's asyncio reactor.
+The "no reactor is installed" fact holds on both; the rest I have not tested in production.
+
+
+### B10 — ~~Autotrade could never have placed an order~~ PARTLY FIXED 30 Aug (see B11)
+
+Two defects on the order path, both dormant behind the kill switch, both fatal the moment it was
+turned on. `execution/broker.py` imported its host and port from `copy_platform`, which is not
+importable from production's working directory; and `execution/orders.py` used copy_platform's
+`resolve_symbol_id`, which has no rule for a slash and so returned `None` for every instrument this
+platform trades. Fixed by using what the signal platform already owns. Full account in the
+`vix1.md` fix log.
+
+**These two fixes are necessary but NOT sufficient — B11 above is the third defect and it is still
+open, so autotrade remains unable to place an order.**
+
+**And beyond all three: autotrade has still never placed an order.** The account and credentials are
+proved — an order with stop and target attached was accepted on the demo account — but no VIX.1
+signal has ever reached a broker, so there is no fill quality, no slippage figure and no live
+outcome. `placer.fill_report` exists precisely to measure the gap between the modelled entry and the
+real fill, and it has never run. **Nothing here says the strategy is worth arming.**
+
+
 ## C. The web app
 
 ### C1 — ~~18 TypeScript errors, and the build does not typecheck~~ CLOSED 26 Aug

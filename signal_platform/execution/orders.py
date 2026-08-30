@@ -40,7 +40,10 @@ def build_stop(acct: int, symbol: str, side: str, volume: int, stop_price: float
     """The ProtoOANewOrderReq for a pending stop — or (None, reason) if it cannot be built."""
     from ctrader_open_api.messages.OpenApiMessages_pb2 import ProtoOANewOrderReq
     from ctrader_open_api.messages.OpenApiModelMessages_pb2 import ProtoOAOrderType
-    from copy_platform.executors.ctrader import resolve_symbol_id
+    # THIS PLATFORM'S OWN RESOLVER. copy_platform's handles broker affixes and nicknames but has no
+    # rule for a slash — and every symbol here is slashed ("GBP/USD"), so it returned None for all
+    # of them and this function refused every order with "not on this account".
+    from shared.symbols import resolve_symbol_id
 
     sid = resolve_symbol_id(symbol, symbol_map)
     if sid is None:
