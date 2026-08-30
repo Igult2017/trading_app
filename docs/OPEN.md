@@ -249,25 +249,31 @@ red self-test that everyone steps around is how a real regression gets missed: t
 break something here will see two failures and assume they are the usual two.
 
 
-### B12 — Nothing records HOW LATE a signal is, so "is it still late?" cannot be answered
+### B12 — ~~Nothing records how late a signal is~~ FIXED 30 Aug — and one claim in this entry was WRONG
 
-**Opened 30 Aug, and it is the one thing left undone from the lateness work.** His claim that
-*"signal arrives late when its past entry"* was confirmed against real broker bars — two of four
-stored signals had price already through the entry when they fired, the other two by 0.1 and 0.2
-pips. **But n=4, because four is every signal that exists to measure.**
+**`signal_events` was NEVER empty.** This entry originally said it was. The admin endpoint defaults
+to `created_at > now() - interval '1 day'` and I queried it with no `since` on a weekend when the
+market had been shut since Friday 22:00. **My window was empty, not the table** — it holds 1000+ rows
+going back through Friday. The recorder (`observability_repo.record`) has been working all along and
+is called from five places. Correcting it here because a wrong "there is no data" is exactly the kind
+of claim that stops the next person looking.
 
-Nothing stores the timing: the pre-close notifications are not persisted (`persist_watch=False`,
-`alert_only=True`), and `signal_events` is empty. So the delay between a candle closing, the platform
-looking, and a signal going out cannot be read back — it had to be reconstructed from `createdAt`
-against re-fetched M1 bars, which mixes legitimate 1M-entry waiting time with platform lateness and
-cannot separate them.
+**What was genuinely missing** was one number: how stale the data was when a signal was built.
+`orchestrator/lateness.data_lag` now stamps it onto the BUILT row as ` lag=42s(M1)` — seconds between
+the freshest CLOSED bar closing and the signal being built, on the FINEST timeframe the strategy
+holds, which is the one the entry is read off.
 
-**What is needed:** stamps for candle-closed / scan-started / signal-sent, so after a few live days
-the question is arithmetic. Without it, whether the bar-close scanning actually helped is a matter
-of opinion.
+**Read it back:** `ADMIN_SECRET=… python signal_platform/tools/signal_lag.py "7 days"` — median,
+worst, how many exceed 20s, and the slowest ten.
 
-**Not built with the fix itself** — he was out, the market was closed, and adding a new write to the
-signal path unsupervised is a bigger risk than leaving the question open for a few days.
+**WHAT THE NUMBER IS NOT.** It is the platform's OWN delay only. A 1M entry legitimately takes
+minutes to form and that waiting is not in it — so a small lag beside a late-feeling signal means the
+strategy was waiting, not that we were slow. The tool says so in its own output, and it reports rows
+carrying no stamp separately rather than averaging over an unknown denominator.
+
+**Before this shipped the delay was 30–60s by design** (the scan landed wherever it landed).
+Scanning on the bar close should put the median in single figures — but that is a prediction, and
+the point of the stamp is that it will shortly be a measurement instead.
 
 
 ### B11 — ~~Autotrade STILL cannot place an order~~ FIXED 30 Aug — the order path now has its own socket

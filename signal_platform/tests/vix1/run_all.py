@@ -55,6 +55,8 @@ TESTS = [
     # already through it. This scans on the bar close instead; the checks are the argument that a
     # fault in it degrades to today's behaviour rather than to something new.
     "test_entry_watcher.py",        # scan on the 1M close, under exactly a scheduled tick's gates
+    # ADDED 2026-08-30. The number every lateness argument turns on, and nothing recorded it.
+    "test_data_lag.py",             # the platform's own delay, stamped on the audit row
 ]
 
 # AND THIS IS WHY IT WILL NOT HAPPEN A THIRD TIME. Adding a test file without listing it above is

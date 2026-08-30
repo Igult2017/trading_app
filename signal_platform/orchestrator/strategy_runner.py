@@ -16,6 +16,7 @@ from core import event_bus
 from core.types import Session, Trend
 from core.dependency_resolver import resolve
 from core.strategy_context_builder import build as build_context
+from orchestrator.lateness import data_lag
 from data.candle_fetcher import fetch_candles
 from data import candle_aggregator, ctrader_spread
 from news import news_filter
@@ -156,6 +157,7 @@ async def _stage(loop, stage: str, strategy_id: str, symbol: str,
                                                         signal_id, detail))
 
 
+
 async def run_strategy(
     strategy,
     instrument: str,
@@ -267,9 +269,10 @@ async def run_strategy(
     if result.has_signals():
         # Record BEFORE validation: a signal the validator drops leaves no DB row and, until now,
         # no trace of any kind. This is the row that proves the strategy did its job.
+        lag = data_lag(context)          # measured ONCE — the same delay applies to every signal here
         for s in result.signals:
             await _stage(loop, obs.STAGE_BUILT, s.strategy_id or strategy.id, instrument,
-                         detail=f"{s.direction.value} entry={s.entry_price} sl={s.stop_loss}")
+                         detail=f"{s.direction.value} entry={s.entry_price} sl={s.stop_loss}{lag}")
 
     valid_signals = signal_validator.validate(result, instrument)
     if not valid_signals:
