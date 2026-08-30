@@ -441,6 +441,55 @@ anywhere. Blocked on one question: does copy trading auto-execute on a user's ac
 
 ## D. cTrader & copy trading
 
+### D3 - ~~Any user's account could become the signal platform's credentials~~ FIXED 30 Aug
+
+**He reported it: *"add account has not been isolated and it normally disrupts signal platform's
+connection."* He was right, and I had audited the wrong half** - the copy ENGINE is correct
+(separate process, own watchdog, own broker connection, resolves credentials per
+`broker_account_id`) and is untouched. The coupling was on the Node side.
+
+**Root cause, one line.** `/api/internal/ctrader-credentials` selected
+`ORDER BY updated_at DESC` with **no filter on `broker_accounts.user_id`** - "whichever cTrader
+account was touched most recently" is not an identity.
+
+**The trigger was routine activity, not adding an account.** `storage.updateBrokerAccount`
+(storage.ts:938) and `updateBrokerAccountSyncStatus` (storage.ts:956) both stamp `updated_at`, and
+they are called from **twelve places** - every connect, every sync start and finish, every balance
+read, every account edit. So any user syncing their own account became the platform's credentials.
+
+**And it landed within ~3 minutes with no restart:** `ctrader_session.py:131` re-reads the token
+every ~3 minutes, `node_bridge` passed no account identifier on that call, and the account we
+authenticate AS is fixed at boot. Token from B, identity as A - cTrader rejects it, crash-loop.
+
+**A SECOND enforcement point** a narrower fix would have missed: `healthWatchdog.ts:65` ran the
+identical query with `LIMIT 1`, so it would have kept a stranger's token fresh while the pinned
+one expired.
+
+**Fixed:** `CTRADER_SIGNAL_ACCOUNT_ID=47535363` names the account by its cTrader NUMBER (which
+survives delete-and-reconnect; the row id does not). The endpoint takes `?ctrader_id=` and returns
+that row's token, type and id **together**, so they cannot disagree - which was the original
+crash-loop's cause. Missing pin -> 404, dead token -> 409; it never substitutes another account.
+All four credential reads pass it, plus the watchdog. Unset = old behaviour, with a warning.
+
+**Verified against a baseline captured before deploy:** a bogus pin returned the REAL account and
+HTTP 200 before; it returns 404 now. Production boot log shows
+`?ctrader_id=47535363` on every read.
+
+### D4 - ~~Autotrade refused every order: the guard read a field the endpoint never sent~~ FIXED 30 Aug
+
+Found while fixing D3. The endpoint returned only `is_live`, but `execution/account.py:58` reads
+`environment` or `account_type` and falls back to `"live"`. **Neither field existed**, so the
+demo-only guard computed `"live"` and refused every order - with autotrade switched ON. It failed
+safe, not dangerously, but it did not work and I would have reported it armed.
+
+Both field names are now returned. Verified on production: `account_type='demo'`, and
+`execution/account.py` computes `'demo'` - so the guard permits.
+
+**Second time in one day for this shape of bug** (the first was the FIX account id): two sides of
+an internal boundary disagreeing about a field name, failing silently. Worth a habit - when one
+side reads a field, assert the other side sends it.
+
+
 ### D1 — Production routes new account connections through a BLOCKED app
 **Carried.** The fix is to unset two `CTRADER_SYNC_*` environment variables and redeploy.
 **Blocked on:** the Spotware reply.
