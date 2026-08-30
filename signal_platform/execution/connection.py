@@ -17,9 +17,18 @@ cTrader's documentation, which is a claim. Tested 2026-08-30 by saturating the S
 until the broker refused it, then immediately issuing a request on a second, already-authenticated
 connection — no setup delay to explain the result away. Three runs, identical: scanner blocked 35 of
 40, second connection answered OK in 235 / 250 / 234 ms, its ordinary round trip. So a busy scan
-cannot starve a trade, and a trade cannot eat the scanner's allowance. (What is NOT tested: whether
-cTrader caps how many connections an account may hold at once. This opens one per command and closes
-it, so at most one extra exists at a time, but the cap itself is unknown.)
+cannot starve a trade, and a trade cannot eat the scanner's allowance.
+
+AND THE ACCOUNT ALLOWS AT LEAST 15 SIMULTANEOUS CONNECTIONS — also measured, 2026-08-30, because
+this file opens one alongside the scanner's and a cap of 1 would have made the whole design
+impossible. Connections were opened one at a time while watching production's own heartbeat, ready
+to abort. One round reached **15 with no failure at all** (the test's own stop, not a broker limit);
+other rounds stopped at 8 and 11. **A ceiling that moves is not a ceiling** — every failure was
+`could not reach demo.ctraderapi.com:5035 within 30s`, a network timeout on a link that was dropping
+connections all evening, and never an explicit refusal. When cTrader really does enforce a limit it
+says so with an error code, the way it returns BLOCKED_PAYLOAD_TYPE for the request rate. So: no
+evidence of a connection cap, at least 15 observed, and the design needs 2. Production's heartbeat
+stayed healthy throughout every round.
 
 THE TOKEN IS NEVER REFRESHED HERE. `creds["accessToken"]` is passed in by `execution/account.py`,
 which reads it from Node — the single writer. Four consumers share that credential and cTrader
