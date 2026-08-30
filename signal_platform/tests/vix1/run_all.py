@@ -51,6 +51,10 @@ TESTS = [
     # ADDED 2026-08-30. The watchdog is the point: a dead price stream looks exactly like a quiet
     # market, so it is tested by KILLING the session, not by reading the code.
     "test_trade_watcher.py",        # live price, correct side of the spread, and the stale-stream alarm
+    # ADDED 2026-08-30. Signals were arriving AT or PAST their own entry — two of four measured
+    # already through it. This scans on the bar close instead; the checks are the argument that a
+    # fault in it degrades to today's behaviour rather than to something new.
+    "test_entry_watcher.py",        # scan on the 1M close, under exactly a scheduled tick's gates
 ]
 
 # AND THIS IS WHY IT WILL NOT HAPPEN A THIRD TIME. Adding a test file without listing it above is

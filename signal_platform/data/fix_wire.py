@@ -13,6 +13,7 @@ cTrader FIX identifies instruments by NUMERIC id, not by name, and those ids are
 Open API uses (verified against the live symbol list: EURUSD 1, GBPUSD 2, USDJPY 4, GBPJPY 7,
 XAUUSD 41).
 """
+import calendar
 import time
 
 SOH = "\x01"
@@ -67,6 +68,21 @@ def parse(raw: str) -> list[dict]:
         if d:
             out.append(d)
     return out
+
+
+def sending_time(raw: str | None) -> float | None:
+    """FIX tag 52 (`YYYYMMDD-HH:MM:SS`, always UTC) as a unix timestamp, or None if unusable.
+
+    THE BROKER'S CLOCK, NOT OURS. Deciding a 1-minute bar has closed from local time would fire on a
+    machine whose clock has drifted, for a minute in which no price actually traded. Anything
+    malformed returns None rather than a guess, and the caller falls back deliberately.
+    """
+    if not raw:
+        return None
+    try:
+        return calendar.timegm(time.strptime(raw.split(".")[0], "%Y%m%d-%H:%M:%S"))
+    except (ValueError, TypeError):
+        return None
 
 
 def logon_body(account_id: str, password: str, heartbeat_s: int) -> list[tuple[int, str]]:

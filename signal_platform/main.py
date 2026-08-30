@@ -150,16 +150,23 @@ async def _startup() -> None:
     if settings.trade_watcher_enabled:
         try:
             from monitor.trade_watcher import TradeWatcher
+            from monitor.entry_watcher import EntryWatcher
             # The same admin-DM sender position_tracker is given (signal_monitor.py:105-106), so
-            # the watcher's messages land exactly where the 30s tracker's already do.
+            # these messages land exactly where the 30s tracker's already do.
             from notifications.dispatcher import _send_private
             _watcher = TradeWatcher(_send_private)
             asyncio.create_task(_watcher.run_forever())
-            log.info("[boot] real-time trade watcher started")
+            # AND the entry side: scan the moment a 1M bar closes rather than up to a minute later.
+            # Measured cause — every stored signal arrived at or PAST its own entry, two of four
+            # already through it. This only makes the existing scan happen sooner; if it dies, the
+            # scheduled scan carries on and behaviour is exactly what it is today.
+            _entry = EntryWatcher(_send_private)
+            asyncio.create_task(_entry.run_forever())
+            log.info("[boot] real-time watchers started (trade + entry)")
         except Exception as exc:
-            log.warning(f"[boot] trade watcher failed to start (non-fatal): {exc}")
+            log.warning(f"[boot] watchers failed to start (non-fatal): {exc}")
     else:
-        log.info("[boot] real-time trade watcher is OFF (trade_watcher_enabled=false)")
+        log.info("[boot] real-time watchers are OFF (trade_watcher_enabled=false)")
 
     # 6b. Boot heartbeat + first scan — BEST-EFFORT. A failure here must never crash
     #     _startup: the process would exit, the watchdog would restart it, and it would

@@ -146,6 +146,13 @@ class Settings(BaseSettings):
     ctrader_fix_password:     str  = ""     # CTRADER_FIX_PASSWORD — never committed, never logged
     ctrader_fix_host:         str  = "demo-us-eqx-01.p.c-trader.com"
     ctrader_fix_quote_port:   int  = 5211
+    # A DIFFERENT ACCOUNT NUMBER FROM `ctrader_account_id`, AND THAT IS NOT A TYPO. The Open API
+    # identifies this account as 47535363 (a ctidTraderAccountId); FIX identifies the SAME account as
+    # 5296567 (the cTrader login), which is what the SenderCompID `demo.pepperstone.5296567` carries.
+    # Passing the Open API number to FIX is refused with RET_NO_SUCH_LOGIN — caught in live testing
+    # 2026-08-30, and it would have failed SILENTLY in production: the watcher logs a failed connect,
+    # falls back to the scheduled scan, and nothing ever says the feature is not working.
+    ctrader_fix_account_id:   str  = ""
     autotrade_fixed_lots:  float = 0.0     # >0 pins the size and IGNORES risk_pct — for diagnostics,
                                            # where the point is observing fills, not sizing exposure
 

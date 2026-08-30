@@ -68,6 +68,14 @@ class TradeWatcher:
 
     async def _cycle(self) -> None:
         positions = await ctrader_positions.open_positions()
+        # NONE AND [] MEAN DIFFERENT THINGS, and `ctrader_positions` says so explicitly: [] is "you
+        # have no trades open", None is "I could not find out". Treating None as "nothing open" would
+        # drop the stream and stop watching a position that may well exist — inventing a fact. Wait
+        # and ask again instead. (Caught by the boot test, which hit exactly this on a failed read.)
+        if positions is None:
+            await self._drop_stream()
+            await asyncio.sleep(_IDLE_S)
+            return
         tradeable = [p for p in positions if p.stop is not None]
         if not tradeable:
             await self._drop_stream()
@@ -86,14 +94,19 @@ class TradeWatcher:
 
     async def _ensure_stream(self, symbols: list[str]) -> bool:
         from data.fix_quotes import FixQuoteStream
-        password = settings.ctrader_fix_password
-        if not password:
+        # THE FIX ACCOUNT ID, NOT `ctrader_account_id`. FIX knows this account by its cTrader login
+        # (5296567); the Open API knows it by its ctidTraderAccountId (47535363). Sending the wrong
+        # one is refused with RET_NO_SUCH_LOGIN, and it fails SILENTLY — the watcher just falls back
+        # forever. Caught in live testing 2026-08-30.
+        if not settings.ctrader_fix_password or not settings.ctrader_fix_account_id:
             return False
         if self._stream is not None and self._stream.connected:
             return True
         await self._drop_stream()
-        creds_id = settings.ctrader_account_id
-        self._stream = FixQuoteStream(str(creds_id), password)
+        self._stream = FixQuoteStream(str(settings.ctrader_fix_account_id),
+                                      settings.ctrader_fix_password,
+                                      host=settings.ctrader_fix_host,
+                                      port=settings.ctrader_fix_quote_port)
         return await self._stream.connect(symbols)
 
     async def _drop_stream(self) -> None:

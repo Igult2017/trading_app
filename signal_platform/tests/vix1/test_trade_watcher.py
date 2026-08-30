@@ -138,6 +138,45 @@ asyncio.run(w._price_for(_P(), streamed=True))
 s.check("A SECOND OUTAGE WARNS AGAIN — the alarm is not spent", len(sent), 2)
 
 
+# ── 3b. "COULD NOT FIND OUT" IS NOT "NOTHING OPEN" ──────────────────────────
+# `ctrader_positions.open_positions` returns None when the broker could not be read, and its own
+# docstring is explicit: "[] is 'you have no trades open', None is 'I could not find out'. Alerting
+# on the first is correct; alerting on the second would be inventing a fact."
+#
+# The first version of the watcher iterated the result directly and died with
+# `TypeError: 'NoneType' object is not iterable` — caught by the boot test on a real failed read, not
+# by any unit test, which is why this one now exists. Treating None as "nothing open" would also drop
+# the price stream and stop watching a position that may well still be there.
+from data import ctrader_positions as CP
+
+async def _unreadable():
+    return None
+
+async def _none_open():
+    return []
+
+import monitor.trade_watcher as TW
+TW._IDLE_S = 0.01                       # the idle wait is real; 30s of it is not needed to test this
+
+CP.open_positions = _unreadable
+w2 = TradeWatcher(_send)
+ok = True
+try:
+    asyncio.run(asyncio.wait_for(w2._cycle(), timeout=5))
+except Exception as exc:
+    ok = f"{type(exc).__name__}: {exc}"
+s.check("an UNREADABLE broker does not crash the cycle", ok, True)
+s.check("...and does not leave a stream open", w2._stream, None)
+
+CP.open_positions = _none_open
+ok2 = True
+try:
+    asyncio.run(asyncio.wait_for(w2._cycle(), timeout=5))
+except Exception as exc:
+    ok2 = f"{type(exc).__name__}: {exc}"
+s.check("genuinely NO positions also passes cleanly", ok2, True)
+
+
 # ── 4. IT MUST NEVER TOUCH THE SCANNER'S CONNECTION ─────────────────────────
 # The promise this was approved on: "if it will bring the signal platform down just drop it."
 # Parsed, not grepped — a text search matches the docstrings explaining what is NOT used.

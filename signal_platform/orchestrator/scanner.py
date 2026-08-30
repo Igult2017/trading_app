@@ -182,6 +182,11 @@ async def _run_tick() -> tuple[bool, int | None]:
 
     log.info(f"[scanner] {len(instruments)} instruments × {len(strategies)} strategies")
 
+    # Tell the bar-triggered scanner these are covered, so a 1M close landing moments from now does
+    # not scan the same instrument twice. It scans SOONER, never MORE.
+    from orchestrator.scan_on_demand import note_scheduled_scan
+    note_scheduled_scan(instruments)
+
     # TIMED, PER INSTRUMENT AND OVERALL. Nothing measured how long a tick took, so a slow tick was
     # invisible and could only be inferred from the spacing of other rows — which is exactly how a
     # "174-second tick" got asserted on evidence that could not support it. `_timed` costs one

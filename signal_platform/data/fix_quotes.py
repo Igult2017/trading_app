@@ -1,21 +1,19 @@
 """
 Live prices STREAMED from cTrader's FIX price session — subscribe once, prices are pushed.
 
-WHY THIS EXISTS, AND WHY IT CANNOT SLOW THE SCANNER. Everything else here asks the broker for data
-over the Open API (port 5035) and waits, against a budget of about 5 requests/second per connection.
-FIX is a different protocol on a different port (5211) with its own credential, and it does not ask
-for anything: one subscription, then updates arrive as the price moves. It therefore spends **none**
-of the budget the candle fetch uses. That is the whole reason it is here rather than a faster poll.
+WHY IT CANNOT SLOW THE SCANNER. Everything else asks the broker over the Open API (port 5035) and
+waits, against ~5 requests/second per connection. FIX is a different protocol on a different port
+(5211) with its own credential, and it asks for NOTHING: one subscription, then updates arrive as
+price moves. It spends none of the budget the candle fetch uses — the whole reason it is here rather
+than a faster poll.
 
-IT IS THE EYES, NOT THE HANDS. cTrader's FIX cannot carry a stop loss or a take profit — its
-NewOrderSingle has no field for either (help.ctrader.com/fix/specification) — so order placement and
-the stop move stay on the Open API, where all three prices travel in one message. Nothing in this
-file places, amends or closes anything. It only reads prices.
+IT IS THE EYES, NOT THE HANDS. cTrader's FIX cannot carry a stop loss or take profit
+(help.ctrader.com/fix/specification), so placing and amending stay on the Open API where all three
+prices travel in one message. Nothing here places, amends or closes anything.
 
-THE FAILURE THAT MATTERS IS SILENCE. A dead session looks exactly like a quiet market: updates
-simply stop. Anything relying on this MUST call `is_stale()` rather than assume a stream that opened
-is a stream still running. The watcher that uses this falls back to the Open API quote and raises an
-alarm when that happens — and that path is tested by killing the session, not by reading the code.
+THE FAILURE THAT MATTERS IS SILENCE. A dead session looks exactly like a quiet market. Callers MUST
+use `is_stale()` rather than assume a stream that opened is still running; the watchers fall back and
+raise an alarm, a path tested by killing the session rather than by reading the code.
 
 The wire format lives in `data/fix_wire.py`; this file owns only the SESSION.
 THE PASSWORD IS NEVER IN THIS FILE — it comes from CTRADER_FIX_PASSWORD in the environment.
@@ -25,7 +23,8 @@ import logging
 import ssl
 import time
 
-from data.fix_wire import ID_TO_SYMBOL, build, logon_body, parse, subscribe_body
+from data.fix_wire import (ID_TO_SYMBOL, build, logon_body, parse, sending_time,
+                           subscribe_body)
 
 log = logging.getLogger(__name__)
 
@@ -44,7 +43,9 @@ class FixQuoteStream:
         self._seq = 0
         self._reader = self._writer = None
         self._quotes: dict[str, tuple[float, float]] = {}
-        self._last_tick: dict[str, float] = {}
+        self._last_tick: dict[str, float] = {}          # monotonic, for staleness
+        self._tick_epoch: dict[str, float] = {}         # wall-clock of the tick, for minute rolls
+        self._seen_minute: dict[str, int] = {}
         self._last_any: float = 0.0
         self._task: asyncio.Task | None = None
         self._connected = False
@@ -131,6 +132,10 @@ class FixQuoteStream:
             return
         self._quotes[sym] = (b, a)
         self._last_tick[sym] = self._last_any = time.monotonic()
+        # THE BROKER'S OWN TIMESTAMP where it sent one (tag 52, YYYYMMDD-HH:MM:SS UTC), falling back
+        # to ours. A minute roll decided on a drifted local clock would fire on a minute in which no
+        # price actually traded, which is the one thing this must not do.
+        self._tick_epoch[sym] = sending_time(m.get("52")) or time.time()
 
     async def close(self) -> None:
         self._connected = False
@@ -150,6 +155,31 @@ class FixQuoteStream:
     def quote(self, symbol: str) -> tuple[float, float] | None:
         """Newest (bid, ask) pushed for this symbol, or None if none has arrived."""
         return self._quotes.get(symbol)
+
+    def minute_rolled(self, symbol: str) -> bool:
+        """Has a 1-minute bar CLOSED for this symbol since the last time this was asked?
+
+        WHY THIS MATTERS. Measured against real broker bars, every stored VIX.1 signal arrived at or
+        past its own entry — two of four were already through it. Part of that is that the deciding
+        1M bar closes and then waits up to a full scan interval before anything looks at it. A tick
+        carries the moment it happened, so the roll is known the instant it occurs.
+
+        THE MINUTE COMES FROM THE TICK, NOT THE CLOCK. Using local time would fire on a machine whose
+        clock has drifted from the broker's, on a minute where no price actually traded. A roll is
+        only real if a tick arrived in the new minute.
+
+        Reading it CONSUMES it — the caller is being told "act now", and telling two callers the same
+        roll would scan twice for one bar.
+        """
+        last = self._last_tick.get(symbol)
+        if last is None:
+            return False
+        minute = int(self._tick_epoch.get(symbol, 0) // 60)
+        if minute == 0:
+            return False
+        seen = self._seen_minute.get(symbol)
+        self._seen_minute[symbol] = minute
+        return seen is not None and minute > seen
 
     def age(self, symbol: str | None = None) -> float | None:
         """Seconds since the last price arrived — for one symbol, or the stream as a whole.
