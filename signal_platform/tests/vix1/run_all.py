@@ -57,6 +57,10 @@ TESTS = [
     "test_entry_watcher.py",        # scan on the 1M close, under exactly a scheduled tick's gates
     # ADDED 2026-08-30. The number every lateness argument turns on, and nothing recorded it.
     "test_data_lag.py",             # the platform's own delay, stamped on the audit row
+    # ADDED 2026-08-30. Candles built from the FIX tick stream, so a bar exists the moment
+    # it ends instead of 10-70s later. A fast WRONG candle is worse than a slow right one,
+    # so the trust rules are asserted as hard as the arithmetic.
+    "test_tick_bars.py",            # tick-built candles + the rules that gate their use
 ]
 
 # AND THIS IS WHY IT WILL NOT HAPPEN A THIRD TIME. Adding a test file without listing it above is

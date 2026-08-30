@@ -127,16 +127,16 @@ s.check("news failing returns False rather than raising", _scan(), False)
 from data.fix_quotes import FixQuoteStream
 
 st = FixQuoteStream("5296567", "offline")
-st._connected = True
+st.book.connected = True
 s.check("no tick yet — no roll", st.minute_rolled("GBP/USD"), False)
 
-st._absorb({"55": "2", "px_0": "1.35325", "px_1": "1.35338", "52": "20260830-16:00:30"})
+st.book.absorb({"55": "2", "px_0": "1.35325", "px_1": "1.35338", "52": "20260830-16:00:30"})
 s.check("the FIRST tick is not a roll — nothing to compare to", st.minute_rolled("GBP/USD"), False)
 
-st._absorb({"55": "2", "px_0": "1.35330", "px_1": "1.35342", "52": "20260830-16:00:59"})
+st.book.absorb({"55": "2", "px_0": "1.35330", "px_1": "1.35342", "52": "20260830-16:00:59"})
 s.check("another tick in the SAME minute is not a roll", st.minute_rolled("GBP/USD"), False)
 
-st._absorb({"55": "2", "px_0": "1.35340", "px_1": "1.35352", "52": "20260830-16:01:02"})
+st.book.absorb({"55": "2", "px_0": "1.35340", "px_1": "1.35352", "52": "20260830-16:01:02"})
 s.check("A TICK IN THE NEXT MINUTE IS A ROLL", st.minute_rolled("GBP/USD"), True)
 s.check("...and reading it CONSUMES it, so one bar scans once",
         st.minute_rolled("GBP/USD"), False)

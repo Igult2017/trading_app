@@ -71,22 +71,22 @@ st = FixQuoteStream("5296567", "not-used-offline")
 s.check("a stream that never connected is stale", st.is_stale(20.0), True)
 s.check("...and reports no age rather than a fake one", st.age("GBP/USD"), None)
 
-st._connected = True
-st._absorb({"55": "2", "px_0": "1.35325", "px_1": "1.35338"})
+st.book.connected = True
+st.book.absorb({"55": "2", "px_0": "1.35325", "px_1": "1.35338"})
 s.check("an absorbed tick becomes a quote", st.quote("GBP/USD"), (1.35325, 1.35338))
 s.check("...and it is not stale", st.is_stale(20.0, "GBP/USD"), False)
 
-st._last_tick["GBP/USD"] = time.monotonic() - 60          # 60 seconds of silence
+st.book._last_tick["GBP/USD"] = time.monotonic() - 60          # 60 seconds of silence
 s.check("SILENCE PAST THE LIMIT IS STALE, even though the socket says connected",
         st.is_stale(20.0, "GBP/USD"), True)
 
-st._connected = False
+st.book.connected = False
 s.check("a disconnected stream is stale whatever its last tick said",
         st.is_stale(20.0, "GBP/USD"), True)
 
 # A symbol cTrader does not name must not silently become another one.
 st2 = FixQuoteStream("5296567", "x")
-st2._absorb({"55": "9999", "px_0": "1.0", "px_1": "1.1"})
+st2.book.absorb({"55": "9999", "px_0": "1.0", "px_1": "1.1"})
 s.check("an unknown symbol id is ignored, never guessed", st2.quote("GBP/USD"), None)
 
 
@@ -127,13 +127,13 @@ asyncio.run(w._price_for(_P(), streamed=True))
 s.check("the alarm is raised ONCE, not on every pass", len(sent), 1)
 
 # AND RECOVERY IS ANNOUNCED by clearing the degraded flag, so the next outage warns again.
-st._connected = True
-st._last_tick["GBP/USD"] = time.monotonic()
+st.book.connected = True
+st.book._last_tick["GBP/USD"] = time.monotonic()
 back = asyncio.run(w._price_for(_P(), streamed=True))
 s.check("when the stream returns, the streamed price is used again", back, 1.35325)
 s.check("...and the watcher is no longer degraded", w._degraded, False)
 asyncio.run(w._price_for(_P(), streamed=True))
-st._connected = False
+st.book.connected = False
 asyncio.run(w._price_for(_P(), streamed=True))
 s.check("A SECOND OUTAGE WARNS AGAIN — the alarm is not spent", len(sent), 2)
 

@@ -249,6 +249,26 @@ red self-test that everyone steps around is how a real regression gets missed: t
 break something here will see two failures and assume they are the usual two.
 
 
+### B13 - Tick-built candles are being scored but NOT served (Phase 2 pending)
+
+**Opened 30 Aug. Phase 1 is live and deliberately serves nothing.** Candles are built from the FIX
+tick stream and compared against the broker's own when those arrive 10-70s later. **Nothing reaches
+a strategy** - a test fails if it ever does before this is closed.
+
+**What has to be true before Phase 2:** open, high, low and close identical **to the last decimal**,
+across all five instruments, over a live session. That is the bar `candle_aggregator` cleared at
+48/48 and it is not negotiable - a tenth of a pip on a 3-pip stop is a third of the risk.
+
+**How to check:** the match rate is logged every 15 minutes as `[tick-audit]`, or run
+`python signal_platform/tools/tick_bar_match.py` from inside the container.
+
+**If it does NOT match exactly**, the designed fallback is worth remembering: keep using the
+broker's values, but use the tick stream to know the hour ENDED at T+0 and ask for the bar
+immediately instead of discovering it late. Better than today, with no correctness risk.
+
+**Phase 2 changes what the strategy sees**, so it goes live with him watching - not unattended.
+
+
 ### B12 — ~~Nothing records how late a signal is~~ FIXED 30 Aug — and one claim in this entry was WRONG
 
 **`signal_events` was NEVER empty.** This entry originally said it was. The admin endpoint defaults

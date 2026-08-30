@@ -1,21 +1,21 @@
 """
-Live prices STREAMED from cTrader's FIX price session — subscribe once, prices are pushed.
+The cTrader FIX price session — the socket. What it learns lives in `data/fix_book.py`.
 
 WHY IT CANNOT SLOW THE SCANNER. Everything else asks the broker over the Open API (port 5035) and
 waits, against ~5 requests/second per connection. FIX is a different protocol on a different port
 (5211) with its own credential, and it asks for NOTHING: one subscription, then updates arrive as
-price moves. It spends none of the budget the candle fetch uses — the whole reason it is here rather
-than a faster poll.
+price moves. Measured: the scanner's fetch median went 312ms → 297ms with the stream running.
 
 IT IS THE EYES, NOT THE HANDS. cTrader's FIX cannot carry a stop loss or take profit
 (help.ctrader.com/fix/specification), so placing and amending stay on the Open API where all three
 prices travel in one message. Nothing here places, amends or closes anything.
 
-THE FAILURE THAT MATTERS IS SILENCE. A dead session looks exactly like a quiet market. Callers MUST
-use `is_stale()` rather than assume a stream that opened is still running; the watchers fall back and
-raise an alarm, a path tested by killing the session rather than by reading the code.
+AND IT HAS NO HISTORY — *"it does not support requests for historical market data"*
+(help.ctrader.com/fix/limitations). So coverage starts when we connect and never retroactively,
+which is why `on_coverage` exists: a bar already in progress when we attach is missing its early
+ticks, and whatever builds candles has to be able to tell.
 
-The wire format lives in `data/fix_wire.py`; this file owns only the SESSION.
+The wire format lives in `data/fix_wire.py`.
 THE PASSWORD IS NEVER IN THIS FILE — it comes from CTRADER_FIX_PASSWORD in the environment.
 """
 import asyncio
@@ -23,8 +23,8 @@ import logging
 import ssl
 import time
 
-from data.fix_wire import (ID_TO_SYMBOL, build, logon_body, parse, sending_time,
-                           subscribe_body)
+from data.fix_book import QuoteBook
+from data.fix_wire import build, logon_body, parse, subscribe_body
 
 log = logging.getLogger(__name__)
 
@@ -32,7 +32,7 @@ HEARTBEAT_S = 30
 
 
 class FixQuoteStream:
-    """One FIX price session. `quote(symbol)` returns the newest (bid, ask) it has been pushed."""
+    """One FIX price session, and the book it fills."""
 
     def __init__(self, account_id: str, password: str,
                  host: str = "demo-us-eqx-01.p.c-trader.com", port: int = 5211):
@@ -42,17 +42,25 @@ class FixQuoteStream:
         self.host, self.port = host, port
         self._seq = 0
         self._reader = self._writer = None
-        self._quotes: dict[str, tuple[float, float]] = {}
-        self._last_tick: dict[str, float] = {}          # monotonic, for staleness
-        self._tick_epoch: dict[str, float] = {}         # wall-clock of the tick, for minute rolls
-        self._seen_minute: dict[str, int] = {}
-        self._last_any: float = 0.0
         self._task: asyncio.Task | None = None
-        self._connected = False
+        self.book = QuoteBook()
+        self._coverage_up: list = []
+        self._coverage_down: list = []
 
-    def _msg(self, msg_type: str, body: list) -> bytes:
-        self._seq += 1
-        return build(msg_type, self._seq, self.sender, body)
+    # ── what callers register ──────────────────────────────────────────────────
+
+    def on_bid_tick(self, fn) -> None:
+        """Every bid tick, as `(symbol, bid, broker_epoch)`. Bid only — candles are bid-based."""
+        self.book.on_bid_tick(fn)
+
+    def on_coverage(self, start_fn, stop_fn) -> None:
+        """Told when continuous coverage begins and when it is lost.
+
+        Both matter equally. Losing the stream must invalidate the bar in progress: a bar with a
+        hole in it is worse than no bar, because it looks complete.
+        """
+        self._coverage_up.append(start_fn)
+        self._coverage_down.append(stop_fn)
 
     # ── lifecycle ──────────────────────────────────────────────────────────────
 
@@ -77,9 +85,10 @@ class FixQuoteStream:
             body, known = subscribe_body(symbols)
             self._writer.write(self._msg("V", body))
             await self._writer.drain()
-            self._connected = True
-            self._last_any = time.monotonic()
+            self.book.connected = True
             log.info(f"[fix] price stream open, subscribed to {known}")
+            # COVERAGE STARTS NOW, NOT RETROACTIVELY — FIX has no history to fill the gap.
+            self._announce(self._coverage_up, known, time.time())
             self._task = asyncio.create_task(self._pump())
             return True
         except Exception as exc:
@@ -91,12 +100,11 @@ class FixQuoteStream:
         """Read pushed prices until closed. Answers heartbeats so the broker does not drop us."""
         buf = ""
         try:
-            while self._connected and self._reader is not None:
+            while self.book.connected and self._reader is not None:
                 data = await self._reader.read(65535)
                 if not data:
                     log.warning("[fix] stream closed by the broker")
-                    self._connected = False
-                    return
+                    return self._lost()
                 buf += data.decode(errors="replace")
                 for m in parse(buf):
                     mt = m.get("35")
@@ -104,41 +112,19 @@ class FixQuoteStream:
                         self._writer.write(self._msg("0", [(112, m.get("112", "t"))]))
                         await self._writer.drain()
                     elif mt in ("W", "X"):
-                        self._absorb(m)
+                        self.book.absorb(m)
                     elif mt == "5":
                         log.warning("[fix] broker logged us out")
-                        self._connected = False
-                        return
+                        return self._lost()
                 buf = ""
         except asyncio.CancelledError:
             raise
         except Exception as exc:
             log.error(f"[fix] stream ended: {type(exc).__name__}: {exc}")
-            self._connected = False
-
-    def _absorb(self, m: dict) -> None:
-        """One market-data message into the quote book. A partial update keeps the other side."""
-        sym = ID_TO_SYMBOL.get(int(m.get("55", 0) or 0))
-        if not sym:
-            return                                   # unknown id — never guessed at
-        prev = self._quotes.get(sym)
-        bid, ask = m.get("px_0"), m.get("px_1")
-        try:
-            b = float(bid) if bid else (prev[0] if prev else None)
-            a = float(ask) if ask else (prev[1] if prev else None)
-        except ValueError:
-            return
-        if b is None or a is None:
-            return
-        self._quotes[sym] = (b, a)
-        self._last_tick[sym] = self._last_any = time.monotonic()
-        # THE BROKER'S OWN TIMESTAMP where it sent one (tag 52, YYYYMMDD-HH:MM:SS UTC), falling back
-        # to ours. A minute roll decided on a drifted local clock would fire on a minute in which no
-        # price actually traded, which is the one thing this must not do.
-        self._tick_epoch[sym] = sending_time(m.get("52")) or time.time()
+            self._lost()
 
     async def close(self) -> None:
-        self._connected = False
+        self._lost()
         if self._task and not self._task.done():
             self._task.cancel()
         if self._writer is not None and not self._writer.is_closing():
@@ -150,51 +136,40 @@ class FixQuoteStream:
             self._writer.close()
         self._reader = self._writer = None
 
-    # ── what callers read ──────────────────────────────────────────────────────
+    # ── internals ──────────────────────────────────────────────────────────────
 
-    def quote(self, symbol: str) -> tuple[float, float] | None:
-        """Newest (bid, ask) pushed for this symbol, or None if none has arrived."""
-        return self._quotes.get(symbol)
+    def _msg(self, msg_type: str, body: list) -> bytes:
+        self._seq += 1
+        return build(msg_type, self._seq, self.sender, body)
 
-    def minute_rolled(self, symbol: str) -> bool:
-        """Has a 1-minute bar CLOSED for this symbol since the last time this was asked?
+    def _lost(self) -> None:
+        """Coverage is gone. Said on EVERY path that ends the stream, so no builder is left
+        believing it is still watching."""
+        self.book.connected = False
+        self._announce(self._coverage_down)
 
-        WHY THIS MATTERS. Measured against real broker bars, every stored VIX.1 signal arrived at or
-        past its own entry — two of four were already through it. Part of that is that the deciding
-        1M bar closes and then waits up to a full scan interval before anything looks at it. A tick
-        carries the moment it happened, so the roll is known the instant it occurs.
+    @staticmethod
+    def _announce(sinks: list, *args) -> None:
+        for cb in sinks:
+            try:
+                cb(*args)
+            except Exception as exc:
+                log.error(f"[fix] coverage callback failed: {type(exc).__name__}: {exc}")
 
-        THE MINUTE COMES FROM THE TICK, NOT THE CLOCK. Using local time would fire on a machine whose
-        clock has drifted from the broker's, on a minute where no price actually traded. A roll is
-        only real if a tick arrived in the new minute.
+    # ── the book, forwarded so existing callers are unchanged ──────────────────
 
-        Reading it CONSUMES it — the caller is being told "act now", and telling two callers the same
-        roll would scan twice for one bar.
-        """
-        last = self._last_tick.get(symbol)
-        if last is None:
-            return False
-        minute = int(self._tick_epoch.get(symbol, 0) // 60)
-        if minute == 0:
-            return False
-        seen = self._seen_minute.get(symbol)
-        self._seen_minute[symbol] = minute
-        return seen is not None and minute > seen
+    def quote(self, symbol: str):
+        return self.book.quote(symbol)
 
-    def age(self, symbol: str | None = None) -> float | None:
-        """Seconds since the last price arrived — for one symbol, or the stream as a whole.
-        None means nothing has EVER arrived, a different problem from a stream gone quiet."""
-        last = self._last_tick.get(symbol) if symbol else (self._last_any or None)
-        return None if not last else time.monotonic() - last
+    def age(self, symbol: str | None = None):
+        return self.book.age(symbol)
 
     def is_stale(self, limit_s: float, symbol: str | None = None) -> bool:
-        """THE CALL THAT SEPARATES A QUIET MARKET FROM A DEAD SESSION. Never assume a stream that
-        opened is still running: from the inside, silence looks identical either way."""
-        if not self._connected:
-            return True
-        a = self.age(symbol)
-        return a is None or a > limit_s
+        return self.book.is_stale(limit_s, symbol)
+
+    def minute_rolled(self, symbol: str) -> bool:
+        return self.book.minute_rolled(symbol)
 
     @property
     def connected(self) -> bool:
-        return self._connected
+        return self.book.connected

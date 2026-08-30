@@ -116,7 +116,35 @@ async def _do_fetch(symbol: str, tf: str, count: int) -> list[Candle]:
                low=b["low"], close=b["close"], volume=b["volume"], timeframe=tf)
         for b in raw
     ]
-    return _validate(candles, symbol, tf)
+    validated = _validate(candles, symbol, tf)
+    # OBSERVE ONLY. The broker's M1 bars are the answer sheet for the candles being built from the
+    # FIX tick stream: every one we built gets marked right or wrong here, the moment its official
+    # version lands. Nothing is served from ticks yet and nothing about this return value changes —
+    # `serve_enabled` is a separate decision, taken only once a live session has shown an exact
+    # match. See `data/tick_bar_audit`.
+    if tf == "M1" and validated:
+        _audit_against_ticks(symbol, validated)
+    return validated
+
+
+def _audit_against_ticks(symbol: str, broker_bars: list[Candle]) -> None:
+    """Score our tick-built bars against the broker's. Never raises, never changes what is returned.
+
+    A measurement on the data path must be incapable of costing a candle, so every failure here is
+    swallowed — the worst case is that we learn nothing this tick.
+    """
+    try:
+        from data.tick_bars import builder
+        from data.tick_bar_audit import audit
+        ours = {c.time: c for c in builder.bars(symbol)}
+        if not ours:
+            return
+        for b in broker_bars:
+            mine = ours.get(b.time)
+            if mine is not None:
+                audit.compare(symbol, mine, b)
+    except Exception as exc:
+        log.debug(f"[tick-audit] {symbol}: {type(exc).__name__}: {exc}")
 
 
 async def fetch_candles(symbol: str, tf: str, count: int = 100) -> list[Candle]:

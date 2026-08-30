@@ -29,6 +29,7 @@ behaviour is exactly today's** — the worst case of this being wrong is what we
 """
 import asyncio
 import logging
+import time
 
 from config.settings import settings
 from data import instrument_filter
@@ -38,6 +39,7 @@ log = logging.getLogger(__name__)
 _POLL_S = 0.25            # how often the tick stream is examined; costs no broker requests
 _IDLE_S = 60.0            # how often to look again when the market is shut
 _STALE_AFTER_S = 90.0     # no tick this long, on an open market, means the stream is not working
+_REPORT_EVERY_S = 15 * 60 # how often the tick-vs-broker candle match rate is logged
 
 
 class EntryWatcher:
@@ -48,6 +50,7 @@ class EntryWatcher:
         self._stream = None
         self._running = False
         self._degraded = False
+        self._last_report = 0.0
 
     async def run_forever(self) -> None:
         """Never raises. A watcher that can take the platform down is not a safety feature."""
@@ -80,11 +83,38 @@ class EntryWatcher:
             return
 
         await self._check_stale()
+        self._report_match_rate()
         for inst in instruments:
             if self._stream.minute_rolled(inst):
                 from orchestrator.scan_on_demand import scan_one
                 await scan_one(inst, reason="1M bar closed")
         await asyncio.sleep(_POLL_S)
+
+    def _report_match_rate(self) -> None:
+        """Log how our tick-built candles are scoring against the broker's, every 15 minutes.
+
+        This is the go/no-go for ever serving them, so it belongs in the log where it can be read
+        after the fact — not only in a tool that needs a shell inside the container. Never raises: a
+        report must not be able to disturb the thing it reports on.
+        """
+        now = time.monotonic()
+        if now - self._last_report < _REPORT_EVERY_S:
+            return
+        self._last_report = now
+        try:
+            from data.tick_bar_audit import audit
+            rows = audit.report()
+            if not rows:
+                return
+            parts = [f"{s}:{r['recent_matched']}/{r['recent']}{'*' if r['trusted'] else ''}"
+                     for s, r in sorted(rows.items())]
+            log.info(f"[tick-audit] tick-built vs broker candles — {' '.join(parts)} "
+                     f"(* = would be trusted; nothing is served yet)")
+            for s, r in rows.items():
+                if r["last_mismatch"]:
+                    log.warning(f"[tick-audit] {s} last mismatch: {r['last_mismatch']}")
+        except Exception:
+            pass
 
     async def _ensure(self, instruments: list[str]) -> bool:
         from data.fix_quotes import FixQuoteStream
@@ -100,6 +130,13 @@ class EntryWatcher:
                                       settings.ctrader_fix_password,
                                       host=settings.ctrader_fix_host,
                                       port=settings.ctrader_fix_quote_port)
+        # FEED THE BAR BUILDER. Registered BEFORE connecting so coverage is recorded from the first
+        # instant — a minute already in progress when we attach is missing its early ticks, and the
+        # builder must be able to tell the difference. Phase 1: these bars are compared against the
+        # broker's and nothing else; they are not served to any strategy.
+        from data.tick_bars import builder
+        self._stream.on_bid_tick(builder.on_tick)
+        self._stream.on_coverage(builder.connected, builder.disconnected)
         ok = await self._stream.connect(instruments)
         if not ok:
             self._stream = None
