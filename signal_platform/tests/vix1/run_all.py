@@ -61,6 +61,10 @@ TESTS = [
     # it ends instead of 10-70s later. A fast WRONG candle is worse than a slow right one,
     # so the trust rules are asserted as hard as the arithmetic.
     "test_tick_bars.py",            # tick-built candles + the rules that gate their use
+    # ADDED 2026-08-30. The credentials endpoint returned "whichever cTrader account was
+    # updated most recently", across ALL users — so any user syncing became this platform's
+    # credentials, live, within ~3 minutes. Every read must now name the account it wants.
+    "test_account_pin.py",          # one owned account, and every read asks for it
 ]
 
 # AND THIS IS WHY IT WILL NOT HAPPEN A THIRD TIME. Adding a test file without listing it above is

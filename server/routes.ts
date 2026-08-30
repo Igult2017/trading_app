@@ -2411,48 +2411,110 @@ export async function registerRoutes(app: Express): Promise<Server> {
     next();
   };
 
-  app.get('/api/internal/ctrader-credentials', requireAdminSecret, async (_req, res) => {
+  /**
+   * One cTrader account's credentials, refreshed if near expiry. `null` = this account cannot serve.
+   *
+   * SHARED BY THE PINNED AND UNPINNED PATHS ON PURPOSE. Two copies of "refresh then respond" would
+   * drift, and the pinned path is the one that must never quietly behave differently.
+   *
+   * `account_type` IS RETURNED, AND THAT FIXES A LIVE BUG. The response carried only `is_live`, but
+   * `signal_platform/execution/account.py:58` reads `environment` or `account_type` and falls back
+   * to "live" — neither field existed, so the demo-only guard computed "live" and REFUSED EVERY
+   * ORDER. Autotrade was switched on and would have placed nothing while blaming the account type.
+   * `is_live` is kept because existing callers read it.
+   */
+  async function ctraderCredsFor(
+    row: { id: string; account_type: string; password_enc: string },
+    creds: any,
+  ): Promise<Record<string, unknown> | null> {
+    if (!creds?.accessToken || !creds?.refreshToken) return null;
+    let { accessToken, refreshToken } = creds;
+    let tokenExpiresAt: number = creds.tokenExpiresAt ?? 0;
+    if (!tokenExpiresAt || tokenExpiresAt < Date.now() + 5 * 60 * 1000) {
+      // Refresh via the COALESCED path (shared with autoSyncService + the watchdog) so concurrent
+      // refreshes of the same account can't rotate the token out from under each other — that race
+      // handed the signal scanner an already-rotated token (CH_ACCESS_TOKEN_INVALID → crash-loop).
+      const fresh = await refreshCTraderToken({ id: row.id, passwordEnc: row.password_enc } as any);
+      if (!fresh) return null;
+      try {
+        const fc = JSON.parse(safeDecrypt(fresh.passwordEnc) ?? "{}");
+        if (!fc.accessToken) return null;
+        accessToken = fc.accessToken; refreshToken = fc.refreshToken;
+        tokenExpiresAt = fc.tokenExpiresAt ?? tokenExpiresAt;
+      } catch { return null; }
+    }
+    const accountType = (row.account_type ?? '').toLowerCase();
+    return {
+      account_id:    row.id,
+      access_token:  accessToken,
+      refresh_token: refreshToken,
+      expires_at:    tokenExpiresAt,
+      account_type:  accountType,          // what the demo-only guard actually reads
+      environment:   accountType,          // the other name it looks for, so neither can miss
+      is_live:       accountType !== 'demo',
+      ctrader_id:    String(creds.ctraderId ?? ''),
+    };
+  }
+
+  // THE CALLER SAYS WHICH ACCOUNT IT WANTS: ?ctrader_id=47535363
+  //
+  // WITHOUT A PIN THIS ENDPOINT HAS NO IDENTITY. It returned "whichever cTrader account was touched
+  // most recently", across ALL users (`broker_accounts.user_id` is never filtered) — so the signal
+  // platform adopted a stranger's credentials the moment their account moved. And the trigger is not
+  // "someone added an account": `storage.updateBrokerAccount` and `updateBrokerAccountSyncStatus`
+  // both stamp `updated_at`, and they are called from twelve places — every connect, every sync
+  // start and finish, every balance read, every account edit. The scanner re-reads this every ~3
+  // minutes (`ctrader_session.py:131`) while the account it AUTHENTICATES as is fixed at boot, so a
+  // swap means token-from-B/identity-as-A, which cTrader rejects, and the platform crash-loops. Live,
+  // with no restart. Pinning selects ONE ROW and returns its token, its account type and its id
+  // together, so those can never disagree — which was the original crash-loop's actual cause.
+  app.get('/api/internal/ctrader-credentials', requireAdminSecret, async (req, res) => {
     try {
+      const pin = String((req.query.ctrader_id ?? '')).trim();
+      // PINNED READS MUST NOT BE LIMITED BY RECENCY. The pinned account is found by decrypting and
+      // matching `ctraderId`, which SQL cannot filter on — and it is precisely the account NOT being
+      // touched, so a `LIMIT 5` ordered by recency is exactly how it would be missed.
       const { rows } = await pool.query<{
         id: string; account_type: string; password_enc: string;
-      }>(`SELECT id, account_type, password_enc FROM broker_accounts WHERE platform = 'ctrader' ORDER BY updated_at DESC LIMIT 5`);
+      }>(`SELECT id, account_type, password_enc FROM broker_accounts WHERE platform = 'ctrader' ORDER BY updated_at DESC ${pin ? 'LIMIT 200' : 'LIMIT 5'}`);
+
+      if (pin) {
+        for (const row of rows) {
+          let creds: any;
+          try {
+            const plain = safeDecrypt(row.password_enc);
+            if (!plain) continue;
+            creds = JSON.parse(plain);
+          } catch { continue; }
+          if (String(creds?.ctraderId ?? '') !== pin) continue;
+          const out = await ctraderCredsFor(row, creds);
+          if (out) return res.json(out);
+          // THE PINNED ACCOUNT EXISTS BUT ITS TOKEN IS DEAD. Do NOT fall through to another
+          // account — silently trading someone else's is the whole defect this fixes.
+          return res.status(409).json({
+            error: `cTrader account ${pin} found but its token could not be refreshed — reconnect it`,
+            ctrader_id: pin,
+          });
+        }
+        return res.status(404).json({
+          error: `no cTrader account with ctraderId ${pin} — check CTRADER_SIGNAL_ACCOUNT_ID`,
+          ctrader_id: pin,
+        });
+      }
+
+      // UNPINNED: exactly the old behaviour, but it says so. An unpinned platform is one account
+      // update away from switching identity, and that should be visible rather than assumed.
+      console.warn('[ctrader-credentials] NO PIN — returning the most recently updated cTrader ' +
+                   'account. Set CTRADER_SIGNAL_ACCOUNT_ID so the signal platform owns one account.');
       for (const row of rows) {
+        let creds: any;
         try {
           const plain = safeDecrypt(row.password_enc);
           if (!plain) continue;
-          const creds = JSON.parse(plain);
-          if (creds.accessToken && creds.refreshToken) {
-            // Refresh-on-read when the stored token is past/near expiry, so the signal platform
-            // always receives a VALID token — and persist it so the copy engine + signal platform
-            // share one source of truth (no rotation race, no cTrader 429 on a stale token).
-            let { accessToken, refreshToken } = creds;
-            let tokenExpiresAt: number = creds.tokenExpiresAt ?? 0;
-            if (!tokenExpiresAt || tokenExpiresAt < Date.now() + 5 * 60 * 1000) {
-              // Refresh via the COALESCED path (shared with autoSyncService + the watchdog) so
-              // concurrent refreshes of the same account can't rotate the token out from under
-              // each other — that race handed the signal scanner an already-rotated token
-              // (CH_ACCESS_TOKEN_INVALID → crash-loop). If THIS account's refresh token is dead,
-              // skip to the next cTrader account that still has a working token, rather than
-              // returning a known-bad token.
-              const fresh = await refreshCTraderToken({ id: row.id, passwordEnc: row.password_enc } as any);
-              if (!fresh) continue;
-              try {
-                const fc = JSON.parse(safeDecrypt(fresh.passwordEnc) ?? "{}");
-                if (!fc.accessToken) continue;
-                accessToken = fc.accessToken; refreshToken = fc.refreshToken;
-                tokenExpiresAt = fc.tokenExpiresAt ?? tokenExpiresAt;
-              } catch { continue; }
-            }
-            return res.json({
-              account_id: row.id,
-              access_token:  accessToken,
-              refresh_token: refreshToken,
-              expires_at:    tokenExpiresAt,
-              is_live:       (row.account_type ?? '').toLowerCase() !== 'demo',
-              ctrader_id:    String(creds.ctraderId ?? ''),
-            });
-          }
+          creds = JSON.parse(plain);
         } catch { continue; }
+        const out = await ctraderCredsFor(row, creds);
+        if (out) return res.json(out);
       }
       return res.status(404).json({ error: 'No cTrader account with tokens found' });
     } catch (err: any) {

@@ -163,8 +163,10 @@ async def bootstrap_ctrader_tokens(settings) -> None:
     url = f"{settings.node_api_url}/api/internal/ctrader-credentials"
     for attempt in range(4):
         try:
+            from data.node_bridge import signal_account_param
             async with httpx.AsyncClient(timeout=5) as http:
-                r = await http.get(url, headers={"x-admin-secret": settings.admin_secret})
+                r = await http.get(url, headers={"x-admin-secret": settings.admin_secret},
+                                   params=signal_account_param())
             if r.status_code == 200:
                 data = r.json()
                 object.__setattr__(settings, "ctrader_access_token",  data["access_token"])

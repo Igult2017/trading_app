@@ -61,12 +61,37 @@ async function flag(key: keyof typeof CODE, bad: boolean): Promise<void> {
 
 async function checkToken(): Promise<void> {
   try {
+    // WATCH THE ACCOUNT THE SIGNAL PLATFORM ACTUALLY USES, not "the most recently updated one".
+    //
+    // This is the SECOND place that picked an account by recency, and fixing only the credentials
+    // endpoint would have left it watching a different account than the platform runs on — keeping
+    // a stranger's token fresh while the pinned one silently expired. `broker_accounts.user_id` is
+    // never filtered here either, so without the pin this watches whichever user last synced.
+    const pin = String(process.env.CTRADER_SIGNAL_ACCOUNT_ID ?? "").trim();
     const { rows } = await pool.query<any>(
-      `SELECT id, platform, password_enc FROM broker_accounts WHERE platform = 'ctrader' ORDER BY updated_at DESC LIMIT 1`,
+      `SELECT id, platform, password_enc FROM broker_accounts WHERE platform = 'ctrader' ORDER BY updated_at DESC ${pin ? "LIMIT 200" : "LIMIT 1"}`,
     );
-    const row = rows[0];
+    // Pinned: find it by its cTrader account number, which lives inside the encrypted blob and so
+    // cannot be filtered in SQL. Unpinned: the newest, exactly as before.
+    let row = rows[0];
+    let creds: any = null;
+    if (pin) {
+      row = null;
+      for (const r of rows) {
+        try {
+          const c = JSON.parse(safeDecrypt(r.password_enc) ?? "{}");
+          if (String(c?.ctraderId ?? "") === pin) { row = r; creds = c; break; }
+        } catch { /* undecryptable row — skip */ }
+      }
+      if (!row) {
+        // The pinned account is gone. That is exactly what the K7 alert is for — say it rather than
+        // quietly watching something else.
+        await flag("token", true);
+        return;
+      }
+    }
     if (!row) return;   // no cTrader account connected → nothing to watch yet
-    const creds = JSON.parse(safeDecrypt(row.password_enc) ?? "{}");
+    if (!creds) creds = JSON.parse(safeDecrypt(row.password_enc) ?? "{}");
     if (!creds.refreshToken) return;
     const exp: number = creds.tokenExpiresAt ?? 0;
     // Proactively refresh within 1h of expiry so the scanner/engine never see a stale token.

@@ -106,6 +106,20 @@ class Settings(BaseSettings):
     ctrader_client_secret: str = ""
     ctrader_account_id:    int = 0      # numeric ID — MUST be set
     ctrader_env:           str = "demo" # "demo" or "live"
+    # THE ACCOUNT THIS PLATFORM OWNS. Set it and every credential read asks for THIS account by its
+    # cTrader number; leave it empty and behaviour is exactly as before.
+    #
+    # WHY IT EXISTS. Without it the credentials endpoint returns "whichever cTrader account was
+    # updated most recently", across ALL users — and `updated_at` is stamped by every connect, every
+    # sync start and finish, every balance read and every account edit. So any user syncing their own
+    # account silently became this platform's credentials, and since the token is re-read every ~3
+    # minutes while the account we authenticate AS is fixed at boot, the two disagreed and cTrader
+    # crash-looped us. Live, with no restart.
+    #
+    # A SEPARATE SETTING FROM `ctrader_account_id` ON PURPOSE: that one is stamped over at boot by
+    # whatever the endpoint returns, and its Coolify value is currently a DIFFERENT, quoted number.
+    # This one is never overwritten — it is the question, not the answer.
+    ctrader_signal_account_id: str = ""
 
     # OAuth tokens — set in Coolify env vars instead of running auth_setup.py.
     # auth_setup.py prints these values after the one-time local OAuth flow.

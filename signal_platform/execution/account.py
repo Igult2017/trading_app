@@ -42,8 +42,12 @@ async def load_account() -> Account | None:
         return None
     url = f"{settings.node_api_url}/api/internal/ctrader-credentials"
     try:
+        # THE PIN GOES HERE TOO. This decides which account autotrade PLACES ON, so an unpinned read
+        # could put a real order on whichever account some other user last synced.
+        from data.node_bridge import signal_account_param
         async with httpx.AsyncClient(timeout=_TIMEOUT) as http:
-            r = await http.get(url, headers={"x-admin-secret": settings.admin_secret})
+            r = await http.get(url, headers={"x-admin-secret": settings.admin_secret},
+                               params=signal_account_param())
         if r.status_code != 200:
             log.warning(f"[execution] credential bridge returned {r.status_code} — not trading")
             return None
