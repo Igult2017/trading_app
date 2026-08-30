@@ -26,12 +26,16 @@ echo "=== Starting signal platform (with auto-restart) ==="
     echo "[watchdog] starting signal platform (attempt $ATTEMPTS)..."
     cd /app/signal_platform && python3 -u main.py 2>&1
     EXIT=$?
+    # THE SLEEP GOES INSIDE EACH BRANCH. It sat after the `fi`, so BOTH paths waited 60s while the
+    # message promised 10 — every ordinary crash cost six times the intended downtime, and the log
+    # said otherwise while it happened. The copy engine below had it right; this one did not.
     if [ $EXIT -eq 1 ]; then
       echo "[watchdog] signal platform exited with code 1 (config/auth error) — retrying in 60s"
+      sleep 60
     else
       echo "[watchdog] signal platform exited with code $EXIT — restarting in 10s"
+      sleep 10
     fi
-    sleep 60
   done
 ) &
 echo "Signal platform watchdog PID: $!"
