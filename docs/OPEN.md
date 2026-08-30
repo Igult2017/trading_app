@@ -222,7 +222,39 @@ red self-test that everyone steps around is how a real regression gets missed: t
 break something here will see two failures and assume they are the usual two.
 
 
-### B11 — Autotrade STILL cannot place an order: the order path uses a Twisted reactor that this platform never starts
+### B11 — ~~Autotrade STILL cannot place an order~~ FIXED 30 Aug — the order path now has its own socket
+
+**Fixed by rewriting `execution/broker.py` onto this platform's own asyncio connection, and split
+into `execution/connection.py` (getting an authenticated socket) + `broker.py` (the conversation).
+Twisted is gone from the order path entirely.**
+
+**Proved on the live demo account, not just in tests:** `place_stop("GBP/USD", …)` → accepted,
+re-read off the broker showing `stop=1.349 SL=1.352 TP=1.343`, cancelled cleanly. The slashed symbol
+resolves, and stop and target are attached in the same message.
+
+**The isolation he asked for is proved, not asserted.** His condition was *"if it will bring the
+signal platform down just drop it. But if it is stand alone, it is approved."* An order was placed
+and cancelled WHILE the scanner fetched candles on its own connection: **6/6 fetches correct, no
+misalignment.** That test deliberately recreates the 2026-08-21 outage — one execution-event push on
+the shared socket desynchronising the candle stream — and it no longer happens, because order pushes
+land on a different socket. `test_execution_placement.py` also asserts on the syntax tree that the
+order path never calls `get_connection()`, never refreshes the shared token, and imports no Twisted.
+
+**Two further defects were found by testing rather than reading, and both are fixed:**
+
+* **A single timeout budget was wrong.** Opening a fresh socket was measured at **15.4s** on a slow
+  link; under one 20s budget covering connect + auth + the 1,938-symbol list + the order, a slow
+  CONNECT alone consumed nearly all of it and the order timed out **having never been sent** — while
+  reporting "state UNKNOWN", the most alarming message the path can produce, for an account nothing
+  had been sent to. Now three budgets, and a failure before the request is written says **"not
+  sent"** — a fact — while UNKNOWN is reserved for a request that really did go out.
+* **A refusal was being ignored.** cTrader answers a bad order operation with `ProtoOAOrderErrorEvent`
+  (payload **2132**), which is NOT the generic error type the code handled. Cancelling an order id
+  that did not exist sat for **22.3s** and returned UNKNOWN; it now answers in **2.5s** with
+  *"ORDER_NOT_FOUND Order not found with id 999999999"*. The same path carries insufficient margin,
+  a bad price and a closed market — so every one of those was previously a 22-second false alarm.
+
+**Still true, and it is the one that matters:** autotrade has never placed a real signal. See B10.
 
 **Found 30 Aug by the end-to-end step of the B10 fix — the two defects there were real and are
 fixed, and they were not sufficient.**

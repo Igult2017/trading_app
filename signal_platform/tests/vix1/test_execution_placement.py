@@ -82,7 +82,8 @@ s.check("...and says why", "not on this account" in (_reason or ""), True)
 # modules in-process proves nothing, because the test runner's path is not production's.
 _probe = (
     "import execution.broker, execution.orders, execution.placer, "
-    "execution.breakeven, execution.guards, execution.account, execution.sizing; "
+    "execution.breakeven, execution.guards, execution.account, execution.sizing, "
+    "execution.connection; "
     "from data.ctrader_session import HOSTS, PORT; "
     "print(HOSTS['demo'], PORT)"
 )
@@ -123,5 +124,94 @@ s.check("no module under signal_platform imports copy_platform", _offenders, [])
 if _offenders:
     for _o in _offenders:
         print(f"      {_o}")
+
+
+# ── THE ORDER PATH MUST NOT TOUCH THE SCANNER'S CONNECTION ─────────────────
+# This is the promise the rewrite was approved on: "if it will bring the signal platform down just
+# drop it. But if it is stand alone, it is approved." These four checks are that promise in code.
+#
+# `get_connection()` returns the SHARED socket the scanner fetches candles on. Putting order traffic
+# on it would re-create a documented production outage: recv_expect's own docstring records
+# 2026-08-21, when ONE unsolicited execution event (2126) desynchronised that stream permanently and
+# emptied the candle fetch. Placing an order is the surest way to make cTrader emit that push.
+# PARSED, NOT GREPPED — and the first version of these checks got this wrong. Searching the file's
+# TEXT for "get_connection" matched the docstring sentence explaining that it is deliberately NOT
+# used, and reported three failures against correct code. Prose is not code. The syntax tree only
+# contains what actually executes.
+import ast
+
+# BOTH FILES, since broker.py was split on 2026-08-30 when it passed 200 lines: connection.py now
+# owns getting a socket and broker.py owns the conversation. Checking only one would let the other
+# quietly reach for the scanner's connection.
+_order_path_files = [os.path.join(SP_ROOT, "execution", f) for f in ("broker.py", "connection.py")]
+_tree = ast.parse("\n".join(open(f, encoding="utf-8").read() for f in _order_path_files))
+
+_called, _imported, _names = set(), set(), set()
+for _n in ast.walk(_tree):
+    if isinstance(_n, ast.Call):
+        _f = _n.func
+        _called.add(_f.attr if isinstance(_f, ast.Attribute) else
+                    (_f.id if isinstance(_f, ast.Name) else ""))
+    elif isinstance(_n, ast.Import):
+        _imported.update(a.name for a in _n.names)
+    elif isinstance(_n, ast.ImportFrom):
+        _imported.add(_n.module or "")
+        _names.update(a.name for a in _n.names)
+    elif isinstance(_n, ast.Name):
+        _names.add(_n.id)
+
+s.check("broker.py never CALLS get_connection() — the scanner's socket",
+        "get_connection" in _called, False)
+s.check("broker.py opens its OWN socket instead",
+        "open_connection" in _called, True)
+# A refresh here would rotate the token out from under the scanner, the monitor and Node — cTrader
+# rotates on refresh and four consumers share it.
+s.check("broker.py never refreshes the shared token",
+        "get_access_token" in _called, False)
+s.check("broker.py imports no Twisted — it needs a reactor this platform never starts",
+        any("twisted" in m.lower() for m in _imported), False)
+s.check("...and never calls startService", "startService" in _called, False)
+s.check("...and no longer imports copy_platform's non-existent ctrader_app_creds",
+        "ctrader_app_creds" in _names, False)
+
+# THE SOCKET IS CLOSED ON EVERY PATH, including the timeout. A leak here accumulates in a process
+# that runs for weeks. Asserted on the tree: a try with a real finally body that closes something.
+_finally_closes = any(
+    isinstance(_n, ast.Try) and _n.finalbody and
+    any(isinstance(x, ast.Call) and getattr(x.func, "attr", "") == "close"
+        for b in _n.finalbody for x in ast.walk(b))
+    for _n in ast.walk(_tree))
+s.check("the socket is closed in a finally block, so no path leaks it", _finally_closes, True)
+
+# "NOT SENT" vs "UNKNOWN" — the distinction that stops a slow network looking like a possible
+# duplicate order. Anything failing before the request is written reports "not sent", which is a
+# fact; only a failure AFTER it is written reports UNKNOWN, which is a warning to reconcile.
+# These two ARE string checks on purpose — they assert the wording an operator will read, and the
+# strings live in code, not in prose. Both are constants in the tree rather than comments.
+_consts = {n.value for n in ast.walk(_tree) if isinstance(n, ast.Constant) and isinstance(n.value, str)}
+_joined = " ".join(_consts)
+s.check("a failure before sending is reported as 'not sent', not UNKNOWN",
+        "not sent — " in _joined, True)
+s.check("...and UNKNOWN is still reserved for a sent order with no verdict",
+        "order state UNKNOWN" in _joined, True)
+
+# A REFUSAL IS AN ANSWER — payload 2132, ProtoOAOrderErrorEvent. This is how cTrader actually
+# refuses an order operation, and it is NOT the generic error type the code already handled. Found
+# by testing the error paths against the live demo account: cancelling an order id that does not
+# exist sat for the full 22.3s and returned "state UNKNOWN, reconcile before any retry" — the most
+# alarming message this file can produce, for a request the broker had already rejected outright.
+# With 2132 handled it answers in 2.5s with "ORDER_NOT_FOUND Order not found with id 999999999".
+# The same path carries insufficient margin, a bad price and a closed market.
+_consts_num = {n.value for n in ast.walk(_tree) if isinstance(n, ast.Constant) and isinstance(n.value, int)}
+s.check("the order-refusal event (2132) is handled, not left to time out",
+        2132 in _consts_num, True)
+s.check("...alongside the execution event (2126)", 2126 in _consts_num, True)
+
+# The public interface must not have moved: placer.py and breakeven.py call these by name and were
+# deliberately not touched.
+from execution.broker import StopOrderClient
+for _m in ("place_stop", "cancel", "amend_sltp"):
+    s.check(f"StopOrderClient.{_m} still exists for its callers",
+            callable(getattr(StopOrderClient, _m, None)), True)
 
 s.done()
