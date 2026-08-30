@@ -21,6 +21,36 @@ def _shard_of(master_id: str) -> int:
     return int(hashlib.md5(master_id.encode()).hexdigest(), 16) % COPY_WORKER_COUNT
 
 
+# The four possible verdicts on a master, in the order they must be decided.
+VERDICT_TELEGRAM   = "telegram"     # a Telegram source — its own start path
+VERDICT_NOT_OURS   = "not_ours"     # another runner's master: don't start it, don't touch it
+VERDICT_DEACTIVATE = "deactivate"   # ours, but its broker account is gone — a true orphan
+VERDICT_START      = "start"        # ours and ready
+
+
+def classify_master(source_type: str | None, broker_account_id: str | None,
+                    known_account_ids) -> str:
+    """What should the engine do with this master? Pure, so the ordering can be tested.
+
+    THE ORDER OF THESE TESTS IS THE WHOLE POINT, and getting it wrong was a live defect: the
+    "is its broker account missing?" test used to run BEFORE "is this master even mine?", so the
+    engine deactivated MT5 masters. MT5 masters legitimately have no `broker_account_id` — they
+    link through `account_id` -> `copy_accounts` and are run by a separate external bridge, which
+    only sees masters with `is_active = TRUE`. Switching one off silently removed a provider this
+    engine does not run and cannot see.
+
+    Extracted from `_load_masters` so the ordering is asserted directly, without a database.
+    """
+    source = (source_type or "").lower()
+    if source == "telegram":
+        return VERDICT_TELEGRAM
+    if source not in SUPPORTED_PLATFORMS:
+        return VERDICT_NOT_OURS
+    if not broker_account_id or broker_account_id not in known_account_ids:
+        return VERDICT_DEACTIVATE
+    return VERDICT_START
+
+
 def _make_provider(platform: str, master_id: str, creds: dict,
                    account_type: str, on_event):
     if platform in ("ctrader", "ct"):
@@ -97,7 +127,8 @@ class CopyEngine:
             try:
                 if master.id in self._providers:
                     continue
-                is_telegram = (master.source_type or "").lower() == "telegram"
+                verdict = classify_master(master.source_type, master.broker_account_id, accounts)
+                is_telegram = verdict == VERDICT_TELEGRAM
                 if COPY_WORKER_COUNT > 1:
                     # Telegram uses ONE shared bot poller, so all Telegram masters live
                     # on worker 0 — otherwise every worker would poll the same bot
@@ -109,7 +140,14 @@ class CopyEngine:
                 if is_telegram:
                     await self._start_telegram(master)
                     continue
-                if not master.broker_account_id or master.broker_account_id not in accounts:
+
+                if verdict == VERDICT_NOT_OURS:
+                    # Another runner's master (MT5 goes to the external bridge). Not ours to start,
+                    # and — the part that was wrong — not ours to switch off either. Silent: the
+                    # engine has nothing to report about a provider it does not run.
+                    continue
+
+                if verdict == VERDICT_DEACTIVATE:
                     # DEACTIVATE, don't just complain. A master whose broker account is gone can
                     # never start, so warning about it once per cycle is noise forever — this one
                     # has been shouting every 30-60s since June. Flipping is_active makes the state
@@ -128,6 +166,9 @@ class CopyEngine:
                     continue
                 broker_account = accounts[master.broker_account_id]
                 platform = (broker_account.platform or "").lower()
+                # NOT a duplicate of classify_master's test: that one reads the master's
+                # `source_type`, this one reads the linked ACCOUNT's platform, and they can
+                # disagree. This is the value handed to `_make_provider`, so it is checked here.
                 if platform not in SUPPORTED_PLATFORMS:
                     log.info(f"[engine] skipping {master.id}: {platform} not yet supported")
                     continue

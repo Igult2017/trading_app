@@ -15,7 +15,6 @@ import CTraderConnectPanel from '@/components/copy/CTraderConnectPanel';
 import { usePersistedState } from '@/hooks/usePersistedState';
 import TradeSyncNav from '@/components/copy/TradeSyncNav';
 import { apiRequest, authFetch } from '@/lib/queryClient';
-import { useAuth } from '@/context/AuthContext';
 
 // ─── Fonts ────────────────────────────────────────────────────────────────────
 // Nothing to import: DM Mono is self-hosted in client/src/index.css, alongside Playfair Display and
@@ -176,8 +175,9 @@ function providerInitials(name: string) {
 
 const ProviderCard = ({ provider, selected, onSelect }: any) => {
   const mono = "'DM Mono', monospace";
-  const { user } = useAuth();
-  const isOwn = !!user?.id && provider.ownerId === user.id;
+  // The server decides this now and sends `isOwn`. It used to send every account's raw `ownerId`
+  // for the browser to compare, on an endpoint that needed no login at all.
+  const isOwn = !!provider.isOwn;
   const followable = !!provider.followingEnabled && !!provider.masterId;
 
   const name = provider.name || 'Unnamed Account';
@@ -1312,12 +1312,10 @@ function CopierDashboard({ deployResult, role, data, onSetupAnother, onHome }: a
       <div className="border border-t-0 border-white/5 bg-[#020203]">
         <div className="flex items-center justify-between px-5 py-3 border-b border-white/5">
           <span className="text-[9px] font-mono font-bold uppercase tracking-widest text-slate-600">// execution_log</span>
-          {followerId && (
-            <a href={`/api/copy/logs/${followerId}`} target="_blank" rel="noreferrer"
-              className="text-[9px] font-mono uppercase tracking-widest text-slate-700 hover:text-slate-400 transition-colors">
-              View all →
-            </a>
-          )}
+          {/* The "View all" link opened this endpoint raw in a new tab. That endpoint now needs a
+              login, and a plain browser navigation cannot send a Bearer header — the link would
+              only ever show {"error":"Unauthorized"}. The logs it pointed at are rendered directly
+              below, so the link is removed rather than left broken. */}
         </div>
         {loading ? (
           <div className="px-5 py-8 flex items-center justify-center">
@@ -1593,7 +1591,9 @@ export function CopierWizard({ onBack, onOpenDashboard }: { onBack: () => void; 
   const [providersLoading, setProvidersLoading] = useState(true);
 
   useEffect(() => {
-    fetch('/api/copy/providers')
+    // apiRequest, NOT a bare fetch — the endpoint now requires a login, and a bare fetch sends no
+    // credentials, which would leave the marketplace permanently empty.
+    apiRequest('GET', '/api/copy/providers')
       .then(r => r.json())
       .then(d => { setProviders(Array.isArray(d) ? d : []); })
       .catch(() => setProviders([]))

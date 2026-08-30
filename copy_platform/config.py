@@ -3,10 +3,35 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-DATABASE_URL      = os.environ["DATABASE_URL"]
-ENCRYPTION_KEY    = os.environ["COPY_ENCRYPTION_KEY"]
-CTRADER_CLIENT_ID = os.environ["CTRADER_CLIENT_ID"]
-CTRADER_CLIENT_SECRET = os.environ["CTRADER_CLIENT_SECRET"]
+class MissingSettings(RuntimeError):
+    """A required setting is absent. Raised on import; caught and reported by main.py."""
+
+
+def _require(*names: str) -> list[str]:
+    """Read required settings, naming EVERY missing one at once.
+
+    These were `os.environ["..."]`, which fails on the FIRST missing name, at import time —
+    before logging is configured. So a fresh deployment missing a setting produced a bare
+    KeyError traceback, the process exited, `start.sh` restarted it 60 seconds later, and it
+    did that forever. Nothing said which setting, and nothing said it twice was the same fault:
+    the only outward symptom was the copy engine's heartbeat quietly going stale.
+
+    Collecting all of them matters more than it looks — one restart cycle is a minute, so
+    fixing them one at a time is a minute per setting to discover the next.
+    """
+    missing = [n for n in names if not (os.environ.get(n) or "").strip()]
+    if missing:
+        raise MissingSettings(
+            "the copy engine cannot start — these settings are not set: "
+            + ", ".join(missing)
+            + ". Set them in the deployment environment and restart."
+        )
+    return [os.environ[n] for n in names]
+
+
+DATABASE_URL, ENCRYPTION_KEY, CTRADER_CLIENT_ID, CTRADER_CLIENT_SECRET = _require(
+    "DATABASE_URL", "COPY_ENCRYPTION_KEY", "CTRADER_CLIENT_ID", "CTRADER_CLIENT_SECRET",
+)
 # The "Journal Trade Sync" cTrader app — accounts CONNECTED under it carry `app: "sync"` in their
 # stored creds, and their tokens only authenticate under THIS app's credentials. Optional: when
 # unset, everything falls back to the legacy pair above.

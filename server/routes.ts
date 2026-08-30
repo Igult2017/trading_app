@@ -17,7 +17,8 @@ import { syncAccount, refreshCTraderToken } from "./services/autoSyncService";
 import { randomBytes, randomUUID } from "crypto";
 import { sendCampaignEmail, isEmailConfigured } from "./services/emailService";
 import { storage } from "./storage";
-import { insertTradeSchema, insertEconomicEventSchema, insertTradingSignalSchema, insertJournalEntrySchema, insertTradingSessionSchema } from "@shared/schema";
+import { insertTradeSchema, insertEconomicEventSchema, insertTradingSignalSchema, insertJournalEntrySchema, insertTradingSessionSchema,
+         insertCopyMasterSchema, insertCopyFollowerSchema, type BrokerAccount } from "@shared/schema";
 import { analyzeScreenshotWithOCR, isOCRAvailable } from "./services/ocrScreenshotAnalyzer";
 import { analyzeScreenshotWithGemini, isGeminiScreenshotAvailable } from "./services/geminiScreenshotAnalyzer";
 import { parseTradeText } from "./services/textTradeAnalyzer";
@@ -3123,11 +3124,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (err: any) { console.error('[copy/overview]', err); return res.status(500).json({ error: "Internal server error" }); }
   });
 
-  /** Public provider marketplace — every connected account + realized performance.
+  /**
+   * "Does this broker account belong to you?" — the check the copy endpoints never made.
+   *
+   * `POST /api/copy/masters` and `POST /api/copy/followers` passed the whole request body to the
+   * database and only overwrote `userId`. Neither looked at `brokerAccountId`, and the PUTs let you
+   * swap it in afterwards. Nothing downstream re-checks either: the copy engine takes the row at its
+   * word, decrypts that account's credentials and trades it (copy_platform/engine.py `_load_masters`).
+   *
+   * So a logged-in stranger could name SOMEONE ELSE'S account and either publish it as a master —
+   * streaming that person's positions to themselves — or point a FOLLOWER row at it, which places
+   * copied orders on that person's money. The account id needed for it was being handed out by
+   * `GET /api/copy/providers`, which had no login check at all.
+   *
+   * Returns the account on success, or null after having already sent the response.
+   */
+  const requireOwnBrokerAccount = async (
+    userId: string, brokerAccountId: unknown, res: Response,
+  ): Promise<BrokerAccount | null> => {
+    const id = typeof brokerAccountId === 'string' ? brokerAccountId.trim() : '';
+    if (!id) { res.status(400).json({ error: "brokerAccountId is required" }); return null; }
+    const account = await storage.getBrokerAccountById(id);
+    // 404 rather than 403 for someone else's account: a "forbidden" would confirm the id exists.
+    if (!account || account.userId !== userId) { res.status(404).json({ error: "Not found" }); return null; }
+    return account;
+  };
+
+  /** Provider marketplace — accounts offered for copying, plus the caller's own.
+   *
+   *  REQUIRES A LOGIN. It did not, and `getProviderDirectory` had no owner filter, so this returned
+   *  every connected account in the system — with its `brokerAccountId` and the owner's user id —
+   *  to anyone who asked. See the note on `getProviderDirectory` (storage.ts) for the scope fix.
    *  Only accounts whose owner enabled copying carry a masterId (followable). */
-  app.get("/api/copy/providers", async (_req, res) => {
+  app.get("/api/copy/providers", async (req, res) => {
     try {
-      return res.json(await storage.getProviderDirectory());
+      const user = await verifyToken(req.headers.authorization);
+      if (!user) return res.status(401).json({ error: "Unauthorized" });
+      return res.json(await storage.getProviderDirectory(user.id));
     } catch (err: any) { console.error(err); return res.status(500).json({ error: "Internal server error" }); }
   });
 
@@ -3141,9 +3174,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/copy/masters/:id", async (req, res) => {
     try {
+      const user = await verifyToken(req.headers.authorization);
+      if (!user) return res.status(401).json({ error: "Unauthorized" });
       const master = await storage.getCopyMasterById(req.params.id);
       if (!master) return res.status(404).json({ error: "Master not found" });
-      return res.json(master);
+      if (master.userId === user.id) return res.json(master);
+      if (!master.isPublic) return res.status(404).json({ error: "Master not found" });
+      // A stranger looking at the marketplace gets the SHOP WINDOW, not the record. The full row
+      // carries the owner's user id, notification email and notification preferences, and it was
+      // being returned in full to anyone, with no login at all.
+      const { userId: _u, notifEmail: _e, notifPrefs: _p, brokerAccountId: _b, accountId: _a,
+              ...listing } = master as any;
+      return res.json(listing);
     } catch (err: any) { console.error(err); return res.status(500).json({ error: "Internal server error" }); }
   });
 
@@ -3152,7 +3194,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const auth = await requireAuth(req, res);
       if (!auth) return res.status(401).json({ error: "Unauthorized" });
       const { userId: _uid, ...rest } = req.body;
-      return res.status(201).json(await storage.createCopyMaster({ ...rest, userId: auth.id }));
+      // You may only publish an account you own — see `requireOwnBrokerAccount`.
+      //
+      // A Telegram master genuinely has no broker account (it reads a channel, it does not connect
+      // to a broker), so presence is only required for the rest. Ownership is still enforced on
+      // whatever IS supplied — that is the security property, and it does not depend on this
+      // exemption. Telegram sources are normally created through /api/copy/telegram-follow.
+      const isTelegramSource = String(rest.sourceType ?? '').toLowerCase() === 'telegram';
+      if (!(isTelegramSource && rest.brokerAccountId == null)
+          && !await requireOwnBrokerAccount(auth.id, rest.brokerAccountId, res)) return;
+      // Parse rather than spread: anything not in the schema is DROPPED instead of written.
+      const parsed = insertCopyMasterSchema.safeParse({ ...rest, userId: auth.id });
+      if (!parsed.success) return res.status(400).json({ error: "Invalid master", details: parsed.error.issues });
+      return res.status(201).json(await storage.createCopyMaster(parsed.data));
     } catch (err: any) { console.error(err); return res.status(500).json({ error: "Internal server error" }); }
   });
 
@@ -3164,7 +3218,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!existing) return res.status(404).json({ error: "Master not found" });
       if (existing.userId !== auth.id) return res.status(403).json({ error: "Forbidden" });
       const { userId: _uid, ...rest } = req.body;
-      const updated = await storage.updateCopyMaster(req.params.id, rest);
+      // Owning the master is NOT enough: an edit can re-point it at another user's account.
+      if (rest.brokerAccountId !== undefined
+          && !await requireOwnBrokerAccount(auth.id, rest.brokerAccountId, res)) return;
+      const parsed = insertCopyMasterSchema.partial().safeParse(rest);
+      if (!parsed.success) return res.status(400).json({ error: "Invalid master", details: parsed.error.issues });
+      const updated = await storage.updateCopyMaster(req.params.id, parsed.data);
       return res.json(updated);
     } catch (err: any) { console.error(err); return res.status(500).json({ error: "Internal server error" }); }
   });
@@ -3289,7 +3348,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const auth = await requireAuth(req, res);
       if (!auth) return res.status(401).json({ error: "Unauthorized" });
       const { userId: _uid, ...rest } = req.body;
-      return res.status(201).json(await storage.createCopyFollower({ ...rest, userId: auth.id }));
+      // The account copied ONTO. Unchecked, this placed real orders on a stranger's account.
+      if (!await requireOwnBrokerAccount(auth.id, rest.brokerAccountId, res)) return;
+      const parsed = insertCopyFollowerSchema.safeParse({ ...rest, userId: auth.id });
+      if (!parsed.success) return res.status(400).json({ error: "Invalid follower", details: parsed.error.issues });
+      return res.status(201).json(await storage.createCopyFollower(parsed.data));
     } catch (err: any) { console.error(err); return res.status(500).json({ error: "Internal server error" }); }
   });
 
@@ -3301,7 +3364,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!existing) return res.status(404).json({ error: "Follower not found" });
       if (existing.userId !== auth.id) return res.status(403).json({ error: "Forbidden" });
       const { userId: _uid, ...rest } = req.body;
-      return res.json(await storage.updateCopyFollower(req.params.id, rest));
+      // Same trap as the master PUT: an edit can re-point the copy target at another user's account.
+      if (rest.brokerAccountId !== undefined
+          && !await requireOwnBrokerAccount(auth.id, rest.brokerAccountId, res)) return;
+      const parsed = insertCopyFollowerSchema.partial().safeParse(rest);
+      if (!parsed.success) return res.status(400).json({ error: "Invalid follower", details: parsed.error.issues });
+      return res.json(await storage.updateCopyFollower(req.params.id, parsed.data));
     } catch (err: any) { console.error(err); return res.status(500).json({ error: "Internal server error" }); }
   });
 
@@ -3421,18 +3489,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ── Trade history & execution logs ────────────────────────────────────────────
   app.get("/api/copy/trades/master/:masterId", async (req, res) => {
     try {
+      const user = await verifyToken(req.headers.authorization);
+      if (!user) return res.status(401).json({ error: "Unauthorized" });
+      // A provider's track record is public ONLY if the provider published it. This took the id
+      // straight from the URL with no login and no check, so a private or self-copy master's
+      // whole trade history was readable by anyone who had its id.
+      const master = await storage.getCopyMasterById(req.params.masterId);
+      if (!master) return res.status(404).json({ error: "Master not found" });
+      if (!master.isPublic && master.userId !== user.id) return res.status(404).json({ error: "Not found" });
       return res.json(await storage.getCopyMasterTrades(req.params.masterId, parseInt(req.query.limit as string) || 100));
     } catch (err: any) { console.error(err); return res.status(500).json({ error: "Internal server error" }); }
   });
 
   app.get("/api/copy/trades/follower/:followerId", async (req, res) => {
     try {
+      const user = await verifyToken(req.headers.authorization);
+      if (!user) return res.status(401).json({ error: "Unauthorized" });
+      // YOUR copied trades are yours. Unauthenticated, this served any user's trade history to
+      // anyone holding a follower id — and follower ids are handed out by the copy UI.
+      const follower = await storage.getCopyFollowerById(req.params.followerId);
+      if (!follower || follower.userId !== user.id) return res.status(404).json({ error: "Not found" });
       return res.json(await storage.getCopyFollowerTrades(req.params.followerId, parseInt(req.query.limit as string) || 100));
     } catch (err: any) { console.error(err); return res.status(500).json({ error: "Internal server error" }); }
   });
 
   app.get("/api/copy/logs/:followerId", async (req, res) => {
     try {
+      const user = await verifyToken(req.headers.authorization);
+      if (!user) return res.status(401).json({ error: "Unauthorized" });
+      // Execution logs carry broker error messages and refusal reasons for that account — the
+      // most revealing rows in the copy tables, and they were readable without logging in.
+      const follower = await storage.getCopyFollowerById(req.params.followerId);
+      if (!follower || follower.userId !== user.id) return res.status(404).json({ error: "Not found" });
       return res.json(await storage.getCopyExecutionLogs(req.params.followerId, parseInt(req.query.limit as string) || 200));
     } catch (err: any) { console.error(err); return res.status(500).json({ error: "Internal server error" }); }
   });
@@ -3466,15 +3554,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Mark a telegram trade as win / loss / clear
   app.patch("/api/copy/telegram-journal/:id/outcome", async (req: Request, res: Response) => {
     try {
+      const user = await verifyToken(req.headers.authorization);
+      if (!user) return res.status(401).json({ error: 'Unauthorized' });
       const { id } = req.params;
       const { outcome } = req.body as { outcome: 'win' | 'loss' | null };
       if (outcome !== 'win' && outcome !== 'loss' && outcome !== null) {
         return res.status(400).json({ error: 'outcome must be win, loss, or null' });
       }
-      await pool.query(
-        `UPDATE copy_trades_follower SET manual_outcome = $1 WHERE id = $2`,
-        [outcome, id]
+      // AN UNAUTHENTICATED WRITE, until now. No login, no ownership test — anyone could mark any
+      // user's copied trade a win or a loss, which is the number their own performance is judged on.
+      // The ownership test rides in the UPDATE's WHERE clause rather than a separate SELECT, so
+      // there is no gap between checking and writing.
+      const { rowCount } = await pool.query(
+        `UPDATE copy_trades_follower ctf
+            SET manual_outcome = $1
+           FROM copy_followers cf
+          WHERE ctf.id = $2 AND ctf.follower_id = cf.id AND cf.user_id = $3`,
+        [outcome, id, user.id]
       );
+      if (!rowCount) return res.status(404).json({ error: 'Not found' });
       return res.json({ ok: true, id, outcome });
     } catch (err: any) { console.error(err); return res.status(500).json({ error: "Internal server error" }); }
   });

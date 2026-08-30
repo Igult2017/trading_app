@@ -38,7 +38,9 @@ log only; `OPEN.md` supersedes it for anything still open.
 - **DB**: PostgreSQL via `pg` / `@neondatabase/serverless`; signal platform uses SQLite (`signal_platform/signals.db`)
 - **Auth**: Supabase JWT (`@supabase/supabase-js`) + Passport.js local fallback + `express-session`
 - **AI**: Google Gemini 2.5 Flash (`@google/genai`) for screenshot analysis and AI Q&A (Node side only — signal-platform AI validation removed 2026-07-22)
-- **Signal Platform**: Python 3, asyncio, APScheduler, SQLAlchemy, yfinance, mplfinance, `python-telegram-bot`
+- **Signal Platform**: Python 3, asyncio, APScheduler, SQLAlchemy, yfinance, matplotlib, `python-telegram-bot`
+  (`mplfinance` was listed here but removed from the code 2026-08-03 — nothing imported it; the
+  signal card draws its candles directly. It left `uv.lock` on 2026-08-31.)
 - **Real-time**: WebSockets (`ws`), Telegram Bot API (event-driven, never polled)
 
 ---

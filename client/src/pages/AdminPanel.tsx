@@ -1261,9 +1261,13 @@ const SyncPerformanceSection = ({ bp }: { bp: any }) => {
     const next = current === which ? null : which;
     setMarking(id);
     try {
+      // Send credentials, like loadTgTrades does. This endpoint used to take an unauthenticated
+      // write — anyone could mark any user's copied trade a win or a loss — so it now requires a
+      // login, and a bare fetch would 401.
+      const h = await getSyncAuthHeaders();
       const r = await fetch(`/api/copy/telegram-journal/${id}/outcome`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { ...h, 'Content-Type': 'application/json' },
         body: JSON.stringify({ outcome: next }),
       });
       if (r.ok) {

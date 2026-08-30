@@ -268,6 +268,34 @@ immediately instead of discovering it late. Better than today, with no correctne
 
 **Phase 2 changes what the strategy sees**, so it goes live with him watching - not unattended.
 
+**FIRST LIVE SESSION MEASURED — 30 Aug 22:00 UTC open. The candles do NOT match.**
+
+| what was checked | result |
+|---|---|
+| FIX price stream opens and subscribes | ✅ all 5 instruments, at 22:00:58 |
+| bar-close scan fires on a closed 1M bar | ✅ once, GBP/USD, in 2816 ms |
+| **tick-built candles vs the broker's own** | ❌ **105 mismatch lines in 15 minutes** |
+| signal lateness stamps | none — no signals fired in the window, so nothing to measure yet |
+
+The mismatches are all GBP/JPY in the sample captured, differing in the third decimal
+(e.g. ours `O216.683 H216.689 L216.676 C216.682`). **The bar for Phase 2 is identical to the last
+decimal, so this fails it** — and the design behaved correctly: one mismatch withdraws trust, so
+**nothing was served to any strategy.** Phase 2 stays shut.
+
+**Not yet diagnosed, and worth checking before any more work:** FIX quotes are **bid-based** while
+the broker's trendbars may not be, which would explain a constant small offset rather than random
+noise. That is a cheap thing to test and it decides whether this is fixable at all or whether the
+fallback below is the answer.
+
+**The fallback is looking like the better trade** — keep the broker's values, but use the tick
+stream only to know the bar has ENDED and ask for it immediately. It captures most of the delay with
+no correctness risk, and it does not require the candles to match.
+
+**Also seen in the same log, unrelated to the candles:** the credentials endpoint logged
+`NO PIN - returning the most recently updated cTrader account` while the Python request in the very
+next line **did** carry `?ctrader_id=47535363`. So a second caller is still reading unpinned. Worth
+finding — it is the same class as D3.
+
 
 ### B12 — ~~Nothing records how late a signal is~~ FIXED 30 Aug — and one claim in this entry was WRONG
 
@@ -495,8 +523,130 @@ side reads a field, assert the other side sends it.
 **Blocked on:** the Spotware reply.
 **Where:** [ctrader-open-api-apps.md](./ctrader-open-api-apps.md).
 
-### D2 — An orphaned copy master logs "broker account not found" every 30 seconds
-**Carried** from 30 Jun. Needs cleaning up or auto-deactivating.
+### D2 — ~~An orphaned copy master logs "broker account not found" every 30 seconds~~ FIXED 30 Aug — but the fix had a defect, corrected 31 Aug
+**Carried** from 30 Jun. The engine now deactivates a master whose broker account is gone, which
+ends the noise permanently and is reversible from the UI.
+
+**The fix as first written was wrong — see D5.** It deactivated MT5 masters too.
+
+### D5 - ~~The engine switched off MT5 providers it does not even run~~ FIXED 31 Aug 🔴
+**Mine, introduced 30 Aug by the D2 fix.** The deactivation branch was placed **before** the test
+for whether the engine owns the master at all.
+
+MT5 masters have no `broker_account_id` **by design** — they link through `account_id` →
+`copy_accounts` and are run by a **separate external bridge**, which fetches its work from
+`/api/internal/active-providers` filtered on `is_active = TRUE`. So the engine saw "no broker
+account", called it an orphan, and switched off a provider it does not run and cannot see. Nothing
+failed loudly; the trades would simply have stopped. Not confined to old rows either —
+[`routes.ts:3355`](../server/routes.ts#L3355) (`/api/copy/deploy`) still creates exactly that shape.
+
+**Root cause:** the ORDER of two tests. "Is its account missing?" was asked before "is this mine?".
+
+**Fix:** the decision is now one pure function, [`engine.classify_master`](../copy_platform/engine.py),
+which asks ownership first and returns one of `telegram` / `not_ours` / `deactivate` / `start`.
+A master the engine does not serve is skipped silently — not started, and **not disabled**.
+
+**Locked by:** [`test_master_ownership.py`](../copy_platform/tests/test_master_ownership.py) — 16
+checks including a TEETH case that restores the old ordering and confirms the suite goes red.
+
+### D6 - ~~Anyone on the internet could list every connected broker account~~ FIXED 31 Aug 🔴
+**Verified live against production, 31 Aug: HTTP 200 with no credentials at all.**
+
+`GET /api/copy/providers` had no login check, and `getProviderDirectory` had no owner filter. It
+returned **every** connected account in the system — the account's id, **the owner's user id**, its
+name, platform, demo/live status and P&L — including accounts whose owner had never switched copying
+on. Both of his own accounts were being published this way with `followingEnabled: false`.
+
+**Fix:** the route requires a login; the query now returns only accounts actually offered for
+copying **plus the caller's own**; and `ownerId` is replaced by a computed `isOwn`, so no user id
+leaves the server. The one client call was a bare `fetch` sending no credentials and is now
+`apiRequest` — without that the marketplace would have gone blank.
+
+### D7 - ~~A logged-in stranger could attach themselves to your broker account~~ FIXED 31 Aug 🔴
+`POST /api/copy/masters` and `POST /api/copy/followers` passed the request body straight to the
+database and only overwrote `userId`. Neither checked that `brokerAccountId` belonged to the caller,
+and the `PUT`s let it be swapped in afterwards. `insertCopyMasterSchema` existed and was unused.
+Nothing downstream re-checks — the copy engine takes the row at its word, decrypts that account's
+credentials and trades it.
+
+**Chained with D6 this was a complete path**, because D6 handed out the exact id D7 needed: read a
+victim's `brokerAccountId` from the public endpoint, sign up, then either publish their account as a
+master and follow it (their positions stream to you), or point a **follower** row at it — which
+places copied orders **on their money**.
+
+**Not proven by exploit, and deliberately not:** confirming it end to end would mean putting a real
+order on a real account. The code path is unambiguous on reading.
+
+**Fix:** one helper, `requireOwnBrokerAccount` in [`routes.ts`](../server/routes.ts), called by all
+four; bodies are now `safeParse`d so unknown fields are dropped rather than written; it answers 404
+rather than 403, because a "forbidden" confirms the id exists.
+
+### D8 - ~~Five more copy endpoints served or wrote other users' data with no login~~ FIXED 31 Aug 🔴
+Found by sweeping **every** route for a missing auth check after D6/D7 — the same defect had five
+more instances in the same feature, which is exactly why the sweep was worth doing rather than
+fixing only the two that were reported.
+
+| endpoint | what it exposed |
+|---|---|
+| `GET /api/copy/trades/follower/:followerId` | any user's copied trade history |
+| `GET /api/copy/logs/:followerId` | broker error messages and refusal reasons for that account |
+| `GET /api/copy/trades/master/:masterId` | a **private** or self-copy master's whole trade history |
+| `GET /api/copy/masters/:id` | the full master row — owner id, notification email, preferences |
+| `PATCH /api/copy/telegram-journal/:id/outcome` | **an unauthenticated WRITE** — anyone could mark any user's trade a win or a loss |
+
+All five now require a login and check ownership. The write scopes the caller into the `UPDATE`'s
+own `WHERE` clause rather than doing a separate `SELECT` first, so there is no gap between checking
+and writing. Two client callers had to change with them: an admin `fetch` that sent no credentials,
+and a `View all →` link that opened the raw endpoint in a new tab — a browser navigation cannot send
+a Bearer header, so that link could only ever have shown `Unauthorized` and was removed.
+
+**A correction to my own sweep:** I first counted `/api/admin/copy/all-trades` and
+`/api/admin/copy/overview` among the unauthenticated. They are **not** — both carry `requireAdmin`,
+which my keyword list had missed. Reading them is what caught it.
+
+**Locked by:** [`test_route_ownership.py`](../copy_platform/tests/test_route_ownership.py) — 33
+checks, read off the source rather than by grepping for text, because the failure being guarded is
+"someone adds a sixth endpoint and forgets", which a request against five known endpoints cannot see.
+
+### D9 - ~~A missing setting killed the copy engine with no explanation~~ FIXED 31 Aug
+[`config.py`](../copy_platform/config.py) read four required settings with `os.environ["..."]`,
+which fails on the **first** missing name, at import time, before logging exists. The result was a
+bare `KeyError`, exit, and a 60-second restart loop forever — with the only outward symptom being
+the engine's heartbeat quietly going stale.
+
+Now one `_require()` names **every** missing setting at once (one restart cycle is a minute, so
+finding them one at a time costs a minute each), and treats a blank-but-set value as missing — which
+is what a deployment dashboard produces when a field is saved empty. `main.py` validates **before**
+the reactor starts, deliberately: anything raised inside `_startup` is swallowed by asyncio into a
+"Task exception was never retrieved" line, leaving a misconfigured engine looking **alive** while
+copying nothing.
+
+### D10 — Risk-mode sizing refuses indices instead of guessing them. FIXED 31 Aug
+`pip_value()` returned $10/pip/lot for every symbol it did not recognise. For US30, NAS100, GER40
+and the rest the true figure is about $0.10, so a risk-sized copy came out **100× too small**, hit
+the 0.01-lot floor, and placed a token position that looked like it had worked. It now returns 0.0
+meaning **refuse**, which `calc_lots` already treats as "skip", matching the rule `volume_for`
+follows for a missing contract spec. Mult and fixed modes need no pip value, so indices still copy
+through those, and the skip message now names the symbol and says which mode to use instead.
+
+⚠ **A correction to what I said on 30 Aug:** I reported gold as mislabelled "exact". **It is not —
+I was wrong.** Gold's contract is 100 oz and its pip is 0.1, so $10/pip/lot is correct for XAUUSD.
+Indices were the actual defect.
+
+### D11 — The copy platform had no tests at all. FIXED 31 Aug
+Every defect above was found by **reading**, because `copy_platform/` had no test directory.
+There is now [`copy_platform/tests/`](../copy_platform/tests) — `python run_all.py`, 99 checks in
+four files, same plain-script harness as the signal platform's suite (no framework, no new
+dependency). The one that matters most is `test_crypto.py`: it decrypts a vector produced by **the
+real Node encryptor**, because a test that encrypts and decrypts with the same Python function
+proves only that Python agrees with itself, and would stay green through any Node-side change that
+made every stored credential unreadable.
+
+### D12 — Neither of his cTrader accounts is offered for copying. NOT A DEFECT
+Recorded because I spent time on it twice. Both accounts show no provider link simply because
+**copy-listing was never switched on for them** — the add-account → provider chain is sound.
+`register-as-provider`, `register-as-follower` and `copy-listing` all check ownership and platform,
+and the OAuth callback stores exactly the fields the engine needs. Turning one on is one toggle.
 
 ---
 

@@ -181,10 +181,18 @@ async def _exec_follower(master_trade_id: str, follower: CopyFollower,
             lots = calc_lots(follower, snap.volume_lots, sl_pips=sl_pips,
                              follower_equity=equity, pip_value=pip_value(snap.symbol))
             if lots <= 0:
-                reason = ("Risk-% mode: can't size — the trade has no stop-loss, or your account "
-                          "balance isn't synced yet (won't copy without a valid % size)"
-                          if (follower.lot_mode or "").lower() == "risk"
-                          else "No valid lot size (mult mode with no master/fixed volume)")
+                if (follower.lot_mode or "").lower() == "risk":
+                    # Name the symbol case separately — it is the one a user can act on, by
+                    # switching that follower to fixed or mult mode.
+                    reason = (
+                        f"Risk-% mode: no reliable pip value for {snap.symbol}, so the position "
+                        f"cannot be sized by risk — use fixed or multiplier mode for this symbol"
+                        if pip_value(snap.symbol) <= 0 else
+                        "Risk-% mode: can't size — the trade has no stop-loss, or your account "
+                        "balance isn't synced yet (won't copy without a valid % size)"
+                    )
+                else:
+                    reason = "No valid lot size (mult mode with no master/fixed volume)"
                 _log(fid, master_trade_id, "INFO", "SKIP", reason)
                 return
         else:

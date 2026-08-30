@@ -31,10 +31,15 @@ def calc_lots(
 
     elif mode == "risk":
         # Size so a stop-out costs exactly risk_percent of equity. If we can't size it — the
-        # trade has no stop-loss, or the account balance isn't synced yet — we must NOT fall
-        # back to the master's raw lot (that could blow past the user's % cap). Size 0 so the
-        # caller SKIPS the trade instead, honouring the risk limit.
-        if follower.risk_percent and sl_pips and follower_equity:
+        # trade has no stop-loss, the account balance isn't synced yet, or we have no honest
+        # pip value for the symbol — we must NOT fall back to the master's raw lot (that could
+        # blow past the user's % cap). Size 0 so the caller SKIPS the trade instead, honouring
+        # the risk limit.
+        #
+        # `pip_value` IS PART OF THE CONDITION, not just a data check: it is the divisor below,
+        # and `pip_value()` now returns 0.0 for symbols it cannot value. Without this test that
+        # refusal would divide by zero and take down the dispatch task instead of skipping.
+        if follower.risk_percent and sl_pips and follower_equity and pip_value:
             risk_amount = follower_equity * float(follower.risk_percent) / 100
             lots = risk_amount / (sl_pips * pip_value)
         else:
@@ -69,18 +74,29 @@ def pip_size(symbol: str) -> float:
 
 
 def pip_value(symbol: str) -> float:
-    """USD value per pip per standard lot, for risk-mode sizing (best-effort).
+    """USD value per pip per standard lot for risk-mode sizing, or 0.0 when we cannot say.
 
-    Exact for USD-quoted pairs (EURUSD, GBPUSD, …) = $10/pip/lot. For JPY-quoted and
-    cross pairs the true value depends on the quote-currency→USD rate, which the engine
-    doesn't have here, so those return a rough approximation — risk-mode sizing on
-    non-USD pairs is therefore approximate; use fixed/mult mode for exact sizing there."""
+    0.0 MEANS "REFUSE", NOT "ZERO". `calc_lots` already treats an unsizeable risk trade as 0
+    lots and the dispatcher skips it, which is the same rule `volume_for` follows: refuse
+    rather than guess.
+
+    THE FALLBACK USED TO BE $10 FOR EVERYTHING UNRECOGNISED, and for indices that is 100x too
+    high — US30/NAS100/GER40 are worth roughly $0.10 per 0.1 point per lot, not $10. Sizing
+    divides by this, so the copied position came out 100x too SMALL, then hit the 0.01-lot floor
+    and placed a token trade that looked like it had worked. Wrong in the safe direction is still
+    wrong, and silently placing a meaningless position is worse than placing none.
+
+    Exact for USD-quoted pairs (EURUSD, GBPUSD, …) = $10/pip/lot. Gold is exact too and lands on
+    that branch correctly: a 100 oz contract at a 0.1 pip really is $10/pip/lot. JPY-quoted is
+    approximate — the true figure needs the JPY->USD rate, which the engine does not have here.
+    For anything else, use fixed or mult mode, which need no pip value at all.
+    """
     s = (symbol or "").upper()
     if s.endswith("USD"):
-        return 10.0          # USD-quoted: exact
+        return 10.0          # USD-quoted (incl. XAUUSD): exact
     if s.endswith("JPY"):
         return 7.0           # ~1000 JPY/lot ≈ $6.5–7 — approximate
-    return 10.0              # crosses / metals / indices — approximate fallback
+    return 0.0               # crosses / indices: not knowable here — refuse rather than guess
 
 
 def apply_direction(action: str, direction: str) -> str:

@@ -710,12 +710,31 @@ export class DbStorage implements IStorage {
   }
 
   /**
-   * Public provider marketplace — EVERY connected account, with realized
-   * performance computed from its synced trade history. `followingEnabled` is
-   * true only when the owner has switched on copying (an active public master
-   * exists); only those carry a `masterId` and can actually be followed.
+   * Provider marketplace — accounts OFFERED for copying, plus the caller's own.
+   *
+   * IT USED TO RETURN EVERY CONNECTED ACCOUNT IN THE SYSTEM, TO ANYONE. The route had no login
+   * check at all and this query had no owner filter, so an unauthenticated GET returned every
+   * user's `brokerAccountId`, their `ownerId`, the account name, whether it was demo or live and
+   * its P&L — including accounts whose owner had never switched copying on. Verified against
+   * production on 2026-08-31: HTTP 200, full list, no credentials.
+   *
+   * That ID is the input the copy endpoints used to accept unchecked, so this leak was step one of
+   * a real break-in path (see `requireOwnBrokerAccount` in routes.ts for step two).
+   *
+   * TWO THINGS CHANGED, and both are needed:
+   *   1. `AND cm.id IS NOT NULL` — an account reaches the marketplace only by being a public,
+   *      active master. Opting in is now what publishes you, rather than merely connecting. The
+   *      join stays a LEFT JOIN so the `OR` below can still let a non-listed row through.
+   *   2. `OR ba.user_id = $1` — you always see your OWN accounts, so the wizard can still offer
+   *      them for self-copy. That is the only reason a non-listed row may appear.
+   *
+   * `ownerId` is NOT returned. The one caller (`ProviderCard` in TradeSyncPage.tsx) used it to
+   * mark "this is mine", which `isOwn` answers without handing out a user id.
+   *
+   * `followingEnabled` is true only when the owner has switched copying on; only those carry a
+   * `masterId` and can actually be followed.
    */
-  async getProviderDirectory(): Promise<any[]> {
+  async getProviderDirectory(viewerId: string): Promise<any[]> {
     const { rows } = await pool.query(`
       SELECT
         ba.id           AS "brokerAccountId",
@@ -747,11 +766,13 @@ export class DbStorage implements IStorage {
         ON cm.broker_account_id = ba.id AND cm.is_public = true AND cm.is_active = true
       LEFT JOIN synced_trades t ON t.broker_account_id = ba.id
       WHERE ba.is_active = true
+        -- Offered for copying, or yours. Anything else is nobody else's business.
+        AND (cm.id IS NOT NULL OR ba.user_id = $1)
       GROUP BY ba.id, cm.id, cm.strategy_name, cm.trading_style, cm.primary_market, cm.description,
                cm.max_lot_size, cm.typical_sl, cm.typical_tp, cm.typical_symbols, cm.allowed_sessions,
                cm.is_active, cm.require_approval
       ORDER BY "netPnl" DESC NULLS LAST
-    `);
+    `, [viewerId]);
 
     return rows.map((r: any) => {
       const wins = r.wins || 0, losses = r.losses || 0;
@@ -766,7 +787,9 @@ export class DbStorage implements IStorage {
         name:             r.strategyName || r.accountName,
         platform:         r.platform,
         accountType:      r.accountType,
-        ownerId:          r.ownerId,
+        // NOT `ownerId`. The card only ever asked "is this mine?" — answer that, and keep every
+        // other user's id out of a response that goes to a browser.
+        isOwn:            r.ownerId === viewerId,
         trades:           r.trades || 0,
         winRate:          decided > 0 ? Math.round((wins / decided) * 1000) / 10 : null,
         avgRR:            (avgWin != null && avgLoss && avgLoss > 0) ? Math.round((avgWin / avgLoss) * 100) / 100 : null,
