@@ -61,6 +61,7 @@ TESTS = [
     # it ends instead of 10-70s later. A fast WRONG candle is worse than a slow right one,
     # so the trust rules are asserted as hard as the arithmetic.
     "test_tick_bars.py",            # tick-built candles + the rules that gate their use
+    "test_tick_serving.py",         # and the rules that gate SERVING them to a strategy
     # ADDED 2026-08-30. The credentials endpoint returned "whichever cTrader account was
     # updated most recently", across ALL users — so any user syncing became this platform's
     # credentials, live, within ~3 minutes. Every read must now name the account it wants.

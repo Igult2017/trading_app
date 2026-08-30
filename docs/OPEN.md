@@ -249,53 +249,60 @@ red self-test that everyone steps around is how a real regression gets missed: t
 break something here will see two failures and assume they are the usual two.
 
 
-### B13 - Tick-built candles are being scored but NOT served (Phase 2 pending)
+### B13 - Tick-built candles: 4 of 5 instruments proved EXACT; serving built, switch OFF
 
-**Opened 30 Aug. Phase 1 is live and deliberately serves nothing.** Candles are built from the FIX
-tick stream and compared against the broker's own when those arrive 10-70s later. **Nothing reaches
-a strategy** - a test fails if it ever does before this is closed.
+**Opened 30 Aug. Measured 30 Aug, built 31 Aug. The switch stays off until a BUSY session is watched.**
 
-**What has to be true before Phase 2:** open, high, low and close identical **to the last decimal**,
-across all five instruments, over a live session. That is the bar `candle_aggregator` cleared at
-48/48 and it is not negotiable - a tenth of a pip on a 3-pip stop is a third of the risk.
+⚠ **I reported this as a failure on 30 Aug. That was wrong.** My watcher only captured log lines
+containing the word "MISMATCH", so every line I saw was GBP/JPY, and I generalised it to all five
+instruments. The scoreboard was in the same log and said the opposite:
 
-**How to check:** the match rate is logged every 15 minutes as `[tick-audit]`, or run
-`python signal_platform/tools/tick_bar_match.py` from inside the container.
+| instrument | bars matched exactly | verdict |
+|---|---|---|
+| EUR/USD | **200 / 200** | exact |
+| GBP/USD | **200 / 200** | exact |
+| USD/JPY | **200 / 200** | exact |
+| XAU/USD | **200 / 200** | exact |
+| GBP/JPY | 0 / 200 | every bar 0.005 low |
 
-**If it does NOT match exactly**, the designed fallback is worth remembering: keep using the
-broker's values, but use the tick stream to know the hour ENDED at T+0 and ask for the bar
-immediately instead of discovering it late. Better than today, with no correctness risk.
+**Every instrument VIX.1 trades** (EUR/USD, GBP/USD, XAU/USD - `vix1.py:114`) **is proved exact.**
+GBP/JPY is BX-S/D only.
 
-**Phase 2 changes what the strategy sees**, so it goes live with him watching - not unattended.
+**The GBP/JPY difference is a CONSTANT, not noise.** All 3,120 individual price comparisons
+(780 bars x 4 prices) differ by exactly 0.005 - minimum 0.005, maximum 0.005, one unique value. So
+the candle SHAPE is right and only the level is shifted by half a pip. That rules out dropped ticks
+(which give random wrong highs and lows) and rules out my bid/ask theory (if the broker's bars were
+ask or mid, EUR/USD would be shifted by its spread too, and it is dead-on; the price side is chosen
+explicitly by FIX tag 269, `fix_wire.py:62`).
 
-**FIRST LIVE SESSION MEASURED — 30 Aug 22:00 UTC open. The candles do NOT match.**
+**Cause NOT established.** Three candidates, none tested: the two connections may not be quoting the
+same account (price feed logs in as `5296567`, data as `47535363`); a fixed per-symbol markup; or
+the instrument number (7) being wrong. Until one is proved, GBP/JPY is simply not trusted - which
+costs nothing, because trust is per symbol.
 
-| what was checked | result |
-|---|---|
-| FIX price stream opens and subscribes | ✅ all 5 instruments, at 22:00:58 |
-| bar-close scan fires on a closed 1M bar | ✅ once, GBP/USD, in 2816 ms |
-| **tick-built candles vs the broker's own** | ❌ **105 mismatch lines in 15 minutes** |
-| signal lateness stamps | none — no signals fired in the window, so nothing to measure yet |
+**What is now BUILT (31 Aug):**
+* `data/tick_serving.py` - appends the bars the broker has not published yet onto the ones it has.
+  Three locks, all required: the switch, per-symbol trust, and an **unbroken join** (a gap between
+  the broker's newest bar and ours is refused outright, because a hole in a candle series is
+  invisible to every indicator downstream).
+* **M1 and H1 both.** H1 matters because that is where the complaint began - *"the delay begins from
+  1HR momentum candle"* - and the hourly bar is served natively by the broker, so nothing in the
+  scan-on-close work touched its 10-70s delay. An hour is only ever built from **sixty whole
+  minutes**; `candle_aggregator.aggregate` drops any incomplete bucket, so a partial hour cannot
+  become a level.
+* The switch: `TICK_BARS_SERVE_ENABLED`, **default false**. Turning it on does not turn it on for
+  everything - per-symbol trust still applies, so GBP/JPY keeps using broker candles regardless.
+* 21 checks in `tests/vix1/test_tick_serving.py`, including two TEETH cases.
 
-The mismatches are all GBP/JPY in the sample captured, differing in the third decimal
-(e.g. ours `O216.683 H216.689 L216.676 C216.682`). **The bar for Phase 2 is identical to the last
-decimal, so this fails it** — and the design behaved correctly: one mismatch withdraws trust, so
-**nothing was served to any strategy.** Phase 2 stays shut.
+**Already live, and it is NOT the same thing:** scanning the instant a minute closes
+(`monitor/entry_watcher.py:88`) has been running since 30 Aug and is not gated on trust, so
+**GBP/JPY already gets that half of the win**. It removes the wait for the next scheduled scan. It
+cannot remove the broker's 10-70s publication delay - only serving our own bars does that.
 
-**Not yet diagnosed, and worth checking before any more work:** FIX quotes are **bid-based** while
-the broker's trendbars may not be, which would explain a constant small offset rather than random
-noise. That is a cheap thing to test and it decides whether this is fixable at all or whether the
-fallback below is the answer.
-
-**The fallback is looking like the better trade** — keep the broker's values, but use the tick
-stream only to know the bar has ENDED and ask for it immediately. It captures most of the delay with
-no correctness risk, and it does not require the candles to match.
-
-**Also seen in the same log, unrelated to the candles:** the credentials endpoint logged
-`NO PIN - returning the most recently updated cTrader account` while the Python request in the very
-next line **did** carry `?ctrader_id=47535363`. So a second caller is still reading unpinned. Worth
-finding — it is the same class as D3.
-
+**BEFORE THE SWITCH IS FLIPPED:** the 200/200 runs came from the **Sunday-night open, the thinnest
+market of the week**, and the way this fails is dropped ticks under heavy traffic. Watch a full
+London or New York session first. The design withdraws trust automatically on a single wrong bar,
+but that should be seen holding under load rather than assumed.
 
 ### B12 — ~~Nothing records how late a signal is~~ FIXED 30 Aug — and one claim in this entry was WRONG
 

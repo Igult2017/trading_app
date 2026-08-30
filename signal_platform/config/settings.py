@@ -167,6 +167,15 @@ class Settings(BaseSettings):
     # 2026-08-30, and it would have failed SILENTLY in production: the watcher logs a failed connect,
     # falls back to the scheduled scan, and nothing ever says the feature is not working.
     ctrader_fix_account_id:   str  = ""
+    # SERVE THE CANDLES WE BUILD FROM TICKS, instead of only scoring them against the broker's.
+    # OFF by default and it stays off until a busy session has been watched — the 30 Aug evidence
+    # (200/200 exact on EUR/USD, GBP/USD, USD/JPY and XAU/USD) came from the Sunday open, the
+    # THINNEST market of the week, and the way this fails is dropped ticks under heavy traffic.
+    #
+    # Switching it on does not switch it on for everything: `tick_bar_audit.trusted()` still has to
+    # pass per symbol, so GBP/JPY — which sits a constant 0.005 below the broker on every bar —
+    # keeps being served from the broker no matter what this is set to. See `data/tick_serving`.
+    tick_bars_serve_enabled:  bool = False
     autotrade_fixed_lots:  float = 0.0     # >0 pins the size and IGNORES risk_pct — for diagnostics,
                                            # where the point is observing fills, not sizing exposure
 

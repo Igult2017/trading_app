@@ -164,7 +164,10 @@ async def fetch_candles(symbol: str, tf: str, count: int = 100) -> list[Candle]:
     while True:
         cached = candle_cache.get(symbol, tf)
         if cached is not None and len(cached) >= count:
-            return cached[-count:]
+            # SPLICED ON THE WAY OUT, not on the way into the cache. The cached series would freeze
+            # the tick tail for the life of the entry (20s on M1), which is most of what this is
+            # meant to remove; done here, every reader gets the newest whole minute we have.
+            return _serve(symbol, tf, cached[-count:])
 
         inflight = _in_flight.get(key)
         if inflight is not None:
@@ -195,4 +198,10 @@ async def fetch_candles(symbol: str, tf: str, count: int = 100) -> list[Candle]:
 
         # The owner always returns its own result — never loops — so a data
         # source that returns fewer bars than `count` cannot spin forever.
-        return candles[-count:] if candles else []
+        return _serve(symbol, tf, candles[-count:]) if candles else []
+
+
+def _serve(symbol: str, tf: str, bars: list[Candle]) -> list[Candle]:
+    """Append the minutes the broker has not published yet, when that is allowed. See tick_serving."""
+    from data.tick_serving import extend_with_ticks
+    return extend_with_ticks(symbol, tf, bars)

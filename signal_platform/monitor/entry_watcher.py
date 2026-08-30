@@ -108,8 +108,13 @@ class EntryWatcher:
                 return
             parts = [f"{s}:{r['recent_matched']}/{r['recent']}{'*' if r['trusted'] else ''}"
                      for s, r in sorted(rows.items())]
-            log.info(f"[tick-audit] tick-built vs broker candles — {' '.join(parts)} "
-                     f"(* = would be trusted; nothing is served yet)")
+            # THE LINE MUST SAY WHICH IT IS. It used to state flatly that nothing was served, which
+            # stopped being true the moment the switch existed — and a log that misreports whether
+            # live data is reaching a strategy is worse than no log at all.
+            from data.tick_serving import serving_enabled
+            state = ("* = SERVED to strategies" if serving_enabled()
+                     else "* = would be trusted; nothing is served yet")
+            log.info(f"[tick-audit] tick-built vs broker candles — {' '.join(parts)} ({state})")
             for s, r in rows.items():
                 if r["last_mismatch"]:
                     log.warning(f"[tick-audit] {s} last mismatch: {r['last_mismatch']}")
