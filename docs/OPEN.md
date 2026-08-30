@@ -249,6 +249,59 @@ red self-test that everyone steps around is how a real regression gets missed: t
 break something here will see two failures and assume they are the usual two.
 
 
+### B14 - VIX.1 fired a Sunday-open signal on a candle that closed FRIDAY 🔴
+**His report, 31 Aug:** *"Why did this signal fire and when I looked at it there was no momentum
+candle forming."* **He was right, and the event is REPRODUCED, not inferred.**
+
+The signal: `vix1 GBP/USD SELL`, fired **Sun 30 Aug 22:01:05 UTC**, card said *"Momentum candle
+CLOSED on the 1H — SELL bias confirmed, 18 pip body"*.
+
+**Real broker candles at that moment** (pulled via `trading_app_data/tools/vix1_candles.py`):
+
+| bar (UTC) | dir | body |
+|---|---|---|
+| Fri 28 Aug 20:00 — last bar of the week | DOWN | 5.2 pips |
+| **Sun 30 Aug 21:00 — the bar that had just closed** | DOWN | **1.7 pips** |
+| Sun 30 Aug 22:00 | UP | 4.1 pips |
+
+Nothing resembling momentum. **Replayed through VIX.1's OWN `momentum_run`** on the exact window
+the platform held at 22:01:05, it picked:
+
+    Fri 28 Aug 15:00   body 18.2 pips   run of 1   6 bars back
+    closed Fri 28 Aug 16:00  ->  54.0 HOURS before the signal fired
+
+18.2 pips and a run of 1 match the card's *"18 pip body"* and *"1 momentum candle in the run"*
+exactly. It is that candle.
+
+**ROOT CAUSE: `LOOKBACK = 12` counts BARS, NOT TIME**
+([`vix1_momentum.py:238`](../signal_platform/strategies/vix1_momentum.py#L238) —
+`start = max(1, len(h1) - LOOKBACK)`). The market is shut ~48 hours over a weekend, so at the
+Sunday open **11 of the 12 bars in the window are Friday's**. Intraday the same rule permits a
+candle up to 12 hours old; across a weekend it permits 54+.
+
+**NEITHER EXISTING GUARD CAN SEE IT, and both were built for the neighbouring case:**
+* The **stale-data guard** ([`candle_fetcher.py:85`](../signal_platform/data/candle_fetcher.py#L85))
+  checks only the **last bar of the series**, and measures age in **market-open time**, so the
+  weekend costs nothing. The series was genuinely fresh — the old candle sat *inside* it.
+* The **backfill guard** ([`vix1_bias.py:207`](../signal_platform/strategies/vix1_bias.py#L207))
+  only refuses a candle that closed before the instrument was first scanned. It exists for the
+  18 Aug gold incident — the *cold-start* form of this same defect. The platform had been running,
+  so it passed. Its own comment states the assumption that fails here: *"in continuous running the
+  momentum candle is a median 0 bars old… it only stops a cold start mining the past."*
+* **There is NO time-based recency rule on the momentum candle anywhere.** Verified by reading
+  every reference to `is_backfill`, `bar_age`, `market_clock` in the bias and momentum modules.
+
+**This is the third appearance of one defect:** a momentum candle outliving the moment that made it
+true. Gold, 18 Aug (11 hours, cold start — guarded). Gold again (13 hours re-firing). Now GBP/USD,
+54 hours across a weekend. Each fix addressed the instance, not the class.
+
+**Aggravating:** it fired in the first minute of the trading week — the thinnest liquidity and
+widest spreads of the week.
+
+**NOT YET FIXED — needs his ruling on which rule, not my invented threshold.** Options in the reply
+of 31 Aug: (a) the candle must be from the current trading session, (b) a market-time age cap,
+(c) it must be the newest closed bar. (a) invents no number.
+
 ### B13 - Tick-built candles: 4 of 5 instruments proved EXACT; serving built, switch OFF
 
 **Opened 30 Aug. Measured 30 Aug, built 31 Aug. The switch stays off until a BUSY session is watched.**
