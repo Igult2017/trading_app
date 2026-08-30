@@ -12,6 +12,15 @@ SCANNER's shared connection, and this module deliberately never calls it:
     socket would be re-creating a known production outage on purpose.
   * A stuck order must never be able to hold up a candle fetch. Separate sockets, separate fates.
 
+THE RATE LIMIT IS PER CONNECTION, AND THAT IS MEASURED, NOT READ. Earlier scripts asserted it from
+cTrader's documentation, which is a claim. Tested 2026-08-30 by saturating the SCANNER's connection
+until the broker refused it, then immediately issuing a request on a second, already-authenticated
+connection — no setup delay to explain the result away. Three runs, identical: scanner blocked 35 of
+40, second connection answered OK in 235 / 250 / 234 ms, its ordinary round trip. So a busy scan
+cannot starve a trade, and a trade cannot eat the scanner's allowance. (What is NOT tested: whether
+cTrader caps how many connections an account may hold at once. This opens one per command and closes
+it, so at most one extra exists at a time, but the cap itself is unknown.)
+
 THE TOKEN IS NEVER REFRESHED HERE. `creds["accessToken"]` is passed in by `execution/account.py`,
 which reads it from Node — the single writer. Four consumers share that credential and cTrader
 rotates it on refresh, so a refresh from this path would hand the other three a dead token. This
