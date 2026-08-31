@@ -1,37 +1,42 @@
 /**
  * Wordmark — the Trade&Journal brand lockup. ONE image: the mark and the name together.
  *
- * THE NAME IS NO LONGER TEXT BESIDE THE MARK. His instruction, 2026-08-31: *"Change the logo to this
- * so we don't need to write the app name again as 'Trade&Journal' because this logo comes with the
- * name bigger and visible."* The supplied artwork (`Logo improved.jpg`) carries the wordmark under
- * the mark, so setting it a second time in live text duplicated it.
+ * THE NAME IS NOT SET AS TEXT BESIDE IT. His instruction, 2026-08-31: *"Change the logo to this so we
+ * don't need to write the app name again as 'Trade&Journal' because this logo comes with the name
+ * bigger and visible."* The supplied artwork carries the wordmark under the mark, so setting it a
+ * second time in live text duplicated it.
  *
- * THE ARTWORK IS UNTOUCHED. Nothing here re-draws, re-typesets, recolours or knocks a background out
- * of it. It is cropped to its own content, resized, and re-encoded — a compression change, not a
- * design one. The paper ground it was supplied on travels with it and IS the tile, which is the same
- * treatment the previous mark got and the reason one file serves light and dark surfaces alike.
+ * TWO FILES, ONE FOR EACH THEME — his follow-up the same day: *"make the logo have the same theme as
+ * the app's theme whenever theme is changed and also change colour to contrast and be visible."*
  *
- * WHY IT KEEPS ITS GROUND RATHER THAN BEING KNOCKED OUT. The wordmark is dark grey. On the six dark
- * call sites — TradingLoader, AdminPanel, AuthCallbackPage and the three that follow the theme — a
- * transparent version would put dark grey letters on a near-black shell, which is the exact failure
- * the PREVIOUS logo had: measured at 1.63-1.76:1 and effectively invisible. Keeping the light ground
- * means the name is always dark-on-light and always legible, whatever it sits on.
+ *   logo-lockup.webp        the artwork's own dark-grey wordmark, for light shells
+ *   logo-lockup-dark.webp   the SAME letterforms in near-white, for dark shells
  *
- * WHY 10 KB AND NOT 600 KB. The supplied JPEG is 1250x848 and 599 KB, of which the artwork occupies
- * 819x378 in the middle — the rest is empty paper. Cropped to the content and re-encoded at 180px
- * tall (3x the display height, so still sharp on a 3x panel) it is **10.3 KB, 98% smaller**.
+ * Both have their paper ground removed, so the mark sits on whatever the surface is instead of
+ * riding around on a pale tile. Built by `scripts/build_logo.py` from the one supplied file — run it
+ * again if the artwork changes; doing it by hand is how the two variants drift out of register.
  *
- * ⚠ THE NAME IS 17% OF THE LOCKUP'S HEIGHT — measured off the artwork (72px of 430). That is the
- * arithmetic that decides whether this works, and it is why the previous SQUARE lockup was rejected:
- * at 1.08:1 its name rendered 4.0px tall in the real header, a smudge. This one is 2.03:1, close to
- * the 2.31:1 logo that did work stacked. `height` is therefore set from the SURFACE, not left at one
- * default: a header has ~68px to give, a splash screen has as much as it likes, and the name has to
- * stay readable in both.
+ * THE ARTWORK IS NOT REDRAWN. Cropped, background removed, wordmark recoloured for the dark variant,
+ * resized. No re-typesetting — the letterforms are the supplied ones, cut from the supplied pixels.
+ * Recolouring for dark is the exception he has already granted once, when the previous logo measured
+ * 1.63-1.76:1 on dark shells and was effectively invisible; this is the same exception for the same
+ * reason, and he asked for it directly.
  *
- * IT IS PRELOADED, and that was half the original problem. An <img> inside a React component cannot
- * be requested until the bundle has been fetched, parsed, executed and rendered — measured, the
- * request began after DOMContentLoaded, which is why the logo used to arrive after the nav.
- * `client/index.html` preloads it during HTML parse.
+ * ⚠ `dark` IS AN EXPLICIT PROP, NOT A CSS `.dark` RULE, and that is deliberate and load-bearing: the
+ * landing page carries its theme in React state (`usePublicTheme`) and NEVER sets `html.dark`, so a
+ * CSS-only rule would silently miss exactly the page where the invisible logo was first reported.
+ *
+ * ⚠ THE NAME IS 17% OF THE LOCKUP'S HEIGHT — measured off the artwork (72px of 430). That arithmetic
+ * decides whether this works at all, and it is why an earlier SQUARE lockup was rejected: at 1.08:1
+ * its name rendered 4.0px in the real header, a smudge. This one is 2.03:1. Measured in the browser:
+ * at 3.4em it came out 71.4px in a 68px header row and spilled over; at 3.0em it is 63px with 2.5px
+ * clearance and the name renders 10.5px.
+ *
+ * PRELOADED, and that was half the original problem. An <img> inside a React component cannot be
+ * requested until the bundle has been fetched, parsed, executed and rendered — measured, the request
+ * began after DOMContentLoaded, which is why the logo used to arrive after the nav. `index.html`
+ * preloads BOTH variants: together they are ~50 KB, which is cheaper than guessing the theme in a
+ * blocking script and far cheaper than guessing it wrong.
  *
  * SIX CALL SITES depend on this one component — HomeHeader, HomeFooter, JournalHeader, TradingLoader,
  * AdminPanel and AuthCallbackPage — which is why changing the logo is one edit here and not six.
@@ -39,8 +44,11 @@
 
 export interface WordmarkProps {
   /** Height of the lockup, in `em` so it tracks the surface's own font-size. Width follows the
-   *  artwork's 2.03:1 aspect. The name is 17% of this, so going below ~3.4em makes it hard to read. */
+   *  artwork's 2.03:1 aspect. The name is 17% of this, so below ~2.6em it stops being readable. */
   height?: string;
+  /** True on a dark surface — picks the near-white wordmark. See the note above on why this is a
+   *  prop rather than a CSS rule. */
+  dark?: boolean;
   style?: React.CSSProperties;
   className?: string;
 }
@@ -50,15 +58,12 @@ export interface WordmarkProps {
 const NATURAL_W = 365;
 const NATURAL_H = 180;
 
-// MEASURED, NOT CHOSEN. The header row this sits in is 68px (Playwright, 2026-08-31). At 3.4em the
-// lockup rendered 71.4px and spilled 1.7px above and below the bar; at 3.0em it is 63px and clears
-// it with room each side. The name is 17% of that — about 10.5px, which is the number that matters
-// and the reason this is not left to a guess.
-export default function Wordmark({ height = '3.0em', style, className }: WordmarkProps) {
+// MEASURED, NOT CHOSEN — see the header note. 3.0em is 63px in the 68px header row.
+export default function Wordmark({ height = '3.0em', dark = false, style, className }: WordmarkProps) {
   return (
     <img
       className={className}
-      src="/logo-lockup.webp"
+      src={dark ? '/logo-lockup-dark.webp' : '/logo-lockup.webp'}
       alt="Trade&Journal"
       width={NATURAL_W}
       height={NATURAL_H}
@@ -76,9 +81,6 @@ export default function Wordmark({ height = '3.0em', style, className }: Wordmar
         width: 'auto',              // the artwork's aspect decides the width; never squash the name
         display: 'block',
         flexShrink: 0,
-        // Rounding the tile is the only thing applied to the artwork — no crop of the mark, no
-        // recolour, no transparency punched through it.
-        borderRadius: '0.14em',
         ...style,
       }}
     />
