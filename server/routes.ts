@@ -3997,6 +3997,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!bal) return res.status(502).json({ error: "Balance fetch failed — check logs" });
 
       await storage.updateBrokerAccount(account.id, { balance: String(bal.balance), currency: bal.currency || account.currency || undefined });
+      // Carry it to the account's session too — see storage.seedSessionStartingBalance.
+      await storage.seedSessionStartingBalance(account.id, bal.balance);
       return res.json({ balance: bal.balance, currency: bal.currency });
     } catch (err: any) {
       console.error(`[cTrader] refresh-balance error: ${err.message}`);
@@ -4257,6 +4259,7 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
             const bal = await fetchCTraderBalance(creds.accessToken, creds.ctraderId, isLive, creds.app);
             if (bal !== null) {
               await storage.updateBrokerAccount(freshAccount.id, { balance: String(bal.balance), currency: bal.currency || freshAccount.currency || undefined });
+              await storage.seedSessionStartingBalance(freshAccount.id, bal.balance);
               console.log(`[cTrader] balance updated on connect: ${bal.balance} ${bal.currency}`);
             }
           } catch (e: any) {
@@ -4339,6 +4342,7 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
           const bal = await fetchCTraderBalance(creds.accessToken, creds.ctraderId, freshAccount.accountType?.toLowerCase() !== 'demo', creds.app);
           if (bal !== null) {
             await storage.updateBrokerAccount(freshAccount.id, { balance: String(bal.balance), currency: bal.currency || freshAccount.currency || undefined });
+            await storage.seedSessionStartingBalance(freshAccount.id, bal.balance);
             console.log(`[cTrader] balance updated on select: ${bal.balance} ${bal.currency}`);
           } else {
             console.warn(`[cTrader] balance fetch returned null on select for account ${freshAccount.id}`);

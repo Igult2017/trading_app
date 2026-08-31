@@ -592,6 +592,41 @@ export class DbStorage implements IStorage {
     }
   }
 
+  /**
+   * Give a broker account's session the account's real balance, once, when we first learn it.
+   *
+   * WHY IT IS EMPTY WITHOUT THIS. A session is created at the same moment as the account
+   * (`POST /api/broker-accounts`) and takes its starting balance from the request body. For an
+   * OAuth account — every cTrader connect — the broker has not been contacted yet at that point, so
+   * nothing is sent and the session starts at **0.00**. The balance arrives seconds later and is
+   * written to the ACCOUNT; nothing ever carried it across. The result is the card he reported:
+   * `Current Equity $0`, `Net P&L —`, `Total Return —`, on an account holding real money.
+   *
+   * ONLY ONCE, AND ONLY FROM ZERO. The starting balance is the baseline every P&L and return figure
+   * is measured against, so moving it later would silently rewrite his performance history. This
+   * therefore fills a hole and never corrects a number: if the session already has a non-zero
+   * starting balance — set by him, or seeded by an earlier call — it is left exactly as it is.
+   */
+  async seedSessionStartingBalance(brokerAccountId: string, balance: number): Promise<void> {
+    try {
+      if (!(balance > 0)) return;
+      const [acct] = await db.select().from(brokerAccounts)
+        .where(eq(brokerAccounts.id, brokerAccountId)).limit(1);
+      if (!acct?.defaultSessionId) return;
+      const session = await this.getSessionById(acct.defaultSessionId);
+      if (!session) return;
+      if (parseFloat(String(session.startingBalance ?? '0')) > 0) return;   // never overwrite
+      await this.updateSession(acct.defaultSessionId, {
+        startingBalance: balance.toFixed(2),
+      } as any);
+      console.log(`[Storage] seeded session ${acct.defaultSessionId} starting balance ` +
+                  `${balance.toFixed(2)} from broker account ${brokerAccountId}`);
+    } catch (error) {
+      // Best-effort: a balance we could not carry across must never fail the sync that produced it.
+      console.error('[Storage] seedSessionStartingBalance failed:', error);
+    }
+  }
+
   async deleteSession(id: string): Promise<boolean> {
     const client = await pool.connect();
     try {

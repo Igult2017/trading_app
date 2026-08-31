@@ -96,6 +96,34 @@ teeth('re-adding the brokerBacked filter would be caught',
       'const sessions = allSessions.filter((s) => !s.brokerBacked);'
         .includes('allSessions.filter((s) => !s.brokerBacked)'));
 
+// ── 5. THE SESSION MUST KNOW THE ACCOUNT'S BALANCE ──────────────────────────
+// He reported the "ctrader" card showing Current Equity $0 with no P&L and no return, on an account
+// holding real money. The session is created at the same moment as the account and takes its
+// starting balance from the request body — but for an OAuth account the broker has not been
+// contacted yet, so it starts at 0.00 and nothing ever carried the real balance across.
+const storage = read('server', 'storage.ts');
+check('there is one helper that carries the balance to the session',
+      /async seedSessionStartingBalance\(/.test(storage), true);
+check('...it never overwrites a starting balance that is already set',
+      storage.includes('never overwrite'), true);
+check('...and it ignores a zero or missing balance',
+      storage.includes('if (!(balance > 0)) return;'), true);
+
+// EVERY place that learns a balance must carry it across. Four exist, and missing one leaves the
+// card empty on exactly that path — the multi-account picker was missed on the first attempt.
+const routeLines = routes.split(/\r?\n/);
+const writeAt = routeLines
+  .map((l, i) => (l.includes('updateBrokerAccount') && l.includes('balance: String(bal.balance)') ? i : -1))
+  .filter(i => i >= 0);
+check('routes.ts has the expected number of balance writes', writeAt.length, 3);
+const seeded = writeAt.filter(i =>
+  routeLines.slice(i + 1, i + 3).join(' ').includes('seedSessionStartingBalance')).length;
+check('...and EVERY one of them seeds the session', seeded, writeAt.length);
+check('the periodic balance refresh seeds it too',
+      sync.includes('seedSessionStartingBalance(account.id, bal.balance)'), true);
+
+teeth('a balance write with no seed would be caught', seeded === writeAt.length);
+
 console.log();
 if (failed) { console.log(`${failed} of ${count} FAILED`); process.exit(1); }
 console.log(`ALL PASS (${count} checks)`);

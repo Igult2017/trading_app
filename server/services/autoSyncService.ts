@@ -12,6 +12,7 @@ import { processIncomingTrades } from './brokerSyncService';
 import { safeDecrypt, safeEncrypt } from '../lib/crypto';
 import { refreshAccessToken, fetchCTraderBalance } from './brokerAdapters/ctrader';
 import type { BrokerAccount } from '../../shared/schema';
+import { storage } from '../storage';
 
 const SYNC_INTERVAL_MS = 15 * 60 * 1_000;
 const HISTORY_DAYS     = 730;   // 2 years
@@ -119,6 +120,9 @@ async function updateCTraderBalance(account: BrokerAccount): Promise<void> {
       await db.update(brokerAccounts)
         .set({ balance: String(bal.balance), currency: bal.currency || (fresh ?? account).currency })
         .where(eq(brokerAccounts.id, account.id));
+      // ...and into the account's session, if it never got a starting balance. This is the path
+      // that fixes accounts connected BEFORE the seeding existed: the next sync fills them in.
+      await storage.seedSessionStartingBalance(account.id, bal.balance);
     }
   } catch { /* balance update is best-effort */ }
 }
