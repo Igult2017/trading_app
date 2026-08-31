@@ -645,6 +645,55 @@ in `toDate` is how the two halves came to disagree.
 restore the old rule and confirm it produced an Invalid Date, that the Invalid Date was truthy, and
 that it dated the millisecond adapters to the year 58,633.
 
+### D17 - ~~Production ran a different server than dev: no trade recording, and no security middleware~~ FIXED 31 Aug 🔴
+**This is the other half of his question** *"How do we expect it to show trades?"* — and the answer
+was that nothing recorded them.
+
+`start.sh:69` runs `node dist/index.prod.js`, built from **`server/index.prod.ts`** — a second entry
+file, separate from the `server/index.ts` every change has been made to. The only two things that
+record a broker trade were called from `index.ts` alone:
+`startAutoSync()` (index.ts:199) and `startCTraderRealtime()` (index.ts:201).
+
+**Proved from the boot log, not from reading.** The scraper (line 198) and the health watchdog (line
+200) both logged at boot; `[AutoSync] Starting` — the line *between* them — was absent from the whole
+buffer.
+
+**It cost security too, measured on the live site.** Helmet and both rate limiters were added to
+`index.ts` on 2026-06-07 (`fe8401c`) and never mirrored, so production served `X-Powered-By: Express`
+(helmet removes it), no `X-Frame-Options`, no HSTS, no `X-Content-Type-Options`, and no `RateLimit-*`
+header at all — **the login endpoint had no brute-force limit.** `trust proxy`, the `/uploads` mount
+and the signal-platform status mirror were missing as well; the mirror only runs when
+`SIGNAL_PLATFORM_MANAGED` is set, i.e. only in the container, and it lived in the dev entry, so it
+had never run anywhere.
+
+**Why the two files were not merged into one.** Checked, not assumed: `index.ts` reaches Vite through
+`await import("./vite")` — a RELATIVE path, so esbuild bundles it and ESM hoists its package imports.
+`dist/index.js` carries top-level `from "vite"`, `@vitejs/plugin-react` and
+`@replit/vite-plugin-runtime-error-modal`; all three are devDependencies and the image installs
+`npm ci --omit=dev` ([`Dockerfile:29`](../Dockerfile#L29)), so `node dist/index.js` would die at
+startup. **The split is load-bearing** — see the SETTLED table in MAP.md.
+
+**Fix — one copy of what they share, not one entry file:**
+* [`server/lib/appSetup.ts`](../server/lib/appSetup.ts) — trust proxy, helmet, compression, both rate
+  limiters, json/urlencoded, `/uploads`, the request logger, and the error handler
+* [`server/lib/backgroundServices.ts`](../server/lib/backgroundServices.ts) — scraper, autosync,
+  health watchdog, cTrader realtime, the status mirror, behind one `isPrimaryWorker` check
+
+Both entries now call `applyAppSetup` / `installErrorHandler` / `startBackgroundServices` and differ
+in **one** respect: Vite dev middleware vs `serveStatic`.
+
+**The two Python spawns deliberately stay in `index.ts`.** `start.sh` already runs both under its own
+watchdogs, and `startCopyPlatform` has no `MANAGED` guard of its own — putting it in the shared module
+would run a **second copy engine** in production and duplicate every copied trade.
+
+Also removed `index.prod.ts`'s `throw err` from inside its own error handler: nothing catches a throw
+there, so it surfaced as an unhandled rejection after the client already had a clean 500.
+
+**38 checks** in [`server/lib/entryParity.test.ts`](../server/lib/entryParity.test.ts). They strip
+comments before matching — these files *explain* the drift they prevent, so their prose names the
+very things they forbid, and the first run failed on its own documentation.
+
+
 ### D16 - ~~The account's session showed Current Equity $0 on an account holding real money~~ FIXED 31 Aug 🔴
 **He sent the sessions page:** the `ctrader` card read `Current Equity $0`, `Net P&L —`,
 `Total Return —`, `Trades 0`. *"It does not even show account balance. How do we expect it to show

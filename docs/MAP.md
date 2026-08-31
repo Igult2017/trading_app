@@ -167,6 +167,8 @@ is wrong.** Full wording lives in the linked doc; this is the index so you know 
 | **Dead files are DELETED**, not left | orphaned files are unwatched attack surface |
 | **The strategy doc is updated in the same change as the code** | the code drifted from the docs repeatedly, and the next session then guessed |
 | **Strategies are independent** — never describe one by comparing it to another | comparison is how one strategy's rules leak into another |
+| **The container runs `server/index.prod.ts`, NOT `server/index.ts`** — and the split must stay | `start.sh:69` runs `dist/index.prod.js`. `index.ts` reaches Vite through a RELATIVE `await import("./vite")`, so esbuild bundles it and ESM hoists `vite` + its plugins to the top of `dist/index.js`; those are devDependencies and the image installs `--omit=dev`, so running `index.js` in the container dies at startup |
+| **Anything both entries need goes in `server/lib/appSetup.ts` (middleware) or `server/lib/backgroundServices.ts` (services)** — never added to an entry file | keeping the two entries in step by hand failed twice, silently, for months: helmet + both rate limiters (so production had **no brute-force limit on login**) and both trade recorders (so production **recorded no broker trades at all**). `server/lib/entryParity.test.ts` fails if it starts again |
 
 ---
 
