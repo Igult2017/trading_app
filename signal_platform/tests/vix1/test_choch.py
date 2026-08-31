@@ -163,12 +163,17 @@ pre = (zigzag(PRE, start=1.1150)
        + [body(1.1041, 1.1052, tf="H1", t=203, wick_up=0.00005, wick_dn=0.00005)])  # small break
 _, tp, _ = state_of(pre)
 bias_p, why_p = entry_for(pre)
-if tp.pending == 1 and bias_p is None:
-    s.check("a big candle from BEFORE the break does not qualify",
-            "predates the break" in why_p, True)
-else:
-    s.check("a big candle from BEFORE the break does not qualify",
-            f"pending={tp.pending} bias={bias_p is not None}", "pending=1 bias=False")
+# STILL REFUSED — but since 31 Aug it is refused EARLIER and for a better reason. `momentum_run`
+# now requires the newest closed bar to BE the momentum candle, so a big candle three bars back is
+# not found at all and the route stops at "no momentum candle that way yet". It used to be found,
+# and then rejected by the separate `run[0] < choch_h1` test in `vix1_choch.py`.
+#
+# THAT TEST IS NOT DEAD AND MUST NOT BE DELETED: it is still reached when the newest bar IS a
+# momentum candle but the RUN it belongs to started before the break — a run spanning the break.
+# What matters here is the refusal, so that is what is asserted.
+s.check("a big candle from BEFORE the break does not qualify", bias_p is None, True)
+s.check("...and the reason names the missing CURRENT momentum candle",
+        "no momentum candle that way yet" in why_p, True)
 
 # 4. NO PENDING TURN AT ALL -> the route never answers.
 plain = zigzag(DOWN[:-1], start=1.1150)

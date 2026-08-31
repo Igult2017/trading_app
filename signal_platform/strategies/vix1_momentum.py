@@ -115,8 +115,12 @@ _LONG_EPS       = 1e-6  # pip tolerance. His own 11.3p candle computes as 11.300
                         # BELOW and the rule built from his candles would reject his candles. Far smaller
                         # than a tenth of a pip, so it can never admit anything real.
 _MIN_RUN        = 1     # see the docstring — the market gives runs of one
-LOOKBACK       = 12    # recent 1HR bars scanned for the candle (an established trend's impulse can
-                        # be several bars old while the fresh 1M entry is still forming).
+LOOKBACK       = 12    # NO LONGER THE MOMENTUM SEARCH WINDOW. `momentum_run` requires the NEWEST
+                        # closed bar to be the momentum candle (his rule — see its comment), so this
+                        # no longer decides which candle is found. It survives ONLY as the size of
+                        # the 1M window below, which must still span more than one 1HR candle.
+                        # It used to read "recent 1HR bars scanned for the candle" and that is what
+                        # let a Friday candle fire on Sunday: it counts BARS, not TIME.
                         # PUBLIC on purpose: vix1.candle_counts DERIVES the M1 request size from it,
                         # so the 1M window always spans the oldest candle this can return. Those two
                         # numbers drifted apart twice (see fix log ef6ff8b) and the entry then judged
@@ -235,19 +239,47 @@ def momentum_run(h1: list[Candle], bullish: bool, symbol: str) -> tuple[int, int
     bodies; inside real vertical legs that holds only ~50% of the time (median ratio 1.00x), so a
     4-candle leg needed four coin-flips in a row and 91% of runs came out length 1 by construction.
     """
-    start = max(1, len(h1) - LOOKBACK)
-    for i in range(len(h1) - 1, start - 1, -1):
-        if not is_momentum_candle(h1, i, bullish, symbol):
-            continue
-        run, first = 1, i
-        j = i - 1
-        while j >= 1 and is_momentum_candle(h1, j, bullish, symbol):
-            run  += 1
-            first = j
-            j    -= 1
-        if run >= _MIN_RUN:
-            return first, run
-    return None
+    # THE NEWEST CLOSED BAR MUST ITSELF BE A MOMENTUM CANDLE. His rule, and the doc's
+    # (`vix1.md`: *"the freshest 1HR momentum candle leads"*): *"I trade the current and newest
+    # momentum candle that complies with my strategy rules. I want for the current momentum candle
+    # to close then take a trade."*
+    #
+    # THIS USED TO SCAN BACKWARDS THROUGH LOOKBACK=12 BARS for the newest candle that qualified,
+    # which is "freshest" only while something recent qualifies. When nothing does, it reached back
+    # — and LOOKBACK counts BARS, NOT TIME.
+    #
+    # WHAT THAT COST, reproduced from the audit trail (`signal_events`) and the real broker bars:
+    #   Fri 28 Aug 16:00  an 18.2-pip SELL candle closes. VIX.1 fires correctly at 16:02.  ✅
+    #   Fri 19:00-20:46   it keeps re-offering; the pullback guard correctly refuses it.
+    #   Sat 16:02         the signal expires at 24h and its dedup reservation is FREED.
+    #   Sun 22:00         the market reopens. The ONE new bar is a 1.7-pip candle, so no pullback
+    #                     is detectable and that guard passes.
+    #   Sun 22:01         11 of the 12 bars in the window are Friday's -> the SAME candle is found
+    #                     and the SAME sell is sent again, 54 hours late.  ❌
+    # He looked at his chart and said there was no momentum candle. He was right: the newest closed
+    # bar had a 1.7-pip body.
+    #
+    # A weekend is only the widest case. The same rule allowed a candle up to 12 hours old intraday.
+    # Requiring the newest bar removes the whole class rather than the instance — the third time
+    # this defect has been fixed at the instance (gold 11h cold-start, gold 13h re-fire, this 54h).
+    #
+    # NOTHING GOOD IS LOST. The scan runs every 60s AND on bar close, and `h1` is `closed_only`
+    # (vix1.py:135), so a qualifying candle is judged the moment it closes — which is exactly when
+    # the Friday signal fired. What this stops is a candle being re-offered later.
+    #
+    # A RUN STILL WORKS. `_MIN_RUN = 1` and a second momentum candle follows only 2-5% of the time,
+    # but when it does, the newest bar is the run's LAST candle and `first` — the run's oldest, which
+    # the caller uses as the reference for the line and the grade — is still returned unchanged.
+    i = len(h1) - 1
+    if i < 1 or not is_momentum_candle(h1, i, bullish, symbol):
+        return None
+    run, first = 1, i
+    j = i - 1
+    while j >= 1 and is_momentum_candle(h1, j, bullish, symbol):
+        run  += 1
+        first = j
+        j    -= 1
+    return (first, run) if run >= _MIN_RUN else None
 
 
 def veto_reason(h1: list[Candle], bullish: bool, symbol: str) -> str:

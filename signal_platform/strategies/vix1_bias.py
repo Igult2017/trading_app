@@ -211,7 +211,9 @@ def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "", debut=None
         return None
 
     # EVERYTHING ABOUT THE MOMENTUM CANDLE IS READ AT THE MOMENTUM CANDLE, for the same causal
-    # reason the leg gate is (see below). The candle can be up to LOOKBACK=12 bars old (median 5),
+    # reason the leg gate is (see below). SINCE 31 AUG THE CANDLE IS ALWAYS THE NEWEST CLOSED BAR
+    # (`momentum_run`), so `at_mc` is now the full window except during a run of 2+ (2-5% of the
+    # time), where it is 1-2 bars short. It used to be up to LOOKBACK=12 bars old (median 5),
     # so the trend read is replayed on the truncated window too: measured, its MATURITY differs from
     # the latest-bar read on 0.9% of GBP/USD and 1.8% of EUR/USD setups, because a swing's
     # confirmation can land inside that gap. Small, but "had this trend already continued when the
@@ -235,7 +237,7 @@ def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "", debut=None
         # the whole of 10 Aug — 2-day trend DOWN, 8-hour structure UP, and it sold the rally.
         #
         # JUDGED AT THE MOMENTUM CANDLE, not at the latest bar. The question is causal — "had the
-        # pullback finished when this candle formed?" — and the candle can be up to LOOKBACK hours
+        # pullback finished when this candle formed?" — and the candle used to be up to LOOKBACK hours
         # old. Reading the structure as it is NOW would let a pullback that formed AFTER the candle
         # decide the candle's fate. Measured: this changes the verdict on 6% of GBP/USD setups and
         # 4% of EUR/USD.
@@ -283,6 +285,8 @@ def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "", debut=None
         # That is right for "was this good evidence when it formed" and useless for "should an order
         # go out right now" — and only the second question places a trade. Because the candle can be
         # up to LOOKBACK hours old, the ENTIRE judgement aged with it: on the gold incident the live
+        # (that ageing is now bounded at 0-2 bars by the newest-bar rule, but this check STAYS —
+        #  it is what caught the Friday candle at 19:00 on 28 Aug, and a run of 2+ still ages.)
         # pullback reading sat frozen at "1 bar, $3.00, 0.19x ATR" for twelve hours while the real
         # one went to 2 bars / $31.92 / 1.72x ATR. Nothing in the decision could see that.
         #

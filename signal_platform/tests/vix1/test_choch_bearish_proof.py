@@ -80,13 +80,22 @@ def bear(stage=99):
     return b
 
 
-def bull():
-    """The MIRROR — a downtrend, then a big candle up through the last lower high."""
+def bull(trailing=0):
+    """The MIRROR — a downtrend, then a big candle up through the last lower high.
+
+    THE MOMENTUM CANDLE IS THE LAST BAR, and that is now load-bearing. This fixture used to add six
+    ordinary bars after it, which was fine while `momentum_run` scanned back 12 bars but encodes an
+    assumption that stopped being true on 31 Aug: the momentum candle must be the NEWEST closed bar
+    (his rule — a Friday candle fired on the Sunday open while the old rule stood). `trailing` lets
+    the same shape be built with bars after the candle, to prove the new rule reaches this route too.
+    """
     b = []
     leg(b, 1.1130, 1.1080, 14); leg(b, 1.1080, 1.1105, 8)
     leg(b, 1.1105, 1.1030, 16); leg(b, 1.1030, 1.1060, 8)
     leg(b, 1.1060, 1.1000, 14); leg(b, 1.1000, 1.1035, 8)
-    big(b, 1.1035, 1.1095); leg(b, 1.1095, 1.1120, 6)
+    big(b, 1.1035, 1.1095)
+    if trailing:
+        leg(b, 1.1095, 1.1095 + 0.0004 * trailing, trailing)
     return b
 
 
@@ -107,6 +116,15 @@ s.check("  ...granted for the ORIGINAL reason, not a new one",
         "traded without waiting for a pullback" in _bull_why, True)
 s.teeth("the bullish path would notice if it were refused",
         _bull_bias is not None and "not exempted" not in _bull_why)
+
+# ...AND THE NEWEST-BAR RULE REACHES THIS ROUTE TOO. `momentum_run` is called from BOTH the trend
+# route and this one, so the 31 Aug rule had to hold in both — one left unchanged would have gone on
+# firing stale candles through the change-of-character path.
+_old_bias, _old_why = route(bull(trailing=6))
+s.check("the SAME shape with 6 bars printed after the candle is refused",
+        _old_bias is None, True)
+s.check("  ...because the current bar is not a momentum candle",
+        "no momentum candle that way yet" in _old_why, True)
 
 # ── THE RULE ─────────────────────────────────────────────────────────────────────────────────────
 print()

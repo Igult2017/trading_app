@@ -94,6 +94,44 @@ r = momentum_run(run_win, True, SYM)
 s.check(f"a single momentum candle is a run (_MIN_RUN={_MIN_RUN})", r is not None, True)
 s.check("no momentum candle -> no run", momentum_run(flat_series(110, size=BASE, tf="H1"), True, SYM), None)
 
+# ── THE CANDLE MUST BE THE NEWEST CLOSED BAR ────────────────────────────────
+# His rule, 31 Aug: "I trade the current and newest momentum candle that complies with my strategy
+# rules. I want for the current momentum candle to close then take a trade." The doc has said the
+# same since it was written: "the freshest 1HR momentum candle leads" (vix1.md).
+#
+# WHAT IT COST WHILE THE SEARCH LOOKED BACK 12 BARS. Reproduced from the audit trail: an 18.2-pip
+# SELL candle closed Fri 28 Aug 16:00 and fired correctly at 16:02. Its signal expired at 24h on
+# the Saturday, freeing the duplicate-block. At the Sunday 22:00 reopen the only new bar was a
+# 1.7-pip candle — too small for the pullback guard to see — and 11 of the 12 bars in the window
+# were still Friday's, so the SAME candle fired the SAME sell again 54 hours late.
+print()
+print("   the candle must be the NEWEST closed bar:")
+stale = flat_series(110, size=BASE, tf="H1")
+stale.append(body(1.1000, 1.1000 + BIG, tf="H1", t=111))          # a real momentum candle...
+for k in range(6):                                                 # ...then six quiet bars after it
+    stale.append(body(1.1000 + BIG, 1.1000 + BIG + BASE, tf="H1", t=112 + k))
+s.check("a momentum candle 6 bars back is REFUSED (the 30 Aug re-fire)",
+        momentum_run(stale, True, SYM), None)
+
+one_after = stale[:112]                                            # newest bar is 1 AFTER it
+s.check("...even ONE bar back is refused — freshest means freshest",
+        momentum_run(one_after, True, SYM), None)
+
+s.check("...while the SAME candle as the newest bar is taken",
+        momentum_run(stale[:111], True, SYM) is not None, True)
+
+# A RUN still works: the newest bar is the run's last candle, and `first` (the run's OLDEST) is
+# still what comes back, because the caller uses it for the line and the grade.
+two = flat_series(110, size=BASE, tf="H1")
+two.append(body(1.1000, 1.1000 + BIG, tf="H1", t=111))
+two.append(body(1.1000 + BIG, 1.1000 + BIG + BIG * 1.4, tf="H1", t=112))   # must BEAT the previous body
+r2 = momentum_run(two, True, SYM)
+s.check("a run of 2 ending on the newest bar is still taken", r2 is not None, True)
+s.check("...and it still reports the run's OLDEST candle as the reference", r2, (110, 2))
+
+s.teeth("the newest-bar rule", momentum_run(stale, True, SYM) is None
+                               and momentum_run(stale[:111], True, SYM) is not None)
+
 # ---------------------------------------------------------------- counter_wick direction
 print()
 print("   counter_wick = the REJECTION wick: upper on a bull, lower on a bear:")

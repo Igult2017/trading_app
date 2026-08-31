@@ -249,7 +249,7 @@ red self-test that everyone steps around is how a real regression gets missed: t
 break something here will see two failures and assume they are the usual two.
 
 
-### B14 - VIX.1 fired a Sunday-open signal on a candle that closed FRIDAY 🔴
+### B14 - ~~VIX.1 fired a Sunday-open signal on a candle that closed FRIDAY~~ FIXED 31 Aug 🔴
 **His report, 31 Aug:** *"Why did this signal fire and when I looked at it there was no momentum
 candle forming."* **He was right, and the event is REPRODUCED, not inferred.**
 
@@ -298,9 +298,27 @@ true. Gold, 18 Aug (11 hours, cold start — guarded). Gold again (13 hours re-f
 **Aggravating:** it fired in the first minute of the trading week — the thinnest liquidity and
 widest spreads of the week.
 
-**NOT YET FIXED — needs his ruling on which rule, not my invented threshold.** Options in the reply
-of 31 Aug: (a) the candle must be from the current trading session, (b) a market-time age cap,
-(c) it must be the newest closed bar. (a) invents no number.
+**HIS RULE, given 31 Aug:** *"I trade the current and newest momentum candle that complies with my
+strategy rules. I want for the current momentum candle to close then take a trade."* He also
+corrected the framing — I had offered his own settled rule as one option of three and called it
+"strictest". The doc had carried it all along: *"the freshest 1HR momentum candle leads"* (vix1.md).
+
+**FIXED:** `momentum_run` now requires the **newest closed 1H bar to BE the momentum candle**.
+`LOOKBACK` is no longer the search window (it survives only as the 1M window size). Applied in the
+one place both routes share, so the trend route AND the change-of-character route are covered.
+
+**Proved both ways on real broker bars through the real function:** Fri 28 Aug 16:02 still picks the
+candle at **0 bars back**; Sun 30 Aug 22:01 now returns **None**.
+
+**One more link found in the audit trail:** the Friday signal **expired at 24h on the Saturday and
+its dedup reservation was freed** (`signal_monitor.py:95`), which is why the re-fire was not blocked
+as a duplicate. Left as-is — the newest-bar rule makes it unreachable for this case — but noted,
+because a 24h release across a shut market is a weekend-shaped hole in the duplicate guard.
+
+**Two tests changed because they encoded the old assumption**, not because the rule is wrong:
+`test_choch.py` now asserts the refusal happens earlier and for a better reason, and
+`test_choch_bearish_proof.py`'s fixture put the momentum candle 6 bars back — corrected to the
+newest bar, with the 6-bar version kept as a check that the new rule reaches that route too.
 
 ### B13 - Tick-built candles: 4 of 5 instruments proved EXACT; serving built, switch OFF
 
