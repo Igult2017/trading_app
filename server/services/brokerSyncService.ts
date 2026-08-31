@@ -115,7 +115,10 @@ export interface RawBrokerTrade {
   closePrice?: number;
   stopLoss?:   number;
   takeProfit?: number;
-  openTime?:   string | number;  // ISO string or Unix timestamp (seconds)
+  // An ISO date string, OR a Unix timestamp in EITHER seconds or milliseconds — `toDate` decides
+  // by magnitude, so an adapter reports whatever its broker gave it and converts nothing. The old
+  // comment said "seconds", seven of the eight adapters sent something else, and nothing complained.
+  openTime?:   string | number;
   closeTime?:  string | number;
   profit?:     number;
   commission?: number;
@@ -131,10 +134,47 @@ function normaliseDirection(d: string): 'Long' | 'Short' {
   return 'Short';
 }
 
-function toDate(v: string | number | undefined): Date | undefined {
-  if (!v) return undefined;
-  if (typeof v === 'number') return new Date(v * 1000); // Unix seconds
-  return new Date(v);
+/**
+ * A broker's timestamp -> a Date, or undefined when it cannot be read honestly.
+ *
+ * THE UNIT IS DECIDED BY MAGNITUDE, NOT BY TYPE, and that is the whole fix. This used to read
+ * "number = Unix seconds, string = date string", and SEVEN OF THE EIGHT ADAPTERS disagreed with it:
+ *
+ *   ctrader      String(ms / 1000)  a numeric STRING of seconds -> `new Date("1788123600")`
+ *                                   -> **Invalid Date**, which is TRUTHY, so every downstream
+ *                                   `t ? t.toISOString() : undefined` guard sailed past it and threw
+ *                                   `RangeError: Invalid time value`. That is the "Issues syncing"
+ *                                   error on the accounts page, on the account the signal platform
+ *                                   itself uses.
+ *   binance, bitget, bitunix,       milliseconds passed as a number -> multiplied by 1000 again
+ *   bybit, dxtrade, tradelocker     -> trades silently dated to the year 58,633. No error, no crash;
+ *                                   just history that can never appear in any date-ranged view.
+ *   coinbase                        an ISO string — the only one that matched the old rule.
+ *
+ * A Unix timestamp for any plausible trade is ~1e9 in seconds and ~1e12 in milliseconds, so the
+ * magnitude separates them with three orders of magnitude to spare: 1e11 is the year 5138 read as
+ * seconds and 1973 read as milliseconds. Nothing real lands near the boundary.
+ *
+ * IT NEVER RETURNS AN INVALID DATE. That is the property the callers actually rely on — they all
+ * test `openTime ? ... : undefined`, and an Invalid Date passes that test. Returning undefined is
+ * what makes those guards mean what they look like they mean.
+ */
+const _SECONDS_CEILING = 1e11;   // above this the number must already be milliseconds
+
+export function toDate(v: string | number | undefined | null): Date | undefined {
+  if (v === null || v === undefined || v === '') return undefined;
+
+  // A numeric string is a NUMBER that happened to be stringified — cTrader's adapter does exactly
+  // this. Reading it as a date string is what produced the Invalid Date.
+  let n: number | undefined;
+  if (typeof v === 'number') n = v;
+  else if (typeof v === 'string' && /^-?\d+(\.\d+)?$/.test(v.trim())) n = Number(v.trim());
+
+  const d = n !== undefined
+    ? new Date(Math.abs(n) < _SECONDS_CEILING ? n * 1000 : n)
+    : new Date(v as string);
+
+  return Number.isNaN(d.getTime()) ? undefined : d;
 }
 
 export async function processIncomingTrades(

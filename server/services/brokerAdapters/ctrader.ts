@@ -266,8 +266,13 @@ export function mapClosedDeal(d: any, symbolMap: Record<number, string>): RawBro
     lots:       d.filledVolume        ? d.filledVolume / 100           : undefined,
     openPrice:  close?.entryPrice     != null ? close.entryPrice       : undefined,
     closePrice: d.executionPrice      != null ? d.executionPrice       : undefined,
-    openTime:   close?.entryTimestamp ? String(Math.floor(close.entryTimestamp / 1000)) : undefined,
-    closeTime:  d.executionTimestamp  ? String(Math.floor(d.executionTimestamp  / 1000)) : undefined,
+    // THE BROKER'S OWN MILLISECONDS, passed through untouched. This used to divide by 1000 and
+    // stringify — `String(Math.floor(ms / 1000))` — which produced a numeric string of seconds.
+    // `toDate` then read it as a DATE string, got an Invalid Date, and every sync of this account
+    // died with `RangeError: Invalid time value`. Converting units here and again there is how the
+    // two halves disagreed; the adapter now reports what the broker said and `toDate` owns the unit.
+    openTime:   close?.entryTimestamp ?? undefined,
+    closeTime:  d.executionTimestamp  ?? undefined,
     profit:     close?.grossProfit    != null ? close.grossProfit / 100 : undefined,
     commission: d.commission          != null ? d.commission / 100      : undefined,
     swap:       close?.swap           != null ? close.swap / 100        : undefined,

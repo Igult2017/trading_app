@@ -612,6 +612,53 @@ anywhere. Blocked on one question: does copy trading auto-execute on a user's ac
 
 ## D. cTrader & copy trading
 
+### D14 - ~~Trade sync died with "Invalid time value", and six other brokers silently dated trades to the year 58,633~~ FIXED 31 Aug 🔴
+**He sent a screenshot of the accounts page: both accounts showing "Issues syncing".** Two different
+faults, one of them affecting the very account the signal platform trades.
+
+**Fault 1 — `Invalid time value` on `ctrader` (login 5296567, $10,000, the signal platform's own account).**
+
+`brokerSyncService.toDate` decided the unit from the TYPE — *number = Unix seconds, string = date
+string* — and **seven of the eight adapters disagreed with it**:
+
+| adapter | sends | real unit | what the old rule produced |
+|---|---|---|---|
+| **ctrader** | `String(ms / 1000)` | seconds, as a **string** | **Invalid Date -> RangeError** |
+| binance, bitget, bitunix, bybit, dxtrade, tradelocker | a number | **milliseconds** | multiplied by 1000 again -> **year 58,633** |
+| coinbase | ISO string | ISO | correct — the only one that matched |
+
+`new Date("1788123600")` is an **Invalid Date**, and an Invalid Date is **truthy**, so every
+`openTime ? openTime.toISOString() : undefined` guard walked straight past itself and threw. That is
+the error on the screen, and it killed every sync of that account.
+
+The six millisecond ones never errored at all — they just wrote trades dated to the year 58,633,
+which can never appear in any date-ranged view. Nothing complained, which is why it survived.
+
+**Fix:** the unit is now read from the **magnitude**, numeric strings are treated as numbers, and
+`toDate` **never returns an Invalid Date** — it returns undefined, which is what makes the callers'
+own `? :` guards mean what they look like they mean. 1e11 separates the two units by three orders of
+magnitude (the year 5138 in seconds, 1973 in milliseconds); nothing real is near it. The cTrader
+adapter now passes the broker's own milliseconds through untouched — converting in the adapter AND
+in `toDate` is how the two halves came to disagree.
+
+**27 checks** in `server/services/brokerSyncService.test.ts`, including three TEETH cases that
+restore the old rule and confirm it produced an Invalid Date, that the Invalid Date was truthy, and
+that it dated the millisecond adapters to the year 58,633.
+
+### D15 - The second account (`ct`, login 5834793) has no stored access token. NEEDS HIM
+Its sync error is `cTrader: not connected. Complete OAuth first.` — thrown at
+[`brokerAdapters/index.ts:56`](../server/services/brokerAdapters/index.ts#L56) when the decrypted
+credentials carry no `accessToken`.
+
+**This is a data/state problem, not a code defect, and no code change can fix it**: the account
+simply has no usable token stored. It shows a $1,000 balance, so it was connected at some point.
+**He needs to reconnect it** on the accounts page (or delete it if unused).
+
+**It is NOT the signal platform's account** — that is `ctrader` / 5296567 / $10,000, pinned by
+`CTRADER_SIGNAL_ACCOUNT_ID=47535363`. Nothing about the scanner, autotrade or the copy engine depends
+on `ct`.
+
+
 ### D3 - ~~Any user's account could become the signal platform's credentials~~ FIXED 30 Aug
 
 **He reported it: *"add account has not been isolated and it normally disrupts signal platform's
