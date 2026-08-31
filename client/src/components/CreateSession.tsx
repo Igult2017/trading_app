@@ -570,6 +570,12 @@ const SessionCard = ({ session, isActive, onSelect, onEdit, onDelete }: {
   onEdit: () => void;
   onDelete: () => void;
 }) => {
+  // A session that BACKS A BROKER ACCOUNT is shown but not editable here. Its name is the account's
+  // name and its life is the account's life: `POST /api/broker-accounts` creates it and
+  // `DELETE /api/broker-accounts/:id` deletes it. Renaming it here would make the card disagree with
+  // the Accounts page, and deleting it would leave the account pointing at a session that is gone —
+  // which is where its auto-recorded trades are filed.
+  const brokerBacked = !!session.brokerBacked;
   const { totalPnL, tradeCount, isLoading: balLoading } = useSessionBalance(session.id);
   const startBal  = parseFloat(session.startingBalance) || 0;
   const hasData   = !balLoading && tradeCount > 0;
@@ -609,6 +615,12 @@ const SessionCard = ({ session, isActive, onSelect, onEdit, onDelete }: {
             className="text-[12px] font-semibold text-[#60a5fa] truncate"
             data-testid={`text-session-name-${session.id}`}
           >{session.sessionName}</span>
+          {brokerBacked && (
+            <span
+              className="text-[9px] font-semibold uppercase tracking-wider text-[#818cf8] border border-[#312e81] bg-[#1e1b4b] px-1.5 py-0.5 rounded-sm shrink-0"
+              title="This session belongs to a connected broker account. Its trades are recorded automatically."
+            >account</span>
+          )}
         </div>
         <MoreVertical size={14} className="text-[var(--jr-ink-dim)] hover:text-[#c9d1d9] cursor-pointer shrink-0" />
       </div>
@@ -649,17 +661,28 @@ const SessionCard = ({ session, isActive, onSelect, onEdit, onDelete }: {
           className="mt-5 flex gap-2"
           onClick={e => e.stopPropagation()}
         >
-          <button
-            className="flex-1 bg-[#111827] hover:bg-[#1a2035] border border-[#1e2740] text-[#c9d1d9] text-[11px] font-semibold py-2 transition-colors rounded-sm"
-            onClick={onEdit}
-          >Edit Session</button>
-          <button
-            className="px-3 bg-[#111827] hover:bg-red-900/20 border border-[#1e2740] text-[var(--jr-ink-dim)] hover:text-red-400 transition-colors rounded-sm flex items-center"
-            onClick={onDelete}
-            data-testid={`button-delete-session-${session.id}`}
-          >
-            <Trash2 size={13} />
-          </button>
+          {brokerBacked ? (
+            /* NO EDIT, NO DELETE. Deleting this session would leave the broker account pointing at a
+               session that no longer exists — and that session is where its trades are filed, so the
+               account's whole history would stop resolving. The account page owns both actions. */
+            <span className="flex-1 text-[10px] text-[var(--jr-ink-dim)] py-2 text-center">
+              Managed on the Accounts page
+            </span>
+          ) : (
+            <>
+              <button
+                className="flex-1 bg-[#111827] hover:bg-[#1a2035] border border-[#1e2740] text-[#c9d1d9] text-[11px] font-semibold py-2 transition-colors rounded-sm"
+                onClick={onEdit}
+              >Edit Session</button>
+              <button
+                className="px-3 bg-[#111827] hover:bg-red-900/20 border border-[#1e2740] text-[var(--jr-ink-dim)] hover:text-red-400 transition-colors rounded-sm flex items-center"
+                onClick={onDelete}
+                data-testid={`button-delete-session-${session.id}`}
+              >
+                <Trash2 size={13} />
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>
@@ -719,12 +742,16 @@ export const SessionsList = ({ onSelectSession, activeSessionId, onDeleteSession
     queryKey: ['/api/sessions'],
     staleTime: 0,
   });
-  // Each broker account auto-creates a backing session. Hide those *here* (the manual-session
-  // grid) so they aren't a duplicate of the Accounts page. The `brokerBacked` flag is computed
-  // SERVER-SIDE on /api/sessions, so this never depends on a separate broker-accounts query
-  // being loaded/fresh (that race let broker accounts leak into the create page). The rows
-  // still come back from /api/sessions so the per-account dashboard keeps resolving.
-  const sessions = allSessions.filter((s) => !s.brokerBacked);
+  // BROKER-BACKED SESSIONS ARE SHOWN, not hidden — his instruction, 2026-08-31: *"I need each added
+  // account to have a session in the session page under its name so that I can click on it and see
+  // performance."* They were filtered out here so they would not duplicate the Accounts page; that
+  // is now the wrong trade, because the Accounts page shows a BALANCE and this page shows the
+  // PERFORMANCE — P&L, return, win rate — which is what he wants per account.
+  //
+  // The `brokerBacked` flag is still computed SERVER-SIDE on /api/sessions, which is what stops this
+  // from depending on a separate broker-accounts query being loaded and fresh. It now decides
+  // PRESENTATION (a badge, and no edit/delete) instead of deciding visibility.
+  const sessions = allSessions;
   const [showCreate, setShowCreate]   = useState(false);
   const [editTarget, setEditTarget]   = useState<SessionData | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<SessionData | null>(null);

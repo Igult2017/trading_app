@@ -165,8 +165,22 @@ export async function syncAccount(account: BrokerAccount): Promise<void> {
 async function syncAllAccounts(): Promise<void> {
   const accounts = await getAllApiAccounts();
   for (const account of accounts) {
-    // cTrader has strict WS rate limits — only sync on connect or manual trigger, never on timer
-    if (account.platform.toLowerCase() === 'ctrader') continue;
+    // cTRADER IS INCLUDED AGAIN (31 Aug 2026), and this is the SAFETY NET under trade recording.
+    //
+    // It used to be skipped here — "cTrader has strict WS rate limits, only sync on connect or
+    // manual trigger, never on timer" — which left the live push feed as the ONLY ongoing way a
+    // cTrader trade was ever recorded. That is fine while the feed is up and silently lossy when it
+    // is not: a dropped socket, a deploy, a restart, and any trade that closes in the gap is never
+    // recorded at all. His ask was *"make sure that all trades that are autotraded are recorded"*,
+    // and autotrade's own trades close on exactly this path.
+    //
+    // The rate-limit reason is genuinely handled now rather than argued away: every cTrader socket
+    // Node opens takes a lease from `ctraderConnPool` (cap 8, feeds outrank tasks), so these syncs
+    // queue instead of storming the broker — which is also why the un-awaited loop below is safe.
+    // A sync here is CHEAP: with `lastSyncAt` set it asks only for the window since the last one.
+    //
+    // Recording twice is impossible: `processIncomingTrades` de-duplicates on
+    // externalId + brokerAccountId, so the feed and this sync cannot both file the same deal.
     syncAccount(account).catch(() => {});
   }
 }
