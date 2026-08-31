@@ -645,6 +645,47 @@ in `toDate` is how the two halves came to disagree.
 restore the old rule and confirm it produced an Invalid Date, that the Invalid Date was truthy, and
 that it dated the millisecond adapters to the year 58,633.
 
+### D16 - ~~The account's session showed Current Equity $0 on an account holding real money~~ FIXED 31 Aug 🔴
+**He sent the sessions page:** the `ctrader` card read `Current Equity $0`, `Net P&L —`,
+`Total Return —`, `Trades 0`. *"It does not even show account balance. How do we expect it to show
+trades?"*
+
+**The card is innocent.** `CreateSession.tsx:582` computes equity as `startingBalance + P&L`, so a
+starting balance of 0 with no trades is `$0` — correct arithmetic on a wrong input.
+
+**Root cause.** A broker account creates its own session at the same moment it is created, and that
+session takes its starting balance straight from the request body
+([`routes.ts:3778`](../server/routes.ts#L3778), `req.body.startingBalance ?? '0.00'`). For an account
+added BY HAND that is right — he types the balance. For a cTrader account added by **OAuth the broker
+has not been contacted yet**, so there is no balance to put there and `0.00` is written. **No path
+ever went back and filled it in.**
+
+**Fix — one owner, four callers.** `storage.seedSessionStartingBalance` ignores a zero or missing
+balance, **refuses to overwrite a starting balance that is already set** (his own number always
+wins), and never throws — a balance we could not carry across must not fail the sync that produced
+it. Wired at every point Node learns a balance, because missing one leaves the card empty on exactly
+that path:
+
+| where | when it fires |
+|---|---|
+| [`routes.ts:4001`](../server/routes.ts#L4001) | manual refresh-balance |
+| [`routes.ts:4262`](../server/routes.ts#L4262) | OAuth connect callback |
+| [`routes.ts:4345`](../server/routes.ts#L4345) | multi-account picker |
+| [`autoSyncService.ts:125`](../server/services/autoSyncService.ts#L125) | after each sync — **repairs accounts connected before this existed**, with nothing for him to do |
+
+**The multi-account picker was missed on the first pass.** Only a written check caught it, which is
+why the test COUNTS the balance writes rather than spot-checking them: one un-seeded write is
+invisible until he opens the page.
+
+**The trades half of his question** now has a route — the 15-minute sync no longer skips cTrader
+(D14), and `lastSyncAt` is stamped only on success, so an account that has never completed a sync
+still asks for the full 2-year history rather than silently starting from now. The second account
+(`ct`) will still show nothing until he reconnects it — see D15 immediately below, which is a stored
+credential problem no code change can fix.
+
+**23 checks** in `server/services/tradeRecording.test.ts` (section 5), `tsc` clean.
+
+
 ### D15 - The second account (`ct`, login 5834793) has no stored access token. NEEDS HIM
 Its sync error is `cTrader: not connected. Complete OAuth first.` — thrown at
 [`brokerAdapters/index.ts:56`](../server/services/brokerAdapters/index.ts#L56) when the decrypted
