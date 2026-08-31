@@ -155,4 +155,56 @@ s.teeth("a symbol+side-only match would claim a manual trade of a different size
 _intent.clear()
 s.teeth("no intent -> no message, rather than a half-built one", placement_message("gone") is None)
 
+# ── THE BROKER REFUSING, WHICH REACHED NOBODY ───────────────────────────────
+# On 31 Aug the FIRST order autotrade ever attempted was refused, and the only record was a log line
+# that the next deploy destroyed. Guard refusals and successes both reported; this one did not.
+print()
+print("   when the BROKER says no:")
+from execution.placer import rejection_message
+
+rej = rejection_message("XAU/USD", "SELL", "VIX.1", 0.15, 4433.96, 4437.39, 4420.24,
+                        "INVALID_REQUEST Order price has more digits than symbol allows. Allowed 2 digits")
+for want in ("BROKER REFUSED", "XAU/USD", "SELL", "4433.96", "4437.39", "0.15 lots", "Allowed 2 digits"):
+    s.check(f"the rejection DM states {want!r}", want in rej, True)
+s.check("...and is clear nothing is resting at the broker", "nothing is resting" in rej, True)
+s.check("...and does not claim the signal was wrong", "the signal stands" in rej, True)
+
+
+# ── GOLD PRECISION: the defect that caused it ───────────────────────────────
+# The broker refused "4433.959 has more digits than symbol allows. Allowed 2 digits", and its live
+# quote the same day was 4436.69 — two decimals. Both say gold is 2; the table said 3.
+from shared.pip import price_digits as _pd, pip_size as _ps
+print()
+print("   gold precision:")
+s.check("gold prices round to 2 decimals, as the broker requires", _pd("XAU/USD"), 2)
+s.check("...and the slashless form agrees", _pd("XAUUSD"), 2)
+s.check("the majors are unchanged at 5", (_pd("EUR/USD"), _pd("GBP/USD")), (5, 5))
+s.check("the JPY pairs are unchanged at 3", (_pd("USD/JPY"), _pd("GBP/JPY")), (3, 3))
+
+# The SAME number sets pip size, and sizing assumes $10 per pip per lot — true for 100oz gold only
+# when a pip is $0.10. At 3 digits a pip was $0.01 and every gold position came out 10x too small.
+s.check("a gold pip is $0.10, which is what makes the $10/lot assumption true", _ps("XAU/USD"), 0.1)
+
+from execution.sizing import stop_distance_pips, size_lots
+ENTRY, STOP, EQUITY = 4433.959, 4437.388, 9999.0
+pips = stop_distance_pips(ENTRY, STOP, "XAU/USD")
+lots = size_lots(EQUITY, 0.5, pips)
+true_lots = (EQUITY * 0.005) / (abs(ENTRY - STOP) * 100)      # 1 lot = 100 oz, from first principles
+s.check("the real refused stop measures ~34 pips, not ~343", round(pips, 1), 34.3)
+s.check("...and sizes to the mathematically correct lots", abs(lots - true_lots) < 0.01, True)
+
+# TEETH: the old value reproduces the 10x under-size that sent the order out at the minimum.
+old_pip = 10.0 ** -(3 - 1)
+old_lots = size_lots(EQUITY, 0.5, abs(ENTRY - STOP) / old_pip)
+s.teeth("3 digits sized gold 10x too small (it went out at the 0.01 floor)",
+        old_lots < true_lots / 5)
+
+# The entry is placed one TICK beyond the pullback's reach, and a tick is a tenth of a pip. At 3
+# digits gold's tick was $0.001 — FINER than the smallest price gold can be quoted at — so the entry
+# could not survive rounding to the broker's 2 decimals. That is how 4433.959 was produced.
+from strategies.vix1_cross import tick as _tick
+s.check("a gold tick is $0.01 — exactly one price step at 2 decimals", round(_tick(_ps("XAU/USD")), 4), 0.01)
+s.check("...whereas 3 digits made it finer than gold can be priced", round(_tick(0.01), 4), 0.001)
+s.check("the majors' tick is unchanged at a pipette", round(_tick(_ps("EUR/USD")), 6), 0.00001)
+
 s.done()

@@ -77,6 +77,15 @@ async def place_for_signal(signal, creds: dict, account_type: str, equity: float
 
         if not res.ok:
             log.error(f"[execution] {symbol} {side} REJECTED — {res.error}")
+            # THE BROKER REFUSING AN ORDER MUST REACH HIM. This path sent nothing, so on 31 Aug the
+            # first order autotrade ever attempted was refused — gold priced to 3 decimals when the
+            # symbol allows 2 — and the only record was a log line the next deploy destroyed. The
+            # guards' refusals and successes were both reported; this, the one that means the
+            # platform tried and the BROKER said no, was the silent one.
+            if notify:
+                await _tell(notify, rejection_message(
+                    symbol, side, signal.strategy_name or signal.strategy_id,
+                    lots, entry, sl, tp, res.error))
             return None
 
         guards.record(symbol, side)
@@ -158,6 +167,24 @@ def placement_message(order_id: str) -> str | None:
             f"{levels}\n"
             f"{i['lots']} lots · risking {i['stop_pips']:.1f} pips{rr}\n"
             f"<i>order {order_id} — resting at the broker, not yet filled</i>")
+
+
+def rejection_message(symbol: str, side: str, strategy: str, lots: float,
+                      entry: float, sl: float, tp: float | None, error: str) -> str:
+    """The BROKER refused an order we did send — a different thing from our own guards refusing.
+
+    Reported with the exact levels that were sent, because that is what the broker objected to and
+    the refusal is usually about one of them. Gold, 31 Aug: the price carried three decimals and the
+    symbol allows two, which is invisible unless the numbers are in front of you.
+    """
+    d = price_digits(symbol)
+    levels = f"entry <code>{entry:.{d}f}</code> · stop <code>{sl:.{d}f}</code>"
+    if tp:
+        levels += f" · target <code>{tp:.{d}f}</code>"
+    return (f"⛔ <b>BROKER REFUSED THE ORDER</b> · {symbol} {side} · {strategy}\n"
+            f"{levels}\n"
+            f"{lots} lots · <b>{error}</b>\n"
+            f"<i>the signal stands — nothing is resting at the broker</i>")
 
 
 def refusal_message(symbol: str, side: str, strategy: str, why: str) -> str:

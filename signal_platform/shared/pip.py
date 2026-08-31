@@ -24,7 +24,24 @@ decimal, so pip = 10^-(pipDigits-1) and a pipette (the final digit) is 10^-pipDi
 
 # pipDigits per instrument family, from cTrader's table. Matched most-specific first.
 _EXACT = {
-    "XAUUSD": 3, "XAGUSD": 3,
+    # GOLD IS 2, NOT 3 — and being wrong here broke autotrade twice over, silently.
+    #
+    # THE BROKER SAID SO ITSELF, refusing a real order on 31 Aug 2026 13:17 UTC:
+    #     "Order price = 4433.959 has more digits than symbol allows. Allowed 2 digits"
+    # Confirmed independently against its live quote the same day: XAU/USD came back as 4436.69,
+    # two decimals, while EUR/USD came back with five and USD/JPY with three — so only gold was
+    # wrong, and the other four in this file are right.
+    #
+    # IT ALSO FIXES THE SIZE, which is the part that would never have shown up as an error. This
+    # number sets `pip_size` too, and `sizing.size_lots` assumes $10 per pip per lot — true for a
+    # 100 oz gold contract only when a pip is $0.10, i.e. at 2 digits. At 3 digits a "pip" was
+    # $0.01, so a stop measured 10x too many pips and every gold position came out **10x too
+    # small**. The refused order is the proof: 0.5% of $9,999 over a $3.429 stop is 0.146 lots, and
+    # it went out at the 0.01 minimum.
+    #
+    # XAGUSD IS LEFT AT 3 AND IS UNVERIFIED — silver is not traded here and nothing has told us its
+    # precision. Do not "fix" it to match gold on the assumption that metals agree; ask the broker.
+    "XAUUSD": 2, "XAGUSD": 3,
     "US30": 1, "US500": 1, "NAS100": 1, "GER40": 1, "UK100": 1, "JP225": 1, "AUS200": 1,
     "USOIL": 2, "UKOIL": 2, "BRENT": 2, "WTI": 2,
     "BTCUSD": 2, "ETHUSD": 2,
@@ -42,7 +59,7 @@ def pip_digits(symbol: str) -> int:
     if k in _EXACT:
         return _EXACT[k]
     if k.startswith(("XAU", "XAG")):
-        return 3
+        return 3          # UNVERIFIED for anything but XAUUSD, which the broker told us is 2 (above)
     if k.startswith(("BTC", "ETH", "XRP", "LTC", "SOL")):
         return 2
     if "JPY" in k:
