@@ -91,23 +91,40 @@ feeds stopped connecting", pointing nowhere near the release that never ran.
 The boot line now reports **accounts and connections separately** — they are the same number today,
 and Stage 1 is the change that makes them differ.
 
-## Stage 1 — put many accounts on one connection
+## Stage 1 — put many accounts on one connection. **BUILT 31 Aug, shipped at 1/socket**
 
-**Change:** replace one-connection-per-account with a small pool, each connection carrying many
-accounts. The API supports it directly: the app authenticates once per connection, then each account
-authorises separately with its own token, and execution events carry the account id so they route
-back. A token refresh ends only that account's session.
+`server/services/ctraderHub.ts` holds the sockets; `ctraderRealtime.ts` keeps the lifecycle and owns
+none. A socket authenticates the app once, each account authorises separately with its own token, and
+a token refresh ends only that account's session.
 
-**Effect:** 3000 accounts on ~15 connections instead of 3000. Liveness unchanged — every account
-still gets instant trade recording, which is why this comes first rather than the feed cull.
+**Sockets are separated by HOST *and* APP, and both are correctness.** Live and demo are different
+endpoints; and a socket is authenticated as ONE cTrader application, so an account whose token was
+issued under a different app cannot share it.
 
-**Measure before Stage 2:** with N accounts connected, the process holds `ceil(N / K)` connections
-and every account still records a closed trade within a second. Both readable from the existing
-`[cTraderRT] live feeds active for N account(s)` log once it reports connections separately from
-accounts.
+### ⚠ It ships at ONE account per socket — identical to the old behaviour
 
-**Risk:** one dropped connection now takes many accounts offline together. Mitigated by the existing
-per-connection reconnect, plus reconnect being per-connection rather than per-account.
+`CTRADER_ACCOUNTS_PER_CONN` defaults to **1**. Routing an event to the right account depends on
+`ProtoOAExecutionEvent` carrying `ctidTraderAccountId`. That is **confirmed in the protobuf schema**
+but **has never been observed on this JSON gateway**, because the old code never had to read it — one
+socket, one account, nothing to disambiguate.
+
+**The failure it guards against is silent and expensive:** route a closed trade to the wrong member
+and a real trade is written into the wrong person's journal, with nothing erroring.
+
+So the router does one of three things and never guesses: route by the event's own id; or, when
+exactly one account is on the socket, deliver to it (the old behaviour); or **drop it and say so
+loudly**. `logRoutingEvidence` reports once whether real events carried the id.
+
+**To turn it on:** watch for `[cTraderHub] execution events DO carry ctidTraderAccountId` after a
+live trade closes, then set `CTRADER_ACCOUNTS_PER_CONN=50`. Config change, no code change. If the
+warning appears instead, leave it at 1 — the finding is that the gateway omits the field, and the
+whole approach needs rethinking rather than forcing.
+
+**Measure once raised:** the boot line reports accounts and sockets separately —
+`live feeds active for N cTrader account(s) on M socket(s)`. N should exceed M.
+
+**Risk accepted:** one dropped socket takes all its accounts offline together. `onHubLost`
+reconnects every one of them, and the 60-second reconcile is the backstop.
 
 ## Stage 2 — a capped worker pool for everything transient
 
