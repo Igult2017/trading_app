@@ -23,7 +23,22 @@ log = logging.getLogger(__name__)
 _intent: dict[str, dict] = {}
 
 
-async def place_for_signal(signal, creds: dict, account_type: str, equity: float) -> str | None:
+async def _tell(notify, message: str | None) -> None:
+    """Send a diagnostic message, and never let it affect the order.
+
+    A failed Telegram send must not turn a placed order into a reported failure, nor a refusal into
+    an exception the caller has to handle — the message is the REPORT, not the trade.
+    """
+    if not (notify and message):
+        return
+    try:
+        await notify(message)
+    except Exception as exc:
+        log.warning(f"[execution] could not send the autotrade DM: {type(exc).__name__}: {exc}")
+
+
+async def place_for_signal(signal, creds: dict, account_type: str, equity: float,
+                           notify=None) -> str | None:
     """Place the stop order for a signal. Returns the broker order id, or None if not placed.
 
     Never raises: a fault in placement must not take down the scan that produced the signal. A
@@ -44,6 +59,12 @@ async def place_for_signal(signal, creds: dict, account_type: str, equity: float
         why = guards.check(symbol, side, signal.strategy_id, account_type, equity, lots)
         if why:
             log.info(f"[execution] NOT placing {symbol} {side} — {why}")
+            # SAY IT, don't only log it. A container log dies at the next deploy, so "a signal fired
+            # and no order appeared" was previously unanswerable after the fact. One message per
+            # signal, never per scan — `guards.check` runs once, at dispatch.
+            if notify:
+                await _tell(notify, refusal_message(
+                    symbol, side, signal.strategy_name or signal.strategy_id, why))
             return None
 
         expiry_ms = int((signal.expires_at or datetime.now(timezone.utc)).timestamp() * 1000) \
@@ -66,6 +87,8 @@ async def place_for_signal(signal, creds: dict, account_type: str, equity: float
                                          strategy=signal.strategy_name or signal.strategy_id)
         log.info(f"[execution] PLACED {symbol} {side} {lots} lots (vol {volume}) stop {entry} "
                  f"order {res.order_id}")
+        if notify and res.order_id:
+            await _tell(notify, placement_message(res.order_id))
         return res.order_id
     except Exception as exc:                       # never let placement break the scan
         log.error(f"[execution] placement failed for {getattr(signal, 'symbol', '?')}: {exc}")
@@ -106,3 +129,44 @@ def fill_report(order_id: str, fill_price: float, filled_at: datetime | None = N
 def pending_intents() -> dict[str, dict]:
     """Orders placed this process that have not reported a fill — for reconciliation."""
     return dict(_intent)
+
+
+def placement_message(order_id: str) -> str | None:
+    """What went to the broker, for his DM — his ask, 2026-08-31: *"make sure those trades placed by
+    autotrade are also sent to DM so that I can review them later and see how well they were placed
+    to help me improve autotrading."*
+
+    Until now a placement existed ONLY as a line in the container log, which is lost on every
+    deploy — so there was no way to review afterwards what autotrade had actually done.
+
+    This is the order as SENT. `fill_report` is the other half and comes later, when it fills.
+    """
+    i = _intent.get(order_id)
+    if not i:
+        return None
+    d = price_digits(i["symbol"])
+
+    levels = f"entry <code>{i['entry']:.{d}f}</code> · stop <code>{i['sl']:.{d}f}</code>"
+    rr = ""
+    if i.get("tp"):
+        levels += f" · target <code>{i['tp']:.{d}f}</code>"
+        risk = abs(i["entry"] - i["sl"])
+        if risk:
+            rr = f" · {abs(i['tp'] - i['entry']) / risk:.1f}R"
+
+    return (f"🤖 <b>AUTOTRADE PLACED</b> · {i['symbol']} {i['side']} · {i['strategy']}\n"
+            f"{levels}\n"
+            f"{i['lots']} lots · risking {i['stop_pips']:.1f} pips{rr}\n"
+            f"<i>order {order_id} — resting at the broker, not yet filled</i>")
+
+
+def refusal_message(symbol: str, side: str, strategy: str, why: str) -> str:
+    """Why a confirmed signal did NOT become an order.
+
+    ONE PER SIGNAL, never per scan — `guards.check` runs once, when a signal is dispatched. Without
+    this a signal simply arrives with no order behind it and nothing says which of the seven gates
+    stopped it, which is exactly the question "how do I improve autotrading" runs into first.
+    """
+    return (f"🤖 <b>AUTOTRADE STOOD DOWN</b> · {symbol} {side} · {strategy}\n"
+            f"{why}\n"
+            f"<i>the signal stands — this only says no order was placed</i>")

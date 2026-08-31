@@ -202,6 +202,10 @@ async def check_all(send) -> None:
     try:
         delivery_ledger.cleanup(_TTL)
         positions = await ctrader_positions.open_positions()
+        # DID AN AUTOTRADE ORDER FILL? Same poll, same positions, no extra broker read — the
+        # fill price lives on the position and this is the only place it is already fetched.
+        from execution.fill_watch import check_fills
+        await check_fills(positions, send)
         # None and [] MEAN DIFFERENT THINGS. [] is "nothing open"; None is "could not read the
         # broker", and inventing silence-as-fact from a failed read is how a tracker lies.
         if positions is None:

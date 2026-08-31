@@ -334,7 +334,10 @@ async def _autotrade(signal) -> None:
     if acct is None:
         log.warning("[dispatcher] autotrade ON but no usable account — nothing placed")
         return
-    await place_for_signal(signal, acct.creds, acct.account_type, acct.equity)
+    # `notify=_send_private` is what puts the order in his DM — placed AND stood-down. Without it
+    # a placement existed only in the container log, which the next deploy destroys.
+    await place_for_signal(signal, acct.creds, acct.account_type, acct.equity,
+                           notify=_send_private)
 
 
 async def on_scan_started(payload: dict) -> None:

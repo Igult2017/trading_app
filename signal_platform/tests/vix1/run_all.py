@@ -49,6 +49,7 @@ TESTS = [
     # real order path neither imported nor resolved a symbol. This one uses the real functions.
     "test_execution_placement.py",  # the order path loads in production's cwd, and names the pair
     "test_autotrade_sessions.py",   # when autotrade may trade, and the equity it could not read
+    "test_autotrade_dm.py",         # what it reports to his DM: placed, stood down, and the real fill
     # ADDED 2026-08-30. The watchdog is the point: a dead price stream looks exactly like a quiet
     # market, so it is tested by KILLING the session, not by reading the code.
     "test_trade_watcher.py",        # live price, correct side of the spread, and the stale-stream alarm
