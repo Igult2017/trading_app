@@ -20,6 +20,7 @@
  */
 import WebSocket from 'ws';
 import type { RawBrokerTrade } from '../brokerSyncService';
+import { acquire, withConnection } from '../ctraderConnPool';
 
 const CONNECT   = 'https://connect.spotware.com';
 const TOKEN_URL = `${CONNECT}/apps/token`;
@@ -181,6 +182,13 @@ export interface CTraderAccount {
 }
 
 async function fetchAccountsFromEndpoint(wsUrl: string, accessToken: string, app?: string): Promise<CTraderAccount[]> {
+  // A LEASE FROM THE POOL BEFORE THE SOCKET. Everything Node opens is counted, so a burst of
+  // add-account clicks can never use up the app's connections and leave the signal platform unable
+  // to reconnect. See ctraderConnPool.
+  return withConnection('task', 'accounts-list', () => fetchAccountsOnce(wsUrl, accessToken, app));
+}
+
+async function fetchAccountsOnce(wsUrl: string, accessToken: string, app?: string): Promise<CTraderAccount[]> {
   const ws = await openWS(wsUrl);
   try {
     await appAuth(ws, app);
@@ -227,7 +235,9 @@ export async function fetchCTraderBalance(
   app?:        string,
 ): Promise<{ balance: number; currency: string } | null> {
   const acctId = Number(ctraderId);
-  const ws = await openWS(isLive ? LIVE_WS : DEMO_WS);
+  // Counted against Node's connection budget like everything else — see ctraderConnPool.
+  const lease = await acquire('task', 'balance');
+  const ws = await openWS(isLive ? LIVE_WS : DEMO_WS).catch((e) => { lease.release(); throw e; });
   try {
     await appAuth(ws, app);
     send(ws, PT_ACCT_AUTH_REQ, { ctidTraderAccountId: acctId, accessToken });
@@ -249,7 +259,7 @@ export async function fetchCTraderBalance(
   } catch (err: any) {
     console.error(`[cTrader] fetchCTraderBalance failed for account ${ctraderId}: ${err.message}`);
     return null;
-  } finally { ws.close(); }
+  } finally { ws.close(); lease.release(); }
 }
 
 // ── Deal pagination helper ────────────────────────────────────────────────────
@@ -315,7 +325,12 @@ export async function fetchCTraderTrades(
   const acctId = Number(ctraderId);
   const wsUrl  = isLive ? LIVE_WS : DEMO_WS;
 
-  const ws = await openWS(wsUrl);
+  // THE LONGEST-RUNNING TASK IN NODE holds a slot for its whole duration: a first sync backfills
+  // 730 days in 7-day chunks 250ms apart, so ~105 requests and ~26 seconds on one connection. Ten
+  // simultaneous signups is ten connections for half a minute — which is exactly the burst that
+  // could have left the signal platform unable to reconnect. It queues now instead.
+  const lease = await acquire('task', 'trade-sync');
+  const ws = await openWS(wsUrl).catch((e) => { lease.release(); throw e; });
   try {
     await appAuth(ws, app);
 
@@ -347,5 +362,6 @@ export async function fetchCTraderTrades(
       .filter((t): t is RawBrokerTrade => t !== null);
   } finally {
     ws.close();
+    lease.release();
   }
 }

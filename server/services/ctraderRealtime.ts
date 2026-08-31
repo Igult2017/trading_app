@@ -21,6 +21,7 @@ import { safeDecrypt } from '../lib/crypto';
 import { processIncomingTrades } from './brokerSyncService';
 import { notificationService } from './notificationService';
 import { refreshCTraderToken } from './autoSyncService';
+import { acquire, logUtilisation, stats, type Lease } from './ctraderConnPool';
 import {
   LIVE_WS, DEMO_WS, openWS, send, waitFor, appAuth, mapClosedDeal,
   PT_ACCT_AUTH_REQ, PT_ACCT_AUTH_RES, PT_SYMBOLS_REQ, PT_SYMBOLS_RES,
@@ -66,6 +67,21 @@ async function openFeed(id: string, attempt: number): Promise<void> {
   const acctId = Number(creds.ctraderId);
   const isLive = account.accountType?.toLowerCase() !== 'demo';
 
+  // A FEED HOLDS ITS SLOT FOR AS LONG AS THE SOCKET LIVES, and outranks transient work in the pool:
+  // cTrader is excluded from the 15-minute sync timer (`autoSyncService.ts:168`), so this feed is
+  // the ONLY ongoing trade sync this user has. A backfill can wait; a feed that cannot open means
+  // that user silently records nothing. The lease is released in exactly one place — the socket's
+  // 'close' handler below — because a feed that leaks a slot strangles the pool one account at a
+  // time, and the symptom (new feeds refused) looks nothing like the cause.
+  let lease: Lease;
+  try {
+    lease = await acquire('feed', 'live-feed');
+  } catch (err: any) {
+    console.error(`[cTraderRT] no connection slot for account ${id}: ${err.message}`);
+    scheduleReconnect(id);
+    return;
+  }
+
   try {
     const ws = await openWS(isLive ? LIVE_WS : DEMO_WS);
     await appAuth(ws, creds.app);       // the app that ISSUED this account's tokens
@@ -88,9 +104,15 @@ async function openFeed(id: string, attempt: number): Promise<void> {
     ws.on('close', () => {
       clearInterval(hb);
       conns.delete(id);
+      lease.release();                 // the slot goes back the moment the socket does
       if (!conn.closing) scheduleReconnect(id);
     });
   } catch (err: any) {
+    // RELEASED FIRST, before anything that might open another socket. The token-refresh retry below
+    // calls openFeed again, which acquires its own lease — without this the failed attempt's slot
+    // would still be held and a token-refresh loop would eat the pool one retry at a time.
+    // `release` is idempotent, and the 'close' handler above cannot have been attached on this path.
+    lease.release();
     const msg = String(err?.message ?? '');
     if (attempt === 0 && /2142|token|auth/i.test(msg)) {       // expired token → refresh once
       const fresh = await refreshCTraderToken(account).catch(() => null);
@@ -139,8 +161,14 @@ export async function startCTraderRealtime(): Promise<void> {
   if (!IS_PRIMARY) return;
   try {
     await reconcile();
-    console.log(`[cTraderRT] live feeds active for ${conns.size} cTrader account(s)`);
+    // ACCOUNTS AND CONNECTIONS ARE REPORTED SEPARATELY. They are the same number today — one socket
+    // per account — and the whole point of the pooling work is that they stop being. A log line that
+    // conflates them cannot show the change working.
+    const s = stats();
+    console.log(`[cTraderRT] live feeds active for ${conns.size} cTrader account(s) — ` +
+                `${s.held}/${s.max} pooled connections in use`);
     setInterval(() => { reconcile().catch(() => {}); }, RECONCILE_MS);
+    setInterval(logUtilisation, 60_000);
   } catch (e: any) {
     console.error(`[cTraderRT] startup failed: ${e.message}`);
   }

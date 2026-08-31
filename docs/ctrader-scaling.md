@@ -66,6 +66,31 @@ Anything that grows per-user only moves the date you hit the ceiling. Three supp
 
 ---
 
+## Stage 0 — a connection registry: cap what Node holds, and make it visible. **DONE 31 Aug**
+
+**Built before the multiplexing, because multiplexing without it is untestable** — nothing knew how
+many connections Node held.
+
+`server/services/ctraderConnPool.ts` is now the single owner of *"how many cTrader connections Node
+may hold"*. `CTRADER_MAX_CONNECTIONS`, default **8**, deliberately far under the unverified ~25 so
+the unknown stops mattering. Every socket Node opens takes a lease: the live feed
+(`ctraderRealtime.openFeed`), the trade sync, the balance read and the account list.
+
+**Feeds outrank transient work**, and that ordering is the safety property: cTrader is excluded from
+the 15-minute timer, so a feed that cannot open means that user silently records nothing, while a
+backfill can wait a few seconds and lose nothing.
+
+**Not applied to the signal platform or the copy engine** — separate processes, own connections. The
+cap is Node's, which is exactly what keeps the scanner out of the queue.
+
+**26 checks**, and the ones that matter are the leaks: a release is idempotent, `withConnection`
+releases even when the work throws, and a failed feed releases before the token-refresh retry opens
+another. A leaked slot strangles the pool one account at a time and surfaces weeks later as "new
+feeds stopped connecting", pointing nowhere near the release that never ran.
+
+The boot line now reports **accounts and connections separately** — they are the same number today,
+and Stage 1 is the change that makes them differ.
+
 ## Stage 1 — put many accounts on one connection
 
 **Change:** replace one-connection-per-account with a small pool, each connection carrying many
