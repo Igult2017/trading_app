@@ -1,106 +1,86 @@
 /**
- * Wordmark — the Trade&Journal brand lockup: the mark, then the name.
+ * Wordmark — the Trade&Journal brand lockup. ONE image: the mark and the name together.
  *
- * THE ARTWORK IS UNTOUCHED. He supplied `New logo.png` and chose this treatment himself over the
- * alternative that would have recoloured it (2026-08-30, picking option D): *"it's the only one that
- * honours 'use the logo I provided as it is' while still being legible."* Nothing here re-draws,
- * re-typesets, recolours or knocks a background out of it. The mark is cropped to its circle and its
- * own near-black ground travels with it — that ground IS the tile. The only thing applied to the
- * image is a border radius.
+ * THE NAME IS NO LONGER TEXT BESIDE THE MARK. His instruction, 2026-08-31: *"Change the logo to this
+ * so we don't need to write the app name again as 'Trade&Journal' because this logo comes with the
+ * name bigger and visible."* The supplied artwork (`Logo improved.jpg`) carries the wordmark under
+ * the mark, so setting it a second time in live text duplicated it.
  *
- * WHY THE NAME IS TEXT BESIDE IT RATHER THAN PART OF THE IMAGE. The supplied lockup is SQUARE
- * (1.08:1) with the words stacked under the mark. Measured against the real 68px header: the whole
- * thing renders 54x50, "TRADE & JOURNAL" lands **4.0px tall** and the tagline **1.6px** — a smudge,
- * confirmed by rendering it. The previous logo was 2.31:1 and got away with stacking; this one
- * cannot. Setting the name in live text keeps it legible at any header height, and in the same
- * typeface `Brand` already uses, so the name reads identically in the logo and in running prose.
+ * THE ARTWORK IS UNTOUCHED. Nothing here re-draws, re-typesets, recolours or knocks a background out
+ * of it. It is cropped to its own content, resized, and re-encoded — a compression change, not a
+ * design one. The paper ground it was supplied on travels with it and IS the tile, which is the same
+ * treatment the previous mark got and the reason one file serves light and dark surfaces alike.
  *
- * WHY 3.8 KB AND NOT 965 KB. The supplied PNG is 1254x1254 and renders about 44px square — roughly
- * 800 times the pixels the browser can use. Cropped to the mark and re-encoded at 132px (3x the
- * display size, so still sharp on a 3x panel) it is **3.8 KB, 99.6% smaller**. That is a compression
- * change, not a design one, which is why it does not conflict with using the logo as provided.
+ * WHY IT KEEPS ITS GROUND RATHER THAN BEING KNOCKED OUT. The wordmark is dark grey. On the six dark
+ * call sites — TradingLoader, AdminPanel, AuthCallbackPage and the three that follow the theme — a
+ * transparent version would put dark grey letters on a near-black shell, which is the exact failure
+ * the PREVIOUS logo had: measured at 1.63-1.76:1 and effectively invisible. Keeping the light ground
+ * means the name is always dark-on-light and always legible, whatever it sits on.
+ *
+ * WHY 10 KB AND NOT 600 KB. The supplied JPEG is 1250x848 and 599 KB, of which the artwork occupies
+ * 819x378 in the middle — the rest is empty paper. Cropped to the content and re-encoded at 180px
+ * tall (3x the display height, so still sharp on a 3x panel) it is **10.3 KB, 98% smaller**.
+ *
+ * ⚠ THE NAME IS 17% OF THE LOCKUP'S HEIGHT — measured off the artwork (72px of 430). That is the
+ * arithmetic that decides whether this works, and it is why the previous SQUARE lockup was rejected:
+ * at 1.08:1 its name rendered 4.0px tall in the real header, a smudge. This one is 2.03:1, close to
+ * the 2.31:1 logo that did work stacked. `height` is therefore set from the SURFACE, not left at one
+ * default: a header has ~68px to give, a splash screen has as much as it likes, and the name has to
+ * stay readable in both.
  *
  * IT IS PRELOADED, and that was half the original problem. An <img> inside a React component cannot
  * be requested until the bundle has been fetched, parsed, executed and rendered — measured, the
  * request began after DOMContentLoaded, which is why the logo used to arrive after the nav.
- * `client/index.html` preloads it during HTML parse. One file now serves light and dark surfaces
- * alike (the mark brings its own ground), so that preload is a plain link rather than the 25 lines
- * of theme-guessing JavaScript the two-variant logo needed.
+ * `client/index.html` preloads it during HTML parse.
  *
- * TEN CALL SITES depend on this one component — HomeHeader, HomeFooter, JournalHeader, AuthPage
- * (twice), AuthCallbackPage, TradingLoader, AdminPanel, LegalPage, SupportPage — which is why
- * changing the logo is one edit here and not ten.
+ * SIX CALL SITES depend on this one component — HomeHeader, HomeFooter, JournalHeader, TradingLoader,
+ * AdminPanel and AuthCallbackPage — which is why changing the logo is one edit here and not six.
  */
 
-import Brand from '@/components/Brand';
-
 export interface WordmarkProps {
-  /** Height of the lockup, in `em` so it tracks the site's own font-size. Width follows the
-   *  artwork's aspect ratio. */
+  /** Height of the lockup, in `em` so it tracks the surface's own font-size. Width follows the
+   *  artwork's 2.03:1 aspect. The name is 17% of this, so going below ~3.4em makes it hard to read. */
   height?: string;
-  /**
-   * Set the lettering for a dark surface.
-   *
-   * IT NO LONGER SWAPS THE IMAGE. The old logo was navy on transparent and vanished on dark shells
-   * (measured 1.63-1.76:1), so it needed a whole second file with the navy remapped to near-white.
-   * The new mark carries its own dark ground and reads on both, so this flag now only decides
-   * whether the NAME beside it is dark or light ink.
-   *
-   * STILL AN EXPLICIT FLAG rather than a CSS `.dark` rule, and the reason has not changed: the
-   * landing page carries its theme in React state (`usePublicTheme`) and never sets `html.dark`, so
-   * a CSS-only rule would silently miss exactly the page where the vanishing logo was first
-   * reported.
-   */
-  dark?: boolean;
   style?: React.CSSProperties;
   className?: string;
 }
 
-/** The mark's real pixel size — it is square. Given to the browser so it reserves the space BEFORE
- *  the image arrives; without it the nav beside the logo shifted sideways when it landed. */
-const NATURAL = 132;
+/** The artwork's real pixel size. Given to the browser so it reserves the space BEFORE the image
+ *  arrives; without it the nav beside the logo shifted sideways when it landed. */
+const NATURAL_W = 365;
+const NATURAL_H = 180;
 
-export default function Wordmark({ height = '2.4em', dark = false, style, className }: WordmarkProps) {
+// MEASURED, NOT CHOSEN. The header row this sits in is 68px (Playwright, 2026-08-31). At 3.4em the
+// lockup rendered 71.4px and spilled 1.7px above and below the bar; at 3.0em it is 63px and clears
+// it with room each side. The name is 17% of that — about 10.5px, which is the number that matters
+// and the reason this is not left to a guess.
+export default function Wordmark({ height = '3.0em', style, className }: WordmarkProps) {
   return (
-    <span
+    <img
       className={className}
-      style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5em', flexShrink: 0, ...style }}
-    >
-      <img
-        src="/logo-mark.webp"
-        alt="Trade&Journal"
-        width={NATURAL}
-        height={NATURAL}
-        // It is the brand mark in the header — never lazy, and worth jumping the queue for. `async`
-        // decoding would let the browser paint the header without it and add it a frame later, which
-        // is the exact stutter this is meant to remove.
-        loading="eager"
-        // LOWERCASE. React 18 does not recognise the camelCase `fetchPriority` and warns, leaving the
-        // attribute off the element entirely; it passes unknown lowercase attributes straight through.
-        // (React 19 added the camelCase form — change this only when the app is on 19.)
-        {...{ fetchpriority: 'high' }}
-        decoding="sync"
-        style={{
-          height, width: height, display: 'block', flexShrink: 0,
-          // The mark's own near-black ground IS the tile. Rounding it is the only thing done to the
-          // artwork — no crop of the circle, no recolour, no transparency punched through it.
-          borderRadius: '0.22em',
-        }}
-      />
-      {/* THE NAME COMES FROM `Brand`, not a second copy of it. That component owns how the name is
-          set — Playfair letters with the ampersand in a sans, his instruction of 2026-08-30 — and
-          rendering it here means the logo and the name in running prose cannot drift apart. It used
-          to be a hardcoded string in this file with its own font, which is exactly the kind of
-          duplication that had them disagreeing. */}
-      <Brand
-        style={{
-          fontSize: `calc(${height} * 0.42)`,
-          letterSpacing: '-0.01em',
-          lineHeight: 1,
-          whiteSpace: 'nowrap',
-          color: dark ? '#F1F5F9' : '#0F172A',
-        }}
-      />
-    </span>
+      src="/logo-lockup.webp"
+      alt="Trade&Journal"
+      width={NATURAL_W}
+      height={NATURAL_H}
+      // It is the brand mark in the header — never lazy, and worth jumping the queue for. `async`
+      // decoding would let the browser paint the header without it and add it a frame later, which
+      // is the exact stutter this is meant to remove.
+      loading="eager"
+      // LOWERCASE. React 18 does not recognise the camelCase `fetchPriority` and warns, leaving the
+      // attribute off the element entirely; it passes unknown lowercase attributes straight through.
+      // (React 19 added the camelCase form — change this only when the app is on 19.)
+      {...{ fetchpriority: 'high' }}
+      decoding="sync"
+      style={{
+        height,
+        width: 'auto',              // the artwork's aspect decides the width; never squash the name
+        display: 'block',
+        flexShrink: 0,
+        // Rounding the tile is the only thing applied to the artwork — no crop of the mark, no
+        // recolour, no transparency punched through it.
+        borderRadius: '0.14em',
+        ...style,
+      }}
+    />
   );
 }

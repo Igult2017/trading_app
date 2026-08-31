@@ -123,7 +123,7 @@ export default function HomeFooter({ darkMode = false }: HomeFooterProps) {
           <div>
             <Link href="/" style={{ textDecoration: "none", display: "inline-block", marginBottom: 14 }}>
               <span style={{ ...hFont, fontSize: 20, color: logoClr }}>
-                <Wordmark dark={dm} />
+                <Wordmark />
               </span>
             </Link>
             <p style={{ fontSize: 13, color: descClr, lineHeight: 1.8, margin: 0, ...bFont }}>

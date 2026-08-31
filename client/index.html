@@ -23,10 +23,16 @@
 
          A PLAIN LINK, NOT A SCRIPT (2026-08-30). This used to be 25 lines of JavaScript reading two
          different theme keys from localStorage to guess whether to fetch the light or the reversed
-         logo. The new mark carries its own dark ground, so ONE file serves both surfaces — the guess,
-         the two keys, the try/catch for privacy modes and the risk of guessing wrong all go away, and
-         a static link starts the fetch earlier than a script ever could. 3.8 KB. -->
-    <link rel="preload" href="/logo-mark.webp" as="image" type="image/webp" fetchpriority="high" />
+         logo. The mark carries its own ground, so ONE file serves both surfaces — the guess, the two
+         keys, the try/catch for privacy modes and the risk of guessing wrong all go away, and a
+         static link starts the fetch earlier than a script ever could.
+
+         THE FILE CHANGED 2026-08-31: `logo-lockup.webp` is the mark AND the name in one image, so
+         the name is no longer set as live text beside it. 10.3 KB, cropped from a 599 KB JPEG whose
+         artwork occupied the middle third. Keep this in step with `components/Wordmark.tsx` — a
+         preload of a file nothing renders is pure waste, and a render with no preload is the late
+         logo this block exists to prevent. -->
+    <link rel="preload" href="/logo-lockup.webp" as="image" type="image/webp" fetchpriority="high" />
 
     <!-- Primary SEO -->
     <title>Trade&amp;Journal – Professional Trading Journal for Forex, Crypto &amp; Commodities</title>
