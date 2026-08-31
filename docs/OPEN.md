@@ -249,6 +249,47 @@ red self-test that everyone steps around is how a real regression gets missed: t
 break something here will see two failures and assume they are the usual two.
 
 
+### B15 - ~~Autotrade was switched ON and refusing EVERY order — it could not read the balance~~ FIXED 31 Aug 🔴
+**His question:** *"Is autotrading working now?"* **It was not, and the answer took reading rather
+than remembering.** Everything looked right: `AUTOTRADE_ENABLED=true` in production, the order path
+proved on the demo account on 30 Aug, the demo-only guard passing, `AUTOTRADE_STRATEGIES` defaulting
+to vix1. And the demo account holds **no pending orders and no open positions** — nothing had ever
+been placed from a signal.
+
+**Cause: the credential bridge never sent any money figure.** Queried against production, the
+endpoint's keys were exactly `access_token, account_id, account_type, ctrader_id, environment,
+expires_at, is_live, refresh_token`. `execution/account._equity` reads the first positive value
+among equity / balance / account_equity / accountBalance, found none, returned `0.0`, and
+`guards.check` answered **"account equity unknown"** on every signal — one log line, indistinguishable
+from a quiet market.
+
+**The same shape as D4**, which refused every order because the demo guard read a field the endpoint
+never sent. That fix added `account_type` and `environment`. Nobody checked whether the OTHER thing
+the guard needs was there.
+
+**Fix:** `SELECT` now includes `balance, currency` and `ctraderCredsFor` returns them, under both
+`balance` and `equity` for the same reason `account_type` and `environment` are both sent — the
+reader looks for several spellings and neither side should have to know which it picks.
+
+⚠ **THIS IS WHAT MAKES AUTOTRADE ACTUALLY START PLACING ORDERS.** It has been on and inert; after
+this deploy it will place. Demo-only is enforced at runtime, VIX.1 only, 0.5% risk, max 6 per
+rolling 24h, one live order per symbol+direction.
+
+### B16 - Autotrade trades London and New York sessions only. DONE 31 Aug
+**His instruction:** *"I want you to make it trade during London and New York Sessions only."*
+
+New guard in `execution/guards.check` (step 4b), driven by `AUTOTRADE_SESSIONS`, default
+`london,new_york`. Empty = any session, so it is reversible without a code change.
+
+**No hours are written into the guard.** `scheduler/session_windows.get_current_sessions` already
+computes the windows from each centre's real timezone (Europe/London and America/New_York,
+08:00-17:00 local), so daylight saving is handled in one place and this agrees with the sessions
+page. A second definition would drift from the first twice a year.
+
+**It gates ORDERS ONLY** — signals still fire in every session and still reach Telegram. He asked
+for autotrade to be restricted, not the strategy. **It refuses if the session cannot be read**, like
+every other guard in that module.
+
 ### B14 - ~~VIX.1 fired a Sunday-open signal on a candle that closed FRIDAY~~ FIXED 31 Aug 🔴
 **His report, 31 Aug:** *"Why did this signal fire and when I looked at it there was no momentum
 candle forming."* **He was right, and the event is REPRODUCED, not inferred.**

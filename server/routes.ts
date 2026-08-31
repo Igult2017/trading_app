@@ -2425,7 +2425,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
    * `is_live` is kept because existing callers read it.
    */
   async function ctraderCredsFor(
-    row: { id: string; account_type: string; password_enc: string },
+    row: { id: string; account_type: string; password_enc: string;
+           balance?: string | null; currency?: string | null },
     creds: any,
   ): Promise<Record<string, unknown> | null> {
     if (!creds?.accessToken || !creds?.refreshToken) return null;
@@ -2454,6 +2455,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       environment:   accountType,          // the other name it looks for, so neither can miss
       is_live:       accountType !== 'demo',
       ctrader_id:    String(creds.ctraderId ?? ''),
+      // WITHOUT THIS, AUTOTRADE REFUSES EVERY ORDER. `execution/account._equity` reads the first
+      // positive value among equity/balance/account_equity/accountBalance; none was ever sent, so
+      // it returned 0.0 and `guards.check` answered "account equity unknown" on every signal.
+      // Sent under BOTH names for the same reason `account_type` and `environment` are: the reader
+      // looks for several spellings and neither side should have to know which one it picks.
+      balance:       row.balance != null ? Number(row.balance) : null,
+      equity:        row.balance != null ? Number(row.balance) : null,
+      currency:      row.currency ?? null,
     };
   }
 
@@ -2475,9 +2484,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // PINNED READS MUST NOT BE LIMITED BY RECENCY. The pinned account is found by decrypting and
       // matching `ctraderId`, which SQL cannot filter on — and it is precisely the account NOT being
       // touched, so a `LIMIT 5` ordered by recency is exactly how it would be missed.
+      // `balance` and `currency` are selected because AUTOTRADE CANNOT SIZE A TRADE WITHOUT THEM.
+      // They were not, so `execution/account._equity` found nothing, returned 0.0, and
+      // `guards.check` refused every single order with "account equity unknown" — with the kill
+      // switch switched ON and everything else correct. Same shape as the `account_type` defect
+      // (OPEN.md D4): a guard reading a field the endpoint never sent.
       const { rows } = await pool.query<{
         id: string; account_type: string; password_enc: string;
-      }>(`SELECT id, account_type, password_enc FROM broker_accounts WHERE platform = 'ctrader' ORDER BY updated_at DESC ${pin ? 'LIMIT 200' : 'LIMIT 5'}`);
+        balance: string | null; currency: string | null;
+      }>(`SELECT id, account_type, password_enc, balance, currency FROM broker_accounts WHERE platform = 'ctrader' ORDER BY updated_at DESC ${pin ? 'LIMIT 200' : 'LIMIT 5'}`);
 
       if (pin) {
         for (const row of rows) {

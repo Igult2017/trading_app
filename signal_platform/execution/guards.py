@@ -62,6 +62,29 @@ def check(symbol: str, direction: str, strategy: str,
     if syms and (symbol or "").lower() not in syms:
         return f"symbol {symbol!r} is not in autotrade_symbols"
 
+    # 4b. SESSION ALLOW-LIST — his instruction, 2026-08-31: *"I want you to make it trade during
+    #     London and New York Sessions only."* Empty = any session.
+    #
+    #     THE WINDOWS ARE NOT DEFINED HERE. `get_current_sessions` computes them from each centre's
+    #     real timezone, so daylight saving is handled and this agrees with what the sessions page
+    #     shows. Writing "London is 08:00-17:00 UTC" here would be a second definition that drifts
+    #     from the first twice a year.
+    #
+    #     REFUSES ON ERROR, like every other guard: if the session cannot be read we do not know
+    #     whether we are inside the permitted window, and "ambiguous refuses" is the rule this
+    #     module opens with.
+    wanted = _csv(settings.autotrade_sessions)
+    if wanted:
+        try:
+            from scheduler.session_windows import get_current_sessions
+            active = {s.value.lower() for s in get_current_sessions()}
+        except Exception as exc:
+            return f"could not read the current session ({type(exc).__name__}) — refusing"
+        if not (wanted & active):
+            return (f"outside the permitted sessions — now: "
+                    f"{', '.join(sorted(active - {'all'})) or 'none'}; allowed: "
+                    f"{', '.join(sorted(wanted))}")
+
     # 5. SIZE. 0.0 means sizing could not be done honestly (no equity, no stop). Never guess.
     if lots <= 0:
         return "no honest size (equity or stop distance missing)"

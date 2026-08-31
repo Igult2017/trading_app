@@ -48,6 +48,7 @@ TESTS = [
     # ADDED 2026-08-30. test_auto_breakeven stubs out StopOrderClient, so it could not see that the
     # real order path neither imported nor resolved a symbol. This one uses the real functions.
     "test_execution_placement.py",  # the order path loads in production's cwd, and names the pair
+    "test_autotrade_sessions.py",   # when autotrade may trade, and the equity it could not read
     # ADDED 2026-08-30. The watchdog is the point: a dead price stream looks exactly like a quiet
     # market, so it is tested by KILLING the session, not by reading the code.
     "test_trade_watcher.py",        # live price, correct side of the spread, and the stale-stream alarm

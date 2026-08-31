@@ -146,6 +146,17 @@ class Settings(BaseSettings):
     autotrade_max_per_day: int   = 6       # hard cap on orders placed in a rolling 24h
     autotrade_symbols:     str   = ""      # CSV allow-list; empty = every symbol the strategy fires
     autotrade_strategies:  str   = "vix1"  # CSV of strategy ids allowed to place. VIX.1 only for now
+    # WHEN MAY IT TRADE — his instruction, 2026-08-31: *"I want you to make it trade during London
+    # and New York Sessions only."* CSV of session names; empty means any session.
+    #
+    # The windows are NOT defined here and no hours are hardcoded: `scheduler/session_windows`
+    # already computes them from each centre's real timezone (Europe/London and America/New_York,
+    # 08:00-17:00 local), so daylight saving is handled and this agrees with the sessions page the
+    # rest of the platform shows. A second copy of "when is London" would drift from the first.
+    #
+    # This gates ORDERS ONLY. Signals still fire in every session and still reach Telegram —
+    # he asked for autotrade to be restricted, not the strategy.
+    autotrade_sessions:    str   = "london,new_york"
     # AUTO-BREAKEVEN — the platform MOVING a stop on a live position, which is a different act from
     # placing a new order and so gets its own switch. Off by default; nothing is amended until this
     # is set. Demo-only is enforced at runtime the same way autotrade's is.
