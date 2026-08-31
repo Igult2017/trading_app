@@ -135,6 +135,19 @@ All measurable with the existing credentials on a **demo** account:
 > `CH_ACCESS_TOKEN_INVALID`, and it is why `ct_pull.py` carries a never-refresh rail. Use a throwaway
 > demo cTID with its own token pair. Tests 1 and 2 are read-only and safe on any demo account.
 
+## ⚠ SUPERSEDED IN PART — Spotware REFUSED the second app (31 Aug 2026)
+
+The decision below ("unset the sync vars + redeploy, or wait on approval") is closed: **approval was
+refused**, so one app has to carry everything, permanently. Two consequences:
+
+* `newConnectApp()` now requires `CTRADER_SYNC_APP_APPROVED=true` before it will ever choose the
+  second app — being CONFIGURED was being treated as being APPROVED, which is what made every
+  "Add Account" click return a 404 from connect.spotware.com. See OPEN.md D1.
+* **How one app serves 2000 users is [ctrader-scaling.md](./ctrader-scaling.md)** — staged, with the
+  measurement that gates each stage. The research below (rate limits are per CONNECTION, many
+  accounts may share one connection, invalidation is per-account) is what that plan is built on and
+  is still current.
+
 ## Where we left off
 
 - Diagnosis complete and verified against production env. **No code or env changed.**

@@ -127,6 +127,14 @@ It runs on your **journal trade entries**; it has nothing to do with the signal 
 
 [ctrader-open-api-apps.md](./ctrader-open-api-apps.md).
 
+### "will this hold at 2000 users?" / "account sync is eating the signal platform's connections"
+
+[ctrader-scaling.md](./ctrader-scaling.md) — **Spotware REFUSED the second app (31 Aug 2026)**, so one
+approved application carries the scanner, account syncing and copy trading permanently. The doc holds
+the measured facts, what breaks at 15 / 200 / 2000 users, and four staged changes each gated on a
+measurement. **The rule it exists to protect: connection count must not grow with user count, and the
+signal platform is never behind a Node queue.**
+
 ---
 
 ## SETTLED — do not re-derive these
