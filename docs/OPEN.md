@@ -735,7 +735,28 @@ credential problem no code change can fix.
 **23 checks** in `server/services/tradeRecording.test.ts` (section 5), `tsc` clean.
 
 
-### D15 - The second account (`ct`, login 5834793) has no stored access token. NEEDS HIM
+### D15 - ~~The second account (`ct`, login 5834793) has no stored access token~~ RESOLVED 31 Aug — no longer needs him
+**It has a working token now.** On the first boot after the trade recorders were switched on (D17),
+that account both attached to the live feed and completed a sync:
+
+```
+[cTraderRT] live feed attached — account f0844dd7… (ctid 47535327)
+[cTrader] PT_TRADER_RES raw for 47535327: {"balance":100000,…}
+[Storage] seeded session 548bc4c3… starting balance 1000.00 from broker account f0844dd7…
+```
+
+**Why that is proof rather than a hopeful reading:** the balance fetch runs ONLY on the success
+branch of `syncAccount`, after `syncStatus: 'ok'` is written
+([`autoSyncService.ts:158`](../server/services/autoSyncService.ts#L158)) — and fetching a balance
+needs a valid access token. A sync completed and a token was used, so neither of the two things this
+item was about is still true. The $1,000 balance matches the figure recorded below.
+
+**The original problem, kept for the record:** its sync error was `cTrader: not connected. Complete
+OAuth first.`, thrown at [`brokerAdapters/index.ts:56`](../server/services/brokerAdapters/index.ts#L56)
+when the decrypted credentials carried no `accessToken`. It was a data/state problem, not a code
+defect, and it needed him to reconnect the account — which has since happened.
+
+<details><summary>original entry</summary>
 Its sync error is `cTrader: not connected. Complete OAuth first.` — thrown at
 [`brokerAdapters/index.ts:56`](../server/services/brokerAdapters/index.ts#L56) when the decrypted
 credentials carry no `accessToken`.
@@ -747,6 +768,7 @@ simply has no usable token stored. It shows a $1,000 balance, so it was connecte
 **It is NOT the signal platform's account** — that is `ctrader` / 5296567 / $10,000, pinned by
 `CTRADER_SIGNAL_ACCOUNT_ID=47535363`. Nothing about the scanner, autotrade or the copy engine depends
 on `ct`.
+</details>
 
 
 ### D3 - ~~Any user's account could become the signal platform's credentials~~ FIXED 30 Aug
