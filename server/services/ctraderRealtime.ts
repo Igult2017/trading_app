@@ -114,7 +114,15 @@ function onTrade(member: Member, payload: any): void {
 async function reconcile(): Promise<void> {
   const all = await db.select().from(brokerAccounts).where(eq(brokerAccounts.connectionType, 'api'));
   const wanted = new Set(all.filter(a => a.platform.toLowerCase() === 'ctrader').map(a => a.id));
-  wanted.forEach(id => { if (!isAttached(id)) connect(id).catch(() => {}); });
+  // AWAITED, so that whoever called reconcile can report what is actually attached. The first
+  // production boot logged "live feeds active for 0 account(s) on 0 socket(s)" and then printed two
+  // "live feed attached" lines underneath it — the connects were still in flight when the summary
+  // read the counters. That summary is the evidence line for the whole pooling design, so a version
+  // of it that reports zeros while two feeds are opening is worse than no line at all.
+  // Failures stay per-account: one account that cannot connect must not stop the others.
+  await Promise.all(
+    [...wanted].filter(id => !isAttached(id)).map(id => connect(id).catch(() => {}))
+  );
   attachedIds().forEach(id => { if (!wanted.has(id)) removeCTraderAccount(id); });
 }
 
