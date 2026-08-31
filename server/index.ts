@@ -1,26 +1,31 @@
+/**
+ * index.ts — THE DEVELOPMENT ENTRY (`npm run dev`). The container does NOT run this file; it runs
+ * `dist/index.prod.js`, built from `index.prod.ts`. See that file for why the split has to stay.
+ *
+ * Everything the two entries share now lives in `lib/appSetup.ts` (middleware) and
+ * `lib/backgroundServices.ts` (long-running work), because keeping them in step by hand failed:
+ * security middleware and the trade-recording services were both added here and never reached
+ * production. Add shared things THERE, not here.
+ *
+ * What legitimately belongs only in this file: the Vite dev middleware, and the two Python child
+ * processes — in the container `start.sh` spawns those itself under its own restart watchdogs.
+ */
 import "dotenv/config";
-import express, { type Request, Response, NextFunction } from "express";
-import helmet from "helmet";
-import compression from "compression";
-import rateLimit from "express-rate-limit";
-import { RedisStore } from "rate-limit-redis";
-import { redis } from "./lib/redis";
+import express from "express";
 import { spawn, type ChildProcess } from "child_process";
 import path from "path";
-import fs from "fs";
 import { fileURLToPath } from "url";
 import { registerRoutes } from "./routes";
 import { serveStatic, log } from "./static";
 import { scraperScheduler } from "./scrapers/scheduler";
-import { startAutoSync } from "./services/autoSyncService";
-import { startHealthWatchdog } from "./services/healthWatchdog";
-import { startCTraderRealtime } from "./services/ctraderRealtime";
 import { startCopyPlatform, stopCopyPlatform } from "./services/copyPlatformProcess";
 import { startSignalPlatform, stopSignalPlatform } from "./services/signalPlatformProcess";
 import { initializeDatabase } from "./db-init";
 import { getCachedMultiplePrices, pingPriceService } from "./lib/priceService";
 import { PYTHON_BIN } from "./lib/pythonBin";
 import { logServiceStatus } from "./lib/serviceCheck";
+import { applyAppSetup, installErrorHandler } from "./lib/appSetup";
+import { startBackgroundServices, isPrimaryWorker } from "./lib/backgroundServices";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -67,82 +72,7 @@ function startPriceDaemon() {
 
 
 const app = express();
-
-// Must be first — ensures req.ip is the real client IP when behind nginx/load balancer
-app.set('trust proxy', 1);
-
-// Security headers — X-Frame-Options, X-Content-Type-Options, HSTS, etc.
-app.use(helmet({
-  contentSecurityPolicy: false, // CSP managed separately (app uses inline styles)
-  crossOriginEmbedderPolicy: false,
-}));
-
-// Gzip all responses — cuts payload size 60-80%
-app.use(compression());
-
-// Strict rate limit on auth endpoints — 10 attempts per 15 min per IP
-const authLimiter = rateLimit({
-  windowMs: 15 * 60_000,
-  max: 10,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { message: 'Too many login attempts, please try again later.' },
-  ...(redis ? { store: new RedisStore({ sendCommand: ((...args: string[]) => (redis as any).call(...args)) as any }) } : {}),
-});
-app.use('/api/auth', authLimiter);
-
-// General API rate limiting — 200 req/min per IP
-app.use('/api', rateLimit({
-  windowMs: 60_000,
-  max: 200,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { message: 'Too many requests, please try again in a minute.' },
-  ...(redis ? { store: new RedisStore({ sendCommand: ((...args: string[]) => (redis as any).call(...args)) as any }) } : {}),
-}));
-
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ extended: false, limit: '50mb' }));
-
-// Serve uploaded blog images
-const uploadsDir = path.resolve(process.cwd(), 'uploads');
-if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
-app.use('/uploads', express.static(uploadsDir));
-
-app.use((req, res, next) => {
-  const start = Date.now();
-  const path = req.path;
-  let capturedJsonResponse: Record<string, any> | undefined = undefined;
-
-  const originalResJson = res.json;
-  res.json = function (bodyJson, ...args) {
-    capturedJsonResponse = bodyJson;
-    return originalResJson.apply(res, [bodyJson, ...args]);
-  };
-
-  res.on("finish", () => {
-    const duration = Date.now() - start;
-    if (path.startsWith("/api")) {
-      let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-      if (capturedJsonResponse) {
-        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
-      }
-
-      if (logLine.length > 80) {
-        logLine = logLine.slice(0, 79) + "…";
-      }
-
-      log(logLine);
-    }
-  });
-
-  next();
-});
-
-// In PM2 cluster mode each worker gets NODE_APP_INSTANCE = '0', '1', '2'…
-// Background tasks that write to the DB or call external services must only
-// run in one worker — otherwise every restart multiplies scraper load by core count.
-const isPrimaryWorker = !process.env.NODE_APP_INSTANCE || process.env.NODE_APP_INSTANCE === '0';
+applyAppSetup(app);
 
 (async () => {
   if (isPrimaryWorker) {
@@ -159,14 +89,7 @@ const isPrimaryWorker = !process.env.NODE_APP_INSTANCE || process.env.NODE_APP_I
 
   const server = await registerRoutes(app);
 
-  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-    const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
-    if (!res.headersSent) {
-      res.status(status).json({ message });
-    }
-    log(`[Error] ${status}: ${message}`);
-  });
+  installErrorHandler(app);
 
   // importantly only setup vite in development and after
   // setting up all the other routes so the catch-all route
@@ -194,34 +117,14 @@ const isPrimaryWorker = !process.env.NODE_APP_INSTANCE || process.env.NODE_APP_I
     log(`serving on port ${port}`);
     logServiceStatus();
     log(`[Signal] Platform status: GET /api/signal-platform/status  (cTrader + last signal + 24h count)`);
-    // Only worker 0 runs scrapers — prevents N-core duplicate DB writes + external API bans
-    if (isPrimaryWorker) scraperScheduler.start();
-    if (isPrimaryWorker) startAutoSync();
-    if (isPrimaryWorker) startHealthWatchdog();    // coded health alerts (token / scanner / engine)
-    if (isPrimaryWorker) startCTraderRealtime();   // instant cTrader trade recording
+    startBackgroundServices();
+    // DEV-ONLY, and deliberately not in `backgroundServices`: in the container `start.sh` spawns
+    // both Python processes itself under its own restart watchdogs. `startSignalPlatform` guards
+    // itself with SIGNAL_PLATFORM_MANAGED; `startCopyPlatform` has NO such guard, so calling it
+    // from the shared module would run a second copy engine in production and duplicate every
+    // copied trade.
     if (isPrimaryWorker) startCopyPlatform();
-    // Start signal platform unless Docker already started it via start.sh
     if (isPrimaryWorker && !process.env.SIGNAL_PLATFORM_MANAGED) startSignalPlatform();
-
-    // Mirror Python signal platform boot status into Node logs so it appears in Coolify.
-    // Python writes /app/.signal_platform_status.json; Node polls and re-logs it.
-    if (isPrimaryWorker && process.env.SIGNAL_PLATFORM_MANAGED) {
-      const STATUS_FILE = "/app/.signal_platform_status.json";
-      let lastStatus = "";
-      const pollStatus = () => {
-        try {
-          const raw = fs.readFileSync(STATUS_FILE, "utf8");
-          const s = JSON.parse(raw) as { status: string; error?: string; hint?: string; ts?: number };
-          const line = s.status === "error"
-            ? `[SignalPlatform] BOOT ERROR: ${s.error} | FIX: ${s.hint}`
-            : `[SignalPlatform] status=${s.status}`;
-          if (line !== lastStatus) { log(line); lastStatus = line; }
-          if (s.status === "ok") clearInterval(interval);       // stop polling once running
-        } catch { /* file not written yet — Python still starting */ }
-      };
-      setTimeout(pollStatus, 8_000);                            // first check after 8s
-      const interval = setInterval(pollStatus, 15_000);         // then every 15s until ok
-    }
 
     // DISABLED — price daemon warmup commented out to avoid slow boot / failed requests
     /*
