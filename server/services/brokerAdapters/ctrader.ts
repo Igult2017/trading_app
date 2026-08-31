@@ -33,11 +33,32 @@ export function appCreds(app?: string): { clientId: string; clientSecret: string
   return { clientId: process.env.CTRADER_CLIENT_ID ?? '', clientSecret: process.env.CTRADER_CLIENT_SECRET ?? '' };
 }
 
-/** Which app NEW account connects are issued under: the sync app when configured, else legacy.
- *  (While the sync app is still pending Spotware approval its credentials fail — deploy the
- *  cutover only once the portal shows the app Active.) */
+/**
+ * Which cTrader app NEW account connects are issued under.
+ *
+ * BEING CONFIGURED IS NOT THE SAME AS BEING APPROVED, and treating them as the same broke account
+ * connection for every user. This returned `'sync'` whenever the sync app's id and secret were
+ * merely PRESENT — and they have been present in production since the split, while Spotware has
+ * never approved that app. So the sign-in page was built with an unapproved client id and
+ * connect.spotware.com answered **404 NOT FOUND**. Nobody could add an account at all.
+ *
+ * The comment above this function already warned that the credentials fail while approval is
+ * pending, and told whoever read it to "deploy the cutover only once the portal shows the app
+ * Active" — but nothing enforced that, and setting the variables WAS the cutover.
+ *
+ * So approval is now stated explicitly and separately. `CTRADER_SYNC_APP_APPROVED=true` is the
+ * switch, and until it is set every new connect goes to the legacy app, which is the approved one.
+ * When Spotware does approve it, that is one environment variable and no code change.
+ *
+ * THE READ PATH IS DELIBERATELY UNTOUCHED. `appCreds` still honours `app: "sync"` on accounts
+ * already connected under it, so this changes what NEW connects use and nothing else. Unsetting
+ * the sync credentials — the other obvious fix — would have silently changed the read path too,
+ * because `appCreds` falls back to the legacy pair when they are absent.
+ */
 export function newConnectApp(): 'sync' | 'legacy' {
-  return process.env.CTRADER_SYNC_CLIENT_ID && process.env.CTRADER_SYNC_CLIENT_SECRET ? 'sync' : 'legacy';
+  const approved = String(process.env.CTRADER_SYNC_APP_APPROVED ?? '').trim().toLowerCase() === 'true';
+  return approved && process.env.CTRADER_SYNC_CLIENT_ID && process.env.CTRADER_SYNC_CLIENT_SECRET
+    ? 'sync' : 'legacy';
 }
 
 export const LIVE_WS = 'wss://live.ctraderapi.com:5036';

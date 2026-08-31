@@ -708,9 +708,33 @@ an internal boundary disagreeing about a field name, failing silently. Worth a h
 side reads a field, assert the other side sends it.
 
 
-### D1 — Production routes new account connections through a BLOCKED app
-**Carried.** The fix is to unset two `CTRADER_SYNC_*` environment variables and redeploy.
-**Blocked on:** the Spotware reply.
+### D1 — ~~Production routes new account connections through a BLOCKED app~~ FIXED 31 Aug 🔴
+**It was not just "carried" — it was breaking account connection for every user, and he hit it.**
+Clicking "Add Account" sent him to connect.spotware.com and returned a bare **404 NOT FOUND**. The
+sign-in link carried `client_id=34053_…`, which is `CTRADER_SYNC_CLIENT_ID` — the second app
+("Journal Trade Sync") that Spotware has never approved. Verified against the production
+environment: that id is the sync app's, and the approved one is `30153_…`.
+
+**Root cause: being CONFIGURED was treated as being APPROVED.** `newConnectApp()` returned `'sync'`
+whenever the sync app's id and secret were merely present, and they have been present since the
+apps were split. The function's own comment warned *"deploy the cutover only once the portal shows
+the app Active"* — but **setting the variables WAS the cutover**, so the warning had nothing behind
+it. A note telling the next person to be careful is not a guard.
+
+**Fix:** approval is now stated explicitly and separately — `CTRADER_SYNC_APP_APPROVED=true`. Until
+that is set, every new connect uses the legacy (approved) app. The day Spotware approves it, that is
+one environment variable and no code change.
+
+**Deliberately NOT the fix that was written down here.** Unsetting the two `CTRADER_SYNC_*`
+variables would also have changed the READ path, because `appCreds` falls back to the legacy pair
+when they are absent — so accounts already connected under the sync app would silently start
+authenticating with the wrong credentials. The code change leaves reading untouched and only
+redirects NEW connects. 16 checks, including two TEETH cases reproducing production's exact state.
+
+**Still open, and worth watching after this deploys:** whether
+`https://www.fsdzones.cloud/api/broker/ctrader/callback` is registered as a redirect URI on the
+LEGACY app in the cTrader portal. **I have not been able to verify that from here.** If it is not,
+the 404 becomes a redirect-mismatch error instead — a different message, same inability to connect.
 **Where:** [ctrader-open-api-apps.md](./ctrader-open-api-apps.md).
 
 ### D2 — ~~An orphaned copy master logs "broker account not found" every 30 seconds~~ FIXED 30 Aug — but the fix had a defect, corrected 31 Aug
