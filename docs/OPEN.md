@@ -645,6 +645,52 @@ in `toDate` is how the two halves came to disagree.
 restore the old rule and confirm it produced an Invalid Date, that the Invalid Date was truthy, and
 that it dated the millisecond adapters to the year 58,633.
 
+### D18 - ~~The copy engine died and reconnected every 6 seconds, forever — it could not decode a single broker message~~ FIXED 01 Sep 🔴
+**Found by reading the production logs**, not reported. In a 7.5-minute window the copy provider
+logged **63 disconnects** — one roughly every 6 seconds — for master `67470ef2`, continuously:
+
+```
+File "/app/copy_platform/providers/ctrader.py", line 137, in _on_message
+  res = Protobuf.extract(message, ProtoOASymbolsListRes)
+builtins.TypeError: Protobuf.extract() takes 2 positional arguments but 3 were given
+```
+
+It authenticated, asked for the symbol list, and died on the reply. Every time. **Copy trading could
+never have worked** — the master feed never got past its first message.
+
+**Root cause.** `Protobuf.extract` is a **classmethod taking only `(message)`** — it works the type
+out itself from `message.payloadType`. Passing the expected type as a second argument makes three
+(`cls` + message + type). **All EIGHT call sites did it**: four in
+[`providers/ctrader.py`](../copy_platform/providers/ctrader.py) and four in
+[`executors/ctrader.py`](../copy_platform/executors/ctrader.py). Fixing four would have fixed
+nothing — the executor would have died the same way on the first copied order.
+
+**NOT a library upgrade.** `ctrader-open-api` is pinned at `0.9.2` in
+[`copy_platform/requirements.txt`](../copy_platform/requirements.txt) and in the signal platform, and
+0.9.2 is what is installed — its `extract(cls, message)` has always taken one argument. The call was
+wrong against the pinned version from the start, so no rebuild would ever have fixed it. The second
+argument was also **redundant**: every call already sits inside `elif ptype == X().payloadType:`, so
+the type is confirmed before the call. Dropping it changes nothing but the crash.
+
+**Why nothing caught it.** The call only runs when a real broker message of that exact type arrives,
+so it needs a live socket to fail at all. Nothing in the suite decoded a real message — the whole
+decoder was unexercised.
+
+**Fix:** `Protobuf.extract(message)` at all eight sites. The imported type names stay — the
+`payloadType` guards still use them, so nothing was orphaned.
+
+**11 checks** in [`copy_platform/tests/test_protobuf_extract.py`](../copy_platform/tests/test_protobuf_extract.py).
+It builds real protobuf payloads and decodes them **through the real installed library** — a mock of
+the library is exactly what would have let this through. Plus a source scan that fails if any call
+site regains a second argument, and a teeth case firing the original call to prove it still raises.
+
+**Still open, deliberately not changed:** the provider retries every 5 seconds forever after any
+disconnect ([`providers/ctrader.py:118`](../copy_platform/providers/ctrader.py#L118)). With the
+decoder fixed the loop stops, but a different fault would produce the same hammering — against the
+**one** cTrader application the scanner also uses, since Spotware refused the second. Worth a backoff
+that widens; not done here because it is a design change, not this defect.
+
+
 ### D17 - ~~Production ran a different server than dev: no trade recording, and no security middleware~~ FIXED 31 Aug 🔴
 **This is the other half of his question** *"How do we expect it to show trades?"* — and the answer
 was that nothing recorded them.

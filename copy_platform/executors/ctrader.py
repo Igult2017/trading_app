@@ -205,7 +205,7 @@ class CTraderExecutor:
                 self._send_command(client)
 
         elif ptype == ProtoOASymbolsListRes().payloadType:
-            res = Protobuf.extract(message, ProtoOASymbolsListRes)
+            res = Protobuf.extract(message)
             self._symbol_map = {s.symbolName: s.symbolId for s in res.symbol}
             # The light list carries symbolId and name and NOTHING else — no lotSize, no
             # minVolume, no stepVolume. Ask for the full ProtoOASymbol before sizing anything.
@@ -217,18 +217,18 @@ class CTraderExecutor:
             self._send_command(client)
 
         elif ptype == ProtoOASymbolByIdRes().payloadType:
-            res = Protobuf.extract(message, ProtoOASymbolByIdRes)
+            res = Protobuf.extract(message)
             symbol_details.absorb(int(self.creds["ctraderId"]), res)
             self._send_command(client)
 
         elif ptype == ProtoOAReconcileRes().payloadType:
             # Back-fill any missing SL/TP from the live position so None = unchanged.
-            res = Protobuf.extract(message, ProtoOAReconcileRes)
+            res = Protobuf.extract(message)
             self._backfill_modify(res)
             self._send_command(client)
 
         elif ptype == ProtoOAExecutionEvent().payloadType:
-            event = Protobuf.extract(message, ProtoOAExecutionEvent)
+            event = Protobuf.extract(message)
             et = event.executionType
             # 1. Explicit error code → fail immediately.
             if event.HasField("errorCode") and event.errorCode:

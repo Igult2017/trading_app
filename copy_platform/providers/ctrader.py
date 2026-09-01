@@ -134,7 +134,7 @@ class CTraderProvider:
             client.send(req)
 
         elif ptype == ProtoOASymbolsListRes().payloadType:
-            res = Protobuf.extract(message, ProtoOASymbolsListRes)
+            res = Protobuf.extract(message)
             self._symbols = {s.symbolId: s.symbolName for s in res.symbol}
             # The light list gives names only. Reading a master's SIZE needs lotSize, which lives on
             # the full ProtoOASymbol — see _snap for the 100,000x bug that came of guessing it.
@@ -148,14 +148,14 @@ class CTraderProvider:
                 self._loop.call_later(RECONCILE_INTERVAL, self._request_reconcile)
 
         elif ptype == ProtoOASymbolByIdRes().payloadType:
-            res = Protobuf.extract(message, ProtoOASymbolByIdRes)
+            res = Protobuf.extract(message)
             symbol_details.absorb(int(self.creds["ctraderId"]), res)
             spec_n = len(getattr(res, "symbol", []))
             log.info(f"[{self.master_id}] contract spec loaded for {spec_n} symbol(s)")
             self._replay_pending()
 
         elif ptype == ProtoOAReconcileRes().payloadType:
-            res = Protobuf.extract(message, ProtoOAReconcileRes)
+            res = Protobuf.extract(message)
             fresh: dict[int, PositionSnapshot] = {}
             for pos in res.position:
                 snap = self._snap(pos)
@@ -180,7 +180,7 @@ class CTraderProvider:
                     self._positions.setdefault(pid, snap)
 
         elif ptype == ProtoOAExecutionEvent().payloadType:
-            event = Protobuf.extract(message, ProtoOAExecutionEvent)
+            event = Protobuf.extract(message)
             asyncio.ensure_future(self._handle_execution(event))
 
     # ── Event handling ─────────────────────────────────────────────────────────
