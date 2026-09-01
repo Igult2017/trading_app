@@ -3016,7 +3016,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                            f.symbol_whitelist, f.active_sessions, f.max_dd_percent, f.risk_accepted,
                            m.strategy_name, m.source_type, m.require_approval,
                            m.broker_account_id AS master_account_id,
-                           m.description AS master_description
+                           m.user_id AS master_user_id
                       FROM copy_followers f JOIN copy_masters m ON m.id = f.master_id
                      WHERE f.user_id = $1 ORDER BY f.created_at DESC`, [uid]),
         pool.query(`SELECT cf.id, cf.symbol, cf.action, cf.volume, cf.entry_price, cf.closed_price,
@@ -3062,29 +3062,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
             // ACCOUNTS appeared in Provider Studio as strangers asking to follow him the moment he
             // pressed Stop mirroring, since stopping sets exactly that flag.
             //
-            //  • the self-copy master is excluded    — his own mirrors are not customers
-            //  • require_approval                    — only a master with a queue can have one
-            //  • deployed_at IS NULL                 — never started, so it is waiting rather than
-            //                                          paused; every path that creates an ACTIVE
-            //                                          follower stamps deployed_at, and the
-            //                                          subscribe path deliberately does not.
+            //  • f.user_id <> m.user_id  — HIM copying HIMSELF is not a customer. Keyed on who owns
+            //                              the two rows, NOT on the 'Self-copy source' marker: that
+            //                              marker is written by only one of the two paths that build
+            //                              a self-copy, and his real data does not carry it.
+            //  • require_approval        — only a master with a queue can have one
+            //  • deployed_at IS NULL     — never started, so it is waiting rather than paused; every
+            //                              path that creates an ACTIVE follower stamps deployed_at,
+            //                              and the subscribe path deliberately does not.
             pool.query(`SELECT f.id, f.user_id, f.lot_mode, f.lot_multiplier, f.fixed_lot, f.risk_percent, f.created_at
                           FROM copy_followers f JOIN copy_masters m ON m.id = f.master_id
                          WHERE m.user_id = $1 AND f.is_active = false
-                           AND COALESCE(m.description, '') <> 'Self-copy source'
+                           AND f.user_id <> m.user_id
                            AND m.require_approval = true
                            AND f.deployed_at IS NULL
                          ORDER BY f.created_at DESC LIMIT 20`, [uid]),
-            // ACTIVE FOLLOWERS + AUM — the self-copy master is excluded here too, or mirroring his
-            // own $9,999 account into his own $1,000 account reported him as a provider with a
-            // follower and $1,000 under management. The profile shown above these numbers already
-            // excludes self-copy, so leaving it in made the header and the statistics describe two
-            // different businesses.
+            // ACTIVE FOLLOWERS + AUM — him copying himself is excluded, or mirroring his own $9,999
+            // account into his own $1,000 account reports him as a provider with a follower and
+            // $1,000 under management. Same key as above (`f.user_id <> m.user_id`) rather than the
+            // 'Self-copy source' marker, which his real relationship does not carry: it was built
+            // through the Provider Studio, so the marker version excluded nothing at all.
             pool.query(`SELECT f.id, f.user_id, f.lot_mode, f.lot_multiplier, f.fixed_lot, f.risk_percent, f.created_at,
                            (SELECT COALESCE(SUM(ba.balance::numeric), 0) FROM broker_accounts ba WHERE ba.id = f.broker_account_id) AS bal
                           FROM copy_followers f JOIN copy_masters m ON m.id = f.master_id
                          WHERE m.user_id = $1 AND f.is_active = true
-                           AND COALESCE(m.description, '') <> 'Self-copy source'
+                           AND f.user_id <> m.user_id
                          ORDER BY f.created_at DESC LIMIT 50`, [uid]),
           ])
         : [{ rows: [] }, { rows: [] }] as any[];
@@ -3105,12 +3107,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const closed = num(histR.rows[0]?.closed), won = num(histR.rows[0]?.won);
 
       // THE SAVED SELF-COPY SETUP, so the panel can show what he actually configured.
-      // `POST /api/copy/self-copy` stamps its master with description 'Self-copy source', and the
-      // studio query above excludes that exact string — so the two never claim the same row.
+      //
+      // "SELF-COPY" MEANS THE MASTER IS ALSO HIS — not that a particular endpoint created it.
+      // This first shipped keyed on `description = 'Self-copy source'`, the marker
+      // `POST /api/copy/self-copy` stamps. It restored nothing for him, and the live data says why:
+      // his only cTrader master is named "My signal service" — the Provider Studio's default — so
+      // he built the relationship through `POST /api/copy/masters` instead, and no master carrying
+      // that marker exists at all. Keying on how a row was CREATED was the mistake; two paths build
+      // the same thing, and a rename through the studio erases the marker anyway.
+      //
+      // `rels` is already restricted to his own followers, so "the master is his too" is exactly
+      // the question. Telegram masters are excluded because they read a channel and have no broker
+      // account to mirror from.
+      //
       // PAUSED RELATIONSHIPS ARE INCLUDED: pressing Stop sets is_active=false and keeps the rows,
       // so filtering to active ones here would blank the panel the moment he stopped mirroring and
       // leave him unable to see, or restart, what he had set up.
-      const selfRows = rels.rows.filter((r: any) => r.master_description === 'Self-copy source');
+      const selfRows = rels.rows.filter((r: any) =>
+        r.master_user_id === uid && String(r.source_type ?? '').toLowerCase() !== 'telegram');
       const s0 = selfRows[0] ?? null;
       const selfCopy = s0 ? {
         masterBrokerAccountId:  s0.master_account_id ?? null,

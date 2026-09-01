@@ -64,16 +64,28 @@ check('...and the master\'s account',
 check('...and the saved filters and sizing',
       routes.includes('f.symbol_whitelist, f.active_sessions, f.max_dd_percent, f.risk_accepted'), true);
 check('the response carries a selfCopy block', /\n\s+selfCopy,\n/.test(routes), true);
-check('...built from the self-copy master, which the studio query excludes by the same string',
-      routes.includes("r.master_description === 'Self-copy source'") &&
-      routes.includes("<> 'Self-copy source'"), true);
 check('the client type knows about it', overview.includes('masterBrokerAccountId'), true);
+
+// WHICH ROWS COUNT AS "HIS SELF-COPY SETUP" — and this is where the first attempt was wrong.
+//
+// It shipped keyed on `description = 'Self-copy source'`, the marker POST /api/copy/self-copy
+// stamps. It restored nothing for him. The live data said why: his only cTrader master is named
+// "My signal service" — the Provider Studio's default — so he had built the relationship through
+// POST /api/copy/masters, and NO master carrying that marker existed at all. Two paths create the
+// same thing, and a rename through the studio erases the marker anyway, so keying on how a row was
+// CREATED was the mistake. The question is whose the master is.
+check('the master is selected with its owner', routes.includes('m.user_id AS master_user_id'), true);
+check('...and self-copy means the master is his too, not that one endpoint made it',
+      /r\.master_user_id === uid/.test(routes), true);
+check('...with telegram masters excluded, having no broker account to mirror from',
+      /source_type \?\? ''\)\.toLowerCase\(\) !== 'telegram'/.test(routes), true);
+check('the creation-path marker is no longer what selects those rows',
+      /selfRows[\s\S]{0,200}master_description/.test(routes), false);
 
 // PAUSED relationships must be included. Stopping sets is_active=false and keeps the rows; filtering
 // to active ones would blank the panel the moment he stopped, leaving nothing to restart from.
 check('paused relationships are not filtered out of selfCopy',
-      /const selfRows = rels\.rows\.filter\(\(r: any\) => r\.master_description === 'Self-copy source'\)/
-        .test(routes), true);
+      /const selfRows = rels\.rows\.filter\((?![\s\S]{0,120}is_active)/.test(routes), true);
 
 // ── 2. THE PANEL SEEDS FROM IT — EXACTLY ONCE ───────────────────────────────
 check('the hook seeds from the saved setup', setup.includes('overview.selfCopy'), true);

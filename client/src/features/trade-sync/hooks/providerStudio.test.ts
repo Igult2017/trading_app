@@ -70,20 +70,32 @@ check('the follower DELETE route still requires you to own the row',
       /app\.delete\("\/api\/copy\/followers\/:id"[\s\S]{0,400}?existing\.userId !== auth\.id/.test(routes), true);
 
 // ── 2. HIS OWN ACCOUNTS ARE NOT FOLLOW REQUESTS ─────────────────────────────
-const reqQ = routes.slice(routes.indexOf('PENDING FOLLOW REQUESTS'), routes.indexOf('ACTIVE FOLLOWERS + AUM'));
-check('pending requests exclude the self-copy master',
-      reqQ.includes("COALESCE(m.description, '') <> 'Self-copy source'"), true);
+// The exclusion is keyed on WHO OWNS THE TWO ROWS, not on the 'Self-copy source' marker. That
+// marker is stamped by only one of the two paths that build a self-copy, and his real relationship
+// — built through the Provider Studio — does not carry it, so the marker version excluded nothing.
+// The slice anchors are comment text, so it is taken from the raw source and stripped afterwards —
+// these blocks EXPLAIN the marker they stopped using, and reading the prose fails on the
+// explanation while passing on nothing. Same trap as entryParity.test.ts.
+const stripComments = (s: string) =>
+  s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
+const reqQ = stripComments(
+  routes.slice(routes.indexOf('PENDING FOLLOW REQUESTS'), routes.indexOf('ACTIVE FOLLOWERS + AUM')));
+check('pending requests exclude him copying himself',
+      reqQ.includes('f.user_id <> m.user_id'), true);
+check('...and do NOT rely on the creation-path marker',
+      reqQ.includes("'Self-copy source'"), false);
 check('...only masters that actually have an approval queue',
       reqQ.includes('m.require_approval = true'), true);
 check('...and only followers that never started, so paused is not mistaken for waiting',
       reqQ.includes('f.deployed_at IS NULL'), true);
 
 // ── 3. HIS PROVIDER STATS COUNT CUSTOMERS, NOT HIMSELF ──────────────────────
-const folQ = routes.slice(routes.indexOf('ACTIVE FOLLOWERS + AUM'), routes.indexOf('const num = (v: any)'));
-check('active followers and AUM exclude the self-copy master',
-      folQ.includes("COALESCE(m.description, '') <> 'Self-copy source'"), true);
-check('...which is the same exclusion the displayed profile already used',
-      routes.includes("AND COALESCE(m.description, '') <> 'Self-copy source'"), true);
+const folQ = stripComments(
+  routes.slice(routes.indexOf('ACTIVE FOLLOWERS + AUM'), routes.indexOf('const num = (v: any)')));
+check('active followers and AUM exclude him copying himself',
+      folQ.includes('f.user_id <> m.user_id'), true);
+check('...and do NOT rely on the creation-path marker either',
+      folQ.includes("'Self-copy source'"), false);
 
 // ── 4. THE SUPPORT BOX TELLS THE TRUTH ──────────────────────────────────────
 check('there is a support endpoint', routes.includes('"/api/copy/support-message"'), true);

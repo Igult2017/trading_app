@@ -645,6 +645,44 @@ in `toDate` is how the two halves came to disagree.
 restore the old rule and confirm it produced an Invalid Date, that the Invalid Date was truthy, and
 that it dated the millisecond adapters to the year 58,633.
 
+### D21 - ~~My own fix for D19/D20 recognised nothing, because it keyed on HOW a row was created~~ FIXED 01 Sep 🔴
+**He tested it and said so:** *"I dont think it fixed anything... I did it and then reloaded the page
+and I think all was undone."* He was right, and the cause was my own D19 fix.
+
+**Read from the live database** (admin copy overview, which reads production):
+
+| | |
+|---|---|
+| cTrader masters | **exactly one** — `67470ef2`, `strategy_name` = **"My signal service"**, created 01 Sep 02:46:38 |
+| followers | **one** — `a1e39efa` on that master, created 02:49:45, `deployed_at` set, active |
+
+So the relationship he built is real and saved. **The panel could not see it.**
+
+**Root cause — mine.** D19 decided "which rows are his self-copy setup" by looking for
+`description = 'Self-copy source'`, the marker `POST /api/copy/self-copy` stamps. But **two paths
+build the same thing**: he created his through the Provider Studio (`POST /api/copy/masters`), whose
+default name is exactly `"My signal service"`. No master carrying the marker exists at all, so
+`selfCopy` came back null and the panel restored nothing. A rename through the studio erases the
+marker too, since `saveProfile` overwrites both name and description.
+
+**The same wrong key was in D20**, so the provider stats went on counting his own account as a
+customer — that half of D20 never worked either.
+
+**Fix: key on WHOSE the rows are, not on which endpoint wrote them.** `rels` is already restricted to
+his own followers, so "the master is his too" (`m.user_id = uid`) is exactly the question, and it is
+path-independent. Telegram masters are excluded — they read a channel and have no broker account to
+mirror from. The Provider Studio queries use the mirror of it, `f.user_id <> m.user_id`: him copying
+himself is not a customer.
+
+**The lesson, and it is the one already written down:** *reproduce the ACTUAL event before touching
+anything.* D19 was built and shipped without once reading what was in his `copy_masters` row. One
+query would have shown the name was "My signal service" and that the marker did not exist.
+
+**Verified against the real shape this time** — 27 checks in `copySetup.test.ts` and 34 in
+`providerStudio.test.ts`, including explicit assertions that the creation-path marker is NOT what
+selects those rows. The absence checks strip comments first; both files explain the marker they
+stopped using and failed on their own prose on the first run.
+
 ### D20 - ~~Provider Studio: Decline always failed, his own accounts appeared as customers, and support sent nothing~~ FIXED 01 Sep 🔴
 Found by tracing the studio from its controls back to the database, at his request. **Five defects.**
 
