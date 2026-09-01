@@ -133,6 +133,11 @@ kept being re-derived and re-broken. Do not re-derive them; if a change contradi
 **Each strategy has an ARCHITECTURE doc — read it FIRST**: `docs/strategies/bx-sd-architecture.md`
 and `docs/strategies/vix1-architecture.md`.
 
+**VIX.1 also has a MEASURED doc — `docs/strategies/vix1-measured.md`** (added 2026-09-02). Read it
+before quoting any number about stop size, entry timing or market violence, and before re-running a
+sweep it already holds. It states what those numbers are NOT: generic stop entries on every bar with
+none of VIX.1's filters applied, so **no figure in it is VIX.1's win rate**.
+
 **BX-S/D also has a MEASURED doc — `docs/strategies/bx-sd-measured.md`.** Read it before asking "is
 BX working?", before quoting any number about how often it fires, and before reporting a finding from
 a measurement. It holds the one-year setup counts, the two commands that re-create them, what each

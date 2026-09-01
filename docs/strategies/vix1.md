@@ -4,6 +4,11 @@
 >
 > That file holds the SHAPE — the module map, the pipeline, the entry/SL/TP rules, and the KNOWN OPEN
 > DEFECTS (including the pending redesign that is blocked on your trade data, and the fact that the R
+> **MEASURED NUMBERS LIVE IN [vix1-measured.md](./vix1-measured.md)** — read it before quoting any
+> figure about stop size, entry timing or market violence, and before re-running a sweep that is
+> already there. It also states plainly what those numbers are NOT: they measure the MECHANIC on
+> generic entries, never VIX.1's own filtered setups, so none of them is VIX.1's win rate.
+>
 > ratchet is ADVICE ONLY and moves no broker stop). **This file holds the RULES** — your words and the
 > playbook's — and the fix log.
 
