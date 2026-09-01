@@ -18,6 +18,21 @@ export interface Overview {
   };
   history: { trades: TradeRow[]; stats: { winRate: string; profitFactor: string; maxDrawdown: string; totalTrades: string } };
   mirroring: boolean;
+  /** The self-copy setup as it is SAVED in the database — what the panel restores itself from on
+   *  load. Null until he has pressed Start once. Included even when paused, so stopping mirroring
+   *  does not blank the panel and strand him with no way to see or restart what he configured. */
+  selfCopy: {
+    masterBrokerAccountId: string | null;
+    mirrorBrokerAccountIds: string[];
+    lotMode: string | null;
+    lotMultiplier: string | null;
+    fixedLot: string | null;
+    riskPercent: string | null;
+    maxDdPercent: string | null;
+    symbolWhitelist: string[];
+    activeSessions: string[];
+    riskAccepted: boolean;
+  } | null;
 }
 
 export const OVERVIEW_KEY = ["/api/copy/overview"];

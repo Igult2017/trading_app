@@ -111,11 +111,44 @@ def apply_direction(action: str, direction: str) -> str:
     return action  # same
 
 
+def asset_class(symbol: str) -> str:
+    """The broad market a broker symbol belongs to: Forex / Metals / Indices / Crypto.
+
+    The setup panel offers CATEGORIES ("Forex", "Metals", "Indices", "Crypto") while
+    `symbol_whitelist` holds broker symbol names ("EURUSD", "XAUUSD"). Rather than expand a category
+    into a symbol list in the browser — which does not have the broker's symbol list — the category
+    is stored as-is and resolved here, at the only point that asks "may this symbol be copied?".
+
+    Unknown symbols return "" and are treated as uncategorised: a category-only whitelist will not
+    match them, which is the safe direction (refuse to copy something we cannot classify, rather
+    than copy it because we could not tell).
+    """
+    s = (symbol or "").upper().replace("/", "").replace("-", "").replace("_", "")
+    if s.startswith(("XAU", "XAG", "XPT", "XPD")):
+        return "Metals"
+    if any(x in s for x in ("US500", "US100", "US30", "UK100", "GER40", "GER30", "JP225",
+                            "SPX", "NDX", "DJI", "DAX", "FTSE", "NIKKEI", "EU50", "STOXX")):
+        return "Indices"
+    if s.endswith(("USDT", "USDC")) or s.startswith(("BTC", "ETH", "SOL", "XRP", "ADA", "DOGE")):
+        return "Crypto"
+    if len(s) == 6 and s.isalpha():
+        return "Forex"
+    return ""
+
+
 def is_symbol_allowed(symbol: str, follower) -> bool:
+    """A symbol passes the whitelist if it is named outright OR its category is listed.
+
+    Both forms are accepted so this stayed backwards-compatible: a whitelist holding real symbol
+    names behaves exactly as it always did, and a whitelist holding categories now works too. A
+    regression here silently blocks every copied trade, so both forms are covered by tests.
+    """
     wl = follower.symbol_whitelist or []
     bl = follower.symbol_blacklist or []
     if wl and symbol not in wl:
-        return False
+        cls = asset_class(symbol)
+        if not cls or cls not in wl:
+            return False
     if symbol in bl:
         return False
     return True

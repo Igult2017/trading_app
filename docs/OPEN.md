@@ -645,6 +645,61 @@ in `toDate` is how the two halves came to disagree.
 restore the old rule and confirm it produced an Invalid Date, that the Invalid Date was truthy, and
 that it dated the millisecond adapters to the year 58,633.
 
+### D19 - ~~The copy setup panel forgot everything on reload, and locked him out of stopping~~ FIXED 01 Sep 🔴
+**His report:** *"I would try connect a slave account and when I reload the page everything is
+undone."* He was exactly right, and his screenshot proved both halves of it at once — a **"Stop
+mirroring"** button (which only renders when active follower rows exist in the database) sitting
+above a header reading **"no master set"**.
+
+**Four separate defects.**
+
+**1. The buttons never saved.** "Set as master" and "Add as mirror" wrote to browser memory and
+stopped there ([`useCopySetup.ts:63-75`](../client/src/features/trade-sync/hooks/useCopySetup.ts#L63-L75)),
+and every other control started from a hardcoded default on each page load.
+
+**2. The saved setup was never returned.** Pressing Start DOES persist — `POST /api/copy/self-copy`
+writes the master and follower rows — but the overview's relationships query omitted
+`f.broker_account_id` and `m.broker_account_id`, so the panel could not say which account was master
+or which were mirrors. **The data was in the database the whole time; the page never asked.** Fixed
+by selecting both columns and returning a `selfCopy` block, read from the master the endpoint marks
+`description = 'Self-copy source'` — the string the studio query already excludes, so the two never
+claim the same row. **Paused relationships are included on purpose**: stopping keeps the rows, and
+filtering to active ones would blank the panel the moment he stopped and leave nothing to restart
+from.
+
+**3. Stop was gated by the START blockers.** `canStart` required `startBlockers.length === 0`, and
+that same button stops mirroring. After a reload the master was blank, so "declare a master" fired
+and **he could not switch off copying that was already live.** Blockers now apply only when starting.
+
+**4. Editing a live setup did nothing.** `/api/copy/self-copy` was create-or-nothing — once a pair
+was linked, changing the sizing, drawdown, instruments or sessions and pressing Start again was a
+silent no-op. It now updates an existing follower (and re-activates it, which is how a stopped
+mirror is resumed).
+
+**The two button rows that were decoration.** *Allowed instruments* was collected and never sent; the
+server accepted `symbolWhitelist` all along and the engine enforced it. The mismatch was that the
+buttons offer CATEGORIES while the column holds SYMBOLS — `lot_calc.asset_class` now resolves that at
+the one point that asks "may this symbol be copied?", accepting both forms so an existing symbol list
+behaves exactly as before. *Allowed sessions* did nothing anywhere: the engine's follower model did
+not even map `session_filter` / `active_sessions`. Now mapped, with
+[`copy_platform/session_filter.py`](../copy_platform/session_filter.py) as the gate — local hours
+matching the platform's existing session windows rather than a fifth opinion about when London opens,
+DST handled via IANA zones, and **OPENs only**: gating a close would strand him in a live position
+because a session shut.
+
+**Off by default, two ways** — `session_filter` false, or an empty session list. Either would
+otherwise refuse every trade for followers saved before this shipped, which looks like "copy trading
+is broken" with nothing in the log but SKIP.
+
+**57 checks**: 33 in [`test_copy_setup_roundtrip.py`](../copy_platform/tests/test_copy_setup_roundtrip.py)
+and 24 in [`copySetup.test.ts`](../client/src/features/trade-sync/hooks/copySetup.test.ts), including
+a teeth case for the seed-once guard — the overview refetches every 20 seconds, and seeding on every
+payload would wipe his selections mid-edit twice a minute, which is worse than the bug being fixed.
+
+**NOT verified by hand in a browser** — the reload walkthrough, the stop path and the 20-second trap
+are asserted at source level only. They need a login against real data.
+
+
 ### D18 - ~~The copy engine died and reconnected every 6 seconds, forever — it could not decode a single broker message~~ FIXED 01 Sep 🔴
 **Found by reading the production logs**, not reported. In a 7.5-minute window the copy provider
 logged **63 disconnects** — one roughly every 6 seconds — for master `67470ef2`, continuously:

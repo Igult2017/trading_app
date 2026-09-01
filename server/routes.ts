@@ -3004,8 +3004,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const [own, rels, feedR, provR, studioM, kpiT, histR] = await Promise.all([
         pool.query(`SELECT id, name, platform, balance, currency, connection_type, login_id
                       FROM broker_accounts WHERE user_id = $1 ORDER BY created_at`, [uid]),
+        // WHICH ACCOUNTS are on each side is selected here on purpose. Without
+        // `f.broker_account_id` and `m.broker_account_id` the setup panel cannot say which of his
+        // accounts is the master or which are mirrors, so it showed "no master set" while the same
+        // page rendered a "Stop mirroring" button — it knew copying was on and could not say what
+        // was being copied. Every column below is in docker-migrate.sql (ADD COLUMN IF NOT EXISTS),
+        // which is what production actually applies; selecting one that is not there would 42703
+        // and take this whole endpoint down, not just the panel.
         pool.query(`SELECT f.id, f.is_active, f.lot_mode, f.lot_multiplier, f.fixed_lot, f.risk_percent,
-                           f.master_id, m.strategy_name, m.source_type, m.require_approval
+                           f.master_id, f.broker_account_id AS follower_account_id,
+                           f.symbol_whitelist, f.active_sessions, f.max_dd_percent, f.risk_accepted,
+                           m.strategy_name, m.source_type, m.require_approval,
+                           m.broker_account_id AS master_account_id,
+                           m.description AS master_description
                       FROM copy_followers f JOIN copy_masters m ON m.id = f.master_id
                      WHERE f.user_id = $1 ORDER BY f.created_at DESC`, [uid]),
         pool.query(`SELECT cf.id, cf.symbol, cf.action, cf.volume, cf.entry_price, cf.closed_price,
@@ -3069,6 +3080,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const equity = own.rows.reduce((a: number, r: any) => a + num(r.balance), 0);
       const active = rels.rows.filter((r: any) => r.is_active);
       const closed = num(histR.rows[0]?.closed), won = num(histR.rows[0]?.won);
+
+      // THE SAVED SELF-COPY SETUP, so the panel can show what he actually configured.
+      // `POST /api/copy/self-copy` stamps its master with description 'Self-copy source', and the
+      // studio query above excludes that exact string — so the two never claim the same row.
+      // PAUSED RELATIONSHIPS ARE INCLUDED: pressing Stop sets is_active=false and keeps the rows,
+      // so filtering to active ones here would blank the panel the moment he stopped mirroring and
+      // leave him unable to see, or restart, what he had set up.
+      const selfRows = rels.rows.filter((r: any) => r.master_description === 'Self-copy source');
+      const s0 = selfRows[0] ?? null;
+      const selfCopy = s0 ? {
+        masterBrokerAccountId:  s0.master_account_id ?? null,
+        mirrorBrokerAccountIds: selfRows.map((r: any) => r.follower_account_id).filter(Boolean),
+        lotMode:        s0.lot_mode ?? null,
+        lotMultiplier:  s0.lot_multiplier ?? null,
+        fixedLot:       s0.fixed_lot ?? null,
+        riskPercent:    s0.risk_percent ?? null,
+        maxDdPercent:   s0.max_dd_percent ?? null,
+        symbolWhitelist: s0.symbol_whitelist ?? [],
+        activeSessions:  s0.active_sessions ?? [],
+        riskAccepted:   !!s0.risk_accepted,
+      } : null;
 
       return res.json({
         kpis: {
@@ -3135,6 +3167,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           },
         },
         mirroring: active.length > 0,
+        selfCopy,
       });
     } catch (err: any) { console.error('[copy/overview]', err); return res.status(500).json({ error: "Internal server error" }); }
   });
@@ -4596,6 +4629,10 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
         direction:       b.direction     || "same",
         symbolWhitelist: b.symbolWhitelist ?? null,
         symbolBlacklist: b.symbolBlacklist ?? null,
+        // The panel's "allowed sessions" choice. `sessionFilter` is the on/off switch the engine
+        // reads first — without it an empty list and "all four sessions" are indistinguishable.
+        sessionFilter:   b.sessionFilter ?? false,
+        activeSessions:  b.activeSessions ?? null,
         maxOpenTrades:   b.maxOpenTrades ?? 10,
         tradeDelaySec:   b.tradeDelaySec ?? 0,
         pauseInactive:   b.pauseInactive ?? true,
@@ -4606,6 +4643,23 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
         riskAccepted:    b.riskAccepted ?? true,
         deployedAt:      new Date(),
       } as any);
+    } else {
+      // AN EXISTING RELATIONSHIP IS UPDATED, not left alone. This was create-or-nothing, so once a
+      // pair had been linked, changing the sizing, the drawdown, the instruments or the sessions
+      // and pressing Start again did nothing at all — the panel said it had saved and the stored
+      // settings never moved. Re-pressing Start is also how mirroring is resumed after a stop,
+      // which is why isActive goes back to true here.
+      const patch: Record<string, any> = { isActive: true };
+      if (b.lotMode        !== undefined) patch.lotMode        = b.lotMode;
+      if (b.lotMultiplier  !== undefined) patch.lotMultiplier  = b.lotMultiplier;
+      if (b.fixedLot       !== undefined) patch.fixedLot       = b.fixedLot;
+      if (b.riskPercent    !== undefined) patch.riskPercent    = b.riskPercent;
+      if (b.maxDdPercent   !== undefined) patch.maxDdPercent   = b.maxDdPercent;
+      if (b.symbolWhitelist !== undefined) patch.symbolWhitelist = b.symbolWhitelist;
+      if (b.sessionFilter  !== undefined) patch.sessionFilter  = b.sessionFilter;
+      if (b.activeSessions !== undefined) patch.activeSessions = b.activeSessions;
+      if (b.riskAccepted   !== undefined) patch.riskAccepted   = b.riskAccepted;
+      follower = (await storage.updateCopyFollower(follower.id, patch as any)) ?? follower;
     }
 
     return res.status(201).json({ master, follower, message: "Self-copy active — trades on the source mirror to the target." });

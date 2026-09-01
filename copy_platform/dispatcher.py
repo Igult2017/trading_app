@@ -15,6 +15,7 @@ from db import Session, CopyMaster, CopyFollower, BrokerAccount, \
     CopyTradeMaster, CopyTradeFollower, CopyExecutionLog
 from cred_manager import get_creds
 from lot_calc import calc_lots, apply_direction, is_symbol_allowed, pip_size, pip_value
+from session_filter import is_session_allowed
 from risk_guard import check_follower_allowed, check_trade_risk
 from providers.ctrader import PositionSnapshot
 
@@ -121,6 +122,15 @@ async def _exec_follower(master_trade_id: str, follower: CopyFollower,
         if not is_symbol_allowed(snap.symbol, follower):
             _log(fid, master_trade_id, "INFO", "SKIP", f"Symbol {snap.symbol} filtered")
             return
+
+        # THE SESSION GATE APPLIES TO OPENS ONLY, and that is the whole point of the etype check.
+        # Gating a CLOSE would strand him in a live position because London happened to shut — the
+        # filter is about when to ENTER a copied trade, never about whether he may get out of one.
+        if etype == "OPEN":
+            in_session, why = is_session_allowed(follower)
+            if not in_session:
+                _log(fid, master_trade_id, "INFO", "SKIP", why or "outside the allowed sessions")
+                return
 
         broker_account = _get_broker_account(follower)
         if not broker_account:

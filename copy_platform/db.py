@@ -73,6 +73,10 @@ class CopyFollower(Base):
     trade_delay_sec   = Column(Integer)
     pause_inactive    = Column(Boolean)
     pause_on_dd       = Column(Boolean)
+    # The panel's session buttons. These columns have existed in the schema all along and were
+    # never mapped here, so the engine could not read them and the four buttons did nothing.
+    session_filter    = Column(Boolean)
+    active_sessions   = Column(ARRAY(Text))
     max_dd_percent    = Column(Numeric)
     max_daily_loss    = Column(Numeric)
     is_active         = Column(Boolean)
