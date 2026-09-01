@@ -3056,13 +3056,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const myMaster = studioM.rows[0] ?? null;
       const [reqsR, folsR] = myMaster
         ? await Promise.all([
+            // PENDING FOLLOW REQUESTS — three clauses, each stopping a different false positive.
+            //
+            // This used to be "any inactive follower on any master I own", which meant HIS OWN
+            // ACCOUNTS appeared in Provider Studio as strangers asking to follow him the moment he
+            // pressed Stop mirroring, since stopping sets exactly that flag.
+            //
+            //  • the self-copy master is excluded    — his own mirrors are not customers
+            //  • require_approval                    — only a master with a queue can have one
+            //  • deployed_at IS NULL                 — never started, so it is waiting rather than
+            //                                          paused; every path that creates an ACTIVE
+            //                                          follower stamps deployed_at, and the
+            //                                          subscribe path deliberately does not.
             pool.query(`SELECT f.id, f.user_id, f.lot_mode, f.lot_multiplier, f.fixed_lot, f.risk_percent, f.created_at
                           FROM copy_followers f JOIN copy_masters m ON m.id = f.master_id
-                         WHERE m.user_id = $1 AND f.is_active = false ORDER BY f.created_at DESC LIMIT 20`, [uid]),
+                         WHERE m.user_id = $1 AND f.is_active = false
+                           AND COALESCE(m.description, '') <> 'Self-copy source'
+                           AND m.require_approval = true
+                           AND f.deployed_at IS NULL
+                         ORDER BY f.created_at DESC LIMIT 20`, [uid]),
+            // ACTIVE FOLLOWERS + AUM — the self-copy master is excluded here too, or mirroring his
+            // own $9,999 account into his own $1,000 account reported him as a provider with a
+            // follower and $1,000 under management. The profile shown above these numbers already
+            // excludes self-copy, so leaving it in made the header and the statistics describe two
+            // different businesses.
             pool.query(`SELECT f.id, f.user_id, f.lot_mode, f.lot_multiplier, f.fixed_lot, f.risk_percent, f.created_at,
                            (SELECT COALESCE(SUM(ba.balance::numeric), 0) FROM broker_accounts ba WHERE ba.id = f.broker_account_id) AS bal
                           FROM copy_followers f JOIN copy_masters m ON m.id = f.master_id
-                         WHERE m.user_id = $1 AND f.is_active = true ORDER BY f.created_at DESC LIMIT 50`, [uid]),
+                         WHERE m.user_id = $1 AND f.is_active = true
+                           AND COALESCE(m.description, '') <> 'Self-copy source'
+                         ORDER BY f.created_at DESC LIMIT 50`, [uid]),
           ])
         : [{ rows: [] }, { rows: [] }] as any[];
 
@@ -4677,6 +4700,74 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
     }
     const updated = await storage.updateCopyFollower(follower.id, { isActive: true });
     return res.json({ follower: updated, approved: true });
+  });
+
+  /**
+   * A provider's support message — actually delivered.
+   *
+   * The studio's "Send message" button used to show *"Message sent to support — we'll reply within
+   * one business day"* and do nothing at all: no request, no email, no stored record. Someone with a
+   * payout problem was told help was coming and the message went nowhere. That is worse than a
+   * control that visibly fails, because it fails while claiming success.
+   *
+   * It goes to the same Telegram admin chat the health watchdog already uses, so there is no new
+   * delivery mechanism to keep alive. THE RESPONSE ONLY SAYS "sent" IF TELEGRAM ACCEPTED IT — the
+   * whole point of this change is that the message on screen is true.
+   */
+  app.post("/api/copy/support-message", async (req: Request, res: Response) => {
+    const user = await verifyToken(req.headers.authorization);
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
+    const message = String(req.body?.message ?? "").trim();
+    if (!message) return res.status(400).json({ error: "Message is required" });
+    if (message.length > 4000) return res.status(400).json({ error: "Message is too long (4000 characters max)" });
+
+    const bot  = process.env.TELEGRAM_BOT_TOKEN || "";
+    const chat = process.env.WATCHDOG_CHAT_ID || process.env.TELEGRAM_CHAT_ID || "";
+    if (!bot || !chat) {
+      return res.status(503).json({ error: "Support messaging is not configured — please email us instead." });
+    }
+    try {
+      const r = await fetch(`https://api.telegram.org/bot${bot}/sendMessage`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chat_id: chat,
+          text: `📩 SUPPORT MESSAGE\nFrom: ${user.id}\n\n${message}`,
+        }),
+      });
+      if (!r.ok) return res.status(502).json({ error: "Could not reach support just now — please try again." });
+      return res.json({ sent: true });
+    } catch {
+      return res.status(502).json({ error: "Could not reach support just now — please try again." });
+    }
+  });
+
+  /**
+   * Provider DECLINES a pending follower on their own master.
+   *
+   * THE STUDIO'S DECLINE BUTTON USED TO CALL `DELETE /api/copy/followers/:id`, and that endpoint
+   * asks "does this follower row belong to YOU?" — which is right for a follower cancelling their
+   * own subscription, and wrong here: the row belongs to the person asking to follow. So Accept
+   * (which checks master ownership) worked and Decline, sitting right beside it, returned 403 for
+   * every real third-party request. It looked fine only because the sole followers in existence
+   * were his own rows.
+   *
+   * Loosening the DELETE route would have been the wrong fix — it would let a provider delete a
+   * follower's own record. This is the mirror image of approve: same ownership question, opposite
+   * answer.
+   */
+  app.post("/api/copy/followers/:id/decline", async (req: Request, res: Response) => {
+    const user = await verifyToken(req.headers.authorization);
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
+    const follower = await storage.getCopyFollowerById(req.params.id);
+    if (!follower || !follower.masterId) return res.status(404).json({ error: "Follower not found" });
+    const master = await storage.getCopyMasterById(follower.masterId);
+    if (!master || master.userId !== user.id) {
+      return res.status(403).json({ error: "Only the provider can decline followers" });
+    }
+    // Deleted, not deactivated: a pending request IS an inactive row, so deactivating it would
+    // leave it in the queue forever and the button would appear to do nothing.
+    return res.json({ declined: await storage.deleteCopyFollower(follower.id) });
   });
 
   /**

@@ -645,6 +645,62 @@ in `toDate` is how the two halves came to disagree.
 restore the old rule and confirm it produced an Invalid Date, that the Invalid Date was truthy, and
 that it dated the millisecond adapters to the year 58,633.
 
+### D20 - ~~Provider Studio: Decline always failed, his own accounts appeared as customers, and support sent nothing~~ FIXED 01 Sep 🔴
+Found by tracing the studio from its controls back to the database, at his request. **Five defects.**
+
+**1. Decline returned 403 for every real request.** The two buttons ask different ownership
+questions: Accept checks you own the **master** (right for a provider), while Decline called
+`DELETE /api/copy/followers/:id`, which checks you own the **follower row** — and that row belongs
+to the person asking to follow you. Side by side, only one could work. It looked fine because the
+only follower rows in existence were his own.
+
+**Loosening the DELETE route would have been the wrong fix** — it would let a provider destroy a
+follower's own record, and that route is correct for its actual job (a follower cancelling their own
+subscription). New `POST /api/copy/followers/:id/decline` mirrors approve exactly. It **deletes**
+rather than deactivates: a pending request already IS an inactive row, so deactivating would leave
+it in the queue and the button would appear to do nothing.
+
+**2. His own accounts showed up as strangers asking to follow him.** Pending requests were "any
+inactive follower on any master I own" — so pressing **Stop mirroring** put his own mirror accounts
+in the Provider Studio queue. Now three clauses, each killing a different false positive: the
+self-copy master is excluded; only masters with `require_approval` can have a queue; and
+`deployed_at IS NULL` separates *never started* from *paused* (every path that creates an ACTIVE
+follower stamps `deployed_at`; the subscribe path deliberately does not).
+
+**3. His provider statistics counted his own money.** `AUM COPIED` and `ACTIVE FOLLOWERS` summed
+every master including the self-copy one, so mirroring his own $9,999 account into his own $1,000
+account reported him as a provider with a follower and $1,000 under management — while the profile
+shown directly above those numbers already excluded self-copy. The header and the statistics were
+describing two different businesses. Same exclusion now applied to both.
+
+**4. "Send message" to support sent nothing** while showing *"Message sent to support — we'll reply
+within one business day."* No request, no email, no record. **The worst of the five: it failed while
+claiming success.** Now `POST /api/copy/support-message`, delivered to the same Telegram admin chat
+the health watchdog already uses — no new delivery mechanism to keep alive — and the response says
+"sent" **only if Telegram accepted it**. On failure his text stays in the box; it is his only copy.
+
+The "Email support" button showed `support@tradesync.app`, a string that appeared exactly once in the
+whole codebase, in that button, on an app that runs at `fsdzones.cloud`. Mockup text, removed rather
+than shown to a real provider. **It returns when there is an address that receives mail.**
+
+**5. The fee-model dropdown had nowhere to go** — never sent, never loaded, and `copy_masters` has
+**no fee column at all**. Removed rather than persisted: storing it would advertise a charging model
+to followers that nothing charges. It returns when there is billing behind it.
+
+**Dead props swept.** Removing the fake email button orphaned `setToast` in `SupportBox` — and
+`BusinessSetup` turned out to have been taking it without ever using it, from before this change.
+Both gone, along with the page passing them.
+
+**Untouched and verified still working:** the profile save, the marketplace listing checkbox, the
+seed-once guard on the editable fields, and Accept.
+
+**33 checks** in [`providerStudio.test.ts`](../client/src/features/trade-sync/hooks/providerStudio.test.ts).
+The absence checks strip comments first — these files explain the mockup address they removed, and
+the first run failed on its own documentation.
+
+**NOT verified by hand** — declining a real third-party request needs a second user account.
+
+
 ### D19 - ~~The copy setup panel forgot everything on reload, and locked him out of stopping~~ FIXED 01 Sep 🔴
 **His report:** *"I would try connect a slave account and when I reload the page everything is
 undone."* He was exactly right, and his screenshot proved both halves of it at once — a **"Stop

@@ -8,10 +8,14 @@ import type { Overview } from "./useOverview";
 export function useProviderStudio(setToast: SetToast, overview: Overview | undefined, invalidate: () => void) {
   const master = overview?.studio.master ?? null;
   const [serviceName, setServiceName] = useState("");
-  const [feeModel, setFeeModel] = useState("Performance fee");
+  // A "fee model" dropdown (Performance fee / Flat subscription / Free) used to live here. It was
+  // never sent, never loaded, and `copy_masters` HAS NO FEE COLUMN — so it reset on every reload,
+  // and had it been stored it would have advertised a charging model that nothing charges. Removed
+  // rather than persisted; it comes back when there is billing behind it.
   const [strategyDesc, setStrategyDesc] = useState("");
   const [listed, setListedState] = useState(false);
   const [supportMessage, setSupportMessage] = useState("");
+  const [sending, setSending] = useState(false);
   const [seeded, setSeeded] = useState(false);
 
   // Seed the editable fields from the server ONCE (not on every poll, or typing gets clobbered).
@@ -64,24 +68,37 @@ export function useProviderStudio(setToast: SetToast, overview: Overview | undef
 
   const declineFollowRequest = async (req: { id: string; name: string }) => {
     try {
-      await apiRequest("DELETE", `/api/copy/followers/${req.id}`);
+      // NOT `DELETE /api/copy/followers/:id`. That route asks whether the follower row belongs to
+      // the caller — true for someone cancelling their own subscription, false for a provider
+      // declining a stranger — so this button returned 403 for every real request while Accept,
+      // beside it, worked. The decline route asks the same question Accept does: do you own the
+      // master?
+      await apiRequest("POST", `/api/copy/followers/${req.id}/decline`);
       setToast(`Declined ${req.name}'s follow request.`);
       invalidate();
     } catch (err: any) { setToast(`Could not decline: ${err.message}`); }
   };
 
-  const sendSupportMessage = () => {
-    if (!supportMessage.trim()) return;
-    setToast("Message sent to support — we'll reply within one business day.");
-    setSupportMessage("");
+  /** Sends for real, and only says so when it did — see POST /api/copy/support-message. */
+  const sendSupportMessage = async () => {
+    const text = supportMessage.trim();
+    if (!text || sending) return;
+    setSending(true);
+    try {
+      await apiRequest("POST", "/api/copy/support-message", { message: text });
+      setToast("Message sent to support — we'll reply within one business day.");
+      setSupportMessage("");
+    } catch (err: any) {
+      // The message stays in the box on failure: it is his only copy of what he typed.
+      setToast(`Could not send: ${err.message}`);
+    } finally { setSending(false); }
   };
 
   return {
     serviceName, setServiceName,
-    feeModel, setFeeModel,
     strategyDesc, setStrategyDesc,
     listed, setListed,
-    supportMessage, setSupportMessage,
+    supportMessage, setSupportMessage, sending,
     requests, followers, stats, saveProfile,
     acceptFollowRequest, declineFollowRequest, sendSupportMessage,
   };

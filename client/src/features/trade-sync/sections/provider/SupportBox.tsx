@@ -1,12 +1,10 @@
 import type { ProviderStudio } from "../../hooks/useProviderStudio";
-import type { SetToast } from "../../hooks/useToast";
 
 interface SupportBoxProps {
   studio: ProviderStudio;
-  setToast: SetToast;
 }
 
-export function SupportBox({ studio, setToast }: SupportBoxProps) {
+export function SupportBox({ studio }: SupportBoxProps) {
   return (
     <div className="space-y-3 border-t border-surface-container-highest pt-8">
       <span className="font-label-xs text-on-surface-variant uppercase">Talk to support</span>
@@ -22,20 +20,17 @@ export function SupportBox({ studio, setToast }: SupportBoxProps) {
           value={studio.supportMessage}
           onChange={(e) => studio.setSupportMessage(e.target.value)}
         />
-        <div className="flex flex-wrap gap-2">
-          <button
-            className="px-4 py-2 rounded bg-primary text-on-primary font-body-md font-bold text-[12px]"
-            onClick={studio.sendSupportMessage}
-          >
-            Send message
-          </button>
-          <button
-            className="px-4 py-2 rounded border border-surface-container-highest text-on-surface font-body-md font-bold text-[12px]"
-            onClick={() => setToast("support@tradesync.app")}
-          >
-            Email support
-          </button>
-        </div>
+        {/* The "Email support" button that sat here showed `support@tradesync.app` — a string that
+            appeared exactly once in the codebase, in that button, on an app that runs at
+            fsdzones.cloud. It was mockup text, so it is gone rather than shown to a real provider.
+            Put it back the moment there is an address that receives mail. */}
+        <button
+          className="px-4 py-2 rounded bg-primary text-on-primary font-body-md font-bold text-[12px] disabled:opacity-50"
+          disabled={studio.sending || !studio.supportMessage.trim()}
+          onClick={() => void studio.sendSupportMessage()}
+        >
+          {studio.sending ? "Sending…" : "Send message"}
+        </button>
       </div>
     </div>
   );

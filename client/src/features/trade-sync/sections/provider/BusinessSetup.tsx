@@ -2,39 +2,27 @@ import { Icon } from "../../components/Icon";
 import { AddAccountCard } from "../../components/AddAccountCard";
 import type { BrokerAccount } from "../../hooks/useBrokerAccount";
 import type { ProviderStudio } from "../../hooks/useProviderStudio";
-import type { SetToast } from "../../hooks/useToast";
 
 interface BusinessSetupProps {
   studio: ProviderStudio;
   providerAccount: BrokerAccount;
-  setToast: SetToast;
 }
 
-export function BusinessSetup({ studio, providerAccount, setToast }: BusinessSetupProps) {
+export function BusinessSetup({ studio, providerAccount }: BusinessSetupProps) {
   return (
     <div className="space-y-4">
       <p className="font-label-xs text-on-surface-variant uppercase">Business setup</p>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label className="font-label-xs text-on-surface-variant uppercase block mb-1">Service name</label>
-          <input
-            className="w-full bg-surface border border-surface-container-highest rounded py-2 px-3 font-body-md"
-            value={studio.serviceName}
-            onChange={(e) => studio.setServiceName(e.target.value)}
-          />
-        </div>
-        <div>
-          <label className="font-label-xs text-on-surface-variant uppercase block mb-1">Fee model</label>
-          <select
-            className="w-full bg-surface border border-surface-container-highest rounded py-2 px-3 font-body-md"
-            value={studio.feeModel}
-            onChange={(e) => studio.setFeeModel(e.target.value)}
-          >
-            <option>Performance fee</option>
-            <option>Flat subscription</option>
-            <option>Free</option>
-          </select>
-        </div>
+      {/* The "Fee model" dropdown that sat beside this is gone. It was never sent to the server,
+          never loaded back, and `copy_masters` has no fee column — so it reset on every reload, and
+          storing it would have advertised a charging model to followers that nothing charges. It
+          returns when there is billing behind it. */}
+      <div>
+        <label className="font-label-xs text-on-surface-variant uppercase block mb-1">Service name</label>
+        <input
+          className="w-full bg-surface border border-surface-container-highest rounded py-2 px-3 font-body-md"
+          value={studio.serviceName}
+          onChange={(e) => studio.setServiceName(e.target.value)}
+        />
       </div>
       <div className="space-y-2">
         <label className="font-label-xs text-on-surface-variant uppercase block">Add account</label>

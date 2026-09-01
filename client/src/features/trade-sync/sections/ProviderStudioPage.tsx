@@ -12,7 +12,7 @@ interface ProviderStudioPageProps {
 }
 
 export function ProviderStudioPage({ ts }: ProviderStudioPageProps) {
-  const { studio, providerAccount, setToast, setActivePage } = ts;
+  const { studio, providerAccount, setActivePage } = ts;
 
   return (
     <section>
@@ -38,7 +38,7 @@ export function ProviderStudioPage({ ts }: ProviderStudioPageProps) {
       />
 
       <div className="p-6 space-y-8">
-        <BusinessSetup studio={studio} providerAccount={providerAccount} setToast={setToast} />
+        <BusinessSetup studio={studio} providerAccount={providerAccount} />
         <FollowRequestList
           requests={studio.requests}
           onAccept={studio.acceptFollowRequest}
@@ -46,7 +46,7 @@ export function ProviderStudioPage({ ts }: ProviderStudioPageProps) {
         />
         <ActiveFollowerList followers={studio.followers} />
         <FeedbackList />
-        <SupportBox studio={studio} setToast={setToast} />
+        <SupportBox studio={studio} />
       </div>
     </section>
   );
