@@ -13,16 +13,18 @@ his own stop, closed early or never took the trade, this one is right and that o
 IT TRACKS EVERY OPEN POSITION, including trades the platform never signalled — his answer when asked:
 *"Yes"*. So a manual trade gets the same three alerts.
 
-THE LADDER, in his words (2026-08-21):
+THE LADDER LIVES IN `monitor/rungs.py` AND IS PER STRATEGY. It used to be two ladders with
+different numbers — this file at 1R, `vix1_manage` at 2R — for the same trade.
 
-    1R  ->  BREAKEVEN     the stop goes to the NET-ZERO price
-    2R  ->  LOCK +1R
-    3R  ->  LOCK +2R      *"At 3R, lock 2R"*
-    4R  ->  LOCK +3R      *"You first lock 3R and then take profit at 4R in that sequence"*
+VIX.1, his numbers of 2026-09-02 (superseding 2026-08-21, which had withdrawn the 2.5R rung):
 
-The 4R take profit sits on the ORDER, so the broker performs the exit; this ladder's last rung
-exists to have +3R already locked when it does. A failed exit — a gap, a weekend, slippage — then
-still banks 3R. No close-position code is needed and none is added.
+    0.4R  ->  BREAKEVEN     the stop goes to the NET-ZERO price
+    2.0R  ->  LOCK +1R
+    2.5R  ->  LOCK +2R
+
+Everything else — and any position that cannot be attributed to a strategy — keeps the older
+1R/2R/3R/4R ladder unchanged. A take profit resting on the ORDER still performs the exit; the top
+rung exists so a failed exit still banks the locked gain.
 
 2R IS NOT THE TARGET ANY MORE: *"when the trade has the momentum to keep going we take up to where
 the momentum starts dying down so 2R is not a rule but only applies where there is no momentum."* The
@@ -55,22 +57,20 @@ from shared.pip import price_digits
 
 log = logging.getLogger(__name__)
 
-# THE LADDER, IN HIS WORDS (2026-08-21): breakeven at 1R, then "at 3R, lock 2R", and at 4R "you
-# first lock 3R and then take profit at 4R IN THAT SEQUENCE". The 2.5R rung he first mentioned was
-# withdrawn by that same answer, which lands the rungs exactly on the ratchet that already existed
-# (vix1_manage: at NR, lock N-1). Each entry is (R reached, R to lock, dedup tag).
+# THE LADDER NOW LIVES IN ONE PLACE — `monitor/rungs.py`. It used to be defined here AND, with
+# different numbers, in `vix1_manage`: this file broke even at 1R, that one did nothing below 2R.
+# So the DM advising him and the code moving his stop could disagree about the same position. He
+# asked for them merged; the table is the merge.
 #
-# 4R LOCKS +3R AND DOES NOT CLOSE. The take profit sits on the ORDER at 4R, so the broker performs
-# the exit; this rung's job is to have +3R already locked when it does. If the exit ever fails — a
-# gap, a weekend, slippage — 3R is banked. That is his sequence, and it costs no close-position code.
-BREAKEVEN_R = 1.0
-LADDER = [(2.0, 1.0, "lock_1r"), (3.0, 2.0, "lock_2r"), (4.0, 3.0, "lock_3r")]
-
-# A TRADE SITTING EXACTLY ON A MILESTONE MUST TRIGGER IT. R is a ratio of differences between
-# 5-decimal prices, so a true 1.000R lands at 0.999999999999778 and `r >= 1.0` is False — the alert
-# would simply never fire on the boundary, silently. Caught by the test on the first run. The same
-# guard, for the same reason, is on `vix1_momentum.momentum_grade`'s A-grade boundary.
-_EPS = 1e-9
+# HIS LADDER, 2026-09-02, superseding 2026-08-21: breakeven at 0.4R, lock +1R at 2.0R, lock +2R at
+# 2.5R. The 2.5R rung had been withdrawn on 2026-08-21 and he has reinstated it — see rungs.py.
+#
+# PER STRATEGY, because a broker `Position` carries no strategy and a global constant would apply
+# VIX.1's numbers to every other strategy's trades. `fill_watch.owner_of` answers it; an
+# unattributed position keeps the OLD defaults.
+from execution.fill_watch import owner_of
+from monitor import rungs
+from monitor.rungs import EPS as _EPS
 
 _TTL = 7 * 24 * 3600     # forget a position's alerts a week after they were sent
 
@@ -124,32 +124,36 @@ async def _price_now(symbol: str, bullish: bool | None = None) -> float | None:
     return bars[-1].close if bars else None
 
 
-def _lines(p, r: float, price: float) -> list[tuple[str, str]]:
-    """(tag, message) for every milestone this position has reached. Newest thresholds last."""
+def _lines(p, r: float, price: float, strategy: str | None = None) -> list[tuple[str, str]]:
+    """(tag, price, message) for every milestone this position has reached. Lowest rung first.
+
+    THE RUNGS COME FROM THE SHARED TABLE, keyed on which strategy opened this position, so the DM
+    written here and the amend performed by `_auto_move` can never be built from different numbers.
+    `strategy` of None means we could not attribute it, and `ladder_for` then returns the OLD
+    defaults — never VIX.1's.
+    """
     d = price_digits(p.symbol)
     side = "BUY" if p.bullish else "SELL"
+    risk = abs(p.entry - p.stop) if p.stop else 0.0
     out: list[tuple[str, str]] = []
 
-    if r >= BREAKEVEN_R - _EPS:
-        be = p.breakeven()
-        where = (f"{be:.{d}f}" if be is not None else "your entry + costs")
-        out.append(("breakeven", be,
-                    titles.header(titles.MOVE_TO_BREAKEVEN, titles.TRADE_MANAGEMENT,
-                                  p.symbol, side) + "\n\n"
-                    f"+{r:.1f}R reached. Move your stop to {where}.\n\n"
-                    f"That is the price where closing nets ZERO — it covers the round-trip "
-                    f"commission and swap, not just your entry. A stop at {p.entry:.{d}f} would "
-                    f"still take the costs off you."))
-
-    risk = abs(p.entry - p.stop) if p.stop else 0.0
-    for at_r, lock_r, tag in LADDER:
-        if r < at_r - _EPS:
-            break                       # ordered, so the first rung not reached ends the ladder
-        lock_at = p.entry + lock_r * risk if p.bullish else p.entry - lock_r * risk
-        tail = ("\n\nThe 4R take profit is on the order, so the broker does the exit — this locks "
-                "+3R first so a failed exit still banks it." if at_r >= 4.0 else "")
-        out.append((tag, lock_at,
-                    titles.header(titles.lock(lock_r), titles.TRADE_MANAGEMENT, p.symbol, side,
+    for rung in rungs.reached(rungs.ladder_for(strategy), r):
+        if rung.lock_r is None:
+            be = p.breakeven()
+            where = (f"{be:.{d}f}" if be is not None else "your entry + costs")
+            out.append((rung.tag, be,
+                        titles.header(titles.MOVE_TO_BREAKEVEN, titles.TRADE_MANAGEMENT,
+                                      p.symbol, side) + "\n\n"
+                        f"+{r:.1f}R reached. Move your stop to {where}.\n\n"
+                        f"That is the price where closing nets ZERO — it covers the round-trip "
+                        f"commission and swap, not just your entry. A stop at {p.entry:.{d}f} would "
+                        f"still take the costs off you."))
+            continue
+        lock_at = rungs.stop_price_for(rung, p.entry, risk, p.bullish)
+        tail = ("\n\nThe take profit sits on the ORDER, so the broker does the exit — this locks the "
+                "gain first so a failed exit still banks it." if rung.at_r >= 4.0 else "")
+        out.append((rung.tag, lock_at,
+                    titles.header(titles.lock(rung.lock_r), titles.TRADE_MANAGEMENT, p.symbol, side,
                                   emoji=titles.LOCK_EMOJI) + "\n\n"
                     f"+{r:.1f}R reached. Move your stop to {lock_at:.{d}f}.{tail}"))
     return out
@@ -253,7 +257,7 @@ async def check_all(send) -> None:
             r = p.r_at(price)
             if r is None:
                 continue
-            for tag, new_sl, message in _lines(p, r, price):
+            for tag, new_sl, message in _lines(p, r, price, owner_of(p.position_id)):
                 k = _key(p.position_id, tag)
                 if delivery_ledger.is_delivered(k):
                     continue

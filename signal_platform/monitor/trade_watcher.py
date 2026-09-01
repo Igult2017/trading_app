@@ -31,6 +31,7 @@ import logging
 
 from config.settings import settings
 from data import ctrader_positions
+from execution.fill_watch import owner_of
 
 log = logging.getLogger(__name__)
 
@@ -154,7 +155,7 @@ class TradeWatcher:
             r = p.r_at(price)
             if r is None:
                 continue
-            for tag, new_sl, message in _lines(p, r, price):
+            for tag, new_sl, message in _lines(p, r, price, owner_of(p.position_id)):
                 k = _key(p.position_id, tag)
                 if delivery_ledger.is_delivered(k):
                     continue

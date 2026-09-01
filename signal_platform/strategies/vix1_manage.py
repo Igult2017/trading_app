@@ -1,19 +1,28 @@
 """
 VIX.1 — TRADE MANAGEMENT: the R ratchet and the 1M structure exit.
 
-The user's rule (2026-07-25): "We target 2R however, if the price is still moving, we lock 2R and
-still stay. So in each movement we shall lock 1R until we see structure change."
+HIS LADDER, 2026-09-02 — and it SUPERSEDES the 2026-07-25 trailing reading described below:
 
-Taken literally ("stop AT 2R the moment price touches 2R") the first tick back ends the trade, so
-staying in would be impossible. The working reading, confirmed by him, is a stop that TRAILS 1R
-BEHIND price, switched on at 2R:
+    price reaches 0.4R -> stop to BREAKEVEN
+    price reaches 2.0R -> stop to +1R      (1R locked)
+    price reaches 2.5R -> stop to +2R      (2R locked)
 
-    price reaches 2R -> stop to +1R      (1R locked)
-    price reaches 3R -> stop to +2R      (2R locked)
-    price reaches 4R -> stop to +3R      ... and so on
+His words: *"Breakeven at 0.4R, Lock 1R at 2R and lock 2R at 2.5R and get out of trade when price
+has started turning against us."* **The 2.5R rung had been explicitly WITHDRAWN on 2026-08-21 and he
+has reinstated it** — recorded so it is not "corrected" back.
 
-The stop RATCHETS: it only ever moves forward. Below 2R nothing moves and the original stop stands,
-so a trade that never works behaves exactly as it does today.
+WHAT THIS REPLACED, kept because the reasoning still explains the shape. His rule of 2026-07-25 was
+*"We target 2R however, if the price is still moving, we lock 2R and still stay. So in each movement
+we shall lock 1R until we see structure change."* Taken literally the first tick back ends the trade,
+so it was implemented as a stop TRAILING 1R behind, armed at 2R (2R->+1R, 3R->+2R, 4R->+3R). His new
+instruction replaces that trail with the fixed rungs above.
+
+THE RUNGS THEMSELVES LIVE IN `monitor/rungs.py`, not here. There used to be two ladders for one
+trade — this file advised nothing below 2R while the code that MOVES his stop broke even at 1R — so
+the DM and the amend could disagree. One table, read by both, is the merge he asked for.
+
+The stop RATCHETS: it only ever moves forward. Below the first rung nothing moves and the original
+stop stands, so a trade that never works behaves exactly as it did.
 
 WHY 1M IS THE EXIT TIMEFRAME (his call, and his trades agree): median hold is 69 minutes and 17 of
 21 finish inside 2 hours, so a 1HR structure read would resolve about twice per trade — far too
@@ -31,10 +40,12 @@ amend_position instead of a message. The brain is identical; only the last step 
 from dataclasses import dataclass, field
 
 from core.types import Candle
+from monitor import rungs
 from shared.swing_points import find_swing_points
 
-ARM_R    = 2.0   # trailing switches on here — the original target
-TRAIL_R  = 1.0   # how far behind the peak the stop sits once armed
+# ARM_R / TRAIL_R ARE GONE — the rungs now come from `monitor/rungs.py`, which both this advice
+# path and the code that moves the real stop read. They described a TRAIL (arm at 2R, sit 1R behind);
+# his ladder of 2026-09-02 is fixed rungs instead: breakeven 0.4R, +1R at 2.0R, +2R at 2.5R.
 _SWING_N = 3     # 1M pivot half-width, same as everywhere else in the platform
 
 
@@ -43,6 +54,7 @@ class ManageState:
     """Everything the monitor must remember about a live trade between polls."""
     peak_r:    float = 0.0     # best R reached so far (the ratchet's high-water mark)
     locked_r:  float = 0.0     # R currently protected by the stop (0 = original stop still stands)
+    be_done:   bool  = False   # breakeven rung taken (locks 0R, so locked_r cannot show it)
     stop:      float = 0.0     # where the stop is NOW
     exited:    bool  = False
     exit_r:    float = 0.0
@@ -51,12 +63,29 @@ class ManageState:
 
 
 def _locked_for(peak_r: float) -> float:
-    """R to protect at a given peak. Below ARM_R nothing is locked; above it the stop sits TRAIL_R
-    behind, stepping in whole R so the trader gets a small number of clear instructions rather than
-    a stop that inches on every tick."""
-    if peak_r < ARM_R:
-        return 0.0
-    return max(0.0, float(int(peak_r)) - TRAIL_R)
+    """R to protect at a given peak — READ FROM THE SHARED LADDER, `monitor/rungs.py`.
+
+    THIS USED TO BE A TRAILING FORMULA (`int(peak_r) - 1`, armed at 2R) and it was the SECOND ladder
+    in the codebase: the code that moves his stop broke even at 1R while this advised nothing below
+    2R, so the DM and the amend could disagree about one trade. He asked for them merged.
+
+    HIS LADDER, 2026-09-02, superseding 2026-08-21: breakeven at 0.4R, lock +1R at 2.0R, lock +2R at
+    2.5R. The 2.5R rung had been withdrawn on 2026-08-21 and is now reinstated.
+
+    Breakeven is NOT a locked R — it protects zero — so it returns 0.0 here and is handled as its
+    own step by `_be_reached`.
+    """
+    locked = 0.0
+    for rung in rungs.reached(rungs.ladder_for("vix1"), peak_r):
+        if rung.lock_r is not None:
+            locked = max(locked, rung.lock_r)
+    return locked
+
+
+def _be_reached(peak_r: float) -> bool:
+    """Has the breakeven rung been reached? Its own question, because breakeven locks 0R and so
+    cannot be told apart from 'nothing locked yet' by the number alone."""
+    return any(r.lock_r is None for r in rungs.reached(rungs.ladder_for("vix1"), peak_r))
 
 
 def structure_broken(bars: list[Candle], bullish: bool) -> bool:
@@ -87,6 +116,14 @@ def run(entry: float, sl0: float, bullish: bool, bars: list[Candle],
         r    = best / risk
         if r > st.peak_r:
             st.peak_r = r
+            # BREAKEVEN FIRST, and only once. It protects 0R, so it moves the stop to the entry
+            # without changing `locked_r` — the two are different facts and conflating them is how
+            # the structure exit below would arm a rung early.
+            if not st.be_done and _be_reached(r):
+                st.be_done = True
+                if (entry > st.stop) if bullish else (entry < st.stop):
+                    st.stop = entry                     # ratchet only — never widen the risk
+                st.events.append((round(r, 2), 0.0))
             want = _locked_for(r)
             if want > st.locked_r:                      # ratchet forward — never backward
                 st.locked_r = want

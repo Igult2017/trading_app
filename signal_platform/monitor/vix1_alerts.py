@@ -106,6 +106,21 @@ async def check(row, bars) -> None:
         if delivery_ledger.is_delivered(key):
             continue
         stop = entry + locked_r * abs(entry - sl0) if buy else entry - locked_r * abs(entry - sl0)
+        # BREAKEVEN IS A RUNG THAT LOCKS ZERO, so it arrives here as locked_r 0.0 and must not be
+        # announced as "move your stop to +0R", which reads as nonsense and hides what it means. It
+        # is his first rung now (0.4R, 2026-09-02), so it is the message he will see most often.
+        if locked_r == 0.0:
+            sig = _alert(
+                row.symbol, buy,
+                f"⚖️ +{reached_r:.1f}R reached — move your stop to BREAKEVEN ({entry:.{d}f}), plus "
+                f"enough to cover the round-trip cost. From here the trade cannot lose.",
+                f"VIX.1 MANAGE — {row.symbol} {'BUY' if buy else 'SELL'}: stop to breakeven",
+                key,
+                headline=titles.MOVE_TO_BREAKEVEN,
+            )
+            await _emit(sig, bars, row.symbol)
+            log.info(f"[vix1-manage] {row.symbol} breakeven rung at {reached_r:.2f}R")
+            continue
         sig = _alert(
             row.symbol, buy,
             f"🔒 +{reached_r:.1f}R reached — move your stop to +{locked_r:.0f}R "
