@@ -23,6 +23,12 @@ logging.basicConfig(
     format="%(asctime)s [%(name)s] %(levelname)s  %(message)s",
     handlers=[logging.StreamHandler(sys.stdout)],
 )
+# BEFORE ANYTHING CAN LOG. This engine holds two bot tokens, and `providers/telegram.py` reports a
+# failed poll as `"[tg] poll error: %s" % e` — a network error's own text routinely quotes the URL
+# that failed, and the token lives in that URL. See log_redaction.
+from log_redaction import install as _install_log_redaction  # noqa: E402
+_install_log_redaction()
+
 log = logging.getLogger("copy_platform")
 
 

@@ -13,6 +13,13 @@ logging.basicConfig(
     format="%(asctime)s [%(name)s] %(levelname)s  %(message)s",
     handlers=[logging.StreamHandler(sys.stdout)],
 )
+# IMMEDIATELY AFTER, AND BEFORE ANYTHING CAN LOG. INFO here applies to the ROOT logger, so every
+# third-party library inherits it — and `httpx` logs the full address of each request it makes.
+# Telegram puts the bot token inside that address, so every send wrote the live token into the
+# container log in plaintext. See core/log_redaction.
+from core.log_redaction import install as _install_log_redaction  # noqa: E402
+_install_log_redaction()
+
 log = logging.getLogger("signal_platform")
 
 
