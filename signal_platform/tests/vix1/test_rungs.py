@@ -47,7 +47,7 @@ vix = rungs.ladder()
 # protects +2R from 2.1R — earlier and higher. Leaving it would have fired a second alert at 2.5R
 # telling him to move the stop DOWN from 2.4R to 2.0R. The trail is asserted at the bottom.
 s.check("VIX.1 has exactly two FIXED rungs, then trails", len(vix), 2)
-s.check("...breakeven at 0.2R", (vix[0].at_r, vix[0].lock_r), (0.2, None))
+s.check("...breakeven at 0.4R", (vix[0].at_r, vix[0].lock_r), (0.4, None))
 s.check("...lock +1R at 1.5R", (vix[1].at_r, vix[1].lock_r), (1.5, 1.0))
 s.check("...and a trail takes over above that", rungs.trail() is not None, True)
 s.check("the rungs are ordered, so a gap cannot let a higher one fire first",
@@ -61,7 +61,7 @@ s.check("...and neither does the trail", rungs.trail.__code__.co_argcount, 0)
 s.check("the OLD 1R-breakeven ladder is gone from the module",
         any(n in dir(rungs) for n in ("_DEFAULT", "_BY_STRATEGY", "_TRAIL_BY_STRATEGY",
                                       "ladder_for", "trail_for")), False)
-s.check("breakeven is 0.2R for EVERY position", rungs.ladder()[0].at_r, 0.2)
+s.check("breakeven is 0.4R for EVERY position", rungs.ladder()[0].at_r, 0.4)
 
 
 # ── THE BOUNDARY ────────────────────────────────────────────────────────────
@@ -70,9 +70,9 @@ s.check("breakeven is 0.2R for EVERY position", rungs.ladder()[0].at_r, 0.2)
 def tags(_unused, r):
     return [x.tag for x in rungs.reached(rungs.ladder(), r)]
 
-s.check("0.19R reaches nothing", tags("vix1", 0.19), [])
-s.check("EXACTLY 0.2R reaches breakeven", tags("vix1", 0.2), ["breakeven"])
-s.check("0.2000000001R too", tags("vix1", 0.2 + 1e-10), ["breakeven"])
+s.check("0.39R reaches nothing", tags("vix1", 0.39), [])
+s.check("EXACTLY 0.4R reaches breakeven", tags("vix1", 0.4), ["breakeven"])
+s.check("0.4000000001R too", tags("vix1", 0.4 + 1e-10), ["breakeven"])
 s.check("1.49R is still only breakeven", tags("vix1", 1.49), ["breakeven"])
 s.check("2.0R adds the first lock", tags("vix1", 2.0), ["breakeven", "lock_1r"])
 # `tags()` reads the FIXED rungs only (no trail passed), so above 2.0R it stops growing — the trail
@@ -88,8 +88,8 @@ s.check("a losing trade reaches nothing", tags("vix1", -0.5), [])
 # strategy got it — and attribution lived in memory, so a restart meant every open position did.
 _OLD_LADDER = (rungs.Rung(1.0, None, "breakeven"), rungs.Rung(2.0, 1.0, "lock_1r"))
 _old = lambda r: [x.tag for x in rungs.reached(_OLD_LADDER, r)]
-s.check("the deleted ladder reached NOTHING at 0.2R", _old(0.2), [])
-s.check("...where this one breaks even", tags("vix1", 0.2), ["breakeven"])
+s.check("the deleted ladder reached NOTHING at 0.4R", _old(0.4), [])
+s.check("...where this one breaks even", tags("vix1", 0.4), ["breakeven"])
 s.check("...it still waits for 1R", tags(None, 1.0), ["breakeven"])
 
 
@@ -147,7 +147,7 @@ s.check("...and both call the single ladder",
 # ── TEETH ───────────────────────────────────────────────────────────────────
 # 1. The disagreement that prompted the merge: a hardcoded 1R beside a table saying 0.4R.
 s.teeth("the deleted ladder really did have a later breakeven",
-        _OLD_LADDER[0].at_r == 1.0 and rungs.ladder()[0].at_r == 0.2)
+        _OLD_LADDER[0].at_r == 1.0 and rungs.ladder()[0].at_r == 0.4)
 s.teeth("...and a trade peaking at 0.50R falls between them",
         rungs.ladder()[0].at_r < 0.50 < _OLD_LADDER[0].at_r)
 # 2. The second ladder coming back. There is one table now; a second one is the whole defect.
@@ -155,7 +155,7 @@ s.teeth("a second ladder with a different breakeven would be caught",
         _OLD_LADDER[0].at_r != rungs.ladder()[0].at_r)
 # 3. The float boundary that would silently never fire.
 s.teeth("a bare >= would miss the boundary",
-        not (0.2 - 1e-13 >= 0.2) and tags("vix1", 0.2 - 1e-13) == ["breakeven"])
+        not (0.4 - 1e-13 >= 0.4) and tags("vix1", 0.4 - 1e-13) == ["breakeven"])
 
 
 

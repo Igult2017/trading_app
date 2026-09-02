@@ -841,6 +841,48 @@ anywhere. Blocked on one question: does copy trading auto-execute on a user's ac
 
 ## D. cTrader & copy trading
 
+### D37 - The +1R lock moved from 2.0R to 1.5R. DONE 03 Sep
+
+**His instruction:** *"move breakeven to 0.2R and lock 1R when we are at R1.5. Then when we get to
+R2.1, we lock 2R and start locking after every 0.1R away until we get knocked out."*
+
+**The last sentence needed no change** — the trail already locked 2.0R at 2.1R, 2.4R at 2.5R and 2.9R
+at 3.0R. So the only code change was **the +1R lock, 2.0R → 1.5R**.
+
+**Breakeven stayed at 0.4R, and that was his call after seeing the measurement.** Replayed over the
+real minute bars of his GBP/USD trade of 02 Sep:
+
+| ladder | GBP/USD |
+|---|---|
+| breakeven **0.4R** + lock 1R at 1.5R | **+1.00R** |
+| breakeven **0.2R** + lock 1R at 1.5R | +0.00R |
+
+At 0.2R the stop reaches the entry by 09:58, and at **10:00** the ask comes back to **1.34884**
+against a **1.34880** entry — out, before the trade ever runs, peaking at only 0.32R. At 0.4R the same
+rung fires at 10:01, *after* that wobble, and the trade goes on to 1.78R. **Three minutes decide it.**
+His words: *"Lets stick to 0.4R for breakeven and lets see how it will perform."*
+
+**The result on both real trades — what he asked for:**
+
+```
+EUR/USD  peak +0.50R  ->  +0.00R  breakeven   (actually happened: -1.05R)
+GBP/USD  peak +1.78R  ->  +1.00R  a WIN       (actually happened: -0.03R)
+```
+
+**The 1.5R lock is what creates the win.** At the old 2.0R it never fired, because the trade peaked at
+1.78R — which is exactly the gap reported in D33.
+
+**Stated limits, not buried:** one trade, replayed from one-minute bars, assuming a flat 0.9-pip
+spread derived from a single observation and the worse ordering inside any minute where both extremes
+matter. It is not a verdict on the numbers; it is the one measurement available. And the median VIX.1
+stop is 2.0 pips, so 0.4R of it is **0.8 pips** — about one EUR/USD spread, so `breakeven.why_not`
+will sometimes refuse to place the stop at all. That refusal is correct: a stop the wrong side of the
+market closes the position instantly.
+
+**Also removed in the same change:** a 17-line comment in `fill_watch.py` describing `_owner`, which
+was deleted with the second ladder. It still read as live documentation and still repeated the "safe
+in the only direction that matters" claim that cost a full R.
+
 ### D34 - ~~A LONG recorded live was filed as a SHORT, and its money inverted with it~~ FIXED 03 Sep 🔴
 
 **His report:** the EUR/USD trade **lost 1.05R** and the journal showed **+1.05R**.

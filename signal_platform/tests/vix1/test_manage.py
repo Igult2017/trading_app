@@ -28,10 +28,9 @@ def bars_to(r, bullish=True, n=4):
     return [body(px, px, t=i, wick_up=0.00002, wick_dn=0.00002) for i in range(n)]
 
 
-# HIS FIRST RUNG IS 0.2R now (2026-09-03), so "below it" means below 0.2R, not below 0.4R.
 print("   below the first rung nothing moves — the original stop stands:")
-st = run(ENTRY, SL0, True, bars_to(0.15))
-s.check("peak 0.15R locks nothing", st.locked_r, 0.0)
+st = run(ENTRY, SL0, True, bars_to(0.3))
+s.check("peak 0.3R locks nothing", st.locked_r, 0.0)
 s.check("  and has not reached breakeven", st.be_done, False)
 s.check("  and the stop is still the original", round(st.stop, 5), round(SL0, 5))
 

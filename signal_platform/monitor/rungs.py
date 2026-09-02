@@ -13,7 +13,7 @@ path and one as the safety net. Collapsing THOSE would delete the safety net.
 
 HIS LADDER, 2026-09-03 — and this supersedes the numbers of 02 Sep:
 
-    0.2R   ->  BREAKEVEN, net of costs
+    0.4R   ->  BREAKEVEN, net of costs
     1.5R   ->  lock +1R
     2.1R+  ->  TRAIL, keeping the stop 0.1R behind in 0.1R steps, until it is hit
 
@@ -21,21 +21,34 @@ His words: *"move breakeven to 0.2R and lock 1R when we are at R1.5. Then when w
 lock 2R and start locking after every 0.1R away until we get knocked out."*
 
 The last sentence needed no code change — the trail already locked 2.0R at 2.1R, 2.4R at 2.5R and
-2.9R at 3.0R. Only the two fixed rungs moved: **0.4R -> 0.2R** and **2.0R -> 1.5R**.
+2.9R at 3.0R. So the only change was **the +1R lock, 2.0R -> 1.5R**.
+
+BREAKEVEN STAYED AT 0.4R, and that was HIS CALL after seeing what 0.2R did. Measured on his GBP/USD
+trade of 02 Sep, replayed over the real minute bars:
+
+    breakeven 0.4R + lock 1R at 1.5R  ->  +1.00R   (runs to 1.78R; the 1.5R lock banks +1R)
+    breakeven 0.2R + lock 1R at 1.5R  ->  +0.00R   (scratches at 10:00, never gets past 0.32R)
+
+At 0.2R the stop reaches the entry by 09:58, and at 10:00 the ask comes back to 1.34884 against a
+1.34880 entry — out, before the trade ever runs. At 0.4R the same rung fires at 10:01, after that
+wobble. Three minutes decide it. He asked to keep 0.4R and watch how it performs: *"Lets stick to
+0.4R for breakeven and lets see how it will perform."*
+
+ONE TRADE, and a bar-level replay: it assumes a flat 0.9-pip spread and the worse ordering inside any
+minute where both extremes matter. It is not a verdict — it is the one measurement available.
 
 THERE IS ONE LADDER AND NO FALLBACK. It used to be chosen per strategy from a map held in memory, so
 a restart handed every open position the OLD numbers instead — see the note above `_LADDER` for the
 full R that cost. His ruling: *"There is no fallback, the change was that we use this new ladder and
 delete the other one."*
 
-BREAKEVEN AT 0.2R IS INSIDE THE SPREAD ON A TIGHT STOP, and that is worth knowing before it surprises
-anyone. Measured on 800k EUR/USD + 800k GBP/USD M1 bars (02 Sep): the median VIX.1 stop is 2.0 pips,
-so 0.2R of it is **0.4 pips** — less than half a typical EUR/USD spread. `breakeven.why_not` already
-refuses to set a stop that sits through the market, and it will now refuse far more often than it did
-at 0.4R, let alone 1R. **That refusal is correct when it fires**: a stop placed the wrong side of the
-market closes the position instantly, which `execution/breakeven.py` records happening for real on a
-demo position on 2026-08-21. The rung is reached; whether the stop can legally go there is the
-broker's answer, not ours.
+BREAKEVEN IS TIGHT ON A TIGHT STOP. Measured on 800k EUR/USD + 800k GBP/USD M1 bars (02 Sep): the
+median VIX.1 stop is 2.0 pips, so 0.4R of it is **0.8 pips** — around one EUR/USD spread.
+`breakeven.why_not` already refuses to set a stop that sits through the market, and **that refusal is
+correct when it fires**: a stop placed the wrong side of the market closes the position instantly,
+which `execution/breakeven.py` records happening for real on a demo position on 2026-08-21. The rung
+is reached; whether the stop can legally go there is the broker's answer, not ours. (At 0.2R it would
+have been 0.4 pips — inside the spread — which is part of why that number was not kept.)
 """
 from dataclasses import dataclass
 
@@ -118,7 +131,7 @@ class Trail:
 # The last sentence needed no change — the trail below already locks 2.0R at 2.1R, 2.4R at 2.5R and
 # 2.9R at 3.0R. Only the two fixed rungs moved: breakeven 0.4R -> 0.2R, and the +1R lock 2.0R -> 1.5R.
 _LADDER = (
-    Rung(0.2, None, "breakeven"),
+    Rung(0.4, None, "breakeven"),
     Rung(1.5, 1.0,  "lock_1r", quiet=True),      # moves the stop; says nothing — his rule above
 )
 _TRAIL = Trail(from_r=2.1, gap_r=0.1, step_r=0.1)
