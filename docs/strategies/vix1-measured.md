@@ -204,6 +204,91 @@ For a stop entry, stop size does not buy better odds; it buys how often you get 
 wait. That is why 0.5× is the peak, and why sizing the stop from the space ahead cannot work — it
 tunes a lever that is not connected to the outcome.
 
+
+---
+
+# 7. THE REAL CODE, ONE YEAR, REAL BARS
+
+**This section is different from every one above it.** Sections 1-6 measure the MECHANIC on generic
+entries. This drives the **SHIPPED FUNCTIONS** — `vix1_bias.detect_bias`, `vix1_entry.m1_signals`
+and `monitor.rungs` — over one year of real EUR/USD bars, at his instruction (2026-09-02: *"Run in
+real 1M data... one year is enough"*). Harness: `trading_app_data/tools/vix1_replay_year.py`.
+
+**Window 2025-07-17 to 2026-07-17, EUR/USD.**
+
+**WHAT IT STILL CANNOT REPRODUCE, so no number here is a live P&L:** the spread is a constant 1.2p
+(live it is read per scan); there is no historical bid/ask, so the alignment read and the
+"already through the market" refusal both fall back to the newest closed close; and the news, session
+and correlation gates are not applied.
+
+## What the year produced
+
+| | |
+|---|---|
+| setups found by the real bias | **152** |
+| entries produced by the real entry | **123** (80.9% of setups) |
+| entry flavour | pullback 90 - fractal_pullback 23 - **returned 7** - fractal_returned 3 |
+| never filled (stop side went first) | **63** - by design: *"if it goes the pullback direction without filling us we are safe too"* |
+| filled | 60 |
+| stop size | median **4.2 pips**, p90 7.2p |
+
+**Only 10 of 123 entries (8%) used the new return-to-line path** - the rest found a pullback inside
+1-3 candles, which matches the 82.8% measured in section 5.
+
+## THE LADDER - his change, A/B on identical fills
+
+Same entries, same stops, same bars; only what happens after the fill differs.
+
+| ladder | total R | losing trades |
+|---|---|---|
+| **his: 0.4R breakeven + locks at 2.0R / 2.5R** | **-9.0** | **21** |
+| old: 1R breakeven + locks at 2/3/4R | -16.0 | 33 |
+| no management at all | -14.0 | 50 |
+
+**His change is worth +7R over the year and cuts losing trades from 33 to 21.**
+
+**And it exposes something about the OLD ladder: it was WORSE THAN DOING NOTHING** (-16.0 against
+-14.0). Breakeven at 1R scratched trades that would have recovered without buying enough protection
+to pay for it. His 0.4R does not have that problem, because 0.4R sits just under where trades
+actually turn.
+
+## HOW FAR TRADES ACTUALLY GO - and why 0.4R is well chosen
+
+Peak R reached, 58 filled trades: median **0.56R**, p75 0.98R, p90 2.19R, max 4.33R.
+
+| reached | of 58 |
+|---|---|
+| **0.4R** | **39 (67%)** |
+| 1.0R | 14 (24%) |
+| 2.0R | 6 (10%) |
+| 2.5R | 4 (7%) |
+| **4.0R** | **1 (2%)** |
+
+**His 0.4R sits just below the median peak of 0.56R.** That is why it converts so many losses into
+scratches - two thirds of filled trades reach it. It was chosen by instinct and it lands where the
+data says it should.
+
+## THREE ISSUES THIS FOUND
+
+**1. The 4R take profit is very nearly decorative - 1 trade in 58 reached it all year.** The ladder
+performs essentially every exit. Lowering the target does NOT fix it, and that is the surprising
+part: total R is -9.0 at a 4R target, -9.0 at 2.5R, -9.0 at 2.0R, and -8.0 at 3R. The locks already
+capture those moves, so the target has almost nothing left to do. **The card still advertises 4R.**
+
+**2. The upper rungs are nearly inert** - 2.0R fires on 10% of trades and 2.5R on 7%, against 0.4R
+at 67%. Whether the locks should sit lower is HIS decision, not one to make from a single instrument.
+
+**3. The whole year is net negative - -9.0R over 123 orders.** With the caveats above, and on one
+instrument, one year, 21 losses against 6 wins. **This is not a verdict on VIX.1** - the news,
+session and correlation gates that live trading applies are absent here, and so is the real spread.
+
+## A FLAW IN THE HARNESS, FOUND AND FIXED
+
+The first run printed *"reached 4.0R: 0 of 58"* while the outcomes line on the same page said one
+trade hit the 4R target. `peak` was updated AFTER the target check, so breaking out on a win left it
+holding the previous bar's value. One trade here - but a report whose two numbers contradict each
+other is not publishable, and the same bug would have understated every winner's peak.
+
 ## WHAT IS STILL NOT MEASURED
 
 * **VIX.1's OWN filtered setups.** Everything here is the generic population. A rule that does
