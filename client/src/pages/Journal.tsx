@@ -581,9 +581,21 @@ function DashboardView({ sessionId, isMobile, windowWidth, darkMode = true }: { 
   const metricsUrl = sessionId ? `/api/metrics/compute?sessionId=${sessionId}` : '';
   const entriesUrl = sessionId ? `/api/journal/entries?sessionId=${sessionId}` : '';
 
+  // THESE TWO WERE THE ONLY JOURNAL PANELS WITH NO FRESHNESS OF THEIR OWN, so they inherited the
+  // app-wide `staleTime: Infinity` and never re-asked the server. That is fine for a trade typed
+  // into the form (saving it invalidates these keys by hand) and wrong for one that arrives from the
+  // BROKER while the page is open — nothing on the client knows a sync happened, so the dashboard
+  // could sit on numbers from before the trade indefinitely, a page reload included: the persisted
+  // cache is restored with a fresh timestamp, so "never stale" survives the reload too.
+  //
+  // Two minutes matches every sibling panel — Metrics, Trade Vault and Calendar all use it — and the
+  // server's own compute cache is 5 minutes, so this cannot cause a stampede.
+  const PANEL_STALE_MS = 2 * 60 * 1000;
+
   const { data: metricsData, isLoading: metricsLoading } = useQuery<{ success: boolean; metrics: any }>({
     queryKey: ['/api/metrics/compute', sessionId],
     enabled: !!sessionId,
+    staleTime: PANEL_STALE_MS,
     queryFn: async () => {
       const r = await authFetch(metricsUrl);
       if (!r.ok) throw new Error(`${r.status}: ${r.statusText}`);
@@ -594,6 +606,7 @@ function DashboardView({ sessionId, isMobile, windowWidth, darkMode = true }: { 
   const { data: entries = [], isLoading: entriesLoading } = useQuery<any[]>({
     queryKey: ['/api/journal/entries', sessionId],
     enabled: !!sessionId,
+    staleTime: PANEL_STALE_MS,
     queryFn: async () => {
       const r = await authFetch(entriesUrl);
       if (!r.ok) throw new Error(`${r.status}: ${r.statusText}`);

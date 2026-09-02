@@ -202,6 +202,33 @@ for (const ns of ['entries', 'metrics', 'calendar', 'drawdown', 'tfmatrix']) {
   check(`the ${ns} page's cache is cleared with the rest`, cache.includes(`"${ns}"`), true);
 }
 
+// ── THE LAST LINK: THE BROWSER HAS TO ASK AGAIN ────────────────────────────
+// The server can hold the trade and still never show it. The app sets `staleTime: Infinity` and
+// `refetchOnWindowFocus: false` globally, and NOTHING on the client knows a broker sync happened —
+// the three things that refresh the journal (saving the form, editing in Trade Vault, deleting a
+// session) are all the user's own actions. So every journal panel must set its own freshness, or it
+// sits on pre-sync numbers indefinitely — a page reload included, because the persisted cache is
+// restored with a fresh timestamp and "never stale" survives the reload.
+//
+// The Dashboard's two queries were the only ones without it.
+const panels: [string, string, RegExp][] = [
+  ['Dashboard',   join('client', 'src', 'pages', 'Journal.tsx'),                 /staleTime: PANEL_STALE_MS/],
+  ['Trade Vault', join('client', 'src', 'components', 'TradeVault.tsx'),         /staleTime: 2 \* 60 \* 1000/],
+  ['Calendar',    join('client', 'src', 'components', 'TradingCalendar.tsx'),    /staleTime: 2 \* 60 \* 1000/],
+  ['Drawdown',    join('client', 'src', 'components', 'DrawdownPanel.tsx'),      /staleTime: 0/],
+  ['Metrics',     join('client', 'src', 'components', 'MetricsPanel.tsx'),       /staleTime: 2 \* 60 \* 1000/],
+  ['Audit',       join('client', 'src', 'components', 'StrategyAudit.tsx'),      /staleTime: 0/],
+  ['Sessions',    join('client', 'src', 'components', 'CreateSession.tsx'),      /staleTime: 0/],
+];
+for (const [name, file, re] of panels) {
+  check(`the ${name} panel re-asks the server rather than inheriting "never stale"`,
+        re.test(readFileSync(join(process.cwd(), file), 'utf8')), true);
+}
+// BOTH Dashboard queries, not just one — it shows the metrics AND the recent-trades list.
+const journalSrc = readFileSync(join(process.cwd(), 'client', 'src', 'pages', 'Journal.tsx'), 'utf8');
+check('...and the Dashboard sets it on BOTH of its queries',
+      (journalSrc.match(/staleTime: PANEL_STALE_MS/g) ?? []).length, 2);
+
 // ── TEETH ──────────────────────────────────────────────────────────────────
 teeth('the old pip rule really was wrong for gold', Math.round(4.20 * 100) !== 42);
 teeth('...and really was right for EUR/USD', Math.round(0.00063 * 10000 * 100) / 100 === 6.3);
