@@ -129,15 +129,26 @@ It runs on your **journal trade entries**; it has nothing to do with the signal 
 
 ### "a trade I took isn't in the journal" / "autosync isn't recording"
 
-**Check `connection_type` on the broker account FIRST.** It defaults to `'webhook'`
-(`shared/schema.ts:675`) and three things skip the account in silence unless it is exactly `'api'`:
-the 15-minute sweep (`autoSyncService.getAllApiAccounts`), the live push feed
-(`ctraderRealtime.openFeed`) and the feed's boot list (`reconcile`). cTrader OAuth never set it until
-02 Sep 2026 — see **D29** in [OPEN.md](./OPEN.md). A boot-time repair now corrects existing rows off
-the CREDENTIALS rather than the label.
+**READ THE PRODUCTION LOG FIRST — it now answers this directly**, and on 02 Sep 2026 guessing instead
+cost a wrong root cause that shipped. Every sync prints its window, the deals fetched, and what
+became of them:
 
-Every sync now logs its window, the deals fetched and the trades recorded, so the log answers this
-directly. If a sync ran and found nothing, it says so.
+```
+[AutoSync] sweep: 2 API-connected account(s) to check
+[AutoSync] ctrader(e31e9caa): 2 closed trade(s) from the broker -> 0 recorded, 2 already had, 0 journaled
+```
+
+**"Stored" and "in the journal" are two different things.** A trade lives in `synced_trades`; the
+journal reads `journal_entries`; `synced_trades.journal_entry_id` links them and is *"null until
+auto-journaled"* (`shared/schema.ts:721`). A trade can be stored and still be invisible to him — and
+until 02 Sep the sync skipped anything already stored, so such a trade could never get its entry.
+See **D29** in [OPEN.md](./OPEN.md).
+
+Only if the log shows the account being skipped entirely, check `connection_type` — it defaults to
+`'webhook'` and three things need exactly `'api'`: the sweep (`getAllApiAccounts`), the live feed
+(`ctraderRealtime.openFeed`) and the feed's boot list (`reconcile`). **This was NOT the 02 Sep cause**
+— both accounts were already `'api'` — but the cTrader OAuth writes genuinely never set the field, so
+it is a live risk for the next account connected.
 
 ### "will this hold at 2000 users?" / "account sync is eating the signal platform's connections"
 
@@ -193,27 +204,33 @@ is wrong.** Full wording lives in the linked doc; this is the index so you know 
 
 ## PROGRESS — what actually happened, newest first
 
-**2026-09-02 (c) — "it has not autorecorded anything since yesterday". One missing line had turned
-both recording paths off.**
+**2026-09-02 (c) — "it has not autorecorded anything since yesterday". I shipped a wrong root cause,
+and the logging I shipped with it caught me out within minutes.**
 
-`broker_accounts.connection_type` defaults to `'webhook'`, and the cTrader OAuth flow — the
-single-account callback and `select-account` — updated tokens, login id, account type and balance
-but **never set it to `'api'`**. An account held live working credentials and was still filed as a
-webhook account. Three consumers test for exactly `'api'` and all three refused it without a word:
-the 15-minute sweep, the live push feed, and the feed's boot subscriber list. Yesterday's fix (adding
-cTrader to the sweep) could not help — the sweep filters on the same value.
+I diagnosed it as `connection_type` never being set to `'api'` by the cTrader OAuth flow, which would
+have hidden the account from the sweep, the live feed and the feed's boot list. It was a real gap in
+those two OAuth writes — but **not this bug**. The first deployed log said
+`sweep: 2 API-connected account(s)`, attached both live feeds, and printed **no repair line**: both
+accounts were already correct. I could not read production's database (internal host, dead token) and
+built a root cause from a code path that *could* explain the symptom instead of measuring the
+account.
 
-The evidence fit exactly: 8,122 production log lines held `[AutoSync] Starting` and then **nothing** —
-no error, no success, because nothing ran; a real GBP/USD position closed at 11:09 and was never
-recorded; the manual Sync button answered 200 in 252 ms. **The mapping was not at fault** —
-`pairDealsIntoTrades` run against the four real deals pulled from the broker produced correct output.
+**What the same log actually showed:** `2 closed trade(s) from the broker -> 0 recorded, 2 already
+had, 0 journaled`. The trades were in the database. Storing a trade and writing its journal entry are
+separate steps, and the sync only asked *"have I seen this trade?"* —
+`if (existing) { duplicates++; continue; }`. A trade whose journal entry was never written was
+therefore skipped by every later sync for ever: "already had" in the log, nothing in the journal, and
+the journal is what he looks at. The duplicate branch now journals a stored trade that has no
+`journal_entry_id`.
 
-Fixed at the cause (both OAuth sites now record it), around it (a boot-time repair keyed on the
-CREDENTIALS, not the label, because he was not there to edit the database), and underneath it: the
-sweep logged nothing on success, `.catch(() => {})` sat around `syncAllAccounts` itself, and the
-manual Sync button fired un-awaited and discarded the result. All three are why a dead sync looked
-identical to a working one for a day. A missed trade can now also heal itself — every fourth sweep
-reaches back 7 days instead of 2 hours. **D29** in [OPEN.md](./OPEN.md);
+**Still unverified at the time of writing:** whether that is today's cause. Reading it needs his
+login. The next sweep's log settles it — a `HEALED` count proves it, a zero rules it out.
+
+Kept from the wrong pass because they stand on their own: every sync now logs its window and what it
+recorded; `.catch(() => {})` is gone from around `syncAllAccounts` (one failed database read would
+have stopped every sync for ever, invisibly); the manual Sync button waits and reports instead of
+answering "started in background" in 252 ms; and every fourth sweep looks back 7 days so a trade
+missed once is retried. **D29** in [OPEN.md](./OPEN.md);
 `server/services/autoSyncWiring.test.ts`.
 
 **2026-09-02 (b) — he asked why the FIX system cries wolf on every deploy. The logs answered that

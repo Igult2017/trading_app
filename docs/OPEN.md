@@ -841,12 +841,72 @@ anywhere. Blocked on one question: does copy trading auto-execute on a user's ac
 
 ## D. cTrader & copy trading
 
-### D29 - ~~An account that finished OAuth was still filed as a webhook account, so NOTHING auto-recorded~~ FIXED 02 Sep 🔴
+### D29 - Autosync recorded nothing in the journal. ⚠ MY FIRST ROOT CAUSE WAS WRONG — corrected 02 Sep 🔴
 
 **His report, 02 Sep:** *"audit, plan and fix autosync of ctrader placed trades in the journal. We
 fixed it yesterday and since then it has not autorecorded anything meaning its not working."*
 
-**The root cause is one missing line, and it disabled BOTH automatic recording paths at once.**
+> ## ⚠ READ THIS FIRST — the `connectionType` theory below is WRONG
+>
+> I diagnosed this as `connection_type` being left at `'webhook'`, and shipped it as the root cause.
+> **The deployed log disproved it within minutes:**
+>
+> ```
+> [AutoSync] sweep: 2 API-connected account(s) to check
+> [cTraderRT] live feed attached — account f0844dd7… (ctid 47535327)
+> [cTraderRT] live feed attached — account e31e9caa… (ctid 47535363)
+> ```
+>
+> Two accounts seen by the sweep, both live feeds attached, and **no `REPAIRED` line at all** — so
+> both rows were already labelled `'api'` and all three consumers could see them the whole time.
+>
+> **Why I got it wrong:** production's database is only reachable inside the container and the
+> Coolify token was dead, so I could not read the one field the theory rested on. I built a root
+> cause out of a code path that *could* explain the symptom instead of measuring the account. That
+> is the "reproduce the ACTUAL event" rule, broken.
+>
+> **What the `connectionType` work is still worth:** the two OAuth writes genuinely never set the
+> field, which is a latent defect for the NEXT account he connects; the boot repair matches nothing
+> today and is harmless; and the observability added alongside it is the only reason the wrong
+> theory died in minutes instead of surviving another day.
+
+**THE ACTUAL FINDING, from the same log:**
+
+```
+[AutoSync] ctrader(e31e9caa): 2 closed trade(s) from the broker
+           -> 0 recorded, 2 already had, 0 journaled
+```
+
+**The trades are in the database.** Storing a trade and writing its journal entry are two separate
+steps, and [`brokerSyncService.ts`](../server/services/brokerSyncService.ts) only ever asked the
+first question:
+
+```ts
+const existing = await storage.getSyncedTradeByExternal(brokerAccountId, raw.externalId);
+if (existing) { duplicates++; continue; }     // "have I seen this trade?" — never "is it journaled?"
+```
+
+`synced_trades.journal_entry_id` is *"null until auto-journaled"*
+([`schema.ts:721`](../shared/schema.ts#L721)). So a trade whose journal entry was never written —
+an error mid-way, a path that stores without journaling, a row saved before auto-journaling existed —
+is skipped by **every** later sync, for ever. The sync reports "already had" while the journal stays
+empty. **The journal is what he actually looks at**, so that reads exactly like "the sync is not
+working".
+
+**Fixed:** the duplicate branch now journals a stored trade that has open and close times and no
+`journal_entry_id`. `autoJournalTrade` returns early when `journalEntryId` is set
+([`brokerSyncService.ts:43`](../server/services/brokerSyncService.ts#L43)), so a second entry is
+impossible. Healed trades also clear the cached pages, or the entry exists while every page shows the
+old list for up to five minutes. The count is logged.
+
+**STILL UNVERIFIED, and this is the honest state:** I have **not** confirmed that this is today's
+cause. Reading `journal_entry_id` needs his login and I do not have one. **The next sweep's log
+settles it** — a `HEALED` count proves it, a zero rules it out and the hunt continues. The hole is
+real and is closed either way.
+
+---
+
+**The original (wrong) theory, kept because the latent defect in it is real:**
 
 `broker_accounts.connection_type` defaults to `'webhook'`
 ([`schema.ts:675`](../shared/schema.ts#L675)). The cTrader OAuth flow finishes in one of two places —
