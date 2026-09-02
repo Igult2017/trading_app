@@ -14,12 +14,12 @@ IT TRACKS EVERY OPEN POSITION, including trades the platform never signalled —
 *"Yes"*. So a manual trade gets the same three alerts.
 
 THE LADDER LIVES IN `monitor/rungs.py` AND IS PER STRATEGY. It used to be two ladders with
-different numbers — this file at 1R, `vix1_manage` at 2R — for the same trade.
+different numbers — this file at 1R, `vix1_manage` at 2R — for the same trade. One table now.
 
 VIX.1, his numbers of 2026-09-02 (superseding 2026-08-21, which had withdrawn the 2.5R rung):
 
-    0.4R  ->  BREAKEVEN     the stop goes to the NET-ZERO price
-    2.0R  ->  LOCK +1R
+    0.2R  ->  BREAKEVEN     the stop goes to the NET-ZERO price
+    1.5R  ->  LOCK +1R
     2.1R+ ->  TRAIL, keeping the stop 0.1R behind, in 0.1R steps, until it is hit
 
 THIS IS THE ONLY LADDER. Every position on the account uses it — his ruling, 2026-09-02: *"There is
@@ -62,7 +62,7 @@ log = logging.getLogger(__name__)
 # So the DM advising him and the code moving his stop could disagree about the same position. He
 # asked for them merged; the table is the merge.
 #
-# HIS LADDER, 2026-09-02: breakeven at 0.4R, lock +1R at 2.0R, then TRAIL 0.1R behind in 0.1R steps
+# HIS LADDER, 2026-09-03: breakeven at 0.2R, lock +1R at 1.5R, then TRAIL 0.1R behind in 0.1R steps
 # ("when price moves to 2.1R lock 2R... and go with that math until we are stopped out"). The old
 # fixed 2.5R -> lock 2R rung is gone: the trail protects +2R from 2.1R, earlier and higher. Trailing
 # tenths move the stop QUIETLY — see `Rung.quiet` in rungs.py.

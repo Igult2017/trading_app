@@ -28,9 +28,10 @@ def bars_to(r, bullish=True, n=4):
     return [body(px, px, t=i, wick_up=0.00002, wick_dn=0.00002) for i in range(n)]
 
 
+# HIS FIRST RUNG IS 0.2R now (2026-09-03), so "below it" means below 0.2R, not below 0.4R.
 print("   below the first rung nothing moves — the original stop stands:")
-st = run(ENTRY, SL0, True, bars_to(0.3))
-s.check("peak 0.3R locks nothing", st.locked_r, 0.0)
+st = run(ENTRY, SL0, True, bars_to(0.15))
+s.check("peak 0.15R locks nothing", st.locked_r, 0.0)
 s.check("  and has not reached breakeven", st.be_done, False)
 s.check("  and the stop is still the original", round(st.stop, 5), round(SL0, 5))
 
@@ -46,8 +47,10 @@ s.check("  while locking no R — breakeven protects zero", be.locked_r, 0.0)
 s.check("  announced exactly once", len([e for e in be.events if e[1] == 0.0]), 1)
 s.check("  ...and not again on a later poll",
         len([e for e in run(ENTRY, SL0, True, bars_to(1.5), state=be).events if e[1] == 0.0]), 1)
-mid = run(ENTRY, SL0, True, bars_to(1.9))
-s.check("1.9R still locks nothing above breakeven", mid.locked_r, 0.0)
+# The +1R lock now sits at 1.5R. 1.4R, not 1.49R: `bars_to` adds a 0.00002 wick, which is 0.02R
+# here, so 1.49R would tip over the rung on the wick alone and test the opposite of its name.
+mid = run(ENTRY, SL0, True, bars_to(1.4))
+s.check("1.4R still locks nothing above breakeven", mid.locked_r, 0.0)
 s.check("  and the stop is still the entry", round(mid.stop, 5), round(ENTRY, 5))
 
 print()
@@ -108,7 +111,8 @@ s.check("ratchet steps are recorded as events", len(st6.events) > 0, True)
 s.check("state exposes the peak reached", st6.peak_r >= 3.0, True)
 
 print()
-s.teeth("nothing locks below 2R", run(ENTRY, SL0, True, bars_to(1.9)).locked_r == 0.0)
+s.teeth("nothing locks below 1.5R", run(ENTRY, SL0, True, bars_to(1.4)).locked_r == 0.0)
+s.teeth("...and 1.5R DOES lock 1R", run(ENTRY, SL0, True, bars_to(1.5)).locked_r == 1.0)
 s.teeth("the forward-only ratchet", st5.locked_r == 2.4 and round(st5.stop, 5) == round(after_peak, 5))
 s.teeth("the wicks-never-count rule", structure_broken(wick_only, True) is False)
 

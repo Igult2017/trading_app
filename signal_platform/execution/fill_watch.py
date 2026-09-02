@@ -32,20 +32,6 @@ log = logging.getLogger(__name__)
 
 _TTL = 7 * 24 * 3600      # keep the "already reported" marks a week; a fill is reported once
 
-# WHICH STRATEGY OWNS AN OPEN POSITION — position_id -> strategy id.
-#
-# A `Position` read from the broker carries NO strategy: cTrader does not know what opened it. The
-# ladder needs to know, because his 0.4R breakeven is VIX.1's and must not silently re-tune any other
-# strategy's trades. The match already exists in `_matches`; what was missing is that it did not
-# SURVIVE. `check_fills` pops the intent the moment the fill report is sent, and the ladder then runs
-# for the rest of the position's life with nothing left to ask.
-#
-# So ownership is recorded at the moment of the match and kept until the position closes.
-#
-# IT IS IN-MEMORY, AND THAT IS SAFE IN THE ONLY DIRECTION THAT MATTERS. After a restart the map is
-# empty, so a position opened before it is UNATTRIBUTED — and an unattributed position gets the old
-# default ladder, never VIX.1's. Losing attribution costs a slightly later breakeven; inventing it
-# would apply one strategy's numbers to another's money.
 def _matches(intent: dict, pos) -> bool:
     """Is this open position the fill of that order?"""
     if intent["symbol"] != pos.symbol:

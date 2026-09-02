@@ -66,7 +66,8 @@ def gbpusd():
 _OLD_LADDER = (R.Rung(1.0, None, "breakeven"), R.Rung(2.0, 1.0, "lock_1r"))
 
 s.check("there is one ladder and it takes no argument", R.ladder.__code__.co_argcount, 0)
-s.check("...breaking even at 0.4R for every position", R.ladder()[0].at_r, 0.4)
+s.check("...breaking even at 0.2R for every position", R.ladder()[0].at_r, 0.2)
+s.check("...and locking +1R at 1.5R", (R.ladder()[1].at_r, R.ladder()[1].lock_r), (1.5, 1.0))
 s.check("the ladder that could be selected instead is gone",
         any(n in dir(R) for n in ("_DEFAULT", "_BY_STRATEGY", "ladder_for", "trail_for")), False)
 
@@ -93,20 +94,30 @@ s.check(f"EUR/USD took a full loss ({old['exit_r']:+.2f}R)", round(old["exit_r"]
 s.check("...because nothing fired at all", old["events"][0][1].startswith("STOPPED"), True)
 s.teeth("deleting that ladder is worth a whole R on this trade",
         round(eur["exit_r"] - old["exit_r"], 2) == 1.0)
-s.teeth("...and his trade peaked exactly in the gap between the two breakevens",
-        R.ladder()[0].at_r < eur["best_r"] < _OLD_LADDER[0].at_r)
 
 
-# ── WHERE THE WIN IS, AND WHY IT IS NOT THERE YET ──────────────────────────
-# He asked for one WIN and one BE. One ladder removes both losses, but it cannot manufacture the win:
-# GBP/USD peaked at +1.78R as the manager measures it (R from the FILL, on the ASK, which is what
-# `_price_now` returns for a sell) and the first PROFIT-locking rung sits at 2.0R. A rung that is
-# never reached cannot protect anything. Stated here rather than hidden, so the day the numbers
-# change this is right beside them.
-peak = gbp["best_r"]
-first_lock = next(rung.at_r for rung in R.ladder() if rung.lock_r is not None)
-s.check(f"GBP/USD peaked at {peak:.2f}R", round(peak, 2), 1.78)
-s.check(f"...and the first profit lock sits at {first_lock}R", first_lock, 2.0)
-s.check("...so it cannot lock a profit — the rung is never reached", peak < first_lock, True)
+# ── THE TWO HALVES OF HIS 03 SEP CHANGE PULL OPPOSITE WAYS ON GBP/USD ──────
+#
+# MEASURED, and recorded here because it is a fact about HIS numbers that he should not have to
+# rediscover. On the one trade we can replay:
+#
+#     breakeven 0.4R + lock 1R at 1.5R  ->  +1.00R   (runs to 1.78R, the 1.5R lock banks +1R)
+#     breakeven 0.2R + lock 1R at 1.5R  ->  +0.00R   (scratches at 10:00, never gets past 0.32R)
+#
+# The 1.5R lock is what CREATES the win; the 0.2R breakeven is what prevents it. At 0.2R the stop
+# reaches the entry by 09:58, and at 10:00 the ask comes back to 1.34884 against a 1.34880 entry —
+# out, before the trade ever runs. At 0.4R the same rung fires at 10:01, after that wobble.
+#
+# ONE TRADE, and a bar-level replay at that: it assumes a flat 0.9-pip spread and the worse ordering
+# inside any minute where both matter. It is not a verdict on the numbers — it is the one measurement
+# available, and burying it would be worse than stating its limits.
+_TRAIL = R.trail()
+_at_04 = replay(gbpusd(),
+                ladder=(R.Rung(0.4, None, "breakeven"), R.Rung(1.5, 1.0, "lock_1r", quiet=True)),
+                trail=_TRAIL)
+s.check("with breakeven at 0.4R the same trade banks +1R", round(_at_04["exit_r"], 2), 1.0)
+s.check("...with breakeven at 0.2R it scratches instead", round(gbp["exit_r"], 2), 0.0)
+s.check("...and the difference is the EARLY breakeven, not the 1.5R lock",
+        _at_04["best_r"] > gbp["best_r"], True)
 
 s.done()

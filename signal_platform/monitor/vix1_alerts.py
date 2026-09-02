@@ -108,7 +108,7 @@ async def check(row, bars) -> None:
         stop = entry + locked_r * abs(entry - sl0) if buy else entry - locked_r * abs(entry - sl0)
         # BREAKEVEN IS A RUNG THAT LOCKS ZERO, so it arrives here as locked_r 0.0 and must not be
         # announced as "move your stop to +0R", which reads as nonsense and hides what it means. It
-        # is his first rung now (0.4R, 2026-09-02), so it is the message he will see most often.
+        # is his first rung now (0.2R, 2026-09-03), so it is the message he will see most often.
         if locked_r == 0.0:
             sig = _alert(
                 row.symbol, buy,

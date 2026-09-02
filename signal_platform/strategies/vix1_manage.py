@@ -1,15 +1,17 @@
 """
 VIX.1 — TRADE MANAGEMENT: the R ratchet and the 1M structure exit.
 
-HIS LADDER, 2026-09-02 — and it SUPERSEDES the 2026-07-25 trailing reading described below:
+HIS LADDER, 2026-09-03 — and it SUPERSEDES the 2026-07-25 trailing reading described below:
 
-    price reaches 0.4R -> stop to BREAKEVEN
-    price reaches 2.0R -> stop to +1R      (1R locked)
-    price reaches 2.5R -> stop to +2R      (2R locked)
+    price reaches 0.2R  -> stop to BREAKEVEN
+    price reaches 1.5R  -> stop to +1R      (1R locked)
+    price reaches 2.1R+ -> TRAIL, the stop kept 0.1R behind in 0.1R steps
 
-His words: *"Breakeven at 0.4R, Lock 1R at 2R and lock 2R at 2.5R and get out of trade when price
-has started turning against us."* **The 2.5R rung had been explicitly WITHDRAWN on 2026-08-21 and he
-has reinstated it** — recorded so it is not "corrected" back.
+His words: *"move breakeven to 0.2R and lock 1R when we are at R1.5. Then when we get to R2.1, we
+lock 2R and start locking after every 0.1R away until we get knocked out."*
+
+The fixed 2.5R -> lock 2R rung is gone: the trail protects +2R from 2.1R, which is both earlier and
+higher, so keeping it would have told him to move the stop DOWN from 2.4R to 2.0R.
 
 WHAT THIS REPLACED, kept because the reasoning still explains the shape. His rule of 2026-07-25 was
 *"We target 2R however, if the price is still moving, we lock 2R and still stay. So in each movement
@@ -44,8 +46,9 @@ from monitor import rungs
 from shared.swing_points import find_swing_points
 
 # ARM_R / TRAIL_R ARE GONE — the rungs now come from `monitor/rungs.py`, which both this advice
-# path and the code that moves the real stop read. They described a TRAIL (arm at 2R, sit 1R behind);
-# his ladder of 2026-09-02 is fixed rungs instead: breakeven 0.4R, +1R at 2.0R, +2R at 2.5R.
+# path and the code that moves the real stop read. They described a TRAIL armed at 2R sitting 1R
+# behind; his ladder is two fixed rungs (breakeven 0.2R, +1R at 1.5R) and then a much tighter trail
+# from 2.1R that keeps the stop 0.1R behind.
 _SWING_N = 3     # 1M pivot half-width, same as everywhere else in the platform
 
 
@@ -69,8 +72,8 @@ def _locked_for(peak_r: float) -> float:
     in the codebase: the code that moves his stop broke even at 1R while this advised nothing below
     2R, so the DM and the amend could disagree about one trade. He asked for them merged.
 
-    HIS LADDER, 2026-09-02 (revised the same day): breakeven at 0.4R, lock +1R at 2.0R, then TRAIL —
-    the stop keeps 0.1R behind in 0.1R steps until it is hit.
+    HIS LADDER, 2026-09-03: breakeven at 0.2R, lock +1R at 1.5R, then TRAIL from 2.1R — the stop
+    keeps 0.1R behind in 0.1R steps until it is hit.
 
     **THE TRAIL MUST BE PASSED HERE TOO.** This is the THIRD reader of the shared table, after
     `position_tracker` and `trade_watcher`, and it was the one missed when the trail was added: it

@@ -11,29 +11,31 @@ than by deleting one of them, because they are not duplicates: `trade_watcher` (
 price) and `position_tracker` (30s poll) already share one rulebook deliberately, one as the fast
 path and one as the safety net. Collapsing THOSE would delete the safety net.
 
-HIS LADDER, 2026-09-02 — and this SUPERSEDES the one settled on 2026-08-21:
+HIS LADDER, 2026-09-03 — and this supersedes the numbers of 02 Sep:
 
-    0.4R  ->  BREAKEVEN, net of costs
-    2.0R  ->  lock +1R
-    2.5R  ->  lock +2R
-    price turning against us  ->  exit (the 1M structure exit in vix1_manage)
+    0.2R   ->  BREAKEVEN, net of costs
+    1.5R   ->  lock +1R
+    2.1R+  ->  TRAIL, keeping the stop 0.1R behind in 0.1R steps, until it is hit
 
-**The 2.5R rung was explicitly WITHDRAWN on 2026-08-21 and he has now reinstated it.** That is
-recorded here and in `docs/strategies/vix1.md` so the next session does not "correct" it back to the
-old 3R/4R shape.
+His words: *"move breakeven to 0.2R and lock 1R when we are at R1.5. Then when we get to R2.1, we
+lock 2R and start locking after every 0.1R away until we get knocked out."*
 
-WHY PER STRATEGY, AND WHY THE DEFAULT IS UNCHANGED. A `Position` read from the broker carries NO
-strategy — cTrader does not know what opened it. A single global constant therefore cannot be
-changed for VIX.1 without silently re-tuning every other strategy's trades, which is exactly the
-leak the independence rule forbids. Attribution comes from `execution.fill_watch`, which already
-matches a broker position back to the order intent that placed it. **Anything that cannot be
-attributed keeps the OLD defaults — never VIX.1's numbers.** An unknown position is not a VIX.1
-position.
+The last sentence needed no code change — the trail already locked 2.0R at 2.1R, 2.4R at 2.5R and
+2.9R at 3.0R. Only the two fixed rungs moved: **0.4R -> 0.2R** and **2.0R -> 1.5R**.
 
-MEASURED, NOT ASSUMED (800k EUR/USD + 800k GBP/USD M1 bars, 2026-09-02): 0.4R on a median 2.0-pip
-stop is 0.8 pips, which is under one spread on EUR/USD. `breakeven.why_not` already refuses to set a
-stop that sits through the market — that refusal will fire more often at 0.4R than it did at 1R, and
-it is correct when it does.
+THERE IS ONE LADDER AND NO FALLBACK. It used to be chosen per strategy from a map held in memory, so
+a restart handed every open position the OLD numbers instead — see the note above `_LADDER` for the
+full R that cost. His ruling: *"There is no fallback, the change was that we use this new ladder and
+delete the other one."*
+
+BREAKEVEN AT 0.2R IS INSIDE THE SPREAD ON A TIGHT STOP, and that is worth knowing before it surprises
+anyone. Measured on 800k EUR/USD + 800k GBP/USD M1 bars (02 Sep): the median VIX.1 stop is 2.0 pips,
+so 0.2R of it is **0.4 pips** — less than half a typical EUR/USD spread. `breakeven.why_not` already
+refuses to set a stop that sits through the market, and it will now refuse far more often than it did
+at 0.4R, let alone 1R. **That refusal is correct when it fires**: a stop placed the wrong side of the
+market closes the position instantly, which `execution/breakeven.py` records happening for real on a
+demo position on 2026-08-21. The rung is reached; whether the stop can legally go there is the
+broker's answer, not ours.
 """
 from dataclasses import dataclass
 
@@ -110,9 +112,14 @@ class Trail:
 # THE 2.5R -> lock 2R RUNG IS GONE, deliberately: the trail protects +2R from 2.1R, which is both
 # earlier and higher than that rung ever was. Leaving it in would fire a second alert at 2.5R telling
 # him to move the stop DOWN from 2.4R to 2.0R.
+# HIS NUMBERS, 2026-09-03: *"move breakeven to 0.2R and lock 1R when we are at R1.5. Then when we get
+# to R2.1, we lock 2R and start locking after every 0.1R away until we get knocked out."*
+#
+# The last sentence needed no change — the trail below already locks 2.0R at 2.1R, 2.4R at 2.5R and
+# 2.9R at 3.0R. Only the two fixed rungs moved: breakeven 0.4R -> 0.2R, and the +1R lock 2.0R -> 1.5R.
 _LADDER = (
-    Rung(0.4, None, "breakeven"),
-    Rung(2.0, 1.0,  "lock_1r", quiet=True),      # moves the stop; says nothing — his rule above
+    Rung(0.2, None, "breakeven"),
+    Rung(1.5, 1.0,  "lock_1r", quiet=True),      # moves the stop; says nothing — his rule above
 )
 _TRAIL = Trail(from_r=2.1, gap_r=0.1, step_r=0.1)
 

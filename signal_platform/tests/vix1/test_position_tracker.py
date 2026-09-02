@@ -103,9 +103,9 @@ T.delivery_ledger.is_delivered = lambda k: False        # every run starts fresh
 T.delivery_ledger.mark_delivered = lambda k: None
 T.delivery_ledger.cleanup = lambda ttl: None
 
-s.check("below 0.4R — nothing is sent", len(run([P(pid=10)], 1.1003)), 0)
-one = run([P(pid=11)], 1.1005)
-s.check("at 0.4R — exactly one alert", len(one), 1)
+s.check("below 0.2R — nothing is sent", len(run([P(pid=10)], 1.1001)), 0)
+one = run([P(pid=11)], 1.1003)
+s.check("at 0.2R — exactly one alert", len(one), 1)
 s.check("...and it is BREAKEVEN", "BREAKEVEN" in one[0], True)
 
 # ── THE LADDER — ONE LADDER, and only breakeven speaks ──────────────────────
@@ -125,10 +125,10 @@ for r_reached, label in ((2.0, "2R"), (3.0, "3R"), (4.0, "4R")):
 # The rungs themselves, through the real function. `_lines` returns (tag, stop price, message).
 _p = P(pid=30)
 tags_at = lambda r: [t for t, _sl, _m in T._lines(_p, r, 1.1000 + r * 0.0010)]
-s.check("0.39R reaches nothing", tags_at(0.39), [])
-s.check("0.4R reaches breakeven", tags_at(0.4), ["breakeven"])
-s.check("1.9R is still only breakeven", tags_at(1.9), ["breakeven"])
-s.check("2.0R adds the +1R lock", tags_at(2.0), ["breakeven", "lock_1r"])
+s.check("0.19R reaches nothing", tags_at(0.19), [])
+s.check("0.2R reaches breakeven", tags_at(0.2), ["breakeven"])
+s.check("1.4R is still only breakeven", tags_at(1.4), ["breakeven"])
+s.check("1.5R adds the +1R lock", tags_at(1.5), ["breakeven", "lock_1r"])
 s.check("2.1R starts the trail", tags_at(2.1)[-1], "trail_2.0r")
 s.check("4.0R trails at 3.9R", tags_at(4.0)[-1], "trail_3.9r")
 
@@ -156,10 +156,10 @@ s.check("...and an empty book also sends nothing", len(run([], 1.1010)), 0)
 # THE GATE IS 0.4R NOW, not 1R — one ladder for every position (his ruling, 2026-09-02). And the
 # rung count, not the message count, is what proves the ordering: every locking rung is silent, so
 # messages stay at one however far the trade runs.
-s.teeth("the 0.4R gate", len(run([P(pid=20)], 1.1003)) == 0
-        and len(run([P(pid=23)], 1.1005)) == 1)
+s.teeth("the 0.2R gate", len(run([P(pid=20)], 1.1001)) == 0
+        and len(run([P(pid=23)], 1.1003)) == 1)
 s.teeth("the ladder rungs are ordered and gated",
-        len(T._lines(P(pid=21), 0.4, 1.1004)) < len(T._lines(P(pid=22), 4.0, 1.1040)))
+        len(T._lines(P(pid=21), 0.2, 1.1002)) < len(T._lines(P(pid=22), 4.0, 1.1040)))
 s.teeth("breakeven really moves with cost",
         P(commission=3.5).breakeven() != P(commission=0.0).breakeven())
 s.teeth("R really is signed", P().r_at(1.0995) < 0)
