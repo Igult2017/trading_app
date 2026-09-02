@@ -117,6 +117,7 @@ export interface IStorage {
   getSyncedTradeByExternal(brokerAccountId: string, externalId: string): Promise<SyncedTrade | undefined>;
   createSyncedTrade(trade: InsertSyncedTrade): Promise<SyncedTrade>;
   markSyncedTradeJournaled(id: string, journalEntryId: string): Promise<void>;
+  updateSyncedTradeOpenTime(id: string, openTime: Date): Promise<void>;
 
   // ── Blog ─────────────────────────────────────────────────────────────────
   getBlogPosts(filters?: { status?: string; section?: string }): Promise<BlogPost[]>;
@@ -1041,6 +1042,13 @@ export class DbStorage implements IStorage {
   async markSyncedTradeJournaled(id: string, journalEntryId: string): Promise<void> {
     await db.update(syncedTrades)
       .set({ journalEntryId, journaledAt: new Date() })
+      .where(eq(syncedTrades.id, id));
+  }
+
+  /** Fill in an open time the live feed never received. Only ever called on a row where it is null. */
+  async updateSyncedTradeOpenTime(id: string, openTime: Date): Promise<void> {
+    await db.update(syncedTrades)
+      .set({ openTime })
       .where(eq(syncedTrades.id, id));
   }
 

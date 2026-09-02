@@ -39,6 +39,32 @@ function minutesBetween(a: Date, b: Date): number {
 }
 
 // ── Auto-journal one synced trade ─────────────────────────────────────────────
+/**
+ * Recompute the three timing fields on a journal entry once the real open time is known.
+ *
+ * A trade recorded by the live feed had no open time, so its entry was written with a blank holding
+ * time, no day of week, and a session derived from the CLOSE time — close to the truth but not it.
+ * When the 15-minute sweep later supplies the real open time, those three become knowable and are
+ * corrected. Nothing else on the entry is touched: his own notes, tags and screenshots live on the
+ * same row and must never be overwritten by a sync.
+ */
+async function repairJournalTiming(trade: SyncedTrade): Promise<void> {
+  if (!trade.journalEntryId || !trade.openTime) return;
+  const openTime  = new Date(trade.openTime);
+  const closeTime = trade.closeTime ? new Date(trade.closeTime) : null;
+  const { session, phase } = detectSession(openTime);
+  await storage.updateJournalEntry(trade.journalEntryId, {
+    entryTime:     openTime.toISOString(),
+    entryTimeUTC:  openTime.toISOString(),
+    dayOfWeek:     DAY_NAMES[openTime.getDay()],
+    tradeDuration: closeTime ? String(minutesBetween(openTime, closeTime)) : undefined,
+    sessionName:   session,
+    sessionPhase:  phase,
+  });
+  console.log(`[Sync] corrected the journal timing for ${trade.symbol} ${trade.externalId} — `
+              + `held ${closeTime ? minutesBetween(openTime, closeTime) : '?'} min, ${session}`);
+}
+
 export async function autoJournalTrade(trade: SyncedTrade, sessionId?: string | null): Promise<string | null> {
   if (trade.journalEntryId) return trade.journalEntryId; // already journaled
 
@@ -275,8 +301,9 @@ export async function processIncomingTrades(
   brokerAccountId: string,
   userId: string,
   trades: RawBrokerTrade[],
-): Promise<{ created: number; duplicates: number; journaled: number; healed: number }> {
-  let created = 0, duplicates = 0, journaled = 0, healed = 0;
+): Promise<{ created: number; duplicates: number; journaled: number; healed: number;
+             backfilled: number }> {
+  let created = 0, duplicates = 0, journaled = 0, healed = 0, backfilled = 0;
 
   // Get the account's default session so auto-journaled trades are visible
   // in session-filtered views (metrics, drawdown, audit)
@@ -319,6 +346,35 @@ export async function processIncomingTrades(
       // `journalEntryId` is set), so this cannot create a duplicate entry.
       // NOTE THE MISSING `openTime` TEST — deliberately. The first version of this heal copied the
       // create path's condition and therefore skipped exactly the trades it existed to rescue.
+      // BACKFILL WHAT THE LIVE FEED COULD NOT SUPPLY.
+      //
+      // The live feed stores a trade the instant it closes, from the single closing event — and that
+      // event has arrived with NO OPEN TIME (measured 02 Sep: both trades logged `openTime MISSING`).
+      // The 15-minute sweep knows it: it pairs the opening deal with the closing one, so
+      // `openTime: open.executionTimestamp` is real. But the sweep saw the trade already existed and
+      // skipped it, so the blank stayed blank for ever — costing the journal the holding time, the
+      // day of week, and the correct session on every live-recorded trade.
+      //
+      // Only ever FILLS A BLANK. A value we already hold is never overwritten by this, so the live
+      // feed's own data (which carries the stop and target the sweep cannot see) always wins.
+      if (!existing.openTime && raw.openTime) {
+        const filled = toDate(raw.openTime);
+        if (filled) {
+          await storage.updateSyncedTradeOpenTime(existing.id, filled);
+          existing.openTime = filled as any;
+          backfilled++;
+          console.log(`[Sync] backfilled the open time on ${existing.symbol} ${existing.externalId}`
+                      + ` — ${filled.toISOString()} (the live feed never received it)`);
+          // The journal entry was written without it too, so its holding time, day and session are
+          // all wrong-or-blank until they are recomputed from the real open time.
+          if (existing.journalEntryId) {
+            await repairJournalTiming(existing).catch(err =>
+              console.error(`[Sync] could not correct the journal entry for `
+                            + `${existing.externalId}: ${err?.message ?? err}`));
+          }
+        }
+      }
+
       if (!existing.journalEntryId && existing.closeTime) {
         const fixedId = await autoJournalTrade(existing, defaultSessionId);
         if (fixedId) {
@@ -383,9 +439,9 @@ export async function processIncomingTrades(
   // cache expired, which reads exactly like "the sync is not working".
   // A HEALED TRADE IS A NEW JOURNAL ENTRY TOO, so the cached pages must be cleared for it as well —
   // otherwise the entry exists and every page keeps showing the old list for up to five minutes.
-  if (created > 0 || healed > 0) {
+  if (created > 0 || healed > 0 || backfilled > 0) {
     await invalidateComputeCaches(defaultSessionId ?? undefined, userId).catch(() => {});
   }
 
-  return { created, duplicates, journaled, healed };
+  return { created, duplicates, journaled, healed, backfilled };
 }

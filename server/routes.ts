@@ -4049,7 +4049,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.json({
         message: outcome.fetched
           ? `${outcome.fetched} closed trade(s) found — ${outcome.created} newly recorded, `
-            + `${outcome.duplicates} already had.`
+            + `${outcome.duplicates} already had`
+            + (outcome.healed ? `, ${outcome.healed} added to your journal (they were stored but `
+                                + `had no entry)` : '')
+            + (outcome.backfilled ? `, ${outcome.backfilled} given their missing open time` : '')
+            + '.'
           : 'Synced — the broker reported no closed trades in the last 7 days.',
         platform: account.platform, ...outcome,
       });
