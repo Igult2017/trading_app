@@ -405,6 +405,6 @@ async def check_all(send) -> None:
 
         # REMEMBER WHAT WE JUST SAW, with the R each position reached, so that when one disappears
         # the exit message can say what its stop was protecting and how far it ran.
-        exit_watch.observe(positions, r_seen)
+        exit_watch.observe(positions, r_seen, persist=True)
     except Exception as exc:
         log.error(f"[position_tracker] poll failed: {type(exc).__name__}: {exc}", exc_info=True)

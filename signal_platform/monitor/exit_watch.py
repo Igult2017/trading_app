@@ -32,6 +32,8 @@ announced because the broker did not answer would be the worst false alarm this 
 so a None read updates nothing and announces nothing.
 """
 import logging
+import threading
+import time
 from dataclasses import dataclass, replace
 
 from core import delivery_ledger
@@ -69,7 +71,8 @@ def _key(position_id: int) -> str:
     return f"exit:{position_id}"
 
 
-def observe(positions, r_by_id: dict[int, float] | None = None, source: str = "poll") -> None:
+def observe(positions, r_by_id: dict[int, float] | None = None, source: str = "poll",
+            persist: bool = False) -> None:
     """Record what is open right now, carrying each position's best AND worst R forward.
 
     `r_by_id` is the R the caller has already measured this poll — passed in rather than recomputed,
@@ -79,6 +82,14 @@ def observe(positions, r_by_id: dict[int, float] | None = None, source: str = "p
     already tracked for the exit message; the worst (its MAE) was not tracked at all, so the metrics
     page's mae/mfe breakdown had nothing to show. His ask, 2026-09-03: *"we can extend it to also
     record this MAE/MFE in the journal."*
+
+    `persist` IS OFF BY DEFAULT, AND THAT IS THE POINT. Writing the snapshots is a DATABASE WRITE, and
+    this is called from the 0.5-second watcher as well as the 30-second poll — so persisting on every
+    pass would put a DB round trip on the fast path twice a second. `test_telegram_independence`
+    caught exactly that: the poll went from under a second to 2.69s. It is the SECOND time this shape
+    of mistake has been made in this work, which is why the flag is explicit rather than a default.
+    The fast watcher updates the marks in memory (that is the accuracy win); the 30-second poll is
+    what writes them down.
 
     `source` says WHICH CLOCK measured it. The 0.5s FIX watcher and the 30s poll do not produce
     numbers of the same quality, and a high-water mark whose sampling rate is unknown is worse than
@@ -103,7 +114,8 @@ def observe(positions, r_by_id: dict[int, float] | None = None, source: str = "p
                                peak_r=peak, trough_r=trough, source=best_source)
         except Exception as exc:      # a snapshot must never be able to break the poll
             log.warning(f"[exit_watch] could not record a position: {type(exc).__name__}: {exc}")
-    _persist()
+    if persist:
+        _persist()
 
 
 def _message(pid: int, s: _Seen, deal=None) -> str:
@@ -216,18 +228,48 @@ async def announce_closed(positions, send) -> None:
 _STATE_KEY = "exit_watch_seen"
 
 
+_PERSIST_EVERY_S = 10.0    # a floor on how often the snapshots are written, whatever calls in
+_last_persist = 0.0
+
+
 def _persist() -> None:
-    """Write the snapshots. Best-effort, never raises."""
-    try:
-        from storage import strategy_state_repo
-        strategy_state_repo.save(_STATE_KEY, {
+    """Write the snapshots. Best-effort, never raises, and never more than once every 10 seconds.
+
+    THROTTLED because the caller is a loop. Even on the 30-second poll a stalled database would sit
+    in front of the next pass, and the marks do not change enough in ten seconds to be worth that.
+    """
+    global _last_persist
+    now = time.monotonic()
+    if now - _last_persist < _PERSIST_EVERY_S:
+        return
+    _last_persist = now
+
+    # IN A THREAD, SO IT CANNOT SIT IN FRONT OF THE NEXT POLL. Throttling alone was not enough: the
+    # write still happened INSIDE the pass, and `test_telegram_independence` measured the poll going
+    # from under a second to 2.7 — the same failure, and the same test, as the pending-order lookup
+    # earlier in this work. His rule: the trade logic is the lifeline and nothing else may delay it.
+    #
+    # The snapshot is taken HERE, on the caller's thread, so what gets written is what was true at
+    # this moment rather than whatever the dict has become by the time the thread runs.
+    snapshot = {
             str(pid): {"symbol": s.symbol, "bullish": s.bullish, "entry": s.entry,
                        "stop": s.stop, "peak_r": s.peak_r, "trough_r": s.trough_r,
                        "source": s.source}
             for pid, s in _seen.items()
-        })
-    except Exception as exc:
-        log.warning(f"[exit_watch] could not persist the snapshots: {type(exc).__name__}: {exc}")
+    }
+
+    def _write() -> None:
+        try:
+            from storage import strategy_state_repo
+            strategy_state_repo.save(_STATE_KEY, snapshot)
+        except Exception as exc:
+            log.warning(f"[exit_watch] could not persist the snapshots: "
+                        f"{type(exc).__name__}: {exc}")
+
+    try:
+        threading.Thread(target=_write, name="exit_watch_persist", daemon=True).start()
+    except Exception as exc:      # cannot start a thread — say so, never raise into the poll
+        log.warning(f"[exit_watch] could not start the persist thread: {type(exc).__name__}: {exc}")
 
 
 def rehydrate() -> int:
