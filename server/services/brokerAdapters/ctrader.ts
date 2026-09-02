@@ -74,6 +74,11 @@ export const PT_SYMBOLS_REQ   = 2114;
 export const PT_SYMBOLS_RES   = 2115;
 const PT_DEALS_REQ     = 2133;
 const PT_DEALS_RES     = 2134;
+// THE ORDER LIST — where the RISK AS PLACED lives. Read off the installed protobuf package
+// (ProtoOAOrderListReq/Res), never guessed: a wrong payload type here fails silently, because an
+// unrecognised message simply never matches and the wait times out.
+const PT_ORDERS_REQ    = 2175;
+const PT_ORDERS_RES    = 2176;
 const PT_TRADER_REQ    = 2121;   // PROTO_OA_TRADER_REQ  (2120 is SYMBOL_CHANGED_EVENT — wrong)
 const PT_TRADER_RES    = 2122;   // PROTO_OA_TRADER_RES
 const PT_ACCOUNTS_REQ  = 2149;
@@ -382,6 +387,10 @@ export function pairDealsIntoTrades(deals: any[], symbolMap: Record<number, stri
       closePrice: Number.isFinite(exit) ? exit : undefined,
       openTime:   open.executionTimestamp ?? undefined,
       closeTime:  shut.executionTimestamp ?? undefined,
+      // THE ORDER THAT OPENED THE POSITION — the join key to the risk it was placed with. The
+      // CLOSING deal's orderId is a different order (the stop/target that fired) and carries no
+      // levels, so taking the wrong one of the two yields nothing.
+      entryOrderId: open.orderId != null ? String(open.orderId) : undefined,
       profit,
       commission: comm || undefined,
       swap:       undefined,
@@ -527,6 +536,43 @@ export function mergeDealMappings(allDeals: any[], symbolMap: Record<number, str
 // ── Trade history (WebSocket) ─────────────────────────────────────────────────
 
 // isLive is passed from the stored accountType — avoids redundant WS connections on every sync chunk
+/**
+ * The stop and target each ENTRY ORDER was placed with, keyed by order id.
+ *
+ * WHY THIS REQUEST EXISTS. A closed position's DEALS carry no stop at all, and the live feed reads
+ * the stop off the position as it CLOSES — which for any trade the ladder managed is the stop after
+ * it was moved. Measuring risk against that gives zero for a trade taken to breakeven, so the
+ * journal recorded no R for exactly the trades worth measuring.
+ *
+ * The broker keeps the real answer on the entry order. Verified against his own account 02 Sep:
+ * order 358693875, a STOP entry, carried stopLoss 1.34939 and takeProfit 1.34672 against an entry of
+ * 1.34886 — a 5.3 pip risk and a 4.04R plan, where the closing stop said the risk was nothing.
+ */
+async function fetchEntryOrderLevels(ws: WebSocket, acctId: number, from: number, to: number)
+    : Promise<Map<string, { stopLoss?: number; takeProfit?: number }>> {
+  const out = new Map<string, { stopLoss?: number; takeProfit?: number }>();
+  try {
+    send(ws, PT_ORDERS_REQ, { ctidTraderAccountId: acctId, fromTimestamp: from, toTimestamp: to });
+    const payload = await waitFor(ws, PT_ORDERS_RES, 20000);
+    for (const o of (payload?.order ?? [])) {
+      const sl = Number(o?.stopLoss), tp = Number(o?.takeProfit);
+      // Only orders that actually carried levels. A closing STOP_LOSS_TAKE_PROFIT order has neither,
+      // and recording an empty entry for it would mask the real one.
+      if (!(Number.isFinite(sl) && sl > 0) && !(Number.isFinite(tp) && tp > 0)) continue;
+      out.set(String(o.orderId), {
+        stopLoss:   Number.isFinite(sl) && sl > 0 ? sl : undefined,
+        takeProfit: Number.isFinite(tp) && tp > 0 ? tp : undefined,
+      });
+    }
+  } catch (err: any) {
+    // A TRADE WITHOUT ITS ORIGINAL STOP IS STILL A TRADE. This request failing must never fail the
+    // sync — the trade is recorded with no R rather than with a wrong one.
+    console.warn(`[cTrader] could not read the entry orders (risk numbers will be blank): `
+                 + `${err?.message ?? err}`);
+  }
+  return out;
+}
+
 export async function fetchCTraderTrades(
   accessToken: string,
   ctraderId:   string,
@@ -606,6 +652,22 @@ export async function fetchCTraderTrades(
     }
 
     const merged = mergeDealMappings(allDeals, symbolMap);
+
+    // THE RISK AS PLACED, attached to each trade. One extra request on the same socket, and only
+    // when there is something to attach it to.
+    if (merged.length) {
+      const levels = await fetchEntryOrderLevels(ws, acctId, fromMs, toMs);
+      let attached = 0;
+      for (const t of merged) {
+        const lv = t.entryOrderId ? levels.get(t.entryOrderId) : undefined;
+        if (!lv) continue;
+        t.originalStopLoss   = lv.stopLoss;
+        t.originalTakeProfit = lv.takeProfit;
+        attached++;
+      }
+      console.log(`[cTrader] original risk attached to ${attached}/${merged.length} closed trade(s)`
+                  + ` from ${levels.size} entry order(s)`);
+    }
     const out = merged;
     if (allDeals.length && !out.length) {
       console.warn(`[cTrader] ${allDeals.length} deals fetched but none resolved to a closed trade ` +

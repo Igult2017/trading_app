@@ -37,7 +37,7 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { pipDigits, pipSize, toPips } from '../lib/pipMath';
-import { classifyOutcome } from './brokerSyncService';
+import { classifyOutcome } from './autoJournal';
 import { mapClosedFromEvent } from './brokerAdapters/ctrader';
 
 let failed = 0;
@@ -68,7 +68,17 @@ const read = (...p: string[]) => readFileSync(join(process.cwd(), ...p), 'utf8')
 const stripComments = (s: string) =>
   s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
 
-const sync   = stripComments(read('server', 'services', 'brokerSyncService.ts'));
+// THE AUTOMATIC PIPELINE'S SOURCE. These checks used to read `brokerSyncService.ts`, which held both
+// the ingestion and the journal-entry logic. On 2026-09-02 the journal half moved to
+// `services/autoJournal/` — his instruction: *"make it to be a separate pipeline from the manual
+// journal entry and calculations."* The checks are about the AUTOMATIC PIPELINE, not about which
+// file it lives in, so they read the pipeline wherever it is. `brokerSyncService.ts` is still read
+// with it, because ingestion is part of the same journey.
+const sync   = stripComments(
+  read('server', 'services', 'brokerSyncService.ts') +
+  read('server', 'services', 'autoJournal', 'index.ts') +
+  read('server', 'services', 'autoJournal', 'fields.ts') +
+  read('server', 'services', 'autoJournal', 'risk.ts'));
 const routes = stripComments(read('server', 'routes.ts'));
 const cache  = read('server', 'lib', 'cache.ts');
 
@@ -192,7 +202,9 @@ check('...and the old two-way rule is gone',
       sync.includes("netPl >= 0 ? 'WIN' : 'LOSS'"), false);
 check('5. the price-magnitude pip guess is gone',
       sync.includes('ep > 100 ? 100 : 10000'), false);
-check('...replaced by the instrument table', sync.includes("from '../lib/pipMath'"), true);
+// Matched on the module, not on how many `../` lead to it — the pipeline moved a folder deeper and
+// the depth is not what this check is about.
+check('...replaced by the instrument table', /from '\.\.\/(\.\.\/)?lib\/pipMath'/.test(sync), true);
 check('6. risk/reward and achieved R are stored',
       sync.includes('riskReward:') && sync.includes('achievedRR'), true);
 

@@ -118,6 +118,8 @@ export interface IStorage {
   createSyncedTrade(trade: InsertSyncedTrade): Promise<SyncedTrade>;
   markSyncedTradeJournaled(id: string, journalEntryId: string): Promise<void>;
   updateSyncedTradeOpenTime(id: string, openTime: Date): Promise<void>;
+  updateSyncedTradeOriginalRisk(id: string, risk: { entryOrderId: string | null;
+    originalStopLoss: string; originalTakeProfit: string | null }): Promise<void>;
 
   // ── Blog ─────────────────────────────────────────────────────────────────
   getBlogPosts(filters?: { status?: string; section?: string }): Promise<BlogPost[]>;
@@ -1049,6 +1051,15 @@ export class DbStorage implements IStorage {
   async updateSyncedTradeOpenTime(id: string, openTime: Date): Promise<void> {
     await db.update(syncedTrades)
       .set({ openTime })
+      .where(eq(syncedTrades.id, id));
+  }
+
+  /** Fill in the risk the trade was PLACED with. Only ever called on a row where it is null. */
+  async updateSyncedTradeOriginalRisk(id: string, risk: { entryOrderId: string | null;
+      originalStopLoss: string; originalTakeProfit: string | null }): Promise<void> {
+    await db.update(syncedTrades)
+      .set({ entryOrderId: risk.entryOrderId, originalStopLoss: risk.originalStopLoss,
+             originalTakeProfit: risk.originalTakeProfit })
       .where(eq(syncedTrades.id, id));
   }
 

@@ -506,5 +506,57 @@ CREATE UNIQUE INDEX IF NOT EXISTS trading_signals_one_watching_per_key
     ON trading_signals (strategy, symbol, type)
  WHERE status = 'watching';
 
+-- ── Auto-journaling: durable records + the risk as it was TAKEN ──────────────
+-- Added 2026-09-02. Three problems, one migration:
+--
+--   1. The container log is wiped by every deploy, so a post-mortem has nothing to read. His words:
+--      "I dont want to here that we redeployed and the memory was wiped so we cant know what
+--      happened." `signal_events` already solved this for signals; `sync_events` is its counterpart
+--      for broker sync and auto-journaling, which had no durable trace at all.
+--   2. Autotrade's placements lived in a Python dict and died on restart, losing the pending fill
+--      report and the only link from a broker order back to its signal.
+--   3. `synced_trades.stop_loss` is the stop the position had when it CLOSED — after the ladder
+--      moved it. A trade taken to breakeven therefore recorded a risk of ZERO and the journal showed
+--      no R at all. The original stop comes from the broker's entry order instead.
+
+CREATE TABLE IF NOT EXISTS sync_events (
+  id                VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+  broker_account_id VARCHAR,
+  external_id       TEXT,
+  symbol            TEXT,
+  stage             TEXT      NOT NULL,
+  detail            TEXT,
+  created_at        TIMESTAMP NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS sync_events_created_idx  ON sync_events (created_at);
+CREATE INDEX IF NOT EXISTS sync_events_account_idx  ON sync_events (broker_account_id, created_at);
+CREATE INDEX IF NOT EXISTS sync_events_external_idx ON sync_events (external_id);
+
+CREATE TABLE IF NOT EXISTS autotrade_orders (
+  id          VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+  order_id    TEXT      NOT NULL,
+  signal_id   VARCHAR,
+  strategy    TEXT,
+  symbol      TEXT      NOT NULL,
+  side        TEXT      NOT NULL,
+  entry_price NUMERIC(12,5),
+  stop_loss   NUMERIC(12,5),
+  take_profit NUMERIC(12,5),
+  lots        NUMERIC(10,5),
+  volume      INTEGER,
+  stop_pips   NUMERIC(10,2),
+  placed_at   TIMESTAMP NOT NULL DEFAULT NOW(),
+  filled_at   TIMESTAMP,
+  fill_price  NUMERIC(12,5),
+  status      TEXT      DEFAULT 'placed'
+);
+CREATE INDEX IF NOT EXISTS autotrade_orders_order_idx  ON autotrade_orders (order_id);
+CREATE INDEX IF NOT EXISTS autotrade_orders_placed_idx ON autotrade_orders (placed_at);
+CREATE INDEX IF NOT EXISTS autotrade_orders_status_idx ON autotrade_orders (status);
+
+ALTER TABLE synced_trades ADD COLUMN IF NOT EXISTS entry_order_id       TEXT;
+ALTER TABLE synced_trades ADD COLUMN IF NOT EXISTS original_stop_loss   NUMERIC(12,5);
+ALTER TABLE synced_trades ADD COLUMN IF NOT EXISTS original_take_profit NUMERIC(12,5);
+
 -- ── Done ─────────────────────────────────────────────────────────────────────
 DO $$ BEGIN RAISE NOTICE 'docker-migrate.sql complete'; END $$;

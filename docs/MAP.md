@@ -127,6 +127,41 @@ It runs on your **journal trade entries**; it has nothing to do with the signal 
 
 [ctrader-open-api-apps.md](./ctrader-open-api-apps.md).
 
+### "the R / risk-reward on my journal looks wrong or blank"
+
+**The risk is the stop the trade was PLACED with, never the one it closed on.** A managed trade's
+closing stop has been moved by the ladder — at breakeven it equals the entry, so measuring from it
+gives a risk of zero and every risk field goes blank. That was D30 in [OPEN.md](./OPEN.md).
+
+It lives on `synced_trades.original_stop_loss`, read from the broker's ENTRY ORDER by the sweep. The
+closing stop is kept too, in the entry's `manualFields.closingStopLoss` — where the trade was
+protected to is a real fact, just not the risk taken. **Breakeven records 0R**, his ruling: *"Breakeven
+is 1:0 R."*
+
+Blank R means no original stop was recorded, which is honest rather than guessed. The reason will be
+in `sync_events`.
+
+### "what actually happened to that trade?" / "we redeployed and lost the logs"
+
+**The container log is not the record — it dies on every deploy.** Two tables survive:
+
+| where | holds |
+|---|---|
+| `GET /api/admin/sync-events` | every step a broker trade took into the journal |
+| `GET /api/admin/signal-events` | every stage a signal passed through |
+| `autotrade_orders` | every order autotrade placed, and the levels it intended |
+
+Read those FIRST. On 02 Sep finding one defect cost four deploys because none of this existed and
+each deploy wiped the evidence the last one added.
+
+### "am I allowed to change how the journal computes X?"
+
+**Two pipelines, deliberately.** The manual journal form (`routes.ts` POST /api/journal/entries) works
+and is not to be touched — his words: *"dont tamper with it even a bit."* Automatic journaling lives
+in [`server/services/autoJournal/`](../server/services/autoJournal/) and owns every per-trade
+calculation. The rule: **call shared infrastructure, never modify it.** `autoJournal/isolation.test.ts`
+enforces it.
+
 ### "a trade I took isn't in the journal" / "autosync isn't recording"
 
 **READ THE PRODUCTION LOG FIRST — it now answers this directly**, and on 02 Sep 2026 guessing instead
@@ -203,6 +238,25 @@ is wrong.** Full wording lives in the linked doc; this is the index so you know 
 ---
 
 ## PROGRESS — what actually happened, newest first
+
+**2026-09-02 (d) — the journal could not show honest R, and a redeploy kept erasing the evidence.**
+
+Three of his instructions in one change. **The R numbers were blank or wrong for every MANAGED trade**
+— the journal measured risk against the stop the position closed on, which the ladder has moved, so a
+trade taken to breakeven measured its risk as ZERO and recorded nothing. Proved on his GBP/USD trade:
+risk 5.9 pips, planned 3.53R, achieved 0R, and the journal showed a blank. The broker keeps the real
+answer on the ENTRY ORDER; the sweep now reads it (`ProtoOAOrderListReq` 2175, read off the protobuf
+package, not guessed). **Breakeven records 0R** — his ruling, *"Breakeven is 1:0 R."*
+
+**Auto-journaling became its own pipeline** (`server/services/autoJournal/`), because it used to live
+inside `brokerSyncService.ts` sharing helpers with the manual endpoint — *"the manual one is working
+fine so dont tamper with it even a bit."* The rule is call shared infrastructure, never modify it, and
+a test enforces it. `brokerSyncService.ts` is ingestion only now, 253 lines.
+
+**And nothing is lost to a deploy any more.** `sync_events` and `autotrade_orders` put in Postgres what
+only existed in the container log and in a Python dict — *"I dont want to here that we redeployed and
+the memory was wiped so we cant know what happened."* Finding the previous defect had cost four
+deploys, each wiping the last one's evidence. **D30, D31, D32** in [OPEN.md](./OPEN.md).
 
 **2026-09-02 (c) — "it has not autorecorded anything since yesterday". I shipped a wrong root cause,
 and the logging I shipped with it caught me out within minutes.**

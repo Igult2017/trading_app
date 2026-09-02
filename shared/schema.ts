@@ -718,6 +718,18 @@ export const syncedTrades = pgTable("synced_trades", {
   swap:            decimal("swap",        { precision: 8,  scale: 2 }),
   comment:         text("comment"),
   magic:           integer("magic"),
+  // THE RISK AS IT WAS TAKEN, which is NOT the stop above. `stopLoss` is read off the position when
+  // it CLOSED, so for any trade the ladder managed it is the MOVED stop: a trade taken to breakeven
+  // records its own entry price there, and one trailed to +2R records a stop beyond entry. Measuring
+  // risk against either is meaningless — the first gives zero, the second a wrong denominator.
+  //
+  // These three come from the broker's ENTRY ORDER, which keeps the stop and target the trade was
+  // placed with. Verified on his own GBP/USD trade 02 Sep: entry order 358693875 carried
+  // stopLoss 1.34939 and takeProfit 1.34672 against an entry of 1.34886 — a 5.3 pip risk and a
+  // 4.04R plan, where the closing stop said the risk was zero.
+  entryOrderId:       text("entry_order_id"),
+  originalStopLoss:   decimal("original_stop_loss",   { precision: 12, scale: 5 }),
+  originalTakeProfit: decimal("original_take_profit", { precision: 12, scale: 5 }),
   journalEntryId:  varchar("journal_entry_id"),           // null until auto-journaled
   journaledAt:     timestamp("journaled_at"),
   rawData:         jsonb("raw_data"),
@@ -875,6 +887,72 @@ export const platformDowntime = pgTable("platform_downtime", {
   index("platform_downtime_from_idx").on(t.downFrom),
 ]);
 
+/**
+ * ONE ROW PER THING THE SYNC DID — because the container log is wiped by every deploy.
+ *
+ * His instruction, 2026-09-02: *"persist every memory that we might need either for fixes, error
+ * tracing or for records. I dont want to here that we redeployed and the memory was wiped so we cant
+ * know what happened."*
+ *
+ * He is describing exactly what happened that evening: finding one defect took four deploys, and
+ * each deploy destroyed the log lines the previous one had added. `signal_events` already solved
+ * this for the SIGNAL side, for the same reason, in the same shape — this is its counterpart for
+ * broker sync and auto-journaling, which had nothing.
+ *
+ * Append-only. Nothing ever updates a row.
+ */
+export const syncEvents = pgTable("sync_events", {
+  id:              varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  brokerAccountId: varchar("broker_account_id"),
+  // The broker's id for the trade. Nullable on purpose: the most useful events (a sweep that
+  // fetched nothing, an account skipped, a fetch that threw) happen when there is no trade at all.
+  externalId:      text("external_id"),
+  symbol:          text("symbol"),
+  // fetched | recorded | duplicate | journaled | healed | backfilled | skipped | failed
+  stage:           text("stage").notNull(),
+  detail:          text("detail"),
+  createdAt:       timestamp("created_at").defaultNow().notNull(),
+}, (t) => [
+  index("sync_events_created_idx").on(t.createdAt),
+  index("sync_events_account_idx").on(t.brokerAccountId, t.createdAt),
+  index("sync_events_external_idx").on(t.externalId),
+]);
+
+/**
+ * EVERY ORDER AUTOTRADE PLACED, AND WHAT IT INTENDED — durable, so a restart cannot forget it.
+ *
+ * `execution/placer.py` holds this in a plain dict (`_intent`) and `fill_watch.py` reads it. A
+ * redeploy empties it, which loses two things: the fill report he is waiting on, and the only link
+ * from a broker order back to the signal that produced it.
+ *
+ * The stop and target here are the ones the SIGNAL asked for, before the broker rounded anything and
+ * before the ladder moved anything — the intended risk.
+ */
+export const autotradeOrders = pgTable("autotrade_orders", {
+  id:          varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  orderId:     text("order_id").notNull(),          // the broker's id, and the join key to a deal
+  signalId:    varchar("signal_id"),
+  strategy:    text("strategy"),
+  symbol:      text("symbol").notNull(),
+  side:        text("side").notNull(),              // BUY|SELL
+  entryPrice:  decimal("entry_price",  { precision: 12, scale: 5 }),
+  stopLoss:    decimal("stop_loss",    { precision: 12, scale: 5 }),
+  takeProfit:  decimal("take_profit",  { precision: 12, scale: 5 }),
+  lots:        decimal("lots",         { precision: 10, scale: 5 }),
+  volume:      integer("volume"),
+  stopPips:    decimal("stop_pips",    { precision: 10, scale: 2 }),
+  placedAt:    timestamp("placed_at").defaultNow().notNull(),
+  filledAt:    timestamp("filled_at"),
+  fillPrice:   decimal("fill_price",   { precision: 12, scale: 5 }),
+  status:      text("status").default("placed"),    // placed | filled | cancelled | rejected
+}, (t) => [
+  index("autotrade_orders_order_idx").on(t.orderId),
+  index("autotrade_orders_placed_idx").on(t.placedAt),
+  index("autotrade_orders_status_idx").on(t.status),
+]);
+
+export type SyncEvent = typeof syncEvents.$inferSelect;
+export type AutotradeOrder = typeof autotradeOrders.$inferSelect;
 export type SignalEvent = typeof signalEvents.$inferSelect;
 export type PlatformHeartbeat = typeof platformHeartbeat.$inferSelect;
 export type PlatformDowntime = typeof platformDowntime.$inferSelect;

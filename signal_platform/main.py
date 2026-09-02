@@ -34,6 +34,14 @@ async def _startup() -> None:
     create_tables()
     log.info("[boot] database ready")
 
+    # 1a. ORDERS STILL AWAITING A FILL, restored from the last run. Autotrade used to hold these in a
+    # plain dict, so a redeploy between placing an order and its fill lost the fill report and the
+    # only link back to the signal — and nothing said why. His instruction, 2026-09-02: *"persist
+    # every memory that we might need ... I dont want to here that we redeployed and the memory was
+    # wiped so we cant know what happened."* Read ONCE here, never on the trading path.
+    from execution.placer import rehydrate_intents
+    rehydrate_intents()
+
     # 1b. HOW LONG WERE WE GONE? Read the heartbeat BEFORE anything overwrites it — its age is the
     # outage. A signal that never arrived has two very different explanations, "the strategy declined
     # it" and "the process was not running", and until 2026-07-27 nothing in the system could tell

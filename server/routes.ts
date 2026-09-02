@@ -1026,6 +1026,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
   //
   // requireAdmin (X-Admin-Secret header) is deliberate — these rows expose strategy internals and
   // must not sit on a public route the way /api/trading-signals does.
+  /**
+   * THE SYNC'S OWN AUDIT TRAIL — what happened to a trade on its way into the journal.
+   *
+   * His instruction, 2026-09-02: *"persist every memory that we might need either for fixes, error
+   * tracing or for records. I dont want to here that we redeployed and the memory was wiped so we
+   * cant know what happened."* This is how you read it back. Rows survive every deploy; the
+   * container log does not.
+   *
+   * Same shape and same guard as /api/admin/signal-events, which solved this for signals first.
+   */
+  app.get("/api/admin/sync-events", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const { account, externalId, stage, since, limit = "200" } = req.query as Record<string, string>;
+      const where: string[] = [];
+      const params: any[] = [];
+      const add = (clause: string, value: any) => { params.push(value); where.push(`${clause} $${params.length}`); };
+      if (account)    add("broker_account_id =", account);
+      if (externalId) add("external_id =", externalId);
+      if (stage)      add("stage =", stage);
+      // `since` accepts an interval like '2 hours' or an ISO timestamp; default to a day so a bare
+      // call stays cheap on an append-only table.
+      params.push(since && /^\d/.test(since) ? since : (since ?? '1 day'));
+      where.push(/^\d{4}-/.test(since ?? '')
+        ? `created_at >= $${params.length}::timestamp`
+        : `created_at >= NOW() - $${params.length}::interval`);
+      params.push(Math.min(parseInt(limit, 10) || 200, 1000));
+      const { rows } = await pool.query(
+        `SELECT id, broker_account_id, external_id, symbol, stage, detail, created_at
+           FROM sync_events
+          WHERE ${where.join(' AND ')}
+          ORDER BY created_at DESC
+          LIMIT $${params.length}`, params);
+      return res.json(rows);
+    } catch (error) {
+      console.error('[Admin/sync-events]', error);
+      return res.status(500).json({ error: 'Failed to fetch sync events' });
+    }
+  });
+
   app.get("/api/admin/signal-events", requireAdmin, async (req: Request, res: Response) => {
     try {
       const { strategy, symbol, stage, since, limit = "200" } = req.query as Record<string, string>;

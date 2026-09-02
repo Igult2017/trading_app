@@ -841,6 +841,103 @@ anywhere. Blocked on one question: does copy trading auto-execute on a user's ac
 
 ## D. cTrader & copy trading
 
+### D30 - ~~The journal's risk numbers were blank or wrong for every MANAGED trade~~ FIXED 02 Sep 🔴
+
+**His question:** *"if we are calculating RR in signals, why cant we calculate RR based on wins and
+losses and populate the journals accurately?"*
+
+**The arithmetic was never wrong. It was being handed the wrong stop.** The journal measured risk
+against the stop the position had when it **closed** — which for any trade the ladder managed is the
+stop *after* it was moved:
+
+| what happened | stop recorded | what the journal computed |
+|---|---|---|
+| moved to breakeven, then stopped out | = the entry price | risk **zero** → R and RR both **blank** |
+| trailed to +2R, then stopped out | beyond entry | R against the **wrong denominator** — meaningless |
+| recovered by the 15-minute sweep | none at all | **blank** — deals carry no stop |
+
+Those are exactly the trades the ladder exists to produce, so **the trades most worth measuring were
+the ones that measured as nothing.**
+
+**Measured on his own account.** GBP/USD 02 Sep, entry order 358693875:
+
+```
+entry (stopPrice) 1.34886 · original stopLoss 1.34939 · original takeProfit 1.34672
+filled 1.34880 SELL · exited 1.34882
+```
+
+**Risk 5.9 pips, planned 3.53R, achieved 0R** — the ladder's breakeven stop was
+hit. The journal showed nothing at all, because 1.34880 − 1.34880 = 0.
+
+**The fix:** the broker keeps the risk as PLACED on the entry order. The sweep now reads it
+(`ProtoOAOrderListReq` = **2175**, read off the installed protobuf package, not guessed) and stores it
+as `synced_trades.original_stop_loss` / `original_take_profit` / `entry_order_id`. Risk is computed
+from that; the closing stop is kept separately in `manualFields.closingStopLoss`, because *where the
+trade was protected to* is a real fact — it just is not the risk taken.
+
+**Breakeven records 0R**, his ruling: *"Breakeven is 1:0 R."* Not a blank, and not the −0.038R the raw
+prices give once the spread is counted.
+
+**Existing trades are corrected, not left behind** — the same only-ever-fill-a-blank backfill the open
+time uses, and the journal entry's risk fields are recomputed when it lands.
+
+Guarded by [`autoJournal/risk.test.ts`](../server/services/autoJournal/risk.test.ts) (26 checks, every
+number from his real trade, with teeth proving the moved stop erases the risk and misfiles the
+trade as a LOSS).
+
+**A second place had the same defect and the end-to-end check is what caught it.** `classifyOutcome`
+sizes its breakeven band as a fraction of the money the stop was risking, so the closing stop shrank
+the band to nothing and filed this $1.88 scratch as a full LOSS. Both functions had to agree about
+which stop is the risk; testing them separately would have missed it.
+
+### D31 - ~~Auto-journaling shared code with the manual journal~~ FIXED 02 Sep
+
+**His instruction:** *"make it to be a separate pipeline from the manual journal entry and
+calculations because the manual one is working fine so dont tamper with it even a bit."*
+
+Automatic journaling lived **inside `brokerSyncService.ts`**, next to the ingestion code and sharing
+helpers with the manual endpoint, so a change aimed at one could reach the other.
+
+It now has its own folder, [`server/services/autoJournal/`](../server/services/autoJournal/):
+`fields.ts` (every per-trade calculation), `risk.ts` (R and RR), `events.ts` (the durable record),
+`index.ts` (the one entry point). `brokerSyncService.ts` is ingestion only — fetch, de-duplicate,
+store — and is down from 400+ lines to 253.
+
+**The rule, enforced by a test:** the automatic pipeline may **call** shared infrastructure but must
+**never modify** it; where it needs different behaviour it implements its own inside the folder. Both
+still write to `journal_entries` — they must, that table *is* the journal. Both still use the same
+`enrichTradeWithBalance`, or a synced trade and a typed one would be weighted differently by the risk
+analytics. What is no longer shared is the per-trade calculation, which is the part being changed.
+
+[`autoJournal/isolation.test.ts`](../server/services/autoJournal/isolation.test.ts) — 17 checks,
+including that `balanceTracker` carries no automatic-journal special-casing.
+
+### D32 - ~~A redeploy wiped the only record of what happened~~ FIXED 02 Sep 🔴
+
+**His instruction:** *"persist every memory that we might need either for fixes, error tracing or for
+records. I dont want to here that we redeployed and the memory was wiped so we cant know what
+happened."*
+
+He was describing what had just happened to us: finding D29 took **four deploys**, and each one
+destroyed the log lines the previous had added. Twice a diagnostic answered its question and was then
+wiped before it could answer the next.
+
+`signal_events` already solved this for the SIGNAL side, and its own header says why: *"the container
+had restarted and taken every log line with it, so the question 'where did it die?' was permanently
+unanswerable."* Node's sync, journal and live feed had **nothing**.
+
+**Two durable tables, both in `shared/schema.ts` AND `docker-migrate.sql`** (prod syncs schema from
+that file, not `db:push`):
+
+| table | holds |
+|---|---|
+| `sync_events` | one row per thing the sync did — fetched, recorded, duplicate, journaled, healed, backfilled, skipped, failed. Read at `GET /api/admin/sync-events` |
+| `autotrade_orders` | every order autotrade placed, with the levels it INTENDED — what `placer._intent` held in memory and lost on every restart |
+
+`fill_watch` now reads pending orders from the table, so a redeploy between placing an order and its
+fill no longer loses the fill report. Both writers are best-effort and never raise: recording that we
+placed an order must never be able to fail the order.
+
 ### D29 - Autosync recorded nothing in the journal. ⚠ MY FIRST ROOT CAUSE WAS WRONG — corrected 02 Sep 🔴
 
 **His report, 02 Sep:** *"audit, plan and fix autosync of ctrader placed trades in the journal. We

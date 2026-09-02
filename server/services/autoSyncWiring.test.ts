@@ -133,7 +133,12 @@ check('...and it keys on the CREDENTIALS, not on the label it is fixing',
 // closed it. Writing the journal entry was, and it was refused by one word: the gate read
 // `if (openTime && closeTime)`. Both of his recent trades reached the database with no open time
 // and were therefore never journaled, for ever — and the journal is the thing he looks at.
-const sync = read('server/services/brokerSyncService.ts');
+// Ingestion AND the automatic journal pipeline. The journal half moved to services/autoJournal/ on
+// 2026-09-02 (his "separate pipeline" instruction); these checks are about the JOURNEY a trade takes,
+// not about which file each step lives in.
+const sync = read('server/services/brokerSyncService.ts')
+           + read('server/services/autoJournal/index.ts')
+           + read('server/services/autoJournal/fields.ts');
 
 const createGate = sync.slice(sync.indexOf('// A TRADE THAT HAS CLOSED BELONGS'),
                               sync.indexOf('// A TRADE THAT HAS CLOSED BELONGS') + 1400);

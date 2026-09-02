@@ -15,11 +15,18 @@ from datetime import datetime, timezone
 from config.settings import settings
 from execution import guards
 from execution.sizing import plan_size
+from storage import autotrade_repo
 from shared.pip import pip_size, price_digits
 
 log = logging.getLogger(__name__)
 
-# order_id -> what the MODEL said, so the fill can be compared against it later
+# order_id -> what the MODEL said, so the fill can be compared against it later.
+#
+# THIS IS A CACHE NOW, NOT THE RECORD. It used to be the only copy, so a redeploy between placing an
+# order and its fill lost the fill report and the link back to the signal — and nothing said why.
+# His instruction, 2026-09-02: *"persist every memory that we might need... I dont want to here that
+# we redeployed and the memory was wiped so we cant know what happened."* The durable copy is in
+# `autotrade_orders`; this dict just saves a query on the common path.
 _intent: dict[str, dict] = {}
 
 
@@ -95,6 +102,13 @@ async def place_for_signal(signal, creds: dict, account_type: str, equity: float
                                          lots=lots, volume=volume, stop_pips=stop_pips,
                                          placed_at=datetime.now(timezone.utc),
                                          strategy=signal.strategy_name or signal.strategy_id)
+            # AND DURABLY, so a restart cannot forget it. Never raises: `autotrade_repo` swallows
+            # its own failures, because recording the order must not be able to fail the order.
+            autotrade_repo.record_placed(
+                res.order_id, symbol=symbol, side=side, entry=entry, stop=sl, target=tp,
+                lots=lots, volume=volume, stop_pips=stop_pips,
+                strategy=signal.strategy_name or signal.strategy_id,
+                signal_id=getattr(signal, "id", None))
         log.info(f"[execution] PLACED {symbol} {side} {lots} lots (vol {volume}) stop {entry} "
                  f"order {res.order_id}")
         if notify and res.order_id:
@@ -114,8 +128,15 @@ def fill_report(order_id: str, fill_price: float, filled_at: datetime | None = N
     the trade's own risk, because 0.4 pips means nothing until you know the stop was 9.
     """
     intent = _intent.pop(order_id, None)
+    # THE DURABLE COPY IS THE FALLBACK. Before this, a redeploy between placing and filling meant
+    # `_intent` was empty and the fill report — the one diagnostic this feature exists to produce —
+    # silently never arrived.
+    if intent is None:
+        intent = autotrade_repo.intent_for(order_id)
     if not intent or not fill_price:
         return None
+    if fill_price:
+        autotrade_repo.record_filled(order_id, fill_price, filled_at)
     sym  = intent["symbol"]
     pip  = pip_size(sym)
     d    = price_digits(sym)
@@ -136,8 +157,35 @@ def fill_report(order_id: str, fill_price: float, filled_at: datetime | None = N
             f"{share:.0f}% of the {risk_pips:.1f}p stop{delay}")
 
 
+def rehydrate_intents() -> int:
+    """Load orders still awaiting a fill back into memory. Call ONCE at boot. Returns how many.
+
+    THIS IS WHERE DURABILITY BELONGS — at startup, not on the trading path. A first version had
+    `pending_intents()` query the database directly, which was correct but put a DB read inside
+    `check_fills`, which runs on EVERY 30-second monitor poll. His rule, 2026-09-02: *"the logic that
+    places trades, moves it to BE and locks Rs ... should work regardless because it is the lifeline
+    of a trade."* A database that is slow or down would have slowed that loop; the test measured the
+    poll going from under a second to 2.7. Reading once at boot gives the same durability and costs
+    the poll nothing.
+    """
+    try:
+        rows = autotrade_repo.pending()
+    except Exception as exc:                      # never block boot on this
+        log.warning(f"[execution] could not restore pending orders: {type(exc).__name__}: {exc}")
+        return 0
+    restored = 0
+    for order_id, intent in rows.items():
+        if order_id not in _intent:               # anything already in memory is fresher
+            _intent[order_id] = intent
+            restored += 1
+    if restored:
+        log.info(f"[execution] restored {restored} order(s) still awaiting a fill from the last run "
+                 f"— their fill reports survive the restart")
+    return restored
+
+
 def pending_intents() -> dict[str, dict]:
-    """Orders placed this process that have not reported a fill — for reconciliation."""
+    """Orders placed and not yet filled. In-memory ONLY — see `rehydrate_intents` for why."""
     return dict(_intent)
 
 
@@ -151,7 +199,7 @@ def placement_message(order_id: str) -> str | None:
 
     This is the order as SENT. `fill_report` is the other half and comes later, when it fills.
     """
-    i = _intent.get(order_id)
+    i = _intent.get(order_id) or autotrade_repo.intent_for(order_id)
     if not i:
         return None
     d = price_digits(i["symbol"])

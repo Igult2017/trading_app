@@ -63,4 +63,5 @@ def create_tables() -> None:
     # imported contributes nothing to metadata and its table is silently never created.
     from storage import models  # noqa: F401
     from storage import observability_models  # noqa: F401
+    from storage import autotrade_models     # noqa: F401  — same reason: unimported = uncreated
     Base.metadata.create_all(bind=engine)
