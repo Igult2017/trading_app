@@ -22,6 +22,7 @@ import type { InsertJournalEntry, SyncedTrade } from '../../../shared/schema';
 import { sessionAt } from '../../lib/forexSession';
 import { toPips } from '../../lib/pipMath';
 import { computeRisk } from './risk';
+import { exitReasonFor } from './exitReason';
 
 // ── Session detection ─────────────────────────────────────────────────────────
 type SessionName = 'SYDNEY' | 'TOKYO' | 'LONDON' | 'NEW YORK' | 'LONDON/NY OVERLAP';
@@ -94,7 +95,9 @@ export function classifyOutcome(netPl: number, trade: SyncedTrade): 'WIN' | 'LOS
 }
 
 /** Build the journal entry for one synced trade. Pure — it writes nothing. */
-export function buildJournalEntry(trade: SyncedTrade, sessionId?: string | null): InsertJournalEntry {
+export function buildJournalEntry(trade: SyncedTrade, sessionId?: string | null,
+                                  context?: { strategy?: string | null; entryTF?: string | null },
+                                 ): InsertJournalEntry {
   const openTime  = trade.openTime  ? new Date(trade.openTime)  : null;
   const closeTime = trade.closeTime ? new Date(trade.closeTime) : null;
 
@@ -167,12 +170,34 @@ export function buildJournalEntry(trade: SyncedTrade, sessionId?: string | null)
     sessionName: session,
     sessionPhase: phase,
     entryTimeUTC: openTime ? openTime.toISOString() : undefined,
+    // ── WHAT THE METRICS PAGE NEEDS, and never had for an automatic trade ────────────────────
+    // `metrics_calculator.py` breaks trades down by strategy, exit reason, order type and entry
+    // timeframe. A synced trade carried none of them, so every one landed in an "Unknown" bucket
+    // beside his typed trades. His report, 2026-09-03: *"some details of trades autosynced are not
+    // recorded there."* All four are knowable and none needed a new fetch.
+    //
+    // A trade he placed BY HAND has no signal behind it, so `strategy` and `entryTF` stay blank —
+    // that is correct rather than a gap. The other two work for every synced trade.
+    primaryExitReason: exitReasonFor({
+      symbol: trade.symbol, entryPrice: trade.openPrice, closePrice: trade.closePrice,
+      originalStopLoss: trade.originalStopLoss, originalTakeProfit: trade.originalTakeProfit,
+    }),
+    orderType:   trade.orderType ?? undefined,
+    // `entryTF` and `orderType` are real columns; STRATEGY IS NOT — journal_entries has no such
+    // column. The metrics engine merges `manualFields` flat into each row before mapping
+    // (metrics_calculator.py, "Merge manualFields and aiExtracted JSONB blobs into the flat dict
+    // first"), so a key placed in that blob is exactly as visible to it as a column would be. That
+    // is also where the manual form's own strategy lands, so both paths group together.
+    entryTF:     context?.entryTF ?? undefined,
     manualFields: {
       brokerTicket: trade.externalId,
       brokerAccountId: trade.brokerAccountId,
       magic: trade.magic,
       comment: trade.comment,
       autoJournaled: true,
+      // Read by the metrics engine's strategyPerformance / strategyMarketMatrix breakdowns — see
+      // the note above. Absent for a trade he placed by hand, which has no signal behind it.
+      strategy: context?.strategy ?? undefined,
       // WHAT THE LADDER ACTUALLY DID, kept beside the plan rather than replacing it. The stop the
       // position closed on IS worth knowing — it says where the trade was protected to — it just is
       // not the risk that was taken.

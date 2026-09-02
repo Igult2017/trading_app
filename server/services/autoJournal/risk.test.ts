@@ -22,6 +22,7 @@
  */
 import { computeRisk } from './risk';
 import { buildJournalEntry } from './fields';
+import { exitReasonFor } from './exitReason';
 
 let pass = 0, fail = 0;
 function check(what: string, got: unknown, want: unknown) {
@@ -139,6 +140,34 @@ const oldEntry: any = buildJournalEntry(
   { ...realTrade, originalStopLoss: null, originalTakeProfit: null }, null);
 check('TEETH — without the original stop it is misfiled as a LOSS', oldEntry.outcome, 'LOSS');
 check('TEETH — ...and carries no R at all', oldEntry.achievedRR, undefined);
+
+
+
+// ── WHY THE TRADE ENDED — the metrics page's exit analysis ─────────────────
+//
+// His report, 2026-09-03: *"some details of trades autosynced are not recorded there."* The metrics
+// engine builds an `exitAnalysis` breakdown keyed on `primary_exit_reason`, and a synced trade never
+// carried one, so every automatic trade sat in its "Unknown" bucket.
+const GBP = { symbol: 'GBPUSD', entryPrice: 1.34880,
+              originalStopLoss: 1.34939, originalTakeProfit: 1.34672 };
+
+check('stopped at the ORIGINAL stop -> Stop Loss',
+      exitReasonFor({ ...GBP, closePrice: 1.34939 }), 'Stop Loss');
+check('reached the ORIGINAL target -> Take Profit',
+      exitReasonFor({ ...GBP, closePrice: 1.34672 }), 'Take Profit');
+// His real GBP/USD: the ladder moved the stop to the entry and the market took it there. Telling
+// this apart from a full stop-out is the entire point — one protected the account, the other took
+// the planned loss.
+check('taken out at the ENTRY -> Breakeven Stop',
+      exitReasonFor({ ...GBP, closePrice: 1.34882 }), 'Breakeven Stop');
+check('ended anywhere else -> Trailed Stop, because the stop had been MOVED',
+      exitReasonFor({ ...GBP, closePrice: 1.34800 }), 'Trailed Stop');
+check('no original stop -> no guess', exitReasonFor({ ...GBP, closePrice: 1.348, originalStopLoss: null }),
+      undefined);
+// HALF A PIP OF TOLERANCE, not an exact match: his breakeven stop sat at 1.34880 and filled at
+// 1.34882. Demanding equality would have called that a Trailed Stop.
+check('a fill two points off the level still counts as that level',
+      exitReasonFor({ ...GBP, closePrice: 1.34941 }), 'Stop Loss');
 
 
 console.log(`\n  ${pass} passed, ${fail} failed\n`);

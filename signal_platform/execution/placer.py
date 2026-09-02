@@ -108,7 +108,12 @@ async def place_for_signal(signal, creds: dict, account_type: str, equity: float
                 res.order_id, symbol=symbol, side=side, entry=entry, stop=sl, target=tp,
                 lots=lots, volume=volume, stop_pips=stop_pips,
                 strategy=signal.strategy_name or signal.strategy_id,
-                signal_id=getattr(signal, "id", None))
+                # `db_id`, NOT `id` — there is no `id` field on Signal at all. The runner stamps
+                # the saved row's id onto `db_id` after the insert and before dispatch
+                # (orchestrator/strategy_runner.py). Reading `id` returned None every single time,
+                # so this link was always null and the journal could never name the strategy that
+                # placed a trade.
+                signal_id=getattr(signal, "db_id", None) or None)
         log.info(f"[execution] PLACED {symbol} {side} {lots} lots (vol {volume}) stop {entry} "
                  f"order {res.order_id}")
         if notify and res.order_id:

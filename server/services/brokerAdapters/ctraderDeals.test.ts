@@ -255,4 +255,63 @@ check('TEETH — the OLD wholesale overwrite really did lose the open time',
 check('TEETH — and the paired mapping really did have it',
       pairDealsIntoTrades([REAL_OPEN, REAL_CLOSE], { 2: 'GBPUSD' })[0]?.openTime, 1788342844240);
 
+
+// ── DIRECTION: A LONG MUST NOT BE FILED AS A SHORT ─────────────────────────
+//
+// His report, 2026-09-03: the EUR/USD trade LOST 1.05R and the journal showed +1.05R.
+//
+// `ProtoOAPosition` has NO top-level `tradeSide` — read off the installed protobuf, the side lives
+// ONLY inside `tradeData`, which is the same object whose `openTimestamp` we measured as MISSING on
+// both of his trades. So the old expression fell through to `long = false` and filed EVERY live
+// trade as a SHORT. Two lines below, the same flag signs the money, so a $51 LOSS on a long was
+// recorded as a $51 WIN.
+//
+// The payload below is the shape actually observed: a position with `price`, `positionStatus` and
+// NO `tradeData`.
+const LIVE_LONG_NO_TRADEDATA = {
+  deal: {
+    dealId: 317231950, orderId: 358554565, positionId: 239582511, symbolId: 1,
+    tradeSide: 'SELL',                 // SELLING to close means the position was a LONG
+    filledVolume: 5000000, executionPrice: 1.15983,
+    executionTimestamp: 1788274166750, dealStatus: 'FILLED', commission: 0, moneyDigits: 2,
+  },
+  position: {
+    positionId: 239582511, positionStatus: 'POSITION_STATUS_CLOSED',
+    price: 1.16046, swap: 0, commission: 0, moneyDigits: 2,
+    // NO tradeData — this is the whole defect.
+  },
+};
+
+const liveLong = mapClosedFromEvent(LIVE_LONG_NO_TRADEDATA, { 1: 'EURUSD' })!;
+check('a SELL-to-close with no tradeData is recorded as a LONG', liveLong.direction, 'Long');
+check('...and its P&L is NEGATIVE, because the long lost',
+      (liveLong.profit ?? 0) < 0, true);
+check('...at 1.16046 -> 1.15983 on 50 lots-equivalent',
+      Math.round((liveLong.profit ?? 0) * 100) / 100, -31.5);
+
+// A genuine SHORT must still come out short — the fix cannot simply flip everything.
+const LIVE_SHORT = {
+  deal: { ...LIVE_LONG_NO_TRADEDATA.deal, tradeSide: 'BUY', executionPrice: 1.34882 },
+  position: { ...LIVE_LONG_NO_TRADEDATA.position, price: 1.34880 },
+};
+const liveShort = mapClosedFromEvent(LIVE_SHORT, { 1: 'GBPUSD' })!;
+check('a BUY-to-close is still recorded as a SHORT', liveShort.direction, 'Short');
+
+// And when tradeData IS present, it stays authoritative — the normal case must not regress.
+const LIVE_WITH_TRADEDATA = {
+  deal: { ...LIVE_LONG_NO_TRADEDATA.deal, tradeSide: 'SELL' },
+  position: { ...LIVE_LONG_NO_TRADEDATA.position,
+              tradeData: { tradeSide: 'BUY', openTimestamp: 1788271402114, volume: 5000000 } },
+};
+const withTD = mapClosedFromEvent(LIVE_WITH_TRADEDATA, { 1: 'EURUSD' })!;
+check('tradeData still wins when the gateway sends it', withTD.direction, 'Long');
+check('...and the open time comes through with it', withTD.openTime, 1788271402114);
+
+// TEETH — the OLD expression, on the same payload, really did produce a Short.
+const p = LIVE_LONG_NO_TRADEDATA.position as any;
+const oldPosSide = String(p.tradeData?.tradeSide ?? p.tradeSide ?? '').toUpperCase();
+check('TEETH — the old expression had nothing to read', oldPosSide, '');
+check('TEETH — ...so it filed this LONG as a Short',
+      (oldPosSide === 'BUY' || p.tradeData?.tradeSide === 1) ? 'Long' : 'Short', 'Short');
+
 console.log(`ALL PASS (${count} checks)`);

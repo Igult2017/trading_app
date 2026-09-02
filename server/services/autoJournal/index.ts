@@ -11,6 +11,9 @@
  * `brokerSyncService.ts` now does ingestion only — fetch, de-duplicate, store.
  */
 import { storage } from '../../storage';
+import { db } from '../../db';
+import { autotradeOrders, tradingSignals } from '../../../shared/schema';
+import { eq, desc } from 'drizzle-orm';
 import type { SyncedTrade } from '../../../shared/schema';
 import { enrichTradeWithBalance } from '../balanceTracker';
 import { buildJournalEntry, timingFields } from './fields';
@@ -20,6 +23,47 @@ export { classifyOutcome, buildJournalEntry, timingFields } from './fields';
 export { computeRisk } from './risk';
 export { record, recordSoon } from './events';
 export type { SyncStage } from './events';
+
+/**
+ * WHAT PLACED THIS TRADE, for a trade autotrade opened. Null for one he placed by hand.
+ *
+ * His report, 2026-09-03: *"some details of trades autosynced are not recorded there."* The metrics
+ * page groups by strategy and by entry timeframe, and a synced trade had neither, so every one sat
+ * in an "Unknown" bucket beside his typed trades.
+ *
+ * THE JOIN IS EXACT, not a guess: the position's OPENING deal carries the id of the order that
+ * opened it, autotrade recorded that same id when it placed, and the order row carries the signal.
+ *
+ *     synced_trades.entry_order_id -> autotrade_orders.order_id -> .strategy
+ *                                                              -> .signal_id -> trading_signals
+ *
+ * NEVER RAISES and never blocks the journal entry. A trade with no strategy is still a trade; the
+ * fields are simply left blank, which is what a hand-placed trade correctly looks like.
+ */
+export async function contextFor(trade: SyncedTrade): Promise<{ strategy?: string; entryTF?: string }> {
+  if (!trade.entryOrderId) return {};
+  try {
+    const [order] = await db.select().from(autotradeOrders)
+      .where(eq(autotradeOrders.orderId, String(trade.entryOrderId)))
+      .orderBy(desc(autotradeOrders.placedAt)).limit(1);
+    if (!order) return {};
+    const out: { strategy?: string; entryTF?: string } = {};
+    if (order.strategy) out.strategy = order.strategy;
+    if (order.signalId) {
+      const [sig] = await db.select().from(tradingSignals)
+        .where(eq(tradingSignals.id, order.signalId)).limit(1);
+      // THE TIMEFRAME THE ENTRY WAS TAKEN ON — `executionTimeframe` is that by definition; the
+      // primary one is the timeframe the setup was READ on, which is a different question and
+      // belongs in `analysisTF`, not here.
+      if (sig?.executionTimeframe) out.entryTF = sig.executionTimeframe;
+    }
+    return out;
+  } catch (err: any) {
+    console.warn(`[autoJournal] could not look up what placed ${trade.externalId}: `
+                 + `${err?.message ?? err}`);
+    return {};
+  }
+}
 
 /**
  * Write the journal entry for one synced trade. Returns its id, or null if it was not written.
@@ -34,7 +78,7 @@ export async function journalSyncedTrade(
   if (trade.journalEntryId) return trade.journalEntryId;   // already journaled — never write twice
 
   try {
-    const entry = buildJournalEntry(trade, sessionId);
+    const entry = buildJournalEntry(trade, sessionId, await contextFor(trade));
 
     // THE SAME ENRICHMENT THE JOURNAL FORM GETS — called, never modified. `POST /api/journal/entries`
     // runs this before inserting and this path did not, so every synced trade had a blank
@@ -97,27 +141,57 @@ export async function repairJournalTiming(trade: SyncedTrade): Promise<void> {
 }
 
 /**
- * Recompute an existing entry's risk numbers once the ORIGINAL stop is known.
+ * REBUILD EVERYTHING THE ENTRY DERIVES FROM THE TRADE'S OWN NUMBERS.
  *
- * Same shape as the timing repair and for the same reason: the live feed cannot supply the original
- * stop (it only ever sees the position as it closes), so an entry written from it has the wrong risk
- * — or, for a trade taken to breakeven, none at all. The sweep reads the entry order, which has it.
+ * The live feed records a trade the instant it closes, from one event that turns out to be missing
+ * things: the open time, the risk as placed, and — worst — the DIRECTION, which it defaults to Short
+ * and which also signs the money. The sweep fixes the trade row; this puts the entry back in step.
+ *
+ * WHAT IS REBUILT: direction, P&L, pips, the stop and target actually placed, their distances, the
+ * planned and achieved R, the exit reason, the order type, the strategy and the entry timeframe.
+ *
+ * WHAT IS NEVER TOUCHED: his notes. `storage.updateJournalEntry` REPLACES a JSONB column rather than
+ * merging it (`.set(...)` in storage.ts), so passing `manualFields` wholesale would wipe every note,
+ * tag and screenshot on the row. The existing blob is read and merged, exactly as the manual PUT
+ * endpoint does for the same reason.
  */
-export async function repairJournalRisk(trade: SyncedTrade): Promise<void> {
-  if (!trade.journalEntryId || !trade.originalStopLoss) return;
-  const rebuilt = buildJournalEntry(trade, null);
+export async function repairJournalDerived(trade: SyncedTrade): Promise<void> {
+  if (!trade.journalEntryId) return;
+  const rebuilt = buildJournalEntry(trade, null, await contextFor(trade));
+
+  // MERGE, NEVER REPLACE — see the note above. Only our own keys are overwritten.
+  let manualFields: any = rebuilt.manualFields;
+  try {
+    const existing = await storage.getJournalEntryById(trade.journalEntryId);
+    const his = (existing?.manualFields ?? {}) as Record<string, unknown>;
+    manualFields = { ...his, ...(rebuilt.manualFields as Record<string, unknown>) };
+  } catch {
+    // Could not read it back: leave the blob ALONE rather than risk overwriting his notes with ours.
+    manualFields = undefined;
+  }
+
   await storage.updateJournalEntry(trade.journalEntryId, {
+    direction:          rebuilt.direction,
+    profitLoss:         rebuilt.profitLoss,
+    pipsGainedLost:     rebuilt.pipsGainedLost,
     stopLoss:           rebuilt.stopLoss,
     takeProfit:         rebuilt.takeProfit,
     stopLossDistance:   rebuilt.stopLossDistance,
     takeProfitDistance: rebuilt.takeProfitDistance,
     riskReward:         rebuilt.riskReward,
     achievedRR:         rebuilt.achievedRR,
+    outcome:            rebuilt.outcome,
+    primaryExitReason:  rebuilt.primaryExitReason,
+    orderType:          rebuilt.orderType,
+    entryTF:            rebuilt.entryTF,
+    ...(manualFields ? { manualFields } : {}),
   });
+
   await record({
     brokerAccountId: trade.brokerAccountId, externalId: trade.externalId, symbol: trade.symbol,
     stage: 'backfilled',
-    detail: `risk corrected from the entry order — risked ${rebuilt.stopLossDistance ?? '?'} pips, `
-            + `achieved ${rebuilt.achievedRR ?? '?'}R of a planned ${rebuilt.riskReward ?? '?'}R`,
+    detail: `journal entry rebuilt — ${rebuilt.direction} ${rebuilt.outcome} `
+            + `${rebuilt.profitLoss}, ${rebuilt.achievedRR ?? '?'}R`
+            + (rebuilt.primaryExitReason ? `, exit: ${rebuilt.primaryExitReason}` : ''),
   });
 }

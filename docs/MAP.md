@@ -127,6 +127,20 @@ It runs on your **journal trade entries**; it has nothing to do with the signal 
 
 [ctrader-open-api-apps.md](./ctrader-open-api-apps.md).
 
+### "a synced trade shows the wrong direction, or a win that was a loss"
+
+**The live feed files every trade as a SHORT when the position's `tradeData` is absent** — the side
+lives only in there and `ProtoOAPosition` has no other copy of it. The same flag signs the money, so
+a losing LONG was recorded as a winning short. Fixed 03 Sep by taking the direction from the CLOSING
+DEAL (sells to close = long), and the sweep now corrects rows already stored wrong. **D34** in
+[OPEN.md](./OPEN.md).
+
+### "the metrics page says Unknown for my autosynced trades"
+
+They now carry **strategy, exit reason, order type and entry timeframe**. Note `strategy` is NOT a
+column — the metrics engine merges `manualFields` flat before mapping, so it lives in that blob.
+`mae`/`mfe` are still blank and cannot be derived after the fact. **D35**.
+
 ### "the R / risk-reward on my journal looks wrong or blank"
 
 **The risk is the stop the trade was PLACED with, never the one it closed on.** A managed trade's
@@ -238,6 +252,24 @@ is wrong.** Full wording lives in the linked doc; this is the index so you know 
 ---
 
 ## PROGRESS — what actually happened, newest first
+
+**2026-09-03 — a LONG was recorded as a SHORT, its loss recorded as a win, and the metrics page could
+not tell what any synced trade was.**
+
+`ProtoOAPosition` has no top-level `tradeSide` — the side lives only inside `tradeData`, the same
+object whose `openTimestamp` was already known missing. So `long` fell through to **false for every
+live-recorded trade**, and because the same flag signs the money, his EUR/USD **$51 loss was stored as
+a $51 win**. Direction now comes from the closing deal (sells to close = long), and the sweep corrects
+rows already wrong — the one place that overwrites rather than fills.
+
+The metrics page bucketed every synced trade as "Unknown" because it carried no strategy, exit reason,
+order type or entry timeframe. All four are now written; `strategy` goes into `manualFields`, because
+there is no such column and the engine merges that blob flat before mapping. `mae`/`mfe` stay blank
+and are named as such rather than faked.
+
+And the signal link added the night before was **always null** — `placer.py` read `signal.id`, but the
+saved id is stamped on `db_id`. Found by checking the join was real instead of assuming it. **D34,
+D35, D36** in [OPEN.md](./OPEN.md).
 
 **2026-09-02 (d) — the journal could not show honest R, and a redeploy kept erasing the evidence.**
 

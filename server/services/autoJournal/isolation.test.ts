@@ -30,6 +30,7 @@ import { join } from 'path';
 
 const ROOT = join(import.meta.dirname, '..', '..', '..');
 const read = (...p: string[]) => readFileSync(join(ROOT, ...p), 'utf-8');
+const readAbs = read;
 
 let pass = 0, fail = 0;
 function check(what: string, got: unknown, want: unknown) {
@@ -91,6 +92,46 @@ check('...nor its own journal-entry writer',
 const balance = read('server', 'services', 'balanceTracker.ts');
 check('balanceTracker carries no automatic-journal special-casing',
       /autoJournal|syncedTrade|autoJournaled/.test(balance), false);
+
+
+// ── A REPAIR MUST NEVER WIPE HIS NOTES ─────────────────────────────────────
+// `storage.updateJournalEntry` REPLACES a JSONB column rather than merging it (`.set(...)` in
+// storage.ts — the manual PUT endpoint merges by hand for exactly this reason). So a repair that
+// passed `manualFields` wholesale would delete every note, tag and screenshot on the row.
+const idxSrc = read('server', 'services', 'autoJournal', 'index.ts');
+check('the repair reads the existing entry before touching its blob',
+      /getJournalEntryById\(trade\.journalEntryId\)/.test(idxSrc), true);
+check('...and MERGES rather than replaces',
+      /\{ \.\.\.his, \.\.\.\(rebuilt\.manualFields/.test(idxSrc), true);
+check('...and leaves the blob alone entirely if it cannot read it back',
+      /manualFields = undefined;/.test(idxSrc), true);
+
+// ── THE METRICS FIELDS ARE ACTUALLY WRITTEN ────────────────────────────────
+// His report, 2026-09-03: *"some details of trades autosynced are not recorded there."*
+const fieldsSrc = read('server', 'services', 'autoJournal', 'fields.ts');
+for (const f of ['primaryExitReason', 'orderType', 'entryTF']) {
+  check(`the entry carries ${f} for the metrics page`, new RegExp(`${f}:`).test(fieldsSrc), true);
+}
+// `strategy` is NOT a column on journal_entries — the metrics engine merges `manualFields` flat
+// before mapping, so that blob is where it has to live.
+check('strategy goes into manualFields, where the metrics engine can see it',
+      /manualFields: \{[\s\S]*?strategy: context\?\.strategy/.test(fieldsSrc), true);
+// Anchored to FOUR spaces — the entry object's own indentation. The nested one inside
+// `manualFields` sits at six, and a loose `\s+` matched that too, which is not what this asks.
+// (`tsc` already refuses a top-level `strategy` since the column does not exist; this says why.)
+check('...and is NOT written as a column that does not exist',
+      /^ {4}strategy:/m.test(fieldsSrc), false);
+check('...while the manualFields one IS there, at its deeper indent',
+      /^ {6}strategy: context\?\.strategy/m.test(fieldsSrc), true);
+
+// ── THE SIGNAL LINK THE STRATEGY JOIN RESTS ON ─────────────────────────────
+// `Signal` has no `id` field; the runner stamps the saved row's id onto `db_id`. Reading `id`
+// returned None every time, so the link was always null and the join would have found nothing.
+const placer = readAbs('signal_platform', 'execution', 'placer.py');
+check('autotrade records the signal id from db_id, not the non-existent id',
+      /signal_id=getattr\(signal, "db_id", None\)/.test(placer), true);
+check('...and no longer reads a field that does not exist',
+      /getattr\(signal, "id", None\)/.test(placer), false);
 
 // ── TEETH ──────────────────────────────────────────────────────────────────
 console.log('\n  teeth — the checks can actually fail:');

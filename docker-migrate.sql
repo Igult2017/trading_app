@@ -555,6 +555,7 @@ CREATE INDEX IF NOT EXISTS autotrade_orders_placed_idx ON autotrade_orders (plac
 CREATE INDEX IF NOT EXISTS autotrade_orders_status_idx ON autotrade_orders (status);
 
 ALTER TABLE synced_trades ADD COLUMN IF NOT EXISTS entry_order_id       TEXT;
+ALTER TABLE synced_trades ADD COLUMN IF NOT EXISTS order_type           TEXT;
 ALTER TABLE synced_trades ADD COLUMN IF NOT EXISTS original_stop_loss   NUMERIC(12,5);
 ALTER TABLE synced_trades ADD COLUMN IF NOT EXISTS original_take_profit NUMERIC(12,5);
 

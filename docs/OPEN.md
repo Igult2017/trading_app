@@ -841,6 +841,82 @@ anywhere. Blocked on one question: does copy trading auto-execute on a user's ac
 
 ## D. cTrader & copy trading
 
+### D34 - ~~A LONG recorded live was filed as a SHORT, and its money inverted with it~~ FIXED 03 Sep 🔴
+
+**His report:** the EUR/USD trade **lost 1.05R** and the journal showed **+1.05R**.
+
+**Proved by arithmetic, not assumed.** `computeRisk` measures `Long ? exit - entry : entry - exit`.
+With entry 1.16046 and exit 1.15983, a Long gives −1.05R and a Short gives +1.05R. Production printed
+`achieved 1.05R`, so the stored direction was **Short**. The broker's opening deal (358554462) is a
+**BUY** — it was a **LONG**.
+
+**The cause, read off the installed protobuf:**
+
+```
+ProtoOAPosition : positionId, tradeData, positionStatus, swap, price, stopLoss, takeProfit, ...
+ProtoOATradeData: symbolId, volume, tradeSide, openTimestamp, label, ...
+```
+
+`ProtoOAPosition` has **no top-level `tradeSide`** — the side lives ONLY inside `tradeData`, the same
+object whose `openTimestamp` we measured as missing on both trades. So
+`long = posSide === 'BUY' || p.tradeData?.tradeSide === 1` fell through to **false — Short — for every
+live-recorded trade.** GBP/USD looked right purely because it genuinely was short.
+
+**And it was not just the label.** Two lines below, the same flag signs the money:
+`profit = (long ? exit - entry : entry - exit) * units`. A **$51 loss was recorded as a $51 win** —
+about a **$102 swing**, flowing into every page built from the journal.
+
+**Fixed:** the direction now comes from the **closing deal** — a deal that SELLS to close was a LONG,
+one that BUYS to close was a SHORT. Unambiguous, always present, and the rule `mapClosedDeal` already
+used. The dead `p.tradeSide` branch is gone; the schema says that field never existed.
+
+**Rows already wrong are corrected, not just left.** The sweep pairs the real deals, so it knows the
+true direction, and its detailed half carries the broker's own signed `grossProfit`. Where the stored
+row disagrees, the sweep wins — the **one place** in `processIncomingTrades` that overwrites a value
+rather than filling a blank, because a wrong direction is worse than a missing one. Every correction
+writes a durable `sync_events` row.
+
+### D35 - ~~The metrics page bucketed every synced trade as "Unknown"~~ FIXED 03 Sep
+
+**His report:** *"This fix should be extended to metrics page too, some details of trades autosynced
+are not recorded there."*
+
+`metrics_calculator.py` builds ~30 breakdowns. A synced trade carried instrument, session, day,
+duration, direction, P&L and the R numbers — but not the fields these need:
+
+| breakdown | needs | now |
+|---|---|---|
+| `strategyPerformance`, `strategyMarketMatrix` | `strategy` | from `autotrade_orders` |
+| `exitAnalysis` | `primaryExitReason` | computed from the exit vs the original levels |
+| `orderTypeBreakdown` | `orderType` | off the entry order, already fetched |
+| `timeframeBreakdown` | `entryTF` | via the signal's `executionTimeframe` |
+| `maeMfe` | `mae`, `mfe` | **still blank** — cannot be derived after the fact |
+
+**`strategy` is NOT a column on `journal_entries`.** The metrics engine merges `manualFields` flat
+into each row before mapping (`metrics_calculator.py:438`), so that blob is where it has to live —
+which is also where the manual form's own strategy lands, so both group together.
+
+**The exit reason distinguishes four endings**, and the last two are the point: `Take Profit`,
+`Stop Loss`, **`Breakeven Stop`**, **`Trailed Stop`**. Lumping the managed exits in with a full
+stop-out would say a protected trade and a planned loss failed the same way.
+
+**A hand-placed trade has no signal**, so `strategy` and `entryTF` stay blank for it — correct, not a
+gap. The other two work for every synced trade.
+
+### D36 - ~~The signal link was always null — one word wrong~~ FIXED 03 Sep
+
+`placer.py` recorded `signal_id=getattr(signal, "id", None)`, but `Signal` has **no `id` field**: the
+runner stamps the saved row's id onto **`db_id`** after the insert and before dispatch. So the link
+was **always None**, and the strategy/timeframe join above would have silently found nothing. Found
+while checking that join was real rather than assuming it.
+
+**A repair never touches his notes.** `storage.updateJournalEntry` REPLACES a JSONB column rather
+than merging it, so `repairJournalDerived` reads the existing `manualFields`, merges its own keys in,
+and leaves the blob entirely alone if it cannot read it back. Pinned by `isolation.test.ts`.
+
+**Guarded by** `ctraderDeals.test.ts` (65 checks, including the real no-`tradeData` payload and teeth
+proving the old expression produced a Short), `risk.test.ts` (32), `isolation.test.ts` (28).
+
 ### D33 - ~~Two ladders, and the wrong one cost a full R~~ FIXED 02 Sep 🔴
 
 **His ruling:** *"There is no fallback, the change was that we use this new ladder and delete the

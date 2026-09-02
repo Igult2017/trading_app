@@ -120,6 +120,7 @@ export interface IStorage {
   updateSyncedTradeOpenTime(id: string, openTime: Date): Promise<void>;
   updateSyncedTradeOriginalRisk(id: string, risk: { entryOrderId: string | null;
     originalStopLoss: string; originalTakeProfit: string | null }): Promise<void>;
+  correctSyncedTrade(id: string, fix: { direction?: string; profitLoss?: string }): Promise<void>;
 
   // ── Blog ─────────────────────────────────────────────────────────────────
   getBlogPosts(filters?: { status?: string; section?: string }): Promise<BlogPost[]>;
@@ -1061,6 +1062,16 @@ export class DbStorage implements IStorage {
       .set({ entryOrderId: risk.entryOrderId, originalStopLoss: risk.originalStopLoss,
              originalTakeProfit: risk.originalTakeProfit })
       .where(eq(syncedTrades.id, id));
+  }
+
+  /** Overwrite a value the broker's own deals prove wrong. Only the sweep calls this — see the note
+   *  in `processIncomingTrades`: it is the one place a stored value is corrected rather than filled. */
+  async correctSyncedTrade(id: string, fix: { direction?: string; profitLoss?: string }): Promise<void> {
+    const set: Record<string, any> = {};
+    if (fix.direction)  set.direction  = fix.direction;
+    if (fix.profitLoss) set.profitLoss = fix.profitLoss;
+    if (!Object.keys(set).length) return;
+    await db.update(syncedTrades).set(set).where(eq(syncedTrades.id, id));
   }
 
   // ── Blog ─────────────────────────────────────────────────────────────────

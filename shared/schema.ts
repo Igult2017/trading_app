@@ -728,6 +728,10 @@ export const syncedTrades = pgTable("synced_trades", {
   // stopLoss 1.34939 and takeProfit 1.34672 against an entry of 1.34886 — a 5.3 pip risk and a
   // 4.04R plan, where the closing stop said the risk was zero.
   entryOrderId:       text("entry_order_id"),
+  // How the trade was ENTERED — "STOP", "LIMIT", "MARKET" — off the broker's entry order. The
+  // metrics page breaks trades down by this and every synced trade was landing in its "Unknown"
+  // bucket, because nothing read it.
+  orderType:          text("order_type"),
   originalStopLoss:   decimal("original_stop_loss",   { precision: 12, scale: 5 }),
   originalTakeProfit: decimal("original_take_profit", { precision: 12, scale: 5 }),
   journalEntryId:  varchar("journal_entry_id"),           // null until auto-journaled

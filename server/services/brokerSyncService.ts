@@ -20,7 +20,7 @@
 import { storage } from '../storage';
 import type { InsertJournalEntry, SyncedTrade, BrokerAccount } from '../../shared/schema';
 import { invalidateComputeCaches } from '../lib/cache';
-import { journalSyncedTrade, repairJournalTiming, repairJournalRisk, record } from './autoJournal';
+import { journalSyncedTrade, repairJournalTiming, repairJournalDerived, record } from './autoJournal';
 
 // ── Auto-journal one synced trade ─────────────────────────────────────────────
 // ── Process a batch of incoming trades (from webhook or poll) ─────────────────
@@ -38,6 +38,9 @@ export interface RawBrokerTrade {
   entryOrderId?:       string;
   originalStopLoss?:   number;
   originalTakeProfit?: number;
+  // How the trade was entered — "STOP", "LIMIT", "MARKET". The metrics page breaks trades down by
+  // this and every synced one was landing in "Unknown".
+  orderType?:          string;
   // An ISO date string, OR a Unix timestamp in EITHER seconds or milliseconds — `toDate` decides
   // by magnitude, so an adapter reports whatever its broker gave it and converts nothing. The old
   // comment said "seconds", seven of the eight adapters sent something else, and nothing complained.
@@ -106,7 +109,7 @@ export async function processIncomingTrades(
   trades: RawBrokerTrade[],
 ): Promise<{ created: number; duplicates: number; journaled: number; healed: number;
              backfilled: number }> {
-  let created = 0, duplicates = 0, journaled = 0, healed = 0, backfilled = 0;
+  let created = 0, duplicates = 0, journaled = 0, healed = 0, backfilled = 0, corrected = 0;
 
   // Get the account's default session so auto-journaled trades are visible
   // in session-filtered views (metrics, drawdown, audit)
@@ -186,6 +189,43 @@ export async function processIncomingTrades(
         }
       }
 
+      // A WRONG DIRECTION IS NOT A BLANK, AND IT POISONS EVERYTHING DOWNSTREAM.
+      //
+      // The live feed files every trade as a SHORT when the position's `tradeData` is absent — the
+      // side lives only in there and `ProtoOAPosition` has no other copy of it. The same flag signs
+      // the money, so his EUR/USD LONG of 01 Sep was stored as a short AND its $51 loss was recorded
+      // as a $51 win.
+      //
+      // The sweep knows better: it pairs the position's two real deals, so the OPENING deal's side
+      // is the direction, and its detailed half carries the broker's own signed grossProfit. Where
+      // the two disagree, the sweep wins. This CORRECTS rather than fills — the only place in this
+      // function that overwrites a value — because a wrong direction is worse than a missing one.
+      const wrongWay = raw.direction && existing.direction
+                       && normaliseDirection(raw.direction) !== existing.direction;
+      const wrongPl  = raw.profit != null && existing.profitLoss != null
+                       && Math.abs(Number(existing.profitLoss) - raw.profit) > 0.01;
+      if (wrongWay || wrongPl) {
+        const was = { direction: existing.direction, profitLoss: existing.profitLoss };
+        await storage.correctSyncedTrade(existing.id, {
+          direction:  normaliseDirection(raw.direction),
+          profitLoss: raw.profit != null ? String(raw.profit) : undefined,
+        });
+        (existing as any).direction  = normaliseDirection(raw.direction);
+        if (raw.profit != null) (existing as any).profitLoss = String(raw.profit);
+        corrected++;
+        await record({ brokerAccountId, externalId: existing.externalId, symbol: existing.symbol,
+                       stage: 'backfilled',
+                       detail: `CORRECTED from the broker's own deals: `
+                               + `direction ${was.direction} -> ${existing.direction}`
+                               + (wrongPl ? `, P/L ${was.profitLoss} -> ${existing.profitLoss}` : '') });
+        // The entry was written from the wrong direction, so its P&L, pips and R are all wrong too.
+        if (existing.journalEntryId) {
+          await repairJournalDerived(existing).catch(err =>
+            console.error(`[Sync] could not rebuild the journal entry for `
+                          + `${existing.externalId}: ${err?.message ?? err}`));
+        }
+      }
+
       // THE RISK AS PLACED, onto a row that never had it. Same rule as the open time above: only
       // ever fills a blank. A trade recorded by the live feed cannot have this — the feed sees the
       // position as it CLOSES, by which point the ladder has moved the stop — so every live-recorded
@@ -208,7 +248,7 @@ export async function processIncomingTrades(
                                + (raw.originalTakeProfit ? ` target ${raw.originalTakeProfit}` : '') });
         // The entry was written with the WRONG risk (or none). Correct it now that the truth exists.
         if (existing.journalEntryId) {
-          await repairJournalRisk(existing).catch(err =>
+          await repairJournalDerived(existing).catch(err =>
             console.error(`[Sync] could not correct the risk on the journal entry for `
                           + `${existing.externalId}: ${err?.message ?? err}`));
         }
@@ -244,6 +284,7 @@ export async function processIncomingTrades(
       stopLoss:    raw.stopLoss   != null ? String(raw.stopLoss)   : undefined,
       takeProfit:  raw.takeProfit != null ? String(raw.takeProfit) : undefined,
       entryOrderId:       raw.entryOrderId,
+      orderType:          raw.orderType,
       originalStopLoss:   raw.originalStopLoss   != null ? String(raw.originalStopLoss)   : undefined,
       originalTakeProfit: raw.originalTakeProfit != null ? String(raw.originalTakeProfit) : undefined,
       openTime,

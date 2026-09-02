@@ -416,14 +416,31 @@ export function mapClosedFromEvent(ev: any, symbolMap: Record<number, string>): 
   const d = ev?.deal, p = ev?.position;
   if (!d || !p || !isFilled(d)) return null;
   const status = String(p.positionStatus ?? '').toUpperCase();
-  const posSide = String(p.tradeData?.tradeSide ?? p.tradeSide ?? '').toUpperCase();
+  // `p.tradeSide` is NOT a field on ProtoOAPosition (verified against the installed protobuf) — the
+  // side is only ever inside `tradeData`. Reading it was a fallback that could never fire.
+  const posSide = String(p.tradeData?.tradeSide ?? '').toUpperCase();
   const dealSide = String(d.tradeSide ?? '').toUpperCase();
   const closedByStatus = status.includes('CLOSED');
   const closedBySide = !!posSide && !!dealSide && posSide !== dealSide;
   if (!closedByStatus && !closedBySide) return null;          // an opening fill
 
   const symbol = symbolMap[d.symbolId] ?? String(d.symbolId);
-  const long = posSide === 'BUY' || p.tradeData?.tradeSide === 1;
+  // THE CLOSING DEAL IS THE ONLY RELIABLE SOURCE OF THE DIRECTION, and getting this wrong inverted
+  // the MONEY as well as the label.
+  //
+  // `ProtoOAPosition` has NO top-level `tradeSide` — read off the installed protobuf, its fields are
+  // positionId, tradeData, positionStatus, swap, price, stopLoss, takeProfit, ... The side lives
+  // ONLY inside `tradeData`, which is the same object whose `openTimestamp` we measured as MISSING on
+  // both of his trades. So `posSide` was '', the `=== 1` test matched nothing, and `long` fell
+  // through to FALSE — every live-recorded trade filed as a SHORT.
+  //
+  // His EUR/USD trade of 01 Sep was a LONG that lost 1.05R. It was stored as a short, and because
+  // `profit` below is signed by this same flag, a $51 LOSS was recorded as a $51 WIN.
+  //
+  // A deal that SELLS to close was a LONG; one that BUYS to close was a SHORT. That is unambiguous,
+  // always present, and exactly the rule `mapClosedDeal` already uses. The old `p.tradeSide` branch
+  // is gone: the schema says that field does not exist, so it never did anything.
+  const long = posSide ? posSide === 'BUY' : dealSide === 'SELL';
   const units = Number(d.filledVolume ?? d.volume ?? 0) / 100;
   const entry = Number(p.price);
   const exit = Number(d.executionPrice);
@@ -549,8 +566,8 @@ export function mergeDealMappings(allDeals: any[], symbolMap: Record<number, str
  * 1.34886 — a 5.3 pip risk and a 4.04R plan, where the closing stop said the risk was nothing.
  */
 async function fetchEntryOrderLevels(ws: WebSocket, acctId: number, from: number, to: number)
-    : Promise<Map<string, { stopLoss?: number; takeProfit?: number }>> {
-  const out = new Map<string, { stopLoss?: number; takeProfit?: number }>();
+    : Promise<Map<string, { stopLoss?: number; takeProfit?: number; orderType?: string }>> {
+  const out = new Map<string, { stopLoss?: number; takeProfit?: number; orderType?: string }>();
   try {
     send(ws, PT_ORDERS_REQ, { ctidTraderAccountId: acctId, fromTimestamp: from, toTimestamp: to });
     const payload = await waitFor(ws, PT_ORDERS_RES, 20000);
@@ -562,6 +579,10 @@ async function fetchEntryOrderLevels(ws: WebSocket, acctId: number, from: number
       out.set(String(o.orderId), {
         stopLoss:   Number.isFinite(sl) && sl > 0 ? sl : undefined,
         takeProfit: Number.isFinite(tp) && tp > 0 ? tp : undefined,
+        // HOW THE TRADE WAS ENTERED — "STOP", "LIMIT", "MARKET". The metrics page has an order-type
+        // breakdown and every synced trade landed in its "Unknown" bucket, because nothing ever read
+        // this. It costs nothing: these orders are already being fetched for the stop and target.
+        orderType:  o?.orderType ? String(o.orderType) : undefined,
       });
     }
   } catch (err: any) {
@@ -663,6 +684,7 @@ export async function fetchCTraderTrades(
         if (!lv) continue;
         t.originalStopLoss   = lv.stopLoss;
         t.originalTakeProfit = lv.takeProfit;
+        t.orderType          = lv.orderType;
         attached++;
       }
       console.log(`[cTrader] original risk attached to ${attached}/${merged.length} closed trade(s)`
