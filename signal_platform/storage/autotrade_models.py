@@ -45,6 +45,10 @@ class AutotradeOrderModel(Base):
     # The broker's own order id — the join key. A closed position's OPENING deal carries this same
     # value, which is how a trade in the journal is matched back to what it was placed with.
     order_id    = Column("order_id",   String, nullable=False)
+    # WHICH POSITION THE ORDER BECAME — the durable half of the strategy attribution. See
+    # `fill_watch._owner`: that dict is memory-only, so a restart lost the link and every open
+    # position silently fell back to the DEFAULT ladder (breakeven 1.0R, not VIX.1's 0.4R).
+    position_id = Column("position_id", String, nullable=True)
     signal_id   = Column("signal_id",  String, nullable=True)
     strategy    = Column("strategy",   String, nullable=True)
     symbol      = Column("symbol",     String, nullable=False)
@@ -65,6 +69,7 @@ class AutotradeOrderModel(Base):
 
     __table_args__ = (
         Index("autotrade_orders_order_idx", "order_id"),
+        Index("autotrade_orders_pos_idx", "position_id"),
         Index("autotrade_orders_placed_idx", "placed_at"),
         Index("autotrade_orders_status_idx", "status"),
     )

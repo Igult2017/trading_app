@@ -42,6 +42,13 @@ async def _startup() -> None:
     from execution.placer import rehydrate_intents
     rehydrate_intents()
 
+    # 1b. WHICH STRATEGY OWNS EACH OPEN POSITION — restored, so every position keeps its own ladder.
+    # Without this an open position loses its attribution on restart and falls back to the DEFAULT
+    # ladder, whose breakeven is 1.0R instead of VIX.1's 0.4R. A EUR/USD trade that peaked at +0.50R
+    # on 01 Sep therefore never moved to breakeven and took a full -1.05R loss.
+    from execution.fill_watch import rehydrate_owners
+    rehydrate_owners()
+
     # 1b. HOW LONG WERE WE GONE? Read the heartbeat BEFORE anything overwrites it — its age is the
     # outage. A signal that never arrived has two very different explanations, "the strategy declined
     # it" and "the process was not running", and until 2026-07-27 nothing in the system could tell

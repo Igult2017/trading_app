@@ -550,7 +550,9 @@ CREATE TABLE IF NOT EXISTS autotrade_orders (
   fill_price  NUMERIC(12,5),
   status      TEXT      DEFAULT 'placed'
 );
+ALTER TABLE autotrade_orders ADD COLUMN IF NOT EXISTS position_id TEXT;
 CREATE INDEX IF NOT EXISTS autotrade_orders_order_idx  ON autotrade_orders (order_id);
+CREATE INDEX IF NOT EXISTS autotrade_orders_pos_idx    ON autotrade_orders (position_id);
 CREATE INDEX IF NOT EXISTS autotrade_orders_placed_idx ON autotrade_orders (placed_at);
 CREATE INDEX IF NOT EXISTS autotrade_orders_status_idx ON autotrade_orders (status);
 

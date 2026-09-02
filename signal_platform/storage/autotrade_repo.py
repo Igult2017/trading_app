@@ -21,6 +21,7 @@ from storage.db import get_session
 log = logging.getLogger(__name__)
 
 __all__ = ["record_placed", "record_filled", "record_closed", "pending", "intent_for",
+           "record_position", "owners",
            "STATUS_PLACED", "STATUS_FILLED", "STATUS_CANCELLED", "STATUS_REJECTED"]
 
 
@@ -103,6 +104,55 @@ def intent_for(order_id: str) -> dict | None:
         log.warning(f"[autotrade_repo] could not read order {order_id}: "
                     f"{type(exc).__name__}: {exc}")
         return None
+
+
+def record_position(order_id: str, position_id: int | str, strategy: str | None = None) -> None:
+    """Note which POSITION an order became — the durable half of strategy attribution.
+
+    Called the moment a fill is matched. Until this existed the link lived only in
+    `fill_watch._owner`, a dict in memory, so a restart lost it for every position already open — and
+    an unattributed position gets the DEFAULT ladder, whose breakeven is 1.0R instead of VIX.1's
+    0.4R. A EUR/USD trade that peaked at 0.50R on 01 Sep therefore never moved to breakeven and took
+    a full -1.05R loss that the correct ladder would have made a scratch.
+    """
+    try:
+        with get_session() as s:
+            row = (s.query(AutotradeOrderModel)
+                    .filter(AutotradeOrderModel.order_id == str(order_id))
+                    .order_by(AutotradeOrderModel.placed_at.desc()).first())
+            if not row:
+                return
+            row.position_id = str(position_id)
+            if strategy and not row.strategy:
+                row.strategy = strategy
+    except Exception as exc:
+        log.warning(f"[autotrade_repo] could not link order {order_id} to position "
+                    f"{position_id}: {type(exc).__name__}: {exc}")
+
+
+def owners(limit: int = 500) -> dict[int, str]:
+    """position_id -> strategy, for every order we know became a position.
+
+    Read ONCE at boot to restore attribution. NEVER on the trading path: a database read inside the
+    30-second poll is what slowed the monitor from under a second to 2.7 when the pending-order
+    lookup was first written that way.
+    """
+    out: dict[int, str] = {}
+    try:
+        with get_session() as s:
+            rows = (s.query(AutotradeOrderModel)
+                     .filter(AutotradeOrderModel.position_id.isnot(None))
+                     .filter(AutotradeOrderModel.strategy.isnot(None))
+                     .order_by(AutotradeOrderModel.placed_at.desc()).limit(limit).all())
+            for r in rows:
+                try:
+                    out[int(r.position_id)] = r.strategy
+                except (TypeError, ValueError):
+                    continue
+    except Exception as exc:
+        log.warning(f"[autotrade_repo] could not restore position owners: "
+                    f"{type(exc).__name__}: {exc}")
+    return out
 
 
 def _as_intent(r: AutotradeOrderModel) -> dict:

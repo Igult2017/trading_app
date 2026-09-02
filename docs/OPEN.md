@@ -841,6 +841,62 @@ anywhere. Blocked on one question: does copy trading auto-execute on a user's ac
 
 ## D. cTrader & copy trading
 
+### D33 - ~~A restart made every open position forget its own ladder, and it cost a full R~~ FIXED 02 Sep 🔴
+
+**His question:** *"how comes it dint breakeven if it reached 14:12 1.16073 +0.45R"* — the right
+question, and the answer was not "the manager was down".
+
+**The manager keeps TWO ladders and picks by asking which strategy opened the position:**
+
+| ladder | moves to breakeven at |
+|---|---|
+| VIX.1 (attributed) | **0.4R** |
+| DEFAULT (cannot tell) | **1.0R** |
+
+That question is answered by [`fill_watch._owner`](../signal_platform/execution/fill_watch.py#L49),
+**a dict in memory**, filled in exactly one place — when a PENDING order is matched to its fill.
+Restart after an order has already filled and nothing ever re-matches it, so the link is gone for
+good and the position silently drops onto the DEFAULT ladder.
+
+**Measured on his EUR/USD trade of 01 Sep**, which peaked at **+0.50R** — above VIX.1's 0.4R,
+below the default's 1.0R, so it fell exactly in the gap:
+
+```
+VIX.1 ladder     breakeven fires at 0.4R   ->  exits  +0.00R
+DEFAULT ladder   nothing fires below 1.0R  ->  exits  -1.00R
+what actually happened                         exited -1.05R
+```
+
+The trade behaved exactly as an unattributed position. **A full R, lost to a dictionary.**
+
+**Fixed:** `autotrade_orders.position_id` records which position an order became, written the moment
+the fill is matched, and `fill_watch.rehydrate_owners()` restores the links at boot. Read ONCE at
+startup, **never on the trading path** — a database read inside the 30-second poll is what slowed the
+monitor from under a second to 2.7 when the pending-order lookup was first written that way.
+
+**This was the other half of D32** and I missed it: I made the PLACEMENTS durable but not the
+position-to-strategy link, and an order that has already filled is never re-matched, so nothing
+restored it.
+
+Guarded by [`test_ladder_attribution.py`](../signal_platform/tests/vix1/test_ladder_attribution.py)
+(13 checks) — it replays both real trades over real minute bars through the real `rungs.py`, and its
+teeth prove the unattributed path really does take the full loss.
+
+**STILL OPEN — the WIN needs his ruling.** He asked for *"one win and one BE"*. The fix removes both
+losses, but it cannot manufacture the win: GBP/USD peaked at **+1.78R** as the manager measures it (R
+from the FILL, on the ASK, which is what `_price_now` returns for a sell) and the first PROFIT-locking
+rung sits at **2.0R**. Measured options on that trade, none of them committed:
+
+| change | GBP/USD would have returned |
+|---|---|
+| as it is today (lock 1R at 2.0R) | +0.00R |
+| lock 0.5R once 1.5R is reached | +0.50R |
+| lock 1R once 1.5R is reached | +1.00R |
+| start the same 0.1R trail at 1.5R instead of 2.1R | **+1.60R** |
+| start the same 0.1R trail at 1.0R | +1.00R |
+
+His ladder numbers are his decision — see [[feedback-ask-dont-invent]]. Nothing above is in the code.
+
 ### D30 - ~~The journal's risk numbers were blank or wrong for every MANAGED trade~~ FIXED 02 Sep 🔴
 
 **His question:** *"if we are calculating RR in signals, why cant we calculate RR based on wins and

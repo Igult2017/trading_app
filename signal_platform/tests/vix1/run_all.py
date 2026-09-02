@@ -28,6 +28,7 @@ TESTS = [
     # should not be affected by telegram messages or telegram not working. It is the lifeline of
     # a trade." A dead Telegram could delay a stop move by ~25s; this proves it no longer can.
     "test_telegram_independence.py",  # the trade happens whatever Telegram does
+    "test_ladder_attribution.py",   # a position keeps ITS ladder across a restart — worth a full R
     "test_manage.py",               # the R ratchet and the structure exit
     "test_invariants_real_data.py", # the real functions over real candles
     "test_trend.py",              # the 1HR trend read — stability + do reversals mean anything
