@@ -190,12 +190,14 @@ export async function syncAccount(account: BrokerAccount,
                 + `${new Date(now).toISOString()} (${window})`);
 
     const raw = await fetchWithRetry(account, fromMs, now);
-    let counts = { created: 0, duplicates: 0, journaled: 0 };
+    let counts = { created: 0, duplicates: 0, journaled: 0, healed: 0 };
     if (raw.length) {
       counts = await processIncomingTrades(account.id, account.userId, raw);
       console.log(`[AutoSync] ${tag}: ${raw.length} closed trade(s) from the broker -> `
                   + `${counts.created} recorded, ${counts.duplicates} already had, `
-                  + `${counts.journaled} journaled`);
+                  + `${counts.journaled} journaled`
+                  + (counts.healed ? `, ${counts.healed} HEALED (stored before, but had no journal `
+                                     + `entry until now)` : ''));
     } else {
       console.log(`[AutoSync] ${tag}: the broker returned no closed trades in that window`);
     }

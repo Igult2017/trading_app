@@ -268,8 +268,8 @@ export async function processIncomingTrades(
   brokerAccountId: string,
   userId: string,
   trades: RawBrokerTrade[],
-): Promise<{ created: number; duplicates: number; journaled: number }> {
-  let created = 0, duplicates = 0, journaled = 0;
+): Promise<{ created: number; duplicates: number; journaled: number; healed: number }> {
+  let created = 0, duplicates = 0, journaled = 0, healed = 0;
 
   // Get the account's default session so auto-journaled trades are visible
   // in session-filtered views (metrics, drawdown, audit)
@@ -279,7 +279,31 @@ export async function processIncomingTrades(
   for (const raw of trades) {
     // De-duplicate by externalId + brokerAccountId
     const existing = await storage.getSyncedTradeByExternal(brokerAccountId, raw.externalId);
-    if (existing) { duplicates++; continue; }
+    if (existing) {
+      duplicates++;
+      // A TRADE STORED BUT NEVER JOURNALED USED TO STAY THAT WAY FOR EVER.
+      //
+      // This branch was `{ duplicates++; continue; }` — it asked only "have I seen this trade?",
+      // never "did it reach his journal?". Storing the trade and writing the journal entry are two
+      // separate steps, so anything that stopped the second one (an error mid-way, a trade stored
+      // by a path that does not journal, a row saved before auto-journaling existed) left the trade
+      // permanently invisible: every later sync recognised it and skipped it, reporting "already
+      // had" while the journal stayed empty. The journal is what he actually looks at, so that
+      // reads exactly like "the sync is not working".
+      //
+      // `autoJournalTrade` refuses to journal twice on its own (it returns early when
+      // `journalEntryId` is set), so this cannot create a duplicate entry.
+      if (!existing.journalEntryId && existing.openTime && existing.closeTime) {
+        const fixedId = await autoJournalTrade(existing, defaultSessionId);
+        if (fixedId) {
+          healed++;
+          console.log(`[Sync] healed ${existing.symbol} ${existing.externalId} — it was stored `
+                      + `${existing.createdAt ? 'on ' + new Date(existing.createdAt).toISOString() : ''} `
+                      + `but had no journal entry`);
+        }
+      }
+      continue;
+    }
 
     const openTime  = toDate(raw.openTime);
     const closeTime = toDate(raw.closeTime);
@@ -322,9 +346,11 @@ export async function processIncomingTrades(
   // only the manual create/update/delete endpoints used to clear it. So a trade typed into the form
   // appeared at once and the same trade arriving from the broker did not appear at all until the
   // cache expired, which reads exactly like "the sync is not working".
-  if (created > 0) {
+  // A HEALED TRADE IS A NEW JOURNAL ENTRY TOO, so the cached pages must be cleared for it as well —
+  // otherwise the entry exists and every page keeps showing the old list for up to five minutes.
+  if (created > 0 || healed > 0) {
     await invalidateComputeCaches(defaultSessionId ?? undefined, userId).catch(() => {});
   }
 
-  return { created, duplicates, journaled };
+  return { created, duplicates, journaled, healed };
 }
