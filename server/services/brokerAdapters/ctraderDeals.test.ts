@@ -27,7 +27,7 @@
  */
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import { mapClosedDeal, mapClosedFromEvent, pairDealsIntoTrades } from './ctrader';
+import { mapClosedDeal, mapClosedFromEvent, pairDealsIntoTrades, mergeDealMappings } from './ctrader';
 import { toDate } from '../brokerSyncService';
 
 let failed = 0;
@@ -205,4 +205,54 @@ teeth('mapClosedDeal still refuses a deal with no closePositionDetail',
 
 console.log();
 if (failed) { console.log(`${failed} of ${count} FAILED`); process.exit(1); }
+
+// ── THE MERGE MUST NOT ERASE WHAT THE OTHER PATH KNEW ──────────────────────
+//
+// The two deals below are the REAL payload of position 239821023, pulled from the Pepperstone demo
+// account on 02 Sep 2026 — his GBP/USD trade, placed 09:54:04Z and closed 11:09:58Z.
+//
+// Both mappings run on this data. `pairDealsIntoTrades` builds the trade from the two deals and so
+// knows the OPEN time. `mapClosedDeal` fires too, because this gateway's deals really do carry
+// `closePositionDetail` — and its `openTime` is undefined, because that object has no
+// `entryTimestamp`. The old merge did one `byId.set()` with the detailed result and therefore
+// replaced a correct open time with nothing, on every trade the sweep ever recovered. The journal
+// then had no holding time, no day of week, and a session guessed from the close.
+const REAL_OPEN = {
+  dealId: 317358421, orderId: 358693875, positionId: 239821023, symbolId: 2,
+  tradeSide: 'SELL', volume: 9400000, filledVolume: 9400000,
+  executionPrice: 1.3488, executionTimestamp: 1788342844240,
+  dealStatus: 'FILLED', commission: 0, moneyDigits: 2,
+};
+const REAL_CLOSE = {
+  dealId: 317367514, orderId: 358709797, positionId: 239821023, symbolId: 2,
+  tradeSide: 'BUY', volume: 9400000, filledVolume: 9400000,
+  executionPrice: 1.34882, executionTimestamp: 1788347398654,
+  dealStatus: 'FILLED', commission: 0, moneyDigits: 2,
+  // Present on the WS gateway (verified in production 02 Sep) and carrying NO entryTimestamp.
+  closePositionDetail: { entryPrice: 1.3488, grossProfit: -188, swap: -12, balance: 994643 },
+};
+
+const mergedTrades = mergeDealMappings([REAL_OPEN, REAL_CLOSE], { 2: 'GBPUSD' });
+check('one closed position produces exactly one trade', mergedTrades.length, 1);
+const mt = mergedTrades[0];
+check('the OPEN time survives the merge', mt.openTime, 1788342844240);
+check('...which is 09:54:04Z, the moment it was placed',
+      new Date(Number(mt.openTime)).toISOString(), '2026-09-02T09:54:04.240Z');
+check('the close time is the closing deal', mt.closeTime, 1788347398654);
+check('the trade is keyed on the closing deal', mt.externalId, '317367514');
+check("the broker's own gross profit still wins", mt.profit, -1.88);
+check("...and its swap too", mt.swap, -0.12);
+
+// TEETH — the old behaviour, reproduced exactly, must lose the open time.
+const oldWay = new Map<string, any>();
+for (const t of pairDealsIntoTrades([REAL_OPEN, REAL_CLOSE], { 2: 'GBPUSD' })) oldWay.set(t.externalId, t);
+for (const d of [REAL_OPEN, REAL_CLOSE]) {
+  const t = mapClosedDeal(d, { 2: 'GBPUSD' });
+  if (t) oldWay.set(t.externalId, t);          // wholesale overwrite — the defect
+}
+check('TEETH — the OLD wholesale overwrite really did lose the open time',
+      oldWay.get('317367514')?.openTime, undefined);
+check('TEETH — and the paired mapping really did have it',
+      pairDealsIntoTrades([REAL_OPEN, REAL_CLOSE], { 2: 'GBPUSD' })[0]?.openTime, 1788342844240);
+
 console.log(`ALL PASS (${count} checks)`);

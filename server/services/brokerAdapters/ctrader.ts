@@ -483,6 +483,47 @@ export function mapClosedDeal(d: any, symbolMap: Record<number, string>): RawBro
   };
 }
 
+/**
+ * Turn a window of raw deals into closed trades, using BOTH mappings and keeping the best of each.
+ *
+ * Extracted from `fetchCTraderTrades` so it can be tested without a socket — the defect it now
+ * guards against was invisible to every existing test precisely because it lived inside the network
+ * call.
+ */
+export function mergeDealMappings(allDeals: any[], symbolMap: Record<number, string>): RawBrokerTrade[] {
+  const byId = new Map<string, RawBrokerTrade>();
+  for (const t of pairDealsIntoTrades(allDeals, symbolMap)) byId.set(t.externalId, t);
+
+  // MERGE FIELD BY FIELD. THE DETAILED PATH USED TO REPLACE THE PAIRED ONE WHOLESALE, and that
+  // silently threw away the OPEN TIME on every trade.
+  //
+  // Measured in production on 02 Sep: this gateway's deals DO carry `closePositionDetail`, so
+  // `mapClosedDeal` fires for every closed deal and its result overwrote the paired one. But
+  // `closePositionDetail` has no `entryTimestamp`, so its `openTime` is undefined — while the
+  // paired trade, built from the two real deals of the position, has the true one. The overwrite
+  // therefore replaced a correct open time with nothing, on every single trade:
+  //
+  //     deals per position: 239821023:2 239582511:2   <- both pairable
+  //     [Sync] had GBPUSD 317367514 ... broker offers openTime=null
+  //
+  // The broker's own gross profit and swap really are better than anything derived from two
+  // execution prices, which is why the detailed values still win — but only WHERE THEY EXIST. A
+  // field the detailed path leaves undefined must fall back to the paired value rather than erase
+  // it. "Better where present" is not the same as "better", and one `set()` conflated them.
+  for (const d of allDeals) {
+    const t = mapClosedDeal(d, symbolMap);
+    if (!t) continue;
+    const paired = byId.get(t.externalId);
+    if (!paired) { byId.set(t.externalId, t); continue; }
+    const merged = { ...paired };
+    for (const [k, v] of Object.entries(t)) {
+      if (v !== undefined && v !== null) (merged as any)[k] = v;
+    }
+    byId.set(t.externalId, merged);
+  }
+  return [...byId.values()];
+}
+
 // ── Trade history (WebSocket) ─────────────────────────────────────────────────
 
 // isLive is passed from the stored accountType — avoids redundant WS connections on every sync chunk
@@ -554,20 +595,18 @@ export async function fetchCTraderTrades(
       }
       console.log(`[cTrader] ${allDeals.length} deal(s); fields on the first: `
                   + `${Object.keys(allDeals[0] ?? {}).sort().join(',')}`);
+      const cpd = allDeals.find(d => d?.closePositionDetail)?.closePositionDetail;
+      if (cpd) {
+        console.log(`[cTrader] closePositionDetail carries: ${Object.keys(cpd).sort().join(',')}`
+                    + ` (an 'entryTimestamp' here is what mapClosedDeal reads for the open time)`);
+      }
       console.log(`[cTrader] deals per position: `
                   + `${[...groups].map(([k, n]) => `${k}:${n}`).join(' ')} `
                   + `(a position needs 2 for the open time to be paired in)`);
     }
 
-    const byId = new Map<string, RawBrokerTrade>();
-    for (const t of pairDealsIntoTrades(allDeals, symbolMap)) byId.set(t.externalId, t);
-    // Detailed LAST so it wins on a collision: both key on the closing dealId, and the broker's own
-    // gross profit and swap beat anything derived from two execution prices.
-    for (const d of allDeals) {
-      const t = mapClosedDeal(d, symbolMap);
-      if (t) byId.set(t.externalId, t);
-    }
-    const out = [...byId.values()];
+    const merged = mergeDealMappings(allDeals, symbolMap);
+    const out = merged;
     if (allDeals.length && !out.length) {
       console.warn(`[cTrader] ${allDeals.length} deals fetched but none resolved to a closed trade ` +
                    `— every position may still be open`);
