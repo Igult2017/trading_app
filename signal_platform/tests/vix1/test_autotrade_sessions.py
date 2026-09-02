@@ -77,8 +77,21 @@ s.check("restricted to a session that is not open -> refused"
 _set(autotrade_sessions="")
 s.check("an EMPTY session list allows any session (the old behaviour)", guards.check(**OK), None)
 
+# NAMING SESSIONS RESTRICTS TO THEM — it is not the same as naming none. There is a real gap in the
+# clock with NO session open (New York closes 17:00 local = 21:00 UTC, Asian opens 22:00), and in it
+# even "all three" excludes the present moment. This check used to assume otherwise and so failed for
+# one hour every night — a test that is red on a schedule teaches people to ignore red.
 _set(autotrade_sessions="london,new_york,asian")
-s.check("naming every session also allows any session", guards.check(**OK), None)
+_all_named = guards.check(**OK)
+# `get_current_sessions()` returns the sentinel {'all'} when NO named session is open, so the real
+# test is the set with that removed — the same subtraction the checks above use.
+if now_active - {"all"}:
+    s.check("naming every session allows a trade while one is open", _all_named, None)
+else:
+    s.check("naming every session still refuses when NO session is open", _all_named is not None, True)
+    s.check("...and says so plainly", "outside the permitted sessions" in (_all_named or ""), True)
+s.check("an empty list is the ONLY way to say 'any time'", 
+        (lambda: (_set(autotrade_sessions=""), guards.check(**OK))[1])(), None)
 
 # The setting ships restricted, because that is what he asked for.
 s.check("the shipped default is London + New York",
