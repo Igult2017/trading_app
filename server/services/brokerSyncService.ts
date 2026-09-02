@@ -12,6 +12,9 @@
 import { storage } from '../storage';
 import type { InsertJournalEntry, SyncedTrade, BrokerAccount } from '../../shared/schema';
 import { sessionAt } from '../lib/forexSession';
+import { toPips } from '../lib/pipMath';
+import { invalidateComputeCaches } from '../lib/cache';
+import { enrichTradeWithBalance } from './balanceTracker';
 
 // ── Session detection ─────────────────────────────────────────────────────────
 type SessionName = 'SYDNEY' | 'TOKYO' | 'LONDON' | 'NEW YORK' | 'LONDON/NY OVERLAP';
@@ -46,22 +49,39 @@ export async function autoJournalTrade(trade: SyncedTrade, sessionId?: string | 
   const comm    = parseFloat(String(trade.commission  ?? '0'));
   const sw      = parseFloat(String(trade.swap        ?? '0'));
   const netPl   = Math.round((pl + comm + sw) * 100) / 100;
-  const outcome = netPl >= 0 ? 'WIN' : 'LOSS';
+  const outcome = classifyOutcome(netPl, trade);
 
   const { session, phase } = detectSession(openTime);
   const dayOfWeek   = openTime ? DAY_NAMES[openTime.getDay()] : undefined;
   const tradeDuration = openTime && closeTime ? String(minutesBetween(openTime, closeTime)) : undefined;
 
-  // Calculate pips (rough — 4/5 decimal instruments vs 2 decimal commodities)
+  // PIPS COME FROM THE INSTRUMENT'S OWN PRECISION, not from how big its price happens to be. The
+  // old rule (`price > 100 ? 100 : 10000`) is right for the four currency pairs by luck and wrong
+  // for gold, which quotes to 2 decimals: every gold trade was recorded with TEN TIMES its pips.
   const ep = parseFloat(String(trade.openPrice  ?? '0'));
   const xp = parseFloat(String(trade.closePrice ?? '0'));
-  let pips: number | undefined;
-  if (ep && xp) {
-    const diff = trade.direction === 'Long' ? xp - ep : ep - xp;
-    // Detect pip multiplier: metals/crypto use 2 decimals, forex uses 4-5
-    const pipMultiplier = ep > 100 ? 100 : 10000;
-    pips = Math.round(diff * pipMultiplier * 100) / 100;
-  }
+  const pips = (ep && xp)
+    ? toPips(trade.direction === 'Long' ? xp - ep : ep - xp, trade.symbol)
+    : undefined;
+
+  // THE RISK NUMBERS ARE DERIVED WHEN THE BROKER GAVE US A STOP, and left blank when it did not.
+  // The drawdown and metrics pages both read `riskReward`, and a synced trade never carried one —
+  // so a broker trade sat in those views with its risk column empty while a form-entered trade
+  // beside it was complete.
+  const sl = parseFloat(String(trade.stopLoss   ?? ''));
+  const tp = parseFloat(String(trade.takeProfit ?? ''));
+  const riskDistance   = (ep && Number.isFinite(sl)) ? Math.abs(ep - sl) : 0;
+  const rewardDistance = (ep && Number.isFinite(tp)) ? Math.abs(tp - ep) : 0;
+  const stopLossDistance   = riskDistance   ? toPips(riskDistance,   trade.symbol) : undefined;
+  const takeProfitDistance = rewardDistance ? toPips(rewardDistance, trade.symbol) : undefined;
+  const riskReward = (riskDistance && rewardDistance)
+    ? Math.round((rewardDistance / riskDistance) * 100) / 100
+    : undefined;
+  // ACHIEVED R IS WHAT THE TRADE REALLY RETURNED, in units of the risk it really took — the number
+  // the ladder work is judged on, and it is only honest when a real stop was recorded.
+  const achievedRR = (riskDistance && ep && xp)
+    ? String(Math.round(((trade.direction === 'Long' ? xp - ep : ep - xp) / riskDistance) * 100) / 100)
+    : undefined;
 
   const entry: InsertJournalEntry = {
     userId:      trade.userId,
@@ -72,6 +92,13 @@ export async function autoJournalTrade(trade: SyncedTrade, sessionId?: string | 
     entryPrice:  trade.openPrice  ?? undefined,
     stopLoss:    trade.stopLoss   ?? undefined,
     takeProfit:  trade.takeProfit ?? undefined,
+    stopLossDistance:   stopLossDistance   != null ? String(stopLossDistance)   : undefined,
+    takeProfitDistance: takeProfitDistance != null ? String(takeProfitDistance) : undefined,
+    riskReward:  riskReward != null ? String(riskReward) : undefined,
+    achievedRR,
+    // EVERY TRADE MUST RECORD A RISK — the same rule and the same 1% default the manual endpoint
+    // applies, so a broker trade and a typed one are weighted identically by the risk analytics.
+    riskPercent: '1',
     entryTime:   openTime  ? openTime.toISOString()  : undefined,
     exitTime:    closeTime ? closeTime.toISOString() : undefined,
     dayOfWeek,
@@ -93,7 +120,25 @@ export async function autoJournalTrade(trade: SyncedTrade, sessionId?: string | 
   };
 
   try {
-    const journalEntry = await storage.createJournalEntry(entry);
+    // THE SAME ENRICHMENT THE JOURNAL FORM GETS. `POST /api/journal/entries` calls this before
+    // inserting, and this path did not — so every synced trade had a blank `accountBalance` and
+    // `monetaryRisk` while a typed trade had both. It is a no-op on `profitLoss`, which is already
+    // the broker's real figure and must never be overwritten by an estimate.
+    //
+    // AND IT MUST NEVER COST US THE TRADE. `getCurrentBalance` THROWS on a session that has been
+    // deleted, which would propagate to the catch below and drop the trade entirely — trading a
+    // blank balance column for a missing trade, which is the wrong way round. On failure the entry
+    // is written exactly as it was built.
+    const finalEntry = sessionId
+      ? await enrichTradeWithBalance(sessionId, entry as Record<string, any>)
+          .then(e => e as InsertJournalEntry)
+          .catch((e: any) => {
+            console.warn(`[BrokerSync] balance enrichment skipped for ${trade.externalId}: ${e?.message}`);
+            return entry;
+          })
+      : entry;
+
+    const journalEntry = await storage.createJournalEntry(finalEntry);
 
     // Mark the synced trade as journaled
     await storage.markSyncedTradeJournaled(trade.id, journalEntry.id);
@@ -103,6 +148,48 @@ export async function autoJournalTrade(trade: SyncedTrade, sessionId?: string | 
     console.error(`[BrokerSync] Failed to journal trade ${trade.id}:`, err);
     return null;
   }
+}
+
+// A trade can end FLAT, and the journal has always had a word for it — the form offers Win/Loss/BE
+// and both analytics engines carry a breakeven class (`metrics_calculator.BE_OUTCOMES`, whose own
+// comment says omitting BE "inflates the mean" and leaves "a phantom run" in the streaks).
+//
+// The sync could never produce one: `netPl >= 0 ? 'WIN' : 'LOSS'` files a dead-flat trade as a WIN
+// and, once costs are subtracted, files a stop-moved-to-breakeven exit as a LOSS. That matters more
+// now than it used to — VIX.1's ladder moves the stop to breakeven at 0.4R, so this is the ordinary
+// outcome of a managed trade, not an edge case.
+//
+// THE BAND IS THE TRADE'S OWN NUMBERS, NEVER A FIXED SUM. "Within $1" is breakeven on a $5,000 stop
+// and a real loss on a $10 one. Two measures, whichever is larger:
+//
+//   the RISK band  — a twentieth of the money the stop was actually risking. Needs a recorded stop.
+//   the COST band  — the round-trip commission and swap. A trade whose entire net result is smaller
+//                    than what it cost to place went nowhere; that is a scratch, not a loss.
+//
+// THE COST BAND IS THE ONE THAT MATTERS FOR THE LADDER. A trade stopped out at its entry price moved
+// zero, so the risk band collapses to nothing and commission alone would file it as a LOSS — and
+// that is precisely what VIX.1 does at 0.4R, so the commonest managed outcome would have been
+// mislabelled. With no stop and no costs recorded, only an exactly-flat result is called breakeven.
+const BE_FRACTION_OF_RISK = 0.05;
+
+export function classifyOutcome(netPl: number, trade: SyncedTrade): 'WIN' | 'LOSS' | 'BE' {
+  const ep    = parseFloat(String(trade.openPrice  ?? ''));
+  const xp    = parseFloat(String(trade.closePrice ?? ''));
+  const sl    = parseFloat(String(trade.stopLoss   ?? ''));
+  const gross = parseFloat(String(trade.profitLoss ?? ''));
+  const costs = Math.abs(parseFloat(String(trade.commission ?? '0')) || 0)
+              + Math.abs(parseFloat(String(trade.swap       ?? '0')) || 0);
+
+  let band = costs;
+  const moved = (Number.isFinite(ep) && Number.isFinite(xp)) ? Math.abs(xp - ep) : 0;
+  if (Number.isFinite(ep) && Number.isFinite(sl) && Number.isFinite(gross) && moved > 0 && gross !== 0) {
+    // What one unit of price movement was worth on this trade, times the stop distance = money risked.
+    const riskMoney = Math.abs(gross / moved) * Math.abs(ep - sl);
+    band = Math.max(band, riskMoney * BE_FRACTION_OF_RISK);
+  }
+
+  if (Math.abs(netPl) <= band) return 'BE';
+  return netPl > 0 ? 'WIN' : 'LOSS';
 }
 
 // ── Process a batch of incoming trades (from webhook or poll) ─────────────────
@@ -229,6 +316,15 @@ export async function processIncomingTrades(
 
   // Update account trade count + lastSyncAt
   await storage.updateBrokerAccountSyncStatus(brokerAccountId, 'ok', created);
+
+  // CLEAR THE CACHED PAGES, or the trade is invisible for up to five minutes. Every journal page —
+  // calendar, drawdown, metrics, timeframe matrix — is built from one cached list of entries, and
+  // only the manual create/update/delete endpoints used to clear it. So a trade typed into the form
+  // appeared at once and the same trade arriving from the broker did not appear at all until the
+  // cache expired, which reads exactly like "the sync is not working".
+  if (created > 0) {
+    await invalidateComputeCaches(defaultSessionId ?? undefined, userId).catch(() => {});
+  }
 
   return { created, duplicates, journaled };
 }

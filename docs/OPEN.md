@@ -295,6 +295,23 @@ both ways (the 01 Sep volume is caught, the correct one passes).
 light symbol. The RUNNING code reads them from the broker, so this is a gap in the test fixture
 only, and the fixture says so in place.
 
+**CHECKED AGAINST THE cTRADER SKILL, 02 Sep**, at his request. Three independent confirmations:
+* `assets/symbol_precision_table.json` gives **XAUUSD lotSize 100**, XAGUSD 5,000, every currency
+  pair 100,000 — the same figures the fix derived from the broker's own refusal message.
+* the skill's own converter, `scripts/units_encoding.py lots-to-cents`, returns **1,300** for
+  0.13 lots of gold and **1,300,000** under the old forex assumption — exactly the number the broker
+  printed as 13,000.00. Compared against our conversion across **2,500 sizes on five instruments:
+  0 disagreements.**
+* quirk **Q-L1** (*"Volume is broker-defined; lotSize may be 1 … cross-reference the precision table
+  for a BASELINE only"*) is the design this fix already follows — ask the broker, table as fallback.
+
+**And it found one more thing, which is the real root cause rather than gold specifically.** The
+fallback ended in `return LOT_UNITS`, so **any instrument it did not recognise was silently treated
+as a currency pair**. Gold was 1,000× out; an index (contract size 1) would be 100,000× out. The
+table now carries the skill's figures for indices, oil and crypto, and `contract_size_for` returns
+**None** for anything it genuinely cannot size — `build_stop` then REFUSES, in words, rather than
+assuming. Assuming is what caused this.
+
 ### B15 - ~~Autotrade was switched ON and refusing EVERY order — it could not read the balance~~ FIXED 31 Aug 🔴
 **His question:** *"Is autotrading working now?"* **It was not, and the answer took reading rather
 than remembering.** Everything looked right: `AUTOTRADE_ENABLED=true` in production, the order path
@@ -657,6 +674,52 @@ anywhere. Blocked on one question: does copy trading auto-execute on a user's ac
 ---
 
 ## D. cTrader & copy trading
+
+### D23 - ~~A synced trade reached the journal but not the same journal a typed trade reaches~~ FIXED 02 Sep 🔴
+**His question, 02 Sep:** *"have you audited journal and ctrader account sync to ensure it provided
+data of trades to all the pages of the journal like calender, dashboard, drawdown, etc like i would
+do manually using journal form?"*
+
+**The good news first, because it shapes everything else.** Every page is built from ONE list.
+[`routes.ts` `resolveComputeScope`](../server/routes.ts) reads `journal_entries` for the user
+(optionally scoped to a session) and the calendar, drawdown, metrics, timeframe-matrix and
+strategy-audit engines all consume that same list. So **reaching the pages was never the problem** —
+carrying the same FIELDS was. And the session wiring is sound: every broker account creates a
+trading session at connect (`routes.ts:3849`) and `defaultSessionId` is stamped on it, so synced
+entries are inside a session and appear in session-filtered views.
+
+**Six real gaps between the two paths, every one verified by reading both:**
+
+| # | gap | evidence |
+|---|---|---|
+| 1 | **The cached pages were never cleared** — a broker trade was invisible on calendar/drawdown/metrics/timeframe for up to 5 minutes | `invalidateComputeCaches` was a local function in `routes.ts` with exactly **three callers**, all of them the manual create/update/delete endpoints. The sync writes through `storage.createJournalEntry` directly |
+| 2 | **No account balance, no monetary risk** | `POST /api/journal/entries` calls `enrichTradeWithBalance` before inserting; `autoJournalTrade` did not, so both columns were blank while the metrics engine reads `account_balance` |
+| 3 | **No risk percent** | the manual endpoint defaults it to `1`; this left it null, and the drawdown engine reads `riskPercent` |
+| 4 | **A trade could never be BREAKEVEN** | `netPl >= 0 ? 'WIN' : 'LOSS'`. The form offers Win/Loss/**BE** and BOTH engines carry a breakeven class — `metrics_calculator.BE_OUTCOMES`, whose own comment says omitting BE *"inflates the mean"* and leaves *"a phantom run"* in the streaks. **VIX.1's ladder moves the stop to breakeven at 0.4R**, so this is the ordinary outcome of a managed trade, not an edge case |
+| 5 | **Pips were guessed from the price** | `const pipMultiplier = ep > 100 ? 100 : 10000`. Right for the four currency pairs **by luck**; gold quotes to 2 decimals so a pip is 0.10 and the multiplier is 10 — **every gold trade recorded ten times its real pips** |
+| 6 | **The stop and target were thrown away** | `ProtoOAPosition` carries `stopLoss` and `takeProfit` and neither mapper read them, so no synced trade had a risk/reward, a stop distance or an achieved R |
+
+**Gap 5 had a correct table three feet away.** `signal_platform/shared/pip.py` has held the right
+figures since 2026-07-25 — including the override that gold is 2 decimals, which **the broker itself
+established** by refusing a 3-decimal price on 31 Aug. Node could not import Python, so Node kept
+its guess. That table is now `server/lib/pipMath.ts`, carrying the same values and the same
+evidence; **the two must be changed together.**
+
+**One asymmetry is left, deliberately, and it is not a defect.** Only the LIVE feed can supply the
+stop and target — a closed position's deals carry no stop, so a trade recovered by the 15-minute
+sweep (after a restart, say) has none, and the journal shows those columns blank rather than
+inventing a number.
+
+**Genuinely not knowable from a broker feed:** `entryTF` / `analysisTF` / `contextTF`, `mae` / `mfe`,
+and the written-analysis fields. Synced trades therefore land in the timeframe matrix under an
+unlabelled bucket (`tf_metrics/grouping.py:153` falls through to a normalised blank — it does not
+crash). **For autotrade specifically the platform DOES know them** — VIX.1 enters on the 1-minute
+and reads structure on the 1-hour — so passing them through is a real improvement and is **NOT built**;
+it is carried forward below.
+
+**Proved by:** [`journalParity.test.ts`](../server/services/journalParity.test.ts) — 38 checks, and
+it strips comments before the "is the old rule gone?" searches because each fix quotes the rule it
+replaced (the same trap `entryParity.test.ts` documents).
 
 ### D22 - ~~No cTrader trade EVER reached the journal — one line rejected every real deal~~ FIXED 02 Sep 🔴
 **His report, 01 Sep:** *"The trades taken by autotrader are not being captured and recorded or
@@ -1281,6 +1344,62 @@ Recorded because I spent time on it twice. Both accounts show no provider link s
 **copy-listing was never switched on for them** — the add-account → provider chain is sound.
 `register-as-provider`, `register-as-follower` and `copy-listing` all check ownership and platform,
 and the OAuth callback stores exactly the fields the engine needs. Turning one on is one toggle.
+
+---
+
+### D26 - `brokerSyncService.ts` is 330 lines and now holds two jobs
+**Noted 02 Sep, deliberately NOT split.** It was already 234 lines (over the 200 limit) and D23 took
+it to 330. It now does two separate things: turning ONE broker trade into a journal entry
+(`autoJournalTrade`, `classifyOutcome`, `detectSession`) and running the BATCH (`processIncomingTrades`,
+`toDate`, `normaliseDirection`, `RawBrokerTrade`).
+
+**Not split here because moving files is a planned exercise, not a side effect of a bug fix** —
+`docs/RESTRUCTURE.md` already places this file under a `broker/` folder (line 133), and CLAUDE.md
+says to read that plan before moving ANY file. Splitting it inside a fix that also changes its
+behaviour would make the change impossible to review. `autoJournalTrade` has exactly one real caller
+(line 312 of the same file), so the split is cheap whenever the restructure reaches it.
+
+### D25 - The `/history` page is backed by a DIFFERENT table, and the sync does not write to it. NEEDS HIS RULING
+**Found 02 Sep while auditing D23. NOT changed — deliberately.**
+
+Everything on the **Journal** page (calendar, drawdown, metrics, timeframe matrix, strategy audit)
+reads `journal_entries` through `resolveComputeScope`, and the sync now fills that correctly.
+
+**But `/history` is a separate route** ([`TradeHistoryPage.tsx`](../client/src/pages/TradeHistoryPage.tsx)
+→ `TradeHistory.tsx` → `GET /api/trades`) and that endpoint reads the **`trades` table**, which is a
+different table written **only** by `POST /api/trades` (`storage.createTrade`, `routes.ts:403`).
+Broker-synced trades never appear there.
+
+**Why I did not just write to both.** Nothing else reads `trades` — the three `from(trades)` reads in
+`storage.ts` are all this one page — so populating it would not corrupt any metric today. But it
+would mean one real trade stored in three tables (`synced_trades`, `journal_entries`, `trades`), and
+any future report that sums across them double-counts. **That is a design decision, not a bug fix.**
+
+**The question for him:** should `/history` show broker trades? If yes, the clean answer is to point
+that page at the same journal entries every other page uses and retire the `trades` table, rather
+than write the same trade to a third place.
+
+### D24 - Autotrade knows the timeframes it traded, and throws them away
+**Found 02 Sep while auditing D23. NOT a defect in the sync — a real improvement that is not built.**
+
+The timeframe matrix groups trades by `entryTF` / `analysisTF` / `contextTF`
+([`tf_metrics/grouping.py:153`](../server/python/tf_metrics/grouping.py#L153)). A broker feed cannot
+know these, so a synced trade lands in an unlabelled bucket. That is correct and unavoidable **for a
+trade the user placed by hand**.
+
+**But autotrade is not that.** The platform placed the order itself and knows exactly what it read:
+VIX.1 enters on the 1-minute and takes its structure from the 1-hour. Those two values could travel
+with the order and reach the journal, and then the timeframe page would say something real about the
+trades the platform took.
+
+**Where:** the order carries a `label`/`comment` field
+([`orders.build_stop`](../signal_platform/execution/orders.py)) that survives to the deal, so the
+strategy and its timeframes could ride along and be read back in
+[`brokerAdapters/ctrader.ts`](../server/services/brokerAdapters/ctrader.ts). **Not started.**
+
+**Also still blank on synced trades and genuinely unknowable:** `mae` / `mfe` (the worst and best
+price reached while the trade was open — the broker does not report it) and the written-analysis
+fields. Those stay empty unless he fills them in, which is the honest answer.
 
 ---
 

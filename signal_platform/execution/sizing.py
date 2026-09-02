@@ -39,20 +39,57 @@ LOT_STEP       = 0.01
 # and cTrader refused it on 01 Sep 2026: *"Order volume = 13000.00 is bigger than maximum allowed
 # volume = 5000.00"*.
 #
-# The broker states the real figure per symbol (`ProtoOASymbol.lotSize`, already in the API's own
-# hundredths), and `execution/connection.load_symbol_spec` now fetches it. This table is only the
-# FALLBACK for when that fetch fails, so an order is still sized sanely rather than refused or —
-# far worse — sent at the wrong scale.
-_FALLBACK_LOT_UNITS = {"XAU": 100, "XAG": 5_000, "XPT": 100, "XPD": 100}
+# THE BROKER IS THE AUTHORITY and `execution/connection.load_symbol_spec` asks it
+# (`ProtoOASymbol.lotSize`, already in the API's own hundredths). Everything below is only the
+# FALLBACK for when that one extra round trip fails.
+#
+# THE FALLBACK NOW REFUSES RATHER THAN GUESSING, which is the actual root cause. The old version
+# ended in `return LOT_UNITS` — so ANY instrument it did not recognise was silently treated as a
+# currency pair. That is not a gold bug, it is the shape of the bug: the next index, oil or crypto
+# symbol would have been wrong by 100,000x, 100x and 100,000x respectively. The
+# `ctrader-mcp-servers` skill says the same thing in its own words (`Q-L1`, *"Volume is
+# broker-defined; lotSize may be 1 … cross-reference the precision table for a BASELINE only"*).
+#
+# The values are the skill's `assets/symbol_precision_table.json`, and two are independently
+# confirmed against THIS broker:
+#   XAU 100     — the refusal message's own arithmetic (1,300,000 on the wire printed as 13,000.00
+#                 units, at 0.13 lots) and the skill's table agree
+#   FX 100,000  — his real filled EUR/USD trade went out at 8,100,000 for 0.81 lots
+# The rest are the skill's baseline only, and none of them is traded here today.
+_FALLBACK_LOT_UNITS = {
+    "XAU": 100, "XAG": 5_000, "XPT": 100, "XPD": 100,          # metals, in ounces
+    "US30": 1, "US500": 1, "NAS100": 1, "GER40": 1,            # index CFDs
+    "UK100": 1, "JP225": 1, "AUS200": 1,
+    "USOIL": 1_000, "UKOIL": 1_000, "BRENT": 1_000, "WTI": 1_000,
+    "BTC": 1, "ETH": 1, "XRP": 1, "LTC": 1, "SOL": 1,          # crypto
+}
 
 
-def lot_units_for(symbol: str) -> int:
-    """Units of the base asset in one lot, for the fallback path. XAG is 5,000 oz, not 100."""
-    s = "".join(ch for ch in (symbol or "").upper() if ch.isalpha())
+def contract_size_for(symbol: str) -> int | None:
+    """Units of the base asset in one lot — or None when we genuinely cannot say.
+
+    NONE IS THE POINT OF THIS FUNCTION. A caller that gets None must refuse the order, not reach for
+    a default: sending a plausible-looking number at the wrong scale is how the gold order was
+    refused, and the broker catching it was luck — a size that lands INSIDE the limits is filled at
+    a size nobody asked for, silently.
+    """
+    s = "".join(ch for ch in (symbol or "").upper() if ch.isalnum())
+    if not s:
+        return None
     for pre, units in _FALLBACK_LOT_UNITS.items():
         if s.startswith(pre):
             return units
-    return LOT_UNITS
+    # A SIX-LETTER ALL-ALPHABETIC NAME IS A CURRENCY PAIR ("EURUSD", "GBPJPY"), which is the one
+    # family this platform has live proof of. Anything else — an unknown index, a broker's odd
+    # spelling — is unknown, and says so.
+    if len(s) == 6 and s.isalpha():
+        return LOT_UNITS
+    return None
+
+
+def lot_units_for(symbol: str) -> int:
+    """`contract_size_for` with the legacy forex default. Only for callers that cannot refuse."""
+    return contract_size_for(symbol) or LOT_UNITS
 
 
 def lots_to_volume(lots: float, symbol: str = "", lot_size: int | None = None) -> int:
@@ -62,6 +99,11 @@ def lots_to_volume(lots: float, symbol: str = "", lot_size: int | None = None) -
     it is known the conversion is simply `lots * lot_size` and nothing is assumed. Without it, the
     per-instrument fallback above is used. `symbol` empty with no `lot_size` reproduces the old
     forex-only behaviour exactly, which is what the existing tests assert.
+
+    Rounding is HALF-UP, not the skill's ROUND_DOWN, and deliberately: the skill works in `Decimal`
+    where `0.29 * 100 * 100` is exactly 2900, while this takes a float where the same product is
+    2899.9999999999995 — flooring that gives 2,899, a size off the broker's step for no reason.
+    Checked both ways across 2,500 sizes on five instruments: 0 disagreements with the skill.
     """
     if lot_size and lot_size > 0:
         return int(round(lots * lot_size))

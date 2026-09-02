@@ -24,7 +24,8 @@ Over the maximum is REFUSED rather than capped. A capped size is not the risk th
 """
 from _harness import Suite
 from execution.orders import build_stop
-from execution.sizing import clamp_to_broker, lot_units_for, lots_to_volume, plan_size
+from execution.sizing import (clamp_to_broker, contract_size_for, lot_units_for, lots_to_volume,
+                              plan_size)
 
 s = Suite("ORDER VOLUME — a gold lot is 100 ounces, not 100,000 units")
 
@@ -76,7 +77,18 @@ s.check("gold's fallback contract is 100 oz", lot_units_for("XAU/USD"), 100)
 s.check("silver's is 5,000 oz, not gold's", lot_units_for("XAG/USD"), 5_000)
 s.check("a currency pair falls through to 100,000", lot_units_for("GBP/USD"), 100_000)
 s.check("...however it is spelled", lot_units_for("GBPUSD"), 100_000)
-s.check("an unknown symbol is treated as a currency pair", lot_units_for(""), 100_000)
+
+# THE FALLBACK NOW SAYS "I DON'T KNOW" INSTEAD OF GUESSING FOREX — the real root cause. The old
+# version ended in `return LOT_UNITS`, so every unrecognised instrument was treated as a currency
+# pair. Gold was 1,000x out; an index would be 100,000x out. Values from the skill's own
+# `assets/symbol_precision_table.json`.
+s.check("an index lot is 1 contract, not 100,000 units", contract_size_for("US30"), 1)
+s.check("...and so is a crypto lot", contract_size_for("BTCUSD"), 1)
+s.check("oil is 1,000 barrels", contract_size_for("USOIL"), 1_000)
+s.check("a six-letter currency pair is known", contract_size_for("EURUSD"), 100_000)
+s.check("...and the slashed spelling too", contract_size_for("EUR/USD"), 100_000)
+s.check("an instrument we have NO figure for returns None", contract_size_for("HK50"), None)
+s.check("...and so does no symbol at all", contract_size_for(""), None)
 
 # plan_size is the caller. It must pass the symbol through — the whole defect was that it did not.
 _lots, _vol, _pips = plan_size(equity=10_000.0, entry=3_400.00, stop=3_395.80, symbol="XAU/USD",
@@ -143,6 +155,21 @@ req4, err4 = build_stop(acct=1, symbol="EUR/USD", side="BUY", volume=8_100_000,
                         expiry_ms=None, symbol_map=BROKER, spec=EUR_SPEC, lots=0.81)
 s.check("...and with the broker's spec it is still 8,100,000",
         (err4, req4.volume if req4 else None), (None, 8_100_000))
+
+# AN INSTRUMENT NOBODY CAN SIZE IS REFUSED, not guessed at as a currency pair. This is the check
+# that would have stopped gold BEFORE the broker did, and it is what stops the next new instrument.
+_unk, _unk_why = build_stop(acct=1, symbol="HK50", side="BUY", volume=100_000,
+                            stop_price=25_000.0, sl=24_900.0, tp=25_200.0,
+                            expiry_ms=None, symbol_map={"HK50": 77}, spec=None, lots=0.5)
+s.check("an instrument with no known contract size is refused", _unk, None)
+s.check("...saying it will not assume a currency pair",
+        "Refusing rather than assuming" in (_unk_why or ""), True)
+# ...but the broker STATING the size is enough on its own — no table entry needed.
+_ok, _ok_why = build_stop(acct=1, symbol="HK50", side="BUY", volume=0,
+                          stop_price=25_000.0, sl=24_900.0, tp=25_200.0, expiry_ms=None,
+                          symbol_map={"HK50": 77}, spec={"lotSize": 100}, lots=0.5)
+s.check("...while the broker's own lotSize lets the same order through", _ok_why, None)
+s.check("...at the size the broker's figure gives", _ok.volume if _ok else None, 50)
 
 # A SIZE THE BROKER WOULD REFUSE IS REFUSED HERE, WITH THE REASON. This is the difference between
 # "the signal produced no order and nothing says why" and a DM naming the limit.

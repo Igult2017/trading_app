@@ -1,7 +1,8 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { supabaseAdmin, verifyToken } from "./lib/supabaseAdmin";
-import { cacheGet, cacheSet, cacheDel, cacheDelPattern } from "./lib/cache";
+import { cacheGet, cacheSet, cacheDel, userSessionKey,
+         invalidateComputeCaches } from "./lib/cache";
 import { db, pool } from "./db";
 import { userProfiles, adminAccessLogs, tradingSignals, priceAlerts, emailTracking,
          platformHeartbeat, platformDowntime } from "@shared/schema";
@@ -111,14 +112,13 @@ interface MetricsCacheEntry {
 const TTL_5MIN  = 5 * 60;   // seconds
 const TTL_30MIN = 30 * 60;
 
-function userSessionKey(ns: string, userId?: string, sessionId?: string) {
-  return `${ns}:${userId ?? ""}:${sessionId ?? ""}`;
-}
-
-async function invalidateUserCache(ns: string, userId?: string, sessionId?: string) {
-  if (userId || sessionId) await cacheDel(userSessionKey(ns, userId, sessionId));
-  else await cacheDelPattern(`${ns}:*`);
-}
+// `userSessionKey` and `invalidateComputeCaches` now live in lib/cache.ts and are imported above.
+// THEY MOVED BECAUSE THE SYNC IS NOT A ROUTE: they were local to this file, so only the manual
+// create/update/delete endpoints cleared the cache and a trade arriving from the broker never did —
+// leaving it invisible on the calendar, drawdown, metrics and timeframe pages for up to 5 minutes.
+// `brokerSyncService` cannot import from routes.ts, so one definition in lib/ is the only way both
+// paths can share it. The per-namespace `invalidateUserCache` wrapper went with them — it had no
+// caller left once `invalidateComputeCaches` moved, and a dead helper is not kept "in case".
 
 // AI cache has entry-count staleness check on top of TTL
 async function getAICache(type: "analysis" | "strategy", userId?: string, sessionId?: string, currentCount?: number): Promise<any | null> {
@@ -135,15 +135,6 @@ async function setAICache(type: "analysis" | "strategy", result: any, userId?: s
   await cacheSet(userSessionKey(`ai:${type}`, userId, sessionId), { result, entryCount: entryCount ?? 0 }, TTL_30MIN);
 }
 
-async function invalidateComputeCaches(sessionId?: string, userId?: string) {
-  await Promise.all([
-    invalidateUserCache("entries",  userId, sessionId),
-    invalidateUserCache("metrics",  userId, sessionId),
-    invalidateUserCache("calendar", userId, sessionId),
-    invalidateUserCache("drawdown", userId, sessionId),
-    invalidateUserCache("tfmatrix", userId, sessionId),
-  ]);
-}
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** Extract the real client IP in priority order:

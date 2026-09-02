@@ -428,6 +428,17 @@ export function mapClosedFromEvent(ev: any, symbolMap: Record<number, string>): 
     lots: units > 0 ? units / lotUnits(symbol) : undefined,
     openPrice: Number.isFinite(entry) ? entry : undefined,
     closePrice: Number.isFinite(exit) ? exit : undefined,
+    // THE POSITION CARRIES ITS STOP AND TARGET, and both were being dropped. `ProtoOAPosition` has
+    // `stopLoss` and `takeProfit` (confirmed against the installed protobuf schema), and without
+    // them the journal cannot show what was risked: no risk/reward, no stop distance, no achieved R.
+    // A form-entered trade has all three, so a broker trade sat beside it with the columns empty.
+    // Only the LIVE path can supply these — a closed position's deals carry no stop, so a trade
+    // recovered by the 15-minute sweep still has none, and the journal shows it blank rather than
+    // inventing one.
+    stopLoss: Number.isFinite(Number(p.stopLoss)) && Number(p.stopLoss) > 0
+      ? Number(p.stopLoss) : undefined,
+    takeProfit: Number.isFinite(Number(p.takeProfit)) && Number(p.takeProfit) > 0
+      ? Number(p.takeProfit) : undefined,
     // THE POSITION KNOWS WHEN IT OPENED — `tradeData.openTimestamp`. This was left undefined, which
     // gave the journal a trade with a close and no open, so every duration and every "held for" on
     // the live-recorded rows was blank while the synced ones had it.

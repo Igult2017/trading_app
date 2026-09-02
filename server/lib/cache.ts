@@ -56,3 +56,29 @@ export async function cacheDelPattern(pattern: string): Promise<void> {
     memDelPattern(PREFIX + pattern);
   }
 }
+
+// ── Compute-page cache keys, and clearing them ───────────────────────────────
+// EVERY JOURNAL PAGE IS BUILT FROM ONE CACHED LIST. `resolveComputeScope` in routes.ts caches the
+// user's journal entries for 5 minutes, and the calendar, drawdown, metrics and timeframe-matrix
+// results are cached on top of it. So a new entry that does not clear these is INVISIBLE on every
+// page until the cache expires.
+//
+// THIS LIVES HERE, NOT IN routes.ts, BECAUSE THE SYNC IS NOT A ROUTE. It was a local function in
+// routes.ts with three callers, all of them the manual create/update/delete endpoints — so a trade
+// typed into the journal form cleared the cache and a trade arriving from the broker did not.
+// `brokerSyncService` cannot import from routes.ts, which is exactly why the gap existed.
+
+/** The key a compute result is cached under. Must match routes.ts's `userSessionKey`. */
+export function userSessionKey(ns: string, userId?: string, sessionId?: string): string {
+  return `${ns}:${userId ?? ""}:${sessionId ?? ""}`;
+}
+
+const COMPUTE_NAMESPACES = ["entries", "metrics", "calendar", "drawdown", "tfmatrix"] as const;
+
+/** Clear every cached page for one user/session, so the next request recomputes. */
+export async function invalidateComputeCaches(sessionId?: string, userId?: string): Promise<void> {
+  await Promise.all(COMPUTE_NAMESPACES.map(ns =>
+    (userId || sessionId)
+      ? cacheDel(userSessionKey(ns, userId, sessionId))
+      : cacheDelPattern(`${ns}:*`)));
+}

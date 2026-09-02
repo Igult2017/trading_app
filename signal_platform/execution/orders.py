@@ -56,11 +56,20 @@ def build_stop(acct: int, symbol: str, side: str, volume: int, stop_price: float
     # rule for a slash — and every symbol here is slashed ("GBP/USD"), so it returned None for all
     # of them and this function refused every order with "not on this account".
     from shared.symbols import resolve_symbol_id
-    from execution.sizing import clamp_to_broker, lots_to_volume
+    from execution.sizing import clamp_to_broker, contract_size_for, lots_to_volume
 
     sid = resolve_symbol_id(symbol, symbol_map)
     if sid is None:
         return None, f"symbol {symbol} not on this account"
+
+    # NEITHER THE BROKER NOR THE TABLE KNOWS THE CONTRACT SIZE -> REFUSE. Not "assume a currency
+    # pair", which is what the old code did for every instrument it did not recognise and is the
+    # reason a gold order went out 1,000x too large. A refused order is visible; an order filled at
+    # the wrong scale is not.
+    if not (spec and spec.get("lotSize")) and contract_size_for(symbol) is None:
+        return None, (f"the contract size for {symbol} is unknown — the broker did not state its "
+                      f"lotSize and this is not an instrument we have a verified figure for. "
+                      f"Refusing rather than assuming a currency pair's 100,000 units")
 
     sent = int(volume)
     if spec and spec.get("lotSize") and lots > 0:
