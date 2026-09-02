@@ -4021,9 +4021,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
 
     try {
-      // Delegate to autoSyncService — handles full history, incremental, token refresh
-      syncAccount(account).catch(() => {});
-      return res.json({ message: 'Sync started in background', platform: account.platform });
+      // PRESSING SYNC MUST TELL HIM WHAT HAPPENED. This fired the sync un-awaited and answered
+      // "started in background" in 252ms, throwing the result and any error away — so on 02 Sep he
+      // pressed it, got a success, and no trade appeared, with nothing anywhere to say why. A
+      // manual sync is a QUESTION ("did it get my trades?") and it now returns the answer.
+      //
+      // `deep: true` because this is the button someone presses when a trade is MISSING: it should
+      // look back a week, not the two hours the timer uses.
+      //
+      // Bounded, so a slow broker cannot hold the request open: past the cap the sync carries on in
+      // the background and the reply says exactly that rather than pretending it finished.
+      const outcome = await Promise.race([
+        syncAccount(account, { deep: true }),
+        new Promise<null>(r => setTimeout(() => r(null), 30_000)),
+      ]);
+
+      if (outcome === null) {
+        return res.json({ message: 'Still syncing — it is taking longer than 30s and will finish in the background.',
+                          platform: account.platform, pending: true });
+      }
+      if (outcome.skipped) {
+        return res.status(400).json({ error: outcome.skipped, platform: account.platform });
+      }
+      if (!outcome.ok) {
+        return res.status(502).json({ error: outcome.error ?? 'Sync failed', platform: account.platform });
+      }
+      return res.json({
+        message: outcome.fetched
+          ? `${outcome.fetched} closed trade(s) found — ${outcome.created} newly recorded, `
+            + `${outcome.duplicates} already had.`
+          : 'Synced — the broker reported no closed trades in the last 7 days.',
+        platform: account.platform, ...outcome,
+      });
     } catch (err: any) {
       await storage.updateBrokerAccount(account.id, { syncStatus: 'error', lastSyncError: (err.message ?? 'Sync failed').slice(0, 255) });
       return res.status(500).json({ error: err.message ?? 'Sync failed' });
@@ -4300,6 +4329,15 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
 
       await storage.updateBrokerAccount(resolvedAccountId, {
         loginId:     traderLogin,
+        // THIS IS THE MOMENT THE ACCOUNT BECOMES API-CONNECTED, AND IT WAS NEVER RECORDED.
+        // `connection_type` defaults to 'webhook' (shared/schema.ts) and nothing in the whole
+        // cTrader OAuth flow ever changed it — so an account finished OAuth, held live tokens, and
+        // was still filed as a webhook account. THREE things test for exactly 'api' and all three
+        // therefore refused it in silence: the 15-minute sync sweep (`getAllApiAccounts`), the live
+        // push feed (`ctraderRealtime.openFeed`), and the feed's boot-time subscriber list. That is
+        // the whole of "it has not autorecorded anything since yesterday" — nothing errored,
+        // nothing ran.
+        connectionType: 'api',
         passwordEnc: safeEncrypt(credJson),
         accountType: ct.isLive ? 'live' : 'demo',
         balance:     ct.balance != null ? String(ct.balance) : undefined,
@@ -4384,6 +4422,7 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
     const credJson = JSON.stringify({ accessToken: chosen.accessToken, refreshToken: chosen.refreshToken, ctraderId: chosen.ctidTraderAccountId, tokenExpiresAt: Date.now() + ((chosen.expiresIn ?? 3600) * 1000), app: pending.app });
     await storage.updateBrokerAccount(token, {
       loginId:     String(chosen.traderLogin ?? chosen.ctidTraderAccountId),
+      connectionType: 'api',      // see the note in the OAuth callback — this was the missing line
       passwordEnc: safeEncrypt(credJson),
       accountType: chosen.isLive ? 'live' : 'demo',
       balance:     chosen.balance != null ? String(chosen.balance) : undefined,

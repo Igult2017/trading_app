@@ -73,7 +73,16 @@ async function connect(id: string, attempt = 0): Promise<void> {
 
 async function openFeed(id: string, attempt: number): Promise<void> {
   const account = await loadAccount(id);
-  if (!account || account.platform.toLowerCase() !== 'ctrader' || account.connectionType !== 'api') return;
+  if (!account) return;
+  // SAY WHY. This refused every cTrader account whose `connection_type` was still the default
+  // 'webhook' and returned without a word, so the live trade feed simply never existed and no log
+  // line anywhere said so. A refusal that cannot be seen is a defect that cannot be found.
+  if (account.platform.toLowerCase() !== 'ctrader' || account.connectionType !== 'api') {
+    console.warn(`[cTraderFeed] NOT starting the live feed for ${id.slice(0, 8)} — `
+                 + `platform='${account.platform}' connectionType='${account.connectionType}' `
+                 + `(the feed needs platform 'ctrader' and connectionType 'api')`);
+    return;
+  }
 
   let creds: any;
   try { creds = JSON.parse(safeDecrypt(account.passwordEnc) ?? '{}'); } catch { return; }

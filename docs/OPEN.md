@@ -841,6 +841,77 @@ anywhere. Blocked on one question: does copy trading auto-execute on a user's ac
 
 ## D. cTrader & copy trading
 
+### D29 - ~~An account that finished OAuth was still filed as a webhook account, so NOTHING auto-recorded~~ FIXED 02 Sep 🔴
+
+**His report, 02 Sep:** *"audit, plan and fix autosync of ctrader placed trades in the journal. We
+fixed it yesterday and since then it has not autorecorded anything meaning its not working."*
+
+**The root cause is one missing line, and it disabled BOTH automatic recording paths at once.**
+
+`broker_accounts.connection_type` defaults to `'webhook'`
+([`schema.ts:675`](../shared/schema.ts#L675)). The cTrader OAuth flow finishes in one of two places —
+the single-account callback and `select-account` when the login owns several — and **neither ever
+set it to `'api'`**. Both wrote the tokens, the login id, the account type and the balance, and left
+the label saying webhook. So an account could hold live, working OAuth credentials and still be
+filed as something that has none.
+
+Three separate things test for exactly `'api'`, and all three refused it **in silence**:
+
+| # | file:line | what it did |
+|---|---|---|
+| 1 | [`autoSyncService.ts:36`](../server/services/autoSyncService.ts#L36) `getAllApiAccounts` | the 15-minute sweep never included the account |
+| 2 | [`ctraderRealtime.ts:76`](../server/services/ctraderRealtime.ts#L76) `openFeed` | the live push feed returned before connecting — a bare `return`, no log |
+| 3 | [`ctraderRealtime.ts:130`](../server/services/ctraderRealtime.ts#L130) | the feed's boot subscriber list used the same filter |
+
+**Why yesterday's fix did not help.** Yesterday added cTrader to the timer sweep. The sweep filters
+on `connection_type = 'api'`, so for this account it changed nothing — it went from not being swept
+to still not being swept.
+
+**The evidence matches exactly.** 2h44m of production log (8,122 lines) held `[AutoSync] Starting` at
+the top and then **not one further word** — no error, no success, because nothing ran. A real
+GBP/USD position closed at 11:09 and was never recorded. The manual Sync button answered 200 in
+252ms.
+
+**What was NOT the fault, each checked before being ruled out:** the deal mapping
+(`pairDealsIntoTrades` run against the four real deals pulled from the broker produced correct
+output), `API_PLATFORMS`, the 2-hour overlap window, the chunked fetch, and `fetchDealsInRange`.
+
+**The fix, at the cause and then around it:**
+
+1. **Both OAuth completion sites now set `connectionType: 'api'`** — the moment the account becomes
+   API-connected is the moment it is recorded as one ([`routes.ts`](../server/routes.ts), the
+   callback and `select-account`).
+2. **A boot-time repair for the row that is already wrong** (`repairApiConnectionType`,
+   [`autoSyncService.ts`](../server/services/autoSyncService.ts)) — he was not available to edit the
+   database, and fixing the writes does nothing for a row already saved. **It keys on the
+   CREDENTIALS, not on the label it is fixing:** a cTrader account holding an access token and an
+   account id IS API-connected, so the label is corrected to match the fact. Accounts without tokens
+   are untouched, so a genuine webhook/EA account is never converted. Idempotent; runs before the
+   first sweep, and starts the live feed those accounts were being denied.
+3. **The feed says why it refuses** instead of returning silently.
+
+**And three weaknesses that let it stay invisible for a day, all fixed in the same change:**
+
+- **The sweep logged nothing on success.** No window, no deal count, no recorded count — so "running
+  and finding nothing" and "died at the first line" looked identical. Every sync now prints what it
+  fetched and what it recorded, and both silent early returns say why they skipped.
+- **`.catch(() => {})` around `syncAllAccounts` itself** ([`autoSyncService.ts:236`](../server/services/autoSyncService.ts#L236)).
+  One failed database read would have stopped every sync for ever — the boot run and every
+  15-minute tick after it — without a character in the log.
+- **The manual Sync button fired the sync un-awaited and threw the result away**, which is why it
+  answered "Sync started in background" in 252ms while recording nothing. It now waits (bounded at
+  30s), asks for a 7-day window because it is the button you press when a trade is MISSING, and
+  reports how many trades were found and how many were newly recorded.
+
+**A missed trade can now heal itself.** The incremental window only looked back 2 hours from the last
+sync, so a trade missed once fell behind it and was never looked at again. Every fourth sweep
+(hourly) reaches back 7 days instead. Recording de-duplicates on `externalId` + `brokerAccountId`, so
+a wider window cannot double-record.
+
+**Guarded by** [`server/services/autoSyncWiring.test.ts`](../server/services/autoSyncWiring.test.ts)
+(15 checks). The defect was a MISSING LINE — code that does not throw and quietly matches nothing —
+so no behaviour test can catch it and the source itself is asserted.
+
 ### D23 - ~~A synced trade reached the journal but not the same journal a typed trade reaches~~ FIXED 02 Sep 🔴
 **His question, 02 Sep:** *"have you audited journal and ctrader account sync to ensure it provided
 data of trades to all the pages of the journal like calender, dashboard, drawdown, etc like i would

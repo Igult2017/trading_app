@@ -256,6 +256,75 @@ async def _auto_move(p, tag: str, new_sl: float | None, send, price: float | Non
         return False
 
 
+async def _one_position(p, send, r_seen: dict) -> None:
+    """Everything this poll does for ONE position. Extracted 2026-09-02 so a fault in it can be
+    contained — see the guard in `check_all`."""
+    if p.stop is None:
+        # No stop = no R to measure. Say so ONCE rather than tracking nothing in silence:
+        # a position with no stop is the one most worth a message.
+        k = _key(p.position_id, "nostop")
+        if not delivery_ledger.is_delivered(k):
+            d = price_digits(p.symbol)
+            if await notify.tell(send, titles.header(titles.NO_STOP, titles.TRADE_MANAGEMENT, p.symbol,
+                                        "BUY" if p.bullish else "SELL") + "\n\n"
+                          f"Opened at {p.entry:.{d}f}. This position has no stop loss set, "
+                          f"so there is no R to track and no breakeven to compute."):
+                delivery_ledger.mark_delivered(k)
+                log.info(f"[position_tracker] {p.symbol} #{p.position_id}: "
+                         f"no-stop notice sent")
+        return          # nothing more to do for THIS position
+    price = await _price_now(p.symbol, p.bullish)
+    if price is None:
+        return          # nothing more to do for THIS position
+    r = p.r_at(price)
+    if r is None:
+        return          # nothing more to do for THIS position
+    r_seen[int(p.position_id)] = r
+    for tag, new_sl, message in _lines(p, r, price, owner_of(p.position_id)):
+        k = _key(p.position_id, tag)
+        if delivery_ledger.is_delivered(k):
+            continue
+        # THE TRADE FIRST, THE MESSAGE AFTER — his rule, 2026-09-02: *"the logic that
+        # places trades, moves it to BE and locks Rs... should not be affected by telegram
+        # messages or telegram not working. It is the lifeline of a trade."*
+        #
+        # The send used to be awaited HERE, before the amend, and `dispatcher._send_text`
+        # can take ~25s against a dead Telegram (3 retries, 5s sleeps, 5s client timeouts).
+        # The message now goes out immediately AFTER the amend — and carries the amend's
+        # real outcome rather than a prediction of it.
+        moved = await _auto_move(p, tag, new_sl, send, price, quiet=(message is None))
+
+        # NOT AWAITED WHEN THE PLATFORM IS MANAGING THE TRADE. With auto-move ON the rung is
+        # decided by the broker's confirmation, so Telegram's answer is not needed — and
+        # waiting even 3s for it would queue up in front of the NEXT position's amend.
+        # With auto-move OFF the DM is the whole job, so its result is needed and is waited
+        # for; nothing is being traded on that path anyway.
+        if moved is None:
+            told = await notify.tell(send, message)
+        else:
+            notify.tell_soon(send, message)
+            told = True
+
+        # THE RUNG IS ONLY DONE WHEN THE STOP IS REALLY AT THE BROKER.
+        #
+        # This used to mark it done BEFORE the amend, so a refused or timed-out amend was
+        # never retried — the platform reported "+2.4R locked" while the stop sat where it
+        # was, and the market could take back everything above it. His instruction: *"make
+        # sure whatever is locked is never taken by the market"*.
+        #
+        # `moved is None` means auto-move is OFF, so the DM is pure advice and being sent IS
+        # the whole job. Otherwise the broker's confirmation decides, and a False leaves the
+        # rung unmarked so the next pass tries again.
+        done = told if moved is None else bool(moved)
+        if done:
+            delivery_ledger.mark_delivered(k)
+            log.info(f"[position_tracker] {p.symbol} #{p.position_id}: {tag} at {r:.2f}R"
+                     f"{' (quiet)' if message is None else ''}")
+        else:
+            log.warning(f"[position_tracker] {p.symbol} #{p.position_id}: {tag} at {r:.2f}R "
+                        f"NOT protected — will retry next poll")
+
+
 async def check_all(send) -> None:
     """One poll. `send` is an async callable taking the message text — the dispatcher's private DM.
 
@@ -299,70 +368,21 @@ async def check_all(send) -> None:
         # message can report how far the trade actually ran before it closed.
         r_seen: dict[int, float] = {}
         for p in positions:
-            if p.stop is None:
-                # No stop = no R to measure. Say so ONCE rather than tracking nothing in silence:
-                # a position with no stop is the one most worth a message.
-                k = _key(p.position_id, "nostop")
-                if not delivery_ledger.is_delivered(k):
-                    d = price_digits(p.symbol)
-                    if await notify.tell(send, titles.header(titles.NO_STOP, titles.TRADE_MANAGEMENT, p.symbol,
-                                                "BUY" if p.bullish else "SELL") + "\n\n"
-                                  f"Opened at {p.entry:.{d}f}. This position has no stop loss set, "
-                                  f"so there is no R to track and no breakeven to compute."):
-                        delivery_ledger.mark_delivered(k)
-                        log.info(f"[position_tracker] {p.symbol} #{p.position_id}: "
-                                 f"no-stop notice sent")
-                continue
-            price = await _price_now(p.symbol, p.bullish)
-            if price is None:
-                continue
-            r = p.r_at(price)
-            if r is None:
-                continue
-            r_seen[int(p.position_id)] = r
-            for tag, new_sl, message in _lines(p, r, price, owner_of(p.position_id)):
-                k = _key(p.position_id, tag)
-                if delivery_ledger.is_delivered(k):
-                    continue
-                # THE TRADE FIRST, THE MESSAGE AFTER — his rule, 2026-09-02: *"the logic that
-                # places trades, moves it to BE and locks Rs... should not be affected by telegram
-                # messages or telegram not working. It is the lifeline of a trade."*
-                #
-                # The send used to be awaited HERE, before the amend, and `dispatcher._send_text`
-                # can take ~25s against a dead Telegram (3 retries, 5s sleeps, 5s client timeouts).
-                # The message now goes out immediately AFTER the amend — and carries the amend's
-                # real outcome rather than a prediction of it.
-                moved = await _auto_move(p, tag, new_sl, send, price, quiet=(message is None))
-
-                # NOT AWAITED WHEN THE PLATFORM IS MANAGING THE TRADE. With auto-move ON the rung is
-                # decided by the broker's confirmation, so Telegram's answer is not needed — and
-                # waiting even 3s for it would queue up in front of the NEXT position's amend.
-                # With auto-move OFF the DM is the whole job, so its result is needed and is waited
-                # for; nothing is being traded on that path anyway.
-                if moved is None:
-                    told = await notify.tell(send, message)
-                else:
-                    notify.tell_soon(send, message)
-                    told = True
-
-                # THE RUNG IS ONLY DONE WHEN THE STOP IS REALLY AT THE BROKER.
-                #
-                # This used to mark it done BEFORE the amend, so a refused or timed-out amend was
-                # never retried — the platform reported "+2.4R locked" while the stop sat where it
-                # was, and the market could take back everything above it. His instruction: *"make
-                # sure whatever is locked is never taken by the market"*.
-                #
-                # `moved is None` means auto-move is OFF, so the DM is pure advice and being sent IS
-                # the whole job. Otherwise the broker's confirmation decides, and a False leaves the
-                # rung unmarked so the next pass tries again.
-                done = told if moved is None else bool(moved)
-                if done:
-                    delivery_ledger.mark_delivered(k)
-                    log.info(f"[position_tracker] {p.symbol} #{p.position_id}: {tag} at {r:.2f}R"
-                             f"{' (quiet)' if message is None else ''}")
-                else:
-                    log.warning(f"[position_tracker] {p.symbol} #{p.position_id}: {tag} at {r:.2f}R "
-                                f"NOT protected — will retry next poll")
+            # ONE BAD POSITION MUST NOT COST THE OTHERS THEIR STOP MOVE.
+            #
+            # This body used to sit inline inside `check_all`'s single try/except, so anything that
+            # raised while handling ONE position — a broker error inside `_price_now`, an odd field
+            # while formatting a message — aborted the whole poll and every position AFTER it never
+            # had its stop looked at. His rule: *"it is the lifeline of a trade."* Same shape as the
+            # copy-platform defect found the same day: a fault reading one thing taking down the
+            # loop that reads all of them.
+            try:
+                await _one_position(p, send, r_seen)
+            except Exception as exc:
+                log.error(f"[position_tracker] {getattr(p, 'symbol', '?')} "
+                          f"#{getattr(p, 'position_id', '?')} failed this poll: "
+                          f"{type(exc).__name__}: {exc} — the other positions continue",
+                          exc_info=True)
 
         # THE REPORTING HAPPENS AFTER EVERY AMEND. Both of these await Telegram — they need its
         # answer to know whether to retry — and both used to run BEFORE the stop moves, putting a

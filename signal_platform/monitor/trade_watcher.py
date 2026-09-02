@@ -152,48 +152,64 @@ class TradeWatcher:
 
     async def _check_all(self, positions, streamed: bool) -> None:
         """One pass over every open position. Delegates every decision to position_tracker."""
+        for p in positions:
+            # ONE BAD POSITION MUST NOT COST THE OTHERS THEIR STOP MOVE. Without this guard anything
+            # raising while handling one position aborted `_check_all`, and `run_forever` catches
+            # that by sleeping 30 SECONDS — so a single odd position switched the half-second
+            # watcher off for half a minute, for every trade on the account. His rule: *"it is the
+            # lifeline of a trade."* Same shape as the copy-platform defect found the same day.
+            try:
+                await self._one(p, streamed)
+            except Exception as exc:
+                log.error(f"[watcher] {getattr(p, 'symbol', '?')} "
+                          f"#{getattr(p, 'position_id', '?')} failed this pass: "
+                          f"{type(exc).__name__}: {exc} — the other positions continue",
+                          exc_info=True)
+
+    async def _one(self, p, streamed: bool) -> None:
+        """Everything this pass does for ONE position. Split out 2026-09-02 so a fault in it is
+        contained by the guard above rather than taking the whole pass down."""
         from core import delivery_ledger
         from monitor.position_tracker import _auto_move, _key, _lines
 
-        for p in positions:
-            price = await self._price_for(p, streamed)
-            if price is None:
+        price = await self._price_for(p, streamed)
+        if price is None:
+            return                        # nothing more to do for THIS position
+        r = p.r_at(price)
+        if r is None:
+            return
+        for tag, new_sl, message in _lines(p, r, price, owner_of(p.position_id)):
+            k = _key(p.position_id, tag)
+            if delivery_ledger.is_delivered(k):
                 continue
-            r = p.r_at(price)
-            if r is None:
-                continue
-            for tag, new_sl, message in _lines(p, r, price, owner_of(p.position_id)):
-                k = _key(p.position_id, tag)
-                if delivery_ledger.is_delivered(k):
-                    continue
-                # THE TRADE FIRST, THE MESSAGE AFTER — his rule, 2026-09-02: *"the logic that
-                # places trades, moves it to BE and locks Rs... should not be affected by telegram
-                # messages or telegram not working. It is the lifeline of a trade."*
-                #
-                # The send used to be awaited HERE, before the amend. `dispatcher._send_text` retries
-                # 3 times with 5s sleeps and the Telegram client's own timeouts are 5s, so a dead
-                # Telegram could hold this line for ~25 SECONDS — on the path whose entire purpose is
-                # to act within half a second, and for every other open position in the same pass.
-                moved = await _auto_move(p, tag, new_sl, self.send, price, quiet=(message is None))
+            # THE TRADE FIRST, THE MESSAGE AFTER — his rule, 2026-09-02: *"the logic that places
+            # trades, moves it to BE and locks Rs... should not be affected by telegram messages or
+            # telegram not working. It is the lifeline of a trade."*
+            #
+            # The send used to be awaited HERE, before the amend. `dispatcher._send_text` retries 3
+            # times with 5s sleeps and the Telegram client's own timeouts are 5s, so a dead Telegram
+            # could hold this line for ~25 SECONDS — on the path whose entire purpose is to act
+            # within half a second, and for every other open position in the same pass.
+            moved = await _auto_move(p, tag, new_sl, self.send, price, quiet=(message is None))
 
-                # Now tell him — WITHOUT WAITING. On a 0.5s loop even a 3s bounded wait would sit
-                # in front of the next position's amend. With auto-move ON the rung is decided by
-                # the broker, so Telegram's answer is not needed at all.
-                if moved is None:
-                    told = await notify.tell(self.send, message)
-                else:
-                    notify.tell_soon(self.send, message)
-                    told = True
+            # Now tell him — WITHOUT WAITING. On a 0.5s loop even a 3s bounded wait would sit in
+            # front of the next position's amend. With auto-move ON the rung is decided by the
+            # broker, so Telegram's answer is not needed at all.
+            if moved is None:
+                told = await notify.tell(self.send, message)
+            else:
+                notify.tell_soon(self.send, message)
+                told = True
 
-                # AND THE RUNG IS ONLY DONE WHEN THE STOP IS REALLY AT THE BROKER — the same rule as
-                # `position_tracker`, and the reason is his: *"make sure whatever is locked is never
-                # taken by the market"*. A False leaves it unmarked and the next 0.5s pass retries.
-                done = told if moved is None else bool(moved)
-                if done:
-                    delivery_ledger.mark_delivered(k)
-                    log.info(f"[watcher] {p.symbol} #{p.position_id}: {tag} at {r:.2f}R "
-                             f"({'streamed' if streamed and not self._degraded else 'polled'})"
-                             f"{' (quiet)' if message is None else ''}")
-                else:
-                    log.warning(f"[watcher] {p.symbol} #{p.position_id}: {tag} at {r:.2f}R "
-                                f"NOT protected — retrying")
+            # AND THE RUNG IS ONLY DONE WHEN THE STOP IS REALLY AT THE BROKER — the same rule as
+            # `position_tracker`, and the reason is his: *"make sure whatever is locked is never
+            # taken by the market"*. A False leaves it unmarked and the next 0.5s pass retries.
+            done = told if moved is None else bool(moved)
+            if done:
+                delivery_ledger.mark_delivered(k)
+                log.info(f"[watcher] {p.symbol} #{p.position_id}: {tag} at {r:.2f}R "
+                         f"({'streamed' if streamed and not self._degraded else 'polled'})"
+                         f"{' (quiet)' if message is None else ''}")
+            else:
+                log.warning(f"[watcher] {p.symbol} #{p.position_id}: {tag} at {r:.2f}R "
+                            f"NOT protected — retrying")

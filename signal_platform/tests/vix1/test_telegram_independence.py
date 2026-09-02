@@ -179,4 +179,46 @@ async def _direct():
 s.teeth("the hanging sender really would have blocked", asyncio.run(_direct()) > 5.0)
 s.teeth("...while no amend was delayed at all", to_last_amend < 1.0)
 
+
+# ── ONE BAD POSITION MUST NOT COST THE OTHERS THEIR STOP MOVE ──────────────
+#
+# "It should never fail." Everything for a position used to run inside one try/except covering the
+# WHOLE poll, so anything raising while handling position 1 aborted the pass and positions 2 and 3
+# never had their stops looked at. On the 0.5s watcher that is worse still: `run_forever` catches
+# the abort by sleeping 30 SECONDS, so one odd position switched the fast path off for half a
+# minute — for every trade on the account.
+print()
+print("   a fault on one position does not stop the others:")
+
+_seen_positions: list = []
+_real_one = T._one_position
+
+
+async def _one_explodes_on_71(p, send, r_seen):
+    _seen_positions.append(p.position_id)
+    if p.position_id == 71:
+        raise RuntimeError("this position is broken")
+    r_seen[int(p.position_id)] = 1.0
+
+
+T._one_position = _one_explodes_on_71
+T.ctrader_positions = _Stub([P(pid=70), P(pid=71), P(pid=72)])
+_seen_positions.clear()
+asyncio.run(T.check_all(works))
+s.check("every position is still attempted after one raises", sorted(_seen_positions), [70, 71, 72])
+
+# And the poll as a whole still completes — it must not propagate.
+raised = None
+try:
+    _seen_positions.clear()
+    asyncio.run(T.check_all(works))
+except Exception as exc:
+    raised = type(exc).__name__
+s.check("...and the poll itself does not raise", raised, None)
+
+T._one_position = _real_one
+
+s.teeth("the exploding position really does raise",
+        _seen_positions == [70, 71, 72])
+
 s.done()

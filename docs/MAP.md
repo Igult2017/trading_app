@@ -127,6 +127,18 @@ It runs on your **journal trade entries**; it has nothing to do with the signal 
 
 [ctrader-open-api-apps.md](./ctrader-open-api-apps.md).
 
+### "a trade I took isn't in the journal" / "autosync isn't recording"
+
+**Check `connection_type` on the broker account FIRST.** It defaults to `'webhook'`
+(`shared/schema.ts:675`) and three things skip the account in silence unless it is exactly `'api'`:
+the 15-minute sweep (`autoSyncService.getAllApiAccounts`), the live push feed
+(`ctraderRealtime.openFeed`) and the feed's boot list (`reconcile`). cTrader OAuth never set it until
+02 Sep 2026 — see **D29** in [OPEN.md](./OPEN.md). A boot-time repair now corrects existing rows off
+the CREDENTIALS rather than the label.
+
+Every sync now logs its window, the deals fetched and the trades recorded, so the log answers this
+directly. If a sync ran and found nothing, it says so.
+
 ### "will this hold at 2000 users?" / "account sync is eating the signal platform's connections"
 
 [ctrader-scaling.md](./ctrader-scaling.md) — **Spotware REFUSED the second app (31 Aug 2026)**, so one
@@ -180,6 +192,29 @@ is wrong.** Full wording lives in the linked doc; this is the index so you know 
 ---
 
 ## PROGRESS — what actually happened, newest first
+
+**2026-09-02 (c) — "it has not autorecorded anything since yesterday". One missing line had turned
+both recording paths off.**
+
+`broker_accounts.connection_type` defaults to `'webhook'`, and the cTrader OAuth flow — the
+single-account callback and `select-account` — updated tokens, login id, account type and balance
+but **never set it to `'api'`**. An account held live working credentials and was still filed as a
+webhook account. Three consumers test for exactly `'api'` and all three refused it without a word:
+the 15-minute sweep, the live push feed, and the feed's boot subscriber list. Yesterday's fix (adding
+cTrader to the sweep) could not help — the sweep filters on the same value.
+
+The evidence fit exactly: 8,122 production log lines held `[AutoSync] Starting` and then **nothing** —
+no error, no success, because nothing ran; a real GBP/USD position closed at 11:09 and was never
+recorded; the manual Sync button answered 200 in 252 ms. **The mapping was not at fault** —
+`pairDealsIntoTrades` run against the four real deals pulled from the broker produced correct output.
+
+Fixed at the cause (both OAuth sites now record it), around it (a boot-time repair keyed on the
+CREDENTIALS, not the label, because he was not there to edit the database), and underneath it: the
+sweep logged nothing on success, `.catch(() => {})` sat around `syncAllAccounts` itself, and the
+manual Sync button fired un-awaited and discarded the result. All three are why a dead sync looked
+identical to a working one for a day. A missed trade can now also heal itself — every fourth sweep
+reaches back 7 days instead of 2 hours. **D29** in [OPEN.md](./OPEN.md);
+`server/services/autoSyncWiring.test.ts`.
 
 **2026-09-02 (b) — he asked why the FIX system cries wolf on every deploy. The logs answered that
 and found something worse.**

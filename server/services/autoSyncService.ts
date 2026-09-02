@@ -17,6 +17,19 @@ import { storage } from '../storage';
 const SYNC_INTERVAL_MS = 15 * 60 * 1_000;
 const HISTORY_DAYS     = 730;   // 2 years
 const OVERLAP_MS       = 2 * 3_600_000;
+// A DEEPER SWEEP, PERIODICALLY, SO A MISSED TRADE CAN HEAL ITSELF.
+//
+// The incremental window only ever looks back `OVERLAP_MS` from the last successful sync. That is
+// fine while every sync works — but a trade missed ONCE (the platform down at the moment it closed,
+// a fetch that returned nothing, a write that failed) falls behind the window and is then NEVER
+// looked at again. On 02 Sep a real GBP/USD position closed at 11:09 and no journal entry appeared;
+// nothing in the design would ever have re-tried it.
+//
+// Recording is idempotent — `processIncomingTrades` de-duplicates on externalId + brokerAccountId —
+// so looking further back costs a slightly larger fetch and can never double-record. Every
+// DEEP_EVERY-th sync therefore reaches back DEEP_LOOKBACK_MS instead of the usual two hours.
+const DEEP_LOOKBACK_MS = 7 * 24 * 3_600_000;   // one week
+const DEEP_EVERY       = 4;                    // = once an hour on the 15-minute timer
 const PROACTIVE_MS     = 5 * 60 * 1_000; // refresh if token expires within 5 min
 
 async function getAllApiAccounts(): Promise<BrokerAccount[]> {
@@ -127,10 +140,31 @@ async function updateCTraderBalance(account: BrokerAccount): Promise<void> {
   } catch { /* balance update is best-effort */ }
 }
 
-export async function syncAccount(account: BrokerAccount): Promise<void> {
-  if (!API_PLATFORMS.has(account.platform.toLowerCase())) return;
-  // Skip placeholder accounts awaiting OAuth completion
-  if (account.loginId?.startsWith('pending_')) return;
+// How many times each account has synced this process — drives the periodic deep sweep above.
+const _syncCount = new Map<string, number>();
+
+/** What one sync did — so the manual button can report it instead of saying "started". */
+export interface SyncOutcome {
+  ok: boolean;
+  skipped?: string;                 // why nothing was attempted
+  fetched?: number;                 // closed trades the broker returned
+  created?: number; duplicates?: number; journaled?: number;
+  error?: string;
+}
+
+export async function syncAccount(account: BrokerAccount,
+                                  opts: { deep?: boolean } = {}): Promise<SyncOutcome> {
+  const tag = `${account.platform}(${account.id.slice(0, 8)})`;
+  // THESE TWO SKIPS WERE SILENT, and silence is why this could go a day without anyone noticing
+  // the sync had recorded nothing: a skipped account looked exactly like a working one.
+  if (!API_PLATFORMS.has(account.platform.toLowerCase())) {
+    console.log(`[AutoSync] ${tag}: skipped — no API adapter for this platform`);
+    return { ok: false, skipped: `no API adapter for ${account.platform}` };
+  }
+  if (account.loginId?.startsWith('pending_')) {
+    console.log(`[AutoSync] ${tag}: skipped — OAuth never completed (loginId still 'pending_')`);
+    return { ok: false, skipped: 'this account never finished connecting (OAuth incomplete)' };
+  }
 
   await db.update(brokerAccounts).set({ syncStatus: 'syncing' }).where(eq(brokerAccounts.id, account.id));
 
@@ -138,16 +172,32 @@ export async function syncAccount(account: BrokerAccount): Promise<void> {
     const now   = Date.now();
     const isNew = !account.lastSyncAt;
 
-    if (isNew) {
-      // Single WS call for the full 2-year history — avoids rate limiting from opening
-      // one connection per 60-day chunk (that was 12 connections, hitting cTrader's limit).
-      // fetchTradesForAccount handles 7-day sub-chunking internally on the same connection.
-      const raw = await fetchWithRetry(account, now - HISTORY_DAYS * 86_400_000, now);
-      if (raw.length) await processIncomingTrades(account.id, account.userId, raw);
+    // EVERY SYNC NOW SAYS WHAT IT DID. None of this used to be logged — not the window, not how
+    // many deals came back, not how many trades were recorded — so a sync that silently found
+    // nothing was indistinguishable from one that worked. That is why "it has not autorecorded
+    // anything" could not be answered from the log at all, and it is fixed first because every
+    // other diagnosis depends on being able to see this.
+    const n = (_syncCount.get(account.id) ?? 0) + 1;
+    _syncCount.set(account.id, n);
+    const deep = opts.deep === true || (n % DEEP_EVERY === 1);
+
+    const fromMs = isNew
+      ? now - HISTORY_DAYS * 86_400_000                      // first ever sync: the full history
+      : Math.max(account.lastSyncAt!.getTime() - (deep ? DEEP_LOOKBACK_MS : OVERLAP_MS), 0);
+    const window = isNew ? 'first sync, 2y'
+                         : `${deep ? 'DEEP 7d' : '2h'} back from the last sync`;
+    console.log(`[AutoSync] ${tag}: fetching ${new Date(fromMs).toISOString()} -> `
+                + `${new Date(now).toISOString()} (${window})`);
+
+    const raw = await fetchWithRetry(account, fromMs, now);
+    let counts = { created: 0, duplicates: 0, journaled: 0 };
+    if (raw.length) {
+      counts = await processIncomingTrades(account.id, account.userId, raw);
+      console.log(`[AutoSync] ${tag}: ${raw.length} closed trade(s) from the broker -> `
+                  + `${counts.created} recorded, ${counts.duplicates} already had, `
+                  + `${counts.journaled} journaled`);
     } else {
-      const fromMs = Math.max(account.lastSyncAt!.getTime() - OVERLAP_MS, 0);
-      const raw    = await fetchWithRetry(account, fromMs, now);
-      if (raw.length) await processIncomingTrades(account.id, account.userId, raw);
+      console.log(`[AutoSync] ${tag}: the broker returned no closed trades in that window`);
     }
 
     await db.update(brokerAccounts)
@@ -158,16 +208,22 @@ export async function syncAccount(account: BrokerAccount): Promise<void> {
     if (account.platform.toLowerCase() === 'ctrader') {
       setTimeout(() => updateCTraderBalance(account).catch(() => {}), 3000);
     }
+    return { ok: true, fetched: raw.length, ...counts };
   } catch (err: any) {
     await db.update(brokerAccounts)
       .set({ syncStatus: 'error', lastSyncError: (err.message ?? 'Sync failed').slice(0, 255) })
       .where(eq(brokerAccounts.id, account.id));
     console.error(`[AutoSync] ${account.platform}(${account.id}): ${err.message}`);
+    return { ok: false, error: err?.message ?? String(err) };
   }
 }
 
 async function syncAllAccounts(): Promise<void> {
   const accounts = await getAllApiAccounts();
+  // WITHOUT THIS LINE THERE IS NO PROOF THE SWEEP EVER RAN. "[AutoSync] Starting" appeared once at
+  // boot and then 2h44m of production log held not one further word about syncing — so "the sweep
+  // is running and finding nothing" and "the sweep died at the first line" looked identical.
+  console.log(`[AutoSync] sweep: ${accounts.length} API-connected account(s) to check`);
   for (const account of accounts) {
     // cTRADER IS INCLUDED AGAIN (31 Aug 2026), and this is the SAFETY NET under trade recording.
     //
@@ -185,12 +241,71 @@ async function syncAllAccounts(): Promise<void> {
     //
     // Recording twice is impossible: `processIncomingTrades` de-duplicates on
     // externalId + brokerAccountId, so the feed and this sync cannot both file the same deal.
-    syncAccount(account).catch(() => {});
+    // THE ERROR IS LOGGED, NOT SWALLOWED. `.catch(() => {})` meant anything that threw before
+    // syncAccount's own try/except vanished without trace.
+    syncAccount(account).catch(err =>
+      console.error(`[AutoSync] ${account.platform}(${account.id.slice(0, 8)}) sweep failed: `
+                    + (err?.message ?? err)));
+  }
+}
+
+/**
+ * REPAIR ACCOUNTS THAT ARE API-CONNECTED BUT NOT FILED AS SUCH — and start their live feed.
+ *
+ * `connection_type` defaults to 'webhook', and until today nothing in the cTrader OAuth flow ever
+ * set it to 'api'. An account could therefore hold working OAuth tokens and still be invisible to
+ * all three things that test for exactly 'api': this sweep, the live push feed, and the feed's
+ * boot-time subscriber list. Fixing the two OAuth writes stops it happening again; it does nothing
+ * for a row already sitting in the database with the wrong value, and that row is the live account.
+ *
+ * THE TEST IS THE CREDENTIALS, NOT THE LABEL. An account with a cTrader access token and account id
+ * IS API-connected — that is what the word means — so the label is corrected to match the fact
+ * rather than the other way round. Accounts without tokens are left exactly as they are, so a
+ * genuine webhook/EA account is never touched.
+ *
+ * Runs once per boot, before the first sweep. It is idempotent: after the first run it matches
+ * nothing and costs one indexed query.
+ */
+async function repairApiConnectionType(): Promise<void> {
+  const rows = await db.select().from(brokerAccounts)
+    .where(eq(brokerAccounts.platform, 'ctrader'));
+  const broken = rows.filter(a => a.connectionType !== 'api' && !a.loginId?.startsWith('pending_'))
+    .filter(a => {
+      try {
+        const c = JSON.parse(safeDecrypt(a.passwordEnc) ?? '{}');
+        return Boolean(c.accessToken && c.ctraderId);   // real OAuth credentials = API-connected
+      } catch { return false; }
+    });
+  if (!broken.length) return;
+
+  for (const a of broken) {
+    await db.update(brokerAccounts).set({ connectionType: 'api' }).where(eq(brokerAccounts.id, a.id));
+    console.log(`[AutoSync] REPAIRED ${a.platform}(${a.id.slice(0, 8)}): connectionType `
+                + `'${a.connectionType}' -> 'api' — it holds cTrader OAuth credentials, so the sync `
+                + `sweep and the live trade feed were both skipping it`);
+  }
+  // ...and start the live feed they were being denied. Imported dynamically: ctraderRealtime
+  // imports this module, so a static import here would be a cycle.
+  try {
+    const { addCTraderAccount } = await import('./ctraderRealtime');
+    for (const a of broken) addCTraderAccount(a.id);
+  } catch (err: any) {
+    console.error('[AutoSync] repaired the accounts but could not start their live feed: '
+                  + (err?.message ?? err));
   }
 }
 
 export function startAutoSync(): void {
   console.log('[AutoSync] Starting — 15-min interval for all API-connected accounts');
-  syncAllAccounts().catch(() => {});
-  setInterval(() => syncAllAccounts().catch(() => {}), SYNC_INTERVAL_MS);
+  // THE OUTERMOST SWALLOW, AND THE WORST OF THEM. `.catch(() => {})` here covers
+  // `getAllApiAccounts()` — one failed database read and the entire sweep stops for ever, on the
+  // boot run AND on every 15-minute tick after it, without a single character in the log.
+  const sweep = () => syncAllAccounts().catch(err =>
+    console.error('[AutoSync] SWEEP FAILED — no account was synced this round: '
+                  + (err?.message ?? err)));
+  // The repair runs FIRST, so the boot sweep already sees any account it just corrected.
+  repairApiConnectionType()
+    .catch(err => console.error('[AutoSync] connectionType repair failed: ' + (err?.message ?? err)))
+    .finally(sweep);
+  setInterval(sweep, SYNC_INTERVAL_MS);
 }
