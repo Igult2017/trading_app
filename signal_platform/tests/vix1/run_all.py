@@ -18,6 +18,7 @@ TESTS = [
     "test_regime.py",               # directional efficiency — the range detector
     "test_momentum.py",             # the gates and grading, hand-built candles
     "test_line_pullback.py",        # the line, and the past-the-line rule
+    "test_entry_return_to_line.py", # pullback in 1-3, else the return to the line, else nothing
     "test_rungs.py",                # THE LADDER — 0.4R/2.0R/2.5R, per strategy, one table
     "test_manage.py",               # the R ratchet and the structure exit
     "test_invariants_real_data.py", # the real functions over real candles

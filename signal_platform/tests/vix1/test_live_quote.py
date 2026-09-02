@@ -63,8 +63,14 @@ def m1_run(n_after_cross: int):
     """Minutes since the line was drawn: two below the line, then a cross, then `n` more."""
     out = [bar(T0 + 60 * i, 1.11680, 1.11689, 1.11670, 1.11687) for i in range(2)]
     out.append(bar(T0 + 120, 1.11690, 1.11716, 1.11688, 1.11716))          # the CROSS
+    # THE CANDLE AFTER THE CROSS IS A PULLBACK (closes below its open), because under his rule of
+    # 2026-09-02 the level is only fixed once a pullback appears inside 1-3 candles. The old fixture
+    # used a candle that CARRIED ON, which the code then treated as an "assumed" entry — a state that
+    # no longer exists. The HIGH is unchanged at 1.11733, so the reach, and therefore the expected
+    # order price of 1.11734, are exactly as before: this file is about the CLOSED WINDOW, not the
+    # pullback rule, and its subject must not move.
     for i in range(n_after_cross):
-        out.append(bar(T0 + 180 + 60 * i, 1.11716, 1.11733, 1.11710, 1.11726))
+        out.append(bar(T0 + 180 + 60 * i, 1.11730, 1.11733, 1.11710, 1.11716))
     return out
 
 
@@ -76,7 +82,7 @@ print("VIX.1 1M ENTRY — the closed window, and the live quote")
 # that last candle and had to wait another whole minute for a second one to arrive.
 NOW = T0 + 240                                    # the 4th minute has closed; nothing is forming
 sig = m1_signals(m1_run(1), True, VC, pip=PIP, symbol="EUR/USD", now=NOW)
-check("cross + 1 candle is enough — the entry fires now", len(sig), 1)
+check("cross + 1 pullback candle is enough — the entry fires now", len(sig), 1)
 check("...and the level is one tick beyond the furthest reach", round(sig[0]["entry"], 5), 1.11734)
 
 # PROVED THROUGH THE REAL FUNCTION, not by counting bars. `win` is every M1 since the line was drawn;
@@ -99,27 +105,37 @@ check("the minute it cost: the level was already decidable",
 # Price sits BELOW the line on the stale closed bar, but the live bid is above it. Without a quote
 # the entry refuses (wrong side of the line); with one it proceeds.
 stale = m1_run(1)
-stale[-1] = bar(stale[-1].time, 1.11716, 1.11733, 1.11690, 1.11690)   # closes back under the line
+stale[-1] = bar(stale[-1].time, 1.11730, 1.11733, 1.11690, 1.11690)   # a pullback that closes
+#                                                                      back UNDER the line
 check("stale close below the line -> refused", m1_signals(stale, True, VC, pip=PIP, now=NOW), [])
-live = m1_signals(stale, True, VC, pip=PIP, quote=(1.11740, 1.11742), now=NOW)
+# THE QUOTE MUST CLEAR THE LINE (1.11705) BUT STAY UNDER THE ENTRY (1.11734). This test is about
+# the ALIGNMENT read using the live bid rather than the stale close; a quote above the entry would
+# also trip the "already through the market" refusal and the test would be measuring that instead.
+live = m1_signals(stale, True, VC, pip=PIP, quote=(1.11710, 1.11712), now=NOW)
 check("live BID above the line -> the setup is seen", len(live), 1)
 teeth("the quote is what changed the answer, not the bars",
       m1_signals(stale, True, VC, pip=PIP, now=NOW) == [] and len(live) == 1)
 
-# ── 3. STOP vs MARKET IS DECIDED ON THE TRIGGERING SIDE ──────────────────────
-# Entry lands at 1.11734. A BUY stop triggers on the ASK, so the ask is what decides.
-def note(q):
-    r = m1_signals(m1_run(1), True, VC, pip=PIP, quote=q, now=NOW)
-    return ("MARKET" in r[0]["sl_note"]) if r else None
+# ── 3. A LEVEL ALREADY THROUGH THE MARKET IS NOT TAKEN AT ALL ────────────────
+# HIS RULE, 2026-09-02: *"we wait for the candle to close and then we enter in stop order so that
+# market fills us... we dont enter in live market."* This used to re-price the order to the live
+# bid/ask and label it a MARKET entry — 17% of EUR/USD and 22% of GBP/USD entries were that. It also
+# destroyed the reason for using stop orders at all: an order behind the market fills instantly, so
+# *"if it goes the pullback direction without filling us we are safe too"* stops being true.
+#
+# Entry lands at 1.11734. A BUY stop triggers on the ASK, so the ask is still what decides — the
+# broker fact is unchanged; only what we DO about it has.
+def taken(q):
+    return len(m1_signals(m1_run(1), True, VC, pip=PIP, quote=q, now=NOW))
 
 
 # The bid must clear the LINE (1.11705) or alignment refuses before this is reached; the ask must
-# stay under the ENTRY (1.11734) for the order to still be a stop. Both, or the test measures the
-# wrong gate — the first draft used a bid of 1.11700 and got None from a refusal, not a verdict.
-check("bid over the line, ask under the entry -> still a STOP order", note((1.11710, 1.11712)), False)
-check("ask has passed the entry -> it is a MARKET entry", note((1.11733, 1.11736)), True)
-teeth("judging that on the BID would have called it a stop order a spread too late",
-      note((1.11733, 1.11736)) is True and 1.11733 < 1.11734)
+# stay under the ENTRY (1.11734) for the order to still rest above the market.
+check("bid over the line, ask under the entry -> a STOP order is placed", taken((1.11710, 1.11712)), 1)
+check("ask has passed the entry -> NOTHING is placed, and never a market entry",
+      taken((1.11733, 1.11736)), 0)
+teeth("judging that on the BID would have let a fill-at-once order through",
+      taken((1.11733, 1.11736)) == 0 and 1.11733 < 1.11734)
 
 # A SELL triggers on the BID, so the asymmetry must not be applied to it.
 VC_S = bar(T0 - 3600, 1.11800, 1.11820, 1.11680, 1.11695, tf="H1")
@@ -133,9 +149,7 @@ def sell_run():
 
 
 s = m1_signals(sell_run(), False, VC_S, pip=PIP, quote=(1.11600, 1.11602), now=NOW)
-check("a SELL already through its level is a MARKET entry, judged on the BID",
-      bool(s) and "MARKET" in s[0]["sl_note"], True)
-check("...and it is priced at the bid, not the ask", round(s[0]["entry"], 5), 1.11600)
+check("a SELL already through its level is refused too, judged on the BID", len(s), 0)
 
 # ── 4. NO QUOTE IS THE OLD BEHAVIOUR, NEVER SILENCE ──────────────────────────
 a = m1_signals(m1_run(1), True, VC, pip=PIP, symbol="EUR/USD", now=NOW)

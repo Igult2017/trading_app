@@ -48,9 +48,23 @@ from core.types import Candle
 from shared.candle_math import avg_body
 from strategies.vix1_pullback import is_pullback_candle
 
-# Candles to wait after the cross before the level is fixed. HIS NUMBER, not a tuning knob:
-# *"just 1 candle after price crossing 1HR line."*
-AFTER = 1
+# HOW LONG WE LOOK FOR THE PULLBACK BEFORE CHANGING TACK. His numbers, 2026-09-02: *"we can enter at
+# 1-3 candles, past that we wait for price to come back to the line then we enter before it
+# reverses... if it does not come back to a good level near the line we dont enter."*
+#
+# THIS REPLACES `AFTER = 1`, and the measurement is why. A pullback candle appeared within 20 candles
+# of the cross in **100.0%** of 13,188 EUR/USD crosses and 1,916 XAU/USD crosses — never once absent,
+# exactly as he said (*"when 1 1HR candle closes, the price pulls back to start a new 1HR candle"*).
+# But only **45.7%** had arrived by candle 1. So the old "PULLBACK ASSUMED" entry was never a missing
+# pullback; it was asking too early and then ordering wherever price had run to. That chase is the
+# worst bucket in every measurement: entering closest to the line wins 27.4% / 26.6% / 25.0% on
+# EUR/USD, GBP/USD and gold against ~33% for the good band.
+PB_WINDOW = 3
+
+# How long we then wait for price to come back to the line before giving up on the setup entirely.
+# Price returns within 20 candles 79% of the time on EUR/USD and 82% on gold; the rest are setups
+# that ran away, and his rule for those is that we do not chase them.
+RETURN_WINDOW = 20
 
 # The 1M baseline every derived size in this strategy is measured against.
 _AVG_N = 14
@@ -59,10 +73,11 @@ _AVG_N = 14
 class Cross(NamedTuple):
     """What the 1M has to say. `entry` is the order price; everything else explains it."""
     entry: float
-    pullback: Candle | None    # the candle after the cross, when it IS a pullback
-    seen: bool                 # False = no pullback formed, the level is ASSUMED
+    pullback: Candle | None    # the candle the level was taken from — the pullback, or the return bar
+    seen: bool                 # True = a pullback candle formed inside PB_WINDOW
     cross_idx: int             # index into the closed window of the candle that crossed
     reach: float               # the furthest price got — the entry before the tick is added
+    returned: bool = False     # True = the level came from price COMING BACK to the line
 
 
 def cross_index(wcl: list[Candle], bullish: bool, line: float) -> int | None:
@@ -119,12 +134,45 @@ def decide(wcl: list[Candle], bullish: bool, line: float, pip: float,
     spread has moved.
     """
     ci = cross_index(wcl, bullish, line)
-    if ci is None or len(wcl) < ci + AFTER + 1:
+    if ci is None or len(wcl) < ci + 2:
         return None
-    nxt = wcl[ci + AFTER]
-    seen = is_pullback_candle(nxt, bullish, avg_body(wcl, n=_AVG_N))
-    far = reach(wcl, ci, ci + AFTER, bullish)
-    # ONE TICK BEYOND, so a retest of the same high does not fill us — only a genuine break of it.
+    avg = avg_body(wcl, n=_AVG_N)
     sp = max(0.0, spread or 0.0)
-    entry = far + sp + tick(pip) if bullish else far - tick(pip)
-    return Cross(entry=entry, pullback=(nxt if seen else None), seen=seen, cross_idx=ci, reach=far)
+    last = len(wcl) - 1
+
+    def order(far: float, bar: Candle | None, seen: bool, returned: bool) -> Cross:
+        # ONE TICK BEYOND, so a retest of the same high does not fill us — only a genuine break of it.
+        e = far + sp + tick(pip) if bullish else far - tick(pip)
+        return Cross(entry=e, pullback=bar, seen=seen, cross_idx=ci, reach=far, returned=returned)
+
+    # ── 1) THE PULLBACK, within PB_WINDOW candles of the cross ──────────────
+    # The FIRST one wins; the level is one tick beyond how far price got across the cross and it,
+    # which is his own rule and the shape his 5 Aug 2019 trade takes (its pullback landed on the
+    # candle right after the cross, so that trade is untouched by any of this).
+    for k in range(1, PB_WINDOW + 1):
+        if ci + k > last:
+            return None                       # not enough candles yet — wait, do not assume
+        if is_pullback_candle(wcl[ci + k], bullish, avg):
+            return order(reach(wcl, ci, ci + k, bullish), wcl[ci + k], True, False)
+
+    # ── 2) NO PULLBACK BY CANDLE 3 — WAIT FOR PRICE TO COME BACK TO THE LINE ─
+    # His rule: *"we wait for price to come back to the line then we enter before it reverses so that
+    # it can fill us when it reverses"*. The order is placed one tick beyond the bar that touched the
+    # line, so it rests just above it — near the line, which is where he wants the entry, and which
+    # is what makes the stop small.
+    #
+    # THIS IS ALSO THE FIX FOR THE FRACTAL ROUTE. There, price is by definition on the WRONG side of
+    # the line, so it has already come back through — and the old code still took its level from
+    # `reach(ci, ci+1)`, a cross a median 24 candles old sitting ~1R away from the market (p90 ~3R).
+    # Deriving the level here, from the bar that actually touched the line, removes that staleness
+    # without a second mechanism.
+    for k in range(PB_WINDOW + 1, min(RETURN_WINDOW, last - ci) + 1):
+        bar = wcl[ci + k]
+        touched = (bar.low <= line) if bullish else (bar.high >= line)
+        if touched:
+            return order(bar.high if bullish else bar.low, bar, False, True)
+
+    # ── 3) NEVER CAME BACK ───────────────────────────────────────────────────
+    # *"If it does not come back to a good level near the line we dont enter."* Past the window the
+    # setup is gone; nothing is assumed and nothing is chased.
+    return None

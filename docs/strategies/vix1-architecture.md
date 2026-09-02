@@ -96,6 +96,7 @@ VIX.1 has shipped a bug from reading the forming bar as a level, and **a backtes
 | `vix1_entry.py` | `m1_signals` — alignment, cross, entry, SL. Rebuilt 2026-08-20 and now ~165 lines; it reads NO 1M structure |
 | `vix1_signal.py` | the card |
 | `vix1_watch.py` | invalidation of a LOCKED pending setup |
+| `vix1_cross.py` | **the entry state machine** (reshaped 2026-09-02) — a pullback inside **1-3** candles, else wait for price to **come back to the line**, else **no trade**. Replaces the fixed one-candle wait and the "assumed" entry |
 | `vix1_manage.py` | the R ratchet state machine |
 | `monitor/vix1_alerts.py` | emits the ratchet advice (wired at `signal_monitor.py:94`) |
 

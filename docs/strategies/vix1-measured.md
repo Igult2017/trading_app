@@ -148,6 +148,52 @@ positive-expectancy population the same filter would remove profit. **Do not shi
 risk 18.2p in the 5×+ bucket vs 29.9p in the 0–1× bucket), so the apparent decline is the stop-size
 effect reappearing, not a room effect.
 
+
+## 5. THE ENTRY RULE — his hybrid beats today's on all three
+
+**Does a pullback always appear?** His claim, tested:
+
+| a pullback candle appears within… | EUR/USD (13,188 crosses) | XAU/USD (1,916) |
+|---|---|---|
+| **1 candle** (what the old code waited for) | **45.7%** | **39.4%** |
+| 3 candles | 82.8% | 78.7% |
+| 5 candles | 94.6% | 92.3% |
+| **20 candles** | **100.0%** | **100.0%** |
+| never | **0.0%** | **0.0%** |
+
+**It is always there.** Price also comes back and physically touches the line within 20 candles 79%
+of the time on EUR/USD and 82% on gold.
+
+**Head to head**, R per opportunity, floor and ceiling applied, identical setups:
+
+| rule | EUR/USD | GBP/USD | XAU/USD |
+|---|---|---|---|
+| A — wait 1 candle, then chase (old) | −0.0032 | −0.0194 | +0.0000 |
+| B — return-to-line only | −0.0017 | −0.0119 | −0.0093 |
+| **D — pullback 1-3, else return, else skip (his)** | **+0.0026** | **−0.0094** | **+0.0044** |
+
+**Not the "trades less" artefact:** B skips 21% and is WORSE than D, which skips 9%. The ordering is
+not explained by trade count. Across three time periods D wins **6 of 9** (GBP/USD 3/3, EUR/USD 2/3,
+gold 1/3 — gold swings ±0.08 per period on the OLD rule too, so it cannot separate them).
+
+**A fourth rule was tested and REJECTED:** "wait up to 5 candles for a pullback" was the *worst* of
+all (EUR/USD −0.0101), because it anchors the entry on the furthest point reached across those five
+candles — it chases hardest and produces the biggest stops.
+
+## 6. THE FRACTAL ROUTE'S STALENESS
+
+When the 1M runs against the bias and its fractal later breaks, the old code reused the FIRST cross
+since the momentum candle:
+
+| | EUR/USD | XAU/USD |
+|---|---|---|
+| fractal-break entries | 7,263 | 1,085 |
+| age of the cross reused | median **24 candles**, p90 48 | median 23, p90 49 |
+| that level's distance from price now | median **3.7p**, p90 10.5p | median **53p**, p90 131p |
+
+Against median stops of ~3.0p and ~42p, the order rested about **1R** from the market and **3R** at
+the p90.
+
 ## THE FINDING UNDERNEATH ALL OF IT
 
 **Across every experiment on every instrument, the win rate barely moves — 25% to 34% — whatever the

@@ -67,7 +67,11 @@ s.check("HIS TRADE: an entry is produced", len(got), 1)
 if got:
     e = got[0]
     s.check("HIS TRADE: >>> the order price is HIS 1.11734 <<<", round(e["entry"], 5), 1.11734)
-    s.check("HIS TRADE: it is reported as ASSUMED — 11:07 did not pull back", e["kind"], "assumed")
+    # REPORTED HONESTLY NOW. The old code called this ASSUMED because it stopped looking one candle
+    # after the cross; 11:08 pulled back exactly as his screenshot shows, so it is a real pullback.
+    # THE ORDER PRICE IS UNCHANGED at 1.11734 — only the label moved.
+    s.check("HIS TRADE: it is a genuine PULLBACK — 11:08 turned, as his screenshot shows",
+            e["kind"], "pullback")
     s.check("HIS TRADE: the stop is BEHIND the line (1.11705), not in front of it",
             e["sl"] < 1.11705, True)
     risk = e["entry"] - e["sl"]

@@ -22,7 +22,7 @@ from strategies.vix1_state import state_line
 # face rather than in a footnote.
 _KIND = {
     "pullback":         ("PULLBACK",                 "price crossed the line and pulled back; order one tick beyond how far it got"),
-    "assumed":          ("PULLBACK ASSUMED",         "price crossed the line and did NOT pull back in the candle after — the pullback is assumed, order one tick beyond how far it got"),
+    "returned":         ("RETURNED TO THE LINE",     "no pullback formed in the first 3 candles, so the order waited for price to come BACK to the line and rests one tick beyond the bar that touched it"),
     "fractal_pullback": ("FRACTAL BREAK → PULLBACK", "the fractal break confirmed the 1M turned, then price crossed and pulled back"),
     "fractal_assumed":  ("FRACTAL BREAK → ASSUMED",  "the fractal break confirmed the 1M turned; price crossed but did NOT pull back — the pullback is assumed"),
 }
@@ -143,7 +143,7 @@ def build_signal(kind, symbol, bullish, origin, vol_count, entry, sl, tp,
         # fallback reads "Confirmed entry", which is exactly wrong on an assumed one. Supplying them
         # here keeps `charting/` strategy-agnostic, which is the standing rule.
         level_notes       = [
-            "Pullback ASSUMED — none formed" if "assumed" in kind else "One tick beyond the reach",
+            "Returned to the line" if "returned" in kind else "One tick beyond the reach",
             (sl_note.split("—", 1)[-1].strip() if "—" in sl_note else "Beyond the invalidation"),
             f"{rr:.0f}R — ride the momentum",
         ],

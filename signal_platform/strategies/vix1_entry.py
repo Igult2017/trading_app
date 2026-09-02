@@ -5,8 +5,11 @@ His instruction, 2026-08-20: *"Everything has been settled in 1HR, in 1 min we a
 entries."* So this file reads no structure on the 1M — no swing points, no zones, no retrace search.
 It waits for the cross and puts an order one tick beyond how far price got. That is the whole thing.
 
-    price CLOSES a 1M candle past the line  ->  wait exactly ONE candle  ->  order one tick beyond
-    the furthest point reached across those two candles.
+    price CLOSES a 1M candle past the line
+      -> a pullback candle within 1-3 candles  ->  order one tick beyond the furthest point reached
+      -> otherwise wait for price to COME BACK to the line  ->  order one tick beyond the bar that
+         touched it
+      -> never comes back  ->  NO TRADE
 
 WHY IT WORKS AS A STOP ORDER, in his words:
 
@@ -16,9 +19,14 @@ WHY IT WORKS AS A STOP ORDER, in his words:
      be volatile so it would just knock us and then goes the pullback direction. In that case, we
      are out and wait for the next trade."
 
-NO PULLBACK IS NOT A REASON TO STAND ASIDE: *"A valid setup is not skipped because there is no
-pullback. If there is no pullback where we expect it, we assume it is there and enter but report that
-in the signal."* The card says PULLBACK ASSUMED on its face when that happens.
+THE PULLBACK IS ALWAYS THERE — his claim, 2026-09-02, and it MEASURED TRUE: a pullback candle
+appeared within 20 candles of the cross in 100.0% of 13,188 EUR/USD and 1,916 XAU/USD crosses, never
+once absent. Only 45.7% had arrived by candle 1, which is all the old "PULLBACK ASSUMED" entry ever
+meant — asking too early and then ordering wherever price had run to.
+
+SO THE ORDER IS NEVER PLACED AT THE LIVE PRICE: *"we wait for the candle to close and then we enter
+in stop order so that market fills us... we dont enter in live market."* A level already through the
+market is not taken; the next bar is re-evaluated. See the refusal below.
 
 ALIGNMENT IS UNCHANGED and stays his: price on our side of the line means the 1M is running with the
 1HR. Price the WRONG side means the 1M is running against us, and the last fractal of that counter-
@@ -150,21 +158,31 @@ def m1_signals(m1: list[Candle], bullish: bool, vc: Candle,
     where  = "the pullback's far edge" if (x.pullback is not None and anchor != line) else "the line"
     sl_note = f"{abs(entry - sl)/pip:.1f}p — {gap/pip:.1f}p beyond {where} ({anchor:.{digits}f})"
 
-    # ALREADY THROUGH THE LEVEL? Then the order would be a stop sitting behind the market, which the
-    # broker fills at once — so it IS a market entry, and it is priced honestly as one rather than
-    # the setup being thrown away. His rule again: a valid setup is not skipped. The ceiling below is
-    # what refuses it once price has run so far that the stop can no longer pay off two candles.
+    # ALREADY THROUGH THE LEVEL? THEN WE DO NOT TAKE IT — we wait for the next bar.
+    #
+    # HIS RULE, 2026-09-02: *"we wait for the candle to close and then we enter in stop order so that
+    # market fills us... we dont enter in live market."* This used to re-price the order to the
+    # CURRENT bid/ask and label it a MARKET entry, which is exactly that — and it was not rare:
+    # measured over 145 days, 17% of EUR/USD and 22% of GBP/USD entries were market entries.
+    #
+    # It also destroyed the reason the strategy uses stop orders at all, in his words: *"we leave
+    # space on the predicted path of the price and expect the price to pullback and never fill us. So
+    # if the price finishes pullback and fills us we are fine. And if it goes the pullback direction
+    # without filling us we are safe too."* An order behind the market fills instantly, so neither
+    # half of that survives.
+    #
+    # RETURNING EMPTY IS NOT LOSING THE SETUP. The scan runs every minute and the 1M entry watcher
+    # runs on every closed bar, so the next bar re-evaluates and may well produce a level that DOES
+    # rest above the market — the return-to-line path exists precisely for this shape.
     #
     # TESTED ON THE SIDE THE ORDER ACTUALLY TRIGGERS ON. A BUY stop triggers on the ASK and a SELL
-    # stop on the BID — the same broker fact that made `vix1_cross.decide` add the spread to buys.
-    # `entry` already carries that spread, so asking "has the bid passed it" compared an ask-frame
-    # trigger against a bid price and called a live stop order a market entry a spread too early.
-    # Without a quote this falls back to the closed close on both sides, which is the old behaviour.
+    # stop on the BID — the same broker fact that makes `vix1_cross.decide` add the spread to buys.
     trigger = (quote[1] if bullish else quote[0]) if quote else last
-    market = (entry <= trigger) if bullish else (entry >= trigger)
-    if market:
-        entry   = trigger
-        sl_note += " — price already through the level, so this is a MARKET entry"
+    if (entry <= trigger) if bullish else (entry >= trigger):
+        vix1_log.say(symbol, f"[vix1] {symbol} 1M: the level {entry:.{digits}f} is already through the "
+                             f"market ({trigger:.{digits}f}) — a stop order there would fill at once, "
+                             f"so it is NOT placed; waiting for the next bar")
+        return []
 
     risk     = abs(entry - sl)
     max_risk = full_range(vc)          # "2 candles of 1HR gives 2R" -> one candle is 1R
@@ -191,9 +209,12 @@ def m1_signals(m1: list[Candle], bullish: bool, vc: Candle,
                              f"two-candle move; skipping")
         return []
 
-    kind = f"{route}{'pullback' if x.seen else 'assumed'}"
+    # THE FLAVOUR NAMES WHERE THE LEVEL CAME FROM. "assumed" is gone: it meant "no pullback formed in
+    # the one candle we waited, so we ordered wherever price had run to", and the measurement says
+    # the pullback was simply later — one appeared within 20 candles in 100.0% of 15,104 crosses.
+    kind = f"{route}{'pullback' if x.seen else 'returned'}"
     vix1_log.say_always(f"[vix1] {symbol} 1M {kind.upper()} entry — {'BUY' if bullish else 'SELL'} "
-                        f"{'market' if market else 'stop'} {entry:.{digits}f} SL {sl:.{digits}f} "
+                        f"stop {entry:.{digits}f} SL {sl:.{digits}f} "
                         f"({sl_note}; line {line:.{digits}f})")
     return [{"kind": kind, "entry": entry, "sl": sl, "sl_note": sl_note,
              # kept so the card and the DB row need no schema change — the path that set them is gone
