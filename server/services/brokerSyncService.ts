@@ -281,6 +281,22 @@ export async function processIncomingTrades(
     const existing = await storage.getSyncedTradeByExternal(brokerAccountId, raw.externalId);
     if (existing) {
       duplicates++;
+      // "ALREADY HAD" IS NOT AN ANSWER — it hides WHEN, and when is the whole question.
+      //
+      // On 02 Sep the log said "2 closed trade(s) -> 0 recorded, 2 already had" and that was true
+      // of a sync working perfectly AND of one that had missed both trades for hours until someone
+      // pressed the button. Those are opposite diagnoses and the line could not tell them apart.
+      // The gap between the moment the broker closed the trade and the moment we stored it is what
+      // separates them: seconds means the live feed caught it, hours means every automatic path
+      // missed it and something else filed it later.
+      if (existing.closeTime && existing.createdAt) {
+        const lagMin = Math.round(
+          (new Date(existing.createdAt).getTime() - new Date(existing.closeTime).getTime()) / 60000);
+        console.log(`[Sync] had ${existing.symbol} ${existing.externalId} — closed `
+                    + `${new Date(existing.closeTime).toISOString()}, stored `
+                    + `${new Date(existing.createdAt).toISOString()} (${lagMin} min later), `
+                    + `journal entry ${existing.journalEntryId ? 'yes' : 'NO'}`);
+      }
       // A TRADE STORED BUT NEVER JOURNALED USED TO STAY THAT WAY FOR EVER.
       //
       // This branch was `{ duplicates++; continue; }` — it asked only "have I seen this trade?",
