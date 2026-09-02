@@ -168,11 +168,34 @@ is wrong.** Full wording lives in the linked doc; this is the index so you know 
 | **The strategy doc is updated in the same change as the code** | the code drifted from the docs repeatedly, and the next session then guessed |
 | **Strategies are independent** — never describe one by comparing it to another | comparison is how one strategy's rules leak into another |
 | **The container runs `server/index.prod.ts`, NOT `server/index.ts`** — and the split must stay | `start.sh:69` runs `dist/index.prod.js`. `index.ts` reaches Vite through a RELATIVE `await import("./vite")`, so esbuild bundles it and ESM hoists `vite` + its plugins to the top of `dist/index.js`; those are devDependencies and the image installs `--omit=dev`, so running `index.js` in the container dies at startup |
+| **A contract size, a volume limit and a price precision are READ FROM THE BROKER, never assumed** | the symbol list both platforms fetch is `ProtoOALightSymbol`, which carries **none of them** — only id, name, enabled, asset ids, category, description (verified on the live account, 02 Sep). `execution/connection.load_symbol_spec` asks for the full `ProtoOASymbol`. Assuming a currency lot's 100,000 units sent a gold order **1,000× too large** and the broker refused it (**B17**), and a gold price at three decimals on a two-decimal symbol was refused the day before |
+| **Every enum from the cTrader JSON gateway arrives BY NAME, not as its integer** | `dealStatus: "FILLED"`, not `2`; `tradeSide: "BUY"`, not `1`. One `!== 2` test meant **no cTrader trade ever reached the journal** (**D22**). Match on the name and the integer both, never the integer alone |
 | **Anything both entries need goes in `server/lib/appSetup.ts` (middleware) or `server/lib/backgroundServices.ts` (services)** — never added to an entry file | keeping the two entries in step by hand failed twice, silently, for months: helmet + both rate limiters (so production had **no brute-force limit on login**) and both trade recorders (so production **recorded no broker trades at all**). `server/lib/entryParity.test.ts` fails if it starts again |
 
 ---
 
 ## PROGRESS — what actually happened, newest first
+
+**2026-09-02 — two defects on the cTrader boundary, and both were one assumption each.**
+
+*The order the broker refused (**B17**).* Sizing held one constant, `LOT_UNITS = 100_000`, and used
+it for every instrument. That is a **currency** lot; **a gold lot is 100 ounces**, so a 0.13-lot
+XAU/USD order went out as 13,000 ounces instead of 13 and cTrader refused it. Nothing could have
+caught it: the symbol list the order path fetches carries no contract size at all. It now asks the
+broker for the real `lotSize` and the real volume limits, and refuses — in words, to his DM —
+anything outside them **before** the request leaves.
+
+*No cTrader trade ever reached the journal (**D22**).* One line rejected every real deal:
+`dealStatus !== 2` when the gateway sends `"FILLED"`, and a required `closePositionDetail` that
+**0 of 30 real deals carried**. Both routes into the journal ran through it, both returned nothing,
+and both did so silently because a null there means "an opening fill, ignore it". A closed position
+is now recognised from what IS present — its deals paired, or the position the live event already
+carried and was throwing away. Three more defects sat behind it, including one that would have kept
+every live-recorded trade OUT of the journal even after the mapping was fixed.
+
+**Proved against real broker data**, not fixtures I wrote: six deals captured verbatim from the live
+demo account, including his own autotraded EUR/USD trade — the one that existed at the broker and
+was absent from his journal.
 
 **2026-08-29 (b) — Drawdown page, his four presentation asks.** The font now **inherits** from the
 journal (it fell back to a hardcoded Playfair, and `.dp` is exempt from the journal's global font

@@ -20,7 +20,11 @@ rounded pip count — the skill's helper scripts round distance to an int (14.7 
 size a trade 2% hot. We work in the raw distance and only quantise at the very end, to the broker's
 lot step.
 """
+import logging
+
 from shared.pip import pip_size
+
+log = logging.getLogger(__name__)
 
 LOT_UNITS      = 100_000     # units of base currency in one standard forex lot
 CENTS_PER_UNIT = 100         # the Open API's volume unit: hundredths of a unit
@@ -28,9 +32,77 @@ MIN_LOTS       = 0.01        # cTrader's smallest tradeable size
 LOT_STEP       = 0.01
 
 
-def lots_to_volume(lots: float) -> int:
-    """Lots -> the integer `volume` field. The single place this conversion is written."""
-    return int(round(lots * LOT_UNITS * CENTS_PER_UNIT))
+# CONTRACT SIZE IS PER SYMBOL, AND ASSUMING FOREX'S COST A REAL ORDER.
+#
+# A currency lot is 100,000 units. **A GOLD LOT IS 100 OUNCES.** This file used LOT_UNITS for
+# everything, so a 0.13-lot XAU/USD order went out as 13,000 units instead of 13 — 1,000x too large —
+# and cTrader refused it on 01 Sep 2026: *"Order volume = 13000.00 is bigger than maximum allowed
+# volume = 5000.00"*.
+#
+# The broker states the real figure per symbol (`ProtoOASymbol.lotSize`, already in the API's own
+# hundredths), and `execution/connection.load_symbol_spec` now fetches it. This table is only the
+# FALLBACK for when that fetch fails, so an order is still sized sanely rather than refused or —
+# far worse — sent at the wrong scale.
+_FALLBACK_LOT_UNITS = {"XAU": 100, "XAG": 5_000, "XPT": 100, "XPD": 100}
+
+
+def lot_units_for(symbol: str) -> int:
+    """Units of the base asset in one lot, for the fallback path. XAG is 5,000 oz, not 100."""
+    s = "".join(ch for ch in (symbol or "").upper() if ch.isalpha())
+    for pre, units in _FALLBACK_LOT_UNITS.items():
+        if s.startswith(pre):
+            return units
+    return LOT_UNITS
+
+
+def lots_to_volume(lots: float, symbol: str = "", lot_size: int | None = None) -> int:
+    """Lots -> the integer `volume` field. The single place this conversion is written.
+
+    `lot_size` is the broker's own `ProtoOASymbol.lotSize`, ALREADY in the API's hundredths — so when
+    it is known the conversion is simply `lots * lot_size` and nothing is assumed. Without it, the
+    per-instrument fallback above is used. `symbol` empty with no `lot_size` reproduces the old
+    forex-only behaviour exactly, which is what the existing tests assert.
+    """
+    if lot_size and lot_size > 0:
+        return int(round(lots * lot_size))
+    return int(round(lots * lot_units_for(symbol) * CENTS_PER_UNIT))
+
+
+def clamp_to_broker(volume: int, spec: dict | None) -> tuple[int, str | None]:
+    """Fit `volume` to the broker's own min/max/step. Returns (volume, refusal_reason).
+
+    THE BROKER'S LIMITS ARE NOT GUESSES AND MUST NOT BE GUESSED AT. Sending a volume outside them is
+    a refused order — which is a signal he never gets — so the size is quantised to `stepVolume` and
+    checked against `minVolume`/`maxVolume` BEFORE the request leaves, and the reason is ours rather
+    than a broker error string arriving two seconds later.
+
+    Over the maximum is REFUSED, not silently capped: a cap would place a position of a size his risk
+    settings never asked for.
+
+    Quantising to the step is the one adjustment that IS made, because a size off the step cannot be
+    sent at all — but it always reduces the position, so it is LOGGED rather than done quietly. On a
+    coarse step that reduction is not small: with a 0.1-lot step, 0.13 lots becomes 0.10, and a
+    quarter of the intended risk disappears with nothing said.
+    """
+    if not spec:
+        return volume, None
+    step = spec.get("stepVolume") or 0
+    lo = spec.get("minVolume") or 0
+    hi = spec.get("maxVolume") or 0
+    v = volume
+    if step > 0:
+        v = (v // step) * step
+        if v != volume:
+            log.warning(f"[execution] volume {volume} is not a multiple of the broker's step {step} "
+                        f"— reduced to {v} ({(volume - v) / volume:.0%} less than the size the risk "
+                        f"settings asked for)")
+    if lo and v < lo:
+        return v, (f"size {volume} is below the broker's minimum {lo} for this symbol — "
+                   f"the risk settings produce too small a position to place")
+    if hi and v > hi:
+        return v, (f"size {v} exceeds the broker's maximum {hi} for this symbol — refusing rather "
+                   f"than capping, because a capped size is not the risk that was asked for")
+    return v, None
 
 
 def stop_distance_pips(entry: float, stop: float, symbol: str) -> float:
@@ -78,4 +150,6 @@ def plan_size(equity: float, entry: float, stop: float, symbol: str,
         lots = round(max(MIN_LOTS, min(max_lots, fixed_lots)), 2)
     else:
         lots = size_lots(equity, risk_pct, pips, max_lots=max_lots)
-    return lots, lots_to_volume(lots), pips
+    # THE SYMBOL IS PASSED, so a gold lot is 100 ounces and not 100,000 units. Without it this
+    # returned a volume 1,000x too large for metals and the broker refused the order.
+    return lots, lots_to_volume(lots, symbol), pips

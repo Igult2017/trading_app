@@ -138,3 +138,49 @@ async def load_symbol_map(reader, writer, acct: int) -> dict[str, int]:
     res = ProtoOASymbolsListRes()
     res.ParseFromString(resp.payload)
     return {s.symbolName: s.symbolId for s in res.symbol}
+
+async def load_symbol_spec(reader, writer, acct: int, symbol_id: int) -> dict | None:
+    """The broker's OWN contract size and volume limits for one symbol.
+
+    WHY THIS EXISTS. `load_symbol_map` uses `ProtoOASymbolsListRes`, whose entries are
+    `ProtoOALightSymbol` — symbolId, symbolName, enabled, asset ids, category, description. It carries
+    NO lotSize and NO volume limits, so `sizing.lots_to_volume` hardcoded a forex lot of 100,000
+    units. **A gold lot is 100 OUNCES**, so every gold order went out 1,000x too large and cTrader
+    refused it: *"Order volume = 13000.00 is bigger than maximum allowed volume = 5000.00"* on a
+    0.13-lot XAU/USD signal, 01 Sep 2026.
+
+    `ProtoOASymbolByIdReq` returns the FULL `ProtoOASymbol`, which does carry `lotSize`, `minVolume`,
+    `maxVolume` and `stepVolume` — verified against the installed protobuf schema.
+
+    Returns None rather than raising: a spec we cannot read must not take an order down on its own,
+    and the caller falls back to the documented default for the instrument class.
+    """
+    from data import ctrader_session as sess
+    from ctrader_open_api.messages.OpenApiMessages_pb2 import (
+        ProtoOASymbolByIdReq, ProtoOASymbolByIdRes)
+    want = ProtoOASymbolByIdRes().payloadType
+    # THE WHOLE BODY IS GUARDED, not just the network calls. The docstring above promises that a spec
+    # we cannot read never takes an order down, and a parse failure or an unexpected field would have
+    # broken that promise by raising out of here — turning a readable refusal into a generic error on
+    # an order that had not even been sent.
+    try:
+        req = ProtoOASymbolByIdReq(ctidTraderAccountId=acct, symbolId=[int(symbol_id)])
+        await sess.send(writer, req.payloadType, req.SerializeToString())
+        resp = await asyncio.wait_for(sess.recv_expect(reader, want), timeout=SYMBOLS_TIMEOUT)
+        if resp.payloadType != want:
+            return None
+        res = ProtoOASymbolByIdRes()
+        res.ParseFromString(resp.payload)
+        if not res.symbol:
+            return None
+        sy = res.symbol[0]
+        return {
+            "lotSize":    int(getattr(sy, "lotSize", 0) or 0),
+            "minVolume":  int(getattr(sy, "minVolume", 0) or 0),
+            "maxVolume":  int(getattr(sy, "maxVolume", 0) or 0),
+            "stepVolume": int(getattr(sy, "stepVolume", 0) or 0),
+        }
+    except Exception as exc:
+        log.warning(f"[execution] could not read the symbol spec for id {symbol_id}: "
+                    f"{type(exc).__name__}: {exc}")
+        return None

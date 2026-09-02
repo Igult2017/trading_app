@@ -36,18 +36,44 @@ class OrderResult:
 
 
 def build_stop(acct: int, symbol: str, side: str, volume: int, stop_price: float,
-               sl: float, tp: float, expiry_ms: int | None, symbol_map: dict):
-    """The ProtoOANewOrderReq for a pending stop — or (None, reason) if it cannot be built."""
+               sl: float, tp: float, expiry_ms: int | None, symbol_map: dict,
+               spec: dict | None = None, lots: float = 0.0):
+    """The ProtoOANewOrderReq for a pending stop — or (None, reason) if it cannot be built.
+
+    `spec` is the broker's OWN `{lotSize, minVolume, maxVolume, stepVolume}` for this symbol, from
+    `connection.load_symbol_spec`. WHEN IT IS PRESENT IT OVERRULES THE CALLER'S ARITHMETIC — the
+    caller sized in lots without knowing the contract size, and for anything that is not a currency
+    pair that assumption is wrong by a factor of 1,000. Gold, 01 Sep 2026: a 0.13-lot order went out
+    as 13,000 units and cTrader refused it ("bigger than maximum allowed volume = 5000.00").
+
+    The size is then fitted to the broker's own step/min/max BEFORE the request leaves, so a size it
+    would refuse is refused here with a reason he can read, rather than as a broker error two
+    seconds later. `spec=None` (the fetch failed) leaves the caller's volume exactly as it was.
+    """
     from ctrader_open_api.messages.OpenApiMessages_pb2 import ProtoOANewOrderReq
     from ctrader_open_api.messages.OpenApiModelMessages_pb2 import ProtoOAOrderType
     # THIS PLATFORM'S OWN RESOLVER. copy_platform's handles broker affixes and nicknames but has no
     # rule for a slash — and every symbol here is slashed ("GBP/USD"), so it returned None for all
     # of them and this function refused every order with "not on this account".
     from shared.symbols import resolve_symbol_id
+    from execution.sizing import clamp_to_broker, lots_to_volume
 
     sid = resolve_symbol_id(symbol, symbol_map)
     if sid is None:
         return None, f"symbol {symbol} not on this account"
+
+    sent = int(volume)
+    if spec and spec.get("lotSize") and lots > 0:
+        recomputed = lots_to_volume(lots, symbol, lot_size=spec["lotSize"])
+        if recomputed != sent:
+            log.warning(f"[execution] {symbol} volume corrected {sent} -> {recomputed} using the "
+                        f"broker's own lotSize {spec['lotSize']} ({lots} lots)")
+        sent = recomputed
+    sent, refusal = clamp_to_broker(sent, spec)
+    if refusal:
+        return None, refusal
+    if sent <= 0:
+        return None, f"computed volume for {symbol} is {sent} — nothing to place"
 
     d = price_digits(symbol)
     req = ProtoOANewOrderReq()
@@ -55,7 +81,7 @@ def build_stop(acct: int, symbol: str, side: str, volume: int, stop_price: float
     req.symbolId  = sid
     req.orderType = ProtoOAOrderType.Value("STOP")
     req.tradeSide = 1 if side.upper() == "BUY" else 2
-    req.volume    = int(volume)                    # already in the API's units — see sizing.py
+    req.volume    = sent                           # already in the API's units — see sizing.py
     req.stopPrice = round(float(stop_price), d)
     if sl:
         req.stopLoss = round(float(sl), d)

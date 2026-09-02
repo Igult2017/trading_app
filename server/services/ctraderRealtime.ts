@@ -5,11 +5,16 @@
  * manual/connect sync, so it is deduped (by externalId) and auto-journaled. Safe beside the existing
  * sync: a trade can never be recorded twice.
  *
- * THIS IS NOT AN OPTIONAL CONVENIENCE. cTrader is excluded from the 15-minute sync timer
- * (`autoSyncService.ts:168`, *"only sync on connect or manual trigger, never on timer"*), so for a
- * cTrader user this feed is the ONLY ongoing trade sync there is. A feed that quietly fails to open
- * means that user records nothing at all — which is why feeds outrank transient work in the
- * connection pool.
+ * THIS IS NOT AN OPTIONAL CONVENIENCE. It is how a closed trade reaches the journal in SECONDS
+ * rather than at the next 15-minute sweep, and it is the only route at all while that sweep is
+ * between runs. (cTrader was excluded from the timer until 31 Aug 2026, when this feed really was
+ * the ONLY sync there was; `autoSyncService.syncAllAccounts` now includes it as the safety net
+ * underneath.) A feed that quietly fails to open costs freshness, not the trade — which is why
+ * feeds still outrank transient work in the connection pool.
+ *
+ * THE TWO ROUTES CANNOT DOUBLE-RECORD. Both key a closed position on its CLOSING deal id, and
+ * `processIncomingTrades` de-duplicates on externalId + brokerAccountId, so whichever arrives second
+ * is discarded.
  *
  * SOCKETS ARE NO LONGER ONE-PER-ACCOUNT. They live in `ctraderHub`, which puts many accounts on one
  * socket so connection count stops growing with the user base. This file owns the LIFECYCLE — which
@@ -28,7 +33,7 @@ import { safeDecrypt } from '../lib/crypto';
 import { processIncomingTrades } from './brokerSyncService';
 import { notificationService } from './notificationService';
 import { refreshCTraderToken } from './autoSyncService';
-import { mapClosedDeal } from './brokerAdapters/ctrader';
+import { mapClosedDeal, mapClosedFromEvent } from './brokerAdapters/ctrader';
 import { logUtilisation, stats } from './ctraderConnPool';
 import {
   attach, detach, isAttached, attachedIds, hubStats, logRoutingEvidence,
@@ -93,7 +98,17 @@ async function openFeed(id: string, attempt: number): Promise<void> {
 /** One closed deal, for one account. Unchanged from the one-socket-per-account version. */
 function onTrade(member: Member, payload: any): void {
   const account = member.account;
-  const trade = payload?.deal ? mapClosedDeal(payload.deal, member.symbolMap) : null;
+  // THE POSITION IS IN THE SAME EVENT AND WAS BEING THROWN AWAY. `ProtoOAExecutionEvent` carries
+  // `deal` AND `position`; this read only the deal, and `mapClosedDeal` then needed
+  // `closePositionDetail`, which this gateway does not send — verified on the live demo account,
+  // 0 of 30 real deals carried it. So every live close mapped to null and nothing was ever recorded.
+  //
+  // A close is now recognised from what IS present: the position's status says CLOSED, or the
+  // deal's side is opposite the position's (the only other way a position shrinks to nothing).
+  const trade = payload?.deal
+    ? (mapClosedDeal(payload.deal, member.symbolMap)
+       ?? mapClosedFromEvent(payload, member.symbolMap))
+    : null;
   if (!trade) return;                                         // opening fill, not a realised close
 
   processIncomingTrades(account.id, account.userId, [trade])

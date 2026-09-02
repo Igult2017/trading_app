@@ -50,6 +50,10 @@ TESTS = [
     # ADDED 2026-08-30. test_auto_breakeven stubs out StopOrderClient, so it could not see that the
     # real order path neither imported nor resolved a symbol. This one uses the real functions.
     "test_execution_placement.py",  # the order path loads in production's cwd, and names the pair
+    # ADDED 2026-09-02, after cTrader refused the first gold order: "Order volume = 13000.00 is
+    # bigger than maximum allowed volume = 5000.00". A gold lot is 100 ounces and sizing assumed a
+    # currency lot's 100,000, so every metals order went out 1,000x too large.
+    "test_order_volume.py",         # a gold lot is 100 oz, and the broker's own limits are checked
     "test_autotrade_sessions.py",   # when autotrade may trade, and the equity it could not read
     "test_autotrade_dm.py",         # what it reports to his DM: placed, stood down, and the real fill
     # ADDED 2026-08-30. The watchdog is the point: a dead price stream looks exactly like a quiet

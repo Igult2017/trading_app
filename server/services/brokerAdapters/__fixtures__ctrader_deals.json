@@ -1,0 +1,80 @@
+[
+ {
+  "dealId": 315269956,
+  "orderId": 356359055,
+  "positionId": 237953222,
+  "symbolId": 1,
+  "tradeSide": "BUY",
+  "volume": 100000,
+  "filledVolume": 100000,
+  "executionPrice": 1.16891,
+  "executionTimestamp": 1787275220168,
+  "dealStatus": "FILLED",
+  "commission": 0
+ },
+ {
+  "dealId": 315269964,
+  "orderId": 356359084,
+  "positionId": 237953244,
+  "symbolId": 2,
+  "tradeSide": "BUY",
+  "volume": 100000,
+  "filledVolume": 100000,
+  "executionPrice": 1.36426,
+  "executionTimestamp": 1787275223663,
+  "dealStatus": "FILLED",
+  "commission": 0
+ },
+ {
+  "dealId": 315271065,
+  "orderId": 356360443,
+  "positionId": 237953222,
+  "symbolId": 1,
+  "tradeSide": "SELL",
+  "volume": 100000,
+  "filledVolume": 100000,
+  "executionPrice": 1.16894,
+  "executionTimestamp": 1787275687562,
+  "dealStatus": "FILLED",
+  "commission": 0
+ },
+ {
+  "dealId": 315271077,
+  "orderId": 356360478,
+  "positionId": 237953244,
+  "symbolId": 2,
+  "tradeSide": "SELL",
+  "volume": 100000,
+  "filledVolume": 100000,
+  "executionPrice": 1.3644,
+  "executionTimestamp": 1787275689997,
+  "dealStatus": "FILLED",
+  "commission": 0
+ },
+ {
+  "dealId": 317214780,
+  "orderId": 358554462,
+  "positionId": 239582511,
+  "symbolId": 1,
+  "tradeSide": "BUY",
+  "volume": 8100000,
+  "filledVolume": 8100000,
+  "executionPrice": 1.16046,
+  "executionTimestamp": 1788271402114,
+  "dealStatus": "FILLED",
+  "commission": 0
+ },
+ {
+  "dealId": 317231950,
+  "orderId": 358554565,
+  "positionId": 239582511,
+  "symbolId": 1,
+  "tradeSide": "SELL",
+  "volume": 8100000,
+  "filledVolume": 8100000,
+  "executionPrice": 1.15983,
+  "executionTimestamp": 1788274166750,
+  "dealStatus": "FILLED",
+  "commission": 0
+ }
+]

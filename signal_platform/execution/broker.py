@@ -20,7 +20,8 @@ THE PUBLIC INTERFACE IS UNCHANGED — `place_stop`, `cancel`, `amend_sltp`. `pla
 import asyncio
 import logging
 
-from execution.connection import (COMMAND_TIMEOUT, NotSent, load_symbol_map, open_authenticated)
+from execution.connection import (COMMAND_TIMEOUT, NotSent, load_symbol_map, load_symbol_spec,
+                                  open_authenticated)
 from execution.orders import OrderResult, build_amend, build_cancel, build_stop, read_execution
 
 log = logging.getLogger(__name__)
@@ -45,8 +46,15 @@ class StopOrderClient:
 
     async def place_stop(self, symbol: str, side: str, volume: int,
                          stop_price: float, sl: float, tp: float,
-                         expiry_ms: int | None = None) -> OrderResult:
-        return await self._run(("stop", symbol, side, volume, stop_price, sl, tp, expiry_ms))
+                         expiry_ms: int | None = None, lots: float = 0.0) -> OrderResult:
+        """`lots` is the size the RISK MATHS produced, carried through untouched.
+
+        It is not redundant with `volume`. The caller converts lots to the API's integer units
+        without knowing the contract size, which is only right for currency pairs; when the broker
+        states its own `lotSize` for the symbol, `orders.build_stop` re-derives the volume from
+        these lots and the caller's number is discarded. Left at 0 the old behaviour is kept exactly.
+        """
+        return await self._run(("stop", symbol, side, volume, stop_price, sl, tp, expiry_ms, lots))
 
     async def cancel(self, order_id: int) -> OrderResult:
         return await self._run(("cancel", int(order_id)))
@@ -89,11 +97,22 @@ class StopOrderClient:
         reader, writer = await open_authenticated(self.creds, self.account_type)
         self._writer = writer
 
-        symbol_map = {}
+        symbol_map, spec = {}, None
         if cmd[0] == "stop":
             symbol_map = await load_symbol_map(reader, writer, acct)
+            # THE CONTRACT SIZE COMES FROM THE BROKER, NOT FROM A CONSTANT. The symbol LIST carries
+            # no lotSize (it is `ProtoOALightSymbol`), which is why sizing assumed a 100,000-unit
+            # forex lot for every instrument and gold went out 1,000x too large. One extra round
+            # trip, only for a new order, and a failure returns None rather than blocking the trade.
+            from shared.symbols import resolve_symbol_id
+            sid = resolve_symbol_id(cmd[1], symbol_map)
+            if sid is not None:
+                spec = await load_symbol_spec(reader, writer, acct, sid)
+                if spec is None:
+                    log.warning(f"[execution] no symbol spec for {cmd[1]} — sizing falls back to "
+                                f"the per-instrument default, and the broker's limits are unchecked")
 
-        req, err = self._build(acct, cmd, symbol_map)
+        req, err = self._build(acct, cmd, symbol_map, spec)
         if err:
             raise NotSent(err)                      # e.g. the symbol is not on this account
 
@@ -102,14 +121,15 @@ class StopOrderClient:
         return await asyncio.wait_for(self._await_verdict(sess, reader, cmd),
                                       timeout=COMMAND_TIMEOUT)
 
-    def _build(self, acct: int, cmd: tuple, symbol_map: dict):
+    def _build(self, acct: int, cmd: tuple, symbol_map: dict, spec: dict | None = None):
         if cmd[0] == "cancel":
             return build_cancel(acct, cmd[1]), None
         if cmd[0] == "amend":
             _, position_id, symbol, sl, tp = cmd
             return build_amend(acct, position_id, symbol, sl, tp), None
-        _, symbol, side, volume, stop_price, sl, tp, expiry_ms = cmd
-        return build_stop(acct, symbol, side, volume, stop_price, sl, tp, expiry_ms, symbol_map)
+        _, symbol, side, volume, stop_price, sl, tp, expiry_ms, lots = cmd
+        return build_stop(acct, symbol, side, volume, stop_price, sl, tp, expiry_ms, symbol_map,
+                          spec=spec, lots=lots)
 
     async def _await_verdict(self, sess, reader, cmd: tuple) -> OrderResult:
         """Read until the broker gives a verdict.

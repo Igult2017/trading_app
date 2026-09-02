@@ -249,6 +249,52 @@ red self-test that everyone steps around is how a real regression gets missed: t
 break something here will see two failures and assume they are the usual two.
 
 
+### B17 - ~~cTrader refused the gold order: a gold lot is 100 ounces, not 100,000 units~~ FIXED 02 Sep 🔴
+**His report, 01 Sep:** *"Ctrader rejected this autotrader order because the number was too big.
+Can you investigate and fix it from the root cause."*
+
+**The broker's own words:** *"Order volume = 13000.00 is bigger than maximum allowed volume =
+5000.00"* on a 0.13-lot XAU/USD signal.
+
+**The risk maths was right; the CONVERSION was wrong.** `execution/sizing.py` held one constant —
+`LOT_UNITS = 100_000` — and used it for every instrument. That is the size of a **currency** lot.
+**A gold lot is 100 ounces.** So 0.13 lots went onto the wire as 13,000 ounces instead of 13, a
+factor of 1,000, and the broker refused it outright.
+
+**What made it POSSIBLE, which is the real answer.** The symbol list the order path already
+fetches is `ProtoOASymbolsListRes`, whose entries are `ProtoOALightSymbol`. Confirmed against the
+live demo account on 02 Sep — 1,940 symbols, and XAUUSD came back as exactly
+`{symbolId, symbolName, enabled, baseAssetId, quoteAssetId, symbolCategoryId, description}`.
+**No `lotSize`, no volume limits.** There was nothing to check the constant against, and no reason
+to doubt it while only currency pairs traded. *Adding an instrument re-opened a constant calibrated
+for the old ones* — the rule from 19 Aug, and this is what it looks like when it is ignored.
+
+**The fix, in three parts:**
+
+| where | what |
+|---|---|
+| [`execution/connection.py`](../signal_platform/execution/connection.py) | `load_symbol_spec` — `ProtoOASymbolByIdReq` returns the FULL `ProtoOASymbol`, which does carry `lotSize`, `minVolume`, `maxVolume`, `stepVolume`. One extra round trip, only for a new order |
+| [`execution/sizing.py`](../signal_platform/execution/sizing.py) | `lots_to_volume(lots, symbol, lot_size)` uses the broker's own figure when known and a per-instrument-class table (XAU 100, XAG 5,000) when the fetch fails; `clamp_to_broker` fits the size to the broker's step/min/max |
+| [`execution/orders.py`](../signal_platform/execution/orders.py) | `build_stop` re-derives the volume from the lots and the broker's `lotSize`, then refuses — with a readable reason that reaches his DM — anything outside the broker's own limits |
+
+**Over the maximum is REFUSED, never capped.** A capped size is not the risk that was asked for.
+Quantising DOWN to the step is the one adjustment made, and it is logged, because on a coarse step
+it is not small (0.13 lots against a 0.1-lot step is a quarter of the position, silently).
+
+**A spec that cannot be read does not take the trade down** — it falls back to the per-instrument
+table, which is now right for metals instead of wrong for everything but currencies. This differs
+deliberately from `copy_platform.lot_calc.volume_for`, which REFUSES without a spec: mirroring
+someone else's trade can wait, a signal cannot, and the fallback is no longer a guess.
+
+**Proved by:** [`tests/vix1/test_order_volume.py`](../signal_platform/tests/vix1/test_order_volume.py)
+— 33 checks including the exact refused number, the currency pairs bit-for-bit unchanged, and teeth
+both ways (the 01 Sep volume is caught, the correct one passes).
+
+**Still not verified:** the live `minVolume`/`stepVolume` for XAUUSD. The env token is stale
+(`CH_ACCESS_TOKEN_INVALID` — Node holds the live one) and the hosted read-only MCP returns the same
+light symbol. The RUNNING code reads them from the broker, so this is a gap in the test fixture
+only, and the fixture says so in place.
+
 ### B15 - ~~Autotrade was switched ON and refusing EVERY order — it could not read the balance~~ FIXED 31 Aug 🔴
 **His question:** *"Is autotrading working now?"* **It was not, and the answer took reading rather
 than remembering.** Everything looked right: `AUTOTRADE_ENABLED=true` in production, the order path
@@ -611,6 +657,63 @@ anywhere. Blocked on one question: does copy trading auto-execute on a user's ac
 ---
 
 ## D. cTrader & copy trading
+
+### D22 - ~~No cTrader trade EVER reached the journal — one line rejected every real deal~~ FIXED 02 Sep 🔴
+**His report, 01 Sep:** *"The trades taken by autotrader are not being captured and recorded or
+synced in the journal. Can you check that pipeline and fix it properly so that trades taken in
+ctrader can be captured in the journal just like trades uploaded through journal form."*
+
+**It was never a journal problem.** Nothing came out of the adapter. Both routes into the journal —
+the 15-minute sweep (`fetchCTraderTrades`) and the live push feed (`ctraderRealtime.onTrade`) —
+funnel through one function, [`mapClosedDeal`](../server/services/brokerAdapters/ctrader.ts), whose
+first line was:
+
+```ts
+if (!d || d.dealStatus !== 2 || d.closePositionDetail == null) return null;
+```
+
+**Measured against the live Pepperstone demo account, 02 Sep, 14-day window, 30 deals:**
+
+| what the code required | what the broker actually sends |
+|---|---|
+| `dealStatus === 2` (the protobuf integer) | `dealStatus: "FILLED"` — **all 30**. The JSON gateway serialises enum values BY NAME |
+| `closePositionDetail` present | **0 of 30 carried it** — including the six that genuinely closed a position |
+
+Either alone was fatal, and **both failed silently**: a `null` there means *"an opening fill,
+ignore it"*. The sweep returned an empty list every time; the live feed dropped every close.
+
+**His actual trade was found in the broker's data**: position `239582511`, the stop order signal
+`70d8dac7` placed (STOP BUY 1.16048, SL 1.15986, TP 1.16295), filled 1.16046, closed 1.15983,
+−$51.03 on 0.81 lots. It existed at the broker and was absent from the journal. That is the defect
+in one row.
+
+**The fix.** A closed position is now recognised from what IS present:
+
+| function | how it knows |
+|---|---|
+| `pairDealsIntoTrades` | groups a position's deals — the first opens it, the last closes it. Used by the sweep |
+| `mapClosedFromEvent` | the live event carries `deal` AND `position`; the position's `positionStatus` says CLOSED, or the deal's side is opposite the position's. The feed was reading only the deal and throwing the position away |
+| `mapClosedDeal` | kept, and now accepts the named status — a gateway that DOES send the detail gives the broker's own gross profit and swap |
+
+All three key a closed position on its **closing deal id**, so the live feed and the sweep produce
+the same `externalId` and `processIncomingTrades` de-duplicates: **the two routes cannot double-record.**
+
+**Three further defects found while fixing it, all on the same path:**
+* `mapClosedDeal` read the **deal's** side for direction. A closing deal is the OPPOSITE side of the
+  position, so every recorded trade would have been the inverse of the one actually taken.
+* `lots` was `filledVolume / 100`, which is **units**: a 1-lot forex trade recorded as 100,000 lots.
+  Now divided by the instrument's contract size (and gold's is 100 oz — see **B17**).
+* `mapClosedFromEvent` left `openTime` undefined although the position carries `tradeData.openTimestamp`.
+  **This one is load-bearing, not cosmetic.** `processIncomingTrades` journals a trade only when BOTH
+  times survive — `if (openTime && closeTime) autoJournalTrade(...)` — so even with the mapping fixed,
+  every live-recorded trade would have landed in `synced_trades` and **never reached the journal**,
+  which is precisely what he asked for. Asserted through the real `toDate` in the test.
+
+Money fields now scale by the broker's own `moneyDigits` rather than a hardcoded 100.
+
+**Proved by:** [`ctraderDeals.test.ts`](../server/services/brokerAdapters/ctraderDeals.test.ts) —
+42 checks against `__fixtures__ctrader_deals.json`, **six deals captured verbatim from the live
+account**, no hand-written values. His trade must come out at 1.16046 → 1.15983, 0.81 lots, −$51.03.
 
 ### D14 - ~~Trade sync died with "Invalid time value", and six other brokers silently dated trades to the year 58,633~~ FIXED 31 Aug 🔴
 **He sent a screenshot of the accounts page: both accounts showing "Issues syncing".** Two different

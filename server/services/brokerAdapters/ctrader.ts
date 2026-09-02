@@ -287,14 +287,175 @@ async function fetchDealsInRange(ws: WebSocket, acctId: number, from: number, to
  * callers can `.filter(Boolean)`. Used by both the history fetch and the live
  * execution-event feed so the two stay byte-for-byte consistent.
  */
-export function mapClosedDeal(d: any, symbolMap: Record<number, string>): RawBrokerTrade | null {
-  if (!d || d.dealStatus !== 2 || d.closePositionDetail == null) return null;
-  const close = d.closePositionDetail;
+/** FILLED, whichever way the gateway spells it.
+ *
+ * The protobuf enum is the integer 2; the JSON gateway serialises enum VALUES BY NAME, so the same
+ * deal arrives as `"FILLED"`. `mapClosedDeal` tested `!== 2` only, so every real deal failed the very
+ * first check and returned null — silently, because a null there means "an opening fill, ignore it".
+ * Verified against the live Pepperstone demo account on 2026-09-02: all 30 deals in a 14-day window
+ * carried `dealStatus: "FILLED"`, and NONE carried `closePositionDetail`.
+ */
+function isFilled(d: any): boolean {
+  const s = d?.dealStatus;
+  return s === 2 || s === '2' || String(s).toUpperCase() === 'FILLED';
+}
+
+/** Deals whose position is USD-quoted, so (close − entry) × units IS the P&L in account currency. */
+function usdQuoted(symbol: string): boolean {
+  return /USD$/i.test(symbol.replace(/[^A-Za-z]/g, ''));
+}
+
+/** Money fields are integers scaled by `moneyDigits`, which the broker states per record.
+ *
+ * It defaults to 2 — hundredths, the near-universal case — but it is stated for a reason and an
+ * account whose currency scales differently would have every commission and swap out by a factor of
+ * ten or a hundred if the divisor were hardcoded. `ProtoOADeal` and `ProtoOAPosition` both carry it.
+ */
+function money(raw: unknown, digits: unknown): number | undefined {
+  if (raw == null) return undefined;
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return undefined;
+  const d = Number(digits);
+  return n / Math.pow(10, Number.isFinite(d) && d >= 0 ? d : 2);
+}
+
+/** Units of the base asset in one lot.
+ *
+ * NOT A GUESS AND NOT UNIVERSAL: a currency lot is 100,000 units, a metals lot is 100 ounces. The
+ * broker states this per symbol (`ProtoOASymbol.lotSize`) but the symbol list this adapter fetches
+ * (`ProtoOALightSymbol`) does not carry it — the same gap that made autotrade size gold 1,000x too
+ * large. Only `lots` on the journal row depends on this here; prices, times and P&L do not.
+ */
+function lotUnits(symbol: string): number {
+  return /^(XAU|XAG|XPT|XPD)/i.test(symbol.replace(/[^A-Za-z]/g, '')) ? 100 : 100_000;
+}
+
+/**
+ * Pair a position's deals into ONE closed trade — the path that actually works on this gateway.
+ *
+ * WHY THIS EXISTS. `mapClosedDeal` needs `closePositionDetail` for the entry price, the gross profit
+ * and the swap. The broker does not send it here: 0 of 30 real deals carried it, including six that
+ * genuinely closed a position. So the only way to know a deal closed something is to look at the
+ * position's deals together — the first opens it, a later one on the opposite side closes it.
+ *
+ * Everything used below is a field VERIFIED present on the real payload: dealId, positionId,
+ * symbolId, tradeSide, filledVolume, executionPrice, executionTimestamp, dealStatus, commission.
+ *
+ * P&L IS ONLY COMPUTED WHEN IT CAN BE COMPUTED HONESTLY. `volume` is in cents of the base unit, so
+ * units = filledVolume / 100 and profit = (close − entry) × units in the QUOTE currency. That is the
+ * account currency only for a USD-quoted symbol. For anything else the trade is still recorded — with
+ * its prices, times and size — and the profit is left undefined rather than reported wrongly.
+ */
+export function pairDealsIntoTrades(deals: any[], symbolMap: Record<number, string>): RawBrokerTrade[] {
+  const byPosition = new Map<string, any[]>();
+  for (const d of deals ?? []) {
+    if (!isFilled(d) || d?.positionId == null) continue;
+    const k = String(d.positionId);
+    const list = byPosition.get(k);
+    if (list) list.push(d); else byPosition.set(k, [d]);
+  }
+  const out: RawBrokerTrade[] = [];
+  for (const [, group] of byPosition) {
+    if (group.length < 2) continue;                       // still open — nothing realised yet
+    group.sort((a, b) => Number(a.executionTimestamp ?? 0) - Number(b.executionTimestamp ?? 0));
+    const open = group[0];
+    const shut = group[group.length - 1];
+    const side = String(open.tradeSide ?? '').toUpperCase();
+    const long = side === 'BUY' || open.tradeSide === 1;
+    const symbol = symbolMap[open.symbolId] ?? String(open.symbolId);
+    const units = Number(shut.filledVolume ?? shut.volume ?? 0) / 100;
+    const entry = Number(open.executionPrice);
+    const exit  = Number(shut.executionPrice);
+    const comm  = (money(open.commission, open.moneyDigits) ?? 0)
+                + (money(shut.commission, shut.moneyDigits) ?? 0);
+    const profit = (Number.isFinite(entry) && Number.isFinite(exit) && units > 0 && usdQuoted(symbol))
+      ? Math.round(((long ? exit - entry : entry - exit) * units) * 100) / 100
+      : undefined;
+    out.push({
+      // KEYED ON THE CLOSING DEAL, so the de-duplication in processIncomingTrades still holds: one
+      // closed position produces exactly one externalId, stable across syncs.
+      externalId: String(shut.dealId),
+      symbol,
+      direction:  long ? 'Long' : 'Short',
+      lots:       units > 0 ? units / lotUnits(symbol) : undefined,
+      openPrice:  Number.isFinite(entry) ? entry : undefined,
+      closePrice: Number.isFinite(exit) ? exit : undefined,
+      openTime:   open.executionTimestamp ?? undefined,
+      closeTime:  shut.executionTimestamp ?? undefined,
+      profit,
+      commission: comm || undefined,
+      swap:       undefined,
+      comment:    shut.comment,
+    });
+  }
+  return out;
+}
+
+/**
+ * One LIVE execution event -> a closed trade, using the position the event already carries.
+ *
+ * `ProtoOAExecutionEvent` carries `deal` AND `position`; the realtime feed read only the deal and
+ * then required `closePositionDetail`, which this gateway does not send. So every live close mapped
+ * to null. The position gives what the missing detail would have: `price` is the entry, `swap` and
+ * `commission` are the position's own, and `positionStatus` says whether it is finished.
+ *
+ * CONSERVATIVE BY DESIGN: if the event does not clearly describe a CLOSE, this returns null and the
+ * 15-minute sync still catches the trade through `pairDealsIntoTrades`. Recording an opening fill as
+ * a closed trade would put a fictional row in his journal, which is worse than recording it late.
+ */
+export function mapClosedFromEvent(ev: any, symbolMap: Record<number, string>): RawBrokerTrade | null {
+  const d = ev?.deal, p = ev?.position;
+  if (!d || !p || !isFilled(d)) return null;
+  const status = String(p.positionStatus ?? '').toUpperCase();
+  const posSide = String(p.tradeData?.tradeSide ?? p.tradeSide ?? '').toUpperCase();
+  const dealSide = String(d.tradeSide ?? '').toUpperCase();
+  const closedByStatus = status.includes('CLOSED');
+  const closedBySide = !!posSide && !!dealSide && posSide !== dealSide;
+  if (!closedByStatus && !closedBySide) return null;          // an opening fill
+
+  const symbol = symbolMap[d.symbolId] ?? String(d.symbolId);
+  const long = posSide === 'BUY' || p.tradeData?.tradeSide === 1;
+  const units = Number(d.filledVolume ?? d.volume ?? 0) / 100;
+  const entry = Number(p.price);
+  const exit = Number(d.executionPrice);
+  const profit = (Number.isFinite(entry) && Number.isFinite(exit) && units > 0 && usdQuoted(symbol))
+    ? Math.round(((long ? exit - entry : entry - exit) * units) * 100) / 100
+    : undefined;
   return {
     externalId: String(d.dealId),
-    symbol:     symbolMap[d.symbolId] ?? String(d.symbolId),
-    direction:  d.tradeSide === 1 ? 'Long' : 'Short',
-    lots:       d.filledVolume        ? d.filledVolume / 100           : undefined,
+    symbol,
+    direction: long ? 'Long' : 'Short',
+    lots: units > 0 ? units / lotUnits(symbol) : undefined,
+    openPrice: Number.isFinite(entry) ? entry : undefined,
+    closePrice: Number.isFinite(exit) ? exit : undefined,
+    // THE POSITION KNOWS WHEN IT OPENED — `tradeData.openTimestamp`. This was left undefined, which
+    // gave the journal a trade with a close and no open, so every duration and every "held for" on
+    // the live-recorded rows was blank while the synced ones had it.
+    openTime: p.tradeData?.openTimestamp ?? undefined,
+    closeTime: d.executionTimestamp ?? undefined,
+    profit,
+    commission: money(p.commission, p.moneyDigits),
+    swap: money(p.swap, p.moneyDigits),
+    comment: d.comment ?? p.tradeData?.comment,
+  };
+}
+
+export function mapClosedDeal(d: any, symbolMap: Record<number, string>): RawBrokerTrade | null {
+  if (!d || !isFilled(d) || d.closePositionDetail == null) return null;
+  const close = d.closePositionDetail;
+  const symbol = symbolMap[d.symbolId] ?? String(d.symbolId);
+  // THE CLOSING DEAL IS THE OPPOSITE SIDE OF THE POSITION, so a deal that SELLS to close was a LONG.
+  // Reading the deal's own side made every recorded direction the inverse of the trade actually
+  // taken. `tradeSide` also arrives by NAME on this gateway, so the `=== 1` test alone matched
+  // nothing and everything came out 'Short'.
+  const soldToClose = String(d.tradeSide ?? '').toUpperCase() === 'SELL' || d.tradeSide === 2;
+  return {
+    externalId: String(d.dealId),
+    symbol,
+    direction:  soldToClose ? 'Long' : 'Short',
+    // UNITS -> LOTS, using the instrument's own contract size. This divided by 100 and called the
+    // result lots, which is units: a 1-lot forex trade was recorded as 100,000 lots.
+    lots:       d.filledVolume ? (d.filledVolume / 100) / lotUnits(symbol) : undefined,
     openPrice:  close?.entryPrice     != null ? close.entryPrice       : undefined,
     closePrice: d.executionPrice      != null ? d.executionPrice       : undefined,
     // THE BROKER'S OWN MILLISECONDS, passed through untouched. This used to divide by 1000 and
@@ -304,9 +465,9 @@ export function mapClosedDeal(d: any, symbolMap: Record<number, string>): RawBro
     // two halves disagreed; the adapter now reports what the broker said and `toDate` owns the unit.
     openTime:   close?.entryTimestamp ?? undefined,
     closeTime:  d.executionTimestamp  ?? undefined,
-    profit:     close?.grossProfit    != null ? close.grossProfit / 100 : undefined,
-    commission: d.commission          != null ? d.commission / 100      : undefined,
-    swap:       close?.swap           != null ? close.swap / 100        : undefined,
+    profit:     money(close?.grossProfit, d.moneyDigits),
+    commission: money(d.commission, d.moneyDigits),
+    swap:       money(close?.swap, d.moneyDigits),
     comment:    d.comment,
   };
 }
@@ -357,9 +518,31 @@ export async function fetchCTraderTrades(
       allDeals.push(...await fetchDealsInRange(ws, acctId, from, to));
     }
 
-    return allDeals
-      .map((d: any) => mapClosedDeal(d, symbolMap))
-      .filter((t): t is RawBrokerTrade => t !== null);
+    // TWO PATHS, AND THE SECOND IS THE ONE THAT WORKS ON THIS GATEWAY.
+    //
+    // `mapClosedDeal` needs `closePositionDetail`. Verified against the live demo account on
+    // 2026-09-02: NONE of 30 real deals carried it, including six that genuinely closed a position.
+    // So this used to map every deal to null and return an EMPTY LIST on every sync — which is
+    // exactly why autotrade's trades never reached the journal. It is kept first because a gateway
+    // that DOES send the field gives richer data (real gross profit and swap) than pairing can.
+    // BOTH PATHS RUN AND THE RESULTS ARE MERGED, never one-or-the-other. A first draft returned the
+    // detailed list whenever it was non-empty, which would silently DROP every paired trade the
+    // moment a single deal happened to carry the field — a mixed response is the case that loses
+    // data, and it is the case an either/or cannot see.
+    const byId = new Map<string, RawBrokerTrade>();
+    for (const t of pairDealsIntoTrades(allDeals, symbolMap)) byId.set(t.externalId, t);
+    // Detailed LAST so it wins on a collision: both key on the closing dealId, and the broker's own
+    // gross profit and swap beat anything derived from two execution prices.
+    for (const d of allDeals) {
+      const t = mapClosedDeal(d, symbolMap);
+      if (t) byId.set(t.externalId, t);
+    }
+    const out = [...byId.values()];
+    if (allDeals.length && !out.length) {
+      console.warn(`[cTrader] ${allDeals.length} deals fetched but none resolved to a closed trade ` +
+                   `— every position may still be open`);
+    }
+    return out;
   } finally {
     ws.close();
     lease.release();

@@ -72,7 +72,7 @@ async def place_for_signal(signal, creds: dict, account_type: str, equity: float
 
         from execution.broker import StopOrderClient  # noqa: local import keeps ctrader deps lazy
         res = await StopOrderClient(creds, account_type).place_stop(
-            symbol=symbol, side=side, volume=volume,
+            symbol=symbol, side=side, volume=volume, lots=lots,
             stop_price=entry, sl=sl, tp=tp, expiry_ms=expiry_ms)
 
         if not res.ok:
