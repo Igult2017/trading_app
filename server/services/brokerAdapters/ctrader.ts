@@ -540,6 +540,25 @@ export async function fetchCTraderTrades(
     // detailed list whenever it was non-empty, which would silently DROP every paired trade the
     // moment a single deal happened to carry the field — a mixed response is the case that loses
     // data, and it is the case an either/or cannot see.
+    // WHAT THE GATEWAY ACTUALLY SENT. Verified against the hosted cTrader MCP on 02 Sep, the two
+    // deals of position 239821023 both carry `positionId` and `executionTimestamp` — so pairing
+    // should group them and take the open time from the earlier one. Production nonetheless reported
+    // `openTime=null` for that exact trade. The two services are different (this is the Open API WS
+    // gateway; the MCP is its own service) and may not name or send the same fields, so this prints
+    // what THIS path received rather than what the other one proves is available.
+    if (allDeals.length) {
+      const groups = new Map<string, number>();
+      for (const d of allDeals) {
+        const k = String(d?.positionId ?? 'none');
+        groups.set(k, (groups.get(k) ?? 0) + 1);
+      }
+      console.log(`[cTrader] ${allDeals.length} deal(s); fields on the first: `
+                  + `${Object.keys(allDeals[0] ?? {}).sort().join(',')}`);
+      console.log(`[cTrader] deals per position: `
+                  + `${[...groups].map(([k, n]) => `${k}:${n}`).join(' ')} `
+                  + `(a position needs 2 for the open time to be paired in)`);
+    }
+
     const byId = new Map<string, RawBrokerTrade>();
     for (const t of pairDealsIntoTrades(allDeals, symbolMap)) byId.set(t.externalId, t);
     // Detailed LAST so it wins on a collision: both key on the closing dealId, and the broker's own
