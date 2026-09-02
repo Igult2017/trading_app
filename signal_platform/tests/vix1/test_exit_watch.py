@@ -29,8 +29,31 @@ class P:
         self.bullish, self.entry, self.stop = bullish, entry, stop
 
 
-def fresh():
+# NO BROKER IN A TEST. `exit_watch` asks `closing_deal` how the trade really ended; here that is
+# stubbed, both to keep the suite offline and so each case can choose what the broker "said".
+from data import ctrader_positions as _cp
+
+
+class Deal:
+    def __init__(self, exit_price, profit=None, pid=0, closed_at=0):
+        self.exit_price, self.profit = exit_price, profit
+        self.position_id, self.closed_at = pid, closed_at
+
+
+_deal = None
+
+
+async def _stub_closing_deal(pid, lookback_hours=48):
+    return _deal
+
+
+_cp.closing_deal = _stub_closing_deal
+
+
+def fresh(deal=None):
     """A clean module — the snapshot map and the delivery ledger both persist otherwise."""
+    global _deal
+    _deal = deal
     exit_watch._seen.clear()
     from core import delivery_ledger
     delivery_ledger.is_delivered = lambda k: False
@@ -142,5 +165,40 @@ asyncio.run(exit_watch.announce_closed(None, send))
 s.teeth("a None read really would have announced, if it were treated as empty", len(sent) == 0)
 asyncio.run(exit_watch.announce_closed([], send))
 s.teeth("...and the announcement path does work", len(sent) == 1)
+
+
+# ── WHAT ACTUALLY CLOSED IT — his ask: "a message when SL is hit" ───────────
+# A SELL entered at 1.34980 with its stop trailed to 1.34210, closing AT the stop.
+fresh(Deal(exit_price=1.34210, profit=57.75)); sent.clear()
+exit_watch.observe([P(60, bullish=False, entry=1.34980, stop=1.34210)], {60: 2.5})
+asyncio.run(exit_watch.announce_closed([], send))
+s.check("it says the STOP was hit", "Your stop was hit" in sent[0], True)
+s.check("...with the real exit price", "1.34210" in sent[0], True)
+s.check("...and the money actually realised", "+57.75" in sent[0], True)
+
+# Closing far from the stop is NOT a stop-out — the target, or closed by hand.
+fresh(Deal(exit_price=1.33500)); sent.clear()
+exit_watch.observe([P(61, bullish=False, entry=1.34980, stop=1.34210)], {61: 4.0})
+asyncio.run(exit_watch.announce_closed([], send))
+s.check("closing away from the stop is not called a stop-out",
+        "Your stop was hit" in sent[0], False)
+s.check("...and it says so plainly", "away from your stop" in sent[0], True)
+
+# A stop FILLS THROUGH its level, never exactly on it. A tick past must still read as the stop.
+fresh(Deal(exit_price=1.34215)); sent.clear()
+exit_watch.observe([P(62, bullish=False, entry=1.34980, stop=1.34210)], {62: 2.5})
+asyncio.run(exit_watch.announce_closed([], send))
+s.check("a fill a tick through the stop still reads as the stop",
+        "Your stop was hit" in sent[0], True)
+
+# AND WHEN THE BROKER CANNOT BE READ, it still tells him he is out — the older wording.
+fresh(None); sent.clear()
+exit_watch.observe([P(63, bullish=False, entry=1.34980, stop=1.34210)], {63: 2.5})
+asyncio.run(exit_watch.announce_closed([], send))
+s.check("a failed deal read still announces the exit", len(sent), 1)
+s.check("...falling back to the stop it was carrying", "1.34210" in sent[0], True)
+s.check("...and claiming no fill price", "not a confirmed fill price" in sent[0], True)
+
+s.teeth("the stop-hit test can fail", "Your stop was hit" not in sent[0])
 
 s.done()

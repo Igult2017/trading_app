@@ -17,11 +17,14 @@ to breakeven, then +1R, then trails it — and every one of those exits happens 
 original levels never see. Stopped out at breakeven: silence. Stopped out at +2.4R: silence. The
 signal then sits "triggered" until it expires 24 hours later.
 
-WHAT THIS CAN HONESTLY SAY. The position is gone, so its exit PRICE is not in the open-position feed.
-This reports the stop it was CARRYING when last seen, and says so in those words — it never claims a
-fill price it does not have. Reading the real closing deal (`ProtoOADealListReq`) would give the
-exact exit and is written up as its own task; the Node side already records the closed trade to the
-journal with the true numbers.
+WHAT IT SAYS, AND HOW IT KNOWS. `ctrader_positions.closing_deal` reads the deal that actually closed
+the position, so this can tell him **whether his stop was hit** — his instruction, 2026-09-02: *"we
+should get a message when a trade is placed and when SL is hit"*. It reports the real exit price, the
+realised R and the realised money.
+
+WHEN THAT READ FAILS it falls back to describing the stop the position was CARRYING when last seen,
+and says so in those words — it never claims a fill price it does not have. A vaguer message that is
+true beats a precise one that is invented.
 
 NEVER FROM A FAILED READ. `ctrader_positions.open_positions()` returns None for "I could not find
 out" and [] for "you have nothing open" — a distinction `position_tracker` already turns on. An exit
@@ -86,11 +89,38 @@ def observe(positions, r_by_id: dict[int, float] | None = None) -> None:
             log.warning(f"[exit_watch] could not record a position: {type(exc).__name__}: {exc}")
 
 
-def _message(pid: int, s: _Seen) -> str:
-    """What to tell him. Plain about what is known and what is inferred."""
+def _message(pid: int, s: _Seen, deal=None) -> str:
+    """What to tell him. Plain about what is known and what is inferred.
+
+    WITH `deal` — the real closing deal read back from the broker — this can say WHY the trade ended,
+    which is what he asked for: *"we should get a message when a trade is placed and when SL is
+    hit"*. Without it (the read failed) it falls back to describing the stop the position was
+    carrying, which is still true and still tells him he is out.
+    """
     d = price_digits(s.symbol)
     side = "BUY" if s.bullish else "SELL"
     risk = abs(s.entry - s.stop) if s.stop is not None else 0.0
+
+    if deal is not None:
+        exit_px = deal.exit_price
+        # WAS IT THE STOP? Compared against the stop the position was carrying, with a tolerance of
+        # a tenth of the CURRENT stop distance — a stop fills at or through its level, never exactly
+        # on it, and a fixed pip tolerance would be wrong on gold and wrong again on EUR/USD.
+        tol = max(risk * 0.10, 10 ** -d)
+        hit_stop = s.stop is not None and abs(exit_px - s.stop) <= tol
+        moved = (exit_px - s.entry) if s.bullish else (s.entry - exit_px)
+        # R is measured against the risk the trade STARTED with, which after a stop move we no
+        # longer hold — so it is only quoted when the stop never moved.
+        realised = f" ({moved / risk:+.1f}R)" if risk > 0 else ""
+        why = ("<b>Your stop was hit.</b>" if hit_stop else
+               "It closed away from your stop — the target, or closed by hand.")
+        money = f"\nRealised: <b>{deal.profit:+,.2f}</b>." if deal.profit is not None else ""
+        peak = (f"\nBest it reached while open: <b>{s.peak_r:+.1f}R</b>."
+                if s.peak_r is not None else "")
+        return (titles.header(titles.POSITION_CLOSED, titles.TRADE_MANAGEMENT, s.symbol, side,
+                              extra=f"#{pid}") + "\n\n"
+                f"{why}\nClosed at <code>{exit_px:.{d}f}</code> from an entry of "
+                f"<code>{s.entry:.{d}f}</code>{realised}.{money}{peak}")
 
     if s.stop is None:
         where = "It had no stop set, so there is no R to report."
@@ -133,7 +163,15 @@ async def announce_closed(positions, send) -> None:
             k = _key(pid)
             if delivery_ledger.is_delivered(k):
                 continue
-            if await send(_message(pid, s)):
+            # ASK THE BROKER HOW IT ACTUALLY ENDED. None falls back to the stop-based wording
+            # below, so a failed read still tells him he is out.
+            deal = None
+            try:
+                from data import ctrader_positions
+                deal = await ctrader_positions.closing_deal(pid)
+            except Exception:
+                pass
+            if await send(_message(pid, s, deal)):
                 delivery_ledger.mark_delivered(k)
                 log.info(f"[exit_watch] {s.symbol} #{pid} closed — announced "
                          f"(stop {s.stop}, peak {s.peak_r})")

@@ -181,10 +181,18 @@ s.check("...at 2.9R, not at 2.0R", _jump[0].lock_r, 2.9)
 s.check("no trailing step undercuts the 1R rung",
         all(x.lock_r is None or x.lock_r >= 1.0 for x in rungs.reached(_LAD, 2.1, _TR)), True)
 
-# QUIET STEPS STILL MOVE THE STOP. Only the message is suppressed, and only off the half-R.
-s.check("2.1R -> lock 2.0R is announced", [x.quiet for x in rungs.reached(_LAD, 2.1, _TR)][-1], False)
+# EVERY LOCK IS SILENT; ONLY BREAKEVEN AND THE EXIT SPEAK. His rule, 2026-09-02: "Locking Rs should
+# only be announced when we move to breakeven and when we are out of the market... We dont need to
+# get all the messages like 1R locked in the DM." The stop still MOVES on every one of these — see
+# `test_position_tracker` for the rule that a lock is only marked done once the broker confirms it.
+s.check("breakeven SPEAKS", rungs.reached(_LAD, 0.4, _TR)[-1].quiet, False)
+s.check("lock +1R is silent",             [x.quiet for x in rungs.reached(_LAD, 2.0, _TR)][-1], True)
+s.check("2.1R -> lock 2.0R is silent",    [x.quiet for x in rungs.reached(_LAD, 2.1, _TR)][-1], True)
 s.check("2.2R -> lock 2.1R is silent",    [x.quiet for x in rungs.reached(_LAD, 2.2, _TR)][-1], True)
-s.check("2.6R -> lock 2.5R is announced", [x.quiet for x in rungs.reached(_LAD, 2.6, _TR)][-1], False)
+s.check("2.6R -> lock 2.5R is silent",    [x.quiet for x in rungs.reached(_LAD, 2.6, _TR)][-1], True)
+s.check("...and so is every step up to 6R",
+        all(x.quiet for r in (3.0, 4.0, 5.0, 6.0)
+            for x in rungs.reached(_LAD, r, _TR) if x.lock_r is not None), True)
 s.check("a silent step still carries a stop price",
         rungs.stop_price_for(rungs.reached(_LAD, 2.2, _TR)[-1], 1.0, 0.001, True) is not None, True)
 

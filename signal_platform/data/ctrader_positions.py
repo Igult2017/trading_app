@@ -29,7 +29,7 @@ import logging
 from dataclasses import dataclass
 
 from ctrader_open_api.messages.OpenApiMessages_pb2 import (
-    ProtoOAReconcileReq, ProtoOAReconcileRes,
+    ProtoOADealListReq, ProtoOADealListRes, ProtoOAReconcileReq, ProtoOAReconcileRes,
 )
 
 from data import ctrader_session as _sess
@@ -39,6 +39,7 @@ log = logging.getLogger(__name__)
 
 _DIVISOR = 100_000.0
 _TYPE_RECONCILE_RES = ProtoOAReconcileRes().payloadType
+_TYPE_DEAL_LIST_RES = ProtoOADealListRes().payloadType
 
 
 @dataclass(frozen=True)
@@ -142,4 +143,71 @@ async def open_positions() -> list[Position] | None:
         return out
     except Exception as exc:
         log.warning(f"[ctrader_positions] read failed: {type(exc).__name__}: {exc}")
+        return None
+
+
+@dataclass(frozen=True)
+class ClosingDeal:
+    """How a position actually ended — read from the broker, not inferred from its last stop."""
+    position_id: int
+    exit_price:  float
+    profit:      float | None      # in the account currency, scaled by the deal's own moneyDigits
+    closed_at:   int               # broker epoch milliseconds
+
+
+async def closing_deal(position_id: int, lookback_hours: int = 48) -> ClosingDeal | None:
+    """The deal that CLOSED this position, or None if it cannot be read.
+
+    WHY THIS EXISTS. `open_positions` cannot answer "was my stop hit?" — a closed position is simply
+    absent from it, and its exit price is nowhere in that feed. His instruction, 2026-09-02: *"we
+    should get a message when a trade is placed and when SL is hit"*. Saying "stop hit" honestly
+    needs the price it actually closed at, and that only exists on the deal.
+
+    RETURNS None RATHER THAN GUESSING. The caller (`monitor/exit_watch`) falls back to describing
+    the stop the position was carrying, which is still true and still tells him he is out. An exit
+    reported with an invented price would be worse than a vaguer one.
+
+    `closePositionDetail` IS NOT RELIED ON. Measured against this broker on 2026-09-02, 0 of 30 real
+    deals carried it — the same finding that had stopped every cTrader trade reaching the journal.
+    The closing deal is identified by its positionId and the fact that it is the LAST one for that
+    position, which is data the gateway does send.
+    """
+    import time
+    try:
+        now_ms = int(time.time() * 1000)
+        async with _req_lock:
+            reader, writer = await _sess.get_connection()
+            req = ProtoOADealListReq(
+                ctidTraderAccountId=_sess._account_id,
+                fromTimestamp=now_ms - lookback_hours * 3600 * 1000,
+                toTimestamp=now_ms,
+                maxRows=500,
+            )
+            await _sess.send(writer, req.payloadType, req.SerializeToString())
+            # recv_expect, never a bare recv — the same shared-socket rule `open_positions` records.
+            resp = await asyncio.wait_for(
+                _sess.recv_expect(reader, _TYPE_DEAL_LIST_RES), timeout=15)
+        if resp.payloadType != _TYPE_DEAL_LIST_RES:
+            return None
+        res = ProtoOADealListRes()
+        res.ParseFromString(resp.payload)
+        mine = [d for d in res.deal if int(getattr(d, "positionId", 0) or 0) == int(position_id)]
+        if len(mine) < 2:
+            return None                     # only the opening deal — it has not actually closed
+        last = max(mine, key=lambda d: int(getattr(d, "executionTimestamp", 0) or 0))
+        px = float(getattr(last, "executionPrice", 0) or 0)
+        if px <= 0:
+            return None
+        money = 10.0 ** (int(getattr(last, "moneyDigits", 2) or 2))
+        detail = getattr(last, "closePositionDetail", None)
+        gross = getattr(detail, "grossProfit", None) if detail is not None else None
+        return ClosingDeal(
+            position_id=int(position_id),
+            exit_price=px,
+            profit=(float(gross) / money) if gross not in (None, 0) else None,
+            closed_at=int(getattr(last, "executionTimestamp", 0) or 0),
+        )
+    except Exception as exc:
+        log.warning(f"[ctrader_positions] could not read the closing deal for {position_id}: "
+                    f"{type(exc).__name__}: {exc}")
         return None

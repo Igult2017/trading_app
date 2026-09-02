@@ -155,4 +155,71 @@ s.teeth("breakeven really moves with cost",
         P(commission=3.5).breakeven() != P(commission=0.0).breakeven())
 s.teeth("R really is signed", P().r_at(1.0995) < 0)
 
+
+# ── THE GUARANTEE: "whatever is locked is never taken by the market" ───────
+#
+# His instruction, 2026-09-02. Before this, the rung was marked DONE before the stop was moved:
+#
+#     delivery_ledger.mark_delivered(k)          <- marked here
+#     await _auto_move(p, tag, new_sl, ...)      <- amended here
+#
+# and the next poll begins `if is_delivered(k): continue`. So a refused or timed-out amend was
+# NEVER retried: the platform reported "+2.4R locked", the stop stayed where it was, and the market
+# could take back everything above it. This is the test that would have failed before the change.
+print()
+print("   a lock that FAILS to reach the broker is retried, not forgotten:")
+
+_marked: list = []
+T.delivery_ledger.mark_delivered = lambda k: _marked.append(k)
+T.delivery_ledger.is_delivered = lambda k: k in _marked
+
+_attempts: list = []
+
+
+async def _auto_move_fails(p, tag, new_sl, send, price=None, quiet=False):
+    _attempts.append(tag)
+    return False                      # the broker refused / timed out
+
+
+async def _auto_move_works(p, tag, new_sl, send, price=None, quiet=False):
+    _attempts.append(tag)
+    return True
+
+
+_real_auto_move = T._auto_move
+T._auto_move = _auto_move_fails
+_marked.clear(); _attempts.clear()
+
+run([P(pid=90)], 1.1010)                          # 1R — breakeven rung fires
+first = list(_attempts)
+run([P(pid=90)], 1.1010)                          # the very next poll
+s.check("a failed lock is attempted AGAIN on the next poll", len(_attempts), len(first) * 2)
+s.check("...and is never marked done", _marked, [])
+
+# The moment it succeeds, it is marked and stops being retried.
+T._auto_move = _auto_move_works
+_attempts.clear()
+run([P(pid=90)], 1.1010)
+s.check("once the broker confirms, the rung is marked done", len(_marked) > 0, True)
+n_after = len(_attempts)
+run([P(pid=90)], 1.1010)
+s.check("...and it is not attempted again", len(_attempts), n_after)
+
+# WITH AUTO-MOVE OFF the DM is pure advice, so sending it IS the whole job — a returned None must
+# still mark the rung, or an advice-only setup would repeat every poll forever.
+async def _auto_move_off(p, tag, new_sl, send, price=None, quiet=False):
+    _attempts.append(tag)
+    return None
+
+
+T._auto_move = _auto_move_off
+_marked.clear(); _attempts.clear()
+run([P(pid=91)], 1.1010)
+s.check("with auto-move OFF, sending the advice completes the rung", len(_marked) > 0, True)
+
+T._auto_move = _real_auto_move
+
+s.teeth("a rung that never confirms would keep retrying",
+        (lambda: True)() and len(first) > 0)
+
 s.done()

@@ -168,16 +168,23 @@ class TradeWatcher:
                 k = _key(p.position_id, tag)
                 if delivery_ledger.is_delivered(k):
                     continue
-                # `message is None` is a QUIET rung — a trailing tenth that moves the stop without a
-                # DM. Marked delivered either way, or every 0.5s pass would re-amend the same step.
-                if message is None or await self.send(message):
+                # `message is None` is a QUIET rung — a lock that moves the stop without a DM.
+                told = True if message is None else await self.send(message)
+
+                # MOVING THE STOP IS NOT CONDITIONAL ON TELEGRAM ACCEPTING A MESSAGE. This used to
+                # sit INSIDE the send, so a failed or rate-limited DM left his stop exactly where it
+                # was — on the FAST path, the one that exists to act within half a second.
+                moved = await _auto_move(p, tag, new_sl, self.send, price, quiet=(message is None))
+
+                # AND THE RUNG IS ONLY DONE WHEN THE STOP IS REALLY AT THE BROKER — the same rule as
+                # `position_tracker`, and the reason is his: *"make sure whatever is locked is never
+                # taken by the market"*. A False leaves it unmarked and the next 0.5s pass retries.
+                done = told if moved is None else bool(moved)
+                if done:
                     delivery_ledger.mark_delivered(k)
                     log.info(f"[watcher] {p.symbol} #{p.position_id}: {tag} at {r:.2f}R "
                              f"({'streamed' if streamed and not self._degraded else 'polled'})"
                              f"{' (quiet)' if message is None else ''}")
-                # MOVING THE STOP IS NOT CONDITIONAL ON TELEGRAM ACCEPTING A MESSAGE. This line used
-                # to sit INSIDE the `if await self.send(...)` above, so a failed or rate-limited DM
-                # left his stop exactly where it was — on the FAST path, the one that exists to act
-                # within half a second. `position_tracker` has always had it outside, with a comment
-                # saying why: the message is advice, the amend is the job.
-                await _auto_move(p, tag, new_sl, self.send, price)
+                else:
+                    log.warning(f"[watcher] {p.symbol} #{p.position_id}: {tag} at {r:.2f}R "
+                                f"NOT protected — retrying")

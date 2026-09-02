@@ -249,6 +249,64 @@ red self-test that everyone steps around is how a real regression gets missed: t
 break something here will see two failures and assume they are the usual two.
 
 
+### B20 - ~~A locked R could be given back: a failed stop move was never retried~~ FIXED 02 Sep 🔴
+**His instruction, 02 Sep:** *"make sure whatever is locked is never taken by the market."* It could
+be, and this is how.
+
+The rung was marked as done **before** the stop was moved:
+
+```
+position_tracker.py   delivery_ledger.mark_delivered(k)     <- marked here
+position_tracker.py   await _auto_move(p, tag, new_sl, ...)  <- amended here
+```
+
+and the next poll starts `if delivery_ledger.is_delivered(k): continue`.
+[`breakeven.move_stop_to`](../signal_platform/execution/breakeven.py#L106) has three failure
+returns — *"broker refused the amend"*, *"amend failed"*, and a blocked guard. **None was ever
+retried.** The rung was already ticked off.
+
+**The sequence that loses money:** price reaches 2.5R → the "lock 2.4R" rung fires and is marked
+done → the amend fails → the stop is still at breakeven and nothing will try again → price reverses
+→ he is stopped at breakeven having been told +2.4R was protected.
+
+**FIXED:** `_auto_move` now returns whether the stop is **at or beyond** the target, and the rung is
+marked done only on that. A failure leaves it unmarked, so the next pass retries — every 0.5 s on the
+fast watcher, 30 s on the safety net. `move_stop_to` is ratchet-only so a retry can never lower a
+stop, and *"already at or beyond"* counts as success rather than a repeat amend. Three failures in a
+row escalate to one loud DM naming the level and the broker's reason.
+
+**Why it had to be built WITH B21:** today a failed lock at least produced a "STOP NOT MOVED" DM.
+Once the lock messages go quiet (B21), that failure would have been completely silent.
+
+**Proved by** `test_position_tracker.py` — a stubbed failing amend is attempted twice across two
+polls and never marked done; once it confirms, it is marked and not attempted again.
+
+### B21 - Only breakeven and the exit are announced. DONE 02 Sep
+**His instruction, 02 Sep:** *"Locking Rs should only be announced when we move to breakeven and when
+we are out of the market... We dont need to get all the messages like 1R locked in the DM."*
+
+Every locking rung is now `quiet=True` — the fixed +1R and every trailing tenth. The DM carries four
+things and nothing else:
+
+| | event | where |
+|---|---|---|
+| a trade is **placed** | `placer.placement_message` — **already existed**, and fired in production at 07:28:51 on 02 Sep (`could not send the autotrade DM` appears 0 times in 6.8 h of log, so it was delivered) |
+| the stop moves to **breakeven** | `position_tracker._lines` |
+| the **stop is hit** | `exit_watch`, from the real closing deal |
+| we are **out** | `exit_watch` |
+
+**QUIET IS ABOUT ROUTINE SUCCESS, NEVER ABOUT FAILURE.** `_auto_move` still speaks — loudly — on any
+outcome where the stop did NOT reach the broker, however quiet the rung. That pairing is what makes
+B20 safe.
+
+**And the exit now says WHY.** `ctrader_positions.closing_deal` reads the deal that actually closed
+the position (`ProtoOADealListReq`, matched on positionId), so the message can say *"Your stop was
+hit"* with the real exit price and the realised money, instead of describing the stop the position
+happened to be carrying. A stop fills THROUGH its level, never exactly on it, so the comparison uses
+a tenth of the stop distance rather than a fixed pip count — which would be wrong on gold and wrong
+again on EUR/USD. **If that read fails it falls back to the old wording**, so a broker hiccup still
+tells him he is out.
+
 ### B18 - ~~Autotrade never said when a trade was over~~ FIXED 02 Sep 🔴
 **His report, 02 Sep:** *"It doesnt even communicate. When SL is hit it should say, when we lock 1R
 and later it is hit and we are out it should say... When we are out it should announce because like
@@ -1554,6 +1612,28 @@ rows migrated — a separate task with its own risk.
 
 **Also fixed on the way past:** `og:image` was the data URI, which no social crawler can fetch, so
 the blog has never had a working share preview. It is now an absolute URL to the image endpoint.
+
+### D27b - The copy provider's execution-event handler is still unguarded
+**Noted 02 Sep while reading production logs. NOT fixed here.**
+
+D28 fixed the `_client` typo and guarded `_on_message` and the reconcile loop. **A third call site
+was not guarded:** `copy_platform/providers/ctrader.py` `_handle_execution` calls `self._snap(pos)`
+directly, and it runs as a detached task (`asyncio.ensure_future`), so an exception in it is never
+retrieved by anything.
+
+Today's log shows exactly that at 07:28:51:
+
+```
+[asyncio] ERROR  Task exception was never retrieved
+future: <Task finished coro=<CTraderProvider._handle_execution()>
+        exception=AttributeError("'CTraderProvider' object has no attribute '_client'")>
+```
+
+The typo behind that particular failure is fixed, so it will not recur — but the **shape** remains:
+a fault reading one position on the live-event path is silently swallowed by the event loop, and
+that position's copy event is lost with no trace beyond an asyncio warning. Same guard as the
+reconcile loop needs applying. **Copy trading, not autotrade**, so it is written up rather than
+bundled into an autotrade change.
 
 ### D26 - `brokerSyncService.ts` is 330 lines and now holds two jobs
 **Noted 02 Sep, deliberately NOT split.** It was already 234 lines (over the 200 limit) and D23 took

@@ -166,8 +166,29 @@ def _lines(p, r: float, price: float, strategy: str | None = None) -> list[tuple
     return out
 
 
-async def _auto_move(p, tag: str, new_sl: float | None, send, price: float | None = None) -> None:
-    """Move the stop for real, when the switch says so. Reports what it did, every rung.
+# How many times a lock may quietly fail before he is told out loud. A retry is cheap and usually
+# succeeds on the next pass; three in a row means something is actually wrong.
+_ESCALATE_AFTER = 3
+# position_id + tag -> how many times the amend has failed. In memory: after a restart the count
+# resets, which only costs a later escalation and never a missed retry.
+_fails: dict[str, int] = {}
+
+
+async def _auto_move(p, tag: str, new_sl: float | None, send, price: float | None = None,
+                     quiet: bool = False) -> bool | None:
+    """Move the stop for real, when the switch says so.
+
+    RETURNS whether the stop is now AT OR BEYOND the target — True = protected, False = it is not,
+    None = the switch is off so there is nothing to confirm. **The caller uses this to decide
+    whether the rung is finished.** Before 2026-09-02 this returned nothing and the caller marked
+    the rung done BEFORE calling here, so a refused or timed-out amend was never retried: the
+    platform said "+2.4R locked", the stop stayed where it was, and the market could take back
+    everything above it. His instruction — *"make sure whatever is locked is never taken by the
+    market"* — is this return value.
+
+    `quiet` SUPPRESSES THE ROUTINE SUCCESS MESSAGE ONLY. He asked for no "+1R locked" DMs. A FAILURE
+    is always reported, however quiet the rung: a silent lock that did not happen is the exact thing
+    this change exists to prevent.
 
     ONE PATH FOR THE WHOLE LADDER. Breakeven and each lock differ only in the price they aim at;
     every guard lives in `execution.breakeven.move_stop_to` and applies identically. A separate
@@ -179,28 +200,56 @@ async def _auto_move(p, tag: str, new_sl: float | None, send, price: float | Non
     """
     from config.settings import settings as _s
     if not _s.auto_breakeven_enabled:
-        return
+        return None
+    k = f"{p.position_id}:{tag}"
     try:
         from execution.account import load_account
         from execution import breakeven
         acct = await load_account()
         if acct is None:
             log.warning("[position_tracker] auto-move ON but no usable account")
-            return
+            return False
         label = "breakeven, net of costs" if tag == "breakeven" else tag.replace("_", " ")
         # THE LIVE PRICE GOES WITH IT. A stop on the wrong side of the market is a market close, not
         # a stop — proved on a real demo position, 2026-08-21. The tracker already has the price it
         # measured R from, so the guard costs nothing.
         out = await breakeven.move_stop_to(p, new_sl if tag != "breakeven" else None,
                                            label, acct.creds, acct.account_type, price)
+        # THE STOP BEING ALREADY THERE IS SUCCESS, NOT FAILURE. `move_stop_to` is ratchet-only and
+        # returns moved=False with "already at or beyond" when there is nothing to do; treating that
+        # as a failure would retry it for ever.
+        settled = bool(out.moved) or "already at or beyond" in (out.message or "")
+        if settled:
+            _fails.pop(k, None)
+        else:
+            _fails[k] = _fails.get(k, 0) + 1
+
         kind = (titles.TAKE_PROFIT_MISSING if out.alarm
                 else titles.STOP_MOVED if out.moved else titles.STOP_NOT_MOVED)
-        await send(titles.header(kind, titles.TRADE_MANAGEMENT, p.symbol,
-                                 "BUY" if p.bullish else "SELL",
-                                 extra=f"#{p.position_id}") + f"\n\n{out.message}")
+        # Say nothing when a quiet rung simply worked. Everything else speaks.
+        if not (quiet and settled and not out.alarm):
+            await send(titles.header(kind, titles.TRADE_MANAGEMENT, p.symbol,
+                                     "BUY" if p.bullish else "SELL",
+                                     extra=f"#{p.position_id}") + f"\n\n{out.message}")
+
+        # THREE FAILURES IN A ROW AND HE IS TOLD PLAINLY, once. Retrying quietly for ever would be
+        # its own kind of silence, which is what he asked me to design out.
+        if _fails.get(k, 0) == _ESCALATE_AFTER:
+            d = price_digits(p.symbol)
+            target = f"{new_sl:.{d}f}" if new_sl is not None else "breakeven"
+            await send(titles.header(titles.STOP_NOT_MOVED, titles.TRADE_MANAGEMENT, p.symbol,
+                                     "BUY" if p.bullish else "SELL",
+                                     extra=f"#{p.position_id}") + "\n\n"
+                       f"<b>This stop has failed to move {_ESCALATE_AFTER} times.</b> It should be "
+                       f"at <code>{target}</code> and it is not, so that gain is NOT protected.\n\n"
+                       f"Broker's reason: {out.message}\n\n"
+                       f"<i>It keeps retrying — but move it by hand if you can.</i>")
+        return settled
     except Exception as exc:
+        _fails[k] = _fails.get(k, 0) + 1
         log.error(f"[position_tracker] auto-move failed: {type(exc).__name__}: {exc}",
                   exc_info=True)
+        return False
 
 
 async def check_all(send) -> None:
@@ -279,16 +328,31 @@ async def check_all(send) -> None:
                 k = _key(p.position_id, tag)
                 if delivery_ledger.is_delivered(k):
                     continue
-                # `message is None` is a QUIET rung — a trailing tenth that moves the stop without a
-                # DM. It is still marked delivered, or every poll would re-amend the same step.
-                if message is None or await send(message):
+                # `message is None` is a QUIET rung — a lock that moves the stop without a DM.
+                told = True if message is None else await send(message)
+
+                # MOVE IT FIRST, THEN DECIDE WHETHER THE RUNG IS FINISHED. The advice DM above still
+                # goes out either way and first, so a failed amend never leaves him uninformed.
+                moved = await _auto_move(p, tag, new_sl, send, price, quiet=(message is None))
+
+                # THE RUNG IS ONLY DONE WHEN THE STOP IS REALLY AT THE BROKER.
+                #
+                # This used to mark it done BEFORE the amend, so a refused or timed-out amend was
+                # never retried — the platform reported "+2.4R locked" while the stop sat where it
+                # was, and the market could take back everything above it. His instruction: *"make
+                # sure whatever is locked is never taken by the market"*.
+                #
+                # `moved is None` means auto-move is OFF, so the DM is pure advice and being sent IS
+                # the whole job. Otherwise the broker's confirmation decides, and a False leaves the
+                # rung unmarked so the next pass tries again.
+                done = told if moved is None else bool(moved)
+                if done:
                     delivery_ledger.mark_delivered(k)
                     log.info(f"[position_tracker] {p.symbol} #{p.position_id}: {tag} at {r:.2f}R"
                              f"{' (quiet)' if message is None else ''}")
-                # AND THEN ACTUALLY MOVE IT, if he has switched that on. The advice DM above is sent
-                # either way and first: if the amend fails he still knows what to do by hand, which
-                # is the behaviour that must survive every failure here.
-                await _auto_move(p, tag, new_sl, send, price)
+                else:
+                    log.warning(f"[position_tracker] {p.symbol} #{p.position_id}: {tag} at {r:.2f}R "
+                                f"NOT protected — will retry next poll")
 
         # REMEMBER WHAT WE JUST SAW, with the R each position reached, so that when one disappears
         # the exit message can say what its stop was protecting and how far it ran. Last in the

@@ -55,9 +55,17 @@ class Rung:
     at_r:   float          # R reached
     lock_r: float | None   # R to protect; None = breakeven, net of costs
     tag:    str            # dedup key — one alert per rung per position
-    # MOVE THE STOP, SAY NOTHING. The trail steps every 0.1R, which on a 5R runner is ~29 messages
-    # for 29 identical events. The stop still moves on every one of them — this only decides whether
-    # his phone hears about it. Breakeven, +1R, every half-R and the exit all stay loud.
+    # MOVE THE STOP, SAY NOTHING.
+    #
+    # HIS RULE, 2026-09-02: *"Locking Rs should only be announced when we move to breakeven and when
+    # we are out of the market... We dont need to get all the messages like 1R locked in the DM."*
+    # So EVERY locking rung is quiet — the fixed +1R and every trailing tenth. Breakeven speaks, the
+    # exit speaks, and nothing in between does.
+    #
+    # QUIET IS ABOUT ROUTINE SUCCESS, NEVER ABOUT FAILURE. `position_tracker._auto_move` still
+    # speaks — loudly — whenever a stop does NOT reach the broker, however quiet the rung. A silent
+    # lock that failed is the exact thing his other instruction ("make sure whatever is locked is
+    # never taken by the market") is protecting against.
     quiet:  bool = False
 
 
@@ -83,7 +91,7 @@ class Trail:
 # him to move the stop DOWN from 2.4R to 2.0R.
 _VIX1 = (
     Rung(0.4, None, "breakeven"),
-    Rung(2.0, 1.0,  "lock_1r"),
+    Rung(2.0, 1.0,  "lock_1r", quiet=True),      # moves the stop; says nothing — his rule above
 )
 _VIX1_TRAIL = Trail(from_r=2.1, gap_r=0.1, step_r=0.1)
 
@@ -126,11 +134,6 @@ def trail_for(strategy: str | None) -> Trail | None:
     return None
 
 
-# Which trailing steps are worth a message. A lock landing on a half-R is announced; the tenths in
-# between move the stop silently. See `Rung.quiet`.
-_LOUD_EVERY_R = 0.5
-
-
 def trailing_rung(trail: Trail | None, r: float) -> Rung | None:
     """The one trailing step this trade has earned, or None.
 
@@ -150,10 +153,10 @@ def trailing_rung(trail: Trail | None, r: float) -> Rung | None:
     lock  = (steps - gap) / per
     if lock <= 0:
         return None
-    loud = abs((lock / _LOUD_EVERY_R) - round(lock / _LOUD_EVERY_R)) < 1e-6
-    # The tag carries the level, so each step is its own alert and its own ledger entry — and a step
-    # already acted on is never acted on twice.
-    return Rung(at_r=steps / per, lock_r=lock, tag=f"trail_{lock:.1f}r", quiet=not loud)
+    # EVERY trailing step is quiet. This used to announce each half-R; he asked for none of them.
+    # The tag carries the level, so each step is still its own ledger entry — and a step already
+    # acted on is never acted on twice.
+    return Rung(at_r=steps / per, lock_r=lock, tag=f"trail_{lock:.1f}r", quiet=True)
 
 
 def reached(rungs: tuple[Rung, ...], r: float, trail: Trail | None = None) -> list[Rung]:
