@@ -150,7 +150,7 @@ export interface SyncOutcome {
   fetched?: number;                 // closed trades the broker returned
   created?: number; duplicates?: number; journaled?: number;
   healed?: number;                  // stored before, but had no journal entry until now
-  backfilled?: number;              // given the open time the live feed never received
+  backfilled?: number;              // fields filled in that the live feed could not supply
   error?: string;
 }
 
@@ -200,8 +200,12 @@ export async function syncAccount(account: BrokerAccount,
                   + `${counts.journaled} journaled`
                   + (counts.healed ? `, ${counts.healed} HEALED (stored before, but had no journal `
                                      + `entry until now)` : '')
-                  + (counts.backfilled ? `, ${counts.backfilled} given the open time the live feed `
-                                         + `never received` : ''));
+                  // "backfilled" counts the open time, the risk as placed AND the order type now.
+                  // It used to say "given the open time", which was true when that was the only one
+                  // and became a lie the moment a second was added — exactly the kind of log line
+                  // that sends a future diagnosis the wrong way.
+                  + (counts.backfilled ? `, ${counts.backfilled} field(s) filled in that the live `
+                                         + `feed could not supply` : ''));
     } else {
       console.log(`[AutoSync] ${tag}: the broker returned no closed trades in that window`);
     }
