@@ -380,6 +380,7 @@ export function pairDealsIntoTrades(deals: any[], symbolMap: Record<number, stri
       // KEYED ON THE CLOSING DEAL, so the de-duplication in processIncomingTrades still holds: one
       // closed position produces exactly one externalId, stable across syncs.
       externalId: String(shut.dealId),
+      positionId: open.positionId != null ? String(open.positionId) : undefined,
       symbol,
       direction:  long ? 'Long' : 'Short',
       lots:       units > 0 ? units / lotUnits(symbol) : undefined,
@@ -449,6 +450,7 @@ export function mapClosedFromEvent(ev: any, symbolMap: Record<number, string>): 
     : undefined;
   return {
     externalId: String(d.dealId),
+    positionId: p.positionId != null ? String(p.positionId) : undefined,
     symbol,
     direction: long ? 'Long' : 'Short',
     lots: units > 0 ? units / lotUnits(symbol) : undefined,

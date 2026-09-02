@@ -727,6 +727,9 @@ export const syncedTrades = pgTable("synced_trades", {
   // placed with. Verified on his own GBP/USD trade 02 Sep: entry order 358693875 carried
   // stopLoss 1.34939 and takeProfit 1.34672 against an entry of 1.34886 — a 5.3 pip risk and a
   // 4.04R plan, where the closing stop said the risk was zero.
+  // The broker's POSITION id — the join back to the high-water marks the Python monitor measures
+  // while the trade is open (how far it ran in his favour and against him).
+  positionId:         text("position_id"),
   entryOrderId:       text("entry_order_id"),
   // How the trade was ENTERED — "STOP", "LIMIT", "MARKET" — off the broker's entry order. The
   // metrics page breaks trades down by this and every synced trade was landing in its "Unknown"
@@ -734,6 +737,11 @@ export const syncedTrades = pgTable("synced_trades", {
   orderType:          text("order_type"),
   originalStopLoss:   decimal("original_stop_loss",   { precision: 12, scale: 5 }),
   originalTakeProfit: decimal("original_take_profit", { precision: 12, scale: 5 }),
+  // HOW FAR IT RAN EACH WAY, in pips, while it was open. Measured live and never recoverable
+  // afterwards. `maeMfeSource` says which clock measured them — the 0.5s FIX stream or the 30s poll.
+  mae:             decimal("mae", { precision: 10, scale: 2 }),
+  mfe:             decimal("mfe", { precision: 10, scale: 2 }),
+  maeMfeSource:    text("mae_mfe_source"),
   journalEntryId:  varchar("journal_entry_id"),           // null until auto-journaled
   journaledAt:     timestamp("journaled_at"),
   rawData:         jsonb("raw_data"),

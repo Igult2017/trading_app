@@ -20,7 +20,9 @@
 import { storage } from '../storage';
 import type { InsertJournalEntry, SyncedTrade, BrokerAccount } from '../../shared/schema';
 import { invalidateComputeCaches } from '../lib/cache';
+import { toPips } from '../lib/pipMath';
 import { journalSyncedTrade, repairJournalTiming, repairJournalDerived, record } from './autoJournal';
+import { marksFor } from './autoJournal/marks';
 
 // ── Auto-journal one synced trade ─────────────────────────────────────────────
 // ── Process a batch of incoming trades (from webhook or poll) ─────────────────
@@ -35,6 +37,9 @@ export interface RawBrokerTrade {
   takeProfit?: number;
   // THE RISK AS PLACED, from the broker's entry order — NOT the stop the position closed on. See
   // `synced_trades.original_stop_loss` in shared/schema.ts for why the two must not be confused.
+  // The broker's POSITION id. The high-water marks (how far the trade ran each way) are measured by
+  // the Python monitor and keyed by this, so it is the join back to them.
+  positionId?:         string;
   entryOrderId?:       string;
   originalStopLoss?:   number;
   originalTakeProfit?: number;
@@ -101,6 +106,14 @@ export function toDate(v: string | number | undefined | null): Date | undefined 
     : new Date(v as string);
 
   return Number.isNaN(d.getTime()) ? undefined : d;
+}
+
+/** The risk this trade actually took, in pips — the denominator its R multiples were measured on. */
+function pipsOf(t: { symbol: string; openPrice: unknown; originalStopLoss: unknown }): number | null {
+  const ep = parseFloat(String(t.openPrice ?? ''));
+  const sl = parseFloat(String(t.originalStopLoss ?? ''));
+  if (!Number.isFinite(ep) || !Number.isFinite(sl)) return null;
+  return toPips(Math.abs(ep - sl), t.symbol) ?? null;
 }
 
 export async function processIncomingTrades(
@@ -254,6 +267,25 @@ export async function processIncomingTrades(
         }
       }
 
+      // HOW FAR IT RAN EACH WAY, from the marks the monitor measured while it was open. Only ever
+      // filled once — they are a record of a journey that is over, so they never change afterwards.
+      if (existing.mae == null && existing.positionId) {
+        const riskPips = pipsOf(existing);
+        const m = await marksFor(existing.positionId, riskPips);
+        if (m) {
+          await storage.correctSyncedTrade(existing.id,
+            { mae: String(m.mae), mfe: String(m.mfe), maeMfeSource: m.source });
+          (existing as any).mae = String(m.mae);
+          (existing as any).mfe = String(m.mfe);
+          (existing as any).maeMfeSource = m.source;
+          backfilled++;
+          await record({ brokerAccountId, externalId: existing.externalId, symbol: existing.symbol,
+                         stage: 'backfilled',
+                         detail: `ran to +${m.mfe} pips and -${m.mae} pips while open `
+                                 + `(measured on the ${m.source === 'fix' ? '0.5s FIX' : '30s'} clock)` });
+        }
+      }
+
       // HOW IT WAS ENTERED, onto a row that predates the column. Same only-fill-a-blank rule.
       if (!existing.orderType && raw.orderType) {
         await storage.correctSyncedTrade(existing.id, { orderType: raw.orderType });
@@ -309,6 +341,7 @@ export async function processIncomingTrades(
       closePrice:  raw.closePrice != null ? String(raw.closePrice) : undefined,
       stopLoss:    raw.stopLoss   != null ? String(raw.stopLoss)   : undefined,
       takeProfit:  raw.takeProfit != null ? String(raw.takeProfit) : undefined,
+      positionId:         raw.positionId,
       entryOrderId:       raw.entryOrderId,
       orderType:          raw.orderType,
       originalStopLoss:   raw.originalStopLoss   != null ? String(raw.originalStopLoss)   : undefined,

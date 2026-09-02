@@ -841,6 +841,71 @@ anywhere. Blocked on one question: does copy trading auto-execute on a user's ac
 
 ## D. cTrader & copy trading
 
+### D38 - ~~Crucial state died on every restart~~ FIXED 03 Sep 🔴
+
+**His rule:** *"you must persist any crucial memory."*
+
+| what | held | what losing it cost |
+|---|---|---|
+| `guards._placed` | placements in the last 24h | **a duplicate order** |
+| `exit_watch._seen` | position snapshot + best/worst R | no exit message; the high-water marks gone for ever |
+
+**The duplicate-order one had a written justification that was wrong.** Its comment said in-memory was
+*"the SAFE failure (it can only ever allow the cap again after a crash)"* — true of the **daily cap**,
+and it misses the other thing the same list does twenty lines below: it enforces **one live order per
+symbol+direction**, whose own comment says that exists *"so a dedup slip cannot become two real
+orders"*. Losing it does not reset a counter; it removes a guard, and the first signal after a restart
+could place a **second real order on a setup already live**. Same shape as the ladder's "fails in the
+safe direction" (D33) — a degraded path called safe without measuring what it costs.
+
+Both are restored at boot: placements from `autotrade_orders` (already stored, nothing new written),
+snapshots from `strategy_state`. **Read once at startup, never on the trading path** — a database read
+inside the 30-second poll is what took the monitor from under a second to 2.7 earlier in this work.
+
+### D39 - ~~MAE/MFE could not be recorded, so the metrics breakdown was empty~~ FIXED 03 Sep
+
+**His ask:** *"we can extend it to also record this MAE/MFE in the journal."* And he was right that
+we were close — `exit_watch` already tracked the best R for the exit message.
+
+**Three gaps, all closed:**
+
+1. **Only the best was tracked.** The worst — the MAE — was never recorded at all.
+2. **It was fed by the 30-second poll only.** The 0.5-second FIX watcher computes the identical R
+   every pass and simply never passed it on. Sampling is now **60× finer**, and each reading records
+   **which clock measured it**, because half-second and 30-second sampling are not the same quality.
+3. **It never left memory.** Now persisted, carried onto `synced_trades` via the broker's position id,
+   and written to the journal entry.
+
+**PIPS, NOT R — and this would have been silently wrong.** `metrics_calculator.py` compares MAE
+straight against the stop distance (`t.mae > t.sl_distance`) and divides the target distance by MFE;
+both of those are **pips**. It also filters on `> 0`, so both are **magnitudes**, not signed. Storing R
+would have produced numbers that looked plausible in every breakdown and meant nothing.
+
+**Only ever recorded going forward.** A closed trade knows where it started and where it ended and
+nothing about the journey, so trades already closed keep an empty MAE/MFE — stated rather than faked.
+
+### D40 - The forming 1-hour candle still uses closed 1-minute bars. OPEN
+
+**His instruction:** *"when trade is placed and even when watching 1HR candle to close, we should rely
+more on FIX data … because it is real time data."*
+
+`candle_aggregator.forming_bar` builds the hour in progress from **CLOSED M1 bars** — its own
+docstring says "CLOSED BASE BARS ONLY" — so it can be up to ~80 seconds behind. The FIX stream carries
+every tick and would make it current to the second.
+
+**What blocks it:** the FIX book belongs to the watcher's own stream object
+(`fix_quotes.FixQuoteStream.book`), so the scanner cannot reach it. Doing this properly needs a shared
+handle the stream registers itself into on connect and clears on disconnect, with care around
+reconnects. That is a deliberate change, not a bolt-on.
+
+**Also still on the Open API:** placement's live spread and side-of-the-line checks, for the same
+reason.
+
+**NOT a blocker for the fast path.** The 0.5-second watcher already uses FIX for the thing that
+matters most — moving the stop — and a wrong turn was reverted during this work: making the
+30-second watcher FIX-first would have added nothing, because when FIX is healthy the 0.5s watcher has
+already acted, and when it is not there is no book to read.
+
 ### D37 - The +1R lock moved from 2.0R to 1.5R. DONE 03 Sep
 
 **His instruction:** *"move breakeven to 0.2R and lock 1R when we are at R1.5. Then when we get to

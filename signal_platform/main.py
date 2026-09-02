@@ -49,6 +49,11 @@ async def _startup() -> None:
     from execution import guards
     guards.rehydrate()
 
+    # 1d. THE HIGH-WATER MARKS of every open position — how far each ran in his favour and against
+    # him. They cannot be recovered after the fact, and they are the MAE/MFE the journal wants.
+    from monitor import exit_watch
+    exit_watch.rehydrate()
+
 
     # 1b. HOW LONG WERE WE GONE? Read the heartbeat BEFORE anything overwrites it — its age is the
     # outage. A signal that never arrived has two very different explanations, "the strategy declined

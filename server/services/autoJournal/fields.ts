@@ -183,6 +183,11 @@ export function buildJournalEntry(trade: SyncedTrade, sessionId?: string | null,
       originalStopLoss: trade.originalStopLoss, originalTakeProfit: trade.originalTakeProfit,
     }),
     orderType:   trade.orderType ?? undefined,
+    // HOW FAR IT RAN EACH WAY while it was open, in pips. Measured live by the monitor and stored on
+    // the trade — they cannot be reconstructed from a closed trade, which knows only where it began
+    // and where it ended. `metrics_calculator.py` has a mae/mfe breakdown that had nothing to show.
+    mae:         trade.mae ?? undefined,
+    mfe:         trade.mfe ?? undefined,
     // `entryTF` and `orderType` are real columns; STRATEGY IS NOT — journal_entries has no such
     // column. The metrics engine merges `manualFields` flat into each row before mapping
     // (metrics_calculator.py, "Merge manualFields and aiExtracted JSONB blobs into the flat dict
@@ -203,6 +208,9 @@ export function buildJournalEntry(trade: SyncedTrade, sessionId?: string | null,
       // not the risk that was taken.
       closingStopLoss: trade.stopLoss ?? undefined,
       entryOrderId: trade.entryOrderId ?? undefined,
+      // WHICH CLOCK measured the excursions: "fix" is every 0.5s, "poll" every 30s. They are not the
+      // same quality and a number whose sampling rate is unknown is worse than one that says it.
+      maeMfeSource: trade.maeMfeSource ?? undefined,
     },
   };
 }

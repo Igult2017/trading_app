@@ -170,5 +170,39 @@ check('a fill two points off the level still counts as that level',
       exitReasonFor({ ...GBP, closePrice: 1.34941 }), 'Stop Loss');
 
 
+
+// ── HOW FAR IT RAN EACH WAY — MAE / MFE ────────────────────────────────────
+//
+// His ask, 2026-09-03: *"we can extend it to also record this MAE/MFE in the journal."*
+//
+// PIPS, NOT R, and this is the check that matters. `metrics_calculator.py` compares MAE straight
+// against the stop distance (`t.mae > t.sl_distance`) and divides the target distance by MFE — both
+// of those are PIPS. It also filters on `> 0`, so both are MAGNITUDES, not signed. R would have
+// looked plausible in every breakdown and meant nothing.
+//
+// His GBP/USD trade: 5.9-pip risk, ran to +1.78R in his favour and -0.07R against.
+const RISK_PIPS = 5.9;
+const toMarks = (peak: number, trough: number) => ({
+  mfe: Math.round(Math.max(0, peak) * RISK_PIPS * 100) / 100,
+  mae: Math.round(Math.max(0, -trough) * RISK_PIPS * 100) / 100,
+});
+
+let m = toMarks(1.78, -0.07);
+check('MFE is the best excursion in PIPS, not R', m.mfe, 10.5);
+check('MAE is the worst excursion in PIPS, as a positive magnitude', m.mae, 0.41);
+check('...and MAE is comparable with the stop distance, which is what metrics does',
+      m.mae < RISK_PIPS, true);
+
+// A trade that never went against him has NO adverse excursion — zero, not a negative number.
+// The metrics breakdown filters on `> 0`, so a negative would silently vanish from it.
+m = toMarks(2.4, 0.3);
+check('a trade that never traded against him has an MAE of 0', m.mae, 0);
+check('...and its MFE is still recorded', m.mfe, 14.16);
+
+// And the mirror: one that never went green.
+m = toMarks(-0.2, -1.0);
+check('a trade that never went green has an MFE of 0', m.mfe, 0);
+check('...and its MAE is the full stop distance', m.mae, 5.9);
+
 console.log(`\n  ${pass} passed, ${fail} failed\n`);
 process.exit(fail ? 1 : 0);

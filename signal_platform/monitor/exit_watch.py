@@ -103,6 +103,7 @@ def observe(positions, r_by_id: dict[int, float] | None = None, source: str = "p
                                peak_r=peak, trough_r=trough, source=best_source)
         except Exception as exc:      # a snapshot must never be able to break the poll
             log.warning(f"[exit_watch] could not record a position: {type(exc).__name__}: {exc}")
+    _persist()
 
 
 def _message(pid: int, s: _Seen, deal=None) -> str:
@@ -199,3 +200,74 @@ async def announce_closed(positions, send) -> None:
                 _seen[pid] = s
     except Exception as exc:
         log.error(f"[exit_watch] announce failed: {type(exc).__name__}: {exc}", exc_info=True)
+
+# ── SURVIVING A RESTART ─────────────────────────────────────────────────────
+#
+# His rule, 2026-09-03: *"you must persist any crucial memory."*
+#
+# `_seen` above holds two things worth keeping. The snapshot lets an exit be described after the
+# position is gone; the peak and trough are the trade's HIGH-WATER MARKS — how far it ran in his
+# favour and against him — which are the MAE/MFE the journal wants and which CANNOT be recovered
+# after the fact. A restart used to drop both.
+#
+# Backed by `strategy_state`, the same table `FiredRegistry` uses, under one key. Written on every
+# poll and read once at boot. A failure here is logged and swallowed: recording how a trade went must
+# never be able to break the watching of it.
+_STATE_KEY = "exit_watch_seen"
+
+
+def _persist() -> None:
+    """Write the snapshots. Best-effort, never raises."""
+    try:
+        from storage import strategy_state_repo
+        strategy_state_repo.save(_STATE_KEY, {
+            str(pid): {"symbol": s.symbol, "bullish": s.bullish, "entry": s.entry,
+                       "stop": s.stop, "peak_r": s.peak_r, "trough_r": s.trough_r,
+                       "source": s.source}
+            for pid, s in _seen.items()
+        })
+    except Exception as exc:
+        log.warning(f"[exit_watch] could not persist the snapshots: {type(exc).__name__}: {exc}")
+
+
+def rehydrate() -> int:
+    """Restore the snapshots from the last run. Call ONCE at boot. Returns how many.
+
+    READ AT BOOT, NEVER ON THE POLL. A database read inside the 30-second pass is what took the
+    monitor from under a second to 2.7 earlier in this work; the same mistake is not repeated here.
+    """
+    try:
+        from storage import strategy_state_repo
+        raw = strategy_state_repo.load(_STATE_KEY) or {}
+    except Exception as exc:
+        log.warning(f"[exit_watch] could not restore the snapshots: {type(exc).__name__}: {exc}")
+        return 0
+    restored = 0
+    for pid, d in (raw or {}).items():
+        try:
+            key = int(pid)
+            if key in _seen:
+                continue                      # anything seen this run is fresher
+            _seen[key] = _Seen(symbol=d["symbol"], bullish=bool(d["bullish"]),
+                               entry=float(d["entry"]),
+                               stop=(float(d["stop"]) if d.get("stop") is not None else None),
+                               peak_r=d.get("peak_r"), trough_r=d.get("trough_r"),
+                               source=d.get("source", "poll"))
+            restored += 1
+        except Exception:
+            continue                          # one bad row must not lose the rest
+    if restored:
+        log.info(f"[exit_watch] restored {restored} position snapshot(s) — their best/worst R and "
+                 f"their exit announcement survive the restart")
+    return restored
+
+
+def marks_for(position_id: int) -> tuple[float | None, float | None, str] | None:
+    """(best R, worst R, which clock measured them) for one position, or None if unknown.
+
+    This is what the journal reads. `source` is carried because a 0.5s FIX reading and a 30s poll
+    reading are not the same quality, and a high-water mark whose sampling rate is unknown is worse
+    than one that states it.
+    """
+    s = _seen.get(int(position_id))
+    return (s.peak_r, s.trough_r, s.source) if s else None
