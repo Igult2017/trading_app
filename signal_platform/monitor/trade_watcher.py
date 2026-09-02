@@ -151,6 +151,11 @@ class TradeWatcher:
 
     async def _check_all(self, positions, streamed: bool) -> None:
         """One pass over every open position. Delegates every decision to position_tracker."""
+        # THE HIGH-WATER MARKS, MEASURED ON THIS CLOCK. Each position's R is computed below anyway;
+        # collecting it costs nothing and hands `exit_watch` a reading every 0.5 SECONDS instead of
+        # every 30. That is the difference between knowing how far a trade really ran and sampling it
+        # sixty times more coarsely. This watcher already had the number and simply never passed it on.
+        r_seen: dict[int, float] = {}
         for p in positions:
             # ONE BAD POSITION MUST NOT COST THE OTHERS THEIR STOP MOVE. Without this guard anything
             # raising while handling one position aborted `_check_all`, and `run_forever` catches
@@ -158,14 +163,23 @@ class TradeWatcher:
             # watcher off for half a minute, for every trade on the account. His rule: *"it is the
             # lifeline of a trade."* Same shape as the copy-platform defect found the same day.
             try:
-                await self._one(p, streamed)
+                await self._one(p, streamed, r_seen)
             except Exception as exc:
                 log.error(f"[watcher] {getattr(p, 'symbol', '?')} "
                           f"#{getattr(p, 'position_id', '?')} failed this pass: "
                           f"{type(exc).__name__}: {exc} — the other positions continue",
                           exc_info=True)
 
-    async def _one(self, p, streamed: bool) -> None:
+        # AFTER every stop move, never before — the same rule the exit and fill reports follow. This
+        # only records what was already measured, but it must not sit in front of an amend.
+        try:
+            from monitor import exit_watch
+            exit_watch.observe(positions, r_seen, source=("fix" if streamed else "poll"))
+        except Exception as exc:
+            log.warning(f"[watcher] could not record the high-water marks: "
+                        f"{type(exc).__name__}: {exc}")
+
+    async def _one(self, p, streamed: bool, r_seen: dict | None = None) -> None:
         """Everything this pass does for ONE position. Split out 2026-09-02 so a fault in it is
         contained by the guard above rather than taking the whole pass down."""
         from core import delivery_ledger
@@ -177,6 +191,8 @@ class TradeWatcher:
         r = p.r_at(price)
         if r is None:
             return
+        if r_seen is not None:
+            r_seen[int(p.position_id)] = r
         for tag, new_sl, message in _lines(p, r, price):
             k = _key(p.position_id, tag)
             if delivery_ledger.is_delivered(k):

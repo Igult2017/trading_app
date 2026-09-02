@@ -42,6 +42,13 @@ async def _startup() -> None:
     from execution.placer import rehydrate_intents
     rehydrate_intents()
 
+    # 1c. THE DUPLICATE-ORDER GUARD. `guards._placed` enforces one live order per symbol+direction
+    # and the daily cap; both lived only in memory, so the first signal after a restart could place a
+    # SECOND real order on a setup already live. Rebuilt from `autotrade_orders`, which already has
+    # every placement. His rule, 2026-09-03: *"you must persist any crucial memory."*
+    from execution import guards
+    guards.rehydrate()
+
 
     # 1b. HOW LONG WERE WE GONE? Read the heartbeat BEFORE anything overwrites it — its age is the
     # outage. A signal that never arrived has two very different explanations, "the strategy declined

@@ -51,7 +51,9 @@ class _Seen:
     bullish: bool
     entry:   float
     stop:    float | None
-    peak_r:  float | None
+    peak_r:  float | None      # the BEST R it reached while open  (MFE)
+    trough_r: float | None = None   # the WORST R it reached while open (MAE)
+    source:  str = "poll"      # which clock measured them: "fix" (0.5s) or "poll" (30s)
 
 
 # position_id -> what it looked like on the last poll that could see it.
@@ -67,11 +69,20 @@ def _key(position_id: int) -> str:
     return f"exit:{position_id}"
 
 
-def observe(positions, r_by_id: dict[int, float] | None = None) -> None:
-    """Record what is open right now, carrying each position's best R forward.
+def observe(positions, r_by_id: dict[int, float] | None = None, source: str = "poll") -> None:
+    """Record what is open right now, carrying each position's best AND worst R forward.
 
     `r_by_id` is the R the caller has already measured this poll — passed in rather than recomputed,
     because the caller has the live price and this module has no business fetching one.
+
+    BEST AND WORST, because both are wanted in the journal. The best R a trade reached (its MFE) was
+    already tracked for the exit message; the worst (its MAE) was not tracked at all, so the metrics
+    page's mae/mfe breakdown had nothing to show. His ask, 2026-09-03: *"we can extend it to also
+    record this MAE/MFE in the journal."*
+
+    `source` says WHICH CLOCK measured it. The 0.5s FIX watcher and the 30s poll do not produce
+    numbers of the same quality, and a high-water mark whose sampling rate is unknown is worse than
+    one that states it. "fix" wins over "poll" once seen, because it cannot be less accurate.
     """
     r_by_id = r_by_id or {}
     for p in positions or []:
@@ -82,10 +93,14 @@ def observe(positions, r_by_id: dict[int, float] | None = None) -> None:
             r = r_by_id.get(pid)
             prev = _seen.get(pid)
             peak = prev.peak_r if prev else None
+            trough = prev.trough_r if prev else None
             if r is not None:
                 peak = r if peak is None else max(peak, r)
+                trough = r if trough is None else min(trough, r)
+            best_source = "fix" if (source == "fix" or (prev and prev.source == "fix")) else source
             _seen[pid] = _Seen(symbol=p.symbol, bullish=bool(p.bullish), entry=float(p.entry),
-                               stop=(float(p.stop) if p.stop is not None else None), peak_r=peak)
+                               stop=(float(p.stop) if p.stop is not None else None),
+                               peak_r=peak, trough_r=trough, source=best_source)
         except Exception as exc:      # a snapshot must never be able to break the poll
             log.warning(f"[exit_watch] could not record a position: {type(exc).__name__}: {exc}")
 

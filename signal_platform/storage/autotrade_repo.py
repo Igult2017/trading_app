@@ -11,7 +11,7 @@ It will not fail SILENTLY though. Every failure logs at WARNING; silent `except`
 """
 
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from storage.autotrade_models import (
     AutotradeOrderModel, STATUS_CANCELLED, STATUS_FILLED, STATUS_PLACED, STATUS_REJECTED,
@@ -21,6 +21,7 @@ from storage.db import get_session
 log = logging.getLogger(__name__)
 
 __all__ = ["record_placed", "record_filled", "record_closed", "pending", "intent_for",
+           "recent_placements",
            "STATUS_PLACED", "STATUS_FILLED", "STATUS_CANCELLED", "STATUS_REJECTED"]
 
 
@@ -103,6 +104,35 @@ def intent_for(order_id: str) -> dict | None:
         log.warning(f"[autotrade_repo] could not read order {order_id}: "
                     f"{type(exc).__name__}: {exc}")
         return None
+
+
+def recent_placements(hours: int = 24) -> list[tuple[datetime, str, str]]:
+    """(placed_at, symbol, side) for every order placed in the last `hours`. Newest last.
+
+    THIS IS WHAT MAKES THE DUPLICATE-ORDER GUARD SURVIVE A RESTART. `guards._placed` was an
+    in-memory list, and its comment called losing it "the SAFE failure" because a restart "can only
+    ever allow the cap again". That is true of the daily cap and MISSES THE OTHER THING the same list
+    does: it enforces ONE LIVE ORDER PER symbol+direction, whose own comment says it exists "so a
+    dedup slip cannot become two real orders". Losing it does not reset a counter — it removes a
+    guard, and the next signal after a restart could place a second order on a setup already live.
+
+    Same shape of mistaken reasoning as the ladder's "fails in the safe direction", which cost a full
+    R on 01 Sep. Every row needed is already stored here; nothing new is written.
+    """
+    out: list[tuple[datetime, str, str]] = []
+    try:
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
+        with get_session() as s:
+            rows = (s.query(AutotradeOrderModel)
+                     .filter(AutotradeOrderModel.placed_at >= cutoff)
+                     .order_by(AutotradeOrderModel.placed_at.asc()).limit(500).all())
+            for r in rows:
+                if r.symbol and r.side:
+                    out.append((r.placed_at, r.symbol, r.side))
+    except Exception as exc:
+        log.warning(f"[autotrade_repo] could not read recent placements: "
+                    f"{type(exc).__name__}: {exc}")
+    return out
 
 
 def _as_intent(r: AutotradeOrderModel) -> dict:

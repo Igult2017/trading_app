@@ -16,11 +16,46 @@ from config.settings import settings
 
 log = logging.getLogger(__name__)
 
-# Orders placed in this process, newest last: (utc_time, symbol, direction). In-memory ON PURPOSE —
-# a restart resetting the daily cap is the SAFE failure (it can only ever allow the cap again after
-# a crash, and the kill switch and the broker's own margin are the real limits). Persisting it would
-# add a DB write to the hot path for a diagnostic counter.
+# Orders placed, newest last: (utc_time, symbol, direction).
+#
+# RESTORED AT BOOT, and the reasoning that said it need not be is recorded here because it was WRONG.
+# It read: *"In-memory ON PURPOSE — a restart resetting the daily cap is the SAFE failure (it can only
+# ever allow the cap again after a crash, and the kill switch and the broker's own margin are the real
+# limits)."*
+#
+# That is true of the DAILY CAP and it misses the other thing this same list does, twenty lines below:
+# it enforces **one live order per symbol+direction**, whose own comment says it exists "so a dedup
+# slip cannot become two real orders". Losing this list does not reset a counter — it removes a guard,
+# and the first signal after a restart could place a SECOND real order on a setup already live.
+#
+# Same shape as the ladder's "fails in the safe direction", which cost a full R on 01 Sep: a degraded
+# path called safe without measuring what it costs. His rule, 2026-09-03: *"you must persist any
+# crucial memory."*
+#
+# NOTHING NEW IS WRITTEN. Every placement is already recorded durably in `autotrade_orders`; this is
+# rebuilt from it ONCE at boot by `rehydrate()`, never read on the placement path.
 _placed: list[tuple[datetime, str, str]] = []
+
+
+def rehydrate() -> int:
+    """Restore the last 24h of placements from the database. Call ONCE at boot. Returns how many."""
+    try:
+        from storage import autotrade_repo
+        rows = autotrade_repo.recent_placements(24)
+    except Exception as exc:                     # never block boot on this
+        log.warning(f"[guards] could not restore recent placements: {type(exc).__name__}: {exc}")
+        return 0
+    known = {(t, s, d) for t, s, d in _placed}
+    restored = 0
+    for row in rows:
+        if row not in known:
+            _placed.append(row)
+            restored += 1
+    _placed.sort(key=lambda x: x[0])
+    if restored:
+        log.info(f"[guards] restored {restored} placement(s) from the last 24h — the daily cap and "
+                 f"the one-order-per-symbol-and-direction guard survive the restart")
+    return restored
 
 
 def _csv(value: str) -> set[str]:
