@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useRoute, useLocation } from 'wouter';
-import { ChevronLeft, Clock, Calendar, Image as ImageIcon, MessageCircle, Send } from 'lucide-react';
+import { ChevronLeft, Clock, Image as ImageIcon, MessageCircle, Send } from 'lucide-react';
 import { usePublicTheme } from '@/context/PublicThemeContext';
 import { useQuery } from '@tanstack/react-query';
 import { usePageTracking } from '@/hooks/usePageTracking';
@@ -340,25 +340,6 @@ function SafeImage({ src, alt, className, isDark, style }: { src: string; alt: s
   return <img src={src} alt={alt} className={className} style={style} onError={() => setError(true)} loading="lazy" />;
 }
 
-// ── Author initials ───────────────────────────────────────────────────────────
-
-function Initials({ name, isDark }: { name: string; isDark: boolean }) {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  const ini = parts.length > 1
-    ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
-    : name.slice(0, 2).toUpperCase() || 'AU';
-  return (
-    <div style={{
-      width: 52, height: 52, borderRadius: '50%', flexShrink: 0,
-      // THE LAST HARDCODED GREEN. Everything else came from the palette, so recolouring that file
-      // moved the whole page except this avatar, which had its own literal pair.
-      background: `linear-gradient(135deg,${tone(isDark).accent},${tone(isDark).link})`,
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      fontSize: 18, fontWeight: 700, color: '#FFFFFF',
-      fontFamily: '"Playfair Display",serif',
-    }}>{ini}</div>
-  );
-}
 
 // ── Main page ──────────────────────────────────────────────────────────────────
 
@@ -705,24 +686,34 @@ export default function BlogPostPage() {
                   {post.excerpt}
                 </p>
               )}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap', borderTop: `1px solid ${border}`, borderBottom: `1px solid ${border}`, padding: '14px 0', marginBottom: 8 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <Initials name={post.author} isDark={isDark} />
-                  <div>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: text }}>{post.author}</div>
-                    {ad?.bio && <div style={{ fontSize: 11, color: muted, marginTop: 2, maxWidth: 280 }}>{ad.bio}</div>}
-                  </div>
-                </div>
-                <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 16, flexShrink: 0 }}>
-                  {post.date && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: muted, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-                      <Calendar size={12} /> {post.date}
-                    </div>
-                  )}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: muted, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-                    <Clock size={12} /> {post.readTime}
-                  </div>
-                </div>
+              {/* ── The byline ────────────────────────────────────────────────
+                  ONE NAME, WRITTEN SMALL. His note, 2026-09-02: *"There are two names in the
+                  article... write the remaining name like its written here, not something big like
+                  ours"*.
+
+                  The article carried the author TWICE — here with a 52px avatar disc, and again at
+                  the foot in a bordered card headed "WRITTEN BY" with the name set in 1.3rem
+                  Playfair. The card is gone; this row is now a line of small text like his
+                  reference, so the headline is the only large thing on the page.
+
+                  Nothing of substance went with the card: NO published post has a Twitter, LinkedIn
+                  or Telegram link (checked against all eight), and the expertise tags it sat near
+                  are rendered separately just below. One post's three-word bio ("Seasoned trader")
+                  is the only casualty, and a bio does not belong in a one-line byline. */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap',
+                            borderBottom: `1px solid ${border}`, padding: '2px 0 16px', marginBottom: 8,
+                            fontFamily: SANS, fontSize: 13, color: muted }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  <Clock size={13} /> {post.readTime}
+                </span>
+                <span aria-hidden="true" style={{ opacity: 0.45 }}>·</span>
+                <span style={{ color: tone(isDark).body, fontWeight: 500 }}>{post.author}</span>
+                {post.date && (
+                  <>
+                    <span aria-hidden="true" style={{ opacity: 0.45 }}>·</span>
+                    <span>{post.date}</span>
+                  </>
+                )}
               </div>
 
               {/* expertise tags */}
@@ -762,34 +753,6 @@ export default function BlogPostPage() {
 
             {/* Share bar */}
             <ShareBar post={post} isDark={isDark} border={border} accent={accent} muted={muted} cardBg={cardBg} />
-
-            {/* Author card */}
-            <div style={{ marginTop: 60, padding: '28px 32px', background: cardBg, border: `1px solid ${border}`, borderLeft: `4px solid ${accent}` }}>
-              <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-                <Initials name={post.author} isDark={isDark} />
-                <div style={{ flex: 1, minWidth: 200 }}>
-                  <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.2em', color: accent, marginBottom: 6 }}>Written by</div>
-                  <div style={{ fontFamily: '"Playfair Display",serif', fontSize: '1.3rem', fontWeight: 800, color: text, marginBottom: 8 }}>{post.author}</div>
-                  {ad?.bio && <p style={{ fontSize: 13, lineHeight: 1.7, color: muted, margin: 0 }}>{ad.bio}</p>}
-                  {(ad?.twitter || ad?.linkedin || ad?.telegram) && (
-                    <div style={{ display: 'flex', gap: 12, marginTop: 14 }}>
-                      {ad.twitter && (
-                        <a href={`https://${ad.twitter.replace(/^https?:\/\//, '')}`} target="_blank" rel="noopener noreferrer"
-                          style={{ fontSize: 11, fontWeight: 700, color: accentL, textDecoration: 'none', letterSpacing: '0.05em' }}>𝕏 Twitter</a>
-                      )}
-                      {ad.linkedin && (
-                        <a href={`https://${ad.linkedin.replace(/^https?:\/\//, '')}`} target="_blank" rel="noopener noreferrer"
-                          style={{ fontSize: 11, fontWeight: 700, color: accentL, textDecoration: 'none', letterSpacing: '0.05em' }}>in LinkedIn</a>
-                      )}
-                      {ad.telegram && (
-                        <a href={`https://t.me/${ad.telegram.replace(/^@/, '')}`} target="_blank" rel="noopener noreferrer"
-                          style={{ fontSize: 11, fontWeight: 700, color: accentL, textDecoration: 'none', letterSpacing: '0.05em' }}>✈ Telegram</a>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
 
             {/* More articles (bottom — mobile-friendly supplement to sidebar) */}
             {related.length > 0 && (
