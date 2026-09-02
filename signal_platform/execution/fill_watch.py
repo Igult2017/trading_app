@@ -117,7 +117,11 @@ async def check_fills(positions, send) -> None:
                               datetime.fromtimestamp(match.opened_at, timezone.utc))
             if not msg:
                 continue
-            if await send(msg):
+            # BOUNDED — this runs inside the 30s poll that also watches every open position for a
+            # stop move. A stalled Telegram here would hold that poll up; `tell` caps it at 3s and
+            # never raises, and a False still retries below.
+            from notifications import safe_notify as _notify
+            if await _notify.tell(send, msg):
                 delivery_ledger.mark_delivered(key)
             else:
                 # The send failed, so put the intent back and try again next poll — `fill_report`

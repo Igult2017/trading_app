@@ -33,6 +33,7 @@ import time
 
 from config.settings import settings
 from data import instrument_filter
+from notifications import safe_notify as notify
 
 log = logging.getLogger(__name__)
 
@@ -163,7 +164,7 @@ class EntryWatcher:
             log.warning("[entry-watcher] price stream quiet — falling back to the scheduled scan")
             if self.send:
                 try:
-                    await self.send(
+                    await notify.tell(self.send,
                         "⚠️ The live price stream went quiet. Signals fall back to the normal "
                         "60-second scan, so they may arrive later than usual. Nothing is lost — "
                         "the scanner is unaffected.")
@@ -177,7 +178,7 @@ class EntryWatcher:
             # feed that had come back. A warning with no all-clear is worse than no warning.
             if self.send:
                 try:
-                    await self.send("✅ The live price stream is flowing again — signals are back "
+                    await notify.tell(self.send, "✅ The live price stream is flowing again — signals are back "
                                     "to arriving the moment a 1-minute candle closes.")
                 except Exception:
                     pass

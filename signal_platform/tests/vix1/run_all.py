@@ -24,6 +24,10 @@ TESTS = [
     # closing at a MOVED stop touched none of the signal's original levels, so nothing announced it.
     # The hardest case here is the one that must NEVER fire: a failed broker read is not an exit.
     "test_exit_watch.py",           # say when the trade is over — and only when it really is
+    # ADDED 2026-09-02. His rule: "the logic that places trades, moves it to BE and locks Rs...
+    # should not be affected by telegram messages or telegram not working. It is the lifeline of
+    # a trade." A dead Telegram could delay a stop move by ~25s; this proves it no longer can.
+    "test_telegram_independence.py",  # the trade happens whatever Telegram does
     "test_manage.py",               # the R ratchet and the structure exit
     "test_invariants_real_data.py", # the real functions over real candles
     "test_trend.py",              # the 1HR trend read — stability + do reversals mean anything

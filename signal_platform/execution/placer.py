@@ -28,13 +28,14 @@ async def _tell(notify, message: str | None) -> None:
 
     A failed Telegram send must not turn a placed order into a reported failure, nor a refusal into
     an exception the caller has to handle — the message is the REPORT, not the trade.
+
+    AND IT MUST NOT BE ABLE TO HOLD THE ORDER PATH UP EITHER. This caught exceptions but had no time
+    limit, and `dispatcher._send_text` retries 3 times with 5s sleeps against 5s client timeouts —
+    so a dead Telegram could block here for ~25 seconds, inside the scan that produced the signal.
+    `safe_notify.tell` caps it at 3s. His rule, 2026-09-02: *"Telegram is only for messages."*
     """
-    if not (notify and message):
-        return
-    try:
-        await notify(message)
-    except Exception as exc:
-        log.warning(f"[execution] could not send the autotrade DM: {type(exc).__name__}: {exc}")
+    from notifications import safe_notify
+    await safe_notify.tell(notify, message)
 
 
 async def place_for_signal(signal, creds: dict, account_type: str, equity: float,

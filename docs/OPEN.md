@@ -249,6 +249,43 @@ red self-test that everyone steps around is how a real regression gets missed: t
 break something here will see two failures and assume they are the usual two.
 
 
+### B22 - ~~Telegram could DELAY a stop move by up to ~25 seconds~~ FIXED 02 Sep 🔴
+**His instruction, 02 Sep:** *"the logic that places trades, moves it to BE and locks Rs is very
+important that should not be affected by telegram messages or telegram not working. It should work
+regardless because it is the lifeline of a trade. Telegram is only for messages."*
+
+**B20 fixed the worst case — the stop only moved if Telegram ACCEPTED a message. This is the one
+underneath it: a slow Telegram could still DELAY the stop.**
+
+**The number.** [`dispatcher._send_text`](../signal_platform/notifications/dispatcher.py#L58) retries
+**3 times** with **5-second** sleeps, and python-telegram-bot's client timeouts are **5s** each (read
+off the installed package). One message against a dead Telegram:
+
+    3 attempts x ~5s  +  2 sleeps x 5s  =  ~25 seconds
+
+**And the send was awaited BEFORE the amend**, on the 0.5-second watcher whose entire purpose is to
+act within half a second — inside a loop covering every open position, so one stalled message held
+up every stop on the account.
+
+**FIXED, in three parts:**
+
+1. **Order** — the amend happens first, the message after. The message now also carries the amend's
+   real outcome instead of a prediction of it.
+2. **`notifications/safe_notify.py`** — `tell()` caps any send at **3 seconds** and can never raise;
+   `tell_soon()` does not wait at all. Every trading path uses one of them, and the test checks the
+   SOURCE of all six files for a raw `await send(...)` so a future edit cannot reintroduce it.
+3. **The reports moved to the end of the poll.** `check_fills` and `exit_watch.announce_closed`
+   legitimately AWAIT Telegram — they need its answer to know whether to retry — and both ran
+   BEFORE the amends, putting a 3-second wait in front of every stop move. They now run last.
+
+**Measured, with a Telegram stubbed to hang for 30 seconds:** the time from poll start to the last
+stop move is **0.00s**, and both positions in a two-position pass are amended. Before this change the
+same test took **10.0 seconds**.
+
+**The remaining wait is deliberate and costs the trade nothing:** the exit and fill reports still
+wait up to 3s each, after every amend is done, because losing the only notice that a trade is over
+matters more than 3 seconds of a background poll.
+
 ### B20 - ~~A locked R could be given back: a failed stop move was never retried~~ FIXED 02 Sep 🔴
 **His instruction, 02 Sep:** *"make sure whatever is locked is never taken by the market."* It could
 be, and this is how.

@@ -35,6 +35,7 @@ import logging
 from dataclasses import dataclass, replace
 
 from core import delivery_ledger
+from notifications import safe_notify as notify
 from notifications import titles
 from shared.pip import price_digits
 
@@ -171,7 +172,9 @@ async def announce_closed(positions, send) -> None:
                 deal = await ctrader_positions.closing_deal(pid)
             except Exception:
                 pass
-            if await send(_message(pid, s, deal)):
+            # BOUNDED — an exit announcement must never hold up the poll that watches every
+            # other open position. `tell` caps it and never raises; a False still retries below.
+            if await notify.tell(send, _message(pid, s, deal)):
                 delivery_ledger.mark_delivered(k)
                 log.info(f"[exit_watch] {s.symbol} #{pid} closed — announced "
                          f"(stop {s.stop}, peak {s.peak_r})")

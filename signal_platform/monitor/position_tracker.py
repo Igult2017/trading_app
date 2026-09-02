@@ -72,6 +72,7 @@ log = logging.getLogger(__name__)
 # unattributed position keeps the OLD defaults.
 from execution.fill_watch import owner_of
 from monitor import rungs
+from notifications import safe_notify as notify
 from monitor.rungs import EPS as _EPS
 
 _TTL = 7 * 24 * 3600     # forget a position's alerts a week after they were sent
@@ -228,16 +229,19 @@ async def _auto_move(p, tag: str, new_sl: float | None, send, price: float | Non
                 else titles.STOP_MOVED if out.moved else titles.STOP_NOT_MOVED)
         # Say nothing when a quiet rung simply worked. Everything else speaks.
         if not (quiet and settled and not out.alarm):
-            await send(titles.header(kind, titles.TRADE_MANAGEMENT, p.symbol,
-                                     "BUY" if p.bullish else "SELL",
-                                     extra=f"#{p.position_id}") + f"\n\n{out.message}")
+            # BOUNDED. The amend has already happened by this point, but a stalled send here would
+            # hold up the NEXT position in the same pass — `tell` caps it at 3s and never raises.
+            notify.tell_soon(send, titles.header(kind, titles.TRADE_MANAGEMENT, p.symbol,
+                                                "BUY" if p.bullish else "SELL",
+                                                extra=f"#{p.position_id}") + f"\n\n{out.message}")
 
         # THREE FAILURES IN A ROW AND HE IS TOLD PLAINLY, once. Retrying quietly for ever would be
         # its own kind of silence, which is what he asked me to design out.
         if _fails.get(k, 0) == _ESCALATE_AFTER:
             d = price_digits(p.symbol)
             target = f"{new_sl:.{d}f}" if new_sl is not None else "breakeven"
-            await send(titles.header(titles.STOP_NOT_MOVED, titles.TRADE_MANAGEMENT, p.symbol,
+            notify.tell_soon(send, titles.header(titles.STOP_NOT_MOVED, titles.TRADE_MANAGEMENT,
+                                     p.symbol,
                                      "BUY" if p.bullish else "SELL",
                                      extra=f"#{p.position_id}") + "\n\n"
                        f"<b>This stop has failed to move {_ESCALATE_AFTER} times.</b> It should be "
@@ -264,15 +268,7 @@ async def check_all(send) -> None:
         positions = await ctrader_positions.open_positions()
         # DID AN AUTOTRADE ORDER FILL? Same poll, same positions, no extra broker read — the
         # fill price lives on the position and this is the only place it is already fetched.
-        from execution.fill_watch import check_fills
-        await check_fills(positions, send)
-        # ARE WE OUT? Nothing used to answer that. A position closing at a MOVED stop — breakeven,
-        # +1R, a trailed level — touches none of the SIGNAL's original levels, so `signal_monitor`
-        # stayed silent and the position simply stopped appearing here. His words: *"right now i
-        # dont know whether we are out or not"*. Runs BEFORE the snapshot at the end of this poll,
-        # because a vanished position is found by comparing this list against the previous one.
         from monitor import exit_watch
-        await exit_watch.announce_closed(positions, send)
         # None and [] MEAN DIFFERENT THINGS. [] is "nothing open"; None is "could not read the
         # broker", and inventing silence-as-fact from a failed read is how a tracker lies.
         if positions is None:
@@ -309,7 +305,7 @@ async def check_all(send) -> None:
                 k = _key(p.position_id, "nostop")
                 if not delivery_ledger.is_delivered(k):
                     d = price_digits(p.symbol)
-                    if await send(titles.header(titles.NO_STOP, titles.TRADE_MANAGEMENT, p.symbol,
+                    if await notify.tell(send, titles.header(titles.NO_STOP, titles.TRADE_MANAGEMENT, p.symbol,
                                                 "BUY" if p.bullish else "SELL") + "\n\n"
                                   f"Opened at {p.entry:.{d}f}. This position has no stop loss set, "
                                   f"so there is no R to track and no breakeven to compute."):
@@ -328,12 +324,26 @@ async def check_all(send) -> None:
                 k = _key(p.position_id, tag)
                 if delivery_ledger.is_delivered(k):
                     continue
-                # `message is None` is a QUIET rung — a lock that moves the stop without a DM.
-                told = True if message is None else await send(message)
-
-                # MOVE IT FIRST, THEN DECIDE WHETHER THE RUNG IS FINISHED. The advice DM above still
-                # goes out either way and first, so a failed amend never leaves him uninformed.
+                # THE TRADE FIRST, THE MESSAGE AFTER — his rule, 2026-09-02: *"the logic that
+                # places trades, moves it to BE and locks Rs... should not be affected by telegram
+                # messages or telegram not working. It is the lifeline of a trade."*
+                #
+                # The send used to be awaited HERE, before the amend, and `dispatcher._send_text`
+                # can take ~25s against a dead Telegram (3 retries, 5s sleeps, 5s client timeouts).
+                # The message now goes out immediately AFTER the amend — and carries the amend's
+                # real outcome rather than a prediction of it.
                 moved = await _auto_move(p, tag, new_sl, send, price, quiet=(message is None))
+
+                # NOT AWAITED WHEN THE PLATFORM IS MANAGING THE TRADE. With auto-move ON the rung is
+                # decided by the broker's confirmation, so Telegram's answer is not needed — and
+                # waiting even 3s for it would queue up in front of the NEXT position's amend.
+                # With auto-move OFF the DM is the whole job, so its result is needed and is waited
+                # for; nothing is being traded on that path anyway.
+                if moved is None:
+                    told = await notify.tell(send, message)
+                else:
+                    notify.tell_soon(send, message)
+                    told = True
 
                 # THE RUNG IS ONLY DONE WHEN THE STOP IS REALLY AT THE BROKER.
                 #
@@ -354,9 +364,28 @@ async def check_all(send) -> None:
                     log.warning(f"[position_tracker] {p.symbol} #{p.position_id}: {tag} at {r:.2f}R "
                                 f"NOT protected — will retry next poll")
 
+        # THE REPORTING HAPPENS AFTER EVERY AMEND. Both of these await Telegram — they need its
+        # answer to know whether to retry — and both used to run BEFORE the stop moves, putting a
+        # bounded 3-second wait in front of every trade action in the poll. His rule, 2026-09-02:
+        # *"the logic that places trades, moves it to BE and locks Rs... should not be affected by
+        # telegram messages or telegram not working."* Neither report is time-critical; the amends
+        # are.
+        from execution.fill_watch import check_fills
+        await check_fills(positions, send)
+
+        # ARE WE OUT? Nothing used to answer that: a position closing at a MOVED stop — breakeven,
+        # +1R, a trailed level — touches none of the SIGNAL's original levels, so `signal_monitor`
+        # stayed silent and the position simply stopped appearing here.
+        #
+        # THIS RUNS LAST, AFTER EVERY AMEND, and that ordering is deliberate. It is the one send on
+        # this path that is AWAITED — it needs Telegram's answer to know whether to retry the only
+        # notice he gets that a trade is over. Running it first (as it did) put a bounded 3-second
+        # wait in front of every stop move in the poll; running it last costs the trading path
+        # nothing. It still only needs to happen before `observe`, which is right below it.
+        await exit_watch.announce_closed(positions, send)
+
         # REMEMBER WHAT WE JUST SAW, with the R each position reached, so that when one disappears
-        # the exit message can say what its stop was protecting and how far it ran. Last in the
-        # poll, so a position that closed during this very poll was already announced above.
+        # the exit message can say what its stop was protecting and how far it ran.
         exit_watch.observe(positions, r_seen)
     except Exception as exc:
         log.error(f"[position_tracker] poll failed: {type(exc).__name__}: {exc}", exc_info=True)

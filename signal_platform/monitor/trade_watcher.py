@@ -32,6 +32,7 @@ import logging
 from config.settings import settings
 from data import ctrader_positions
 from execution.fill_watch import owner_of
+from notifications import safe_notify as notify
 
 log = logging.getLogger(__name__)
 
@@ -132,12 +133,10 @@ class TradeWatcher:
                         # SAY SO — the warning went to his DM, so the all-clear must too. This only
                         # ever logged, so a recovered feed left him holding a warning that his stop
                         # moves were running late when they were not.
-                        try:
-                            await self.send(
-                                f"✅ The live price stream is flowing again for {p.symbol} — "
-                                f"stop moves are back to acting within a second.")
-                        except Exception:
-                            pass
+                        notify.tell_soon(
+                            self.send,
+                            f"✅ The live price stream is flowing again for {p.symbol} — "
+                            f"stop moves are back to acting within a second.")
                     return q[0] if p.bullish else q[1]
             if not self._degraded:
                 self._degraded = True
@@ -146,10 +145,9 @@ class TradeWatcher:
                        f"({'no price yet' if age is None else f'{age:.0f}s ago'}). "
                        f"Falling back to the slower price — stop moves may be up to a minute late.")
                 log.warning(f"[watcher] stream stale for {p.symbol}, falling back")
-                try:
-                    await self.send(msg)
-                except Exception:
-                    pass
+                # NOT AWAITED — this sits in the middle of reading the price a stop decision is
+                # made on, so it must cost nothing at all.
+                notify.tell_soon(self.send, msg)
         return await _price_now(p.symbol, p.bullish)
 
     async def _check_all(self, positions, streamed: bool) -> None:
@@ -168,13 +166,24 @@ class TradeWatcher:
                 k = _key(p.position_id, tag)
                 if delivery_ledger.is_delivered(k):
                     continue
-                # `message is None` is a QUIET rung — a lock that moves the stop without a DM.
-                told = True if message is None else await self.send(message)
-
-                # MOVING THE STOP IS NOT CONDITIONAL ON TELEGRAM ACCEPTING A MESSAGE. This used to
-                # sit INSIDE the send, so a failed or rate-limited DM left his stop exactly where it
-                # was — on the FAST path, the one that exists to act within half a second.
+                # THE TRADE FIRST, THE MESSAGE AFTER — his rule, 2026-09-02: *"the logic that
+                # places trades, moves it to BE and locks Rs... should not be affected by telegram
+                # messages or telegram not working. It is the lifeline of a trade."*
+                #
+                # The send used to be awaited HERE, before the amend. `dispatcher._send_text` retries
+                # 3 times with 5s sleeps and the Telegram client's own timeouts are 5s, so a dead
+                # Telegram could hold this line for ~25 SECONDS — on the path whose entire purpose is
+                # to act within half a second, and for every other open position in the same pass.
                 moved = await _auto_move(p, tag, new_sl, self.send, price, quiet=(message is None))
+
+                # Now tell him — WITHOUT WAITING. On a 0.5s loop even a 3s bounded wait would sit
+                # in front of the next position's amend. With auto-move ON the rung is decided by
+                # the broker, so Telegram's answer is not needed at all.
+                if moved is None:
+                    told = await notify.tell(self.send, message)
+                else:
+                    notify.tell_soon(self.send, message)
+                    told = True
 
                 # AND THE RUNG IS ONLY DONE WHEN THE STOP IS REALLY AT THE BROKER — the same rule as
                 # `position_tracker`, and the reason is his: *"make sure whatever is locked is never

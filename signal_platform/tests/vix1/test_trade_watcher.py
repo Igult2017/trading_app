@@ -108,12 +108,28 @@ async def _send(msg):
     return True
 
 
+def _drain(coro):
+    """Run a watcher call AND let its fire-and-forget messages actually go out.
+
+    The stale/recovery alerts are now sent with `safe_notify.tell_soon` — scheduled, never awaited —
+    so that a hung Telegram cannot delay a stop move (his rule, 2026-09-02: *"Telegram is only for
+    messages"*). `asyncio.run` closes its loop the instant the coroutine returns, which would cancel
+    those sends before they ran and make a working alert look like a missing one. Production's loop
+    lives for the life of the process, so this only affects the test.
+    """
+    async def go():
+        r = await coro
+        await asyncio.sleep(0.05)
+        return r
+    return asyncio.run(go())
+
+
 w = TradeWatcher(_send)
 w._stream = st                                   # the stream we just killed above
 ctrader_spread.quote_for = _no_quote             # so the fallback is visibly the candle
 _calls["candles"] = 0
 
-price = asyncio.run(w._price_for(_P(), streamed=True))
+price = _drain(w._price_for(_P(), streamed=True))
 s.check("a DEAD stream falls back to the slower price", price, 1.35000)
 s.check("...and it is the fallback that produced it", _calls["candles"], 1)
 s.check("...AND IT SAYS SO — silence is never silent", len(sent), 1)
@@ -122,14 +138,14 @@ s.check("...and warning that moves may be late",
         "late" in (sent[0] if sent else "").lower(), True)
 
 # ONCE, NOT EVERY PASS. An outage must be visible without becoming noise that gets muted.
-asyncio.run(w._price_for(_P(), streamed=True))
-asyncio.run(w._price_for(_P(), streamed=True))
+_drain(w._price_for(_P(), streamed=True))
+_drain(w._price_for(_P(), streamed=True))
 s.check("the alarm is raised ONCE, not on every pass", len(sent), 1)
 
 # AND RECOVERY IS ANNOUNCED by clearing the degraded flag, so the next outage warns again.
 st.book.connected = True
 st.book._last_tick["GBP/USD"] = time.monotonic()
-back = asyncio.run(w._price_for(_P(), streamed=True))
+back = _drain(w._price_for(_P(), streamed=True))
 s.check("when the stream returns, the streamed price is used again", back, 1.35325)
 s.check("...and the watcher is no longer degraded", w._degraded, False)
 
@@ -142,9 +158,9 @@ s.check("...naming the symbol", any("GBP/USD" in m and "flowing again" in m for 
 # was true only while a warning was the ONLY thing ever sent. The all-clear made that count 3 and
 # the assertion failed — the behaviour was right and the measure was stale. Counting the warnings
 # themselves keeps the check meaning what its name says, whatever else is sent alongside.
-asyncio.run(w._price_for(_P(), streamed=True))
+_drain(w._price_for(_P(), streamed=True))
 st.book.connected = False
-asyncio.run(w._price_for(_P(), streamed=True))
+_drain(w._price_for(_P(), streamed=True))
 warnings = [m for m in sent if "went quiet" in m]
 s.check("A SECOND OUTAGE WARNS AGAIN — the alarm is not spent", len(warnings), 2)
 s.check("...and each outage is still announced only once", len(sent), 3)
