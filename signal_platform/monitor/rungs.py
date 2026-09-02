@@ -84,54 +84,52 @@ class Trail:
     step_r: float      # only move in whole steps of this size
 
 
-# HIS ladder, 2026-09-02 (the upper half revised the same day — see Trail above).
+# HIS LADDER. THE ONLY ONE — there is no second ladder and no fallback.
+#
+# His ruling, 2026-09-02: *"There is no fallback, the change was that we use this new ladder and
+# delete the other one."*
+#
+# WHY THE SECOND LADDER IS GONE, AND WHAT IT COST. Until now an OLD set of rungs (breakeven at 1.0R)
+# was kept for "any position we cannot attribute", on my reasoning that it "fails in the safe
+# direction: a later breakeven, never another strategy's numbers". That reasoning was wrong, and it
+# was expensive.
+#
+# Attribution lived in a dict in memory, so a restart made every open position unattributed. His
+# EUR/USD trade of 01 Sep then peaked at +0.50R — ABOVE this ladder's 0.4R breakeven, BELOW the old
+# one's 1.0R — and fell straight through the gap between them. Replayed over the real minute bars:
+#
+#     this ladder     breakeven fires at 0.4R   ->  exits  +0.00R
+#     the old one     nothing fires below 1.0R  ->  exits  -1.00R
+#     what happened                                 exited -1.05R
+#
+# A whole R, lost to the existence of a second table of numbers. Deleting it removes the failure
+# mode outright rather than making the attribution that selected between them more reliable — which
+# is what I had done instead, and it would have left the same trap for the next thing that lost the
+# link.
 #
 # THE 2.5R -> lock 2R RUNG IS GONE, deliberately: the trail protects +2R from 2.1R, which is both
 # earlier and higher than that rung ever was. Leaving it in would fire a second alert at 2.5R telling
 # him to move the stop DOWN from 2.4R to 2.0R.
-_VIX1 = (
+_LADDER = (
     Rung(0.4, None, "breakeven"),
     Rung(2.0, 1.0,  "lock_1r", quiet=True),      # moves the stop; says nothing — his rule above
 )
-_VIX1_TRAIL = Trail(from_r=2.1, gap_r=0.1, step_r=0.1)
-
-# What every other strategy — and any position we cannot attribute — keeps. This is the ladder as it
-# stood before 2026-09-02, unchanged on purpose: his new numbers are VIX.1's, and nothing else was
-# asked to move.
-_DEFAULT = (
-    Rung(1.0, None, "breakeven"),
-    Rung(2.0, 1.0,  "lock_1r"),
-    Rung(3.0, 2.0,  "lock_2r"),
-    Rung(4.0, 3.0,  "lock_3r"),
-)
-
-_BY_STRATEGY = {"vix1": _VIX1}
-# ONLY VIX.1 TRAILS. Every other strategy — and any position that cannot be attributed — keeps the
-# fixed ladder it already had, which is the same rule the fixed rungs follow and the same reason:
-# his numbers are VIX.1's, and nothing else was asked to move.
-_TRAIL_BY_STRATEGY = {"vix1": _VIX1_TRAIL}
+_TRAIL = Trail(from_r=2.1, gap_r=0.1, step_r=0.1)
 
 
-def ladder_for(strategy: str | None) -> tuple[Rung, ...]:
-    """The rungs for this strategy, ordered by `at_r`. Unknown or None -> the old defaults.
+def ladder() -> tuple[Rung, ...]:
+    """The rungs, for every position. One ladder, no strategy argument, nothing to select.
 
-    Matched on PREFIX so a strategy id that grows a suffix (`vix1`, `vix1_x`) still resolves, which
-    is how `signal_monitor` already tests strategy ids.
+    This took a `strategy` and could return a different table. See the note above `_LADDER` for what
+    that cost: a position whose strategy was forgotten got numbers he never asked for, and the trade
+    that fell in the gap lost a full R instead of scratching.
     """
-    s = (strategy or "").lower()
-    for key, rungs in _BY_STRATEGY.items():
-        if s.startswith(key):
-            return rungs
-    return _DEFAULT
+    return _LADDER
 
 
-def trail_for(strategy: str | None) -> Trail | None:
-    """The trailing rule for this strategy, or None if it only has fixed rungs."""
-    s = (strategy or "").lower()
-    for key, trail in _TRAIL_BY_STRATEGY.items():
-        if s.startswith(key):
-            return trail
-    return None
+def trail() -> Trail:
+    """The trailing rule, for every position."""
+    return _TRAIL
 
 
 def trailing_rung(trail: Trail | None, r: float) -> Rung | None:

@@ -62,9 +62,14 @@ class Trade:
         return move / self.risk
 
 
-def replay(t: Trade, strategy="vix1"):
-    ladder = R.ladder_for(strategy)
-    trail  = R.trail_for(strategy)
+def replay(t: Trade, ladder=None, trail=None):
+    """Drive the ladder over the bars. Defaults to THE ladder — there is only one.
+
+    `ladder`/`trail` are overridable so a test can replay a ladder that no longer exists (the
+    deleted 1.0R-breakeven one) and show what it cost. Live code never passes them.
+    """
+    ladder = ladder if ladder is not None else R.ladder()
+    trail  = trail  if trail  is not None else R.trail()
     stop   = t.orig_stop
     done   = set()
     best_r = 0.0

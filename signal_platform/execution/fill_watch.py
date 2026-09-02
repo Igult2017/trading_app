@@ -27,7 +27,6 @@ import logging
 
 from core import delivery_ledger
 from execution.placer import fill_report, pending_intents, _intent
-from storage import autotrade_repo
 
 log = logging.getLogger(__name__)
 
@@ -47,79 +46,6 @@ _TTL = 7 * 24 * 3600      # keep the "already reported" marks a week; a fill is 
 # empty, so a position opened before it is UNATTRIBUTED — and an unattributed position gets the old
 # default ladder, never VIX.1's. Losing attribution costs a slightly later breakeven; inventing it
 # would apply one strategy's numbers to another's money.
-_owner: dict[int, str] = {}
-
-
-def owner_of(position_id: int) -> str | None:
-    """The strategy that opened this position, or None if we cannot say."""
-    return _owner.get(int(position_id))
-
-
-def rehydrate_owners() -> int:
-    """Restore position -> strategy from the database. Call ONCE at boot. Returns how many.
-
-    THE DEFECT THIS CLOSES, and it cost a full R. `_owner` above is a dict in memory, filled in one
-    place only: when a PENDING order is matched to its fill. Restart after an order has already
-    filled and nothing ever re-matches it, so the link is gone for good — and `owner_of` then returns
-    None, which sends the position to the DEFAULT ladder, whose breakeven sits at 1.0R instead of
-    VIX.1's 0.4R.
-
-    Measured on his own trade: EUR/USD 01 Sep peaked at +0.50R. Under VIX.1's ladder the stop moves
-    to breakeven at 0.4R and the trade scratches at 0R. Under the default ladder nothing fires below
-    1.0R, so it ran to its original stop for -1.05R. Replaying both ladders over the real minute bars
-    reproduces exactly that: +0.00R attributed, -1.00R not.
-
-    Read ONCE, here. NEVER on the trading path — a database read inside the 30-second poll is what
-    slowed the monitor from under a second to 2.7 when the pending-order lookup was first written
-    that way.
-    """
-    try:
-        found = autotrade_repo.owners()
-    except Exception as exc:                          # never block boot on this
-        log.warning(f"[fill_watch] could not restore position owners: {type(exc).__name__}: {exc}")
-        return 0
-    restored = 0
-    for pid, strategy in found.items():
-        if pid not in _owner:
-            _owner[pid] = strategy
-            restored += 1
-    if restored:
-        log.info(f"[fill_watch] restored the strategy for {restored} position(s) from the last run "
-                 f"— they keep their own ladder instead of falling back to the defaults")
-    return restored
-
-
-def _remember_owner(pos, intent: dict) -> None:
-    """Note who owns this position. NEVER RAISES — attribution is a convenience, the fill report is
-    the deliverable, and the first version of this took the report down with it: it read
-    `pos.position_id` unguarded, and one position object without that field aborted the whole poll
-    so NO order got its fill report. A secondary feature must not be able to break the primary one.
-    """
-    try:
-        pid = getattr(pos, "position_id", None)
-        strategy = (intent.get("strategy") or "").strip()
-        if pid is not None and strategy:
-            _owner[int(pid)] = strategy
-            # AND DURABLY. The dict above is emptied by every restart; this is what makes the
-            # position keep its own ladder afterwards. Best-effort by contract — `autotrade_repo`
-            # swallows its own failures, so this cannot break the fill report.
-            order_id = intent.get("order_id") or getattr(pos, "order_id", None)
-            if order_id:
-                autotrade_repo.record_position(str(order_id), pid, strategy)
-    except Exception:                       # noqa: BLE001 — see above; never worth a failed report
-        pass
-
-
-def _forget_closed(positions) -> None:
-    """Drop owners whose position is no longer open, so the map cannot grow forever. Never raises."""
-    try:
-        live = {int(p.position_id) for p in positions if getattr(p, "position_id", None) is not None}
-        for pid in [k for k in _owner if k not in live]:
-            _owner.pop(pid, None)
-    except Exception:                       # noqa: BLE001
-        pass
-
-
 def _matches(intent: dict, pos) -> bool:
     """Is this open position the fill of that order?"""
     if intent["symbol"] != pos.symbol:
@@ -145,10 +71,6 @@ async def check_fills(positions, send) -> None:
             match = next((p for p in positions if _matches(intent, p)), None)
             if match is None:
                 continue
-            # RECORD OWNERSHIP BEFORE THE INTENT IS POPPED. Below, either branch drops the intent
-            # (reported, or already reported), and the strategy is only knowable from it. The ladder
-            # asks for the rest of the position's life, long after this poll.
-            _remember_owner(match, {**intent, "order_id": order_id})
             key = f"fill:{order_id}"
             if delivery_ledger.is_delivered(key):
                 _intent.pop(order_id, None)      # already reported — stop re-checking it
@@ -168,7 +90,6 @@ async def check_fills(positions, send) -> None:
                 # The send failed, so put the intent back and try again next poll — `fill_report`
                 # POPS it, and dropping it here would lose the only record that this order filled.
                 _intent[order_id] = intent
-        _forget_closed(positions)
         delivery_ledger.cleanup(_TTL)
     except Exception as exc:
         log.error(f"[fill-watch] {type(exc).__name__}: {exc}", exc_info=True)

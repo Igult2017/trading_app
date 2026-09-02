@@ -22,9 +22,9 @@ VIX.1, his numbers of 2026-09-02 (superseding 2026-08-21, which had withdrawn th
     2.0R  ->  LOCK +1R
     2.1R+ ->  TRAIL, keeping the stop 0.1R behind, in 0.1R steps, until it is hit
 
-Everything else — and any position that cannot be attributed to a strategy — keeps the older
-1R/2R/3R/4R ladder unchanged. A take profit resting on the ORDER still performs the exit; the top
-rung exists so a failed exit still banks the locked gain.
+THIS IS THE ONLY LADDER. Every position on the account uses it — his ruling, 2026-09-02: *"There is
+no fallback, the change was that we use this new ladder and delete the other one."* A take profit
+resting on the ORDER still performs the exit; the rungs exist so a failed exit still banks the gain.
 
 2R IS NOT THE TARGET ANY MORE: *"when the trade has the momentum to keep going we take up to where
 the momentum starts dying down so 2R is not a rule but only applies where there is no momentum."* The
@@ -67,10 +67,10 @@ log = logging.getLogger(__name__)
 # fixed 2.5R -> lock 2R rung is gone: the trail protects +2R from 2.1R, earlier and higher. Trailing
 # tenths move the stop QUIETLY — see `Rung.quiet` in rungs.py.
 #
-# PER STRATEGY, because a broker `Position` carries no strategy and a global constant would apply
-# VIX.1's numbers to every other strategy's trades. `fill_watch.owner_of` answers it; an
-# unattributed position keeps the OLD defaults.
-from execution.fill_watch import owner_of
+# ONE LADDER FOR EVERY POSITION, and the second one is deleted. It used to be chosen per strategy,
+# from a map held in memory — so a restart made a position unattributed and handed it the OLD numbers
+# (breakeven 1.0R). His EUR/USD trade of 01 Sep peaked at +0.50R, between the two breakevens, and
+# took a full -1R loss where this ladder would have scratched it. See the note in rungs.py.
 from monitor import rungs
 from notifications import safe_notify as notify
 from monitor.rungs import EPS as _EPS
@@ -127,20 +127,19 @@ async def _price_now(symbol: str, bullish: bool | None = None) -> float | None:
     return bars[-1].close if bars else None
 
 
-def _lines(p, r: float, price: float, strategy: str | None = None) -> list[tuple[str, str]]:
+def _lines(p, r: float, price: float) -> list[tuple[str, str]]:
     """(tag, price, message) for every milestone this position has reached. Lowest rung first.
 
-    THE RUNGS COME FROM THE SHARED TABLE, keyed on which strategy opened this position, so the DM
-    written here and the amend performed by `_auto_move` can never be built from different numbers.
-    `strategy` of None means we could not attribute it, and `ladder_for` then returns the OLD
-    defaults — never VIX.1's.
+    THE RUNGS COME FROM THE SHARED TABLE, so the DM written here and the amend performed by
+    `_auto_move` can never be built from different numbers. There is ONE table and no selection —
+    nothing to get wrong, and nothing to lose across a restart.
     """
     d = price_digits(p.symbol)
     side = "BUY" if p.bullish else "SELL"
     risk = abs(p.entry - p.stop) if p.stop else 0.0
     out: list[tuple[str, str]] = []
 
-    for rung in rungs.reached(rungs.ladder_for(strategy), r, rungs.trail_for(strategy)):
+    for rung in rungs.reached(rungs.ladder(), r, rungs.trail()):
         if rung.lock_r is None:
             be = p.breakeven()
             where = (f"{be:.{d}f}" if be is not None else "your entry + costs")
@@ -280,7 +279,7 @@ async def _one_position(p, send, r_seen: dict) -> None:
     if r is None:
         return          # nothing more to do for THIS position
     r_seen[int(p.position_id)] = r
-    for tag, new_sl, message in _lines(p, r, price, owner_of(p.position_id)):
+    for tag, new_sl, message in _lines(p, r, price):
         k = _key(p.position_id, tag)
         if delivery_ledger.is_delivered(k):
             continue

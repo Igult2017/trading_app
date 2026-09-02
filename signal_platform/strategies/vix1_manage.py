@@ -82,7 +82,7 @@ def _locked_for(peak_r: float) -> float:
     own step by `_be_reached`.
     """
     locked = 0.0
-    for rung in rungs.reached(rungs.ladder_for("vix1"), peak_r, rungs.trail_for("vix1")):
+    for rung in rungs.reached(rungs.ladder(), peak_r, rungs.trail()):
         if rung.lock_r is not None:
             locked = max(locked, rung.lock_r)
     return locked
@@ -92,7 +92,7 @@ def _be_reached(peak_r: float) -> bool:
     """Has the breakeven rung been reached? Its own question, because breakeven locks 0R and so
     cannot be told apart from 'nothing locked yet' by the number alone."""
     return any(r.lock_r is None
-               for r in rungs.reached(rungs.ladder_for("vix1"), peak_r, rungs.trail_for("vix1")))
+               for r in rungs.reached(rungs.ladder(), peak_r, rungs.trail()))
 
 
 def structure_broken(bars: list[Candle], bullish: bool) -> bool:

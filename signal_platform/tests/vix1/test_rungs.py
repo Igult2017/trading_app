@@ -35,9 +35,13 @@ from monitor.rungs import Rung
 s = Suite("THE LADDER — 0.4R / 2.0R / 2.5R, per strategy")
 
 
-# ── WHOSE LADDER IS IT? ─────────────────────────────────────────────────────
-vix = rungs.ladder_for("vix1")
-dflt = rungs.ladder_for(None)
+# ── ONE LADDER, FOR EVERY POSITION ──────────────────────────────────────────
+# His ruling, 2026-09-02: *"There is no fallback, the change was that we use this new ladder and
+# delete the other one."* The second ladder (breakeven 1.0R) is gone. It existed for positions whose
+# strategy could not be identified, and because that identification lived in memory, a restart sent
+# every open position to it — his EUR/USD trade of 01 Sep peaked at +0.50R, fell in the gap between
+# the two breakevens, and lost a full R where this ladder scratches it.
+vix = rungs.ladder()
 
 # TWO FIXED RUNGS NOW, not three. The 2.5R -> lock 2R rung is GONE, replaced by the trail that
 # protects +2R from 2.1R — earlier and higher. Leaving it would have fired a second alert at 2.5R
@@ -45,23 +49,26 @@ dflt = rungs.ladder_for(None)
 s.check("VIX.1 has exactly two FIXED rungs, then trails", len(vix), 2)
 s.check("...breakeven at 0.4R", (vix[0].at_r, vix[0].lock_r), (0.4, None))
 s.check("...lock +1R at 2.0R", (vix[1].at_r, vix[1].lock_r), (2.0, 1.0))
-s.check("...and a trail takes over above that", rungs.trail_for("vix1") is not None, True)
+s.check("...and a trail takes over above that", rungs.trail() is not None, True)
 s.check("the rungs are ordered, so a gap cannot let a higher one fire first",
         [r.at_r for r in vix], sorted(r.at_r for r in vix))
 
-# The default is the OLD ladder, deliberately unchanged: his new numbers are VIX.1's alone.
-s.check("an unknown strategy keeps the old 1R breakeven", dflt[0].at_r, 1.0)
-s.check("...and an unattributed position does too", rungs.ladder_for(None)[0].at_r, 1.0)
-s.check("...and so does another strategy", rungs.ladder_for("bx_sd")[0].at_r, 1.0)
-s.check("a suffixed vix1 id still resolves to VIX.1", rungs.ladder_for("vix1_x")[0].at_r, 0.4)
-s.check("case does not matter", rungs.ladder_for("VIX1")[0].at_r, 0.4)
+# THERE IS NOTHING TO SELECT. No argument, no map, no fallback — so no position can be handed
+# numbers he did not ask for, whatever else has gone wrong.
+s.check("the ladder takes no strategy argument",
+        rungs.ladder.__code__.co_argcount, 0)
+s.check("...and neither does the trail", rungs.trail.__code__.co_argcount, 0)
+s.check("the OLD 1R-breakeven ladder is gone from the module",
+        any(n in dir(rungs) for n in ("_DEFAULT", "_BY_STRATEGY", "_TRAIL_BY_STRATEGY",
+                                      "ladder_for", "trail_for")), False)
+s.check("breakeven is 0.4R for EVERY position", rungs.ladder()[0].at_r, 0.4)
 
 
 # ── THE BOUNDARY ────────────────────────────────────────────────────────────
 # R is a ratio of differences between 5-decimal prices, so a true 0.400R can land at
 # 0.39999999999. `>=` alone would silently never fire on the boundary.
-def tags(strategy, r):
-    return [x.tag for x in rungs.reached(rungs.ladder_for(strategy), r)]
+def tags(_unused, r):
+    return [x.tag for x in rungs.reached(rungs.ladder(), r)]
 
 s.check("0.39R reaches nothing", tags("vix1", 0.39), [])
 s.check("EXACTLY 0.4R reaches breakeven", tags("vix1", 0.4), ["breakeven"])
@@ -76,8 +83,13 @@ s.check("2.5R adds none either — the old rung there is gone",
 s.check("10R does not invent a third fixed rung", len(tags("vix1", 10.0)), 2)
 s.check("a losing trade reaches nothing", tags("vix1", -0.5), [])
 
-# The default ladder must NOT break even at 0.4R — that is the leak this design prevents.
-s.check("0.4R on an unattributed position reaches NOTHING", tags(None, 0.4), [])
+# THE DELETED LADDER, kept here as a FIXTURE and not as live code, because what it did to his trade
+# is worth remembering. Its breakeven sat at 1.0R. Anything that could not be attributed to a
+# strategy got it — and attribution lived in memory, so a restart meant every open position did.
+_OLD_LADDER = (rungs.Rung(1.0, None, "breakeven"), rungs.Rung(2.0, 1.0, "lock_1r"))
+_old = lambda r: [x.tag for x in rungs.reached(_OLD_LADDER, r)]
+s.check("the deleted ladder reached NOTHING at 0.4R", _old(0.4), [])
+s.check("...where this one breaks even", tags("vix1", 0.4), ["breakeven"])
 s.check("...it still waits for 1R", tags(None, 1.0), ["breakeven"])
 
 
@@ -89,7 +101,7 @@ s.check("lock +1R on a BUY sits one risk above entry",
         round(rungs.stop_price_for(vix[1], E, RISK, True), 5), round(E + RISK, 5))
 # +2R is now reached by the TRAIL at 2.1R rather than by a fixed rung, so the price is checked
 # through the trailing step — the same arithmetic, from the rung the code actually produces.
-_two_r = [x for x in rungs.reached(vix, 2.1, rungs.trail_for("vix1")) if x.lock_r == 2.0][0]
+_two_r = [x for x in rungs.reached(vix, 2.1, rungs.trail()) if x.lock_r == 2.0][0]
 s.check("lock +2R on a BUY sits two risks above entry",
         round(rungs.stop_price_for(_two_r, E, RISK, True), 5), round(E + 2 * RISK, 5))
 s.check("a SELL locks BELOW its entry",
@@ -111,7 +123,7 @@ s.check("the OLD 1R breakeven sat at 1.16110", round(E + 1.0 * RISK, 5), 1.16110
 s.check("...which the trade never reached — why nothing moved", r_at_peak >= 1.0, False)
 s.check("under the new ladder it reaches breakeven and nothing above it",
         tags("vix1", r_at_peak), ["breakeven"])
-s.check("under the old ladder it reaches nothing at all", tags(None, r_at_peak), [])
+s.check("under the deleted ladder it reached nothing at all — the full loss", _old(r_at_peak), [])
 
 
 # ── ONE TABLE, TWO CONSUMERS ────────────────────────────────────────────────
@@ -122,21 +134,25 @@ tracker = open(os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(
     os.path.abspath(__file__)))), "monitor", "position_tracker.py"), encoding="utf-8").read()
 watcher = open(os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(
     os.path.abspath(__file__)))), "monitor", "trade_watcher.py"), encoding="utf-8").read()
-s.check("the 30s tracker reads the table", "rungs.ladder_for(strategy)" in tracker, True)
+s.check("the 30s tracker reads the table", "rungs.ladder()" in tracker, True)
 s.check("...and no longer defines its own rungs",
         "LADDER = [" in tracker or "BREAKEVEN_R = " in tracker, False)
-s.check("both paths pass the owning strategy",
-        "owner_of(p.position_id)" in tracker and "owner_of(p.position_id)" in watcher, True)
+# Neither path selects a ladder any more, so neither may still be asking who owns the position.
+s.check("neither path looks up an owning strategy",
+        "owner_of" in tracker or "owner_of" in watcher, False)
+s.check("...and both call the single ladder",
+        "rungs.ladder()" in tracker and "_lines(p, r, price)" in watcher, True)
 
 
 # ── TEETH ───────────────────────────────────────────────────────────────────
 # 1. The disagreement that prompted the merge: a hardcoded 1R beside a table saying 0.4R.
-s.teeth("two ladders with different breakevens would be caught",
-        rungs.ladder_for("vix1")[0].at_r != rungs.ladder_for(None)[0].at_r
-        and rungs.ladder_for("vix1")[0].at_r == 0.4)
-# 2. Applying VIX.1's numbers to a position we cannot attribute.
-s.teeth("giving an unattributed position VIX.1's breakeven would be caught",
-        tags(None, 0.4) == [] and tags("vix1", 0.4) == ["breakeven"])
+s.teeth("the deleted ladder really did have a later breakeven",
+        _OLD_LADDER[0].at_r == 1.0 and rungs.ladder()[0].at_r == 0.4)
+s.teeth("...and a trade peaking at 0.50R falls between them",
+        rungs.ladder()[0].at_r < 0.50 < _OLD_LADDER[0].at_r)
+# 2. The second ladder coming back. There is one table now; a second one is the whole defect.
+s.teeth("a second ladder with a different breakeven would be caught",
+        _OLD_LADDER[0].at_r != rungs.ladder()[0].at_r)
 # 3. The float boundary that would silently never fire.
 s.teeth("a bare >= would miss the boundary",
         not (0.4 - 1e-13 >= 0.4) and tags("vix1", 0.4 - 1e-13) == ["breakeven"])
@@ -144,8 +160,8 @@ s.teeth("a bare >= would miss the boundary",
 
 
 # ── THE TRAIL — his three worked examples, exactly as he wrote them ─────────
-_LAD  = rungs.ladder_for("vix1")
-_TR   = rungs.trail_for("vix1")
+_LAD  = rungs.ladder()
+_TR   = rungs.trail()
 
 
 def _lock_at(r):
@@ -196,12 +212,12 @@ s.check("...and so is every step up to 6R",
 s.check("a silent step still carries a stop price",
         rungs.stop_price_for(rungs.reached(_LAD, 2.2, _TR)[-1], 1.0, 0.001, True) is not None, True)
 
-# STRATEGY INDEPENDENCE. Only VIX.1 trails; nothing else was asked to move.
-s.check("bx_sd does NOT trail", rungs.trail_for("bx_sd"), None)
-s.check("an unattributed position does NOT trail", rungs.trail_for(None), None)
-s.check("...and keeps its old fixed ladder",
-        [x.tag for x in rungs.reached(rungs.ladder_for(None), 4.5, rungs.trail_for(None))],
-        ["breakeven", "lock_1r", "lock_2r", "lock_3r"])
+# ONE LADDER, SO NOTHING CAN DIVERGE. There is no second table to keep in step and no selection to
+# get wrong — which is the whole point of deleting it rather than making the selection more reliable.
+s.check("EVERY position trails — there is no ladder without one", rungs.trail() is not None, True)
+s.check("...and every position gets the same rungs at 4.5R",
+        [x.tag for x in rungs.reached(rungs.ladder(), 4.5, rungs.trail())],
+        ["breakeven", "lock_1r", "trail_4.4r"])
 
 s.teeth("the deleted 2.5R->2R rung cannot come back as a lower target",
         _lock_at(2.5) > 2.0)

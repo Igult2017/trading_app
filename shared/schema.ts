@@ -931,12 +931,6 @@ export const syncEvents = pgTable("sync_events", {
 export const autotradeOrders = pgTable("autotrade_orders", {
   id:          varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   orderId:     text("order_id").notNull(),          // the broker's id, and the join key to a deal
-  // WHICH POSITION THIS ORDER BECAME. Written when the fill is matched, and it is what makes the
-  // link from a live position back to the strategy that opened it survive a restart. Without it that
-  // link lived only in a dict in memory, and a restart dropped every open position onto the DEFAULT
-  // ladder — breakeven at 1.0R instead of VIX.1's 0.4R. A EUR/USD trade that peaked at 0.50R on
-  // 01 Sep therefore never moved to breakeven and took a full -1.05R loss.
-  positionId:  text("position_id"),
   signalId:    varchar("signal_id"),
   strategy:    text("strategy"),
   symbol:      text("symbol").notNull(),
