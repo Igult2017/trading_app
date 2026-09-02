@@ -1470,6 +1470,41 @@ not constant offsets, so they stay loud — asserted in the test with the actual
 GBP/JPY bar classified as a −0.005 offset, his real GBP/USD and gold bars classified as genuine
 faults, and teeth proving the old rule would have alarmed.
 
+### C5 - Blog covers are stored as base64 INSIDE the database row. Served around, not fixed
+**Found 02 Sep, measured against production.** `/api/blog` returned **2.23 MB for eight posts**, and
+the article page fetched it **twice** — ~4.45 MB of blocking JSON to draw a category bar and five
+related links.
+
+**My first guess was wrong and the measurement said so.** I assumed the article bodies:
+
+| field | bytes across 8 posts | share |
+|---|---|---|
+| **`imageUrl`** | **2,301,540** | **98.6%** |
+| `content` | 27,480 | 1.2% |
+| everything else | ~3,400 | 0.2% |
+
+Every cover is a `data:` URI — the whole picture base64-encoded in the row. One post's is **430 KB
+of text**. That is the worst possible shape for an image: it cannot be cached as an image, so it is
+re-sent on every page that lists posts; `loading="lazy"` is INERT because the bytes already arrived
+inside the JSON; base64 is ~33% bigger than the binary; and it must all be JSON-parsed before
+anything renders.
+
+**FIXED AT THE TRANSPORT, NOT AT THE STORE.** `/api/blog` and `/api/blog/:id` now return a URL to
+`GET /api/blog/:id/image`, which decodes the data URI and serves the bytes with a cache header.
+Measured on production's real rows: **2,335,163 → 6,471 bytes, 99.72% smaller**, and the article
+page drops from two 2.23 MB fetches to one 6.3 KB fetch with images streaming separately and caching.
+**Nothing is migrated** — the rows keep their data URIs and are decoded on the way out, so no image
+can be lost.
+
+**STILL OPEN: they should not be STORED that way.** The upload path writes base64 into the row
+instead of a file in `uploads/` (which is already served, `appSetup.ts:82`). Until that changes,
+every image costs a database read and a base64 decode per request rather than being a static file a
+CDN could serve. **Not done here** because it needs the editor's upload path changed and the existing
+rows migrated — a separate task with its own risk.
+
+**Also fixed on the way past:** `og:image` was the data URI, which no social crawler can fetch, so
+the blog has never had a working share preview. It is now an absolute URL to the image endpoint.
+
 ### D26 - `brokerSyncService.ts` is 330 lines and now holds two jobs
 **Noted 02 Sep, deliberately NOT split.** It was already 234 lines (over the 200 limit) and D23 took
 it to 330. It now does two separate things: turning ONE broker trade into a journal entry

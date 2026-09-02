@@ -6426,15 +6426,79 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
   });
 
   // ── Blog: public list (published only) ───────────────────────────────────────
+  // ── WHY THE BLOG WAS SLOW, MEASURED RATHER THAN GUESSED ─────────────────────
+  //
+  // `/api/blog` was returning **2.23 MB** for eight posts, and the article page fetched it TWICE —
+  // ~4.45 MB of JSON to show a category bar and five related links.
+  //
+  // My first guess was the article bodies. IT WAS WRONG, and measuring said so: `content` is
+  // 27,480 bytes — **1.2%**. The real figure is `imageUrl`, at **2,301,540 bytes — 98.6%** — because
+  // every cover image is stored as a `data:` URI, the whole picture base64-encoded INSIDE the row.
+  // One post's image is 430 KB of text.
+  //
+  // That is the worst possible shape for a picture:
+  //   * it cannot be cached as an image, so it is re-downloaded on every page that lists posts;
+  //   * `loading="lazy"` on the <img> is INERT — the bytes already arrived inside the JSON;
+  //   * base64 is ~33% larger than the binary it encodes;
+  //   * and it all has to be parsed as JSON before anything renders.
+  //
+  // THE FIX IS TO STOP PUTTING PICTURES IN THE JSON. The list and the single post now hand back a
+  // URL to `/api/blog/:id/image`, which serves the decoded bytes with a long cache header. The JSON
+  // collapses to a few KB, the browser caches each image once, and lazy-loading starts working.
+  // NOTHING IS MIGRATED — the rows keep their data URIs and are decoded on the way out, so this
+  // cannot lose an image. Storing them as files at upload time is the deeper cleanup and is its own
+  // task (OPEN.md).
+  //
+  // `content` is dropped from the LIST too. Nothing rendered it there; both public pages read it
+  // only to find a fallback image, which is now derived here. `/api/blog/all` (admin) is untouched
+  // and still carries `content`, which the editor needs.
+  const firstMarkdownImage = (md: string): string => {
+    const m = /!\[[^\]]*\]\(([^)\s]+)/.exec(md ?? '');
+    return m ? m[1] : '';
+  };
+
+  /** A data URI becomes a cacheable URL; anything already a normal URL is left exactly as it is. */
+  const imageRef = (post: any): string => {
+    const raw = post?.imageUrl || firstMarkdownImage(post?.content ?? '');
+    if (typeof raw === 'string' && raw.startsWith('data:')) return `/api/blog/${post.id}/image`;
+    return raw;
+  };
+
   app.get("/api/blog", async (req: Request, res: Response) => {
     try {
       const { section } = req.query as { section?: string };
       const filters: { status?: string; section?: string } = { status: 'Published' };
       if (section) filters.section = section;
       const posts = await storage.getBlogPosts(filters);
-      return res.json(posts);
+      const light = posts.map((p: any) => {
+        const { content, ...rest } = p;
+        return { ...rest, imageUrl: imageRef(p) };
+      });
+      return res.json(light);
     } catch (err: any) {
       return res.status(500).json({ error: err.message });
+    }
+  });
+
+  // The cover image as an actual image. Immutable: a post's picture is replaced by editing the post,
+  // which changes nothing about this URL — so the cache is keyed on the post id and the browser is
+  // told it may keep it. `must-revalidate` is deliberately absent; a stale cover for an hour is a
+  // fair trade for not re-sending 400 KB on every page view.
+  app.get("/api/blog/:id/image", async (req: Request, res: Response) => {
+    try {
+      const post: any = await storage.getBlogPostById(req.params.id);
+      const raw: string = post?.imageUrl || firstMarkdownImage(post?.content ?? '');
+      if (!raw) return res.status(404).end();
+      if (!raw.startsWith('data:')) return res.redirect(302, raw);
+      const m = /^data:([^;,]+);base64,(.*)$/s.exec(raw);
+      if (!m) return res.status(404).end();
+      const buf = Buffer.from(m[2], 'base64');
+      res.setHeader('Content-Type', m[1]);
+      res.setHeader('Cache-Control', 'public, max-age=3600');
+      res.setHeader('Content-Length', String(buf.length));
+      return res.end(buf);
+    } catch {
+      return res.status(404).end();
     }
   });
 
@@ -6452,9 +6516,12 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
   // ── Blog: single post (public) ───────────────────────────────────────────────
   app.get("/api/blog/:id", async (req: Request, res: Response) => {
     try {
-      const post = await storage.getBlogPostById(req.params.id);
+      const post: any = await storage.getBlogPostById(req.params.id);
       if (!post) return res.status(404).json({ error: 'Post not found' });
-      return res.json(post);
+      // THE COVER GOES OUT AS A URL, NOT AS 430 KB OF BASE64 INSIDE THE ARTICLE. The body still
+      // travels here — this is the page that renders it — but the picture now streams alongside as
+      // a cacheable image instead of blocking the JSON parse. See the note above `/api/blog`.
+      return res.json({ ...post, imageUrl: imageRef(post) });
     } catch (err: any) {
       return res.status(500).json({ error: err.message });
     }

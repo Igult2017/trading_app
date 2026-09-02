@@ -1,16 +1,17 @@
 /**
- * Blog palette — the calm, pale-green look he asked for on 2026-08-29:
+ * Blog palette — THE SITE'S OWN COLOURS.
  *
- *   "Can we make the blog to display like this. This one looks clean, less chaotic and also it is
- *    clear. Can you copy even font, background color/theme and arrangement of articles."
+ * WAS PALE GREEN, on his 2026-08-29 note asking to copy a reference he liked ("clean, less chaotic").
+ * He reversed that on 2026-09-02: *"remove the green color, because i dont see it anywhere as part
+ * of our brand"* — and he is right. The public site is a BLUE on SLATE: `#2563eb` appears 9 times on
+ * the homepage and 7 in the header, alongside the slate ramp (#0f172a, #1e293b, #64748b, #94a3b8,
+ * #e2e8f0, #f1f5f9, #f8fafc). Nothing green appears anywhere else on the site.
  *
- * Read off the reference he sent. Kept as tokens in ONE file rather than sprinkled through the JSX,
- * so the next colour tweak is a single edit and the light and dark sets cannot drift apart.
+ * THE LAYOUT FROM THE REFERENCE IS KEPT — his words were "by design not color". What changes here is
+ * only the ink and the ground; the arrangement, the serif headlines and the card rhythm stay.
  *
- * DARK MODE IS NOT IN THE REFERENCE — it is light-only. The public site has a working dark toggle
- * (`usePublicTheme`) that other pages honour, so a dark set is derived here rather than dropping the
- * feature: the same layout on a deep green-black ground, with the mint accents kept so the two modes
- * read as the same design.
+ * Kept as tokens in ONE file rather than sprinkled through the JSX, so a colour change is a single
+ * edit and the light and dark sets cannot drift apart.
  */
 export type BlogTone = {
   page: string;          // page background
@@ -41,55 +42,55 @@ export type BlogTone = {
 };
 
 export const LIGHT: BlogTone = {
-  page:          '#F1F7F2',
+  page:          '#F7F9FC',
   card:          '#FFFFFF',
-  cardBorder:    'rgba(16,54,34,0.07)',
-  cardShadow:    '0 1px 2px rgba(16,54,34,0.04), 0 8px 24px rgba(16,54,34,0.05)',
-  title:         '#14271C',
-  body:          '#55665C',
-  meta:          '#8A9990',
-  tagBg:         '#E7F2EA',
-  tagInk:        '#2C7A52',
+  cardBorder:    'rgba(15,23,42,0.08)',
+  cardShadow:    '0 1px 2px rgba(15,23,42,0.04), 0 8px 24px rgba(15,23,42,0.06)',
+  title:         '#0F172A',
+  body:          '#475569',
+  meta:          '#94A3B8',
+  tagBg:         '#EFF4FF',
+  tagInk:        '#2563EB',
   pillBg:        '#FFFFFF',
-  pillInk:       '#3D5346',
-  pillBorder:    'rgba(16,54,34,0.12)',
-  pillActiveBg:  '#2C6E4A',
+  pillInk:       '#334155',
+  pillBorder:    'rgba(15,23,42,0.12)',
+  pillActiveBg:  '#2563EB',
   pillActiveInk: '#FFFFFF',
-  accent:        '#2C6E4A',
-  accentHover:   '#245B3D',
-  placeholder:   'linear-gradient(160deg,#E9F4EC 0%,#DCEDE1 100%)',
-  link:          '#2C7A52',
-  quoteInk:      '#4A5C51',
-  quoteEdge:     '#BFD9C7',
-  codeInk:       '#1F5C3D',
-  codeBg:        '#EAF4ED',
-  rule:          'rgba(16,54,34,0.10)',
-  subtle:        '#F4F9F5',
+  accent:        '#2563EB',
+  accentHover:   '#1D4ED8',
+  placeholder:   'linear-gradient(160deg,#EEF2F8 0%,#E2E8F0 100%)',
+  link:          '#2563EB',
+  quoteInk:      '#475569',
+  quoteEdge:     '#CBD8EC',
+  codeInk:       '#1E40AF',
+  codeBg:        '#EEF3FD',
+  rule:          'rgba(15,23,42,0.10)',
+  subtle:        '#F1F5F9',
 };
 
 export const DARK: BlogTone = {
-  page:          '#0C1410',
-  card:          '#13201A',
-  cardBorder:    'rgba(255,255,255,0.07)',
-  cardShadow:    '0 1px 2px rgba(0,0,0,0.4), 0 8px 24px rgba(0,0,0,0.28)',
-  title:         '#ECF3EE',
-  body:          '#A9BBB0',
-  meta:          '#7E9188',
-  tagBg:         'rgba(74,190,130,0.14)',
-  tagInk:        '#6FD8A2',
-  pillBg:        '#13201A',
-  pillInk:       '#B7C8BE',
+  page:          '#0B1220',
+  card:          '#131C2B',
+  cardBorder:    'rgba(255,255,255,0.08)',
+  cardShadow:    '0 1px 2px rgba(0,0,0,0.4), 0 8px 24px rgba(0,0,0,0.30)',
+  title:         '#E9EEF6',
+  body:          '#AAB6C8',
+  meta:          '#7C8AA0',
+  tagBg:         'rgba(96,165,250,0.14)',
+  tagInk:        '#93C5FD',
+  pillBg:        '#131C2B',
+  pillInk:       '#BCC8DA',
   pillBorder:    'rgba(255,255,255,0.12)',
-  pillActiveBg:  '#4ABE82',
-  pillActiveInk: '#08150E',
-  accent:        '#3E9E6C',
-  accentHover:   '#48B47B',
-  placeholder:   'linear-gradient(160deg,#17281F 0%,#12201A 100%)',
-  link:          '#6FD8A2',
-  quoteInk:      '#9DB2A5',
-  quoteEdge:     '#2A4636',
-  codeInk:       '#7FE0AC',
-  codeBg:        'rgba(74,190,130,0.10)',
+  pillActiveBg:  '#3B82F6',
+  pillActiveInk: '#08131F',
+  accent:        '#60A5FA',
+  accentHover:   '#7CB6FB',
+  placeholder:   'linear-gradient(160deg,#18243A 0%,#131C2B 100%)',
+  link:          '#93C5FD',
+  quoteInk:      '#A6B3C6',
+  quoteEdge:     '#2B3B55',
+  codeInk:       '#A9CBFF',
+  codeBg:        'rgba(96,165,250,0.10)',
   rule:          'rgba(255,255,255,0.09)',
   subtle:        'rgba(255,255,255,0.04)',
 };

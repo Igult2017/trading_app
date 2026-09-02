@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useRoute, useLocation } from 'wouter';
-import { ArrowLeft, Clock, Calendar, Image as ImageIcon, MessageCircle, Send } from 'lucide-react';
+import { ChevronLeft, Clock, Calendar, Image as ImageIcon, MessageCircle, Send } from 'lucide-react';
 import { usePublicTheme } from '@/context/PublicThemeContext';
 import { useQuery } from '@tanstack/react-query';
 import { usePageTracking } from '@/hooks/usePageTracking';
@@ -342,7 +342,7 @@ function SafeImage({ src, alt, className, isDark, style }: { src: string; alt: s
 
 // ── Author initials ───────────────────────────────────────────────────────────
 
-function Initials({ name }: { name: string }) {
+function Initials({ name, isDark }: { name: string; isDark: boolean }) {
   const parts = name.trim().split(/\s+/).filter(Boolean);
   const ini = parts.length > 1
     ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
@@ -350,7 +350,9 @@ function Initials({ name }: { name: string }) {
   return (
     <div style={{
       width: 52, height: 52, borderRadius: '50%', flexShrink: 0,
-      background: 'linear-gradient(135deg,#2C6E4A,#4ABE82)',
+      // THE LAST HARDCODED GREEN. Everything else came from the palette, so recolouring that file
+      // moved the whole page except this avatar, which had its own literal pair.
+      background: `linear-gradient(135deg,${tone(isDark).accent},${tone(isDark).link})`,
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       fontSize: 18, fontWeight: 700, color: '#FFFFFF',
       fontFamily: '"Playfair Display",serif',
@@ -365,9 +367,14 @@ export default function BlogPostPage() {
   const [, params] = useRoute('/blog/:id');
   const [, navigate]  = useLocation();
   const { darkMode, setDarkMode } = usePublicTheme();
-  // THE REAL CATEGORIES, from the same request the blog index makes. The query key is identical, so
-  // React Query serves this from cache and no second call goes out. The nav above used to carry a
-  // hardcoded list of trading topics that none of the published posts use (2026-08-30).
+  // THE POST LIST, FETCHED ONCE — for the related-articles sidebar and the strip at the end.
+  //
+  // It used to be fetched TWICE on this page: here through React Query for the category nav, and
+  // again as a raw `fetch('/api/blog')` inside the article's own `.then()` for the related posts.
+  // The raw one bypassed the cache entirely, so every article view downloaded the whole list a
+  // second time — and, until the server was trimmed, that list carried the FULL TEXT of every
+  // published post. The category nav is gone (replaced by "Back to blog"), so one query now serves
+  // the only remaining need, and it shares its key with the blog index and the editor.
   const { data: allPosts = [] } = useQuery<any[]>({
     queryKey: ['/api/blog'],
     queryFn: async () => {
@@ -378,13 +385,8 @@ export default function BlogPostPage() {
     },
     staleTime: 2 * 60 * 1000,
   });
-  const navCategories = useMemo(
-    () => ['All', ...Array.from(new Set(allPosts.map((p: any) => p.category).filter(Boolean))).sort()],
-    [allPosts],
-  );
 
   const [post, setPost]         = useState<Post | null>(null);
-  const [related, setRelated]   = useState<Post[]>([]);
   const [comments, setComments] = useState<Comment[]>([]);
   const [commentName, setCommentName] = useState('');
   const [commentMessage, setCommentMessage] = useState('');
@@ -426,43 +428,45 @@ export default function BlogPostPage() {
           authorData: data.authorData  ?? data.author_data ?? null,
         });
 
-        // Secondary fetches (related posts + comments) are isolated —
-        // a failure here must NOT trigger setNotFound for a post that loaded fine.
-        Promise.all([
-          fetch('/api/blog').catch(() => null),
-          fetch(`/api/blog/${id}/comments`).catch(() => null),
-        ]).then(async ([postsRes, commentsRes]) => {
-          const all = postsRes?.ok ? await postsRes.json().catch(() => []) : [];
-          const commentData = commentsRes?.ok ? await commentsRes.json().catch(() => []) : [];
-          const mapRelated = (p: any) => {
-            const rawImage = p.imageUrl ?? p.image_url ?? '';
-            const firstImg = rawImage || (() => {
-              const m = (p.content ?? '').match(/!\[[^\]]*\]\(([^)]+)\)/);
-              return m ? m[1] : '';
-            })();
-            return {
-              id: p.slug || p.id, title: p.title, excerpt: p.excerpt ?? '',
-              // `content` and `videoUrl` are deliberately blank: these objects are the RELATED-POSTS
-              // sidebar — a title, an image and a link — and neither field is rendered there. They
-              // are present because `Post` requires them; `videoUrl` was simply missing, which is
-              // what made this whole list fail to typecheck.
-              content: '', videoUrl: '', category: p.category ?? 'Analysis',
-              author: p.author ?? 'Admin', date: p.date ?? '',
-              readTime: p.readTime ?? p.read_time ?? '5 min',
-              imageUrl: firstImg, status: p.status, authorData: null,
-            };
-          };
-          const notCurrent = (p: any) => p.id !== id && (p.slug ?? p.id) !== id;
-          if (Array.isArray(all)) {
-            const sameCat  = all.filter((p: any) => notCurrent(p) && (p.category ?? 'Analysis') === postCategory).slice(0, 5).map(mapRelated);
-            const fallback = all.filter((p: any) => notCurrent(p) && (p.category ?? 'Analysis') !== postCategory).slice(0, Math.max(0, 5 - sameCat.length)).map(mapRelated);
-            setRelated([...sameCat, ...fallback]);
-          }
-          setComments(Array.isArray(commentData) ? commentData : []);
-        }).catch(() => {});
       })
       .catch(() => setNotFound(true))
       .finally(() => setLoading(false));
+  }, [id]);
+
+  // RELATED POSTS ARE DERIVED FROM THE LIST ALREADY IN HAND — no request of their own. Same
+  // instrument as before (five from this category, topped up from the rest), computed rather than
+  // fetched, so the sidebar appears as soon as the cached list does.
+  const related = useMemo<Post[]>(() => {
+    if (!id || !Array.isArray(allPosts) || allPosts.length === 0) return [];
+    const cat = post?.category ?? 'Analysis';
+    const mapRelated = (p: any): Post => ({
+      id: p.slug || p.id, title: p.title, excerpt: p.excerpt ?? '',
+      // `content` and `videoUrl` are deliberately blank: these objects are the RELATED-POSTS
+      // sidebar — a title, an image and a link — and neither field is rendered there. They are
+      // present because `Post` requires them.
+      content: '', videoUrl: '', category: p.category ?? 'Analysis',
+      author: p.author ?? 'Admin', date: p.date ?? '',
+      readTime: p.readTime ?? p.read_time ?? '5 min',
+      // The server now derives this fallback, so the body no longer has to travel to find a picture.
+      imageUrl: p.imageUrl ?? p.image_url ?? '', status: p.status, authorData: null,
+    });
+    const notCurrent = (p: any) => p.id !== id && (p.slug ?? p.id) !== id;
+    const sameCat  = allPosts.filter((p: any) => notCurrent(p) && (p.category ?? 'Analysis') === cat).slice(0, 5).map(mapRelated);
+    const fallback = allPosts.filter((p: any) => notCurrent(p) && (p.category ?? 'Analysis') !== cat).slice(0, Math.max(0, 5 - sameCat.length)).map(mapRelated);
+    return [...sameCat, ...fallback];
+  }, [allPosts, id, post?.category]);
+
+  // COMMENTS GO OUT WITH THE ARTICLE, NOT AFTER IT. They used to be requested inside the article
+  // fetch's own `.then()`, so nothing was even asked for until the article had fully arrived — two
+  // round trips end to end where one would do. Its own effect means both leave at the same moment.
+  useEffect(() => {
+    if (!id) return;
+    let alive = true;
+    fetch(`/api/blog/${id}/comments`)
+      .then(r => (r.ok ? r.json() : []))
+      .then(d => { if (alive) setComments(Array.isArray(d) ? d : []); })
+      .catch(() => {});
+    return () => { alive = false; };
   }, [id]);
 
   const submitComment = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -516,6 +520,16 @@ export default function BlogPostPage() {
   const ad = post.authorData;
   const postDesc = post.excerpt || post.content.replace(/<[^>]+>/g, '').slice(0, 160);
   const postUrl = `/blog/${(post as any).slug || post.id}`;
+  // SOCIAL CRAWLERS NEED AN ABSOLUTE URL. `og:image` is now `/api/blog/:id/image` (the cover no
+  // longer travels inside the JSON), and a relative path is simply ignored by Facebook, X and
+  // LinkedIn — so the share card would show no picture. It showed none before either: the value
+  // used to be a `data:` URI, which those crawlers cannot fetch at all. Made absolute here, which
+  // is the first time this page has had a working share image.
+  const absoluteOgImage = post.imageUrl
+    ? (/^https?:\/\//i.test(post.imageUrl)
+        ? post.imageUrl
+        : `${typeof window !== 'undefined' ? window.location.origin : ''}${post.imageUrl}`)
+    : undefined;
 
   return (
     <>
@@ -523,7 +537,7 @@ export default function BlogPostPage() {
       title={post.title}
       description={postDesc}
       canonical={postUrl}
-      ogImage={post.imageUrl || undefined}
+      ogImage={absoluteOgImage}
       ogType="article"
       author={post.author}
       publishedTime={post.date}
@@ -566,56 +580,31 @@ export default function BlogPostPage() {
         }
       `}</style>
 
-      {/* ── Category nav ───────────────────────────────────────────────────
-          THREE THINGS WERE WRONG HERE (fixed 2026-08-30, on his screenshot).
+      {/* ── Back to blog ─────────────────────────────────────────────────
+          REPLACED THE CATEGORY NAV, on his instruction 2026-09-02: *"I need those categories gone
+          and replaced with 'back to blog' written in playfair to the far left corner"*.
 
-          1. THE LIST WAS HARDCODED to trading topics — All, Equities, Forex, Digital Assets,
-             Analysis, Backtested Strategies — none of which the published posts use. The blog index
-             had the same fault and was fixed on 29 Aug; THIS COPY WAS MISSED, so the old list went
-             on showing here. One duplicate left standing is a fix that does nothing.
-          2. EVERY BUTTON DID THE SAME THING — each one navigated to /blog regardless of which was
-             clicked, so the nav looked like a filter and was decoration.
-          3. The comment above it read "same as blog index", which stopped being true the moment the
-             index was redesigned.
-
-          The categories now come from the same request the index uses (identical query key, so
-          React Query serves it from cache without a second fetch), and a click actually filters. */}
-      <nav aria-label="Browse by category" style={{
-        borderTop: `1px solid ${border}`,
-        borderBottom: `1px solid ${border}`,
-        padding: '14px 0',
-        overflowX: 'auto',
-      }}>
-        <div className="bpp-nav-inner">
-          {navCategories.map(cat => {
-            const active = cat !== 'All' && post.category.toLowerCase() === cat.toLowerCase();
-            const T = tone(isDark);
-            return (
-              <button
-                key={cat}
-                onClick={() => navigate(cat === 'All' ? '/blog' : `/blog?category=${encodeURIComponent(cat)}`)}
-                aria-current={active ? 'page' : undefined}
-                style={{
-                  fontSize: 13,
-                  fontWeight: 500,
-                  fontFamily: SANS,
-                  borderRadius: 999,
-                  padding: '8px 16px',
-                  cursor: 'pointer',
-                  whiteSpace: 'nowrap',
-                  flexShrink: 0,
-                  background: active ? T.pillActiveBg : T.pillBg,
-                  color:      active ? T.pillActiveInk : T.pillInk,
-                  border: `1px solid ${active ? T.pillActiveBg : T.pillBorder}`,
-                  transition: 'background .15s, color .15s',
-                }}
-              >
-                {cat}
-              </button>
-            );
-          })}
-        </div>
-      </nav>
+          The nav did not belong on an ARTICLE page. Filters are a job for the index — you pick a
+          topic there and browse. Once you are reading one piece, the only navigation that means
+          anything is the way back, and a row of pills competing with the headline is noise. Removing
+          it also removed the second `/api/blog` request this page was making, because the pills were
+          the only thing that needed it. */}
+      <div style={{ padding: '18px 0 6px' }}>
+        <button
+          onClick={() => navigate('/blog')}
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 8,
+            background: 'none', border: 'none', padding: 0, cursor: 'pointer',
+            fontFamily: SERIF, fontSize: 15, fontWeight: 500, color: text,
+            transition: 'color .15s',
+          }}
+          onMouseEnter={e => (e.currentTarget.style.color = accentL)}
+          onMouseLeave={e => (e.currentTarget.style.color = text)}
+        >
+          <ChevronLeft size={16} strokeWidth={2} />
+          Back to blog
+        </button>
+      </div>
 
       <div className="bpp-outer">
         <div className="bpp-grid">
@@ -623,12 +612,16 @@ export default function BlogPostPage() {
           {/* ── Cover image ────────────────────────────────────────────── */}
           <div className="bpp-cover">
             {post.imageUrl ? (
-              <div style={{ position: 'relative', overflow: 'hidden' }}>
+              <div style={{ position: 'relative', overflow: 'hidden', borderRadius: 16, border: `1px solid ${border}` }}>
+                {/* THE COVER IS A CARD, NOT A BANNER. It was a hard-edged 480px slab bleeding to the
+                    container edge; his reference is a rounded panel with room to breathe. The height
+                    is now a RATIO with a ceiling, so a tall phone does not get a letterbox and a wide
+                    desktop does not get a wall of picture. */}
                 <SafeImage
                   src={post.imageUrl}
                   alt={post.title}
                   isDark={isDark}
-                  style={{ width: '100%', height: 480, objectFit: 'cover', display: 'block', opacity: isDark ? 0.88 : 1 }}
+                  style={{ width: '100%', aspectRatio: '16 / 9', maxHeight: 460, objectFit: 'cover', display: 'block', opacity: isDark ? 0.92 : 1 }}
                 />
                 {/* Bottom gradient overlay */}
                 <div style={{ position: 'absolute', inset: 0, background: isDark ? 'linear-gradient(to bottom,transparent 55%,rgba(15,23,42,0.5))' : 'linear-gradient(to bottom,transparent 65%,rgba(253,252,251,0.35))' }} />
@@ -642,7 +635,7 @@ export default function BlogPostPage() {
                 </div>
               </div>
             ) : (
-              <div style={{ width: '100%', height: 480, background: tone(isDark).placeholder }} />
+              <div style={{ width: '100%', aspectRatio: '16 / 9', maxHeight: 460, borderRadius: 16, border: `1px solid ${border}`, background: tone(isDark).placeholder }} />
             )}
           </div>
 
@@ -675,7 +668,7 @@ export default function BlogPostPage() {
                     src={r.imageUrl}
                     alt={r.title}
                     isDark={isDark}
-                    style={{ width: 72, height: 58, objectFit: 'cover', display: 'block', flexShrink: 0 }}
+                    style={{ width: 76, height: 60, objectFit: 'cover', display: 'block', flexShrink: 0, borderRadius: 10, border: `1px solid ${border}` }}
                   />
                 )}
               </div>
@@ -685,17 +678,6 @@ export default function BlogPostPage() {
           {/* ── Article content (same column width as cover) ────────────── */}
           <main className="bpp-content">
 
-            {/* Back link */}
-            <div style={{ marginBottom: 28 }}>
-              <button
-                onClick={() => navigate('/blog')}
-                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: muted, background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, fontFamily: '"Playfair Display",serif', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', padding: 0, transition: 'color 0.2s' }}
-                onMouseEnter={e => (e.currentTarget.style.color = accentL)}
-                onMouseLeave={e => (e.currentTarget.style.color = muted)}
-              >
-                <ArrowLeft size={14} /> Blog
-              </button>
-            </div>
 
             {/* Article header */}
             <header style={{ marginBottom: 40 }}>
@@ -720,7 +702,7 @@ export default function BlogPostPage() {
               )}
               <div style={{ display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap', borderTop: `1px solid ${border}`, borderBottom: `1px solid ${border}`, padding: '14px 0', marginBottom: 8 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <Initials name={post.author} />
+                  <Initials name={post.author} isDark={isDark} />
                   <div>
                     <div style={{ fontSize: 14, fontWeight: 700, color: text }}>{post.author}</div>
                     {ad?.bio && <div style={{ fontSize: 11, color: muted, marginTop: 2, maxWidth: 280 }}>{ad.bio}</div>}
@@ -779,7 +761,7 @@ export default function BlogPostPage() {
             {/* Author card */}
             <div style={{ marginTop: 60, padding: '28px 32px', background: cardBg, border: `1px solid ${border}`, borderLeft: `4px solid ${accent}` }}>
               <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-                <Initials name={post.author} />
+                <Initials name={post.author} isDark={isDark} />
                 <div style={{ flex: 1, minWidth: 200 }}>
                   <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.2em', color: accent, marginBottom: 6 }}>Written by</div>
                   <div style={{ fontFamily: '"Playfair Display",serif', fontSize: '1.3rem', fontWeight: 800, color: text, marginBottom: 8 }}>{post.author}</div>
@@ -815,13 +797,13 @@ export default function BlogPostPage() {
                     <article
                       key={r.id}
                       onClick={() => navigate(`/blog/${r.id}`)}
-                      style={{ cursor: 'pointer', background: cardBg, border: `1px solid ${border}`, padding: '18px', transition: 'border-color 0.2s,transform 0.2s' }}
+                      style={{ cursor: 'pointer', background: cardBg, border: `1px solid ${border}`, borderRadius: 14, padding: '18px', transition: 'border-color 0.2s,transform 0.2s' }}
                       onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = accent; (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)'; }}
                       onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = border; (e.currentTarget as HTMLElement).style.transform = 'none'; }}
                     >
                       {r.imageUrl && (
                         <SafeImage src={r.imageUrl} alt={r.title} isDark={isDark}
-                          style={{ width: '100%', height: 110, objectFit: 'cover', display: 'block', marginBottom: 12 }} />
+                          style={{ width: '100%', aspectRatio: '16 / 10', height: 'auto', objectFit: 'cover', display: 'block', marginBottom: 12, borderRadius: 10 }} />
                       )}
                       <div style={{ fontSize: 9, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.2em', color: accent, marginBottom: 7 }}>{r.category}</div>
                       <h3 style={{ fontFamily: '"Playfair Display",serif', fontSize: '0.92rem', fontWeight: 800, color: text, lineHeight: 1.3, margin: '0 0 8px' }}>{r.title}</h3>
