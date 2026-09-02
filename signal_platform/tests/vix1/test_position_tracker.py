@@ -103,38 +103,43 @@ T.delivery_ledger.is_delivered = lambda k: False        # every run starts fresh
 T.delivery_ledger.mark_delivered = lambda k: None
 T.delivery_ledger.cleanup = lambda ttl: None
 
-s.check("below 1R — nothing is sent", len(run([P(pid=10)], 1.1005)), 0)
-one = run([P(pid=11)], 1.1010)
-s.check("at 1R — exactly one alert", len(one), 1)
+s.check("below 0.4R — nothing is sent", len(run([P(pid=10)], 1.1003)), 0)
+one = run([P(pid=11)], 1.1005)
+s.check("at 0.4R — exactly one alert", len(one), 1)
 s.check("...and it is BREAKEVEN", "BREAKEVEN" in one[0], True)
 
-# ── THE LADDER — his rungs, 2026-08-21 ──────────────────────────────────────
-# 2R -> lock +1R, 3R -> lock +2R, 4R -> lock +3R. The 4R rung does NOT close: the take profit sits
-# on the order at 4R, so this rung exists to have +3R banked before the broker exits.
-two = run([P(pid=12)], 1.1020)
-s.check("at 2R — breakeven plus the first rung", len(two), 2)
-s.check("...and the rung says LOCK +1R", "LOCK IN +1R" in two[1], True)
-s.check("...naming the +1R price", "1.10100" in two[1], True)
+# ── THE LADDER — ONE LADDER, and only breakeven speaks ──────────────────────
+# His ruling, 2026-09-02: *"There is no fallback, the change was that we use this new ladder and
+# delete the other one."* Breakeven 0.4R, lock +1R at 2.0R, then a 0.1R trail from 2.1R.
+#
+# THIS BLOCK USED TO COUNT MESSAGES PER RUNG (2R -> 2 messages, 3R -> 3, 4R -> 4). That was the OLD
+# 1R/2R/3R/4R ladder, which is deleted — and it also predates his rule that *"Locking Rs should only
+# be announced when we move to breakeven and when we are out of the market."* Every locking rung is
+# `quiet` now, so the MESSAGE count stays at one however far the trade runs. The stop still moves on
+# every one of them, which is what the rung assertions below check through the real `_lines`.
+for r_reached, label in ((2.0, "2R"), (3.0, "3R"), (4.0, "4R")):
+    px = 1.1000 + r_reached * 0.0010
+    s.check(f"at {label} — still just the ONE breakeven message",
+            len(run([P(pid=int(20 + r_reached))], px)), 1)
 
-three = run([P(pid=13)], 1.1030)
-s.check("at 3R — three messages", len(three), 3)
-s.check("...the last is LOCK +2R", "LOCK IN +2R" in three[2], True)
-s.check("...naming the +2R price", "1.10200" in three[2], True)
+# The rungs themselves, through the real function. `_lines` returns (tag, stop price, message).
+_p = P(pid=30)
+tags_at = lambda r: [t for t, _sl, _m in T._lines(_p, r, 1.1000 + r * 0.0010)]
+s.check("0.39R reaches nothing", tags_at(0.39), [])
+s.check("0.4R reaches breakeven", tags_at(0.4), ["breakeven"])
+s.check("1.9R is still only breakeven", tags_at(1.9), ["breakeven"])
+s.check("2.0R adds the +1R lock", tags_at(2.0), ["breakeven", "lock_1r"])
+s.check("2.1R starts the trail", tags_at(2.1)[-1], "trail_2.0r")
+s.check("4.0R trails at 3.9R", tags_at(4.0)[-1], "trail_3.9r")
 
-four = run([P(pid=14)], 1.1040)
-s.check("at 4R — four messages", len(four), 4)
-s.check("...the last is LOCK +3R", "LOCK IN +3R" in four[3], True)
-s.check("...and it explains the broker does the exit", "broker does the exit" in four[3], True)
-s.check("...it does NOT claim to close the trade itself", "closing the trade" in four[3], False)
-
-# ordered, and a rung not reached ends the ladder
-s.check("at 2.9R the 3R rung has NOT fired",
-        any("LOCK IN +2R" in m for m in run([P(pid=15)], 1.1029)), False)
+# THE PRICE THE STOP GOES TO, on the rung that locks +1R.
+_lock = [(t, sl) for t, sl, _m in T._lines(_p, 2.0, 1.1020) if t == "lock_1r"][0]
+s.check("the +1R lock puts the stop one risk above entry", round(_lock[1], 5), 1.10100)
 
 # SELL mirrors — the locks go DOWN
-sells = run([P(pid=16, bullish=False, entry=1.1000, stop=1.1010)], 1.0980)
-s.check("SELL: at 2R it locks +1R below the entry", "LOCK IN +1R" in sells[1], True)
-s.check("...at 1.09900, not above", "1.09900" in sells[1], True)
+_sell = P(pid=31, bullish=False, entry=1.1000, stop=1.1010)
+_slock = [(t, sl) for t, sl, _m in T._lines(_sell, 2.0, 1.0980) if t == "lock_1r"][0]
+s.check("SELL: the +1R lock sits one risk BELOW entry", round(_slock[1], 5), 1.09900)
 
 nostop = run([P(pid=13, stop=None)], 1.1010)
 s.check("a position with NO STOP gets one notice, not silence", len(nostop), 1)
@@ -148,9 +153,13 @@ s.check("a failed broker read sends NOTHING", len(sent), 0)
 s.check("...and an empty book also sends nothing", len(run([], 1.1010)), 0)
 
 # ── TEETH ───────────────────────────────────────────────────────────────────
-s.teeth("the 1R gate", len(run([P(pid=20)], 1.1009)) == 0)
+# THE GATE IS 0.4R NOW, not 1R — one ladder for every position (his ruling, 2026-09-02). And the
+# rung count, not the message count, is what proves the ordering: every locking rung is silent, so
+# messages stay at one however far the trade runs.
+s.teeth("the 0.4R gate", len(run([P(pid=20)], 1.1003)) == 0
+        and len(run([P(pid=23)], 1.1005)) == 1)
 s.teeth("the ladder rungs are ordered and gated",
-        len(run([P(pid=21)], 1.1020)) < len(run([P(pid=22)], 1.1040)))
+        len(T._lines(P(pid=21), 0.4, 1.1004)) < len(T._lines(P(pid=22), 4.0, 1.1040)))
 s.teeth("breakeven really moves with cost",
         P(commission=3.5).breakeven() != P(commission=0.0).breakeven())
 s.teeth("R really is signed", P().r_at(1.0995) < 0)
