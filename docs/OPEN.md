@@ -841,61 +841,63 @@ anywhere. Blocked on one question: does copy trading auto-execute on a user's ac
 
 ## D. cTrader & copy trading
 
-### D33 - ~~A restart made every open position forget its own ladder, and it cost a full R~~ FIXED 02 Sep 🔴
+### D33 - ~~Two ladders, and the wrong one cost a full R~~ FIXED 02 Sep 🔴
 
-**His question:** *"how comes it dint breakeven if it reached 14:12 1.16073 +0.45R"* — the right
-question, and the answer was not "the manager was down".
+**His ruling:** *"There is no fallback, the change was that we use this new ladder and delete the
+other one."*
 
-**The manager keeps TWO ladders and picks by asking which strategy opened the position:**
+**The manager kept TWO tables of rungs** and chose between them by asking which strategy opened the
+position:
 
-| ladder | moves to breakeven at |
+| ladder | breakeven at |
 |---|---|
-| VIX.1 (attributed) | **0.4R** |
-| DEFAULT (cannot tell) | **1.0R** |
+| VIX.1 | **0.4R** |
+| the other one | **1.0R** |
 
-That question is answered by [`fill_watch._owner`](../signal_platform/execution/fill_watch.py#L49),
-**a dict in memory**, filled in exactly one place — when a PENDING order is matched to its fill.
-Restart after an order has already filled and nothing ever re-matches it, so the link is gone for
-good and the position silently drops onto the DEFAULT ladder.
+That question was answered from a dict in memory (`fill_watch._owner`), filled in one place only —
+when a PENDING order was matched to its fill. **Restart after an order had already filled and the
+link was gone for good**, so every open position quietly got the 1.0R table.
 
-**Measured on his EUR/USD trade of 01 Sep**, which peaked at **+0.50R** — above VIX.1's 0.4R,
-below the default's 1.0R, so it fell exactly in the gap:
+**His EUR/USD trade of 01 Sep peaked at +0.50R** — above 0.4R, below 1.0R. It fell straight through
+the gap. Replayed over the real minute bars through the real `rungs.py`:
 
 ```
-VIX.1 ladder     breakeven fires at 0.4R   ->  exits  +0.00R
-DEFAULT ladder   nothing fires below 1.0R  ->  exits  -1.00R
-what actually happened                         exited -1.05R
+the one ladder    breakeven fires at 0.4R   ->  exits  +0.00R
+the deleted one   nothing fires below 1.0R  ->  exits  -1.00R
+what happened                                   exited -1.05R
 ```
 
-The trade behaved exactly as an unattributed position. **A full R, lost to a dictionary.**
+**A whole R, lost to the existence of a second table of numbers.**
 
-**Fixed:** `autotrade_orders.position_id` records which position an order became, written the moment
-the fill is matched, and `fill_watch.rehydrate_owners()` restores the links at boot. Read ONCE at
-startup, **never on the trading path** — a database read inside the 30-second poll is what slowed the
-monitor from under a second to 2.7 when the pending-order lookup was first written that way.
+**MY FIRST FIX WAS THE WRONG ONE, recorded here so it is not repeated.** I made the attribution
+durable — a `position_id` column, a boot-time restore — which kept both tables and made the choice
+between them more reliable. His fix **deletes the second table**: no choice left to get wrong, nothing
+to lose across a restart, the failure mode gone rather than guarded. All of that machinery went with
+it (`_owner`, `owner_of`, `_remember_owner`, `_forget_closed`, `rehydrate_owners`, `record_position`,
+`owners`, the `position_id` column) — dead the moment the selection disappeared.
 
-**This was the other half of D32** and I missed it: I made the PLACEMENTS durable but not the
-position-to-strategy link, and an order that has already filled is never re-matched, so nothing
-restored it.
+**Worse, I had written the hazard down and called it safe.** Commit `039a385`: *"ANYTHING
+UNATTRIBUTED KEEPS THE OLD DEFAULTS... which fails in the safe direction: a later breakeven."* A later
+breakeven is not safe — it is a full loss instead of a scratch. That same commit names this very trade
+as what prompted it.
 
-Guarded by [`test_ladder_attribution.py`](../signal_platform/tests/vix1/test_ladder_attribution.py)
-(13 checks) — it replays both real trades over real minute bars through the real `rungs.py`, and its
-teeth prove the unattributed path really does take the full loss.
+`ladder()` and `trail()` now take **no argument**; `_lines()` no longer takes a strategy. Guarded by
+[`test_rungs.py`](../signal_platform/tests/vix1/test_rungs.py) (64 checks) and
+[`test_ladder_attribution.py`](../signal_platform/tests/vix1/test_ladder_attribution.py) (14), which
+replays both real trades and keeps the deleted ladder as a FIXTURE to prove what it cost.
 
-**STILL OPEN — the WIN needs his ruling.** He asked for *"one win and one BE"*. The fix removes both
-losses, but it cannot manufacture the win: GBP/USD peaked at **+1.78R** as the manager measures it (R
-from the FILL, on the ASK, which is what `_price_now` returns for a sell) and the first PROFIT-locking
-rung sits at **2.0R**. Measured options on that trade, none of them committed:
+**NEITHER TRADE IS A LOSS ANY MORE.** EUR/USD breaks even instead of losing 1.05R; GBP/USD was already
+breakeven. **The WIN cannot be manufactured**: GBP/USD peaked at **+1.78R** as the manager measures it
+(R from the FILL, on the ASK — what `_price_now` returns for a sell) and the first PROFIT-lock sits at
+**2.0R**. Measured options on that trade, none committed:
 
 | change | GBP/USD would have returned |
 |---|---|
-| as it is today (lock 1R at 2.0R) | +0.00R |
+| as it is (lock 1R at 2.0R) | +0.00R |
 | lock 0.5R once 1.5R is reached | +0.50R |
 | lock 1R once 1.5R is reached | +1.00R |
 | start the same 0.1R trail at 1.5R instead of 2.1R | **+1.60R** |
 | start the same 0.1R trail at 1.0R | +1.00R |
-
-His ladder numbers are his decision — see [[feedback-ask-dont-invent]]. Nothing above is in the code.
 
 ### D30 - ~~The journal's risk numbers were blank or wrong for every MANAGED trade~~ FIXED 02 Sep 🔴
 
