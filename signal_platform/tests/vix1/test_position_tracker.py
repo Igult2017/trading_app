@@ -76,6 +76,13 @@ class _Stub:
 
 def run(positions, price):
     sent.clear()
+    # EACH `run` IS AN INDEPENDENT SCENARIO, not the next poll of the same account. Every call uses
+    # a fresh position id, so without this the tracker correctly reports the PREVIOUS scenario's
+    # position as closed (added 2026-09-02 — `exit_watch` announces a position that has vanished
+    # from the broker's list, which is exactly what a new id looks like). Clearing the snapshot is
+    # what makes these scenarios independent; `test_exit_watch.py` is where the vanish is tested.
+    from monitor import exit_watch
+    exit_watch._seen.clear()
     for k in list(T.delivery_ledger._delivered if hasattr(T.delivery_ledger, "_delivered") else []):
         pass
     T.ctrader_positions = _Stub(positions)

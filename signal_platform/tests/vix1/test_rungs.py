@@ -3,8 +3,10 @@
 HIS INSTRUCTION, 2026-09-02: *"Breakeven at 0.4R, Lock 1R at 2R and lock 2R at 2.5R and get out of
 trade when price has started turning against us."*
 
-**This SUPERSEDES the ladder settled on 2026-08-21 and reinstates the 2.5R rung that was explicitly
-withdrawn that day.** Asserted here so the change is visible in a test rather than only in a diff.
+**REVISED THE SAME DAY, and the upper half is now a TRAIL rather than a rung:** *"when price moves to
+2.1R lock 2R and when it moves to 2.5R lock 2.4R and when it moves to 2.6R lock 2.5R and go with that
+math until we are stopped out."* Every one of those is one rule — keep the stop 0.1R behind — so the
+fixed 2.5R rung is gone and his three worked examples are asserted below, verbatim.
 
 WHY THE TABLE EXISTS AT ALL. There were two ladders for one trade and they disagreed: the code that
 MOVES his stop broke even at 1R, the DM that ADVISES him did nothing below 2R. He asked for them
@@ -37,11 +39,13 @@ s = Suite("THE LADDER — 0.4R / 2.0R / 2.5R, per strategy")
 vix = rungs.ladder_for("vix1")
 dflt = rungs.ladder_for(None)
 
-s.check("VIX.1 has exactly three rungs", len(vix), 3)
+# TWO FIXED RUNGS NOW, not three. The 2.5R -> lock 2R rung is GONE, replaced by the trail that
+# protects +2R from 2.1R — earlier and higher. Leaving it would have fired a second alert at 2.5R
+# telling him to move the stop DOWN from 2.4R to 2.0R. The trail is asserted at the bottom.
+s.check("VIX.1 has exactly two FIXED rungs, then trails", len(vix), 2)
 s.check("...breakeven at 0.4R", (vix[0].at_r, vix[0].lock_r), (0.4, None))
 s.check("...lock +1R at 2.0R", (vix[1].at_r, vix[1].lock_r), (2.0, 1.0))
-s.check("...lock +2R at 2.5R — the rung withdrawn on 21 Aug, reinstated 2 Sep",
-        (vix[2].at_r, vix[2].lock_r), (2.5, 2.0))
+s.check("...and a trail takes over above that", rungs.trail_for("vix1") is not None, True)
 s.check("the rungs are ordered, so a gap cannot let a higher one fire first",
         [r.at_r for r in vix], sorted(r.at_r for r in vix))
 
@@ -64,9 +68,12 @@ s.check("EXACTLY 0.4R reaches breakeven", tags("vix1", 0.4), ["breakeven"])
 s.check("0.4000000001R too", tags("vix1", 0.4 + 1e-10), ["breakeven"])
 s.check("1.9R is still only breakeven", tags("vix1", 1.9), ["breakeven"])
 s.check("2.0R adds the first lock", tags("vix1", 2.0), ["breakeven", "lock_1r"])
-s.check("2.4R adds nothing more", tags("vix1", 2.4), ["breakeven", "lock_1r"])
-s.check("2.5R adds the second lock", tags("vix1", 2.5), ["breakeven", "lock_1r", "lock_2r"])
-s.check("10R does not invent a fourth rung", len(tags("vix1", 10.0)), 3)
+# `tags()` reads the FIXED rungs only (no trail passed), so above 2.0R it stops growing — the trail
+# is asserted separately at the bottom of this file, where its own numbers live.
+s.check("2.4R adds no further FIXED rung", tags("vix1", 2.4), ["breakeven", "lock_1r"])
+s.check("2.5R adds none either — the old rung there is gone",
+        tags("vix1", 2.5), ["breakeven", "lock_1r"])
+s.check("10R does not invent a third fixed rung", len(tags("vix1", 10.0)), 2)
 s.check("a losing trade reaches nothing", tags("vix1", -0.5), [])
 
 # The default ladder must NOT break even at 0.4R — that is the leak this design prevents.
@@ -80,8 +87,11 @@ s.check("breakeven's price is not computed here — only the position knows its 
         rungs.stop_price_for(vix[0], E, RISK, True), None)
 s.check("lock +1R on a BUY sits one risk above entry",
         round(rungs.stop_price_for(vix[1], E, RISK, True), 5), round(E + RISK, 5))
+# +2R is now reached by the TRAIL at 2.1R rather than by a fixed rung, so the price is checked
+# through the trailing step — the same arithmetic, from the rung the code actually produces.
+_two_r = [x for x in rungs.reached(vix, 2.1, rungs.trail_for("vix1")) if x.lock_r == 2.0][0]
 s.check("lock +2R on a BUY sits two risks above entry",
-        round(rungs.stop_price_for(vix[2], E, RISK, True), 5), round(E + 2 * RISK, 5))
+        round(rungs.stop_price_for(_two_r, E, RISK, True), 5), round(E + 2 * RISK, 5))
 s.check("a SELL locks BELOW its entry",
         round(rungs.stop_price_for(vix[1], E, RISK, False), 5), round(E - RISK, 5))
 
@@ -130,5 +140,64 @@ s.teeth("giving an unattributed position VIX.1's breakeven would be caught",
 # 3. The float boundary that would silently never fire.
 s.teeth("a bare >= would miss the boundary",
         not (0.4 - 1e-13 >= 0.4) and tags("vix1", 0.4 - 1e-13) == ["breakeven"])
+
+
+
+# ── THE TRAIL — his three worked examples, exactly as he wrote them ─────────
+_LAD  = rungs.ladder_for("vix1")
+_TR   = rungs.trail_for("vix1")
+
+
+def _lock_at(r):
+    """The R the stop is put at when price reaches `r`, or None."""
+    got = [x for x in rungs.reached(_LAD, r, _TR) if x.lock_r is not None]
+    return got[-1].lock_r if got else None
+
+
+s.check("2.1R locks 2.0R — his first example", _lock_at(2.1), 2.0)
+s.check("2.5R locks 2.4R — his second",        _lock_at(2.5), 2.4)
+s.check("2.6R locks 2.5R — his third",         _lock_at(2.6), 2.5)
+s.check("...and it keeps going: 4.7R locks 4.6R", _lock_at(4.7), 4.6)
+
+# THE BOUNDARY IS THE WHOLE REASON THIS IS COUNTED IN TENTHS. R is a ratio of differences between
+# 5-decimal prices, so a true 2.5 arrives just under it. `int(r * 10)` would read 24 and lock 2.3R —
+# one step low, silently, on exactly the number he named.
+s.check("a hair under 2.5R still locks 2.4R", _lock_at(2.4999999999997), 2.4)
+s.check("a hair under 2.1R still locks 2.0R", _lock_at(2.0999999999998), 2.0)
+
+# BELOW THE TRAIL, THE FIXED RUNGS ARE UNCHANGED.
+s.check("0.3R is still too early for anything", _lock_at(0.3), None)
+s.check("2.0R still locks 1R, not 1.9R",        _lock_at(2.0), 1.0)
+s.check("2.05R has not earned a trail step yet", _lock_at(2.05), 1.0)
+s.check("breakeven still arrives at 0.4R",
+        [x.tag for x in rungs.reached(_LAD, 0.4, _TR)], ["breakeven"])
+
+# ONE STEP PER JUMP. Price running 2.1R -> 3.0R between two checks must move the stop once, to 2.9R.
+_jump = [x for x in rungs.reached(_LAD, 3.0, _TR) if x.tag.startswith("trail")]
+s.check("a jump to 3.0R yields ONE trailing step", len(_jump), 1)
+s.check("...at 2.9R, not at 2.0R", _jump[0].lock_r, 2.9)
+
+# THE TRAIL NEVER PULLS A STOP BACKWARDS — a fixed rung protecting more wins.
+s.check("no trailing step undercuts the 1R rung",
+        all(x.lock_r is None or x.lock_r >= 1.0 for x in rungs.reached(_LAD, 2.1, _TR)), True)
+
+# QUIET STEPS STILL MOVE THE STOP. Only the message is suppressed, and only off the half-R.
+s.check("2.1R -> lock 2.0R is announced", [x.quiet for x in rungs.reached(_LAD, 2.1, _TR)][-1], False)
+s.check("2.2R -> lock 2.1R is silent",    [x.quiet for x in rungs.reached(_LAD, 2.2, _TR)][-1], True)
+s.check("2.6R -> lock 2.5R is announced", [x.quiet for x in rungs.reached(_LAD, 2.6, _TR)][-1], False)
+s.check("a silent step still carries a stop price",
+        rungs.stop_price_for(rungs.reached(_LAD, 2.2, _TR)[-1], 1.0, 0.001, True) is not None, True)
+
+# STRATEGY INDEPENDENCE. Only VIX.1 trails; nothing else was asked to move.
+s.check("bx_sd does NOT trail", rungs.trail_for("bx_sd"), None)
+s.check("an unattributed position does NOT trail", rungs.trail_for(None), None)
+s.check("...and keeps its old fixed ladder",
+        [x.tag for x in rungs.reached(rungs.ladder_for(None), 4.5, rungs.trail_for(None))],
+        ["breakeven", "lock_1r", "lock_2r", "lock_3r"])
+
+s.teeth("the deleted 2.5R->2R rung cannot come back as a lower target",
+        _lock_at(2.5) > 2.0)
+s.teeth("floating point really would have broken the boundary",
+        int(2.4999999999997 * 10) == 24)
 
 s.done()

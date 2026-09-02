@@ -71,6 +71,10 @@ STOP_MOVED = "STOP MOVED AUTOMATICALLY"
 STOP_NOT_MOVED = "STOP NOT MOVED"
 TAKE_PROFIT_MISSING = "TAKE PROFIT IS MISSING"
 R_REACHED = "PROFIT MILESTONE REACHED"
+# THE ONE HE WAS NEVER SENT. A position closing at a MOVED stop — breakeven, +1R, a trailed
+# level — touches none of the signal's original levels, so nothing announced it and he had no
+# way to know a trade was over. See monitor/exit_watch.py.
+POSITION_CLOSED = "POSITION CLOSED"
 STRUCTURE_EXIT = "1M STRUCTURE CHANGED — CLOSE IT"
 
 # Platform

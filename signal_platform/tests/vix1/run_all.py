@@ -19,7 +19,11 @@ TESTS = [
     "test_momentum.py",             # the gates and grading, hand-built candles
     "test_line_pullback.py",        # the line, and the past-the-line rule
     "test_entry_return_to_line.py", # pullback in 1-3, else the return to the line, else nothing
-    "test_rungs.py",                # THE LADDER — 0.4R/2.0R/2.5R, per strategy, one table
+    "test_rungs.py",                # THE LADDER — 0.4R, 1R at 2R, then trailing 0.1R behind
+    # ADDED 2026-09-02. His report: "right now i dont know whether we are out or not". A position
+    # closing at a MOVED stop touched none of the signal's original levels, so nothing announced it.
+    # The hardest case here is the one that must NEVER fire: a failed broker read is not an exit.
+    "test_exit_watch.py",           # say when the trade is over — and only when it really is
     "test_manage.py",               # the R ratchet and the structure exit
     "test_invariants_real_data.py", # the real functions over real candles
     "test_trend.py",              # the 1HR trend read — stability + do reversals mean anything

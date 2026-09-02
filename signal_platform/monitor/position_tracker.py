@@ -20,7 +20,7 @@ VIX.1, his numbers of 2026-09-02 (superseding 2026-08-21, which had withdrawn th
 
     0.4R  ->  BREAKEVEN     the stop goes to the NET-ZERO price
     2.0R  ->  LOCK +1R
-    2.5R  ->  LOCK +2R
+    2.1R+ ->  TRAIL, keeping the stop 0.1R behind, in 0.1R steps, until it is hit
 
 Everything else — and any position that cannot be attributed to a strategy — keeps the older
 1R/2R/3R/4R ladder unchanged. A take profit resting on the ORDER still performs the exit; the top
@@ -62,8 +62,10 @@ log = logging.getLogger(__name__)
 # So the DM advising him and the code moving his stop could disagree about the same position. He
 # asked for them merged; the table is the merge.
 #
-# HIS LADDER, 2026-09-02, superseding 2026-08-21: breakeven at 0.4R, lock +1R at 2.0R, lock +2R at
-# 2.5R. The 2.5R rung had been withdrawn on 2026-08-21 and he has reinstated it — see rungs.py.
+# HIS LADDER, 2026-09-02: breakeven at 0.4R, lock +1R at 2.0R, then TRAIL 0.1R behind in 0.1R steps
+# ("when price moves to 2.1R lock 2R... and go with that math until we are stopped out"). The old
+# fixed 2.5R -> lock 2R rung is gone: the trail protects +2R from 2.1R, earlier and higher. Trailing
+# tenths move the stop QUIETLY — see `Rung.quiet` in rungs.py.
 #
 # PER STRATEGY, because a broker `Position` carries no strategy and a global constant would apply
 # VIX.1's numbers to every other strategy's trades. `fill_watch.owner_of` answers it; an
@@ -137,7 +139,7 @@ def _lines(p, r: float, price: float, strategy: str | None = None) -> list[tuple
     risk = abs(p.entry - p.stop) if p.stop else 0.0
     out: list[tuple[str, str]] = []
 
-    for rung in rungs.reached(rungs.ladder_for(strategy), r):
+    for rung in rungs.reached(rungs.ladder_for(strategy), r, rungs.trail_for(strategy)):
         if rung.lock_r is None:
             be = p.breakeven()
             where = (f"{be:.{d}f}" if be is not None else "your entry + costs")
@@ -150,6 +152,11 @@ def _lines(p, r: float, price: float, strategy: str | None = None) -> list[tuple
                         f"still take the costs off you."))
             continue
         lock_at = rungs.stop_price_for(rung, p.entry, risk, p.bullish)
+        if rung.quiet:
+            # A trailing tenth. The stop still moves; his phone does not ring. `None` for the
+            # message is the caller's signal to skip the send and go straight to the amend.
+            out.append((rung.tag, lock_at, None))
+            continue
         tail = ("\n\nThe take profit sits on the ORDER, so the broker does the exit — this locks the "
                 "gain first so a failed exit still banks it." if rung.at_r >= 4.0 else "")
         out.append((rung.tag, lock_at,
@@ -210,6 +217,13 @@ async def check_all(send) -> None:
         # fill price lives on the position and this is the only place it is already fetched.
         from execution.fill_watch import check_fills
         await check_fills(positions, send)
+        # ARE WE OUT? Nothing used to answer that. A position closing at a MOVED stop — breakeven,
+        # +1R, a trailed level — touches none of the SIGNAL's original levels, so `signal_monitor`
+        # stayed silent and the position simply stopped appearing here. His words: *"right now i
+        # dont know whether we are out or not"*. Runs BEFORE the snapshot at the end of this poll,
+        # because a vanished position is found by comparing this list against the previous one.
+        from monitor import exit_watch
+        await exit_watch.announce_closed(positions, send)
         # None and [] MEAN DIFFERENT THINGS. [] is "nothing open"; None is "could not read the
         # broker", and inventing silence-as-fact from a failed read is how a tracker lies.
         if positions is None:
@@ -236,6 +250,9 @@ async def check_all(send) -> None:
             _last_seen = line
             log.info(f"[position_tracker] {len(positions)} position(s): {line}")
 
+        # The R each position reached this poll, handed to `exit_watch` at the end so the exit
+        # message can report how far the trade actually ran before it closed.
+        r_seen: dict[int, float] = {}
         for p in positions:
             if p.stop is None:
                 # No stop = no R to measure. Say so ONCE rather than tracking nothing in silence:
@@ -257,16 +274,25 @@ async def check_all(send) -> None:
             r = p.r_at(price)
             if r is None:
                 continue
+            r_seen[int(p.position_id)] = r
             for tag, new_sl, message in _lines(p, r, price, owner_of(p.position_id)):
                 k = _key(p.position_id, tag)
                 if delivery_ledger.is_delivered(k):
                     continue
-                if await send(message):
+                # `message is None` is a QUIET rung — a trailing tenth that moves the stop without a
+                # DM. It is still marked delivered, or every poll would re-amend the same step.
+                if message is None or await send(message):
                     delivery_ledger.mark_delivered(k)
-                    log.info(f"[position_tracker] {p.symbol} #{p.position_id}: {tag} at {r:.2f}R")
+                    log.info(f"[position_tracker] {p.symbol} #{p.position_id}: {tag} at {r:.2f}R"
+                             f"{' (quiet)' if message is None else ''}")
                 # AND THEN ACTUALLY MOVE IT, if he has switched that on. The advice DM above is sent
                 # either way and first: if the amend fails he still knows what to do by hand, which
                 # is the behaviour that must survive every failure here.
                 await _auto_move(p, tag, new_sl, send, price)
+
+        # REMEMBER WHAT WE JUST SAW, with the R each position reached, so that when one disappears
+        # the exit message can say what its stop was protecting and how far it ran. Last in the
+        # poll, so a position that closed during this very poll was already announced above.
+        exit_watch.observe(positions, r_seen)
     except Exception as exc:
         log.error(f"[position_tracker] poll failed: {type(exc).__name__}: {exc}", exc_info=True)

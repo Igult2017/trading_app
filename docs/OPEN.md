@@ -249,6 +249,56 @@ red self-test that everyone steps around is how a real regression gets missed: t
 break something here will see two failures and assume they are the usual two.
 
 
+### B18 - ~~Autotrade never said when a trade was over~~ FIXED 02 Sep 🔴
+**His report, 02 Sep:** *"It doesnt even communicate. When SL is hit it should say, when we lock 1R
+and later it is hit and we are out it should say... When we are out it should announce because like
+right now i dont know whether we are out or not."*
+
+**He was right, and it was not a missing message — nothing was watching the right thing.**
+
+| | what it watches | what it says on an exit |
+|---|---|---|
+| [`monitor/signal_monitor.py:218`](../signal_platform/monitor/signal_monitor.py#L218) | the SIGNAL's ORIGINAL `sl`/`tp`, from the database row | announces only if price touches **those original levels** |
+| [`monitor/position_tracker.py`](../signal_platform/monitor/position_tracker.py) | the broker's **open** positions | nothing — a closed position just stops appearing |
+
+The ladder moves the REAL stop. The signal monitor never learns that: the state that advances a
+signal's stop is built **for `bx_sd` only** ([`signal_monitor.py:173`](../signal_platform/monitor/signal_monitor.py#L173)),
+so for VIX.1 `sl` stays the original stop for the signal's whole life. **So the exits he most wanted
+to hear about were exactly the silent ones** — stopped out at breakeven, at +1R, at a trailed level:
+all at prices the signal's original levels never see. The signal then sat "triggered" until it
+expired 24 hours later. A plain stop-out at the untouched original level *was* announced, which is
+why it felt random rather than absent.
+
+And the one place that already noticed a position had vanished,
+[`fill_watch._forget_closed`](../signal_platform/execution/fill_watch.py#L72), just deleted it from a
+dictionary.
+
+**FIXED:** new [`monitor/exit_watch.py`](../signal_platform/monitor/exit_watch.py) keeps a last-seen
+snapshot per position and announces once when it disappears — the stop it was carrying, whether that
+was profit / breakeven / a loss, and the best R it reached. It says plainly that the level is the
+**stop**, not a confirmed fill, because the exit price is not in the open-position feed.
+
+**THE CASE THAT MUST NEVER FIRE, and the one its test guards hardest:** `open_positions()` returns
+`None` for *"I could not read the broker"* and `[]` for *"nothing open"*. Announcing an exit from a
+failed read would tell him he is out of a trade he is still in. A `None` read announces nothing and
+keeps watching.
+
+### B19 - ~~On the fast path, a failed Telegram message stopped the stop from moving~~ FIXED 02 Sep 🔴
+**Found 02 Sep while reading the ladder for B18.**
+[`trade_watcher.py`](../signal_platform/monitor/trade_watcher.py) had the amend nested INSIDE the send:
+
+```python
+if await self.send(message):
+    delivery_ledger.mark_delivered(k)
+    log.info(...)
+    await _auto_move(p, tag, new_sl, self.send, price)   # only runs if Telegram accepted
+```
+
+`position_tracker` has always done the opposite deliberately, with a comment saying why: *"the advice
+DM above is sent either way and first: if the amend fails he still knows what to do by hand"*. **On
+the fast path — the 0.5s one that exists to act within a second — that was inverted: a failed or
+rate-limited DM left his stop exactly where it was.** The amend is now outside the send, matching.
+
 ### B17 - ~~cTrader refused the gold order: a gold lot is 100 ounces, not 100,000 units~~ FIXED 02 Sep 🔴
 **His report, 01 Sep:** *"Ctrader rejected this autotrader order because the number was too big.
 Can you investigate and fix it from the root cause."*

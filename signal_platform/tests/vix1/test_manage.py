@@ -55,12 +55,19 @@ print("   the locks, at his levels:")
 st2 = run(ENTRY, SL0, True, bars_to(2.0))
 s.check("peak 2.0R locks +1R", st2.locked_r, 1.0)
 s.check("  stop sits one risk above entry", round(st2.stop, 5), round(ENTRY + RISK, 5))
+# ABOVE 2.0R THE LADDER TRAILS — his revision of 2026-09-02: "when price moves to 2.1R lock 2R and
+# when it moves to 2.5R lock 2.4R and when it moves to 2.6R lock 2.5R and go with that math until we
+# are stopped out". The old fixed 2.5R -> +2R rung is gone; the trail reaches +2R at 2.1R instead.
+# This advice path reads the SAME table as the code that moves the real stop, so these numbers are
+# the amend's numbers.
+st21 = run(ENTRY, SL0, True, bars_to(2.1))
+s.check("peak 2.1R locks +2R — his first worked example", st21.locked_r, 2.0)
 st24 = run(ENTRY, SL0, True, bars_to(2.4))
-s.check("peak 2.4R still locks only +1R", st24.locked_r, 1.0)
+s.check("peak 2.4R locks +2.3R", st24.locked_r, 2.3)
 st3 = run(ENTRY, SL0, True, bars_to(2.5))
-s.check("peak 2.5R locks +2R — the reinstated rung", st3.locked_r, 2.0)
+s.check("peak 2.5R locks +2.4R — his second worked example", st3.locked_r, 2.4)
 st4 = run(ENTRY, SL0, True, bars_to(6.0))
-s.check("peak 6R does not invent a rung above +2R", st4.locked_r, 2.0)
+s.check("peak 6R keeps trailing — locks +5.9R", st4.locked_r, 5.9)
 
 print()
 print("   the stop RATCHETS — it never moves backwards:")
@@ -68,12 +75,12 @@ st5 = run(ENTRY, SL0, True, bars_to(2.5))
 after_peak = st5.stop
 st5 = run(ENTRY, SL0, True, bars_to(2.1), state=st5)      # price falls back to 2.1R
 s.check("a lower peak does not pull the stop back", round(st5.stop, 5), round(after_peak, 5))
-s.check("  and the locked R is unchanged", st5.locked_r, 2.0)
+s.check("  and the locked R is unchanged", st5.locked_r, 2.4)
 
 print()
 print("   the same rules short:")
 sh = run(ENTRY, ENTRY + RISK, False, bars_to(2.5, bullish=False))
-s.check("short: peak 3R locks 2R", sh.locked_r, 2.0)
+s.check("short: peak 2.5R locks +2.4R, the same trail as a long", sh.locked_r, 2.4)
 s.check("short: the stop sits ABOVE entry-side, below start", sh.stop < ENTRY + RISK, True)
 
 print()
@@ -102,7 +109,7 @@ s.check("state exposes the peak reached", st6.peak_r >= 3.0, True)
 
 print()
 s.teeth("nothing locks below 2R", run(ENTRY, SL0, True, bars_to(1.9)).locked_r == 0.0)
-s.teeth("the forward-only ratchet", st5.locked_r == 2.0 and round(st5.stop, 5) == round(after_peak, 5))
+s.teeth("the forward-only ratchet", st5.locked_r == 2.4 and round(st5.stop, 5) == round(after_peak, 5))
 s.teeth("the wicks-never-count rule", structure_broken(wick_only, True) is False)
 
 s.done()

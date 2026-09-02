@@ -69,14 +69,20 @@ def _locked_for(peak_r: float) -> float:
     in the codebase: the code that moves his stop broke even at 1R while this advised nothing below
     2R, so the DM and the amend could disagree about one trade. He asked for them merged.
 
-    HIS LADDER, 2026-09-02, superseding 2026-08-21: breakeven at 0.4R, lock +1R at 2.0R, lock +2R at
-    2.5R. The 2.5R rung had been withdrawn on 2026-08-21 and is now reinstated.
+    HIS LADDER, 2026-09-02 (revised the same day): breakeven at 0.4R, lock +1R at 2.0R, then TRAIL —
+    the stop keeps 0.1R behind in 0.1R steps until it is hit.
+
+    **THE TRAIL MUST BE PASSED HERE TOO.** This is the THIRD reader of the shared table, after
+    `position_tracker` and `trade_watcher`, and it was the one missed when the trail was added: it
+    called `reached()` without the trail, so the advice DM stopped at +1R while the code moving the
+    real stop had already trailed it to +2.4R. That is precisely the two-ladders disagreement this
+    table exists to prevent, reappearing in a third place — caught by `test_manage`.
 
     Breakeven is NOT a locked R — it protects zero — so it returns 0.0 here and is handled as its
     own step by `_be_reached`.
     """
     locked = 0.0
-    for rung in rungs.reached(rungs.ladder_for("vix1"), peak_r):
+    for rung in rungs.reached(rungs.ladder_for("vix1"), peak_r, rungs.trail_for("vix1")):
         if rung.lock_r is not None:
             locked = max(locked, rung.lock_r)
     return locked
@@ -85,7 +91,8 @@ def _locked_for(peak_r: float) -> float:
 def _be_reached(peak_r: float) -> bool:
     """Has the breakeven rung been reached? Its own question, because breakeven locks 0R and so
     cannot be told apart from 'nothing locked yet' by the number alone."""
-    return any(r.lock_r is None for r in rungs.reached(rungs.ladder_for("vix1"), peak_r))
+    return any(r.lock_r is None
+               for r in rungs.reached(rungs.ladder_for("vix1"), peak_r, rungs.trail_for("vix1")))
 
 
 def structure_broken(bars: list[Candle], bullish: bool) -> bool:
