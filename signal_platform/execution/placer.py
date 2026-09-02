@@ -46,7 +46,7 @@ async def _tell(notify, message: str | None) -> None:
 
 
 async def place_for_signal(signal, creds: dict, account_type: str, equity: float,
-                           notify=None) -> str | None:
+                           notify=None, risk_base: float = 0.0) -> str | None:
     """Place the stop order for a signal. Returns the broker order id, or None if not placed.
 
     Never raises: a fault in placement must not take down the scan that produced the signal. A
@@ -59,10 +59,28 @@ async def place_for_signal(signal, creds: dict, account_type: str, equity: float
         if not entry or not sl:
             return None
 
+        # SIZED OFF THE STARTING BALANCE, NOT THE LIVE ONE. His instruction, 2026-09-03: *"static
+        # 2% of the starting account balance."* `risk_base` is that number, decided once in
+        # `account._risk_base`; 0.0 means it could not be established, and `plan_size` then returns
+        # 0 lots, which the guard below refuses. It is deliberately NOT allowed to fall back to
+        # `equity` — that would risk the right percentage of the wrong number and look identical in
+        # every log.
         lots, volume, stop_pips = plan_size(
-            equity=equity, entry=entry, stop=sl, symbol=symbol,
+            equity=risk_base, entry=entry, stop=sl, symbol=symbol,
             risk_pct=settings.autotrade_risk_pct,
-            fixed_lots=settings.autotrade_fixed_lots)
+            fixed_lots=settings.autotrade_fixed_lots,
+            max_lots=settings.autotrade_max_lots)
+
+        if not risk_base and not settings.autotrade_fixed_lots:
+            log.error(f"[execution] NOT placing {symbol} {side} — the account's STARTING balance is "
+                      f"unknown, so 2% of it cannot be sized. Set AUTOTRADE_RISK_BASE or give the "
+                      f"account's session a starting balance.")
+            if notify:
+                await _tell(notify, refusal_message(
+                    symbol, side, signal.strategy_name or signal.strategy_id,
+                    "the account's STARTING balance is unknown, so the risk cannot be sized. "
+                    "Nothing was placed rather than risking the wrong amount."))
+            return None
 
         why = guards.check(symbol, side, signal.strategy_id, account_type, equity, lots)
         if why:

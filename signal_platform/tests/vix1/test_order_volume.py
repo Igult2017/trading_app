@@ -191,4 +191,53 @@ s.teeth("the volume the broker actually refused is caught here", _old_why is not
 _ok_v, _ok_why = clamp_to_broker(lots_to_volume(0.13, "XAU/USD"), XAU_SPEC)
 s.teeth("...while the correctly-sized one passes", _ok_why is None and _ok_v == 1_300)
 
+
+
+# ── STATIC 2% OF THE STARTING BALANCE ───────────────────────────────────────
+#
+# His instruction, 2026-09-03: *"change our risk to static 2% of the starting account balance."*
+#
+# TWO changes in one, and the second is the one that matters. The AMOUNT went 0.5% -> 2%. The BASE
+# went from the live balance to the balance the account started with — so the money at risk stops
+# drifting with every win and loss, and the same setup is the same bet in a month.
+print()
+print("   static 2% of the starting balance:")
+
+from execution.sizing import size_lots, plan_size
+from config import settings as _s
+
+START = 10_000.0          # what the account began with
+s.check("the risk percent is 2%", _s.settings.autotrade_risk_pct, 2.0)
+
+# HIS REAL GBP/USD TRADE: a 5.9-pip stop. $200 risked over 5.9 pips at $10/pip/lot = 3.39 lots.
+# It was actually placed at 0.94 lots, on the old 0.5% of live equity.
+s.check("his real 5.9-pip trade sizes to 3.39 lots", size_lots(START, 2.0, 5.9), 3.39)
+s.check("...which risks $200 of a $10,000 start",
+        round(3.39 * 5.9 * 10.0, 0), 200.0)
+s.check("...where 0.5% would have been 0.85 lots", size_lots(START, 0.5, 5.9), 0.85)
+
+# STATIC IS THE WHOLE POINT: the size must not move when the balance does.
+s.check("a losing run does NOT shrink the size — same base, same lots",
+        size_lots(START, 2.0, 5.9), size_lots(START, 2.0, 5.9))
+s.check("...and that is what changed: sizing off the LIVE balance would have moved it",
+        size_lots(9_946.43, 2.0, 5.9) != size_lots(START, 2.0, 5.9), True)
+
+# NO BASE, NO ORDER. It must never fall back to the live balance — that would risk the right
+# percentage of the wrong number and look identical in every log.
+s.check("an unknown starting balance sizes NOTHING", size_lots(0.0, 2.0, 5.9), 0.0)
+
+# THE CAP. At 2% a stop under ~4 pips asks for more than 5 lots and is cut down, so the trade risks
+# LESS than he set. It is allowed to happen — it is a real limit — but never in silence.
+s.check("a 2-pip stop wants 10 lots", round((START * 0.02) / (2.0 * 10.0), 2), 10.0)
+s.check("...and is capped at 5", size_lots(START, 2.0, 2.0, max_lots=5.0), 5.0)
+s.check("...which is only 1% risked, not 2%",
+        round(5.0 * 2.0 * 10.0 / START * 100, 2), 1.0)
+
+# TEETH — prove the base really is what drives it.
+# max_lots raised for this one check ONLY: 6.78 lots is over the 5.0 cap, so with the default the
+# doubling would be hidden by the cap and the teeth would prove nothing.
+s.teeth("doubling the base doubles the size",
+        size_lots(20_000.0, 2.0, 5.9, max_lots=10.0) == 6.78)
+s.teeth("...and a wider stop shrinks it", size_lots(START, 2.0, 11.8) == 1.69)
+
 s.done()

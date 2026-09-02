@@ -142,7 +142,19 @@ class Settings(BaseSettings):
     # neither survives contact with a broker, and this is how we find out by how much.
     autotrade_enabled:     bool  = False   # THE KILL SWITCH. Nothing is placed while this is False.
     autotrade_demo_only:   bool  = True    # refuse to place on a live account, checked at runtime
-    autotrade_risk_pct:    float = 0.5     # % of equity risked per trade
+    # % OF THE STARTING BALANCE risked per trade — not of the live one. His instruction,
+    # 2026-09-03: "change our risk to static 2% of the starting account balance." Sizing off the
+    # live balance means the money at risk drifts with every win and loss; static means the same
+    # setup is the same bet in a month. Was 0.5% of live equity until then.
+    autotrade_risk_pct:    float = 2.0
+    # The balance that percentage is OF. 0.0 = use the account's own recorded starting balance from
+    # the credential bridge. Set it to pin the number by hand if that recorded value is ever wrong.
+    # If neither is known, sizing REFUSES rather than falling back to the live balance.
+    autotrade_risk_base:   float = 0.0
+    # The most lots one order may ever be. At 2% this BINDS on a stop under about 4 pips — a 2-pip
+    # stop asks for 10 lots and gets 5, which is 1% risked, not 2%. `size_lots` says so out loud when
+    # it happens rather than letting the shortfall pass silently.
+    autotrade_max_lots:    float = 5.0
     autotrade_max_per_day: int   = 6       # hard cap on orders placed in a rolling 24h
     autotrade_symbols:     str   = ""      # CSV allow-list; empty = every symbol the strategy fires
     autotrade_strategies:  str   = "vix1"  # CSV of strategy ids allowed to place. VIX.1 only for now

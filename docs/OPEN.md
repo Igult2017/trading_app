@@ -841,6 +841,49 @@ anywhere. Blocked on one question: does copy trading auto-execute on a user's ac
 
 ## D. cTrader & copy trading
 
+### D41 - Autotrade risks a static 2% of the STARTING balance. DONE 03 Sep
+
+**His instruction:** *"Can you change our risk to static 2% of the starting account balance for
+autotrading."*
+
+**Two changes, and the second is the one that matters.** The amount went **0.5% → 2%**. The base went
+from the **live** balance to the balance the account **started with** — so the money at risk stops
+drifting with every win and loss, and the same setup is the same bet in a month.
+
+**The bridge sent nothing static to size against.** Asked production directly: it hands the Python
+side `balance` and `equity`, both the same live number. It now also sends `starting_balance`, read
+from the account's own `defaultSessionId` session — seeded once when the account connected and never
+overwritten.
+
+**No base, no order.** If neither the recorded starting balance nor the `AUTOTRADE_RISK_BASE`
+override is known, sizing returns 0 lots and the refusal says why in his DM. **It deliberately does
+not fall back to the live balance** — that would risk the right percentage of the wrong number and
+look identical in every log.
+
+**On his real GBP/USD trade** (5.9-pip stop, $10,000 start): **$200 risked, 3.39 lots**. It was placed
+at 0.94 lots under the old 0.5% of live equity — **roughly four times larger now**.
+
+**THE 5-LOT CAP BINDS BELOW ~4 PIPS, and it used to do so in silence:**
+
+| stop | 2% wants | actually placed | really risked |
+|---|---|---|---|
+| 2.0 pips | 10.00 lots | 5.00 (capped) | **1.00%, not 2%** |
+| 4.0 pips | 5.00 lots | 5.00 | 2.00% |
+| 5.9 pips | 3.39 lots | 3.39 | 2.00% |
+
+The cap is now a setting (`autotrade_max_lots`, still 5.0) and **`size_lots` logs loudly whenever it
+binds**, naming the percentage actually risked. The cap itself is unchanged — 5 lots on a $10,000
+account is already over $500k of notional, and raising it is his decision, not mine.
+
+**What I have NOT measured:** his real stop distribution, so I cannot say how often the cap will bind.
+`rungs.py` cites a 2.0-pip median, but that comes from the generic sweep its own doc says is *not*
+VIX.1's real stops — and his two actual signals had 5.9 and 6.0-pip stops, three times wider. The new
+logging turns that from a guess into a fact after a few trades.
+
+**Worth confirming before the first order:** the recorded starting balance is whatever the account's
+balance was when it was CONNECTED, not necessarily the original deposit. The bridge reports it; check
+the number is the one he means.
+
 ### D38 - ~~Crucial state died on every restart~~ FIXED 03 Sep 🔴
 
 **His rule:** *"you must persist any crucial memory."*

@@ -2454,9 +2454,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
    * ORDER. Autotrade was switched on and would have placed nothing while blaming the account type.
    * `is_live` is kept because existing callers read it.
    */
+  /** The starting balance recorded on the account's own session, or null. Never throws. */
+  async function startingBalanceFor(sessionId?: string | null): Promise<number | null> {
+    if (!sessionId) return null;
+    try {
+      const session = await storage.getSessionById(sessionId);
+      const v = parseFloat(String(session?.startingBalance ?? ''));
+      return Number.isFinite(v) && v > 0 ? v : null;
+    } catch {
+      return null;
+    }
+  }
+
   async function ctraderCredsFor(
     row: { id: string; account_type: string; password_enc: string;
-           balance?: string | null; currency?: string | null },
+           balance?: string | null; currency?: string | null;
+           default_session_id?: string | null },
     creds: any,
   ): Promise<Record<string, unknown> | null> {
     if (!creds?.accessToken || !creds?.refreshToken) return null;
@@ -2492,6 +2505,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // looks for several spellings and neither side should have to know which one it picks.
       balance:       row.balance != null ? Number(row.balance) : null,
       equity:        row.balance != null ? Number(row.balance) : null,
+      // THE BALANCE THE ACCOUNT STARTED WITH — what autotrade sizes its risk against.
+      //
+      // His instruction, 2026-09-03: *"change our risk to static 2% of the starting account
+      // balance."* STATIC is the point: sizing off the live balance means the money at risk drifts
+      // with every win and loss, so the same setup is a different bet in a month. This is seeded
+      // once when the account connects and never overwritten (storage.ts `seedSessionStartingBalance`),
+      // so it is the one number that does not move.
+      //
+      // Null when the account has no session or the seed never ran. The Python side REFUSES to size
+      // on a null rather than falling back to the live balance — a silent fallback would risk 2% of
+      // something else and look identical in every log.
+      starting_balance: await startingBalanceFor(row.default_session_id),
       currency:      row.currency ?? null,
     };
   }
@@ -2520,9 +2545,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // switch switched ON and everything else correct. Same shape as the `account_type` defect
       // (OPEN.md D4): a guard reading a field the endpoint never sent.
       const { rows } = await pool.query<{
-        id: string; account_type: string; password_enc: string;
+        id: string; account_type: string; password_enc: string; default_session_id?: string | null;
         balance: string | null; currency: string | null;
-      }>(`SELECT id, account_type, password_enc, balance, currency FROM broker_accounts WHERE platform = 'ctrader' ORDER BY updated_at DESC ${pin ? 'LIMIT 200' : 'LIMIT 5'}`);
+      }>(`SELECT id, account_type, password_enc, balance, currency, default_session_id FROM broker_accounts WHERE platform = 'ctrader' ORDER BY updated_at DESC ${pin ? 'LIMIT 200' : 'LIMIT 5'}`);
 
       if (pin) {
         for (const row of rows) {

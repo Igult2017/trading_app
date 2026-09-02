@@ -171,10 +171,19 @@ def size_lots(equity: float, risk_pct: float, stop_pips: float,
     pip_value = pip_value_per_lot * conversion_rate
     if pip_value <= 0:
         return 0.0
+    _uncapped = (equity * risk_pct / 100.0) / (stop_pips * pip_value)
     lots = (equity * risk_pct / 100.0) / (stop_pips * pip_value)
     if lots != lots or lots in (float("inf"), float("-inf")) or lots <= 0:
         return 0.0
     lots = round(lots / LOT_STEP) * LOT_STEP           # quantise to the broker's step, once, at the end
+    # THE CAP MUST NOT REDUCE HIS RISK IN SILENCE. At 2% a stop under ~4 pips asks for more than the
+    # cap allows — a 2-pip stop wants 10 lots and gets 5, which is 1% risked, not the 2% he set. That
+    # is a real difference in the only number that matters, and it used to pass without a word.
+    if _uncapped > max_lots:
+        effective = (max_lots * stop_pips * pip_value) / equity * 100.0
+        log.warning(f"[sizing] {risk_pct:.2f}% of {equity:,.2f} over a {stop_pips:.1f} pip stop "
+                    f"wants {_uncapped:.2f} lots; the cap allows {max_lots:.2f}. "
+                    f"THIS TRADE RISKS {effective:.2f}%, NOT {risk_pct:.2f}%.")
     return round(max(MIN_LOTS, min(max_lots, lots)), 2)
 
 
@@ -182,6 +191,11 @@ def plan_size(equity: float, entry: float, stop: float, symbol: str,
               risk_pct: float, fixed_lots: float = 0.0,
               max_lots: float = 5.0) -> tuple[float, int, float]:
     """(lots, volume, stop_pips) for one signal.
+
+    `equity` here is THE RISK BASE, which since 2026-09-03 is the account's STARTING balance and not
+    its live one — see `execution.account._risk_base`. The name is kept because every caller and test
+    already uses it and renaming it would touch more than it would explain; what changed is which
+    number is handed in, and that is decided in one place.
 
     `fixed_lots` > 0 pins the size and skips the risk maths entirely. That is the DIAGNOSTIC mode:
     when the question is "where did it really fill?", size is noise and a constant minimum keeps
