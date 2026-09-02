@@ -564,14 +564,16 @@ export default function BlogPostPage() {
 
       {/* ── Responsive grid styles ─────────────────────────────────────────── */}
       <style>{`
-        .bpp-outer { max-width: 1280px; margin: 0 auto; padding: 32px 28px 80px; }
+        .bpp-outer  { max-width: 1280px; margin: 0 auto; padding: 8px 32px 80px; }
+        .bpp-topbar { max-width: 1280px; margin: 0 auto; padding: 18px 32px 0; }
         .bpp-grid  { display: grid; grid-template-columns: 1fr 290px; gap: 0 48px; align-items: start; }
         .bpp-cover { grid-column: 1; grid-row: 1; }
         .bpp-sidebar { grid-column: 2; grid-row: 1 / 3; position: sticky; top: 24px; }
         .bpp-content { grid-column: 1; grid-row: 2; padding-top: 36px; min-width: 0; }
         .bpp-nav-inner { display: flex; align-items: center; justify-content: space-evenly; max-width: 1280px; margin: 0 auto; padding: 0 28px; }
         @media (max-width: 860px) {
-          .bpp-outer { padding: 20px 16px 60px; }
+          .bpp-outer  { padding: 4px 16px 60px; }
+          .bpp-topbar { padding: 14px 16px 0; }
           .bpp-grid  { grid-template-columns: 1fr; gap: 0; }
           .bpp-cover   { grid-column: 1; grid-row: 1; }
           .bpp-sidebar { grid-column: 1; grid-row: 3; position: static; margin-top: 48px; }
@@ -589,7 +591,7 @@ export default function BlogPostPage() {
           anything is the way back, and a row of pills competing with the headline is noise. Removing
           it also removed the second `/api/blog` request this page was making, because the pills were
           the only thing that needed it. */}
-      <div style={{ padding: '18px 0 6px' }}>
+      <div className="bpp-topbar">
         <button
           onClick={() => navigate('/blog')}
           style={{
@@ -814,38 +816,85 @@ export default function BlogPostPage() {
               </section>
             )}
 
-            {/* Comments */}
+            {/* ── Comments ─────────────────────────────────────────────────
+                REDESIGNED 2026-09-02 to the reference he sent — in OUR colours, not its green.
+
+                What changed and why:
+                  * the count is IN THE HEADING ("Comments (0)"), so the section says how much
+                    conversation there is before you scroll into it;
+                  * the name box and the message box are ONE rounded card divided by a hairline,
+                    instead of two hard-edged boxes and an empty grid cell that pushed the name
+                    input to half width for no reason;
+                  * the button is a pill and DIMS UNTIL THERE IS SOMETHING TO POST — the reference
+                    shows exactly that, and it is honest: pressing it while empty did nothing;
+                  * the empty state is centred and invites a reply rather than reporting a fact. */}
             <section style={{ marginTop: 64 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
-                <MessageCircle size={18} color={accentL} />
-                <h2 style={{ fontFamily: '"Playfair Display",serif', fontSize: '1.4rem', fontWeight: 900, color: text, margin: 0 }}>Comments</h2>
+                <MessageCircle size={20} color={accentL} strokeWidth={1.8} />
+                <h2 style={{ fontFamily: SERIF, fontSize: '1.5rem', fontWeight: 800, color: text, margin: 0, letterSpacing: '-0.01em' }}>
+                  Comments ({comments.length})
+                </h2>
               </div>
-              <form onSubmit={submitComment} style={{ background: cardBg, border: `1px solid ${border}`, padding: 20, marginBottom: 24 }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
-                  <input value={commentName} onChange={e => setCommentName(e.target.value)} placeholder="Your name" style={{ padding: 12, background: 'transparent', border: `1px solid ${border}`, color: text, outline: 'none' }} />
-                  <div />
+
+              <form onSubmit={submitComment} style={{ marginBottom: 22 }}>
+                <div style={{ background: cardBg, border: `1px solid ${border}`, borderRadius: 14, overflow: 'hidden', transition: 'border-color .15s' }}>
+                  <input
+                    value={commentName}
+                    onChange={e => setCommentName(e.target.value)}
+                    placeholder="Your name (optional)"
+                    style={{ width: '100%', padding: '13px 18px', background: 'transparent', border: 'none',
+                             borderBottom: `1px solid ${border}`, color: text, outline: 'none',
+                             fontFamily: SANS, fontSize: 14 }}
+                  />
+                  <textarea
+                    value={commentMessage}
+                    onChange={e => setCommentMessage(e.target.value)}
+                    placeholder="Share your thoughts…"
+                    rows={4}
+                    style={{ width: '100%', padding: '14px 18px', background: 'transparent', border: 'none',
+                             color: text, outline: 'none', resize: 'vertical', minHeight: 96,
+                             fontFamily: SANS, fontSize: 15, lineHeight: 1.65 }}
+                  />
                 </div>
-                <textarea value={commentMessage} onChange={e => setCommentMessage(e.target.value)} placeholder="Share your thoughts..." rows={4} style={{ width: '100%', padding: 12, background: 'transparent', border: `1px solid ${border}`, color: text, outline: 'none', marginBottom: 12 }} />
-                <button type="submit" disabled={commentSending} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 16px', background: accent, color: 'white', border: 'none', cursor: 'pointer', fontWeight: 700 }}>
-                  <Send size={14} />
-                  {commentSending ? 'Posting...' : 'Post Comment'}
+
+                <button
+                  type="submit"
+                  disabled={commentSending || !commentMessage.trim()}
+                  style={{
+                    marginTop: 14,
+                    display: 'inline-flex', alignItems: 'center', gap: 8,
+                    padding: '10px 22px', borderRadius: 999, border: 'none',
+                    background: commentMessage.trim() ? accent : tone(isDark).subtle,
+                    color: commentMessage.trim() ? '#fff' : muted,
+                    cursor: commentMessage.trim() && !commentSending ? 'pointer' : 'not-allowed',
+                    fontFamily: SANS, fontSize: 14, fontWeight: 600,
+                    transition: 'background .15s, color .15s',
+                  }}
+                >
+                  <Send size={15} strokeWidth={2} />
+                  {commentSending ? 'Posting…' : 'Post comment'}
                 </button>
-                {commentError && <div style={{ marginTop: 10, color: '#f87171', fontSize: 12 }}>{commentError}</div>}
+                {commentError && <div style={{ marginTop: 10, color: '#dc2626', fontSize: 13 }}>{commentError}</div>}
               </form>
-              <div style={{ display: 'grid', gap: 12 }}>
+
+              <div style={{ display: 'grid', gap: 14 }}>
                 {comments.length === 0 ? (
-                  <div style={{ color: muted, fontSize: 13 }}>No comments yet.</div>
+                  <div style={{ textAlign: 'center', padding: '26px 0 8px', color: muted, fontFamily: SANS, fontSize: 14 }}>
+                    No comments yet — be the first!
+                  </div>
                 ) : comments.map(c => (
-                  <div key={c.id} style={{ background: cardBg, border: `1px solid ${border}`, padding: 16 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginBottom: 8 }}>
-                      <strong>{c.name || 'Anonymous'}</strong>
-                      <span style={{ color: muted, fontSize: 11 }}>{c.created_at ? new Date(c.created_at).toLocaleString() : ''}</span>
+                  <div key={c.id} style={{ background: cardBg, border: `1px solid ${border}`, borderRadius: 14, padding: 18 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginBottom: 8, alignItems: 'baseline' }}>
+                      <strong style={{ fontFamily: SERIF, fontSize: 15, color: text }}>{c.name || 'Anonymous'}</strong>
+                      <span style={{ color: muted, fontSize: 11, fontFamily: SANS, whiteSpace: 'nowrap' }}>
+                        {c.created_at ? new Date(c.created_at).toLocaleString() : ''}
+                      </span>
                     </div>
-                    <div style={{ color: tone(isDark).body, lineHeight: 1.7 }}>{c.message}</div>
+                    <div style={{ color: tone(isDark).body, lineHeight: 1.7, fontFamily: SANS, fontSize: 14.5 }}>{c.message}</div>
                     {c.reply && (
-                      <div style={{ marginTop: 12, padding: 12, borderLeft: `3px solid ${accent}`, background: tone(isDark).codeBg }}>
-                        <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: accentL, marginBottom: 6 }}>Admin reply</div>
-                        <div style={{ color: isDark ? '#e2e8f0' : '#1f2937', lineHeight: 1.7 }}>{c.reply}</div>
+                      <div style={{ marginTop: 12, padding: 14, borderRadius: 10, borderLeft: `3px solid ${accent}`, background: tone(isDark).codeBg }}>
+                        <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.12em', color: accentL, marginBottom: 6, fontFamily: SANS }}>Admin reply</div>
+                        <div style={{ color: tone(isDark).body, lineHeight: 1.7, fontFamily: SANS, fontSize: 14.5 }}>{c.reply}</div>
                       </div>
                     )}
                   </div>

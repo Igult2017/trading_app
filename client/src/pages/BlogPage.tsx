@@ -147,7 +147,7 @@ export default function BlogPage({ active = true }: { active?: boolean }) {
           </button>
         )}
 
-        <main className="mx-auto max-w-[1180px] px-6 py-10">
+        <main className="mx-auto max-w-[1280px] px-8 py-10">
           {/* ── PAGE HEADER ───────────────────────────────────────────────────
               The page had NO heading at all — it opened straight onto the filter
               pills, so a visitor landing here had nothing telling them what they
