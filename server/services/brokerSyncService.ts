@@ -51,8 +51,15 @@ export async function autoJournalTrade(trade: SyncedTrade, sessionId?: string | 
   const netPl   = Math.round((pl + comm + sw) * 100) / 100;
   const outcome = classifyOutcome(netPl, trade);
 
-  const { session, phase } = detectSession(openTime);
-  const dayOfWeek   = openTime ? DAY_NAMES[openTime.getDay()] : undefined;
+  // WHEN THE OPEN TIME IS MISSING, THE CLOSE TIME IS THE HONEST SUBSTITUTE — not a default.
+  // `detectSession(null)` returns SYDNEY, so journaling a trade with no open time would quietly
+  // file a London trade under Sydney and corrupt the Sessions page. A trade almost always closes in
+  // the same or the neighbouring session it opened in, so the close time is close to the truth
+  // where a fixed default is simply wrong. The duration stays blank, because that one genuinely
+  // cannot be known.
+  const at = openTime ?? closeTime;
+  const { session, phase } = detectSession(at);
+  const dayOfWeek   = at ? DAY_NAMES[at.getDay()] : undefined;
   const tradeDuration = openTime && closeTime ? String(minutesBetween(openTime, closeTime)) : undefined;
 
   // PIPS COME FROM THE INSTRUMENT'S OWN PRECISION, not from how big its price happens to be. The
@@ -295,6 +302,7 @@ export async function processIncomingTrades(
         console.log(`[Sync] had ${existing.symbol} ${existing.externalId} — closed `
                     + `${new Date(existing.closeTime).toISOString()}, stored `
                     + `${new Date(existing.createdAt).toISOString()} (${lagMin} min later), `
+                    + `openTime ${existing.openTime ? 'yes' : 'MISSING'}, `
                     + `journal entry ${existing.journalEntryId ? 'yes' : 'NO'}`);
       }
       // A TRADE STORED BUT NEVER JOURNALED USED TO STAY THAT WAY FOR EVER.
@@ -309,7 +317,9 @@ export async function processIncomingTrades(
       //
       // `autoJournalTrade` refuses to journal twice on its own (it returns early when
       // `journalEntryId` is set), so this cannot create a duplicate entry.
-      if (!existing.journalEntryId && existing.openTime && existing.closeTime) {
+      // NOTE THE MISSING `openTime` TEST — deliberately. The first version of this heal copied the
+      // create path's condition and therefore skipped exactly the trades it existed to rescue.
+      if (!existing.journalEntryId && existing.closeTime) {
         const fixedId = await autoJournalTrade(existing, defaultSessionId);
         if (fixedId) {
           healed++;
@@ -347,8 +357,17 @@ export async function processIncomingTrades(
 
     created++;
 
-    // Only auto-journal closed trades (both open + close time present)
-    if (openTime && closeTime) {
+    // A TRADE THAT HAS CLOSED BELONGS IN THE JOURNAL. This required an open time as well, and that
+    // one word is what kept his trades off the page: the live feed stored GBPUSD 317367514 **110
+    // milliseconds** after it closed on 02 Sep and EURUSD 317231950 the same way on 01 Sep, and
+    // BOTH were refused a journal entry. Capture was never the problem — the journal was.
+    //
+    // The close time is what makes a trade complete and is the only thing genuinely required; the
+    // open time only enriches it (duration, day, session) and every use of it above is already
+    // guarded. Refusing to record a real, closed, profit-and-loss-bearing trade because we do not
+    // know when it started makes it invisible, which is far worse than an entry with a blank
+    // duration.
+    if (closeTime) {
       const journalId = await autoJournalTrade(synced, defaultSessionId);
       if (journalId) journaled++;
     }

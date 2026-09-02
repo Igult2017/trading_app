@@ -7,21 +7,29 @@
  * His report, 2026-09-02: *"autosync of ctrader placed trades in the journal. We fixed it yesterday
  * and since then it has not autorecorded anything meaning its not working."*
  *
- * THE ROOT CAUSE WAS ONE MISSING LINE. `broker_accounts.connection_type` defaults to `'webhook'`
- * (shared/schema.ts), and the whole cTrader OAuth flow — the callback for a single account, and
- * `select-account` when the login owns several — updated the tokens, the login id, the account type
- * and the balance, but NEVER set `connection_type` to `'api'`. So an account finished OAuth, held
- * live working tokens, and was still filed as a webhook account.
+ * THE ROOT CAUSE, measured from the production log on 02 Sep:
  *
- * THREE separate things test for exactly `'api'`, and all three therefore refused it IN SILENCE:
+ *     [Sync] had GBPUSD 317367514 - closed 11:09:58.654Z, stored 11:09:58.764Z (0 min later),
+ *            journal entry NO
  *
- *   1. `getAllApiAccounts()`      — the 15-minute sweep never included the account
- *   2. `ctraderRealtime.openFeed` — the live push feed returned before connecting, no log line
- *   3. the feed's boot subscriber list — same filter, same silence
+ * **Capture was never the problem.** The live feed stored the trade 110 MILLISECONDS after the
+ * broker closed it. Writing the JOURNAL ENTRY was, and it was refused by one word: the gate read
+ * `if (openTime && closeTime)`. Both of his recent trades arrived with no open time and were
+ * therefore never journaled - and the journal is the thing he actually looks at, so "stored" and
+ * "recorded" came apart without a single error anywhere.
  *
- * Both automatic recording paths were off at once. That is the exact shape of the evidence: 2h44m
- * of production log with `[AutoSync] Starting` at the top, then not one further word — no error, no
- * success, because nothing ran. A real GBP/USD position closed at 11:09 and was never recorded.
+ * TWO WRONG THEORIES CAME FIRST, and they are why the rest of this file exists:
+ *
+ *   1. `connection_type` left at 'webhook' - disproved by the log (`sweep: 2 API-connected
+ *      account(s)`, both feeds attached, no repair line). The two cTrader OAuth writes genuinely
+ *      never set the field, so it stays a LATENT defect for the next account connected, and the
+ *      checks below pin it. It was not this bug.
+ *   2. stored-but-unjournaled, healed only when an open time was present - the heal copied the
+ *      create path's condition and so skipped exactly the rows it existed to rescue.
+ *
+ * Each wrong theory died to a log line that did not exist that morning. The observability checks
+ * below are therefore not decoration: a sync that says nothing on success cannot be diagnosed, and
+ * "2 already had" was equally true of a sync working perfectly and one that had missed everything.
  *
  * This defect is a MISSING LINE, which no behaviour test can catch — the code does not throw, it
  * quietly matches nothing. So the source itself is asserted here.
@@ -114,12 +122,48 @@ check('the repair for accounts already mislabelled runs at boot',
 check('...and it keys on the CREDENTIALS, not on the label it is fixing',
       /c\.accessToken\s*&&\s*c\.ctraderId/.test(auto), true);
 
+// ── 6. A CLOSED TRADE REACHES THE JOURNAL EVEN WITH NO OPEN TIME ───────────
+//
+// THE ACTUAL CAUSE of "it has not autorecorded anything", measured from production on 02 Sep:
+//
+//   [Sync] had GBPUSD 317367514 — closed 11:09:58.654Z, stored 11:09:58.764Z (0 min later),
+//          journal entry NO
+//
+// Capture was never the problem — the live feed stored the trade 110 MILLISECONDS after the broker
+// closed it. Writing the journal entry was, and it was refused by one word: the gate read
+// `if (openTime && closeTime)`. Both of his recent trades reached the database with no open time
+// and were therefore never journaled, for ever — and the journal is the thing he looks at.
+const sync = read('server/services/brokerSyncService.ts');
+
+const createGate = sync.slice(sync.indexOf('// A TRADE THAT HAS CLOSED BELONGS'),
+                              sync.indexOf('// A TRADE THAT HAS CLOSED BELONGS') + 1400);
+check('the journal gate needs only a CLOSE time', /\n\s*if \(closeTime\) \{/.test(createGate), true);
+check('...and does NOT also demand an open time',
+      /if \(openTime && closeTime\)/.test(sync), false);
+
+const healGate = sync.slice(sync.indexOf('if (!existing.journalEntryId'),
+                            sync.indexOf('if (!existing.journalEntryId') + 120);
+check('the heal gate does not repeat the same requirement',
+      /existing\.openTime/.test(healGate), false);
+check('...and still refuses to touch a trade that already has an entry',
+      /!existing\.journalEntryId/.test(healGate), true);
+
+// A missing open time must not silently file the trade under the wrong session: detectSession(null)
+// returns SYDNEY, which would corrupt the Sessions page rather than leave a field blank.
+check('the session falls back to the close time, not to a default',
+      /const at = openTime \?\? closeTime;/.test(sync), true);
+check('...and the session is read from that fallback', /detectSession\(at\)/.test(sync), true);
+check('the duration stays blank when the open time is unknown',
+      /tradeDuration = openTime && closeTime/.test(sync), true);
+
 // ── TEETH ──────────────────────────────────────────────────────────────────
 // Prove the checks can fail: the same assertions against the code as it was must NOT pass.
 console.log('\n  teeth — the same checks against the broken version:');
 const before = cb.replace(/\s*connectionType: 'api',/, '');
 check('  the old callback FAILS the connectionType check',
       /connectionType:\s*'api'/.test(before), false);
+check('  the OLD journal gate (openTime && closeTime) FAILS the close-only check',
+      '    if (openTime && closeTime) {'.includes('if (closeTime) {'), false);
 check('  a bare silent return FAILS the log check',
       /connectionType\s*!==\s*'api'\)\s*return;[\s\S]{0,50}console\.(warn|error)/
         .test("if (account.connectionType !== 'api') return;"), false);
