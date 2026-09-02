@@ -133,6 +133,12 @@ export default function BlogPage({ active = true }: { active?: boolean }) {
           @keyframes blog-banner { from{transform:translateY(-100%);opacity:0} to{transform:translateY(0);opacity:1} }
           .blog-hide::-webkit-scrollbar { display:none; }
           .blog-hide { -ms-overflow-style:none; scrollbar-width:none; }
+          /* THE FILTER ROW HAD NO HOVER AND NO FOCUS RING. It is the page's navigation and is
+             reachable by keyboard, so it gave a keyboard user no indication of where they were.
+             Written as CSS rather than inline handlers so :focus-visible works — an inline
+             onMouseEnter cannot express it, and a mouse click should not leave a ring behind. */
+          .blog-pill:hover      { border-color: ${t.accent} !important; transform: translateY(-1px); }
+          .blog-pill:focus-visible { outline: 2px solid ${t.accent}; outline-offset: 2px; }
         `}</style>
 
         {newBanner && (
@@ -174,7 +180,16 @@ export default function BlogPage({ active = true }: { active?: boolean }) {
             </p>
           </header>
 
-          {/* Filters — pills, scrollable on a narrow screen. */}
+          {/* ── Filters ───────────────────────────────────────────────────────
+              RESTYLED 2026-09-02 on his screenshot: *"style this properly and write text here in
+              playfair"*.
+
+              The pills were 13px sans in a squeezed box, so they read as small grey chips rather
+              than as the page's navigation. They now use the same serif as the headline above them —
+              which is what ties them to the page instead of looking bolted on — at a size and
+              padding you can actually hit. The selected one is solid brand blue; the rest lift on
+              hover, and every one has a visible focus ring, because this row is reachable by
+              keyboard and was previously giving no feedback at all. */}
           {categories.length > 1 && (
             <nav aria-label="Filter articles by category"
                  className="blog-hide mb-9 flex gap-2.5 overflow-x-auto pb-1">
@@ -185,11 +200,20 @@ export default function BlogPage({ active = true }: { active?: boolean }) {
                     key={cat}
                     onClick={() => pick(cat)}
                     aria-pressed={on}
-                    className="shrink-0 rounded-full px-4 py-2 text-[13px] font-medium transition-colors duration-150"
+                    className="blog-pill shrink-0 rounded-full"
                     style={{
+                      fontFamily: SERIF,
+                      fontSize: 15,
+                      fontWeight: on ? 700 : 500,
+                      letterSpacing: '0.005em',
+                      padding: '9px 20px',
+                      lineHeight: 1.2,
+                      cursor: 'pointer',
                       background: on ? t.pillActiveBg : t.pillBg,
                       color:      on ? t.pillActiveInk : t.pillInk,
                       border: `1px solid ${on ? t.pillActiveBg : t.pillBorder}`,
+                      boxShadow: on ? t.cardShadow : 'none',
+                      transition: 'background .15s, color .15s, border-color .15s, transform .15s',
                     }}
                   >
                     {cat}
