@@ -254,6 +254,32 @@ export async function processIncomingTrades(
         }
       }
 
+      // HOW IT WAS ENTERED, onto a row that predates the column. Same only-fill-a-blank rule.
+      if (!existing.orderType && raw.orderType) {
+        await storage.correctSyncedTrade(existing.id, { orderType: raw.orderType });
+        (existing as any).orderType = raw.orderType;
+        backfilled++;
+      }
+
+      // AND AN ENTRY WRITTEN BEFORE THESE FIELDS EXISTED STILL NEEDS THEM.
+      //
+      // The corrections above only fire when something DISAGREES. A trade that was recorded
+      // correctly all along — his GBP/USD, which really was short — needs no correction and so got
+      // no rebuild, and would have kept sitting in the metrics page's "Unknown" buckets for ever
+      // despite everything now being knowable.
+      //
+      // This asks the opposite question: does the entry LACK something we can now supply? It is
+      // self-limiting — once the field is there the condition stops matching, so it costs one read
+      // per trade until it is done and nothing after that.
+      if (existing.journalEntryId && existing.originalStopLoss) {
+        const entry = await storage.getJournalEntryById(existing.journalEntryId).catch(() => null);
+        if (entry && !entry.primaryExitReason) {
+          await repairJournalDerived(existing).catch(err =>
+            console.error(`[Sync] could not fill the missing fields on the journal entry for `
+                          + `${existing.externalId}: ${err?.message ?? err}`));
+        }
+      }
+
       if (!existing.journalEntryId && existing.closeTime) {
         const fixedId = await journalSyncedTrade(existing, defaultSessionId);
         if (fixedId) {
