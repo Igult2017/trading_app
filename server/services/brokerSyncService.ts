@@ -330,7 +330,12 @@ export async function processIncomingTrades(
                     + `${new Date(existing.closeTime).toISOString()}, stored `
                     + `${new Date(existing.createdAt).toISOString()} (${lagMin} min later), `
                     + `openTime ${existing.openTime ? 'yes' : 'MISSING'}, `
-                    + `journal entry ${existing.journalEntryId ? 'yes' : 'NO'}`);
+                    + `journal entry ${existing.journalEntryId ? 'yes' : 'NO'}`
+                    // WHAT THE SWEEP IS OFFERING, not only what we hold. The backfill did not fire
+                    // on 02 Sep and reading the code could not tell me why: the sweep's pairing sets
+                    // `openTime` from the opening deal, so it should have had one. This prints the
+                    // incoming value so the next sweep answers it instead of me inferring again.
+                    + ` | broker offers openTime=${JSON.stringify(raw.openTime ?? null)}`);
       }
       // A TRADE STORED BUT NEVER JOURNALED USED TO STAY THAT WAY FOR EVER.
       //
@@ -359,7 +364,10 @@ export async function processIncomingTrades(
       // feed's own data (which carries the stop and target the sweep cannot see) always wins.
       if (!existing.openTime && raw.openTime) {
         const filled = toDate(raw.openTime);
-        if (filled) {
+        if (!filled) {
+          console.warn(`[Sync] ${existing.externalId}: the broker sent an open time this code could `
+                       + `not read — ${JSON.stringify(raw.openTime)}`);
+        } else {
           await storage.updateSyncedTradeOpenTime(existing.id, filled);
           existing.openTime = filled as any;
           backfilled++;
