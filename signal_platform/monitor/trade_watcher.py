@@ -129,6 +129,15 @@ class TradeWatcher:
                     if self._degraded:
                         self._degraded = False
                         log.info("[watcher] streamed prices are flowing again")
+                        # SAY SO — the warning went to his DM, so the all-clear must too. This only
+                        # ever logged, so a recovered feed left him holding a warning that his stop
+                        # moves were running late when they were not.
+                        try:
+                            await self.send(
+                                f"✅ The live price stream is flowing again for {p.symbol} — "
+                                f"stop moves are back to acting within a second.")
+                        except Exception:
+                            pass
                     return q[0] if p.bullish else q[1]
             if not self._degraded:
                 self._degraded = True

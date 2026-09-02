@@ -59,6 +59,10 @@ TESTS = [
     # ADDED 2026-08-30. The watchdog is the point: a dead price stream looks exactly like a quiet
     # market, so it is tested by KILLING the session, not by reading the code.
     "test_trade_watcher.py",        # live price, correct side of the spread, and the stale-stream alarm
+    # ADDED 2026-09-02. His report: "the FIX data system still makes noise when I deploy". The
+    # staleness test judged a session dead in the same millisecond it was born, because `age()`
+    # returns None both for "no tick yet" and "gone quiet" and the check collapsed the two.
+    "test_stream_grace.py",         # a stream that just opened is warming up, not broken
     # ADDED 2026-08-30. Signals were arriving AT or PAST their own entry — two of four measured
     # already through it. This scans on the bar close instead; the checks are the argument that a
     # fault in it degrades to today's behaviour rather than to something new.

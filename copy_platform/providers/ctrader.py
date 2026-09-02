@@ -118,6 +118,42 @@ class CTraderProvider:
         self._loop.call_later(RECONNECT_DELAY, self.start)
 
     def _on_message(self, client, message):
+        """THE GUARD THAT STOPS ONE BAD MESSAGE KILLING THE CONNECTION.
+
+        This was unguarded, and that is what turned a one-word typo into an outage. An exception
+        raised in here escapes into Twisted, which treats it as a failed connection and tears the
+        session down; the provider then reconnects, re-authenticates, reads the same position, and
+        raises again. Production on 02 Sep: 64 identical `AttributeError`s, **56 reconnects in
+        6.8 hours** — roughly one every seven minutes — and 147 Twisted timeout tracebacks on top,
+        which is what made the log look like dozens of separate faults instead of one.
+
+        The rule this restores is already written down elsewhere in the codebase, in
+        `signal_platform/data/fix_book.absorb`: *"A bar builder must never be able to kill the price
+        stream that feeds it."* Same principle, same reason — the transport must outlive a fault in
+        anything that reads from it.
+
+        NOT a blanket silencer: the fault is logged in full, with a stack trace, so it is as visible
+        as before. What changes is that the connection survives it.
+        """
+        try:
+            self._dispatch(client, message)
+        except Exception as exc:
+            # THE HANDLER ITSELF MUST NOT BE ABLE TO THROW. A first version read
+            # `getattr(message, "payloadType", "?")` here to name the message — and `getattr`'s
+            # default only swallows AttributeError, so a message whose `payloadType` raises anything
+            # else re-raised straight out of the except block and killed the connection anyway.
+            # Caught by this file's own test. Everything that could fail is now inside its own guard.
+            try:
+                ptype = message.payloadType
+            except Exception:
+                ptype = "?"
+            try:
+                log.error(f"[{self.master_id}] error handling message type {ptype}: "
+                          f"{type(exc).__name__}: {exc} — connection KEPT", exc_info=True)
+            except Exception:
+                pass
+
+    def _dispatch(self, client, message):
         ptype = message.payloadType
 
         if ptype == ProtoOAApplicationAuthRes().payloadType:
@@ -158,7 +194,24 @@ class CTraderProvider:
             res = Protobuf.extract(message)
             fresh: dict[int, PositionSnapshot] = {}
             for pos in res.position:
-                snap = self._snap(pos)
+                # A FAILURE TO READ A POSITION MUST NEVER LOOK LIKE A CLOSED ONE. If `_snap` raises,
+                # the position is simply absent from `fresh` — and the diff below reads "absent" as
+                # "closed on the master" and emits a synthetic CLOSE, which would close the
+                # FOLLOWER's real position because we failed to parse the master's. The previous
+                # snapshot is carried forward instead, so an unreadable position is treated as
+                # unchanged: the safe direction, and the next reconcile tries again.
+                try:
+                    snap = self._snap(pos)
+                except Exception as exc:
+                    pid = getattr(pos, "positionId", None)
+                    prev = self._positions.get(pid) if pid is not None else None
+                    log.error(f"[{self.master_id}] could not read position {pid}: "
+                              f"{type(exc).__name__}: {exc} — "
+                              f"{'held as unchanged' if prev else 'skipped'}, NOT treated as closed",
+                              exc_info=True)
+                    if prev is not None:
+                        fresh[pid] = prev
+                    continue
                 fresh[snap.position_id] = snap
             if not self._reconciled:
                 # Initial load after auth — record, no diff.
@@ -260,12 +313,19 @@ class CTraderProvider:
 
     def _want_spec(self, symbol_id: int) -> None:
         """Ask for a symbol's contract spec once. Cheap, idempotent, and the response re-drives
-        whatever was waiting on it (_replay_pending)."""
-        if symbol_id in self._spec_requested or self._client is None:
+        whatever was waiting on it (_replay_pending).
+
+        THE ATTRIBUTE IS `client`, NOT `_client`. It was written with an underscore here and nowhere
+        else in the file (it is `self.client` at __init__ and at every other use), so this raised
+        `AttributeError: 'CTraderProvider' object has no attribute '_client'` EVERY time a master
+        position was read — 64 times in 6.8 hours of production on 02 Sep, taking the broker
+        connection down with it 56 times, roughly one every seven minutes.
+        """
+        if symbol_id in self._spec_requested or self.client is None:
             return
         self._spec_requested.add(symbol_id)
         try:
-            self._client.send(symbol_details.build_request(int(self.creds["ctraderId"]), symbol_id))
+            self.client.send(symbol_details.build_request(int(self.creds["ctraderId"]), symbol_id))
         except Exception as exc:
             self._spec_requested.discard(symbol_id)
             log.warning(f"[{self.master_id}] could not request contract spec for {symbol_id}: {exc}")

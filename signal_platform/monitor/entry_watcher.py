@@ -172,3 +172,12 @@ class EntryWatcher:
         elif not stale and self._degraded:
             self._degraded = False
             log.info("[entry-watcher] price stream is flowing again")
+            # SAY SO. Recovery only ever wrote a log line, which dies at the next deploy, so the
+            # last thing he was left holding was a warning that the price feed was dead — for a
+            # feed that had come back. A warning with no all-clear is worse than no warning.
+            if self.send:
+                try:
+                    await self.send("✅ The live price stream is flowing again — signals are back "
+                                    "to arriving the moment a 1-minute candle closes.")
+                except Exception:
+                    pass

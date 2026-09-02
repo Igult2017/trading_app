@@ -32,7 +32,32 @@ class QuoteBook:
         self._seen_minute: dict[str, int] = {}
         self._last_any: float = 0.0
         self._tick_sinks: list = []
-        self.connected = False
+        self._connected = False
+        self._connected_at: float = 0.0
+
+    # WHEN IT CONNECTED, NOT JUST THAT IT DID — and this is the whole fix for the false alarm.
+    # A bool cannot tell "opened a moment ago, first price still in flight" from "has been open for
+    # ages and gone silent", so `is_stale` called them both stale and the watchers DM'd a warning
+    # ONE MILLISECOND after the stream opened. Measured in production, 02 Sep:
+    #     03:56:11.853  [fix] price stream open
+    #     03:56:11.854  [entry-watcher] price stream quiet   <- 1 ms later, DM sent
+    #     03:56:12.623  [entry-watcher] price stream is flowing again   <- 769 ms later
+    # A property so the timestamp cannot drift from the flag: every existing
+    # `book.connected = True/False` keeps working and stamps the clock for free.
+    @property
+    def connected(self) -> bool:
+        return self._connected
+
+    @connected.setter
+    def connected(self, value: bool) -> None:
+        value = bool(value)
+        if value and not self._connected:
+            self._connected_at = time.monotonic()   # a fresh open restarts the grace window
+        self._connected = value
+
+    def open_for(self) -> float:
+        """Seconds this session has been open. 0.0 when it is not."""
+        return (time.monotonic() - self._connected_at) if (self._connected and self._connected_at) else 0.0
 
     def on_bid_tick(self, fn) -> None:
         """Register a callback fed `(symbol, bid, broker_epoch)` for every tick. Bid only."""
@@ -79,11 +104,27 @@ class QuoteBook:
 
     def is_stale(self, limit_s: float, symbol: str | None = None) -> bool:
         """THE CALL THAT SEPARATES A QUIET MARKET FROM A DEAD SESSION. Never assume a stream that
-        opened is still running: from the inside, silence looks identical either way."""
+        opened is still running: from the inside, silence looks identical either way.
+
+        AND IT SEPARATES A THIRD STATE THE OLD VERSION COULD NOT SEE: a stream that has only just
+        opened. `age()` returns None both when nothing has EVER arrived and — as its own docstring
+        two functions up says — that is *"a different problem from a stream gone quiet"*. The old
+        line `return a is None or a > limit_s` collapsed them, so a session was judged dead in the
+        same instant it was born, before the first price could physically arrive.
+
+        A stream that has just opened is WARMING UP, not broken. The silence is measured from the
+        moment it opened, so it is judged by exactly the same `limit_s` as any other silence.
+
+        THE REAL FAULT IS STILL CAUGHT, just honestly: a session that logs on but whose subscription
+        never delivers has no ticks after `limit_s` of being open, and is reported then. Nothing is
+        suppressed — it is timed correctly.
+        """
         if not self.connected:
             return True
         a = self.age(symbol)
-        return a is None or a > limit_s
+        if a is not None:
+            return a > limit_s
+        return self.open_for() > limit_s
 
     def minute_rolled(self, symbol: str) -> bool:
         """Has a 1-minute bar CLOSED for this symbol since this was last asked?

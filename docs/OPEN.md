@@ -455,6 +455,27 @@ same account (price feed logs in as `5296567`, data as `47535363`); a fixed per-
 the instrument number (7) being wrong. Until one is proved, GBP/JPY is simply not trusted - which
 costs nothing, because trust is per symbol.
 
+**02 Sep — candidate 1's PRECONDITION is now confirmed as fact, read off production's own settings:**
+
+| setting | value | what it feeds |
+|---|---|---|
+| `CTRADER_ACCOUNT_ID` | **47535327** | the Open API session — the broker candles we compare against |
+| `CTRADER_FIX_ACCOUNT_ID` | **5296567** | the FIX price session — the ticks we build our candles from |
+
+**They are two different accounts.** That was listed above as untested; it is now tested and true.
+It does NOT prove causation — it proves the precondition. Broker spread markup is configured per
+symbol per account group, so two accounts can price identically on four symbols and differ on the
+fifth, which is exactly the shape of the evidence (a constant 0.005 on GBP/JPY, nothing anywhere
+else). Candidate 3 (wrong instrument number) is now the weakest reading: a wrong symbol id gives a
+wildly different price, not one that tracks correctly half a pip away for 780 consecutive bars.
+
+**What would actually settle it, and why it was not done here:** read GBP/JPY from BOTH accounts at
+the same instant and compare. That needs a live Open API token for the data account, which only
+production holds — the local one is stale (`CH_ACCESS_TOKEN_INVALID`) and the hosted read-only
+connection is a third account again. **Not guessed at, not "fixed" by widening a tolerance:** a
+tolerance that swallowed 0.005 would also swallow a real half-pip error, and the whole value of this
+audit is that it caught a difference nobody knew about. GBP/JPY stays untrusted, which costs nothing.
+
 **What is now BUILT (31 Aug):**
 * `data/tick_serving.py` - appends the bars the broker has not published yet onto the ones it has.
   Three locks, all required: the switch, per-symbol trust, and an **unbroken join** (a gap between
@@ -1346,6 +1367,108 @@ Recorded because I spent time on it twice. Both accounts show no provider link s
 and the OAuth callback stores exactly the fields the engine needs. Turning one on is one toggle.
 
 ---
+
+### D28 - ~~The copy engine crash-looped 56 times in 7 hours on a one-word typo~~ FIXED 02 Sep 🔴
+**Found 02 Sep reading production logs at his request.** `providers/ctrader.py` `_want_spec` said
+`self._client`; the attribute is `self.client` — as it is at `__init__` (line 69) and at every other
+use in the file (70, 71, 72, 78, 81, 94). Nothing defines `_client` and there is no `__getattr__`
+fallback; I checked. Introduced in `5b8b572`.
+
+| measured over 6.8 hours of production | count |
+|---|---|
+| `AttributeError: 'CTraderProvider' object has no attribute '_client'` | **64** |
+| broker connection dropped and reconnected | **56** — one every ~7 minutes |
+| Twisted timeout tracebacks these produced | **147** |
+
+**THE TYPO IS THE TRIGGER. THE CAUSE IS THAT NOTHING CAUGHT IT.** `_on_message` — the function
+Twisted calls for every message — had **no try/except at all**. An exception raised inside it escapes
+into Twisted, which reads that as a failed connection and tears the session down; the provider
+reconnects, re-authenticates, reads the same position and raises again. That is how one wrong word
+became an outage, and why 147 tracebacks looked like dozens of faults instead of one.
+
+**The rule was already written down elsewhere in this codebase** — `signal_platform/data/fix_book.absorb`:
+*"A bar builder must never be able to kill the price stream that feeds it."* Same principle: the
+transport must outlive a fault in anything that reads from it. `_on_message` is now a guard around
+`_dispatch`; the fault is logged in full with a stack trace, and the connection survives it.
+
+**A SECOND, WORSE DEFECT FOUND WHILE FIXING IT.** If `_snap` raises for a position, that position is
+absent from the reconcile's `fresh` map — and the diff reads absent as *"closed on the master"* and
+emits a synthetic CLOSE. **So a failure to READ the master's position would have closed the
+FOLLOWER's real position.** The previous snapshot is now carried forward, so an unreadable position
+is treated as unchanged; a position that genuinely vanished still closes.
+
+**And the test caught a third, in my own fix:** the guard named the failing message with
+`getattr(message, "payloadType", "?")`, whose default only swallows `AttributeError` — so a message
+whose `payloadType` raised anything else re-raised out of the except block and killed the connection
+anyway. Everything in the handler is now individually guarded.
+
+**Proved by:** [`copy_platform/tests/test_provider_resilience.py`](../copy_platform/tests/test_provider_resilience.py)
+— 16 checks, running the real methods, with teeth that run the same message through the UNGUARDED
+path to prove the guard is what contains it.
+
+### D27 - ~~The FIX price stream cried wolf one millisecond after opening~~ FIXED 02 Sep
+**His report:** *"The FIX data system still makes noise when I deploy... Can you find a way that
+makes it not to make false alarm."*
+
+**Measured from his own production log.** At boot:
+
+```
+03:56:11.853  [fix] price stream open, subscribed to 5 instruments
+03:56:11.854  [entry-watcher] price stream quiet — falling back to the scheduled scan   ← 1 ms later
+03:56:11.913  [dispatcher] message sent                                                 ← his DM
+03:56:12.623  [entry-watcher] price stream is flowing again                             ← 769 ms later
+```
+
+**And it was never only about deploys.** The same thing fired mid-session whenever a new position
+opened its own stream — 09:54:11.305 stream open, 09:54:11.306 *"stream stale for GBP/USD"*, DM
+sent, recovered 3.9 s later.
+
+**Root cause, one line.** [`data/fix_book.py`](../signal_platform/data/fix_book.py) `age()` returns
+`None` in two different situations, and its own docstring says so: *"None means nothing has EVER
+arrived, a different problem from a stream gone quiet."* The very next function collapsed them:
+
+```python
+return a is None or a > limit_s
+```
+
+So a session was judged dead in the same instant it was born. The book recorded **that** it was
+connected but not **when**, so there was nothing to measure the silence against.
+
+**The fix is timing, not suppression.** `connected` is now a property that stamps the clock, and
+when nothing has ever arrived the silence is measured from the moment the stream opened — judged by
+the same 90-second limit as any other silence. **A subscription that logs on and never delivers is
+still caught, at 90 seconds instead of 1 millisecond.** That case is the one the test pushes hardest,
+because a fix that merely silenced alarms would pass everything else.
+
+**Both watchers inherit it** — `entry_watcher.py:160` and `trade_watcher.py:126` — including the
+mid-session case, which was not a deploy at all.
+
+**And the all-clear now goes out.** Recovery only ever wrote a log line, which dies at the next
+deploy, so the last thing he was left holding was a warning that the feed was dead — for a feed that
+had come back a second later. A warning with no all-clear is worse than no warning.
+
+**THE THIRD PART OF THE SAME COMPLAINT: 93% of the log noise was one known finding, repeated.**
+Of 434 tick-audit mismatch warnings in 6.8 hours, **405 were GBP/JPY** — every bar, all saying the
+identical thing: all four prices out by exactly 0.005, the shape right and only the level shifted.
+That is already recorded (**B13**), already acted on (the symbol is untrusted, so its bars are never
+served) and already reported every 15 minutes by the scoreboard. **A warning should tell you
+something you do not already know.**
+
+**Classification, not suppression.** `tick_bar_audit._constant_offset` asks whether every price is
+out by the SAME amount:
+* **a clean constant offset** — the candle was built correctly and the price SOURCE differs. Said
+  once, and again the moment the offset CHANGES, which is the event that would mean something new.
+* **anything else** — a wrong high, a dropped tick, different amounts on different prices. That is a
+  real candle fault and is logged every time, exactly as before.
+
+The scoreboard still counts every bar as a miss either way, so **trust is completely unaffected** and
+GBP/JPY stays untrusted. His real GBP/USD and XAU/USD mismatches (where only the OPEN differs) are
+not constant offsets, so they stay loud — asserted in the test with the actual logged numbers.
+
+**Proved by:** [`tests/vix1/test_stream_grace.py`](../signal_platform/tests/vix1/test_stream_grace.py)
+— 33 checks including his two exact production timings, a reconnect getting a fresh window, his real
+GBP/JPY bar classified as a −0.005 offset, his real GBP/USD and gold bars classified as genuine
+faults, and teeth proving the old rule would have alarmed.
 
 ### D26 - `brokerSyncService.ts` is 330 lines and now holds two jobs
 **Noted 02 Sep, deliberately NOT split.** It was already 234 lines (over the 200 limit) and D23 took

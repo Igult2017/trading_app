@@ -168,6 +168,8 @@ is wrong.** Full wording lives in the linked doc; this is the index so you know 
 | **The strategy doc is updated in the same change as the code** | the code drifted from the docs repeatedly, and the next session then guessed |
 | **Strategies are independent** — never describe one by comparing it to another | comparison is how one strategy's rules leak into another |
 | **The container runs `server/index.prod.ts`, NOT `server/index.ts`** — and the split must stay | `start.sh:69` runs `dist/index.prod.js`. `index.ts` reaches Vite through a RELATIVE `await import("./vite")`, so esbuild bundles it and ESM hoists `vite` + its plugins to the top of `dist/index.js`; those are devDependencies and the image installs `--omit=dev`, so running `index.js` in the container dies at startup |
+| **A fault reading a message must never kill the connection carrying it** | `fix_book.absorb` had this right — *"A bar builder must never be able to kill the price stream that feeds it"* — and the copy provider's `_on_message` had no guard at all, so a one-word typo dropped the broker connection **56 times in 7 hours** (**D28**). The transport outlives a fault in anything reading from it. The same rule downward: a failure to read ONE position must never be reported as that position CLOSING |
+| **"Never arrived" and "went quiet" are different states, and a check that conflates them cries wolf** | `age()` returns None for both; `is_stale` returned True for both, so the price stream was called dead **one millisecond after it opened** (**D27**). Anything judging silence must know WHEN it started listening — record the connect time, not just a connected flag |
 | **A contract size, a volume limit and a price precision are READ FROM THE BROKER, never assumed** | the symbol list both platforms fetch is `ProtoOALightSymbol`, which carries **none of them** — only id, name, enabled, asset ids, category, description (verified on the live account, 02 Sep). `execution/connection.load_symbol_spec` asks for the full `ProtoOASymbol`. Assuming a currency lot's 100,000 units sent a gold order **1,000× too large** and the broker refused it (**B17**), and a gold price at three decimals on a two-decimal symbol was refused the day before |
 | **Every journal page is built from ONE list, and anything that writes to it must clear the cache** | `resolveComputeScope` (routes.ts) reads `journal_entries` once and the calendar, drawdown, metrics, timeframe-matrix and strategy-audit engines all consume it — so a new entry reaches every page automatically, but only if `invalidateComputeCaches` (**`lib/cache.ts`, not routes.ts**) is called. It was local to routes.ts, so only typed trades cleared it and synced ones stayed invisible for 5 minutes (**D23**) |
 | **A pip comes from the instrument's precision, never from how big its price is** | `price > 100 ? 100 : 10000` is right for the four currency pairs by luck and 10× wrong for gold. The table lives in **two places that must change together** — `signal_platform/shared/pip.py` and `server/lib/pipMath.ts` — because Node cannot import Python. Gold is **2 decimals**, which the broker established by refusing a 3-decimal price |
@@ -177,6 +179,33 @@ is wrong.** Full wording lives in the linked doc; this is the index so you know 
 ---
 
 ## PROGRESS — what actually happened, newest first
+
+**2026-09-02 (b) — he asked why the FIX system cries wolf on every deploy. The logs answered that
+and found something worse.**
+
+*The false alarm (**D27**).* The price stream was declared dead **one millisecond after it opened** —
+03:56:11.853 stream open, 03:56:11.854 "price stream quiet", DM sent, recovered 769 ms later. The
+cause is one line: `age()` returns None both for *"no tick has ever arrived"* and *"the stream
+stopped"* — its own docstring says they are different problems — and `is_stale` read
+`a is None or a > limit_s`, collapsing them. The book knew THAT it was connected, never WHEN. It now
+stamps the clock on connect and measures the silence from there, judged by the same 90-second limit,
+so a subscription that logs on and never delivers is **still caught, just timed honestly**. It was
+never only about deploys either: the same alarm fired mid-session every time a new position opened
+its own stream. And the all-clear now goes out — recovery used to only write a log line, leaving him
+holding a warning about a feed that had already come back.
+
+*93% of the remaining noise was one known finding, repeated.* 405 of 434 mismatch warnings were
+GBP/JPY saying the same thing every bar. Now classified: a clean constant offset is said once and
+again if it changes; a real candle fault still logs every time. Trust is untouched.
+
+*And the logs turned up a live defect that had nothing to do with FIX (**D28**).* The copy engine's
+broker connection was **dropping and reconnecting 56 times in 7 hours** — one every seven minutes —
+because `_want_spec` said `self._client` where the attribute is `self.client`. The typo is the
+trigger; **the cause is that `_on_message` had no guard at all**, so an exception escaped into
+Twisted, which reads it as a failed connection. The rule was already written down in
+`fix_book.absorb` — *"A bar builder must never be able to kill the price stream that feeds it"* —
+and was simply absent here. Fixing it exposed a worse one: a failure to READ a master's position
+made the reconcile report it as CLOSED, which would have closed the follower's real position.
 
 **2026-09-02 — two defects on the cTrader boundary, and both were one assumption each.**
 

@@ -40,8 +40,29 @@ MIN_SAMPLE = 30
 _WINDOW = 200
 
 
+# How close two offsets must be to count as "the same constant". Prices are floats, so 0.005
+# computed from 216.343-216.348 and from 4308.35-4308.1 are not bit-identical; this is a tolerance
+# for FLOAT NOISE, not for price difference — it is far below one pipette on every instrument traded.
+_OFFSET_EPS = 1e-9
+
+
+def _constant_offset(ours, theirs) -> float | None:
+    """The single amount every price is out by — or None if they differ by different amounts.
+
+    THIS IS THE WHOLE DISTINCTION. A constant offset means the candle was built correctly and the
+    price SOURCE is quoting differently (a broker markup, a different account's pricing). Different
+    amounts on different prices mean the candle itself is wrong — a dropped tick, a missed high — and
+    that is a real fault which must be logged every single time.
+    """
+    diffs = (ours.open - theirs.open, ours.high - theirs.high,
+             ours.low - theirs.low, ours.close - theirs.close)
+    if max(diffs) - min(diffs) > _OFFSET_EPS:
+        return None
+    return diffs[0]
+
+
 class _SymbolAudit:
-    __slots__ = ("results", "matched", "compared", "last_mismatch", "last_scored")
+    __slots__ = ("results", "matched", "compared", "last_mismatch", "last_scored", "offset")
 
     def __init__(self):
         self.results = deque(maxlen=_WINDOW)
@@ -50,6 +71,9 @@ class _SymbolAudit:
         self.last_mismatch: str | None = None
         # The newest minute already scored. EVERY MINUTE COUNTS ONCE — see `compare`.
         self.last_scored: int = 0
+        # The constant price difference, when every one of the four prices is out by the SAME
+        # amount. None until a mismatch is seen; see `compare` for why it earns its own field.
+        self.offset: float | None = None
 
 
 class TickBarAudit:
@@ -97,7 +121,27 @@ class TickBarAudit:
                     f"{symbol} @{ours.time}: ours O{ours.open} H{ours.high} L{ours.low} "
                     f"C{ours.close} vs broker O{theirs.open} H{theirs.high} L{theirs.low} "
                     f"C{theirs.close}")
-                log.warning(f"[tick-audit] MISMATCH {a.last_mismatch}")
+                # A KNOWN CONSTANT OFFSET IS NOT NEWS, AND A WARNING SHOULD TELL YOU SOMETHING YOU
+                # DO NOT ALREADY KNOW. GBP/JPY produced 405 of the 434 mismatch warnings in 6.8
+                # hours of production (93%) — every bar, all of them the same finding: all four
+                # prices out by exactly 0.005, the SHAPE right and only the level shifted. That is
+                # already recorded (OPEN.md B13), already acted on (the symbol is untrusted, so its
+                # bars are never served), and already reported every 15 minutes by the scoreboard.
+                #
+                # NOT SUPPRESSION — CLASSIFICATION. The offset is said once, and again the moment it
+                # CHANGES, which is the event that would actually mean something new. Anything that
+                # is NOT a clean constant offset — a wrong high, a dropped tick, random noise — has
+                # `off` of None and is logged every time, exactly as before. The scoreboard still
+                # counts every bar as a miss either way, so trust is unaffected.
+                off = _constant_offset(ours, theirs)
+                if off is None:
+                    log.warning(f"[tick-audit] MISMATCH {a.last_mismatch}")
+                elif a.offset is None or abs(off - a.offset) > _OFFSET_EPS:
+                    was = "" if a.offset is None else f" (was {a.offset:+g})"
+                    log.warning(f"[tick-audit] {symbol}: every price is a CONSTANT {off:+g} from the "
+                                f"broker's{was} — shape matches, level is shifted. Repeats are not "
+                                f"logged; the scoreboard still counts every bar. {a.last_mismatch}")
+                    a.offset = off
         return ok
 
     def trusted(self, symbol: str) -> bool:
