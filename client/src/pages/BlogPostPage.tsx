@@ -565,7 +565,10 @@ export default function BlogPostPage() {
       {/* ── Responsive grid styles ─────────────────────────────────────────── */}
       <style>{`
         .bpp-outer  { max-width: 1280px; margin: 0 auto; padding: 8px 32px 80px; }
-        .bpp-topbar { max-width: 1280px; margin: 0 auto; padding: 18px 32px 0; }
+        /* THE GAP UNDER THE HEADER, on his screenshot: the page started 18px below the header
+           bar, which read as the article being jammed against it. 40px (five 8px steps) gives
+           it room to sit as its own thing. */
+        .bpp-topbar { max-width: 1280px; margin: 0 auto; padding: 40px 32px 0; }
         .bpp-grid  { display: grid; grid-template-columns: 1fr 290px; gap: 0 48px; align-items: start; }
         .bpp-cover { grid-column: 1; grid-row: 1; }
         .bpp-sidebar { grid-column: 2; grid-row: 1 / 3; position: sticky; top: 24px; }
@@ -573,7 +576,7 @@ export default function BlogPostPage() {
         .bpp-nav-inner { display: flex; align-items: center; justify-content: space-evenly; max-width: 1280px; margin: 0 auto; padding: 0 28px; }
         @media (max-width: 860px) {
           .bpp-outer  { padding: 4px 16px 60px; }
-          .bpp-topbar { padding: 14px 16px 0; }
+          .bpp-topbar { padding: 24px 16px 0; }
           .bpp-grid  { grid-template-columns: 1fr; gap: 0; }
           .bpp-cover   { grid-column: 1; grid-row: 1; }
           .bpp-sidebar { grid-column: 1; grid-row: 3; position: static; margin-top: 48px; }

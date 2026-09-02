@@ -71,7 +71,14 @@ export default function BlogPage({ active = true }: { active?: boolean }) {
       staleTime: 2 * 60 * 1000,
       gcTime:    10 * 60 * 1000,
       placeholderData: (prev) => prev,
-      refetchOnWindowFocus: false,
+      // THE BLOG NOW REFRESHES WHEN YOU COME BACK TO THE TAB — his report: *"the blog is not
+      // autoreloading when a new blog is there"*. This was OFF, so leaving the tab and returning
+      // showed whatever was there when you left, for up to the 2-minute staleness window.
+      //
+      // It was a fair setting when this request weighed 2.23 MB. It costs 6 KB now that the cover
+      // images travel as cacheable images instead of inside the JSON, so the reason for leaving it
+      // off is gone.
+      refetchOnWindowFocus: true,
       retry: 2,
     });
 
@@ -87,6 +94,14 @@ export default function BlogPage({ active = true }: { active?: boolean }) {
     if (prevCountRef.current !== null && rawPosts.length > prevCountRef.current) setNewBanner(true);
     prevCountRef.current = rawPosts.length;
   }, [rawPosts]);
+
+  // IT DISMISSES ITSELF. The articles are already on the page by the time this shows, so there is
+  // nothing for him to do about it and no reason for it to sit there until clicked.
+  useEffect(() => {
+    if (!newBanner) return;
+    const id = setTimeout(() => setNewBanner(false), 6000);
+    return () => clearTimeout(id);
+  }, [newBanner]);
 
   const allPosts = rawPosts ?? [];
 
@@ -130,7 +145,9 @@ export default function BlogPage({ active = true }: { active?: boolean }) {
            style={{ background: t.page, fontFamily: SANS }}>
         <style>{`
           @keyframes blog-pulse  { 0%,100%{opacity:1} 50%{opacity:0.45} }
-          @keyframes blog-banner { from{transform:translateY(-100%);opacity:0} to{transform:translateY(0);opacity:1} }
+          @keyframes blog-toast { from{transform:translate(-50%,14px);opacity:0}
+                                  to{transform:translate(-50%,0);opacity:1} }
+          .blog-toast { animation: blog-toast .25s ease-out; }
           .blog-hide::-webkit-scrollbar { display:none; }
           .blog-hide { -ms-overflow-style:none; scrollbar-width:none; }
           /* THE FILTER ROW HAD NO HOVER AND NO FOCUS RING. It is the page's navigation and is
@@ -141,16 +158,30 @@ export default function BlogPage({ active = true }: { active?: boolean }) {
           .blog-pill:focus-visible { outline: 2px solid ${t.accent}; outline-offset: 2px; }
         `}</style>
 
+        {/* ── "New articles added" ───────────────────────────────────────────
+            TWO THINGS WERE WRONG WITH THIS, both visible in his screenshot.
+
+            IT WAS PINNED OVER THE HEADER. `fixed top-4` puts it 16px from the top of the WINDOW —
+            which is where the price ticker and the site header live — so it landed on top of them
+            and read as something broken. It sits at the BOTTOM now, out of the way of everything,
+            which is also where it is useful: the point of a floating note is to be seen when you
+            are scrolled away from the top.
+
+            AND IT WAS ASKING FOR SOMETHING IT HAD ALREADY DONE. It appeared because the post count
+            GREW — which can only happen after the list has refetched and re-rendered, so the new
+            articles were ALREADY ON THE PAGE behind it. "Click to reload" reloaded nothing. It is
+            now a statement, not an instruction, and it takes itself away after a few seconds. */}
         {newBanner && (
-          <button
-            onClick={() => { refetch(); setNewBanner(false); }}
-            className="fixed left-1/2 top-4 z-[100] flex -translate-x-1/2 items-center gap-2.5 rounded-full px-5 py-2.5 text-[12px] font-semibold shadow-lg"
-            style={{ background: t.card, border: `1px solid ${t.cardBorder}`, color: t.title,
-                     animation: 'blog-banner .3s ease-out' }}
+          <div
+            role="status"
+            aria-live="polite"
+            className="blog-toast fixed bottom-6 left-1/2 z-[100] flex -translate-x-1/2 items-center gap-2.5 rounded-full px-4 py-2 text-[12.5px]"
+            style={{ background: t.card, border: `1px solid ${t.cardBorder}`, color: t.body,
+                     boxShadow: t.cardShadow, fontFamily: SANS }}
           >
-            <Bell size={14} style={{ color: t.accent }} aria-hidden="true" />
-            New posts available — click to reload
-          </button>
+            <Bell size={13} style={{ color: t.accent }} aria-hidden="true" />
+            New articles added
+          </div>
         )}
 
         <main className="mx-auto max-w-[1280px] px-8 py-10">
