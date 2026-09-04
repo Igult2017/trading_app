@@ -4116,7 +4116,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
             + `${outcome.duplicates} already had`
             + (outcome.healed ? `, ${outcome.healed} added to your journal (they were stored but `
                                 + `had no entry)` : '')
-            + (outcome.backfilled ? `, ${outcome.backfilled} given their missing open time` : '')
+            // "given their missing open time" was true when the open time was the only thing filled
+            // in, and became wrong the moment a second was added — it now covers the close time, the
+            // risk as placed, how far the trade ran each way, and the order type. The same stale
+            // wording was already corrected in the server log and missed here.
+            + (outcome.backfilled ? `, ${outcome.backfilled} detail(s) filled in that the live feed `
+                                    + `could not supply` : '')
+            // A CORRECTION IS NOT A BACKFILL. This is a value that was WRONG and has been overwritten
+            // — a direction stored the wrong way round, or a P&L with the wrong sign. He needs to be
+            // told, because he may already have read the trade as it was.
+            + (outcome.corrected ? `, ${outcome.corrected} corrected (a stored value the broker's `
+                                   + `own records disproved)` : '')
             + '.'
           : 'Synced — the broker reported no closed trades in the last 7 days.',
         platform: account.platform, ...outcome,

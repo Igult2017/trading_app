@@ -151,6 +151,7 @@ export interface SyncOutcome {
   created?: number; duplicates?: number; journaled?: number;
   healed?: number;                  // stored before, but had no journal entry until now
   backfilled?: number;              // fields filled in that the live feed could not supply
+  corrected?: number;               // a WRONG value the broker's own deals disproved — see below
   error?: string;
 }
 
@@ -192,7 +193,7 @@ export async function syncAccount(account: BrokerAccount,
                 + `${new Date(now).toISOString()} (${window})`);
 
     const raw = await fetchWithRetry(account, fromMs, now);
-    let counts = { created: 0, duplicates: 0, journaled: 0, healed: 0, backfilled: 0 };
+    let counts = { created: 0, duplicates: 0, journaled: 0, healed: 0, backfilled: 0, corrected: 0 };
     if (raw.length) {
       counts = await processIncomingTrades(account.id, account.userId, raw);
       console.log(`[AutoSync] ${tag}: ${raw.length} closed trade(s) from the broker -> `
@@ -205,7 +206,14 @@ export async function syncAccount(account: BrokerAccount,
                   // and became a lie the moment a second was added — exactly the kind of log line
                   // that sends a future diagnosis the wrong way.
                   + (counts.backfilled ? `, ${counts.backfilled} field(s) filled in that the live `
-                                         + `feed could not supply` : ''));
+                                         + `feed could not supply` : '')
+                  // A CORRECTION IS NOT A BACKFILL AND MUST NOT BE REPORTED AS ONE. This counts a
+                  // value that was WRONG and has been overwritten — a direction stored the wrong way
+                  // round, or a P&L with the wrong sign (his EUR/USD long stored as a short, its $51
+                  // loss recorded as a $51 win). It was counted and never returned, so the single
+                  // most serious thing this pipeline does happened silently.
+                  + (counts.corrected ? `, ${counts.corrected} CORRECTED (a stored value the `
+                                        + `broker's own deals disproved)` : ''));
     } else {
       console.log(`[AutoSync] ${tag}: the broker returned no closed trades in that window`);
     }

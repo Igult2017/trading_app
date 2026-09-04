@@ -100,7 +100,24 @@ export async function journalSyncedTrade(
       : entry;
 
     const journalEntry = await storage.createJournalEntry(finalEntry);
-    await storage.markSyncedTradeJournaled(trade.id, journalEntry.id);
+
+    // WRITING THE ENTRY AND BOOKMARKING IT ARE TWO SEPARATE WRITES, and if the second fails the
+    // first is left ORPHANED: the trade still reads as un-journaled, so the next sync journals it
+    // again and he ends up with the SAME TRADE TWICE in his journal — silently doubling it in every
+    // metric. Nothing prevented that: the unique pair `externalId + brokerAccountId` is on
+    // `synced_trades`, not on `journal_entries`. (Found by audit, 2026-09-04.)
+    //
+    // SO A FAILED BOOKMARK UNDOES THE ENTRY. The trade is then simply un-journaled, which the heal
+    // in `brokerSyncService` already repairs on the next pass — the pipeline's own self-correcting
+    // path, and a state it handles well. Deleting is safe precisely BECAUSE the bookmark failed:
+    // nothing points at this entry, so nothing can be lost by removing it.
+    try {
+      await storage.markSyncedTradeJournaled(trade.id, journalEntry.id);
+    } catch (markErr: any) {
+      await storage.deleteJournalEntry(journalEntry.id).catch(() => {});
+      throw new Error(`the entry was written but could not be bookmarked, so it was removed to `
+                      + `avoid journaling this trade twice: ${markErr?.message ?? markErr}`);
+    }
 
     await record({
       brokerAccountId: trade.brokerAccountId, externalId: trade.externalId, symbol: trade.symbol,
@@ -184,6 +201,17 @@ export async function repairJournalDerived(trade: SyncedTrade): Promise<void> {
     primaryExitReason:  rebuilt.primaryExitReason,
     orderType:          rebuilt.orderType,
     entryTF:            rebuilt.entryTF,
+    // HOW FAR IT RAN EACH WAY. These were MISSING from this list, and that broke the feature end to
+    // end (found by audit, 2026-09-04).
+    //
+    // The marks cannot exist when the entry is first written: the live feed stores a trade the
+    // instant it closes and `marksFor` only runs on a LATER sync, in the already-seen branch of
+    // `processIncomingTrades`. So every live-recorded trade was journaled with them blank, the sync
+    // then filled them onto `synced_trades`, and **nothing ever carried them across**. His ask was
+    // *"we can extend it to also record this MAE/MFE in the journal"* — they reached the trade row
+    // and never the journal, and `metrics_calculator.py`'s breakdown had nothing to show.
+    mae:                rebuilt.mae,
+    mfe:                rebuilt.mfe,
     ...(manualFields ? { manualFields } : {}),
   });
 

@@ -121,7 +121,7 @@ export async function processIncomingTrades(
   userId: string,
   trades: RawBrokerTrade[],
 ): Promise<{ created: number; duplicates: number; journaled: number; healed: number;
-             backfilled: number }> {
+             backfilled: number; corrected: number }> {
   let created = 0, duplicates = 0, journaled = 0, healed = 0, backfilled = 0, corrected = 0;
 
   // Get the account's default session so auto-journaled trades are visible
@@ -199,6 +199,34 @@ export async function processIncomingTrades(
               console.error(`[Sync] could not correct the journal entry for `
                             + `${existing.externalId}: ${err?.message ?? err}`));
           }
+        }
+      }
+
+      // THE CLOSE TIME, on a row that was stored without one — and without this the trade could
+      // NEVER be journaled (found by audit, 2026-09-04).
+      //
+      // Journaling requires a close time: it is what makes a trade complete, and both the create
+      // path and the heal below test for it. The cTrader adapter writes
+      // `closeTime: …executionTimestamp ?? undefined`, so a missing timestamp stores the row with a
+      // blank one — and nothing could fill it. Every later sync recognised the trade, skipped it,
+      // and reported "already had" while it stayed permanently absent from his journal.
+      //
+      // That is the SAME defect already fixed once for the missing-entry case, in a different field.
+      // Same rule as the open time: only ever fills a blank, never overwrites what we hold.
+      if (!existing.closeTime && raw.closeTime) {
+        const shut = toDate(raw.closeTime);
+        if (!shut) {
+          console.warn(`[Sync] ${existing.externalId}: the broker sent a close time this code could `
+                       + `not read — ${JSON.stringify(raw.closeTime)}`);
+        } else {
+          await storage.updateSyncedTradeCloseTime(existing.id, shut);
+          (existing as any).closeTime = shut;
+          backfilled++;
+          await record({ brokerAccountId, externalId: existing.externalId, symbol: existing.symbol,
+                         stage: 'backfilled',
+                         detail: `close time filled in — ${shut.toISOString()} (it was stored `
+                                 + `without one, so it could never be journaled)` });
+          // The heal further down now has what it needs and journals it on THIS pass.
         }
       }
 
@@ -283,6 +311,16 @@ export async function processIncomingTrades(
                          stage: 'backfilled',
                          detail: `ran to +${m.mfe} pips and -${m.mae} pips while open `
                                  + `(measured on the ${m.source === 'fix' ? '0.5s FIX' : '30s'} clock)` });
+          // ...AND CARRY THEM INTO THE JOURNAL. This was the ONLY backfill of the four that repaired
+          // nothing, so the marks reached `synced_trades` and stopped there. They cannot be present
+          // when the entry is first written — the live feed journals a trade the instant it closes
+          // and these are only measurable afterwards — so without this the journal's MAE/MFE stayed
+          // blank on every live-recorded trade, permanently.
+          if (existing.journalEntryId) {
+            await repairJournalDerived(existing).catch(err =>
+              console.error(`[Sync] could not write the high-water marks onto the journal entry for `
+                            + `${existing.externalId}: ${err?.message ?? err}`));
+          }
         }
       }
 
@@ -392,5 +430,10 @@ export async function processIncomingTrades(
     await invalidateComputeCaches(defaultSessionId ?? undefined, userId).catch(() => {});
   }
 
-  return { created, duplicates, journaled, healed, backfilled };
+  // `corrected` WAS COUNTED AND NEVER RETURNED (found by audit, 2026-09-04) — so the most serious
+  // thing this function does was invisible to him. It covers a wrong DIRECTION and a wrong-signed
+  // P&L: his EUR/USD LONG stored as a SHORT with its $51 loss recorded as a $51 WIN. The pipeline
+  // now finds and fixes that, and said nothing, so a trade he may already have read as a win was
+  // silently rewritten.
+  return { created, duplicates, journaled, healed, backfilled, corrected };
 }

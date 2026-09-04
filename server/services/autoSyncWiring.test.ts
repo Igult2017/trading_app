@@ -94,7 +94,12 @@ check('a refused feed says so in the log',
 // ── 4. NOTHING ON THE SYNC PATH SWALLOWS ITS ERROR ANY MORE ────────────────
 // `.catch(() => {})` around the sweep meant one failed database read stopped every sync for ever,
 // on the boot run and on every 15-minute tick after it, without a character in the log.
-const swallows = auto.split('\n')
+// SPLIT ON EITHER LINE ENDING — and this check has been permanently RED because it did not.
+// `.split('\n')` on a CRLF file leaves a trailing \r on every line, and in a regex `.` does NOT
+// match \r, so the comment-strip below (`//.*$`) could never reach the end of the line and silently
+// did nothing. Every comment QUOTING the old swallowed catch was then flagged as live code. A safety
+// test that always fails is one everybody learns to ignore, which is worse than not having it.
+const swallows = auto.split(/\r?\n/)
   .map((l, i) => [i + 1, l.replace(/\/\/.*$/, '')] as const)   // the comments QUOTE the old code
   .filter(([, l]) => /\.catch\(\(\)\s*=>\s*\{\s*\}\)/.test(l))
   // The balance refresh is deliberately best-effort: it is cosmetic, it must never fail a sync,

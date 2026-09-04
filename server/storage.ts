@@ -118,6 +118,7 @@ export interface IStorage {
   createSyncedTrade(trade: InsertSyncedTrade): Promise<SyncedTrade>;
   markSyncedTradeJournaled(id: string, journalEntryId: string): Promise<void>;
   updateSyncedTradeOpenTime(id: string, openTime: Date): Promise<void>;
+  updateSyncedTradeCloseTime(id: string, closeTime: Date): Promise<void>;
   updateSyncedTradeOriginalRisk(id: string, risk: { entryOrderId: string | null;
     originalStopLoss: string; originalTakeProfit: string | null }): Promise<void>;
   correctSyncedTrade(id: string, fix: { direction?: string; profitLoss?: string;
@@ -1053,6 +1054,21 @@ export class DbStorage implements IStorage {
   async updateSyncedTradeOpenTime(id: string, openTime: Date): Promise<void> {
     await db.update(syncedTrades)
       .set({ openTime })
+      .where(eq(syncedTrades.id, id));
+  }
+
+  /** Fill in a CLOSE time the row was stored without. Only ever called on a row where it is null.
+   *
+   * WITHOUT THIS THE TRADE COULD NEVER BE JOURNALED (found by audit, 2026-09-04). Journaling needs a
+   * close time — it is what makes a trade complete — and the cTrader adapter writes
+   * `closeTime: …executionTimestamp ?? undefined`, so a missing timestamp stores the row without
+   * one. Nothing could then fill it: there was no setter, and `correctSyncedTrade` accepts only
+   * direction, profitLoss, orderType and the marks. The trade stayed stored, recognised and skipped
+   * by every later sync, and permanently absent from his journal — the same shape of defect already
+   * fixed once for the missing-entry case. */
+  async updateSyncedTradeCloseTime(id: string, closeTime: Date): Promise<void> {
+    await db.update(syncedTrades)
+      .set({ closeTime })
       .where(eq(syncedTrades.id, id));
   }
 

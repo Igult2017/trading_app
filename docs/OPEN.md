@@ -975,6 +975,53 @@ levels-vs-triggers rule is respected.
 now have a way to reach a live price, but changing where an ORDER's prices come from is a separate
 decision from where a candle's are.
 
+### D45 - AUTOSYNC PIPELINE AUDIT: four defects found and fixed. DONE 04 Sep
+
+**His instruction:** audit the cTrader -> journal pipeline end to end, find the gaps and bugs, fix
+them practically, verify, deploy. Each finding below was traced in the code, not guessed at, and each
+has a check in `autoJournal/audit.test.ts` (26) that fails without its fix.
+
+**1. MAE/MFE NEVER REACHED THE JOURNAL — the feature did not work end to end.** His ask was *"we can
+extend it to also record this MAE/MFE in the journal."* They were written to `synced_trades` and
+stopped there. The ordering makes it permanent: the entry is created (`brokerSyncService:376`) while
+`mae` is still null, `marksFor` runs only in the already-seen branch on a LATER sync, and nothing
+carried them across — `repairJournalDerived` rewrote 13 fields and these two were not among them, and
+the mark backfill was **the only one of the four backfills that called no repair at all**. So every
+live-recorded trade had blank marks in the journal, and `metrics_calculator.py`'s breakdown had
+nothing to show. **Fixed both ends.**
+
+**2. A TRADE STORED WITHOUT A CLOSE TIME COULD NEVER BE JOURNALED.** Journaling requires one, and the
+cTrader adapter writes `closeTime: …executionTimestamp ?? undefined`. Nothing could fill it: no
+setter existed and `correctSyncedTrade` accepts only direction, profitLoss, orderType and the marks.
+The trade stayed stored, recognised and skipped by every later sync, permanently absent from the
+journal — **the same defect already fixed once for the missing-entry case, in a different field.**
+Added `updateSyncedTradeCloseTime` and a backfill that runs BEFORE the heal, so it is journaled on the
+same pass.
+
+**3. THE MOST SERIOUS CORRECTION THE PIPELINE MAKES WAS INVISIBLE.** `corrected` was counted and never
+returned — not in the return type, not in the outcome, not in the log, not in the message. It covers a
+wrong DIRECTION and a wrong-signed P&L: his EUR/USD long stored as a short with its $51 loss recorded
+as a $51 WIN. The pipeline silently rewrote a trade he may already have read. Now reported everywhere.
+**The user-facing message also still said backfilled meant "given their missing open time"**, which
+stopped being true the moment a second field was backfilled — the same stale wording had already been
+corrected in the server log and missed here.
+
+**4. A FAILED BOOKMARK COULD JOURNAL A TRADE TWICE.** Writing the entry and marking the trade are two
+separate writes; if the second failed the first was orphaned, the trade still read as un-journaled,
+and the next sync wrote a SECOND entry — silently doubling it in every metric. The unique pair
+guarding this is on `synced_trades`, not `journal_entries`. A failed bookmark now removes the entry it
+just wrote, leaving the trade un-journaled for the existing heal to pick up cleanly.
+
+**AND A SAFETY TEST HAD BEEN PERMANENTLY RED.** `autoSyncWiring.test.ts`'s "no silent catch on the
+sync path" check split on `
+`, which on a CRLF file leaves a trailing `` — and in a regex `.` does
+not match ``, so its comment-strip could never reach the end of a line and silently did nothing.
+Every comment QUOTING the old swallowed catch was flagged as live code. **A safety test that always
+fails is one everybody learns to ignore.**
+
+**Verified:** audit.test 26 · risk 39 · isolation 28 · brokerSync 27 · journalParity 61 ·
+autoSyncWiring 23 · ctraderDeals 65 · `tsc` 0 errors project-wide.
+
 ### D44 - A RESTING ORDER NOW DIES WITH ITS SETUP. DONE 04 Sep
 
 **⚠ THE FIRST VERSION MISSED ORPHANS, AND HIS ACCOUNT PROVED IT — boot sweep added 04 Sep.**
