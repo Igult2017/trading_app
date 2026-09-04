@@ -46,6 +46,53 @@ _WINDOW = 200
 _OFFSET_EPS = 1e-9
 
 
+# HOW CLOSE IS CLOSE ENOUGH — his ruling, 2026-09-04:
+#
+#     "so long as the FIX data is ahead of broker data, we dont drop it. We only drop it if it is
+#      later than the old broker's data."
+#
+# WHAT THE OLD RULE COST, AND THE ARITHMETIC THAT JUSTIFIED IT WAS WRONG. This module demanded EXACT
+# equality, and the reason given (line 17) was *"a tenth of a pip on a 3-pip stop is a third of the
+# risk"*. **0.1 / 3 is 3.3%, not 33% — the justification overstated the cost TENFOLD**, and every
+# "exactness, not closeness" decision since rested on it.
+#
+# WHAT IS ACTUALLY BEING TRADED OFF, measured both ways:
+#   * GAIN: the broker publishes a finished bar **10-70 seconds late** (`candle_cache.py:46`). A bar
+#     built from ticks exists the instant its minute ends.
+#   * COST: the real production differences were **0.00001 and 0.00002 on EUR/USD** — one and two
+#     tenths of a pip, on the open or close of an occasional bar. Against his real 5.9 and 6.2-pip
+#     stops that is **3.4% of the risk at worst**.
+#
+# Being up to a minute late is what caused measured harm — all four stored VIX.1 signals arrived at
+# or past their own entry, two genuinely through it. Throwing away a minute of freshness to avoid a
+# rounding error is the wrong side of the trade.
+#
+# NO FIXED TOLERANCE, AND THAT IS THE POINT. A tick count does not scale across instruments: the
+# same 3% of the risk is 0.2 of a pip on EUR/USD (5.9-pip stop) and 10 cents on gold (a $4.12 stop).
+# Picking a number per pair would be fitting, which is how the last bad threshold got in.
+#
+# THE ONE BOUNDARY USED IS THE CANDLE'S OWN RANGE: a difference smaller than the bar's own high-to-low
+# is recognisably the SAME candle, seen through a slightly different set of ticks. A difference larger
+# than the whole candle is a different candle, and no amount of freshness makes that safe. Nothing is
+# tuned — the bar sizes itself.
+#
+# GBP/JPY IS STILL EXCLUDED, and NOT by this test. Its offset (0.005 against a 0.146 range) passes
+# comfortably here. It is caught by `_constant_offset` below: all four prices out by the SAME amount
+# in the SAME direction, every bar, which is a price source quoting a different level rather than a
+# different view of the same one. **That is a deliberate departure from the literal reading of his
+# instruction** — he said drop it only when it is not faster — and it is kept because serving a
+# systematically shifted level would put every stop half a pip from where the broker thinks it is.
+
+def _within_tolerance(symbol: str, ours, theirs) -> bool:
+    """Is this recognisably the same candle — every price closer than the bar's own range?"""
+    span = theirs.high - theirs.low
+    if span <= 0:
+        return False                      # a flat bar gives no scale to judge by; demand exactness
+    limit = span + _OFFSET_EPS
+    return (abs(ours.open - theirs.open) < limit and abs(ours.high - theirs.high) < limit
+            and abs(ours.low - theirs.low) < limit and abs(ours.close - theirs.close) < limit)
+
+
 def _constant_offset(ours, theirs) -> float | None:
     """The single amount every price is out by — or None if they differ by different amounts.
 
@@ -91,8 +138,13 @@ class TickBarAudit:
         """
         if ours is None or theirs is None or ours.time != theirs.time:
             return None
-        ok = (ours.open == theirs.open and ours.high == theirs.high
-              and ours.low == theirs.low and ours.close == theirs.close)
+        exact = (ours.open == theirs.open and ours.high == theirs.high
+                 and ours.low == theirs.low and ours.close == theirs.close)
+        # A SYSTEMATIC LEVEL SHIFT IS NEVER ACCEPTABLE, however small. Every price out by the SAME
+        # amount in the SAME direction is a price source quoting a different level, not a different
+        # view of the same one — so it is rejected before the "same candle" test can forgive it.
+        shifted = (not exact) and _constant_offset(ours, theirs) is not None
+        ok = exact or (not shifted and _within_tolerance(symbol, ours, theirs))
         with self._lock:
             a = self._by_symbol.setdefault(symbol, _SymbolAudit())
             # EVERY MINUTE IS SCORED EXACTLY ONCE, and this line is what makes the scoreboard mean

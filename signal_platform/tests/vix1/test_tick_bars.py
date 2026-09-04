@@ -103,24 +103,68 @@ s.check(f"below the {MIN_SAMPLE}-bar sample it is still NOT trusted", a.trusted(
 a.compare("GBP/USD", bar(BASE + 99 * M, 1.1, 1.2, 1.0, 1.15), bar(BASE + 99 * M, 1.1, 1.2, 1.0, 1.15))
 s.check("...and trusted once the sample is met with a clean run", a.trusted("GBP/USD"), True)
 
-# ONE WRONG BAR WITHDRAWS TRUST. There is no such thing as a candle that is mostly right.
-a.compare("GBP/USD", bar(BASE + 100 * M, 1.1, 1.2001, 1.0, 1.15),
-                     bar(BASE + 100 * M, 1.1, 1.2000, 1.0, 1.15))
-s.check("a SINGLE mismatch withdraws trust", a.trusted("GBP/USD"), False)
+# A WHOLLY DIFFERENT CANDLE STILL WITHDRAWS TRUST.
+a.compare("GBP/USD", bar(BASE + 100 * M, 1.1, 1.9, 1.0, 1.15),
+                     bar(BASE + 100 * M, 1.1, 1.2, 1.0, 1.15))
+s.check("a bar bigger than the whole candle withdraws trust", a.trusted("GBP/USD"), False)
 s.check("...and the mismatch is recorded for reading back",
         "GBP/USD" in (a.report()["GBP/USD"]["last_mismatch"] or ""), True)
 
-# EXACTNESS, not closeness — a tenth of a pip on a 3-pip stop is a third of the risk.
+
+# ── CLOSENESS IS NOW ENOUGH — his ruling, 2026-09-04 ────────────────────────
+#
+#     "so long as the FIX data is ahead of broker data, we dont drop it. We only drop it if it is
+#      later than the old broker's data."
+#
+# THE OLD RULE HERE DEMANDED EXACT EQUALITY, and the reason written beside it was arithmetic that was
+# WRONG: *"a tenth of a pip on a 3-pip stop is a third of the risk"* — 0.1/3 is **3.3%, not 33%**.
+# It overstated the cost tenfold, and every "exactness, not closeness" decision rested on it.
+#
+# WHAT IS ACTUALLY TRADED: the broker publishes a finished bar **10-70 seconds late**, while a bar
+# built from ticks exists the instant its minute ends. The real production differences were **0.1 and
+# 0.2 of a pip** on EUR/USD — about **3% of his real 5.9-pip stop**. Being a minute late is what
+# caused measured harm; a rounding error has caused none.
+#
+# NO FIXED TOLERANCE IS USED, deliberately: a tick count does not scale (the same 3% of risk is 0.2
+# pip on EUR/USD and 10 CENTS on gold). The boundary is the candle's OWN RANGE — smaller than the bar
+# itself means the same candle seen through slightly different ticks.
 a2 = TickBarAudit()
-s.check("a close-but-not-equal high is a MISMATCH",
+print()
+print("   a difference smaller than the candle is the SAME candle:")
+s.check("a high off by a tenth of a pip is ACCEPTED",
         a2.compare("X", bar(BASE, 1.1, 1.20001, 1.0, 1.15), bar(BASE, 1.1, 1.20000, 1.0, 1.15)),
-        False)
-s.check("...the open too", a2.compare("X", bar(BASE, 1.10001, 1.2, 1.0, 1.15),
-                                            bar(BASE, 1.10000, 1.2, 1.0, 1.15)), False)
-s.check("...the low too", a2.compare("X", bar(BASE, 1.1, 1.2, 1.00001, 1.15),
-                                           bar(BASE, 1.1, 1.2, 1.00000, 1.15)), False)
-s.check("...and the close", a2.compare("X", bar(BASE, 1.1, 1.2, 1.0, 1.15001),
-                                            bar(BASE, 1.1, 1.2, 1.0, 1.15000)), False)
+        True)
+s.check("...the open too", a2.compare("X", bar(BASE + M, 1.10001, 1.2, 1.0, 1.15),
+                                            bar(BASE + M, 1.10000, 1.2, 1.0, 1.15)), True)
+s.check("...the low too", a2.compare("X", bar(BASE + 2 * M, 1.1, 1.2, 1.00001, 1.15),
+                                           bar(BASE + 2 * M, 1.1, 1.2, 1.00000, 1.15)), True)
+s.check("...and the close", a2.compare("X", bar(BASE + 3 * M, 1.1, 1.2, 1.0, 1.15001),
+                                            bar(BASE + 3 * M, 1.1, 1.2, 1.0, 1.15000)), True)
+
+# THE REAL PRODUCTION DIFFERENCES, the ones that were costing us the live feed.
+a2b = TickBarAudit()
+s.check("EUR/USD's real 0.00001 close difference is accepted",
+        a2b.compare("EUR/USD", bar(BASE, 1.15992, 1.16035, 1.15991, 1.16019),
+                               bar(BASE, 1.15992, 1.16035, 1.15991, 1.16020)), True)
+s.check("EUR/USD's real 0.00002 open difference is accepted",
+        a2b.compare("EUR/USD", bar(BASE + M, 1.16020, 1.16022, 1.16007, 1.16007),
+                               bar(BASE + M, 1.16022, 1.16022, 1.16007, 1.16007)), True)
+s.check("gold's real 10-cent open difference is accepted too",
+        a2b.compare("XAU/USD", bar(BASE + 2 * M, 4467.69, 4468.48, 4467.52, 4468.37),
+                               bar(BASE + 2 * M, 4467.59, 4468.48, 4467.52, 4468.37)), True)
+
+# TEETH — the rule must still refuse something, or it is not a rule.
+s.teeth("a candle bigger than itself away is still refused",
+        a2b.compare("EUR/USD", bar(BASE + 3 * M, 1.16020, 1.16022, 1.16007, 1.16007),
+                               bar(BASE + 3 * M, 1.16020, 1.16022, 1.16007, 1.19007)) is False)
+
+# AND A SYSTEMATIC LEVEL SHIFT IS NEVER FORGIVEN, however small — it is not a different view of the
+# same candle, it is a different level. This is what keeps GBP/JPY out.
+s.check("a CONSTANT shift on all four prices is refused even though it is tiny",
+        a2b.compare("GBP/JPY", bar(BASE + 4 * M, 210.363, 210.487, 210.341, 210.376),
+                               bar(BASE + 4 * M, 210.368, 210.492, 210.346, 210.381)), False)
+s.teeth("...and that shift really is smaller than the candle",
+        0.005 < (210.492 - 210.346))
 
 # AN UNANSWERABLE COMPARISON IS NOT A PASS. Scoring "no counterpart" as a match is how a bad feed
 # earns trust it never demonstrated.
