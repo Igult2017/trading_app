@@ -100,12 +100,29 @@ export default function Leaderboard() {
     return () => mq.removeEventListener?.('change', update);
   }, []);
 
+  // OVERALL MEANS PER TRADER, so it asks the endpoint that aggregates per trader.
+  //
+  // This tab used to call `/api/leaderboard/by-session` with no session filter, which is NOT the
+  // same question: that query groups by `ts.id` — "one row per (trading_session, user)". Connecting
+  // a broker account auto-creates its own trading session (routes.ts:3904), so a trader with a
+  // hand-typed session AND a synced broker account appeared TWICE on the "Overall" board with their
+  // P&L split between the two rows. That is the ordinary shape of an autosync trader, not an edge
+  // case.
+  //
+  // It also could not see a trade with no session at all: `by-session` starts
+  // `FROM trading_sessions JOIN journal_entries` — an INNER join — while the sync journals under
+  // `account?.defaultSessionId ?? null` (brokerSyncService.ts:130). Any account whose default
+  // session is null produced entries that were invisible on the leaderboard for ever.
+  //
+  // `/api/leaderboard` answers the question this tab is actually asking: one row per user, a LEFT
+  // join so a session-less entry still counts, and the Supabase lookup that resolves the name the
+  // trader SIGNED UP with. It existed and had no caller. (Found by audit, 2026-09-04.)
   const { data: lbData, isLoading: loadingOverall, error: overallError } = useQuery<{ leaderboard: Trader[]; summary: Summary | null }>({
-    queryKey: ['/api/leaderboard/by-session', activePeriod, '__overall__'],
+    queryKey: ['/api/leaderboard', activePeriod],
     queryFn: async () => {
       // fetchJson throws a clean "<status>: <text>" on any non-OK response (502/500/…) BEFORE
       // parsing, so a "Bad Gateway" body never hits JSON.parse — and React Query keeps last-good data.
-      const d = await fetchJson<{ leaderboard?: Trader[]; summary?: Summary | null; error?: string }>(`/api/leaderboard/by-session?period=${activePeriod}`);
+      const d = await fetchJson<{ leaderboard?: Trader[]; summary?: Summary | null; error?: string }>(`/api/leaderboard?period=${activePeriod}`);
       if (d.error) throw new Error(d.error);
       return { leaderboard: d.leaderboard || [], summary: d.summary || null };
     },

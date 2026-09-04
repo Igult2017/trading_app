@@ -8,6 +8,7 @@ import { Activity, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { authFetch, fetchJson } from '@/lib/queryClient';
+import { classifyOutcome } from '@/lib/tradeStats';
 import { prefetchAllPanels } from '@/lib/prefetchPanels';
 import { useEntitlement } from '@/hooks/useEntitlement';
 import { useTranslation } from 'react-i18next';
@@ -647,14 +648,26 @@ function DashboardView({ sessionId, isMobile, windowWidth, darkMode = true }: { 
     date: e.entryTime || (e.createdAt ? new Date(e.createdAt).toLocaleString() : ''),
     type: (e.direction || 'LONG').toUpperCase(),
     pnl: parseFloat(e.profitLoss || e.pnl || '0'),
-    status: (e.outcome || '').toLowerCase() === 'win' ? 'profit' : 'loss',
+    // ANYTHING THAT WAS NOT EXACTLY A WIN USED TO BE FILED AS A LOSS, break-evens included — and
+    // the row then took its +/- sign from that class rather than from the money, so a scratched
+    // trade printed "-$0.00" in red. `classifyOutcome` knows the three real classes and folds the
+    // two casings the column actually holds. (Found by audit, 2026-09-04.)
+    status: classifyOutcome(e),
   }));
 
+  // DECISIVE TRADES ONLY — wins + losses, break-evens excluded from BOTH sides.
+  //
+  // This divided by `totalTrades` and then set `lossRatio = 100 - profitRatio`, which counts every
+  // break-even as a loss and drags the profit ratio down. The canonical rule is stated in
+  // server/python/metrics_calculator.py:802 ("breakevens are excluded from both numerator and
+  // denominator") and mirrored in lib/tradeStats.ts — and the WIN RATE card immediately above this
+  // panel already uses it, so the two figures contradicted each other on one screen.
+  // (Found by audit, 2026-09-04.)
   const winCount = core.wins || 0;
   const lossCount = core.losses || 0;
-  const totalCount = core.totalTrades || 0;
-  const profitRatio = totalCount > 0 ? Math.round((winCount / totalCount) * 100) : 0;
-  const lossRatio = totalCount > 0 ? 100 - profitRatio : 0;
+  const decisiveCount = winCount + lossCount;
+  const profitRatio = decisiveCount > 0 ? Math.round((winCount / decisiveCount) * 100) : 0;
+  const lossRatio = decisiveCount > 0 ? 100 - profitRatio : 0;
 
   const instEntries = Object.entries(instrumentBreakdown).sort((a: any, b: any) => b[1].trades - a[1].trades).slice(0, 6);
   const maxInstTrades = instEntries.length > 0 ? (instEntries[0][1] as any).trades : 1;
@@ -749,8 +762,10 @@ function DashboardView({ sessionId, isMobile, windowWidth, darkMode = true }: { 
                       <td style={{ padding: '8px 14px', textAlign: 'center' }}>
                         <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: 4, fontSize: 8, fontWeight: 900, letterSpacing: '0.2em', background: t.type === 'LONG' ? 'rgba(16,185,129,0.1)' : 'rgba(244,63,94,0.1)', color: t.type === 'LONG' ? '#34d399' : '#fb7185', border: `1px solid ${t.type === 'LONG' ? 'rgba(16,185,129,0.15)' : 'rgba(244,63,94,0.15)'}` }}>{t.type}</span>
                       </td>
-                      <td style={{ padding: '8px 14px', textAlign: 'right', fontSize: 11, fontWeight: 900, color: t.status === 'profit' ? '#34d399' : '#fb7185' }}>
-                        {t.status === 'profit' ? '+' : '-'}${Math.abs(t.pnl).toFixed(2)}
+                      <td style={{ padding: '8px 14px', textAlign: 'right', fontSize: 11, fontWeight: 900, color: t.status === 'win' ? '#34d399' : t.status === 'be' ? '#fbbf24' : '#fb7185' }}>
+                        {/* THE SIGN COMES FROM THE MONEY, never from the label — a break-even
+                            printed "-$0.00" when it was read off the class. */}
+                        {t.pnl >= 0 ? '+' : '-'}${Math.abs(t.pnl).toFixed(2)}
                       </td>
                     </tr>
                   ))}

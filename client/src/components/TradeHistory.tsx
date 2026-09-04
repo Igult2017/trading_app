@@ -64,9 +64,16 @@ export default function TradeHistory() {
 
   const timeFilteredTrades = trades.filter(filterByTime);
   
+  // THROUGH THE CANONICAL CLASSIFIER, because `trade.outcome === 'win'` was NEVER TRUE.
+  // `journal_entries.outcome` is free text with no constraint and two writers with two casings: the
+  // manual form saves "Win"/"Loss"/"BE" (JournalForm.tsx:774) and the automatic pipeline saves
+  // "WIN"/"LOSS"/"BE" (autoJournal/fields.ts). Neither is lowercase, so both of these filters
+  // matched NOTHING and the Wins and Losses buttons returned an empty table.
+  // `classifyOutcome` (lib/tradeStats.ts) already folds case, accepts the aliases and knows about
+  // break-evens — the stats directly below have always used it. (Found by audit, 2026-09-04.)
   const filteredTrades = timeFilteredTrades.filter(trade => {
-    if (filter === 'wins') return trade.outcome === 'win';
-    if (filter === 'losses') return trade.outcome === 'loss';
+    if (filter === 'wins') return classifyOutcome(trade) === 'win';
+    if (filter === 'losses') return classifyOutcome(trade) === 'loss';
     return true;
   });
 
@@ -276,9 +283,9 @@ export default function TradeHistory() {
             <div
               key={trade.id}
               className={`p-4 rounded-md border ${
-                trade.outcome === 'win'
+                classifyOutcome(trade) === 'win'
                   ? 'border-green-500/20 bg-green-500/5'
-                  : ['be', 'BE', 'breakeven', 'Break Even'].includes(trade.outcome)
+                  : classifyOutcome(trade) === 'be'
                     ? 'border-yellow-500/20 bg-yellow-500/5'
                     : 'border-red-500/20 bg-red-500/5'
               } hover-elevate transition-colors`}
@@ -372,16 +379,18 @@ export default function TradeHistory() {
                     <span className="font-mono font-medium">{trade.duration}</span>
                   </div>
                 </div>
+                {/* The badge a WINNING trade used to get was "LOSS", in red: the test was
+                    `trade.outcome === 'win'` and the column never holds lowercase. */}
                 <Badge
                   variant={
-                    trade.outcome === 'win' ? 'default'
-                    : ['be', 'BE', 'breakeven', 'Break Even'].includes(trade.outcome) ? 'secondary'
+                    classifyOutcome(trade) === 'win' ? 'default'
+                    : classifyOutcome(trade) === 'be' ? 'secondary'
                     : 'destructive'
                   }
                   className="text-xs"
                 >
-                  {trade.outcome === 'win' ? 'WIN'
-                    : ['be', 'BE', 'breakeven', 'Break Even'].includes(trade.outcome) ? 'BE'
+                  {classifyOutcome(trade) === 'win' ? 'WIN'
+                    : classifyOutcome(trade) === 'be' ? 'BE'
                     : 'LOSS'}
                 </Badge>
               </div>

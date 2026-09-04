@@ -63,16 +63,41 @@ check('the sync path takes a pooled connection, so re-enabling it cannot storm t
 // stops that becoming two trades in his journal.
 check('incoming trades are de-duplicated per account',
       broker.includes('getSyncedTradeByExternal(brokerAccountId, raw.externalId)'), true);
-check('...and a duplicate is skipped rather than inserted',
-      /if \(existing\) \{ duplicates\+\+; continue; \}/.test(broker), true);
+// THIS CHECK WAS PERMANENTLY RED, and for a good reason: it pinned `{ duplicates++; continue; }`,
+// a branch that was DELIBERATELY replaced on 2026-09-02. Asking only "have I seen this trade?" and
+// never "did it reach his journal?" left a stored-but-unjournaled trade invisible for ever, because
+// every later sync recognised it and skipped it while reporting "already had".
+// What must still hold is that the row is COUNTED as a duplicate and never inserted a second time —
+// not that the branch immediately `continue`s. A test that pins the old shape of a fixed bug just
+// teaches everyone to ignore a red suite. (Corrected by audit, 2026-09-04.)
+// The already-seen branch, from `if (existing) {` to the `continue;` that closes it.
+// MATCH EITHER LINE ENDING. These files are CRLF on this machine, so a literal '\n      continue;'
+// finds nothing and `indexOf` returns -1 — which silently makes the slice empty and the check pass
+// or fail for the wrong reason. Exactly the trap that left autoSyncWiring.test.ts permanently red.
+const branchStart = broker.indexOf('if (existing) {');
+const closer      = /\r?\n {6}continue;\r?\n {4}\}/.exec(broker.slice(branchStart));
+const branchEnd   = closer ? branchStart + closer.index : -1;
+const dupeBranch  = branchEnd > branchStart ? broker.slice(branchStart, branchEnd) : '';
+check('...and a duplicate is counted',
+      /if \(existing\) \{\s*\n\s*duplicates\+\+;/.test(broker), true);
+// The insert sits AFTER this branch, so "never stored twice" is the branch always leaving the
+// iteration before reaching it. That is the property worth pinning, not the old one-liner's shape.
+check('...and that branch closes with `continue`, before the insert further down',
+      branchEnd > branchStart && !dupeBranch.includes('createSyncedTrade'), true);
+check('...and it now heals a trade that never reached the journal',
+      /if \(!existing\.journalEntryId && existing\.closeTime\)/.test(dupeBranch), true);
 
 // ── 3. FILED UNDER THE ACCOUNT ──────────────────────────────────────────────
 check('every broker account is created with its own session',
       /const session = await storage\.createSession\(/.test(routes), true);
 check('...and the account points at it', routes.includes('defaultSessionId: session.id'), true);
+// `autoJournalTrade` became `journalSyncedTrade` when the automatic journal moved into its own
+// module (his "just create a different pipeline for autojournaling", 2026-09-02). The JOURNEY is
+// what this check is about — a recorded trade is filed against the account's own session — so it
+// follows the rename rather than pinning the old name. (Corrected by audit, 2026-09-04.)
 check('recorded trades are filed against that session',
       broker.includes('account?.defaultSessionId') &&
-      broker.includes('autoJournalTrade(synced, defaultSessionId)'), true);
+      broker.includes('journalSyncedTrade(synced, defaultSessionId)'), true);
 
 // ── 4. THE SESSIONS PAGE SHOWS THEM ─────────────────────────────────────────
 check('the sessions list no longer filters broker-backed sessions out',

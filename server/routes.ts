@@ -285,6 +285,59 @@ async function backfillProfilesFromSupabase(userIds: string[]) {
   }));
 }
 
+/**
+ * PUT THE NAME THEY SIGNED UP WITH ONTO EVERY LEADERBOARD ROW THAT IS MISSING ONE.
+ *
+ * His instruction, 2026-09-04: *"autosync users must also be desplayed in the leaderboard but with
+ * their names they used to signup to the journal."* The name is captured at sign-up into Supabase
+ * `user_metadata.full_name` (AuthContext.tsx:157) and copied into `user_profiles` by
+ * `ensureUserProfile` — but only on an authenticated request. A trader whose trades reached the
+ * journal through the broker sync may not have made one, so the row comes back nameless and
+ * `displayFor` falls through to the email local-part or "Trader #A1B2".
+ *
+ * ONE COPY, CALLED BY BOTH BOARDS. This lived inline in /api/leaderboard only, which is why the
+ * By Session tab — the one the page was actually calling — never resolved a name at all.
+ *
+ * Mutates `rows` in place. NEVER RAISES and never blocks the response: a leaderboard with a plain
+ * name on it is worth far more than a 502.
+ */
+async function fillInSignupNames(rows: any[]): Promise<void> {
+  // A MISSING NAME IS THE THING TO REPAIR, and this used to require a missing EMAIL as well.
+  // `user_profiles.email` is NOT NULL, so every profile row that exists has one — which made
+  // `!r.full_name && !r.email` false for exactly the row it was written to fix: a profile carrying
+  // an email and a blank `full_name`. Those traders were shown as the local-part of their address
+  // for ever, instead of the name they signed up with. (Found by audit, 2026-09-04.)
+  const missing = rows
+    .filter(r => !r.full_name || !String(r.full_name).trim())
+    .map(r => r.user_id)
+    .filter(Boolean);
+  if (missing.length === 0) return;
+
+  try {
+    // Time-box the Supabase lookup so a slow / rate-limited / unreachable Supabase can NEVER hang
+    // the whole leaderboard response — that hang is what the proxy turns into a 502 "Bad Gateway",
+    // which the client then fails to JSON.parse. If it does not finish in time we return with the
+    // names we already have.
+    await Promise.race([
+      backfillProfilesFromSupabase(missing).catch(() => {}),
+      new Promise<void>(resolve => setTimeout(resolve, 4000)),
+    ]);
+    const { rows: refreshed } = await pool.query(
+      `SELECT id, email, full_name FROM user_profiles WHERE id = ANY($1::varchar[])`,
+      [missing],
+    );
+    const lookup = new Map(refreshed.map((p: any) => [p.id, p]));
+    for (const r of rows) {
+      const p: any = lookup.get(r.user_id);
+      if (!p) continue;
+      if (!r.full_name || !String(r.full_name).trim()) r.full_name = p.full_name;
+      if (!r.email) r.email = p.email;
+    }
+  } catch (err: any) {
+    console.warn('[leaderboard] could not resolve signup names:', err?.message ?? err);
+  }
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   addServerLog('info', 'Server', `API server started — Node ${process.version}`);
   startPriceAlertChecker();
@@ -638,41 +691,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         FROM resolved r
         LEFT JOIN user_profiles up ON up.id = r.user_id
         WHERE r.user_id IS NOT NULL
+          -- "HIDE ME" MUST MEAN HIDDEN EVERYWHERE. /api/leaderboard/by-session has always honoured
+          -- this and THIS query did not, so a trader an admin had hidden stayed visible on the main
+          -- board — the tab the page opens on. A privacy switch that works on one tab and not the
+          -- other is worse than none. (Found by audit, 2026-09-04.)
+          --
+          -- NOT added to /api/admin/leaderboard/entries below, which has the same shape on purpose:
+          -- the admin view must still list a hidden trader, or there is no way to un-hide them.
+          AND (up.leaderboard_hidden IS NULL OR up.leaderboard_hidden = false)
         GROUP BY r.user_id
         HAVING COUNT(*) >= 1
         ORDER BY SUM(COALESCE(r.profit_loss, 0)) DESC
         LIMIT 50
       `);
 
-      // Backfill profiles for any user that doesn't have one yet by looking
-      // up their email + full name from Supabase. This makes the leaderboard
-      // show real names even for users who've never hit an authed endpoint.
-      const missing = rows
-        .filter((r: any) => !r.full_name && !r.email)
-        .map((r: any) => r.user_id)
-        .filter(Boolean);
-      if (missing.length > 0) {
-        // Time-box the Supabase backfill so a slow / rate-limited / unreachable Supabase can NEVER
-        // hang the whole leaderboard response — that hang is what the proxy turns into a 502
-        // "Bad Gateway" (which the client then fails to JSON.parse). If it doesn't finish in time we
-        // simply return with the names we already have (displayFor falls back to email / "Trader #").
-        await Promise.race([
-          backfillProfilesFromSupabase(missing).catch(() => {}),
-          new Promise<void>((resolve) => setTimeout(resolve, 4000)),
-        ]);
-        const { rows: refreshed } = await pool.query(
-          `SELECT id, email, full_name FROM user_profiles WHERE id = ANY($1::varchar[])`,
-          [missing],
-        );
-        const lookup = new Map(refreshed.map((p: any) => [p.id, p]));
-        for (const r of rows as any[]) {
-          const p = lookup.get(r.user_id);
-          if (p) {
-            r.full_name = r.full_name || p.full_name;
-            r.email     = r.email     || p.email;
-          }
-        }
-      }
+      await fillInSignupNames(rows);
 
       // Fetch sparkline data (last 10 trade PnL values) for each user
       const userIds = rows.map((r: any) => r.user_id).filter(Boolean);
@@ -823,6 +856,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ORDER BY SUM(COALESCE(je.profit_loss, 0)) DESC
         LIMIT 100
       `, params);
+
+      // THE SAME NAME LOOKUP THE OVERALL BOARD GETS. This board had none, so a trader whose
+      // `user_profiles` row carries no full name was rendered as their email local-part or
+      // "Trader #A1B2" here while showing correctly on the other tab. (Found by audit, 2026-09-04.)
+      await fillInSignupNames(rows);
 
       // Sparklines per session
       const sessionIds = rows.map((r: any) => r.session_id).filter(Boolean);
@@ -4244,7 +4282,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   /** Signal-platform token setup — visit once to get Coolify env var values. */
   app.get("/api/admin/ctrader/signal-platform-setup", (req: Request, res: Response) => {
-    if (req.query.secret !== process.env.ADMIN_SECRET) return res.status(401).send('Unauthorized');
+    // THE SECRET MUST EXIST BEFORE IT CAN BE MATCHED. With ADMIN_SECRET unset this read
+    // `undefined !== undefined` -> false, so the check passed and the route was OPEN — and with
+    // ?debug=1 it prints the cTrader client id and redirect URI. Every other guard in this file
+    // tests presence first; `requireAdminSecret` above is the correct shape.
+    // (Found by audit, 2026-09-04.)
+    const adminSecret = process.env.ADMIN_SECRET;
+    if (!adminSecret || req.query.secret !== adminSecret) return res.status(401).send('Unauthorized');
     try {
       // LEGACY app on purpose: the signal platform's own tokens must be issued under ITS app,
       // never the Journal Trade Sync app — the two quotas are separated by design.

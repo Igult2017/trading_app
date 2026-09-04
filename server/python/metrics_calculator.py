@@ -1630,7 +1630,14 @@ def calc_monthly(ctx: SharedContext) -> Dict:
         # 99 stands for "no losses to divide by" — the sidebar's own convention, kept so the
         # displayed figure does not change on the day this moved to the server.
         pf = (gross_win / gross_loss) if gross_loss > 0 else (99.0 if gross_win > 0 else 0.0)
-        win_rate = (len(wins) / len(trades) * 100) if trades else 0.0
+        # DECISIVE TRADES ONLY, matching `win_rate_of` above and the client's lib/tradeStats.ts.
+        # This divided by len(trades), which puts break-evens in the denominator and nowhere else —
+        # so this file computed win rate two different ways and the same trader's figure differed
+        # between the KPI card (which uses `win_rate_of`) and this monthly table.
+        # `win_rate_of` itself is deliberately NOT reused here: it returns None below MIN_SAMPLE,
+        # which would blank the month rather than show a thin one. (Found by audit, 2026-09-04.)
+        decisive = len(wins) + len(losses)
+        win_rate = (len(wins) / decisive * 100) if decisive else 0.0
         growth   = ((end_bal - start_bal) / start_bal * 100) if start_bal > 0 else 0.0
         rrs      = [t.rr_ratio for t in trades if t.rr_ratio is not None]
         avg_rr   = (sum(rrs) / len(rrs)) if rrs else 0.0
