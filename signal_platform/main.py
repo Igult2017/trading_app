@@ -54,18 +54,13 @@ async def _startup() -> None:
     from monitor import exit_watch
     exit_watch.rehydrate()
 
-    # 1e. ORPHANED ORDERS — cancel anything still resting whose signal is no longer active.
+    # 1e. ORPHANED ORDERS are swept by the SIGNAL MONITOR's first poll, not here.
     #
-    # WHY BOOT IS EXACTLY THE RIGHT MOMENT. `signal_monitor` cancels an order when it invalidates the
-    # signal, but it only ever walks ACTIVE signals — so a setup that died while the platform was
-    # DOWN leaves an order nothing will ever look at again. A restart is precisely when that has just
-    # happened: the market moved while we were not watching.
-    #
-    # PROVED ON HIS ACCOUNT, 2026-09-04. A gold BUY stop at 4486.56 was still resting while gold
-    # traded at 4414 — its signal expired hours before the cancel existed. I predicted a deploy would
-    # clear it; it did not, and it had to be cancelled by hand. This is that gap closed.
-    from execution.canceller import sweep_orphans
-    await sweep_orphans()
+    # It was here, and it could not work: the sweep needs credentials from the Node app, which is not
+    # serving yet at boot. The first production run proved it — it identified the orphaned gold order
+    # correctly and logged "no usable account" nine seconds before the scheduler even started.
+    # `execution.canceller.sweep_orphans_soon` now runs it on the monitor's first poll instead, when
+    # everything is up. No delay to tune, no timing to guess.
 
 
     # 1b. HOW LONG WERE WE GONE? Read the heartbeat BEFORE anything overwrites it — its age is the

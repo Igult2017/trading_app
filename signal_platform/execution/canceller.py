@@ -79,6 +79,35 @@ async def cancel_for_signal(signal_id: str, symbol: str, why: str) -> bool:
         return False
 
 
+_swept = False
+
+
+def sweep_orphans_soon() -> None:
+    """Run the orphan sweep ONCE, the first time the monitor polls. Returns immediately.
+
+    WHY NOT AT BOOT, which is where it was first put and where it did not work. The sweep needs an
+    account, and `execution.account.load_account` asks the Node app for credentials over HTTP. At
+    boot that app is not serving yet, so the very first production run said:
+
+        16:21:27  [canceller] XAU/USD: no usable account, cannot cancel order 359170674
+        16:21:36  [boot] scheduler started
+
+    It found the right order — the orphan, correctly identified — and could do nothing with it.
+
+    THE MONITOR'S POLL IS THE HONEST MOMENT: it only runs once the platform is fully up, so there is
+    no timing to guess at and no delay to tune. Fired as a task so it never sits on the 30-second
+    trading path, the same rule as `cancel_soon`.
+    """
+    global _swept
+    if _swept:
+        return
+    _swept = True
+    try:
+        asyncio.get_running_loop().create_task(sweep_orphans())
+    except RuntimeError:
+        _swept = False              # no loop yet; let the next poll try again
+
+
 async def sweep_orphans() -> int:
     """Cancel every resting order whose signal is no longer active. Returns how many went.
 

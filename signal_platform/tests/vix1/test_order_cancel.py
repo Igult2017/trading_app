@@ -199,4 +199,38 @@ _pending.clear(); _cancelled.clear()
 s.check("nothing resting -> nothing to do", run(canceller.sweep_orphans()), 0)
 s.check("...and nothing was sent to the broker", _cancelled, [])
 
+
+# ── IT MUST RUN WHEN CREDENTIALS EXIST, NOT AT BOOT ───────────────────────
+# The sweep was first hooked into boot and could not work: it needs credentials from the Node app,
+# which is not serving that early. The first production run identified the orphan correctly and
+# logged "no usable account" nine seconds before the scheduler started. It now runs on the monitor's
+# first poll, when everything is up — no delay to tune, no timing to guess.
+print()
+print("   it runs once, on the first poll:")
+
+canceller._swept = False
+_pending.clear(); _cancelled.clear()
+_pending["950"] = {"symbol": "XAU/USD", "signal_id": "dead-2"}
+_book["dead-2"] = "950"
+sr.get_active = lambda: []
+
+
+async def _twice():
+    canceller.sweep_orphans_soon()
+    canceller.sweep_orphans_soon()          # a second poll must NOT sweep again
+    await asyncio.sleep(0.3)
+    return list(_cancelled)
+
+
+got = run(_twice())
+s.check("the first poll sweeps", got, [950])
+s.teeth("...and it really was called twice", canceller._swept is True)
+s.check("...but the order is only cancelled once", got.count(950), 1)
+
+# NO EVENT LOOP MUST LEAVE IT ARMED, not silently consumed — otherwise a sync context at startup
+# would burn the one attempt and the sweep would never run at all.
+canceller._swept = False
+canceller.sweep_orphans_soon()
+s.check("with no loop it stays armed for the next poll", canceller._swept, False)
+
 s.done()

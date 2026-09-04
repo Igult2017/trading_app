@@ -79,6 +79,12 @@ async def check_all() -> None:
     """
     try:
         loop = asyncio.get_running_loop()
+        # ORPHANED ORDERS — swept ONCE, here rather than at boot. The sweep needs credentials from the
+        # Node app, which is not serving yet when the platform boots: the first production run found
+        # the right order and could not act on it ("no usable account"). This poll only runs once
+        # everything is up. Fired as a task; it never delays the poll.
+        from execution.canceller import sweep_orphans_soon
+        sweep_orphans_soon()
         active = await loop.run_in_executor(None, signal_repo.get_active)
         tally: dict[str, int] = {}
         if active:
