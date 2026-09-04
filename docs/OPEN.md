@@ -569,9 +569,19 @@ because a 24h release across a shut market is a weekend-shaped hole in the dupli
 `test_choch_bearish_proof.py`'s fixture put the momentum candle 6 bars back — corrected to the
 newest bar, with the 6-bar version kept as a check that the new rule reaches that route too.
 
-### B13 - Tick-built candles: 4 of 5 instruments proved EXACT; serving built, switch OFF
+### B13 - Tick-built candles. SWITCH IS NOW ON (04 Sep). GBP/JPY diagnosed and permanently excluded
 
-**Opened 30 Aug. Measured 30 Aug, built 31 Aug. The switch stays off until a BUSY session is watched.**
+**Opened 30 Aug. Measured 30 Aug, built 31 Aug. SWITCHED ON 2026-09-04** (`TICK_BARS_SERVE_ENABLED=true`) — the line below saying it stays off is superseded.
+
+**⚠ WHAT A BUSY SESSION SHOWED, which is what the switch was waiting for.** Under London hours the trust list is NOT stable: EUR/USD, GBP/USD and XAU/USD each drop in and out. The mismatches are **one or two points on the open or the close alone** — high and low match exactly (EUR/USD ours C1.16019 vs broker C1.16020; ours O1.1602 vs broker O1.16022).
+
+**ROOT CAUSE, and it is NOT a construction bug: we do not receive every tick.** cTrader publishes no delivery guarantee (this module's own docstring says so), so a bar we build from a subset of ticks occasionally opens or closes one point away. High and low survive because missing a tick rarely removes an extreme. **There is nothing to fix in how the bar is built.**
+
+**A WRONG FIX WAS BUILT AND REVERTED THE SAME HOUR, recorded so it is not retried.** I concluded the broker opens a bar where the previous one CLOSED and made ours carry the close forward. The logs disprove it: two consecutive broker bars read close **1.16020** then open **1.16022**. **The broker opens at its own first tick, exactly as we do.**
+
+**THE REAL CONSEQUENCE, and it is HIS decision, not a defect.** One mismatch withdraws trust for a 200-bar window, so on a feed that occasionally drops a tick the traded pairs will keep falling out and live candles are served far less than expected. That follows directly from his own rule — *exactness, not closeness*, because a tenth of a pip on a 3-pip stop is a third of the risk. Loosening it would be weakening a safety rule he set; **do not do it unilaterally.**
+
+**GBP/JPY: DIAGNOSED, HANDLED, CLOSED — do not re-investigate.** Every price is out by a CONSTANT -0.005 (the shape matches, the level is shifted), because that symbol's price source quotes differently. It is never trusted, so its bars are never served. **This has now been reported twice as a fresh discovery** (30 Aug and again 04 Sep) — it is neither fresh nor a fault. Since 04 Sep `test_tick_bars.py` asserts a constant-offset symbol can never earn trust, because the quieter logging and the trust decision sit a few lines apart and 'we understand this mismatch' must never drift into 'this mismatch is acceptable'.
 
 ⚠ **I reported this as a failure on 30 Aug. That was wrong.** My watcher only captured log lines
 containing the word "MISMATCH", so every line I saw was GBP/JPY, and I generalised it to all five

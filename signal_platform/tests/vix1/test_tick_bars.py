@@ -189,4 +189,39 @@ s.check("the switch defaults to OFF in settings",
         "tick_bars_serve_enabled:  bool = False" in
         open(os.path.join(_root, "config", "settings.py"), encoding="utf-8").read(), True)
 
+
+# ── A CONSTANT OFFSET IS STILL A MISMATCH (added 2026-09-04) ────────────────
+#
+# GBP/JPY's tick-built bars are the RIGHT SHAPE at the WRONG LEVEL — every one of the four prices out
+# by exactly the same amount, because the price source quotes that symbol differently. The audit
+# CLASSIFIES that (it says so once instead of shouting every bar) and the classification is only
+# about LOGGING. It must never become an excuse to trust the symbol: serving those candles would put
+# every level and every stop 0.005 away from where the broker thinks they are.
+#
+# NOTHING ASSERTED THIS UNTIL NOW. The quieter logging and the trust decision sit a few lines apart
+# in the same function, so a later edit could easily let "we understand this mismatch" slide into
+# "this mismatch is acceptable". That is the drift this section exists to catch.
+print()
+print("   a constant offset is understood, but never forgiven:")
+
+a5 = TickBarAudit()
+OFF = 0.005
+for i in range(MIN_SAMPLE + 5):
+    ours = bar(BASE + i * M, 210.363, 210.487, 210.341, 210.376)
+    theirs = bar(BASE + i * M, 210.363 + OFF, 210.487 + OFF, 210.341 + OFF, 210.376 + OFF)
+    s_ok = a5.compare("GBP/JPY", ours, theirs)
+    if i == 0:
+        s.check("a bar out by a constant on every price is a MISMATCH", s_ok, False)
+s.check("...so the symbol is NEVER trusted, however many bars it produces",
+        a5.trusted("GBP/JPY"), False)
+s.check("...and not one of them scored as a match", a5.report()["GBP/JPY"]["recent_matched"], 0)
+
+# TEETH — the same shape WITHOUT the offset must be trusted, or the check above would pass simply
+# because nothing is ever trusted.
+a6 = TickBarAudit()
+for i in range(MIN_SAMPLE + 5):
+    same = bar(BASE + i * M, 210.363, 210.487, 210.341, 210.376)
+    a6.compare("GBP/JPY", same, same)
+s.teeth("the identical bars WITHOUT the offset do earn trust", a6.trusted("GBP/JPY"))
+
 s.done()
