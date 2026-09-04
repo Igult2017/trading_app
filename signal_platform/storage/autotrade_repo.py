@@ -164,7 +164,10 @@ def recent_placements(hours: int = 24) -> list[tuple[datetime, str, str]]:
 def _as_intent(r: AutotradeOrderModel) -> dict:
     """The same shape `placer._intent` used, so callers did not have to change."""
     f = lambda v: float(v) if v is not None else None      # noqa: E731 — Numeric -> float
+    # `signal_id` ADDED 2026-09-04 for the boot sweep, which has to ask whether the signal behind a
+    # resting order is still active. Adding a key is safe for every existing caller — they read the
+    # fields they name — and without it the sweep can prove nothing and would cancel nothing.
     return dict(symbol=r.symbol, side=r.side, entry=f(r.entry_price), sl=f(r.stop_loss),
                 tp=f(r.take_profit), lots=f(r.lots), volume=r.volume,
                 stop_pips=f(r.stop_pips) or 0.0, placed_at=r.placed_at,
-                strategy=r.strategy or "")
+                strategy=r.strategy or "", signal_id=r.signal_id)

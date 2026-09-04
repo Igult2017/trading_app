@@ -155,4 +155,48 @@ s.teeth("...and the work really did take a second", _slow_done == ["sig-3"])
 canceller.cancel_soon("sig-4", "EUR/USD", "why")
 s.check("with no event loop it is a silent no-op, not a crash", True, True)
 
+
+# ── THE BOOT SWEEP — the gap his own account exposed ───────────────────────
+#
+# `signal_monitor` only walks ACTIVE signals, so an order whose setup died while the platform was
+# DOWN is never looked at again. On 2026-09-04 a gold BUY stop at 4486.56 rested while gold traded at
+# 4414 — its signal had expired hours before the cancel existed. **I predicted deploying would clear
+# it; it did not**, and it had to be cancelled by hand. This sweep is that gap closed.
+print()
+print("   the boot sweep:")
+
+_cancelled.clear(); _closed.clear()
+
+
+class _Row:
+    def __init__(self, sid): self.id = sid
+
+
+import storage.signal_repo as sr                                      # noqa: E402
+
+_pending = {}
+autotrade_repo.pending = lambda: _pending
+
+# One orphan (its signal is gone), one live (its signal is still active), one with no signal id.
+_pending.update({
+    "900": {"symbol": "XAU/USD", "signal_id": "dead-sig"},
+    "901": {"symbol": "EUR/USD", "signal_id": "live-sig"},
+    "902": {"symbol": "GBP/USD", "signal_id": None},
+})
+_book.update({"dead-sig": "900", "live-sig": "901"})
+sr.get_active = lambda: [_Row("live-sig")]
+
+n = run(canceller.sweep_orphans())
+s.check("the sweep cancels the orphan", n, 1)
+s.check("...and it is the orphan's order, nothing else", _cancelled, [900])
+s.teeth("...while the LIVE signal's order really was resting too", "901" in _pending)
+s.check("an order whose signal is still active is left alone", 901 in _cancelled, False)
+s.check("an order with NO signal id is left alone — it cannot be proved orphaned",
+        902 in _cancelled, False)
+
+# NOTHING RESTING MUST BE A SILENT NO-OP, not an error at every boot.
+_pending.clear(); _cancelled.clear()
+s.check("nothing resting -> nothing to do", run(canceller.sweep_orphans()), 0)
+s.check("...and nothing was sent to the broker", _cancelled, [])
+
 s.done()

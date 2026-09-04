@@ -79,6 +79,48 @@ async def cancel_for_signal(signal_id: str, symbol: str, why: str) -> bool:
         return False
 
 
+async def sweep_orphans() -> int:
+    """Cancel every resting order whose signal is no longer active. Returns how many went.
+
+    WHY THIS EXISTS, and it is a gap in the first version of this fix that HIS ACCOUNT proved.
+    `signal_monitor` walks `signal_repo.get_active` — **only signals still marked active** — so the
+    cancel added there fires for setups that die from now on and NEVER for one that died earlier.
+    On 2026-09-04 a gold BUY stop at 4486.56 was still resting while gold traded at 4414: its signal
+    had been marked expired hours before the cancel existed, so nothing would ever look at it again.
+    **I predicted in the plan that deploying would clear it. It did not.** That order had to be
+    cancelled by hand.
+
+    RUN ONCE AT BOOT, never on the trading path — the same rule as every other rehydrate in
+    `main.py`. A restart is exactly when an orphan is most likely: the platform was down while the
+    market moved, so the setup died with nobody watching.
+
+    IT CANNOT TOUCH A POSITION OR ONE OF HIS OWN ORDERS. `pending()` returns only rows this platform
+    placed that are still at STATUS_PLACED, and `cancel_for_signal` re-checks the same thing.
+    """
+    try:
+        from storage import signal_repo
+        resting = autotrade_repo.pending()
+        if not resting:
+            return 0
+        active = {str(r.id) for r in signal_repo.get_active()}
+        gone = 0
+        for order_id, intent in resting.items():
+            sid = intent.get("signal_id") if isinstance(intent, dict) else None
+            # NO SIGNAL ID MEANS WE CANNOT PROVE IT IS ORPHANED, so it is left alone. Cancelling on
+            # an unknown is a guess, and a wrongly cancelled order is a trade that never happens.
+            if not sid or str(sid) in active:
+                continue
+            if await cancel_for_signal(str(sid), intent.get("symbol") or "?",
+                                       "its signal is no longer active — orphaned, found at boot"):
+                gone += 1
+        if gone:
+            log.info(f"[canceller] boot sweep cancelled {gone} orphaned order(s)")
+        return gone
+    except Exception as exc:
+        log.warning(f"[canceller] boot sweep failed: {type(exc).__name__}: {exc}")
+        return 0
+
+
 def cancel_soon(signal_id: str, symbol: str, why: str) -> None:
     """Start the cancel and return at once. Nothing waits on it.
 
