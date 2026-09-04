@@ -965,6 +965,33 @@ levels-vs-triggers rule is respected.
 now have a way to reach a live price, but changing where an ORDER's prices come from is a separate
 decision from where a candle's are.
 
+### D42 - CHOPPY MARKETS ARE STILL TRADED. 9 of his 12 signals survive. OPEN
+
+**His definition, and it is the one thing here with no test:**
+
+> *"a choppy market can be trending but prints 1 red volume candle then prints a bullish candle,
+> meaning it has no specific group of candles in succession"* — and a mixture of *"big bodies, small
+> bodies, long wicks and no wicks."* Also: *"a choppy market can calm and then we can trade it"*, so
+> whatever is built must clear by itself and never be a lockout.
+
+He sent three charts of untradeable markets; VIX.1 fired **12 signals** in them. Two rules shipped
+2026-09-04 (`vix1_tradeable.py`) take that to **9**. All nine are the chop case.
+
+**FIVE CANDIDATE MEASURES WERE TESTED AND ALL FAILED** to tell his charts apart — candle-colour
+succession, his "closes beyond each other" reading, follow-through after a big candle, biggest
+sustained push, and momentum-candle succession. **Do not retry these.** The reason none works: at the
+signal moments his REJECTED markets were trending more decisively than his ACCEPTED one (image 1
+swings +21.8p/+13.2p against 03 Sep's -2.1p/-21.7p), so nothing that leans on strong structure can
+separate them.
+
+**WHY IT IS NOT GUESSED AT AGAIN:** there is exactly **one** market he has marked as tradeable, and he
+said it *"later calmed down"*, so even that one is mixed. Any threshold picked against a single
+positive example is fitted. **What would unblock it: two or three more charts he marks as tradeable**
+— then a cut either exists in his own data or provably does not.
+
+**Pinned meanwhile:** `test_tradeable.py` asserts all nine STILL trade, as passing checks, so a later
+change cannot close them by accident without the suite going red and someone having to explain why.
+
 ### D41 - TWO PRICE SOURCES: live feed first, broker data as the floor. 04 Sep
 
 **His rule:** *"we use 2 sources of data so that when one goes off we switch to the other seamlessly
