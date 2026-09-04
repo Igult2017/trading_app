@@ -847,6 +847,63 @@ the module graph are verified; the running app is not.
 **Carried.** The governing-law clause names no law, and there is no risk / not-advice disclaimer
 anywhere. Blocked on one question: does copy trading auto-execute on a user's account?
 
+### C5 — PAGE AUDIT, dashboard to leaderboard: seven defects found and fixed. DONE 04 Sep
+Full account in `docs/audit-2026-09-04.md`; guarded by `server/services/pageAudit.test.ts` (36
+checks, each with teeth). **Verified against live production data after deploy**, not just in tests.
+
+**The leaderboard was asking the wrong question.** Both tabs called
+`/api/leaderboard/by-session`; `/api/leaderboard` had no caller anywhere in the client. That query
+groups by session, and a broker account gets its **own** auto-created session
+(`routes.ts:3904`) — so an autosync trader was split across rows. Measured on production the moment
+before the fix: **11 rows for 2 traders**, one of them `session=ctrader, 2 trades, -52.91` ranked
+**#11, dead last, as though it were a separate person**. That is precisely what he reported. After:
+2 rows, and the totals reconcile exactly (478 = 118+87+116+59+35+40+21+2; 154 = 122+15+17).
+
+It also INNER-joins `trading_sessions`, so a trade journaled with a null `defaultSessionId`
+(`brokerSyncService.ts:130`) was **invisible on the leaderboard for ever**. The per-user endpoint
+LEFT-joins and tolerates it.
+
+**The signup name.** `backfillProfilesFromSupabase` lived only on the endpoint nothing called, so
+the board the page used resolved no names at all. It is now one helper, `fillInSignupNames`, called
+by both boards. Its filter was also **unfirable**: it wanted `full_name` AND `email` both missing,
+but `user_profiles.email` is NOT NULL, so the row it existed to repair never matched.
+
+⚠ **Still open, small:** one production account displays as its email local-part (`hrg6419`). The
+backfill now runs for it and Supabase returns no name, so it falls back as designed. **I could not
+check from here whether that account actually has a signup name** — no local `ADMIN_SECRET`. If it
+does, the next place to look is the local-login admin path (`routes.ts:190`), which calls
+`ensureUserProfile` with **no `user_metadata`**, so `extractFullName` can only ever return `''`.
+
+**`leaderboard_hidden` was honoured by one board and not the other** — and not by the one the page
+opens on. Now filtered there too. Deliberately NOT on `/api/admin/leaderboard/entries`, or a hidden
+trader could never be un-hidden.
+
+**Outcome labels — the systemic one.** `journal_entries.outcome` is free text with no constraint and
+two writers: the manual form saves `"Win"/"Loss"/"BE"` (`JournalForm.tsx:774`), the automatic
+pipeline saves `"WIN"/"LOSS"/"BE"` (`autoJournal/fields.ts`). `lib/tradeStats.classifyOutcome`
+already folds all of it and calls itself *"the SINGLE client-side source of truth"* — and was only
+half adopted. On **`/history`** the test was lowercase and therefore **never true**: every winning
+trade wore a red **LOSS** badge and the Wins/Losses filters returned an empty table, directly under
+a correctly-computed win rate from the same file. The dashboard filed break-evens as losses and took
+the +/− sign from that label rather than from the money (`-$0.00` for a scratch), and its Profit
+Ratio divided by every trade while the WIN RATE card above it excluded break-evens.
+`metrics_calculator.py` computed win rate two different ways — `win_rate_of` (decisive only) for
+`core`, `len(wins)/len(trades)` for the monthly table.
+
+**Auth.** `routes.ts:4247` read `req.query.secret !== process.env.ADMIN_SECRET`. With the variable
+unset that is `undefined !== undefined` → **false**, so the route was open, and `?debug=1` prints the
+cTrader client id. Every other guard in the file tests presence first.
+
+**Two permanently-red checks** in `tradeRecording.test.ts` fixed — both pinned code that was
+deliberately changed (the dedupe branch that now heals, and `autoJournalTrade`'s rename). One failed
+on a **CRLF** literal, the same trap that had `autoSyncWiring.test.ts` red for days.
+
+**Checked and CLEAN — do not re-measure:** `tsc` 0 errors (C1 stays closed, and `npm run check` is
+in the build); 103 client `/api/` URLs all resolve against 227 routes; no production schema drift
+(every recent column is in `docker-migrate.sql`; `strategy_state` is created by the Python side's
+`create_all`); `/api/analytics` classification; `TradeVault` (normalises with `.toUpperCase()` on
+load, line 97); `AdminPanel`'s `manual_outcome`.
+
 ---
 
 ## D. cTrader & copy trading
