@@ -975,6 +975,45 @@ levels-vs-triggers rule is respected.
 now have a way to reach a live price, but changing where an ORDER's prices come from is a separate
 decision from where a candle's are.
 
+### D44 - A RESTING ORDER NOW DIES WITH ITS SETUP. DONE 04 Sep
+
+**His instruction, with a live example on his account at the time:** *"once it is clear the market has
+gone the other direction like the gold case now, the order should be canceled as soon as possible not
+waiting 24HR."* A gold BUY stop at **4486.56** (stop 4482.44) sat resting while gold traded at
+**4414** — 72 points below the trigger, far below its own stop.
+
+**THREE THINGS WERE MISSING, AND NONE OF THEM WAS DETECTION.** `signal_monitor` runs every 30s and
+already decided this exact case — its docstring: *"Price touches the SL side FIRST → the stop order
+would never have filled: the signal is CANCELLED"*. It had marked that gold signal expired hours
+before he asked. What was missing:
+
+1. **`broker.cancel()` had ZERO callers.** It existed and nothing called it.
+2. **`record_closed()` had never been called** and `STATUS_CANCELLED` was never written, so
+   `pending()` returned dead orders for ever.
+3. **The broker-side expiry was wired but never armed.** `orders.py:99` sets one from
+   `signal.expires_at`, which **defaults to None** (`core/types.py:211`) with nothing anywhere
+   setting it. So `expiry_ms` was always None and **every order this platform ever placed went out
+   with no expiry at all.**
+
+**FIXED:** `execution/canceller.py` — the cancel, called from the invalidation `signal_monitor`
+already performs. Plus `autotrade_repo.order_for_signal()`, and `placer.py` now falls back to the
+platform's own 24h cap (`signal_repo.expire_stale(24)`, matched by `vix1_watch._LOCK_TTL`).
+
+**THE 24h EXPIRY IS THE BACKSTOP, NOT THE MECHANISM** — it only covers the platform being DOWN when
+a setup dies. Live, the order goes within 30 seconds.
+
+**FOUR GUARDS, and they matter more than the feature — this is only the second thing in the platform
+that changes the account** (after the stop ladder). Pinned by `test_order_cancel.py`, 17 checks:
+**only orders this platform placed** (matched through `autotrade_orders`, so a hand-placed order has
+no row and can never be reached) · **never a FILLED one** (`order_for_signal` filters on
+STATUS_PLACED — a filled order is a POSITION and cancelling is not how one is closed) · **a broker
+refusal never marks the row cancelled**, because that would leave a real order resting with nothing
+watching it · **never on the trading path** — `cancel_soon` returns immediately, the shape
+`test_telegram_independence` has caught twice.
+
+**Every cancellation logs which price killed it.** A cancelled order is a trade that will never
+happen, and without the reason it leaves no trace he could question later.
+
 ### D43 - THE QUIET-MARKET RULE IS DEPLOYED BUT INCOMPLETE. ONGOING
 
 **His instruction 2026-09-04: record it as ongoing even though it is deployed.**

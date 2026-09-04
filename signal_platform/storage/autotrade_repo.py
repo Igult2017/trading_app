@@ -21,7 +21,7 @@ from storage.db import get_session
 log = logging.getLogger(__name__)
 
 __all__ = ["record_placed", "record_filled", "record_closed", "pending", "intent_for",
-           "recent_placements",
+           "recent_placements", "order_for_signal",
            "STATUS_PLACED", "STATUS_FILLED", "STATUS_CANCELLED", "STATUS_REJECTED"]
 
 
@@ -102,6 +102,32 @@ def intent_for(order_id: str) -> dict | None:
             return _as_intent(row) if row else None
     except Exception as exc:
         log.warning(f"[autotrade_repo] could not read order {order_id}: "
+                    f"{type(exc).__name__}: {exc}")
+        return None
+
+
+def order_for_signal(signal_id: str) -> str | None:
+    """The order id THIS PLATFORM placed for a signal, if it is still resting. Else None.
+
+    WHY IT IS RESTRICTED TO `STATUS_PLACED`, and this is the whole safety of the cancel path: an
+    order that has FILLED is a position, and cancelling is not what closes a position. Filtering here
+    means the caller cannot cancel one by accident even if it asks at the wrong moment.
+
+    AND WHY IT KEYS ON OUR OWN TABLE rather than asking the broker for its open orders: every row in
+    `autotrade_orders` is one this platform placed. An order he placed by hand is not in it and can
+    never be matched, so nothing of his can ever be touched.
+    """
+    if not signal_id:
+        return None
+    try:
+        with get_session() as s:
+            row = (s.query(AutotradeOrderModel)
+                    .filter(AutotradeOrderModel.signal_id == str(signal_id),
+                            AutotradeOrderModel.status == STATUS_PLACED)
+                    .order_by(AutotradeOrderModel.placed_at.desc()).first())
+            return row.order_id if row else None
+    except Exception as exc:
+        log.warning(f"[autotrade_repo] could not look up the order for signal {signal_id}: "
                     f"{type(exc).__name__}: {exc}")
         return None
 

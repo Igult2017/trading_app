@@ -10,7 +10,7 @@ way to find out by how much.
 Everything is refused by default: `guards.check` runs first and its verdict is final.
 """
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from config.settings import settings
 from execution import guards
@@ -93,8 +93,24 @@ async def place_for_signal(signal, creds: dict, account_type: str, equity: float
                     symbol, side, signal.strategy_name or signal.strategy_id, why))
             return None
 
-        expiry_ms = int((signal.expires_at or datetime.now(timezone.utc)).timestamp() * 1000) \
-            if signal.expires_at else None
+        # THE BROKER'S OWN 24-HOUR CAP — the BACKSTOP, armed 2026-09-04.
+        #
+        # This line used to read `... if signal.expires_at else None`, and `expires_at` DEFAULTS TO
+        # None (`core/types.py:211`) with nothing anywhere setting it — searched every strategy, the
+        # runner, the validator and the save path. So `expiry_ms` was always None, `orders.py`'s
+        # `if expiry_ms:` was always skipped, and **every order this platform has ever placed went to
+        # the broker with no expiry at all.** One was found resting on his account 72 points away
+        # from a market that had long since gone the other way.
+        #
+        # 24 HOURS IS THE PLATFORM'S OWN NUMBER, not a new one: `signal_repo.expire_stale(24)` is the
+        # blanket cap on a signal's life and `vix1_watch._LOCK_TTL` already matches it. A signal that
+        # has expired cannot be traded, so its order must not outlive it.
+        #
+        # THIS IS THE BACKSTOP, NOT THE MECHANISM. His instruction is that 24h is far too long to
+        # wait — `execution.canceller` kills the order within 30 seconds of the setup dying. This
+        # only covers the case where the platform is DOWN when that happens.
+        expires_at = signal.expires_at or (datetime.now(timezone.utc) + timedelta(hours=24))
+        expiry_ms = int(expires_at.timestamp() * 1000)
 
         from execution.broker import StopOrderClient  # noqa: local import keeps ctrader deps lazy
         res = await StopOrderClient(creds, account_type).place_stop(

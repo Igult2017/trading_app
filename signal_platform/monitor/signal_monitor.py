@@ -191,6 +191,22 @@ async def _check_signal(row) -> str:
                     )
                     release(row.symbol, row.type, row.strategy)
                     await event_bus.emit(event_bus.SIGNAL_CLOSED, row.id)
+                    # ...AND TELL THE BROKER. His instruction 2026-09-04: *"once it is clear the
+                    # market has gone the other direction like the gold case now, the order should be
+                    # canceled as soon as possible not waiting 24HR."*
+                    #
+                    # THIS DECISION WAS ALREADY BEING MADE HERE — the signal has just been marked
+                    # expired and its dedup key released. What never happened was telling the broker,
+                    # so a real order stayed resting on the account with nothing watching it. A gold
+                    # BUY stop at 4486.56 sat live while gold traded at 4414, its stop long since
+                    # passed, and it would still have filled if gold ever climbed back.
+                    #
+                    # NOT AWAITED — this poll is the trading path and a broker round-trip inside it
+                    # would delay every other signal being judged. See `execution.canceller`.
+                    from execution.canceller import cancel_soon
+                    cancel_soon(row.id, row.symbol,
+                                f"the {'low' if buy else 'high'} reached {lo if buy else hi}, "
+                                f"through the stop at {sl}, before the entry ever filled")
                     log.info(f"[signal_monitor] {row.symbol} cancelled — SL side touched before the "
                              f"entry ever filled (H={hi} L={lo})")
                     return "cancelled"
