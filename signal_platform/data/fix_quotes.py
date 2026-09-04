@@ -28,6 +28,79 @@ from data.fix_wire import build, logon_body, parse, subscribe_body
 
 log = logging.getLogger(__name__)
 
+
+# ── THE SHARED HANDLE — how anything OUTSIDE a watcher reaches the live price ──────────────────────
+#
+# HIS INSTRUCTION: *"when trade is placed and even when watching 1HR candle to close, we should rely
+# more on FIX data ... because it is real time data."*
+#
+# WHAT BLOCKED IT (D40). A `FixQuoteStream` is constructed by `entry_watcher` and `trade_watcher`,
+# each keeping its own `book` on its own object. The SCANNER holds neither, so the hour-in-progress
+# was assembled from CLOSED M1 bars and could be ~80 seconds behind.
+#
+# WHY A REGISTRY AND NOT A GLOBAL SINGLETON. There are genuinely two streams, they connect and drop
+# independently, and either may be the healthy one at a given moment. A single module-level "the
+# stream" would silently pin whichever connected last and go blind when that one dropped.
+#
+# THE CONTRACT:
+#   * a stream registers itself when its session is UP and removes itself on EVERY path that ends it
+#     (`_lost()` already exists for exactly that reason and is called everywhere)
+#   * `live_price()` NEVER raises and NEVER blocks — it reads dictionaries already in memory
+#   * it returns None when there is no healthy quote, and every caller must behave exactly as it did
+#     before when it gets None. This is an ENRICHMENT, never a dependency.
+_STREAMS: set = set()
+
+# A quote older than this is not "live" any more. Deliberately generous: the point of comparison is
+# a closed M1 bar, which is up to ~80s stale by construction, so anything fresher than this is still
+# an improvement. A quiet market is not a broken one.
+_FRESH_S = 15.0
+
+
+def _register(stream) -> None:
+    _STREAMS.add(stream)
+
+
+def _deregister(stream) -> None:
+    _STREAMS.discard(stream)
+
+
+def live_price(symbol: str, max_age_s: float = _FRESH_S) -> float | None:
+    """The freshest live mid price for `symbol`, or None when no healthy stream has one.
+
+    THE MID, not the bid or the ask. This exists to say where price IS for the bar being built, and a
+    candle is not one side of the spread. Anything deciding where an order would actually FILL must
+    keep using the sided quote (`position_tracker._price_now`, `ctrader_spread.quote_for`) — that is
+    a different question and this must never be substituted for it.
+
+    Returns None rather than a stale number, so the caller falls back to closed bars instead of
+    trusting a price from a session that has quietly died.
+    """
+    best = None
+    best_age = None
+    for st in tuple(_STREAMS):          # a copy: a stream may deregister from another task mid-loop
+        try:
+            if not st.book.connected:
+                continue
+            q = st.book.quote(symbol)
+            if not q:
+                continue
+            age = st.book.age(symbol)
+            if age is None or age > max_age_s:
+                continue
+            bid, ask = q
+            if not bid or not ask:
+                continue
+            if best_age is None or age < best_age:
+                best, best_age = (bid + ask) / 2.0, age
+        except Exception as exc:        # never let a price lookup break what it was enriching
+            log.debug(f"[fix] live_price({symbol}) skipped a stream: {type(exc).__name__}: {exc}")
+    return best
+
+
+def live_streams() -> int:
+    """How many streams are registered and connected — for the health line, and for tests."""
+    return sum(1 for st in tuple(_STREAMS) if getattr(getattr(st, "book", None), "connected", False))
+
 HEARTBEAT_S = 30
 
 
@@ -86,6 +159,10 @@ class FixQuoteStream:
             self._writer.write(self._msg("V", body))
             await self._writer.drain()
             self.book.connected = True
+            # THE STREAM IS NOW REACHABLE FROM OUTSIDE (D40). Registered here rather than in
+            # __init__ so a stream that was built but never logged on is never offered as a price
+            # source. `_lost()` removes it again on every path that ends the session.
+            _register(self)
             log.info(f"[fix] price stream open, subscribed to {known}")
             # COVERAGE STARTS NOW, NOT RETROACTIVELY — FIX has no history to fill the gap.
             self._announce(self._coverage_up, known, time.time())
@@ -146,6 +223,10 @@ class FixQuoteStream:
         """Coverage is gone. Said on EVERY path that ends the stream, so no builder is left
         believing it is still watching."""
         self.book.connected = False
+        # ...and no OUTSIDE reader is left holding a dead session either (D40). This is the reason
+        # registration hangs off this method: it is already the one place every ending path meets,
+        # so a new exit route cannot forget to deregister.
+        _deregister(self)
         self._announce(self._coverage_down)
 
     @staticmethod

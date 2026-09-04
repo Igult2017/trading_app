@@ -15,7 +15,9 @@ TESTS = [
     "test_atr.py",                  # the volatility yardstick every depth is divided by
     "test_swings.py",               # highs and lows in REAL TIME — no 48-bar wait
     "test_retracement.py",          # the retracement, counted in real time (bars + depth)
-    "test_regime.py",               # directional efficiency — the range detector
+    "test_regime.py",               # TREND / RANGE / CHOP by direction; ATR decides nothing
+    "test_regime_direction_only.py",  # 03 Sep: his EUR/USD downtrend refused as chop, real bars
+    "test_live_forming_bar.py",     # D40: the forming hour follows the live FIX price
     "test_momentum.py",             # the gates and grading, hand-built candles
     "test_line_pullback.py",        # the line, and the past-the-line rule
     "test_entry_return_to_line.py", # pullback in 1-3, else the return to the line, else nothing

@@ -86,7 +86,7 @@ VIX.1 has shipped a bug from reading the forming bar as a level, and **a backtes
 | `vix1_bias.py` | `detect_bias(h1, h4, symbol) -> Bias \| None` — momentum on H1, trend on H1 (H4 only as a fallback) |
 | `vix1_state.py` | **`Bias` (what the 1HR decided) + `market_state` (the state it decided it in)** — added 2026-08-11 |
 | `vix1_retracement.py` | **the retracement, counted in real time** — `bars` (the pullback this candle came after) and `stall_bars` (how long since the trend made progress). Added 2026-08-11, decides nothing yet |
-| `vix1_swings.py` | **highs and lows in REAL TIME** + `structure_turns()` — the ONE place that decides where turning points come from, and the `REALTIME` flag. - a turn is marked the bar price closes through the candle that made it. No 48-bar wait. Added 2026-08-12 |
+| `vix1_swings.py` | **highs and lows in REAL TIME** + `structure_turns()` — the ONE place that decides where turning points come from, and the `REALTIME` flag. - a turn is marked the bar price closes through the candle that made it. No 48-bar wait. Added 2026-08-12. **⚠ TRAP, cost a wrong diagnosis on 2026-09-04: `structure_turns(candles, n)` IGNORES `n` entirely while `REALTIME` is True.** Every caller passes `n=48` and it reads like a swing scale; it is not one, and there is no bar-scale in the real-time detector at all. Likewise `trend_state(w, n=48, turns=turns)` — **when `turns` is supplied, `n` is never used** (`vix1_trend.py:188-192`). Both engines therefore read the SAME turning points; they differ only in what they do with them. |
 | `vix1_regime.py` | **THE REGIME ENGINE — TREND / RANGE / CHOP** on his locked 0.50 / 0.75 ATR numbers. `efficiency()` survives as a reported number only |
 | `vix1_momentum.py` | momentum-candle detection + `momentum_grade` (A/B/C → confidence) |
 | `vix1_building.py` | the heads-up card — the momentum candle has CLOSED, the entry is not decided yet. **Emitted on the candle alone since 2026-08-20; it used to be the else-branch of the entry search** |
@@ -414,32 +414,91 @@ switched off then why are we building"*. He was right, and the underlying reason
 symptom: the range test had been built on EFFICIENCY, no defensible cut existed in the distribution,
 and it shipped inert instead of me concluding **the instrument was wrong**.
 
-**His locked numbers:** material HH/LL progress **0.50 x ATR** · same-boundary tolerance
-**0.75 x ATR** · minimum swing-size filter **none** · efficiency **removed from the decision**.
+> ### ⚠ SUPERSEDED 2026-09-04 — THE 0.50 x ATR SIZE BAR IS DISABLED. Read the next section first.
+> The block below records what the engine did between 2026-08-12 and 2026-09-04 and **why the
+> numbers in it can no longer be quoted as current**. It is kept because the constant is kept.
+
+**His locked numbers (2026-08-12, the size bar now DISABLED):** material HH/LL progress
+**0.50 x ATR** · same-boundary tolerance **0.75 x ATR** · minimum swing-size filter **none** ·
+efficiency **removed from the decision**.
 
 ```
-confirmed swings -> did BOTH sides progress by > 0.50 ATR ?
+confirmed swings -> did BOTH sides progress by > 0.50 ATR ?      <- DISABLED 2026-09-04
                       yes -> TREND
                       no  -> two highs within 0.75 ATR of each other, AND two lows ?
                                yes -> RANGE   (bounded, orderly - his clean-range chart)
                                no  -> CHOP    (reversals without stable boundaries)
 ```
 
-**THE ORDER IS LOAD-BEARING** and is pinned by a test. The thresholds overlap on purpose: a high
-clearing the previous one by 0.6 ATR is BOTH progress (>0.50) and the same boundary (<=0.75).
-Progression is asked first. Swap them and a shallow uptrend reads as a range.
-
-**MEASURED over 3 years:**
+**MEASURED over 3 years, under the size bar:**
 
 | | GBP/USD | EUR/USD |
 |---|---|---|
 | how the time splits | 44.4% trend · 12.9% range · **42.8% chop** | 43.4% · 12.2% · **44.4%** |
 | setups it would refuse | **90 of 198 (45%)** | **93 of 191 (49%)** |
 
-**That refusal rate is corroborated, not a surprise.** A separate measurement from a different angle
-found our momentum candles sitting at a median efficiency of 0.25 against a market median of 0.21 —
-the strategy was trading chop at the market's own background rate. Two independent instruments
-agreeing that roughly half of what we take is not in a trend is the finding.
+The refusal rate was read at the time as corroborated: momentum candles sat at a median efficiency
+of 0.25 against a market median of 0.21. **That reading is now known to be at least partly an
+artefact of the size bar itself** — see below.
+
+### THE SIZE BAR IS DISABLED — A TREND IS A DIRECTION, NOT A DISTANCE (2026-09-04)
+
+**His ruling**, after asking what role ATR plays that justifies keeping it and being told there is
+none:
+
+> *"I don't think we need ATR for a trend. A trend should be detected by swings... until we confirm
+> a CHOCH, we are in a trend... a ranging market does not make HH and HL or LL and LH. We don't need
+> ATR for this; we just need the code."*
+> *"we can't say a trending volatile market is choppy."*
+> *"we should just **disable ATR for now and document why** we did then lets see how things go
+> **before we decide on whether to delete it or not**."*
+
+```
+higher high AND higher low   -> TREND
+lower  high AND lower  low   -> TREND
+otherwise                    -> not tradeable, named "range" (both within 0.75 x ATR) or "chop"
+```
+
+**ATR NOW DECIDES NOTHING IN VIX.1.** Four call sites, all read: `vix1_bias.py:231` and `:314` and
+`vix1_choch.py:167` feed this classifier; `vix1_retracement.py:191` is a display string. The
+`_BOUNDARY_ATR` test survives only to NAME a refusal, and **both names refuse**, so it cannot change
+an outcome. `test_regime.py` asserts that, and asserts `_PROGRESS_ATR` is not consulted by moving it
+to an absurd value and requiring every verdict to be identical.
+
+**THE ROOT CAUSE, and it is about which swings get looked at.** Both engines read the **identical**
+turning points — `vix1_bias.py:151-152` computes them once and hands them to `trend_state` as well.
+`vix1_trend` replays **all** of them through establish / BOS / CHoCH, so it builds the trend out of
+the small swings. `vix1_regime.classify` keeps only the **last two highs and last two lows**. Inside
+a strong trend those two are the small swings, so a size bar applied to them tests the noise, not
+the trend. **That is why the engine that saw the whole staircase said DOWN while this one said CHOP.**
+
+**MEASURED, 4 years of real cTrader H1, both pairs, through production's own call path**
+(3,000 bars to the momentum test, 1,500 to trend/regime):
+
+| | EUR/USD | GBP/USD | both |
+|---|---|---|---|
+| setups | 1,023 | 1,100 | 2,123 |
+| refused before | 517 (50.5%) | 574 (52.2%) | 1,091 (51.4%) |
+| refused after | 280 (27.4%) | 348 (31.6%) | **628 (29.6%)** |
+| recovered | 237 | 226 | **463 (21.8%)** |
+| newly refused | 0 | 0 | **0** |
+
+**57.0% of the old refusals had the highs and lows moving in OPPOSITE directions** — price
+broadening out or squeezing in, not a trend by his rule either. **Those still refuse.** That is the
+work this gate really does, and it is why the gate was disabled rather than deleted.
+
+**HIS ACTUAL EVENT, reproduced end to end** (`test_regime_direction_only.py`, real broker bars pulled
+2026-09-04 and spliced onto the stored history): EUR/USD **Thu 03 Sep 2026 10:00** — lows down
+**2.68 x ATR**, highs down **0.26 x ATR**, `vix1_trend` direction **DOWN**. Through the real
+`detect_bias` over 02–04 Sep: **0 signals before the change, 3 BUY signals on 03 Sep after it.**
+
+**`_PROGRESS_ATR = 0.50` IS KEPT IN THE MODULE, NOT DELETED — his explicit instruction.** This
+**overrides the standing "delete dead code" rule**, deliberately. Do not remove it citing that rule;
+doing so destroys the option to put it back after watching live results, which is the whole point of
+"let's see how things go".
+
+**STILL NOT KNOWN:** whether the 463 recovered setups would have made money. That is a backtest and
+therefore his decision.
 
 **TWO THRESHOLDS WERE DELETED, and the tests assert they are GONE rather than unset:** the
 retracement DEPTH test (his argument — a retracement deep enough to matter breaks the protected low
@@ -858,6 +917,12 @@ retracement*" (the same change, plus real-time turning points feeding `leg_state
    a demultiplexing reader before it is safe. **The cost that remains:** bars are published 10-70s
    after they close, so it judges the candle as it stood ~46s earlier — a T-5 notification is
    effectively T-6, **77.7%/74.6%** against T-5's 80.3%/76.0%.
+   **NARROWED 2026-09-04 (D40).** The forming bar now takes the live FIX price whenever a stream is
+   up (`fix_quotes.live_price` -> `candle_aggregator.forming_bar`), so its close is current to the
+   second rather than up to ~80s behind, and its high/low extend with the tick. **The percentages
+   above are NOT re-measured** — they were measured on the closed-bar path, and re-earning them needs
+   a period of live stream data. The mechanism is addressed; the number is not. With no stream
+   connected the old path is exactly what runs, so those figures remain the floor.
 1. **THE BIGGEST ONE, AND IT IS BLOCKED ON HIM.** The code reproduced only **16% of his real trades**.
    Detection was too strict (an earlier 4× threshold rejected 80% of his candles; now 2.5×). Blocked
    on him supplying ~20 trades with entry/SL/TP. Then: recalibrate detection, and add *selection* —
@@ -865,11 +930,15 @@ retracement*" (the same change, plus real-time turning points feeding `leg_state
    WRONG and superseded (2026-07-29): H4 at 120 bars still reported UP during the two-month decline.
    The problem was the swing SCALE, not the timeframe.** **Do not "fix" this by guessing at
    thresholds.**
-2. **NOTHING BUILT SINCE 2026-08-11 HAS BEEN VALIDATED AGAINST A CHART HE MARKED.** Every figure in
-   this document is the code measured against its own past behaviour — trend stability, swing lag,
-   regime split, refusal rates. Whether the regime engine calls the same trends, ranges and chop that
-   HE would call has never been tested, because no marked chart has ever been supplied. This is the
-   cheapest open item to close and probably the most valuable.
+2. **PARTLY CLOSED 2026-09-04 — HE SUPPLIED THE FIRST MARKED CHARTS.** This item said no marked
+   chart had ever been supplied, so the regime engine's verdicts had never been checked against his.
+   He then sent two: one trending market the code called CHOP, and one he named as genuinely choppy
+   and ranging. **The first disagreement the engine was ever tested on, it lost** — and that produced
+   the 2026-09-04 change above. **What remains open:** the second chart has no date attached, so the
+   "must still refuse" side is pinned structurally (an hour in the same real series where the highs
+   and lows disagree) rather than against his actual choppy chart. **Ask him for its date** — that
+   would close this outright. Everything else in this document is still the code measured against its
+   own past behaviour.
 3. **NONE OF IT IS DEPLOYED.** Eight commits sit on `main` as of 2026-08-12. The regime engine is the
    first change that would materially alter what fires (it refuses 45%/49% of setups), so it has
    never run against a live market.

@@ -65,7 +65,8 @@ def aggregate(base_candles: list[Candle], target_tf: str) -> list[Candle]:
 
 
 def forming_bar(base_candles: list[Candle], target_tf: str,
-                anchor: float | None = None, now: float | None = None) -> Candle | None:
+                anchor: float | None = None, now: float | None = None,
+                live_price: float | None = None) -> Candle | None:
     """The target_tf bar CURRENTLY FORMING, built from the finer bars we already hold.
 
     WHY THIS EXISTS. `ProtoOAGetTrendbarsReq` serves CLOSED bars only — measured 2026-08-21, 14 polls
@@ -99,12 +100,37 @@ def forming_bar(base_candles: list[Candle], target_tf: str,
     if not part:
         return None
     part.sort(key=lambda c: c.time)
+    hi = max(b.high for b in part)
+    lo = min(b.low for b in part)
+    close = part[-1].close
+
+    # THE LIVE TICK, WHEN THERE IS ONE (D40, 2026-09-04). His instruction: *"even when watching 1HR
+    # candle to close, we should rely more on FIX data ... because it is real time data."*
+    #
+    # Built from CLOSED base bars alone this bar is up to ~80 seconds behind: the M1 bar only closes
+    # once a minute, and it is then published 10-70s late. `live_price` closes that gap.
+    #
+    # IT ONLY EVER EXTENDS. The high can rise, the low can fall, the close becomes the current price.
+    # Nothing already recorded is overwritten, so a late tick cannot shrink a range the market really
+    # traded — the same reasoning as the "CLOSED BASE BARS ONLY" rule above, which stands: a forming
+    # BASE bar is still excluded, because folding one in would move this bar for two reasons at once.
+    # A single tick is not a second bar; it is where price is right now.
+    #
+    # SAFE BY CONSTRUCTION: `live_price` is None whenever no stream is connected, the symbol has no
+    # quote, or the newest quote is stale — and then this is byte-identical to what it was before.
+    if live_price is not None:
+        hi = max(hi, live_price)
+        lo = min(lo, live_price)
+        close = live_price
+
     return Candle(
         time=open_ts,
         open=part[0].open,
-        high=max(b.high for b in part),
-        low=min(b.low for b in part),
-        close=part[-1].close,
+        high=hi,
+        low=lo,
+        close=close,
+        # VOLUME IS NOT TOUCHED. A tick carries no size on this feed, and inventing one would make
+        # the momentum test's body-vs-volume reading disagree with every closed bar it compares to.
         volume=sum(b.volume for b in part),
         timeframe=target_tf,
     )

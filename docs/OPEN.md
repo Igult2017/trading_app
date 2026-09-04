@@ -927,22 +927,54 @@ would have produced numbers that looked plausible in every breakdown and meant n
 **Only ever recorded going forward.** A closed trade knows where it started and where it ended and
 nothing about the journey, so trades already closed keep an empty MAE/MFE — stated rather than faked.
 
-### D40 - The forming 1-hour candle still uses closed 1-minute bars. OPEN
+### D40 - The forming 1-hour candle now follows the live price. DONE 04 Sep
 
 **His instruction:** *"when trade is placed and even when watching 1HR candle to close, we should rely
 more on FIX data … because it is real time data."*
 
-`candle_aggregator.forming_bar` builds the hour in progress from **CLOSED M1 bars** — its own
-docstring says "CLOSED BASE BARS ONLY" — so it can be up to ~80 seconds behind. The FIX stream carries
-every tick and would make it current to the second.
+`candle_aggregator.forming_bar` built the hour in progress from **CLOSED M1 bars**, so it could be up
+to ~80 seconds behind: an M1 bar closes once a minute and is then published 10-70s late.
 
-**What blocks it:** the FIX book belongs to the watcher's own stream object
-(`fix_quotes.FixQuoteStream.book`), so the scanner cannot reach it. Doing this properly needs a shared
-handle the stream registers itself into on connect and clears on disconnect, with care around
-reconnects. That is a deliberate change, not a bolt-on.
+**What blocked it, and what unblocked it.** The live book belongs to a `FixQuoteStream` object, and
+both streams that exist are owned by `entry_watcher` and `trade_watcher` — the scanner held neither.
+`data/fix_quotes.py` now keeps a small **registry**: a stream joins it when its session comes UP
+(inside `connect()`, after logon succeeds — so a stream that was merely constructed is never offered
+as a price source) and leaves it in `_lost()`, which is already the one place **every** path that ends
+a session meets, so a new exit route cannot forget to deregister. `live_price(symbol)` returns the
+freshest **mid** across connected streams, or **None**.
 
-**Also still on the Open API:** placement's live spread and side-of-the-line checks, for the same
-reason.
+**It is an enrichment, never a dependency.** With no stream, no quote for that symbol, or a quote
+older than 15s, `live_price` returns None and the bar is byte-identical to before. The tick only ever
+**extends** — the high can rise, the low can fall, the close becomes the current price — so a late
+tick can never shrink a range the market really traded. Volume is untouched (a tick carries no size
+on this feed, and inventing one would make the momentum test disagree with every closed bar).
+
+**A registry, not a singleton**, deliberately: there really are two streams, they connect and drop
+independently, and either may be the healthy one. A single "the stream" would pin whichever connected
+last and go blind when it dropped.
+
+**Why this is safe for every LEVEL in the strategy.** The forming bar reaches only
+`vix1_preclose` — the *"this candle closes in N minutes"* DM. `vix1.py:135` strips it with
+`closed_only` for every trend, momentum and level read, and `position_tracker` already used a sided
+live quote. A live price is exactly what a "where is price right now" question wants, and the
+levels-vs-triggers rule is respected.
+
+`tests/vix1/test_live_forming_bar.py` — **29 checks**, most of them on the fallback paths.
+
+**Still on the Open API, and still open:** placement's live spread and side-of-the-line checks. They
+now have a way to reach a live price, but changing where an ORDER's prices come from is a separate
+decision from where a candle's are.
+
+### The regime engine only ever sees COMPLETED legs. RECORDED, not fixed - 04 Sep
+
+`vix1_swings.turning_points` emits a turn only when a leg ENDS, so the move price is in right now has
+no turn yet and `vix1_regime.classify` — which reads the last two highs and lows — cannot see it.
+
+**This is deliberately left alone.** Since 04 Sep the classifier's verdict is a direction test that
+decides far less than it did, and the engine that actually carries the trend (`vix1_trend`) does not
+have this lag: it updates on every bar that closes through a level, which is his own rule *"until we
+confirm a CHOCH, we are in a trend."* Fixing a lag in a label that changes no outcome is risk without
+return. Revisit only if the classifier is ever given more authority again.
 
 **NOT a blocker for the fast path.** The 0.5-second watcher already uses FIX for the thing that
 matters most — moving the stop — and a wrong turn was reverted during this work: making the

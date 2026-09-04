@@ -18,7 +18,7 @@ from core.dependency_resolver import resolve
 from core.strategy_context_builder import build as build_context
 from orchestrator.lateness import data_lag
 from data.candle_fetcher import fetch_candles
-from data import candle_aggregator, ctrader_spread
+from data import candle_aggregator, ctrader_spread, fix_quotes
 from news import news_filter
 from shared import trend_detector
 from shared.mtf_utils import closed_only, to_minutes
@@ -230,8 +230,13 @@ async def run_strategy(
         base = _forming_base(tf, candle_view)
         if not bars or not base:
             continue
+        # THE LIVE TICK, WHEN A PRICE STREAM IS UP (D40). Built from closed M1 bars alone this bar
+        # is up to ~80 seconds behind; the FIX book is current to the second. `live_price` returns
+        # None when no stream is connected, the symbol has no quote, or the newest one is stale, and
+        # the bar is then exactly what it was before — so this can add freshness but never a failure.
         fb = candle_aggregator.forming_bar(base, tf, anchor=bars[-1].time,
-                                           now=tick_now.timestamp())
+                                           now=tick_now.timestamp(),
+                                           live_price=fix_quotes.live_price(instrument))
         # A bar we already hold as CLOSED must never be re-appended as forming — that would be the
         # same candle twice, once finished and once part-grown.
         if fb is not None and fb.time > bars[-1].time:
