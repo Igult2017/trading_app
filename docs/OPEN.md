@@ -965,6 +965,29 @@ levels-vs-triggers rule is respected.
 now have a way to reach a live price, but changing where an ORDER's prices come from is a separate
 decision from where a candle's are.
 
+### D43 - THE QUIET-MARKET RULE IS DEPLOYED BUT INCOMPLETE. ONGOING
+
+**His instruction 2026-09-04: record it as ongoing even though it is deployed.**
+
+**WHAT SHIPPED:** `vix1_tradeable.market_awake` refuses when there is **not a single momentum candle**
+in the 24 hours before this one. The boundary is zero-versus-any, and that came from his own words —
+*"a market that has gone quiet is one that has NO momentum candles. It means that market has no
+activities."*
+
+**WHY IT IS INCOMPLETE, measured on his own chart.** His **14-16 Apr** market — one he marked as a
+no-volume market we cannot trade — is caught only **44%** of the time by this rule and the chop
+counter together (quiet alone: 21%). That market is **not dead, it is barely alive**: it prints a few
+momentum candles, so "zero" never triggers, and its candles are small but CONSISTENT, so the chop
+counter sees an orderly market.
+
+**THE GAP IN ONE LINE: "no activity" is built as all-or-nothing, and his charts show the real case is
+"almost no activity".** Zero is the boundary he named, so it was not widened unilaterally — a cut of
+"fewer than 4 in 48h" separated his charts cleanly and was **REJECTED as fitted to three examples**.
+Widening it is a decision that needs either more marked charts from him or outcomes scored on history.
+
+**DO NOT simply raise the number to make his charts pass.** That is fitting, and it is how the
+0.50x ATR threshold got in. See [[project-vix1-atr-disabled]].
+
 ### D42 - CHOPPY / QUIET MARKET DETECTION. ONGOING PROJECT, continue from here
 
 **His instruction 2026-09-04: record it as an ongoing project, we will continue it.**
