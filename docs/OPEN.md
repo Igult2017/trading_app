@@ -985,9 +985,7 @@ hours before the cancel existed. **I stated in the plan that deploying would cle
 and it had to be cancelled by hand through the broker (verified: ORDER_CANCELLED, book empty, still
 zero positions).
 
-**`execution.canceller.sweep_orphans()` now runs once at boot** (`main.py`, beside the other
-rehydrates). Boot is the right moment: a restart is exactly when a setup has just died with nobody
-watching. **Three things it will not touch, each tested:** an order whose signal is still active · an
+**`execution.canceller` sweeps orphans on the SIGNAL MONITOR'S FIRST POLL, not at boot** — and the boot version is why. Deployed at boot it could not work: the sweep needs credentials from the Node app, which is not serving that early. **The first production run proved it in one line** — it found the orphan correctly and said *"no usable account, cannot cancel order 359170674"*, **nine seconds before the scheduler even started**. The monitor's poll only runs once everything is up, so there is no delay to tune and no timing to guess. Fired as a task; it never sits on the 30s path, and it runs ONCE (a second poll does not repeat it, and no event loop leaves it ARMED rather than burning its one attempt). **Three things it will not touch, each tested:** an order whose signal is still active · an
 order with **no signal id** (it cannot be PROVED orphaned, and cancelling on a guess is a trade that
 never happens) · anything he placed by hand. `autotrade_repo._as_intent` gained `signal_id` — without
 it the sweep could prove nothing and would silently cancel nothing.
