@@ -153,15 +153,25 @@ def choppiness(seg) -> dict:
             colour += 1                                    # green <-> red
         if _wicky(seg[i]) != _wicky(seg[i - 1]):
             wick += 1                                      # wicky <-> clean
-    # SIZE FLIPS need three candles, not two: "big, small, big" is a mixture, while bodies simply
-    # growing every candle is a market building momentum — the opposite of choppy. So this counts
-    # changes of DIRECTION in body size, never the sizes themselves. That is why no 'x times bigger'
-    # threshold appears anywhere: growing and shrinking are compared, not measured.
-    for i in range(2, n):
-        a = abs(seg[i - 2].close - seg[i - 2].open)
+    # BIG NEXT TO SMALL — his words are *"a mixture of big bodies, small bodies"*, which is about the
+    # SIZES being inconsistent, not about which way they are heading.
+    #
+    # THE FIRST VERSION OF THIS WAS BROKEN AND THE MEASUREMENT PROVED IT. It counted changes of
+    # DIRECTION in body size ("grew, then shrank"), which is simply what candles do: it fired in
+    # 13-17 of every 23 pairs in EVERY window, choppy or calm. Over 4 years **not one setup in 1,302
+    # scored 0 of 4**, which is only possible if a sign is permanently on. A sign that is always true
+    # carries no information and silently inflates every score.
+    #
+    # Now it asks the plain question instead: is this body more than DOUBLE, or less than HALF, the
+    # one before it? A market building momentum prints bodies of a similar size; a choppy one throws
+    # a big candle, then a stub, then a big one. Double and half are the everyday way of saying "a
+    # different size", not a fitted level.
+    for i in range(1, n):
         b = abs(seg[i - 1].close - seg[i - 1].open)
         c = abs(seg[i].close - seg[i].open)
-        if (b > a) != (c > b):
+        if b <= 0:
+            continue
+        if c > 2 * b or c * 2 < b:
             size += 1
 
     # HOW OFTEN IT MOVES "ONE OR 2 CANDLES UP THEN DOWN" — count the runs of same-colour candles and
@@ -178,7 +188,7 @@ def choppiness(seg) -> dict:
     short = sum(1 for r in runs if r <= 2)
 
     traits = sum((colour * 2 > n - 1,          # colour flips more often than not
-                  size * 2 > n - 2,            # body size keeps changing direction
+                  size * 2 > n - 1,            # big body next to small body, more often than not
                   wick * 2 > n - 1,            # wicky and clean keep alternating
                   short * 2 > len(runs)))      # most moves are only one or two candles
     return {"traits": traits, "runs": len(runs), "short": short,
