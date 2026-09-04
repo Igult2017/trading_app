@@ -977,6 +977,22 @@ decision from where a candle's are.
 
 ### D44 - A RESTING ORDER NOW DIES WITH ITS SETUP. DONE 04 Sep
 
+**⚠ THE FIRST VERSION MISSED ORPHANS, AND HIS ACCOUNT PROVED IT — boot sweep added 04 Sep.**
+`signal_monitor` walks `signal_repo.get_active` (line 82) — **only signals still marked active** — so
+the cancel fires for setups that die from now on and **never for one that died earlier**. His gold
+BUY stop at 4486.56 was still resting after the deploy, because that signal had been marked expired
+hours before the cancel existed. **I stated in the plan that deploying would clear it. It did not**,
+and it had to be cancelled by hand through the broker (verified: ORDER_CANCELLED, book empty, still
+zero positions).
+
+**`execution.canceller.sweep_orphans()` now runs once at boot** (`main.py`, beside the other
+rehydrates). Boot is the right moment: a restart is exactly when a setup has just died with nobody
+watching. **Three things it will not touch, each tested:** an order whose signal is still active · an
+order with **no signal id** (it cannot be PROVED orphaned, and cancelling on a guess is a trade that
+never happens) · anything he placed by hand. `autotrade_repo._as_intent` gained `signal_id` — without
+it the sweep could prove nothing and would silently cancel nothing.
+
+
 **His instruction, with a live example on his account at the time:** *"once it is clear the market has
 gone the other direction like the gold case now, the order should be canceled as soon as possible not
 waiting 24HR."* A gold BUY stop at **4486.56** (stop 4482.44) sat resting while gold traded at
