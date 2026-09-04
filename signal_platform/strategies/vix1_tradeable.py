@@ -113,3 +113,89 @@ def market_awake(h1: list[Candle], symbol: str, look: int, need: int) -> str | N
                 return None
     return (f"the market has been quiet — only {seen} momentum candle(s) in the {look} hours before "
             f"this one, so this candle came out of a market with no activity")
+
+
+# ── IS THE MARKET CHOPPY? ─────────────────────────────────────────────────────────────────────────
+#
+# HIS INSTRUCTION, and it decides the whole shape of this: *"Dont use complex math, just develop
+# something that detects how mixed bullish and bearish candles, different candle bodies and wicks
+# and how frequently the market moves with one or 2 candles up then down in a move. No complex math,
+# just pure market tracking."*
+#
+# So there is no ratio, no average, no statistic anywhere below. Every one of the four things he
+# named is counted the same plain way: **how often does it FLIP?** A market that keeps changing its
+# mind — green then red, big then small, wicky then clean, up two then down two — is choppy. A market
+# that means it does the same thing several candles in a row.
+#
+# THE ONLY BOUNDARY USED IS "more often than not", which is not a tuned level — it is the point where
+# a thing stops being occasional and becomes the market's normal behaviour. The same reasoning as the
+# quiet test's boundary being zero: both come from the meaning of the words, not from fitting.
+
+def _wicky(c) -> bool:
+    """Is this candle mostly wick rather than body? No threshold — just which is bigger."""
+    body = abs(c.close - c.open)
+    return (c.high - c.low) - body > body
+
+
+def choppiness(seg) -> dict:
+    """COUNT the four things he named. Returns the counts and how many say 'mixed'.
+
+    Nothing here is scored, weighted or averaged. Each answer is a plain count of flips against the
+    number of chances to flip, and each trait is 'mixed' when it flipped more often than not.
+    """
+    n = len(seg)
+    if n < 6:
+        return {"traits": 0, "runs": 0, "short": 0, "colour": 0, "size": 0, "wick": 0, "pairs": 0}
+
+    colour = size = wick = 0
+    for i in range(1, n):
+        if (seg[i].close > seg[i].open) != (seg[i - 1].close > seg[i - 1].open):
+            colour += 1                                    # green <-> red
+        if _wicky(seg[i]) != _wicky(seg[i - 1]):
+            wick += 1                                      # wicky <-> clean
+    # SIZE FLIPS need three candles, not two: "big, small, big" is a mixture, while bodies simply
+    # growing every candle is a market building momentum — the opposite of choppy. So this counts
+    # changes of DIRECTION in body size, never the sizes themselves. That is why no 'x times bigger'
+    # threshold appears anywhere: growing and shrinking are compared, not measured.
+    for i in range(2, n):
+        a = abs(seg[i - 2].close - seg[i - 2].open)
+        b = abs(seg[i - 1].close - seg[i - 1].open)
+        c = abs(seg[i].close - seg[i].open)
+        if (b > a) != (c > b):
+            size += 1
+
+    # HOW OFTEN IT MOVES "ONE OR 2 CANDLES UP THEN DOWN" — count the runs of same-colour candles and
+    # see how many are only one or two long. A market that advances in ones and twos and then turns
+    # is his choppy market; one that runs five or six the same way is grouping.
+    runs, cur = [], 1
+    for i in range(1, n):
+        if (seg[i].close > seg[i].open) == (seg[i - 1].close > seg[i - 1].open):
+            cur += 1
+        else:
+            runs.append(cur)
+            cur = 1
+    runs.append(cur)
+    short = sum(1 for r in runs if r <= 2)
+
+    traits = sum((colour * 2 > n - 1,          # colour flips more often than not
+                  size * 2 > n - 2,            # body size keeps changing direction
+                  wick * 2 > n - 1,            # wicky and clean keep alternating
+                  short * 2 > len(runs)))      # most moves are only one or two candles
+    return {"traits": traits, "runs": len(runs), "short": short,
+            "colour": colour, "size": size, "wick": wick, "pairs": n - 1}
+
+
+def market_not_choppy(h1, look: int, need: int) -> str | None:
+    """His chop rule. The refusal reason, or None to allow.
+
+    `need` is how many of the four traits must say 'mixed' before we stand aside, and it lives at the
+    call site with every other number that gates a trade.
+    """
+    if len(h1) < look + 2:
+        return None                     # not enough history to judge; refusing on that is a guess
+    c = choppiness(h1[-(look + 1):])
+    if c["traits"] < need:
+        return None
+    return (f"the market is choppy — {c['traits']} of 4 signs over the last {look} hours: colour "
+            f"changed {c['colour']}x, body size {c['size']}x, wick shape {c['wick']}x, and "
+            f"{c['short']} of {c['runs']} moves lasted only one or two candles")
