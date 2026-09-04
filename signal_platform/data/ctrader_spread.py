@@ -117,10 +117,44 @@ async def quote_for(symbol: str) -> tuple[float, float] | None:
             # zero or a negative into a stop calculation or a side-of-the-line test.
             return None
         _cache[symbol] = (bid, ask, time.monotonic() + _TTL)
+        _compare_live(symbol, bid, ask)
         return (bid, ask)
     except Exception as exc:
         log.warning(f"[ctrader_spread] {symbol}: {type(exc).__name__}: {exc} — quote unknown")
         return None
+
+
+def _compare_live(symbol: str, bid: float, ask: float) -> None:
+    """Log the live streamed quote beside the broker's, and DECIDE NOTHING WITH IT.
+
+    WHY THIS EXISTS. The live price stream is already trusted for one thing — moving a stop, where
+    `trade_watcher` reads the bid for a buy and the ASK for a sell. It is not yet trusted to decide
+    an ENTRY. The evidence we have covers the BID only: `tick_bar_audit` scores tick-built candles
+    against the broker's, and candles are bid-based on both sides of that comparison (cTrader:
+    *"It is not possible to get trendbars based on ask prices"*). **Nothing has ever compared the
+    streamed ASK against the broker's ask, because there is no broker ask-candle to compare with.**
+
+    WHY THAT IS WORTH A MEASUREMENT RATHER THAN AN ASSUMPTION. `breakeven.py:78` records a real demo
+    position CLOSED INSTANTLY on 2026-08-21 by a stop placed the wrong side of the market. Being
+    slightly wrong about which side price is on is exactly that failure, and an entry decision asks
+    precisely that question.
+
+    So this runs only where the broker was ALREADY being asked — no extra request, no extra latency,
+    and no behaviour attached. It prints on every real fetch (which the 25s cache makes infrequent)
+    so the two sources can be compared over days before either side of the book is relied on.
+    """
+    try:
+        from data import fix_quotes
+        live = fix_quotes.live_quote(symbol)
+        if live is None:
+            return
+        lb, la = live
+        log.info(f"[quote-compare] {symbol} broker bid {bid:.5f} ask {ask:.5f} "
+                 f"(spread {(ask - bid):.5f}) | live bid {lb:.5f} ask {la:.5f} "
+                 f"(spread {(la - lb):.5f}) | dBid {(lb - bid):+.5f} dAsk {(la - ask):+.5f}")
+    except Exception as exc:
+        # An observation must never be able to cost a quote.
+        log.debug(f"[quote-compare] {symbol}: {type(exc).__name__}: {exc}")
 
 
 async def spread_for(symbol: str) -> float | None:

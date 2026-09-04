@@ -965,6 +965,49 @@ levels-vs-triggers rule is respected.
 now have a way to reach a live price, but changing where an ORDER's prices come from is a separate
 decision from where a candle's are.
 
+### D41 - TWO PRICE SOURCES: live feed first, broker data as the floor. 04 Sep
+
+**His rule:** *"we use 2 sources of data so that when one goes off we switch to the other seamlessly
+like nothing ever happened. We prioritize FIX data but if it is not there we fall back to the old
+data seamlessly until it comes back. So when FIX data comes back we go back to using it. Also make
+sure this does not disrupt anything."*
+
+| what | live first? | falls back? | returns by itself? |
+|---|---|---|---|
+| stop to breakeven / lock R / trail (0.5s) | **YES** `trade_watcher.py:126-139` | YES + one DM | **YES** `_ensure_stream` in the loop |
+| the forming hour candle | **YES** (04 Sep) | YES | YES |
+| **entry candles** | **YES — switched ON 04 Sep** | YES, per-pair | **YES**, trust self-heals |
+| entry trigger quote + spread | **not yet** — measuring first | n/a | n/a |
+
+**Recovery needed no code.** Both watchers already rebuild a dead stream inside their run loops
+(`entry_watcher.py:82`, `trade_watcher.py:87`), and `tick_bar_audit.trusted()` restores trust on its
+own once a bad bar rolls out of its 200-comparison window.
+
+**Entry candles switched on** with `TICK_BARS_SERVE_ENABLED=true`. Accuracy at the time, from the
+production `[tick-audit]` line: **EUR/USD 164/164, GBP/USD 163/163, XAU/USD 164/164** — the three
+instruments actually traded, all perfect. USD/JPY 162/164 and **GBP/JPY 0/164** fail and are
+excluded automatically, because trust is per-pair.
+
+**⚠ A TRAP THAT WOULD HAVE CRASHED THE PLATFORM ON BOOT, caught before deploy.** Creating that
+variable through the Coolify API with `is_literal: true` stores the value as **`'true'` including the
+quote marks**. `Settings()` does not read that as false — it **raises a ValidationError**, so the
+whole signal platform would have failed to start. Set with `is_literal: false`, and **read the value
+back and parse it** rather than trusting the create call. Coolify mirrors the variable into the
+preview scope too, and that copy needs the same fix.
+
+**The trigger quote is NOT switched over yet, deliberately.** `ctrader_spread.quote_for` now logs
+`[quote-compare]` — the broker's bid/ask beside the live one, on reads it was already making, so no
+extra request and no behaviour attached. The reason is that the 164/164 evidence covers the **bid
+only**: candles are bid-based on both sides of that comparison, so **the live ASK has never been
+compared with the broker's ask**. `breakeven.py:78` records a position closed instantly on
+2026-08-21 by a stop on the wrong side of the market, and an entry asks that same question.
+
+**AND THE LIVE PAIR MUST BE TAKEN WHOLE.** The plan said it could fall back to "live bid, broker
+ask". **That was wrong and was not built.** The spread is `ask - bid` from ONE quote
+(`strategy_runner.py:257`), so mixing sources invents a spread no broker showed — possibly negative,
+which every consumer reads as a crossed book. `live_quote()` returns both sides or None, and refuses
+a crossed or equal book exactly as `quote_for` always has. Pinned by `test_quote_compare.py`.
+
 ### The regime engine only ever sees COMPLETED legs. RECORDED, not fixed - 04 Sep
 
 `vix1_swings.turning_points` emits a turn only when a leg ENDS, so the move price is in right now has

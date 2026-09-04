@@ -923,6 +923,15 @@ retracement*" (the same change, plus real-time turning points feeding `leg_state
    above are NOT re-measured** — they were measured on the closed-bar path, and re-earning them needs
    a period of live stream data. The mechanism is addressed; the number is not. With no stream
    connected the old path is exactly what runs, so those figures remain the floor.
+   **AND THE ENTRY CANDLES FOLLOWED (D41, same day).** `TICK_BARS_SERVE_ENABLED=true` switches on
+   `tick_serving`, which appends minutes built from live ticks onto the broker's bars — per-pair, only
+   where the pair's tick-built candles have matched the broker's exactly, and never across a gap. His
+   rule: *"we prioritize FIX data but if it is not there we fall back to the old data seamlessly
+   until it comes back."* **Recovery needed no code**: both watchers already rebuild a dead stream
+   inside their run loops, and trust self-heals once a bad bar rolls out of the 200-comparison window.
+   **The entry's trigger QUOTE is deliberately still on the broker** — see `docs/OPEN.md` D41 for why
+   the live ASK is being measured (`[quote-compare]`) before it decides anything, and why a live bid
+   must never be paired with a broker ask.
 1. **THE BIGGEST ONE, AND IT IS BLOCKED ON HIM.** The code reproduced only **16% of his real trades**.
    Detection was too strict (an earlier 4× threshold rejected 80% of his candles; now 2.5×). Blocked
    on him supplying ~20 trades with entry/SL/TP. Then: recalibrate detection, and add *selection* —

@@ -130,9 +130,9 @@ s.teeth("the stream really was serving a price before it dropped",
 # TWO STREAMS, WHICH IS THE REAL DEPLOYMENT: entry_watcher and trade_watcher each own one, and either
 # may be the healthy one. The freshest quote wins.
 a, b = FixQuoteStream("1", "x"), FixQuoteStream("2", "x")
-for st, price, age in ((a, 1.20000, 9.0), (b, 1.30000, 0.5)):
+for st, mid, age in ((a, 1.20000, 9.0), (b, 1.30000, 0.5)):
     st.book.connected = True
-    st.book._quotes["GBP/USD"] = (price, price)
+    st.book._quotes["GBP/USD"] = (mid - 0.00002, mid + 0.00002)   # a real book has a spread
     st.book._last_tick["GBP/USD"] = time.monotonic() - age
     fix_quotes._register(st)
 s.check("with two streams up, the FRESHEST quote wins",
@@ -141,6 +141,27 @@ s.check("...and both are counted", fix_quotes.live_streams(), 2)
 b._lost()
 s.check("when the fresher one drops, the other still serves",
         round(fix_quotes.live_price("GBP/USD"), 5), 1.20000)
+
+# A CROSSED OR EQUAL BOOK IS NOT A QUOTE. `ctrader_spread.quote_for` has always refused `ask <= bid`
+# from the broker — "not a book, a crossed or stale one" — and the live source is held to the same
+# standard, or the check only ever runs on whichever source happens to answer.
+a.book._quotes["GBP/USD"] = (1.20000, 1.20000)          # equal
+s.check("a book whose ask equals its bid is refused", fix_quotes.live_price("GBP/USD"), None)
+a.book._quotes["GBP/USD"] = (1.20005, 1.19995)          # crossed
+s.check("...and a crossed book too", fix_quotes.live_quote("GBP/USD"), None)
 a._lost()
+
+# BOTH SIDES COME BACK TOGETHER, and never mixed with another source: the spread is `ask - bid` from
+# ONE quote, so pairing a live bid with a stale ask would invent a spread no broker ever showed.
+c = FixQuoteStream("3", "x")
+c.book.connected = True
+c.book._quotes["EUR/USD"] = (1.16000, 1.16004)
+c.book._last_tick["EUR/USD"] = time.monotonic()
+fix_quotes._register(c)
+q = fix_quotes.live_quote("EUR/USD")
+s.check("live_quote returns the pair", (round(q[0], 5), round(q[1], 5)), (1.16000, 1.16004))
+s.check("...and live_price is exactly its midpoint",
+        round(fix_quotes.live_price("EUR/USD"), 6), round((q[0] + q[1]) / 2, 6))
+c._lost()
 
 s.done()

@@ -64,16 +64,17 @@ def _deregister(stream) -> None:
     _STREAMS.discard(stream)
 
 
-def live_price(symbol: str, max_age_s: float = _FRESH_S) -> float | None:
-    """The freshest live mid price for `symbol`, or None when no healthy stream has one.
+def live_quote(symbol: str, max_age_s: float = _FRESH_S) -> tuple[float, float] | None:
+    """The freshest live (bid, ask) for `symbol`, or None when no healthy stream has one.
 
-    THE MID, not the bid or the ask. This exists to say where price IS for the bar being built, and a
-    candle is not one side of the spread. Anything deciding where an order would actually FILL must
-    keep using the sided quote (`position_tracker._price_now`, `ctrader_spread.quote_for`) — that is
-    a different question and this must never be substituted for it.
+    BOTH SIDES TOGETHER, ALWAYS, AND NEVER MIXED WITH ANOTHER SOURCE. The spread is taken as
+    `ask - bid` from ONE quote, so pairing a live bid with a stale ask from somewhere else would
+    invent a spread that no broker ever showed — and could make it negative, which every consumer
+    would then treat as a crossed book. If the live pair is not available this returns None and the
+    caller uses its own source for BOTH sides.
 
-    Returns None rather than a stale number, so the caller falls back to closed bars instead of
-    trusting a price from a session that has quietly died.
+    Returns None rather than a stale number, so the caller falls back instead of trusting a price
+    from a session that has quietly died.
     """
     best = None
     best_age = None
@@ -90,11 +91,29 @@ def live_price(symbol: str, max_age_s: float = _FRESH_S) -> float | None:
             bid, ask = q
             if not bid or not ask:
                 continue
+            # A CROSSED OR EQUAL BOOK IS NOT A QUOTE. `ctrader_spread.quote_for` already refuses
+            # `ask <= bid` from the Open API for exactly this reason — "not a book, a crossed or
+            # stale one" — and a second source must be held to the same standard, or the check is
+            # only enforced on whichever source happens to answer.
+            if ask <= bid:
+                continue
             if best_age is None or age < best_age:
-                best, best_age = (bid + ask) / 2.0, age
+                best, best_age = (bid, ask), age
         except Exception as exc:        # never let a price lookup break what it was enriching
-            log.debug(f"[fix] live_price({symbol}) skipped a stream: {type(exc).__name__}: {exc}")
+            log.debug(f"[fix] live_quote({symbol}) skipped a stream: {type(exc).__name__}: {exc}")
     return best
+
+
+def live_price(symbol: str, max_age_s: float = _FRESH_S) -> float | None:
+    """The freshest live MID price for `symbol`, or None when no healthy stream has one.
+
+    THE MID, not the bid or the ask. This exists to say where price IS for the bar being built, and a
+    candle is not one side of the spread. Anything deciding where an order would actually FILL must
+    keep using the sided quote (`position_tracker._price_now`, `ctrader_spread.quote_for`) — that is
+    a different question and this must never be substituted for it.
+    """
+    q = live_quote(symbol, max_age_s)
+    return None if q is None else (q[0] + q[1]) / 2.0
 
 
 def live_streams() -> int:
