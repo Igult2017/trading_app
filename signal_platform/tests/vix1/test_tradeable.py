@@ -61,52 +61,71 @@ for w in ("2026-09-03 11:00", "2026-09-03 12:00", "2026-09-03 16:00"):
     s.check(f"   {w} still trades", fires(w), True)
 
 
-# ── THE QUIET MARKETS — refused, and this is the whole of today's gain ─────
+# ── HIS RULE: A QUIET MARKET MUST PROVE ITSELF ────────────────────────────
+#
+# The market went quiet. A momentum candle alone is NOT a trade — it must then RUN (3+ candles the
+# trend's way, his number) and then PULL BACK (1+, his pullback rule) before one is trusted.
+#
+# WHAT THE FIRST VERSION DID, deployed 2026-09-04 and wrong within hours: it COUNTED momentum candles
+# and refused when there were none. It blocked the 09:00 candle and let 14:00, 17:00 and 20:00
+# straight through — and the only momentum candle in the window at 14:00 was **the 09:00 one it had
+# just refused**. Evidence it rejected was used to satisfy it.
 print()
-print("   markets with NO momentum candles at all beforehand — refused:")
-for w in ("2026-08-05 06:00",      # img1, zero momentum candles in the previous 24h
-          "2026-05-24 22:00",      # img2, the same
-          "2026-01-20 03:00"):     # img3, the same
+print("   markets that went quiet and have not proved themselves — refused:")
+for w in ("2026-08-05 06:00",      # img1: 35 quiet bars behind it
+          "2026-08-05 11:00",      # ...and the next one, which the old rule waved through
+          "2026-05-24 22:00",      # img2
+          "2026-01-12 05:00", "2026-01-12 07:00", "2026-01-15 20:00",
+          "2026-01-20 03:00", "2026-01-20 07:00", "2026-01-20 08:00"):
     s.check(f"   {w} refused", fires(w), False)
 
-
-# ── AND THE NINE THAT STILL GET THROUGH, ASSERTED AS STILL GETTING THROUGH ─
-# Recording the gap as a passing test rather than a comment: if a later change closes any of these
-# by accident, this file goes red and the change has to be understood instead of absorbed silently.
+# ── STILL NOT SOLVED: THE CHOPPY CASE ─────────────────────────────────────
+# By 17:00 that market genuinely HAD run and pulled back, so the quiet rule has no claim on it. These
+# three are his CHOPPY definition, the ongoing project (docs/OPEN.md D42). Asserted as PASSING so a
+# later change cannot close them by accident without this file going red and being explained.
 print()
-print("   NOT YET SOLVED — his chop definition has no test, so these still trade:")
-for w in ("2026-08-03 18:00", "2026-08-05 11:00", "2026-08-05 14:00", "2026-08-05 17:00",
-          "2026-01-12 05:00", "2026-01-12 07:00", "2026-01-15 20:00",
-          "2026-01-20 07:00", "2026-01-20 08:00"):
+print("   NOT YET SOLVED — the choppy case still trades:")
+for w in ("2026-08-03 18:00", "2026-08-05 14:00", "2026-08-05 17:00"):
     s.check(f"   {w} STILL trades (known gap)", fires(w), True)
 
 
-# ── THE TWO RULES, ASKED DIRECTLY ─────────────────────────────────────────
+# ── THE RULE ASKED DIRECTLY ───────────────────────────────────────────────
 print()
-print("   the rules themselves:")
+print("   the rule itself:")
 
-i = at("2026-05-24 22:00")
-h1 = bars[max(0, i + 1 - 3000):i + 1]
-s.check("a market with no momentum candles in 24h is refused as quiet",
-        market_awake(h1, "EUR/USD", 24, 1) is not None, True)
-s.check("...and the refusal says so in his words",
-        "quiet" in (market_awake(h1, "EUR/USD", 24, 1) or ""), True)
-s.check("the same market passes if only ONE momentum candle is needed over a longer look",
-        market_awake(h1, "EUR/USD", 48, 1), None)
+from strategies.vix1_state import market_state                       # noqa: E402
 
-# Too little history must NOT be read as "quiet" — refusing on absent data is a guess, and this
-# codebase has shipped that mistake before (a gate that fired hardest when it knew least).
-s.check("too little history is not a refusal", market_awake(bars[:10], "EUR/USD", 24, 1), None)
-s.check("a zero lookback is not a refusal either", market_awake(h1, "EUR/USD", 0, 1), None)
 
-# `trend_reproven` must never fire when there is no trend to re-prove — that case belongs to the
-# other gates, and answering it here would be a second opinion nobody asked for.
-i = at("2026-09-03 12:00")
-w = bars[max(0, i + 1 - 1500):i + 1]
-turns = structure_turns(w, 48)
-st = trend_state(w, n=48, turns=turns)
-s.check("no established trend -> the re-proof rule stays silent", st.direction, 0)
-s.check("...and returns None rather than refusing", trend_reproven(st, turns), None)
-s.check("a missing trend state is not a refusal", trend_reproven(None, turns), None)
+def state_at(when):
+    i = at(when)
+    h1 = bars[max(0, i + 1 - 3000):i + 1]
+    w = h1[-1500:]
+    turns = structure_turns(w, 48)
+    st = trend_state(w, n=48, turns=turns)
+    ret, _, _ = market_state(w, st, "EUR/USD")
+    return h1, st, ret, turns
+
+
+# A market quiet for 35 bars whose pullback is only 2 must NOT be excused as "just a pullback".
+# The first version asked only `retracement.active` — true almost always — and waved this through.
+h1, st, ret, turns = state_at("2026-08-05 06:00")
+why = market_awake(h1, st, ret, "EUR/USD", 24)
+s.check("a market that went quiet and has not proved itself is refused", why is not None, True)
+s.check("...and the refusal names what is missing, in his words",
+        ("run" in (why or "")) or ("pulled back" in (why or "")), True)
+s.teeth("...and its pullback really was far shorter than the silence", ret.bars < 24)
+
+# NOT ENOUGH HISTORY IS NOT "QUIET". Refusing on absent data is a guess, and 24 hours back from a
+# Monday morning is mostly a CLOSED market. This platform has shipped that mistake before.
+s.check("too little history is not a refusal", market_awake(bars[:10], st, ret, "EUR/USD", 24), None)
+s.check("a zero lookback is not a refusal either", market_awake(h1, st, ret, "EUR/USD", 0), None)
+s.check("no trend means this rule stays silent — other gates own that case",
+        market_awake(h1, None, ret, "EUR/USD", 24), None)
+
+# `trend_reproven` must never fire when there is no trend to re-prove.
+h1b, stb, retb, turnsb = state_at("2026-09-03 12:00")
+s.check("no established trend -> the re-proof rule stays silent", stb.direction, 0)
+s.check("...and returns None rather than refusing", trend_reproven(stb, turnsb), None)
+s.check("a missing trend state is not a refusal", trend_reproven(None, turnsb), None)
 
 s.done()

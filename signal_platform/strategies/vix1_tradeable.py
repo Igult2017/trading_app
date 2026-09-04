@@ -184,7 +184,13 @@ def market_awake(h1: list[Candle], tstate, retracement, symbol: str, look: int) 
             run += 1
             if run >= _RUN_CANDLES:
                 best_run = max(best_run, run)
-                run_ended_at = j        # the run qualifies from here; a pullback may follow it
+                # THE **FIRST** RUN THAT QUALIFIES, and it is frozen here on purpose. Letting later
+                # runs overwrite it broke his own 2026-08-25 bearish sequence: that shape is
+                # run -> pull back -> turn back down -> momentum candle, so the LAST run is the
+                # resumption and nothing follows it. Looking for a pullback after the last run
+                # therefore always failed, and `test_choch_bearish_proof.py` went red.
+                if run_ended_at is None:
+                    run_ended_at = j
         else:
             run = 0
     if best_run < _RUN_CANDLES:
