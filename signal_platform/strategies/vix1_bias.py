@@ -64,12 +64,15 @@ log = logging.getLogger(__name__)
 #       It contradicts itself too.
 _H1_SWING_N = 48
 
-# HOW FAR BACK "has this market gone quiet?" LOOKS, and how much activity clears it.
-# 24 = one trading day, a natural unit rather than a tuned one. NEED = 1 is his own definition
-# — *"a market that has gone quiet is one that has NO momentum candles"* — so the boundary is
-# zero-versus-any, not a level someone picked. See `vix1_tradeable.market_awake`.
+# HOW FAR BACK "has this market gone quiet?" LOOKS. 24 = one trading day, a natural unit rather
+# than a tuned one, and the boundary within it is HIS: *"a market that has gone quiet is one that has
+# NO momentum candles"* — zero-versus-any, not a level someone picked.
+#
+# `_QUIET_NEED` IS GONE. It counted momentum candles and refused when there were none, which is the
+# counting half of his rule with the WAITING half missing — and the waiting half is the rule. See
+# `vix1_tradeable.market_awake`, which now requires the market to RUN and then PULL BACK after it
+# woke, with his pullback exception in front of it.
 _QUIET_LOOK = 24
-_QUIET_NEED = 1
 
 # THE TREND WINDOW IS PINNED, NOT "whatever we were handed".
 # The 2026-07-29 fix calibrated the trend on exactly 1,500 H1 bars (~62 days) — agreement across
@@ -303,8 +306,10 @@ def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "", debut=None
         # DEFINITION, not a tuned level: *"a market that has gone quiet is one that has NO momentum
         # candles"* — zero is the boundary he named. A cut of 4-in-48h separated his charts more
         # cleanly and was REJECTED as fitted to three examples.
+        # `ret` is the retracement THIS PATH ALREADY MEASURED at the momentum candle (line 235), so
+        # his pullback exception costs nothing extra and cannot disagree with the number on the card.
         for veto in (trend_reproven(mstate, turns_mc),
-                     market_awake(at_mc, symbol, _QUIET_LOOK, _QUIET_NEED)):
+                     market_awake(at_mc, mstate, ret, symbol, _QUIET_LOOK)):
             if veto:
                 vix1_log.say(symbol, f"[vix1] {symbol} bias=NONE: {veto} | {state_mc}")
                 return None

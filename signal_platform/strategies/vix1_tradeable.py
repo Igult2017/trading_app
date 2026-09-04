@@ -37,6 +37,7 @@ biggest sustained push · momentum-candle succession. At the signal moments his 
 trending MORE decisively than his accepted one, so nothing that leans on strong structure can work.
 """
 from core.types import Candle
+from shared.candle_math import is_bearish, is_bullish
 from strategies.vix1_momentum import is_momentum_candle
 
 
@@ -92,27 +93,111 @@ def trend_reproven(tstate, turns) -> str | None:
     return None
 
 
-def market_awake(h1: list[Candle], symbol: str, look: int, need: int) -> str | None:
-    """HIS RULE: *"a market that has gone quiet is one that has no momentum candles."*
+_RUN_CANDLES = 3        # HIS number: "a run can be from 3 candles and above, then a pullback"
 
-    Counts momentum candles in the `look` bars STRICTLY BEFORE the newest one, using the entry's own
-    `is_momentum_candle` unchanged. Strictly before, because the newest bar IS the momentum candle
-    being judged — including it would make every market look awake by construction, which is the
-    shape of bug this codebase has shipped before (a test that can never fail).
 
-    `look` and `need` are passed in rather than defined here, so the numbers live at the call site
-    where they can be seen next to everything else that gates a trade.
+def market_awake(h1: list[Candle], tstate, retracement, symbol: str, look: int) -> str | None:
+    """HIS FULL RULE — a quiet market must PROVE itself before we trade it.
+
+        "Its role was to check if the momentum candle is coming from a quiet market and in that case
+         we WAIT for it to run then we take a trade from a pullback and above."
+        "A run can be from 3 candles and above, then a pullback."
+        "A pullback can be 1 candle and above until the protected area is broken."
+
+    AND HIS EXCEPTION, which is the half that makes this safe:
+
+        "that quiet market should not be a pullback of 1HR trend, because sometimes pullbacks can
+         lack momentum candle, then when the market corrects it comes with momentum."
+
+    WHAT THE FIRST VERSION GOT WRONG, deployed 2026-09-04 and caught hours later. It COUNTED momentum
+    candles and refused when there were none — the counting half of his rule with the waiting half
+    missing. Measured on his own image-1 market: the 09:00 candle was refused, and 14:00, 17:00 and
+    20:00 all traded. **The only momentum candle in the window at 14:00 was the 09:00 one this rule
+    had just refused** — evidence it rejected was then used to satisfy it — and the "run" credited
+    alongside it was a break of structure from 61 HOURS earlier, days before the market went quiet.
+
+    SO THE QUESTION IS NOT "is it quiet NOW" BUT "has it proved itself SINCE it went quiet". The
+    waking bar is found first, and the run and the pullback are both required strictly after it.
+
+    NOTHING HERE IS INVENTED. The momentum candle is `is_momentum_candle` unchanged; a candle
+    "carrying the trend on" is `is_bullish`/`is_bearish`, the identical test `vix1_retracement` uses
+    (line 176); the pullback is the `Retracement` this path already computed. Only the sequence is
+    new, and the sequence is his.
     """
-    if look <= 0 or len(h1) < look + 2:
-        return None                     # not enough history to say it is quiet; refusing would be a guess
-    seen = 0
-    for j in range(len(h1) - 1 - look, len(h1) - 1):
-        if is_momentum_candle(h1, j, True, symbol) or is_momentum_candle(h1, j, False, symbol):
-            seen += 1
-            if seen >= need:
-                return None
-    return (f"the market has been quiet — only {seen} momentum candle(s) in the {look} hours before "
-            f"this one, so this candle came out of a market with no activity")
+    if look <= 0 or tstate is None or tstate.direction == 0:
+        return None                     # no trend to measure a run against; other gates own that
+    # ENOUGH REAL BARS BEFORE JUDGING — the weekend guard. 24 hours back from Monday morning is
+    # mostly a CLOSED market, and a healthy Monday setup would read as dead. This platform has been
+    # bitten by exactly that before: `LOOKBACK = 12` counted BARS not TIME and re-fired a Friday
+    # candle 54 hours later on Sunday night. Too little history means "cannot say", never "quiet".
+    span = 2 * look
+    if len(h1) < span + 2:
+        return None
+
+    up = tstate.direction > 0
+    n = len(h1) - 1                     # the candle being judged; never counted as evidence itself
+
+    def momentum_at(j: int) -> bool:
+        return (is_momentum_candle(h1, j, True, symbol)
+                or is_momentum_candle(h1, j, False, symbol))
+
+    mom = {j for j in range(n - span, n) if momentum_at(j)}
+
+    # THE WAKING BAR: the most recent point at which the `look` bars behind it held no momentum
+    # candle at all. Everything before it was a dead market; everything after it is the market's
+    # chance to prove itself.
+    woke = None
+    for j in range(n - 1, n - look - 1, -1):
+        if not any((j - k) in mom for k in range(1, look + 1)):
+            woke = j
+            break
+    if woke is None:
+        return None                     # alive throughout the window — nothing to prove
+
+    # HIS EXCEPTION, CHECKED BEFORE ANYTHING IS REFUSED. A pullback inside a live 1HR trend is
+    # SUPPOSED to be quiet: price is drifting back, so no candle carries the trend on and none
+    # qualifies as momentum. Refusing there would kill the ordinary continuation entry — the most
+    # common trade this strategy makes.
+    #
+    # BUT THE PULLBACK MUST ACTUALLY EXPLAIN THE SILENCE, and getting this wrong made the whole rule
+    # useless for an hour. The first version asked only `retracement.active`, which is true whenever
+    # ANY candle before this one failed to carry the trend on — almost always. It waved through the
+    # 05 Aug 09:00 candle, which came out of **35 quiet bars** with a pullback of **2**.
+    #
+    # So the two lengths are compared. A pullback of 2 bars does not account for 35 hours of silence;
+    # a pullback as long as the silence does, and that is a market drifting back, not a dead one.
+    # **Nothing is tuned** — it is one measured length against another, both already computed.
+    quiet_bars = 0
+    for j in range(n - 1, -1, -1):
+        if j in mom or momentum_at(j):
+            break
+        quiet_bars += 1
+    if retracement is not None and getattr(retracement, "bars", 0) >= quiet_bars > 0:
+        return None
+
+    # THE RUN — his number: three candles or more carrying the trend on, after the waking bar.
+    trend_way = is_bullish if up else is_bearish
+    run = best_run = 0
+    run_ended_at = None
+    for j in range(woke + 1, n):
+        if trend_way(h1[j]):
+            run += 1
+            if run >= _RUN_CANDLES:
+                best_run = max(best_run, run)
+                run_ended_at = j        # the run qualifies from here; a pullback may follow it
+        else:
+            run = 0
+    if best_run < _RUN_CANDLES:
+        return (f"the market was quiet and has not run yet — it needs {_RUN_CANDLES} candles the "
+                f"trend's way, then a pullback, before a momentum candle can be trusted")
+
+    # THE PULLBACK — one candle or more against the trend, AFTER that run. His pullback rule already
+    # says one is enough; `vix1_retracement` measures it the same way and its own note records that
+    # 48% of real retracements are a single candle.
+    if not any(not trend_way(h1[j]) for j in range(run_ended_at + 1, n)):
+        return ("the market was quiet, it has run, but it has not pulled back yet — we enter from a "
+                "pullback and above, not straight off the run")
+    return None
 
 
 # ── IS THE MARKET CHOPPY? ─────────────────────────────────────────────────────────────────────────
