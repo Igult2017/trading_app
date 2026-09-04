@@ -965,32 +965,61 @@ levels-vs-triggers rule is respected.
 now have a way to reach a live price, but changing where an ORDER's prices come from is a separate
 decision from where a candle's are.
 
-### D42 - CHOPPY MARKETS ARE STILL TRADED. 9 of his 12 signals survive. OPEN
+### D42 - CHOPPY / QUIET MARKET DETECTION. ONGOING PROJECT, continue from here
 
-**His definition, and it is the one thing here with no test:**
+**His instruction 2026-09-04: record it as an ongoing project, we will continue it.**
 
-> *"a choppy market can be trending but prints 1 red volume candle then prints a bullish candle,
-> meaning it has no specific group of candles in succession"* — and a mixture of *"big bodies, small
-> bodies, long wicks and no wicks."* Also: *"a choppy market can calm and then we can trade it"*, so
-> whatever is built must clear by itself and never be a lockout.
+**HIS THREE DEFINITIONS.** *RANGING* — not printing HHs and HLs (or LLs and LHs). *QUIET* — *"has no
+momentum candles which I call volume candles... no activities"*. *CHOPPY* — *"can be trending but
+prints 1 red volume candle then a bullish candle... no specific group of candles in succession"*,
+plus *"a mixture of big bodies, small bodies, long wicks and no wicks"*. And *"a choppy market can
+calm and then we can trade it"* — so it must clear by itself, never a lockout.
 
-He sent three charts of untradeable markets; VIX.1 fired **12 signals** in them. Two rules shipped
-2026-09-04 (`vix1_tradeable.py`) take that to **9**. All nine are the chop case.
+**WHAT IS DEPLOYED** (`vix1_tradeable.py`, trend route only): the trend must have re-proven itself
+(ran, then pulled back) and the market must not be quiet (no momentum candles at all). His 12 signals
+-> 9. Cost 193 of 1,495 setups (12.9%) over 4 years.
 
-**FIVE CANDIDATE MEASURES WERE TESTED AND ALL FAILED** to tell his charts apart — candle-colour
-succession, his "closes beyond each other" reading, follow-through after a big candle, biggest
-sustained push, and momentum-candle succession. **Do not retry these.** The reason none works: at the
-signal moments his REJECTED markets were trending more decisively than his ACCEPTED one (image 1
-swings +21.8p/+13.2p against 03 Sep's -2.1p/-21.7p), so nothing that leans on strong structure can
-separate them.
+**WHAT IS BUILT BUT NOT WIRED — `choppiness()` and `market_not_choppy()`.** They are defined and
+tested and **nothing calls them**. That is deliberate and is HIS decision to continue later; **do NOT
+delete them citing the dead-code rule** — same standing as `vix1_regime._PROGRESS_ATR`.
 
-**WHY IT IS NOT GUESSED AT AGAIN:** there is exactly **one** market he has marked as tradeable, and he
-said it *"later calmed down"*, so even that one is mixed. Any threshold picked against a single
-positive example is fitted. **What would unblock it: two or three more charts he marks as tradeable**
-— then a cut either exists in his own data or provably does not.
+**THE ONE SIGN THAT WORKS — big body next to small.** Counting, per 24 hours, how often a body is
+more than double or less than half the one before it:
 
-**Pinned meanwhile:** `test_tradeable.py` asserts all nine STILL trade, as passing checks, so a later
-change cannot close them by accident without the suite going red and someone having to explain why.
+| | count out of 24 |
+|---|---|
+| his 9 bad signals | **15, 15, 15, 15, 16, 16, 16, 17, 18** |
+| his 3 good signals | **10, 11, 12** |
+
+No overlap. A line at **15** catches all nine and removes **54.3%** of remaining setups (his call,
+not taken). The other three signs — colour flips, wick flips, short moves — **overlap heavily and do
+not discriminate**; scoring all four together buries the one that works (3-of-4 describes 57% of all
+markets).
+
+**AGAINST HIS OWN CIRCLED CHARTS, whole regions, his clock (UTC+3):**
+
+| chart | he called it | caught by either rule |
+|---|---|---|
+| 03-06 Aug | choppy | **83%** |
+| 22 May | no volume | **100%** |
+| 24-26 May | no volume | 68% |
+| **14-16 Apr** | no volume | **44% — the gap** |
+
+**WHERE TO PICK IT UP: the 14-16 Apr chart.** Its candles are small but CONSISTENT — an orderly flat
+drift. The chop rule looks for big-next-to-small and sees order; the quiet rule refuses only on ZERO
+momentum candles and that market has a few. **A market that is barely alive rather than dead is the
+missing case.** The zero boundary came from his words (*"no momentum candles"*) and is too strict.
+
+**A BUG WORTH REMEMBERING:** the first size counter asked whether bodies were growing or shrinking —
+which is just what candles do. It fired in 13-17 of every 23 pairs in EVERY window, and **not one
+setup in 1,302 scored 0 of 4**, which is only possible if a sign is permanently on. A sign that is
+always true silently inflates every score. Rewritten to "more than double or less than half".
+
+**FIVE MEASURES TESTED AND REJECTED, do not retry:** candle-colour succession · his "closes beyond
+each other" reading · follow-through after a volume candle · biggest sustained push · travel-versus-
+progress. **All five measure DIRECTION, and direction is the half that does not discriminate** — at
+the signal moments his rejected markets trend MORE decisively than his accepted one. The half that
+works is candle CHARACTER, which he named in his first message and I kept dropping.
 
 ### D41 - TWO PRICE SOURCES: live feed first, broker data as the floor. 04 Sep
 
