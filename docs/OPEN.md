@@ -1014,28 +1014,51 @@ watching it · **never on the trading path** — `cancel_soon` returns immediate
 **Every cancellation logs which price killed it.** A cancelled order is a trade that will never
 happen, and without the reason it leaves no trace he could question later.
 
-### D43 - THE QUIET-MARKET RULE IS DEPLOYED BUT INCOMPLETE. ONGOING
+### D43 - THE QUIET-MARKET RULE, REBUILT AS A SEQUENCE. DONE 04 Sep
 
-**His instruction 2026-09-04: record it as ongoing even though it is deployed.**
+**The first version was deployed and wrong within hours.** It COUNTED momentum candles and refused
+when there were none — the counting half of his rule with the WAITING half missing, and the waiting
+half IS the rule. He had given me both halves earlier the same day (*"if we are from a ranging
+market, we wait for a pullback then we trade"*).
 
-**WHAT SHIPPED:** `vix1_tradeable.market_awake` refuses when there is **not a single momentum candle**
-in the 24 hours before this one. The boundary is zero-versus-any, and that came from his own words —
-*"a market that has gone quiet is one that has NO momentum candles. It means that market has no
-activities."*
+**MEASURED on his image-1 market, in sequence:** 09:00 refused, then 14:00, 17:00 and 20:00 all
+traded. **The only momentum candle in the window at 14:00 was the 09:00 one the rule had just
+refused** — evidence it rejected was used to satisfy it — and the "run" credited beside it was a
+break of structure from **61 hours earlier**, days before the market went quiet.
 
-**WHY IT IS INCOMPLETE, measured on his own chart.** His **14-16 Apr** market — one he marked as a
-no-volume market we cannot trade — is caught only **44%** of the time by this rule and the chop
-counter together (quiet alone: 21%). That market is **not dead, it is barely alive**: it prints a few
-momentum candles, so "zero" never triggers, and its candles are small but CONSISTENT, so the chop
-counter sees an orderly market.
+**HIS RULE, now built:**
 
-**THE GAP IN ONE LINE: "no activity" is built as all-or-nothing, and his charts show the real case is
-"almost no activity".** Zero is the boundary he named, so it was not widened unilaterally — a cut of
-"fewer than 4 in 48h" separated his charts cleanly and was **REJECTED as fitted to three examples**.
-Widening it is a decision that needs either more marked charts from him or outcomes scored on history.
+> The market went quiet. A momentum candle alone is NOT a trade. It must then **RUN** — *"3 candles
+> and above"* — and then **PULL BACK** — *"1 candle and above until the protected area is broken"* —
+> before a momentum candle is trusted. **UNLESS the quiet stretch was itself a pullback of the 1HR
+> trend**, because *"sometimes pullbacks can lack momentum candle, then when the market corrects it
+> comes with momentum."*
 
-**DO NOT simply raise the number to make his charts pass.** That is fitting, and it is how the
-0.50x ATR threshold got in. See [[project-vix1-atr-disabled]].
+**RESULTS: his 12 bad signals 12 -> 3. His one marked TRADEABLE market still fires all 3.**
+Cost over 4 years, both pairs: this rule **193 of 1,495 (12.9%)**, all rules together **276 (18.5%)**.
+
+**THREE MISTAKES OF MINE, all caught by testing the SEQUENCE rather than the count:**
+
+1. **The plan had the run wrong.** I proposed a break of structure; his number is 3 candles. A break
+   of structure is far rarer and would have made the rule much stricter than he meant.
+2. **The pullback exception cancelled the whole rule.** The first version asked only
+   `retracement.active`, which is true whenever any candle failed to carry the trend on — almost
+   always. It waved through the 05 Aug 09:00 candle, which came out of **35 quiet bars with a 2-bar
+   pullback**. Now the two LENGTHS are compared: a 2-bar pullback does not explain 35 hours of
+   silence. Nothing tuned — one measured length against another, both already computed.
+3. **It took the LAST run instead of the first.** His bearish shape is *run -> pull back -> turn back
+   down -> momentum candle*, so the last run IS the resumption and nothing follows it. Looking for a
+   pullback after the last run always failed, and it refused **his own settled 2026-08-25 rule**.
+   `test_choch_bearish_proof.py` caught it — **the second time that file caught me breaking his rule
+   in one day.**
+
+**STILL NOT CAUGHT: 3 of the 12, all image 1.** By 17:00 that market genuinely HAD run and pulled
+back, so this rule has no honest claim on it. They are the CHOPPY case — see **D42** — and are pinned
+as PASSING tests so a later change cannot close them by accident.
+
+**NOTHING IS INVENTED.** The momentum candle is `is_momentum_candle` unchanged; "carrying the trend
+on" is `is_bullish`/`is_bearish`, the identical test `vix1_retracement.py:176` uses; the pullback is
+the `Retracement` the path already computed. Only the SEQUENCE is new, and the sequence is his.
 
 ### D42 - CHOPPY / QUIET MARKET DETECTION. ONGOING PROJECT, continue from here
 
