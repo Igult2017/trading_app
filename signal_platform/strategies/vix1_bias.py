@@ -38,6 +38,7 @@ from strategies import vix1_retracement
 from strategies.vix1_state import Bias, market_state
 from strategies.vix1_swings import structure_turns
 from strategies.vix1_structure import _FAST_N, leg_state, market_permits
+from strategies.vix1_tradeable import market_awake, trend_reproven
 from strategies.vix1_trend import trend_state
 
 log = logging.getLogger(__name__)
@@ -62,6 +63,13 @@ log = logging.getLogger(__name__)
 #   the DAILY timeframe: 65% agreement, and on 29 Jul it read flat/DOWN/UP/DOWN at 40/60/90/120 days.
 #       It contradicts itself too.
 _H1_SWING_N = 48
+
+# HOW FAR BACK "has this market gone quiet?" LOOKS, and how much activity clears it.
+# 24 = one trading day, a natural unit rather than a tuned one. NEED = 1 is his own definition
+# — *"a market that has gone quiet is one that has NO momentum candles"* — so the boundary is
+# zero-versus-any, not a level someone picked. See `vix1_tradeable.market_awake`.
+_QUIET_LOOK = 24
+_QUIET_NEED = 1
 
 # THE TREND WINDOW IS PINNED, NOT "whatever we were handed".
 # The 2026-07-29 fix calibrated the trend on exactly 1,500 H1 bars (~62 days) — agreement across
@@ -279,6 +287,27 @@ def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "", debut=None
         if refusal:
             vix1_log.say(symbol, f"[vix1] {symbol} bias=NONE: {refusal} | {state_mc}")
             return None
+
+        # ── IS THIS MARKET WORTH TRADING AT ALL? (2026-09-04) ───────────────────────────────────
+        # His three charts of markets we cannot trade produced **12 signals**, every one through
+        # THIS route. The cause was not the trend test — measured at those moments the markets
+        # really were making higher highs and higher lows. It was that a trend, once established,
+        # was never re-examined: every momentum candle traded on a credential the market had earned
+        # long before and no longer deserved.
+        #
+        # ONLY ON THIS ROUTE. `vix1_choch` keeps its own rules — his one marked TRADEABLE example
+        # comes through it with the weakest structure of any window measured, so a liveness test
+        # there would refuse the setup this whole change exists to protect.
+        #
+        # THE NUMBERS SIT HERE, beside everything else that gates a trade. `_QUIET_NEED = 1` is HIS
+        # DEFINITION, not a tuned level: *"a market that has gone quiet is one that has NO momentum
+        # candles"* — zero is the boundary he named. A cut of 4-in-48h separated his charts more
+        # cleanly and was REJECTED as fitted to three examples.
+        for veto in (trend_reproven(mstate, turns_mc),
+                     market_awake(at_mc, symbol, _QUIET_LOOK, _QUIET_NEED)):
+            if veto:
+                vix1_log.say(symbol, f"[vix1] {symbol} bias=NONE: {veto} | {state_mc}")
+                return None
 
         # ── AND IS THE MARKET STILL IN THAT STATE *NOW*? (2026-08-19) ───────────────────────────
         # THE DEFECT THIS CLOSES. Every check above reads a window truncated to the momentum candle.
