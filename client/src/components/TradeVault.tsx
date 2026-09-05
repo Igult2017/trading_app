@@ -34,11 +34,14 @@ const VaultCell = ({ label, value, color, isMobile, first = false }: { label: st
     borderLeft: first ? "none" : "1px solid var(--jr-border)",
     borderTop: "1px solid transparent",
   }}>
-    <span style={{ fontSize: 9, fontWeight: 900, color: "var(--jr-muted)", letterSpacing: "0.12em", fontFamily: "'Montserrat', sans-serif" }}>
+    <span style={{ fontSize: 11, fontWeight: 900, color: "var(--jr-cap, #A8AEB8)", letterSpacing: "0.12em", fontFamily: "'Montserrat', sans-serif" }}>
       {label}
     </span>
     <span style={{
-      fontSize: isMobile ? 8 : 9, fontWeight: 900, color,
+      // THE VALUE, so it outranks its own label. A conditional size slipped past the sweep that
+      // raised everything else to the 11px floor, which would have left the figure (8-9px) SMALLER
+      // than the caption above it (11px) — the hierarchy upside down.
+      fontSize: isMobile ? 12 : 14, fontWeight: 800, color,
       fontFamily: "'Montserrat', sans-serif", letterSpacing: "-0.02em",
       textShadow:
         color === "#00d48a" ? "0 0 16px rgba(0,212,138,0.35)" :
@@ -110,7 +113,7 @@ function DirectionBadge({ direction }: { direction: string }) {
   const isBearish = direction === "bearish";
 
   if (!isBullish && !isBearish) {
-    return <span style={{ color: "var(--jr-muted)", fontSize: 9 }}>—</span>;
+    return <span style={{ color: "var(--jr-cap, #A8AEB8)", fontSize: 11 }}>—</span>;
   }
 
   return (
@@ -120,7 +123,7 @@ function DirectionBadge({ direction }: { direction: string }) {
       gap: 5,
       padding: "4px 10px",
       borderRadius: 20,
-      fontSize: 9,
+      fontSize: 11,
       fontWeight: 700,
       letterSpacing: "0.08em",
       border: "1px solid transparent",
@@ -145,14 +148,14 @@ function DirectionBadge({ direction }: { direction: string }) {
 
 function RRBadge({ rr }: { rr: string }) {
   const val = parseFloat(rr);
-  if (!rr || isNaN(val)) return <span style={{ color: "var(--jr-muted)", fontSize: 9 }}>—</span>;
+  if (!rr || isNaN(val)) return <span style={{ color: "var(--jr-cap, #A8AEB8)", fontSize: 11 }}>—</span>;
   const color = val >= 2 ? "#4da6ff" : val >= 1 ? "#a78bfa" : "#8899bb";
   return (
     <span style={{
       display: "inline-block",
       padding: "4px 10px",
       borderRadius: 6,
-      fontSize: 9,
+      fontSize: 11,
       fontWeight: 700,
       letterSpacing: "0.08em",
       background: "rgba(77,166,255,0.06)",
@@ -515,7 +518,7 @@ export default function TradeVault({ sessionId, startingBalance: sessionStarting
         <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#00d48a", boxShadow: "0 0 6px #00d48a", flexShrink: 0 }} />
         <div>
           <div style={{ fontSize: 12, fontWeight: 900, color: "var(--jr-text)", letterSpacing: "0.12em", fontFamily: "'Montserrat', sans-serif" }}>{t('vault.title')}</div>
-          <div style={{ fontSize: 11, fontWeight: 900, color: "var(--jr-muted)", marginTop: 2, fontFamily: "'Montserrat', sans-serif" }}>{subtitle}</div>
+          <div style={{ fontSize: 11, fontWeight: 900, color: "var(--jr-cap, #A8AEB8)", marginTop: 2, fontFamily: "'Montserrat', sans-serif" }}>{subtitle}</div>
         </div>
       </div>
       <div className="tv-stats" style={{ display: "flex", flexWrap: isMobile ? "wrap" : "nowrap", background: "var(--jr-panel)", border: "1px solid var(--jr-border)", overflow: "hidden", flexShrink: 0, width: isMobile ? "100%" : "auto" }}>
@@ -539,7 +542,7 @@ export default function TradeVault({ sessionId, startingBalance: sessionStarting
           onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}
           data-testid="button-download-csv"
         >
-          <span style={{ fontSize: 9, fontWeight: 900, color: "var(--jr-muted)", letterSpacing: "0.12em", fontFamily: "'Montserrat', sans-serif" }}>
+          <span style={{ fontSize: 11, fontWeight: 900, color: "var(--jr-cap, #A8AEB8)", letterSpacing: "0.12em", fontFamily: "'Montserrat', sans-serif" }}>
             {exported ? t('vault.exported') : t('vault.exportCsv')}
           </span>
           <CircleDownloadIcon success={exported} />
@@ -571,9 +574,30 @@ export default function TradeVault({ sessionId, startingBalance: sessionStarting
         .trade-vault-root, .trade-vault-root * { box-sizing: border-box; }
         .trade-vault-root select option { background: var(--jr-panel); color: var(--jr-text); }
 
+        /* MONTSERRAT ACTUALLY APPLIES NOW. This file already asks for it in a dozen places, and
+           every one of those was being overridden: Journal sets font-family !important on every
+           descendant of .journal-root except .dp, .ct-app, .ts-page and .audit-root, and this
+           panel is not on that list — so the whole vault was rendering in the journal's Playfair
+           Display at 9px. A display serif at 9px is causes 1 and 2 in docs/READABILITY.md at once,
+           which is what he ticked on 2026-09-05.
+
+           NOT fixed by adding .trade-vault-root to that exemption list: styles.page sets this
+           panel's base font to JetBrains Mono, so exempting the subtree would flip the entire
+           vault to monospace — a far bigger change than he asked for, on a page behind login that
+           I cannot see.
+
+           EACH SELECTOR IS class+element (0,1,1), which beats the journal rule's 0,1,0 while both
+           are !important. Deliberately NOT .trade-vault-root * — that is also 0,1,0, a TIE, and
+           would then hang on which stylesheet the browser saw last. */
+        .trade-vault-root div, .trade-vault-root span, .trade-vault-root p,
+        .trade-vault-root th, .trade-vault-root td,
+        .trade-vault-root button, .trade-vault-root input, .trade-vault-root select {
+          font-family: 'Montserrat', system-ui, -apple-system, 'Segoe UI', sans-serif !important;
+        }
+
         @media (max-width: 640px) {
           .trade-vault-root .tv-table-wrap { border-left: 0 !important; border-right: 0 !important; }
-          .trade-vault-root .tv-table th { padding: 10px 10px !important; font-size: 8.5px !important; }
+          .trade-vault-root .tv-table th { padding: 10px 10px !important; font-size: 11px !important; }
           .trade-vault-root .tv-table td { padding: 12px 10px !important; }
           .trade-vault-root .tv-stats > div { border-top: 1px solid var(--jr-border); }
           .trade-vault-root .tv-stats > div:nth-child(-n+3) { border-top: none; }
@@ -637,11 +661,11 @@ export default function TradeVault({ sessionId, startingBalance: sessionStarting
       <div style={{ padding: 0 }}>
       {!sessionId ? (
         <div style={{ ...styles.tableWrapper, padding: 40, textAlign: "center" as const }}>
-          <div style={{ color: "var(--jr-muted)", fontSize: 13 }}>Select a session to view your trades.</div>
+          <div style={{ color: "var(--jr-cap, #A8AEB8)", fontSize: 13 }}>Select a session to view your trades.</div>
         </div>
       ) : loading ? null : trades.length === 0 ? (
         <div style={{ ...styles.tableWrapper, padding: 40, textAlign: "center" as const }}>
-          <div style={{ color: "var(--jr-muted)", fontSize: 14 }} data-testid="text-empty-state">{t('vault.noTrades')}</div>
+          <div style={{ color: "var(--jr-cap, #A8AEB8)", fontSize: 14 }} data-testid="text-empty-state">{t('vault.noTrades')}</div>
         </div>
       ) : (
         <div className="tv-table-wrap" style={{ ...styles.tableWrapper, overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
@@ -722,7 +746,7 @@ export default function TradeVault({ sessionId, startingBalance: sessionStarting
                           data-testid={`button-confirm-delete-${trade.id}`}
                         >
                           <Trash2 size={14} />
-                          <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.06em", lineHeight: 1 }}>DELETE?</span>
+                          <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", lineHeight: 1 }}>DELETE?</span>
                         </button>
                       ) : (
                         <button
@@ -782,7 +806,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   vaultSub: {
     fontSize: 11,
-    color: "var(--jr-muted)",
+    color: "var(--jr-cap, #A8AEB8)",
     marginTop: 4,
     letterSpacing: "0.05em",
   },
@@ -797,8 +821,8 @@ const styles: Record<string, React.CSSProperties> = {
   },
   statCard: { textAlign: "center" as const },
   statLabel: {
-    fontSize: 9,
-    color: "var(--jr-muted)",
+    fontSize: 11,
+    color: "var(--jr-cap, #A8AEB8)",
     letterSpacing: "0.12em",
     marginBottom: 4,
   },
@@ -825,9 +849,9 @@ const styles: Record<string, React.CSSProperties> = {
   th: {
     padding: "14px 20px",
     textAlign: "left" as const,
-    fontSize: 9,
+    fontSize: 11,
     fontWeight: 600,
-    color: "var(--jr-muted)",
+    color: "var(--jr-cap, #A8AEB8)",
     letterSpacing: "0.12em",
     borderBottom: "1px solid var(--jr-border)",
     fontFamily: "'Montserrat', sans-serif",
@@ -841,13 +865,13 @@ const styles: Record<string, React.CSSProperties> = {
     verticalAlign: "middle" as const,
   },
   dateText: {
-    fontSize: 10,
+    fontSize: 11,
     color: "var(--jr-text)",
     fontWeight: 500,
   },
   timeText: {
-    fontSize: 9,
-    color: "var(--jr-muted)",
+    fontSize: 11,
+    color: "var(--jr-cap, #A8AEB8)",
     marginTop: 2,
   },
   asset: {
@@ -859,8 +883,8 @@ const styles: Record<string, React.CSSProperties> = {
     fontStyle: "italic" as const,
   },
   strategy: {
-    fontSize: 10,
-    color: "var(--jr-muted)",
+    fontSize: 11,
+    color: "var(--jr-cap, #A8AEB8)",
   },
   sessionBadge: {
     display: "inline-block",
@@ -868,16 +892,16 @@ const styles: Record<string, React.CSSProperties> = {
     background: "var(--jr-panel)",
     border: "1px solid var(--jr-border)",
     borderRadius: 6,
-    fontSize: 9,
+    fontSize: 11,
     fontWeight: 600,
-    color: "var(--jr-muted)",
+    color: "var(--jr-cap, #A8AEB8)",
     letterSpacing: "0.08em",
   },
   outcomeBadge: {
     display: "inline-block",
     padding: "5px 14px",
     borderRadius: 20,
-    fontSize: 9,
+    fontSize: 11,
     fontWeight: 700,
     letterSpacing: "0.1em",
     border: "1px solid transparent",
@@ -938,7 +962,7 @@ const styles: Record<string, React.CSSProperties> = {
   closeBtn: {
     background: "none",
     border: "none",
-    color: "var(--jr-muted)",
+    color: "var(--jr-cap, #A8AEB8)",
     cursor: "pointer",
     fontSize: 16,
   },
@@ -954,9 +978,9 @@ const styles: Record<string, React.CSSProperties> = {
     gap: 6,
   },
   label: {
-    fontSize: 9,
+    fontSize: 11,
     fontWeight: 700,
-    color: "var(--jr-muted)",
+    color: "var(--jr-cap, #A8AEB8)",
     letterSpacing: "0.12em",
     fontFamily: "'Montserrat', sans-serif",
   },
@@ -981,7 +1005,7 @@ const styles: Record<string, React.CSSProperties> = {
     background: "none",
     border: "1px solid var(--jr-border)",
     borderRadius: 6,
-    color: "var(--jr-muted)",
+    color: "var(--jr-cap, #A8AEB8)",
     fontSize: 11,
     fontWeight: 700,
     cursor: "pointer",
