@@ -225,7 +225,7 @@ const KPI_ICONS = {
 const StatCard = ({ stat }: { stat: { id: string; label: string; value: string; Icon: () => JSX.Element; color: string; bg: string } }) => (
   <div style={{ background: 'var(--jr-panel,#0d1117)', border: '1px solid var(--jr-border,rgba(255,255,255,0.05))', padding: 12, borderRadius: 8, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4 }} data-testid={`stat-${stat.id}`}>
     <p className="jr-cap" style={{ margin: 0, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{stat.label}</p>
-    <p className="jr-val" style={{ fontSize: 15, fontWeight: 800, color: stat.color, margin: 0 }}>{stat.value}</p>
+    <p className="jr-num" style={{ fontSize: 15, fontWeight: 700, color: stat.color, margin: 0 }}>{stat.value}</p>
   </div>
 );
 
@@ -485,7 +485,7 @@ function ActivityCalendar({ entries, darkMode = true }: { entries: any[]; darkMo
               <ChevronLeft size={14} strokeWidth={3} />
             </button>
             <div style={{ textAlign: 'center' }}>
-              <p className="jr-val" style={{ fontSize: 12, fontWeight: 700, color: darkMode ? '#fff' : '#0f172a', letterSpacing: '0.1em', textTransform: 'uppercase', margin: 0 }}>
+              <p style={{ fontSize: 12, fontWeight: 700, color: darkMode ? '#fff' : '#0f172a', letterSpacing: '0.1em', textTransform: 'uppercase', margin: 0 }}>
                 {MONTH_NAMES[activeMonth - 1]} {activeYear}
               </p>
               {/* Dot indicators — one per month that has trades; click to jump */}
@@ -540,7 +540,7 @@ function ActivityCalendar({ entries, darkMode = true }: { entries: any[]; darkMo
               return (
                 <div
                   key={day}
-                  className="jr-val"
+                  className="jr-num"
                   title={isToday ? 'Today' : undefined}
                   style={{
                     aspectRatio: '1', display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -704,7 +704,7 @@ function DashboardView({ sessionId, isMobile, windowWidth, darkMode = true }: { 
               <h2 style={{ fontSize: 11, fontWeight: 900, color: 'var(--jr-accent,#38bdf8)', textTransform: 'uppercase', letterSpacing: '0.2em', margin: 0 }}>EQUITY CURVE</h2>
             </div>
             {equityGrowth && (
-              <span className="jr-val" style={{ fontSize: 12, color: equityGrowth.totalReturnPct >= 0 ? '#34d399' : '#fb7185', fontWeight: 900 }}>
+              <span className="jr-num" style={{ fontSize: 12, color: equityGrowth.totalReturnPct >= 0 ? '#34d399' : '#fb7185', fontWeight: 900 }}>
                 {equityGrowth.totalReturnPct >= 0 ? '+' : ''}{equityGrowth.totalReturnPct.toFixed(2)}%
               </span>
             )}
@@ -723,7 +723,7 @@ function DashboardView({ sessionId, isMobile, windowWidth, darkMode = true }: { 
             <div key={m.label} style={{ marginBottom: 18 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
                 <span className="jr-cap" style={{ textTransform: 'uppercase' }}>{m.label}</span>
-                <span className="jr-val" style={{ fontSize: 12, fontWeight: 700, color: m.color }}>{m.val}</span>
+                <span className="jr-num" style={{ fontSize: 12, fontWeight: 700, color: m.color }}>{m.val}</span>
               </div>
               <div style={{ height: 2, background: 'var(--jr-divider,#161b22)', borderRadius: 4 }}><div style={{ height: '100%', width: m.val, background: m.color, borderRadius: 4 }} /></div>
             </div>
@@ -732,9 +732,9 @@ function DashboardView({ sessionId, isMobile, windowWidth, darkMode = true }: { 
             <p className="jr-cap" style={{ textTransform: 'uppercase', marginBottom: 12 }}>PAIR VOLUME / FREQUENCY</p>
             {instEntries.map(([name, data]: any) => (
               <div key={name} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-                <span className="jr-val" style={{ fontSize: 11, color: 'var(--jr-text,#fff)', width: 58, flexShrink: 0, fontWeight: 600 }}>{name}</span>
+                <span style={{ fontSize: 11, color: 'var(--jr-ink,#ECEEF2)', width: 58, flexShrink: 0, fontWeight: 600 }}>{name}</span>
                 <div style={{ flex: 1, height: 2, background: 'var(--jr-divider,#161b22)', borderRadius: 4, overflow: 'hidden' }}><div style={{ height: '100%', width: `${Math.round((data.trades / maxInstTrades) * 100)}%`, background: 'var(--jr-accent,#38bdf8)', borderRadius: 4 }} /></div>
-                <span className="jr-val" style={{ fontSize: 11, color: 'var(--jr-text,#fff)', width: 22, textAlign: 'right', flexShrink: 0, fontWeight: 600 }}>{data.trades}</span>
+                <span className="jr-num" style={{ fontSize: 11, color: 'var(--jr-ink,#ECEEF2)', width: 22, textAlign: 'right', flexShrink: 0, fontWeight: 600 }}>{data.trades}</span>
               </div>
             ))}
             {instEntries.length === 0 && <p className="jr-cap" style={{ textTransform: 'none', letterSpacing: '.02em' }}>No instrument data yet</p>}
@@ -760,13 +760,13 @@ function DashboardView({ sessionId, isMobile, windowWidth, darkMode = true }: { 
                   {recentTrades.map(t => (
                     <tr key={t.id} style={{ borderTop: '1px solid var(--jr-divider,rgba(255,255,255,0.04))' }} data-testid={`trade-row-${t.id}`}>
                       <td style={{ padding: '8px 14px' }}>
-                        <div className="jr-val" style={{ fontSize: 12, fontWeight: 700, color: 'var(--jr-text,#fff)' }}>{t.ticker}</div>
-                        <div className="jr-cap" style={{ marginTop: 3, letterSpacing: '.02em' }}>{t.date}</div>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--jr-ink,#ECEEF2)' }}>{t.ticker}</div>
+                        <div className="jr-cap jr-num" style={{ marginTop: 3, letterSpacing: '.02em' }}>{t.date}</div>
                       </td>
                       <td style={{ padding: '8px 14px', textAlign: 'center' }}>
-                        <span className="jr-val" style={{ display: 'inline-block', padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', background: t.type === 'LONG' ? 'rgba(16,185,129,0.1)' : 'rgba(244,63,94,0.1)', color: t.type === 'LONG' ? '#34d399' : '#fb7185', border: `1px solid ${t.type === 'LONG' ? 'rgba(16,185,129,0.15)' : 'rgba(244,63,94,0.15)'}` }}>{t.type}</span>
+                        <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', background: t.type === 'LONG' ? 'rgba(16,185,129,0.1)' : 'rgba(244,63,94,0.1)', color: t.type === 'LONG' ? '#34d399' : '#fb7185', border: `1px solid ${t.type === 'LONG' ? 'rgba(16,185,129,0.15)' : 'rgba(244,63,94,0.15)'}` }}>{t.type}</span>
                       </td>
-                      <td className="jr-val" style={{ padding: '8px 14px', textAlign: 'right', fontSize: 12, fontWeight: 800, color: t.status === 'win' ? '#34d399' : t.status === 'be' ? '#fbbf24' : '#fb7185' }}>
+                      <td className="jr-num" style={{ padding: '8px 14px', textAlign: 'right', fontSize: 12, fontWeight: 700, color: t.status === 'win' ? '#34d399' : t.status === 'be' ? '#fbbf24' : '#fb7185' }}>
                         {/* THE SIGN COMES FROM THE MONEY, never from the label — a break-even
                             printed "-$0.00" when it was read off the class. */}
                         {t.pnl >= 0 ? '+' : '-'}${Math.abs(t.pnl).toFixed(2)}
@@ -1044,18 +1044,27 @@ export default function Journal() {
            That is cause 1 and cause 2 in docs/READABILITY.md together; the muted grey they used
            measures 5.34:1 and passes AA on its own.
 
-           So: Montserrat, at the 11px floor, in the brighter caption grey the Metrics panel
-           settled on (8.77:1 there, against 5.34:1 here). !important AND two class selectors are
-           both needed - the journal rule is itself !important, so specificity alone loses. */
+           So: the 11px floor, in the brighter caption grey the Metrics panel settled on (8.77:1
+           there, against 5.34:1 here). !important AND two class selectors are both needed - the
+           journal rule is itself !important, so specificity alone loses.
+
+           NO FONT CHANGE HERE. I first set these to Montserrat and he rejected it: "i told you to
+           borrow the approach metrics page is using and you decided to change font type... I like
+           playfair or something close to it and DM mono for numbers." He is right, and the metrics
+           panel proves it — that panel declares JetBrains Mono in exactly one place and is NOT on
+           the exemption list above, so its declaration is overridden and it renders in the journal
+           face like everything else. Its recipe is the COLOUR SCALE and the sizes, nothing more.
+           So the text keeps the journal font; only the size and the colour move. */
         .journal-root .jr-cap{
-          font-family:'Montserrat',system-ui,-apple-system,'Segoe UI',sans-serif!important;
           font-size:11px!important;letter-spacing:.08em!important;font-weight:600!important;
           color:var(--jr-cap,#A8AEB8)!important;}
-        /* The values those captions sit above. FONT ONLY — no colour: several of these are
-           deliberately green/red/amber by value, and forcing a colour here would flatten the one
-           signal the dashboard is actually carrying. Each element keeps its own. */
-        .journal-root .jr-val{
-          font-family:'Montserrat',system-ui,-apple-system,'Segoe UI',sans-serif!important;}
+        /* FIGURES IN DM MONO, his explicit ask, and the same face the drawdown panel and the audit
+           page already set their numbers in. Font only — no colour: several of these are
+           deliberately green/red/amber by value, and forcing a colour would flatten the one signal
+           the dashboard is actually carrying. */
+        .journal-root .jr-num{
+          font-family:'DM Mono',ui-monospace,monospace!important;
+          font-variant-numeric:tabular-nums;}
         .journal-root *{scrollbar-width:none;-ms-overflow-style:none;}
         .primary-btn { background: ${T.accent}; transition: all 0.2s; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 800; font-size: 11px; border-radius: 0 !important; }
         .primary-btn:hover { background: ${T.accent}cc; box-shadow: 0 0 20px ${T.accent}66; }

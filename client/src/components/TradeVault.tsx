@@ -37,7 +37,7 @@ const VaultCell = ({ label, value, color, isMobile, first = false }: { label: st
     <span style={{ fontSize: 11, fontWeight: 900, color: "var(--jr-cap, #A8AEB8)", letterSpacing: "0.12em", fontFamily: "'Montserrat', sans-serif" }}>
       {label}
     </span>
-    <span style={{
+    <span className="tv-num" style={{
       // THE VALUE, so it outranks its own label. A conditional size slipped past the sweep that
       // raised everything else to the 11px floor, which would have left the figure (8-9px) SMALLER
       // than the caption above it (11px) — the hierarchy upside down.
@@ -151,7 +151,7 @@ function RRBadge({ rr }: { rr: string }) {
   if (!rr || isNaN(val)) return <span style={{ color: "var(--jr-cap, #A8AEB8)", fontSize: 11 }}>—</span>;
   const color = val >= 2 ? "#4da6ff" : val >= 1 ? "#a78bfa" : "#8899bb";
   return (
-    <span style={{
+    <span className="tv-num" style={{
       display: "inline-block",
       padding: "4px 10px",
       borderRadius: 6,
@@ -574,25 +574,21 @@ export default function TradeVault({ sessionId, startingBalance: sessionStarting
         .trade-vault-root, .trade-vault-root * { box-sizing: border-box; }
         .trade-vault-root select option { background: var(--jr-panel); color: var(--jr-text); }
 
-        /* MONTSERRAT ACTUALLY APPLIES NOW. This file already asks for it in a dozen places, and
-           every one of those was being overridden: Journal sets font-family !important on every
-           descendant of .journal-root except .dp, .ct-app, .ts-page and .audit-root, and this
-           panel is not on that list — so the whole vault was rendering in the journal's Playfair
-           Display at 9px. A display serif at 9px is causes 1 and 2 in docs/READABILITY.md at once,
-           which is what he ticked on 2026-09-05.
+        /* THE TEXT KEEPS THE JOURNAL FACE. I briefly forced this whole panel to Montserrat and he
+           rejected it: "i told you to borrow the approach metrics page is using and you decided to
+           change font type... I like playfair or something close to it and DM mono for numbers."
+           The Metrics panel settles the point — it declares JetBrains Mono in one place, is not on
+           Journal's exemption list, so that declaration is overridden and it renders in the journal
+           face like every other panel. Its recipe is the COLOUR SCALE and the sizes, not a font.
 
-           NOT fixed by adding .trade-vault-root to that exemption list: styles.page sets this
-           panel's base font to JetBrains Mono, so exempting the subtree would flip the entire
-           vault to monospace — a far bigger change than he asked for, on a page behind login that
-           I cannot see.
-
-           EACH SELECTOR IS class+element (0,1,1), which beats the journal rule's 0,1,0 while both
-           are !important. Deliberately NOT .trade-vault-root * — that is also 0,1,0, a TIE, and
-           would then hang on which stylesheet the browser saw last. */
-        .trade-vault-root div, .trade-vault-root span, .trade-vault-root p,
-        .trade-vault-root th, .trade-vault-root td,
-        .trade-vault-root button, .trade-vault-root input, .trade-vault-root select {
-          font-family: 'Montserrat', system-ui, -apple-system, 'Segoe UI', sans-serif !important;
+           SO ONLY THE FIGURES MOVE, to DM Mono, which is what he asked for and the same face the
+           drawdown panel and the audit page already use for numbers. Each selector is class+element
+           (0,1,1) so it beats the journal rule's 0,1,0 while both are !important — deliberately not
+           .trade-vault-root *, which is also 0,1,0, a tie decided by stylesheet order. */
+        .trade-vault-root .tv-num,
+        .trade-vault-root td.tv-num, .trade-vault-root span.tv-num {
+          font-family: 'DM Mono', ui-monospace, monospace !important;
+          font-variant-numeric: tabular-nums;
         }
 
         @media (max-width: 640px) {
@@ -689,8 +685,8 @@ export default function TradeVault({ sessionId, startingBalance: sessionStarting
                   data-testid={`row-trade-${trade.id}`}
                 >
                   <td style={styles.td}>
-                    <div style={styles.dateText}>{trade.date}</div>
-                    <div style={styles.timeText}>{trade.time}</div>
+                    <div className="tv-num" style={styles.dateText}>{trade.date}</div>
+                    <div className="tv-num" style={styles.timeText}>{trade.time}</div>
                   </td>
                   <td style={styles.td}>
                     <span style={styles.asset}>{trade.asset}</span>
@@ -718,7 +714,7 @@ export default function TradeVault({ sessionId, startingBalance: sessionStarting
                     </span>
                   </td>
                   <td style={styles.td}>
-                    <span style={{
+                    <span className="tv-num" style={{
                       ...styles.pl,
                       color: trade.pl >= 0 ? "#00e5a0" : "#ff4d6d",
                     }}>
