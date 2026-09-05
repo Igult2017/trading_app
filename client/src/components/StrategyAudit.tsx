@@ -468,7 +468,7 @@ function Page1({ d }: { d: AuditData }) {
           <CellTitle>{t('strategy.weaknesses')}</CellTitle>
           {weakness ? (
             <div style={{ padding: 14, borderLeft: `2px solid ${T.red2}`, background: T.bg3 }}>
-              <div style={{ ...mono, fontSize: 11, color: T.red, letterSpacing: ".1em", marginBottom: 6 }}>{weaknessFactor.toUpperCase()}</div>
+              <div style={{ fontFamily: INTER, fontSize: 13, color: T.red, fontWeight: 600, marginBottom: 6, lineHeight: 1.45 }}>{weaknessFactor}</div>
               <p style={{ fontSize: 12, color: T.muted, lineHeight: 1.7, fontFamily: FONT, fontWeight: 400 }}>
                 Win rate drops to {(weakness.winRateWithFactor ?? 0).toFixed(1)}% when {weaknessFactor.toLowerCase()} is present (−{(weakness.impact ?? 0).toFixed(1)}pp impact). Avoid entries under these conditions.
               </p>
@@ -762,17 +762,18 @@ function StrategyBlueprintPanel({ d }: { d: AuditData }) {
         </div>
       </div>
 
-      <div style={{ ...mono, fontSize: 12, color: T.text, fontWeight: 700, letterSpacing: ".04em", marginBottom: 12 }}>
+      {/* The blueprint's name is a HEADING, not a readout — it was set in the figures face. */}
+      <div style={{ fontFamily: PLAYFAIR, fontSize: 16, color: T.text, fontWeight: 600, marginBottom: 14, lineHeight: 1.25 }}>
         {bp.title}
       </div>
 
-      <div style={{ display: "flex", flexDirection: "column" as const, gap: 7 }}>
+      <div style={{ display: "flex", flexDirection: "column" as const, gap: 9 }}>
         {bp.rules.map((rule, i) => (
-          <div key={i} style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
-            <span style={{ ...mono, fontSize: 11, color: T.green, minWidth: 16, paddingTop: 1, letterSpacing: ".06em" }}>
+          <div key={i} style={{ display: "flex", gap: 11, alignItems: "flex-start" }}>
+            <span style={{ ...mono, fontSize: 11, color: T.green, minWidth: 18, paddingTop: 2, letterSpacing: ".04em" }}>
               {String(i + 1).padStart(2, "0")}
             </span>
-            <span style={{ fontSize: 12, color: T.muted, fontFamily: FONT, lineHeight: 1.55 }}>{rule}</span>
+            <span style={{ fontSize: 13, color: T.text, fontFamily: INTER, lineHeight: 1.6, fontWeight: 400 }}>{rule}</span>
           </div>
         ))}
       </div>
@@ -796,10 +797,16 @@ function Page4({ d }: { d: AuditData }) {
           <CellTitle>AI Policy Suggestions</CellTitle>
           {suggestions.length > 0 ? suggestions.slice(0, 3).map((item, i) => (
             <div key={i} style={{ padding: 14, border: `1px solid ${T.line}`, background: T.bg3, marginBottom: 10 }}>
-              <div style={{ ...mono, fontSize: 11, letterSpacing: ".1em", color: T.blue, marginBottom: 6 }}>{item.rule?.toUpperCase()}</div>
-              <div style={{ fontSize: 12, color: T.muted, lineHeight: 1.6, fontFamily: FONT, fontWeight: 400 }}>
+              {/* THE RULE IS A SENTENCE, so it stops being shouted. It was forced to UPPERCASE in
+                  the figures face with .1em tracking — fine for a two-word label, unreadable for
+                  "Refine stop loss placement to accommodate typical price excursions before
+                  reversal", which then wrapped as two lines of tracked capitals. That is why the
+                  Action tab looked clean with no data and awful with it: the empty state has no
+                  sentences in it. (His report, 2026-09-05.) */}
+              <div style={{ fontFamily: INTER, fontSize: 13, fontWeight: 600, color: T.blue, marginBottom: 7, lineHeight: 1.45 }}>{item.rule}</div>
+              <div style={{ fontSize: 12.5, color: T.muted, lineHeight: 1.65, fontFamily: INTER, fontWeight: 400 }}>
                 {item.rationale}{" "}
-                {item.expectedImpact && <span style={{ color: T.green, fontWeight: 700 }}>{item.expectedImpact}</span>}
+                {item.expectedImpact && <span style={{ color: T.green, fontWeight: 600 }}>{item.expectedImpact}</span>}
               </div>
             </div>
           )) : (
@@ -811,8 +818,10 @@ function Page4({ d }: { d: AuditData }) {
           {guardrails.length > 0 ? guardrails.map((item, i) => (
             <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 0", borderBottom: i < guardrails.length - 1 ? `1px solid ${T.line}` : "none" }}>
               <div>
-                <div style={{ ...mono, fontSize: 11, color: T.dim, letterSpacing: ".1em" }}>{item.label?.toUpperCase()}</div>
-                <div style={{ ...mono, fontSize: 14, color: T.text, marginTop: 2 }}>{item.value}</div>
+                {/* Same reason as the rule above: "3 consecutive losses in one session" is a
+                    phrase, not a label, and reads as noise in tracked capitals. */}
+                <div style={{ fontFamily: INTER, fontSize: 12.5, color: T.text, fontWeight: 500, lineHeight: 1.45 }}>{item.label}</div>
+                <div style={{ ...mono, fontSize: 12, color: T.dim, marginTop: 3 }}>{item.value}</div>
               </div>
               <Badge color={item.status === "Active" ? T.green : T.amber} border={item.status === "Active" ? T.green2 : "#8a5a00"}>{item.status}</Badge>
             </div>
@@ -1333,8 +1342,8 @@ function Page6({ sessionId, userId }: { sessionId?: string; userId?: string }) {
           <CellTitle icon={<Target size={13} />}>Entry Conditions</CellTitle>
           {entries.length > 0 ? entries.map((item, i) => (
             <div key={i} style={{ padding: 14, border: `1px solid ${T.line}`, background: T.bg3, marginBottom: 10 }}>
-              <div style={{ ...mono, fontSize: 11, letterSpacing: ".1em", color: T.blue, marginBottom: 6 }}>
-                {item.label?.toUpperCase()}
+              <div style={{ fontFamily: INTER, fontSize: 13, color: T.blue, fontWeight: 600, marginBottom: 6, lineHeight: 1.45 }}>
+                {item.label}
               </div>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
                 <span style={{ fontFamily: MONO, fontSize: 13, color: T.green, fontWeight: 400 }}>
@@ -1357,7 +1366,7 @@ function Page6({ sessionId, userId }: { sessionId?: string; userId?: string }) {
           {avoids.length > 0 ? avoids.map((item, i) => (
             <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 0", borderBottom: i < avoids.length - 1 ? `1px solid ${T.line}` : "none" }}>
               <div>
-                <div style={{ ...mono, fontSize: 11, color: T.dim, letterSpacing: ".1em" }}>{item.label?.toUpperCase()}</div>
+                <div style={{ fontFamily: INTER, fontSize: 12.5, color: T.text, fontWeight: 500, lineHeight: 1.45 }}>{item.label}</div>
                 <div style={{ fontFamily: MONO, fontSize: 12, color: T.red, marginTop: 2, fontWeight: 400 }}>
                   {(item.win_rate * 100).toFixed(0)}% win rate · {item.sample_size}t
                 </div>
