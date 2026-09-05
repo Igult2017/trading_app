@@ -755,20 +755,18 @@ function StrategyBlueprintPanel({ d }: { d: AuditData }) {
   const bp = d.aiStrategyBlueprint;
   if (!bp) return null;
 
+  // THE SAME CARD AS EVERY OTHER PANEL ON THE PAGE. This was the one thing on the audit page that
+  // did not use <Cell>: a bespoke box with a green border and a gradient wash — the only full-panel
+  // gradient in the file — plus its own hand-rolled heading instead of <CellTitle>. That is what
+  // made the Action tab read as a different page, and his "make it look like other pages" was
+  // still outstanding after I fixed the content and the card colours. (2026-09-05.)
+  //
+  // The green is kept, but as an ACCENT rather than a frame: a left edge and the win-rate figure.
   return (
-    <div style={{
-      marginBottom: 12,
-      border: `1px solid ${T.green2}`,
-      background: "linear-gradient(135deg, rgba(0,255,136,0.04) 0%, rgba(0,0,0,0) 60%)",
-      borderRadius: 4,
-      padding: "18px 20px",
-    }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ width: 2, height: 16, background: T.green, borderRadius: 1 }} />
-          <span style={{ ...mono, fontSize: 12.5, letterSpacing: ".12em", color: T.green, textTransform: "uppercase" as const }}>AI Strategy Blueprint</span>
-        </div>
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+    <Cell style={{ marginBottom: 3, borderLeft: `2px solid ${T.green2}` }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+        <CellTitle icon={<Sparkles size={13} />}>AI Strategy Blueprint</CellTitle>
+        <div style={{ display: "flex", gap: 8, alignItems: "baseline", marginBottom: 18 }}>
           {bp.expectedWinRate && (
             <span style={{ ...mono, fontSize: 12.5, color: T.green, letterSpacing: ".06em" }}>{bp.expectedWinRate} WR</span>
           )}
@@ -779,7 +777,7 @@ function StrategyBlueprintPanel({ d }: { d: AuditData }) {
       </div>
 
       {/* The blueprint's name is a HEADING, not a readout — it was set in the figures face. */}
-      <div style={{ fontFamily: PLAYFAIR, fontSize: 17, color: T.text, fontWeight: 600, marginBottom: 14, lineHeight: 1.25 }}>
+      <div style={{ fontFamily: PLAYFAIR, fontSize: 15, color: T.text, fontWeight: 600, marginBottom: 14, lineHeight: 1.3 }}>
         {bp.title}
       </div>
 
@@ -793,7 +791,7 @@ function StrategyBlueprintPanel({ d }: { d: AuditData }) {
           </div>
         ))}
       </div>
-    </div>
+    </Cell>
   );
 }
 
