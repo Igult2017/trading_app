@@ -263,8 +263,8 @@ const NeonLineChart = ({ data }: { data: { label: string; pnl: number }[] }) => 
       </defs>
       <rect x="0" y="0" width={W} height={H} fill="var(--jr-chart,#080d18)"/>
       {[0.25,0.5,0.75,1].map((t,i)=><line key={i} x1={PL} y1={PT+(1-t)*(H-PT-PB)} x2={W-PR} y2={PT+(1-t)*(H-PT-PB)} stroke="rgba(99,120,180,0.15)" strokeWidth="1" strokeDasharray="4 4"/>)}
-      {[0,1,2,3].map(i=>{const v=minV+(i/3)*range; return <text key={i} x={PL-5} y={toY(v)+4} textAnchor="end" fontSize="9" fill="rgba(100,116,139,0.6)" fontFamily="Montserrat,sans-serif" fontWeight="900">{v>=1000?`${(v/1000).toFixed(1)}k`:Math.round(v)}</text>;})}
-      {labelIdxs.map(i=><text key={i} x={toX(i)} y={H-PB+16} textAnchor="middle" fontSize="9" fill="rgba(100,116,139,0.6)" fontFamily="Montserrat,sans-serif" fontWeight="900">{data[i].label}</text>)}
+      {[0,1,2,3].map(i=>{const v=minV+(i/3)*range; return <text key={i} x={PL-5} y={toY(v)+4} textAnchor="end" fontSize="12" fill="var(--jr-cap,#A8AEB8)" fontFamily="Montserrat,sans-serif" fontWeight="700">{v>=1000?`${(v/1000).toFixed(1)}k`:Math.round(v)}</text>;})}
+      {labelIdxs.map(i=><text key={i} x={toX(i)} y={H-PB+16} textAnchor="middle" fontSize="12" fill="var(--jr-cap,#A8AEB8)" fontFamily="Montserrat,sans-serif" fontWeight="700">{data[i].label}</text>)}
       <path d={areaPath} fill="url(#neonFill)"/>
       <path d={linePath} fill="none" stroke="#7c6fff" strokeWidth="6" strokeOpacity="0.2" filter="url(#glow)" strokeLinecap="round"/>
       <path d={linePath} fill="none" stroke="#a78bfa" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>

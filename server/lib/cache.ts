@@ -73,7 +73,13 @@ export function userSessionKey(ns: string, userId?: string, sessionId?: string):
   return `${ns}:${userId ?? ""}:${sessionId ?? ""}`;
 }
 
-const COMPUTE_NAMESPACES = ["entries", "metrics", "calendar", "drawdown", "tfmatrix"] as const;
+// EVERY NAMESPACE THAT CACHES A COMPUTED PAGE MUST BE HERE, or an edit is invisible on that page
+// until its TTL expires. "strategy-audit" was missing (added 2026-09-05): the audit endpoint caches
+// under that key (routes.ts) and guards with `entryCount === entries.length`, and correcting a
+// trade changes VALUES, not the count — so the stale page was served straight back. That is part of
+// why his corrections "did not appear everywhere".
+const COMPUTE_NAMESPACES = ["entries", "metrics", "calendar", "drawdown", "tfmatrix",
+                            "strategy-audit"] as const;
 
 /** Clear every cached page for one user/session, so the next request recomputes. */
 export async function invalidateComputeCaches(sessionId?: string, userId?: string): Promise<void> {

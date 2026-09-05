@@ -103,8 +103,17 @@ check('the repair reads the existing entry before touching its blob',
       /getJournalEntryById\(trade\.journalEntryId\)/.test(idxSrc), true);
 check('...and MERGES rather than replaces',
       /\{ \.\.\.his, \.\.\.\(rebuilt\.manualFields/.test(idxSrc), true);
-check('...and leaves the blob alone entirely if it cannot read it back',
-      /manualFields = undefined;/.test(idxSrc), true);
+// STRONGER THAN IT USED TO BE (2026-09-05). This asserted `manualFields = undefined`, i.e. "leave
+// the blob alone if the read fails". The repair now ABANDONS THE WHOLE REBUILD in that case and
+// returns, because the same read is what tells it which fields he has corrected by hand — and
+// without that list, reverting one of his corrections is worse than leaving a broker field stale
+// for one more cycle. The old assertion pinned the weaker behaviour, so it is replaced, not deleted.
+const catchBlock = idxSrc.slice(idxSrc.indexOf('  } catch {', idxSrc.indexOf('repairJournalDerived')),
+                                idxSrc.indexOf('const patch: Record<string, any> = {'));
+check('...and writes NOTHING at all if it cannot read the entry back',
+      /\breturn;/.test(catchBlock), true);
+check('...and says so, rather than failing silently',
+      /stage: 'failed'/.test(catchBlock), true);
 
 // ── THE METRICS FIELDS ARE ACTUALLY WRITTEN ────────────────────────────────
 // His report, 2026-09-03: *"some details of trades autosynced are not recorded there."*

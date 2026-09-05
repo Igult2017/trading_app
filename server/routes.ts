@@ -3,6 +3,10 @@ import { createServer, type Server } from "http";
 import { supabaseAdmin, verifyToken } from "./lib/supabaseAdmin";
 import { cacheGet, cacheSet, cacheDel, userSessionKey,
          invalidateComputeCaches } from "./lib/cache";
+// The two halves of "a hand edit beats the broker" — the list of fields it can cover and the key it
+// is stored under. Imported rather than re-declared so the PUT below and the sync's repair cannot
+// drift apart. See the note on EDIT_LOCK_KEY in services/autoJournal/index.ts.
+import { EDIT_LOCK_KEY, EDIT_LOCKABLE_FIELDS } from "./services/autoJournal";
 import { db, pool } from "./db";
 import { userProfiles, adminAccessLogs, tradingSignals, priceAlerts, emailTracking,
          platformHeartbeat, platformDowntime } from "@shared/schema";
@@ -1613,6 +1617,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
             updates[blobKey] = { ...base, ...incoming };
           }
         }
+      }
+
+      // ── REMEMBER WHAT HE CHANGED BY HAND, so the sync stops undoing it ──────
+      //
+      // His report, 2026-09-05: *"i am unable to edit and make corrections to trade vault for auto
+      // synced trades."* The edit was never blocked — it was OVERWRITTEN. `repairJournalDerived`
+      // rebuilds fifteen fields on a synced entry from the broker's own numbers, and the sync calls
+      // it from four places, so a correction survived until the next pass and then reverted. That
+      // is also why a trade he re-classified as break-even kept coming back as a loss, for ever.
+      //
+      // The repair itself is NOT the bug — the live feed records a trade the instant it closes with
+      // no open time and no original stop, and the later sweep genuinely learns them. What was
+      // missing is any way to tell "this was blank and we found it out" from "he changed it on
+      // purpose". This records the second kind, and only that kind.
+      //
+      // KEPT IN `manualFields`, which the block above already MERGES rather than replaces, so this
+      // needs no new column and no migration — and it cannot be lost by a later partial edit.
+      const EDITABLE = new Set<string>(EDIT_LOCKABLE_FIELDS);
+      const touched  = Object.keys(rest).filter(k => EDITABLE.has(k));
+      if (touched.length) {
+        const mf   = (updates.manualFields ?? (existing as any).manualFields ?? {}) as Record<string, any>;
+        const prev: string[] = Array.isArray(mf[EDIT_LOCK_KEY]) ? mf[EDIT_LOCK_KEY] : [];
+        updates.manualFields = { ...mf, [EDIT_LOCK_KEY]: [...new Set([...prev, ...touched])] };
       }
 
       // When profitLoss is being corrected, recalculate accountBalance for this entry

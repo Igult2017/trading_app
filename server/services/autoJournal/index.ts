@@ -19,6 +19,29 @@ import { enrichTradeWithBalance } from '../balanceTracker';
 import { buildJournalEntry, timingFields } from './fields';
 import { record } from './events';
 
+/**
+ * A HAND EDIT WINS OVER THE BROKER, FOR EVER.
+ *
+ * These are the fields `repairJournalDerived` below rebuilds from the broker's numbers. Once he has
+ * corrected one by hand, the sync must never put its own value back — his report, 2026-09-05:
+ * *"i am unable to edit and make corrections to trade vault for auto synced trades."* The edit was
+ * saving and then being reverted on the next sync pass, which is also why a trade he re-classified
+ * as break-even kept returning as a loss.
+ *
+ * `PUT /api/journal/entries/:id` writes the names he touched into `manualFields[EDIT_LOCK_KEY]`;
+ * the repair reads them back and leaves those alone. Anything he has NOT touched is still repaired,
+ * so the reason the repair exists — the live feed records a trade with no open time and no original
+ * stop, and the later sweep learns them — keeps working.
+ *
+ * Both sides import from here so the two lists cannot drift apart.
+ */
+export const EDIT_LOCK_KEY = '__editedByHand';
+export const EDIT_LOCKABLE_FIELDS = [
+  'direction', 'profitLoss', 'pipsGainedLost', 'stopLoss', 'takeProfit',
+  'stopLossDistance', 'takeProfitDistance', 'riskReward', 'achievedRR',
+  'outcome', 'primaryExitReason', 'orderType', 'entryTF', 'mae', 'mfe',
+] as const;
+
 export { classifyOutcome, buildJournalEntry, timingFields } from './fields';
 export { computeRisk } from './risk';
 export { record, recordSoon } from './events';
@@ -178,16 +201,30 @@ export async function repairJournalDerived(trade: SyncedTrade): Promise<void> {
 
   // MERGE, NEVER REPLACE — see the note above. Only our own keys are overwritten.
   let manualFields: any = rebuilt.manualFields;
+  let edited: string[] = [];
   try {
     const existing = await storage.getJournalEntryById(trade.journalEntryId);
     const his = (existing?.manualFields ?? {}) as Record<string, unknown>;
+    // WHICH FIELDS HE HAS CORRECTED BY HAND. Read before the merge, because the merge is what
+    // would otherwise carry our value over his. See EDIT_LOCK_KEY at the top of this file.
+    const lock = his[EDIT_LOCK_KEY];
+    edited = Array.isArray(lock) ? lock.filter((k): k is string => typeof k === 'string') : [];
     manualFields = { ...his, ...(rebuilt.manualFields as Record<string, unknown>) };
+    // His list survives our merge — `rebuilt.manualFields` does not carry the key, but being
+    // explicit means a future field added there cannot quietly wipe it.
+    if (edited.length) manualFields[EDIT_LOCK_KEY] = edited;
   } catch {
     // Could not read it back: leave the blob ALONE rather than risk overwriting his notes with ours.
-    manualFields = undefined;
+    // AND REPAIR NOTHING — without the list we cannot tell which fields are his, and reverting one
+    // of his corrections is worse than leaving a broker field stale for one more cycle.
+    await record({ brokerAccountId: trade.brokerAccountId, externalId: trade.externalId,
+                   symbol: trade.symbol, stage: 'failed',
+                   detail: 'skipped the rebuild — could not read the entry back to see which '
+                         + 'fields he had corrected by hand' });
+    return;
   }
 
-  await storage.updateJournalEntry(trade.journalEntryId, {
+  const patch: Record<string, any> = {
     direction:          rebuilt.direction,
     profitLoss:         rebuilt.profitLoss,
     pipsGainedLost:     rebuilt.pipsGainedLost,
@@ -212,8 +249,15 @@ export async function repairJournalDerived(trade: SyncedTrade): Promise<void> {
     // and never the journal, and `metrics_calculator.py`'s breakdown had nothing to show.
     mae:                rebuilt.mae,
     mfe:                rebuilt.mfe,
-    ...(manualFields ? { manualFields } : {}),
-  });
+  };
+
+  // ANYTHING HE HAS CORRECTED IS REMOVED FROM THE WRITE ENTIRELY — not set to undefined and left to
+  // the query builder to skip, which would make the whole fix depend on how Drizzle treats an
+  // undefined value in .set(). Deleting the key is unambiguous whatever the builder does.
+  for (const f of edited) delete patch[f];
+
+  if (manualFields) patch.manualFields = manualFields;
+  await storage.updateJournalEntry(trade.journalEntryId, patch);
 
   await record({
     brokerAccountId: trade.brokerAccountId, externalId: trade.externalId, symbol: trade.symbol,
