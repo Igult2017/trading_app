@@ -451,7 +451,11 @@ export default function DrawdownPanel({ sessionId, dispFont, bodyFont }:
             {heatRows.length === 0 ? (
               <div className="empty-row">No heatmap data</div>
             ) : (
-              <div className="heat" style={{ ['--cols' as any]: heatCols.length || 1 }}>
+              /* BOTH COUNTS DRIVE THE GEOMETRY. --cols shares the width between the strategies;
+                 --rows sets how tall each cell is, so the block keeps roughly the same footprint
+                 whether there is one pair or eight instead of running down the page. */
+              <div className="heat" style={{ ['--cols' as any]: heatCols.length || 1,
+                                             ['--rows' as any]: heatRows.length || 1 }}>
                 <div className="hrow"><div className="hp">PAIR</div>{heatCols.map((c, i) => <div className="hh" key={i}>{c}</div>)}</div>
                 {heatRows.map((r) => (
                   <div className="hrow" key={r.pair}>

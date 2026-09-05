@@ -158,20 +158,26 @@ export const DP_CSS = `
    120px block and pushing the legend far below it. The cell was never the wrong size; it was being
    inflated from outside. */
 .dp .rs{display:grid;grid-template-columns:1fr 250px;gap:42px;align-items:start;}
-/* HEATMAP — rebuilt 2026-08-29 so ONE pair does not become a giant slab.
-   The old grid was repeat(cols, minmax(56px,1fr)): with a single pair and a single strategy that
-   one cell stretched to the full row width and 14px of padding made it tall, so the whole section
-   read as one enormous red rectangle with a number floating in it. Cells are now CAPPED tiles that
-   sit left, so the layout looks the same whether there is one pair or eight. */
-/* align-content:start belts-and-braces the same thing from the inside: even if this grid is ever
-   stretched again by a parent, its rows keep their own height instead of sharing out the surplus. */
-.dp .heat{display:grid;gap:5px;overflow-x:auto;padding-bottom:4px;align-content:start;}
-/* TILES STAY TILE-SIZED. The cap was 150px, so one strategy produced a 150px-wide block sitting
-   alone in a 700px column and the section read as a slab with a number in it. 112px keeps a single
-   cell looking like a cell; the row label column came in from 104px so the grid starts near its
-   data instead of across a gap. */
-.dp .hrow{display:grid;grid-template-columns:86px repeat(var(--cols,5),minmax(78px,112px));
-  gap:5px;justify-content:start;align-items:stretch;}
+/* HEATMAP — A MATRIX THAT FITS ITS SPACE AT ANY SIZE (his instruction, 2026-09-05: *"it cannot
+   accommodate more than 2 instruments without making that space look imbalanced and chaotic. I
+   think using cells would be perfect such that cell sizes can be adjusted based on the number of
+   pairs to display but in the same space"*).
+     - CELLS SHARE THE WIDTH (one fr each) instead of being fixed 112px tiles packed to the left.
+       Fixed tiles gave a void on the right with one strategy and a horizontal SCROLLBAR with six.
+     - A CAP STOPS ONE CELL BECOMING A BANNER: the max-width below limits the whole grid to what
+       --cols cells at 150px would occupy, so few columns stay tile-sized and many columns shrink
+       to fit exactly. Growing to the cap, shrinking past it — both directions handled by one rule.
+     - ROW HEIGHT COMES FROM THE ROW COUNT (--rowh), so eight pairs do not run down the page:
+       the block aims for ~250px total, matching the loss-frequency list beside it, and only grows
+       past that once rows hit the 52px floor where the figures stop fitting.
+   align-content:start also keeps the rows their own height if a parent ever stretches this again. */
+.dp .heat{display:grid;gap:5px;overflow-x:auto;padding-bottom:4px;align-content:start;
+  --rowh:clamp(52px, calc((250px - (var(--rows,1) - 1) * 5px) / var(--rows,1)), 84px);}
+/* THE CAP GOES ON THE ROWS, NOT ON THE GRID. Putting max-width on .heat also squeezed the LEGEND,
+   which is a child of it — with one strategy the cap is 236px and the scale was clipped mid-word
+   ("2.5% AVER"). The legend must always have the full column to lay out in. */
+.dp .hrow{display:grid;grid-template-columns:86px repeat(var(--cols,5),minmax(0,1fr));
+  gap:5px;align-items:stretch;max-width:calc(86px + var(--cols,5) * 150px);}
 /* 11px IS THE FLOOR — docs/READABILITY.md, and this panel is the page that floor was measured on.
    I had these at 9.5px and 10px, which put five rules back under it and re-created the exact defect
    the 2026-08-29 pass removed ("drawdown: 17 rules below 11px"). In a high-contrast display serif
@@ -182,8 +188,9 @@ export const DP_CSS = `
   color:var(--ink2);font-weight:700;padding-right:8px;}
 /* A TILE, not a stretched band: fixed height, rounded, with a hairline so an empty/pale cell still
    reads as a cell instead of vanishing into the background. */
-.dp .hc{padding:10px 8px 8px;text-align:center;border-radius:9px;min-height:62px;position:relative;
-  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+.dp .hc{padding:8px 6px 12px;text-align:center;border-radius:9px;height:var(--rowh,62px);
+  position:relative;overflow:hidden;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
   border:1px solid var(--line);transition:transform .16s cubic-bezier(.16,1,.3,1),border-color .16s;}
 .dp .hc:hover{transform:translateY(-2px);border-color:var(--line2);}
 .dp .hc .p{font-size:15px;font-weight:700;letter-spacing:-.02em;line-height:1;}
