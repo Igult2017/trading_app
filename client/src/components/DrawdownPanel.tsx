@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { authFetch } from '@/lib/queryClient';
 import { TrendingDown } from 'lucide-react';
-import { useDelayedLoading } from '@/components/TradingLoader';
+import { useDelayedLoading } from '@/lib/useDelayedLoading';
 import { PanelSkeleton } from '@/components/skeletons/DashboardSkeletons';
 import { DiveProfile } from '@/components/drawdown/diveProfile';
 import { DP_CSS } from '@/components/drawdown/dpStyles';

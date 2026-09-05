@@ -61,6 +61,9 @@ export function prefetchAllPanels(
       if (Array.isArray(d.entries) && (d.entries.length > 0 || !queryClient.getQueryData(["/api/journal/entries", sessionId])))
                                      queryClient.setQueryData(["/api/journal/entries", sessionId], d.entries);
       if (d.metrics)                 queryClient.setQueryData(["/api/metrics/compute", sessionId], d.metrics);
+          // The dashboard reads the WHOLE bundle under one key so its tiles and its trade log can
+          // never come from two different snapshots. Seeded here too, from the same response.
+          if (d.metrics || Array.isArray(d.entries)) queryClient.setQueryData(["/api/dashboard", sessionId], d);
     })
     .catch(() => { /* best-effort — panels fall back to their own queries */ });
 
@@ -212,6 +215,9 @@ export async function prepareDashboard(
           if (Array.isArray(d.entries) && (d.entries.length > 0 || !queryClient.getQueryData(["/api/journal/entries", sessionId])))
                                          queryClient.setQueryData(["/api/journal/entries", sessionId], d.entries);
           if (d.metrics)                 queryClient.setQueryData(["/api/metrics/compute", sessionId], d.metrics);
+          // The dashboard reads the WHOLE bundle under one key so its tiles and its trade log can
+          // never come from two different snapshots. Seeded here too, from the same response.
+          if (d.metrics || Array.isArray(d.entries)) queryClient.setQueryData(["/api/dashboard", sessionId], d);
         }
       } catch { /* boot-gate skeleton covers it after navigation */ }
     })());

@@ -38,7 +38,7 @@
  * preloads BOTH variants: together they are ~50 KB, which is cheaper than guessing the theme in a
  * blocking script and far cheaper than guessing it wrong.
  *
- * SIX CALL SITES depend on this one component — HomeHeader, HomeFooter, JournalHeader, TradingLoader,
+ * FIVE CALL SITES depend on this one component — HomeHeader, HomeFooter, JournalHeader,
  * AdminPanel and AuthCallbackPage — which is why changing the logo is one edit here and not six.
  */
 

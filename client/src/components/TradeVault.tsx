@@ -5,7 +5,8 @@ import { useAuth } from "@/context/AuthContext";
 import { prefetchAllPanels } from "@/lib/prefetchPanels";
 import { Pencil, Trash2 } from "lucide-react";
 import type { JournalEntry } from "@shared/schema";
-import TradingLoader, { useDelayedLoading } from "@/components/TradingLoader";
+import { useDelayedLoading } from "@/lib/useDelayedLoading";
+import { TableSkeleton } from "@/components/skeletons/DashboardSkeletons";
 import { useTranslation } from "react-i18next";
 import { winRate as winRateOf } from "@/lib/tradeStats";
 
@@ -67,6 +68,8 @@ type Trade = {
   pl: number;
   rr: string;
   direction: string;
+  /** The broker put this row here, so there is something to restore it to. */
+  synced: boolean;
 };
 
 function journalEntryToTrade(entry: JournalEntry): Trade {
@@ -101,6 +104,8 @@ function journalEntryToTrade(entry: JournalEntry): Trade {
     pl: isNaN(pl) ? 0 : pl,
     rr,
     direction,
+    // `autoJournaled` is stamped by services/autoJournal/fields.ts on every entry the sync writes.
+    synced: manual.autoJournaled === true,
   };
 }
 
@@ -168,9 +173,26 @@ function RRBadge({ rr }: { rr: string }) {
   );
 }
 
-function EditModal({ trade, onSave, onClose, isPending, error }: { trade: Trade; onSave: (t: Trade) => void; onClose: () => void; isPending: boolean; error?: string | null }) {
+/**
+ * What the P/L box currently holds, as a number — or null while it is mid-typing.
+ *
+ * "-", "" and "." are all legitimate things to have in the box on the way to a real figure, and NONE
+ * of them may be read as zero. That reading is what put a 0 on a trade that lost $51.03.
+ */
+function plValue(text: string): number | null {
+  const s = String(text ?? '').trim();
+  if (!/^-?\d+(\.\d+)?$/.test(s)) return null;   // deliberately strict: a partial entry is not a number
+  const n = parseFloat(s);
+  return Number.isFinite(n) ? n : null;
+}
+
+/** A number back into the box, without a trailing ".00" he did not type. */
+const plText = (n: number) => String(Math.round(n * 100) / 100);
+
+function EditModal({ trade, onSave, onClose, isPending, error, onRelease, synced }: { trade: Trade; onSave: (t: Trade) => void; onClose: () => void; isPending: boolean; error?: string | null; onRelease?: () => void; synced?: boolean }) {
   const { t } = useTranslation();
-  const [form, setForm] = useState({ ...trade });
+  // The P/L is held as TEXT while the modal is open — see the note on the input below.
+  const [form, setForm] = useState({ ...trade, plText: plText(trade.pl) });
 
   const handleChange = (field: string, value: string | number) => {
     setForm((f) => {
@@ -181,32 +203,39 @@ function EditModal({ trade, onSave, onClose, isPending, error }: { trade: Trade;
         const newOutcome = String(value).trim().toUpperCase();
         const oldOutcome = String(f.outcome).trim().toUpperCase();
 
-        // Only auto-recalc P/L when flipping between WIN ↔ LOSS
-        if ((newOutcome === 'WIN' || newOutcome === 'LOSS') && newOutcome !== oldOutcome) {
+        // Only auto-recalc P/L when flipping between WIN ↔ LOSS, and only when the box holds a real
+        // figure to scale — flipping the outcome on a half-typed value must not invent one.
+        const current = plValue(f.plText);
+        if ((newOutcome === 'WIN' || newOutcome === 'LOSS') && newOutcome !== oldOutcome
+            && current !== null) {
           const currentRR = parseFloat(String(f.rr)) || 1;
           const monetaryRisk = oldOutcome === 'LOSS'
-            ? Math.abs(f.pl)
-            : Math.round((Math.abs(f.pl) / currentRR) * 100) / 100;
+            ? Math.abs(current)
+            : Math.round((Math.abs(current) / currentRR) * 100) / 100;
 
-          if (newOutcome === 'WIN') {
-            updated.pl = Math.round(monetaryRisk * currentRR * 100) / 100;
-          } else {
-            updated.pl = -monetaryRisk;
-          }
+          updated.plText = plText(newOutcome === 'WIN'
+            ? Math.round(monetaryRisk * currentRR * 100) / 100
+            : -monetaryRisk);
         }
       }
 
       if (field === 'rr' && String(f.outcome).trim().toUpperCase() === 'WIN') {
         // When RR changes on a WIN, scale the P/L proportionally
-        const currentRR = parseFloat(String(f.rr)) || 1;
-        const newRR = parseFloat(String(value)) || 1;
-        const monetaryRisk = Math.abs(f.pl) / currentRR;
-        updated.pl = Math.round(monetaryRisk * newRR * 100) / 100;
+        const current = plValue(f.plText);
+        if (current !== null) {
+          const currentRR = parseFloat(String(f.rr)) || 1;
+          const newRR = parseFloat(String(value)) || 1;
+          const monetaryRisk = Math.abs(current) / currentRR;
+          updated.plText = plText(Math.round(monetaryRisk * newRR * 100) / 100);
+        }
       }
 
       return updated;
     });
   };
+
+  // A half-typed figure must not be saveable — better a disabled button than a silent zero.
+  const parsedPl = plValue(form.plText);
 
   return (
     <div style={styles.overlay}>
@@ -309,13 +338,29 @@ function EditModal({ trade, onSave, onClose, isPending, error }: { trade: Trade;
 
           <div style={styles.formGroup}>
             <label style={styles.label}>P/L ($)</label>
+            {/*
+              HIS REPORT, 2026-09-05: *"Im not able to edit P&L, i wanted to edit it to negative and
+              that is not happening."* Three faults sat in five lines here, and between them they
+              wrote a ZERO into his database on a trade the broker says lost $51.03:
+
+                value={Math.abs(form.pl)}        the box showed the number WITHOUT its sign, so the
+                                                 minus he typed was wiped on the very next render
+                parseFloat(e.target.value) || 0  a number input reports a half-typed "-" as the EMPTY
+                                                 STRING; parseFloat("") is NaN and `|| 0` turned that
+                                                 into zero. Tab away there and 0 is what saves.
+                outcome === "LOSS" ? -val : val  negated a value that was already signed
+
+              It is now a PLAIN TEXT box holding exactly what he types. "-", "-5" and "-51.0" are all
+              valid things to be in the middle of typing and none of them is coerced to anything. The
+              sign is HIS — the outcome only fills this box when he flips Win/Loss (see handleChange),
+              it never overrides what is in it.
+            */}
             <input
-              type="number"
-              value={Math.abs(form.pl)}
-              onChange={(e) => {
-                const val = parseFloat(e.target.value) || 0;
-                handleChange("pl", form.outcome === "LOSS" ? -val : val);
-              }}
+              type="text"
+              inputMode="decimal"
+              value={form.plText}
+              onChange={(e) => handleChange("plText", e.target.value)}
+              placeholder="-51.03"
               style={styles.input}
               data-testid="input-pl"
             />
@@ -330,15 +375,38 @@ function EditModal({ trade, onSave, onClose, isPending, error }: { trade: Trade;
           </div>
         )}
 
+        {parsedPl === null && form.plText.trim() !== '' && (
+          <div style={{ marginTop: 10, fontSize: 12, color: '#fbbf24' }} data-testid="text-pl-invalid">
+            P/L is not a number yet — finish typing it (a minus sign on its own is fine while you do).
+          </div>
+        )}
+
         <div style={styles.modalActions}>
+          {/*
+            A LOCK WITH NO RELEASE IS A TRAP. Every field he corrects here is pinned so the 15-minute
+            sync stops undoing it — and on 2026-09-05 that pinned a ZERO onto a trade the broker says
+            lost .03, permanently. This hands the trade back to the broker: it clears the pins, and
+            the next sync re-derives the direction, P&L, R and the rest from the broker's own numbers.
+            His notes, tags and screenshots are in a different part of the row and are not touched.
+            Only shown for a trade that CAME from a broker — there is nothing to restore a typed one to.
+          */}
+          {synced && onRelease && (
+            <button onClick={onRelease} style={{ ...styles.cancelBtn, marginRight: 'auto' }}
+                    disabled={isPending} data-testid="button-release-lock">
+              Restore from broker
+            </button>
+          )}
           <button onClick={onClose} style={styles.cancelBtn} data-testid="button-cancel-edit">Cancel</button>
           <button
             onClick={() => {
-              const pl = form.outcome === "LOSS" ? -Math.abs(form.pl) : Math.abs(form.pl);
-              onSave({ ...form, pl });
+              // THE SIGN IS HIS. This used to re-derive it from the outcome — `outcome === "LOSS" ?
+              // -Math.abs(...)` — so the box could never hold anything the label disagreed with, and
+              // "edit it to negative" was impossible by construction.
+              if (parsedPl === null) return;
+              onSave({ ...form, pl: parsedPl });
             }}
-            style={styles.saveBtn}
-            disabled={isPending}
+            style={{ ...styles.saveBtn, opacity: parsedPl === null ? 0.5 : 1 }}
+            disabled={isPending || parsedPl === null}
             data-testid="button-save-edit"
           >
             {isPending ? t('vault.saving') : t('vault.saveChanges')}
@@ -438,6 +506,7 @@ export default function TradeVault({ sessionId, startingBalance: sessionStarting
     queryClient.invalidateQueries({ queryKey: ["/api/journal/entries"] });
     queryClient.invalidateQueries({ queryKey: ["/api/calendar/compute"] });
     queryClient.invalidateQueries({ queryKey: ["/api/metrics/compute"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
     queryClient.invalidateQueries({ queryKey: ["/api/drawdown/compute"] });
     queryClient.invalidateQueries({ queryKey: ["/api/analytics"] });
     queryClient.invalidateQueries({ queryKey: ["/api/tf-metrics/matrix"] });
@@ -573,14 +642,36 @@ export default function TradeVault({ sessionId, startingBalance: sessionStarting
     updateMutation.mutate(updated);
   };
 
+  /**
+   * HAND THE TRADE BACK TO THE BROKER.
+   *
+   * Every field corrected in the modal is pinned so the 15-minute sync stops undoing it. That is
+   * right until a correction turns out to be WRONG — a zero saved by the old P/L box onto a trade
+   * that really lost $51.03 — and then the pin makes it permanent, because nothing can outrank it.
+   * Clearing the pins lets the next sync re-derive the broker-owned fields from the broker's own
+   * numbers. The notes and screenshots live elsewhere in the row and are untouched.
+   */
+  const releaseMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest("PUT", `/api/journal/entries/${id}`, { releaseLock: true });
+    },
+    onSuccess: () => {
+      setSaveError(null);
+      invalidateAll();
+      setEditingTrade(null);
+    },
+    onError: (err: any) =>
+      setSaveError(err?.message ? String(err.message) : 'Could not restore — please try again'),
+  });
+
   const showLoader = useDelayedLoading(!!sessionId && loading);
 
   if (showLoader) {
     return (
       <div className="trade-vault-root" style={styles.page}>
         {vaultHeader("Loading entries...")}
-        <div style={{ ...styles.tableWrapper, padding: 40, display: "flex", justifyContent: "center", marginTop: 20 }}>
-          <TradingLoader size="sm" message="Loading trade data…" />
+        <div style={{ ...styles.tableWrapper, marginTop: 20 }}>
+          <TableSkeleton rows={6} cols={6} />
         </div>
       </div>
     );
@@ -788,8 +879,10 @@ export default function TradeVault({ sessionId, startingBalance: sessionStarting
           trade={editingTrade}
           onSave={handleSave}
           onClose={() => { setSaveError(null); setEditingTrade(null); }}
-          isPending={updateMutation.isPending}
+          isPending={updateMutation.isPending || releaseMutation.isPending}
           error={saveError}
+          synced={editingTrade.synced}
+          onRelease={() => releaseMutation.mutate(editingTrade.id)}
         />
       )}
     </div>

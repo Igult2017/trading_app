@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { authFetch } from '@/lib/queryClient';
 import { useSessionBalance } from '@/hooks/useSessionBalance';
-import { useDelayedLoading } from '@/components/TradingLoader';
+import { useDelayedLoading } from '@/lib/useDelayedLoading';
 import { PanelSkeleton } from '@/components/skeletons/DashboardSkeletons';
 import { useTranslation } from 'react-i18next';
 

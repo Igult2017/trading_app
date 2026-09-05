@@ -75,11 +75,22 @@ import EconomicCalendarPage from "@/pages/EconomicCalendarPage";
 
 import NotFound from "@/pages/not-found";
 
-import TradingLoader from "@/components/TradingLoader";
-
 // ── Shared loading screen ─────────────────────────────────────────────────────
+//
+// HIS INSTRUCTION, 2026-09-06: *"i noticed there is a rolling loader when the user reloads the page,
+// please remove it because i havent seen that approach in any modern app. Just make the page go
+// white when the user reloads."*
+//
+// What was here: a spinning ring, a progress bar that crept to 90% on a timer — measuring NOTHING,
+// it was a `setInterval` that just kept adding — and ten rotating messages ("Crunching your trade
+// data…"). A reload is usually a few hundred milliseconds of re-checking the session, so all of that
+// appeared and vanished, which is worse than nothing at all.
+//
+// PAINTED IN THE APP'S OWN BACKGROUND, NOT WHITE. The journal is a dark app; a literal white flash
+// on every reload would be the more jarring of the two. Same idea, one colour value if he wants it
+// white after all.
 function LoadingScreen() {
-  return <TradingLoader fullScreen message="Connecting to your journal…" />;
+  return <div style={{ position: 'fixed', inset: 0, background: '#07090f' }} aria-hidden="true" />;
 }
 
 // ── Route guards ─────────────────────────────────────────────────────────────

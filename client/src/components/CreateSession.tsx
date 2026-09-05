@@ -765,6 +765,7 @@ export const SessionsList = ({ onSelectSession, activeSessionId, onDeleteSession
       queryClient.invalidateQueries({ queryKey: ['/api/sessions'] });
       queryClient.invalidateQueries({ queryKey: ['/api/journal/entries'] });
       queryClient.invalidateQueries({ queryKey: ['/api/metrics/compute'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/dashboard'] });
       queryClient.invalidateQueries({ queryKey: ['/api/calendar/compute'] });
       queryClient.invalidateQueries({ queryKey: ['/api/drawdown/compute'] });
       queryClient.invalidateQueries({ queryKey: ['/api/analytics'] });

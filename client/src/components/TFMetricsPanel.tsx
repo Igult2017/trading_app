@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { authFetch } from "@/lib/queryClient";
-import { useDelayedLoading } from "@/components/TradingLoader";
+import { useDelayedLoading } from "@/lib/useDelayedLoading";
 import { PanelSkeleton } from "@/components/skeletons/DashboardSkeletons";
 
 // ─── DESIGN TOKENS ────────────────────────────────────────────────────────────

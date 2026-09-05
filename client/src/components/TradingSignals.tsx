@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import TradingLoader, { useDelayedLoading } from '@/components/TradingLoader';
+import { useDelayedLoading } from '@/lib/useDelayedLoading';
+import { TableSkeleton } from '@/components/skeletons/DashboardSkeletons';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Zap, Clock, Eye, BarChart3, Timer, ListTodo, TrendingDown, TrendingUp } from 'lucide-react';
@@ -124,9 +125,7 @@ export default function TradingSignals({ assetClassFilter, title }: TradingSigna
             {displayTitle}
           </div>
         </div>
-        <div style={{ display: 'flex', justifyContent: 'center', padding: '24px 0' }}>
-          <TradingLoader size="sm" message="Scanning for signals…" />
-        </div>
+        <TableSkeleton rows={3} cols={4} />
       </div>
     );
   }

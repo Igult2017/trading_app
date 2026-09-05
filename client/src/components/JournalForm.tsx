@@ -2004,6 +2004,7 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
       queryClient.invalidateQueries({ queryKey: ["/api/journal/entries"] });
       if (sessionId) queryClient.invalidateQueries({ queryKey: ["/api/journal/entries", sessionId] });
       queryClient.invalidateQueries({ queryKey: ["/api/metrics/compute"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
       queryClient.invalidateQueries({ queryKey: ["/api/calendar/compute"] });
       queryClient.invalidateQueries({ queryKey: ["/api/drawdown/compute"] });
       queryClient.invalidateQueries({ queryKey: ["/api/analytics"] });

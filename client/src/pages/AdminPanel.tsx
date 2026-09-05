@@ -8,7 +8,7 @@ import {
   Tooltip as RechartTooltip, ResponsiveContainer, Area,
 } from 'recharts';
 import { useAdminNotifications, AdminNotificationsPanel } from '@/features/admin-notifications';
-import TradingLoader from '@/components/TradingLoader';
+
 import JournalSettingsPanel from '@/components/JournalSettingsPanel';
 import { useJournalSettings, THEMES } from '@/hooks/useJournalSettings';
 import { useLocation } from 'wouter';
@@ -3137,7 +3137,9 @@ export default function AdminPanel() {
 
   useEffect(() => { if (!bp.isDesktop) setCollapsed(true); else setCollapsed(false); }, [bp.isDesktop]);
 
-  if (loading) return <TradingLoader fullScreen message="Loading admin panel…" />;
+  // Same as the journal shell: a blank surface in the app background while auth resolves, not a
+  // spinner with an invented progress bar. See App.tsx LoadingScreen.
+  if (loading) return <div style={{ position: 'fixed', inset: 0, background: '#07090f' }} aria-hidden="true" />;
 
   const adminEmail = user?.email ?? '';
   const adminName = toTitleCase((user?.user_metadata?.full_name ?? adminEmail.split('@')[0] ?? 'Admin') as string);

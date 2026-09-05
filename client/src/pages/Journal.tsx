@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
-import { useDelayedLoading } from '@/components/TradingLoader';
+import { useDelayedLoading } from '@/lib/useDelayedLoading';
 import { pageTitle, HOME_TITLE } from '@/hooks/usePageTitle';
 import { DashboardSkeleton, JournalBootSkeleton } from '@/components/skeletons/DashboardSkeletons';
 import { usePageTracking } from '@/hooks/usePageTracking';
@@ -583,41 +583,43 @@ function ActivityCalendar({ entries, darkMode = true }: { entries: any[]; darkMo
 }
 
 function DashboardView({ sessionId, isMobile, windowWidth, darkMode = true }: { sessionId?: string | null; isMobile: boolean; windowWidth: number; darkMode?: boolean }) {
-  const metricsUrl = sessionId ? `/api/metrics/compute?sessionId=${sessionId}` : '';
-  const entriesUrl = sessionId ? `/api/journal/entries?sessionId=${sessionId}` : '';
-
-  // THESE TWO WERE THE ONLY JOURNAL PANELS WITH NO FRESHNESS OF THEIR OWN, so they inherited the
-  // app-wide `staleTime: Infinity` and never re-asked the server. That is fine for a trade typed
-  // into the form (saving it invalidates these keys by hand) and wrong for one that arrives from the
-  // BROKER while the page is open — nothing on the client knows a sync happened, so the dashboard
-  // could sit on numbers from before the trade indefinitely, a page reload included: the persisted
-  // cache is restored with a fresh timestamp, so "never stale" survives the reload too.
+  // ONE REQUEST, ONE SNAPSHOT — the KPI tiles and the trade log underneath them must never
+  // disagree.
   //
-  // Two minutes matches every sibling panel — Metrics, Trade Vault and Calendar all use it — and the
-  // server's own compute cache is 5 minutes, so this cannot cause a stampede.
+  // They used to be two separate queries, and the two sides were cached differently on the SERVER:
+  // `/api/metrics/compute` keeps a 5-minute copy, `/api/journal/entries` reads straight from the
+  // database every time. So for up to five minutes the tiles described data the rows below them had
+  // already moved past — which is exactly what his screenshot of 2026-09-05 caught: the tiles said
+  // -51.03 while the two rows underneath both said $0.00.
+  //
+  // `/api/dashboard` already returns sessions, session, entries AND metrics from a SINGLE
+  // `resolveComputeScope` call, so both halves come from one read of one list. It is also one round
+  // trip instead of two.
+  //
+  // Two minutes matches every sibling panel — Metrics, Trade Vault and Calendar all use it. Without
+  // its own freshness this inherits the app-wide `staleTime: Infinity` and never re-asks, which is
+  // wrong for a trade that arrives from the BROKER while the page is open: nothing on the client
+  // knows a sync happened, and a reload does not help because the persisted cache comes back with a
+  // fresh timestamp.
   const PANEL_STALE_MS = 2 * 60 * 1000;
 
-  const { data: metricsData, isLoading: metricsLoading } = useQuery<{ success: boolean; metrics: any }>({
-    queryKey: ['/api/metrics/compute', sessionId],
+  const { data: dash, isLoading: dashLoading } = useQuery<{
+    entries: any[]; metrics: { success: boolean; metrics: any };
+  }>({
+    queryKey: ['/api/dashboard', sessionId],
     enabled: !!sessionId,
     staleTime: PANEL_STALE_MS,
     queryFn: async () => {
-      const r = await authFetch(metricsUrl);
+      const r = await authFetch(`/api/dashboard?sessionId=${sessionId}`);
       if (!r.ok) throw new Error(`${r.status}: ${r.statusText}`);
       return r.json();
     },
   });
 
-  const { data: entries = [], isLoading: entriesLoading } = useQuery<any[]>({
-    queryKey: ['/api/journal/entries', sessionId],
-    enabled: !!sessionId,
-    staleTime: PANEL_STALE_MS,
-    queryFn: async () => {
-      const r = await authFetch(entriesUrl);
-      if (!r.ok) throw new Error(`${r.status}: ${r.statusText}`);
-      return r.json();
-    },
-  });
+  const metricsData = dash?.metrics;
+  const entries: any[] = dash?.entries ?? [];
+  const metricsLoading = dashLoading;
+  const entriesLoading = dashLoading;
 
   const m = metricsData?.metrics;
   const core = m?.core || {};
@@ -626,10 +628,17 @@ function DashboardView({ sessionId, isMobile, windowWidth, darkMode = true }: { 
   const instrumentBreakdown = m?.instrumentBreakdown || {};
 
   const totalPL = equityGrowth ? equityGrowth.totalPL : core.totalPL || 0;
-  const plSign = totalPL >= 0 ? '+' : '';
+  // A NEGATIVE TOTAL USED TO PRINT WITH NO SIGN AT ALL. This gave '' for anything below zero and
+  // the tile then took Math.abs of it, so a losing account read '.03' — indistinguishable from a
+  //  profit except for the colour. The AVG TRADE line four rows down has always done it right.
+  // His words: *'the total P&L shown here is calculated inaccurately... I think P&L here should be
+  // negative.'* He was right.
+  const plSign = totalPL >= 0 ? '+' : '-';
 
   const pfRaw = core.profitFactor ?? 0;
-  const pfDisplay = pfRaw >= 999 ? '∞' : pfRaw > 0 ? pfRaw.toFixed(2) : '0';
+  // NO WINNING TRADE MEANS THERE IS NO RATIO — not a ratio of zero. '0' reads as a measured result
+  // and invites the question 'zero what?'; the em dash says the honest thing.
+  const pfDisplay = pfRaw >= 999 ? '∞' : pfRaw > 0 ? pfRaw.toFixed(2) : '—';
   const avgTradeRaw = core.totalTrades ? totalPL / core.totalTrades : 0;
   const avgTradeDisplay = `${avgTradeRaw >= 0 ? '+' : '-'}$${Math.abs(avgTradeRaw).toFixed(2)}`;
 

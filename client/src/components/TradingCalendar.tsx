@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { authFetch } from "@/lib/queryClient";
-import { useDelayedLoading } from "@/components/TradingLoader";
+import { useDelayedLoading } from "@/lib/useDelayedLoading";
 import { PanelSkeleton } from "@/components/skeletons/DashboardSkeletons";
 import { useTranslation } from "react-i18next";
 

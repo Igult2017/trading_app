@@ -1597,7 +1597,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Journal entry not found" });
       }
 
-      const { userId: _ignored, ...rest } = req.body ?? {};
+      // `releaseLock` is an INSTRUCTION, not a column — it is pulled out here so it can never reach
+      // `storage.updateJournalEntry` and be written as a field. See where it is handled below.
+      const { userId: _ignored, releaseLock: _release, ...rest } = req.body ?? {};
       const updates: Record<string, any> = { ...rest };
 
       // ── Merge JSONB blob columns instead of replacing them ──────────────
@@ -1640,6 +1642,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const mf   = (updates.manualFields ?? (existing as any).manualFields ?? {}) as Record<string, any>;
         const prev: string[] = Array.isArray(mf[EDIT_LOCK_KEY]) ? mf[EDIT_LOCK_KEY] : [];
         updates.manualFields = { ...mf, [EDIT_LOCK_KEY]: [...new Set([...prev, ...touched])] };
+      }
+
+      // ── AND A WAY BACK OUT OF ONE ──────────────────────────────────────────
+      //
+      // The lock above is doing exactly what it was built to do, and on 2026-09-05 it FROZE A
+      // MISTAKE: the Trade Vault's P/L box silently saved `0` on a trade the broker says lost
+      // $51.03, that zero was recorded as a deliberate correction, and from then on no sync could
+      // ever put the real figure back. A lock with no release is a trap, not a feature.
+      //
+      // `POST { releaseLock: true }` clears the whole list, so the next sync pass re-derives every
+      // broker-owned field from the broker's own numbers. It touches nothing else — his notes, tags
+      // and screenshots live in the same blob and are untouched — and it is deliberately
+      // all-or-nothing rather than per-field, because "put this trade back how the broker has it" is
+      // the question a person actually asks.
+      if ((req.body as any)?.releaseLock === true) {
+        const mf = { ...((updates.manualFields ?? (existing as any).manualFields ?? {}) as Record<string, any>) };
+        delete mf[EDIT_LOCK_KEY];
+        updates.manualFields = mf;
       }
 
       // When profitLoss is being corrected, recalculate accountBalance for this entry

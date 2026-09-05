@@ -2,7 +2,8 @@ import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { authFetch, fetchJson } from "@/lib/queryClient";
 import { Loader2, RefreshCw, WifiOff, Cpu, Layout, Network, Zap, Activity, ShieldCheck, Target, Brain, AlertTriangle, BarChart3, Sparkles } from "lucide-react";
-import TradingLoader, { useDelayedLoading } from "@/components/TradingLoader";
+import { useDelayedLoading } from "@/lib/useDelayedLoading";
+import { PanelSkeleton } from "@/components/skeletons/DashboardSkeletons";
 import { useTranslation } from "react-i18next";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -971,7 +972,7 @@ function ConfBadge({ level }: { level: string }) {
 }
 
 function AILoadingState({ label }: { label: string }) {
-  return <TradingLoader message={label} size="md" />;
+  return <PanelSkeleton />;
 }
 
 function AIErrorState({ msg, retry }: { msg: string; retry: () => void }) {
@@ -1515,7 +1516,7 @@ export default function StrategyAudit({ sessionId, userId, darkMode = true }: Pr
   const showAuditLoader = useDelayedLoading(isLoading);
   if (showAuditLoader) return (
     <div style={{ minHeight: "100vh", background: T.bg, display: "flex", alignItems: "center", justifyContent: "center", ...saVars }}>
-      <TradingLoader message="Analysing your trades…" />
+      <PanelSkeleton />
     </div>
   );
 

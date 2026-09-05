@@ -2590,6 +2590,68 @@ live while the trade is open and they now reach the journal (fixed 04 Sep, see D
 
 ---
 
+### D46 - ~~The Trade Vault's P/L box saved a ZERO onto a $51 loss~~ FIXED 06 Sep 🔴
+**His report, 06 Sep:** *"Im not able to edit P&L, i wanted to edit it to negative and that is not
+happening. Also the total P&L shown here is calculated inaccurately... I think P&L here should be
+negative."* Right on both — and the first had already corrupted his data.
+
+**Measured before touching anything** (`/api/admin/sessions`, raw SQL, no cache): his "ctrader"
+session held **2 entries summing to −1.88**. His EURUSD trade — which the broker records as a
+**$51.03 loss** — was stored as **0**.
+
+**ROOT CAUSE, three faults in five lines** ([TradeVault.tsx](../client/src/components/TradeVault.tsx)):
+
+| the line | what it did |
+|---|---|
+| `value={Math.abs(form.pl)}` | showed the figure WITHOUT its sign, so a typed minus was wiped on the next render |
+| `parseFloat(e.target.value) \|\| 0` | a `type="number"` input reports a half-typed `-` as the EMPTY STRING; `parseFloat("")` is NaN and `\|\| 0` made it **zero**. Tab away at that moment and 0 is what saves. |
+| `outcome === "LOSS" ? -val : val` | negated a value that was already signed — and the save then re-derived the sign from the OUTCOME, so the sign was never his to set |
+
+The box is now plain text; `plValue` decides strictly whether what is in it is a number yet, and a
+partial entry comes back as **null, never zero**. Save is disabled until it parses.
+
+**And the zero was PERMANENT.** `profitLoss` is on `EDIT_LOCKABLE_FIELDS`, so the hand-edit lock
+added on 05 Sep — working exactly as designed — froze the mistake where no sync could reach it.
+**A lock with no release is a trap.** `PUT { releaseLock: true }` now clears the pins; the vault
+offers it as **"Restore from broker"** on any row the sync wrote.
+
+**Three more, all visible in the same screenshot:**
+* **The minus sign was dropped from TOTAL P&L.** `plSign = totalPL >= 0 ? '+' : ''` against a
+  `Math.abs`, so a losing account read `$51.03`. AVG TRADE four lines below had it right all along —
+  which is why one tile said `-$25.52` and the other `$51.03` for the same money.
+* **The tiles and the trade log came from different snapshots.** Tiles from `/api/metrics/compute`
+  (5-minute server cache), the log from `/api/journal/entries` (uncached). Both now read one
+  `/api/dashboard` response, which already returned entries AND metrics from a single scope call.
+* **Profit factor printed `0`** where there is no ratio at all. Now `—`.
+
+**Checked and NOT changed, because they were right:** win rate 0.0%, R expectancy −0.50R, trades 2.
+
+**Proved by** 27 checks in [`plInput.test.ts`](../client/src/components/plInput.test.ts), including
+his exact keystrokes — `-`, `-5`, `-51`, `-51.`, `-51.0`, `-51.03` — and that a lone minus is not
+zero.
+
+---
+
+### D47 - ~~The skeleton looked nothing like the page, and reloads showed a fake progress bar~~ FIXED 06 Sep
+*"The current skeleton does not look like the page the user is waiting to load"* and *"there is a
+rolling loader when the user reloads the page, please remove it because i havent seen that approach
+in any modern app."*
+
+The skeleton was three rows of grey slabs. It now mirrors the dashboard measurement for measurement
+— 6 KPI cards, the 7fr/5fr equity + performance pair, the trade log + calendar pair — every number
+copied out of `Journal.tsx` rather than guessed, and **checked by rendering the real component and
+screenshotting it**. Two passes were needed: the first was invisible (`bg-primary/10` against a
+near-black panel), the second made 35 calendar squares the loudest thing on the page.
+
+`TradingLoader.tsx` is **deleted**. It drew a spinning ring, a progress bar that measured nothing (a
+timer creeping to 90%) and ten rotating messages. Its eight call sites now use the matching
+skeleton; the two full-screen ones (App, AdminPanel) paint a blank surface in the app background.
+**Not white** — the journal is dark and a white flash on every reload would be worse than the
+spinner; one colour value if he wants it after all. `useDelayedLoading` moved to
+`lib/useDelayedLoading.ts`, which is why seven imports changed.
+
+---
+
 ### D30 - ~~`riskReward` meant the OPPOSITE thing in the two pipelines~~ FIXED 05 Sep 🔴
 **His report, 05 Sep:** *"for autosync RR is not computed or entered accurately."*
 
