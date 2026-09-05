@@ -1545,7 +1545,8 @@ export default function Journal() {
           ) : activeNav === 'tfmetrics' ? (
             <TFMetricsPanel sessionId={activeSessionId ?? undefined} />
           ) : activeNav === 'drawdown' ? (
-            <DrawdownPanel sessionId={activeSessionId ?? undefined} dispFont={F.stack} />
+            <DrawdownPanel sessionId={activeSessionId ?? undefined}
+                           dispFont={F.stack} bodyFont={F.bodyStack ?? F.stack} />
           ) : activeNav === 'fsdai' ? (
             <TraderAI sessionId={activeSessionId ?? undefined} darkMode={T.dark} />
           ) : activeNav === 'sync' ? (

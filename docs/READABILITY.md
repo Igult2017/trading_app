@@ -104,6 +104,43 @@ The tool measures whichever theme the build renders by default. **Toggle the the
 
 ---
 
+## A TEST PAGE THAT LOADS THE WRONG FONT WILL TELL YOU THE PAGE IS FINE
+
+**2026-09-05.** He said the drawdown panel looked "dim and horrible" in production while my Playwright
+screenshot of the same markup looked perfect. The screenshot was the liar.
+
+The harness pulled **`'Playfair Display'`** from Google Fonts. The journal's stack starts with
+**`'Playfair Display Variable'`** (`useJournalSettings.ts:150`, self-hosted via
+`@fontsource-variable`). Those are two different family NAMES — a plain-name reference matches
+nothing and silently falls back. Measured with a negative control, same string, same size:
+
+| asked for | width |
+|---|---|
+| a family that does not exist (control) | 282.22 |
+| plain `'Playfair Display'` | **282.22 — identical, so it never rendered** |
+| `'Playfair Display Variable'` | 294.61 |
+| the production stack | **294.61** |
+
+So the "good" screenshot was a sturdy fallback serif and production is a high-contrast display serif
+whose thin strokes drop out at 10px. **Never judge readability from a harness that loads fonts from
+anywhere but the app's own build.** Serve `dist/public` and link its real built stylesheet — the
+`@font-face` rules and hashed `.woff2` files come with it. And measure which family actually won:
+`document.fonts.check()` returns TRUE for fonts that do not exist, so compare a rendered width
+against a deliberately-bogus family name instead.
+
+## THE FONT SPLIT IS A PER-PANEL JOB, AND "DONE" DID NOT MEAN DONE
+
+The drawdown panel is listed under PAGES DONE below, and its **sizes** were fixed on 2026-08-29 — but
+its **face** was not. `DrawdownPanel` was passing the journal's display serif to BOTH of its font
+roles, so every label, table cell and figure was set in a headline face. That is cause #1 on this
+page, sitting inside a panel the page called finished.
+
+Fixed 2026-09-05 by declaring it as data rather than sniffing the stack string: `FontDef.bodyStack`
+names the face to use for text meant to be READ when the chosen face is a display one. Only Playfair
+declares one; the other eight options are sans or mono and are untouched, so the font picker still
+means what it says. **Declared, not sniffed** — a `/serif/` test on the stack is exactly the trap
+recorded above, where a constant named `sans` held Playfair and every name-based check passed.
+
 ## THE TOOL HAD A BUG WORTH KNOWING ABOUT
 
 Its first version reported **32 failures on the blog, half of them false**. It found the first

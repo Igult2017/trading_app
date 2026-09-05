@@ -59,6 +59,23 @@ export interface FontDef {
    * actually like from it (see features/trade-sync) comes from its natural 400-700 range.
    */
   forceWeight: number | null;
+  /**
+   * The face to use for text that is meant to be READ — labels, table cells, figures, captions —
+   * when THIS face is a display one that cannot do that job. Omitted means "this face is fine for
+   * body text", which is true of all eight sans and mono options.
+   *
+   * Same reasoning as `forceWeight` directly above, carried one step further: that note already
+   * says Playfair "turns to mush at 900 in 10-12px UI text", and the fix there was to stop forcing
+   * the weight. The face itself is still a high-contrast display serif, so its thin strokes drop
+   * out at 11px whatever the weight — which is docs/READABILITY.md's first and most common cause
+   * ("serif for headlines; everything meant to be READ is sans").
+   *
+   * DECLARED AS DATA, NOT SNIFFED FROM THE STACK STRING. A test like /serif/ on the stack is the
+   * exact trap that doc records: the landing page had a constant NAMED `sans` that held Playfair,
+   * and every name-based check passed while the page rendered a serif. A font says for itself
+   * whether it can set body text.
+   */
+  bodyStack?: string;
 }
 
 export const THEMES: Record<ThemeId, ThemeDef> = {
@@ -150,6 +167,9 @@ export const FONTS: Record<FontId, FontDef> = {
     stack: "'Playfair Display Variable', 'Playfair Display', Georgia, serif",
     sample: 'Aa Bb 0123',
     forceWeight: null,   // keep each panel's own weights — see FontDef.forceWeight
+    // The ONLY serif of the nine. Headings stay Playfair; small read-text gets Inter, which is
+    // already bundled (index.css) so this costs no download. See FontDef.bodyStack.
+    bodyStack: "'Inter Variable', 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif",
   },
   montserrat: {
     label: 'Montserrat',

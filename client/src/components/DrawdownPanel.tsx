@@ -144,12 +144,24 @@ function Seg({ options, value, onChange, accents }: {
  * Needed because `.dp` is exempted from Journal's global font rule (it owns its typography), which
  * is why a new journal default does NOT reach this page on its own.
  */
-export default function DrawdownPanel({ sessionId, dispFont }: { sessionId?: string | null; dispFont?: string }) {
-  // BOTH roles get the journal font: `--disp` (headings, labels) and `--mono` (figures, chart axes).
-  // `--mono` used to stay DM Mono so digits kept tabular alignment; the user asked for numbers and
-  // letters alike in the journal face, and dpStyles restores the alignment with tabular-nums instead.
+export default function DrawdownPanel({ sessionId, dispFont, bodyFont }:
+  { sessionId?: string | null; dispFont?: string; bodyFont?: string }) {
+  // TWO ROLES. `--disp` is headings and section titles; `--mono` is everything meant to be READ —
+  // labels, table cells, figures, chart axes — because dpStyles sets `.dp{font-family:var(--mono)}`
+  // and the whole panel inherits from it.
+  //
+  // Both used to be the journal face outright: he asked on 2026-07-29 for numbers and letters alike,
+  // rather than DM Mono figures beside Playfair words, and dpStyles keeps the digits aligned with
+  // tabular-nums instead. That request is UNCHANGED and still satisfied — numbers and letters here
+  // are always the same face as each other.
+  //
+  // What changed (2026-09-05, on his "in production text look so dim and horrible"): when the
+  // journal face is a DISPLAY one, the read-text role takes that font's `bodyStack` companion
+  // instead. Only Playfair declares one; the other eight are sans or mono and are untouched, so the
+  // font picker still means exactly what it says for them.
   const dpStyle = dispFont
-    ? ({ ['--disp' as any]: dispFont, ['--mono' as any]: dispFont } as React.CSSProperties)
+    ? ({ ['--disp' as any]: dispFont,
+         ['--mono' as any]: bodyFont ?? dispFont } as React.CSSProperties)
     : undefined;
   const [ddView, setDdView] = useState('STRATEGY');
   const [dir,    setDir]    = useState('BULLISH');
