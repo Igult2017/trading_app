@@ -133,6 +133,29 @@ def get_pnl_pct(t: dict) -> float | None:
     return _f(v)
 
 
+def is_win(t: dict) -> bool:
+    """Did this trade win? Label first; the P&L sign ONLY when there is no label."""
+    oc = get_outcome(t)
+    return oc == "win" or (oc == "" and (get_pnl(t) or 0) > 0)
+
+
+def is_loss(t: dict) -> bool:
+    """Did this trade lose?  A BREAK-EVEN IS NOT A LOSS — his ruling, 2026-09-05, and the same
+    rule metrics_calculator and lib/tradeStats already follow.
+
+    Label first. The P&L sign is consulted ONLY for a trade carrying no outcome label at all,
+    because a percentage-only journal has nothing else to go on and would otherwise report zero
+    losses for ever. A trade LABELLED break-even is never a loss however its cents landed — and a
+    scratch is almost always a few cents down once commission comes out, which is exactly how
+    break-evens were leaking into loss counts and loss contribution.
+
+    THIS LIVES HERE so there is one definition. It was private to risk_model, and intelligence had
+    grown a second, sign-only version that disagreed with it.
+    """
+    oc = get_outcome(t)
+    return oc == "loss" or (oc == "" and (get_pnl(t) or 0) < 0)
+
+
 # Superset of metrics_calculator's WIN/LOSS sets (adds 'w','l','loser' for parity)
 # plus a few tolerant aliases. Drawdown lowercases first, so casing never matters.
 _WIN_ALIASES     = frozenset({"win", "won", "w", "profit", "tp", "take profit", "1", "true"})

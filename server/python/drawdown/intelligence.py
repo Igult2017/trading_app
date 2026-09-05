@@ -13,7 +13,7 @@ Pure, never raises. Reuses the same equity-curve logic as metrics.py.
 """
 from __future__ import annotations
 from ._utils import (
-    equity_curve, get_outcome, get_pnl, get_pnl_pct, get_trade_dt,
+    equity_curve, get_outcome, get_pnl, get_pnl_pct, get_trade_dt, is_loss,
     get_strategy, get_instrument, get_direction, safe_mean,
 )
 
@@ -58,32 +58,24 @@ def _group_drawdown(trades: list, key_fn) -> list:
             g["wins"] += 1
         elif _oc == "breakeven":
             g["breakevens"] += 1
+        # ONE DEFINITION OF "LOSS", SHARED. `is_loss` already existed in risk_model — label first,
+        # and the P&L sign ONLY when a trade carries no label at all (a percentage-only journal
+        # would otherwise report zero losses for ever). This function used to decide it a second
+        # way, straight off the sign, which is how a break-even got counted TWICE: once as a
+        # breakeven above, once as a loss. Measured on the real function, one win + one loss + one
+        # break-even closing at -0.40 gave wins 1, breakevens 1, losses 2 — four outcomes from
+        # three trades, and a 66.7% loss rate where one trade in three lost.
+        _loss = is_loss(t)
         pct = get_pnl_pct(t)
         if pct is not None:
             g["netPct"] += pct
-            if pct < 0:
+            # A BREAK-EVEN IS NOT A LOSS AND IS NOT COUNTED AS ONE (his ruling, 2026-09-05), so a
+            # scratch that closed a few cents down no longer leaks into the loss contribution.
+            # netPct above still carries it — that is the group's net, and everything happened.
+            if _loss and pct < 0:
                 g["totalLossPct"] += pct
-        # LOSSES COME FROM THE LABEL, like wins and breakevens two lines up. They used to come
-        # from the P&L SIGN alone, which is a second definition of "loss" inside one function —
-        # and a break-even is almost always a few cents down once commission is taken out, so
-        # every one of them was counted TWICE: once as a breakeven, once as a loss.
-        #
-        # Measured on the real function, 2026-09-05, with one win, one loss and one break-even
-        # closing at -0.40: wins 1, breakevens 1, losses 2 — four outcomes from three trades,
-        # and a loss rate of 66.7% where one trade in three actually lost. That is what inflates
-        # the "N trades · X% loss" line he asked about.
-        #
-        # THE P&L FALLBACK IS KEPT, because it was there for a real reason: a percentage-only
-        # journal carries no monetary P&L and no outcome label, and without this it would report
-        # zero losses for ever. It now applies ONLY when there is no label to trust.
-        if _oc == "loss":
+        if _loss:
             g["losses"] += 1
-        elif _oc == "":
-            loss_val = get_pnl(t)
-            if loss_val is None:
-                loss_val = pct
-            if (loss_val or 0) < 0:
-                g["losses"] += 1
     out = []
     for g in groups.values():
         g["lossRate"]     = round(g["losses"] / g["trades"] * 100, 1) if g["trades"] else 0.0
@@ -120,7 +112,13 @@ def _group_metrics(records: list, attr: str, sb: float) -> list:
         if pnl is not None and sb > 0:
             pct = pnl / sb * 100
             g["netPct"] += pct
-            if pnl < 0:
+            # A BREAK-EVEN IS NOT A LOSS AND IS NOT COUNTED AS ONE. His ruling, 2026-09-05.
+            # This used to add ANY negative pnl to the loss contribution, and a scratch is almost
+            # always a few cents down once commission comes out — so every break-even leaked into
+            # the "loss contribution" column. Only a trade the label calls a loss contributes now.
+            # The money is still in netPct above, which is the whole-group net and should include
+            # everything that happened.
+            if r.outcome == "loss" and pnl < 0:
                 g["totalLossPct"] += pct
         if r.outcome == "loss":
             g["losses"] += 1

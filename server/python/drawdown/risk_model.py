@@ -12,7 +12,8 @@ Pure, never raises.
 """
 from __future__ import annotations
 import math
-from ._utils import get_pnl_pct, get_outcome, get_pnl, sort_by_date, safe_mean, blob_field, _f
+from ._utils import (get_pnl_pct, get_outcome, get_pnl, sort_by_date, safe_mean,
+                     blob_field, _f, is_win, is_loss)
 
 _EMPTY = {
     "winRate": 0.0, "payoff": 0.0, "kellyPct": 0.0,
@@ -21,14 +22,8 @@ _EMPTY = {
 }
 
 
-def _is_win(t) -> bool:
-    oc = get_outcome(t)
-    return oc == "win" or (oc == "" and (get_pnl(t) or 0) > 0)
-
-
-def _is_loss(t) -> bool:
-    oc = get_outcome(t)
-    return oc == "loss" or (oc == "" and (get_pnl(t) or 0) < 0)
+# The win/loss rule moved to _utils so intelligence.py shares it rather than growing a
+# second, sign-only version that disagreed. A BREAK-EVEN IS NOT A LOSS -- see is_loss there.
 
 
 def compute_risk_model(trades: list) -> dict:
@@ -37,8 +32,8 @@ def compute_risk_model(trades: list) -> dict:
 
     # Win rate over ALL decisive trades (win/loss by outcome), like Metrics — NOT only
     # those carrying a signed %, which previously dropped decisive trades from the count.
-    wins   = [t for t in trades if _is_win(t)]
-    losses = [t for t in trades if _is_loss(t)]
+    wins   = [t for t in trades if is_win(t)]
+    losses = [t for t in trades if is_loss(t)]
     decided = len(wins) + len(losses)
     if decided == 0:
         return _EMPTY
@@ -57,7 +52,7 @@ def compute_risk_model(trades: list) -> dict:
     # Consecutive-loss: actual longest losing streak.
     actual_streak, cur = 0, 0
     for t in sort_by_date(trades):
-        if _is_loss(t):
+        if is_loss(t):
             cur += 1
             actual_streak = max(actual_streak, cur)
         else:                       # win OR breakeven/unknown both end a losing run (metrics parity)
@@ -76,9 +71,9 @@ def compute_risk_model(trades: list) -> dict:
             m = _f(blob_field(t, "mae"))
         if m is None:
             continue
-        if _is_win(t):
+        if is_win(t):
             win_maes.append(abs(m))
-        elif _is_loss(t):
+        elif is_loss(t):
             loss_maes.append(abs(m))
     avg_win_mae  = round(safe_mean(win_maes), 2) if win_maes else 0.0
     avg_loss_mae = round(safe_mean(loss_maes), 2) if loss_maes else 0.0
