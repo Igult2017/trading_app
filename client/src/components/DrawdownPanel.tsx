@@ -36,14 +36,31 @@ function fmtRange(start?: string | null, end?: string | null): string {
   } catch { return ''; }
 }
 
-/** Loss intensity for one heatmap tile, 0 (untouched) to 1 (worst on the page).
- *  SCALED AGAINST THE WORST CELL PRESENT, not a fixed 1.4% — with a single pair the old fixed scale
- *  pinned the only cell at nearly full saturation, which is how one tile became a solid red slab. */
-function heatBg(avgDdPct: number, worst: number): React.CSSProperties {
+/** Where a loss sits on the severity scale, matching sevTone()'s "severe" band below. */
+const HEAT_SEVERE_PCT = 2.5;
+
+/** How dark a tile should be, 0 (untouched) to 1 (as bad as this page gets).
+ *
+ *  ANCHORED, not purely relative. Scaling against "the worst cell present" is degenerate when there
+ *  IS only one cell — `rel` is then always exactly 1, so the single tile always paints at FULL
+ *  saturation whether the number is a mild -0.3% or a brutal -8%. That is why one pair × one
+ *  strategy still rendered as a solid red slab: the colour was not saying anything, it was pinned.
+ *  (The 2026-08-29 note claimed this was fixed by moving off a fixed 1.4% scale; it was not — the
+ *  relative scale collapses in exactly the same way, just for a different reason.)
+ *
+ *  So the reference is the worst cell OR the severity threshold the rest of this file already uses,
+ *  whichever is larger. A 2% average loss now reads as ~4/5 of the way up rather than "the worst
+ *  thing possible", and a page whose worst cell is 8% still spreads its cells across the full range.
+ */
+function heatRel(avgDdPct: number, worst: number): number {
   const v = Math.abs(avgDdPct);
-  if (!v) return { background: 'var(--raise)' };
-  const rel = worst > 0 ? Math.min(v / worst, 1) : 1;
-  const a = 0.13 + rel * 0.42;          // floor so a mild cell is still legible as a cell
+  if (!v) return 0;
+  return Math.min(v / Math.max(worst, HEAT_SEVERE_PCT), 1);
+}
+
+function heatBg(avgDdPct: number, worst: number): React.CSSProperties {
+  if (!Math.abs(avgDdPct)) return { background: 'var(--raise)' };
+  const a = 0.10 + heatRel(avgDdPct, worst) * 0.45;   // floor: a mild cell still reads as a cell
   return { background: `rgb(255 122 135 / ${a.toFixed(3)})` };
 }
 
@@ -431,20 +448,35 @@ export default function DrawdownPanel({ sessionId, dispFont }: { sessionId?: str
                       <div className="hc" key={i} style={heatBg(c.avgDdPct, heatWorst)}
                            title={`${r.pair} · ${c.strategy}: ${c.avgDdPct.toFixed(2)}% average on losing trades`}>
                         <div className="p" style={{ color: c.avgDdPct < 0 ? 'var(--heat-neg-ink)' : 'var(--ink3)' }}>{c.avgDdPct === 0 ? '0.0%' : `${c.avgDdPct.toFixed(1)}%`}</div>
-                        <div className="t"><WLB wins={c.wins} losses={c.losses} breakevens={c.breakevens} size={11} /></div>
+                        <div className="t"><WLB wins={c.wins} losses={c.losses} breakevens={c.breakevens} size={10} /></div>
+                        {/* HOW DEEP, AS A LENGTH. A shade of pink cannot be read as a quantity —
+                            you cannot tell 40%-dark from 60%-dark by eye, and with one tile there
+                            is nothing to compare it against. The bar gives the same number a form
+                            the eye can actually measure, which is what makes a one-cell heatmap
+                            readable at all. */}
+                        <span className="hm" aria-hidden="true">
+                          <i style={{ width: `${(heatRel(c.avgDdPct, heatWorst) * 100).toFixed(1)}%` }} />
+                        </span>
                       </div>
                     ))}
                   </div>
                 ))}
+                {/* THE SCALE NOW CARRIES ITS OWN NUMBERS. "Lighter -> deeper average loss" told you
+                    the direction but never the amount, so a shade meant nothing on its own. The
+                    ends are labelled with the actual percentages the colours stand for. */}
                 <div className="hleg">
-                  <span className="cap">Lighter</span>
+                  <span className="cap">0%</span>
                   <span className="sc">
-                    {[0.13, 0.24, 0.34, 0.45, 0.55].map((a) => (
+                    {[0.10, 0.21, 0.32, 0.43, 0.55].map((a) => (
                       <i key={a} style={{ background: `rgb(255 122 135 / ${a})` }} />
                     ))}
                   </span>
-                  <span className="cap">Deeper average loss</span>
-                  {heatWorst > 0 && <span className="cap" style={{ marginLeft: 'auto' }}>Worst cell {heatWorst.toFixed(2)}%</span>}
+                  <span className="cap">{Math.max(heatWorst, HEAT_SEVERE_PCT).toFixed(1)}% average loss</span>
+                  {heatWorst > 0 && (
+                    <span className="cap wc" style={{ marginLeft: 'auto' }}>
+                      Worst cell <b>{heatWorst.toFixed(2)}%</b>
+                    </span>
+                  )}
                 </div>
               </div>
             )}

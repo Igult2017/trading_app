@@ -151,38 +151,64 @@ export const DP_CSS = `
 .dp .note{font-size:11.5px;line-height:1.65;color:var(--ink3);margin-top:16px;}
 
 /* RISK SURFACE (heatmap + freq) */
-.dp .rs{display:grid;grid-template-columns:1fr 250px;gap:42px;}
+/* START, NOT STRETCH — this is what actually made the heatmap a slab, and no amount of capping the
+   cell width or setting min-height could reach it. The two columns are grid tracks, so by default
+   both stretch to the height of the TALLER one; the loss-frequency list is ~230px, the heatmap grid
+   stretched to match, and its auto rows absorbed the spare height — turning a 62px tile into a
+   120px block and pushing the legend far below it. The cell was never the wrong size; it was being
+   inflated from outside. */
+.dp .rs{display:grid;grid-template-columns:1fr 250px;gap:42px;align-items:start;}
 /* HEATMAP — rebuilt 2026-08-29 so ONE pair does not become a giant slab.
    The old grid was repeat(cols, minmax(56px,1fr)): with a single pair and a single strategy that
    one cell stretched to the full row width and 14px of padding made it tall, so the whole section
    read as one enormous red rectangle with a number floating in it. Cells are now CAPPED tiles that
    sit left, so the layout looks the same whether there is one pair or eight. */
-.dp .heat{display:grid;gap:6px;overflow-x:auto;padding-bottom:4px;}
-.dp .hrow{display:grid;grid-template-columns:104px repeat(var(--cols,5),minmax(84px,150px));
-  gap:6px;justify-content:start;align-items:stretch;}
-.dp .hh{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3);text-align:center;
-  padding:2px 4px 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600;}
-.dp .hp{display:flex;align-items:center;font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;
-  color:var(--ink2);font-weight:600;padding-right:8px;}
+/* align-content:start belts-and-braces the same thing from the inside: even if this grid is ever
+   stretched again by a parent, its rows keep their own height instead of sharing out the surplus. */
+.dp .heat{display:grid;gap:5px;overflow-x:auto;padding-bottom:4px;align-content:start;}
+/* TILES STAY TILE-SIZED. The cap was 150px, so one strategy produced a 150px-wide block sitting
+   alone in a 700px column and the section read as a slab with a number in it. 112px keeps a single
+   cell looking like a cell; the row label column came in from 104px so the grid starts near its
+   data instead of across a gap. */
+.dp .hrow{display:grid;grid-template-columns:86px repeat(var(--cols,5),minmax(78px,112px));
+  gap:5px;justify-content:start;align-items:stretch;}
+.dp .hh{font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink3);text-align:center;
+  padding:2px 4px 5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:700;}
+.dp .hp{display:flex;align-items:center;font-size:10px;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--ink2);font-weight:700;padding-right:8px;}
 /* A TILE, not a stretched band: fixed height, rounded, with a hairline so an empty/pale cell still
    reads as a cell instead of vanishing into the background. */
-.dp .hc{padding:12px 8px;text-align:center;border-radius:10px;min-height:66px;
-  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;
+.dp .hc{padding:10px 8px 8px;text-align:center;border-radius:9px;min-height:62px;position:relative;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
   border:1px solid var(--line);transition:transform .16s cubic-bezier(.16,1,.3,1),border-color .16s;}
 .dp .hc:hover{transform:translateY(-2px);border-color:var(--line2);}
-.dp .hc .p{font-size:15px;font-weight:700;letter-spacing:-.01em;line-height:1;}
-.dp .hc .t{font-size:11px;margin-top:0;font-weight:600;}
+.dp .hc .p{font-size:15px;font-weight:700;letter-spacing:-.02em;line-height:1;}
+.dp .hc .t{font-size:10px;margin-top:0;font-weight:600;opacity:.92;}
+/* THE DEPTH BAR — the same number as a LENGTH. Colour alone is not readable as a quantity, and with
+   a single tile there is nothing to compare the shade against. Sits flush at the foot of the tile. */
+/* The TRACK uses --line2, which flips with the theme (white at .15 on dark, near-black at .18 on
+   light). A hard-coded white track would have been invisible on the light theme's pale pink tile. */
+.dp .hc .hm{position:absolute;left:8px;right:8px;bottom:6px;height:2px;border-radius:2px;
+  background:var(--line2);overflow:hidden;}
+.dp .hc .hm i{display:block;height:100%;background:var(--heat-neg-ink);opacity:.62;border-radius:2px;}
 /* Legend — the colour meant nothing without one, which is most of why a lone red block looked wrong. */
-.dp .hleg{display:flex;align-items:center;gap:10px;margin-top:14px;font-size:11px;
-  letter-spacing:.08em;text-transform:uppercase;color:var(--ink3);font-weight:600;}
-.dp .hleg .sc{display:flex;gap:3px;}
-.dp .hleg .sc i{width:26px;height:9px;border-radius:2px;display:block;}
-.dp .hleg .cap{color:var(--ink3);}
-.dp .freq .frow{display:flex;justify-content:space-between;align-items:baseline;margin-top:16px;}
+.dp .hleg{display:flex;align-items:center;gap:9px;margin-top:14px;font-size:9.5px;
+  letter-spacing:.1em;text-transform:uppercase;color:var(--ink3);font-weight:700;}
+.dp .hleg .sc{display:flex;gap:2px;}
+.dp .hleg .sc i{width:24px;height:8px;border-radius:2px;display:block;}
+.dp .hleg .cap{color:var(--ink3);white-space:nowrap;}
+.dp .hleg .wc b{color:var(--ink2);font-weight:700;}
+.dp .freq .frow{display:flex;justify-content:space-between;align-items:baseline;margin-top:14px;}
 .dp .freq .frow:first-of-type{margin-top:0;}
-.dp .freq .bar{height:2px;background:var(--line2);margin-top:8px;position:relative;overflow:hidden;}
+/* THE SESSION / INSTRUMENT NAMES (London, Overlap, Tokyo, New York, Sydney) — the ones he ticked.
+   They had no font-size of their own, so they inherited the journal body size (~15px) and rendered
+   at full size in the display serif, which made five short labels shout louder than the figures
+   beside them. 11.5px puts them in line with every other row label on this page. */
+.dp .freq .frow .dim{font-size:11.5px;font-weight:600;}
+.dp .freq .frow .wlb{font-size:11.5px;}
+.dp .freq .bar{height:2px;background:var(--line2);margin-top:7px;position:relative;overflow:hidden;}
 .dp .freq .bar i{position:absolute;inset:0 auto 0 0;background:var(--loss);}
-.dp .freq .fsub{font-size:11px;color:var(--ink3);text-align:right;margin-top:6px;}
+.dp .freq .fsub{font-size:10px;color:var(--ink3);text-align:right;margin-top:5px;letter-spacing:.02em;}
 
 /* STRUCTURAL */
 .dp .struct-top{padding:16px 0 22px;border-bottom:1px solid var(--line);margin-bottom:24px;}
