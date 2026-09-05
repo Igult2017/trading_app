@@ -40,17 +40,19 @@ export const DP_CSS = `
      NO BACKTICKS IN THIS FILE — it is one big template literal; a backtick here ends the CSS. */
   --mono:inherit;
   --disp:inherit;
-  /* THE FIGURES FONT — Montserrat, his call later the same day: "in drawdown, change numbers to
-     monterat but write them in bigger font sizes so that they dont become invisible." It was
-     briefly DM Mono earlier that day, at his own earlier request; this supersedes it.
+  /* THE FIGURES FONT — the DISPLAY face, i.e. the same Playfair the month names in the monthly
+     table are already set in. He pointed straight at those and said: "Playfair is the one in
+     image 3 please use it in numbers too like i told you."
+     It went DM Mono, then Montserrat, on two earlier readings of what he wanted the same day.
+     This is the settled one: numbers and the words beside them share one face.
 
-     STILL A SEPARATE VARIABLE even though it now matches the body face, for two reasons: it keeps
-     tabular-nums on the figures so columns line up, and it is the one handle for sizing every
-     number on the page at once. Note --mono above is NOT the mono font — it is this panel's BODY
-     font, the thing .dp inherits from one line down. A variable named mono that holds a sans is
-     the same trap docs/READABILITY.md records about a constant named sans that held a serif;
+     STILL A SEPARATE VARIABLE from --disp, for two reasons: it keeps tabular-nums on the figures
+     so the monthly table's seven columns cannot go ragged, and it is the single handle for sizing
+     every number on the page. Note --mono above is NOT the mono font — it is this panel's BODY
+     font, the thing .dp inherits from one line down. A variable named mono that holds something
+     else is the trap docs/READABILITY.md records about a constant named sans that held a serif;
      check what it holds, not what it is called. */
-  --fig:'Montserrat', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --fig:var(--disp);
   background:var(--bg); color:var(--ink); font-family:var(--mono);
   /* Montserrat's digits are proportional, so this is what keeps the monthly table's seven columns
      from going ragged. It matters more now than it did under DM Mono, which was fixed-width by
@@ -85,7 +87,7 @@ export const DP_CSS = `
 
 /* generic type */
 .dp .disp{font-family:var(--disp);}
-.dp .num{font-variant-numeric:tabular-nums;letter-spacing:-.01em;font-weight:500;}
+.dp .num{font-variant-numeric:tabular-nums;letter-spacing:-.01em;font-weight:700;}
 /* THE FIGURES — see --fig above for which face they take and why it changed.
    Listed one class at a time rather than swept with a broad selector, because several classes
    that LOOK numeric are not: bare .t is a text label (the equity caption), and .ls .s reads
@@ -105,7 +107,7 @@ export const DP_CSS = `
 /* Wins / losses / breakevens as coloured figures (2026-08-29) — replaces the old "8L" / "7W"
    letter notation. The slash is deliberately dimmer than the numbers so the eye lands on the
    counts, and the numbers are 600-weight so colour is not doing all the work. */
-.dp .wlb{display:inline-flex;align-items:baseline;gap:2px;font-variant-numeric:tabular-nums;font-weight:600;}
+.dp .wlb{display:inline-flex;align-items:baseline;gap:2px;font-variant-numeric:tabular-nums;font-weight:700;}
 .dp .wlb .sl{color:var(--ink3);font-weight:400;}
 .dp .eyebrow{font-family:var(--disp);font-size:12px;letter-spacing:.22em;text-transform:uppercase;
   color:var(--ink2);font-weight:600;margin:0;line-height:1.5;}
@@ -139,14 +141,14 @@ export const DP_CSS = `
   border-top:1px solid var(--line);border-bottom:1px solid var(--line);margin-bottom:4px;}
 .dp .kpi{background:var(--bg);padding:16px 18px;}
 .dp .kpi .k{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink3);margin-bottom:9px;;font-weight:600}
-.dp .kpi .v{font-size:clamp(13px,1.5vw,17px);font-weight:600;letter-spacing:-.03em;}
+.dp .kpi .v{font-size:clamp(13px,1.5vw,17px);font-weight:700;letter-spacing:-.03em;}
 
 /* chart */
 .dp .chart-wrap{position:relative;margin-top:14px;}
 .dp .chart-wrap svg{display:block;width:100%;height:auto;}
 .dp .chart-foot{display:flex;flex-wrap:wrap;gap:28px 40px;margin-top:16px;}
 .dp .foot .k{font-size:11px;letter-spacing:.11em;text-transform:uppercase;color:var(--ink3);;font-weight:600}
-.dp .foot .v{font-size:16px;font-weight:600;margin-top:5px;}
+.dp .foot .v{font-size:16px;font-weight:700;margin-top:5px;}
 .dp .foot .v .u{color:var(--ink3);font-size:11px;margin-left:6px;}
 
 /* STRATEGY LEADERBOARD */
@@ -157,10 +159,13 @@ export const DP_CSS = `
 .dp .lrank{font-size:13px;color:var(--ink3);}
 .dp .lname{display:flex;align-items:baseline;gap:10px;min-width:0;}
 .dp .ltag{font-size:14px;color:var(--ink);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.dp .lmeta{font-size:11px;color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+/* 11px was fine while this row was set in a sans; the whole line is now Playfair, whose thin
+   strokes are the thing that disappears at that size — the same reason every other figure on this
+   page went up a step. */
+.dp .lmeta{font-size:12.5px;color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .dp .lbar{height:2px;background:var(--line2);position:relative;overflow:hidden;}
 .dp .lbar i{position:absolute;inset:0 auto 0 0;display:block;height:100%;}
-.dp .lval{text-align:right;font-size:15px;font-weight:500;}
+.dp .lval{text-align:right;font-size:15px;font-weight:700;}
 .dp .colh{display:grid;grid-template-columns:38px 230px 1fr 84px;gap:20px;margin-bottom:6px;}
 .dp .colh span{font-size:11px;letter-spacing:.11em;text-transform:uppercase;color:var(--ink3);}
 .dp .empty-row{padding:26px 0;color:var(--ink3);font-size:11px;letter-spacing:.10em;text-transform:uppercase;text-align:center;}
@@ -173,7 +178,7 @@ export const DP_CSS = `
 .dp .dl .r{display:flex;justify-content:space-between;align-items:baseline;gap:14px;padding:9px 0;border-top:1px solid var(--line);}
 .dp .dl .r:first-of-type{border-top:0;}
 .dp .dl .r .k{font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:var(--ink2);}
-.dp .dl .r .v{font-size:15px;font-weight:600;white-space:nowrap;}
+.dp .dl .r .v{font-size:15px;font-weight:700;white-space:nowrap;}
 .dp .note{font-size:11.5px;line-height:1.65;color:var(--ink3);margin-top:16px;}
 
 /* RISK SURFACE (heatmap + freq) */
@@ -220,7 +225,7 @@ export const DP_CSS = `
   border:1px solid var(--line);transition:transform .16s cubic-bezier(.16,1,.3,1),border-color .16s;}
 .dp .hc:hover{transform:translateY(-2px);border-color:var(--line2);}
 .dp .hc .p{font-size:17px;font-weight:700;letter-spacing:-.02em;line-height:1;}
-.dp .hc .t{font-size:12px;margin-top:0;font-weight:600;}
+.dp .hc .t{font-size:12px;margin-top:0;font-weight:700;}
 /* THE DEPTH BAR — the same number as a LENGTH. Colour alone is not readable as a quantity, and with
    a single tile there is nothing to compare the shade against. Sits flush at the foot of the tile. */
 /* The TRACK uses --line2, which flips with the theme (white at .15 on dark, near-black at .18 on
@@ -252,7 +257,7 @@ export const DP_CSS = `
 .dp .rp{display:flex;justify-content:space-between;align-items:baseline;padding:11px 0;border-top:1px solid var(--line);gap:14px;}
 .dp .rp:first-of-type{border-top:0;}
 .dp .rp .nm{font-family:var(--disp);font-weight:600;font-size:11px;letter-spacing:.1em;text-transform:uppercase;}
-.dp .rp .v{font-size:16px;font-weight:600;color:var(--loss);}
+.dp .rp .v{font-size:16px;font-weight:700;color:var(--loss);}
 .dp .rp .tl{font-size:11px;color:var(--ink3);}
 .dp .sg{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;}
 .dp .sg > div{padding:0 26px;border-left:1px solid var(--line);}
@@ -262,7 +267,7 @@ export const DP_CSS = `
 .dp .sess:first-of-type{border-top:0;padding-top:2px;}
 .dp .sess .top{display:flex;justify-content:space-between;align-items:baseline;}
 .dp .sess .nm{font-family:var(--disp);font-weight:700;font-size:12px;letter-spacing:.08em;}
-.dp .sess .vv{font-size:16px;font-weight:600;}
+.dp .sess .vv{font-size:16px;font-weight:700;}
 .dp .sess .sb{font-size:13px;color:var(--ink3);margin-top:4px;}
 .dp .sbar{height:2px;background:var(--line2);margin-top:9px;position:relative;overflow:hidden;}
 .dp .sbar i{position:absolute;inset:0 auto 0 0;}
@@ -272,7 +277,7 @@ export const DP_CSS = `
 
 .dp .ls{display:grid;grid-template-columns:1fr 1fr;gap:18px 22px;}
 .dp .ls .k{font-size:11px;letter-spacing:.10em;text-transform:uppercase;color:var(--ink3);margin-bottom:8px;;font-weight:600}
-.dp .ls .big{font-size:24px;font-weight:600;line-height:1;}
+.dp .ls .big{font-size:24px;font-weight:700;line-height:1;}
 .dp .ls .s{font-size:11px;color:var(--ink3);margin-top:7px;}
 .dp .tl{display:flex;flex-wrap:wrap;gap:3px;margin-top:14px;}
 .dp .tl span{width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-size:11px;}
@@ -284,7 +289,7 @@ export const DP_CSS = `
 .dp .rr .rng{font-size:14px;min-width:58px;}
 .dp .rr .nm{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink2);}
 .dp .rr .ct{font-size:12px;color:var(--ink3);}
-.dp .rr .pc{font-size:15px;font-weight:600;}
+.dp .rr .pc{font-size:15px;font-weight:700;}
 .dp .rrbar{height:2px;background:var(--line2);margin-top:8px;position:relative;overflow:hidden;}
 .dp .rrbar i{position:absolute;inset:0 auto 0 0;}
 
@@ -294,7 +299,7 @@ export const DP_CSS = `
 .dp .mtbl th{font-size:12px;letter-spacing:.10em;text-transform:uppercase;color:var(--ink3);
   font-weight:500;text-align:right;padding:0 0 12px;border-bottom:1px solid var(--line);}
 .dp .mtbl th:first-child{text-align:left;}
-.dp .mtbl td{font-size:15px;font-weight:600;padding:13px 0;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap;}
+.dp .mtbl td{font-size:15px;font-weight:700;padding:13px 0;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap;}
 .dp .mtbl td:first-child{text-align:left;}
 .dp .mtbl tr:hover td{background:var(--raise);}
 .dp .mmname{display:flex;align-items:center;gap:11px;}
@@ -345,4 +350,12 @@ export const DP_CSS = `
 .dp .sess .wp .l,
 .dp .ls .k,
 .dp .mtbl th{font-family:var(--disp);}
+/* THE WHOLE STRATEGY-DRAWDOWN ROW IN THE DISPLAY FACE, his instruction 2026-09-05: "write the
+   whole line in Playfair". The row is mostly words — the rank, the strategy tag and
+   "50 trades · 18% loss" — so it reads as one line rather than three fonts in a row.
+   NOTE this deliberately includes the drawdown figure at the end, which the --fig rule would
+   otherwise put in Montserrat with the other numbers. "The whole line" is the later and more
+   specific instruction, so it wins here; every figure elsewhere on the page is unaffected. */
+.dp .lrow, .dp .lrow .lrank, .dp .lrow .ltag,
+.dp .lrow .lmeta, .dp .lrow .lval{font-family:var(--disp);}
 `;

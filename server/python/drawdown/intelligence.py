@@ -63,13 +63,27 @@ def _group_drawdown(trades: list, key_fn) -> list:
             g["netPct"] += pct
             if pct < 0:
                 g["totalLossPct"] += pct
-        # Loss count: prefer monetary P&L; fall back to % so percentage-only journals
-        # don't silently report 0 losses (get_pnl None → (None or 0) < 0 is always False).
-        loss_val = get_pnl(t)
-        if loss_val is None:
-            loss_val = pct
-        if (loss_val or 0) < 0:
+        # LOSSES COME FROM THE LABEL, like wins and breakevens two lines up. They used to come
+        # from the P&L SIGN alone, which is a second definition of "loss" inside one function —
+        # and a break-even is almost always a few cents down once commission is taken out, so
+        # every one of them was counted TWICE: once as a breakeven, once as a loss.
+        #
+        # Measured on the real function, 2026-09-05, with one win, one loss and one break-even
+        # closing at -0.40: wins 1, breakevens 1, losses 2 — four outcomes from three trades,
+        # and a loss rate of 66.7% where one trade in three actually lost. That is what inflates
+        # the "N trades · X% loss" line he asked about.
+        #
+        # THE P&L FALLBACK IS KEPT, because it was there for a real reason: a percentage-only
+        # journal carries no monetary P&L and no outcome label, and without this it would report
+        # zero losses for ever. It now applies ONLY when there is no label to trust.
+        if _oc == "loss":
             g["losses"] += 1
+        elif _oc == "":
+            loss_val = get_pnl(t)
+            if loss_val is None:
+                loss_val = pct
+            if (loss_val or 0) < 0:
+                g["losses"] += 1
     out = []
     for g in groups.values():
         g["lossRate"]     = round(g["losses"] / g["trades"] * 100, 1) if g["trades"] else 0.0
