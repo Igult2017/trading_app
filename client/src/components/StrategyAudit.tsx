@@ -156,8 +156,19 @@ const T = {
 const PLAYFAIR = "'Playfair Display Variable', 'Playfair Display', Georgia, serif";
 const FONT  = PLAYFAIR;   // every piece of text on the page
 const MONO  = "'DM Mono', monospace";   // every figure — kept, and reinforced below
-const mono  = { fontFamily: MONO, fontWeight: 700 as const };
-const num   = { fontFamily: MONO, fontWeight: 500 as const };
+// TWO HELPERS, AND THE NAMES NOW TELL THE TRUTH.
+//
+// There used to be `mono` and `num`, both DM Mono, and `mono` was spread onto FIFTY elements — of
+// which only about nine were figures. The rest were words: "BASE RATE", "Avg Length", "Worst DD",
+// "ADVERSE FILL RATIO", "Last 50", the verdict sentences. That is the second font he could see in
+// the text (2026-09-05: "there is another font being used there in text i need you to use playfair
+// there"). A helper called `mono` that is mostly setting prose is the same trap docs/READABILITY.md
+// records about a constant named `sans` that held a serif — so it is renamed, not just repointed.
+// NO COLOUR IN EITHER HELPER. 39 of the 42 call sites set their own, and putting one here silently
+// overrode the three that spread the helper AFTER their colour — two of them buttons that are meant
+// to be bright. tsc caught it; it would have been invisible otherwise.
+const lbl = { fontFamily: FONT, fontWeight: 600 as const };   // words: labels, captions
+const num = { fontFamily: MONO, fontWeight: 500 as const };   // figures only
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Primitive helpers
@@ -165,7 +176,7 @@ const num   = { fontFamily: MONO, fontWeight: 500 as const };
 
 function Badge({ children, color = T.muted, border = T.line2 }: { children: React.ReactNode; color?: string; border?: string }) {
   return (
-    <span style={{ ...mono, fontSize: 12.5, letterSpacing: ".12em", textTransform: "uppercase", padding: "3px 8px", border: `1px solid ${border}`, color, display: "inline-block" }}>
+    <span style={{ ...lbl, fontSize: 12.5, letterSpacing: ".12em", textTransform: "uppercase", padding: "3px 8px", border: `1px solid ${border}`, color, display: "inline-block" }}>
       {children}
     </span>
   );
@@ -180,7 +191,7 @@ function V({ children, color = T.text, style = {} }: { children: React.ReactNode
 }
 
 function Sub({ children, color = T.dim, style = {} }: { children: React.ReactNode; color?: string; style?: React.CSSProperties }) {
-  return <span style={{ fontFamily: MONO, fontSize: 12.5, color, fontWeight: 500, ...style }}>{children}</span>;
+  return <span style={{ fontFamily: FONT, fontSize: 12.5, color, fontWeight: 500, ...style }}>{children}</span>;
 }
 
 /**
@@ -197,7 +208,18 @@ function CellTitle({ children, icon }: { children: React.ReactNode; icon?: React
     <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 18 }}>
       <span style={{ width: 2, height: 15, background: T.line2, display: "inline-block", borderRadius: 1 }} />
       {icon && <span style={{ color: T.dim, display: "inline-flex" }}>{icon}</span>}
-      <span style={{ fontFamily: PLAYFAIR, fontSize: 16, letterSpacing: "0", color: T.text, fontWeight: 600, lineHeight: 1.2 }}>{children}</span>
+      {/* TITLES HAD TO STOP LOOKING LIKE BODY TEXT. Once the whole page went Playfair and `muted`
+          was collapsed up to the same #ECEEF2 as `text`, a card heading and the sentence under it
+          were the same face at the same colour, separated only by a couple of pixels — his
+          "the title text and non title text look the same so there is no contrast and distinction".
+          Two signals now carry it, both of the ones he offered:
+            ITALIC — Playfair's italic is a genuinely different cut, not a slant, so it reads as a
+                     heading instantly at any size;
+            COLOUR — the caption grey, which is 8.77:1 and NOT dim: it is the same step the Metrics
+                     panel puts its own panel titles on, where the title sits behind the content it
+                     introduces rather than shouting over it. */}
+      <span style={{ fontFamily: PLAYFAIR, fontSize: 16.5, fontStyle: "italic", letterSpacing: ".01em",
+                     color: T.dim, fontWeight: 600, lineHeight: 1.2 }}>{children}</span>
     </div>
   );
 }
@@ -242,7 +264,7 @@ function BigNum({ value, label, color = T.text }: { value: string | number; labe
   return (
     <div style={{ textAlign: "center" }}>
       <div style={{ ...num, fontSize: 22, color, lineHeight: 1 }}>{value}</div>
-      <div style={{ ...mono, fontSize: 12.5, letterSpacing: ".12em", color: T.dim, marginTop: 4 }}>{label}</div>
+      <div style={{ ...lbl, fontSize: 12.5, letterSpacing: ".12em", color: T.dim, marginTop: 4 }}>{label}</div>
     </div>
   );
 }
@@ -258,7 +280,7 @@ function InfoBox({ children, borderColor = T.line }: { children: React.ReactNode
 function MiniStatBox({ label, value, color = T.text }: { label: string; value: string | number; color?: string }) {
   return (
     <div style={{ padding: 8, border: `1px solid ${T.line}`, textAlign: "center" }}>
-      <div style={{ ...mono, fontSize: 12.5, color: T.dim }}>{label}</div>
+      <div style={{ ...lbl, fontSize: 12.5, color: T.dim }}>{label}</div>
       <div style={{ ...num, fontSize: 15, color }}>{value}</div>
     </div>
   );
@@ -340,10 +362,10 @@ function VerdictBar({ d }: { d: AuditData }) {
   const maxDD = d.drawdown?.maxPeakToValley ?? 0;
   return (
     <div className="sa-verdict" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 20px", background: T.bg2, borderTop: `1px solid ${T.line2}`, gap: 12, flexWrap: "wrap" }}>
-      <div style={{ ...mono, fontSize: 12.5, letterSpacing: ".12em", color: authorized ? T.green : T.amber }}>
+      <div style={{ ...lbl, fontSize: 12.5, letterSpacing: ".12em", color: authorized ? T.green : T.amber }}>
         {authorized ? "✓ SYSTEM AUTHORIZED — ALL STRUCTURAL CHECKS PASSED" : "⚠ SYSTEM PENDING — AWAITING CONFIRMATION"}
       </div>
-      <div style={{ ...mono, fontSize: 12.5, color: T.dim }}>
+      <div style={{ ...lbl, fontSize: 12.5, color: T.dim }}>
         Grade {grade} · Max DD {maxDD.toFixed(1)}% · Next: {next.slice(0, 30)}
       </div>
     </div>
@@ -426,7 +448,7 @@ function Page1({ d }: { d: AuditData }) {
           <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
             <div>
               <div style={{ ...num, fontSize: 22, color: T.green, lineHeight: 1 }}>{baseRate.toFixed(1)}%</div>
-              <div style={{ ...mono, fontSize: 12.5, color: T.dim, marginTop: 4, letterSpacing: ".12em" }}>BASE RATE</div>
+              <div style={{ ...lbl, fontSize: 12.5, color: T.dim, marginTop: 4, letterSpacing: ".12em" }}>BASE RATE</div>
             </div>
             <div style={{ flex: 1 }}>
               <StatRow label="Avg Win" value={`${avgWin.toFixed(2)}R`} color={T.green} />
@@ -450,24 +472,24 @@ function Page1({ d }: { d: AuditData }) {
           ].map((item, i) => (
             <div key={i} style={{ marginBottom: 14 }}>
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-                <span style={{ ...mono, fontSize: 12.5, color: T.muted }}>{item.label}</span>
+                <span style={{ ...lbl, fontSize: 12.5, color: T.muted }}>{item.label}</span>
                 <span style={{ ...num, fontSize: 12.5, color: item.color }}>{item.pct}%</span>
               </div>
               <Bar pct={item.pct} color={item.color} />
             </div>
           ))}
           <div style={{ paddingTop: 12, borderTop: `1px solid ${T.line}` }}>
-            <div style={{ ...mono, fontSize: 12.5, color: T.dim, letterSpacing: ".12em" }}>EDGE DECAY — ROLLING</div>
+            <div style={{ ...lbl, fontSize: 12.5, color: T.dim, letterSpacing: ".12em" }}>EDGE DECAY — ROLLING</div>
             <div style={{ display: "flex", gap: 16, marginTop: 8 }}>
               <div>
-                <div style={{ ...mono, fontSize: 12.5, color: T.dim }}>Last 50</div>
+                <div style={{ ...lbl, fontSize: 12.5, color: T.dim }}>Last 50</div>
                 {last50 == null
                   ? <div style={{ ...num, fontSize: 15, color: T.dim }}>—</div>
                   : <div style={{ ...num, fontSize: 15, color: last50 >= 0 ? T.blue : T.red }}>{last50 >= 0 ? "+" : ""}{last50.toFixed(2)}R</div>
                 }
               </div>
               <div>
-                <div style={{ ...mono, fontSize: 12.5, color: T.dim }}>Last 200</div>
+                <div style={{ ...lbl, fontSize: 12.5, color: T.dim }}>Last 200</div>
                 {last200 == null
                   ? <div style={{ ...num, fontSize: 13, color: T.dim }}>Need 200+ trades</div>
                   : <div style={{ ...num, fontSize: 15, color: last200 >= 0 ? T.text : T.red }}>{last200 >= 0 ? "+" : ""}{last200.toFixed(2)}R</div>
@@ -504,7 +526,7 @@ function Page1({ d }: { d: AuditData }) {
             ].map((item, i) => (
               <div key={i} style={{ flex: 1, padding: 12, border: `1px solid ${T.line}`, textAlign: "center", background: T.bg3 }}>
                 <div style={{ ...num, fontSize: 17, color: item.color }}>{item.value}</div>
-                <div style={{ ...mono, fontSize: 12.5, letterSpacing: ".12em", color: T.dim, marginTop: 4 }}>{item.label}</div>
+                <div style={{ ...lbl, fontSize: 12.5, letterSpacing: ".12em", color: T.dim, marginTop: 4 }}>{item.label}</div>
               </div>
             ))}
           </div>
@@ -517,7 +539,7 @@ function Page1({ d }: { d: AuditData }) {
         <div className="sa-lv-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 0 }}>
           {lvRows.map((item, i) => (
             <div key={i} className="sa-lv-row" style={{ display: "flex", gap: 10, padding: "8px 0", borderBottom: i < 4 ? `1px solid ${T.line}` : "none", paddingLeft: i % 2 === 1 ? 20 : 0 }}>
-              <span className="sa-lv-key" style={{ ...mono, fontSize: 12.5, color: T.blue, minWidth: 100, letterSpacing: ".1em", textTransform: "uppercase", paddingTop: 2 }}>{item.key}</span>
+              <span className="sa-lv-key" style={{ ...lbl, fontSize: 12.5, color: T.blue, minWidth: 100, letterSpacing: ".1em", textTransform: "uppercase", paddingTop: 2 }}>{item.key}</span>
               <span style={{ fontSize: 13, color: T.muted, lineHeight: 1.5, fontFamily: FONT, fontWeight: 500 }}>{item.val}</span>
             </div>
           ))}
@@ -603,7 +625,7 @@ function Page2({ d }: { d: AuditData }) {
               Not enough monthly data yet
             </div>
           )}
-          <div style={{ ...mono, fontSize: 12.5, color: T.dim, letterSpacing: ".12em", textAlign: "center", marginTop: 8 }}>
+          <div style={{ ...lbl, fontSize: 12.5, color: T.dim, letterSpacing: ".12em", textAlign: "center", marginTop: 8 }}>
             CONSISTENCY: <span style={{ fontFamily: MONO }}>{eq.simulationConfidence.toFixed(1)}%</span>
             {mb.length > 0 && <> · <span style={{ color: T.green }}>{greenCount}G</span> / <span style={{ color: T.red }}>{redCount}R</span></>}
           </div>
@@ -623,7 +645,7 @@ function Page2({ d }: { d: AuditData }) {
             { grade: "C", color: T.muted, count: tq.cTrades.count, profit: tq.cTrades.profit != null ? `${tq.cTrades.profit.toFixed(0)}% win rate` : "—", badge: "Low Edge", bc: T.line2 },
           ].map((item, i) => (
             <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: 12, border: `1px solid ${T.line}`, background: T.bg3, marginBottom: 6 }}>
-              <div style={{ ...mono, fontSize: 22, color: item.color, width: 28 }}>{item.grade}</div>
+              <div style={{ ...num, fontSize: 22, color: item.color, width: 28 }}>{item.grade}</div>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 12.5, color: T.dim, fontFamily: MONO }}>{item.count} trades</div>
                 <div style={{ fontSize: 14, color: item.color, fontFamily: MONO }}>{item.profit}</div>
@@ -636,19 +658,19 @@ function Page2({ d }: { d: AuditData }) {
           <CellTitle>Conditional Edge Validation</CellTitle>
           <InfoBox borderColor={T.blue2}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 }}>
-              <span style={{ ...mono, fontSize: 12.5, color: T.blue, letterSpacing: ".1em" }}>{ce.liquidityGap.label?.toUpperCase() ?? "LIQUIDITY-GAP ENTRIES"}</span>
+              <span style={{ ...lbl, fontSize: 12.5, color: T.blue, letterSpacing: ".1em" }}>{ce.liquidityGap.label?.toUpperCase() ?? "LIQUIDITY-GAP ENTRIES"}</span>
               <span style={{ ...num, fontSize: 15, color: T.green }}>{ce.liquidityGap.rMultiple.toFixed(2)}R</span>
             </div>
-            <div style={{ ...mono, fontSize: 12.5, color: T.dim }}>{ce.liquidityGap.samples} qualifying samples</div>
+            <div style={{ ...lbl, fontSize: 12.5, color: T.dim }}>{ce.liquidityGap.samples} qualifying samples</div>
           </InfoBox>
           <InfoBox>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 }}>
-              <span style={{ ...mono, fontSize: 12.5, color: T.muted, letterSpacing: ".1em" }}>{ce.nonQualified.label?.toUpperCase() ?? "NON-QUALIFIED ENTRIES"}</span>
+              <span style={{ ...lbl, fontSize: 12.5, color: T.muted, letterSpacing: ".1em" }}>{ce.nonQualified.label?.toUpperCase() ?? "NON-QUALIFIED ENTRIES"}</span>
               <span style={{ ...num, fontSize: 15, color: T.amber }}>{ce.nonQualified.rMultiple.toFixed(2)}R</span>
             </div>
-            <div style={{ ...mono, fontSize: 12.5, color: T.dim }}>{ce.nonQualified.samples} samples</div>
+            <div style={{ ...lbl, fontSize: 12.5, color: T.dim }}>{ce.nonQualified.samples} samples</div>
           </InfoBox>
-          <div style={{ ...mono, fontSize: 12.5, color: T.dim, letterSpacing: ".1em", marginTop: 10 }}>
+          <div style={{ ...lbl, fontSize: 12.5, color: T.dim, letterSpacing: ".1em", marginTop: 10 }}>
             EDGE TRANSFERABILITY: <span style={{ color: T.green, fontFamily: MONO }}>{(d.edgeTransferability ?? 0).toFixed(0)}%</span>
           </div>
         </Cell>
@@ -717,12 +739,12 @@ function Page3({ d }: { d: AuditData }) {
           <CellTitle>Loss Cluster Severity</CellTitle>
           <MiniGrid cols="1fr 1fr">
             <div style={{ padding: 12, border: `1px solid ${T.line}`, textAlign: "center" }}>
-              <div style={{ ...mono, fontSize: 12.5, color: T.dim, marginBottom: 6 }}>Avg Length</div>
-              <div style={{ ...mono, fontSize: 28, color: T.red }}>{lc.avgLength.toFixed(1)}</div>
+              <div style={{ ...lbl, fontSize: 12.5, color: T.dim, marginBottom: 6 }}>Avg Length</div>
+              <div style={{ ...num, fontSize: 28, color: T.red }}>{lc.avgLength.toFixed(1)}</div>
             </div>
             <div style={{ padding: 12, border: `1px solid ${T.line}`, textAlign: "center" }}>
-              <div style={{ ...mono, fontSize: 12.5, color: T.dim, marginBottom: 6 }}>Worst DD</div>
-              <div style={{ ...mono, fontSize: 28, color: T.amber }}>{lc.worstDD != null ? `${lc.worstDD.toFixed(1)}%` : "—"}</div>
+              <div style={{ ...lbl, fontSize: 12.5, color: T.dim, marginBottom: 6 }}>Worst DD</div>
+              <div style={{ ...num, fontSize: 28, color: T.amber }}>{lc.worstDD != null ? `${lc.worstDD.toFixed(1)}%` : "—"}</div>
             </div>
           </MiniGrid>
         </Cell>
@@ -731,8 +753,8 @@ function Page3({ d }: { d: AuditData }) {
           <StatRow label="Slippage (Wins)" value={ea.slippageWins != null ? `${ea.slippageWins.toFixed(1)} ticks` : "—"} color={T.green} />
           <StatRow label="Slippage (Losses)" value={ea.slippageLosses != null ? `${ea.slippageLosses.toFixed(1)} ticks` : "—"} color={T.red} last />
           <div style={{ marginTop: 12, padding: 10, border: `1px solid ${T.line}`, background: T.bg3 }}>
-            <div style={{ ...mono, fontSize: 12.5, color: T.dim, letterSpacing: ".1em" }}>ADVERSE FILL RATIO</div>
-            <div style={{ ...mono, fontSize: 19, color: T.amber, marginTop: 4 }}>{adverseRatio}×</div>
+            <div style={{ ...lbl, fontSize: 12.5, color: T.dim, letterSpacing: ".1em" }}>ADVERSE FILL RATIO</div>
+            <div style={{ ...num, fontSize: 19, color: T.amber, marginTop: 4 }}>{adverseRatio}×</div>
           </div>
         </Cell>
         <Cell style={{ borderRight: "none" }}>
@@ -768,10 +790,10 @@ function StrategyBlueprintPanel({ d }: { d: AuditData }) {
         <CellTitle icon={<Sparkles size={13} />}>AI Strategy Blueprint</CellTitle>
         <div style={{ display: "flex", gap: 8, alignItems: "baseline", marginBottom: 18 }}>
           {bp.expectedWinRate && (
-            <span style={{ ...mono, fontSize: 12.5, color: T.green, letterSpacing: ".06em" }}>{bp.expectedWinRate} WR</span>
+            <span style={{ ...num, fontSize: 12.5, color: T.green, letterSpacing: ".06em" }}>{bp.expectedWinRate} WR</span>
           )}
           {bp.sampleBasis && (
-            <span style={{ ...mono, fontSize: 12.5, color: T.dim, letterSpacing: ".06em" }}>· {bp.sampleBasis}</span>
+            <span style={{ ...num, fontSize: 12.5, color: T.dim, letterSpacing: ".06em" }}>· {bp.sampleBasis}</span>
           )}
         </div>
       </div>
@@ -784,7 +806,7 @@ function StrategyBlueprintPanel({ d }: { d: AuditData }) {
       <div style={{ display: "flex", flexDirection: "column" as const, gap: 9 }}>
         {bp.rules.map((rule, i) => (
           <div key={i} style={{ display: "flex", gap: 11, alignItems: "flex-start" }}>
-            <span style={{ ...mono, fontSize: 12.5, color: T.green, minWidth: 18, paddingTop: 2, letterSpacing: ".04em" }}>
+            <span style={{ ...num, fontSize: 12.5, color: T.green, minWidth: 18, paddingTop: 2, letterSpacing: ".04em" }}>
               {String(i + 1).padStart(2, "0")}
             </span>
             <span style={{ fontSize: 14, color: T.text, fontFamily: FONT, lineHeight: 1.6, fontWeight: 500 }}>{rule}</span>
@@ -835,7 +857,7 @@ function Page4({ d }: { d: AuditData }) {
                 {/* Same reason as the rule above: "3 consecutive losses in one session" is a
                     phrase, not a label, and reads as noise in tracked capitals. */}
                 <div style={{ fontFamily: FONT, fontSize: 13.5, color: T.text, fontWeight: 500, lineHeight: 1.45 }}>{item.label}</div>
-                <div style={{ ...mono, fontSize: 13, color: T.dim, marginTop: 3 }}>{item.value}</div>
+                <div style={{ ...num, fontSize: 13, color: T.dim, marginTop: 3 }}>{item.value}</div>
               </div>
               <Badge color={item.status === "Active" ? T.green : T.amber} border={item.status === "Active" ? T.green2 : "#8a5a00"}>{item.status}</Badge>
             </div>
@@ -864,7 +886,7 @@ function Page4({ d }: { d: AuditData }) {
             <L style={{ color: T.green, display: "block", marginBottom: 10 }}>What is working</L>
             {strengths.length ? strengths.map((s, i) => (
               <div key={i} style={{ display: "flex", gap: 9, alignItems: "flex-start", marginBottom: 8 }}>
-                <span style={{ ...mono, fontSize: 12.5, color: T.green, paddingTop: 1 }}>+</span>
+                <span style={{ ...lbl, fontSize: 12.5, color: T.green, paddingTop: 1 }}>+</span>
                 <span style={{ fontFamily: FONT, fontSize: 13, color: T.muted, lineHeight: 1.6 }}>{s}</span>
               </div>
             )) : <span style={{ fontFamily: FONT, fontSize: 13, color: T.dim }}>Not enough trades to confirm a strength yet.</span>}
@@ -873,7 +895,7 @@ function Page4({ d }: { d: AuditData }) {
             <L style={{ color: T.amber, display: "block", marginBottom: 10 }}>What is costing you</L>
             {weaknesses.length ? weaknesses.map((w, i) => (
               <div key={i} style={{ display: "flex", gap: 9, alignItems: "flex-start", marginBottom: 8 }}>
-                <span style={{ ...mono, fontSize: 12.5, color: T.amber, paddingTop: 1 }}>−</span>
+                <span style={{ ...lbl, fontSize: 12.5, color: T.amber, paddingTop: 1 }}>−</span>
                 <span style={{ fontFamily: FONT, fontSize: 13, color: T.muted, lineHeight: 1.6 }}>{w}</span>
               </div>
             )) : <span style={{ fontFamily: FONT, fontSize: 13, color: T.dim }}>No recurring weakness stands out yet.</span>}
@@ -942,7 +964,7 @@ const CONF_COLOR: Record<string, string> = {
 function ConfBadge({ level }: { level: string }) {
   const color = CONF_COLOR[level] ?? T.muted;
   return (
-    <span style={{ ...mono, fontSize: 12.5, letterSpacing: ".12em", padding: "2px 7px", border: `1px solid ${color}`, color, flexShrink: 0 }}>
+    <span style={{ ...lbl, fontSize: 12.5, letterSpacing: ".12em", padding: "2px 7px", border: `1px solid ${color}`, color, flexShrink: 0 }}>
       {level}
     </span>
   );
@@ -957,7 +979,7 @@ function AIErrorState({ msg, retry }: { msg: string; retry: () => void }) {
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: 300, gap: 16 }}>
       <WifiOff style={{ width: 32, height: 32, color: T.red }} />
       <p style={{ fontSize: 13, color: T.muted, maxWidth: 360, textAlign: "center", fontFamily: FONT, fontWeight: 500 }}>{msg}</p>
-      <button onClick={retry} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 18px", background: T.blue2, color: T.text, border: "none", cursor: "pointer", ...mono, fontSize: 12.5, letterSpacing: ".12em", textTransform: "uppercase" }}>
+      <button onClick={retry} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 18px", background: T.blue2, color: T.text, border: "none", cursor: "pointer", ...lbl, fontSize: 12.5, letterSpacing: ".12em", textTransform: "uppercase" }}>
         <RefreshCw style={{ width: 12, height: 12 }} /> Retry
       </button>
     </div>
@@ -1062,11 +1084,11 @@ function AIGate({ label, description, onRun }: { label: string; description: str
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: 300, gap: 20, padding: "40px 24px" }}>
       <Brain style={{ width: 36, height: 36, color: T.blue, opacity: 0.7 }} />
       <div style={{ textAlign: "center" }}>
-        <div style={{ ...mono, fontSize: 12.5, color: T.text, letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 10 }}>{label}</div>
+        <div style={{ ...lbl, fontSize: 12.5, color: T.text, letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 10 }}>{label}</div>
         <p style={{ fontFamily: FONT, fontSize: 13, color: T.muted, maxWidth: 400, lineHeight: 1.7, fontWeight: 500 }}>{description}</p>
         <p style={{ fontFamily: FONT, fontSize: 12.5, color: T.dim, marginTop: 8 }}>Results are cached — repeated visits won't re-call the API if your trades haven't changed.</p>
       </div>
-      <button onClick={onRun} style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 24px", background: T.blue2, color: T.text, border: `1px solid ${T.blue}40`, borderRadius: 3, cursor: "pointer", ...mono, fontSize: 12.5, letterSpacing: ".12em", textTransform: "uppercase" }}>
+      <button onClick={onRun} style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 24px", background: T.blue2, color: T.text, border: `1px solid ${T.blue}40`, borderRadius: 3, cursor: "pointer", ...lbl, fontSize: 12.5, letterSpacing: ".12em", textTransform: "uppercase" }}>
         <Sparkles style={{ width: 13, height: 13 }} /> {t('strategy.runAnalysis')}
       </button>
     </div>
@@ -1133,8 +1155,8 @@ function AIPending({ kind, label, description }: { kind: 'analysis' | 'strategy'
                          borderRadius: 5, background: `${T.blue}1f`, border: `1px solid ${T.blue}33`, flexShrink: 0 }}>
             <Brain style={{ width: 14, height: 14, color: T.blue }} />
           </span>
-          <span style={{ ...mono, fontSize: 12.5, color: T.text, letterSpacing: ".12em", textTransform: "uppercase" }}>{label}</span>
-          <span style={{ ...mono, fontSize: 12.5, letterSpacing: ".12em", padding: "3px 8px", borderRadius: 3,
+          <span style={{ ...lbl, fontSize: 12.5, color: T.text, letterSpacing: ".12em", textTransform: "uppercase" }}>{label}</span>
+          <span style={{ ...lbl, fontSize: 12.5, letterSpacing: ".12em", padding: "3px 8px", borderRadius: 3,
                          background: `${T.amber}14`, border: `1px solid ${T.amber}55`, color: T.amber }}>
             AWAITING AI
           </span>
@@ -1153,7 +1175,7 @@ function AIPending({ kind, label, description }: { kind: 'analysis' | 'strategy'
           <Cell key={i} span={s.wide ? 2 : undefined}>
             <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12 }}>
               <CellTitle>{s.title}</CellTitle>
-              <span style={{ ...mono, fontSize: 12.5, color: T.dim, letterSpacing: ".1em", flexShrink: 0 }}>
+              <span style={{ ...lbl, fontSize: 12.5, color: T.dim, letterSpacing: ".1em", flexShrink: 0 }}>
                 {String(i + 1).padStart(2, "0")}
               </span>
             </div>
@@ -1205,12 +1227,12 @@ function Page5({ sessionId, userId }: { sessionId?: string; userId?: string }) {
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 3, marginBottom: 3 }}>
         <Cell>
           <CellTitle icon={<Brain size={13} />}>Trader Archetype</CellTitle>
-          <div style={{ ...mono, fontSize: 17, color: T.blue, marginBottom: 8 }}>{data.trader_archetype ?? "—"}</div>
+          <div style={{ ...lbl, fontSize: 17, color: T.blue, marginBottom: 8 }}>{data.trader_archetype ?? "—"}</div>
           {data.headline && <div style={{ fontFamily: FONT, fontSize: 12.5, color: T.dim, lineHeight: 1.6, fontWeight: 500 }}>{data.headline.split("\n")[0]}</div>}
         </Cell>
         <Cell style={{ borderRight: "none" }}>
           <CellTitle icon={<Activity size={13} />}>{t('strategy.healthScore')}</CellTitle>
-          <div style={{ ...mono, fontSize: 17, color: healthColor, marginBottom: 8 }}>{data.health_score ?? "—"}</div>
+          <div style={{ ...lbl, fontSize: 17, color: healthColor, marginBottom: 8 }}>{data.health_score ?? "—"}</div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" as const }}>
             {findings.slice(0, 2).map((f, i) => (
               <Badge key={i} color={f.deviation >= 0 ? T.green : T.red} border={f.deviation >= 0 ? T.green2 : T.red2}>
@@ -1296,12 +1318,12 @@ function Page5({ sessionId, userId }: { sessionId?: string; userId?: string }) {
 
       {/* Bottom verdict bar — matches Page4's VerdictBar */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 20px", background: T.bg2, borderTop: `1px solid ${T.line2}`, gap: 12, flexWrap: "wrap" as const }}>
-        <div style={{ ...mono, fontSize: 12.5, letterSpacing: ".12em", color: healthColor }}>
+        <div style={{ ...lbl, fontSize: 12.5, letterSpacing: ".12em", color: healthColor }}>
           {data.health_score === "Advanced" || data.health_score === "Consistent"
             ? `✓ ${(data.health_score ?? "").toUpperCase()} TRADER — BEHAVIOURAL ANALYSIS COMPLETE`
             : "⚠ DEVELOPING EDGE — CONTINUE LOGGING TRADES"}
         </div>
-        <div style={{ ...mono, fontSize: 12.5, color: T.dim }}>
+        <div style={{ ...lbl, fontSize: 12.5, color: T.dim }}>
           Archetype: {data.trader_archetype ?? "—"} · Findings: {findings.length} · Checklist: {checklist.length} items
         </div>
       </div>
@@ -1401,7 +1423,7 @@ function Page6({ sessionId, userId }: { sessionId?: string; userId?: string }) {
           <div>
             {Object.keys(riskRules).length > 0 ? Object.entries(riskRules).map(([k, v], i) => (
               <div key={i} style={{ padding: "10px 12px", borderLeft: `2px solid ${T.blue}`, marginBottom: 8 }}>
-                <div style={{ ...mono, fontSize: 12.5, letterSpacing: ".1em", color: T.dim, marginBottom: 3 }}>{k.toUpperCase()}</div>
+                <div style={{ ...lbl, fontSize: 12.5, letterSpacing: ".1em", color: T.dim, marginBottom: 3 }}>{k.toUpperCase()}</div>
                 <div style={{ fontFamily: FONT, fontSize: 13, color: T.text, fontWeight: 500 }}>{v}</div>
               </div>
             )) : (
@@ -1414,7 +1436,7 @@ function Page6({ sessionId, userId }: { sessionId?: string; userId?: string }) {
           {/* Projected edge */}
           {data.projected_edge && (
             <div style={{ padding: "10px 12px", borderLeft: `2px solid ${T.green}` }}>
-              <div style={{ ...mono, fontSize: 12.5, letterSpacing: ".1em", color: T.dim, marginBottom: 6 }}>PROJECTED EDGE</div>
+              <div style={{ ...lbl, fontSize: 12.5, letterSpacing: ".1em", color: T.dim, marginBottom: 6 }}>PROJECTED EDGE</div>
               <div style={{ fontFamily: MONO, fontSize: 22, color: T.green, fontWeight: 500, lineHeight: 1 }}>
                 {(data.projected_edge.win_rate * 100).toFixed(0)}%
               </div>
@@ -1450,12 +1472,12 @@ function Page6({ sessionId, userId }: { sessionId?: string; userId?: string }) {
 
       {/* Bottom verdict bar — matches Page4's VerdictBar */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 20px", background: T.bg2, borderTop: `1px solid ${T.line2}`, gap: 12, flexWrap: "wrap" as const }}>
-        <div style={{ ...mono, fontSize: 12.5, letterSpacing: ".12em", color: data.projected_edge ? T.green : T.amber }}>
+        <div style={{ ...lbl, fontSize: 12.5, letterSpacing: ".12em", color: data.projected_edge ? T.green : T.amber }}>
           {data.projected_edge
             ? `✓ STRATEGY DERIVED — ${(data.projected_edge.win_rate * 100).toFixed(0)}% PROJECTED EDGE`
             : "⚠ INSUFFICIENT DATA — LOG MORE TRADES TO GENERATE STRATEGY"}
         </div>
-        <div style={{ ...mono, fontSize: 12.5, color: T.dim }}>
+        <div style={{ ...lbl, fontSize: 12.5, color: T.dim }}>
           Entry rules: {entries.length} · Avoid: {avoids.length} · Risk rules: {Object.keys(riskRules).length}
         </div>
       </div>
@@ -1503,10 +1525,10 @@ export default function StrategyAudit({ sessionId, userId, darkMode = true }: Pr
       <div style={{ minHeight: 480, background: T.bg, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 20, ...F, ...saVars }}>
         <WifiOff style={{ width: 48, height: 48, color: T.red }} />
         <div style={{ textAlign: "center" }}>
-          <p style={{ ...mono, fontSize: 13, letterSpacing: ".12em", color: T.red, textTransform: "uppercase" }}>Audit Engine Error</p>
+          <p style={{ ...lbl, fontSize: 13, letterSpacing: ".12em", color: T.red, textTransform: "uppercase" }}>Audit Engine Error</p>
           <p style={{ fontSize: 13, color: T.muted, marginTop: 8, maxWidth: 360, fontWeight: 500 }}>{msg}</p>
         </div>
-        <button onClick={() => refetch()} style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 20px", background: T.blue2, color: T.text, border: "none", cursor: "pointer", ...mono, fontSize: 12.5, letterSpacing: ".12em", textTransform: "uppercase" }}>
+        <button onClick={() => refetch()} style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 20px", background: T.blue2, color: T.text, border: "none", cursor: "pointer", ...lbl, fontSize: 12.5, letterSpacing: ".12em", textTransform: "uppercase" }}>
           <RefreshCw style={{ width: 14, height: 14 }} /> Retry
         </button>
       </div>
@@ -1520,12 +1542,12 @@ export default function StrategyAudit({ sessionId, userId, darkMode = true }: Pr
       <div style={{ minHeight: 480, background: T.bg, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16, ...F, ...saVars }}>
         <ShieldCheck style={{ width: 44, height: 44, color: T.dim }} />
         <div style={{ textAlign: "center" }}>
-          <p style={{ ...mono, fontSize: 12.5, letterSpacing: ".12em", color: T.muted, textTransform: "uppercase" }}>No audit data yet</p>
+          <p style={{ ...lbl, fontSize: 12.5, letterSpacing: ".12em", color: T.muted, textTransform: "uppercase" }}>No audit data yet</p>
           <p style={{ fontSize: 12.5, color: T.dim, marginTop: 8, maxWidth: 320, fontWeight: 500, lineHeight: 1.6 }}>
             Log trades in your session to generate a full strategy audit report
           </p>
         </div>
-        <button onClick={() => refetch()} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 18px", background: "transparent", color: T.muted, border: `1px solid ${T.line2}`, cursor: "pointer", ...mono, fontSize: 12.5, letterSpacing: ".12em", textTransform: "uppercase" }}>
+        <button onClick={() => refetch()} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 18px", background: "transparent", color: T.muted, border: `1px solid ${T.line2}`, cursor: "pointer", ...lbl, fontSize: 12.5, letterSpacing: ".12em", textTransform: "uppercase" }}>
           <RefreshCw style={{ width: 12, height: 12 }} /> Refresh
         </button>
       </div>
