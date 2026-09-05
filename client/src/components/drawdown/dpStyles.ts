@@ -40,10 +40,21 @@ export const DP_CSS = `
      NO BACKTICKS IN THIS FILE — it is one big template literal; a backtick here ends the CSS. */
   --mono:inherit;
   --disp:inherit;
+  /* THE FIGURES FONT — the same DM Mono the Strategy Audit sets its numbers in, on his
+     2026-09-05 ask to match the two pages. It is a SEPARATE variable on purpose: despite its
+     name, --mono above is this panel's BODY font (it is what .dp inherits from, one line down),
+     so pointing that at DM Mono would set the entire page in monospace rather than the numbers.
+     A variable named mono that is not the mono font is the same trap docs/READABILITY.md
+     records about a constant named sans that held a serif — check what it holds, not what it
+     is called.
+
+     THIS REVERSES A CHOICE OF HIS from 2026-07-29 ("numbers and letters alike in the journal
+     face"), which is why DM Mono left in the first place; he asked for it back explicitly. */
+  --fig:'DM Mono', ui-monospace, monospace;
   background:var(--bg); color:var(--ink); font-family:var(--mono);
-  /* Playfair's figures are PROPORTIONAL by default, so KPI columns and chart axes would go ragged
-     the moment DM Mono left — the very thing DM Mono was here for. tabular-nums restores
-     equal-width digits; on a face without the feature it is simply ignored, so it cannot hurt. */
+  /* Kept even though DM Mono is already fixed-width: --fig is only applied to the figures, and
+     any number sitting in ordinary body text still needs even digits. On a face without the
+     feature it is simply ignored, so it cannot hurt. */
   font-variant-numeric:tabular-nums;
   min-height:100%; -webkit-font-smoothing:antialiased;
   /* top gap comes from <main> (14px, uniform with every other journal page); keep
@@ -67,13 +78,27 @@ export const DP_CSS = `
   --heat-neg-ink:#7F1D1D;
 }
 /* Keep chart labels in DM Mono despite the global .journal-root svg text rule. */
-.journal-root .dp svg text{font-family:var(--mono)!important;}
+/* Chart axes are figures too — dates and values — so they follow --fig with the numbers rather
+   than the body font. !important because the journal's own svg-text rule also targets these. */
+.journal-root .dp svg text{font-family:var(--fig)!important;}
 
 .dp .shell{max-width:1180px;margin:0 auto;display:flex;flex-direction:column;gap:46px;}
 
 /* generic type */
 .dp .disp{font-family:var(--disp);}
 .dp .num{font-variant-numeric:tabular-nums;letter-spacing:-.01em;font-weight:500;}
+/* THE FIGURES, in DM Mono — matching the Strategy Audit, on his 2026-09-05 ask.
+   Listed one class at a time rather than swept with a broad selector, because several classes
+   that LOOK numeric are not: bare .t is a text label (the equity caption), and .ls .s reads
+   "before recovery" / "no data". Those keep the body font. .hc .t IS the win/loss/breakeven
+   figures inside a heatmap tile, so it is named explicitly rather than inherited from .t. */
+.dp .num, .dp .wlb,
+.dp .kpi .v, .dp .foot .v, .dp .dl .r .v, .dp .rp .v,
+.dp .sess .vv, .dp .sess .sb,
+.dp .ls .big,
+.dp .rr .rng, .dp .rr .pc, .dp .rr .ct,
+.dp .hc .p, .dp .hc .t,
+.dp .hleg .wc b{font-family:var(--fig);}
 .dp .loss{color:var(--loss);} .dp .gain{color:var(--gain);} .dp .warn{color:var(--warn);}
 .dp .dim{color:var(--ink2);} .dp .mut{color:var(--ink3);}
 /* Wins / losses / breakevens as coloured figures (2026-08-29) — replaces the old "8L" / "7W"
