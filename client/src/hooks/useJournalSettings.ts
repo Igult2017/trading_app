@@ -169,7 +169,11 @@ export const FONTS: Record<FontId, FontDef> = {
     forceWeight: null,   // keep each panel's own weights — see FontDef.forceWeight
     // The ONLY serif of the nine. Headings stay Playfair; small read-text gets Inter, which is
     // already bundled (index.css) so this costs no download. See FontDef.bodyStack.
-    bodyStack: "'Inter Variable', 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif",
+    //
+    // MONTSERRAT, his choice 2026-09-05 (it was Inter for a day). It also happens to restore the
+    // Drawdown panel's own documented design pairing — Journal.tsx calls that panel
+    // "Montserrat/DM-Mono" — now that its figures are back on DM Mono.
+    bodyStack: "'Montserrat', system-ui, -apple-system, 'Segoe UI', sans-serif",
   },
   montserrat: {
     label: 'Montserrat',
