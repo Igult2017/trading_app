@@ -354,10 +354,25 @@ export async function processIncomingTrades(
       //
       // `healJournalBlanks` fills a blank and nothing else, so it can safely run on everything the
       // rebuild does not claim.
+      //   - AND A ROW WRITTEN WITH THE WRONG R (fixed 2026-09-05). Until that day this pipeline put
+      //     the PLANNED ratio into `riskReward` while the manual form puts the ACHIEVED multiple
+      //     there, and wrote the achieved figure as a bare `"-1.05"` instead of his `"1:-1"`. Those
+      //     rows are not BLANK, so the heal below will never touch them, and they are not WRONG in a
+      //     way the corrections above can see — his metrics page would have gone on averaging a
+      //     planned 4.15R under the heading "achieved" for ever.
+      //
+      //     The format is its own marker: a row this pipeline wrote (`autoJournaled`) whose achieved
+      //     R does not start with "1:" is an old one. Rebuilding it puts every R:R field right at
+      //     once, the hand-edit lock still protects anything he has corrected, and the condition can
+      //     never match again afterwards.
+      const staleRR = (entry: any) =>
+        (entry?.manualFields as any)?.autoJournaled === true
+        && entry?.achievedRR != null && !String(entry.achievedRR).startsWith('1:');
+
       if (existing.journalEntryId) {
         const entry = await storage.getJournalEntryById(existing.journalEntryId).catch(() => null);
         if (entry) {
-          if (existing.originalStopLoss && !entry.primaryExitReason) {
+          if ((existing.originalStopLoss && !entry.primaryExitReason) || staleRR(entry)) {
             await repairJournalDerived(existing).catch(err =>
               console.error(`[Sync] could not fill the missing fields on the journal entry for `
                             + `${existing.externalId}: ${err?.message ?? err}`));

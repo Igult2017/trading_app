@@ -172,6 +172,26 @@ for (const f of ['mae', 'mfe', 'profitLoss'])
   check(`zero counts as a value, not a blank — ${f}`,
         Object.prototype.hasOwnProperty.call(zeroed, f), false);
 
+// ── 4. THE ROWS ALREADY STORED WITH THE OLD R:R ────────────────────────────
+// Until 2026-09-05 this pipeline wrote the PLANNED ratio into `riskReward` and a bare `"-1.05"` into
+// `achievedRR`. Those rows are not blank, so the heal above will never touch them, and nothing else
+// disagrees with them — his metrics page would have gone on averaging a planned 4.15R under the
+// heading "achieved" for ever. The sync spots them by their FORMAT and rebuilds them once.
+console.log('\n4. a row written with the old R:R format is spotted and rebuilt:');
+const syncSrc = await import('fs').then(fs => fs.readFileSync('server/services/brokerSyncService.ts', 'utf8'));
+check('the sync tests for the old format', /const staleRR = /.test(syncSrc), true);
+check('...and only on rows THIS pipeline wrote', /autoJournaled\]?\s*===\s*true/.test(syncSrc), true);
+check('...and sends them through the rebuild, which honours the lock',
+      /staleRR\(entry\)\)\s*\{\s*\n\s*await repairJournalDerived/.test(syncSrc), true);
+
+// The rule itself, driven rather than described.
+const isStale = (achievedRR: string, auto = true) =>
+  auto && achievedRR != null && !String(achievedRR).startsWith('1:');
+check('an old bare "-1.05" is stale',      isStale('-1.05'), true);
+check('a new "1:-1" is not',               isStale('1:-1'),  false);
+check('...nor is a breakeven "1:0"',       isStale('1:0'),   false);
+check('a MANUAL row is never touched, whatever it holds', isStale('-1.05', false), false);
+
 // ── TEETH ──────────────────────────────────────────────────────────────────
 console.log('\n  teeth — the behaviour before the fix must fail these:');
 check('  the rebuild carries NO clock field, which is why the heal exists',
