@@ -172,9 +172,13 @@ export const DP_CSS = `
    data instead of across a gap. */
 .dp .hrow{display:grid;grid-template-columns:86px repeat(var(--cols,5),minmax(78px,112px));
   gap:5px;justify-content:start;align-items:stretch;}
-.dp .hh{font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink3);text-align:center;
+/* 11px IS THE FLOOR — docs/READABILITY.md, and this panel is the page that floor was measured on.
+   I had these at 9.5px and 10px, which put five rules back under it and re-created the exact defect
+   the 2026-08-29 pass removed ("drawdown: 17 rules below 11px"). In a high-contrast display serif
+   the thin strokes simply stop rendering at that size. Do not take these below 11px again. */
+.dp .hh{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3);text-align:center;
   padding:2px 4px 5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:700;}
-.dp .hp{display:flex;align-items:center;font-size:10px;letter-spacing:.09em;text-transform:uppercase;
+.dp .hp{display:flex;align-items:center;font-size:11px;letter-spacing:.08em;text-transform:uppercase;
   color:var(--ink2);font-weight:700;padding-right:8px;}
 /* A TILE, not a stretched band: fixed height, rounded, with a hairline so an empty/pale cell still
    reads as a cell instead of vanishing into the background. */
@@ -183,7 +187,7 @@ export const DP_CSS = `
   border:1px solid var(--line);transition:transform .16s cubic-bezier(.16,1,.3,1),border-color .16s;}
 .dp .hc:hover{transform:translateY(-2px);border-color:var(--line2);}
 .dp .hc .p{font-size:15px;font-weight:700;letter-spacing:-.02em;line-height:1;}
-.dp .hc .t{font-size:10px;margin-top:0;font-weight:600;opacity:.92;}
+.dp .hc .t{font-size:11px;margin-top:0;font-weight:600;}
 /* THE DEPTH BAR — the same number as a LENGTH. Colour alone is not readable as a quantity, and with
    a single tile there is nothing to compare the shade against. Sits flush at the foot of the tile. */
 /* The TRACK uses --line2, which flips with the theme (white at .15 on dark, near-black at .18 on
@@ -192,8 +196,8 @@ export const DP_CSS = `
   background:var(--line2);overflow:hidden;}
 .dp .hc .hm i{display:block;height:100%;background:var(--heat-neg-ink);opacity:.62;border-radius:2px;}
 /* Legend — the colour meant nothing without one, which is most of why a lone red block looked wrong. */
-.dp .hleg{display:flex;align-items:center;gap:9px;margin-top:14px;font-size:9.5px;
-  letter-spacing:.1em;text-transform:uppercase;color:var(--ink3);font-weight:700;}
+.dp .hleg{display:flex;align-items:center;gap:9px;margin-top:14px;font-size:11px;
+  letter-spacing:.09em;text-transform:uppercase;color:var(--ink3);font-weight:700;}
 .dp .hleg .sc{display:flex;gap:2px;}
 .dp .hleg .sc i{width:24px;height:8px;border-radius:2px;display:block;}
 .dp .hleg .cap{color:var(--ink3);white-space:nowrap;}
@@ -208,7 +212,7 @@ export const DP_CSS = `
 .dp .freq .frow .wlb{font-size:11.5px;}
 .dp .freq .bar{height:2px;background:var(--line2);margin-top:7px;position:relative;overflow:hidden;}
 .dp .freq .bar i{position:absolute;inset:0 auto 0 0;background:var(--loss);}
-.dp .freq .fsub{font-size:10px;color:var(--ink3);text-align:right;margin-top:5px;letter-spacing:.02em;}
+.dp .freq .fsub{font-size:11px;color:var(--ink3);text-align:right;margin-top:5px;}
 
 /* STRUCTURAL */
 .dp .struct-top{padding:16px 0 22px;border-bottom:1px solid var(--line);margin-bottom:24px;}
