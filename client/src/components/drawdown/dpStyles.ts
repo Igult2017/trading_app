@@ -40,21 +40,21 @@ export const DP_CSS = `
      NO BACKTICKS IN THIS FILE — it is one big template literal; a backtick here ends the CSS. */
   --mono:inherit;
   --disp:inherit;
-  /* THE FIGURES FONT — the same DM Mono the Strategy Audit sets its numbers in, on his
-     2026-09-05 ask to match the two pages. It is a SEPARATE variable on purpose: despite its
-     name, --mono above is this panel's BODY font (it is what .dp inherits from, one line down),
-     so pointing that at DM Mono would set the entire page in monospace rather than the numbers.
-     A variable named mono that is not the mono font is the same trap docs/READABILITY.md
-     records about a constant named sans that held a serif — check what it holds, not what it
-     is called.
+  /* THE FIGURES FONT — Montserrat, his call later the same day: "in drawdown, change numbers to
+     monterat but write them in bigger font sizes so that they dont become invisible." It was
+     briefly DM Mono earlier that day, at his own earlier request; this supersedes it.
 
-     THIS REVERSES A CHOICE OF HIS from 2026-07-29 ("numbers and letters alike in the journal
-     face"), which is why DM Mono left in the first place; he asked for it back explicitly. */
-  --fig:'DM Mono', ui-monospace, monospace;
+     STILL A SEPARATE VARIABLE even though it now matches the body face, for two reasons: it keeps
+     tabular-nums on the figures so columns line up, and it is the one handle for sizing every
+     number on the page at once. Note --mono above is NOT the mono font — it is this panel's BODY
+     font, the thing .dp inherits from one line down. A variable named mono that holds a sans is
+     the same trap docs/READABILITY.md records about a constant named sans that held a serif;
+     check what it holds, not what it is called. */
+  --fig:'Montserrat', system-ui, -apple-system, 'Segoe UI', sans-serif;
   background:var(--bg); color:var(--ink); font-family:var(--mono);
-  /* Kept even though DM Mono is already fixed-width: --fig is only applied to the figures, and
-     any number sitting in ordinary body text still needs even digits. On a face without the
-     feature it is simply ignored, so it cannot hurt. */
+  /* Montserrat's digits are proportional, so this is what keeps the monthly table's seven columns
+     from going ragged. It matters more now than it did under DM Mono, which was fixed-width by
+     construction. On a face without the feature it is simply ignored, so it cannot hurt. */
   font-variant-numeric:tabular-nums;
   min-height:100%; -webkit-font-smoothing:antialiased;
   /* top gap comes from <main> (14px, uniform with every other journal page); keep
@@ -77,7 +77,6 @@ export const DP_CSS = `
   --warn:#B45309; --warn-d:rgba(180,83,9,.12);
   --heat-neg-ink:#7F1D1D;
 }
-/* Keep chart labels in DM Mono despite the global .journal-root svg text rule. */
 /* Chart axes are figures too — dates and values — so they follow --fig with the numbers rather
    than the body font. !important because the journal's own svg-text rule also targets these. */
 .journal-root .dp svg text{font-family:var(--fig)!important;}
@@ -87,17 +86,19 @@ export const DP_CSS = `
 /* generic type */
 .dp .disp{font-family:var(--disp);}
 .dp .num{font-variant-numeric:tabular-nums;letter-spacing:-.01em;font-weight:500;}
-/* THE FIGURES, in DM Mono — matching the Strategy Audit, on his 2026-09-05 ask.
+/* THE FIGURES — see --fig above for which face they take and why it changed.
    Listed one class at a time rather than swept with a broad selector, because several classes
    that LOOK numeric are not: bare .t is a text label (the equity caption), and .ls .s reads
    "before recovery" / "no data". Those keep the body font. .hc .t IS the win/loss/breakeven
-   figures inside a heatmap tile, so it is named explicitly rather than inherited from .t. */
+   figures inside a heatmap tile, so it is named explicitly rather than inherited from .t.
+   .mtbl td is the monthly table he circled — every cell in it but the month name is a figure. */
 .dp .num, .dp .wlb,
 .dp .kpi .v, .dp .foot .v, .dp .dl .r .v, .dp .rp .v,
 .dp .sess .vv, .dp .sess .sb,
 .dp .ls .big,
 .dp .rr .rng, .dp .rr .pc, .dp .rr .ct,
 .dp .hc .p, .dp .hc .t,
+.dp .mtbl td,
 .dp .hleg .wc b{font-family:var(--fig);}
 .dp .loss{color:var(--loss);} .dp .gain{color:var(--gain);} .dp .warn{color:var(--warn);}
 .dp .dim{color:var(--ink2);} .dp .mut{color:var(--ink3);}
@@ -131,21 +132,21 @@ export const DP_CSS = `
 .dp .hero-head{display:flex;justify-content:space-between;align-items:flex-start;gap:24px;flex-wrap:wrap;margin-bottom:30px;}
 .dp .equity{display:flex;align-items:baseline;gap:9px;}
 .dp .equity .slabel{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink3);;font-weight:600}
-.dp .equity .t{font-size:11px;letter-spacing:.08em;text-transform:uppercase;}
+.dp .equity .t{font-size:12px;letter-spacing:.08em;text-transform:uppercase;}
 
 /* KPI surface readouts */
 .dp .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line);
   border-top:1px solid var(--line);border-bottom:1px solid var(--line);margin-bottom:4px;}
 .dp .kpi{background:var(--bg);padding:16px 18px;}
 .dp .kpi .k{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink3);margin-bottom:9px;;font-weight:600}
-.dp .kpi .v{font-size:clamp(10px,1.2vw,14px);font-weight:500;letter-spacing:-.03em;}
+.dp .kpi .v{font-size:clamp(13px,1.5vw,17px);font-weight:600;letter-spacing:-.03em;}
 
 /* chart */
 .dp .chart-wrap{position:relative;margin-top:14px;}
 .dp .chart-wrap svg{display:block;width:100%;height:auto;}
 .dp .chart-foot{display:flex;flex-wrap:wrap;gap:28px 40px;margin-top:16px;}
 .dp .foot .k{font-size:11px;letter-spacing:.11em;text-transform:uppercase;color:var(--ink3);;font-weight:600}
-.dp .foot .v{font-size:14px;margin-top:5px;}
+.dp .foot .v{font-size:16px;font-weight:600;margin-top:5px;}
 .dp .foot .v .u{color:var(--ink3);font-size:11px;margin-left:6px;}
 
 /* STRATEGY LEADERBOARD */
@@ -172,7 +173,7 @@ export const DP_CSS = `
 .dp .dl .r{display:flex;justify-content:space-between;align-items:baseline;gap:14px;padding:9px 0;border-top:1px solid var(--line);}
 .dp .dl .r:first-of-type{border-top:0;}
 .dp .dl .r .k{font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:var(--ink2);}
-.dp .dl .r .v{font-size:13px;font-weight:500;white-space:nowrap;}
+.dp .dl .r .v{font-size:15px;font-weight:600;white-space:nowrap;}
 .dp .note{font-size:11.5px;line-height:1.65;color:var(--ink3);margin-top:16px;}
 
 /* RISK SURFACE (heatmap + freq) */
@@ -218,8 +219,8 @@ export const DP_CSS = `
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
   border:1px solid var(--line);transition:transform .16s cubic-bezier(.16,1,.3,1),border-color .16s;}
 .dp .hc:hover{transform:translateY(-2px);border-color:var(--line2);}
-.dp .hc .p{font-size:15px;font-weight:700;letter-spacing:-.02em;line-height:1;}
-.dp .hc .t{font-size:11px;margin-top:0;font-weight:600;}
+.dp .hc .p{font-size:17px;font-weight:700;letter-spacing:-.02em;line-height:1;}
+.dp .hc .t{font-size:12px;margin-top:0;font-weight:600;}
 /* THE DEPTH BAR — the same number as a LENGTH. Colour alone is not readable as a quantity, and with
    a single tile there is nothing to compare the shade against. Sits flush at the foot of the tile. */
 /* The TRACK uses --line2, which flips with the theme (white at .15 on dark, near-black at .18 on
@@ -241,17 +242,17 @@ export const DP_CSS = `
    at full size in the display serif, which made five short labels shout louder than the figures
    beside them. 11.5px puts them in line with every other row label on this page. */
 .dp .freq .frow .dim{font-size:11.5px;font-weight:600;}
-.dp .freq .frow .wlb{font-size:11.5px;}
+.dp .freq .frow .wlb{font-size:13px;}
 .dp .freq .bar{height:2px;background:var(--line2);margin-top:7px;position:relative;overflow:hidden;}
 .dp .freq .bar i{position:absolute;inset:0 auto 0 0;background:var(--loss);}
-.dp .freq .fsub{font-size:11px;color:var(--ink3);text-align:right;margin-top:5px;}
+.dp .freq .fsub{font-size:12px;color:var(--ink3);text-align:right;margin-top:5px;}
 
 /* STRUCTURAL */
 .dp .struct-top{padding:16px 0 22px;border-bottom:1px solid var(--line);margin-bottom:24px;}
 .dp .rp{display:flex;justify-content:space-between;align-items:baseline;padding:11px 0;border-top:1px solid var(--line);gap:14px;}
 .dp .rp:first-of-type{border-top:0;}
 .dp .rp .nm{font-family:var(--disp);font-weight:600;font-size:11px;letter-spacing:.1em;text-transform:uppercase;}
-.dp .rp .v{font-size:14px;color:var(--loss);}
+.dp .rp .v{font-size:16px;font-weight:600;color:var(--loss);}
 .dp .rp .tl{font-size:11px;color:var(--ink3);}
 .dp .sg{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;}
 .dp .sg > div{padding:0 26px;border-left:1px solid var(--line);}
@@ -261,8 +262,8 @@ export const DP_CSS = `
 .dp .sess:first-of-type{border-top:0;padding-top:2px;}
 .dp .sess .top{display:flex;justify-content:space-between;align-items:baseline;}
 .dp .sess .nm{font-family:var(--disp);font-weight:700;font-size:12px;letter-spacing:.08em;}
-.dp .sess .vv{font-size:14px;}
-.dp .sess .sb{font-size:11.5px;color:var(--ink3);margin-top:4px;}
+.dp .sess .vv{font-size:16px;font-weight:600;}
+.dp .sess .sb{font-size:13px;color:var(--ink3);margin-top:4px;}
 .dp .sbar{height:2px;background:var(--line2);margin-top:9px;position:relative;overflow:hidden;}
 .dp .sbar i{position:absolute;inset:0 auto 0 0;}
 .dp .sess .wp{display:flex;justify-content:space-between;margin-top:9px;}
@@ -271,7 +272,7 @@ export const DP_CSS = `
 
 .dp .ls{display:grid;grid-template-columns:1fr 1fr;gap:18px 22px;}
 .dp .ls .k{font-size:11px;letter-spacing:.10em;text-transform:uppercase;color:var(--ink3);margin-bottom:8px;;font-weight:600}
-.dp .ls .big{font-size:20px;font-weight:500;line-height:1;}
+.dp .ls .big{font-size:24px;font-weight:600;line-height:1;}
 .dp .ls .s{font-size:11px;color:var(--ink3);margin-top:7px;}
 .dp .tl{display:flex;flex-wrap:wrap;gap:3px;margin-top:14px;}
 .dp .tl span{width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-size:11px;}
@@ -280,25 +281,25 @@ export const DP_CSS = `
 .dp .rr{padding:11px 0;border-top:1px solid var(--line);}
 .dp .rr:first-of-type{border-top:0;padding-top:2px;}
 .dp .rr .top{display:flex;justify-content:space-between;align-items:baseline;gap:10px;}
-.dp .rr .rng{font-size:12px;min-width:58px;}
+.dp .rr .rng{font-size:14px;min-width:58px;}
 .dp .rr .nm{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink2);}
-.dp .rr .ct{font-size:11px;color:var(--ink3);}
-.dp .rr .pc{font-size:13px;}
+.dp .rr .ct{font-size:12px;color:var(--ink3);}
+.dp .rr .pc{font-size:15px;font-weight:600;}
 .dp .rrbar{height:2px;background:var(--line2);margin-top:8px;position:relative;overflow:hidden;}
 .dp .rrbar i{position:absolute;inset:0 auto 0 0;}
 
 /* MONTHLY TABLE */
 .dp .mwrap{overflow-x:auto;}
 .dp .mtbl{width:100%;border-collapse:collapse;}
-.dp .mtbl th{font-size:11px;letter-spacing:.10em;text-transform:uppercase;color:var(--ink3);
+.dp .mtbl th{font-size:12px;letter-spacing:.10em;text-transform:uppercase;color:var(--ink3);
   font-weight:500;text-align:right;padding:0 0 12px;border-bottom:1px solid var(--line);}
 .dp .mtbl th:first-child{text-align:left;}
-.dp .mtbl td{font-size:13px;padding:13px 0;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap;}
+.dp .mtbl td{font-size:15px;font-weight:600;padding:13px 0;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap;}
 .dp .mtbl td:first-child{text-align:left;}
 .dp .mtbl tr:hover td{background:var(--raise);}
 .dp .mmname{display:flex;align-items:center;gap:11px;}
 .dp .mmname .d{width:6px;height:6px;border-radius:50%;background:var(--gain);box-shadow:0 0 0 3px var(--gain-d);}
-.dp .mmname .nm{font-family:var(--disp);font-weight:600;font-size:11px;letter-spacing:.08em;color:var(--ink);}
+.dp .mmname .nm{font-family:var(--disp);font-weight:700;font-size:13px;letter-spacing:.08em;color:var(--ink);}
 
 @media(max-width:920px){
   .dp .rs{grid-template-columns:1fr;gap:30px;}
@@ -317,12 +318,15 @@ export const DP_CSS = `
  * journal default never reaches this panel on its own — these opt in explicitly.
  *
  * CHANGED 2026-07-29 (user: "change font used for both numbers and letters ... to playfair").
- * --mono used to stay DM Mono so figures kept equal-width digits; DrawdownPanel now points BOTH
- * variables at the journal's live selection, and the tabular-nums declaration on .dp carries the
- * alignment the monospace face used to provide. The rules below therefore no longer mark a
- * words/numbers split — they remain only because this subtree must opt in by hand.
- * The old split was: .kpi .v / .foot .v / svg text (figures and axes), .hh / .hp (heatmap axes),
- * .rr .nm (R:R ratios).
+ * --mono used to stay DM Mono so figures kept equal-width digits; DrawdownPanel then pointed BOTH
+ * variables at the journal's live selection, and tabular-nums on .dp carried the alignment the
+ * monospace face used to provide.
+ *
+ * AND A WORDS/NUMBERS SPLIT IS BACK, 2026-09-05 — this docblock said it was gone, so read the
+ * --fig block at the top rather than this paragraph. The figures now take their own variable and
+ * their own sizes: DM Mono first (matching the audit page), then Montserrat a few hours later at
+ * his instruction, both times bigger than the words around them. The list of which classes count
+ * as figures lives with that rule, not here.
  *
  * NO BACKTICKS ANYWHERE BELOW THIS LINE — this comment sits INSIDE the DP_CSS template literal, so
  * a single backtick (even in a comment) closes the string and breaks the module. Adding this note
