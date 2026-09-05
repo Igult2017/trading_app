@@ -42,6 +42,23 @@ export const EDIT_LOCKABLE_FIELDS = [
   'outcome', 'primaryExitReason', 'orderType', 'entryTF', 'mae', 'mfe',
 ] as const;
 
+/**
+ * THE CLOCK FIELDS — a separate list because a DIFFERENT function writes them.
+ *
+ * `repairJournalTiming` overwrites these when the sweep finally learns the real open time, and it
+ * has to respect a hand correction for the same reason the rebuild does. They are not in the list
+ * above because that one is pinned, field by field, to what `repairJournalDerived` writes.
+ */
+export const EDIT_LOCKABLE_TIMING_FIELDS = [
+  'entryTime', 'entryTimeUTC', 'dayOfWeek', 'tradeDuration',
+  'sessionName', 'sessionPhase',
+] as const;
+
+/** Every field a hand edit can pin. The PUT endpoint records from this. */
+export const EDIT_LOCKABLE_ALL = [
+  ...EDIT_LOCKABLE_FIELDS, ...EDIT_LOCKABLE_TIMING_FIELDS,
+] as const;
+
 export { classifyOutcome, buildJournalEntry, timingFields } from './fields';
 export { computeRisk } from './risk';
 export { record, recordSoon } from './events';
@@ -170,14 +187,26 @@ export async function journalSyncedTrade(
  */
 export async function repairJournalTiming(trade: SyncedTrade): Promise<void> {
   if (!trade.journalEntryId || !trade.openTime) return;
-  const fields = timingFields(trade);
+  const fields: Record<string, any> = timingFields(trade);
+  // A CLOCK HE HAS SET BY HAND WINS, same rule as the rebuild. Without this, correcting a session
+  // in the Trade Vault would be reverted the moment the sweep supplied a real open time.
+  for (const f of await editedByHand(trade.journalEntryId)) delete fields[f];
   if (!Object.keys(fields).length) return;
   await storage.updateJournalEntry(trade.journalEntryId, fields);
   await record({
     brokerAccountId: trade.brokerAccountId, externalId: trade.externalId, symbol: trade.symbol,
     stage: 'backfilled',
-    detail: `journal timing corrected — held ${fields.tradeDuration ?? '?'} min, ${fields.sessionName}`,
+    detail: `journal timing corrected — ${Object.keys(fields).join(', ')}`,
   });
+}
+
+/** The fields he has corrected by hand on one entry. Empty when the row cannot be read. */
+async function editedByHand(journalEntryId: string): Promise<string[]> {
+  try {
+    const entry = await storage.getJournalEntryById(journalEntryId);
+    const lock = ((entry?.manualFields ?? {}) as Record<string, unknown>)[EDIT_LOCK_KEY];
+    return Array.isArray(lock) ? lock.filter((k): k is string => typeof k === 'string') : [];
+  } catch { return []; }
 }
 
 /**
@@ -265,5 +294,78 @@ export async function repairJournalDerived(trade: SyncedTrade): Promise<void> {
     detail: `journal entry rebuilt — ${rebuilt.direction} ${rebuilt.outcome} `
             + `${rebuilt.profitLoss}, ${rebuilt.achievedRR ?? '?'}R`
             + (rebuilt.primaryExitReason ? `, exit: ${rebuilt.primaryExitReason}` : ''),
+  });
+}
+
+/**
+ * FILL IN WHAT AN ENTRY NEVER RECEIVED — and never touch anything that already has a value.
+ *
+ * HIS REPORT, 2026-09-05: *"It does not record whether trade was bearish or bullish, it does not
+ * record time, it does not record sessions. All that information comes from the live trade data
+ * points."* He is right, and the reason is a hole between the two repair functions:
+ *
+ *   - `repairJournalDerived` rebuilds fifteen fields — but the ENTRY TIME, the session, the day of
+ *     week and the holding time are not among them, and never were.
+ *   - `repairJournalTiming` does write exactly those — but it fires from ONE place, and only at the
+ *     instant the sweep first supplies an open time (`brokerSyncService`: `!existing.openTime &&
+ *     raw.openTime`). Once the trade row HAS an open time that condition can never be true again.
+ *
+ * So an entry written by the live feed before its open time arrived — which is every live-recorded
+ * trade, the feed stores a trade the moment it closes and that event carries no open time — kept a
+ * blank entry time and holding time PERMANENTLY, and its session was the one derived from the close.
+ * Nothing in the system would ever go back for them. The metrics page's session, day-of-week and
+ * hold-time breakdowns then have nothing to group those trades by.
+ *
+ * The self-heal already in the sync asks `!entry.primaryExitReason` — one field standing in for the
+ * question "is this entry stale?". This asks the question directly instead, of every field, so a
+ * field added in future is covered without anyone remembering to add a proxy for it.
+ *
+ * THREE RULES, and they are what make it safe to run on every pass:
+ *   1. ONLY FILLS A BLANK. A value already on the row is never overwritten — that is what
+ *      `repairJournalDerived` is for, and it is called from the places that know a value is WRONG.
+ *   2. A HAND EDIT IS UNTOUCHABLE, the same list and the same reason as the rebuild.
+ *   3. SELF-LIMITING. Once a field is filled it stops matching, so this costs one read per trade
+ *      until there is nothing left to fill and nothing at all after that.
+ */
+const HEALABLE_FIELDS = [
+  // The clock — the gap this was written for.
+  'entryTime', 'entryTimeUTC', 'exitTime', 'dayOfWeek', 'tradeDuration',
+  'sessionName', 'sessionPhase',
+  // Everything else the broker's own numbers can supply.
+  'direction', 'instrument', 'entryPrice', 'lotSize', 'riskPercent',
+  'stopLoss', 'takeProfit', 'stopLossDistance', 'takeProfitDistance',
+  'riskReward', 'achievedRR', 'pipsGainedLost', 'outcome', 'profitLoss', 'commission',
+  'primaryExitReason', 'orderType', 'entryTF', 'mae', 'mfe',
+] as const;
+
+/** Blank means "nothing was ever written here" — `0` and `"0"` are real values, not blanks. */
+const isBlank = (v: unknown) => v === null || v === undefined || v === '';
+
+export async function healJournalBlanks(trade: SyncedTrade, entry: any): Promise<void> {
+  if (!trade.journalEntryId || !entry) return;
+
+  const rebuilt: Record<string, any> = {
+    ...buildJournalEntry(trade, null, await contextFor(trade)),
+    // The real open time wins over the close-time substitute wherever it exists.
+    ...timingFields(trade),
+  };
+
+  const lock   = ((entry.manualFields ?? {}) as Record<string, unknown>)[EDIT_LOCK_KEY];
+  const edited = new Set(Array.isArray(lock) ? lock.filter((k): k is string => typeof k === 'string') : []);
+
+  const patch: Record<string, any> = {};
+  for (const f of HEALABLE_FIELDS) {
+    if (edited.has(f)) continue;                 // his correction, never ours
+    if (!isBlank(entry[f])) continue;            // already has a value — not our business
+    if (isBlank(rebuilt[f])) continue;           // we have nothing better to offer
+    patch[f] = rebuilt[f];
+  }
+  if (!Object.keys(patch).length) return;
+
+  await storage.updateJournalEntry(trade.journalEntryId, patch);
+  await record({
+    brokerAccountId: trade.brokerAccountId, externalId: trade.externalId, symbol: trade.symbol,
+    stage: 'backfilled',
+    detail: `filled in ${Object.keys(patch).join(', ')} — the entry was written without them`,
   });
 }

@@ -21,7 +21,7 @@ import { storage } from '../storage';
 import type { InsertJournalEntry, SyncedTrade, BrokerAccount } from '../../shared/schema';
 import { invalidateComputeCaches } from '../lib/cache';
 import { toPips } from '../lib/pipMath';
-import { journalSyncedTrade, repairJournalTiming, repairJournalDerived, record } from './autoJournal';
+import { journalSyncedTrade, repairJournalTiming, repairJournalDerived, healJournalBlanks, record } from './autoJournal';
 import { marksFor } from './autoJournal/marks';
 
 // ── Auto-journal one synced trade ─────────────────────────────────────────────
@@ -341,12 +341,31 @@ export async function processIncomingTrades(
       // This asks the opposite question: does the entry LACK something we can now supply? It is
       // self-limiting — once the field is there the condition stops matching, so it costs one read
       // per trade until it is done and nothing after that.
-      if (existing.journalEntryId && existing.originalStopLoss) {
+      //
+      // TWO ANSWERS, because two different things can be missing (found 2026-09-05, on his report
+      // that the metrics page has no direction, no time and no session for a synced trade):
+      //
+      //   - The DERIVED numbers, which need the whole entry rebuilt from the original risk. That is
+      //     `repairJournalDerived`, and `primaryExitReason` is a fair proxy for "this entry predates
+      //     those fields" because it is written at the same moment as the rest of them.
+      //   - The CLOCK — entry time, session, day of week, holding time. `repairJournalDerived` does
+      //     not carry those AT ALL, and the one function that does only fires at the instant an open
+      //     time first arrives. An entry that missed that moment kept its blanks for ever.
+      //
+      // `healJournalBlanks` fills a blank and nothing else, so it can safely run on everything the
+      // rebuild does not claim.
+      if (existing.journalEntryId) {
         const entry = await storage.getJournalEntryById(existing.journalEntryId).catch(() => null);
-        if (entry && !entry.primaryExitReason) {
-          await repairJournalDerived(existing).catch(err =>
-            console.error(`[Sync] could not fill the missing fields on the journal entry for `
-                          + `${existing.externalId}: ${err?.message ?? err}`));
+        if (entry) {
+          if (existing.originalStopLoss && !entry.primaryExitReason) {
+            await repairJournalDerived(existing).catch(err =>
+              console.error(`[Sync] could not fill the missing fields on the journal entry for `
+                            + `${existing.externalId}: ${err?.message ?? err}`));
+          } else {
+            await healJournalBlanks(existing, entry).catch(err =>
+              console.error(`[Sync] could not fill the blanks on the journal entry for `
+                            + `${existing.externalId}: ${err?.message ?? err}`));
+          }
         }
       }
 

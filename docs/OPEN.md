@@ -2578,9 +2578,52 @@ trades the platform took.
 strategy and its timeframes could ride along and be read back in
 [`brokerAdapters/ctrader.ts`](../server/services/brokerAdapters/ctrader.ts). **Not started.**
 
-**Also still blank on synced trades and genuinely unknowable:** `mae` / `mfe` (the worst and best
-price reached while the trade was open — the broker does not report it) and the written-analysis
-fields. Those stay empty unless he fills them in, which is the honest answer.
+**Also still blank on synced trades and genuinely unknowable:** the written-analysis fields (setup
+tag, trade grade, market regime, the psychology answers). Those stay empty unless he fills them in,
+which is the honest answer. **`mae` / `mfe` are NO LONGER on this list** — the monitor measures them
+live while the trade is open and they now reach the journal (fixed 04 Sep, see D23).
+
+---
+
+### D29 - ~~A synced trade's entry time, session and holding time were blank FOR EVER~~ FIXED 05 Sep 🔴
+**His report, 05 Sep:** *"It does not record whether trade was bearish or bullish, it does not record
+time, it does not record sessions. All that information comes from the live trade data points."*
+
+He was right, and my previous answer — that these were human judgements — was wrong. They are all
+computed from the broker's own numbers in
+[`fields.ts:116-171`](../server/services/autoJournal/fields.ts#L116).
+
+**ROOT CAUSE — a hole between the only two functions that repair an entry.**
+
+| function | what it writes | when it runs |
+|---|---|---|
+| [`repairJournalDerived`](../server/services/autoJournal/index.ts) | 15 fields: direction, P&L, pips, both stops, both distances, planned + achieved R, outcome, exit reason, order type, entry TF, MAE, MFE. **No clock field at all.** | 4 call sites in the sync |
+| [`repairJournalTiming`](../server/services/autoJournal/index.ts) | entry time, session, session phase, day of week, holding time | ONE call site, guarded by `!existing.openTime && raw.openTime` ([`brokerSyncService.ts:184`](../server/services/brokerSyncService.ts#L184)) |
+
+The live feed stores a trade **the instant it closes**, and that closing event carries no open time —
+so the entry is written with a blank entry time and blank holding time, and a session guessed from
+the close. The sweep later fills the open time onto the trade row, which is the one moment
+`repairJournalTiming` can fire. **Once the trade row has an open time, that condition can never be
+true again** — so any entry that missed that single moment kept its blanks permanently, and nothing
+in the system would ever go back for them. The metrics page's session, day-of-week and hold-time
+breakdowns then have nothing to group those trades by.
+
+The self-heal already in the sync asked `!entry.primaryExitReason` — **one field standing in as a
+proxy for "is this entry stale?"**, and that proxy does not cover the clock.
+
+**FIX:** `healJournalBlanks` asks the question directly, of every field: *does the stored entry have
+a blank where the broker's numbers give us a value?* Three rules make it safe on every pass — it only
+ever fills a blank (never overwrites; that is `repairJournalDerived`'s job, called where a value is
+known WRONG), a hand edit is untouchable, and it is self-limiting, so it costs one read per trade
+until there is nothing left to fill.
+
+`repairJournalTiming` now respects a hand edit too — before this, correcting a session in the Trade
+Vault would have been reverted the moment the sweep supplied a real open time.
+
+**Proved by:** 33 checks in
+[`editLock.test.ts`](../server/services/autoJournal/editLock.test.ts) driving the real functions
+against a fake store — a blank is filled, a value already present is left alone, a hand-edited field
+is skipped, and `0` counts as a value rather than a blank.
 
 ---
 

@@ -6,7 +6,7 @@ import { cacheGet, cacheSet, cacheDel, userSessionKey,
 // The two halves of "a hand edit beats the broker" — the list of fields it can cover and the key it
 // is stored under. Imported rather than re-declared so the PUT below and the sync's repair cannot
 // drift apart. See the note on EDIT_LOCK_KEY in services/autoJournal/index.ts.
-import { EDIT_LOCK_KEY, EDIT_LOCKABLE_FIELDS } from "./services/autoJournal";
+import { EDIT_LOCK_KEY, EDIT_LOCKABLE_ALL } from "./services/autoJournal";
 import { db, pool } from "./db";
 import { userProfiles, adminAccessLogs, tradingSignals, priceAlerts, emailTracking,
          platformHeartbeat, platformDowntime } from "@shared/schema";
@@ -1634,7 +1634,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       //
       // KEPT IN `manualFields`, which the block above already MERGES rather than replaces, so this
       // needs no new column and no migration — and it cannot be lost by a later partial edit.
-      const EDITABLE = new Set<string>(EDIT_LOCKABLE_FIELDS);
+      const EDITABLE = new Set<string>(EDIT_LOCKABLE_ALL);
       const touched  = Object.keys(rest).filter(k => EDITABLE.has(k));
       if (touched.length) {
         const mf   = (updates.manualFields ?? (existing as any).manualFields ?? {}) as Record<string, any>;

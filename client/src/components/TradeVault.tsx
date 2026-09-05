@@ -168,7 +168,7 @@ function RRBadge({ rr }: { rr: string }) {
   );
 }
 
-function EditModal({ trade, onSave, onClose, isPending }: { trade: Trade; onSave: (t: Trade) => void; onClose: () => void; isPending: boolean }) {
+function EditModal({ trade, onSave, onClose, isPending, error }: { trade: Trade; onSave: (t: Trade) => void; onClose: () => void; isPending: boolean; error?: string | null }) {
   const { t } = useTranslation();
   const [form, setForm] = useState({ ...trade });
 
@@ -322,6 +322,14 @@ function EditModal({ trade, onSave, onClose, isPending }: { trade: Trade; onSave
           </div>
         </div>
 
+        {error && (
+          <div style={{ marginTop: 14, padding: '10px 12px', borderRadius: 6, fontSize: 12.5, lineHeight: 1.5,
+                        background: 'rgba(255,77,109,0.10)', border: '1px solid rgba(255,77,109,0.30)', color: '#ff8fa3' }}
+               data-testid="text-save-error">
+            Could not save: {error}
+          </div>
+        )}
+
         <div style={styles.modalActions}>
           <button onClick={onClose} style={styles.cancelBtn} data-testid="button-cancel-edit">Cancel</button>
           <button
@@ -368,6 +376,8 @@ export default function TradeVault({ sessionId, startingBalance: sessionStarting
   const { t } = useTranslation();
   const { user } = useAuth();
   const [editingTrade, setEditingTrade] = useState<Trade | null>(null);
+  // What went wrong on the last save attempt, so a failure is never silent again.
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [exported, setExported] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
@@ -468,9 +478,17 @@ export default function TradeVault({ sessionId, startingBalance: sessionStarting
       await apiRequest("PUT", `/api/journal/entries/${updated.id}`, body);
     },
     onSuccess: () => {
+      setSaveError(null);
       invalidateAll();
       setEditingTrade(null);
     },
+    // A FAILED SAVE USED TO BE COMPLETELY SILENT. `apiRequest` throws on any non-OK response, this
+    // mutation had no onError, and nothing rendered `updateMutation.error` — so the modal simply
+    // stayed open with no message. From the outside that is indistinguishable from a button that
+    // does nothing, which is exactly how he described it ("saving changes in trade vault for
+    // autosync data is not working"). Whatever the underlying cause turns out to be, a save that
+    // fails without saying so is its own defect. (2026-09-05.)
+    onError: (err: any) => setSaveError(err?.message ? String(err.message) : 'Could not save — please try again'),
   });
 
   const deleteMutation = useMutation({
@@ -769,8 +787,9 @@ export default function TradeVault({ sessionId, startingBalance: sessionStarting
         <EditModal
           trade={editingTrade}
           onSave={handleSave}
-          onClose={() => setEditingTrade(null)}
+          onClose={() => { setSaveError(null); setEditingTrade(null); }}
           isPending={updateMutation.isPending}
+          error={saveError}
         />
       )}
     </div>
