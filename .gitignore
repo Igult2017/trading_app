@@ -20,3 +20,8 @@ logs_raw.json
 clogs.json
 .playwright-mcp/
 docs/reference/SD.pdf
+
+# Throwaway scratch dirs — a deploy/query helper must never become a file
+# nobody reviews. His rule: 'if a file is not needed anymore it is deleted.'
+.tmpdeploy/
+scratch/
