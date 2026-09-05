@@ -34,6 +34,10 @@ _SESSIONS_URL = os.getenv("APP_BASE_URL", f"http://localhost:{_PORT}") + "/api/m
 # Tracks whether the scanner was active on the previous tick.
 # SCAN_STARTED fires only on the closed→open transition, not every 60s tick.
 _was_scanning: bool = False
+# HAS THE LOG SAID WE ARE SHUT? Separate from `_was_scanning` on purpose: that flag is also cleared
+# by the paused and SCAN_ENABLED=false branches, so keying the closed notice off it would swallow
+# the notice whenever the market shut while the scanner happened to be paused.
+_market_closed_logged: bool = False
 # None until the first tick — lets us seed live sessions silently so a restart
 # during London/NY does not re-emit SESSION_OPEN for already-open sessions.
 _active_sessions: set[str] | None = None
@@ -114,7 +118,7 @@ async def scan_markets() -> None:
 
 async def _run_tick() -> tuple[bool, int | None]:
     """The tick itself. Returns (did_a_real_scan, tick_duration_ms) for the heartbeat above."""
-    global _was_scanning, _active_sessions, _current_interval
+    global _was_scanning, _active_sessions, _current_interval, _market_closed_logged
     tick_now = datetime.now(timezone.utc)
     current_sessions = get_current_sessions(tick_now)
 
@@ -135,12 +139,29 @@ async def _run_tick() -> tuple[bool, int | None]:
     # Market-hours gate FIRST: when forex is closed (all Saturday, Sunday before
     # 22:00 UTC, Friday from 22:00 UTC) the whole tick is a no-op — no scanning,
     # no news fetch, and no session-open alerts. Nothing fires while closed.
+    #
+    # AND IT HAS TO SAY SO, ONCE. This notice used to be `if _was_scanning:` — a TRANSITION test —
+    # so it only appeared when a running scanner watched the market shut. `_was_scanning` starts
+    # False, so booting INTO a closed market (any weekend deploy) skipped it entirely, and the log
+    # then showed nothing but APScheduler's own "Market scanner … executed successfully" every 60s.
+    # That line is printed whenever the job function RETURNS, whether it scanned or exited on its
+    # first line, so a deliberately idle weekend was indistinguishable from a scanner grinding
+    # through a closed market. He read it exactly that way, 2026-09-05: "Market scanner should not
+    # be working. market is closed." It was not working — but nothing in the log said so.
     instruments = instrument_filter.get_open_instruments(tick_now)
     if not instruments:
-        if _was_scanning:
-            log.info("[scanner] market closed — scanning paused")
+        if not _market_closed_logged:
+            opens = instrument_filter.next_open(tick_now)
+            log.info(f"[scanner] market closed — idle until {opens:%a %d %b %H:%M} UTC "
+                     f"({(opens - tick_now).total_seconds() / 3600:.1f}h). "
+                     f"The scanner still ticks; each tick returns immediately and scans nothing.")
+            _market_closed_logged = True
         _was_scanning = False
         return False, None
+
+    if _market_closed_logged:
+        log.info("[scanner] market open — scanning resumed")
+        _market_closed_logged = False
 
     # Session-open detection (market is open). Uses ONE source (the sessions API);
     # when it's unreachable (e.g. the first seconds after a restart, before Node is
