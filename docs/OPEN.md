@@ -2560,7 +2560,7 @@ any future report that sums across them double-counts. **That is a design decisi
 that page at the same journal entries every other page uses and retire the `trades` table, rather
 than write the same trade to a third place.
 
-### D24 - Autotrade knows the timeframes it traded, and throws them away
+### D24 - ~~Autotrade knows the timeframes it traded, and throws them away~~ FIXED 05 Sep
 **Found 02 Sep while auditing D23. NOT a defect in the sync — a real improvement that is not built.**
 
 The timeframe matrix groups trades by `entryTF` / `analysisTF` / `contextTF`
@@ -2573,7 +2573,12 @@ VIX.1 enters on the 1-minute and takes its structure from the 1-hour. Those two 
 with the order and reach the journal, and then the timeframe page would say something real about the
 trades the platform took.
 
-**Where:** the order carries a `label`/`comment` field
+**FIXED 05 Sep.** No order label was needed after all — `contextFor` (services/autoJournal/context.ts)
+already joins `synced_trades.entry_order_id -> autotrade_orders -> trading_signals` and was reading
+ONLY `executionTimeframe`. `primaryTimeframe` -> `analysisTF` and `confirmationTimeframe` ->
+`contextTF` were sitting on the same row, unread. The note below is kept for the record.
+
+**The route originally proposed:** the order carries a `label`/`comment` field
 ([`orders.build_stop`](../signal_platform/execution/orders.py)) that survives to the deal, so the
 strategy and its timeframes could ride along and be read back in
 [`brokerAdapters/ctrader.ts`](../server/services/brokerAdapters/ctrader.ts). **Not started.**
@@ -2582,6 +2587,45 @@ strategy and its timeframes could ride along and be read back in
 tag, trade grade, market regime, the psychology answers). Those stay empty unless he fills them in,
 which is the honest answer. **`mae` / `mfe` are NO LONGER on this list** — the monitor measures them
 live while the trade is open and they now reach the journal (fixed 04 Sep, see D23).
+
+---
+
+### D30 - ~~`riskReward` meant the OPPOSITE thing in the two pipelines~~ FIXED 05 Sep 🔴
+**His report, 05 Sep:** *"for autosync RR is not computed or entered accurately."*
+
+The arithmetic was right. The numbers were in the wrong columns. Pulled from production
+(`/api/admin/sync-events`, 30 days) before touching anything:
+
+| trade | outcome | achieved | planned |
+|---|---|---|---|
+| EURUSD 317231950 | LOSS −$51.03, exit Stop Loss | −1.05R | 4.15R (entry order 358554462) |
+| GBPUSD 317367514 | BE −$1.88, exit Breakeven Stop | 0R | 3.53R (entry order 358693875) |
+
+**ROOT CAUSE.** There are three R:R fields on `journal_entries` and the two writers disagreed about
+the first one:
+
+| column | the manual form writes | the sync wrote | metrics reads it as |
+|---|---|---|---|
+| `riskReward` `decimal` | the **ACHIEVED** multiple ([`JournalForm.tsx:1915`](../client/src/components/JournalForm.tsx#L1915)) | the **PLANNED** ratio | `rr_ratio` |
+| `plannedRR` `text` | `"1:2"` | **never written** | `planned_rr` |
+| `achievedRR` `text` | `"1:1.5"`, `"1:-1"` | `"-1.05"` (bare) | `achieved_rr` |
+
+`rr_ratio` drives **"AVG R:R — Achieved"** and the **R expectancy** of every winning trade
+([`metrics_calculator.py:936`](../server/python/metrics_calculator.py#L936)), so his two synced
+trades were contributing **4.15 and 3.53** to an average labelled *achieved*, on a trade that lost a
+full R and one that scratched. And nothing synced ever reached the Avg-Planned / R:R-slippage
+figures, which read `plannedRR`.
+
+**Second cause:** a clean stop-out recorded **−1.05R**, because the spread lands inside
+`move / risk`. His form fixes a Loss at `"1:-1"` and a BE at `"1:0"`. The snap now uses the exit
+reason we already compute, and only when the outcome AGREES with it — a managed exit keeps its
+measured R, because that is a real result and not an artefact.
+
+**Also built in the same change** (all borrowed from his form, none invented): market regime, trend
+and HTF bias from the direction ([`JournalForm.tsx:840-847`](../client/src/components/JournalForm.tsx#L840));
+`analysisTF`/`contextTF` from the signal (closes D24); the planned-vs-actual entry/stop/target pairs
+that the metrics engine turns into the Execution Metrics panel; the news environment with a coverage
+guard; `potentialReward`. **Proved by 62 checks in `risk.test.ts`.**
 
 ---
 

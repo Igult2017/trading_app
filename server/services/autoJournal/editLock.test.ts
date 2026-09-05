@@ -35,7 +35,7 @@ console.log('\nA HAND EDIT BEATS THE BROKER\n');
 // the list must actually be a field the repair writes — otherwise locking it would do nothing.
 console.log('1. the list is shared and every name on it is a field the repair writes:');
 const src = await import('fs').then(fs =>
-  fs.readFileSync(new URL('./index.ts', import.meta.url), 'utf8'));
+  fs.readFileSync(new URL('./repair.ts', import.meta.url), 'utf8'));   // the repairs live here now
 const patchBlock = src.slice(src.indexOf('const patch: Record<string, any> = {'),
                              src.indexOf('for (const f of edited) delete patch[f];'));
 const missing = EDIT_LOCKABLE_FIELDS.filter(f => !new RegExp(`\\b${f}:`).test(patchBlock));

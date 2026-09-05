@@ -17,7 +17,8 @@ function check(what: string, got: unknown, want: unknown) {
 }
 const read = (...p: string[]) => readFileSync(join(process.cwd(), ...p), 'utf8');
 
-const index  = read('server', 'services', 'autoJournal', 'index.ts');
+const index  = read('server', 'services', 'autoJournal', 'index.ts')
+             + read('server', 'services', 'autoJournal', 'repair.ts');   // split 2026-09-05
 const sync   = read('server', 'services', 'brokerSyncService.ts');
 const storeS = read('server', 'storage.ts');
 const auto   = read('server', 'services', 'autoSyncService.ts');

@@ -12,8 +12,9 @@
  *
  * So the manual endpoint (POST /api/journal/entries), `insertJournalEntrySchema` and
  * `balanceTracker.enrichTradeWithBalance` are never edited on account of anything in this folder —
- * and a test pins that. What IS owned here is every per-trade calculation: outcome, pips, session,
- * day, duration, and the risk numbers in ./risk.
+ * and a test pins that. What IS owned by this folder is every per-trade calculation: the pips, the
+ * session, the day and the duration here; the win/loss/scratch call in ./outcome; the R numbers in
+ * ./risk; what the strategy and the calendar say in ./context.
  *
  * Both pipelines still write to `journal_entries`. They must — that table is what the journal reads,
  * and a synced trade that does not land in it is invisible, which was the original complaint.
@@ -22,6 +23,10 @@ import type { InsertJournalEntry, SyncedTrade } from '../../../shared/schema';
 import { sessionAt } from '../../lib/forexSession';
 import { toPips } from '../../lib/pipMath';
 import { computeRisk } from './risk';
+import { classifyOutcome } from './outcome';
+// Re-exported so every existing importer of ./fields keeps working after the split.
+export { classifyOutcome } from './outcome';
+import { marketContextFor, type TradeContext } from './context';
 import { exitReasonFor } from './exitReason';
 
 // ── Session detection ─────────────────────────────────────────────────────────
@@ -42,61 +47,29 @@ function detectSession(at: Date | null): { session: SessionName; phase: string }
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
+/**
+ * A multiple as his journal writes it: `2` -> `"1:2"`, `-1` -> `"1:-1"`, `4.15` -> `"1:4.15"`.
+ *
+ * The trailing-zero trim is copied from `JournalForm.tsx:1422` so a synced row and a typed row are
+ * character-for-character the same, rather than "1:2" beside "1:2.00".
+ */
+function asRR(multiple: number): string {
+  return `1:${multiple.toFixed(2).replace(/\.?0+$/, '')}`;
+}
+
 function minutesBetween(a: Date, b: Date): number {
   return Math.round(Math.abs(b.getTime() - a.getTime()) / 60_000);
 }
 
-// A trade can end FLAT, and the journal has always had a word for it — the form offers Win/Loss/BE
-// and both analytics engines carry a breakeven class (`metrics_calculator.BE_OUTCOMES`, whose own
-// comment says omitting BE "inflates the mean" and leaves "a phantom run" in the streaks).
-//
-// The sync could never produce one: `netPl >= 0 ? 'WIN' : 'LOSS'` files a dead-flat trade as a WIN
-// and, once costs are subtracted, files a stop-moved-to-breakeven exit as a LOSS. That matters more
-// now than it used to — VIX.1's ladder moves the stop to breakeven at 0.4R, so this is the ordinary
-// outcome of a managed trade, not an edge case.
-//
-// THE BAND IS THE TRADE'S OWN NUMBERS, NEVER A FIXED SUM. "Within $1" is breakeven on a $5,000 stop
-// and a real loss on a $10 one. Two measures, whichever is larger:
-//
-//   the RISK band  — a twentieth of the money the stop was actually risking. Needs a recorded stop.
-//   the COST band  — the round-trip commission and swap. A trade whose entire net result is smaller
-//                    than what it cost to place went nowhere; that is a scratch, not a loss.
-//
-// THE COST BAND IS THE ONE THAT MATTERS FOR THE LADDER. A trade stopped out at its entry price moved
-// zero, so the risk band collapses to nothing and commission alone would file it as a LOSS — and
-// that is precisely what VIX.1 does at 0.4R, so the commonest managed outcome would have been
-// mislabelled. With no stop and no costs recorded, only an exactly-flat result is called breakeven.
-const BE_FRACTION_OF_RISK = 0.05;
-
-export function classifyOutcome(netPl: number, trade: SyncedTrade): 'WIN' | 'LOSS' | 'BE' {
-  const ep    = parseFloat(String(trade.openPrice  ?? ''));
-  const xp    = parseFloat(String(trade.closePrice ?? ''));
-  // THE ORIGINAL STOP HERE TOO — the same defect, in a second place I nearly missed. The risk band
-  // below is a fraction of THE MONEY THE STOP WAS RISKING, so feeding it the CLOSING stop shrinks the
-  // band to almost nothing and files a scratch as a full loss. His GBP/USD trade, driven end to end
-  // through this function: with the closing stop (0.2 pips from entry) it came out LOSS at 0.08R;
-  // with the original stop, the band is $2.77 against a $1.88 result and it is correctly BE — which
-  // his rule then records as 0R. Same root cause as the risk numbers, one function further on.
-  const sl    = parseFloat(String(trade.originalStopLoss ?? trade.stopLoss ?? ''));
-  const gross = parseFloat(String(trade.profitLoss ?? ''));
-  const costs = Math.abs(parseFloat(String(trade.commission ?? '0')) || 0)
-              + Math.abs(parseFloat(String(trade.swap       ?? '0')) || 0);
-
-  let band = costs;
-  const moved = (Number.isFinite(ep) && Number.isFinite(xp)) ? Math.abs(xp - ep) : 0;
-  if (Number.isFinite(ep) && Number.isFinite(sl) && Number.isFinite(gross) && moved > 0 && gross !== 0) {
-    // What one unit of price movement was worth on this trade, times the stop distance = money risked.
-    const riskMoney = Math.abs(gross / moved) * Math.abs(ep - sl);
-    band = Math.max(band, riskMoney * BE_FRACTION_OF_RISK);
-  }
-
-  if (Math.abs(netPl) <= band) return 'BE';
-  return netPl > 0 ? 'WIN' : 'LOSS';
-}
-
-/** Build the journal entry for one synced trade. Pure — it writes nothing. */
+/**
+ * Build the journal entry for one synced trade. Pure — it writes nothing.
+ *
+ * `news` is passed in rather than looked up here so this stays synchronous and testable; the caller
+ * fetches it once (see ./context `newsEnvironmentAt`).
+ */
 export function buildJournalEntry(trade: SyncedTrade, sessionId?: string | null,
-                                  context?: { strategy?: string | null; entryTF?: string | null },
+                                  context?: TradeContext,
+                                  news?: string,
                                  ): InsertJournalEntry {
   const openTime  = trade.openTime  ? new Date(trade.openTime)  : null;
   const closeTime = trade.closeTime ? new Date(trade.closeTime) : null;
@@ -126,6 +99,14 @@ export function buildJournalEntry(trade: SyncedTrade, sessionId?: string | null,
     ? toPips(trade.direction === 'Long' ? xp - ep : ep - xp, trade.symbol)
     : undefined;
 
+  // WHY THE TRADE ENDED, computed ONCE and used twice — the risk numbers need it (a stop-out is
+  // exactly -1R rather than -1.05R once the spread is taken out of it) and the entry records it for
+  // the metrics page's exit breakdown. Two calls would be two chances to drift apart.
+  const exitReason = exitReasonFor({
+    symbol: trade.symbol, entryPrice: trade.openPrice, closePrice: trade.closePrice,
+    originalStopLoss: trade.originalStopLoss, originalTakeProfit: trade.originalTakeProfit,
+  });
+
   // THE RISK COMES FROM THE STOP THE TRADE WAS PLACED WITH, never the one it closed on. `stopLoss`
   // below is the CLOSING stop — after the ladder moved it — so a trade taken to breakeven measured
   // its own risk as zero and recorded no R at all. See ./risk for the full account and the measured
@@ -139,6 +120,7 @@ export function buildJournalEntry(trade: SyncedTrade, sessionId?: string | null,
     originalStopLoss:   trade.originalStopLoss as any,
     originalTakeProfit: trade.originalTakeProfit as any,
     outcome,
+    exitReason,
   });
 
   return {
@@ -154,8 +136,27 @@ export function buildJournalEntry(trade: SyncedTrade, sessionId?: string | null,
     takeProfit:  (trade.originalTakeProfit ?? trade.takeProfit) ?? undefined,
     stopLossDistance:   risk.stopLossDistance   != null ? String(risk.stopLossDistance)   : undefined,
     takeProfitDistance: risk.takeProfitDistance != null ? String(risk.takeProfitDistance) : undefined,
-    riskReward:  risk.riskReward != null ? String(risk.riskReward) : undefined,
-    achievedRR:  risk.achievedRR != null ? String(risk.achievedRR) : undefined,
+    // ── THE THREE R:R FIELDS, WRITTEN THE WAY HIS OWN FORM WRITES THEM ──────────────────────
+    //
+    // His report, 2026-09-05: *"for autosync RR is not computed or entered accurately."* The
+    // arithmetic was right; the numbers were in the wrong columns.
+    //
+    //   `riskReward`  is the ACHIEVED multiple — because that is what the manual form puts there
+    //                 (`JournalForm.tsx:1915`, `riskReward: parseRR(f4.achievedRR)`) and what
+    //                 `metrics_calculator.py` averages under the label "AVG R:R — Achieved". This
+    //                 used to carry the PLANNED ratio, so his EURUSD stop-out and his GBPUSD
+    //                 scratch were contributing 4.15 and 3.53 to that average.
+    //   `plannedRR`   is the plan, in his `"1:4.15"` format. It was NEVER WRITTEN by this pipeline,
+    //                 so every synced trade was missing from the page's Avg Planned R:R and from
+    //                 its R:R-slippage figure, both of which read this column.
+    //   `achievedRR`  same number as `riskReward`, in the `"1:x"` format the form uses, so the two
+    //                 pipelines' rows read identically in the journal.
+    //
+    // `_coerce_rr` (metrics_calculator.py:322) already accepts both "1:2" and "2", so nothing on
+    // the Python side changes.
+    riskReward:  risk.achievedRR != null ? String(risk.achievedRR)  : undefined,
+    plannedRR:   risk.plannedRR  != null ? asRR(risk.plannedRR)     : undefined,
+    achievedRR:  risk.achievedRR != null ? asRR(risk.achievedRR)    : undefined,
     // EVERY TRADE MUST RECORD A RISK — the same rule and the same 1% default the manual endpoint
     // applies, so a broker trade and a typed one are weighted identically by the risk analytics.
     riskPercent: '1',
@@ -178,10 +179,7 @@ export function buildJournalEntry(trade: SyncedTrade, sessionId?: string | null,
     //
     // A trade he placed BY HAND has no signal behind it, so `strategy` and `entryTF` stay blank —
     // that is correct rather than a gap. The other two work for every synced trade.
-    primaryExitReason: exitReasonFor({
-      symbol: trade.symbol, entryPrice: trade.openPrice, closePrice: trade.closePrice,
-      originalStopLoss: trade.originalStopLoss, originalTakeProfit: trade.originalTakeProfit,
-    }),
+    primaryExitReason: exitReason,
     orderType:   trade.orderType ?? undefined,
     // HOW FAR IT RAN EACH WAY while it was open, in pips. Measured live by the monitor and stored on
     // the trade — they cannot be reconstructed from a closed trade, which knows only where it began
@@ -194,6 +192,12 @@ export function buildJournalEntry(trade: SyncedTrade, sessionId?: string | null,
     // first"), so a key placed in that blob is exactly as visible to it as a column would be. That
     // is also where the manual form's own strategy lands, so both paths group together.
     entryTF:     context?.entryTF ?? undefined,
+    // THE OTHER TWO TIMEFRAMES AUTOTRADE ALREADY KNEW AND WAS THROWING AWAY (D24 in docs/OPEN.md).
+    // The signal records what it read the setup on and what it confirmed against; the metrics page's
+    // Timeframe panel and its "ATF + Session + Instrument" panel both had nothing to show without
+    // them. Blank for a trade he placed by hand, which is correct — no signal, no timeframes.
+    analysisTF:  context?.analysisTF ?? undefined,
+    contextTF:   context?.contextTF  ?? undefined,
     manualFields: {
       brokerTicket: trade.externalId,
       brokerAccountId: trade.brokerAccountId,
@@ -203,6 +207,29 @@ export function buildJournalEntry(trade: SyncedTrade, sessionId?: string | null,
       // Read by the metrics engine's strategyPerformance / strategyMarketMatrix breakdowns — see
       // the note above. Absent for a trade he placed by hand, which has no signal behind it.
       strategy: context?.strategy ?? undefined,
+      // ── THE MARKET READ, from his own form's rule ──────────────────────────────────────────
+      // `JournalForm.tsx:840-847` pre-fills these three from the direction the moment it is set.
+      // That is why his typed trades carry a market regime and every synced one was blank, leaving
+      // the Market Regime, HTF Bias and Strategy × Regime panels empty. Same rule, same values; see
+      // ./context. A correction of his is pinned by the hand-edit lock and never overwritten.
+      ...(marketContextFor(trade.direction) ?? {}),
+      // WHAT THE CALENDAR WAS DOING AT THE ENTRY — "Major" / "Minor" / "Clear", his form's own three
+      // values. Left BLANK when we have no calendar coverage for that day rather than claiming a
+      // quiet market we cannot evidence.
+      newsEnvironment: news ?? undefined,
+      // Rule-based only when the platform placed it. See ./context.
+      managementType: context?.managementType ?? undefined,
+      // ── HOW CLOSE THE FILL CAME TO THE PLAN ────────────────────────────────────────────────
+      // `metrics_calculator.py:574-576` derives the entry/stop/target deviations from these exact
+      // pairs, which is how his typed trades feed the Execution Metrics panel. The planned side is
+      // what the strategy asked for; the actual side is what the broker gave us. That panel has
+      // never had a single automatic trade in it.
+      plannedEntry: context?.plannedEntry ?? undefined,
+      plannedSL:    context?.plannedSL    ?? undefined,
+      plannedTP:    context?.plannedTP    ?? undefined,
+      actualEntry:  trade.openPrice          ?? undefined,
+      actualSL:     trade.originalStopLoss   ?? undefined,
+      actualTP:     trade.originalTakeProfit ?? undefined,
       // WHAT THE LADDER ACTUALLY DID, kept beside the plan rather than replacing it. The stop the
       // position closed on IS worth knowing — it says where the trade was protected to — it just is
       // not the risk that was taken.

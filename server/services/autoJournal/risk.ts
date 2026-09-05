@@ -36,6 +36,7 @@
  * the first place.
  */
 import { toPips } from '../../lib/pipMath';
+import type { ExitReason } from './exitReason';
 
 export interface RiskInput {
   symbol: string;
@@ -45,6 +46,8 @@ export interface RiskInput {
   originalStopLoss?: number | null;
   originalTakeProfit?: number | null;
   outcome: 'WIN' | 'LOSS' | 'BE';
+  /** Which level the trade actually finished on. See the snapping rule below. */
+  exitReason?: ExitReason;
 }
 
 export interface RiskNumbers {
@@ -52,8 +55,18 @@ export interface RiskNumbers {
   stopLossDistance?: number;
   /** The original target, in pips. */
   takeProfitDistance?: number;
-  /** Planned reward-to-risk, from the levels the trade was placed with. */
-  riskReward?: number;
+  /**
+   * Planned reward-to-risk, from the levels the trade was placed with.
+   *
+   * RENAMED from `riskReward` on 2026-09-05, and the rename is the fix, not cosmetics. The caller
+   * was writing this into the `risk_reward` COLUMN — and the manual journal form writes the
+   * **achieved** multiple into that same column (`JournalForm.tsx:1915`,
+   * `riskReward: parseRR(f4.achievedRR)`). So one column meant two opposite things depending on
+   * which pipeline wrote the row, and `metrics_calculator.py` averages it under the label
+   * "AVG R:R — Achieved". His two synced trades were contributing 4.15 and 3.53 to that average,
+   * on a trade that lost a full R and one that scratched. The name now says which number it is.
+   */
+  plannedRR?: number;
   /** What it returned, in multiples of that original risk. Breakeven is exactly 0. */
   achievedRR?: number;
 }
@@ -79,19 +92,36 @@ export function computeRisk(t: RiskInput): RiskNumbers {
     const reward = Math.abs(targ - entry);
     if (reward) {
       out.takeProfitDistance = toPips(reward, t.symbol);
-      out.riskReward = round2(reward / risk);
+      out.plannedRR = round2(reward / risk);
     }
   }
 
-  // HIS RULE, APPLIED BEFORE THE ARITHMETIC: breakeven is 1:0.
-  if (t.outcome === 'BE') {
-    out.achievedRR = 0;
-    return out;
-  }
+  // ── WHAT IT RETURNED ───────────────────────────────────────────────────────
+  //
+  // THE LEVEL IT FINISHED ON DECIDES THE R, not the raw price move. His stop-out of 01 Sep recorded
+  // **-1.05R** because the spread and the slippage land inside `move / risk`. His journal form does
+  // not do that: a Loss is fixed at `"1:-1"` and a BE at `"1:0"` (`JournalForm.tsx:1511-1528`). The
+  // note at the top of this file already makes that argument for breakeven — *"that figure is noise
+  // wearing the costume of a result"* — and then failed to apply it to a stop-out. Same noise, same
+  // answer. Borrowed from his form so a synced loss and a typed loss are the same number.
+  //
+  // BOTH THE OUTCOME AND THE EXIT REASON MUST AGREE before anything is snapped. The exit reason is
+  // read from prices with half a pip of tolerance, so on its own it is a guess; paired with the
+  // outcome it is a fact. Where they disagree — or where the trade was managed out rather than
+  // taken at a placed level — the measured number stands, because then it is a real result and not
+  // an artefact of the spread.
+  const measured = exit !== undefined
+    ? round2((t.direction === 'Long' ? exit - entry : entry - exit) / risk)
+    : undefined;
 
-  if (exit !== undefined) {
-    const move = t.direction === 'Long' ? exit - entry : entry - exit;
-    out.achievedRR = round2(move / risk);
+  if (t.outcome === 'BE') {
+    out.achievedRR = 0;                                  // his rule: "Breakeven is 1:0 R"
+  } else if (t.outcome === 'LOSS' && t.exitReason === 'Stop Loss') {
+    out.achievedRR = -1;                                 // it hit the stop it was placed with
+  } else if (t.outcome === 'WIN' && t.exitReason === 'Take Profit' && out.plannedRR !== undefined) {
+    out.achievedRR = out.plannedRR;                      // it made the target it was placed with
+  } else if (measured !== undefined) {
+    out.achievedRR = measured;                           // trailed, managed, or partly filled
   }
   return out;
 }

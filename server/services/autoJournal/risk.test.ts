@@ -23,6 +23,7 @@
 import { computeRisk } from './risk';
 import { buildJournalEntry } from './fields';
 import { exitReasonFor } from './exitReason';
+import { marketContextFor, classifyNews } from './context';
 
 let pass = 0, fail = 0;
 function check(what: string, got: unknown, want: unknown) {
@@ -45,7 +46,7 @@ const GBPUSD = {
 const r = computeRisk(GBPUSD);
 check('the risk is the 5.3 pips he actually staked', r.stopLossDistance, 5.3);
 check('the target is 21.4 pips', r.takeProfitDistance, 21.4);
-check('the plan was 4.04R', r.riskReward, 4.04);
+check('the plan was 4.04R', r.plannedRR, 4.04);
 check('a breakeven stop-out records 0R, not a blank — his rule, "Breakeven is 1:0 R"',
       r.achievedRR, 0);
 
@@ -94,10 +95,54 @@ check('no target still gives the risk...', noTarget.stopLossDistance, 5.3);
 // 0.00004 / 0.00053 = 0.08R. Small, and that is the point — it is a scratch, and the honest number
 // for a scratch is a small one, not a blank.
 check('...and an achieved R', noTarget.achievedRR, 0.08);
-check('...but no planned R to compare against', noTarget.riskReward, undefined);
+check('...but no planned R to compare against', noTarget.plannedRR, undefined);
 
 const zeroRisk = computeRisk({ ...GBPUSD, originalStopLoss: 1.34886, outcome: 'WIN' });
 check('a stop AT the entry cannot define a risk', zeroRisk, {});
+
+
+// ── THE LEVEL IT FINISHED ON DECIDES THE R ─────────────────────────────────
+//
+// HIS REPORT, 2026-09-05: *"for autosync RR is not computed or entered accurately."* His real EURUSD
+// trade of 01 Sep was a clean stop-out and the journal recorded **-1.05R** — the spread and the
+// slippage landing inside `move / risk`. His own form does not do that: a Loss is fixed at "1:-1"
+// and a BE at "1:0" (JournalForm.tsx:1511-1528). Borrowed, so a synced loss and a typed loss are
+// the same number and can be averaged together.
+console.log('\n  the exit level decides the R, not the raw price move:');
+
+// EURUSD 317231950. The entry order (358554462), its stop 1.15986 and its target 1.16295 are read
+// off production (`/api/admin/sync-events`, which recorded "risked 6 pips ... achieved 1.05R of a
+// planned 4.15R" — the 1.05 unsigned, on a trade that LOST $51.03). The exit price below is chosen
+// to put the trade through its stop by half a pip, which is what a stop-out with slippage looks
+// like; the point of the check is the rule, not that exact tick.
+const EURUSD_LOSS = {
+  symbol: 'EURUSD', direction: 'Long' as const,
+  entryPrice: 1.16048, originalStopLoss: 1.15986, originalTakeProfit: 1.16295,
+  closePrice: 1.15982,                       // through the stop by 0.4 of a pip — the slippage
+  outcome: 'LOSS' as const,
+};
+check('a stop-out measures worse than -1R from the raw prices, because of the slippage',
+      computeRisk(EURUSD_LOSS).achievedRR, -1.06);
+check('...and records exactly -1R once the exit is known to be the stop',
+      computeRisk({ ...EURUSD_LOSS, exitReason: 'Stop Loss' }).achievedRR, -1);
+check('...while its PLAN is untouched at 3.98R',
+      computeRisk({ ...EURUSD_LOSS, exitReason: 'Stop Loss' }).plannedRR, 3.98);
+
+check('a target reached records exactly the planned R',
+      computeRisk({ ...GBPUSD, closePrice: 1.34670, outcome: 'WIN', exitReason: 'Take Profit' })
+        .achievedRR, 4.04);
+
+// AND THE HALF THAT MUST NOT BE SNAPPED. A trade managed out did something real; rounding it to a
+// placed level would erase the only number that says what the management achieved.
+check('a trailed exit keeps its measured R',
+      computeRisk({ ...GBPUSD, closePrice: 1.34780, outcome: 'WIN', exitReason: 'Trailed Stop' })
+        .achievedRR, 2);
+// BOTH SIGNALS MUST AGREE. The exit reason is read from prices with half a pip of tolerance, so on
+// its own it is a guess. A "Stop Loss" exit on a WINNING trade is a contradiction, and the measured
+// number stands rather than a -1 nobody can justify.
+check('a contradiction between outcome and exit reason is NOT snapped',
+      computeRisk({ ...GBPUSD, closePrice: 1.34780, outcome: 'WIN', exitReason: 'Stop Loss' })
+        .achievedRR, 2);
 
 
 // ── THE WHOLE ENTRY, END TO END, FROM HIS REAL TRADE ───────────────────────
@@ -127,9 +172,29 @@ const realTrade: any = {
 };
 const e: any = buildJournalEntry(realTrade, null);
 check('his real trade is BREAKEVEN, not a loss', e.outcome, 'BE');
-check('...and therefore 0R, his rule', e.achievedRR, '0');
+check('...and therefore 0R, his rule', e.achievedRR, '1:0');
 check('...risked 5.9 pips from the fill to the original stop', e.stopLossDistance, '5.9');
-check('...on a 3.53R plan', e.riskReward, '3.53');
+check('...on a 3.53R plan', e.plannedRR, '1:3.53');
+
+// ── THE THREE R:R COLUMNS, WHICH IS WHERE THE REAL DEFECT WAS ──────────────
+//
+// `riskReward` used to carry the PLANNED ratio here. The manual form puts the ACHIEVED multiple in
+// that same column (JournalForm.tsx:1915) and `metrics_calculator.py` averages it under the label
+// "AVG R:R — Achieved" — so his two synced trades were contributing 4.15 and 3.53 to that average,
+// on a trade that lost a full R and one that scratched.
+check('riskReward now carries the ACHIEVED multiple, as the manual form writes it',
+      e.riskReward, '0');
+check('...and the plan has its own column, which this pipeline never wrote before',
+      e.plannedRR, '1:3.53');
+check('...in his "1:x" format, so a synced row and a typed row read identically',
+      /^1:/.test(e.achievedRR), true);
+
+// The market read, taken from the direction exactly as JournalForm.tsx:840-847 pre-fills it.
+check('a Short is filed as a Bearish regime, his form’s own rule', e.manualFields.marketRegime, 'Bearish');
+check('...with the matching HTF bias', e.manualFields.htfBias, 'Bear');
+// The fill-vs-plan pair the metrics engine turns into the Execution Metrics panel.
+check('the actual fill is recorded for the deviation maths', e.manualFields.actualEntry, '1.34880');
+check('...and the stop the entry order really carried', e.manualFields.actualSL, '1.34939');
 check('the stop SHOWN is the one it was placed with', e.stopLoss, '1.34939');
 check('...and the stop it closed on is kept beside it', e.manualFields.closingStopLoss, '1.34880');
 check('held 76 minutes', e.tradeDuration, '76');
@@ -203,6 +268,46 @@ check('...and its MFE is still recorded', m.mfe, 14.16);
 m = toMarks(-0.2, -1.0);
 check('a trade that never went green has an MFE of 0', m.mfe, 0);
 check('...and its MAE is the full stop distance', m.mae, 5.9);
+
+
+// ── THE MARKET READ, borrowed from his own form ────────────────────────────
+//
+// `JournalForm.tsx:840-847` pre-fills market regime, trend and HTF bias from the direction the
+// moment it is set. Copying the rule is why his synced trades can now populate the Market Regime
+// and HTF Bias panels at all; getting the VALUES wrong would put them in buckets his typed trades
+// never use, which is worse than leaving them blank.
+console.log('\n  the market read, copied from JournalForm.tsx:840-847:');
+check('a Long reads Bullish/Bullish/Bull', marketContextFor('Long'),
+      { marketRegime: 'Bullish', trendDirection: 'Bullish', htfBias: 'Bull' });
+check('a Short reads Bearish/Bearish/Bear', marketContextFor('Short'),
+      { marketRegime: 'Bearish', trendDirection: 'Bearish', htfBias: 'Bear' });
+check('anything else reads NOTHING, rather than defaulting to a side',
+      marketContextFor(''), undefined);
+check('...including a null direction', marketContextFor(null), undefined);
+
+
+// ── THE NEWS ENVIRONMENT, and the guard that matters most ──────────────────
+//
+// The three values are his form's own (JournalForm.tsx:879). The trap is the empty case: with no
+// calendar rows for that day we cannot tell "nothing was scheduled" from "we never scraped it", and
+// writing "Clear" would turn a gap in OUR data into a claim about HIS trade.
+console.log('\n  the news environment, and the coverage guard:');
+const ENTRY = new Date('2026-09-01T12:00:00Z');
+const ev = (mins: number, currency: string, impact: string) =>
+  ({ currency, impact, when: new Date(ENTRY.getTime() + mins * 60_000) });
+
+check('no calendar coverage for that day means BLANK, never "Clear"',
+      classifyNews([], ENTRY, ['EUR', 'USD']), undefined);
+check('a high-impact release inside the hour is Major',
+      classifyNews([ev(-30, 'USD', 'High')], ENTRY, ['EUR', 'USD']), 'Major');
+check('...and the scrapers\' lowercase spelling counts the same',
+      classifyNews([ev(-30, 'USD', 'high')], ENTRY, ['EUR', 'USD']), 'Major');
+check('a medium release inside the hour is Minor',
+      classifyNews([ev(20, 'EUR', 'Medium')], ENTRY, ['EUR', 'USD']), 'Minor');
+check('a day WITH events but none near the entry is genuinely Clear',
+      classifyNews([ev(400, 'USD', 'High')], ENTRY, ['EUR', 'USD']), 'Clear');
+check('...and an event in another currency does not count against this pair',
+      classifyNews([ev(-10, 'JPY', 'High')], ENTRY, ['EUR', 'USD']), 'Clear');
 
 console.log(`\n  ${pass} passed, ${fail} failed\n`);
 process.exit(fail ? 1 : 0);

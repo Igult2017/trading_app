@@ -43,7 +43,12 @@ console.log('\nPIPELINE ISOLATION — the manual journal is not touched by any o
 
 const routes = read('server', 'routes.ts');
 const idx    = read('server', 'services', 'autoJournal', 'index.ts');
-const fields = read('server', 'services', 'autoJournal', 'fields.ts');
+// `classifyOutcome` moved to its own file on 2026-09-05 (fields.ts had passed 300 lines) and is
+// re-exported from fields.ts, so the two are read together here — the question this asks is whether
+// the AUTOMATIC pipeline owns the decision, not which file it sits in.
+const fields = read('server', 'services', 'autoJournal', 'fields.ts')
+             + read('server', 'services', 'autoJournal', 'outcome.ts')
+             + read('server', 'services', 'autoJournal', 'context.ts');
 const risk   = read('server', 'services', 'autoJournal', 'risk.ts');
 const sync   = read('server', 'services', 'brokerSyncService.ts');
 const auto   = idx + fields + risk;
@@ -98,7 +103,9 @@ check('balanceTracker carries no automatic-journal special-casing',
 // `storage.updateJournalEntry` REPLACES a JSONB column rather than merging it (`.set(...)` in
 // storage.ts — the manual PUT endpoint merges by hand for exactly this reason). So a repair that
 // passed `manualFields` wholesale would delete every note, tag and screenshot on the row.
-const idxSrc = read('server', 'services', 'autoJournal', 'index.ts');
+// THE REPAIRS MOVED to ./repair.ts on 2026-09-05 (index.ts had passed 370 lines). index.ts
+// re-exports every name, so no caller changed — but a SOURCE-level check has to follow the code.
+const idxSrc = read('server', 'services', 'autoJournal', 'repair.ts');
 check('the repair reads the existing entry before touching its blob',
       /getJournalEntryById\(trade\.journalEntryId\)/.test(idxSrc), true);
 check('...and MERGES rather than replaces',

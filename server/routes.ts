@@ -1716,8 +1716,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { entries, startingBalance, sessionId } = scope;
 
       const key = userSessionKey("metrics", auth.id, sessionId);
+      // A COUNT IS NOT A VERSION. This served the cached page whenever the NUMBER of entries
+      // matched — and correcting a trade changes values, not the count, so an edit stayed invisible
+      // here until the 5-minute TTL expired on its own. Same defect already removed from the
+      // strategy audit. `invalidateComputeCaches` clears this key on every create, update and
+      // delete (including the broker sync), so the cache is still correct without the guard.
       const cached = await cacheGet<{ result: any; entryCount: number }>(key);
-      if (cached && cached.entryCount === entries.length) return res.json(cached.result);
+      if (cached) return res.json(cached.result);
 
       if (!entries || entries.length === 0) {
         const empty = { success: true, metrics: {} };
