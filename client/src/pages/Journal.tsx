@@ -1007,16 +1007,24 @@ export default function Journal() {
         .journal-root *{box-sizing:border-box;}
         .journal-root *:where(:not(.ct-app):not(.ct-app *):not(.ts-page):not(.ts-page *)){letter-spacing:.02em;}
         /* Force the selected journal font everywhere EXCEPT panels that own their own
-           typography: the Drawdown "Dive Profile" (.dp, Montserrat/DM-Mono) and Trade Sync —
+           typography: the Drawdown "Dive Profile" (.dp, Montserrat/DM-Mono), Trade Sync —
            both its landing (.ts-page) and the app behind it (.ct-app), which share Playfair
-           Display / DM Mono / Material Icons. :where() keeps this at zero specificity so no
-           panel-specific font override is affected.
+           Display / DM Mono / Material Icons — and the Strategy Audit (.audit-root).
+           :where() keeps this at zero specificity so no panel-specific font override is affected.
+
+           .audit-root ADDED 2026-09-05, on his "its font types are horrible". It had never been
+           listed, so this rule was overriding EVERY font choice that page makes — its dozens of
+           Montserrat labels and twelve Inter paragraphs all rendered in the journal's Playfair
+           Display instead. Only its figures survived, because that page's own DM Mono rule
+           outranks this one (0,2,0 against 0,1,0 — :where() contributes nothing).
+           A display serif at the 9-10px and .3em tracking that page uses is
+           all three causes in docs/READABILITY.md at once, which is what he was looking at.
            NOTE: this rule is !important, so an exempted panel CANNOT defend itself with
            specificity alone — !important always wins over a normal declaration, whatever its
            specificity. Any panel with its own font MUST be listed here. Trade Sync learned this
            the hard way: every Material Icon rendered as its literal ligature text
            ("light_mode", "chevron_left") because font-family was forced to the journal stack. */
-        .journal-root *:where(:not(.dp):not(.dp *):not(.ct-app):not(.ct-app *):not(.ts-page):not(.ts-page *)){font-family:${F.stack}!important;${forcedWeightRule}}
+        .journal-root *:where(:not(.dp):not(.dp *):not(.ct-app):not(.ct-app *):not(.ts-page):not(.ts-page *):not(.audit-root):not(.audit-root *)){font-family:${F.stack}!important;${forcedWeightRule}}
         /* Same exemption as the rule above — this one bites SVG <text>, which the font-family rule
            does not reach. Without it the "1x" labels in the Trade Sync hero diagram stayed Montserrat
            while everything around them was Playfair. */
