@@ -1551,7 +1551,12 @@ export default function Journal() {
       <div className={`journal-root ${T.dark ? '' : 'journal-light'}`} style={{ flex:1, display:'flex', overflow:'hidden', position:'relative', ['--jr-bg' as any]: T.bg, ['--jr-panel' as any]: T.surface, ['--jr-chart' as any]: T.dark ? '#080d18' : T.surface, ['--jr-border' as any]: T.border, ['--jr-text' as any]: T.text, // Caption grey: the Metrics panel's value (8.77:1) on dark, against the 5.34:1 --jr-muted
         // these labels used to take. The light theme keeps its own muted — it is dark ink on a pale
         // ground there and was never the complaint.
-        ['--jr-muted' as any]: T.textMuted, ['--jr-cap' as any]: T.dark ? '#A8AEB8' : T.textMuted, ['--jr-divider' as any]: T.dark ? 'rgba(255,255,255,0.04)' : T.border, ['--jr-accent' as any]: T.accent }}>
+        ['--jr-muted' as any]: T.textMuted, ['--jr-cap' as any]: T.dark ? '#A8AEB8' : T.textMuted,
+        // THE OTHER HALF OF THE METRICS SCALE. That panel runs exactly two steps: #ECEEF2 for
+        // anything you actually READ (its `muted` is deliberately set to the BRIGHT value, not a
+        // grey) and #A8AEB8 for the small captions behind it. --jr-cap above is that second step;
+        // this is the first. The journal's own --jr-text is #cbd5e1, a step dimmer again.
+        ['--jr-ink' as any]: T.dark ? '#ECEEF2' : T.text, ['--jr-divider' as any]: T.dark ? 'rgba(255,255,255,0.04)' : T.border, ['--jr-accent' as any]: T.accent }}>
         <Sidebar activeNav={activeNav} setActiveNav={setActiveNav} open={isMobile ? mobileOpen : sidebarOpen} isMobile={isMobile} onClose={()=>setMobileOpen(false)} darkMode={T.dark} sidebarBg={T.sidebarBg} accentColor={T.accent} />
 
         <main style={{ flex:1, overflowY:'auto', padding: isMobile ? (activeNav === 'sync' ? '0 0 32px' : '10px 10px 32px') : activeNav === 'dashboard' ? '14px 16px 32px' : activeNav === 'journal' ? '14px 0 0' : activeNav === 'metrics' ? '0' : activeNav === 'drawdown' ? '14px 0 0' : activeNav === 'tfmetrics' ? '14px 0 0 6px' : activeNav === 'sync' ? '0' : activeNav === 'accounts' ? '14px 0 0 6px' : activeNav === 'addaccount' ? '14px 0 0 6px' : activeNav === 'vault' ? '14px 0 0 6px' : activeNav === 'strategy' ? '14px 0 0 6px' : activeNav === 'leaderboard' ? '0 0 0 6px' : activeNav === 'fsdai' ? '14px 0 0' : '14px 8px 32px', minWidth:0, background: activeNav === 'journal' ? (T.dark ? '#0d0f0e' : T.bg) : activeNav === 'metrics' ? (T.dark ? '#0d1117' : T.bg) : activeNav === 'drawdown' ? (T.dark ? '#0d1117' : T.bg) : T.bg }}>

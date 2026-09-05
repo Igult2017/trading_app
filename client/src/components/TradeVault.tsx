@@ -517,7 +517,7 @@ export default function TradeVault({ sessionId, startingBalance: sessionStarting
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
         <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#00d48a", boxShadow: "0 0 6px #00d48a", flexShrink: 0 }} />
         <div>
-          <div style={{ fontSize: 12, fontWeight: 900, color: "var(--jr-text)", letterSpacing: "0.12em", fontFamily: "'Montserrat', sans-serif" }}>{t('vault.title')}</div>
+          <div style={{ fontSize: 12, fontWeight: 900, color: "var(--jr-ink, #ECEEF2)", letterSpacing: "0.12em", fontFamily: "'Montserrat', sans-serif" }}>{t('vault.title')}</div>
           <div style={{ fontSize: 11, fontWeight: 900, color: "var(--jr-cap, #A8AEB8)", marginTop: 2, fontFamily: "'Montserrat', sans-serif" }}>{subtitle}</div>
         </div>
       </div>
@@ -661,11 +661,11 @@ export default function TradeVault({ sessionId, startingBalance: sessionStarting
       <div style={{ padding: 0 }}>
       {!sessionId ? (
         <div style={{ ...styles.tableWrapper, padding: 40, textAlign: "center" as const }}>
-          <div style={{ color: "var(--jr-cap, #A8AEB8)", fontSize: 13 }}>Select a session to view your trades.</div>
+          <div style={{ color: "var(--jr-ink, #ECEEF2)", fontSize: 13 }}>Select a session to view your trades.</div>
         </div>
       ) : loading ? null : trades.length === 0 ? (
         <div style={{ ...styles.tableWrapper, padding: 40, textAlign: "center" as const }}>
-          <div style={{ color: "var(--jr-cap, #A8AEB8)", fontSize: 14 }} data-testid="text-empty-state">{t('vault.noTrades')}</div>
+          <div style={{ color: "var(--jr-ink, #ECEEF2)", fontSize: 14 }} data-testid="text-empty-state">{t('vault.noTrades')}</div>
         </div>
       ) : (
         <div className="tv-table-wrap" style={{ ...styles.tableWrapper, overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
@@ -786,7 +786,7 @@ const styles: Record<string, React.CSSProperties> = {
     minHeight: "100vh",
     background: "var(--jr-panel)",
     fontFamily: "'JetBrains Mono', monospace",
-    color: "var(--jr-text)",
+    color: "var(--jr-ink, #ECEEF2)",
     padding: 0,
   },
   header: {
@@ -801,7 +801,7 @@ const styles: Record<string, React.CSSProperties> = {
     fontFamily: "'Montserrat', sans-serif",
     fontWeight: 700,
     fontSize: 14,
-    color: "var(--jr-text)",
+    color: "var(--jr-ink, #ECEEF2)",
     letterSpacing: "0.06em",
   },
   vaultSub: {
@@ -866,25 +866,25 @@ const styles: Record<string, React.CSSProperties> = {
   },
   dateText: {
     fontSize: 11,
-    color: "var(--jr-text)",
+    color: "var(--jr-ink, #ECEEF2)",
     fontWeight: 500,
   },
   timeText: {
     fontSize: 11,
-    color: "var(--jr-cap, #A8AEB8)",
+    color: "var(--jr-ink, #ECEEF2)",
     marginTop: 2,
   },
   asset: {
     fontFamily: "'Montserrat', sans-serif",
     fontWeight: 700,
     fontSize: 11,
-    color: "var(--jr-text)",
+    color: "var(--jr-ink, #ECEEF2)",
     letterSpacing: "0.05em",
     fontStyle: "italic" as const,
   },
   strategy: {
     fontSize: 11,
-    color: "var(--jr-cap, #A8AEB8)",
+    color: "var(--jr-ink, #ECEEF2)",
   },
   sessionBadge: {
     display: "inline-block",
@@ -894,7 +894,7 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: 6,
     fontSize: 11,
     fontWeight: 600,
-    color: "var(--jr-cap, #A8AEB8)",
+    color: "var(--jr-ink, #ECEEF2)",
     letterSpacing: "0.08em",
   },
   outcomeBadge: {
@@ -956,7 +956,7 @@ const styles: Record<string, React.CSSProperties> = {
     fontFamily: "'Montserrat', sans-serif",
     fontWeight: 800,
     fontSize: 14,
-    color: "var(--jr-text)",
+    color: "var(--jr-ink, #ECEEF2)",
     letterSpacing: "0.1em",
   },
   closeBtn: {
@@ -989,7 +989,7 @@ const styles: Record<string, React.CSSProperties> = {
     border: "1px solid var(--jr-border)",
     borderRadius: 6,
     padding: "8px 10px",
-    color: "var(--jr-text)",
+    color: "var(--jr-ink, #ECEEF2)",
     fontSize: 12,
     fontFamily: "'JetBrains Mono', monospace",
     outline: "none",
