@@ -224,8 +224,8 @@ const KPI_ICONS = {
 
 const StatCard = ({ stat }: { stat: { id: string; label: string; value: string; Icon: () => JSX.Element; color: string; bg: string } }) => (
   <div style={{ background: 'var(--jr-panel,#0d1117)', border: '1px solid var(--jr-border,rgba(255,255,255,0.05))', padding: 12, borderRadius: 8, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4 }} data-testid={`stat-${stat.id}`}>
-    <p style={{ fontSize: 8, color: 'var(--jr-muted,rgba(148,163,184,0.7))', margin: 0, letterSpacing: '0.1em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{stat.label}</p>
-    <p style={{ fontSize: 11, fontWeight: 900, color: stat.color, margin: 0 }}>{stat.value}</p>
+    <p className="jr-cap" style={{ margin: 0, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{stat.label}</p>
+    <p className="jr-val" style={{ fontSize: 15, fontWeight: 800, color: stat.color, margin: 0 }}>{stat.value}</p>
   </div>
 );
 
@@ -485,7 +485,7 @@ function ActivityCalendar({ entries, darkMode = true }: { entries: any[]; darkMo
               <ChevronLeft size={14} strokeWidth={3} />
             </button>
             <div style={{ textAlign: 'center' }}>
-              <p style={{ fontSize: 10, fontWeight: 900, color: darkMode ? '#fff' : '#0f172a', letterSpacing: '0.2em', textTransform: 'uppercase', margin: 0 }}>
+              <p className="jr-val" style={{ fontSize: 12, fontWeight: 700, color: darkMode ? '#fff' : '#0f172a', letterSpacing: '0.1em', textTransform: 'uppercase', margin: 0 }}>
                 {MONTH_NAMES[activeMonth - 1]} {activeYear}
               </p>
               {/* Dot indicators — one per month that has trades; click to jump */}
@@ -518,7 +518,10 @@ function ActivityCalendar({ entries, darkMode = true }: { entries: any[]; darkMo
           {/* Day-of-week headers */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 3, marginBottom: 3 }}>
             {DAY_LABELS.map((d, i) => (
-              <div key={i} style={{ fontSize: 8, color: darkMode ? 'rgba(55,65,81,0.8)' : 'rgba(100,116,139,0.7)', textAlign: 'center', paddingBottom: 2, fontWeight: 900 }}>{d}</div>
+              // WAS rgba(55,65,81,.8) — a very dark grey on a near-black panel, which is why these
+              // letters were all but invisible. That is a genuine contrast failure, not the serif
+              // problem the rest of this pass is about, so it gets the caption grey outright.
+              <div key={i} className="jr-cap" style={{ textAlign: 'center', paddingBottom: 3 }}>{d}</div>
             ))}
           </div>
 
@@ -537,10 +540,11 @@ function ActivityCalendar({ entries, darkMode = true }: { entries: any[]; darkMo
               return (
                 <div
                   key={day}
+                  className="jr-val"
                   title={isToday ? 'Today' : undefined}
                   style={{
                     aspectRatio: '1', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    borderRadius: 4, fontSize: 9, fontWeight: 900,
+                    borderRadius: 4, fontSize: 11, fontWeight: 700,
                     background: isToday && !status ? 'rgba(56,189,248,0.08)' : c.bg,
                     color: isToday ? '#38bdf8' : c.color,
                     border: isToday ? '1.5px solid #38bdf8' : `1px solid ${c.border}`,
@@ -563,12 +567,12 @@ function ActivityCalendar({ entries, darkMode = true }: { entries: any[]; darkMo
               ].map(s => s.count > 0 && (
                 <div key={s.label} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                   <div style={{ width: 6, height: 6, borderRadius: 2, background: s.color }} />
-                  <span style={{ fontSize: 8, color: 'rgba(148,163,184,0.6)', letterSpacing: '0.1em' }}>
+                  <span className="jr-cap" style={{ letterSpacing: '0.06em' }}>
                     {s.count} {s.label}
                   </span>
                 </div>
               ))}
-              <span style={{ fontSize: 8, color: 'rgba(100,116,139,0.4)', marginLeft: 'auto', letterSpacing: '0.1em' }}>
+              <span className="jr-cap" style={{ marginLeft: 'auto', letterSpacing: '0.06em' }}>
                 {monthSummary.total} TRADE DAYS
               </span>
             </div>
@@ -700,7 +704,7 @@ function DashboardView({ sessionId, isMobile, windowWidth, darkMode = true }: { 
               <h2 style={{ fontSize: 11, fontWeight: 900, color: 'var(--jr-accent,#38bdf8)', textTransform: 'uppercase', letterSpacing: '0.2em', margin: 0 }}>EQUITY CURVE</h2>
             </div>
             {equityGrowth && (
-              <span style={{ fontSize: 10, color: equityGrowth.totalReturnPct >= 0 ? '#34d399' : '#fb7185', fontWeight: 900 }}>
+              <span className="jr-val" style={{ fontSize: 12, color: equityGrowth.totalReturnPct >= 0 ? '#34d399' : '#fb7185', fontWeight: 900 }}>
                 {equityGrowth.totalReturnPct >= 0 ? '+' : ''}{equityGrowth.totalReturnPct.toFixed(2)}%
               </span>
             )}
@@ -718,22 +722,22 @@ function DashboardView({ sessionId, isMobile, windowWidth, darkMode = true }: { 
           {[{ label: 'PROFIT RATIO', val: `${profitRatio}%`, color: '#10b981' }, { label: 'LOSS RATIO', val: `${lossRatio}%`, color: '#f43f5e' }].map(m => (
             <div key={m.label} style={{ marginBottom: 18 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                <span style={{ fontSize: 9, color: 'var(--jr-muted,rgba(100,116,139,0.7))', letterSpacing: '0.15em', textTransform: 'uppercase' }}>{m.label}</span>
-                <span style={{ fontSize: 9, color: m.color }}>{m.val}</span>
+                <span className="jr-cap" style={{ textTransform: 'uppercase' }}>{m.label}</span>
+                <span className="jr-val" style={{ fontSize: 12, fontWeight: 700, color: m.color }}>{m.val}</span>
               </div>
               <div style={{ height: 2, background: 'var(--jr-divider,#161b22)', borderRadius: 4 }}><div style={{ height: '100%', width: m.val, background: m.color, borderRadius: 4 }} /></div>
             </div>
           ))}
           <div style={{ marginTop: 20, paddingTop: 18, borderTop: '1px solid var(--jr-border,rgba(255,255,255,0.05))' }}>
-            <p style={{ fontSize: 9, color: 'var(--jr-muted,rgba(100,116,139,0.5))', letterSpacing: '0.2em', textTransform: 'uppercase', marginBottom: 12 }}>PAIR VOLUME / FREQUENCY</p>
+            <p className="jr-cap" style={{ textTransform: 'uppercase', marginBottom: 12 }}>PAIR VOLUME / FREQUENCY</p>
             {instEntries.map(([name, data]: any) => (
               <div key={name} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-                <span style={{ fontSize: 10, color: 'var(--jr-text,#fff)', width: 54, fontStyle: 'italic', flexShrink: 0 }}>{name}</span>
+                <span className="jr-val" style={{ fontSize: 11, color: 'var(--jr-text,#fff)', width: 58, flexShrink: 0, fontWeight: 600 }}>{name}</span>
                 <div style={{ flex: 1, height: 2, background: 'var(--jr-divider,#161b22)', borderRadius: 4, overflow: 'hidden' }}><div style={{ height: '100%', width: `${Math.round((data.trades / maxInstTrades) * 100)}%`, background: 'var(--jr-accent,#38bdf8)', borderRadius: 4 }} /></div>
-                <span style={{ fontSize: 9, color: 'var(--jr-muted,rgba(100,116,139,0.5))', width: 16, textAlign: 'right', flexShrink: 0 }}>{data.trades}</span>
+                <span className="jr-val" style={{ fontSize: 11, color: 'var(--jr-text,#fff)', width: 22, textAlign: 'right', flexShrink: 0, fontWeight: 600 }}>{data.trades}</span>
               </div>
             ))}
-            {instEntries.length === 0 && <p style={{ fontSize: 10, color: 'var(--jr-muted,rgba(100,116,139,0.4))' }}>No instrument data yet</p>}
+            {instEntries.length === 0 && <p className="jr-cap" style={{ textTransform: 'none', letterSpacing: '.02em' }}>No instrument data yet</p>}
           </div>
         </div>
       </div>
@@ -749,20 +753,20 @@ function DashboardView({ sessionId, isMobile, windowWidth, darkMode = true }: { 
               <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 260 }}>
                 <thead style={{ background: 'var(--jr-divider,rgba(22,27,34,0.5))' }}>
                   <tr>{['INSTRUMENT', 'ACTION', 'NET P&L'].map((h, i) => (
-                    <th key={h} style={{ padding: '8px 14px', fontSize: 8, color: 'var(--jr-muted,rgba(100,116,139,0.6))', textTransform: 'uppercase', letterSpacing: '0.2em', textAlign: i === 1 ? 'center' : i === 2 ? 'right' : 'left', whiteSpace: 'nowrap' }}>{h}</th>
+                    <th key={h} className="jr-cap" style={{ padding: '8px 14px', textTransform: 'uppercase', textAlign: i === 1 ? 'center' : i === 2 ? 'right' : 'left', whiteSpace: 'nowrap' }}>{h}</th>
                   ))}</tr>
                 </thead>
                 <tbody>
                   {recentTrades.map(t => (
                     <tr key={t.id} style={{ borderTop: '1px solid var(--jr-divider,rgba(255,255,255,0.04))' }} data-testid={`trade-row-${t.id}`}>
                       <td style={{ padding: '8px 14px' }}>
-                        <div style={{ fontSize: 11, fontWeight: 900, color: 'var(--jr-text,#fff)' }}>{t.ticker}</div>
-                        <div style={{ fontSize: 8, color: 'var(--jr-muted,rgba(100,116,139,0.6))', letterSpacing: '0.1em', textTransform: 'uppercase', marginTop: 2 }}>{t.date}</div>
+                        <div className="jr-val" style={{ fontSize: 12, fontWeight: 700, color: 'var(--jr-text,#fff)' }}>{t.ticker}</div>
+                        <div className="jr-cap" style={{ marginTop: 3, letterSpacing: '.02em' }}>{t.date}</div>
                       </td>
                       <td style={{ padding: '8px 14px', textAlign: 'center' }}>
-                        <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: 4, fontSize: 8, fontWeight: 900, letterSpacing: '0.2em', background: t.type === 'LONG' ? 'rgba(16,185,129,0.1)' : 'rgba(244,63,94,0.1)', color: t.type === 'LONG' ? '#34d399' : '#fb7185', border: `1px solid ${t.type === 'LONG' ? 'rgba(16,185,129,0.15)' : 'rgba(244,63,94,0.15)'}` }}>{t.type}</span>
+                        <span className="jr-val" style={{ display: 'inline-block', padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', background: t.type === 'LONG' ? 'rgba(16,185,129,0.1)' : 'rgba(244,63,94,0.1)', color: t.type === 'LONG' ? '#34d399' : '#fb7185', border: `1px solid ${t.type === 'LONG' ? 'rgba(16,185,129,0.15)' : 'rgba(244,63,94,0.15)'}` }}>{t.type}</span>
                       </td>
-                      <td style={{ padding: '8px 14px', textAlign: 'right', fontSize: 11, fontWeight: 900, color: t.status === 'win' ? '#34d399' : t.status === 'be' ? '#fbbf24' : '#fb7185' }}>
+                      <td className="jr-val" style={{ padding: '8px 14px', textAlign: 'right', fontSize: 12, fontWeight: 800, color: t.status === 'win' ? '#34d399' : t.status === 'be' ? '#fbbf24' : '#fb7185' }}>
                         {/* THE SIGN COMES FROM THE MONEY, never from the label — a break-even
                             printed "-$0.00" when it was read off the class. */}
                         {t.pnl >= 0 ? '+' : '-'}${Math.abs(t.pnl).toFixed(2)}
@@ -1030,6 +1034,28 @@ export default function Journal() {
            while everything around them was Playfair. */
         .journal-root svg text:where(:not(.ct-app *):not(.ts-page *)){font-family:${F.stack}!important;}
         .journal-root ::-webkit-scrollbar{display:none;}
+        /* DASHBOARD CAPTIONS — the small uppercase labels he ticked on 2026-09-05 asking for
+           better visibility ("use the approach used in metrics page and if not possible use
+           montserat together with increased font size for non title sections").
+
+           THE COLOUR WAS THE SMALLER HALF. Those labels were 8-9px and, because the dashboard is
+           NOT one of the exempted subtrees above, the rule two blocks up was setting them in the
+           journal's Playfair Display — a display serif whose thin strokes vanish at that size.
+           That is cause 1 and cause 2 in docs/READABILITY.md together; the muted grey they used
+           measures 5.34:1 and passes AA on its own.
+
+           So: Montserrat, at the 11px floor, in the brighter caption grey the Metrics panel
+           settled on (8.77:1 there, against 5.34:1 here). !important AND two class selectors are
+           both needed - the journal rule is itself !important, so specificity alone loses. */
+        .journal-root .jr-cap{
+          font-family:'Montserrat',system-ui,-apple-system,'Segoe UI',sans-serif!important;
+          font-size:11px!important;letter-spacing:.08em!important;font-weight:600!important;
+          color:var(--jr-cap,#A8AEB8)!important;}
+        /* The values those captions sit above. FONT ONLY — no colour: several of these are
+           deliberately green/red/amber by value, and forcing a colour here would flatten the one
+           signal the dashboard is actually carrying. Each element keeps its own. */
+        .journal-root .jr-val{
+          font-family:'Montserrat',system-ui,-apple-system,'Segoe UI',sans-serif!important;}
         .journal-root *{scrollbar-width:none;-ms-overflow-style:none;}
         .primary-btn { background: ${T.accent}; transition: all 0.2s; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 800; font-size: 11px; border-radius: 0 !important; }
         .primary-btn:hover { background: ${T.accent}cc; box-shadow: 0 0 20px ${T.accent}66; }
@@ -1522,7 +1548,10 @@ export default function Journal() {
         themeAccent={T.accent}
       />
 
-      <div className={`journal-root ${T.dark ? '' : 'journal-light'}`} style={{ flex:1, display:'flex', overflow:'hidden', position:'relative', ['--jr-bg' as any]: T.bg, ['--jr-panel' as any]: T.surface, ['--jr-chart' as any]: T.dark ? '#080d18' : T.surface, ['--jr-border' as any]: T.border, ['--jr-text' as any]: T.text, ['--jr-muted' as any]: T.textMuted, ['--jr-divider' as any]: T.dark ? 'rgba(255,255,255,0.04)' : T.border, ['--jr-accent' as any]: T.accent }}>
+      <div className={`journal-root ${T.dark ? '' : 'journal-light'}`} style={{ flex:1, display:'flex', overflow:'hidden', position:'relative', ['--jr-bg' as any]: T.bg, ['--jr-panel' as any]: T.surface, ['--jr-chart' as any]: T.dark ? '#080d18' : T.surface, ['--jr-border' as any]: T.border, ['--jr-text' as any]: T.text, // Caption grey: the Metrics panel's value (8.77:1) on dark, against the 5.34:1 --jr-muted
+        // these labels used to take. The light theme keeps its own muted — it is dark ink on a pale
+        // ground there and was never the complaint.
+        ['--jr-muted' as any]: T.textMuted, ['--jr-cap' as any]: T.dark ? '#A8AEB8' : T.textMuted, ['--jr-divider' as any]: T.dark ? 'rgba(255,255,255,0.04)' : T.border, ['--jr-accent' as any]: T.accent }}>
         <Sidebar activeNav={activeNav} setActiveNav={setActiveNav} open={isMobile ? mobileOpen : sidebarOpen} isMobile={isMobile} onClose={()=>setMobileOpen(false)} darkMode={T.dark} sidebarBg={T.sidebarBg} accentColor={T.accent} />
 
         <main style={{ flex:1, overflowY:'auto', padding: isMobile ? (activeNav === 'sync' ? '0 0 32px' : '10px 10px 32px') : activeNav === 'dashboard' ? '14px 16px 32px' : activeNav === 'journal' ? '14px 0 0' : activeNav === 'metrics' ? '0' : activeNav === 'drawdown' ? '14px 0 0' : activeNav === 'tfmetrics' ? '14px 0 0 6px' : activeNav === 'sync' ? '0' : activeNav === 'accounts' ? '14px 0 0 6px' : activeNav === 'addaccount' ? '14px 0 0 6px' : activeNav === 'vault' ? '14px 0 0 6px' : activeNav === 'strategy' ? '14px 0 0 6px' : activeNav === 'leaderboard' ? '0 0 0 6px' : activeNav === 'fsdai' ? '14px 0 0' : '14px 8px 32px', minWidth:0, background: activeNav === 'journal' ? (T.dark ? '#0d0f0e' : T.bg) : activeNav === 'metrics' ? (T.dark ? '#0d1117' : T.bg) : activeNav === 'drawdown' ? (T.dark ? '#0d1117' : T.bg) : T.bg }}>
