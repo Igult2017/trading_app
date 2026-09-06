@@ -1789,6 +1789,10 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
   }, [applyAnalyzedFields]);
 
   // ── Unfilled sections checker ──────────────────────────────────────────────
+  // How many sections the entry has in total — set by the function below from its own list, so the
+  // "X of Y filled" figure on the pre-commit card can never drift from what is actually checked.
+  const sectionCount = useRef(0);
+
   const getUnfilledSections = (): { step: number; name: string }[] => {
     const eq = (a: any, b: any) => {
       const norm = (v: any) => (v === undefined || v === null || (typeof v === "string" && v.trim() === "")) ? "" : v;
@@ -1820,6 +1824,12 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
       { step:4, name:"Psychological State",     state:s4, init:INIT_STEP4, fields:["emotionalState","focusStressLevel","rulesFollowed","confidenceLevel","postTradeEmotion","consecutiveTradeCount","worthRepeating","recencyBiasFlag"] },
       { step:4, name:"Trade Debrief",           state:s4, init:INIT_STEP4, fields:["whatWorked","whatFailed","adjustments","notes"] },
     ];
+    // HOW MANY THERE ARE IN TOTAL, recorded from the SAME list that decides what is missing.
+    //
+    // The pre-commit card shows "X of Y sections filled", and Y must never be a number typed in
+    // beside this list — adding a section here and forgetting to bump a constant elsewhere would
+    // quietly make the card lie. Taking the length here means the two cannot disagree.
+    sectionCount.current = sections.length;
     return sections.filter(s => untouched(s.state, s.init, s.fields)).map(({ step, name }) => ({ step, name }));
   };
 
@@ -2064,41 +2074,102 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
           </div>
         </nav>
 
-        {/* Unfilled dialog */}
-        {unfilledSections && unfilledSections.length > 0 && (
+        {/* ── BEFORE YOU COMMIT — what is filled, and what is left ──────────────────────────────
+            His ask, 2026-09-06: use the Edit Trade modal's design here, and show "what they have
+            filled and what is left".
+
+            TWO THINGS CHANGED. It was a hardcoded dark card (bg-[#0c1422], border-white/[0.08],
+            an indigo→violet gradient button that appears nowhere else in the journal) — so like the
+            notification panel it ignored the theme entirely. Every colour is now a theme token, so
+            it follows light and dark like the rest of the journal.
+
+            And it only ever listed what was MISSING. He asked for both halves, so the count and the
+            bar are here now. They need no new state: `getUnfilledSections` already knows the full
+            section list, so filled = total − unfilled.
+
+            THE SCALE IS COPIED FROM TradeVault.tsx:1061-1158 — radius 12, padding 28, title 14/800,
+            labels 11/700 at 0.12em, buttons 11/700 at 0.08em with #1e6fc8 as the primary. Nothing
+            is under 11px or under 700 weight, which is what "a visible Playfair" means. */}
+        {unfilledSections && unfilledSections.length > 0 && (() => {
+          const total = sectionCount.current || unfilledSections.length;
+          const done  = total - unfilledSections.length;
+          const pct   = Math.round((done / total) * 100);
+          return (
           <div onClick={() => setUnfilledSections(null)}
             className="absolute inset-0 z-50 flex items-center justify-center p-5"
-            style={{ background:"rgba(4,8,14,0.82)", backdropFilter:"blur(4px)", position:"absolute" }}>
+            style={{ background:"rgba(0,0,0,0.7)", backdropFilter:"blur(4px)", position:"absolute" }}>
             <div onClick={e => e.stopPropagation()}
-              className="w-full max-w-[460px] bg-[#0c1422] border border-white/[0.08] rounded-xl p-6 shadow-2xl">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-7 h-7 rounded-lg bg-amber-500/15 border border-amber-500/35 flex items-center justify-center text-amber-400 font-bold text-sm">!</div>
-                <div className="text-[15px] font-semibold">Some panels are still empty</div>
+              style={{
+                background: "var(--jr-panel, #0d1117)",
+                border: "1px solid var(--jr-border, rgba(255,255,255,0.08))",
+                borderRadius: 12, padding: 28, width: "100%", maxWidth: 480,
+                maxHeight: "90vh", overflowY: "auto",
+              }}>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom: 16 }}>
+                <span style={{ fontSize: 14, fontWeight: 800, color: "var(--jr-ink, #ECEEF2)", letterSpacing: "0.1em" }}>
+                  BEFORE YOU COMMIT
+                </span>
+                <button onClick={() => setUnfilledSections(null)}
+                  style={{ background:"none", border:"none", color:"var(--jr-cap, #A8AEB8)", cursor:"pointer", fontSize:16 }}>
+                  &#x2715;
+                </button>
               </div>
-              <p className="text-xs text-white/50 leading-relaxed mb-4">These sections look untouched. Tap any one to jump to it, or submit the entry as-is.</p>
-              <div className="flex flex-col gap-1.5 mb-5 max-h-[260px] overflow-y-auto obs-scrollbar">
+
+              {/* THE HALF THAT WAS MISSING — how much of the entry is actually done. */}
+              <div style={{ marginBottom: 20 }}>
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"baseline", marginBottom: 8 }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: "var(--jr-cap, #A8AEB8)", letterSpacing: "0.12em" }}>
+                    SECTIONS FILLED
+                  </span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: "var(--jr-ink, #ECEEF2)" }}>
+                    {done} of {total}
+                  </span>
+                </div>
+                <div style={{ height: 4, borderRadius: 99, background: "var(--jr-border, rgba(255,255,255,0.1))", overflow:"hidden" }}>
+                  <div style={{ height:"100%", width:`${pct}%`, background:"#1e6fc8", borderRadius: 99, transition:"width .3s" }} />
+                </div>
+              </div>
+
+              <div style={{ fontSize: 11, fontWeight: 700, color: "var(--jr-cap, #A8AEB8)", letterSpacing: "0.12em", marginBottom: 10 }}>
+                STILL EMPTY — TAP TO JUMP
+              </div>
+              <div className="obs-scrollbar" style={{ display:"flex", flexDirection:"column", gap: 6, marginBottom: 24, maxHeight: 240, overflowY:"auto" }}>
                 {unfilledSections.map((u, i) => (
                   <button key={i} onClick={() => { setStep(u.step); setUnfilledSections(null); }}
-                    className="flex justify-between items-center text-left px-3 py-2.5 bg-white/[0.035] hover:bg-indigo-500/10 border border-white/[0.07] hover:border-indigo-500/35 rounded-lg text-sm text-white/85 transition-all">
+                    style={{
+                      display:"flex", justifyContent:"space-between", alignItems:"center", textAlign:"left",
+                      padding:"8px 10px", background:"var(--jr-panel, #0d1117)",
+                      border:"1px solid var(--jr-border, rgba(255,255,255,0.08))", borderRadius: 6,
+                      color:"var(--jr-ink, #ECEEF2)", fontSize: 12, fontWeight: 700, cursor:"pointer",
+                      transition:"all .15s",
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.borderColor = "#1e6fc8"; }}
+                    onMouseLeave={e => { e.currentTarget.style.borderColor = "var(--jr-border, rgba(255,255,255,0.08))"; }}>
                     <span>{u.name}</span>
-                    <span className="text-[10px] font-medium text-white/60 tracking-normal">Step {u.step} →</span>
+                    <span style={{ fontSize: 11, fontWeight: 700, color:"var(--jr-cap, #A8AEB8)", letterSpacing:"0.08em" }}>
+                      STEP {u.step} &rarr;
+                    </span>
                   </button>
                 ))}
               </div>
-              <div className="flex gap-2 justify-end">
+
+              <div style={{ display:"flex", gap: 10, justifyContent:"flex-end" }}>
                 <button onClick={() => setUnfilledSections(null)}
-                  className="px-4 py-2 text-xs font-medium text-white/75 border border-white/12 rounded-lg hover:bg-white/5 transition-all">
-                  Go back &amp; fill
+                  style={{ padding:"8px 18px", background:"none", border:"1px solid var(--jr-border, rgba(255,255,255,0.12))",
+                           borderRadius: 6, color:"var(--jr-cap, #A8AEB8)", fontSize: 11, fontWeight: 700,
+                           cursor:"pointer", letterSpacing:"0.08em" }}>
+                  GO BACK &amp; FILL
                 </button>
                 <button onClick={() => { setUnfilledSections(null); handleSave(true); }}
-                  className="px-4 py-2 text-xs font-semibold text-white rounded-lg transition-all"
-                  style={{ background:"linear-gradient(135deg,#6366f1,#8b5cf6)" }}>
-                  Submit anyway
+                  style={{ padding:"8px 18px", background:"#1e6fc8", border:"none", borderRadius: 6,
+                           color:"#fff", fontSize: 11, fontWeight: 700, cursor:"pointer", letterSpacing:"0.08em" }}>
+                  COMMIT ANYWAY
                 </button>
               </div>
             </div>
           </div>
-        )}
+          );
+        })()}
 
         {/* Scrollable form */}
         <div className="flex-1 overflow-y-auto obs-scrollbar">

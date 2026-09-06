@@ -8,17 +8,43 @@ import { queryClient, authFetch, fetchJson } from '@/lib/queryClient';
 import { format } from 'date-fns';
 import type { Notification } from '@shared/schema';
 
+/*
+  THE TRADE VAULT'S EDIT-TRADE MODAL, APPLIED HERE — his ask, 2026-09-06: "I love the design in
+  image 2... copy the same smooth design."
+
+  WHAT WAS ACTUALLY WRONG, and it is one thing wearing two hats:
+
+  EVERY COLOUR WAS HARDCODED DARK — #13131f, rgba(255,255,255,...) for all text and borders. The
+  journal has a LIGHT theme, so on his screenshot this panel is a dark slab floating on a white
+  page. The Edit Trade modal looks right for exactly one reason: it uses the theme's own tokens.
+
+  AND ALMOST EVERY SIZE WAS UNDER THE 11px FLOOR — category 8.5px, timestamp 9.5px, tabs 10px,
+  message 10.5px. docs/READABILITY.md records that floor and we removed sub-11px text everywhere
+  else in the journal; this panel was missed. Under 11px on a light ground is not dim, it is gone.
+
+  THE CONTRACT BELOW IS COPIED FROM TradeVault.tsx:1061-1158, not invented:
+    surface  --jr-panel, 1px --jr-border, radius 12, generous padding
+    title    14px / 800, --jr-ink, tracking 0.1em
+    label    11px / 700, --jr-cap, tracking 0.12em
+    buttons  radius 6, 11px / 700, tracking 0.08em, primary #1e6fc8
+    spacing  6 / 10 / 16 / 24
+
+  FONT: NOTHING UNDER 700 WEIGHT. The panel now sits inside .journal-root (see the portal note in
+  the component), so the journal's font rule reaches it and it renders in Playfair like everything
+  else. His instruction — "dont use playfair variant that is not visible, use a visible one" — is
+  the WEIGHT axis: Playfair is a high-contrast serif and its hairlines are what disappear. Same
+  finding as the audit page and the dashboard figures.
+*/
 const PANEL_CSS = `
   .np-root, .np-root * { box-sizing: border-box; margin: 0; padding: 0; }
   .np-root {
-    font-family: 'DM Mono', 'Courier New', monospace;
     width: 380px;
     max-width: calc(100vw - 16px);
     max-height: calc(100vh - 120px);
-    background: #13131f;
-    border: 1px solid rgba(255,255,255,0.08);
+    background: var(--jr-panel, #13131f);
+    border: 1px solid var(--jr-border, rgba(255,255,255,0.08));
     border-radius: 12px;
-    box-shadow: 0 28px 72px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.03);
+    box-shadow: 0 28px 72px rgba(0,0,0,0.28);
     animation: np-rise .25s cubic-bezier(.34,1.4,.64,1) both;
     display: flex;
     flex-direction: column;
@@ -30,76 +56,88 @@ const PANEL_CSS = `
   }
   .np-header {
     display: flex; align-items: center; justify-content: space-between;
-    padding: 14px 16px 10px;
-    border-bottom: 1px solid rgba(255,255,255,0.06);
+    padding: 18px 20px 14px;
+    border-bottom: 1px solid var(--jr-border, rgba(255,255,255,0.06));
     flex-shrink: 0;
   }
   .np-title {
-    font-size: 12px; font-weight: 600; color: #e2e8f0;
-    letter-spacing: 0.04em; text-transform: uppercase;
+    font-size: 14px; font-weight: 800; color: var(--jr-ink, #ECEEF2);
+    letter-spacing: 0.1em; text-transform: uppercase;
   }
-  .np-actions {
-    display: flex; align-items: center; gap: 4px;
-  }
+  .np-actions { display: flex; align-items: center; gap: 6px; }
   .np-action-btn {
-    display: flex; align-items: center; gap: 4px;
-    background: transparent; border: none; cursor: pointer;
-    color: rgba(255,255,255,0.35); font-size: 10px;
-    font-family: inherit; letter-spacing: 0.06em;
-    padding: 4px 8px; border-radius: 4px;
+    display: flex; align-items: center; gap: 5px;
+    background: transparent; border: 1px solid var(--jr-border, rgba(255,255,255,0.1));
+    cursor: pointer;
+    color: var(--jr-cap, #A8AEB8); font-size: 11px; font-weight: 700;
+    font-family: inherit; letter-spacing: 0.08em;
+    padding: 6px 12px; border-radius: 6px;
     transition: all 0.15s;
   }
-  .np-action-btn:hover { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.7); }
+  .np-action-btn:hover { background: var(--jr-border, rgba(255,255,255,0.06)); color: var(--jr-ink, #fff); }
   .np-action-btn svg { flex-shrink: 0; }
   .np-tabs {
-    display: flex; gap: 2px;
-    padding: 8px 12px 0;
-    border-bottom: 1px solid rgba(255,255,255,0.06);
+    display: flex; gap: 4px;
+    padding: 12px 16px 0;
+    border-bottom: 1px solid var(--jr-border, rgba(255,255,255,0.06));
     flex-shrink: 0;
-    overflow-x: auto;
   }
-  .np-tabs::-webkit-scrollbar { display: none; }
+  /* THE TABS USED TO CLIP. Five labels plus counts do not fit 380px — his screenshot shows
+     "UPDAT..." cut off. The label now shows only on the ACTIVE tab; the rest are icon + count, so
+     every filter stays reachable and nothing is truncated. */
   .np-tab {
-    display: flex; align-items: center; gap: 5px;
-    padding: 6px 10px 8px;
-    font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;
+    display: flex; align-items: center; gap: 6px;
+    padding: 8px 10px 10px;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
     font-family: inherit;
-    color: rgba(255,255,255,0.3); border: none; background: transparent;
+    color: var(--jr-cap, #A8AEB8); border: none; background: transparent;
     cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;
     transition: all 0.15s;
   }
-  .np-tab:hover { color: rgba(255,255,255,0.6); }
-  .np-tab.active { color: #3b82f6; border-bottom-color: #3b82f6; }
+  .np-tab:hover { color: var(--jr-ink, #fff); }
+  /* THE ACTIVE TAB IS BRIGHTER ON DARK. Measured: the modal's #1e6fc8 against the dark panel is
+     3.75:1 — under the 4.5:1 minimum for 11px text. It is the right blue on a light surface and
+     too dark on a black one, so each theme gets the step that clears. Same hue, same identity. */
+  .np-tab.active { color: #60a5fa; border-bottom-color: #60a5fa; }
   .np-tab-count {
-    background: rgba(59,130,246,0.15); color: #60a5fa;
+    background: rgba(96,165,250,0.16); color: #60a5fa;
     border-radius: 8px; padding: 1px 6px;
-    font-size: 9px; font-weight: 700;
+    font-size: 11px; font-weight: 700;
   }
-  .np-tab.active .np-tab-count { background: rgba(59,130,246,0.25); }
-  .np-body {
-    flex: 1; overflow-y: auto; min-height: 0;
-    max-height: 420px;
-  }
+  .journal-light .np-root .np-tab.active { color: #1e6fc8; border-bottom-color: #1e6fc8; }
+  .journal-light .np-root .np-tab-count { background: rgba(30,111,200,0.16); color: #1e6fc8; }
+  .np-tab.active .np-tab-count { background: rgba(30,111,200,0.28); }
+  .np-body { flex: 1; overflow-y: auto; min-height: 0; max-height: 430px; }
   .np-body::-webkit-scrollbar { width: 4px; }
-  .np-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 2px; }
+  .np-body::-webkit-scrollbar-thumb { background: var(--jr-border, rgba(255,255,255,0.08)); border-radius: 2px; }
+  /* DAY HEADERS — a list of twenty notices with no structure is a wall. Sticky so the day stays
+     visible while scrolling through it. */
+  .np-day {
+    position: sticky; top: 0; z-index: 1;
+    padding: 8px 20px;
+    background: var(--jr-panel, #13131f);
+    border-bottom: 1px solid var(--jr-border, rgba(255,255,255,0.05));
+    font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--jr-cap, #A8AEB8);
+  }
   .np-empty {
     display: flex; flex-direction: column; align-items: center; justify-content: center;
-    padding: 48px 24px; gap: 10px;
-    color: rgba(255,255,255,0.2);
+    padding: 48px 24px; gap: 12px;
+    color: var(--jr-cap, #A8AEB8);
   }
-  .np-empty-icon { opacity: 0.3; }
-  .np-empty-text { font-size: 11px; letter-spacing: 0.06em; text-align: center; }
+  .np-empty-icon { opacity: 0.5; }
+  .np-empty-text { font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-align: center; }
   .np-item {
-    display: flex; align-items: flex-start; gap: 10px;
-    padding: 12px 14px;
-    border-bottom: 1px solid rgba(255,255,255,0.04);
+    display: flex; align-items: flex-start; gap: 12px;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--jr-border, rgba(255,255,255,0.04));
     cursor: pointer;
     transition: background 0.12s;
     position: relative;
   }
-  .np-item:hover { background: rgba(255,255,255,0.03); }
-  .np-item.unread { background: rgba(59,130,246,0.04); }
-  .np-item.unread:hover { background: rgba(59,130,246,0.07); }
+  .np-item:hover { background: rgba(30,111,200,0.06); }
+  .np-item.unread { background: rgba(30,111,200,0.07); }
+  .np-item.unread:hover { background: rgba(30,111,200,0.11); }
   .np-item-icon {
     width: 32px; height: 32px; border-radius: 8px; flex-shrink: 0;
     display: flex; align-items: center; justify-content: center;
@@ -107,34 +145,65 @@ const PANEL_CSS = `
   }
   .np-item-body { flex: 1; min-width: 0; }
   .np-item-cat {
-    font-size: 8.5px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
-    margin-bottom: 3px;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
+    margin-bottom: 4px;
   }
   .np-item-title {
-    font-size: 11.5px; font-weight: 500; color: #c8d8e8;
+    font-size: 13px; font-weight: 700; color: var(--jr-ink, #ECEEF2);
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    margin-bottom: 2px;
+    margin-bottom: 3px;
   }
-  .np-item.unread .np-item-title { color: #e2eeff; }
   .np-item-msg {
-    font-size: 10.5px; color: rgba(255,255,255,0.35); line-height: 1.4;
+    font-size: 12px; font-weight: 500; color: var(--jr-cap, #A8AEB8); line-height: 1.45;
     display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
   }
-  .np-item-time { font-size: 9.5px; color: rgba(255,255,255,0.22); margin-top: 4px; }
+  /* THE MONEY, COLOURED. A notice reading "P/L -1.88" in the same grey as the rest tells him
+     nothing at a glance — a loss and a win looked identical. */
+  .np-pl { font-weight: 700; }
+  .np-pl-up { color: #34d399; }
+  .np-pl-down { color: #fb7185; }
+
+  /* ── THE TYPE ACCENTS, ONE SOURCE, BOTH THEMES ────────────────────────────────────────────
+     THE COLOUR IS SET HERE AND NOT INLINE, and that is deliberate. An inline style beats a plain
+     CSS rule, so leaving the colour on the element as an inline style would have silently defeated
+     every light-theme override below — the rule would exist, look right in the file, and never
+     apply. One place, two themes.
+
+     THE LIGHT VALUES ARE NOT COSMETIC. Rendered on the light theme and MEASURED, the category
+     labels came back at 1.92:1 and 2.15:1 against white and the green P/L at 1.92:1, against a
+     4.5:1 minimum. Every accent had been chosen for a dark panel; on white they are nearly
+     invisible — the same defect docs/READABILITY.md exists for. Each light value is the 700 step
+     of the same hue: it clears 4.5:1 and still reads as that colour. */
+  .np-cat-trading_signal  { color: #22d3a5; }
+  .np-cat-economic_event  { color: #f59e0b; }
+  .np-cat-trading_session { color: #38bdf8; }
+  .np-cat-email           { color: #3b82f6; }
+  .np-cat-update          { color: #a78bfa; }
+  .np-cat-default         { color: #9ca3af; }
+
+  .journal-light .np-root .np-pl-up   { color: #047857; }
+  .journal-light .np-root .np-pl-down { color: #be123c; }
+  .journal-light .np-root .np-cat-trading_signal  { color: #047857; }
+  .journal-light .np-root .np-cat-economic_event  { color: #b45309; }
+  .journal-light .np-root .np-cat-trading_session { color: #0369a1; }
+  .journal-light .np-root .np-cat-email           { color: #1d4ed8; }
+  .journal-light .np-root .np-cat-update          { color: #6d28d9; }
+  .journal-light .np-root .np-cat-default         { color: #4b5563; }
+  .np-item-time { font-size: 11px; font-weight: 500; color: var(--jr-cap, #A8AEB8); opacity: 0.8; margin-top: 5px; }
   .np-item-del {
     background: transparent; border: none; cursor: pointer;
-    color: rgba(255,255,255,0.15); padding: 4px;
-    border-radius: 4px; display: flex; align-items: center; justify-content: center;
+    color: var(--jr-cap, #A8AEB8); opacity: 0.5; padding: 5px;
+    border-radius: 6px; display: flex; align-items: center; justify-content: center;
     transition: all 0.12s; flex-shrink: 0; margin-top: -2px;
   }
-  .np-item-del:hover { background: rgba(239,68,68,0.12); color: rgba(239,68,68,0.7); }
+  .np-item-del:hover { background: rgba(239,68,68,0.14); color: #fb7185; opacity: 1; }
   .np-unread-dot {
     width: 6px; height: 6px; border-radius: 50%;
-    background: #3b82f6;
-    position: absolute; top: 14px; left: 6px;
+    background: #1e6fc8;
+    position: absolute; top: 18px; left: 8px;
     flex-shrink: 0;
   }
-  .np-item.unread { padding-left: 20px; }
+  .np-item.unread { padding-left: 24px; }
 `;
 
 type TabKey = 'all' | 'signals' | 'calendar' | 'emails' | 'updates';
@@ -169,6 +238,61 @@ function getMeta(type: string) {
 
 function getIcon(type: string) {
   return TYPE_ICONS[type] ?? <Info size={14} />;
+}
+
+/**
+ * "2h ago", not "Sep 02 · 14:09".
+ *
+ * The absolute stamp made him do the arithmetic to answer the only question a notification list is
+ * really asked — *is this new?* The exact time is still there, on hover, for when it matters.
+ */
+function relativeTime(at: Date): string {
+  const secs = Math.max(0, Math.round((Date.now() - at.getTime()) / 1000));
+  if (secs < 60) return 'just now';
+  const mins = Math.round(secs / 60);
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.round(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.round(hrs / 24);
+  if (days === 1) return 'yesterday';
+  if (days < 7) return `${days}d ago`;
+  return format(at, 'MMM d');
+}
+
+/** Today / Yesterday / the date — the sticky header a run of notices is grouped under. */
+function dayLabel(at: Date): string {
+  const d0 = new Date(); d0.setHours(0, 0, 0, 0);
+  const d1 = new Date(at); d1.setHours(0, 0, 0, 0);
+  const diff = Math.round((d0.getTime() - d1.getTime()) / 86_400_000);
+  if (diff <= 0) return 'Today';
+  if (diff === 1) return 'Yesterday';
+  return format(at, 'EEEE, MMM d');
+}
+
+/**
+ * Colour the money inside a notice, and nothing else.
+ *
+ * A trade notification reads "Short GBPUSD closed @ 1.34882 · P/L -1.88" — and every character of
+ * it was the same grey, so a loss and a win were indistinguishable without reading the sign. This
+ * finds the P/L figure and paints it, leaving the rest of the sentence alone.
+ *
+ * DELIBERATELY NARROW: it matches only a signed number following "P/L", so it cannot accidentally
+ * colour a price, a lot size or a date.
+ */
+function withColouredPL(message: string): React.ReactNode {
+  const m = /(P\/L\s*)(-?\d+(?:\.\d+)?)/i.exec(message);
+  if (!m) return message;
+  const value = parseFloat(m[2]);
+  if (!Number.isFinite(value)) return message;
+  const start = m.index + m[1].length;
+  const end = start + m[2].length;
+  return (
+    <>
+      {message.slice(0, start)}
+      <span className={`np-pl ${value >= 0 ? 'np-pl-up' : 'np-pl-down'}`}>{m[2]}</span>
+      {message.slice(end)}
+    </>
+  );
 }
 
 async function apiFetch(method: string, path: string) {
@@ -273,9 +397,13 @@ function NotificationsPanel({ panelRef, pos }: NotificationsPanelProps) {
                 key={t.key}
                 className={`np-tab${tab === t.key ? ' active' : ''}`}
                 onClick={() => setTab(t.key)}
+                title={t.label}
               >
                 {t.icon}
-                {t.label}
+                {/* THE LABEL ONLY ON THE ACTIVE TAB. Five labels plus counts do not fit 380px and
+                    the last one was being clipped mid-word. Every filter is still one click away,
+                    and the title attribute names it on hover. */}
+                {tab === t.key && t.label}
                 {count > 0 && <span className="np-tab-count">{count}</span>}
               </button>
             );
@@ -302,34 +430,52 @@ function NotificationsPanel({ panelRef, pos }: NotificationsPanelProps) {
               </div>
             </div>
           ) : (
-            filtered.map(n => {
+            /* GROUPED BY DAY. A flat run of notices is a wall; "Today / Yesterday / Tuesday" makes
+               it scannable, and the header sticks while you scroll its group. */
+            filtered.map((n, i) => {
               const meta = getMeta(n.type);
               const isUnread = unreadCount(n.id);
+              const at = n.createdAt ? new Date(n.createdAt) : null;
+              const prev = i > 0 ? filtered[i - 1] : null;
+              const prevAt = prev?.createdAt ? new Date(prev.createdAt) : null;
+              const showDay = at !== null
+                && (prevAt === null || dayLabel(at) !== dayLabel(prevAt));
               return (
-                <div
-                  key={n.id}
-                  className={`np-item${isUnread ? ' unread' : ''}`}
-                  onClick={() => { if (isUnread) markRead.mutate(n.id); }}
-                >
-                  {isUnread && <div className="np-unread-dot" />}
-                  <div className="np-item-icon" style={{ background: meta.bg, color: meta.color }}>
-                    {getIcon(n.type)}
-                  </div>
-                  <div className="np-item-body">
-                    <div className="np-item-cat" style={{ color: meta.color }}>{meta.label}</div>
-                    <div className="np-item-title">{n.title}</div>
-                    <div className="np-item-msg">{n.message}</div>
-                    <div className="np-item-time">
-                      {n.createdAt ? format(new Date(n.createdAt), 'MMM dd · HH:mm') : '—'}
-                    </div>
-                  </div>
-                  <button
-                    className="np-item-del"
-                    onClick={e => { e.stopPropagation(); deleteOne.mutate(n.id); }}
-                    title="Dismiss"
+                <div key={n.id}>
+                  {showDay && at && <div className="np-day">{dayLabel(at)}</div>}
+                  <div
+                    className={`np-item${isUnread ? ' unread' : ''}`}
+                    onClick={() => { if (isUnread) markRead.mutate(n.id); }}
                   >
-                    <X size={12} />
-                  </button>
+                    {isUnread && <div className="np-unread-dot" />}
+                    <div className="np-item-icon" style={{ background: meta.bg, color: meta.color }}>
+                      {getIcon(n.type)}
+                    </div>
+                    <div className="np-item-body">
+                      {/* The class carries the type so the light theme can darken this accent —
+                          the inline colour stays as the dark-theme value and the rule wins on
+                          light. See the light-theme block in PANEL_CSS for the measured reason. */}
+                      <div className={`np-item-cat np-cat-${TYPE_META[n.type] ? n.type : 'default'}`}>
+                        {meta.label}
+                      </div>
+                      <div className="np-item-title">{n.title}</div>
+                      <div className="np-item-msg">{withColouredPL(n.message)}</div>
+                      {/* Relative, with the exact stamp on hover for when it matters. */}
+                      <div
+                        className="np-item-time"
+                        title={at ? format(at, "EEEE d MMMM yyyy 'at' HH:mm") : undefined}
+                      >
+                        {at ? relativeTime(at) : '—'}
+                      </div>
+                    </div>
+                    <button
+                      className="np-item-del"
+                      onClick={e => { e.stopPropagation(); deleteOne.mutate(n.id); }}
+                      title="Dismiss"
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
                 </div>
               );
             })
@@ -337,7 +483,20 @@ function NotificationsPanel({ panelRef, pos }: NotificationsPanelProps) {
         </div>
       </div>
     </div>,
-    document.body
+    // MOUNTED INSIDE THE JOURNAL, NOT ON document.body — and this line is what makes every
+    // `var(--jr-…)` above actually resolve.
+    //
+    // The theme's colours are declared as INLINE STYLES on the `.journal-root` div
+    // (Journal.tsx:1590), and CSS custom properties inherit down the tree. A panel portalled to
+    // `document.body` is not a descendant of it, so every token would fall back to its hardcoded
+    // default — the panel would look perfect in dark mode and STILL be a dark slab on his light
+    // page, which is the exact bug being fixed. It would have looked fixed and not been.
+    //
+    // Mounting here also puts it inside the journal's font rule, so it renders in the selected
+    // font like every other panel instead of carrying its own.
+    //
+    // FALLS BACK TO body so nothing breaks if this is ever rendered outside the journal shell.
+    document.querySelector('.journal-root') ?? document.body
   );
 }
 
@@ -408,7 +567,11 @@ export function Notifications({ dm }: { dm: boolean }) {
             padding: '0 3px',
             fontFamily: 'monospace',
             lineHeight: 1,
-            boxShadow: '0 0 0 2px #13131f',
+            // THE RING TAKES THE PAGE'S COLOUR, not a hardcoded dark one. It was `#13131f`, which
+            // punched a dark halo around the red badge on the light theme — the same "built for
+            // dark only" defect as the panel itself, just small enough to miss. Found by the
+            // stylesheet test, not by looking.
+            boxShadow: `0 0 0 2px var(--jr-bg, ${dm ? '#13131f' : '#ffffff'})`,
           }}>
             {count > 9 ? '9+' : count}
           </span>
