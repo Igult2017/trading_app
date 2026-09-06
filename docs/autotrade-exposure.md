@@ -11,11 +11,55 @@
 **THE DECISION THIS RECORDS: every signal is placed, related or not. That is deliberate, it is his
 call, and it is the state today.** The point is to measure how the strategy performs unconstrained
 before adding a guard that would hide some of its trades. Do not "helpfully" add an exposure limit
-because this document explains the risk — the risk is understood and accepted for now.
+because this document explains the risk — the risk is understood and accepted **on demo, for now**.
 
 **NOTHING WAS CHANGED TO ACHIEVE THIS.** The behaviour he asked for is already what the code does:
-there is no correlation or exposure guard anywhere in the placement path. This document exists so
-that when the guard IS built, nobody has to re-derive any of the below.
+there is no correlation or exposure guard anywhere in the placement path.
+
+---
+
+# ⚠ HIS RULE, AND THE CODE DOES NOT DO IT — must be closed before a live account
+
+**Clarified 2026-09-06, in his own words:**
+
+> *"If VIX finds more than 1 signals, obviously we can only place one at a time because of risk
+> exposure since gold, GBP and EUR are related. So that is what I meant. You can't place 2 or three
+> at the same time because that is high risk exposure. However, if one comes then after it is closed
+> another one comes, you can take them in that order but not at the same time. That is what I
+> thought the code does but if it doesn't, document it as something to address when we go to live
+> account with real money."*
+
+**IT DOES NOT. There is no limit on how many positions can be open at once.** Verified by reading
+every gate on the path, not inferred:
+
+| where | what it actually limits |
+|---|---|
+| [`placer.py:85`](../signal_platform/execution/placer.py#L85) | the ONLY gate before the broker is `guards.check` — nothing else is consulted |
+| [`guards.py:138-140`](../signal_platform/execution/guards.py#L138) | one order per **symbol + direction** in 24h. Two DIFFERENT symbols never see each other |
+| [`signal_validator.py:117-120`](../signal_platform/validation/signal_validator.py#L117) | the reservation is keyed `(strategy, symbol, direction)` — also per symbol |
+
+So EUR/USD long, GBP/USD long and XAU/USD long can be live **at the same moment**, at 2% each —
+**6% of the account on what is one bet on the dollar.** That is the exact thing he is describing, and
+nothing stops it.
+
+**His rule settles the three design questions I had left open.** They are no longer open:
+
+| question | his answer |
+|---|---|
+| what counts as related? | **all of them.** Gold, GBP and EUR are one group. Not a measured correlation, not a currency test — the whole VIX.1 instrument list is treated as one |
+| refuse, or size down? | **refuse.** "You can take them in that order but not at the same time" |
+| what is the cap? | **one position at a time.** Not a percentage, not a count of two — one |
+
+**When:** demo stays unconstrained so performance can be measured. **This must be built before any
+live account with real money.** Tracked in `docs/OPEN.md`.
+
+**One design note for whoever builds it, because it is easy to get wrong:** the rule is about
+EXPOSURE, so it must count **pending stop orders as well as open positions**. Three resting stop
+orders are not exposure yet — but if the market runs through all three they become three positions,
+which is the outcome the rule exists to prevent. Counting only filled positions would let exactly
+that through.
+
+---
 
 ---
 
@@ -108,37 +152,39 @@ sentence in this document: the card can say "SIZE DOWN" while the platform place
 
 ---
 
-## 5. When we come back to enable the guard
+## 5. Building the guard — the rule is decided, only the wiring is open
 
-**Read this section before writing any code, and do not re-derive the above.**
+**Read this section before writing any code, and do not re-derive the above. The behaviour is HIS
+and it is settled: one position at a time, refuse the rest, take them in sequence as each closes.**
 
 ### Where it goes
-`guards.check()` — as check 9, after the daily cap. It has the symbol, direction, strategy, equity
-and lots already. It would need one thing it does not have: **what is currently open or pending**.
+`guards.check()` — as check 9, after the daily cap. It already has the symbol, direction, strategy,
+equity and lots. It needs one thing it does not have: **what is currently open or pending**.
 
-### What it must be given
-`guards._placed` is an in-process list of `(when, symbol, direction)`, rehydrated on boot
-(`guards.rehydrate()`). That is enough to know what THIS PROCESS placed in 24h, but not what is
-actually open at the broker — a position closed an hour ago still sits in that list. A real exposure
-guard should read the live positions, and `monitor/position_book.positions()` now provides exactly
-that, shared and cached, without a broker request per call.
+### What it must be given, and what NOT to use
+`guards._placed` is an in-process list of `(when, symbol, direction)`, rehydrated on boot. **Do not
+build the guard on it.** It records what this process PLACED in 24h, not what is still open — a trade
+closed an hour ago is still in that list, so the guard would refuse a legitimate next signal and
+break the "take them in that order" half of his rule.
 
-### The three questions to settle with him FIRST, before any code
-1. **What counts as related?** Same quote currency (all three of his instruments share USD)? A
-   measured correlation over some window? A hand-written group list? The existing 4-hour warning uses
-   "another USD pair, same direction" — that is a starting point, not an agreed rule.
-2. **Refuse, or size down?** The card already says *"size down or skip"*. Those are different
-   behaviours and he has not chosen between them. Refusing loses the trade; sizing down keeps it at
-   reduced risk. **Do not pick one on his behalf.**
-3. **What is the cap?** Total percent at risk across correlated positions (e.g. "never more than 4%
-   on one dollar direction"), or a count ("never more than 2 correlated positions")? A percent cap
-   composes with the 2% per trade; a count does not.
+Use instead:
+* **open positions** — `monitor/position_book.positions()`, shared and cached, no broker request per
+  call (added 2026-09-06). Returns `None` when the broker could not be read, which is NOT the same as
+  "nothing open" and **must refuse**, per this module's own rule that ambiguity refuses.
+* **pending stop orders** — `placer.pending_intents()`, plus whatever is resting at the broker.
+  See the design note at the top: an order that has not filled is not exposure yet, but three resting
+  orders can become three positions.
 
 ### What must NOT change when it is built
 * The kill switch stays first and absolute.
 * `guards.check` keeps returning a REASON string, not a bare false — every refusal reaches the log
-  and the DM with its reason intact, and `placer.refusal_message` formats it.
-* The refusal is per SIGNAL, not per scan. Anything that fires once per scan would spam.
+  and the DM with its reason intact, and `placer.refusal_message` formats it. A refusal that is
+  invisible is the failure mode this whole module is shaped around.
+* The refusal is per SIGNAL, not per scan. Anything firing once per scan would spam him.
+* **A refused signal must not be marked as delivered.** The dedup ledger is what stops a setup
+  re-firing; if a signal refused for exposure is committed, that setup is dead for ever and he will
+  never get it even after the blocking position closes — which is precisely the sequence he asked
+  for. This is the trap in his rule and it is the one most likely to be got wrong.
 
 ---
 

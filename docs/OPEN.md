@@ -908,6 +908,42 @@ load, line 97); `AdminPanel`'s `manual_outcome`.
 
 ## D. cTrader & copy trading
 
+### D48 - Autotrade can hold 3 correlated positions at once — 6% on ONE bet. 🔴 BEFORE LIVE MONEY
+
+**HIS RULE, 2026-09-06, and the code does not do it:**
+
+> *"If VIX finds more than 1 signals, obviously we can only place one at a time because of risk
+> exposure since gold, GBP and EUR are related... You can't place 2 or three at the same time because
+> that is high risk exposure. However, if one comes then after it is closed another one comes, you
+> can take them in that order but not at the same time. That is what I thought the code does but if
+> it doesn't, document it as something to address when we go to live account with real money."*
+
+**It does not.** Nothing anywhere limits how many positions are open at once. Verified by reading
+every gate on the path:
+
+| where | what it actually limits |
+|---|---|
+| [`placer.py:85`](../signal_platform/execution/placer.py#L85) | `guards.check` is the ONLY gate before the broker |
+| [`guards.py:138-140`](../signal_platform/execution/guards.py#L138) | one order per **symbol + direction**. Two different symbols never see each other |
+| [`signal_validator.py:117-120`](../signal_platform/validation/signal_validator.py#L117) | the reservation is keyed `(strategy, symbol, direction)` — also per symbol |
+
+VIX.1 trades **EUR/USD, GBP/USD and XAU/USD — all priced against the dollar**
+([`vix1.py:114`](../signal_platform/strategies/vix1.py#L114)). At 2% of the starting balance each,
+three same-direction signals is **6% on one dollar bet**. VIX.1 already computes a correlation list
+and prints *"CORRELATED — SIZE DOWN"* on the card, but that is **text only; autotrade never reads
+it** ([`vix1.py:299`](../signal_platform/strategies/vix1.py#L299), *"warn, don't block"*).
+
+**DELIBERATELY NOT FIXED YET — his call.** Demo stays unconstrained so the strategy's real
+performance can be measured before a guard hides some of its trades. **This must be built before any
+live account with real money.**
+
+**Everything needed to build it is in
+[docs/autotrade-exposure.md](autotrade-exposure.md)** — where the check goes, which data source to
+use (`position_book`, NOT `guards._placed`, and why that distinction breaks his "take them in order"
+rule if got wrong), that pending stop orders must be counted as well as filled positions, and the one
+trap: **a signal refused for exposure must not be marked as delivered**, or that setup dies for ever
+and he never gets it even after the blocking position closes.
+
 ### D41 - Autotrade risks a static 2% of the STARTING balance. DONE 03 Sep
 
 **His instruction:** *"Can you change our risk to static 2% of the starting account balance for

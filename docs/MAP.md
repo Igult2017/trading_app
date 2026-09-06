@@ -67,10 +67,16 @@ bx_sd_reports    the heads-up and stand-aside cards
 **[docs/autotrade-exposure.md](autotrade-exposure.md)** — the full path a signal takes to becoming a
 live order, the complete list of the eight things `guards.check` refuses, and the live settings.
 
-**The settled position, his call 2026-09-06:** *every signal is placed, related or not.* That is
-deliberate — he wants to see the strategy's performance unconstrained before a guard hides some of
-its trades. **Do not add an exposure limit because the risk looks obvious; it is understood and
-accepted for now.**
+**HIS RULE, and the code does NOT do it (2026-09-06):** *"we can only place one at a time because of
+risk exposure since gold, GBP and EUR are related... if one comes then after it is closed another one
+comes, you can take them in that order but not at the same time."* **One position at a time, refuse
+the rest, take them in sequence.** Nothing in the code enforces that — three same-direction signals
+place together at 2% each, which is **6% on one dollar bet**. Tracked as **D48 in OPEN.md, must be
+built before a live account with real money.**
+
+**Until then, deliberately unconstrained on DEMO — his call:** he wants the strategy's real
+performance measured before a guard hides some of its trades. **Do not add an exposure limit because
+the risk looks obvious; it is understood and accepted on demo.**
 
 Two facts the doc exists to stop anyone re-deriving: **there is no correlation or exposure check
 anywhere in the placement path**, and VIX.1's `⚠️ CORRELATED … SIZE DOWN` line is **card text that
