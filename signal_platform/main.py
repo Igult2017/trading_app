@@ -172,7 +172,12 @@ async def _startup() -> None:
     from orchestrator.scanner import scan_markets
     from monitor.signal_monitor import check_all
     from scheduler import scheduler
-    scheduler.build(scan_markets, check_all)
+    # THE TRADE TRACKER GETS ITS OWN JOB. It used to be called from inside `check_all` above, which
+    # is why it ran on the signal poller's 30-second clock — see the note on the job in
+    # scheduler.py. Signals are watched every 30s; his open trades every 2s.
+    from monitor.position_tracker import check_all as track_positions
+    from notifications.dispatcher import _send_private as _dm
+    scheduler.build(scan_markets, check_all, lambda: track_positions(_dm))
     scheduler.start()
 
     write_status("ok")

@@ -30,13 +30,23 @@ import asyncio
 import logging
 
 from config.settings import settings
-from data import ctrader_positions
+from monitor import position_book
 from notifications import safe_notify as notify
 
 log = logging.getLogger(__name__)
 
-_STALE_AFTER_S = 20.0     # no tick for this long, while watching, means fall back and shout
-_POLL_S = 0.5             # how often the streamed price is examined; costs no broker requests
+# NO TICK FOR THIS LONG, WHILE WATCHING, MEANS FALL BACK AND SHOUT.
+#
+# This was 20 seconds. That is twenty seconds of silently deciding where a stop goes from a price the
+# market has left — the exact window he was worried about on 2026-09-06: *"sometimes a market moves
+# very fast so if it is not first we can lose money in no time."* Three seconds is long enough that a
+# genuinely quiet pair does not cry wolf and short enough that a dying feed is caught before it can
+# cost a rung. The fallback it drops to is a real current quote, so the cost of being wrong is a
+# broker request, not a bad stop.
+_STALE_AFTER_S = 3.0
+# How long to wait for a tick before going round anyway — a liveness check, NOT a polling cadence.
+# Every real price arrives on the tick callback and wakes the loop immediately.
+_QUIET_S = 2.0
 _IDLE_S = 30.0            # how often we look for a position when there is none
 
 
@@ -48,6 +58,8 @@ class TradeWatcher:
         self._stream = None
         self._running = False
         self._degraded = False                 # True while falling back to the Open API quote
+        # Set by `_on_tick` the instant a price lands; the loop waits on it instead of a timer.
+        self._tick = asyncio.Event()
 
     async def run_forever(self) -> None:
         """Never raises. A watcher that can take the platform down is not a safety feature."""
@@ -68,7 +80,13 @@ class TradeWatcher:
     # ── internals ──────────────────────────────────────────────────────────────
 
     async def _cycle(self) -> None:
-        positions = await ctrader_positions.open_positions()
+        # FROM MEMORY, NOT FROM THE BROKER. This used to call `open_positions()` here — a full
+        # reconcile request, with a 15-second timeout, under a shared lock — BEFORE it was allowed to
+        # look at the price. So the loop whose whole job is speed could never run faster than the
+        # broker answered, and it spent a request every half second re-asking a question whose answer
+        # changes a few times a day. `position_book` asks on its own slow clock and hands it out from
+        # memory; see the note at the top of that file.
+        positions = await position_book.positions()
         # NONE AND [] MEAN DIFFERENT THINGS, and `ctrader_positions` says so explicitly: [] is "you
         # have no trades open", None is "I could not find out". Treating None as "nothing open" would
         # drop the stream and stop watching a position that may well exist — inventing a fact. Wait
@@ -85,13 +103,41 @@ class TradeWatcher:
 
         symbols = sorted({p.symbol for p in tradeable})
         if not await self._ensure_stream(symbols):
-            # No stream. The 30s tracker still covers this, so degrade rather than spin.
+            # No stream. The tracker still covers this, so degrade rather than spin.
             await self._check_all(tradeable, streamed=False)
             await asyncio.sleep(_IDLE_S)
             return
 
         await self._check_all(tradeable, streamed=True)
-        await asyncio.sleep(_POLL_S)
+
+        # WAIT FOR THE NEXT PRICE, NOT FOR A CLOCK.
+        #
+        # This was `sleep(0.5)`, which meant a rung could sit reached for half a second — on top of
+        # the broker read above — before anything looked. His words, 2026-09-06: *"if it is not first
+        # we can lose money in no time especially if we have good R that we need to lock."*
+        #
+        # THE TIMEOUT IS NOT A FALLBACK CADENCE, IT IS A LIVENESS CHECK. A market can genuinely go
+        # quiet, and if no tick ever arrives this coroutine must still come round to notice the
+        # stream has died and fall back — which is what `_price_for` does on the next pass.
+        await self._wait_for_tick(timeout=_QUIET_S)
+
+    async def _wait_for_tick(self, timeout: float) -> None:
+        """Sleep until the next price arrives, or `timeout` passes — whichever comes first."""
+        self._tick.clear()
+        try:
+            await asyncio.wait_for(self._tick.wait(), timeout=timeout)
+        except asyncio.TimeoutError:
+            pass                              # a quiet market, not a broken one
+
+    def _on_tick(self, symbol: str, bid: float, epoch: float) -> None:
+        """Called by the price reader for EVERY tick.
+
+        RUNS INSIDE THE SOCKET READER AND MUST NOT BLOCK. `QuoteBook.absorb` calls its sinks
+        synchronously, one after another, in the task that is reading prices off the wire — so
+        anything slow here stalls the price feed for the bar builder and every other consumer.
+        It therefore does exactly one thing: wake the watcher. All the work happens in the loop.
+        """
+        self._tick.set()
 
     async def _ensure_stream(self, symbols: list[str]) -> bool:
         from data.fix_quotes import FixQuoteStream
@@ -108,6 +154,10 @@ class TradeWatcher:
                                       settings.ctrader_fix_password,
                                       host=settings.ctrader_fix_host,
                                       port=settings.ctrader_fix_quote_port)
+        # WAKE THE LOOP ON EVERY TICK. Registered BEFORE connecting so the very first price counts —
+        # the entry watcher does the same, for the same reason. `QuoteBook` keeps a LIST of sinks and
+        # guards each one, so this cannot displace the bar builder or be killed by it.
+        self._stream.on_bid_tick(self._on_tick)
         return await self._stream.connect(symbols)
 
     async def _drop_stream(self) -> None:

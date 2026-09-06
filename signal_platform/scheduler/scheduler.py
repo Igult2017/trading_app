@@ -1,8 +1,9 @@
 """
 APScheduler setup — session-aware scan frequency.
-Two jobs:
-  1. scan_markets()    — dynamic interval driven by active sessions
-  2. monitor.check_all() — fixed every 30s
+Three jobs:
+  1. scan_markets()             — dynamic interval driven by active sessions
+  2. monitor.check_all()        — signals, fixed every 30s
+  3. position_tracker.check_all() — HIS OPEN TRADES, every 2s (see the note on that job)
 Session-open notifications are event-driven inside scan_markets(), not cron-based.
 """
 
@@ -15,7 +16,7 @@ log = logging.getLogger(__name__)
 _scheduler: AsyncIOScheduler | None = None
 
 
-def build(scan_fn, monitor_fn) -> AsyncIOScheduler:
+def build(scan_fn, monitor_fn, tracker_fn=None) -> AsyncIOScheduler:
     """
     Create and return a configured scheduler.
     scan_fn and monitor_fn are coroutines injected by main.py
@@ -43,6 +44,36 @@ def build(scan_fn, monitor_fn) -> AsyncIOScheduler:
         max_instances=1,
         coalesce=True,
     )
+
+    # ── POSITION TRACKER — ITS OWN CLOCK, AND THIS IS THE POINT OF THE CHANGE ────────────────────
+    #
+    # HIS QUESTION, 2026-09-06: *"how did we make position tracker per 30 secs instead of per sec? I
+    # think position tracker should be faster because we need to move position faster."*
+    #
+    # NOBODY EVER DECIDED 30 SECONDS FOR IT. It had no schedule at all — it ran as the last step
+    # INSIDE the signal monitor's job (`signal_monitor.py`), so it inherited that job's 30s. The
+    # reason written there was about SIGNALS — *"a position's R has to be watched at the same cadence
+    # as a signal's TP/SL"* — and it was true when this was the ONLY thing moving stops. The
+    # half-second watcher arrived later, the tracker became the safety net, and its clock was never
+    # revisited. He is right that a stop-mover has no business running on the signal poller's tick.
+    #
+    # TWO SECONDS COSTS NOTHING NOW. It reads prices from memory (the pushed tick book, see
+    # `position_tracker._price_now`) and the position list from `monitor/position_book`, which is
+    # shared with the fast watcher and refreshed on its own slow timer. Before those two changes this
+    # interval would have meant a broker request every two seconds; now it means none.
+    #
+    # IT MUST STAY A NET, NOT A COPY. It keeps its OWN price fallback chain, so a dead stream cannot
+    # blind both paths at once, and the DB-backed `delivery_ledger` already makes it impossible for
+    # the two to act on the same rung twice.
+    if tracker_fn is not None:
+        _scheduler.add_job(
+            tracker_fn,
+            trigger=IntervalTrigger(seconds=2),
+            id="position_tracker",
+            name="Position tracker",
+            max_instances=1,       # never overlap — a slow pass skips a tick rather than stacking
+            coalesce=True,
+        )
 
     # Monthly reset — the signal board carries ONE MONTH and starts fresh on the 1st (user's rule,
     # 2026-08-22: "let the signals expire at the end of every month"; it was weekly before that).

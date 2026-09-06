@@ -48,10 +48,12 @@ out, and that rides the DB-backed `delivery_ledger`, so a redeploy cannot re-sen
 retries on the next poll.
 """
 import logging
+import time
 
 from core import delivery_ledger
 from notifications import titles
-from data import ctrader_positions, ctrader_spread
+from data import ctrader_spread, fix_quotes
+from monitor import position_book
 from data.candle_fetcher import fetch_candles
 from shared.pip import price_digits
 
@@ -76,6 +78,14 @@ from notifications import safe_notify as notify
 from monitor.rungs import EPS as _EPS
 
 _TTL = 7 * 24 * 3600     # forget a position's alerts a week after they were sent
+
+# HOW OLD A PUSHED PRICE MAY BE AND STILL DECIDE WHERE A STOP GOES.
+#
+# `fix_quotes._FRESH_S` is 15 seconds, and that is right for what it was written for: enriching a bar
+# that would otherwise be up to 80 seconds old. It is far too much rope for a STOP. Three seconds is
+# enough to ride out a quiet moment in a slow pair and short enough that a dying stream drops us onto
+# the requested quote long before a fast move could take a rung with us none the wiser.
+_TICK_FRESH_S = 3.0
 
 # WHAT THE TRACKER SAW LAST TIME, so a line is logged when it CHANGES and not on every 30s poll.
 #
@@ -117,12 +127,41 @@ async def _price_now(symbol: str, bullish: bool | None = None) -> float | None:
     FALLS BACK to the old M1 close if the quote is unavailable. A tracker that goes silent because a
     quote missed is worse than one reading a slightly older price, and `quote_for` returns None on
     any failure by design.
+
+    THREE SOURCES, BEST FIRST — added 2026-09-06 on his ask: *"Can we make both of them to use FIX
+    data and only fallback to late data but immediately FIX data is there it goes back to tick
+    data?"*
+
+        1. the PUSHED tick price   in memory, arrives on its own, costs nothing
+        2. the REQUESTED quote     a broker round trip, current but not free
+        3. the last closed M1 bar  up to ~80s old; only when both above are unavailable
+
+    This is the SAFETY NET, and until now it was the only one of the three stop-watching components
+    NOT reading tick prices — it went straight to (2). Falling back and coming back are automatic:
+    `live_quote` returns None the instant no stream is healthy, and a real pair again the instant one
+    is, so there is no state to manage and nothing to reset.
+
+    THE STALENESS BAR IS TIGHTER HERE THAN THE DEFAULT. `fix_quotes._FRESH_S` is 15 seconds,
+    deliberately generous because its original job was beating an 80-second-old bar. This decides
+    where a STOP goes, so 15 seconds is far too much rope: anything older than `_TICK_FRESH_S` drops
+    through to the requested quote rather than being trusted.
+
+    THE SIDED PRICE, NEVER THE MID. `live_price()` exists and returns the mid — using it here would
+    be a bug of exactly the kind `breakeven.py:78` records costing a real position, and
+    `fix_quotes.py:110-113` says so in as many words.
     """
     if bullish is not None:
+        # 1. the pushed price, read straight out of memory
+        tick = fix_quotes.live_quote(symbol, _TICK_FRESH_S)
+        if tick is not None:
+            bid, ask = tick
+            return bid if bullish else ask
+        # 2. ask the broker
         quote = await ctrader_spread.quote_for(symbol)
         if quote is not None:
             bid, ask = quote
             return bid if bullish else ask
+    # 3. the last closed minute — better than going silent
     bars = await fetch_candles(symbol, "M1", 2)
     return bars[-1].close if bars else None
 
@@ -213,8 +252,19 @@ async def _auto_move(p, tag: str, new_sl: float | None, send, price: float | Non
         # THE LIVE PRICE GOES WITH IT. A stop on the wrong side of the market is a market close, not
         # a stop — proved on a real demo position, 2026-08-21. The tracker already has the price it
         # measured R from, so the guard costs nothing.
+        #
+        # AND IT IS TIMED, because "faster" has to become a number. His worry, 2026-09-06: *"sometimes
+        # a market moves very fast so if it is not first we can lose money in no time."* Until now
+        # nothing recorded how long a rung actually took to reach the broker, so the only answer
+        # available was reasoning about the code. This is the measurement — one line per stop move,
+        # in milliseconds, whichever path made it.
+        _t0 = time.monotonic()
         out = await breakeven.move_stop_to(p, new_sl if tag != "breakeven" else None,
                                            label, acct.creds, acct.account_type, price)
+        _ms = (time.monotonic() - _t0) * 1000.0
+        log.info(f"[stop-move] {p.symbol} #{p.position_id} {tag}: "
+                 f"{'moved' if out.moved else 'NOT moved'} in {_ms:.0f}ms "
+                 f"(price {price}, target {new_sl if tag != 'breakeven' else 'breakeven'})")
         # THE STOP BEING ALREADY THERE IS SUCCESS, NOT FAILURE. `move_stop_to` is ratchet-only and
         # returns moved=False with "already at or beyond" when there is nothing to do; treating that
         # as a failure would retry it for ever.
@@ -223,6 +273,14 @@ async def _auto_move(p, tag: str, new_sl: float | None, send, price: float | Non
             _fails.pop(k, None)
         else:
             _fails[k] = _fails.get(k, 0) + 1
+
+        # THE CACHED POSITION NOW HAS THE OLD STOP ON IT. Every path shares one view of what is open
+        # (`monitor/position_book`), and the ratchet in `execution.breakeven` compares the new target
+        # against the stop it can see — so handing it a pre-move copy would make an already-done rung
+        # look undone. The delivery ledger stops that being ACTED on twice, but there is no reason to
+        # lean on the ledger for a fact we already know here.
+        if out.moved:
+            position_book.invalidate()
 
         kind = (titles.TAKE_PROFIT_MISSING if out.alarm
                 else titles.STOP_MOVED if out.moved else titles.STOP_NOT_MOVED)
@@ -333,7 +391,11 @@ async def check_all(send) -> None:
     global _last_seen
     try:
         delivery_ledger.cleanup(_TTL)
-        positions = await ctrader_positions.open_positions()
+        # SHARED WITH THE FAST WATCHER, so the two do not each spend a broker request asking the same
+        # question at the same moment. `position_book` refreshes on its own slow clock and hands the
+        # list out from memory; a failed read still reports None, which this function already handles
+        # as "could not find out" rather than "nothing open".
+        positions = await position_book.positions()
         # DID AN AUTOTRADE ORDER FILL? Same poll, same positions, no extra broker read — the
         # fill price lives on the position and this is the only place it is already fetched.
         from monitor import exit_watch

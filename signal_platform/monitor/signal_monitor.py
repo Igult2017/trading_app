@@ -103,13 +103,19 @@ async def check_all() -> None:
             release(sym, direction, strat)
             log.info(f"[signal_monitor] {sym} {strat} {direction} expired at 24h — reservation freed")
 
-        # THE TRADE TRACKER — his REAL open positions, not the signals. Runs on this tick because a
-        # position's R has to be watched at the same cadence as a signal's TP/SL, and because a
-        # second scheduler entry for the same 30s job would be two things to keep in step. It never
-        # raises (its own try/except) so it cannot cost him TP/SL watching, which matters more.
-        from monitor import position_tracker
-        from notifications.dispatcher import _send_private
-        await position_tracker.check_all(_send_private)
+        # THE TRADE TRACKER USED TO RUN HERE, and that is why it ran every 30 seconds.
+        #
+        # The reasoning was *"a position's R has to be watched at the same cadence as a signal's
+        # TP/SL, and a second scheduler entry for the same 30s job would be two things to keep in
+        # step"* — sound when this was the only thing moving stops, and wrong once it became the
+        # SAFETY NET behind a real-time watcher. His question, 2026-09-06: *"how did we make position
+        # tracker per 30 secs instead of per sec? I think position tracker should be faster because
+        # we need to move position faster."* Nobody had decided 30 seconds for it; it inherited this
+        # job's clock by being called from inside it.
+        #
+        # It now has its own scheduler entry at 2s (`scheduler/scheduler.py`), which costs nothing
+        # because it reads prices from memory and shares one cached position list with the watcher.
+        # Signals are watched here; open trades are watched there.
 
         log.info(f"[signal_monitor] poll: {len(active or [])} active "
                  f"({', '.join(f'{k}={v}' for k, v in sorted(tally.items())) or 'none'})"

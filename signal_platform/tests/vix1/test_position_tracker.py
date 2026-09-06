@@ -67,10 +67,23 @@ async def _send(msg):
 
 
 class _Stub:
+    """Stands in for the shared position book.
+
+    THE SEAM MOVED ON 2026-09-06 and this suite is what caught it. `check_all` used to call
+    `ctrader_positions.open_positions()` itself, so stubbing that module was enough. Both stop-moving
+    paths now share ONE cached view of what is open (`monitor/position_book`) — asked on its own slow
+    clock instead of once per price check, which is what let the fast watcher stop waiting on a
+    broker round trip before it could look at a price.
+
+    With the old stub in place the tracker fell through to the REAL broker, could not reach it, and
+    correctly reported "could not read the broker" — so every alert assertion below went to zero.
+    That is the suite doing its job: a silent seam change is exactly the failure it exists to catch.
+    """
+
     def __init__(self, positions):
         self.positions = positions
 
-    async def open_positions(self):
+    async def positions_(self):
         return self.positions
 
 
@@ -85,7 +98,8 @@ def run(positions, price):
     exit_watch._seen.clear()
     for k in list(T.delivery_ledger._delivered if hasattr(T.delivery_ledger, "_delivered") else []):
         pass
-    T.ctrader_positions = _Stub(positions)
+    T.position_book = _Stub(positions)
+    T.position_book.positions = _Stub(positions).positions_       # the call `check_all` now makes
     # TAKES THE DIRECTION TOO since 2026-08-30: the tracker reads the side of the spread its stop
     # would actually trigger on — the BID for a buy, the ASK for a sell. A one-argument stub raised
     # TypeError here, and `check_all` swallows exceptions by design, so the symptom was "no alert
@@ -146,7 +160,8 @@ s.check("a position with NO STOP gets one notice, not silence", len(nostop), 1)
 s.check("...and it says so plainly", "NO STOP" in nostop[0], True)
 
 # A FAILED BROKER READ IS NOT "no trades open" — the difference that stops the tracker lying.
-T.ctrader_positions = _Stub(None)
+# Stubbed at the shared position book, which is where `check_all` now asks (see `_Stub` above).
+T.position_book.positions = _Stub(None).positions_
 sent.clear()
 asyncio.run(T.check_all(_send))
 s.check("a failed broker read sends NOTHING", len(sent), 0)
