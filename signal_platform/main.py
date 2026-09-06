@@ -23,6 +23,27 @@ _install_log_redaction()
 log = logging.getLogger("signal_platform")
 
 
+async def _track_positions() -> None:
+    """The position tracker's scheduled job — his open trades, every 2 seconds.
+
+    A REAL `async def`, NOT A LAMBDA, and that distinction cost a live outage on 2026-09-06.
+
+    This was first wired as `lambda: track_positions(_dm)`. APScheduler decides how to run a job by
+    asking `iscoroutinefunction(func)` — and a lambda that RETURNS a coroutine is not a coroutine
+    function. So it ran the lambda in a worker thread, got a coroutine object back, and threw it
+    away: `RuntimeWarning: coroutine 'check_all' was never awaited`, three times, and the tracker
+    never executed once. The safety net was silently dead in production, which is worse than the 30
+    seconds it replaced.
+
+    It passed every check I ran — the modules imported, the signature matched, the suites were green
+    — because none of them asked the only question that mattered: WOULD THE JOB ACTUALLY RUN.
+    `test_position_book` now asks it.
+    """
+    from monitor.position_tracker import check_all as track
+    from notifications.dispatcher import _send_private
+    await track(_send_private)
+
+
 async def _startup() -> None:
     from config.settings import settings
     from core.startup_helpers import write_status, bootstrap_ctrader_tokens
@@ -175,9 +196,7 @@ async def _startup() -> None:
     # THE TRADE TRACKER GETS ITS OWN JOB. It used to be called from inside `check_all` above, which
     # is why it ran on the signal poller's 30-second clock — see the note on the job in
     # scheduler.py. Signals are watched every 30s; his open trades every 2s.
-    from monitor.position_tracker import check_all as track_positions
-    from notifications.dispatcher import _send_private as _dm
-    scheduler.build(scan_markets, check_all, lambda: track_positions(_dm))
+    scheduler.build(scan_markets, check_all, _track_positions)
     scheduler.start()
 
     write_status("ok")

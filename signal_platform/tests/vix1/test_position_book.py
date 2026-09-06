@@ -173,6 +173,31 @@ async def _quiet():
 quiet = asyncio.run(_quiet())
 check("a silent market still lets the loop go round", quiet >= 0.05, True)
 
+# ── 7. THE SCHEDULED JOB MUST ACTUALLY RUN ─────────────────────────────────
+#
+# THIS CHECK EXISTS BECAUSE IT DID NOT, AND THE TRACKER SHIPPED DEAD (2026-09-06).
+#
+# The job was first wired as `lambda: track_positions(_dm)`. APScheduler decides how to run a job by
+# asking `iscoroutinefunction(func)`, and a lambda that RETURNS a coroutine is not a coroutine
+# function — so it ran the lambda in a worker thread, got a coroutine object back and dropped it:
+#
+#     RuntimeWarning: coroutine 'check_all' was never awaited
+#
+# The tracker never executed once. Everything I checked passed — the modules imported, the signature
+# matched, all five suites were green — because none of them asked the only question that mattered:
+# would the job actually run. Deployed, and caught only by reading the production boot log.
+print("\n7. the scheduled job is something APScheduler will await:")
+import inspect
+import main as MAIN
+
+check("the tracker job is a real coroutine function",
+      inspect.iscoroutinefunction(MAIN._track_positions), True)
+# TEETH FOR THIS ONE, because the failing shape is subtle: a lambda returning a coroutine LOOKS
+# right, is accepted without complaint, and silently never runs.
+check("  ...and a lambda returning a coroutine would NOT pass this",
+      inspect.iscoroutinefunction(lambda: MAIN._track_positions()), False)
+
+
 # ── TEETH ──────────────────────────────────────────────────────────────────
 print("\n  teeth — these checks can actually fail:")
 b = _reset(["x"])
