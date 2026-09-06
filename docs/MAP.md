@@ -62,6 +62,23 @@ bx_sd_reports    the heads-up and stand-aside cards
 **Read [strategies/vix1-architecture.md](./strategies/vix1-architecture.md) first**, then
 [strategies/vix1.md](./strategies/vix1.md) for the settled rules and the fix log.
 
+### "Is autotrade double-risking me on related pairs?" / anything about exposure or the risk guard
+
+**[docs/autotrade-exposure.md](autotrade-exposure.md)** — the full path a signal takes to becoming a
+live order, the complete list of the eight things `guards.check` refuses, and the live settings.
+
+**The settled position, his call 2026-09-06:** *every signal is placed, related or not.* That is
+deliberate — he wants to see the strategy's performance unconstrained before a guard hides some of
+its trades. **Do not add an exposure limit because the risk looks obvious; it is understood and
+accepted for now.**
+
+Two facts the doc exists to stop anyone re-deriving: **there is no correlation or exposure check
+anywhere in the placement path**, and VIX.1's `⚠️ CORRELATED … SIZE DOWN` line is **card text that
+autotrade never reads** — the card can say "size down" while the platform places full size. At 2% of
+the starting balance per trade on three USD-denominated instruments, three same-direction signals is
+**6% on one dollar bet**. The doc also holds the three questions to settle with him BEFORE the guard
+is built.
+
 ### "Where should this file live?" / anything about reorganising the codebase
 
 **[docs/RESTRUCTURE.md](RESTRUCTURE.md)** — the agreed target structure, written 2026-08-29 and NOT
