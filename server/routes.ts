@@ -1695,6 +1695,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!success) {
         return res.status(404).json({ error: "Journal entry not found" });
       }
+
+      // AND RELEASE ANY SYNCED TRADE THAT POINTED AT IT, so the next sync writes it again.
+      //
+      // HIS REPORT, 2026-09-06: *"i deleted auto synced data and tried to sync again for them to be
+      // recalculated but the data didnt come back after syncing."*
+      //
+      // Deleting the entry left `synced_trades.journal_entry_id` pointing at a row that was gone,
+      // and every path that could have rebuilt it asks whether that column is SET rather than
+      // whether what it points at still EXISTS. So the trade was recognised as "already had" on
+      // every pass and never journaled again — stranded for good. Measured on his account: the
+      // session dropped to 0 entries and the sync logged nothing at all for the next four hours.
+      //
+      // Deleting is also the ONLY sensible way to ask for a rebuild, which is exactly what he was
+      // doing. It now works.
+      const released = await storage.clearSyncedTradeJournalEntry(req.params.id).catch(() => 0);
+      if (released) {
+        console.log(`[Journal] entry ${req.params.id} deleted — released ${released} synced `
+                    + `trade(s) so the next sync will re-journal them`);
+      }
+
       await invalidateComputeCaches(existing.sessionId ?? undefined, existing.userId ?? undefined);
       res.status(204).send();
     } catch (error) {

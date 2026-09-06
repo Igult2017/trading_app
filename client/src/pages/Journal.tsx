@@ -225,7 +225,8 @@ const KPI_ICONS = {
 const StatCard = ({ stat }: { stat: { id: string; label: string; value: string; Icon: () => JSX.Element; color: string; bg: string } }) => (
   <div style={{ background: 'var(--jr-panel,#0d1117)', border: '1px solid var(--jr-border,rgba(255,255,255,0.05))', padding: 12, borderRadius: 8, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4 }} data-testid={`stat-${stat.id}`}>
     <p className="jr-cap" style={{ margin: 0, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{stat.label}</p>
-    <p className="jr-num" style={{ fontSize: 15, fontWeight: 700, color: stat.color, margin: 0 }}>{stat.value}</p>
+    {/* Playfair, and BIGGER because of it — see the .jr-fig rule for why the two go together. */}
+    <p className="jr-fig" style={{ fontSize: 19, fontWeight: 700, color: stat.color, margin: 0 }}>{stat.value}</p>
   </div>
 );
 
@@ -1074,6 +1075,26 @@ export default function Journal() {
         .journal-root .jr-num{
           font-family:'DM Mono',ui-monospace,monospace!important;
           font-variant-numeric:tabular-nums;}
+        /* THE HEADLINE FIGURES, IN PLAYFAIR — his call, 2026-09-06: put the ticked numbers "back to
+           playfair but make them more visible in playfair".
+
+           "MORE VISIBLE IN PLAYFAIR" IS THE WEIGHT AXIS, NOT A COLOUR. Playfair Display is a
+           high-contrast display serif: the strokes that vanish are its HAIRLINES, and no colour
+           change brings a hairline back. The bundled face is variable, so 700 costs no extra
+           download and thickens exactly those thin strokes — the same reasoning docs/READABILITY.md
+           records, and the same fix the audit page took on 2026-09-05.
+
+           AND THE SIZE GOES UP WITH IT, because weight alone does not rescue small type. These were
+           15px in DM Mono, a face built to stay legible when small; Playfair is not, so the figure
+           steps up to 19px. Tabular figures keep the columns from jittering as values change.
+
+           The rule is forced because the journal-wide font rule sets a family on every descendant,
+           and a class of the same specificity would lose to it. */
+        .journal-root .jr-fig{
+          font-family:'Playfair Display Variable','Playfair Display',Georgia,serif!important;
+          font-variant-numeric:tabular-nums;
+          font-weight:700;
+          letter-spacing:-0.01em;}
         .journal-root *{scrollbar-width:none;-ms-overflow-style:none;}
         .primary-btn { background: ${T.accent}; transition: all 0.2s; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 800; font-size: 11px; border-radius: 0 !important; }
         .primary-btn:hover { background: ${T.accent}cc; box-shadow: 0 0 20px ${T.accent}66; }

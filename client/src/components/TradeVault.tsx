@@ -38,12 +38,18 @@ const VaultCell = ({ label, value, color, isMobile, first = false }: { label: st
     <span style={{ fontSize: 11, fontWeight: 900, color: "var(--jr-cap, #A8AEB8)", letterSpacing: "0.12em", fontFamily: "'Montserrat', sans-serif" }}>
       {label}
     </span>
-    <span className="tv-num" style={{
+    <span className="tv-fig" style={{
       // THE VALUE, so it outranks its own label. A conditional size slipped past the sweep that
       // raised everything else to the 11px floor, which would have left the figure (8-9px) SMALLER
       // than the caption above it (11px) — the hierarchy upside down.
-      fontSize: isMobile ? 12 : 14, fontWeight: 800, color,
-      fontFamily: "'Montserrat', sans-serif", letterSpacing: "-0.02em",
+      //
+      // PLAYFAIR AND BIGGER, 2026-09-06 — his call on these exact figures. The inline Montserrat
+      // below was never what rendered: the .tv-num rule forced DM Mono over it. Both are gone; the
+      // family now comes from .tv-fig alone, so what is written here is what appears. Seventeen
+      // rather than fourteen because Playfair's hairlines need the room. See .tv-fig for the full
+      // reasoning.
+      fontSize: isMobile ? 15 : 17, fontWeight: 700, color,
+      letterSpacing: "-0.01em",
       textShadow:
         color === "#00d48a" ? "0 0 16px rgba(0,212,138,0.35)" :
         color === "#4da6ff" ? "0 0 16px rgba(77,166,255,0.3)" :
@@ -698,6 +704,24 @@ export default function TradeVault({ sessionId, startingBalance: sessionStarting
         .trade-vault-root td.tv-num, .trade-vault-root span.tv-num {
           font-family: 'DM Mono', ui-monospace, monospace !important;
           font-variant-numeric: tabular-nums;
+        }
+
+        /* THE HEADER FIGURES — NET P/L, WIN RATE, TRADES, NET GROWTH, DAYS — in Playfair.
+           His call, 2026-09-06: back to Playfair, and more visible in it.
+
+           MORE VISIBLE IS THE WEIGHT AXIS, NOT A COLOUR. Playfair Display is a high-contrast
+           display serif and it is the HAIRLINES that disappear; no colour brings a hairline back.
+           The bundled face is variable, so 700 costs nothing extra and thickens exactly those
+           strokes. The size rises with it, because weight alone does not rescue small type.
+
+           SAME SPECIFICITY TRICK as the rule above: class+element (0,1,1) beats the journal-wide
+           rule's 0,1,0 while both are forced. A bare .trade-vault-root .tv-fig would tie, and a tie
+           is settled by stylesheet order — which is not something to rely on. */
+        .trade-vault-root .tv-fig,
+        .trade-vault-root td.tv-fig, .trade-vault-root span.tv-fig {
+          font-family: 'Playfair Display Variable', 'Playfair Display', Georgia, serif !important;
+          font-variant-numeric: tabular-nums;
+          font-weight: 700;
         }
 
         @media (max-width: 640px) {

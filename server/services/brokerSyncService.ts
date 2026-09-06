@@ -381,6 +381,33 @@ export async function processIncomingTrades(
               console.error(`[Sync] could not fill the blanks on the journal entry for `
                             + `${existing.externalId}: ${err?.message ?? err}`));
           }
+        } else {
+          // THE ENTRY IS GONE, BUT THE TRADE STILL POINTS AT IT.
+          //
+          // His report, 2026-09-06: *"i deleted auto synced data and tried to sync again for them to
+          // be recalculated but the data didnt come back after syncing."* Deleting the entry left
+          // this column pointing at a row that no longer exists, and EVERY path that could rebuild
+          // it asks whether the column is SET rather than whether the thing it names still EXISTS —
+          // `journalSyncedTrade` returns early on a non-null id, and the heal below only fires on
+          // `!existing.journalEntryId`. So the trade was recognised as "already had" on every pass
+          // and never journaled again.
+          //
+          // Measured on his account: the session went to 0 entries and the sync recorded NOTHING at
+          // all for the next four hours. Not an error — silence, which is worse.
+          //
+          // `DELETE /api/journal/entries/:id` now releases the pointer itself, so this should not
+          // arise again from that route. It stays because it repairs the rows ALREADY stranded
+          // (his two, right now), and because a pointer to a deleted row is a broken state whatever
+          // deleted it — a direct database change, a cascade, a future endpoint.
+          console.warn(`[Sync] ${existing.symbol} ${existing.externalId}: its journal entry `
+                       + `${existing.journalEntryId} no longer exists — releasing it so this pass `
+                       + `can write a fresh one`);
+          await storage.clearSyncedTradeJournalEntry(existing.journalEntryId).catch(() => 0);
+          (existing as any).journalEntryId = null;
+          await record({ brokerAccountId, externalId: existing.externalId, symbol: existing.symbol,
+                         stage: 'healed',
+                         detail: 'its journal entry had been deleted — re-journaling it from the '
+                                 + "broker's own numbers" });
         }
       }
 

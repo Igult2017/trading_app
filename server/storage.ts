@@ -117,6 +117,8 @@ export interface IStorage {
   getSyncedTradeByExternal(brokerAccountId: string, externalId: string): Promise<SyncedTrade | undefined>;
   createSyncedTrade(trade: InsertSyncedTrade): Promise<SyncedTrade>;
   markSyncedTradeJournaled(id: string, journalEntryId: string): Promise<void>;
+  /** Release a deleted entry's synced trades so the next sync writes them again. */
+  clearSyncedTradeJournalEntry(journalEntryId: string): Promise<number>;
   updateSyncedTradeOpenTime(id: string, openTime: Date): Promise<void>;
   updateSyncedTradeCloseTime(id: string, closeTime: Date): Promise<void>;
   updateSyncedTradeOriginalRisk(id: string, risk: { entryOrderId: string | null;
@@ -1048,6 +1050,28 @@ export class DbStorage implements IStorage {
     await db.update(syncedTrades)
       .set({ journalEntryId, journaledAt: new Date() })
       .where(eq(syncedTrades.id, id));
+  }
+
+  /**
+   * FORGET A JOURNAL ENTRY THAT NO LONGER EXISTS, so the sync will write it again.
+   *
+   * HIS REPORT, 2026-09-06: *"i deleted auto synced data and tried to sync again for them to be
+   * recalculated but the data didnt come back after syncing."*
+   *
+   * Deleting a journal entry left `synced_trades.journal_entry_id` pointing at a row that was gone.
+   * Every path that could have rebuilt it tests whether that column is SET, not whether what it
+   * points at still exists — `journalSyncedTrade` returns early on a non-null id, and the sync's
+   * own repair only fires on `!existing.journalEntryId`. So the trade was stranded permanently:
+   * recognised as "already had" on every pass, and invisible in the journal for ever.
+   *
+   * Returns how many rows were released, so the caller can say what it did.
+   */
+  async clearSyncedTradeJournalEntry(journalEntryId: string): Promise<number> {
+    const r = await db.update(syncedTrades)
+      .set({ journalEntryId: null, journaledAt: null })
+      .where(eq(syncedTrades.journalEntryId, journalEntryId))
+      .returning({ id: syncedTrades.id });
+    return r.length;
   }
 
   /** Fill in an open time the live feed never received. Only ever called on a row where it is null. */
