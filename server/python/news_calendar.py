@@ -628,11 +628,62 @@ _TE_COUNTRY = {
 }
 
 
+# THE ROW THAT HOLDS THE POLICY RATE, per country, most specific label first.
+#
+# EVERY ONE OF THESE PAGES CARRIES SEVERAL "... RATE" ROWS and only one of them is the policy rate.
+# Measured on the live pages, 2026-09-07:
+#
+#     Japan          Deposit Interest Rate 0.40   |   Interest Rate       1.00
+#     Switzerland    Deposit Interest Rate 0.03   |   SNB Interest Rate   0.00
+#     New Zealand    Deposit Interest Rate 4.66   |   Interbank Rate 3.06 |  RBNZ Interest Rate 2.75
+#
+# The old code matched with a SUBSTRING — "interest rate" in the label — and "Deposit Interest Rate"
+# contains that and comes FIRST on every page. So the row it selected was always the wrong one.
+_TE_POLICY_ROW = {
+    'USD': ('fed interest rate', 'interest rate'),
+    'EUR': ('ecb interest rate', 'interest rate'),
+    'GBP': ('boe interest rate', 'interest rate'),
+    'JPY': ('boj interest rate', 'interest rate'),
+    'CAD': ('boc interest rate', 'interest rate'),
+    'AUD': ('rba interest rate', 'cash rate', 'interest rate'),
+    'CHF': ('snb interest rate', 'interest rate'),
+    'NZD': ('rbnz interest rate', 'official cash rate', 'interest rate'),
+}
+
+# LABELS THAT ARE NEVER THE POLICY RATE, whatever else they say. This list is the guard that makes
+# the exact-match above safe to relax: even if a label shifts, a row called "Deposit Interest Rate"
+# can never be returned as the policy rate.
+_TE_NOT_POLICY = ('deposit', 'interbank', 'inflation', 'unemployment',
+                  'lending', 'savings', 'reverse', 'prime', 'mortgage')
+
+
 def _fetch_trading_economics_rate(currency: str) -> float | None:
     """
-    Fetch policy rate from Trading Economics interest rate page.
-    Uses id='actual' element — the first one containing a '%' is the rate.
-    This site is accessible from Replit and covers all 8 major currencies.
+    Fetch the policy rate from the Trading Economics interest-rate page.
+
+    WHY THIS WAS REWRITTEN, 2026-09-07. It failed for JPY, CHF and NZD with "No rate value found on
+    page" — the three currencies that have no dedicated bank fetcher and depend on this — so all
+    three had been falling through to hardcoded numbers that were badly out of date:
+
+        JPY  hardcoded 0.50   actually 1.00
+        CHF  hardcoded 0.25   actually 0.00
+        NZD  hardcoded 3.25   actually 2.75
+
+    THE FAILURE WAS PROTECTING US, WHICH IS THE PART WORTH UNDERSTANDING. Three faults stacked:
+
+      1. the row was matched by SUBSTRING, so "Deposit Interest Rate" won on every page;
+      2. that row has no id='actual' cell, so the value lookup found nothing;
+      3. the fallback demanded a literal '%' in the text, and the page puts the unit in a SEPARATE
+         cell as the word "percent".
+
+    Fault 2 and 3 are what made it error instead of returning the deposit rate as the policy rate.
+    Had only 3 been "fixed" — the obvious one-line change — this would have started quietly
+    reporting Japan's rate as 0.40 instead of 1.00, and nothing would have looked broken.
+
+    So: match the row by its FULL label, never a substring, and refuse anything on the
+    _TE_NOT_POLICY list outright. Read the value from the cell beside the label, where it actually
+    is. CHF cross-checks against the Swiss National Bank's own data (cube snbgwdzid, series LZ =
+    0.00 on 2026-08-28), so this is not one source agreeing with itself.
     """
     country = _TE_COUNTRY.get(currency)
     if not country:
@@ -644,29 +695,34 @@ def _fetch_trading_economics_rate(currency: str) -> float | None:
             raise ValueError(f'HTTP {r.status_code}')
         soup = BeautifulSoup(r.text, 'html.parser')
 
-        # Primary: find the table row labelled 'Interest Rate' and extract its actual value
+        # Collect every row as (label, first value cell), so the choice is made over all of them
+        # rather than by taking whichever matched first in document order.
+        found: dict[str, float] = {}
         for row in soup.find_all('tr'):
-            cells = row.find_all('td')
-            if not cells:
+            cells = row.find_all(['td', 'th'])
+            if len(cells) < 2:
                 continue
-            if 'interest rate' in cells[0].get_text(strip=True).lower():
-                actual_cell = row.find(id='actual')
-                if actual_cell:
-                    text = actual_cell.get_text(strip=True)
-                    if '%' in text:
-                        val = float(text.rstrip('%').strip())
-                        print(f'[news_calendar] TE {currency} (row): {val}%', file=sys.stderr)
-                        return val
+            label = ' '.join(cells[0].get_text(strip=True).lower().split())
+            if not label or any(bad in label for bad in _TE_NOT_POLICY):
+                continue
+            raw = cells[1].get_text(strip=True).replace('%', '').replace(',', '')
+            try:
+                val = float(raw)
+            except ValueError:
+                continue
+            # A POLICY RATE IS A SMALL NUMBER. These pages also carry balance sheets in the
+            # millions; without this a stray row could pass every other test.
+            if -5.0 <= val <= 30.0:
+                found.setdefault(label, val)
 
-        # Fallback: first id='actual' element that contains a '%'
-        for el in soup.find_all(id='actual'):
-            text = el.get_text(strip=True)
-            if '%' in text:
-                val = float(text.rstrip('%').strip())
-                print(f'[news_calendar] TE {currency} (fallback): {val}%', file=sys.stderr)
+        for wanted in _TE_POLICY_ROW.get(currency, ('interest rate',)):
+            if wanted in found:
+                val = found[wanted]
+                print(f'[news_calendar] TE {currency}: {val}% (row "{wanted}")', file=sys.stderr)
                 return val
 
-        raise ValueError('No rate value found on page')
+        raise ValueError(
+            f'no policy-rate row matched; rows seen: {sorted(found)[:6]}')
     except Exception as e:
         print(f'[news_calendar] TE {currency} failed: {e}', file=sys.stderr)
     return None
@@ -827,15 +883,29 @@ def _scrape_myfxbook_rates() -> dict:
 # Orchestrator                                                                 #
 # --------------------------------------------------------------------------- #
 
+# LAST RESORT ONLY — every one of these is served with live=False so the UI can say so.
+#
+# REFRESHED 2026-09-07, and five of the eight were WRONG. They had been silently standing in for
+# JPY, CHF and NZD for as long as the Trading Economics parser had been broken:
+#
+#     USD 3.63 -> 3.75      JPY 0.50 -> 1.00      AUD 4.10 -> 4.35
+#     CHF 0.25 -> 0.00      NZD 3.25 -> 2.75      (EUR, GBP, CAD were already right)
+#
+# Read off the live Trading Economics pages on that date. CHF is the one with a second opinion: the
+# Swiss National Bank's own data (cube snbgwdzid, series LZ) also reads 0.00, dated 2026-08-28.
+#
+# A HARDCODED RATE CANNOT LOOK STALE, which is the whole problem with this table — a central bank
+# moves and nothing here changes. It exists so the page shows something rather than nothing when
+# every source is down, and the live=False flag is what stops it being mistaken for current.
 _FALLBACK_RATES = {
-    'USD': ('Federal Reserve',               3.63),
+    'USD': ('Federal Reserve',               3.75),
     'EUR': ('European Central Bank',         2.40),
-    'GBP': ('Bank of England',              3.75),
-    'JPY': ('Bank of Japan',                 0.50),
-    'CAD': ('Bank of Canada',               2.25),
-    'AUD': ('Reserve Bank of Australia',    4.10),
-    'CHF': ('Swiss National Bank',          0.25),
-    'NZD': ('Reserve Bank of New Zealand',  3.25),
+    'GBP': ('Bank of England',               3.75),
+    'JPY': ('Bank of Japan',                 1.00),
+    'CAD': ('Bank of Canada',                2.25),
+    'AUD': ('Reserve Bank of Australia',     4.35),
+    'CHF': ('Swiss National Bank',           0.00),
+    'NZD': ('Reserve Bank of New Zealand',   2.75),
 }
 
 _BANK_NAMES = {
