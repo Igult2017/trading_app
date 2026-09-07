@@ -113,5 +113,103 @@ for ccy in ('USD', 'EUR', 'GBP', 'JPY', 'CAD', 'AUD', 'CHF', 'NZD'):
           bool(_TE_COUNTRY.get(ccy)) and bool(_TE_POLICY_ROW.get(ccy)) and ccy in _FALLBACK_RATES,
           True)
 
+# ── 6. THE RBA FILE IS OLDEST-FIRST ────────────────────────────────────────
+# Second defect, same day, same class as the first: take the FIRST thing that parses instead of the
+# RIGHT one. The homepage had been showing Australia at 4.75% — the cash rate on 4 January 2011 —
+# because the parser walked the file from the top and the RBA publishes oldest-first. The newest row
+# in the very same file said 4.35%.
+from news_calendar import _rba_latest_row, _RBA_MAX_AGE_DAYS
+from datetime import datetime
+
+print('\n6. the RBA cash rate comes from the NEWEST row, not the first:')
+
+# Trimmed from the real file (3,979 lines) fetched on 2026-09-07. Column 1 is Cash Rate Target;
+# columns either side hold DIFFERENT series, which is what made the old "any number" fallback unsafe.
+RBA = [
+    '﻿F1 INTEREST RATES AND YIELDS - MONEY MARKET',
+    'Title,Cash Rate Target,Change in the Cash Rate Target,Interbank Overnight Cash Rate',
+    'Description,Cash Rate Target on date,Change in the Cash Rate Target,Interbank Overnight',
+    'Frequency,Daily,as announced,Daily',
+    'Type,Original,Original,Original',
+    'Units,Per cent,Per cent,Per cent',
+    '',
+    '',
+    'Source,RBA,RBA,RBA',
+    'Publication date,07-Sep-2026,07-Sep-2026,07-Sep-2026',
+    'Series ID,FIRMMCRTD,FIRMMCCRT,FIRMMCRID',
+    '04-Jan-2011,4.75,,4.75',
+    '05-Jan-2011,4.75,,4.75',
+    '03-Sep-2026,4.35,,4.35',
+    '04-Sep-2026,4.35,,4.35',
+    '07-Sep-2026,,,',            # today, rate cell still blank
+]
+NOW = datetime(2026, 9, 7)
+
+check('it takes the newest dated row, not row 11 from 2011',
+      _rba_latest_row(RBA, NOW), ('04-Sep-2026', 4.35))
+check('...and specifically NOT the 2011 value the homepage was showing',
+      _rba_latest_row(RBA, NOW)[1] == 4.75, False)
+check('a blank rate cell on today\'s row is skipped, not treated as zero',
+      _rba_latest_row(RBA, NOW)[0] != '07-Sep-2026', True)
+
+
+def _threw(fn):
+    try:
+        fn()
+        return None
+    except Exception as e:
+        return str(e)
+
+
+# TEETH — the OLD top-down rule really did take 2011.
+def old_topdown_rule(lines):
+    target_col = None
+    for i, line in enumerate(lines):
+        if 'Cash Rate Target' in line or 'FIRMMCRTD' in line:
+            cols = [c.strip().strip('"') for c in line.split(',')]
+            for j, col in enumerate(cols):
+                if 'Cash Rate' in col or 'FIRMMCRTD' in col:
+                    target_col = j
+                    break
+        if target_col is not None and i > 10:
+            cols = [c.strip().strip('"') for c in line.split(',')]
+            if target_col < len(cols) and cols[target_col]:
+                try:
+                    val = float(cols[target_col])
+                    if 0 < val < 30:
+                        return val
+                except ValueError:
+                    pass
+    return None
+
+
+check('teeth: the old top-down rule really did return the 2011 rate',
+      old_topdown_rule(RBA), 4.75)
+
+# A STALE FILE IS REFUSED. This is the guard that makes the 2011 failure impossible to repeat
+# quietly — a plausible-looking number with no recent date behind it never gets quoted.
+STALE = RBA[:11] + ['04-Jan-2011,4.75,,4.75']
+check('a file whose newest row is years old raises rather than returning 4.75',
+      bool(_threw(lambda: _rba_latest_row(STALE, NOW))), True)
+check('...and the message says how old it is',
+      'days old' in (_threw(lambda: _rba_latest_row(STALE, NOW)) or ''), True)
+check('the age limit is a real number of days', _RBA_MAX_AGE_DAYS >= 7, True)
+
+# A HOLIDAY RUN MUST NOT TRIP IT. The RBA is closed over Christmas; that is not a broken file.
+HOLIDAY = RBA[:11] + ['24-Dec-2025,4.35,,4.35']
+check('a two-week gap over a holiday is still accepted',
+      _rba_latest_row(HOLIDAY, datetime(2026, 1, 7)), ('24-Dec-2025', 4.35))
+
+# THE WRONG COLUMN IS NEVER READ. The old fallback took any number from any column; the neighbours
+# hold different series entirely.
+check('the column is matched exactly, so "Change in the Cash Rate Target" is not it',
+      _rba_latest_row([
+          'Title,Change in the Cash Rate Target,Cash Rate Target',
+          '04-Sep-2026,0.25,4.35',
+      ], NOW), ('04-Sep-2026', 4.35))
+check('a file with no cash-rate column raises instead of guessing',
+      bool(_threw(lambda: _rba_latest_row(['Title,Interbank Overnight Cash Rate',
+                                           '04-Sep-2026,4.35'], NOW))), True)
+
 print(f'\n  {_pass} passed, {_fail} failed\n')
 sys.exit(1 if _fail else 0)

@@ -573,6 +573,73 @@ def _fetch_cad_rate() -> float | None:
     return None
 
 
+# The RBA file is DAILY and OLDEST-FIRST. If the newest row we can read is older than this, the
+# file is not what we think it is and we must not quote a number off it. Thirty days is generous —
+# it covers the Christmas shutdown and any run of holidays — while still catching a file that has
+# stopped being updated, or a parse that has landed in the wrong place.
+_RBA_MAX_AGE_DAYS = 30
+
+
+def _rba_latest_row(lines: list[str], today: datetime | None = None
+                    ) -> tuple[str, float] | None:
+    """
+    Take the NEWEST Cash Rate Target from the RBA F1 file: (date text, rate).
+
+    WHAT WENT WRONG, 2026-09-07. This walked the file from the TOP and returned the first row it
+    could parse. The RBA file runs oldest-first, so the first data row is line 11, dated
+    04-Jan-2011 — and the homepage had been showing Australia at 4.75%, a rate from fifteen years
+    ago, while the newest row in the same file said 4.35%.
+
+    Nothing noticed because 4.75 is a perfectly believable cash rate. That is the reason for the
+    age check below: a number that cannot be dated, or whose date is old, is refused outright
+    rather than trusted for looking plausible. AUD then falls through to Trading Economics, which
+    is a correct source for it.
+
+    The old code also had a second attempt that took ANY number between 0 and 30 from ANY column of
+    the last twenty lines. The columns either side of the cash rate hold bank-bill yields (4.32,
+    4.60) — so that path could return a completely different series and still look right. It is
+    deleted rather than kept: failing over to Trading Economics beats quoting the wrong series.
+    """
+    today = today or datetime.utcnow()
+
+    # The column is named in two separate header rows ("Title,Cash Rate Target,..." and
+    # "Series ID,FIRMMCRTD,..."). Match the cell exactly — "Change in the Cash Rate Target" and
+    # "Interbank Overnight Cash Rate" both contain the words "Cash Rate".
+    target_col = None
+    for line in lines:
+        cols = [c.strip().strip('"') for c in line.split(',')]
+        for j, col in enumerate(cols):
+            if col in ('Cash Rate Target', 'FIRMMCRTD'):
+                target_col = j
+                break
+        if target_col is not None:
+            break
+    if target_col is None:
+        raise ValueError('Cash Rate Target column not found in RBA CSV')
+
+    # NEWEST FIRST. The last line is usually today's, whose rate cell is still blank.
+    for line in reversed(lines):
+        cols = [c.strip().strip('"') for c in line.split(',')]
+        if target_col >= len(cols) or not cols[target_col] or not cols[0]:
+            continue
+        try:
+            val = float(cols[target_col])
+        except ValueError:
+            continue
+        if not (0 <= val <= 30):
+            continue
+        try:
+            when = datetime.strptime(cols[0], '%d-%b-%Y')
+        except ValueError:
+            continue  # a header row, not a dated observation
+        age = (today - when).days
+        if age > _RBA_MAX_AGE_DAYS:
+            raise ValueError(
+                f'newest RBA row is {age} days old ({cols[0]} = {val}%) — refusing to quote it')
+        return cols[0], val
+    raise ValueError('no dated Cash Rate Target row found in RBA CSV')
+
+
 def _fetch_aud_rate() -> float | None:
     """AUD — Reserve Bank of Australia F1 statistics CSV (Cash Rate Target column)."""
     try:
@@ -580,36 +647,9 @@ def _fetch_aud_rate() -> float | None:
         r = requests.get(url, headers=HEADERS, timeout=12)
         if r.status_code != 200:
             raise ValueError(f'HTTP {r.status_code}')
-        lines = r.text.strip().split('\n')
-        target_col = None
-        for i, line in enumerate(lines):
-            if 'Cash Rate Target' in line or 'FIRMMCRTD' in line:
-                cols = [c.strip().strip('"') for c in line.split(',')]
-                for j, col in enumerate(cols):
-                    if 'Cash Rate' in col or 'FIRMMCRTD' in col:
-                        target_col = j
-                        break
-            if target_col is not None and i > 10:
-                cols = [c.strip().strip('"') for c in line.split(',')]
-                if target_col < len(cols) and cols[target_col]:
-                    try:
-                        val = float(cols[target_col])
-                        if 0 < val < 30:
-                            print(f'[news_calendar] RBA CSV: {val}%', file=sys.stderr)
-                            return val
-                    except ValueError:
-                        pass
-        for line in reversed(lines[-20:]):
-            cols = [c.strip().strip('"') for c in line.split(',')]
-            for col in reversed(cols):
-                try:
-                    val = float(col)
-                    if 0 < val < 30:
-                        print(f'[news_calendar] RBA CSV fallback: {val}%', file=sys.stderr)
-                        return val
-                except ValueError:
-                    pass
-        raise ValueError('Cash Rate Target not found in RBA CSV')
+        when, val = _rba_latest_row(r.text.strip().split('\n'))
+        print(f'[news_calendar] RBA CSV: {val}% (dated {when})', file=sys.stderr)
+        return val
     except Exception as e:
         print(f'[news_calendar] RBA CSV failed: {e}', file=sys.stderr)
     return None
