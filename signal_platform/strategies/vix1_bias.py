@@ -33,11 +33,12 @@ from strategies.vix1_momentum import momentum_run, veto_reason
 from strategies import vix1_log
 from shared.candle_math import atr
 from strategies import vix1_choch
+from strategies.vix1_regime import market_permits
 from strategies import vix1_regime
 from strategies import vix1_retracement
 from strategies.vix1_state import Bias, market_state
 from strategies.vix1_swings import structure_turns
-from strategies.vix1_structure import _FAST_N, leg_state, market_permits
+from strategies.vix1_structure import _FAST_N, leg_state
 from strategies.vix1_tradeable import market_awake, trend_reproven
 from strategies.vix1_trend import trend_state
 

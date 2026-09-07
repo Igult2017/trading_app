@@ -58,6 +58,68 @@ VIX.1 has shipped a bug from reading the forming bar as a level, and **a backtes
 
 ---
 
+## ONE QUESTION, ONE MODULE — the ownership map (2026-09-07)
+
+His instruction: *"make sure a question is only answered by one module so that if something goes
+wrong we know where to go."* And the constraint that governs how it is done: *"if you delete
+something without understanding why it was created you risk deleting an important module."*
+
+So this table records, for every question the strategy asks, **who owns the answer** — and where
+that rule is broken today. Read it before adding a gate: if the question is already owned, the
+answer belongs in the owning module, not in a new one.
+
+| the question | owner | status |
+|---|---|---|
+| Where are the highs and lows? | `vix1_swings.structure_turns` | **sole owner.** Every trend reader consumes its output; `n` is ignored while `REALTIME` is on |
+| Is there a trend, and which way? | `vix1_trend.trend_state` | ⚠ **TWO OWNERS** — see below |
+| Are we mid-pullback on the faster structure? | `vix1_structure.leg_state` | sole owner |
+| *When* did the pullback that is running now begin? | `vix1_retracement.pullback_since` | sole owner |
+| Has the trend run and pulled back at least once? | `vix1_tradeable.trend_reproven` | sole owner |
+| Was this candle born out of a dead market? | `vix1_tradeable.market_awake` | sole owner |
+| Is this candle a momentum candle? | `vix1_momentum.is_momentum_candle` | sole owner — imported unchanged by `market_awake` so the two can never drift |
+| Is the market choppy (his definition)? | `vix1_tradeable.market_not_choppy` | **NOT BUILT AND NOT WIRED** — zero references anywhere. See D42 |
+| How is the market described on the card? | `vix1_regime.describe` / `efficiency` | sole owner, reporting only, decides nothing |
+| Which way does the 1M enter? | `vix1_cross` | sole owner since 2026-08-20 |
+
+**THE FOUR PULLBACK-ISH FUNCTIONS ARE NOT DUPLICATES, and that was checked rather than assumed.**
+`leg_state` asks *"is the faster structure going the other way right now"*; `pullback_since` asks
+*"when did the current pullback start"* (so a candle from before it cannot be the one that ended
+it); `trend_reproven` asks *"has this trend ever re-proven itself"*; `market_awake` asks *"was this
+momentum born out of a quiet market"*. Four different questions, four different failures they were
+each built for. **Leave them alone.**
+
+### ⚠ THE ONE REAL DUPLICATION — "is there a trend" has two owners
+
+`vix1_trend.trend_state` and `vix1_regime.classify` are handed the **identical** turning points
+(`vix1_bias.py:162` computes them once; `:163` and `:242` both receive them). They then disagree:
+
+* `trend_state` replays **every** turn through break-of-structure and change-of-character — his rule.
+* `classify` keeps **only the last two highs and the last two lows**.
+
+Both can refuse. Measured on 4.3 years of real EUR/USD H1 bars through the real functions:
+**when the structure engine sees a trend, the regime test refuses it 37.2% of the time**
+(8,192 of 22,004 hourly moments — 28.0% labelled "chop", 4.3% "range").
+
+**The shape of the disagreement is the point.** A representative refusal: `structure=UP,
+highs -3.1 pips, lows +29.4 pips -> chop`. The lows have turned up hard; the last two highs are
+still the old descending ones, because after a change of character **the highs are the last thing to
+turn**. A 3-pip wobble in the highs cancels a 29-pip climb in the lows, and the trade dies — in
+exactly the window after a CHoCH where he wants to trade.
+
+**Observed live, 2026-09-07 on EUR/USD:** two momentum candles qualified (the pre-close notification
+fired for both), and both were refused by this gate at `vix1_bias.py:289` — which runs BEFORE the
+momentum candle is considered. Minutes before each, the same strategy had logged *"up trend"*.
+
+**WHY `vix1_regime` MUST NOT SIMPLY BE DELETED.** It owns two unrelated jobs, and only one is the
+duplicate: the veto (`classify` + `market_permits`), and the card's market description
+(`describe`/`efficiency`, called from `vix1_state.py:57-59` and provided by nothing else). Removing
+the module would silently strip the signal card.
+
+**And a second oddity:** `market_permits` — the regime gate — lives in `vix1_structure`, whose job
+is the pullback gate. Its only two callers are `vix1_bias.py:289` and `:349`.
+
+---
+
 ## Module map — 22 files, ~2,600 lines
 
 | file | owns |

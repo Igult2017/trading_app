@@ -124,16 +124,55 @@ def classify(turns, atr_value: float) -> Regime:
     if atr_value <= 0:
         return Regime(CHOP, "the highs and lows disagree, and there is no volatility reading yet "
                             "to say whether they are bounded")
+    # THE REFUSAL IS ALREADY DECIDED — ONLY THE NAME IS BEING CHOSEN, AND THE WORDING MUST SAY SO.
+    #
+    # This text used to lead with "scattered wider than 0.75x ATR", which reads as though an ATR
+    # test had refused the trade. It had not: the refusal happened above, purely on the highs and
+    # lows moving in opposite directions, and ATR only picks between the words "range" and "chop".
+    # On 2026-09-07 that wording sent him — and me — hunting an ATR veto he had explicitly disabled
+    # three days earlier. A message naming a threshold that decided nothing is a trap, so the fact
+    # goes first and the label second.
+    way = lambda d: "up" if d > 0 else "down"
+    disagree = f"the highs are moving {way(dh)} and the lows {way(dl)}"
     bound = _BOUNDARY_ATR * atr_value
     hs, ls = abs(dh), abs(dl)
     if hs <= bound + _EPS and ls <= bound + _EPS:
-        return Regime(RANGE, f"no structural progress, and the highs sit within "
-                                f"{_BOUNDARY_ATR:.2f}x ATR of each other and the lows likewise "
-                                f"— a bounded range")
-    return Regime(CHOP, f"no structural progress and no stable boundary — "
-                           f"{'highs' if hs > bound else 'lows'} "
-                           f"{'and lows ' if hs > bound and ls > bound else ''}"
-                           f"are scattered wider than {_BOUNDARY_ATR:.2f}x ATR")
+        return Regime(RANGE, f"not a trend — {disagree}, so there is no structural progress; "
+                             f"both are inside {_BOUNDARY_ATR:.2f}x ATR, which is what makes it a "
+                             f"bounded range rather than chop")
+    return Regime(CHOP, f"not a trend — {disagree}, so there is no structural progress; "
+                        f"{'both are' if hs > bound and ls > bound else 'the ' + ('highs are' if hs > bound else 'lows are')} "
+                        f"further apart than {_BOUNDARY_ATR:.2f}x ATR, which is what names it chop "
+                        f"rather than a range")
+
+
+def market_permits(regime) -> str | None:
+    """Is the market in a state worth trading? The refusal reason, or None to allow.
+
+    ONE QUESTION: only a TREND is tradeable. A range and chop mean the same thing to a trend
+    strategy, but they are named separately because they ARE different — his diagram lists both and
+    his two charts show why: a range respects its ceiling and floor, chop stabs through them.
+
+    MOVED HERE FROM `vix1_structure` ON 2026-09-07 — a pure move, not a rewrite. It reads a `Regime`
+    and wraps `Regime.tradeable`, so it belongs beside them; `vix1_structure` owns the PULLBACK
+    question and nothing else. His instruction: *"make sure a question is only answered by one
+    module so that if something goes wrong we know where to go."*
+
+    ⚠ THIS GATE IS LOAD-BEARING — MEASURED, so nobody removes it as "a duplicate". It refuses a
+    trend that `vix1_trend` accepts 37.2% of the time, and of those refusals only 24% (EUR/USD) /
+    33% (GBP/USD) are also refused by another gate. Removing it would newly allow **~21% of all
+    setups on both pairs** (222 of 1,059 and 237 of 1,100, real bars, 2022-2026). Whether those are
+    good trades is UNKNOWN and answering it is a backtest — his call.
+
+    ⚠ AND IT IS ONE OF TWO ANSWERS TO "IS THERE A TREND", which is the open design question, not a
+    tidy-up: `vix1_trend` replays every swing through break-of-structure and change-of-character,
+    while `classify` above keeps only the last two highs and lows. After a change of character the
+    lows turn first and the highs are the last to turn, so this refuses exactly the setups he wants.
+    See `docs/strategies/vix1-architecture.md`, "ONE QUESTION, ONE MODULE".
+    """
+    if regime is None or regime.tradeable:
+        return None
+    return f"the market is not trending — {regime.kind.upper()}: {regime.why}"
 
 
 def efficiency(candles: list[Candle], n: int = _WINDOW) -> float | None:

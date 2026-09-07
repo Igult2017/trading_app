@@ -20,6 +20,7 @@ TESTS = [
     "test_live_forming_bar.py",     # D40: the forming hour follows the live FIX price
     "test_quote_compare.py",        # two price sources: the observation can never cost a quote
     "test_tradeable.py",            # ranging / quiet / choppy: the markets he cannot trade
+    "test_position_book.py",        # the shared position cache: a forced refresh must not read stale
     "test_order_cancel.py",         # a resting order dies with its setup, and never otherwise
     "test_momentum.py",             # the gates and grading, hand-built candles
     "test_line_pullback.py",        # the line, and the past-the-line rule

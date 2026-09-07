@@ -289,6 +289,20 @@ def choppiness(seg) -> dict:
 def market_not_choppy(h1, look: int, need: int) -> str | None:
     """His chop rule. The refusal reason, or None to allow.
 
+    ⚠⚠ NOT WIRED. NOTHING CALLS THIS — verified 2026-09-07, it appears exactly once in the whole
+    platform and that is this definition. **VIX.1 HAS NO WORKING CHOPPY-MARKET DETECTOR.**
+
+    Do not read the word "chop" in a refusal message and conclude otherwise: that word comes from
+    `vix1_regime.classify`, which is a TREND test choosing a label for a refusal it already made on
+    direction. It performs no chop analysis of any kind. That confusion cost a whole exchange on
+    2026-09-07 and is why this warning is here rather than in a doc nobody opens.
+
+    KEPT DELIBERATELY, NOT DEAD CODE — `docs/OPEN.md` D42 is the open project this belongs to, and it
+    says do not delete this, the same standing as `vix1_regime._PROGRESS_ATR`. What is still missing
+    is his definition — *"it can be trending but prints 1 red volume candle then a bullish candle"*,
+    *"a mixture of big bodies, small bodies, long wicks and no wicks"* — which five measured ideas
+    have so far failed to separate. Wiring this as it stands would refuse markets he trades.
+
     `need` is how many of the four traits must say 'mixed' before we stand aside, and it lives at the
     call site with every other number that gates a trade.
     """

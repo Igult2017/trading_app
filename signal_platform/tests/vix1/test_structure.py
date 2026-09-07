@@ -21,7 +21,8 @@ from strategies import vix1_bias, vix1_structure
 from strategies.vix1_bias import _H1_SWING_N, _H1_TREND_BARS
 from strategies.vix1_regime import classify
 from strategies.vix1_swings import structure_turns
-from strategies.vix1_structure import _FAST_N, fast_pattern, leg_state, market_permits
+from strategies.vix1_structure import _FAST_N, fast_pattern, leg_state
+from strategies.vix1_regime import market_permits   # moved 2026-09-07 (pure move)
 from strategies.vix1_trend import trend_state
 from strategies.vix1_watch import check_invalidation
 
