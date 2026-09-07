@@ -59,6 +59,24 @@ interface JournalHeaderProps {
 const PROFILE_CARD_CSS = `
   .pc-root, .pc-root * { margin: 0; padding: 0; box-sizing: border-box; }
 
+  /*
+    HIS REPORT, 2026-09-06: the account menu "looks horrible plus it doesnt change with the
+    platforms theme change", and Clerk's own menu (his second screenshot) is "so refined".
+
+    THE SECOND HALF EXPLAINS THE FIRST. This file had EIGHTY-SIX hardcoded colours and exactly ONE
+    theme token — #ffffff panel, #16232b text, #f6f8f6 cards — so it is a fixed LIGHT card whatever
+    the journal is set to. On the dark theme it is a white slab, which is what "horrible" is
+    describing. Same root cause as the notification panel next door, same fix: the journal's own
+    tokens, and the surface contract from the Trade Vault's Edit Trade modal.
+
+    WHAT "REFINED" MEANS, taken from the Clerk menu he pointed at: quiet rows with a plain icon and
+    a label — no boxed icon tiles, no coloured chips — one hairline divider, and real whitespace.
+    The heavy 30px and 36px icon plates below are gone for that reason.
+
+    AND TWO SIZES WERE UNDER THE FLOOR: the plan pill at 8.5px and the streak label at 9px, both in
+    Playfair with 1.2-1.4px letter-spacing. That is all three causes docs/READABILITY.md lists at
+    once — a display serif doing a body job, under 11px, wide tracking. Both are now 11px.
+  */
   .pc-root {
     font-family: 'Playfair Display Variable', 'Playfair Display', Georgia, serif;
     width: 300px;
@@ -66,15 +84,15 @@ const PROFILE_CARD_CSS = `
     max-height: calc(100vh - 120px);
     overflow-y: auto;
     overflow-x: hidden;
-    background: #ffffff;
-    border: 1px solid #e0e6e1;
-    border-radius: 10px;
+    background: var(--jr-panel, #ffffff);
+    border: 1px solid var(--jr-border, #e0e6e1);
+    border-radius: 12px;
     animation: pc-rise .4s cubic-bezier(.34,1.56,.64,1) both;
-    box-shadow: 0 24px 64px rgba(20,35,28,0.28);
+    box-shadow: 0 24px 64px rgba(0,0,0,0.28);
     -webkit-overflow-scrolling: touch;
   }
   .pc-root::-webkit-scrollbar { width: 6px; }
-  .pc-root::-webkit-scrollbar-thumb { background: #d5ded8; border-radius: 3px; }
+  .pc-root::-webkit-scrollbar-thumb { background: var(--jr-border, #d5ded8); border-radius: 3px; }
 
   @media (max-width: 640px) {
     .pc-root { max-height: calc(100vh - 80px); }
@@ -88,110 +106,106 @@ const PROFILE_CARD_CSS = `
     from { opacity: 0; transform: translateX(-6px); }
     to   { opacity: 1; transform: none; }
   }
-  @keyframes pc-pulse {
-    0%, 100% { opacity: 1; transform: scale(1); }
-    50%       { opacity: .35; transform: scale(.7); }
-  }
+  /* pc-pulse is gone with the pulsing dot on the plan chip — it had exactly one user and keeping a
+     keyframe nothing references is the dead code his rule is about. */
 
-  .pc-top { padding: 20px 18px 18px; display: flex; align-items: center; gap: 14px; }
+  .pc-top { padding: 20px 20px 18px; display: flex; align-items: center; gap: 14px; }
 
+  /* A ROUND AVATAR, like the menu he pointed at. It was a rounded square with a second ring drawn
+     around it — two borders on one 48px element, which is where "busy" starts. */
   .pc-av {
-    width: 48px; height: 48px; border-radius: 8px;
-    background: #eef3f0;
-    border: 1px solid #d9e2dc;
+    width: 44px; height: 44px; border-radius: 50%;
+    background: var(--jr-border, #eef3f0);
+    border: 1px solid var(--jr-border, #d9e2dc);
     display: flex; align-items: center; justify-content: center;
-    font-size: 17px; font-weight: 600; color: #175540;
+    font-size: 16px; font-weight: 700; color: var(--jr-ink, #175540);
     flex-shrink: 0; position: relative;
-  }
-  .pc-av-ring {
-    position: absolute; inset: -3px; border-radius: 11px;
-    border: 1.5px solid rgba(31,107,79,0.14);
-    pointer-events: none;
   }
 
   .pc-meta { flex: 1; min-width: 0; }
   .pc-name {
-    font-size: 12.5px; font-weight: 600; color: #16232b;
+    font-size: 13px; font-weight: 700; color: var(--jr-ink, #16232b);
     letter-spacing: -.2px;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
-  .pc-pill {
-    display: inline-flex; align-items: center; gap: 5px; margin-top: 5px;
-    background: #f0f5f2;
-    border: 1px solid #d9e2dc;
-    border-radius: 999px; padding: 2px 8px;
-    font-size: 8.5px; font-weight: 700; color: #175540;
-    letter-spacing: 1.2px; text-transform: uppercase;
-    font-family: 'Playfair Display Variable', 'Playfair Display', Georgia, serif;
-  }
-  .pc-dot {
-    width: 6px; height: 6px; border-radius: 50%; background: #175540;
-    animation: pc-pulse 2.2s ease-in-out infinite; flex-shrink: 0;
+  /* THE PLAN, AS A QUIET SECOND LINE rather than a bordered chip with a pulsing dot. Clerk puts the
+     handle here in plain muted text and it reads as information instead of decoration. 8.5px with
+     1.2px tracking is also simply too small to read; 11px is the floor. */
+  .pc-plan {
+    margin-top: 3px;
+    font-size: 11px; font-weight: 700; color: var(--jr-cap, #5A6472);
+    letter-spacing: .06em; text-transform: uppercase;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
 
   .pc-rule {
     height: 1px;
-    background: linear-gradient(90deg, transparent, #e6ece8 20%, #e6ece8 80%, transparent);
-    margin: 0 18px;
+    background: var(--jr-border, #e6ece8);
+    margin: 0;
   }
 
+  /* THE STREAK IS A ROW NOW, not a card inside a card. It was a bordered panel holding a bordered
+     36px orange plate — three nested boxes for one number, in a 300px menu. It keeps its own tint
+     because the streak is the one thing here worth a glance, but it no longer shouts. */
   .pc-streak {
-    margin: 10px 8px 6px; padding: 13px 14px;
-    background: #f6f8f6;
-    border: 1px solid #e6ece8;
+    margin: 6px 8px; padding: 10px 12px;
+    background: transparent;
+    border: none;
     border-radius: 8px;
     width: calc(100% - 16px);
     text-align: left; cursor: pointer; font-family: inherit;
     display: flex; align-items: center; gap: 12px;
-    transition: background .18s, border-color .18s;
+    transition: background .15s;
     animation: pc-fadex .35s .1s ease both;
   }
-  .pc-streak:hover { background: #eef2ee; border-color: #d9e2dc; }
+  .pc-streak:hover { background: var(--jr-border, #eef2ee); }
 
   .pc-sk-ico {
-    width: 36px; height: 36px; border-radius: 6px; flex-shrink: 0;
-    background: #fff3e8;
-    border: 1px solid #f4d9c0;
+    width: 30px; height: 30px; border-radius: 8px; flex-shrink: 0;
+    background: rgba(249,115,22,0.12);
     display: flex; align-items: center; justify-content: center;
   }
-  .pc-sk-body { flex: 1; }
+  .pc-sk-body { flex: 1; min-width: 0; }
   .pc-sk-label {
-    font-size: 9px; color: #36423b;
-    letter-spacing: 1.4px; text-transform: uppercase;
-    font-family: 'Playfair Display Variable', 'Playfair Display', Georgia, serif; margin-bottom: 3px;
+    font-size: 11px; font-weight: 700; color: var(--jr-cap, #5A6472);
+    letter-spacing: .1em; text-transform: uppercase;
+    margin-bottom: 2px;
   }
-  .pc-sk-val { font-size: 14px; font-weight: 700; color: #16232b; letter-spacing: -.3px; }
+  .pc-sk-val { font-size: 14px; font-weight: 700; color: var(--jr-ink, #16232b); letter-spacing: -.3px; }
 
-  .pc-chev { color:#3f4c45; font-size:15px; line-height:1; transition:transform .18s; }
+  .pc-chev { color: var(--jr-cap, #5A6472); font-size: 15px; line-height: 1; transition: transform .18s; }
   .pc-streak:hover .pc-chev { transform: translateX(2px); }
 
   .pc-menu { padding: 4px 8px 10px; display: flex; flex-direction: column; gap: 1px; }
 
+  /* PLAIN ROWS — an icon and a label, which is the whole of what his second screenshot does. The
+     30px bordered plate that used to sit behind every icon is gone. */
   .pc-item {
-    display: flex; align-items: center; gap: 11px;
-    padding: 10px 12px; border-radius: 5px; cursor: pointer;
-    color: #24322b; font-size: 12.5px; font-weight: 500;
-    font-family: 'Playfair Display Variable', 'Playfair Display', Georgia, serif;
-    transition: all .15s; background: transparent; border: none;
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 12px; border-radius: 8px; cursor: pointer;
+    color: var(--jr-ink, #24322b); font-size: 13px; font-weight: 700;
+    font-family: inherit;
+    transition: background .15s, color .15s; background: transparent; border: none;
     width: 100%; text-align: left;
     animation: pc-fadex .35s ease both;
   }
   .pc-item:nth-child(1) { animation-delay: .14s; }
   .pc-item:nth-child(2) { animation-delay: .2s; }
-  .pc-item:hover { background: #f2f6f3; color: #16232b; }
-  .pc-item.danger { color: #b91c1c; }
-  .pc-item.danger:hover { background: #fdf1f1; color: #991b1b; }
+  .pc-item:hover { background: var(--jr-border, #f2f6f3); }
+  /* LOGOUT NEEDS A RED PER THEME, and this is measured rather than chosen by eye. NO single red
+     clears 4.5:1 on both surfaces: #e5484d is 4.84 on the dark panel but only 3.91 on white, and
+     #dc2626 is 4.83 on white but 3.92 on dark. So each theme gets the one that clears it. */
+  .pc-item.danger { color: #e5484d; }
+  .pc-item.danger:hover { background: rgba(229,72,77,0.10); }
+  .journal-light .pc-root .pc-item.danger { color: #dc2626; }
+  .journal-light .pc-root .pc-item.danger .pc-ico { color: #dc2626; }
 
   .pc-ico {
-    width: 30px; height: 30px; border-radius: 4px; flex-shrink: 0;
-    background: #f4f7f5;
-    border: 1px solid #e6ece8;
+    width: 18px; height: 18px; flex-shrink: 0;
     display: flex; align-items: center; justify-content: center;
-    transition: background .15s;
+    color: var(--jr-cap, #5A6472);
   }
-  .pc-item:hover .pc-ico { background: rgba(255,255,255,.09); }
-  .pc-item.danger .pc-ico { background: rgba(235,80,75,.07); border-color: rgba(235,80,75,.15); }
-  .pc-item.danger:hover .pc-ico { background: rgba(235,80,75,.13); }
+  .pc-item.danger .pc-ico { color: #e5484d; }
 `;
 
 const PcFlameIcon = () => (
@@ -274,12 +288,13 @@ function ProfileDropdown({ dropdownRef, displayName, avatarLetter, avatarUrl, pl
             style={{ cursor: 'pointer', overflow: 'hidden', position: 'relative' }}
           >
             {avatarUrl
-              ? <img src={avatarUrl} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 8, display: 'block' }} />
+              ? <img src={avatarUrl} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%', display: 'block' }} />
               : avatarLetter
             }
-            <div className="pc-av-ring" />
+            {/* The second ring around the avatar is gone — two borders on one 44px circle is the
+                kind of detail that reads as clutter rather than craft. */}
             <div style={{
-              position: 'absolute', inset: 0, borderRadius: 8,
+              position: 'absolute', inset: 0, borderRadius: '50%',
               background: uploading ? 'rgba(0,0,0,0.55)' : 'rgba(0,0,0,0)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               transition: 'background 0.2s',
@@ -295,10 +310,9 @@ function ProfileDropdown({ dropdownRef, displayName, avatarLetter, avatarUrl, pl
           </div>
           <div className="pc-meta">
             <div className="pc-name">{name}</div>
-            <div className="pc-pill">
-              <span className="pc-dot" />
-              {(plan || 'Free').toLowerCase()}
-            </div>
+            {/* The plan as a quiet second line, where Clerk puts the handle — not a bordered chip
+                with a pulsing dot competing with the name above it. */}
+            <div className="pc-plan">{plan || 'Free'}</div>
           </div>
         </div>
 
@@ -331,7 +345,14 @@ function ProfileDropdown({ dropdownRef, displayName, avatarLetter, avatarUrl, pl
         )}
       </div>
     </div>,
-    document.body
+    // INSIDE THE JOURNAL, so the theme actually reaches it — the same fix the notification panel
+    // needed on the same day, for the same reason.
+    //
+    // The journal's colours are inline styles on the .journal-root div, and custom properties
+    // inherit only to descendants. Portalled to document.body, every var(--jr-...) above falls back
+    // to its hardcoded LIGHT default — which is exactly what he is looking at: a white card on the
+    // dark theme. Restyling alone would not have fixed it.
+    document.querySelector('.journal-root') ?? document.body
   );
 }
 
@@ -510,7 +531,10 @@ export default function JournalHeader({ onToggleSidebar, darkMode, onToggleDarkM
     <div>
       <style>{`
         @keyframes mfj-spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
-        .nav-a { text-decoration:none; font-size:10px; font-weight:500; letter-spacing:0.12em; padding:6px 12px; border-radius:4px; border:1px solid transparent; cursor:pointer; background:none; display:inline-flex; align-items:center; transition:all 0.15s; white-space:nowrap; font-family:'Playfair Display Variable','Playfair Display',Georgia,serif; }
+        /* THE TOP NAV LINKS were 10px at 500 weight in Playfair with 0.12em tracking - under the
+           11px floor, and light-weight serif at that size is the readability defect this app keeps
+           relearning. 11px at 700 is the same rule applied to the notification panel next door. */
+        .nav-a { text-decoration:none; font-size:11px; font-weight:700; letter-spacing:0.12em; padding:6px 12px; border-radius:4px; border:1px solid transparent; cursor:pointer; background:none; display:inline-flex; align-items:center; transition:all 0.15s; white-space:nowrap; font-family:'Playfair Display Variable','Playfair Display',Georgia,serif; }
         .nav-links { display:flex; align-items:center; gap:6px; }
         .nav-mob-controls { display:none; align-items:center; gap:8px; }
         .jh-icon-btn:hover { background: ${dm ? '#0c1219' : '#f1f5f9'} !important; }
