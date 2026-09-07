@@ -657,6 +657,61 @@ _TE_NOT_POLICY = ('deposit', 'interbank', 'inflation', 'unemployment',
                   'lending', 'savings', 'reverse', 'prime', 'mortgage')
 
 
+def _te_html(url: str) -> str | None:
+    """
+    Fetch a Trading Economics page, working around the block the SERVER gets.
+
+    THE BUG THIS EXISTS FOR, and it only appears in production. From a normal connection the page
+    returns fine; from the deployed container it comes back with NO TABLE ROWS AT ALL. The log line
+    that proved it, after the parser was already fixed:
+
+        TE JPY failed: no policy-rate row matched; rows seen: []
+
+    An empty list, not a wrong row — so the parser was never the problem there. The datacenter IP is
+    served a challenge or an empty shell instead of the page. It is the same thing this module
+    already documents for MyFXBook: "bypasses Cloudflare using curl_cffi iOS Safari TLS
+    impersonation... gets HTTP 200 from the datacenter IP where plain HTTP is challenged."
+
+    So the same tool is used here, rather than inventing a second approach: try plain requests
+    first because it is cheaper and works from most places, and fall back to TLS impersonation when
+    what comes back is a challenge or has no rows in it.
+
+    Returns None when nothing usable could be fetched; the caller then falls through to the
+    hardcoded table, marked live=False.
+    """
+    def _usable(text: str) -> bool:
+        # A REAL PAGE HAS TABLE ROWS. Status 200 is not enough — the challenge page returns 200 too,
+        # which is exactly how this hid: every check passed and the data was not there.
+        return bool(text) and not _is_cloudflare_challenge(text) and '<tr' in text
+
+    try:
+        r = requests.get(url, headers=HEADERS, timeout=12)
+        if r.status_code == 200 and _usable(r.text):
+            return r.text
+        print(f'[news_calendar] TE plain fetch unusable '
+              f'(HTTP {r.status_code}, rows={"<tr" in r.text}) — trying TLS impersonation',
+              file=sys.stderr)
+    except Exception as e:
+        print(f'[news_calendar] TE plain fetch failed: {e} — trying TLS impersonation',
+              file=sys.stderr)
+
+    if not _CFFI_OK:
+        print('[news_calendar] curl_cffi unavailable, cannot retry TE', file=sys.stderr)
+        return None
+
+    for profile in _MFX_PROFILES:
+        try:
+            s = cffi_requests.Session(impersonate=profile)
+            r = s.get(url, timeout=20)
+            if r.status_code == 200 and _usable(r.text):
+                print(f'[news_calendar] TE via curl_cffi ({profile})', file=sys.stderr)
+                return r.text
+        except Exception:
+            continue
+    print('[news_calendar] TE: every fetch method returned an unusable page', file=sys.stderr)
+    return None
+
+
 def _fetch_trading_economics_rate(currency: str) -> float | None:
     """
     Fetch the policy rate from the Trading Economics interest-rate page.
@@ -690,10 +745,10 @@ def _fetch_trading_economics_rate(currency: str) -> float | None:
         return None
     try:
         url = f'https://tradingeconomics.com/{country}/interest-rate'
-        r = requests.get(url, headers=HEADERS, timeout=12)
-        if r.status_code != 200:
-            raise ValueError(f'HTTP {r.status_code}')
-        soup = BeautifulSoup(r.text, 'html.parser')
+        html = _te_html(url)
+        if html is None:
+            raise ValueError('page could not be fetched')
+        soup = BeautifulSoup(html, 'html.parser')
 
         # Collect every row as (label, first value cell), so the choice is made over all of them
         # rather than by taking whichever matched first in document order.
