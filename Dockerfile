@@ -47,6 +47,28 @@ COPY copy_platform ./copy_platform
 # Install copy engine Python deps
 RUN pip install --no-cache-dir --break-system-packages -r copy_platform/requirements.txt
 
+# ── Real Google Chrome + a virtual display, for the economic calendar ────────
+#
+# MyFXBook now serves a JavaScript challenge. Measured 2026-09-07, getting past it needs all three
+# of: REAL Chrome (Chromium is refused), a VISIBLE window (headless is refused), and the launch flag
+# --disable-blink-features=AutomationControlled. Remove any one and the page never resolves.
+#
+# So: google-chrome-stable for the first, xvfb for the second (start.sh runs the display), and the
+# playwright python package to drive it. No browser download — playwright drives the system Chrome
+# via channel="chrome", which is the whole point; `playwright install` would fetch Chromium, which
+# is the build that does NOT work.
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends wget gnupg xvfb fonts-liberation && \
+    wget -qO- https://dl.google.com/linux/linux_signing_key.pub \
+      | gpg --dearmor -o /usr/share/keyrings/google-chrome.gpg && \
+    echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main" \
+      > /etc/apt/sources.list.d/google-chrome.list && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends google-chrome-stable && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN pip install --no-cache-dir --break-system-packages playwright
+
 # DB migration file (applied at container startup)
 COPY docker-migrate.sql /app/docker-migrate.sql
 

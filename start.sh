@@ -12,6 +12,22 @@ echo "CTRADER_ACCOUNT_ID: $CTRADER_ACCOUNT_ID"
 echo "CTRADER_ENV: $CTRADER_ENV"
 echo "========================="
 
+echo "=== Starting virtual display (for the economic-calendar browser) ==="
+# MyFXBook's challenge is refused for HEADLESS Chrome — measured — so the calendar scraper runs a
+# VISIBLE Chrome. On a server "visible" means a virtual display: Xvfb draws to memory and nothing
+# is ever shown. Chrome is started per scrape by news_calendar.py and exits with it; this is only
+# the screen it draws on.
+#
+# Non-fatal by design: if Xvfb will not start, the browser fetch fails, the scraper falls through to
+# its other attempts and the app boots normally. A missing display must never stop the platform.
+if command -v Xvfb >/dev/null 2>&1; then
+  Xvfb :99 -screen 0 1440x900x24 -nolisten tcp >/dev/null 2>&1 &
+  export DISPLAY=:99
+  echo "Xvfb PID: $! on DISPLAY=$DISPLAY"
+else
+  echo "Xvfb not installed — the calendar browser fetch will be skipped"
+fi
+
 echo "=== Running DB migrations ==="
 if [ -n "$DATABASE_URL" ]; then
     psql "$DATABASE_URL" -f /app/docker-migrate.sql && echo "Migrations complete" || echo "Migration warning (non-fatal)"

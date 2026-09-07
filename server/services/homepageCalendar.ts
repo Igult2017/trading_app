@@ -46,13 +46,28 @@ export function getCalendarServiceStatus() {
   };
 }
 
+// HOW LONG THE SCRAPER IS ALLOWED TO TAKE.
+//
+// This was 60 seconds, set when the calendar was a single HTTP request. It is not one any more:
+// MyFXBook now serves a JavaScript challenge that only a real browser can clear, and clearing it
+// took 16-26 seconds in measurement, on top of starting the browser. Sixty seconds killed the
+// calendar scrape mid-solve — the log said `scrape failed: Python timeout (60s)` and the calendar
+// came back empty, which looks exactly like "the site blocked us" and is not.
+//
+// The wait costs nothing: the calendar refreshes on a 15-minute schedule in the background, and
+// callers are served from cache while it runs.
+const PY_TIMEOUT_MS = 180_000;
+
 function runPython(mode: "calendar" | "rates"): Promise<string> {
   return new Promise((resolve, reject) => {
     let out = "", err = "", done = false;
     const child = spawn(PYTHON_BIN, [SCRIPT, mode], { cwd: process.cwd(), env: process.env });
     const t = setTimeout(() => {
-      if (!done) { done = true; child.kill(); reject(new Error("Python timeout (60s)")); }
-    }, 60_000);
+      if (!done) {
+        done = true; child.kill();
+        reject(new Error(`Python timeout (${PY_TIMEOUT_MS / 1000}s)`));
+      }
+    }, PY_TIMEOUT_MS);
     child.stdout.on("data", d => { out += d; });
     child.stderr.on("data", d => { err += d; });
     child.on("error", e => { if (!done) { done = true; clearTimeout(t); reject(e); } });

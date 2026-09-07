@@ -1,19 +1,21 @@
 """
-Economic calendar scraper.
-Sole source: MyFXBook — bypasses Cloudflare using curl_cffi iOS Safari TLS impersonation.
-On a Cloudflare block this returns []; the Node service keeps serving the last
-good cache (see homepageCalendar). No third-party fallbacks.
+Two separate jobs that fail in completely different ways: the ECONOMIC CALENDAR, and the CENTRAL
+BANK INTEREST RATES. Keep them apart when reading this file.
 
-Fetches central bank interest rates from accessible free sources — no hardcoded values.
+THE CALENDAR — MyFXBook, and it now needs a real browser.
+  As of 2026-09-07 the TLS-impersonation disguise no longer gets in from anywhere (measured from a
+  home connection as well as the server). Getting past the JavaScript challenge needs all three of:
+  real Google Chrome, a VISIBLE window, and --disable-blink-features=AutomationControlled. See
+  `_fetch_via_browser`. On failure this returns [] and the Node service keeps serving the last good
+  cache (see homepageCalendar.ts). Forex and commodity events only — crypto and stock rows are
+  dropped, on his instruction.
 
-Sources used (all accessible from Replit environment):
-  USD — FRED FEDFUNDS CSV (no API key)
-  EUR — FRED ECBDFR CSV (no API key)
-  GBP — Bank of England official website scrape
-  CAD — Bank of Canada Valet API (series V39079)
-  AUD — Reserve Bank of Australia statistics CSV
-  JPY, CHF, NZD — Trading Economics website scrape (id='actual' element)
-  Universal fallback — Trading Economics for any currency that fails primary
+THE RATES — the issuing central banks, and NOT MyFXBook.
+  USD  FRED FEDFUNDS                    EUR  ECB data portal (FRED ECBDFR as backup)
+  GBP  Bank of England website          CAD  Bank of Canada Valet API (series V39079)
+  AUD  Reserve Bank of Australia CSV    JPY, CHF, NZD  Trading Economics
+  Trading Economics also backs up any currency whose own bank fails; a hardcoded table is the last
+  resort and is marked live=False so the page can say so.
 
 Usage:
   python news_calendar.py calendar   -> JSON array of upcoming events
@@ -123,6 +125,72 @@ def _fetch_via_flaresolverr(url: str) -> str | None:
     return None
 
 
+# THE ONLY THING MEASURED TO GET PAST MYFXBOOK, 2026-09-07.
+#
+# All three of these are required TOGETHER — remove any one and the page never resolves past
+# "Just a moment...", which is how it was measured:
+#
+#     real Google Chrome, not Chromium ....... bundled Chromium fails with the other two present
+#     VISIBLE, not headless ................. headless real Chrome fails with the flag present
+#     --disable-blink-features=Automation... . headed real Chrome fails without it
+#
+# With all three: 300 rows in 16-26 seconds, reproduced. "Visible" on a server means a virtual
+# display (Xvfb), started in start.sh and pointed at by DISPLAY.
+_CHROME_FLAGS = [
+    '--disable-blink-features=AutomationControlled',
+    '--no-sandbox',                 # required as root inside a container
+    '--disable-dev-shm-usage',      # /dev/shm is small in Docker; without this Chrome crashes
+]
+_BROWSER_WAIT_MS = 60_000
+
+
+def _fetch_via_browser(url: str, wait_for: str) -> str | None:
+    """
+    Fetch a challenged page with a real browser, and only return it once the CONTENT has arrived.
+
+    `wait_for` is a CSS selector that only exists on the real page. Waiting for it — rather than for
+    the page to "load" — is what stops the challenge page being mistaken for success: the challenge
+    returns HTTP 200 and finishes loading perfectly well. That mistake is exactly what made the
+    Trading Economics failure invisible earlier today.
+
+    Returns None on any failure, so the caller falls through to whatever is next. A browser that
+    will not start must never take the calendar down.
+    """
+    try:
+        from playwright.sync_api import sync_playwright
+    except Exception as exc:
+        print(f'[news_calendar] browser unavailable: {exc}', file=sys.stderr)
+        return None
+
+    ctx = None
+    try:
+        with sync_playwright() as p:
+            ctx = p.chromium.launch_persistent_context(
+                user_data_dir='/tmp/mfx-profile',
+                channel='chrome',        # REAL Chrome. Chromium is refused.
+                headless=False,          # headless is refused, even for real Chrome.
+                args=_CHROME_FLAGS,
+                viewport={'width': 1440, 'height': 900},
+            )
+            page = ctx.pages[0] if ctx.pages else ctx.new_page()
+            page.goto(url, wait_until='domcontentloaded', timeout=_BROWSER_WAIT_MS)
+            page.wait_for_selector(wait_for, timeout=_BROWSER_WAIT_MS)
+            html = page.content()
+            print(f'[news_calendar] browser: got {len(html)} bytes with {wait_for!r} present',
+                  file=sys.stderr)
+            return html
+    except Exception as exc:
+        print(f'[news_calendar] browser failed: {type(exc).__name__}: {str(exc)[:160]}',
+              file=sys.stderr)
+        return None
+    finally:
+        try:
+            if ctx is not None:
+                ctx.close()
+        except Exception:
+            pass
+
+
 # TLS-impersonation profiles to try in order — different JA3/JA4 fingerprints
 # give Cloudflare's bot scorer different signals; rotation improves bypass rate.
 _MFX_PROFILES = ['safari17_2_ios', 'chrome131', 'firefox133', 'safari18_0_ios', 'chrome124']
@@ -169,17 +237,28 @@ def _scrape_myfxbook() -> list:
     real Google Chrome (not Chromium), VISIBLE rather than headless, and the launch flag
     `--disable-blink-features=AutomationControlled`. With all three: 300 rows in 16-26 seconds.
 
-    That is what FlareSolverr provides — real Chrome under a virtual display — and it is tried
-    FIRST below. The impersonation attempt is kept underneath it because it costs one request and
-    would start working again by itself if MyFXBook ever relaxes; it is not expected to succeed
-    today, and the log says plainly when it does not.
+    OUR OWN BROWSER IS TRIED FIRST, because it is the one that has actually been measured doing it.
+    FlareSolverr was deployed for this and REFUSED: it fetched the MyFXBook rates page, returned
+    HTTP 200, and the body was the challenge —
+
+        [news_calendar] FlareSolverr: .../interest-rates -> HTTP 200
+        [news_calendar] MyFXBook rates: Cloudflare challenge detected — not rate data
+
+    which is the same failure as headless Chrome in the measurements above. It is kept as a second
+    attempt because it costs one request and nothing else, and the log names which one succeeded.
     """
     url = 'https://www.myfxbook.com/forex-economic-calendar'
 
-    # Try 1: FlareSolverr — real Chrome executes the JS challenge (best bypass)
-    html = _fetch_via_flaresolverr(url)
+    # Try 1: our own real Chrome, on a virtual display — the measured recipe.
+    # Waiting for a calendar ROW, not for the page to load, is what makes "we got the real page"
+    # mean what it says.
+    html = _fetch_via_browser(url, '#economicCalendarTable tr.economicCalendarRow')
 
-    # Try 2: curl_cffi TLS impersonation — works if block is fingerprint-only, not JS-based
+    # Try 2: FlareSolverr, if one is configured — real Chrome, but its own build and flags.
+    if html is None:
+        html = _fetch_via_flaresolverr(url)
+
+    # Try 3: curl_cffi TLS impersonation — works if block is fingerprint-only, not JS-based
     if html is None and _CFFI_OK:
         session, profile = _mfx_session()
         if session is not None:
@@ -788,94 +867,6 @@ _MYFXBOOK_RATE_MAP = {
 }
 
 
-def _scrape_myfxbook_rates() -> dict:
-    """
-    Scrape central bank interest rates from MyFXBook.
-
-    Uses curl_cffi TLS-fingerprint impersonation (multiple profiles) — same
-    Cloudflare bypass as the calendar scraper.
-
-    Returns a dict: currency -> {bank, nominal, inflation (None), live (True)}.
-    Returns {} on any failure; caller falls back to bank APIs.
-    """
-    url = 'https://www.myfxbook.com/forex-economic-calendar/interest-rates'
-
-    # Try 1: FlareSolverr — real Chrome executes the JS challenge
-    html = _fetch_via_flaresolverr(url)
-
-    # Try 2: curl_cffi TLS impersonation
-    if html is None and _CFFI_OK:
-        session, profile = _mfx_session()
-        if session is not None:
-            try:
-                resp = session.get(url, timeout=25)
-                print(
-                    f'[news_calendar] MyFXBook rates HTTP {resp.status_code} ({len(resp.text)} bytes) [{profile}]',
-                    file=sys.stderr,
-                )
-                if resp.status_code == 200:
-                    html = resp.text
-                else:
-                    print(f'[news_calendar] MyFXBook rates: unexpected status {resp.status_code}', file=sys.stderr)
-            except Exception as _exc:
-                print(f'[news_calendar] MyFXBook rates curl_cffi error: {_exc}', file=sys.stderr)
-
-    if html is None:
-        print('[news_calendar] MyFXBook rates: all bypass methods failed', file=sys.stderr)
-        return {}
-
-    if _is_cloudflare_challenge(html):
-        print('[news_calendar] MyFXBook rates: Cloudflare challenge detected — not rate data', file=sys.stderr)
-        return {}
-
-    try:
-        soup = BeautifulSoup(html, 'html.parser')
-        rates: dict = {}
-        seen: set = set()
-
-        for row in soup.select('table tbody tr'):
-            cells = row.find_all('td')
-            if len(cells) < 4:
-                continue
-
-            # Country name — prefer the anchor text inside the cell
-            country_cell = cells[0]
-            anchor = country_cell.find('a')
-            country = (anchor.get_text(strip=True) if anchor else country_cell.get_text(strip=True))
-
-            if not country or country not in _MYFXBOOK_RATE_MAP:
-                continue
-
-            currency, bank = _MYFXBOOK_RATE_MAP[country]
-            if currency in seen:
-                continue
-            seen.add(currency)
-
-            # Current rate is the 4th cell (index 3), strip the % sign
-            try:
-                rate_str = cells[3].get_text(strip=True).replace('%', '').strip()
-                nominal = float(rate_str)
-            except (ValueError, IndexError):
-                continue
-
-            rates[currency] = {
-                'bank':      bank,
-                'nominal':   nominal,
-                'inflation': None,
-                'live':      True,
-            }
-            print(f'[news_calendar] MyFXBook rates: {currency} -> {nominal}%', file=sys.stderr)
-
-        print(
-            f'[news_calendar] MyFXBook rates: {len(rates)} currencies scraped',
-            file=sys.stderr,
-        )
-        return rates
-
-    except Exception as exc:
-        print(f'[news_calendar] MyFXBook rates scrape failed: {exc}', file=sys.stderr)
-        return {}
-
 
 # --------------------------------------------------------------------------- #
 # Orchestrator                                                                 #
@@ -923,21 +914,24 @@ def get_interest_rates() -> dict:
     Fetch central bank policy rates.
 
     Priority:
-      1. MyFXBook interest rates page (curl_cffi Cloudflare bypass — same as calendar).
-      2. Dedicated bank APIs (FRED, BoE, BoC, RBA, Trading Economics) — only for
-         currencies that MyFXBook did not return.
-      3. Hardcoded last-resort values marked live=False.
+      1. The banks themselves (FRED, ECB, BoE, BoC, RBA) and Trading Economics.
+      2. Hardcoded last-resort values marked live=False.
 
     Inflation is always appended from the World Bank CPI YoY API.
-    """
-    # ── 1. Primary: MyFXBook ──────────────────────────────────────────────────
-    rates = _scrape_myfxbook_rates()
-    if rates:
-        print(f'[news_calendar] MyFXBook rates primary: {sorted(rates.keys())}', file=sys.stderr)
-    else:
-        print('[news_calendar] MyFXBook rates unavailable — falling back to bank APIs', file=sys.stderr)
 
-    # ── 2. Fallback: bank APIs (only for currencies missing from MyFXBook) ────
+    MYFXBOOK IS NO LONGER ASKED FOR RATES, and that is a deliberate improvement rather than a
+    casualty of the Cloudflare block. It used to be tried FIRST and to win whenever it answered —
+    but every one of these eight rates comes from the issuing central bank's own publication, which
+    is a better source than a third-party aggregator repeating it. Letting the aggregator override
+    the Federal Reserve was a silent downgrade waiting to happen.
+
+    It also cost real time: the MyFXBook attempt ran a 60-second browser round-trip on every refresh
+    and then failed, which is what produced `[homepageCalendar/rates] Python timeout (60s)` in
+    production and left the rates page empty. `_scrape_myfxbook_rates` is deleted, not disabled.
+    """
+    rates: dict = {}
+
+    # ── The banks themselves ──────────────────────────────────────────────────
     def _add(currency: str, nominal: float | None, source: str) -> bool:
         if nominal is not None and currency not in rates:
             rates[currency] = {
