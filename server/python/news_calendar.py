@@ -29,7 +29,6 @@ import json
 import requests
 from bs4 import BeautifulSoup
 from datetime import datetime
-from xml.etree import ElementTree as ET
 
 try:
     import curl_cffi.requests as cffi_requests
@@ -68,43 +67,33 @@ HEADERS = {
     'Upgrade-Insecure-Requests': '1',
 }
 
-MONTH_MAP = {
-    'Jan': 1, 'Feb': 2, 'Mar': 3, 'Apr': 4,
-    'May': 5, 'Jun': 6, 'Jul': 7, 'Aug': 8,
-    'Sep': 9, 'Oct': 10, 'Nov': 11, 'Dec': 12,
-}
-
 # --------------------------------------------------------------------------- #
 # Calendar scraper (newskeeper approach — MyFXBook via BeautifulSoup)          #
 # --------------------------------------------------------------------------- #
 
+# THE CALENDAR CARRIES TWO KINDS OF EVENT AND NO OTHERS.
+#
+# His instruction, 2026-09-07: *"I dont need crypto and stock news. You can remove and delete there
+# sections from the calendar. I only need commodity and forex news."*
+#
+# So `_categorize` now answers with 'Commodities' or 'Currencies' only, and `_DROP_CATEGORY` below
+# is what actually removes a stock or crypto row from the output. They are separate on purpose: the
+# categoriser says what a row IS, and the caller decides what to keep — collapsing a stock row into
+# 'Currencies' would have hidden it in the forex list instead of removing it.
 def _categorize(name: str, currency: str) -> str:
     n = name.lower()
-    if currency in ('BTC', 'ETH', 'XRP'):
-        return 'Crypto'
     if any(w in n for w in ('oil', 'crude', 'gold', 'silver', 'gas', 'commodity', 'eia')):
         return 'Commodities'
+    if currency in ('BTC', 'ETH', 'XRP'):
+        return 'Crypto'
     if any(w in n for w in ('stock', 'equity', 'earnings', 'index', 'nasdaq', 's&p', 'dow')):
         return 'Stocks'
     return 'Currencies'
 
 
-def _parse_datetime(date_str: str, year: int) -> tuple:
-    """Returns (date_label, time_label, iso_string)."""
-    parts = date_str.split(',', 1)
-    day_part = parts[0].strip()
-    time_part = parts[1].strip() if len(parts) > 1 else '00:00'
-    try:
-        dp = day_part.split()
-        month = MONTH_MAP.get(dp[0], 1)
-        day_num = int(dp[1]) if len(dp) > 1 else 1
-        tp = time_part.replace('am', '').replace('pm', '').strip().split(':')
-        hour = int(tp[0]) if tp else 0
-        minute = int(tp[1]) if len(tp) > 1 else 0
-        dt = datetime(year, month, day_num, hour, minute)
-        return f"{dp[0]} {day_num:02d}", time_part, dt.isoformat()
-    except Exception:
-        return day_part, time_part, datetime.now().isoformat()
+# Categories that never reach the calendar. Commodities is tested FIRST in `_categorize` above, so
+# an event like "Crude Oil Inventories" stays a commodity and is not caught by 'index' or 'stock'.
+_DROP_CATEGORY = ('Crypto', 'Stocks')
 
 
 # FlareSolverr endpoint — set FLARESOLVERR_URL in env to enable headless Chrome bypass.
@@ -170,9 +159,20 @@ def _scrape_myfxbook() -> list:
     """
     Scrape MyFXBook economic calendar.
 
-    Bypass strategy: curl_cffi TLS-fingerprint impersonation (multiple profiles).
-    The page embeds all calendar events server-side inside #calendarMobile, so a
-    single HTTP request is enough — no JS execution required after bypass.
+    THE DISGUISE NO LONGER GETS IN — measured 2026-09-07, from a home connection as well as from the
+    server, so this is not the datacenter IP being flagged. Eight routes were tried and every one
+    came back HTTP 403 with a Cloudflare challenge: a plain request, all five impersonation profiles
+    on the homepage, and straight to the calendar page. The lighter endpoints are challenged too
+    (.csv, /print, /rss). There is no way in that does not RUN THE JAVASCRIPT.
+
+    What does get in needs all three of these together — drop any one and it is refused:
+    real Google Chrome (not Chromium), VISIBLE rather than headless, and the launch flag
+    `--disable-blink-features=AutomationControlled`. With all three: 300 rows in 16-26 seconds.
+
+    That is what FlareSolverr provides — real Chrome under a virtual display — and it is tried
+    FIRST below. The impersonation attempt is kept underneath it because it costs one request and
+    would start working again by itself if MyFXBook ever relaxes; it is not expected to succeed
+    today, and the log says plainly when it does not.
     """
     url = 'https://www.myfxbook.com/forex-economic-calendar'
 
@@ -204,106 +204,97 @@ def _scrape_myfxbook() -> list:
         print('[news_calendar] MyFXBook: Cloudflare challenge detected — not calendar data', file=sys.stderr)
         return []
 
+    return parse_calendar_html(html)
+
+
+_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+           'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+# What MyFXBook calls an impact, and what the rest of the platform calls it. The platform has three
+# levels and the guard that matters tests for HIGH (`NewsImpact.HIGH`), so NONE and LOW both land on
+# 'Low' — there is no fourth level to put NONE in.
+_IMPACT = {'HIGH': 'High', 'MEDIUM': 'Medium', 'LOW': 'Low', 'NONE': 'Low'}
+
+
+def parse_calendar_html(html: str) -> list:
+    """
+    Pull the economic events out of the MyFXBook calendar page.
+
+    THE PAGE CHANGED, 2026-09-07. This used to walk `#calendarMobile`, a stack of divs. That element
+    no longer exists: the calendar is now a table, `#economicCalendarTable`, holding one row per
+    event. So even a perfect bypass would have found nothing — the fetch and the parse were broken
+    independently, and fixing only one of them changes nothing.
+
+    THE SCHEDULED TIME COMES FROM THE TIMESTAMP, NEVER THE DISPLAYED TEXT. `span[name=calendarLeft]`
+    still carries `time=` as Unix milliseconds — measured on 300 of 300 rows — and that is the one
+    value on the page with no timezone attached to it. The visible "Sep 07, 13:00" is rendered
+    against whatever timezone the site decided to use for the visitor, so reading it would shift
+    every event by hours without anything looking wrong. VIX.1 decides when NOT to enter from these
+    times (vix1.py:251-255), so an hours-out clock is a money defect, not a display one.
+
+    A row with no timestamp, no name or no currency is SKIPPED rather than guessed at. It could not
+    be stored anyway — `calendarDb.upsertCalendarEvents` requires `eventTime`.
+    """
     try:
         soup = BeautifulSoup(html, 'html.parser')
-        cal_div = soup.find(id='calendarMobile')
-
-        if not cal_div:
+        table = soup.find(id='economicCalendarTable')
+        if not table:
             title = soup.title.string if soup.title else 'none'
-            print(f'[news_calendar] MyFXBook: #calendarMobile not found. Title={title!r}', file=sys.stderr)
+            print(f'[news_calendar] MyFXBook: #economicCalendarTable not found. Title={title!r}',
+                  file=sys.stderr)
             return []
 
         results = []
-        current_date_label = ''
-
-        MONTHS = ['Jan','Feb','Mar','Apr','May','Jun',
-                  'Jul','Aug','Sep','Oct','Nov','Dec']
-
-        children = [c for c in cal_div.children if getattr(c, 'name', None) == 'div']
-
-        for div in children:
-            classes = div.get('class', [])
-
-            # ── Date header row ───────────────────────────────────────────────
-            if 'economicCalendarDateRow' in classes:
-                raw = div.get_text(strip=True)          # "Saturday, May 23, 2026"
-                try:
-                    dt = datetime.strptime(raw, '%A, %B %d, %Y')
-                    current_date_label = f'{MONTHS[dt.month - 1]} {dt.day:02d}'
-                except Exception:
-                    current_date_label = raw
+        dropped = 0
+        for row in table.find_all('tr'):
+            classes = row.get('class', [])
+            if 'economicCalendarRow' not in classes:
+                continue                      # header and date-separator rows
+            cells = row.find_all('td')
+            if len(cells) < 9:
                 continue
 
-            # ── Event row ─────────────────────────────────────────────────────
-            if 'calendar-mobile-row' not in classes:
+            span = row.find('span', attrs={'name': 'calendarLeft'})
+            ts_ms = span.get('time', '') if span else ''
+            if not ts_ms:
+                continue
+            try:
+                dt = datetime.utcfromtimestamp(int(ts_ms) / 1000)
+            except (ValueError, OverflowError, OSError):
                 continue
 
-            # Time — Unix-ms timestamp stored in data-time attribute of calendarLeft
-            cal_left = div.find('div', class_='calendarLeft')
-            time_label = 'All Day'
-            iso_dt = ''
-            if cal_left:
-                ts_ms = cal_left.get('time', '')
-                if ts_ms:
-                    try:
-                        dt = datetime.utcfromtimestamp(int(ts_ms) / 1000)
-                        time_label = dt.strftime('%I:%M%p').lstrip('0').lower()
-                        iso_dt = dt.isoformat()
-                    except Exception:
-                        pass
+            def cell(i):
+                return ' '.join(cells[i].get_text().split())
 
-            name_el = div.find('div', class_='calendar-title')
-            name = ' '.join(name_el.get_text().split()) if name_el else ''
-
-            currency_el = div.find('div', class_='calendar-country')
-            currency = currency_el.get_text(strip=True) if currency_el else ''
-
+            currency = cell(3)
+            name = cell(4)
             if not name or not currency:
                 continue
 
-            # Impact level
-            impact_div = div.find('div', class_='calendar-impact')
-            importance = 'Low'
-            if impact_div:
-                if impact_div.find(class_='impact_high'):
-                    importance = 'High'
-                elif impact_div.find(class_='impact_medium'):
-                    importance = 'Medium'
-
-            # Actual value
-            actual_el = div.find('span', class_='actualCell')
-            actual = (actual_el.get_text(strip=True) if actual_el else '') or '-'
-
-            # Consensus/forecast
-            cons_div = div.find(attrs={'data-concensus': True})
-            consensus = '-'
-            if cons_div:
-                full = cons_div.get_text(strip=True)
-                if ':' in full:
-                    consensus = full.split(':', 1)[1].strip() or '-'
-
-            # Previous value
-            prev_el = div.find('span', class_='previousCell')
-            previous = (prev_el.get_text(strip=True) if prev_el else '') or '-'
+            category = _categorize(name, currency)
+            if category in _DROP_CATEGORY:
+                dropped += 1
+                continue
 
             results.append({
-                'date':       current_date_label,
-                'time':       time_label,
+                'date':       f'{_MONTHS[dt.month - 1]} {dt.day:02d}',
+                'time':       dt.strftime('%I:%M%p').lstrip('0').lower(),
                 'currency':   currency,
                 'event':      name,
-                'importance': importance,
-                'actual':     actual,
-                'forecast':   consensus,
-                'previous':   previous,
-                'eventTime':  iso_dt,
-                'category':   _categorize(name, currency),
+                'importance': _IMPACT.get(cell(5).upper(), 'Low'),
+                'actual':     cell(8) or '-',
+                'forecast':   cell(7) or '-',
+                'previous':   cell(6) or '-',
+                'eventTime':  dt.isoformat(),
+                'category':   category,
             })
 
-        print(f'[news_calendar] MyFXBook: {len(results)} events', file=sys.stderr)
+        tail = f' ({dropped} stock/crypto rows dropped)' if dropped else ''
+        print(f'[news_calendar] MyFXBook: {len(results)} events{tail}', file=sys.stderr)
         return results
 
     except Exception as exc:
-        print(f'[news_calendar] MyFXBook error: {exc}', file=sys.stderr)
+        print(f'[news_calendar] MyFXBook parse error: {exc}', file=sys.stderr)
         return []
 
 
@@ -322,132 +313,6 @@ def scrape_calendar() -> list:
     else:
         print('[news_calendar] MyFXBook unavailable — returning [] (Node serves last good cache)', file=sys.stderr)
     return events
-
-
-# --------------------------------------------------------------------------- #
-# Crypto event scraper — RSS from CoinDesk + CoinTelegraph                    #
-# --------------------------------------------------------------------------- #
-
-_CRYPTO_KEYWORDS_HIGH = [
-    'etf', 'halving', 'sec', 'regulation', 'ban', 'fed', 'rate', 'fomc',
-    'inflation', 'cpi', 'reserve', 'sanction', 'hack', 'exploit', 'crash',
-    'all-time high', 'ath', 'approval', 'rejected', 'lawsuit', 'cbdc',
-    'blackrock', 'fidelity', 'grayscale', 'spot',
-]
-_CRYPTO_KEYWORDS_MED = [
-    'bitcoin', 'ethereum', 'solana', 'crypto', 'blockchain', 'defi', 'nft',
-    'stablecoin', 'exchange', 'wallet', 'market', 'price', 'rally', 'surge',
-    'dip', 'layer', 'upgrade', 'fork', 'token', 'staking', 'yield',
-]
-_COIN_MAP = {
-    'bitcoin': 'BTC', 'btc': 'BTC',
-    'ethereum': 'ETH', 'eth': 'ETH', 'ether': 'ETH',
-    'solana': 'SOL', 'sol': 'SOL',
-    'xrp': 'XRP', 'ripple': 'XRP',
-    'cardano': 'ADA', 'ada': 'ADA',
-    'dogecoin': 'DOGE', 'doge': 'DOGE',
-    'polkadot': 'DOT', 'dot': 'DOT',
-    'chainlink': 'LINK', 'link': 'LINK',
-    'avalanche': 'AVAX', 'avax': 'AVAX',
-    'bnb': 'BNB', 'binance': 'BNB',
-    'tron': 'TRX', 'trx': 'TRX',
-    'litecoin': 'LTC', 'ltc': 'LTC',
-    'polygon': 'MATIC', 'matic': 'MATIC',
-    'shiba': 'SHIB', 'shib': 'SHIB',
-    'sui': 'SUI', 'toncoin': 'TON', 'ton': 'TON',
-}
-
-
-def _detect_coin(text: str) -> str:
-    lower = text.lower()
-    for keyword, symbol in _COIN_MAP.items():
-        if keyword in lower:
-            return symbol
-    return 'CRYPTO'
-
-
-def _detect_importance(text: str) -> str:
-    lower = text.lower()
-    for kw in _CRYPTO_KEYWORDS_HIGH:
-        if kw in lower:
-            return 'High'
-    for kw in _CRYPTO_KEYWORDS_MED:
-        if kw in lower:
-            return 'Medium'
-    return 'Low'
-
-
-def _parse_rss_date(pubdate: str) -> tuple[str, str]:
-    """Parse RSS pubDate to (date_label, time_label)."""
-    try:
-        from email.utils import parsedate_to_datetime
-        dt = parsedate_to_datetime(pubdate)
-        months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-                  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-        date_label = f"{months[dt.month - 1]} {dt.day:02d}"
-        time_label = dt.strftime('%I:%M%p').lstrip('0').lower()
-        return date_label, time_label
-    except Exception:
-        now = datetime.now()
-        months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-                  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-        return f"{months[now.month - 1]} {now.day:02d}", '12:00am'
-
-
-def scrape_crypto_events(limit: int = 30) -> list:
-    """Fetch crypto news events from CoinDesk and CoinTelegraph RSS feeds."""
-    from xml.etree import ElementTree as ET
-    feeds = [
-        'https://www.coindesk.com/arc/outboundfeeds/rss/',
-        'https://cointelegraph.com/rss',
-        'https://bitcoinmagazine.com/.rss/full/',
-    ]
-    events = []
-    seen_titles: set[str] = set()
-
-    for feed_url in feeds:
-        try:
-            resp = requests.get(feed_url, headers=HEADERS, timeout=12)
-            if resp.status_code != 200:
-                continue
-            # Use bytes so ET can read the XML encoding declaration correctly.
-            # If the response isn't XML at all, skip gracefully.
-            content = resp.content.lstrip()
-            if not content.startswith(b'<'):
-                print(f'[news_calendar] {feed_url}: not XML, skipping', file=sys.stderr)
-                continue
-            root = ET.fromstring(content)
-            for item in root.findall('.//item'):
-                title = (item.findtext('title') or '').strip()
-                pubdate = (item.findtext('pubDate') or '').strip()
-                if not title or not pubdate:
-                    continue
-                key = title[:60].lower()
-                if key in seen_titles:
-                    continue
-                seen_titles.add(key)
-
-                date_label, time_label = _parse_rss_date(pubdate)
-                coin = _detect_coin(title)
-                importance = _detect_importance(title)
-
-                events.append({
-                    'date':       date_label,
-                    'time':       time_label,
-                    'currency':   coin,
-                    'event':      title[:120],
-                    'importance': importance,
-                    'actual':     '-',
-                    'forecast':   '-',
-                    'previous':   '-',
-                    'category':   'Crypto',
-                    'isoDate':    pubdate,
-                })
-        except Exception as exc:
-            print(f'[news_calendar] crypto feed {feed_url} error: {exc}', file=sys.stderr)
-
-    print(f'[news_calendar] crypto events: {len(events)}', file=sys.stderr)
-    return events[:limit]
 
 
 # --------------------------------------------------------------------------- #
@@ -1135,8 +1000,10 @@ if __name__ == '__main__':
     if mode == 'rates':
         output = get_interest_rates()
     else:
-        calendar_events = scrape_calendar()
-        crypto_events = scrape_crypto_events(limit=30)
-        output = calendar_events + crypto_events
+        # The economic calendar, and nothing else. Crypto headlines from RSS used to be appended
+        # here; they were removed on his instruction, and their removal also takes away the thing
+        # that WIPED the stored calendar — ten headlines with no scheduled time were enough to make
+        # `upsertCalendarEvents` clear the table and put nothing back. See calendarDb.ts.
+        output = scrape_calendar()
 
     print(json.dumps(output))

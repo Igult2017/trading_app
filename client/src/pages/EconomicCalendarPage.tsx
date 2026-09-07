@@ -35,7 +35,11 @@ const currencyPairs = [
   { base: 'EUR', quote: 'GBP' },
 ];
 
-const filterCategories = ['All', 'Currencies', 'Crypto', 'Commodities', 'Stocks', 'Rate Differentials'];
+// FOREX AND COMMODITIES ONLY. His instruction, 2026-09-07: *"I dont need crypto and stock news. You
+// can remove and delete there sections from the calendar. I only need commodity and forex news."*
+// The Crypto and Stocks tabs are gone, and so is the crypto news feed that fed the first of them —
+// which was also what wiped the stored calendar (see calendarDb.ts).
+const filterCategories = ['All', 'Currencies', 'Commodities', 'Rate Differentials'];
 const IMPACT_LEVELS = ['All', 'High', 'Medium', 'Low'] as const;
 
 const REFETCH_MS = 3 * 60 * 1000;
@@ -157,10 +161,10 @@ export default function EconomicCalendarPage({ active = true }: { active?: boole
 
   const events   = eventsRaw   ?? [];
   const bankData = bankDataRaw ?? {};
-  const indices     = stocksData?.indices     ?? [];
-  const stocks      = stocksData?.stocks      ?? [];
+  // `indices` and `stocks` came out with the Stocks tab — the price feed still returns them, this
+  // page just no longer has anywhere to show them.
   const commodities = stocksData?.commodities ?? [];
-  const fetching    = fetchingEvents || fetchingRates || (['Stocks', 'Commodities'].includes(filter) && fetchingStocks);
+  const fetching    = fetchingEvents || fetchingRates || (filter === 'Commodities' && fetchingStocks);
 
   const lastUpdate = Math.max(calUpdatedAt, ratesUpdatedAt);
 
@@ -184,8 +188,8 @@ export default function EconomicCalendarPage({ active = true }: { active?: boole
   `, [dm, inputBg, border, textPrim, textMut, cardBg]);
 
   const filteredEvents = events.filter(event => {
+    // These two tabs show price tables, not calendar events, so the event list is empty under them.
     if (filter === 'Rate Differentials') return false;
-    if (filter === 'Stocks') return false;
     if (filter === 'Commodities') return false;
     const matchesCategory = filter === 'All' || event.category === filter;
     const matchesSearch   = event.event.toLowerCase().includes(searchQuery.toLowerCase()) || event.currency.toLowerCase().includes(searchQuery.toLowerCase());
@@ -284,7 +288,7 @@ export default function EconomicCalendarPage({ active = true }: { active?: boole
           </div>
 
           {/* Search + filters row */}
-          {filter !== 'Rate Differentials' && filter !== 'Stocks' && filter !== 'Commodities' && (
+          {filter !== 'Rate Differentials' && filter !== 'Commodities' && (
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
               <input className="ec-input" type="text" placeholder="Search events or currency…" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} style={{ flex: 1, minWidth: 200 }} />
 
@@ -319,96 +323,6 @@ export default function EconomicCalendarPage({ active = true }: { active?: boole
                   ))}
                 </div>
               ))}
-            </div>
-          )}
-
-          {/* Stocks & Indices — powered by investing.com scraper */}
-          {filter === 'Stocks' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-
-              {/* Skeleton while loading */}
-              {fetchingStocks && indices.length === 0 && stocks.length === 0 && (
-                <div className="ec-card" style={{ padding: '24px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-                  {Array.from({ length: 6 }).map((_, i) => (
-                    <div key={i} style={{ display: 'flex', gap: 16 }}>
-                      {[180, 80, 80, 80].map((w, j) => (
-                        <div key={j} style={{ width: w, height: 14, borderRadius: 4, background: dm ? 'rgba(255,255,255,0.05)' : '#e2e8f0', animation: `ec-pulse 1.4s ${i * 0.07}s ease-in-out infinite` }} />
-                      ))}
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Major indices */}
-              {indices.length > 0 && (
-                <div className="ec-card" style={{ overflowX: 'auto' }}>
-                  <div style={{ padding: '14px 20px', borderBottom: `1px solid ${border}`, display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ fontFamily: SANS, fontSize: 11, fontWeight: 600, color: textPrim, letterSpacing: '0.2em', textTransform: 'uppercase' }}>Major Indices</span>
-                    <span style={{ marginLeft: 'auto', fontFamily: SANS, fontSize: 11, color: textMut, letterSpacing: '0.1em' }}>SOURCE: INVESTING.COM</span>
-                  </div>
-                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                    <thead>
-                      <tr>
-                        {['Index', 'Price', 'Change', '%'].map((h, i) => (
-                          <th key={h} style={{ ...thStyle, textAlign: i === 0 ? 'left' : 'right' }}>{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {indices.map((idx: any, i: number) => {
-                        const isUp = idx.pctChange && !idx.pctChange.startsWith('-');
-                        const chgColor = idx.change === '-' ? textMut : isUp ? '#16a34a' : '#dc2626';
-                        return (
-                          <tr key={i} className="ec-tr">
-                            <td style={{ padding: '12px 20px', borderBottom: `1px solid ${border}`, fontFamily: SANS, fontSize: 12, fontWeight: 500, color: textPrim }}>{idx.name}</td>
-                            <td style={{ padding: '12px 20px', borderBottom: `1px solid ${border}`, textAlign: 'right', fontFamily: SANS, fontSize: 12, fontWeight: 500, color: textPrim }}>{idx.price}</td>
-                            <td style={{ padding: '12px 20px', borderBottom: `1px solid ${border}`, textAlign: 'right', fontFamily: SANS, fontSize: 12, fontWeight: 500, color: chgColor }}>{idx.change}</td>
-                            <td style={{ padding: '12px 20px', borderBottom: `1px solid ${border}`, textAlign: 'right', fontFamily: SANS, fontSize: 12, fontWeight: 600, color: chgColor }}>{idx.pctChange}</td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-
-              {/* Individual stock quotes */}
-              {stocks.length > 0 && (
-                <div className="ec-card" style={{ overflowX: 'auto' }}>
-                  <div style={{ padding: '14px 20px', borderBottom: `1px solid ${border}`, display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ fontFamily: SANS, fontSize: 11, fontWeight: 600, color: textPrim, letterSpacing: '0.2em', textTransform: 'uppercase' }}>Stock Quotes</span>
-                    <span style={{ marginLeft: 'auto', fontFamily: SANS, fontSize: 11, color: textMut, letterSpacing: '0.1em' }}>SOURCE: INVESTING.COM</span>
-                  </div>
-                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                    <thead>
-                      <tr>
-                        {['Symbol', 'Name', 'Price', 'Change', '%', 'Exchange'].map((h, i) => (
-                          <th key={h} style={{ ...thStyle, textAlign: i < 2 ? 'left' : i === 5 ? 'left' : 'right' }}>{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {stocks.map((s: any, i: number) => {
-                        const isUp = s.pctChange && !String(s.pctChange).startsWith('-');
-                        const chgColor = s.change === '-' ? textMut : isUp ? '#16a34a' : '#dc2626';
-                        return (
-                          <tr key={i} className="ec-tr">
-                            <td style={{ padding: '12px 20px', borderBottom: `1px solid ${border}` }}>
-                              <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '2px 8px', background: dm ? '#1e2d3d' : '#eff6ff', color: '#2563eb', fontSize: 11.5, fontWeight: 600, fontFamily: SANS, borderRadius: 4, letterSpacing: '0.08em' }}>{s.symbol}</span>
-                            </td>
-                            <td style={{ padding: '12px 20px', borderBottom: `1px solid ${border}`, fontFamily: SANS, fontSize: 12, color: textMut }}>{s.name}</td>
-                            <td style={{ padding: '12px 20px', borderBottom: `1px solid ${border}`, textAlign: 'right', fontFamily: SANS, fontSize: 12, fontWeight: 500, color: textPrim }}>{s.price}</td>
-                            <td style={{ padding: '12px 20px', borderBottom: `1px solid ${border}`, textAlign: 'right', fontFamily: SANS, fontSize: 12, fontWeight: 500, color: chgColor }}>{s.change}</td>
-                            <td style={{ padding: '12px 20px', borderBottom: `1px solid ${border}`, textAlign: 'right', fontFamily: SANS, fontSize: 12, fontWeight: 600, color: chgColor }}>{s.pctChange}</td>
-                            <td style={{ padding: '12px 20px', borderBottom: `1px solid ${border}`, fontFamily: SANS, fontSize: 11.5, color: textMut }}>{s.exchange}</td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-
             </div>
           )}
 
@@ -532,7 +446,7 @@ export default function EconomicCalendarPage({ active = true }: { active?: boole
           )}
 
           {/* Calendar table */}
-          {filter !== 'Rate Differentials' && filter !== 'Stocks' && filter !== 'Commodities' && events.length > 0 && (
+          {filter !== 'Rate Differentials' && filter !== 'Commodities' && events.length > 0 && (
             <div className="ec-card" style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>

@@ -67,16 +67,43 @@ function fromRow(row: typeof economicEvents.$inferSelect): CalendarEvent {
 }
 
 /** Replace the ±14-day window in DB with fresh scraped events.
- *  Also purges events older than 30 days so the table never grows unbounded. */
+ *  Also purges events older than 30 days so the table never grows unbounded.
+ *
+ *  NEVER DELETE BEFORE YOU KNOW YOU CAN REFILL. This function used to delete the window FIRST and
+ *  only then work out what it had to put back — and on 2026-09-07 that wiped the whole economic
+ *  calendar out of production.
+ *
+ *  How it happened. MyFXBook was blocked, so no economic events were scraped and the only thing
+ *  that arrived was ten crypto news headlines from the RSS feeds. Ten is not zero, so the empty
+ *  guard below let it through; the window was deleted; and then the filter dropped all ten, because
+ *  a crypto headline is a story with no scheduled time — economic events carry `eventTime`
+ *  (news_calendar.py:296), crypto items carry `isoDate` and nothing else (news_calendar.py:443).
+ *  The log said `saved 0 events` and the calendar was gone.
+ *
+ *  The cost was not cosmetic: VIX.1's two news protections (vix1.py:251-255) read that event list,
+ *  so with it empty neither could ever fire. They were not broken — they were starved.
+ *
+ *  The guard is therefore on the ROWS, not on the input. "We received something" is not the
+ *  question; "we have something to put back" is. */
 export async function upsertCalendarEvents(events: CalendarEvent[]): Promise<void> {
   if (!events.length) return;
   const { from, to } = dbWindow();
+
+  // Work out the replacement BEFORE touching the table. If a scrape brings back only events we
+  // cannot store, the right outcome is to keep what is already there and say so.
+  const rows = events.filter(e => e.eventTime).map(toRow);
+  if (!rows.length) {
+    console.warn(
+      `[calendarDb] ${events.length} event(s) arrived but none carry a scheduled time — ` +
+      `keeping the stored calendar rather than replacing it with nothing`
+    );
+    return;
+  }
 
   // Replace the active window
   await db.delete(economicEvents).where(
     and(gte(economicEvents.eventTime, from), lte(economicEvents.eventTime, to))
   );
-  const rows = events.filter(e => e.eventTime).map(toRow);
   for (let i = 0; i < rows.length; i += 100) {
     await db.insert(economicEvents).values(rows.slice(i, i + 100));
   }
