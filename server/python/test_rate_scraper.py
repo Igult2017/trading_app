@@ -211,5 +211,52 @@ check('a file with no cash-rate column raises instead of guessing',
       bool(_threw(lambda: _rba_latest_row(['Title,Interbank Overnight Cash Rate',
                                            '04-Sep-2026,4.35'], NOW))), True)
 
+# ── 7. THE ECB VALUE COMES FROM THE NAMED COLUMN ───────────────────────────
+# Third defect of the day, and the one with two faults stacked. The series code was wrong, so every
+# call came back "not found" and the euro rate quietly came from the American FRED mirror instead.
+# Underneath that, the value was read from the LAST of 40 columns, which holds 0 — and the sanity
+# check accepted 0. Fixing only the series code would have started reporting the euro area at 0%.
+from news_calendar import _ecb_obs_value
+
+print('\n7. the ECB rate is read from the named column, never the last one:')
+
+# The real reply, trimmed to the columns that matter but keeping the trap: TITLE_COMPL is a QUOTED
+# field containing a comma, which shifts every column after it when you split on commas.
+ECB = (
+    'KEY,FREQ,TIME_PERIOD,OBS_VALUE,OBS_STATUS,TITLE_COMPL,UNIT,UNIT_MULT\n'
+    'FM.B.U2.EUR.4F.KR.DFR.LEV,B,2026-06-17,2.25,A,'
+    '"Euro area - Key interest rate - Deposit facility - Level - Euro, provided by ECB",PCPA,0\n'
+)
+
+check('it returns the OBS_VALUE, not the last column', _ecb_obs_value(ECB), ('2026-06-17', 2.25))
+check('...and specifically NOT the 0 the old rule took', _ecb_obs_value(ECB)[1] == 0.0, False)
+
+# TEETH — the OLD rule really did take the last column, and 0 really did pass its sanity check.
+def old_last_column_rule(text):
+    for line in reversed(text.strip().split('\n')):
+        parts = line.split(',')
+        if len(parts) >= 2:
+            try:
+                val = float(parts[-1].strip())
+                if 0 <= val < 20:
+                    return val
+            except ValueError:
+                continue
+    return None
+
+check('teeth: the old rule really did return 0 for the euro area', old_last_column_rule(ECB), 0.0)
+
+# The quoted comma is the reason a plain split cannot be used.
+check('a naive comma split really does land on the wrong field',
+      ECB.strip().split('\n')[1].split(',')[3] != '2.25', False)
+check('a reply with no value column raises instead of guessing',
+      bool(_threw(lambda: _ecb_obs_value('KEY,FREQ\nFM.B,B\n'))), True)
+check('an empty reply raises', bool(_threw(lambda: _ecb_obs_value('KEY,OBS_VALUE\n'))), True)
+
+# NO AGE CHECK ON THIS ONE, unlike the RBA file. The series carries one row per CHANGE of the rate,
+# so a months-old date is correct, not stale. Pinning that so it is not "helpfully" added later.
+check('a rate unchanged for months is still accepted',
+      _ecb_obs_value('KEY,TIME_PERIOD,OBS_VALUE\nFM.B,2024-06-12,4.00\n'), ('2024-06-12', 4.00))
+
 print(f'\n  {_pass} passed, {_fail} failed\n')
 sys.exit(1 if _fail else 0)

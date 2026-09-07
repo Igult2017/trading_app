@@ -23,6 +23,8 @@ Usage:
 import sys
 import os
 import re
+import io
+import csv
 import json
 import requests
 from bs4 import BeautifulSoup
@@ -496,29 +498,65 @@ def _fetch_usd_rate() -> float | None:
     return _fetch_fred_csv('FEDFUNDS')
 
 
+def _ecb_obs_value(text: str) -> tuple[str, float] | None:
+    """
+    Pull (date, rate) out of the ECB's CSV reply.
+
+    TWO FAULTS LIVED HERE, 2026-09-07, and the second was hidden by the first.
+
+    1. The series code was wrong. `DFR_FR` does not exist, so every call came back "not found"
+       (HTTP 404) and the euro rate has always come from the American FRED mirror instead. The
+       `_FR` suffix ("fixed rate tender") belongs on the MAIN REFINANCING series, `MRR_FR` — the
+       deposit facility is plain `DFR`.
+
+    2. The value was read from the WRONG COLUMN. The reply has 40 columns and the rate is in
+       `OBS_VALUE`, the tenth; the code took the LAST one, which holds `0`. The sanity check was
+       `0 <= val < 20`, so zero passed. Fix only the series code and the homepage would have
+       started reporting the euro area at 0%.
+
+    So the column is now found BY NAME, and the reply is parsed with the csv module rather than
+    split on commas — one of those 40 fields is a quoted title containing a comma, which shifts
+    every column after it.
+
+    NO AGE CHECK HERE, deliberately, unlike the RBA file. This series carries one row per CHANGE of
+    the rate, not one per day: the newest row is dated 17 June 2026 and that is correct, not stale.
+    """
+    rows = list(csv.reader(io.StringIO(text.strip())))
+    if len(rows) < 2:
+        raise ValueError('no observation rows in ECB reply')
+    header = [h.strip() for h in rows[0]]
+    if 'OBS_VALUE' not in header:
+        raise ValueError('ECB reply has no OBS_VALUE column')
+    vi = header.index('OBS_VALUE')
+    ti = header.index('TIME_PERIOD') if 'TIME_PERIOD' in header else None
+    for row in reversed(rows[1:]):
+        if vi >= len(row) or not row[vi].strip():
+            continue
+        try:
+            val = float(row[vi].strip())
+        except ValueError:
+            continue
+        if -5 <= val <= 20:
+            return (row[ti].strip() if ti is not None and ti < len(row) else '?'), val
+    raise ValueError('no usable OBS_VALUE in ECB reply')
+
+
 def _fetch_ecb_sdw_rate() -> float | None:
     """EUR — ECB Data Portal REST API (deposit facility rate, official, no key)."""
     try:
         url = (
             'https://data-api.ecb.europa.eu/service/data/'
-            'FM/B.U2.EUR.4F.KR.DFR_FR.LEV'
+            'FM/B.U2.EUR.4F.KR.DFR.LEV'
             '?format=csvdata&lastNObservations=1'
         )
         r = requests.get(url, timeout=15)
         if r.status_code != 200:
             raise ValueError(f'HTTP {r.status_code}')
-        for line in reversed(r.text.strip().split('\n')):
-            parts = line.split(',')
-            if len(parts) >= 2:
-                try:
-                    val = float(parts[-1].strip())
-                    if 0 <= val < 20:
-                        print(f'[news_calendar] ECB SDW: {val}%', file=sys.stderr)
-                        return val
-                except ValueError:
-                    continue
+        when, val = _ecb_obs_value(r.text)
+        print(f'[news_calendar] ECB: {val}% (deposit facility, set {when})', file=sys.stderr)
+        return val
     except Exception as e:
-        print(f'[news_calendar] ECB SDW failed: {e}', file=sys.stderr)
+        print(f'[news_calendar] ECB failed: {e}', file=sys.stderr)
     return None
 
 
@@ -1048,7 +1086,11 @@ def get_interest_rates() -> dict:
         return False
 
     _add('USD', _fetch_usd_rate(),  'FRED FEDFUNDS')
-    _add('EUR', _fetch_eur_rate(),  'FRED ECBDFR')
+    # The label names both because _fetch_eur_rate tries the ECB first and FRED second; the line
+    # logged just above always says which one actually answered. It used to say only "FRED ECBDFR",
+    # which was a lie whenever the ECB replied — and a log that names the wrong source is exactly
+    # what sends the next debugging session to the wrong file.
+    _add('EUR', _fetch_eur_rate(),  'ECB data portal, FRED as backup')
     _add('GBP', _fetch_gbp_rate(),  'BoE website')
     _add('CAD', _fetch_cad_rate(),  'BoC Valet API')
     _add('AUD', _fetch_aud_rate(),  'RBA CSV')
