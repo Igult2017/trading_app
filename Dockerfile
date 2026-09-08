@@ -57,8 +57,18 @@ RUN pip install --no-cache-dir --break-system-packages -r copy_platform/requirem
 # playwright python package to drive it. No browser download — playwright drives the system Chrome
 # via channel="chrome", which is the whole point; `playwright install` would fetch Chromium, which
 # is the build that does NOT work.
+# FONTS ARE PART OF THE FINGERPRINT, not decoration (2026-09-08). Cloudflare's challenge scripts
+# measure text and canvas output, and a container carrying one font family looks nothing like the
+# desktop Chrome it claims to be. This box had `fonts-liberation` alone. Adding the families a real
+# Linux desktop has is cheap and is the only free lever left after the diagnosis showed the browser
+# sitting on "Just a moment..." for the full 150s with real Chrome, a visible window and the flag
+# all confirmed present. HONEST ABOUT IT: this may not be enough — the remaining difference from a
+# machine that DOES get through is the datacenter IP itself, and that needs a proxy, which is his
+# call and his money.
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends wget gnupg xvfb fonts-liberation && \
+    apt-get install -y --no-install-recommends wget gnupg xvfb \
+        fonts-liberation fonts-liberation2 fonts-dejavu-core fonts-noto-core \
+        fonts-noto-color-emoji fontconfig && \
     wget -qO- https://dl.google.com/linux/linux_signing_key.pub \
       | gpg --dearmor -o /usr/share/keyrings/google-chrome.gpg && \
     echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main" \

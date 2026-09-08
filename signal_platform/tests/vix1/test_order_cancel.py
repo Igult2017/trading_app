@@ -42,13 +42,14 @@ class _Res:
 
 class _Broker:
     fail = False
+    error = "broker said no"          # what the refusal SAYS — ORDER_NOT_FOUND is handled apart
 
     def __init__(self, creds, account_type):
         pass
 
     async def cancel(self, order_id):
         if _Broker.fail:
-            return _Res(False, "broker said no")
+            return _Res(False, _Broker.error)
         _cancelled.append(int(order_id))
         return _Res(True)
 
@@ -232,5 +233,39 @@ s.check("...but the order is only cancelled once", got.count(950), 1)
 canceller._swept = False
 canceller.sweep_orphans_soon()
 s.check("with no loop it stays armed for the next poll", canceller._swept, False)
+
+
+# ── "THERE IS NO SUCH ORDER" IS NOT A FAILURE TO RETRY (2026-09-08) ───────
+# Production kept re-cancelling XAU/USD order 359170674 at every boot: the broker answered
+# ORDER_NOT_FOUND, the row was left open because that is what happens on ANY refusal, and the next
+# boot tried again. Three deploys on 7-8 Sep, the same order, the same warning.
+#
+# The distinction the code was missing: a refusal usually means the order is STILL OUT THERE, and
+# closing the row then would abandon a live order nobody is watching. ORDER_NOT_FOUND means the
+# opposite — there is nothing to abandon.
+_cancelled.clear(); _closed.clear()
+_book["sig-3"] = "359170674"
+_Broker.fail = True
+_Broker.error = "cTrader refused: ORDER_NOT_FOUND Order not found with id 359170674"
+s.check("an order the broker does not have still reports nothing was cancelled",
+        run(canceller.cancel_for_signal("sig-3", "XAU/USD", "orphaned")), False)
+s.check("...but the row IS closed, so it stops being retried for ever",
+        _closed, [("359170674", autotrade_repo.STATUS_CANCELLED)])
+
+# AND THE ORIGINAL SAFETY IS UNTOUCHED — this is the assertion that stops the fix going too far.
+_cancelled.clear(); _closed.clear()
+_book["sig-4"] = "444"
+_Broker.error = "broker said no"
+s.check("any OTHER refusal still leaves the row open — the order may be live",
+        run(canceller.cancel_for_signal("sig-4", "EUR/USD", "why")), False)
+s.check("...and nothing was marked closed", _closed, [])
+_Broker.fail = False
+
+s.teeth("ORDER_NOT_FOUND really does close the row",
+        (lambda: (_closed.clear(), _book.__setitem__("sig-5", "555"),
+                  setattr(_Broker, "fail", True),
+                  setattr(_Broker, "error", "ORDER_NOT_FOUND"),
+                  run(canceller.cancel_for_signal("sig-5", "X", "w")),
+                  setattr(_Broker, "fail", False), len(_closed) == 1)[-1])())
 
 s.done()

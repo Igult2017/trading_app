@@ -62,6 +62,27 @@ async def cancel_for_signal(signal_id: str, symbol: str, why: str) -> bool:
         from execution.broker import StopOrderClient
         res = await StopOrderClient(acct.creds, acct.account_type).cancel(int(order_id))
         if not res.ok:
+            # "THERE IS NO SUCH ORDER" IS NOT A FAILURE TO RETRY (2026-09-08).
+            #
+            # The row was left OPEN on every refusal, so an order the broker no longer has was
+            # re-cancelled at every boot, refused again, and warned again — order 359170674 on
+            # XAU/USD did exactly that across three deploys on 7-8 Sep, and nothing would ever have
+            # stopped it.
+            #
+            # The reason the row is normally kept open is sound and is UNCHANGED for every other
+            # error: marking it cancelled before the broker agreed would leave a REAL resting order
+            # that nothing is watching, which is worse than the defect. But ORDER_NOT_FOUND says the
+            # opposite — the order does not exist, so there is nothing left unwatched, and the only
+            # thing keeping the row open is the retry itself.
+            #
+            # Recorded as CANCELLED rather than a new state: from this platform's side the outcome
+            # is identical (it placed an order, that order is gone, it never became a position), and
+            # inventing a status would need every reader of the column to learn it.
+            if "ORDER_NOT_FOUND" in str(res.error or "").upper():
+                autotrade_repo.record_closed(order_id, autotrade_repo.STATUS_CANCELLED)
+                log.info(f"[canceller] {symbol}: order {order_id} no longer exists at the broker "
+                         f"— closing the row so it stops being re-cancelled every boot ({why})")
+                return False        # nothing was cancelled BY US; the caller's behaviour is unchanged
             log.warning(f"[canceller] {symbol}: broker refused to cancel order {order_id} — "
                         f"{res.error}")
             return False

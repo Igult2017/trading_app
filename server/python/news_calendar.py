@@ -140,6 +140,13 @@ _CHROME_FLAGS = [
     '--disable-blink-features=AutomationControlled',
     '--no-sandbox',                 # required as root inside a container
     '--disable-dev-shm-usage',      # /dev/shm is small in Docker; without this Chrome crashes
+    # A REAL DESKTOP CHROME DECLARES A WINDOW AND A LANGUAGE (added 2026-09-08). Without these the
+    # window is whatever Xvfb gives it and the language list is empty — both measurable from the
+    # page, and both unlike any real browser. Matched to the viewport below on purpose: a window
+    # and a viewport that disagree is itself a signal.
+    '--window-size=1440,900',
+    '--lang=en-GB',
+    '--disable-features=IsolateOrigins,site-per-process',
 ]
 # HOW LONG THE BROWSER MAY TAKE, split because the two waits are different problems.
 #
@@ -210,6 +217,12 @@ def _fetch_via_browser(url: str, wait_for: str) -> str | None:
                 headless=False,          # headless is refused, even for real Chrome.
                 args=_CHROME_FLAGS,
                 viewport={'width': 1440, 'height': 900},
+                # A BROWSER WITH NO LOCALE AND NO TIMEZONE IS NOT A PERSON'S BROWSER. Both are read
+                # by the challenge script; a container defaults to UTC and no language list, which
+                # no real desktop does. Set to the values his own machine reports, since that is the
+                # profile measured to get through.
+                locale='en-GB',
+                timezone_id='Europe/London',
             )
             try:
                 page = ctx.pages[0] if ctx.pages else ctx.new_page()
