@@ -22,7 +22,6 @@ from strategies.vix1_bias import _H1_SWING_N, _H1_TREND_BARS
 from strategies.vix1_regime import classify
 from strategies.vix1_swings import structure_turns
 from strategies.vix1_structure import _FAST_N, fast_pattern, leg_state
-from strategies.vix1_regime import market_permits   # moved 2026-09-07 (pure move)
 from strategies.vix1_trend import trend_state
 from strategies.vix1_watch import check_invalidation
 
@@ -103,7 +102,11 @@ if real:
             st.direction, 1)
     s.check("so a SELL is never even sought (pro-trend only)", st.direction == -1, False)
     s.check("and the market is not tradeable anyway", reg.kind in ("range", "chop"), True)
-    s.check("   ...so the gate refuses it", market_permits(reg) is not None, True)
+    # The gate that used to refuse here is deleted (2026-09-07). What stops this trade is the TREND
+    # read above — direction is UP, so a SELL is never sought at all. That was always the real
+    # protection; the regime label was a second opinion that has now been removed.
+    s.check("   ...and the regime label still DESCRIBES it as untradeable-looking",
+            reg.tradeable, False)
 else:
     print("      SKIP — no local data")
 
@@ -163,19 +166,51 @@ s.check("the 4HR fallback ships MUTED", vix1_bias._ALLOW_H4, False)
 # retracement has ended. He settled that — "Momentum candle is a proof of the continuation of the
 # trend" — and a test that re-introduced the question would re-introduce the rule.
 print()
-print("   the market gate — only a TREND is tradeable (his rule, 2026-08-12):")
+print("   ONE trend logic — the second gate is gone and must not come back (2026-09-07):")
 from strategies.vix1_regime import CHOP, RANGE, TREND, UNCERTAIN, Regime   # noqa: E402
+import strategies.vix1_regime as _regime_mod                               # noqa: E402
+import strategies.vix1_structure as _structure_mod                         # noqa: E402
+import ast as _ast                                                         # noqa: E402
+from pathlib import Path as _Path                                          # noqa: E402
 
-s.check("a trend is allowed", market_permits(Regime(TREND, "progressing")), None)
-s.check("a RANGE is refused", market_permits(Regime(RANGE, "bounded")) is not None, True)
-s.check("   ...and the card can say which", "RANGE" in market_permits(Regime(RANGE, "b")), True)
-s.check("CHOP is refused", market_permits(Regime(CHOP, "scattered")) is not None, True)
-s.check("   ...and is named separately from a range",
-        "CHOP" in market_permits(Regime(CHOP, "scattered")), True)
-s.check("UNCERTAIN is refused - never trade on 'cannot tell'",
-        market_permits(Regime(UNCERTAIN, "not enough swings")) is not None, True)
-s.check("no regime at all -> allowed, so a missing reading can never silently mute the strategy",
-        market_permits(None), None)
+# THESE CHECKS REPLACE SEVEN THAT PINNED `market_permits`' BEHAVIOUR, and the swap is called out
+# because re-aiming assertions is how a regression hides. Those seven asserted that a RANGE, CHOP
+# and UNCERTAIN market were REFUSED by that gate. The gate is deleted: measured over 4.3 years it
+# answered "is there a trend" a second time, from the SAME turning points as `vix1_trend`, and never
+# once contributed a refusal the structure engine could not make — while approving 17.1% / 15.8% of
+# moments in which it was describing the OPPOSITE direction. His instruction: *"we can't have 2 trend
+# logics, what for."*
+#
+# So what is pinned now is the ARRANGEMENT rather than that gate's verdicts: the function is gone,
+# nothing re-creates it, and `vix1_bias` refuses on trend grounds in exactly one place.
+s.check("market_permits no longer exists in vix1_regime",
+        hasattr(_regime_mod, "market_permits"), False)
+s.check("   ...nor did it move back into vix1_structure",
+        hasattr(_structure_mod, "market_permits"), False)
+
+_bias_src = (_Path(__file__).resolve().parents[2] / "strategies" / "vix1_bias.py").read_text(
+    encoding="utf-8")
+s.check("vix1_bias no longer imports the regime gate",
+        "import market_permits" in _bias_src, False)
+s.check("vix1_bias still COMPUTES the regime for the card",
+        "vix1_regime.classify(" in _bias_src, True)
+
+# The regime engine still DESCRIBES a market — that is its remaining job and the card needs it.
+s.check("a trend is still named a trend", Regime(TREND, "x").tradeable, True)
+s.check("a range is still named not-tradeable", Regime(RANGE, "x").tradeable, False)
+s.check("chop likewise", Regime(CHOP, "x").tradeable, False)
+s.check("and 'cannot tell' likewise", Regime(UNCERTAIN, "x").tradeable, False)
+
+# HIS TREND DEFINITION IS NOW ENFORCED WHERE THE TREND IS DECIDED — "Uptrend -> HH + HL.
+# Downtrend -> LL + LH." The reversal-confirm used to test ONE side only, and the deleted gate was
+# accidentally supplying the other half; measured, 32 of 90 EUR/USD and 53 of 120 GBP/USD shorts
+# would otherwise have been sold with no lower high, against his 2026-08-25 ruling.
+_trend_src = (_Path(__file__).resolve().parents[2] / "strategies" / "vix1_trend.py").read_text(
+    encoding="utf-8")
+s.check("the down-confirm requires a lower high as well as a lower low",
+        "lower_low and lower_high" in _trend_src, True)
+s.check("the up-confirm requires a higher low as well as a higher high",
+        "higher_high and higher_low" in _trend_src, True)
 
 # THE THRESHOLDS THAT WERE REMOVED MUST STAY REMOVED. Depth went on his argument (a retracement deep
 # enough to matter breaks the protected low and the CHoCH detector has it); the efficiency cut went
@@ -227,7 +262,11 @@ print()
 s.teeth("the pullback refusal", leg_state(rising, -1).ready is False)
 s.teeth("the no-trend guard", leg_state(rising, 0).ready is False)
 s.teeth("the permissive rule", leg_state(choppy, 1).ready is True)
-s.teeth("the market gate refuses a range", market_permits(Regime(RANGE, "b")) is not None)
-s.teeth("...and allows a trend", market_permits(Regime(TREND, "p")) is None)
+# TEETH RE-AIMED 2026-09-07, and the swap is stated because flipping a teeth assertion is exactly
+# how a regression hides. They used to prove the deleted gate refused a RANGE and allowed a TREND.
+# They now prove the thing that replaced its one useful half: his own trend definition, enforced in
+# the module that owns the trend. Break either line in `vix1_trend` and these go red.
+s.teeth("the down-confirm demands a lower high too", "lower_low and lower_high" in _trend_src)
+s.teeth("the up-confirm demands a higher low too", "higher_high and higher_low" in _trend_src)
 
 s.done()

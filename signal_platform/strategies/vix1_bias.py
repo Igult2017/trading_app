@@ -33,7 +33,6 @@ from strategies.vix1_momentum import momentum_run, veto_reason
 from strategies import vix1_log
 from shared.candle_math import atr
 from strategies import vix1_choch
-from strategies.vix1_regime import market_permits
 from strategies import vix1_regime
 from strategies import vix1_retracement
 from strategies.vix1_state import Bias, market_state
@@ -275,22 +274,35 @@ def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "", debut=None
                                  f"trend, but the leg does not permit it — {leg.why} | {state_mc}")
             return None
 
-        # IS THE MARKET WORTH TRADING AT ALL — his "not in a retracement", answered by the market
-        # state rather than by interrogating the candle (the candle is the proof the retracement
-        # ended; that is settled). The reversal half of the same rule is enforced by `t1 == 0` above.
+        # ── THE SECOND TREND GATE WAS HERE, AND IT IS GONE (2026-09-07) ─────────────────────────
         #
-        # ⚠ THIS IS LIVE AND IT REFUSES. The line here used to read "Inert until he sets the two
-        # thresholds, so this changes nothing today" — and that was FALSE, corrected 2026-08-29.
-        # The thresholds ARE set (`vix1_regime._PROGRESS_ATR = 0.50`, `_BOUNDARY_ATR = 0.75`) and
-        # `market_permits` refuses anything that is not a TREND: verified by calling it directly on a
-        # RANGE (refused) and a TREND (allowed), and measured live on all three instruments, where it
-        # was refusing at the time of reading. A comment claiming a working gate is switched off is
-        # how a working gate gets deleted by whoever reads it next, so it is asserted in
-        # `test_structure.py` rather than described here.
-        refusal = market_permits(regime)
-        if refusal:
-            vix1_log.say(symbol, f"[vix1] {symbol} bias=NONE: {refusal} | {state_mc}")
-            return None
+        # His instruction: *"we can't have 2 trend logics, what for."*
+        #
+        # `vix1_regime.classify` answered "is there a trend" from the SAME turning points as
+        # `vix1_trend` (line 162 computes them once) and was allowed to overrule it. Measured on 4.3
+        # years of real H1 through the real functions, when the structure engine had a trend this
+        # gate:
+        #
+        #     agreed and allowed ..................... 37.5% EUR/USD, 38.6% GBP/USD
+        #     REFUSED it ............................. 32.4%          , 34.2%
+        #     allowed it POINTING THE OPPOSITE WAY ... 17.1%          , 15.8%
+        #
+        # It never once contributed a refusal the structure engine could not make. `classify` returns
+        # TREND for "lower high and lower low" without recording that this means DOWN, and
+        # `market_permits` only asked whether the kind was TREND — so its approval was not even
+        # direction-aware. That last row is the complex-pullback case this strategy exists to survive
+        # (`vix1_trend.py:48-52`): the gate waved the pullback through and blocked the resumption.
+        #
+        # WHAT IT WAS SECRETLY CARRYING, and where that went. Requiring the highs and lows to agree
+        # was also supplying the missing half of his own trend definition — *"Downtrend -> LL + LH"* —
+        # because `vix1_trend`'s reversal-confirm tested only ONE side. Measured: without that,
+        # 32 of 90 EUR/USD and 53 of 120 GBP/USD newly-allowed shorts had no lower high, i.e. would
+        # have been sold before the pullback turned back down, against his 2026-08-25 ruling. So the
+        # rule was MOVED into `vix1_trend`'s confirm step, where the trend is actually decided, and
+        # stated as his definition rather than inherited from a gate that names market types.
+        #
+        # `regime` is still computed above and still travels onto the card via the `Bias` record —
+        # it DESCRIBES the market, which is `vix1_regime`'s job. It no longer decides.
 
         # ── IS THIS MARKET WORTH TRADING AT ALL? (2026-09-04) ───────────────────────────────────
         # His three charts of markets we cannot trade produced **12 signals**, every one through
@@ -346,12 +358,14 @@ def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "", debut=None
         stale_evidence = pb_since is not None and h1[mc_idx].time < pb_since
         # ...and here the window IS the full one, so the index comes from `tstate`.
         live_leg = leg_state(window, t1, n=_FAST_N, choch_index=tstate.choch_index)
-        live_regime = vix1_regime.classify(turns, atr(window, 14))
-        live_refusal = market_permits(live_regime)
-        if stale_evidence or not live_leg.ready or live_refusal:
-            why = (live_refusal or (live_leg.why if not live_leg.ready else
+        # THE SECOND TREND GATE WAS ASKED A SECOND TIME HERE TOO, and it is gone for the same reason
+        # as the one above — see that note. The freshness question this block exists to answer is
+        # "has the market moved on since the candle formed", and `t1` above is already read from the
+        # LIVE window, so the trend half of it is covered by the one engine that owns the trend.
+        if stale_evidence or not live_leg.ready:
+            why = (live_leg.why if not live_leg.ready else
                    "a pullback has begun since this momentum candle closed, so the candle is not "
-                   "the one that ended it — waiting for a momentum candle out of THIS pullback"))
+                   "the one that ended it — waiting for a momentum candle out of THIS pullback")
             vix1_log.say(symbol, f"[vix1] {symbol} bias=NONE: the setup was valid when the candle "
                                  f"formed {len(h1) - 1 - mc_idx}h ago, but the market has moved on "
                                  f"— {why} | {state}")

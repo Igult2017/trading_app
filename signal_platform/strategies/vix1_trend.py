@@ -210,13 +210,39 @@ def trend_state(candles: list[Candle], n: int = _SWING_N, turns=None) -> TrendSt
             last_pi = p.index
 
             # CONFIRM a proposed reversal: the new direction must print its own BOS first.
+            #
+            # BOTH SIDES MUST MOVE TOGETHER — his definition, and it was only half-checked until
+            # 2026-09-07: *"Uptrend -> HH + HL. Downtrend -> LL + LH."*
+            #
+            # This asked ONLY for a lower low (down) or a higher high (up). The other half — the
+            # pullback turning back the trend's way — was never tested here. It was being supplied
+            # by accident, from `vix1_regime.classify` refusing anything whose highs and lows
+            # disagreed, two modules away in `vix1_bias`; `vix1_choch.py:123-127` names that gate as
+            # what enforces his 2026-08-25 bearish rule (*"it runs down -> it pulls back up -> when
+            # that pullback turns back down, that's the proof"*).
+            #
+            # MEASURED before writing this, on real H1 bars: of the setups that gate was the ONLY
+            # thing refusing, **32 of 90 EUR/USD shorts (35.6%) and 53 of 120 GBP/USD shorts (44.2%)
+            # had no lower high at all** — they would have been sold before the pullback turned.
+            # So the gate really was carrying half his rule, and deleting it without this would have
+            # broken a ruling of his while looking like a tidy-up.
+            #
+            # The rule now lives in the module that OWNS the trend, stated as itself rather than
+            # inherited as a side effect of something that names market types. `_establish` is
+            # deliberately NOT touched in the same change — this module's own note at the
+            # establishment branch warns that changing two structure rules at once makes any
+            # measured difference unattributable.
             if st.pending and len(st.highs) >= 2 and len(st.lows) >= 2:
-                if st.pending == -1 and not p.is_high and st.lows[-1] < st.lows[-2]:
+                lower_low   = st.lows[-1] < st.lows[-2]
+                lower_high  = st.highs[-1] < st.highs[-2]
+                higher_high = st.highs[-1] > st.highs[-2]
+                higher_low  = st.lows[-1] > st.lows[-2]
+                if st.pending == -1 and not p.is_high and lower_low and lower_high:
                     st.direction, st.protected = -1, max(st.highs[-2:])
                     st.bos_price, st.bos_index = p.price, p.index
                     st.pending, last_ext, since, st.breaks = 0, p.price, [], 1
                     st.direction_since = p.index
-                elif st.pending == 1 and p.is_high and st.highs[-1] > st.highs[-2]:
+                elif st.pending == 1 and p.is_high and higher_high and higher_low:
                     st.direction, st.protected = 1, min(st.lows[-2:])
                     st.bos_price, st.bos_index = p.price, p.index
                     st.pending, last_ext, since, st.breaks = 0, p.price, [], 1
