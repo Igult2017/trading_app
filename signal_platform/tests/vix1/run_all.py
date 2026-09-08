@@ -21,6 +21,7 @@ TESTS = [
     "test_quote_compare.py",        # two price sources: the observation can never cost a quote
     "test_tradeable.py",            # ranging / quiet / choppy: the markets he cannot trade
     "test_trend_owns_the_trend.py", # ONE module owns the trend; shape can't contradict it; 1HR only
+    "test_heads_up_and_windows.py",  # the heads-up closes its loop; momentum gets its own window
     "test_position_book.py",        # the shared position cache: a forced refresh must not read stale
     "test_order_cancel.py",         # a resting order dies with its setup, and never otherwise
     "test_momentum.py",             # the gates and grading, hand-built candles

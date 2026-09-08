@@ -272,17 +272,54 @@ def closed_outcome(h1_closed: list[Candle], symbol: str,
 
 
 def standdown_signal(symbol: str, bar: Candle, bullish: bool, pip: float,
-                     strategy_name: str) -> Signal:
+                     strategy_name: str, refused_because: str | None = None) -> Signal:
     """"That candle did not make it — still watching." The other half of the notification.
 
     No `chart_marks`: the bar has CLOSED, so the card draws it as the ordinary finished candle it now
     is. STAGE STAYS `building` — the only other stage is `ready`, which paints a green/red buy-sell
     accent, actively wrong on a message whose point is that there is nothing to trade.
+
+    TWO WAYS A HEADS-UP ENDS IN NO TRADE, and until 2026-09-08 only one of them was reported:
+
+      refused_because = None  the candle CLOSED WITHOUT QUALIFYING — the original case
+      refused_because = "..." the candle QUALIFIED and a later gate refused the setup
+
+    The second is what actually happened to him: EUR/USD 6-7 Sep, `qualified=True told=True` nine
+    times and no signal, with nothing sent to explain it. The reason comes from `vix1_log.last_reason`
+    so this message and the log can never tell different stories.
     """
     side = "BUY" if bullish else "SELL"
     body = abs(bar.close - bar.open) / pip if pip else 0.0
     gave_back = (bar.high - bar.close) if not bullish else (bar.close - bar.low)
     reach = (bar.open - bar.low) if not bullish else (bar.high - bar.open)
+
+    if refused_because:
+        # IT DID QUALIFY. Saying "did not qualify" here would be a plain lie, and the numbers about
+        # giving back the move are about a candle that failed — meaningless for one that did not.
+        return Signal(
+            symbol            = symbol,
+            direction         = Direction.BUY if bullish else Direction.SELL,
+            strategy_id       = "vix1_watch",     # admin DM, never the channel
+            strategy_name     = strategy_name,
+            alert_only        = True,
+            persist_watch     = False,
+            stage             = "building",
+            qualified         = False,
+            primary_timeframe = TF.H1,
+            confidence        = 0.0,
+            headline          = titles.MOMENTUM_FAILED,
+            label             = "STANDING ASIDE",
+            technical_reasons = [
+                f"The 1H candle you were notified about ({side}) has CLOSED and DID qualify as a "
+                f"momentum candle — {body:.1f} pip body.",
+                f"The setup was still refused: {refused_because}.",
+                "Nothing to trade here — no entry, stop or target was created for it.",
+                "STILL WATCHING. You will get the next notification if another candle starts building.",
+            ],
+            market_context    = (f"VIX.1 — {symbol} 1H {side} candle qualified but the setup was "
+                                 f"refused; watching for the next"),
+        )
+
     return Signal(
         symbol            = symbol,
         direction         = Direction.BUY if bullish else Direction.SELL,

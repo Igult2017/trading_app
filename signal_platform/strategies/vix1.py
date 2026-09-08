@@ -177,6 +177,12 @@ class Vix1Strategy(BaseStrategy):
         # `delivery_ledger` (the notification's own dedup key, committed only on a confirmed send), so
         # this needs no new state and survives a restart. Reporting every non-qualifying candle would
         # be dozens of messages a day about candles he never heard of.
+        # Carried out of the block below so the SECOND way a heads-up can end in no trade can be
+        # reported after the bias is known — see the stand-down at the `bias is None` branch.
+        told = None
+        was_momentum = False
+        skey = None
+        closed_bar = None
         outcome = vix1_preclose.closed_outcome(h1, sym, now)
         if outcome is not None:
             closed_bar, was_momentum = outcome
@@ -244,6 +250,34 @@ class Vix1Strategy(BaseStrategy):
         self._debut.note(sym, h1[-1].time)
         bias = detect_bias(h1, h4, sym, debut=self._debut)   # trend on H4, momentum on H1; logs when None
         if bias is None:
+            # ── THE OTHER HALF OF THE STAND-DOWN (added 2026-09-08) ─────────────────────────────
+            #
+            # A heads-up can end in no trade TWO ways, and until now he was told about only one.
+            # The block above fires when the candle FAILS TO QUALIFY. This fires when it qualified
+            # and a later gate refused the trade — which is the case that actually happened to him:
+            # EUR/USD on 6-7 Sep logged `qualified=True told=True` NINE times and produced no
+            # signal, with no message at any point saying why.
+            #
+            # THE NOTIFICATION IS DELIBERATELY NOT MADE STRICTER TO PREVENT THIS. It fires at T-6,
+            # before the candle closes, and the closing bar can itself confirm the swing that puts
+            # the trend back in shape — measured on 800 real closing bars, that rescues 2.2% of
+            # them. Filtering the heads-up on those gates would silence exactly those setups. The
+            # honest fix is to finish the conversation, not to start fewer of them.
+            #
+            # `last_reason` is the line `detect_bias` just logged, so this can never disagree with
+            # the log. Same dedup key as the other stand-down: one message per notified candle,
+            # whichever way it ended.
+            if (told is not None and was_momentum and skey is not None
+                    and not delivery_ledger.is_delivered(skey)):
+                why_refused = vix1_log.last_reason(sym) or "the setup did not pass a later check"
+                sd = vix1_preclose.standdown_signal(sym, closed_bar, told, pip, self.name,
+                                                    refused_because=why_refused)
+                sd.dedup_key = skey
+                out.append(sd)
+                vix1_log.say_always(f"[vix1] {sym} STAND-DOWN — the "
+                                    f"{'BUY' if told else 'SELL'} candle notified at "
+                                    f"{closed_bar.time} QUALIFIED but the setup was refused: "
+                                    f"{why_refused}")
             return StrategyResult(signals=out)
         bullish, origin, vol_count = bias.bullish, bias.origin, bias.run_len
         bias_reason = bias.reason

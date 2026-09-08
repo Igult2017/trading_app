@@ -318,8 +318,27 @@ def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "", debut=None
         # cleanly and was REJECTED as fitted to three examples.
         # `ret` is the retracement THIS PATH ALREADY MEASURED at the momentum candle (line 235), so
         # his pullback exception costs nothing extra and cannot disagree with the number on the card.
+        # `market_awake` GETS THE MOMENTUM WINDOW, NOT THE TREND WINDOW (fixed 2026-09-08).
+        #
+        # It asks a MOMENTUM question — "has this market produced any momentum candle lately" — using
+        # `is_momentum_candle` unchanged, so that what counts as momentum can never drift between
+        # this test and the entry. The function was indeed unchanged; the WINDOW was not.
+        #
+        # `at_mc` is cut from `window`, which is 1,500 bars because that is the pinned TREND window.
+        # The momentum test needs `_LONG_MIN_BARS` = 1,800 for its four-month yardstick and SILENTLY
+        # SKIPS that second size floor below it — the state `vix1_momentum` itself warns about as
+        # "what admitted the 10-Aug 7.5-pip candle". Measured: the entry (3,000 bars) required a body
+        # of 3.3 pips on top of the 100-bar test where this saw no such requirement at all, and the
+        # SAME candle was judged differently 8 times in 400 bars.
+        #
+        # So it now gets the same causal truncation — ending AT the momentum candle, which is the
+        # whole point of `at_mc` — taken from the full `h1` instead. `market_awake` only ever COUNTS
+        # over the last `2 * look` bars, so the count is identical; only the yardstick is restored.
+        # Nothing else moves: `leg_state`, `market_state`, `trend_state` and the ATR keep `at_mc`,
+        # because 1,500 is correct for all of them and lengthening it would change the trend read.
+        awake_window = h1[:mc_idx + 1]
         for veto in (trend_reproven(mstate, turns_mc),
-                     market_awake(at_mc, mstate, ret, symbol, _QUIET_LOOK)):
+                     market_awake(awake_window, mstate, ret, symbol, _QUIET_LOOK)):
             if veto:
                 vix1_log.say(symbol, f"[vix1] {symbol} bias=NONE: {veto} | {state_mc}")
                 return None

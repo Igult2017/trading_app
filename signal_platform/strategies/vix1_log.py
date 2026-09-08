@@ -55,11 +55,37 @@ def say(symbol: str, message: str, logger: logging.Logger | None = None) -> bool
     # now throttles independently, which is also what makes a genuine change still print instantly:
     # a NEW reason is a new key and speaks on first sight.
     sh = shape(message)
+    # THE LAST REASON IS REMEMBERED, so a message can SAY why (added 2026-09-08). Recorded BEFORE the
+    # throttle, on purpose: a reason that repeats is deliberately not re-logged, but it is still the
+    # current reason, and a caller asking "why did nothing happen" must get today's answer rather
+    # than the last one that happened to be new. His two EUR/USD setups of 6-7 Sep were refused nine
+    # times for the identical reason, so every one of those after the first is a suppressed line.
+    _last_reason[symbol] = message
     if not stage_tracker.emit("vix1", f"{symbol}:{sh}", sh, message, logger=logger or log):
         return False
     from storage import observability_repo as obs
     obs.record(obs.STAGE_EVALUATED, "vix1", symbol, detail=message)
     return True
+
+
+# symbol -> the most recent reason this module was asked to say. Presentation only: nothing reads it
+# to make a decision, and it is never persisted.
+_last_reason: dict[str, str] = {}
+
+
+def last_reason(symbol: str) -> str | None:
+    """The most recent thing VIX.1 said about `symbol`, or None if it has not spoken yet.
+
+    Exists so the stand-down message can name the actual refusal instead of "no signal". Strips the
+    "[vix1] SYMBOL bias=NONE: " prefix and the trailing market-state block, both of which are for the
+    log rather than for him.
+    """
+    msg = _last_reason.get(symbol)
+    if not msg:
+        return None
+    head, sep, tail = msg.partition("bias=NONE:")
+    text = (tail if sep else msg).split("|")[0].strip()
+    return text or None
 
 
 def say_always(message: str, logger: logging.Logger | None = None) -> None:
