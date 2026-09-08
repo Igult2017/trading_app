@@ -156,6 +156,24 @@ _FF_URL = 'https://nfs.faireconomy.media/ff_calendar_thisweek.json'
 # costs one short wait and removes that.
 _FF_RETRY_AFTER_S = 6
 
+# ASK ONLY FOR COMPRESSION WE CAN ACTUALLY UNDO — and this is why the feed shipped broken once.
+#
+# The shared `HEADERS` above are for scraping HTML and advertise `br` (Brotli). The feed honours it.
+# `requests` only decodes Brotli if the `brotli` package is installed — it is on this laptop and it
+# is NOT in the container, so the first deploy logged:
+#
+#     ForexFactory body is not JSON: '\xb0\x1bS\x01 ...'
+#
+# raw compressed bytes, read as text. It worked perfectly in every local test, which is exactly the
+# shape of bug that only production can show you. gzip and deflate are handled by the standard
+# library, so asking for those two alone cannot fail this way.
+_FF_HEADERS = {
+    'User-Agent': HEADERS['User-Agent'],
+    'Accept': 'application/json',
+    'Accept-Language': 'en-US,en;q=0.9',
+    'Accept-Encoding': 'gzip, deflate',
+}
+
 
 def _fetch_forexfactory() -> list | None:
     """GET the weekly feed. Returns the decoded rows, or None if it could not be read.
@@ -165,7 +183,7 @@ def _fetch_forexfactory() -> list | None:
     """
     for attempt in (1, 2):
         try:
-            resp = requests.get(_FF_URL, headers=HEADERS, timeout=20)
+            resp = requests.get(_FF_URL, headers=_FF_HEADERS, timeout=20)
         except Exception as exc:
             print(f'[news_calendar] ForexFactory request failed: {exc}', file=sys.stderr)
             return None
@@ -183,8 +201,12 @@ def _fetch_forexfactory() -> list | None:
         try:
             data = resp.json()
         except Exception as exc:
-            print(f'[news_calendar] ForexFactory body is not JSON ({exc}): {resp.text[:120]!r}',
-                  file=sys.stderr)
+            # NAME THE ENCODING. When this failed in production the body was raw Brotli and the
+            # message showed only mangled text, which reads like a blocked page and is not one.
+            print(f'[news_calendar] ForexFactory body is not JSON ({exc}) — '
+                  f'Content-Type={resp.headers.get("Content-Type")!r} '
+                  f'Content-Encoding={resp.headers.get("Content-Encoding")!r} '
+                  f'{len(resp.content)} bytes: {resp.text[:100]!r}', file=sys.stderr)
             return None
 
         if not isinstance(data, list):
@@ -597,6 +619,17 @@ _TE_NOT_POLICY = ('deposit', 'interbank', 'inflation', 'unemployment',
                   'lending', 'savings', 'reverse', 'prime', 'mortgage')
 
 
+# Browser fingerprints for `curl_cffi` to imitate, tried in order — different TLS signatures get a
+# bot scorer to answer differently, so rotating them raises the chance one is served the real page.
+#
+# THIS LIST BELONGS TO THE RATES. It was called `_MFX_PROFILES` and lived in the MyFXBook block; when
+# that block was deleted on 2026-09-09 this reference went with it and production logged
+# `TE JPY failed: name '_MFX_PROFILES' is not defined` — JPY, CHF and NZD silently fell back to the
+# hardcoded table. The delete-sweep looked for the FUNCTIONS being removed and never for the
+# CONSTANTS they shared, which is the whole lesson: a shared constant has no caller to grep for.
+_TLS_PROFILES = ['safari17_2_ios', 'chrome131', 'firefox133', 'safari18_0_ios', 'chrome124']
+
+
 def _te_html(url: str) -> str | None:
     """
     Fetch a Trading Economics page, working around the block the SERVER gets.
@@ -639,7 +672,7 @@ def _te_html(url: str) -> str | None:
         print('[news_calendar] curl_cffi unavailable, cannot retry TE', file=sys.stderr)
         return None
 
-    for profile in _MFX_PROFILES:
+    for profile in _TLS_PROFILES:
         try:
             s = cffi_requests.Session(impersonate=profile)
             r = s.get(url, timeout=20)

@@ -147,5 +147,57 @@ check('a row missing its country is skipped',
 check('junk rows are skipped, good rows still parse',
       len(parse_forexfactory(['nonsense', None, FEED[0]])), 1)
 
+print('\n== 7. THE TWO THINGS THAT ONLY PRODUCTION CAUGHT, 09 Sep ==')
+# Both of these passed every local test and failed on the first deploy. They are pinned here
+# because neither can be caught by running the code on this machine.
+
+# (a) COMPRESSION WE CANNOT UNDO. The shared HTML headers advertise Brotli ('br'). The feed honours
+#     it, `requests` only decodes it when the `brotli` package is installed — it is on this laptop
+#     and is NOT in the container — so production received raw compressed bytes and logged
+#     "body is not JSON: '\xb0\x1bS\x01 ...'", which reads exactly like a blocked page.
+from news_calendar import _FF_HEADERS, HEADERS
+check('the feed request never asks for brotli',
+      'br' in _FF_HEADERS.get('Accept-Encoding', ''), False)
+check('...it asks only for encodings the standard library handles',
+      _FF_HEADERS['Accept-Encoding'], 'gzip, deflate')
+check('the HTML headers still DO ask for brotli — this is about the feed only',
+      'br' in HEADERS['Accept-Encoding'], True)
+
+# (b) A SHARED CONSTANT HAS NO CALLER TO GREP FOR. Deleting the MyFXBook block took `_MFX_PROFILES`
+#     with it, and the RATES fallback used it: production logged
+#     `TE JPY failed: name '_MFX_PROFILES' is not defined` and JPY/CHF/NZD silently dropped to the
+#     hardcoded table. Running the file locally cannot catch it — that branch only executes when the
+#     server is served a challenge, which does not happen from home.
+#
+#     So this checks the WHOLE module for any name used but never defined, which catches the next
+#     orphaned constant as well as this one.
+import ast, builtins
+from pathlib import Path
+
+_src = Path(__file__).resolve().parent.joinpath('news_calendar.py').read_text(encoding='utf-8')
+_tree = ast.parse(_src)
+_defined = set(dir(builtins))
+for _n in ast.walk(_tree):
+    if isinstance(_n, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+        _defined.add(_n.name)
+    elif isinstance(_n, ast.Name) and isinstance(_n.ctx, ast.Store):
+        _defined.add(_n.id)
+    elif isinstance(_n, (ast.Import, ast.ImportFrom)):
+        for _a in _n.names:
+            _defined.add(_a.asname or _a.name.split('.')[0])
+    elif isinstance(_n, ast.arg):
+        _defined.add(_n.arg)
+    elif isinstance(_n, ast.ExceptHandler) and _n.name:
+        _defined.add(_n.name)
+_undefined = sorted({_n.id for _n in ast.walk(_tree)
+                     if isinstance(_n, ast.Name) and isinstance(_n.ctx, ast.Load)
+                     and _n.id not in _defined})
+check('no name in news_calendar.py is used but never defined', _undefined, [])
+
+# The rates path's TLS profile list must survive any future calendar rewrite.
+from news_calendar import _TLS_PROFILES
+check('the rates fallback still has its TLS profiles',
+      isinstance(_TLS_PROFILES, list) and len(_TLS_PROFILES) > 0, True)
+
 print(f'\n{_pass} passed, {_fail} failed')
 sys.exit(1 if _fail else 0)
