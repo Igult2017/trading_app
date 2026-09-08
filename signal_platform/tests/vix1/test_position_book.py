@@ -20,10 +20,18 @@ Both are checked below, along with the thing the cache exists for: a second read
 must not touch the broker.
 """
 import asyncio
+import os
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
+# NO DB IS TOUCHED — but `config.settings` refuses to build without this, and section 6 imports
+# `trade_watcher`, which imports it. The shared harness (`_harness.py:19`) does exactly this for the
+# same reason; this file carries its own `check()` rather than importing that harness, so it must
+# set it itself. Without it the file died at section 6 with "database_url Field required", and the
+# suite reported failures for a reason that had nothing to do with the code under test.
+os.environ.setdefault("DATABASE_URL", "postgresql://x/x")
 
 _pass = 0
 _fail = 0

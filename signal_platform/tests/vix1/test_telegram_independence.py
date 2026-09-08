@@ -82,7 +82,28 @@ class _Stub:
     async def open_positions(self): return self.positions
 
 
+# STUB THE PATH THE TRACKER ACTUALLY TAKES, WHICH MOVED ON 2026-09-07.
+#
+# `check_all` used to read `ctrader_positions.open_positions()` directly; it now goes through
+# `position_book.positions()` (position_tracker.py:398), which calls the REAL ctrader module
+# underneath (position_book.py:81). So stubbing `T.ctrader_positions` alone stopped intercepting
+# anything — and this file then made a LIVE BROKER CALL from the test suite. It failed here for
+# want of credentials; on a machine that has them **it would have passed while testing the live
+# broker instead of the scenario**, which is worse than failing.
+#
+# Both are stubbed: `position_book` because that is what is called, and `ctrader_positions` because
+# a future reader who re-points the tracker back must not silently reach the broker either.
+def _use(positions):
+    stub = _Stub(positions)
+    T.ctrader_positions = stub
+    PB._cached = None                      # never serve a cached list across scenarios
+    PB.positions = stub.open_positions     # the path check_all really uses
+    return stub
+
+
 T.ctrader_positions = _Stub([P(pid=70)])
+from monitor import position_book as PB
+_use([P(pid=70)])
 
 
 _amend_times: list = []
@@ -123,7 +144,7 @@ asyncio.run(T.check_all(raises))
 s.check("the stop is still moved while Telegram RAISES", "amend" in [k for k, _ in order], True)
 
 # ONE HUNG POSITION MUST NOT DELAY THE NEXT. Two positions, both must be amended.
-T.ctrader_positions = _Stub([P(pid=71), P(pid=72)])
+_use([P(pid=71), P(pid=72)])
 order.clear(); _amend_times.clear()
 t0 = time.monotonic()
 asyncio.run(T.check_all(_send_hangs))
@@ -202,7 +223,7 @@ async def _one_explodes_on_71(p, send, r_seen):
 
 
 T._one_position = _one_explodes_on_71
-T.ctrader_positions = _Stub([P(pid=70), P(pid=71), P(pid=72)])
+_use([P(pid=70), P(pid=71), P(pid=72)])
 _seen_positions.clear()
 asyncio.run(T.check_all(works))
 s.check("every position is still attempted after one raises", sorted(_seen_positions), [70, 71, 72])
