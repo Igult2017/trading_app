@@ -290,7 +290,7 @@ def veto_reason(h1: list[Candle], bullish: bool, symbol: str) -> str:
     going to be stopped by the long one, and a single "too small" tally cannot say which.
     """
     start = max(1, len(h1) - LOOKBACK)
-    in_dir = too_small = under_long = not_bigger = wrong_shape = 0
+    in_dir = too_small = under_long = not_bigger = wrong_shape = qualified_but_old = 0
     pip = pip_size(symbol)
     for i in range(len(h1) - 1, start - 1, -1):
         c = h1[i]
@@ -309,10 +309,31 @@ def veto_reason(h1: list[Candle], bullish: bool, symbol: str) -> str:
         elif rng > 0 and (body_size(c) < _MIN_BODY_FRAC * rng
                           or counter_wick(c, bullish) > _MAX_CWICK_FRAC * rng):
             wrong_shape += 1
+        else:
+            # IT PASSED EVERY TEST — so "none was a momentum candle" would be a lie.
+            #
+            # This branch did not exist until 2026-09-08, and its absence made the counts silently
+            # fail to add up: every refusal line in production showed one more in-direction bar than
+            # the four buckets accounted for (5 bars / 4 counted, 7 / 6, 6 / 5). A candle that
+            # passes all four IS a momentum candle; it simply is not the NEWEST closed bar, and
+            # `momentum_run` takes only that one — his rule: *"I trade the current and newest
+            # momentum candle... I want for the current momentum candle to close then take a
+            # trade."*
+            #
+            # SO THE MARKET DID PRODUCE ONE AND WE DECLINED IT FOR BEING STALE — a completely
+            # different situation from "nothing qualified", and the one he would most want to know
+            # about when asking why nothing fired. The old wording told him the opposite.
+            qualified_but_old += 1
     if in_dir == 0:
         return f"no in-direction ({'up' if bullish else 'down'}) H1 candle in the last {LOOKBACK} bars"
     long_now = long_requirement(h1, len(h1) - 1, symbol)
-    return (f"{in_dir} in-direction bars but none was a momentum candle "
+    if qualified_but_old:
+        head = (f"{in_dir} in-direction bars; {qualified_but_old} DID qualify as a momentum candle "
+                f"but the NEWEST closed bar is not one, so there is nothing to trade "
+                f"(the newest candle must itself qualify)")
+    else:
+        head = f"{in_dir} in-direction bars but none was a momentum candle"
+    return (f"{head} "
             f"(too small x{too_small}, under the long-window floor x{under_long}, "
             f"not bigger than the previous candle x{not_bigger}, "
             f"wicky/shape x{wrong_shape} — needs body >= "
