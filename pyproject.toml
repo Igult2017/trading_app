@@ -36,6 +36,7 @@ dependencies = [
     "yfinance>=0.2.66",
     "cloudscraper>=1.2.71",
     "curl-cffi>=0.7.0",
+    "nodriver>=0.50",   # drives Chrome directly — no DevTools announcement for Cloudflare to see
     "APScheduler>=3.10.0",
     "pydantic-settings>=2.0.0",
     "SQLAlchemy>=2.0.0",
