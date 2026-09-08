@@ -174,7 +174,34 @@ def _fetch_via_browser(url: str, wait_for: str) -> str | None:
         print(f'[news_calendar] browser unavailable: {exc}', file=sys.stderr)
         return None
 
-    ctx = None
+    def _diagnose(page, why: str) -> None:
+        """SAY WHAT THE BROWSER ACTUALLY SAW. Must run INSIDE the playwright session.
+
+        A bare timeout is a blind failure: "stuck on the challenge" and "past the challenge but the
+        element is named something else" produce the IDENTICAL message and need opposite fixes. The
+        rates bug was only cracked once its error printed what it had (`rows seen: []`), so this
+        does the same instead of inviting another round of guessing at browser flags.
+
+        THE FIRST VERSION OF THIS RAN IN AN `except` OUTSIDE THE `with` BLOCK and could never work —
+        playwright had already stopped, so every diagnosis died with "Event loop is closed". Caught
+        by running it against a page deliberately missing the element, which is the only reason it
+        is not still doing that in production.
+        """
+        print(f'[news_calendar] browser failed: {why}', file=sys.stderr)
+        try:
+            body = page.content()
+            marks = [m for m in _CF_CHALLENGE_MARKERS if m in body]
+            print(f'[news_calendar] browser SAW: url={page.url[:90]!r} '
+                  f'title={(page.title() or "")[:80]!r} {len(body)} bytes | '
+                  f'challenge markers: {marks or "NONE"} | '
+                  f'has #economicCalendarTable: {"economicCalendarTable" in body} | '
+                  f'has any <tr>: {"<tr" in body} | '
+                  f'has #calendarMobile: {"calendarMobile" in body}', file=sys.stderr)
+            text = ' '.join((page.inner_text('body') or '').split())[:300]
+            print(f'[news_calendar] browser TEXT: {text!r}', file=sys.stderr)
+        except Exception as diag:
+            print(f'[news_calendar] browser diagnosis failed too: {diag}', file=sys.stderr)
+
     try:
         with sync_playwright() as p:
             ctx = p.chromium.launch_persistent_context(
@@ -184,23 +211,29 @@ def _fetch_via_browser(url: str, wait_for: str) -> str | None:
                 args=_CHROME_FLAGS,
                 viewport={'width': 1440, 'height': 900},
             )
-            page = ctx.pages[0] if ctx.pages else ctx.new_page()
-            page.goto(url, wait_until='domcontentloaded', timeout=_BROWSER_NAV_MS)
-            page.wait_for_selector(wait_for, timeout=_BROWSER_SOLVE_MS)
-            html = page.content()
-            print(f'[news_calendar] browser: got {len(html)} bytes with {wait_for!r} present',
-                  file=sys.stderr)
-            return html
+            try:
+                page = ctx.pages[0] if ctx.pages else ctx.new_page()
+                page.goto(url, wait_until='domcontentloaded', timeout=_BROWSER_NAV_MS)
+                try:
+                    page.wait_for_selector(wait_for, timeout=_BROWSER_SOLVE_MS)
+                except Exception as exc:
+                    _diagnose(page, f'{type(exc).__name__}: {str(exc)[:120]}')
+                    return None
+                html = page.content()
+                print(f'[news_calendar] browser: got {len(html)} bytes with {wait_for!r} present',
+                      file=sys.stderr)
+                return html
+            finally:
+                try:
+                    ctx.close()
+                except Exception:
+                    pass
     except Exception as exc:
-        print(f'[news_calendar] browser failed: {type(exc).__name__}: {str(exc)[:160]}',
+        # The browser itself would not start, or the page would not load at all — a different fault
+        # from "the content never appeared", and named separately so the log says which.
+        print(f'[news_calendar] browser unusable: {type(exc).__name__}: {str(exc)[:160]}',
               file=sys.stderr)
         return None
-    finally:
-        try:
-            if ctx is not None:
-                ctx.close()
-        except Exception:
-            pass
 
 
 # TLS-impersonation profiles to try in order — different JA3/JA4 fingerprints
