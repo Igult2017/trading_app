@@ -163,76 +163,6 @@ _BROWSER_NAV_MS = 45_000        # just to get a response
 _BROWSER_SOLVE_MS = 150_000     # the challenge clearing and real rows appearing
 
 
-def _fetch_via_nodriver(url: str, wait_marker: str, budget_s: int = 120) -> str | None:
-    """Drive Chrome DIRECTLY — no Playwright, so nothing announces itself to Cloudflare.
-
-    WHY THIS EXISTS, and it is the first explanation that fits ALL the evidence. Playwright attaches
-    to Chrome over the DevTools protocol and issues `Runtime.enable`; Cloudflare probes for the
-    side-effects of that command. It happens BEFORE any page JavaScript runs, so no stealth script,
-    font package, window size or locale can hide it — which is exactly why adding all four on
-    2026-09-08 changed nothing and the server still sat on "Just a moment..." for 150 seconds.
-
-    It also explains the thing that made no sense: the SAME Playwright code gets through from a home
-    connection in 8 seconds. Cloudflare tolerates the leak on a residential IP and does not on a
-    datacenter one. Removing the leak is the one lever left that does not cost money.
-
-    `nodriver` is the successor to undetected-chromedriver and drives Chrome directly, so the
-    announcement is never made. In an independent 2026 benchmark over 31 Cloudflare-protected
-    targets it was the only tool with zero blocked results (28/31 OK), against 24/31 for vanilla
-    Playwright.
-
-    ⚠ NOT A GUARANTEE, and this is stated because the last attempt was sold too confidently: that
-    benchmark ran from a RESIDENTIAL IP, and so does the local check that this returns 296 events in
-    26 seconds. Neither proves anything about the datacenter. If this also fails, the remaining
-    difference really is the IP, and the answer is a residential proxy — his money, his call.
-    """
-    try:
-        import asyncio
-        import nodriver as uc
-    except Exception as exc:
-        print(f'[news_calendar] nodriver unavailable: {exc}', file=sys.stderr)
-        return None
-
-    async def _run() -> str | None:
-        browser = None
-        try:
-            browser = await uc.start(headless=False, browser_args=[
-                '--no-sandbox',                 # required as root in a container
-                '--disable-dev-shm-usage',      # /dev/shm is tiny in Docker
-                '--window-size=1440,900',
-                '--lang=en-GB',
-            ])
-            page = await browser.get(url)
-            # WAIT FOR THE CONTENT, never for "the page loaded" — the challenge page loads perfectly
-            # well and returns HTTP 200. Same rule as the Playwright path.
-            html = ''
-            for _ in range(budget_s // 2):
-                await asyncio.sleep(2)
-                html = await page.get_content()
-                if wait_marker in html:
-                    print(f'[news_calendar] nodriver: got {len(html)} bytes with '
-                          f'{wait_marker!r} present', file=sys.stderr)
-                    return html
-            marks = [m for m in _CF_CHALLENGE_MARKERS if m in (html or '')]
-            print(f'[news_calendar] nodriver: {wait_marker!r} never appeared in {budget_s}s '
-                  f'({len(html or "")} bytes) | challenge markers: {marks or "NONE"}',
-                  file=sys.stderr)
-            return None
-        finally:
-            try:
-                if browser is not None:
-                    browser.stop()
-            except Exception:
-                pass
-
-    try:
-        return uc.loop().run_until_complete(_run())
-    except Exception as exc:
-        print(f'[news_calendar] nodriver failed: {type(exc).__name__}: {str(exc)[:160]}',
-              file=sys.stderr)
-        return None
-
-
 def _fetch_via_browser(url: str, wait_for: str) -> str | None:
     """
     Fetch a challenged page with a real browser, and only return it once the CONTENT has arrived.
@@ -377,17 +307,12 @@ def _scrape_myfxbook() -> list:
     """
     url = 'https://www.myfxbook.com/forex-economic-calendar'
 
-    # Try 1: Chrome driven DIRECTLY (nodriver) — nothing announces itself over the DevTools
-    # protocol, which is the one difference that fits every piece of evidence. See
-    # `_fetch_via_nodriver` for why the fonts/flags/locale round changed nothing.
-    html = _fetch_via_nodriver(url, 'economicCalendarRow')
+    # Try 1: our own real Chrome, on a virtual display — the measured recipe.
+    # Waiting for a calendar ROW, not for the page to load, is what makes "we got the real page"
+    # mean what it says.
+    html = _fetch_via_browser(url, '#economicCalendarTable tr.economicCalendarRow')
 
-    # Try 2: the same real Chrome, via Playwright. Kept because it WORKS from any connection
-    # Cloudflare is not suspicious of, and it costs one attempt to find out.
-    if html is None:
-        html = _fetch_via_browser(url, '#economicCalendarTable tr.economicCalendarRow')
-
-    # Try 3: FlareSolverr, if one is configured — real Chrome, but its own build and flags.
+    # Try 2: FlareSolverr, if one is configured — real Chrome, but its own build and flags.
     if html is None:
         html = _fetch_via_flaresolverr(url)
 
@@ -412,26 +337,8 @@ def _scrape_myfxbook() -> list:
         print('[news_calendar] MyFXBook: all bypass methods failed', file=sys.stderr)
         return []
 
-    # THE CONTENT DECIDES, NOT THE MARKERS (fixed 2026-09-08).
-    #
-    # This threw away a GOOD page. Cloudflare injects its `/cdn-cgi/challenge-platform` script into
-    # every page it serves — including one where the challenge has been PASSED — so the marker test
-    # cannot tell "still being challenged" from "challenge cleared". Measured: nodriver returned
-    # 1,904,530 bytes WITH the calendar rows in it, and this line discarded all of it and reported
-    # zero events.
-    #
-    # It survived until now only because every earlier test called the fetch and the parser directly
-    # and never ran the whole function — so the calendar could have been fixed upstream and still
-    # come out empty here.
-    #
-    # If the rows are present, it is the calendar, whatever scripts the page also carries. The
-    # marker check now only speaks when there is no content to judge.
-    if 'economicCalendarRow' not in html:
-        if _is_cloudflare_challenge(html):
-            print('[news_calendar] MyFXBook: Cloudflare challenge detected — not calendar data',
-                  file=sys.stderr)
-        else:
-            print(f'[news_calendar] MyFXBook: no calendar rows in {len(html)} bytes', file=sys.stderr)
+    if _is_cloudflare_challenge(html):
+        print('[news_calendar] MyFXBook: Cloudflare challenge detected — not calendar data', file=sys.stderr)
         return []
 
     return parse_calendar_html(html)
