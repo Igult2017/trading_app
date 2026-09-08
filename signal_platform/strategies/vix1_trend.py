@@ -96,6 +96,33 @@ class TrendState:
     highs: list[float] = field(default_factory=list)
     lows: list[float] = field(default_factory=list)
 
+    # ── IS THE TREND STILL IN SHAPE? (2026-09-08) ────────────────────────────────────────────────
+    # His rule: *"Uptrend -> HH + HL. Downtrend -> LL + LH."* Asked of the LAST TWO highs and lows,
+    # at this moment — a question about the trend's present condition, not about its history.
+    #
+    # THIS USED TO LIVE IN `vix1_regime.classify`, IN ANOTHER MODULE, WITH A VETO. His words:
+    # *"If it has a different role, then why is it veto for another module. Cant we have everything
+    # for trend in one module but structured in a way that instead of conflicting they coordinate?"*
+    #
+    # THE DEFECT THAT MOVING IT FIXES, and it is one line of difference. Out there the check worked
+    # out its OWN direction and never compared it to the trend's, so it could say "this is a trend"
+    # meaning DOWN while the trend was UP. Measured over 4.3 years of real H1: it approved 17.1%
+    # (EUR/USD) / 15.8% (GBP/USD) of moments while describing the OPPOSITE direction, and refused
+    # 32.4% / 34.2% where this engine had a trend — the complex-pullback case (see the module
+    # docstring: half of all pullbacks are complex). It waved the pullback through and blocked the
+    # resumption, which cost two EUR/USD trades on 6-7 Sep 2026.
+    #
+    # HERE IT CANNOT DO THAT, because it is not allowed a direction of its own. It only ever answers
+    # "the shape still agrees with THIS trend" or "it does not". The contradiction is not fixed —
+    # it is unrepresentable.
+    #
+    # WHY IT IS NOT SIMPLY DELETED, measured on 2026-09-07 by deleting it: requiring both sides to
+    # agree is what carries his rule at the moment of trading. Without it, 74 of 227 EUR/USD and 119
+    # of 312 GBP/USD shorts were taken with NO lower high — sold before the pullback turned back
+    # down, against his 2026-08-25 ruling.
+    in_shape: bool = False
+    shape_why: str = "no trend to be in shape"
+
     @property
     def maturity(self) -> str:
         """DEVELOPING or DEVELOPED — his distinction, 2026-08-11.
@@ -123,6 +150,39 @@ class TrendState:
         if self.bos_price is not None:
             return f"{way}trend — BOS at {self.bos_price:.{digits}f} confirmed it is continuing"
         return f"{way}trend established from structure"
+
+
+def _shape(direction: int, highs: list[float], lows: list[float]) -> tuple[bool, str]:
+    """Do the last two highs and the last two lows still step the way THIS trend says?
+
+    Returns (in_shape, why). `direction` is the trend's own, and is never inferred here — that is
+    the whole point: this function has no opinion about which way the market is going, so it can
+    never contradict the engine it belongs to.
+
+    NOT ENOUGH SWINGS MEANS NOT IN SHAPE, deliberately, and it matches what shipped before: the old
+    `classify` returned UNCERTAIN in that case and the gate refused it. "Cannot tell" is not
+    permission — see `test_structure.py`, which pinned exactly that.
+    """
+    if direction == 0:
+        return False, "no trend to be in shape"
+    if len(highs) < 2 or len(lows) < 2:
+        return False, "not enough confirmed swings yet — need two highs and two lows"
+
+    dh = highs[-1] - highs[-2]
+    dl = lows[-1] - lows[-2]
+    way = "up" if direction == 1 else "down"
+    if direction == 1:
+        ok = dh > 0 and dl > 0
+        want = "a higher high and a higher low"
+    else:
+        ok = dh < 0 and dl < 0
+        want = "a lower high and a lower low"
+
+    if ok:
+        return True, f"the {way}trend is in shape — {want}"
+    moved = (f"the highs are moving {'up' if dh > 0 else 'down' if dh < 0 else 'sideways'} "
+             f"and the lows {'up' if dl > 0 else 'down' if dl < 0 else 'sideways'}")
+    return False, f"the {way}trend has lost its shape — it needs {want}, but {moved}"
 
 
 def _establish(seq: list[tuple[bool, float]]) -> tuple[int, float] | None:
@@ -274,7 +334,77 @@ def trend_state(candles: list[Candle], n: int = _SWING_N, turns=None) -> TrendSt
                 st.protected, last_ext, since, st.breaks = None, None, [], 0
                 st.direction_since = None
 
+    # THE SHAPE IS READ LAST, off the finished state, so it always describes the trend that is being
+    # returned rather than some intermediate one. It decides nothing here — it is a property the
+    # caller can act on, which is what makes this coordination rather than a second vote.
+    st.in_shape, st.shape_why = _shape(st.direction, st.highs, st.lows)
     return st
+
+
+# ─────────────────────────────────────────────────────────────────────────────────────────────────
+# MEMORY — HOW LONG HAS THIS BEEN THE ANSWER? (2026-09-08)
+#
+# His instruction: *"Also make them have memory."* And the constraint on it, in the same breath:
+# ***"even if you give trend memory, we are still using 1HR TF for trend."***
+#
+# THE TREND IS STILL READ ON THE 1-HOUR CHART AND NOWHERE ELSE. Nothing below fetches a bar, looks
+# at another timeframe, or changes a verdict. If a future reader finds an H4 read in this module, it
+# is a defect.
+#
+# WHY RECOMPUTING STAYS THE SOURCE OF TRUTH. The module docstring says the state is *"deliberately
+# DERIVED, never stored: replayed from the passed window every call, so no hidden global can
+# desynchronise across a restart or a second process."* That reasoning is sound and is KEPT. What is
+# stored is only the thing replaying cannot tell you: how long the current answer has been the
+# answer. The verdict is recomputed every call as before, then compared with what was remembered.
+#
+# THREE RULES, because stored state is exactly how silent drift happens:
+#   1. keyed by SYMBOL and BAR TIME — never an array index, which means nothing after a restart
+#   2. if the recomputed trend disagrees with memory, THE RECOMPUTED ONE WINS and memory is corrected
+#   3. memory may never create a trend, extend one, or change a direction — it is a record, not a
+#      source. An empty memory must behave exactly like today.
+_memory: dict[str, dict] = {}
+
+
+def remember(symbol: str, st: TrendState, bar_time: int) -> dict:
+    """Record this reading and return what is known about how long it has held.
+
+    Returns a dict with `direction_bars`, `shape_bars` and `same_reason` — all counts of CONSECUTIVE
+    1HR bars, so they are read straight off the chart the trend already uses.
+
+    Called once per scan by the caller that has the bar time to hand. Never called from inside
+    `trend_state`, because that function must stay a pure replay of the window it is given.
+    """
+    prev = _memory.get(symbol)
+    now = {
+        "direction": st.direction,
+        "in_shape": st.in_shape,
+        "shape_why": st.shape_why,
+        "bar_time": bar_time,
+        "direction_since_bar": bar_time,
+        "shape_since_bar": bar_time,
+    }
+    if prev and prev.get("bar_time") is not None:
+        # RULE 2: the recomputed reading wins. These carry forward ONLY while the answer is the same.
+        if prev.get("direction") == st.direction:
+            now["direction_since_bar"] = prev.get("direction_since_bar", bar_time)
+        if prev.get("in_shape") == st.in_shape:
+            now["shape_since_bar"] = prev.get("shape_since_bar", bar_time)
+    _memory[symbol] = now
+
+    bars = lambda since: max(0, (bar_time - since) // 3600)   # 1HR bars, and only 1HR
+    return {
+        "direction_bars": bars(now["direction_since_bar"]),
+        "shape_bars": bars(now["shape_since_bar"]),
+        "same_reason": bool(prev and prev.get("shape_why") == st.shape_why),
+    }
+
+
+def forget(symbol: str | None = None) -> None:
+    """Drop what is remembered — one symbol, or everything. For tests and for a clean restart."""
+    if symbol is None:
+        _memory.clear()
+    else:
+        _memory.pop(symbol, None)
 
 
 def clear_trend(candles: list[Candle], n: int = _SWING_N) -> int:

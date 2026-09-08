@@ -22,7 +22,6 @@ from strategies.vix1_bias import _H1_SWING_N, _H1_TREND_BARS
 from strategies.vix1_regime import classify
 from strategies.vix1_swings import structure_turns
 from strategies.vix1_structure import _FAST_N, fast_pattern, leg_state
-from strategies.vix1_regime import market_permits   # moved 2026-09-07 (pure move)
 from strategies.vix1_trend import trend_state
 from strategies.vix1_watch import check_invalidation
 
@@ -103,7 +102,10 @@ if real:
             st.direction, 1)
     s.check("so a SELL is never even sought (pro-trend only)", st.direction == -1, False)
     s.check("and the market is not tradeable anyway", reg.kind in ("range", "chop"), True)
-    s.check("   ...so the gate refuses it", market_permits(reg) is not None, True)
+    # The veto that used to refuse here is deleted. What stops this trade is the TREND read above —
+    # direction is UP, so a SELL is never sought at all. The shape check agrees, and now says so in
+    # the trend's own terms rather than as a separate module's verdict.
+    s.check("   ...and the trend itself reports the shape", st.in_shape, False)
 else:
     print("      SKIP — no local data")
 
@@ -166,16 +168,36 @@ print()
 print("   the market gate — only a TREND is tradeable (his rule, 2026-08-12):")
 from strategies.vix1_regime import CHOP, RANGE, TREND, UNCERTAIN, Regime   # noqa: E402
 
-s.check("a trend is allowed", market_permits(Regime(TREND, "progressing")), None)
-s.check("a RANGE is refused", market_permits(Regime(RANGE, "bounded")) is not None, True)
-s.check("   ...and the card can say which", "RANGE" in market_permits(Regime(RANGE, "b")), True)
-s.check("CHOP is refused", market_permits(Regime(CHOP, "scattered")) is not None, True)
-s.check("   ...and is named separately from a range",
-        "CHOP" in market_permits(Regime(CHOP, "scattered")), True)
-s.check("UNCERTAIN is refused - never trade on 'cannot tell'",
-        market_permits(Regime(UNCERTAIN, "not enough swings")) is not None, True)
-s.check("no regime at all -> allowed, so a missing reading can never silently mute the strategy",
-        market_permits(None), None)
+# ⚠ THESE SEVEN CHECKS REPLACE SEVEN THAT PINNED `market_permits`, AND THE SWAP IS STATED because
+# re-aiming assertions is how a regression hides. The old ones asserted that a RANGE, CHOP and
+# UNCERTAIN market were REFUSED **by a second module holding a veto over the trend**. That module is
+# gone (2026-09-08, his ruling: *"we can't have 2 trend logics, what for"*), and the question it
+# asked now lives in `vix1_trend` as `in_shape`, judged against that trend's OWN direction.
+#
+# So the RULE is unchanged and still asserted — his "Uptrend -> HH + HL, Downtrend -> LL + LH", and
+# "cannot tell" is still not permission. What changed is WHO answers it, and that it can no longer
+# contradict the trend it is describing.
+from strategies.vix1_trend import _shape                                   # noqa: E402
+
+s.check("an uptrend with a higher high and higher low is IN SHAPE",
+        _shape(1, [1.10, 1.12], [1.09, 1.10])[0], True)
+s.check("a downtrend with a lower high and lower low is IN SHAPE",
+        _shape(-1, [1.12, 1.10], [1.10, 1.09])[0], True)
+s.check("an UPtrend whose highs are falling has LOST SHAPE (a range/chop by his rule)",
+        _shape(1, [1.12, 1.10], [1.09, 1.10])[0], False)
+s.check("   ...and the refusal says what it needed",
+        "higher high and a higher low" in _shape(1, [1.12, 1.10], [1.09, 1.10])[1], True)
+s.check("'cannot tell' is NOT permission — too few swings refuses",
+        _shape(1, [1.10], [1.09])[0], False)
+s.check("no trend -> not in shape, so a missing direction can never look tradeable",
+        _shape(0, [1.10, 1.12], [1.09, 1.10])[0], False)
+
+# THE DEFECT THE MOVE EXISTS TO KILL, asserted directly: a market making a LOWER high and LOWER low
+# is a perfectly good downtrend shape — and it must NOT count as "in shape" for an UPtrend. The old
+# gate said "trend, tradeable" here, because it worked out its own direction and compared it to
+# nothing. Measured over 4.3 years that was 17.1% of EUR/USD moments.
+s.check("a downtrend's shape can never satisfy an uptrend (the 17% defect)",
+        _shape(1, [1.12, 1.10], [1.10, 1.09])[0], False)
 
 # THE THRESHOLDS THAT WERE REMOVED MUST STAY REMOVED. Depth went on his argument (a retracement deep
 # enough to matter breaks the protected low and the CHoCH detector has it); the efficiency cut went
@@ -227,7 +249,9 @@ print()
 s.teeth("the pullback refusal", leg_state(rising, -1).ready is False)
 s.teeth("the no-trend guard", leg_state(rising, 0).ready is False)
 s.teeth("the permissive rule", leg_state(choppy, 1).ready is True)
-s.teeth("the market gate refuses a range", market_permits(Regime(RANGE, "b")) is not None)
-s.teeth("...and allows a trend", market_permits(Regime(TREND, "p")) is None)
+# TEETH RE-AIMED 2026-09-08 — they used to prove the deleted veto refused a range and allowed a
+# trend. They now prove the property that replaced it and the defect it kills.
+s.teeth("an out-of-shape trend is refused", _shape(1, [1.12, 1.10], [1.09, 1.10])[0] is False)
+s.teeth("a downtrend shape never satisfies an uptrend", _shape(1, [1.12, 1.10], [1.10, 1.09])[0] is False)
 
 s.done()

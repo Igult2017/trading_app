@@ -146,33 +146,20 @@ def classify(turns, atr_value: float) -> Regime:
                         f"rather than a range")
 
 
-def market_permits(regime) -> str | None:
-    """Is the market in a state worth trading? The refusal reason, or None to allow.
-
-    ONE QUESTION: only a TREND is tradeable. A range and chop mean the same thing to a trend
-    strategy, but they are named separately because they ARE different — his diagram lists both and
-    his two charts show why: a range respects its ceiling and floor, chop stabs through them.
-
-    MOVED HERE FROM `vix1_structure` ON 2026-09-07 — a pure move, not a rewrite. It reads a `Regime`
-    and wraps `Regime.tradeable`, so it belongs beside them; `vix1_structure` owns the PULLBACK
-    question and nothing else. His instruction: *"make sure a question is only answered by one
-    module so that if something goes wrong we know where to go."*
-
-    ⚠ THIS GATE IS LOAD-BEARING — MEASURED, so nobody removes it as "a duplicate". It refuses a
-    trend that `vix1_trend` accepts 37.2% of the time, and of those refusals only 24% (EUR/USD) /
-    33% (GBP/USD) are also refused by another gate. Removing it would newly allow **~21% of all
-    setups on both pairs** (222 of 1,059 and 237 of 1,100, real bars, 2022-2026). Whether those are
-    good trades is UNKNOWN and answering it is a backtest — his call.
-
-    ⚠ AND IT IS ONE OF TWO ANSWERS TO "IS THERE A TREND", which is the open design question, not a
-    tidy-up: `vix1_trend` replays every swing through break-of-structure and change-of-character,
-    while `classify` above keeps only the last two highs and lows. After a change of character the
-    lows turn first and the highs are the last to turn, so this refuses exactly the setups he wants.
-    See `docs/strategies/vix1-architecture.md`, "ONE QUESTION, ONE MODULE".
-    """
-    if regime is None or regime.tradeable:
-        return None
-    return f"the market is not trending — {regime.kind.upper()}: {regime.why}"
+# `market_permits` IS DELETED (2026-09-08). It was the VETO — a second module allowed to refuse a
+# trade on trend grounds. His ruling: *"If it has a different role, then why is it veto for another
+# module. Cant we have everything for trend in one module but structured in a way that instead of
+# conflicting they coordinate?"*
+#
+# The question it asked — do the last two highs and lows still agree — now lives in `vix1_trend`
+# as `TrendState.in_shape`, judged against THAT trend's own direction. Out here it worked out a
+# direction of its own and never compared it, so it could approve a trade while describing the
+# opposite way: 17.1% (EUR/USD) / 15.8% (GBP/USD) of moments over 4.3 years of real H1.
+#
+# THIS MODULE NOW ONLY DESCRIBES A MARKET. `classify` survives for `vix1_choch`, which asks it a
+# different question (what kind of market did the break come out of, on the bars BEFORE the break —
+# his condition 3) and tests `regime.kind` itself; `efficiency` and `describe` feed the card.
+# Nothing here decides whether a trade may be taken.
 
 
 def efficiency(candles: list[Candle], n: int = _WINDOW) -> float | None:

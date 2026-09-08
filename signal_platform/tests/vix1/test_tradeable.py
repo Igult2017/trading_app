@@ -84,8 +84,23 @@ for w in ("2026-08-05 06:00",      # img1: 35 quiet bars behind it
 # three are his CHOPPY definition, the ongoing project (docs/OPEN.md D42). Asserted as PASSING so a
 # later change cannot close them by accident without this file going red and being explained.
 print()
-print("   NOT YET SOLVED — the choppy case still trades:")
-for w in ("2026-08-03 18:00", "2026-08-05 14:00", "2026-08-05 17:00"):
+# ONE OF THE THREE CLOSED ON 2026-09-08, and this file going red is what forced it to be explained —
+# which is exactly the job it was given. Recorded rather than silently flipped.
+#
+# 2026-08-03 18:00 is now REFUSED, and by his own trend rule rather than by anything about chop. The
+# trend there is UP while the last two highs FALL (1.15385 -> 1.15347) and the last two lows fall too
+# (1.15264 -> 1.15165). The deleted gate called that "a trend, tradeable" — because both sides moved
+# together and it never compared them to the direction being traded, so a DOWN shape satisfied an UP
+# trade. That is the 17.1% defect, landing on one of his own untradeable markets. `in_shape` asks
+# the question against the trend's own direction, so it cannot happen again.
+#
+# THE OTHER TWO STILL TRADE, and still should by his rule: measured at those moments the market
+# really is making higher highs AND higher lows (14:00 highs 1.15350 -> 1.15568, lows 1.15222 ->
+# 1.15262). They remain the CHOPPY case — D42, unbuilt — and stay asserted as passing so a later
+# change cannot close them by accident either.
+print("   the choppy case — one closed by the trend-shape rule, two still open (D42):")
+s.check("   2026-08-03 18:00 is now REFUSED — its shape pointed the other way", fires("2026-08-03 18:00"), False)
+for w in ("2026-08-05 14:00", "2026-08-05 17:00"):
     s.check(f"   {w} STILL trades (known gap)", fires(w), True)
 
 

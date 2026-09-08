@@ -33,14 +33,13 @@ from strategies.vix1_momentum import momentum_run, veto_reason
 from strategies import vix1_log
 from shared.candle_math import atr
 from strategies import vix1_choch
-from strategies.vix1_regime import market_permits
 from strategies import vix1_regime
 from strategies import vix1_retracement
 from strategies.vix1_state import Bias, market_state
 from strategies.vix1_swings import structure_turns
 from strategies.vix1_structure import _FAST_N, leg_state
 from strategies.vix1_tradeable import market_awake, trend_reproven
-from strategies.vix1_trend import trend_state
+from strategies.vix1_trend import trend_state, remember
 
 log = logging.getLogger(__name__)
 
@@ -165,6 +164,14 @@ def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "", debut=None
     t1 = tstate.direction
     t4 = trend_state(h4).direction if _ALLOW_H4 else 0
 
+    # HOW LONG HAS THIS BEEN THE ANSWER (2026-09-08). Recomputing above is still the source of truth;
+    # this only records what replaying cannot tell you — the AGE of the current reading, counted in
+    # 1HR bars off the same chart the trend is read on. It decides nothing. Its value is that a
+    # refusal repeating for hours now says so, instead of looking like a fresh event every scan:
+    # his two EUR/USD setups of 6-7 Sep were refused nine times for the identical reason and nothing
+    # in the log made that visible.
+    age = remember(symbol, tstate, window[-1].time) if window else {}
+
     # MEASURED, NOT ENFORCED (Phase A). The 8-bar leg gate is still the only thing that can refuse;
     # see vix1_state for why these decide nothing yet. Printed on EVERY path below — the refusals
     # are the comparison group, and leaving them out would show half the picture.
@@ -275,21 +282,23 @@ def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "", debut=None
                                  f"trend, but the leg does not permit it — {leg.why} | {state_mc}")
             return None
 
-        # IS THE MARKET WORTH TRADING AT ALL — his "not in a retracement", answered by the market
-        # state rather than by interrogating the candle (the candle is the proof the retracement
-        # ended; that is settled). The reversal half of the same rule is enforced by `t1 == 0` above.
+        # IS THE TREND STILL IN SHAPE — his "Uptrend -> HH + HL. Downtrend -> LL + LH", asked of the
+        # trend we are about to trade.
         #
-        # ⚠ THIS IS LIVE AND IT REFUSES. The line here used to read "Inert until he sets the two
-        # thresholds, so this changes nothing today" — and that was FALSE, corrected 2026-08-29.
-        # The thresholds ARE set (`vix1_regime._PROGRESS_ATR = 0.50`, `_BOUNDARY_ATR = 0.75`) and
-        # `market_permits` refuses anything that is not a TREND: verified by calling it directly on a
-        # RANGE (refused) and a TREND (allowed), and measured live on all three instruments, where it
-        # was refusing at the time of reading. A comment claiming a working gate is switched off is
-        # how a working gate gets deleted by whoever reads it next, so it is asserted in
-        # `test_structure.py` rather than described here.
-        refusal = market_permits(regime)
-        if refusal:
-            vix1_log.say(symbol, f"[vix1] {symbol} bias=NONE: {refusal} | {state_mc}")
+        # THIS USED TO BE A SECOND MODULE WITH A VETO (`vix1_regime.market_permits`), and his ruling
+        # on 2026-09-08 was that everything about the trend belongs to one module that coordinates
+        # instead of conflicting: *"we can't have 2 trend logics, what for."*
+        #
+        # The answer now comes off the trend state itself, computed against ITS OWN direction, so the
+        # old failure — a shape check that worked out its own direction and could point the opposite
+        # way — cannot be expressed any more. `mstate` is the trend AT THE MOMENTUM CANDLE, which is
+        # the same causal choice every other check on this path makes.
+        if not mstate.in_shape:
+            # The AGE is what memory buys: "lost shape 2 bars ago" and "lost shape 30 bars ago" are
+            # different facts, and only the second is a market that has genuinely changed character.
+            held = f" (for {age['shape_bars']}h)" if age.get("shape_bars") else ""
+            vix1_log.say(symbol,
+                         f"[vix1] {symbol} bias=NONE: {mstate.shape_why}{held} | {state_mc}")
             return None
 
         # ── IS THIS MARKET WORTH TRADING AT ALL? (2026-09-04) ───────────────────────────────────
@@ -346,12 +355,14 @@ def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "", debut=None
         stale_evidence = pb_since is not None and h1[mc_idx].time < pb_since
         # ...and here the window IS the full one, so the index comes from `tstate`.
         live_leg = leg_state(window, t1, n=_FAST_N, choch_index=tstate.choch_index)
-        live_regime = vix1_regime.classify(turns, atr(window, 14))
-        live_refusal = market_permits(live_regime)
-        if stale_evidence or not live_leg.ready or live_refusal:
-            why = (live_refusal or (live_leg.why if not live_leg.ready else
-                   "a pullback has begun since this momentum candle closed, so the candle is not "
-                   "the one that ended it — waiting for a momentum candle out of THIS pullback"))
+        # ...and the shape is asked of the LIVE trend for the same reason: `tstate` is the trend read
+        # on the full window, so `tstate.in_shape` is "is it still in shape NOW". Same rule, same
+        # module, one bar's worth of difference — no second engine involved.
+        if stale_evidence or not live_leg.ready or not tstate.in_shape:
+            why = ((tstate.shape_why if not tstate.in_shape else None) or
+                   (live_leg.why if not live_leg.ready else
+                    "a pullback has begun since this momentum candle closed, so the candle is not "
+                    "the one that ended it — waiting for a momentum candle out of THIS pullback"))
             vix1_log.say(symbol, f"[vix1] {symbol} bias=NONE: the setup was valid when the candle "
                                  f"formed {len(h1) - 1 - mc_idx}h ago, but the market has moved on "
                                  f"— {why} | {state}")

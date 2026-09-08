@@ -233,10 +233,12 @@ def leg_state(candles: list[Candle], direction: int, n: int = _FAST_N,
 # have low efficiency. It doesn't tell us the structure."
 
 
-# `market_permits` MOVED TO `vix1_regime` on 2026-09-07. It reads a `Regime` and decides whether that
-# regime may be traded — which is the regime module's question, not this one's. This module owns ONE
-# question and it is the pullback: "is the faster structure going the other way right now?"
+# `market_permits` LIVED HERE AND IS GONE (moved out 2026-09-07, deleted 2026-09-08). It was a
+# second module holding a veto over the trend, and the question it asked — do the last two highs and
+# lows still agree — now belongs to `vix1_trend` as `TrendState.in_shape`, judged against that
+# trend's own direction so it can never contradict it.
 #
-# His instruction: *"make sure a question is only answered by one module so that if something goes
-# wrong we know where to go."* A gate about market REGIME living in the PULLBACK module is exactly
-# the confusion that costs a session when something misfires.
+# THIS MODULE OWNS ONE QUESTION AND IT IS THE PULLBACK: "is the faster (8-bar) structure going the
+# OPPOSITE way to the trend we are about to trade?" It never reads the trend's direction for itself
+# and it never says what kind of market this is. If you are adding something here that is not about
+# the faster structure contradicting the trend, it belongs in another module.

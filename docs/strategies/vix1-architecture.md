@@ -71,7 +71,9 @@ answer belongs in the owning module, not in a new one.
 | the question | owner | status |
 |---|---|---|
 | Where are the highs and lows? | `vix1_swings.structure_turns` | **sole owner.** Every trend reader consumes its output; `n` is ignored while `REALTIME` is on |
-| Is there a trend, and which way? | `vix1_trend.trend_state` | ⚠ **TWO OWNERS** — see below |
+| Is there a trend, and which way? | `vix1_trend.trend_state` | **sole owner since 2026-09-08** — the second gate is deleted |
+| Is that trend still in shape? | `vix1_trend.TrendState.in_shape` | **sole owner.** His "HH+HL / LL+LH", asked against the trend's OWN direction |
+| How long has this been the answer? | `vix1_trend.remember` | **sole owner.** Age only, in 1HR bars; never a verdict |
 | Are we mid-pullback on the faster structure? | `vix1_structure.leg_state` | sole owner |
 | *When* did the pullback that is running now begin? | `vix1_retracement.pullback_since` | sole owner |
 | Has the trend run and pulled back at least once? | `vix1_tradeable.trend_reproven` | sole owner |
@@ -88,7 +90,43 @@ it); `trend_reproven` asks *"has this trend ever re-proven itself"*; `market_awa
 momentum born out of a quiet market"*. Four different questions, four different failures they were
 each built for. **Leave them alone.**
 
-### ⚠ THE ONE REAL DUPLICATION — "is there a trend" has two owners
+### ✅ RESOLVED 2026-09-08 — one module owns the trend, and it reads 1HR only
+
+**His ruling:** *"If it has a different role, then why is it veto for another module. Cant we have
+everything for trend in one module but structured in a way that instead of conflicting they
+coordinate? Also make them have memory."* And the constraint: ***"even if you give trend memory, we
+are still using 1HR TF for trend."***
+
+**What changed, and why it is coordination rather than a deletion.** The four-point shape check was
+not junk — it carries his *"Downtrend → LL + LH"* rule at the moment of trading, and deleting it
+outright let 74/227 EUR/USD and 119/312 GBP/USD shorts through with no lower high (measured
+2026-09-07, against his 2026-08-25 ruling). What was broken is that it worked out **its own
+direction** and never compared it to the trend's.
+
+So it moved into `vix1_trend` as `TrendState.in_shape`, judged against `direction`. It is no longer
+allowed a direction, so it answers only *"this trend is in shape"* or *"it has lost its shape"*.
+**The contradiction is not fixed — it is unrepresentable.**
+
+| gate result, both pairs, real H1 | before | after |
+|---|---|---|
+| shorts taken with no lower high (his 25 Aug rule) | 74 / 119 | **0 / 0** |
+| taken while the shape pointed the opposite way | 17.1% / 15.8% of moments | **0 / 0** |
+| setups taken | — | 409 (EUR/USD) · 408 (GBP/USD) |
+
+**A side effect worth recording:** it closed one of the three known CHOPPY gaps (D42).
+`2026-08-03 18:00` on EUR/USD is now refused — the trend was UP while the last two highs and lows
+both FELL, so the deleted gate had called it "a trend, tradeable" and approved a BUY on a DOWN shape.
+The other two still trade and are still asserted as open gaps in `test_tradeable.py`.
+
+**MEMORY (`vix1_trend.remember`)** stores only how long the current answer has held, in **1HR bars**.
+Recomputing stays the source of truth — the module's original reasoning (*"never stored, so no hidden
+global can desynchronise across a restart"*) is kept. Three rules, pinned in
+`test_trend_owns_the_trend.py`: keyed by symbol and **bar time** not index; the recomputed reading
+always wins; memory may never create, extend or flip a trend. `trend_state` is asserted never to read
+it. **No timeframe other than 1HR is consulted anywhere in the trend path**, checked against the code
+with comments and strings stripped — the first version of that check went red on its own warning.
+
+### THE DUPLICATION AS IT WAS — kept for the reasoning, resolved above
 
 `vix1_trend.trend_state` and `vix1_regime.classify` are handed the **identical** turning points
 (`vix1_bias.py:162` computes them once; `:163` and `:242` both receive them). They then disagree:
