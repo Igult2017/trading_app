@@ -54,9 +54,11 @@ export function getCalendarServiceStatus() {
 // calendar scrape mid-solve — the log said `scrape failed: Python timeout (60s)` and the calendar
 // came back empty, which looks exactly like "the site blocked us" and is not.
 //
+// Raised again to 240s on 2026-09-07: the first production attempt was killed mid-solve at 60s
+// while the measured end-to-end fetch was 67s, and a cold browser profile pays more still.
 // The wait costs nothing: the calendar refreshes on a 15-minute schedule in the background, and
 // callers are served from cache while it runs.
-const PY_TIMEOUT_MS = 180_000;
+const PY_TIMEOUT_MS = 240_000;
 
 function runPython(mode: "calendar" | "rates"): Promise<string> {
   return new Promise((resolve, reject) => {

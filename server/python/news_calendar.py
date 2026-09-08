@@ -141,7 +141,19 @@ _CHROME_FLAGS = [
     '--no-sandbox',                 # required as root inside a container
     '--disable-dev-shm-usage',      # /dev/shm is small in Docker; without this Chrome crashes
 ]
-_BROWSER_WAIT_MS = 60_000
+# HOW LONG THE BROWSER MAY TAKE, split because the two waits are different problems.
+#
+# MEASURED 2026-09-07: the whole fetch took 67 SECONDS end to end on a normal connection, against a
+# single 60-second budget — so production timed out mid-solve and logged
+# `browser failed: TimeoutError: Page.wait_for_selector: Timeout 60000ms exceeded`, which reads
+# exactly like a block and is not one. The earlier "16-26 seconds" was a warm profile; a cold one
+# pays for the challenge as well.
+#
+# Loading the page is quick; CLEARING THE CHALLENGE is what takes minutes on a slow, 2-core box, so
+# only that wait is generous. Both together sit inside the 240s the Node side now allows
+# (homepageCalendar.ts PY_TIMEOUT_MS), with room for Chrome to start.
+_BROWSER_NAV_MS = 45_000        # just to get a response
+_BROWSER_SOLVE_MS = 150_000     # the challenge clearing and real rows appearing
 
 
 def _fetch_via_browser(url: str, wait_for: str) -> str | None:
@@ -173,8 +185,8 @@ def _fetch_via_browser(url: str, wait_for: str) -> str | None:
                 viewport={'width': 1440, 'height': 900},
             )
             page = ctx.pages[0] if ctx.pages else ctx.new_page()
-            page.goto(url, wait_until='domcontentloaded', timeout=_BROWSER_WAIT_MS)
-            page.wait_for_selector(wait_for, timeout=_BROWSER_WAIT_MS)
+            page.goto(url, wait_until='domcontentloaded', timeout=_BROWSER_NAV_MS)
+            page.wait_for_selector(wait_for, timeout=_BROWSER_SOLVE_MS)
             html = page.content()
             print(f'[news_calendar] browser: got {len(html)} bytes with {wait_for!r} present',
                   file=sys.stderr)
