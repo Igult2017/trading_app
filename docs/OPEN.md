@@ -1232,7 +1232,52 @@ calm and then we can trade it"* — so it must clear by itself, never a lockout.
 tested and **nothing calls them**. That is deliberate and is HIS decision to continue later; **do NOT
 delete them citing the dead-code rule** — same standing as `vix1_regime._PROGRESS_ATR`.
 
-**THE ONE SIGN THAT WORKS — big body next to small.** Counting, per 24 hours, how often a body is
+**⚠ UPDATE 2026-09-08 — "THE ONE SIGN THAT WORKS" DOES NOT GENERALISE. He sent FIVE more marked
+choppy charts (XAU/USD H1, his UTC+3 clock) and the big-next-to-small measure fails on them.**
+
+Measured per 24 bars, the same way as below. His five: **13.8, 17.8, 13.7, 14.9, 15.2**. The median
+of EVERY 24-bar block in a year of gold is **14.6** — so **three of his five score BELOW the average
+market**, and the line at 15 catches only **2 of 5**. The separation recorded below was drawn on 12
+data points and did not survive contact with five new ones. **Do not set a threshold on it.**
+
+**WHAT DOES POINT THE RIGHT WAY, on all five — and both are CHARACTER, which is still the half that
+discriminates:**
+
+| measure | his five | control median | where they sit |
+|---|---|---|---|
+| **how much of the bar is wick** | 0.606, 0.612, 0.586, 0.568, 0.585 | 0.56 | 61st-88th pct — **all above** |
+| **longest run of same-colour candles** | 4, 5, 4, 3, 4 | 5 | 1st-48th pct — **all at or below** |
+
+The second is literally his phrase *"no consistent one candle group"*. Neither separates alone.
+Together:
+
+| rule | catches | cost |
+|---|---|---|
+| wick >= 0.56 AND longest run <= 5 | **5 of 5** | condemns **31.9%** of all market |
+| wick >= 0.56 AND longest run <= 4 | 4 of 5 | 21.2% |
+| wick >= 0.58 AND longest run <= 4 | 3 of 5 | 14.9% |
+
+Better than the old best (9/9 at 54.3%) but still expensive, and **not built** — this is a
+measurement, not a shipped rule.
+
+**HIS DEFINITION, 2026-09-08, in his own words:** *"A choppy market has no consistent one candle
+group and in some instances candles have long wicks where one red candle is going down then the next
+green candle goes down so no one can predict the direction whether this is happening in a trend or a
+downtrend."*
+
+**THE WINDOWS WERE READ OFF HIS CHARTS AND ARE APPROXIMATE.** Validated against the price range on
+each chart's axis: charts 1, 2, 3 and 5 match closely; **chart 4 is read too wide** (my window spans
+3942-4086 against his ~3990-4050). **Ask him for exact start/end times** — every number above would
+sharpen.
+
+**WHAT IS MISSING TO FINISH THIS:** examples of markets he WOULD trade. There are five bad and only
+three old good ones, so any line is fitted to the bad side alone — which is exactly how a rule ends
+up condemning a third of the market.
+
+---
+
+**THE ONE SIGN THAT WORKS — big body next to small.** ⚠ superseded by the update above; kept for the
+reasoning and the earlier numbers. Counting, per 24 hours, how often a body is
 more than double or less than half the one before it:
 
 | | count out of 24 |
