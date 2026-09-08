@@ -45,7 +45,7 @@ function toRow(e: CalendarEvent) {
     expectedValue: e.forecast !== "-" ? e.forecast : null,
     previousValue: e.previous !== "-" ? e.previous : null,
     actualValue:   e.actual   !== "-" ? e.actual   : null,
-    sourceSite:    "myfxbook",
+    sourceSite:    "forexfactory",
     lastScraped:   new Date(),
   };
 }
@@ -66,8 +66,8 @@ function fromRow(row: typeof economicEvents.$inferSelect): CalendarEvent {
   };
 }
 
-/** Replace the ±14-day window in DB with fresh scraped events.
- *  Also purges events older than 30 days so the table never grows unbounded.
+/** Replace the stored events across the span the incoming batch covers, then purge expired ones so
+ *  the table never grows unbounded.
  *
  *  NEVER DELETE BEFORE YOU KNOW YOU CAN REFILL. This function used to delete the window FIRST and
  *  only then work out what it had to put back — and on 2026-09-07 that wiped the whole economic
@@ -76,18 +76,17 @@ function fromRow(row: typeof economicEvents.$inferSelect): CalendarEvent {
  *  How it happened. MyFXBook was blocked, so no economic events were scraped and the only thing
  *  that arrived was ten crypto news headlines from the RSS feeds. Ten is not zero, so the empty
  *  guard below let it through; the window was deleted; and then the filter dropped all ten, because
- *  a crypto headline is a story with no scheduled time — economic events carry `eventTime`
- *  (news_calendar.py:296), crypto items carry `isoDate` and nothing else (news_calendar.py:443).
- *  The log said `saved 0 events` and the calendar was gone.
+ *  a crypto headline is a story with no scheduled time, and only events with one can be stored.
+ *  The log said `saved 0 events` and the calendar was gone. (That crypto feed has since been
+ *  deleted outright, so the exact sequence cannot recur — the lesson below is what generalises.)
  *
- *  The cost was not cosmetic: VIX.1's two news protections (vix1.py:251-255) read that event list,
+ *  The cost was not cosmetic: VIX.1's two news protections (vix1.py:285,288) read that event list,
  *  so with it empty neither could ever fire. They were not broken — they were starved.
  *
  *  The guard is therefore on the ROWS, not on the input. "We received something" is not the
  *  question; "we have something to put back" is. */
 export async function upsertCalendarEvents(events: CalendarEvent[]): Promise<void> {
   if (!events.length) return;
-  const { from, to } = dbWindow();
 
   // Work out the replacement BEFORE touching the table. If a scrape brings back only events we
   // cannot store, the right outcome is to keep what is already there and say so.
@@ -100,7 +99,22 @@ export async function upsertCalendarEvents(events: CalendarEvent[]): Promise<voi
     return;
   }
 
-  // Replace the active window
+  // DELETE ONLY THE SPAN THE NEW ROWS ACTUALLY COVER — not a fixed ±14 days.
+  //
+  // This used to clear −2 to +14 days and refill. That was safe while the source published a
+  // fortnight; the source changed on 2026-09-09 and now publishes ONE WEEK (see
+  // news_calendar.scrape_calendar — the next-week feed answers 404). With a fixed window, every
+  // refresh late in the week would delete days the incoming batch cannot put back, and the
+  // calendar would shrink a little more each time until the feed rolled over.
+  //
+  // Bounding the delete by the batch's own first and last event keeps the replace-in-place
+  // behaviour that stops duplicates, while making it impossible to remove anything this source
+  // could not refill. It is the same principle as the guard above, applied to the range instead of
+  // the count: never delete before you know you can put it back.
+  const times = rows.map(r => r.eventTime.getTime());
+  const from = new Date(Math.min(...times));
+  const to   = new Date(Math.max(...times));
+
   await db.delete(economicEvents).where(
     and(gte(economicEvents.eventTime, from), lte(economicEvents.eventTime, to))
   );

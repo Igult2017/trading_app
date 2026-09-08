@@ -47,37 +47,17 @@ COPY copy_platform ./copy_platform
 # Install copy engine Python deps
 RUN pip install --no-cache-dir --break-system-packages -r copy_platform/requirements.txt
 
-# ── Real Google Chrome + a virtual display, for the economic calendar ────────
+# NO BROWSER IN THIS IMAGE — deliberately, 2026-09-09.
 #
-# MyFXBook now serves a JavaScript challenge. Measured 2026-09-07, getting past it needs all three
-# of: REAL Chrome (Chromium is refused), a VISIBLE window (headless is refused), and the launch flag
-# --disable-blink-features=AutomationControlled. Remove any one and the page never resolves.
+# Google Chrome, Xvfb, the extra font families and the playwright package all lived here to clear
+# MyFXBook's JavaScript challenge. They are gone because the calendar no longer needs a browser:
+# the source is ForexFactory's weekly JSON feed, one plain HTTPS request (news_calendar._FF_URL).
 #
-# So: google-chrome-stable for the first, xvfb for the second (start.sh runs the display), and the
-# playwright python package to drive it. No browser download — playwright drives the system Chrome
-# via channel="chrome", which is the whole point; `playwright install` would fetch Chromium, which
-# is the build that does NOT work.
-# FONTS ARE PART OF THE FINGERPRINT, not decoration (2026-09-08). Cloudflare's challenge scripts
-# measure text and canvas output, and a container carrying one font family looks nothing like the
-# desktop Chrome it claims to be. This box had `fonts-liberation` alone. Adding the families a real
-# Linux desktop has is cheap and is the only free lever left after the diagnosis showed the browser
-# sitting on "Just a moment..." for the full 150s with real Chrome, a visible window and the flag
-# all confirmed present. HONEST ABOUT IT: this may not be enough — the remaining difference from a
-# machine that DOES get through is the datacenter IP itself, and that needs a proxy, which is his
-# call and his money.
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends wget gnupg xvfb \
-        fonts-liberation fonts-liberation2 fonts-dejavu-core fonts-noto-core \
-        fonts-noto-color-emoji fontconfig && \
-    wget -qO- https://dl.google.com/linux/linux_signing_key.pub \
-      | gpg --dearmor -o /usr/share/keyrings/google-chrome.gpg && \
-    echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main" \
-      > /etc/apt/sources.list.d/google-chrome.list && \
-    apt-get update && \
-    apt-get install -y --no-install-recommends google-chrome-stable && \
-    rm -rf /var/lib/apt/lists/*
-
-RUN pip install --no-cache-dir --break-system-packages playwright
+# It is not only that they became unnecessary. A browser in this container was actively DANGEROUS:
+# on 2026-09-07 a Chrome process that failed to shut down was started every 15 minutes, the leak
+# accumulated until the box ran out of memory, and the site and Coolify both stopped answering.
+# Anything that reintroduces a browser here has to solve that first — unconditional shutdown, a hard
+# cap on browser lifetime, and a leak test that proves the process count returns to zero.
 
 # DB migration file (applied at container startup)
 COPY docker-migrate.sql /app/docker-migrate.sql

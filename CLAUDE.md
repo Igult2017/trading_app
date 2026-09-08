@@ -233,7 +233,8 @@ All IDs are UUID strings (`varchar`, `gen_random_uuid()`). All categoricals are 
 - **yfinance**: current candle source for signal platform — being replaced
 - **OANDA demo** (planned): free live forex candles; swap in by replacing `candle_fetcher._fetch_sync()` — same signature, nothing else changes; credentials go in `signal_platform/.env`
 - **TradingView Screener**: live indicator values across all timeframes, no API key required
-- **MyFXBook scraper**: homepage economic calendar and central bank rates
+- **ForexFactory weekly feed** (`nfs.faireconomy.media/ff_calendar_thisweek.json`): the homepage economic calendar. Plain HTTPS, no browser. Publishes the same High/Medium/Low impact wording the platform already maps. **This week only**, and it carries no released "actual" value — see `docs/OPEN.md` C6. **MyFXBook is gone** (09 Sep: its Cloudflare challenge refuses real visible Chrome even from a home connection) — do not try to revive it, and do not buy a proxy for it
+- **Central banks' own publications**: the interest rates — FRED, ECB, BoE, BoC, RBA, with Trading Economics for JPY/CHF/NZD and as backup. Not MyFXBook
 - **Gemini 2.5 Flash**: screenshot OCR, Trader AI Q&A (Node side only)
 
 ---

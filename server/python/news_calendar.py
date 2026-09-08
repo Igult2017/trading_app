@@ -2,13 +2,14 @@
 Two separate jobs that fail in completely different ways: the ECONOMIC CALENDAR, and the CENTRAL
 BANK INTEREST RATES. Keep them apart when reading this file.
 
-THE CALENDAR — MyFXBook, and it now needs a real browser.
-  As of 2026-09-07 the TLS-impersonation disguise no longer gets in from anywhere (measured from a
-  home connection as well as the server). Getting past the JavaScript challenge needs all three of:
-  real Google Chrome, a VISIBLE window, and --disable-blink-features=AutomationControlled. See
-  `_fetch_via_browser`. On failure this returns [] and the Node service keeps serving the last good
-  cache (see homepageCalendar.ts). Forex and commodity events only — crypto and stock rows are
-  dropped, on his instruction.
+THE CALENDAR — ForexFactory's weekly JSON feed. One plain HTTPS request, no browser.
+  MyFXBook was the source until 2026-09-09, when its Cloudflare challenge stopped yielding to real
+  visible Chrome even from a home connection (twice, 0 events). It is GONE, not degraded, and all of
+  its machinery is deleted. This feed publishes the same four impact words the platform already maps
+  (High/Medium/Low/Holiday) and a full timestamp per row. See `_FF_URL` for what else was tested and
+  why it was rejected. Coverage is THIS WEEK ONLY. On failure this returns [] and the Node service
+  keeps serving the last good cache (see homepageCalendar.ts). Forex and commodity events only —
+  crypto and stock rows are dropped, on his instruction.
 
 THE RATES — the issuing central banks, and NOT MyFXBook.
   USD  FRED FEDFUNDS                    EUR  ECB data portal (FRED ECBDFR as backup)
@@ -23,14 +24,14 @@ Usage:
 """
 
 import sys
-import os
 import re
 import io
 import csv
 import json
+import time
 import requests
 from bs4 import BeautifulSoup
-from datetime import datetime
+from datetime import datetime, timezone
 
 try:
     import curl_cffi.requests as cffi_requests
@@ -70,7 +71,7 @@ HEADERS = {
 }
 
 # --------------------------------------------------------------------------- #
-# Calendar scraper (newskeeper approach — MyFXBook via BeautifulSoup)          #
+# Calendar: what counts as an event, and what never reaches the page           #
 # --------------------------------------------------------------------------- #
 
 # THE CALENDAR CARRIES TWO KINDS OF EVENT AND NO OTHERS.
@@ -82,373 +83,232 @@ HEADERS = {
 # is what actually removes a stock or crypto row from the output. They are separate on purpose: the
 # categoriser says what a row IS, and the caller decides what to keep — collapsing a stock row into
 # 'Currencies' would have hidden it in the forex list instead of removing it.
+# "INDEX", "EARNINGS" AND "STOCK" ARE NOT STOCK-MARKET WORDS ON AN ECONOMIC CALENDAR — fixed
+# 2026-09-09, and this was a money defect, not tidying.
+#
+# The stock test used to match the bare words 'stock', 'earnings' and 'index' anywhere in the name.
+# Run against the real feed that dropped SEVEN genuine economic releases in a single week —
+# `M2 Money Stock y/y` (monetary data), `Average Cash Earnings y/y` (wages), `Index of Services`,
+# `Final GDP Price Index`, `NFIB Small Business Index`, `BusinessNZ Manufacturing Index`,
+# `BSI Manufacturing Index`. Those seven were all Low impact, so nothing was lost that week.
+#
+# THE ONE THAT MATTERS IS `Core PCE Price Index` — a HIGH-impact US release. The old rule would have
+# deleted it from the calendar before it was ever stored, and VIX.1 reads that calendar to decide
+# when NOT to enter (vix1.py:285,288). A guard with the event missing looks exactly like a guard
+# that is passing, which is why nothing would have reported it.
+#
+# So the equity words must be unambiguous PHRASES. His rule is unchanged — no crypto, no stock-market
+# news (2026-09-07: *"I dont need crypto and stock news... I only need commodity and forex news."*) —
+# this only stops the rule firing on economic data that happens to share a word.
+_EQUITY_PHRASES = (
+    'stock market', 'equity', 'equities', 'earnings call', 'earnings report', 'earnings season',
+    'nasdaq', 's&p 500', 'dow jones', 'ftse', 'nikkei 225', 'share index',
+)
+
+
 def _categorize(name: str, currency: str) -> str:
     n = name.lower()
     if any(w in n for w in ('oil', 'crude', 'gold', 'silver', 'gas', 'commodity', 'eia')):
         return 'Commodities'
     if currency in ('BTC', 'ETH', 'XRP'):
         return 'Crypto'
-    if any(w in n for w in ('stock', 'equity', 'earnings', 'index', 'nasdaq', 's&p', 'dow')):
+    if any(w in n for w in _EQUITY_PHRASES):
         return 'Stocks'
     return 'Currencies'
 
 
 # Categories that never reach the calendar. Commodities is tested FIRST in `_categorize` above, so
-# an event like "Crude Oil Inventories" stays a commodity and is not caught by 'index' or 'stock'.
+# an event like "Crude Oil Inventories" is judged a commodity before the equity test ever runs.
 _DROP_CATEGORY = ('Crypto', 'Stocks')
 
 
-# FlareSolverr endpoint — set FLARESOLVERR_URL in env to enable headless Chrome bypass.
-# Deploy: ghcr.io/flaresolverr/flaresolverr:latest on port 8191 (same Coolify VPS).
-_FLARESOLVERR_URL = os.getenv('FLARESOLVERR_URL', '')
+# --------------------------------------------------------------------------- #
+# Calendar source: ForexFactory's weekly JSON feed                             #
+# --------------------------------------------------------------------------- #
 
-
-def _fetch_via_flaresolverr(url: str) -> str | None:
-    """Fetch a Cloudflare-protected URL via FlareSolverr (headless Chrome). Returns HTML or None."""
-    if not _FLARESOLVERR_URL:
-        return None
-    try:
-        resp = requests.post(
-            f'{_FLARESOLVERR_URL}/v1',
-            json={'cmd': 'request.get', 'url': url, 'maxTimeout': 60000},
-            timeout=70,
-        )
-        if resp.status_code == 200:
-            data = resp.json()
-            if data.get('status') == 'ok':
-                code = data['solution'].get('status', '?')
-                print(f'[news_calendar] FlareSolverr: {url} -> HTTP {code}', file=sys.stderr)
-                return data['solution']['response']
-        print(f'[news_calendar] FlareSolverr: API returned HTTP {resp.status_code}', file=sys.stderr)
-    except Exception as exc:
-        print(f'[news_calendar] FlareSolverr error: {exc}', file=sys.stderr)
-    return None
-
-
-# THE ONLY THING MEASURED TO GET PAST MYFXBOOK, 2026-09-07.
+# WHY THIS AND NOT MYFXBOOK — measured 2026-09-09, and it is not a preference.
 #
-# All three of these are required TOGETHER — remove any one and the page never resolves past
-# "Just a moment...", which is how it was measured:
+# MyFXBook sits behind a Cloudflare challenge our automation can no longer clear FROM ANYWHERE. The
+# last thing that worked was real Google Chrome, visible, with the automation flag off. On
+# 2026-09-09 that failed TWICE on his own home connection, sitting on "Just a moment..." for the
+# full 150 seconds and returning 0 events (Cloudflare Ray IDs a3817c1769c6c68f, a38181189d4018a5).
 #
-#     real Google Chrome, not Chromium ....... bundled Chromium fails with the other two present
-#     VISIBLE, not headless ................. headless real Chrome fails with the flag present
-#     --disable-blink-features=Automation... . headed real Chrome fails without it
+# That also kills the residential-proxy plan: a proxy only changes the IP address, and the IP is no
+# longer the difference — it fails from a home address too. Every piece of machinery MyFXBook needed
+# is DELETED rather than left disabled: the browser fetch, FlareSolverr, the TLS-impersonation
+# profiles, the HTML parser, and Chrome/Xvfb/fonts out of the Dockerfile and start.sh.
 #
-# With all three: 300 rows in 16-26 seconds, reproduced. "Visible" on a server means a virtual
-# display (Xvfb), started in start.sh and pointed at by DISPLAY.
-_CHROME_FLAGS = [
-    '--disable-blink-features=AutomationControlled',
-    '--no-sandbox',                 # required as root inside a container
-    '--disable-dev-shm-usage',      # /dev/shm is small in Docker; without this Chrome crashes
-    # A REAL DESKTOP CHROME DECLARES A WINDOW AND A LANGUAGE (added 2026-09-08). Without these the
-    # window is whatever Xvfb gives it and the language list is empty — both measurable from the
-    # page, and both unlike any real browser. Matched to the viewport below on purpose: a window
-    # and a viewport that disagree is itself a signal.
-    '--window-size=1440,900',
-    '--lang=en-GB',
-    '--disable-features=IsolateOrigins,site-per-process',
-]
-# HOW LONG THE BROWSER MAY TAKE, split because the two waits are different problems.
+# HIS REQUIREMENT, 2026-09-09: "Only the ones that offer filtered news as High impact and medium the
+# way myfx does." This feed publishes exactly the four words the platform already maps — High,
+# Medium, Low, Holiday (news_fetcher.py:48-53 `_IMPACT_MAP`) — so nothing is translated or guessed.
 #
-# MEASURED 2026-09-07: the whole fetch took 67 SECONDS end to end on a normal connection, against a
-# single 60-second budget — so production timed out mid-solve and logged
-# `browser failed: TimeoutError: Page.wait_for_selector: Timeout 60000ms exceeded`, which reads
-# exactly like a block and is not one. The earlier "16-26 seconds" was a warm profile; a cold one
-# pays for the challenge as well.
-#
-# Loading the page is quick; CLEARING THE CHALLENGE is what takes minutes on a slow, 2-core box, so
-# only that wait is generous. Both together sit inside the 240s the Node side now allows
-# (homepageCalendar.ts PY_TIMEOUT_MS), with room for Chrome to start.
-_BROWSER_NAV_MS = 45_000        # just to get a response
-_BROWSER_SOLVE_MS = 150_000     # the challenge clearing and real rows appearing
+# TESTED AND REJECTED for the calendar: Trading Economics rates AU Westpac Consumer Confidence at
+# its TOP level where this feed calls it Low/Medium — its scale means "matters for that country",
+# not "moves the market" — and its rows carry NO machine-readable time at all, only rendered text.
+# Investing.com answers HTTP 403, FXStreet 401. Trading Economics remains correct and in use for the
+# RATES half further down this file; this rejection is about the calendar only.
+_FF_URL = 'https://nfs.faireconomy.media/ff_calendar_thisweek.json'
+
+# THE FEED RATE-LIMITS. Seven calls in quick succession earned HTTP 429; it cleared within ~30s. The
+# refresh runs every 15 minutes (homepageCalendar.ts RETRY_MS) so this is not a normal risk — but at
+# container start the Node warm-up and the signal platform's own fallback scrape can both ask within
+# seconds of each other, and a 429 there would leave the calendar empty for a whole cycle. One retry
+# costs one short wait and removes that.
+_FF_RETRY_AFTER_S = 6
 
 
-def _fetch_via_browser(url: str, wait_for: str) -> str | None:
+def _fetch_forexfactory() -> list | None:
+    """GET the weekly feed. Returns the decoded rows, or None if it could not be read.
+
+    None and [] mean different things and the caller depends on it: None is "we could not ask",
+    [] is "we asked and there is nothing usable". Both leave the stored calendar alone.
     """
-    Fetch a challenged page with a real browser, and only return it once the CONTENT has arrived.
-
-    `wait_for` is a CSS selector that only exists on the real page. Waiting for it — rather than for
-    the page to "load" — is what stops the challenge page being mistaken for success: the challenge
-    returns HTTP 200 and finishes loading perfectly well. That mistake is exactly what made the
-    Trading Economics failure invisible earlier today.
-
-    Returns None on any failure, so the caller falls through to whatever is next. A browser that
-    will not start must never take the calendar down.
-    """
-    try:
-        from playwright.sync_api import sync_playwright
-    except Exception as exc:
-        print(f'[news_calendar] browser unavailable: {exc}', file=sys.stderr)
-        return None
-
-    def _diagnose(page, why: str) -> None:
-        """SAY WHAT THE BROWSER ACTUALLY SAW. Must run INSIDE the playwright session.
-
-        A bare timeout is a blind failure: "stuck on the challenge" and "past the challenge but the
-        element is named something else" produce the IDENTICAL message and need opposite fixes. The
-        rates bug was only cracked once its error printed what it had (`rows seen: []`), so this
-        does the same instead of inviting another round of guessing at browser flags.
-
-        THE FIRST VERSION OF THIS RAN IN AN `except` OUTSIDE THE `with` BLOCK and could never work —
-        playwright had already stopped, so every diagnosis died with "Event loop is closed". Caught
-        by running it against a page deliberately missing the element, which is the only reason it
-        is not still doing that in production.
-        """
-        print(f'[news_calendar] browser failed: {why}', file=sys.stderr)
+    for attempt in (1, 2):
         try:
-            body = page.content()
-            marks = [m for m in _CF_CHALLENGE_MARKERS if m in body]
-            print(f'[news_calendar] browser SAW: url={page.url[:90]!r} '
-                  f'title={(page.title() or "")[:80]!r} {len(body)} bytes | '
-                  f'challenge markers: {marks or "NONE"} | '
-                  f'has #economicCalendarTable: {"economicCalendarTable" in body} | '
-                  f'has any <tr>: {"<tr" in body} | '
-                  f'has #calendarMobile: {"calendarMobile" in body}', file=sys.stderr)
-            text = ' '.join((page.inner_text('body') or '').split())[:300]
-            print(f'[news_calendar] browser TEXT: {text!r}', file=sys.stderr)
-        except Exception as diag:
-            print(f'[news_calendar] browser diagnosis failed too: {diag}', file=sys.stderr)
+            resp = requests.get(_FF_URL, headers=HEADERS, timeout=20)
+        except Exception as exc:
+            print(f'[news_calendar] ForexFactory request failed: {exc}', file=sys.stderr)
+            return None
 
-    try:
-        with sync_playwright() as p:
-            ctx = p.chromium.launch_persistent_context(
-                user_data_dir='/tmp/mfx-profile',
-                channel='chrome',        # REAL Chrome. Chromium is refused.
-                headless=False,          # headless is refused, even for real Chrome.
-                args=_CHROME_FLAGS,
-                viewport={'width': 1440, 'height': 900},
-                # A BROWSER WITH NO LOCALE AND NO TIMEZONE IS NOT A PERSON'S BROWSER. Both are read
-                # by the challenge script; a container defaults to UTC and no language list, which
-                # no real desktop does. Set to the values his own machine reports, since that is the
-                # profile measured to get through.
-                locale='en-GB',
-                timezone_id='Europe/London',
-            )
-            try:
-                page = ctx.pages[0] if ctx.pages else ctx.new_page()
-                page.goto(url, wait_until='domcontentloaded', timeout=_BROWSER_NAV_MS)
-                try:
-                    page.wait_for_selector(wait_for, timeout=_BROWSER_SOLVE_MS)
-                except Exception as exc:
-                    _diagnose(page, f'{type(exc).__name__}: {str(exc)[:120]}')
-                    return None
-                html = page.content()
-                print(f'[news_calendar] browser: got {len(html)} bytes with {wait_for!r} present',
-                      file=sys.stderr)
-                return html
-            finally:
-                try:
-                    ctx.close()
-                except Exception:
-                    pass
-    except Exception as exc:
-        # The browser itself would not start, or the page would not load at all — a different fault
-        # from "the content never appeared", and named separately so the log says which.
-        print(f'[news_calendar] browser unusable: {type(exc).__name__}: {str(exc)[:160]}',
-              file=sys.stderr)
-        return None
-
-
-# TLS-impersonation profiles to try in order — different JA3/JA4 fingerprints
-# give Cloudflare's bot scorer different signals; rotation improves bypass rate.
-_MFX_PROFILES = ['safari17_2_ios', 'chrome131', 'firefox133', 'safari18_0_ios', 'chrome124']
-
-# After all profiles fail, skip MyFXBook for 4 hours so fallbacks fire immediately.
-_mfx_blocked_until: float = 0.0
-
-
-def _mfx_session():
-    """
-    Return (session, profile) where the session has cleared the MyFXBook
-    homepage Cloudflare check. Tries profiles in order; returns (None, None)
-    if all are blocked (e.g. VPS IP flagged by Cloudflare Bot Fight Mode).
-    After a total block, backs off for 4 hours before retrying.
-    """
-    global _mfx_blocked_until
-    import time as _time
-    if _time.time() < _mfx_blocked_until:
-        return None, None
-    for profile in _MFX_PROFILES:
-        try:
-            s = cffi_requests.Session(impersonate=profile)
-            hp = s.get('https://www.myfxbook.com', timeout=15)
-            if hp.status_code == 200 and not _is_cloudflare_challenge(hp.text):
-                _time.sleep(1.5)  # human-like pause before target page
-                return s, profile
-        except Exception:
+        if resp.status_code == 429 and attempt == 1:
+            print(f'[news_calendar] ForexFactory rate-limited (429) — retrying in {_FF_RETRY_AFTER_S}s',
+                  file=sys.stderr)
+            time.sleep(_FF_RETRY_AFTER_S)
             continue
-    _mfx_blocked_until = _time.time() + 14400  # back off 4 h
-    return None, None
 
+        if resp.status_code != 200:
+            print(f'[news_calendar] ForexFactory HTTP {resp.status_code}', file=sys.stderr)
+            return None
 
-def _scrape_myfxbook() -> list:
-    """
-    Scrape MyFXBook economic calendar.
+        try:
+            data = resp.json()
+        except Exception as exc:
+            print(f'[news_calendar] ForexFactory body is not JSON ({exc}): {resp.text[:120]!r}',
+                  file=sys.stderr)
+            return None
 
-    THE DISGUISE NO LONGER GETS IN — measured 2026-09-07, from a home connection as well as from the
-    server, so this is not the datacenter IP being flagged. Eight routes were tried and every one
-    came back HTTP 403 with a Cloudflare challenge: a plain request, all five impersonation profiles
-    on the homepage, and straight to the calendar page. The lighter endpoints are challenged too
-    (.csv, /print, /rss). There is no way in that does not RUN THE JAVASCRIPT.
+        if not isinstance(data, list):
+            print(f'[news_calendar] ForexFactory returned {type(data).__name__}, expected a list',
+                  file=sys.stderr)
+            return None
 
-    What does get in needs all three of these together — drop any one and it is refused:
-    real Google Chrome (not Chromium), VISIBLE rather than headless, and the launch flag
-    `--disable-blink-features=AutomationControlled`. With all three: 300 rows in 16-26 seconds.
+        print(f'[news_calendar] ForexFactory: {len(data)} rows ({len(resp.content)} bytes)',
+              file=sys.stderr)
+        return data
 
-    OUR OWN BROWSER IS TRIED FIRST, because it is the one that has actually been measured doing it.
-    FlareSolverr was deployed for this and REFUSED: it fetched the MyFXBook rates page, returned
-    HTTP 200, and the body was the challenge —
-
-        [news_calendar] FlareSolverr: .../interest-rates -> HTTP 200
-        [news_calendar] MyFXBook rates: Cloudflare challenge detected — not rate data
-
-    which is the same failure as headless Chrome in the measurements above. It is kept as a second
-    attempt because it costs one request and nothing else, and the log names which one succeeded.
-    """
-    url = 'https://www.myfxbook.com/forex-economic-calendar'
-
-    # Try 1: our own real Chrome, on a virtual display — the measured recipe.
-    # Waiting for a calendar ROW, not for the page to load, is what makes "we got the real page"
-    # mean what it says.
-    html = _fetch_via_browser(url, '#economicCalendarTable tr.economicCalendarRow')
-
-    # Try 2: FlareSolverr, if one is configured — real Chrome, but its own build and flags.
-    if html is None:
-        html = _fetch_via_flaresolverr(url)
-
-    # Try 3: curl_cffi TLS impersonation — works if block is fingerprint-only, not JS-based
-    if html is None and _CFFI_OK:
-        session, profile = _mfx_session()
-        if session is not None:
-            try:
-                resp = session.get(url, timeout=25)
-                print(
-                    f'[news_calendar] MyFXBook HTTP {resp.status_code} ({len(resp.text)} bytes) [{profile}]',
-                    file=sys.stderr,
-                )
-                if resp.status_code == 200:
-                    html = resp.text
-                else:
-                    print(f'[news_calendar] MyFXBook body snippet: {resp.text[:300]}', file=sys.stderr)
-            except Exception as _exc:
-                print(f'[news_calendar] MyFXBook curl_cffi error: {_exc}', file=sys.stderr)
-
-    if html is None:
-        print('[news_calendar] MyFXBook: all bypass methods failed', file=sys.stderr)
-        return []
-
-    if _is_cloudflare_challenge(html):
-        print('[news_calendar] MyFXBook: Cloudflare challenge detected — not calendar data', file=sys.stderr)
-        return []
-
-    return parse_calendar_html(html)
+    return None
 
 
 _MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
            'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
-# What MyFXBook calls an impact, and what the rest of the platform calls it. The platform has three
-# levels and the guard that matters tests for HIGH (`NewsImpact.HIGH`), so NONE and LOW both land on
-# 'Low' — there is no fourth level to put NONE in.
-_IMPACT = {'HIGH': 'High', 'MEDIUM': 'Medium', 'LOW': 'Low', 'NONE': 'Low'}
+# What the feed calls an impact, and what the rest of the platform calls it.
+#
+# HOLIDAY BECOMES LOW ON PURPOSE. The platform has three levels, and two things downstream break if
+# a fourth word reaches them: `impactLevel` is typed High|Medium|Low (calendarDb.ts:8), and the
+# expiry sweep only ever deletes rows labelled Low, Medium or High (calendarDb.ts:117-122) — so a
+# row labelled 'Holiday' would never be purged and would pile up for ever. VIX.1 already treats a
+# holiday as Low anyway (news_fetcher.py:52), so this changes nothing it sees.
+_IMPACT = {'high': 'High', 'medium': 'Medium', 'low': 'Low', 'holiday': 'Low'}
 
 
-def parse_calendar_html(html: str) -> list:
+def parse_forexfactory(rows: list) -> list:
+    """Turn the feed's rows into the platform's calendar events.
+
+    THE CLOCK IS THE ONE THING HERE THAT COSTS MONEY IF IT IS WRONG. VIX.1 decides when NOT to enter
+    from these times (vix1.py:285,288), so an hours-out clock either blocks the wrong hour or fails
+    to block the right one. Every row carries a full timestamp WITH its offset
+    ('2026-09-11T08:30:00-04:00') and that offset is READ, never assumed and never taken from
+    displayed text.
+
+    `eventTime` is emitted with an explicit '+00:00'. The old parser emitted a bare
+    '2026-09-08T13:00:00', and Node reads a timestamp with no offset as the CONTAINER's local time
+    (calendarDb.ts:44 `new Date(e.eventTime)`) — which was right only for as long as the container
+    happened to run on UTC. Saying it out loud removes a silent hours-shift nothing would report.
+
+    A row with no time, no name, no currency, or a time with NO OFFSET is SKIPPED rather than
+    guessed at. Skipping is deliberately the safe direction: a guessed timezone would put a news
+    window hours out and let a trade through during CPI, whereas a skipped row is visible in the
+    count printed below. Such a row could not be stored anyway — `calendarDb.upsertCalendarEvents`
+    requires `eventTime`.
     """
-    Pull the economic events out of the MyFXBook calendar page.
-
-    THE PAGE CHANGED, 2026-09-07. This used to walk `#calendarMobile`, a stack of divs. That element
-    no longer exists: the calendar is now a table, `#economicCalendarTable`, holding one row per
-    event. So even a perfect bypass would have found nothing — the fetch and the parse were broken
-    independently, and fixing only one of them changes nothing.
-
-    THE SCHEDULED TIME COMES FROM THE TIMESTAMP, NEVER THE DISPLAYED TEXT. `span[name=calendarLeft]`
-    still carries `time=` as Unix milliseconds — measured on 300 of 300 rows — and that is the one
-    value on the page with no timezone attached to it. The visible "Sep 07, 13:00" is rendered
-    against whatever timezone the site decided to use for the visitor, so reading it would shift
-    every event by hours without anything looking wrong. VIX.1 decides when NOT to enter from these
-    times (vix1.py:251-255), so an hours-out clock is a money defect, not a display one.
-
-    A row with no timestamp, no name or no currency is SKIPPED rather than guessed at. It could not
-    be stored anyway — `calendarDb.upsertCalendarEvents` requires `eventTime`.
-    """
-    try:
-        soup = BeautifulSoup(html, 'html.parser')
-        table = soup.find(id='economicCalendarTable')
-        if not table:
-            title = soup.title.string if soup.title else 'none'
-            print(f'[news_calendar] MyFXBook: #economicCalendarTable not found. Title={title!r}',
-                  file=sys.stderr)
-            return []
-
-        results = []
-        dropped = 0
-        for row in table.find_all('tr'):
-            classes = row.get('class', [])
-            if 'economicCalendarRow' not in classes:
-                continue                      # header and date-separator rows
-            cells = row.find_all('td')
-            if len(cells) < 9:
-                continue
-
-            span = row.find('span', attrs={'name': 'calendarLeft'})
-            ts_ms = span.get('time', '') if span else ''
-            if not ts_ms:
-                continue
-            try:
-                dt = datetime.utcfromtimestamp(int(ts_ms) / 1000)
-            except (ValueError, OverflowError, OSError):
-                continue
-
-            def cell(i):
-                return ' '.join(cells[i].get_text().split())
-
-            currency = cell(3)
-            name = cell(4)
-            if not name or not currency:
-                continue
-
-            category = _categorize(name, currency)
-            if category in _DROP_CATEGORY:
-                dropped += 1
-                continue
-
-            results.append({
-                'date':       f'{_MONTHS[dt.month - 1]} {dt.day:02d}',
-                'time':       dt.strftime('%I:%M%p').lstrip('0').lower(),
-                'currency':   currency,
-                'event':      name,
-                'importance': _IMPACT.get(cell(5).upper(), 'Low'),
-                'actual':     cell(8) or '-',
-                'forecast':   cell(7) or '-',
-                'previous':   cell(6) or '-',
-                'eventTime':  dt.isoformat(),
-                'category':   category,
-            })
-
-        tail = f' ({dropped} stock/crypto rows dropped)' if dropped else ''
-        print(f'[news_calendar] MyFXBook: {len(results)} events{tail}', file=sys.stderr)
-        return results
-
-    except Exception as exc:
-        print(f'[news_calendar] MyFXBook parse error: {exc}', file=sys.stderr)
+    if not isinstance(rows, list):
         return []
+
+    results, dropped, skipped = [], 0, 0
+    for item in rows:
+        if not isinstance(item, dict):
+            skipped += 1
+            continue
+
+        name = str(item.get('title') or '').strip()
+        currency = str(item.get('country') or '').strip()
+        raw_when = str(item.get('date') or '').strip()
+        if not name or not currency or not raw_when:
+            skipped += 1
+            continue
+
+        try:
+            when = datetime.fromisoformat(raw_when)
+        except ValueError:
+            skipped += 1
+            continue
+        if when.tzinfo is None:
+            skipped += 1
+            continue
+        dt = when.astimezone(timezone.utc)
+
+        category = _categorize(name, currency)
+        if category in _DROP_CATEGORY:
+            dropped += 1
+            continue
+
+        results.append({
+            'date':       f'{_MONTHS[dt.month - 1]} {dt.day:02d}',
+            'time':       dt.strftime('%I:%M%p').lstrip('0').lower(),
+            'currency':   currency,
+            'event':      name,
+            'importance': _IMPACT.get(str(item.get('impact') or '').strip().lower(), 'Low'),
+            # The feed carries the forecast and the previous reading, but NOT the number when it
+            # lands. Nothing in the signal platform reads `actual` — the homepage calendar column
+            # does, and it already renders '-' as "not published" (EconomicCalendarPage.tsx:469).
+            'actual':     '-',
+            'forecast':   str(item.get('forecast') or '').strip() or '-',
+            'previous':   str(item.get('previous') or '').strip() or '-',
+            'eventTime':  dt.isoformat(),
+            'category':   category,
+        })
+
+    tail = ''
+    if dropped:
+        tail += f' ({dropped} stock/crypto rows dropped)'
+    if skipped:
+        tail += f' ({skipped} rows unusable — no name, currency or dated time)'
+    print(f'[news_calendar] ForexFactory: {len(results)} events{tail}', file=sys.stderr)
+    return results
 
 
 def scrape_calendar() -> list:
-    """Fetch forex economic calendar from MyFXBook — the sole source.
+    """Fetch the economic calendar. ForexFactory's weekly feed is the sole source.
 
-    Uses curl_cffi iOS Safari TLS impersonation (and FlareSolverr if configured)
-    to bypass Cloudflare. If MyFXBook is challenged or unavailable this returns [];
-    the Node service keeps serving the last good cache, so an empty result is safe
-    and never breaks the UI. No third-party fallbacks (TradingView / ForexFactory
-    removed by request).
+    On failure this returns [] and the Node service keeps serving the last good cache
+    (homepageCalendar.ts), so an empty result never blanks the UI.
+
+    COVERAGE IS THIS WEEK ONLY — `ff_calendar_nextweek.json`, `lastweek`, `today` and the monthly
+    names all answer HTTP 404, measured 2026-09-09. VIX.1's news guards look hours ahead, so they
+    are unaffected; the homepage's forward view is shorter than it was. Because of that,
+    `calendarDb.upsertCalendarEvents` now replaces only the span these rows actually cover instead
+    of a fixed +14 days — otherwise every refresh would delete a fortnight it cannot refill.
     """
-    events = _scrape_myfxbook()
-    if events:
-        print(f'[news_calendar] Using MyFXBook: {len(events)} events', file=sys.stderr)
-    else:
-        print('[news_calendar] MyFXBook unavailable — returning [] (Node serves last good cache)', file=sys.stderr)
+    rows = _fetch_forexfactory()
+    if rows is None:
+        print('[news_calendar] ForexFactory unavailable — returning [] (Node serves last good cache)',
+              file=sys.stderr)
+        return []
+
+    events = parse_forexfactory(rows)
+    if not events:
+        print('[news_calendar] ForexFactory returned no usable events', file=sys.stderr)
     return events
 
 

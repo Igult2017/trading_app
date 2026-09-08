@@ -904,6 +904,33 @@ in the build); 103 client `/api/` URLs all resolve against 227 routes; no produc
 `create_all`); `/api/analytics` classification; `TradeVault` (normalises with `.toUpperCase()` on
 load, line 97); `AdminPanel`'s `manual_outcome`.
 
+### C6 — The economic calendar now covers ONE WEEK and has no released "actual" figure
+**Verified 09 Sep — both are deliberate trade-offs of the source swap, not faults.**
+
+MyFXBook is gone. Its Cloudflare challenge stopped yielding to real, visible Chrome even **from a
+home connection** — two runs on 09 Sep, 0 events, Ray IDs `a3817c1769c6c68f` and `a38181189d4018a5`.
+That also rules out the residential proxy that was previously the plan: a proxy changes the IP, and
+the IP is no longer the difference. The source is now ForexFactory's weekly feed
+([`news_calendar.py` `_FF_URL`](../server/python/news_calendar.py)), chosen because it publishes the
+same High/Medium/Low wording MyFXBook did — his requirement, in his words: *"Only the ones that offer
+filtered news as High impact and medium the way myfx does."*
+
+| what is worse than before | who it affects | severity |
+|---|---|---|
+| **This week only.** `nextweek`, `lastweek`, `today` and the monthly names all answer HTTP 404 | The homepage's forward view is shorter late in the week. **VIX.1 is unaffected** — its news guards look hours ahead, not weeks | low |
+| **No released "actual" value.** The feed carries forecast and previous only | The calendar page's Actual column shows `-` ([`EconomicCalendarPage.tsx:466-490`](../client/src/pages/EconomicCalendarPage.tsx#L466-L490)). **Nothing in the signal platform reads it** — zero references to `.actual` in `signal_platform` | cosmetic |
+
+**If the Actual column is wanted back:** Trading Economics publishes it, answers plain HTTP from the
+server, and is already used for the rates half. It was rejected as the *primary* calendar source for
+two measured reasons — its importance scale is not MyFXBook's (it rates AU Westpac Consumer
+Confidence at its top level), and its rows carry **no machine-readable time at all** — but neither
+objection applies to using it purely to fill in a number against an event we already have.
+
+**Do not reinstate a browser in the container to solve either of these** without first fixing what
+took the site down on 07 Sep: a Chrome that failed to exit was launched every 15 minutes until the
+box ran out of memory. That needs unconditional shutdown, a hard cap on browser lifetime, and a leak
+test proving the process count returns to zero.
+
 ---
 
 ## D. cTrader & copy trading

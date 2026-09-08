@@ -46,30 +46,31 @@ export function getCalendarServiceStatus() {
   };
 }
 
-// HOW LONG THE SCRAPER IS ALLOWED TO TAKE.
+// HOW LONG EACH PYTHON RUN MAY TAKE — one budget per job, because they are not the same job.
 //
-// This was 60 seconds, set when the calendar was a single HTTP request. It is not one any more:
-// MyFXBook now serves a JavaScript challenge that only a real browser can clear, and clearing it
-// took 16-26 seconds in measurement, on top of starting the browser. Sixty seconds killed the
-// calendar scrape mid-solve — the log said `scrape failed: Python timeout (60s)` and the calendar
-// came back empty, which looks exactly like "the site blocked us" and is not.
+// A single shared number was wrong in both directions. It was raised to 240 seconds when the
+// calendar needed a real browser to clear MyFXBook's challenge; that also meant a hung RATES run
+// sat there for four minutes before anyone was told.
 //
-// Raised again to 240s on 2026-09-07: the first production attempt was killed mid-solve at 60s
-// while the measured end-to-end fetch was 67s, and a cold browser profile pays more still.
-// The wait costs nothing: the calendar refreshes on a 15-minute schedule in the background, and
-// callers are served from cache while it runs.
-const PY_TIMEOUT_MS = 240_000;
+// The calendar is a single JSON request again as of 2026-09-09 — measured at ~1.3 seconds — so 30
+// seconds is generous and a hang gets reported instead of waited out. The rates run visits eight
+// central banks plus Trading Economics and legitimately takes longer, so it keeps a wide budget.
+const PY_TIMEOUT_MS: Record<"calendar" | "rates", number> = {
+  calendar:  30_000,
+  rates:    180_000,
+};
 
 function runPython(mode: "calendar" | "rates"): Promise<string> {
   return new Promise((resolve, reject) => {
     let out = "", err = "", done = false;
+    const budget = PY_TIMEOUT_MS[mode];
     const child = spawn(PYTHON_BIN, [SCRIPT, mode], { cwd: process.cwd(), env: process.env });
     const t = setTimeout(() => {
       if (!done) {
         done = true; child.kill();
-        reject(new Error(`Python timeout (${PY_TIMEOUT_MS / 1000}s)`));
+        reject(new Error(`Python timeout (${budget / 1000}s)`));
       }
-    }, PY_TIMEOUT_MS);
+    }, budget);
     child.stdout.on("data", d => { out += d; });
     child.stderr.on("data", d => { err += d; });
     child.on("error", e => { if (!done) { done = true; clearTimeout(t); reject(e); } });
@@ -92,7 +93,7 @@ async function _refreshCalendar(): Promise<CalendarEvent[]> {
       await cacheSet(CAL_KEY, data, CAL_TTL);
       // Persist to DB fire-and-forget — never blocks the cache update
       upsertCalendarEvents(data).catch(e => console.error("[calendarDb] upsert failed:", e.message));
-      _count = data.length; _source = "myfxbook"; _calErr = null;
+      _count = data.length; _source = "forexfactory"; _calErr = null;
       console.log(`[homepageCalendar] scraped ${data.length} events`);
     } else {
       _calErr = "0 events returned — serving cache";
