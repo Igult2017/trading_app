@@ -198,13 +198,37 @@ a display serif: 13px inputs, 11px table cells, 10px labels. It is almost nothin
 | 12px | 10 | same — moved to Inter |
 | 13-20px | 10 | genuine headings, **Playfair kept** |
 
-So the body font became Inter and 15 small "headings" went with it. Playfair stays where it earns its
+So the body font became a sans and 15 small "headings" went with it. Playfair stays where it earns its
 place: the 13px-and-above headings and the wordmark. The blog editor and the traffic panel read the
 same variable and followed automatically.
 
-**The lesson for the next surface:** "which font" was the wrong question. The right one is *which font
+### ⚠ I PICKED THE WRONG SANS, AND THIS PAGE IS WHY — read this before quoting the rule above
+
+I set the admin body font to **Inter**, because this document says "everything READ is Inter". He
+rejected it immediately: *"I said you use the variant of playfair that does not disappear or blurr on
+small font sizes and you changed the font type instead of doing that, why?"*, then named the answer:
+*"use the playfair font type we used in journal dashboard"*.
+
+**The journal does not fix small-size Playfair by abandoning Playfair. It pairs two faces**
+(`useJournalSettings.ts` `FONTS['playfair-display']`):
+
+| role | face |
+|---|---|
+| headings | `'Playfair Display Variable', 'Playfair Display', Georgia, serif` — **the variable family first**, so a heading can be weighted up rather than stuck on a fixed 400 whose hairlines vanish |
+| read-text | `'Montserrat', system-ui, -apple-system, 'Segoe UI', sans-serif` |
+
+and **Montserrat is his own choice, recorded 2026-09-05 — "it was Inter for a day."**
+
+**So the SHAPE of the rule on this page is right and the NAMED FACE is out of date.** Display serif
+for headings, sans for read-text — yes. But which sans is a decision he has already made per surface,
+and it is not the same everywhere: the blog uses Inter (`blogTheme.ts`), the journal and now the admin
+panel use Montserrat. **Check what the surface next door actually uses before naming a face** — this
+page is not the authority on that, the surface is.
+
+**The lesson for the next surface:** "which font" was the wrong question twice over. It is *which font
 does which JOB* — and the answer needs the SIZES counted, because half the things called headings here
-were 11-12px labels.
+were 11-12px labels; and it is *which face has he already chosen here*, which is not a question this
+document can answer.
 
 **Still not checked:** the journal and its fifteen panels, trade vault, metrics, trade sync. The tool
 cannot reach them without a session, so those need checking by hand or by pointing it at a logged-in

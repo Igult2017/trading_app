@@ -74,13 +74,19 @@ const ADMIN_THEMES: Record<string, Record<string, string>> = {
 };
 
 const ADMIN_FONTS: Record<string, string> = {
-  playfair:   "'Playfair Display', 'Playfair Display Variable', Georgia, serif",
-  outfit:     "'Outfit', sans-serif",
-  inter:      "'Inter', sans-serif",
-  montserrat: "'Montserrat', sans-serif",
-  onest:      "'Onest', sans-serif",
-  mono:       "'DM Mono', monospace",
+  // THE VARIABLE FAMILY FIRST — copied verbatim from the journal dashboard (useJournalSettings.ts,
+  // FONTS['playfair-display'].stack). This used to name the static 'Playfair Display' first, which
+  // is the four fixed weights imported in index.css; the Variable package carries the whole 100-900
+  // axis, so a heading can be weighted up instead of relying on a fixed 400 whose hairlines vanish.
+  playfair:   "'Playfair Display Variable', 'Playfair Display', Georgia, serif",
+  // Copied verbatim from the journal's bodyStack (useJournalSettings.ts:176) — the full fallback
+  // chain, not a shortened one, so the admin degrades exactly the way the journal does.
+  montserrat: "'Montserrat', system-ui, -apple-system, 'Segoe UI', sans-serif",
 };
+// `outfit`, `inter`, `onest` and `mono` were removed 2026-09-09: the font picker was disabled in
+// 2026-07, nothing has read this map since except `applyAdminFont` below, and the panel's monospace
+// figures name 'DM Mono' inline. They were four unreachable entries, and one of them (`inter`) was
+// live long enough to send the whole panel to a face he had already replaced.
 
 function applyAdminTheme(id: string) {
   const t = ADMIN_THEMES[id] ?? ADMIN_THEMES.dark;
@@ -89,22 +95,30 @@ function applyAdminTheme(id: string) {
 }
 
 function applyAdminFont(_id: string) {
-  // HEADINGS KEEP PLAYFAIR; EVERYTHING MEANT TO BE READ IS NOW INTER — changed 2026-09-09.
+  // THE SAME PAIRING THE JOURNAL DASHBOARD USES — his instruction, 2026-09-09:
+  // *"use the playfair font type we used in journal dashboard"*, after
+  // *"we used that variant of playfair that has strokes which disappear or become blurred in small
+  // font sizes"*.
   //
-  // This used to set BOTH variables to Playfair Display, "locked 2026-07-20 per request". His newer
-  // instruction supersedes that one: *"we used that variant of playfair that has strokes which
-  // disappear or become blurred in small font sizes, can you fix that by using the new variant we
-  // adopted."*
+  // The journal does not solve that by abandoning Playfair. It pairs two faces
+  // (useJournalSettings.ts, FONTS['playfair-display']):
   //
-  // He is describing the known cause, and it is the first one in docs/READABILITY.md: Playfair
-  // Display is a DISPLAY face with thin strokes and heavy thick/thin contrast — handsome in a
-  // headline and mush in an 11px table cell. The panel is almost entirely small text: 13px inputs,
-  // 11px table cells, 10px labels. The face adopted for anything read is Inter, and the rule is
-  // "serif for headlines, the logo, prices and pull-quotes; everything READ is sans".
+  //     stack     'Playfair Display Variable', 'Playfair Display', Georgia, serif   → headings
+  //     bodyStack 'Montserrat', system-ui, …                                        → read-text
   //
-  // The picker stays disabled — the id is still ignored, so neither localStorage nor the settings
-  // panel can change it. The choice is now which face does which JOB, not which face wins.
-  document.documentElement.style.setProperty('--admin-font',        ADMIN_FONTS.inter);
+  // and MONTSERRAT is his own choice there, recorded 2026-09-05 — "it was Inter for a day". Copying
+  // that pairing here is the point; picking any other sans would re-open a decision he has made.
+  //
+  // I GOT THIS WRONG ONCE, on 2026-09-09: I read docs/READABILITY.md's "everything READ is Inter"
+  // and swapped the body font to Inter, which is the face he had already replaced. His words:
+  // *"I said you use the variant of playfair that does not disappear or blurr on small font sizes
+  // and you changed the font type instead of doing that, why?"* The doc is right about the SHAPE of
+  // the rule (display serif for headings, sans for read-text) and out of date about WHICH sans.
+  //
+  // This supersedes "PERMANENTLY Playfair Display (locked 2026-07-20 per request)", which set BOTH
+  // variables to Playfair — so 13px inputs, 11px table cells and 10px labels were all display serif.
+  // The picker stays disabled: the id is still ignored.
+  document.documentElement.style.setProperty('--admin-font',        ADMIN_FONTS.montserrat);
   document.documentElement.style.setProperty('--admin-header-font', ADMIN_FONTS.playfair);
 }
 
