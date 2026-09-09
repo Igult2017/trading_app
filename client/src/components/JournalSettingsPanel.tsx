@@ -93,11 +93,15 @@ export default function JournalSettingsPanel({ theme, font, onThemeChange, onFon
     }
   };
 
-  // The page renders in the typography it is asking you to choose: the heading face for titles, the
-  // reading face for everything read. Only Playfair declares a separate reading face — a display
-  // serif is what blurs at small sizes — so every sans is simply itself for both jobs.
+  // The page renders in the typography it is asking you to choose — ONE face, the selected one,
+  // which is what the journal itself does (`Journal.tsx:1041` forces `F.stack` on everything except
+  // four panels that own their own typography).
+  //
+  // NOT `bodyStack`. That is the Drawdown panel's companion face, handed to it alone at
+  // `Journal.tsx:1630`; reading it here would put this page in Montserrat while the journal around
+  // it stays Playfair.
   const HEAD = FONTS[font].stack;
-  const BODY = FONTS[font].bodyStack ?? FONTS[font].stack;
+  const BODY = FONTS[font].stack;
 
   return (
     <div className="jsp-root" style={{

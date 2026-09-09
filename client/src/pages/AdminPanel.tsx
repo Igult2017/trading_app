@@ -81,11 +81,18 @@ const ADMIN_THEMES: Record<string, Record<string, string>> = {
  *  the chosen id outright. It also offered no Playfair at all, and defaulted its highlight to
  *  Montserrat, which is exactly what he screenshotted as "still being overriden by montserrat".
  *
- *  Each entry carries the pairing the journal uses (useJournalSettings.ts `FONTS`): `stack` is the
- *  heading face, `bodyStack` the face for text meant to be READ. Only Playfair needs the pair — a
- *  display serif at 11px is what blurs — so every sans is simply itself for both jobs.
+ *  ONE FACE PER ENTRY, because that is what the journal dashboard actually does. I got this wrong
+ *  first: the journal's Playfair definition carries a `bodyStack` of Montserrat, so I routed all of
+ *  the admin's read-text to it — and the whole panel went Montserrat. His reply: *"The font is still
+ *  montserat. Can you check where montserat is hardcoded."*
+ *
+ *  It is not hardcoded here. `bodyStack` is used in exactly ONE place in the journal
+ *  (`Journal.tsx:1630`), where it is handed to the Drawdown panel alone — one of four panels that
+ *  own their own typography and are EXCLUDED from the journal's global font rule
+ *  (`Journal.tsx:1041`, which forces `F.stack` on everything else). So Montserrat is a companion
+ *  inside one panel, not the journal's reading face. I copied the exception instead of the rule.
  */
-type AdminFontDef = { id: string; label: string; stack: string; bodyStack?: string };
+type AdminFontDef = { id: string; label: string; stack: string };
 
 const ADMIN_FONTS: AdminFontDef[] = [
   {
@@ -97,10 +104,7 @@ const ADMIN_FONTS: AdminFontDef[] = [
     // package carries the whole 100-900 axis, so a heading can be weighted up instead of relying on
     // a fixed 400 whose hairlines vanish at small sizes. That ordering IS the "variant that does not
     // disappear" he asked for.
-    stack:     "'Playfair Display Variable', 'Playfair Display', Georgia, serif",
-    // The journal's own bodyStack (useJournalSettings.ts:176), full fallback chain. Montserrat is
-    // HIS choice there, recorded 2026-09-05 — "it was Inter for a day".
-    bodyStack: "'Montserrat', system-ui, -apple-system, 'Segoe UI', sans-serif",
+    stack: "'Playfair Display Variable', 'Playfair Display', Georgia, serif",
   },
   { id: 'montserrat', label: 'Montserrat', stack: "'Montserrat', system-ui, -apple-system, 'Segoe UI', sans-serif" },
   { id: 'inter',      label: 'Inter',      stack: "'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif" },
@@ -125,17 +129,19 @@ function applyAdminTheme(id: string) {
 /** Apply a chosen font. THE CHOICE IS NOW HONOURED — it used to be ignored, with the id named `_id`
  *  and a comment saying so, which is why the picker's "✓ Font Applied" meant nothing.
  *
- *  Headings get the face itself; text meant to be READ gets `bodyStack` when the face declares one.
- *  Only Playfair does, because only a display serif turns to mush at 11px — and this panel is almost
- *  all small text (13px inputs, 11px table cells, 10px labels). That pairing is the journal's, and
- *  it is the answer to *"use the playfair font type we used in journal dashboard"*.
+ *  BOTH VARIABLES GET THE SAME FACE, exactly as the journal does it: `Journal.tsx:1041` forces
+ *  `F.stack` on everything inside the journal except four panels that own their typography. There
+ *  is no second face for body text — that was my invention, and it turned the whole panel
+ *  Montserrat.
  *
- *  It supersedes "PERMANENTLY Playfair Display (locked 2026-07-20 per request)", which set BOTH
- *  variables to Playfair so every input and table cell was a display serif. */
+ *  What answers *"the variant of playfair that does not disappear or blurr on small font sizes"* is
+ *  the ORDER inside the stack, not a different family: `'Playfair Display Variable'` comes first.
+ *  The variable package carries the continuous 100-900 weight axis, so weight is real at any size,
+ *  where the static `'Playfair Display'` this panel used to name first is four fixed cuts. */
 function applyAdminFont(id: string) {
   const f = ADMIN_FONTS.find(o => o.id === id) ?? ADMIN_FONTS[0];
   document.documentElement.style.setProperty('--admin-header-font', f.stack);
-  document.documentElement.style.setProperty('--admin-font',        f.bodyStack ?? f.stack);
+  document.documentElement.style.setProperty('--admin-font',        f.stack);
 }
 
 // Apply saved preferences immediately on module load
@@ -891,7 +897,7 @@ const CustomerCareSection = ({ bp, apiUsers = [], getAdminToken = null, usersLoa
           </div>
           <div style={{ ...cs, overflow: 'hidden', flex: 1 }}>
             <div style={{ padding: '12px 16px', borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 style={{ color: 'white', fontWeight: 700, fontSize: '12px', fontFamily: FONT, margin: 0, textTransform: 'uppercase', letterSpacing: '0.07em' }}>User Quick Manage</h3>
+              <h3 style={{ color: 'white', fontWeight: 700, fontSize: '12px', fontFamily: HFONT, margin: 0, textTransform: 'uppercase', letterSpacing: '0.07em' }}>User Quick Manage</h3>
               <Users size={13} style={{ color: '#3d5878' }} />
             </div>
             {typeof usersLoadError !== 'undefined' && usersLoadError && (
@@ -1793,7 +1799,7 @@ const SystemMonitorSection = ({ bp, getAdminToken = null }: { bp: any; getAdminT
           return (
             <div key={group} style={{ ...cs, overflow: 'hidden' }}>
               <div style={{ padding: '10px 16px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <h3 style={{ color: 'white', fontWeight: 700, fontSize: '11px', fontFamily: FONT, margin: 0, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{group}</h3>
+                <h3 style={{ color: 'white', fontWeight: 700, fontSize: '11px', fontFamily: HFONT, margin: 0, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{group}</h3>
                 <div style={{ width: 7, height: 7, borderRadius: '50%', background: loadingHealth ? C.muted : groupBad ? C.red : groupOk ? C.green : C.muted, boxShadow: loadingHealth ? 'none' : groupBad ? `0 0 5px ${C.red}` : `0 0 5px ${C.green}` }} />
               </div>
               {groupSvcs.map((svc: any, i: number) => {
@@ -1859,7 +1865,7 @@ const SystemMonitorSection = ({ bp, getAdminToken = null }: { bp: any; getAdminT
             {/* Calendar */}
             <div style={{ ...cs, overflow: 'hidden' }}>
               <div style={{ padding: '10px 16px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <h3 style={{ color: 'white', fontWeight: 700, fontSize: '11px', fontFamily: FONT, margin: 0, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Economic Calendar</h3>
+                <h3 style={{ color: 'white', fontWeight: 700, fontSize: '11px', fontFamily: HFONT, margin: 0, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Economic Calendar</h3>
                 {dot(cal ? cal.eventCount > 0 : null)}
               </div>
               <Row label="Source">{cal ? <span style={{ color: srcColor(cal.source) }}>{srcLabel(cal.source)}</span> : '—'}</Row>
@@ -1872,7 +1878,7 @@ const SystemMonitorSection = ({ bp, getAdminToken = null }: { bp: any; getAdminT
             {/* Interest rates */}
             <div style={{ ...cs, overflow: 'hidden' }}>
               <div style={{ padding: '10px 16px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <h3 style={{ color: 'white', fontWeight: 700, fontSize: '11px', fontFamily: FONT, margin: 0, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Interest Rates</h3>
+                <h3 style={{ color: 'white', fontWeight: 700, fontSize: '11px', fontFamily: HFONT, margin: 0, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Interest Rates</h3>
                 {dot(rates ? rates.liveCount > 0 : null)}
               </div>
               <Row label="Live">{rates ? <span style={{ color: rates.liveCount > 0 ? C.greenL : C.muted }}>{rates.liveCount} currencies</span> : '—'}</Row>
@@ -1885,7 +1891,7 @@ const SystemMonitorSection = ({ bp, getAdminToken = null }: { bp: any; getAdminT
             {/* Signal monitor */}
             <div style={{ ...cs, overflow: 'hidden' }}>
               <div style={{ padding: '10px 16px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <h3 style={{ color: 'white', fontWeight: 700, fontSize: '11px', fontFamily: FONT, margin: 0, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Signal Monitor</h3>
+                <h3 style={{ color: 'white', fontWeight: 700, fontSize: '11px', fontFamily: HFONT, margin: 0, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Signal Monitor</h3>
                 {dot(sig ? sig.running : null)}
               </div>
               <Row label="Status">{sig ? <span style={{ color: sig.running ? C.greenL : C.muted }}>{sig.running ? 'Running' : 'Stopped'}</span> : '—'}</Row>
@@ -1897,7 +1903,7 @@ const SystemMonitorSection = ({ bp, getAdminToken = null }: { bp: any; getAdminT
             {/* DB pool */}
             <div style={{ ...cs, overflow: 'hidden' }}>
               <div style={{ padding: '10px 16px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <h3 style={{ color: 'white', fontWeight: 700, fontSize: '11px', fontFamily: FONT, margin: 0, textTransform: 'uppercase', letterSpacing: '0.08em' }}>DB Connection Pool</h3>
+                <h3 style={{ color: 'white', fontWeight: 700, fontSize: '11px', fontFamily: HFONT, margin: 0, textTransform: 'uppercase', letterSpacing: '0.08em' }}>DB Connection Pool</h3>
                 {dot(db ? db.waiting === 0 : null)}
               </div>
               <Row label="Total connections">{db?.total ?? '—'}</Row>
@@ -1912,7 +1918,7 @@ const SystemMonitorSection = ({ bp, getAdminToken = null }: { bp: any; getAdminT
         <div style={{ ...cs, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
           <div style={{ padding: '12px 16px', borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <h3 style={{ color: 'white', fontWeight: 700, margin: 0, fontSize: '12px', fontFamily: FONT, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Live Event Log</h3>
+              <h3 style={{ color: 'white', fontWeight: 700, margin: 0, fontSize: '12px', fontFamily: HFONT, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Live Event Log</h3>
               {errorCount > 0 && <span style={{ fontSize: '9px', fontWeight: 700, padding: '2px 8px', background: 'rgba(244,63,94,0.12)', color: C.redL, border: `1px solid rgba(244,63,94,0.25)`, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{errorCount} errors</span>}
               {warnCount > 0 && <span style={{ fontSize: '9px', fontWeight: 700, padding: '2px 8px', background: 'rgba(245,158,11,0.12)', color: C.amberL, border: `1px solid rgba(245,158,11,0.25)`, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{warnCount} warn</span>}
             </div>
@@ -2531,7 +2537,7 @@ const UpdatesSection = ({ bp, getAdminToken = null }: { bp: any; getAdminToken?:
         <div style={{ padding: '14px 18px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: C.indigo, boxShadow: `0 0 6px ${C.indigo}` }} />
-            <h4 style={{ color: 'white', fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', margin: 0, fontFamily: FONT }}>Campaign Stats</h4>
+            <h4 style={{ color: 'white', fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', margin: 0, fontFamily: HFONT }}>Campaign Stats</h4>
           </div>
           <span style={{ fontSize: '9px', fontWeight: 700, padding: '3px 8px', background: 'rgba(0,200,224,0.1)', color: C.indigoL, border: `1px solid rgba(0,200,224,0.25)`, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Last 30d</span>
         </div>
@@ -2630,7 +2636,7 @@ const GrowthAnalyticsCard = ({ monthlyData = null, dailyData = null }: { monthly
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         marginBottom: 20, flexWrap: 'wrap', gap: 8 }}>
         <div>
-          <h3 style={{ color: 'white', fontWeight: 700, fontSize: 12, fontFamily: FONT, margin: '0 0 2px',
+          <h3 style={{ color: 'white', fontWeight: 700, fontSize: 12, fontFamily: HFONT, margin: '0 0 2px',
             display: 'flex', alignItems: 'center', gap: 7 }}>
             <TrendingUp size={14} style={{ color: C.greenL }} /> Growth Analytics
           </h3>
@@ -2843,7 +2849,7 @@ const SettingsSection = ({ bp, getAdminToken = null }: { bp: any; getAdminToken?
         <div style={{ display: 'grid', gridTemplateColumns: bp.isDesktop ? '1fr 1fr' : '1fr', gap: '6px', alignItems: 'start' }}>
           <div style={{ ...cs, overflow: 'hidden' }}>
             <div style={{ padding: '14px 16px', borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 style={{ color: 'white', fontWeight: 700, fontSize: '12px', fontFamily: FONT, margin: 0 }}>Customer Care Agents</h3>
+              <h3 style={{ color: 'white', fontWeight: 700, fontSize: '12px', fontFamily: HFONT, margin: 0 }}>Customer Care Agents</h3>
               <button onClick={() => setShowNewAgent(true)} style={{ ...btn, display: 'flex', alignItems: 'center', gap: '6px', background: C.indigo, color: 'white', padding: '7px 13px', fontSize: '11px', border: 'none' }}><Plus size={12} /> New Agent</button>
             </div>
             {ccUsers.map((user, idx) => (
@@ -2867,7 +2873,7 @@ const SettingsSection = ({ bp, getAdminToken = null }: { bp: any; getAdminToken?
 
           <div style={{ ...cs, overflow: 'hidden' }}>
             <div style={{ padding: '14px 16px', borderBottom: `1px solid ${C.border}` }}>
-              <h3 style={{ color: 'white', fontWeight: 700, fontSize: '12px', fontFamily: FONT, margin: 0 }}>
+              <h3 style={{ color: 'white', fontWeight: 700, fontSize: '12px', fontFamily: HFONT, margin: 0 }}>
                 {selectedAgent ? `Permissions — ${toTitleCase(selectedAgent.name)}` : 'Select an agent to edit permissions'}
               </h3>
             </div>
@@ -2945,7 +2951,7 @@ const SettingsSection = ({ bp, getAdminToken = null }: { bp: any; getAdminToken?
       {settingsTab === 'tasks' && (
         <div style={{ ...cs, overflow: 'hidden' }}>
           <div style={{ padding: '14px 16px', borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <h3 style={{ color: 'white', fontWeight: 700, fontSize: '12px', fontFamily: FONT, margin: 0 }}>Scheduled Tasks</h3>
+            <h3 style={{ color: 'white', fontWeight: 700, fontSize: '12px', fontFamily: HFONT, margin: 0 }}>Scheduled Tasks</h3>
             <button onClick={() => setShowNewTask(true)} style={{ ...btn, display: 'flex', alignItems: 'center', gap: '6px', background: C.indigo, color: 'white', padding: '7px 13px', fontSize: '11px', border: 'none' }}><Plus size={12} /> Schedule Task</button>
           </div>
           <div style={{ overflowX: 'auto' }}>
@@ -3009,7 +3015,7 @@ const SettingsSection = ({ bp, getAdminToken = null }: { bp: any; getAdminToken?
       {settingsTab === 'appearance' && (
         <div style={{ display: 'grid', gridTemplateColumns: bp.isDesktop ? '1fr 1fr' : '1fr', gap: '6px' }}>
           <div style={{ ...cs, padding: '20px' }}>
-            <h3 style={{ color: 'white', fontWeight: 700, fontSize: '12px', fontFamily: FONT, margin: '0 0 16px', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Dashboard Theme</h3>
+            <h3 style={{ color: 'white', fontWeight: 700, fontSize: '12px', fontFamily: HFONT, margin: '0 0 16px', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Dashboard Theme</h3>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
               {THEME_OPTIONS.map(theme => (
                 <button key={theme.id} onClick={() => selectTheme(theme.id)} style={{ ...btn, padding: '0', overflow: 'hidden', border: `2px solid ${activeTheme === theme.id ? C.indigo : C.border}`, background: 'transparent', textAlign: 'left' }}>
@@ -3034,24 +3040,16 @@ const SettingsSection = ({ bp, getAdminToken = null }: { bp: any; getAdminToken?
           </div>
 
           <div style={{ ...cs, padding: '20px' }}>
-            <h3 style={{ color: 'white', fontWeight: 700, fontSize: '12px', fontFamily: FONT, margin: '0 0 16px', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Dashboard Font</h3>
+            <h3 style={{ color: 'white', fontWeight: 700, fontSize: '12px', fontFamily: HFONT, margin: '0 0 16px', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Dashboard Font</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {ADMIN_FONTS.map(font => (
                 <button key={font.id} onClick={() => { setActiveFont(font.id); setFontSaved(false); }} style={{ ...btn, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', background: activeFont === font.id ? 'rgba(0,200,224,0.08)' : 'rgba(8,14,24,0.4)', border: `1px solid ${activeFont === font.id ? 'rgba(0,200,224,0.35)' : C.border}`, textAlign: 'left' }}>
-                  {/* THE PREVIEW SHOWS THE PAIRING, not one face pretending to do both jobs. The
-                      name renders in the heading face; the sentence renders in whatever text
-                      actually gets — which for Playfair is Montserrat, and saying so here is the
-                      difference between an honest preview and the one that misled before. */}
+                  {/* The preview renders in the face itself — the one thing choosing it will do. */}
                   <div>
                     <p style={{ color: activeFont === font.id ? 'white' : C.muted, fontSize: '17px', fontWeight: 600, margin: 0, fontFamily: font.stack }}>{font.label}</p>
-                    <p style={{ color: C.muted, fontSize: '11px', margin: '4px 0 0', fontFamily: font.bodyStack ?? font.stack }}>
+                    <p style={{ color: C.muted, fontSize: '12px', margin: '4px 0 0', fontFamily: font.stack }}>
                       The quick brown fox jumps over the lazy dog
                     </p>
-                    {font.bodyStack && (
-                      <p style={{ color: C.muted, fontSize: '11px', margin: '4px 0 0', opacity: 0.75, fontFamily: font.bodyStack ?? font.stack }}>
-                        headings in {font.label}, text in Montserrat
-                      </p>
-                    )}
                   </div>
                   {activeFont === font.id && (
                     <div style={{ width: '20px', height: '20px', background: C.indigo, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -3302,7 +3300,7 @@ export default function AdminPanel() {
           <div style={{ display: 'grid', gridTemplateColumns: dashMainCols, gap: '6px', alignItems: 'stretch', flex: 1 }}>
             <GrowthAnalyticsCard monthlyData={overviewStats?.signupsByMonth ?? null} dailyData={overviewStats?.signupsByDay ?? null} />
             <div style={{ ...cs, padding: '20px', display: 'flex', flexDirection: 'column' }}>
-              <h3 style={{ color: 'white', fontWeight: 700, fontStyle: 'italic', fontSize: '12px', fontFamily: FONT, margin: '0 0 16px' }}>Recent Activity</h3>
+              <h3 style={{ color: 'white', fontWeight: 700, fontStyle: 'italic', fontSize: '12px', fontFamily: HFONT, margin: '0 0 16px' }}>Recent Activity</h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                 {overviewStats?.recentActivity?.length > 0
                   ? overviewStats.recentActivity.map((a: any, i: number) => (
