@@ -24,6 +24,7 @@ import { sendCampaignEmail, isEmailConfigured } from "./services/emailService";
 import { storage } from "./storage";
 import { insertTradeSchema, insertEconomicEventSchema, insertTradingSignalSchema, insertJournalEntrySchema, insertTradingSessionSchema,
          insertCopyMasterSchema, insertCopyFollowerSchema, type BrokerAccount } from "@shared/schema";
+import { readingTime } from "@shared/readingTime";
 import { analyzeScreenshotWithOCR, isOCRAvailable } from "./services/ocrScreenshotAnalyzer";
 import { analyzeScreenshotWithGemini, isGeminiScreenshotAvailable } from "./services/geminiScreenshotAnalyzer";
 import { parseTradeText } from "./services/textTradeAnalyzer";
@@ -6337,7 +6338,7 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
         author      TEXT DEFAULT 'Admin',
         author_id   VARCHAR,
         date        TEXT NOT NULL,
-        read_time   TEXT DEFAULT '5 min',
+        read_time   TEXT DEFAULT '',
         image_url   TEXT DEFAULT '',
         status      TEXT DEFAULT 'Draft',
         section     TEXT DEFAULT 'blog',
@@ -6931,7 +6932,10 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
         author: author || adminUser?.user_metadata?.full_name || adminUser?.email || 'Admin',
         authorId: adminUser?.id,
         date: date || new Date().toLocaleDateString('en-US', { month: 'short', day: '2-digit' }),
-        readTime: readTime ?? '5 min',
+        // WORKED OUT FROM THE ARTICLE, NOT ASSUMED. This was `readTime ?? '5 min'`, one of eleven
+        // places that hardcoded five minutes — which is why every published post claimed ~5 minutes
+        // while the real articles ran from 190 to 659 words. An author's own wording still wins.
+        readTime: (readTime && String(readTime).trim()) || readingTime(content ?? ''),
         imageUrl: imageUrl ?? '',
         videoUrl: videoUrl ?? '',
         status: status ?? 'Draft',
@@ -6953,6 +6957,12 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
       // Regenerate slug only when title changes and no explicit slug was provided
       if (body.title?.trim() && !body.slug) {
         body.slug = await uniqueSlug(makeSlugBase(body.title.trim()), id);
+      }
+      // An author who CLEARS the read-time field is asking for it to be worked out again, not for a
+      // blank. Only an explicitly empty value triggers this: leaving the field out of a partial
+      // update still means "do not touch it".
+      if ('readTime' in body && !String(body.readTime ?? '').trim() && typeof body.content === 'string') {
+        body.readTime = readingTime(body.content);
       }
       const updated = await storage.updateBlogPost(id, body);
       if (!updated) return res.status(404).json({ error: 'Post not found' });

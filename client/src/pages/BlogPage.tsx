@@ -42,7 +42,7 @@ function mapPost(p: any): Article {
     category: p.category ?? 'Analysis',
     author:   p.author ?? 'Admin',
     date:     p.date ?? '',
-    readTime: p.readTime ?? p.read_time ?? '5 min',
+    readTime: p.readTime ?? p.read_time ?? '',
     imageUrl: rawImage || extractFirstImage(p.content ?? ''),
   };
 }

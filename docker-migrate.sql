@@ -140,7 +140,7 @@ CREATE TABLE IF NOT EXISTS blog_posts (
   author      TEXT      DEFAULT 'Admin',
   author_id   VARCHAR,
   date        TEXT      NOT NULL,
-  read_time   TEXT      DEFAULT '5 min',
+  read_time   TEXT      DEFAULT '',
   image_url   TEXT      DEFAULT '',
   status      TEXT      DEFAULT 'Draft',
   section     TEXT      DEFAULT 'blog',
@@ -562,6 +562,12 @@ ALTER TABLE synced_trades ADD COLUMN IF NOT EXISTS mfe                  NUMERIC(
 ALTER TABLE synced_trades ADD COLUMN IF NOT EXISTS mae_mfe_source       TEXT;
 ALTER TABLE synced_trades ADD COLUMN IF NOT EXISTS original_stop_loss   NUMERIC(12,5);
 ALTER TABLE synced_trades ADD COLUMN IF NOT EXISTS original_take_profit NUMERIC(12,5);
+
+-- Read time is worked out from the article (shared/readingTime.ts), never assumed. This column
+-- defaulted to '5 min', which is why every published post claimed about five minutes regardless of
+-- length. Dropping the default only affects rows inserted WITHOUT a read time; existing rows keep
+-- whatever they hold, and are the author's to correct.
+ALTER TABLE blog_posts ALTER COLUMN read_time SET DEFAULT '';
 
 -- ── Done ─────────────────────────────────────────────────────────────────────
 DO $$ BEGIN RAISE NOTICE 'docker-migrate.sql complete'; END $$;

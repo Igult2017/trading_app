@@ -559,7 +559,7 @@ export async function initializeDatabase() {
           author      TEXT DEFAULT 'Admin',
           author_id   VARCHAR,
           date        TEXT NOT NULL,
-          read_time   TEXT DEFAULT '5 min',
+          read_time   TEXT DEFAULT '',
           image_url   TEXT DEFAULT '',
           status      TEXT DEFAULT 'Draft',
           section     TEXT DEFAULT 'blog',

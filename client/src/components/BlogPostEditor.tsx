@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { readingTime, wordCount as countWords } from "@shared/readingTime";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -1062,7 +1063,11 @@ export default function BlogPostEditor({ initialData, editPost, onSubmit, onCanc
 
   const set = (partial: Partial<BlogEditorData>) => setForm(f => ({ ...f, ...partial }));
 
-  const wordCount  = form.content.trim() ? form.content.trim().split(/\s+/).length : 0;
+  // COUNTED THE SAME WAY THE READING TIME IS, which it was not before. This split the raw markdown
+  // on whitespace, so the markup counted as words — and an embedded cover (the pictures on this blog
+  // are base64 data URIs, one of them 430 KB) counted as one enormous "word" while its surrounding
+  // syntax added more. The author was shown a figure that did not describe their article.
+  const words = countWords(form.content ?? "");
 
 
   // THE TOPICS THAT ACTUALLY EXIST, counted from what has been published. Fetched with the same
@@ -1100,6 +1105,12 @@ export default function BlogPostEditor({ initialData, editPost, onSubmit, onCanc
     const typed = form.category.trim().toLowerCase();
     return base.filter(n => n.toLowerCase() !== typed).slice(0, 8);
   }, [usedTopics, form.category]);
+
+  // What the article ACTUALLY measures. Recomputed as the author writes, so the read-time box shows
+  // the real figure instead of inviting a guess. `shared/readingTime.ts` holds the rule, so the
+  // editor and the server can never disagree about the number.
+  const autoWords    = words;
+  const autoReadTime = useMemo(() => readingTime(form.content ?? ""), [form.content]);
 
   const mainFocusOn  = (e: any) => { e.target.style.borderColor = "rgba(99,153,34,0.5)";   e.target.style.background = "rgba(255,255,255,0.06)"; };
   const mainFocusOff = (e: any) => { e.target.style.borderColor = "rgba(255,255,255,0.1)"; e.target.style.background = "rgba(255,255,255,0.04)"; };
@@ -1420,11 +1431,28 @@ export default function BlogPostEditor({ initialData, editPost, onSubmit, onCanc
             />
           </MainField>
 
-          {/* Read time */}
+          {/* Read time — worked out from the article, not typed.
+              It used to be an empty box next to a placeholder reading "e.g. 5 min read", and every
+              published post ended up claiming about five minutes: measured 2026-09-09, all eight
+              said ~5 min while the real articles ran from 190 to 659 words, hand-typed in four
+              different spellings ("5 min", "5mins", "5m", "5min"). The placeholder now shows what
+              the article actually measures, and saving with the box empty stores that. Typing over
+              it still wins — an author who wants to say something else can. */}
           <MainField label="Read Time">
             <input type="text" value={form.readTime} onChange={e => set({ readTime: e.target.value })}
-              placeholder="e.g. 5 min read" style={mainInput()}
+              placeholder={autoReadTime ? `${autoReadTime} — from the article` : 'e.g. 5 min'}
+              style={mainInput()}
               onFocus={mainFocusOn} onBlur={mainFocusOff} />
+            {autoReadTime && form.readTime.trim() && form.readTime.trim() !== autoReadTime && (
+              <div style={{ fontSize: 10, fontFamily: "'DM Mono', monospace", color: 'rgba(255,255,255,0.35)', marginTop: 6 }}>
+                the article measures {autoReadTime} ({autoWords} words) —{' '}
+                <button type="button" onClick={() => set({ readTime: '' })}
+                  style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer',
+                           color: 'rgba(99,153,34,0.85)', font: 'inherit', textDecoration: 'underline' }}>
+                  use that
+                </button>
+              </div>
+            )}
           </MainField>
 
           {/* Excerpt */}
@@ -1498,7 +1526,7 @@ export default function BlogPostEditor({ initialData, editPost, onSubmit, onCanc
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" as const }}>
           {[
-            { text: `${wordCount} ${wordCount === 1 ? "word" : "words"}`, color: "rgba(255,255,255,0.22)" },
+            { text: `${words} ${words === 1 ? "word" : "words"}`, color: "rgba(255,255,255,0.22)" },
             { text: form.category.trim().toLowerCase() || "no topic", color: "rgba(255,255,255,0.22)" },
             form.authorExpertise.length > 0 && {
               text: form.authorExpertise.slice(0, 2).join(", ") + (form.authorExpertise.length > 2 ? ` +${form.authorExpertise.length - 2}` : ""),

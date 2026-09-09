@@ -770,7 +770,9 @@ export const blogPosts = pgTable("blog_posts", {
   author:     text("author").default('Admin'),
   authorId:   varchar("author_id"),
   date:       text("date").notNull(),
-  readTime:   text("read_time").default('5 min'),
+  // Worked out from the article (shared/readingTime.ts), never assumed. This defaulted to '5 min',
+  // which is why every published post claimed about five minutes whatever its length.
+  readTime:   text("read_time").default(''),
   imageUrl:   text("image_url").default(''),
   status:     text("status").default('Draft'),          // Published | Draft
   section:    text("section").default('blog'),           // blog | verified-strategies | trade-signals

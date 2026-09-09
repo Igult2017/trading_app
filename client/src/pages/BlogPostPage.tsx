@@ -400,7 +400,7 @@ export default function BlogPostPage() {
           category:   postCategory,
           author:     data.author      ?? 'Admin',
           date:       data.date        ?? '',
-          readTime:   data.readTime    ?? data.read_time ?? '5 min',
+          readTime:   data.readTime    ?? data.read_time ?? '',
           imageUrl:   data.imageUrl ?? data.image_url ?? (() => {
             const m = (data.content ?? '').match(/!\[[^\]]*\]\(([^)]+)\)/);
             return m ? m[1] : '';
@@ -427,7 +427,7 @@ export default function BlogPostPage() {
       // present because `Post` requires them.
       content: '', videoUrl: '', category: p.category ?? 'Analysis',
       author: p.author ?? 'Admin', date: p.date ?? '',
-      readTime: p.readTime ?? p.read_time ?? '5 min',
+      readTime: p.readTime ?? p.read_time ?? '',
       // The server now derives this fallback, so the body no longer has to travel to find a picture.
       imageUrl: p.imageUrl ?? p.image_url ?? '', status: p.status, authorData: null,
     });
