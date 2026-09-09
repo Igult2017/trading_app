@@ -1,10 +1,10 @@
-import { useState, useEffect, useRef } from 'react';
-import { useLocation } from 'wouter';
-import { THEMES, FONTS, JOURNAL_PANELS, ThemeId, FontId } from '@/hooks/useJournalSettings';
-import type { ThemeDef, FontDef } from '@/hooks/useJournalSettings';
+import { useState } from 'react';
+import { THEMES, FONTS, JOURNAL_PANELS } from '@/hooks/useJournalSettings';
+import type { ThemeId, FontId } from '@/hooks/useJournalSettings';
 import { useAuth } from '@/context/AuthContext';
-import { authFetch } from '@/lib/queryClient';
-
+import AppearanceSection from './journal-settings/AppearanceSection';
+import PanelsSection from './journal-settings/PanelsSection';
+import AccountSection from './journal-settings/AccountSection';
 
 interface Props {
   theme: ThemeId;
@@ -15,533 +15,126 @@ interface Props {
   onTogglePanel: (id: string) => void;
 }
 
-/** A card's surface. Depth instead of a hard outline — his UI rules ask for subtle shadow rather
- *  than heavy borders, and these cards were carrying 2px ones. The shadow is kept faint enough to
- *  read on the light theme as well as the five dark ones. */
-const cardShadow = (T: ThemeDef) =>
-  T.dark ? '0 1px 2px rgba(0,0,0,0.35)' : '0 1px 2px rgba(16,24,40,0.06)';
+type SectionId = 'appearance' | 'form' | 'account';
 
-const Section = ({ label, children, T }: { label: string; children: React.ReactNode; T: ThemeDef }) => (
-  <div className="jsp-section" style={{ marginBottom: 40 }}>
-    <div style={{
-      display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16,
-    }}>
-      <div style={{ width: 3, height: 14, background: T.accent, flexShrink: 0, borderRadius: 2 }} />
-      {/* 11px is the project floor and .12em the tracking ceiling (docs/READABILITY.md). This was
-          10px at .22em — small, wide-set capitals read as texture rather than words. */}
-      <span style={{
-        fontSize: 11, fontWeight: 700, letterSpacing: '0.12em',
-        textTransform: 'uppercase', color: T.textMuted,
-      }}>{label}</span>
-      <div style={{ flex: 1, height: 1, background: T.border }} />
-    </div>
-    {children}
-  </div>
-);
-
-export default function JournalSettingsPanel({ theme, font, onThemeChange, onFontChange, hiddenPanels, onTogglePanel }: Props) {
+/**
+ * The journal's settings, rebuilt as a settings PAGE — his instruction, 2026-09-09:
+ * *"Rebuild as settings page for journal form"*.
+ *
+ * WHAT IT WAS. One column, ~530 lines in a single file, five blocks stacked end to end: theme,
+ * typography, a preview, the form panels, then the account. Everything was on screen at once and
+ * nothing was grouped, so the page had no shape — you scrolled past three unrelated decisions to
+ * reach the one you came for, and the live preview sat at the bottom, out of sight of the swatches
+ * it was previewing.
+ *
+ * WHAT IT IS NOW. A section list on the left, one section at a time on the right, and a status line
+ * that always says what is currently applied. The preview is sticky inside Appearance, so the
+ * control and its result are visible together. The three sections live in their own files
+ * (`journal-settings/`), which is also what brings each one inside the 200-line limit — this file
+ * was more than two and a half times it.
+ *
+ * The props are unchanged on purpose: `AdminPanel.tsx` is the only caller and did not have to move.
+ */
+export default function JournalSettingsPanel({
+  theme, font, onThemeChange, onFontChange, hiddenPanels, onTogglePanel,
+}: Props) {
   const T = THEMES[theme];
-  const [themeHov, setThemeHov] = useState<ThemeId | null>(null);
-  const [fontHov, setFontHov] = useState<FontId | null>(null);
-  const { user, signOut } = useAuth();
-  const [, navigate] = useLocation();
-  const [signingOut, setSigningOut] = useState(false);
+  const { user } = useAuth();
+  const [section, setSection] = useState<SectionId>('appearance');
 
-  // ── Display-name editing ─────────────────────────────────────────────────
-  const [displayName, setDisplayName] = useState('');
-  const [nameEdit, setNameEdit] = useState(false);
-  const [nameSaving, setNameSaving] = useState(false);
-  const [nameSaved, setNameSaved] = useState(false);
-  const nameInputRef = useRef<HTMLInputElement>(null);
+  // ONE face, the selected one — what the journal itself does (`Journal.tsx:1041` forces `F.stack`
+  // on everything except four panels that own their typography). Deliberately NOT `bodyStack`:
+  // that is the Drawdown panel's companion, and reading it here put this page in Montserrat while
+  // the journal around it stayed Playfair.
+  const face = FONTS[font].stack;
 
-  useEffect(() => {
-    if (!user) return;
-    authFetch('/api/me/profile').then(r => r.ok ? r.json() : null).then(d => {
-      if (d?.fullName) setDisplayName(d.fullName);
-    }).catch(() => {});
-  }, [user?.id]);
-
-  useEffect(() => {
-    if (nameEdit) nameInputRef.current?.focus();
-  }, [nameEdit]);
-
-  async function saveName() {
-    const trimmed = displayName.trim();
-    if (!trimmed) return;
-    setNameSaving(true);
-    try {
-      await authFetch('/api/me/profile', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fullName: trimmed }),
-      });
-      setNameEdit(false);
-      setNameSaved(true);
-      setTimeout(() => setNameSaved(false), 2500);
-    } catch (_) {}
-    setNameSaving(false);
-  }
-
-  const handleLogout = async () => {
-    if (signingOut) return;
-    setSigningOut(true);
-    try {
-      await signOut();
-      navigate('/');
-    } finally {
-      setSigningOut(false);
-    }
-  };
-
-  // The page renders in the typography it is asking you to choose — ONE face, the selected one,
-  // which is what the journal itself does (`Journal.tsx:1041` forces `F.stack` on everything except
-  // four panels that own their own typography).
-  //
-  // NOT `bodyStack`. That is the Drawdown panel's companion face, handed to it alone at
-  // `Journal.tsx:1630`; reading it here would put this page in Montserrat while the journal around
-  // it stays Playfair.
-  const HEAD = FONTS[font].stack;
-  const BODY = FONTS[font].stack;
+  const hidden = JOURNAL_PANELS.filter(p => hiddenPanels.includes(p.id)).length;
+  const nav: { id: SectionId; label: string; note: string }[] = [
+    { id: 'appearance', label: 'Appearance',   note: `${THEMES[theme].label} · ${FONTS[font].label}` },
+    { id: 'form',       label: 'Journal form', note: hidden ? `${hidden} panel${hidden === 1 ? '' : 's'} hidden` : 'All panels showing' },
+    ...(user ? [{ id: 'account' as SectionId, label: 'Account', note: 'Name and sign out' }] : []),
+  ];
 
   return (
     <div className="jsp-root" style={{
-      maxWidth: 880,
-      margin: '0 auto',
-      padding: '40px 32px 64px',
-      color: T.text,
-      fontFamily: BODY,
+      maxWidth: 1120, margin: '0 auto', padding: '40px 32px 64px',
+      color: T.text, fontFamily: face,
     }}>
       <style>{`
+        .jsp-nav-btn:hover { background: ${T.surface} !important; }
+        @media (max-width: 900px) {
+          .jsp-layout { grid-template-columns: 1fr !important; gap: 20px !important; }
+          .jsp-nav { position: static !important; display: flex !important; overflow-x: auto !important; gap: 8px !important; }
+          .jsp-nav-btn { flex: 0 0 auto !important; }
+          .jsp-nav-note { display: none !important; }
+        }
         @media (max-width: 640px) {
           .jsp-root { padding: 20px 14px 40px !important; }
-          .jsp-title-row { gap: 10px !important; }
-          .jsp-title-bar { width: 3px !important; height: 22px !important; }
-          .jsp-title { font-size: 21px !important; letter-spacing: 0.01em !important; }
-          .jsp-subtitle { margin-left: 13px !important; font-size: 12px !important; }
-          .jsp-section { margin-bottom: 24px !important; }
-          .jsp-grid-themes { grid-template-columns: repeat(2, 1fr) !important; gap: 8px !important; }
-          .jsp-grid-fonts  { grid-template-columns: repeat(2, 1fr) !important; gap: 8px !important; }
-          .jsp-font-card { padding: 12px 14px 10px !important; }
-          .jsp-font-sample { font-size: 15px !important; margin-bottom: 7px !important; }
-          .jsp-preview-card { padding: 16px 16px !important; }
-          .jsp-preview-title { font-size: 18px !important; }
-          .jsp-preview-stats { flex-wrap: wrap !important; gap: 6px !important; }
-          .jsp-preview-stat { padding: 6px 10px !important; flex: 1 1 30% !important; min-width: 0 !important; }
-          .jsp-logout-card { padding: 14px !important; }
-          .jsp-logout-btn { width: 40px !important; height: 40px !important; }
+          .jsp-title { font-size: 22px !important; }
+          .jsp-grid-themes { grid-template-columns: repeat(2, 1fr) !important; }
+          .jsp-grid-fonts  { grid-template-columns: repeat(2, 1fr) !important; }
+          .jsp-preview-stats { flex-wrap: wrap !important; }
+          .jsp-preview-stat { flex: 1 1 40% !important; }
+          .jsp-preview-sticky { position: static !important; }
         }
       `}</style>
 
-      {/* Page title.
-          It was 12px DM Mono — a page title set SMALLER than the body text under it, with no
-          hierarchy at all. It now reads as a title, and it renders in the typography actually
-          selected on this page: the heading face for the title, the reading face for the sentence.
-          That makes the page demonstrate the choice it is asking you to make. */}
-      <div className="jsp-section" style={{ marginBottom: 40 }}>
-        <div className="jsp-title-row" style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 10 }}>
-          <div className="jsp-title-bar" style={{ width: 4, height: 30, background: T.accent, borderRadius: 2 }} />
+      {/* Page header */}
+      <div style={{ marginBottom: 28 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 10 }}>
+          <div style={{ width: 4, height: 30, background: T.accent, borderRadius: 2 }} />
           <h1 className="jsp-title" style={{
-            margin: 0, fontSize: 28, fontWeight: 700,
-            letterSpacing: '0.01em', lineHeight: 1.1, color: T.text,
-            fontFamily: HEAD,
+            margin: 0, fontSize: 28, fontWeight: 700, letterSpacing: '0.01em',
+            lineHeight: 1.1, color: T.text,
           }}>Journal Settings</h1>
         </div>
-        <p className="jsp-subtitle" style={{
+        <p style={{
           margin: '0 0 0 18px', fontSize: 13, color: T.textMuted,
-          letterSpacing: '0.01em', lineHeight: 1.6, fontFamily: BODY, maxWidth: 620,
+          lineHeight: 1.6, maxWidth: 620,
         }}>
-          Personalise your trading environment — theme and typography changes apply instantly.
+          Personalise your trading environment — every change here applies instantly.
         </p>
       </div>
 
-      {/* ── THEME ─────────────────────────────────────────── */}
-      <Section label="Theme" T={T}>
-        <div className="jsp-grid-themes" style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))',
-          gap: 12,
-        }}>
-          {(Object.entries(THEMES) as [ThemeId, ThemeDef][]).map(([id, def]) => {
-            const active = theme === id;
-            const hov = themeHov === id;
+      <div className="jsp-layout" style={{ display: 'grid', gridTemplateColumns: '212px 1fr', gap: 28, alignItems: 'start' }}>
+        {/* Section list. Sticky on desktop, a scrolling row of tabs on narrow screens. */}
+        <nav className="jsp-nav" aria-label="Settings sections"
+             style={{ position: 'sticky', top: 16, display: 'flex', flexDirection: 'column', gap: 4 }}>
+          {nav.map(item => {
+            const on = section === item.id;
             return (
-              <button
-                key={id}
-                onClick={() => onThemeChange(id)}
-                onMouseEnter={() => setThemeHov(id)}
-                onMouseLeave={() => setThemeHov(null)}
+              <button key={item.id} className="jsp-nav-btn" onClick={() => setSection(item.id)}
+                aria-current={on ? 'page' : undefined}
                 style={{
-                  background: 'transparent',
-                  border: `1px solid ${active ? T.accent : hov ? T.textMuted : T.border}`,
-                  borderRadius: 12,
-                  padding: 0,
-                  boxShadow: active ? `0 0 0 1px ${T.accent}` : cardShadow(T),
-                  cursor: 'pointer',
-                  transition: 'border-color 0.15s, transform 0.15s',
-                  transform: hov && !active ? 'translateY(-2px)' : 'none',
-                  overflow: 'hidden',
-                  outline: 'none',
-                  position: 'relative',
-                }}
-              >
-                {/* Swatch preview */}
-                <div style={{
-                  height: 72,
-                  background: def.bg,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  padding: '10px 10px 0',
-                  gap: 5,
-                  position: 'relative',
+                  textAlign: 'left', cursor: 'pointer', borderRadius: 10,
+                  padding: '11px 14px', outline: 'none',
+                  background: on ? `${T.accent}14` : 'transparent',
+                  border: `1px solid ${on ? T.accent : 'transparent'}`,
+                  color: on ? T.text : T.textMuted,
+                  fontFamily: 'inherit', transition: 'background 0.15s, border-color 0.15s, color 0.15s',
                 }}>
-                  {/* Fake sidebar strip */}
-                  <div style={{
-                    position: 'absolute', left: 0, top: 0, bottom: 0, width: 18,
-                    background: def.sidebarBg,
-                    borderRight: `1px solid ${def.border}`,
-                  }} />
-                  {/* Fake cards */}
-                  <div style={{ marginLeft: 24, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                    <div style={{ height: 10, width: '80%', background: def.surface, borderRadius: 2, border: `1px solid ${def.border}` }} />
-                    <div style={{ height: 7, width: '55%', background: def.surface, borderRadius: 2, border: `1px solid ${def.border}` }} />
-                  </div>
-                  {/* Accent dot */}
-                  <div style={{
-                    position: 'absolute', bottom: 8, right: 8,
-                    width: 8, height: 8, borderRadius: '50%',
-                    background: def.accent,
-                  }} />
-                  {/* Active check */}
-                  {active && (
-                    <div style={{
-                      position: 'absolute', top: 6, right: 6,
-                      width: 16, height: 16, borderRadius: '50%',
-                      background: def.accent,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    }}>
-                      <svg width="9" height="9" viewBox="0 0 10 10" fill="none">
-                        <polyline points="1.5,5 4,7.5 8.5,2.5" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-                      </svg>
-                    </div>
-                  )}
-                </div>
-                {/* Label */}
-                <div style={{
-                  background: active ? `${T.accent}18` : hov ? T.surface : T.surface,
-                  borderTop: `1px solid ${active ? T.accent : T.border}`,
-                  padding: '7px 10px',
-                  textAlign: 'left',
-                }}>
-                  <span style={{
-                    fontSize: 11, fontWeight: active ? 700 : 600,
-                    letterSpacing: '0.08em', textTransform: 'uppercase',
-                    color: active ? T.accent : T.text,
-                    display: 'block',
-                  }}>{def.label}</span>
-                  <span style={{
-                    fontSize: 11, letterSpacing: '0.02em',
-                    color: T.textMuted, display: 'block', marginTop: 2,
-                  }}>{def.dark ? 'Dark' : 'Light'}</span>
-                </div>
-              </button>
-            );
-          })}
-        </div>
-      </Section>
-
-      {/* ── FONT ──────────────────────────────────────────── */}
-      <Section label="Typography" T={T}>
-        <div className="jsp-grid-fonts" style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(148px, 1fr))',
-          gap: 12,
-        }}>
-          {(Object.entries(FONTS) as [FontId, FontDef][]).map(([id, def]) => {
-            const active = font === id;
-            const hov = fontHov === id;
-            return (
-              <button
-                key={id}
-                className="jsp-font-card"
-                onClick={() => onFontChange(id)}
-                onMouseEnter={() => setFontHov(id)}
-                onMouseLeave={() => setFontHov(null)}
-                style={{
-                  background: active ? `${T.accent}14` : hov ? T.surface : 'transparent',
-                  border: `1px solid ${active ? T.accent : hov ? T.textMuted : T.border}`,
-                  borderRadius: 12,
-                  padding: '16px 16px 14px',
-                  boxShadow: active ? `0 0 0 1px ${T.accent}` : cardShadow(T),
-                  cursor: 'pointer',
-                  transition: 'all 0.15s',
-                  transform: hov && !active ? 'translateY(-2px)' : 'none',
-                  outline: 'none',
-                  textAlign: 'left',
-                }}
-              >
-                <div className="jsp-font-sample" style={{
-                  fontSize: 19,
-                  fontFamily: def.stack,
-                  color: active ? T.accent : T.text,
-                  lineHeight: 1,
-                  marginBottom: 10,
-                  fontWeight: 400,
-                }}>
-                  {def.sample}
-                </div>
-                <div style={{
-                  fontSize: 11, fontWeight: 700,
-                  letterSpacing: '0.1em', textTransform: 'uppercase',
-                  color: active ? T.accent : T.textMuted,
-                  marginBottom: 4,
-                }}>{def.label}</div>
-                {active && (
-                  <div style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 4,
-                    marginTop: 4, padding: '2px 8px',
-                    background: T.accent, borderRadius: 20,
-                  }}>
-                    <svg width="8" height="8" viewBox="0 0 10 10" fill="none">
-                      <polyline points="1.5,5 4,7.5 8.5,2.5" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                    <span style={{ fontSize: 11, color: '#fff', fontWeight: 700, letterSpacing: '0.08em' }}>ACTIVE</span>
-                  </div>
-                )}
-              </button>
-            );
-          })}
-        </div>
-      </Section>
-
-      {/* ── PREVIEW ───────────────────────────────────────── */}
-      <Section label="Preview" T={T}>
-        <div className="jsp-preview-card" style={{
-          background: T.surface,
-          border: `1px solid ${T.border}`,
-          borderRadius: 10,
-          padding: '24px 28px',
-          fontFamily: FONTS[font].stack,
-        }}>
-          <div style={{
-            fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase',
-            color: T.accent, marginBottom: 8, fontWeight: 700,
-          }}>Live Preview</div>
-          <div className="jsp-preview-title" style={{
-            fontSize: 24, fontWeight: 800, color: T.text,
-            letterSpacing: '0.04em', lineHeight: 1.2, marginBottom: 10,
-          }}>Trading Journal</div>
-          <div style={{
-            fontSize: 13, color: T.textMuted,
-            lineHeight: 1.7, letterSpacing: '0.01em', marginBottom: 20,
-          }}>
-            The quick brown fox jumps over the lazy dog. 0123456789 +$1,234.56 −$987.00
-          </div>
-          <div className="jsp-preview-stats" style={{ display: 'flex', gap: 8 }}>
-            {[['P&L', '+$1,234', T.accent], ['WIN RATE', '67%', '#34d399'], ['TRADES', '42', T.text]].map(([label, val, color]) => (
-              <div key={label} className="jsp-preview-stat" style={{
-                background: T.bg,
-                border: `1px solid ${T.border}`,
-                borderRadius: 6,
-                padding: '8px 14px',
-              }}>
-                <div style={{ fontSize: 11, color: T.textMuted, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 4 }}>{label}</div>
-                <div style={{ fontSize: 16, fontWeight: 700, color, letterSpacing: '0.01em' }}>{val}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </Section>
-
-      {/* ── JOURNAL FORM PANELS ───────────────────────────── */}
-      <Section label="Journal Form Panels" T={T}>
-        <p style={{ fontSize: 13, color: T.textMuted, marginBottom: 20, letterSpacing: '0.01em', lineHeight: 1.7, maxWidth: 620 }}>
-          Mute panels you don't use. Muted panels are hidden from the journal form. Critical panels (marked&nbsp;
-          <span style={{ color: T.accent, fontWeight: 700 }}>required</span>) cannot be hidden.
-        </p>
-        {[1, 2, 3, 4].map(step => {
-          const stepPanels = JOURNAL_PANELS.filter(p => p.step === step);
-          const stepLabel = stepPanels[0]?.stepLabel ?? '';
-          return (
-            <div key={step} style={{ marginBottom: 24 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.textMuted, marginBottom: 10 }}>
-                Step {step} — {stepLabel}
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                {stepPanels.map(panel => {
-                  const hidden = hiddenPanels.includes(panel.id);
-                  const disabled = !!panel.critical;
-                  return (
-                    <div
-                      key={panel.id}
-                      onClick={() => !disabled && onTogglePanel(panel.id)}
-                      style={{
-                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                        padding: '10px 14px',
-                        background: T.surface,
-                        border: `1px solid ${hidden ? T.border : T.border}`,
-                        borderRadius: 8,
-                        cursor: disabled ? 'default' : 'pointer',
-                        opacity: disabled ? 0.55 : 1,
-                        transition: 'opacity 0.15s',
-                        userSelect: 'none',
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <span style={{ fontSize: 13, color: hidden ? T.textMuted : T.text, fontWeight: 600, letterSpacing: '0.01em' }}>
-                          {panel.label}
-                        </span>
-                        {panel.critical && (
-                          <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: T.accent, padding: '2px 8px', border: `1px solid ${T.accent}40`, borderRadius: 999 }}>
-                            required
-                          </span>
-                        )}
-                      </div>
-                      {/* Toggle switch */}
-                      <div style={{
-                        position: 'relative', width: 36, height: 20, flexShrink: 0,
-                        background: (!hidden && !disabled) ? T.accent : T.border,
-                        borderRadius: 10, transition: 'background 0.2s',
-                      }}>
-                        <div style={{
-                          position: 'absolute', top: 3, left: hidden || disabled ? 3 : 19,
-                          width: 14, height: 14, borderRadius: '50%',
-                          background: '#fff', transition: 'left 0.2s',
-                          boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
-                        }} />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          );
-        })}
-      </Section>
-
-      {/* ── ACCOUNT ───────────────────────────────────────── */}
-      {user && (
-        <Section label="Account" T={T}>
-
-          {/* Display name */}
-          <div style={{
-            background: T.surface, border: `1px solid ${T.border}`,
-            borderRadius: 10, padding: '18px 22px', marginBottom: 12,
-            fontFamily: "'DM Mono', monospace",
-          }}>
-            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.textMuted, marginBottom: 12 }}>
-              Display name
-            </div>
-            {nameEdit ? (
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <input
-                  ref={nameInputRef}
-                  value={displayName}
-                  onChange={e => setDisplayName(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter') saveName(); if (e.key === 'Escape') setNameEdit(false); }}
-                  maxLength={100}
-                  style={{
-                    flex: 1, background: T.bg, border: `1px solid ${T.accent}`,
-                    borderRadius: 6, padding: '7px 11px',
-                    color: T.text, fontSize: 13, fontFamily: "'DM Mono', monospace",
-                    outline: 'none',
-                  }}
-                />
-                <button
-                  type="button" onClick={saveName} disabled={nameSaving}
-                  style={{
-                    padding: '7px 14px', borderRadius: 6, border: 'none',
-                    background: T.accent, color: '#fff', fontSize: 11,
-                    fontWeight: 600, fontFamily: "'DM Mono', monospace",
-                    cursor: nameSaving ? 'wait' : 'pointer', opacity: nameSaving ? 0.6 : 1,
-                    letterSpacing: '0.05em',
-                  }}
-                >{nameSaving ? '…' : 'Save'}</button>
-                <button
-                  type="button" onClick={() => setNameEdit(false)}
-                  style={{
-                    padding: '7px 12px', borderRadius: 6, border: `1px solid ${T.border}`,
-                    background: 'transparent', color: T.textMuted, fontSize: 11,
-                    fontFamily: "'DM Mono', monospace", cursor: 'pointer',
-                  }}
-                >Cancel</button>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-                <span style={{ fontSize: 13, color: displayName ? T.text : T.textMuted, letterSpacing: '-0.2px' }}>
-                  {displayName || 'Not set'}
+                <span style={{ display: 'block', fontSize: 13, fontWeight: on ? 700 : 600, letterSpacing: '0.01em' }}>
+                  {item.label}
                 </span>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  {nameSaved && (
-                    <span style={{ fontSize: 11, color: '#22d3a5', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Saved ✓</span>
-                  )}
-                  <button
-                    type="button" onClick={() => setNameEdit(true)}
-                    style={{
-                      padding: '5px 12px', borderRadius: 5, border: `1px solid ${T.border}`,
-                      background: 'transparent', color: T.textMuted, fontSize: 11,
-                      fontFamily: 'inherit', cursor: 'pointer',
-                      letterSpacing: '0.06em', transition: 'color 0.15s, border-color 0.15s',
-                    }}
-                    onMouseEnter={e => { e.currentTarget.style.color = T.text; e.currentTarget.style.borderColor = T.textMuted; }}
-                    onMouseLeave={e => { e.currentTarget.style.color = T.textMuted; e.currentTarget.style.borderColor = T.border; }}
-                  >Edit</button>
-                </div>
-              </div>
-            )}
-          </div>
+                <span className="jsp-nav-note" style={{ display: 'block', marginTop: 3, fontSize: 11, color: T.textMuted }}>
+                  {item.note}
+                </span>
+              </button>
+            );
+          })}
+        </nav>
 
-          {/* Sign out */}
-          <div className="jsp-logout-card" style={{
-            background: T.surface,
-            border: `1px solid ${T.border}`,
-            borderRadius: 10,
-            padding: '20px 24px',
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            gap: 16, flexWrap: 'wrap',
-          }}>
-            <div style={{ minWidth: 0, flex: '1 1 200px' }}>
-              <div style={{
-                fontSize: 12, fontWeight: 800, color: T.text,
-                letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 4,
-                fontFamily: "'DM Mono', monospace",
-              }}>Sign out</div>
-              <div style={{
-                fontSize: 11, color: T.textMuted, letterSpacing: '0.02em',
-                lineHeight: 1.5, wordBreak: 'break-word', fontFamily: "'DM Mono', monospace",
-              }}>
-                You will be returned to the homepage. Your session data stays safe.
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={handleLogout}
-              disabled={signingOut}
-              className="jsp-logout-btn"
-              title={signingOut ? 'Signing out…' : 'Logout'}
-              aria-label={signingOut ? 'Signing out' : 'Logout'}
-              style={{
-                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                background: '#ef4444', color: '#ffffff',
-                border: 'none', borderRadius: '50%',
-                width: 44, height: 44, padding: 0,
-                cursor: signingOut ? 'wait' : 'pointer',
-                opacity: signingOut ? 0.6 : 1,
-                transition: 'opacity 0.15s, transform 0.15s, box-shadow 0.15s',
-                fontFamily: 'inherit', flexShrink: 0,
-                boxShadow: '0 4px 12px rgba(239,68,68,0.25)',
-              }}
-              onMouseEnter={e => { if (!signingOut) { e.currentTarget.style.opacity = '0.85'; e.currentTarget.style.boxShadow = '0 6px 16px rgba(239,68,68,0.4)'; } }}
-              onMouseLeave={e => { if (!signingOut) { e.currentTarget.style.opacity = '1'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(239,68,68,0.25)'; } }}
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M18.36 6.64a9 9 0 1 1-12.73 0"/>
-                <line x1="12" y1="2" x2="12" y2="12"/>
-              </svg>
-            </button>
-          </div>
-        </Section>
-      )}
-
+        <div style={{ minWidth: 0 }}>
+          {section === 'appearance' && (
+            <AppearanceSection theme={theme} font={font} T={T} face={face}
+              onThemeChange={onThemeChange} onFontChange={onFontChange} />
+          )}
+          {section === 'form' && (
+            <PanelsSection hiddenPanels={hiddenPanels} onTogglePanel={onTogglePanel} T={T} face={face} />
+          )}
+          {section === 'account' && <AccountSection T={T} face={face} />}
+        </div>
+      </div>
     </div>
   );
 }
