@@ -180,6 +180,32 @@ it. Not yet fixed.
 **The home page has 6 elements below 4.5:1 still**, and 9 serif at body size of which the testimonial
 pull-quotes are deliberate. Worth one more pass.
 
-**Not yet checked:** everything behind the login — the journal and its fifteen panels, the admin
-panel, trade vault, metrics, trade sync. The tool cannot reach them without a session, so those need
-checking by hand or by pointing it at a logged-in build.
+## THE ADMIN PANEL — DONE 2026-09-09, and it was the worst case of cause 1 in the codebase
+
+His report: *"we used that variant of playfair that has strokes which disappear or become blurred in
+small font sizes, can you fix that by using the new variant we adopted."* He is describing cause 1
+exactly, without needing the tool.
+
+**`applyAdminFont` set BOTH the body and the heading variable to Playfair Display**, with a comment
+reading *"PERMANENTLY Playfair Display (locked 2026-07-20 per request)"* — so **the entire panel** was
+a display serif: 13px inputs, 11px table cells, 10px labels. It is almost nothing but small text.
+
+**Counted rather than assumed**, which changed the fix. Of the 26 places using the *heading* font:
+
+| size | count | verdict |
+|---|---|---|
+| 11px | 5 | small uppercase section labels — **not headlines**, moved to Inter |
+| 12px | 10 | same — moved to Inter |
+| 13-20px | 10 | genuine headings, **Playfair kept** |
+
+So the body font became Inter and 15 small "headings" went with it. Playfair stays where it earns its
+place: the 13px-and-above headings and the wordmark. The blog editor and the traffic panel read the
+same variable and followed automatically.
+
+**The lesson for the next surface:** "which font" was the wrong question. The right one is *which font
+does which JOB* — and the answer needs the SIZES counted, because half the things called headings here
+were 11-12px labels.
+
+**Still not checked:** the journal and its fifteen panels, trade vault, metrics, trade sync. The tool
+cannot reach them without a session, so those need checking by hand or by pointing it at a logged-in
+build.
