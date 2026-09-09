@@ -158,7 +158,7 @@ const toTitleCase = (s: string): string =>
 const C = {
   bg: 'var(--admin-bg)', sidebar: 'var(--admin-sidebar)', card: 'var(--admin-card)',
   border: 'var(--admin-border)', border2: 'var(--admin-border2)', dim: 'var(--admin-dim)',
-  text: '#c2d8ef', muted: '#4e6a88',
+  text: '#e8f0fb', muted: '#9db5d1',
   indigo: 'var(--admin-accent)', indigoL: 'var(--admin-accentL)',
   green: '#00d48a', greenL: '#00ff9d',
   red: '#ff3060', redL: '#ff6080',
@@ -179,7 +179,7 @@ class CustomerCareErrorBoundary extends React.Component<{ children: React.ReactN
   render() {
     if (this.state.hasError) {
       return (
-        <div style={{ padding: '12px 16px', background: 'rgba(220,38,38,0.08)', border: '1px solid rgba(220,38,38,0.25)', color: '#fca5a5', fontSize: '12px' }}>
+        <div style={{ padding: '12px 16px', background: 'rgba(220,38,38,0.08)', border: '1px solid rgba(220,38,38,0.25)', color: '#fca5a5', fontSize: '13px' }}>
           Customer Care render error: {this.state.error || 'Customer Care crashed'}
         </div>
       );
@@ -188,8 +188,8 @@ class CustomerCareErrorBoundary extends React.Component<{ children: React.ReactN
   }
 }
 const cs = { background: C.card, border: `1px solid ${C.border}`, boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.03), 0 1px 3px rgba(0,0,0,0.3)' };
-const inp = { width: '100%', background: 'var(--admin-bg)', border: `1px solid ${C.border2}`, color: C.text, padding: '10px 14px', fontFamily: FONT, fontWeight: 500, fontSize: '13px', outline: 'none', boxSizing: 'border-box' } as const;
-const lbl = { display: 'block', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: C.muted, marginBottom: '8px' } as const;
+const inp = { width: '100%', background: 'var(--admin-bg)', border: `1px solid ${C.border2}`, color: C.text, padding: '10px 14px', fontFamily: FONT, fontWeight: 500, fontSize: '14px', outline: 'none', boxSizing: 'border-box' } as const;
+const lbl = { display: 'block', fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: C.muted, marginBottom: '8px' } as const;
 const btn = { fontFamily: FONT, fontWeight: 600, cursor: 'pointer', border: 'none', letterSpacing: '0.04em' };
 
 const SECTION_META = {
@@ -274,15 +274,15 @@ const GrowthChartTooltip = ({ active, payload, label }: any) => {
   const cumulative = payload.find((p: any) => p.dataKey === 'cumulative')?.value ?? 0;
   return (
     <div style={{ background: '#0d1117', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 6, padding: '10px 14px', fontFamily: FONT, minWidth: 140 }}>
-      <p style={{ color: '#607898', fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 8 }}>{label}</p>
+      <p style={{ color: '#607898', fontSize: 12, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 8 }}>{label}</p>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16 }}>
-          <span style={{ color: '#607898', fontSize: 11 }}>New signups</span>
-          <span style={{ color: '#38bdf8', fontWeight: 700, fontSize: 11 }}>{newUsers}</span>
+          <span style={{ color: '#607898', fontSize: 12 }}>New signups</span>
+          <span style={{ color: '#38bdf8', fontWeight: 700, fontSize: 12 }}>{newUsers}</span>
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16 }}>
-          <span style={{ color: '#607898', fontSize: 11 }}>Cumulative</span>
-          <span style={{ color: '#a78bfa', fontWeight: 700, fontSize: 11 }}>{cumulative}</span>
+          <span style={{ color: '#607898', fontSize: 12 }}>Cumulative</span>
+          <span style={{ color: '#a78bfa', fontWeight: 700, fontSize: 12 }}>{cumulative}</span>
         </div>
       </div>
     </div>
@@ -316,15 +316,15 @@ const StatCard = ({ title, value, change, trend, icon: Icon }: { title: string; 
       <div style={{ padding: '7px', background: 'rgba(0,200,224,0.08)', color: C.indigoL, border: '1px solid rgba(0,200,224,0.12)' }}>
         <Icon size={15} />
       </div>
-      <span style={{ fontSize: '10px', fontWeight: 700, padding: '2px 7px', background: trend === 'up' ? 'rgba(0,212,138,0.1)' : 'rgba(255,48,96,0.1)', color: trend === 'up' ? C.greenL : C.redL, border: `1px solid ${trend === 'up' ? 'rgba(0,212,138,0.2)' : 'rgba(255,48,96,0.2)'}`, letterSpacing: '0.04em' }}>
+      <span style={{ fontSize: '12px', fontWeight: 700, padding: '2px 7px', background: trend === 'up' ? 'rgba(0,212,138,0.1)' : 'rgba(255,48,96,0.1)', color: trend === 'up' ? C.greenL : C.redL, border: `1px solid ${trend === 'up' ? 'rgba(0,212,138,0.2)' : 'rgba(255,48,96,0.2)'}`, letterSpacing: '0.04em' }}>
         {change}
       </span>
     </div>
     <div>
-      <div style={{ fontSize: '14px', fontWeight: 700, color: '#ffffff', fontFamily: "'DM Mono', monospace", letterSpacing: '-0.02em', lineHeight: 1, marginBottom: '5px' }}>
+      <div style={{ fontSize: '15px', fontWeight: 700, color: '#ffffff', fontFamily: "'DM Mono', monospace", letterSpacing: '-0.02em', lineHeight: 1, marginBottom: '5px' }}>
         {value}
       </div>
-      <div style={{ fontSize: '10px', fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.12em' }}>
+      <div style={{ fontSize: '12px', fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.12em' }}>
         {title}
       </div>
     </div>
@@ -442,11 +442,11 @@ const UsersSection = ({ bp, apiUsers, setApiUsers, getAdminToken }: { bp: any; a
       <div style={{ ...cs, padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
         <div style={{ position: 'relative' }}>
           <Search size={14} style={{ position: 'absolute', left: '11px', top: '50%', transform: 'translateY(-50%)', color: '#3d5878' }} />
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search traders..." style={{ ...inp, width: bp.isMobile ? '100%' : '220px', paddingLeft: '34px', fontSize: '13px' }} />
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search traders..." style={{ ...inp, width: bp.isMobile ? '100%' : '220px', paddingLeft: '34px', fontSize: '14px' }} />
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <span style={{ color: '#3d5878', fontSize: '12px' }}>{filtered.length} traders</span>
-          <button onClick={() => setShowInvite(true)} style={{ ...btn, display: 'flex', alignItems: 'center', gap: '7px', background: C.indigo, color: 'white', padding: '9px 16px', fontSize: '12px', border: 'none', whiteSpace: 'nowrap', fontWeight: 700 }}>
+          <span style={{ color: '#3d5878', fontSize: '13px' }}>{filtered.length} traders</span>
+          <button onClick={() => setShowInvite(true)} style={{ ...btn, display: 'flex', alignItems: 'center', gap: '7px', background: C.indigo, color: 'white', padding: '9px 16px', fontSize: '13px', border: 'none', whiteSpace: 'nowrap', fontWeight: 700 }}>
             <UserPlus size={14} /> Add User
           </button>
         </div>
@@ -458,7 +458,7 @@ const UsersSection = ({ bp, apiUsers, setApiUsers, getAdminToken }: { bp: any; a
           <thead>
             <tr style={{ background: '#080e18' }}>
               {['User', 'Country', 'Plan', 'Status', 'Win Rate', 'Last Login', ''].map((h, i) => (
-                <th key={i} style={{ padding: '11px 16px', textAlign: i === 6 ? 'right' : 'left', color: C.muted, fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', whiteSpace: 'nowrap' }}>{h}</th>
+                <th key={i} style={{ padding: '11px 16px', textAlign: i === 6 ? 'right' : 'left', color: C.muted, fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', whiteSpace: 'nowrap' }}>{h}</th>
               ))}
             </tr>
           </thead>
@@ -471,29 +471,29 @@ const UsersSection = ({ bp, apiUsers, setApiUsers, getAdminToken }: { bp: any; a
               return (
                 <tr key={u.id} style={{ borderTop: `1px solid ${C.bg}`, position: 'relative' }} onClick={() => setMenuOpenId(null)}>
                   <td style={{ padding: '13px 16px' }}>
-                    <p style={{ color: 'white', fontWeight: 600, fontSize: '13px', margin: 0 }}>{u.full_name ? toTitleCase(u.full_name) : '—'}</p>
-                    <p style={{ color: '#3d5878', fontSize: '11px', margin: '2px 0 0' }}>{u.email}</p>
+                    <p style={{ color: 'white', fontWeight: 600, fontSize: '14px', margin: 0 }}>{u.full_name ? toTitleCase(u.full_name) : '—'}</p>
+                    <p style={{ color: '#3d5878', fontSize: '12px', margin: '2px 0 0' }}>{u.email}</p>
                   </td>
                   <td style={{ padding: '13px 16px', whiteSpace: 'nowrap' }}>
                     {u.country ? (
-                      <span style={{ color: '#9ab4cc', fontSize: '12px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span style={{ color: '#9ab4cc', fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
                         <FlagImg country={u.country} size={20} /> {u.country.toUpperCase()}
                       </span>
-                    ) : <span style={{ color: '#1b2840', fontSize: '12px' }}>—</span>}
+                    ) : <span style={{ color: '#1b2840', fontSize: '13px' }}>—</span>}
                   </td>
                   <td style={{ padding: '13px 16px' }}>
-                    <span style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', padding: '3px 8px', background: planStyle.bg, color: planStyle.color, border: `1px solid ${planStyle.border}`, whiteSpace: 'nowrap', letterSpacing: '0.05em' }}>{u.plan || 'Free'}</span>
+                    <span style={{ fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', padding: '3px 8px', background: planStyle.bg, color: planStyle.color, border: `1px solid ${planStyle.border}`, whiteSpace: 'nowrap', letterSpacing: '0.05em' }}>{u.plan || 'Free'}</span>
                   </td>
                   <td style={{ padding: '13px 16px', whiteSpace: 'nowrap' }}>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: statusColor, fontSize: '12px', fontWeight: 600 }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: statusColor, fontSize: '13px', fontWeight: 600 }}>
                       <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: statusColor, flexShrink: 0, display: 'inline-block', boxShadow: `0 0 5px ${statusColor}60` }} />
                       {u.status || 'Active'}
                     </span>
                   </td>
                   <td style={{ padding: '13px 16px' }}>
-                    <span style={{ color: u.win_rate ? C.blueL : '#1b2840', fontSize: '13px', fontWeight: u.win_rate ? 700 : 400 }}>{u.win_rate || '—'}</span>
+                    <span style={{ color: u.win_rate ? C.blueL : '#1b2840', fontSize: '14px', fontWeight: u.win_rate ? 700 : 400 }}>{u.win_rate || '—'}</span>
                   </td>
-                  <td style={{ padding: '13px 16px', color: '#3d5878', fontSize: '12px', whiteSpace: 'nowrap' }}>{lastLogin}</td>
+                  <td style={{ padding: '13px 16px', color: '#3d5878', fontSize: '13px', whiteSpace: 'nowrap' }}>{lastLogin}</td>
                   <td style={{ padding: '13px 16px', textAlign: 'right', position: 'relative' }}>
                     <button onClick={e => { e.stopPropagation(); setMenuOpenId(isMenuOpen ? null : u.id); }}
                       style={{ ...btn, background: 'transparent', color: '#3d5878', border: 'none', padding: '4px 8px', fontSize: '16px', lineHeight: 1 }}>⋮</button>
@@ -501,23 +501,23 @@ const UsersSection = ({ bp, apiUsers, setApiUsers, getAdminToken }: { bp: any; a
                       <div onClick={e => e.stopPropagation()} style={{ position: 'absolute', right: '12px', top: '100%', zIndex: 30, background: '#0c1018', border: `1px solid ${C.border2}`, minWidth: '160px', boxShadow: '0 8px 24px rgba(0,0,0,0.4)' }}>
                         {(['Free', 'Pro', 'Enterprise'] as const).map(p => (
                           <button key={p} onClick={() => { updateProfile(u.id, { plan: p }); setMenuOpenId(null); }}
-                            style={{ ...btn, display: 'block', width: '100%', textAlign: 'left', padding: '9px 14px', background: u.plan === p ? 'rgba(0,200,224,0.1)' : 'transparent', color: u.plan === p ? C.indigoL : '#607898', border: 'none', fontSize: '12px' }}>Plan: {p}</button>
+                            style={{ ...btn, display: 'block', width: '100%', textAlign: 'left', padding: '9px 14px', background: u.plan === p ? 'rgba(0,200,224,0.1)' : 'transparent', color: u.plan === p ? C.indigoL : '#607898', border: 'none', fontSize: '13px' }}>Plan: {p}</button>
                         ))}
                         <div style={{ borderTop: `1px solid ${C.border}`, margin: '4px 0' }} />
                         {(['Active', 'Inactive', 'Banned'] as const).map(s => (
                           <button key={s} onClick={() => { updateProfile(u.id, { status: s }); setMenuOpenId(null); }}
-                            style={{ ...btn, display: 'block', width: '100%', textAlign: 'left', padding: '9px 14px', background: u.status === s ? 'rgba(0,200,224,0.1)' : 'transparent', color: u.status === s ? C.indigoL : STATUS_COLOR[s], border: 'none', fontSize: '12px' }}>Status: {s}</button>
+                            style={{ ...btn, display: 'block', width: '100%', textAlign: 'left', padding: '9px 14px', background: u.status === s ? 'rgba(0,200,224,0.1)' : 'transparent', color: u.status === s ? C.indigoL : STATUS_COLOR[s], border: 'none', fontSize: '13px' }}>Status: {s}</button>
                         ))}
                         <div style={{ borderTop: `1px solid ${C.border}`, margin: '4px 0' }} />
                         <button onClick={() => { handleRoleChange(u.id, u.role === 'admin' ? 'user' : 'admin'); setMenuOpenId(null); }}
-                          style={{ ...btn, display: 'block', width: '100%', textAlign: 'left', padding: '9px 14px', background: 'transparent', color: C.amberL, border: 'none', fontSize: '12px' }}>
+                          style={{ ...btn, display: 'block', width: '100%', textAlign: 'left', padding: '9px 14px', background: 'transparent', color: C.amberL, border: 'none', fontSize: '13px' }}>
                           {u.role === 'admin' ? 'Revoke Admin' : 'Make Admin'}
                         </button>
                         <button onClick={() => { setGrantAccessUserId(u.id); setGrantAccessDays('30'); setMenuOpenId(null); }}
-                          style={{ ...btn, display: 'block', width: '100%', textAlign: 'left', padding: '9px 14px', background: 'transparent', color: C.greenL, border: 'none', fontSize: '12px' }}>Grant Journal Access</button>
+                          style={{ ...btn, display: 'block', width: '100%', textAlign: 'left', padding: '9px 14px', background: 'transparent', color: C.greenL, border: 'none', fontSize: '13px' }}>Grant Journal Access</button>
                         <div style={{ borderTop: `1px solid ${C.border}`, margin: '4px 0' }} />
                         <button onClick={() => { setDeleteTarget({ id: u.id, name: u.full_name ? toTitleCase(u.full_name) : u.email }); setDeleteMode('immediate'); setMenuOpenId(null); }}
-                          style={{ ...btn, display: 'block', width: '100%', textAlign: 'left', padding: '9px 14px', background: 'transparent', color: C.redL, border: 'none', fontSize: '12px' }}>Delete Account</button>
+                          style={{ ...btn, display: 'block', width: '100%', textAlign: 'left', padding: '9px 14px', background: 'transparent', color: C.redL, border: 'none', fontSize: '13px' }}>Delete Account</button>
                       </div>
                     )}
                   </td>
@@ -525,7 +525,7 @@ const UsersSection = ({ bp, apiUsers, setApiUsers, getAdminToken }: { bp: any; a
               );
             })}
             {filtered.length === 0 && (
-              <tr><td colSpan={7} style={{ padding: '32px', color: '#3d5878', fontSize: '13px', textAlign: 'center' }}>
+              <tr><td colSpan={7} style={{ padding: '32px', color: '#3d5878', fontSize: '14px', textAlign: 'center' }}>
                 {search ? 'No traders match your search.' : 'No users found.'}
               </td></tr>
             )}
@@ -538,10 +538,10 @@ const UsersSection = ({ bp, apiUsers, setApiUsers, getAdminToken }: { bp: any; a
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
           <div style={{ ...cs, width: '100%', maxWidth: '360px', padding: '24px', border: `1px solid ${C.border2}` }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-              <h3 style={{ color: 'white', fontWeight: 700, fontSize: '14px', fontFamily: HFONT, margin: 0 }}>Grant Journal Access</h3>
+              <h3 style={{ color: 'white', fontWeight: 700, fontSize: '15px', fontFamily: HFONT, margin: 0 }}>Grant Journal Access</h3>
               <button onClick={() => setGrantAccessUserId(null)} style={{ ...btn, background: 'transparent', color: C.muted, border: 'none', padding: '4px' }}><X size={16} /></button>
             </div>
-            <p style={{ color: '#607898', fontSize: '12px', marginBottom: '16px', lineHeight: 1.5 }}>
+            <p style={{ color: '#607898', fontSize: '13px', marginBottom: '16px', lineHeight: 1.5 }}>
               Grant this user access to the journal for a specified number of days, starting from now.
             </p>
             <label style={{ ...lbl }}>Number of Days</label>
@@ -554,8 +554,8 @@ const UsersSection = ({ bp, apiUsers, setApiUsers, getAdminToken }: { bp: any; a
               style={{ ...inp, marginBottom: '20px' }}
             />
             <div style={{ display: 'flex', gap: '10px' }}>
-              <button onClick={() => setGrantAccessUserId(null)} style={{ ...btn, flex: 1, padding: '10px', background: 'transparent', color: '#607898', border: `1px solid ${C.border2}`, fontSize: '13px' }}>Cancel</button>
-              <button onClick={handleGrantJournalAccess} disabled={grantingAccess} style={{ ...btn, flex: 1, padding: '10px', background: C.green, color: 'white', border: 'none', fontSize: '13px', opacity: grantingAccess ? 0.6 : 1 }}>
+              <button onClick={() => setGrantAccessUserId(null)} style={{ ...btn, flex: 1, padding: '10px', background: 'transparent', color: '#607898', border: `1px solid ${C.border2}`, fontSize: '14px' }}>Cancel</button>
+              <button onClick={handleGrantJournalAccess} disabled={grantingAccess} style={{ ...btn, flex: 1, padding: '10px', background: C.green, color: 'white', border: 'none', fontSize: '14px', opacity: grantingAccess ? 0.6 : 1 }}>
                 {grantingAccess ? 'Granting…' : 'Grant Access'}
               </button>
             </div>
@@ -571,7 +571,7 @@ const UsersSection = ({ bp, apiUsers, setApiUsers, getAdminToken }: { bp: any; a
               <Trash2 size={20} style={{ color: C.redL }} />
             </div>
             <p style={{ color: 'white', fontWeight: 700, fontFamily: HFONT, fontSize: '15px', textAlign: 'center', margin: '0 0 6px' }}>Delete Account</p>
-            <p style={{ color: '#607898', fontSize: '12px', textAlign: 'center', margin: '0 0 20px', lineHeight: 1.5 }}>
+            <p style={{ color: '#607898', fontSize: '13px', textAlign: 'center', margin: '0 0 20px', lineHeight: 1.5 }}>
               You are about to delete <strong style={{ color: 'white' }}>{deleteTarget.name}</strong>.<br />This cannot be undone.
             </p>
 
@@ -579,21 +579,21 @@ const UsersSection = ({ bp, apiUsers, setApiUsers, getAdminToken }: { bp: any; a
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '20px' }}>
               {(['immediate', 'soft'] as const).map(m => (
                 <button key={m} onClick={() => setDeleteMode(m)}
-                  style={{ ...btn, padding: '10px 8px', fontSize: '11px', textAlign: 'center', border: `1px solid ${deleteMode === m ? C.red : C.border2}`, background: deleteMode === m ? 'rgba(244,63,94,0.12)' : 'transparent', color: deleteMode === m ? C.redL : '#607898' }}>
+                  style={{ ...btn, padding: '10px 8px', fontSize: '12px', textAlign: 'center', border: `1px solid ${deleteMode === m ? C.red : C.border2}`, background: deleteMode === m ? 'rgba(244,63,94,0.12)' : 'transparent', color: deleteMode === m ? C.redL : '#607898' }}>
                   {m === 'immediate' ? 'Delete Now' : 'Delete in 24h'}
                 </button>
               ))}
             </div>
-            <p style={{ color: '#3d5878', fontSize: '10px', textAlign: 'center', margin: '0 0 20px', lineHeight: 1.6 }}>
+            <p style={{ color: '#3d5878', fontSize: '12px', textAlign: 'center', margin: '0 0 20px', lineHeight: 1.6 }}>
               {deleteMode === 'immediate'
                 ? 'Account and all data will be permanently removed immediately.'
                 : 'Account is marked for deletion and disappears automatically after 24 hours.'}
             </p>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-              <button onClick={() => setDeleteTarget(null)} style={{ ...btn, padding: '10px', background: 'transparent', color: '#607898', border: `1px solid ${C.border2}`, fontSize: '13px' }}>Cancel</button>
+              <button onClick={() => setDeleteTarget(null)} style={{ ...btn, padding: '10px', background: 'transparent', color: '#607898', border: `1px solid ${C.border2}`, fontSize: '14px' }}>Cancel</button>
               <button onClick={handleDeleteUser} disabled={deleting}
-                style={{ ...btn, padding: '10px', background: '#dc2626', color: 'white', border: 'none', fontSize: '13px', opacity: deleting ? 0.6 : 1 }}>
+                style={{ ...btn, padding: '10px', background: '#dc2626', color: 'white', border: 'none', fontSize: '14px', opacity: deleting ? 0.6 : 1 }}>
                 {deleting ? 'Deleting…' : deleteMode === 'immediate' ? 'Delete Now' : 'Schedule Delete'}
               </button>
             </div>
@@ -606,14 +606,14 @@ const UsersSection = ({ bp, apiUsers, setApiUsers, getAdminToken }: { bp: any; a
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
           <div style={{ ...cs, width: '100%', maxWidth: '360px', padding: '24px', border: `1px solid ${C.border2}` }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-              <h3 style={{ color: 'white', fontWeight: 700, fontSize: '14px', fontFamily: HFONT, margin: 0 }}>Invite User</h3>
+              <h3 style={{ color: 'white', fontWeight: 700, fontSize: '15px', fontFamily: HFONT, margin: 0 }}>Invite User</h3>
               <button onClick={() => setShowInvite(false)} style={{ ...btn, background: 'transparent', color: C.muted, border: 'none', padding: '4px' }}><X size={16} /></button>
             </div>
             <label style={{ ...lbl }}>Email Address</label>
             <input value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} placeholder="trader@example.com" style={{ ...inp, marginBottom: '16px' }} />
             <div style={{ display: 'flex', gap: '10px' }}>
-              <button onClick={() => setShowInvite(false)} style={{ ...btn, flex: 1, padding: '10px', background: 'transparent', color: '#607898', border: `1px solid ${C.border2}`, fontSize: '13px' }}>Cancel</button>
-              <button onClick={handleInvite} disabled={inviting} style={{ ...btn, flex: 1, padding: '10px', background: C.indigo, color: 'white', border: 'none', fontSize: '13px', opacity: inviting ? 0.6 : 1 }}>{inviting ? 'Sending…' : 'Send Invite'}</button>
+              <button onClick={() => setShowInvite(false)} style={{ ...btn, flex: 1, padding: '10px', background: 'transparent', color: '#607898', border: `1px solid ${C.border2}`, fontSize: '14px' }}>Cancel</button>
+              <button onClick={handleInvite} disabled={inviting} style={{ ...btn, flex: 1, padding: '10px', background: C.indigo, color: 'white', border: 'none', fontSize: '14px', opacity: inviting ? 0.6 : 1 }}>{inviting ? 'Sending…' : 'Send Invite'}</button>
             </div>
           </div>
         </div>
@@ -770,12 +770,12 @@ const CustomerCareSection = ({ bp, apiUsers = [], getAdminToken = null, usersLoa
     <CustomerCareErrorBoundary>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', flex: 1 }}>
       {renderError && (
-        <div style={{ padding: '10px 12px', background: 'rgba(220,38,38,0.08)', border: `1px solid rgba(220,38,38,0.25)`, color: '#fca5a5', fontSize: '12px' }}>
+        <div style={{ padding: '10px 12px', background: 'rgba(220,38,38,0.08)', border: `1px solid rgba(220,38,38,0.25)`, color: '#fca5a5', fontSize: '13px' }}>
           Customer Care render error: {renderError}
         </div>
       )}
       {careError && (
-        <div style={{ padding: '10px 12px', background: 'rgba(220,38,38,0.08)', border: `1px solid rgba(220,38,38,0.25)`, color: '#fca5a5', fontSize: '12px' }}>
+        <div style={{ padding: '10px 12px', background: 'rgba(220,38,38,0.08)', border: `1px solid rgba(220,38,38,0.25)`, color: '#fca5a5', fontSize: '13px' }}>
           {careError}
         </div>
       )}
@@ -791,8 +791,8 @@ const CustomerCareSection = ({ bp, apiUsers = [], getAdminToken = null, usersLoa
             <div style={{ position: 'absolute', top: 0, right: 0, width: '56px', height: '56px', background: s.glow, borderRadius: '0 0 0 56px', pointerEvents: 'none' }} />
             <s.icon size={16} style={{ color: s.color, marginBottom: '12px' }} />
             <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', flexWrap: 'wrap' }}>
-              <span style={{ color: C.muted, fontSize: '9px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em' }}>{s.label}:</span>
-              <span style={{ color: s.color, fontSize: '11px', fontWeight: 700 }}>{s.value}</span>
+              <span style={{ color: C.muted, fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em' }}>{s.label}:</span>
+              <span style={{ color: s.color, fontSize: '12px', fontWeight: 700 }}>{s.value}</span>
             </div>
           </div>
         ))}
@@ -803,10 +803,10 @@ const CustomerCareSection = ({ bp, apiUsers = [], getAdminToken = null, usersLoa
         {/* LEFT — Support Queue */}
         <div style={{ ...cs, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
           <div style={{ padding: '14px 16px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap' }}>
-            <h3 style={{ color: 'white', fontWeight: 700, fontSize: '13px', fontFamily: HFONT, margin: 0 }}>Support Queue</h3>
+            <h3 style={{ color: 'white', fontWeight: 700, fontSize: '14px', fontFamily: HFONT, margin: 0 }}>Support Queue</h3>
             <div style={{ display: 'flex', gap: '3px', background: C.bg, padding: '3px', border: `1px solid ${C.border}` }}>
               {['All', 'Open', 'In Progress', 'Resolved'].map(f => (
-                <button key={f} onClick={() => setFilterStatus(f)} style={{ ...btn, fontSize: '9px', padding: '4px 9px', background: filterStatus === f ? C.indigo : 'transparent', color: filterStatus === f ? 'white' : C.muted, border: 'none', whiteSpace: 'nowrap', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{f}</button>
+                <button key={f} onClick={() => setFilterStatus(f)} style={{ ...btn, fontSize: '12px', padding: '4px 9px', background: filterStatus === f ? C.indigo : 'transparent', color: filterStatus === f ? 'white' : C.muted, border: 'none', whiteSpace: 'nowrap', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{f}</button>
               ))}
             </div>
           </div>
@@ -822,14 +822,14 @@ const CustomerCareSection = ({ bp, apiUsers = [], getAdminToken = null, usersLoa
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px', flexWrap: 'wrap' }}>
-                      <span style={{ color: '#3d5878', fontSize: '9px', fontWeight: 700, letterSpacing: '0.06em' }}>{safeTicketId(ticket)}</span>
-                      <span style={{ fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', padding: '2px 6px', background: priority.bg, color: priority.c, border: `1px solid ${priority.b}`, letterSpacing: '0.05em' }}>{ticket?.priority || 'Medium'}</span>
+                      <span style={{ color: '#3d5878', fontSize: '12px', fontWeight: 700, letterSpacing: '0.06em' }}>{safeTicketId(ticket)}</span>
+                      <span style={{ fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', padding: '2px 6px', background: priority.bg, color: priority.c, border: `1px solid ${priority.b}`, letterSpacing: '0.05em' }}>{ticket?.priority || 'Medium'}</span>
                     </div>
-                    <p style={{ color: 'white', fontSize: '13px', fontWeight: 600, fontStyle: 'italic', margin: '0 0 4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ticket?.subject || 'No subject'}</p>
-                    <p style={{ color: '#3d5878', fontSize: '11px', margin: 0 }}>{safeTicketUser(ticket)} · {ticket?.created || '—'}</p>
+                    <p style={{ color: 'white', fontSize: '14px', fontWeight: 600, fontStyle: 'italic', margin: '0 0 4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ticket?.subject || 'No subject'}</p>
+                    <p style={{ color: '#3d5878', fontSize: '12px', margin: 0 }}>{safeTicketUser(ticket)} · {ticket?.created || '—'}</p>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px', marginLeft: '12px', flexShrink: 0 }}>
-                    <span style={{ color: SC[ticket?.status as keyof typeof SC] || C.muted, fontSize: '10px', fontWeight: 700, whiteSpace: 'nowrap' }}>{ticket?.status || 'Open'}</span>
+                    <span style={{ color: SC[ticket?.status as keyof typeof SC] || C.muted, fontSize: '12px', fontWeight: 700, whiteSpace: 'nowrap' }}>{ticket?.status || 'Open'}</span>
                     <CI size={12} style={{ color: C.dim }} />
                   </div>
                 </div>
@@ -845,21 +845,21 @@ const CustomerCareSection = ({ bp, apiUsers = [], getAdminToken = null, usersLoa
               <>
                 <div style={{ padding: '12px 16px', borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                   <div style={{ minWidth: 0, flex: 1 }}>
-                    <p style={{ color: '#3d5878', fontSize: '10px', fontWeight: 700, margin: 0, letterSpacing: '0.06em' }}>{safeTicketId(selectedTicket)}</p>
-                    <p style={{ color: 'white', fontWeight: 700, fontSize: '13px', margin: '2px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selectedTicket?.subject || 'No subject'}</p>
+                    <p style={{ color: '#3d5878', fontSize: '12px', fontWeight: 700, margin: 0, letterSpacing: '0.06em' }}>{safeTicketId(selectedTicket)}</p>
+                    <p style={{ color: 'white', fontWeight: 700, fontSize: '14px', margin: '2px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selectedTicket?.subject || 'No subject'}</p>
                   </div>
                   <button onClick={() => setSelectedTicket(null)} style={{ ...btn, background: 'transparent', color: C.muted, padding: '4px', marginLeft: '8px' }}><X size={15} /></button>
                 </div>
                 <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
                   <div style={{ background: 'rgba(8,14,24,0.6)', padding: '10px 12px', display: 'flex', alignItems: 'center', gap: '10px', borderLeft: `3px solid ${C.indigo}` }}>
-                    <div style={{ width: '34px', height: '34px', background: C.indigo, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700, color: 'white', flexShrink: 0 }}>
+                    <div style={{ width: '34px', height: '34px', background: C.indigo, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 700, color: 'white', flexShrink: 0 }}>
                       {safeTicketUser(selectedTicket).split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
                     </div>
                     <div style={{ minWidth: 0, flex: 1 }}>
-                      <p style={{ color: 'white', fontWeight: 700, fontSize: '13px', margin: 0 }}>{safeTicketUser(selectedTicket)}</p>
-                      <p style={{ color: '#3d5878', fontSize: '11px', margin: 0 }}>{safeTicketEmail(selectedTicket)}</p>
+                      <p style={{ color: 'white', fontWeight: 700, fontSize: '14px', margin: 0 }}>{safeTicketUser(selectedTicket)}</p>
+                      <p style={{ color: '#3d5878', fontSize: '12px', margin: 0 }}>{safeTicketEmail(selectedTicket)}</p>
                     </div>
-                    <span style={{ fontSize: '10px', fontWeight: 700, padding: '3px 8px', background: selectedTicket?.status === 'Resolved' ? 'rgba(16,185,129,0.1)' : 'rgba(245,158,11,0.1)', color: SC[selectedTicket?.status as keyof typeof SC] || C.muted, border: `1px solid ${(SC[selectedTicket?.status as keyof typeof SC] || C.muted)}40`, whiteSpace: 'nowrap', flexShrink: 0 }}>{selectedTicket?.status || 'Open'}</span>
+                    <span style={{ fontSize: '12px', fontWeight: 700, padding: '3px 8px', background: selectedTicket?.status === 'Resolved' ? 'rgba(16,185,129,0.1)' : 'rgba(245,158,11,0.1)', color: SC[selectedTicket?.status as keyof typeof SC] || C.muted, border: `1px solid ${(SC[selectedTicket?.status as keyof typeof SC] || C.muted)}40`, whiteSpace: 'nowrap', flexShrink: 0 }}>{selectedTicket?.status || 'Open'}</span>
                   </div>
                   <div>
                     <p style={{ ...lbl }}>Quick Actions</p>
@@ -870,7 +870,7 @@ const CustomerCareSection = ({ bp, apiUsers = [], getAdminToken = null, usersLoa
                         { label: 'Ban User', icon: Ban, color: C.redL, bg: 'rgba(244,63,94,0.1)', border: 'rgba(244,63,94,0.2)', action: () => selectedTicket?.userId ? setActionUser({ name: safeTicketUser(selectedTicket), userId: selectedTicket.userId }) : setCareError('This ticket has no user id to ban') },
                         { label: 'Re-open', icon: RotateCcw, color: C.blueL, bg: 'rgba(59,130,246,0.1)', border: 'rgba(59,130,246,0.2)', action: async () => { const token = await getAdminToken?.(); const h: any = { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }; if (selectedTicket?.id) await fetch(`/api/admin/tickets/${selectedTicket.id}`, { method: 'PATCH', headers: h, body: JSON.stringify({ status: 'Open' }) }).catch(()=>{}); setTickets(p => p.map(t => t.id === selectedTicket?.id ? { ...t, status: 'Open' } : t)); setSelectedTicket((p: any) => ({ ...p, status: 'Open' })); } },
                       ].map((b, i) => (
-                        <button key={i} onClick={b.action} style={{ ...btn, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px', padding: '10px 6px', background: b.bg, color: b.color, border: `1px solid ${b.border}`, fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        <button key={i} onClick={b.action} style={{ ...btn, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px', padding: '10px 6px', background: b.bg, color: b.color, border: `1px solid ${b.border}`, fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                           <b.icon size={13} />{b.label}
                         </button>
                       ))}
@@ -878,8 +878,8 @@ const CustomerCareSection = ({ bp, apiUsers = [], getAdminToken = null, usersLoa
                   </div>
                   <div>
                     <p style={{ ...lbl }}>Reply to Customer</p>
-                    <textarea value={replyText} onChange={e => setReplyText(e.target.value)} rows={3} placeholder="Type your response..." style={{ ...inp, resize: 'none', display: 'block', fontSize: '13px' }} />
-                    <button onClick={handleSendReply} disabled={sendingReply} style={{ ...btn, marginTop: '8px', width: '100%', background: C.indigo, color: 'white', padding: '10px', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.1em', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', opacity: sendingReply ? 0.6 : 1 }}>
+                    <textarea value={replyText} onChange={e => setReplyText(e.target.value)} rows={3} placeholder="Type your response..." style={{ ...inp, resize: 'none', display: 'block', fontSize: '14px' }} />
+                    <button onClick={handleSendReply} disabled={sendingReply} style={{ ...btn, marginTop: '8px', width: '100%', background: C.indigo, color: 'white', padding: '10px', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.1em', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', opacity: sendingReply ? 0.6 : 1 }}>
                       <Send size={12} /> {sendingReply ? 'Sending…' : 'Send Reply'}
                     </button>
                   </div>
@@ -890,24 +890,24 @@ const CustomerCareSection = ({ bp, apiUsers = [], getAdminToken = null, usersLoa
                 <div style={{ width: '48px', height: '48px', background: 'rgba(8,14,24,0.8)', border: `1px solid ${C.border2}`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
                   <MessageSquare size={22} style={{ color: C.border2 }} />
                 </div>
-                <p style={{ color: '#3d5878', fontSize: '13px', margin: 0, fontWeight: 500 }}>Select a ticket to view details</p>
-                <p style={{ color: '#2d3d52', fontSize: '11px', margin: '4px 0 0' }}>Click any ticket from the queue</p>
+                <p style={{ color: '#3d5878', fontSize: '14px', margin: 0, fontWeight: 500 }}>Select a ticket to view details</p>
+                <p style={{ color: '#2d3d52', fontSize: '12px', margin: '4px 0 0' }}>Click any ticket from the queue</p>
               </div>
             )}
           </div>
           <div style={{ ...cs, overflow: 'hidden', flex: 1 }}>
             <div style={{ padding: '12px 16px', borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 style={{ color: 'white', fontWeight: 700, fontSize: '12px', fontFamily: HFONT, margin: 0, textTransform: 'uppercase', letterSpacing: '0.07em' }}>User Quick Manage</h3>
+              <h3 style={{ color: 'white', fontWeight: 700, fontSize: '13px', fontFamily: HFONT, margin: 0, textTransform: 'uppercase', letterSpacing: '0.07em' }}>User Quick Manage</h3>
               <Users size={13} style={{ color: '#3d5878' }} />
             </div>
             {typeof usersLoadError !== 'undefined' && usersLoadError && (
-              <div style={{ padding: '12px 16px', color: '#fca5a5', fontSize: '12px', borderBottom: `1px solid ${C.border}`, background: 'rgba(220,38,38,0.08)' }}>
+              <div style={{ padding: '12px 16px', color: '#fca5a5', fontSize: '13px', borderBottom: `1px solid ${C.border}`, background: 'rgba(220,38,38,0.08)' }}>
                 <div style={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '4px' }}>Load error</div>
                 <div>{usersLoadError}</div>
               </div>
             )}
             {apiUsers.length === 0 ? (
-              <div style={{ padding: '18px 16px', color: '#3d5878', fontSize: '13px' }}>
+              <div style={{ padding: '18px 16px', color: '#3d5878', fontSize: '14px' }}>
                 {typeof usersLoadError !== 'undefined' && usersLoadError ? 'Unable to show users until the error above is fixed.' : 'No users found.'}
               </div>
             ) : apiUsers.slice(0, 5).map((u, idx) => {
@@ -917,20 +917,20 @@ const CustomerCareSection = ({ bp, apiUsers = [], getAdminToken = null, usersLoa
               const statusColor = isAdmin ? C.amberL : C.green;
               return (
                 <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 16px', borderBottom: idx < Math.min(apiUsers.length, 5) - 1 ? `1px solid ${C.border}` : 'none' }}>
-                  <div style={{ width: '30px', height: '30px', background: C.border, border: `1px solid ${C.border2}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: 700, color: 'white', flexShrink: 0 }}>
+                  <div style={{ width: '30px', height: '30px', background: C.border, border: `1px solid ${C.border2}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 700, color: 'white', flexShrink: 0 }}>
                     {initials}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ color: 'white', fontSize: '12px', fontWeight: 600, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{displayName}</p>
+                    <p style={{ color: 'white', fontSize: '13px', fontWeight: 600, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{displayName}</p>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginTop: '2px' }}>
                       <div style={{ width: '5px', height: '5px', borderRadius: '50%', background: statusColor }} />
-                      <span style={{ color: statusColor, fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{u.role}</span>
+                      <span style={{ color: statusColor, fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{u.role}</span>
                     </div>
                   </div>
                   {u.country && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginRight: '6px', flexShrink: 0 }}>
                       <FlagImg country={u.country} size={18} />
-                      <span style={{ color: '#8aa0c2', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{u.country}</span>
+                      <span style={{ color: '#8aa0c2', fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{u.country}</span>
                     </div>
                   )}
                   <Eye size={11} style={{ color: '#3d5878', flexShrink: 0 }} />
@@ -948,10 +948,10 @@ const CustomerCareSection = ({ bp, apiUsers = [], getAdminToken = null, usersLoa
               <Ban size={20} style={{ color: C.redL }} />
             </div>
             <p style={{ color: 'white', fontWeight: 700, fontSize: '17px', textAlign: 'center', margin: '0 0 8px' }}>Confirm Ban</p>
-            <p style={{ color: '#3d5878', fontSize: '13px', textAlign: 'center', margin: '0 0 20px' }}>This will suspend <strong style={{ color: 'white' }}>{(actionUser as any)?.name}</strong></p>
+            <p style={{ color: '#3d5878', fontSize: '14px', textAlign: 'center', margin: '0 0 20px' }}>This will suspend <strong style={{ color: 'white' }}>{(actionUser as any)?.name}</strong></p>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-              <button onClick={() => setActionUser(null)} style={{ ...btn, padding: '10px', background: 'transparent', color: '#607898', border: `1px solid ${C.border2}`, fontSize: '13px' }}>Cancel</button>
-              <button onClick={() => setActionUser(null)} style={{ ...btn, padding: '10px', background: '#dc2626', color: 'white', border: 'none', fontSize: '13px' }}>Ban Account</button>
+              <button onClick={() => setActionUser(null)} style={{ ...btn, padding: '10px', background: 'transparent', color: '#607898', border: `1px solid ${C.border2}`, fontSize: '14px' }}>Cancel</button>
+              <button onClick={() => setActionUser(null)} style={{ ...btn, padding: '10px', background: '#dc2626', color: 'white', border: 'none', fontSize: '14px' }}>Ban Account</button>
             </div>
           </div>
         </div>
@@ -1109,31 +1109,31 @@ const SyncPerformanceSection = ({ bp }: { bp: any }) => {
     const hidden = lbEntries.filter(e => e.hidden);
     const row = (e: any, rank: number, isHidden: boolean) => (
       <tr key={e.userId} style={{ borderBottom: `1px solid ${C.border}` }}>
-        <td style={{ padding: '8px 10px', color: C.muted, fontSize: '12px', width: 36, textAlign: 'center' }}>
+        <td style={{ padding: '8px 10px', color: C.muted, fontSize: '13px', width: 36, textAlign: 'center' }}>
           {isHidden ? '—' : rank}
         </td>
         <td style={{ padding: '8px 10px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <FlagImg country={e.country} size={20} />
-            <span style={{ fontSize: '13px', fontWeight: 600, color: C.text }}>
+            <span style={{ fontSize: '14px', fontWeight: 600, color: C.text }}>
               {toTitleCase(e.name || 'Unknown')}
             </span>
           </div>
         </td>
-        <td style={{ padding: '8px 10px', color: C.text, fontSize: '12px', textAlign: 'right' }}>{e.sessions ?? 0}</td>
-        <td style={{ padding: '8px 10px', fontSize: '12px', textAlign: 'right',
+        <td style={{ padding: '8px 10px', color: C.text, fontSize: '13px', textAlign: 'right' }}>{e.sessions ?? 0}</td>
+        <td style={{ padding: '8px 10px', fontSize: '13px', textAlign: 'right',
           color: (e.pnl ?? 0) >= 0 ? C.green : C.red }}>
           {(e.pnl ?? 0) >= 0 ? '+' : ''}{Number(e.pnl ?? 0).toFixed(2)}
         </td>
-        <td style={{ padding: '8px 10px', fontSize: '12px', textAlign: 'right',
+        <td style={{ padding: '8px 10px', fontSize: '13px', textAlign: 'right',
           color: (e.winRate ?? 0) >= 50 ? C.green : C.muted }}>
           {Number(e.winRate ?? 0).toFixed(1)}%
         </td>
-        <td style={{ padding: '8px 10px', color: C.muted, fontSize: '12px', textAlign: 'right' }}>{e.trades ?? 0}</td>
+        <td style={{ padding: '8px 10px', color: C.muted, fontSize: '13px', textAlign: 'right' }}>{e.trades ?? 0}</td>
         <td style={{ padding: '8px 10px', textAlign: 'right' }}>
           <button
             onClick={() => setLbConfirm({ userId: e.userId, name: toTitleCase(e.name || 'Unknown'), hide: !isHidden })}
-            style={{ ...btn, fontSize: '11px', padding: '4px 10px',
+            style={{ ...btn, fontSize: '12px', padding: '4px 10px',
               background: isHidden ? C.green + '22' : C.red + '22',
               color: isHidden ? C.green : C.red,
               border: `1px solid ${isHidden ? C.green : C.red}40` }}>
@@ -1146,7 +1146,7 @@ const SyncPerformanceSection = ({ bp }: { bp: any }) => {
       <thead>
         <tr style={{ borderBottom: `1px solid ${C.border2}` }}>
           {['#', 'User', 'Sessions', 'PnL', 'Win %', 'Trades', ''].map((h, i) => (
-            <th key={i} style={{ padding: '6px 10px', fontSize: '10px', fontWeight: 700,
+            <th key={i} style={{ padding: '6px 10px', fontSize: '12px', fontWeight: 700,
               textTransform: 'uppercase', letterSpacing: '0.1em', color: C.muted,
               textAlign: i === 0 ? 'center' : i < 2 ? 'left' : i === 6 ? 'right' : 'right' }}>{h}</th>
           ))}
@@ -1155,16 +1155,16 @@ const SyncPerformanceSection = ({ bp }: { bp: any }) => {
     );
     return (
       <div style={{ fontFamily: FONT }}>
-        {lbLoading && <div style={{ color: C.muted, fontSize: '13px', padding: '24px 0', textAlign: 'center' }}>Loading…</div>}
+        {lbLoading && <div style={{ color: C.muted, fontSize: '14px', padding: '24px 0', textAlign: 'center' }}>Loading…</div>}
         {!lbLoading && (
           <>
             <div style={{ marginBottom: 20 }}>
-              <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase',
+              <div style={{ fontSize: '12px', fontWeight: 700, textTransform: 'uppercase',
                 letterSpacing: '0.1em', color: C.muted, marginBottom: 8 }}>
                 Active on Leaderboard ({active.length})
               </div>
               {active.length === 0
-                ? <div style={{ color: C.muted, fontSize: '12px', padding: '12px 0' }}>No active entries.</div>
+                ? <div style={{ color: C.muted, fontSize: '13px', padding: '12px 0' }}>No active entries.</div>
                 : (
                   <table style={{ width: '100%', borderCollapse: 'collapse', background: C.bg }}>
                     {thead}
@@ -1174,7 +1174,7 @@ const SyncPerformanceSection = ({ bp }: { bp: any }) => {
             </div>
             {hidden.length > 0 && (
               <div>
-                <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase',
+                <div style={{ fontSize: '12px', fontWeight: 700, textTransform: 'uppercase',
                   letterSpacing: '0.1em', color: C.muted, marginBottom: 8 }}>
                   Hidden from Leaderboard ({hidden.length})
                 </div>
@@ -1187,20 +1187,20 @@ const SyncPerformanceSection = ({ bp }: { bp: any }) => {
 
             {/* All sessions — see every session in the DB and delete precisely */}
             <div style={{ marginTop: 28 }}>
-              <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase',
+              <div style={{ fontSize: '12px', fontWeight: 700, textTransform: 'uppercase',
                 letterSpacing: '0.1em', color: C.muted, marginBottom: 8 }}>
                 All Sessions ({adminSessions.length})
               </div>
               {sessLoading
-                ? <div style={{ color: C.muted, fontSize: '12px', padding: '12px 0' }}>Loading sessions…</div>
+                ? <div style={{ color: C.muted, fontSize: '13px', padding: '12px 0' }}>Loading sessions…</div>
                 : adminSessions.length === 0
-                  ? <div style={{ color: C.muted, fontSize: '12px', padding: '12px 0' }}>No sessions found.</div>
+                  ? <div style={{ color: C.muted, fontSize: '13px', padding: '12px 0' }}>No sessions found.</div>
                   : (
                     <table style={{ width: '100%', borderCollapse: 'collapse', background: C.bg }}>
                       <thead>
                         <tr style={{ borderBottom: `1px solid ${C.border2}` }}>
                           {['Session', 'Owner', 'Trades', 'PnL', 'Created', ''].map((h, i) => (
-                            <th key={i} style={{ padding: '6px 10px', fontSize: '10px', fontWeight: 700,
+                            <th key={i} style={{ padding: '6px 10px', fontSize: '12px', fontWeight: 700,
                               textTransform: 'uppercase', letterSpacing: '0.1em', color: C.muted,
                               textAlign: (i === 2 || i === 3 || i === 5) ? 'right' : 'left' }}>{h}</th>
                           ))}
@@ -1209,25 +1209,25 @@ const SyncPerformanceSection = ({ bp }: { bp: any }) => {
                       <tbody>
                         {adminSessions.map((s) => (
                           <tr key={s.id} style={{ borderBottom: `1px solid ${C.border}` }}>
-                            <td style={{ padding: '8px 10px', fontSize: '13px', fontWeight: 600, color: C.text }}>{s.name}</td>
+                            <td style={{ padding: '8px 10px', fontSize: '14px', fontWeight: 600, color: C.text }}>{s.name}</td>
                             <td style={{ padding: '8px 10px' }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                                 <FlagImg country={s.country} size={18} />
-                                <span style={{ fontSize: '12px', color: C.muted }}>{toTitleCase(s.owner || 'Unknown')}</span>
+                                <span style={{ fontSize: '13px', color: C.muted }}>{toTitleCase(s.owner || 'Unknown')}</span>
                               </div>
                             </td>
-                            <td style={{ padding: '8px 10px', fontSize: '12px', textAlign: 'right', color: C.muted }}>{s.trades}</td>
-                            <td style={{ padding: '8px 10px', fontSize: '12px', textAlign: 'right',
+                            <td style={{ padding: '8px 10px', fontSize: '13px', textAlign: 'right', color: C.muted }}>{s.trades}</td>
+                            <td style={{ padding: '8px 10px', fontSize: '13px', textAlign: 'right',
                               color: (s.pnl ?? 0) >= 0 ? C.green : C.red }}>
                               {(s.pnl ?? 0) >= 0 ? '+' : ''}{Number(s.pnl ?? 0).toFixed(2)}
                             </td>
-                            <td style={{ padding: '8px 10px', fontSize: '11px', color: C.muted }}>
+                            <td style={{ padding: '8px 10px', fontSize: '12px', color: C.muted }}>
                               {s.createdAt ? new Date(s.createdAt).toLocaleDateString() : '—'}
                             </td>
                             <td style={{ padding: '8px 10px', textAlign: 'right' }}>
                               <button
                                 onClick={() => setSessConfirm({ id: s.id, name: s.name, owner: toTitleCase(s.owner || 'Unknown'), trades: s.trades })}
-                                style={{ ...btn, fontSize: '11px', padding: '4px 10px',
+                                style={{ ...btn, fontSize: '12px', padding: '4px 10px',
                                   background: C.red + '22', color: C.red, border: `1px solid ${C.red}40` }}>
                                 Delete
                               </button>
@@ -1246,22 +1246,22 @@ const SyncPerformanceSection = ({ bp }: { bp: any }) => {
             alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
             <div style={{ background: C.card, border: `1px solid ${C.border}`, padding: '28px 32px',
               minWidth: 340, fontFamily: FONT }}>
-              <div style={{ fontSize: '14px', fontWeight: 700, color: C.text, marginBottom: 10 }}>
+              <div style={{ fontSize: '15px', fontWeight: 700, color: C.text, marginBottom: 10 }}>
                 {lbConfirm.hide ? 'Remove from Leaderboard' : 'Restore to Leaderboard'}
               </div>
-              <div style={{ fontSize: '13px', color: C.muted, marginBottom: 24 }}>
+              <div style={{ fontSize: '14px', color: C.muted, marginBottom: 24 }}>
                 {lbConfirm.hide
                   ? <>Remove <strong style={{ color: C.text }}>{lbConfirm.name}</strong> from the public leaderboard? Their account and trade data are not affected.</>
                   : <>Restore <strong style={{ color: C.text }}>{lbConfirm.name}</strong> to the public leaderboard?</>}
               </div>
               <div style={{ display: 'flex', gap: 10 }}>
                 <button onClick={() => setLbConfirm(null)}
-                  style={{ ...btn, flex: 1, padding: '9px', fontSize: '12px',
+                  style={{ ...btn, flex: 1, padding: '9px', fontSize: '13px',
                     background: 'transparent', color: C.muted, border: `1px solid ${C.border2}` }}>
                   Cancel
                 </button>
                 <button onClick={handleLbToggle} disabled={lbBusy}
-                  style={{ ...btn, flex: 1, padding: '9px', fontSize: '12px',
+                  style={{ ...btn, flex: 1, padding: '9px', fontSize: '13px',
                     background: lbConfirm.hide ? C.red : C.green, color: '#fff', opacity: lbBusy ? 0.6 : 1 }}>
                   {lbBusy ? '…' : lbConfirm.hide ? 'Remove' : 'Restore'}
                 </button>
@@ -1275,8 +1275,8 @@ const SyncPerformanceSection = ({ bp }: { bp: any }) => {
             alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
             <div style={{ background: C.card, border: `1px solid ${C.border}`, padding: '28px 32px',
               minWidth: 360, maxWidth: 420, fontFamily: FONT }}>
-              <div style={{ fontSize: '14px', fontWeight: 700, color: C.text, marginBottom: 10 }}>Delete Session</div>
-              <div style={{ fontSize: '13px', color: C.muted, marginBottom: 24, lineHeight: 1.6 }}>
+              <div style={{ fontSize: '15px', fontWeight: 700, color: C.text, marginBottom: 10 }}>Delete Session</div>
+              <div style={{ fontSize: '14px', color: C.muted, marginBottom: 24, lineHeight: 1.6 }}>
                 Permanently delete <strong style={{ color: C.text }}>{sessConfirm.name}</strong>
                 {sessConfirm.owner ? <> ({sessConfirm.owner})</> : null} and its{' '}
                 <strong style={{ color: C.text }}>{sessConfirm.trades}</strong> trade{sessConfirm.trades === 1 ? '' : 's'}?
@@ -1284,12 +1284,12 @@ const SyncPerformanceSection = ({ bp }: { bp: any }) => {
               </div>
               <div style={{ display: 'flex', gap: 10 }}>
                 <button onClick={() => setSessConfirm(null)}
-                  style={{ ...btn, flex: 1, padding: '9px', fontSize: '12px',
+                  style={{ ...btn, flex: 1, padding: '9px', fontSize: '13px',
                     background: 'transparent', color: C.muted, border: `1px solid ${C.border2}` }}>
                   Cancel
                 </button>
                 <button onClick={handleSessDelete} disabled={sessBusy}
-                  style={{ ...btn, flex: 1, padding: '9px', fontSize: '12px',
+                  style={{ ...btn, flex: 1, padding: '9px', fontSize: '13px',
                     background: C.red, color: '#fff', opacity: sessBusy ? 0.6 : 1 }}>
                   {sessBusy ? 'Deleting…' : 'Delete Session'}
                 </button>
@@ -1356,7 +1356,7 @@ const SyncPerformanceSection = ({ bp }: { bp: any }) => {
     <div style={{ display: 'flex', gap: '2px', background: C.card, border: `1px solid ${C.border}`, padding: '3px', marginBottom: '20px', flexWrap: 'wrap' }}>
       {TAB_ITEMS.map(t => (
         <button key={t.id} onClick={() => setTab(t.id)}
-          style={{ ...btn, padding: '6px 16px', fontSize: '11px', background: tab === t.id ? C.indigo : 'transparent', color: tab === t.id ? '#fff' : C.muted, transition: 'all 0.15s' }}>
+          style={{ ...btn, padding: '6px 16px', fontSize: '12px', background: tab === t.id ? C.indigo : 'transparent', color: tab === t.id ? '#fff' : C.muted, transition: 'all 0.15s' }}>
           {t.label}
         </button>
       ))}
@@ -1364,32 +1364,32 @@ const SyncPerformanceSection = ({ bp }: { bp: any }) => {
   );
 
   const th = (label: string) => (
-    <th style={{ padding: '8px 10px', textAlign: 'left', fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: C.muted, borderBottom: `1px solid ${C.border}`, whiteSpace: 'nowrap' }}>
+    <th style={{ padding: '8px 10px', textAlign: 'left', fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: C.muted, borderBottom: `1px solid ${C.border}`, whiteSpace: 'nowrap' }}>
       {label}
     </th>
   );
 
   const td = (content: any, mono = false, color?: string) => (
-    <td style={{ padding: '8px 10px', fontSize: '11px', color: color ?? C.text, fontFamily: mono ? "'DM Mono', monospace" : FONT, borderBottom: `1px solid ${C.border}`, whiteSpace: 'nowrap' }}>
+    <td style={{ padding: '8px 10px', fontSize: '12px', color: color ?? C.text, fontFamily: mono ? "'DM Mono', monospace" : FONT, borderBottom: `1px solid ${C.border}`, whiteSpace: 'nowrap' }}>
       {content}
     </td>
   );
 
   const pill = (label: string, color: string) => (
-    <span style={{ fontSize: '9px', fontWeight: 700, padding: '2px 7px', border: `1px solid ${color}33`, color, background: `${color}15`, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{label}</span>
+    <span style={{ fontSize: '12px', fontWeight: 700, padding: '2px 7px', border: `1px solid ${color}33`, color, background: `${color}15`, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{label}</span>
   );
 
   const emptyState = (msg: string) => (
-    <div style={{ padding: '48px', textAlign: 'center', color: C.muted, fontSize: '12px' }}>{msg}</div>
+    <div style={{ padding: '48px', textAlign: 'center', color: C.muted, fontSize: '13px' }}>{msg}</div>
   );
 
   const spinner = (
-    <div style={{ padding: '48px', textAlign: 'center', color: C.muted, fontSize: '12px' }}>Loading…</div>
+    <div style={{ padding: '48px', textAlign: 'center', color: C.muted, fontSize: '13px' }}>Loading…</div>
   );
 
   const statCard = (label: string, value: any, color = C.text) => (
     <div key={label} style={{ background: C.card, border: `1px solid ${C.border}`, padding: '14px 16px' }}>
-      <div style={{ fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: C.muted, marginBottom: '6px' }}>{label}</div>
+      <div style={{ fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: C.muted, marginBottom: '6px' }}>{label}</div>
       <div style={{ fontSize: '22px', fontWeight: 700, fontFamily: "'DM Mono', monospace", color, lineHeight: 1 }}>{value ?? '—'}</div>
     </div>
   );
@@ -1413,7 +1413,7 @@ const SyncPerformanceSection = ({ bp }: { bp: any }) => {
       <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
         {/* Top-line summary */}
         <div>
-          <div style={{ fontSize: '10px', fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '10px' }}>Platform Summary</div>
+          <div style={{ fontSize: '12px', fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '10px' }}>Platform Summary</div>
           <div style={{ display: 'grid', gridTemplateColumns: bp.isMobile ? 'repeat(2,1fr)' : 'repeat(4,1fr)', gap: '6px' }}>
             {statCard('Active Providers',  activeProviders,       C.indigoL)}
             {statCard('Active Followers',  followers.filter((f: any) => f.is_active).length, C.green)}
@@ -1424,7 +1424,7 @@ const SyncPerformanceSection = ({ bp }: { bp: any }) => {
 
         {/* MT5 copy trading */}
         <div>
-          <div style={{ fontSize: '10px', fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '10px' }}>MT5 Copy Trading</div>
+          <div style={{ fontSize: '12px', fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '10px' }}>MT5 Copy Trading</div>
           <div style={{ display: 'grid', gridTemplateColumns: bp.isMobile ? 'repeat(2,1fr)' : 'repeat(4,1fr)', gap: '6px' }}>
             {statCard('Total Providers',  masters.length,        C.indigoL)}
             {statCard('Total Trades',     totalTrades.toLocaleString(), C.text)}
@@ -1435,7 +1435,7 @@ const SyncPerformanceSection = ({ bp }: { bp: any }) => {
 
         {/* Telegram signals */}
         <div>
-          <div style={{ fontSize: '10px', fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '10px' }}>Telegram Signal Performance</div>
+          <div style={{ fontSize: '12px', fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '10px' }}>Telegram Signal Performance</div>
           <div style={{ display: 'grid', gridTemplateColumns: bp.isMobile ? 'repeat(2,1fr)' : 'repeat(5,1fr)', gap: '6px' }}>
             {statCard('Total',    tg.total    ?? 0, C.text)}
             {statCard('Wins',     tg.wins     ?? 0, C.green)}
@@ -1455,7 +1455,7 @@ const SyncPerformanceSection = ({ bp }: { bp: any }) => {
     if (masters.length === 0) return emptyState('No providers registered yet.');
     return (
       <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
           <thead>
             <tr style={{ background: C.card }}>
               {th('Strategy')} {th('Type')} {th('Self-Copy')} {th('Market')} {th('Style')} {th('Win Rate')} {th('Trades')} {th('Followers')} {th('Status')} {th('Since')}
@@ -1505,7 +1505,7 @@ const SyncPerformanceSection = ({ bp }: { bp: any }) => {
             { label: 'Win Rate',     value: tg.winRate  != null ? `${tg.winRate}%` : '—', color: wrColor },
           ].map(s => (
             <div key={s.label} style={{ background: C.card, border: `1px solid ${C.border}`, padding: '12px 14px' }}>
-              <div style={{ fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: C.muted, marginBottom: '6px' }}>{s.label}</div>
+              <div style={{ fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: C.muted, marginBottom: '6px' }}>{s.label}</div>
               <div style={{ fontSize: '20px', fontWeight: 700, fontFamily: "'DM Mono', monospace", color: s.color, lineHeight: 1 }}>{s.value}</div>
             </div>
           ))}
@@ -1536,15 +1536,15 @@ const SyncPerformanceSection = ({ bp }: { bp: any }) => {
                       <td style={{ padding: '6px 10px', borderBottom: `1px solid ${C.border}`, whiteSpace: 'nowrap' }}>
                         <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
                           <button disabled={isMarkingThis} onClick={() => markOutcome(t.id, outcome, 'win')} title="Mark Win"
-                            style={{ ...btn, width: 26, height: 26, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', border: `1px solid ${outcome === 'win' ? C.green : C.border2}`, background: outcome === 'win' ? `${C.green}20` : 'transparent', color: outcome === 'win' ? C.green : C.muted, borderRadius: 0, opacity: isMarkingThis ? 0.4 : 1 }}>
+                            style={{ ...btn, width: 26, height: 26, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '15px', border: `1px solid ${outcome === 'win' ? C.green : C.border2}`, background: outcome === 'win' ? `${C.green}20` : 'transparent', color: outcome === 'win' ? C.green : C.muted, borderRadius: 0, opacity: isMarkingThis ? 0.4 : 1 }}>
                             ✓
                           </button>
                           <button disabled={isMarkingThis} onClick={() => markOutcome(t.id, outcome, 'loss')} title="Mark Loss"
-                            style={{ ...btn, width: 26, height: 26, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', border: `1px solid ${outcome === 'loss' ? C.red : C.border2}`, background: outcome === 'loss' ? `${C.red}20` : 'transparent', color: outcome === 'loss' ? C.red : C.muted, borderRadius: 0, opacity: isMarkingThis ? 0.4 : 1 }}>
+                            style={{ ...btn, width: 26, height: 26, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '15px', border: `1px solid ${outcome === 'loss' ? C.red : C.border2}`, background: outcome === 'loss' ? `${C.red}20` : 'transparent', color: outcome === 'loss' ? C.red : C.muted, borderRadius: 0, opacity: isMarkingThis ? 0.4 : 1 }}>
                             ✕
                           </button>
                           {outcome && (
-                            <span style={{ fontSize: '10px', fontWeight: 700, color: outcome === 'win' ? C.green : C.red, textTransform: 'uppercase', letterSpacing: '0.1em' }}>{outcome}</span>
+                            <span style={{ fontSize: '12px', fontWeight: 700, color: outcome === 'win' ? C.green : C.red, textTransform: 'uppercase', letterSpacing: '0.1em' }}>{outcome}</span>
                           )}
                         </div>
                       </td>
@@ -1645,11 +1645,11 @@ const SyncPerformanceSection = ({ bp }: { bp: any }) => {
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
         <div>
-          <div style={{ fontSize: '13px', fontWeight: 700, color: C.text, letterSpacing: '0.04em', marginBottom: '2px' }}>Sync &amp; Copy Performance</div>
-          <div style={{ fontSize: '11px', color: C.muted }}>All performance data — providers · self-copy · telegram signals · followers · executions</div>
+          <div style={{ fontSize: '14px', fontWeight: 700, color: C.text, letterSpacing: '0.04em', marginBottom: '2px' }}>Sync &amp; Copy Performance</div>
+          <div style={{ fontSize: '12px', color: C.muted }}>All performance data — providers · self-copy · telegram signals · followers · executions</div>
         </div>
         <button onClick={handleRefresh}
-          style={{ ...btn, padding: '6px 14px', fontSize: '10px', background: 'transparent', color: C.muted, border: `1px solid ${C.border2}` }}>
+          style={{ ...btn, padding: '6px 14px', fontSize: '12px', background: 'transparent', color: C.muted, border: `1px solid ${C.border2}` }}>
           ↻ Refresh
         </button>
       </div>
@@ -1778,10 +1778,10 @@ const SystemMonitorSection = ({ bp, getAdminToken = null }: { bp: any; getAdminT
               {loadingMetrics ? <Skeleton w={36} h={36} /> : <GaugeRing value={m.unit === '%' ? (m.val ?? 0) : Math.min(((m.val ?? 0) / 2000) * 100, 100)} color={C.indigo} />}
             </div>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', flexWrap: 'wrap' }}>
-              <span style={{ color: C.muted, fontSize: '9px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{m.label}:</span>
+              <span style={{ color: C.muted, fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{m.label}:</span>
               {loadingMetrics
                 ? <Skeleton w={40} h={12} />
-                : <span style={{ color: m.danger ? C.redL : 'white', fontSize: '11px', fontWeight: 700 }}>{m.val ?? '—'}<span style={{ fontSize: '9px', color: C.muted, marginLeft: '2px' }}>{m.unit}</span></span>
+                : <span style={{ color: m.danger ? C.redL : 'white', fontSize: '12px', fontWeight: 700 }}>{m.val ?? '—'}<span style={{ fontSize: '12px', color: C.muted, marginLeft: '2px' }}>{m.unit}</span></span>
               }
             </div>
           </div>
@@ -1799,7 +1799,7 @@ const SystemMonitorSection = ({ bp, getAdminToken = null }: { bp: any; getAdminT
           return (
             <div key={group} style={{ ...cs, overflow: 'hidden' }}>
               <div style={{ padding: '10px 16px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <h3 style={{ color: 'white', fontWeight: 700, fontSize: '11px', fontFamily: HFONT, margin: 0, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{group}</h3>
+                <h3 style={{ color: 'white', fontWeight: 700, fontSize: '12px', fontFamily: HFONT, margin: 0, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{group}</h3>
                 <div style={{ width: 7, height: 7, borderRadius: '50%', background: loadingHealth ? C.muted : groupBad ? C.red : groupOk ? C.green : C.muted, boxShadow: loadingHealth ? 'none' : groupBad ? `0 0 5px ${C.red}` : `0 0 5px ${C.green}` }} />
               </div>
               {groupSvcs.map((svc: any, i: number) => {
@@ -1815,13 +1815,13 @@ const SystemMonitorSection = ({ bp, getAdminToken = null }: { bp: any; getAdminT
                         ? <div style={{ width: 7, height: 7, borderRadius: '50%', background: C.muted, opacity: 0.4 }} />
                         : <div style={{ width: 7, height: 7, borderRadius: '50%', background: dotClr, boxShadow: (isOk || isDeg) ? `0 0 5px ${dotClr}` : 'none' }} />
                       }
-                      <span style={{ fontSize: '12px', color: isDeg ? C.redL : isNC ? C.amberL : isLoad ? C.dim : '#cbd5e1', fontWeight: 600 }}>{svc.name}</span>
+                      <span style={{ fontSize: '13px', color: isDeg ? C.redL : isNC ? C.amberL : isLoad ? C.dim : '#cbd5e1', fontWeight: 600 }}>{svc.name}</span>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      {svc.latency && <span style={{ fontSize: '10px', fontFamily: 'monospace', color: C.dim }}>{svc.latency}</span>}
+                      {svc.latency && <span style={{ fontSize: '12px', fontFamily: 'monospace', color: C.dim }}>{svc.latency}</span>}
                       {isLoad
                         ? <Skeleton w={52} h={16} />
-                        : <span style={{ fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', padding: '2px 7px', background: isOk ? 'rgba(16,185,129,0.1)' : isDeg ? 'rgba(244,63,94,0.1)' : isNC ? 'rgba(245,158,11,0.1)' : 'rgba(100,116,139,0.1)', color: isOk ? C.greenL : isDeg ? C.redL : isNC ? C.amberL : C.muted, border: `1px solid ${isOk ? 'rgba(16,185,129,0.2)' : isDeg ? 'rgba(244,63,94,0.2)' : isNC ? 'rgba(245,158,11,0.2)' : C.border2}` }}>
+                        : <span style={{ fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', padding: '2px 7px', background: isOk ? 'rgba(16,185,129,0.1)' : isDeg ? 'rgba(244,63,94,0.1)' : isNC ? 'rgba(245,158,11,0.1)' : 'rgba(100,116,139,0.1)', color: isOk ? C.greenL : isDeg ? C.redL : isNC ? C.amberL : C.muted, border: `1px solid ${isOk ? 'rgba(16,185,129,0.2)' : isDeg ? 'rgba(244,63,94,0.2)' : isNC ? 'rgba(245,158,11,0.2)' : C.border2}` }}>
                             {isOk ? 'OK' : isDeg ? 'DOWN' : isNC ? 'not set' : svc.status}
                           </span>
                       }
@@ -1852,8 +1852,8 @@ const SystemMonitorSection = ({ bp, getAdminToken = null }: { bp: any; getAdminT
         );
         const Row = ({ label, children }: { label: string; children: any }) => (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '9px 16px', borderBottom: `1px solid ${C.border}` }}>
-            <span style={{ fontSize: 11, color: C.muted, letterSpacing: '0.04em' }}>{label}</span>
-            <span style={{ fontSize: 11, color: '#cbd5e1', fontWeight: 600, textAlign: 'right' }}>{children}</span>
+            <span style={{ fontSize: 12, color: C.muted, letterSpacing: '0.04em' }}>{label}</span>
+            <span style={{ fontSize: 12, color: '#cbd5e1', fontWeight: 600, textAlign: 'right' }}>{children}</span>
           </div>
         );
         const cal = svcState?.calendar;
@@ -1865,45 +1865,45 @@ const SystemMonitorSection = ({ bp, getAdminToken = null }: { bp: any; getAdminT
             {/* Calendar */}
             <div style={{ ...cs, overflow: 'hidden' }}>
               <div style={{ padding: '10px 16px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <h3 style={{ color: 'white', fontWeight: 700, fontSize: '11px', fontFamily: HFONT, margin: 0, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Economic Calendar</h3>
+                <h3 style={{ color: 'white', fontWeight: 700, fontSize: '12px', fontFamily: HFONT, margin: 0, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Economic Calendar</h3>
                 {dot(cal ? cal.eventCount > 0 : null)}
               </div>
               <Row label="Source">{cal ? <span style={{ color: srcColor(cal.source) }}>{srcLabel(cal.source)}</span> : '—'}</Row>
               <Row label="Events cached">{cal?.eventCount ?? '—'}</Row>
               <Row label="Last fetch">{fmtAge(cal?.fetchedAt)}</Row>
               <Row label="In-flight">{cal?.inFlight ? <span style={{ color: C.amberL }}>fetching…</span> : 'idle'}</Row>
-              {cal?.lastError && <Row label="Last error"><span style={{ color: C.redL, fontSize: 10 }}>{cal.lastError.slice(0, 40)}</span></Row>}
+              {cal?.lastError && <Row label="Last error"><span style={{ color: C.redL, fontSize: 12 }}>{cal.lastError.slice(0, 40)}</span></Row>}
             </div>
 
             {/* Interest rates */}
             <div style={{ ...cs, overflow: 'hidden' }}>
               <div style={{ padding: '10px 16px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <h3 style={{ color: 'white', fontWeight: 700, fontSize: '11px', fontFamily: HFONT, margin: 0, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Interest Rates</h3>
+                <h3 style={{ color: 'white', fontWeight: 700, fontSize: '12px', fontFamily: HFONT, margin: 0, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Interest Rates</h3>
                 {dot(rates ? rates.liveCount > 0 : null)}
               </div>
               <Row label="Live">{rates ? <span style={{ color: rates.liveCount > 0 ? C.greenL : C.muted }}>{rates.liveCount} currencies</span> : '—'}</Row>
               <Row label="Fallback">{rates ? <span style={{ color: rates.fallbackCount > 0 ? C.amberL : C.muted }}>{rates.fallbackCount} currencies</span> : '—'}</Row>
               <Row label="Last fetch">{fmtAge(rates?.fetchedAt)}</Row>
               <Row label="In-flight">{rates?.inFlight ? <span style={{ color: C.amberL }}>fetching…</span> : 'idle'}</Row>
-              {rates?.lastError && <Row label="Last error"><span style={{ color: C.redL, fontSize: 10 }}>{rates.lastError.slice(0, 40)}</span></Row>}
+              {rates?.lastError && <Row label="Last error"><span style={{ color: C.redL, fontSize: 12 }}>{rates.lastError.slice(0, 40)}</span></Row>}
             </div>
 
             {/* Signal monitor */}
             <div style={{ ...cs, overflow: 'hidden' }}>
               <div style={{ padding: '10px 16px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <h3 style={{ color: 'white', fontWeight: 700, fontSize: '11px', fontFamily: HFONT, margin: 0, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Signal Monitor</h3>
+                <h3 style={{ color: 'white', fontWeight: 700, fontSize: '12px', fontFamily: HFONT, margin: 0, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Signal Monitor</h3>
                 {dot(sig ? sig.running : null)}
               </div>
               <Row label="Status">{sig ? <span style={{ color: sig.running ? C.greenL : C.muted }}>{sig.running ? 'Running' : 'Stopped'}</span> : '—'}</Row>
               <Row label="Active signals">{sig?.lastActiveCount ?? '—'}</Row>
               <Row label="Last scan">{fmtAge(sig?.lastScanAt)}</Row>
-              {sig?.lastError && <Row label="Last error"><span style={{ color: C.redL, fontSize: 10 }}>{sig.lastError.slice(0, 40)}</span></Row>}
+              {sig?.lastError && <Row label="Last error"><span style={{ color: C.redL, fontSize: 12 }}>{sig.lastError.slice(0, 40)}</span></Row>}
             </div>
 
             {/* DB pool */}
             <div style={{ ...cs, overflow: 'hidden' }}>
               <div style={{ padding: '10px 16px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <h3 style={{ color: 'white', fontWeight: 700, fontSize: '11px', fontFamily: HFONT, margin: 0, textTransform: 'uppercase', letterSpacing: '0.08em' }}>DB Connection Pool</h3>
+                <h3 style={{ color: 'white', fontWeight: 700, fontSize: '12px', fontFamily: HFONT, margin: 0, textTransform: 'uppercase', letterSpacing: '0.08em' }}>DB Connection Pool</h3>
                 {dot(db ? db.waiting === 0 : null)}
               </div>
               <Row label="Total connections">{db?.total ?? '—'}</Row>
@@ -1918,17 +1918,17 @@ const SystemMonitorSection = ({ bp, getAdminToken = null }: { bp: any; getAdminT
         <div style={{ ...cs, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
           <div style={{ padding: '12px 16px', borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <h3 style={{ color: 'white', fontWeight: 700, margin: 0, fontSize: '12px', fontFamily: HFONT, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Live Event Log</h3>
-              {errorCount > 0 && <span style={{ fontSize: '9px', fontWeight: 700, padding: '2px 8px', background: 'rgba(244,63,94,0.12)', color: C.redL, border: `1px solid rgba(244,63,94,0.25)`, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{errorCount} errors</span>}
-              {warnCount > 0 && <span style={{ fontSize: '9px', fontWeight: 700, padding: '2px 8px', background: 'rgba(245,158,11,0.12)', color: C.amberL, border: `1px solid rgba(245,158,11,0.25)`, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{warnCount} warn</span>}
+              <h3 style={{ color: 'white', fontWeight: 700, margin: 0, fontSize: '13px', fontFamily: HFONT, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Live Event Log</h3>
+              {errorCount > 0 && <span style={{ fontSize: '12px', fontWeight: 700, padding: '2px 8px', background: 'rgba(244,63,94,0.12)', color: C.redL, border: `1px solid rgba(244,63,94,0.25)`, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{errorCount} errors</span>}
+              {warnCount > 0 && <span style={{ fontSize: '12px', fontWeight: 700, padding: '2px 8px', background: 'rgba(245,158,11,0.12)', color: C.amberL, border: `1px solid rgba(245,158,11,0.25)`, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{warnCount} warn</span>}
             </div>
-            <button onClick={() => setResolvedIds(new Set(logs.map(l => l.id)))} style={{ ...btn, background: 'transparent', color: C.muted, border: 'none', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}><Trash2 size={11} /> Clear</button>
+            <button onClick={() => setResolvedIds(new Set(logs.map(l => l.id)))} style={{ ...btn, background: 'transparent', color: C.muted, border: 'none', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}><Trash2 size={11} /> Clear</button>
           </div>
           <div style={{ overflowY: 'auto', fontFamily: 'monospace', flex: 1 }}>
             {logs.filter(l => !resolvedIds.has(l.id)).length === 0 ? (
               <div style={{ padding: '40px', textAlign: 'center' }}>
                 <CheckCircle size={24} style={{ color: C.green, margin: '0 auto 8px' }} />
-                <p style={{ color: C.muted, fontSize: '12px', margin: 0 }}>No active incidents</p>
+                <p style={{ color: C.muted, fontSize: '13px', margin: 0 }}>No active incidents</p>
               </div>
             ) : logs.filter(l => !resolvedIds.has(l.id)).map(log => {
               const lc = LC[log.level as keyof typeof LC] ?? LC.info;
@@ -1938,11 +1938,11 @@ const SystemMonitorSection = ({ bp, getAdminToken = null }: { bp: any; getAdminT
                   <div style={{ width: '3px', alignSelf: 'stretch', background: levelColor, borderRadius: '2px', flexShrink: 0, minHeight: '36px', opacity: 0.8 }} />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '7px', marginBottom: '4px', flexWrap: 'wrap' }}>
-                      <span style={{ fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', padding: '2px 7px', background: lc.bg, color: lc.c, border: `1px solid ${lc.b}`, letterSpacing: '0.06em' }}>{log.level}</span>
-                      <span style={{ color: '#3d5878', fontSize: '10px', fontWeight: 700, letterSpacing: '0.02em' }}>{log.service}</span>
-                      <span style={{ color: C.dim, fontSize: '9px', marginLeft: 'auto' }}>{log.time}</span>
+                      <span style={{ fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', padding: '2px 7px', background: lc.bg, color: lc.c, border: `1px solid ${lc.b}`, letterSpacing: '0.06em' }}>{log.level}</span>
+                      <span style={{ color: '#3d5878', fontSize: '12px', fontWeight: 700, letterSpacing: '0.02em' }}>{log.service}</span>
+                      <span style={{ color: C.dim, fontSize: '12px', marginLeft: 'auto' }}>{log.time}</span>
                     </div>
-                    <p style={{ color: log.level === 'error' ? '#fca5a5' : log.level === 'warn' ? '#fde68a' : '#607898', fontSize: '11px', margin: 0, lineHeight: 1.5 }}>{log.message}</p>
+                    <p style={{ color: log.level === 'error' ? '#fca5a5' : log.level === 'warn' ? '#fde68a' : '#607898', fontSize: '12px', margin: 0, lineHeight: 1.5 }}>{log.message}</p>
                   </div>
                   {log.level !== 'info' && (
                     <button onClick={() => resolveLog(log.id)} title="Mark resolved" style={{ ...btn, background: 'transparent', color: C.dim, border: `1px solid ${C.border2}`, padding: '4px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -2326,24 +2326,24 @@ const BlogSection = ({ bp }: { bp: any }) => {
     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1, minHeight: 0 }}>
       <div>
         <h2 style={{ color: 'white', fontWeight: 700, fontSize: '20px', margin: 0, fontFamily: HFONT }}>Content Manager</h2>
-        <p style={{ color: C.muted, fontSize: '13px', margin: '4px 0 0', fontFamily: FONT }}>Blog & Verified Strategies</p>
+        <p style={{ color: C.muted, fontSize: '14px', margin: '4px 0 0', fontFamily: FONT }}>Blog & Verified Strategies</p>
       </div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
         <div style={{ display: 'flex', gap: '3px', background: C.card, border: `1px solid ${C.border}`, padding: '3px', flexWrap: 'wrap' }}>
           {[{ id: 'all', label: 'All', count: posts.length }, { id: 'blog', label: 'Blog', count: posts.filter(p => p.section === 'blog').length }, { id: 'verified-strategies', label: bp.isMobile ? 'Strats' : 'Strategies', count: posts.filter(p => p.section === 'verified-strategies').length }, { id: 'drafts', label: 'Drafts', count: posts.filter(p => p.status === 'Draft').length }].map(tab => (
-            <button key={tab.id} onClick={() => { setActiveSection(tab.id); localStorage.setItem('admin_active_section', tab.id); }} style={{ ...btn, padding: '7px 13px', background: activeSection === tab.id ? (tab.id === 'drafts' ? 'rgba(245,158,11,0.12)' : C.indigo) : 'transparent', color: activeSection === tab.id ? (tab.id === 'drafts' ? C.amberL : 'white') : C.muted, fontSize: '12px', border: activeSection === tab.id && tab.id === 'drafts' ? `1px solid rgba(245,158,11,0.3)` : 'none', display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap', fontFamily: FONT }}>
+            <button key={tab.id} onClick={() => { setActiveSection(tab.id); localStorage.setItem('admin_active_section', tab.id); }} style={{ ...btn, padding: '7px 13px', background: activeSection === tab.id ? (tab.id === 'drafts' ? 'rgba(245,158,11,0.12)' : C.indigo) : 'transparent', color: activeSection === tab.id ? (tab.id === 'drafts' ? C.amberL : 'white') : C.muted, fontSize: '13px', border: activeSection === tab.id && tab.id === 'drafts' ? `1px solid rgba(245,158,11,0.3)` : 'none', display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap', fontFamily: FONT }}>
               {tab.label}
-              <span style={{ fontSize: '9px', fontWeight: 700, padding: '1px 5px', background: activeSection === tab.id ? (tab.id === 'drafts' ? 'rgba(245,158,11,0.2)' : 'rgba(255,255,255,0.2)') : C.border, color: activeSection === tab.id ? (tab.id === 'drafts' ? C.amberL : 'white') : C.muted }}>{tab.count}</span>
+              <span style={{ fontSize: '12px', fontWeight: 700, padding: '1px 5px', background: activeSection === tab.id ? (tab.id === 'drafts' ? 'rgba(245,158,11,0.2)' : 'rgba(255,255,255,0.2)') : C.border, color: activeSection === tab.id ? (tab.id === 'drafts' ? C.amberL : 'white') : C.muted }}>{tab.count}</span>
             </button>
           ))}
         </div>
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
           {showModal && (
-            <button onClick={() => setShowModal(false)} style={{ ...btn, display: 'flex', alignItems: 'center', gap: '6px', background: 'transparent', color: C.muted, padding: '9px 14px', fontSize: '13px', border: `1px solid ${C.border2}`, fontFamily: FONT }}>
+            <button onClick={() => setShowModal(false)} style={{ ...btn, display: 'flex', alignItems: 'center', gap: '6px', background: 'transparent', color: C.muted, padding: '9px 14px', fontSize: '14px', border: `1px solid ${C.border2}`, fontFamily: FONT }}>
               <X size={14} /> Back to Posts
             </button>
           )}
-          <button onClick={openNew} style={{ ...btn, display: 'flex', alignItems: 'center', gap: '7px', background: C.indigo, color: 'white', padding: '9px 16px', fontSize: '13px', border: 'none', whiteSpace: 'nowrap', fontFamily: FONT }}><Plus size={15} /> New Post</button>
+          <button onClick={openNew} style={{ ...btn, display: 'flex', alignItems: 'center', gap: '7px', background: C.indigo, color: 'white', padding: '9px 16px', fontSize: '14px', border: 'none', whiteSpace: 'nowrap', fontFamily: FONT }}><Plus size={15} /> New Post</button>
         </div>
       </div>
       {showModal ? (
@@ -2366,26 +2366,26 @@ const BlogSection = ({ bp }: { bp: any }) => {
               <div key={post.id} style={{ ...cs, overflow: 'hidden', borderColor: isBuy ? 'rgba(16,185,129,0.2)' : 'rgba(244,63,94,0.2)' }}>
                 <div style={{ padding: '10px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px', background: isBuy ? 'rgba(16,185,129,0.08)' : 'rgba(244,63,94,0.08)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ color: isBuy ? C.greenL : C.redL, fontSize: '13px', fontWeight: 700, letterSpacing: '0.04em', fontFamily: "'DM Mono', monospace" }}>{sig.pair}</span>
-                    <span style={{ background: isBuy ? C.green : C.red, color: 'white', fontSize: '10px', fontWeight: 700, padding: '2px 8px', textTransform: 'uppercase' }}>{sig.action}</span>
-                    <span style={{ background: C.border, color: C.muted, fontSize: '10px', padding: '2px 6px' }}>{sig.timeframe}</span>
+                    <span style={{ color: isBuy ? C.greenL : C.redL, fontSize: '14px', fontWeight: 700, letterSpacing: '0.04em', fontFamily: "'DM Mono', monospace" }}>{sig.pair}</span>
+                    <span style={{ background: isBuy ? C.green : C.red, color: 'white', fontSize: '12px', fontWeight: 700, padding: '2px 8px', textTransform: 'uppercase' }}>{sig.action}</span>
+                    <span style={{ background: C.border, color: C.muted, fontSize: '12px', padding: '2px 6px' }}>{sig.timeframe}</span>
                   </div>
-                  <span style={{ color: C.dim, fontSize: '10px' }}>{post.date}</span>
+                  <span style={{ color: C.dim, fontSize: '12px' }}>{post.date}</span>
                 </div>
                 <div style={{ padding: '16px' }}>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px', marginBottom: '12px' }}>
                     {[{ label: 'Entry', value: sig.entry, color: 'white' }, { label: 'SL', value: sig.sl, color: C.redL }, { label: 'TP1', value: sig.tp1, color: C.greenL }, { label: 'TP2', value: sig.tp2 || '-', color: sig.tp2 ? '#6ee7b7' : '#3d5878' }].map(({ label, value, color }) => (
                       <div key={label} style={{ background: 'rgba(8,14,24,0.6)', padding: '7px', textAlign: 'center' }}>
-                        <p style={{ color: C.muted, fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', margin: '0 0 3px' }}>{label}</p>
-                        <p style={{ color, fontSize: '12px', fontWeight: 700, margin: 0 }}>{value}</p>
+                        <p style={{ color: C.muted, fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', margin: '0 0 3px' }}>{label}</p>
+                        <p style={{ color, fontSize: '13px', fontWeight: 700, margin: 0 }}>{value}</p>
                       </div>
                     ))}
                   </div>
-                  {sig.rationale && <p style={{ color: '#3d5878', fontSize: '12px', margin: '0 0 10px', fontStyle: 'italic', borderLeft: `2px solid ${C.border}`, paddingLeft: '8px' }}>{sig.rationale}</p>}
+                  {sig.rationale && <p style={{ color: '#3d5878', fontSize: '13px', margin: '0 0 10px', fontStyle: 'italic', borderLeft: `2px solid ${C.border}`, paddingLeft: '8px' }}>{sig.rationale}</p>}
                   <div style={{ paddingTop: '10px', borderTop: `1px solid ${C.border}`, display: 'flex', justifyContent: 'flex-end', gap: '4px' }}>
-                    <button onClick={() => toggleStatus(post.id)} style={{ ...btn, background: 'transparent', color: C.muted, border: 'none', fontSize: '11px', padding: '3px 7px', fontFamily: FONT }}>{post.status === 'Published' ? 'Unpublish' : 'Publish'}</button>
-                    <button onClick={() => openEdit(post)} style={{ ...btn, background: 'transparent', color: C.muted, border: 'none', fontSize: '11px', padding: '3px 7px', fontFamily: FONT }}>Edit</button>
-                    <button onClick={() => handleDelete(post.id)} style={{ ...btn, background: 'transparent', color: C.redL, border: 'none', fontSize: '11px', padding: '3px 7px', fontFamily: FONT }}>Delete</button>
+                    <button onClick={() => toggleStatus(post.id)} style={{ ...btn, background: 'transparent', color: C.muted, border: 'none', fontSize: '12px', padding: '3px 7px', fontFamily: FONT }}>{post.status === 'Published' ? 'Unpublish' : 'Publish'}</button>
+                    <button onClick={() => openEdit(post)} style={{ ...btn, background: 'transparent', color: C.muted, border: 'none', fontSize: '12px', padding: '3px 7px', fontFamily: FONT }}>Edit</button>
+                    <button onClick={() => handleDelete(post.id)} style={{ ...btn, background: 'transparent', color: C.redL, border: 'none', fontSize: '12px', padding: '3px 7px', fontFamily: FONT }}>Delete</button>
                   </div>
                 </div>
               </div>
@@ -2396,20 +2396,20 @@ const BlogSection = ({ bp }: { bp: any }) => {
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', flexWrap: 'wrap', gap: '4px' }}>
                   <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
-                    <span style={{ fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', padding: '2px 7px', background: post.status === 'Published' ? 'rgba(16,185,129,0.1)' : C.border, color: post.status === 'Published' ? C.greenL : C.muted, border: `1px solid ${post.status === 'Published' ? 'rgba(16,185,129,0.2)' : C.border2}` }}>{post.status}</span>
-                    {post.category && (() => { const m = CATEGORY_META[post.category] ?? FALLBACK_CAT_META; return m ? <span style={{ fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', padding: '2px 7px', background: m.bg, color: m.color, border: `1px solid ${m.border}` }}>{post.category}</span> : null; })()}
+                    <span style={{ fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', padding: '2px 7px', background: post.status === 'Published' ? 'rgba(16,185,129,0.1)' : C.border, color: post.status === 'Published' ? C.greenL : C.muted, border: `1px solid ${post.status === 'Published' ? 'rgba(16,185,129,0.2)' : C.border2}` }}>{post.status}</span>
+                    {post.category && (() => { const m = CATEGORY_META[post.category] ?? FALLBACK_CAT_META; return m ? <span style={{ fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', padding: '2px 7px', background: m.bg, color: m.color, border: `1px solid ${m.border}` }}>{post.category}</span> : null; })()}
                   </div>
-                  <span style={{ color: C.dim, fontSize: '10px' }}>{post.date}</span>
+                  <span style={{ color: C.dim, fontSize: '12px' }}>{post.date}</span>
                 </div>
-                <h4 style={{ color: 'white', fontWeight: 700, fontSize: '14px', margin: '0 0 6px', fontFamily: HFONT }}>{post.title}</h4>
-                {post.excerpt ? <p style={{ color: '#607898', fontSize: '12px', margin: 0, lineHeight: 1.5, fontFamily: FONT }}>{post.excerpt}</p> : <p style={{ color: '#3d5878', fontSize: '12px', margin: 0, fontStyle: 'italic', fontFamily: FONT }}>No excerpt — add one when editing.</p>}
+                <h4 style={{ color: 'white', fontWeight: 700, fontSize: '15px', margin: '0 0 6px', fontFamily: HFONT }}>{post.title}</h4>
+                {post.excerpt ? <p style={{ color: '#607898', fontSize: '13px', margin: 0, lineHeight: 1.5, fontFamily: FONT }}>{post.excerpt}</p> : <p style={{ color: '#3d5878', fontSize: '13px', margin: 0, fontStyle: 'italic', fontFamily: FONT }}>No excerpt — add one when editing.</p>}
               </div>
               <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '4px' }}>
-                <span style={{ color: C.dim, fontSize: '11px', fontFamily: FONT }}>By {post.author}{post.readTime ? ` · ${post.readTime}` : ''}</span>
+                <span style={{ color: C.dim, fontSize: '12px', fontFamily: FONT }}>By {post.author}{post.readTime ? ` · ${post.readTime}` : ''}</span>
                 <div style={{ display: 'flex', gap: '3px' }}>
-                  <button onClick={() => toggleStatus(post.id)} style={{ ...btn, background: 'transparent', color: C.muted, border: 'none', fontSize: '11px', padding: '3px 7px', fontFamily: FONT }}>{post.status === 'Published' ? 'Unpublish' : 'Publish'}</button>
-                  <button onClick={() => openEdit(post)} style={{ ...btn, background: 'transparent', color: C.muted, border: 'none', fontSize: '11px', padding: '3px 7px', fontFamily: FONT }}>Edit</button>
-                  <button onClick={() => handleDelete(post.id)} style={{ ...btn, background: 'transparent', color: C.redL, border: 'none', fontSize: '11px', padding: '3px 7px', fontFamily: FONT }}>Delete</button>
+                  <button onClick={() => toggleStatus(post.id)} style={{ ...btn, background: 'transparent', color: C.muted, border: 'none', fontSize: '12px', padding: '3px 7px', fontFamily: FONT }}>{post.status === 'Published' ? 'Unpublish' : 'Publish'}</button>
+                  <button onClick={() => openEdit(post)} style={{ ...btn, background: 'transparent', color: C.muted, border: 'none', fontSize: '12px', padding: '3px 7px', fontFamily: FONT }}>Edit</button>
+                  <button onClick={() => handleDelete(post.id)} style={{ ...btn, background: 'transparent', color: C.redL, border: 'none', fontSize: '12px', padding: '3px 7px', fontFamily: FONT }}>Delete</button>
                 </div>
               </div>
             </div>
@@ -2497,7 +2497,7 @@ const UpdatesSection = ({ bp, getAdminToken = null }: { bp: any; getAdminToken?:
               {CHANNELS.map(({ icon: Icon, label }) => {
                 const active = activeChannels.includes(label);
                 return (
-                  <button key={label} onClick={() => toggleChannel(label)} style={{ ...btn, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '7px', padding: '14px 8px', background: active ? 'rgba(0,200,224,0.15)' : 'rgba(8,14,24,0.5)', color: active ? C.indigoL : C.muted, border: `1px solid ${active ? 'rgba(0,200,224,0.5)' : C.border2}`, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.07em', outline: active ? `2px solid rgba(0,200,224,0.25)` : 'none', outlineOffset: '2px', boxShadow: active ? '0 0 12px rgba(0,200,224,0.2)' : 'none', transition: 'all 0.15s ease', position: 'relative' }}>
+                  <button key={label} onClick={() => toggleChannel(label)} style={{ ...btn, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '7px', padding: '14px 8px', background: active ? 'rgba(0,200,224,0.15)' : 'rgba(8,14,24,0.5)', color: active ? C.indigoL : C.muted, border: `1px solid ${active ? 'rgba(0,200,224,0.5)' : C.border2}`, fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.07em', outline: active ? `2px solid rgba(0,200,224,0.25)` : 'none', outlineOffset: '2px', boxShadow: active ? '0 0 12px rgba(0,200,224,0.2)' : 'none', transition: 'all 0.15s ease', position: 'relative' }}>
                     <Icon size={20} />
                     {label}
                     {active && (
@@ -2509,10 +2509,10 @@ const UpdatesSection = ({ bp, getAdminToken = null }: { bp: any; getAdminToken?:
                 );
               })}
             </div>
-            {activeChannels.length > 0 && <p style={{ color: C.indigoL, fontSize: '11px', margin: '8px 0 0', fontWeight: 600 }}>✓ Sending via: {activeChannels.join(', ')}</p>}
-            {activeChannels.length === 0 && <p style={{ color: C.redL, fontSize: '11px', margin: '8px 0 0', fontWeight: 600 }}>⚠ Select at least one channel</p>}
-            {activeChannels.includes('Email') && <p style={{ color: C.muted, fontSize: '10px', margin: '4px 0 0', fontStyle: 'italic' }}>Requires RESEND_API_KEY in .env</p>}
-            {activeChannels.includes('Push') && <p style={{ color: C.muted, fontSize: '10px', margin: '4px 0 0', fontStyle: 'italic' }}>Push notifications require Web Push VAPID key setup</p>}
+            {activeChannels.length > 0 && <p style={{ color: C.indigoL, fontSize: '12px', margin: '8px 0 0', fontWeight: 600 }}>✓ Sending via: {activeChannels.join(', ')}</p>}
+            {activeChannels.length === 0 && <p style={{ color: C.redL, fontSize: '12px', margin: '8px 0 0', fontWeight: 600 }}>⚠ Select at least one channel</p>}
+            {activeChannels.includes('Email') && <p style={{ color: C.muted, fontSize: '12px', margin: '4px 0 0', fontStyle: 'italic' }}>Requires RESEND_API_KEY in .env</p>}
+            {activeChannels.includes('Push') && <p style={{ color: C.muted, fontSize: '12px', margin: '4px 0 0', fontStyle: 'italic' }}>Push notifications require Web Push VAPID key setup</p>}
           </div>
           <div>
             <label style={{ ...lbl }}>Subject (optional)</label>
@@ -2523,11 +2523,11 @@ const UpdatesSection = ({ bp, getAdminToken = null }: { bp: any; getAdminToken?:
             <textarea value={message} onChange={e => setMessage(e.target.value)} rows={5} placeholder="Enter your announcement..." style={{ ...inp, resize: 'none', display: 'block' }} />
           </div>
           {result && (
-            <div style={{ padding: '10px 14px', background: result.ok ? 'rgba(16,185,129,0.1)' : 'rgba(244,63,94,0.1)', border: `1px solid ${result.ok ? 'rgba(16,185,129,0.3)' : 'rgba(244,63,94,0.3)'}`, color: result.ok ? C.greenL : C.redL, fontSize: '12px', fontWeight: 600 }}>
+            <div style={{ padding: '10px 14px', background: result.ok ? 'rgba(16,185,129,0.1)' : 'rgba(244,63,94,0.1)', border: `1px solid ${result.ok ? 'rgba(16,185,129,0.3)' : 'rgba(244,63,94,0.3)'}`, color: result.ok ? C.greenL : C.redL, fontSize: '13px', fontWeight: 600 }}>
               {result.ok ? '✓ ' : '✕ '}{result.msg}
             </div>
           )}
-          <button onClick={handleSend} disabled={sending || activeChannels.length === 0} style={{ ...btn, background: activeChannels.length > 0 && !sending ? C.indigo : C.border, color: activeChannels.length > 0 && !sending ? 'white' : C.muted, padding: '13px', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.12em', border: 'none', cursor: activeChannels.length > 0 && !sending ? 'pointer' : 'not-allowed', transition: 'background 0.15s' }}>
+          <button onClick={handleSend} disabled={sending || activeChannels.length === 0} style={{ ...btn, background: activeChannels.length > 0 && !sending ? C.indigo : C.border, color: activeChannels.length > 0 && !sending ? 'white' : C.muted, padding: '13px', fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.12em', border: 'none', cursor: activeChannels.length > 0 && !sending ? 'pointer' : 'not-allowed', transition: 'background 0.15s' }}>
             {sending ? 'Sending…' : 'Send Campaign Now'}
           </button>
         </div>
@@ -2537,9 +2537,9 @@ const UpdatesSection = ({ bp, getAdminToken = null }: { bp: any; getAdminToken?:
         <div style={{ padding: '14px 18px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: C.indigo, boxShadow: `0 0 6px ${C.indigo}` }} />
-            <h4 style={{ color: 'white', fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', margin: 0, fontFamily: HFONT }}>Campaign Stats</h4>
+            <h4 style={{ color: 'white', fontSize: '13px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', margin: 0, fontFamily: HFONT }}>Campaign Stats</h4>
           </div>
-          <span style={{ fontSize: '9px', fontWeight: 700, padding: '3px 8px', background: 'rgba(0,200,224,0.1)', color: C.indigoL, border: `1px solid rgba(0,200,224,0.25)`, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Last 30d</span>
+          <span style={{ fontSize: '12px', fontWeight: 700, padding: '3px 8px', background: 'rgba(0,200,224,0.1)', color: C.indigoL, border: `1px solid rgba(0,200,224,0.25)`, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Last 30d</span>
         </div>
 
         {/* Stats */}
@@ -2547,7 +2547,7 @@ const UpdatesSection = ({ bp, getAdminToken = null }: { bp: any; getAdminToken?:
           {stats === null ? (
             <div style={{ padding: '40px', textAlign: 'center' }}>
               <Activity size={20} style={{ color: C.border2, margin: '0 auto 8px', display: 'block' }} />
-              <p style={{ color: C.muted, fontSize: '12px', margin: 0 }}>Loading stats…</p>
+              <p style={{ color: C.muted, fontSize: '13px', margin: 0 }}>Loading stats…</p>
             </div>
           ) : [
             { label: 'In-App Sent', value: Number(stats.inAppSent ?? 0).toLocaleString(), change: stats.sentChange ?? '—', up: (stats.inAppSent ?? 0) > 0, icon: Bell, pct: Math.min(Number(stats.sentChangePct ?? 0), 100) },
@@ -2562,11 +2562,11 @@ const UpdatesSection = ({ bp, getAdminToken = null }: { bp: any; getAdminToken?:
                   <div style={{ width: '28px', height: '28px', background: s.up ? 'rgba(16,185,129,0.08)' : 'rgba(244,63,94,0.08)', border: `1px solid ${s.up ? 'rgba(16,185,129,0.2)' : 'rgba(244,63,94,0.2)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                     <s.icon size={13} style={{ color: s.up ? C.greenL : C.redL }} />
                   </div>
-                  <span style={{ color: '#607898', fontSize: '12px', fontWeight: 500 }}>{s.label}</span>
+                  <span style={{ color: '#607898', fontSize: '13px', fontWeight: 500 }}>{s.label}</span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <span style={{ color: 'white', fontWeight: 700, fontSize: '15px', fontFamily: "'DM Mono', monospace" }}>{s.value}</span>
-                  <span style={{ fontSize: '10px', fontWeight: 700, padding: '2px 7px', background: s.up ? 'rgba(16,185,129,0.12)' : 'rgba(244,63,94,0.12)', color: s.up ? C.greenL : C.redL, border: `1px solid ${s.up ? 'rgba(16,185,129,0.25)' : 'rgba(244,63,94,0.25)'}` }}>{s.change}</span>
+                  <span style={{ fontSize: '12px', fontWeight: 700, padding: '2px 7px', background: s.up ? 'rgba(16,185,129,0.12)' : 'rgba(244,63,94,0.12)', color: s.up ? C.greenL : C.redL, border: `1px solid ${s.up ? 'rgba(16,185,129,0.25)' : 'rgba(244,63,94,0.25)'}` }}>{s.change}</span>
                 </div>
               </div>
               {/* Progress bar */}
@@ -2620,10 +2620,10 @@ const GrowthAnalyticsCard = ({ monthlyData = null, dailyData = null }: { monthly
     return (
       <div style={{ background: '#0a0e17', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6,
         padding: '8px 12px', fontFamily: FONT }}>
-        <p style={{ color: '#607898', fontSize: 10, fontWeight: 700, letterSpacing: '0.1em',
+        <p style={{ color: '#607898', fontSize: 12, fontWeight: 700, letterSpacing: '0.1em',
           textTransform: 'uppercase', margin: '0 0 4px' }}>{lbl}</p>
         <p style={{ color: '#38bdf8', fontSize: 15, fontWeight: 800, margin: 0 }}>
-          {payload[0].value} <span style={{ color: '#607898', fontSize: 10, fontWeight: 500 }}>signups</span>
+          {payload[0].value} <span style={{ color: '#607898', fontSize: 12, fontWeight: 500 }}>signups</span>
         </p>
       </div>
     );
@@ -2636,11 +2636,11 @@ const GrowthAnalyticsCard = ({ monthlyData = null, dailyData = null }: { monthly
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         marginBottom: 20, flexWrap: 'wrap', gap: 8 }}>
         <div>
-          <h3 style={{ color: 'white', fontWeight: 700, fontSize: 12, fontFamily: HFONT, margin: '0 0 2px',
+          <h3 style={{ color: 'white', fontWeight: 700, fontSize: 13, fontFamily: HFONT, margin: '0 0 2px',
             display: 'flex', alignItems: 'center', gap: 7 }}>
             <TrendingUp size={14} style={{ color: C.greenL }} /> Growth Analytics
           </h3>
-          <p style={{ color: '#3d5878', fontSize: 10, margin: 0, fontWeight: 500 }}>
+          <p style={{ color: '#3d5878', fontSize: 12, margin: 0, fontWeight: 500 }}>
             {isMonthly ? 'New user registrations by month' : 'New user registrations by day'}
           </p>
         </div>
@@ -2648,7 +2648,7 @@ const GrowthAnalyticsCard = ({ monthlyData = null, dailyData = null }: { monthly
           borderRadius: 5, overflow: 'hidden' }}>
           {[{ v: 'monthly', l: '12 Months' }, { v: 'daily', l: '30 Days' }].map(opt => (
             <button key={opt.v} onClick={() => setPeriod(opt.v)} style={{
-              padding: '6px 16px', fontSize: 11, fontFamily: FONT, fontWeight: 600,
+              padding: '6px 16px', fontSize: 12, fontFamily: FONT, fontWeight: 600,
               letterSpacing: '0.03em',
               background: period === opt.v ? 'rgba(56,189,248,0.1)' : 'transparent',
               color: period === opt.v ? '#38bdf8' : '#4a6080',
@@ -2663,7 +2663,7 @@ const GrowthAnalyticsCard = ({ monthlyData = null, dailyData = null }: { monthly
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 10, marginBottom: 22 }}>
         {kpis.map((k, i) => (
           <div key={i} style={{ borderLeft: '2px solid rgba(56,189,248,0.2)', paddingLeft: 12 }}>
-            <p style={{ color: '#3d5878', fontSize: 9, fontWeight: 700, letterSpacing: '0.12em',
+            <p style={{ color: '#3d5878', fontSize: 12, fontWeight: 700, letterSpacing: '0.12em',
               textTransform: 'uppercase', margin: '0 0 4px' }}>{k.label}</p>
             <p style={{ color: k.color, fontSize: 16, fontWeight: 800, margin: 0,
               fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>{k.value}</p>
@@ -2694,7 +2694,7 @@ const GrowthAnalyticsCard = ({ monthlyData = null, dailyData = null }: { monthly
             interval={isMonthly ? 0 : 4}
           />
           <YAxis
-            tick={{ fill: '#3d5878', fontSize: 10, fontWeight: 600, fontFamily: FONT }}
+            tick={{ fill: '#3d5878', fontSize: 12, fontWeight: 600, fontFamily: FONT }}
             axisLine={false}
             tickLine={false}
             width={34}
@@ -2836,12 +2836,12 @@ const SettingsSection = ({ bp, getAdminToken = null }: { bp: any; getAdminToken?
     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1 }}>
       <div>
         <h2 style={{ color: 'white', fontWeight: 700, fontSize: '20px', margin: 0, fontFamily: HFONT }}>System Settings</h2>
-        <p style={{ color: C.muted, fontSize: '13px', margin: '4px 0 0', fontFamily: FONT }}>Manage agents, tasks &amp; appearance</p>
+        <p style={{ color: C.muted, fontSize: '14px', margin: '4px 0 0', fontFamily: FONT }}>Manage agents, tasks &amp; appearance</p>
       </div>
 
       <div style={{ display: 'flex', gap: '3px', background: C.card, border: `1px solid ${C.border}`, padding: '3px', width: 'fit-content' }}>
         {SETTINGS_TABS.map(t => (
-          <button key={t.id} onClick={() => setSettingsTab(t.id)} style={{ ...btn, padding: '8px 18px', background: settingsTab === t.id ? C.indigo : 'transparent', color: settingsTab === t.id ? 'white' : C.muted, border: 'none', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.07em', fontFamily: FONT }}>{t.label}</button>
+          <button key={t.id} onClick={() => setSettingsTab(t.id)} style={{ ...btn, padding: '8px 18px', background: settingsTab === t.id ? C.indigo : 'transparent', color: settingsTab === t.id ? 'white' : C.muted, border: 'none', fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.07em', fontFamily: FONT }}>{t.label}</button>
         ))}
       </div>
 
@@ -2849,22 +2849,22 @@ const SettingsSection = ({ bp, getAdminToken = null }: { bp: any; getAdminToken?
         <div style={{ display: 'grid', gridTemplateColumns: bp.isDesktop ? '1fr 1fr' : '1fr', gap: '6px', alignItems: 'start' }}>
           <div style={{ ...cs, overflow: 'hidden' }}>
             <div style={{ padding: '14px 16px', borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 style={{ color: 'white', fontWeight: 700, fontSize: '12px', fontFamily: HFONT, margin: 0 }}>Customer Care Agents</h3>
-              <button onClick={() => setShowNewAgent(true)} style={{ ...btn, display: 'flex', alignItems: 'center', gap: '6px', background: C.indigo, color: 'white', padding: '7px 13px', fontSize: '11px', border: 'none' }}><Plus size={12} /> New Agent</button>
+              <h3 style={{ color: 'white', fontWeight: 700, fontSize: '13px', fontFamily: HFONT, margin: 0 }}>Customer Care Agents</h3>
+              <button onClick={() => setShowNewAgent(true)} style={{ ...btn, display: 'flex', alignItems: 'center', gap: '6px', background: C.indigo, color: 'white', padding: '7px 13px', fontSize: '12px', border: 'none' }}><Plus size={12} /> New Agent</button>
             </div>
             {ccUsers.map((user, idx) => (
               <div key={user.id} onClick={() => setSelectedAgent(selectedAgent?.id === user.id ? null : user)} style={{ padding: '12px 16px', borderBottom: idx < ccUsers.length - 1 ? `1px solid ${C.border}` : 'none', cursor: 'pointer', background: selectedAgent?.id === user.id ? 'rgba(0,200,224,0.07)' : 'transparent', borderLeft: `3px solid ${selectedAgent?.id === user.id ? C.indigo : 'transparent'}` }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <div style={{ width: '34px', height: '34px', background: C.indigo, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700, color: 'white', flexShrink: 0 }}>
+                  <div style={{ width: '34px', height: '34px', background: C.indigo, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 700, color: 'white', flexShrink: 0 }}>
                     {user.name.split(' ').map((n: string) => n[0]).join('')}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ color: 'white', fontWeight: 700, fontSize: '13px', margin: 0 }}>{toTitleCase(user.name)}</p>
-                    <p style={{ color: C.muted, fontSize: '11px', margin: '2px 0 0' }}>{user.id} · {user.email}</p>
+                    <p style={{ color: 'white', fontWeight: 700, fontSize: '14px', margin: 0 }}>{toTitleCase(user.name)}</p>
+                    <p style={{ color: C.muted, fontSize: '12px', margin: '2px 0 0' }}>{user.id} · {user.email}</p>
                   </div>
                   <div style={{ textAlign: 'right' }}>
-                    <span style={{ fontSize: '9px', fontWeight: 700, padding: '2px 7px', background: 'rgba(16,185,129,0.1)', color: C.greenL, border: `1px solid rgba(16,185,129,0.2)`, textTransform: 'uppercase' }}>{user.status}</span>
-                    <p style={{ color: C.muted, fontSize: '10px', margin: '4px 0 0' }}>{user.functions.length} permissions</p>
+                    <span style={{ fontSize: '12px', fontWeight: 700, padding: '2px 7px', background: 'rgba(16,185,129,0.1)', color: C.greenL, border: `1px solid rgba(16,185,129,0.2)`, textTransform: 'uppercase' }}>{user.status}</span>
+                    <p style={{ color: C.muted, fontSize: '12px', margin: '4px 0 0' }}>{user.functions.length} permissions</p>
                   </div>
                 </div>
               </div>
@@ -2873,7 +2873,7 @@ const SettingsSection = ({ bp, getAdminToken = null }: { bp: any; getAdminToken?
 
           <div style={{ ...cs, overflow: 'hidden' }}>
             <div style={{ padding: '14px 16px', borderBottom: `1px solid ${C.border}` }}>
-              <h3 style={{ color: 'white', fontWeight: 700, fontSize: '12px', fontFamily: HFONT, margin: 0 }}>
+              <h3 style={{ color: 'white', fontWeight: 700, fontSize: '13px', fontFamily: HFONT, margin: 0 }}>
                 {selectedAgent ? `Permissions — ${toTitleCase(selectedAgent.name)}` : 'Select an agent to edit permissions'}
               </h3>
             </div>
@@ -2885,8 +2885,8 @@ const SettingsSection = ({ bp, getAdminToken = null }: { bp: any; getAdminToken?
                   return (
                     <div key={fn.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: active ? 'rgba(0,200,224,0.07)' : 'rgba(8,14,24,0.4)', border: `1px solid ${active ? 'rgba(0,200,224,0.25)' : C.border}` }}>
                       <div>
-                        <p style={{ color: active ? 'white' : C.muted, fontSize: '13px', fontWeight: 600, margin: 0 }}>{fn.label}</p>
-                        <p style={{ color: C.muted, fontSize: '11px', margin: '2px 0 0' }}>{fn.desc}</p>
+                        <p style={{ color: active ? 'white' : C.muted, fontSize: '14px', fontWeight: 600, margin: 0 }}>{fn.label}</p>
+                        <p style={{ color: C.muted, fontSize: '12px', margin: '2px 0 0' }}>{fn.desc}</p>
                       </div>
                       <button onClick={() => toggleAgentFn(selectedAgent.id, fn.id)} style={{ ...btn, width: '38px', height: '22px', background: active ? C.indigo : C.border, border: 'none', position: 'relative', transition: 'background 0.2s', flexShrink: 0 }}>
                         <div style={{ width: '16px', height: '16px', background: 'white', position: 'absolute', top: '3px', left: active ? '19px' : '3px', transition: 'left 0.2s' }} />
@@ -2898,7 +2898,7 @@ const SettingsSection = ({ bp, getAdminToken = null }: { bp: any; getAdminToken?
             ) : (
               <div style={{ padding: '48px', textAlign: 'center' }}>
                 <ShieldCheck size={28} style={{ color: C.border2, margin: '0 auto 10px', display: 'block' }} />
-                <p style={{ color: C.muted, fontSize: '13px', margin: 0 }}>Click an agent on the left to manage their permissions</p>
+                <p style={{ color: C.muted, fontSize: '14px', margin: 0 }}>Click an agent on the left to manage their permissions</p>
               </div>
             )}
           </div>
@@ -2909,7 +2909,7 @@ const SettingsSection = ({ bp, getAdminToken = null }: { bp: any; getAdminToken?
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
           <div style={{ ...cs, width: '100%', maxWidth: '480px', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
             <div style={{ padding: '18px 22px', borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 style={{ color: 'white', fontWeight: 700, fontSize: '14px', fontFamily: HFONT, margin: 0 }}>Create CC Agent</h3>
+              <h3 style={{ color: 'white', fontWeight: 700, fontSize: '15px', fontFamily: HFONT, margin: 0 }}>Create CC Agent</h3>
               <button onClick={() => setShowNewAgent(false)} style={{ ...btn, background: 'transparent', color: C.muted, padding: '4px', border: 'none' }}><X size={16} /></button>
             </div>
             <div style={{ padding: '20px 22px', flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '14px' }}>
@@ -2929,7 +2929,7 @@ const SettingsSection = ({ bp, getAdminToken = null }: { bp: any; getAdminToken?
                     const active = newAgent.functions.includes(fn.id);
                     return (
                       <button key={fn.id} onClick={() => setNewAgent(p => ({ ...p, functions: active ? p.functions.filter(f => f !== fn.id) : [...p.functions, fn.id] }))}
-                        style={{ ...btn, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '9px 12px', background: active ? 'rgba(0,200,224,0.08)' : 'rgba(8,14,24,0.4)', border: `1px solid ${active ? 'rgba(0,200,224,0.3)' : C.border}`, color: active ? C.indigoL : C.muted, fontSize: '12px', textAlign: 'left' }}>
+                        style={{ ...btn, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '9px 12px', background: active ? 'rgba(0,200,224,0.08)' : 'rgba(8,14,24,0.4)', border: `1px solid ${active ? 'rgba(0,200,224,0.3)' : C.border}`, color: active ? C.indigoL : C.muted, fontSize: '13px', textAlign: 'left' }}>
                         <span>{fn.label}</span>
                         <div style={{ width: '14px', height: '14px', background: active ? C.indigo : 'transparent', border: `2px solid ${active ? C.indigo : C.border2}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                           {active && <CheckCircle size={9} style={{ color: 'white' }} />}
@@ -2941,8 +2941,8 @@ const SettingsSection = ({ bp, getAdminToken = null }: { bp: any; getAdminToken?
               </div>
             </div>
             <div style={{ padding: '14px 22px', borderTop: `1px solid ${C.border}`, display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-              <button onClick={() => setShowNewAgent(false)} style={{ ...btn, padding: '9px 18px', background: 'transparent', color: C.muted, border: `1px solid ${C.border2}`, fontSize: '13px' }}>Cancel</button>
-              <button onClick={handleCreateAgent} style={{ ...btn, padding: '9px 22px', background: C.indigo, color: 'white', border: 'none', fontSize: '13px' }}>Create Agent</button>
+              <button onClick={() => setShowNewAgent(false)} style={{ ...btn, padding: '9px 18px', background: 'transparent', color: C.muted, border: `1px solid ${C.border2}`, fontSize: '14px' }}>Cancel</button>
+              <button onClick={handleCreateAgent} style={{ ...btn, padding: '9px 22px', background: C.indigo, color: 'white', border: 'none', fontSize: '14px' }}>Create Agent</button>
             </div>
           </div>
         </div>
@@ -2951,32 +2951,32 @@ const SettingsSection = ({ bp, getAdminToken = null }: { bp: any; getAdminToken?
       {settingsTab === 'tasks' && (
         <div style={{ ...cs, overflow: 'hidden' }}>
           <div style={{ padding: '14px 16px', borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <h3 style={{ color: 'white', fontWeight: 700, fontSize: '12px', fontFamily: HFONT, margin: 0 }}>Scheduled Tasks</h3>
-            <button onClick={() => setShowNewTask(true)} style={{ ...btn, display: 'flex', alignItems: 'center', gap: '6px', background: C.indigo, color: 'white', padding: '7px 13px', fontSize: '11px', border: 'none' }}><Plus size={12} /> Schedule Task</button>
+            <h3 style={{ color: 'white', fontWeight: 700, fontSize: '13px', fontFamily: HFONT, margin: 0 }}>Scheduled Tasks</h3>
+            <button onClick={() => setShowNewTask(true)} style={{ ...btn, display: 'flex', alignItems: 'center', gap: '6px', background: C.indigo, color: 'white', padding: '7px 13px', fontSize: '12px', border: 'none' }}><Plus size={12} /> Schedule Task</button>
           </div>
           <div style={{ overflowX: 'auto' }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 160px 120px 160px', padding: '8px 16px', background: 'rgba(8,14,24,0.5)', gap: '12px', minWidth: '560px' }}>
             {['Task', 'Assignee', 'Due Date', 'Status'].map(h => (
-              <span key={h} style={{ color: C.muted, fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em' }}>{h}</span>
+              <span key={h} style={{ color: C.muted, fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em' }}>{h}</span>
             ))}
           </div>
           {tasks.map((task, idx) => (
             <div key={task.id} style={{ display: 'grid', gridTemplateColumns: '1fr 160px 120px 160px', padding: '13px 16px', borderBottom: idx < tasks.length - 1 ? `1px solid ${C.border}` : 'none', alignItems: 'center', gap: '12px', background: task.status === 'Complete' ? 'rgba(16,185,129,0.03)' : 'transparent', minWidth: '560px' }}>
-              <p style={{ color: task.status === 'Complete' ? C.muted : 'white', fontSize: '13px', fontWeight: 600, margin: 0, textDecoration: task.status === 'Complete' ? 'line-through' : 'none' }}>{task.title}</p>
+              <p style={{ color: task.status === 'Complete' ? C.muted : 'white', fontSize: '14px', fontWeight: 600, margin: 0, textDecoration: task.status === 'Complete' ? 'line-through' : 'none' }}>{task.title}</p>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <div style={{ width: '22px', height: '22px', background: C.indigo, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '8px', fontWeight: 700, color: 'white', flexShrink: 0 }}>
+                <div style={{ width: '22px', height: '22px', background: C.indigo, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 700, color: 'white', flexShrink: 0 }}>
                   {task.assignee.split(' ').map((n: string) => n[0]).join('')}
                 </div>
-                <span style={{ color: C.muted, fontSize: '11px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{task.assignee}</span>
+                <span style={{ color: C.muted, fontSize: '12px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{task.assignee}</span>
               </div>
-              <span style={{ color: C.muted, fontSize: '11px', fontFamily: 'monospace' }}>{task.due || '—'}</span>
+              <span style={{ color: C.muted, fontSize: '12px', fontFamily: 'monospace' }}>{task.due || '—'}</span>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 {task.status === 'Pending' ? (
-                  <button onClick={() => approveTask(task.id)} style={{ ...btn, display: 'flex', alignItems: 'center', gap: '5px', padding: '5px 10px', background: 'rgba(16,185,129,0.1)', color: C.greenL, border: `1px solid rgba(16,185,129,0.25)`, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  <button onClick={() => approveTask(task.id)} style={{ ...btn, display: 'flex', alignItems: 'center', gap: '5px', padding: '5px 10px', background: 'rgba(16,185,129,0.1)', color: C.greenL, border: `1px solid rgba(16,185,129,0.25)`, fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                     <CheckCircle size={10} /> Approve
                   </button>
                 ) : (
-                  <span style={{ fontSize: '10px', fontWeight: 700, padding: '5px 10px', background: 'rgba(16,185,129,0.08)', color: C.greenL, border: `1px solid rgba(16,185,129,0.2)`, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Complete</span>
+                  <span style={{ fontSize: '12px', fontWeight: 700, padding: '5px 10px', background: 'rgba(16,185,129,0.08)', color: C.greenL, border: `1px solid rgba(16,185,129,0.2)`, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Complete</span>
                 )}
                 <button onClick={() => deleteTask(task.id)} style={{ ...btn, background: 'transparent', color: '#3d5878', padding: '4px', border: 'none' }}><Trash2 size={12} /></button>
               </div>
@@ -2990,7 +2990,7 @@ const SettingsSection = ({ bp, getAdminToken = null }: { bp: any; getAdminToken?
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
           <div style={{ ...cs, width: '100%', maxWidth: '420px' }}>
             <div style={{ padding: '18px 22px', borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 style={{ color: 'white', fontWeight: 700, fontSize: '14px', fontFamily: HFONT, margin: 0 }}>Schedule Task</h3>
+              <h3 style={{ color: 'white', fontWeight: 700, fontSize: '15px', fontFamily: HFONT, margin: 0 }}>Schedule Task</h3>
               <button onClick={() => setShowNewTask(false)} style={{ ...btn, background: 'transparent', color: C.muted, padding: '4px', border: 'none' }}><X size={16} /></button>
             </div>
             <div style={{ padding: '20px 22px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
@@ -3005,8 +3005,8 @@ const SettingsSection = ({ bp, getAdminToken = null }: { bp: any; getAdminToken?
               <div><label style={{ ...lbl }}>Due Date</label><input type="date" value={newTask.due} onChange={e => setNewTask(p => ({ ...p, due: e.target.value }))} style={{ ...inp, colorScheme: 'dark' }} /></div>
             </div>
             <div style={{ padding: '14px 22px', borderTop: `1px solid ${C.border}`, display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-              <button onClick={() => setShowNewTask(false)} style={{ ...btn, padding: '9px 18px', background: 'transparent', color: C.muted, border: `1px solid ${C.border2}`, fontSize: '13px' }}>Cancel</button>
-              <button onClick={handleCreateTask} style={{ ...btn, padding: '9px 22px', background: C.indigo, color: 'white', border: 'none', fontSize: '13px' }}>Add Task</button>
+              <button onClick={() => setShowNewTask(false)} style={{ ...btn, padding: '9px 18px', background: 'transparent', color: C.muted, border: `1px solid ${C.border2}`, fontSize: '14px' }}>Cancel</button>
+              <button onClick={handleCreateTask} style={{ ...btn, padding: '9px 22px', background: C.indigo, color: 'white', border: 'none', fontSize: '14px' }}>Add Task</button>
             </div>
           </div>
         </div>
@@ -3015,7 +3015,7 @@ const SettingsSection = ({ bp, getAdminToken = null }: { bp: any; getAdminToken?
       {settingsTab === 'appearance' && (
         <div style={{ display: 'grid', gridTemplateColumns: bp.isDesktop ? '1fr 1fr' : '1fr', gap: '6px' }}>
           <div style={{ ...cs, padding: '20px' }}>
-            <h3 style={{ color: 'white', fontWeight: 700, fontSize: '12px', fontFamily: HFONT, margin: '0 0 16px', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Dashboard Theme</h3>
+            <h3 style={{ color: 'white', fontWeight: 700, fontSize: '13px', fontFamily: HFONT, margin: '0 0 16px', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Dashboard Theme</h3>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
               {THEME_OPTIONS.map(theme => (
                 <button key={theme.id} onClick={() => selectTheme(theme.id)} style={{ ...btn, padding: '0', overflow: 'hidden', border: `2px solid ${activeTheme === theme.id ? C.indigo : C.border}`, background: 'transparent', textAlign: 'left' }}>
@@ -3031,23 +3031,23 @@ const SettingsSection = ({ bp, getAdminToken = null }: { bp: any; getAdminToken?
                     )}
                   </div>
                   <div style={{ padding: '8px 10px', background: C.card }}>
-                    <p style={{ color: activeTheme === theme.id ? C.indigoL : 'white', fontSize: '12px', fontWeight: 700, margin: 0 }}>{theme.label}</p>
+                    <p style={{ color: activeTheme === theme.id ? C.indigoL : 'white', fontSize: '13px', fontWeight: 700, margin: 0 }}>{theme.label}</p>
                   </div>
                 </button>
               ))}
             </div>
-            <p style={{ color: C.muted, fontSize: '11px', margin: '12px 0 0', fontStyle: 'italic' }}>Theme applies instantly and is saved for future sessions</p>
+            <p style={{ color: C.muted, fontSize: '12px', margin: '12px 0 0', fontStyle: 'italic' }}>Theme applies instantly and is saved for future sessions</p>
           </div>
 
           <div style={{ ...cs, padding: '20px' }}>
-            <h3 style={{ color: 'white', fontWeight: 700, fontSize: '12px', fontFamily: HFONT, margin: '0 0 16px', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Dashboard Font</h3>
+            <h3 style={{ color: 'white', fontWeight: 700, fontSize: '13px', fontFamily: HFONT, margin: '0 0 16px', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Dashboard Font</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {ADMIN_FONTS.map(font => (
                 <button key={font.id} onClick={() => { setActiveFont(font.id); setFontSaved(false); }} style={{ ...btn, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', background: activeFont === font.id ? 'rgba(0,200,224,0.08)' : 'rgba(8,14,24,0.4)', border: `1px solid ${activeFont === font.id ? 'rgba(0,200,224,0.35)' : C.border}`, textAlign: 'left' }}>
                   {/* The preview renders in the face itself — the one thing choosing it will do. */}
                   <div>
                     <p style={{ color: activeFont === font.id ? 'white' : C.muted, fontSize: '17px', fontWeight: 600, margin: 0, fontFamily: font.stack }}>{font.label}</p>
-                    <p style={{ color: C.muted, fontSize: '12px', margin: '4px 0 0', fontFamily: font.stack }}>
+                    <p style={{ color: C.muted, fontSize: '13px', margin: '4px 0 0', fontFamily: font.stack }}>
                       The quick brown fox jumps over the lazy dog
                     </p>
                   </div>
@@ -3059,7 +3059,7 @@ const SettingsSection = ({ bp, getAdminToken = null }: { bp: any; getAdminToken?
                 </button>
               ))}
             </div>
-            <button onClick={applyFont} style={{ ...btn, marginTop: '16px', width: '100%', background: fontSaved ? C.green : C.indigo, color: 'white', padding: '11px', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.1em', border: 'none', transition: 'background 0.3s' }}>{fontSaved ? '✓ Font Applied' : 'Apply Font'}</button>
+            <button onClick={applyFont} style={{ ...btn, marginTop: '16px', width: '100%', background: fontSaved ? C.green : C.indigo, color: 'white', padding: '11px', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.1em', border: 'none', transition: 'background 0.3s' }}>{fontSaved ? '✓ Font Applied' : 'Apply Font'}</button>
           </div>
         </div>
       )}
@@ -3227,7 +3227,7 @@ export default function AdminPanel() {
     };
     return (
       <button key={item.id} onClick={handleClick} title={item.label}
-        style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '9px', padding: '7px 12px', justifyContent: 'flex-start', background: activeBg, color: activeColor, border: 'none', cursor: isSoon ? 'default' : 'pointer', fontFamily: FONT, fontWeight: isActive ? 600 : 500, fontSize: '12px', position: 'relative', transition: 'background 0.12s, color 0.12s', borderLeft: isActive ? `2px solid ${C.indigoL}` : '2px solid transparent', overflow: 'hidden' }}
+        style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '9px', padding: '7px 12px', justifyContent: 'flex-start', background: activeBg, color: activeColor, border: 'none', cursor: isSoon ? 'default' : 'pointer', fontFamily: FONT, fontWeight: isActive ? 600 : 500, fontSize: '13px', position: 'relative', transition: 'background 0.12s, color 0.12s', borderLeft: isActive ? `2px solid ${C.indigoL}` : '2px solid transparent', overflow: 'hidden' }}
         onMouseEnter={e => { if (!isActive && !isSoon) { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; e.currentTarget.style.color = '#8faacc'; } }}
         onMouseLeave={e => { if (!isActive && !isSoon) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#6b8aaa'; } }}
       >
@@ -3236,20 +3236,20 @@ export default function AdminPanel() {
           <>
             <span style={{ flex: 1, textAlign: 'left', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{item.label}</span>
             {isSoon && (
-              <span style={{ fontSize: '8px', fontWeight: 700, padding: '1px 5px', background: 'rgba(245,158,11,0.08)', color: '#6b5020', border: '1px solid rgba(245,158,11,0.15)', textTransform: 'uppercase', letterSpacing: '0.06em', flexShrink: 0 }}>soon</span>
+              <span style={{ fontSize: '12px', fontWeight: 700, padding: '1px 5px', background: 'rgba(245,158,11,0.08)', color: '#6b5020', border: '1px solid rgba(245,158,11,0.15)', textTransform: 'uppercase', letterSpacing: '0.06em', flexShrink: 0 }}>soon</span>
             )}
             {item.id === 'journal' && <ExternalLink size={10} style={{ color: '#3d5878', flexShrink: 0 }} />}
           </>
         )}
         {item.badge > 0 && (
-          <span style={{ background: C.red, color: 'white', fontSize: '9px', fontWeight: 700, padding: '1px 5px', position: collapsed ? 'absolute' : 'static', top: collapsed ? '3px' : 'auto', right: collapsed ? '3px' : 'auto', flexShrink: 0, minWidth: '16px', textAlign: 'center' }}>{item.badge}</span>
+          <span style={{ background: C.red, color: 'white', fontSize: '12px', fontWeight: 700, padding: '1px 5px', position: collapsed ? 'absolute' : 'static', top: collapsed ? '3px' : 'auto', right: collapsed ? '3px' : 'auto', flexShrink: 0, minWidth: '16px', textAlign: 'center' }}>{item.badge}</span>
         )}
       </button>
     );
   };
 
   const sectionLabel = (label: string) => (
-    <p style={{ color: '#3d5878', fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.16em', padding: '14px 14px 4px', margin: 0, visibility: collapsed ? 'hidden' : 'visible', overflow: 'hidden', whiteSpace: 'nowrap' }}>{collapsed ? '\u00A0' : label}</p>
+    <p style={{ color: '#3d5878', fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.16em', padding: '14px 14px 4px', margin: 0, visibility: collapsed ? 'hidden' : 'visible', overflow: 'hidden', whiteSpace: 'nowrap' }}>{collapsed ? '\u00A0' : label}</p>
   );
 
   const statCols = bp.isMobile ? 'repeat(2, 1fr)' : bp.isTablet ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)';
@@ -3300,13 +3300,13 @@ export default function AdminPanel() {
           <div style={{ display: 'grid', gridTemplateColumns: dashMainCols, gap: '6px', alignItems: 'stretch', flex: 1 }}>
             <GrowthAnalyticsCard monthlyData={overviewStats?.signupsByMonth ?? null} dailyData={overviewStats?.signupsByDay ?? null} />
             <div style={{ ...cs, padding: '20px', display: 'flex', flexDirection: 'column' }}>
-              <h3 style={{ color: 'white', fontWeight: 700, fontStyle: 'italic', fontSize: '12px', fontFamily: HFONT, margin: '0 0 16px' }}>Recent Activity</h3>
+              <h3 style={{ color: 'white', fontWeight: 700, fontStyle: 'italic', fontSize: '13px', fontFamily: HFONT, margin: '0 0 16px' }}>Recent Activity</h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                 {overviewStats?.recentActivity?.length > 0
                   ? overviewStats.recentActivity.map((a: any, i: number) => (
                     <div key={i} style={{ display: 'flex', gap: '10px' }}>
                       <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: a.type === 'post' ? C.greenL : C.indigo, marginTop: '3px', flexShrink: 0 }} />
-                      <div><p style={{ color: '#9ab4cc', fontSize: '13px', fontWeight: 500, margin: 0 }}>{a.text}</p><p style={{ color: '#3d5878', fontSize: '11px', margin: '2px 0 0' }}>{timeAgo(a.ts)}</p></div>
+                      <div><p style={{ color: '#9ab4cc', fontSize: '14px', fontWeight: 500, margin: 0 }}>{a.text}</p><p style={{ color: '#3d5878', fontSize: '12px', margin: '2px 0 0' }}>{timeAgo(a.ts)}</p></div>
                     </div>
                   ))
                   : !overviewStats
@@ -3316,7 +3316,7 @@ export default function AdminPanel() {
                         <div style={{ height: '13px', width: '180px', background: C.border, borderRadius: '2px' }} />
                       </div>
                     ))
-                    : <p style={{ color: '#3d5878', fontSize: '13px', margin: 0 }}>No recent activity yet.</p>
+                    : <p style={{ color: '#3d5878', fontSize: '14px', margin: 0 }}>No recent activity yet.</p>
                 }
               </div>
             </div>
@@ -3343,11 +3343,15 @@ export default function AdminPanel() {
   const drawerOpen = isMobileDrawer && !collapsed;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: C.bg, color: C.text, overflow: 'hidden', fontFamily: FONT }}>
+    // `admin-shell` is what the base-weight rule in the <style> below hangs on. Playfair's regular
+    // cut is thin by design, and anything here without an explicit weight was rendering at 400 —
+    // which is the blurring he reported. The rule lifts only those: the inline 700s already set in
+    // a hundred places still win over a stylesheet.
+    <div className="admin-shell" style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: C.bg, color: C.text, overflow: 'hidden', fontFamily: FONT }}>
       {/* Outfit, Inter, Montserrat and DM Mono are all self-hosted in client/src/index.css — the
           Google Fonts @import that used to head this rule went 2026-08-22. Outfit is the one the
           font picker below offers, so it is bundled as a variable font covering every weight. */}
-      <style>{`* { box-sizing: border-box; scrollbar-width: none; -webkit-font-smoothing: subpixel-antialiased; -moz-osx-font-smoothing: auto; } *::-webkit-scrollbar { display: none; } input::placeholder { color: #2d4060; } select option { background: #0c1018; }`}</style>
+      <style>{`* { box-sizing: border-box; scrollbar-width: none; -webkit-font-smoothing: subpixel-antialiased; -moz-osx-font-smoothing: auto; } *::-webkit-scrollbar { display: none; } input::placeholder { color: #7d93b0; } select option { background: #0c1018; } .admin-shell, .admin-shell * { font-weight: 500; } .admin-shell b, .admin-shell strong { font-weight: 700; }`}</style>
 
       {/* ── HEADER — full width, always at the very top ── */}
       <header style={{ flexShrink: 0, zIndex: 20, background: 'color-mix(in srgb, var(--admin-bg) 96%, transparent)', backdropFilter: 'blur(16px)', borderBottom: `1px solid ${C.border}`, boxShadow: '0 1px 0 rgba(0,200,224,0.06), 0 4px 24px rgba(0,0,0,0.4)', padding: `0 ${contentPad}`, height: '52px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -3356,7 +3360,7 @@ export default function AdminPanel() {
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           {/* Logo */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontWeight: 400, fontSize: '14px', letterSpacing: '0.01em', fontFamily: "'Playfair Display', serif" }}>
+            <span style={{ fontWeight: 400, fontSize: '15px', letterSpacing: '0.01em', fontFamily: "'Playfair Display', serif" }}>
               <Wordmark dark />
             </span>
           </div>
@@ -3384,9 +3388,9 @@ export default function AdminPanel() {
             onMouseLeave={e => { if (notifPanelOpen !== 'messages') { e.currentTarget.style.background = 'rgba(8,14,24,0.6)'; e.currentTarget.style.color = '#607898'; e.currentTarget.style.borderColor = C.border2; } }}
           >
             <Mail size={16} />
-            {!bp.isMobile && <span style={{ fontSize: '12px', fontWeight: 600, fontFamily: FONT }}>Messages</span>}
+            {!bp.isMobile && <span style={{ fontSize: '13px', fontWeight: 600, fontFamily: FONT }}>Messages</span>}
             {adminNotifs.counts.messages > 0 && (
-              <span style={{ background: C.indigo, color: 'white', fontSize: '10px', fontWeight: 700, minWidth: '18px', height: '18px', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px', lineHeight: 1 }}>
+              <span style={{ background: C.indigo, color: 'white', fontSize: '12px', fontWeight: 700, minWidth: '18px', height: '18px', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px', lineHeight: 1 }}>
                 {adminNotifs.counts.messages > 99 ? '99+' : adminNotifs.counts.messages}
               </span>
             )}
@@ -3400,9 +3404,9 @@ export default function AdminPanel() {
             onMouseLeave={e => { if (notifPanelOpen !== 'alerts') { e.currentTarget.style.background = 'rgba(8,14,24,0.6)'; e.currentTarget.style.color = '#607898'; e.currentTarget.style.borderColor = C.border2; } }}
           >
             <Bell size={16} />
-            {!bp.isMobile && <span style={{ fontSize: '12px', fontWeight: 600, fontFamily: FONT }}>Alerts</span>}
+            {!bp.isMobile && <span style={{ fontSize: '13px', fontWeight: 600, fontFamily: FONT }}>Alerts</span>}
             {adminNotifs.counts.alerts > 0 && (
-              <span style={{ background: C.red, color: 'white', fontSize: '10px', fontWeight: 700, minWidth: '18px', height: '18px', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px', lineHeight: 1 }}>
+              <span style={{ background: C.red, color: 'white', fontSize: '12px', fontWeight: 700, minWidth: '18px', height: '18px', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px', lineHeight: 1 }}>
                 {adminNotifs.counts.alerts > 99 ? '99+' : adminNotifs.counts.alerts}
               </span>
             )}
@@ -3449,19 +3453,19 @@ export default function AdminPanel() {
           {/* User profile + sign out */}
           <div style={{ borderTop: `1px solid ${C.border}`, padding: '10px 0 6px', flexShrink: 0, overflow: 'hidden' }}>
             <div style={{ padding: '6px 12px', display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
-              <div style={{ width: '30px', height: '30px', background: 'linear-gradient(135deg, var(--admin-accent), color-mix(in srgb, var(--admin-accent) 60%, #7c3aed))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '12px', color: 'white', flexShrink: 0, boxShadow: '0 0 0 2px rgba(0,200,224,0.2)' }}>
+              <div style={{ width: '30px', height: '30px', background: 'linear-gradient(135deg, var(--admin-accent), color-mix(in srgb, var(--admin-accent) 60%, #7c3aed))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '13px', color: 'white', flexShrink: 0, boxShadow: '0 0 0 2px rgba(0,200,224,0.2)' }}>
                 {adminInitial}
               </div>
               {!collapsed && (
                 <div style={{ overflow: 'hidden' }}>
-                  <p style={{ color: '#e8f4ff', fontSize: '12px', fontWeight: 600, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{adminName}</p>
-                  <p style={{ color: C.muted, fontSize: '10px', margin: '1px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{adminEmail}</p>
+                  <p style={{ color: '#e8f4ff', fontSize: '13px', fontWeight: 600, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{adminName}</p>
+                  <p style={{ color: C.muted, fontSize: '12px', margin: '1px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{adminEmail}</p>
                 </div>
               )}
             </div>
             <button
               onClick={async () => { await signOut(); navigate('/'); }}
-              style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '9px', padding: '7px 14px', justifyContent: 'flex-start', background: 'transparent', color: '#7a3a44', border: 'none', cursor: 'pointer', fontFamily: FONT, fontWeight: 500, fontSize: '12px', transition: 'background 0.12s, color 0.12s', overflow: 'hidden' }}
+              style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '9px', padding: '7px 14px', justifyContent: 'flex-start', background: 'transparent', color: '#7a3a44', border: 'none', cursor: 'pointer', fontFamily: FONT, fontWeight: 500, fontSize: '13px', transition: 'background 0.12s, color 0.12s', overflow: 'hidden' }}
               onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,48,96,0.08)'; e.currentTarget.style.color = '#ff6080'; }}
               onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#7a3a44'; }}
             >

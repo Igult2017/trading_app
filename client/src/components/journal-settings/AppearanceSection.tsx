@@ -23,6 +23,12 @@ export default function AppearanceSection({ theme, font, onThemeChange, onFontCh
       <SectionHead T={T} font={face} title="Appearance"
         hint="How the journal looks. Both settings apply the moment you choose them — there is nothing to save." />
 
+      {/* TWO COLUMNS, so the width is actually used. The controls take the left and the preview
+          holds a sticky right rail beside them — his report was that the page "does not even use
+          the space well", and the earlier version stacked all three in one narrow column with the
+          preview stranded underneath, which is the worst place for the thing you are judging. */}
+      <div className="jsp-appearance" style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 320px', gap: 20, alignItems: 'start' }}>
+      <div style={{ minWidth: 0 }}>
       <Card T={T} style={{ marginBottom: 16 }}>
         <GroupLabel T={T}>Theme</GroupLabel>
         <div className="jsp-grid-themes" style={{
@@ -113,9 +119,11 @@ export default function AppearanceSection({ theme, font, onThemeChange, onFontCh
         </div>
       </Card>
 
-      {/* Live preview — sticky, so the swatch you click and the result you are judging are on
-          screen together. It renders in the SELECTED face, which is the whole point of it. */}
-      <div className="jsp-preview-sticky" style={{ position: 'sticky', bottom: 16 }}>
+      </div>
+
+      {/* Live preview — a sticky rail beside the controls, so the swatch you click and the result
+          you are judging are on screen together. It renders in the SELECTED face. */}
+      <div className="jsp-preview-sticky" style={{ position: 'sticky', top: 16 }}>
         <Card T={T} style={{ fontFamily: FONTS[font].stack, padding: '20px 24px' }}>
           <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.12em',
                         textTransform: 'uppercase', color: T.accent, marginBottom: 8 }}>
@@ -126,10 +134,13 @@ export default function AppearanceSection({ theme, font, onThemeChange, onFontCh
           <div style={{ fontSize: 13, color: T.textMuted, lineHeight: 1.7, marginBottom: 16 }}>
             The quick brown fox jumps over the lazy dog. 0123456789 +$1,234.56 −$987.00
           </div>
-          <div className="jsp-preview-stats" style={{ display: 'flex', gap: 8 }}>
+          {/* Wrapping, not a fixed row — this sits in a 320px rail and three cells side by side
+              would squeeze the numbers to nothing. */}
+          <div className="jsp-preview-stats" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {([['P&L', '+$1,234', T.accent], ['WIN RATE', '67%', '#34d399'], ['TRADES', '42', T.text]] as const).map(([label, val, color]) => (
               <div key={label} className="jsp-preview-stat" style={{
-                background: T.bg, border: `1px solid ${T.border}`, borderRadius: 8, padding: '10px 14px',
+                background: T.bg, border: `1px solid ${T.border}`, borderRadius: 8,
+                padding: '10px 14px', flex: '1 1 88px', minWidth: 0,
               }}>
                 <div style={{ fontSize: 11, color: T.textMuted, letterSpacing: '0.1em',
                               textTransform: 'uppercase', marginBottom: 4 }}>{label}</div>
@@ -138,6 +149,7 @@ export default function AppearanceSection({ theme, font, onThemeChange, onFontCh
             ))}
           </div>
         </Card>
+      </div>
       </div>
     </div>
   );

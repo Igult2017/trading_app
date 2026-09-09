@@ -57,13 +57,18 @@ export default function JournalSettingsPanel({
 
   return (
     <div className="jsp-root" style={{
-      maxWidth: 1120, margin: '0 auto', padding: '40px 32px 64px',
+      maxWidth: 1360, margin: '0 auto', padding: '40px 32px 64px',
       color: T.text, fontFamily: face,
     }}>
       <style>{`
         .jsp-nav-btn:hover { background: ${T.surface} !important; }
+        @media (max-width: 1180px) {
+          .jsp-appearance { grid-template-columns: 1fr !important; }
+          .jsp-preview-sticky { position: static !important; }
+        }
         @media (max-width: 900px) {
           .jsp-layout { grid-template-columns: 1fr !important; gap: 20px !important; }
+          .jsp-steps { grid-template-columns: 1fr !important; }
           .jsp-nav { position: static !important; display: flex !important; overflow-x: auto !important; gap: 8px !important; }
           .jsp-nav-btn { flex: 0 0 auto !important; }
           .jsp-nav-note { display: none !important; }

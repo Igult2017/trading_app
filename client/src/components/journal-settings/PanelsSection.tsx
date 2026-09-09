@@ -56,7 +56,7 @@ export default function PanelsSection({ hiddenPanels, onTogglePanel, T, face }: 
         const stepLabel = panels[0]?.stepLabel ?? '';
         const off = panels.filter(p => hiddenPanels.includes(p.id)).length;
         return (
-          <Card T={T} key={step} style={{ marginBottom: 12, padding: 0, overflow: 'hidden' }}>
+          <Card T={T} key={step} style={{ padding: 0, overflow: 'hidden' }}>
             <div style={{
               display: 'flex', alignItems: 'baseline', gap: 10,
               padding: '14px 20px', borderBottom: `1px solid ${T.border}`,
