@@ -73,20 +73,48 @@ const ADMIN_THEMES: Record<string, Record<string, string>> = {
   forest:   { bg:'#052e16', sidebar:'#04200f', card:'#073b1d', border:'#166534', border2:'#15803d', dim:'#15803d', accent:'#22c55e', accentL:'#4ade80' },
 };
 
-const ADMIN_FONTS: Record<string, string> = {
-  // THE VARIABLE FAMILY FIRST — copied verbatim from the journal dashboard (useJournalSettings.ts,
-  // FONTS['playfair-display'].stack). This used to name the static 'Playfair Display' first, which
-  // is the four fixed weights imported in index.css; the Variable package carries the whole 100-900
-  // axis, so a heading can be weighted up instead of relying on a fixed 400 whose hairlines vanish.
-  playfair:   "'Playfair Display Variable', 'Playfair Display', Georgia, serif",
-  // Copied verbatim from the journal's bodyStack (useJournalSettings.ts:176) — the full fallback
-  // chain, not a shortened one, so the admin degrades exactly the way the journal does.
-  montserrat: "'Montserrat', system-ui, -apple-system, 'Segoe UI', sans-serif",
-};
-// `outfit`, `inter`, `onest` and `mono` were removed 2026-09-09: the font picker was disabled in
-// 2026-07, nothing has read this map since except `applyAdminFont` below, and the panel's monospace
-// figures name 'DM Mono' inline. They were four unreachable entries, and one of them (`inter`) was
-// live long enough to send the whole panel to a face he had already replaced.
+/** ONE font table. There used to be TWO, and that is the whole bug.
+ *
+ *  `ADMIN_FONTS` was what actually got applied; `FONT_OPTIONS`, 2,600 lines further down, was what
+ *  the Appearance picker DREW. They shared no ids and neither knew about the other, so the picker
+ *  offered five faces, said "✓ Font Applied", and changed nothing — while `applyAdminFont` ignored
+ *  the chosen id outright. It also offered no Playfair at all, and defaulted its highlight to
+ *  Montserrat, which is exactly what he screenshotted as "still being overriden by montserrat".
+ *
+ *  Each entry carries the pairing the journal uses (useJournalSettings.ts `FONTS`): `stack` is the
+ *  heading face, `bodyStack` the face for text meant to be READ. Only Playfair needs the pair — a
+ *  display serif at 11px is what blurs — so every sans is simply itself for both jobs.
+ */
+type AdminFontDef = { id: string; label: string; stack: string; bodyStack?: string };
+
+const ADMIN_FONTS: AdminFontDef[] = [
+  {
+    id: 'playfair-display',
+    label: 'Playfair Display',
+    // THE VARIABLE FAMILY FIRST — copied verbatim from the journal dashboard
+    // (useJournalSettings.ts FONTS['playfair-display'].stack). This used to name the static
+    // 'Playfair Display' first, which is the four fixed weights imported in index.css; the Variable
+    // package carries the whole 100-900 axis, so a heading can be weighted up instead of relying on
+    // a fixed 400 whose hairlines vanish at small sizes. That ordering IS the "variant that does not
+    // disappear" he asked for.
+    stack:     "'Playfair Display Variable', 'Playfair Display', Georgia, serif",
+    // The journal's own bodyStack (useJournalSettings.ts:176), full fallback chain. Montserrat is
+    // HIS choice there, recorded 2026-09-05 — "it was Inter for a day".
+    bodyStack: "'Montserrat', system-ui, -apple-system, 'Segoe UI', sans-serif",
+  },
+  { id: 'montserrat', label: 'Montserrat', stack: "'Montserrat', system-ui, -apple-system, 'Segoe UI', sans-serif" },
+  { id: 'inter',      label: 'Inter',      stack: "'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif" },
+  { id: 'outfit',     label: 'Outfit',     stack: "'Outfit', system-ui, sans-serif" },
+  { id: 'onest',      label: 'Onest',      stack: "'Onest', system-ui, sans-serif" },
+  { id: 'mono',       label: 'DM Mono',    stack: "'DM Mono', ui-monospace, monospace" },
+];
+
+const ADMIN_FONT_DEFAULT = 'playfair-display';
+
+/** The stored preference. A NEW key on purpose: the old `admin_font` holds whatever was clicked
+ *  while the picker was inert, so it was never a preference that took effect — reusing it would
+ *  hand the panel a face nobody ever actually chose (his was 'montserrat'). */
+const ADMIN_FONT_KEY = 'admin_font_v2';
 
 function applyAdminTheme(id: string) {
   const t = ADMIN_THEMES[id] ?? ADMIN_THEMES.dark;
@@ -94,38 +122,26 @@ function applyAdminTheme(id: string) {
   Object.entries(t).forEach(([k, v]) => r.style.setProperty(`--admin-${k}`, v));
 }
 
-function applyAdminFont(_id: string) {
-  // THE SAME PAIRING THE JOURNAL DASHBOARD USES — his instruction, 2026-09-09:
-  // *"use the playfair font type we used in journal dashboard"*, after
-  // *"we used that variant of playfair that has strokes which disappear or become blurred in small
-  // font sizes"*.
-  //
-  // The journal does not solve that by abandoning Playfair. It pairs two faces
-  // (useJournalSettings.ts, FONTS['playfair-display']):
-  //
-  //     stack     'Playfair Display Variable', 'Playfair Display', Georgia, serif   → headings
-  //     bodyStack 'Montserrat', system-ui, …                                        → read-text
-  //
-  // and MONTSERRAT is his own choice there, recorded 2026-09-05 — "it was Inter for a day". Copying
-  // that pairing here is the point; picking any other sans would re-open a decision he has made.
-  //
-  // I GOT THIS WRONG ONCE, on 2026-09-09: I read docs/READABILITY.md's "everything READ is Inter"
-  // and swapped the body font to Inter, which is the face he had already replaced. His words:
-  // *"I said you use the variant of playfair that does not disappear or blurr on small font sizes
-  // and you changed the font type instead of doing that, why?"* The doc is right about the SHAPE of
-  // the rule (display serif for headings, sans for read-text) and out of date about WHICH sans.
-  //
-  // This supersedes "PERMANENTLY Playfair Display (locked 2026-07-20 per request)", which set BOTH
-  // variables to Playfair — so 13px inputs, 11px table cells and 10px labels were all display serif.
-  // The picker stays disabled: the id is still ignored.
-  document.documentElement.style.setProperty('--admin-font',        ADMIN_FONTS.montserrat);
-  document.documentElement.style.setProperty('--admin-header-font', ADMIN_FONTS.playfair);
+/** Apply a chosen font. THE CHOICE IS NOW HONOURED — it used to be ignored, with the id named `_id`
+ *  and a comment saying so, which is why the picker's "✓ Font Applied" meant nothing.
+ *
+ *  Headings get the face itself; text meant to be READ gets `bodyStack` when the face declares one.
+ *  Only Playfair does, because only a display serif turns to mush at 11px — and this panel is almost
+ *  all small text (13px inputs, 11px table cells, 10px labels). That pairing is the journal's, and
+ *  it is the answer to *"use the playfair font type we used in journal dashboard"*.
+ *
+ *  It supersedes "PERMANENTLY Playfair Display (locked 2026-07-20 per request)", which set BOTH
+ *  variables to Playfair so every input and table cell was a display serif. */
+function applyAdminFont(id: string) {
+  const f = ADMIN_FONTS.find(o => o.id === id) ?? ADMIN_FONTS[0];
+  document.documentElement.style.setProperty('--admin-header-font', f.stack);
+  document.documentElement.style.setProperty('--admin-font',        f.bodyStack ?? f.stack);
 }
 
 // Apply saved preferences immediately on module load
 try {
   applyAdminTheme(localStorage.getItem('admin_theme') ?? 'dark');
-  applyAdminFont(localStorage.getItem('admin_font') ?? 'inter');
+  applyAdminFont(localStorage.getItem(ADMIN_FONT_KEY) ?? ADMIN_FONT_DEFAULT);
 } catch {}
 
 const FONT = 'var(--admin-font)';
@@ -2706,13 +2722,6 @@ const THEME_OPTIONS = [
   { id: 'forest', label: 'Forest', bg: '#052e16', card: '#14532d', accent: '#22c55e' },
 ];
 
-const FONT_OPTIONS = [
-  { id: 'inter',      label: 'Inter',       stack: "'Inter', sans-serif" },
-  { id: 'outfit',     label: 'Outfit',      stack: "'Outfit', sans-serif" },
-  { id: 'montserrat', label: 'Montserrat',  stack: "'Montserrat', sans-serif" },
-  { id: 'onest',      label: 'Onest',       stack: "'Onest', sans-serif" },
-  { id: 'mono',       label: 'DM Mono',     stack: "'DM Mono', monospace" },
-];
 
 const MOCK_CC_USERS = [
   { id: 'CC001', name: 'Jamie Reyes', email: 'jamie@support.io', functions: ['view_tickets', 'reply_tickets', 'resolve_tickets'], status: 'Active' },
@@ -2734,7 +2743,7 @@ const SettingsSection = ({ bp, getAdminToken = null }: { bp: any; getAdminToken?
   const [showNewTask, setShowNewTask] = useState(false);
   const [selectedAgent, setSelectedAgent] = useState<any>(null);
   const [activeTheme, setActiveTheme] = useState(() => localStorage.getItem('admin_theme') || 'dark');
-  const [activeFont, setActiveFont] = useState(() => localStorage.getItem('admin_font') || 'montserrat');
+  const [activeFont, setActiveFont] = useState(() => localStorage.getItem(ADMIN_FONT_KEY) || ADMIN_FONT_DEFAULT);
   const [fontSaved, setFontSaved] = useState(false);
   const [newAgent, setNewAgent] = useState({ name: '', email: '', password: '', functions: [] as string[] });
   const [newTask, setNewTask] = useState({ title: '', assignee: '', due: '' });
@@ -2757,7 +2766,7 @@ const SettingsSection = ({ bp, getAdminToken = null }: { bp: any; getAdminToken?
   const selectTheme = (id: string) => { setActiveTheme(id); localStorage.setItem('admin_theme', id); applyAdminTheme(id); };
 
   const applyFont = () => {
-    localStorage.setItem('admin_font', activeFont);
+    localStorage.setItem(ADMIN_FONT_KEY, activeFont);
     applyAdminFont(activeFont);
     setFontSaved(true); setTimeout(() => setFontSaved(false), 2000);
   };
@@ -3027,11 +3036,22 @@ const SettingsSection = ({ bp, getAdminToken = null }: { bp: any; getAdminToken?
           <div style={{ ...cs, padding: '20px' }}>
             <h3 style={{ color: 'white', fontWeight: 700, fontSize: '12px', fontFamily: FONT, margin: '0 0 16px', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Dashboard Font</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {FONT_OPTIONS.map(font => (
+              {ADMIN_FONTS.map(font => (
                 <button key={font.id} onClick={() => { setActiveFont(font.id); setFontSaved(false); }} style={{ ...btn, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', background: activeFont === font.id ? 'rgba(0,200,224,0.08)' : 'rgba(8,14,24,0.4)', border: `1px solid ${activeFont === font.id ? 'rgba(0,200,224,0.35)' : C.border}`, textAlign: 'left' }}>
+                  {/* THE PREVIEW SHOWS THE PAIRING, not one face pretending to do both jobs. The
+                      name renders in the heading face; the sentence renders in whatever text
+                      actually gets — which for Playfair is Montserrat, and saying so here is the
+                      difference between an honest preview and the one that misled before. */}
                   <div>
-                    <p style={{ color: activeFont === font.id ? 'white' : C.muted, fontSize: '15px', fontWeight: 600, margin: 0, fontFamily: font.stack }}>{font.label}</p>
-                    <p style={{ color: C.muted, fontSize: '11px', margin: '3px 0 0', fontFamily: font.stack }}>The quick brown fox jumps over the lazy dog</p>
+                    <p style={{ color: activeFont === font.id ? 'white' : C.muted, fontSize: '17px', fontWeight: 600, margin: 0, fontFamily: font.stack }}>{font.label}</p>
+                    <p style={{ color: C.muted, fontSize: '11px', margin: '4px 0 0', fontFamily: font.bodyStack ?? font.stack }}>
+                      The quick brown fox jumps over the lazy dog
+                    </p>
+                    {font.bodyStack && (
+                      <p style={{ color: C.muted, fontSize: '11px', margin: '4px 0 0', opacity: 0.75, fontFamily: font.bodyStack ?? font.stack }}>
+                        headings in {font.label}, text in Montserrat
+                      </p>
+                    )}
                   </div>
                   {activeFont === font.id && (
                     <div style={{ width: '20px', height: '20px', background: C.indigo, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>

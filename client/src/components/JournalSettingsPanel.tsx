@@ -15,14 +15,22 @@ interface Props {
   onTogglePanel: (id: string) => void;
 }
 
+/** A card's surface. Depth instead of a hard outline — his UI rules ask for subtle shadow rather
+ *  than heavy borders, and these cards were carrying 2px ones. The shadow is kept faint enough to
+ *  read on the light theme as well as the five dark ones. */
+const cardShadow = (T: ThemeDef) =>
+  T.dark ? '0 1px 2px rgba(0,0,0,0.35)' : '0 1px 2px rgba(16,24,40,0.06)';
+
 const Section = ({ label, children, T }: { label: string; children: React.ReactNode; T: ThemeDef }) => (
-  <div style={{ marginBottom: 36 }}>
+  <div className="jsp-section" style={{ marginBottom: 40 }}>
     <div style={{
-      display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20,
+      display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16,
     }}>
-      <div style={{ width: 3, height: 16, background: T.accent, flexShrink: 0 }} />
+      <div style={{ width: 3, height: 14, background: T.accent, flexShrink: 0, borderRadius: 2 }} />
+      {/* 11px is the project floor and .12em the tracking ceiling (docs/READABILITY.md). This was
+          10px at .22em — small, wide-set capitals read as texture rather than words. */}
       <span style={{
-        fontSize: 10, fontWeight: 800, letterSpacing: '0.22em',
+        fontSize: 11, fontWeight: 700, letterSpacing: '0.12em',
         textTransform: 'uppercase', color: T.textMuted,
       }}>{label}</span>
       <div style={{ flex: 1, height: 1, background: T.border }} />
@@ -85,20 +93,27 @@ export default function JournalSettingsPanel({ theme, font, onThemeChange, onFon
     }
   };
 
+  // The page renders in the typography it is asking you to choose: the heading face for titles, the
+  // reading face for everything read. Only Playfair declares a separate reading face — a display
+  // serif is what blurs at small sizes — so every sans is simply itself for both jobs.
+  const HEAD = FONTS[font].stack;
+  const BODY = FONTS[font].bodyStack ?? FONTS[font].stack;
+
   return (
     <div className="jsp-root" style={{
-      maxWidth: 860,
+      maxWidth: 880,
       margin: '0 auto',
-      padding: '40px 32px 60px',
+      padding: '40px 32px 64px',
       color: T.text,
+      fontFamily: BODY,
     }}>
       <style>{`
         @media (max-width: 640px) {
           .jsp-root { padding: 20px 14px 40px !important; }
           .jsp-title-row { gap: 10px !important; }
           .jsp-title-bar { width: 3px !important; height: 22px !important; }
-          .jsp-title { font-size: 16px !important; letter-spacing: 0.06em !important; }
-          .jsp-subtitle { margin-left: 13px !important; font-size: 10px !important; }
+          .jsp-title { font-size: 21px !important; letter-spacing: 0.01em !important; }
+          .jsp-subtitle { margin-left: 13px !important; font-size: 12px !important; }
           .jsp-section { margin-bottom: 24px !important; }
           .jsp-grid-themes { grid-template-columns: repeat(2, 1fr) !important; gap: 8px !important; }
           .jsp-grid-fonts  { grid-template-columns: repeat(2, 1fr) !important; gap: 8px !important; }
@@ -113,19 +128,23 @@ export default function JournalSettingsPanel({ theme, font, onThemeChange, onFon
         }
       `}</style>
 
-      {/* Page title */}
-      <div className="jsp-section" style={{ marginBottom: 48 }}>
-        <div className="jsp-title-row" style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 8 }}>
-          <div className="jsp-title-bar" style={{ width: 4, height: 28, background: T.accent }} />
+      {/* Page title.
+          It was 12px DM Mono — a page title set SMALLER than the body text under it, with no
+          hierarchy at all. It now reads as a title, and it renders in the typography actually
+          selected on this page: the heading face for the title, the reading face for the sentence.
+          That makes the page demonstrate the choice it is asking you to make. */}
+      <div className="jsp-section" style={{ marginBottom: 40 }}>
+        <div className="jsp-title-row" style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 10 }}>
+          <div className="jsp-title-bar" style={{ width: 4, height: 30, background: T.accent, borderRadius: 2 }} />
           <h1 className="jsp-title" style={{
-            margin: 0, fontSize: 12, fontWeight: 700,
-            letterSpacing: '0.12em', color: T.text,
-            fontFamily: "'DM Mono', monospace",
+            margin: 0, fontSize: 28, fontWeight: 700,
+            letterSpacing: '0.01em', lineHeight: 1.1, color: T.text,
+            fontFamily: HEAD,
           }}>Journal Settings</h1>
         </div>
         <p className="jsp-subtitle" style={{
-          margin: '0 0 0 18px', fontSize: 11, color: T.textMuted,
-          letterSpacing: '0.06em', fontFamily: "'DM Mono', monospace",
+          margin: '0 0 0 18px', fontSize: 13, color: T.textMuted,
+          letterSpacing: '0.01em', lineHeight: 1.6, fontFamily: BODY, maxWidth: 620,
         }}>
           Personalise your trading environment — theme and typography changes apply instantly.
         </p>
@@ -149,9 +168,10 @@ export default function JournalSettingsPanel({ theme, font, onThemeChange, onFon
                 onMouseLeave={() => setThemeHov(null)}
                 style={{
                   background: 'transparent',
-                  border: `2px solid ${active ? T.accent : hov ? T.textMuted : T.border}`,
-                  borderRadius: 10,
+                  border: `1px solid ${active ? T.accent : hov ? T.textMuted : T.border}`,
+                  borderRadius: 12,
                   padding: 0,
+                  boxShadow: active ? `0 0 0 1px ${T.accent}` : cardShadow(T),
                   cursor: 'pointer',
                   transition: 'border-color 0.15s, transform 0.15s',
                   transform: hov && !active ? 'translateY(-2px)' : 'none',
@@ -209,14 +229,14 @@ export default function JournalSettingsPanel({ theme, font, onThemeChange, onFon
                   textAlign: 'left',
                 }}>
                   <span style={{
-                    fontSize: 10, fontWeight: active ? 800 : 600,
+                    fontSize: 11, fontWeight: active ? 700 : 600,
                     letterSpacing: '0.08em', textTransform: 'uppercase',
                     color: active ? T.accent : T.text,
                     display: 'block',
                   }}>{def.label}</span>
                   <span style={{
-                    fontSize: 8, letterSpacing: '0.06em',
-                    color: T.textMuted, display: 'block', marginTop: 1,
+                    fontSize: 11, letterSpacing: '0.02em',
+                    color: T.textMuted, display: 'block', marginTop: 2,
                   }}>{def.dark ? 'Dark' : 'Light'}</span>
                 </div>
               </button>
@@ -244,9 +264,10 @@ export default function JournalSettingsPanel({ theme, font, onThemeChange, onFon
                 onMouseLeave={() => setFontHov(null)}
                 style={{
                   background: active ? `${T.accent}14` : hov ? T.surface : 'transparent',
-                  border: `2px solid ${active ? T.accent : hov ? T.textMuted : T.border}`,
-                  borderRadius: 10,
-                  padding: '16px 18px 14px',
+                  border: `1px solid ${active ? T.accent : hov ? T.textMuted : T.border}`,
+                  borderRadius: 12,
+                  padding: '16px 16px 14px',
+                  boxShadow: active ? `0 0 0 1px ${T.accent}` : cardShadow(T),
                   cursor: 'pointer',
                   transition: 'all 0.15s',
                   transform: hov && !active ? 'translateY(-2px)' : 'none',
@@ -265,10 +286,10 @@ export default function JournalSettingsPanel({ theme, font, onThemeChange, onFon
                   {def.sample}
                 </div>
                 <div style={{
-                  fontSize: 9, fontWeight: 700,
-                  letterSpacing: '0.12em', textTransform: 'uppercase',
+                  fontSize: 11, fontWeight: 700,
+                  letterSpacing: '0.1em', textTransform: 'uppercase',
                   color: active ? T.accent : T.textMuted,
-                  marginBottom: 3,
+                  marginBottom: 4,
                 }}>{def.label}</div>
                 {active && (
                   <div style={{
@@ -279,7 +300,7 @@ export default function JournalSettingsPanel({ theme, font, onThemeChange, onFon
                     <svg width="8" height="8" viewBox="0 0 10 10" fill="none">
                       <polyline points="1.5,5 4,7.5 8.5,2.5" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                     </svg>
-                    <span style={{ fontSize: 8, color: '#fff', fontWeight: 700, letterSpacing: '0.08em' }}>ACTIVE</span>
+                    <span style={{ fontSize: 11, color: '#fff', fontWeight: 700, letterSpacing: '0.08em' }}>ACTIVE</span>
                   </div>
                 )}
               </button>
@@ -298,16 +319,16 @@ export default function JournalSettingsPanel({ theme, font, onThemeChange, onFon
           fontFamily: FONTS[font].stack,
         }}>
           <div style={{
-            fontSize: 11, letterSpacing: '0.18em', textTransform: 'uppercase',
-            color: T.accent, marginBottom: 6,
+            fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase',
+            color: T.accent, marginBottom: 8, fontWeight: 700,
           }}>Live Preview</div>
           <div className="jsp-preview-title" style={{
             fontSize: 24, fontWeight: 800, color: T.text,
             letterSpacing: '0.04em', lineHeight: 1.2, marginBottom: 10,
           }}>Trading Journal</div>
           <div style={{
-            fontSize: 12, color: T.textMuted,
-            lineHeight: 1.6, letterSpacing: '0.02em', marginBottom: 18,
+            fontSize: 13, color: T.textMuted,
+            lineHeight: 1.7, letterSpacing: '0.01em', marginBottom: 20,
           }}>
             The quick brown fox jumps over the lazy dog. 0123456789 +$1,234.56 −$987.00
           </div>
@@ -319,8 +340,8 @@ export default function JournalSettingsPanel({ theme, font, onThemeChange, onFon
                 borderRadius: 6,
                 padding: '8px 14px',
               }}>
-                <div style={{ fontSize: 8, color: T.textMuted, letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: 3 }}>{label}</div>
-                <div style={{ fontSize: 14, fontWeight: 700, color, letterSpacing: '0.02em' }}>{val}</div>
+                <div style={{ fontSize: 11, color: T.textMuted, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 4 }}>{label}</div>
+                <div style={{ fontSize: 16, fontWeight: 700, color, letterSpacing: '0.01em' }}>{val}</div>
               </div>
             ))}
           </div>
@@ -329,7 +350,7 @@ export default function JournalSettingsPanel({ theme, font, onThemeChange, onFon
 
       {/* ── JOURNAL FORM PANELS ───────────────────────────── */}
       <Section label="Journal Form Panels" T={T}>
-        <p style={{ fontSize: 11, color: T.textMuted, marginBottom: 20, letterSpacing: '0.03em', lineHeight: 1.6 }}>
+        <p style={{ fontSize: 13, color: T.textMuted, marginBottom: 20, letterSpacing: '0.01em', lineHeight: 1.7, maxWidth: 620 }}>
           Mute panels you don't use. Muted panels are hidden from the journal form. Critical panels (marked&nbsp;
           <span style={{ color: T.accent, fontWeight: 700 }}>required</span>) cannot be hidden.
         </p>
@@ -338,7 +359,7 @@ export default function JournalSettingsPanel({ theme, font, onThemeChange, onFon
           const stepLabel = stepPanels[0]?.stepLabel ?? '';
           return (
             <div key={step} style={{ marginBottom: 24 }}>
-              <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.18em', textTransform: 'uppercase', color: T.textMuted, marginBottom: 10 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.textMuted, marginBottom: 10 }}>
                 Step {step} — {stepLabel}
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -362,11 +383,11 @@ export default function JournalSettingsPanel({ theme, font, onThemeChange, onFon
                       }}
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <span style={{ fontSize: 12, color: hidden ? T.textMuted : T.text, fontWeight: 600, letterSpacing: '0.02em' }}>
+                        <span style={{ fontSize: 13, color: hidden ? T.textMuted : T.text, fontWeight: 600, letterSpacing: '0.01em' }}>
                           {panel.label}
                         </span>
                         {panel.critical && (
-                          <span style={{ fontSize: 8, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: T.accent, padding: '1px 6px', border: `1px solid ${T.accent}40`, borderRadius: 4 }}>
+                          <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: T.accent, padding: '2px 8px', border: `1px solid ${T.accent}40`, borderRadius: 999 }}>
                             required
                           </span>
                         )}
@@ -403,7 +424,7 @@ export default function JournalSettingsPanel({ theme, font, onThemeChange, onFon
             borderRadius: 10, padding: '18px 22px', marginBottom: 12,
             fontFamily: "'DM Mono', monospace",
           }}>
-            <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: T.textMuted, marginBottom: 12 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.textMuted, marginBottom: 12 }}>
               Display name
             </div>
             {nameEdit ? (
@@ -447,14 +468,14 @@ export default function JournalSettingsPanel({ theme, font, onThemeChange, onFon
                 </span>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   {nameSaved && (
-                    <span style={{ fontSize: 9, color: '#22d3a5', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Saved ✓</span>
+                    <span style={{ fontSize: 11, color: '#22d3a5', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Saved ✓</span>
                   )}
                   <button
                     type="button" onClick={() => setNameEdit(true)}
                     style={{
                       padding: '5px 12px', borderRadius: 5, border: `1px solid ${T.border}`,
-                      background: 'transparent', color: T.textMuted, fontSize: 10,
-                      fontFamily: "'DM Mono', monospace", cursor: 'pointer',
+                      background: 'transparent', color: T.textMuted, fontSize: 11,
+                      fontFamily: 'inherit', cursor: 'pointer',
                       letterSpacing: '0.06em', transition: 'color 0.15s, border-color 0.15s',
                     }}
                     onMouseEnter={e => { e.currentTarget.style.color = T.text; e.currentTarget.style.borderColor = T.textMuted; }}
