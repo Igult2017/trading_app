@@ -14,6 +14,23 @@ export type Article = {
 };
 
 /**
+ * ASK FOR A CARD-SIZED PICTURE, NOT THE ORIGINAL.
+ *
+ * The covers are full-size photographs — 1.73 MB across the eight published posts, measured on
+ * production 2026-09-09 — and every one of them was being downloaded in full to fill a box a few
+ * hundred pixels wide. `?w=` makes the server send one scaled to what is actually shown (800 covers
+ * a ~400px card on a 2x screen).
+ *
+ * Only our own cover endpoint is touched. A post whose picture is an ordinary link to somewhere else
+ * is left exactly as it is — that server has no idea what `?w=` means and appending it could break
+ * the URL outright.
+ */
+function cardSized(url: string): string {
+  if (!url || !url.includes('/api/blog/')) return url;
+  return url + (url.includes('?') ? '&' : '?') + 'w=800';
+}
+
+/**
  * One article card, copied from the reference he sent on 2026-08-29: picture on top, then the
  * category, the headline, two lines of the opening, and a quiet footer with who wrote it, when, and
  * how long it takes to read.
@@ -53,9 +70,10 @@ export function ArticleCard({ a, dark, onOpen }: {
       <div className="relative w-full overflow-hidden" style={{ aspectRatio: '16 / 9', background: t.placeholder }}>
         {hasImage ? (
           <img
-            src={a.imageUrl}
+            src={cardSized(a.imageUrl)}
             alt=""                            /* decorative — the headline below carries the meaning */
             loading="lazy"
+            decoding="async"
             onError={() => setBroken(true)}
             className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
           />

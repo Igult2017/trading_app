@@ -24,3 +24,22 @@ export function clearInactivityTracking(): void {
     localStorage.removeItem(LAST_SESSION_KEY);
   } catch {}
 }
+
+/** Remember the page the user was on, so their NEXT login lands them back there instead of the
+ *  default dashboard. Read (and cleared) by AuthModal and AuthCallbackPage.
+ *
+ *  IT LIVES HERE BECAUSE TWO CALLERS NEED IT AND NEITHER CAN IMPORT THE OTHER — the same reason
+ *  this module exists at all. `AuthContext.signOut` calls it for a normal sign-out. The inactivity
+ *  logout has to call it EXPLICITLY, before it navigates: that logout changes the page first (so the
+ *  route guards never see a signed-out session and bounce the user to the login screen), which means
+ *  by the time `signOut` runs the path is already '/' — and '/' is deliberately not stored. Without
+ *  this call an idle logout would quietly forget where the user had been. */
+export function rememberReturnTo(path?: string, search?: string): void {
+  try {
+    const p = path   ?? window.location.pathname;
+    const s = search ?? window.location.search;
+    if (p !== '/' && !p.startsWith('/auth') && p !== '/join') {
+      localStorage.setItem('return-to', p + s);
+    }
+  } catch { /* ignore */ }
+}

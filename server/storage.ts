@@ -1140,6 +1140,40 @@ export class DbStorage implements IStorage {
     return rows;
   }
 
+  /** The blog LIST, without the two columns that make it enormous.
+   *
+   *  WHY THIS EXISTS. `getBlogPosts` above selects `content` and `image_url`, and `/api/blog` then
+   *  throws both away to build its response. That would be harmless if the covers were files — but
+   *  they are base64 data URIs stored inside the row, so the database was reading and shipping
+   *  ~2.3 MB in order to produce a 6 KB reply. Measured on production, 2026-09-09:
+   *  **1,391 ms for 6,051 bytes.**
+   *
+   *  Only two things are needed from those columns, and both are bounded here: whether a cover
+   *  exists, and — when it is an ordinary URL rather than an embedded picture — what that URL is.
+   *  `left(..., 2048)` is what stops a 430 KB data URI being shipped anyway: 2,048 characters is far
+   *  longer than any real URL and far shorter than any data URI, so the caller can still tell the
+   *  two apart by the prefix. The decision itself stays in `imageRef`, in ONE place. */
+  async getBlogPostsLight(filters?: { status?: string; section?: string }): Promise<any[]> {
+    const conditions: string[] = [];
+    const values: any[] = [];
+    if (filters?.status)  { values.push(filters.status);  conditions.push(`status = $${values.length}`); }
+    if (filters?.section) { values.push(filters.section); conditions.push(`section = $${values.length}`); }
+    const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+    const { rows } = await pool.query<any>(
+      `SELECT id, slug, title, excerpt, category, author,
+              author_id AS "authorId", date, read_time AS "readTime",
+              status, section,
+              signal_data AS "signalData", author_data AS "authorData",
+              summary, video_url AS "videoUrl",
+              created_at AS "createdAt", updated_at AS "updatedAt",
+              left(image_url, 2048) AS "imageUrlHead",
+              left(substring(content from '!\\[[^\\]]*\\]\\(([^)\\s]+)'), 2048) AS "contentImageHead"
+       FROM blog_posts ${where} ORDER BY created_at DESC`,
+      values,
+    );
+    return rows;
+  }
+
   async getBlogPostById(id: string): Promise<BlogPost | undefined> {
     // Try UUID first, then slug (allows /blog/<slug> and /blog/<uuid> both to work)
     let r = await db.select().from(blogPosts).where(eq(blogPosts.id, id)).limit(1);

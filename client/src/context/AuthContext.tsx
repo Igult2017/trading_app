@@ -3,7 +3,7 @@ import type { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import { queryClient } from '@/lib/queryClient';
 import { prepareDashboard } from '@/lib/prefetchPanels';
-import { clearInactivityTracking } from '@/lib/inactivity';
+import { clearInactivityTracking, rememberReturnTo } from '@/lib/inactivity';
 
 const LOCAL_ADMIN_KEY = 'local_admin_session';
 
@@ -169,7 +169,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         prepareDashboard(queryClient, data.session.user.id),
         runSetup(data.session.access_token),
       ]);
-      clearInactivityTracking();   // fresh login — start a clean 10-min window
+      clearInactivityTracking();   // fresh login — start a clean inactivity window (length lives in lib/inactivity.ts)
       setRole(assignedRole ?? extractRole(data.session.user));
       return { error: null, emailConfirmationRequired: false };
     }
@@ -193,7 +193,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const assignedRole: 'admin' | 'user' = data.role === 'admin' ? 'admin' : 'user';
         sessionStorage.setItem(LOCAL_ADMIN_KEY, JSON.stringify({ email: data.email, token: data.token }));
         const { session: s, user: u } = makeLocalSession(data.email, data.token);
-        clearInactivityTracking();   // fresh login — start a clean 10-min window
+        clearInactivityTracking();   // fresh login — start a clean inactivity window (length lives in lib/inactivity.ts)
         setSession(s);
         setUser(u);
         setRole(assignedRole);
@@ -223,19 +223,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // Set role directly — avoids calling refreshSession() which can fire
     // a SIGNED_OUT event on failure and silently kill the new session.
-    clearInactivityTracking();   // fresh login — start a clean 10-min window
+    clearInactivityTracking();   // fresh login — start a clean inactivity window (length lives in lib/inactivity.ts)
     setRole(role);
     return { error: null, role };
   }
 
   async function signOut() {
     // Remember where the user was so the next login lands them back here, not the default dashboard.
-    try {
-      const path = window.location.pathname;
-      if (path !== '/' && !path.startsWith('/auth') && path !== '/join') {
-        localStorage.setItem('return-to', path + window.location.search);
-      }
-    } catch { /* ignore */ }
+    // The rule lives in lib/inactivity.ts because the idle logout needs it too, and has to call it
+    // itself — it navigates away before signing out, so by the time this runs the path is '/'.
+    rememberReturnTo();
     // Keep the journal cache across logout so the SAME user's next login is INSTANT
     // (stale-while-revalidate — no loaders at all). The auth token is cleared below,
     // so the cached data can never be used for authenticated requests. A DIFFERENT

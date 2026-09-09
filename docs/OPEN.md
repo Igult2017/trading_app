@@ -2611,6 +2611,32 @@ every image costs a database read and a base64 decode per request rather than be
 CDN could serve. **Not done here** because it needs the editor's upload path changed and the existing
 rows migrated — a separate task with its own risk.
 
+#### ROUND TWO — 09 Sep, after he reported it STILL slow: *"the blog page and images are very slow in loading"*
+
+The 02 Sep fix stopped the covers travelling inside the JSON. It did **not** stop the database
+*reading* them, and that was the larger cost. Measured on production before the change:
+
+| what | measured | why |
+|---|---|---|
+| `/api/blog` | **1,391 ms to return 6,051 bytes** | `getBlogPosts` still `SELECT`ed `content` **and** `image_url` — ~2.3 MB read out of the database — and the route then threw both away |
+| each cover | **1.4-1.9 s**, 80-320 KB | full-size photographs used to fill cards a few hundred pixels wide; **1.73 MB across 8 posts** |
+| cover cache | `max-age=3600` | only an hour, because the URL never changed when a cover did — so everyone re-downloaded 1.73 MB every hour |
+
+**Three fixes, none of which touch how the images are stored:**
+1. **`storage.getBlogPostsLight()`** — the list query no longer selects the two huge columns. It
+   takes `left(image_url, 2048)` and the first markdown image instead: enough to tell an embedded
+   picture from a link by its prefix, bounded so a 430 KB data URI can never be shipped. The route
+   falls back to the old query and **logs loudly** if it ever fails, so the blog cannot go down for it.
+2. **`?v=<updatedAt>` on the cover URL** → `max-age=31536000, immutable`. Replacing a post's picture
+   produces a different URL, so it still updates instantly; an unchanged one is fetched once, ever.
+3. **`?w=` resizing** with `sharp` (already a production dependency, already used by
+   `screenshotExtract.ts`), served as WebP, with a 24-entry in-process cache keyed on post+version+width
+   so a cold cache or a crawler cannot make a 2-core box re-do the same work. A resize failure serves
+   the original bytes rather than no picture.
+
+**What is STILL open is unchanged:** the rows still hold base64, so the first request for each cover
+is still a database read plus a decode. Fixing that properly is the migration described above.
+
 **Also fixed on the way past:** `og:image` was the data URI, which no social crawler can fetch, so
 the blog has never had a working share preview. It is now an absolute URL to the image endpoint.
 

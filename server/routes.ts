@@ -6690,10 +6690,31 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
     return m ? m[1] : '';
   };
 
-  /** A data URI becomes a cacheable URL; anything already a normal URL is left exactly as it is. */
+  /** A data URI becomes a cacheable URL; anything already a normal URL is left exactly as it is.
+   *
+   *  THE `?v=` IS WHAT MAKES THE PICTURE CACHEABLE FOR A YEAR. Without it the URL never changes when
+   *  a post's cover is replaced, so the cache could only be held for an hour before going stale —
+   *  and every visitor re-downloaded ~1.7 MB of covers every hour. Stamping the post's last-updated
+   *  time into the URL means an edited cover gets a NEW url and appears immediately, while an
+   *  unchanged one is fetched exactly once, ever. */
   const imageRef = (post: any): string => {
     const raw = post?.imageUrl || firstMarkdownImage(post?.content ?? '');
-    if (typeof raw === 'string' && raw.startsWith('data:')) return `/api/blog/${post.id}/image`;
+    if (typeof raw === 'string' && raw.startsWith('data:')) {
+      const stamp = Date.parse(post?.updatedAt ?? post?.createdAt ?? '') || 0;
+      return `/api/blog/${post.id}/image?v=${stamp}`;
+    }
+    return raw;
+  };
+
+  /** Same decision as `imageRef`, for a row from `getBlogPostsLight` — which carries only the first
+   *  2,048 characters of each candidate rather than the whole column. The prefix is all that is
+   *  needed to tell an embedded picture from a link. */
+  const imageRefLight = (p: any): string => {
+    const raw: string = p?.imageUrlHead || p?.contentImageHead || '';
+    if (raw.startsWith('data:')) {
+      const stamp = Date.parse(p?.updatedAt ?? p?.createdAt ?? '') || 0;
+      return `/api/blog/${p.id}/image?v=${stamp}`;
+    }
     return raw;
   };
 
@@ -6702,32 +6723,96 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
       const { section } = req.query as { section?: string };
       const filters: { status?: string; section?: string } = { status: 'Published' };
       if (section) filters.section = section;
-      const posts = await storage.getBlogPosts(filters);
-      const light = posts.map((p: any) => {
-        const { content, ...rest } = p;
-        return { ...rest, imageUrl: imageRef(p) };
-      });
-      return res.json(light);
+
+      // THE LIST NEVER READS THE COVERS OR THE ARTICLE BODIES. They are stored as base64 inside the
+      // row, so selecting them cost ~2.3 MB of database reads to build a 6 KB reply — measured at
+      // 1,391 ms on production. The fallback keeps the blog alive if the lighter query ever fails,
+      // and says so loudly rather than degrading in silence.
+      let rows: any[];
+      try {
+        rows = (await storage.getBlogPostsLight(filters)).map((p: any) => {
+          const { imageUrlHead, contentImageHead, ...rest } = p;
+          return { ...rest, imageUrl: imageRefLight(p) };
+        });
+      } catch (lightErr: any) {
+        console.error('[blog] light list query failed, falling back to the full read:', lightErr?.message);
+        rows = (await storage.getBlogPosts(filters)).map((p: any) => {
+          const { content, ...rest } = p;
+          return { ...rest, imageUrl: imageRef(p) };
+        });
+      }
+      return res.json(rows);
     } catch (err: any) {
       return res.status(500).json({ error: err.message });
     }
   });
 
-  // The cover image as an actual image. Immutable: a post's picture is replaced by editing the post,
-  // which changes nothing about this URL — so the cache is keyed on the post id and the browser is
-  // told it may keep it. `must-revalidate` is deliberately absent; a stale cover for an hour is a
-  // fair trade for not re-sending 400 KB on every page view.
+  // Already-resized covers, so the same picture is not decoded and shrunk on every request.
+  // Small and bounded on purpose: the box has 2 cores, and the browser cache does the real work —
+  // this only stops a cold cache, a crawler or a burst of visitors re-doing identical CPU. Keyed by
+  // post + version + width, so an edited cover can never be served from it.
+  const coverCache = new Map<string, { type: string; buf: Buffer }>();
+  const COVER_CACHE_MAX = 24;
+
+  // The cover as an actual image, optionally resized.
+  //
+  // TWO THINGS MAKE THE BLOG SLOW WITHOUT THIS, both measured on production 2026-09-09:
+  //   * the cards asked for FULL-SIZE pictures — 1.73 MB across 8 posts, to fill boxes a few
+  //     hundred pixels wide. `?w=` serves one scaled to what is actually displayed.
+  //   * they could only be cached for an hour, because the URL never changed when a cover did.
+  //     With `?v=` in the URL (see `imageRef`) the answer is immutable and is kept for a year;
+  //     replacing a post's picture produces a different URL, so it still updates at once.
   app.get("/api/blog/:id/image", async (req: Request, res: Response) => {
     try {
+      const version = String((req.query.v as string) ?? '');
+      // Width is clamped: an unbounded number from the query string is a CPU lever for anyone who
+      // finds the URL, and nothing on the site displays a cover wider than 1600.
+      const wantedRaw = parseInt(String(req.query.w ?? ''), 10);
+      const wanted = Number.isFinite(wantedRaw) ? Math.min(Math.max(wantedRaw, 64), 1600) : 0;
+
+      const key = `${req.params.id}:${version}:${wanted}`;
+      const hit = coverCache.get(key);
+      if (hit) {
+        res.setHeader('Content-Type', hit.type);
+        res.setHeader('Cache-Control', version ? 'public, max-age=31536000, immutable' : 'public, max-age=3600');
+        res.setHeader('Content-Length', String(hit.buf.length));
+        return res.end(hit.buf);
+      }
+
       const post: any = await storage.getBlogPostById(req.params.id);
       const raw: string = post?.imageUrl || firstMarkdownImage(post?.content ?? '');
       if (!raw) return res.status(404).end();
       if (!raw.startsWith('data:')) return res.redirect(302, raw);
       const m = /^data:([^;,]+);base64,(.*)$/s.exec(raw);
       if (!m) return res.status(404).end();
-      const buf = Buffer.from(m[2], 'base64');
-      res.setHeader('Content-Type', m[1]);
-      res.setHeader('Cache-Control', 'public, max-age=3600');
+
+      let type = m[1];
+      let buf = Buffer.from(m[2], 'base64');
+
+      if (wanted) {
+        try {
+          const sharp = (await import('sharp')).default;
+          // `withoutEnlargement` means a small original is served as-is rather than blown up.
+          buf  = await sharp(buf).rotate()
+                   .resize({ width: wanted, withoutEnlargement: true })
+                   .webp({ quality: 82 })
+                   .toBuffer();
+          type = 'image/webp';
+        } catch (resizeErr: any) {
+          // A PICTURE MUST NEVER FAIL TO APPEAR BECAUSE IT COULD NOT BE SHRUNK. Fall back to the
+          // original bytes, which is exactly what was served before this existed.
+          console.error('[blog] cover resize failed, serving the original:', resizeErr?.message);
+        }
+      }
+
+      if (coverCache.size >= COVER_CACHE_MAX) {
+        const oldest = coverCache.keys().next().value;
+        if (oldest !== undefined) coverCache.delete(oldest);
+      }
+      coverCache.set(key, { type, buf });
+
+      res.setHeader('Content-Type', type);
+      res.setHeader('Cache-Control', version ? 'public, max-age=31536000, immutable' : 'public, max-age=3600');
       res.setHeader('Content-Length', String(buf.length));
       return res.end(buf);
     } catch {
