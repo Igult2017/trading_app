@@ -236,6 +236,40 @@ build.
 
 ---
 
+## ⛔ CORRECTED 2026-09-10 — the section below was WRONG, read this first
+
+**I claimed a weight and size floor made Playfair safe as body text. It does not, and he saw it
+immediately:** *"Are you seeing how blurred things are here."*
+
+What I got wrong: I measured **one thing** — the darkest pixel of the thinnest stroke — and treated
+"the hairline survives" as "the text is legible". The right measure is how much ink lands across the
+**whole word**, and on that measure the floor barely helps:
+
+| the same words, the same size | Playfair | Montserrat |
+|---|---|---|
+| "New user registrations by month" 13px/600 | **19.8%** | 24.3% |
+| "Henry Otieno" 15px/600 | **22.3%** | 25.0% |
+| "Growth Analytics" 16px/700 | 24.0% | 23.1% |
+| "210m 2s" 32px/600 | 33.8% | 34.5% |
+
+**A quarter of the ink is missing at caption size and none of it at 32px.** Rule 1 at the top of
+this document was right all along. What is true from the correction below is only the second half:
+*if* a display serif must be used small, 13px and 15px rasterise better than 13.5/14/14.5/16, and
+weight 600+ helps. That is a mitigation, not a licence.
+
+**The rule now, and it applies to every surface:** a display face (Playfair Display, DM Serif
+Display — both are drawn with thick stems next to hairlines) is used at **16px and above only**.
+Below that, the sans. Enforced in the admin panel by `applyAdminFont`, which gives
+`--admin-header-font` the chosen face and `--admin-font` the sans whenever the chosen face is in
+`DISPLAY_FACES`.
+
+**And the mistake NOT to repeat while fixing it:** the first time I applied this split, the headings
+went sans too, which took Playfair off the screen entirely — that is what he was objecting to, not
+the split itself. Keep the display face on the titles, the card headings, the big figures and the
+navigation rail, and it stays visibly his brand.
+
+---
+
 ## THE ADMIN BLOG SCREEN IS DELIBERATELY ALL PLAYFAIR — do not "fix" it back to the sans
 
 Added 2026-09-10. Rule 1 above says a display serif must not do a body's job. **The admin blog
