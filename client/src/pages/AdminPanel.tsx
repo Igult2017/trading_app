@@ -2659,7 +2659,7 @@ const SettingsSection = ({ bp, getAdminToken = null }: { bp: any; getAdminToken?
         <div style={{ display: 'grid', gridTemplateColumns: bp.isDesktop ? '1fr 1fr' : '1fr', gap: '6px', alignItems: 'start' }}>
           <div style={{ ...cs, overflow: 'hidden' }}>
             <div style={{ padding: '14px 16px', borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 style={{ color: C.text, fontWeight: 700, fontSize: '16px', fontFamily: HFONT, margin: 0 }}>Customer Care Agents</h3>
+              <h3 style={{ color: C.text, fontWeight: 700, fontSize: '16px', fontFamily: HFONT, margin: 0 }}>Support Agents</h3>
               <button onClick={() => setShowNewAgent(true)} style={{ ...btn, display: 'flex', alignItems: 'center', gap: '6px', background: C.indigo, color: 'white', padding: '7px 13px', fontSize: '12px', border: 'none' }}><Plus size={12} /> New Agent</button>
             </div>
             {ccUsers.map((user, idx) => (
