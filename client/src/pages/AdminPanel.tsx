@@ -5,7 +5,7 @@ import { authFetch } from '@/lib/queryClient';
 import TrafficSection from '@/features/admin-traffic/TrafficSection';
 import {
   ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid,
-  Tooltip as RechartTooltip, ResponsiveContainer, Area,
+  Tooltip as RechartTooltip, ResponsiveContainer, Area
 } from 'recharts';
 import { useAdminNotifications, AdminNotificationsPanel } from '@/features/admin-notifications';
 
@@ -18,11 +18,11 @@ import BlogPostEditor, { type BlogEditorData } from '@/components/BlogPostEditor
 import Wordmark from '@/components/Wordmark';
 import { readingTime } from '@shared/readingTime';
 import {
-  Users, FileText, Megaphone, Settings, Search, TrendingUp,
+  Users, FileText, Megaphone, Search, TrendingUp,
   MoreVertical, Plus, Mail, Bell, AlertCircle, UserPlus, ShieldCheck,
-  Globe, Clock, HeadphonesIcon, Cpu, Activity, Zap, AlertTriangle, CheckCircle,
-  MessageSquare, Phone, Star, Timer, Database, GitFork,
-  Eye, Ban, Unlock, Trash2, Send, X, RotateCcw, Layers, BookOpen, ExternalLink
+  Globe, Clock, Cpu, Activity, Zap, AlertTriangle, CheckCircle,
+  MessageSquare, Phone, Star, Timer, Database, Eye, Ban, Unlock, Trash2, Send, X, RotateCcw, ExternalLink,
+  LayoutDashboard, UsersRound, LifeBuoy, Newspaper, Gauge, RefreshCw, SlidersHorizontal, NotebookPen
 } from 'lucide-react';
 
 // ─── BREAKPOINT HOOK ─────────────────────────────────────────────────────────
@@ -180,6 +180,8 @@ try {
 } catch {}
 
 const FONT = 'var(--admin-font)';
+/** The rail's own face. Brand chrome, like the wordmark — deliberately NOT the picker's font. */
+const RAIL_SERIF = "'Playfair Display Variable', 'Playfair Display', Georgia, serif";
 const HFONT = 'var(--admin-header-font)';
 
 const toTitleCase = (s: string): string =>
@@ -3227,13 +3229,13 @@ export default function AdminPanel() {
   const adminInitial = (adminName[0] ?? 'A').toUpperCase();
 
   const SIDEBAR_GROUPS = [
-    { label: 'Core',             items: [{ id: 'dashboard',     label: 'Overview',        icon: Layers,        ready: true }] },
-    { label: 'Users',            items: [{ id: 'users',         label: 'User Accounts',   icon: Users,         ready: true }] },
-    { label: 'Support',          items: [{ id: 'customer-care', label: 'Customer Care',   icon: HeadphonesIcon, badge: openTickets, ready: true }] },
-    { label: 'Growth & Content', items: [{ id: 'blog',          label: 'Blogpost',        icon: FileText,      ready: true }, { id: 'updates', label: 'Updates', icon: Megaphone, ready: true }] },
-    { label: 'Platform',         items: [{ id: 'system-monitor', label: 'System Monitor', icon: Cpu, ready: true }, { id: 'sync-performance', label: 'Sync Performance', icon: GitFork, ready: true }, { id: 'traffic', label: 'Traffic Analytics', icon: Globe, ready: true }] },
-    { label: 'System',           items: [{ id: 'settings',      label: 'System Settings', icon: Settings,      ready: true }] },
-    { label: 'Journal',          items: [{ id: 'journal-settings', label: 'Journal Settings', icon: BookOpen,    ready: true }] },
+    { label: 'Core',             items: [{ id: 'dashboard',     label: 'Overview',        icon: LayoutDashboard, ready: true }] },
+    { label: 'Users',            items: [{ id: 'users',         label: 'User Accounts',   icon: UsersRound,    ready: true }] },
+    { label: 'Support',          items: [{ id: 'customer-care', label: 'Customer Care',   icon: LifeBuoy,      badge: openTickets, ready: true }] },
+    { label: 'Growth & Content', items: [{ id: 'blog',          label: 'Blogpost',        icon: Newspaper,     ready: true }, { id: 'updates', label: 'Updates', icon: Megaphone, ready: true }] },
+    { label: 'Platform',         items: [{ id: 'system-monitor', label: 'System Monitor', icon: Gauge, ready: true }, { id: 'sync-performance', label: 'Sync Performance', icon: RefreshCw, ready: true }, { id: 'traffic', label: 'Traffic Analytics', icon: TrendingUp, ready: true }] },
+    { label: 'System',           items: [{ id: 'settings',      label: 'System Settings', icon: SlidersHorizontal, ready: true }] },
+    { label: 'Journal',          items: [{ id: 'journal-settings', label: 'Journal Settings', icon: NotebookPen, ready: true }] },
   ];
 
   const PAGE_TITLES = {
@@ -3265,7 +3267,7 @@ export default function AdminPanel() {
     };
     return (
       <button key={item.id} onClick={handleClick} title={item.label}
-        style={{ width: 'calc(100% - 20px)', margin: '2px 10px', display: 'flex', alignItems: 'center', gap: '11px', padding: '10px 12px', justifyContent: 'flex-start', background: activeBg, color: activeColor, border: 'none', borderRadius: '10px', cursor: isSoon ? 'default' : 'pointer', fontFamily: FONT, fontWeight: isActive ? 600 : 500, fontSize: '14px', position: 'relative', transition: 'background 0.14s, color 0.14s', overflow: 'hidden' }}
+        style={{ width: 'calc(100% - 20px)', margin: '2px 10px', display: 'flex', alignItems: 'center', gap: '11px', padding: '10px 12px', justifyContent: 'flex-start', background: activeBg, color: activeColor, border: 'none', borderRadius: '10px', cursor: isSoon ? 'default' : 'pointer', fontFamily: RAIL_SERIF, fontWeight: isActive ? 600 : 500, fontSize: '15.5px', letterSpacing: '0.01em', position: 'relative', transition: 'background 0.14s, color 0.14s', overflow: 'hidden' }}
         onMouseEnter={e => { if (!isActive && !isSoon) { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; e.currentTarget.style.color = C.railInk; } }}
         onMouseLeave={e => { if (!isActive && !isSoon) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = C.railDim; } }}
       >
@@ -3475,12 +3477,9 @@ export default function AdminPanel() {
           ? { position: 'fixed', top: '60px', left: 0, bottom: 0, width: '240px', transform: collapsed ? 'translateX(-100%)' : 'translateX(0)', transition: 'transform 0.25s ease', background: C.rail, boxShadow: collapsed ? 'none' : '8px 0 32px rgba(0,0,0,0.28)', display: 'flex', flexDirection: 'column', zIndex: 30 }
           : { width: sidebarW, minWidth: sidebarW, transition: 'width 0.22s ease, min-width 0.22s ease', background: C.rail, display: 'flex', flexDirection: 'column', flexShrink: 0 }
         }>
-          <div style={{ flex: 1, overflowY: 'auto', padding: '4px 0', minHeight: 0 }}>
-            {SIDEBAR_GROUPS.map((group, gi) => (
-              <div key={gi} style={{ marginTop: gi === 0 ? 6 : 10 }}>
-                {group.items.map(navBtn)}
-              </div>
-            ))}
+          <div style={{ flex: 1, overflowY: 'auto', padding: '10px 0 14px', minHeight: 0, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+            {/* One flat list. The groups only existed to hang the headings on, and those are gone. */}
+            {SIDEBAR_GROUPS.flatMap(group => group.items).map(navBtn)}
           </div>
 
           {/* User profile + sign out */}
