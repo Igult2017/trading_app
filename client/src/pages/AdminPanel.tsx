@@ -75,9 +75,9 @@ const INITIAL_LOGS: any[] = [];
 // accent used sparingly. The four dark palettes keep their character and gain the same new keys so
 // they carry on working.
 const ADMIN_THEMES: Record<string, Record<string, string>> = {
-  light:    { bg:'#f4f8f5', sidebar:'#101a16', rail:'#101a16', railInk:'#e7efe9', railDim:'#8fa39a',
-              card:'#ffffff', border:'#e6ede8', border2:'#dbe5df', dim:'#cfdcd5', thead:'#f3f8f4',
-              text:'#111a15', muted:'#5d7168', accent:'#1e7a4d', accentL:'#2a9e64', accentSoft:'#e8f5ee',
+  light:    { bg:'#f5f7fa', sidebar:'#0a0f16', rail:'#0a0f16', railInk:'#e8f0fb', railDim:'#8ea6c4',
+              card:'#ffffff', border:'#e4e9f0', border2:'#d7dfe8', dim:'#cbd5e1', thead:'#f4f7fa',
+              text:'#0f172a', muted:'#5b6b7f', accent:'#0a7285', accentL:'#00c8e0', accentSoft:'#e2f4f8',
               shadow:'0 1px 2px rgba(16,24,40,0.06)' },
   dark:     { bg:'#07090e', sidebar:'#07090e', rail:'#0a0e15', railInk:'#e8f0fb', railDim:'#8ea6c4',
               card:'#0c1018', border:'#131c28', border2:'#1b2840', dim:'#1b2840', thead:'#101825',
@@ -3286,10 +3286,6 @@ export default function AdminPanel() {
     );
   };
 
-  const sectionLabel = (label: string) => (
-    <p style={{ color: C.railDim, fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.13em', padding: '18px 22px 6px', margin: 0, opacity: 0.75, visibility: collapsed ? 'hidden' : 'visible', overflow: 'hidden', whiteSpace: 'nowrap' }}>{collapsed ? '\u00A0' : label}</p>
-  );
-
   const statCols = bp.isMobile ? 'repeat(2, 1fr)' : bp.isTablet ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)';
   const dashMainCols = bp.isDesktop ? '2fr 1fr' : '1fr';
   const formatChange = (v: any) => (v == null ? '—' : `${Number(v) > 0 ? '+' : ''}${v}%`);
@@ -3481,8 +3477,7 @@ export default function AdminPanel() {
         }>
           <div style={{ flex: 1, overflowY: 'auto', padding: '4px 0', minHeight: 0 }}>
             {SIDEBAR_GROUPS.map((group, gi) => (
-              <div key={gi}>
-                {sectionLabel(group.label)}
+              <div key={gi} style={{ marginTop: gi === 0 ? 6 : 10 }}>
                 {group.items.map(navBtn)}
               </div>
             ))}
