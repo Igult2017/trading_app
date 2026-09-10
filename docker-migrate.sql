@@ -574,5 +574,10 @@ ALTER TABLE blog_posts ALTER COLUMN read_time SET DEFAULT '';
 ALTER TABLE blog_posts ADD COLUMN IF NOT EXISTS publish_at TIMESTAMP;
 CREATE INDEX IF NOT EXISTS idx_blog_posts_publish_at ON blog_posts (publish_at) WHERE publish_at IS NOT NULL;
 
+-- Per-article switches for the comment thread and the share buttons. Default TRUE so every post
+-- that existed before keeps behaving exactly as it did.
+ALTER TABLE blog_posts ADD COLUMN IF NOT EXISTS allow_comments BOOLEAN DEFAULT TRUE;
+ALTER TABLE blog_posts ADD COLUMN IF NOT EXISTS allow_sharing  BOOLEAN DEFAULT TRUE;
+
 -- ── Done ─────────────────────────────────────────────────────────────────────
 DO $$ BEGIN RAISE NOTICE 'docker-migrate.sql complete'; END $$;

@@ -2002,6 +2002,8 @@ const BlogSection = ({ bp }: { bp: any }) => {
             date: p.date, signal: p.signalData ?? p.signal_data ?? null,
             slug: p.slug ?? '',
             publishAt: p.publishAt ?? p.publish_at ?? null,
+            allowComments: p.allowComments ?? p.allow_comments ?? true,
+            allowSharing: p.allowSharing ?? p.allow_sharing ?? true,
             imageUrl: p.imageUrl ?? p.image_url ?? '',
             excerpt: p.excerpt ?? '',
             content: p.content ?? '',
@@ -2044,6 +2046,9 @@ const BlogSection = ({ bp }: { bp: any }) => {
       category:        post.category || 'Analysis',
       status:          post.status || 'Draft',
       publishAt:       post.publishAt ? toLocalInput(post.publishAt) : '',
+      slug:            post.slug || '',
+      allowComments:   post.allowComments !== false,
+      allowSharing:    post.allowSharing !== false,
       authorName:      post.author || '',
       authorBio:       ad.bio || '',
       authorExpertise: ad.expertise || [],
@@ -2162,6 +2167,9 @@ const BlogSection = ({ bp }: { bp: any }) => {
         // The browser gives a local wall-clock string ("2026-09-12T09:30"); the server stores a real
         // instant. Converting here means the author's 9:30 is their own 9:30, not UTC's.
         publishAt:  data.publishAt ? new Date(data.publishAt).toISOString() : null,
+        slug:       data.slug?.trim() || undefined,
+        allowComments: data.allowComments,
+        allowSharing:  data.allowSharing,
         category:   data.category,
         author:     data.authorName || 'Admin',
         date:       new Date().toLocaleDateString('en-US', { month: 'short', day: '2-digit' }),

@@ -779,6 +779,9 @@ export const blogPosts = pgTable("blog_posts", {
   // by the sweep in server/lib/backgroundServices.ts reaching this time — the field alone publishes
   // nothing, which is the difference between this and a date picker that decorates the form.
   publishAt:  timestamp("publish_at"),
+  // Both default to on, which is what every existing post was doing before these existed.
+  allowComments: boolean("allow_comments").default(true),
+  allowSharing:  boolean("allow_sharing").default(true),
   section:    text("section").default('blog'),           // blog | verified-strategies | trade-signals
   summary:    text("summary").default(''),               // bullet-point TL;DR (one bullet per line, prefixed with •)
   videoUrl:   text("video_url").default(''),

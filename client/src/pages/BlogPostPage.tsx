@@ -30,6 +30,10 @@ type Post = {
   readTime: string;
   imageUrl: string;
   status: string;
+  /** Per-article switches set in the editor. Optional because articles written before they existed
+   *  carry no value — and absent means ON, which is how those articles already behaved. */
+  allowComments?: boolean;
+  allowSharing?: boolean;
   authorData?: {
     bio?: string;
     expertise?: string[];
@@ -407,6 +411,10 @@ export default function BlogPostPage() {
           })(),
           status:     data.status      ?? 'Published',
           authorData: data.authorData  ?? data.author_data ?? null,
+          // The two per-article switches. Anything that predates them has no value stored, so an
+          // absent value means ON — which is what those articles were already doing.
+          allowComments: (data.allowComments ?? data.allow_comments) !== false,
+          allowSharing:  (data.allowSharing  ?? data.allow_sharing)  !== false,
         });
 
       })
@@ -752,7 +760,9 @@ export default function BlogPostPage() {
             />
 
             {/* Share bar */}
-            <ShareBar post={post} isDark={isDark} border={border} accent={accent} muted={muted} cardBg={cardBg} />
+            {post.allowSharing !== false && (
+              <ShareBar post={post} isDark={isDark} border={border} accent={accent} muted={muted} cardBg={cardBg} />
+            )}
 
             {/* More articles (bottom — mobile-friendly supplement to sidebar) */}
             {related.length > 0 && (
@@ -794,6 +804,7 @@ export default function BlogPostPage() {
                   * the button is a pill and DIMS UNTIL THERE IS SOMETHING TO POST — the reference
                     shows exactly that, and it is honest: pressing it while empty did nothing;
                   * the empty state is centred and invites a reply rather than reporting a fact. */}
+            {post.allowComments !== false && (
             <section style={{ marginTop: 64 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
                 <MessageCircle size={20} color={accentL} strokeWidth={1.8} />
@@ -867,6 +878,7 @@ export default function BlogPostPage() {
                 ))}
               </div>
             </section>
+            )}
 
           </main>
 

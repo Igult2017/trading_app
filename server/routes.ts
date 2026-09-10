@@ -6919,9 +6919,10 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
   app.post("/api/blog", requireAdmin, async (req: Request, res: Response) => {
     try {
       const adminUser = (req as any).adminUser;
-      const { title, excerpt, content, summary, category, author, date, readTime, imageUrl, videoUrl, status, section, signalData, authorData, publishAt } = req.body;
+      const { title, excerpt, content, summary, category, author, date, readTime, imageUrl, videoUrl, status, section, signalData, authorData, publishAt, allowComments, allowSharing, slug: wantedSlug } = req.body;
       if (!title?.trim()) return res.status(400).json({ error: 'title is required' });
-      const slug = await uniqueSlug(makeSlugBase(title.trim()));
+      // An author may set the address themselves; fall back to the title only when they have not.
+      const slug = await uniqueSlug(makeSlugBase((wantedSlug || title).trim()));
       const post = await storage.createBlogPost({
         slug,
         title: title.trim(),
@@ -6943,6 +6944,8 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
         // server/lib/backgroundServices.ts reaches that time.
         status: publishAt && new Date(publishAt) > new Date() ? 'Scheduled' : (status ?? 'Draft'),
         publishAt: publishAt ? new Date(publishAt) : null,
+        allowComments: allowComments !== false,
+        allowSharing:  allowSharing !== false,
         section: section ?? 'blog',
         signalData: signalData ?? null,
         authorData: authorData ?? null,

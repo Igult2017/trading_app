@@ -1133,6 +1133,7 @@ export class DbStorage implements IStorage {
               image_url AS "imageUrl", status, section,
               signal_data AS "signalData", author_data AS "authorData",
               summary, video_url AS "videoUrl", publish_at AS "publishAt",
+              allow_comments AS "allowComments", allow_sharing AS "allowSharing",
               created_at AS "createdAt", updated_at AS "updatedAt"
        FROM blog_posts ${where} ORDER BY created_at DESC`,
       values,

@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { readingTime, wordCount as countWords } from "@shared/readingTime";
+import { ChevronLeft } from "lucide-react";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -35,10 +36,10 @@ const SOCIAL_PLATFORMS = [
 // ─── Style helpers ────────────────────────────────────────────────────────────
 
 const inputBase = (extra: Record<string, any> = {}) => ({
-  background:   "rgba(255,255,255,0.04)",
-  border:       "0.5px solid rgba(255,255,255,0.1)",
+  background:   "var(--admin-thead)",
+  border:       "0.5px solid var(--admin-border)",
   borderRadius: 6,
-  color:        "rgba(255,255,255,0.85)",
+  color:        "var(--admin-text)",
   fontFamily:   "var(--admin-font)",
   fontSize:     12,
   padding:      "7px 10px",
@@ -48,8 +49,8 @@ const inputBase = (extra: Record<string, any> = {}) => ({
   ...extra,
 });
 
-const focusOn  = (e: any) => { e.target.style.borderColor = "rgba(99,153,34,0.5)";   e.target.style.background = "rgba(255,255,255,0.07)"; };
-const focusOff = (e: any) => { e.target.style.borderColor = "rgba(255,255,255,0.1)"; e.target.style.background = "rgba(255,255,255,0.04)"; };
+const focusOn  = (e: any) => { e.target.style.borderColor = "var(--admin-accent)";   e.target.style.background = "var(--admin-thead)"; };
+const focusOff = (e: any) => { e.target.style.borderColor = "var(--admin-border)"; e.target.style.background = "var(--admin-thead)"; };
 
 // ─── Shared atoms ─────────────────────────────────────────────────────────────
 
@@ -57,7 +58,7 @@ function SidebarLabel({ children, style = {} }: { children: React.ReactNode; sty
   return (
     <div style={{
       fontSize: 9, fontFamily: "var(--admin-font)", letterSpacing: "0.12em",
-      textTransform: "uppercase" as const, color: "rgba(255,255,255,0.22)",
+      textTransform: "uppercase" as const, color: "var(--admin-muted)",
       padding: "10px 16px 5px", ...style,
     }}>
       {children}
@@ -66,18 +67,47 @@ function SidebarLabel({ children, style = {} }: { children: React.ReactNode; sty
 }
 
 function SidebarDivider() {
-  return <div style={{ height: 0.5, background: "rgba(255,255,255,0.06)", margin: "8px 0" }} />;
+  return <div style={{ height: 0.5, background: "var(--admin-thead)", margin: "8px 0" }} />;
 }
 
 function MainLabel({ children }: { children: React.ReactNode }) {
+  // Sentence case, not shouted capitals: the design labels fields "Title", "Slug", "Cover image".
   return (
     <label style={{
-      fontSize: 11, fontFamily: "var(--admin-font)",
-      color: "rgba(255,255,255,0.3)", letterSpacing: "0.06em",
-      textTransform: "uppercase" as const,
+      fontSize: 13, fontFamily: "var(--admin-font)", fontWeight: 500,
+      color: "var(--admin-text)", letterSpacing: "0.01em",
     }}>
       {children}
     </label>
+  );
+}
+
+/** Two fields side by side, stacking on a narrow screen — Title|Slug, Category|Tags. */
+function FieldRow({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="bpe-row" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+      {children}
+    </div>
+  );
+}
+
+/** The switch used by "Allow comments" and "Allow sharing". A real button, so it is reachable by
+ *  keyboard and announces its state — the toggles it replaces in the old editor were div's. */
+function Switch({ on, label, onChange }: { on: boolean; label: string; onChange: (v: boolean) => void }) {
+  return (
+    <button type="button" role="switch" aria-checked={on} onClick={() => onChange(!on)}
+      style={{ display: "inline-flex", alignItems: "center", gap: 10, background: "none", border: "none", cursor: "pointer", padding: 0 }}>
+      <span style={{
+        position: "relative", width: 38, height: 21, borderRadius: 999, flexShrink: 0,
+        background: on ? "var(--admin-accent)" : "var(--admin-border2)", transition: "background 0.18s",
+      }}>
+        <span style={{
+          position: "absolute", top: 3, left: on ? 20 : 3, width: 15, height: 15, borderRadius: "50%",
+          background: "#fff", transition: "left 0.18s", boxShadow: "0 1px 3px rgba(0,0,0,0.25)",
+        }} />
+      </span>
+      <span style={{ fontSize: 14, fontFamily: "var(--admin-font)", color: "var(--admin-text)" }}>{label}</span>
+    </button>
   );
 }
 
@@ -107,7 +137,7 @@ function YoutubeEmbed({ value, onChange }: { value: string; onChange: (v: string
         }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="rgba(255,80,80,0.9)">
             <path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2 31 31 0 0 0 0 12a31 31 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.9.6 9.4.6 9.4.6s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1A31 31 0 0 0 24 12a31 31 0 0 0-.5-5.8z"/>
-            <polygon fill="#0d1117" points="9.75,15.02 15.5,12 9.75,8.98"/>
+            <polygon fill="var(--admin-card)" points="9.75,15.02 15.5,12 9.75,8.98"/>
           </svg>
         </div>
         <input
@@ -116,24 +146,24 @@ function YoutubeEmbed({ value, onChange }: { value: string; onChange: (v: string
           onChange={e => onChange(e.target.value)}
           placeholder="Paste YouTube URL or video ID…"
           style={{
-            flex: 1, background: "rgba(255,255,255,0.04)", border: "0.5px solid rgba(255,255,255,0.1)",
-            borderRadius: 7, color: "rgba(255,255,255,0.85)", fontFamily: "var(--admin-font)",
+            flex: 1, background: "var(--admin-thead)", border: "0.5px solid var(--admin-border)",
+            borderRadius: 7, color: "var(--admin-text)", fontFamily: "var(--admin-font)",
             fontSize: 13, padding: "9px 12px", outline: "none",
           }}
-          onFocus={e => { e.target.style.borderColor = "rgba(255,80,80,0.4)"; e.target.style.background = "rgba(255,255,255,0.06)"; }}
-          onBlur={e => { e.target.style.borderColor = "rgba(255,255,255,0.1)"; e.target.style.background = "rgba(255,255,255,0.04)"; }}
+          onFocus={e => { e.target.style.borderColor = "rgba(255,80,80,0.4)"; e.target.style.background = "var(--admin-thead)"; }}
+          onBlur={e => { e.target.style.borderColor = "var(--admin-border)"; e.target.style.background = "var(--admin-thead)"; }}
         />
         {value && (
           <button
             onClick={() => onChange("")}
-            style={{ background: "rgba(255,255,255,0.05)", border: "0.5px solid rgba(255,255,255,0.1)", borderRadius: 7, color: "rgba(255,255,255,0.4)", fontSize: 12, padding: "0 12px", cursor: "pointer", flexShrink: 0 }}
+            style={{ background: "var(--admin-thead)", border: "0.5px solid var(--admin-border)", borderRadius: 7, color: "var(--admin-muted)", fontSize: 12, padding: "0 12px", cursor: "pointer", flexShrink: 0 }}
           >✕</button>
         )}
       </div>
 
       {/* Live preview */}
       {videoId ? (
-        <div style={{ width: "100%", borderRadius: 8, overflow: "hidden", border: "0.5px solid rgba(255,255,255,0.1)" }}>
+        <div style={{ width: "100%", borderRadius: 8, overflow: "hidden", border: "0.5px solid var(--admin-border)" }}>
           <iframe
             src={`https://www.youtube.com/embed/${videoId}`}
             title="YouTube preview"
@@ -147,7 +177,7 @@ function YoutubeEmbed({ value, onChange }: { value: string; onChange: (v: string
           Invalid YouTube URL — try: youtube.com/watch?v=… or youtu.be/…
         </div>
       ) : (
-        <div style={{ fontSize: 11, color: "rgba(255,255,255,0.2)", fontFamily: "var(--admin-font)" }}>
+        <div style={{ fontSize: 11, color: "var(--admin-muted)", fontFamily: "var(--admin-font)" }}>
           Leave blank if the post has no video version.
         </div>
       )}
@@ -164,90 +194,9 @@ function MainField({ label, children, style = {} }: { label: string; children: R
   );
 }
 
-function SectionHeading({ children }: { children: React.ReactNode }) {
-  return (
-    <div style={{
-      fontSize: 10, fontFamily: "var(--admin-font)", letterSpacing: "0.12em",
-      textTransform: "uppercase" as const, color: "rgba(255,255,255,0.2)",
-      borderBottom: "0.5px solid rgba(255,255,255,0.06)", paddingBottom: 8,
-    }}>
-      {children}
-    </div>
-  );
-}
-
-function Divider() {
-  return <div style={{ height: 0.5, background: "rgba(255,255,255,0.06)" }} />;
-}
-
-function TrafficDots() {
-  return (
-    <div style={{ display: "flex", gap: 6 }}>
-      {["#ff5f57", "#ffbd2e", "#28c840"].map((c, i) => (
-        <div key={i} style={{ width: 10, height: 10, borderRadius: "50%", background: c }} />
-      ))}
-    </div>
-  );
-}
-
 // ─── StatusToggle ─────────────────────────────────────────────────────────────
 
-function StatusToggle({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  const chip = (v: string, label: string, colors: any, activeBorder: string) => {
-    const active = value === v;
-    return (
-      <span
-        onClick={() => onChange(v)}
-        style={{
-          fontSize: 11, fontFamily: "var(--admin-font)",
-          padding: "3px 12px", borderRadius: 20,
-          cursor: "pointer", border: "0.5px solid",
-          transition: "all 0.15s", userSelect: "none" as const,
-          background:  active ? colors.bg      : colors.bgOff,
-          color:       active ? colors.text    : colors.textOff,
-          borderColor: active ? activeBorder   : colors.borderOff,
-        }}
-      >
-        {label}
-      </span>
-    );
-  };
-  return (
-    <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-      <span style={{ fontSize: 11, fontFamily: "var(--admin-font)", color: "rgba(255,255,255,0.2)", marginRight: 4 }}>status</span>
-      {chip("Draft", "Draft",
-        { bg: "rgba(255,189,46,0.18)", bgOff: "rgba(255,189,46,0.05)", text: "#ffbd2e", textOff: "rgba(255,189,46,0.45)", borderOff: "rgba(255,189,46,0.18)" },
-        "rgba(255,189,46,0.5)")}
-      {chip("Published", "Published",
-        { bg: "rgba(40,200,64,0.15)",  bgOff: "rgba(40,200,64,0.05)",  text: "#28c840", textOff: "rgba(40,200,64,0.4)",   borderOff: "rgba(40,200,64,0.12)"  },
-        "rgba(40,200,64,0.4)")}
-    </div>
-  );
-}
-
 // ─── Sidebar destination item ─────────────────────────────────────────────────
-
-function DestItem({ item, active, onClick }: { item: any; active: boolean; onClick: () => void }) {
-  const [hov, setHov] = useState(false);
-  return (
-    <div
-      onClick={onClick}
-      onMouseEnter={() => setHov(true)}
-      onMouseLeave={() => setHov(false)}
-      style={{
-        display: "flex", alignItems: "center", gap: 10,
-        padding: "7px 16px", cursor: "pointer", transition: "background 0.12s",
-        background: active ? "rgba(99,153,34,0.12)" : hov ? "rgba(255,255,255,0.04)" : "transparent",
-      }}
-    >
-      <div style={{ width: 6, height: 6, borderRadius: "50%", flexShrink: 0, background: active ? "#7ab83e" : "rgba(255,255,255,0.2)" }} />
-      <div>
-        <div style={{ fontSize: 13, color: active ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.5)" }}>{item.label}</div>
-        <div style={{ fontSize: 11, color: "rgba(255,255,255,0.25)", marginTop: 1 }}>{item.sub}</div>
-      </div>
-    </div>
-  );
-}
 
 // ─── Sidebar author panel ─────────────────────────────────────────────────────
 
@@ -313,9 +262,9 @@ function ExpertiseInput({ selected, onChange }: { selected: string[]; onChange: 
           onMouseDown={e => { e.preventDefault(); add(input); }}
           disabled={!input.trim()}
           style={{
-            background: input.trim() ? "rgba(99,153,34,0.25)" : "rgba(255,255,255,0.05)",
-            border: `0.5px solid ${input.trim() ? "rgba(99,153,34,0.5)" : "rgba(255,255,255,0.1)"}`,
-            borderRadius: 20, color: input.trim() ? "#a8d46f" : "rgba(255,255,255,0.25)",
+            background: input.trim() ? "var(--admin-accentSoft)" : "var(--admin-thead)",
+            border: `0.5px solid ${input.trim() ? "var(--admin-accent)" : "var(--admin-border)"}`,
+            borderRadius: 20, color: input.trim() ? "var(--admin-accent)" : "var(--admin-muted)",
             fontSize: 13, cursor: input.trim() ? "pointer" : "not-allowed",
             padding: "2px 10px", flexShrink: 0, lineHeight: 1,
             transition: "all 0.15s",
@@ -330,9 +279,9 @@ function ExpertiseInput({ selected, onChange }: { selected: string[]; onChange: 
           const isCustom = !EXPERTISE_OPTIONS.includes(tag);
           return (
             <button key={tag} type="button" onClick={() => toggle(tag)} style={{
-              background:   on ? "rgba(99,153,34,0.2)"  : "rgba(255,255,255,0.04)",
-              border:       `0.5px solid ${on ? "rgba(99,153,34,0.55)" : "rgba(255,255,255,0.1)"}`,
-              borderRadius: 20, color: on ? "#a8d46f" : "rgba(255,255,255,0.38)",
+              background:   on ? "var(--admin-accentSoft)"  : "var(--admin-thead)",
+              border:       `0.5px solid ${on ? "var(--admin-accent)" : "var(--admin-border)"}`,
+              borderRadius: 20, color: on ? "var(--admin-accent)" : "var(--admin-muted)",
               fontSize: 10, fontFamily: "var(--admin-font)",
               padding: "4px 10px", cursor: "pointer", transition: "all 0.15s",
               whiteSpace: "nowrap" as const, lineHeight: 1.4, display: "flex", alignItems: "center", gap: 4,
@@ -352,7 +301,7 @@ function ExpertiseInput({ selected, onChange }: { selected: string[]; onChange: 
       </div>
 
       {selected.length > 0 && (
-        <div style={{ fontSize: 10, fontFamily: "var(--admin-font)", color: "rgba(99,153,34,0.55)", marginTop: 6 }}>
+        <div style={{ fontSize: 10, fontFamily: "var(--admin-font)", color: "var(--admin-accent)", marginTop: 6 }}>
           {selected.length} selected
         </div>
       )}
@@ -375,34 +324,34 @@ function SidebarAuthorPanel({ form, onChange }: { form: any; onChange: (partial:
     });
 
   return (
-    <div style={{ borderTop: "0.5px solid rgba(255,255,255,0.06)", paddingTop: 4 }}>
+    <div style={{ borderTop: "0.5px solid var(--admin-thead)", paddingTop: 4 }}>
       <SidebarLabel>Author</SidebarLabel>
 
       <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "4px 16px 10px" }}>
         <div style={{
           width: 36, height: 36, borderRadius: "50%", flexShrink: 0,
-          background: "linear-gradient(135deg, #3b6d11, #639922)",
+          background: "linear-gradient(135deg, var(--admin-accent), var(--admin-accent))",
           display: "flex", alignItems: "center", justifyContent: "center",
-          fontSize: 13, fontWeight: 500, color: "#c0dd97",
+          fontSize: 13, fontWeight: 500, color: "var(--admin-accent)",
         }}>
           {initials}
         </div>
         <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: 13, color: "rgba(255,255,255,0.8)", fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+          <div style={{ fontSize: 13, color: "var(--admin-text)", fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
             {raw || "Author Name"}
           </div>
-          <div style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", marginTop: 1 }}>Post author</div>
+          <div style={{ fontSize: 10, color: "var(--admin-muted)", marginTop: 1 }}>Post author</div>
         </div>
       </div>
 
       <div style={{ padding: "0 16px 8px" }}>
-        <div style={{ fontSize: 9, fontFamily: "var(--admin-font)", letterSpacing: "0.1em", textTransform: "uppercase" as const, color: "rgba(255,255,255,0.22)", marginBottom: 4 }}>Name</div>
+        <div style={{ fontSize: 9, fontFamily: "var(--admin-font)", letterSpacing: "0.1em", textTransform: "uppercase" as const, color: "var(--admin-muted)", marginBottom: 4 }}>Name</div>
         <input type="text" value={form.authorName} onChange={e => onChange({ authorName: e.target.value })}
           placeholder="Full name" style={inputBase()} onFocus={focusOn} onBlur={focusOff} />
       </div>
 
       <div style={{ padding: "0 16px 10px" }}>
-        <div style={{ fontSize: 9, fontFamily: "var(--admin-font)", letterSpacing: "0.1em", textTransform: "uppercase" as const, color: "rgba(255,255,255,0.22)", marginBottom: 4 }}>Short Bio</div>
+        <div style={{ fontSize: 9, fontFamily: "var(--admin-font)", letterSpacing: "0.1em", textTransform: "uppercase" as const, color: "var(--admin-muted)", marginBottom: 4 }}>Short Bio</div>
         <textarea value={form.authorBio} onChange={e => onChange({ authorBio: e.target.value })}
           rows={3} placeholder="Brief description shown on your author card..."
           style={inputBase({ resize: "none", lineHeight: 1.55, fontSize: 11 })}
@@ -419,15 +368,15 @@ function SidebarAuthorPanel({ form, onChange }: { form: any; onChange: (partial:
 
       <SidebarDivider />
 
-      <SidebarLabel>Social Profiles <span style={{ color: "rgba(255,255,255,0.14)", fontWeight: 400 }}>(optional)</span></SidebarLabel>
+      <SidebarLabel>Social Profiles <span style={{ color: "var(--admin-border)", fontWeight: 400 }}>(optional)</span></SidebarLabel>
       <div style={{ padding: "0 16px 16px", display: "flex", flexDirection: "column" as const, gap: 7 }}>
         {SOCIAL_PLATFORMS.map(({ key, icon, placeholder }) => (
           <div key={key} style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <div style={{
               width: 26, height: 26, borderRadius: 6, flexShrink: 0,
-              background: "rgba(255,255,255,0.06)", border: "0.5px solid rgba(255,255,255,0.1)",
+              background: "var(--admin-thead)", border: "0.5px solid var(--admin-border)",
               display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: 11, color: "rgba(255,255,255,0.5)",
+              fontSize: 11, color: "var(--admin-muted)",
               fontFamily: "var(--admin-font)", fontWeight: 500,
             }}>
               {icon}
@@ -506,10 +455,10 @@ function Toolbar({ contentRef, onUpdate }: { contentRef: React.RefObject<HTMLTex
     });
   }, [contentRef, onUpdate]);
 
-  const tbtn: any = { background: "none", border: "none", color: "rgba(255,255,255,0.4)", cursor: "pointer", padding: "4px 8px", borderRadius: 4, fontSize: 12, fontFamily: "var(--admin-font)", transition: "all 0.12s", lineHeight: 1 };
-  const ho = (e: any) => { e.target.style.background = "rgba(255,255,255,0.07)"; e.target.style.color = "rgba(255,255,255,0.85)"; };
-  const uo = (e: any) => { e.target.style.background = "none"; e.target.style.color = "rgba(255,255,255,0.4)"; };
-  const sep = <div style={{ width: 0.5, height: 16, background: "rgba(255,255,255,0.1)", margin: "0 4px", flexShrink: 0 }} />;
+  const tbtn: any = { background: "none", border: "none", color: "var(--admin-muted)", cursor: "pointer", padding: "4px 8px", borderRadius: 4, fontSize: 12, fontFamily: "var(--admin-font)", transition: "all 0.12s", lineHeight: 1 };
+  const ho = (e: any) => { e.target.style.background = "var(--admin-thead)"; e.target.style.color = "var(--admin-text)"; };
+  const uo = (e: any) => { e.target.style.background = "none"; e.target.style.color = "var(--admin-muted)"; };
+  const sep = <div style={{ width: 0.5, height: 16, background: "var(--admin-border)", margin: "0 4px", flexShrink: 0 }} />;
 
   const items: any[] = [
     { l: <b>B</b>,  a: () => wrapInline("**", "**", "bold text")                                  },
@@ -543,8 +492,8 @@ function Toolbar({ contentRef, onUpdate }: { contentRef: React.RefObject<HTMLTex
   return (
     <div style={{
       display: "flex", alignItems: "center", gap: 2, flexWrap: "wrap" as const,
-      background: "rgba(255,255,255,0.03)",
-      border: "0.5px solid rgba(255,255,255,0.08)",
+      background: "var(--admin-thead)",
+      border: "0.5px solid var(--admin-border)",
       borderRadius: "7px 7px 0 0", padding: "5px 8px",
     }}>
       {items.map((item, i) =>
@@ -622,7 +571,7 @@ function CoverUpload({ value, onChange }: { value: string; onChange: (v: string)
     return (
       <div style={{ display: "flex", flexDirection: "column" as const, gap: 8 }}>
         {(isDataUrl || isUrl) && (
-          <div style={{ position: "relative", borderRadius: 8, overflow: "hidden", border: "0.5px solid rgba(255,255,255,0.12)" }}>
+          <div style={{ position: "relative", borderRadius: 8, overflow: "hidden", border: "0.5px solid var(--admin-border)" }}>
             <img src={value} alt="cover" style={{ width: "100%", height: 160, objectFit: "cover", display: "block" }}
               onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
             <div style={{
@@ -633,14 +582,14 @@ function CoverUpload({ value, onChange }: { value: string; onChange: (v: string)
             }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
                 <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#7ab83e", flexShrink: 0 }} />
-                <span style={{ fontSize: 11, fontFamily: "var(--admin-font)", color: "rgba(255,255,255,0.6)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 220 }}>
+                <span style={{ fontSize: 11, fontFamily: "var(--admin-font)", color: "var(--admin-text)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 220 }}>
                   {fileName || value.slice(0, 40) + (value.length > 40 ? "…" : "")}
                 </span>
               </div>
               <button onClick={() => { onChange(""); setFileName(null); }}
-                style={{ background: "rgba(255,255,255,0.08)", border: "0.5px solid rgba(255,255,255,0.15)", borderRadius: 5, color: "rgba(255,255,255,0.5)", fontSize: 11, fontFamily: "var(--admin-font)", padding: "3px 10px", cursor: "pointer", flexShrink: 0 }}
+                style={{ background: "var(--admin-border)", border: "0.5px solid var(--admin-border)", borderRadius: 5, color: "var(--admin-muted)", fontSize: 11, fontFamily: "var(--admin-font)", padding: "3px 10px", cursor: "pointer", flexShrink: 0 }}
                 onMouseEnter={e => { (e.target as any).style.background = "rgba(255,60,60,0.18)"; (e.target as any).style.color = "rgba(255,100,100,0.9)"; }}
-                onMouseLeave={e => { (e.target as any).style.background = "rgba(255,255,255,0.08)"; (e.target as any).style.color = "rgba(255,255,255,0.5)"; }}
+                onMouseLeave={e => { (e.target as any).style.background = "var(--admin-border)"; (e.target as any).style.color = "var(--admin-muted)"; }}
               >
                 remove
               </button>
@@ -675,27 +624,27 @@ function CoverUpload({ value, onChange }: { value: string; onChange: (v: string)
         onBlur={() => setZoneFocused(false)}
         style={{
           borderRadius: 8, cursor: "pointer", transition: "all 0.18s", outline: "none",
-          border: `1.5px dashed ${dragging || zoneFocused ? "rgba(99,153,34,0.7)" : "rgba(255,255,255,0.1)"}`,
-          background: dragging || zoneFocused ? "rgba(99,153,34,0.07)" : "rgba(255,255,255,0.02)",
+          border: `1.5px dashed ${dragging || zoneFocused ? "rgba(99,153,34,0.7)" : "var(--admin-border)"}`,
+          background: dragging || zoneFocused ? "rgba(99,153,34,0.07)" : "var(--admin-thead)",
           padding: "24px 20px",
           display: "flex", flexDirection: "column" as const, alignItems: "center", gap: 10,
         }}
       >
         <svg width="28" height="28" viewBox="0 0 32 32" fill="none" style={{ opacity: dragging ? 0.9 : 0.35, transition: "opacity 0.18s" }}>
-          <rect x="4" y="20" width="24" height="8" rx="3" fill="rgba(255,255,255,0.15)" />
-          <path d="M16 4 L16 18 M10 10 L16 4 L22 10" stroke="rgba(255,255,255,0.7)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          <rect x="4" y="20" width="24" height="8" rx="3" fill="var(--admin-border)" />
+          <path d="M16 4 L16 18 M10 10 L16 4 L22 10" stroke="var(--admin-text)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
         <div style={{ textAlign: "center" }}>
-          <div style={{ fontSize: 13, color: dragging ? "rgba(168,212,111,0.9)" : "rgba(255,255,255,0.55)", fontWeight: 500, transition: "color 0.18s" }}>
+          <div style={{ fontSize: 13, color: dragging ? "rgba(168,212,111,0.9)" : "var(--admin-muted)", fontWeight: 500, transition: "color 0.18s" }}>
             {dragging ? "Drop to set as cover" : zoneFocused ? "Press ⌘/Ctrl+V to paste image" : "Upload cover image"}
           </div>
-          <div style={{ fontSize: 11, color: "rgba(255,255,255,0.25)", marginTop: 4, fontFamily: "var(--admin-font)" }}>
+          <div style={{ fontSize: 11, color: "var(--admin-muted)", marginTop: 4, fontFamily: "var(--admin-font)" }}>
             drag & drop · click to browse · ctrl+v to paste
           </div>
         </div>
         <div style={{ display: "flex", gap: 6, marginTop: 2 }}>
           {["PNG", "JPG", "WEBP", "GIF"].map(f => (
-            <span key={f} style={{ fontSize: 10, fontFamily: "var(--admin-font)", color: "rgba(255,255,255,0.2)", background: "rgba(255,255,255,0.05)", border: "0.5px solid rgba(255,255,255,0.08)", borderRadius: 4, padding: "2px 7px" }}>{f}</span>
+            <span key={f} style={{ fontSize: 10, fontFamily: "var(--admin-font)", color: "var(--admin-muted)", background: "var(--admin-thead)", border: "0.5px solid var(--admin-border)", borderRadius: 4, padding: "2px 7px" }}>{f}</span>
           ))}
         </div>
         <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }}
@@ -711,93 +660,6 @@ function CoverUpload({ value, onChange }: { value: string; onChange: (v: string)
         placeholder="or paste an image (or URL)…"
         style={inputBase({ fontSize: 11 })} onFocus={focusOn}
       />
-    </div>
-  );
-}
-
-function renderInlineText(text: string) {
-  const nodes: React.ReactNode[] = [];
-  const re = /(!)?\[([^\]]*)\]\(([^)]+)\)(?:\{([^\}]*)\})?|\*\*([^*]+)\*\*|_([^_]+)_|`([^`]+)`|(https?:\/\/[^\s<>"{}|\\^`[\]]+)/g;
-  let last = 0;
-  let match: RegExpExecArray | null;
-  while ((match = re.exec(text)) !== null) {
-    if (match.index > last) nodes.push(text.slice(last, match.index));
-    if (match[1] === '!') {
-      nodes.push(
-        <figure key={`${match.index}-fig`} style={{ margin: '10px 0' }}>
-          <img
-            src={match[3]}
-            alt={match[2] || 'image'}
-            style={{ maxWidth: '100%', borderRadius: 8, display: 'block' }}
-          />
-          {match[4] && (
-            <figcaption style={{ marginTop: 6, fontSize: 11, color: 'rgba(255,255,255,0.45)', fontStyle: 'italic' }}>
-              {match[4]}
-            </figcaption>
-          )}
-        </figure>,
-      );
-    } else if (match[5]) {
-      nodes.push(<strong key={`${match.index}-b`}>{match[5]}</strong>);
-    } else if (match[6]) {
-      nodes.push(<em key={`${match.index}-i`}>{match[6]}</em>);
-    } else if (match[7]) {
-      nodes.push(<code key={`${match.index}-c`}>{match[7]}</code>);
-    } else if (match[8]) {
-      nodes.push(
-        <a key={`${match.index}-a`} href={match[8]} target="_blank" rel="noreferrer">
-          {match[8]}
-        </a>,
-      );
-    } else {
-      nodes.push(match[0]);
-    }
-    last = re.lastIndex;
-  }
-  if (last < text.length) nodes.push(text.slice(last));
-  return nodes;
-}
-
-function ContentPreview({ value }: { value: string }) {
-  const blocks = value.split(/\n{2,}/);
-  return (
-    <div style={{ marginTop: 12, padding: 14, border: '0.5px solid rgba(255,255,255,0.08)', borderRadius: 8, background: 'rgba(255,255,255,0.02)' }}>
-      <div style={{ fontSize: 9, fontFamily: "var(--admin-font)", letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.22)', marginBottom: 10 }}>
-        Live content preview
-      </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        {blocks.map((block, i) => {
-          const trimmed = block.trim();
-          if (!trimmed) return null;
-          if (/^!\[[^\]]*\]\([^)]+\)$/.test(trimmed)) {
-            const m = trimmed.match(/^!\[([^\]]*)\]\(([^)]+)\)$/);
-            return m ? (
-              <img key={i} src={m[2]} alt={m[1] || 'image'} style={{ maxWidth: '100%', borderRadius: 10, display: 'block' }} />
-            ) : null;
-          }
-          if (/^#{1,6}\s/.test(trimmed)) {
-            const level = trimmed.match(/^(#{1,6})\s/)?.[1].length ?? 1;
-            const Tag = (`h${Math.min(level, 6)}` as keyof JSX.IntrinsicElements);
-            return <Tag key={i} style={{ margin: 0, color: 'rgba(255,255,255,0.92)' }}>{renderInlineText(trimmed.replace(/^#{1,6}\s/, ''))}</Tag>;
-          }
-          if (/^>\s?/.test(trimmed)) {
-            return (
-              <blockquote key={i} style={{ margin: 0, padding: '10px 14px', borderLeft: '3px solid rgba(99,153,34,0.45)', background: 'rgba(99,153,34,0.05)', color: 'rgba(255,255,255,0.72)', borderRadius: 6 }}>
-                {renderInlineText(trimmed.replace(/^>\s?/, ''))}
-              </blockquote>
-            );
-          }
-          if (/^(\-|\d+\.)\s/m.test(trimmed)) {
-            const items = trimmed.split('\n').filter(Boolean);
-            return (
-              <ul key={i} style={{ margin: 0, paddingLeft: 18, color: 'rgba(255,255,255,0.72)' }}>
-                {items.map((item, idx) => <li key={idx}>{renderInlineText(item.replace(/^(\-|\d+\.)\s/, ''))}</li>)}
-              </ul>
-            );
-          }
-          return <p key={i} style={{ margin: 0, color: 'rgba(255,255,255,0.8)', lineHeight: 1.8 }}>{renderInlineText(trimmed)}</p>;
-        })}
-      </div>
     </div>
   );
 }
@@ -824,6 +686,12 @@ export interface BlogEditorData {
    *  publish on save. A time in the future stores the post as Scheduled; the sweep in
    *  server/services/publishScheduler.ts is what actually publishes it. */
   publishAt:       string;
+  /** The article's own web address. Left blank, the server makes one from the title. */
+  slug:            string;
+  /** Whether readers may comment, and whether the share buttons appear. Both are real columns —
+   *  see docker-migrate.sql — because a switch that stores nothing is a switch that lies. */
+  allowComments:   boolean;
+  allowSharing:    boolean;
 }
 
 interface Props {
@@ -852,6 +720,9 @@ const DEFAULTS: BlogEditorData = {
   authorLinkedin:  "",
   authorTelegram:  "",
   publishAt:       "",
+  slug:            "",
+  allowComments:   true,
+  allowSharing:    true,
 };
 
 // ─── Smart bullet-point summary editor ────────────────────────────────────────
@@ -923,10 +794,10 @@ function SummaryEditor({ value, onChange }: { value: string; onChange: (v: strin
   };
 
   const base: React.CSSProperties = {
-    background:   focused ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.03)",
-    border:       `0.5px solid ${focused ? "rgba(99,153,34,0.45)" : "rgba(255,255,255,0.1)"}`,
+    background:   focused ? "var(--admin-thead)" : "var(--admin-thead)",
+    border:       `0.5px solid ${focused ? "rgba(99,153,34,0.45)" : "var(--admin-border)"}`,
     borderRadius: "0 0 8px 8px",
-    color:        "rgba(255,255,255,0.82)",
+    color:        "var(--admin-text)",
     fontFamily:   "var(--admin-font)",
     fontSize:     13.5,
     lineHeight:   1.9,
@@ -940,10 +811,10 @@ function SummaryEditor({ value, onChange }: { value: string; onChange: (v: strin
   };
 
   const tbtn: React.CSSProperties = {
-    background:   "rgba(255,255,255,0.05)",
-    border:       "0.5px solid rgba(255,255,255,0.12)",
+    background:   "var(--admin-thead)",
+    border:       "0.5px solid var(--admin-border)",
     borderRadius: 5,
-    color:        "rgba(255,255,255,0.55)",
+    color:        "var(--admin-muted)",
     fontFamily:   "var(--admin-font)",
     fontSize:     11,
     padding:      "4px 11px",
@@ -960,22 +831,22 @@ function SummaryEditor({ value, onChange }: { value: string; onChange: (v: strin
         alignItems:     "center",
         gap:            6,
         padding:        "7px 12px",
-        background:     "rgba(255,255,255,0.025)",
-        border:         "0.5px solid rgba(255,255,255,0.1)",
+        background:     "var(--admin-thead)",
+        border:         "0.5px solid var(--admin-border)",
         borderBottom:   "none",
         borderRadius:   "8px 8px 0 0",
       }}>
-        <span style={{ fontSize: 10, fontFamily: "var(--admin-font)", color: "rgba(255,255,255,0.25)", letterSpacing: "0.08em", textTransform: "uppercase", marginRight: 4 }}>
+        <span style={{ fontSize: 10, fontFamily: "var(--admin-font)", color: "var(--admin-muted)", letterSpacing: "0.08em", textTransform: "uppercase", marginRight: 4 }}>
           insert
         </span>
         <button style={tbtn} onClick={addBullet}
-          onMouseEnter={e => { (e.target as any).style.background = "rgba(99,153,34,0.15)"; (e.target as any).style.color = "#a8d46f"; (e.target as any).style.borderColor = "rgba(99,153,34,0.4)"; }}
-          onMouseLeave={e => { (e.target as any).style.background = "rgba(255,255,255,0.05)"; (e.target as any).style.color = "rgba(255,255,255,0.55)"; (e.target as any).style.borderColor = "rgba(255,255,255,0.12)"; }}>
+          onMouseEnter={e => { (e.target as any).style.background = "var(--admin-accentSoft)"; (e.target as any).style.color = "var(--admin-accent)"; (e.target as any).style.borderColor = "var(--admin-accent)"; }}
+          onMouseLeave={e => { (e.target as any).style.background = "var(--admin-thead)"; (e.target as any).style.color = "var(--admin-muted)"; (e.target as any).style.borderColor = "var(--admin-border)"; }}>
           • Bullet
         </button>
         <button style={tbtn} onClick={addNumber}
-          onMouseEnter={e => { (e.target as any).style.background = "rgba(99,153,34,0.15)"; (e.target as any).style.color = "#a8d46f"; (e.target as any).style.borderColor = "rgba(99,153,34,0.4)"; }}
-          onMouseLeave={e => { (e.target as any).style.background = "rgba(255,255,255,0.05)"; (e.target as any).style.color = "rgba(255,255,255,0.55)"; (e.target as any).style.borderColor = "rgba(255,255,255,0.12)"; }}>
+          onMouseEnter={e => { (e.target as any).style.background = "var(--admin-accentSoft)"; (e.target as any).style.color = "var(--admin-accent)"; (e.target as any).style.borderColor = "var(--admin-accent)"; }}
+          onMouseLeave={e => { (e.target as any).style.background = "var(--admin-thead)"; (e.target as any).style.color = "var(--admin-muted)"; (e.target as any).style.borderColor = "var(--admin-border)"; }}>
           1. Numbered
         </button>
         <div style={{ flex: 1 }} />
@@ -1016,7 +887,7 @@ function SummaryEditor({ value, onChange }: { value: string; onChange: (v: strin
           border:       "0.5px solid rgba(99,153,34,0.18)",
           borderRadius: 8,
         }}>
-          <div style={{ fontSize: 9, fontFamily: "var(--admin-font)", letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(99,153,34,0.5)", marginBottom: 10 }}>
+          <div style={{ fontSize: 9, fontFamily: "var(--admin-font)", letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--admin-accent)", marginBottom: 10 }}>
             Reader preview
           </div>
           <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 8 }}>
@@ -1032,11 +903,11 @@ function SummaryEditor({ value, onChange }: { value: string; onChange: (v: strin
                     width: 20, height: 20, borderRadius: isNumbered ? 4 : "50%",
                     background: "rgba(99,153,34,0.18)", border: "0.5px solid rgba(99,153,34,0.35)",
                     display: "flex", alignItems: "center", justifyContent: "center",
-                    fontSize: isNumbered ? 9 : 7, color: "#a8d46f", fontFamily: "var(--admin-font)", fontWeight: 700,
+                    fontSize: isNumbered ? 9 : 7, color: "var(--admin-accent)", fontFamily: "var(--admin-font)", fontWeight: 700,
                   }}>
                     {isNumbered ? num : "•"}
                   </span>
-                  <span style={{ fontSize: 13, color: "rgba(255,255,255,0.72)", lineHeight: 1.6, fontFamily: "var(--admin-font)" }}>
+                  <span style={{ fontSize: 13, color: "var(--admin-text)", lineHeight: 1.6, fontFamily: "var(--admin-font)" }}>
                     {text}
                   </span>
                 </li>
@@ -1117,20 +988,21 @@ export default function BlogPostEditor({ initialData, editPost, onSubmit, onCanc
   const autoWords    = words;
   const autoReadTime = useMemo(() => readingTime(form.content ?? ""), [form.content]);
 
-  const mainFocusOn  = (e: any) => { e.target.style.borderColor = "rgba(99,153,34,0.5)";   e.target.style.background = "rgba(255,255,255,0.06)"; };
-  const mainFocusOff = (e: any) => { e.target.style.borderColor = "rgba(255,255,255,0.1)"; e.target.style.background = "rgba(255,255,255,0.04)"; };
+  const mainFocusOn  = (e: any) => { e.target.style.borderColor = "var(--admin-accent)"; e.target.style.boxShadow = "0 0 0 3px var(--admin-accentSoft)"; };
+  const mainFocusOff = (e: any) => { e.target.style.borderColor = "var(--admin-border2)"; e.target.style.boxShadow = "none"; };
 
   const mainInput = (extra: any = {}) => ({
-    background:   "rgba(255,255,255,0.04)",
-    border:       "0.5px solid rgba(255,255,255,0.1)",
-    borderRadius: 7,
-    color:        "rgba(255,255,255,0.85)",
+    background:   "var(--admin-card)",
+    border:       "1px solid var(--admin-border2)",
+    borderRadius: 8,
+    color:        "var(--admin-text)",
     fontFamily:   "var(--admin-font)",
-    fontSize:     13,
-    padding:      "9px 12px",
+    fontSize:     14,
+    padding:      "11px 14px",
     outline:      "none",
     width:        "100%",
     boxSizing:    "border-box" as const,
+    transition:   "border-color 0.14s, box-shadow 0.14s",
     ...extra,
   });
 
@@ -1346,262 +1218,163 @@ export default function BlogPostEditor({ initialData, editPost, onSubmit, onCanc
 
   const fileName = editPost ? `edit_post_${editPost.id}.md` : "new_post.md";
 
+  const btnBase = {
+    fontFamily: "var(--admin-font)", fontSize: 14, fontWeight: 600, cursor: "pointer",
+    borderRadius: 8, padding: "11px 20px", border: "none", transition: "opacity 0.14s",
+  } as const;
+
   return (
-    <div style={{
-      background: "#0a0d12", display: "flex", flexDirection: "column" as const,
-      flex: 1, minHeight: 0,
-      fontFamily: "var(--admin-font)",
-      color: "rgba(255,255,255,0.85)",
-      border: "0.5px solid rgba(255,255,255,0.08)",
-      borderRadius: 10, overflow: "hidden",
+    <div className="bpe-root" style={{
+      maxWidth: 860, margin: "0 auto", width: "100%",
+      fontFamily: "var(--admin-font)", color: "var(--admin-text)",
+      display: "flex", flexDirection: "column" as const, gap: 20,
     }}>
+      <style>{`
+        @media (max-width: 760px) {
+          .bpe-row { grid-template-columns: 1fr !important; }
+        }
+      `}</style>
 
-      {/* ── Topbar ── */}
-      <div style={{
-        display: "flex", alignItems: "center", justifyContent: "space-between",
-        gap: 8,
-        padding: isMobile ? "0 12px" : "0 20px", height: 46, background: "#0d1117",
-        borderBottom: "0.5px solid rgba(255,255,255,0.07)", flexShrink: 0,
-      }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0, flex: 1 }}>
-          <TrafficDots />
-          <span style={{ marginLeft: 6, fontSize: 12, fontFamily: "var(--admin-font)", color: "rgba(255,255,255,0.3)", letterSpacing: "0.04em", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {fileName}
-          </span>
-        </div>
-        <StatusToggle value={form.status} onChange={v => set({ status: v })} />
-      </div>
+      {/* Back to the list */}
+      <button type="button" onClick={onCancel}
+        style={{ display: "inline-flex", alignItems: "center", gap: 6, alignSelf: "flex-start",
+                 background: "none", border: "none", padding: 0, cursor: "pointer",
+                 color: "var(--admin-muted)", fontFamily: "var(--admin-font)", fontSize: 14 }}>
+        <ChevronLeft size={16} /> Blog
+      </button>
 
-      {/* ── Body ── */}
-      <div style={{ display: "flex", flexDirection: isMobile ? "column" as const : "row" as const, flex: 1, overflow: "hidden", minHeight: 0 }}>
+      <h1 style={{
+        margin: 0, fontFamily: "var(--admin-header-font)", fontSize: 28, fontWeight: 600,
+        letterSpacing: "-0.01em", color: "var(--admin-text)",
+      }}>{editPost ? "Edit article" : "New article"}</h1>
 
-        {/* ── Sidebar ── */}
-        <div style={{
-          width: isMobile ? "100%" : 240,
-          minWidth: isMobile ? 0 : 240,
-          maxHeight: isMobile ? 220 : "none",
-          background: "#0d1117",
-          borderRight: isMobile ? "none" : "0.5px solid rgba(255,255,255,0.07)",
-          borderBottom: isMobile ? "0.5px solid rgba(255,255,255,0.07)" : "none",
-          display: "flex", flexDirection: "column" as const,
-          overflowY: "auto" as const, padding: "16px 0 0",
-          flexShrink: 0,
-        }}>
-          <SidebarLabel style={{ padding: "0 16px 5px" }}>Topic</SidebarLabel>
-          <div style={{ padding: "0 16px 10px" }}>
-            <input
-              value={form.category}
-              onChange={e => set({ category: e.target.value })}
-              placeholder="Type a topic…"
-              aria-label="Post topic"
-              style={{
-                width: "100%", background: "rgba(255,255,255,0.04)",
-                border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6,
-                padding: "8px 10px", color: "rgba(255,255,255,0.9)", fontSize: 13, outline: "none",
-              }}
-              onFocus={e => { e.target.style.borderColor = "rgba(99,153,34,0.5)"; }}
-              onBlur={e => { e.target.style.borderColor = "rgba(255,255,255,0.1)"; }}
-            />
-          </div>
+      <FieldRow>
+        <MainField label="Title">
+          <input value={form.title} onChange={e => set({ title: e.target.value })}
+            placeholder="The headline readers see" style={mainInput()}
+            onFocus={mainFocusOn} onBlur={mainFocusOff} />
+        </MainField>
+        <MainField label="Slug">
+          <input value={form.slug} onChange={e => set({ slug: e.target.value })}
+            placeholder="left blank, it is made from the title" style={mainInput()}
+            onFocus={mainFocusOn} onBlur={mainFocusOff} />
+        </MainField>
+      </FieldRow>
+
+      <MainField label="Cover image">
+        <CoverUpload value={form.imageUrl} onChange={v => set({ imageUrl: v })} />
+      </MainField>
+
+      <MainField label="Author name">
+        <input value={form.authorName} onChange={e => set({ authorName: e.target.value })}
+          placeholder="e.g. Jane Doe — leave blank to use your account name" style={mainInput()}
+          onFocus={mainFocusOn} onBlur={mainFocusOff} />
+      </MainField>
+
+      <FieldRow>
+        <MainField label="Category">
+          <input value={form.category} onChange={e => set({ category: e.target.value })}
+            placeholder="Analysis, Forex, Equities…" style={mainInput()}
+            onFocus={mainFocusOn} onBlur={mainFocusOff} />
           {topicSuggestions.length > 0 && (
-            <>
-              <SidebarLabel style={{ padding: "0 16px 5px" }}>
-                {usedTopics.length > 0 ? "Already used" : "Suggestions"}
-              </SidebarLabel>
-              {topicSuggestions.map(name => (
-                <DestItem
-                  key={name}
-                  item={{ label: name, sub: topicCounts[name] ? `${topicCounts[name]} post${topicCounts[name] === 1 ? "" : "s"}` : "new topic" }}
-                  active={form.category.trim().toLowerCase() === name.toLowerCase()}
-                  onClick={() => set({ category: name })}
-                />
-              ))}
-            </>
-          )}
-
-          <div style={{ marginTop: 10 }}>
-            <SidebarAuthorPanel form={form} onChange={set} />
-          </div>
-        </div>
-
-        {/* ── Main content area ── */}
-        <div style={{ flex: 1, overflowY: "auto" as const, padding: isMobile ? "20px 14px" : "28px 32px", display: "flex", flexDirection: "column" as const, gap: 22, minWidth: 0 }}>
-
-          <SectionHeading>Post Details</SectionHeading>
-
-          {/* Title */}
-          <MainField label="Post Title">
-            <input
-              type="text" value={form.title} onChange={e => set({ title: e.target.value })}
-              placeholder="Enter your post title..."
-              style={mainInput({ fontSize: 18, color: "rgba(255,255,255,0.92)" })}
-              onFocus={mainFocusOn} onBlur={mainFocusOff}
-            />
-          </MainField>
-
-          {/* Read time — worked out from the article, not typed.
-              It used to be an empty box next to a placeholder reading "e.g. 5 min read", and every
-              published post ended up claiming about five minutes: measured 2026-09-09, all eight
-              said ~5 min while the real articles ran from 190 to 659 words, hand-typed in four
-              different spellings ("5 min", "5mins", "5m", "5min"). The placeholder now shows what
-              the article actually measures, and saving with the box empty stores that. Typing over
-              it still wins — an author who wants to say something else can. */}
-          <MainField label="Read Time">
-            <input type="text" value={form.readTime} onChange={e => set({ readTime: e.target.value })}
-              placeholder={autoReadTime ? `${autoReadTime} — from the article` : 'e.g. 5 min'}
-              style={mainInput()}
-              onFocus={mainFocusOn} onBlur={mainFocusOff} />
-            {autoReadTime && form.readTime.trim() && form.readTime.trim() !== autoReadTime && (
-              <div style={{ fontSize: 10, fontFamily: "var(--admin-font)", color: 'rgba(255,255,255,0.35)', marginTop: 6 }}>
-                the article measures {autoReadTime} ({autoWords} words) —{' '}
-                <button type="button" onClick={() => set({ readTime: '' })}
-                  style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer',
-                           color: 'rgba(99,153,34,0.85)', font: 'inherit', textDecoration: 'underline' }}>
-                  use that
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" as const, marginTop: 8 }}>
+              {topicSuggestions.slice(0, 5).map(name => (
+                <button key={name} type="button" onClick={() => set({ category: name })}
+                  style={{ background: "var(--admin-thead)", border: "1px solid var(--admin-border)",
+                           borderRadius: 999, padding: "4px 11px", fontSize: 12, cursor: "pointer",
+                           color: "var(--admin-muted)", fontFamily: "var(--admin-font)" }}>
+                  {name}
                 </button>
-              </div>
-            )}
-          </MainField>
+              ))}
+            </div>
+          )}
+        </MainField>
+        <MainField label="Read time">
+          <input value={form.readTime} onChange={e => set({ readTime: e.target.value })}
+            placeholder={autoReadTime ? `${autoReadTime} — from the article` : "e.g. 5 min"}
+            style={mainInput()} onFocus={mainFocusOn} onBlur={mainFocusOff} />
+          {autoReadTime && form.readTime.trim() && form.readTime.trim() !== autoReadTime && (
+            <div style={{ fontSize: 12, color: "var(--admin-muted)", marginTop: 6 }}>
+              the article measures {autoReadTime} ({autoWords} words) —{" "}
+              <button type="button" onClick={() => set({ readTime: "" })}
+                style={{ background: "none", border: "none", padding: 0, cursor: "pointer",
+                         color: "var(--admin-accent)", font: "inherit", textDecoration: "underline" }}>
+                use that
+              </button>
+            </div>
+          )}
+        </MainField>
+      </FieldRow>
 
-          {/* Excerpt */}
-          <MainField label="Excerpt">
-            <textarea value={form.excerpt} onChange={e => set({ excerpt: e.target.value })} rows={2}
-              placeholder="Short summary shown in article cards and previews..."
-              style={mainInput({ resize: "none", lineHeight: 1.65 })}
-              onFocus={mainFocusOn} onBlur={mainFocusOff} />
-          </MainField>
+      <MainField label="Excerpt">
+        <textarea value={form.excerpt} onChange={e => set({ excerpt: e.target.value })} rows={2}
+          placeholder="One or two lines shown under the headline"
+          style={mainInput({ resize: "vertical", lineHeight: 1.6 })}
+          onFocus={mainFocusOn} onBlur={mainFocusOff} />
+      </MainField>
 
-          <Divider />
+      <MainField label="Article summary">
+        <SummaryEditor value={form.summary} onChange={v => set({ summary: v })} />
+      </MainField>
 
-          {/* Article Summary */}
-          <SectionHeading>Article Summary</SectionHeading>
-          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.35)", fontFamily: "var(--admin-font)", marginTop: -14, marginBottom: 2, lineHeight: 1.6 }}>
-            Key takeaways shown before the full article — great for readers who skim. Each bullet or numbered point becomes a formatted list.
-          </div>
-          <SummaryEditor value={form.summary} onChange={v => set({ summary: v })} />
-
-          <Divider />
-
-          {/* Cover image */}
-          <MainField label="Cover Image">
-            <CoverUpload value={form.imageUrl} onChange={v => set({ imageUrl: v })} />
-          </MainField>
-
-          <Divider />
-
-          {/* YouTube embed */}
-          <MainField label="YouTube Video (optional)">
-            <YoutubeEmbed value={form.videoUrl} onChange={v => set({ videoUrl: v })} />
-          </MainField>
-
-          <Divider />
-
-          {/* Content */}
-          <SectionHeading>Content</SectionHeading>
-
-          <div style={{ display: "flex", flexDirection: "column" as const }}>
-            <Toolbar
-              contentRef={contentRef}
-              onUpdate={(val) => set({ content: val })}
-            />
-            <textarea
-              ref={contentRef}
-              value={form.content}
-              onChange={e => set({ content: e.target.value })}
-              onPaste={handleContentPaste}
-              rows={16}
-              placeholder={"Write your article content here...\n\nUse the toolbar above for formatting:\n  **bold** · _italic_ · ## Heading · - list · > quote\n\nPaste any URL and it will become a clickable link automatically.\nStart with a compelling lead paragraph..."}
-              style={mainInput({ borderTop: "none", borderRadius: "0 0 7px 7px", resize: "vertical", minHeight: 260, lineHeight: 1.8, fontSize: 13.5 })}
-              onFocus={e => { e.target.style.borderColor = "rgba(99,153,34,0.4)"; e.target.style.background = "rgba(255,255,255,0.06)"; }}
-              onBlur={mainFocusOff}
-            />
-          </div>
-          <ContentPreview value={form.content} />
-
+      <MainField label="Content">
+        <div style={{ display: "flex", flexDirection: "column" as const }}>
+          <Toolbar contentRef={contentRef} onUpdate={(val) => set({ content: val })} />
+          <textarea
+            ref={contentRef}
+            value={form.content}
+            onChange={e => set({ content: e.target.value })}
+            onPaste={handleContentPaste}
+            rows={18}
+            placeholder={"Write your article here.\n\n**bold** · _italic_ · ## Heading · - list · > quote"}
+            style={mainInput({ borderTop: "none", borderRadius: "0 0 8px 8px", resize: "vertical", minHeight: 320, lineHeight: 1.8 })}
+            onFocus={mainFocusOn}
+            onBlur={mainFocusOff}
+          />
         </div>
+      </MainField>
+
+      <MainField label="Video (optional)">
+        <YoutubeEmbed value={form.videoUrl} onChange={v => set({ videoUrl: v })} />
+      </MainField>
+
+      <SidebarAuthorPanel form={form} onChange={set} />
+
+      <div style={{ display: "flex", gap: 24, flexWrap: "wrap" as const, alignItems: "center" }}>
+        <Switch on={form.allowComments} label="Allow comments" onChange={v => set({ allowComments: v })} />
+        <Switch on={form.allowSharing} label="Allow sharing" onChange={v => set({ allowSharing: v })} />
       </div>
 
-      {/* ── Footer ── */}
-      <div style={{
-        padding: isMobile ? "12px 14px" : "14px 28px",
-        borderTop: "0.5px solid rgba(255,255,255,0.07)",
-        display: "flex",
-        flexDirection: isMobile ? "column" as const : "row" as const,
-        alignItems: isMobile ? "stretch" as const : "center",
-        justifyContent: "space-between",
-        gap: isMobile ? 12 : 0,
-        background: "#0d1117", flexShrink: 0,
-      }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" as const }}>
-          {[
-            { text: `${words} ${words === 1 ? "word" : "words"}`, color: "rgba(255,255,255,0.22)" },
-            { text: form.category.trim().toLowerCase() || "no topic", color: "rgba(255,255,255,0.22)" },
-            form.authorExpertise.length > 0 && {
-              text: form.authorExpertise.slice(0, 2).join(", ") + (form.authorExpertise.length > 2 ? ` +${form.authorExpertise.length - 2}` : ""),
-              color: "rgba(99,153,34,0.55)",
-            },
-            { text: form.status.toLowerCase(), color: form.status === "Published" ? "rgba(40,200,64,0.6)" : "rgba(255,189,46,0.6)" },
-          ].filter(Boolean).map((item: any, i, arr) => (
-            <span key={i} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ fontSize: 11, fontFamily: "var(--admin-font)", color: item.color }}>{item.text}</span>
-              {i < arr.length - 1 && <span style={{ color: "rgba(255,255,255,0.1)", fontSize: 11 }}>·</span>}
-            </span>
-          ))}
+      <div>
+        <div style={{ fontSize: 13, fontFamily: "var(--admin-font)", marginBottom: 8 }}>
+          <span style={{ color: "var(--admin-text)", fontWeight: 500 }}>Publish later</span>
+          <span style={{ color: "var(--admin-muted)" }}> — leave empty to publish straight away</span>
         </div>
+        <input type="datetime-local" value={form.publishAt}
+          onChange={e => set({ publishAt: e.target.value })}
+          style={mainInput({ maxWidth: 285 })}
+          onFocus={mainFocusOn} onBlur={mainFocusOff} />
+      </div>
 
-        <div style={{ marginBottom: 18 }}>
-          <MainField label="Publish later">
-            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" as const }}>
-              <input
-                type="datetime-local"
-                value={form.publishAt}
-                onChange={e => set({ publishAt: e.target.value })}
-                style={mainInput({ maxWidth: 260 })}
-                onFocus={mainFocusOn}
-                onBlur={mainFocusOff}
-              />
-              {form.publishAt && (
-                <button type="button" onClick={() => set({ publishAt: "" })}
-                  style={{ background: "none", border: "none", color: "rgba(255,255,255,0.45)", fontFamily: "var(--admin-font)", fontSize: 12, cursor: "pointer", textDecoration: "underline" }}>
-                  clear
-                </button>
-              )}
-            </div>
-            <div style={{ fontSize: 12, color: "rgba(255,255,255,0.35)", fontFamily: "var(--admin-font)", marginTop: 6 }}>
-              {form.publishAt
-                ? "Saved as scheduled — it goes live on its own at this time."
-                : "Leave empty to publish straight away."}
-            </div>
-          </MainField>
-        </div>
-
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" as const, justifyContent: isMobile ? "stretch" : "flex-end" }}>
-          <button
-            onClick={onCancel}
-            style={{ background: "none", border: "0.5px solid rgba(255,255,255,0.12)", borderRadius: 7, color: "rgba(255,255,255,0.45)", fontFamily: "var(--admin-font)", fontSize: 13, padding: "7px 16px", cursor: "pointer", transition: "all 0.15s" }}
-            onMouseEnter={e => { (e.target as any).style.borderColor = "rgba(255,255,255,0.28)"; (e.target as any).style.color = "rgba(255,255,255,0.75)"; }}
-            onMouseLeave={e => { (e.target as any).style.borderColor = "rgba(255,255,255,0.12)"; (e.target as any).style.color = "rgba(255,255,255,0.45)"; }}
-          >
-            Cancel
-          </button>
-          <button
-            onClick={() => handleSubmit("Draft")}
-            style={{ background: "rgba(255,255,255,0.05)", border: "0.5px solid rgba(255,255,255,0.1)", borderRadius: 7, color: "rgba(255,255,255,0.45)", fontFamily: "var(--admin-font)", fontSize: 12, padding: "7px 14px", cursor: "pointer", transition: "all 0.15s" }}
-            onMouseEnter={e => { (e.target as any).style.background = "rgba(255,255,255,0.09)"; (e.target as any).style.color = "rgba(255,255,255,0.75)"; }}
-            onMouseLeave={e => { (e.target as any).style.background = "rgba(255,255,255,0.05)"; (e.target as any).style.color = "rgba(255,255,255,0.45)"; }}
-          >
-            Save draft
-          </button>
-          <button
-            onClick={() => handleSubmit(form.publishAt ? "Scheduled" : "Published")}
-            disabled={saving || !form.title.trim()}
-            style={{ background: saving || !form.title.trim() ? "#2a4d0c" : "#3b6d11", border: "none", borderRadius: 7, color: saving || !form.title.trim() ? "rgba(192,221,151,0.5)" : "#c0dd97", fontFamily: "var(--admin-font)", fontSize: 13, fontWeight: 500, padding: "7px 22px", cursor: saving || !form.title.trim() ? "not-allowed" : "pointer", transition: "background 0.15s" }}
-            onMouseEnter={e => { if (!saving && form.title.trim()) (e.target as any).style.background = "#4a8515"; }}
-            onMouseLeave={e => { if (!saving && form.title.trim()) (e.target as any).style.background = "#3b6d11"; }}
-          >
-            {saving ? "Saving…" : form.publishAt ? "Save & schedule" : "Save & publish"}
-          </button>
-        </div>
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" as const, paddingBottom: 8 }}>
+        <button onClick={() => handleSubmit("Draft")} disabled={saving || !form.title.trim()}
+          style={{ ...btnBase, background: "var(--admin-rail)", color: "#fff",
+                   opacity: saving || !form.title.trim() ? 0.5 : 1,
+                   cursor: saving || !form.title.trim() ? "not-allowed" : "pointer" }}>
+          {saving ? "Saving…" : "Save draft"}
+        </button>
+        <button onClick={() => handleSubmit(form.publishAt ? "Scheduled" : "Published")}
+          disabled={saving || !form.title.trim()}
+          style={{ ...btnBase, background: "var(--admin-accent)", color: "#fff",
+                   opacity: saving || !form.title.trim() ? 0.5 : 1,
+                   cursor: saving || !form.title.trim() ? "not-allowed" : "pointer" }}>
+          {saving ? "Saving…" : form.publishAt ? "Save & schedule" : "Save & publish"}
+        </button>
+        <button onClick={onCancel}
+          style={{ ...btnBase, background: "transparent", color: "var(--admin-muted)",
+                   border: "1px solid var(--admin-border2)" }}>
+          Cancel
+        </button>
       </div>
     </div>
   );
