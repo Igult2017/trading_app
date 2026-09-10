@@ -175,9 +175,19 @@ function applyAdminTheme(id: string) {
  *  the ORDER inside the stack, not a different family: `'Playfair Display Variable'` comes first.
  *  The variable package carries the continuous 100-900 weight axis, so weight is real at any size,
  *  where the static `'Playfair Display'` this panel used to name first is four fixed cuts. */
-/** The face that carries the small text when the chosen one is a DISPLAY face. His own pick,
- *  2026-09-05 — "it was Inter for a day." */
-const ADMIN_BODY_SANS = "'Montserrat', system-ui, -apple-system, 'Segoe UI', sans-serif";
+/** The face that carries the small text when the chosen one is a DISPLAY face.
+ *
+ *  INTER, copied from DORIXÉ (2026-09-10, "use the same combination that Dorixe uses"). That
+ *  project loads `Playfair_Display` and `Inter` and nothing else (app/layout.tsx:2) — the same
+ *  shape this panel already had, with a different sans.
+ *
+ *  This reverses his 2026-09-05 pick of Montserrat. He has now seen both and chosen Inter, so the
+ *  earlier note is superseded rather than contradicted.
+ *
+ *  'Inter Variable' first: the Fontsource variable package registers ONLY that name. Plain 'Inter'
+ *  resolves here too because index.css declares it against the same file, but naming the variable
+ *  first is the convention and survives that alias being removed. */
+const ADMIN_BODY_SANS = "'Inter Variable', 'Inter', system-ui, -apple-system, sans-serif";
 
 /** Faces drawn for headlines: very thick stems next to hairline thin strokes. That contrast is
  *  what makes them handsome at 28px and unreadable at 13. */
@@ -2431,7 +2441,7 @@ const GrowthAnalyticsCard = ({ monthlyData = null, dailyData = null }: { monthly
         <p style={{ color: C.muted, fontSize: 12, fontWeight: 700, letterSpacing: '0.1em',
           textTransform: 'uppercase', margin: '0 0 4px' }}>{lbl}</p>
         <p style={{ color: C.indigo, fontSize: 15, fontWeight: 800, margin: 0 }}>
-          {payload[0].value} <span style={{ color: C.muted, fontSize: 12, fontWeight: 600 }}>signups</span>
+          {payload[0].value} <span style={{ color: C.muted, fontSize: 12 }}>signups</span>
         </p>
       </div>
     );
@@ -2448,7 +2458,7 @@ const GrowthAnalyticsCard = ({ monthlyData = null, dailyData = null }: { monthly
             display: 'flex', alignItems: 'center', gap: 7 }}>
             <TrendingUp size={14} style={{ color: C.greenL }} /> Growth Analytics
           </h3>
-          <p style={{ color: C.muted, fontSize: 13, margin: 0, fontWeight: 600 }}>
+          <p style={{ color: C.muted, fontSize: 13, margin: 0 }}>
             {isMonthly ? 'New user registrations by month' : 'New user registrations by day'}
           </p>
         </div>
@@ -3129,7 +3139,7 @@ export default function AdminPanel() {
                   ? overviewStats.recentActivity.map((a: any, i: number) => (
                     <div key={i} style={{ display: 'flex', gap: '10px' }}>
                       <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: a.type === 'post' ? C.greenL : C.indigo, marginTop: '3px', flexShrink: 0 }} />
-                      <div><p style={{ color: C.muted, fontSize: '14px', fontWeight: 600, margin: 0 }}>{a.text}</p><p style={{ color: C.muted, fontSize: '12px', margin: '2px 0 0' }}>{timeAgo(a.ts)}</p></div>
+                      <div><p style={{ color: C.muted, fontSize: '14px', margin: 0 }}>{a.text}</p><p style={{ color: C.muted, fontSize: '12px', margin: '2px 0 0' }}>{timeAgo(a.ts)}</p></div>
                     </div>
                   ))
                   : !overviewStats
@@ -3171,7 +3181,20 @@ export default function AdminPanel() {
       {/* Outfit, Inter, Montserrat and DM Mono are all self-hosted in client/src/index.css — the
           Google Fonts @import that used to head this rule went 2026-08-22. Outfit is the one the
           font picker below offers, so it is bundled as a variable font covering every weight. */}
-      <style>{`* { box-sizing: border-box; scrollbar-width: none; -webkit-font-smoothing: subpixel-antialiased; -moz-osx-font-smoothing: auto; } *::-webkit-scrollbar { display: none; } input::placeholder { color: var(--admin-muted); } select option { background: var(--admin-card); color: var(--admin-text); } .admin-shell, .admin-shell * { font-weight: 600; } .admin-shell b, .admin-shell strong { font-weight: 700; }`}</style>
+      {/* THE REST OF THE DORIXÉ RECIPE — it is not just the two family names.
+
+          GREY SMOOTHING instead of sub-pixel. DORIXÉ sets `-webkit-font-smoothing: antialiased;
+          -moz-osx-font-smoothing: grayscale` on its body (globals.css:86-87). Sub-pixel smoothing
+          paints faint colour fringes down each stem, which is what makes small text read as soft
+          and slightly coloured rather than clean.
+
+          NO BLANKET WEIGHT. `.admin-shell * { font-weight: 600 }` used to sit here, pushing every
+          element that did not name a weight to semibold. It existed for ONE reason — Playfair's
+          hairlines vanish below 600 — and Inter has no such problem. Forcing it made the whole
+          panel read heavy, which is a large part of why it looked less finished than DORIXÉ.
+          DORIXÉ forces nothing: body 400, headings 700, and anything that wants a weight says so.
+          Line-height 1.6 on read text is theirs as well. */}
+      <style>{`* { box-sizing: border-box; scrollbar-width: none; } .admin-shell { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; line-height: 1.6; } *::-webkit-scrollbar { display: none; } input::placeholder { color: var(--admin-muted); } select option { background: var(--admin-card); color: var(--admin-text); } .admin-shell b, .admin-shell strong { font-weight: 700; }`}</style>
 
       {/* Mobile backdrop — closes the drawer when tapped */}
       {drawerOpen && (

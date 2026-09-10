@@ -52,9 +52,11 @@ export const RAIL_SERIF = "'Playfair Display Variable', 'Playfair Display', Geor
  *  names against the same `woff2-variations` file, so asking for a heavier weight makes the thin
  *  strokes physically THICKER — it does not swap in a second, different font file.
  *
- *  Hence the floor, and it lives in the helper rather than in a comment so it cannot be forgotten:
- *  **never below weight 600, never below 13px.** `panelText()` clamps both, so a caller that asks
- *  for 12px/400 out of habit still gets legible text.
+ *  ⚠ THE WEIGHT HALF OF THIS NO LONGER APPLIES, 2026-09-10. The body face is Inter now, copied
+ *  from DORIXÉ, and Inter has no hairlines to lose — forcing everything to 600 just made the panel
+ *  look heavy. `panelText()` keeps the 13px SIZE floor and passes the weight straight through,
+ *  defaulting to 400 the way DORIXÉ's body text does. The table below is still the reason a
+ *  DISPLAY face must never be set below 16px; that rule stands.
  *
  *  MEASURED, not assumed. The "o" was drawn with this exact font file in Chromium at a plain
  *  non-retina scale, and its thinnest stroke read back off the canvas — 100% means solid ink, 0%
@@ -83,10 +85,10 @@ export const RAIL_SERIF = "'Playfair Display Variable', 'Playfair Display', Geor
  *
  *  (One renderer, Chromium on Windows — which is what the panel is read in. A different rasteriser
  *  would shift the exact percentages; the weight trend holds regardless.) */
-export const panelText = (size = 15, weight = 600) => ({
+export const panelText = (size = 15, weight = 400) => ({
   fontFamily: FONT,
   fontSize: `${Math.max(13, size)}px`,
-  fontWeight: Math.max(600, weight),
+  fontWeight: weight,
 });
 
 /** An 8px rhythm, so spacing is chosen from a scale instead of per-screen guesswork. */
@@ -104,7 +106,7 @@ export const cs = {
 
 export const inp = {
   width: '100%', background: C.card, border: `1px solid ${C.border2}`, borderRadius: R.ctl,
-  color: C.text, padding: '11px 14px', fontFamily: FONT, fontWeight: 600, fontSize: '15px',
+  color: C.text, padding: '11px 14px', fontFamily: FONT, fontWeight: 400, fontSize: '15px',
   outline: 'none', boxSizing: 'border-box',
 } as const;
 

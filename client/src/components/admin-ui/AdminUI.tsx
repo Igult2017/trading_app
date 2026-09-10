@@ -32,11 +32,11 @@ export function PageHeader({ icon: Icon, title, hint, right, hintStyle }: {
       )}
       <div style={{ minWidth: 0 }}>
         <h1 style={{
-          margin: 0, fontFamily: HFONT, fontSize: 28, fontWeight: 600,
-          letterSpacing: '-0.01em', lineHeight: 1.1, color: C.text,
+          margin: 0, fontFamily: HFONT, fontSize: 28, fontWeight: 700,
+          letterSpacing: '-0.01em', lineHeight: 1.2, color: C.text,
         }}>{title}</h1>
         {hint && (
-          <p style={{ margin: '6px 0 0', fontFamily: FONT, fontSize: 13, fontWeight: 600, color: C.muted, lineHeight: 1.6, ...hintStyle }}>
+          <p style={{ margin: '6px 0 0', fontFamily: FONT, fontSize: 13, color: C.muted, lineHeight: 1.6, ...hintStyle }}>
             {hint}
           </p>
         )}
@@ -95,15 +95,15 @@ export function StatCard({ title, value, change, trend, caption, icon: Icon, ton
         )}
       </div>
       <div style={{
-        fontFamily: HFONT, fontSize: 32, fontWeight: 600, color: C.text,
-        letterSpacing: '-0.02em', lineHeight: 1,
+        fontFamily: HFONT, fontSize: 32, fontWeight: 700, color: C.text,
+        letterSpacing: '-0.02em', lineHeight: 1.1,
       }}>{value}</div>
       <div style={{
         marginTop: 9, fontFamily: FONT, fontSize: 13, fontWeight: 700, color: C.muted,
         textTransform: 'uppercase', letterSpacing: '0.06em',
       }}>{title}</div>
       {caption && (
-        <div style={{ marginTop: 7, fontFamily: FONT, fontSize: 13, fontWeight: 600, color: C.muted }}>{caption}</div>
+        <div style={{ marginTop: 7, fontFamily: FONT, fontSize: 13, color: C.muted }}>{caption}</div>
       )}
     </div>
   );
@@ -122,8 +122,8 @@ export function Panel({ title, hint, right, children, style }: {
           padding: '18px 22px', borderBottom: `1px solid ${C.border}`,
         }}>
           <div style={{ minWidth: 0 }}>
-            {title && <h2 style={{ margin: 0, fontFamily: HFONT, fontSize: 18, fontWeight: 600, color: C.text }}>{title}</h2>}
-            {hint && <p style={{ margin: '3px 0 0', fontFamily: FONT, fontSize: 13, fontWeight: 600, color: C.muted }}>{hint}</p>}
+            {title && <h2 style={{ margin: 0, fontFamily: HFONT, fontSize: 18, fontWeight: 700, lineHeight: 1.2, color: C.text }}>{title}</h2>}
+            {hint && <p style={{ margin: '3px 0 0', fontFamily: FONT, fontSize: 13, color: C.muted }}>{hint}</p>}
           </div>
           {right}
         </div>
