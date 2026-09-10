@@ -3,6 +3,7 @@ import { countryToIso } from '@/lib/countryToIso';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { authFetch } from '@/lib/queryClient';
 import TrafficSection from '@/features/admin-traffic/TrafficSection';
+import SupportSection from '@/features/admin-support/SupportSection';
 import {
   ComposedChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip as RechartTooltip, ResponsiveContainer
@@ -23,7 +24,7 @@ import {
   Users, FileText, BellRing, Smartphone, Search, TrendingUp,
   Plus, Mail, Bell, UserPlus, ShieldCheck,
   Globe, Clock, Cpu, Activity, Zap, AlertTriangle, CheckCircle,
-  MessageSquare, Phone, Star, Timer, Database, Eye, EyeOff, Pencil, Ban, Trash2, Send, X, RotateCcw, ExternalLink,
+  Database, Eye, EyeOff, Pencil, Trash2, Send, X, ExternalLink,
   LayoutDashboard, UsersRound, LifeBuoy, Newspaper, Gauge, RefreshCw, SlidersHorizontal, NotebookPen
 } from 'lucide-react';
 
@@ -55,13 +56,6 @@ const MOCK_POSTS = [
 const GROWTH_DATA_MONTHLY = [40, 55, 45, 70, 65, 85, 75, 90, 80, 95, 88, 110];
 const GROWTH_DATA_DAILY = [12,18,14,22,19,25,17,30,28,24,32,27,20,35,33,29,38,31,26,40,36,34,42,39,37,44,41,43,46,45];
 
-const MOCK_TICKETS = [
-  { id: 'TK-1042', user: 'Alex Thompson', email: 'alex@example.com', subject: 'API connection drops intermittently', priority: 'High', status: 'Open', created: '10m ago', channel: 'email' },
-  { id: 'TK-1041', user: 'Marcus Miller', email: 'marcus@fx.net', subject: 'Unable to export trade history CSV', priority: 'Medium', status: 'In Progress', created: '1h ago', channel: 'chat' },
-  { id: 'TK-1040', user: 'Priya Sharma', email: 'priya@inv.co', subject: 'Billing discrepancy on last invoice', priority: 'High', status: 'Open', created: '3h ago', channel: 'phone' },
-  { id: 'TK-1039', user: 'Daniel Park', email: 'dpark@trade.io', subject: 'Feature request: Dark mode toggle', priority: 'Low', status: 'Resolved', created: '1d ago', channel: 'chat', satisfaction: 5 },
-  { id: 'TK-1038', user: 'Sarah Chen', email: 'sarah.c@trading.io', subject: 'Login 2FA not sending SMS code', priority: 'Critical', status: 'Resolved', created: '2d ago', channel: 'email', satisfaction: 4 },
-];
 
 const generateMetric = (base: number, variance: number) => +(base + (Math.random() - 0.5) * variance).toFixed(1);
 const INITIAL_METRICS = { cpu: 34, memory: 61, latency: 42, uptime: 99.97, requestsPerSec: 847, errorRate: 0.12, dbQueryTime: 18, activeConnections: 1243 };
@@ -236,28 +230,6 @@ const toLocalInput = (iso: string): string => {
 
 const toTitleCase = (s: string): string =>
   s.trim().replace(/\w\S*/g, w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
-class CustomerCareErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean; error: string | null }> {
-  constructor(props: { children: React.ReactNode }) {
-    super(props);
-    this.state = { hasError: false, error: null };
-  }
-  static getDerivedStateFromError(error: Error) {
-    return { hasError: true, error: error?.message || 'Customer Care crashed' };
-  }
-  componentDidCatch(error: Error, info: React.ErrorInfo) {
-    console.error('[CustomerCareErrorBoundary]', error, info);
-  }
-  render() {
-    if (this.state.hasError) {
-      return (
-        <div style={{ padding: '12px 16px', background: 'rgba(220,38,38,0.08)', border: '1px solid rgba(220,38,38,0.25)', color: '#fca5a5', fontSize: '13px' }}>
-          Customer Care render error: {this.state.error || 'Customer Care crashed'}
-        </div>
-      );
-    }
-    return this.props.children;
-  }
-}
 // The reference card: one hairline, a shadow you can barely see, generously rounded. The old one
 // carried an inset highlight and a heavy black drop shadow — both read only on a near-black page and
 // turn to grime on a pale one.
@@ -650,344 +622,6 @@ const UsersSection = ({ bp, apiUsers, setApiUsers, getAdminToken }: { bp: any; a
 };
 
 // ─── CUSTOMER CARE ────────────────────────────────────────────────────────────
-interface Ticket {
-  id: string; _id?: number; user: string; email: string; subject: string;
-  priority: string; status: string; created: string; channel: string;
-  satisfaction?: number; reply?: string; userId?: string;
-}
-const CustomerCareSection = ({ bp, apiUsers = [], getAdminToken = null, usersLoadError = null }: { bp: any; apiUsers?: any[]; getAdminToken?: (() => Promise<string | null>) | null; usersLoadError?: string | null }) => {
-  const [renderError, setRenderError] = useState<string | null>(null);
-  const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
-  const [tickets, setTickets] = useState<Ticket[]>([]);
-  const [replyText, setReplyText] = useState('');
-  const [filterStatus, setFilterStatus] = useState('All');
-  const [actionUser, setActionUser] = useState<{ name: string; userId: string } | null>(null);
-  const [loadingTickets, setLoadingTickets] = useState(true);
-  const [sendingReply, setSendingReply] = useState(false);
-  const [careError, setCareError] = useState<string | null>(null);
-
-  const safeTicketUser = (ticket: any) => toTitleCase(typeof ticket?.user === 'string' && ticket.user.trim() ? ticket.user : 'Unknown User');
-  const safeTicketEmail = (ticket: any) => (typeof ticket?.email === 'string' ? ticket.email : '');
-  const safeTicketId = (ticket: any) => (typeof ticket?.id === 'string' && ticket.id.trim() ? ticket.id : 'TK-UNKNOWN');
-
-  useEffect(() => {
-    const load = async () => {
-      const token = await getAdminToken?.();
-      const headers: Record<string, string> = {};
-      if (token) headers['Authorization'] = `Bearer ${token}`;
-      try {
-        const r = await fetch('/api/admin/tickets', { headers });
-        if (r.ok) {
-          const data = await r.json();
-          setTickets(data.map((t: any) => ({
-            id: `TK-${t.id}`, _id: t.id,
-            user: t.user_name || 'Unknown', email: t.user_email || '',
-            subject: t.subject || t.message?.slice(0, 60) || 'No subject',
-            priority: t.priority || 'Medium', status: t.status || 'Open',
-            created: new Date(t.created_at).toLocaleString(), channel: t.channel || 'email',
-            reply: t.reply || '',
-          })));
-        } else {
-          setTickets(MOCK_TICKETS);
-        }
-      } catch {
-        setTickets(MOCK_TICKETS);
-      }
-      setLoadingTickets(false);
-    };
-    load();
-  }, []);
-
-
-  const openCount = tickets.filter(t => t.status === 'Open').length;
-  const resolvedCount = tickets.filter(t => t.status === 'Resolved').length;
-  const avgSat = (tickets.filter(t => t.satisfaction).reduce((a, t) => a + (t.satisfaction ?? 0), 0) / Math.max(tickets.filter(t => t.satisfaction).length, 1)).toFixed(1);
-  const filtered = filterStatus === 'All' ? tickets : tickets.filter(t => t.status === filterStatus);
-
-  const PC = {
-    Critical: { bg: 'rgba(244,63,94,0.12)', c: C.redL, b: 'rgba(244,63,94,0.3)' },
-    High: { bg: 'rgba(245,158,11,0.12)', c: C.amberL, b: 'rgba(245,158,11,0.3)' },
-    Medium: { bg: 'rgba(59,130,246,0.12)', c: C.blueL, b: 'rgba(59,130,246,0.3)' },
-    Low: { bg: C.thead, c: C.muted, b: C.border2 },
-  };
-  const SC = { Open: C.amberL, 'In Progress': C.blueL, Resolved: C.greenL };
-  const ChanIcon = { email: Mail, chat: MessageSquare, phone: Phone };
-
-  const handleResolve = async (displayId: string, dbId: number) => {
-    try {
-      const token = await getAdminToken?.();
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (token) headers['Authorization'] = `Bearer ${token}`;
-      if (dbId) {
-        const r = await fetch(`/api/admin/tickets/${dbId}`, { method: 'PATCH', headers, body: JSON.stringify({ status: 'Resolved' }) });
-        if (!r.ok) setCareError(`Failed to resolve ticket (${r.status})`);
-      } else {
-        setCareError('This ticket is missing its database id');
-      }
-      setTickets(p => p.map(t => t.id === displayId ? { ...t, status: 'Resolved' } : t));
-      if (selectedTicket?.id === displayId) setSelectedTicket((p: any) => ({ ...p, status: 'Resolved' }));
-    } catch (err: any) {
-      setCareError(err?.message ?? 'Failed to resolve ticket');
-    }
-  };
-
-  const handleEscalate = async (displayId: string, dbId: number) => {
-    try {
-      const token = await getAdminToken?.();
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (token) headers['Authorization'] = `Bearer ${token}`;
-      if (dbId) {
-        const r = await fetch(`/api/admin/tickets/${dbId}`, { method: 'PATCH', headers, body: JSON.stringify({ status: 'Escalated', priority: 'Critical' }) });
-        if (!r.ok) setCareError(`Failed to escalate ticket (${r.status})`);
-      } else {
-        setCareError('This ticket is missing its database id');
-      }
-      setTickets(p => p.map(t => t.id === displayId ? { ...t, status: 'Escalated', priority: 'Critical' } : t));
-      if (selectedTicket?.id === displayId) setSelectedTicket((p: any) => ({ ...p, status: 'Escalated', priority: 'Critical' }));
-    } catch (err: any) {
-      setCareError(err?.message ?? 'Failed to escalate ticket');
-    }
-  };
-
-  const handleBanUser = async (userId: string) => {
-    try {
-      const token = await getAdminToken?.();
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (token) headers['Authorization'] = `Bearer ${token}`;
-      const r = await fetch(`/api/admin/users/${userId}/ban`, { method: 'PATCH', headers, body: JSON.stringify({ action: 'ban' }) });
-      if (!r.ok) setCareError(`Failed to ban user (${r.status})`);
-      setActionUser(null);
-    } catch (err: any) {
-      setCareError(err?.message ?? 'Failed to ban user');
-    }
-  };
-
-  const handleSendReply = async () => {
-    if (!replyText.trim() || !selectedTicket || sendingReply) return;
-    setSendingReply(true);
-    try {
-      const token = await getAdminToken?.();
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (token) headers['Authorization'] = `Bearer ${token}`;
-      if (selectedTicket._id) {
-        const r = await fetch(`/api/admin/tickets/${selectedTicket._id}`, {
-          method: 'PATCH', headers,
-          body: JSON.stringify({ reply: replyText, status: 'In Progress' }),
-        });
-        if (r.ok) {
-          setTickets(p => p.map(t => t.id === selectedTicket.id ? { ...t, reply: replyText, status: 'In Progress' } : t));
-          setSelectedTicket((p: any) => ({ ...p, reply: replyText, status: 'In Progress' }));
-          setReplyText('');
-        } else {
-          setCareError(`Failed to send reply (${r.status})`);
-        }
-      } else {
-        setCareError('Selected ticket is missing its database id');
-      }
-    } catch (err: any) {
-      setCareError(err?.message ?? 'Failed to send reply');
-    }
-    setSendingReply(false);
-  };
-
-  const statCols = bp.isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)';
-  const mainCols = bp.isDesktop ? '1fr 1fr' : '1fr';
-
-  return (
-    <CustomerCareErrorBoundary>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', flex: 1 }}>
-      {renderError && (
-        <div style={{ padding: '10px 12px', background: 'rgba(220,38,38,0.08)', border: `1px solid rgba(220,38,38,0.25)`, color: '#fca5a5', fontSize: '13px' }}>
-          Customer Care render error: {renderError}
-        </div>
-      )}
-      {careError && (
-        <div style={{ padding: '10px 12px', background: 'rgba(220,38,38,0.08)', border: `1px solid rgba(220,38,38,0.25)`, color: '#fca5a5', fontSize: '13px' }}>
-          {careError}
-        </div>
-      )}
-      {/* ── STAT CARDS ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: statCols, gap: '3px' }}>
-        {[
-          { label: 'Open Tickets', value: openCount, icon: MessageSquare, color: C.amberL, glow: 'rgba(245,158,11,0.12)' },
-          { label: 'Avg Response', value: '4m 12s', icon: Timer, color: C.greenL, glow: 'rgba(16,185,129,0.12)' },
-          { label: 'Resolved Today', value: resolvedCount, icon: CheckCircle, color: C.indigoL, glow: 'rgba(0,200,224,0.12)' },
-          { label: 'CSAT Score', value: avgSat + '/5', icon: Star, color: C.amberL, glow: 'rgba(245,158,11,0.12)' },
-        ].map((s, i) => (
-          <div key={i} style={{ ...cs, padding: '16px', position: 'relative', overflow: 'hidden' }}>
-            <div style={{ position: 'absolute', top: 0, right: 0, width: '56px', height: '56px', background: s.glow, borderRadius: '0 0 0 56px', pointerEvents: 'none' }} />
-            <s.icon size={16} style={{ color: s.color, marginBottom: '12px' }} />
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', flexWrap: 'wrap' }}>
-              <span style={{ color: C.muted, fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em' }}>{s.label}:</span>
-              <span style={{ color: s.color, fontSize: '12px', fontWeight: 700 }}>{s.value}</span>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* ── MAIN GRID ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: mainCols, gap: '3px', alignItems: 'stretch' }}>
-        {/* LEFT — Support Queue */}
-        <div style={{ ...cs, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-          <div style={{ padding: '14px 16px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap' }}>
-            <h3 style={{ color: C.text, fontWeight: 700, fontSize: '16px', fontFamily: HFONT, margin: 0 }}>Support Queue</h3>
-            <div style={{ display: 'flex', gap: '3px', background: C.bg, padding: '3px', border: `1px solid ${C.border}` }}>
-              {['All', 'Open', 'In Progress', 'Resolved'].map(f => (
-                <button key={f} onClick={() => setFilterStatus(f)} style={{ ...btn, fontSize: '12px', padding: '4px 9px', background: filterStatus === f ? C.indigo : 'transparent', color: filterStatus === f ? 'white' : C.muted, border: 'none', whiteSpace: 'nowrap', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{f}</button>
-              ))}
-            </div>
-          </div>
-          {filtered.map((ticket, idx) => {
-            const priority = PC[ticket?.priority as keyof typeof PC] || PC.Medium;
-            const channelKey = ticket?.channel && ChanIcon[ticket.channel as keyof typeof ChanIcon] ? ticket.channel : 'email';
-            const CI = ChanIcon[channelKey as keyof typeof ChanIcon] || Mail;
-            const sel = selectedTicket?.id === ticket?.id;
-            const isLast = idx === filtered.length - 1;
-            return (
-              <div key={safeTicketId(ticket)} onClick={() => setSelectedTicket(sel ? null : ticket)}
-                style={{ padding: '13px 16px', borderBottom: isLast ? 'none' : `1px solid ${C.border}`, cursor: 'pointer', background: sel ? 'rgba(0,200,224,0.07)' : 'transparent', borderLeft: `3px solid ${sel ? C.indigo : 'transparent'}`, transition: 'background 0.15s' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px', flexWrap: 'wrap' }}>
-                      <span style={{ color: C.muted, fontSize: '12px', fontWeight: 700, letterSpacing: '0.06em' }}>{safeTicketId(ticket)}</span>
-                      <span style={{ fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', padding: '2px 6px', background: priority.bg, color: priority.c, border: `1px solid ${priority.b}`, letterSpacing: '0.05em' }}>{ticket?.priority || 'Medium'}</span>
-                    </div>
-                    <p style={{ color: C.text, fontSize: '14px', fontWeight: 600, fontStyle: 'italic', margin: '0 0 4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ticket?.subject || 'No subject'}</p>
-                    <p style={{ color: C.muted, fontSize: '12px', margin: 0 }}>{safeTicketUser(ticket)} · {ticket?.created || '—'}</p>
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px', marginLeft: '12px', flexShrink: 0 }}>
-                    <span style={{ color: SC[ticket?.status as keyof typeof SC] || C.muted, fontSize: '12px', fontWeight: 700, whiteSpace: 'nowrap' }}>{ticket?.status || 'Open'}</span>
-                    <CI size={12} style={{ color: C.muted }} />
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* RIGHT */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', height: '100%' }}>
-          <div style={{ ...cs, overflow: 'hidden' }}>
-            {selectedTicket ? (
-              <>
-                <div style={{ padding: '12px 16px', borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <div style={{ minWidth: 0, flex: 1 }}>
-                    <p style={{ color: C.muted, fontSize: '12px', fontWeight: 700, margin: 0, letterSpacing: '0.06em' }}>{safeTicketId(selectedTicket)}</p>
-                    <p style={{ color: C.text, fontWeight: 700, fontSize: '14px', margin: '2px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selectedTicket?.subject || 'No subject'}</p>
-                  </div>
-                  <button onClick={() => setSelectedTicket(null)} style={{ ...btn, background: 'transparent', color: C.muted, padding: '4px', marginLeft: '8px' }}><X size={15} /></button>
-                </div>
-                <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                  <div style={{ background: 'rgba(8,14,24,0.6)', padding: '10px 12px', display: 'flex', alignItems: 'center', gap: '10px', borderLeft: `3px solid ${C.indigo}` }}>
-                    <div style={{ width: '34px', height: '34px', background: C.indigo, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 700, color: 'white', flexShrink: 0 }}>
-                      {safeTicketUser(selectedTicket).split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
-                    </div>
-                    <div style={{ minWidth: 0, flex: 1 }}>
-                      <p style={{ color: C.text, fontWeight: 700, fontSize: '14px', margin: 0 }}>{safeTicketUser(selectedTicket)}</p>
-                      <p style={{ color: C.muted, fontSize: '12px', margin: 0 }}>{safeTicketEmail(selectedTicket)}</p>
-                    </div>
-                    <span style={{ fontSize: '12px', fontWeight: 700, padding: '3px 8px', background: selectedTicket?.status === 'Resolved' ? 'rgba(16,185,129,0.1)' : 'rgba(245,158,11,0.1)', color: SC[selectedTicket?.status as keyof typeof SC] || C.muted, border: `1px solid ${(SC[selectedTicket?.status as keyof typeof SC] || C.muted)}40`, whiteSpace: 'nowrap', flexShrink: 0 }}>{selectedTicket?.status || 'Open'}</span>
-                  </div>
-                  <div>
-                    <p style={{ ...lbl }}>Quick Actions</p>
-                    <div style={{ display: 'grid', gridTemplateColumns: bp.isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: '6px' }}>
-                      {[
-                        { label: 'Resolve', icon: CheckCircle, color: C.greenL, bg: 'rgba(16,185,129,0.1)', border: 'rgba(16,185,129,0.2)', action: () => handleResolve(safeTicketId(selectedTicket), selectedTicket?._id ?? 0) },
-                        { label: 'Escalate', icon: AlertTriangle, color: C.amberL, bg: 'rgba(245,158,11,0.1)', border: 'rgba(245,158,11,0.2)', action: () => handleEscalate(safeTicketId(selectedTicket), selectedTicket?._id ?? 0) },
-                        { label: 'Ban User', icon: Ban, color: C.redL, bg: 'rgba(244,63,94,0.1)', border: 'rgba(244,63,94,0.2)', action: () => selectedTicket?.userId ? setActionUser({ name: safeTicketUser(selectedTicket), userId: selectedTicket.userId }) : setCareError('This ticket has no user id to ban') },
-                        { label: 'Re-open', icon: RotateCcw, color: C.blueL, bg: 'rgba(59,130,246,0.1)', border: 'rgba(59,130,246,0.2)', action: async () => { const token = await getAdminToken?.(); const h: any = { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }; if (selectedTicket?.id) await fetch(`/api/admin/tickets/${selectedTicket.id}`, { method: 'PATCH', headers: h, body: JSON.stringify({ status: 'Open' }) }).catch(()=>{}); setTickets(p => p.map(t => t.id === selectedTicket?.id ? { ...t, status: 'Open' } : t)); setSelectedTicket((p: any) => ({ ...p, status: 'Open' })); } },
-                      ].map((b, i) => (
-                        <button key={i} onClick={b.action} style={{ ...btn, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px', padding: '10px 6px', background: b.bg, color: b.color, border: `1px solid ${b.border}`, fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                          <b.icon size={13} />{b.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  <div>
-                    <p style={{ ...lbl }}>Reply to Customer</p>
-                    <textarea value={replyText} onChange={e => setReplyText(e.target.value)} rows={3} placeholder="Type your response..." style={{ ...inp, resize: 'none', display: 'block', fontSize: '14px' }} />
-                    <button onClick={handleSendReply} disabled={sendingReply} style={{ ...btn, marginTop: '8px', width: '100%', background: C.indigo, color: 'white', padding: '10px', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.1em', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', opacity: sendingReply ? 0.6 : 1 }}>
-                      <Send size={12} /> {sendingReply ? 'Sending…' : 'Send Reply'}
-                    </button>
-                  </div>
-                </div>
-              </>
-            ) : (
-              <div style={{ padding: '40px 20px', textAlign: 'center' }}>
-                <div style={{ width: '48px', height: '48px', background: 'rgba(8,14,24,0.8)', border: `1px solid ${C.border2}`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
-                  <MessageSquare size={22} style={{ color: C.border2 }} />
-                </div>
-                <p style={{ color: C.muted, fontSize: '14px', margin: 0, fontWeight: 600 }}>Select a ticket to view details</p>
-                <p style={{ color: '#2d3d52', fontSize: '12px', margin: '4px 0 0' }}>Click any ticket from the queue</p>
-              </div>
-            )}
-          </div>
-          <div style={{ ...cs, overflow: 'hidden', flex: 1 }}>
-            <div style={{ padding: '12px 16px', borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 style={{ color: C.text, fontWeight: 700, fontSize: '16px', fontFamily: HFONT, margin: 0, textTransform: 'uppercase', letterSpacing: '0.07em' }}>User Quick Manage</h3>
-              <Users size={13} style={{ color: C.muted }} />
-            </div>
-            {typeof usersLoadError !== 'undefined' && usersLoadError && (
-              <div style={{ padding: '12px 16px', color: '#fca5a5', fontSize: '13px', borderBottom: `1px solid ${C.border}`, background: 'rgba(220,38,38,0.08)' }}>
-                <div style={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '4px' }}>Load error</div>
-                <div>{usersLoadError}</div>
-              </div>
-            )}
-            {apiUsers.length === 0 ? (
-              <div style={{ padding: '18px 16px', color: C.muted, fontSize: '14px' }}>
-                {typeof usersLoadError !== 'undefined' && usersLoadError ? 'Unable to show users until the error above is fixed.' : 'No users found.'}
-              </div>
-            ) : apiUsers.slice(0, 5).map((u, idx) => {
-              const isAdmin = u.role === 'admin';
-              const displayName = toTitleCase((u.full_name || u.email?.split('@')[0] || 'User') as string);
-              const initials = displayName.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase();
-              const statusColor = isAdmin ? C.amberL : C.green;
-              return (
-                <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 16px', borderBottom: idx < Math.min(apiUsers.length, 5) - 1 ? `1px solid ${C.border}` : 'none' }}>
-                  <div style={{ width: '30px', height: '30px', background: C.border, border: `1px solid ${C.border2}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 700, color: C.text, flexShrink: 0 }}>
-                    {initials}
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ color: C.text, fontSize: '13px', fontWeight: 600, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{displayName}</p>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginTop: '2px' }}>
-                      <div style={{ width: '5px', height: '5px', borderRadius: '50%', background: statusColor }} />
-                      <span style={{ color: statusColor, fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{u.role}</span>
-                    </div>
-                  </div>
-                  {u.country && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginRight: '6px', flexShrink: 0 }}>
-                      <FlagImg country={u.country} size={18} />
-                      <span style={{ color: '#8aa0c2', fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{u.country}</span>
-                    </div>
-                  )}
-                  <Eye size={11} style={{ color: C.muted, flexShrink: 0 }} />
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-
-      {actionUser && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
-          <div style={{ ...cs, padding: '28px', maxWidth: '340px', width: '100%', border: `1px solid rgba(244,63,94,0.3)` }}>
-            <div style={{ width: '44px', height: '44px', background: 'rgba(244,63,94,0.1)', border: `1px solid rgba(244,63,94,0.3)`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-              <Ban size={20} style={{ color: C.redL }} />
-            </div>
-            <p style={{ color: C.text, fontWeight: 700, fontSize: '17px', textAlign: 'center', margin: '0 0 8px' }}>Confirm Ban</p>
-            <p style={{ color: C.muted, fontSize: '14px', textAlign: 'center', margin: '0 0 20px' }}>This will suspend <strong style={{ color: C.text }}>{(actionUser as any)?.name}</strong></p>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-              <button onClick={() => setActionUser(null)} style={{ ...btn, padding: '10px', background: 'transparent', color: C.muted, border: `1px solid ${C.border2}`, fontSize: '14px' }}>Cancel</button>
-              <button onClick={() => setActionUser(null)} style={{ ...btn, padding: '10px', background: '#dc2626', color: 'white', border: 'none', fontSize: '14px' }}>Ban Account</button>
-            </div>
-          </div>
-        </div>
-      )}
-      </div>
-    </CustomerCareErrorBoundary>
-  );
-};
-
 // ─── SYSTEM MONITOR ──────────────────────────────────────────────────────────
 const SERVICE_GROUPS = {
   'Infrastructure': ['Database', 'Auth / Logins', 'Cache Layer', 'App Loading'],
@@ -3267,12 +2901,19 @@ function JournalSettingsTab() {
 // ─── MAIN APP ────────────────────────────────────────────────────────────────
 export default function AdminPanel() {
   const bp = useBreakpoint();
-  const [activeTab, setActiveTab] = useState(() => localStorage.getItem('admin_active_tab') || 'dashboard');
+  // `renderContent` has no default case, so an id it does not know renders an empty page. The
+  // tab was renamed, and a browser that still has the old one saved would land on nothing.
+  const [activeTab, setActiveTab] = useState(() => {
+    const saved = localStorage.getItem('admin_active_tab');
+    return saved === 'customer-care' ? 'support' : (saved || 'dashboard');
+  });
   // MOBILE ONLY. There is no collapsed rail any more — the button that used to toggle one is
   // gone, so a 64px icon-only sidebar had no way to be opened or closed and was deleted with it.
   // On a phone the rail is a drawer that slides over the page; this says whether it is showing.
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const openTickets = MOCK_TICKETS.filter(t => t.status === 'Open').length;
+  // THE RED BADGE WAS A CONSTANT. It counted MOCK_TICKETS — five invented rows in this file —
+  // so it read "2" for ever, whatever was really waiting. It counts real open conversations now.
+  const [openTickets, setOpenTickets] = useState(0);
 
   // ── Admin notifications (Messages + Alerts) ───────────────────────────────
   const adminNotifs = useAdminNotifications();
@@ -3319,7 +2960,6 @@ export default function AdminPanel() {
     staleTime: Infinity,
     select: (data) => Array.isArray(data) ? data : [],
   });
-  const usersLoadError: string | null = usersQueryError ? (usersQueryError as Error).message : null;
 
   const { data: overviewStats = null } = useQuery<any>({
     queryKey: ['/api/admin/stats'],
@@ -3348,6 +2988,20 @@ export default function AdminPanel() {
     fetch('/api/track/my-ip').then(r => r.ok ? r.json() : null).then(d => { if (d) setMyIpInfo(d); }).catch(() => {});
   }, [role, session?.access_token]);
 
+  // How many conversations are actually waiting — the number on the Support badge.
+  useEffect(() => {
+    if (role !== 'admin') return;
+    const h: Record<string, string> = {};
+    if (session?.access_token) h['Authorization'] = `Bearer ${session.access_token}`;
+    fetch('/api/admin/tickets', { headers: h })
+      .then(r => (r.ok ? r.json() : null))
+      .then(rows => {
+        if (!Array.isArray(rows)) return;
+        setOpenTickets(rows.filter((t: any) => (t?.status ?? 'Open') === 'Open').length);
+      })
+      .catch(() => {});
+  }, [role, session?.access_token]);
+
   async function handleRoleChange(userId: string, newRole: string) {
     const token = session?.access_token;
     if (!token) return;
@@ -3372,7 +3026,7 @@ export default function AdminPanel() {
   const SIDEBAR_GROUPS = [
     { label: 'Core',             items: [{ id: 'dashboard',     label: 'Overview',        icon: LayoutDashboard, ready: true }] },
     { label: 'Users',            items: [{ id: 'users',         label: 'User Accounts',   icon: UsersRound,    ready: true }] },
-    { label: 'Support',          items: [{ id: 'customer-care', label: 'Customer Care',   icon: LifeBuoy,      badge: openTickets, ready: true }] },
+    { label: 'Support',          items: [{ id: 'support',       label: 'Support',         icon: LifeBuoy,      badge: openTickets, ready: true }] },
     { label: 'Growth & Content', items: [{ id: 'blog',          label: 'Blogpost',        icon: Newspaper,     ready: true }, { id: 'updates', label: 'Updates', icon: BellRing, ready: true }] },
     { label: 'Platform',         items: [{ id: 'system-monitor', label: 'System Monitor', icon: Gauge, ready: true }, { id: 'sync-performance', label: 'Sync Performance', icon: RefreshCw, ready: true }, { id: 'traffic', label: 'Traffic Analytics', icon: TrendingUp, ready: true }] },
     { label: 'System',           items: [{ id: 'settings',      label: 'System Settings', icon: SlidersHorizontal, ready: true }] },
@@ -3387,7 +3041,9 @@ export default function AdminPanel() {
   const PAGE_HINTS: Record<string, string> = {
     dashboard: 'Traders, signals, traffic and platform health in one place.',
     users: 'Accounts, roles and access.',
-    'customer-care': 'Conversations with traders. Replies notify them in-app.',
+    // NOT "replies notify them" — PATCH /api/admin/tickets/:id writes the reply to the row and
+    // sends nothing at all. Saying otherwise is how an unanswered trader looks answered.
+    support: 'Conversations with traders. Replies are saved against the conversation.',
     blog: 'Articles, drafts and what is published.',
     updates: 'One message out to your traders — in the app, by email, or both.',
     'system-monitor': 'Live service health and resource use.',
@@ -3400,7 +3056,7 @@ export default function AdminPanel() {
   const PAGE_TITLES = {
     dashboard: 'Overview', analytics: 'Analytics & Reports', health: 'Health Dashboard',
     users: 'User Accounts', 'user-activity': 'User Activity', roles: 'Roles & Permissions', flagged: 'Blocked / Flagged',
-    'customer-care': 'Customer Care', feedback: 'User Feedback',
+    support: 'Support', feedback: 'User Feedback',
     reported: 'Reported Content', 'audit-logs': 'Audit Logs', 'data-mgmt': 'Data Management',
     blog: 'Blogpost', updates: 'Updates', announcements: 'Announcements',
     'system-monitor': 'System Monitor', 'usage-metrics': 'Usage Metrics', 'error-logs': 'Error Logs',
@@ -3518,7 +3174,7 @@ export default function AdminPanel() {
       case 'users': return <UsersSection bp={bp} apiUsers={apiUsers} setApiUsers={setApiUsers} getAdminToken={async () => session?.access_token ?? null} />;
       case 'blog': return <BlogSection bp={bp} />;
       case 'updates': return <UpdatesSection bp={bp} getAdminToken={async () => session?.access_token ?? null} />;
-      case 'customer-care': return <CustomerCareSection bp={bp} apiUsers={apiUsers} getAdminToken={async () => session?.access_token ?? null} usersLoadError={usersLoadError} />;
+      case 'support': return <SupportSection bp={bp} getAdminToken={async () => session?.access_token ?? null} />;
       case 'system-monitor': return <SystemMonitorSection bp={bp} getAdminToken={async () => session?.access_token ?? null} />;
       case 'sync-performance': return <SyncPerformanceSection bp={bp} />;
       case 'traffic': return <TrafficSection getAdminToken={async () => session?.access_token ?? null} />;
