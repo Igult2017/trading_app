@@ -183,15 +183,38 @@ function applyAdminTheme(id: string) {
  *  the ORDER inside the stack, not a different family: `'Playfair Display Variable'` comes first.
  *  The variable package carries the continuous 100-900 weight axis, so weight is real at any size,
  *  where the static `'Playfair Display'` this panel used to name first is four fixed cuts. */
+/** The face that carries the small text when the chosen one is a DISPLAY face. His own pick,
+ *  2026-09-05 — "it was Inter for a day." */
+const ADMIN_BODY_SANS = "'Montserrat', system-ui, -apple-system, 'Segoe UI', sans-serif";
+
+/** Faces drawn for headlines: very thick stems next to hairline thin strokes. That contrast is
+ *  what makes them handsome at 28px and unreadable at 13. */
+const DISPLAY_FACES = new Set(['playfair-display']);
+
 function applyAdminFont(id: string) {
   const f = ADMIN_FONTS.find(o => o.id === id) ?? ADMIN_FONTS[0];
-  // ONE FACE, EVERYWHERE. There used to be a second, sans face for text that is read, on the
-  // reasoning in docs/READABILITY.md that a display serif is mush at body sizes. He rejected that
-  // twice — the panel is meant to be set in the chosen face throughout, as the blog screen already
-  // is. What makes it legible is not a second family, it is weight and size: the shell below sets a
-  // 600 floor, and `panelText()` in admin-ui/tokens.ts carries the measured size ladder.
+  // TWO ROLES, AND THE SPLIT IS BACK — the mistake last time was WHICH side got which face.
+  //
+  // For one day the whole panel was set in the chosen face. He looked at it and said the text was
+  // blurred, and he is right; it is measurable. Rendering the same words at the same size and
+  // counting the ink that actually lands on the pixels:
+  //
+  //     "New user registrations by month"  13px/600   Playfair 19.8%   Montserrat 24.3%
+  //     "Henry Otieno"                     15px/600   Playfair 22.3%   Montserrat 25.0%
+  //     "210m 2s"                          32px/600   Playfair 33.8%   Montserrat 34.5%
+  //
+  // A quarter of the ink is missing at caption size and NONE of it is missing at 32px. That is the
+  // whole story: the face is fine doing the job it was drawn for and thin doing any other. No
+  // weight and no size inside the body range closes the gap, because it is the shape of the
+  // typeface and not a setting — which is why raising the weight to 600 everywhere did not fix it.
+  //
+  // So the chosen face keeps every DISPLAY role — page titles, card titles, the big figures, the
+  // navigation rail — and the small text that is actually read takes the sans. What went wrong the
+  // first time round was that the headings went sans as well, which took the chosen face off the
+  // screen entirely and is what he was objecting to. `--admin-header-font` is what stops that.
+  const isDisplay = DISPLAY_FACES.has(f.id);
   document.documentElement.style.setProperty('--admin-header-font', f.stack);
-  document.documentElement.style.setProperty('--admin-font', f.stack);
+  document.documentElement.style.setProperty('--admin-font', isDisplay ? ADMIN_BODY_SANS : f.stack);
 }
 
 // Apply saved preferences immediately on module load
@@ -542,7 +565,7 @@ const UsersSection = ({ bp, apiUsers, setApiUsers, getAdminToken }: { bp: any; a
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
           <div style={{ ...cs, width: '100%', maxWidth: '360px', padding: '24px', border: `1px solid ${C.border2}` }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-              <h3 style={{ color: C.text, fontWeight: 700, fontSize: '15px', fontFamily: HFONT, margin: 0 }}>Grant Journal Access</h3>
+              <h3 style={{ color: C.text, fontWeight: 700, fontSize: '16px', fontFamily: HFONT, margin: 0 }}>Grant Journal Access</h3>
               <button onClick={() => setGrantAccessUserId(null)} style={{ ...btn, background: 'transparent', color: C.muted, border: 'none', padding: '4px' }}><X size={16} /></button>
             </div>
             <p style={{ color: C.muted, fontSize: '13px', marginBottom: '16px', lineHeight: 1.5 }}>
@@ -574,7 +597,7 @@ const UsersSection = ({ bp, apiUsers, setApiUsers, getAdminToken }: { bp: any; a
             <div style={{ width: '44px', height: '44px', background: 'rgba(244,63,94,0.1)', border: `1px solid rgba(244,63,94,0.3)`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
               <Trash2 size={20} style={{ color: C.redL }} />
             </div>
-            <p style={{ color: C.text, fontWeight: 700, fontFamily: HFONT, fontSize: '15px', textAlign: 'center', margin: '0 0 6px' }}>Delete Account</p>
+            <p style={{ color: C.text, fontWeight: 700, fontFamily: HFONT, fontSize: '16px', textAlign: 'center', margin: '0 0 6px' }}>Delete Account</p>
             <p style={{ color: C.muted, fontSize: '13px', textAlign: 'center', margin: '0 0 20px', lineHeight: 1.5 }}>
               You are about to delete <strong style={{ color: C.text }}>{deleteTarget.name}</strong>.<br />This cannot be undone.
             </p>
@@ -610,7 +633,7 @@ const UsersSection = ({ bp, apiUsers, setApiUsers, getAdminToken }: { bp: any; a
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
           <div style={{ ...cs, width: '100%', maxWidth: '360px', padding: '24px', border: `1px solid ${C.border2}` }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-              <h3 style={{ color: C.text, fontWeight: 700, fontSize: '15px', fontFamily: HFONT, margin: 0 }}>Invite User</h3>
+              <h3 style={{ color: C.text, fontWeight: 700, fontSize: '16px', fontFamily: HFONT, margin: 0 }}>Invite User</h3>
               <button onClick={() => setShowInvite(false)} style={{ ...btn, background: 'transparent', color: C.muted, border: 'none', padding: '4px' }}><X size={16} /></button>
             </div>
             <label style={{ ...lbl }}>Email Address</label>
@@ -807,7 +830,7 @@ const CustomerCareSection = ({ bp, apiUsers = [], getAdminToken = null, usersLoa
         {/* LEFT — Support Queue */}
         <div style={{ ...cs, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
           <div style={{ padding: '14px 16px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap' }}>
-            <h3 style={{ color: C.text, fontWeight: 700, fontSize: '14px', fontFamily: HFONT, margin: 0 }}>Support Queue</h3>
+            <h3 style={{ color: C.text, fontWeight: 700, fontSize: '16px', fontFamily: HFONT, margin: 0 }}>Support Queue</h3>
             <div style={{ display: 'flex', gap: '3px', background: C.bg, padding: '3px', border: `1px solid ${C.border}` }}>
               {['All', 'Open', 'In Progress', 'Resolved'].map(f => (
                 <button key={f} onClick={() => setFilterStatus(f)} style={{ ...btn, fontSize: '12px', padding: '4px 9px', background: filterStatus === f ? C.indigo : 'transparent', color: filterStatus === f ? 'white' : C.muted, border: 'none', whiteSpace: 'nowrap', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{f}</button>
@@ -901,7 +924,7 @@ const CustomerCareSection = ({ bp, apiUsers = [], getAdminToken = null, usersLoa
           </div>
           <div style={{ ...cs, overflow: 'hidden', flex: 1 }}>
             <div style={{ padding: '12px 16px', borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 style={{ color: C.text, fontWeight: 700, fontSize: '13px', fontFamily: HFONT, margin: 0, textTransform: 'uppercase', letterSpacing: '0.07em' }}>User Quick Manage</h3>
+              <h3 style={{ color: C.text, fontWeight: 700, fontSize: '16px', fontFamily: HFONT, margin: 0, textTransform: 'uppercase', letterSpacing: '0.07em' }}>User Quick Manage</h3>
               <Users size={13} style={{ color: C.muted }} />
             </div>
             {typeof usersLoadError !== 'undefined' && usersLoadError && (
@@ -1803,7 +1826,7 @@ const SystemMonitorSection = ({ bp, getAdminToken = null }: { bp: any; getAdminT
           return (
             <div key={group} style={{ ...cs, overflow: 'hidden' }}>
               <div style={{ padding: '10px 16px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <h3 style={{ color: C.text, fontWeight: 700, fontSize: '12px', fontFamily: HFONT, margin: 0, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{group}</h3>
+                <h3 style={{ color: C.text, fontWeight: 700, fontSize: '16px', fontFamily: HFONT, margin: 0, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{group}</h3>
                 <div style={{ width: 7, height: 7, borderRadius: '50%', background: loadingHealth ? C.muted : groupBad ? C.red : groupOk ? C.green : C.muted, boxShadow: loadingHealth ? 'none' : groupBad ? `0 0 5px ${C.red}` : `0 0 5px ${C.green}` }} />
               </div>
               {groupSvcs.map((svc: any, i: number) => {
@@ -1869,7 +1892,7 @@ const SystemMonitorSection = ({ bp, getAdminToken = null }: { bp: any; getAdminT
             {/* Calendar */}
             <div style={{ ...cs, overflow: 'hidden' }}>
               <div style={{ padding: '10px 16px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <h3 style={{ color: C.text, fontWeight: 700, fontSize: '12px', fontFamily: HFONT, margin: 0, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Economic Calendar</h3>
+                <h3 style={{ color: C.text, fontWeight: 700, fontSize: '16px', fontFamily: HFONT, margin: 0, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Economic Calendar</h3>
                 {dot(cal ? cal.eventCount > 0 : null)}
               </div>
               <Row label="Source">{cal ? <span style={{ color: srcColor(cal.source) }}>{srcLabel(cal.source)}</span> : '—'}</Row>
@@ -1882,7 +1905,7 @@ const SystemMonitorSection = ({ bp, getAdminToken = null }: { bp: any; getAdminT
             {/* Interest rates */}
             <div style={{ ...cs, overflow: 'hidden' }}>
               <div style={{ padding: '10px 16px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <h3 style={{ color: C.text, fontWeight: 700, fontSize: '12px', fontFamily: HFONT, margin: 0, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Interest Rates</h3>
+                <h3 style={{ color: C.text, fontWeight: 700, fontSize: '16px', fontFamily: HFONT, margin: 0, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Interest Rates</h3>
                 {dot(rates ? rates.liveCount > 0 : null)}
               </div>
               <Row label="Live">{rates ? <span style={{ color: rates.liveCount > 0 ? C.greenL : C.muted }}>{rates.liveCount} currencies</span> : '—'}</Row>
@@ -1895,7 +1918,7 @@ const SystemMonitorSection = ({ bp, getAdminToken = null }: { bp: any; getAdminT
             {/* Signal monitor */}
             <div style={{ ...cs, overflow: 'hidden' }}>
               <div style={{ padding: '10px 16px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <h3 style={{ color: C.text, fontWeight: 700, fontSize: '12px', fontFamily: HFONT, margin: 0, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Signal Monitor</h3>
+                <h3 style={{ color: C.text, fontWeight: 700, fontSize: '16px', fontFamily: HFONT, margin: 0, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Signal Monitor</h3>
                 {dot(sig ? sig.running : null)}
               </div>
               <Row label="Status">{sig ? <span style={{ color: sig.running ? C.greenL : C.muted }}>{sig.running ? 'Running' : 'Stopped'}</span> : '—'}</Row>
@@ -1907,7 +1930,7 @@ const SystemMonitorSection = ({ bp, getAdminToken = null }: { bp: any; getAdminT
             {/* DB pool */}
             <div style={{ ...cs, overflow: 'hidden' }}>
               <div style={{ padding: '10px 16px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <h3 style={{ color: C.text, fontWeight: 700, fontSize: '12px', fontFamily: HFONT, margin: 0, textTransform: 'uppercase', letterSpacing: '0.08em' }}>DB Connection Pool</h3>
+                <h3 style={{ color: C.text, fontWeight: 700, fontSize: '16px', fontFamily: HFONT, margin: 0, textTransform: 'uppercase', letterSpacing: '0.08em' }}>DB Connection Pool</h3>
                 {dot(db ? db.waiting === 0 : null)}
               </div>
               <Row label="Total connections">{db?.total ?? '—'}</Row>
@@ -1922,7 +1945,7 @@ const SystemMonitorSection = ({ bp, getAdminToken = null }: { bp: any; getAdminT
         <div style={{ ...cs, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
           <div style={{ padding: '12px 16px', borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <h3 style={{ color: C.text, fontWeight: 700, margin: 0, fontSize: '13px', fontFamily: HFONT, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Live Event Log</h3>
+              <h3 style={{ color: C.text, fontWeight: 700, margin: 0, fontSize: '16px', fontFamily: HFONT, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Live Event Log</h3>
               {errorCount > 0 && <span style={{ fontSize: '12px', fontWeight: 700, padding: '2px 8px', background: 'rgba(244,63,94,0.12)', color: C.redL, border: `1px solid rgba(244,63,94,0.25)`, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{errorCount} errors</span>}
               {warnCount > 0 && <span style={{ fontSize: '12px', fontWeight: 700, padding: '2px 8px', background: 'rgba(245,158,11,0.12)', color: C.amberL, border: `1px solid rgba(245,158,11,0.25)`, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{warnCount} warn</span>}
             </div>
@@ -2789,7 +2812,7 @@ const GrowthAnalyticsCard = ({ monthlyData = null, dailyData = null }: { monthly
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         marginBottom: 20, flexWrap: 'wrap', gap: 8 }}>
         <div>
-          <h3 style={{ color: C.text, fontWeight: 700, fontSize: 13, fontFamily: HFONT, margin: '0 0 2px',
+          <h3 style={{ color: C.text, fontWeight: 700, fontSize: 16, fontFamily: HFONT, margin: '0 0 2px',
             display: 'flex', alignItems: 'center', gap: 7 }}>
             <TrendingUp size={14} style={{ color: C.greenL }} /> Growth Analytics
           </h3>
@@ -3002,7 +3025,7 @@ const SettingsSection = ({ bp, getAdminToken = null }: { bp: any; getAdminToken?
         <div style={{ display: 'grid', gridTemplateColumns: bp.isDesktop ? '1fr 1fr' : '1fr', gap: '6px', alignItems: 'start' }}>
           <div style={{ ...cs, overflow: 'hidden' }}>
             <div style={{ padding: '14px 16px', borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 style={{ color: C.text, fontWeight: 700, fontSize: '13px', fontFamily: HFONT, margin: 0 }}>Customer Care Agents</h3>
+              <h3 style={{ color: C.text, fontWeight: 700, fontSize: '16px', fontFamily: HFONT, margin: 0 }}>Customer Care Agents</h3>
               <button onClick={() => setShowNewAgent(true)} style={{ ...btn, display: 'flex', alignItems: 'center', gap: '6px', background: C.indigo, color: 'white', padding: '7px 13px', fontSize: '12px', border: 'none' }}><Plus size={12} /> New Agent</button>
             </div>
             {ccUsers.map((user, idx) => (
@@ -3026,7 +3049,7 @@ const SettingsSection = ({ bp, getAdminToken = null }: { bp: any; getAdminToken?
 
           <div style={{ ...cs, overflow: 'hidden' }}>
             <div style={{ padding: '14px 16px', borderBottom: `1px solid ${C.border}` }}>
-              <h3 style={{ color: C.text, fontWeight: 700, fontSize: '13px', fontFamily: HFONT, margin: 0 }}>
+              <h3 style={{ color: C.text, fontWeight: 700, fontSize: '16px', fontFamily: HFONT, margin: 0 }}>
                 {selectedAgent ? `Permissions — ${toTitleCase(selectedAgent.name)}` : 'Select an agent to edit permissions'}
               </h3>
             </div>
@@ -3062,7 +3085,7 @@ const SettingsSection = ({ bp, getAdminToken = null }: { bp: any; getAdminToken?
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
           <div style={{ ...cs, width: '100%', maxWidth: '480px', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
             <div style={{ padding: '18px 22px', borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 style={{ color: C.text, fontWeight: 700, fontSize: '15px', fontFamily: HFONT, margin: 0 }}>Create CC Agent</h3>
+              <h3 style={{ color: C.text, fontWeight: 700, fontSize: '16px', fontFamily: HFONT, margin: 0 }}>Create CC Agent</h3>
               <button onClick={() => setShowNewAgent(false)} style={{ ...btn, background: 'transparent', color: C.muted, padding: '4px', border: 'none' }}><X size={16} /></button>
             </div>
             <div style={{ padding: '20px 22px', flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '14px' }}>
@@ -3104,7 +3127,7 @@ const SettingsSection = ({ bp, getAdminToken = null }: { bp: any; getAdminToken?
       {settingsTab === 'tasks' && (
         <div style={{ ...cs, overflow: 'hidden' }}>
           <div style={{ padding: '14px 16px', borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <h3 style={{ color: C.text, fontWeight: 700, fontSize: '13px', fontFamily: HFONT, margin: 0 }}>Scheduled Tasks</h3>
+            <h3 style={{ color: C.text, fontWeight: 700, fontSize: '16px', fontFamily: HFONT, margin: 0 }}>Scheduled Tasks</h3>
             <button onClick={() => setShowNewTask(true)} style={{ ...btn, display: 'flex', alignItems: 'center', gap: '6px', background: C.indigo, color: 'white', padding: '7px 13px', fontSize: '12px', border: 'none' }}><Plus size={12} /> Schedule Task</button>
           </div>
           <div style={{ overflowX: 'auto' }}>
@@ -3143,7 +3166,7 @@ const SettingsSection = ({ bp, getAdminToken = null }: { bp: any; getAdminToken?
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
           <div style={{ ...cs, width: '100%', maxWidth: '420px' }}>
             <div style={{ padding: '18px 22px', borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 style={{ color: C.text, fontWeight: 700, fontSize: '15px', fontFamily: HFONT, margin: 0 }}>Schedule Task</h3>
+              <h3 style={{ color: C.text, fontWeight: 700, fontSize: '16px', fontFamily: HFONT, margin: 0 }}>Schedule Task</h3>
               <button onClick={() => setShowNewTask(false)} style={{ ...btn, background: 'transparent', color: C.muted, padding: '4px', border: 'none' }}><X size={16} /></button>
             </div>
             <div style={{ padding: '20px 22px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
@@ -3168,7 +3191,7 @@ const SettingsSection = ({ bp, getAdminToken = null }: { bp: any; getAdminToken?
       {settingsTab === 'appearance' && (
         <div style={{ display: 'grid', gridTemplateColumns: bp.isDesktop ? '1fr 1fr' : '1fr', gap: '6px' }}>
           <div style={{ ...cs, padding: '20px' }}>
-            <h3 style={{ color: C.text, fontWeight: 700, fontSize: '13px', fontFamily: HFONT, margin: '0 0 16px', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Dashboard Theme</h3>
+            <h3 style={{ color: C.text, fontWeight: 700, fontSize: '16px', fontFamily: HFONT, margin: '0 0 16px', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Dashboard Theme</h3>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
               {THEME_OPTIONS.map(theme => (
                 <button key={theme.id} onClick={() => selectTheme(theme.id)} style={{ ...btn, padding: '0', overflow: 'hidden', border: `2px solid ${activeTheme === theme.id ? C.indigo : C.border}`, background: 'transparent', textAlign: 'left' }}>
@@ -3193,7 +3216,7 @@ const SettingsSection = ({ bp, getAdminToken = null }: { bp: any; getAdminToken?
           </div>
 
           <div style={{ ...cs, padding: '20px' }}>
-            <h3 style={{ color: C.text, fontWeight: 700, fontSize: '13px', fontFamily: HFONT, margin: '0 0 16px', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Dashboard Font</h3>
+            <h3 style={{ color: C.text, fontWeight: 700, fontSize: '16px', fontFamily: HFONT, margin: '0 0 16px', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Dashboard Font</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {ADMIN_FONTS.map(font => (
                 <button key={font.id} onClick={() => { setActiveFont(font.id); setFontSaved(false); }} style={{ ...btn, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', background: activeFont === font.id ? 'rgba(0,200,224,0.08)' : 'rgba(8,14,24,0.4)', border: `1px solid ${activeFont === font.id ? 'rgba(0,200,224,0.35)' : C.border}`, textAlign: 'left' }}>
@@ -3468,7 +3491,7 @@ export default function AdminPanel() {
           <div style={{ display: 'grid', gridTemplateColumns: dashMainCols, gap: '6px', alignItems: 'stretch', flex: 1 }}>
             <GrowthAnalyticsCard monthlyData={overviewStats?.signupsByMonth ?? null} dailyData={overviewStats?.signupsByDay ?? null} />
             <div style={{ ...cs, padding: '20px', display: 'flex', flexDirection: 'column' }}>
-              <h3 style={{ color: C.text, fontWeight: 700, fontStyle: 'italic', fontSize: '13px', fontFamily: HFONT, margin: '0 0 16px' }}>Recent Activity</h3>
+              <h3 style={{ color: C.text, fontWeight: 700, fontSize: '16px', fontFamily: HFONT, margin: '0 0 16px' }}>Recent Activity</h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                 {overviewStats?.recentActivity?.length > 0
                   ? overviewStats.recentActivity.map((a: any, i: number) => (
