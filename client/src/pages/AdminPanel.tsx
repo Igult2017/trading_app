@@ -10,8 +10,6 @@ import {
 } from 'recharts';
 import { useAdminNotifications, AdminNotificationsPanel } from '@/features/admin-notifications';
 
-import JournalSettingsPanel from '@/components/JournalSettingsPanel';
-import { useJournalSettings, THEMES } from '@/hooks/useJournalSettings';
 import { useLocation } from 'wouter';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
@@ -24,8 +22,8 @@ import {
   Users, FileText, BellRing, Smartphone, Search, TrendingUp,
   Plus, Mail, Bell, UserPlus, ShieldCheck,
   Globe, Clock, Cpu, Activity, Zap, AlertTriangle, CheckCircle,
-  Database, Eye, EyeOff, Pencil, Trash2, Send, X, ExternalLink,
-  LayoutDashboard, UsersRound, LifeBuoy, Newspaper, Gauge, RefreshCw, SlidersHorizontal, NotebookPen
+  Database, Eye, EyeOff, Pencil, Trash2, Send, X,
+  LayoutDashboard, UsersRound, LifeBuoy, Newspaper, Gauge, RefreshCw, SlidersHorizontal
 } from 'lucide-react';
 
 // ─── BREAKPOINT HOOK ─────────────────────────────────────────────────────────
@@ -2878,26 +2876,6 @@ const SettingsSection = ({ bp, getAdminToken = null }: { bp: any; getAdminToken?
 };
 
 // ─── JOURNAL SETTINGS TAB ────────────────────────────────────────────────────
-function JournalSettingsTab() {
-  const { settings, setSettings } = useJournalSettings();
-  const T = THEMES[settings.theme];
-  return (
-    <div style={{ flex: 1, overflowY: 'auto', background: T.bg, minHeight: '100vh' }}>
-      <JournalSettingsPanel
-        theme={settings.theme}
-        font={settings.font}
-        onThemeChange={(t) => setSettings({ theme: t })}
-        onFontChange={(f) => setSettings({ font: f })}
-        hiddenPanels={settings.hiddenPanels ?? []}
-        onTogglePanel={(id) => {
-          const cur = settings.hiddenPanels ?? [];
-          setSettings({ hiddenPanels: cur.includes(id) ? cur.filter(p => p !== id) : [...cur, id] });
-        }}
-      />
-    </div>
-  );
-}
-
 // ─── MAIN APP ────────────────────────────────────────────────────────────────
 export default function AdminPanel() {
   const bp = useBreakpoint();
@@ -2905,7 +2883,9 @@ export default function AdminPanel() {
   // tab was renamed, and a browser that still has the old one saved would land on nothing.
   const [activeTab, setActiveTab] = useState(() => {
     const saved = localStorage.getItem('admin_active_tab');
-    return saved === 'customer-care' ? 'support' : (saved || 'dashboard');
+    if (saved === 'customer-care') return 'support';        // renamed
+    if (saved === 'journal-settings') return 'dashboard';    // deleted
+    return saved || 'dashboard';
   });
   // MOBILE ONLY. There is no collapsed rail any more — the button that used to toggle one is
   // gone, so a 64px icon-only sidebar had no way to be opened or closed and was deleted with it.
@@ -3030,7 +3010,6 @@ export default function AdminPanel() {
     { label: 'Growth & Content', items: [{ id: 'blog',          label: 'Blogpost',        icon: Newspaper,     ready: true }, { id: 'updates', label: 'Updates', icon: BellRing, ready: true }] },
     { label: 'Platform',         items: [{ id: 'system-monitor', label: 'System Monitor', icon: Gauge, ready: true }, { id: 'sync-performance', label: 'Sync Performance', icon: RefreshCw, ready: true }, { id: 'traffic', label: 'Traffic Analytics', icon: TrendingUp, ready: true }] },
     { label: 'System',           items: [{ id: 'settings',      label: 'System Settings', icon: SlidersHorizontal, ready: true }] },
-    { label: 'Journal',          items: [{ id: 'journal-settings', label: 'Journal Settings', icon: NotebookPen, ready: true }] },
   ];
 
   /** One line per screen saying what it is for. Short and factual — this is the panel describing
@@ -3050,7 +3029,6 @@ export default function AdminPanel() {
     'sync-performance': 'How broker syncing is behaving.',
     traffic: 'Where visitors come from and what they read.',
     settings: 'Platform-wide configuration.',
-    'journal-settings': 'How the trading journal looks and behaves.',
   };
 
   const PAGE_TITLES = {
@@ -3075,7 +3053,6 @@ export default function AdminPanel() {
     const activeColor = isActive ? '#ffffff' : isSoon ? C.railDim : C.railDim;
     const iconColor = isActive ? '#ffffff' : C.railDim;
     const handleClick = () => {
-      if (item.id === 'journal') { navigate('/journal'); return; }
       setActiveTab(item.id);
       localStorage.setItem('admin_active_tab', item.id);
       if (bp.isMobile) setDrawerOpen(false);
@@ -3091,7 +3068,6 @@ export default function AdminPanel() {
         {isSoon && (
           <span style={{ fontSize: '12px', fontWeight: 700, padding: '1px 5px', background: 'rgba(245,158,11,0.08)', color: '#6b5020', border: '1px solid rgba(245,158,11,0.15)', textTransform: 'uppercase', letterSpacing: '0.06em', flexShrink: 0 }}>soon</span>
         )}
-        {item.id === 'journal' && <ExternalLink size={10} style={{ color: C.muted, flexShrink: 0 }} />}
         {item.badge > 0 && (
           <span style={{ background: C.red, color: 'white', fontSize: '12px', fontWeight: 700, padding: '1px 5px', flexShrink: 0, minWidth: '16px', textAlign: 'center' }}>{item.badge}</span>
         )}
@@ -3179,7 +3155,6 @@ export default function AdminPanel() {
       case 'sync-performance': return <SyncPerformanceSection bp={bp} />;
       case 'traffic': return <TrafficSection getAdminToken={async () => session?.access_token ?? null} />;
       case 'settings': return <SettingsSection bp={bp} getAdminToken={async () => session?.access_token ?? null} />;
-      case 'journal-settings': return <JournalSettingsTab />;
 
     }
   };

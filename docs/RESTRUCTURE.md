@@ -103,7 +103,7 @@ trading_app/
 | `CopyManagementDashboard.tsx`, `components/copy/` | `platforms/journal/panels/fx-copier/` |
 | `CreateSession.tsx`, `TradingSession.tsx` | `platforms/journal/panels/sessions/` |
 | `TradingSignals.tsx`, `components/assets/` | `platforms/journal/panels/assets/` |
-| `AppSidebar.tsx`, `JournalHeader.tsx`, `JournalSettingsPanel.tsx`, `JournalPaywall.tsx` | `platforms/journal/shell/` |
+| `AppSidebar.tsx`, `JournalHeader.tsx`, `JournalPaywall.tsx` | `platforms/journal/shell/` |
 | `HomeHeader/HomeFooter/HomeStatsSection/PricingSection/TestimonialsSection/StartFreeButton` | `platforms/public/marketing/` |
 | `BlogPostEditor.tsx` | `platforms/public/blog/` |
 | `SignalPlatformStatus.tsx` | `platforms/admin/` |
