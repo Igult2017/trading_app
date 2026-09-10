@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { THEMES, FONTS } from '@/hooks/useJournalSettings';
 import type { ThemeId, FontId, ThemeDef, FontDef } from '@/hooks/useJournalSettings';
-import { Card, SectionHead, GroupLabel, Check, cardShadow } from './ui';
+import { Card, SectionHead, GroupLabel, Check, cardShadow, inkOn } from './ui';
 
 /**
  * Theme and typography, with a preview that stays on screen while you change them.
@@ -106,11 +106,14 @@ export default function AppearanceSection({ theme, font, onThemeChange, onFontCh
                               textTransform: 'uppercase', color: active ? T.accent : T.textMuted }}>
                   {def.label}
                 </div>
+                {/* The ink is set on the CHIP, so the tick (which draws in currentColor) gets it
+                    too rather than inheriting whatever the card behind it happens to use. */}
                 {active && (
                   <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, marginTop: 10,
-                                padding: '3px 9px', background: T.accent, borderRadius: 999 }}>
+                                padding: '3px 9px', background: T.accent, borderRadius: 999,
+                                color: inkOn(T.accent) }}>
                     <Check size={8} />
-                    <span style={{ fontSize: 11, color: '#fff', fontWeight: 700, letterSpacing: '0.06em' }}>ACTIVE</span>
+                    <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.06em' }}>ACTIVE</span>
                   </div>
                 )}
               </button>

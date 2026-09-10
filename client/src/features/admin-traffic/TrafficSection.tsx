@@ -1,32 +1,40 @@
 import { Globe } from 'lucide-react';
+import { C, cs, FONT, panelText } from '@/components/admin-ui/tokens';
 
-const C = {
-  card: 'var(--admin-card)', border: 'var(--admin-border)',
-  text: '#c2d8ef', muted: '#4e6a88', indigoL: 'var(--admin-accentL)',
-};
-const HFONT = 'var(--admin-header-font)';
-
-// Umami was removed to free server resources. This section now shows a neutral
-// empty state until an analytics provider is reconnected.
+/**
+ * Traffic Analytics — an empty state, until an analytics provider is reconnected.
+ *
+ * Umami was removed to free server resources. `CountryTable`, `PagesTable` and `SourceChart` went
+ * with it on 2026-09-10: they were still sitting in this folder with nothing importing them.
+ *
+ * IT USED TO CARRY ITS OWN PALETTE — `text: '#c2d8ef'`, plus a heading hardcoded to `white`. Both
+ * were written when every admin card was near-black. On the white card the panel uses now, that
+ * heading measured **1.07:1** against its background and the body text 1.46:1, which is invisible
+ * rather than merely faint. A private colour table is how a screen misses a theme change, so this
+ * one reads the shared palette like everything else.
+ *
+ * It also drew its own "Traffic Analytics" title, which the shell already renders above it from
+ * `PAGE_TITLES` — two headings, one of them unreadable. The shell's is the one that stays.
+ */
 export default function TrafficSection(_props: { getAdminToken?: () => Promise<string | null> }) {
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '4px 2px 10px', flexShrink: 0 }}>
-        <Globe size={18} style={{ color: C.indigoL }} />
-        <h2 style={{ color: 'white', fontSize: 16, fontWeight: 700, fontFamily: HFONT, margin: 0 }}>
-          Traffic Analytics
-        </h2>
-      </div>
-
       <div style={{
+        ...cs,
         flex: 1, minHeight: 360, display: 'flex', flexDirection: 'column',
-        alignItems: 'center', justifyContent: 'center', textAlign: 'center', gap: 10,
-        border: `1px dashed ${C.border}`, borderRadius: 6, background: C.card, padding: 32,
+        alignItems: 'center', justifyContent: 'center', textAlign: 'center', gap: 12,
+        padding: 32,
       }}>
-        <Globe size={32} style={{ color: C.muted, opacity: 0.6 }} />
-        <div style={{ color: C.text, fontSize: 14, fontWeight: 600 }}>Analytics not configured</div>
-        <div style={{ color: C.muted, fontSize: 12, maxWidth: 360, lineHeight: 1.6 }}>
-          Umami was removed to free server resources. Connect an analytics provider to show traffic here.
+        <div style={{
+          width: 52, height: 52, borderRadius: 14, background: C.accentSoft, color: C.indigo,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <Globe size={24} />
+        </div>
+        <div style={{ ...panelText(15, 700), color: C.text }}>Analytics not configured</div>
+        <div style={{ ...panelText(13), color: C.muted, maxWidth: 380, lineHeight: 1.6, fontFamily: FONT }}>
+          Umami was removed to free server resources. Connect an analytics provider to show traffic
+          here.
         </div>
       </div>
     </div>

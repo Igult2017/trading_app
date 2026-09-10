@@ -280,11 +280,72 @@ one line:
 not in prose — `serifText()` in `client/src/components/admin-ui/tokens.ts` clamps size and weight, and
 carries the table above. Call it rather than writing `fontFamily` and `fontSize` by hand.
 
-**Scope.** This exception covers the admin **blog** screen only, because that is the screen he pointed
-at. Every other admin screen keeps the split — Playfair for headings, Montserrat for read-text. The
-`hintStyle` prop on `PageHeader` and the `font` prop on `Pill` exist for exactly this: they let one
-screen opt in without dragging the others with it.
+**Scope — WIDENED 2026-09-10 to the whole admin panel.** It covered the blog screen for one day.
+He then asked for the same thing everywhere: *"work on font type of used in the whole admin panel"*.
+`applyAdminFont` no longer splits the two variables — `--admin-font` and `--admin-header-font` both
+take whatever the Appearance picker is set to, and the Montserrat body face is gone. Measured after:
+40 of 40 text elements on the Overview resolve to `Playfair Display Variable`, against 33 Montserrat
+to 7 Playfair before.
+
+**What made that safe was doing the size and weight at the same time**, not the family swap:
+
+* the shell's base-weight rule went 500 → 600, and the 5 inline weights below 600 that beat a
+  stylesheet were lifted with it;
+* `lbl` went 12px/.1em → 13px/.06em, `inp` 14px/500 → 15px/600, the nav labels 14.5px/500 →
+  15px/600, `StatCard`'s label and caption and `Panel`'s hint all to 13px — every one of those was
+  sitting on a rung the table above rejects;
+* the chart's own labels went 10px/9px → 12px/11px, over this project's 11px floor.
+
+`serifText` is now `panelText` and reads `FONT` rather than naming Playfair, so a different pick in
+the Appearance picker carries the whole panel — including the blog screen, which used to hardcode
+the serif and would have been the one screen that ignored the setting. The `font` prop on `Pill` went
+with it; there is only one face to choose from now.
 
 **One renderer.** These percentages are Chromium on Windows, which is what the panel is read in. A
 different rasteriser would shift the exact numbers; the weight trend holds regardless.
+
+---
+
+## THE ADMIN PANEL'S FAINT TEXT WAS ONE CAUSE, REPEATED — a dark theme's colours left on a white card
+
+Measured 2026-09-10 across all ten admin screens, 482 text elements, reading the rendered page rather
+than the source. **113 failures at the start, 0 at the end.**
+
+His words were *"fix blurred text in white background"*. Every single failure had the same origin:
+the panel used to be dark-only, and the colours picked for a near-black card were still in place
+after it went white. A bright green reads well on black and measures **2.58:1** on white.
+
+| what | was | measured on white |
+|---|---|---|
+| growth KPI figures | `#e2e8f0` | **1.23:1** |
+| System Monitor service names | `#cbd5e1` (the *divider* token, used as text) | **1.48:1** |
+| Traffic Analytics heading | `color: 'white'` | **1.07:1** |
+| "Resolved", "+25%", response time | `greenL #12b873` | 2.58:1 |
+| ticket counts | `accentL #00c8e0` | 2.03:1 |
+| "High", "Open", ratings | `amberL #d97706` | 3.19:1 |
+| "Medium", "In Progress" | `blueL #3b82f6` | 3.68:1 |
+| "Critical" | `redL #ef4444` | 3.76:1 |
+| users table head | a `#080e18` strip on a white table | 3.55:1 |
+| chart gridlines + baseline | `rgba(255,255,255,0.035)` | invisible |
+
+**The root cause, and the fix that is not a symptom fix.** The status colours were **fixed literals
+in `tokens.ts`, shared by all five palettes.** That can only work while every palette is dark. They
+are now part of the palette itself, so each theme names its own — the four dark palettes keep exactly
+the values they already had, and `light` gets ones measured against `#ffffff`:
+green `#046c4e`, red `#b91c1c`, amber `#92400e`, blue `#1e40af`, accentL `#086070`.
+
+**Two things worth carrying forward:**
+
+1. **`dim` is a hairline colour and was being read as a text colour.** `C.dim` is `#cbd5e1` on the
+   light palette — correct for a divider, unreadable as ink. Whenever a token is used for a job its
+   name does not describe, a theme change breaks it silently.
+2. **A private colour table is how a screen misses a theme change.** `TrafficSection.tsx` carried its
+   own six-key palette with `text: '#c2d8ef'` and a heading hardcoded to `white`. It went on
+   rendering a 1.07:1 title through every theme change the rest of the panel got, because nothing it
+   used came from the shared palette. It now reads `admin-ui/tokens`.
+
+**The measuring script is worth rebuilding if this comes up again**: walk every screen, and for each
+piece of text read its colour, the colour actually painted behind it (walk up until an ancestor is
+opaque), its size, its family and its weight. Reading the source finds none of this — a colour set in
+one place is overridden in three others, and only the browser knows which won.
 

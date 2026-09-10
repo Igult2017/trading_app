@@ -107,3 +107,31 @@ export function Check({ size = 10, color = '#fff' }: { size?: number; color?: st
     </svg>
   );
 }
+
+/** THE READABLE INK FOR TEXT SITTING ON A COLOURED CHIP.
+ *
+ *  White on the accent is right for a dark accent and wrong for a light one — the "ACTIVE" pill
+ *  measured **2.14:1** on the light theme's accent, which is unreadable. Six themes share these
+ *  components, so the foreground has to be decided from the colour it lands on rather than assumed.
+ *
+ *  It MEASURES both candidates and takes the better one, rather than guessing a brightness cutoff.
+ *  A cutoff is what got this wrong the first time: at a threshold of 0.45, the sky-blue accent
+ *  `#38bdf8` (luminance 0.437) fell on the "use white" side by four thousandths and stayed at
+ *  2.14:1, when near-black on the same chip measures 8.7:1. Comparing the two ratios has no such
+ *  edge to fall off. */
+export function inkOn(bg: string): string {
+  const m = /^#?([0-9a-f]{6})$/i.exec(bg.trim());
+  if (!m) return '#fff';                       // gradients, rgba(), var() — leave them as they were
+  const n = parseInt(m[1], 16);
+  const ch = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map(v => {
+    const c = v / 255;
+    return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+  });
+  const lum = 0.2126 * ch[0] + 0.7152 * ch[1] + 0.0722 * ch[2];
+  const DARK = 0.00539;                        // #0b1220, the ink used elsewhere for text on light
+  const against = (other: number) => {
+    const [hi, lo] = lum > other ? [lum, other] : [other, lum];
+    return (hi + 0.05) / (lo + 0.05);
+  };
+  return against(DARK) >= against(1) ? '#0b1220' : '#fff';
+}

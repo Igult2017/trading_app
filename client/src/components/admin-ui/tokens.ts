@@ -17,25 +17,30 @@ export const C = {
   rail: 'var(--admin-rail)', railInk: 'var(--admin-railInk)', railDim: 'var(--admin-railDim)',
   thead: 'var(--admin-thead)', accentSoft: 'var(--admin-accentSoft)',
   indigo: 'var(--admin-accent)', indigoL: 'var(--admin-accentL)',
-  green: '#0f9d63', greenL: '#12b873',
-  red: '#dc2626', redL: '#ef4444',
-  amber: '#b45309', amberL: '#d97706',
-  blue: '#2563eb', blueL: '#3b82f6',
+  // STATUS COLOURS ARE PART OF THE PALETTE, not fixed literals. They used to be written here once
+  // and shared by all five palettes, which only worked while every palette was dark: a bright green
+  // that reads well on a near-black card measures 2.58:1 on a white one. Each palette now names its
+  // own, measured against its own card.
+  green: 'var(--admin-green)', greenL: 'var(--admin-greenL)',
+  red: 'var(--admin-red)', redL: 'var(--admin-redL)',
+  amber: 'var(--admin-amber)', amberL: 'var(--admin-amberL)',
+  blue: 'var(--admin-blue)', blueL: 'var(--admin-blueL)',
 };
 
-/** TWO FACES, TWO JOBS — and getting this wrong is what made the panel look cramped and dated.
+/** ONE FACE, TWO ROLES. Both resolve to whatever the Appearance picker is set to — Playfair by
+ *  default. `HFONT` is there so a heading can later be given a different face without touching a
+ *  hundred call sites, but today it is the same family; the difference between a heading and a
+ *  table cell is SIZE and WEIGHT, not family.
  *
- *  `HFONT` is the display serif: page titles, card titles, the big numbers. `FONT` is the sans that
- *  everything READ is set in — labels, table cells, inputs, captions. They were pointed at the SAME
- *  face, so Playfair was setting 11px table text and 12px uppercase labels, which is exactly the
- *  first failure named in docs/READABILITY.md: a display serif doing a body's job. */
+ *  There used to be a second, sans family behind `FONT` for anything that is read. He rejected that
+ *  twice. What keeps a display serif legible at body sizes is the floor in `panelText()` below. */
 export const FONT = 'var(--admin-font)';
 export const HFONT = 'var(--admin-header-font)';
 
 /** The navigation rail's own face. Brand chrome, deliberately not the picker's font. */
 export const RAIL_SERIF = "'Playfair Display Variable', 'Playfair Display', Georgia, serif";
 
-/** PLAYFAIR DOING A BODY'S JOB — allowed, but only because it arrives with its own floor.
+/** THE PANEL'S FACE DOING A BODY'S JOB — allowed, but only because it arrives with its own floor.
  *
  *  Playfair Display is a HIGH-CONTRAST face: the thin strokes of an "e", an "a" or the crossbar of
  *  a "t" are hairlines by design. At 12-13px and weight 400 those hairlines come out thinner than
@@ -48,7 +53,7 @@ export const RAIL_SERIF = "'Playfair Display Variable', 'Playfair Display', Geor
  *  strokes physically THICKER — it does not swap in a second, different font file.
  *
  *  Hence the floor, and it lives in the helper rather than in a comment so it cannot be forgotten:
- *  **never below weight 600, never below 13px.** `serifText()` clamps both, so a caller that asks
+ *  **never below weight 600, never below 13px.** `panelText()` clamps both, so a caller that asks
  *  for 12px/400 out of habit still gets legible text.
  *
  *  MEASURED, not assumed. The "o" was drawn with this exact font file in Chromium at a plain
@@ -78,10 +83,8 @@ export const RAIL_SERIF = "'Playfair Display Variable', 'Playfair Display', Geor
  *
  *  (One renderer, Chromium on Windows — which is what the panel is read in. A different rasteriser
  *  would shift the exact percentages; the weight trend holds regardless.) */
-export const SERIF = "'Playfair Display Variable', 'Playfair Display', Georgia, serif";
-
-export const serifText = (size = 14, weight = 600) => ({
-  fontFamily: SERIF,
+export const panelText = (size = 15, weight = 600) => ({
+  fontFamily: FONT,
   fontSize: `${Math.max(13, size)}px`,
   fontWeight: Math.max(600, weight),
 });
@@ -101,13 +104,16 @@ export const cs = {
 
 export const inp = {
   width: '100%', background: C.card, border: `1px solid ${C.border2}`, borderRadius: R.ctl,
-  color: C.text, padding: '11px 14px', fontFamily: FONT, fontWeight: 500, fontSize: '14px',
+  color: C.text, padding: '11px 14px', fontFamily: FONT, fontWeight: 600, fontSize: '15px',
   outline: 'none', boxSizing: 'border-box',
 } as const;
 
+/** A field label. 13px, not 12: 12px is below the size ladder in `panelText` and this is uppercase
+ *  and letter-spaced on top, which is the third cause of blurred text in docs/READABILITY.md. The
+ *  tracking came down from .1em for the same reason. */
 export const lbl = {
-  display: 'block', fontSize: '12px', fontWeight: 600, textTransform: 'uppercase',
-  letterSpacing: '0.1em', color: C.muted, marginBottom: '8px',
+  display: 'block', fontSize: '13px', fontWeight: 700, textTransform: 'uppercase',
+  letterSpacing: '0.06em', color: C.muted, marginBottom: '8px',
 } as const;
 
 export const btn = {
