@@ -23,7 +23,7 @@ import {
   Users, FileText, Megaphone, Search, TrendingUp,
   MoreVertical, Plus, Mail, Bell, AlertCircle, UserPlus, ShieldCheck,
   Globe, Clock, Cpu, Activity, Zap, AlertTriangle, CheckCircle,
-  MessageSquare, Phone, Star, Timer, Database, Eye, Ban, Unlock, Trash2, Send, X, RotateCcw, ExternalLink,
+  MessageSquare, Phone, Star, Timer, Database, Eye, EyeOff, Pencil, Ban, Unlock, Trash2, Send, X, RotateCcw, ExternalLink,
   LayoutDashboard, UsersRound, LifeBuoy, Newspaper, Gauge, RefreshCw, SlidersHorizontal, NotebookPen
 } from 'lucide-react';
 
@@ -216,12 +216,6 @@ class CustomerCareErrorBoundary extends React.Component<{ children: React.ReactN
 // carried an inset highlight and a heavy black drop shadow — both read only on a near-black page and
 // turn to grime on a pale one.
 
-const SECTION_META = {
-  blog: { label: 'Blog', color: C.indigoL, bg: 'rgba(0,200,224,0.08)', border: 'rgba(0,200,224,0.25)', dot: C.indigo },
-  'verified-strategies': { label: 'Verified Strategies', color: C.amberL, bg: 'rgba(255,183,0,0.08)', border: 'rgba(255,183,0,0.25)', dot: C.amber },
-  'trade-signals': { label: 'Trade Signals', color: C.greenL, bg: 'rgba(0,212,138,0.08)', border: 'rgba(0,212,138,0.25)', dot: C.green },
-};
-
 const SOCIAL_PLATFORMS = [
   { id: 'facebook', label: 'Facebook', ac: '#1877F2', icon: () => <svg viewBox="0 0 24 24" style={{ width: 18, height: 18 }} fill="currentColor"><path d="M24 12.073C24 5.405 18.627 0 12 0S0 5.405 0 12.073C0 18.1 4.388 23.094 10.125 24v-8.437H7.078v-3.49h3.047V9.413c0-3.025 1.791-4.697 4.533-4.697 1.312 0 2.686.236 2.686.236v2.97h-1.513c-1.491 0-1.956.93-1.956 1.886v2.265h3.328l-.532 3.49h-2.796V24C19.612 23.094 24 18.1 24 12.073z" /></svg> },
   { id: 'twitter', label: 'X / Twitter', ac: '#e2e8f0', icon: () => <svg viewBox="0 0 24 24" style={{ width: 18, height: 18 }} fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.737-8.835L1.254 2.25H8.08l4.261 5.638 5.902-5.638zm-1.161 17.52h1.833L7.084 4.126H5.117z" /></svg> },
@@ -237,23 +231,6 @@ const EXPERTISE_OPTIONS = ['Technical Analysis', 'Fundamental Analysis', 'Forex'
 const CATEGORY_TO_SECTION: Record<string, string> = {
   'Equities': 'blog', 'Forex': 'blog', 'Digital Assets': 'blog',
   'Analysis': 'blog', 'Backtested Strategies': 'verified-strategies',
-};
-type CatMeta = { sub: string; color: string; bg: string; border: string; dot: string };
-
-/** The badge for a topic. A TYPED topic will not be in the table below, and previously that meant
- *  no badge at all — the post just showed nothing where every other post showed its category. Any
- *  unlisted topic now gets a neutral badge instead of disappearing (2026-08-30). */
-const FALLBACK_CAT_META: CatMeta = {
-  sub: 'Topic', color: C.muted, bg: 'rgba(100,116,139,0.08)',
-  border: 'rgba(100,116,139,0.3)', dot: C.muted,
-};
-
-const CATEGORY_META: Record<string, CatMeta> = {
-  'Equities':              { sub: 'Stocks & indices',    color: C.indigoL, bg: 'rgba(99,102,241,0.08)',  border: 'rgba(99,102,241,0.3)',  dot: C.indigo  },
-  'Forex':                 { sub: 'Currency pairs',      color: C.blueL,   bg: 'rgba(59,130,246,0.08)',  border: 'rgba(59,130,246,0.3)',  dot: C.blue    },
-  'Digital Assets':        { sub: 'Crypto & DeFi',       color: '#a78bfa', bg: 'rgba(167,139,250,0.08)', border: 'rgba(167,139,250,0.3)', dot: '#a78bfa' },
-  'Analysis':              { sub: 'Market analysis',     color: C.muted,   bg: 'rgba(100,116,139,0.08)', border: 'rgba(100,116,139,0.3)', dot: C.muted   },
-  'Backtested Strategies': { sub: 'Verified strategies', color: C.amberL,  bg: 'rgba(245,158,11,0.08)',  border: 'rgba(245,158,11,0.3)',  dot: C.amber   },
 };
 const EMPTY_FORM = { title: '', section: 'blog', category: 'Analysis', status: 'Draft', imageUrl: '', excerpt: '', content: '', readTime: '', authorName: '', authorBio: '', authorExpertise: [] as string[], authorTwitter: '', authorLinkedin: '', authorTelegram: '', shareOn: [] as string[], signal: { pair: '', action: 'BUY', market: 'Forex', timeframe: 'H1', entry: '', sl: '', tp1: '', tp2: '', tp3: '', rr: '', confidence: 'High', rationale: '' } };
 
@@ -2014,6 +1991,7 @@ const BlogSection = ({ bp }: { bp: any }) => {
             category: p.category ?? 'Analysis',
             status: p.status ?? 'Draft', author: p.author ?? 'Admin',
             date: p.date, signal: p.signalData ?? p.signal_data ?? null,
+            slug: p.slug ?? '',
             imageUrl: p.imageUrl ?? p.image_url ?? '',
             excerpt: p.excerpt ?? '',
             content: p.content ?? '',
@@ -2326,30 +2304,67 @@ const BlogSection = ({ bp }: { bp: any }) => {
   const TABS = [{ id: 'post', label: 'Post', icon: FileText }, { id: 'author', label: 'Author', icon: Users }, { id: 'share', label: 'Share', icon: Globe }];
   const postCols = bp.isMobile ? '1fr' : 'repeat(2, 1fr)';
 
+  // Signal posts carry price levels a table row cannot show, so they keep their card. Articles —
+  // which is everything currently published — go in the table.
+  const signalPosts = filtered.filter(p => p.signal && p.section === 'trade-signals');
+  const articlePosts = filtered.filter(p => !(p.signal && p.section === 'trade-signals'));
+
+  const th: React.CSSProperties = {
+    textAlign: 'left', padding: '13px 20px', background: C.thead, color: C.muted,
+    fontFamily: FONT, fontSize: '13px', fontWeight: 600, whiteSpace: 'nowrap',
+    borderBottom: `1px solid ${C.border}`,
+  };
+  const td: React.CSSProperties = {
+    padding: '14px 20px', borderBottom: `1px solid ${C.border}`, fontFamily: FONT,
+    fontSize: '13.5px', color: C.text, verticalAlign: 'middle', whiteSpace: 'nowrap',
+  };
+  const iconBtn = (color: string): React.CSSProperties => ({
+    ...btn, background: 'transparent', border: 'none', color, padding: '6px',
+    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+  });
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1, minHeight: 0 }}>
-      <div>
-        <h2 style={{ color: C.text, fontWeight: 700, fontSize: '20px', margin: 0, fontFamily: HFONT }}>Content Manager</h2>
-        <p style={{ color: C.muted, fontSize: '14px', margin: '4px 0 0', fontFamily: FONT }}>Blog & Verified Strategies</p>
-      </div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-        <div style={{ display: 'flex', gap: '3px', background: C.card, border: `1px solid ${C.border}`, padding: '3px', flexWrap: 'wrap' }}>
-          {[{ id: 'all', label: 'All', count: posts.length }, { id: 'blog', label: 'Blog', count: posts.filter(p => p.section === 'blog').length }, { id: 'verified-strategies', label: bp.isMobile ? 'Strats' : 'Strategies', count: posts.filter(p => p.section === 'verified-strategies').length }, { id: 'drafts', label: 'Drafts', count: posts.filter(p => p.status === 'Draft').length }].map(tab => (
-            <button key={tab.id} onClick={() => { setActiveSection(tab.id); localStorage.setItem('admin_active_section', tab.id); }} style={{ ...btn, padding: '7px 13px', background: activeSection === tab.id ? (tab.id === 'drafts' ? 'rgba(245,158,11,0.12)' : C.indigo) : 'transparent', color: activeSection === tab.id ? (tab.id === 'drafts' ? C.amberL : 'white') : C.muted, fontSize: '13px', border: activeSection === tab.id && tab.id === 'drafts' ? `1px solid rgba(245,158,11,0.3)` : 'none', display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap', fontFamily: FONT }}>
-              {tab.label}
-              <span style={{ fontSize: '12px', fontWeight: 700, padding: '1px 5px', background: activeSection === tab.id ? (tab.id === 'drafts' ? 'rgba(245,158,11,0.2)' : 'rgba(255,255,255,0.2)') : C.border, color: activeSection === tab.id ? (tab.id === 'drafts' ? C.amberL : 'white') : C.muted }}>{tab.count}</span>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '18px', flex: 1, minHeight: 0 }}>
+      <PageHeader
+        icon={Newspaper}
+        title="Blog"
+        hint={`${posts.length} article${posts.length === 1 ? '' : 's'}`}
+        right={
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            {showModal && (
+              <button onClick={() => setShowModal(false)} style={{ ...btn, display: 'flex', alignItems: 'center', gap: '6px', background: 'transparent', color: C.muted, padding: '10px 16px', fontSize: '14px', border: `1px solid ${C.border2}`, fontFamily: FONT }}>
+                <X size={14} /> Back to posts
+              </button>
+            )}
+            <button onClick={openNew} style={{ ...btn, display: 'flex', alignItems: 'center', gap: '8px', background: C.indigo, color: 'white', padding: '11px 20px', fontSize: '14px', borderRadius: '999px', whiteSpace: 'nowrap', fontFamily: FONT }}>
+              <Plus size={16} /> New article
             </button>
-          ))}
+          </div>
+        }
+      />
+
+      {/* Our own filters — the reference has none, but these are real function and stay. */}
+      {!showModal && (
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          {[{ id: 'all', label: 'All', count: posts.length },
+            { id: 'blog', label: 'Blog', count: posts.filter(p => p.section === 'blog').length },
+            { id: 'verified-strategies', label: bp.isMobile ? 'Strats' : 'Strategies', count: posts.filter(p => p.section === 'verified-strategies').length },
+            { id: 'drafts', label: 'Drafts', count: posts.filter(p => p.status === 'Draft').length }].map(tab => {
+            const on = activeSection === tab.id;
+            return (
+              <button key={tab.id} onClick={() => { setActiveSection(tab.id); localStorage.setItem('admin_active_section', tab.id); }}
+                style={{ ...btn, padding: '8px 15px', borderRadius: '999px', fontSize: '13px', fontFamily: FONT,
+                         background: on ? C.indigo : 'transparent', color: on ? 'white' : C.muted,
+                         border: `1px solid ${on ? C.indigo : C.border}`,
+                         display: 'flex', alignItems: 'center', gap: '7px', whiteSpace: 'nowrap' }}>
+                {tab.label}
+                <span style={{ fontSize: '12px', fontWeight: 700, opacity: 0.85 }}>{tab.count}</span>
+              </button>
+            );
+          })}
         </div>
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-          {showModal && (
-            <button onClick={() => setShowModal(false)} style={{ ...btn, display: 'flex', alignItems: 'center', gap: '6px', background: 'transparent', color: C.muted, padding: '9px 14px', fontSize: '14px', border: `1px solid ${C.border2}`, fontFamily: FONT }}>
-              <X size={14} /> Back to Posts
-            </button>
-          )}
-          <button onClick={openNew} style={{ ...btn, display: 'flex', alignItems: 'center', gap: '7px', background: C.indigo, color: 'white', padding: '9px 16px', fontSize: '14px', border: 'none', whiteSpace: 'nowrap', fontFamily: FONT }}><Plus size={15} /> New Post</button>
-        </div>
-      </div>
+      )}
+
       {showModal ? (
         <BlogPostEditor
           initialData={editorInitialData}
@@ -2360,66 +2375,90 @@ const BlogSection = ({ bp }: { bp: any }) => {
           onImageUpload={uploadFileForEditor}
         />
       ) : (
-      <div style={{ display: 'grid', gridTemplateColumns: postCols, gap: '6px' }}>
-        {filtered.map(post => {
-          const sec = SECTION_META[post.section as keyof typeof SECTION_META];
-          const sig = post.signal;
-          if (sig && post.section === 'trade-signals') {
-            const isBuy = sig.action === 'BUY';
-            return (
-              <div key={post.id} style={{ ...cs, overflow: 'hidden', borderColor: isBuy ? 'rgba(16,185,129,0.2)' : 'rgba(244,63,94,0.2)' }}>
-                <div style={{ padding: '10px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px', background: isBuy ? 'rgba(16,185,129,0.08)' : 'rgba(244,63,94,0.08)' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ color: isBuy ? C.greenL : C.redL, fontSize: '14px', fontWeight: 700, letterSpacing: '0.04em', fontFamily: "'DM Mono', monospace" }}>{sig.pair}</span>
-                    <span style={{ background: isBuy ? C.green : C.red, color: C.text, fontSize: '12px', fontWeight: 700, padding: '2px 8px', textTransform: 'uppercase' }}>{sig.action}</span>
-                    <span style={{ background: C.border, color: C.muted, fontSize: '12px', padding: '2px 6px' }}>{sig.timeframe}</span>
-                  </div>
-                  <span style={{ color: C.dim, fontSize: '12px' }}>{post.date}</span>
-                </div>
-                <div style={{ padding: '16px' }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px', marginBottom: '12px' }}>
-                    {[{ label: 'Entry', value: sig.entry, color: C.text }, { label: 'SL', value: sig.sl, color: C.redL }, { label: 'TP1', value: sig.tp1, color: C.greenL }, { label: 'TP2', value: sig.tp2 || '-', color: sig.tp2 ? '#6ee7b7' : '#3d5878' }].map(({ label, value, color }) => (
-                      <div key={label} style={{ background: 'rgba(8,14,24,0.6)', padding: '7px', textAlign: 'center' }}>
-                        <p style={{ color: C.muted, fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', margin: '0 0 3px' }}>{label}</p>
-                        <p style={{ color, fontSize: '13px', fontWeight: 700, margin: 0 }}>{value}</p>
+        <>
+          {signalPosts.length > 0 && (
+            <div style={{ display: 'grid', gridTemplateColumns: postCols, gap: '18px' }}>
+              {signalPosts.map(post => {
+                const sig = post.signal;
+                const isBuy = sig.action === 'BUY';
+                return (
+                  <div key={post.id} style={{ ...cs, overflow: 'hidden' }}>
+                    <div style={{ padding: '12px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px', background: isBuy ? 'rgba(16,185,129,0.08)' : 'rgba(244,63,94,0.08)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ color: isBuy ? C.green : C.red, fontSize: '14px', fontWeight: 700, fontFamily: "'DM Mono', monospace" }}>{sig.pair}</span>
+                        <Pill tone={isBuy ? 'good' : 'bad'}>{sig.action}</Pill>
+                        <Pill tone="neutral">{sig.timeframe}</Pill>
                       </div>
-                    ))}
+                      <span style={{ color: C.muted, fontSize: '12px', fontFamily: FONT }}>{post.date}</span>
+                    </div>
+                    <div style={{ padding: '16px 18px' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
+                        {[{ label: 'Entry', value: sig.entry, color: C.text }, { label: 'SL', value: sig.sl, color: C.red }, { label: 'TP1', value: sig.tp1, color: C.green }, { label: 'TP2', value: sig.tp2 || '—', color: C.muted }].map(({ label, value, color }) => (
+                          <div key={label} style={{ background: C.thead, borderRadius: '8px', padding: '9px', textAlign: 'center' }}>
+                            <p style={{ color: C.muted, fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 3px', fontFamily: FONT }}>{label}</p>
+                            <p style={{ color, fontSize: '13px', fontWeight: 700, margin: 0, fontFamily: FONT }}>{value}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   </div>
-                  {sig.rationale && <p style={{ color: '#3d5878', fontSize: '13px', margin: '0 0 10px', fontStyle: 'italic', borderLeft: `2px solid ${C.border}`, paddingLeft: '8px' }}>{sig.rationale}</p>}
-                  <div style={{ paddingTop: '10px', borderTop: `1px solid ${C.border}`, display: 'flex', justifyContent: 'flex-end', gap: '4px' }}>
-                    <button onClick={() => toggleStatus(post.id)} style={{ ...btn, background: 'transparent', color: C.muted, border: 'none', fontSize: '12px', padding: '3px 7px', fontFamily: FONT }}>{post.status === 'Published' ? 'Unpublish' : 'Publish'}</button>
-                    <button onClick={() => openEdit(post)} style={{ ...btn, background: 'transparent', color: C.muted, border: 'none', fontSize: '12px', padding: '3px 7px', fontFamily: FONT }}>Edit</button>
-                    <button onClick={() => handleDelete(post.id)} style={{ ...btn, background: 'transparent', color: C.redL, border: 'none', fontSize: '12px', padding: '3px 7px', fontFamily: FONT }}>Delete</button>
-                  </div>
-                </div>
-              </div>
-            );
-          }
-          return (
-            <div key={post.id} style={{ ...cs, padding: '18px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', flexWrap: 'wrap', gap: '4px' }}>
-                  <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
-                    <span style={{ fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', padding: '2px 7px', background: post.status === 'Published' ? 'rgba(16,185,129,0.1)' : C.border, color: post.status === 'Published' ? C.greenL : C.muted, border: `1px solid ${post.status === 'Published' ? 'rgba(16,185,129,0.2)' : C.border2}` }}>{post.status}</span>
-                    {post.category && (() => { const m = CATEGORY_META[post.category] ?? FALLBACK_CAT_META; return m ? <span style={{ fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', padding: '2px 7px', background: m.bg, color: m.color, border: `1px solid ${m.border}` }}>{post.category}</span> : null; })()}
-                  </div>
-                  <span style={{ color: C.dim, fontSize: '12px' }}>{post.date}</span>
-                </div>
-                <h4 style={{ color: C.text, fontWeight: 700, fontSize: '15px', margin: '0 0 6px', fontFamily: HFONT }}>{post.title}</h4>
-                {post.excerpt ? <p style={{ color: '#607898', fontSize: '13px', margin: 0, lineHeight: 1.5, fontFamily: FONT }}>{post.excerpt}</p> : <p style={{ color: '#3d5878', fontSize: '13px', margin: 0, fontStyle: 'italic', fontFamily: FONT }}>No excerpt — add one when editing.</p>}
-              </div>
-              <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '4px' }}>
-                <span style={{ color: C.dim, fontSize: '12px', fontFamily: FONT }}>By {post.author}{post.readTime ? ` · ${post.readTime}` : ''}</span>
-                <div style={{ display: 'flex', gap: '3px' }}>
-                  <button onClick={() => toggleStatus(post.id)} style={{ ...btn, background: 'transparent', color: C.muted, border: 'none', fontSize: '12px', padding: '3px 7px', fontFamily: FONT }}>{post.status === 'Published' ? 'Unpublish' : 'Publish'}</button>
-                  <button onClick={() => openEdit(post)} style={{ ...btn, background: 'transparent', color: C.muted, border: 'none', fontSize: '12px', padding: '3px 7px', fontFamily: FONT }}>Edit</button>
-                  <button onClick={() => handleDelete(post.id)} style={{ ...btn, background: 'transparent', color: C.redL, border: 'none', fontSize: '12px', padding: '3px 7px', fontFamily: FONT }}>Delete</button>
-                </div>
-              </div>
+                );
+              })}
             </div>
-          );
-        })}
-      </div>
+          )}
+
+          <Panel>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr>
+                    <th style={th}>Title</th>
+                    <th style={th}>Status</th>
+                    <th style={th}>Author</th>
+                    <th style={th}>Published</th>
+                    <th style={{ ...th, textAlign: 'right' }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {articlePosts.length === 0 && (
+                    <tr><td style={{ ...td, whiteSpace: 'normal', color: C.muted, textAlign: 'center', padding: '36px 20px' }} colSpan={5}>
+                      Nothing here yet.
+                    </td></tr>
+                  )}
+                  {articlePosts.map(post => {
+                    const published = post.status === 'Published';
+                    return (
+                      <tr key={post.id}>
+                        <td style={{ ...td, whiteSpace: 'normal', maxWidth: 420 }}>
+                          <div style={{ fontWeight: 600, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical' }}>
+                            {post.title}
+                          </div>
+                          {post.slug && (
+                            <div style={{ marginTop: 3, fontSize: '12px', color: C.muted }}>/blog/{post.slug}</div>
+                          )}
+                        </td>
+                        <td style={td}><Pill tone={published ? 'good' : 'neutral'}>{published ? 'published' : 'draft'}</Pill></td>
+                        <td style={{ ...td, color: C.muted }}>{post.author}</td>
+                        <td style={{ ...td, color: C.muted }}>{published ? (post.date || '—') : '—'}</td>
+                        <td style={{ ...td, textAlign: 'right' }}>
+                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                            <button onClick={() => toggleStatus(post.id)} title={published ? 'Unpublish' : 'Publish'}
+                              style={{ ...btn, background: 'transparent', border: 'none', color: C.muted, fontSize: '13px', padding: '6px 10px', display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: FONT }}>
+                              {published ? <EyeOff size={15} /> : <Globe size={15} />}
+                              {!bp.isMobile && (published ? 'Unpublish' : 'Publish')}
+                            </button>
+                            <button onClick={() => openEdit(post)} title="Edit" style={iconBtn(C.muted)}><Pencil size={15} /></button>
+                            <button onClick={() => handleDelete(post.id)} title="Delete" style={iconBtn(C.red)}><Trash2 size={15} /></button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </Panel>
+        </>
       )}
     </div>
   );
@@ -3206,6 +3245,9 @@ export default function AdminPanel() {
 
   /** One line per screen saying what it is for. Short and factual — this is the panel describing
    *  itself, not marketing copy. */
+  /** Screens that render their own PageHeader, because the heading row carries an action. */
+  const SELF_HEADED = new Set(['blog']);
+
   const PAGE_HINTS: Record<string, string> = {
     dashboard: 'Traders, signals, traffic and platform health in one place.',
     users: 'Accounts, roles and access.',
@@ -3494,6 +3536,8 @@ export default function AdminPanel() {
         <main style={{ flex: 1, overflowY: 'auto', minWidth: 0, background: 'var(--admin-bg)', display: 'flex', flexDirection: 'column' }}>
           <section style={{ padding: bp.isMobile ? '18px 14px 40px' : '28px 28px 48px', flex: 1, display: 'flex', flexDirection: 'column' }}>
             {(() => {
+              // Screens that need their own action button in the heading row draw it themselves.
+              if (SELF_HEADED.has(activeTab)) return null;
               const nav = SIDEBAR_GROUPS.flatMap(g => g.items).find(i => i.id === activeTab);
               const title = (PAGE_TITLES as Record<string, string>)[activeTab] ?? nav?.label;
               return title ? <PageHeader icon={nav?.icon} title={title} hint={PAGE_HINTS[activeTab]} /> : null;
