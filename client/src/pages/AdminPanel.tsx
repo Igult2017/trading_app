@@ -16,6 +16,8 @@ import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
 import BlogPostEditor, { type BlogEditorData } from '@/components/BlogPostEditor';
 import Wordmark from '@/components/Wordmark';
+import { C, cs, inp, lbl, btn, FONT, HFONT, RAIL_SERIF } from '@/components/admin-ui/tokens';
+import { PageHeader, StatCard, Pill, Panel } from '@/components/admin-ui/AdminUI';
 import { readingTime } from '@shared/readingTime';
 import {
   Users, FileText, Megaphone, Search, TrendingUp,
@@ -167,10 +169,15 @@ function applyAdminTheme(id: string) {
  *  the ORDER inside the stack, not a different family: `'Playfair Display Variable'` comes first.
  *  The variable package carries the continuous 100-900 weight axis, so weight is real at any size,
  *  where the static `'Playfair Display'` this panel used to name first is four fixed cuts. */
+const ADMIN_BODY_SANS = "'Montserrat', system-ui, -apple-system, 'Segoe UI', sans-serif";
+
 function applyAdminFont(id: string) {
   const f = ADMIN_FONTS.find(o => o.id === id) ?? ADMIN_FONTS[0];
+  // Headings take the chosen face. Text that is READ takes the sans — unless the chosen face IS a
+  // sans, in which case it does both jobs and splitting them gains nothing.
+  const isSerif = f.id === 'playfair-display';
   document.documentElement.style.setProperty('--admin-header-font', f.stack);
-  document.documentElement.style.setProperty('--admin-font',        f.stack);
+  document.documentElement.style.setProperty('--admin-font', isSerif ? ADMIN_BODY_SANS : f.stack);
 }
 
 // Apply saved preferences immediately on module load
@@ -179,27 +186,10 @@ try {
   applyAdminFont(localStorage.getItem(ADMIN_FONT_KEY) ?? ADMIN_FONT_DEFAULT);
 } catch {}
 
-const FONT = 'var(--admin-font)';
 /** The rail's own face. Brand chrome, like the wordmark — deliberately NOT the picker's font. */
-const RAIL_SERIF = "'Playfair Display Variable', 'Playfair Display', Georgia, serif";
-const HFONT = 'var(--admin-header-font)';
 
 const toTitleCase = (s: string): string =>
   s.trim().replace(/\w\S*/g, w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
-const C = {
-  bg: 'var(--admin-bg)', sidebar: 'var(--admin-sidebar)', card: 'var(--admin-card)',
-  border: 'var(--admin-border)', border2: 'var(--admin-border2)', dim: 'var(--admin-dim)',
-  // WAS HARDCODED, and this is why the panel could not be light: whatever the theme said, the words
-  // stayed a pale blue meant for a black page.
-  text: 'var(--admin-text)', muted: 'var(--admin-muted)',
-  rail: 'var(--admin-rail)', railInk: 'var(--admin-railInk)', railDim: 'var(--admin-railDim)',
-  thead: 'var(--admin-thead)', accentSoft: 'var(--admin-accentSoft)',
-  indigo: 'var(--admin-accent)', indigoL: 'var(--admin-accentL)',
-  green: '#00d48a', greenL: '#00ff9d',
-  red: '#ff3060', redL: '#ff6080',
-  amber: '#ffb700', amberL: '#ffd030',
-  blue: '#2888f0', blueL: '#50a8f8',
-};
 class CustomerCareErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean; error: string | null }> {
   constructor(props: { children: React.ReactNode }) {
     super(props);
@@ -225,10 +215,6 @@ class CustomerCareErrorBoundary extends React.Component<{ children: React.ReactN
 // The reference card: one hairline, a shadow you can barely see, generously rounded. The old one
 // carried an inset highlight and a heavy black drop shadow — both read only on a near-black page and
 // turn to grime on a pale one.
-const cs = { background: C.card, border: `1px solid ${C.border}`, borderRadius: '14px', boxShadow: 'var(--admin-shadow)' };
-const inp = { width: '100%', background: C.card, border: `1px solid ${C.border2}`, borderRadius: '10px', color: C.text, padding: '11px 14px', fontFamily: FONT, fontWeight: 500, fontSize: '14px', outline: 'none', boxSizing: 'border-box' } as const;
-const lbl = { display: 'block', fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em', color: C.muted, marginBottom: '8px' } as const;
-const btn = { fontFamily: FONT, fontWeight: 600, cursor: 'pointer', border: 'none', borderRadius: '10px', letterSpacing: '0.02em' };
 
 const SECTION_META = {
   blog: { label: 'Blog', color: C.indigoL, bg: 'rgba(0,200,224,0.08)', border: 'rgba(0,200,224,0.25)', dot: C.indigo },
@@ -348,26 +334,6 @@ const GaugeRing = ({ value, max = 100, color, size = 44, sw = 4 }: { value: numb
   );
 };
 
-const StatCard = ({ title, value, change, trend, icon: Icon }: { title: string; value: string; change?: string; trend?: string; icon: React.ElementType }) => (
-  <div style={{ ...cs, padding: '18px 20px 16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-      <div style={{ padding: '7px', background: 'rgba(0,200,224,0.08)', color: C.indigoL, border: '1px solid rgba(0,200,224,0.12)' }}>
-        <Icon size={15} />
-      </div>
-      <span style={{ fontSize: '12px', fontWeight: 700, padding: '2px 7px', background: trend === 'up' ? 'rgba(0,212,138,0.1)' : 'rgba(255,48,96,0.1)', color: trend === 'up' ? C.greenL : C.redL, border: `1px solid ${trend === 'up' ? 'rgba(0,212,138,0.2)' : 'rgba(255,48,96,0.2)'}`, letterSpacing: '0.04em' }}>
-        {change}
-      </span>
-    </div>
-    <div>
-      <div style={{ fontSize: '15px', fontWeight: 700, color: C.text, fontFamily: "'DM Mono', monospace", letterSpacing: '-0.02em', lineHeight: 1, marginBottom: '5px' }}>
-        {value}
-      </div>
-      <div style={{ fontSize: '12px', fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.12em' }}>
-        {title}
-      </div>
-    </div>
-  </div>
-);
 
 // ─── USERS SECTION ───────────────────────────────────────────────────────────
 const PLAN_STYLE: Record<string, { bg: string; color: string; border: string }> = {
@@ -3238,6 +3204,21 @@ export default function AdminPanel() {
     { label: 'Journal',          items: [{ id: 'journal-settings', label: 'Journal Settings', icon: NotebookPen, ready: true }] },
   ];
 
+  /** One line per screen saying what it is for. Short and factual — this is the panel describing
+   *  itself, not marketing copy. */
+  const PAGE_HINTS: Record<string, string> = {
+    dashboard: 'Traders, signals, traffic and platform health in one place.',
+    users: 'Accounts, roles and access.',
+    'customer-care': 'Conversations with traders. Replies notify them in-app.',
+    blog: 'Articles, drafts and what is published.',
+    updates: 'Announcements sent to the platform.',
+    'system-monitor': 'Live service health and resource use.',
+    'sync-performance': 'How broker syncing is behaving.',
+    traffic: 'Where visitors come from and what they read.',
+    settings: 'Platform-wide configuration.',
+    'journal-settings': 'How the trading journal looks and behaves.',
+  };
+
   const PAGE_TITLES = {
     dashboard: 'Overview', analytics: 'Analytics & Reports', health: 'Health Dashboard',
     users: 'User Accounts', 'user-activity': 'User Activity', roles: 'Roles & Permissions', flagged: 'Blocked / Flagged',
@@ -3302,8 +3283,8 @@ export default function AdminPanel() {
   const renderContent = () => {
     switch (activeTab) {
       case 'dashboard': return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: statCols, gap: '6px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '18px', flex: 1 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: statCols, gap: '18px' }}>
             <StatCard
               title="Total Traders"
               value={typeof overviewStats?.totalUsers === 'number' ? overviewStats.totalUsers.toLocaleString() : '—'}
@@ -3373,7 +3354,7 @@ export default function AdminPanel() {
     }
   };
 
-  const sidebarW = collapsed ? '60px' : '180px';
+  const sidebarW = collapsed ? '64px' : '224px';
   const contentPad = bp.isMobile ? '14px' : '24px';
   const isMobileDrawer = bp.isMobile;
   const drawerOpen = isMobileDrawer && !collapsed;
@@ -3401,9 +3382,9 @@ export default function AdminPanel() {
             onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; }}
             onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
           >
-            <span style={{ display: 'block', width: '18px', height: '1.5px', background: '#607898', borderRadius: '2px' }} />
-            <span style={{ display: 'block', width: '18px', height: '1.5px', background: '#607898', borderRadius: '2px' }} />
-            <span style={{ display: 'block', width: '18px', height: '1.5px', background: '#607898', borderRadius: '2px' }} />
+            <span style={{ display: 'block', width: '18px', height: '1.5px', background: C.muted, borderRadius: '2px' }} />
+            <span style={{ display: 'block', width: '18px', height: '1.5px', background: C.muted, borderRadius: '2px' }} />
+            <span style={{ display: 'block', width: '18px', height: '1.5px', background: C.muted, borderRadius: '2px' }} />
           </button>
         </div>
 
@@ -3412,9 +3393,9 @@ export default function AdminPanel() {
           <button
             ref={msgBtnRef}
             onClick={() => openNotifPanel('messages')}
-            style={{ ...btn, background: notifPanelOpen === 'messages' ? 'rgba(0,200,224,0.1)' : 'rgba(8,14,24,0.6)', color: notifPanelOpen === 'messages' ? C.indigoL : '#607898', border: `1px solid ${notifPanelOpen === 'messages' ? C.border2 : C.border2}`, padding: '8px 10px', display: 'flex', alignItems: 'center', gap: '6px', transition: 'all 0.15s', position: 'relative' }}
-            onMouseEnter={e => { e.currentTarget.style.background = '#0c1018'; e.currentTarget.style.color = 'white'; e.currentTarget.style.borderColor = '#3d5878'; }}
-            onMouseLeave={e => { if (notifPanelOpen !== 'messages') { e.currentTarget.style.background = 'rgba(8,14,24,0.6)'; e.currentTarget.style.color = '#607898'; e.currentTarget.style.borderColor = C.border2; } }}
+            style={{ ...btn, background: notifPanelOpen === 'messages' ? C.accentSoft : 'transparent', color: notifPanelOpen === 'messages' ? C.indigo : C.muted, border: `1px solid ${notifPanelOpen === 'messages' ? C.indigo : C.border}`, padding: '8px 13px', display: 'flex', alignItems: 'center', gap: '7px', transition: 'background 0.14s, color 0.14s, border-color 0.14s', position: 'relative' }}
+            onMouseEnter={e => { e.currentTarget.style.background = C.thead; e.currentTarget.style.color = C.text; }}
+            onMouseLeave={e => { if (notifPanelOpen !== 'messages') { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = C.muted; } }}
           >
             <Mail size={16} />
             {!bp.isMobile && <span style={{ fontSize: '13px', fontWeight: 600, fontFamily: FONT }}>Messages</span>}
@@ -3428,9 +3409,9 @@ export default function AdminPanel() {
           <button
             ref={alertBtnRef}
             onClick={() => openNotifPanel('alerts')}
-            style={{ ...btn, background: notifPanelOpen === 'alerts' ? 'rgba(244,63,94,0.08)' : 'rgba(8,14,24,0.6)', color: notifPanelOpen === 'alerts' ? '#ff6080' : '#607898', border: `1px solid ${C.border2}`, padding: '8px 10px', display: 'flex', alignItems: 'center', gap: '6px', transition: 'all 0.15s', position: 'relative' }}
-            onMouseEnter={e => { e.currentTarget.style.background = '#0c1018'; e.currentTarget.style.color = 'white'; e.currentTarget.style.borderColor = '#3d5878'; }}
-            onMouseLeave={e => { if (notifPanelOpen !== 'alerts') { e.currentTarget.style.background = 'rgba(8,14,24,0.6)'; e.currentTarget.style.color = '#607898'; e.currentTarget.style.borderColor = C.border2; } }}
+            style={{ ...btn, background: notifPanelOpen === 'alerts' ? C.accentSoft : 'transparent', color: notifPanelOpen === 'alerts' ? C.indigo : C.muted, border: `1px solid ${notifPanelOpen === 'alerts' ? C.indigo : C.border}`, padding: '8px 13px', display: 'flex', alignItems: 'center', gap: '7px', position: 'relative', transition: 'background 0.14s, color 0.14s, border-color 0.14s' }}
+            onMouseEnter={e => { e.currentTarget.style.background = C.thead; e.currentTarget.style.color = C.text; }}
+            onMouseLeave={e => { if (notifPanelOpen !== 'alerts') { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = C.muted; } }}
           >
             <Bell size={16} />
             {!bp.isMobile && <span style={{ fontSize: '13px', fontWeight: 600, fontFamily: FONT }}>Alerts</span>}
@@ -3511,7 +3492,14 @@ export default function AdminPanel() {
 
         {/* MAIN CONTENT */}
         <main style={{ flex: 1, overflowY: 'auto', minWidth: 0, background: 'var(--admin-bg)', display: 'flex', flexDirection: 'column' }}>
-          <section style={{ padding: contentPad, paddingTop: '10px', paddingLeft: bp.isMobile ? '8px' : '10px', flex: 1, display: 'flex', flexDirection: 'column' }}>{renderContent()}</section>
+          <section style={{ padding: bp.isMobile ? '18px 14px 40px' : '28px 28px 48px', flex: 1, display: 'flex', flexDirection: 'column' }}>
+            {(() => {
+              const nav = SIDEBAR_GROUPS.flatMap(g => g.items).find(i => i.id === activeTab);
+              const title = (PAGE_TITLES as Record<string, string>)[activeTab] ?? nav?.label;
+              return title ? <PageHeader icon={nav?.icon} title={title} hint={PAGE_HINTS[activeTab]} /> : null;
+            })()}
+            {renderContent()}
+          </section>
         </main>
 
       </div>
