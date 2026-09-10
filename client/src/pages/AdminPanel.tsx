@@ -4,8 +4,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { authFetch } from '@/lib/queryClient';
 import TrafficSection from '@/features/admin-traffic/TrafficSection';
 import {
-  ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid,
-  Tooltip as RechartTooltip, ResponsiveContainer, Area
+  ComposedChart, Bar, XAxis, YAxis, CartesianGrid,
+  Tooltip as RechartTooltip, ResponsiveContainer
 } from 'recharts';
 import { useAdminNotifications, AdminNotificationsPanel } from '@/features/admin-notifications';
 
@@ -21,9 +21,9 @@ import { PageHeader, StatCard, Pill, Panel } from '@/components/admin-ui/AdminUI
 import { readingTime } from '@shared/readingTime';
 import {
   Users, FileText, BellRing, Smartphone, Search, TrendingUp,
-  MoreVertical, Plus, Mail, Bell, UserPlus, ShieldCheck,
+  Plus, Mail, Bell, UserPlus, ShieldCheck,
   Globe, Clock, Cpu, Activity, Zap, AlertTriangle, CheckCircle,
-  MessageSquare, Phone, Star, Timer, Database, Eye, EyeOff, Pencil, Ban, Unlock, Trash2, Send, X, RotateCcw, ExternalLink,
+  MessageSquare, Phone, Star, Timer, Database, Eye, EyeOff, Pencil, Ban, Trash2, Send, X, RotateCcw, ExternalLink,
   LayoutDashboard, UsersRound, LifeBuoy, Newspaper, Gauge, RefreshCw, SlidersHorizontal, NotebookPen
 } from 'lucide-react';
 
