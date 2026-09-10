@@ -3267,7 +3267,7 @@ export default function AdminPanel() {
     };
     return (
       <button key={item.id} onClick={handleClick} title={item.label}
-        style={{ width: 'calc(100% - 20px)', margin: '2px 10px', display: 'flex', alignItems: 'center', gap: '11px', padding: '10px 12px', justifyContent: 'flex-start', background: activeBg, color: activeColor, border: 'none', borderRadius: '10px', cursor: isSoon ? 'default' : 'pointer', fontFamily: RAIL_SERIF, fontWeight: isActive ? 600 : 500, fontSize: '15.5px', letterSpacing: '0.01em', position: 'relative', transition: 'background 0.14s, color 0.14s', overflow: 'hidden' }}
+        style={{ width: 'calc(100% - 20px)', margin: '2px 10px', display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', justifyContent: 'flex-start', background: activeBg, color: activeColor, border: 'none', borderRadius: '10px', cursor: isSoon ? 'default' : 'pointer', fontFamily: RAIL_SERIF, fontWeight: isActive ? 600 : 500, fontSize: '14.5px', letterSpacing: '0.01em', position: 'relative', transition: 'background 0.14s, color 0.14s', overflow: 'hidden' }}
         onMouseEnter={e => { if (!isActive && !isSoon) { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; e.currentTarget.style.color = C.railInk; } }}
         onMouseLeave={e => { if (!isActive && !isSoon) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = C.railDim; } }}
       >
@@ -3394,13 +3394,6 @@ export default function AdminPanel() {
 
         {/* ── Left: logo + hamburger ── */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          {/* Logo */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontWeight: 400, fontSize: '15px', letterSpacing: '0.01em', fontFamily: "'Playfair Display', serif" }}>
-              <Wordmark dark />
-            </span>
-          </div>
-
           <button
             onClick={() => setCollapsed(p => !p)}
             aria-label="Toggle sidebar"
@@ -3477,7 +3470,13 @@ export default function AdminPanel() {
           ? { position: 'fixed', top: '60px', left: 0, bottom: 0, width: '240px', transform: collapsed ? 'translateX(-100%)' : 'translateX(0)', transition: 'transform 0.25s ease', background: C.rail, boxShadow: collapsed ? 'none' : '8px 0 32px rgba(0,0,0,0.28)', display: 'flex', flexDirection: 'column', zIndex: 30 }
           : { width: sidebarW, minWidth: sidebarW, transition: 'width 0.22s ease, min-width 0.22s ease', background: C.rail, display: 'flex', flexDirection: 'column', flexShrink: 0 }
         }>
-          <div style={{ flex: 1, overflowY: 'auto', padding: '10px 0 14px', minHeight: 0, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+          {/* Brand — the supplied artwork, unmodified. It carries the name itself, so the name is
+              never set again as text beside it. */}
+          <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'flex-start', padding: collapsed ? '16px 8px 10px' : '18px 16px 12px' }}>
+            <Wordmark dark height={collapsed ? '26px' : '58px'} />
+          </div>
+
+          <div style={{ flex: 1, overflowY: 'auto', padding: '4px 0 14px', minHeight: 0, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
             {/* One flat list. The groups only existed to hang the headings on, and those are gone. */}
             {SIDEBAR_GROUPS.flatMap(group => group.items).map(navBtn)}
           </div>
