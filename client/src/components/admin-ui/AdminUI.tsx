@@ -12,8 +12,12 @@ import { C, cs, FONT, HFONT, R } from './tokens';
 /** The page's own heading: a tinted icon tile, the title in the display serif, and a line saying
  *  what the screen is for. The panel had `PAGE_TITLES` defined and never rendered, so every screen
  *  opened straight into content with nothing naming it. */
-export function PageHeader({ icon: Icon, title, hint, right }: {
+export function PageHeader({ icon: Icon, title, hint, right, hintStyle }: {
   icon?: React.ElementType; title: string; hint?: string; right?: React.ReactNode;
+  /** The line under the title is 13.5px sans by default. The blog screen is set entirely in the
+   *  serif and passes `serifText(13)` here — the face AND the size AND the weight together, because
+   *  in a high-contrast serif all three decide whether the thin strokes survive. */
+  hintStyle?: React.CSSProperties;
 }) {
   return (
     <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16, marginBottom: 24, flexWrap: 'wrap' }}>
@@ -32,7 +36,7 @@ export function PageHeader({ icon: Icon, title, hint, right }: {
           letterSpacing: '-0.01em', lineHeight: 1.1, color: C.text,
         }}>{title}</h1>
         {hint && (
-          <p style={{ margin: '6px 0 0', fontFamily: FONT, fontSize: 13.5, color: C.muted, lineHeight: 1.6 }}>
+          <p style={{ margin: '6px 0 0', fontFamily: FONT, fontSize: 13.5, color: C.muted, lineHeight: 1.6, ...hintStyle }}>
             {hint}
           </p>
         )}
@@ -43,8 +47,11 @@ export function PageHeader({ icon: Icon, title, hint, right }: {
 }
 
 /** A rounded status pill. Replaces the square bordered boxes the panel used for the same job. */
-export function Pill({ tone = 'neutral', children }: {
+export function Pill({ tone = 'neutral', font = FONT, children }: {
   tone?: 'good' | 'bad' | 'warn' | 'neutral' | 'accent'; children: React.ReactNode;
+  /** Sans by default. The blog screen is set entirely in the serif and passes it in, so the status
+   *  pills are not the one sans thing left on an otherwise Playfair page. */
+  font?: string;
 }) {
   const map = {
     good:    { bg: 'rgba(16,185,129,0.12)', fg: C.green },
@@ -57,7 +64,7 @@ export function Pill({ tone = 'neutral', children }: {
     <span style={{
       display: 'inline-flex', alignItems: 'center', gap: 5,
       background: map.bg, color: map.fg, borderRadius: R.pill,
-      padding: '4px 10px', fontFamily: FONT, fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap',
+      padding: '4px 10px', fontFamily: font, fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap',
     }}>{children}</span>
   );
 }

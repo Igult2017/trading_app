@@ -16,12 +16,12 @@ import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
 import BlogPostEditor, { type BlogEditorData } from '@/components/BlogPostEditor';
 import Wordmark from '@/components/Wordmark';
-import { C, cs, inp, lbl, btn, FONT, HFONT, RAIL_SERIF } from '@/components/admin-ui/tokens';
+import { C, cs, inp, lbl, btn, R, FONT, HFONT, RAIL_SERIF, SERIF, serifText } from '@/components/admin-ui/tokens';
 import { PageHeader, StatCard, Pill, Panel } from '@/components/admin-ui/AdminUI';
 import { readingTime } from '@shared/readingTime';
 import {
-  Users, FileText, Megaphone, Search, TrendingUp,
-  MoreVertical, Plus, Mail, Bell, AlertCircle, UserPlus, ShieldCheck,
+  Users, FileText, BellRing, Smartphone, Search, TrendingUp,
+  MoreVertical, Plus, Mail, Bell, UserPlus, ShieldCheck,
   Globe, Clock, Cpu, Activity, Zap, AlertTriangle, CheckCircle,
   MessageSquare, Phone, Star, Timer, Database, Eye, EyeOff, Pencil, Ban, Unlock, Trash2, Send, X, RotateCcw, ExternalLink,
   LayoutDashboard, UsersRound, LifeBuoy, Newspaper, Gauge, RefreshCw, SlidersHorizontal, NotebookPen
@@ -2331,14 +2331,17 @@ const BlogSection = ({ bp }: { bp: any }) => {
   const signalPosts = filtered.filter(p => p.signal && p.section === 'trade-signals');
   const articlePosts = filtered.filter(p => !(p.signal && p.section === 'trade-signals'));
 
+  // THE WHOLE SCREEN IS SET IN PLAYFAIR — see `serifText` in admin-ui/tokens.ts for why every
+  // call carries a weight of at least 600: below that the face's hairline strokes vanish at these
+  // sizes. Column headings go one step further (700) because they are the smallest text here.
   const th: React.CSSProperties = {
     textAlign: 'left', padding: '13px 20px', background: C.thead, color: C.muted,
-    fontFamily: FONT, fontSize: '13px', fontWeight: 600, whiteSpace: 'nowrap',
+    ...serifText(13, 700), whiteSpace: 'nowrap',
     borderBottom: `1px solid ${C.border}`,
   };
   const td: React.CSSProperties = {
-    padding: '14px 20px', borderBottom: `1px solid ${C.border}`, fontFamily: FONT,
-    fontSize: '13.5px', color: C.text, verticalAlign: 'middle', whiteSpace: 'nowrap',
+    padding: '15px 20px', borderBottom: `1px solid ${C.border}`,
+    ...serifText(15), color: C.text, verticalAlign: 'middle', whiteSpace: 'nowrap',
   };
   const iconBtn = (color: string): React.CSSProperties => ({
     ...btn, background: 'transparent', border: 'none', color, padding: '6px',
@@ -2346,19 +2349,20 @@ const BlogSection = ({ bp }: { bp: any }) => {
   });
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '18px', flex: 1, minHeight: 0 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '18px', flex: 1, minHeight: 0, fontFamily: SERIF }}>
       <PageHeader
         icon={Newspaper}
         title="Blog"
+        hintStyle={serifText(13)}
         hint={`${posts.length} article${posts.length === 1 ? '' : 's'}`}
         right={
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
             {showModal && (
-              <button onClick={() => setShowModal(false)} style={{ ...btn, display: 'flex', alignItems: 'center', gap: '6px', background: 'transparent', color: C.muted, padding: '10px 16px', fontSize: '14px', border: `1px solid ${C.border2}`, fontFamily: FONT }}>
+              <button onClick={() => setShowModal(false)} style={{ ...btn, display: 'flex', alignItems: 'center', gap: '6px', background: 'transparent', color: C.muted, padding: '10px 16px', border: `1px solid ${C.border2}`, ...serifText(15) }}>
                 <X size={14} /> Back to posts
               </button>
             )}
-            <button onClick={openNew} style={{ ...btn, display: 'flex', alignItems: 'center', gap: '8px', background: C.indigo, color: 'white', padding: '11px 20px', fontSize: '14px', borderRadius: '999px', whiteSpace: 'nowrap', fontFamily: FONT }}>
+            <button onClick={openNew} style={{ ...btn, display: 'flex', alignItems: 'center', gap: '8px', background: C.indigo, color: 'white', padding: '11px 20px', borderRadius: '999px', whiteSpace: 'nowrap', ...serifText(15, 700) }}>
               <Plus size={16} /> New article
             </button>
           </div>
@@ -2375,12 +2379,12 @@ const BlogSection = ({ bp }: { bp: any }) => {
             const on = activeSection === tab.id;
             return (
               <button key={tab.id} onClick={() => { setActiveSection(tab.id); localStorage.setItem('admin_active_section', tab.id); }}
-                style={{ ...btn, padding: '8px 15px', borderRadius: '999px', fontSize: '13px', fontFamily: FONT,
+                style={{ ...btn, padding: '8px 16px', borderRadius: '999px', ...serifText(13, on ? 700 : 600),
                          background: on ? C.indigo : 'transparent', color: on ? 'white' : C.muted,
                          border: `1px solid ${on ? C.indigo : C.border}`,
                          display: 'flex', alignItems: 'center', gap: '7px', whiteSpace: 'nowrap' }}>
                 {tab.label}
-                <span style={{ fontSize: '12px', fontWeight: 700, opacity: 0.85 }}>{tab.count}</span>
+                <span style={{ ...serifText(13, 700), opacity: 0.85 }}>{tab.count}</span>
               </button>
             );
           })}
@@ -2407,18 +2411,18 @@ const BlogSection = ({ bp }: { bp: any }) => {
                   <div key={post.id} style={{ ...cs, overflow: 'hidden' }}>
                     <div style={{ padding: '12px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px', background: isBuy ? 'rgba(16,185,129,0.08)' : 'rgba(244,63,94,0.08)' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ color: isBuy ? C.green : C.red, fontSize: '14px', fontWeight: 700, fontFamily: "'DM Mono', monospace" }}>{sig.pair}</span>
-                        <Pill tone={isBuy ? 'good' : 'bad'}>{sig.action}</Pill>
-                        <Pill tone="neutral">{sig.timeframe}</Pill>
+                        <span style={{ color: isBuy ? C.green : C.red, ...serifText(15, 700), letterSpacing: '0.02em' }}>{sig.pair}</span>
+                        <Pill font={SERIF} tone={isBuy ? 'good' : 'bad'}>{sig.action}</Pill>
+                        <Pill font={SERIF} tone="neutral">{sig.timeframe}</Pill>
                       </div>
-                      <span style={{ color: C.muted, fontSize: '12px', fontFamily: FONT }}>{post.date}</span>
+                      <span style={{ color: C.muted, ...serifText(13) }}>{post.date}</span>
                     </div>
                     <div style={{ padding: '16px 18px' }}>
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
                         {[{ label: 'Entry', value: sig.entry, color: C.text }, { label: 'SL', value: sig.sl, color: C.red }, { label: 'TP1', value: sig.tp1, color: C.green }, { label: 'TP2', value: sig.tp2 || '—', color: C.muted }].map(({ label, value, color }) => (
                           <div key={label} style={{ background: C.thead, borderRadius: '8px', padding: '9px', textAlign: 'center' }}>
-                            <p style={{ color: C.muted, fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 3px', fontFamily: FONT }}>{label}</p>
-                            <p style={{ color, fontSize: '13px', fontWeight: 700, margin: 0, fontFamily: FONT }}>{value}</p>
+                            <p style={{ color: C.muted, ...serifText(13, 700), letterSpacing: '0.04em', margin: '0 0 3px' }}>{label}</p>
+                            <p style={{ color, ...serifText(15, 700), margin: 0 }}>{value}</p>
                           </div>
                         ))}
                       </div>
@@ -2452,15 +2456,15 @@ const BlogSection = ({ bp }: { bp: any }) => {
                     return (
                       <tr key={post.id}>
                         <td style={{ ...td, whiteSpace: 'normal', maxWidth: 420 }}>
-                          <div style={{ fontWeight: 600, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical' }}>
+                          <div style={{ ...serifText(15, 700), color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical' }}>
                             {post.title}
                           </div>
                           {post.slug && (
-                            <div style={{ marginTop: 3, fontSize: '12px', color: C.muted }}>/blog/{post.slug}</div>
+                            <div style={{ marginTop: 4, ...serifText(13), color: C.muted }}>/blog/{post.slug}</div>
                           )}
                         </td>
                         <td style={td}>
-                          <Pill tone={post.status === 'Scheduled' ? 'accent' : published ? 'good' : 'neutral'}>
+                          <Pill font={SERIF} tone={post.status === 'Scheduled' ? 'accent' : published ? 'good' : 'neutral'}>
                             {post.status === 'Scheduled' ? 'scheduled' : published ? 'published' : 'draft'}
                           </Pill>
                         </td>
@@ -2473,7 +2477,7 @@ const BlogSection = ({ bp }: { bp: any }) => {
                         <td style={{ ...td, textAlign: 'right' }}>
                           <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                             <button onClick={() => toggleStatus(post.id)} title={published ? 'Unpublish' : 'Publish'}
-                              style={{ ...btn, background: 'transparent', border: 'none', color: C.muted, fontSize: '13px', padding: '6px 10px', display: 'inline-flex', alignItems: 'center', gap: '6px', fontFamily: FONT }}>
+                              style={{ ...btn, background: 'transparent', border: 'none', color: C.muted, padding: '6px 10px', display: 'inline-flex', alignItems: 'center', gap: '6px', ...serifText(13) }}>
                               {published ? <EyeOff size={15} /> : <Globe size={15} />}
                               {!bp.isMobile && (published ? 'Unpublish' : 'Publish')}
                             </button>
@@ -2495,6 +2499,40 @@ const BlogSection = ({ bp }: { bp: any }) => {
 };
 
 // ─── MARKETING SECTION ───────────────────────────────────────────────────────
+/** One labelled control in the compose form. */
+function UpdateField({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <label style={{ ...lbl, marginBottom: hint ? 3 : 9 }}>{label}</label>
+      {hint && <p style={{ margin: '0 0 10px', fontFamily: FONT, fontSize: '12.5px', color: C.muted, lineHeight: 1.55 }}>{hint}</p>}
+      {children}
+    </div>
+  );
+}
+
+/** The three ways an update can reach someone, and what each one actually needs.
+ *
+ *  PUSH IS LISTED AND PERMANENTLY OFF, ON PURPOSE. `POST /api/admin/campaigns` has a branch for
+ *  In-App (writes a `notifications` row) and a branch for Email (Resend + an open-tracking pixel)
+ *  and NO BRANCH AT ALL for Push — ticking it sent the word "Push" to the server, which wrote it
+ *  into the audit line and delivered nothing to anybody. The old screen's caption said "Push
+ *  notifications require Web Push VAPID key setup", which reads as "set the key and it works";
+ *  there is no key to set and no code behind it. It stays on screen, disabled and labelled, rather
+ *  than being quietly dropped, so the gap is visible instead of silent. */
+const UPDATE_CHANNELS: Array<{ label: string; icon: React.ElementType; what: string; blocked?: string }> = [
+  { label: 'In-App', icon: Bell,       what: 'Lands in the bell menu the next time they open the app.' },
+  { label: 'Email',  icon: Mail,       what: 'Sends a real email, and the opens are counted.',
+                                       blocked: 'Needs RESEND_API_KEY set on the server.' },
+  { label: 'Push',   icon: Smartphone, what: 'A browser notification, even with the app closed.',
+                                       blocked: 'Not built — the server has no push step, so nothing would be delivered.' },
+];
+
+const AUDIENCE_WORDS: Record<string, string> = {
+  all:      'everyone',
+  free:     'people on the free plan',
+  inactive: 'people who have not signed in for 30 days',
+};
+
 const UpdatesSection = ({ bp, getAdminToken = null }: { bp: any; getAdminToken?: (() => Promise<string | null>) | null }) => {
   const [activeChannels, setActiveChannels] = useState(['In-App']);
   const [audience, setAudience] = useState('all');
@@ -2543,112 +2581,140 @@ const UpdatesSection = ({ bp, getAdminToken = null }: { bp: any; getAdminToken?:
     setSending(false);
   };
 
-  const CHANNELS = [
-    { icon: Mail, label: 'Email' },
-    { icon: AlertCircle, label: 'Push' },
-    { icon: ShieldCheck, label: 'In-App' },
+  /** Email waits on a server key; Push has no code behind it at all; In-App always works. */
+  const emailReady = stats?.emailConfigured === true;
+  const canDeliver = (label: string) => label === 'Push' ? false : label === 'Email' ? emailReady : true;
+
+  const n = (v: any) => Number(v ?? 0);
+  // A change string is "+3", "-1.2%" or "—". Only a leading minus means it went down.
+  const trendOf = (c?: string): 'up' | 'down' => (typeof c === 'string' && c.trim().startsWith('-') ? 'down' : 'up');
+
+  const cards = [
+    { title: 'In-app sent',  icon: Send,     tone: 'accent' as const, change: stats?.sentChange,
+      value: stats ? n(stats.inAppSent).toLocaleString() : '–', caption: stats ? 'last 30 days' : 'loading…' },
+    { title: 'Read rate',    icon: Eye,      tone: 'good' as const,   change: stats?.readChange,
+      value: stats ? `${n(stats.readRate).toFixed(1)}%` : '–',  caption: stats ? 'of in-app updates opened' : 'loading…' },
+    { title: 'Updates sent', icon: BellRing, tone: 'violet' as const,
+      value: stats ? String(n(stats.campaignCount)) : '–',      caption: stats ? 'last 30 days' : 'loading…' },
+    { title: 'Email opens',  icon: Mail,     tone: 'blue' as const,
+      value: !stats ? '–' : emailReady ? `${n(stats.emailOpenRate).toFixed(1)}%` : 'Off',
+      caption: !stats ? 'loading…' : emailReady ? `${n(stats.emailOpened)} of ${n(stats.emailSent)} opened` : 'email is not configured' },
   ];
 
-  return (
-    <div style={{ display: 'grid', gridTemplateColumns: bp.isDesktop ? '2fr 1fr' : '1fr', gap: '6px', flex: 1, alignContent: 'start' }}>
-      <div style={{ ...cs, padding: '24px' }}>
-        <h3 style={{ color: C.text, fontWeight: 700, fontStyle: 'italic', fontSize: '15px', fontFamily: HFONT, margin: '0 0 20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Megaphone size={17} style={{ color: C.indigoL }} /> Multi-Channel Broadcast
-        </h3>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-          <div>
-            <label style={{ ...lbl }}>Target Audience</label>
-            <select value={audience} onChange={e => setAudience(e.target.value)} style={{ ...inp, cursor: 'pointer' }}>
-              <option value="all">All Users</option>
-              <option value="free">Free Plan Only</option>
-              <option value="inactive">Inactive Users (30d+)</option>
-            </select>
-          </div>
-          <div>
-            <label style={{ ...lbl }}>Channel</label>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
-              {CHANNELS.map(({ icon: Icon, label }) => {
-                const active = activeChannels.includes(label);
-                return (
-                  <button key={label} onClick={() => toggleChannel(label)} style={{ ...btn, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '7px', padding: '14px 8px', background: active ? 'rgba(0,200,224,0.15)' : 'rgba(8,14,24,0.5)', color: active ? C.indigoL : C.muted, border: `1px solid ${active ? 'rgba(0,200,224,0.5)' : C.border2}`, fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.07em', outline: active ? `2px solid rgba(0,200,224,0.25)` : 'none', outlineOffset: '2px', boxShadow: active ? '0 0 12px rgba(0,200,224,0.2)' : 'none', transition: 'all 0.15s ease', position: 'relative' }}>
-                    <Icon size={20} />
-                    {label}
-                    {active && (
-                      <div style={{ position: 'absolute', top: '6px', right: '6px', width: '14px', height: '14px', background: C.indigo, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <CheckCircle size={9} style={{ color: C.text }} />
-                      </div>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-            {activeChannels.length > 0 && <p style={{ color: C.indigoL, fontSize: '12px', margin: '8px 0 0', fontWeight: 600 }}>✓ Sending via: {activeChannels.join(', ')}</p>}
-            {activeChannels.length === 0 && <p style={{ color: C.redL, fontSize: '12px', margin: '8px 0 0', fontWeight: 600 }}>⚠ Select at least one channel</p>}
-            {activeChannels.includes('Email') && <p style={{ color: C.muted, fontSize: '12px', margin: '4px 0 0', fontStyle: 'italic' }}>Requires RESEND_API_KEY in .env</p>}
-            {activeChannels.includes('Push') && <p style={{ color: C.muted, fontSize: '12px', margin: '4px 0 0', fontStyle: 'italic' }}>Push notifications require Web Push VAPID key setup</p>}
-          </div>
-          <div>
-            <label style={{ ...lbl }}>Subject (optional)</label>
-            <input value={subject} onChange={e => setSubject(e.target.value)} placeholder="Announcement subject..." style={{ ...inp }} />
-          </div>
-          <div>
-            <label style={{ ...lbl }}>Message</label>
-            <textarea value={message} onChange={e => setMessage(e.target.value)} rows={5} placeholder="Enter your announcement..." style={{ ...inp, resize: 'none', display: 'block' }} />
-          </div>
-          {result && (
-            <div style={{ padding: '10px 14px', background: result.ok ? 'rgba(16,185,129,0.1)' : 'rgba(244,63,94,0.1)', border: `1px solid ${result.ok ? 'rgba(16,185,129,0.3)' : 'rgba(244,63,94,0.3)'}`, color: result.ok ? C.greenL : C.redL, fontSize: '13px', fontWeight: 600 }}>
-              {result.ok ? '✓ ' : '✕ '}{result.msg}
-            </div>
-          )}
-          <button onClick={handleSend} disabled={sending || activeChannels.length === 0} style={{ ...btn, background: activeChannels.length > 0 && !sending ? C.indigo : C.border, color: activeChannels.length > 0 && !sending ? 'white' : C.muted, padding: '13px', fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.12em', border: 'none', cursor: activeChannels.length > 0 && !sending ? 'pointer' : 'not-allowed', transition: 'background 0.15s' }}>
-            {sending ? 'Sending…' : 'Send Campaign Now'}
-          </button>
-        </div>
-      </div>
-      <div style={{ ...cs, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-        {/* Header */}
-        <div style={{ padding: '14px 18px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: C.indigo, boxShadow: `0 0 6px ${C.indigo}` }} />
-            <h4 style={{ color: C.text, fontSize: '13px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', margin: 0, fontFamily: HFONT }}>Campaign Stats</h4>
-          </div>
-          <span style={{ fontSize: '12px', fontWeight: 700, padding: '3px 8px', background: 'rgba(0,200,224,0.1)', color: C.indigoL, border: `1px solid rgba(0,200,224,0.25)`, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Last 30d</span>
-        </div>
+  const canSend = !sending && message.trim().length > 0 && activeChannels.length > 0;
+  const summary = activeChannels.length === 0 ? 'Choose at least one channel.'
+    : !message.trim() ? 'Write the message first.'
+    : `Goes to ${AUDIENCE_WORDS[audience] ?? 'everyone'} by ${activeChannels.join(' and ')}.`;
 
-        {/* Stats */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-          {stats === null ? (
-            <div style={{ padding: '40px', textAlign: 'center' }}>
-              <Activity size={20} style={{ color: C.border2, margin: '0 auto 8px', display: 'block' }} />
-              <p style={{ color: C.muted, fontSize: '13px', margin: 0 }}>Loading stats…</p>
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '18px', flex: 1, minHeight: 0, fontFamily: FONT }}>
+
+      {/* What the last 30 days did. */}
+      <div style={{ display: 'grid', gap: '18px',
+                    gridTemplateColumns: bp.isMobile ? '1fr' : bp.isDesktop ? 'repeat(4, minmax(0, 1fr))' : 'repeat(2, minmax(0, 1fr))' }}>
+        {cards.map(c => <StatCard key={c.title} {...c} trend={trendOf(c.change)} />)}
+      </div>
+
+      <div style={{ display: 'grid', gap: '18px', alignItems: 'start',
+                    gridTemplateColumns: bp.isDesktop ? 'minmax(0, 1.7fr) minmax(0, 1fr)' : '1fr' }}>
+
+        <Panel title="Write an update" hint="It goes out the moment you send it — there is no draft and no undo.">
+          <div style={{ padding: '22px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+
+            <UpdateField label="Who gets it">
+              <select value={audience} onChange={e => setAudience(e.target.value)} style={{ ...inp, cursor: 'pointer' }}>
+                <option value="all">Everyone</option>
+                <option value="free">Free plan only</option>
+                <option value="inactive">Not signed in for 30 days</option>
+              </select>
+            </UpdateField>
+
+            <UpdateField label="How it reaches them">
+              <div style={{ display: 'flex', gap: '9px', flexWrap: 'wrap' }}>
+                {UPDATE_CHANNELS.map(({ label, icon: Icon, blocked }) => {
+                  const usable = canDeliver(label);
+                  const on = usable && activeChannels.includes(label);
+                  return (
+                    <button key={label} type="button" disabled={!usable} title={usable ? undefined : blocked}
+                      onClick={() => toggleChannel(label)}
+                      style={{ ...btn, display: 'inline-flex', alignItems: 'center', gap: '8px',
+                               padding: '9px 16px', borderRadius: '999px', fontSize: '13.5px', fontFamily: FONT,
+                               background: on ? C.indigo : 'transparent',
+                               color: on ? '#fff' : usable ? C.muted : C.dim,
+                               border: `1px solid ${on ? C.indigo : C.border2}`,
+                               cursor: usable ? 'pointer' : 'not-allowed', opacity: usable ? 1 : 0.6,
+                               transition: 'background 0.14s, color 0.14s, border-color 0.14s' }}>
+                      <Icon size={15} /> {label}
+                      {on && <CheckCircle size={14} />}
+                    </button>
+                  );
+                })}
+              </div>
+            </UpdateField>
+
+            <UpdateField label="Subject" hint="The heading people see. Leave it blank and it reads &ldquo;Announcement&rdquo;.">
+              <input value={subject} onChange={e => setSubject(e.target.value)}
+                placeholder="What this update is about" style={{ ...inp }} />
+            </UpdateField>
+
+            <UpdateField label="Message">
+              <textarea value={message} onChange={e => setMessage(e.target.value)} rows={7}
+                placeholder="Write the update…"
+                style={{ ...inp, resize: 'vertical', lineHeight: 1.7, minHeight: '150px' }} />
+            </UpdateField>
+
+            {result && (
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', padding: '13px 16px',
+                            borderRadius: R.ctl, fontFamily: FONT, fontSize: '13.5px', fontWeight: 600,
+                            background: result.ok ? 'rgba(16,185,129,0.10)' : 'rgba(220,38,38,0.09)',
+                            color: result.ok ? C.green : C.red }}>
+                {result.ok ? <CheckCircle size={16} style={{ flexShrink: 0, marginTop: '1px' }} />
+                           : <AlertTriangle size={16} style={{ flexShrink: 0, marginTop: '1px' }} />}
+                <span>{result.msg}</span>
+              </div>
+            )}
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap',
+                          borderTop: `1px solid ${C.border}`, paddingTop: '18px' }}>
+              <button onClick={handleSend} disabled={!canSend}
+                style={{ ...btn, display: 'inline-flex', alignItems: 'center', gap: '8px',
+                         background: C.indigo, color: '#fff', padding: '12px 24px', borderRadius: '999px',
+                         fontSize: '14px', fontFamily: FONT,
+                         opacity: canSend ? 1 : 0.45, cursor: canSend ? 'pointer' : 'not-allowed' }}>
+                <Send size={15} /> {sending ? 'Sending…' : 'Send update'}
+              </button>
+              <span style={{ fontFamily: FONT, fontSize: '13px', color: C.muted }}>{summary}</span>
             </div>
-          ) : [
-            { label: 'In-App Sent', value: Number(stats.inAppSent ?? 0).toLocaleString(), change: stats.sentChange ?? '—', up: (stats.inAppSent ?? 0) > 0, icon: Bell, pct: Math.min(Number(stats.sentChangePct ?? 0), 100) },
-            { label: 'Read Rate',   value: `${Number(stats.readRate ?? 0).toFixed(1)}%`, change: stats.readChange ?? '—', up: (stats.readRate ?? 0) > 0, icon: TrendingUp, pct: Math.min(Number(stats.readRate ?? 0), 100) },
-            { label: 'Campaigns',   value: String(stats.campaignCount ?? 0), change: '30d', up: (stats.campaignCount ?? 0) > 0, icon: Megaphone, pct: Math.min(Number(stats.campaignCount ?? 0) * 10, 100) },
-            { label: 'Email Open Rate', value: stats.emailConfigured ? `${Number(stats.emailOpenRate ?? 0).toFixed(1)}%` : 'N/A', change: stats.emailConfigured ? `${stats.emailSent ?? 0} sent` : 'config needed', up: stats.emailConfigured && (stats.emailOpenRate ?? 0) > 0, icon: Mail, pct: stats.emailConfigured ? Math.min(Number(stats.emailOpenRate ?? 0), 100) : 0 },
-          ].map((s, i, arr) => (
-            <div key={i} style={{ padding: '14px 18px', borderBottom: i < arr.length - 1 ? `1px solid ${C.border}` : 'none', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {/* Top row */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <div style={{ width: '28px', height: '28px', background: s.up ? 'rgba(16,185,129,0.08)' : 'rgba(244,63,94,0.08)', border: `1px solid ${s.up ? 'rgba(16,185,129,0.2)' : 'rgba(244,63,94,0.2)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <s.icon size={13} style={{ color: s.up ? C.greenL : C.redL }} />
+          </div>
+        </Panel>
+
+        <Panel title="Channels" hint="What each one does, and whether it can deliver right now.">
+          {UPDATE_CHANNELS.map(({ label, icon: Icon, what, blocked }, i) => {
+            const usable = canDeliver(label);
+            const on = usable && activeChannels.includes(label);
+            return (
+              <div key={label} style={{ display: 'flex', gap: '13px', padding: '16px 22px',
+                     borderBottom: i < UPDATE_CHANNELS.length - 1 ? `1px solid ${C.border}` : 'none' }}>
+                <div style={{ width: '34px', height: '34px', flex: '0 0 34px', borderRadius: R.tile,
+                              background: usable ? C.accentSoft : C.thead, color: usable ? C.indigo : C.dim,
+                              display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Icon size={16} />
+                </div>
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    <span style={{ fontFamily: FONT, fontSize: '14px', fontWeight: 600, color: C.text }}>{label}</span>
+                    <Pill tone={on ? 'accent' : usable ? 'good' : 'warn'}>
+                      {on ? 'selected' : usable ? 'ready' : 'unavailable'}
+                    </Pill>
                   </div>
-                  <span style={{ color: '#607898', fontSize: '13px', fontWeight: 500 }}>{s.label}</span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ color: C.text, fontWeight: 700, fontSize: '15px', fontFamily: "'DM Mono', monospace" }}>{s.value}</span>
-                  <span style={{ fontSize: '12px', fontWeight: 700, padding: '2px 7px', background: s.up ? 'rgba(16,185,129,0.12)' : 'rgba(244,63,94,0.12)', color: s.up ? C.greenL : C.redL, border: `1px solid ${s.up ? 'rgba(16,185,129,0.25)' : 'rgba(244,63,94,0.25)'}` }}>{s.change}</span>
+                  <p style={{ margin: '5px 0 0', fontFamily: FONT, fontSize: '12.5px', color: C.muted, lineHeight: 1.6 }}>
+                    {usable ? what : blocked}
+                  </p>
                 </div>
               </div>
-              {/* Progress bar */}
-              <div style={{ height: '3px', background: 'rgba(8,14,24,0.8)', overflow: 'hidden' }}>
-                <div style={{ height: '100%', width: `${s.pct}%`, background: s.up ? `linear-gradient(90deg, ${C.green}, ${C.greenL})` : `linear-gradient(90deg, ${C.red}, ${C.redL})`, opacity: 0.7, transition: 'width 0.6s ease' }} />
-              </div>
-            </div>
-          ))}
-        </div>
+            );
+          })}
+        </Panel>
       </div>
     </div>
   );
@@ -3267,7 +3333,7 @@ export default function AdminPanel() {
     { label: 'Core',             items: [{ id: 'dashboard',     label: 'Overview',        icon: LayoutDashboard, ready: true }] },
     { label: 'Users',            items: [{ id: 'users',         label: 'User Accounts',   icon: UsersRound,    ready: true }] },
     { label: 'Support',          items: [{ id: 'customer-care', label: 'Customer Care',   icon: LifeBuoy,      badge: openTickets, ready: true }] },
-    { label: 'Growth & Content', items: [{ id: 'blog',          label: 'Blogpost',        icon: Newspaper,     ready: true }, { id: 'updates', label: 'Updates', icon: Megaphone, ready: true }] },
+    { label: 'Growth & Content', items: [{ id: 'blog',          label: 'Blogpost',        icon: Newspaper,     ready: true }, { id: 'updates', label: 'Updates', icon: BellRing, ready: true }] },
     { label: 'Platform',         items: [{ id: 'system-monitor', label: 'System Monitor', icon: Gauge, ready: true }, { id: 'sync-performance', label: 'Sync Performance', icon: RefreshCw, ready: true }, { id: 'traffic', label: 'Traffic Analytics', icon: TrendingUp, ready: true }] },
     { label: 'System',           items: [{ id: 'settings',      label: 'System Settings', icon: SlidersHorizontal, ready: true }] },
     { label: 'Journal',          items: [{ id: 'journal-settings', label: 'Journal Settings', icon: NotebookPen, ready: true }] },
@@ -3283,7 +3349,7 @@ export default function AdminPanel() {
     users: 'Accounts, roles and access.',
     'customer-care': 'Conversations with traders. Replies notify them in-app.',
     blog: 'Articles, drafts and what is published.',
-    updates: 'Announcements sent to the platform.',
+    updates: 'One message out to your traders — in the app, by email, or both.',
     'system-monitor': 'Live service health and resource use.',
     'sync-performance': 'How broker syncing is behaving.',
     traffic: 'Where visitors come from and what they read.',

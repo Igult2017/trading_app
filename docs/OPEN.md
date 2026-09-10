@@ -2867,6 +2867,35 @@ is skipped, and `0` counts as a value rather than a blank.
 
 ---
 
+### C7 — "Push" was a channel that delivered nothing, and the screen implied it only needed a key
+
+Found 2026-09-10 while rebuilding the admin Updates screen.
+
+**What the screen offered.** The broadcast form let you tick three channels — In-App, Email, Push —
+and send. Ticking Push showed the caption *"Push notifications require Web Push VAPID key setup"*,
+which reads as *set the key and it works*.
+
+**What actually happens.** `POST /api/admin/campaigns` (`server/routes.ts:5772`) has a branch for
+In-App (inserts a `notifications` row per user) and a branch for Email (Resend, plus an open-tracking
+pixel). **There is no branch for Push at all** — not a disabled one, not a guarded one, none. The
+word "Push" travelled to the server, got written into the audit line as if it had been used, and
+nothing was delivered to anybody. There is also no VAPID key anywhere in `server/` to set: grepping
+the whole server tree for `VAPID` returns nothing.
+
+So the caption was not describing a configuration gap. It was describing a feature that does not
+exist, in the words of one that merely needed switching on.
+
+**What was done now, and what was not.** The chip stays on screen, permanently disabled, labelled
+*"Not built — the server has no push step, so nothing would be delivered"*, and the Channels panel
+beside the form says the same. **Push itself was not built** — that is a real feature (service
+worker, subscription storage, VAPID keys, a send path) and it was not what he asked for. It is left
+visible and honest rather than quietly deleted, so the gap is in front of him instead of hidden.
+
+**Still open:** build Web Push, or drop the channel entirely. Either is fine; the current state is
+only honest, not finished.
+
+---
+
 ## E. Parked — do not start these
 
 | | | |

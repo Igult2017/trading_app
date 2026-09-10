@@ -233,3 +233,58 @@ document can answer.
 **Still not checked:** the journal and its fifteen panels, trade vault, metrics, trade sync. The tool
 cannot reach them without a session, so those need checking by hand or by pointing it at a logged-in
 build.
+
+---
+
+## THE ADMIN BLOG SCREEN IS DELIBERATELY ALL PLAYFAIR — do not "fix" it back to the sans
+
+Added 2026-09-10. Rule 1 above says a display serif must not do a body's job. **The admin blog
+screen is a signed-off exception**, and this section exists so the next session does not read rule 1,
+see Playfair in a table, and undo it.
+
+His instruction, after the panel had already been through two font round trips:
+*"font type here should be playfair with not strokes to make them visible."* Two requirements in one
+sentence — Playfair, **and** strokes that survive. He is not asking for the rule to be broken; he is
+asking for the condition under which it can be kept.
+
+**The condition is weight and size, and both were measured, not guessed.** The letter "o" was drawn
+with the real `playfair-display-var-latin.woff2` in Chromium at a plain non-retina scale, and the
+thinnest part of its arc read straight back off the canvas — 100% is solid ink, 0% is a stroke that
+rendered as nothing. Five sub-pixel positions were averaged, because an arc landing exactly on a
+pixel row prints dark and the same arc half a pixel lower prints pale, and a reader meets both on
+one line:
+
+| size | w400 | w500 | w600 | w700 |
+|---|---|---|---|---|
+| 12px | 36% | 42% | 49% | 54% |
+| **13px** | 49% | 52% | **58%** | **63%** |
+| 13.5px | 37% | 45% | 47% | 54% |
+| 14px | 35% | 40% | 46% | 50% |
+| 14.5px | 37% | 38% | 46% | 51% |
+| **15px** | 51% | 55% | **58%** | **63%** |
+| 16px | 33% | 38% | 44% | 53% |
+
+**Two findings, and the second one is the useful one:**
+
+1. **Weight is the fix.** 400 → 700 adds 15-18 points at every single size. The family is a VARIABLE
+   font (`index.css` declares `font-weight: 400 900` against one file for both names), so asking for
+   a heavier weight genuinely thickens the hairline. This is why the answer is a weight and not a
+   different typeface.
+2. **Size does NOT get monotonically better, which is counter-intuitive and cost a round of edits.**
+   13px and 15px land cleanly; 13.5, 14, 14.5 and 16 all come out 10+ points paler at the same
+   weight, because the rasteriser fits this face's arcs to whole pixels differently at each
+   pixel-per-em value. **A 14px choice looks like the safe middle and measures worse than either
+   neighbour.** I shipped 13.5 and 14 first on exactly that assumption and had to correct them.
+
+**So the floor is: 13px or 15px, weight 600 minimum, and nothing in between.** It is enforced in code,
+not in prose — `serifText()` in `client/src/components/admin-ui/tokens.ts` clamps size and weight, and
+carries the table above. Call it rather than writing `fontFamily` and `fontSize` by hand.
+
+**Scope.** This exception covers the admin **blog** screen only, because that is the screen he pointed
+at. Every other admin screen keeps the split — Playfair for headings, Montserrat for read-text. The
+`hintStyle` prop on `PageHeader` and the `font` prop on `Pill` exist for exactly this: they let one
+screen opt in without dragging the others with it.
+
+**One renderer.** These percentages are Chromium on Windows, which is what the panel is read in. A
+different rasteriser would shift the exact numbers; the weight trend holds regardless.
+
