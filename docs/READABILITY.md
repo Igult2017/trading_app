@@ -40,14 +40,20 @@ grey" — and four times out of five that is the wrong repair.
 
 ## THE THREE CAUSES, IN ORDER OF HOW OFTEN THEY ARE IT
 
-### 1. A display serif doing a body-text job
+### 1. A DISPLAY serif doing a body-text job
 
-**Playfair Display is the house display face and it is the right choice for a headline.** It has thin
+**⚠ THE WORD "DISPLAY" IS THE WHOLE RULE. It used to say "a serif doing a body-text job", and that
+sent this project the wrong way for days — read the settled ruling at the bottom of this document
+before acting on this section.** A *text* serif at 13px is not a problem; measured, it lays down
+more ink than the sans does.
+
+**Playfair Display is the house DISPLAY face and it is the right choice for a headline.** It has thin
 strokes and heavy thick/thin contrast, which is exactly what makes it handsome large and mush at
 11px in a table cell.
 
-**The rule:** serif for headlines, the logo, prices and pull-quotes. **Everything meant to be READ is
-sans** — body copy, labels, navigation, buttons, table cells, metadata, tickers.
+**The rule:** a DISPLAY serif (Playfair Display, DM Serif Display) is for headlines, the logo, prices
+and pull-quotes, and never goes below 16px. Everything meant to be READ takes either a sans **or a
+TEXT serif** — the two are equally fine; what is never fine is a display face doing it.
 
 ```ts
 const SERIF = "'Playfair Display', Georgia, serif";                        // headlines
@@ -383,3 +389,61 @@ piece of text read its colour, the colour actually painted behind it (walk up un
 opaque), its size, its family and its weight. Reading the source finds none of this — a colour set in
 one place is overridden in three others, and only the browser knows which won.
 
+---
+
+## ⭐ THE SETTLED RULING — display serif vs TEXT serif (2026-09-10)
+
+**This supersedes every earlier note in this document about Playfair, Inter and Montserrat. It is
+also the answer to a question that cost several round trips, so read it before changing a face.**
+
+### What happened
+
+He asked repeatedly for a serif. It kept coming out blurred. I concluded a serif could not carry
+body text and moved the admin panel to a sans. He rejected that too — *"one is very refined and mine
+is very ugly"* — pointing at his other project, DORIXÉ, as the thing to copy.
+
+I read DORIXÉ's code: it loads `Playfair_Display` and `Inter`. So I copied Inter. **That was wrong.
+DORIXÉ never applies Inter.** Its `--font-sans` is defined as itself (`globals.css:38`), a circular
+reference and therefore invalid, so every unstyled element falls back to the browser default.
+Measured on the live site: **247 elements in Times New Roman, 29 in Playfair, zero in Inter**, and
+`getComputedStyle(document.body).fontFamily` returns `"Times New Roman"`.
+
+The face he had been pointing at for days was a **text serif**.
+
+### The measurement that settles it
+
+Average ink laid down across the same words at 13px / weight 400 — all four faces verified as
+genuinely loaded first, by checking their widths differ (522 / 577 / 588 / 614):
+
+| face | kind | ink at 13px |
+|---|---|---|
+| Times New Roman | text serif | **21.0%** |
+| Georgia | text serif | 20.8% |
+| Inter | sans | 19.5% |
+| Playfair Display | **display** serif | **14.5%** |
+
+**A text serif beats the sans at body size, and lays down 45% more ink than the display serif.**
+
+### The rule
+
+* **Display serif** (Playfair Display, DM Serif Display): headlines only, **16px and up, never
+  below.** Thick stems next to hairlines — handsome large, gone small.
+* **Text serif** (Times New Roman, Georgia, and the Lora/Source Serif family): perfectly good for
+  body text at 13px+. Drawn for exactly that job.
+* **Sans** (Inter, Montserrat): also fine. Not required.
+
+"Serif" was never the problem. **Display** serif was. The admin panel now pairs Playfair headings
+with a Times New Roman body, which is what he approved.
+
+### Three traps this exercise produced, all worth keeping
+
+1. **A font that "did not load" silently ruins a comparison.** My first font-matching render came out
+   with all eight candidates looking identical, because `page.setContent()` has no origin and the
+   relative `@font-face` URLs resolved to nothing. Every row was the fallback serif. **Always
+   width-check each face against a known control before trusting a visual comparison.**
+2. **Measuring one pixel is not measuring legibility.** I first measured the darkest pixel of the
+   thinnest stroke and read "the hairline survives" as "this is legible". The measure that matches
+   what the eye reports is **average ink across the whole word**.
+3. **Reading the source is not the same as reading the render.** DORIXÉ's source says Inter. Its
+   screen says Times New Roman. When the question is "what does this look like", the rendered page
+   is the only authority.
