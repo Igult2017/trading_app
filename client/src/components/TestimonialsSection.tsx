@@ -84,7 +84,7 @@ export default function TestimonialsSection({ darkMode }: { darkMode: boolean })
               </div>
 
               <blockquote style={{
-                ...SERIF, margin: 0, flex: 1, fontStyle: 'italic', fontSize: 14.5,
+                ...SANS, margin: 0, flex: 1, fontStyle: 'italic', fontSize: 14.5,
                 lineHeight: 1.75, color: t.body,
               }}>
                 &ldquo;{r.quote}&rdquo;
@@ -94,7 +94,7 @@ export default function TestimonialsSection({ darkMode }: { darkMode: boolean })
                                    alignItems: 'flex-end', gap: 12 }}>
                 <div>
                   <div style={{ ...SANS, fontWeight: 700, fontSize: 14, color: t.ink }}>{r.name}</div>
-                  <div style={{ ...SERIF, fontSize: 12.5, color: t.dim, marginTop: 2 }}>{r.city}</div>
+                  <div style={{ ...SANS, fontSize: 12.5, color: t.dim, marginTop: 2 }}>{r.city}</div>
                 </div>
                 <span style={{
                   ...SERIF, flexShrink: 0, padding: '4px 12px', borderRadius: 999,

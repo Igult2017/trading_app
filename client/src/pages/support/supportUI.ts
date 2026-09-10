@@ -7,7 +7,11 @@
  */
 import type { CSSProperties } from 'react';
 
-export const SERIF = "'Playfair Display', Georgia, serif";
+/** HEADINGS ONLY. Playfair is a display face: thick stems next to hairline thin strokes. Measured
+ *  at body sizes it lays down roughly a quarter less ink than the sans, which is what reads as
+ *  blurred. Anything at 15px or below takes SANS. */
+export const SERIF = "'Playfair Display Variable', 'Playfair Display', Georgia, serif";
+export const SANS  = "'Inter', system-ui, -apple-system, sans-serif";
 
 export function sTokens(dm: boolean) {
   return {
@@ -40,7 +44,7 @@ export function fieldStyle(dm: boolean): CSSProperties {
     border: `1px solid ${t.fieldBd}`,
     borderRadius: 10,
     padding: '13px 16px',
-    fontFamily: SERIF,
+    fontFamily: SANS,
     fontSize: 14.5,
     lineHeight: 1.5,
     color: t.ink,
@@ -59,7 +63,7 @@ export function buttonStyle(dm: boolean, busy: boolean): CSSProperties {
     color: t.onAccent,
     border: 'none', borderRadius: 999,
     padding: '13px 26px',
-    fontFamily: SERIF, fontSize: 14.5, fontWeight: 700,
+    fontFamily: SANS, fontSize: 14.5, fontWeight: 700,
     cursor: busy ? 'not-allowed' : 'pointer',
     opacity: busy ? 0.75 : 1,
     transition: 'background .18s, transform .18s',

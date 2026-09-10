@@ -26,9 +26,9 @@ export default function AboutPage() {
       />
       <div style={{ minHeight: '100vh', background: t.bg, transition: 'background .3s' }}>
         <div style={{ maxWidth: 760, margin: '0 auto', padding: 'clamp(36px,6vw,72px) 24px 110px' }}>
-          <article style={{ fontFamily: SERIF }}>
+          <article style={{ fontFamily: SANS }}>
             <H1 dm={dm}>About</H1>
-            <p style={{ fontFamily: SERIF, fontSize: 15, fontWeight: 700, color: t.ink, margin: '0 0 22px' }}>
+            <p style={{ fontFamily: SANS, fontSize: 15, fontWeight: 700, color: t.ink, margin: '0 0 22px' }}>
               Trade &amp; Journal — a trading journal that tells you the truth about your own trading.
             </p>
 

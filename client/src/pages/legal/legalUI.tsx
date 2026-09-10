@@ -10,7 +10,10 @@
 import type { ReactNode } from 'react';
 import { DOCS, docByParam, ORG, EFFECTIVE, REVIEWED, VERSION } from './docsIndex';
 
-export const SERIF = "'Playfair Display', Georgia, serif";
+/** HEADINGS ONLY. Playfair is a display face: thick stems next to hairline thin strokes. Measured
+ *  at body sizes it lays down roughly a quarter less ink than the sans below, which is what reads
+ *  as blurred — it was setting every paragraph, bullet and note on these pages at 14-15px. */
+export const SERIF = "'Playfair Display Variable', 'Playfair Display', Georgia, serif";
 export const SANS  = "'Inter', system-ui, -apple-system, sans-serif";
 
 export interface Themed { dm: boolean }
@@ -50,7 +53,7 @@ export const H2 = ({ dm, children }: Themed & { children: ReactNode }) => (
 );
 
 export const P = ({ dm, children }: Themed & { children: ReactNode }) => (
-  <p style={{ fontFamily: SERIF, fontSize: 15, lineHeight: 1.75, color: tokens(dm).body, margin: '0 0 14px' }}>
+  <p style={{ fontFamily: SANS, fontSize: 15, lineHeight: 1.75, color: tokens(dm).body, margin: '0 0 14px' }}>
     {children}
   </p>
 );
@@ -61,7 +64,7 @@ export const DL = ({ dm, items }: Themed & { items: [string, ReactNode][] }) => 
   return (
     <ul style={{ margin: '0 0 16px', paddingLeft: 22 }}>
       {items.map(([term, body], i) => (
-        <li key={i} style={{ fontFamily: SERIF, fontSize: 15, lineHeight: 1.75, color: t.body, margin: '0 0 10px' }}>
+        <li key={i} style={{ fontFamily: SANS, fontSize: 15, lineHeight: 1.75, color: t.body, margin: '0 0 10px' }}>
           <strong style={{ color: t.ink, fontWeight: 700 }}>{term}</strong>{term ? ' ' : ''}{body}
         </li>
       ))}
@@ -74,7 +77,7 @@ export const UL = ({ dm, items }: Themed & { items: ReactNode[] }) => {
   return (
     <ul style={{ margin: '0 0 16px', paddingLeft: 22 }}>
       {items.map((it, i) => (
-        <li key={i} style={{ fontFamily: SERIF, fontSize: 15, lineHeight: 1.75, color: t.body, margin: '0 0 8px' }}>{it}</li>
+        <li key={i} style={{ fontFamily: SANS, fontSize: 15, lineHeight: 1.75, color: t.body, margin: '0 0 8px' }}>{it}</li>
       ))}
     </ul>
   );
@@ -88,7 +91,7 @@ export const Note = ({ dm, tone = 'note', children }: Themed & { tone?: 'note' |
     <div style={{ background: warn ? t.warnBg : t.noteBg,
                   borderLeft: `3px solid ${warn ? t.warnBar : t.noteBar}`,
                   borderRadius: '0 8px 8px 0', padding: '14px 18px', margin: '18px 0 20px' }}>
-      <div style={{ fontFamily: SERIF, fontSize: 14.5, lineHeight: 1.7,
+      <div style={{ fontFamily: SANS, fontSize: 14.5, lineHeight: 1.7,
                     color: warn ? t.warnInk : t.body }}>
         {children}
       </div>
@@ -113,13 +116,13 @@ export const DocHeader = ({ dm, param, go }: Themed & { param: string; go: (p: s
   return (
     <header>
       <H1 dm={dm}>{doc.title}</H1>
-      <p style={{ fontFamily: SERIF, fontSize: 15, fontWeight: 700, color: t.ink, margin: '0 0 6px' }}>{ORG}</p>
-      <p style={{ fontFamily: SERIF, fontSize: 14, color: t.body, margin: '0 0 20px' }}>
+      <p style={{ fontFamily: SANS, fontSize: 15, fontWeight: 700, color: t.ink, margin: '0 0 6px' }}>{ORG}</p>
+      <p style={{ fontFamily: SANS, fontSize: 14, color: t.body, margin: '0 0 20px' }}>
         <strong style={{ color: t.ink }}>Effective date:</strong> {EFFECTIVE}{' '}
         <strong style={{ color: t.ink }}>Last reviewed:</strong> {REVIEWED}{' '}
         <strong style={{ color: t.ink }}>Version:</strong> {VERSION}
       </p>
-      <p style={{ fontFamily: SERIF, fontSize: 15, lineHeight: 1.75, color: t.body, margin: '0 0 8px' }}>
+      <p style={{ fontFamily: SANS, fontSize: 15, lineHeight: 1.75, color: t.body, margin: '0 0 8px' }}>
         {doc.intro} For our other legal documents, see{' '}
         {others.map((d, i) => (
           <span key={d.param}>

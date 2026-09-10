@@ -5,7 +5,7 @@
  * answers underneath, and deleting working content nobody asked to remove is not a redesign.
  */
 import { useState } from 'react';
-import { sTokens, SERIF } from './supportUI';
+import { sTokens, SERIF, SANS } from './supportUI';
 
 const FAQS = [
   { q: 'How do I reset my password?',        a: 'Click the "Forgot Password" link on the login page. A reset link will be emailed to you and expires after 1 hour.' },
@@ -40,7 +40,7 @@ export default function SupportFaq({ dm }: { dm: boolean }) {
                 style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                          width: '100%', gap: 16, background: 'none', border: 'none', cursor: 'pointer',
                          textAlign: 'left', padding: '16px 20px',
-                         fontFamily: SERIF, fontSize: 15, fontWeight: isOpen ? 700 : 400,
+                         fontFamily: SANS, fontSize: 15, fontWeight: isOpen ? 700 : 400,
                          color: isOpen ? t.ink : t.body }}>
                 {f.q}
                 <span aria-hidden style={{ color: t.dim, fontSize: 18, lineHeight: 1, flexShrink: 0,
@@ -48,7 +48,7 @@ export default function SupportFaq({ dm }: { dm: boolean }) {
                                            transition: 'transform .18s' }}>+</span>
               </button>
               {isOpen && (
-                <p style={{ fontFamily: SERIF, fontSize: 14.5, lineHeight: 1.75, color: t.body,
+                <p style={{ fontFamily: SANS, fontSize: 14.5, lineHeight: 1.75, color: t.body,
                             margin: 0, padding: '0 20px 18px' }}>
                   {f.a}
                 </p>

@@ -75,7 +75,10 @@ export default function LegalPage() {
       />
       <div style={{ minHeight: '100vh', background: t.bg, transition: 'background .3s' }}>
         <div style={{ maxWidth: 760, margin: '0 auto', padding: 'clamp(36px,6vw,72px) 24px 110px' }}>
-          <article style={{ fontFamily: SERIF }}>
+          {/* SANS, not SERIF. Playfair is a display face — measured, it puts down about a
+              quarter less ink than a sans at these sizes, and this is a document somebody has to
+              read end to end. The headings inside still set SERIF themselves. */}
+          <article style={{ fontFamily: SANS }}>
             <DocHeader dm={dm} param={active} go={go} />
             <Body dm={dm} />
           </article>

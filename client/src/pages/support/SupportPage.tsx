@@ -13,7 +13,7 @@ import { useState } from 'react';
 import { Send } from 'lucide-react';
 import SEOHead from '@/components/SEOHead';
 import { usePublicTheme } from '@/context/PublicThemeContext';
-import { sTokens, fieldStyle, buttonStyle, SERIF } from './supportUI';
+import { sTokens, fieldStyle, buttonStyle, SERIF, SANS } from './supportUI';
 import SupportFaq from './SupportFaq';
 
 export default function SupportPage() {
@@ -65,7 +65,7 @@ export default function SupportPage() {
                        color: t.ink, margin: '0 0 8px', letterSpacing: '-0.015em', lineHeight: 1.15 }}>
             Help &amp; support
           </h1>
-          <p style={{ fontFamily: SERIF, fontSize: 15.5, lineHeight: 1.7, color: t.body, margin: '0 0 26px' }}>
+          <p style={{ fontFamily: SANS, fontSize: 15.5, lineHeight: 1.7, color: t.body, margin: '0 0 26px' }}>
             Have a question or a problem? Send us a message and we will reply by{' '}
             <a href="mailto:support@tradeandjournal.com" style={{ color: t.link, textDecoration: 'underline', textUnderlineOffset: 2 }}>
               email
@@ -79,7 +79,7 @@ export default function SupportPage() {
                 <p style={{ fontFamily: SERIF, fontSize: 17, fontWeight: 700, color: t.ink, margin: '0 0 6px' }}>
                   Message sent
                 </p>
-                <p style={{ fontFamily: SERIF, fontSize: 14.5, lineHeight: 1.7, color: t.body, margin: '0 0 18px' }}>
+                <p style={{ fontFamily: SANS, fontSize: 14.5, lineHeight: 1.7, color: t.body, margin: '0 0 18px' }}>
                   Thanks — we have it. We reply by email, usually within 24–48 hours on weekdays.
                 </p>
                 <button onClick={() => setStatus('idle')} style={buttonStyle(dm, false)} className="sp-send">
@@ -101,7 +101,7 @@ export default function SupportPage() {
                           value={form.message} onChange={set('message')} required />
 
                 {status === 'error' && (
-                  <p role="alert" style={{ fontFamily: SERIF, fontSize: 14, color: t.errInk, margin: 0 }}>
+                  <p role="alert" style={{ fontFamily: SANS, fontSize: 14, color: t.errInk, margin: 0 }}>
                     {error}
                   </p>
                 )}
