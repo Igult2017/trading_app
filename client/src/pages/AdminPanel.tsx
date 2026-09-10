@@ -22,7 +22,7 @@ import {
   Users, FileText, BellRing, Smartphone, Search, TrendingUp,
   Plus, Mail, Bell, UserPlus, ShieldCheck,
   Globe, Clock, Cpu, Activity, Zap, AlertTriangle, CheckCircle,
-  Database, Eye, EyeOff, Pencil, Trash2, Send, X,
+  Database, Eye, EyeOff, Pencil, Trash2, Send, X, MailOpen,
   LayoutDashboard, UsersRound, LifeBuoy, Newspaper, Gauge, RefreshCw, SlidersHorizontal
 } from 'lucide-react';
 
@@ -2214,6 +2214,15 @@ const UPDATE_CHANNELS: Array<{ label: string; icon: React.ElementType; what: str
                                        blocked: 'Not built — the server has no push step, so nothing would be delivered.' },
 ];
 
+/** "06 Sep, 14:25" — the same shape the Support list uses. */
+const whenSent = (iso: string) => {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '—';
+  return `${d.toLocaleDateString(undefined, { day: '2-digit', month: 'short' })}, `
+       + d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false });
+};
+
 const AUDIENCE_WORDS: Record<string, string> = {
   all:      'everyone',
   free:     'people on the free plan',
@@ -2228,6 +2237,7 @@ const UpdatesSection = ({ bp, getAdminToken = null }: { bp: any; getAdminToken?:
   const [sending, setSending] = useState(false);
   const [result, setResult] = useState<{ ok: boolean; msg: string } | null>(null);
   const [stats, setStats] = useState<any>(null);
+  const [history, setHistory] = useState<any[]>([]);
 
   const getHdrs = async () => {
     const token = await getAdminToken?.();
@@ -2240,6 +2250,8 @@ const UpdatesSection = ({ bp, getAdminToken = null }: { bp: any; getAdminToken?:
     const h = await getHdrs();
     const r = await fetch('/api/admin/campaign-stats', { headers: h }).catch(() => null);
     if (r?.ok) setStats(await r.json());
+    const hr = await fetch('/api/admin/campaign-history', { headers: h }).catch(() => null);
+    if (hr?.ok) { const rows = await hr.json(); if (Array.isArray(rows)) setHistory(rows); }
   };
 
   useEffect(() => { loadStats(); }, []);
@@ -2276,16 +2288,22 @@ const UpdatesSection = ({ bp, getAdminToken = null }: { bp: any; getAdminToken?:
   // A change string is "+3", "-1.2%" or "—". Only a leading minus means it went down.
   const trendOf = (c?: string): 'up' | 'down' => (typeof c === 'string' && c.trim().startsWith('-') ? 'down' : 'up');
 
+  // Emails sent and emails opened are the two he named, so they are cards in their own right —
+  // "sent" used to appear only inside another card's caption, and vanished entirely whenever email
+  // was unconfigured.
   const cards = [
+    { title: 'Emails sent',  icon: Mail,     tone: 'blue' as const,
+      value: stats ? n(stats.emailSent).toLocaleString() : '–',
+      caption: stats ? 'last 30 days' : 'loading…' },
+    { title: 'Emails opened', icon: MailOpen, tone: 'good' as const,
+      value: !stats ? '–' : n(stats.emailSent) === 0 ? '—' : `${n(stats.emailOpenRate).toFixed(1)}%`,
+      caption: !stats ? 'loading…'
+             : n(stats.emailSent) === 0 ? 'no emails sent yet'
+             : `${n(stats.emailOpened).toLocaleString()} of ${n(stats.emailSent).toLocaleString()}` },
     { title: 'In-app sent',  icon: Send,     tone: 'accent' as const, change: stats?.sentChange,
       value: stats ? n(stats.inAppSent).toLocaleString() : '–', caption: stats ? 'last 30 days' : 'loading…' },
-    { title: 'Read rate',    icon: Eye,      tone: 'good' as const,   change: stats?.readChange,
+    { title: 'Read rate',    icon: Eye,      tone: 'violet' as const, change: stats?.readChange,
       value: stats ? `${n(stats.readRate).toFixed(1)}%` : '–',  caption: stats ? 'of in-app updates opened' : 'loading…' },
-    { title: 'Updates sent', icon: BellRing, tone: 'violet' as const,
-      value: stats ? String(n(stats.campaignCount)) : '–',      caption: stats ? 'last 30 days' : 'loading…' },
-    { title: 'Email opens',  icon: Mail,     tone: 'blue' as const,
-      value: !stats ? '–' : emailReady ? `${n(stats.emailOpenRate).toFixed(1)}%` : 'Off',
-      caption: !stats ? 'loading…' : emailReady ? `${n(stats.emailOpened)} of ${n(stats.emailSent)} opened` : 'email is not configured' },
   ];
 
   const canSend = !sending && message.trim().length > 0 && activeChannels.length > 0;
@@ -2403,6 +2421,70 @@ const UpdatesSection = ({ bp, getAdminToken = null }: { bp: any; getAdminToken?:
           })}
         </Panel>
       </div>
+
+      {/* ── WHAT ACTUALLY WENT OUT ──────────────────────────────────────────────
+          Every campaign already left two trails and neither was ever on screen: an audit row per
+          campaign, and one `email_tracking` row PER EMAIL carrying when it was sent and whether
+          the tracking pixel came back. This is that data. */}
+      <Panel
+        title="Campaigns sent"
+        hint={history.length
+          ? `${history.length} most recent · opens are counted by a tracking pixel, so treat them as indicative`
+          : 'Nothing has gone out yet.'}>
+        {history.length > 0 && (
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr>
+                  {['Campaign', 'Sent', 'Recipients', 'Emails', 'Opened', 'Open rate'].map((h, i) => (
+                    <th key={h} style={{ textAlign: i > 1 ? 'right' : 'left', padding: '12px 20px',
+                                         background: C.thead, color: C.muted, fontFamily: FONT,
+                                         fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap',
+                                         borderBottom: `1px solid ${C.border}` }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {history.map((h: any, i: number) => {
+                  const rate = h.emailsSent > 0 ? (h.emailsOpened / h.emailsSent) * 100 : null;
+                  const cell: React.CSSProperties = {
+                    padding: '13px 20px',
+                    borderBottom: i < history.length - 1 ? `1px solid ${C.border}` : 'none',
+                    fontFamily: FONT, fontSize: 14, color: C.text, whiteSpace: 'nowrap',
+                  };
+                  return (
+                    <tr key={i}>
+                      <td style={{ ...cell, whiteSpace: 'normal', maxWidth: 320 }}>
+                        <div style={{ fontWeight: 600 }}>{h.name}</div>
+                        {h.channels?.length > 0 && (
+                          <div style={{ fontSize: 12.5, color: C.muted, marginTop: 2 }}>
+                            via {h.channels.join(', ')}
+                          </div>
+                        )}
+                      </td>
+                      <td style={{ ...cell, color: C.muted }}>{whenSent(h.sentAt)}</td>
+                      <td style={{ ...cell, textAlign: 'right' }}>
+                        {h.recipients == null ? '—' : Number(h.recipients).toLocaleString()}
+                      </td>
+                      <td style={{ ...cell, textAlign: 'right' }}>
+                        {h.emailsSent > 0 ? Number(h.emailsSent).toLocaleString() : '—'}
+                      </td>
+                      <td style={{ ...cell, textAlign: 'right' }}>
+                        {h.emailsSent > 0 ? Number(h.emailsOpened).toLocaleString() : '—'}
+                      </td>
+                      <td style={{ ...cell, textAlign: 'right' }}>
+                        {rate == null
+                          ? <span style={{ color: C.muted }}>—</span>
+                          : <Pill tone={rate >= 30 ? 'good' : rate >= 10 ? 'warn' : 'neutral'}>{rate.toFixed(1)}%</Pill>}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Panel>
     </div>
   );
 };

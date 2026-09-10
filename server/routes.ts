@@ -5727,7 +5727,15 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
   // ── Admin: list all support tickets ──────────────────────────────────────────
   app.get("/api/admin/tickets", requireAdmin, async (_req: Request, res: Response) => {
     try {
-      const result = await db.execute(drizzleSql`SELECT * FROM support_tickets ORDER BY created_at DESC`);
+      // EXCLUDE THE CAMPAIGN AUDIT ROWS. Sending a campaign writes a `support_tickets` row titled
+      // "Campaign: <subject>" from 'Admin'/'admin@system' as its only record that it happened, so
+      // every broadcast was also appearing in the Support inbox as a conversation nobody sent. The
+      // rows stay — /api/admin/campaign-history is built on them — they just are not tickets.
+      const result = await db.execute(drizzleSql`
+        SELECT * FROM support_tickets
+        WHERE subject NOT LIKE 'Campaign:%'
+        ORDER BY created_at DESC
+      `);
       return res.json((result as any).rows ?? result);
     } catch (err: any) {
       console.error("[Admin/tickets] Failed to load tickets", {
@@ -5923,6 +5931,63 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
       return res.status(500).json({
         error: "Campaign stats query failed",
         detail: err?.message ?? "Failed to load campaign stats",
+      });
+    }
+  });
+
+  // ── Admin: campaign history, one row per campaign ───────────────────────────
+  //
+  // Every campaign already leaves two trails and neither was ever shown:
+  //   * an audit row in `support_tickets` ("Campaign: <subject>" / "Sent to N users via ...") —
+  //     this is every campaign, including in-app-only ones that sent no email;
+  //   * one `email_tracking` row PER EMAIL, carrying `campaign_ref`, `sent_at` and `opened_at`.
+  //
+  // Joining them gives what an admin actually wants: which campaign, when, to how many, how many
+  // emails went, how many were opened. The join key is the audit subject minus its "Campaign: "
+  // prefix, which is exactly the `campaignRef` written when the emails were sent.
+  app.get("/api/admin/campaign-history", requireAdmin, async (_req: Request, res: Response) => {
+    try {
+      const result = await db.execute(drizzleSql`
+        SELECT t.created_at,
+               regexp_replace(t.subject, '^Campaign: ', '') AS name,
+               t.message                                    AS detail,
+               COALESCE(e.sent, 0)::int                     AS emails_sent,
+               COALESCE(e.opened, 0)::int                   AS emails_opened
+        FROM support_tickets t
+        LEFT JOIN (
+          SELECT campaign_ref,
+                 COUNT(*)::int                                       AS sent,
+                 COUNT(*) FILTER (WHERE opened_at IS NOT NULL)::int   AS opened
+          FROM email_tracking
+          GROUP BY campaign_ref
+        ) e ON e.campaign_ref = regexp_replace(t.subject, '^Campaign: ', '')
+        WHERE t.subject LIKE 'Campaign:%'
+        ORDER BY t.created_at DESC
+        LIMIT 50
+      `);
+      const rows = ((result as any).rows ?? []) as any[];
+      return res.json(rows.map(r => {
+        // The audit line is written as `Sent to N users via a, b` — parse it, but never let a
+        // format change take the row down: fall back to the raw text.
+        const m = /^Sent to (\d+) users via (.+)$/.exec(String(r.detail ?? ""));
+        return {
+          name:          String(r.name ?? "Broadcast"),
+          sentAt:        r.created_at,
+          recipients:    m ? Number(m[1]) : null,
+          channels:      m ? m[2].split(",").map((c: string) => c.trim()).filter(Boolean) : [],
+          detail:        String(r.detail ?? ""),
+          emailsSent:    Number(r.emails_sent ?? 0),
+          emailsOpened:  Number(r.emails_opened ?? 0),
+        };
+      }));
+    } catch (err: any) {
+      console.error("[Admin/campaign-history] Failed to load history", {
+        message: err?.message ?? String(err),
+        stack: err?.stack ?? null,
+      });
+      return res.status(500).json({
+        error: "Campaign history query failed",
+        detail: err?.message ?? "Failed to load campaign history",
       });
     }
   });
