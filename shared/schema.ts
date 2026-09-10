@@ -774,7 +774,11 @@ export const blogPosts = pgTable("blog_posts", {
   // which is why every published post claimed about five minutes whatever its length.
   readTime:   text("read_time").default(''),
   imageUrl:   text("image_url").default(''),
-  status:     text("status").default('Draft'),          // Published | Draft
+  status:     text("status").default('Draft'),          // Published | Draft | Scheduled
+  // WHEN a scheduled post should go live. Null for everything else. A post is only ever published
+  // by the sweep in server/lib/backgroundServices.ts reaching this time — the field alone publishes
+  // nothing, which is the difference between this and a date picker that decorates the form.
+  publishAt:  timestamp("publish_at"),
   section:    text("section").default('blog'),           // blog | verified-strategies | trade-signals
   summary:    text("summary").default(''),               // bullet-point TL;DR (one bullet per line, prefixed with •)
   videoUrl:   text("video_url").default(''),

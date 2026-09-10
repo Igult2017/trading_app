@@ -6919,7 +6919,7 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
   app.post("/api/blog", requireAdmin, async (req: Request, res: Response) => {
     try {
       const adminUser = (req as any).adminUser;
-      const { title, excerpt, content, summary, category, author, date, readTime, imageUrl, videoUrl, status, section, signalData, authorData } = req.body;
+      const { title, excerpt, content, summary, category, author, date, readTime, imageUrl, videoUrl, status, section, signalData, authorData, publishAt } = req.body;
       if (!title?.trim()) return res.status(400).json({ error: 'title is required' });
       const slug = await uniqueSlug(makeSlugBase(title.trim()));
       const post = await storage.createBlogPost({
@@ -6938,7 +6938,11 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
         readTime: (readTime && String(readTime).trim()) || readingTime(content ?? ''),
         imageUrl: imageUrl ?? '',
         videoUrl: videoUrl ?? '',
-        status: status ?? 'Draft',
+        // SCHEDULED IS A REAL STATE, not a label. A post with a publish_at in the future is stored
+        // as 'Scheduled' and is invisible to the public list until the sweep in
+        // server/lib/backgroundServices.ts reaches that time.
+        status: publishAt && new Date(publishAt) > new Date() ? 'Scheduled' : (status ?? 'Draft'),
+        publishAt: publishAt ? new Date(publishAt) : null,
         section: section ?? 'blog',
         signalData: signalData ?? null,
         authorData: authorData ?? null,
@@ -6958,6 +6962,15 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
       if (body.title?.trim() && !body.slug) {
         body.slug = await uniqueSlug(makeSlugBase(body.title.trim()), id);
       }
+      // Same rule as the create path: a future publish_at means Scheduled, and clearing it means
+      // the post stops being scheduled.
+      if ('publishAt' in body) {
+        const when = body.publishAt ? new Date(body.publishAt) : null;
+        body.publishAt = when;
+        if (when && when > new Date()) body.status = 'Scheduled';
+        else if (body.status === 'Scheduled') body.status = 'Published';
+      }
+
       // An author who CLEARS the read-time field is asking for it to be worked out again, not for a
       // blank. Only an explicitly empty value triggers this: leaving the field out of a partial
       // update still means "do not touch it".

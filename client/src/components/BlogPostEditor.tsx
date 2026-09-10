@@ -56,7 +56,7 @@ const focusOff = (e: any) => { e.target.style.borderColor = "rgba(255,255,255,0.
 function SidebarLabel({ children, style = {} }: { children: React.ReactNode; style?: any }) {
   return (
     <div style={{
-      fontSize: 9, fontFamily: "'DM Mono', monospace", letterSpacing: "0.12em",
+      fontSize: 9, fontFamily: "var(--admin-font)", letterSpacing: "0.12em",
       textTransform: "uppercase" as const, color: "rgba(255,255,255,0.22)",
       padding: "10px 16px 5px", ...style,
     }}>
@@ -72,7 +72,7 @@ function SidebarDivider() {
 function MainLabel({ children }: { children: React.ReactNode }) {
   return (
     <label style={{
-      fontSize: 11, fontFamily: "'DM Mono', monospace",
+      fontSize: 11, fontFamily: "var(--admin-font)",
       color: "rgba(255,255,255,0.3)", letterSpacing: "0.06em",
       textTransform: "uppercase" as const,
     }}>
@@ -143,11 +143,11 @@ function YoutubeEmbed({ value, onChange }: { value: string; onChange: (v: string
           />
         </div>
       ) : value.trim() ? (
-        <div style={{ fontSize: 11, color: "rgba(255,100,100,0.7)", fontFamily: "'DM Mono',monospace" }}>
+        <div style={{ fontSize: 11, color: "rgba(255,100,100,0.7)", fontFamily: "var(--admin-font)" }}>
           Invalid YouTube URL — try: youtube.com/watch?v=… or youtu.be/…
         </div>
       ) : (
-        <div style={{ fontSize: 11, color: "rgba(255,255,255,0.2)", fontFamily: "'DM Mono',monospace" }}>
+        <div style={{ fontSize: 11, color: "rgba(255,255,255,0.2)", fontFamily: "var(--admin-font)" }}>
           Leave blank if the post has no video version.
         </div>
       )}
@@ -167,7 +167,7 @@ function MainField({ label, children, style = {} }: { label: string; children: R
 function SectionHeading({ children }: { children: React.ReactNode }) {
   return (
     <div style={{
-      fontSize: 10, fontFamily: "'DM Mono', monospace", letterSpacing: "0.12em",
+      fontSize: 10, fontFamily: "var(--admin-font)", letterSpacing: "0.12em",
       textTransform: "uppercase" as const, color: "rgba(255,255,255,0.2)",
       borderBottom: "0.5px solid rgba(255,255,255,0.06)", paddingBottom: 8,
     }}>
@@ -199,7 +199,7 @@ function StatusToggle({ value, onChange }: { value: string; onChange: (v: string
       <span
         onClick={() => onChange(v)}
         style={{
-          fontSize: 11, fontFamily: "'DM Mono', monospace",
+          fontSize: 11, fontFamily: "var(--admin-font)",
           padding: "3px 12px", borderRadius: 20,
           cursor: "pointer", border: "0.5px solid",
           transition: "all 0.15s", userSelect: "none" as const,
@@ -214,7 +214,7 @@ function StatusToggle({ value, onChange }: { value: string; onChange: (v: string
   };
   return (
     <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-      <span style={{ fontSize: 11, fontFamily: "'DM Mono', monospace", color: "rgba(255,255,255,0.2)", marginRight: 4 }}>status</span>
+      <span style={{ fontSize: 11, fontFamily: "var(--admin-font)", color: "rgba(255,255,255,0.2)", marginRight: 4 }}>status</span>
       {chip("Draft", "Draft",
         { bg: "rgba(255,189,46,0.18)", bgOff: "rgba(255,189,46,0.05)", text: "#ffbd2e", textOff: "rgba(255,189,46,0.45)", borderOff: "rgba(255,189,46,0.18)" },
         "rgba(255,189,46,0.5)")}
@@ -352,7 +352,7 @@ function ExpertiseInput({ selected, onChange }: { selected: string[]; onChange: 
       </div>
 
       {selected.length > 0 && (
-        <div style={{ fontSize: 10, fontFamily: "'DM Mono', monospace", color: "rgba(99,153,34,0.55)", marginTop: 6 }}>
+        <div style={{ fontSize: 10, fontFamily: "var(--admin-font)", color: "rgba(99,153,34,0.55)", marginTop: 6 }}>
           {selected.length} selected
         </div>
       )}
@@ -396,13 +396,13 @@ function SidebarAuthorPanel({ form, onChange }: { form: any; onChange: (partial:
       </div>
 
       <div style={{ padding: "0 16px 8px" }}>
-        <div style={{ fontSize: 9, fontFamily: "'DM Mono', monospace", letterSpacing: "0.1em", textTransform: "uppercase" as const, color: "rgba(255,255,255,0.22)", marginBottom: 4 }}>Name</div>
+        <div style={{ fontSize: 9, fontFamily: "var(--admin-font)", letterSpacing: "0.1em", textTransform: "uppercase" as const, color: "rgba(255,255,255,0.22)", marginBottom: 4 }}>Name</div>
         <input type="text" value={form.authorName} onChange={e => onChange({ authorName: e.target.value })}
           placeholder="Full name" style={inputBase()} onFocus={focusOn} onBlur={focusOff} />
       </div>
 
       <div style={{ padding: "0 16px 10px" }}>
-        <div style={{ fontSize: 9, fontFamily: "'DM Mono', monospace", letterSpacing: "0.1em", textTransform: "uppercase" as const, color: "rgba(255,255,255,0.22)", marginBottom: 4 }}>Short Bio</div>
+        <div style={{ fontSize: 9, fontFamily: "var(--admin-font)", letterSpacing: "0.1em", textTransform: "uppercase" as const, color: "rgba(255,255,255,0.22)", marginBottom: 4 }}>Short Bio</div>
         <textarea value={form.authorBio} onChange={e => onChange({ authorBio: e.target.value })}
           rows={3} placeholder="Brief description shown on your author card..."
           style={inputBase({ resize: "none", lineHeight: 1.55, fontSize: 11 })}
@@ -428,7 +428,7 @@ function SidebarAuthorPanel({ form, onChange }: { form: any; onChange: (partial:
               background: "rgba(255,255,255,0.06)", border: "0.5px solid rgba(255,255,255,0.1)",
               display: "flex", alignItems: "center", justifyContent: "center",
               fontSize: 11, color: "rgba(255,255,255,0.5)",
-              fontFamily: "'DM Mono', monospace", fontWeight: 500,
+              fontFamily: "var(--admin-font)", fontWeight: 500,
             }}>
               {icon}
             </div>
@@ -506,7 +506,7 @@ function Toolbar({ contentRef, onUpdate }: { contentRef: React.RefObject<HTMLTex
     });
   }, [contentRef, onUpdate]);
 
-  const tbtn: any = { background: "none", border: "none", color: "rgba(255,255,255,0.4)", cursor: "pointer", padding: "4px 8px", borderRadius: 4, fontSize: 12, fontFamily: "'DM Mono', monospace", transition: "all 0.12s", lineHeight: 1 };
+  const tbtn: any = { background: "none", border: "none", color: "rgba(255,255,255,0.4)", cursor: "pointer", padding: "4px 8px", borderRadius: 4, fontSize: 12, fontFamily: "var(--admin-font)", transition: "all 0.12s", lineHeight: 1 };
   const ho = (e: any) => { e.target.style.background = "rgba(255,255,255,0.07)"; e.target.style.color = "rgba(255,255,255,0.85)"; };
   const uo = (e: any) => { e.target.style.background = "none"; e.target.style.color = "rgba(255,255,255,0.4)"; };
   const sep = <div style={{ width: 0.5, height: 16, background: "rgba(255,255,255,0.1)", margin: "0 4px", flexShrink: 0 }} />;
@@ -633,12 +633,12 @@ function CoverUpload({ value, onChange }: { value: string; onChange: (v: string)
             }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
                 <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#7ab83e", flexShrink: 0 }} />
-                <span style={{ fontSize: 11, fontFamily: "'DM Mono', monospace", color: "rgba(255,255,255,0.6)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 220 }}>
+                <span style={{ fontSize: 11, fontFamily: "var(--admin-font)", color: "rgba(255,255,255,0.6)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 220 }}>
                   {fileName || value.slice(0, 40) + (value.length > 40 ? "…" : "")}
                 </span>
               </div>
               <button onClick={() => { onChange(""); setFileName(null); }}
-                style={{ background: "rgba(255,255,255,0.08)", border: "0.5px solid rgba(255,255,255,0.15)", borderRadius: 5, color: "rgba(255,255,255,0.5)", fontSize: 11, fontFamily: "'DM Mono', monospace", padding: "3px 10px", cursor: "pointer", flexShrink: 0 }}
+                style={{ background: "rgba(255,255,255,0.08)", border: "0.5px solid rgba(255,255,255,0.15)", borderRadius: 5, color: "rgba(255,255,255,0.5)", fontSize: 11, fontFamily: "var(--admin-font)", padding: "3px 10px", cursor: "pointer", flexShrink: 0 }}
                 onMouseEnter={e => { (e.target as any).style.background = "rgba(255,60,60,0.18)"; (e.target as any).style.color = "rgba(255,100,100,0.9)"; }}
                 onMouseLeave={e => { (e.target as any).style.background = "rgba(255,255,255,0.08)"; (e.target as any).style.color = "rgba(255,255,255,0.5)"; }}
               >
@@ -689,13 +689,13 @@ function CoverUpload({ value, onChange }: { value: string; onChange: (v: string)
           <div style={{ fontSize: 13, color: dragging ? "rgba(168,212,111,0.9)" : "rgba(255,255,255,0.55)", fontWeight: 500, transition: "color 0.18s" }}>
             {dragging ? "Drop to set as cover" : zoneFocused ? "Press ⌘/Ctrl+V to paste image" : "Upload cover image"}
           </div>
-          <div style={{ fontSize: 11, color: "rgba(255,255,255,0.25)", marginTop: 4, fontFamily: "'DM Mono', monospace" }}>
+          <div style={{ fontSize: 11, color: "rgba(255,255,255,0.25)", marginTop: 4, fontFamily: "var(--admin-font)" }}>
             drag & drop · click to browse · ctrl+v to paste
           </div>
         </div>
         <div style={{ display: "flex", gap: 6, marginTop: 2 }}>
           {["PNG", "JPG", "WEBP", "GIF"].map(f => (
-            <span key={f} style={{ fontSize: 10, fontFamily: "'DM Mono', monospace", color: "rgba(255,255,255,0.2)", background: "rgba(255,255,255,0.05)", border: "0.5px solid rgba(255,255,255,0.08)", borderRadius: 4, padding: "2px 7px" }}>{f}</span>
+            <span key={f} style={{ fontSize: 10, fontFamily: "var(--admin-font)", color: "rgba(255,255,255,0.2)", background: "rgba(255,255,255,0.05)", border: "0.5px solid rgba(255,255,255,0.08)", borderRadius: 4, padding: "2px 7px" }}>{f}</span>
           ))}
         </div>
         <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }}
@@ -762,7 +762,7 @@ function ContentPreview({ value }: { value: string }) {
   const blocks = value.split(/\n{2,}/);
   return (
     <div style={{ marginTop: 12, padding: 14, border: '0.5px solid rgba(255,255,255,0.08)', borderRadius: 8, background: 'rgba(255,255,255,0.02)' }}>
-      <div style={{ fontSize: 9, fontFamily: "'DM Mono', monospace", letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.22)', marginBottom: 10 }}>
+      <div style={{ fontSize: 9, fontFamily: "var(--admin-font)", letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.22)', marginBottom: 10 }}>
         Live content preview
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -820,6 +820,10 @@ export interface BlogEditorData {
   authorTwitter:   string;
   authorLinkedin:  string;
   authorTelegram:  string;
+  /** When this post should go live, as the browser's local `datetime-local` value. Empty means
+   *  publish on save. A time in the future stores the post as Scheduled; the sweep in
+   *  server/services/publishScheduler.ts is what actually publishes it. */
+  publishAt:       string;
 }
 
 interface Props {
@@ -847,6 +851,7 @@ const DEFAULTS: BlogEditorData = {
   authorTwitter:   "",
   authorLinkedin:  "",
   authorTelegram:  "",
+  publishAt:       "",
 };
 
 // ─── Smart bullet-point summary editor ────────────────────────────────────────
@@ -939,7 +944,7 @@ function SummaryEditor({ value, onChange }: { value: string; onChange: (v: strin
     border:       "0.5px solid rgba(255,255,255,0.12)",
     borderRadius: 5,
     color:        "rgba(255,255,255,0.55)",
-    fontFamily:   "'DM Mono', monospace",
+    fontFamily:   "var(--admin-font)",
     fontSize:     11,
     padding:      "4px 11px",
     cursor:       "pointer",
@@ -960,7 +965,7 @@ function SummaryEditor({ value, onChange }: { value: string; onChange: (v: strin
         borderBottom:   "none",
         borderRadius:   "8px 8px 0 0",
       }}>
-        <span style={{ fontSize: 10, fontFamily: "'DM Mono', monospace", color: "rgba(255,255,255,0.25)", letterSpacing: "0.08em", textTransform: "uppercase", marginRight: 4 }}>
+        <span style={{ fontSize: 10, fontFamily: "var(--admin-font)", color: "rgba(255,255,255,0.25)", letterSpacing: "0.08em", textTransform: "uppercase", marginRight: 4 }}>
           insert
         </span>
         <button style={tbtn} onClick={addBullet}
@@ -975,7 +980,7 @@ function SummaryEditor({ value, onChange }: { value: string; onChange: (v: strin
         </button>
         <div style={{ flex: 1 }} />
         {bullets.length > 0 && (
-          <span style={{ fontSize: 10, fontFamily: "'DM Mono', monospace", color: "rgba(99,153,34,0.6)" }}>
+          <span style={{ fontSize: 10, fontFamily: "var(--admin-font)", color: "rgba(99,153,34,0.6)" }}>
             {bullets.length} {bullets.length === 1 ? "point" : "points"}
           </span>
         )}
@@ -1011,7 +1016,7 @@ function SummaryEditor({ value, onChange }: { value: string; onChange: (v: strin
           border:       "0.5px solid rgba(99,153,34,0.18)",
           borderRadius: 8,
         }}>
-          <div style={{ fontSize: 9, fontFamily: "'DM Mono', monospace", letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(99,153,34,0.5)", marginBottom: 10 }}>
+          <div style={{ fontSize: 9, fontFamily: "var(--admin-font)", letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(99,153,34,0.5)", marginBottom: 10 }}>
             Reader preview
           </div>
           <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 8 }}>
@@ -1027,7 +1032,7 @@ function SummaryEditor({ value, onChange }: { value: string; onChange: (v: strin
                     width: 20, height: 20, borderRadius: isNumbered ? 4 : "50%",
                     background: "rgba(99,153,34,0.18)", border: "0.5px solid rgba(99,153,34,0.35)",
                     display: "flex", alignItems: "center", justifyContent: "center",
-                    fontSize: isNumbered ? 9 : 7, color: "#a8d46f", fontFamily: "'DM Mono', monospace", fontWeight: 700,
+                    fontSize: isNumbered ? 9 : 7, color: "#a8d46f", fontFamily: "var(--admin-font)", fontWeight: 700,
                   }}>
                     {isNumbered ? num : "•"}
                   </span>
@@ -1129,9 +1134,12 @@ export default function BlogPostEditor({ initialData, editPost, onSubmit, onCanc
     ...extra,
   });
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (status?: string) => {
     if (!form.title.trim() || saving) return;
-    await onSubmit({ ...form });
+    // A future publish time wins over the button: "Save & publish" with a date set means schedule,
+    // which is what the date field is for. The server decides the final state, this just says what
+    // was intended.
+    await onSubmit({ ...form, ...(status ? { status } : {}) });
   };
 
   // Convert HTML clipboard (from Word, Google Docs, web pages) to Markdown so
@@ -1357,7 +1365,7 @@ export default function BlogPostEditor({ initialData, editPost, onSubmit, onCanc
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0, flex: 1 }}>
           <TrafficDots />
-          <span style={{ marginLeft: 6, fontSize: 12, fontFamily: "'DM Mono', monospace", color: "rgba(255,255,255,0.3)", letterSpacing: "0.04em", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          <span style={{ marginLeft: 6, fontSize: 12, fontFamily: "var(--admin-font)", color: "rgba(255,255,255,0.3)", letterSpacing: "0.04em", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {fileName}
           </span>
         </div>
@@ -1444,7 +1452,7 @@ export default function BlogPostEditor({ initialData, editPost, onSubmit, onCanc
               style={mainInput()}
               onFocus={mainFocusOn} onBlur={mainFocusOff} />
             {autoReadTime && form.readTime.trim() && form.readTime.trim() !== autoReadTime && (
-              <div style={{ fontSize: 10, fontFamily: "'DM Mono', monospace", color: 'rgba(255,255,255,0.35)', marginTop: 6 }}>
+              <div style={{ fontSize: 10, fontFamily: "var(--admin-font)", color: 'rgba(255,255,255,0.35)', marginTop: 6 }}>
                 the article measures {autoReadTime} ({autoWords} words) —{' '}
                 <button type="button" onClick={() => set({ readTime: '' })}
                   style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer',
@@ -1535,10 +1543,36 @@ export default function BlogPostEditor({ initialData, editPost, onSubmit, onCanc
             { text: form.status.toLowerCase(), color: form.status === "Published" ? "rgba(40,200,64,0.6)" : "rgba(255,189,46,0.6)" },
           ].filter(Boolean).map((item: any, i, arr) => (
             <span key={i} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ fontSize: 11, fontFamily: "'DM Mono', monospace", color: item.color }}>{item.text}</span>
+              <span style={{ fontSize: 11, fontFamily: "var(--admin-font)", color: item.color }}>{item.text}</span>
               {i < arr.length - 1 && <span style={{ color: "rgba(255,255,255,0.1)", fontSize: 11 }}>·</span>}
             </span>
           ))}
+        </div>
+
+        <div style={{ marginBottom: 18 }}>
+          <MainField label="Publish later">
+            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" as const }}>
+              <input
+                type="datetime-local"
+                value={form.publishAt}
+                onChange={e => set({ publishAt: e.target.value })}
+                style={mainInput({ maxWidth: 260 })}
+                onFocus={mainFocusOn}
+                onBlur={mainFocusOff}
+              />
+              {form.publishAt && (
+                <button type="button" onClick={() => set({ publishAt: "" })}
+                  style={{ background: "none", border: "none", color: "rgba(255,255,255,0.45)", fontFamily: "var(--admin-font)", fontSize: 12, cursor: "pointer", textDecoration: "underline" }}>
+                  clear
+                </button>
+              )}
+            </div>
+            <div style={{ fontSize: 12, color: "rgba(255,255,255,0.35)", fontFamily: "var(--admin-font)", marginTop: 6 }}>
+              {form.publishAt
+                ? "Saved as scheduled — it goes live on its own at this time."
+                : "Leave empty to publish straight away."}
+            </div>
+          </MainField>
         </div>
 
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" as const, justifyContent: isMobile ? "stretch" : "flex-end" }}>
@@ -1551,21 +1585,21 @@ export default function BlogPostEditor({ initialData, editPost, onSubmit, onCanc
             Cancel
           </button>
           <button
-            onClick={() => set({ status: "Draft" })}
-            style={{ background: "rgba(255,255,255,0.05)", border: "0.5px solid rgba(255,255,255,0.1)", borderRadius: 7, color: "rgba(255,255,255,0.45)", fontFamily: "'DM Mono', monospace", fontSize: 12, padding: "7px 14px", cursor: "pointer", transition: "all 0.15s" }}
+            onClick={() => handleSubmit("Draft")}
+            style={{ background: "rgba(255,255,255,0.05)", border: "0.5px solid rgba(255,255,255,0.1)", borderRadius: 7, color: "rgba(255,255,255,0.45)", fontFamily: "var(--admin-font)", fontSize: 12, padding: "7px 14px", cursor: "pointer", transition: "all 0.15s" }}
             onMouseEnter={e => { (e.target as any).style.background = "rgba(255,255,255,0.09)"; (e.target as any).style.color = "rgba(255,255,255,0.75)"; }}
             onMouseLeave={e => { (e.target as any).style.background = "rgba(255,255,255,0.05)"; (e.target as any).style.color = "rgba(255,255,255,0.45)"; }}
           >
             Save draft
           </button>
           <button
-            onClick={handleSubmit}
+            onClick={() => handleSubmit(form.publishAt ? "Scheduled" : "Published")}
             disabled={saving || !form.title.trim()}
             style={{ background: saving || !form.title.trim() ? "#2a4d0c" : "#3b6d11", border: "none", borderRadius: 7, color: saving || !form.title.trim() ? "rgba(192,221,151,0.5)" : "#c0dd97", fontFamily: "var(--admin-font)", fontSize: 13, fontWeight: 500, padding: "7px 22px", cursor: saving || !form.title.trim() ? "not-allowed" : "pointer", transition: "background 0.15s" }}
             onMouseEnter={e => { if (!saving && form.title.trim()) (e.target as any).style.background = "#4a8515"; }}
             onMouseLeave={e => { if (!saving && form.title.trim()) (e.target as any).style.background = "#3b6d11"; }}
           >
-            {saving ? "Saving…" : editPost ? "Save Changes →" : "Create Post →"}
+            {saving ? "Saving…" : form.publishAt ? "Save & schedule" : "Save & publish"}
           </button>
         </div>
       </div>

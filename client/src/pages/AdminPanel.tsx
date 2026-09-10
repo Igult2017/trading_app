@@ -188,6 +188,15 @@ try {
 
 /** The rail's own face. Brand chrome, like the wordmark — deliberately NOT the picker's font. */
 
+/** An instant from the API -> the value a `datetime-local` input expects, in the viewer's own
+ *  timezone. `toISOString()` would render UTC and silently shift the author's chosen time. */
+const toLocalInput = (iso: string): string => {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
+
 const toTitleCase = (s: string): string =>
   s.trim().replace(/\w\S*/g, w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
 class CustomerCareErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean; error: string | null }> {
@@ -1992,6 +2001,7 @@ const BlogSection = ({ bp }: { bp: any }) => {
             status: p.status ?? 'Draft', author: p.author ?? 'Admin',
             date: p.date, signal: p.signalData ?? p.signal_data ?? null,
             slug: p.slug ?? '',
+            publishAt: p.publishAt ?? p.publish_at ?? null,
             imageUrl: p.imageUrl ?? p.image_url ?? '',
             excerpt: p.excerpt ?? '',
             content: p.content ?? '',
@@ -2033,6 +2043,7 @@ const BlogSection = ({ bp }: { bp: any }) => {
       content:         post.content || '',
       category:        post.category || 'Analysis',
       status:          post.status || 'Draft',
+      publishAt:       post.publishAt ? toLocalInput(post.publishAt) : '',
       authorName:      post.author || '',
       authorBio:       ad.bio || '',
       authorExpertise: ad.expertise || [],
@@ -2148,6 +2159,9 @@ const BlogSection = ({ bp }: { bp: any }) => {
         title:      data.title.trim(),
         section:    derivedSection,
         status:     data.status,
+        // The browser gives a local wall-clock string ("2026-09-12T09:30"); the server stores a real
+        // instant. Converting here means the author's 9:30 is their own 9:30, not UTC's.
+        publishAt:  data.publishAt ? new Date(data.publishAt).toISOString() : null,
         category:   data.category,
         author:     data.authorName || 'Admin',
         date:       new Date().toLocaleDateString('en-US', { month: 'short', day: '2-digit' }),
@@ -2437,9 +2451,17 @@ const BlogSection = ({ bp }: { bp: any }) => {
                             <div style={{ marginTop: 3, fontSize: '12px', color: C.muted }}>/blog/{post.slug}</div>
                           )}
                         </td>
-                        <td style={td}><Pill tone={published ? 'good' : 'neutral'}>{published ? 'published' : 'draft'}</Pill></td>
+                        <td style={td}>
+                          <Pill tone={post.status === 'Scheduled' ? 'accent' : published ? 'good' : 'neutral'}>
+                            {post.status === 'Scheduled' ? 'scheduled' : published ? 'published' : 'draft'}
+                          </Pill>
+                        </td>
                         <td style={{ ...td, color: C.muted }}>{post.author}</td>
-                        <td style={{ ...td, color: C.muted }}>{published ? (post.date || '—') : '—'}</td>
+                        <td style={{ ...td, color: C.muted }}>
+                          {post.status === 'Scheduled' && post.publishAt
+                            ? new Date(post.publishAt).toLocaleString(undefined, { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' })
+                            : published ? (post.date || '—') : '—'}
+                        </td>
                         <td style={{ ...td, textAlign: 'right' }}>
                           <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                             <button onClick={() => toggleStatus(post.id)} title={published ? 'Unpublish' : 'Publish'}

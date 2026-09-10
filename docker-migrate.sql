@@ -569,5 +569,10 @@ ALTER TABLE synced_trades ADD COLUMN IF NOT EXISTS original_take_profit NUMERIC(
 -- whatever they hold, and are the author's to correct.
 ALTER TABLE blog_posts ALTER COLUMN read_time SET DEFAULT '';
 
+-- Scheduled publishing. A post with a publish_at in the future stays 'Scheduled' until the sweep in
+-- server/lib/backgroundServices.ts reaches that time and flips it to 'Published'.
+ALTER TABLE blog_posts ADD COLUMN IF NOT EXISTS publish_at TIMESTAMP;
+CREATE INDEX IF NOT EXISTS idx_blog_posts_publish_at ON blog_posts (publish_at) WHERE publish_at IS NOT NULL;
+
 -- ── Done ─────────────────────────────────────────────────────────────────────
 DO $$ BEGIN RAISE NOTICE 'docker-migrate.sql complete'; END $$;
