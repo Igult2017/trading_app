@@ -94,16 +94,18 @@ export function StatCard({ title, value, change, trend, caption, icon: Icon, ton
           <Pill tone={trend === 'down' ? 'bad' : 'good'}>{change}</Pill>
         )}
       </div>
+      {/* DORIXÉ's KpiCard: value `text-[2rem] font-bold leading-none tracking-tight`, label
+          `text-sm font-medium`. Neither carries its `font-serif` class, so both take the BODY
+          face — the big figure is not the display face there, and the label is sentence case. */}
       <div style={{
-        fontFamily: HFONT, fontSize: 32, fontWeight: 700, color: C.text,
-        letterSpacing: '-0.02em', lineHeight: 1.1,
+        fontFamily: FONT, fontSize: 32, fontWeight: 700, color: C.text,
+        letterSpacing: '-0.02em', lineHeight: 1,
       }}>{value}</div>
       <div style={{
-        marginTop: 9, fontFamily: FONT, fontSize: 13, fontWeight: 700, color: C.muted,
-        textTransform: 'uppercase', letterSpacing: '0.06em',
+        marginTop: 8, fontFamily: FONT, fontSize: 14, fontWeight: 500, color: C.muted,
       }}>{title}</div>
       {caption && (
-        <div style={{ marginTop: 7, fontFamily: FONT, fontSize: 13, color: C.muted }}>{caption}</div>
+        <div style={{ marginTop: 2, fontFamily: FONT, fontSize: 12, color: C.muted }}>{caption}</div>
       )}
     </div>
   );

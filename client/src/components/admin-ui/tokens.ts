@@ -37,9 +37,6 @@ export const C = {
 export const FONT = 'var(--admin-font)';
 export const HFONT = 'var(--admin-header-font)';
 
-/** The navigation rail's own face. Brand chrome, deliberately not the picker's font. */
-export const RAIL_SERIF = "'Playfair Display Variable', 'Playfair Display', Georgia, serif";
-
 /** THE PANEL'S FACE DOING A BODY'S JOB — allowed, but only because it arrives with its own floor.
  *
  *  Playfair Display is a HIGH-CONTRAST face: the thin strokes of an "e", an "a" or the crossbar of
@@ -110,12 +107,14 @@ export const inp = {
   outline: 'none', boxSizing: 'border-box',
 } as const;
 
-/** A field label. 13px, not 12: 12px is below the size ladder in `panelText` and this is uppercase
- *  and letter-spaced on top, which is the third cause of blurred text in docs/READABILITY.md. The
- *  tracking came down from .1em for the same reason. */
+/** A field label. SENTENCE CASE, because that is the other half of what he was pointing at:
+ *  DORIXÉ labels its cards "Visitors" and "New signups" at `text-sm font-medium` — 14px, weight
+ *  500, no capitals and no letter-spacing. Shouting every label in tracked capitals is what made
+ *  this panel look busy next to it, and tracked capitals are also the third cause of blurred text
+ *  in docs/READABILITY.md. */
 export const lbl = {
-  display: 'block', fontSize: '13px', fontWeight: 700, textTransform: 'uppercase',
-  letterSpacing: '0.06em', color: C.muted, marginBottom: '8px',
+  display: 'block', fontSize: '14px', fontWeight: 500,
+  color: C.muted, marginBottom: '8px',
 } as const;
 
 export const btn = {

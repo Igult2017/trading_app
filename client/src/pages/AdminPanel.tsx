@@ -15,7 +15,7 @@ import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
 import BlogPostEditor, { type BlogEditorData } from '@/components/BlogPostEditor';
 import Wordmark from '@/components/Wordmark';
-import { C, cs, inp, lbl, btn, R, FONT, HFONT, RAIL_SERIF, panelText } from '@/components/admin-ui/tokens';
+import { C, cs, inp, lbl, btn, R, FONT, HFONT, panelText } from '@/components/admin-ui/tokens';
 import { PageHeader, StatCard, Pill, Panel } from '@/components/admin-ui/AdminUI';
 import { readingTime } from '@shared/readingTime';
 import {
@@ -177,17 +177,25 @@ function applyAdminTheme(id: string) {
  *  where the static `'Playfair Display'` this panel used to name first is four fixed cuts. */
 /** The face that carries the small text when the chosen one is a DISPLAY face.
  *
- *  INTER, copied from DORIXÉ (2026-09-10, "use the same combination that Dorixe uses"). That
- *  project loads `Playfair_Display` and `Inter` and nothing else (app/layout.tsx:2) — the same
- *  shape this panel already had, with a different sans.
+ *  A TEXT SERIF — and the reason is worth writing down, because I got this wrong twice.
  *
- *  This reverses his 2026-09-05 pick of Montserrat. He has now seen both and chosen Inter, so the
- *  earlier note is superseded rather than contradicted.
+ *  He pointed at DORIXÉ and said its type looks refined and his looks ugly. DORIXÉ's code loads
+ *  `Playfair_Display` and `Inter` (app/layout.tsx:2), so I copied Inter. Wrong: DORIXÉ never
+ *  applies Inter. Its `--font-sans` is defined as itself in globals.css:38, which is a circular
+ *  reference and therefore invalid, so every unstyled element falls back to the browser's default
+ *  standard font. Measured on the live site: 247 elements in Times New Roman, 29 in Playfair,
+ *  ZERO in Inter — `getComputedStyle(document.body).fontFamily` returns "Times New Roman".
  *
- *  'Inter Variable' first: the Fontsource variable package registers ONLY that name. Plain 'Inter'
- *  resolves here too because index.css declares it against the same file, but naming the variable
- *  first is the convention and survives that alias being removed. */
-const ADMIN_BODY_SANS = "'Inter Variable', 'Inter', system-ui, -apple-system, sans-serif";
+ *  So the look he called refined is a TEXT serif, not a sans and not Playfair. That also resolves
+ *  the contradiction that ran through this whole redesign: he kept asking for a serif and it kept
+ *  coming out blurred, because Playfair is a DISPLAY serif whose hairlines die at 13px. A text
+ *  serif is drawn to be read at exactly these sizes.
+ *
+ *  Times New Roman first because he asked to COPY, and that is literally what he is looking at.
+ *  Georgia behind it is the same idea drawn for screens — a bigger x-height and sturdier strokes —
+ *  and is the one to promote if he ever wants this crisper. Both ship with Windows and macOS, so
+ *  there is no download either way. */
+const ADMIN_BODY_TEXT = "'Times New Roman', Georgia, 'Liberation Serif', serif";
 
 /** Faces drawn for headlines: very thick stems next to hairline thin strokes. That contrast is
  *  what makes them handsome at 28px and unreadable at 13. */
@@ -216,7 +224,7 @@ function applyAdminFont(id: string) {
   // screen entirely and is what he was objecting to. `--admin-header-font` is what stops that.
   const isDisplay = DISPLAY_FACES.has(f.id);
   document.documentElement.style.setProperty('--admin-header-font', f.stack);
-  document.documentElement.style.setProperty('--admin-font', isDisplay ? ADMIN_BODY_SANS : f.stack);
+  document.documentElement.style.setProperty('--admin-font', isDisplay ? ADMIN_BODY_TEXT : f.stack);
 }
 
 // Apply saved preferences immediately on module load
@@ -2481,8 +2489,7 @@ const GrowthAnalyticsCard = ({ monthlyData = null, dailyData = null }: { monthly
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 10, marginBottom: 22 }}>
         {kpis.map((k, i) => (
           <div key={i} style={{ borderLeft: `2px solid ${C.border2}`, paddingLeft: 12 }}>
-            <p style={{ color: C.muted, fontSize: 13, fontWeight: 700, letterSpacing: '0.06em',
-              textTransform: 'uppercase', margin: '0 0 4px' }}>{k.label}</p>
+            <p style={{ color: C.muted, fontSize: 14, fontWeight: 500, margin: '0 0 4px' }}>{k.label}</p>
             <p style={{ color: k.color, fontSize: 16, fontWeight: 800, margin: 0,
               fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>{k.value}</p>
           </div>
@@ -3069,7 +3076,7 @@ export default function AdminPanel() {
     };
     return (
       <button key={item.id} onClick={handleClick} title={item.label}
-        style={{ width: 'calc(100% - 20px)', margin: '2px 10px', display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', justifyContent: 'flex-start', background: activeBg, color: activeColor, border: 'none', borderRadius: '10px', cursor: isSoon ? 'default' : 'pointer', fontFamily: RAIL_SERIF, fontWeight: isActive ? 700 : 600, fontSize: '15px', letterSpacing: '0.01em', position: 'relative', transition: 'background 0.14s, color 0.14s', overflow: 'hidden' }}
+        style={{ width: 'calc(100% - 20px)', margin: '2px 10px', display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', justifyContent: 'flex-start', background: activeBg, color: activeColor, border: 'none', borderRadius: '10px', cursor: isSoon ? 'default' : 'pointer', fontFamily: FONT, fontWeight: isActive ? 700 : 500, fontSize: '15px', letterSpacing: '0.01em', position: 'relative', transition: 'background 0.14s, color 0.14s', overflow: 'hidden' }}
         onMouseEnter={e => { if (!isActive && !isSoon) { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; e.currentTarget.style.color = C.railInk; } }}
         onMouseLeave={e => { if (!isActive && !isSoon) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = C.railDim; } }}
       >
