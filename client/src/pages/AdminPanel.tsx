@@ -147,7 +147,6 @@ const ADMIN_FONTS: AdminFontDef[] = [
   { id: 'inter',      label: 'Inter',      stack: "'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif" },
   { id: 'outfit',     label: 'Outfit',     stack: "'Outfit', system-ui, sans-serif" },
   { id: 'onest',      label: 'Onest',      stack: "'Onest', system-ui, sans-serif" },
-  { id: 'mono',       label: 'DM Mono',    stack: "'DM Mono', ui-monospace, monospace" },
 ];
 
 const ADMIN_FONT_DEFAULT = 'playfair-display';
@@ -309,7 +308,7 @@ const GrowthChartTooltip = ({ active, payload, label }: any) => {
   const cumulative = payload.find((p: any) => p.dataKey === 'cumulative')?.value ?? 0;
   return (
     <div style={{ background: C.card, border: '1px solid rgba(255,255,255,0.08)', borderRadius: 6, padding: '10px 14px', fontFamily: FONT, minWidth: 140 }}>
-      <p style={{ color: C.muted, fontSize: 12, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 8 }}>{label}</p>
+      <p style={{ color: C.muted, fontSize: 14, fontWeight: 500, marginBottom: 8 }}>{label}</p>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16 }}>
           <span style={{ color: C.muted, fontSize: 12 }}>New signups</span>
@@ -473,7 +472,7 @@ const UsersSection = ({ bp, apiUsers, setApiUsers, getAdminToken }: { bp: any; a
           <thead>
             <tr style={{ background: C.thead }}>
               {['User', 'Country', 'Plan', 'Status', 'Win Rate', 'Last Login', ''].map((h, i) => (
-                <th key={i} style={{ padding: '11px 16px', textAlign: i === 6 ? 'right' : 'left', color: C.muted, fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', whiteSpace: 'nowrap' }}>{h}</th>
+                <th key={i} style={{ padding: '11px 16px', textAlign: i === 6 ? 'right' : 'left', color: C.muted, fontSize: '14px', fontWeight: 500, whiteSpace: 'nowrap' }}>{h}</th>
               ))}
             </tr>
           </thead>
@@ -823,8 +822,7 @@ const SyncPerformanceSection = ({ bp }: { bp: any }) => {
       <thead>
         <tr style={{ borderBottom: `1px solid ${C.border2}` }}>
           {['#', 'User', 'Sessions', 'PnL', 'Win %', 'Trades', ''].map((h, i) => (
-            <th key={i} style={{ padding: '6px 10px', fontSize: '12px', fontWeight: 700,
-              textTransform: 'uppercase', letterSpacing: '0.1em', color: C.muted,
+            <th key={i} style={{ padding: '6px 10px', fontSize: '14px', fontWeight: 500, color: C.muted,
               textAlign: i === 0 ? 'center' : i < 2 ? 'left' : i === 6 ? 'right' : 'right' }}>{h}</th>
           ))}
         </tr>
@@ -836,8 +834,7 @@ const SyncPerformanceSection = ({ bp }: { bp: any }) => {
         {!lbLoading && (
           <>
             <div style={{ marginBottom: 20 }}>
-              <div style={{ fontSize: '12px', fontWeight: 700, textTransform: 'uppercase',
-                letterSpacing: '0.1em', color: C.muted, marginBottom: 8 }}>
+              <div style={{ fontSize: '14px', fontWeight: 500, color: C.muted, marginBottom: 8 }}>
                 Active on Leaderboard ({active.length})
               </div>
               {active.length === 0
@@ -851,8 +848,7 @@ const SyncPerformanceSection = ({ bp }: { bp: any }) => {
             </div>
             {hidden.length > 0 && (
               <div>
-                <div style={{ fontSize: '12px', fontWeight: 700, textTransform: 'uppercase',
-                  letterSpacing: '0.1em', color: C.muted, marginBottom: 8 }}>
+                <div style={{ fontSize: '14px', fontWeight: 500, color: C.muted, marginBottom: 8 }}>
                   Hidden from Leaderboard ({hidden.length})
                 </div>
                 <table style={{ width: '100%', borderCollapse: 'collapse', background: C.bg, opacity: 0.65 }}>
@@ -864,8 +860,7 @@ const SyncPerformanceSection = ({ bp }: { bp: any }) => {
 
             {/* All sessions — see every session in the DB and delete precisely */}
             <div style={{ marginTop: 28 }}>
-              <div style={{ fontSize: '12px', fontWeight: 700, textTransform: 'uppercase',
-                letterSpacing: '0.1em', color: C.muted, marginBottom: 8 }}>
+              <div style={{ fontSize: '14px', fontWeight: 500, color: C.muted, marginBottom: 8 }}>
                 All Sessions ({adminSessions.length})
               </div>
               {sessLoading
@@ -877,8 +872,7 @@ const SyncPerformanceSection = ({ bp }: { bp: any }) => {
                       <thead>
                         <tr style={{ borderBottom: `1px solid ${C.border2}` }}>
                           {['Session', 'Owner', 'Trades', 'PnL', 'Created', ''].map((h, i) => (
-                            <th key={i} style={{ padding: '6px 10px', fontSize: '12px', fontWeight: 700,
-                              textTransform: 'uppercase', letterSpacing: '0.1em', color: C.muted,
+                            <th key={i} style={{ padding: '6px 10px', fontSize: '14px', fontWeight: 500, color: C.muted,
                               textAlign: (i === 2 || i === 3 || i === 5) ? 'right' : 'left' }}>{h}</th>
                           ))}
                         </tr>
@@ -1041,13 +1035,13 @@ const SyncPerformanceSection = ({ bp }: { bp: any }) => {
   );
 
   const th = (label: string) => (
-    <th style={{ padding: '8px 10px', textAlign: 'left', fontSize: '13px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, borderBottom: `1px solid ${C.border}`, whiteSpace: 'nowrap' }}>
+    <th style={{ padding: '8px 10px', textAlign: 'left', fontSize: '14px', fontWeight: 500, color: C.muted, borderBottom: `1px solid ${C.border}`, whiteSpace: 'nowrap' }}>
       {label}
     </th>
   );
 
   const td = (content: any, mono = false, color?: string) => (
-    <td style={{ padding: '8px 10px', fontSize: '12px', color: color ?? C.text, fontFamily: mono ? "'DM Mono', monospace" : FONT, borderBottom: `1px solid ${C.border}`, whiteSpace: 'nowrap' }}>
+    <td style={{ padding: '8px 10px', fontSize: '12px', color: color ?? C.text, fontFamily: FONT, borderBottom: `1px solid ${C.border}`, whiteSpace: 'nowrap' }}>
       {content}
     </td>
   );
@@ -1066,8 +1060,8 @@ const SyncPerformanceSection = ({ bp }: { bp: any }) => {
 
   const statCard = (label: string, value: any, color = C.text) => (
     <div key={label} style={{ background: C.card, border: `1px solid ${C.border}`, padding: '14px 16px' }}>
-      <div style={{ fontSize: '13px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, marginBottom: '6px' }}>{label}</div>
-      <div style={{ fontSize: '22px', fontWeight: 700, fontFamily: "'DM Mono', monospace", color, lineHeight: 1 }}>{value ?? '—'}</div>
+      <div style={{ fontSize: '14px', fontWeight: 500, color: C.muted, marginBottom: '6px' }}>{label}</div>
+      <div style={{ fontSize: '22px', fontWeight: 700, fontFamily: FONT, color, lineHeight: 1 }}>{value ?? '—'}</div>
     </div>
   );
 
@@ -1090,7 +1084,7 @@ const SyncPerformanceSection = ({ bp }: { bp: any }) => {
       <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
         {/* Top-line summary */}
         <div>
-          <div style={{ fontSize: '12px', fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '10px' }}>Platform Summary</div>
+          <div style={{ fontSize: '14px', fontWeight: 500, color: C.muted, marginBottom: '10px' }}>Platform Summary</div>
           <div style={{ display: 'grid', gridTemplateColumns: bp.isMobile ? 'repeat(2,1fr)' : 'repeat(4,1fr)', gap: '6px' }}>
             {statCard('Active Providers',  activeProviders,       C.indigoL)}
             {statCard('Active Followers',  followers.filter((f: any) => f.is_active).length, C.green)}
@@ -1101,7 +1095,7 @@ const SyncPerformanceSection = ({ bp }: { bp: any }) => {
 
         {/* MT5 copy trading */}
         <div>
-          <div style={{ fontSize: '12px', fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '10px' }}>MT5 Copy Trading</div>
+          <div style={{ fontSize: '14px', fontWeight: 500, color: C.muted, marginBottom: '10px' }}>MT5 Copy Trading</div>
           <div style={{ display: 'grid', gridTemplateColumns: bp.isMobile ? 'repeat(2,1fr)' : 'repeat(4,1fr)', gap: '6px' }}>
             {statCard('Total Providers',  masters.length,        C.indigoL)}
             {statCard('Total Trades',     totalTrades.toLocaleString(), C.text)}
@@ -1112,7 +1106,7 @@ const SyncPerformanceSection = ({ bp }: { bp: any }) => {
 
         {/* Telegram signals */}
         <div>
-          <div style={{ fontSize: '12px', fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '10px' }}>Telegram Signal Performance</div>
+          <div style={{ fontSize: '14px', fontWeight: 500, color: C.muted, marginBottom: '10px' }}>Telegram Signal Performance</div>
           <div style={{ display: 'grid', gridTemplateColumns: bp.isMobile ? 'repeat(2,1fr)' : 'repeat(5,1fr)', gap: '6px' }}>
             {statCard('Total',    tg.total    ?? 0, C.text)}
             {statCard('Wins',     tg.wins     ?? 0, C.green)}
@@ -1182,8 +1176,8 @@ const SyncPerformanceSection = ({ bp }: { bp: any }) => {
             { label: 'Win Rate',     value: tg.winRate  != null ? `${tg.winRate}%` : '—', color: wrColor },
           ].map(s => (
             <div key={s.label} style={{ background: C.card, border: `1px solid ${C.border}`, padding: '12px 14px' }}>
-              <div style={{ fontSize: '13px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, marginBottom: '6px' }}>{s.label}</div>
-              <div style={{ fontSize: '20px', fontWeight: 700, fontFamily: "'DM Mono', monospace", color: s.color, lineHeight: 1 }}>{s.value}</div>
+              <div style={{ fontSize: '14px', fontWeight: 500, color: C.muted, marginBottom: '6px' }}>{s.label}</div>
+              <div style={{ fontSize: '20px', fontWeight: 700, fontFamily: FONT, color: s.color, lineHeight: 1 }}>{s.value}</div>
             </div>
           ))}
         </div>
@@ -1221,7 +1215,7 @@ const SyncPerformanceSection = ({ bp }: { bp: any }) => {
                             ✕
                           </button>
                           {outcome && (
-                            <span style={{ fontSize: '12px', fontWeight: 700, color: outcome === 'win' ? C.green : C.red, textTransform: 'uppercase', letterSpacing: '0.1em' }}>{outcome}</span>
+                            <span style={{ fontSize: '14px', fontWeight: 500, color: outcome === 'win' ? C.green : C.red }}>{outcome}</span>
                           )}
                         </div>
                       </td>
@@ -1455,7 +1449,7 @@ const SystemMonitorSection = ({ bp, getAdminToken = null }: { bp: any; getAdminT
               {loadingMetrics ? <Skeleton w={36} h={36} /> : <GaugeRing value={m.unit === '%' ? (m.val ?? 0) : Math.min(((m.val ?? 0) / 2000) * 100, 100)} color={C.indigo} />}
             </div>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', flexWrap: 'wrap' }}>
-              <span style={{ color: C.muted, fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{m.label}:</span>
+              <span style={{ color: C.muted, fontSize: '14px', fontWeight: 600 }}>{m.label}:</span>
               {loadingMetrics
                 ? <Skeleton w={40} h={12} />
                 : <span style={{ color: m.danger ? C.redL : 'white', fontSize: '12px', fontWeight: 700 }}>{m.val ?? '—'}<span style={{ fontSize: '12px', color: C.muted, marginLeft: '2px' }}>{m.unit}</span></span>
@@ -1476,7 +1470,7 @@ const SystemMonitorSection = ({ bp, getAdminToken = null }: { bp: any; getAdminT
           return (
             <div key={group} style={{ ...cs, overflow: 'hidden' }}>
               <div style={{ padding: '10px 16px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <h3 style={{ color: C.text, fontWeight: 700, fontSize: '16px', fontFamily: HFONT, margin: 0, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{group}</h3>
+                <h3 style={{ color: C.text, fontWeight: 500, fontSize: '16px', fontFamily: HFONT, margin: 0 }}>{group}</h3>
                 <div style={{ width: 7, height: 7, borderRadius: '50%', background: loadingHealth ? C.muted : groupBad ? C.red : groupOk ? C.green : C.muted, boxShadow: loadingHealth ? 'none' : groupBad ? `0 0 5px ${C.red}` : `0 0 5px ${C.green}` }} />
               </div>
               {groupSvcs.map((svc: any, i: number) => {
@@ -1495,7 +1489,7 @@ const SystemMonitorSection = ({ bp, getAdminToken = null }: { bp: any; getAdminT
                       <span style={{ fontSize: '13px', color: isDeg ? C.redL : isNC ? C.amberL : isLoad ? C.muted : C.text, fontWeight: 600 }}>{svc.name}</span>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      {svc.latency && <span style={{ fontSize: '12px', fontFamily: 'monospace', color: C.muted }}>{svc.latency}</span>}
+                      {svc.latency && <span style={{ fontSize: '12px', fontFamily: FONT, color: C.muted }}>{svc.latency}</span>}
                       {isLoad
                         ? <Skeleton w={52} h={16} />
                         : <span style={{ fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', padding: '2px 7px', background: isOk ? 'rgba(16,185,129,0.1)' : isDeg ? 'rgba(244,63,94,0.1)' : isNC ? 'rgba(245,158,11,0.1)' : 'rgba(100,116,139,0.1)', color: isOk ? C.greenL : isDeg ? C.redL : isNC ? C.amberL : C.muted, border: `1px solid ${isOk ? 'rgba(16,185,129,0.2)' : isDeg ? 'rgba(244,63,94,0.2)' : isNC ? 'rgba(245,158,11,0.2)' : C.border2}` }}>
@@ -1542,7 +1536,7 @@ const SystemMonitorSection = ({ bp, getAdminToken = null }: { bp: any; getAdminT
             {/* Calendar */}
             <div style={{ ...cs, overflow: 'hidden' }}>
               <div style={{ padding: '10px 16px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <h3 style={{ color: C.text, fontWeight: 700, fontSize: '16px', fontFamily: HFONT, margin: 0, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Economic Calendar</h3>
+                <h3 style={{ color: C.text, fontWeight: 500, fontSize: '16px', fontFamily: HFONT, margin: 0 }}>Economic Calendar</h3>
                 {dot(cal ? cal.eventCount > 0 : null)}
               </div>
               <Row label="Source">{cal ? <span style={{ color: srcColor(cal.source) }}>{srcLabel(cal.source)}</span> : '—'}</Row>
@@ -1555,7 +1549,7 @@ const SystemMonitorSection = ({ bp, getAdminToken = null }: { bp: any; getAdminT
             {/* Interest rates */}
             <div style={{ ...cs, overflow: 'hidden' }}>
               <div style={{ padding: '10px 16px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <h3 style={{ color: C.text, fontWeight: 700, fontSize: '16px', fontFamily: HFONT, margin: 0, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Interest Rates</h3>
+                <h3 style={{ color: C.text, fontWeight: 500, fontSize: '16px', fontFamily: HFONT, margin: 0 }}>Interest Rates</h3>
                 {dot(rates ? rates.liveCount > 0 : null)}
               </div>
               <Row label="Live">{rates ? <span style={{ color: rates.liveCount > 0 ? C.greenL : C.muted }}>{rates.liveCount} currencies</span> : '—'}</Row>
@@ -1568,7 +1562,7 @@ const SystemMonitorSection = ({ bp, getAdminToken = null }: { bp: any; getAdminT
             {/* Signal monitor */}
             <div style={{ ...cs, overflow: 'hidden' }}>
               <div style={{ padding: '10px 16px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <h3 style={{ color: C.text, fontWeight: 700, fontSize: '16px', fontFamily: HFONT, margin: 0, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Signal Monitor</h3>
+                <h3 style={{ color: C.text, fontWeight: 500, fontSize: '16px', fontFamily: HFONT, margin: 0 }}>Signal Monitor</h3>
                 {dot(sig ? sig.running : null)}
               </div>
               <Row label="Status">{sig ? <span style={{ color: sig.running ? C.greenL : C.muted }}>{sig.running ? 'Running' : 'Stopped'}</span> : '—'}</Row>
@@ -1580,7 +1574,7 @@ const SystemMonitorSection = ({ bp, getAdminToken = null }: { bp: any; getAdminT
             {/* DB pool */}
             <div style={{ ...cs, overflow: 'hidden' }}>
               <div style={{ padding: '10px 16px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <h3 style={{ color: C.text, fontWeight: 700, fontSize: '16px', fontFamily: HFONT, margin: 0, textTransform: 'uppercase', letterSpacing: '0.08em' }}>DB Connection Pool</h3>
+                <h3 style={{ color: C.text, fontWeight: 500, fontSize: '16px', fontFamily: HFONT, margin: 0 }}>DB Connection Pool</h3>
                 {dot(db ? db.waiting === 0 : null)}
               </div>
               <Row label="Total connections">{db?.total ?? '—'}</Row>
@@ -1595,17 +1589,21 @@ const SystemMonitorSection = ({ bp, getAdminToken = null }: { bp: any; getAdminT
         <div style={{ ...cs, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
           <div style={{ padding: '12px 16px', borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <h3 style={{ color: C.text, fontWeight: 700, margin: 0, fontSize: '16px', fontFamily: HFONT, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Live Event Log</h3>
+              <h3 style={{ color: C.text, fontWeight: 500, margin: 0, fontSize: '16px', fontFamily: HFONT }}>Live Event Log</h3>
               {errorCount > 0 && <span style={{ fontSize: '12px', fontWeight: 700, padding: '2px 8px', background: 'rgba(244,63,94,0.12)', color: C.redL, border: `1px solid rgba(244,63,94,0.25)`, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{errorCount} errors</span>}
               {warnCount > 0 && <span style={{ fontSize: '12px', fontWeight: 700, padding: '2px 8px', background: 'rgba(245,158,11,0.12)', color: C.amberL, border: `1px solid rgba(245,158,11,0.25)`, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{warnCount} warn</span>}
             </div>
             <button onClick={() => setResolvedIds(new Set(logs.map(l => l.id)))} style={{ ...btn, background: 'transparent', color: C.muted, border: 'none', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}><Trash2 size={11} /> Clear</button>
           </div>
-          <div style={{ overflowY: 'auto', fontFamily: 'monospace', flex: 1 }}>
+          {/* THE ONLY MONOSPACE LEFT IN THE PANEL, and it stays. This is a log console: every
+              line is a timestamp and a level in a fixed position, and a proportional face makes
+              those columns wander. DM Mono went everywhere else — figures, labels, the font
+              picker — because there it was decoration, not alignment. */}
+          <div style={{ overflowY: 'auto', fontFamily: 'ui-monospace, monospace', flex: 1 }}>
             {logs.filter(l => !resolvedIds.has(l.id)).length === 0 ? (
               <div style={{ padding: '40px', textAlign: 'center' }}>
                 <CheckCircle size={24} style={{ color: C.green, margin: '0 auto 8px' }} />
-                <p style={{ color: C.muted, fontSize: '13px', margin: 0 }}>No active incidents</p>
+                <p style={{ color: C.muted, fontSize: '13px', margin: 0, fontFamily: FONT }}>No active incidents</p>
               </div>
             ) : logs.filter(l => !resolvedIds.has(l.id)).map(log => {
               const lc = LC[log.level as keyof typeof LC] ?? LC.info;
@@ -2528,8 +2526,7 @@ const GrowthAnalyticsCard = ({ monthlyData = null, dailyData = null }: { monthly
     return (
       <div style={{ background: C.thead, border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6,
         padding: '8px 12px', fontFamily: FONT }}>
-        <p style={{ color: C.muted, fontSize: 12, fontWeight: 700, letterSpacing: '0.1em',
-          textTransform: 'uppercase', margin: '0 0 4px' }}>{lbl}</p>
+        <p style={{ color: C.muted, fontSize: 14, fontWeight: 500, margin: '0 0 4px' }}>{lbl}</p>
         <p style={{ color: C.indigo, fontSize: 15, fontWeight: 800, margin: 0 }}>
           {payload[0].value} <span style={{ color: C.muted, fontSize: 12 }}>signups</span>
         </p>
@@ -2685,7 +2682,7 @@ const SettingsSection = ({ bp, getAdminToken = null }: { bp: any; getAdminToken?
   };
 
   const SETTINGS_TABS = [
-    { id: 'agents', label: 'CC Agents' },
+    { id: 'agents', label: 'Support agents' },
     { id: 'tasks', label: 'Task Scheduler' },
     { id: 'appearance', label: 'Appearance' },
   ];
@@ -2748,7 +2745,7 @@ const SettingsSection = ({ bp, getAdminToken = null }: { bp: any; getAdminToken?
 
       <div style={{ display: 'flex', gap: '3px', background: C.card, border: `1px solid ${C.border}`, padding: '3px', width: 'fit-content' }}>
         {SETTINGS_TABS.map(t => (
-          <button key={t.id} onClick={() => setSettingsTab(t.id)} style={{ ...btn, padding: '8px 18px', background: settingsTab === t.id ? C.indigo : 'transparent', color: settingsTab === t.id ? 'white' : C.muted, border: 'none', fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.07em', fontFamily: FONT }}>{t.label}</button>
+          <button key={t.id} onClick={() => setSettingsTab(t.id)} style={{ ...btn, padding: '8px 18px', background: settingsTab === t.id ? C.indigo : 'transparent', color: settingsTab === t.id ? 'white' : C.muted, border: 'none', fontSize: '13px', fontFamily: FONT }}>{t.label}</button>
         ))}
       </div>
 
@@ -2864,7 +2861,7 @@ const SettingsSection = ({ bp, getAdminToken = null }: { bp: any; getAdminToken?
           <div style={{ overflowX: 'auto' }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 160px 120px 160px', padding: '8px 16px', background: 'rgba(8,14,24,0.5)', gap: '12px', minWidth: '560px' }}>
             {['Task', 'Assignee', 'Due Date', 'Status'].map(h => (
-              <span key={h} style={{ color: C.muted, fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em' }}>{h}</span>
+              <span key={h} style={{ color: C.muted, fontSize: '14px', fontWeight: 500 }}>{h}</span>
             ))}
           </div>
           {tasks.map((task, idx) => (
@@ -2876,7 +2873,7 @@ const SettingsSection = ({ bp, getAdminToken = null }: { bp: any; getAdminToken?
                 </div>
                 <span style={{ color: C.muted, fontSize: '12px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{task.assignee}</span>
               </div>
-              <span style={{ color: C.muted, fontSize: '12px', fontFamily: 'monospace' }}>{task.due || '—'}</span>
+              <span style={{ color: C.muted, fontSize: '12px', fontFamily: FONT }}>{task.due || '—'}</span>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 {task.status === 'Pending' ? (
                   <button onClick={() => approveTask(task.id)} style={{ ...btn, display: 'flex', alignItems: 'center', gap: '5px', padding: '5px 10px', background: 'rgba(16,185,129,0.1)', color: C.greenL, border: `1px solid rgba(16,185,129,0.25)`, fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
@@ -2922,7 +2919,7 @@ const SettingsSection = ({ bp, getAdminToken = null }: { bp: any; getAdminToken?
       {settingsTab === 'appearance' && (
         <div style={{ display: 'grid', gridTemplateColumns: bp.isDesktop ? '1fr 1fr' : '1fr', gap: '6px' }}>
           <div style={{ ...cs, padding: '20px' }}>
-            <h3 style={{ color: C.text, fontWeight: 700, fontSize: '16px', fontFamily: HFONT, margin: '0 0 16px', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Dashboard Theme</h3>
+            <h3 style={{ color: C.text, fontWeight: 500, fontSize: '16px', fontFamily: HFONT, margin: '0 0 16px' }}>Dashboard Theme</h3>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
               {THEME_OPTIONS.map(theme => (
                 <button key={theme.id} onClick={() => selectTheme(theme.id)} style={{ ...btn, padding: '0', overflow: 'hidden', border: `2px solid ${activeTheme === theme.id ? C.indigo : C.border}`, background: 'transparent', textAlign: 'left' }}>
@@ -2947,7 +2944,7 @@ const SettingsSection = ({ bp, getAdminToken = null }: { bp: any; getAdminToken?
           </div>
 
           <div style={{ ...cs, padding: '20px' }}>
-            <h3 style={{ color: C.text, fontWeight: 700, fontSize: '16px', fontFamily: HFONT, margin: '0 0 16px', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Dashboard Font</h3>
+            <h3 style={{ color: C.text, fontWeight: 500, fontSize: '16px', fontFamily: HFONT, margin: '0 0 16px' }}>Dashboard Font</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {ADMIN_FONTS.map(font => (
                 <button key={font.id} onClick={() => { setActiveFont(font.id); setFontSaved(false); }} style={{ ...btn, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', background: activeFont === font.id ? 'rgba(0,200,224,0.08)' : 'rgba(8,14,24,0.4)', border: `1px solid ${activeFont === font.id ? 'rgba(0,200,224,0.35)' : C.border}`, textAlign: 'left' }}>
@@ -3267,7 +3264,7 @@ export default function AdminPanel() {
     // which is the blurring he reported. The rule lifts only those: the inline 700s already set in
     // a hundred places still win over a stylesheet.
     <div className="admin-shell" style={{ display: 'flex', flexDirection: 'row', height: '100vh', background: C.bg, color: C.text, overflow: 'hidden', fontFamily: FONT }}>
-      {/* Outfit, Inter, Montserrat and DM Mono are all self-hosted in client/src/index.css — the
+      {/* Outfit, Inter and Montserrat are all self-hosted in client/src/index.css — the
           Google Fonts @import that used to head this rule went 2026-08-22. Outfit is the one the
           font picker below offers, so it is bundled as a variable font covering every weight. */}
       {/* THE REST OF THE DORIXÉ RECIPE — it is not just the two family names.
