@@ -55,7 +55,7 @@ things they did not refuse before. **Not one of these is confirmed as the proble
 
 | Date | Commit | What it introduced or moved | Where it is enforced |
 |---|---|---|---|
-| 08 Sep | `736f3be` | The trend must be **in shape** — last two highs and last two lows must both step the trend's way. Moved into the trend module so nothing can contradict it | `vix1_trend.py:155-185` |
+| 08 Sep | `736f3be` | The trend must be **in shape** — last two highs and last two lows must both step the trend's way. ⚠ **CORRECTED 2026-09-13: this rule is NOT new.** It existed before as a separate veto (`vix1_regime.market_permits`) which refused a trend the trend-module accepted **37.2%** of the time. What changed is that it moved in and now uses the trend's OWN direction instead of working out its own. **Whether the new one refuses MORE or LESS than the old one has NOT been measured** — that is the open question | `vix1_trend.py:155-185`, enforced at `vix1_bias.py:296` and `:380` |
 | 08 Sep | `e96c8c7` | The heads-up now says "it qualified but we stood aside"; the quiet-market test's window changed | `vix1_preclose.py`, `vix1_tradeable.py` |
 | 08 Sep | `69789b0` | The log now separates "none qualified" from "one qualified but was not the newest bar" | `vix1_momentum.py:312-326` |
 | 08 Sep | `5812f34` | Reverted a half-finished trend cleanup | — |
