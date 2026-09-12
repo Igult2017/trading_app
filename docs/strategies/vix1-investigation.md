@@ -13,6 +13,62 @@ file and line that did the rejecting. Nothing is fixed until he says so.
 
 ---
 
+# THE TWO ISSUES WE ARE INVESTIGATING
+
+Opened 2026-09-13 on his instruction: *"So far we have 2 issues to look into: How momentum candles
+are decided, Trend detection. Record that then we keep going on."*
+
+Both came out of Setup 1 (GBP/USD, 10-11 Sep — the full working is further down). **Neither is
+diagnosed yet and nothing has been changed.** Every new setup he sends gets checked against both.
+
+## ISSUE 1 — How a momentum candle is decided
+
+**What we know.** All nine down-candles in his marked move were rejected for being too small, before
+any other rule got a say. The size rule asks the candle to be **2.5x the middle-sized candle of the
+last 100 hours**. At that moment a normal GBP/USD hourly candle was 4.4 pips, so it wanted about 11
+pips. His candles were 6.6 to 10.3 pips.
+
+**Two specific things to settle.**
+
+- **The yardstick grows during the move it is measuring.** "Normal" is taken from the last 100 hours,
+  which is about four days. Four violent days make normal bigger. Before his drop the rule wanted
+  9.8 pips; by the end of it, 11.6 pips — **18% harder, during the move**. So a big move raises its
+  own bar and can reject the candles that made it.
+- **His own two standards do not agree.** The 2.5x came from **87 of his real GBP/USD trades** whose
+  momentum candles ran **2.7-6x normal (14-31 pips)** — [vix1_momentum.py:40-45](../../signal_platform/strategies/vix1_momentum.py#L40).
+  The candles he marked on 10-11 Sep are **1.5-2.3x normal (6.6-10.3 pips)**. **HE MUST RULE ON WHICH
+  IS HIS STANDARD.** Do not guess this, and do not change the number before he says so.
+
+**Not introduced by the overhaul** — 2.5x has been in place since 2026-07-20. That does not clear it;
+it only means the recent changes are not where this one came from.
+
+**There is a second size test** (2.12x the middle candle of the last 2000 hours) which was asking
+only 9.3-9.5 pips. Two of his candles passed it and were still killed by the 100-hour test. Over the
+last 2,200 GBP/USD bars the 100-hour test is the stricter of the two **52%** of the time, and it was
+the binding one on **every hour** of his window.
+
+## ISSUE 2 — Trend detection
+
+**What we know.** The system saw his downtrend about **five hours later than he did**. It still read
+UP through 10 Sep 11:00 UTC (his 14:00), went to "no trend, changing" for three hours, and only
+called it DOWN from 10 Sep 15:00 UTC (**his 18:00**). His first two marked candles fell inside that
+gap, which is why their refusal says "up trend" while his chart plainly shows price falling.
+
+**Things already noticed that belong to this issue.**
+
+- **The "lost its shape" test.** A trend only counts while the last two highs AND the last two lows
+  both step the same way. It flipped to "out of shape" repeatedly through his window even while the
+  direction stayed DOWN — see the 10 Sep 11:00, 11 Sep 01:00, 11 Sep 08:00 and 11 Sep 15:00 rows in
+  Setup 1. This rule **existed before the overhaul** as a separate veto refusing a trend 37.2% of the
+  time, and moved on 08 Sep. **Whether the new one refuses MORE than the old one has NOT been
+  measured.** That measurement is the next obvious job on this issue.
+- **A turn DOWN is refused the shortcut that a turn UP gets** ([vix1_choch.py:128-131](../../signal_platform/strategies/vix1_choch.py#L128)),
+  so during the three "no trend" hours nothing could be traded downward at all.
+- **Known open defect, already on record:** the trend reverses about 90 times a year, median run 1.6
+  days — not the 9-10 its own notes claim. See [[project-vix1-trend-churn]].
+
+---
+
 ## How he sends a screenshot
 
 Two ways, both verified working on 2026-09-13:
