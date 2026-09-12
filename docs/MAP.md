@@ -57,10 +57,16 @@ bx_sd_entry      where the entry, stop and target actually sit
 bx_sd_reports    the heads-up and stand-aside cards
 ```
 
-### "Why did VIX.1 do that?"
+### "Why did VIX.1 do that?" / "why did this setup not fire?"
 
-**Read [strategies/vix1-architecture.md](./strategies/vix1-architecture.md) first**, then
-[strategies/vix1.md](./strategies/vix1.md) for the settled rules and the fix log.
+**OPEN INVESTIGATION since 2026-09-13 — read
+[strategies/vix1-investigation.md](./strategies/vix1-investigation.md) FIRST** for any question
+about a setup that should have fired and did not. It holds the running record: the suspect list of
+rules the last overhaul introduced (commit + file:line), the ordered list of every gate a setup can
+die at, and the log of each setup he has sent. He sends them one at a time.
+
+For the shape of the strategy read [strategies/vix1-architecture.md](./strategies/vix1-architecture.md)
+first, then [strategies/vix1.md](./strategies/vix1.md) for the settled rules and the fix log.
 
 ### "Is autotrade double-risking me on related pairs?" / anything about exposure or the risk guard
 
