@@ -3301,7 +3301,7 @@ export default function AdminPanel() {
         {/* Brand — the supplied artwork, unmodified. It carries the name itself, so the name is
             never set again as text beside it. */}
         <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'flex-start', padding: '18px 16px 12px' }}>
-          <Wordmark dark height="58px" />
+          <Wordmark dark height="30px" />
         </div>
 
         <div style={{ flex: 1, overflowY: 'auto', padding: '4px 0 14px', minHeight: 0, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>

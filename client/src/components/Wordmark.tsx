@@ -1,6 +1,9 @@
 /**
  * Wordmark — the Trade&Journal brand lockup. ONE image: the mark and the name together.
  *
+ * CURRENT ARTWORK: `Trade&Journal.png`, supplied 2026-09-12 — the C-and-rising-arrow mark followed
+ * by TRADE&JOURNAL on one line, a single flat ink on a transparent ground.
+ *
  * THE NAME IS NOT SET AS TEXT BESIDE IT. His instruction, 2026-08-31: *"Change the logo to this so we
  * don't need to write the app name again as 'Trade&Journal' because this logo comes with the name
  * bigger and visible."* The supplied artwork carries the wordmark under the mark, so setting it a
@@ -26,11 +29,17 @@
  * landing page carries its theme in React state (`usePublicTheme`) and NEVER sets `html.dark`, so a
  * CSS-only rule would silently miss exactly the page where the invisible logo was first reported.
  *
- * ⚠ THE NAME IS 17% OF THE LOCKUP'S HEIGHT — measured off the artwork (72px of 430). That arithmetic
- * decides whether this works at all, and it is why an earlier SQUARE lockup was rejected: at 1.08:1
- * its name rendered 4.0px in the real header, a smudge. This one is 2.03:1. Measured in the browser:
- * at 3.4em it came out 71.4px in a 68px header row and spilled over; at 3.0em it is 63px with 2.5px
- * clearance and the name renders 10.5px.
+ * ⚠ THE SHAPE CHANGED ON 2026-09-12 AND THAT MATTERS MORE THAN THE COLOURS. The old lockup STACKED
+ * the mark above the name at 2.03:1, and the name was only 17% of its height — which is why it
+ * needed a big height (3.0em / 63px) just to make the name legible. The new artwork sets the mark
+ * and the name SIDE BY SIDE at 5.86:1.
+ *
+ * Two consequences, and both bit:
+ *   1. At the same HEIGHT it is now nearly three times WIDER. 3.0em would have been 63 x 369px —
+ *      it would have run straight through the navigation. Every height here came down.
+ *   2. The name is no longer a 17% sliver; on one line it is roughly 55% of the lockup's height.
+ *      So it reads at a MUCH smaller overall size than the old one could, which is what makes the
+ *      smaller heights below possible rather than a compromise.
  *
  * PRELOADED, and that was half the original problem. An <img> inside a React component cannot be
  * requested until the bundle has been fetched, parsed, executed and rendered — measured, the request
@@ -55,11 +64,12 @@ export interface WordmarkProps {
 
 /** The artwork's real pixel size. Given to the browser so it reserves the space BEFORE the image
  *  arrives; without it the nav beside the logo shifted sideways when it landed. */
-const NATURAL_W = 365;
-const NATURAL_H = 180;
+const NATURAL_W = 937;
+const NATURAL_H = 160;
 
-// MEASURED, NOT CHOSEN — see the header note. 3.0em is 63px in the 68px header row.
-export default function Wordmark({ height = '3.0em', dark = false, style, className }: WordmarkProps) {
+// MEASURED, NOT CHOSEN. At 5.86:1 the binding constraint is WIDTH, not height: the old 3.0em would
+// have drawn a 369px-wide logo into a header that has ~200px before it reaches the navigation.
+export default function Wordmark({ height = '1.5em', dark = false, style, className }: WordmarkProps) {
   return (
     <img
       className={className}
