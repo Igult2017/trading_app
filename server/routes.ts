@@ -5935,6 +5935,49 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
     }
   });
 
+  // ── Admin: views per article ────────────────────────────────────────────────
+  //
+  // Counted from this app's OWN `page_views` table, not Umami. Umami was removed from this
+  // project deliberately to free server resources (see admin-traffic/TrafficSection.tsx), and
+  // the tracker that replaced it already records every article read — it just was not recording
+  // WHICH article until today. So this needs no new service, no API key and no extra hosting.
+  //
+  // Admin traffic is excluded at write time: POST /api/track drops any hit from a known admin IP,
+  // so opening your own article to check it does not inflate its count.
+  //
+  // A view here is one recorded visit, not a unique person. `visitors` counts distinct sessions
+  // alongside it so the difference is visible rather than implied.
+  app.get("/api/admin/blog-views", requireAdmin, async (_req: Request, res: Response) => {
+    try {
+      const result = await db.execute(drizzleSql`
+        SELECT page,
+               COUNT(*)::int                           AS views,
+               COUNT(DISTINCT session_id)::int         AS visitors,
+               MAX(viewed_at)                          AS last_viewed
+        FROM page_views
+        WHERE page LIKE '/blog/%'
+        GROUP BY page
+      `);
+      const rows = ((result as any).rows ?? []) as any[];
+      const bySlug: Record<string, { views: number; visitors: number; lastViewed: string | null }> = {};
+      for (const r of rows) {
+        const slug = String(r.page ?? '').replace(/^\/blog\//, '').split('?')[0];
+        if (!slug) continue;
+        bySlug[slug] = {
+          views: Number(r.views ?? 0),
+          visitors: Number(r.visitors ?? 0),
+          lastViewed: r.last_viewed ?? null,
+        };
+      }
+      return res.json(bySlug);
+    } catch (err: any) {
+      console.error("[Admin/blog-views] Failed to count views", {
+        message: err?.message ?? String(err), stack: err?.stack ?? null,
+      });
+      return res.status(500).json({ error: "Blog view count failed", detail: err?.message ?? "Failed" });
+    }
+  });
+
   // ── Admin: campaign history, one row per campaign ───────────────────────────
   //
   // Every campaign already leaves two trails and neither was ever shown:

@@ -53,6 +53,7 @@ export const ADMIN_READS: string[] = [
   '/api/admin/users',
   '/api/admin/tickets',
   '/api/blog/all',
+  '/api/admin/blog-views',
   '/api/admin/campaign-stats',
   '/api/admin/campaign-history',
   '/api/admin/cc-agents',

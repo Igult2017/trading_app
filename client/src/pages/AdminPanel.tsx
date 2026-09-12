@@ -1677,6 +1677,9 @@ const BlogSection = ({ bp }: { bp: any }) => {
   // each time. It is read through the shared cache now and shaped on the way out — the mapping
   // below is a pure rename of the server's snake_case, so it can run on every render for free.
   const { data: blogRaw, loading: blogLoading } = useAdminData<any[]>('/api/blog/all', { fallback: [] });
+  /** Views per article, keyed by slug. Counted from this app's own page_views table. */
+  const { data: viewsBySlug } = useAdminData<Record<string, { views: number; visitors: number }>>(
+    '/api/admin/blog-views', { fallback: {} });
   const posts = (Array.isArray(blogRaw) ? blogRaw : []).map((p: any) => ({
     id: p.id, title: p.title, section: p.section ?? 'blog',
     category: p.category ?? 'Analysis',
@@ -2130,6 +2133,7 @@ const BlogSection = ({ bp }: { bp: any }) => {
                   <tr>
                     <th style={th}>Title</th>
                     <th style={th}>Status</th>
+                    <th style={{ ...th, textAlign: 'right' }}>Views</th>
                     <th style={th}>Author</th>
                     <th style={th}>Published</th>
                     <th style={{ ...th, textAlign: 'right' }}>Actions</th>
@@ -2137,7 +2141,7 @@ const BlogSection = ({ bp }: { bp: any }) => {
                 </thead>
                 <tbody>
                   {articlePosts.length === 0 && (
-                    <tr><td style={{ ...td, whiteSpace: 'normal', color: C.muted, textAlign: 'center', padding: '36px 20px' }} colSpan={5}>
+                    <tr><td style={{ ...td, whiteSpace: 'normal', color: C.muted, textAlign: 'center', padding: '36px 20px' }} colSpan={6}>
                       Nothing here yet.
                     </td></tr>
                   )}
@@ -2146,9 +2150,23 @@ const BlogSection = ({ bp }: { bp: any }) => {
                     return (
                       <tr key={post.id}>
                         <td style={{ ...td, whiteSpace: 'normal', maxWidth: 420 }}>
-                          <div style={{ ...panelText(15, 700), color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical' }}>
+                          {/* THE TITLE OPENS THE EDITOR. A real <button>, not a div with an
+                              onClick, so it is reachable by keyboard and announced as a control.
+                              The pencil in the Actions column still works — this is a second way
+                              in, not a replacement. */}
+                          <button
+                            type="button"
+                            onClick={() => openEdit(post)}
+                            title="Open in the editor"
+                            style={{ ...panelText(15, 700), color: C.text, background: 'none', border: 'none',
+                                     padding: 0, cursor: 'pointer', textAlign: 'left', width: '100%',
+                                     overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box',
+                                     WebkitLineClamp: 1, WebkitBoxOrient: 'vertical' }}
+                            onMouseEnter={e => { e.currentTarget.style.color = C.indigo; e.currentTarget.style.textDecoration = 'underline'; }}
+                            onMouseLeave={e => { e.currentTarget.style.color = C.text; e.currentTarget.style.textDecoration = 'none'; }}
+                          >
                             {post.title}
-                          </div>
+                          </button>
                           {post.slug && (
                             <div style={{ marginTop: 4, ...panelText(13), color: C.muted }}>/blog/{post.slug}</div>
                           )}
@@ -2157,6 +2175,19 @@ const BlogSection = ({ bp }: { bp: any }) => {
                           <Pill tone={post.status === 'Scheduled' ? 'accent' : published ? 'good' : 'neutral'}>
                             {post.status === 'Scheduled' ? 'scheduled' : published ? 'published' : 'draft'}
                           </Pill>
+                        </td>
+                        <td style={{ ...td, textAlign: 'right' }}>
+                          {(() => {
+                            const v = viewsBySlug?.[post.slug];
+                            // No row yet means nobody has opened it since counting began —
+                            // which is not the same as zero interest, so it reads as a dash.
+                            if (!v || !v.views) return <span style={{ color: C.muted }}>—</span>;
+                            return (
+                              <span title={`${v.visitors} distinct visitor${v.visitors === 1 ? '' : 's'}`}>
+                                {v.views.toLocaleString()}
+                              </span>
+                            );
+                          })()}
                         </td>
                         <td style={{ ...td, color: C.muted }}>{post.author}</td>
                         <td style={{ ...td, color: C.muted }}>

@@ -348,8 +348,15 @@ function SafeImage({ src, alt, className, isDark, style }: { src: string; alt: s
 // ── Main page ──────────────────────────────────────────────────────────────────
 
 export default function BlogPostPage() {
-  usePageTracking('blog-post');
   const [, params] = useRoute('/blog/:id');
+  // RECORD WHICH ARTICLE, not just "an article was read".
+  //
+  // This said `usePageTracking('blog-post')` — the same constant for every post — so eight
+  // articles produced one undifferentiated pile of rows and per-article views could not be
+  // derived at all. Sending the real path fixes a second thing for free: the section
+  // categoriser in routes.ts buckets by `/blog`, and a value with no leading slash was falling
+  // through to "Other", so article traffic never showed as Blog in Traffic Analytics.
+  usePageTracking(params?.id ? `/blog/${params.id}` : 'blog-post');
   const [, navigate]  = useLocation();
   const { darkMode, setDarkMode } = usePublicTheme();
   // THE POST LIST, FETCHED ONCE — for the related-articles sidebar and the strip at the end.
