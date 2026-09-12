@@ -27,12 +27,24 @@ own pale areas — background-by-connection, a coverage mask, a haze filter. The
 none of that has an input any more and it is gone; git has it if a printed original ever comes
 back. What is left is what this file actually needs.
 
+IT ALSO STAMPS A CACHE-BUSTING VERSION, and that is not cosmetic. The two logo files live at
+FIXED paths under public/ — unlike everything in assets/, whose names carry a content hash — and
+they are served with `Cache-Control: public, max-age=3600`. So after a logo change every browser
+that had seen the old one kept showing it for up to an hour, with no way to know it had changed.
+That happened on this very change: the new logo was live and correct on the server while he was
+still looking at the old one, which reads exactly like the work was never done. The script now
+writes `?v=<hash of the artwork>` into BOTH the preload in index.html and the src in Wordmark.tsx,
+so a new logo is a new URL and appears immediately. Both are written from the same variable here,
+because keeping two files in sync by hand is the drift this whole script exists to prevent.
+
 THE SHAPE CHANGED TOO, AND IT MATTERS MORE THAN THE COLOURS. The old lockup stacked the mark above
 the name at 2.03:1. This one sets them side by side at 6.22:1 — three times wider for the same
 height. Anywhere that sized the logo by HEIGHT now renders it three times wider than before, which
 is why `Wordmark.tsx` had to change with it rather than just pointing at a new file.
 """
+import hashlib
 import os
+import re
 import sys
 
 import numpy as np
@@ -113,6 +125,28 @@ def find_mark_split(art: Image.Image) -> int:
     raise SystemExit("no blank column between the mark and the lettering — check the artwork")
 
 
+def stamp(ver: str) -> None:
+    """Write ?v=<ver> onto every reference to the two logo files.
+
+    Both the preload and the render must carry the SAME query or the browser fetches the file
+    twice — once for a preload nothing uses, once for the image. Writing both from here is what
+    keeps them equal."""
+    targets = [
+        os.path.join(HERE, "client", "index.html"),
+        os.path.join(HERE, "client", "src", "components", "Wordmark.tsx"),
+    ]
+    # the favicon too — browsers cache a tab icon harder than anything else on the page
+    pat = re.compile(r"(/logo-lockup(?:-dark)?\.webp|/favicon\.png)(\?v=[0-9a-f]+)?")
+    for t in targets:
+        with open(t, encoding="utf-8", newline="") as fh:
+            before = fh.read()
+        after, n = pat.subn(lambda m: m.group(1) + "?v=" + ver, before)
+        if n and after != before:
+            with open(t, "w", encoding="utf-8", newline="") as fh:
+                fh.write(after)
+        print("  stamped %-16s %d reference(s)" % (os.path.basename(t), n))
+
+
 def main() -> None:
     if len(sys.argv) < 2:
         raise SystemExit(__doc__)
@@ -138,8 +172,11 @@ def main() -> None:
     ico = os.path.join(OUT_DIR, "favicon.png")
     favicon(trim(im)).save(ico, "PNG", optimize=True)
     print("browser tab   : %s  512x512  %.1f KB" % (os.path.basename(ico), os.path.getsize(ico) / 1024))
+    ver = hashlib.sha1(open(light, "rb").read()).hexdigest()[:8]
+    stamp(ver)
+    print("cache version : ?v=%s  (written into index.html and Wordmark.tsx)" % ver)
     print()
-    print("NOW UPDATE Wordmark.tsx: NATURAL_W=%d NATURAL_H=%d (aspect %.2f:1)" % (out_w, OUT_H, out_w / OUT_H))
+    print("NOW UPDATE Wordmark.tsx BY HAND: NATURAL_W=%d NATURAL_H=%d (aspect %.2f:1)" % (out_w, OUT_H, out_w / OUT_H))
 
 
 if __name__ == "__main__":

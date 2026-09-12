@@ -37,8 +37,8 @@
          than a blocking script, and far smaller than showing the wrong one. Keep this in step with
          `components/Wordmark.tsx` — a preload of a file nothing renders is pure waste, and a render
          with no preload is the late logo this block exists to prevent. -->
-    <link rel="preload" href="/logo-lockup.webp" as="image" type="image/webp" fetchpriority="high" />
-    <link rel="preload" href="/logo-lockup-dark.webp" as="image" type="image/webp" fetchpriority="high" />
+    <link rel="preload" href="/logo-lockup.webp?v=59773274" as="image" type="image/webp" fetchpriority="high" />
+    <link rel="preload" href="/logo-lockup-dark.webp?v=59773274" as="image" type="image/webp" fetchpriority="high" />
 
     <!-- Primary SEO -->
     <title>Trade&amp;Journal – Professional Trading Journal for Forex, Crypto &amp; Commodities</title>
@@ -70,8 +70,8 @@
          green arrow — a different symbol from the one in the header, so the tab and the logo
          disagreed about what this product's mark is. `favicon.png` is the actual C-and-arrow mark,
          sliced out of the supplied artwork by scripts/build_logo.py, so they cannot drift apart. -->
-    <link rel="icon" type="image/png" href="/favicon.png" />
-    <link rel="apple-touch-icon" href="/favicon.png" />
+    <link rel="icon" type="image/png" href="/favicon.png?v=59773274" />
+    <link rel="apple-touch-icon" href="/favicon.png?v=59773274" />
 
     <!-- Fonts loaded via Fontsource (self-hosted npm packages, no Google Fonts request) -->
   </head>

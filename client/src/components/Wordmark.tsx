@@ -73,7 +73,7 @@ export default function Wordmark({ height = '1.5em', dark = false, style, classN
   return (
     <img
       className={className}
-      src={dark ? '/logo-lockup-dark.webp' : '/logo-lockup.webp'}
+      src={dark ? '/logo-lockup-dark.webp?v=59773274' : '/logo-lockup.webp?v=59773274'}
       alt="Trade&Journal"
       width={NATURAL_W}
       height={NATURAL_H}
