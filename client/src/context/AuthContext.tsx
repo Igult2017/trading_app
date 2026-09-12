@@ -209,17 +209,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { error: error ?? new Error('Sign in failed'), role: null };
     }
 
-    // Block sign-in completion until the dashboard data is populated, so the user is
-    // routed to a fully-rendered journal instead of a skeleton. Runs in PARALLEL with
-    // the profile/role setup. prepareDashboard is time-boxed (6s) + best-effort: a
-    // slow/cold compute can't hang or fail login — it resolves and the journal's
-    // boot-gate skeleton covers the remainder. role is set AFTER this so AuthPage's
-    // role-keyed auto-redirect can't fire onto an unpopulated dashboard early.
-    const [, assignedRole] = await Promise.all([
-      prepareDashboard(queryClient, data.session.user.id),
-      runSetup(data.session.access_token),
-    ]);
+    // DO NOT BLOCK THE NAVIGATION ON DATA — CHANGED 2026-09-12.
+    //
+    // This used to `await prepareDashboard(...)` alongside the role lookup. That call fetches the
+    // entitlement, the session list and the whole dashboard bundle (which waits on a Python
+    // metrics compute, ~2s by its own note in prefetchPanels.ts) and is time-boxed at SIX
+    // SECONDS. So sign-in did not navigate until all of that had finished, and the user sat on an
+    // empty screen the entire time. The reasoning was that arriving on a fully-rendered journal
+    // beats arriving on a skeleton — defensible, but he watched it happen and said the opposite:
+    // "the screen takes a lot of time... can we fix it or we use skeleton."
+    //
+    // Now the ONLY thing on the critical path is the role, because the role is what decides where
+    // to send them. Everything else happens behind the screen they are already looking at, and
+    // App.tsx paints a skeleton rather than a blank rectangle while it lands.
+    const assignedRole = await runSetup(data.session.access_token);
     const role = assignedRole ?? extractRole(data.session.user);
+
+    // Still warmed — just not waited on. And not at all for an admin: this is JOURNAL data, and
+    // an admin is on their way to the panel where none of it is ever read.
+    if (role !== 'admin') {
+      void prepareDashboard(queryClient, data.session.user.id);
+    }
+
+    // Start fetching the destination's JavaScript NOW, in parallel with the redirect, instead of
+    // only discovering it is needed after arriving. Measured against production that chunk is
+    // 1.8-2.2s on a cold cache, and it was sitting at the FRONT of the wait.
+    void (role === 'admin' ? import('@/pages/AdminPanel') : import('@/pages/Journal'));
 
     // Set role directly — avoids calling refreshSession() which can fire
     // a SIGNED_OUT event on failure and silently kill the new session.

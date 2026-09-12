@@ -89,8 +89,74 @@ import NotFound from "@/pages/not-found";
 // PAINTED IN THE APP'S OWN BACKGROUND, NOT WHITE. The journal is a dark app; a literal white flash
 // on every reload would be the more jarring of the two. Same idea, one colour value if he wants it
 // white after all.
-function LoadingScreen() {
-  return <div style={{ position: 'fixed', inset: 0, background: '#07090f' }} aria-hidden="true" />;
+// ── UPDATE 2026-09-12 — the blankness was right for a RELOAD and wrong for a LOGIN ──────────
+//
+// He reported staring at an empty screen after signing in, on both the panel and the journal.
+// Two things were stacked up behind that blank rectangle:
+//   1. sign-in AWAITED the dashboard data before it would navigate — up to six seconds (see the
+//      note in AuthContext.signIn, now fixed);
+//   2. the route's JavaScript is only fetched once you arrive, and measured against production
+//      that is 1.8-2.2s on a cold cache.
+//
+// The reasoning above still holds for the case it was written for: on a fast reload a spinner
+// appears and vanishes, which is worse than nothing. So the skeleton is DELAYED — nothing at all
+// for the first 400ms, so a quick reload stays clean, and only a genuinely slow wait ever shows
+// it. Both cases are served rather than one traded for the other.
+
+/** Shows nothing until `after` ms have passed, then renders. Keeps fast waits flicker-free. */
+function AfterDelay({ after = 400, children }: { after?: number; children: React.ReactNode }) {
+  const [show, setShow] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setShow(true), after);
+    return () => clearTimeout(t);
+  }, [after]);
+  return show ? <>{children}</> : null;
+}
+
+/** One placeholder block. No backticks anywhere in the style tag below — a backtick inside a
+ *  template-literal <style> is a runtime crash that still builds clean. */
+function Bone({ w, h, r = 8, dark = false, mt = 0 }: { w: number | string; h: number; r?: number; dark?: boolean; mt?: number }) {
+  return (
+    <div className="app-bone" style={{
+      width: w, height: h, borderRadius: r, marginTop: mt,
+      background: dark ? 'rgba(255,255,255,0.07)' : 'rgba(15,23,42,0.07)',
+    }} />
+  );
+}
+
+const BONE_CSS = '@keyframes appBonePulse{0%,100%{opacity:.55}50%{opacity:1}}'
+               + '.app-bone{animation:appBonePulse 1.5s ease-in-out infinite}';
+
+/** The wait between "you are signed in" and "the screen is here".
+ *  `admin` mirrors the panel (dark rail, light content); `journal` is the dark app. */
+function LoadingScreen({ variant = 'journal' }: { variant?: 'journal' | 'admin' }) {
+  const admin = variant === 'admin';
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: admin ? '#f5f7fa' : '#07090f', display: 'flex' }}
+         role="status" aria-label="Loading">
+      <style>{BONE_CSS}</style>
+      <AfterDelay>
+        <div style={{ display: 'flex', width: '100%' }}>
+          {/* the navigation rail */}
+          <div style={{ width: admin ? 224 : 232, flexShrink: 0, background: '#0a0f16',
+                        padding: '22px 16px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <Bone w={120} h={26} dark />
+            <div style={{ height: 10 }} />
+            {Array.from({ length: 8 }).map((_, i) => <Bone key={i} w="100%" h={17} dark />)}
+          </div>
+          {/* the content */}
+          <div style={{ flex: 1, padding: '28px 28px 0', minWidth: 0 }}>
+            <Bone w={210} h={30} r={10} dark={!admin} />
+            <Bone w={330} h={14} mt={12} dark={!admin} />
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 18, marginTop: 28 }}>
+              {Array.from({ length: 4 }).map((_, i) => <Bone key={i} w="100%" h={122} r={14} dark={!admin} />)}
+            </div>
+            <Bone w="100%" h={300} r={14} mt={18} dark={!admin} />
+          </div>
+        </div>
+      </AfterDelay>
+    </div>
+  );
 }
 
 // ── Route guards ─────────────────────────────────────────────────────────────
@@ -129,7 +195,7 @@ function RequireAdmin({ children }: { children: React.ReactNode }) {
     }
   }, [loading, session, role, navigate]);
 
-  if (loading || !session || role !== 'admin') return <LoadingScreen />;
+  if (loading || !session || role !== 'admin') return <LoadingScreen variant="admin" />;
   return <>{children}</>;
 }
 
@@ -137,8 +203,24 @@ function RequireAdmin({ children }: { children: React.ReactNode }) {
 /** Shown for the moment a page's code is being fetched. Deliberately near-invisible: these files
  *  are small and usually arrive in well under a second, so a spinner would flash and be worse than
  *  nothing. It reserves the height so the page does not jump when the content lands. */
+/** The gap while a route's JavaScript downloads, INSIDE an already-painted shell. Measured
+ *  against production that is 1.8-2.2s on a cold cache, and it used to be an empty box. */
 function PageLoading() {
-  return <div style={{ minHeight: "60vh" }} aria-busy="true" aria-live="polite" />;
+  return (
+    <div style={{ minHeight: "60vh", padding: "8px 4px" }} aria-busy="true" aria-live="polite" role="status" aria-label="Loading">
+      <style>{BONE_CSS}</style>
+      <AfterDelay>
+        <div style={{ maxWidth: 1100, margin: '0 auto' }}>
+          <Bone w={240} h={28} r={10} />
+          <Bone w={380} h={14} mt={12} />
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 18, marginTop: 26 }}>
+            {Array.from({ length: 4 }).map((_, i) => <Bone key={i} w="100%" h={112} r={14} />)}
+          </div>
+          <Bone w="100%" h={280} r={14} mt={18} />
+        </div>
+      </AfterDelay>
+    </div>
+  );
 }
 
 function InnerPages() {
