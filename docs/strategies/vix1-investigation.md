@@ -67,6 +67,34 @@ gap, which is why their refusal says "up trend" while his chart plainly shows pr
 - **Known open defect, already on record:** the trend reverses about 90 times a year, median run 1.6
   days — not the 9-10 its own notes claim. See [[project-vix1-trend-churn]].
 
+## ISSUE 3 — THE PULLBACK CAN ONLY BE PROVED BY THE CANDLE THAT ENDS IT (found 2026-09-13, Setup 2)
+
+**This is a real trap and it is the clearest single defect found so far.** It is not the size rule
+and it is NOT the 31 Aug change — that was tested and ruled out.
+
+**The case: EUR/USD, 11 Sep 15:00 UTC (his 18:00), a 10.6-pip sell.** Price fell all morning,
+bottomed on the 12:00 bar, bounced for three hours (+11.6, +9.2, +1.7 pips ≈ 13 pips up), then his
+momentum candle sold off 10.6 pips. Textbook "it ran, it pulled back, we enter". The system agreed
+the trend was DOWN and agreed the candle was a momentum candle, then refused it for *"the trend ran
+but has not pulled back since"*.
+
+**The mechanism, measured.** `trend_reproven` ([vix1_tradeable.py:90](../../signal_platform/strategies/vix1_tradeable.py#L90))
+needs a **confirmed turn against the trend** after the run — in a downtrend, a confirmed HIGH. The
+turning-point detector only confirms a high once price **closes back down through** the candle that
+made it. **The candle that does that is his momentum candle.** And everything about the momentum
+candle is judged on the window truncated AT that candle ([vix1_bias.py:240-242](../../signal_platform/strategies/vix1_bias.py#L240)),
+so the confirmation its own close creates is invisible to it.
+
+Measured outcome, bar by bar: highs-after-the-run = **0** at 15:00 → refused; **1** at 16:00 →
+pullback accepted. **The pullback is recognised exactly one hour too late**, and by then the candle
+is no longer the newest closed bar.
+
+**Ruled out as the cause:** replaying with the pre-31-Aug `momentum_run` (scan back 12 bars) still
+refuses at 15:00, 16:00 and 17:00 — same reason. So the "newest bar" change is not what killed it.
+
+**NOT YET MEASURED:** how often this bites across the full history. That is the next job on this
+issue, and it decides whether this is an edge case or the main event.
+
 ---
 
 ## How he sends a screenshot
