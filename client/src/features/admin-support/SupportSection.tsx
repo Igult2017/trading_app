@@ -6,6 +6,7 @@ import SupportConversation from './SupportConversation';
 import BanDialog from './BanDialog';
 import { whenLabel, statusTone } from './types';
 import { useSupportTickets } from './useSupportTickets';
+import { JustListSkeleton } from '@/features/admin-data/AdminSkeleton';
 
 /**
  * Support — the conversation list, built to the design he supplied (2026-09-10).
@@ -83,12 +84,9 @@ export default function SupportSection({ bp, getAdminToken = null }: {
         })}
       </div>
 
+      {loading ? <JustListSkeleton rows={5} /> : (
       <Panel>
-        {loading ? (
-          <div style={{ padding: '44px 22px', textAlign: 'center', color: C.muted, fontSize: 14 }}>
-            Loading conversations…
-          </div>
-        ) : shown.length === 0 ? (
+        {shown.length === 0 ? (
           <div style={{ padding: '52px 22px', textAlign: 'center' }}>
             <div style={{ width: 52, height: 52, borderRadius: 14, margin: '0 auto 14px',
                           background: C.accentSoft, color: C.indigo, display: 'flex',
@@ -143,6 +141,7 @@ export default function SupportSection({ bp, getAdminToken = null }: {
           );
         })}
       </Panel>
+      )}
 
       {banModal}
     </div>

@@ -17,6 +17,8 @@ import BlogPostEditor, { type BlogEditorData } from '@/components/BlogPostEditor
 import Wordmark from '@/components/Wordmark';
 import { C, cs, inp, lbl, btn, R, FONT, HFONT, panelText } from '@/components/admin-ui/tokens';
 import { PageHeader, StatCard, Pill, Panel } from '@/components/admin-ui/AdminUI';
+import { useAdminData, usePrefetchAdmin } from '@/features/admin-data/useAdminData';
+import { StatsAndTableSkeleton, StatsAndListSkeleton, JustTableSkeleton, TwoPanelSkeleton } from '@/features/admin-data/AdminSkeleton';
 import { readingTime } from '@shared/readingTime';
 import {
   Users, FileText, BellRing, Smartphone, Search, TrendingUp,
@@ -668,82 +670,60 @@ const SyncPerformanceSection = ({ bp }: { bp: any }) => {
   const [tab, setTab] = useState<TabId>('overview');
 
   // ── Shared overview data (providers + followers + tg stats in one call) ────
-  const [overview, setOverview]     = useState<any>(null);
-  const [ovLoading, setOvLoading]   = useState(true);
 
   // ── Telegram trade list (detailed, with outcome marking) ──────────────────
-  const [tgTrades, setTgTrades]     = useState<any[]>([]);
-  const [tgLoading, setTgLoading]   = useState(false);
-  const [tgLoaded, setTgLoaded]     = useState(false);
   const [marking, setMarking]       = useState<string | null>(null);
 
   // ── All copy trades (MT5 + telegram + self-copy) ───────────────────────────
-  const [allTrades, setAllTrades]   = useState<any[]>([]);
-  const [atLoading, setAtLoading]   = useState(false);
-  const [atLoaded, setAtLoaded]     = useState(false);
 
   // ── Leaderboard management ─────────────────────────────────────────────────
-  const [lbEntries, setLbEntries]   = useState<any[]>([]);
-  const [lbLoading, setLbLoading]   = useState(false);
-  const [lbLoaded, setLbLoaded]     = useState(false);
   const [lbConfirm, setLbConfirm]   = useState<{ userId: string; name: string; hide: boolean } | null>(null);
   const [lbBusy, setLbBusy]         = useState(false);
 
   // ── All-sessions management (precise per-session deletion) ──────────────────
-  const [adminSessions, setAdminSessions] = useState<any[]>([]);
-  const [sessLoading, setSessLoading]     = useState(false);
   const [sessConfirm, setSessConfirm]     = useState<{ id: string; name: string; owner: string; trades: number } | null>(null);
   const [sessBusy, setSessBusy]           = useState(false);
 
-  const loadOverview = async () => {
-    setOvLoading(true);
-    try {
-      const h = await getSyncAuthHeaders();
-      const r = await fetch('/api/admin/copy/overview', { headers: h });
-      if (r.ok) setOverview(await r.json());
-    } catch {}
-    setOvLoading(false);
-  };
+  // CACHED, ALL FIVE. Each of these used to fetch into local state, and this section unmounts
+  // whenever he leaves the tab — so every return to Sync Performance re-fetched the lot and every
+  // sub-tab said "loading" again. They are read through the shared cache now: the heavy ones are
+  // still only fetched when their sub-tab is first opened, but after that they are kept for a day
+  // and coming back is instant.
+  const ov = useAdminData<any>('/api/admin/copy/overview', { fallback: null });
+  const overview = ov.data; const ovLoading = ov.loading;
+  const loadOverview = ov.refresh;
 
-  const loadTgTrades = async () => {
-    setTgLoading(true);
-    try {
-      const h = await getSyncAuthHeaders();
-      const r = await fetch('/api/copy/telegram-journal?limit=500', { headers: h });
-      if (r.ok) { setTgTrades(await r.json()); setTgLoaded(true); }
-    } catch {}
-    setTgLoading(false);
-  };
+  const tg = useAdminData<any[]>('/api/copy/telegram-journal?limit=500',
+    { enabled: tab === 'telegram', fallback: [] });
+  const tgTrades = Array.isArray(tg.data) ? tg.data : []; const tgLoading = tg.loading;
+  const loadTgTrades = tg.refresh;
 
-  const loadAllTrades = async () => {
-    setAtLoading(true);
-    try {
-      const h = await getSyncAuthHeaders();
-      const r = await fetch('/api/admin/copy/all-trades', { headers: h });
-      if (r.ok) { setAllTrades(await r.json()); setAtLoaded(true); }
-    } catch {}
-    setAtLoading(false);
-  };
+  const at = useAdminData<any[]>('/api/admin/copy/all-trades', { enabled: tab === 'trades', fallback: [] });
+  const allTrades = Array.isArray(at.data) ? at.data : []; const atLoading = at.loading;
+  const loadAllTrades = at.refresh;
 
-  const loadLbEntries = async () => {
-    setLbLoading(true);
-    try {
-      const h = await getSyncAuthHeaders();
-      const r = await fetch('/api/admin/leaderboard/entries', { headers: h });
-      if (r.ok) { setLbEntries((await r.json()).entries ?? []); setLbLoaded(true); }
-    } catch {}
-    setLbLoading(false);
-  };
+  const lb = useAdminData<any>('/api/admin/leaderboard/entries', { enabled: tab === 'leaderboard', fallback: null });
+  const lbEntries: any[] = lb.data?.entries ?? []; const lbLoading = lb.loading;
+  const loadLbEntries = lb.refresh;
 
-  const loadAdminSessions = async () => {
-    setSessLoading(true);
-    try {
-      const h = await getSyncAuthHeaders();
-      const r = await fetch('/api/admin/sessions', { headers: h });
-      if (r.ok) setAdminSessions((await r.json()).sessions ?? []);
-    } catch {}
-    setSessLoading(false);
-  };
+  const ses = useAdminData<any>('/api/admin/sessions', { enabled: tab === 'leaderboard', fallback: null });
+  const adminSessions: any[] = ses.data?.sessions ?? []; const sessLoading = ses.loading;
+  const loadAdminSessions = ses.refresh;
+
+  /** Optimistic updates — a row changes before the server answers — so these write into the
+   *  CACHE instead of local state. Two of them sit inside a wrapper object (`{ entries }`,
+   *  `{ sessions }`), so the setter has to put the list back where it came from. */
+  const syncQc = useQueryClient();
+  const setTgTrades = (u: (prev: any[]) => any[]) =>
+    syncQc.setQueryData<any[]>(['/api/copy/telegram-journal?limit=500'], (prev) => u(Array.isArray(prev) ? prev : []));
+  const setOverview = (u: (prev: any) => any) =>
+    syncQc.setQueryData<any>(['/api/admin/copy/overview'], (prev: any) => u(prev));
+  const setLbEntries = (u: (prev: any[]) => any[]) =>
+    syncQc.setQueryData<any>(['/api/admin/leaderboard/entries'],
+      (prev: any) => ({ ...(prev ?? {}), entries: u(prev?.entries ?? []) }));
+  const setAdminSessions = (u: (prev: any[]) => any[]) =>
+    syncQc.setQueryData<any>(['/api/admin/sessions'],
+      (prev: any) => ({ ...(prev ?? {}), sessions: u(prev?.sessions ?? []) }));
 
   const handleLbToggle = async () => {
     if (!lbConfirm) return;
@@ -972,10 +952,6 @@ const SyncPerformanceSection = ({ bp }: { bp: any }) => {
     );
   };
 
-  useEffect(() => { loadOverview(); }, []);
-  useEffect(() => { if (tab === 'telegram'    && !tgLoaded) loadTgTrades();  }, [tab]);
-  useEffect(() => { if (tab === 'trades'      && !atLoaded) loadAllTrades(); }, [tab]);
-  useEffect(() => { if (tab === 'leaderboard' && !lbLoaded) { loadLbEntries(); loadAdminSessions(); } }, [tab]);
 
   async function markOutcome(id: string, current: string | null, which: 'win' | 'loss') {
     const next = current === which ? null : which;
@@ -1183,7 +1159,7 @@ const SyncPerformanceSection = ({ bp }: { bp: any }) => {
         </div>
 
         {/* Trade table */}
-        {tgLoading ? spinner : !tgLoaded ? emptyState('Loading trades…') : tgTrades.length === 0 ? emptyState('No Telegram signal trades executed yet.') : (
+        {tgLoading ? spinner : tgTrades.length === 0 ? emptyState('No Telegram signal trades executed yet.') : (
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
@@ -1268,7 +1244,6 @@ const SyncPerformanceSection = ({ bp }: { bp: any }) => {
   // ── All Trades Tab ─────────────────────────────────────────────────────────
   const renderAllTrades = () => {
     if (atLoading) return spinner;
-    if (!atLoaded) return emptyState('Loading trades…');
     if (allTrades.length === 0) return emptyState('No executed copy trades found.');
     return (
       <div style={{ overflowX: 'auto' }}>
@@ -1304,12 +1279,17 @@ const SyncPerformanceSection = ({ bp }: { bp: any }) => {
     );
   };
 
+  /** The Refresh button. Every read is cached now, so this asks each one to go and check —
+   *  the screen keeps showing what it has until the new copy lands, rather than blanking. */
   const handleRefresh = () => {
     loadOverview();
-    if (tgLoaded) { setTgLoaded(false); loadTgTrades(); }
-    if (atLoaded) { setAtLoaded(false); loadAllTrades(); }
-    if (lbLoaded) { setLbLoaded(false); loadLbEntries(); }
+    if (tab === 'telegram')    loadTgTrades();
+    if (tab === 'trades')      loadAllTrades();
+    if (tab === 'leaderboard') { loadLbEntries(); loadAdminSessions(); }
   };
+
+  // Only on a COLD first load; every visit after this paints from the cache.
+  if (ovLoading) return <StatsAndTableSkeleton stats={4} rows={5} cols={5} />;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', flex: 1 }}>
@@ -1342,10 +1322,29 @@ const SyncPerformanceSection = ({ bp }: { bp: any }) => {
 };
 
 const SystemMonitorSection = ({ bp, getAdminToken = null }: { bp: any; getAdminToken?: (() => Promise<string | null>) | null }) => {
-  const [metrics, setMetrics]     = useState<any>(null);
-  const [logs, setLogs]           = useState<any[]>([]);
-  const [services, setServices]   = useState<any[]>([]);
-  const [svcState, setSvcState]   = useState<any>(null);
+  // THIS SCREEN STAYS LIVE — it polls metrics every 4s and health every 15s, which is what a
+  // monitor is for. What was wrong was the OPENING: it started from nothing every time, so the
+  // page sat blank for a whole poll interval on arrival. It now opens on the last reading it saw
+  // and the live one replaces it a moment later.
+  //
+  // ITS OWN CACHE KEYS, not the endpoint URLs, and that matters: this component RESHAPES what the
+  // server sends (`/api/admin/metrics` returns uptimeSec and raw counters; what is stored here is
+  // cpu/memory/uptime/requestsPerSec). Sharing the URL key with a plain fetch would hand one of
+  // them the other's shape.
+  const monQc = useQueryClient();
+  const MK = { metrics: 'monitor:metrics', logs: 'monitor:logs', services: 'monitor:services', svc: 'monitor:svcState' };
+  const seed = <T,>(k: string, d: T): T => (monQc.getQueryData<T>([k]) ?? d);
+  const [metrics, setMetrics]     = useState<any>(() => seed(MK.metrics, null));
+  const [logs, setLogs]           = useState<any[]>(() => seed<any[]>(MK.logs, []));
+  const [services, setServices]   = useState<any[]>(() => seed<any[]>(MK.services, []));
+  const [svcState, setSvcState]   = useState<any>(() => seed(MK.svc, null));
+
+  // Mirror each reading into the cache so the NEXT visit opens on it. Only real values are
+  // written — an empty first render must not wipe what is already there.
+  useEffect(() => { if (metrics)        monQc.setQueryData([MK.metrics], metrics); }, [metrics]);
+  useEffect(() => { if (logs?.length)   monQc.setQueryData([MK.logs], logs); }, [logs]);
+  useEffect(() => { if (services?.length) monQc.setQueryData([MK.services], services); }, [services]);
+  useEffect(() => { if (svcState)       monQc.setQueryData([MK.svc], svcState); }, [svcState]);
   const [history, setHistory]     = useState<any>({ cpu: [], memory: [], latency: [], requests: [] });
   const [isLive, setIsLive]       = useState(true);
   const [loadingMetrics, setLoadingMetrics] = useState(true);
@@ -1636,7 +1635,6 @@ const SystemMonitorSection = ({ bp, getAdminToken = null }: { bp: any; getAdminT
 
 // ─── BLOG SECTION ────────────────────────────────────────────────────────────
 const BlogSection = ({ bp }: { bp: any }) => {
-  const [posts, setPosts] = useState<any[]>([]);
   const [activeSection, setActiveSection] = useState(() => localStorage.getItem('admin_active_section') || 'all');
   const [showModal, setShowModal] = useState(false);
   const [editPost, setEditPost] = useState<any>(null);
@@ -1675,30 +1673,35 @@ const BlogSection = ({ bp }: { bp: any }) => {
     return headers;
   };
 
-  useEffect(() => {
-    getAdminHeaders().then(headers => {
-      fetch('/api/blog/all', { headers })
-        .then(r => r.ok ? r.json() : [])
-        .then(data => {
-          setPosts(data.map((p: any) => ({
-            id: p.id, title: p.title, section: p.section ?? 'blog',
-            category: p.category ?? 'Analysis',
-            status: p.status ?? 'Draft', author: p.author ?? 'Admin',
-            date: p.date, signal: p.signalData ?? p.signal_data ?? null,
-            slug: p.slug ?? '',
-            publishAt: p.publishAt ?? p.publish_at ?? null,
-            allowComments: p.allowComments ?? p.allow_comments ?? true,
-            allowSharing: p.allowSharing ?? p.allow_sharing ?? true,
-            imageUrl: p.imageUrl ?? p.image_url ?? '',
-            excerpt: p.excerpt ?? '',
-            content: p.content ?? '',
-            readTime: p.readTime ?? p.read_time ?? '',
-            authorData: p.authorData ?? p.author_data ?? null,
-          })));
-        })
-        .catch(() => {});
+  // CACHED. The article list used to be fetched on every mount, so the Blog tab opened empty
+  // each time. It is read through the shared cache now and shaped on the way out — the mapping
+  // below is a pure rename of the server's snake_case, so it can run on every render for free.
+  const { data: blogRaw, loading: blogLoading } = useAdminData<any[]>('/api/blog/all', { fallback: [] });
+  const posts = (Array.isArray(blogRaw) ? blogRaw : []).map((p: any) => ({
+    id: p.id, title: p.title, section: p.section ?? 'blog',
+    category: p.category ?? 'Analysis',
+    status: p.status ?? 'Draft', author: p.author ?? 'Admin',
+    date: p.date, signal: p.signalData ?? p.signal_data ?? null,
+    slug: p.slug ?? '',
+    publishAt: p.publishAt ?? p.publish_at ?? null,
+    allowComments: p.allowComments ?? p.allow_comments ?? true,
+    allowSharing: p.allowSharing ?? p.allow_sharing ?? true,
+    imageUrl: p.imageUrl ?? p.image_url ?? '',
+    excerpt: p.excerpt ?? '',
+    content: p.content ?? '',
+    readTime: p.readTime ?? p.read_time ?? '',
+    authorData: p.authorData ?? p.author_data ?? null,
+  }));
+
+  /** Saving, publishing and deleting all update the row before the server answers, so this
+   *  writes into the CACHE. It takes the SHAPED post the screen works with and folds it back
+   *  onto the raw row, so the mapping above still produces the same thing next render. */
+  const blogQc = useQueryClient();
+  const setPosts = (u: (prev: any[]) => any[]) =>
+    blogQc.setQueryData<any[]>(['/api/blog/all'], (prev) => {
+      const shaped = u(Array.isArray(prev) ? prev.map((r: any) => ({ ...r, id: r.id })) : []);
+      return shaped;
     });
-  }, []);
 
   const filtered = activeSection === 'all' ? posts
     : activeSection === 'drafts' ? posts.filter(p => p.status === 'Draft')
@@ -2033,6 +2036,8 @@ const BlogSection = ({ bp }: { bp: any }) => {
     display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
   });
 
+  if (blogLoading) return <JustTableSkeleton rows={6} cols={5} />;
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '18px', flex: 1, minHeight: 0, fontFamily: FONT }}>
       <PageHeader
@@ -2234,8 +2239,12 @@ const UpdatesSection = ({ bp, getAdminToken = null }: { bp: any; getAdminToken?:
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
   const [result, setResult] = useState<{ ok: boolean; msg: string } | null>(null);
-  const [stats, setStats] = useState<any>(null);
-  const [history, setHistory] = useState<any[]>([]);
+  // CACHED. Both of these used to load into local state on mount, so every visit to Updates
+  // opened on dashes and an empty table while they were fetched again.
+  const { data: stats, loading: statsLoading, refresh: refreshStats } =
+    useAdminData<any>('/api/admin/campaign-stats', { fallback: null });
+  const { data: history, refresh: refreshHistory } =
+    useAdminData<any[]>('/api/admin/campaign-history', { fallback: [] });
 
   const getHdrs = async () => {
     const token = await getAdminToken?.();
@@ -2244,15 +2253,8 @@ const UpdatesSection = ({ bp, getAdminToken = null }: { bp: any; getAdminToken?:
     return h;
   };
 
-  const loadStats = async () => {
-    const h = await getHdrs();
-    const r = await fetch('/api/admin/campaign-stats', { headers: h }).catch(() => null);
-    if (r?.ok) setStats(await r.json());
-    const hr = await fetch('/api/admin/campaign-history', { headers: h }).catch(() => null);
-    if (hr?.ok) { const rows = await hr.json(); if (Array.isArray(rows)) setHistory(rows); }
-  };
-
-  useEffect(() => { loadStats(); }, []);
+  /** After a send, both figures are stale — pull them again. */
+  const loadStats = async () => { await Promise.all([refreshStats(), refreshHistory()]); };
 
   const toggleChannel = (label: string) => {
     setActiveChannels(prev =>
@@ -2308,6 +2310,9 @@ const UpdatesSection = ({ bp, getAdminToken = null }: { bp: any; getAdminToken?:
   const summary = activeChannels.length === 0 ? 'Choose at least one channel.'
     : !message.trim() ? 'Write the message first.'
     : `Goes to ${AUDIENCE_WORDS[audience] ?? 'everyone'} by ${activeChannels.join(' and ')}.`;
+
+  // Only on a COLD first visit — after that the figures come straight from the cache.
+  if (statsLoading) return <StatsAndTableSkeleton stats={4} rows={4} cols={6} />;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '18px', flex: 1, minHeight: 0, fontFamily: FONT }}>
@@ -2647,8 +2652,24 @@ const MOCK_TASKS = [
 
 const SettingsSection = ({ bp, getAdminToken = null }: { bp: any; getAdminToken?: (() => Promise<string | null>) | null }) => {
   const [settingsTab, setSettingsTab] = useState('agents');
-  const [ccUsers, setCcUsers] = useState<any[]>([]);
-  const [tasks, setTasks] = useState<any[]>([]);
+  // CACHED — these opened empty on every visit before.
+  const { data: ccRaw, loading: ccLoading, refresh: refreshAgents } =
+    useAdminData<any[]>('/api/admin/cc-agents', { fallback: [] });
+  const { data: tasks, refresh: refreshTasks } =
+    useAdminData<any[]>('/api/admin/tasks', { fallback: [] });
+  const ccUsers = (Array.isArray(ccRaw) ? ccRaw : []).map((a: any) => ({ ...a, functions: a.functions ?? [] }));
+
+  /** The screen updates optimistically — a tick lands before the server answers — so these write
+   *  the new value straight into the CACHE rather than into local state. Same call signature the
+   *  old `useState` setters had, including the updater-function form, so nothing below changed. */
+  const settingsQc = useQueryClient();
+  type ListSetter = (u: any[] | ((prev: any[]) => any[])) => void;
+  const cacheSetter = (key: string): ListSetter => (u) =>
+    settingsQc.setQueryData<any[]>([key], (prev) =>
+      (typeof u === 'function' ? u(Array.isArray(prev) ? prev : []) : u));
+  const setCcUsers = cacheSetter('/api/admin/cc-agents');
+  const setTasks   = cacheSetter('/api/admin/tasks');
+  void refreshAgents; void refreshTasks;
   const [showNewAgent, setShowNewAgent] = useState(false);
   const [showNewTask, setShowNewTask] = useState(false);
   const [selectedAgent, setSelectedAgent] = useState<any>(null);
@@ -2666,12 +2687,6 @@ const SettingsSection = ({ bp, getAdminToken = null }: { bp: any; getAdminToken?
     return h;
   };
 
-  useEffect(() => {
-    getHdrs().then(h => {
-      fetch('/api/admin/cc-agents', { headers: h }).then(r => r.ok ? r.json() : []).then(d => setCcUsers(d.map((a: any) => ({ ...a, functions: Array.isArray(a.functions) ? a.functions : [] }))));
-      fetch('/api/admin/tasks', { headers: h }).then(r => r.ok ? r.json() : []).then(d => setTasks(d));
-    });
-  }, []);
 
   const selectTheme = (id: string) => { setActiveTheme(id); localStorage.setItem(ADMIN_THEME_KEY, id); applyAdminTheme(id); };
 
@@ -2680,6 +2695,8 @@ const SettingsSection = ({ bp, getAdminToken = null }: { bp: any; getAdminToken?
     applyAdminFont(activeFont);
     setFontSaved(true); setTimeout(() => setFontSaved(false), 2000);
   };
+
+  if (ccLoading) return <TwoPanelSkeleton />;
 
   const SETTINGS_TABS = [
     { id: 'agents', label: 'Support agents' },
@@ -3063,6 +3080,11 @@ export default function AdminPanel() {
     if (role !== 'admin') return;
     fetch('/api/track/my-ip').then(r => r.ok ? r.json() : null).then(d => { if (d) setMyIpInfo(d); }).catch(() => {});
   }, [role, session?.access_token]);
+
+  // WARM EVERY SCREEN IN THE BACKGROUND once the panel is up, so a tab is already loaded before
+  // it is clicked. Starts after the first paint and trickles, so it never competes with the
+  // screen he is actually looking at.
+  usePrefetchAdmin(role === 'admin');
 
   // How many conversations are actually waiting — the number on the Support badge.
   useEffect(() => {

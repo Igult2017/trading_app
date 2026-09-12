@@ -1,4 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { useAdminData } from '@/features/admin-data/useAdminData';
 import { type Ticket, toTicket } from './types';
 
 /**
@@ -8,55 +10,35 @@ import { type Ticket, toTicket } from './types';
  * NO INVENTED DATA. The screen this replaced fell back to five made-up tickets whenever the
  * request failed, presented exactly like real ones, so an outage looked like a quiet day. A
  * failure here sets `loadError` and leaves the list empty, which is the truth.
+ *
+ * CACHED SINCE 2026-09-12. The list used to be fetched into local state on every mount, so every
+ * visit to Support showed "Loading conversations…" again. It reads through `useAdminData` now:
+ * cached for a day, kept across a page reload, so only the FIRST visit ever waits.
  */
-export function useSupportTickets(getAdminToken: (() => Promise<string | null>) | null) {
-  const [tickets, setTickets] = useState<Ticket[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
+export function useSupportTickets(_getAdminToken?: (() => Promise<string | null>) | null) {
+  const qc = useQueryClient();
   const [actionError, setActionError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const headers = async (withBody = false) => {
-    const token = await getAdminToken?.();
-    const h: Record<string, string> = {};
-    if (withBody) h['Content-Type'] = 'application/json';
-    if (token) h['Authorization'] = `Bearer ${token}`;
-    return h;
-  };
-
-  const load = async () => {
-    setLoading(true);
-    try {
-      const r = await fetch('/api/admin/tickets', { headers: await headers() });
-      if (!r.ok) {
-        setLoadError(`Could not load conversations (${r.status})`);
-        setTickets([]);
-      } else {
-        const rows = await r.json();
-        setTickets(Array.isArray(rows) ? rows.map(toTicket) : []);
-        setLoadError(null);
-      }
-    } catch (e: any) {
-      setLoadError(e?.message ?? 'Could not reach the server');
-      setTickets([]);
-    }
-    setLoading(false);
-  };
-
-  useEffect(() => { load(); }, []);
+  const KEY = '/api/admin/tickets';
+  const { data: rows, loading, error: loadError } = useAdminData<any[]>(KEY, { fallback: [] });
+  const tickets: Ticket[] = Array.isArray(rows) ? rows.map(toTicket) : [];
 
   /** Change a conversation's status, priority or reply. */
   const patch = async (dbId: string, fields: Record<string, string>) => {
     if (!dbId) { setActionError('That conversation has no database id, so it cannot be changed.'); return; }
     setBusy(true);
     try {
-      const r = await fetch(`/api/admin/tickets/${dbId}`, {
-        method: 'PATCH', headers: await headers(true), body: JSON.stringify(fields),
+      const { authFetch } = await import('@/lib/queryClient');
+      const r = await authFetch(`/api/admin/tickets/${dbId}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(fields),
       });
       if (!r.ok) setActionError(`That did not save (${r.status})`);
       else {
         setActionError(null);
-        setTickets(p => p.map(t => (t.dbId === dbId ? ({ ...t, ...fields } as Ticket) : t)));
+        // Write the change straight into the cache so the list updates without a round trip.
+        qc.setQueryData<any[]>([KEY], (prev) =>
+          Array.isArray(prev) ? prev.map(t => (String(t.id) === dbId ? { ...t, ...fields } : t)) : prev);
       }
     } catch (e: any) {
       setActionError(e?.message ?? 'That did not save');
@@ -66,8 +48,9 @@ export function useSupportTickets(getAdminToken: (() => Promise<string | null>) 
 
   const banUser = async (userId: string) => {
     try {
-      const r = await fetch(`/api/admin/users/${userId}/ban`, {
-        method: 'PATCH', headers: await headers(true), body: JSON.stringify({ action: 'ban' }),
+      const { authFetch } = await import('@/lib/queryClient');
+      const r = await authFetch(`/api/admin/users/${userId}/ban`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'ban' }),
       });
       if (!r.ok) setActionError(`Could not suspend that account (${r.status})`);
     } catch (e: any) {
