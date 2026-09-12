@@ -100,6 +100,54 @@ This is the checklist I work through for every setup he sends.
 
 | # | Screenshot | Pair | Candle (UTC) | Body vs needed | Gate that rejected it | Is that rule HIS, or introduced? |
 |---|---|---|---|---|---|---|
+| 1 | GBP/USD H1, 3 marks on the 10-11 Sep down move, chart UTC+3 | GBP/USD | see table below | see below | **Gate 1, the 100-bar size test — all nine** | The 2.5x multiplier is HIS, calibrated 2026-07-20 against 87 of his real GBP/USD trades. **Not introduced in the overhaul.** |
+
+### Setup 1 — GBP/USD, 10-11 Sep, his three marked momentum candles
+
+His words: *"It is a downtrend and the candles that i have marked are momentum candles that occured
+after a pullback which confirmed trend direction. So we were to take trades in all those candles."*
+
+Rather than guess three candles from pixels, **every** down-candle of 5+ pips in the move was run
+through the real gates. **All nine died at the same gate — number 1, the size test.**
+
+| UTC | His chart | Body | 100-bar test | 2000-bar test | Trend then | Died on |
+|---|---|---|---|---|---|---|
+| 10 Sep 10:00 | 13:00 | 9.9p | needs 11.0 ❌ | needs 9.5 ✅ | **UP** | 100-bar size |
+| 10 Sep 11:00 | 14:00 | 9.8p | needs 11.0 ❌ | needs 9.5 ✅ | **UP** | 100-bar size + not bigger than previous |
+| 10 Sep 12:00 | 15:00 | 17.6p | needs 11.0 ✅ | needs 9.5 ✅ | mid-turn | shape — body 44.8% of range, lower wick 50.9% |
+| 10 Sep 16:00 | 19:00 | 6.9p | needs 11.0 ❌ | needs 9.5 ❌ | DOWN | 100-bar size |
+| 10 Sep 18:00 | 21:00 | 7.5p | needs 11.0 ❌ | needs 9.5 ❌ | DOWN | 100-bar size |
+| 11 Sep 01:00 | 04:00 | 6.6p | needs 10.5 ❌ | needs 9.3 ❌ | DOWN | 100-bar size |
+| 11 Sep 07:00 | 10:00 | 8.3p | needs 11.4 ❌ | needs 9.3 ❌ | DOWN | 100-bar size |
+| 11 Sep 08:00 | 11:00 | 10.3p | needs 11.6 ❌ | needs 9.3 ✅ | DOWN | 100-bar size |
+| 11 Sep 15:00 | 18:00 | 8.6p | needs 11.6 ❌ | needs 9.3 ❌ | DOWN | 100-bar size |
+
+**TWO SEPARATE FINDINGS CAME OUT OF THIS.**
+
+**(a) The size bar rose during the move, by 18%.** The 100-bar test asks 2.5x the median body of the
+last 100 bars — about four days. A violent four days raises that median, so the test demands more
+right when the market is moving:
+
+| | 100-bar median body | demands |
+|---|---|---|
+| before the move, 09 Sep 12:00 | 3.90p | 9.8p |
+| at his 1st mark, 10 Sep 10:00 | 4.40p | 11.0p |
+| after the move, 11 Sep 15:00 | 4.65p | 11.6p |
+
+Over the last 2,200 GBP/USD bars the 100-bar test is the stricter of the two **52%** of the time, and
+it was the binding one on **every single hour** of his window. The second test — the one built from
+his own candles — was asking only 9.3-9.5p, and **two of his candles passed it** (9.9p and 10.3p).
+
+**(b) The system called the downtrend ~5 hours later than he did.** It read UP through 10 Sep 11:00
+UTC, mid-turn 12:00-14:00, and only DOWN from **15:00 UTC (his 18:00)**. His first two marked candles
+fall inside that lag, which is why their refusal says "up trend".
+
+**THE OPEN QUESTION FOR HIM** — a conflict in the evidence, not a defect I can settle:
+the 2.5x multiplier was calibrated 2026-07-20 against **87 of his real GBP/USD trades**, whose
+momentum candles ran **2.7-6x the median (14-31 pips, median ~22)**
+([vix1_momentum.py:40-45](../../signal_platform/strategies/vix1_momentum.py#L40)). The candles he
+marked here are **1.5-2.3x the median (6.6-10.3 pips)**. Both cannot be his standard. **He has to say
+which.**
 
 ---
 
