@@ -13,6 +13,49 @@ file and line that did the rejecting. Nothing is fixed until he says so.
 
 ---
 
+## ISSUE 4 — "THE FASTER STRUCTURE" IS READING EVIDENCE HALF A DAY OLD (found 2026-09-13, Setup 3)
+
+**OPEN. Not fixed — reported to him, awaiting his ruling.**
+
+**His setup:** XAU/USD **10 Sep 18:00 UTC (his 21:00)**, a **$19.87** sell candle ending a bounce in
+a downtrend. He marked the bounce on his chart and labelled it *"pullback"*.
+
+**It passed everything that should matter.** It IS a momentum candle (198.7 pips against 186.6
+needed). The trend read **DOWN**, agreeing with the candle. It was refused by the 8-bar leg gate:
+*"down momentum WITH the trend, but the leg does not permit it — the faster structure is trending up
+against the downtrend — this is a pullback, not a continuation."*
+
+**WHY THAT IS WRONG HERE, measured.** `fast_pattern` finds turning points with an 8-bar look-back, so
+a pivot needs 8 bars on each side and **the newest 8 bars can never hold one**
+([vix1_structure.py:121](../../signal_platform/strategies/vix1_structure.py#L121)). At his candle:
+
+- the newest evidence available to the gate was **12 hours old** (10 Sep 06:00 UTC / his 09:00)
+- the four swings it compared were **12, 27, 29 and 42 bars old**
+- it read highs 4434.14 → 4435.09 (rising) and lows 4341.13 → 4374.95 (rising), so "up"
+- **in the 8 hours it could not see, gold fell 4374 → 4333** — a $34 candle, then his $19.87 one
+
+So it refused the candle on the strength of a bounce that the candle itself had already ended.
+
+**HE HAS REPORTED THIS EXACT DEFECT BEFORE.** The module's own notes carry his GBP/USD case of
+**26 Aug 2026 15:00**, where the four swings compared were 52, 16, 47 and 31 bars old and a 21.5-pip
+fall was called "a pullback, not a continuation"
+([vix1_structure.py:135-143](../../signal_platform/strategies/vix1_structure.py#L135)). The note
+concedes it is *"STRUCTURAL, NOT BAD LUCK... it cannot see the turn for another n bars."*
+
+**THE 29-AUG FIX DOES NOT COVER THIS CASE.** That fix discards swings older than the last change of
+character. Gold's last change of character was at bar 1403 — **150 bars (over six days) earlier** —
+so every stale swing survived the filter and nothing was discarded. The mitigation only bites right
+after a trend turns; a long-running trend gets no protection at all.
+
+**Same shape as Issue 3:** a gate judging the present with evidence that structurally cannot include
+the present.
+
+**The other candles in the same stretch, for completeness** (all real broker bars): his 20:00 ($11.38)
+and 23:00 ($7.60) were too small; his 22:00 ($8.41) too small and the wrong shape; and **11 Sep 03:00
+UTC / his 06:00 ($18.32) missed the size bar by 20 cents** — it needed $18.52.
+
+---
+
 # THE TWO ISSUES WE ARE INVESTIGATING
 
 Opened 2026-09-13 on his instruction: *"So far we have 2 issues to look into: How momentum candles
