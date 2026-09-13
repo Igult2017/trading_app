@@ -848,3 +848,52 @@ which.**
 
 | Date | His words | What was changed |
 |---|---|---|
+
+---
+
+## THE LAST TREND DUPLICATE — why it cannot be fixed by re-sourcing (2026-09-13)
+
+His instruction: *"Fix it. Trend detector is only one no duplicate. Before anything, you need to
+check what it does well so that you only remove the duplicate trend part only to enable it to
+coordinate and use trend definer we have."*
+
+**WHAT IT IS.** `vix1_regime.classify` ([vix1_regime.py:92-114](../../signal_platform/strategies/vix1_regime.py#L92))
+runs the **same test** the trend-shape veto ran — last two highs, last two lows, both must step the
+same way — but it **infers its own direction** instead of being told the trend's. That is the defect
+measured over 4.3 years: it approved **17.1% (EUR/USD) / 15.8% (GBP/USD)** of moments while naming
+the OPPOSITE direction. It still vetoes in exactly one place:
+[vix1_choch.py:167-170](../../signal_platform/strategies/vix1_choch.py#L167), asking *"what kind of
+market did this turn come out of?"* — his rule: *"if the break is… arising from a choppy or a ranging
+market we don't trade."*
+
+**WHAT IT DOES WELL — measured first, as he asked.** At the 449 / 162 / 64 change-of-character
+moments where that veto runs:
+
+| | EUR/USD | GBP/USD | XAU/USD |
+|---|---|---|---|
+| the classifier and the trend definer agree | 69% | 83% | 69% |
+| classifier says TREND, definer does **not** | 10 | 0 | 0 |
+| definer says TREND, classifier does **not** | **127** | **27** | **20** |
+
+So it is almost never looser — its entire unique effect is refusing **174 turns** out of markets the
+trend definer calls trending, which it labels almost all "chop".
+
+**THE ATTEMPT, AND WHY IT WAS REVERTED THE SAME DAY.** Swapping the yes/no to the trend definer and
+keeping `classify` only to NAME the refusal was built and tested. The rule then fires **2% / 0% / 0%
+of the time** — effectively deleted.
+
+**THE REASON IS STRUCTURAL, and it is the finding worth keeping: a change of character only happens
+when there IS a trend to break.** So "was the market trending before the break?" is very nearly
+tautological at that moment — the definer almost always says yes. The definer cannot answer this
+question, not because it is worse, but because the question is not the one it asks.
+
+**SO THE CLASSIFIER HAS BEEN STANDING IN FOR A RULE THAT WAS NEVER BUILT.** His rule names two
+things — *choppy* or *ranging*. His chop definition exists in his own words and is still unbuilt
+(`OPEN.md` D42): *"it can be trending but prints 1 red volume candle then prints a bullish candle,
+meaning it has no specific group of candles in succession"*. `classify`'s "chop" is not that; it only
+means the last two highs and lows disagreed.
+
+**CONCLUSION: this duplicate cannot be removed by re-sourcing — it can only be removed by building
+his actual chop rule and putting that in its place.** Until then, removing it deletes a protection he
+asked for, and keeping it leaves the second trend reader he rejected. **Nothing was changed; the
+suite is green and the decision is his.**
