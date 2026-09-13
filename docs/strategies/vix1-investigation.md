@@ -146,6 +146,60 @@ and the last two lows"* inherits the staleness of the last two confirmed turns. 
 that has not yet printed a new turn, that evidence can be a day old — on the 8-bar read and on the
 real-time read alike. **That is the thing to fix, and it now sits inside `in_shape`.**
 
+### ISSUE 5 — THE MOVE IN PROGRESS IS INVISIBLE (found 2026-09-13, on his question about memory)
+
+**His question:** *"Does it have a memory? If it has a memory it can persist every move and make
+reference to know how the price looks like and where it has come from... we can persist real move
+which draws perfect trend and giving a clear picture of both complex and simple pullbacks."*
+
+**HE IS RIGHT, AND THE DATA HE WANTS IS ALREADY BEING BUILT.** Three facts, measured:
+
+1. **The full map already exists, every scan.** `turning_points` returns EVERY confirmed turn in the
+   window, oldest first ([vix1_swings.py:49-101](../../signal_platform/strategies/vix1_swings.py#L49)).
+   Measured on real bars: **201 turns for EUR/USD, 240 for GBP/USD, 227 for XAU/USD** per 1500-bar
+   window. Each carries `index` (the bar that made the extreme) and `confirmed` (the bar whose close
+   proved it), so the legs between them are one subtraction away. **That is a leg book already.**
+2. **Almost none of it is read.** `trend_state` replays every turn for DIRECTION. Every rule that
+   asks *"is the shape still right"* reads **4 numbers** — the last two highs and the last two lows.
+3. **There IS a stored memory and it decides nothing.** `vix1_trend.remember` (08 Sep) keeps only how
+   long the current answer has held — `direction_bars`, `shape_bars`
+   ([vix1_trend.py:368-399](../../signal_platform/strategies/vix1_trend.py#L368)).
+
+**THE GAP, AND IT IS EXACTLY THE ONE HE NAMED — his gold setup, measured:**
+
+| the last 6 moves on record | price | when it happened | how old | leg |
+|---|---|---|---|---|
+| low | 4387.72 | 08 Sep 08:00 (his 11:00) | 55 bars | |
+| HIGH | 4412.61 | 08 Sep 13:00 (his 16:00) | 47 bars | +24.89 |
+| low | 4341.13 | 09 Sep 00:00 (his 03:00) | 40 bars | −71.48 |
+| HIGH | 4412.89 | 09 Sep 07:00 (his 10:00) | 32 bars | +71.76 |
+| low | 4386.09 | 09 Sep 10:00 (his 13:00) | 30 bars | −26.80 |
+| HIGH | 4434.14 | 09 Sep 13:00 (his 16:00) | 19 bars | +48.05 |
+
+**And then, not on the list: a −$101.13 fall over 28 bars, from that last high to the candle he
+marked.** It is missing because it has not ENDED — no new low has been confirmed, so no turn exists.
+
+The shape test read highs 4412.89 → 4434.14 (rising) and lows 4341.13 → 4386.09 (rising), concluded
+*"the downtrend has lost its shape"*, and refused. **Both pairs it compared predate the fall
+entirely.** The largest move on the chart was the one thing it could not see.
+
+**HOW IT WOULD INTEGRATE — no new module, no stored state:**
+
+- The missing piece is a **current leg**: from the newest confirmed turn to the latest close —
+  direction, size, bars, and where it started. Derived per scan from data already in hand, so it does
+  **NOT** re-open the risk behind *"DERIVED, NEVER STORED… a stored value that went wrong once froze
+  the trend for 873 bars"* ([vix1_swings.py:36-38](../../signal_platform/strategies/vix1_swings.py#L36)).
+- It belongs in `vix1_trend`, which already owns the trend and already holds `highs`, `lows`,
+  `protected`, `bos_index` and `direction_since`.
+- `_shape` then asks the question with the present included, instead of only the past.
+- `vix1_retracement` already measures depth from the trend's extreme, so part of this is built —
+  what it does not do is report the running leg as a *structural* fact the shape test can read.
+
+**NOT MEASURED YET, and it must be before anything is built:** whether including the running leg
+fixes the general case or only this one, and what it would newly allow or refuse. Also the standing
+constraint that must survive: half of all pullbacks are complex, so the fast read must never be
+allowed to decide direction.
+
 **The other candles in the same stretch, for completeness** (all real broker bars): his 20:00 ($11.38)
 and 23:00 ($7.60) were too small; his 22:00 ($8.41) too small and the wrong shape; and **11 Sep 03:00
 UTC / his 06:00 ($18.32) missed the size bar by 20 cents** — it needed $18.52.
