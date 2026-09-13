@@ -324,13 +324,43 @@ def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "", debut=None
         # old failure — a shape check that worked out its own direction and could point the opposite
         # way — cannot be expressed any more. `mstate` is the trend AT THE MOMENTUM CANDLE, which is
         # the same causal choice every other check on this path makes.
-        if not mstate.in_shape:
-            # The AGE is what memory buys: "lost shape 2 bars ago" and "lost shape 30 bars ago" are
-            # different facts, and only the second is a market that has genuinely changed character.
-            held = f" (for {age['shape_bars']}h)" if age.get("shape_bars") else ""
-            vix1_log.say(symbol,
-                         f"[vix1] {symbol} bias=NONE: {mstate.shape_why}{held} | {state_mc}")
-            return None
+        # ── THE SHAPE VETO WAS REMOVED HERE 2026-09-13, ON HIS RULING ───────────────────────────
+        #
+        # HIS SETTLED RULE, `docs/strategies/vix1.md` (2026-08-15), in his own words:
+        #
+        #     *"a pullback ends when CHOCH begins. So until a move is considered CHOCH it is still a
+        #      pullback no matter how deep."*   ...and the doc's own conclusion:
+        #     **"There is no third state and no depth threshold."**
+        #
+        # The shape test invented that third state: *trending, but out of shape* — a market this
+        # engine calls a downtrend, whose protected level has NOT broken, and which the pullback rule
+        # is happy with, refused anyway. His model has two states, trending and ranging, and a
+        # counter-move stays a pullback until the protected level goes.
+        #
+        # HE FOUND IT, NOT ME: *"that second swing is not mine and i dont know where you got it...
+        # Tell me how we can have 2 pullback logics for one strategies. For what?"*
+        #
+        # MEASURED, AND IT IS WHY HE IS RIGHT: of the setups this refused, `trend_reproven` — the
+        # pullback rule — refused **0 of 34 (EUR/USD), 0 of 39 (GBP/USD), 0 of 9 (XAU/USD)**. Not a
+        # second opinion: the ONLY opinion, overruling the pullback logic every single time.
+        #
+        # ⚠ WHAT STILL REFUSES A MARKET THAT IS NOT TRENDING, so this is not a hole:
+        #   * `trend_state` itself — no established trend means direction 0 and nothing is sought.
+        #     That IS his ranging test: *"a ranging market does not make HH and HL or LL and LH."*
+        #   * the change of character — a body close through the protected level sets direction to 0.
+        #   * `trend_reproven` — the trend must have run AND pulled back.
+        #   * `market_awake` — a market that went quiet must prove itself.
+        #   * on the reversal route, `vix1_choch` still refuses a turn out of a RANGE or CHOP
+        #     (`vix1_choch.py:167-170`).
+        #
+        # AND WHAT IS NOW HONESTLY MISSING, recorded rather than hidden: on THIS route the regime
+        # reader (`vix1_regime.classify`) only DESCRIBES — its veto was deleted on 2026-09-08 and the
+        # shape test took its place. So the main route's "is this ranging" answer is now the trend
+        # engine alone. By his rule that is correct; it is stated here so nobody thinks a veto was
+        # silently lost.
+        #
+        # `mstate.in_shape` and `shape_why` are still COMPUTED and still printed on the card and in
+        # the log — they describe, they no longer decide.
 
         # ── IS THIS MARKET WORTH TRADING AT ALL? (2026-09-04) ───────────────────────────────────
         # His three charts of markets we cannot trade produced **12 signals**, every one through
@@ -408,15 +438,13 @@ def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "", debut=None
         # THIS IS THE ONE PULLBACK LOGIC, and it is his: `pullback_since` counts from ONE candle.
         # The 8-bar leg gate that used to sit beside it here was removed 2026-09-13 — see the note
         # in branch 1 for his ruling and the measurements behind it.
+        # THE SHAPE HALF OF THIS CHECK WENT TOO (2026-09-13) — the same removal as branch 1, in the
+        # same change, so the two can never disagree about whether the third state exists.
         pb_since = vix1_retracement.pullback_since(window, t1, since=mstate.direction_since)
         stale_evidence = pb_since is not None and h1[mc_idx].time < pb_since
-        # ...and the shape is asked of the LIVE trend for the same reason: `tstate` is the trend read
-        # on the full window, so `tstate.in_shape` is "is it still in shape NOW". Same rule, same
-        # module, one bar's worth of difference — no second engine involved.
-        if stale_evidence or not tstate.in_shape:
-            why = ((tstate.shape_why if not tstate.in_shape else None) or
-                   ("a pullback has begun since this momentum candle closed, so the candle is not "
-                    "the one that ended it — waiting for a momentum candle out of THIS pullback"))
+        if stale_evidence:
+            why = ("a pullback has begun since this momentum candle closed, so the candle is not "
+                   "the one that ended it — waiting for a momentum candle out of THIS pullback")
             vix1_log.say(symbol, f"[vix1] {symbol} bias=NONE: the setup was valid when the candle "
                                  f"formed {len(h1) - 1 - mc_idx}h ago, but the market has moved on "
                                  f"— {why} | {state}")

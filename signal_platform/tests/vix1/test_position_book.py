@@ -179,7 +179,11 @@ async def _quiet():
 # AND A SILENT MARKET MUST NOT HANG IT. If no tick ever comes, the loop still has to come round to
 # notice the stream has died and fall back to a requested quote.
 quiet = asyncio.run(_quiet())
-check("a silent market still lets the loop go round", quiet >= 0.05, True)
+# TOLERANCE, NOT THE EXACT TIMEOUT (fixed 2026-09-13, OPEN.md B1b). Windows' default timer
+# granularity is ~15.6ms, so `wait_for(timeout=0.05)` can return a hair early and this failed
+# at random — measured 3 of 6 runs on one machine. What is being tested is that a silent
+# market does not HANG the loop, which a 10% tolerance proves just as well.
+check("a silent market still lets the loop go round", quiet >= 0.045, True)
 
 # ── 7. THE SCHEDULED JOB MUST ACTUALLY RUN ─────────────────────────────────
 #
