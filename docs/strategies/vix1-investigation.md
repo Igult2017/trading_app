@@ -1057,3 +1057,55 @@ predicts the next hour. **He has now drawn exactly ONE good region** (`Guarantee
 bad ones — the good side is still where the evidence is thin.
 
 **NOTHING WAS CHANGED.** The chop rule remains unbuilt and unwired.
+
+---
+
+## THE CHOP RULE WAS BUILT TO HIS WORDS, TESTED, AND IT FAILS — `vix1_chop.py`, NOT WIRED
+
+His instruction: *"Why dont you build that logic, then test it and then we see where we are?"*
+Built in full (`signal_platform/strategies/vix1_chop.py`), from his words only:
+
+    DOMINANCE   do most candles go the same way?        "7 men and 3 women" -> his own 70%
+    CONSISTENCY are the ones that do a full size?       "a mixture of big bodies, small bodies"
+    STEPPING    do they close past each other?          "closing on top of each other"
+    PULLBACK    cut off the end before any of it        his explicit warning, and he was right
+
+**HIS PULLBACK WARNING WAS THE DIFFERENCE.** *"I know you can create something that will end up
+rejecting a good [move] and a pullback because pullback has mixed candles that dont close on each
+other."* Setting the live pullback aside — using `vix1_retracement.pullback_since`, the strategy's
+ONE pullback reader — changed every number in the calibration. It also exposed two bugs of mine:
+the reader was handed the 3,000-bar window while `direction_since` indexes the 1,500-bar one (it cut
+**1,474 candles** as "pullback"), and a long pullback left the count reading a market from 24-36
+hours earlier. Both fixed and both documented at the code.
+
+### THE VERDICT — it does not find the markets he circled
+
+Across **6,798 momentum candles**, both pairs, grouped by how many signs the rule saw:
+
+    signs         0     1     2     3    cannot say
+    carried on   44%   52%   48%   46%      48%      EUR/USD
+                 51%   49%   50%   47%      47%      GBP/USD
+
+**Flat, and backwards where it moves.** Demanding 2 of 3 removes 15-16% of momentum candles; those
+removed carried on **50-51%**, those kept **48%**. It refuses the slightly better moments.
+
+On his own marks: his Guarantee rally reads 3 of 3 (right), but his **10 Dec circle also reads 3 of
+3** on nine readings, and his 02 Mar circle reads 2 of 3 — the same as his own marked GBP/USD
+setups. It abstains on **52%** of moments because his pullbacks routinely run longer than the window.
+
+### ALSO TESTED AND DEAD — "price never gets anywhere"
+
+The one candidate the contaminated sample could have hidden, re-run with clean marks on both sides
+over 2 and 4 days: how far price GOT against how far it WALKED. His circled markets often make MORE
+progress than his marked setups (circle 02 Mar 24, circle 10 Dec 32, against 2-15 at his GBP/USD
+marks). A line keeping all his marks refuses 0-8% of his circled windows. Dead.
+
+### WHERE THIS LEAVES IT
+
+**His circled markets ARE measurably worse** — momentum leads nowhere there, 27% against a 48% base,
+about 2.4 standard deviations. That is settled. **But nothing readable in the candles predicts it**:
+six flip counts, the head count, body-versus-wick share, clean-group length, the stepping chain, his
+full three-sign rule, and now progress-versus-travel. Eight ideas, all flat.
+
+**The pattern across all eight: the badness is real but it is not in the shape of the last 12-96
+candles.** VIX.1 suite 48 of 48 green. Nothing is wired; every market he circled still trades.
