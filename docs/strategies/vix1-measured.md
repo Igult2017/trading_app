@@ -395,3 +395,45 @@ choosing better moments to enter.
 **THIS CORRECTS WHAT I WROTE AN HOUR EARLIER.** I reported "one trade in 220 reached 4R" as if the
 ladder were clipping winners harmfully. **The opposite is true** — without the ladder the strategy
 is a 20R loser. The clipping is what makes it work.
+
+### HIS QUESTION, 2026-09-14: "does run → pullback → entry from the beginning of the trend remove the need for chop and range logic?"
+
+**HALF OF IT IS ALREADY LIVE.** The run-then-pullback rule is `vix1_tradeable.trend_reproven`,
+enforced at `vix1_bias.py:405`, and it ran on every trade in the backtest. **The new half — take
+only the FIRST entry after the trend begins — does not exist anywhere in VIX.1** and was measured
+here for the first time.
+
+**IT IS THE WORST GROUP, NOT THE BEST:**
+
+    entry #1 of the trend    72 trades   + 1.4R   avg +0.019R   won 67%   full stops 33%
+    entry #2                 40 trades   + 1.1R   avg +0.027R   won 72%   full stops 28%
+    entry #3                 30 trades   + 7.6R   avg +0.254R   won 70%   full stops 30%
+    entry #4 or later        78 trades   + 9.8R   avg +0.126R   won 74%   full stops 26%
+
+    FIRST ONLY (his rule)    72 trades   + 1.4R   avg +0.019R   won 67%   full stops 33%
+    everything else         148 trades   +18.5R   avg +0.125R   won 73%   full stops 27%
+    all of them (today)     220 trades   +19.9R   avg +0.090R   won 71%   full stops 29%
+
+**Taking only the first entry keeps +1.4R of the +19.9R — it would throw away 93% of the result**,
+and it carries the HIGHEST rate of full -1R losses of any group (33%).
+
+**AND TREND AGE POINTS THE SAME WAY — older is not worse:**
+
+    under 12h   27 trades  +2.9R  22% full stops      2-4 days    40 trades  +5.5R  32% full stops
+    12-24h      26 trades  +3.2R  35% full stops      over 4 days 77 trades  +8.4R  23% full stops
+    1-2 days    30 trades  +0.7R  30% full stops
+
+The oldest trends give the most R and among the fewest full losses. There is no "get in early" edge.
+
+**THE LIKELY REASON, and it is already on record:** the 1HR trend reverses about 90 times a year
+with a median run of 1.6 days (`project-vix1-trend-churn`). So "the first entry of a new trend" is
+very often the first entry of a trend that is not real yet. A trend that has already survived two or
+three pullbacks has proved something the fresh one has not.
+
+**SO IT WOULD NOT REPLACE A CHOP RULE — IT WOULD POINT THE WRONG WAY.** A choppy market is where the
+trend flips most often, so it manufactures "first entries". His rule would concentrate trading into
+exactly the markets he wants excluded.
+
+**WHAT IS STILL TRUE:** run-then-pullback is live and his five circled markets still produced 11
+orders and 4 fills, so it does NOT fully exclude them — but four trades cannot say whether that
+costs anything. D42 stays open.
