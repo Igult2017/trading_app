@@ -708,7 +708,7 @@ issue, and it decides whether this is an edge case or the main event.
 
 Two ways, both verified working on 2026-09-13:
 
-1. **Drop the file in `C:\Users\FSD\trading_app_data\vix-setups\`** and tell me the file name.
+1. **Drop the file in `C:\Users\FSD\Desktop\vix-setups\`** and tell me the file name.
    That folder exists and is outside the git repo, so nothing ever deletes it. This is the reliable
    way — I read the file straight off disk and see the picture.
 2. **Paste it into the chat** (Ctrl+V) or drag it in. This also works.
