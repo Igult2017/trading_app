@@ -50,6 +50,47 @@ after a trend turns; a long-running trend gets no protection at all.
 **Same shape as Issue 3:** a gate judging the present with evidence that structurally cannot include
 the present.
 
+### Does the 8-bar gate earn its place? — measured 2026-09-13 on his question
+
+*"we have CHOCH, HH and HL — can you check and lemi know if we really need this 8 bar thing or how
+we make it to be natural and work with any instrument in any circumstance."*
+
+Gate-attribution counts over ~4 months of real bars. **NOT a backtest** — no win rate, no money.
+
+| | EUR/USD | GBP/USD | XAU/USD |
+|---|---|---|---|
+| momentum candles that reached the gate | 74 | 85 | 19 |
+| refused by the 8-bar gate | 6 (8%) | 8 (9%) | 1 (5%) |
+| …of those, refusals **nothing else** would have made | **4** | **2** | **0** |
+| age of the newest swing it used | median 19h, worst 27h | median 10h, worst 69h | median 12h |
+| **price had already moved >0.5x ATR the TREND's way in the bars it cannot see** | **6 (100%)** | **5 (62%)** | **1 (100%)** |
+| how far price travels in those unseen bars | median 3.44x ATR | 2.36x ATR | 1.93x ATR |
+
+**Six unique refusals in four months across three instruments — and in nearly all of them the
+"pullback" it refused on was already over.**
+
+**ITS FOUNDING CASE NO LONGER EXISTS.** The gate was built for GBP/USD 10 Aug 2026 09:00 UTC, where
+*"the 2-day trend said DOWN and the 8-hour structure said UP"* and VIX.1 sold into an 85-pip rally
+([vix1_structure.py:26-28](../../signal_platform/strategies/vix1_structure.py#L26)). Replayed on the
+current code: **the trend there now reads UP**, so a sell is never sought, and scanning 07-12 Aug
+only three bars produce a momentum candle in the trend's direction — none on 10 Aug, and the leg
+gate ALLOWS all three. The trend rewrite (real-time turns 12 Aug, one-module trend 08 Sep) overtook
+the scenario. The 29-Aug note claiming *"the 10 AUG CASE is untouched"* is stale.
+
+**THE "NATURAL" TOOL HE IS ASKING FOR ALREADY EXISTS AND IS HIS OWN RULE.**
+`vix1_swings.structure_turns` marks a high the moment a candle *closes below the low of the candle
+that made it*. Its own docstring: *"That is the whole rule. There is no tuned number in it"* and
+*"The delay is a property of the move, not a constant"*
+([vix1_swings.py:1-30](../../signal_platform/strategies/vix1_swings.py#L1)). The trend already uses
+it. The 8-bar gate still uses `find_swing_points`, the definition that *"cannot be evaluated in real
+time"*, with a number he himself called provisional: *"keep it at 8 hours for now… We can test 5, 8,
+and 12 later using the actual trading results"* ([vix1_structure.py:59](../../signal_platform/strategies/vix1_structure.py#L59)).
+
+**THE ONE THING THAT MUST SURVIVE ANY REPLACEMENT:** half of all pullbacks are complex and print
+their own lower highs and lower lows inside an intact uptrend (21 of 42 GBP/USD, 17 of 37 EUR/USD
+over 12 months), so **the fast read must never be allowed to decide direction**
+([vix1_structure.py:36-39](../../signal_platform/strategies/vix1_structure.py#L36)).
+
 **The other candles in the same stretch, for completeness** (all real broker bars): his 20:00 ($11.38)
 and 23:00 ($7.60) were too small; his 22:00 ($8.41) too small and the wrong shape; and **11 Sep 03:00
 UTC / his 06:00 ($18.32) missed the size bar by 20 cents** — it needed $18.52.
