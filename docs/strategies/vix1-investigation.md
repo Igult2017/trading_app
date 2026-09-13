@@ -990,3 +990,70 @@ him: on GBP/USD 10-11 Sep, was the market a clean group he could read, or was it
 anyway because the change of character had already happened?
 
 **NOTHING WAS CHANGED.** The chop rule is still unbuilt and unwired (`vix1_tradeable.market_not_choppy`).
+
+---
+
+## HIS CHOP IS REAL AND NOW MEASURED — but the tell that sees it coming is still missing
+
+**13 Sep, with `Guarantee.png` — the FIRST market he has circled and called GOOD** (EUR/USD, the
+11 Dec 2025 rally, immediately before the chop he circled on another chart):
+
+> *"Other than being mixed, in those candles i have circled you cant tell there next move explicitly
+> like 'if i get a momentum candle... there is a higher probability that the next candle is also a
+> momentum candle because it printed one candle that closes below or at the bottom of the previous
+> candle close like candles would do in a directional and a predictable trend'."*
+
+### 1. HIS CLAIM IS CONFIRMED. His circles mark a market where momentum leads nowhere.
+
+    after a momentum candle, did the next candle carry on the same way?
+        inside his five circled regions     7 of  26   =  27%
+        all EUR/USD, 4.3 years           1215 of 2529  =  48%
+
+    at 1.5x normal — nearer the size of the candles he himself marks — did one big candle
+    get followed by another the same way?
+        inside his five circled regions     6 of  67   =   9%
+        inside his ONE good circle          3 of  11   =  27%
+        all EUR/USD, 4.3 years           1838 of 8848  =  21%
+
+**9% against a 21% base is about 2.4 standard deviations below — roughly a 1-in-120 fluke.** His eye
+is reading a real property. **THIS IS THE FIRST HARD TARGET THE CHOP WORK HAS EVER HAD**: any future
+candidate rule can now be scored against "does it find the markets where momentum does not lead
+anywhere", instead of against my guesses about his screenshots.
+
+### 2. HIS SIGN DOES NOT PREDICT IT. Measured, and the answer is flat.
+
+His sign is candles stepping past each other — each closing beyond the previous one's close, or
+beyond its far edge. Over **6,798 momentum candles on both pairs**, grouped by how strong that sign
+was in the preceding 12 candles:
+
+    longest chain behind it       1 or less  2    3    4    5 or more
+       next candle carried on       48%     49%  47%  46%   51%     (EUR/USD)
+                                    49%     49%  47%  49%   47%     (GBP/USD)
+    share closing beyond the edge   0-19%  20-29  30-39  40-49  50%+
+       next candle carried on        47%    46%    48%    53%    51%  (EUR/USD)
+
+**Flat at 46-53% whatever it says.** The stepping pattern describes what a good market looked like
+AFTERWARDS; it does not see the next hour coming. Same for the head count, the body-versus-wick
+share and the clean-group length — all measured, all flat or overlapping.
+
+### 3. A SIDE FINDING THAT BEARS ON ISSUE 1 — his size standard versus the code's
+
+His picture is that momentum candles arrive together. How often one big candle is followed by
+another the same way, by size bar:
+
+    1.2x normal  24%      2.0x  17%      3.0x  11%
+    1.5x normal  21%      2.5x  14%   <- the bar VIX.1 uses today
+
+**At the code's 2.5x, back-to-back momentum is rare (13-14%) even in healthy markets; at 1.5x —
+nearer the candles he marks — it is 21%.** With VIX.1's full live test the next candle qualifies only
+**4-5% of the time in every market**, good or choppy, so his literal wording cannot be a chop signal
+at the current bar. **This is evidence FOR his position on Issue 1, not proof — his ruling still
+stands open and the number has NOT been changed.**
+
+### WHAT IS STILL MISSING
+
+A **forward-looking** tell. Everything measured so far reads the last 12-48 candles and none of it
+predicts the next hour. **He has now drawn exactly ONE good region** (`Guarantee.png`) against five
+bad ones — the good side is still where the evidence is thin.
+
+**NOTHING WAS CHANGED.** The chop rule remains unbuilt and unwired.
