@@ -200,6 +200,45 @@ fixes the general case or only this one, and what it would newly allow or refuse
 constraint that must survive: half of all pullbacks are complex, so the fast read must never be
 allowed to decide direction.
 
+### Tested: would a LINE-CHART (close-based) trend read help? — 2026-09-13, on his question
+
+*"i would prefer trend detector to use line charts because they are more clearer... Is there a way
+we can make trend detector to use line charts or that is not necessary?"*
+
+**THE DETECTOR IS CURRENTLY MIXED, and that IS an inconsistency worth knowing about.** The swing
+price it records is the **wick** (`Turn(True, candles[hi_i].high, …)`,
+[vix1_swings.py:91](../../signal_platform/strategies/vix1_swings.py#L91)) and the extreme is tracked
+on highs/lows ([:62-64](../../signal_platform/strategies/vix1_swings.py#L62)), but the confirmation
+is a **close** ([:75](../../signal_platform/strategies/vix1_swings.py#L75)) and the
+change-of-character trigger is a close through a wick level
+([vix1_trend.py:326](../../signal_platform/strategies/vix1_trend.py#L326)). **Levels from wicks,
+triggers from closes.** And `vix1_retracement` already went the other way deliberately, citing his
+own rule — *"a CHoCH needs the body of a candle… a wick poking through an extreme is not the trend
+carrying on"* ([vix1_retracement.py:120-125](../../signal_platform/strategies/vix1_retracement.py#L120)).
+
+**MEASURED: the swings really are wick-driven** — a recorded swing price sits a **median 0.5x ATR**
+from that same bar's close (90th percentile 1.2x EUR/USD, 1.56x GBP/USD, 1.34x XAU/USD). So half the
+structure is drawn at spike extremes rather than where price settled.
+
+**BUT IT WOULD NOT FIX WHAT HE IS CHASING.** Re-running the shape test with swings read as closes:
+
+| | verdict identical | wicks said OUT, closes say IN | wicks said IN, closes say OUT |
+|---|---|---|---|
+| EUR/USD (74) | 68 (92%) | 3 | 3 |
+| GBP/USD (85) | 72 (85%) | 7 | 6 |
+| XAU/USD (19) | 17 (89%) | 2 | 0 |
+
+The flips very nearly cancel. **And his gold setup reads the SAME either way** — as closes the highs
+are 4409.09 → 4415.16 (still rising) and the lows 4364.48 → 4399.46 (still rising), so the downtrend
+is still "out of shape". Wick versus close is not the lever on this problem.
+
+**⚠ THE REAL QUESTION GOLD RAISES, AND IT IS HIS TO SETTLE — NOT A CODING MATTER.** At his candle the
+trend module said **DOWN** while the last two highs AND the last two lows were both **RISING** (on
+either reading). Those cannot both be right. Either the shape test is wrong to refuse, or the trend
+direction was stale and gold had already changed character upward — in which case a pro-trend SELL
+was not his setup at that moment and the refusal was correct. **Do not resolve this by picking one;
+ask him.**
+
 **The other candles in the same stretch, for completeness** (all real broker bars): his 20:00 ($11.38)
 and 23:00 ($7.60) were too small; his 22:00 ($8.41) too small and the wrong shape; and **11 Sep 03:00
 UTC / his 06:00 ($18.32) missed the size bar by 20 cents** — it needed $18.52.
