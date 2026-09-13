@@ -260,6 +260,56 @@ FEWER turning points, because it never pauses long enough to make one. So the tw
 goes **most blind exactly when the trend is strongest and clearest** — the opposite of what it should
 do. A choppy market feeds it swings; a decisive one starves it.
 
+### ⭐ THE REPLACEMENT WAS ALREADY BUILT — AND WAS DISPLAY-ONLY UNTIL 2026-09-13
+
+His question: *"if a car follows a new path, it leaves its treads behind and when one traces that, it
+can see how the car travelled… we can persist price movement only in 1HR TF and then we have a
+clearer and a real time picture which includes swings, pullbacks, and whether price is ranging… Can
+this solve the 8 bar candle or do we already have something better in VIX that has addressed this?"*
+
+**WE ALREADY HAVE IT. `vix1_retracement` WAS BUILT TO REPLACE THE 8-BAR READING AND CARRIES THE
+MEASURED CASE AGAINST IT IN ITS OWN DOCSTRING** ([vix1_retracement.py:7-22](../../signal_platform/strategies/vix1_retracement.py#L7)),
+measured over 12 months of real H1 on both pairs:
+
+- *"it is **8 HOURS LATE** by construction. A turn needs 8 bars after it before it can be confirmed."*
+- *"it is **BLIND TO SHORT RETRACEMENTS**. **99% of retracements run under 8 candles** (48% are a
+  single candle, 26% are two), so it never sees the ones he actually means."*
+- *"it fires on the **WRONG SIZE of move**. It refuses at a median 58 pips / 43 bars and allows at
+  19 pips / 14 bars — it is catching two-day counter-legs, not pullbacks."*
+
+And: *"This module answers the question directly and with no delay: from the trend's best CLOSED
+price, count the bars and measure the distance."*
+
+**THEN IT WAS GIVEN NO AUTHORITY.** *"So this module DECIDES NOTHING. It reports."* Grepping every
+consumer of `retracement.active` / `.bars` / `.stall_bars`: only `vix1_signal.py` (the card text) —
+**display only** — until `vix1_tradeable.py:126`, which is the pullback fix made THIS MORNING. That
+fix is the first time the retracement has ever decided anything.
+
+**So the instrument proven wrong is still the one deciding, and its measured replacement prints
+captions.**
+
+**HIS LINE-CHART PREFERENCE IS ALREADY HALF-IMPLEMENTED, AND INCONSISTENTLY.** Three places read the
+"extreme" differently:
+
+| where | reads |
+|---|---|
+| `pullback_since` ([:126](../../signal_platform/strategies/vix1_retracement.py#L126)) | **CLOSES** — a line chart, his way |
+| `measure` ([:162](../../signal_platform/strategies/vix1_retracement.py#L162)) | highs / lows — wicks |
+| `turning_points` ([vix1_swings.py:91](../../signal_platform/strategies/vix1_swings.py#L91)) | wick for the level, **close** for the trigger |
+
+Two functions in the SAME module disagree about what the trend's best price is.
+
+**WHAT IS GENUINELY MISSING — the join.** The completed legs live in `turning_points` (201-240 per
+window). The leg in progress lives in `vix1_retracement` (`bars`, `pips`, `stall_bars`). **Nothing
+joins them into one path, and nothing expresses the live leg as structure.** That join is his car
+tracks, and it is the only new idea here — everything else is already written.
+
+**ALSO STALE FOR THE SAME REASON:** `vix1_regime.classify` answers *"is this ranging?"* from
+`highs[-1] vs highs[-2]` and `lows[-1] vs lows[-2]`
+([vix1_regime.py:103-104](../../signal_platform/strategies/vix1_regime.py#L103)) — the same two
+possibly-ancient swings. His path view would answer ranging better: legs alternating with no net
+progress.
+
 **The other candles in the same stretch, for completeness** (all real broker bars): his 20:00 ($11.38)
 and 23:00 ($7.60) were too small; his 22:00 ($8.41) too small and the wrong shape; and **11 Sep 03:00
 UTC / his 06:00 ($18.32) missed the size bar by 20 cents** — it needed $18.52.
