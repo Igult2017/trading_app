@@ -14,7 +14,7 @@ reports, which is exactly what the trader is told.
 """
 from _harness import Suite, body
 
-from strategies.vix1_manage import ManageState, run, structure_broken
+from strategies.vix1_manage import ManageState, run
 
 s = Suite("VIX.1 — the R ratchet and the structure exit")
 
@@ -88,20 +88,29 @@ s.check("short: the stop sits ABOVE entry-side, below start", sh.stop < ENTRY + 
 print()
 print("   the structure exit — a BODY CLOSE beyond the last swing, wicks never count:")
 # a long: swing low then a close beneath it
-# find_swing_points(n=3) needs 3 bars either side of the pivot, so the low sits at index 4 of a
-# long-enough series. A shorter fixture forms no swing at all and the test proves nothing.
-_hi = [body(1.1020, 1.1022, t=i, wick_up=0.0001, wick_dn=0.0001) for i in range(4)]
-_low = [body(1.1000, 1.1002, t=4, wick_dn=0.0005)]                      # the swing LOW (1.0995)
-_up  = [body(1.1015, 1.1020, t=i, wick_up=0.0001, wick_dn=0.0001) for i in range(5, 12)]
-swing = _hi + _low + _up
-closed_below = swing + [body(1.1010, 1.0990, t=12), body(1.0990, 1.0985, t=13),
-                        body(1.0985, 1.0980, t=14)]
-s.check("a close beyond the swing low breaks structure (long)",
-        structure_broken(closed_below, True), True)
-wick_only = swing + [body(1.1015, 1.1020, t=12, wick_dn=0.0040),
-                     body(1.1020, 1.1022, t=13), body(1.1022, 1.1024, t=14)]
-s.check("a WICK through it does not break structure", structure_broken(wick_only, True), False)
-s.check("no swing yet -> not broken", structure_broken([body(1.1, 1.1001, t=0)], True), False)
+# THE 1M STRUCTURE EXIT WAS DELETED 2026-09-13 — his instruction, "I has no use now so delete it".
+# Its fixtures and four checks went with it. It was half of a rule his 2026-09-03 ladder replaced:
+# that ladder ends "until we get knocked out", so the STOP is the only exit and there is nothing
+# here to test. Do not rebuild it without a fresh instruction from him.
+
+
+# ── WHICH RUNGS SPEAK — his rule, and it had leaked once already ─────────────────────────────────
+#
+# HIS RULE, 2026-09-02: *"Locking Rs should only be announced when we move to breakeven and when we
+# are out of the market... We dont need to get all the messages like 1R locked in the DM."*
+#
+# `monitor/rungs.py` carried it from the day he said it (every locking rung is `quiet=True`) but the
+# flag stopped at the table: `vix1_manage` returned a bare number, so `vix1_alerts` had no way to ask
+# and DM'd every rung — the exact messages he asked to stop. Fixed 2026-09-13; pinned here so the
+# instruction cannot be applied in one place and forgotten in the other a second time.
+print()
+print("   which rungs SPEAK — breakeven only, per his 2026-09-02 rule:")
+_ev = run(ENTRY, SL0, True, bars_to(3.0)).events
+s.check("every rung carries the ladder's own quiet flag", all(len(e) == 3 for e in _ev), True)
+s.check("BREAKEVEN speaks", [e[2] for e in _ev if e[1] == 0.0], [False])
+s.check("every LOCKING rung is silent — including the trail",
+        all(e[2] for e in _ev if e[1] > 0.0), True)
+s.teeth("there really were locking rungs to silence", len([e for e in _ev if e[1] > 0.0]) > 0)
 
 print()
 print("   it is ADVICE — the state carries what to TELL him:")
@@ -113,6 +122,5 @@ print()
 s.teeth("nothing locks below 1.5R", run(ENTRY, SL0, True, bars_to(1.4)).locked_r == 0.0)
 s.teeth("...and 1.5R DOES lock 1R", run(ENTRY, SL0, True, bars_to(1.5)).locked_r == 1.0)
 s.teeth("the forward-only ratchet", st5.locked_r == 2.4 and round(st5.stop, 5) == round(after_peak, 5))
-s.teeth("the wicks-never-count rule", structure_broken(wick_only, True) is False)
 
 s.done()

@@ -450,6 +450,50 @@ years. It was green for years against a path nothing runs. The checks now read t
 and pin the measured reality, explicitly labelled as `OPEN.md` B1 (the known churn defect) and **not**
 as a pass mark. Window agreement went from 92-93% to **100%**.
 
+## THE SWEEP — rules that outlived the instruction that created them (2026-09-13)
+
+His instruction after the 1M structure exit turned out to be half of a replaced rule: *"Also do the
+sweep."*
+
+### ✅ FIXED IN THIS PASS
+
+**1. The 1M structure exit — DELETED.** *"I has no use now so delete it."* It came from his
+2026-07-25 wording *"in each movement we shall lock 1R until we see structure change"*. On
+2026-09-03 he replaced that with the ladder, ending *"until we get knocked out"* — the stop is the
+exit and there is no structure clause. The trailing half was duly swapped; **this half was left
+running and kept DM-ing him about a rule he no longer had.** He did not know it existed. Gone with
+its orphans: `_SWING_N`, the `find_swing_points` import, `titles.STRUCTURE_EXIT`, and four tests.
+
+**2. THE DM WAS IGNORING HIS "DON'T MESSAGE ME EVERY LOCKED R" RULE.** His words, 2026-09-02:
+*"Locking Rs should only be announced when we move to breakeven and when we are out of the market...
+We dont need to get all the messages like 1R locked in the DM."* `monitor/rungs.py` has carried that
+since the day he said it — **every locking rung is marked `quiet=True`**. But the flag stopped at the
+table: `vix1_manage` returned a bare number, so `vix1_alerts` had no way to ask and **announced every
+rung**, sending exactly the messages he asked to stop. The rung now carries its own `quiet` flag
+through to the messenger. The stop still MOVES at every rung; only the message is suppressed, and a
+stop that fails to reach the broker is still shouted about. Pinned by four new checks.
+
+**3. A DISPLAY BUG IN THE LOCK MESSAGE.** It printed the locked level with **no decimals**, so a
+trail moving 2.0 → 2.1 → 2.2 → 2.4 read "+2R" every time while the real stop was elsewhere. The
+dedup key already used one decimal, so each step WAS sent — only the text collapsed them.
+
+### 🔍 FOUND, NOT TOUCHED — 21 functions with no production caller
+
+Reported rather than deleted: some are kept deliberately, and three sit in BX-S/D, which is a
+different strategy and not mine to edit in a VIX.1 pass. The four that are RULES rather than
+plumbing:
+
+| what | where | verdict |
+|---|---|---|
+| `move_to_breakeven` | `execution/breakeven.py:145` | **Not a money defect — checked.** A thin wrapper that calls `move_stop_to(p, None, …)`. The live path (`position_tracker.py:262`) calls `move_stop_to` directly. Your stop IS moved; the wrapper is just unused, alive only in tests. |
+| `news_candles` | `news/news_candle.py:50` | **Completely dead** — zero mentions anywhere, not even a test. |
+| `is_market_open` | `scheduler/session_windows.py:50` | **Completely dead** — zero mentions anywhere. |
+| `market_not_choppy` | `vix1_tradeable.py:326` | Dead, and already known as `OPEN.md` D42 — the chop rule was never built. |
+
+**The pattern behind all of them is the same one that hid the structure exit:** a rule is replaced,
+the new version ships, and the old function survives because nothing errors when a caller quietly
+stops calling it. `clear_trend` was this. `move_to_breakeven` is this. The structure exit was this.
+
 ### 🔍 WHAT THE REVIEW MISSED — a LIVE use of the old detector
 
 `vix1_manage.structure_broken` calls `find_swing_points(bars, _SWING_N)` with **n=3 on 1-minute

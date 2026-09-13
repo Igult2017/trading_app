@@ -94,7 +94,6 @@ CASES = [
     ("take profit gone",       titles.header(titles.TAKE_PROFIT_MISSING, titles.TRADE_MANAGEMENT,
                                              "EUR/USD", "SELL", extra="#238055086")),
     ("VIX.1 ratchet",          titles.for_signal(sig(titles.lock(2), tf=TF.M1))),
-    ("VIX.1 structure exit",   titles.for_signal(sig(titles.STRUCTURE_EXIT, tf=TF.M1))),
     ("scanner started",        titles.header(titles.SCANNER_STARTED, titles.PLATFORM)),
     ("session open",           titles.header(titles.SESSION_OPEN, titles.PLATFORM, extra="London")),
     ("platform online",        titles.header(titles.PLATFORM_ONLINE, titles.PLATFORM)),

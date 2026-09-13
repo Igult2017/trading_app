@@ -75,7 +75,8 @@ R_REACHED = "PROFIT MILESTONE REACHED"
 # level — touches none of the signal's original levels, so nothing announced it and he had no
 # way to know a trade was over. See monitor/exit_watch.py.
 POSITION_CLOSED = "POSITION CLOSED"
-STRUCTURE_EXIT = "1M STRUCTURE CHANGED — CLOSE IT"
+# STRUCTURE_EXIT deleted 2026-09-13 with the 1M structure exit it titled — his
+# instruction, "I has no use now so delete it". Nothing references it.
 
 # Platform
 SCANNER_STARTED = "SCANNER STARTED"
@@ -92,7 +93,7 @@ _EMOJI = {
     TARGET_HIT: "✅", STOP_HIT: "❌", SETUP_EXPIRED: "⏱",
     MOVE_TO_BREAKEVEN: "🟦", NO_STOP: "⚠️", "LOCK IN": LOCK_EMOJI,   # prefix key — see `lock()`
     STOP_MOVED: "🔧", STOP_NOT_MOVED: "🔧", TAKE_PROFIT_MISSING: "🔴",
-    R_REACHED: "🔒", STRUCTURE_EXIT: "🚪",
+    R_REACHED: "🔒",
     SCANNER_STARTED: "🟢", SESSION_OPEN: "🌍", PLATFORM_ONLINE: "🟢",
     PLATFORM_OFFLINE: "🔴", PLATFORM_RESTARTED: "🛰️",
 }

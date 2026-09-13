@@ -43,13 +43,15 @@ from dataclasses import dataclass, field
 
 from core.types import Candle
 from monitor import rungs
-from shared.swing_points import find_swing_points
+# `shared.swing_points.find_swing_points` is no longer imported (2026-09-13): the only thing that
+# used it here was the deleted 1M structure exit. This module now reads nothing but the shared ladder.
 
 # ARM_R / TRAIL_R ARE GONE — the rungs now come from `monitor/rungs.py`, which both this advice
 # path and the code that moves the real stop read. They described a TRAIL armed at 2R sitting 1R
 # behind; his ladder is two fixed rungs (breakeven 0.4R, +1R at 1.5R) and then a much tighter trail
 # from 2.1R that keeps the stop 0.1R behind.
-_SWING_N = 3     # 1M pivot half-width, same as everywhere else in the platform
+# `_SWING_N` is gone too — it was the 1M pivot half-width for the deleted structure exit and nothing
+# else read it.
 
 
 @dataclass
@@ -61,12 +63,13 @@ class ManageState:
     stop:      float = 0.0     # where the stop is NOW
     exited:    bool  = False
     exit_r:    float = 0.0
-    exit_why:  str   = ""      # "stop" | "structure" | ""
+    exit_why:  str   = ""      # "stop" | "" — "structure" was retired 2026-09-13, see the note below
     events:    list  = field(default_factory=list)   # ratchet steps to announce, e.g. [(3.0, 2.0)]
 
 
-def _locked_for(peak_r: float) -> float:
-    """R to protect at a given peak — READ FROM THE SHARED LADDER, `monitor/rungs.py`.
+def _locked_for(peak_r: float) -> tuple[float, bool]:
+    """R to protect at a given peak, and whether that rung SPEAKS — READ FROM THE SHARED LADDER,
+    `monitor/rungs.py`.
 
     THIS USED TO BE A TRAILING FORMULA (`int(peak_r) - 1`, armed at 2R) and it was the SECOND ladder
     in the codebase: the code that moves his stop broke even at 1R while this advised nothing below
@@ -82,33 +85,48 @@ def _locked_for(peak_r: float) -> float:
     table exists to prevent, reappearing in a third place — caught by `test_manage`.
 
     Breakeven is NOT a locked R — it protects zero — so it returns 0.0 here and is handled as its
-    own step by `_be_reached`.
+    own step by `_be_rung`.
+
+    RETURNS THE QUIET FLAG TOO, added 2026-09-13 — and that is the point of the change. The ladder
+    already records which rungs SPEAK (`Rung.quiet`), carrying his 2026-09-02 rule: *"Locking Rs
+    should only be announced when we move to breakeven and when we are out of the market... We dont
+    need to get all the messages like 1R locked in the DM."* Every locking rung is marked quiet
+    there. But this function returned a bare number, so `vix1_alerts` had no way to ask and
+    announced EVERY rung — sending him the exact "1R locked" messages he had asked to stop. The
+    instruction was applied to the table and never reached the messenger.
     """
-    locked = 0.0
+    locked, quiet = 0.0, True
     for rung in rungs.reached(rungs.ladder(), peak_r, rungs.trail()):
-        if rung.lock_r is not None:
-            locked = max(locked, rung.lock_r)
-    return locked
+        if rung.lock_r is not None and rung.lock_r >= locked:
+            locked, quiet = rung.lock_r, rung.quiet
+    return locked, quiet
 
 
-def _be_reached(peak_r: float) -> bool:
-    """Has the breakeven rung been reached? Its own question, because breakeven locks 0R and so
-    cannot be told apart from 'nothing locked yet' by the number alone."""
-    return any(r.lock_r is None
-               for r in rungs.reached(rungs.ladder(), peak_r, rungs.trail()))
+def _be_rung(peak_r: float):
+    """The breakeven rung if it has been reached, else None. Its own question, because breakeven
+    locks 0R and so cannot be told apart from 'nothing locked yet' by the number alone.
+
+    Returns the RUNG rather than a bool so its `quiet` flag travels with it — see `_locked_for`.
+    """
+    return next((r for r in rungs.reached(rungs.ladder(), peak_r, rungs.trail())
+                 if r.lock_r is None), None)
 
 
-def structure_broken(bars: list[Candle], bullish: bool) -> bool:
-    """Has 1M structure turned against the trade? A BODY CLOSE beyond the most recent swing made
-    since entry (swing LOW for a long, swing HIGH for a short). Wicks never count."""
-    pts = find_swing_points(bars, _SWING_N)
-    lv = [p.price for p in pts if p.is_high != bullish]     # lows for a long, highs for a short
-    if not lv:
-        return False
-    last = lv[-1]
-    return any((c.close < last) if bullish else (c.close > last) for c in bars[-3:])
-
-
+# `structure_broken` WAS DELETED 2026-09-13 ON HIS INSTRUCTION: *"I has no use now so delete it."*
+#
+# WHAT IT WAS. A SECOND exit, separate from the stop: once the stop had moved past breakeven it read
+# 1-minute swings and, on a close through the last swing against the trade, DM'd him "close it".
+#
+# WHY IT WENT — it was half of a rule he had already replaced. It came from his 2026-07-25 wording
+# *"in each movement we shall lock 1R until we see structure change"*. On 2026-09-03 he replaced that
+# with the ladder — breakeven 0.4R, +1R at 1.5R, then trail 0.1R behind from 2.1R — ending *"until we
+# get knocked out"*, i.e. the STOP is the exit and there is no structure clause in it. The trailing
+# half was duly swapped for the ladder; this half was left running and kept messaging him about an
+# exit rule he no longer had. He did not know it existed: *"what you are talking about i dont know."*
+#
+# IT ALSO CARRIED A REAL DEFECT, recorded so it is not rebuilt the same way: it took the swing level
+# from the candle's WICK while triggering on a body CLOSE, which contradicted its own docstring
+# ("Wicks never count") and defended a level below where price had actually settled.
 def run(entry: float, sl0: float, bullish: bool, bars: list[Candle],
         state: ManageState | None = None) -> ManageState:
     """Advance the ratchet over `bars` (1M, entry onward). Pure: no I/O, no broker calls.
@@ -129,16 +147,19 @@ def run(entry: float, sl0: float, bullish: bool, bars: list[Candle],
             # BREAKEVEN FIRST, and only once. It protects 0R, so it moves the stop to the entry
             # without changing `locked_r` — the two are different facts and conflating them is how
             # the structure exit below would arm a rung early.
-            if not st.be_done and _be_reached(r):
+            be = _be_rung(r)
+            if not st.be_done and be is not None:
                 st.be_done = True
                 if (entry > st.stop) if bullish else (entry < st.stop):
                     st.stop = entry                     # ratchet only — never widen the risk
-                st.events.append((round(r, 2), 0.0))
-            want = _locked_for(r)
+                st.events.append((round(r, 2), 0.0, be.quiet))
+            want, want_quiet = _locked_for(r)
             if want > st.locked_r:                      # ratchet forward — never backward
                 st.locked_r = want
                 st.stop = entry + want * risk if bullish else entry - want * risk
-                st.events.append((round(r, 2), want))
+                # THE THIRD ITEM IS THE LADDER'S OWN `quiet` FLAG, so the messenger can obey his
+                # "don't DM me every locked R" rule without knowing anything about the rungs.
+                st.events.append((round(r, 2), want, want_quiet))
 
         # 2) stop hit? (checked on the SAME bar as the advance: within one bar the order is unknown,
         #    so we take the conservative side and let the stop win)
@@ -148,11 +169,7 @@ def run(entry: float, sl0: float, bullish: bool, bars: list[Candle],
             st.exit_r = (st.stop - entry) / risk if bullish else (entry - st.stop) / risk
             return st
 
-        # 3) structure change — only once armed. Before 2R the original stop is the only exit;
-        #    reading structure on the first few bars would eject us from every normal retrace.
-        if st.locked_r > 0 and structure_broken(bars[:i + 1], bullish):
-            st.exited, st.exit_why = True, "structure"
-            st.exit_r = ((c.close - entry) if bullish else (entry - c.close)) / risk
-            return st
+        # THE STOP IS NOW THE ONLY EXIT — his ladder ends "until we get knocked out". The 1M
+        # structure exit that used to sit here was deleted 2026-09-13; see the note above.
 
     return st

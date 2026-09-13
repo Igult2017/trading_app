@@ -4,8 +4,17 @@ VIX.1 — TRADE-MANAGEMENT ALERTS (advice only; nothing here moves a broker stop
 Phase 1 is signals-only: the user places and manages the trade himself, so the ratchet in
 `strategies/vix1_manage` decides WHAT TO TELL HIM and this module delivers it:
 
-    "+3R reached — move your stop to +2R"        (a ratchet step)
-    "1M structure changed — close it"            (the exit)
+    "+0.4R reached — move your stop to BREAKEVEN"   (the ONLY routine message)
+
+WHAT IT DELIBERATELY DOES NOT SAY, since 2026-09-13. His rule of 2026-09-02: *"Locking Rs should
+only be announced when we move to breakeven and when we are out of the market... We dont need to
+get all the messages like 1R locked in the DM."* Every locking rung on the ladder is marked
+`quiet`, and this module now obeys that flag — the stop still moves at +1R and at every trailing
+tenth, silently. Being out of the market is announced by `monitor/exit_watch.py`, not here.
+
+The 1M STRUCTURE EXIT that used to live here is GONE — his instruction, *"I has no use now so
+delete it"*. It was half of a rule his 2026-09-03 ladder replaced; that ladder ends "until we get
+knocked out", so the stop is the only exit.
 
 STATELESS BY DESIGN. Every poll re-reads the 1M bars since the entry filled and replays the whole
 ratchet from scratch, so `peak_r` and the stop are DERIVED, never stored. That means a restart, a
@@ -100,8 +109,18 @@ async def check(row, bars) -> None:
     st = run(entry, sl0, buy, since)
     d  = price_digits(row.symbol)
 
-    # 1) ratchet steps — one alert per NEW locked level, deduped so a level is announced once
-    for reached_r, locked_r in st.events:
+    # 1) ratchet steps — one alert per NEW locked level, deduped so a level is announced once.
+    #
+    # QUIET RUNGS ARE SKIPPED (2026-09-13). His rule, 2026-09-02: *"Locking Rs should only be
+    # announced when we move to breakeven and when we are out of the market... We dont need to get
+    # all the messages like 1R locked in the DM."* `monitor/rungs.py` has carried that since the day
+    # he said it — every locking rung is `quiet=True` — but the flag stopped at the table and never
+    # reached here, so this loop announced every one of them. The stop still MOVES at every rung;
+    # only the message is suppressed, and a stop that fails to reach the broker is still shouted
+    # about by `position_tracker._auto_move`. Quiet is about routine success, never about failure.
+    for reached_r, locked_r, quiet in st.events:
+        if quiet:
+            continue
         key = f"vix1_mgmt_{row.id}_lock{locked_r:.1f}"
         if delivery_ledger.is_delivered(key):
             continue
@@ -123,28 +142,23 @@ async def check(row, bars) -> None:
             continue
         sig = _alert(
             row.symbol, buy,
-            f"🔒 +{reached_r:.1f}R reached — move your stop to +{locked_r:.0f}R "
-            f"({stop:.{d}f}). Locking {locked_r:.0f}R and staying in while price runs.",
-            f"VIX.1 MANAGE — {row.symbol} {'BUY' if buy else 'SELL'}: stop to +{locked_r:.0f}R",
+            # ONE DECIMAL, NOT ZERO (fixed 2026-09-13). His trail moves in TENTHS of an R from 2.1R,
+            # so `:.0f` printed "+2R" for locks of 2.0, 2.1, 2.2 and 2.4 alike — a run of messages
+            # that all read the same while the real stop was somewhere else. The dedup key already
+            # used one decimal, so each step was sent; only the text collapsed them.
+            f"🔒 +{reached_r:.1f}R reached — move your stop to +{locked_r:.1f}R "
+            f"({stop:.{d}f}). Locking {locked_r:.1f}R and staying in while price runs.",
+            f"VIX.1 MANAGE — {row.symbol} {'BUY' if buy else 'SELL'}: stop to +{locked_r:.1f}R",
             key,
             headline=titles.lock(locked_r),
         )
         await _emit(sig, bars, row.symbol)
         log.info(f"[vix1-manage] {row.symbol} ratchet {reached_r:.2f}R -> lock {locked_r:.1f}R")
 
-    # 2) the exit — structure turned against the trade (the trailing stop itself is handled by the
-    #    monitor's own SL check, which already reads the amended stop)
-    if st.exited and st.exit_why == "structure":
-        key = f"vix1_mgmt_{row.id}_exit"
-        if not delivery_ledger.is_delivered(key):
-            sig = _alert(
-                row.symbol, buy,
-                f"🚪 1M STRUCTURE CHANGED at +{st.exit_r:.1f}R — close it. Price closed through the "
-                f"last 1M swing against the trade, which is the exit condition for the ratchet.",
-                f"VIX.1 MANAGE — {row.symbol} {'BUY' if buy else 'SELL'}: structure exit "
-                f"at +{st.exit_r:.1f}R",
-                key,
-                headline=titles.STRUCTURE_EXIT,
-            )
-            await _emit(sig, bars, row.symbol)
-            log.info(f"[vix1-manage] {row.symbol} structure exit at {st.exit_r:.2f}R")
+    # 2) THE STRUCTURE EXIT DM WAS DELETED 2026-09-13 ON HIS INSTRUCTION — *"I has no use now so
+    #    delete it."* It announced a 1M structure exit that was half of a rule he replaced on
+    #    2026-09-03; his ladder ends *"until we get knocked out"*, so the STOP is the only exit and
+    #    `exit_watch` already announces that. See the note in `strategies/vix1_manage.py`.
+    #
+    #    WHAT SPEAKS NOW, and it is exactly his 2026-09-02 list: breakeven, and being out of the
+    #    market. Every locking rung in between moves the stop and says nothing.
