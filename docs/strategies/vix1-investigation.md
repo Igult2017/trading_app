@@ -930,3 +930,63 @@ while his tradeable setups run 14-15 — the reverse of *"one or 2 candles up th
 **SIX MEASURED IDEAS HAVE NOW FAILED** (five direction-based, plus this one on candle character).
 Counting how often the market changes its mind does not tell his choppy charts from his tradeable
 ones, because by every count they sit in the same range. **The next step is not a seventh count.**
+
+---
+
+## HIS HEAD-COUNT TEST — and the measuring bug that wasted six attempts
+
+**13 Sep, after six failed measures, he stated the test plainly:**
+
+> *"Just test how the candles are mixed as bullish, bearish, small body, big body and long wicks
+> because a trending market that I trade if it is a downtrend will print bearish candles most of the
+> time... It is a test of counting how many men do we have then we realize this group has 7 men and 3
+> women and then we say that is men's group, and if we have 2 boys, three girls, 2 men and 2 women,
+> that is a mixed group so you cant say it is mens group which is the same as you cant tell the
+> direction and intention of the market hence choppy."*
+
+**HE IS DESCRIBING A HEAD COUNT. EVERY ONE OF MY SIX MEASURES COUNTED CHANGES.** `GRGRGRGRGR` and
+`GGGGGRRRRR` have the SAME head count and opposite flip counts — they are unrelated questions, and
+`choppiness()` (`vix1_tradeable.py:278-321`) asks only the flip one, four times over.
+
+### TWO BUGS IN MY OWN MEASURING, both found today
+
+**1 — THE GOOD SIDE WAS CONTAMINATED, and this is why six traits in a row "overlapped".** He marked
+candles on six charts. I could not read those marks off the pixels, so I substituted *"every bar in
+that chart's date range where VIX.1 finds a setup"* — all 39. **VIX.1 firing in chop IS THE BUG
+BEING HUNTED**, so that sample contained the very thing it was meant to exclude. The two sides were
+partly the same markets. **Never again compare his marks against what the code fires on.**
+
+**2 — "BIG BODY" WAS DEFINED AGAINST THE SAME 12 CANDLES** (at or above their own middle body). That
+forces ~half of any window to be "big" and half "small", so no single kind could ever dominate, and
+the four-kind count read 25-50% in every market on earth. An artefact I built in. Fixed: "big" is
+now the middle body of the last 100 hours — the steady yardstick the momentum rule already uses.
+
+### WITH BOTH FIXED, AND HIS OWN MARKS ON BOTH SIDES
+
+His nine GBP/USD candles (10-11 Sep), his XAU/USD 10 Sep 18:00 and his EUR/USD 03 Sep, against the
+five regions he circled today plus his three 2026-09-04 choppy marks. **The last 12 candles, counted
+his way:**
+
+    XAU/USD  10 Sep 18:00     7 big bear · 2 big bull · 3 small bear        HIS "7 MEN AND 3 WOMEN"
+    EUR/USD  03 Sep 13:00     7 big bull · 1 big bear · 3 small bear · 1 small bull    a group
+    EUR/USD  03 Sep 08:00     6 big bull · 1 big bear · 4 small bear · 1 small bull    a group
+    GBP/USD  10 Sep 18:00     6 big bear · 1 big bull · 2 small bear · 3 small bull    a group
+    ---------------------------------------------------------------------------------------------
+    GBP/USD  11 Sep 08:00     4 big bear · 4 big bull · 3 small bear · 1 small bull    MIXED
+    GBP/USD  11 Sep 07:00     3 big bear · 4 big bull · 3 small bear · 2 small bull    MIXED
+    GBP/USD  11 Sep 15:00     3 big bear · 4 big bull · 3 small bear · 2 small bull    MIXED
+    GBP/USD  11 Sep 01:00     3 big bear · 3 big bull · 4 small bear · 2 small bull    MIXED
+    GBP/USD  10 Sep 10:00     2 big bear · 2 big bull · 6 small bear · 2 small bull    MIXED
+
+**HIS TEST WORKS — AND IT DISAGREES WITH SOME OF HIS OWN MARKS.** It names the group cleanly on gold,
+on EUR/USD 03 Sep and on the strongest GBP/USD candle. On five of his nine GBP/USD marks it returns
+his own textbook mixed group — *"2 boys, three girls, 2 men and 2 women"* — several with MORE bullish
+candles than bearish behind a SELL.
+
+**That is Setup 1**, the very window where he says all nine candles were wrongly refused. So his chop
+rule and his momentum complaint point at the same market in opposite directions. **ONLY HE CAN
+SETTLE THIS — do not pick a side, do not tune a number to make both pass.** The open question for
+him: on GBP/USD 10-11 Sep, was the market a clean group he could read, or was it messy but taken
+anyway because the change of character had already happened?
+
+**NOTHING WAS CHANGED.** The chop rule is still unbuilt and unwired (`vix1_tradeable.market_not_choppy`).
