@@ -103,7 +103,10 @@ if bars:
     s.check("vix1_bias passes the momentum window to the quiet test",
             "market_awake(awake_window" in bias_src, True)
     # NOTHING ELSE MOVED. Lengthening at_mc globally would change the trend read, which is pinned.
-    s.check("the leg gate still gets the trend window", "leg_state(at_mc" in bias_src, True)
+    # (The leg gate that used to be checked here was DELETED 2026-09-13 — his ruling that there may
+    # be only ONE pullback logic on the 1-hour chart. The trend read is what must still use `at_mc`.)
+    s.check("the trend read at the momentum candle still gets the trend window",
+            "trend_state(at_mc" in bias_src, True)
     s.check("the trend read still gets the trend window", "trend_state(at_mc" in bias_src, True)
 else:
     print("      SKIP — no local data")

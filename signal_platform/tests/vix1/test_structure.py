@@ -1,4 +1,4 @@
-"""VIX.1 — the pullback refusal (`vix1_structure`), trend maturity, and two shipped regressions.
+"""VIX.1 — trend maturity, the trend-shape rule, and two shipped regressions.
 
 THE RULE UNDER TEST, in the user's words (2026-08-11):
 
@@ -17,17 +17,16 @@ properties. NOT A BACKTEST: no P&L, no win rate, no trades simulated.
 from _harness import Suite, body, load
 
 from shared.candle_math import atr
-from strategies import vix1_bias, vix1_structure
+from strategies import vix1_bias
 from strategies.vix1_bias import _H1_SWING_N, _H1_TREND_BARS
 from strategies.vix1_regime import classify
 from strategies.vix1_swings import structure_turns
-from strategies.vix1_structure import _FAST_N, fast_pattern, leg_state
 from strategies.vix1_trend import trend_state
 from strategies.vix1_watch import check_invalidation
 
 s = Suite("VIX.1 — ride the trend, refuse the pullback")
 
-LEG = _FAST_N * 2 + 2       # a pivot needs _FAST_N bars either side before it is confirmed
+LEG = 18                    # a pivot needs 8 bars either side before it is confirmed
 
 
 def zigzag(points, leg=LEG):
@@ -44,25 +43,18 @@ rising = zigzag([1.1000, 1.1100, 1.1050, 1.1200, 1.1150, 1.1170])     # HH + HL
 falling = zigzag([1.1200, 1.1100, 1.1150, 1.1000, 1.1050, 1.1030])    # LL + LH
 choppy = zigzag([1.1000, 1.1100, 1.1000, 1.1100, 1.1000, 1.1050])     # equal highs/lows
 
-print("   what the faster structure reads:")
-s.check("a rising zigzag reads UP", fast_pattern(rising), "up")
-s.check("a falling zigzag reads DOWN", fast_pattern(falling), "down")
-s.check("a flat range does NOT read as a trend", fast_pattern(choppy) in ("mixed", "unclear"), True)
-
-# ── the refusal, and it is the ONLY one ──────────────────────────────────────────────────────────
-print()
-print("   the faster structure may only say NO, and only when it points the other way:")
-s.check("uptrend + faster structure UP -> ride it", leg_state(rising, 1).ready, True)
-s.check("downtrend + faster structure DOWN -> ride it", leg_state(falling, -1).ready, True)
-s.check("uptrend + faster structure DOWN -> REFUSED (a pullback)", leg_state(falling, 1).ready, False)
-s.check("downtrend + faster structure UP -> REFUSED (a pullback)", leg_state(rising, -1).ready, False)
-s.check("  and the refusal says it is a pullback", "pullback" in leg_state(rising, -1).why, True)
-
-# NOT contradicting is enough — an unclear or mixed reading must NOT block the trend.
-# This is the difference from the first version of this gate, which demanded confirmation and so
-# permitted trading only 15-18% of the time a trend existed.
-s.check("uptrend + a flat/mixed faster reading -> still ride it", leg_state(choppy, 1).ready, True)
-s.check("no trend -> nothing may be traded", leg_state(rising, 0).ready, False)
+# ── THE 8-BAR LEG GATE AND ITS NINE CHECKS WERE DELETED 2026-09-13 — HIS RULING ──────────────────
+#
+#   *"we cant have 2 pullback logics in 1 HR TF. Lets use the retracement logic that counts a
+#    pullback from one candle... The one that is blind to 1 one candle pullback is costing us."*
+#
+# MEASURED, which is why it went: on 3,000 real bars per instrument, 82-86% of ONE-CANDLE pullbacks
+# never became a swing at all, so the gate could not see the pullbacks his own rule is written about.
+# `vix1_retracement` counts candles and sees every one. `vix1_structure.py` is deleted; the zigzag
+# fixtures above are kept because the trend and shape checks below still use them.
+#
+# DO NOT REBUILD IT without a fresh instruction. Its complex-pullback defence is answered by the
+# CHoCH rule and the protected level, which he pointed out and which `vix1_trend` already enforces.
 
 # ── trend maturity: both are tradeable, they just differ ─────────────────────────────────────────
 print()
@@ -94,10 +86,8 @@ if real:
     w = real[max(0, idx - _H1_TREND_BARS):idx + 1]
     turns = structure_turns(w, _H1_SWING_N)
     st = trend_state(w, n=_H1_SWING_N, turns=turns)
-    leg = leg_state(w, st.direction)
     reg = classify(turns, atr(w, 14))
-    print(f"      trend={st.direction:+d} ({st.maturity})  structure={leg.pattern}  "
-          f"regime={reg.kind}  leg allows={leg.ready}")
+    print(f"      trend={st.direction:+d} ({st.maturity})  regime={reg.kind}")
     s.check("the real-time trend reads UP — which is what price actually did (+85 pips)",
             st.direction, 1)
     s.check("so a SELL is never even sought (pro-trend only)", st.direction == -1, False)
@@ -199,11 +189,9 @@ s.check("no trend -> not in shape, so a missing direction can never look tradeab
 s.check("a downtrend's shape can never satisfy an uptrend (the 17% defect)",
         _shape(1, [1.12, 1.10], [1.10, 1.09])[0], False)
 
-# THE THRESHOLDS THAT WERE REMOVED MUST STAY REMOVED. Depth went on his argument (a retracement deep
-# enough to matter breaks the protected low and the CHoCH detector has it); the efficiency cut went
-# because the distribution has no natural break. Re-adding either silently fails here.
-s.check("no depth threshold exists", hasattr(vix1_structure, "_MAX_DEPTH_ATR"), False)
-s.check("no efficiency threshold exists", hasattr(vix1_structure, "_RANGE_EFFICIENCY"), False)
+# THE DEPTH AND EFFICIENCY THRESHOLDS these used to guard lived in `vix1_structure`, which was
+# DELETED 2026-09-13 with the 8-bar gate. They cannot come back by accident because the module they
+# lived in no longer exists — a stronger guarantee than the two checks that used to sit here.
 
 # ── THE GOLD MISFIRE, 18 Aug 14:00 — and the wiring that caused it ──────────────────────────────
 # He spotted it by eye: "gold is misfiring, it has just sent sell signal and there is no sell, there
@@ -226,29 +214,23 @@ if gold:
     if gi is not None:
         gw = gold[max(0, gi - _H1_TREND_BARS):gi + 1]
         gd = trend_state(gw, n=_H1_SWING_N, turns=structure_turns(gw, _H1_SWING_N)).direction
-        gleg = leg_state(gw, gd)
-        print(f"      trend={gd:+d}  faster structure={gleg.pattern}  leg allows={gleg.ready}")
+        print(f"      trend={gd:+d}")
         s.check("the trend at the misfire was DOWN", gd, -1)
-        s.check("the faster structure was pointing UP — price was bouncing",
-                fast_pattern(gw), "up")
-        s.check("so the gate REFUSES the sell", gleg.ready, False)
-        s.check("   ...and says it is a pullback", "pullback" in gleg.why, True)
-        s.teeth("the gold 18-Aug refusal", leg_state(gw, gd).ready is False)
+        # WHAT USED TO BE CHECKED HERE: that the 8-bar gate refused this sell because the faster
+        # structure was bouncing. That gate was deleted 2026-09-13 on his ruling (one pullback
+        # logic), so the refusal now has to come from the CHoCH rule and the protected level — which
+        # is exactly the answer he gave when asked what covers complex pullbacks without it.
 else:
     print("      SKIP — no local gold data")
 
-# THE WIRING GUARD. The defect was one keyword argument, not a rule. `turns=` is deleted rather than
-# defaulted off precisely so it cannot be passed again; this fails the moment someone re-adds it.
-s.check("leg_state takes no turning-point source — it reads its OWN 8-bar structure",
-        "turns" in leg_state.__code__.co_varnames[:leg_state.__code__.co_argcount], False)
-s.check("fast_pattern takes none either",
-        "turns" in fast_pattern.__code__.co_varnames[:fast_pattern.__code__.co_argcount], False)
+# THE WIRING GUARD IS GONE WITH THE MODULE IT GUARDED. It existed because the 8-bar gate could be
+# handed the trend's own turning points and then asked direction to contradict itself. With
+# `vix1_structure` deleted there is one pullback reader on the 1-hour chart and nothing to mis-wire.
+s.check("the second pullback reader really is gone",
+        __import__("importlib").util.find_spec("strategies.vix1_structure") is None, True)
 
 # ── teeth ────────────────────────────────────────────────────────────────────────────────────────
 print()
-s.teeth("the pullback refusal", leg_state(rising, -1).ready is False)
-s.teeth("the no-trend guard", leg_state(rising, 0).ready is False)
-s.teeth("the permissive rule", leg_state(choppy, 1).ready is True)
 # TEETH RE-AIMED 2026-09-08 — they used to prove the deleted veto refused a range and allowed a
 # trend. They now prove the property that replaced it and the defect it kills.
 s.teeth("an out-of-shape trend is refused", _shape(1, [1.12, 1.10], [1.09, 1.10])[0] is False)

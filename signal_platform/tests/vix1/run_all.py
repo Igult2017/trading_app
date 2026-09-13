@@ -61,7 +61,6 @@ TESTS = [
     "test_choch_bearish_proof.py",  # 25 Aug: a turn DOWN must run, pull back and turn back down
     "test_preclose_bearish_hold.py",# 26 Aug: hold the notification until that turn has proved itself
     "test_preclose_needs_a_route.py",# the notification may only speak when a route exists to trade
-    "test_leg_gate_obeys_choch.py", # 29 Aug: the 8-bar gate ignores structure from before the turn
     # Found by the guard below the moment it was added — a FIFTH file nobody had noticed was unrun.
     "test_live_quote.py",           # the live price read, and what happens when the feed is stale
     # ADDED 2026-08-30. test_auto_breakeven stubs out StopOrderClient, so it could not see that the

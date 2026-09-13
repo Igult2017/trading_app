@@ -13,9 +13,47 @@ file and line that did the rejecting. Nothing is fixed until he says so.
 
 ---
 
-## ISSUE 4 — "THE FASTER STRUCTURE" IS READING EVIDENCE HALF A DAY OLD (found 2026-09-13, Setup 3)
+## ISSUE 4 — "THE FASTER STRUCTURE" IS READING EVIDENCE HALF A DAY OLD ✅ **CLOSED 2026-09-13**
 
-**OPEN. Not fixed — reported to him, awaiting his ruling.**
+**HIS RULING — the 8-bar gate is DELETED and there is now ONE pullback logic on the 1-hour chart:**
+
+> *"we cant have 2 pullback logics in 1 HR TF. Lets use the retracement logic that counts a pullback
+> from one candle. We have CHOCH logic and we also have protected area which protects us and prevents
+> us from trading complex pullbacks that occur inside a pullback as a move. So we should only use one
+> matured pullback logic as the only pullback logic. The one that is blind to 1 one candle pullback
+> is costing us."*
+
+**THE MEASUREMENT THAT PROVED HIM RIGHT — one-candle pullbacks, 3,000 real bars per instrument:**
+
+| | one-candle pullbacks | became a swing | **left no swing at all** |
+|---|---|---|---|
+| EUR/USD | 767 | 104 (14%) | **663 (86%)** |
+| GBP/USD | 783 | 117 (15%) | **666 (85%)** |
+| XAU/USD | 723 | 130 (18%) | **593 (82%)** |
+
+A single candle had to reach back a median **1.05-1.19x ATR** before the swing detector noticed it;
+the ones it missed reached 0.67-0.87x. Meanwhile `vix1_retracement` counts CANDLES — his own rule,
+*"A pullback can be from 1 candle or more so it should count candles"* — and sees every one. **48% of
+his retracements are a single candle**, so the coarser reader held a veto over pullbacks it could not
+see.
+
+**HIS REBUTTAL OF THE GATE'S DEFENCE IS THE LOAD-BEARING PART.** It justified itself on complex
+pullbacks (a pullback printing its own lower highs and lows inside an intact uptrend). He answered
+that the **change-of-character rule and the protected level** already cover that — and they do:
+`vix1_trend` sets direction to 0 the moment a body closes through the protecting swing.
+
+**WHAT WAS DELETED:** `strategies/vix1_structure.py` entirely (`leg_state`, `fast_pattern`,
+`_distinct`, `LegState`, `_FAST_N`), its three enforcement points in `vix1_bias`, its dedicated test
+file `test_leg_gate_obeys_choch.py`, and nine checks in `test_structure.py`. Its 2026-08-29 problem —
+*"there are two pullback readings on the 1-hour chart"* — disappears with it rather than being
+patched again. **VIX.1 suite: 48 files, ALL PASS.**
+
+**⚠ THIS DID NOT FREE HIS GOLD SETUP, and I said so before making the change.** XAU/USD 10 Sep 18:00
+is now refused by the **shape test** instead: *"the downtrend has lost its shape — it needs a lower
+high and a lower low, but the highs are moving up and the lows up."* That is Issue 5, and it is the
+next ruling he has to make.
+
+**The original finding, kept for the record:**
 
 **His setup:** XAU/USD **10 Sep 18:00 UTC (his 21:00)**, a **$19.87** sell candle ending a bounce in
 a downtrend. He marked the bounce on his chart and labelled it *"pullback"*.

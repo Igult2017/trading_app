@@ -22,7 +22,7 @@ from pathlib import Path
 
 from _harness import Suite
 
-from strategies import vix1_regime, vix1_structure, vix1_trend
+from strategies import vix1_regime, vix1_trend
 from strategies.vix1_trend import TrendState, _shape, forget, remember
 
 s = Suite("VIX.1 — one module owns the trend")
@@ -32,7 +32,10 @@ STRAT = Path(__file__).resolve().parents[2] / "strategies"
 # ── 1. THE SECOND GATE IS GONE ────────────────────────────────────────────
 print("   the second trend gate is gone and cannot come back:")
 s.check("vix1_regime no longer exports a veto", hasattr(vix1_regime, "market_permits"), False)
-s.check("nor does vix1_structure", hasattr(vix1_structure, "market_permits"), False)
+# `vix1_structure` is gone entirely (2026-09-13, one pullback logic), so it cannot hold a
+# veto — a stronger guarantee than checking that it does not.
+s.check("nor does vix1_structure — the module no longer exists",
+        __import__("importlib").util.find_spec("strategies.vix1_structure") is None, True)
 
 bias_src = (STRAT / "vix1_bias.py").read_text(encoding="utf-8")
 s.check("vix1_bias does not import one", "import market_permits" in bias_src, False)

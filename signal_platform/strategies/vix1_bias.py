@@ -37,7 +37,9 @@ from strategies import vix1_regime
 from strategies import vix1_retracement
 from strategies.vix1_state import Bias, market_state
 from strategies.vix1_swings import structure_turns
-from strategies.vix1_structure import _FAST_N, leg_state
+# `vix1_structure` (the 8-bar pullback gate) was DELETED 2026-09-13 on his ruling that
+# there may be only ONE pullback logic on the 1-hour chart. That one is
+# `vix1_retracement`, which counts a pullback from a single candle.
 from strategies.vix1_tradeable import market_awake, trend_reproven
 from strategies.vix1_trend import trend_state, remember
 
@@ -282,11 +284,34 @@ def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "", debut=None
         # the verdict falls to "mixed", and "mixed" does not refuse. So the symmetric 8 stays.
         # THE TURN'S POSITION COMES FROM `t_mc`, NOT `tstate` — `t_mc` is the state computed on
         # `at_mc`, and an index from the full window would point at the wrong bar here.
-        leg = leg_state(at_mc, t1, n=_FAST_N, choch_index=t_mc.choch_index)
-        if not leg.ready:
-            vix1_log.say(symbol, f"[vix1] {symbol} bias=NONE: {'up' if bullish else 'down'} momentum WITH the "
-                                 f"trend, but the leg does not permit it — {leg.why} | {state_mc}")
-            return None
+        # THE 8-BAR LEG GATE WAS REMOVED HERE 2026-09-13 — HIS RULING:
+        #
+        #   *"we cant have 2 pullback logics in 1 HR TF. Lets use the retracement logic that counts a
+        #    pullback from one candle. We have CHOCH logic and we also have protected area which
+        #    protects us and prevents us from trading complex pullbacks that occur inside a pullback
+        #    as a move. So we should only use one matured pullback logic as the only pullback logic.
+        #    The one that is blind to 1 one candle pullback is costing us."*
+        #
+        # HE IS RIGHT ON THE FACTS, MEASURED. That gate asked the pullback question from 8-bar swing
+        # pivots. On 3,000 real bars per instrument, **82-86% of one-candle pullbacks never became a
+        # swing at all** (EUR/USD 663 of 767, GBP/USD 666 of 783, XAU/USD 593 of 723) — a single
+        # candle had to reach back a median 1.05-1.19x ATR before the detector noticed it, while the
+        # ones it missed reached 0.67-0.87x. Meanwhile `vix1_retracement` counts CANDLES, which is
+        # his own rule (*"A pullback can be from 1 candle or more so it should count candles"*) and
+        # sees every one of them. Two readings of one question, and the coarser one held the veto.
+        #
+        # HIS REBUTTAL OF ITS DEFENCE IS THE PART THAT MATTERS. The gate justified itself on complex
+        # pullbacks — a pullback printing its own lower highs and lows inside an intact uptrend. He
+        # answers that the CHoCH rule and the protected level already cover it, which is true:
+        # `vix1_trend` sets direction to 0 the moment a body closes through the protecting swing, so
+        # a real reversal stops the trade regardless.
+        #
+        # ALSO MEASURED BEFORE REMOVING, so this is not being taken on faith: over ~4 months it
+        # refused 6/74 (EUR/USD), 8/85 (GBP/USD) and 1/19 (XAU/USD) setups, of which only 4, 2 and 0
+        # were refusals no other gate would have made — and in 100%/62%/100% of them price had
+        # ALREADY moved more than half an ATR the trend's way in the bars the gate could not see.
+        # Its founding case (GBP/USD 10 Aug, the 85-pip loss) can no longer occur: the trend there
+        # now reads UP, so a sell is never sought.
 
         # IS THE TREND STILL IN SHAPE — his "Uptrend -> HH + HL. Downtrend -> LL + LH", asked of the
         # trend we are about to trade.
@@ -340,7 +365,7 @@ def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "", debut=None
         # So it now gets the same causal truncation — ending AT the momentum candle, which is the
         # whole point of `at_mc` — taken from the full `h1` instead. `market_awake` only ever COUNTS
         # over the last `2 * look` bars, so the count is identical; only the yardstick is restored.
-        # Nothing else moves: `leg_state`, `market_state`, `trend_state` and the ATR keep `at_mc`,
+        # Nothing else moves: `market_state`, `trend_state` and the ATR keep `at_mc`,
         # because 1,500 is correct for all of them and lengthening it would change the trend read.
         awake_window = h1[:mc_idx + 1]
         # `ret` is the retracement measured AT the momentum candle (line 246), which is the same
@@ -380,40 +405,37 @@ def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "", debut=None
         # THAT IS EXACTLY THE GOLD DEFECT: the signal's momentum candle was 18 Aug 14:00 and the
         # bounce began 19 Aug 00:00, eleven hours later. Measured cost of the whole rule: 1 / 2 / 0
         # setups over 1500 bars on XAU/USD / EUR/USD / GBP/USD.
+        # THIS IS THE ONE PULLBACK LOGIC, and it is his: `pullback_since` counts from ONE candle.
+        # The 8-bar leg gate that used to sit beside it here was removed 2026-09-13 — see the note
+        # in branch 1 for his ruling and the measurements behind it.
         pb_since = vix1_retracement.pullback_since(window, t1, since=mstate.direction_since)
         stale_evidence = pb_since is not None and h1[mc_idx].time < pb_since
-        # ...and here the window IS the full one, so the index comes from `tstate`.
-        live_leg = leg_state(window, t1, n=_FAST_N, choch_index=tstate.choch_index)
         # ...and the shape is asked of the LIVE trend for the same reason: `tstate` is the trend read
         # on the full window, so `tstate.in_shape` is "is it still in shape NOW". Same rule, same
         # module, one bar's worth of difference — no second engine involved.
-        if stale_evidence or not live_leg.ready or not tstate.in_shape:
+        if stale_evidence or not tstate.in_shape:
             why = ((tstate.shape_why if not tstate.in_shape else None) or
-                   (live_leg.why if not live_leg.ready else
-                    "a pullback has begun since this momentum candle closed, so the candle is not "
+                   ("a pullback has begun since this momentum candle closed, so the candle is not "
                     "the one that ended it — waiting for a momentum candle out of THIS pullback"))
             vix1_log.say(symbol, f"[vix1] {symbol} bias=NONE: the setup was valid when the candle "
                                  f"formed {len(h1) - 1 - mc_idx}h ago, but the market has moved on "
                                  f"— {why} | {state}")
             return None
 
+        # The reason no longer carries the 8-bar gate's verdict — that gate is gone. It now names the
+        # trend's own maturity and grounds, which is what the card and the log were really showing.
         return Bias(bullish, mc_idx, "trend", run[1],
-                    f"{mstate.maturity} {mstate.reason()}; {leg.why}", ret, eff, regime)
+                    f"{mstate.maturity} {mstate.reason()}", ret, eff, regime)
 
     # 2) 1HR trend UNCLEAR, momentum WITH a clear 4HR trend (the fallback) — MUTED, see _ALLOW_H4.
     if _ALLOW_H4 and t1 == 0 and t4 == want:
-        # Same 8-bar source as branch 1 — changed together so the two can never drift apart. This
-        # branch is muted, and a muted branch holding the OLD wiring is exactly how a defect comes
-        # back the day someone flips `_ALLOW_H4`.
-        leg = leg_state(at_mc, want, n=_FAST_N, choch_index=t_mc.choch_index)
-        if not leg.ready:
-            vix1_log.say(symbol, f"[vix1] {symbol} bias=NONE: 4HR-backed direction but the leg does not "
-                                 f"permit it — {leg.why} | {state_mc}")
-            return None
+        # The 8-bar leg gate was removed from this branch too (2026-09-13), for the same reason and
+        # in the same change as branch 1 — a muted branch left holding the OLD wiring is exactly how
+        # a defect comes back the day someone flips `_ALLOW_H4`.
         vix1_log.say(symbol, f"[vix1] {symbol} 4HR-BACKED TREND: 1HR trend unclear, 1HR momentum aligns with a clear "
                  f"4HR {'up' if bullish else 'down'} trend | {state_mc}")
         return Bias(bullish, mc_idx, "trend4", run[1],
-                    f"4HR-backed ({mstate.maturity}); {leg.why}", ret, eff, regime)
+                    f"4HR-backed ({mstate.maturity})", ret, eff, regime)
 
     # UNREACHABLE BY CONSTRUCTION, and deliberately left as an assertion rather than a silent path.
     # PRO-TREND ONLY (user 2026-07-25/26: "Only trade pro trend"). Since the trend now chooses the

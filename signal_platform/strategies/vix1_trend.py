@@ -49,7 +49,7 @@ HALF OF ALL PULLBACKS ARE COMPLEX — measured, 21 of 42 on GBP/USD and 17 of 37
 months. A complex pullback prints its OWN lower highs and lower lows inside an intact uptrend: it
 looks exactly like a downtrend on any faster reading. That is the case this module exists to survive,
 and it is why direction is read ONLY here, on wide swings, and never from the faster structure read
-that vix1_structure uses for entry timing.
+that the 8-bar gate used for entry timing (deleted 2026-09-13).
 
 THE FREEZE BUG THIS REPLACED. The old turn set `protected = max(since) if since else None`, and the
 turn test was guarded by `if protected is not None`. Landing on None left the trend UNABLE TO EVER
@@ -319,7 +319,7 @@ def trend_state(candles: list[Candle], n: int = _SWING_N, turns=None) -> TrendSt
                 # 4-year stability property it exists to protect. That test exists BECAUSE two
                 # earlier candidate fixes each looked right on the day they were tried and were
                 # worse over four years. It was right again. The 10-Aug signal is stopped by the LEG
-                # GATE instead (vix1_structure), which refuses it at every swing width tested.
+                # GATE instead (the 8-bar gate, deleted 2026-09-13 — one pullback logic).
                 since.append(p.price)
                 continue
             if last_ext is None or (p.price > last_ext if st.direction == 1 else p.price < last_ext):
