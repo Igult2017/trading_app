@@ -897,3 +897,36 @@ means the last two highs and lows disagreed.
 his actual chop rule and putting that in its place.** Until then, removing it deletes a protection he
 asked for, and keeping it leaves the second trend reader he rejected. **Nothing was changed; the
 suite is green and the decision is his.**
+
+---
+
+## HIS SIX TRADEABLE CHARTS — the chop boundary was measured against them, and there is no boundary
+
+**13 Sep.** He sent six EUR/USD H1 charts of markets he WOULD trade, to pin the other side of the
+line: *"Some of them you might find to be having momentum candles that dont qualify. If you do focus
+on the ones that qualify. I randomly selected them. Also they are from one pair but i would do the
+same in the remaining 2 pairs."*
+
+**HOW IT WAS MEASURED, so the marks were not guessed from pixels.** Each chart's date range was read
+off its own x-axis, and **every bar inside that range where VIX.1 actually finds a setup** — a trend
+plus a qualifying momentum candle the trend's way — was measured. **39 setups.** Harness:
+`his_tradeable_windows.py` (this session's scratchpad).
+
+**THE TRAIT TESTED IS THE ONE HE NAMED** — *"a mixture of big bodies, small bodies"*: how often a
+body is more than double, or less than half, the one before it (`vix1_tradeable.choppiness`, `size`).
+
+    12 candles   his tradeable 4-10    his choppy 7-8      OVERLAP
+    24 candles   his tradeable 9-16    his choppy 15-17    OVERLAP
+    48 candles   his tradeable 24-32   his choppy 30-34    OVERLAP
+
+**IT DOES NOT SEPARATE THEM, AND THE EARLIER RESULT THAT SAID IT DID WAS SMALL-SAMPLE LUCK.** On only
+three tradeable examples it read 9-11 against 15-17 and a line at 15 looked clean. With 39, his
+31 Jul and 18 Jun setups score exactly as mixed as his choppy charts. **A line at 15 would refuse
+markets he trades.**
+
+**The runs trait fails in the opposite direction.** His 03 Aug choppy chart has LONG runs (`short`=3)
+while his tradeable setups run 14-15 — the reverse of *"one or 2 candles up then down"*.
+
+**SIX MEASURED IDEAS HAVE NOW FAILED** (five direction-based, plus this one on candle character).
+Counting how often the market changes its mind does not tell his choppy charts from his tradeable
+ones, because by every count they sit in the same range. **The next step is not a seventh count.**
