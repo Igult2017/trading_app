@@ -53,6 +53,42 @@ is now refused by the **shape test** instead: *"the downtrend has lost its shape
 high and a lower low, but the highs are moving up and the lows up."* That is Issue 5, and it is the
 next ruling he has to make.
 
+### HIS FOLLOW-UP CATCH — and the measurement that says DO NOT ship the obvious fix
+
+*"Meaning you havent implemented pullback logic to design swings in that shape thing you keep
+mentioning. If you did, it would have detected that pullback."*
+
+**He is right about the cause, and the test is decisive.** Rebuilding his gold window's highs and
+lows from the pullback rule (one candle against the run ends a leg) instead of the swing detector:
+
+| | last two highs | last two lows | verdict |
+|---|---|---|---|
+| swing detector (today) | 4412.89 → 4434.14 **rising** | 4341.13 → 4386.09 **rising** | lost its shape — **REFUSED** |
+| pullback rule | 4435.09 → **4376.64** falling | 4405.62 → **4323.84** falling | in shape — **ALLOWED** |
+
+And the pullback-built swings are FRESH — 10 Sep 14:00 and 12:00, hours before his candle, not the
+previous day. It finds **32 legs** since the trend began where the swing detector finds a handful.
+
+**BUT APPLYING IT EVERYWHERE MAKES THE GATE STRICTER, NOT LOOSER — measured, all three instruments:**
+
+| | setups | shape refuses TODAY | would refuse | freed | **newly refused** |
+|---|---|---|---|---|---|
+| EUR/USD | 74 | 34 | **52** | 6 | **24** |
+| GBP/USD | 85 | 39 | **63** | 11 | **35** |
+| XAU/USD | 19 | 9 | **13** | 2 | **6** |
+
+**65 newly refused against 19 freed.** His gold candle is freed; a third of everything else is lost.
+
+**WHY, and this is the real finding:** pullback-built swings are far more numerous and therefore
+zigzag. Asking *"do the last two highs AND the last two lows both step the trend's way"* of fine
+swings is much harder to satisfy than of coarse ones. **So the fragile part is not only WHICH swings
+— it is the "last two of each" question itself.** Coarse swings make it stale; fine swings make it
+noisy. Re-sourcing alone cannot fix both.
+
+**NOT SHIPPED. Awaiting his ruling** — the honest options are to keep the coarse swings and accept
+staleness, to use pullback swings and accept a third fewer setups, or to change the shape question
+so it does not rest on exactly two swings.
+
 **The original finding, kept for the record:**
 
 **His setup:** XAU/USD **10 Sep 18:00 UTC (his 21:00)**, a **$19.87** sell candle ending a bounce in
