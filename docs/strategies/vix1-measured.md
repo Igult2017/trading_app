@@ -296,3 +296,66 @@ other is not publishable, and the same bug would have understated every winner's
   applies the bias, regime and momentum gates is the honest next step and has not been built.
 * **USD/JPY and GBP/JPY** — no M1 history exists. Nothing here applies to them.
 * **Gold before 2026-05-01** — the pull covers four months.
+
+---
+
+## THE APPROVED BACKTEST — 2026-09-14, EUR/USD, his parameters only
+
+He approved it in one word after being told what it would measure. **Every parameter is read from
+the live code**: the real gate chain (`vix1_bias.detect_bias`), the real 1-minute stop entry and stop
+rule (`vix1_entry.m1_signals`), the 4R target (`vix1.py` `_TP_R`, his instruction 2026-08-21) and his
+ladder (`monitor/rungs`: breakeven 0.4R, lock +1R at 1.5R, then trail 0.1R behind).
+
+**Window: 22 May 2024 – 17 Jul 2026 (26 months), EUR/USD only** — that is the extent of the minute
+bars on this machine. Inside any one minute the WORSE ordering is assumed (stop before target), a
+flat 0.9-pip spread is used, and slippage is not modelled. So these are pessimistic figures.
+
+### THE RESULT
+
+    426 orders placed
+    220 filled, 206 never filled (48%)   — an unfilled stop order is CANCELLED, never a loss
+    156 of 220 won (71%)
+    total +19.9R, average +0.090R per filled trade, median +0.20R
+
+    full stop (-1R)      64   29%
+    small win (<1R)     127   58%
+    1R to 4R             28   13%
+    reached the 4R target 1    0%
+
+**THE BIGGEST FINDING HAS NOTHING TO DO WITH CHOP: the ladder converts almost every winner into a
+small one.** 58% of filled trades end under +1R and **exactly one trade in 220 ever reached 4R**,
+while every loser pays the full -1R. Winners average +0.54R against losers at -1.00R. The strategy
+survives on a 71% strike rate, not on the size of its wins.
+
+### HIS CIRCLED MARKETS — NOT ENOUGH TRADES TO JUDGE
+
+    02 Mar     2 orders, 1 filled, 1 won, +0.3R        10 Dec    4 orders, 2 filled, 1 won, -0.8R
+    16 Dec     3 orders, 0 filled                      04 Dec a  1 order,  1 filled, 1 won, +0.3R
+    04 Dec b   1 order,  0 filled                      TOTAL    11 orders, 4 filled, 3 won, -0.2R
+    Guarantee  1 order,  0 filled                      elsewhere 216 filled, +20.0R, +0.09R avg
+
+**FOUR TRADES. Nothing can be concluded from four trades** — -0.05R against +0.09R is noise at that
+size. It does show VIX.1 was already quiet in those markets (11 orders across ~200 hours), which is
+worth knowing on its own.
+
+### DO ANY CHOP READINGS SEPARATE WINNERS FROM LOSERS? — scored on money, 220 trades
+
+    rule                          removes            keeps      average kept vs +0.090R overall
+    big-next-to-small >= 15       96 (44%)  +3.3R    124  +16.6R    +0.134R   best
+    ended > 35 from a band edge   48 (22%)  -0.2R    172  +20.1R    +0.117R
+    ended > 25 from a band edge   73 (33%)  +2.7R    147  +17.2R    +0.117R
+    came back > 10 (4-day band)   39 (18%)  +3.6R    181  +16.3R    +0.090R   no change
+    body share < 48%              65 (30%)  +9.1R    155  +10.8R    +0.070R   worse
+    came back > 8                 64 (29%)  +9.8R    156  +10.1R    +0.065R   worse
+    fewer than 3 of 3 signs      105 (48%) +14.9R    115   +5.0R    +0.044R   much worse
+    fewer than 2 of 3 signs       40 (18%) +15.5R    180   +4.3R    +0.024R   WORST
+
+**NOTHING HERE IS AN EDGE, AND THE BEST-LOOKING ROW MUST NOT BE SHIPPED.** The spread of R per trade
+is about 0.7, so over ~124 trades one standard error is ±0.06R — the whole "improvement" from
++0.090R to +0.134R is smaller than that. **Eight cuts were tried and the best picked afterwards**,
+which is precisely how a fitted number is manufactured. `docs/OPEN.md` D42 stays open.
+
+**THE ONE CLEAR RESULT IS NEGATIVE AND IT IS ABOUT HIS OWN RULE.** Refusing markets showing fewer
+than 2 of his 3 signs (`vix1_chop`) removes 40 trades worth **+15.5R out of a +19.9R total** — it
+would have deleted most of the profit. That is far larger than any of the positive effects and it
+confirms the module must stay unwired.
