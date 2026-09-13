@@ -337,7 +337,11 @@ def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "", debut=None
         # Nothing else moves: `leg_state`, `market_state`, `trend_state` and the ATR keep `at_mc`,
         # because 1,500 is correct for all of them and lengthening it would change the trend read.
         awake_window = h1[:mc_idx + 1]
-        for veto in (trend_reproven(mstate, turns_mc),
+        # `ret` is the retracement measured AT the momentum candle (line 246), which is the same
+        # causal moment every other check on this path uses. Passing it here is the 2026-09-13 fix:
+        # the pullback question now has exactly one owner (`vix1_retracement`) instead of two
+        # answers that could disagree — and did, on his 11 Sep EUR/USD sell.
+        for veto in (trend_reproven(mstate, turns_mc, ret),
                      market_awake(awake_window, mstate, ret, symbol, _QUIET_LOOK)):
             if veto:
                 vix1_log.say(symbol, f"[vix1] {symbol} bias=NONE: {veto} | {state_mc}")

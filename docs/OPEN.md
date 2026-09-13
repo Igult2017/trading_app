@@ -164,6 +164,21 @@ in real time with no "major swing" filter. The table in the doc is stale: it was
 *before* real-time turns shipped.
 **Where:** see [strategies/vix1.md](./strategies/vix1.md).
 
+### B1b — `test_position_book.py` has one FLAKY check that fails at random
+**Found 2026-09-13** while verifying the pullback fix, and recorded so the next person does not lose
+an hour blaming their own change for it, as I nearly did.
+
+The check is *"a silent market still lets the loop go round"* — it waits `_wait_for_tick(timeout=0.05)`
+and then asserts at least 0.05s of wall-clock time elapsed. On Windows the default timer granularity
+is about 15.6ms, so the wait can return a hair early and the assertion fails.
+
+**Measured: 9 passes in 10 runs, the failure landing at random.** Proved unrelated to whatever else
+is being changed — `monitor.trade_watcher` imports neither `vix1_bias` nor `vix1_tradeable`
+(checked by importing it and inspecting `sys.modules`), so a strategy change cannot reach it.
+
+**The fix when someone gets to it:** assert against a tolerance rather than the exact timeout, e.g.
+`quiet >= 0.045`. Not done here because it is outside the change that found it.
+
 ### B2 — The 1-minute entry is mid-rebuild
 **Carried.** Do not design it and do not patch the old one — his rules are pending. The audit is in
 the VIX.1 docs, including: the stop-level search blocks every entry for ~8 minutes after a momentum

@@ -67,10 +67,43 @@ gap, which is why their refusal says "up trend" while his chart plainly shows pr
 - **Known open defect, already on record:** the trend reverses about 90 times a year, median run 1.6
   days — not the 9-10 its own notes claim. See [[project-vix1-trend-churn]].
 
-## ISSUE 3 — THE PULLBACK CAN ONLY BE PROVED BY THE CANDLE THAT ENDS IT (found 2026-09-13, Setup 2)
+## ISSUE 3 — THE PULLBACK COULD ONLY BE PROVED BY THE CANDLE THAT ENDS IT ✅ **FIXED 2026-09-13**
 
-**This is a real trap and it is the clearest single defect found so far.** It is not the size rule
-and it is NOT the 31 Aug change — that was tested and ruled out.
+**HIS RULING, and it is the rule the fix is built to:** *"In VIX, we start taking trades when the
+pullback [ends] and if the first candle after the pullback is a momentum candle, we take trade there.
+We mark it after closure and then take trade in the next one. VIX rule says that and that is one of
+the rules you introduced without my knowledge."*
+
+**Confirmed on both counts before anything was touched.** `trend_reproven` entered on **2026-09-04 in
+an `autocommitted` commit (`e75d53c`)** — not a reviewed change.
+
+**THE FIX.** The gate now accepts **either** proof of a pullback: a confirmed turn since the run, or
+a retracement measured behind the candle (`vix1_retracement`, which deliberately steps over the
+momentum candle to see exactly this). It refuses only when **neither** sees one.
+
+**MY FIRST ATTEMPT WAS WRONG AND HIS OWN SUITE CAUGHT IT.** Using the retracement alone broke his
+2026-08-25 bearish proof, where the pullback ends SIX bars before the momentum candle and the
+retracement (which steps over only ONE trend-way candle) cannot see it. Both readings are kept.
+
+**MEASURED, ~4 months of real broker bars, NOT A BACKTEST** (no win rate, no money — only how many
+real momentum candles this one gate refused, before versus after):
+
+| pair | reached this gate | refused BEFORE | refused AFTER | recovered | newly blocked |
+|---|---|---|---|---|---|
+| EUR/USD | 74 | 10 (14%) | 2 (3%) | 8 | **0** |
+| GBP/USD | 85 | 7 (8%) | 0 (0%) | 7 | **0** |
+| XAU/USD | 19 | 2 (11%) | 0 (0%) | 2 | **0** |
+
+**Two of the eight recovered EUR/USD setups are 06 Sep 22:00 and 07 Sep 07:00** — the pair of setups
+he complained about before this investigation started, refused nine times with nothing sent to
+explain it. They were this defect.
+
+**Tests:** `test_choch_bearish_proof.py` 15/15, `test_tradeable.py` 31/31 (control intact — his one
+tradeable market still fires all three; all nine quiet-market refusals unchanged, which are
+`market_awake`'s work not this gate's). Real bars saved at
+`trading_app_data/ctrader/{EUR,GBP,XAU}USD_H1_sep12.csv`.
+
+**Original finding, kept for the record:**
 
 **The case: EUR/USD, 11 Sep 15:00 UTC (his 18:00), a 10.6-pip sell.** Price fell all morning,
 bottomed on the 12:00 bar, bounced for three hours (+11.6, +9.2, +1.7 pips ≈ 13 pips up), then his

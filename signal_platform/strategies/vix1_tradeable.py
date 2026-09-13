@@ -41,21 +41,48 @@ from shared.candle_math import is_bearish, is_bullish
 from strategies.vix1_momentum import is_momentum_candle
 
 
-def trend_reproven(tstate, turns) -> str | None:
+def trend_reproven(tstate, turns, retracement=None) -> str | None:
     """HIS RULE: has the trend RUN and then PULLED BACK? The refusal reason, or None to allow.
 
     *"if the market was ranging and has no volume in 1HR and then it starts building momentum, it
     must prove that before we hop in. Proving it means it runs, pulls back then we enter."*
 
-    Both halves are read off state that already exists — the trend engine's own break of structure
-    (`bos_index`, "the trend continues"), and a confirmed turn after it facing AGAINST the trend,
-    which is what a pullback is. **No threshold, no window, no new number**: the sequence either
-    happened or it did not, exactly like the reversal route's window, whose own note says *"Both
-    edges come from his own rules; nothing here is calibrated."*
+    THERE ARE TWO WAYS TO SEE THE PULLBACK AND IT TAKES EITHER — fixed 2026-09-13. It used to accept
+    only ONE: a CONFIRMED TURN against the trend. That quietly contradicted his settled pullback rule
+    and cost him real trades.
 
-    MEASURED on his three charts: refuses 6 of the 12 — every signal in image 3, the market he called
-    ranging with no momentum. Those all fail on the same clause: the trend ran once and never pulled
-    back, so it was still trading on a credential it earned long before.
+    WHAT THAT COST HIM, reproduced on real cTrader bars. EUR/USD 11 Sep 2026 15:00 UTC (his 18:00).
+    Price fell all morning, bottomed on the 12:00 bar, bounced three hours (+11.6, +9.2, +1.7 pips,
+    about 13 pips up), then a 10.6-pip momentum candle sold off. His rule exactly — *"we start taking
+    trades when the pullback [ends] and if the first candle after the pullback is a momentum candle,
+    we take trade there."* The trend read DOWN and the candle passed every momentum test, and this
+    function refused it for "has not pulled back".
+
+    THE TRAP, and it was structural rather than a slip. A turn is only CONFIRMED once price closes
+    back down through the candle that made it (`vix1_swings`) — and the candle that does that IS the
+    momentum candle. Everything about a momentum candle is judged on the window truncated AT it
+    (`vix1_bias.py:240-242`), so the confirmation its own close creates cannot be visible to it.
+    Measured bar by bar: confirmed highs after the run were 0 at 15:00 and 1 at 16:00. The pullback
+    was recognised exactly ONE HOUR too late, by which time the candle was no longer the newest
+    closed bar and nothing could be done with it. **So a momentum candle that ENDS a pullback could
+    never be traded — which is the only kind this strategy takes.**
+
+    IT WAS ALREADY ANSWERED CORRECTLY, ONE MODULE AWAY. At that same moment
+    `vix1_retracement.measure()` returned `active=True, bars=3` — *"came after a retracement of 3
+    candles"*. `measure` steps over the momentum candle on purpose and counts the run behind it
+    (vix1_retracement.py:165-175), so it sees a pullback the candle has just ENDED, which is exactly
+    what the turn-scan cannot do.
+
+    WHY BOTH ARE KEPT, AND THIS IS THE PART I GOT WRONG ON THE FIRST ATTEMPT. Replacing the turn-scan
+    with the retracement alone broke his own 2026-08-25 bearish proof (`test_choch_bearish_proof.py`
+    went red). In that sequence — *"it runs down -> it pulls back up -> when that pullback turns back
+    down, that's the proof -> then a momentum candle down is the trade"* — the pullback ends SIX bars
+    before the momentum candle, and `measure` deliberately steps over only ONE trend-way candle, so
+    it reports nothing. The turn-scan sees that one; the retracement sees the adjacent one. They
+    answer the same question at different distances, so the gate takes EITHER.
+
+    So it refuses only when NEITHER can see a pullback since the run — which is the honest reading of
+    "it has not pulled back".
     """
     if tstate is None or tstate.direction == 0:
         return None                     # no trend here to re-prove; other gates own that case
@@ -72,25 +99,35 @@ def trend_reproven(tstate, turns) -> str | None:
     if ran_at is None:
         return None                     # cannot locate the run; refusing on that would be a guess
 
-    # WHICH TURN CONFIRMS THE PULLBACK, and this is the opposite of what it first looks like.
-    # A pullback runs AGAINST the trend, so it is confirmed by the turn where it ENDS:
+    # WAY ONE — A CONFIRMED TURN AGAINST THE TREND SINCE THE RUN, and which turn it is looks
+    # backwards at first. A pullback runs AGAINST the trend, so it is confirmed where it ENDS:
     #
     #     UPTREND   price pulls back DOWN -> that pullback ends at a LOW   (is_high False)
     #     DOWNTREND price pulls back UP   -> that pullback ends at a HIGH  (is_high True)
     #
-    # so the turn we need is the OPPOSITE type to the trend. Getting this backwards refused his own
-    # 2026-08-25 bearish sequence, caught by `test_choch_bearish_proof.py`: a downtrend whose
-    # pullback high sat at bar 80 was read as "never pulled back" because a LOW was being looked for.
+    # so the turn wanted is the OPPOSITE type to the trend. Getting this backwards refused his
+    # 2026-08-25 bearish sequence outright, caught by `test_choch_bearish_proof.py`.
     #
     # NOT THE SAME QUESTION AS `vix1_choch`'s `p.is_high == bullish`, which looks for where the first
     # pullback BEGINS in order to close the exemption window. This looks for where one ENDS, because
     # his proof is the pullback turning back — *"when that pullback turns back down, that's the
     # proof"*. Same word, opposite turn; they are not inconsistent.
     up = tstate.direction > 0
-    if not any(t.index > ran_at and t.is_high != up for t in turns):
-        return ("the trend ran but has not pulled back since — it must run, pull back, then we "
-                "enter")
-    return None
+    if any(t.index > ran_at and t.is_high != up for t in turns):
+        return None
+
+    # WAY TWO — THE CANDLE ITSELF JUST ENDED ONE. A turn is only confirmed once price closes back
+    # through the candle that made it, and the candle doing that IS the momentum candle, so on the
+    # bar that matters most the turn above has not landed yet. `measure` steps over the momentum
+    # candle and counts the retracement behind it, which is precisely this case.
+    #
+    # A MISSING MEASUREMENT IS NOT A REFUSAL — refusing because nobody measured is a guess, and this
+    # platform has shipped that mistake before (see `market_awake`'s "too little history" case).
+    if retracement is None or retracement.active:
+        return None
+
+    return ("the trend ran but has not pulled back since — it must run, pull back, then we "
+            "enter")
 
 
 _RUN_CANDLES = 3        # HIS number: "a run can be from 3 candles and above, then a pullback"

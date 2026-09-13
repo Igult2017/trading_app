@@ -140,7 +140,63 @@ s.check("no trend means this rule stays silent — other gates own that case",
 # `trend_reproven` must never fire when there is no trend to re-prove.
 h1b, stb, retb, turnsb = state_at("2026-09-03 12:00")
 s.check("no established trend -> the re-proof rule stays silent", stb.direction, 0)
-s.check("...and returns None rather than refusing", trend_reproven(stb, turnsb), None)
-s.check("a missing trend state is not a refusal", trend_reproven(None, turnsb), None)
+s.check("...and returns None rather than refusing", trend_reproven(stb, turnsb, retb), None)
+s.check("a missing trend state is not a refusal", trend_reproven(None, turnsb, retb), None)
+s.check("a missing measurement is not a refusal either", trend_reproven(stb, turnsb, None), None)
+
+# ── THE 2026-09-13 FIX: THE PULLBACK HAS ONE OWNER ────────────────────────
+#
+# HIS RULE, in his words: *"we start taking trades when the pullback [ends] and if the first candle
+# after the pullback is a momentum candle, we take trade there."*
+#
+# `trend_reproven` used to answer "has it pulled back?" itself, by looking for a CONFIRMED turn
+# against the trend. A turn is only confirmed once price closes back through the candle that made
+# it — and that candle IS the momentum candle. So the proof arrived one bar too late, every time,
+# and a momentum candle that ENDED a pullback could never be traded. It now asks
+# `vix1_retracement`, which owns the question and already had the right answer.
+#
+# THE CASE IS HIS OWN: EUR/USD 11 Sep 2026 15:00 UTC, a 10.6-pip sell after a three-candle bounce.
+print()
+print("   the pullback question has ONE owner (his 11 Sep EUR/USD sell):")
+
+
+class _Ret:
+    """Only the field the rule reads."""
+    def __init__(self, active):
+        self.active = active
+
+
+class _FakeTrend:
+    """A downtrend that has run — enough for the rule to reach its pullback question."""
+    direction = -1
+    bos_index = 10
+    direction_since = 5
+
+
+s.check("a measured pullback is accepted with NO confirmed turn — the candle need not prove itself",
+        trend_reproven(_FakeTrend(), [], _Ret(True)), None)
+s.check("neither source sees one -> still refused, in his words",
+        "pulled back" in (trend_reproven(_FakeTrend(), [], _Ret(False)) or ""), True)
+
+# THE REAL BAR, THROUGH THE REAL PATH. The synthetic checks above pin the rule; this pins the
+# actual candle he sent, so a later change cannot quietly re-break it.
+_eur = load("EURUSD_H1_sep12.csv", "H1")
+_t = int(datetime.datetime(2026, 9, 11, 15, tzinfo=datetime.timezone.utc).timestamp())
+_i = next((k for k, c in enumerate(_eur) if c.time == _t), None)
+if _i is not None:
+    _h1 = _eur[max(0, _i + 1 - 3000):_i + 1]
+    _w = _h1[-1500:]
+    _turns = structure_turns(_w, 48)
+    _st = trend_state(_w, n=48, turns=_turns)
+    _ret, _, _ = market_state(_w, _st, "EUR/USD")
+    _ran = _st.bos_index if _st.bos_index is not None else _st.direction_since
+    _confirmed = [t for t in _turns if _ran is not None and t.index > _ran and t.is_high]
+    s.check("   11 Sep 15:00 UTC — the trend really was DOWN", _st.direction, -1)
+    s.check("   ...and NO confirmed turn had landed yet — this is the trap", len(_confirmed), 0)
+    s.teeth("   ...but the retracement module did see the bounce", _ret.active and _ret.bars >= 1)
+    s.check("   ...so the re-proof rule no longer refuses it",
+            trend_reproven(_st, _turns, _ret), None)
+else:
+    print("   SKIP — EURUSD_H1_sep12.csv (broker bars incl. 11 Sep) not present on this machine")
 
 s.done()
