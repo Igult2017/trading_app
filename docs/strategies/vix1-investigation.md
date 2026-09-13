@@ -1109,3 +1109,53 @@ full three-sign rule, and now progress-versus-travel. Eight ideas, all flat.
 
 **The pattern across all eight: the badness is real but it is not in the shape of the last 12-96
 candles.** VIX.1 suite 48 of 48 green. Nothing is wired; every market he circled still trades.
+
+---
+
+## ⚠ CORRECTION — THE YARDSTICK I SCORED NINE EXPERIMENTS AGAINST IS MOSTLY NOISE
+
+**I overstated this and it needs correcting plainly.** I told him his circled markets were confirmed
+bad — *"about 2.4 standard deviations, roughly a 1-in-120 fluke"*. That was wrong, in two ways.
+
+**1. The 26 candles were never 26 independent observations.** They sit inside FIVE stretches of
+market, a few days each. Momentum candles hours apart in the same stretch share the same conditions,
+so the real sample is nearer five than twenty-six, and a calculation treating them as independent
+overstates the certainty badly.
+
+**2. Scored against a proper control, it is about 1 in 40, not 1 in 120.** Five RANDOM stretches of
+EUR/USD history the same sizes as his, drawn 2,000 times, came out at 27% or lower **2.6%** of the
+time. Interesting; not settled.
+
+**3. HIS FIVE REGIONS DO NOT AGREE WITH EACH OTHER:**
+
+    circle 02 Mar     0 of 6 carried on (  0%)   worse than 99% of all 4-day stretches
+    circle 10 Dec     1 of 6            ( 17%)   worse than 97%
+    circle 04 Dec b   1 of 5            ( 20%)   worse than 95%
+    circle 04 Dec a   1 of 3            ( 33%)   worse than 79%
+    circle 16 Dec     4 of 6            ( 67%)   BETTER than 91% of all stretches
+
+**One of the five markets he circled has better-than-average follow-through.**
+
+**4. AND THE NATURAL SPREAD IS ENORMOUS.** Across 1,971 four-day stretches of EUR/USD:
+
+    5% of stretches  <= 22%     50% <= 50%     90% <= 67%
+
+A 4-day stretch at 27% is **not rare — 9% of all stretches are that bad or worse.** So "did the next
+candle carry on" over a few days is dominated by chance.
+
+**THIS EXPLAINS ALL NINE FLAT RESULTS AT ONCE.** Every idea was scored against a target that is
+mostly randomness, so every idea had to come back at 48%. The nine experiments do not prove the ideas
+are wrong — they prove the yardstick cannot tell a good idea from a bad one.
+
+**WHAT IS STILL TRUE:** he can see something in those charts, and three of his five regions really
+are in the worst few percent of all stretches. **WHAT IS NOT ESTABLISHED:** that "the next candle
+carries on" is what he is seeing.
+
+**THE NEXT STEP NEEDS HIS APPROVAL AND HAS NOT BEEN TAKEN.** The honest yardstick is what actually
+costs money in those markets — whether a VIX.1 trade taken there reaches its target or its stop.
+**That is a backtest and his rule is absolute: never without his approval.** Nothing further will be
+measured on this until he says so.
+
+**A NOTE ON THE HARNESS:** `target_is_real.py` printed "carried on 100.0% overall" — that header line
+miscounted (it summed every row instead of the ones that carried on). The distribution, the per-region
+figures and the control are computed separately and are correct; the overall figure is **48%**.
