@@ -91,6 +91,61 @@ their own lower highs and lower lows inside an intact uptrend (21 of 42 GBP/USD,
 over 12 months), so **the fast read must never be allowed to decide direction**
 ([vix1_structure.py:36-39](../../signal_platform/strategies/vix1_structure.py#L36)).
 
+### Tested: can a REAL-TIME read replace the 8-bar gate? — 2026-09-13, on his instruction
+
+*"Try that real time and then run it on the setups that were rejected by 8 bar gate... If real time
+is accurate, we will use it and drop the 8 bar gate. Test rigorously."*
+
+**Built:** `fast_pattern`'s exact question — is a faster read of structure pointing the OPPOSITE way
+to the trend? — read from `vix1_swings.turning_points` instead of 8-bar pivots. **Note:
+`structure_turns` ignores its `n` argument when REALTIME is on ([vix1_swings.py:119-129](../../signal_platform/strategies/vix1_swings.py#L119)),
+so it is scale-free and reads the SAME turn list the trend reads.**
+
+**ANSWER: it works, it is safe, and it is REDUNDANT — so the swap is the wrong move.**
+
+| | EUR/USD | GBP/USD | XAU/USD |
+|---|---|---|---|
+| setups reaching the gate | 74 | 85 | 19 |
+| refused by the 8-bar gate | 6 | 8 | 1 |
+| refused by the real-time read | **11** | **16** | **3** |
+| freed by the swap | 6 | 6 | **0** |
+| **newly refused** by the swap | **11** | **14** | **2** |
+| evidence age — 8-bar | median 14h, worst 50h | median 14h, worst 32h | median 15h, worst 24h |
+| evidence age — real-time | median **1h**, worst 29h | median **2h**, worst **45h** | median **0h**, worst 19h |
+| refuses on an already-dead pullback | 100% | 62% | 100% |
+| …real-time | **45%** | **56%** | **33%** |
+
+1. **It is stricter, not looser.** 12 setups freed against **27 newly refused**. Swapping it in costs
+   signals rather than recovering them.
+2. **It does NOT fix his gold setup.** XAU 10 Sep 18:00 is still refused, on **19-bar-old** evidence
+   — older than the 8-bar read's 12. Real-time turns appear only when the market makes one, so
+   *"the delay is a property of the move"* cuts both ways: a grinding market produces no turn and the
+   last one goes stale.
+3. **It IS safe on the founding case.** Forced to answer for a SELL at GBP/USD 10 Aug 08:00-11:00,
+   the real-time read refuses every hour, on **1-4 bar-old** evidence. It catches the 85-pip trap
+   faster than the 8-bar read did.
+4. **THE DECIDER — it is 100% redundant.** Of its 30 refusals across the three instruments,
+   **30 were already refused by `in_shape`. Zero genuinely new.** The "does a faster read of
+   structure disagree with the trend" question is ALREADY answered by the trend module, in real
+   time, with no tuned number. Building a second one adds nothing.
+
+**WHAT DELETING THE 8-BAR GATE ACTUALLY DOES — tested by removing it and re-running `detect_bias`:**
+
+| setup | with the gate | without it |
+|---|---|---|
+| EUR/USD 09 Jul 13:00 | no trade (leg gate) | **TRADE BUY** |
+| GBP/USD 24 Aug 09:00 | no trade (leg gate) | **TRADE BUY** |
+| **XAU/USD 10 Sep 18:00 (his)** | no trade (leg gate) | **still no trade** — *"the downtrend has lost its shape"* |
+
+**SO HIS GOLD SETUP IS NOT AN 8-BAR PROBLEM. It is an `in_shape` problem.** The leg gate merely spoke
+first. Gold's last two confirmed highs (4412.89 → 4434.14) and lows (4341.13 → 4386.09) were BOTH
+rising while the trend read DOWN — and those turns were 19 bars old.
+
+**THE UNDERLYING FINDING, and it is bigger than either gate:** any rule built on *"the last two highs
+and the last two lows"* inherits the staleness of the last two confirmed turns. After a hard move
+that has not yet printed a new turn, that evidence can be a day old — on the 8-bar read and on the
+real-time read alike. **That is the thing to fix, and it now sits inside `in_shape`.**
+
 **The other candles in the same stretch, for completeness** (all real broker bars): his 20:00 ($11.38)
 and 23:00 ($7.60) were too small; his 22:00 ($8.41) too small and the wrong shape; and **11 Sep 03:00
 UTC / his 06:00 ($18.32) missed the size bar by 20 cents** — it needed $18.52.
