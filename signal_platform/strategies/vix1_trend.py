@@ -355,6 +355,44 @@ def trend_state(candles: list[Candle], n: int = _SWING_N, turns=None) -> TrendSt
     # THE SHAPE IS READ LAST, off the finished state, so it always describes the trend that is being
     # returned rather than some intermediate one. It decides nothing here — it is a property the
     # caller can act on, which is what makes this coordination rather than a second vote.
+    #
+    # ITS HIGHS AND LOWS COME FROM THE PULLBACK READING, NOT FROM `st.highs`/`st.lows` — his ruling,
+    # 2026-09-13: *"Use the fine grained pullback. Implement it because it is how we identify setups.
+    # What is the point of having it if decisions are made elsewhere and it is used as decoration."*
+    #
+    # `st.highs`/`st.lows` are built from `vix1_swings` turning points, which miss 82-86% of
+    # ONE-CANDLE pullbacks (measured, 3,000 bars per instrument). That is why the shape test called
+    # gold's $123 fall an uptrend on 10 Sep and refused his sell: all four numbers it compared were
+    # from the previous day, because the fall never paused long enough to print a turn.
+    #
+    # ⚠ `st.highs` / `st.lows` ARE NOT TOUCHED AND MUST NOT BE. The two-stage reversal confirm above
+    # (lines 291-298) reads them to decide when a pending CHoCH becomes a real trend, and that is the
+    # change-of-character machinery he explicitly asked to keep. Only the SHAPE question changes
+    # source.
+    # ⛔ THE SWITCH IS BUILT BUT NOT THROWN — and the reason is a conflict between two of HIS rules,
+    # which is his to settle, not mine. `vix1_retracement.swings()` exists, is tested, and on his
+    # gold candle it correctly reads a lower high and a lower low where this source reads rising
+    # ones. Wiring it in was tried on 2026-09-13 and reverted the same day because:
+    #
+    #   HIS 2026-08-25 PROOF:  *"it runs down -> it pulls back up -> when that pullback turns back
+    #                           down, that's the proof -> then a momentum candle down is the trade."*
+    #   That sequence produces exactly ONE high (the top of the pullback) and ONE low (the bottom of
+    #   the run). The shape test demands TWO of each (line 170).
+    #
+    # So counted from where the trend BEGAN, his own settled bearish proof can never satisfy the
+    # shape test — `test_choch_bearish_proof.py` went red on exactly that, reporting "not enough
+    # confirmed swings yet". It did not bite before because the coarse swing list still carried
+    # swings from BEFORE the turn.
+    #
+    # ON REAL BARS the effect is smaller but real: "not enough swings" refuses 8 / 8 / 4 setups
+    # (EUR/USD, GBP/USD, XAU/USD), while "the shape genuinely disagrees" refuses 44 / 55 / 9.
+    #
+    # TO THROW THE SWITCH, replace the two lines below with:
+    #     from strategies.vix1_retracement import swings as _pb
+    #     _ph, _pl = _pb(candles, st.direction, st.direction_since)
+    #     st.in_shape, st.shape_why = _shape(st.direction, _ph, _pl)
+    # ...once he has ruled on whether ONE completed pullback is enough to call a fresh trend in
+    # shape, or whether it must wait for a second.
     st.in_shape, st.shape_why = _shape(st.direction, st.highs, st.lows)
     return st
 

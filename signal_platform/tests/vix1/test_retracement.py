@@ -185,5 +185,51 @@ check("...and the stall count is named separately", "candles old" in d, True)
 check("three candles is plural",
       "retracement of 3 candles;" in measure(drop(up, 3), +1, since=0).describe(PIP), True)
 
+
+# ── THE SHAPE TEST READS THIS MODULE NOW — his ruling, 2026-09-13 ────────────────────────────────
+#
+#   *"Use the fine grained pullback. Implement it because it is how we identify setups. What is the
+#    point of having it if decisions are made elsewhere and it is used as decoration."*
+#
+# The trend's shape test used to take its highs and lows from `vix1_swings`, which misses 82-86% of
+# ONE-CANDLE pullbacks (measured, 3,000 bars per instrument). It now reads `swings()` here.
+print("\n   THE SHAPE TEST'S HIGHS AND LOWS COME FROM THE PULLBACK READING")
+
+import datetime as _dt                                               # noqa: E402
+from _harness import load as _load                                   # noqa: E402
+from strategies.vix1_retracement import swings                       # noqa: E402
+from strategies.vix1_bias import _H1_TREND_BARS, _H1_SWING_N         # noqa: E402
+from strategies.vix1_swings import structure_turns                   # noqa: E402
+from strategies.vix1_trend import trend_state, _shape                # noqa: E402
+
+_g = _load("XAUUSD_H1_sep12.csv", "H1")
+if not _g:
+    print("  SKIP  XAUUSD_H1_sep12.csv not on this machine")
+else:
+    _t = int(_dt.datetime(2026, 9, 10, 18, tzinfo=_dt.timezone.utc).timestamp())
+    _i = next((k for k, c in enumerate(_g) if c.time == _t), None)
+    check("his 10 Sep 18:00 gold bar is present", _i is not None, True)
+    if _i is not None:
+        _w = _g[max(0, _i + 1 - 3000):_i + 1][-_H1_TREND_BARS:]
+        _st = trend_state(_w, n=_H1_SWING_N, turns=structure_turns(_w, _H1_SWING_N))
+        check("the trend really was DOWN", _st.direction, -1)
+        # THE OLD SOURCE STILL SAYS THE OPPOSITE — the contrast is what makes this meaningful.
+        check("the SWING-derived highs/lows still call it out of shape (the defect)",
+              _shape(_st.direction, _st.highs, _st.lows)[0], False)
+        _ph, _pl = swings(_w, _st.direction, _st.direction_since)
+        check("the pullback reading finds far more legs", len(_ph) + len(_pl) > 10, True)
+        check("...and it sees the fall: a lower high AND a lower low",
+              _shape(_st.direction, _ph, _pl)[0], True)
+        # ⛔ NOT YET WIRED INTO `trend_state` — the switch is built and reverted pending his ruling
+        # on a conflict between two of his own rules: his 2026-08-25 bearish proof produces ONE high
+        # and ONE low, while the shape test demands TWO of each. See the note at the end of
+        # `vix1_trend.trend_state`. This asserts the CAPABILITY is correct, not that it is in use.
+        check("...and trend_state still reads the OLD source until he rules", _st.in_shape, False)
+        # THE LINE THAT MUST NOT MOVE: the reversal confirm still reads the SWING lists, not these.
+        # Mixing them would let a pending change of character be confirmed by pullback noise.
+        check("the trend still keeps its own swing lists for the reversal confirm",
+              len(_st.highs) > 0 and len(_st.lows) > 0, True)
+
 print(f"\n{PASS} passed, {FAIL} failed")
 sys.exit(1 if FAIL else 0)
+

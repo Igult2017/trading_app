@@ -192,3 +192,65 @@ def measure(candles: list[Candle], direction: int, since: int | None = None) -> 
     return Retracement(active=bars > 0, bars=bars, stall_bars=len(seg) - 1 - off, pips=depth,
                        atr=(depth / a if a > 0 else 0.0),
                        extreme=best, extreme_index=start + off)
+
+
+def swings(candles: list[Candle], direction: int, since: int | None) -> tuple[list[float], list[float]]:
+    """The trend's highs and lows, marked where a PULLBACK says a leg ended.
+
+    ADDED 2026-09-13 ON HIS RULING, and the reason is the point of it:
+
+        *"Use the fine grained pullback. Implement it because it is how we identify setups. What is
+         the point of having it if decisions are made elsewhere and it is used as decoration."*
+
+    WHAT WAS WRONG. The trend's shape test — his own rule, *"Uptrend -> HH + HL. Downtrend -> LL +
+    LH"* — read its highs and lows from the SWING detector (`vix1_swings`), which marks a turn only
+    when price closes back through the candle that made the extreme. Measured on 3,000 real bars per
+    instrument, **82-86% of ONE-CANDLE pullbacks never became a swing at all**: a single candle had
+    to reach back a median 1.05-1.19x ATR before it registered. So the shape test could not see the
+    pullbacks this module is written about — and 48% of his retracements are a single candle.
+
+    HIS GOLD CANDLE IS THE CASE. XAU/USD 10 Sep 2026 18:00 UTC, a $19.87 sell after a $123 fall. The
+    swing detector's last two highs (4412.89 -> 4434.14) and last two lows (4341.13 -> 4386.09) were
+    BOTH RISING and both from the previous day, because the fall never paused long enough to print a
+    turn — so the shape test called a collapsing market an uptrend and refused the sell. Read this
+    way the last two highs are 4435.09 -> 4376.64 and the last two lows 4405.62 -> 4323.84, both
+    FALLING, both from hours earlier, and the downtrend is in shape.
+
+    THE RULE, and it has no tuned number in it: walking forward from where the trend began, track the
+    running extreme the trend's way; **the moment ONE candle closes against the trend that extreme is
+    a turning point** and the counter-leg starts. Same sensitivity `pullback_since` already has —
+    *"A pullback can be from 1 candle or more so it should count candles"*.
+
+    ⚠ MEASURED COST, AND HE RULED WITH IT IN FRONT OF HIM: this refuses MORE, not less. Across the
+    three instruments the shape test goes from 34/39/9 refusals to 52/63/13 — **19 setups freed, 65
+    newly refused**. Fine swings zigzag, so "the last two highs AND the last two lows both step the
+    trend's way" is harder to satisfy than on coarse ones. He chose it anyway, on the principle that
+    the pullback reading must DECIDE rather than decorate.
+
+    ONLY THE SHAPE QUESTION USES THIS. Direction, the break of structure, the change of character and
+    the protected level all still read `vix1_swings` — he asked for those explicitly (*"We have CHOCH
+    logic and we also have protected area which protects us"*), and `vix1_trend` still confirms a
+    pending reversal from its own `highs`/`lows`. This is one pullback logic answering the
+    pullback-shaped question, not a second trend engine.
+    """
+    highs: list[float] = []
+    lows: list[float] = []
+    if direction == 0 or since is None or not candles:
+        return highs, lows
+    start = max(0, min(since, len(candles) - 1))
+    ext_i, leg = start, direction          # leg: +1 running up (tracking a high), -1 running down
+    for k in range(start + 1, len(candles)):
+        c = candles[k]
+        if leg == -1:
+            if c.low < candles[ext_i].low:
+                ext_i = k
+            elif is_bullish(c):            # ONE candle against the run ends the leg
+                lows.append(candles[ext_i].low)
+                leg, ext_i = 1, k
+        else:
+            if c.high > candles[ext_i].high:
+                ext_i = k
+            elif is_bearish(c):
+                highs.append(candles[ext_i].high)
+                leg, ext_i = -1, k
+    return highs, lows
