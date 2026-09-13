@@ -361,6 +361,65 @@ UTC / his 06:00 ($18.32) missed the size bar by 20 cents** — it needed $18.52.
 
 ---
 
+## A CODE REVIEW OF THE TREND ENGINE — verified line by line, 2026-09-13
+
+A review argued the real-time detector *"exists but is effectively disconnected from the trend
+engine"*, chiefly via `clear_trend` and a silent fallback. **Its reading of the architecture is
+correct. Its headline diagnosis is false for the running system.** Each claim checked:
+
+### ✅ CORRECT
+
+| claim | verified at |
+|---|---|
+| `turning_points` is genuinely real-time; no 48-bar delay in it | [vix1_swings.py:51-101](../../signal_platform/strategies/vix1_swings.py#L51) |
+| `trend_state` silently falls back to the OLD look-back when `turns is None` | [vix1_trend.py:248-250](../../signal_platform/strategies/vix1_trend.py#L248) |
+| real-time is therefore OPTIONAL, not mandatory — a caller can forget | same |
+| two sources of truth live in one file | [vix1_trend.py:67](../../signal_platform/strategies/vix1_trend.py#L67) |
+| `clear_trend` passes no turns, so it would use the old detector | [vix1_trend.py:410-415](../../signal_platform/strategies/vix1_trend.py#L410) |
+| the default swing width really is `_SWING_N = 3` | [vix1_trend.py:77](../../signal_platform/strategies/vix1_trend.py#L77) |
+| the two-stage change-of-character deliberately leaves direction 0 | [vix1_trend.py:326-335](../../signal_platform/strategies/vix1_trend.py#L326) |
+| pivots enter at `confirmed`, not at `index` — correct, no hindsight | [vix1_trend.py:265](../../signal_platform/strategies/vix1_trend.py#L265) |
+
+### ❌ WRONG — and this was the headline
+
+*"clear_trend()… That alone can explain a huge portion of the behavior you are seeing."*
+
+**`clear_trend` has ZERO production callers.** Grepping the whole platform, the only non-test hits
+are a **comment** ([vix1.py:81](../../signal_platform/strategies/vix1.py#L81)) and a **docstring**
+([vix1_trend.py:233](../../signal_platform/strategies/vix1_trend.py#L233)). It is **dead code**. It
+cannot explain any behaviour because nothing runs it.
+
+**And every live call to `trend_state` DOES pass real-time turns:**
+`vix1_bias.py:163` ✓ · `vix1_bias.py:242` ✓ · `vix1_preclose.py:164` ✓ · `vix1_watch.py:89` ✓.
+The one exception, `vix1_bias.py:165`, sits behind `_ALLOW_H4 = False` and never executes.
+
+**INDEPENDENT PROOF the live path is real-time:** gold's measured confirm lags on 09-11 Sep were
+**1, 2, 1, 9, 1, 2, 1, 1, 1, 2 bars**. The old detector would show **48 on every one**. It did not.
+
+**So none of this explains his missed setups.** Those were measured with real-time turns genuinely in
+use, and the causes found are Issues 3, 4 and 5 — not this.
+
+### ⚠ GENUINE LATENT DEFECTS THE REVIEW DID SURFACE — worth fixing, none urgent
+
+1. **`clear_trend` is dead code wired to the old detector.** His standing rule is that unused code is
+   deleted. Only its own tests keep it alive.
+2. **`vix1_bias.py:165` is a loaded trap.** `trend_state(h4)` passes neither `turns` nor `n`, so if
+   `_ALLOW_H4` is ever switched back on — and it is kept expressly so it *can* be — the 4-hour trend
+   would silently use the old look-back at **n=3**: a 3-bar swing on 4-hour candles.
+3. **The fallback is silent.** No error, no log line. "One source of truth" is stated in the docs and
+   not enforced by the code.
+
+### 🔍 WHAT THE REVIEW MISSED — a LIVE use of the old detector
+
+`vix1_manage.structure_broken` calls `find_swing_points(bars, _SWING_N)` with **n=3 on 1-minute
+bars** to decide whether to **exit a live trade**
+([vix1_manage.py:101-109](../../signal_platform/strategies/vix1_manage.py#L101)). That is the
+delayed detector touching money. On M1 the lag is 3 minutes, which may well be acceptable — **it has
+not been measured** — but it is a second live reader of structure that no "one source of truth"
+audit has covered.
+
+---
+
 # THE TWO ISSUES WE ARE INVESTIGATING
 
 Opened 2026-09-13 on his instruction: *"So far we have 2 issues to look into: How momentum candles
