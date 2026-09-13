@@ -359,3 +359,39 @@ which is precisely how a fitted number is manufactured. `docs/OPEN.md` D42 stays
 than 2 of his 3 signs (`vix1_chop`) removes 40 trades worth **+15.5R out of a +19.9R total** — it
 would have deleted most of the profit. That is far larger than any of the positive effects and it
 confirms the module must stay unwired.
+
+### "IS IT WORKING?" — the direct answer, 2026-09-14
+
+**PROFITABLE BUT NOT PROVEN.** +19.9R over 26 months, 220 filled trades, EUR/USD.
+
+    average +0.0904R per trade, spread 0.936R, one standard error 0.0631R
+    -> the average is 1.4 standard errors above zero
+    -> roughly a 7.6% chance of being luck if there were no edge at all
+
+**IT LIVES ON TWO QUARTERS.** 2025 Q1 (+10.3R) and 2025 Q3 (+11.2R) are +21.5R of the +19.9R total.
+Strip those two and the other seven quarters are slightly NEGATIVE.
+
+    2024 Q2  +6.5R   2024 Q3  -1.5R   2024 Q4  +2.0R   2025 Q1 +10.3R   2025 Q2  -3.8R
+    2025 Q3 +11.2R   2025 Q4  -2.7R   2026 Q1  +2.0R   2026 Q2  -5.4R   2026 Q3  +1.4R
+
+**THE MOST RECENT FULL QUARTER IS ITS WORST: 2026 Q2, -5.4R on a 48% strike rate** — the only
+quarter under 50%. Biggest fall from a high point across the whole run: **-9.9R**.
+
+**THE MARGIN IS THIN BY CONSTRUCTION.** Winners average +0.54R, losers -1.00R, so it needs **65%**
+just to break even and it achieves 71%. Six points of strike rate is the whole edge.
+
+### ⚠ THE LADDER IS THE EDGE — the same replay with it switched off
+
+    WITH his ladder      220 filled   +19.9R   won 71%   winners +0.54R   worst fall  -9.9R
+    WITHOUT the ladder   220 filled   -20.0R   won 18%   winners +4.00R   worst fall -60.0R
+
+**The identical setups, taken to 4R against the original stop, LOSE 20R.** The 4R target is reached
+40 times in 220 (18%), and 18% at 4R against 82% at -1R is -20R almost exactly.
+
+**SO THE SETUP SELECTION HAS NO DEMONSTRABLE EDGE. THE TRADE MANAGEMENT IS THE WHOLE RESULT** —
+breakeven at 0.4R and the +1R lock at 1.5R. VIX.1 makes money by cutting losses quickly, not by
+choosing better moments to enter.
+
+**THIS CORRECTS WHAT I WROTE AN HOUR EARLIER.** I reported "one trade in 220 reached 4R" as if the
+ladder were clipping winners harmfully. **The opposite is true** — without the ladder the strategy
+is a 20R loser. The clipping is what makes it work.
