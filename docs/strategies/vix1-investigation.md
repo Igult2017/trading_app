@@ -310,6 +310,51 @@ tracks, and it is the only new idea here — everything else is already written.
 possibly-ancient swings. His path view would answer ranging better: legs alternating with no net
 progress.
 
+### MEASURED 2026-09-13 — two ways to read the path. **Nothing shipped; he must rule.**
+
+Two candidate readings, both **comparisons rather than thresholds**, so neither introduces a number.
+**NEITHER IS A RULE HE HAS STATED** — they are options with evidence attached.
+
+- **P1 — add the present.** Append the move in progress as a provisional swing at the extreme it has
+  reached, then ask today's question unchanged.
+- **P2 — has the car gone further forward than it went back?** If the move in progress runs WITH the
+  trend, the trend is in shape when that move is **bigger than the most recent move against it**. If
+  the move in progress runs AGAINST the trend it is a pullback, and **today's test applies unchanged**
+  so pullback behaviour cannot drift.
+
+**Every momentum candle that reaches the shape test:**
+
+| | setups | TODAY refuses | P1 refuses | P2 refuses | P1 frees / adds | P2 frees / adds |
+|---|---|---|---|---|---|---|
+| EUR/USD | 74 | 34 | 39 | **30** | 11 / 16 | **17 / 13** |
+| GBP/USD | 85 | 39 | 39 | **28** | 15 / 15 | **24 / 13** |
+| XAU/USD | 19 | 9 | 10 | **6** | 3 / 4 | **7 / 4** |
+
+**P1 is a wash or worse** — it frees and adds in equal measure on all three. **P2 refuses fewer on
+every instrument and frees roughly twice what it adds.**
+
+**Of the setups the 8-bar gate refused, how many the shape test ALSO blocks:**
+
+| | 8-bar refusals | still blocked today | under P1 | under P2 |
+|---|---|---|---|---|
+| EUR/USD | 6 | 2 | 4 | **2** |
+| GBP/USD | 8 | 4 | 5 | **2** |
+| XAU/USD | 1 | 1 | 1 | **0** |
+
+**FIXED CHECK 1 — his gold setup: P2 FREES IT.** Move in progress **$110.30 down over 28 bars**
+against a last counter-move of **$48.05**. Today: refuses. P1: refuses. **P2: allows.**
+
+**FIXED CHECK 2 — the 10-Aug trap (a SELL at 08:00-11:00): all three REFUSE, every hour.** ⚠ Note
+honestly *why* P2 refuses there: the move in progress ran UP while the direction tested was DOWN, so
+P2 fell back to today's test. Its safety on that case comes from the fallback, not from the new
+comparison.
+
+**WHAT IS NOT MEASURED AND MUST BE BEFORE ANYTHING SHIPS:** what the ~13 newly-refused setups per
+pair actually are; the combined effect of P2 together with a decision on the 8-bar gate (this
+isolates the shape test only); and whether P2 survives `test_tradeable.py`'s nine quiet-market
+refusals and the control. **Not a backtest — no win rate, no money, nothing here says these trades
+would have made anything.**
+
 **The other candles in the same stretch, for completeness** (all real broker bars): his 20:00 ($11.38)
 and 23:00 ($7.60) were too small; his 22:00 ($8.41) too small and the wrong shape; and **11 Sep 03:00
 UTC / his 06:00 ($18.32) missed the size bar by 20 cents** — it needed $18.52.
