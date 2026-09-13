@@ -232,12 +232,33 @@ The flips very nearly cancel. **And his gold setup reads the SAME either way** �
 are 4409.09 → 4415.16 (still rising) and the lows 4364.48 → 4399.46 (still rising), so the downtrend
 is still "out of shape". Wick versus close is not the lever on this problem.
 
-**⚠ THE REAL QUESTION GOLD RAISES, AND IT IS HIS TO SETTLE — NOT A CODING MATTER.** At his candle the
-trend module said **DOWN** while the last two highs AND the last two lows were both **RISING** (on
-either reading). Those cannot both be right. Either the shape test is wrong to refuse, or the trend
-direction was stale and gold had already changed character upward — in which case a pro-trend SELL
-was not his setup at that moment and the refusal was correct. **Do not resolve this by picking one;
-ask him.**
+**⚠ I RAISED A FALSE AMBIGUITY HERE AND THE DATA CLOSED IT — recorded so nobody re-opens it.** I
+suggested gold might have turned UP, because the last two highs and lows were both rising. He
+answered: *"Are you blind? Is it this one which is a clear downtrend after CHOCH confirmed?"* He is
+right, and the turning-point record proves it rather than his chart merely asserting it.
+
+**THE TREND DIRECTION WAS CORRECT ALL ALONG — only the shape test was stale.** Gold's confirmed
+turns, with the bar each became knowable on:
+
+| | price | made | first knowable | lag |
+|---|---|---|---|---|
+| low | 4341.13 | 09 Sep 00:00 | 09 Sep 01:00 | 1 bar |
+| HIGH | 4412.89 | 09 Sep 07:00 | 09 Sep 09:00 | 2 bars |
+| low | 4386.09 | 09 Sep 10:00 | 09 Sep 11:00 | 1 bar |
+| HIGH | 4434.14 | 09 Sep 13:00 | 09 Sep 23:00 | 9 bars |
+| **— nothing at all for 34 bars —** | | | | |
+| low | 4311.12 | 10 Sep 23:00 | 11 Sep 00:00 | 1 bar |
+
+**Between that high and the next low there is ONE unbroken down-leg: $123 over 34 bars, with zero
+turning points recorded.** His candle closed 10 Sep 18:00 UTC; the next turn was not knowable until
+11 Sep 00:00 — **6 bars after it**. So throughout the descent the "last two highs and last two lows"
+were frozen at 09 September values, both pairs predating the fall entirely. The shape test was
+describing 09 Sep while price was $100 lower on 10 Sep.
+
+**THE GENERAL LAW THIS EXPOSES, and it is the heart of Issue 5:** a clean, strong trend move prints
+FEWER turning points, because it never pauses long enough to make one. So the two-swing shape test
+goes **most blind exactly when the trend is strongest and clearest** — the opposite of what it should
+do. A choppy market feeds it swings; a decisive one starves it.
 
 **The other candles in the same stretch, for completeness** (all real broker bars): his 20:00 ($11.38)
 and 23:00 ($7.60) were too small; his 22:00 ($8.41) too small and the wrong shape; and **11 Sep 03:00
