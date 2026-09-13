@@ -1159,3 +1159,55 @@ measured on this until he says so.
 **A NOTE ON THE HARNESS:** `target_is_real.py` printed "carried on 100.0% overall" — that header line
 miscounted (it summed every row instead of the ones that carried on). The distribution, the per-region
 figures and the control are computed separately and are correct; the overall figure is **48%**.
+
+---
+
+## DOES THE CHOP DETECTOR DETECT CHOP? — audited 2026-09-14. NO.
+
+His question, after the session drifted into the backtest: *"whether the chop logic you created is
+working and the markets it detected as chop were actually choppy"*. Two halves, both measured on
+EUR/USD with `vix1_chop.read` exactly as built (12 candles, live pullback set aside, "choppy" =
+fewer than 2 of his 3 signs).
+
+### HALF 1 — HIS FIVE CIRCLED CHOP MARKETS, hour by hour (201 hours in total)
+
+    02 Mar 2026   33h   refused   0   called clean 26   could not judge  7
+    16 Dec 2025   48h   refused  13   called clean  0   could not judge 35
+    10 Dec 2025   46h   refused   0   called clean 12   could not judge 34
+    04 Dec a      32h   refused   0   called clean 25   could not judge  7
+    04 Dec b      42h   refused   8   called clean 22   could not judge 12
+    TOTAL        201h   refused  21   called clean 85   could not judge 95
+
+**It would have stopped trading in 21 of 201 hours of his chop — about 10%.** It called 85 hours
+clean, and in 95 more it could not judge at all, which ALLOWS. It caught one of his five markets
+(16 Dec) and missed four. His one GOOD circle (the Guarantee rally) it correctly called clean.
+
+**WHY IT MISSES THEM — AND A SUSPICION OF MINE THAT WAS WRONG.** I suspected the pullback exemption:
+chop is short legs plus pullbacks, and the rule counts the leg before the pullback. Measured inside
+his circles it is NOT that — readings with a pullback set aside came out clean 80% (74/93), readings
+with nothing set aside 85% (11/13). The cause is the one already on record: **twelve candles is too
+short to see a band that takes days.** Inside his chop regions there are 12-hour stretches that are
+genuinely one-directional, full-sized and stepping, and the rule reports them faithfully.
+
+### HALF 2 — WHAT IT FLAGS ON ITS OWN, and whether those markets are choppy
+
+Across 23,000 hours of EUR/USD it could judge only **45%**. Of those: 0 of 3 signs 5%, 1 of 3 22%,
+2 of 3 54%, 3 of 3 19%. Six of its most confident CHOPPY calls and six CLEAN calls were drawn to
+`C:\Users\FSD\Desktop\vix-chop-audit\` for him to judge — **YELLOW = the 12 candles actually counted,
+BLUE = the pullback set aside first.**
+
+**A DRAWING BUG OF MINE, FIXED BEFORE HE SAW THEM.** The first drawing shaded the LAST 12 candles,
+which the rule does not count whenever a pullback is set aside — wrong on 8 of the 12 charts.
+Redrawn by `chop_redraw.py` with both bands.
+
+**My own reading of the corrected charts, offered to him as a reading, not a verdict — his eye
+decides what chop is:** every CLEAN call is a genuine one-directional run. Of the CHOPPY calls,
+28 Mar 2024, 15 Oct 2024, 05 Nov 2025 and 05 Mar 2026 are small, mixed, sideways candles; 07 Nov
+2022 is a pause at the top of a strong rally; **23 Aug 2023 is a sharp breakdown the rule got wrong**
+(half the counted candles were the drift up before the drop).
+
+### VERDICT
+
+**When it says choppy it is mostly looking at sideways candles — but it almost never says it where he
+says it.** 10% of his chop hours refused, 47% not judgeable. It stays unwired (`vix1_chop.py`), D42
+stays open, and nothing about what trades has changed.
