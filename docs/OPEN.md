@@ -2945,3 +2945,32 @@ only honest, not finished.
    supposedly caused, and a "70% false" rate — were both wrong and both had to be retracted.
 3. **Inventing evidence.** A "zone he sent on 16 Jul" never existed and reached three documents
    before he caught it (A4).
+
+### D42 update — 2026-09-13: the SIXTH idea measured and rejected, now against 39 of his own tradeable setups
+
+He sent six EUR/USD H1 charts of markets he WOULD trade (*"I randomly selected them"*), which is the
+side the boundary is pinned against and the side that was missing. Every bar inside those windows
+where VIX.1 actually finds a setup was measured — **39 setups** — against his three CHOPPY charts.
+
+**The trait tested was the one he named**: *"a mixture of big bodies, small bodies"* — how often a
+body is more than double, or less than half, the one before it (`vix1_tradeable.choppiness`, `size`).
+
+| lookback | his 39 TRADEABLE setups | his 3 CHOPPY charts | |
+|---|---|---|---|
+| 12 candles | 4–10 | 7–8 | **overlap** |
+| 24 candles | 9–16 | 15–17 | **overlap** |
+| 48 candles | 24–32 | 30–34 | **overlap** |
+
+**IT DOES NOT SEPARATE THEM.** An earlier run on only THREE tradeable examples showed a clean split
+(tradeable 9-11, choppy 15-17 at 24 candles) and that was small-sample luck — recorded because it
+looked convincing and was wrong. Several of his tradeable setups (31 Jul, 18 Jun) score exactly as
+mixed as his choppy charts.
+
+**The `short` trait fails in the opposite direction:** his 03 Aug choppy chart has LONG runs
+(short=3) while his tradeable setups run 14-15. That is the reverse of *"one or 2 candles up then
+down"*, so the runs count is not the discriminator either.
+
+**SO SIX MEASURED IDEAS HAVE NOW FAILED.** Counting how often a market changes its mind does not tell
+his choppy charts from his tradeable ones, because by every count they sit in the same range. The
+next step is NOT a seventh count — it is to ask him what he SEES in the 03-05 Aug charts that he does
+not see in the six he has just sent.
