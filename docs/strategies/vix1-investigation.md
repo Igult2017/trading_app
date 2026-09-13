@@ -399,15 +399,56 @@ The one exception, `vix1_bias.py:165`, sits behind `_ALLOW_H4 = False` and never
 **So none of this explains his missed setups.** Those were measured with real-time turns genuinely in
 use, and the causes found are Issues 3, 4 and 5 — not this.
 
-### ⚠ GENUINE LATENT DEFECTS THE REVIEW DID SURFACE — worth fixing, none urgent
+### ✅ DOES THE TREND ENGINE READ THE TREND IN REAL TIME? — measured 2026-09-13, 1,200 hours per pair
 
-1. **`clear_trend` is dead code wired to the old detector.** His standing rule is that unused code is
-   deleted. Only its own tests keep it alive.
-2. **`vix1_bias.py:165` is a loaded trap.** `trend_state(h4)` passes neither `turns` nor `n`, so if
-   `_ALLOW_H4` is ever switched back on — and it is kept expressly so it *can* be — the 4-hour trend
-   would silently use the old look-back at **n=3**: a 3-bar swing on 4-hour candles.
-3. **The fallback is silent.** No error, no log line. "One source of truth" is stated in the docs and
-   not enforced by the code.
+His correction: *"We should be testing if that real time approach detects trend in real time not
+setups. The setups identification is done by many modules not just one."* He was right; the earlier
+measurement blended six modules. This walks the bars one at a time and asks only about the READING.
+
+| | EUR/USD | GBP/USD | XAU/USD |
+|---|---|---|---|
+| hours spent in a trend | 77% | 90% | 80% |
+| direction changes | 14 | 15 | 27 |
+| **how late — bars the move had already run** | median **1**, 90th 17, worst 77 | median **3**, 90th 5, worst 22 | median **1**, 90th 6, worst 46 |
+| …and how far price had gone by then | median 0.95x ATR | 1.16x ATR | 0.61x ATR |
+| **whipsaw — new direction contradicted within 5 bars** | **0 of 14** | **0 of 15** | **0 of 27** |
+| limbo — bars reporting NO trend between directions | median 7, 90th 31, worst 77 | median 4, 90th 22, worst 25 | median 5, 90th 22, worst 44 |
+
+**THE DETECTOR ITSELF IS GOOD.** It calls the turn a median of **1-3 bars** after the move starts,
+with **zero false flips on all three instruments**. His instinct to trust it is well founded — the
+staleness we have been chasing is NOT in the turn detector.
+
+**THE WEAK POINT IS THE LIMBO.** After a change of character the engine reports no trend for a median
+of 4-7 bars and, at the 90th percentile, **22-31 bars** — with price moving a median 1x ATR inside it.
+Nothing can trade there (pro-trend only, and the change-of-character shortcut is refused for turns
+down). That is where to look next, not at the detector.
+
+**AND THE TWO READERS STILL DISAGREE:** the engine says "in a trend" 77-90% of hours while the range
+test says "not a trend" 31-39% of hours.
+
+### ⚠ GENUINE LATENT DEFECTS THE REVIEW DID SURFACE — ✅ ALL THREE FIXED 2026-09-13
+
+1. ✅ **`clear_trend` DELETED.** Dead code wired to the old detector. Its last two test uses were
+   converted to the production path first.
+2. ✅ **The H4 trap closed.** `vix1_bias.py` now passes `turns=structure_turns(h4, _H1_SWING_N)`.
+   It still never executes while `_ALLOW_H4` is False, but the day someone re-enables the flag they
+   no longer silently get a 3-bar swing read on FOUR-HOUR candles.
+3. ✅ **The silent fallback is gone.** `trend_state` now sources its own turning points from
+   `structure_turns` when none are passed, so `vix1_swings`' promise of *"ONE SOURCE OF TRUTH FOR
+   WHERE TURNING POINTS COME FROM"* is enforced by the code rather than by convention. The
+   `find_swing_points` import was removed from `vix1_trend` — importing it is what made the second
+   source possible.
+
+**PROVED THESE CHANGED NO LIVE BEHAVIOUR:** the last 300 gold trend reads are **byte-identical**
+before and after (stashed the change, captured the sequence, restored, captured again). That is what
+should happen, because every live caller already passed turns.
+
+**AND THE FIX EXPOSED A TEST THAT HAD BEEN WATCHING THE WRONG DETECTOR.** `test_trend.py` reached the
+trend through `clear_trend`, so its reversal-count checks were measuring the 48-bar look-back —
+reporting ~10 reversals while the live engine made **105 (EUR/USD) and 107 (GBP/USD)** over 4.18
+years. It was green for years against a path nothing runs. The checks now read the production path
+and pin the measured reality, explicitly labelled as `OPEN.md` B1 (the known churn defect) and **not**
+as a pass mark. Window agreement went from 92-93% to **100%**.
 
 ### 🔍 WHAT THE REVIEW MISSED — a LIVE use of the old detector
 

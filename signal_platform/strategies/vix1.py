@@ -78,7 +78,7 @@ class Vix1Strategy(BaseStrategy):
     # lookback, so on 51% of bias hits the entry judged a setup on a window that began hours after
     # its own line — silently rejecting valid entries and mis-siting the ones it took. DERIVED, never
     # a literal, so the two cannot drift apart a third time (fix log ef6ff8b).
-    # H4: 120 bars = 20 days — ample to print the HH+HL/LH+LL structure clear_trend reads.
+    # H4: 120 bars = 20 days — ample to print the HH+HL/LH+LL structure the trend read needs.
     # M1 must span BOTH consumers: the entry window (LOOKBACK+2 hours) and the invalidation watch
     # (WATCH_M1 bars, sized to the 24h lock TTL) — derived, never a literal, same no-drift rule.
     # H1 = 1500 bars (~62 days). NOT a round number picked for comfort: the 1HR trend is read from

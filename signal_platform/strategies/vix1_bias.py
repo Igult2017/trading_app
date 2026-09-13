@@ -162,7 +162,13 @@ def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "", debut=None
     turns = structure_turns(window, _H1_SWING_N)      # computed ONCE per window
     tstate = trend_state(window, n=_H1_SWING_N, turns=turns)
     t1 = tstate.direction
-    t4 = trend_state(h4).direction if _ALLOW_H4 else 0
+    # THE 4HR READ GETS ITS TURNING POINTS TOO — fixed 2026-09-13 after a review.
+    # This was `trend_state(h4)`, passing neither `turns` nor `n`. It never executes while
+    # `_ALLOW_H4` is False, but the flag is kept expressly SO IT CAN BE SWITCHED BACK ON — and on
+    # the day someone did, the 4HR trend would have been read by the old look-ahead detector at the
+    # module default of n=3: a 3-bar swing on FOUR-HOUR candles, which is a different instrument,
+    # not a slower one. A trap that only springs when a feature is re-enabled is the worst kind.
+    t4 = trend_state(h4, n=_H1_SWING_N, turns=structure_turns(h4, _H1_SWING_N)).direction if _ALLOW_H4 else 0
 
     # HOW LONG HAS THIS BEEN THE ANSWER (2026-09-08). Recomputing above is still the source of truth;
     # this only records what replaying cannot tell you — the AGE of the current reading, counted in

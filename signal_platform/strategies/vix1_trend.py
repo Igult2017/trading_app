@@ -64,7 +64,9 @@ can desynchronise across a restart or a second process.
 from dataclasses import dataclass, field
 
 from core.types import Candle
-from shared.swing_points import find_swing_points
+# `shared.swing_points.find_swing_points` is deliberately NOT imported here any more (2026-09-13).
+# This module reads turning points from `vix1_swings` and nowhere else; importing the old detector
+# is what made the silent fallback possible in the first place.
 
 @dataclass(frozen=True)
 class _Pivot:
@@ -230,7 +232,7 @@ def _establish(seq: list[tuple[bool, float]]) -> tuple[int, float] | None:
 
 
 def trend_state(candles: list[Candle], n: int = _SWING_N, turns=None) -> TrendState:
-    """Replay the structure and return the full state. `clear_trend` is the direction-only view.
+    """Replay the structure and return the full state. For direction only, read `.direction`.
 
     `turns` lets a DIFFERENT source of turning points drive the same rules — pass the real-time ones
     from `vix1_swings.turning_points` and every rule below (establish, BOS, CHoCH, the two-stage
@@ -245,11 +247,27 @@ def trend_state(candles: list[Candle], n: int = _SWING_N, turns=None) -> TrendSt
     st = TrendState()
     if len(candles) < _MIN_BARS:
         return st
+    # ONE SOURCE OF TURNING POINTS, ENFORCED BY THE CODE — fixed 2026-09-13 after a review.
+    #
+    # THE TRAP THIS CLOSES. This used to fall back to `find_swing_points(candles, n)` — the OLD
+    # look-ahead detector — whenever a caller forgot to pass `turns`. Silently: no error, no log
+    # line. So the module docstring in `vix1_swings` promising "ONE SOURCE OF TRUTH FOR WHERE
+    # TURNING POINTS COME FROM" was a statement of intent that the code did not enforce, and any
+    # future caller could put a 48-bar-delayed structure read back into the live pipeline by
+    # omitting one argument.
+    #
+    # IT WAS NOT ACTUALLY HAPPENING — checked before changing it. Every live call passes turns
+    # (`vix1_bias.py:163` and `:242`, `vix1_preclose.py:164`, `vix1_watch.py:89`), and gold's
+    # measured confirm lags on 09-11 Sep were 1-9 bars where the old detector would have shown 48
+    # on every one. This removes the possibility, not an active defect.
+    #
+    # `structure_turns` OWNS the A/B switch (`REALTIME`) and returns real pivots in the same shape
+    # either way, so defaulting here keeps that one deliberate switch and removes the accidental
+    # second one. Imported inside the function because it is only needed on this path.
     if turns is None:
-        pts = [(p.index + n, p.is_high, p.price, p.index)
-               for p in find_swing_points(candles, n)]
-    else:
-        pts = [(t.confirmed, t.is_high, t.price, t.index) for t in turns]
+        from strategies.vix1_swings import structure_turns
+        turns = structure_turns(candles, n)
+    pts = [(t.confirmed, t.is_high, t.price, t.index) for t in turns]
     pts.sort()
     if not pts:
         return st
@@ -407,9 +425,10 @@ def forget(symbol: str | None = None) -> None:
         _memory.pop(symbol, None)
 
 
-def clear_trend(candles: list[Candle], n: int = _SWING_N) -> int:
-    """+1 uptrend / -1 downtrend / 0 not established (or a reversal proposed but not yet confirmed).
-
-    The direction-only view of `trend_state`. Callers wanting to SAY WHY should use trend_state().
-    """
-    return trend_state(candles, n).direction
+# `clear_trend` WAS DELETED 2026-09-13. It returned `trend_state(candles, n).direction` and had
+# ZERO production callers — the only references left in the platform were a comment in `vix1.py`, a
+# line of this module's own docstring, and its tests. It was raised in a review as a live cause of
+# delayed trend reads; it was not, because nothing ran it. But it took no `turns` argument, so
+# anyone who HAD called it would have got the old look-ahead detector silently. Dead code wired to
+# the wrong detector is exactly the kind that gets called by accident later, so it is gone rather
+# than fixed. Callers wanting direction only: `trend_state(candles, n).direction`.
