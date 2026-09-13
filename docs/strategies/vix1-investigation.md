@@ -485,10 +485,18 @@ plumbing:
 
 | what | where | verdict |
 |---|---|---|
-| `move_to_breakeven` | `execution/breakeven.py:145` | **Not a money defect — checked.** A thin wrapper that calls `move_stop_to(p, None, …)`. The live path (`position_tracker.py:262`) calls `move_stop_to` directly. Your stop IS moved; the wrapper is just unused, alive only in tests. |
-| `news_candles` | `news/news_candle.py:50` | **Completely dead** — zero mentions anywhere, not even a test. |
-| `is_market_open` | `scheduler/session_windows.py:50` | **Completely dead** — zero mentions anywhere. |
-| `market_not_choppy` | `vix1_tradeable.py:326` | Dead, and already known as `OPEN.md` D42 — the chop rule was never built. |
+| `move_to_breakeven` | `execution/breakeven.py:145` | **Rule intact.** A named wrapper that calls `move_stop_to(p, None, …)`; the `None` is what triggers the net-of-costs breakeven price. The live path (`position_tracker.py:262`) calls `move_stop_to` directly. **Kept deliberately** — its docstring: *"Kept as a named entry point because breakeven is the one rung whose price is computed rather than given, and because it is the one he named."* |
+| `news_candles` | `news/news_candle.py:50` | **Rule intact.** A bulk helper that loops `is_news_candle` — and `is_news_candle` is LIVE at [vix1.py:285](../../signal_platform/strategies/vix1.py#L285) (*"NEVER trade the news candle itself"*), as is `in_news_window`. Only the plural convenience wrapper is unused. |
+| `is_market_open` | `scheduler/session_windows.py:50` | **Rule intact.** A two-line alias: `from data.instrument_filter import is_forex_open; return is_forex_open(now)`. `is_forex_open` ([instrument_filter.py:10-23](../../signal_platform/data/instrument_filter.py#L10)) is the ONE implementation — Saturday closed, Sunday before 22:00 UTC closed, Friday from 22:00 UTC closed — and it is live. Checked for a third copy: `shared/market_clock.py` has no open/closed test, only elapsed-market-time helpers. |
+| `market_not_choppy` | `vix1_tradeable.py:326` | Dead, and already known as `OPEN.md` D42 — the chop rule was never built. **This is the only one of the four that names a rule which does not exist anywhere.** |
+
+**⚠ CORRECTION TO MY OWN FIRST REPORT.** I called `news_candles` and `is_market_open` *"completely
+dead — zero mentions anywhere"*. That was true of the NAME and misleading about the RULE: both are
+wrappers whose logic lives elsewhere under a different name and is running. He caught it by asking
+the right question — *"are their other modules where these functions were moved"* — which is the
+standing rule (*"Removed from file A is NOT the rule is gone. Check whether it MOVED."*) applied to
+my own sweep. **A sweep that reports unused NAMES must say where each one's RULE lives, or it reads
+as a list of missing protections.**
 
 **The pattern behind all of them is the same one that hid the structure exit:** a rule is replaced,
 the new version ships, and the old function survives because nothing errors when a caller quietly
