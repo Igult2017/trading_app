@@ -16,7 +16,6 @@
  *   server/python/drawdown_core.py             (peak/trough/recovery)
  *   server/python/drawdown_streaks.py          (consecutive loss streaks)
  *   server/python/drawdown_distribution.py     (size distribution histogram)
- *   server/python/drawdown_frequency.py        (frequency by attribute)
  *   server/python/drawdown_metrics.py          (KPI summary)
  *   server/python/drawdown_structural.py       (structural failure analysis)
  *   server/python/drawdown_sessions.py         (per-session comparison)
@@ -74,7 +73,6 @@ export interface DrawdownResult {
   };
   streaks?: Record<string, any>;
   distribution?: Record<string, any>;
-  frequency?: Record<string, any>;
   structural?: Record<string, any>;
   sessionComparison?: any[];
   error?: string;

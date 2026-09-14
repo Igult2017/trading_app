@@ -268,7 +268,7 @@ def tally(trades: list) -> dict:
 
     ONE definition (added 2026-08-29), because every grouped row on this page counted only LOSSES —
     `sum(1 for t in group if get_outcome(t) == "loss")`, written out separately in structural,
-    frequency, sessions and the (since removed) heatmap. That is why the page could only ever say "8L / 20T": the win and
+    sessions, and the since-removed frequency and heatmap modules. That is why the page could only ever say "8L / 20T": the win and
     breakeven counts were never carried, so the display had nothing else to show.
 
     A trade whose outcome is unrecorded counts toward `total` and nothing else, so the three named

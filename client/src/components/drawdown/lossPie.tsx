@@ -67,7 +67,7 @@ export function LossPie({ title, rows }: { title: string; rows: LossShareRow[] }
                     ? <circle r={R} fill={colour(i)} />
                     : <path d={wedge(start, end)} fill={colour(i)} stroke="var(--bg)" strokeWidth={1.5} strokeLinejoin="round" />}
                   {r.share >= LABEL_MIN && (
-                    <text x={lx} y={ly} textAnchor="middle" dominantBaseline="central" fontSize={14} fontWeight={700} fill="#0B1220">
+                    <text x={lx} y={ly} textAnchor="middle" dominantBaseline="central" fontSize={13} fontWeight={700} fill="#0B1220">
                       {Math.round(r.share)}%
                     </text>
                   )}

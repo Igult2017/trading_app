@@ -6,7 +6,6 @@ from __future__ import annotations
 
 from .metrics      import compute_metrics
 from .loss_share   import compute_loss_share
-from .frequency    import compute_frequency
 from .structural   import compute_structural
 from .sessions     import compute_sessions
 from .streaks      import compute_streaks
@@ -49,7 +48,6 @@ def compute_drawdown(trades: list, starting_balance: float) -> dict:
     Output keys:
       topStats    → header KPIs (maxDrawdown, avgDrawdown, recoveryFactor, trendAlignment)
       lossShare   → each pair's and each session's share of the total loss (the two pies)
-      frequency   → attr and instr loss frequency groups
       structural  → context and entry SMC diagnostics
       sessions    → per-session breakdown
       streaks     → loss/win streaks + revenge rate + timeline
@@ -60,7 +58,6 @@ def compute_drawdown(trades: list, starting_balance: float) -> dict:
         return {
             "topStats":   {"maxDrawdown": 0.0, "avgDrawdown": 0.0, "recoveryFactor": 0.0, "trendAlignment": 0.0},
             "lossShare":  {"byPair": [], "bySession": []},
-            "frequency":  {"attr": [], "instr": []},
             "structural": {"context": [], "entry": []},
             "sessions":   [],
             "streaks":    {"maxLossStreak": {"length": 0, "startDate": None, "endDate": None},
@@ -98,7 +95,6 @@ def compute_drawdown(trades: list, starting_balance: float) -> dict:
 
     top_stats  = compute_metrics(trades, sb)
     loss_share = compute_loss_share(trades, sb)
-    frequency  = compute_frequency(trades)
     structural = compute_structural(trades)
     sessions   = compute_sessions(trades)
     streaks    = compute_streaks(trades)
@@ -112,7 +108,6 @@ def compute_drawdown(trades: list, starting_balance: float) -> dict:
     return {
         "topStats":   top_stats,
         "lossShare":  loss_share,
-        "frequency":  frequency,
         "structural": structural,
         "sessions":   sessions,
         "streaks":    streaks,

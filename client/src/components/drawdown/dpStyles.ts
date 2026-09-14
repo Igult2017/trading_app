@@ -170,15 +170,21 @@ export const DP_CSS = `
 .dp .dl .r .v{font-size:15px;font-weight:700;white-space:nowrap;}
 .dp .note{font-size:11.5px;line-height:1.65;color:var(--ink3);margin-top:16px;}
 
-/* LOSS CONTRIBUTION — the two pies beside the loss-frequency list */
-/* START, NOT STRETCH. The two columns are grid tracks, and by default the shorter one is stretched to
-   the height of the taller one. That is what once turned the old pair-vs-strategy heatmap into a slab
-   (its cells absorbed the spare height); the pies keep their own height the same way. */
-.dp .rs{display:grid;grid-template-columns:1fr 250px;gap:42px;align-items:start;}
-/* THE TWO PIES — his request, 2026-09-14, in place of that heatmap. Side by side, each capped at 210px
-   so a wide screen does not turn them into dinner plates; stacked under 560px. */
-.dp .pies{display:grid;grid-template-columns:1fr 1fr;gap:34px;align-items:start;}
-.dp .pie svg{display:block;width:100%;max-width:210px;height:auto;margin:0 auto 18px;}
+/* LOSS CONTRIBUTION — two pies across the whole row */
+/* THE TWO PIES, his request 2026-09-14: first beside a loss-frequency list, then the same day across the
+   whole row, once he removed that list as "a duplication" of the session pie and asked for the pies to be
+   "bigger and spacious enough to cover that space". Each 320px circle sits over its key.
+   MEASURED IN PLAYWRIGHT on the real page before settling this. A layout with the key BESIDE the circle on
+   wide screens was tried and dropped: this page never grows past 1180px, so each half tops out at 562px,
+   and a key squeezed beside a 300px circle got 226px, which cut "LONDON/NY OVERLAP" off. Stacked, the key
+   gets 440px and every name fits, on a 1366px screen and a 1920px one alike. The pies stack under 760px.
+   .pie-ph is the loading screen's round placeholder, sized by the same rules as the chart. */
+.dp .pies{display:grid;grid-template-columns:1fr 1fr;gap:56px;align-items:start;}
+.dp .pie{display:flex;flex-direction:column;align-items:center;min-width:0;}
+.dp .pie .subh,.dp .pie .empty-row{align-self:stretch;}
+.dp .pie svg,.dp .pie .pie-ph{display:block;width:100%;max-width:320px;height:auto;aspect-ratio:1 / 1;margin:4px 0 24px;}
+.dp .pie .pkey{width:100%;max-width:440px;}
+@media(max-width:760px){.dp .pies{grid-template-columns:1fr;gap:44px;}}
 /* THE KEY — the sample's slices carry only a percentage, so the names live here: colour, name, share,
    and the actual loss as a % of the starting balance. 11px is this page's floor (docs/READABILITY.md). */
 .dp .pkey{display:flex;flex-direction:column;}
@@ -190,17 +196,6 @@ export const DP_CSS = `
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .dp .pk .sh{font-size:14px;font-weight:700;color:var(--ink);}
 .dp .pk .lp{font-size:13px;font-weight:700;text-align:right;}
-.dp .freq .frow{display:flex;justify-content:space-between;align-items:baseline;margin-top:14px;}
-.dp .freq .frow:first-of-type{margin-top:0;}
-/* THE SESSION / INSTRUMENT NAMES (London, Overlap, Tokyo, New York, Sydney) — the ones he ticked.
-   They had no font-size of their own, so they inherited the journal body size (~15px) and rendered
-   at full size in the display serif, which made five short labels shout louder than the figures
-   beside them. 11.5px puts them in line with every other row label on this page. */
-.dp .freq .frow .dim{font-size:11.5px;font-weight:600;}
-.dp .freq .frow .wlb{font-size:13px;}
-.dp .freq .bar{height:2px;background:var(--line2);margin-top:7px;position:relative;overflow:hidden;}
-.dp .freq .bar i{position:absolute;inset:0 auto 0 0;background:var(--loss);}
-.dp .freq .fsub{font-size:12px;color:var(--ink3);text-align:right;margin-top:5px;}
 
 /* STRUCTURAL */
 .dp .struct-top{padding:16px 0 22px;border-bottom:1px solid var(--line);margin-bottom:24px;}
@@ -257,7 +252,6 @@ export const DP_CSS = `
 .dp .mmname .nm{font-family:var(--disp);font-weight:700;font-size:13px;letter-spacing:.08em;color:var(--ink);}
 
 @media(max-width:920px){
-  .dp .rs{grid-template-columns:1fr;gap:30px;}
   .dp .trip,.dp .sg{grid-template-columns:1fr;gap:26px;}
   .dp .trip > div,.dp .sg > div{padding:0;border-left:0;border-top:1px solid var(--line);padding-top:22px;}
   .dp .trip > div:first-child,.dp .sg > div:first-child{border-top:0;padding-top:0;}
@@ -265,7 +259,7 @@ export const DP_CSS = `
   .dp .lrow,.dp .colh{grid-template-columns:30px 1fr 80px;}
   .dp .lrow .lbar,.dp .colh span:nth-child(3){display:none;}
 }
-@media(max-width:560px){.dp .kpis{grid-template-columns:1fr;} .dp .pies{grid-template-columns:1fr;}}
+@media(max-width:560px){.dp .kpis{grid-template-columns:1fr;}}
 @media(prefers-reduced-motion:reduce){.dp *{transition:none!important;}}
 
 /* ── EVERYTHING follows the journal font now — words via --disp, figures via --mono ──────────

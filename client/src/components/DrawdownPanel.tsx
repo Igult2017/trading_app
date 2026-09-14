@@ -13,7 +13,7 @@ import { LossPie } from '@/components/drawdown/lossPie';
  * Wired 1-to-1 to /api/drawdown/compute (server/python/drawdown). Every section
  * is real data: KPIs, the underwater hero chart, the strategy/instrument
  * leaderboard split by BULLISH/BEARISH direction, edge/Monte-Carlo/recovery model,
- * loss contribution by pair and by session (two pies), loss frequency, structural diagnostics, sessions, loss
+ * loss contribution by pair and by session (two pies), structural diagnostics, sessions, loss
  * streaks + timeline, R:R distribution and the monthly drawdown table.
  */
 
@@ -138,7 +138,6 @@ export default function DrawdownPanel({ sessionId, dispFont, bodyFont }:
     : undefined;
   const [ddView, setDdView] = useState('STRATEGY');
   const [dir,    setDir]    = useState('BULLISH');
-  const [freq,   setFreq]   = useState('SESSION');
   const [diag,   setDiag]   = useState('CONTEXT');
 
   const { data: result, isLoading, isError, error } = useQuery<any>({
@@ -178,7 +177,7 @@ export default function DrawdownPanel({ sessionId, dispFont, bodyFont }:
     riskModel: { winRate: 0, payoff: 0, kellyPct: 0, expectedMaxLossStreak: 0, actualMaxLossStreak: 0, streakWithinExpectation: true, mae: { hasData: false, avgWinnerMae: 0, avgLoserMae: 0, ratio: 0, count: 0 } },
     monteCarlo: { hasData: false, runs: 0, actualMaxDd: 0, expectedMaxDd: 0, worstCase95: 0, worstCase99: 0, actualPercentile: 0, riskOfRuinPct: 0, ruinThreshold: -50, breach20Pct: 0 },
     recovery: { hasData: false, underwaterAvgSize: 0, baselineAvgSize: 0, sizeRatio: 0, underwaterCount: 0, baselineCount: 0, verdict: '' },
-    lossShare: { byPair: [], bySession: [] }, frequency: { attr: [], instr: [] }, structural: { context: [], entry: [] },
+    lossShare: { byPair: [], bySession: [] }, structural: { context: [], entry: [] },
     sessions: [], streaks: { maxLossStreak: { length: 0, startDate: null, endDate: null }, avgLossStreak: 0, revengeRate: 0, bestWinStreak: { length: 0, startDate: null, endDate: null }, timeline: [] },
     rrBuckets: [], monthly: [],
   };
@@ -261,15 +260,6 @@ export default function DrawdownPanel({ sessionId, dispFont, bodyFont }:
   // The two loss-contribution pies (server/python/drawdown/loss_share.py): each pair's and each
   // session's share of the money lost on losing trades.
   const lossShare = d.lossShare ?? { byPair: [], bySession: [] };
-
-  // Loss-frequency card: SESSION (loss contribution per trading session) or INSTRUMENT.
-  // Replaces the old ATTR view that jumbled strategies + sessions + psychology together.
-  // Both lead with raw loss contribution (XL / YT); the bar = the group's own loss rate.
-  const freqList: any[] = (freq === 'SESSION'
-    ? (d.sessions ?? []).map((s: any) => ({ name: s.session, losses: s.losses, total: s.total, lossRate: s.lossRate }))
-        .sort((a: any, b: any) => b.losses - a.losses)
-    : (d.frequency?.instr ?? []))
-    .slice(0, 6);
 
   const structKey = diag === 'ENTRY' ? 'entry' : 'context';
   const structSections: any[] = d.structural?.[structKey] ?? [];
@@ -406,30 +396,14 @@ export default function DrawdownPanel({ sessionId, dispFont, bodyFont }:
 
         {/* ── LOSS CONTRIBUTION ── two pies where the pair-vs-strategy heatmap was. His request,
             2026-09-14: "use pie chart and let the pie chart show loss percentage contributed by each
-            pair ... the second one can show percentage loss contributed by sessions". */}
+            pair ... the second one can show percentage loss contributed by sessions". The Loss Frequency
+            list that sat beside them went the same day, "a duplication" of the session pie in his words,
+            and the pies took its space: "make those pie charts bigger and spacious enough". */}
         <section>
           <Rule label="Loss Contribution · Pair & Session" sub="Share of Total Loss" />
-          <div className="rs">
-            <div className="pies">
-              <LossPie title="By Pair" rows={lossShare.byPair ?? []} />
-              <LossPie title="By Session" rows={lossShare.bySession ?? []} />
-            </div>
-            <div className="freq">
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 18 }}>
-                <span className="subh" style={{ margin: 0 }}>Loss Frequency</span>
-                <Seg options={['SESSION', 'INSTR']} value={freq} onChange={setFreq} />
-              </div>
-              {freqList.length === 0 ? <span className="mut" style={{ fontSize: 11 }}>No {freq === 'SESSION' ? 'session' : 'instrument'} data</span> : freqList.map((f, i) => {
-                const tone = f.lossRate > 60 ? 'loss' : f.lossRate > 35 ? 'warn' : 'gain';
-                return (
-                  <div key={i}>
-                    <div className="frow"><span className="dim" style={{ letterSpacing: '.06em' }}>{f.name}</span><WLB wins={f.wins} losses={f.losses} breakevens={f.breakevens} /></div>
-                    <div className="bar"><i style={{ width: `${Math.min(100, f.lossRate)}%`, background: toneVar(tone) }} /></div>
-                    <div className="fsub">{f.lossRate}% loss rate</div>
-                  </div>
-                );
-              })}
-            </div>
+          <div className="pies">
+            <LossPie title="By Pair" rows={lossShare.byPair ?? []} />
+            <LossPie title="By Session" rows={lossShare.bySession ?? []} />
           </div>
         </section>
 

@@ -95,35 +95,23 @@ export function DrawdownSkeleton({ style }: { style?: React.CSSProperties }) {
 
         <section>
           <Rule title={230} sub={150} />
-          <div className="rs">
-            <div className="pies">
-              {[64, 84].map((t, p) => (
-                <div className="pie" key={p}>
-                  <div className="subh"><TextLine w={t} px={11} /></div>
-                  <Skeleton className="rounded-full" style={{ width: "min(210px, 100%)", aspectRatio: "1 / 1", margin: "0 auto 18px", opacity: 0.09 }} />
-                  <div className="pkey">
-                    {[88, 70, 62].map((w, i) => (
-                      <div className="pk" key={i}>
-                        <Skeleton className="rounded-sm" style={{ width: 10, height: 10 }} />
-                        <TextLine w={w} px={11.5} /><TextLine w={30} px={14} /><Right><TextLine w={44} px={13} /></Right>
-                      </div>
-                    ))}
-                  </div>
+          <div className="pies">
+            {[64, 84].map((t, p) => (
+              <div className="pie" key={p}>
+                <div className="subh"><TextLine w={t} px={11} /></div>
+                {/* No pulse on the disc. The pulse animates opacity up to 0.5, overriding the 0.09 set here —
+                    fine on a thin bar, but Playwright showed a 320px disc turning into a loud grey slab. */}
+                <Skeleton className="rounded-full pie-ph animate-none" style={{ opacity: 0.09 }} />
+                <div className="pkey">
+                  {[88, 70, 62].map((w, i) => (
+                    <div className="pk" key={i}>
+                      <Skeleton className="rounded-sm" style={{ width: 10, height: 10 }} />
+                      <TextLine w={w} px={11.5} /><TextLine w={30} px={14} /><Right><TextLine w={44} px={13} /></Right>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-            <div className="freq">
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 18 }}>
-                <TextLine w={100} px={11} /><div style={{ display: "flex", gap: 22 }}><TextLine w={52} px={11.5} /><TextLine w={40} px={11.5} /></div>
               </div>
-              {[64, 48, 80, 58].map((w, i) => (
-                <div key={i}>
-                  <div className="frow"><TextLine w={w} px={11.5} /><TextLine w={36} px={13} /></div>
-                  <div className="bar"><i style={{ width: `${[62, 48, 36, 24][i]}%`, ...QUIET }} /></div>
-                  <div className="fsub"><Right><TextLine w={78} px={12} /></Right></div>
-                </div>
-              ))}
-            </div>
+            ))}
           </div>
         </section>
 
