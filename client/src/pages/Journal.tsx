@@ -1068,12 +1068,14 @@ export default function Journal() {
         .journal-root .jr-cap{
           font-size:11px!important;letter-spacing:.08em!important;font-weight:600!important;
           color:var(--jr-cap,#A8AEB8)!important;}
-        /* FIGURES IN DM MONO, his explicit ask, and the same face the drawdown panel and the audit
-           page already set their numbers in. Font only — no colour: several of these are
-           deliberately green/red/amber by value, and forcing a colour would flatten the one signal
-           the dashboard is actually carrying. */
+        /* FIGURES IN BOLD TIMES NEW ROMAN (2026-09-14). They were DM Mono; his words: "replace DM
+           mono with bold times new roman". The same text serif the admin panel reads in
+           (AdminPanel.tsx ADMIN_BODY_TEXT), drawn to stay clear at these small sizes. Font and
+           weight only — no colour: several of these are deliberately green/red/amber by value, and
+           forcing a colour would flatten the one signal the dashboard is actually carrying. */
         .journal-root .jr-num{
-          font-family:'DM Mono',ui-monospace,monospace!important;
+          font-family:'Times New Roman',Georgia,'Liberation Serif',serif!important;
+          font-weight:700!important;
           font-variant-numeric:tabular-nums;}
         /* THE HEADLINE FIGURES, IN PLAYFAIR — his call, 2026-09-06: put the ticked numbers "back to
            playfair but make them more visible in playfair".

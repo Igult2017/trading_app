@@ -696,13 +696,15 @@ export default function TradeVault({ sessionId, startingBalance: sessionStarting
            Journal's exemption list, so that declaration is overridden and it renders in the journal
            face like every other panel. Its recipe is the COLOUR SCALE and the sizes, not a font.
 
-           SO ONLY THE FIGURES MOVE, to DM Mono, which is what he asked for and the same face the
-           drawdown panel and the audit page already use for numbers. Each selector is class+element
-           (0,1,1) so it beats the journal rule's 0,1,0 while both are !important — deliberately not
+           SO ONLY THE FIGURES MOVE — to bold Times New Roman since 2026-09-14. They were DM Mono;
+           his words: "replace DM mono with bold times new roman". The same text serif the admin panel
+           reads in (AdminPanel.tsx ADMIN_BODY_TEXT). Each selector is class+element (0,1,1) so it
+           beats the journal rule's 0,1,0 while both are !important — deliberately not
            .trade-vault-root *, which is also 0,1,0, a tie decided by stylesheet order. */
         .trade-vault-root .tv-num,
         .trade-vault-root td.tv-num, .trade-vault-root span.tv-num {
-          font-family: 'DM Mono', ui-monospace, monospace !important;
+          font-family: 'Times New Roman', Georgia, 'Liberation Serif', serif !important;
+          font-weight: 700 !important;
           font-variant-numeric: tabular-nums;
         }
 

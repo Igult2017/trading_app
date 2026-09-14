@@ -156,7 +156,9 @@ const T = {
 // more, and the sizes went up with it — weight alone does not rescue 9px text.
 const PLAYFAIR = "'Playfair Display Variable', 'Playfair Display', Georgia, serif";
 const FONT  = PLAYFAIR;   // every piece of text on the page
-const MONO  = "'DM Mono', monospace";   // every figure — kept, and reinforced below
+// FIGURES IN BOLD TIMES NEW ROMAN (2026-09-14) — they were DM Mono; his words: "replace DM mono with
+// bold times new roman". The same text serif the admin panel reads in (AdminPanel.tsx ADMIN_BODY_TEXT).
+const MONO  = "'Times New Roman', Georgia, 'Liberation Serif', serif";   // every figure — reinforced below
 // TWO HELPERS, AND THE NAMES NOW TELL THE TRUTH.
 //
 // There used to be `mono` and `num`, both DM Mono, and `mono` was spread onto FIFTY elements — of
@@ -169,7 +171,7 @@ const MONO  = "'DM Mono', monospace";   // every figure — kept, and reinforced
 // overrode the three that spread the helper AFTER their colour — two of them buttons that are meant
 // to be bright. tsc caught it; it would have been invisible otherwise.
 const lbl = { fontFamily: FONT, fontWeight: 600 as const };   // words: labels, captions
-const num = { fontFamily: MONO, fontWeight: 500 as const };   // figures only
+const num = { fontFamily: MONO, fontWeight: 700 as const };   // figures only — bold, his instruction
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Primitive helpers
@@ -1589,7 +1591,8 @@ export default function StrategyAudit({ sessionId, userId, darkMode = true }: Pr
         .audit-root [style*="monospace"],
         .audit-root [style*="DM Mono"],
         .audit-root [style*="JetBrains Mono"],
-        .audit-root [style*="Share Tech Mono"] { font-family: 'DM Mono', monospace !important; font-variant-numeric: tabular-nums !important; }
+        .audit-root [style*="Share Tech Mono"],
+        .audit-root [style*="Times New Roman"] { font-family: 'Times New Roman', Georgia, 'Liberation Serif', serif !important; font-weight: 700 !important; font-variant-numeric: tabular-nums !important; }
 
         /* ── Responsive collapse: stack all multi-column grids on small screens ── */
         @media (max-width: 900px) {

@@ -447,3 +447,31 @@ with a Times New Roman body, which is what he approved.
 3. **Reading the source is not the same as reading the render.** DORIXÉ's source says Inter. Its
    screen says Times New Roman. When the question is "what does this look like", the rendered page
    is the only authority.
+
+---
+
+## 2026-09-14 — THE JOURNAL'S DM MONO NUMBERS ARE NOW BOLD TIMES NEW ROMAN. NOTHING ELSE CHANGED.
+
+**What happened first, so it is not repeated.** He asked, pointing at numbers that were already in DM
+Mono: *"write these numbers in DM mono in the journal, the whole of the journal in playfair with no
+strokes"*. He meant take them OUT of DM Mono. I did the opposite — DM Mono on every digit, plus a
+weight floor, a size floor, italic header levels and Metrics edits (`5c5f49b`). His verdict: *"you have
+destroyed the clear display of text and it is back to blurredness again ... you cannot italize level
+one headers ... who told you to touch metrics page??"* It was reverted in full (`ecb1710`).
+
+**What he then asked, and what was done:** *"replace DM mono with bold times new roman"*. The three
+places DM Mono actually rendered now use `'Times New Roman', Georgia, 'Liberation Serif', serif` at 700
+— the same stack as the admin panel's body text:
+
+* `.jr-num` (`Journal.tsx`) — dashboard calendar day numbers, equity-curve %, Performance Mix values,
+  pair counts, trade-log date and P&L
+* `.tv-num` (`TradeVault.tsx`) — trade date, time, R:R badge, table figure
+* Strategy Audit figures (`MONO`, the `num` helper, and the forcing rule)
+
+**Checked by diffing every visible text element's family, size, weight, style and colour before and
+after on the rendered dashboard and Trade Vault** — only number elements may differ. Metrics, headers,
+labels, sizes and Trade Sync are untouched.
+
+**Lessons:** an ambiguous font instruction is read by checking what the ticked elements are RIGHT NOW;
+never italicise a top-level title; never touch a page he did not name. Where Playfair is blurred at
+small sizes, he has given permission for a better Times New Roman variant — but only where he points.
