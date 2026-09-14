@@ -6,13 +6,14 @@ import { useDelayedLoading } from '@/lib/useDelayedLoading';
 import { DrawdownSkeleton } from '@/components/skeletons/DrawdownSkeleton';
 import { DiveProfile } from '@/components/drawdown/diveProfile';
 import { DP_CSS } from '@/components/drawdown/dpStyles';
+import { LossPie } from '@/components/drawdown/lossPie';
 
 /**
  * DrawdownPanel — "Dive Profile" layout.
  * Wired 1-to-1 to /api/drawdown/compute (server/python/drawdown). Every section
  * is real data: KPIs, the underwater hero chart, the strategy/instrument
  * leaderboard split by BULLISH/BEARISH direction, edge/Monte-Carlo/recovery model,
- * pair×strategy heatmap, loss frequency, structural diagnostics, sessions, loss
+ * loss contribution by pair and by session (two pies), loss frequency, structural diagnostics, sessions, loss
  * streaks + timeline, R:R distribution and the monthly drawdown table.
  */
 
@@ -34,34 +35,6 @@ function fmtRange(start?: string | null, end?: string | null): string {
       return `${MONTH_ABBR[s.getMonth()]} ${s.getDate()}–${e.getDate()}`;
     return `${MONTH_ABBR[s.getMonth()]} ${s.getDate()} – ${MONTH_ABBR[e.getMonth()]} ${e.getDate()}`;
   } catch { return ''; }
-}
-
-/** Where a loss sits on the severity scale, matching sevTone()'s "severe" band below. */
-const HEAT_SEVERE_PCT = 2.5;
-
-/** How dark a tile should be, 0 (untouched) to 1 (as bad as this page gets).
- *
- *  ANCHORED, not purely relative. Scaling against "the worst cell present" is degenerate when there
- *  IS only one cell — `rel` is then always exactly 1, so the single tile always paints at FULL
- *  saturation whether the number is a mild -0.3% or a brutal -8%. That is why one pair × one
- *  strategy still rendered as a solid red slab: the colour was not saying anything, it was pinned.
- *  (The 2026-08-29 note claimed this was fixed by moving off a fixed 1.4% scale; it was not — the
- *  relative scale collapses in exactly the same way, just for a different reason.)
- *
- *  So the reference is the worst cell OR the severity threshold the rest of this file already uses,
- *  whichever is larger. A 2% average loss now reads as ~4/5 of the way up rather than "the worst
- *  thing possible", and a page whose worst cell is 8% still spreads its cells across the full range.
- */
-function heatRel(avgDdPct: number, worst: number): number {
-  const v = Math.abs(avgDdPct);
-  if (!v) return 0;
-  return Math.min(v / Math.max(worst, HEAT_SEVERE_PCT), 1);
-}
-
-function heatBg(avgDdPct: number, worst: number): React.CSSProperties {
-  if (!Math.abs(avgDdPct)) return { background: 'var(--raise)' };
-  const a = 0.10 + heatRel(avgDdPct, worst) * 0.45;   // floor: a mild cell still reads as a cell
-  return { background: `rgb(255 122 135 / ${a.toFixed(3)})` };
 }
 
 function sevTone(avgDdPct: number): string {
@@ -205,7 +178,7 @@ export default function DrawdownPanel({ sessionId, dispFont, bodyFont }:
     riskModel: { winRate: 0, payoff: 0, kellyPct: 0, expectedMaxLossStreak: 0, actualMaxLossStreak: 0, streakWithinExpectation: true, mae: { hasData: false, avgWinnerMae: 0, avgLoserMae: 0, ratio: 0, count: 0 } },
     monteCarlo: { hasData: false, runs: 0, actualMaxDd: 0, expectedMaxDd: 0, worstCase95: 0, worstCase99: 0, actualPercentile: 0, riskOfRuinPct: 0, ruinThreshold: -50, breach20Pct: 0 },
     recovery: { hasData: false, underwaterAvgSize: 0, baselineAvgSize: 0, sizeRatio: 0, underwaterCount: 0, baselineCount: 0, verdict: '' },
-    heatmap: [], frequency: { attr: [], instr: [] }, structural: { context: [], entry: [] },
+    lossShare: { byPair: [], bySession: [] }, frequency: { attr: [], instr: [] }, structural: { context: [], entry: [] },
     sessions: [], streaks: { maxLossStreak: { length: 0, startDate: null, endDate: null }, avgLossStreak: 0, revengeRate: 0, bestWinStreak: { length: 0, startDate: null, endDate: null }, timeline: [] },
     rrBuckets: [], monthly: [],
   };
@@ -285,12 +258,9 @@ export default function DrawdownPanel({ sessionId, dispFont, bodyFont }:
     : 'Not enough underwater trades to assess recovery sizing.';
   const recColor = recovery?.verdict === 'increase' ? 'loss' : recovery?.verdict === 'reduce' ? 'gain' : '';
 
-  const heatRows: any[]   = d.heatmap ?? [];
-  const heatCols: string[] = heatRows[0]?.cells?.map((c: any) => c.strategy) ?? [];
-  // The deepest cell on the page — the colour scale is relative to it, so the map reads the same
-  // whether you trade one pair or eight. A fixed scale pinned a lone cell at full saturation.
-  const heatWorst = heatRows.reduce((m: number, r: any) =>
-    (r.cells ?? []).reduce((n: number, c: any) => Math.max(n, Math.abs(c.avgDdPct || 0)), m), 0);
+  // The two loss-contribution pies (server/python/drawdown/loss_share.py): each pair's and each
+  // session's share of the money lost on losing trades.
+  const lossShare = d.lossShare ?? { byPair: [], bySession: [] };
 
   // Loss-frequency card: SESSION (loss contribution per trading session) or INSTRUMENT.
   // Replaces the old ATTR view that jumbled strategies + sessions + psychology together.
@@ -434,58 +404,16 @@ export default function DrawdownPanel({ sessionId, dispFont, bodyFont }:
           </div>
         </section>
 
-        {/* ── RISK SURFACE ── */}
+        {/* ── LOSS CONTRIBUTION ── two pies where the pair-vs-strategy heatmap was. His request,
+            2026-09-14: "use pie chart and let the pie chart show loss percentage contributed by each
+            pair ... the second one can show percentage loss contributed by sessions". */}
         <section>
-          <Rule label="Risk Heatmap · Pair vs Strategy" sub="Loss Intensity by Cell" />
+          <Rule label="Loss Contribution · Pair & Session" sub="Share of Total Loss" />
           <div className="rs">
-            {heatRows.length === 0 ? (
-              <div className="empty-row">No heatmap data</div>
-            ) : (
-              /* BOTH COUNTS DRIVE THE GEOMETRY. --cols shares the width between the strategies;
-                 --rows sets how tall each cell is, so the block keeps roughly the same footprint
-                 whether there is one pair or eight instead of running down the page. */
-              <div className="heat" style={{ ['--cols' as any]: heatCols.length || 1,
-                                             ['--rows' as any]: heatRows.length || 1 }}>
-                <div className="hrow"><div className="hp">PAIR</div>{heatCols.map((c, i) => <div className="hh" key={i}>{c}</div>)}</div>
-                {heatRows.map((r) => (
-                  <div className="hrow" key={r.pair}>
-                    <div className="hp">{r.pair}</div>
-                    {r.cells.map((c: any, i: number) => (
-                      <div className="hc" key={i} style={heatBg(c.avgDdPct, heatWorst)}
-                           title={`${r.pair} · ${c.strategy}: ${c.avgDdPct.toFixed(2)}% average on losing trades`}>
-                        <div className="p" style={{ color: c.avgDdPct < 0 ? 'var(--heat-neg-ink)' : 'var(--ink3)' }}>{c.avgDdPct === 0 ? '0.0%' : `${c.avgDdPct.toFixed(1)}%`}</div>
-                        <div className="t"><WLB wins={c.wins} losses={c.losses} breakevens={c.breakevens} size={10} /></div>
-                        {/* HOW DEEP, AS A LENGTH. A shade of pink cannot be read as a quantity —
-                            you cannot tell 40%-dark from 60%-dark by eye, and with one tile there
-                            is nothing to compare it against. The bar gives the same number a form
-                            the eye can actually measure, which is what makes a one-cell heatmap
-                            readable at all. */}
-                        <span className="hm" aria-hidden="true">
-                          <i style={{ width: `${(heatRel(c.avgDdPct, heatWorst) * 100).toFixed(1)}%` }} />
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                ))}
-                {/* THE SCALE NOW CARRIES ITS OWN NUMBERS. "Lighter -> deeper average loss" told you
-                    the direction but never the amount, so a shade meant nothing on its own. The
-                    ends are labelled with the actual percentages the colours stand for. */}
-                <div className="hleg">
-                  <span className="cap">0%</span>
-                  <span className="sc">
-                    {[0.10, 0.21, 0.32, 0.43, 0.55].map((a) => (
-                      <i key={a} style={{ background: `rgb(255 122 135 / ${a})` }} />
-                    ))}
-                  </span>
-                  <span className="cap">{Math.max(heatWorst, HEAT_SEVERE_PCT).toFixed(1)}% average loss</span>
-                  {heatWorst > 0 && (
-                    <span className="cap wc" style={{ marginLeft: 'auto' }}>
-                      Worst cell <b>{heatWorst.toFixed(2)}%</b>
-                    </span>
-                  )}
-                </div>
-              </div>
-            )}
+            <div className="pies">
+              <LossPie title="By Pair" rows={lossShare.byPair ?? []} />
+              <LossPie title="By Session" rows={lossShare.bySession ?? []} />
+            </div>
             <div className="freq">
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 18 }}>
                 <span className="subh" style={{ margin: 0 }}>Loss Frequency</span>

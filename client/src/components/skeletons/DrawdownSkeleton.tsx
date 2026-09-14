@@ -96,18 +96,21 @@ export function DrawdownSkeleton({ style }: { style?: React.CSSProperties }) {
         <section>
           <Rule title={230} sub={150} />
           <div className="rs">
-            <div className="heat" style={{ ["--cols" as any]: 3, ["--rows" as any]: 3 }}>
-              <div className="hrow">
-                <div className="hp"><TextLine w={32} px={11} /></div>
-                {[0, 1, 2].map(c => <div className="hh" key={c} style={{ display: "flex", justifyContent: "center" }}><TextLine w={60} px={11} /></div>)}
-              </div>
-              {[0, 1, 2].map(r => (
-                <div className="hrow" key={r}>
-                  <div className="hp"><TextLine w={52} px={11} /></div>
-                  {[0, 1, 2].map(c => <div className="hc" key={c} style={{ background: "var(--raise)" }}><TextLine w={38} px={17} lh={1} /><TextLine w={28} px={12} /></div>)}
+            <div className="pies">
+              {[64, 84].map((t, p) => (
+                <div className="pie" key={p}>
+                  <div className="subh"><TextLine w={t} px={11} /></div>
+                  <Skeleton className="rounded-full" style={{ width: "min(210px, 100%)", aspectRatio: "1 / 1", margin: "0 auto 18px", opacity: 0.09 }} />
+                  <div className="pkey">
+                    {[88, 70, 62].map((w, i) => (
+                      <div className="pk" key={i}>
+                        <Skeleton className="rounded-sm" style={{ width: 10, height: 10 }} />
+                        <TextLine w={w} px={11.5} /><TextLine w={30} px={14} /><Right><TextLine w={44} px={13} /></Right>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               ))}
-              <div className="hleg"><TextLine w={20} px={11} /><TextLine w={128} px={8} lh={1} /><TextLine w={130} px={11} /></div>
             </div>
             <div className="freq">
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 18 }}>

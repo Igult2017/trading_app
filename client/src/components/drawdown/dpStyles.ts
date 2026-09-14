@@ -28,7 +28,6 @@ export const DP_CSS = `
   --loss:#FF7A87; --lossdeep:#FF3C4F; --loss-d:rgba(255,122,135,.16);
   --gain:#5FE3B4; --gain-d:rgba(95,227,180,.15);
   --warn:#FFC155; --warn-d:rgba(255,193,85,.15);
-  --heat-neg-ink:#FFFFFF;
   /* BOTH roles follow the journal font: 'inherit', NOT a named face (changed 2026-08-29 on his
      "it should inherit font type from journal").
      WHY IT USED TO DIVERGE: these fell back to a hardcoded 'Playfair Display'. The .dp subtree is
@@ -77,7 +76,6 @@ export const DP_CSS = `
   --loss:#C81E1E; --lossdeep:#991B1B; --loss-d:rgba(200,30,30,.12);
   --gain:#047857; --gain-d:rgba(4,120,87,.12);
   --warn:#B45309; --warn-d:rgba(180,83,9,.12);
-  --heat-neg-ink:#7F1D1D;
 }
 /* Chart axes are figures too — dates and values — so they follow --fig with the numbers rather
    than the body font. !important because the journal's own svg-text rule also targets these. */
@@ -91,17 +89,16 @@ export const DP_CSS = `
 /* THE FIGURES — see --fig above for which face they take and why it changed.
    Listed one class at a time rather than swept with a broad selector, because several classes
    that LOOK numeric are not: bare .t is a text label (the equity caption), and .ls .s reads
-   "before recovery" / "no data". Those keep the body font. .hc .t IS the win/loss/breakeven
-   figures inside a heatmap tile, so it is named explicitly rather than inherited from .t.
+   "before recovery" / "no data". Those keep the body font. .pk .sh and .pk .lp are the share
+   and the actual loss beside each pie slice.
    .mtbl td is the monthly table he circled — every cell in it but the month name is a figure. */
 .dp .num, .dp .wlb,
 .dp .kpi .v, .dp .foot .v, .dp .dl .r .v, .dp .rp .v,
 .dp .sess .vv, .dp .sess .sb,
 .dp .ls .big,
 .dp .rr .rng, .dp .rr .pc, .dp .rr .ct,
-.dp .hc .p, .dp .hc .t,
-.dp .mtbl td,
-.dp .hleg .wc b{font-family:var(--fig);}
+.dp .pk .sh, .dp .pk .lp,
+.dp .mtbl td{font-family:var(--fig);}
 .dp .loss{color:var(--loss);} .dp .gain{color:var(--gain);} .dp .warn{color:var(--warn);}
 .dp .dim{color:var(--ink2);} .dp .mut{color:var(--ink3);}
 /* Wins / losses / breakevens as coloured figures (2026-08-29) — replaces the old "8L" / "7W"
@@ -173,65 +170,26 @@ export const DP_CSS = `
 .dp .dl .r .v{font-size:15px;font-weight:700;white-space:nowrap;}
 .dp .note{font-size:11.5px;line-height:1.65;color:var(--ink3);margin-top:16px;}
 
-/* RISK SURFACE (heatmap + freq) */
-/* START, NOT STRETCH — this is what actually made the heatmap a slab, and no amount of capping the
-   cell width or setting min-height could reach it. The two columns are grid tracks, so by default
-   both stretch to the height of the TALLER one; the loss-frequency list is ~230px, the heatmap grid
-   stretched to match, and its auto rows absorbed the spare height — turning a 62px tile into a
-   120px block and pushing the legend far below it. The cell was never the wrong size; it was being
-   inflated from outside. */
+/* LOSS CONTRIBUTION — the two pies beside the loss-frequency list */
+/* START, NOT STRETCH. The two columns are grid tracks, and by default the shorter one is stretched to
+   the height of the taller one. That is what once turned the old pair-vs-strategy heatmap into a slab
+   (its cells absorbed the spare height); the pies keep their own height the same way. */
 .dp .rs{display:grid;grid-template-columns:1fr 250px;gap:42px;align-items:start;}
-/* HEATMAP — A MATRIX THAT FITS ITS SPACE AT ANY SIZE (his instruction, 2026-09-05: *"it cannot
-   accommodate more than 2 instruments without making that space look imbalanced and chaotic. I
-   think using cells would be perfect such that cell sizes can be adjusted based on the number of
-   pairs to display but in the same space"*).
-     - CELLS SHARE THE WIDTH (one fr each) instead of being fixed 112px tiles packed to the left.
-       Fixed tiles gave a void on the right with one strategy and a horizontal SCROLLBAR with six.
-     - A CAP STOPS ONE CELL BECOMING A BANNER: the max-width below limits the whole grid to what
-       --cols cells at 150px would occupy, so few columns stay tile-sized and many columns shrink
-       to fit exactly. Growing to the cap, shrinking past it — both directions handled by one rule.
-     - ROW HEIGHT COMES FROM THE ROW COUNT (--rowh), so eight pairs do not run down the page:
-       the block aims for ~250px total, matching the loss-frequency list beside it, and only grows
-       past that once rows hit the 52px floor where the figures stop fitting.
-   align-content:start also keeps the rows their own height if a parent ever stretches this again. */
-.dp .heat{display:grid;gap:5px;overflow-x:auto;padding-bottom:4px;align-content:start;
-  --rowh:clamp(52px, calc((250px - (var(--rows,1) - 1) * 5px) / var(--rows,1)), 84px);}
-/* THE CAP GOES ON THE ROWS, NOT ON THE GRID. Putting max-width on .heat also squeezed the LEGEND,
-   which is a child of it — with one strategy the cap is 236px and the scale was clipped mid-word
-   ("2.5% AVER"). The legend must always have the full column to lay out in. */
-.dp .hrow{display:grid;grid-template-columns:86px repeat(var(--cols,5),minmax(0,1fr));
-  gap:5px;align-items:stretch;max-width:calc(86px + var(--cols,5) * 150px);}
-/* 11px IS THE FLOOR — docs/READABILITY.md, and this panel is the page that floor was measured on.
-   I had these at 9.5px and 10px, which put five rules back under it and re-created the exact defect
-   the 2026-08-29 pass removed ("drawdown: 17 rules below 11px"). In a high-contrast display serif
-   the thin strokes simply stop rendering at that size. Do not take these below 11px again. */
-.dp .hh{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3);text-align:center;
-  padding:2px 4px 5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:700;}
-.dp .hp{display:flex;align-items:center;font-size:11px;letter-spacing:.08em;text-transform:uppercase;
-  color:var(--ink2);font-weight:700;padding-right:8px;}
-/* A TILE, not a stretched band: fixed height, rounded, with a hairline so an empty/pale cell still
-   reads as a cell instead of vanishing into the background. */
-.dp .hc{padding:8px 6px 12px;text-align:center;border-radius:9px;height:var(--rowh,62px);
-  position:relative;overflow:hidden;
-  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
-  border:1px solid var(--line);transition:transform .16s cubic-bezier(.16,1,.3,1),border-color .16s;}
-.dp .hc:hover{transform:translateY(-2px);border-color:var(--line2);}
-.dp .hc .p{font-size:17px;font-weight:700;letter-spacing:-.02em;line-height:1;}
-.dp .hc .t{font-size:12px;margin-top:0;font-weight:700;}
-/* THE DEPTH BAR — the same number as a LENGTH. Colour alone is not readable as a quantity, and with
-   a single tile there is nothing to compare the shade against. Sits flush at the foot of the tile. */
-/* The TRACK uses --line2, which flips with the theme (white at .15 on dark, near-black at .18 on
-   light). A hard-coded white track would have been invisible on the light theme's pale pink tile. */
-.dp .hc .hm{position:absolute;left:8px;right:8px;bottom:6px;height:2px;border-radius:2px;
-  background:var(--line2);overflow:hidden;}
-.dp .hc .hm i{display:block;height:100%;background:var(--heat-neg-ink);opacity:.62;border-radius:2px;}
-/* Legend — the colour meant nothing without one, which is most of why a lone red block looked wrong. */
-.dp .hleg{display:flex;align-items:center;gap:9px;margin-top:14px;font-size:11px;
-  letter-spacing:.09em;text-transform:uppercase;color:var(--ink3);font-weight:700;}
-.dp .hleg .sc{display:flex;gap:2px;}
-.dp .hleg .sc i{width:24px;height:8px;border-radius:2px;display:block;}
-.dp .hleg .cap{color:var(--ink3);white-space:nowrap;}
-.dp .hleg .wc b{color:var(--ink2);font-weight:700;}
+/* THE TWO PIES — his request, 2026-09-14, in place of that heatmap. Side by side, each capped at 210px
+   so a wide screen does not turn them into dinner plates; stacked under 560px. */
+.dp .pies{display:grid;grid-template-columns:1fr 1fr;gap:34px;align-items:start;}
+.dp .pie svg{display:block;width:100%;max-width:210px;height:auto;margin:0 auto 18px;}
+/* THE KEY — the sample's slices carry only a percentage, so the names live here: colour, name, share,
+   and the actual loss as a % of the starting balance. 11px is this page's floor (docs/READABILITY.md). */
+.dp .pkey{display:flex;flex-direction:column;}
+.dp .pk{display:grid;grid-template-columns:10px minmax(0,1fr) auto 64px;gap:10px;align-items:center;
+  padding:7px 0;border-top:1px solid var(--line);}
+.dp .pk:first-child{border-top:0;}
+.dp .pk i{width:10px;height:10px;border-radius:2px;display:block;}
+.dp .pk .nm{font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink2);font-weight:600;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.dp .pk .sh{font-size:14px;font-weight:700;color:var(--ink);}
+.dp .pk .lp{font-size:13px;font-weight:700;text-align:right;}
 .dp .freq .frow{display:flex;justify-content:space-between;align-items:baseline;margin-top:14px;}
 .dp .freq .frow:first-of-type{margin-top:0;}
 /* THE SESSION / INSTRUMENT NAMES (London, Overlap, Tokyo, New York, Sydney) — the ones he ticked.
@@ -307,7 +265,7 @@ export const DP_CSS = `
   .dp .lrow,.dp .colh{grid-template-columns:30px 1fr 80px;}
   .dp .lrow .lbar,.dp .colh span:nth-child(3){display:none;}
 }
-@media(max-width:560px){.dp .kpis{grid-template-columns:1fr;}}
+@media(max-width:560px){.dp .kpis{grid-template-columns:1fr;} .dp .pies{grid-template-columns:1fr;}}
 @media(prefers-reduced-motion:reduce){.dp *{transition:none!important;}}
 
 /* ── EVERYTHING follows the journal font now — words via --disp, figures via --mono ──────────

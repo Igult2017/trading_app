@@ -42,9 +42,10 @@ _EMPTY = {
 }
 
 
-def _group_drawdown(trades: list, key_fn) -> list:
+def _group_drawdown(trades: list, key_fn, limit: int | None = 8) -> list:
     """Per-group loss contribution: total negative %-PnL, loss rate, trade count.
-    Sorted worst (most negative) first; capped at 8 rows."""
+    Sorted worst (most negative) first; capped at `limit` rows (8, the panel's list). None keeps every
+    row — the loss-share pies (loss_share.py) need the whole, or every slice comes out too big."""
     groups: dict = {}
     for t in trades:
         k = key_fn(t)
@@ -85,20 +86,25 @@ def _group_drawdown(trades: list, key_fn) -> list:
     # Tie-break by name so two rows on an identical value cannot swap places depending on the
     # order the trades happened to arrive in (2026-08-29).
     out.sort(key=lambda x: (x["totalLossPct"], x["name"]))   # most-negative first
-    return out[:8]
+    return out if limit is None else out[:limit]
 
 
-def _group_metrics(records: list, attr: str, sb: float) -> list:
+def _group_metrics(records: list, attr: str, sb: float, limit: int | None = 8,
+                   empty_label: str | None = None) -> list:
     """Loss-contribution breakdown over Metrics-normalised TradeRecords, so the grouping
     key (strategy / instrument) and win/loss are IDENTICAL to the Metrics page. % uses
     the fixed starting-balance denominator (pnl/sb), matching Metrics' returns. Empty
-    strategy → 'Unclassified' (as Metrics); empty instrument → skipped (as Metrics)."""
+    strategy → 'Unclassified' (as Metrics); any other empty key → skipped (as Metrics), unless
+    `empty_label` names a group for it. `limit` caps the rows (8, the panel's list); None keeps
+    every row — the loss-share pies (loss_share.py) must count every loss, or the slices are wrong."""
     groups: dict = {}
     for r in records:
         k = getattr(r, attr, None)
         if not k:
             if attr == "strategy":
                 k = "Unclassified"
+            elif empty_label:
+                k = empty_label   # the loss-share pies count every loss, tagged or not
             else:
                 continue   # Metrics omits trades with no instrument
         g = groups.setdefault(k, {"name": k, "trades": 0, "losses": 0, "wins": 0,
@@ -133,7 +139,7 @@ def _group_metrics(records: list, attr: str, sb: float) -> list:
     # shows — the sibling `_group_drawdown` above is only the fallback when the Metrics parser
     # is unavailable, and BOTH needed it.
     out.sort(key=lambda x: (x["totalLossPct"], x["name"]))
-    return out[:8]
+    return out if limit is None else out[:limit]
 
 
 def compute_intelligence(trades: list, starting_balance: float) -> dict:

@@ -15,7 +15,6 @@
  *   server/python/drawdown_calculator.py       (orchestrator)
  *   server/python/drawdown_core.py             (peak/trough/recovery)
  *   server/python/drawdown_streaks.py          (consecutive loss streaks)
- *   server/python/drawdown_heatmap.py          (pair×strategy heatmap)
  *   server/python/drawdown_distribution.py     (size distribution histogram)
  *   server/python/drawdown_frequency.py        (frequency by attribute)
  *   server/python/drawdown_metrics.py          (KPI summary)
@@ -74,7 +73,6 @@ export interface DrawdownResult {
     trendAlignment: number;
   };
   streaks?: Record<string, any>;
-  heatmap?: any[];
   distribution?: Record<string, any>;
   frequency?: Record<string, any>;
   structural?: Record<string, any>;
