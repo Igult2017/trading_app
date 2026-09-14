@@ -1541,6 +1541,12 @@ the line adds far more: a dip of one or two closes counts as a swing (median 3 c
     EUR/USD  WICKS 212 new signals · FULL LINE 195 · 68 lost, 51 new — about a third changed
     GBP/USD  WICKS 216 new signals · FULL LINE 211 · 53 lost, 48 new
 
+    EUR/USD  WICKS 212 · LEVELS AT CLOSES 206 · 28 lost, 22 new — lost includes his 11 Sep 18:00 SELL
+    GBP/USD  WICKS 216 · LEVELS AT CLOSES 220 · 16 lost, 20 new
+
+The middle reading moves about half as many signals as the full line (roughly 1 in 8 on EUR/USD,
+1 in 13 on GBP/USD), but it still loses his confirmed 11 Sep sell, and it does not gain his 03 Sep buys.
+
 **HIS CANDLES — the yardstick he set** (*"the yardstick should be those signals that i identified"*):
 
 * **EUR/USD Fri 11 Sep 18:00 his — the sell he confirmed on 13 Sep.** WICKS: **SELL**. LEVELS AT
