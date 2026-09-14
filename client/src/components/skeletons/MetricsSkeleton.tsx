@@ -82,10 +82,11 @@ export function MetricsSkeleton() {
     <>
       <div className="mp-kpi">
         {KPIS.map(([caption, sub], i) => (
-          <div key={i} className="mp-kpi-cell" style={{ background: BG2, border: `0.5px solid ${BD_OUTER}`, borderRadius: 8, padding: "10px 12px" }}>
-            <div style={{ marginBottom: 5 }}><TextLine w={caption} px={11} /></div>
-            <div style={{ marginBottom: 3 }}><TextLine w={56} px={10} lh={1.1} /></div>
-            <TextLine w={sub} px={11} />
+          <div key={i} className="mp-kpi-cell" style={{ background: BG2, border: `0.5px solid ${BD_OUTER}`, borderRadius: 8, padding: "12px 14px" }}>
+            {/* The card sizes of 2026-09-15 (MetricsPanel.tsx KPI strip): 13px caption, 20px figure, 13px line. */}
+            <div style={{ marginBottom: 6 }}><TextLine w={caption} px={13} /></div>
+            <div style={{ marginBottom: 4 }}><TextLine w={96} px={20} lh={1.15} /></div>
+            <TextLine w={sub} px={13} />
           </div>
         ))}
       </div>

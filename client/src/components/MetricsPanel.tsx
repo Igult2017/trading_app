@@ -431,6 +431,8 @@ export default function MetricsPanel({ sessionId, darkMode = true }: { sessionId
     '--mp-pubg': 'rgba(127,119,221,0.1)', '--mp-pubd': 'rgba(127,119,221,0.3)',
     '--mp-cybg': 'rgba(74,232,216,0.1)',  '--mp-cybd': 'rgba(74,232,216,0.3)',
     '--mp-gybg': '#F1F5F9', '--mp-gybd': '#CBD5E1',
+    // The seven headline cards (KPI strip): caption, line under, win figure, loss figure.
+    '--mp-kpi-cap': '#1E293B', '--mp-kpi-sub': '#334155', '--mp-kpi-pos': '#047857', '--mp-kpi-neg': '#DC2626',
   } as React.CSSProperties : {};
 
   // The loading screen draws this page's own layout (MetricsSkeleton) with the stylesheet above. No
@@ -627,12 +629,24 @@ export default function MetricsPanel({ sessionId, darkMode = true }: { sessionId
       )}
 
       {/* ── KPI STRIP ── */}
+      {/* THE SEVEN HEADLINE CARDS, made readable on his report of 2026-09-15: "There is a visibility problem
+          in the text and numbers i have ticked. I suggest increasing font sizes and using playfair with no
+          strokes. Also make the font colors more visible."
+          MEASURED IN PLAYWRIGHT FIRST: all three parts already rendered in the journal's variable Playfair
+          (the journal font rule, Journal.tsx, overrides any face set here — which is why the mono stack
+          these used to name did nothing, and why none is named now). The trouble was size, weight and
+          colour: 11px / 10px / 11px at weight 500-600, where Playfair's thin strokes drop out
+          (docs/READABILITY.md, cause 1), captions in #A8AEB8, figures in a dim green (5.5:1) and red (4.7:1).
+          Now captions 13px / 700 and lines 13px / 600 (13px rasterises Playfair better than the sizes
+          either side, READABILITY.md), figures 20px / 700 in the journal's brighter win / loss colours.
+          The colours are page variables; the light theme's values are in lightVars above. */}
       <div className="mp-kpi">
         {kpis.map((k, i) => (
-          <div key={i} className="mp-kpi-cell" data-testid={`metric-kpi-${i}`} style={{ background: D.bg2, border: `0.5px solid ${D.bdOuter}`, borderRadius: 8, padding: '10px 12px' }}>
-            <div style={{ ...MONO, fontSize: 11, color: D.label, textTransform: 'uppercase' as const, letterSpacing: '0.08em', marginBottom: 5 }}>{k.l}</div>
-            <div style={{ ...MONO, fontSize: 10, fontWeight: 600, lineHeight: 1.1, color: k.positive === true ? D.green : k.positive === false ? D.red : D.text, marginBottom: 3 }}>{k.v}</div>
-            <div style={{ ...MONO, fontSize: 11, color: D.sub }}>{k.s}</div>
+          <div key={i} className="mp-kpi-cell" data-testid={`metric-kpi-${i}`} style={{ background: D.bg2, border: `0.5px solid ${D.bdOuter}`, borderRadius: 8, padding: '12px 14px' }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--mp-kpi-cap, #ECEEF2)', textTransform: 'uppercase' as const, marginBottom: 6 }}>{k.l}</div>
+            <div style={{ fontSize: 20, fontWeight: 700, lineHeight: 1.15, whiteSpace: 'nowrap' as const, marginBottom: 4,
+                          color: k.positive === true ? 'var(--mp-kpi-pos, #34d399)' : k.positive === false ? 'var(--mp-kpi-neg, #fb7185)' : 'var(--mp-kpi-cap, #ECEEF2)' }}>{k.v}</div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--mp-kpi-sub, #C2CBD6)' }}>{k.s}</div>
           </div>
         ))}
       </div>
