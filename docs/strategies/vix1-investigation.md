@@ -623,6 +623,25 @@ the binding one on **every hour** of his window.
 
 ## ISSUE 2 — Trend detection
 
+> **⚠ CORRECTED 2026-09-14 — "five hours late" compared the engine with his EYE, not with his written
+> rules.** Re-measured hour by hour on today's live code, GBP/USD 10 Sep (his clock):
+>
+> * The uptrend was protected by the low of **09 Sep 00:00 (1.35279)**.
+> * His mark 1 at **13:00 closed 1.35387 — 10.8 pips ABOVE it**. 14:00 closed 1.35284, 0.5 pip above.
+>   The **15:00 candle closed 1.35108, THROUGH it** — that is the change of character, and the engine
+>   registered it on that exact bar. DOWN was confirmed at 18:00 (break of 1.34908).
+> * The market HAD printed a **lower high** (1.35661 against the 1.35673 peak, 1.2 pips lower; confirmed
+>   at 14:00) but **no lower low** — the 09 Sep 13:00 low (1.35296) stayed above 1.35279. By his own
+>   definition, a downtrend is LL + LH, so at 13:00 it was not yet a downtrend.
+> * Using the most recent low (1.35296) as the protected level would move the turn ONE hour earlier,
+>   to 14:00 — still after mark 1.
+> * Under his rule of 25 Aug a turn down must break, run, pull back and turn back down before a sell
+>   trades. Mark 1 sits BEFORE the break, so no trend timing makes it tradeable under his written rules.
+>
+> **NOT A LAG BUG. Sending mark 1 needs a rule change — e.g. a lower high alone starting the turn —
+> and that is his decision.** `vix1.md` records the risk: half of all pullbacks print their own lower
+> high and lower low inside an intact uptrend (21 of 42 GBP/USD, 17 of 37 EUR/USD over 12 months).
+
 **What we know.** The system saw his downtrend about **five hours later than he did**. It still read
 UP through 10 Sep 11:00 UTC (his 14:00), went to "no trend, changing" for three hours, and only
 called it DOWN from 10 Sep 15:00 UTC (**his 18:00**). His first two marked candles fell inside that
@@ -845,7 +864,7 @@ Over the last 2,200 GBP/USD bars the 100-bar test is the stricter of the two **5
 it was the binding one on **every single hour** of his window. The second test — the one built from
 his own candles — was asking only 9.3-9.5p, and ~~two of his candles passed it (9.9p and 10.3p)~~ **four passed it — 9.9p, 9.8p, 17.6p and 10.3p (CORRECTED 2026-09-14); 9.9p and 10.3p are the two refused by the 100-bar test ALONE.**
 
-**(b) The system called the downtrend ~5 hours later than he did.** It read UP through 10 Sep 11:00
+**(b) The system called the downtrend ~5 hours later than he did — ⚠ later than his EYE, not than his written rules; see the correction under ISSUE 2.** It read UP through 10 Sep 11:00
 UTC, mid-turn 12:00-14:00, and only DOWN from **15:00 UTC (his 18:00)**. His first two marked candles
 fall inside that lag, which is why their refusal says "up trend".
 
