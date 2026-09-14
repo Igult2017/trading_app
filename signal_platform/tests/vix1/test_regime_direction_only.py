@@ -82,14 +82,32 @@ s.teeth("the OLD 0.50x ATR rule refused this exact market", old_says_trend is Fa
 
 
 # ── END TO END, THROUGH THE REAL detect_bias ───────────────────────────────
-start = at("2026-09-02 00:00")
-fired = []
-for j in range(start, len(bars)):
-    b = vix1_bias.detect_bias(bars[:j + 1], [], "EUR/USD")
-    if b:
-        fired.append((datetime.datetime.utcfromtimestamp(bars[j].time), b.bullish))
+# These three BUYs came through the change-of-character SHORTCUT, which his instruction of 2026-09-14
+# switched off for a turn up ("enable pullback to uptrend the same way we have a pullback after first
+# trend run in the downtrend"). So the regime fix is proved with the shortcut ON — the thing this file
+# guards is that a shallow downtrend no longer blocks that route — and the live default is asserted
+# separately: with the shortcut OFF these bars trade nothing until the pullback has turned back up.
+from strategies import vix1_choch                                    # noqa: E402
 
-s.check("the real detect_bias now produces a bias on these bars", len(fired) > 0, True)
+start = at("2026-09-02 00:00")
+
+
+def fired_with(shortcut_on: bool):
+    vix1_choch._EXEMPT_UP_TURNS = shortcut_on
+    try:
+        out = []
+        for j in range(start, len(bars)):
+            b = vix1_bias.detect_bias(bars[:j + 1], [], "EUR/USD")
+            if b:
+                out.append((datetime.datetime.utcfromtimestamp(bars[j].time), b.bullish))
+        return out
+    finally:
+        vix1_choch._EXEMPT_UP_TURNS = False
+
+
+fired = fired_with(True)
+s.check("with the up-turn shortcut ON, the real detect_bias produces a bias on these bars",
+        len(fired) > 0, True)
 s.check("...and it is a BUY, the change of character he was pointing at",
         all(bull for _, bull in fired), True)
 s.check("...on 03 Sep", all(d.strftime("%Y-%m-%d") == "2026-09-03" for d, _ in fired), True)
@@ -97,6 +115,11 @@ s.check("...on 03 Sep", all(d.strftime("%Y-%m-%d") == "2026-09-03" for d, _ in f
 # The exact count is recorded rather than asserted loosely, so a future change that alters it is
 # visible instead of silent. 3 = 11:00, 12:00 and 16:00 UTC.
 s.check("three hours of that day carry the bias", len(fired), 3)
+
+fired_default = fired_with(False)
+s.check("by DEFAULT (shortcut off since 2026-09-14) these bars trade nothing — the turn up has not "
+        "yet run, pulled back and turned back up", len(fired_default), 0)
+s.teeth("the shortcut switch is what decides it", len(fired) == 3 and len(fired_default) == 0)
 
 
 # ── THE CONTROL: a market where the sides DISAGREE is still refused ────────

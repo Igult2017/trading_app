@@ -1290,3 +1290,48 @@ one would have thrown away +14.8R of +19.9R. **The band idea alone (came back >=
 **Status: nothing wired. Charts of the combined version's confident calls are in
 `C:\Users\FSD\Desktop\vix-chop-24h\`. Decision is his:** which version, and whether his pullback rule
 applies (it halves detection inside chop).
+
+---
+
+## 2026-09-14 — HIS TWO INSTRUCTIONS, BUILT
+
+> *"Build it and then dont enable it. We will have to continue working on it. Then enable pullback to
+> uptrend the same way we have a pullback after first trend run in the downtrend."*
+
+### 1. THE CHOP DETECTOR — built, NOT switched on
+
+`vix1_chop.py` is his band idea on its own (option A, recommended and not objected to): over the last
+24 closed candles, draw a line at the highest high and one at the lowest low; choppy when price CLOSES
+back across the middle of them 6 or more times. No pullback set aside (measured: it halves detection
+inside chop — still his decision). Nothing calls it; `test_chop_band.py` fails the day something does.
+Numbers already recorded above: 32% of his chop hours, 13-14% of ordinary hours, 7% of his good
+readings, neutral on money.
+
+### 2. A TURN UP MUST NOW PROVE ITSELF, LIKE A TURN DOWN
+
+**Where the rule lived — every enforcement point, read before changing:** `vix1_choch.py:128-131`
+(`if not bullish: return None`) was the one-sided refusal; `vix1_preclose._could_trade` copied it in
+two places (the forming-bar branch for a candle turning the market up, and `st.pending == 1`).
+`vix1_bias` has no second copy — a pending turn reaches only `choch_entry`.
+
+**What changed:** `vix1_choch._EXEMPT_UP_TURNS = False` plus `exempts(bullish)`, the single place the
+decision is made; `choch_entry` refuses a pending turn in either direction unless exempt;
+`_could_trade` asks `exempts` in both places. **Switched off, not deleted** — after the lesson of the
+same day, and so restoring it is one line.
+
+**WHAT IT COSTS, measured on real EUR/USD and GBP/USD bars (a count of setups, not a backtest):**
+
+    the shortcut produced, in the last 12 months:   EUR/USD 36 buys (3.0/month)   GBP/USD 32 (2.7/month)
+
+    his 28 Jul 2026 break    OLD: BUY at 17:00 and 18:00 (his clock) via the shortcut
+                             NOW: nothing until 29 Jul 16:00, a trend-route BUY that ALREADY existed
+    his 03 Sep 2026 setup    OLD: BUY at 14:00, 15:00, 19:00 via the shortcut
+                             NOW: nothing until 07 Sep 01:00, a trend-route BUY that ALREADY existed
+
+**So those trades are LOST, not delayed.** Nothing new appears once the pullback turns back — the
+later buys were already being signalled with the shortcut on.
+
+**Proved, not assumed:** `test_choch_bearish_proof.py` now walks his sequence stage by stage through
+the real `detect_bias` in BOTH directions (no trade while it breaks and runs, none in the pullback, a
+trade once it turns back), and shows the switch restores the old upward exemption and can never open a
+turn down.

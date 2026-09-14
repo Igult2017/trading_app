@@ -1260,6 +1260,16 @@ the `Retracement` the path already computed. Only the SEQUENCE is new, and the s
 
 **His instruction 2026-09-04: record it as an ongoing project, we will continue it.**
 
+**UPDATE 2026-09-14 — THE BAND DETECTOR IS BUILT AND NOT SWITCHED ON.** His instruction: *"Build it
+and then dont enable it. We will have to continue working on it."* `signal_platform/strategies/vix1_chop.py`:
+over the last 24 candles, choppy when price crosses back through the middle of its range 6 or more
+times (his idea — *"mark lines at the top and bottom..."*). Measured on EUR/USD: catches **32%** of the
+hours inside his five circled chop markets, fires on **13-14%** of ordinary hours (EUR/USD and GBP/USD
+alike), flags **7%** of his good readings, and is neutral on the 220 trades of the approved backtest.
+**STILL OPEN:** most of his chop is missed; whether the live pullback is set aside first (measured, it
+halves detection); and the 24 / 6 numbers were read off five EUR/USD regions — more circled chop on
+GBP/USD and gold is needed before trusting them. Full record: `docs/strategies/vix1-investigation.md`.
+
 **HIS THREE DEFINITIONS.** *RANGING* — not printing HHs and HLs (or LLs and LHs). *QUIET* — *"has no
 momentum candles which I call volume candles... no activities"*. *CHOPPY* — *"can be trending but
 prints 1 red volume candle then a bullish candle... no specific group of candles in succession"*,

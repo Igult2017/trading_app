@@ -99,9 +99,10 @@ def check(h1_closed: list[Candle], h1_raw: list[Candle], symbol: str,
     readers — `breaks down and runs` gives -1 (held back), and once it has pulled back and turned
     back down `pending` is 0 and the notification speaks again.
 
-    A TURN UP IS UNTOUCHED, and so is a down candle in an already-confirmed downtrend (`pending` 0) —
-    that trend proved itself long ago. This is deliberately the narrow reading of his sentence: it
-    mirrors the one-sided rule it is aligning to, and nothing else.
+    A TURN UP IS HELD BACK THE SAME WAY SINCE 2026-09-14 ("enable pullback to uptrend the same way we
+    have a pullback after first trend run in the downtrend") — `_could_trade` asks
+    `vix1_choch.exempts`, so this follows the entry whichever way that switch is set. A candle in an
+    already-confirmed trend (`pending` 0) is untouched in both directions: that trend proved itself.
 
     THE TREND IS READ ONLY AFTER the bearish momentum test has already passed, so the cost lands in
     the few minutes before a qualifying bearish candle closes rather than on every scan of every
@@ -148,15 +149,20 @@ def _could_trade(h1_closed: list[Candle], bullish: bool,
     So "the trend disagrees" alone is NOT a reason to stay silent — that would mute exactly the
     reversals `vix1_choch` exists to catch. The test is whether EITHER route is open:
 
-      BUY   trend is up, OR an upward turn is pending
-      SELL  trend is down. A pending DOWNWARD turn is refused by his rule of 2026-08-25 (it must run,
-            pull back and turn back down first), so it stays refused here — the notification and the
-            entry give the same answer, which is the point.
+      BUY   trend is up, OR an upward turn is pending AND `vix1_choch.exempts(True)` — which is OFF
+            since his instruction of 2026-09-14, so a pending turn up now stays silent like a turn
+            down ("enable pullback to uptrend the same way we have a pullback after first trend run
+            in the downtrend")
+      SELL  trend is down. A pending DOWNWARD turn is never exempted (his rule of 2026-08-25).
+
+    The exemption is ASKED of `vix1_choch.exempts`, never restated here, so the notification and the
+    entry give the same answer whichever way that switch is set — which is the point.
 
     Read off the `TrendState` the strategy already computes, from CLOSED bars only: a trend is a
     LEVEL, and a level never comes from a bar still forming. Called only AFTER the momentum test has
     passed, so the cost lands in the last minutes of a qualifying candle, not on every scan.
     """
+    from strategies import vix1_choch
     from strategies.vix1_bias import _H1_SWING_N, _H1_TREND_BARS
     from strategies.vix1_swings import structure_turns
     from strategies.vix1_trend import trend_state
@@ -174,24 +180,16 @@ def _could_trade(h1_closed: list[Candle], bullish: bool,
     # that level. This asks the same question of the bar in progress, which is legitimate in THIS
     # module and nowhere else: it is the one place that deliberately reads the forming bar.
     #
-    # ONE SIDE ONLY, AND THAT IS HIS RULE OF 2026-08-25, NOT A CHOICE MADE HERE. Traced through the
-    # real `trend_state` and `choch_entry` on a synthetic turn of each kind:
-    #
-    #     a SELL closing through an UPtrend's protection  -> pending -1 -> choch_entry REFUSES it
-    #                                                        ("a turn DOWN is not exempted from the
-    #                                                         pullback rule")
-    #     a BUY  closing through a DOWNtrend's protection -> pending +1 -> choch_entry gives a BIAS
-    #
-    # So the downward break has NO route and must stay silent — announcing it would re-open exactly
-    # what his 26 Aug instruction closed. Only the upward one is added. This mirrors `choch_entry`'s
-    # own one-sidedness rather than restating it, and it grants no permission the line below does not
-    # already grant — it grants the SAME one, one bar earlier, on the bar that earns it.
-    if (forming_bar is not None and bullish and st.direction == -1
+    # ASKED OF `vix1_choch.exempts`, NOT HARD-CODED TO ONE SIDE. It opened only for a turn UP because
+    # only a turn up had the shortcut. Since 2026-09-14 neither does, so by default this branch is
+    # shut too — announcing that break would promise a trade the entry refuses. A downward break has
+    # never had a route here and still has none.
+    if (forming_bar is not None and bullish and vix1_choch.exempts(True) and st.direction == -1
             and st.protected is not None and forming_bar.close > st.protected):
         return True
 
     if bullish:
-        return st.direction == 1 or st.pending == 1
+        return st.direction == 1 or (st.pending == 1 and vix1_choch.exempts(True))
     return st.direction == -1
 
 

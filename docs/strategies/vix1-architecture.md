@@ -79,7 +79,7 @@ answer belongs in the owning module, not in a new one.
 | Has the trend run and pulled back at least once? | `vix1_tradeable.trend_reproven` | sole owner |
 | Was this candle born out of a dead market? | `vix1_tradeable.market_awake` | sole owner |
 | Is this candle a momentum candle? | `vix1_momentum.is_momentum_candle` | sole owner — imported unchanged by `market_awake` so the two can never drift |
-| Is the market choppy (his definition)? | `vix1_tradeable.market_not_choppy` | **NOT BUILT AND NOT WIRED** — zero references anywhere. See D42 |
+| Is the market choppy (his definition)? | `vix1_chop.market_not_choppy` — his band idea: over 24 candles, price crossing back through the middle of its range 6+ times | **BUILT, NOT SWITCHED ON** (2026-09-14, his instruction) — nothing calls it, and `test_chop_band.py` fails the day something does. The older flip-count `vix1_tradeable.market_not_choppy` is also unwired, kept by his decision. See D42 |
 | How is the market described on the card? | `vix1_regime.describe` / `efficiency` | sole owner, reporting only, decides nothing |
 | Which way does the 1M enter? | `vix1_cross` | sole owner since 2026-08-20 |
 
@@ -343,6 +343,13 @@ pullback refusal. The second exists because that refusal blocked the trade he ac
 | 06:00 | candle older than `LOOKBACK`, gone |
 
 **Two independent refusals**, so removing either alone changes nothing — hence a route, not a patch.
+
+**⚠ SWITCHED OFF BY DEFAULT SINCE 2026-09-14.** Before any condition below is asked, `choch_entry`
+refuses a pending turn unless `vix1_choch.exempts(bullish)` — never for a turn down (2026-08-25), and
+for a turn up only while `_EXEMPT_UP_TURNS` is on, which his instruction of 2026-09-14 set OFF. The
+turn then falls through to the normal route, which opens only after the pullback has turned back.
+`vix1_preclose._could_trade` asks the same `exempts`, so the heads-up and the entry cannot disagree.
+The conditions below run only with the switch on.
 
 **The four conditions** (`vix1_choch.choch_entry`), all of which must hold:
 

@@ -34,6 +34,13 @@ from core.types import TF
 s = Suite("VIX.1 — the change-of-character route")
 H1_COUNT = Vix1Strategy.candle_counts[TF.H1]
 
+# THE UPWARD EXEMPTION IS SWITCHED OFF SINCE 2026-09-14 — his instruction: "enable pullback to uptrend
+# the same way we have a pullback after first trend run in the downtrend". Everything in this file
+# tests the ROUTE ITSELF (its conditions, its window, its guards), so it runs with the switch ON: that
+# proves the route is intact and one line from being restored. What the DEFAULT does is asserted at
+# the bottom of this file, and stage by stage in test_choch_bearish_proof.py.
+vix1_choch._EXEMPT_UP_TURNS = True
+
 
 def at_chart_time(bars, y, m, d, hh):
     """Index of the bar whose CHART time (UTC+3, his screen) is this. -1 if absent."""
@@ -247,5 +254,22 @@ if eur and i17 > 0:
     b_off = detect_bias(eur[max(0, i17 - H1_COUNT):i17 + 1], [], "EUR/USD")
     _vb.vix1_choch.choch_entry = _real_entry
     s.teeth("his 28 Jul trade depends on this route", b_off is None)
+
+# ── THE DEFAULT SINCE 2026-09-14: THE UPWARD EXEMPTION IS OFF ────────────────────────────────────
+# Everything above ran with the switch ON. With it OFF — the live setting — a turn up gets no shortcut,
+# so the synthetic break and his own 28 Jul chart must both be refused on the break itself.
+print()
+print("DEFAULT (switch OFF, live since 2026-09-14) — a turn up must prove itself first")
+vix1_choch._EXEMPT_UP_TURNS = False
+bias_def, why_def = entry_for(fires)
+s.check("the big candle breaking the protecting high is NOT traded on the break", bias_def is None, True)
+s.check("...because a turn UP now has to run, pull back and turn back up",
+        "must run, pull back, and turn back up" in why_def, True)
+s.teeth("the switch is what decides it — the same bars traded with it on",
+        bias is not None and bias_def is None)
+if eur and i17 > 0:
+    b_def = detect_bias(eur[max(0, i17 - H1_COUNT):i17 + 1], [], "EUR/USD")
+    s.check("his 28 Jul 17:00 break is no longer traded through the change-of-character route",
+            b_def is None or b_def.origin != "choch", True)
 
 s.done()

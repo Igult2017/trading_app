@@ -15,9 +15,11 @@ all 12.** The quiet test catches the three that came out of a market with no mom
 The other nine need the chop rule, which is NOT built — his third definition has no test yet.
 
 THE CONTROL MATTERS MORE THAN THE REFUSALS. His one marked TRADEABLE market — EUR/USD 03 Sep 2026,
-*"a trending and volatile market"* — must still fire all three of its signals. It comes through the
-REVERSAL route with the weakest structure of any window measured (highs -2.1x, lows -21.7x), so a
-liveness test applied there would kill the setup this whole change exists to protect.
+*"a trending and volatile market"* — must not be killed by the rules in this file. It comes through
+the REVERSAL route with the weakest structure of any window measured (highs -2.1x, lows -21.7x), so a
+liveness test applied there would kill the setup this whole change exists to protect. SINCE
+2026-09-14 that route's shortcut is switched off for a turn up (his instruction), so the control is
+checked with the shortcut ON, and the live default — no trade on those three bars — beside it.
 
 A BUG THIS FILE WOULD NOT HAVE CAUGHT, recorded because his own suite did. The first version of
 `trend_reproven` looked for the wrong turn: in a downtrend the pullback goes UP and is confirmed by a
@@ -55,10 +57,23 @@ def fires(when):
 
 
 # ── THE CONTROL FIRST. If this breaks, nothing else matters. ───────────────
+# These three BUYs come through the change-of-character SHORTCUT. His instruction of 2026-09-14
+# switched that shortcut off for a turn up ("enable pullback to uptrend the same way we have a pullback
+# after first trend run in the downtrend"). So the control this file owns — the quiet and re-proof
+# rules must not kill this setup — is checked with the shortcut ON, and the live default beside it.
+from strategies import vix1_choch                                   # noqa: E402
+
 print()
-print("   his ONE tradeable market must still fire (03 Sep, the reversal that started this):")
+print("   his ONE tradeable market must not be killed by THESE rules (03 Sep, the reversal):")
 for w in ("2026-09-03 11:00", "2026-09-03 12:00", "2026-09-03 16:00"):
-    s.check(f"   {w} still trades", fires(w), True)
+    vix1_choch._EXEMPT_UP_TURNS = True
+    try:
+        _on = fires(w)
+    finally:
+        vix1_choch._EXEMPT_UP_TURNS = False
+    s.check(f"   {w} still trades with the up-turn shortcut on", _on, True)
+    s.check(f"   {w} does NOT trade by default — the turn up has not proved itself yet",
+            fires(w), False)
 
 
 # ── HIS RULE: A QUIET MARKET MUST PROVE ITSELF ────────────────────────────

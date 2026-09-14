@@ -94,16 +94,17 @@ else:
 # it reads is the state BEFORE the break. The bar that proposes a turn up always reads as
 # counter-trend at the moment we ask.
 #
-# ONE SIDE ONLY, AND THE OTHER SIDE IS THE CONTROL. Both are traced here through the real
-# `trend_state` and `choch_entry`, so the asymmetry is PROVED in this file rather than asserted:
+# SINCE 2026-09-14 NEITHER SIDE HAS THE SHORTCUT BY DEFAULT — his instruction extended the turn-down
+# rule of 2026-08-25 to a turn up. The BUY branch now opens only while `vix1_choch._EXEMPT_UP_TURNS`
+# is on, so both settings are traced here through the real `trend_state` and `choch_entry`:
 #
-#     a SELL closing through an UPtrend's protection  -> pending -1 -> choch_entry REFUSES
-#     a BUY  closing through a DOWNtrend's protection -> pending +1 -> choch_entry gives a BIAS
+#     a SELL closing through an UPtrend's protection  -> pending -1 -> choch_entry REFUSES, always
+#     a BUY  closing through a DOWNtrend's protection -> pending +1 -> REFUSED by default,
+#                                                        a BIAS only with the switch on
 #
-# That is his rule of 2026-08-25 ("a turn DOWN is not exempted from the pullback rule"), enforced in
-# `vix1_choch`. The notification must give the same answer as the entry, so only the BUY is opened.
+# The notification must give the same answer as the entry, whichever way the switch is set.
 print()
-print("A BUY CANDLE BREAKING A DOWNTREND'S PROTECTION — it must be announced")
+print("A BUY CANDLE BREAKING A DOWNTREND'S PROTECTION — announced only when a turn up may be traded")
 
 
 def _bar(i, o, h, l, c):
@@ -144,30 +145,49 @@ s.check("the fixture is a downtrend with a protecting level", _ds.direction, -1)
 s.check("...and that level is on record", _ds.protected is not None, True)
 
 if _ds.protected is not None:
+    import strategies.vix1_choch as _choch
     _up_brk = _break_up(_down, _ds.protected)
-    _got = pc.check(_down, _down + [_up_brk], "EUR/USD", _up_brk.time + tf_seconds("H1") - 300)
-    s.check("a BUY candle breaking the downtrend's protection IS announced", _got is not None, True)
-    s.check("  ...and it is a BUY", bool(_got) and _got[1] is True, True)
-
-    # AND IT REALLY DOES HAVE A ROUTE — the entry agrees, so the notification is not promising
-    # something the strategy will refuse. This is the whole point of the file.
+    _clock = _up_brk.time + tf_seconds("H1") - 300
     _h = _down + [_up_brk]
     _w = _h[-_H1_TREND_BARS:]
     _t = state(_h)
-    _bias, _ = choch_entry(_w, _h, _t, structure_turns(_w, _H1_SWING_N), _H1_SWING_N, "EUR/USD")
-    s.check("  ...and once it closes the entry really does produce a BUY bias",
-            _bias is not None and _bias.bullish, True)
 
-    # The control that keeps this from becoming "any big counter-trend candle": one that has NOT
-    # reached the level stays silent.
-    _last = _down[-1]
-    _short = Candle(time=_last.time + 3600, open=_last.close, low=_last.close - 0.0002,
-                    high=_ds.protected - 0.0010, close=_ds.protected - 0.0015,
-                    volume=100, timeframe="H1")
-    _got_short = pc.check(_down, _down + [_short], "EUR/USD", _short.time + tf_seconds("H1") - 300)
-    s.check("a BUY candle that has NOT reached the level stays silent", _got_short, None)
-    s.teeth("breaking the level is what opens it, not merely being a big counter-trend candle",
-            _got is not None and _got_short is None)
+    # SINCE 2026-09-14 A TURN UP HAS NO SHORTCUT EITHER — his instruction: "enable pullback to uptrend
+    # the same way we have a pullback after first trend run in the downtrend". So by default this BUY
+    # has no route and must stay SILENT, and the entry must agree. Notification follows entry.
+    _got_off = pc.check(_down, _h, "EUR/USD", _clock)
+    s.check("by default a BUY breaking the downtrend's protection is NOT announced", _got_off, None)
+    _bias_off, _ = choch_entry(_w, _h, _t, structure_turns(_w, _H1_SWING_N), _H1_SWING_N, "EUR/USD")
+    s.check("  ...because by default the entry refuses it too", _bias_off, None)
+
+    # WITH THE UPWARD EXEMPTION SWITCHED BACK ON, the 2026-08-29 behaviour must return intact.
+    _choch._EXEMPT_UP_TURNS = True
+    try:
+        _got = pc.check(_down, _h, "EUR/USD", _clock)
+        s.check("with the upward exemption ON, the same BUY IS announced", _got is not None, True)
+        s.check("  ...and it is a BUY", bool(_got) and _got[1] is True, True)
+
+        # AND IT REALLY DOES HAVE A ROUTE — the entry agrees, so the notification is not promising
+        # something the strategy will refuse. This is the whole point of the file.
+        _bias, _ = choch_entry(_w, _h, _t, structure_turns(_w, _H1_SWING_N), _H1_SWING_N, "EUR/USD")
+        s.check("  ...and once it closes the entry really does produce a BUY bias",
+                _bias is not None and _bias.bullish, True)
+
+        # The control that keeps this from becoming "any big counter-trend candle": one that has NOT
+        # reached the level stays silent.
+        _last = _down[-1]
+        _short = Candle(time=_last.time + 3600, open=_last.close, low=_last.close - 0.0002,
+                        high=_ds.protected - 0.0010, close=_ds.protected - 0.0015,
+                        volume=100, timeframe="H1")
+        _got_short = pc.check(_down, _down + [_short], "EUR/USD",
+                              _short.time + tf_seconds("H1") - 300)
+        s.check("a BUY candle that has NOT reached the level stays silent", _got_short, None)
+        s.teeth("breaking the level is what opens it, not merely being a big counter-trend candle",
+                _got is not None and _got_short is None)
+    finally:
+        _choch._EXEMPT_UP_TURNS = False
+    s.teeth("the switch is what decides it — same candle, opposite answers",
+            _got_off is None and _got is not None)
 
 # ── THE CONTROL: THE DOWNWARD BREAK STAYS SILENT ─────────────────────────────────────────────────
 # His rule of 2026-08-25 is one-sided, so this fix must be too. If this section ever passes as

@@ -1,5 +1,11 @@
 """
-VIX.1 — THE CHANGE-OF-CHARACTER ROUTE. The one place a pullback is not asked for.
+VIX.1 — THE CHANGE-OF-CHARACTER ROUTE. The one place a pullback was not asked for.
+
+⚠ SINCE 2026-09-14 IT TRADES NOTHING BY DEFAULT. A turn DOWN has had to prove itself since 2026-08-25;
+he extended that to a turn UP ("enable pullback to uptrend the same way we have a pullback after
+first trend run in the downtrend"). Every pending turn now waits for his proof — run, pull back, turn
+back — and is then traded by the normal route. The route below is SWITCHED OFF (`_EXEMPT_UP_TURNS`),
+not deleted, and `test_choch.py` keeps it working with the switch on.
 
 HIS RULE, settled 2026-08-15 over three corrections, quoted so it cannot drift:
 
@@ -74,6 +80,23 @@ _MIN_BEFORE = 60
 
 ORIGIN = "choch"
 
+# MAY A TURN UP SKIP THE PULLBACK RULE? — OFF since 2026-09-14, his instruction:
+#
+#     "enable pullback to uptrend the same way we have a pullback after first trend run in the
+#      downtrend."
+#
+# That reverses his scope of 2026-08-25 ("we do this only for CHOCH when trend is changing from
+# uptrend to downtrend but not for downtrend to uptrend") — deliberately, and it is his call. A turn
+# DOWN has never had the exemption and this switch cannot give it one. SWITCHED OFF, NOT DELETED:
+# the route below is unchanged and still tested with the switch on, so restoring it is one line.
+_EXEMPT_UP_TURNS = False
+
+
+def exempts(bullish: bool) -> bool:
+    """May a pending turn THIS WAY be traded without its pullback? The ONE place this is decided —
+    `vix1_preclose` asks it too, so the notification and the entry can never disagree."""
+    return bullish and _EXEMPT_UP_TURNS
+
 
 def choch_entry(window: list[Candle], h1: list[Candle], tstate: TrendState,
                 turns, n: int, symbol: str) -> tuple[Bias | None, str]:
@@ -93,42 +116,28 @@ def choch_entry(window: list[Candle], h1: list[Candle], tstate: TrendState,
     ci = tstate.choch_index                      # indexes into `window`
     broke = tstate.choch_price
 
-    # 1a. A TURN DOWN GETS NO EXEMPTION — IT MUST PROVE ITSELF FIRST (his rule, 2026-08-25).
+    # 1a. A TURN MUST PROVE ITSELF FIRST — his rule for a turn DOWN (2026-08-25), and since
+    #     2026-09-14 for a turn UP too, unless `_EXEMPT_UP_TURNS` is switched back on:
     #
     #     "price breaks down through the old higher low -> it runs down -> it pulls back up -> when
     #      that pullback turns back down, that's the proof -> then a momentum candle down is the
-    #      trade."
+    #      trade."   ...and the same sequence the other way up for a turn up.
     #
-    # AND THE SCOPE IS HALF THE RULE. He said it twice, the second time as a warning:
+    # WHY IT IS A REFUSAL AND NOT A FIFTH CONDITION, which decided the shape. His proof lands AFTER
+    # this function has already returned:
     #
-    #     "we do this only for CHOCH when trend is changing from uptrend to downtrend but not for
-    #      downtrend to uptrend."
+    #     breaks + runs              -> exemption window OPEN (where the shortcut used to trade)
+    #     the pullback begins        -> `pending` is 0 and test 1b fires; the window is already SHUT
+    #     it turns back the new way  -> HIS PROOF lands here, one turn later
     #
-    # So this is ONE-SIDED ON PURPOSE. A turn UP keeps the exemption exactly as it always had it —
-    # every condition below is untouched and still runs for it. Nothing here is deleted.
-    #
-    # WHY IT IS A REFUSAL AND NOT A FIFTH CONDITION, which is the thing that decided the shape of
-    # this change. His proof lands AFTER this function has already returned. Traced on a synthetic
-    # bearish turn through the real `trend_state` / `structure_turns` / `classify`:
-    #
-    #     breaks down + runs      -> exemption OPEN  (this is where it used to trade)
-    #     the pullback UP begins  -> `pending` is 0 and test 2 fires; the window is already SHUT
-    #     it turns back down      -> HIS PROOF lands here, one turn later
-    #
-    # Test 2 closes the window at the first confirmed LOW after the break — the moment the pullback
-    # BEGINS — while his proof needs the pullback's HIGH to confirm. A fifth condition would sit
-    # below code that has already returned: dead on arrival, and it would have LOOKED like the rule
-    # was enforced.
-    #
-    # WHAT HAPPENS TO A BEARISH TURN INSTEAD: it falls through to the normal route (`vix1_bias`),
-    # which requires the regime to read TREND — a lower high AND a lower low, and a lower high cannot
-    # exist until the pullback has turned back down. Measured on that same synthetic shape, the
-    # regime flips to TREND on precisely the bar his proof lands. So his sequence is enforced by
-    # machinery that already exists and is already tested, rather than by a second copy of it here.
-    if not bullish:
-        return None, ("change of character down at "
-                      f"{broke:.5f} — a turn DOWN is not exempted from the pullback rule. It must "
-                      "run, pull back, and turn back down before a momentum candle can trade it.")
+    # A fifth condition would sit below code that has already returned — dead, and LOOKING enforced.
+    # So the turn falls through to the normal route (`vix1_bias`), which needs the new trend
+    # confirmed, and the second swing that confirms it cannot exist until the pullback has turned
+    # back. Asserted stage by stage, in BOTH directions, in `test_choch_bearish_proof.py`.
+    if not exempts(bullish):
+        return None, (f"change of character {way} at {broke:.5f} — a turn {way.upper()} is not "
+                      f"exempted from the pullback rule. It must run, pull back, and turn back "
+                      f"{way} before a momentum candle can trade it.")
 
     # 1b. THE FIRST PULLBACK AFTER THE BREAK CLOSES THE WINDOW — his refinement, 2026-08-15:
     #     "the exemption ends when we have the first pullback after CHOCH so that we dont trade in
