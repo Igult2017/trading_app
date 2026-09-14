@@ -4,6 +4,7 @@ import { authFetch, fetchJson } from "@/lib/queryClient";
 import { Loader2, RefreshCw, WifiOff, Cpu, Layout, Network, Zap, Activity, ShieldCheck, Target, Brain, AlertTriangle, BarChart3, Sparkles } from "lucide-react";
 import { useDelayedLoading } from "@/lib/useDelayedLoading";
 import { PanelSkeleton } from "@/components/skeletons/DashboardSkeletons";
+import { AuditSkeleton } from "@/components/skeletons/AuditSkeleton";
 import { useTranslation } from "react-i18next";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1515,10 +1516,13 @@ export default function StrategyAudit({ sessionId, userId, darkMode = true }: Pr
     '--sa-text':  '#1E293B', '--sa-mut':    '#64748B', '--sa-dim':   '#64748B',
   } as React.CSSProperties : {};
 
+  // The loading screen draws this page's own layout — header, tab strip, KPIs, the Strategy tab's
+  // cards — not the generic panel placeholder (his words, 2026-09-14: "does not really look anything
+  // like audit page"). Same background and padding as `.audit-root`, and top-aligned like it.
   const showAuditLoader = useDelayedLoading(isLoading);
   if (showAuditLoader) return (
-    <div style={{ minHeight: "100vh", background: T.bg, display: "flex", alignItems: "center", justifyContent: "center", ...saVars }}>
-      <PanelSkeleton />
+    <div style={{ minHeight: "100vh", background: T.bg, padding: "24px 0", ...saVars }}>
+      <AuditSkeleton darkMode={darkMode} />
     </div>
   );
 

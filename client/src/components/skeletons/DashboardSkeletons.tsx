@@ -31,7 +31,7 @@ import { Skeleton as ShadSkeleton } from "@/components/ui/skeleton";
  * `currentColor` rather than a fixed grey: it inherits the surface's own text colour, so it is light
  * on the dark journal and dark on the light one without a second palette to keep in step.
  */
-const Skeleton = ({ className = "", style }: { className?: string; style?: React.CSSProperties }) => (
+export const Skeleton = ({ className = "", style }: { className?: string; style?: React.CSSProperties }) => (
   <ShadSkeleton className={className}
     style={{ background: "currentColor", opacity: 0.13, color: "var(--jr-ink,#ECEEF2)", ...style }} />
 );
