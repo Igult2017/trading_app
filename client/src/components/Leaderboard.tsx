@@ -253,7 +253,7 @@ export default function Leaderboard() {
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="8.01"/><line x1="12" y1="11" x2="12" y2="16"/></svg>
         </div>
         <div style={{ minWidth: 0 }}>
-          <p className="jr-h3" style={{ margin: '0 0 3px', fontSize: 9, letterSpacing: '0.16em', textTransform: 'uppercase', color: '#60a5fa' }}>
+          <p style={{ margin: '0 0 3px', fontSize: 9, letterSpacing: '0.16em', textTransform: 'uppercase', color: '#60a5fa' }}>
             Community Rankings · Not Financial Advice
           </p>
           <p style={{ margin: 0, fontSize: isMobile ? 10.5 : 11.5, color: 'var(--jr-muted)', lineHeight: 1.55 }}>
@@ -376,11 +376,11 @@ export default function Leaderboard() {
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 14 }}>
                       <div>
-                        <p className="jr-h3" style={{ fontSize: 9, color: 'var(--jr-muted)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.1em', margin: '0 0 2px' }}>Profit</p>
+                        <p style={{ fontSize: 9, color: 'var(--jr-muted)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.1em', margin: '0 0 2px' }}>Profit</p>
                         <p style={{ fontSize: 14, fontWeight: 800, margin: 0, color: trader.pnl >= 0 ? '#34d399' : '#f87171' }}>{fmtPnl(trader.pnl)}</p>
                       </div>
                       <div style={{ textAlign: 'right' }}>
-                        <p className="jr-h3" style={{ fontSize: 9, color: 'var(--jr-muted)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.1em', margin: '0 0 2px' }}>
+                        <p style={{ fontSize: 9, color: 'var(--jr-muted)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.1em', margin: '0 0 2px' }}>
                           {activeCategory === 'profitFactor' ? 'P. Factor' : 'Win Rate'}
                         </p>
                         <p style={{ fontSize: 14, fontWeight: 800, margin: 0, color: accentFor(activeCategory) }}>
@@ -475,7 +475,7 @@ export default function Leaderboard() {
             <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: isMobile ? 8 : 10 }}>
               {/* Leader — the top-ranked entry for the current sort */}
               <div style={tileBox} {...tileHover}>
-                <p className="jr-h3" style={tileLbl}>🏆 {viewMode === 'session' ? 'Top Session' : 'Leader'}</p>
+                <p style={tileLbl}>🏆 {viewMode === 'session' ? 'Top Session' : 'Leader'}</p>
                 {leader ? (
                   <p style={{ ...tileVal, fontSize: isMobile ? 14 : 17, display: 'flex', alignItems: 'baseline', gap: 7 }}>
                     <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{truncateName(leader.name)}</span>
@@ -485,17 +485,17 @@ export default function Leaderboard() {
               </div>
               {/* Field average of the active metric — the bar to beat */}
               <div style={tileBox} {...tileHover}>
-                <p className="jr-h3" style={tileLbl}>Avg {catMeta.label}</p>
+                <p style={tileLbl}>Avg {catMeta.label}</p>
                 <p style={{ ...tileVal, color: catMeta.color }}>{traders.length ? avgLabel : '—'}</p>
               </div>
               {/* Field size */}
               <div style={tileBox} {...tileHover}>
-                <p className="jr-h3" style={tileLbl}>{viewMode === 'session' ? 'Sessions Ranked' : 'Active Traders'}</p>
+                <p style={tileLbl}>{viewMode === 'session' ? 'Sessions Ranked' : 'Active Traders'}</p>
                 <p style={tileVal}>{summary.activeTraders}</p>
               </div>
               {/* The viewer's own standing */}
               <div style={tileBox} {...tileHover}>
-                <p className="jr-h3" style={tileLbl}>Your Rank</p>
+                <p style={tileLbl}>Your Rank</p>
                 {myRank ? (
                   <p style={{ ...tileVal, color: myRank <= 3 ? '#eab308' : 'var(--jr-text)' }}>
                     #{myRank} <span style={{ fontSize: isMobile ? 11 : 12, fontWeight: 700, color: 'var(--jr-muted)' }}>of {totalRanked}</span>

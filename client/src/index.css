@@ -122,57 +122,6 @@
   src: url('@fontsource-variable/dm-sans/files/dm-sans-latin-wght-normal.woff2') format('woff2-variations');
 }
 
-/* ── THE JOURNAL'S TWO FACES (2026-09-14) ─────────────────────────────────────────────────────────
-   His instruction: "write these numbers in DM mono in the journal, the whole of the journal in
-   playfair with no strokes so they dont become blurred again ... the whole journal, not dashboard
-   only." Both faces point at files already bundled by the imports above.
-
-   JOURNAL PLAYFAIR — the same variable Playfair, declared 600-900. A request for 400 or 500 anywhere
-   in the journal then renders at 600: the browser clamps a requested weight into the face's declared
-   range, and on a variable font that moves the weight axis itself. That is "no strokes" — the
-   hairlines that vanish at small sizes are thickened everywhere at once, with no per-element edits.
-   Measured on the live site's own file at 13px before it was built: a 400 request renders identical
-   to 600 (185.99px vs 185.99px; plain 400 is 182.01px) and lays down 9.7% ink against 7.1%.
-   The italic cut is declared too: the journal's header levels use italics, and without the real
-   italic the browser fakes a slant.
-
-   JOURNAL FIGURES — DM Mono restricted to the digits and $ % + minus. It goes FIRST in the journal
-   stack (Journal.tsx), so every digit in any sentence, table or chart label is DM Mono while every
-   letter falls through to Playfair. Measured: a line of numbers switched (226.75px vs 201.06px) and a
-   words-only line did not move (148.29px both). DM Mono ships 400 and 500 only, so the 500 file
-   covers every heavier request, and Journal.tsx turns weight synthesis off so a 700 is never smeared
-   into a fake bold. */
-@font-face {
-  font-family: 'Journal Playfair'; font-style: normal; font-display: swap; font-weight: 600 900;
-  src: url('@fontsource-variable/playfair-display/files/playfair-display-latin-wght-normal.woff2') format('woff2-variations');
-  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
-}
-@font-face {
-  font-family: 'Journal Playfair'; font-style: normal; font-display: swap; font-weight: 600 900;
-  src: url('@fontsource-variable/playfair-display/files/playfair-display-latin-ext-wght-normal.woff2') format('woff2-variations');
-  unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;
-}
-@font-face {
-  font-family: 'Journal Playfair'; font-style: italic; font-display: swap; font-weight: 600 900;
-  src: url('@fontsource-variable/playfair-display/files/playfair-display-latin-wght-italic.woff2') format('woff2-variations');
-  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
-}
-@font-face {
-  font-family: 'Journal Playfair'; font-style: italic; font-display: swap; font-weight: 600 900;
-  src: url('@fontsource-variable/playfair-display/files/playfair-display-latin-ext-wght-italic.woff2') format('woff2-variations');
-  unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;
-}
-@font-face {
-  font-family: 'Journal Figures'; font-style: normal; font-display: swap; font-weight: 1 450;
-  src: url('@fontsource/dm-mono/files/dm-mono-latin-400-normal.woff2') format('woff2');
-  unicode-range: U+0030-0039,U+0024-0025,U+002B,U+2212;
-}
-@font-face {
-  font-family: 'Journal Figures'; font-style: normal; font-display: swap; font-weight: 451 1000;
-  src: url('@fontsource/dm-mono/files/dm-mono-latin-500-normal.woff2') format('woff2');
-  unicode-range: U+0030-0039,U+0024-0025,U+002B,U+2212;
-}
-
 /* ── THE BODY FACE, SERVED FROM A STABLE URL SO IT CAN BE PRELOADED ──────────────────────────────
    Declared AFTER the Fontsource imports on purpose: two @font-face rules for the same family and
    weight resolve to the LAST one, so this is the src the browser actually fetches — and it is the

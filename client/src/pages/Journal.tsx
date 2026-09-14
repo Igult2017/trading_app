@@ -190,7 +190,7 @@ const Sidebar = ({ activeNav, setActiveNav, open, isMobile, onClose, darkMode, s
             {NAV_SECTIONS.map((group, gi) => (
               <div key={gi} style={{ marginBottom: group.section ? 12 : 8 }}>
                 {gi > 0 && !group.section && <div style={{ height: 1, background: 'rgba(255,255,255,0.05)', margin: '8px 0' }} />}
-                {showLabels && group.section && <p className="jr-h3" style={{ fontSize: 8, fontWeight: 800, color: 'rgba(100,116,139,0.5)', letterSpacing: '0.2em', textTransform: 'uppercase', padding: '16px 12px 8px', margin: 0, whiteSpace: 'nowrap' }}>{group.section}</p>}
+                {showLabels && group.section && <p style={{ fontSize: 8, fontWeight: 800, color: 'rgba(100,116,139,0.5)', letterSpacing: '0.2em', textTransform: 'uppercase', padding: '16px 12px 8px', margin: 0, whiteSpace: 'nowrap' }}>{group.section}</p>}
                 {group.items.map(item => (
                   <NavButton key={item.id} item={item} isActive={activeNav === item.id} showLabels={showLabels} darkMode={dm}
                     label={t(`nav.${item.id}`, { defaultValue: item.label })}
@@ -473,7 +473,7 @@ function ActivityCalendar({ entries, darkMode = true }: { entries: any[]; darkMo
         <div style={{ width: 28, height: 28, background: 'rgba(56,189,248,0.1)', border: '1px solid rgba(56,189,248,0.1)', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#38bdf8' }}>
           <Activity size={14} strokeWidth={3} />
         </div>
-        <h2 className="jr-h1" style={{ fontSize: 11, fontWeight: 900, color: '#38bdf8', textTransform: 'uppercase', letterSpacing: '0.2em', margin: 0 }}>ACTIVITY</h2>
+        <h2 style={{ fontSize: 11, fontWeight: 900, color: '#38bdf8', textTransform: 'uppercase', letterSpacing: '0.2em', margin: 0 }}>ACTIVITY</h2>
       </div>
 
       <>
@@ -486,7 +486,7 @@ function ActivityCalendar({ entries, darkMode = true }: { entries: any[]; darkMo
               <ChevronLeft size={14} strokeWidth={3} />
             </button>
             <div style={{ textAlign: 'center' }}>
-              <p className="jr-h2" style={{ fontSize: 12, fontWeight: 700, color: darkMode ? '#fff' : '#0f172a', letterSpacing: '0.1em', textTransform: 'uppercase', margin: 0 }}>
+              <p style={{ fontSize: 12, fontWeight: 700, color: darkMode ? '#fff' : '#0f172a', letterSpacing: '0.1em', textTransform: 'uppercase', margin: 0 }}>
                 {MONTH_NAMES[activeMonth - 1]} {activeYear}
               </p>
               {/* Dot indicators — one per month that has trades; click to jump */}
@@ -711,7 +711,7 @@ function DashboardView({ sessionId, isMobile, windowWidth, darkMode = true }: { 
                   <path d="M11 18 c1.2 0 1.8 -1 2.4 -3 c0.6 -2.5 1.2 -7 2.6 -7 c1.4 0 2 4.5 2.6 7 c0.6 2 1.2 3 2.4 3" />
                 </svg>
               </div>
-              <h2 className="jr-h1" style={{ fontSize: 11, fontWeight: 900, color: 'var(--jr-accent,#38bdf8)', textTransform: 'uppercase', letterSpacing: '0.2em', margin: 0 }}>EQUITY CURVE</h2>
+              <h2 style={{ fontSize: 11, fontWeight: 900, color: 'var(--jr-accent,#38bdf8)', textTransform: 'uppercase', letterSpacing: '0.2em', margin: 0 }}>EQUITY CURVE</h2>
             </div>
             {equityGrowth && (
               <span className="jr-num" style={{ fontSize: 12, color: equityGrowth.totalReturnPct >= 0 ? '#34d399' : '#fb7185', fontWeight: 900 }}>
@@ -728,7 +728,7 @@ function DashboardView({ sessionId, isMobile, windowWidth, darkMode = true }: { 
         </div>
 
         <div style={{ background: 'var(--jr-panel,#0d1117)', border: '1px solid var(--jr-border,rgba(255,255,255,0.1))', padding: 20, borderRadius: 8 }} data-testid="panel-performance-mix">
-          <h2 className="jr-h1" style={{ fontSize: 11, fontWeight: 900, color: 'var(--jr-accent,#38bdf8)', marginBottom: 18, textTransform: 'uppercase', letterSpacing: '0.2em' }}>PERFORMANCE MIX</h2>
+          <h2 style={{ fontSize: 11, fontWeight: 900, color: 'var(--jr-accent,#38bdf8)', marginBottom: 18, textTransform: 'uppercase', letterSpacing: '0.2em' }}>PERFORMANCE MIX</h2>
           {[{ label: 'PROFIT RATIO', val: `${profitRatio}%`, color: '#10b981' }, { label: 'LOSS RATIO', val: `${lossRatio}%`, color: '#f43f5e' }].map(m => (
             <div key={m.label} style={{ marginBottom: 18 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
@@ -739,7 +739,7 @@ function DashboardView({ sessionId, isMobile, windowWidth, darkMode = true }: { 
             </div>
           ))}
           <div style={{ marginTop: 20, paddingTop: 18, borderTop: '1px solid var(--jr-border,rgba(255,255,255,0.05))' }}>
-            <p className="jr-h2" style={{ textTransform: 'uppercase', marginBottom: 12 }}>PAIR VOLUME / FREQUENCY</p>
+            <p className="jr-cap" style={{ textTransform: 'uppercase', marginBottom: 12 }}>PAIR VOLUME / FREQUENCY</p>
             {instEntries.map(([name, data]: any) => (
               <div key={name} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
                 <span style={{ fontSize: 11, color: 'var(--jr-ink,#ECEEF2)', width: 58, flexShrink: 0, fontWeight: 600 }}>{name}</span>
@@ -755,7 +755,7 @@ function DashboardView({ sessionId, isMobile, windowWidth, darkMode = true }: { 
       <div style={{ display: 'grid', gridTemplateColumns: windowWidth >= 900 ? '7fr 5fr' : '1fr', gap: 6 }}>
         <div style={{ background: 'var(--jr-panel,#0d1117)', border: '1px solid var(--jr-border,rgba(255,255,255,0.1))', borderRadius: 8, overflow: 'hidden', display: 'flex', flexDirection: 'column' }} data-testid="panel-trade-log">
           <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--jr-border,rgba(255,255,255,0.08))', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span className="jr-h1" style={{ fontSize: 11, fontWeight: 900, color: 'var(--jr-accent,#38bdf8)', textTransform: 'uppercase', letterSpacing: '0.2em', fontStyle: 'italic' }}>RECENT TRADE LOG</span>
+            <span style={{ fontSize: 11, fontWeight: 900, color: 'var(--jr-accent,#38bdf8)', textTransform: 'uppercase', letterSpacing: '0.2em', fontStyle: 'italic' }}>RECENT TRADE LOG</span>
             <Activity size={14} strokeWidth={3} style={{ color: 'var(--jr-accent,#38bdf8)', opacity: .3 }} />
           </div>
           <div style={{ overflowX: 'auto' }}>
@@ -799,23 +799,6 @@ function DashboardView({ sessionId, isMobile, windowWidth, darkMode = true }: { 
 }
 
 
-// THE SIZE FLOOR (2026-09-14, his "the whole of the journal in playfair with no strokes"). Playfair
-// renders cleanly at 13px and 15px and 10+ points paler at 12, 14 and 16 (docs/READABILITY.md), so an
-// inline size below 13 lifts to 13, and 13.5-14.5 lift to 15. Inline sizes only — React writes them as
-// "font-size: Npx", which is how the panels set them. Trade Sync owns its own type and is left out.
-// Built as a string OUT HERE, never as a nested template literal inside the style block (see below).
-const FLOOR_SEL = (px: string) =>
-  '.journal-root [style*="font-size: ' + px + 'px"]:where(:not(.ct-app *, .ts-page *))';
-// AND THE TAILWIND SIZE CLASSES, which the inline selectors cannot see: measured after the first pass,
-// the journal form alone carries 81 of them (text-xs and text-[10px]-style), and the session cards 9.
-const FLOOR_CLS = (px: string) =>
-  '.journal-root [class*="text-[' + px + 'px]"]:where(:not(.ct-app *, .ts-page *))';
-const SMALL = ['6', '6.5', '7', '7.5', '8', '8.5', '9', '9.5', '10', '10.5', '11', '11.5', '12', '12.5'];
-const sizeFloorRule =
-  [...SMALL.map(FLOOR_SEL), ...SMALL.map(FLOOR_CLS),
-   '.journal-root .text-xs:where(:not(.ct-app *, .ts-page *))'].join(',') + '{font-size:13px!important;}' +
-  ['13.5', '14', '14.5'].map(FLOOR_SEL).join(',') + '{font-size:15px!important;}';
-
 export default function Journal() {
   usePageTracking('journal');
   const { user } = useAuth();
@@ -829,11 +812,6 @@ export default function Journal() {
   // break greps that scan the style block for exactly that mistake.)
   // forceWeight null (Playfair) => emit nothing, so each panel keeps its own weights.
   const forcedWeightRule = F.forceWeight ? 'font-weight:' + F.forceWeight + '!important;' : '';
-  // EVERY NUMBER IN DM MONO, EVERY WORD IN THE JOURNAL FACE (his instruction, 2026-09-14). 'Journal
-  // Figures' (index.css) is DM Mono restricted to the digits and $ % + minus, so putting it FIRST sends
-  // every digit to DM Mono while every letter falls through to the face he picked. Measured before it
-  // was built: a words-only line renders identically with and without it (148.29px both).
-  const jrStack = "'Journal Figures', " + F.stack;
   // useSearch, not useLocation — see the effect below.
   const search = useSearch();
   const [activeNav, setActiveNav] = useState(() => {
@@ -1060,52 +1038,65 @@ export default function Journal() {
            specificity. Any panel with its own font MUST be listed here. Trade Sync learned this
            the hard way: every Material Icon rendered as its literal ligature text
            ("light_mode", "chevron_left") because font-family was forced to the journal stack. */
-        .journal-root *:where(:not(.dp):not(.dp *):not(.ct-app):not(.ct-app *):not(.ts-page):not(.ts-page *):not(.audit-root):not(.audit-root *)){font-family:${jrStack}!important;${forcedWeightRule}}
+        .journal-root *:where(:not(.dp):not(.dp *):not(.ct-app):not(.ct-app *):not(.ts-page):not(.ts-page *):not(.audit-root):not(.audit-root *)){font-family:${F.stack}!important;${forcedWeightRule}}
         /* Same exemption as the rule above — this one bites SVG <text>, which the font-family rule
            does not reach. Without it the "1x" labels in the Trade Sync hero diagram stayed Montserrat
            while everything around them was Playfair. */
-        .journal-root svg text:where(:not(.ct-app *):not(.ts-page *)){font-family:${jrStack}!important;}
+        .journal-root svg text:where(:not(.ct-app *):not(.ts-page *)){font-family:${F.stack}!important;}
         .journal-root ::-webkit-scrollbar{display:none;}
-        /* ── TYPE, THE WHOLE JOURNAL (his instruction, 2026-09-14) ───────────────────────────────
-           "write these numbers in DM mono in the journal, the whole of the journal in playfair with no
-           strokes so they dont become blurred again. And where we have different levels of headers
-           you can use different colors and italicizing. I mean the whole journal, not dashboard only."
-           Measured on the rendered journal before the change (12 panels, 810 text elements): 224 in
-           Playfair lighter than 600, 605 under 13px, 103 numbers not in DM Mono, no header levels.
+        /* DASHBOARD CAPTIONS — the small uppercase labels he ticked on 2026-09-05 asking for
+           better visibility ("use the approach used in metrics page and if not possible use
+           montserat together with increased font size for non title sections").
 
-           1. WEIGHT lives in the face, not here: 'Journal Playfair' (index.css) is declared 600-900, so
-              every lighter request renders at 600 — the hairlines are what go blurred. The rule below
-              only stops the browser inventing a fake bold for DM Mono, which ships 400 and 500 only.
-           2. NUMBERS: 'Journal Figures' leads the journal stack (jrStack), so every digit is DM Mono and
-              every word stays Playfair. .jr-num and .jr-fig put whole numeric cells in DM Mono so their
-              separators match too. .jr-fig was Playfair 700 on his 6 Sep call; this instruction replaces it.
-           3. SIZE: the floor (sizeFloorRule, top of this file) — 13px and 15px only.
-           4. HEADER LEVELS, told apart by colour and italics:
-                jr-h1  a panel's own title          italic, the theme accent, 15px
-                jr-h2  a heading inside a panel     upright, bright ink, 15px
-                jr-h3  labels and column heads      italic, caption grey, 13px
-              !important because the face rule above is itself !important and the panels set these
-              inline. .jr-cap (the dashboard stat labels, 2026-09-05) is level 3. Declared AFTER the size
-              floor, at the same specificity, so a header keeps its own size.
-              Column heads whose colour MEANS something (Bullish green, Bearish red) take no level —
-              they get the weight and size only, so the colour survives. */
-        .journal-root{font-synthesis-weight:none;}
-        ${sizeFloorRule}
-        .journal-root .jr-num, .journal-root .jr-fig{
+           THE COLOUR WAS THE SMALLER HALF. Those labels were 8-9px and, because the dashboard is
+           NOT one of the exempted subtrees above, the rule two blocks up was setting them in the
+           journal's Playfair Display — a display serif whose thin strokes vanish at that size.
+           That is cause 1 and cause 2 in docs/READABILITY.md together; the muted grey they used
+           measures 5.34:1 and passes AA on its own.
+
+           So: the 11px floor, in the brighter caption grey the Metrics panel settled on (8.77:1
+           there, against 5.34:1 here). !important AND two class selectors are both needed - the
+           journal rule is itself !important, so specificity alone loses.
+
+           NO FONT CHANGE HERE. I first set these to Montserrat and he rejected it: "i told you to
+           borrow the approach metrics page is using and you decided to change font type... I like
+           playfair or something close to it and DM mono for numbers." He is right, and the metrics
+           panel proves it — that panel declares JetBrains Mono in exactly one place and is NOT on
+           the exemption list above, so its declaration is overridden and it renders in the journal
+           face like everything else. Its recipe is the COLOUR SCALE and the sizes, nothing more.
+           So the text keeps the journal font; only the size and the colour move. */
+        .journal-root .jr-cap{
+          font-size:11px!important;letter-spacing:.08em!important;font-weight:600!important;
+          color:var(--jr-cap,#A8AEB8)!important;}
+        /* FIGURES IN DM MONO, his explicit ask, and the same face the drawdown panel and the audit
+           page already set their numbers in. Font only — no colour: several of these are
+           deliberately green/red/amber by value, and forcing a colour would flatten the one signal
+           the dashboard is actually carrying. */
+        .journal-root .jr-num{
           font-family:'DM Mono',ui-monospace,monospace!important;
           font-variant-numeric:tabular-nums;}
-        .journal-root .jr-fig{font-weight:500;letter-spacing:-0.01em;}
-        .journal-root .jr-h1{
-          font-size:15px!important;font-weight:700!important;font-style:italic!important;
-          letter-spacing:.08em!important;color:var(--jr-accent,#38bdf8)!important;}
-        .journal-root .jr-h2{
-          font-size:15px!important;font-weight:700!important;font-style:normal!important;
-          letter-spacing:.03em!important;color:var(--jr-ink,#ECEEF2)!important;}
-        .journal-root .jr-h3, .journal-root .jr-cap{
-          font-size:13px!important;font-weight:600!important;font-style:italic!important;
-          letter-spacing:.06em!important;color:var(--jr-cap,#A8AEB8)!important;}
+        /* THE HEADLINE FIGURES, IN PLAYFAIR — his call, 2026-09-06: put the ticked numbers "back to
+           playfair but make them more visible in playfair".
+
+           "MORE VISIBLE IN PLAYFAIR" IS THE WEIGHT AXIS, NOT A COLOUR. Playfair Display is a
+           high-contrast display serif: the strokes that vanish are its HAIRLINES, and no colour
+           change brings a hairline back. The bundled face is variable, so 700 costs no extra
+           download and thickens exactly those thin strokes — the same reasoning docs/READABILITY.md
+           records, and the same fix the audit page took on 2026-09-05.
+
+           AND THE SIZE GOES UP WITH IT, because weight alone does not rescue small type. These were
+           15px in DM Mono, a face built to stay legible when small; Playfair is not, so the figure
+           steps up to 19px. Tabular figures keep the columns from jittering as values change.
+
+           The rule is forced because the journal-wide font rule sets a family on every descendant,
+           and a class of the same specificity would lose to it. */
+        .journal-root .jr-fig{
+          font-family:'Playfair Display Variable','Playfair Display',Georgia,serif!important;
+          font-variant-numeric:tabular-nums;
+          font-weight:700;
+          letter-spacing:-0.01em;}
         .journal-root *{scrollbar-width:none;-ms-overflow-style:none;}
-        .primary-btn { background: ${T.accent}; transition: all 0.2s; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 800; font-size: 13px; border-radius: 0 !important; }
+        .primary-btn { background: ${T.accent}; transition: all 0.2s; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 800; font-size: 11px; border-radius: 0 !important; }
         .primary-btn:hover { background: ${T.accent}cc; box-shadow: 0 0 20px ${T.accent}66; }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
@@ -1636,7 +1627,7 @@ export default function Journal() {
             <TFMetricsPanel sessionId={activeSessionId ?? undefined} />
           ) : activeNav === 'drawdown' ? (
             <DrawdownPanel sessionId={activeSessionId ?? undefined}
-                           dispFont={jrStack} />
+                           dispFont={F.stack} bodyFont={F.bodyStack ?? F.stack} />
           ) : activeNav === 'fsdai' ? (
             <TraderAI sessionId={activeSessionId ?? undefined} darkMode={T.dark} />
           ) : activeNav === 'sync' ? (

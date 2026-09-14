@@ -60,8 +60,8 @@ const OBS_CSS = `
      9px rule below down with it - measured 9px, not the 11px it claims. That is why the form still
      read as tiny "despite having big font sizes". The 10px and 11px rules were never affected,
      which is what made it look like the sizes had been applied. */
-  .obs-jf [class~="text-[9px]"]  { font-size: 13px !important; }
-  .obs-jf [class~="text-[10px]"] { font-size: 13px !important; }
+  .obs-jf [class~="text-[9px]"]  { font-size: 11px !important; }
+  .obs-jf [class~="text-[10px]"] { font-size: 12px !important; }
   .obs-jf [class~="text-[11px]"] { font-size: 13px !important; }
   .obs-jf .text-xs               { font-size: 13.5px !important; line-height: 1.5 !important; }
   /* THE TRADE SYNC PALETTE. User, 2026-08-08: "did you use the text and number color values used in
@@ -2118,7 +2118,7 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
               {/* THE HALF THAT WAS MISSING — how much of the entry is actually done. */}
               <div style={{ marginBottom: 20 }}>
                 <div style={{ display:"flex", justifyContent:"space-between", alignItems:"baseline", marginBottom: 8 }}>
-                  <span className="jr-h3" style={{ fontSize: 11, fontWeight: 700, color: "var(--jr-cap, #A8AEB8)", letterSpacing: "0.12em" }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: "var(--jr-cap, #A8AEB8)", letterSpacing: "0.12em" }}>
                     SECTIONS FILLED
                   </span>
                   <span style={{ fontSize: 13, fontWeight: 700, color: "var(--jr-ink, #ECEEF2)" }}>
@@ -2130,7 +2130,7 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
                 </div>
               </div>
 
-              <div className="jr-h3" style={{ fontSize: 11, fontWeight: 700, color: "var(--jr-cap, #A8AEB8)", letterSpacing: "0.12em", marginBottom: 10 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "var(--jr-cap, #A8AEB8)", letterSpacing: "0.12em", marginBottom: 10 }}>
                 STILL EMPTY — TAP TO JUMP
               </div>
               <div className="obs-scrollbar" style={{ display:"flex", flexDirection:"column", gap: 6, marginBottom: 24, maxHeight: 240, overflowY:"auto" }}>

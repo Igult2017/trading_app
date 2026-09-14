@@ -636,17 +636,17 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
         .asset-scroll::-webkit-scrollbar { width: 0; height: 0; }
         .asset-scroll { scrollbar-width: none; -ms-overflow-style: none; }
         .inst-card:hover { background: ${C.bg3} !important; cursor: pointer; }
-        .chart-btn { background: ${C.bg3}; border: 1px solid ${C.border2}; color: ${C.muted}; font-size: 13px; font-weight: 700; letter-spacing: 0.08em; padding: 5px 12px; cursor: pointer; transition: all 0.15s; }
+        .chart-btn { background: ${C.bg3}; border: 1px solid ${C.border2}; color: ${C.muted}; font-size: 9px; font-weight: 700; letter-spacing: 0.08em; padding: 5px 12px; cursor: pointer; transition: all 0.15s; }
         .chart-btn:hover { border-color: #3b82f6; color: ${C.text}; }
-        .chart-btn-alert { background: ${C.bg3}; border: 1px solid ${C.border2}; color: ${C.text}; font-size: 13px; font-weight: 700; letter-spacing: 0.08em; padding: 5px 12px; cursor: pointer; transition: all 0.15s; display: flex; align-items: center; gap: 6px; }
+        .chart-btn-alert { background: ${C.bg3}; border: 1px solid ${C.border2}; color: ${C.text}; font-size: 9px; font-weight: 700; letter-spacing: 0.08em; padding: 5px 12px; cursor: pointer; transition: all 0.15s; display: flex; align-items: center; gap: 6px; }
         .chart-btn-alert:hover { border-color: #f59e0b; color: #f59e0b; }
-        .set-alert-btn { background: ${darkMode ? '#100d04' : '#fffbec'}; border: 1.5px solid #c8a84b; color: #c8a84b; font-size: 13px; font-weight: 800; letter-spacing: 0.12em; padding: 13px 28px; cursor: pointer; transition: all 0.15s; display: flex; align-items: center; gap: 8px; border-radius: 3px; }
+        .set-alert-btn { background: ${darkMode ? '#100d04' : '#fffbec'}; border: 1.5px solid #c8a84b; color: #c8a84b; font-size: 10px; font-weight: 800; letter-spacing: 0.12em; padding: 13px 28px; cursor: pointer; transition: all 0.15s; display: flex; align-items: center; gap: 8px; border-radius: 3px; }
         .set-alert-btn:hover { background: rgba(200,168,75,0.12); border-color: #f0c040; color: #f0c040; }
         .set-alert-btn.active { background: rgba(200,168,75,0.18); border-color: #f0c040; color: #f0c040; }
-        .share-btn { background: #5b4fcf; border: none; color: #fff; font-size: 13px; font-weight: 800; letter-spacing: 0.12em; padding: 13px 32px; cursor: pointer; transition: all 0.15s; display: flex; align-items: center; gap: 8px; border-radius: 3px; }
+        .share-btn { background: #5b4fcf; border: none; color: #fff; font-size: 10px; font-weight: 800; letter-spacing: 0.12em; padding: 13px 32px; cursor: pointer; transition: all 0.15s; display: flex; align-items: center; gap: 8px; border-radius: 3px; }
         .share-btn:hover { background: #6c63d9; }
         .ctx-row:hover { background: ${darkMode ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.03)'}; }
-        .news-btn { background: ${darkMode ? '#1a0a0e' : '#fff0f3'}; border: 1px solid #f4617f; color: #f4617f; font-size: 13px; font-weight: 800; letter-spacing: 0.12em; padding: 5px 14px; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+        .news-btn { background: ${darkMode ? '#1a0a0e' : '#fff0f3'}; border: 1px solid #f4617f; color: #f4617f; font-size: 9px; font-weight: 800; letter-spacing: 0.12em; padding: 5px 14px; cursor: pointer; display: flex; align-items: center; gap: 6px; }
         .mob-instruments-fab { display: none; }
         @media (max-width: 767px) {
           .entry-grid { grid-template-columns: 1fr 1fr !important; }
@@ -660,7 +660,7 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
           .set-alert-btn, .share-btn { width: 100%; justify-content: center; }
           .chart-row2 { flex-wrap: wrap; gap: 6px !important; }
           .chart-type-pills { overflow-x: auto; flex-shrink: 1 !important; min-width: 0; }
-          .mob-instruments-fab { display: flex !important; position: fixed; bottom: 24px; right: 20px; z-index: 40; background: #7c3aed; border: none; border-radius: 28px; color: #fff; font-size: 13px; font-weight: 800; letter-spacing: 0.1em; padding: 11px 18px; cursor: pointer; align-items: center; gap: 6px; box-shadow: 0 4px 20px rgba(124,58,237,0.5); }
+          .mob-instruments-fab { display: flex !important; position: fixed; bottom: 24px; right: 20px; z-index: 40; background: #7c3aed; border: none; border-radius: 28px; color: #fff; font-size: 10px; font-weight: 800; letter-spacing: 0.1em; padding: 11px 18px; cursor: pointer; align-items: center; gap: 6px; box-shadow: 0 4px 20px rgba(124,58,237,0.5); }
         }
       `}</style>
 
@@ -696,7 +696,7 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
                 padding: "20px 16px", textAlign: "center",
                 borderRight: i < 3 ? `1px solid ${C.border}` : undefined
               }}>
-                <div className="jr-h3" style={{ fontSize: 9, fontWeight: 700, color: C.muted2, letterSpacing: "0.12em", marginBottom: 12 }}>{col.label}</div>
+                <div style={{ fontSize: 9, fontWeight: 700, color: C.muted2, letterSpacing: "0.12em", marginBottom: 12 }}>{col.label}</div>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>{col.value}</div>
               </div>
             ))}
@@ -709,7 +709,7 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
             <div style={{ background: C.bg2, border: `1px solid ${C.border}`, borderRadius: 4, padding: "16px" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
                 <div style={{ width: 10, height: 10, background: "#3b82f6" }} />
-                <span className="jr-h2" style={{ fontSize: 9, fontWeight: 800, color: C.muted, letterSpacing: "0.14em" }}>CONTEXT ALIGNMENT</span>
+                <span style={{ fontSize: 9, fontWeight: 800, color: C.muted, letterSpacing: "0.14em" }}>CONTEXT ALIGNMENT</span>
               </div>
               {displayContext.map((row, i) => {
                 const has = !!row.value && row.value !== "—";
@@ -731,7 +731,7 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
             <div style={{ background: C.bg2, border: `1px solid ${C.border}`, borderRadius: 4, padding: "16px" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
                 <div style={{ width: 10, height: 10, background: "#22d3a5" }} />
-                <span className="jr-h2" style={{ fontSize: 9, fontWeight: 800, color: C.muted, letterSpacing: "0.14em" }}>TECHNICAL CONFLUENCE</span>
+                <span style={{ fontSize: 9, fontWeight: 800, color: C.muted, letterSpacing: "0.14em" }}>TECHNICAL CONFLUENCE</span>
               </div>
               {displayTech.map((row, i) => {
                 const has = !!row.value && row.value !== "—";
@@ -751,7 +751,7 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
             <div style={{ background: C.bg2, border: `1px solid ${C.border}`, borderRadius: 4, padding: "16px" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
                 <div style={{ width: 10, height: 10, background: "#f59e0b" }} />
-                <span className="jr-h2" style={{ fontSize: 9, fontWeight: 800, color: C.muted, letterSpacing: "0.14em" }}>PRICE ACTION</span>
+                <span style={{ fontSize: 9, fontWeight: 800, color: C.muted, letterSpacing: "0.14em" }}>PRICE ACTION</span>
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
                 {displayPriceAction.map((item, i) => {
@@ -1049,7 +1049,7 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
                                   scoped to borders — it targets 3:1, the standard for an interface
                                   element carrying no text, so it is not bright enough to read at
                                   8px. `dim` is 4.85:1. */}
-                              <div className="jr-h3" style={{ padding: "6px 14px 4px", fontSize: 8, fontWeight: 800, color: C.dim, letterSpacing: "0.14em", background: C.catHdr }}>
+                              <div style={{ padding: "6px 14px 4px", fontSize: 8, fontWeight: 800, color: C.dim, letterSpacing: "0.14em", background: C.catHdr }}>
                                 {cat.toUpperCase()}
                               </div>
                               {catDefs.map(ind => {
@@ -1148,7 +1148,7 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
         {/* Mobile close button */}
         {isMobile && (
           <div style={{ padding: "10px 14px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span className="jr-h1" style={{ fontSize: 9, fontWeight: 800, color: C.muted, letterSpacing: "0.12em" }}>INSTRUMENTS</span>
+            <span style={{ fontSize: 9, fontWeight: 800, color: C.muted, letterSpacing: "0.12em" }}>INSTRUMENTS</span>
             <button onClick={() => setMobileShowSidebar(false)} style={{ background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 18, lineHeight: 1, padding: 4 }}>×</button>
           </div>
         )}

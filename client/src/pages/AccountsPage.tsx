@@ -236,19 +236,19 @@ function AddAccountForm({ platform, onCancel, onCreated }: AddFormProps) {
       </div>
 
       {/* Common */}
-      <div><label className="jr-h3" style={lbl}>Display Name *</label>
+      <div><label style={lbl}>Display Name *</label>
         <input style={inp} placeholder={`e.g. My ${pname} Account`} value={name} onChange={e => setName(e.target.value)} required />
       </div>
 
       {/* MT4/MT5/webhook platforms */}
       {isMT && (<>
-        <div><label className="jr-h3" style={lbl}>Account Number *</label>
+        <div><label style={lbl}>Account Number *</label>
           <input style={inp} placeholder="e.g. 10676855" value={loginId} onChange={e => setLoginId(e.target.value)} required />
         </div>
-        <div><label className="jr-h3" style={lbl}>Broker Server</label>
+        <div><label style={lbl}>Broker Server</label>
           <input style={inp} placeholder="e.g. ICMarkets-Live01" value={server} onChange={e => setServer(e.target.value)} />
         </div>
-        <div><label className="jr-h3" style={lbl}>Investor Password (optional)</label>
+        <div><label style={lbl}>Investor Password (optional)</label>
           <input style={inp} type="password" placeholder="Read-only investor password" value={secret} onChange={e => setSecret(e.target.value)} />
         </div>
         <div style={{ background: "#0a1628", border: "1px solid #1e3a55", padding: "11px 14px", fontSize: 12, color: "#64748b" }}>
@@ -258,19 +258,19 @@ function AddAccountForm({ platform, onCancel, onCreated }: AddFormProps) {
 
       {/* Crypto exchanges */}
       {isCrypto && (<>
-        <div><label className="jr-h3" style={lbl}>API Key *</label>
+        <div><label style={lbl}>API Key *</label>
           <input style={inp} placeholder="Paste your API key" value={loginId} onChange={e => setLoginId(e.target.value)} required />
         </div>
-        <div><label className="jr-h3" style={lbl}>API Secret *</label>
+        <div><label style={lbl}>API Secret *</label>
           <input style={inp} type="password" placeholder="Paste your API secret" value={secret} onChange={e => setSecret(e.target.value)} required />
         </div>
         {platform === 'bitget' && (
-          <div><label className="jr-h3" style={lbl}>Passphrase *</label>
+          <div><label style={lbl}>Passphrase *</label>
             <input style={inp} type="password" placeholder="Bitget API passphrase" value={passphrase} onChange={e => setPassphrase(e.target.value)} required />
           </div>
         )}
         {platform === 'binance' && (
-          <div><label className="jr-h3" style={lbl}>Trading Pairs (Spot only — leave blank for Futures)</label>
+          <div><label style={lbl}>Trading Pairs (Spot only — leave blank for Futures)</label>
             <input style={inp} placeholder="e.g. BTCUSDT, ETHUSDT" value={server} onChange={e => setServer(e.target.value)} />
           </div>
         )}
@@ -281,19 +281,19 @@ function AddAccountForm({ platform, onCancel, onCreated }: AddFormProps) {
 
       {/* DXTrade / TradeLocker — username + password + server */}
       {isBrokerApi && (<>
-        <div><label className="jr-h3" style={lbl}>{platform === 'tradelocker' ? 'Email *' : 'Username *'}</label>
+        <div><label style={lbl}>{platform === 'tradelocker' ? 'Email *' : 'Username *'}</label>
           <input style={inp} placeholder={platform === 'tradelocker' ? 'your@email.com' : 'Your login username'} value={loginId} onChange={e => setLoginId(e.target.value)} required />
         </div>
-        <div><label className="jr-h3" style={lbl}>Password *</label>
+        <div><label style={lbl}>Password *</label>
           <input style={inp} type="password" placeholder="Your account password" value={secret} onChange={e => setSecret(e.target.value)} required />
         </div>
         {platform === 'dxtrade' && (
-          <div><label className="jr-h3" style={lbl}>Broker API URL *</label>
+          <div><label style={lbl}>Broker API URL *</label>
             <input style={inp} placeholder="https://trade.yourbroker.com" value={server} onChange={e => setServer(e.target.value)} required />
           </div>
         )}
         {platform === 'tradelocker' && (
-          <div><label className="jr-h3" style={lbl}>Broker Server</label>
+          <div><label style={lbl}>Broker Server</label>
             <input style={inp} placeholder="e.g. ICMarkets-Live01" value={server} onChange={e => setServer(e.target.value)} />
           </div>
         )}
@@ -319,7 +319,7 @@ function AddAccountForm({ platform, onCancel, onCreated }: AddFormProps) {
       )}
 
       <div>
-        <label className="jr-h3" style={lbl}>Account Type</label>
+        <label style={lbl}>Account Type</label>
         <select style={inp} value={accountType} onChange={e => setAccountType(e.target.value as any)}>
           <option value="demo">DEMO</option>
           <option value="live">LIVE</option>
@@ -374,7 +374,7 @@ function WebhookModal({ account, onClose }: { account: BrokerAccount; onClose: (
 
           {/* Steps */}
           <div>
-            <div className="jr-h2" style={{ color: "#64748b", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 12 }}>Setup Steps</div>
+            <div style={{ color: "#64748b", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 12 }}>Setup Steps</div>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {SETUP_STEPS.map(step => (
                 <div key={step.n} style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
@@ -387,7 +387,7 @@ function WebhookModal({ account, onClose }: { account: BrokerAccount; onClose: (
 
           {/* Webhook URL */}
           <div>
-            <div className="jr-h2" style={{ color: "#64748b", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>Your Webhook URL</div>
+            <div style={{ color: "#64748b", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>Your Webhook URL</div>
             <div style={{ background: "#070f1e", border: "1px solid #1e3a55", padding: "11px 14px", display: "flex", alignItems: "center", gap: 8 }}>
               <span style={{ color: "#38bdf8", fontSize: 12, fontFamily: "monospace", flex: 1, wordBreak: "break-all" }}>{webhookUrl}</span>
               <CopyBtn text={webhookUrl} />
@@ -435,9 +435,9 @@ function EditModal({ account, onClose, onSaved }: { account: BrokerAccount; onCl
     <div style={ov} onClick={onClose}>
       <div style={card} onClick={e => e.stopPropagation()}>
         <div style={{ color: '#e2e8f0', fontWeight: 700, fontSize: 15, marginBottom: 18 }}>Edit Account</div>
-        <label className="jr-h3" style={lbl}>Name</label>
+        <label style={lbl}>Name</label>
         <input value={name} onChange={e => setName(e.target.value)} style={{ ...inp, marginBottom: 14 }} />
-        <label className="jr-h3" style={lbl}>Type</label>
+        <label style={lbl}>Type</label>
         <select value={accountType} onChange={e => setAccountType(e.target.value)} style={{ ...inp, marginBottom: err ? 8 : 20 }}>
           {['demo', 'live', 'funded'].map(t => <option key={t} value={t}>{t.toUpperCase()}</option>)}
         </select>
@@ -732,7 +732,7 @@ export default function AccountsPage({ openModal = false, darkMode = true, onVie
             <thead>
               <tr>
                 {["Name", "Number", "Server", "Type", "Platform", "Balance", "Connection", "Last Sync", "Actions"].map(h => (
-                  <th className="jr-h3" key={h} style={{ ...s.th, ...(h === "Platform" ? { textAlign: "center" } : {}) } as CSSProperties}>{h}</th>
+                  <th key={h} style={{ ...s.th, ...(h === "Platform" ? { textAlign: "center" } : {}) } as CSSProperties}>{h}</th>
                 ))}
               </tr>
             </thead>

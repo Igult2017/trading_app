@@ -115,7 +115,7 @@ function StatCard({ label, value, color, sub, compact }: { label: string; value:
       background: CARD, border: `2px solid ${BORDER}`, borderTop: `4px solid ${color}`,
       padding: compact ? "12px 14px" : "20px 24px", flex: 1, minWidth: 0,
     }} data-testid={`stat-${label.toLowerCase().replace(/[^a-z0-9]/g, "-")}`}>
-      <div className="jr-h3" style={{ fontFamily: FONT, fontSize: compact ? 7 : 9, fontWeight: 800, letterSpacing: "0.15em", color: "var(--jr-ink-dim)", textTransform: "uppercase" as const, marginBottom: compact ? 5 : 10 }}>{label}</div>
+      <div style={{ fontFamily: FONT, fontSize: compact ? 7 : 9, fontWeight: 800, letterSpacing: "0.15em", color: "var(--jr-ink-dim)", textTransform: "uppercase" as const, marginBottom: compact ? 5 : 10 }}>{label}</div>
       <div style={{ fontFamily: FONT, fontSize: compact ? 13 : 18, fontWeight: 900, color, letterSpacing: "-0.03em", lineHeight: 1 }}>{value}</div>
       {sub && !compact && <div style={{ fontFamily: FONT, fontSize: 10, fontWeight: 600, color: "var(--jr-ink-dim)", marginTop: 6, letterSpacing: "0.05em" }}>{sub}</div>}
     </div>
@@ -425,7 +425,7 @@ export default function TradingCalendar({ sessionId, darkMode = true }: { sessio
       }}>
         <div style={{ paddingLeft: 8 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 5 }}>
-            <div className="jr-h1" style={{ fontSize: 8, fontWeight: 800, letterSpacing: "0.28em", color: "var(--jr-ink-dim)" }}>{t('calendar.overview')}</div>
+            <div style={{ fontSize: 8, fontWeight: 800, letterSpacing: "0.28em", color: "var(--jr-ink-dim)" }}>{t('calendar.overview')}</div>
             {isFetching && !isLoading && (
               <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                 <div style={{ width: 4, height: 4, borderRadius: "50%", background: GREEN, animation: "dotBlink 1s ease infinite" }} />
@@ -433,7 +433,7 @@ export default function TradingCalendar({ sessionId, darkMode = true }: { sessio
               </div>
             )}
           </div>
-          <div className="jr-h2" style={{ fontSize: 13, fontWeight: 900, color: "#E8EDF5", letterSpacing: "0.15em" }}>
+          <div style={{ fontSize: 13, fontWeight: 900, color: "#E8EDF5", letterSpacing: "0.15em" }}>
             TRADING<span style={{ color: GREEN }}>_</span>CALENDAR
           </div>
         </div>
@@ -575,12 +575,12 @@ export default function TradingCalendar({ sessionId, darkMode = true }: { sessio
           {[{ dot: GREEN, label: t('calendar.profit') }, { dot: RED, label: t('calendar.loss') }, { dot: "#2A3348", label: t('calendar.noTrade') }].map(({ dot, label }) => (
             <div key={label} style={{ display: "flex", alignItems: "center", gap: 6 }}>
               <div style={{ width: 8, height: 8, background: dot }} />
-              <span className="jr-h3" style={{ fontSize: isMobile ? 7 : 9, fontWeight: 800, letterSpacing: "0.12em", color: "var(--jr-ink-dim)" }}>{label}</span>
+              <span style={{ fontSize: isMobile ? 7 : 9, fontWeight: 800, letterSpacing: "0.12em", color: "var(--jr-ink-dim)" }}>{label}</span>
             </div>
           ))}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 8 : 12, flexWrap: "wrap" as const }}>
-          <span className="jr-h3" style={{ fontSize: isMobile ? 7 : 9, fontWeight: 800, letterSpacing: "0.18em", color: "var(--jr-ink-dim)" }}>{t('calendar.monthTotal')}</span>
+          <span style={{ fontSize: isMobile ? 7 : 9, fontWeight: 800, letterSpacing: "0.18em", color: "var(--jr-ink-dim)" }}>{t('calendar.monthTotal')}</span>
           <div style={{ width: 1, height: 14, background: BORDER }} />
           <span style={{ fontSize: isMobile ? 11 : 13, fontWeight: 900, color: netColor }} data-testid="text-month-total">{fmt(stats.net)}</span>
           <div style={{ width: 1, height: 14, background: BORDER }} />
