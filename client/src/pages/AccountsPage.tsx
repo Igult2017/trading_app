@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/context/AuthContext";
 import { queryClient } from "@/lib/queryClient";
 import Brand from '@/components/Brand';
+import { label, summarise, syncOne, type SyncResult } from "@/lib/accountSync";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface BrokerAccount {
@@ -467,6 +468,10 @@ export default function AccountsPage({ openModal = false, darkMode = true, onVie
   const [showForm,    setShowForm]    = useState(false);
   const [webhookAcc,  setWebhookAcc]  = useState<BrokerAccount | null>(null);
   const [info,        setInfo]        = useState<string | null>(null);
+  // THE SYNC ANSWER HAS ITS OWN BANNER. `info` cannot carry it: `fetchAccounts` clears `info` on every
+  // successful load, and a sync ends by reloading the list — the answer would vanish as it appeared.
+  const [syncing,     setSyncing]     = useState<Set<string>>(new Set());
+  const [syncNote,    setSyncNote]    = useState<SyncResult | null>(null);
   const [pageSize,    setPageSize]    = useState(10);
   const [page,        setPage]        = useState(1);
   const [isMobile,    setIsMobile]    = useState(false);
@@ -569,18 +574,40 @@ export default function AccountsPage({ openModal = false, darkMode = true, onVie
     }
   }
 
+  // A MANUAL SYNC IS A QUESTION — ANSWER IT (2026-09-14). Both buttons used to throw the server's reply
+  // away (Sync All did not even wait for it), so a dozen successful syncs showed him nothing. They now
+  // wait, show the server's own answer, and refuse a second click while one is running. `finally`
+  // releases the busy state however the sync ends — a lock with no release is a trap.
   async function handleSyncAll() {
-    const headers = await authHeaders();
-    for (const a of accounts) {
-      if (a.connectionType === 'api') fetch(`/api/broker-accounts/${a.id}/sync`, { method: 'POST', headers }).catch(() => {});
+    if (syncing.size) return;
+    const api = accounts.filter(a => a.connectionType === "api");
+    if (!api.length) {
+      setSyncNote({ ok: true, text: "No API-connected accounts to sync — EA accounts send their trades on their own." });
+      return;
     }
-    setTimeout(fetchAccounts, 3000);
+    setSyncing(new Set(api.map(a => a.id)));
+    setSyncNote(null);
+    try {
+      const headers = await authHeaders();
+      setSyncNote(summarise(await Promise.all(api.map(async account => ({ account, result: await syncOne(account, headers) })))));
+    } finally {
+      setSyncing(new Set());
+      fetchAccounts();
+    }
   }
 
   async function handleSync(account: BrokerAccount) {
     if (account.connectionType === "webhook") { setWebhookAcc(account); return; }
-    await fetch(`/api/broker-accounts/${account.id}/sync`, { method: "POST", headers: await authHeaders() });
-    fetchAccounts();
+    if (syncing.has(account.id)) return;
+    setSyncing(prev => new Set(prev).add(account.id));
+    setSyncNote(null);
+    try {
+      const result = await syncOne(account, await authHeaders());
+      setSyncNote({ ok: result.ok, text: label(account) + ": " + result.text });
+    } finally {
+      setSyncing(prev => { const next = new Set(prev); next.delete(account.id); return next; });
+      fetchAccounts();
+    }
   }
 
   async function handleRefreshBalance(account: BrokerAccount) {
@@ -624,7 +651,7 @@ export default function AccountsPage({ openModal = false, darkMode = true, onVie
 
   return (
     <div className="accounts-root" style={{ ...(s.root as CSSProperties), ...(darkMode ? {} : { background: 'var(--jr-bg, #EEF2F7)', color: 'var(--jr-text, #1E293B)' }) }}>
-      <style>{`* { box-sizing: border-box; } ::-webkit-scrollbar { height: 4px; width: 4px; background: #0b1220; } ::-webkit-scrollbar-thumb { background: #1e293b; }`}</style>
+      <style>{`* { box-sizing: border-box; } ::-webkit-scrollbar { height: 4px; width: 4px; background: #0b1220; } ::-webkit-scrollbar-thumb { background: #1e293b; } @keyframes acct-spin { to { transform: rotate(360deg); } } .acct-spin { animation: acct-spin 0.9s linear infinite; } @media (prefers-reduced-motion: reduce) { .acct-spin { animation: none; } }`}</style>
 
       {/* Top Banner */}
       <div style={s.banner as CSSProperties}>
@@ -672,6 +699,14 @@ export default function AccountsPage({ openModal = false, darkMode = true, onVie
         </div>
       )}
 
+      {/* Manual sync answer — red when any account failed, so a failure never reads as a success */}
+      {syncNote && (
+        <div role="status" style={{ background: syncNote.ok ? "#0c2a1a" : "#2a0c0c", border: "1px solid " + (syncNote.ok ? "#166534" : "#991b1b"), padding: "10px 24px", fontSize: 13, color: syncNote.ok ? "#4ade80" : "#fca5a5", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+          <span>{syncNote.text}</span>
+          <button onClick={() => setSyncNote(null)} aria-label="Dismiss sync result" style={{ background: "none", border: "none", color: "inherit", cursor: "pointer", fontSize: 16 }}>✕</button>
+        </div>
+      )}
+
       <div style={{ padding: isMobile ? "0 12px 20px" : "0 24px 24px", flex: 1 }}>
         {/* Tab row */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 0 0", marginBottom: 16, flexWrap: "wrap", gap: 10 }}>
@@ -684,8 +719,9 @@ export default function AccountsPage({ openModal = false, darkMode = true, onVie
             <button style={s.addBtn as CSSProperties} onClick={() => { setModalOpen(true); setShowForm(false); setSelectedPlatform(null); }}>
               <span style={{ fontSize: 18, lineHeight: 1 }}>+</span> {isMobile ? "Add" : "Add Account"}
             </button>
-            <button style={s.syncBtn as CSSProperties} onClick={handleSyncAll}>
-              <RefreshCw size={13} /> {isMobile ? "Sync" : "Sync All"}
+            <button style={{ ...s.syncBtn, ...(syncing.size ? { opacity: 0.6, cursor: "wait" } : {}) } as CSSProperties}
+                    onClick={handleSyncAll} disabled={syncing.size > 0}>
+              <RefreshCw size={13} className={syncing.size ? "acct-spin" : undefined} /> {syncing.size ? "Syncing…" : isMobile ? "Sync" : "Sync All"}
             </button>
           </div>
         </div>
@@ -752,7 +788,10 @@ export default function AccountsPage({ openModal = false, darkMode = true, onVie
                         </button>
                       )}
                       <button style={s.actionBtn as CSSProperties} title="Webhook / Settings" onClick={() => setWebhookAcc(a)}><Wrench size={14} color="#f59e0b" /></button>
-                      <button style={s.actionBtn as CSSProperties} title="Sync" onClick={() => handleSync(a)}><RefreshCw size={14} color="#94a3b8" /></button>
+                      <button style={{ ...s.actionBtn, ...(syncing.has(a.id) ? { cursor: "wait" } : {}) } as CSSProperties}
+                        title={syncing.has(a.id) ? "Syncing…" : "Sync"} disabled={syncing.has(a.id)} onClick={() => handleSync(a)}>
+                        <RefreshCw size={14} color="#94a3b8" className={syncing.has(a.id) ? "acct-spin" : undefined} />
+                      </button>
                       <button style={s.actionBtn as CSSProperties} title="Edit" onClick={() => setEditAccount(a)}><Pencil size={14} color="#38bdf8" /></button>
                       <button style={s.actionBtn as CSSProperties} title="Delete account" onClick={() => { setDelErr(""); setConfirmDel(a); }}><Trash2 size={14} color="#ef4444" /></button>
                     </div>
