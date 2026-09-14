@@ -1249,3 +1249,44 @@ and 10 Dec vanish. It buys one fewer GBP/USD flag. Not decided here.
 
 **Nothing is wired. The candidate's most confident calls are drawn for him in
 `C:\Users\FSD\Desktop\vix-chop-24h\` — judged by his eye BEFORE any change to the module.**
+
+### THE 24-CANDLE CANDIDATE AGAINST THE WHOLE MARKET, AND AGAINST MONEY — 2026-09-14
+
+Catching 78% of his chop means nothing until it is compared with how often the same version fires on
+an ORDINARY hour. Every hour of EUR/USD (26,860) and GBP/USD (42,740), 24 candles, no pullback set
+aside:
+
+    version (choppy when...)        his chop   his good   ALL EUR/USD   ALL GBP/USD
+    fewer than 2 signs                 66%        17%         53%           52%
+    fewer than 1 sign                  13%         3%          8%            8%
+    came back >= 6                     32%         7%         13%           14%
+    came back >= 8                      8%         3%          4%            4%
+    <2 signs OR came back >= 6         78%        20%         58%           58%
+    <2 signs AND came back >= 4        31%         3%         20%           21%
+    0 signs OR came back >= 8          20%         7%         11%           11%
+
+**The head-count versions call HALF OF ALL HOURS choppy** — 66% on his chop against 53% everywhere is
+weak separation, however good 78% sounds. **His band idea alone (came back >= 6) is the most
+selective**: 2.4x as likely on his chop as on an ordinary hour, 7% of his good readings.
+
+**AND ON THE 220 FILLED TRADES OF THE APPROVED BACKTEST** (no new simulation — what each version
+would have said when they fired):
+
+    version (refuse when...)       REFUSED                                KEPT
+    fewer than 2 signs             117  +16.5R  avg +0.141R  full stops 26%   103   +3.4R  avg +0.033R  33%
+    <2 signs OR came back >= 6     126  +14.8R  avg +0.117R  full stops 26%    94   +5.1R  avg +0.054R  33%
+    <2 signs AND came back >= 4     53   +4.7R  avg +0.089R  full stops 28%   167  +15.2R  avg +0.091R  29%
+    came back >= 6                  37   +3.3R  avg +0.089R  full stops 30%   183  +16.6R  avg +0.091R  29%
+    came back >= 8                  12   +6.0R  avg +0.498R  full stops 17%   208  +13.9R  avg +0.067R  30%
+    0 signs OR came back >= 8       27   +5.1R  avg +0.188R  full stops 26%   193  +14.8R  avg +0.077R  30%
+    fewer than 1 sign               17   +1.8R  avg +0.106R  full stops 29%   203  +18.1R  avg +0.089R  29%
+
+(spread per trade 0.94R — a group of 40 trades has a standard error of about 0.15R)
+
+**No version removes losing trades.** The head-count versions refuse the BETTER half — the combined
+one would have thrown away +14.8R of +19.9R. **The band idea alone (came back >= 6) is neutral**: the
+37 trades it refuses did exactly as well as the 183 it keeps.
+
+**Status: nothing wired. Charts of the combined version's confident calls are in
+`C:\Users\FSD\Desktop\vix-chop-24h\`. Decision is his:** which version, and whether his pullback rule
+applies (it halves detection inside chop).
