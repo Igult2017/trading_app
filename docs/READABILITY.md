@@ -447,3 +447,76 @@ with a Times New Roman body, which is what he approved.
 3. **Reading the source is not the same as reading the render.** DORIXÉ's source says Inter. Its
    screen says Times New Roman. When the question is "what does this look like", the rendered page
    is the only authority.
+
+---
+
+## THE JOURNAL IS ALL PLAYFAIR, WITH DM MONO NUMBERS — his instruction, 2026-09-14
+
+*"write these numbers in DM mono in the journal, the whole of the journal in playfair with no strokes
+so they dont become blurred again. And where we have different levels of headers you can use
+different colors and italicizing. I mean the whole journal, not dashboard only."*
+
+**Like the admin blog screen above, this is a signed-off exception to the display-serif rule.** Do not
+"fix" the journal back to a text serif or a sans. He knew the 10 Sep history — it was put in front of
+him in the plan he approved. What makes it safe is weight and size applied everywhere at once, not a
+different face.
+
+### The four parts, each measured before it was built
+
+1. **A weight floor that lives in the font, not in 800 inline styles.** `index.css` declares
+   `'Journal Playfair'` against the same variable Playfair files with `font-weight: 600 900`. The
+   browser clamps any lighter request into that range, and on a variable font that moves the weight
+   axis itself — so a panel asking for 400 gets 600 without being edited. Proved in Chromium on the
+   live site's own file at 13px before anything changed: a 400 request measured **185.99px, identical
+   to 600**, against 182.01px for a plain 400, and laid down **9.7% ink against 7.1%**. The real italic
+   cut is declared too, because the header levels use italics.
+2. **Every digit in DM Mono, with no per-element edits.** `'Journal Figures'` is DM Mono restricted by
+   `unicode-range` to `0-9 $ % + −`, and it leads the journal stack (`Journal.tsx`, `jrStack`). Digits
+   go to DM Mono and letters fall through to Playfair: a numbers line measured 226.75px against 201.06px
+   Playfair-only, and a words-only line stayed at 148.29px both ways. `.jr-fig` and Trade Vault's
+   `.tv-fig` moved from Playfair 700 (his 6 Sep call) to DM Mono. `font-synthesis-weight: none` on the
+   journal stops a 700 request smearing DM Mono (400/500 only) into a fake bold.
+3. **A size floor: 13px and 15px only.** From the rasteriser table above (13 and 15 render cleanly;
+   12, 14 and 16 do not). `Journal.tsx` builds one rule lifting inline `font-size` under 13px to 13 and
+   13.5-14.5 to 15, plus Tailwind's small size classes (`text-[Npx]`, `text-xs`). Stylesheet rules it
+   cannot reach were raised by hand in their panels (21 of them, in 8 files). **One trap:** the journal
+   form's own `.obs-jf [class~="text-[9px]"] { font-size: 11px !important }` ties the floor on
+   specificity and comes later in the page, so it would have held the form at 11px — it was raised too.
+4. **Three header levels, told apart by colour and italics** (`.jr-h1/.jr-h2/.jr-h3` in `Journal.tsx`,
+   applied at 57 title elements across 13 files): a panel's own title is italic in the theme accent at
+   15px; a heading inside a panel is upright bright ink at 15px; labels and column heads are italic
+   caption grey at 13px (`.jr-cap` is level 3). **Column heads whose colour carries meaning** —
+   Bullish green, Bearish red, a TF's own colour — take no level, so the colour survives.
+
+### Measured on the rendered journal, before and after (12 panels, page-only Vite, API faked)
+
+| | before | after |
+|---|---|---|
+| text elements | 810 | 796 |
+| Playfair lighter than 600 | **224** | **0** |
+| text under 13px | **605** | **0** |
+| numbers not in DM Mono | **103** | **0** |
+| header levels in use | 0 | 24 / 16 / 61 |
+
+Light theme, every header level against the background actually painted behind it: level 1 (accent
+`#2563eb`) **4.60-5.17:1**, level 2 **16.5-18.6:1**, level 3 **6.50-6.67:1** — all over AA, level 1
+only just on the calendar.
+
+### What this does NOT cover, said plainly
+
+* **Trade Sync (`.ct-app`, `.ts-page`) is untouched** — his verbatim UI, already Playfair + DM Mono.
+* **The journal form's filled-in state was not rendered** — the faked API opens the session list, not an
+  entry. Its Tailwind and stylesheet sizes are covered by construction (part 3), not by measurement.
+* **Charts drawn on a canvas** take their font from the chart library's options, not CSS.
+* **The top navbar (`JournalHeader`) sits outside `.journal-root`** and keeps its own type.
+* **Not caused by this, noticed while checking:** Metrics' High/Medium/Low and Strong/Moderate/Weak chips
+  cut each word to five letters in code (`Multi`, `o.label.slice(0, 5)` — "Mediu", "Stron").
+
+### The measuring harness
+
+Walk every visible text node under `.journal-root`, and per element record the first family in its
+computed stack, size, weight, whether it holds digits, and its header class. Load the journal with
+`sessionStorage.local_admin_session` set (no Supabase in a page-only Vite server, so the local-admin
+session is used) and every `/api/**` faked. Two traps: the Playwright MCP only reads script files under
+the project (`.playwright-mcp/` is git-ignored and works, but only with the lowercase `c:\` drive letter),
+and its sandbox has no `setTimeout` or `URL` — use `page.waitForTimeout` and plain string handling.

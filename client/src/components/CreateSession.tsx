@@ -59,7 +59,7 @@ function SCSelect({ label, value, onChange }: { label: string; value: string; on
 
   return (
     <div ref={ref} style={{ marginBottom: 14, position: 'relative' }}>
-      <div style={{ fontSize: 8, color: MC.accentFaint, letterSpacing: "0.16em", marginBottom: 7, fontFamily: MONO }}>{label}</div>
+      <div className="jr-h3" style={{ fontSize: 8, color: MC.accentFaint, letterSpacing: "0.16em", marginBottom: 7, fontFamily: MONO }}>{label}</div>
       <button
         type="button"
         onClick={() => setOpen(o => !o)}
@@ -175,10 +175,10 @@ export const CreateSessionForm = ({ onCreated }: CreateSessionFormProps) => {
           }}>
             <ChevronRight size={26} color="#fff" strokeWidth={1.5} />
           </div>
-          <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: '0.12em', color: '#ffffff', textTransform: 'uppercase', marginBottom: 6, fontFamily: "'Syne', sans-serif" }}>
+          <div className="jr-h1" style={{ fontSize: 18, fontWeight: 800, letterSpacing: '0.12em', color: '#ffffff', textTransform: 'uppercase', marginBottom: 6, fontFamily: "'Syne', sans-serif" }}>
             Create New Session
           </div>
-          <div style={{ fontSize: 9, letterSpacing: '0.22em', color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase' }}>
+          <div className="jr-h3" style={{ fontSize: 9, letterSpacing: '0.22em', color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase' }}>
             System Initialisation Required
           </div>
         </div>
@@ -186,7 +186,7 @@ export const CreateSessionForm = ({ onCreated }: CreateSessionFormProps) => {
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }} data-testid="form-create-session">
 
           <div>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 9, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.35)', marginBottom: 8 }}>
+            <label className="jr-h3" style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 9, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.35)', marginBottom: 8 }}>
               <Clock size={9} style={{ color: 'rgba(255,255,255,0.35)' }} />
               Session Identifier
             </label>
@@ -213,7 +213,7 @@ export const CreateSessionForm = ({ onCreated }: CreateSessionFormProps) => {
           </div>
 
           <div>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 9, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.35)', marginBottom: 8 }}>
+            <label className="jr-h3" style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 9, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.35)', marginBottom: 8 }}>
               <Wallet size={9} style={{ color: 'rgba(255,255,255,0.35)' }} />
               Initial Liquidity
             </label>
@@ -287,7 +287,7 @@ export const CreateSessionForm = ({ onCreated }: CreateSessionFormProps) => {
         </form>
 
         <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-          <div style={{ fontSize: 9, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.35)' }}>
+          <div className="jr-h3" style={{ fontSize: 9, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.35)' }}>
             Status: <span style={{ color: '#818cf8' }}>Ready</span>
           </div>
           <div style={{ width: 48, height: 2, background: '#4f46e5' }} />
@@ -336,7 +336,7 @@ const SESSION_CARDS_CSS = `
   .sc-input::placeholder { color: #444; }
   .sc-input:focus { outline: none; border-color: #888 !important; }
   .sc-btn {
-    font-size: 9px; text-transform: uppercase; letter-spacing: 0.16em;
+    font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em;
     font-weight: 600; padding: 5px 12px;
     border: 1px solid #333; background: transparent; color: #888;
     cursor: pointer; transition: all 0.15s;
@@ -387,7 +387,7 @@ function SCField({ label, value, onChange, type = "text", placeholder, autoFocus
 }) {
   return (
     <div style={{ marginBottom: 14 }}>
-      <div style={{ fontSize: 8, color: MC.accentFaint, letterSpacing: "0.16em", marginBottom: 7, fontFamily: MONO }}>{label}</div>
+      <div className="jr-h3" style={{ fontSize: 8, color: MC.accentFaint, letterSpacing: "0.16em", marginBottom: 7, fontFamily: MONO }}>{label}</div>
       <input type={type} value={value} onChange={onChange} placeholder={placeholder} autoFocus={autoFocus}
         className="sc-input"
         style={{
@@ -536,7 +536,9 @@ function GhostCard({ onCreate }: { onCreate: () => void }) {
     >
       {/* Tab header */}
       <div className="flex justify-between items-center bg-[#111827]/60 px-3 py-2 border-b border-[#080d14]">
-        <span className="text-[11px] text-[var(--jr-ink-dim)] font-medium">
+        {/* 13px, not 11 — the journal's size floor (2026-09-14) lifts inline sizes, and these are
+            Tailwind classes it cannot see, so they are raised here by hand. */}
+        <span className="text-[13px] text-[var(--jr-ink-dim)] font-medium">
           Untitled Session
         </span>
         <Plus size={12} className="text-[var(--jr-ink-dim)] group-hover:text-[var(--jr-ink-dim)]" />
@@ -545,13 +547,13 @@ function GhostCard({ onCreate }: { onCreate: () => void }) {
       {/* Body */}
       <div className="flex-1 flex flex-col items-center justify-center space-y-3 opacity-30 group-hover:opacity-100 transition-opacity">
         <Terminal size={22} className="text-[var(--jr-ink-dim)]" />
-        <p className="text-[11px] font-medium text-[var(--jr-ink-dim)]">New session slot</p>
+        <p className="text-[13px] font-medium text-[var(--jr-ink-dim)]">New session slot</p>
       </div>
 
       {/* Footer */}
       <div className="p-4">
         <button
-          className="w-full border border-dashed border-[#1e2740] group-hover:border-[#3b4fd8]/60 py-2 text-[11px] font-semibold text-[var(--jr-ink-dim)] group-hover:text-[#7c8cf8] transition-all"
+          className="w-full border border-dashed border-[#1e2740] group-hover:border-[#3b4fd8]/60 py-2 text-[13px] font-semibold text-[var(--jr-ink-dim)] group-hover:text-[#7c8cf8] transition-all"
           style={{ fontFamily: UI }}
         >+ Create Session</button>
       </div>

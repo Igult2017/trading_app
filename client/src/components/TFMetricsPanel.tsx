@@ -264,7 +264,7 @@ const PerfCell = ({ row }: { row: TFRow }) => {
             { label:'P/L',   value:`${row.netPL>=0?'+':''}$${row.netPL.toLocaleString()}`, color:row.netPL>=0?C.win:C.loss },
           ].map(({ label, value, color }) => (
             <div key={label} style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-              <span style={{ fontFamily:MONO, fontSize:7.5, color:C.sub, textTransform:'uppercase', letterSpacing:'0.12em' }}>{label}</span>
+              <span className="jr-h3" style={{ fontFamily:MONO, fontSize:7.5, color:C.sub, textTransform:'uppercase', letterSpacing:'0.12em' }}>{label}</span>
               <span style={{ fontFamily:MONO, fontSize:10, fontWeight:500, color }}>{value}</span>
             </div>
           ))}
@@ -372,7 +372,7 @@ const MobileCard = ({ row }: { row: TFRow }) => {
             { label:'TRADES',  value:`${row.trades} · ${wins}W/${losses}L`, color:C.strong },
           ].map(({label,value,color})=>(
             <div key={label}>
-              <div style={{ fontFamily:MONO, fontSize:7, color:C.sub, textTransform:'uppercase', letterSpacing:'0.12em', marginBottom:2 }}>{label}</div>
+              <div className="jr-h3" style={{ fontFamily:MONO, fontSize:7, color:C.sub, textTransform:'uppercase', letterSpacing:'0.12em', marginBottom:2 }}>{label}</div>
               <div style={{ fontFamily:MONO, fontSize:10, fontWeight:500, color }}>{value}</div>
             </div>
           ))}
@@ -396,7 +396,7 @@ const MobileCard = ({ row }: { row: TFRow }) => {
                 <div style={{ background:`${color}1a`, border:`1px solid ${color}38`, borderRadius:3, padding:'1px 6px' }}>
                   <span style={{ fontFamily:MONO, fontSize:9, fontWeight:500, color }}>{tf}</span>
                 </div>
-                <span style={{ fontFamily:MONO, fontSize:7, color:C.sub, textTransform:'uppercase', letterSpacing:'0.12em' }}>{role}</span>
+                <span className="jr-h3" style={{ fontFamily:MONO, fontSize:7, color:C.sub, textTransform:'uppercase', letterSpacing:'0.12em' }}>{role}</span>
                 <span style={{ fontFamily:MONO, fontSize:10, fontWeight:500, color }}>{data.candle}</span>
               </div>
               <p style={{ fontFamily:SANS, fontSize:12, color:C.text, lineHeight:1.75, margin:0 }}>{data.pa}</p>
@@ -418,11 +418,11 @@ const MobileCard = ({ row }: { row: TFRow }) => {
           </div>
           <div style={{ padding:'11px 14px', display:'grid', gridTemplateColumns:'1fr 1fr', gap:'8px 16px' }}>
             <div>
-              <div style={{ fontFamily:MONO, fontSize:7, color:C.sub, textTransform:'uppercase', letterSpacing:'0.12em', marginBottom:3 }}>Session</div>
+              <div className="jr-h3" style={{ fontFamily:MONO, fontSize:7, color:C.sub, textTransform:'uppercase', letterSpacing:'0.12em', marginBottom:3 }}>Session</div>
               <div style={{ fontFamily:SANS, fontSize:11, color:C.muted, lineHeight:1.6 }}>{row.session.replace(' · ','\n')}</div>
             </div>
             <div>
-              <div style={{ fontFamily:MONO, fontSize:7, color:C.sub, textTransform:'uppercase', letterSpacing:'0.12em', marginBottom:3 }}>Condition</div>
+              <div className="jr-h3" style={{ fontFamily:MONO, fontSize:7, color:C.sub, textTransform:'uppercase', letterSpacing:'0.12em', marginBottom:3 }}>Condition</div>
               <Pill color={cC}>{(row.condition||'').split(' · ')[0]}</Pill>
             </div>
           </div>
@@ -524,7 +524,7 @@ export default function TFMetricsPanel({ sessionId }: { sessionId?: string | nul
             <div style={{ width:34,height:34,borderRadius:8,background:`linear-gradient(135deg,${C.htf}22,${C.atf}18)`,border:`1px solid ${C.htf}42`,display:'flex',alignItems:'center',justifyContent:'center' }}>
               <span style={{ fontFamily:DISPLAY,fontSize:13,fontWeight:800,color:C.htf,textShadow:`0 0 14px ${C.htf}80` }}>TF</span>
             </div>
-            <span style={{ fontFamily:DISPLAY,fontSize:9,fontWeight:700,color:C.strong,letterSpacing:'0.22em',textTransform:'uppercase' }}>Multi-Timeframe Matrix</span>
+            <span className="jr-h1" style={{ fontFamily:DISPLAY,fontSize:9,fontWeight:700,color:C.strong,letterSpacing:'0.22em',textTransform:'uppercase' }}>Multi-Timeframe Matrix</span>
           </div>
           {!isMobile && (
             <div style={{ display:'flex',alignItems:'center',gap:8 }}>
@@ -534,7 +534,7 @@ export default function TFMetricsPanel({ sessionId }: { sessionId?: string | nul
                 {label:'Best WR',  value:`${bestWR}%`,color:C.win,    bg:`${C.win}10`, border:`${C.win}30`},
               ].map(({label,value,color,bg,border})=>(
                 <div key={label} style={{ display:'flex',alignItems:'center',gap:8,background:bg,border:`1px solid ${border}`,borderRadius:5,padding:'5px 12px' }}>
-                  <span style={{ fontFamily:DISPLAY,fontSize:9,fontWeight:600,color:'rgba(148,200,255,0.5)',textTransform:'uppercase',letterSpacing:'0.15em' }}>{label}</span>
+                  <span className="jr-h3" style={{ fontFamily:DISPLAY,fontSize:9,fontWeight:600,color:'rgba(148,200,255,0.5)',textTransform:'uppercase',letterSpacing:'0.15em' }}>{label}</span>
                   <span style={{ fontFamily:DISPLAY,fontSize:15,fontWeight:800,color,lineHeight:1,textShadow:`0 0 14px ${color}55` }}>{value}</span>
                 </div>
               ))}
@@ -562,7 +562,7 @@ export default function TFMetricsPanel({ sessionId }: { sessionId?: string | nul
           {!isMobile&&(
             <div style={{ display:'flex',alignItems:'center',gap:0 }}>
               <div style={{ display:'flex',alignItems:'center',gap:12,paddingRight:18,marginRight:18,borderRight:`1px solid rgba(100,160,255,0.09)` }}>
-                <span style={{ fontFamily:DISPLAY,fontSize:9,fontWeight:700,color:'rgba(148,200,255,0.4)',textTransform:'uppercase',letterSpacing:'0.18em' }}>TF Role</span>
+                <span className="jr-h3" style={{ fontFamily:DISPLAY,fontSize:9,fontWeight:700,color:'rgba(148,200,255,0.4)',textTransform:'uppercase',letterSpacing:'0.18em' }}>TF Role</span>
                 {[{c:C.htf,l:'HTF'},{c:C.atf,l:'ATF'},{c:C.etf,l:'ETF'}].map(x=>(
                   <div key={x.l} style={{ display:'flex',alignItems:'center',gap:6 }}>
                     <div style={{ width:7,height:7,borderRadius:'50%',background:x.c,boxShadow:`0 0 7px ${x.c}`,flexShrink:0 }}/>
@@ -571,7 +571,7 @@ export default function TFMetricsPanel({ sessionId }: { sessionId?: string | nul
                 ))}
               </div>
               <div style={{ display:'flex',alignItems:'center',gap:12 }}>
-                <span style={{ fontFamily:DISPLAY,fontSize:9,fontWeight:700,color:'rgba(148,200,255,0.4)',textTransform:'uppercase',letterSpacing:'0.18em' }}>Win Rate</span>
+                <span className="jr-h3" style={{ fontFamily:DISPLAY,fontSize:9,fontWeight:700,color:'rgba(148,200,255,0.4)',textTransform:'uppercase',letterSpacing:'0.18em' }}>Win Rate</span>
                 {[{c:C.win,l:'≥ 80%'},{c:C.warn,l:'62–79%'},{c:C.loss,l:'< 62%'}].map(x=>(
                   <div key={x.l} style={{ display:'flex',alignItems:'center',gap:6 }}>
                     <div style={{ width:7,height:7,borderRadius:'50%',background:x.c,boxShadow:`0 0 6px ${x.c}80`,flexShrink:0 }}/>
@@ -613,7 +613,7 @@ export default function TFMetricsPanel({ sessionId }: { sessionId?: string | nul
               <thead>
                 <tr>
                   <th style={{ background:C.panel,width:148,minWidth:148,padding:'10px 14px',borderRight:`1px solid ${C.sep}`,borderBottom:`1px solid ${C.sep}`,textAlign:'left',verticalAlign:'bottom' }}>
-                    <div style={{ fontFamily:MONO,fontSize:7.5,fontWeight:500,color:C.sub,letterSpacing:'0.18em',textTransform:'uppercase' }}>MTF Combo</div>
+                    <div className="jr-h3" style={{ fontFamily:MONO,fontSize:7.5,fontWeight:500,color:C.sub,letterSpacing:'0.18em',textTransform:'uppercase' }}>MTF Combo</div>
                     <div style={{ fontFamily:MONO,fontSize:7,color:C.sub,marginTop:3,letterSpacing:'0.1em',opacity:0.5 }}>HTF → ATF → ETF</div>
                   </th>
                   {ColHeaders.map((col,i)=>(

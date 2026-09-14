@@ -154,7 +154,11 @@ const T = {
 // but a heavier cut of the same one. The bundled face is VARIABLE, so 500-700 costs no extra
 // download and thickens exactly those hairlines. Nothing on this page is set lighter than 500 any
 // more, and the sizes went up with it — weight alone does not rescue 9px text.
-const PLAYFAIR = "'Playfair Display Variable', 'Playfair Display', Georgia, serif";
+// 2026-09-14 — the journal's own two faces lead: 'Journal Figures' puts every digit in DM Mono and
+// 'Journal Playfair' is declared 600-900 so no text here renders in the hairline weights (his
+// instruction, "the whole of the journal in playfair with no strokes"). This page is exempt from the
+// journal's face rule, so it has to ask for them itself.
+const PLAYFAIR = "'Journal Figures', 'Journal Playfair', 'Playfair Display Variable', 'Playfair Display', Georgia, serif";
 const FONT  = PLAYFAIR;   // every piece of text on the page
 const MONO  = "'DM Mono', monospace";   // every figure — kept, and reinforced below
 // TWO HELPERS, AND THE NAMES NOW TELL THE TRUTH.
@@ -184,7 +188,7 @@ function Badge({ children, color = T.muted, border = T.line2 }: { children: Reac
 }
 
 function L({ children, style = {} }: { children: React.ReactNode; style?: React.CSSProperties }) {
-  return <span style={{ fontFamily: FONT, fontSize: 12.5, letterSpacing: ".12em", textTransform: "uppercase", color: T.dim, fontWeight: 500, ...style }}>{children}</span>;
+  return <span className="jr-h3" style={{ fontFamily: FONT, fontSize: 12.5, letterSpacing: ".12em", textTransform: "uppercase", color: T.dim, fontWeight: 500, ...style }}>{children}</span>;
 }
 
 function V({ children, color = T.text, style = {} }: { children: React.ReactNode; color?: string; style?: React.CSSProperties }) {
@@ -219,7 +223,7 @@ function CellTitle({ children, icon }: { children: React.ReactNode; icon?: React
             COLOUR — the caption grey, which is 8.77:1 and NOT dim: it is the same step the Metrics
                      panel puts its own panel titles on, where the title sits behind the content it
                      introduces rather than shouting over it. */}
-      <span style={{ fontFamily: PLAYFAIR, fontSize: 16.5, fontStyle: "italic", letterSpacing: ".01em",
+      <span className="jr-h1" style={{ fontFamily: PLAYFAIR, fontSize: 16.5, fontStyle: "italic", letterSpacing: ".01em",
                      color: T.dim, fontWeight: 600, lineHeight: 1.2 }}>{children}</span>
     </div>
   );
@@ -247,7 +251,7 @@ function Cell({ children, style = {}, span }: { children: React.ReactNode; style
 function StatRow({ label, value, color = T.text, last = false }: { label: string; value: string | number; color?: string; last?: boolean }) {
   return (
     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", padding: "8px 0", borderBottom: last ? "none" : `1px solid ${T.line}` }}>
-      <span style={{ fontSize: 12.5, color: T.muted, fontFamily: FONT, fontWeight: 500, textTransform: "uppercase", letterSpacing: ".12em" }}>{label}</span>
+      <span className="jr-h3" style={{ fontSize: 12.5, color: T.muted, fontFamily: FONT, fontWeight: 500, textTransform: "uppercase", letterSpacing: ".12em" }}>{label}</span>
       <span style={{ ...num, fontSize: 13, fontWeight: 700, color }}>{value}</span>
     </div>
   );
@@ -1599,7 +1603,7 @@ export default function StrategyAudit({ sessionId, userId, darkMode = true }: Pr
           .audit-root .sa-lv-row { padding-left: 0 !important; }
           .audit-root .sa-lv-key { min-width: 92px !important; }
           .audit-root .sa-verdict { flex-direction: column !important; align-items: flex-start !important; }
-          .audit-root .sa-verdict > div { font-size: 12.5px !important; letter-spacing: .1em !important; line-height: 1.5 !important; }
+          .audit-root .sa-verdict > div { font-size: 13px !important; letter-spacing: .1em !important; line-height: 1.5 !important; }
         }
         @media (max-width: 768px) {
           .audit-root { padding: 14px 0 !important; }

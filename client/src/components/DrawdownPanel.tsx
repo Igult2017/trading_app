@@ -133,35 +133,25 @@ function Seg({ options, value, onChange, accents }: {
 
 // ── component ───────────────────────────────────────────────────────────────
 /**
- * `dispFont` is the journal's selected font stack, passed in from Journal (it owns that state, so
- * passing it keeps this panel live when the font changes instead of re-reading a stale copy).
+ * `dispFont` is the journal's font stack, passed in from Journal (it owns that state, so passing it
+ * keeps this panel live when the font changes instead of re-reading a stale copy).
  *
- * It drives BOTH of this panel's font roles: `--disp` (headings, section titles, labels) and, since
- * 2026-07-29, `--mono` (numeric readouts and chart axes) — the user asked for numbers and letters
- * alike in the journal face. `--mono` previously stayed DM Mono so figures kept tabular alignment;
- * `dpStyles` now sets `font-variant-numeric: tabular-nums` on `.dp` to preserve that instead.
+ * It drives BOTH of this panel's font roles: `--disp` (headings, section titles, labels) and `--mono`
+ * (every piece of read text — dpStyles sets `.dp{font-family:var(--mono)}` — with
+ * `font-variant-numeric: tabular-nums` on `.dp` keeping the digits aligned).
+ *
+ * ONE STACK FOR BOTH AGAIN SINCE 2026-09-14. From 2026-09-05 the read-text role took a Montserrat
+ * companion (`bodyStack`). His instruction now is "the whole of the journal in playfair with no
+ * strokes" with every number in DM Mono, and the stack Journal passes leads with 'Journal Figures'
+ * (DM Mono digits) and 'Journal Playfair' (declared 600-900) — so one prop carries both.
  *
  * Needed because `.dp` is exempted from Journal's global font rule (it owns its typography), which
- * is why a new journal default does NOT reach this page on its own.
+ * is why a journal font change does NOT reach this page on its own.
  */
-export default function DrawdownPanel({ sessionId, dispFont, bodyFont }:
-  { sessionId?: string | null; dispFont?: string; bodyFont?: string }) {
-  // TWO ROLES. `--disp` is headings and section titles; `--mono` is everything meant to be READ —
-  // labels, table cells, figures, chart axes — because dpStyles sets `.dp{font-family:var(--mono)}`
-  // and the whole panel inherits from it.
-  //
-  // Both used to be the journal face outright: he asked on 2026-07-29 for numbers and letters alike,
-  // rather than DM Mono figures beside Playfair words, and dpStyles keeps the digits aligned with
-  // tabular-nums instead. That request is UNCHANGED and still satisfied — numbers and letters here
-  // are always the same face as each other.
-  //
-  // What changed (2026-09-05, on his "in production text look so dim and horrible"): when the
-  // journal face is a DISPLAY one, the read-text role takes that font's `bodyStack` companion
-  // instead. Only Playfair declares one; the other eight are sans or mono and are untouched, so the
-  // font picker still means exactly what it says for them.
+export default function DrawdownPanel({ sessionId, dispFont }:
+  { sessionId?: string | null; dispFont?: string }) {
   const dpStyle = dispFont
-    ? ({ ['--disp' as any]: dispFont,
-         ['--mono' as any]: bodyFont ?? dispFont } as React.CSSProperties)
+    ? ({ ['--disp' as any]: dispFont, ['--mono' as any]: dispFont } as React.CSSProperties)
     : undefined;
   const [ddView, setDdView] = useState('STRATEGY');
   const [dir,    setDir]    = useState('BULLISH');
@@ -225,7 +215,7 @@ export default function DrawdownPanel({ sessionId, dispFont, bodyFont }:
     <div className="dp" style={dpStyle}><style>{DP_CSS}</style>
       <div style={{ minHeight: 420, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
         {icon}
-        <p className={`${titleColor}`} style={{ fontSize: 11, letterSpacing: '.18em', textTransform: 'uppercase', fontWeight: 600, color: 'var(--ink2)' }}>{title}</p>
+        <p className={`${titleColor} jr-h1`} style={{ fontSize: 11, letterSpacing: '.18em', textTransform: 'uppercase', fontWeight: 600, color: 'var(--ink2)' }}>{title}</p>
         <p style={{ fontSize: 10, color: 'var(--ink3)' }}>{subtitle}</p>
       </div>
     </div>
@@ -559,7 +549,7 @@ export default function DrawdownPanel({ sessionId, dispFont, bodyFont }:
                 <div><div className="k">Post-Streak Revenge</div><div className="big loss">{sk?.revengeRate ?? 0}%</div><div className="s">of streaks triggered</div></div>
                 <div><div className="k">Best Win Streak</div><div className="big gain">{sk?.bestWinStreak?.length ?? 0}</div><div className="s">{fmtRange(sk?.bestWinStreak?.startDate, sk?.bestWinStreak?.endDate) || 'no data'}</div></div>
               </div>
-              <div className="k" style={{ fontSize: 9, letterSpacing: '.13em', textTransform: 'uppercase', color: 'var(--ink3)', marginTop: 20 }}>Trade Timeline</div>
+              <div className="k jr-h2" style={{ fontSize: 9, letterSpacing: '.13em', textTransform: 'uppercase', color: 'var(--ink3)', marginTop: 20 }}>Trade Timeline</div>
               <div className="tl">{timeline.length === 0 ? <span className="mut" style={{ fontSize: 10 }}>—</span> : timeline.map((c, i) => <span key={i} className={c === 'W' ? 'tw' : c === 'L' ? 'tlo' : 'tb'}>{c}</span>)}</div>
             </div>
             <div>

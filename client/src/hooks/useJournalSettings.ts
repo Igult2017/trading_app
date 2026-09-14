@@ -31,28 +31,15 @@ export interface FontDef {
   /**
    * Weight Journal force-sets on every element (font-weight:<n>!important).
    * 900 suits the geometric sans faces it was chosen for. `null` means DON'T force one — each
-   * panel keeps its own weights, so headings stay bold and body stays regular. Playfair is a
-   * high-contrast display serif that turns to mush at 900 in 10-12px UI text, and the look people
-   * actually like from it (see features/trade-sync) comes from its natural 400-700 range.
+   * panel keeps its own weights, so headings stay bold and body stays regular. Playfair needs no
+   * forced weight: its stack leads with 'Journal Playfair' (index.css), a face declared 600-900, so
+   * any lighter request already renders at 600 while the panels keep their heavier headings.
+   *
+   * `bodyStack` (a Montserrat companion for read-text) was REMOVED 2026-09-14 on his instruction
+   * "the whole of the journal in playfair with no strokes": the weight floor above is what keeps
+   * small Playfair visible, so no second face is needed anywhere in the journal.
    */
   forceWeight: number | null;
-  /**
-   * The face to use for text that is meant to be READ — labels, table cells, figures, captions —
-   * when THIS face is a display one that cannot do that job. Omitted means "this face is fine for
-   * body text", which is true of all eight sans and mono options.
-   *
-   * Same reasoning as `forceWeight` directly above, carried one step further: that note already
-   * says Playfair "turns to mush at 900 in 10-12px UI text", and the fix there was to stop forcing
-   * the weight. The face itself is still a high-contrast display serif, so its thin strokes drop
-   * out at 11px whatever the weight — which is docs/READABILITY.md's first and most common cause
-   * ("serif for headlines; everything meant to be READ is sans").
-   *
-   * DECLARED AS DATA, NOT SNIFFED FROM THE STACK STRING. A test like /serif/ on the stack is the
-   * exact trap that doc records: the landing page had a constant NAMED `sans` that held Playfair,
-   * and every name-based check passed while the page rendered a serif. A font says for itself
-   * whether it can set body text.
-   */
-  bodyStack?: string;
 }
 
 export const THEMES: Record<ThemeId, ThemeDef> = {
@@ -137,20 +124,16 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
 // Fonts request. Variable packages register a "<Name> Variable" family, so those
 // stacks list the variable name first with the static name as a fallback.
 export const FONTS: Record<FontId, FontDef> = {
-  // Self-hosted already: index.css imports @fontsource-variable/playfair-display, which
-  // registers the 'Playfair Display Variable' family — no Google Fonts request needed.
+  // Self-hosted: index.css imports @fontsource-variable/playfair-display, and declares
+  // 'Journal Playfair' against the same files — no Google Fonts request.
   'playfair-display': {
     label: 'Playfair Display',
-    stack: "'Playfair Display Variable', 'Playfair Display', Georgia, serif",
+    // 'Journal Playfair' FIRST — the same variable Playfair, declared 600-900, so nothing in the
+    // journal renders in the hairline weights (his instruction, 2026-09-14: "the whole of the journal
+    // in playfair with no strokes so they dont become blurred again").
+    stack: "'Journal Playfair', 'Playfair Display Variable', 'Playfair Display', Georgia, serif",
     sample: 'Aa Bb 0123',
-    forceWeight: null,   // keep each panel's own weights — see FontDef.forceWeight
-    // The ONLY serif of the nine. Headings stay Playfair; small read-text gets Inter, which is
-    // already bundled (index.css) so this costs no download. See FontDef.bodyStack.
-    //
-    // MONTSERRAT, his choice 2026-09-05 (it was Inter for a day). It also happens to restore the
-    // Drawdown panel's own documented design pairing — Journal.tsx calls that panel
-    // "Montserrat/DM-Mono" — now that its figures are back on DM Mono.
-    bodyStack: "'Montserrat', system-ui, -apple-system, 'Segoe UI', sans-serif",
+    forceWeight: null,   // the floor lives in the face — see FontDef.forceWeight
   },
   montserrat: {
     label: 'Montserrat',

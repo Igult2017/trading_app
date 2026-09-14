@@ -35,7 +35,7 @@ const VaultCell = ({ label, value, color, isMobile, first = false }: { label: st
     borderLeft: first ? "none" : "1px solid var(--jr-border)",
     borderTop: "1px solid transparent",
   }}>
-    <span style={{ fontSize: 11, fontWeight: 900, color: "var(--jr-cap, #A8AEB8)", letterSpacing: "0.12em", fontFamily: "'Montserrat', sans-serif" }}>
+    <span className="jr-h3" style={{ fontSize: 11, fontWeight: 900, color: "var(--jr-cap, #A8AEB8)", letterSpacing: "0.12em", fontFamily: "'Montserrat', sans-serif" }}>
       {label}
     </span>
     <span className="tv-fig" style={{
@@ -43,11 +43,10 @@ const VaultCell = ({ label, value, color, isMobile, first = false }: { label: st
       // raised everything else to the 11px floor, which would have left the figure (8-9px) SMALLER
       // than the caption above it (11px) — the hierarchy upside down.
       //
-      // PLAYFAIR AND BIGGER, 2026-09-06 — his call on these exact figures. The inline Montserrat
-      // below was never what rendered: the .tv-num rule forced DM Mono over it. Both are gone; the
-      // family now comes from .tv-fig alone, so what is written here is what appears. Seventeen
-      // rather than fourteen because Playfair's hairlines need the room. See .tv-fig for the full
-      // reasoning.
+      // DM MONO SINCE 2026-09-14 — his instruction, "write these numbers in DM mono in the journal".
+      // The family comes from .tv-fig alone (it was Playfair 700 on his 6 Sep call). DM Mono's
+      // heaviest cut is 500, so the 700 below renders as 500; the journal turns fake bold off rather
+      // than smear it. Seventeen pixels stays so the figure still outranks its 13px label.
       fontSize: isMobile ? 15 : 17, fontWeight: 700, color,
       letterSpacing: "-0.01em",
       textShadow:
@@ -257,7 +256,7 @@ function EditModal({ trade, onSave, onClose, isPending, error, onRelease, synced
             { label: "Time", field: "time", type: "time" },
           ].map(({ label, field, type }) => (
             <div key={field} style={styles.formGroup}>
-              <label style={styles.label}>{label}</label>
+              <label className="jr-h3" style={styles.label}>{label}</label>
               <input
                 type={type}
                 value={(form as any)[field]}
@@ -269,7 +268,7 @@ function EditModal({ trade, onSave, onClose, isPending, error, onRelease, synced
           ))}
 
           <div style={styles.formGroup}>
-            <label style={styles.label}>Asset</label>
+            <label className="jr-h3" style={styles.label}>Asset</label>
             <input
               type="text"
               value={form.asset}
@@ -281,7 +280,7 @@ function EditModal({ trade, onSave, onClose, isPending, error, onRelease, synced
           </div>
 
           <div style={styles.formGroup}>
-            <label style={styles.label}>Strategy</label>
+            <label className="jr-h3" style={styles.label}>Strategy</label>
             <input
               type="text"
               value={form.strategy}
@@ -293,7 +292,7 @@ function EditModal({ trade, onSave, onClose, isPending, error, onRelease, synced
           </div>
 
           <div style={styles.formGroup}>
-            <label style={styles.label}>Session</label>
+            <label className="jr-h3" style={styles.label}>Session</label>
             <input
               type="text"
               value={form.session}
@@ -305,7 +304,7 @@ function EditModal({ trade, onSave, onClose, isPending, error, onRelease, synced
           </div>
 
           <div style={styles.formGroup}>
-            <label style={styles.label}>Outcome</label>
+            <label className="jr-h3" style={styles.label}>Outcome</label>
             <input
               type="text"
               value={form.outcome}
@@ -317,7 +316,7 @@ function EditModal({ trade, onSave, onClose, isPending, error, onRelease, synced
           </div>
 
           <div style={styles.formGroup}>
-            <label style={styles.label}>Direction</label>
+            <label className="jr-h3" style={styles.label}>Direction</label>
             <input
               type="text"
               value={form.direction}
@@ -329,7 +328,7 @@ function EditModal({ trade, onSave, onClose, isPending, error, onRelease, synced
           </div>
 
           <div style={styles.formGroup}>
-            <label style={styles.label}>Risk:Reward (R)</label>
+            <label className="jr-h3" style={styles.label}>Risk:Reward (R)</label>
             <input
               type="number"
               min="0"
@@ -343,7 +342,7 @@ function EditModal({ trade, onSave, onClose, isPending, error, onRelease, synced
           </div>
 
           <div style={styles.formGroup}>
-            <label style={styles.label}>P/L ($)</label>
+            <label className="jr-h3" style={styles.label}>P/L ($)</label>
             {/*
               HIS REPORT, 2026-09-05: *"Im not able to edit P&L, i wanted to edit it to negative and
               that is not happening."* Three faults sat in five lines here, and between them they
@@ -610,7 +609,7 @@ export default function TradeVault({ sessionId, startingBalance: sessionStarting
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
         <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#00d48a", boxShadow: "0 0 6px #00d48a", flexShrink: 0 }} />
         <div>
-          <div style={{ fontSize: 12, fontWeight: 900, color: "var(--jr-ink, #ECEEF2)", letterSpacing: "0.12em", fontFamily: "'Montserrat', sans-serif" }}>{t('vault.title')}</div>
+          <div className="jr-h1" style={{ fontSize: 12, fontWeight: 900, color: "var(--jr-ink, #ECEEF2)", letterSpacing: "0.12em", fontFamily: "'Montserrat', sans-serif" }}>{t('vault.title')}</div>
           <div style={{ fontSize: 11, fontWeight: 900, color: "var(--jr-cap, #A8AEB8)", marginTop: 2, fontFamily: "'Montserrat', sans-serif" }}>{subtitle}</div>
         </div>
       </div>
@@ -706,27 +705,26 @@ export default function TradeVault({ sessionId, startingBalance: sessionStarting
           font-variant-numeric: tabular-nums;
         }
 
-        /* THE HEADER FIGURES — NET P/L, WIN RATE, TRADES, NET GROWTH, DAYS — in Playfair.
-           His call, 2026-09-06: back to Playfair, and more visible in it.
-
-           MORE VISIBLE IS THE WEIGHT AXIS, NOT A COLOUR. Playfair Display is a high-contrast
-           display serif and it is the HAIRLINES that disappear; no colour brings a hairline back.
-           The bundled face is variable, so 700 costs nothing extra and thickens exactly those
-           strokes. The size rises with it, because weight alone does not rescue small type.
+        /* THE HEADER FIGURES — NET P/L, WIN RATE, TRADES, NET GROWTH, DAYS — in DM Mono.
+           They were Playfair 700 on his 6 Sep call. His instruction of 2026-09-14 replaces it:
+           "write these numbers in DM mono in the journal ... the whole journal". Measured after the
+           journal-wide change, these five were the only numbers left outside DM Mono, because this
+           rule named Playfair outright and so skipped the journal's digit face.
 
            SAME SPECIFICITY TRICK as the rule above: class+element (0,1,1) beats the journal-wide
            rule's 0,1,0 while both are forced. A bare .trade-vault-root .tv-fig would tie, and a tie
-           is settled by stylesheet order — which is not something to rely on. */
+           is settled by stylesheet order — which is not something to rely on. DM Mono ships 400 and
+           500, so 500 is the heaviest real cut; the journal turns fake bold off. */
         .trade-vault-root .tv-fig,
         .trade-vault-root td.tv-fig, .trade-vault-root span.tv-fig {
-          font-family: 'Playfair Display Variable', 'Playfair Display', Georgia, serif !important;
+          font-family: 'DM Mono', ui-monospace, monospace !important;
           font-variant-numeric: tabular-nums;
-          font-weight: 700;
+          font-weight: 500;
         }
 
         @media (max-width: 640px) {
           .trade-vault-root .tv-table-wrap { border-left: 0 !important; border-right: 0 !important; }
-          .trade-vault-root .tv-table th { padding: 10px 10px !important; font-size: 11px !important; }
+          .trade-vault-root .tv-table th { padding: 10px 10px !important; font-size: 13px !important; }
           .trade-vault-root .tv-table td { padding: 12px 10px !important; }
           .trade-vault-root .tv-stats > div { border-top: 1px solid var(--jr-border); }
           .trade-vault-root .tv-stats > div:nth-child(-n+3) { border-top: none; }
@@ -802,7 +800,7 @@ export default function TradeVault({ sessionId, startingBalance: sessionStarting
             <thead>
               <tr>
                 {["DATE", "ASSET", "STRATEGY", "SESSION", "DIRECTION", "RR", "OUTCOME", "P/L", "ACTIONS"].map((col) => (
-                  <th key={col} style={styles.th}>{col}</th>
+                  <th className="jr-h3" key={col} style={styles.th}>{col}</th>
                 ))}
               </tr>
             </thead>

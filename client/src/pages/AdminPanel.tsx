@@ -125,11 +125,10 @@ const ADMIN_THEME_DEFAULT = 'light';
  *  the admin's read-text to it — and the whole panel went Montserrat. His reply: *"The font is still
  *  montserat. Can you check where montserat is hardcoded."*
  *
- *  It is not hardcoded here. `bodyStack` is used in exactly ONE place in the journal
- *  (`Journal.tsx:1630`), where it is handed to the Drawdown panel alone — one of four panels that
- *  own their own typography and are EXCLUDED from the journal's global font rule
- *  (`Journal.tsx:1041`, which forces `F.stack` on everything else). So Montserrat is a companion
- *  inside one panel, not the journal's reading face. I copied the exception instead of the rule.
+ *  It is not hardcoded here. `bodyStack` was used in exactly ONE place in the journal — handed to
+ *  the Drawdown panel alone, one of four panels that own their own typography — so Montserrat was a
+ *  companion inside one panel, not the journal's reading face. I copied the exception instead of the
+ *  rule. (`bodyStack` itself was removed 2026-09-14, when the whole journal went to Playfair.)
  */
 type AdminFontDef = { id: string; label: string; stack: string };
 
