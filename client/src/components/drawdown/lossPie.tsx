@@ -1,12 +1,17 @@
 /**
  * LOSS CONTRIBUTION AS A PIE — his request, 2026-09-14: *"use pie chart and let the pie chart show loss
  * percentage contributed by each pair ... the second one can show percentage loss contributed by
- * sessions"*, with a sample: a flat pie in solid teal, grey-green, light grey, blue and orange, thin gaps
- * between the slices, and the percentage written inside each one.
+ * sessions"*, drawn after his sample: flat slices, thin gaps between them, the percentage inside each.
  *
  * A SLICE IS A SHARE OF THE MONEY LOST on losing trades (server/python/drawdown/loss_share.py), so the
  * slices add up to 100. The sample's slices carry no names, so the key under the pie gives each name,
  * its share, and the actual loss as a % of the starting balance.
+ *
+ * THE JOURNAL'S OWN COLOURS — his correction the same day: *"the colors we already have in the
+ * journal"*. The first version kept the sample image's teal, grey-green and orange, which appear nowhere
+ * else in the journal. Slices now take --pie-1 … --pie-6 from dpStyles.ts: the journal accent blue, the
+ * equity-curve violet, then the Drawdown page's amber, red, green and grey, each with its light-theme
+ * version, so the pies follow the theme like the rest of the page.
  *
  * Plain SVG, like the underwater chart above it (diveProfile.tsx): the charting library is not part of
  * the journal's code, and two pies do not justify adding it to every journal visit.
@@ -14,16 +19,19 @@
 
 export type LossShareRow = { name: string; lossPct: number; losses: number; share: number };
 
-/** The sample's five colours in its order — the biggest slice takes the teal — then three more. */
-const COLOURS = ["#1ED3BC", "#6C7C79", "#E0E0E0", "#0EA6DB", "#FFA400", "#8E7CF0", "#F08CB4", "#B7C4A1"];
-/** Past this many, the smallest groups become one "Other" slice rather than slivers nobody can read. */
-const MAX_SLICES = 7;
+/** Six slice colours, in order. Green, the page's "gain" colour, is fifth, so it only shows once a pie has
+ *  five or more groups. They are page variables, so they are set as a STYLE: an SVG colour attribute
+ *  cannot read a variable. */
+const COLOURS = ["var(--pie-1)", "var(--pie-2)", "var(--pie-3)", "var(--pie-4)", "var(--pie-5)", "var(--pie-6)"];
+/** Up to six groups are drawn as they are; past that, five slices plus one "Other", which lands on the
+ *  sixth colour (grey) — the smallest groups no longer shrink to slivers nobody can read. */
+const MAX_SLICES = COLOURS.length - 1;
 /** Below this share a slice is too thin to hold its number; the key still carries it. */
 const LABEL_MIN = 5;
 const R = 100;   // radius in the drawing's own units — the SVG scales to its box
 
 function merge(rows: LossShareRow[]): LossShareRow[] {
-  if (rows.length <= MAX_SLICES + 1) return rows;   // one extra slice is not worth an "Other"
+  if (rows.length <= COLOURS.length) return rows;
   const rest = rows.slice(MAX_SLICES);
   return [...rows.slice(0, MAX_SLICES), {
     name: "Other",
@@ -64,10 +72,12 @@ export function LossPie({ title, rows }: { title: string; rows: LossShareRow[] }
               return (
                 <g key={r.name}>
                   {data.length === 1
-                    ? <circle r={R} fill={colour(i)} />
-                    : <path d={wedge(start, end)} fill={colour(i)} stroke="var(--bg)" strokeWidth={1.5} strokeLinejoin="round" />}
+                    ? <circle r={R} style={{ fill: colour(i) }} />
+                    : <path d={wedge(start, end)} style={{ fill: colour(i), stroke: "var(--bg)" }} strokeWidth={1.5} strokeLinejoin="round" />}
+                  {/* The page background colour: dark text on the bright dark-theme fills, white on the
+                      deeper light-theme ones. */}
                   {r.share >= LABEL_MIN && (
-                    <text x={lx} y={ly} textAnchor="middle" dominantBaseline="central" fontSize={13} fontWeight={700} fill="#0B1220">
+                    <text x={lx} y={ly} textAnchor="middle" dominantBaseline="central" fontSize={13} fontWeight={700} style={{ fill: "var(--bg)" }}>
                       {Math.round(r.share)}%
                     </text>
                   )}

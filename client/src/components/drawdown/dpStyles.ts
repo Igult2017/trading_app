@@ -28,6 +28,11 @@ export const DP_CSS = `
   --loss:#FF7A87; --lossdeep:#FF3C4F; --loss-d:rgba(255,122,135,.16);
   --gain:#5FE3B4; --gain-d:rgba(95,227,180,.15);
   --warn:#FFC155; --warn-d:rgba(255,193,85,.15);
+  /* PIE SLICE COLOURS, in slice order (lossPie.tsx) — the journal's own, his "the colors we already have
+     in the journal" (2026-09-14): the accent blue (Journal.tsx panel headings and pair-volume bars), the
+     equity-curve violet (Journal.tsx), then this page's amber, red, green and grey. Three to six point at
+     the page's tokens, so the light theme's versions below reach the pies without being repeated. */
+  --pie-1:#38bdf8; --pie-2:#a78bfa; --pie-3:var(--warn); --pie-4:var(--loss); --pie-5:var(--gain); --pie-6:var(--ink3);
   /* BOTH roles follow the journal font: 'inherit', NOT a named face (changed 2026-08-29 on his
      "it should inherit font type from journal").
      WHY IT USED TO DIVERGE: these fell back to a hardcoded 'Playfair Display'. The .dp subtree is
@@ -76,6 +81,9 @@ export const DP_CSS = `
   --loss:#C81E1E; --lossdeep:#991B1B; --loss-d:rgba(200,30,30,.12);
   --gain:#047857; --gain-d:rgba(4,120,87,.12);
   --warn:#B45309; --warn-d:rgba(180,83,9,.12);
+  /* Pie slices: the light theme's own accent (useJournalSettings.ts light.accent) and the equity-curve
+     violet's deeper shade. Slices three to six follow --warn / --loss / --gain / --ink3 above. */
+  --pie-1:#2563eb; --pie-2:#7c3aed;
 }
 /* Chart axes are figures too — dates and values — so they follow --fig with the numbers rather
    than the body font. !important because the journal's own svg-text rule also targets these. */
