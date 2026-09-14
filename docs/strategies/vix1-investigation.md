@@ -1503,3 +1503,74 @@ bar it happened. **For VIX to take mark 1 the rule would have to change** — fo
 after a top turning the main trend down while the lows are still rising. That is his decision, and it
 should be counted first on real data (vix1.md: about half of all pullbacks print their own lower high
 and lower low inside an intact uptrend). **Nothing changed.**
+
+## 2026-09-14 — HIS LINE-CHART RULING, BUILT AND MEASURED. NOT SHIPPED: IT LOST HIS CONFIRMED SELL
+
+His ruling: *"I think lin graphs are more clearer and easy to detect trend and its swings. So we only
+use line for trend to see if we have broken protected area or we are still in a pullback in a trend."*
+
+**WHAT WAS BUILT.** The swing finder was made to read his line chart: every candle became a step from
+the previous close to its own close, so its high and low are those two closes (`line_chart` inside
+`vix1_swings.turning_points`). Every part of VIX that reads the trend asks that one function, so all of
+them switched at once. Swing highs and lows, the protected level and the break of it all came from
+closes. Momentum candles stayed on real candles. The pullback's "best price" was moved to a close too
+— that one only changes what the signal card prints (`vix1_signal.py:116-117`), never a decision.
+
+**THE THREE READINGS MEASURED**, same bars, same trend rules, last 12 months (24 Sep 2025 - 11 Sep 2026):
+
+    WICKS            live today — swings found and priced on candle highs and lows
+    LEVELS AT CLOSES the same swings, found at the same moments, each priced at the best close of its leg
+    FULL LINE        his line chart end to end — swings found AND priced on closes
+
+    EUR/USD            swings   trend changes   of which < 1 day   median trend   price to protected level
+    WICKS                893          91               15              53 h            47.8 pips
+    LEVELS AT CLOSES     893         111               30              36 h            42.1 pips
+    FULL LINE          1,208         167               83              24 h            33.0 pips
+
+    GBP/USD
+    WICKS                924          82               15              51 h            62.6 pips
+    LEVELS AT CLOSES     924          91               22              43 h            54.1 pips
+    FULL LINE          1,218         123               45              34 h            49.9 pips
+
+Moving the levels to closes puts them nearer to price, so more closes cross them. Finding the swings on
+the line adds far more: a dip of one or two closes counts as a swing (median 3 candles apart instead of
+5), so on EUR/USD half of all trends last under a day.
+
+**SIGNALS, through the real `detect_bias` at every hourly close (a count, not a backtest):**
+
+    EUR/USD  WICKS 212 new signals · FULL LINE 195 · 68 lost, 51 new — about a third changed
+    GBP/USD  WICKS 216 new signals · FULL LINE 211 · 53 lost, 48 new
+
+**HIS CANDLES — the yardstick he set** (*"the yardstick should be those signals that i identified"*):
+
+* **EUR/USD Fri 11 Sep 18:00 his — the sell he confirmed on 13 Sep.** WICKS: **SELL**. LEVELS AT
+  CLOSES: nothing — the trend reads turning up. FULL LINE: nothing — the trend reads UP (protected
+  1.15911). **Both close readings lose it.** Why: after the 15:00 bottom, the 16:00 bounce candle closed
+  above the close of the last lower high (**1.16289**) but below that high's wick (**1.16309**) — a
+  2-pip difference decides it. On the full line a smaller swing (1.16095) was broken even earlier.
+* **GBP/USD mark 1, Thu 10 Sep 13:00 his.** Same verdict on all three — trend UP, no signal. The close
+  readings put the level at his circled dip (1.35320 / 1.35326) and turn the trend at **14:00 his**
+  instead of 15:00 — **still one hour after mark 1**.
+* **GBP/USD marks 2 and 3** (10 Sep 19:00, 11 Sep 04:00 his). Same on all three — trend DOWN, refused
+  as too small. That is Issue 1 (the size standard), not the trend.
+* **GBP/USD Fri 11 Sep 11:00 his.** WICKS: trend DOWN. Both close readings: trend **UP** (protected
+  1.34991), in the middle of his down move.
+* **EUR/USD 03 Sep 14:00 and 19:00 his BUYs** (his break trades): the FULL LINE sends them through the
+  normal trend route. They are the only marked setups it gains.
+
+**THE TEST SUITE ON THE FULL LINE — 6 files fail.** Besides the 4-year trend stability limits: his
+confirmed 11 Sep sell (`test_tradeable.py`), the gold misfire he reported no longer reads DOWN
+(`test_structure.py`), the wrong gold BUY heads-up he received would be sent again
+(*"NO notification is sent — a BUY had no route in a downtrend"*), and the 03 Sep / 28 Jul
+change-of-character cases (`test_regime_direction_only.py`, `test_choch.py`).
+
+**WHAT WAS DONE WITH IT.** It is not production ready by his own yardstick, so it was **not shipped** and
+the live code is unchanged (still wicks). The whole change — code, docstrings and the updated swing tests
+(including a new test that stretching every wick moves nothing, with its own proof that it can fail) —
+is kept as `C:\Users\FSD\trading_app_data\patches\vix1-line-chart-trend.patch`; `git apply` restores it.
+
+**THE QUESTION ONLY HE CAN ANSWER** — chart at `Desktop\vix-setups\line-vs-wicks-levels.png` (his line
+chart, with the level each reading protects hour by hour, both pairs): **on his line chart, which high
+was protecting the EUR/USD downtrend on 11 Sep when he sold?** The last lower high's close (1.16289, which
+the 16:00 bounce closed above), or a higher one (1.16536 / 1.16477, the top the move started from)? The
+answer decides which swings count as "the protected area" on a line — the rule this build had to guess.
