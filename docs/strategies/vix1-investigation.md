@@ -1211,3 +1211,41 @@ decides what chop is:** every CLEAN call is a genuine one-directional run. Of th
 **When it says choppy it is mostly looking at sideways candles — but it almost never says it where he
 says it.** 10% of his chop hours refused, 47% not judgeable. It stays unwired (`vix1_chop.py`), D42
 stays open, and nothing about what trades has changed.
+
+---
+
+## MAKING THE CHOP MODULE WORK — 2026-09-14
+
+**Deleting `vix1_chop.py` was wrong, and he said so:** *"So if its not working you delete it instead
+of making it to work???"* The deletion had been committed and pushed by the end-of-turn autocommit
+(`92765b0`); the file is restored (`f824407`). **A module that fails its test is work in progress,
+not dead code.**
+
+**THE MEASURED CAUSE OF THE FAILURE:** it read 12 candles, and his choppy markets are sideways bands
+lasting 1.5-4 days. So the window was lengthened and his band idea added, judged on his marks only —
+201 hours inside his five circles as CHOP, and the Guarantee rally plus his 13 marked candles as GOOD.
+"Full-sized" is measured against the middle candle of the last 100 hours (the window's own middle
+candle forces half of every window to count as full-sized — an old mistake, not repeated).
+
+    24 candles, no pullback set aside
+      fewer than 2 of 3 signs          02 Mar 55%  16 Dec 65%  10 Dec 67%  04a 62%  04b 76%   all 66%   good 5/30
+      <2 signs OR came back >= 6       02 Mar 58%  16 Dec 77%  10 Dec 83%  04a 81%  04b 88%   all 78%   good 6/30
+
+    24 candles, live pullback set aside first (his rule)
+      fewer than 2 of 3 signs          02 Mar 39%  16 Dec  0%  10 Dec  7%  04a 94%  04b 62%   all 36%   good 4/30
+      <2 signs OR came back >= 6       02 Mar 39%  16 Dec  0%  10 Dec  7%  04a 94%  04b 81%   all 40%   good 4/30
+      (45 of the 201 hours could not be read — the "pullback" was longer than the window)
+
+**Compare the old module: ~10% of his chop hours, one market of five.** Longer windows were measured
+too (36, 48, 72, 96 candles) and none beat 24.
+
+**EVERY GOOD READING FLAGGED IS GBP/USD 10-11 SEP.** His Guarantee rally, the XAU/USD sell and
+EUR/USD 03 Sep all pass. That GBP/USD window is the one his own head count already called a mixed
+group on 5 of 9 marks, and where the trend read UP until 11:00 then "no trend".
+
+**THE DECISION THAT IS HIS: the pullback rule halves the detector.** Inside chop the pullback reader
+treats the sideways drift as one long pullback, so it is cut away or runs past the window, and 16 Dec
+and 10 Dec vanish. It buys one fewer GBP/USD flag. Not decided here.
+
+**Nothing is wired. The candidate's most confident calls are drawn for him in
+`C:\Users\FSD\Desktop\vix-chop-24h\` — judged by his eye BEFORE any change to the module.**
