@@ -169,15 +169,48 @@ export function DashboardSkeleton() {
  * shell (sidebar + header) and embeds the DashboardSkeleton, so the transition into the real
  * dashboard is one continuous skeleton rather than a spinner followed by a second skeleton.
  */
+/**
+ * THE SIDEBAR ROWS, COPIED FROM THE REAL NAV (Journal.tsx NAV_SECTIONS + NavButton).
+ *
+ * His instruction, 2026-09-14: the skeleton sidebar "does not look like the actual content of the
+ * sidebar" — it drew ten short rows packed at the top and left the lower half of the column empty.
+ * The real sidebar has THIRTEEN items, each a 16px icon + a 13px label inside 16px/14px padding with a
+ * 4px gap, so every row is 52px tall and the list runs most of the way down the column.
+ *
+ * Label widths follow each real label's length (13px bold, about 7px a character), so the bars look
+ * like words rather than one repeated slab. Kept here, not imported: Journal.tsx imports this file.
+ */
+const NAV_ROWS: { w: number; arrow?: boolean }[] = [
+  { w: 66 },               // Dashboard
+  { w: 58, arrow: true },  // Sessions (it has the chevron)
+  { w: 60 },               // Accounts
+  { w: 50 },               // Journal
+  { w: 78 },               // Trade Vault
+  { w: 60 },               // Calendar
+  { w: 64 },               // Drawdown
+  { w: 50 },               // Metrics
+  { w: 38 },               // Audit
+  { w: 62 },               // Trader AI
+  { w: 64 },               // FX Copier
+  { w: 44 },               // Assets
+  { w: 82 },               // Leaderboard
+];
+
 export function JournalBootSkeleton({ bg = "#020817" }: { bg?: string }) {
   return (
     <div className="flex h-[100dvh] w-full overflow-hidden" style={{ background: bg }}>
-      <div className="hidden w-56 flex-col gap-3 border-r border-white/5 p-4 lg:flex">
-        <Skeleton className="h-8 w-32 rounded-md" />
-        {Array.from({ length: 10 }).map((_, i) => (
-          <div key={i} className="flex items-center gap-3">
-            <Skeleton className="h-4 w-4 rounded-sm" />
-            <Skeleton className="h-3 flex-1 rounded-sm" />
+      {/* 185px wide with 16px 12px 8px around the list — the real open sidebar (Journal.tsx). */}
+      <div className="hidden flex-col border-r border-white/5 lg:flex"
+           style={{ width: 185, minWidth: 185, padding: "16px 12px 8px" }}>
+        <Skeleton className="h-8 w-32 rounded-md" style={{ marginBottom: 12 }} />
+        {NAV_ROWS.map((row, i) => (
+          <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between",
+                                padding: "16px 14px", marginBottom: 4 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+              <Skeleton className="rounded-sm" style={{ width: 16, height: 16 }} />
+              <Skeleton className="rounded-sm" style={{ width: row.w, height: 10 }} />
+            </div>
+            {row.arrow && <Skeleton className="rounded-sm" style={{ width: 8, height: 8 }} />}
           </div>
         ))}
       </div>
