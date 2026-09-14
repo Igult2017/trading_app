@@ -1411,3 +1411,37 @@ from 9.2 to 11.6 pips (+26%).
 (4.4/month, about +9%). Gold's file covers under a month here, so no yearly gold figure is quoted.
 **Not yet measured:** how many of those become SIGNALS over a year (a count, allowed), and whether the
 extra signals make money (a backtest — needs his approval). **Nothing was changed.**
+
+---
+
+## SETUP 1 — HIS THREE MARKS, FINALLY IDENTIFIED (2026-09-14)
+
+The record never said which three candles he marked. His two screenshots were recovered from the session
+transcript (he pasted them; the Desktop drop folder is empty) and read against the real bars. **The
+price scale is anchored on real data:** the chart price tag reads 1.35262, which is exactly the last
+close in the broker file. Each yellow mark is a line drawn from a candle.
+
+    mark 1   10 Sep 13:00 his (10:00 UTC)  body 9.9p  — the red candle body 1.35486 -> 1.35387 lines up exactly
+    mark 2   10 Sep 19:00 his (16:00 UTC)  body 6.9p  — starts just after the long-wick 15:00 candle, at its open 1.35301
+    mark 3   11 Sep 04:00 his (01:00 UTC)  body 6.6p  — the red candle closing 1.35084
+
+Mark 1 is certain. Marks 2 and 3 are matched by price level and position to within one candle, and
+should be confirmed by him.
+
+**WHY EACH WAS REFUSED — re-measured through the live code:**
+
+    mark 1  9.9p   refused ONLY by the rising 100-bar test (needed 11.0; 9.2-9.8 before the move) —
+                   BUT the trend still read UP at that hour, so no size fix sends it (Issue 2)
+    mark 2  6.9p   below the 4-month floor (9.5) — checked first — and the 100-bar test (11.0)
+    mark 3  6.6p   below the 4-month floor (9.3) and the 100-bar test (10.5)
+
+**SO NONE OF HIS THREE WAS REFUSED ONLY BECAUSE A MEASUREMENT INCREASED.** Marks 2 and 3 would fail
+even at the pre-move level (9.8p, or the 48-hour low of 9.2p). Against the normal candle before the
+move (3.90p) they are about **1.8x and 1.7x**; against the 4-month yardstick about **1.5x**. The rules
+ask **2.5x** and **2.12x**. The 48-hour cap measured earlier would send 11 Sep 11:00 his (10.3p) — a
+candle he did NOT mark.
+
+**WHAT IT WOULD TAKE TO SEND HIS THREE:** a size standard near 1.5x normal on both tests, instead of
+2.5x (calibrated on 87 of his real trades at 2.7-6x) and 2.12x (from his own "that size or bigger but
+not smaller" candles of 06 Aug); and the trend reading down by 13:00 on 10 Sep (it read down only from
+18:00 his). **Both are his rulings — ISSUE 1 and ISSUE 2. Nothing changed.**
