@@ -1464,3 +1464,42 @@ candle he did NOT mark.
 2.5x (calibrated on 87 of his real trades at 2.7-6x) and 2.12x (from his own "that size or bigger but
 not smaller" candles of 06 Aug); and the trend reading down by 13:00 on 10 Sep (it read down only from
 18:00 his). **Both are his rulings — ISSUE 1 and ISSUE 2. Nothing changed.**
+
+---
+
+## 2026-09-14 — HIS CASE FOR MARK 1 (GBP/USD 10 Sep 13:00 his), TESTED ON CANDLES AND ON HIS LINE CHART
+
+His words, with two new screenshots (line chart with the 09 Sep top circled, a lilac line at 1.35593;
+candle chart with the 13:00 candle marked): *"the first downtrend move happened before a pullback.
+However, there were other complex movements that moved upwards but did not break the protected area of
+the main trend, then after that, the price made another move downwards meaning i was to take that trade
+at the candle i have marked"* and *"I dont know how VIX detects main trend and other trends inside it."*
+
+**HOW VIX READS THE TREND TODAY.** ONE trend, on the 1-hour chart (the 8-bar inner reading was deleted
+13 Sep). Swing highs and lows are marked as they confirm; the trend turns only when a candle CLOSES
+through the level protecting it. Anything inside that does not close through it is a pullback,
+however it looks — his settled rule (vix1.md, "a pullback ends when CHOCH begins").
+
+**THE STRUCTURE, from the real bars (his clock):**
+
+    highs  1.35673 (09 Sep 10:00)  1.35661 (14:00)  1.35643 (18:00)  1.35600 (20:00)  1.35598 (10 Sep 05:00)   LOWER
+    lows   1.35296 (09 Sep 13:00)  1.35338 (18:00)  1.35345 (10 Sep 00:00)  1.35412 (12:00)                     HIGHER
+
+**Lower highs with HIGHER lows is a narrowing range, not a downtrend.** By his definition a downtrend is
+LL + LH; the LL did not exist before 14:00. His lilac line sits on the last tops (1.35600 / 1.35598).
+
+* His first move down bottomed at **1.35296 — 1.7 pips above** the uptrend's protected low (1.35279).
+  On closes it bottomed at **1.35326 — 0.6 pip above** the close-based level (1.35320). It never broke.
+* Mark 1 closed **1.35387**, still above the range's last low (1.35345). **The 14:00 candle closed
+  1.35284**, below every low of the range — that is where the break actually happened.
+* The trend engine, same code, on real candles: UP until the 15:00 close (pending down), DOWN from 18:00.
+* The same engine on **closes only — his line chart**: UP with protected level 1.35326, broken by the
+  14:00 close. **One hour earlier, still after mark 1.** And on closes the 09 Sep 17:00 close (1.35617)
+  was a HIGHER high than the 10:00 close (1.35586), so on his line chart that bounce was a new high.
+* This agrees with the 13 Sep line-chart test above: wicks versus closes is not the lever here.
+
+**CONCLUSION.** Mark 1 sat inside a narrowing range before the break. VIX waited for the break on the
+bar it happened. **For VIX to take mark 1 the rule would have to change** — for example, lower highs
+after a top turning the main trend down while the lows are still rising. That is his decision, and it
+should be counted first on real data (vix1.md: about half of all pullbacks print their own lower high
+and lower low inside an intact uptrend). **Nothing changed.**
