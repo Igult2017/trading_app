@@ -62,9 +62,12 @@ export const DP_CSS = `
      the feature it is simply ignored, so it cannot hurt. */
   font-variant-numeric:tabular-nums;
   min-height:100%; -webkit-font-smoothing:antialiased;
-  /* top gap comes from <main> (14px, uniform with every other journal page); keep
-     the horizontal + bottom padding here. */
-  padding:0 clamp(14px,3.4vw,46px) 30px;
+  /* Top gap comes from <main> (14px, uniform with every other journal page). NO SIDE PADDING — his
+     "reduce the spaces to the right and left of the drawdown page so that it can look like other pages"
+     (2026-09-15). It was clamp(14px,3.4vw,46px) a side, measured at 46px on a 1366px screen, where Audit
+     and Trade Vault have 6px on the left and nothing on the right. <main> now frames this page the same
+     way (Journal.tsx); only the bottom padding stays here. */
+  padding:0 0 30px;
 }
 /* Light theme — remap every token; the layout/typography is unchanged. */
 .journal-light .dp{
@@ -88,7 +91,9 @@ export const DP_CSS = `
    than the body font. !important because the journal's own svg-text rule also targets these. */
 .journal-root .dp svg text{font-family:var(--fig)!important;}
 
-.dp .shell{max-width:1180px;margin:0 auto;display:flex;flex-direction:column;gap:46px;}
+/* NO WIDTH CAP. max-width:1180px centred the page and turned any wider screen into empty margins —
+   measured at 278px a side on a 1920px screen. The other journal pages fill the width; so does this one. */
+.dp .shell{display:flex;flex-direction:column;gap:46px;}
 
 /* generic type */
 .dp .disp{font-family:var(--disp);}
