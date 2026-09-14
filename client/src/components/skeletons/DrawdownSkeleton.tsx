@@ -95,20 +95,25 @@ export function DrawdownSkeleton({ style }: { style?: React.CSSProperties }) {
 
         <section>
           <Rule title={230} sub={150} />
-          <div className="pies">
-            {[64, 84].map((t, p) => (
-              <div className="pie" key={p}>
+          {/* Two bar-graph placeholders: the axis, faint gridlines, four bars and their names. The bars do
+              not pulse — the pulse lifts opacity to 0.5, which turns a large placeholder into a solid slab. */}
+          <div className="lgraphs">
+            {[96, 84].map((t, p) => (
+              <div className="lgraph" key={p}>
                 <div className="subh"><TextLine w={t} px={11} /></div>
-                {/* No pulse on the disc. The pulse animates opacity up to 0.5, overriding the 0.09 set here —
-                    fine on a thin bar, but Playwright showed a 320px disc turning into a loud grey slab. */}
-                <Skeleton className="rounded-full pie-ph animate-none" style={{ opacity: 0.09 }} />
-                <div className="pkey">
-                  {[88, 70, 62].map((w, i) => (
-                    <div className="pk" key={i}>
-                      <Skeleton className="rounded-sm" style={{ width: 10, height: 10 }} />
-                      <TextLine w={w} px={11.5} /><TextLine w={30} px={14} /><Right><TextLine w={44} px={13} /></Right>
+                <div className="lg-plot">
+                  <div className="lg-axis">{[0, 25, 50, 75, 100].map(b => <span key={b} style={{ bottom: `${b}%` }}><TextLine w={24} px={11} /></span>)}</div>
+                  <div className="lg-area">
+                    {[25, 50, 75, 100].map(b => <i key={b} className="lg-grid" style={{ bottom: `${b}%` }} />)}
+                    <div className="lg-bars" style={{ gridTemplateColumns: "repeat(4, minmax(0, 1fr))" }}>
+                      {[80, 58, 36, 18].map((h, i) => (
+                        <div className="lg-col" key={i}><Skeleton className="lg-bar animate-none" style={{ height: `${h}%`, opacity: 0.09 }} /></div>
+                      ))}
                     </div>
-                  ))}
+                  </div>
+                </div>
+                <div className="lg-names" style={{ gridTemplateColumns: "repeat(4, minmax(0, 1fr))" }}>
+                  {[52, 44, 50, 38].map((w, i) => <div className="lg-name" key={i}><TextLine w={w} px={11} /><TextLine w={36} px={12} /></div>)}
                 </div>
               </div>
             ))}

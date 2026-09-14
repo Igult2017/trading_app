@@ -28,11 +28,10 @@ export const DP_CSS = `
   --loss:#FF7A87; --lossdeep:#FF3C4F; --loss-d:rgba(255,122,135,.16);
   --gain:#5FE3B4; --gain-d:rgba(95,227,180,.15);
   --warn:#FFC155; --warn-d:rgba(255,193,85,.15);
-  /* PIE SLICE COLOURS, in slice order (lossPie.tsx) — the journal's own, his "the colors we already have
-     in the journal" (2026-09-14): the accent blue (Journal.tsx panel headings and pair-volume bars), the
-     equity-curve violet (Journal.tsx), then this page's amber, red, green and grey. Three to six point at
-     the page's tokens, so the light theme's versions below reach the pies without being repeated. */
-  --pie-1:#38bdf8; --pie-2:#a78bfa; --pie-3:var(--warn); --pie-4:var(--loss); --pie-5:var(--gain); --pie-6:var(--ink3);
+  /* LOSS-SHARE BAR COLOURS (lossBars.tsx), one per graph, from the journal's own colours — his "the colors
+     we already have in the journal" (2026-09-14): instruments in the accent blue (Journal.tsx panel headings
+     and pair-volume bars), sessions in the equity-curve violet (Journal.tsx). */
+  --bar-instr:#38bdf8; --bar-sess:#a78bfa;
   /* BOTH roles follow the journal font: 'inherit', NOT a named face (changed 2026-08-29 on his
      "it should inherit font type from journal").
      WHY IT USED TO DIVERGE: these fell back to a hardcoded 'Playfair Display'. The .dp subtree is
@@ -81,9 +80,9 @@ export const DP_CSS = `
   --loss:#C81E1E; --lossdeep:#991B1B; --loss-d:rgba(200,30,30,.12);
   --gain:#047857; --gain-d:rgba(4,120,87,.12);
   --warn:#B45309; --warn-d:rgba(180,83,9,.12);
-  /* Pie slices: the light theme's own accent (useJournalSettings.ts light.accent) and the equity-curve
-     violet's deeper shade. Slices three to six follow --warn / --loss / --gain / --ink3 above. */
-  --pie-1:#2563eb; --pie-2:#7c3aed;
+  /* Loss-share bars: the light theme's own accent (useJournalSettings.ts light.accent) and the
+     equity-curve violet's deeper shade. */
+  --bar-instr:#2563eb; --bar-sess:#7c3aed;
 }
 /* Chart axes are figures too — dates and values — so they follow --fig with the numbers rather
    than the body font. !important because the journal's own svg-text rule also targets these. */
@@ -97,15 +96,15 @@ export const DP_CSS = `
 /* THE FIGURES — see --fig above for which face they take and why it changed.
    Listed one class at a time rather than swept with a broad selector, because several classes
    that LOOK numeric are not: bare .t is a text label (the equity caption), and .ls .s reads
-   "before recovery" / "no data". Those keep the body font. .pk .sh and .pk .lp are the share
-   and the actual loss beside each pie slice.
+   "before recovery" / "no data". Those keep the body font. .lg-axis span, .lg-val and
+   .lg-name .lp are the loss-share graphs' axis, bar values and actual losses.
    .mtbl td is the monthly table he circled — every cell in it but the month name is a figure. */
 .dp .num, .dp .wlb,
 .dp .kpi .v, .dp .foot .v, .dp .dl .r .v, .dp .rp .v,
 .dp .sess .vv, .dp .sess .sb,
 .dp .ls .big,
 .dp .rr .rng, .dp .rr .pc, .dp .rr .ct,
-.dp .pk .sh, .dp .pk .lp,
+.dp .lg-axis span, .dp .lg-val, .dp .lg-name .lp,
 .dp .mtbl td{font-family:var(--fig);}
 .dp .loss{color:var(--loss);} .dp .gain{color:var(--gain);} .dp .warn{color:var(--warn);}
 .dp .dim{color:var(--ink2);} .dp .mut{color:var(--ink3);}
@@ -178,32 +177,42 @@ export const DP_CSS = `
 .dp .dl .r .v{font-size:15px;font-weight:700;white-space:nowrap;}
 .dp .note{font-size:11.5px;line-height:1.65;color:var(--ink3);margin-top:16px;}
 
-/* LOSS CONTRIBUTION — two pies across the whole row */
-/* THE TWO PIES, his request 2026-09-14: first beside a loss-frequency list, then the same day across the
-   whole row, once he removed that list as "a duplication" of the session pie and asked for the pies to be
-   "bigger and spacious enough to cover that space". Each 320px circle sits over its key.
-   MEASURED IN PLAYWRIGHT on the real page before settling this. A layout with the key BESIDE the circle on
-   wide screens was tried and dropped: this page never grows past 1180px, so each half tops out at 562px,
-   and a key squeezed beside a 300px circle got 226px, which cut "LONDON/NY OVERLAP" off. Stacked, the key
-   gets 440px and every name fits, on a 1366px screen and a 1920px one alike. The pies stack under 760px.
-   .pie-ph is the loading screen's round placeholder, sized by the same rules as the chart. */
-.dp .pies{display:grid;grid-template-columns:1fr 1fr;gap:56px;align-items:start;}
-.dp .pie{display:flex;flex-direction:column;align-items:center;min-width:0;}
-.dp .pie .subh,.dp .pie .empty-row{align-self:stretch;}
-.dp .pie svg,.dp .pie .pie-ph{display:block;width:100%;max-width:320px;height:auto;aspect-ratio:1 / 1;margin:4px 0 24px;}
-.dp .pie .pkey{width:100%;max-width:440px;}
-@media(max-width:760px){.dp .pies{grid-template-columns:1fr;gap:44px;}}
-/* THE KEY — the sample's slices carry only a percentage, so the names live here: colour, name, share,
-   and the actual loss as a % of the starting balance. 11px is this page's floor (docs/READABILITY.md). */
-.dp .pkey{display:flex;flex-direction:column;}
-.dp .pk{display:grid;grid-template-columns:10px minmax(0,1fr) auto 64px;gap:10px;align-items:center;
-  padding:7px 0;border-top:1px solid var(--line);}
-.dp .pk:first-child{border-top:0;}
-.dp .pk i{width:10px;height:10px;border-radius:2px;display:block;}
-.dp .pk .nm{font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink2);font-weight:600;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.dp .pk .sh{font-size:14px;font-weight:700;color:var(--ink);}
-.dp .pk .lp{font-size:13px;font-weight:700;text-align:right;}
+/* LOSS CONTRIBUTION — two bar graphs across the whole row (lossBars.tsx) */
+/* His request, 2026-09-15, after a sample bar graph: "two seperate bar graphs. One for sessions and one
+   for instruments and their loss shares". They replaced two pie charts. Each graph: a left axis of
+   percentage gridlines, one solid bar per group rising from the baseline with its share above it, and the
+   names under the bars with the actual loss beneath. The graphs sit side by side, stacked under 760px.
+   The axis column is 46px and the name row is offset by the same (plus the area's 1px border) so each
+   name sits under its own bar. The plot's top margin is headroom for the value above the tallest bar. */
+.dp .lgraphs{display:grid;grid-template-columns:1fr 1fr;gap:56px;align-items:start;}
+.dp .lgraph{min-width:0;}
+/* The tone classes are PREFIXED. They were .instr / .sess until Playwright showed the session graph sitting
+   14px low under a stray rule: .dp .sess is the Structural Diagnostics session row, and its padding and top
+   border landed on the graph. */
+.dp .lgraph.lg-instr{--bar:var(--bar-instr);}
+.dp .lgraph.lg-sess{--bar:var(--bar-sess);}
+/* A crowded graph scrolls sideways inside itself rather than squeezing: lossBars.tsx gives .lg-inner a
+   minimum width of 62px per bar, so names and loss figures stay whole on a phone. */
+.dp .lg-scroll{overflow-x:auto;overflow-y:hidden;}
+.dp .lg-plot{display:grid;grid-template-columns:46px minmax(0,1fr);height:280px;}
+.dp .lg-axis,.dp .lg-area{position:relative;margin-top:26px;}
+.dp .lg-axis span{position:absolute;right:10px;transform:translateY(50%);font-size:11px;font-weight:600;
+  color:var(--ink3);white-space:nowrap;line-height:1;}
+.dp .lg-area{border-left:1px solid var(--line2);border-bottom:1px solid var(--line2);}
+.dp .lg-grid{position:absolute;left:0;right:0;height:0;border-top:1px dashed var(--line);}
+.dp .lg-bars{position:absolute;inset:0;display:grid;column-gap:12px;padding:0 10px;}
+.dp .lg-col{display:flex;align-items:flex-end;justify-content:center;min-width:0;height:100%;}
+.dp .lg-bar{position:relative;width:min(64px,76%);min-height:2px;background:var(--bar);border-radius:3px 3px 0 0;}
+.dp .lg-val{position:absolute;left:50%;bottom:100%;transform:translateX(-50%);padding-bottom:6px;
+  font-size:13px;font-weight:700;color:var(--ink);white-space:nowrap;}
+.dp .lg-names{display:grid;column-gap:12px;padding:0 10px;margin:10px 0 0 47px;}
+.dp .lg-name{display:flex;flex-direction:column;align-items:center;gap:4px;min-width:0;text-align:center;}
+/* 11px is this page's floor (docs/READABILITY.md). A long name wraps at a space or after a slash, never
+   inside a word: the squeezed first version turned EURUSD into EURUS / D. */
+.dp .lg-name .nm{font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--ink2);font-weight:600;
+  line-height:1.35;overflow-wrap:normal;word-break:normal;max-width:100%;}
+.dp .lg-name .lp{font-size:12px;font-weight:700;}
+@media(max-width:760px){.dp .lgraphs{grid-template-columns:1fr;gap:44px;}}
 
 /* STRUCTURAL */
 .dp .struct-top{padding:16px 0 22px;border-bottom:1px solid var(--line);margin-bottom:24px;}

@@ -6,14 +6,14 @@ import { useDelayedLoading } from '@/lib/useDelayedLoading';
 import { DrawdownSkeleton } from '@/components/skeletons/DrawdownSkeleton';
 import { DiveProfile } from '@/components/drawdown/diveProfile';
 import { DP_CSS } from '@/components/drawdown/dpStyles';
-import { LossPie } from '@/components/drawdown/lossPie';
+import { LossBars } from '@/components/drawdown/lossBars';
 
 /**
  * DrawdownPanel — "Dive Profile" layout.
  * Wired 1-to-1 to /api/drawdown/compute (server/python/drawdown). Every section
  * is real data: KPIs, the underwater hero chart, the strategy/instrument
  * leaderboard split by BULLISH/BEARISH direction, edge/Monte-Carlo/recovery model,
- * loss contribution by pair and by session (two pies), structural diagnostics, sessions, loss
+ * loss contribution by instrument and by session (two bar graphs), structural diagnostics, sessions, loss
  * streaks + timeline, R:R distribution and the monthly drawdown table.
  */
 
@@ -257,7 +257,7 @@ export default function DrawdownPanel({ sessionId, dispFont, bodyFont }:
     : 'Not enough underwater trades to assess recovery sizing.';
   const recColor = recovery?.verdict === 'increase' ? 'loss' : recovery?.verdict === 'reduce' ? 'gain' : '';
 
-  // The two loss-contribution pies (server/python/drawdown/loss_share.py): each pair's and each
+  // The two loss-share bar graphs (server/python/drawdown/loss_share.py): each instrument's and each
   // session's share of the money lost on losing trades.
   const lossShare = d.lossShare ?? { byPair: [], bySession: [] };
 
@@ -394,16 +394,15 @@ export default function DrawdownPanel({ sessionId, dispFont, bodyFont }:
           </div>
         </section>
 
-        {/* ── LOSS CONTRIBUTION ── two pies where the pair-vs-strategy heatmap was. His request,
-            2026-09-14: "use pie chart and let the pie chart show loss percentage contributed by each
-            pair ... the second one can show percentage loss contributed by sessions". The Loss Frequency
-            list that sat beside them went the same day, "a duplication" of the session pie in his words,
-            and the pies took its space: "make those pie charts bigger and spacious enough". */}
+        {/* ── LOSS CONTRIBUTION ── two bar graphs, one for instruments and one for sessions. His request,
+            2026-09-15: "two seperate bar graphs. One for sessions and one for instruments and their loss
+            shares". They replaced two pies (2026-09-14), which had replaced a pair-vs-strategy heatmap and,
+            beside it, the Loss Frequency list. */}
         <section>
-          <Rule label="Loss Contribution · Pair & Session" sub="Share of Total Loss" />
-          <div className="pies">
-            <LossPie title="By Pair" rows={lossShare.byPair ?? []} />
-            <LossPie title="By Session" rows={lossShare.bySession ?? []} />
+          <Rule label="Loss Contribution · Instrument & Session" sub="Share of Total Loss" />
+          <div className="lgraphs">
+            <LossBars title="By Instrument" tone="instr" rows={lossShare.byPair ?? []} />
+            <LossBars title="By Session" tone="sess" rows={lossShare.bySession ?? []} />
           </div>
         </section>
 
