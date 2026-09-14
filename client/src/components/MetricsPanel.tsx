@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { authFetch } from '@/lib/queryClient';
 import { useSessionBalance } from '@/hooks/useSessionBalance';
 import { useDelayedLoading } from '@/lib/useDelayedLoading';
-import { PanelSkeleton } from '@/components/skeletons/DashboardSkeletons';
+import { MetricsSkeleton } from '@/components/skeletons/MetricsSkeleton';
 import { useTranslation } from 'react-i18next';
 
 /* ─────────────────────────────────────────────────────────────────────
@@ -433,10 +433,13 @@ export default function MetricsPanel({ sessionId, darkMode = true }: { sessionId
     '--mp-gybg': '#F1F5F9', '--mp-gybd': '#CBD5E1',
   } as React.CSSProperties : {};
 
+  // The loading screen draws this page's own layout (MetricsSkeleton) with the stylesheet above. No
+  // `padding: 16` any more: the loaded page has none, so the placeholder sat 16px in from where the
+  // content lands and everything shifted the moment the numbers arrived.
   if (showMetricsLoader) return (
-    <div className="mp-root" style={{ minHeight: '100vh', background: D.bg, padding: 16, ...lightVars }}>
+    <div className="mp-root" style={{ minHeight: '100vh', background: D.bg, ...lightVars }}>
       <style>{css}</style>
-      <PanelSkeleton />
+      <MetricsSkeleton />
     </div>
   );
 

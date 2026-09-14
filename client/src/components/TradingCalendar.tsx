@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { authFetch } from "@/lib/queryClient";
 import { useDelayedLoading } from "@/lib/useDelayedLoading";
-import { PanelSkeleton } from "@/components/skeletons/DashboardSkeletons";
+import { CalendarSkeleton } from "@/components/skeletons/CalendarSkeleton";
 import { useTranslation } from "react-i18next";
 
 const FONT   = "'Montserrat', sans-serif";
@@ -400,7 +400,7 @@ export default function TradingCalendar({ sessionId, darkMode = true }: { sessio
   if (showCalendarLoader) {
     return (
       <div style={{ background: BG, minHeight: "100vh", fontFamily: FONT, padding: pad, ...tcVars }}>
-        <PanelSkeleton />
+        <CalendarSkeleton cellHeight={cellHeight} compact={compact} isMobile={isMobile} />
       </div>
     );
   }

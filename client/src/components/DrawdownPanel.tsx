@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { authFetch } from '@/lib/queryClient';
 import { TrendingDown } from 'lucide-react';
 import { useDelayedLoading } from '@/lib/useDelayedLoading';
-import { PanelSkeleton } from '@/components/skeletons/DashboardSkeletons';
+import { DrawdownSkeleton } from '@/components/skeletons/DrawdownSkeleton';
 import { DiveProfile } from '@/components/drawdown/diveProfile';
 import { DP_CSS } from '@/components/drawdown/dpStyles';
 
@@ -219,7 +219,9 @@ export default function DrawdownPanel({ sessionId, dispFont, bodyFont }:
 
   // ── states ────────────────────────────────────────────────────────────────
   const showLoader = useDelayedLoading(!!sessionId && isLoading);
-  if (showLoader) return <PanelSkeleton />;
+  // The loading screen draws this page's own sections inside its own `.dp` wrapper and stylesheet, with
+  // the same font settings, so nothing moves when the figures arrive (DrawdownSkeleton).
+  if (showLoader) return <DrawdownSkeleton style={dpStyle} />;
 
   const centered = (icon: React.ReactNode, title: string, subtitle: string, titleColor = 'text-[var(--jr-ink-dim)]') => (
     <div className="dp" style={dpStyle}><style>{DP_CSS}</style>

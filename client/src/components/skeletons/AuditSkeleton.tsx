@@ -17,6 +17,7 @@
  * The grids stack to one column under 900px, as the page's own collapse rule does.
  */
 import { Skeleton } from "./DashboardSkeletons";
+import { TextLine } from "./TextLine";
 
 const BG2 = "var(--sa-bg2, #0d1117)";
 const BG3 = "var(--sa-bg3, #0d1117)";
@@ -28,13 +29,6 @@ const ROW = "grid grid-cols-1 gap-[3px] mb-[3px]";
 const TAB_WIDTHS = [82, 82, 112, 62, 106, 110];
 /** [caption, sub-line] widths: Win Rate, Edge Factor, Risk Entropy, AI Confidence. */
 const KPIS = [[80, 128], [112, 76], [122, 104], [132, 84]];
-
-/** One line of text at font size `px`: a slot as tall as the line really is, a bar about cap height. */
-const TextLine = ({ w, px = 12.5, lh = 1.35 }: { w: number | string; px?: number; lh?: number }) => (
-  <div style={{ height: Math.round(px * lh), display: "flex", alignItems: "center" }}>
-    <Skeleton className="rounded-sm" style={{ width: w, maxWidth: "100%", height: Math.round(px * 0.72) }} />
-  </div>
-);
 
 /** An outlined badge (Badge): 3px 8px inside a 1px border. */
 const Badge = ({ w }: { w: number }) => (

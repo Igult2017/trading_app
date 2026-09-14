@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { BarChart3, TrendingUp, TrendingDown, DollarSign, Target } from 'lucide-react';
 import { useDelayedLoading } from '@/lib/useDelayedLoading';
-import { PanelSkeleton } from '@/components/skeletons/DashboardSkeletons';
+import { AnalyticsSkeleton } from '@/components/skeletons/AnalyticsSkeleton';
 
 interface Analytics {
   totalTrades: number;
@@ -22,7 +22,7 @@ export default function Analytics() {
 
   const showAnalyticsLoader = useDelayedLoading(isLoading);
   if (showAnalyticsLoader) {
-    return <PanelSkeleton />;
+    return <AnalyticsSkeleton />;
   }
 
   if (!analytics) {
