@@ -360,21 +360,9 @@ export default function DrawdownPanel({ sessionId, dispFont, bodyFont }:
 
         {/* ── HERO ── */}
         <section>
-          <div className="hero-head">
-            {/* ONE LINE, NOT A BANNER — his instruction, 2026-08-29: the big "Where Are You Losing?"
-                sat alone in its own space, so it moves up into the eyebrow and reads at normal size.
-                The question is in red; the "Tracking Drawdown:" half stays a quiet label. */}
-            <h1 className="eyebrow">
-              Tracking Drawdown: <span className="ask">Where Are You Losing?</span>
-            </h1>
-            <div className="equity">
-              <span className="slabel">Status :</span>
-              <span className="t" style={{ color: !hasData ? 'var(--ink3)' : inDd ? 'var(--loss)' : 'var(--gain)' }}>
-                {!hasData ? 'No trades logged yet' : inDd ? `In Drawdown ${fmtDd(cur.ddPct)}` : 'At Equity Highs'}
-              </span>
-            </div>
-          </div>
-
+          {/* The "Tracking Drawdown: Where Are You Losing?" line and its "Status : In Drawdown" readout
+              were REMOVED 2026-09-14 — his instruction, "remove this part of the drawdown page". The
+              panel opens on the KPI row. The current drawdown still drives the chart below. */}
           <div className="kpis">
             {kpis.map((kp) => (
               <div className="kpi" key={kp.k}><div className="k">{kp.k}</div><div className={`v ${kp.c}`}>{kp.v}</div></div>

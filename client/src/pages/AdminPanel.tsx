@@ -130,6 +130,7 @@ const ADMIN_THEME_DEFAULT = 'light';
  *  own their own typography and are EXCLUDED from the journal's global font rule
  *  (`Journal.tsx:1041`, which forces `F.stack` on everything else). So Montserrat is a companion
  *  inside one panel, not the journal's reading face. I copied the exception instead of the rule.
+ *  (That Drawdown companion is Times New Roman since 2026-09-14, the same stack as ADMIN_BODY_TEXT.)
  */
 type AdminFontDef = { id: string; label: string; stack: string };
 

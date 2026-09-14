@@ -54,9 +54,9 @@ export const DP_CSS = `
      check what it holds, not what it is called. */
   --fig:var(--disp);
   background:var(--bg); color:var(--ink); font-family:var(--mono);
-  /* Montserrat's digits are proportional, so this is what keeps the monthly table's seven columns
-     from going ragged. It matters more now than it did under DM Mono, which was fixed-width by
-     construction. On a face without the feature it is simply ignored, so it cannot hurt. */
+  /* Keeps the monthly table's seven columns from going ragged whatever the reading face is (Times
+     New Roman since 2026-09-14; Montserrat before, whose digits are proportional). On a face without
+     the feature it is simply ignored, so it cannot hurt. */
   font-variant-numeric:tabular-nums;
   min-height:100%; -webkit-font-smoothing:antialiased;
   /* top gap comes from <main> (14px, uniform with every other journal page); keep
@@ -109,11 +109,6 @@ export const DP_CSS = `
    counts, and the numbers are 600-weight so colour is not doing all the work. */
 .dp .wlb{display:inline-flex;align-items:baseline;gap:2px;font-variant-numeric:tabular-nums;font-weight:700;}
 .dp .wlb .sl{color:var(--ink3);font-weight:400;}
-.dp .eyebrow{font-family:var(--disp);font-size:12px;letter-spacing:.22em;text-transform:uppercase;
-  color:var(--ink2);font-weight:600;margin:0;line-height:1.5;}
-/* The question half, in red. Same size as the label half — his instruction was explicitly "in normal
-   font size", replacing a banner heading that sat alone in its own space (2026-08-29). */
-.dp .eyebrow .ask{color:var(--loss);font-weight:700;}
 
 /* section rule header */
 .dp .rule{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;
@@ -130,11 +125,8 @@ export const DP_CSS = `
 .dp .seg button:hover{color:var(--ink2);}
 .dp .seg button.on{color:var(--ink);border-bottom-color:var(--gain);}
 
-/* HERO */
-.dp .hero-head{display:flex;justify-content:space-between;align-items:flex-start;gap:24px;flex-wrap:wrap;margin-bottom:30px;}
-.dp .equity{display:flex;align-items:baseline;gap:9px;}
-.dp .equity .slabel{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink3);;font-weight:600}
-.dp .equity .t{font-size:12px;letter-spacing:.08em;text-transform:uppercase;}
+/* HERO — the "Tracking Drawdown" line and its Status readout were removed 2026-09-14 (his
+   instruction, "remove this part of the drawdown page"), and the styles only they used went with them. */
 
 /* KPI surface readouts */
 .dp .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line);
@@ -337,11 +329,8 @@ export const DP_CSS = `
  * a single backtick (even in a comment) closes the string and breaks the module. Adding this note
  * cost exactly that mistake.
  */
-.dp .eyebrow,
 .dp .rule .sub,
 .dp .seg button,
-.dp .equity .slabel,
-.dp .equity .t,
 .dp .kpi .k,
 .dp .foot .k,
 .dp .colh span,

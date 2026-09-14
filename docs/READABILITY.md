@@ -475,3 +475,12 @@ labels, sizes and Trade Sync are untouched.
 **Lessons:** an ambiguous font instruction is read by checking what the ticked elements are RIGHT NOW;
 never italicise a top-level title; never touch a page he did not name. Where Playfair is blurred at
 small sizes, he has given permission for a better Times New Roman variant — but only where he points.
+
+**Later the same day — the Drawdown panel.** *"The drawdown page still has other fonts. It should be
+playfair without strokes and times new roman where other font types are."* The panel's reading font
+(`--mono`) came from `FONTS['playfair-display'].bodyStack`, which was Montserrat; it is now the same Times
+New Roman stack. One value, and it has no other user. Diffed on the rendered panel: of 130 text
+elements, the 20 that were Montserrat changed family only, to Times New Roman; the 110 Playfair
+elements are identical. He also asked to remove the *"Tracking Drawdown: Where Are You Losing? · Status :
+In Drawdown"* line — removed, with the styles only it used (`.eyebrow`, `.ask`, `.hero-head`,
+`.equity`, `.slabel`).
