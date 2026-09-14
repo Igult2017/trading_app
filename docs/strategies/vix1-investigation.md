@@ -1335,3 +1335,63 @@ later buys were already being signalled with the shortcut on.
 the real `detect_bias` in BOTH directions (no trade while it breaks and runs, none in the pullback, a
 trade once it turns back), and shows the switch restores the old upward exemption and can never open a
 turn down.
+
+---
+
+## ISSUE 1, EXPLORED 2026-09-14 — can the 2.5x requirement be held at the pip level it had before the move?
+
+**His question:** *"is there a way we can keep it at the previous pips as a constant? Because the one
+that changes dynamically can work against us when 2.5 increases, it leaves money on the table."* His
+context: last week's signals were not sent because the 100-hour median rose during the move.
+
+**HOW IT WAS MEASURED.** The live size test was copied only after it matched `is_momentum_candle` on
+**18,000 of 18,000** checks (GBP/USD, EUR/USD, XAU/USD). Every version keeps the 4-month floor, the
+bigger-than-previous rule and both shape tests untouched; only the 100-hour requirement changes.
+Counts of candles and signals only — no trade scored.
+
+**THERE ARE THREE SIZE TESTS, NOT ONE** (`vix1_momentum.py:198-206`): 2.5x the median body of the last
+100 hours (the one that rises during a move), 2.12x the median of the last 2,000 hours (moves slowly),
+and bigger than the previous candle.
+
+### HIS NINE GBP/USD SELLS OF 10-11 SEP (his clock)
+
+    13:00  9.9p  refused ONLY by the rising 100-hour test (needed 11.0; 9.2 before the move) — trend still read UP
+    14:00  9.8p  refused: not bigger than the previous candle
+    15:00 17.6p  refused: shape (body under half its range)
+    19:00  6.9p  refused: 4-month floor (9.5)
+    21:00  7.5p  refused: 4-month floor
+    04:00  6.6p  refused: 4-month floor (9.3)
+    10:00  8.3p  refused: 4-month floor
+    11:00 10.3p  refused ONLY by the rising 100-hour test (needed 11.6; 9.2 before the move) — trend AGREED
+    18:00  8.6p  refused: 4-month floor
+
+**The rising median was the sole reason for 2 of the 9. Five are below the 4-month floor**, which no
+version of the 100-hour test touches — that is ISSUE 1's standard question (2.5x from his 87 trades vs
+the 1.5-2.3x candles he marked), still his to rule on. During the move the 100-hour requirement rose
+from 9.2 to 11.6 pips (+26%).
+
+### THE VERSIONS
+
+* **A FIXED PIP NUMBER.** What today's rule demanded, by quarter: GBP/USD middle 10-17 pips, 6 to 39
+  within a quarter; EUR/USD middle 7-16, 5 to 34. Normal size doubles and halves across quarters, so a
+  constant is too strict in quiet quarters and admits ordinary candles in busy ones.
+* **CAP48 — never demand more than the lowest 100-hour requirement of the previous 48 hours.** Can only
+  loosen (never refuses a candle today passes). A move cannot raise its own bar for two days; the bar
+  still follows the market down and catches up after 48 hours. The 4-month floor is untouched, so the
+  10 Aug 7.5-pip dead-week candle stays refused.
+* **Frozen at the trend's start** — depends on the trend reading, which was ~5 hours late on 10 Sep; it
+  rescued only the 13:00 candle, which had the trend against it.
+* **Delayed yardstick (the 100 hours before the last 100)** — swaps rather than adds: GBP/USD +68 / -61
+  candles over 12 months, EUR/USD +63 / -47.
+
+### WHAT CAP48 WOULD HAVE DONE LAST WEEK — through the real `detect_bias`
+
+    GBP/USD Fri 11 Sep 11:00  today: no signal (too small)      CAP48: SELL via trend
+    XAU/USD Fri 11 Sep 06:00  today: no signal ($18.32 < $18.52) CAP48: SELL via trend
+    GBP/USD Thu 10 Sep 13:00  today: no signal                  CAP48: no signal (trend read up)
+    EUR/USD                   no candle affected
+
+**Twelve months, candle level:** GBP/USD +67 momentum candles (5.6/month, about +11%); EUR/USD +53
+(4.4/month, about +9%). Gold's file covers under a month here, so no yearly gold figure is quoted.
+**Not yet measured:** how many of those become SIGNALS over a year (a count, allowed), and whether the
+extra signals make money (a backtest — needs his approval). **Nothing was changed.**
