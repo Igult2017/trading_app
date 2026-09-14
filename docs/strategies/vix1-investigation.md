@@ -791,7 +791,7 @@ This is the checklist I work through for every setup he sends.
 
 | # | Screenshot | Pair | Candle (UTC) | Body vs needed | Gate that rejected it | Is that rule HIS, or introduced? |
 |---|---|---|---|---|---|---|
-| 1 | GBP/USD H1, 3 marks on the 10-11 Sep down move, chart UTC+3 | GBP/USD | see table below | see below | **Gate 1, the 100-bar size test — all nine** | The 2.5x multiplier is HIS, calibrated 2026-07-20 against 87 of his real GBP/USD trades. **Not introduced in the overhaul.** |
+| 1 | GBP/USD H1, 3 marks on the 10-11 Sep down move, chart UTC+3 | GBP/USD | see table below | see below | ~~Gate 1, the 100-bar size test — all nine~~ **⚠ CORRECTED 2026-09-14 (from-scratch re-run): NOT all nine.** The rising 100-bar test was the SOLE refusal for **2**; five are also below the 4-month floor (checked first by the live code); one passed both size tests and died on shape | The 2.5x multiplier is HIS, calibrated 2026-07-20 against 87 of his real GBP/USD trades. **Not introduced in the overhaul.** |
 
 ### Setup 1 — GBP/USD, 10-11 Sep, his three marked momentum candles
 
@@ -799,19 +799,35 @@ His words: *"It is a downtrend and the candles that i have marked are momentum c
 after a pullback which confirmed trend direction. So we were to take trades in all those candles."*
 
 Rather than guess three candles from pixels, **every** down-candle of 5+ pips in the move was run
-through the real gates. **All nine died at the same gate — number 1, the size test.**
+through the real gates. ~~All nine died at the same gate — number 1, the size test.~~
 
-| UTC | His chart | Body | 100-bar test | 2000-bar test | Trend then | Died on |
+> **⚠ CORRECTED 2026-09-14 — he asked for the diagnosis to be re-run and it was, from scratch, on the
+> same broker bars through the live functions (the size code is unchanged since 08 Sep 20:52, a log
+> wording commit only). The bodies and both requirements below re-measure EXACTLY. What was wrong:**
+>
+> * **"All nine died at the size test" is false.** Eight of nine fail the 100-bar test, but only **2**
+>   fail it ALONE (10 Sep 10:00 and 11 Sep 08:00 UTC). The 17.6p candle passed BOTH size tests and
+>   died on shape — this table's own last column already said so. Five are below the 4-month floor,
+>   which `is_momentum_candle` checks FIRST (`vix1_momentum.py:198-201`), so removing the rise in the
+>   100-bar test would not send them.
+> * **There are TEN down candles of 5+ pips in the move, not nine.** Missed: 10 Sep 09:00 UTC (his
+>   12:00), 7.2p — refused by the floor, the 100-bar test and both shape tests.
+> * **WHICH THREE HE MARKED WAS NEVER RECORDED.** The screenshot had three marks; this section ran every
+>   candle instead of reading them. Those three are the yardstick for any fix and must be taken from
+>   his screenshot or from him, not assumed.
+
+| UTC | His chart | Body | 100-bar test | 2000-bar test | Trend then | Refused by (live order first; CORRECTED 2026-09-14) |
 |---|---|---|---|---|---|---|
-| 10 Sep 10:00 | 13:00 | 9.9p | needs 11.0 ❌ | needs 9.5 ✅ | **UP** | 100-bar size |
-| 10 Sep 11:00 | 14:00 | 9.8p | needs 11.0 ❌ | needs 9.5 ✅ | **UP** | 100-bar size + not bigger than previous |
-| 10 Sep 12:00 | 15:00 | 17.6p | needs 11.0 ✅ | needs 9.5 ✅ | mid-turn | shape — body 44.8% of range, lower wick 50.9% |
-| 10 Sep 16:00 | 19:00 | 6.9p | needs 11.0 ❌ | needs 9.5 ❌ | DOWN | 100-bar size |
-| 10 Sep 18:00 | 21:00 | 7.5p | needs 11.0 ❌ | needs 9.5 ❌ | DOWN | 100-bar size |
-| 11 Sep 01:00 | 04:00 | 6.6p | needs 10.5 ❌ | needs 9.3 ❌ | DOWN | 100-bar size |
-| 11 Sep 07:00 | 10:00 | 8.3p | needs 11.4 ❌ | needs 9.3 ❌ | DOWN | 100-bar size |
-| 11 Sep 08:00 | 11:00 | 10.3p | needs 11.6 ❌ | needs 9.3 ✅ | DOWN | 100-bar size |
-| 11 Sep 15:00 | 18:00 | 8.6p | needs 11.6 ❌ | needs 9.3 ❌ | DOWN | 100-bar size |
+| 10 Sep 09:00 | 12:00 | 7.2p | needs 10.5 ❌ | needs 9.4 ❌ | UP | 4-month floor · also 100-bar size, body 46% of range, counter-wick 48% — *missing from the first table* |
+| 10 Sep 10:00 | 13:00 | 9.9p | needs 11.0 ❌ | needs 9.5 ✅ | **UP** | 100-bar size ONLY |
+| 10 Sep 11:00 | 14:00 | 9.8p | needs 11.0 ❌ | needs 9.5 ✅ | **UP** | 100-bar size · also not bigger than previous (9.9p) |
+| 10 Sep 12:00 | 15:00 | 17.6p | needs 11.0 ✅ | needs 9.5 ✅ | mid-turn | shape — body 45% of range · also counter-wick 51% |
+| 10 Sep 16:00 | 19:00 | 6.9p | needs 11.0 ❌ | needs 9.5 ❌ | DOWN | 4-month floor · also 100-bar size |
+| 10 Sep 18:00 | 21:00 | 7.5p | needs 11.0 ❌ | needs 9.5 ❌ | DOWN | 4-month floor · also 100-bar size, counter-wick 31% |
+| 11 Sep 01:00 | 04:00 | 6.6p | needs 10.5 ❌ | needs 9.3 ❌ | DOWN | 4-month floor · also 100-bar size |
+| 11 Sep 07:00 | 10:00 | 8.3p | needs 11.4 ❌ | needs 9.3 ❌ | DOWN | 4-month floor · also 100-bar size, not bigger than previous (13.0p) |
+| 11 Sep 08:00 | 11:00 | 10.3p | needs 11.6 ❌ | needs 9.3 ✅ | DOWN | 100-bar size ONLY |
+| 11 Sep 15:00 | 18:00 | 8.6p | needs 11.6 ❌ | needs 9.3 ❌ | DOWN | 4-month floor · also 100-bar size |
 
 **TWO SEPARATE FINDINGS CAME OUT OF THIS.**
 
@@ -827,7 +843,7 @@ right when the market is moving:
 
 Over the last 2,200 GBP/USD bars the 100-bar test is the stricter of the two **52%** of the time, and
 it was the binding one on **every single hour** of his window. The second test — the one built from
-his own candles — was asking only 9.3-9.5p, and **two of his candles passed it** (9.9p and 10.3p).
+his own candles — was asking only 9.3-9.5p, and ~~two of his candles passed it (9.9p and 10.3p)~~ **four passed it — 9.9p, 9.8p, 17.6p and 10.3p (CORRECTED 2026-09-14); 9.9p and 10.3p are the two refused by the 100-bar test ALONE.**
 
 **(b) The system called the downtrend ~5 hours later than he did.** It read UP through 10 Sep 11:00
 UTC, mid-turn 12:00-14:00, and only DOWN from **15:00 UTC (his 18:00)**. His first two marked candles
