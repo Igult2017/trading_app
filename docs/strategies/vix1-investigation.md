@@ -1580,3 +1580,29 @@ chart, with the level each reading protects hour by hour, both pairs): **on his 
 was protecting the EUR/USD downtrend on 11 Sep when he sold?** The last lower high's close (1.16289, which
 the 16:00 bounce closed above), or a higher one (1.16536 / 1.16477, the top the move started from)? The
 answer decides which swings count as "the protected area" on a line — the rule this build had to guess.
+
+## 2026-09-14 — "DID THE SYSTEM TAKE ANY TRADE FROM HERE CIRCLED TODAY?" (EUR/USD, Monday's fall to 1.1540)
+
+Answered from what production RECORDED, not a replay: the `signal_events` audit trail (132 VIX.1
+EUR/USD records since the Monday open), the `trading_signals` table, and the live log (which only
+reaches 12:12 his — 10,000-line cap). Then checked against the broker's own 1-minute bars. His clock.
+
+**YES — two SELLS were sent, both confirmed delivered to Telegram.**
+
+* **Sell 1 — sent 07:03.** The 06:00 candle qualified (trend route, trend DOWN). Entry 1.15690, stop
+  1.15706 (1.6 pips), target 1.15626 (4R). Record: `executed`, filled 07:06, closed 07:44.
+  `executed` means the target was hit (`signal_monitor.py:246-253`). The broker's bars agree on bid
+  prices: filled 07:06, target reached 07:43, stop never touched after the fill.
+  **One caveat:** in the 07:03 minute, before the entry was reached, the bid high was 1.15697. With a
+  ~1-pip spread the ask was about 1.15707 — 0.1 pip past the stop — and that minute also includes the
+  14 seconds before the signal was sent. The monitor judges fills on the bar's high and low with no
+  spread allowance (`signal_monitor.py:189-198`), so a real sell stop could have been cancelled there.
+  One-minute bars cannot settle it.
+* **Sell 2 — sent 10:23.** The 09:00 candle qualified. Entry 1.15508, stop 1.15560 (5.2 pips), target
+  1.15300. Price rose to the stop (10:26 on bid, 10:23 on the ask) before it reached the entry, so it
+  was **cancelled, never filled** (`signal_monitor.py:198-224`). Cancelled signals are marked expired
+  and then deleted (`signal_repo.drop_abandoned`, `signal_repo.py:160-187`), which is why its row is
+  gone. Price then fell through 1.15508; VIX.1 logged at 10:43 and 10:58 that the level was already
+  passed, so **no new order was placed** for the fall that followed.
+* **Every other hour, 00:00-13:46:** trend DOWN, and the newest closed candle was not a momentum candle
+  (too small against the 2.5x / 7.0-pip requirement, or not bigger than the one before).
