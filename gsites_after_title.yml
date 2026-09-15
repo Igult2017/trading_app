@@ -1,0 +1,254 @@
+- generic [ref=e1]:
+  - iframe [ref=e2]:
+    
+  - generic [ref=e4]:
+    - toolbar "Main toolbar" [ref=e7]:
+      - generic [ref=e8]:
+        - button "Sites home" [ref=e9] [cursor=pointer]:
+          - img "Sites logo" [ref=e10]
+        - tooltip [ref=e11]: Sites home
+      - 'generic "Site document name: My ePortfolio" [ref=e765]':
+        - generic [ref=e13]:
+          - textbox [ref=e18]: My ePortfolio
+          - tooltip [ref=e19]: Site document name
+      - status [ref=e20]:
+        - generic [ref=e21]:
+          - generic [ref=e24]:
+            - button "Open the version history" [ref=e26] [cursor=pointer]:
+              - generic [ref=e29]: All changes saved in Drive
+            - tooltip [ref=e30]: Open the version history
+          - tooltip [ref=e31]: Open the version history
+      - generic [ref=e34]:
+        - generic [ref=e37]:
+          - button "Undo last action" [ref=e38] [cursor=pointer]:
+            - img [ref=e40]
+          - tooltip [ref=e42]: Undo last action
+        - tooltip [ref=e43]: Undo last action
+      - generic [ref=e45]:
+        - generic [ref=e48]:
+          - button "Redo last action" [ref=e49] [cursor=pointer]:
+            - img [ref=e51]
+          - tooltip [ref=e53]: Redo last action
+        - tooltip [ref=e54]: Redo last action
+      - generic [ref=e56]:
+        - generic [ref=e59]:
+          - button "Preview" [ref=e60] [cursor=pointer]:
+            - img [ref=e63]
+          - tooltip [ref=e65]: Preview
+        - tooltip [ref=e66]: Preview
+      - generic [ref=e68]:
+        - generic [ref=e71]:
+          - button "Can't copy link for unpublished site" [disabled] [ref=e72]:
+            - img [ref=e75]
+          - tooltip [ref=e78]: Can't copy link for unpublished site
+        - tooltip [ref=e79]: Can't copy link for unpublished site
+      - generic [ref=e82]:
+        - generic [ref=e85]:
+          - button "Share with others" [ref=e86] [cursor=pointer]:
+            - img [ref=e89]
+          - tooltip [ref=e91]: Share with others
+        - tooltip [ref=e92]: Share with others
+      - generic [ref=e94]:
+        - generic [ref=e97]:
+          - button "Settings" [ref=e98] [cursor=pointer]:
+            - img [ref=e100]
+          - tooltip [ref=e103]: Settings
+        - tooltip [ref=e104]: Settings
+      - generic [ref=e108]:
+        - button "More" [ref=e109] [cursor=pointer]:
+          - img [ref=e111]
+        - tooltip [ref=e113]: More
+      - button "Publish" [ref=e115] [cursor=pointer]:
+        - generic [ref=e118]: Publish
+      - 'button "Google Account: Inform Globals (informglobals@gmail.com)" [ref=e121] [cursor=pointer]':
+        - img [ref=e122]
+    - generic [ref=e123]:
+      - generic [ref=e168]:
+        - main [ref=e171]:
+          - generic [ref=e173]:
+            - banner [ref=e174]:
+              - 'generic "Site name: My ePortfolio" [ref=e766]':
+                - textbox "Site name" [ref=e182]: My ePortfolio
+            - generic [ref=e185]:
+              - img [ref=e188]
+              - generic [ref=e190]:
+                - generic [ref=e191]: Edit this menu via the Pages tab
+                - link [ref=e192] [cursor=pointer]: Show me
+            - generic [ref=e194]:
+              - article "My ePortfolio – Google Sites" [ref=e767]:
+                - region "Page header section" [ref=e199]:
+                  - generic [ref=e201]:
+                    - toolbar:
+                      - generic [ref=e204]:
+                        - button "Delete the header" [ref=e768] [cursor=pointer]:
+                          - img [ref=e207]
+                        - tooltip [ref=e210]: Delete the header
+                      - generic [ref=e211]:
+                        - button "Image" [ref=e769] [cursor=pointer]:
+                          - generic [ref=e214]:
+                            - img [ref=e216]
+                            - generic [ref=e218]: Image
+                            - img [ref=e220]
+                        - button "Header type" [ref=e770] [cursor=pointer]:
+                          - generic [ref=e226]:
+                            - img [ref=e228]
+                            - generic [ref=e230]: Header type
+                    - generic [ref=e231]:
+                      - generic:
+                        - img
+                      - button [ref=e234] [cursor=pointer]:
+                        - img [ref=e238]
+                    - generic "Group starting at column 2 containing one Text tile." [ref=e245]:
+                      - gridcell "Text" [active] [selected] [ref=e251]:
+                        - textbox "Text" [ref=e254]
+                        - application:
+                          - generic "Tile" [ref=e900]:
+                            - generic [ref=e901]:
+                              - generic [ref=e903]:
+                                - button "Edit text" [ref=e904] [cursor=pointer]:
+                                  - img [ref=e906]
+                                - tooltip [ref=e908]: Edit text (Enter)
+                              - generic [ref=e910]:
+                                - button "Duplicate" [ref=e911] [cursor=pointer]:
+                                  - img [ref=e913]
+                                - tooltip [ref=e918]: Duplicate
+                              - generic [ref=e920]:
+                                - button "Remove" [ref=e921] [cursor=pointer]:
+                                  - img [ref=e923]
+                                - tooltip [ref=e926]: Remove
+              - button "Add footer" [ref=e298] [cursor=pointer]:
+                - generic [ref=e301]:
+                  - img [ref=e303]
+                  - text: Add footer
+        - generic [ref=e306]:
+          - tablist [ref=e307]:
+            - generic [ref=e308]:
+              - tab [disabled] [ref=e310]:
+                - img [ref=e314]
+              - tab [disabled] [ref=e317]:
+                - img [ref=e321]
+              - tab [disabled] [selected] [ref=e324]:
+                - img [ref=e328]
+            - button [disabled] [ref=e333]:
+              - img [ref=e337]
+            - button [disabled] [ref=e340]:
+              - img [ref=e344]
+          - iframe [ref=e350]:
+            
+      - complementary "Sidebar" [ref=e353]:
+        - generic [ref=e354]:
+          - tablist [ref=e355]:
+            - generic [ref=e358]:
+              - tab "Insert" [selected] [ref=e359] [cursor=pointer]:
+                - generic:
+                  - generic: Insert
+              - tab "Pages" [ref=e361] [cursor=pointer]:
+                - generic:
+                  - generic: Pages
+              - tab "Themes" [ref=e363] [cursor=pointer]:
+                - generic:
+                  - generic: Themes
+          - tabpanel "Insert" [ref=e365]:
+            - menubar [ref=e367]:
+              - menu [ref=e368]:
+                - generic [ref=e369]:
+                  - menuitem "Text box" [ref=e370] [cursor=pointer]:
+                    - img [ref=e373]
+                    - generic [ref=e375]: Text box
+                  - tooltip [ref=e376]
+                - generic [ref=e379]:
+                  - menuitem "Images" [ref=e380] [cursor=pointer]:
+                    - img [ref=e383]
+                    - generic [ref=e385]: Images
+                  - tooltip [ref=e386]
+                - generic [ref=e387]:
+                  - menuitem "Embed" [ref=e388] [cursor=pointer]:
+                    - img [ref=e391]
+                    - generic [ref=e393]: Embed
+                  - tooltip [ref=e394]
+                - generic [ref=e395]:
+                  - menuitem "Drive" [ref=e396] [cursor=pointer]:
+                    - generic [ref=e399]: Drive
+                  - tooltip [ref=e400]
+                - button [ref=e401]
+              - generic [ref=e402]:
+                - generic [ref=e403]:
+                  - button "Content blocks" [expanded] [ref=e404]:
+                    - generic [ref=e406]:
+                      - generic [ref=e407]: Content blocks
+                      - generic [ref=e409]: 
+                  - tooltip [ref=e410]
+                - generic [ref=e411]:
+                  - generic [ref=e412]:
+                    - 'button "Add layout: Image and caption" [ref=e413] [cursor=pointer]':
+                      - 'generic "Add layout: Image and caption" [ref=e416]':
+                        - img [ref=e417]
+                    - 'button "Add layout: Two column image and captions" [ref=e434] [cursor=pointer]':
+                      - 'generic "Add layout: Two column image and captions" [ref=e437]':
+                        - img [ref=e438]
+                  - generic [ref=e468]:
+                    - 'button "Add layout: Three images" [ref=e469] [cursor=pointer]':
+                      - 'generic "Add layout: Three images" [ref=e472]':
+                        - img [ref=e473]
+                    - 'button "Add layout: Three column image and captions" [ref=e498] [cursor=pointer]':
+                      - 'generic "Add layout: Three column image and captions" [ref=e501]':
+                        - img [ref=e502]
+                  - generic [ref=e536]:
+                    - 'button "Add layout: Two column image and side captions" [ref=e537] [cursor=pointer]':
+                      - 'generic "Add layout: Two column image and side captions" [ref=e540]':
+                        - img [ref=e541]
+                    - 'button "Add layout: Four column image and captions" [ref=e565] [cursor=pointer]':
+                      - 'generic "Add layout: Four column image and captions" [ref=e568]':
+                        - img [ref=e569]
+              - menu [ref=e600]:
+                - menuitem "Collapsible group" [ref=e602] [cursor=pointer]:
+                  - img [ref=e606]
+                  - generic [ref=e610]: Collapsible group
+                - menuitem "Table of contents" [ref=e612] [cursor=pointer]:
+                  - img [ref=e616]
+                  - generic [ref=e618]: Table of contents
+                - menuitem "Image carousel" [ref=e620] [cursor=pointer]:
+                  - img [ref=e624]
+                  - generic [ref=e627]: Image carousel
+                - menuitem "Button" [ref=e629] [cursor=pointer]:
+                  - img [ref=e633]
+                  - generic [ref=e639]: Button
+                - menuitem "Divider" [ref=e641] [cursor=pointer]:
+                  - img [ref=e645]
+                  - generic [ref=e647]: Divider
+                - menuitem "Spacer" [ref=e649] [cursor=pointer]:
+                  - img [ref=e653]
+                  - generic [ref=e662]: Spacer
+                - menuitem "Social links" [ref=e664] [cursor=pointer]:
+                  - img [ref=e668]
+                  - generic [ref=e671]: Social links
+                - menuitem "Placeholder" [ref=e673] [cursor=pointer]:
+                  - img [ref=e677]
+                  - generic [ref=e680]: Placeholder
+                - menuitem "YouTube" [ref=e682] [cursor=pointer]:
+                  - img [ref=e686]
+                  - generic [ref=e689]: YouTube
+                - menuitem "Calendar" [ref=e691] [cursor=pointer]:
+                  - img [ref=e695]
+                  - generic [ref=e698]: Calendar
+                - menuitem "Map" [ref=e700] [cursor=pointer]:
+                  - img [ref=e704]
+                  - generic [ref=e707]: Map
+                - menuitem "Docs" [ref=e709] [cursor=pointer]:
+                  - img [ref=e713]
+                  - generic [ref=e716]: Docs
+                - menuitem "Slides" [ref=e718] [cursor=pointer]:
+                  - img [ref=e722]
+                  - generic [ref=e725]: Slides
+                - menuitem "Sheets" [ref=e727] [cursor=pointer]:
+                  - img [ref=e731]
+                  - generic [ref=e734]: Sheets
+                - menuitem "Forms" [ref=e736] [cursor=pointer]:
+                  - img [ref=e740]
+                  - generic [ref=e743]: Forms
+                - menuitem "Charts" [ref=e745] [cursor=pointer]:
+                  - img [ref=e749]
+                  - generic [ref=e752]: Charts
+  - iframe [ref=e753]:
+    
+  - region [ref=e754]
