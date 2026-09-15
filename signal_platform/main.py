@@ -75,12 +75,12 @@ async def _startup() -> None:
     from monitor import exit_watch
     exit_watch.rehydrate()
 
-    # 1e. ORPHANED ORDERS are swept by the SIGNAL MONITOR's first poll, not here.
+    # 1e. ORPHANED ORDERS are swept by the SIGNAL MONITOR on every poll, not here.
     #
     # It was here, and it could not work: the sweep needs credentials from the Node app, which is not
     # serving yet at boot. The first production run proved it — it identified the orphaned gold order
     # correctly and logged "no usable account" nine seconds before the scheduler even started.
-    # `execution.canceller.sweep_orphans_soon` now runs it on the monitor's first poll instead, when
+    # `execution.canceller.sweep_orphans_soon` now runs it on every monitor poll instead, when
     # everything is up. No delay to tune, no timing to guess.
 
 

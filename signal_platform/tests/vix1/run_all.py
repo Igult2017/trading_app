@@ -25,6 +25,7 @@ TESTS = [
     "test_heads_up_and_windows.py",  # the heads-up closes its loop; momentum gets its own window
     "test_position_book.py",        # the shared position cache: a forced refresh must not read stale
     "test_order_cancel.py",         # a resting order dies with its setup, and never otherwise
+    "test_withdrawal_notice.py",    # 15 Sep: a withdrawal is announced; a dead setup's order goes within a poll
     "test_momentum.py",             # the gates and grading, hand-built candles
     "test_line_pullback.py",        # the line, and the past-the-line rule
     "test_entry_return_to_line.py", # pullback in 1-3, else the return to the line, else nothing

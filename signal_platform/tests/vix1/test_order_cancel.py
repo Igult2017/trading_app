@@ -72,6 +72,14 @@ def _install():
     broker_mod.StopOrderClient = _Broker
     autotrade_repo.order_for_signal = lambda sid: _book.get(sid)
     autotrade_repo.record_closed = lambda oid, st: _closed.append((oid, st))
+    # The withdrawal MESSAGE is tested in test_withdrawal_notice.py. Here it would reach the delivery
+    # ledger and the order record in the database, which this suite never touches, and hold the sweep
+    # open long past the checks below.
+    from execution import withdrawal_notice
+
+    async def _quiet(*a, **k):
+        return True
+    withdrawal_notice.announce = _quiet
 
 
 _install()
@@ -207,9 +215,9 @@ s.check("...and nothing was sent to the broker", _cancelled, [])
 # logged "no usable account" nine seconds before the scheduler started. It now runs on the monitor's
 # first poll, when everything is up — no delay to tune, no timing to guess.
 print()
-print("   it runs once, on the first poll:")
+print("   it runs on every poll, never two at once:")
 
-canceller._swept = False
+canceller._sweeping = False
 _pending.clear(); _cancelled.clear()
 _pending["950"] = {"symbol": "XAU/USD", "signal_id": "dead-2"}
 _book["dead-2"] = "950"
@@ -218,21 +226,35 @@ sr.get_active = lambda: []
 
 async def _twice():
     canceller.sweep_orphans_soon()
-    canceller.sweep_orphans_soon()          # a second poll must NOT sweep again
+    canceller.sweep_orphans_soon()          # a poll arriving while the first sweep runs must NOT start another
     await asyncio.sleep(0.3)
     return list(_cancelled)
 
 
 got = run(_twice())
 s.check("the first poll sweeps", got, [950])
-s.teeth("...and it really was called twice", canceller._swept is True)
 s.check("...but the order is only cancelled once", got.count(950), 1)
+s.check("...and the guard is free again once the sweep is done", canceller._sweeping, False)
 
-# NO EVENT LOOP MUST LEAVE IT ARMED, not silently consumed — otherwise a sync context at startup
-# would burn the one attempt and the sweep would never run at all.
-canceller._swept = False
+# EVERY POLL, NOT ONCE (15 Sep): a setup VIX.1 retracts leaves its signal inactive while the broker
+# order still rests, and a once-per-process sweep left that order live until the next deploy.
+_pending.clear(); _cancelled.clear()
+_pending["951"] = {"symbol": "EUR/USD", "signal_id": "dead-3"}
+_book["dead-3"] = "951"
+
+
+async def _later():
+    canceller.sweep_orphans_soon()
+    await asyncio.sleep(0.3)
+    return list(_cancelled)
+
+
+s.check("a LATER poll sweeps again", run(_later()), [951])
+
+# NO EVENT LOOP MUST NOT LEAVE THE GUARD STUCK, or no sweep would ever run again.
+canceller._sweeping = False
 canceller.sweep_orphans_soon()
-s.check("with no loop it stays armed for the next poll", canceller._swept, False)
+s.check("with no loop the guard stays free for the next poll", canceller._sweeping, False)
 
 
 # ── "THERE IS NO SUCH ORDER" IS NOT A FAILURE TO RETRY (2026-09-08) ───────

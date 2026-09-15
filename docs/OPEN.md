@@ -264,6 +264,37 @@ red self-test that everyone steps around is how a real regression gets missed: t
 break something here will see two failures and assume they are the usual two.
 
 
+### B24 - ~~A setup VIX.1 called dead left its broker order live, and a withdrawal said nothing~~ FIXED 15 Sep 🔴
+**His answer, 15 Sep,** to "Want me to add a message when a resting order is withdrawn?": *"Yes"*.
+
+**Two things, found together.**
+
+1. **Withdrawing an order sent no message.** Placing one always did (`placer.placement_message`);
+   `execution/canceller.py` had no message step at all.
+2. **A setup VIX.1 retracted kept its broker order live.** When VIX.1 calls a delivered setup dead
+   before the entry fills, it expires the signal (`vix1.py:235-244`, `signal_repo.cancel_active`) and
+   never touches the order. `signal_monitor` only walks ACTIVE signals (`signal_monitor.py:88`) and the
+   orphan sweep ran ONCE per process, so the order rested until the next deploy or the broker's 24h
+   expiry, and would have FILLED if price reached the entry. Against his rule of 04 Sep: *"the order
+   should be canceled as soon as possible not waiting 24HR."*
+
+**FIXED:**
+- `execution/withdrawal_notice.py` sends, once per order per outcome: **ORDER WITHDRAWN** (levels and
+  reason), **ALREADY GONE** (the broker had no such order: filled, expired or cancelled by hand, so
+  nothing is claimed) or **COULD NOT WITHDRAW** (the order may still be live). Called from every
+  branch of `canceller.cancel_for_signal`.
+- The orphan sweep runs on EVERY signal-monitor poll (30s), never two at once, with its database reads
+  off the event loop. Any order whose signal is no longer active is withdrawn within a poll, whatever
+  made the signal inactive. `vix1.py` is unchanged.
+
+**Known limit:** a trade that fills AND closes between two 2-second tracker checks keeps a "placed"
+order row, so the sweep gets ORDER_NOT_FOUND. That already happened at the boot sweep; the ALREADY GONE
+wording claims nothing false.
+
+**Verified:** `tests/vix1/test_withdrawal_notice.py` through the real canceller and sweep.
+`test_order_cancel.py`'s "a second poll must NOT sweep again" became "never two at once, and a later
+poll sweeps again".
+
 ### B23 - ~~Autotrade refused a signal because of an order that had already been withdrawn~~ FIXED 15 Sep 🔴
 **His question, 15 Sep:** *"Is autotrader even taking trades anymore? I havent seen any trade recorded
 in the journal."* Then: *"I need you to first accurately find the actual cause then plan a fix."*
@@ -389,6 +420,7 @@ things and nothing else:
 | the stop moves to **breakeven** | `position_tracker._lines` |
 | the **stop is hit** | `exit_watch`, from the real closing deal |
 | we are **out** | `exit_watch` |
+| an order is **withdrawn** | `execution/withdrawal_notice.py` — withdrawn, already gone, or could NOT be withdrawn, with the reason (added 15 Sep, B24) |
 
 **QUIET IS ABOUT ROUTINE SUCCESS, NEVER ABOUT FAILURE.** `_auto_move` still speaks — loudly — on any
 outcome where the stop did NOT reach the broker, however quiet the rung. That pairing is what makes

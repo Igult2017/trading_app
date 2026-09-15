@@ -36,7 +36,7 @@ FOUR RULES THIS FILE EXISTS TO KEEP:
 import asyncio
 import logging
 
-from execution import decision_log
+from execution import decision_log, withdrawal_notice
 from storage import autotrade_repo
 
 log = logging.getLogger(__name__)
@@ -49,6 +49,7 @@ async def cancel_for_signal(signal_id: str, symbol: str, why: str) -> bool:
     distinction, because the caller does the same thing either way and a caller that branches on it
     would be acting on a difference this function cannot honestly report.
     """
+    order_id = None
     try:
         order_id = autotrade_repo.order_for_signal(signal_id)
         if not order_id:
@@ -58,6 +59,7 @@ async def cancel_for_signal(signal_id: str, symbol: str, why: str) -> bool:
         acct = await load_account()
         if acct is None:
             log.warning(f"[canceller] {symbol}: no usable account, cannot cancel order {order_id}")
+            await withdrawal_notice.announce(order_id, symbol, "no usable trading account to cancel it with", withdrawal_notice.NOT_WITHDRAWN)
             return False
 
         from execution.broker import StopOrderClient
@@ -85,9 +87,11 @@ async def cancel_for_signal(signal_id: str, symbol: str, why: str) -> bool:
                          f"— closing the row so it stops being re-cancelled every boot ({why})")
                 await decision_log.cancelled(signal_id, symbol, order_id,
                                              f"the broker no longer had it: {why}")
+                await withdrawal_notice.announce(order_id, symbol, why, withdrawal_notice.ALREADY_GONE)
                 return False        # nothing was cancelled BY US; the caller's behaviour is unchanged
             log.warning(f"[canceller] {symbol}: broker refused to cancel order {order_id} — "
                         f"{res.error}")
+            await withdrawal_notice.announce(order_id, symbol, f"the broker refused: {res.error}", withdrawal_notice.NOT_WITHDRAWN)
             return False
 
         # ONLY NOW is the row closed. Marking it cancelled before the broker agreed would leave a
@@ -97,66 +101,69 @@ async def cancel_for_signal(signal_id: str, symbol: str, why: str) -> bool:
         # the reason it leaves no trace he could question later.
         log.info(f"[canceller] {symbol}: cancelled resting order {order_id} — {why}")
         await decision_log.cancelled(signal_id, symbol, order_id, why)
+        await withdrawal_notice.announce(order_id, symbol, why, withdrawal_notice.WITHDRAWN)
         return True
     except Exception as exc:
         log.warning(f"[canceller] {symbol}: cancel failed for signal {signal_id}: "
                     f"{type(exc).__name__}: {exc}")
+        if order_id:
+            await withdrawal_notice.announce(order_id, symbol, f"the cancel crashed ({type(exc).__name__})", withdrawal_notice.NOT_WITHDRAWN)
         return False
 
 
-_swept = False
+_sweeping = False
 
 
 def sweep_orphans_soon() -> None:
-    """Run the orphan sweep ONCE, the first time the monitor polls. Returns immediately.
+    """Run the orphan sweep on this monitor poll, unless one is still running. Returns immediately.
 
-    WHY NOT AT BOOT, which is where it was first put and where it did not work. The sweep needs an
-    account, and `execution.account.load_account` asks the Node app for credentials over HTTP. At
-    boot that app is not serving yet, so the very first production run said:
+    EVERY POLL, NOT ONCE — changed 2026-09-15. It ran once per process, and `vix1.py` retracts a dead
+    setup by expiring its signal (`signal_repo.cancel_active`) without touching the broker order. The
+    monitor only walks ACTIVE signals, so that order rested until the next deploy or the broker's 24h
+    expiry. His rule, 04 Sep: *"the order should be canceled as soon as possible not waiting 24HR."*
 
-        16:21:27  [canceller] XAU/USD: no usable account, cannot cancel order 359170674
-        16:21:36  [boot] scheduler started
-
-    It found the right order — the orphan, correctly identified — and could do nothing with it.
-
-    THE MONITOR'S POLL IS THE HONEST MOMENT: it only runs once the platform is fully up, so there is
-    no timing to guess at and no delay to tune. Fired as a task so it never sits on the 30-second
-    trading path, the same rule as `cancel_soon`.
+    ON THE POLL, NOT AT BOOT: the sweep needs credentials from the Node app, which is not serving at
+    boot (the first production run logged "no usable account" before the scheduler had started).
+    Fired as a task so it never sits on the 30-second path, and never two at once.
     """
-    global _swept
-    if _swept:
-        return
-    _swept = True
+    global _sweeping
+    if _sweeping:
+        return                      # the last poll's sweep is still going
     try:
-        asyncio.get_running_loop().create_task(sweep_orphans())
+        loop = asyncio.get_running_loop()
     except RuntimeError:
-        _swept = False              # no loop yet; let the next poll try again
+        return                      # no loop (a sync context): the next poll tries again
+    _sweeping = True
+
+    async def _run():
+        global _sweeping
+        try:
+            await sweep_orphans()
+        finally:
+            _sweeping = False
+    loop.create_task(_run())
 
 
 async def sweep_orphans() -> int:
     """Cancel every resting order whose signal is no longer active. Returns how many went.
 
-    WHY THIS EXISTS, and it is a gap in the first version of this fix that HIS ACCOUNT proved.
-    `signal_monitor` walks `signal_repo.get_active` — **only signals still marked active** — so the
-    cancel added there fires for setups that die from now on and NEVER for one that died earlier.
-    On 2026-09-04 a gold BUY stop at 4486.56 was still resting while gold traded at 4414: its signal
-    had been marked expired hours before the cancel existed, so nothing would ever look at it again.
-    **I predicted in the plan that deploying would clear it. It did not.** That order had to be
-    cancelled by hand.
-
-    RUN ONCE AT BOOT, never on the trading path — the same rule as every other rehydrate in
-    `main.py`. A restart is exactly when an orphan is most likely: the platform was down while the
-    market moved, so the setup died with nobody watching.
+    WHY THIS EXISTS. `signal_monitor` walks only signals still marked active, so its cancel never fires
+    for a setup that died another way: while the platform was down (on 2026-09-04 a gold BUY stop at
+    4486.56 rested while gold traded at 4414, and had to be cancelled by hand), expired, or retracted by
+    the strategy. Runs on every monitor poll (see `sweep_orphans_soon`), never on the stop-moving path.
 
     IT CANNOT TOUCH A POSITION OR ONE OF HIS OWN ORDERS. `pending()` returns only rows this platform
     placed that are still at STATUS_PLACED, and `cancel_for_signal` re-checks the same thing.
     """
     try:
         from storage import signal_repo
-        resting = autotrade_repo.pending()
+        loop = asyncio.get_running_loop()
+        # Every 30s now, so both reads go to a worker thread: a blocking read on the event loop would
+        # hold up the half-second trade watcher that shares it.
+        resting = await loop.run_in_executor(None, autotrade_repo.pending)
         if not resting:
             return 0
-        active = {str(r.id) for r in signal_repo.get_active()}
+        active = {str(r.id) for r in await loop.run_in_executor(None, signal_repo.get_active)}
         gone = 0
         for order_id, intent in resting.items():
             sid = intent.get("signal_id") if isinstance(intent, dict) else None
@@ -165,13 +172,14 @@ async def sweep_orphans() -> int:
             if not sid or str(sid) in active:
                 continue
             if await cancel_for_signal(str(sid), intent.get("symbol") or "?",
-                                       "its signal is no longer active — orphaned, found at boot"):
+                                       "its signal is no longer active (the setup died, expired or "
+                                       "was retracted)"):
                 gone += 1
         if gone:
-            log.info(f"[canceller] boot sweep cancelled {gone} orphaned order(s)")
+            log.info(f"[canceller] sweep cancelled {gone} orphaned order(s)")
         return gone
     except Exception as exc:
-        log.warning(f"[canceller] boot sweep failed: {type(exc).__name__}: {exc}")
+        log.warning(f"[canceller] orphan sweep failed: {type(exc).__name__}: {exc}")
         return 0
 
 
