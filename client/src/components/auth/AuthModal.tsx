@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useLocation } from 'wouter';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth, LAST_ROLE_KEY } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
 import Brand from '@/components/Brand';
 
@@ -53,7 +53,13 @@ export default function AuthModal() {
   // they close the modal instead, nothing has been broken, just a file cached.
   useEffect(() => {
     if (!open) return;
-    const t = setTimeout(() => { void import('@/pages/Journal'); }, 300);
+    // THE PAGE THIS DEVICE SIGNED IN TO LAST (2026-09-15). It was always the journal, so an admin's
+    // panel code only started downloading after the server call returned.
+    let last: string | null = null;
+    try { last = localStorage.getItem(LAST_ROLE_KEY); } catch { /* ignore */ }
+    const t = setTimeout(() => {
+      void (last === 'admin' ? import('@/pages/AdminPanel') : import('@/pages/Journal'));
+    }, 300);
     return () => clearTimeout(t);
   }, [open]);
 

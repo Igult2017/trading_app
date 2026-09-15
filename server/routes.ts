@@ -5322,8 +5322,10 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
           console.log('[Auth/setup] promoted existing ADMIN_EMAIL profile to admin', { id: authUser.id });
         }
         console.log('[Auth/setup] existing profile found', { id: authUser.id, role: existingRole });
-        // Sync Supabase app_metadata so the client JWT stays accurate
-        if (supabaseAdmin) {
+        // Sync Supabase app_metadata so the client JWT stays accurate: ONLY WHEN IT IS WRONG
+        // (2026-09-15). This ran on EVERY login, a round trip to Supabase the sign-in waits on.
+        // `authUser` came from Supabase a moment ago, so its app_metadata is the current value.
+        if (supabaseAdmin && authUser.app_metadata?.role !== existingRole) {
           await supabaseAdmin.auth.admin.updateUserById(authUser.id, {
             app_metadata: { role: existingRole },
           });

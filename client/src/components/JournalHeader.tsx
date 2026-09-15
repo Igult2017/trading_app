@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect, RefObject } from "react";
 import { createPortal } from "react-dom";
-import { Link, useLocation } from "wouter";
+import { Link } from "wouter";
 import { Menu, Globe, Maximize2, Minimize2, SunMedium, UserCircle2 } from 'lucide-react';
 import { useAuth } from "@/context/AuthContext";
+import { useLogout } from "@/hooks/useLogout";
 import { authFetch } from "@/lib/queryClient";
 import { Notifications } from "@/components/Notifications";
 import { useLang } from "@/context/LanguageContext";
@@ -410,8 +411,8 @@ export default function JournalHeader({ onToggleSidebar, darkMode, onToggleDarkM
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dm = darkMode;
 
-  const { user, signOut } = useAuth();
-  const [, navigate] = useLocation();
+  const { user } = useAuth();
+  const logout = useLogout();
   const [profile, setProfile] = useState<{ fullName: string; email: string | null; plan: string; loginStreak: number; longestStreak: number; activeDays: string[]; avatarUrl: string | null } | null>(null);
 
   useEffect(() => {
@@ -458,8 +459,7 @@ export default function JournalHeader({ onToggleSidebar, darkMode, onToggleDarkM
 
   async function handleLogout() {
     setProfileOpen(false);
-    await signOut();
-    navigate('/');
+    await logout();   // leaves first, signs out after: see hooks/useLogout.ts
   }
 
   useEffect(() => {

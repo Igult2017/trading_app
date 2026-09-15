@@ -13,6 +13,7 @@ import { useAdminNotifications, AdminNotificationsPanel } from '@/features/admin
 
 import { useLocation } from 'wouter';
 import { useAuth } from '@/context/AuthContext';
+import { useLogout } from '@/hooks/useLogout';
 import { supabase } from '@/lib/supabase';
 import BlogPostEditor, { type BlogEditorData } from '@/components/BlogPostEditor';
 import Wordmark from '@/components/Wordmark';
@@ -3070,7 +3071,8 @@ export default function AdminPanel() {
     return () => document.removeEventListener('mousedown', handler);
   }, [notifPanelOpen]);
 
-  const { user, session, role, signOut, loading } = useAuth();
+  const { user, session, role, loading } = useAuth();
+  const logout = useLogout();
   const [, navigate] = useLocation();
   const queryClient = useQueryClient();
 
@@ -3376,7 +3378,7 @@ export default function AdminPanel() {
             </div>
           </div>
           <button
-            onClick={async () => { await signOut(); navigate('/'); }}
+            onClick={() => { void logout(); }}
             style={{ width: 'calc(100% - 20px)', margin: '2px 10px', display: 'flex', alignItems: 'center', gap: '10px', padding: '9px 12px', justifyContent: 'flex-start', background: 'transparent', color: C.railDim, border: 'none', borderRadius: '10px', cursor: 'pointer', fontFamily: FONT, fontWeight: 600, fontSize: '13px', transition: 'background 0.14s, color 0.14s', overflow: 'hidden' }}
             onMouseEnter={e => { e.currentTarget.style.background = 'rgba(229,72,77,0.12)'; e.currentTarget.style.color = '#ff8087'; }}
             onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = C.railDim; }}

@@ -1,4 +1,5 @@
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { createClient, type SupabaseClient, type User } from '@supabase/supabase-js';
+import { createTokenMemory } from './tokenMemory';
 
 const supabaseUrl    = process.env.VITE_SUPABASE_URL       ?? '';
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? '';
@@ -20,6 +21,8 @@ export const supabaseAdmin: SupabaseClient | null = hasCredentials
     })
   : null;
 
+const confirmedTokens = createTokenMemory<User>();
+
 /**
  * Verify a JWT from the Authorization header and return the user,
  * or null if the token is invalid / missing.
@@ -28,7 +31,12 @@ export async function verifyToken(authHeader: string | undefined) {
   if (!supabaseAdmin) return null;
   if (!authHeader?.startsWith('Bearer ')) return null;
   const token = authHeader.slice(7);
+  // A token Supabase confirmed moments ago is not asked about again (tokenMemory.ts: at most 30s,
+  // never past its own expiry). This call cost +0.23-0.27s on EVERY signed-in request.
+  const known = confirmedTokens.get(token);
+  if (known) return known;
   const { data, error } = await supabaseAdmin.auth.getUser(token);
-  if (error || !data.user) return null;
+  if (error || !data.user) return null;   // refused: never remembered
+  confirmedTokens.remember(token, data.user);
   return data.user;
 }

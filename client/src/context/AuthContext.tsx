@@ -6,6 +6,9 @@ import { prepareDashboard } from '@/lib/prefetchPanels';
 import { clearInactivityTracking, rememberReturnTo } from '@/lib/inactivity';
 
 const LOCAL_ADMIN_KEY = 'local_admin_session';
+/** The role this device last signed in with, so the login pop-up can start downloading the right
+ *  page's code while the password is typed (AuthModal). Not a permission: only a download hint. */
+export const LAST_ROLE_KEY = 'fmj_last_role';
 
 /**
  * Resolve initial auth state synchronously from sessionStorage.
@@ -131,6 +134,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch { /* ignore */ }
   }, [user?.id, loading]);
 
+  useEffect(() => {
+    if (!role) return;
+    try { localStorage.setItem(LAST_ROLE_KEY, role); } catch { /* ignore */ }
+  }, [role]);
+
   async function runSetup(accessToken: string): Promise<'admin' | 'user' | null> {
     try {
       const res = await fetch('/api/auth/setup', {
@@ -222,8 +230,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Now the ONLY thing on the critical path is the role, because the role is what decides where
     // to send them. Everything else happens behind the screen they are already looking at, and
     // App.tsx paints a skeleton rather than a blank rectangle while it lands.
+    //
+    // START THE DESTINATION'S CODE BEFORE THE SERVER CALL, not after it (2026-09-15). This import
+    // used to sit AFTER `await runSetup`, so the 1.8-2.2s download (new after every deploy) waited
+    // behind the setup call. The role in the fresh login token is kept in step by that same call on
+    // every login, so it names the right page.
+    const tokenRole = extractRole(data.session.user);
+    void (tokenRole === 'admin' ? import('@/pages/AdminPanel') : import('@/pages/Journal'));
+
     const assignedRole = await runSetup(data.session.access_token);
-    const role = assignedRole ?? extractRole(data.session.user);
+    const role = assignedRole ?? tokenRole;
 
     // Still warmed — just not waited on. And not at all for an admin: this is JOURNAL data, and
     // an admin is on their way to the panel where none of it is ever read.
@@ -231,10 +247,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       void prepareDashboard(queryClient, data.session.user.id);
     }
 
-    // Start fetching the destination's JavaScript NOW, in parallel with the redirect, instead of
-    // only discovering it is needed after arriving. Measured against production that chunk is
-    // 1.8-2.2s on a cold cache, and it was sitting at the FRONT of the wait.
-    void (role === 'admin' ? import('@/pages/AdminPanel') : import('@/pages/Journal'));
+    // The server named a different page than the login token did (a first login, or a role that was
+    // just corrected): fetch that page's code as well.
+    if (role !== tokenRole) void (role === 'admin' ? import('@/pages/AdminPanel') : import('@/pages/Journal'));
 
     // Set role directly — avoids calling refreshSession() which can fire
     // a SIGNED_OUT event on failure and silently kill the new session.
@@ -261,6 +276,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setRole(null);
       return;
     }
+    // CLEAR WHAT THE SCREEN SHOWS FIRST (2026-09-15). `supabase.auth.signOut()` waits for the
+    // library's lock and then a network call to Supabase, and the page kept acting signed-in for all
+    // of it. The stored session is still removed by the call below.
+    setSession(null);
+    setUser(null);
+    setRole(null);
     await supabase.auth.signOut();
   }
 

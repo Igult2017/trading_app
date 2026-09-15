@@ -6,8 +6,8 @@ import {
   LAST_ACTIVITY_KEY,
   LAST_SESSION_KEY,
   clearInactivityTracking,
-  rememberReturnTo,
 } from "@/lib/inactivity";
+import { leaveThenSignOut } from "@/hooks/useLogout";
 
 const ACTIVITY_EVENTS: (keyof WindowEventMap)[] = [
   "mousemove", "mousedown", "keydown", "scroll", "touchstart", "wheel", "click",
@@ -72,7 +72,7 @@ export function useInactivityLogout() {
    * Navigating first changes the route, which unmounts the protected subtree this hook lives in.
    * No guard is then mounted to see a null session, so nothing can override the destination.
    *
-   * `rememberReturnTo()` has to be called here, before navigating. `signOut` normally records the
+   * `rememberReturnTo()` runs inside `leaveThenSignOut`, before navigating. `signOut` normally records the
    * page for the next login, but by the time it runs the path is already '/', which it refuses to
    * store — so without this line an idle logout would quietly forget where the user had been.
    */
@@ -81,9 +81,8 @@ export function useInactivityLogout() {
     loggingOut.current = true;
     clearTimers();
     clearInactivityTracking();
-    rememberReturnTo();
-    navigateRef.current("/");
-    await signOutRef.current();
+    // The same order the log-out buttons now use (hooks/useLogout.ts): remember, leave, sign out.
+    await leaveThenSignOut(navigateRef.current, signOutRef.current);
   }, [clearTimers]);
 
   const scheduleExpiry = useCallback(() => {
