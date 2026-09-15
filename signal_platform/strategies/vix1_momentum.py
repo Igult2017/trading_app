@@ -10,9 +10,10 @@ decisively one way and HOLDING it. It has to answer three questions:
                candles (the bar before them simply happened to be bigger) and admitted 24-27% that
                were BELOW normal size — the smallest was 0.79 pips, less than the spread. MEDIAN, not
                mean: on 11-21% of bars a single spike drags the mean past 1.6x the median and then
-               blocks every real candle behind it for hours. SINCE 2026-09-15 (his rulings) the test
-               is 2.5x LESS A 0.2 MARGIN, or the lowest requirement among candles that qualified on
-               their own in the last 24 clock hours — see _SIZE_MARGIN, _MEMORY_HOURS, size_yardstick.
+               blocks every real candle behind it for hours. SINCE 2026-09-15 (his rulings) the candle being
+               qualified for a TRADE may also pass on 2.5x LESS A 0.2 MARGIN, or on the lowest
+               requirement among candles that qualified on their own in the last 24 clock hours — ONLY
+               that candle (`qualifies_for_trade`); everything else is unchanged (`is_momentum_candle`).
   CLEAN      — the body is most of the candle. The GATE floor is 50% of its own range (this line said
                60% until 2026-09-15; the code has used 50% since 2026-07-25); the shape
                above the floor is GRADED, not just gated (momentum_grade): a 75%+ body with a tiny
@@ -295,32 +296,33 @@ def size_note(h1: list[Candle], i: int, bullish: bool, symbol: str) -> str | Non
             f"{mult * baseline_body(h1, j) / pip:.1f} pips remembered from the {when} candle")
 
 
-def is_momentum_candle(h1: list[Candle], i: int, bullish: bool, symbol: str) -> bool:
-    """BIG for this pair right now (2.5x less the 0.2 margin, or the 24-hour memory) + BIG FOR THE LAST
-    ~4 MONTHS + BIGGER THAN THE ONE BEFORE IT + CLEAN + UNREJECTED. The wick WITH the move is not capped
-    (a 48% with-wick appears in the user's real winners).
+def qualifies_for_trade(h1: list[Candle], i: int, bullish: bool, symbol: str) -> bool:
+    """THE LAST STAGE — may THIS candle be traded? His 2.5x rule PLUS the alternatives he added on 15 Sep
+    (the 0.2 margin and the 24-hour memory) as other evidence that a good setup's candle is big enough.
+    BIG FOR THE LAST ~4 MONTHS, BIGGER THAN THE ONE BEFORE IT, CLEAN and UNREJECTED still all apply.
 
-    `symbol` is REQUIRED, not defaulted: the long-window test converts pips to a price and needs the
-    pair. `pip_size("")` happens to return the right value for EUR/USD and GBP/USD and would be
-    SILENTLY wrong for a yen pair, so a caller that forgets must fail loudly instead.
-
-    WHO ASKS THIS: everything that decides whether a candle can be TRADED — the entry, signal spacing's
-    anchor and count, and the pre-close heads-up — so they cannot drift apart. The quiet-market test does
-    NOT: it counts activity with `counts_as_activity` (2.5x, no margin, no memory — his ruling, 15 Sep).
+    ASK THIS ONLY ABOUT THE CANDLE BEING QUALIFIED FOR A TRADE. His words, 15 Sep: *"these new rules
+    should not change calculations in any way because they only apply at the moment the momentum is
+    qualified ... they have nothing to do with how the actual VIX has been working"*. So it is asked by:
+    the entry, for the NEWEST closed candle (`momentum_run`); the pre-close heads-up and its stand-down,
+    which are that same question minutes before and just after the close; and signal spacing, only to
+    RECOGNISE the candle a running signal was taken on. Everything that COUNTS or SCANS momentum candles
+    — the quiet-market test, spacing's three-candle count, the earlier candles of a run — asks
+    `is_momentum_candle`, which is unchanged. When the first build let the alternatives into every
+    caller, 6 of his 9 recorded dead markets (`test_tradeable.py`) looked awake and traded.
     """
     return size_yardstick(h1, i, bullish, symbol) is not None
 
 
-def counts_as_activity(h1: list[Candle], i: int, bullish: bool, symbol: str) -> bool:
-    """A momentum candle counted the way the QUIET-MARKET test always has: 2.5x its own 100-bar median —
-    no margin, no memory — plus every other test. Exactly `is_momentum_candle` as it was before 15 Sep.
+def is_momentum_candle(h1: list[Candle], i: int, bullish: bool, symbol: str) -> bool:
+    """BIG for this pair right now (2.5x its 100-bar median) + BIG FOR THE LAST ~4 MONTHS + BIGGER THAN THE
+    ONE BEFORE IT + CLEAN + UNREJECTED. The wick WITH the move is not capped (a 48% with-wick appears in
+    the user's real winners). UNCHANGED BY THE 15 SEP MARGIN AND MEMORY — those live only in
+    `qualifies_for_trade`, the last-stage check.
 
-    WHY IT IS SEPARATE (his words, 2026-09-15): *"How is the new margin rule related to market warking
-    up? If you look at those signals we missed because the momentum candle qualification was not met,
-    how are they related to market waking up?"* They are not. The margin and the memory exist to
-    QUALIFY A CANDLE TO TRADE. Letting them into the activity count made 6 of his 9 recorded dead
-    markets (`test_tradeable.py`) look awake and trade, while neither missed signal had ever been
-    stopped by the quiet test.
+    `symbol` is REQUIRED, not defaulted: the long-window test converts pips to a price and needs the
+    pair. `pip_size("")` happens to return the right value for EUR/USD and GBP/USD and would be
+    SILENTLY wrong for a yen pair, so a caller that forgets must fail loudly instead.
     """
     if not _held_its_move(h1, i, bullish):
         return False
@@ -336,7 +338,7 @@ def momentum_grade(c: Candle, bullish: bool) -> tuple[str, float]:
       A  — body >= 75% of range AND counter-wick <= 15% (a clean, near-wickless candle) -> conf 0.85.
       B/C — anything weaker, down to the gate (body 50% / wick 25%): confidence scales from 0.74 (best
             non-A) to 0.60 (worst). The WEAKER of the two dimensions sets the grade, so one bad axis is
-            not hidden by a good one. Only reached for a candle that already PASSED is_momentum_candle.
+            not hidden by a good one. Only reached for a candle that already qualified (`momentum_run`).
     """
     rng = full_range(c)
     if rng <= 0:
@@ -393,7 +395,10 @@ def momentum_run(h1: list[Candle], bullish: bool, symbol: str) -> tuple[int, int
     # but when it does, the newest bar is the run's LAST candle and `first` — the run's oldest, which
     # the caller uses as the reference for the line and the grade — is still returned unchanged.
     i = len(h1) - 1
-    if i < 1 or not is_momentum_candle(h1, i, bullish, symbol):
+    # ONLY THE NEWEST CANDLE — the one being qualified for a trade — may use his 15 Sep alternatives. The
+    # earlier candles of a run are judged the unchanged way below, so the run's first candle (the line's
+    # reference and the grade) is exactly what it always was.
+    if i < 1 or not qualifies_for_trade(h1, i, bullish, symbol):
         return None
     run, first = 1, i
     j = i - 1

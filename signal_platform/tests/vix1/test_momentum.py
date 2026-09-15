@@ -11,7 +11,7 @@ from _harness import Suite, body, flat_series
 from strategies.vix1_momentum import (
     _MIN_BASELINE, _MIN_BODY_FRAC, _MIN_BODY_MULT, _MAX_CWICK_FRAC, _MIN_RUN, _SIZE_MARGIN,
     _A_BODY_FRAC, _A_CWICK_FRAC, _A_CONF, _LONG_BARS, _LONG_BODY_MULT, _LONG_MIN_BARS,
-    baseline_body, counter_wick, is_momentum_candle, momentum_grade, momentum_run,
+    baseline_body, counter_wick, is_momentum_candle, momentum_grade, momentum_run, qualifies_for_trade,
     long_baseline, long_requirement,
 )
 
@@ -29,7 +29,7 @@ s.check("baseline_body reads the median body", round(baseline_body(series, 110),
 s.check(f"baseline refuses with fewer than {_MIN_BASELINE} bars", baseline_body(series[:5], 4), 0.0)
 
 # ---------------------------------------------------------------- the four gates
-def probe(body_px, rng_px, cwick_px, prev_px=BASE, bullish=True):
+def probe(body_px, rng_px, cwick_px, prev_px=BASE, bullish=True, check=is_momentum_candle):
     """Build a candle with an exact body / range / counter-wick and test it at the end of a baseline."""
     win = flat_series(110, size=prev_px, tf="H1")
     o = 1.1000
@@ -38,7 +38,7 @@ def probe(body_px, rng_px, cwick_px, prev_px=BASE, bullish=True):
     # counter_wick is the REJECTION wick: UPPER on a bull candle, LOWER on a bear (vix1_momentum).
     up, dn = (cwick_px, with_wick) if bullish else (with_wick, cwick_px)
     win.append(body(o, c, tf="H1", t=111, wick_up=up, wick_dn=dn))
-    return is_momentum_candle(win, len(win) - 1, bullish, SYM)
+    return check(win, len(win) - 1, bullish, SYM)
 
 BIG = _MIN_BODY_MULT * BASE * 1.2          # comfortably over the size gate
 s.check("a clean big candle qualifies", probe(BIG, BIG * 1.1, 0.0), True)
@@ -51,10 +51,14 @@ print("   each gate must REJECT when violated:")
 _LINE = _MIN_BODY_MULT - _SIZE_MARGIN
 s.check(f"  body under {_LINE:.1f}x the median is rejected",
         probe(BASE * 1.5, BASE * 1.6, 0.0), False)
-s.check(f"  body just OVER {_LINE:.1f}x (2.5x less the {_SIZE_MARGIN} margin) qualifies",
-        probe(BASE * (_LINE + 0.05), BASE * (_LINE + 0.05) * 1.1, 0.0), True)
-s.check(f"  body just UNDER {_LINE:.1f}x is rejected",
-        probe(BASE * (_LINE - 0.05), BASE * (_LINE - 0.05) * 1.1, 0.0), False)
+s.check(f"  body just OVER {_LINE:.1f}x (2.5x less the {_SIZE_MARGIN} margin) qualifies FOR A TRADE",
+        probe(BASE * (_LINE + 0.05), BASE * (_LINE + 0.05) * 1.1, 0.0, check=qualifies_for_trade), True)
+s.check(f"  body just UNDER {_LINE:.1f}x is rejected even for a trade",
+        probe(BASE * (_LINE - 0.05), BASE * (_LINE - 0.05) * 1.1, 0.0, check=qualifies_for_trade), False)
+# His rule: the margin only applies at the moment a candle is qualified for a trade. The momentum test
+# everything else counts with is unchanged and still asks 2.5x of the very same candle.
+s.check(f"  ...while the unchanged momentum test still asks {_MIN_BODY_MULT}x of that same candle",
+        probe(BASE * (_LINE + 0.05), BASE * (_LINE + 0.05) * 1.1, 0.0), False)
 s.check(f"  body under {_MIN_BODY_FRAC:.0%} of its own range is rejected",
         probe(BIG, BIG * 3.0, 0.0), False)
 s.check("  body NOT bigger than the previous candle is rejected",

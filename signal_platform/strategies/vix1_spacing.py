@@ -42,7 +42,7 @@ import logging
 
 from core.types import Candle
 from shared.mtf_utils import to_minutes
-from strategies.vix1_momentum import is_momentum_candle
+from strategies.vix1_momentum import is_momentum_candle, qualifies_for_trade
 
 log = logging.getLogger(__name__)
 
@@ -60,18 +60,22 @@ def _closed_by(candle: Candle, when: float, tf: str = "H1") -> bool:
     return candle.time + to_minutes(tf) * 60 <= when
 
 
-def _is_momentum(h1: list[Candle], i: int, symbol: str) -> bool:
+def _is_momentum(h1: list[Candle], i: int, symbol: str, check=is_momentum_candle) -> bool:
     """`symbol` is threaded all the way down on purpose: A MOMENTUM CANDLE MUST MEAN ONE THING.
 
     This module counts momentum candles for the spacing gate while vix1_bias counts them for the
     setup. If the long-window size test applied to one and not the other, the two halves of the
     strategy would be counting different things and the spacing gate would release early.
+
+    `check` IS `is_momentum_candle` FOR THE COUNT — his three candles, unchanged. His 15 Sep margin and
+    memory only qualify the candle being TRADED (*"they have nothing to do with how the actual VIX has
+    been working"*), so they are used here for one thing only: `anchor_time` passes `qualifies_for_trade`
+    to recognise the candle a running signal was taken on, which may have qualified through them.
     """
     if _COUNT_BOTH_DIRECTIONS:
-        return (is_momentum_candle(h1, i, True, symbol)
-                or is_momentum_candle(h1, i, False, symbol))
+        return check(h1, i, True, symbol) or check(h1, i, False, symbol)
     bullish = h1[i].close > h1[i].open
-    return is_momentum_candle(h1, i, bullish, symbol)
+    return check(h1, i, bullish, symbol)
 
 
 def anchor_time(h1: list[Candle], taken_at: float, symbol: str) -> int | None:
@@ -84,7 +88,7 @@ def anchor_time(h1: list[Candle], taken_at: float, symbol: str) -> int | None:
     for i in range(len(h1) - 1, 0, -1):
         if not _closed_by(h1[i], taken_at):
             continue
-        if _is_momentum(h1, i, symbol):
+        if _is_momentum(h1, i, symbol, qualifies_for_trade):    # the traded candle may have used the margin
             return h1[i].time
     return None
 

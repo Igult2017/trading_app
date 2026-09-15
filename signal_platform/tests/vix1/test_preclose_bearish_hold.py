@@ -94,7 +94,7 @@ _got_b = pc.check(_before, _before + [_bar_b], SYM, _clock_b)
 
 s.check("the fixture really is a proposed-but-unproved downturn", pending_of(_before), -1)
 s.check("...and the forming bar really would qualify as a SELL momentum candle",
-        pc.is_momentum_candle(_before + [_bar_b], len(_before), False, SYM), True)
+        pc.qualifies_for_trade(_before + [_bar_b], len(_before), False, SYM), True)
 s.check("NO closure notification is sent", _got_b, None)
 
 # THE ENTRY RULE, ASKED ABOUT THE SAME BARS — the two must agree, not merely both be plausible.

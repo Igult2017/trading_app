@@ -44,7 +44,7 @@ import time
 from core.types import Candle, Signal, Direction, TF
 from notifications import titles
 from shared.mtf_utils import is_closed, seconds as tf_seconds
-from strategies.vix1_momentum import is_momentum_candle, momentum_grade
+from strategies.vix1_momentum import momentum_grade, qualifies_for_trade
 
 # How long before the close to notify. MEASURED, not chosen — see the table above.
 LEAD_S = 5 * 60
@@ -72,13 +72,13 @@ def check(h1_closed: list[Candle], h1_raw: list[Candle], symbol: str,
           now: float | None = None) -> tuple[Candle, bool, float] | None:
     """Is a momentum candle forming, with less than `LEAD_S` left? -> (bar, bullish, secs_left).
 
-    THE BASELINES COME FROM THE CLOSED BARS. `is_momentum_candle` measures the candidate against the
+    THE BASELINES COME FROM THE CLOSED BARS. `qualifies_for_trade` measures the candidate against the
     bars BEFORE it (`h1[i-1]`, and the 100/long windows), so the forming bar is appended as index
     `len(h1_closed)` and every yardstick it is judged against is a finished bar. Passing the raw feed
     list straight in would work only by accident — it relies on there being exactly one unclosed bar
     at the end, which is not something this module gets to assume about a cache.
 
-    Both directions are tried and at most one can pass: `is_momentum_candle` refuses a candidate
+    Both directions are tried and at most one can pass: `qualifies_for_trade` refuses a candidate
     whose own colour disagrees with the side being tested.
 
     A DOWNWARD CANDLE IS HELD BACK UNTIL THE TURN HAS PROVED ITSELF — his instruction, 2026-08-26:
@@ -119,7 +119,7 @@ def check(h1_closed: list[Candle], h1_raw: list[Candle], symbol: str,
         return None
     window = h1_closed + [bar]
     for bullish in (True, False):
-        if not is_momentum_candle(window, len(h1_closed), bullish, symbol):
+        if not qualifies_for_trade(window, len(h1_closed), bullish, symbol):
             continue
         if not _could_trade(h1_closed, bullish, bar):
             return None
@@ -264,8 +264,8 @@ def closed_outcome(h1_closed: list[Candle], symbol: str,
         return None
     bar = h1_closed[-1]
     i = len(h1_closed) - 1
-    qualified = (is_momentum_candle(h1_closed, i, True, symbol)
-                 or is_momentum_candle(h1_closed, i, False, symbol))
+    qualified = (qualifies_for_trade(h1_closed, i, True, symbol)
+                 or qualifies_for_trade(h1_closed, i, False, symbol))
     return (bar, qualified)
 
 

@@ -1468,7 +1468,9 @@ direction (option B) rescued neither candle.
   money. Both need his approval.
 - **The quiet-market test uses neither.** His ruling: *"How is the new margin rule related to market
   warking up?"* The first build let it count 2.3x candles as activity, and 6 of his 9 recorded dead
-  markets traded. It now counts at 2.5x exactly as before (`counts_as_activity`). Neither missed signal
+  markets traded. It now counts at 2.5x exactly as before (`is_momentum_candle`, unchanged), and so do signal spacing's
+  three-candle count and the earlier candles of a run. His rule: *"they only apply at the moment the
+  momentum is qualified"* — the alternatives live only in `qualifies_for_trade`. Neither missed signal
   had ever been stopped by it.
 
 ---

@@ -254,7 +254,7 @@ range · `_MIN_VS_PREV 1.0` (bigger than the previous body) · `_MAX_CWICK_FRAC 
 
 **The margin and the memory (2026-09-15, his rulings) — invariants:**
 - **One function decides.** `size_yardstick` returns the candle whose normal size this one was judged
-  against (itself, or the remembered one); `is_momentum_candle` is just "not None". `veto_reason` asks the
+  against (itself, or the remembered one); `qualifies_for_trade` is just "not None". `veto_reason` asks the
   same size question, so a refusal line can never call a candle "too small" that the entry traded.
 - **Only candles that qualified ON THEIR OWN are remembered** (`_qualifies_on_its_own`). A candle admitted
   by the memory is never itself remembered, so one quiet hour cannot be handed on for days.
@@ -262,12 +262,16 @@ range · `_MIN_VS_PREV 1.0` (bigger than the previous body) · `_MAX_CWICK_FRAC 
 - **Derived on every call, never stored** — a restart cannot make it forget.
 - **Only the 100-bar test uses it.** The 4-month floor, bigger-than-previous and the shape tests are
   unchanged. It can only admit more, never refuse a candle the 2.3× test admits.
-- **Only what decides whether a candle can be TRADED uses them**: the entry, `vix1_spacing` (anchor and
-  count) and the pre-close heads-up ask `is_momentum_candle`. **The quiet-market test does NOT** —
-  `market_awake` counts activity with `counts_as_activity` (2.5×, no margin, no memory). His ruling, 15
-  Sep: *"How is the new margin rule related to market warking up?"* — it is not. When the first build let
-  them into the activity count, 6 of his 9 recorded dead markets (`test_tradeable.py`) looked awake and
-  traded, while neither missed signal had ever been stopped by the quiet test.
+- **Only the candle being qualified for a TRADE gets them — `qualifies_for_trade`.** Asked by the entry
+  for the newest closed candle (`momentum_run`), by the pre-close heads-up and its stand-down (the same
+  question minutes before and just after the close), and by `vix1_spacing.anchor_time` only to recognise
+  the traded candle. **Everything that counts or scans momentum candles asks `is_momentum_candle`, which
+  is unchanged:** the quiet-market test (`market_awake`), spacing's three-candle count (`candles_since`),
+  and the earlier candles of a run (the line's reference and the grade). His rulings, 15 Sep: *"How is
+  the new margin rule related to market warking up?"* and *"these new rules should not change
+  calculations in any way because they only apply at the moment the momentum is qualified"*. When the
+  first build let them into every caller, 6 of his 9 recorded dead markets (`test_tradeable.py`) looked
+  awake and traded.
 - A candle admitted by the memory is logged with `vix1_log.note` (never `say`, so it can never become the
   reason a stand-down quotes).
 A-grade: `_A_BODY_FRAC 0.75` + `_A_CWICK_FRAC 0.15` → `_A_CONF 0.85`.

@@ -1,6 +1,6 @@
 """VIX.1 — the PRE-CLOSE notification, its STAND-DOWN, and the heads-up untied from the entry.
 
-Runs the REAL `vix1_preclose.check` and the REAL `is_momentum_candle` against real cTrader H1 bars,
+Runs the REAL `vix1_preclose.check` and the REAL `qualifies_for_trade` against real cTrader H1 bars,
 not a re-implementation of either. The three things that must hold:
 
   * it fires ONLY inside the last `LEAD_S` of a bar that has NOT closed
@@ -12,7 +12,7 @@ from _harness import Suite, body, flat_series, load
 from shared.mtf_utils import seconds as tf_seconds
 from notifications import titles
 from strategies import vix1_preclose as pc
-from strategies.vix1_momentum import is_momentum_candle
+from strategies.vix1_momentum import qualifies_for_trade
 
 s = Suite("VIX.1 — PRE-CLOSE NOTIFICATION + STAND-DOWN (real functions, real bars)")
 
@@ -107,15 +107,15 @@ s.check("under 20 closed bars, no notification",
         pc.check(base[:10], base[:10] + [big], SYM, at(big, 300)), None)
 
 # ── check() agrees with the real momentum test, bar for bar ──────────────────
-# The notification must never claim something `is_momentum_candle` would refuse: it IS that test, on
+# The notification must never claim something `qualifies_for_trade` would refuse: it IS that test, on
 # an unfinished bar. Asserted against the real function rather than trusting the wiring.
 agree = True
 for size in (0.0002, 0.0010, 0.0020, 0.0040, 0.0060, 0.0090):
     cand = body(base[-1].close, base[-1].close + size, tf="H1", t=120)
-    want = is_momentum_candle(base + [cand], len(base), True, SYM)
+    want = qualifies_for_trade(base + [cand], len(base), True, SYM)
     fired = pc.check(base, base + [cand], SYM, at(cand, 240))
     agree = agree and (bool(fired) == want)
-s.check("the notification fires exactly when is_momentum_candle would pass", agree, True)
+s.check("the notification fires exactly when qualifies_for_trade would pass", agree, True)
 
 # ── dedup — one message per candle, per direction ────────────────────────────
 k1 = pc.dedup_key("vix1", SYM, True, big)
@@ -193,8 +193,8 @@ strong = flat_series(40, tf="H1")
 strong = strong[:-1] + [body(strong[-1].open, strong[-1].open + 0.0060, tf="H1", t=len(strong) - 1)]
 out2 = pc.closed_outcome(strong, SYM)
 s.check("a closed MOMENTUM candle is reported as qualified", out2[1],
-        is_momentum_candle(strong, len(strong) - 1, True, SYM)
-        or is_momentum_candle(strong, len(strong) - 1, False, SYM))
+        qualifies_for_trade(strong, len(strong) - 1, True, SYM)
+        or qualifies_for_trade(strong, len(strong) - 1, False, SYM))
 
 # ── the dedup keys ───────────────────────────────────────────────────────────
 b = quiet[-1]
