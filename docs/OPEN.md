@@ -888,6 +888,48 @@ real fill, and it has never run. **Nothing here says the strategy is worth armin
 
 ## C. The web app
 
+### C8 - ~~Log-in and log-out were slow~~ FIXED 15 Sep
+**His question:** *"Why is the logout and log in too slow. Can you audit them please and plan a fix if we
+have anything to fix."*
+
+**Measured against production from his side, no credentials used:**
+
+| step | cost |
+|---|---|
+| one request to our server on an open connection | ≈ 0.31s (the server itself answers almost instantly) |
+| a new connection to our server | ≈ 1.05s |
+| our server asking Supabase whether a login token is real | **+0.23–0.27s on every signed-in request** (fake-token vs no-token requests) |
+| Supabase sign-in | 0.35–0.78s |
+
+**Causes, read in the code:**
+1. **The log-out buttons signed out BEFORE leaving the page** (`JournalHeader.tsx`, `AdminPanel.tsx`:
+   `await signOut(); navigate('/')`). The Supabase call held the screen still, and the page guards then
+   jumped to `/auth`, which opened the login pop-up. The idle logout had already fixed exactly this,
+   and the buttons were never updated.
+2. **`/api/auth/setup` wrote the unchanged role back to Supabase on every login**, another trip the
+   sign-in waited on.
+3. **The next page's code only started downloading after the setup call returned.** The login pop-up
+   preloaded only the journal, never the admin panel.
+4. **`verifyToken` asked Supabase on every request**, with no memory.
+
+**FIXED:**
+- `client/src/hooks/useLogout.ts`: one order for both buttons and the idle logout (remember the page,
+  leave, then sign out). `signOut` clears the on-screen state first.
+- The setup call writes the role only when it differs. The page code starts downloading from the login
+  token's role before the setup call, and the pop-up preloads the page last signed in to (`fmj_last_role`).
+- `server/lib/tokenMemory.ts` keeps a confirmed token for at most 30s, never past its expiry, stored as a
+  digest. Refused tokens are never stored. **Agreed trade-off:** a signed-out token keeps working on our
+  API for up to 30s.
+
+**Verified:**
+- type check clean
+- `server/lib/tokenMemory.test.ts` 9/9
+- log-out on a local production build, both buttons: the address changes in 1ms, the home page is on
+  screen in 209–216ms, it never passes through `/auth`, no skeleton or pop-up, and the page is
+  remembered for next login
+
+**Not measured:** the total live log-in time, which needs his account.
+
 ### C1 — ~~18 TypeScript errors, and the build does not typecheck~~ CLOSED 26 Aug
 **0 errors, and the build now refuses new ones.** `npm run build` gained `npm run check` (a `tsc`
 script that already existed and nothing called), placed **before** the bundlers so a type error stops
