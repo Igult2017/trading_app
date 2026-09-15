@@ -128,6 +128,24 @@ else:
     s.check("every 2.5x candle still qualifies with the margin", strict <= margin, True)
     s.check("every margin candle still qualifies with the memory", margin <= full, True)
 
+# ── THE QUIET-MARKET TEST USES NEITHER ───────────────────────────────────────────────────────────────
+# His ruling: "How is the new margin rule related to market warking up?" — it is not. A candle the margin
+# lets us TRADE must not make a dead market look awake. This one is from his own dead market (image 1,
+# test_tradeable.py): counted as activity it made 5 Aug 06:00 and 11:00 UTC trade.
+print()
+print("   the quiet-market test still counts activity at 2.5x:")
+eur = load("EURUSD_H1_live_sep04.csv", "H1")
+if eur:
+    _t = int(datetime.datetime(2026, 8, 4, 13, tzinfo=UTC).timestamp())
+    _k = next(j for j, c in enumerate(eur) if c.time == _t)
+    w = eur[max(0, _k + 1 - 3000):_k + 1]
+    n = len(w) - 1
+    s.check("EUR/USD 04 Aug 13:00 UTC (8.7p, 2.32x) can be TRADED through the margin",
+            is_momentum_candle(w, n, True, "EUR/USD"), True)
+    s.check("...but does NOT count as the market waking up", vm.counts_as_activity(w, n, True, "EUR/USD"), False)
+else:
+    print("   SKIP — EURUSD_H1_live_sep04.csv not present on this machine")
+
 # ── ONLY CANDLES THAT QUALIFIED ON THEIR OWN ARE REMEMBERED — built candle by candle ────────────────
 # 100 background candles alternate 1 and 3 pips, so the normal body is 2 pips; ONE bigger candle then
 # lifts it to 3 pips. A (5p) qualifies on its own at 2.3 x 2p. B (5.5p) is under 2.3 x 3p = 6.9p and

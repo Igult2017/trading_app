@@ -21,7 +21,9 @@ code, you can just borrow it. Avoid reinventing the wheel."* So:
 
     the run       `TrendState.bos_index`  — the break of structure the trend engine already records
     the pullback  `vix1_swings.structure_turns` — the same confirmed turns every other rule reads
-    momentum      `vix1_momentum.is_momentum_candle` — HIS 2.5 rule, imported and NOT re-implemented
+    momentum      `vix1_momentum.counts_as_activity` — HIS 2.5 rule, imported and NOT re-implemented. Not
+                  `is_momentum_candle`: that one carries the 15 Sep margin and memory, which qualify a
+                  candle to TRADE and have nothing to do with a market waking up (his ruling)
 
 That last one matters most: reusing the entry's own momentum test means "what counts as a momentum
 candle" can never drift between the two places that ask it.
@@ -38,7 +40,7 @@ trending MORE decisively than his accepted one, so nothing that leans on strong 
 """
 from core.types import Candle
 from shared.candle_math import is_bearish, is_bullish
-from strategies.vix1_momentum import is_momentum_candle
+from strategies.vix1_momentum import counts_as_activity
 
 
 def trend_reproven(tstate, turns, retracement=None) -> str | None:
@@ -156,7 +158,7 @@ def market_awake(h1: list[Candle], tstate, retracement, symbol: str, look: int) 
     SO THE QUESTION IS NOT "is it quiet NOW" BUT "has it proved itself SINCE it went quiet". The
     waking bar is found first, and the run and the pullback are both required strictly after it.
 
-    NOTHING HERE IS INVENTED. The momentum candle is `is_momentum_candle` unchanged; a candle
+    NOTHING HERE IS INVENTED. The momentum candle is `counts_as_activity` (his 2.5 rule, unchanged); a candle
     "carrying the trend on" is `is_bullish`/`is_bearish`, the identical test `vix1_retracement` uses
     (line 176); the pullback is the `Retracement` this path already computed. Only the sequence is
     new, and the sequence is his.
@@ -175,8 +177,10 @@ def market_awake(h1: list[Candle], tstate, retracement, symbol: str, look: int) 
     n = len(h1) - 1                     # the candle being judged; never counted as evidence itself
 
     def momentum_at(j: int) -> bool:
-        return (is_momentum_candle(h1, j, True, symbol)
-                or is_momentum_candle(h1, j, False, symbol))
+        # ACTIVITY IS COUNTED AT HIS 2.5x, with no margin and no memory (his ruling, 15 Sep): those two
+        # qualify a candle to TRADE and have nothing to do with whether a dead market has woken up.
+        return (counts_as_activity(h1, j, True, symbol)
+                or counts_as_activity(h1, j, False, symbol))
 
     mom = {j for j in range(n - span, n) if momentum_at(j)}
 

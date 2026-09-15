@@ -304,10 +304,28 @@ def is_momentum_candle(h1: list[Candle], i: int, bullish: bool, symbol: str) -> 
     pair. `pip_size("")` happens to return the right value for EUR/USD and GBP/USD and would be
     SILENTLY wrong for a yen pair, so a caller that forgets must fail loudly instead.
 
-    EVERY CALLER GETS THE SAME ANSWER — the entry, the quiet-market test, signal spacing and the pre-close
-    heads-up all ask this one function, so what counts as a momentum candle cannot drift between them.
+    WHO ASKS THIS: everything that decides whether a candle can be TRADED — the entry, signal spacing's
+    anchor and count, and the pre-close heads-up — so they cannot drift apart. The quiet-market test does
+    NOT: it counts activity with `counts_as_activity` (2.5x, no margin, no memory — his ruling, 15 Sep).
     """
     return size_yardstick(h1, i, bullish, symbol) is not None
+
+
+def counts_as_activity(h1: list[Candle], i: int, bullish: bool, symbol: str) -> bool:
+    """A momentum candle counted the way the QUIET-MARKET test always has: 2.5x its own 100-bar median —
+    no margin, no memory — plus every other test. Exactly `is_momentum_candle` as it was before 15 Sep.
+
+    WHY IT IS SEPARATE (his words, 2026-09-15): *"How is the new margin rule related to market warking
+    up? If you look at those signals we missed because the momentum candle qualification was not met,
+    how are they related to market waking up?"* They are not. The margin and the memory exist to
+    QUALIFY A CANDLE TO TRADE. Letting them into the activity count made 6 of his 9 recorded dead
+    markets (`test_tradeable.py`) look awake and trade, while neither missed signal had ever been
+    stopped by the quiet test.
+    """
+    if not _held_its_move(h1, i, bullish):
+        return False
+    base = baseline_body(h1, i)
+    return base > 0 and body_size(h1[i]) >= _MIN_BODY_MULT * base and _clears_long_floor(h1, i, symbol)
 
 
 def momentum_grade(c: Candle, bullish: bool) -> tuple[str, float]:

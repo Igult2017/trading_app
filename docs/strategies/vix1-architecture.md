@@ -262,9 +262,14 @@ range · `_MIN_VS_PREV 1.0` (bigger than the previous body) · `_MAX_CWICK_FRAC 
 - **Derived on every call, never stored** — a restart cannot make it forget.
 - **Only the 100-bar test uses it.** The 4-month floor, bigger-than-previous and the shape tests are
   unchanged. It can only admit more, never refuse a candle the 2.3× test admits.
-- **Every caller follows**: the entry, `market_awake`, `vix1_spacing` and the pre-close heads-up all ask
-  `is_momentum_candle`. A candle admitted by the memory is logged with `vix1_log.note` (never `say`, so it
-  can never become the reason a stand-down quotes).
+- **Only what decides whether a candle can be TRADED uses them**: the entry, `vix1_spacing` (anchor and
+  count) and the pre-close heads-up ask `is_momentum_candle`. **The quiet-market test does NOT** —
+  `market_awake` counts activity with `counts_as_activity` (2.5×, no margin, no memory). His ruling, 15
+  Sep: *"How is the new margin rule related to market warking up?"* — it is not. When the first build let
+  them into the activity count, 6 of his 9 recorded dead markets (`test_tradeable.py`) looked awake and
+  traded, while neither missed signal had ever been stopped by the quiet test.
+- A candle admitted by the memory is logged with `vix1_log.note` (never `say`, so it can never become the
+  reason a stand-down quotes).
 A-grade: `_A_BODY_FRAC 0.75` + `_A_CWICK_FRAC 0.15` → `_A_CONF 0.85`.
 
 **These were calibrated 2026-07-20/21 against his real candles. Do not re-tune them without his data.**

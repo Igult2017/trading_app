@@ -1466,6 +1466,10 @@ direction (option B) rescued neither candle.
   the ~1.5x candles he marks) is untouched and remains his to rule on.
 - **Not measured:** how many extra candles or signals this gives in a year, and whether they make
   money. Both need his approval.
+- **The quiet-market test uses neither.** His ruling: *"How is the new margin rule related to market
+  warking up?"* The first build let it count 2.3x candles as activity, and 6 of his 9 recorded dead
+  markets traded. It now counts at 2.5x exactly as before (`counts_as_activity`). Neither missed signal
+  had ever been stopped by it.
 
 ---
 
