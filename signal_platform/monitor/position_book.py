@@ -55,6 +55,10 @@ _cached_at: float = 0.0
 # after a stop move, which is exactly when we least want to stop watching a position. A flag says
 # "refresh me"; the timestamp stays an honest record of when we last actually heard from the broker.
 _forced: bool = False
+# THE ORDERS RESTING AT THE BROKER, from the same reply as `_cached` and replaced together with it.
+# Never mixed with a different read, or "that order is gone" could be judged against a list older
+# than the positions it is paired with.
+_resting: set[int] | None = None
 _lock = asyncio.Lock()
 
 
@@ -69,7 +73,7 @@ def _fresh() -> bool:
 
 async def refresh() -> list | None:
     """Ask the broker now. Returns the new list, or the last good one if the read failed."""
-    global _cached, _cached_at, _forced
+    global _cached, _cached_at, _forced, _resting
     # ONE REFRESH AT A TIME. Without this, a tick-driven watcher and the tracker can both find the
     # list stale in the same instant and fire two reconciles at a socket that serialises them anyway
     # — doubling the cost to answer the same question.
@@ -84,6 +88,8 @@ async def refresh() -> list | None:
             fresh = None
         if fresh is not None:
             _cached, _cached_at, _forced = fresh, time.monotonic(), False
+            # Read with nothing awaited in between, so these are the ids that came with `fresh`.
+            _resting = ctrader_positions.last_resting_order_ids()
             return _cached
         # THE READ FAILED. Keep serving what we last knew, until it is too old to mean anything.
         stale = age()
@@ -91,6 +97,7 @@ async def refresh() -> list | None:
             log.warning(f"[position_book] the broker has been unreadable for {stale:.0f}s — "
                         f"reporting 'unknown' rather than a {stale:.0f}s-old list")
             _cached = None
+            _resting = None
             return None
         return _cached
 
@@ -98,6 +105,18 @@ async def refresh() -> list | None:
 async def positions() -> list | None:
     """Every open position. From memory when it is fresh, from the broker when it is not."""
     return _cached if _fresh() else await refresh()
+
+
+async def snapshot() -> tuple[list, set[int]] | None:
+    """Open positions AND the ids of orders resting at the broker, both from the same reply.
+
+    For the duplicate-order guard (`execution.guards`, rule 7), which must tell a LIVE order from a
+    withdrawn one. None whenever either half is unknown; the guard then refuses, as it always did.
+    """
+    open_now = await positions()
+    if open_now is None or _resting is None:
+        return None
+    return list(open_now), set(_resting)
 
 
 def invalidate() -> None:

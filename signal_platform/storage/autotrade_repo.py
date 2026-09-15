@@ -132,8 +132,12 @@ def order_for_signal(signal_id: str) -> str | None:
         return None
 
 
-def recent_placements(hours: int = 24) -> list[tuple[datetime, str, str]]:
-    """(placed_at, symbol, side) for every order placed in the last `hours`. Newest last.
+def recent_placements(hours: int = 24) -> list[tuple[datetime, str, str, str, int | None]]:
+    """(placed_at, symbol, side, order_id, volume) for every order placed in the last `hours`.
+    Newest last.
+
+    ORDER ID AND VOLUME ADDED 2026-09-15, so the duplicate guard can ask the broker whether an order
+    is still ALIVE instead of treating every order placed in 24 hours as live.
 
     THIS IS WHAT MAKES THE DUPLICATE-ORDER GUARD SURVIVE A RESTART. `guards._placed` was an
     in-memory list, and its comment called losing it "the SAFE failure" because a restart "can only
@@ -145,7 +149,7 @@ def recent_placements(hours: int = 24) -> list[tuple[datetime, str, str]]:
     Same shape of mistaken reasoning as the ladder's "fails in the safe direction", which cost a full
     R on 01 Sep. Every row needed is already stored here; nothing new is written.
     """
-    out: list[tuple[datetime, str, str]] = []
+    out: list[tuple[datetime, str, str, str, int | None]] = []
     try:
         cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
         with get_session() as s:
@@ -154,7 +158,7 @@ def recent_placements(hours: int = 24) -> list[tuple[datetime, str, str]]:
                      .order_by(AutotradeOrderModel.placed_at.asc()).limit(500).all())
             for r in rows:
                 if r.symbol and r.side:
-                    out.append((r.placed_at, r.symbol, r.side))
+                    out.append((r.placed_at, r.symbol, r.side, str(r.order_id or ""), r.volume))
     except Exception as exc:
         log.warning(f"[autotrade_repo] could not read recent placements: "
                     f"{type(exc).__name__}: {exc}")

@@ -1141,6 +1141,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  /**
+   * EVERY ORDER THE AUTO-TRADER SENT, AND EVERY SIGNAL IT DID NOT ACT ON — the admin Autotrade screen.
+   *
+   * His question, 2026-09-15: *"Is autotrader even taking trades anymore?"* It could only be answered
+   * from the broker's own order history, because a refusal lived in a Telegram DM and a container log
+   * line that every deploy erases. Orders come from `autotrade_orders`, each with the synced trade it
+   * opened (matched on the broker's entry order id) so a closed trade shows its result. Refusals,
+   * broker rejections, withdrawals and failures come from the rows
+   * `signal_platform/execution/decision_log.py` writes to `signal_events`.
+   */
+  const AUTOTRADE_STAGES = ['autotrade_placed', 'autotrade_refused', 'autotrade_rejected',
+                            'autotrade_cancelled', 'autotrade_failed'];
+  app.get("/api/admin/autotrade", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      // AT MOST 30 DAYS: `signal_events` is purged after 30, so a longer window would show orders whose
+      // refusals had already been deleted, and read as if nothing had ever been refused.
+      const days = Math.min(Math.max(parseInt(String(req.query.days ?? '14'), 10) || 14, 1), 30);
+      const [orders, decisions] = await Promise.all([
+        pool.query(
+          `SELECT ao.order_id, ao.signal_id, ao.strategy, ao.symbol, ao.side, ao.entry_price, ao.stop_loss,
+                  ao.take_profit, ao.lots, ao.placed_at, ao.filled_at, ao.fill_price, ao.status,
+                  st.close_time, st.close_price, st.profit_loss
+             FROM autotrade_orders ao
+             LEFT JOIN LATERAL (
+               SELECT close_time, close_price, profit_loss FROM synced_trades
+                WHERE entry_order_id = ao.order_id
+                ORDER BY close_time DESC NULLS LAST LIMIT 1
+             ) st ON TRUE
+            WHERE ao.placed_at >= NOW() - make_interval(days => $1::int)
+            ORDER BY ao.placed_at DESC
+            LIMIT 500`, [days]),
+        pool.query(
+          `SELECT id, signal_id, strategy, symbol, stage, detail, created_at
+             FROM signal_events
+            WHERE stage = ANY($1::text[]) AND created_at >= NOW() - make_interval(days => $2::int)
+            ORDER BY created_at DESC
+            LIMIT 1000`, [AUTOTRADE_STAGES, days]),
+      ]);
+      return res.json({ days, orders: orders.rows, decisions: decisions.rows });
+    } catch (error) {
+      console.error('[Admin/autotrade]', error);
+      return res.status(500).json({ error: 'Failed to fetch autotrade orders' });
+    }
+  });
+
   // --- Leaderboard: distinct session names (for filter dropdown) ---
   app.get("/api/leaderboard/session-names", async (req, res) => {
     try {

@@ -34,8 +34,8 @@ every gate on the path, not inferred:
 
 | where | what it actually limits |
 |---|---|
-| [`placer.py:85`](../signal_platform/execution/placer.py#L85) | the ONLY gate before the broker is `guards.check` — nothing else is consulted |
-| [`guards.py:138-140`](../signal_platform/execution/guards.py#L138) | one order per **symbol + direction** in 24h. Two DIFFERENT symbols never see each other |
+| [`placer.py:107`](../signal_platform/execution/placer.py#L107) | the ONLY gate before the broker is `guards.check` — nothing else is consulted |
+| [`guards.py:159-167`](../signal_platform/execution/guards.py#L159) | one LIVE order per **symbol + direction**: still resting, or filled and still open. Two DIFFERENT symbols never see each other |
 | [`signal_validator.py:117-120`](../signal_platform/validation/signal_validator.py#L117) | the reservation is keyed `(strategy, symbol, direction)` — also per symbol |
 
 So EUR/USD long, GBP/USD long and XAU/USD long can be live **at the same moment**, at 2% each —
@@ -73,7 +73,7 @@ that through.
 | 4 | The chart is attached, the signal is saved, `SIGNAL_CONFIRMED` is emitted | `orchestrator/strategy_runner._attach_chart` |
 | 5 | The dispatcher sends the Telegram card | `notifications/dispatcher.py` |
 | 6 | **Autotrade sizes the order and asks the guards** | `execution/placer.place_for_signal` |
-| 7 | `guards.check()` returns `None` to place, or a string reason to refuse | [`execution/guards.py:75`](../signal_platform/execution/guards.py#L75) |
+| 7 | `guards.check()` returns `None` to place, or a string reason to refuse | [`execution/guards.py:81`](../signal_platform/execution/guards.py#L81) |
 | 8 | The stop order goes to the broker | `execution/orders.py`, `execution/broker.py` |
 
 **Everything is refused by default.** `guards.check` runs once per signal, at dispatch — not per
@@ -82,7 +82,7 @@ scan — and its verdict is final.
 ## 2. What `guards.check` actually refuses — the complete list
 
 Read in order; the first one that matches refuses the order.
-[`execution/guards.py:75-142`](../signal_platform/execution/guards.py#L75)
+[`execution/guards.py:81-169`](../signal_platform/execution/guards.py#L81)
 
 | # | check | refuses when |
 |---|---|---|
@@ -93,7 +93,7 @@ Read in order; the first one that matches refuses the order.
 | 5 | session allow-list | outside `autotrade_sessions` |
 | 6 | size sanity | lots ≤ 0, or equity unknown |
 | 7 | daily cap | `autotrade_max_per_day` orders already placed in a rolling 24h |
-| 8 | one per symbol+direction | the same symbol AND direction was already placed in the last 24h |
+| 8 | one LIVE order per symbol+direction | an order for the same symbol AND direction, placed in the last 24h, is still resting at the broker or filled into a trade that is still open. Broker unreadable → refuses. (Until 15 Sep ANY order placed in 24h counted, even a withdrawn one — OPEN.md B23) |
 
 **THERE IS NO NINTH CHECK. Nothing looks at correlation, related pairs, total exposure, or how much
 of the account is already at risk.** Check 8 is per-symbol; two DIFFERENT symbols never see each
@@ -162,7 +162,7 @@ and it is settled: one position at a time, refuse the rest, take them in sequenc
 equity and lots. It needs one thing it does not have: **what is currently open or pending**.
 
 ### What it must be given, and what NOT to use
-`guards._placed` is an in-process list of `(when, symbol, direction)`, rehydrated on boot. **Do not
+`guards._placed` is an in-process list of `(when, symbol, direction, order id, volume)`, rehydrated on boot. **Do not
 build the guard on it.** It records what this process PLACED in 24h, not what is still open — a trade
 closed an hour ago is still in that list, so the guard would refuse a legitimate next signal and
 break the "take them in that order" half of his rule.
@@ -174,6 +174,11 @@ Use instead:
 * **pending stop orders** — `placer.pending_intents()`, plus whatever is resting at the broker.
   See the design note at the top: an order that has not filled is not exposure yet, but three resting
   orders can become three positions.
+
+**15 Sep — both halves of that data now exist.** `monitor/position_book.snapshot()` returns the open
+positions AND the ids of orders resting at the broker, from one reconcile reply, and
+`execution/liveness.why_alive` decides whether one of our orders is still live. Rule 8 uses both
+(OPEN.md B23). The warning above stands: `_placed` is a list of what was SENT, not of what is open.
 
 ### What must NOT change when it is built
 * The kill switch stays first and absolute.
@@ -194,3 +199,8 @@ Use instead:
 `guards.check` has eight checks and none is about correlation or exposure; VIX.1's correlation list
 reaches only card text; production runs at 2% static risk per trade with a 6-order daily cap, on
 three USD-denominated instruments.
+
+**2026-09-15 — rule 8 counts only LIVE orders.** It refused any symbol+direction with an order placed in
+24h, so a withdrawn EUR/USD sell (07:23, order 360658076) blocked the 13:03 EUR/USD sell that reached its
+entry. Now it asks the broker what is still resting or open. See OPEN.md B23. The exposure guard itself
+is still not built.

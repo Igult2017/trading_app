@@ -333,6 +333,9 @@ async def _autotrade(signal) -> None:
     acct = await load_account()
     if acct is None:
         log.warning("[dispatcher] autotrade ON but no usable account — nothing placed")
+        from execution import decision_log
+        await decision_log.failed(signal, "no usable trading account: the credential bridge "
+                                          "returned nothing to trade with")
         return
     # `notify=_send_private` is what puts the order in his DM — placed AND stood-down. Without it
     # a placement existed only in the container log, which the next deploy destroys.

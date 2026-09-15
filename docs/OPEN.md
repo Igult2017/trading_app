@@ -264,6 +264,49 @@ red self-test that everyone steps around is how a real regression gets missed: t
 break something here will see two failures and assume they are the usual two.
 
 
+### B23 - ~~Autotrade refused a signal because of an order that had already been withdrawn~~ FIXED 15 Sep 🔴
+**His question, 15 Sep:** *"Is autotrader even taking trades anymore? I havent seen any trade recorded
+in the journal."* Then: *"I need you to first accurately find the actual cause then plan a fix."*
+
+**The journal was right.** The broker had one closed trade in 7 days (09 Sep GBP/USD, −$199.71), and it
+reached the journal 13 minutes after its signal. Nothing had filled since.
+
+**The defect, proven from the broker's own order history** (read-only cTrader data service), its
+one-minute prices and production's signal records. Times UTC:
+
+| signal | broker order | what happened |
+|---|---|---|
+| 14 Sep 07:23 EUR/USD sell 1.15508 | 360658076 | price touched its stop side at 07:26 (high 1.15568) before the entry; it never filled even when price went through the entry at 07:42 (low 1.15507), so it had been withdrawn |
+| **14 Sep 13:03 EUR/USD sell 1.15295** | **none** | **price reached the entry at 13:04. No order was ever sent** |
+| 14 Sep 20:03 gold sell 4282.11 | 360841074 | never filled |
+
+`guards.check` rule 7 refused any pair and direction with an order PLACED in the last 24h. `guards._placed`
+was only ever added to, and the boot reload took every placement whatever became of it, so the dead 07:23
+order made 13:03 a "duplicate". The check's own comment said "ONE LIVE ORDER per symbol+direction"; what it
+measured was orders SENT. Every in-hours VIX.1 signal since 02 Sep became an order except 13:03, the only
+one that followed a same pair and direction order within 24h. A deploy was restarting the app that minute
+(13:02:51–13:04:19); the restarted app reloads the 07:23 order and refuses the same way. This time it
+blocked a loser: 0.9 pip in its favour (13:08 low 1.15286), short of the 0.4R step, stopped at 13:10.
+
+**FIXED:**
+1. Rule 7 ([`guards.py:159-167`](../signal_platform/execution/guards.py#L159)) now blocks only
+   while the earlier order is still RESTING at the broker or FILLED into a trade that is still OPEN
+   (`execution/liveness.py`). If the broker cannot be read it refuses, as before.
+2. The resting order ids come from the SAME reconcile reply as the positions
+   (`ctrader_positions._resting_ids`, `position_book.snapshot`), so no extra broker request.
+3. `guards._placed` and `autotrade_repo.recent_placements` carry each order's id and volume, so a restart
+   keeps them.
+4. `fill_watch._matches` and the guard share one matching rule (`liveness.fill_matches`).
+5. Every decision is written to `signal_events` (`execution/decision_log.py`): `autotrade_placed`,
+   `autotrade_refused`, `autotrade_rejected`, `autotrade_cancelled`, `autotrade_failed`. Read back by
+   `GET /api/admin/autotrade` and the new admin **Autotrade** screen. Refusals exist from this deploy on.
+
+**Unchanged:** the daily cap of 6 still counts every order sent; D48 (one trade at a time across related
+pairs) stays unbuilt, as he ruled.
+
+**Verified:** `tests/vix1/test_guard_live_order.py` (41 checks) runs Monday's real event through the real
+`guards.check`, plus placement, refusal, broker refusal and withdrawal through the real placer and canceller.
+
 ### B22 - ~~Telegram could DELAY a stop move by up to ~25 seconds~~ FIXED 02 Sep 🔴
 **His instruction, 02 Sep:** *"the logic that places trades, moves it to BE and locks Rs is very
 important that should not be affected by telegram messages or telegram not working. It should work
@@ -966,7 +1009,7 @@ every gate on the path:
 | where | what it actually limits |
 |---|---|
 | [`placer.py:85`](../signal_platform/execution/placer.py#L85) | `guards.check` is the ONLY gate before the broker |
-| [`guards.py:138-140`](../signal_platform/execution/guards.py#L138) | one order per **symbol + direction**. Two different symbols never see each other |
+| [`guards.py:159-167`](../signal_platform/execution/guards.py#L159) | one LIVE order per **symbol + direction** (still resting, or filled and still open — B23). Two different symbols never see each other |
 | [`signal_validator.py:117-120`](../signal_platform/validation/signal_validator.py#L117) | the reservation is keyed `(strategy, symbol, direction)` — also per symbol |
 
 VIX.1 trades **EUR/USD, GBP/USD and XAU/USD — all priced against the dollar**

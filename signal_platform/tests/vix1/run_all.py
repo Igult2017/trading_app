@@ -73,6 +73,10 @@ TESTS = [
     "test_order_volume.py",         # a gold lot is 100 oz, and the broker's own limits are checked
     "test_autotrade_sessions.py",   # when autotrade may trade, and the equity it could not read
     "test_autotrade_dm.py",         # what it reports to his DM: placed, stood down, and the real fill
+    # ADDED 2026-09-15. His EUR/USD sell of 14 Sep 13:03 reached its entry and no order was sent: the
+    # duplicate guard counted an order withdrawn five and a half hours earlier as still live.
+    "test_guard_live_order.py",     # a withdrawn order must not block the next signal
+    "test_autotrade_decision_log.py",  # every autotrade decision is written where a deploy cannot erase it
     # ADDED 2026-08-30. The watchdog is the point: a dead price stream looks exactly like a quiet
     # market, so it is tested by KILLING the session, not by reading the code.
     "test_trade_watcher.py",        # live price, correct side of the spread, and the stale-stream alarm

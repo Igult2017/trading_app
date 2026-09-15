@@ -36,6 +36,15 @@ STAGE_DROPPED   = "dropped"     # refused or failed — `detail` says why
 # log buffer has rolled and the container has restarted.
 STAGE_EVALUATED = "evaluated"
 
+# WHAT AUTOTRADE DID WITH A CONFIRMED SIGNAL. Added 2026-09-15, one row per decision, written by
+# `execution.decision_log`. A refusal used to exist only as a Telegram DM and a container log line, so
+# "why was there no order behind that signal?" could only be answered from the broker's own history.
+STAGE_AUTOTRADE_PLACED    = "autotrade_placed"
+STAGE_AUTOTRADE_REFUSED   = "autotrade_refused"    # our own guards said no; `detail` says which
+STAGE_AUTOTRADE_REJECTED  = "autotrade_rejected"   # the BROKER said no to an order we sent
+STAGE_AUTOTRADE_CANCELLED = "autotrade_cancelled"  # a resting order withdrawn, or found already gone
+STAGE_AUTOTRADE_FAILED    = "autotrade_failed"     # nothing to trade with, or the path crashed
+
 
 class SignalEventModel(Base):
     """One row per stage transition. Append-only; nothing ever updates a row.

@@ -36,6 +36,7 @@ FOUR RULES THIS FILE EXISTS TO KEEP:
 import asyncio
 import logging
 
+from execution import decision_log
 from storage import autotrade_repo
 
 log = logging.getLogger(__name__)
@@ -82,6 +83,8 @@ async def cancel_for_signal(signal_id: str, symbol: str, why: str) -> bool:
                 autotrade_repo.record_closed(order_id, autotrade_repo.STATUS_CANCELLED)
                 log.info(f"[canceller] {symbol}: order {order_id} no longer exists at the broker "
                          f"— closing the row so it stops being re-cancelled every boot ({why})")
+                await decision_log.cancelled(signal_id, symbol, order_id,
+                                             f"the broker no longer had it: {why}")
                 return False        # nothing was cancelled BY US; the caller's behaviour is unchanged
             log.warning(f"[canceller] {symbol}: broker refused to cancel order {order_id} — "
                         f"{res.error}")
@@ -93,6 +96,7 @@ async def cancel_for_signal(signal_id: str, symbol: str, why: str) -> bool:
         # SAY WHICH PRICE KILLED IT. A cancelled order is a trade that will never happen, and without
         # the reason it leaves no trace he could question later.
         log.info(f"[canceller] {symbol}: cancelled resting order {order_id} — {why}")
+        await decision_log.cancelled(signal_id, symbol, order_id, why)
         return True
     except Exception as exc:
         log.warning(f"[canceller] {symbol}: cancel failed for signal {signal_id}: "

@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { authFetch } from '@/lib/queryClient';
 import TrafficSection from '@/features/admin-traffic/TrafficSection';
 import SupportSection from '@/features/admin-support/SupportSection';
+import AutotradeSection from '@/features/admin-autotrade/AutotradeSection';
 import {
   ComposedChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip as RechartTooltip, ResponsiveContainer
@@ -25,7 +26,7 @@ import {
   Plus, Mail, Bell, UserPlus, ShieldCheck,
   Globe, Clock, Cpu, Activity, Zap, AlertTriangle, CheckCircle,
   Database, Eye, EyeOff, Pencil, Trash2, Send, X, MailOpen,
-  LayoutDashboard, UsersRound, LifeBuoy, Newspaper, Gauge, RefreshCw, SlidersHorizontal
+  LayoutDashboard, UsersRound, LifeBuoy, Newspaper, Gauge, RefreshCw, SlidersHorizontal, Bot
 } from 'lucide-react';
 
 // ─── BREAKPOINT HOOK ─────────────────────────────────────────────────────────
@@ -3158,7 +3159,7 @@ export default function AdminPanel() {
     { label: 'Users',            items: [{ id: 'users',         label: 'User Accounts',   icon: UsersRound,    ready: true }] },
     { label: 'Support',          items: [{ id: 'support',       label: 'Support',         icon: LifeBuoy,      badge: openTickets, ready: true }] },
     { label: 'Growth & Content', items: [{ id: 'blog',          label: 'Blogpost',        icon: Newspaper,     ready: true }, { id: 'updates', label: 'Updates', icon: BellRing, ready: true }] },
-    { label: 'Platform',         items: [{ id: 'system-monitor', label: 'System Monitor', icon: Gauge, ready: true }, { id: 'sync-performance', label: 'Sync Performance', icon: RefreshCw, ready: true }, { id: 'traffic', label: 'Traffic Analytics', icon: TrendingUp, ready: true }] },
+    { label: 'Platform',         items: [{ id: 'system-monitor', label: 'System Monitor', icon: Gauge, ready: true }, { id: 'sync-performance', label: 'Sync Performance', icon: RefreshCw, ready: true }, { id: 'autotrade', label: 'Autotrade', icon: Bot, ready: true }, { id: 'traffic', label: 'Traffic Analytics', icon: TrendingUp, ready: true }] },
     { label: 'System',           items: [{ id: 'settings',      label: 'System Settings', icon: SlidersHorizontal, ready: true }] },
   ];
 
@@ -3177,6 +3178,7 @@ export default function AdminPanel() {
     updates: 'One message out to your traders — in the app, by email, or both.',
     'system-monitor': 'Live service health and resource use.',
     'sync-performance': 'How broker syncing is behaving.',
+    autotrade: 'Every order the auto-trader sent, and every signal it did not act on, with the reason.',
     traffic: 'Where visitors come from and what they read.',
     settings: 'Platform-wide configuration.',
   };
@@ -3192,6 +3194,7 @@ export default function AdminPanel() {
     settings: 'System Settings', api: 'API & Integrations', 'feature-flags': 'Feature Flags', security: 'Security Settings',
     journal: 'Open Journal',
     'sync-performance': 'Sync Performance',
+    autotrade: 'Autotrade',
   };
 
   const navBtn = (item: any) => {
@@ -3303,6 +3306,7 @@ export default function AdminPanel() {
       case 'support': return <SupportSection bp={bp} getAdminToken={async () => session?.access_token ?? null} />;
       case 'system-monitor': return <SystemMonitorSection bp={bp} getAdminToken={async () => session?.access_token ?? null} />;
       case 'sync-performance': return <SyncPerformanceSection bp={bp} />;
+      case 'autotrade': return <AutotradeSection bp={bp} />;
       case 'traffic': return <TrafficSection getAdminToken={async () => session?.access_token ?? null} />;
       case 'settings': return <SettingsSection bp={bp} getAdminToken={async () => session?.access_token ?? null} />;
 

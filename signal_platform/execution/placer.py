@@ -13,7 +13,7 @@ import logging
 from datetime import datetime, timedelta, timezone
 
 from config.settings import settings
-from execution import guards
+from execution import decision_log, guards
 from execution.sizing import plan_size
 from storage import autotrade_repo
 from shared.pip import pip_size, price_digits
@@ -45,6 +45,21 @@ async def _tell(notify, message: str | None) -> None:
     await safe_notify.tell(notify, message)
 
 
+async def _live_book():
+    """(open positions, resting order ids) from the broker, or None when that cannot be read.
+
+    From the shared position cache: no extra broker request while it is fresh. None is what the
+    duplicate guard treats as "cannot confirm", and it then refuses exactly as it always did.
+    """
+    try:
+        from monitor import position_book
+        return await position_book.snapshot()
+    except Exception as exc:
+        log.warning(f"[execution] could not read what is live at the broker: "
+                    f"{type(exc).__name__}: {exc}")
+        return None
+
+
 async def place_for_signal(signal, creds: dict, account_type: str, equity: float,
                            notify=None, risk_base: float = 0.0) -> str | None:
     """Place the stop order for a signal. Returns the broker order id, or None if not placed.
@@ -57,6 +72,8 @@ async def place_for_signal(signal, creds: dict, account_type: str, equity: float
         side      = "BUY" if signal.direction.value == "buy" else "SELL"
         entry, sl, tp = signal.entry_price, signal.stop_loss, signal.take_profit
         if not entry or not sl:
+            await decision_log.failed(signal, "the signal carried no entry or no stop, so there was "
+                                              "nothing to place")
             return None
 
         # SIZED OFF THE STARTING BALANCE, NOT THE LIVE ONE. His instruction, 2026-09-03: *"static
@@ -75,6 +92,8 @@ async def place_for_signal(signal, creds: dict, account_type: str, equity: float
             log.error(f"[execution] NOT placing {symbol} {side} — the account's STARTING balance is "
                       f"unknown, so 2% of it cannot be sized. Set AUTOTRADE_RISK_BASE or give the "
                       f"account's session a starting balance.")
+            await decision_log.refused(signal, "the account's STARTING balance is unknown, so the "
+                                               "risk cannot be sized")
             if notify:
                 await _tell(notify, refusal_message(
                     symbol, side, signal.strategy_name or signal.strategy_id,
@@ -82,9 +101,13 @@ async def place_for_signal(signal, creds: dict, account_type: str, equity: float
                     "Nothing was placed rather than risking the wrong amount."))
             return None
 
-        why = guards.check(symbol, side, signal.strategy_id, account_type, equity, lots)
+        # WHAT THE BROKER HAS RIGHT NOW, so the duplicate rule can tell a live order from a withdrawn
+        # one (guards rule 7, fixed 2026-09-15).
+        book = await _live_book()
+        why = guards.check(symbol, side, signal.strategy_id, account_type, equity, lots, book=book)
         if why:
             log.info(f"[execution] NOT placing {symbol} {side} — {why}")
+            await decision_log.refused(signal, why, lots)
             # SAY IT, don't only log it. A container log dies at the next deploy, so "a signal fired
             # and no order appeared" was previously unanswerable after the fact. One message per
             # signal, never per scan — `guards.check` runs once, at dispatch.
@@ -119,6 +142,7 @@ async def place_for_signal(signal, creds: dict, account_type: str, equity: float
 
         if not res.ok:
             log.error(f"[execution] {symbol} {side} REJECTED — {res.error}")
+            await decision_log.rejected(signal, res.error, lots, entry, sl, tp)
             # THE BROKER REFUSING AN ORDER MUST REACH HIM. This path sent nothing, so on 31 Aug the
             # first order autotrade ever attempted was refused — gold priced to 3 decimals when the
             # symbol allows 2 — and the only record was a log line the next deploy destroyed. The
@@ -130,7 +154,7 @@ async def place_for_signal(signal, creds: dict, account_type: str, equity: float
                     lots, entry, sl, tp, res.error))
             return None
 
-        guards.record(symbol, side)
+        guards.record(symbol, side, res.order_id, volume)
         if res.order_id:
             _intent[res.order_id] = dict(symbol=symbol, side=side, entry=entry, sl=sl, tp=tp,
                                          lots=lots, volume=volume, stop_pips=stop_pips,
@@ -150,11 +174,13 @@ async def place_for_signal(signal, creds: dict, account_type: str, equity: float
                 signal_id=getattr(signal, "db_id", None) or None)
         log.info(f"[execution] PLACED {symbol} {side} {lots} lots (vol {volume}) stop {entry} "
                  f"order {res.order_id}")
+        await decision_log.placed(signal, res.order_id, lots, entry, sl, tp)
         if notify and res.order_id:
             await _tell(notify, placement_message(res.order_id))
         return res.order_id
     except Exception as exc:                       # never let placement break the scan
         log.error(f"[execution] placement failed for {getattr(signal, 'symbol', '?')}: {exc}")
+        await decision_log.failed(signal, f"placement crashed: {type(exc).__name__}: {exc}")
         return None
 
 

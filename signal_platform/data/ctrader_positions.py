@@ -41,6 +41,22 @@ _DIVISOR = 100_000.0
 _TYPE_RECONCILE_RES = ProtoOAReconcileRes().payloadType
 _TYPE_DEAL_LIST_RES = ProtoOADealListRes().payloadType
 
+# THE ORDERS RESTING AT THE BROKER, from the SAME reconcile reply as the positions. Added 2026-09-15.
+# The reply always carried them (`ProtoOAReconcileRes.order`, confirmed off the installed package) and
+# this module threw them away. The duplicate-order guard needs them to tell a live order from a
+# withdrawn one, and reading them here costs no extra request. None until the first successful read.
+_resting_order_ids: set[int] | None = None
+
+
+def _resting_ids(res) -> set[int]:
+    """The ids of every pending order in a reconcile reply."""
+    return {int(o.orderId) for o in res.order}
+
+
+def last_resting_order_ids() -> set[int] | None:
+    """Resting order ids from the most recent SUCCESSFUL read, or None if there has been none."""
+    return None if _resting_order_ids is None else set(_resting_order_ids)
+
 
 @dataclass(frozen=True)
 class Position:
@@ -105,6 +121,7 @@ async def open_positions() -> list[Position] | None:
     open", None is "I could not find out". Alerting on the first is correct; alerting on the second
     would be inventing a fact.
     """
+    global _resting_order_ids
     try:
         async with _req_lock:
             reader, writer = await _sess.get_connection()
@@ -122,6 +139,7 @@ async def open_positions() -> list[Position] | None:
             return None
         res = ProtoOAReconcileRes()
         res.ParseFromString(resp.payload)
+        _resting_order_ids = _resting_ids(res)
         out: list[Position] = []
         for p in res.position:
             name = _name_for(p.tradeData.symbolId)

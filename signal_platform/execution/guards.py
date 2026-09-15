@@ -13,10 +13,11 @@ import logging
 from datetime import datetime, timedelta, timezone
 
 from config.settings import settings
+from execution import liveness
 
 log = logging.getLogger(__name__)
 
-# Orders placed, newest last: (utc_time, symbol, direction).
+# Orders placed, newest last: (utc_time, symbol, direction, broker order id, volume).
 #
 # RESTORED AT BOOT, and the reasoning that said it need not be is recorded here because it was WRONG.
 # It read: *"In-memory ON PURPOSE — a restart resetting the daily cap is the SAFE failure (it can only
@@ -34,7 +35,7 @@ log = logging.getLogger(__name__)
 #
 # NOTHING NEW IS WRITTEN. Every placement is already recorded durably in `autotrade_orders`; this is
 # rebuilt from it ONCE at boot by `rehydrate()`, never read on the placement path.
-_placed: list[tuple[datetime, str, str]] = []
+_placed: list[tuple[datetime, str, str, str, int | None]] = []
 
 
 def rehydrate() -> int:
@@ -45,7 +46,7 @@ def rehydrate() -> int:
     except Exception as exc:                     # never block boot on this
         log.warning(f"[guards] could not restore recent placements: {type(exc).__name__}: {exc}")
         return 0
-    known = {(t, s, d) for t, s, d in _placed}
+    known = set(_placed)
     restored = 0
     for row in rows:
         if row not in known:
@@ -62,19 +63,29 @@ def _csv(value: str) -> set[str]:
     return {v.strip().lower() for v in (value or "").split(",") if v.strip()}
 
 
-def record(symbol: str, direction: str) -> None:
-    """Log a placement against the caps. Called only after the broker ACCEPTS the order."""
-    _placed.append((datetime.now(timezone.utc), symbol, direction))
+def record(symbol: str, direction: str, order_id: str | None = None,
+           volume: int | None = None) -> None:
+    """Log a placement against the caps. Called only after the broker ACCEPTS the order.
+
+    The ORDER ID and VOLUME let rule 7 ask the broker whether this order is still alive (resting,
+    or filled into a trade that is still open). Without them a withdrawn order looked exactly like
+    a live one for 24 hours; see rule 7."""
+    _placed.append((datetime.now(timezone.utc), symbol, direction, str(order_id or ""), volume))
 
 
-def _recent(hours: int = 24) -> list[tuple[datetime, str, str]]:
+def _recent(hours: int = 24) -> list[tuple[datetime, str, str, str, int | None]]:
     cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
     return [p for p in _placed if p[0] >= cutoff]
 
 
 def check(symbol: str, direction: str, strategy: str,
-          account_type: str, equity: float, lots: float) -> str | None:
-    """None = place it. A string = refuse, and that string is the reason."""
+          account_type: str, equity: float, lots: float,
+          book: tuple[list, set[int]] | None = None) -> str | None:
+    """None = place it. A string = refuse, and that string is the reason.
+
+    `book` is what the broker has right now: open positions and the ids of resting orders, from ONE
+    reply (`monitor.position_book.snapshot`). None means it could not be read. Only rule 7 uses it.
+    """
 
     # 1. THE KILL SWITCH. One flag, checked first, no exceptions and no overrides.
     if not settings.autotrade_enabled:
@@ -135,9 +146,25 @@ def check(symbol: str, direction: str, strategy: str,
     # 7. ONE LIVE ORDER PER symbol+direction. The strategy's own dedup key already enforces one
     #    SIGNAL at a time; this is the same invariant at the broker, so a dedup slip cannot become
     #    two real orders. Same-symbol OPPOSITE direction is allowed — that is a genuine reversal.
-    for _, s, d in recent:
-        if s == symbol and d == direction:
-            return f"an order for {symbol} {direction} was already placed in the last 24h"
+    #
+    #    LIVE MEANS LIVE, fixed 2026-09-15. This refused on any order PLACED in the last 24h, and
+    #    nothing ever took a dead one off the list. On 14 Sep his EUR/USD sell of 07:23 (order
+    #    360658076) was withdrawn at 07:26, when price touched its stop side first. At 13:03 a new
+    #    EUR/USD sell reached its entry and NO ORDER WAS SENT: refused as a "duplicate" of an order
+    #    dead for five and a half hours. Proven from the broker's own order history.
+    #
+    #    An earlier order now blocks only while the broker still has it RESTING, or it FILLED into a
+    #    trade that is still OPEN. If the broker cannot be read it refuses exactly as before, so
+    #    this only ever lets through what the broker confirms is gone.
+    for placed_at, s, d, order_id, volume in recent:
+        if s != symbol or d != direction:
+            continue
+        if book is None:
+            return (f"an order for {symbol} {direction} (order {order_id or '?'}) was placed in "
+                    f"the last 24h and the broker could not be read to confirm it is gone")
+        alive = liveness.why_alive(order_id, symbol, direction, volume, placed_at, book)
+        if alive:
+            return f"an order for {symbol} {direction} is still live: {alive}"
 
     return None
 

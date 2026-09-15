@@ -60,6 +60,7 @@ export const ADMIN_READS: string[] = [
   '/api/admin/tasks',
   '/api/admin/copy/overview',
   '/api/admin/sessions',
+  '/api/admin/autotrade?days=14',   // must equal AUTOTRADE_URL in admin-autotrade/AutotradeSection
 ];
 
 // NOT PREFETCHED, ON PURPOSE: /api/admin/metrics, /health, /logs and /services-state. System

@@ -26,6 +26,7 @@ failed send retries on the next poll.
 import logging
 
 from core import delivery_ledger
+from execution.liveness import fill_matches
 from execution.placer import fill_report, pending_intents, _intent
 
 log = logging.getLogger(__name__)
@@ -33,15 +34,10 @@ log = logging.getLogger(__name__)
 _TTL = 7 * 24 * 3600      # keep the "already reported" marks a week; a fill is reported once
 
 def _matches(intent: dict, pos) -> bool:
-    """Is this open position the fill of that order?"""
-    if intent["symbol"] != pos.symbol:
-        return False
-    if (intent["side"] == "BUY") != bool(pos.bullish):
-        return False
-    if int(intent.get("volume") or 0) != int(pos.volume or 0):
-        return False
-    # It cannot be our fill if it was already open when we placed.
-    return pos.opened_at >= int(intent["placed_at"].timestamp())
+    """Is this open position the fill of that order? The rule lives in `execution.liveness`, shared
+    with the duplicate-order guard so the two can never disagree about which trade is ours."""
+    return fill_matches(intent["symbol"], intent["side"], intent.get("volume"),
+                        intent["placed_at"], pos)
 
 
 async def check_fills(positions, send) -> None:
