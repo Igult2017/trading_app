@@ -1431,6 +1431,42 @@ from 9.2 to 11.6 pips (+26%).
 **Not yet measured:** how many of those become SIGNALS over a year (a count, allowed), and whether the
 extra signals make money (a backtest — needs his approval). **Nothing was changed.**
 
+### RULED AND BUILT 2026-09-15 — a 0.2 margin on 2.5x, and a 24-hour memory of the requirement
+
+**His two problems, in his words:**
+- *"missing a good setup because it does not meet the threshold by 1 or 2 as in 2.5 missed by 1 or 2 so
+  we have 2.4 or 2.3"*
+- *"having 2.5 qualified previously when the market required 10 pips … and now the market requires more
+  … we ask if it would have qualified in the previous market requirements and if it does we qualify it"*
+
+**His picks:**
+- **Margin 0.2**, so a candle at 2.3x the normal body qualifies. It is a share of the multiple, not
+  pips. I first read it as pips, and he corrected it.
+- **The memory:** the lowest requirement among candles that qualified on their own in the last 24
+  hours, either direction (option C), with the same margin.
+- **No pip cap** (*"use the previous immediate pip, not capping it to 10 pips"*).
+- **Gold** works the same way, from its own candles.
+- **The shape test** is unchanged.
+
+**Why not "the immediately previous qualified candle" (option A):** measured through the real function,
+it still refused GBP/USD 11 Sep 11:00 by 0.2 pips. The candle that qualified just before it was only 2
+hours earlier, inside the same busy stretch, so its requirement had already risen. Requiring the same
+direction (option B) rescued neither candle.
+
+**Last week's candles, real broker bars, his clock (pinned in `test_size_margin_memory.py`):**
+
+    XAU/USD Fri 06:00  $18.32  2.5x needed $18.52 -> margin: 2.3x needs $17.04          QUALIFIES
+    GBP/USD Thu 13:00   9.9p   2.5x needed 11.0p  -> memory: 9.0p from the Wed 14:00 candle  QUALIFIES (trend still read UP)
+    GBP/USD Fri 11:00  10.3p   2.5x needed 11.6p  -> memory: 10.1p from the Thu 17:00 candle QUALIFIES (trend agreed)
+    still refused:  GBP/USD Thu 14:00 (not bigger than the previous candle), 15:00 (shape),
+                    19:00, 21:00, Fri 04:00, 10:00, 18:00 (4-month floor); gold Thu 20:00, 22:00, 23:00 (4-month floor)
+
+- **His three marks:** only mark 1 (13:00) now passes the size test, and its trend read UP.
+- **Marks 2 and 3 (19:00, 04:00) are still under the 4-month floor.** That part of ISSUE 1 (2.12x vs
+  the ~1.5x candles he marks) is untouched and remains his to rule on.
+- **Not measured:** how many extra candles or signals this gives in a year, and whether they make
+  money. Both need his approval.
+
 ---
 
 ## SETUP 1 — HIS THREE MARKS, FINALLY IDENTIFIED (2026-09-14)

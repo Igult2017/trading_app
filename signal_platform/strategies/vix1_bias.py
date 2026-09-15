@@ -29,7 +29,7 @@ spike-and-return inside a single hour).
 import logging
 
 from core.types import Candle
-from strategies.vix1_momentum import momentum_run, veto_reason
+from strategies.vix1_momentum import momentum_run, size_note, veto_reason
 from strategies import vix1_log
 from shared.candle_math import atr
 from strategies import vix1_choch
@@ -221,6 +221,13 @@ def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "", debut=None
                              f"momentum candle that way — {veto_reason(h1, bullish, symbol)} | {state}")
         return None
     mc_idx = run[0]
+    # A candle admitted by the size test's 24-HOUR MEMORY rather than its own 100-bar median says so, so
+    # a signal built on it can be traced to the requirement it cleared. A NOTE, not a reason: it must
+    # never become what a stand-down message quotes as the refusal.
+    for k in range(run[0], run[0] + run[1]):
+        remembered = size_note(h1, k, bullish, symbol)
+        if remembered:
+            vix1_log.note(symbol, f"[vix1] {symbol} {'up' if bullish else 'down'} momentum candle {remembered}")
 
     # BACKFILL GUARD (2026-08-19). A candle that closed before this instrument was first scanned is
     # history the platform never watched, and trading it is what produced the gold incident: XAU/USD

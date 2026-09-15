@@ -27,6 +27,9 @@ TESTS = [
     "test_order_cancel.py",         # a resting order dies with its setup, and never otherwise
     "test_withdrawal_notice.py",    # 15 Sep: a withdrawal is announced; a dead setup's order goes within a poll
     "test_momentum.py",             # the gates and grading, hand-built candles
+    # ADDED 2026-09-15. His rulings: a 0.2 margin on 2.5x, and a 24-hour memory of the requirement so a
+    # big move cannot raise its own bar. Pinned on his real 10-11 Sep GBP/USD and gold candles.
+    "test_size_margin_memory.py",   # the size test's margin and memory, on real broker candles
     "test_line_pullback.py",        # the line, and the past-the-line rule
     "test_entry_return_to_line.py", # pullback in 1-3, else the return to the line, else nothing
     "test_rungs.py",                # THE LADDER — 0.4R, 1R at 2R, then trailing 0.1R behind

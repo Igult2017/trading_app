@@ -10,8 +10,11 @@ decisively one way and HOLDING it. It has to answer three questions:
                candles (the bar before them simply happened to be bigger) and admitted 24-27% that
                were BELOW normal size — the smallest was 0.79 pips, less than the spread. MEDIAN, not
                mean: on 11-21% of bars a single spike drags the mean past 1.6x the median and then
-               blocks every real candle behind it for hours.
-  CLEAN      — the body is most of the candle. The GATE floor is 60% of its own range; the shape
+               blocks every real candle behind it for hours. SINCE 2026-09-15 (his rulings) the test
+               is 2.5x LESS A 0.2 MARGIN, or the lowest requirement among candles that qualified on
+               their own in the last 24 clock hours — see _SIZE_MARGIN, _MEMORY_HOURS, size_yardstick.
+  CLEAN      — the body is most of the candle. The GATE floor is 50% of its own range (this line said
+               60% until 2026-09-15; the code has used 50% since 2026-07-25); the shape
                above the floor is GRADED, not just gated (momentum_grade): a 75%+ body with a tiny
                counter-wick is the A-grade "near-wickless look the playbook draws".
   UNREJECTED — the wick AGAINST the move is tiny. The two wicks are NOT the same thing: on a bull
@@ -27,6 +30,7 @@ extension, 47% reach 3, 23% reach 5 — but it continues THROUGH A PULLBACK (a c
 reaches 5 bars 0% of the time). That pullback is exactly what the 1M entry is built to buy.
 """
 import logging
+from datetime import datetime, timezone
 from statistics import median
 
 from core.types import Candle
@@ -43,6 +47,20 @@ _MIN_BODY_MULT  = 2.5   # body >= this x the 100-bar MEDIAN body. CALIBRATED 202
                         # only 60% — it threw away 4 in 10 real setups (top-5% candles only). The
                         # SELECTIVITY belongs to the trend/line-break/pullback gates that follow, not
                         # to making the momentum candle itself freakishly rare.
+_SIZE_MARGIN    = 0.2   # HIS MARGIN OF ERROR on the 2.5x above (2026-09-15): a candle at 2.3x the median
+                        # qualifies. His words: "missing a good setup because it does not meet the
+                        # threshold by 1 or 2 as in 2.5 missed by 1 or 2 so we have 2.4 or 2.3" — he
+                        # picked 0.2. A share of the MULTIPLE, not pips. Kept apart from 2.5 on purpose:
+                        # 2.5 is what his 87 trades measured, the margin is his tolerance around it.
+                        # His 11 Sep gold sell (03:00 UTC) was $18.32 = 2.47x, refused by 20 cents.
+_MEMORY_HOURS   = 24    # THE REQUIREMENT'S MEMORY (2026-09-15, his option C). A big move raises its own
+                        # yardstick: in his 10-11 Sep GBP/USD move the 2.5x requirement climbed 9.2 ->
+                        # 11.6 pips and refused candles that would have qualified hours earlier. His words:
+                        # "we ask if it would have qualified in the previous market requirements and if it
+                        # does we qualify it". So a candle may also clear the LOWEST requirement among the
+                        # candles that qualified ON THEIR OWN in the last this-many CLOCK hours, either
+                        # direction, at the same 2.3x. No pip cap ("not capping it to 10 pips"). Only the
+                        # 100-bar test uses it — the 4-month floor below is untouched. See `_remembered`.
 _MIN_BODY_FRAC  = 0.50  # GATE: body >= this share of the candle's OWN range. 75%->60% (2026-07-21),
                         # then 60%->50% (2026-07-25) CALIBRATED on 22 of the user's own trades: his
                         # thinnest real momentum candle was 51% body (a 14.6p body in a 28.5p range
@@ -179,31 +197,117 @@ def long_requirement(h1: list[Candle], i: int, symbol: str) -> float:
     return _LONG_BODY_MULT * base / pip
 
 
+def _size_mult() -> float:
+    """What the 100-bar test really asks: his 2.5x less his 0.2 margin. Read at call time, never frozen
+    at import, so the constants above are the one place the number lives."""
+    return _MIN_BODY_MULT - _SIZE_MARGIN
+
+
+def _held_its_move(h1: list[Candle], i: int, bullish: bool) -> bool:
+    """Right direction + CLEAN + UNREJECTED + BIGGER THAN THE ONE BEFORE IT — every test that needs only
+    the candle and its neighbour. They run first, so the medians are only computed for candles that
+    already look like momentum (the 2,000-bar one costs ~0.6 ms a call)."""
+    c = h1[i]
+    if is_bullish(c) != bullish:
+        return False
+    rng = full_range(c)
+    if rng <= 0:
+        return False
+    prev = body_size(h1[i - 1]) if i > 0 else 0.0
+    return (body_size(c) > _MIN_VS_PREV * prev          # the user's own rule — 22/22 of his trades
+            and body_size(c) >= _MIN_BODY_FRAC * rng
+            and counter_wick(c, bullish) <= _MAX_CWICK_FRAC * rng)
+
+
+def _clears_long_floor(h1: list[Candle], i: int, symbol: str) -> bool:
+    """BIG FOR THE LAST ~4 MONTHS. Skipped (passes) when there is too little history — see long_baseline."""
+    need = long_requirement(h1, i, symbol)
+    pip = pip_size(symbol)
+    return not (need > 0 and pip > 0 and body_size(h1[i]) / pip < need - _LONG_EPS)
+
+
+def _qualifies_on_its_own(h1: list[Candle], j: int, symbol: str) -> bool:
+    """Every test, against this candle's OWN 100-bar median. Only these candles may be remembered."""
+    if not _held_its_move(h1, j, is_bullish(h1[j])):
+        return False
+    base = baseline_body(h1, j)
+    if base <= 0 or body_size(h1[j]) < _size_mult() * base:
+        return False
+    return _clears_long_floor(h1, j, symbol)
+
+
+def _remembered(h1: list[Candle], i: int, symbol: str,
+                body: float | None = None) -> tuple[float, int] | None:
+    """The LOWEST requirement remembered for candle `i` -> (that candle's 100-bar median body, its index).
+
+    Taken from the candles that qualified ON THEIR OWN in the `_MEMORY_HOURS` CLOCK hours before `i`,
+    in either direction (his option C: "lowest requirement among candles that qualified in the last 24
+    hours"). None when none did.
+
+    ONLY ON THEIR OWN. A candle admitted BY the memory is never remembered itself; otherwise one quiet
+    hour's yardstick could be handed on from candle to candle for days.
+    CLOCK HOURS, NOT BARS — the lesson of LOOKBACK above, which counted bars and let a Friday candle fire
+    on Sunday. After a weekend nothing is inside 24 hours, so Monday opens on 2.3x alone.
+    DERIVED ON EVERY CALL, NEVER STORED, so a restart or a redeploy cannot make it forget or disagree.
+
+    `body`, when given, skips requirements that body could not clear anyway. The answer to "does the
+    memory admit it" is unchanged: the lowest qualifying requirement is always among the ones it clears.
+    """
+    since = h1[i].time - _MEMORY_HOURS * 3600
+    mult = _size_mult()
+    pool = []
+    j = i - 1
+    while j >= 1 and h1[j].time >= since:
+        base = baseline_body(h1, j)
+        if base > 0 and (body is None or body >= mult * base):
+            pool.append((base, j))
+        j -= 1
+    for base, j in sorted(pool):                    # lowest requirement first; stop at the first real one
+        if _qualifies_on_its_own(h1, j, symbol):
+            return base, j
+    return None
+
+
+def size_yardstick(h1: list[Candle], i: int, bullish: bool, symbol: str) -> int | None:
+    """WHICH candle's normal size this candle was judged big against -> that index, or None when it is not
+    a momentum candle at all. `i` itself = big on its own; an earlier index = admitted by the memory."""
+    if not _held_its_move(h1, i, bullish):
+        return None
+    base = baseline_body(h1, i)
+    if base <= 0 or not _clears_long_floor(h1, i, symbol):
+        return None
+    body = body_size(h1[i])
+    if body >= _size_mult() * base:
+        return i
+    hit = _remembered(h1, i, symbol, body)
+    return None if hit is None else hit[1]
+
+
+def size_note(h1: list[Candle], i: int, bullish: bool, symbol: str) -> str | None:
+    """For the log: a candle admitted by the MEMORY says so, and what it cleared. None otherwise."""
+    j = size_yardstick(h1, i, bullish, symbol)
+    if j is None or j == i:
+        return None
+    pip, mult = pip_size(symbol), _size_mult()
+    when = datetime.fromtimestamp(h1[j].time, timezone.utc).strftime("%d %b %H:%M UTC")
+    return (f"qualified on the {_MEMORY_HOURS}-hour memory: body {body_size(h1[i]) / pip:.1f} pips is under "
+            f"{mult:.1f}x this hour's normal body ({mult * baseline_body(h1, i) / pip:.1f} pips) but clears the "
+            f"{mult * baseline_body(h1, j) / pip:.1f} pips remembered from the {when} candle")
+
+
 def is_momentum_candle(h1: list[Candle], i: int, bullish: bool, symbol: str) -> bool:
-    """BIG for this pair right now + BIG FOR THE LAST ~4 MONTHS + BIGGER THAN THE ONE BEFORE IT
-    + CLEAN + UNREJECTED. The wick WITH the move is not capped (a 48% with-wick appears in the
-    user's real winners).
+    """BIG for this pair right now (2.5x less the 0.2 margin, or the 24-hour memory) + BIG FOR THE LAST
+    ~4 MONTHS + BIGGER THAN THE ONE BEFORE IT + CLEAN + UNREJECTED. The wick WITH the move is not capped
+    (a 48% with-wick appears in the user's real winners).
 
     `symbol` is REQUIRED, not defaulted: the long-window test converts pips to a price and needs the
     pair. `pip_size("")` happens to return the right value for EUR/USD and GBP/USD and would be
     SILENTLY wrong for a yen pair, so a caller that forgets must fail loudly instead.
+
+    EVERY CALLER GETS THE SAME ANSWER — the entry, the quiet-market test, signal spacing and the pre-close
+    heads-up all ask this one function, so what counts as a momentum candle cannot drift between them.
     """
-    c = h1[i]
-    if is_bullish(c) != bullish:
-        return False
-    rng  = full_range(c)
-    base = baseline_body(h1, i)
-    if rng <= 0 or base <= 0:
-        return False
-    need = long_requirement(h1, i, symbol)
-    pip = pip_size(symbol)
-    if need > 0 and pip > 0 and body_size(c) / pip < need - _LONG_EPS:
-        return False
-    prev = body_size(h1[i - 1]) if i > 0 else 0.0
-    return (body_size(c) >= _MIN_BODY_MULT * base
-            and body_size(c) > _MIN_VS_PREV * prev          # the user's own rule — 22/22 of his trades
-            and body_size(c) >= _MIN_BODY_FRAC * rng
-            and counter_wick(c, bullish) <= _MAX_CWICK_FRAC * rng)
+    return size_yardstick(h1, i, bullish, symbol) is not None
 
 
 def momentum_grade(c: Candle, bullish: bool) -> tuple[str, float]:
@@ -212,7 +316,7 @@ def momentum_grade(c: Candle, bullish: bool) -> tuple[str, float]:
     User 2026-07-21: "candle with perfect wicks and 75% body = A; wicks up to 25% and body down to 60% =
     graded 74% down to 60%." So:
       A  — body >= 75% of range AND counter-wick <= 15% (a clean, near-wickless candle) -> conf 0.85.
-      B/C — anything weaker, down to the gate (body 60% / wick 25%): confidence scales from 0.74 (best
+      B/C — anything weaker, down to the gate (body 50% / wick 25%): confidence scales from 0.74 (best
             non-A) to 0.60 (worst). The WEAKER of the two dimensions sets the grade, so one bad axis is
             not hidden by a good one. Only reached for a candle that already PASSED is_momentum_candle.
     """
@@ -291,7 +395,7 @@ def veto_reason(h1: list[Candle], bullish: bool, symbol: str) -> str:
     """
     start = max(1, len(h1) - LOOKBACK)
     in_dir = too_small = under_long = not_bigger = wrong_shape = qualified_but_old = 0
-    pip = pip_size(symbol)
+    pip, mult = pip_size(symbol), _size_mult()
     for i in range(len(h1) - 1, start - 1, -1):
         c = h1[i]
         if is_bullish(c) != bullish:
@@ -300,7 +404,10 @@ def veto_reason(h1: list[Candle], bullish: bool, symbol: str) -> str:
         rng, base = full_range(c), baseline_body(h1, i)
         prev = body_size(h1[i - 1]) if i > 0 else 0.0
         need = long_requirement(h1, i, symbol)
-        if base > 0 and body_size(c) < _MIN_BODY_MULT * base:
+        # THE SAME SIZE QUESTION `size_yardstick` ASKS: its own 2.3x, or the 24-hour memory. Asking only
+        # the first would log a candle the memory admitted as "too small" while the entry traded it.
+        big = body_size(c) >= mult * base or _remembered(h1, i, symbol, body_size(c)) is not None
+        if base > 0 and not big:
             too_small += 1
         elif need > 0 and pip > 0 and body_size(c) / pip < need - _LONG_EPS:
             under_long += 1
@@ -327,6 +434,9 @@ def veto_reason(h1: list[Candle], bullish: bool, symbol: str) -> str:
     if in_dir == 0:
         return f"no in-direction ({'up' if bullish else 'down'}) H1 candle in the last {LOOKBACK} bars"
     long_now = long_requirement(h1, len(h1) - 1, symbol)
+    mem = _remembered(h1, len(h1) - 1, symbol)
+    memory = (f"or the {mult * mem[0] / pip:.1f} pips remembered from a candle that qualified in the last "
+              f"{_MEMORY_HOURS}h" if mem else f"(no candle qualified in the last {_MEMORY_HOURS}h to remember)")
     if qualified_but_old:
         head = (f"{in_dir} in-direction bars; {qualified_but_old} DID qualify as a momentum candle "
                 f"but the NEWEST closed bar is not one, so there is nothing to trade "
@@ -337,7 +447,8 @@ def veto_reason(h1: list[Candle], bullish: bool, symbol: str) -> str:
             f"(too small x{too_small}, under the long-window floor x{under_long}, "
             f"not bigger than the previous candle x{not_bigger}, "
             f"wicky/shape x{wrong_shape} — needs body >= "
-            f"{_MIN_BODY_MULT:.1f}x the {_BASELINE_BARS}-bar median body, "
+            f"{mult:.1f}x the {_BASELINE_BARS}-bar median body ({_MIN_BODY_MULT:.1f}x less the "
+            f"{_SIZE_MARGIN:.1f} margin) {memory}, "
             f">= {long_now:.1f} pips ({_LONG_BODY_MULT:.2f}x the {_LONG_BARS}-bar median), "
             f"> the previous candle's "
             f"body, >= {_MIN_BODY_FRAC:.0%} of its own range, counter-wick <= {_MAX_CWICK_FRAC:.0%})")

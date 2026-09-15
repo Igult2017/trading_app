@@ -9,7 +9,7 @@ report — never a licence to re-tune the number until the test goes green.
 from _harness import Suite, body, flat_series
 
 from strategies.vix1_momentum import (
-    _MIN_BASELINE, _MIN_BODY_FRAC, _MIN_BODY_MULT, _MAX_CWICK_FRAC, _MIN_RUN,
+    _MIN_BASELINE, _MIN_BODY_FRAC, _MIN_BODY_MULT, _MAX_CWICK_FRAC, _MIN_RUN, _SIZE_MARGIN,
     _A_BODY_FRAC, _A_CWICK_FRAC, _A_CONF, _LONG_BARS, _LONG_BODY_MULT, _LONG_MIN_BARS,
     baseline_body, counter_wick, is_momentum_candle, momentum_grade, momentum_run,
     long_baseline, long_requirement,
@@ -45,8 +45,16 @@ s.check("a clean big candle qualifies", probe(BIG, BIG * 1.1, 0.0), True)
 
 print()
 print("   each gate must REJECT when violated:")
-s.check(f"  body under {_MIN_BODY_MULT}x the median is rejected",
+# THE MARGIN (his ruling, 15 Sep): 2.5x less 0.2, so the line sits at 2.3x — checked both sides of it.
+# These fixtures are identical flat candles and none qualifies on its own, so the 24-hour memory has
+# nothing to remember and the 100-bar test is measured alone (test_size_margin_memory.py covers both).
+_LINE = _MIN_BODY_MULT - _SIZE_MARGIN
+s.check(f"  body under {_LINE:.1f}x the median is rejected",
         probe(BASE * 1.5, BASE * 1.6, 0.0), False)
+s.check(f"  body just OVER {_LINE:.1f}x (2.5x less the {_SIZE_MARGIN} margin) qualifies",
+        probe(BASE * (_LINE + 0.05), BASE * (_LINE + 0.05) * 1.1, 0.0), True)
+s.check(f"  body just UNDER {_LINE:.1f}x is rejected",
+        probe(BASE * (_LINE - 0.05), BASE * (_LINE - 0.05) * 1.1, 0.0), False)
 s.check(f"  body under {_MIN_BODY_FRAC:.0%} of its own range is rejected",
         probe(BIG, BIG * 3.0, 0.0), False)
 s.check("  body NOT bigger than the previous candle is rejected",

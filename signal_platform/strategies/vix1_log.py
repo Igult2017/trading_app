@@ -61,6 +61,14 @@ def say(symbol: str, message: str, logger: logging.Logger | None = None) -> bool
     # than the last one that happened to be new. His two EUR/USD setups of 6-7 Sep were refused nine
     # times for the identical reason, so every one of those after the first is a suppressed line.
     _last_reason[symbol] = message
+    return note(symbol, message, logger)
+
+
+def note(symbol: str, message: str, logger: logging.Logger | None = None) -> bool:
+    """`say` for a FACT about a setup rather than a reason nothing happened: throttled and recorded the
+    same way, but it never becomes `last_reason`, so a stand-down message can never quote it as the
+    refusal (added 2026-09-15 for "this candle qualified on the 24-hour memory")."""
+    sh = shape(message)
     if not stage_tracker.emit("vix1", f"{symbol}:{sh}", sh, message, logger=logger or log):
         return False
     from storage import observability_repo as obs

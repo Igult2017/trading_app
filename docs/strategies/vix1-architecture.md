@@ -247,9 +247,24 @@ the same day was caused by exactly that kind of process-local state.
 instrument+direction and is enforced in the database; this one is per instrument.
 
 ### Momentum-candle gates (`vix1_momentum.py`)
-`_MIN_BODY_MULT 2.5` × the 100-bar median body · **`_LONG_BODY_MULT 2.12` × the 2,000-bar median
-body** · `_MIN_BODY_FRAC 0.50` of its own range · `_MIN_VS_PREV 1.0` (bigger than the previous body) ·
-`_MAX_CWICK_FRAC 0.25` counter-wick.
+`_MIN_BODY_MULT 2.5` × the 100-bar median body **less `_SIZE_MARGIN 0.2` (so 2.3×) — or 2.3× the
+LOWEST 100-bar median among candles that qualified on their own in the last `_MEMORY_HOURS 24` clock
+hours** · **`_LONG_BODY_MULT 2.12` × the 2,000-bar median body** · `_MIN_BODY_FRAC 0.50` of its own
+range · `_MIN_VS_PREV 1.0` (bigger than the previous body) · `_MAX_CWICK_FRAC 0.25` counter-wick.
+
+**The margin and the memory (2026-09-15, his rulings) — invariants:**
+- **One function decides.** `size_yardstick` returns the candle whose normal size this one was judged
+  against (itself, or the remembered one); `is_momentum_candle` is just "not None". `veto_reason` asks the
+  same size question, so a refusal line can never call a candle "too small" that the entry traded.
+- **Only candles that qualified ON THEIR OWN are remembered** (`_qualifies_on_its_own`). A candle admitted
+  by the memory is never itself remembered, so one quiet hour cannot be handed on for days.
+- **Clock hours, not bars.** After a weekend nothing is inside 24 hours and Monday opens on 2.3× alone.
+- **Derived on every call, never stored** — a restart cannot make it forget.
+- **Only the 100-bar test uses it.** The 4-month floor, bigger-than-previous and the shape tests are
+  unchanged. It can only admit more, never refuse a candle the 2.3× test admits.
+- **Every caller follows**: the entry, `market_awake`, `vix1_spacing` and the pre-close heads-up all ask
+  `is_momentum_candle`. A candle admitted by the memory is logged with `vix1_log.note` (never `say`, so it
+  can never become the reason a stand-down quotes).
 A-grade: `_A_BODY_FRAC 0.75` + `_A_CWICK_FRAC 0.15` → `_A_CONF 0.85`.
 
 **These were calibrated 2026-07-20/21 against his real candles. Do not re-tune them without his data.**
@@ -1106,7 +1121,8 @@ platform root and fails under `run_all.py`, which runs from the test directory.
 | `test_atr.py` | the volatility yardstick: true range vs plain high-minus-low (the gap case), the window, the edges |
 | `test_retracement.py` | the pullback counted by hand (1/2/3/7/12 candles), a doji continuing it, the retracement a candle CAME AFTER vs a rally, the two counts differing, real-time (no 8-bar wait), the closed-candle rule |
 | `test_regime.py` | efficiency: 1.0 on a straight line, 0 on a zigzag, ordered in between, "too little history" ≠ "a range" |
-| `test_momentum.py` | every gate BOTH ways (accepts and rejects): size vs median, body fraction, bigger-than-previous, counter-wick cap; grading incl. the A boundary; the run; `baseline_body` |
+| `test_momentum.py` | every gate BOTH ways (accepts and rejects): size vs median (both sides of the 2.3× line), body fraction, bigger-than-previous, counter-wick cap; grading incl. the A boundary; the run; `baseline_body` |
+| `test_size_margin_memory.py` | 2026-09-15, his rulings. On real broker bars of 10–11 Sep: gold 11 Sep 03:00 UTC admitted by the 0.2 margin; GBP/USD 10 Sep 10:00 and 11 Sep 08:00 UTC admitted by the 24-hour memory, each on the exact remembered candle; the ten other candles still refused for their own reasons; a stricter rule's candles always pass the looser one. Hand-built: only candles that qualified on their own are remembered (no chaining), 23 vs 25 clock hours. Proof checks that switching off the margin / the memory refuses them again |
 | `test_line_pullback.py` | the line is the BODY CLOSE; **past-the-line accepted / refused / straddling refused / exactly ON accepted**, both directions; `traded_past`; the shape filters |
 | `test_manage.py` | ratchet 2R→1R, 3R→2R, whole-R steps, **forward-only**; the structure exit by body close, wicks never counting |
 | `test_invariants_real_data.py` | drives `m1_signals` over 4,000 real M1 bars per pair: entry is a **STOP**, SL on the losing side, **TP exactly 2R**, crash-freedom — plus the governing invariant, by **mutating the forming bar and asserting no level moves** |
