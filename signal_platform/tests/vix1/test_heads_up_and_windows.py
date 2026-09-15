@@ -77,9 +77,25 @@ s.check("the prefix and the state block are stripped",
 # RECORDED EVEN WHEN THE LINE IS SUPPRESSED. `say` prints on change only; his nine EUR/USD refusals
 # were the same reason, so eight of them printed nothing — and every one of those still needs an
 # answer to "why is nothing happening".
-src = inspect.getsource(vix1_log.say)
-s.check("the reason is stored BEFORE the throttle can suppress the line",
-        src.index("_last_reason[symbol]") < src.index("stage_tracker.emit"), True)
+#
+# CHECKED BY BEHAVIOUR, NOT BY READING THE SOURCE. Until 2026-09-15 this asserted that `say`'s source
+# text named `_last_reason` before `stage_tracker.emit`; the throttle then moved into `vix1_log.note`
+# (behaviour identical) and the text check crashed. So the throttle is now FORCED to suppress the line
+# and the reason must still be there — which is the thing that actually matters to him.
+_emit = vix1_log.stage_tracker.emit
+vix1_log.stage_tracker.emit = lambda *a, **k: False          # the throttle says "suppress this line"
+try:
+    vix1_log._last_reason.clear()
+    _printed = vix1_log.say("GBP/USD", "[vix1] GBP/USD bias=NONE: a repeated reason | state")
+    s.check("the reason is stored even when the throttle suppresses the line",
+            (_printed, vix1_log.last_reason("GBP/USD")), (False, "a repeated reason"))
+    # A NOTE (e.g. "qualified on the 24-hour memory") is a fact about a setup, never the reason nothing
+    # happened — a stand-down message quoting it as the refusal would tell him something false.
+    vix1_log.note("GBP/USD", "[vix1] GBP/USD down momentum candle qualified on the 24-hour memory")
+    s.check("a note never replaces the reason a stand-down quotes",
+            vix1_log.last_reason("GBP/USD"), "a repeated reason")
+finally:
+    vix1_log.stage_tracker.emit = _emit
 
 # ── 2. THE QUIET TEST GETS THE MOMENTUM WINDOW ─────────────────────────────
 print()
