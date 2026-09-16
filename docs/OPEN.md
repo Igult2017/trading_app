@@ -3205,6 +3205,12 @@ only honest, not finished.
 3. **Inventing evidence.** A "zone he sent on 16 Jul" never existed and reached three documents
    before he caught it (A4).
 
+### D42 update — 2026-09-16: one of the three closed, by an entry rule rather than a chop rule
+His pullback rule of 16 Sep (*"we take trade from the 3rd candle and above... unless the pullback was
+made of 1-3 candles"*) refuses **2026-08-03 18:00**, one of the three choppy markets this item tracks.
+The other two (2026-08-05 14:00 and 17:00) still trade and are still asserted in `test_tradeable.py`.
+**Nothing about the chop definition itself is solved** — this is entry timing, and D42 stays open.
+
 ### D42 update — 2026-09-13: the SIXTH idea measured and rejected, now against 39 of his own tradeable setups
 
 He sent six EUR/USD H1 charts of markets he WOULD trade (*"I randomly selected them"*), which is the

@@ -115,8 +115,14 @@ print()
 # red volume candle then prints a bullish candle, meaning it has no specific group of candles in
 # succession"*, plus *"a mixture of big bodies, small bodies, long wicks and no wicks"*.
 print("   the choppy case — all three still open (D42, chop rule unbuilt):")
-for w in ("2026-08-03 18:00", "2026-08-05 14:00", "2026-08-05 17:00"):
-
+# 2026-09-16: HIS PULLBACK RULE CLOSED ONE OF THE THREE. *"after the pullback, we take trade from the
+# 3rd candle and above... unless the pullback was made of 1-3 candles."* 2026-08-03 18:00 is the first
+# candle after a pullback longer than three, so it is now refused — by an entry-timing rule, not by a
+# chop rule. The other two remain open gaps (D42) and are still asserted as trading, so nothing closes
+# silently.
+s.check("   2026-08-03 18:00 no longer trades — his 16 Sep pullback rule refuses it",
+        fires("2026-08-03 18:00"), False)
+for w in ("2026-08-05 14:00", "2026-08-05 17:00"):
     s.check(f"   {w} STILL trades (known gap)", fires(w), True)
 
 
