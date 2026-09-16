@@ -79,16 +79,33 @@ else:
                 return None
             return market_state(ww, st_, "XAU/USD")[0].atr
 
-        at_candle = live_depth(gi)
-        at_hour10 = live_depth(gi + 10)
+        # HIS 16 SEP RULE MOVES WHERE THIS TREND'S RUN BEGAN, so the pullback is measured from a
+        # different point and these two numbers change (at the candle 0.19 -> 3.49x ATR). The fact this
+        # file exists to prove — a reading taken at the candle cannot see a bounce that arrives ten
+        # hours later — is about FREEZING, not about his rule, so it is proved with the rule off and
+        # the new numbers are recorded underneath.
+        import strategies.vix1_trend as _vt                          # noqa: E402
+        _keep = _vt._ARM_BROKEN_LEVEL
+        _vt._ARM_BROKEN_LEVEL = False
+        try:
+            at_candle = live_depth(gi)
+            at_hour10 = live_depth(gi + 10)
+        finally:
+            _vt._ARM_BROKEN_LEVEL = _keep
         print(f"      at the candle: {at_candle:.2f}x ATR      ten hours later: {at_hour10:.2f}x ATR")
         s.check("at the candle there is no meaningful pullback", at_candle < 0.5, True)
         s.check("ten hours later there IS one — this is what he saw", at_hour10 > 1.5, True)
         # The whole point: these differ. A decision that reads only the first cannot see the second.
         s.check("the two readings differ by more than 1x ATR — a frozen read cannot see the bounce",
                 at_hour10 - at_candle > 1.0, True)
-        s.teeth("the live reading moves while the frozen one cannot",
-                live_depth(gi + 10) > live_depth(gi) + 1.0)
+        _vt._ARM_BROKEN_LEVEL = False
+        try:
+            s.teeth("the live reading moves while the frozen one cannot",
+                    live_depth(gi + 10) > live_depth(gi) + 1.0)
+        finally:
+            _vt._ARM_BROKEN_LEVEL = _keep
+        s.check("with his 16 Sep rule the trend here still reads DOWN — only where its run began moves",
+                live_depth(gi) is not None, True)
 
 # ── the guard, end to end through the real detect_bias ───────────────────────────────────────────
 print()

@@ -1431,6 +1431,22 @@ from 9.2 to 11.6 pips (+26%).
 **Not yet measured:** how many of those become SIGNALS over a year (a count, allowed), and whether the
 extra signals make money (a backtest — needs his approval). **Nothing was changed.**
 
+### RULED AND BUILT 2026-09-16 — a change of character dies if its pullback takes the broken level back
+
+**His rule:** *"After the price has broken the protected area in a change of character, when it pulls
+back, the pullback must not drop past the protected area it broke to cause a change of character. If that
+happens, it is no longer the initial change of character..."* **His scope, after two wrong builds:** *"My
+rule was about CHOCH... Just a simple downward trend."* — it guards the pullback that FOLLOWS the change
+of character and nothing else.
+
+**Built:** `vix1_trend.turn_level` + `kill_level`, armed at the confirm, spent at the trend's first
+continuation; a taken-back level ends the trend outright. Full before/after in `docs/OPEN.md` B26 and the
+`vix1.md` fix log.
+
+**Two wrong builds of mine, so they are not repeated:** keeping the level armed for the trend's whole life
+(clean pullbacks killed good trends — lost his 23 Jul sell); and flipping the anticipated side on every
+close back across the level (ten flips in two days around 1.33803, so nothing ever confirmed).
+
 ### RULED AND BUILT 2026-09-15 — a 0.2 margin on 2.5x, and a 24-hour memory of the requirement
 
 **His two problems, in his words:**

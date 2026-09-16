@@ -210,8 +210,19 @@ else:
     _i = next((k for k, c in enumerate(_g) if c.time == _t), None)
     check("his 10 Sep 18:00 gold bar is present", _i is not None, True)
     if _i is not None:
-        _w = _g[max(0, _i + 1 - 3000):_i + 1][-_H1_TREND_BARS:]
-        _st = trend_state(_w, n=_H1_SWING_N, turns=structure_turns(_w, _H1_SWING_N))
+        import strategies.vix1_trend as _vt                          # noqa: E402
+
+        # HIS 16 SEP RULE ENDS THIS DOWNTREND BEFORE THIS HOUR (docs/OPEN.md B26): the level its change
+        # of character broke was taken back during the pullback that followed. So the capability this
+        # file exists to prove — that the fine-grained pullback reading sees the fall the swing reader
+        # misses — is proved with that rule switched OFF, and what the rule does is recorded below.
+        _keep = _vt._ARM_BROKEN_LEVEL
+        _vt._ARM_BROKEN_LEVEL = False
+        try:
+            _w = _g[max(0, _i + 1 - 3000):_i + 1][-_H1_TREND_BARS:]
+            _st = trend_state(_w, n=_H1_SWING_N, turns=structure_turns(_w, _H1_SWING_N))
+        finally:
+            _vt._ARM_BROKEN_LEVEL = _keep
         check("the trend really was DOWN", _st.direction, -1)
         # THE OLD SOURCE STILL SAYS THE OPPOSITE — the contrast is what makes this meaningful.
         check("the SWING-derived highs/lows still call it out of shape (the defect)",
@@ -229,6 +240,12 @@ else:
         # Mixing them would let a pending change of character be confirmed by pullback noise.
         check("the trend still keeps its own swing lists for the reversal confirm",
               len(_st.highs) > 0 and len(_st.lows) > 0, True)
+        # WITH HIS 16 SEP RULE LIVE, this hour has no direction at all — a turn down is proposed and
+        # not yet confirmed — so his gold sell of 10 Sep 21:00 (his clock) does not fire. Before the
+        # rule: direction DOWN with 32 pullback legs. Recorded so the cost is visible, not implied.
+        _st_now = trend_state(_w, n=_H1_SWING_N, turns=structure_turns(_w, _H1_SWING_N))
+        check("his 16 Sep rule leaves this hour with no direction",
+              (_st_now.direction, _st_now.pending), (0, -1))
 
 print(f"\n{PASS} passed, {FAIL} failed")
 sys.exit(1 if FAIL else 0)

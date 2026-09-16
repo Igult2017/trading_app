@@ -246,6 +246,25 @@ the same day was caused by exactly that kind of process-local state.
 **This stacks with one-signal-at-a-time; neither replaces the other.** That rule is per
 instrument+direction and is enforced in the database; this one is per instrument.
 
+### The trend, and the level a change of character broke (2026-09-16)
+
+A trend born of a change of character watches **two** levels: the swing protecting it, and **the level it
+broke to exist** (`TrendState.turn_level`). `TrendState.kill_level` is whichever a body close would reach
+first, and that is what ends the trend.
+
+- **His rule:** *"the pullback must not drop past the protected area it broke... If that happens, it is no
+  longer the initial change of character."*
+- **Scope — this guards the pullback that FOLLOWS the change of character, nothing else.** The level is
+  armed when the turn confirms and **spent at the trend's first continuation**: from there the trend has
+  pulled back successfully and ordinary protection owns it, exactly as before. Keeping it armed for the
+  trend's whole life was wrong and cost his 23 Jul sell.
+- **When the remembered level is the one taken back, the trend ends OUTRIGHT** — no turn is proposed. His
+  rule anticipates the other side only once the market builds it, which is `_establish`'s three points.
+  Proposing the other side immediately, and flipping it on every close back across the level, was wrong:
+  it fired ten times in two days on GBP/USD's 1.33803 and left an 80-pip fall with no direction.
+- **One switch, `_ARM_BROKEN_LEVEL`**, so a test can prove which verdicts this rule owns.
+- `vix1_preclose` reads the same `kill_level`, so the heads-up and the entry cannot disagree.
+
 ### Momentum-candle gates (`vix1_momentum.py`)
 `_MIN_BODY_MULT 2.5` × the 100-bar median body **less `_SIZE_MARGIN 0.2` (so 2.3×) — or 2.3× the
 LOWEST 100-bar median among candles that qualified on their own in the last `_MEMORY_HOURS 24` clock

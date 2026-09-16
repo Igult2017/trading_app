@@ -264,7 +264,29 @@ red self-test that everyone steps around is how a real regression gets missed: t
 break something here will see two failures and assume they are the usual two.
 
 
-### B26 - A change of character stays valid after price takes the broken level back, so VIX.1 buys the pullbacks of the NEW move. 🔴 NEEDS HIS RULING
+### B26 - ~~A change of character stays valid after price takes the broken level back, so VIX.1 buys the pullbacks of the NEW move~~ FIXED 16 Sep 🔴
+
+**FIXED 2026-09-16** — `vix1_trend.TrendState.turn_level` / `kill_level`, switch `_ARM_BROKEN_LEVEL`, and
+`vix1_preclose` reads the same level. The level a change of character breaks stays armed **for the
+pullback that follows it** and is spent at the trend's first continuation, so clean trends are untouched.
+When that level is taken back the trend ends outright and the market must build a new one.
+
+**What it changed, measured on real broker bars (his clock):**
+
+| case | before | after |
+|---|---|---|
+| his GBP/USD 15 Sep 16:00 BUY (this defect) | bought the pullback of a new down move | **no signal**; a SELL fires 14 Sep 22:00 instead |
+| his 23 Jul GBP/USD sell | SELL 23 Jul 16:00 | unchanged |
+| his 03 Sep EUR/USD window | 3 BUYs | the same 3 BUYs **plus 2 SELLs on 02 Sep** |
+| his gold sell, 10 Sep | fired | **no direction — does not fire** |
+| his EUR/USD sell, 11 Sep 18:00 | fired | **no direction — does not fire** |
+| 4-year trend stability (`test_trend.py`) | passes | passes |
+
+**The two costs are his rule's own consequence:** both of those trends had had their birth level taken
+back before those hours, so by his rule they were over and we wait. **Not measured:** whether the trades
+this adds or removes make money — that needs his approval.
+
+
 
 **His rule, 16 Sep:** *"After the price has broken the protected area in a change of character, when it
 pulls back, the pullback must not drop past the protected area it broke to cause a change of character.

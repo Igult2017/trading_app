@@ -108,18 +108,25 @@ def fired_with(shortcut_on: bool):
 fired = fired_with(True)
 s.check("with the up-turn shortcut ON, the real detect_bias produces a bias on these bars",
         len(fired) > 0, True)
-s.check("...and it is a BUY, the change of character he was pointing at",
-        all(bull for _, bull in fired), True)
-s.check("...on 03 Sep", all(d.strftime("%Y-%m-%d") == "2026-09-03" for d, _ in fired), True)
+_buys = [(d, bull) for d, bull in fired if d.strftime("%Y-%m-%d") == "2026-09-03"]
+s.check("...his three 03 Sep hours still carry a BUY — 11:00, 12:00 and 16:00 UTC",
+        (len(_buys), all(bull for _, bull in _buys)), (3, True))
 
-# The exact count is recorded rather than asserted loosely, so a future change that alters it is
-# visible instead of silent. 3 = 11:00, 12:00 and 16:00 UTC.
-s.check("three hours of that day carry the bias", len(fired), 3)
+# HIS 2026-09-16 RULE ADDED TWO SELLS THE DAY BEFORE, and they are recorded rather than smoothed over:
+# 02 Sep 00:00 and 06:00 UTC. They exist because a change of character whose pullback took the level
+# back no longer holds its trend, so the downtrend that preceded his buys is read differently.
+# Before that rule this window produced exactly the three buys and nothing else.
+_sells = [(d, bull) for d, bull in fired if not bull]
+s.check("...plus two SELLs on 02 Sep, which his 16 Sep rule adds", len(_sells), 2)
+s.check("five hours in this window carry a bias (three buys, two sells)", len(fired), 5)
 
 fired_default = fired_with(False)
-s.check("by DEFAULT (shortcut off since 2026-09-14) these bars trade nothing — the turn up has not "
-        "yet run, pulled back and turned back up", len(fired_default), 0)
-s.teeth("the shortcut switch is what decides it", len(fired) == 3 and len(fired_default) == 0)
+s.check("by DEFAULT (shortcut off since 2026-09-14) his three BUYs trade nothing — the turn up has "
+        "not yet run, pulled back and turned back up",
+        [d for d, bull in fired_default if bull], [])
+s.check("...and only the two 02 Sep sells remain, which need no shortcut", len(fired_default), 2)
+s.teeth("the shortcut switch is what decides the BUYs",
+        len(fired) == 5 and len(fired_default) == 2)
 
 
 # ── THE CONTROL: a market where the sides DISAGREE is still refused ────────

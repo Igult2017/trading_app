@@ -200,18 +200,42 @@ _eur = load("EURUSD_H1_sep12.csv", "H1")
 _t = int(datetime.datetime(2026, 9, 11, 15, tzinfo=datetime.timezone.utc).timestamp())
 _i = next((k for k, c in enumerate(_eur) if c.time == _t), None)
 if _i is not None:
-    _h1 = _eur[max(0, _i + 1 - 3000):_i + 1]
-    _w = _h1[-1500:]
-    _turns = structure_turns(_w, 48)
-    _st = trend_state(_w, n=48, turns=_turns)
-    _ret, _, _ = market_state(_w, _st, "EUR/USD")
-    _ran = _st.bos_index if _st.bos_index is not None else _st.direction_since
-    _confirmed = [t for t in _turns if _ran is not None and t.index > _ran and t.is_high]
+    import strategies.vix1_trend as _vt                              # noqa: E402
+
+    def _read(armed):
+        """The same reading, with his 2026-09-16 rule on or off."""
+        _keep = _vt._ARM_BROKEN_LEVEL
+        _vt._ARM_BROKEN_LEVEL = armed
+        try:
+            _h1 = _eur[max(0, _i + 1 - 3000):_i + 1]
+            _w = _h1[-1500:]
+            _turns = structure_turns(_w, 48)
+            _st = trend_state(_w, n=48, turns=_turns)
+            _ret, _, _ = market_state(_w, _st, "EUR/USD")
+            _ran = _st.bos_index if _st.bos_index is not None else _st.direction_since
+            _confirmed = [t for t in _turns if _ran is not None and t.index > _ran and t.is_high]
+            return _st, _turns, _ret, len(_confirmed)
+        finally:
+            _vt._ARM_BROKEN_LEVEL = _keep
+
+    # THE 13 SEP FIX, PROVED EXACTLY AS IT WAS — with the 16 Sep rule switched off, because that is the
+    # code this case was written against. Nothing here is weakened.
+    _st, _turns, _ret, _confirmed = _read(False)
     s.check("   11 Sep 15:00 UTC — the trend really was DOWN", _st.direction, -1)
-    s.check("   ...and NO confirmed turn had landed yet — this is the trap", len(_confirmed), 0)
+    s.check("   ...and NO confirmed turn had landed yet — this is the trap", _confirmed, 0)
     s.teeth("   ...but the retracement module did see the bounce", _ret.active and _ret.bars >= 1)
     s.check("   ...so the re-proof rule no longer refuses it",
             trend_reproven(_st, _turns, _ret), None)
+
+    # AND WHAT HIS 16 SEP RULE DOES TO THE SAME HOUR — recorded, not hidden (docs/OPEN.md B26).
+    # That downtrend was born when a close broke 1.16216; on 10 Sep 17:00 price closed back above it
+    # (1.16289), so by his rule the trend was over. This sell therefore does NOT fire any more: the
+    # market reads "changing" here, where before the rule it read DOWN with a 3-bar pullback.
+    _st_now, _, _ret_now, _ = _read(True)
+    s.check("   ...but his 16 Sep rule had already ended that downtrend",
+            (_st_now.direction, _st_now.pending), (0, 1))
+    s.check("   ...so this sell no longer fires (before the rule: DOWN, pullback active)",
+            _ret_now.active, False)
 else:
     print("   SKIP — EURUSD_H1_sep12.csv (broker bars incl. 11 Sep) not present on this machine")
 
