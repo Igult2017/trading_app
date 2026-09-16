@@ -373,6 +373,25 @@ def trend_state(candles: list[Candle], n: int = _SWING_N, turns=None) -> TrendSt
                 st.breaks += 1
                 last_ext, since = p.price, []
 
+        # THE PROPOSAL ITSELF CAN FAIL, AND THEN THE OTHER SIDE IS ANTICIPATED — his rule, 2026-09-16:
+        #
+        #   *"we can anticipate another change of character if after the pullback move has gone past the
+        #    protected area it broke then pulls back without breaking the new moves respected zone."*
+        #
+        # A change of character PROPOSES a turn; until it confirms, the market has no direction. If price
+        # closes back through that same zone the other way, the proposal is finished and the turn the
+        # other way is what is now anticipated. It keeps the same level, because it is the same zone.
+        #
+        # WITHOUT THIS HALF, his own EUR/USD sell of 11 Sep 18:00 (his clock) is lost: the downtrend died
+        # at 10 Sep 17:00 when 1.16289 took back 1.16216, a turn UP was proposed, price closed back under
+        # 1.16216 one hour later and fell 30 pips over the next day — and the engine still called it "a
+        # turn up is proposed" 25 hours later, so the market had no direction and his sell was refused.
+        if st.pending and st.choch_price is not None:
+            if st.pending == 1 and c.close < st.choch_price:
+                st.pending, st.choch_index, st.turn_taken_back = -1, i, True
+            elif st.pending == -1 and c.close > st.choch_price:
+                st.pending, st.choch_index, st.turn_taken_back = 1, i, True
+
         if st.direction == 0 and not st.pending:
             started = _establish(seq)
             if started:
