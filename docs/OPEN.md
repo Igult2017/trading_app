@@ -264,6 +264,57 @@ red self-test that everyone steps around is how a real regression gets missed: t
 break something here will see two failures and assume they are the usual two.
 
 
+### B25 - The wick rules: only the wick AGAINST the move is capped, and his no-lower-wick rule is unspecified. NEEDS HIS RULING
+
+**His question, 15 Sep:** *"I thought for both candles both upper and lower wicks are limited to 25%.
+Are you sure about this???"*
+
+**What the code does** ([`vix1_momentum.py:157-159`](../signal_platform/strategies/vix1_momentum.py#L157-L159),
+[`:220`](../signal_platform/strategies/vix1_momentum.py#L220)): only the wick AGAINST the candle's
+direction is capped at 25% of the candle — the UPPER wick on an up candle, the LOWER wick on a down
+candle. The other wick has no cap of its own; it is held back only by "body >= 50% of the candle".
+Every wick reference in `strategies/vix1*.py` was checked: there is no other wick limit anywhere.
+
+**Real GBP/USD candles that QUALIFIED as momentum candles with the uncapped wick over 25%** (his clock):
+
+| candle | body | upper wick | lower wick |
+|---|---|---|---|
+| DOWN Wed 02 Sep 12:00 | 69% | **29%** | 2% |
+| DOWN Wed 02 Sep 15:00 | 65% | **26%** | 9% |
+| UP Thu 13 Aug 15:00 | 62% | 5% | **33%** |
+| UP Thu 20 Aug 12:00 | 72% | 1% | **27%** |
+
+**Where the asymmetry came from** ([`vix1_momentum.py:83-100`](../signal_platform/strategies/vix1_momentum.py#L83-L100),
+[`vix1.md:267`](strategies/vix1.md)): a cap on BOTH wicks was shipped 26 Jul on his instruction and
+removed days later, after his own first walked-through trade was refused by it — *"the 1HR first candle
+is not a perfect one but i loved the momentum"*. The 25% is his own 21 Jul number.
+
+**TWO THINGS ARE OPEN, both his to rule on:**
+
+1. **Should both wicks be capped at 25%, on both candles?** That makes VIX.1 STRICTER — the four candles
+   above would be refused — and it reverses his 26 Jul ruling.
+2. **His no-lower-wick rule (15 Sep), still unspecified:** *"if a candle passes body size requirement but
+   has no lower wick but the up wick is so long that disqualifies it, it should not be disqualified
+   because such candles have higher success rate and great momentum."*
+   - **Settled:** both directions; lower wick 0-5% of the candle; the body must still pass the size
+     tests; it applies ONLY at the moment a candle is qualified for a trade (`qualifies_for_trade`).
+   - **Not settled: the upper-wick limit.** He said 30%; today's cap for an UP candle is already 25% of
+     the candle, and a DOWN candle like his picture (70% body, 30% upper wick, no lower wick) already
+     qualifies, so 30% adds almost nothing. **His own example — GBP/USD 10 Aug 17:00 his clock: height
+     26.1p, body 15.5p (59%), upper wick 9.8p (38%), lower 0.8p (3%) — is refused at 30%.** It needs
+     about 40%. Driven through the real `detect_bias` at 40%, it qualifies as a momentum candle and
+     STILL produces no signal: the quiet-market rule refuses that day (*"the market was quiet and has not
+     run yet"*).
+
+**One inconsistency found on the way, not fixed:** the note recording his 26 Jul ruling
+([`vix1_momentum.py:83-95`](../signal_platform/strategies/vix1_momentum.py#L83-L95)) labels a DOWN
+candle's wicks the other way round from the code (`counter_wick`, `:157-159`) and from
+`tests/vix1/test_momentum.py:139-140`. Both wicks on that trade were under 25%, so no verdict changed.
+The WORDING is what is wrong — correct it when this is settled.
+
+**Where to look:** `signal_platform/strategies/vix1_momentum.py` (`counter_wick`, `_held_its_move`,
+`_MAX_CWICK_FRAC`, `_MIN_BODY_FRAC`) and the UNREJECTED row of `docs/strategies/vix1.md`.
+
 ### B24 - ~~A setup VIX.1 called dead left its broker order live, and a withdrawal said nothing~~ FIXED 15 Sep 🔴
 **His answer, 15 Sep,** to "Want me to add a message when a resting order is withdrawn?": *"Yes"*.
 
@@ -1266,8 +1317,10 @@ just wrote, leaving the trade un-journaled for the existing heal to pick up clea
 
 **AND A SAFETY TEST HAD BEEN PERMANENTLY RED.** `autoSyncWiring.test.ts`'s "no silent catch on the
 sync path" check split on `
-`, which on a CRLF file leaves a trailing `` — and in a regex `.` does
-not match ``, so its comment-strip could never reach the end of a line and silently did nothing.
+`, which on a CRLF file leaves a trailing `
+` — and in a regex `.` does
+not match `
+`, so its comment-strip could never reach the end of a line and silently did nothing.
 Every comment QUOTING the old swallowed catch was flagged as live code. **A safety test that always
 fails is one everybody learns to ignore.**
 
