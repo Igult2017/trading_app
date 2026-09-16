@@ -304,11 +304,18 @@ on 2026-08-11 "move protection to EVERY counter-swing" was tried and rejected �
 stability property. **His rule is narrower:** keep watching the ONE level the change of character broke,
 until the new direction has proved itself.
 
-**HIS TO RULE ON BEFORE ANYTHING IS BUILT:**
-1. Does the new trend die the moment price CLOSES back past the broken level (Tue 15 Sep 00:00 here), or
-   only once the move that took it back also pulls back without breaking its own high?
-2. How long does the broken level stay armed — until the new direction prints its own new extreme (a
-   higher high above 1.35135), or for as long as that direction lasts?
+**HIS RULE IN FULL — his own sentence answers it; I asked him twice and he had already said it. Do not
+ask again, build to this:**
+
+1. **The turn dies the moment the pullback CLOSES back past the level the change of character broke.**
+   Here: Tue 15 Sep 00:00, close **1.34942** against the broken **1.34954**. From that close it is no
+   longer the initial change of character.
+2. **A turn the other way is anticipated once BOTH have happened:** the move has gone past that same
+   level (it did, on to a 1.34634 low), and it has then pulled back **without breaking the new move's own
+   respected level** — the high it fell from, **1.35043** (Tue 15 Sep 01:00). The bounces at 10:00, 14:00
+   and 16:00 reached only 1.34793, 1.34890 and 1.34956, so none of them broke it.
+3. **So from Tue 15 Sep 00:00 this market was a SELL**, and the 16:00 BUY bought the pullback of a fresh
+   down move.
 
 **Where to look:** `signal_platform/strategies/vix1_trend.py` (`trend_state`, the CONFIRM branch and the
 CHoCH branch), `vix1_choch.py` (the reversal entry route), `tests/vix1/test_trend.py` (the 4-year
