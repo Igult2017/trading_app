@@ -386,7 +386,7 @@ def trend_state(candles: list[Candle], n: int = _SWING_N, turns=None) -> TrendSt
         # at 10 Sep 17:00 when 1.16289 took back 1.16216, a turn UP was proposed, price closed back under
         # 1.16216 one hour later and fell 30 pips over the next day — and the engine still called it "a
         # turn up is proposed" 25 hours later, so the market had no direction and his sell was refused.
-        if st.pending and st.choch_price is not None:
+        if _ARM_BROKEN_LEVEL and st.pending and st.choch_price is not None:
             if st.pending == 1 and c.close < st.choch_price:
                 st.pending, st.choch_index, st.turn_taken_back = -1, i, True
             elif st.pending == -1 and c.close > st.choch_price:
