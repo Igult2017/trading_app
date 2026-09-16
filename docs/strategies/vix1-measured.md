@@ -194,6 +194,35 @@ since the momentum candle:
 Against median stops of ~3.0p and ~42p, the order rested about **1R** from the market and **3R** at
 the p90.
 
+---
+
+## 7. THE WAIT AFTER A LONG PULLBACK — his claim, checked (2026-09-16, he approved this backtest)
+
+**His claim:** *"most of first momentum candles after pullback are never successful when the pullback
+itself was a long word that took more than 3 candles down."* He asked for it to be built first and
+measured after; both are done.
+
+**METHOD — the SHIPPED code, not a model of it.** `detect_bias` -> `m1_signals` -> the real ladder, over
+one year of real bars per pair (17 Jul 2025 -> 17 Jul 2026), every trade walked MINUTE BY MINUTE on real
+M1 bars with the adverse extreme of each bar taken first. His new rule was switched OFF for the run, so
+the setups it now refuses still appear and can be scored. Take profit 4R, the shipped ladder.
+`scratchpad/wait_backtest.py`, built on `tools/vix1_replay_year.py`.
+
+| group | GBP/USD entries | R | EUR/USD entries | R |
+|---|---|---|---|---|
+| **A** 1-3 candle pullback, first candle (his rule KEEPS) | 209 (20W/31L) | **+4.0** | 188 (18W/21L) | **+3.0** |
+| **B** longer pullback, 1st or 2nd candle (his rule REFUSES) | 13 (3W/4L) | **+2.0** | 22 (1W/5L) | **-4.0** |
+| **C** longer pullback, 3rd candle or later (his rule ALLOWS) | 4 (2W/0L) | **+2.0** | 6 (0W/0L) | **0.0** |
+
+**THE TWO PAIRS DISAGREE.** On EUR/USD his claim holds plainly — one win in six decided trades, -4.0R
+over 22 entries. On GBP/USD it does not: 3 wins to 4 losses and +2.0R over 13 entries. **Both together,
+group B is 35 entries, 4 wins, 9 losses, -2.0R**, so removing it is a small gain on this evidence.
+
+**WHAT THIS IS NOT.** 35 entries is a small sample and group C is only 10 entries across both pairs, most
+of which never filled. The news, session and correlation gates are not applied and the spread is a
+constant. Entries that never filled or timed out count as 0R, which is why wins plus losses do not add up
+to the entry count. **It is not a verdict on VIX.1's win rate.**
+
 ## THE FINDING UNDERNEATH ALL OF IT
 
 **Across every experiment on every instrument, the win rate barely moves — 25% to 34% — whatever the
