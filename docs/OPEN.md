@@ -264,6 +264,56 @@ red self-test that everyone steps around is how a real regression gets missed: t
 break something here will see two failures and assume they are the usual two.
 
 
+### B26 - A change of character stays valid after price takes the broken level back, so VIX.1 buys the pullbacks of the NEW move. 🔴 NEEDS HIS RULING
+
+**His rule, 16 Sep:** *"After the price has broken the protected area in a change of character, when it
+pulls back, the pullback must not drop past the protected area it broke to cause a change of character.
+If that happens, it is no longer the initial change of character and we can anticipate another change of
+character if after the pullback move has gone past the protected area it broke then pulls back without
+breaking the new moves respected zone."* His report: *"another CHOCH had happened and the system was
+buying at the pullback of the new sell move."*
+
+**REPRODUCED on real broker candles (GBP/USD, his clock UTC+3), through the real `detect_bias`:**
+
+| when | what happened |
+|---|---|
+| Mon 14 Sep 14:00 | the downtrend's protecting high forms at **1.34954** |
+| Mon 14 Sep 19:00 | close **1.35047** breaks above it -> change of character PROPOSED (up) |
+| Mon 14 Sep 22:00 | a higher high at 1.35135 confirms it -> **trend flips UP** |
+| **Tue 15 Sep 00:00** | close **1.34942 — back below 1.34954**, three hours after the turn. **By his rule the up turn is dead here.** |
+| Tue 15 Sep 03:00 -> 19:00 | every close stays below it, down to a 1.34634 low |
+| **Tue 15 Sep 16:00** | **BUY signal via the trend route** — bought the bounce inside that fall (signal row `6e53866a`, entry 1.34949, stop 1.34912, still `watching`) |
+
+**WHY THE CODE DOES NOT SEE IT** ([`vix1_trend.py:297-300`](../signal_platform/strategies/vix1_trend.py#L297-L300)):
+the moment an up turn is confirmed, the level it watches JUMPS DOWN to `min(lows[-2:])` — here from
+1.34954 to **1.34635**. From then on only a close below 1.34635 can turn the trend down. **The level
+whose break created the up turn is never read again.** Price closed back below it for 16 hours straight
+and the trend still read UP.
+
+**It missed saving itself by 0.1 pip, by accident:** the Tue 15 Sep 09:00 low was 1.34634, a tenth of a
+pip under the watched level — but a change of character is a body CLOSE (`vix1_trend.py:344-352`) and
+that candle closed 1.34685.
+
+**NOTHING ELSE CATCHES IT.** The "trend has lost its shape" test (lower highs AND lower lows while the
+trend says up) is still computed and printed but refuses nothing ([`vix1_bias.py:369`](../signal_platform/strategies/vix1_bias.py#L369))
+— he removed it 2026-09-13 as an invented third state.
+
+**KNOWN, AND DIFFERENT, SO DO NOT CONFUSE THE TWO** ([`vix1_trend.py:315-322`](../signal_platform/strategies/vix1_trend.py#L315-L322)):
+on 2026-08-11 "move protection to EVERY counter-swing" was tried and rejected — 12 months, trend changes
+10 -> 14 (GBP/USD) and 10 -> 16 (EUR/USD), and `tests/vix1/test_trend.py` failed it on the 4-year
+stability property. **His rule is narrower:** keep watching the ONE level the change of character broke,
+until the new direction has proved itself.
+
+**HIS TO RULE ON BEFORE ANYTHING IS BUILT:**
+1. Does the new trend die the moment price CLOSES back past the broken level (Tue 15 Sep 00:00 here), or
+   only once the move that took it back also pulls back without breaking its own high?
+2. How long does the broken level stay armed — until the new direction prints its own new extreme (a
+   higher high above 1.35135), or for as long as that direction lasts?
+
+**Where to look:** `signal_platform/strategies/vix1_trend.py` (`trend_state`, the CONFIRM branch and the
+CHoCH branch), `vix1_choch.py` (the reversal entry route), `tests/vix1/test_trend.py` (the 4-year
+stability property any change must still pass).
+
 ### B25 - The wick rules: only the wick AGAINST the move is capped, and his no-lower-wick rule is unspecified. NEEDS HIS RULING
 
 **His question, 15 Sep:** *"I thought for both candles both upper and lower wicks are limited to 25%.
