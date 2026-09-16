@@ -364,13 +364,16 @@ def trend_state(candles: list[Candle], n: int = _SWING_N, turns=None) -> TrendSt
             if last_ext is None or (p.price > last_ext if st.direction == 1 else p.price < last_ext):
                 if since:
                     st.protected = min(since) if st.direction == 1 else max(since)
-                    # THE ARMED LEVEL RETIRES once ordinary protection has passed it: from here it could
-                    # never end the trend first, so keeping it would only be state to misread later.
-                    if st.turn_level is not None and (st.protected >= st.turn_level if st.direction == 1
-                                                      else st.protected <= st.turn_level):
-                        st.turn_level = None
                 st.bos_price, st.bos_index = p.price, p.index      # BOS: the trend continues
                 st.breaks += 1
+                # THE ARMED LEVEL IS SPENT. His rule guards the pullback that FOLLOWS a change of
+                # character — *"when it pulls back, the pullback must not drop past the protected area it
+                # broke"*. This is that pullback ending: the trend has pulled back and carried on, so it
+                # is a clean trend now and ordinary protection owns it, exactly as before. Keeping the old
+                # level armed for the trend's whole life is what made clean pullbacks kill good trends
+                # (his 23 Jul sell, his gold 10 Sep sell).
+                if st.turn_level is not None:
+                    st.turn_level = None
                 last_ext, since = p.price, []
 
         if st.direction == 0 and not st.pending:

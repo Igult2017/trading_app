@@ -1,4 +1,4 @@
-"""VIX.1 — a change of character DIES if price takes the broken level back (his rule, 2026-09-16).
+"""VIX.1 — a change of character DIES if its pullback takes the broken level back (his rule, 2026-09-16).
 
 HIS RULE, in his words:
 
@@ -8,15 +8,16 @@ HIS RULE, in his words:
      character if after the pullback move has gone past the protected area it broke then pulls back
      without breaking the new moves respected zone."
 
-THE EVENT HE SENT, and it is what this file pins — GBP/USD, real broker candles, HIS CLOCK (UTC+3):
+AND ITS SCOPE, which is the half I got wrong twice: *"My rule was about CHOCH... I cant see any CHOCH
+here or complex movement here. Just a simple downward trend."* The level guards **the pullback that
+follows the change of character** — nothing else. Once that new trend has pulled back and carried on, it
+is an ordinary trend and its ordinary protection owns it, exactly as before.
 
-    Mon 14 Sep 14:00   the downtrend's protecting high forms at 1.34954
-    Mon 14 Sep 19:00   close 1.35047 breaks it            -> change of character proposed (up)
-    Mon 14 Sep 22:00   a higher high at 1.35135 confirms  -> trend UP, and the watched level jumped
-                                                             DOWN to 1.34635, never reading 1.34954 again
-    Tue 15 Sep 00:00   close 1.34942 — BACK BELOW 1.34954. By his rule the up turn is dead here.
-    Tue 15 Sep 09:00   the fall reaches 1.34634
-    Tue 15 Sep 16:00   VIX.1 BOUGHT — the pullback of the new down move (docs/OPEN.md B26)
+THE EVENT HE SENT — GBP/USD, real broker candles, HIS CLOCK (UTC+3):
+
+    Mon 14 Sep 19:00   a close at 1.35047 breaks 1.34954 -> a turn UP is proposed
+    Tue 15 Sep 00:00   close 1.34942 takes 1.34954 back  -> so that turn is finished, not a new trend
+    Tue 15 Sep 16:00   VIX.1 BOUGHT the pullback of the fall that followed (docs/OPEN.md B26)
 
 Times in the code are UTC (his clock minus 3), because that is what the broker bars carry.
 """
@@ -28,12 +29,11 @@ from strategies import vix1_bias, vix1_trend
 from strategies.vix1_swings import structure_turns
 from strategies.vix1_trend import trend_state
 
-s = Suite("VIX.1 — the level a change of character broke stays armed")
+s = Suite("VIX.1 — the level a change of character broke guards its pullback")
 UTC = dt.timezone.utc
 SYM = "GBP/USD"
-BROKEN = 1.34954          # the downtrend's protecting high, whose break turned the trend up
 
-s.check("the armed level is switched ON", vix1_trend._ARM_BROKEN_LEVEL, True)
+s.check("the rule is switched ON", vix1_trend._ARM_BROKEN_LEVEL, True)
 
 bars = load("GBPUSD_H1_sep16.csv", "H1")
 if not bars:
@@ -43,64 +43,55 @@ else:
         t = int(dt.datetime(2026, 9, day, hour, tzinfo=UTC).timestamp())
         return next((k for k, c in enumerate(bars) if c.time == t), None)
 
-    def state(i):
-        w = bars[max(0, i + 1 - 3000):i + 1][-1500:]
-        return trend_state(w, n=48, turns=structure_turns(w, 48))
-
-    def bias(i, armed=True):
+    def under(armed, fn):
         keep = vix1_trend._ARM_BROKEN_LEVEL
         vix1_trend._ARM_BROKEN_LEVEL = armed
         try:
-            return vix1_bias.detect_bias(bars[max(0, i + 1 - 3000):i + 1], [], SYM)
+            return fn()
         finally:
             vix1_trend._ARM_BROKEN_LEVEL = keep
 
+    def state(i, armed=True):
+        def go():
+            w = bars[max(0, i + 1 - 3000):i + 1][-1500:]
+            return trend_state(w, n=48, turns=structure_turns(w, 48))
+        return under(armed, go)
+
+    def side(i, armed=True):
+        b = under(armed, lambda: vix1_bias.detect_bias(bars[max(0, i + 1 - 3000):i + 1], [], SYM))
+        return None if b is None else ("BUY" if b.bullish else "SELL")
+
     print()
     print("   his event, GBP/USD (labels are his clock, UTC+3):")
-    st = state(at(14, 19))
-    s.check("Mon 14 Sep 22:00 — the trend turned up", st.direction, 1)
-    s.check("...and the level whose break turned it is ARMED", round(st.turn_level or 0, 5), BROKEN)
-    s.check("...while ordinary protection sits far below it", round(st.protected, 5), 1.34635)
-    s.check("...so the level that would end this trend is the armed one", round(st.kill_level, 5), BROKEN)
+    i_turn = at(14, 19)
+    s.check("Mon 14 Sep 22:00 — the market reads DOWN, not up: the turn up never became a trend",
+            state(i_turn).direction, -1)
+    s.check("...and VIX.1 SELLS there", side(i_turn), "SELL")
+    s.check("...where today's code has no signal at all", side(i_turn, armed=False), None)
 
-    i0 = at(14, 21)                                    # his Tue 15 Sep 00:00
-    s.check("Tue 15 Sep 00:00 — that candle closes back below the broken level",
-            round(bars[i0].close, 5) < BROKEN, True)
-    st0 = state(i0)
-    s.check("...so the up trend is over", st0.direction == 1, False)
-    s.check("...a turn DOWN is proposed, off the level that was taken back",
-            (st0.pending, round(st0.choch_price or 0, 5)), (-1, BROKEN))
-    s.check("...and the reason says so", "took back the level" in st0.reason(), True)
+    i_buy = at(15, 13)
+    s.check("Tue 15 Sep 16:00 — the BUY he reported is gone", side(i_buy), None)
+    s.teeth("the rule", side(i_buy, armed=False) == "BUY")
+    s.check("...and the market still reads DOWN at that hour", state(i_buy).direction, -1)
 
-    # HIS TWO-STAGE TURN IS UNTOUCHED: the proposed turn still has to print its own break of structure
-    # before the trend reads DOWN, so for 14 hours there is no direction either way and nothing trades.
-    changing = [h for h in range(0, 11) if state(at(15, h)).direction != 0]
-    s.check("Tue 15 Sep 00:00-13:00 — the trend is CHANGING, with no direction either way", changing, [])
-    s.check("Tue 15 Sep 14:00 — its own lower low confirms it and the trend reads DOWN",
-            state(at(15, 11)).direction, -1)
-    s.check("...named by the level that was taken back and the low that confirmed it",
-            state(at(15, 11)).reason(), "trend turned down by CHoCH at 1.34954, confirmed by BOS at 1.34634")
+    last = len(bars) - 1
+    s.check("still DOWN on the newest bar, with price under the pullback high 1.34956",
+            (state(last).direction, bars[last].close < 1.34956), (-1, True))
 
-    ib = at(15, 13)                                    # his Tue 15 Sep 16:00 — the candle it bought
-    got = bias(ib)
-    s.check("Tue 15 Sep 16:00 — no BUY any more",
-            None if got is None else ("BUY" if got.bullish else "SELL"), None)
-    old = bias(ib, armed=False)
-    s.teeth("the armed level", old is not None and old.bullish)
+    # ── THE LEVEL GUARDS THE PULLBACK, THEN RETIRES ────────────────────────────────────────────────
+    print()
+    print("   the level is armed for the young trend and spent once it has carried on:")
+    young = state(at(4, 8))                                  # his Fri 04 Sep 11:00
+    s.check("Fri 04 Sep 11:00 — an uptrend one leg old still guards the level it broke",
+            (young.direction, round(young.turn_level or 0, 5), round(young.choch_price or 0, 5)),
+            (1, 1.35186, 1.35186))
+    s.check("...so that level, not the pullback low, is what would end it",
+            (round(young.kill_level, 5), round(young.protected, 5)), (1.35186, 1.34734))
 
-    last = state(len(bars) - 1)
-    s.check("and it still reads DOWN on the newest bar, with price under the pullback high",
-            (last.direction, bars[-1].close < 1.34956), (-1, True))
-
-    # ── THE ARMED LEVEL RETIRES ONCE ORDINARY PROTECTION PASSES IT ──────────────────────────────────
-    # A real case from the same instrument: a downtrend that began with a change of character at 1.36199
-    # and has since protected itself at 1.35186, far below it. From there the broken level could never
-    # end the trend first, so it is dropped and the trend is judged the ordinary way.
-    ret = state(at(3, 14))                             # his Thu 03 Sep 17:00
-    s.check("Thu 03 Sep 17:00 — a downtrend that came from a change of character",
-            (ret.direction, round(ret.choch_price or 0, 5)), (-1, 1.36199))
-    s.check("...protection has passed the broken level, so nothing is armed",
-            (round(ret.protected, 5), ret.turn_level), (1.35186, None))
-    s.check("...and the level that ends it is ordinary protection", ret.kill_level, ret.protected)
+    grown = state(last)
+    s.check("Wed 16 Sep 05:00 — a trend that has pulled back and carried on arms nothing",
+            (grown.turn_level, grown.breaks >= 2), (None, True))
+    s.check("...and is judged by its ordinary protection, exactly as before",
+            grown.kill_level, grown.protected)
 
 s.done()
