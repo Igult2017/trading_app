@@ -176,8 +176,9 @@ def _could_trade(h1_closed: list[Candle], bullish: bool,
     # always reads as counter-trend at the moment we ask, and is always silenced.
     #
     # NOTHING IS INVENTED. A change of character is defined ONE way in this codebase — price CLOSES
-    # through the level protecting the trend (`vix1_trend`, the CHoCH branch) — and `protected` is
-    # that level. This asks the same question of the bar in progress, which is legitimate in THIS
+    # through the level that ENDS the trend (`vix1_trend`, the CHoCH branch) — and `kill_level` is that
+    # level: the swing protecting the trend, or the level whose break started it, whichever price reaches
+    # first (his rule, 2026-09-16). This asks the same question of the bar in progress, which is legitimate in THIS
     # module and nowhere else: it is the one place that deliberately reads the forming bar.
     #
     # ASKED OF `vix1_choch.exempts`, NOT HARD-CODED TO ONE SIDE. It opened only for a turn UP because
@@ -185,7 +186,7 @@ def _could_trade(h1_closed: list[Candle], bullish: bool,
     # shut too — announcing that break would promise a trade the entry refuses. A downward break has
     # never had a route here and still has none.
     if (forming_bar is not None and bullish and vix1_choch.exempts(True) and st.direction == -1
-            and st.protected is not None and forming_bar.close > st.protected):
+            and st.kill_level is not None and forming_bar.close > st.kill_level):
         return True
 
     if bullish:

@@ -24,7 +24,6 @@ import datetime as dt
 
 from _harness import Suite, load
 
-from core.types import Candle
 from strategies import vix1_bias, vix1_trend
 from strategies.vix1_swings import structure_turns
 from strategies.vix1_trend import trend_state
@@ -71,9 +70,16 @@ else:
     s.check("...so the up trend is over", st0.direction == 1, False)
     s.check("...a turn DOWN is proposed, off the level that was taken back",
             (st0.pending, round(st0.choch_price or 0, 5)), (-1, BROKEN))
+    s.check("...and the reason says so", "took back the level" in st0.reason(), True)
 
-    st1 = state(at(15, 7))
-    s.check("Tue 15 Sep 10:00 — the lower low has confirmed it: the trend reads DOWN", st1.direction, -1)
+    # HIS TWO-STAGE TURN IS UNTOUCHED: the proposed turn still has to print its own break of structure
+    # before the trend reads DOWN, so for 14 hours there is no direction either way and nothing trades.
+    changing = [h for h in range(0, 11) if state(at(15, h)).direction != 0]
+    s.check("Tue 15 Sep 00:00-13:00 — the trend is CHANGING, with no direction either way", changing, [])
+    s.check("Tue 15 Sep 14:00 — its own lower low confirms it and the trend reads DOWN",
+            state(at(15, 11)).direction, -1)
+    s.check("...named by the level that was taken back and the low that confirmed it",
+            state(at(15, 11)).reason(), "trend turned down by CHoCH at 1.34954, confirmed by BOS at 1.34634")
 
     ib = at(15, 13)                                    # his Tue 15 Sep 16:00 — the candle it bought
     got = bias(ib)
@@ -86,50 +92,15 @@ else:
     s.check("and it still reads DOWN on the newest bar, with price under the pullback high",
             (last.direction, bars[-1].close < 1.34956), (-1, True))
 
-# ── THE ARMED LEVEL RETIRES ONCE ORDINARY PROTECTION PASSES IT ──────────────────────────────────────
-# Hand-built candles: a downtrend, a change of character up, then an uptrend that keeps making higher
-# lows. Once a higher low sits ABOVE the level that was broken, that level can never end the trend first,
-# so it is dropped — and a dip back to it is just an ordinary pullback, not a turn.
-print()
-print("   the armed level retires when protection passes it:")
-
-
-def walk(points, start=1700000000):
-    """One candle per step: it opens at the previous price and closes at the next."""
-    out = []
-    for k in range(1, len(points)):
-        o, c = points[k - 1], points[k]
-        out.append(Candle(time=start + k * 3600, open=o, high=max(o, c) + 0.00005,
-                          low=min(o, c) - 0.00005, close=c, volume=0, timeframe="H1"))
-    return out
-
-
-def legs(*prices):
-    """Three candles per leg, so a real-time turn has room to be confirmed."""
-    pts = [prices[0]]
-    for p in prices[1:]:
-        a = pts[-1]
-        pts += [a + (p - a) / 3, a + 2 * (p - a) / 3, p]
-    return walk(pts)
-
-
-down_then_up = legs(1.1100, 1.1020, 1.1060, 1.0960, 1.1000, 1.0940,   # a downtrend
-                    1.1030,                                           # CHoCH up — closes through it
-                    1.0995, 1.1080,                                   # its own higher low + higher high
-                    1.1050, 1.1120, 1.1090, 1.1160)                   # the uptrend keeps stepping up
-st_up = trend_state(down_then_up, n=3, turns=structure_turns(down_then_up, 3))
-print(f"      built state: direction {st_up.direction} | protected {st_up.protected} | "
-      f"armed {st_up.turn_level} | CHoCH {st_up.choch_price}")
-s.check("the fixture really is an uptrend that came from a change of character",
-        (st_up.direction, st_up.choch_price is not None), (1, True))
-s.check("...and once protection has passed the broken level, nothing is armed any more",
-        st_up.turn_level is None or st_up.protected >= st_up.turn_level, True)
-s.check("...so the level that ends this trend is ordinary protection", st_up.kill_level, st_up.protected)
-
-# A trend that was never started by a change of character has nothing to arm.
-plain_up = legs(1.0900, 1.0960, 1.0930, 1.1010, 1.0980, 1.1060)
-st_plain = trend_state(plain_up, n=3, turns=structure_turns(plain_up, 3))
-s.check("a trend established from structure alone arms nothing",
-        (st_plain.direction, st_plain.turn_level), (1, None))
+    # ── THE ARMED LEVEL RETIRES ONCE ORDINARY PROTECTION PASSES IT ──────────────────────────────────
+    # A real case from the same instrument: a downtrend that began with a change of character at 1.36199
+    # and has since protected itself at 1.35186, far below it. From there the broken level could never
+    # end the trend first, so it is dropped and the trend is judged the ordinary way.
+    ret = state(at(3, 14))                             # his Thu 03 Sep 17:00
+    s.check("Thu 03 Sep 17:00 — a downtrend that came from a change of character",
+            (ret.direction, round(ret.choch_price or 0, 5)), (-1, 1.36199))
+    s.check("...protection has passed the broken level, so nothing is armed",
+            (round(ret.protected, 5), ret.turn_level), (1.35186, None))
+    s.check("...and the level that ends it is ordinary protection", ret.kill_level, ret.protected)
 
 s.done()

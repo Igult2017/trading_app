@@ -79,6 +79,11 @@ class _Pivot:
 _SWING_N  = 3     # generic default; vix1_bias passes its own (48) for the main trend
 _MIN_BARS = 20    # below this there is not enough structure to call anything
 
+# HIS RULE OF 2026-09-16, and the one switch that turns it off — see `TrendState.turn_level`. Named so
+# `tests/vix1/test_choch_taken_back.py` can PROVE this rule is what refuses the 15 Sep BUY, the way
+# `_EXEMPT_UP_TURNS` does for the change-of-character shortcut.
+_ARM_BROKEN_LEVEL = True
+
 
 @dataclass
 class TrendState:
@@ -90,6 +95,22 @@ class TrendState:
     bos_index: int | None = None
     choch_price: float | None = None         # the CHoCH that started the current direction
     choch_index: int | None = None
+    # THE LEVEL WHOSE BREAK STARTED THIS TREND, STILL ARMED (his rule, 2026-09-16):
+    #
+    #   *"After the price has broken the protected area in a change of character, when it pulls back,
+    #    the pullback must not drop past the protected area it broke... If that happens, it is no
+    #    longer the initial change of character."*
+    #
+    # So a trend born of a change of character watches TWO levels: the swing protecting it, and the one
+    # it broke to exist. Whichever a body close reaches FIRST ends it (`kill_level`). It is dropped as
+    # soon as ordinary protection passes it, because from then on it could never fire first. A trend
+    # established from structure alone has nothing armed.
+    #
+    # WITHOUT IT, GBP/USD 14-15 Sep 2026: the up turn confirmed at 1.35135 over a broken 1.34954, price
+    # closed back under 1.34954 three hours later and stayed under it for 16 hours, the trend still read
+    # UP, and VIX.1 BOUGHT the pullback of the new down move (`docs/OPEN.md` B26).
+    turn_level: float | None = None
+    turn_taken_back: bool = False            # the pending turn came from that level being taken back
     breaks: int = 0                          # BOS since this direction began — see `maturity`
     # THE BAR THIS DIRECTION WAS ESTABLISHED ON. Exposed for the retracement tracker, which measures
     # from the trend's best price SINCE THE TREND BEGAN and would otherwise have to replay this whole
@@ -140,11 +161,26 @@ class TrendState:
             return "none"
         return "developed" if self.breaks >= 2 else "developing"
 
+    @property
+    def kill_level(self) -> float | None:
+        """The level a BODY CLOSE must break to END this trend.
+
+        The swing protecting the trend, or the level whose break STARTED it (`turn_level`) — whichever
+        price would reach FIRST. His rule, 2026-09-16: a change of character is dead the moment the
+        pullback takes back the level it broke. With nothing armed this is `protected`, as before.
+        """
+        if self.protected is None or self.turn_level is None or not _ARM_BROKEN_LEVEL:
+            return self.protected
+        return (max(self.protected, self.turn_level) if self.direction == 1
+                else min(self.protected, self.turn_level))
+
     def reason(self, digits: int = 5) -> str:
         """One line naming the event that justifies trading this direction."""
         if self.direction == 0:
-            return "trend changing — a reversal is proposed but not yet confirmed" if self.pending \
-                   else "no established trend"
+            if self.pending:
+                took = " — price took back the level that started the last trend" if self.turn_taken_back else ""
+                return f"trend changing — a reversal is proposed but not yet confirmed{took}"
+            return "no established trend"
         way = "up" if self.direction == 1 else "down"
         if self.choch_price is not None and self.bos_price is not None:
             return (f"trend turned {way} by CHoCH at {self.choch_price:.{digits}f}, "
@@ -291,11 +327,14 @@ def trend_state(candles: list[Candle], n: int = _SWING_N, turns=None) -> TrendSt
             if st.pending and len(st.highs) >= 2 and len(st.lows) >= 2:
                 if st.pending == -1 and not p.is_high and st.lows[-1] < st.lows[-2]:
                     st.direction, st.protected = -1, max(st.highs[-2:])
+                    # THE LEVEL THIS TURN BROKE STAYS ARMED — his rule; see `TrendState.turn_level`.
+                    st.turn_level, st.turn_taken_back = st.choch_price, False
                     st.bos_price, st.bos_index = p.price, p.index
                     st.pending, last_ext, since, st.breaks = 0, p.price, [], 1
                     st.direction_since = p.index
                 elif st.pending == 1 and p.is_high and st.highs[-1] > st.highs[-2]:
                     st.direction, st.protected = 1, min(st.lows[-2:])
+                    st.turn_level, st.turn_taken_back = st.choch_price, False
                     st.bos_price, st.bos_index = p.price, p.index
                     st.pending, last_ext, since, st.breaks = 0, p.price, [], 1
                     st.direction_since = p.index
@@ -325,6 +364,11 @@ def trend_state(candles: list[Candle], n: int = _SWING_N, turns=None) -> TrendSt
             if last_ext is None or (p.price > last_ext if st.direction == 1 else p.price < last_ext):
                 if since:
                     st.protected = min(since) if st.direction == 1 else max(since)
+                    # THE ARMED LEVEL RETIRES once ordinary protection has passed it: from here it could
+                    # never end the trend first, so keeping it would only be state to misread later.
+                    if st.turn_level is not None and (st.protected >= st.turn_level if st.direction == 1
+                                                      else st.protected <= st.turn_level):
+                        st.turn_level = None
                 st.bos_price, st.bos_index = p.price, p.index      # BOS: the trend continues
                 st.breaks += 1
                 last_ext, since = p.price, []
@@ -337,19 +381,29 @@ def trend_state(candles: list[Candle], n: int = _SWING_N, turns=None) -> TrendSt
                 # establishment rule and the BOS reference in one go would make any measured
                 # difference unattributable.
                 st.direction, st.protected = started
+                # Established from structure, not from a change of character: there is nothing to arm.
+                st.turn_level, st.turn_taken_back = None, False
                 last_ext, since = st.protected, []
                 st.breaks, st.direction_since = 1, last_pi
         elif st.direction != 0 and st.protected is not None:
             # CHoCH — PROPOSE the reversal. The trend does not turn until that direction confirms.
-            if st.direction == 1 and c.close < st.protected:
+            #
+            # TWO LEVELS CAN DO IT AND THE NEARER ONE WINS (his rule, 2026-09-16): the swing protecting
+            # the trend, and the level whose break STARTED it. `kill_level` picks whichever price would
+            # reach first; with nothing armed it is `protected`, exactly as before.
+            level = st.kill_level
+            took_back = st.turn_level is not None and level == st.turn_level
+            if st.direction == 1 and c.close < level:
                 st.pending, st.direction = -1, 0
-                st.choch_price, st.choch_index = st.protected, i
+                st.choch_price, st.choch_index = level, i
                 st.protected, last_ext, since, st.breaks = None, None, [], 0
+                st.turn_level, st.turn_taken_back = None, took_back
                 st.direction_since = None      # no direction, so nothing to measure a leg from
-            elif st.direction == -1 and c.close > st.protected:
+            elif st.direction == -1 and c.close > level:
                 st.pending, st.direction = 1, 0
-                st.choch_price, st.choch_index = st.protected, i
+                st.choch_price, st.choch_index = level, i
                 st.protected, last_ext, since, st.breaks = None, None, [], 0
+                st.turn_level, st.turn_taken_back = None, took_back
                 st.direction_since = None
 
     # THE SHAPE IS READ LAST, off the finished state, so it always describes the trend that is being

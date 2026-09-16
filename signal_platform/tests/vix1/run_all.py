@@ -64,6 +64,9 @@ TESTS = [
     # SECOND time this list has silently lost a file (see test_choch.py above). Between them they
     # hold his three most recent rulings, so the sweep was green while none of them was being asked.
     "test_choch_bearish_proof.py",  # 25 Aug: a turn DOWN must run, pull back and turn back down
+    # ADDED 2026-09-16. His rule: a change of character is dead once the pullback takes back the level
+    # it broke. Pinned on the GBP/USD 14-16 Sep event where VIX.1 bought the pullback of a new sell move.
+    "test_choch_taken_back.py",     # the level a change of character broke stays armed
     "test_preclose_bearish_hold.py",# 26 Aug: hold the notification until that turn has proved itself
     "test_preclose_needs_a_route.py",# the notification may only speak when a route exists to trade
     # Found by the guard below the moment it was added — a FIFTH file nobody had noticed was unrun.
