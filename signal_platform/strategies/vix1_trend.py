@@ -373,25 +373,6 @@ def trend_state(candles: list[Candle], n: int = _SWING_N, turns=None) -> TrendSt
                 st.breaks += 1
                 last_ext, since = p.price, []
 
-        # THE PROPOSAL ITSELF CAN FAIL, AND THEN THE OTHER SIDE IS ANTICIPATED — his rule, 2026-09-16:
-        #
-        #   *"we can anticipate another change of character if after the pullback move has gone past the
-        #    protected area it broke then pulls back without breaking the new moves respected zone."*
-        #
-        # A change of character PROPOSES a turn; until it confirms, the market has no direction. If price
-        # closes back through that same zone the other way, the proposal is finished and the turn the
-        # other way is what is now anticipated. It keeps the same level, because it is the same zone.
-        #
-        # WITHOUT THIS HALF, his own EUR/USD sell of 11 Sep 18:00 (his clock) is lost: the downtrend died
-        # at 10 Sep 17:00 when 1.16289 took back 1.16216, a turn UP was proposed, price closed back under
-        # 1.16216 one hour later and fell 30 pips over the next day — and the engine still called it "a
-        # turn up is proposed" 25 hours later, so the market had no direction and his sell was refused.
-        if _ARM_BROKEN_LEVEL and st.pending and st.choch_price is not None:
-            if st.pending == 1 and c.close < st.choch_price:
-                st.pending, st.choch_index, st.turn_taken_back = -1, i, True
-            elif st.pending == -1 and c.close > st.choch_price:
-                st.pending, st.choch_index, st.turn_taken_back = 1, i, True
-
         if st.direction == 0 and not st.pending:
             started = _establish(seq)
             if started:
@@ -412,18 +393,22 @@ def trend_state(candles: list[Candle], n: int = _SWING_N, turns=None) -> TrendSt
             # reach first; with nothing armed it is `protected`, exactly as before.
             level = st.kill_level
             took_back = st.turn_level is not None and level == st.turn_level
-            if st.direction == 1 and c.close < level:
-                st.pending, st.direction = -1, 0
+            if (st.direction == 1 and c.close < level) or (st.direction == -1 and c.close > level):
+                # THE ORDINARY CHANGE OF CHARACTER PROPOSES THE OTHER SIDE, and the two-stage confirm
+                # then waits for that side to break structure. Unchanged, and his since 11 Aug.
+                #
+                # THE LEVEL THAT STARTED THIS TREND BEING TAKEN BACK IS NOT THAT (his rule, 16 Sep): the
+                # trend is simply OVER — *"it is no longer the initial change of character"* — and a turn
+                # the other way is anticipated only once the market builds it: *"after the pullback move
+                # has gone past the protected area it broke then pulls back without breaking the new
+                # moves respected zone"*, which is `_establish`'s three points. So nothing is proposed
+                # here; the structure decides what comes next.
+                st.pending = 0 if took_back else (-1 if st.direction == 1 else 1)
+                st.direction = 0
                 st.choch_price, st.choch_index = level, i
                 st.protected, last_ext, since, st.breaks = None, None, [], 0
                 st.turn_level, st.turn_taken_back = None, took_back
                 st.direction_since = None      # no direction, so nothing to measure a leg from
-            elif st.direction == -1 and c.close > level:
-                st.pending, st.direction = 1, 0
-                st.choch_price, st.choch_index = level, i
-                st.protected, last_ext, since, st.breaks = None, None, [], 0
-                st.turn_level, st.turn_taken_back = None, took_back
-                st.direction_since = None
 
     # THE SHAPE IS READ LAST, off the finished state, so it always describes the trend that is being
     # returned rather than some intermediate one. It decides nothing here — it is a property the
