@@ -246,6 +246,18 @@ the same day was caused by exactly that kind of process-local state.
 **This stacks with one-signal-at-a-time; neither replaces the other.** That rule is per
 instrument+direction and is enforced in the database; this one is per instrument.
 
+### The wait after a long pullback (2026-09-16)
+
+`vix1_retracement.wait_after_pullback(candles, direction)` refuses a setup when the pullback ran **more
+than three candles** and the momentum candle is only the **first or second** candle after it. A pullback
+of one to three candles is untouched.
+
+- His rule: *"we take trade from the 3rd candle and above... unless the pullback was made of 1-3 candles."*
+- **One pullback logic:** the count comes from `since_pullback`, which walks the candles exactly as
+  `measure` does (trend-way or not, a doji counts as part of the pullback).
+- Asked at the entry (`vix1_bias`) on `at_mc` — the window truncated at the momentum candle — so it is
+  judged at the same moment as every other check there.
+
 ### The trend, and the level a change of character broke (2026-09-16)
 
 A trend born of a change of character watches **two** levels: the swing protecting it, and **the level it

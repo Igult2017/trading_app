@@ -67,6 +67,9 @@ TESTS = [
     # ADDED 2026-09-16. His rule: a change of character is dead once the pullback takes back the level
     # it broke. Pinned on the GBP/USD 14-16 Sep event where VIX.1 bought the pullback of a new sell move.
     "test_choch_taken_back.py",     # the level a change of character broke stays armed
+    # ADDED 2026-09-16. His rule: after a pullback longer than three candles the trade comes from the
+    # third candle after it, not from the first momentum candle off that pullback.
+    "test_pullback_wait.py",        # the wait after a long pullback
     "test_preclose_bearish_hold.py",# 26 Aug: hold the notification until that turn has proved itself
     "test_preclose_needs_a_route.py",# the notification may only speak when a route exists to trade
     # Found by the guard below the moment it was added — a FIFTH file nobody had noticed was unrun.

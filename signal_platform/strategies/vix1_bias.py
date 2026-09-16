@@ -409,7 +409,11 @@ def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "", debut=None
         # causal moment every other check on this path uses. Passing it here is the 2026-09-13 fix:
         # the pullback question now has exactly one owner (`vix1_retracement`) instead of two
         # answers that could disagree — and did, on his 11 Sep EUR/USD sell.
+        # HIS RULE, 2026-09-16: the first momentum candle off a pullback LONGER than three candles is
+        # not traded — the trade comes from the third candle after it. Asked of `at_mc`, the window
+        # truncated at the momentum candle, so it is the same causal moment as every other check here.
         for veto in (trend_reproven(mstate, turns_mc, ret),
+                     vix1_retracement.wait_after_pullback(at_mc, 1 if bullish else -1),
                      market_awake(awake_window, mstate, ret, symbol, _QUIET_LOOK)):
             if veto:
                 vix1_log.say(symbol, f"[vix1] {symbol} bias=NONE: {veto} | {state_mc}")

@@ -194,6 +194,55 @@ def measure(candles: list[Candle], direction: int, since: int | None = None) -> 
                        extreme=best, extreme_index=start + off)
 
 
+# ── HOW LONG SINCE THE PULLBACK ENDED (his rule, 2026-09-16) ─────────────────────────────────────────
+_SHORT_PULLBACK = 3     # a pullback of this many candles or fewer is SHORT: its first momentum candle trades
+_WAIT_CANDLES   = 3     # after a longer one, the trade may only come from this candle onward
+
+
+def since_pullback(candles: list[Candle], direction: int) -> tuple[int, int]:
+    """(candles since the last pullback ended, how long that pullback ran).
+
+    1 = the candle right after the pullback, so a momentum candle that ENDS a pullback reads 1. Counted
+    exactly the way `measure` counts — trend-way or not, a doji counting as part of the pullback — so
+    there is still one pullback logic and not two answers that can disagree. (0, 0) = no pullback in the
+    window at all.
+    """
+    if direction == 0 or not candles:
+        return 0, 0
+    trend_way = is_bullish if direction == 1 else is_bearish
+    i = len(candles) - 1
+    after = 0
+    while i >= 0 and trend_way(candles[i]):
+        after += 1
+        i -= 1
+    bars = 0
+    while i >= 0 and not trend_way(candles[i]):
+        bars += 1
+        i -= 1
+    return after, bars
+
+
+def wait_after_pullback(candles: list[Candle], direction: int) -> str | None:
+    """HIS RULE, 2026-09-16, in his words:
+
+        "after the pullback, we take trade from the 3rd candle and above if it is the momentum candle.
+         We no longer take trade from the first candle (if its a momentum candle) after pullback unless
+         the pullback was made of 1-3 candles. I realized most of first momentum candles after pullback
+         are never successful when the pullback itself was a long word that took more than 3 candles
+         down."
+
+    So: a pullback of ONE TO THREE candles is unchanged — its first momentum candle still trades. After a
+    LONGER pullback the first two candles are refused and the trade comes from the third onward.
+
+    Returns the refusal in his words, or None when there is nothing to wait for.
+    """
+    after, bars = since_pullback(candles, direction)
+    if bars <= _SHORT_PULLBACK or after >= _WAIT_CANDLES:
+        return None
+    return (f"the pullback ran {bars} candles and this is only candle {after} after it — after a pullback "
+            f"longer than {_SHORT_PULLBACK} candles the trade comes from the {_WAIT_CANDLES}rd candle on")
+
+
 def swings(candles: list[Candle], direction: int, since: int | None) -> tuple[list[float], list[float]]:
     """The trend's highs and lows, marked where a PULLBACK says a leg ended.
 
