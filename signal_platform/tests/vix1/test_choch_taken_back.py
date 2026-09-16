@@ -66,8 +66,16 @@ else:
     i_turn = at(14, 19)
     s.check("Mon 14 Sep 22:00 — the market reads DOWN, not up: the turn up never became a trend",
             state(i_turn).direction, -1)
-    s.check("...and VIX.1 SELLS there", side(i_turn), "SELL")
-    s.check("...where today's code has no signal at all", side(i_turn, armed=False), None)
+    # THE SELL THAT DIRECTION WOULD ALLOW IS HELD BACK BY HIS OTHER RULE OF THE SAME DAY: the pullback
+    # before that candle ran FIVE candles and the candle is the FIRST after it, so the trade waits for
+    # the third (`vix1_retracement.wait_after_pullback`). With both of his rules live this market
+    # produces nothing at all — the wrong BUY is gone and the SELL waits.
+    from strategies import vix1_retracement                          # noqa: E402
+    _w = bars[max(0, i_turn + 1 - 3000):i_turn + 1][-1500:]
+    s.check("...the pullback before that candle ran 5 candles, and it is the 1st candle after it",
+            vix1_retracement.since_pullback(_w, -1), (1, 5))
+    s.check("...so his pullback rule holds the SELL back", side(i_turn), None)
+    s.check("...and today's code has no signal there either", side(i_turn, armed=False), None)
 
     i_buy = at(15, 13)
     s.check("Tue 15 Sep 16:00 — the BUY he reported is gone", side(i_buy), None)
