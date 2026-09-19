@@ -78,6 +78,8 @@ async def opening_stop(position_id: int, bullish: bool) -> tuple[bool, float | N
                                               positionId=int(position_id))
         resp = await _ask(req, _TYPE_ORDERS)
         if resp.payloadType != _TYPE_ORDERS:
+            log.warning(f"[ctrader_orders] position {position_id}: the broker answered "
+                        f"{_sess._describe_resp(resp)} instead of its order list")
             return False, None
         res = ProtoOAOrderListByPositionIdRes()
         res.ParseFromString(resp.payload)
@@ -108,6 +110,8 @@ async def fill_for_order(order_id: str, lookback_days: int = 14) -> tuple[bool, 
                                      toTimestamp=min(frm + _WEEK_MS, now_ms), maxRows=1000)
             resp = await _ask(req, _TYPE_DEALS)
             if resp.payloadType != _TYPE_DEALS:
+                log.warning(f"[ctrader_orders] order {order_id}: the broker answered "
+                            f"{_sess._describe_resp(resp)} instead of the deal list")
                 return False, None
             res = ProtoOADealListRes()
             res.ParseFromString(resp.payload)

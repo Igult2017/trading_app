@@ -71,7 +71,7 @@ def recheck_once_soon() -> None:
 async def recheck_withdrawn(days: int = 14) -> int:
     """Boot pass: every order recorded as withdrawn in the last `days` is asked about again, and any
     that really FILLED is corrected. Returns how many were corrected. Never raises."""
-    corrected = 0
+    corrected = unreadable = 0
     try:
         rows = autotrade_repo.cancelled_since(days)
     except Exception as exc:
@@ -80,6 +80,7 @@ async def recheck_withdrawn(days: int = 14) -> int:
     for order_id in rows:
         try:
             asked, fill = await ctrader_orders.fill_for_order(str(order_id), lookback_days=days)
+            unreadable += 0 if asked else 1
             if asked and fill is not None:
                 at = datetime.fromtimestamp(fill.filled_at_ms / 1000, timezone.utc)
                 autotrade_repo.record_filled(str(order_id), fill.price, at)
@@ -87,5 +88,10 @@ async def recheck_withdrawn(days: int = 14) -> int:
                 log.info(f"[order_fate] order {order_id} was recorded as WITHDRAWN but FILLED at "
                          f"{fill.price} ({at:%d %b %H:%M:%S} UTC) — corrected")
         except Exception as exc:
+            unreadable += 1
             log.warning(f"[order_fate] could not recheck order {order_id}: {type(exc).__name__}: {exc}")
+    # ALWAYS SAY WHAT IT DID — a silent pass cannot be told apart from one that never ran.
+    log.info(f"[order_fate] re-checked {len(rows)} order(s) recorded as withdrawn in the last {days} "
+             f"days: {corrected} had really FILLED and were corrected, {unreadable} could not be read "
+             f"(ids: {', '.join(map(str, rows)) or 'none'})")
     return corrected
