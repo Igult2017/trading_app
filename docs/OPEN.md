@@ -307,9 +307,13 @@ never seen; the order lives until price touches the stop a second time. **Not fi
 **FIXED 19 Sep 2026.** "Order not found" no longer means cancelled: `execution/order_fate.py` asks the
 broker's deal list (`data/ctrader_orders.fill_for_order`, verified live: 361154082 filled 1.34548 at
 15:03:17.525; the truly withdrawn 361459132 -> no fill) and records FILLED when it filled; an unreadable
-deal list writes nothing. Once per process, orders recorded as withdrawn in the last 14 days are
-re-checked, which corrects the 16 Sep row. `test_order_cancel.py` (38 checks). Still unchecked: whether
-that -$125 reached his journal — he checks it on the screen after deploy. Original finding below.
+deal list writes nothing. Orders recorded as withdrawn in the last 14 days are re-checked from ONE read of
+the deal list, paced with the candle fetch, retried every 5 minutes until read. **VERIFIED IN PRODUCTION,
+19 Sep 17:56 UTC:** *"order 361154082 was recorded as WITHDRAWN but FILLED at 1.34548 (16 Sep 12:03:17
+UTC) — corrected"*; the other 4 left alone. (The first live run, unpaced and one read per order, was
+rate limited on 3 of 5 — `BLOCKED_PAYLOAD_TYPE` — and never retried; fixed in the next deploy.)
+`test_order_cancel.py` (38), `test_withdrawal_notice.py` (39). Still unchecked: whether that -$125 reached
+his journal. Original finding below.
 
 The 16 Sep GBP/USD sell (order 361154082) FILLED at 15:03:17 and was stopped at 15:03:18 for -$125.
 His autotrade screen shows it as **"Withdrawn"**. A fill is only noticed by seeing the position OPEN in
