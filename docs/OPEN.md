@@ -264,6 +264,56 @@ red self-test that everyone steps around is how a real regression gets missed: t
 break something here will see two failures and assume they are the usual two.
 
 
+### B27 - Once the stop reaches breakeven, the profit ladder is dead: no +1R lock, no trailing. 🔴 Verified 19 Sep
+
+**His report, 19 Sep:** *"When i checked two of the trades which one was a loss and one a breakeven
+were not supposed to be loss and breakeven. They were wins."*
+
+**The trade:** EUR/USD sell, position 242362800, filled Fri 18 Sep 14:16:04 (his clock) at 1.14693,
+stop 1.14746. The chart price ran to **1.14546 = 2.85R** at 15:26 (about 2.6R on the buy price). The
+broker closed it at **1.14693 at 15:56:56 — 0R**. The broker's own record shows the closing stop
+sat at 1.14693, so breakeven fired and nothing after it did. His ladder (`monitor/rungs.py`):
+breakeven at 0.4R, lock +1R at 1.5R, trail 0.1R behind from 2.1R. With it working the stop would
+have been near +2.5R when price turned.
+
+**Root cause:** R is measured against the stop AS IT IS NOW, not the stop the trade opened with —
+`risk = abs(self.entry - self.stop)` ([`data/ctrader_positions.py:84-86`](../signal_platform/data/ctrader_positions.py#L84-L86)).
+After breakeven the stop IS the entry (commission is 0 on this account, so `breakeven()` returns the
+fill exactly), risk is 0, `r_at` returns None, and both stop-movers stop there:
+[`monitor/trade_watcher.py:241-243`](../signal_platform/monitor/trade_watcher.py#L241-L243) and
+[`monitor/position_tracker.py:336-338`](../signal_platform/monitor/position_tracker.py#L336-L338).
+**Proved through the real function:** `Position(entry=1.14693, stop=1.14746).r_at(1.14556)` = 2.58;
+with `stop=1.14693` it is None at every price. After a +1R lock the same formula would also measure
+from the wrong stop. `tools/replay_ladder.py` holds a FIXED risk, which is why the replays never
+showed this. Chart: `Desktop\VIX1 entries 14-18 Sep\4 ...BREAKEVEN.png`.
+
+### B28 - A SELL's stop is set on the chart price but the broker fires it on the buy price. Verified 19 Sep
+
+**The trade:** EUR/USD sell, position 242203419, filled Thu 17 Sep 19:06:14 (his clock) at 1.14758,
+stop 1.14786 (2.7 pips). The broker bought it back at **1.14786 at 19:14:48**; the highest chart
+(sell) price in that minute was **1.14777** — the chart never touched the stop. The platform's own
+record says the stop was hit at **22:26**, the time the CHART price got there.
+
+**Where:** a sell's stop is `anchor + gap` on bid candles ([`strategies/vix1_entry.py:141-143`](../signal_platform/strategies/vix1_entry.py#L141-L143)),
+passed through unchanged by `vix1.py` and sent to the broker as-is (the broker's order held exactly
+the signal's stop). The spread is added to a BUY's entry (`vix1_cross.decide`) and to the minimum stop
+distance, never to a sell's stop. Measured gaps at the moment of four real broker executions:
+0.8 to 1.1 pips, against stops of 2.5 to 5.2 pips. **Also:** `signal_monitor` scores every signal on
+bid candles ([`monitor/signal_monitor.py:189`](../signal_platform/monitor/signal_monitor.py#L189)), so
+its record disagrees with the broker. The 15 Sep GBP/USD buy (position 241723106) filled on the buy
+price while the chart price never reached its entry, and that signal is gone from the list. Charts:
+`Desktop\VIX1 entries 14-18 Sep\`. **Not fixed — a change to his entry/stop needs his decision.**
+
+**The same split decides his ladder, and it cost this trade its breakeven.** His words, 19 Sep: *"this
+was not supposed to be a loss. The worst case was a breakeven."* 0.4R from the fill is **1.14746**;
+the chart price reached 1.14745 at 19:09 and 1.14744 (0.5R) at 19:10. Both stop-movers measure a
+sell's progress on the ASK ([`position_tracker.py:156-163`](../signal_platform/monitor/position_tracker.py#L156-L163),
+[`trade_watcher.py:196`](../signal_platform/monitor/trade_watcher.py#L196)), which only reaches 0.4R if
+the gap was 0.2 pip or less; it measured 0.8-1.1 at every broker execution we have. So breakeven never
+fired. **Which price his ladder is measured on for a sell is HIS call — asked 19 Sep, not yet answered.**
+Also confirmed from his autotrade screen: the 16 Sep GBP/USD sell order was WITHDRAWN because its
+signal had died, but *"the broker no longer had it"* — it had already filled and stopped out.
+
 ### B26 - ~~A change of character stays valid after price takes the broken level back, so VIX.1 buys the pullbacks of the NEW move~~ FIXED 16 Sep 🔴
 
 **FIXED 2026-09-16** — `vix1_trend.TrendState.turn_level` / `kill_level`, switch `_ARM_BROKEN_LEVEL`, and
