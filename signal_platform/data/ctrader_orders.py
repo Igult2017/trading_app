@@ -32,6 +32,7 @@ from ctrader_open_api.messages.OpenApiMessages_pb2 import (
     ProtoOAOrderListByPositionIdReq, ProtoOAOrderListByPositionIdRes,
 )
 
+from data import ctrader_client as _cc
 from data import ctrader_session as _sess
 from data.ctrader_client import _req_lock
 
@@ -46,6 +47,14 @@ _WEEK_MS = 7 * 24 * 3600 * 1000   # the deal list is asked for one week at a tim
 
 async def _ask(req, want: int):
     async with _req_lock:
+        # PACED WITH THE CANDLE FETCH — the same socket and the same ~5 requests/second cap, so the
+        # same clock (`ctrader_client._last_req`). Unpaced, the first production run (19 Sep 17:48)
+        # sent its deal-list requests back to back and 3 of 5 came back BLOCKED_PAYLOAD_TYPE "You
+        # are being rate limited".
+        gap = _cc._MIN_REQ_GAP - (time.monotonic() - _cc._last_req)
+        if gap > 0:
+            await asyncio.sleep(gap)
+        _cc._last_req = time.monotonic()
         reader, writer = await _sess.get_connection()
         await _sess.send(writer, req.payloadType, req.SerializeToString())
         return await asyncio.wait_for(_sess.recv_expect(reader, want), timeout=15)
@@ -98,11 +107,14 @@ class Fill:
     filled_at_ms: int
 
 
-async def fill_for_order(order_id: str, lookback_days: int = 14) -> tuple[bool, Fill | None]:
-    """(asked, fill). The deal that FILLED this order, or (True, None) if the broker has none.
-    `asked` False = could not read the broker; the caller must not conclude anything from it."""
+async def fills_for_orders(order_ids, lookback_days: int = 14) -> tuple[bool, dict[str, Fill]]:
+    """(asked, {order id: the deal that FILLED it}) for many orders from ONE read of the deal list.
+    An order missing from the dict never filled. `asked` False = could not read the broker; the
+    caller must conclude nothing. One read per call, however many orders — the first version read the
+    whole list again for every order and was rate limited."""
+    wanted = {str(o) for o in order_ids}
     now_ms = int(time.time() * 1000)
-    found: list = []
+    found: dict[str, list] = {}
     try:
         start = now_ms - lookback_days * 24 * 3600 * 1000
         for frm in range(start, now_ms, _WEEK_MS):
@@ -110,19 +122,25 @@ async def fill_for_order(order_id: str, lookback_days: int = 14) -> tuple[bool, 
                                      toTimestamp=min(frm + _WEEK_MS, now_ms), maxRows=1000)
             resp = await _ask(req, _TYPE_DEALS)
             if resp.payloadType != _TYPE_DEALS:
-                log.warning(f"[ctrader_orders] order {order_id}: the broker answered "
-                            f"{_sess._describe_resp(resp)} instead of the deal list")
-                return False, None
+                log.warning(f"[ctrader_orders] the broker answered {_sess._describe_resp(resp)} "
+                            f"instead of the deal list (orders {', '.join(sorted(wanted))})")
+                return False, {}
             res = ProtoOADealListRes()
             res.ParseFromString(resp.payload)
-            found += [d for d in res.deal
-                      if str(d.orderId) == str(order_id) and int(d.dealStatus) in _FILLED]
+            for d in res.deal:
+                if str(d.orderId) in wanted and int(d.dealStatus) in _FILLED:
+                    found.setdefault(str(d.orderId), []).append(d)
     except Exception as exc:
-        log.warning(f"[ctrader_orders] could not read the deals for order {order_id}: "
-                    f"{type(exc).__name__}: {exc}")
-        return False, None
-    if not found:
-        return True, None
-    d = min(found, key=lambda x: int(x.executionTimestamp or 0))
-    return True, Fill(str(order_id), int(d.positionId), float(d.executionPrice),
-                      int(d.executionTimestamp))
+        log.warning(f"[ctrader_orders] could not read the deal list: {type(exc).__name__}: {exc}")
+        return False, {}
+    out = {}
+    for oid, deals in found.items():
+        d = min(deals, key=lambda x: int(x.executionTimestamp or 0))
+        out[oid] = Fill(oid, int(d.positionId), float(d.executionPrice), int(d.executionTimestamp))
+    return True, out
+
+
+async def fill_for_order(order_id: str, lookback_days: int = 14) -> tuple[bool, Fill | None]:
+    """(asked, fill) for one order. See `fills_for_orders`."""
+    asked, fills = await fills_for_orders([order_id], lookback_days)
+    return asked, fills.get(str(order_id))

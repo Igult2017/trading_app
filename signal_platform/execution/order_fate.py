@@ -16,6 +16,7 @@ the next sweep asks again. Writing "cancelled" on a failed read is exactly how t
 """
 import asyncio
 import logging
+import time
 from datetime import datetime, timezone
 
 from data import ctrader_orders
@@ -54,44 +55,64 @@ async def settle_missing(order_id: str, signal_id: str | None, symbol: str, why:
 _rechecked = False
 
 
+_RETRY_S = 300.0          # an unreadable broker is asked again this long after
+_next_try = 0.0
+
+
 def recheck_once_soon() -> None:
-    """Start `recheck_withdrawn` ONCE per process, in the background. Called from the monitor's poll,
-    not at boot: the broker connection it needs is only up once the platform is serving."""
-    global _rechecked
-    if _rechecked:
+    """Start `recheck_withdrawn` in the background until it has READ the broker once per process.
+    Called from the monitor's poll, not at boot: the broker connection is only up once the platform is
+    serving. An unreadable broker is retried every `_RETRY_S` rather than giving up — the first
+    production run (19 Sep 17:48) was rate limited on 3 of 5 orders and would otherwise never retry."""
+    global _rechecked, _next_try
+    if _rechecked or time.monotonic() < _next_try:
         return
     try:
         loop = asyncio.get_running_loop()
     except RuntimeError:
         return
-    _rechecked = True
-    loop.create_task(recheck_withdrawn())
+    _next_try = time.monotonic() + _RETRY_S
+
+    async def _run():
+        global _rechecked
+        if await recheck_withdrawn() is not None:
+            _rechecked = True
+
+    loop.create_task(_run())
 
 
-async def recheck_withdrawn(days: int = 14) -> int:
-    """Boot pass: every order recorded as withdrawn in the last `days` is asked about again, and any
-    that really FILLED is corrected. Returns how many were corrected. Never raises."""
-    corrected = unreadable = 0
+async def recheck_withdrawn(days: int = 14) -> int | None:
+    """Every order recorded as withdrawn in the last `days` is asked about again, from ONE read of the
+    broker's deal list, and any that really FILLED is corrected. Returns how many were corrected, or
+    None if the broker could not be read (the caller retries). Never raises."""
     try:
         rows = autotrade_repo.cancelled_since(days)
     except Exception as exc:
         log.warning(f"[order_fate] could not list withdrawn orders: {type(exc).__name__}: {exc}")
+        return None
+    if not rows:
+        log.info(f"[order_fate] no order recorded as withdrawn in the last {days} days — nothing to recheck")
         return 0
+    asked, fills = await ctrader_orders.fills_for_orders(rows, lookback_days=days)
+    if not asked:
+        log.warning(f"[order_fate] could not read the deal list to recheck {len(rows)} withdrawn "
+                    f"order(s) — trying again in {_RETRY_S / 60:.0f} minutes")
+        return None
+    corrected = 0
     for order_id in rows:
+        fill = fills.get(str(order_id))
+        if fill is None:
+            continue
         try:
-            asked, fill = await ctrader_orders.fill_for_order(str(order_id), lookback_days=days)
-            unreadable += 0 if asked else 1
-            if asked and fill is not None:
-                at = datetime.fromtimestamp(fill.filled_at_ms / 1000, timezone.utc)
-                autotrade_repo.record_filled(str(order_id), fill.price, at)
-                corrected += 1
-                log.info(f"[order_fate] order {order_id} was recorded as WITHDRAWN but FILLED at "
-                         f"{fill.price} ({at:%d %b %H:%M:%S} UTC) — corrected")
+            at = datetime.fromtimestamp(fill.filled_at_ms / 1000, timezone.utc)
+            autotrade_repo.record_filled(str(order_id), fill.price, at)
+            corrected += 1
+            log.info(f"[order_fate] order {order_id} was recorded as WITHDRAWN but FILLED at "
+                     f"{fill.price} ({at:%d %b %H:%M:%S} UTC) — corrected")
         except Exception as exc:
-            unreadable += 1
-            log.warning(f"[order_fate] could not recheck order {order_id}: {type(exc).__name__}: {exc}")
+            log.warning(f"[order_fate] could not correct order {order_id}: {type(exc).__name__}: {exc}")
     # ALWAYS SAY WHAT IT DID — a silent pass cannot be told apart from one that never ran.
     log.info(f"[order_fate] re-checked {len(rows)} order(s) recorded as withdrawn in the last {days} "
-             f"days: {corrected} had really FILLED and were corrected, {unreadable} could not be read "
-             f"(ids: {', '.join(map(str, rows)) or 'none'})")
+             f"days: {corrected} had really FILLED and were corrected "
+             f"(ids: {', '.join(map(str, rows))})")
     return corrected
