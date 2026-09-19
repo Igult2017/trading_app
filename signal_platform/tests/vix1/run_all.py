@@ -117,6 +117,10 @@ TESTS = [
     # ADDED 2026-09-19 (docs/OPEN.md B30). 7 of 11 VIX.1 orders were sent after price had already
     # gone past their own stop, then withdrawn. The entry now checks its stop, not only its entry.
     "test_entry_stop_already_hit.py",  # 8 real orders: 4 dead refused, 4 clean unchanged
+    # ADDED 2026-09-20 on his ask — *"we dont need the market to know its working. We can test it with
+    # data we have"*. Drives the REAL poll, amend path and safety check over the broker's own ticks with
+    # only the broker replaced: with the old count it reproduces the real account ($0 at 15:56:56).
+    "test_ladder_live_loop.py",      # the whole ladder path, run for real on real ticks
 ]
 
 # AND THIS IS WHY IT WILL NOT HAPPEN A THIRD TIME. Adding a test file without listing it above is
