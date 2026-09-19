@@ -78,16 +78,13 @@ async def cancel_for_signal(signal_id: str, symbol: str, why: str) -> bool:
             # opposite — the order does not exist, so there is nothing left unwatched, and the only
             # thing keeping the row open is the retry itself.
             #
-            # Recorded as CANCELLED rather than a new state: from this platform's side the outcome
-            # is identical (it placed an order, that order is gone, it never became a position), and
-            # inventing a status would need every reader of the column to learn it.
+            # "GONE" IS NOT "NEVER BECAME A POSITION" (19 Sep 2026, docs/OPEN.md B29). This assumed
+            # it was, and recorded CANCELLED. His 16 Sep GBP/USD sell FILLED and was stopped within
+            # 1.2 s, never seen open by a poll, and a real -$125 loss showed as "Withdrawn". The
+            # broker's deal list is asked first; unknown writes nothing and the next sweep asks again.
             if "ORDER_NOT_FOUND" in str(res.error or "").upper():
-                autotrade_repo.record_closed(order_id, autotrade_repo.STATUS_CANCELLED)
-                log.info(f"[canceller] {symbol}: order {order_id} no longer exists at the broker "
-                         f"— closing the row so it stops being re-cancelled every boot ({why})")
-                await decision_log.cancelled(signal_id, symbol, order_id,
-                                             f"the broker no longer had it: {why}")
-                await withdrawal_notice.announce(order_id, symbol, why, withdrawal_notice.ALREADY_GONE)
+                from execution import order_fate
+                await order_fate.settle_missing(str(order_id), signal_id, symbol, why)
                 return False        # nothing was cancelled BY US; the caller's behaviour is unchanged
             log.warning(f"[canceller] {symbol}: broker refused to cancel order {order_id} — "
                         f"{res.error}")

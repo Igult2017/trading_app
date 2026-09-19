@@ -55,6 +55,7 @@ from shared.mtf_utils import closed_only, seconds
 from strategies import vix1_cross, vix1_log
 from strategies.vix1_fractal import fractal_broken
 from strategies.vix1_lines import draw_line
+from strategies.vix1_stop_check import stop_already_hit, why as stop_hit_why
 
 log = logging.getLogger(__name__)
 
@@ -207,6 +208,12 @@ def m1_signals(m1: list[Candle], bullish: bool, vc: Candle,
         vix1_log.say(symbol, f"[vix1] {symbol} 1M: the stop is {risk/pip:.1f}p from the entry, wider than "
                              f"one 1HR candle ({max_risk/pip:.0f}p) — it cannot pay 1:2 off a "
                              f"two-candle move; skipping")
+        return []
+    # THE STOP IS CHECKED AGAINST THE MARKET TOO, not only the entry (B30): a setup whose FINAL stop
+    # was traded through after the cross is dead before any order (vix1_stop_check, his Q1/Q2 rulings).
+    hit = stop_already_hit(wcl, x.cross_idx, bullish, sl)
+    if hit is not None:
+        vix1_log.say(symbol, f"[vix1] {symbol} 1M: {stop_hit_why(hit, sl, bullish, digits)}")
         return []
 
     # THE FLAVOUR NAMES WHERE THE LEVEL CAME FROM. "assumed" is gone: it meant "no pullback formed in

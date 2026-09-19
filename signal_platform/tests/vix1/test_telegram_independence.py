@@ -62,9 +62,10 @@ order: list = []
 
 
 def P(pid=1, entry=1.1000, stop=1.0990):
+    # A fresh position: its stop has not moved, so it started where it stands (start_stop = stop).
     return Position(position_id=pid, symbol="EUR/USD", bullish=True, volume=100000,
                     entry=entry, stop=stop, target=None, commission=0.0, swap=0.0,
-                    opened_at=0)
+                    opened_at=0, start_stop=stop)
 
 
 async def _price(v):
@@ -75,6 +76,8 @@ T.delivery_ledger.is_delivered = lambda k: False
 T.delivery_ledger.mark_delivered = lambda k: None
 T.delivery_ledger.cleanup = lambda ttl: None
 T._price_now = lambda symbol, bullish=None: _price(1.1010)     # 1R reached
+# The ladder reads (chart price, firing price) since 19 Sep 2026 — one test price stands in for both.
+T._prices_now = lambda symbol, bullish=None: _price((1.1010, 1.1010))
 
 
 class _Stub:

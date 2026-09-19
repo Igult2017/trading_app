@@ -24,6 +24,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from data.ctrader_positions import Position
 from monitor import rungs as R
 
 BARS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "replay_bars.json")
@@ -96,8 +97,19 @@ def replay(t: Trade, ladder=None, trail=None):
             return dict(exit_price=t.target, exit_r=t.r_at(t.target), best_r=best_r, events=events,
                         best_price=best_price, reason="target hit")
 
-        # Then raise the stop for whatever this minute earned. THE REAL LADDER decides.
-        r = t.r_at(favourable)
+        # Then raise the stop for whatever this minute earned. THE REAL LADDER decides, and R is
+        # counted by THE LIVE `Position.r_at`, handed the stop as it stands NOW plus the starting stop.
+        #
+        # WHY THROUGH THE LIVE FUNCTION (19 Sep 2026, docs/OPEN.md B27). This used its own `t.r_at`,
+        # which held the starting risk fixed — correct — while the live code counted from the MOVED
+        # stop and went blind after breakeven. So this replay said his 02 Sep trade banked +1R while
+        # the real account closed it at ~0R, and every test built on it passed. Counting through the
+        # live function means a regression there now fails the tests instead of hiding behind a copy.
+        live = Position(0, t.symbol, t.bullish, 1, t.entry, stop, t.target, 0.0, 0.0, 0,
+                        start_stop=t.orig_stop)
+        r = live.r_at(favourable)
+        if r is None:
+            continue
         if r > best_r:
             best_r, best_price = r, favourable
         for rung in R.reached(ladder, r, trail):
@@ -107,7 +119,7 @@ def replay(t: Trade, ladder=None, trail=None):
                 new_stop = t.entry          # breakeven; the real one adds costs, which only makes
                                             # it slightly better for him, so this is the cautious form
             else:
-                new_stop = R.stop_price_for(rung, t.entry, t.risk, t.bullish)
+                new_stop = R.stop_price_for(rung, t.entry, live.risk(), t.bullish)
             if new_stop is None:
                 continue
             # RATCHET ONLY — a stop never moves against the trade. Same rule as the live tracker.

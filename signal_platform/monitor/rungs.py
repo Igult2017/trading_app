@@ -1,5 +1,12 @@
 """THE ONE LADDER. Every rung, for every strategy, defined exactly once.
 
+HOW R IS MEASURED FOR THESE RUNGS (19 Sep 2026, docs/OPEN.md B27). From the trade's STARTING stop —
+never the stop it carries now, which the ladder itself moves (counting from that went blind after
+breakeven: his 18 Sep sell reached 2.85R and closed at $0). A rung is REACHED on the CHART price (bid),
+and the new stop is checked against the FIRING price (bid for a buy's stop, ask for a sell's). Chosen by
+a tick replay of 14 real trades through the live code: -3.09R, against -5.24R reading the closing side
+and -8.22R for the old count. See `data/ctrader_positions.Position.r_at` and `monitor/start_stops.py`.
+
 WHY THIS FILE EXISTS. There were two ladders for the same trade and they disagreed:
 
     position_tracker (the code that MOVES his stop)   breakeven at 1R, then lock +1R/+2R/+3R

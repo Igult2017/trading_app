@@ -166,6 +166,26 @@ async def _price_now(symbol: str, bullish: bool | None = None) -> float | None:
     return bars[-1].close if bars else None
 
 
+async def _prices_now(symbol: str, bullish: bool) -> tuple[float, float] | None:
+    """(read, guard). Same three sources, same order, as `_price_now` above.
+
+    TWO PRICES, TWO JOBS (19 Sep 2026). READ = the CHART price (bid), which decides WHEN a rung is
+    reached — replayed tick by tick on 14 real trades, reading the chart beat reading the closing side
+    (-3.09R vs -5.24R) and gave his 17 Sep sell the breakeven he expected. GUARD = the price THIS stop
+    fires on (bid for a buy, ask for a sell), which decides WHERE a stop may legally go — handed to
+    `breakeven.move_stop_to`, whose through-the-market check must see the real firing side.
+    """
+    tick = fix_quotes.live_quote(symbol, _TICK_FRESH_S) or await ctrader_spread.quote_for(symbol)
+    if tick is not None:
+        bid, ask = tick
+        return bid, (bid if bullish else ask)
+    bars = await fetch_candles(symbol, "M1", 2)
+    if not bars:
+        return None
+    close = bars[-1].close                                   # a bid; a sell's stop fires on the ask
+    return close, (close if bullish else close + (ctrader_spread.cached(symbol) or 0.0))
+
+
 def _lines(p, r: float, price: float) -> list[tuple[str, str]]:
     """(tag, price, message) for every milestone this position has reached. Lowest rung first.
 
@@ -175,7 +195,9 @@ def _lines(p, r: float, price: float) -> list[tuple[str, str]]:
     """
     d = price_digits(p.symbol)
     side = "BUY" if p.bullish else "SELL"
-    risk = abs(p.entry - p.stop) if p.stop else 0.0
+    # FROM THE STARTING STOP (B27). This read the CURRENT stop, so after breakeven every lock price
+    # collapsed onto the entry and the ladder stopped. `_lines` only runs when R is known, so is this.
+    risk = p.risk() or 0.0
     out: list[tuple[str, str]] = []
 
     for rung in rungs.reached(rungs.ladder(), r, rungs.trail()):
@@ -330,12 +352,13 @@ async def _one_position(p, send, r_seen: dict) -> None:
                 log.info(f"[position_tracker] {p.symbol} #{p.position_id}: "
                          f"no-stop notice sent")
         return          # nothing more to do for THIS position
-    price = await _price_now(p.symbol, p.bullish)
-    if price is None:
+    prices = await _prices_now(p.symbol, p.bullish)
+    if prices is None:
         return          # nothing more to do for THIS position
+    price, guard = prices          # READ decides when a rung is reached; GUARD where a stop may go
     r = p.r_at(price)
     if r is None:
-        return          # nothing more to do for THIS position
+        return          # starting stop not known yet, or no stop: the ladder does nothing
     r_seen[int(p.position_id)] = r
     for tag, new_sl, message in _lines(p, r, price):
         k = _key(p.position_id, tag)
@@ -349,7 +372,7 @@ async def _one_position(p, send, r_seen: dict) -> None:
         # can take ~25s against a dead Telegram (3 retries, 5s sleeps, 5s client timeouts).
         # The message now goes out immediately AFTER the amend — and carries the amend's
         # real outcome rather than a prediction of it.
-        moved = await _auto_move(p, tag, new_sl, send, price, quiet=(message is None))
+        moved = await _auto_move(p, tag, new_sl, send, guard, quiet=(message is None))
 
         # NOT AWAITED WHEN THE PLATFORM IS MANAGING THE TRADE. With auto-move ON the rung is
         # decided by the broker's confirmation, so Telegram's answer is not needed — and
@@ -415,11 +438,12 @@ async def check_all(send) -> None:
             if p.stop is None:
                 summary.append(f"{p.symbol}#{p.position_id} NO-STOP @{p.entry}")
                 continue
-            px = await _price_now(p.symbol, p.bullish)
-            r = p.r_at(px) if px else None
+            px = await _prices_now(p.symbol, p.bullish)
+            r = p.r_at(px[0]) if px else None
             summary.append(f"{p.symbol}#{p.position_id} {'BUY' if p.bullish else 'SELL'} "
-                           f"{r:+.2f}R stop={p.stop}" if r is not None
-                           else f"{p.symbol}#{p.position_id} R=? (no price)")
+                           f"{r:+.2f}R stop={p.stop} start={p.start_stop}" if r is not None
+                           else f"{p.symbol}#{p.position_id} R=? "
+                                f"({'no price' if not px else 'starting stop not known yet'})")
         line = "; ".join(summary) or "no open positions"
         if line != _last_seen:
             _last_seen = line

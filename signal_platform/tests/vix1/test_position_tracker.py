@@ -19,10 +19,15 @@ from monitor import position_tracker as T
 s = Suite("VIX.1 — the trade tracker, on real position data")
 
 
-def P(bullish=True, entry=1.1000, stop=1.0990, commission=0.0, swap=0.0, volume=100000, pid=1):
+_SAME = object()
+
+
+def P(bullish=True, entry=1.1000, stop=1.0990, commission=0.0, swap=0.0, volume=100000, pid=1,
+      start_stop=_SAME):
+    """A position. By default its stop has NOT moved, so it started where it stands now."""
     return Position(position_id=pid, symbol="EUR/USD", bullish=bullish, volume=volume,
                     entry=entry, stop=stop, target=None, commission=commission, swap=swap,
-                    opened_at=0)
+                    opened_at=0, start_stop=(stop if start_stop is _SAME else start_stop))
 
 
 # ── R is a ratio of price distances — no pip size, no contract size ─────────
@@ -35,11 +40,24 @@ sell = P(bullish=False, entry=1.1000, stop=1.1010)
 s.check("SELL mirrors — down is positive", round(sell.r_at(1.0990), 6), 1.0)
 s.check("SELL at its stop is -1R", round(sell.r_at(1.1010), 6), -1.0)
 gold = Position(position_id=2, symbol="XAU/USD", bullish=False, volume=100, entry=4467.0,
-                stop=4477.0, target=None, commission=0.0, swap=0.0, opened_at=0)
+                stop=4477.0, target=None, commission=0.0, swap=0.0, opened_at=0, start_stop=4477.0)
 s.check("R is pair-agnostic — gold works with no conversion", round(gold.r_at(4447.0), 6), 2.0)
 s.check("no stop -> R is undefined, not zero", P(stop=None).r_at(1.1010), None)
 s.check("a zero-width stop -> undefined, never a divide-by-zero",
         P(entry=1.1000, stop=1.1000).r_at(1.1010), None)
+
+# ── R IS COUNTED FROM WHERE THE TRADE STARTED, NEVER FROM A MOVED STOP (B27, 19 Sep 2026) ────
+# His EUR/USD sell of 18 Sep ran to 2.85R and closed at $0: once breakeven put the stop on the entry,
+# R was counted from THAT stop, read zero risk, and the ladder went blind for the rest of the trade.
+moved = P(stop=1.1000, start_stop=1.0990)            # stop moved to breakeven; started 10 pips away
+s.check("a stop moved to BREAKEVEN still reads the real R (1.6R)", round(moved.r_at(1.1016), 6), 1.6)
+s.check("...and 2.6R at +26 pips", round(moved.r_at(1.1026), 6), 2.6)
+locked = P(stop=1.1020, start_stop=1.0990)           # stop locked at +2R
+s.check("a stop locked at +2R does not halve the reading (3.0R stays 3.0R)",
+        round(locked.r_at(1.1030), 6), 3.0)
+s.check("starting stop NOT KNOWN -> R unknown, the ladder does nothing (never the moved stop)",
+        P(stop=1.1000, start_stop=None).r_at(1.1016), None)
+s.teeth("counting from the CURRENT stop is what breaks", P(stop=1.1000).r_at(1.1016) is None)
 
 # ── BREAKEVEN is the NET-ZERO price, not the entry ──────────────────────────
 free = P(commission=0.0, swap=0.0)
@@ -105,6 +123,9 @@ def run(positions, price):
     # TypeError here, and `check_all` swallows exceptions by design, so the symptom was "no alert
     # was sent" rather than an error. That is precisely the failure this suite exists to catch.
     T._price_now = lambda symbol, bullish=None: _price(price)
+    # THE LADDER NOW READS TWO PRICES (19 Sep 2026): the chart price decides when a rung is reached,
+    # the firing side decides where a stop may go. One test price stands in for both here.
+    T._prices_now = lambda symbol, bullish=None: _price((price, price))
     asyncio.run(T.check_all(_send))
     return list(sent)
 

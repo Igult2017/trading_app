@@ -56,6 +56,27 @@ entries."* The 1M reads no structure of its own — no swing points, no zones, n
 VIX.1 has shipped a bug from reading the forming bar as a level, and **a backtest can never catch it**
 — every historical bar is closed, so the error is invisible to replay and only appears live.
 
+## Two more invariants, added 2026-09-19 (docs/OPEN.md B27, B30)
+
+**1. The profit ladder counts R from where the trade STARTED, never from a stop it has moved.**
+`Position.r_at` (`data/ctrader_positions.py`) measures only from `start_stop`, which
+`monitor/start_stops.py` takes from the broker's opening order (`data/ctrader_orders.opening_stop`),
+saves to `strategy_state` and restores at boot, and `monitor/position_book.positions()` attaches to every
+position both stop-movers receive. Unknown start = R unknown = the ladder does nothing. The ladder READS
+the chart price (bid) to decide when a rung is reached, and hands the FIRING price (bid for a buy's stop,
+ask for a sell's) to `breakeven.why_not`. Broken before: after breakeven the risk read zero and every
+later rung was skipped (18 Sep: 2.85R reached, closed at $0). Guarded by `test_ladder_replay_ticks.py`
+(the old code must reproduce the broker's real closes) and `test_ladder_start_stop.py`.
+
+**2. No order is sent for a setup whose FINAL stop was traded through after the cross.**
+`vix1_entry.m1_signals` -> `vix1_stop_check.stop_already_hit`: any closed candle after the cross candle
+whose price went PAST the stop (a wick counts, an exact touch does not) kills the setup — no order, wait
+for the next momentum candle (his rulings Q1 a / Q2 a). The cross candle itself is excluded: a sell
+crosses down through the line from above and its stop sits 0.5-1 pip above the line. This closes the
+blind window between the cross and the order: both watchers (`signal_monitor`, `vix1_watch`) judge only
+candles from the signal's creation onward, so a death before that was invisible and the order was sent,
+then withdrawn. Guarded by `test_entry_stop_already_hit.py` on 8 real orders.
+
 ---
 
 ## ONE QUESTION, ONE MODULE — the ownership map (2026-09-07)

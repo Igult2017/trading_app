@@ -56,6 +56,7 @@ class _Seen:
     peak_r:  float | None      # the BEST R it reached while open  (MFE)
     trough_r: float | None = None   # the WORST R it reached while open (MAE)
     source:  str = "poll"      # which clock measured them: "fix" (0.5s) or "poll" (30s)
+    start_stop: float | None = None  # the stop it STARTED with — 1R is measured from this (B27)
 
 
 # position_id -> what it looked like on the last poll that could see it.
@@ -109,9 +110,13 @@ def observe(positions, r_by_id: dict[int, float] | None = None, source: str = "p
                 peak = r if peak is None else max(peak, r)
                 trough = r if trough is None else min(trough, r)
             best_source = "fix" if (source == "fix" or (prev and prev.source == "fix")) else source
+            start = getattr(p, "start_stop", None)
+            if start is None and prev is not None:
+                start = prev.start_stop          # never lose a known starting stop
             _seen[pid] = _Seen(symbol=p.symbol, bullish=bool(p.bullish), entry=float(p.entry),
                                stop=(float(p.stop) if p.stop is not None else None),
-                               peak_r=peak, trough_r=trough, source=best_source)
+                               peak_r=peak, trough_r=trough, source=best_source,
+                               start_stop=(float(start) if start is not None else None))
         except Exception as exc:      # a snapshot must never be able to break the poll
             log.warning(f"[exit_watch] could not record a position: {type(exc).__name__}: {exc}")
     if persist:
@@ -128,7 +133,10 @@ def _message(pid: int, s: _Seen, deal=None) -> str:
     """
     d = price_digits(s.symbol)
     side = "BUY" if s.bullish else "SELL"
-    risk = abs(s.entry - s.stop) if s.stop is not None else 0.0
+    # 1R IS FROM THE STARTING STOP (B27). The current stop's distance is kept only as the yardstick
+    # for "how close to the stop did it close" when the start is not known.
+    start_risk = abs(s.entry - s.start_stop) if s.start_stop is not None else 0.0
+    risk = start_risk or (abs(s.entry - s.stop) if s.stop is not None else 0.0)
 
     if deal is not None:
         exit_px = deal.exit_price
@@ -138,9 +146,9 @@ def _message(pid: int, s: _Seen, deal=None) -> str:
         tol = max(risk * 0.10, 10 ** -d)
         hit_stop = s.stop is not None and abs(exit_px - s.stop) <= tol
         moved = (exit_px - s.entry) if s.bullish else (s.entry - exit_px)
-        # R is measured against the risk the trade STARTED with, which after a stop move we no
-        # longer hold — so it is only quoted when the stop never moved.
-        realised = f" ({moved / risk:+.1f}R)" if risk > 0 else ""
+        # R is measured against the risk the trade STARTED with — now held (`start_stop`), so it is
+        # quoted after a stop move too. Unknown start = no R quoted, never one from the moved stop.
+        realised = f" ({moved / start_risk:+.1f}R)" if start_risk > 0 else ""
         why = ("<b>Your stop was hit.</b>" if hit_stop else
                "It closed away from your stop — the target, or closed by hand.")
         money = f"\nRealised: <b>{deal.profit:+,.2f}</b>." if deal.profit is not None else ""
@@ -254,7 +262,7 @@ def _persist() -> None:
     snapshot = {
             str(pid): {"symbol": s.symbol, "bullish": s.bullish, "entry": s.entry,
                        "stop": s.stop, "peak_r": s.peak_r, "trough_r": s.trough_r,
-                       "source": s.source}
+                       "source": s.source, "start_stop": s.start_stop}
             for pid, s in _seen.items()
     }
 
@@ -294,7 +302,9 @@ def rehydrate() -> int:
                                entry=float(d["entry"]),
                                stop=(float(d["stop"]) if d.get("stop") is not None else None),
                                peak_r=d.get("peak_r"), trough_r=d.get("trough_r"),
-                               source=d.get("source", "poll"))
+                               source=d.get("source", "poll"),
+                               start_stop=(float(d["start_stop"])
+                                           if d.get("start_stop") is not None else None))
             restored += 1
         except Exception:
             continue                          # one bad row must not lose the rest

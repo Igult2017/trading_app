@@ -264,7 +264,14 @@ red self-test that everyone steps around is how a real regression gets missed: t
 break something here will see two failures and assume they are the usual two.
 
 
-### B30 - VIX.1 places orders on setups that had ALREADY died: price went through the stop after the cross and before the order. 🔴 Verified 19 Sep
+### B30 - ~~VIX.1 places orders on setups that had ALREADY died: price went through the stop after the cross and before the order~~ FIXED 19 Sep 🔴
+
+**FIXED 19 Sep 2026 on his rulings** (Q1 a: every candle after the cross, price PAST the stop, a wick
+counts, an exact touch does not — *"when the price goes outside the SL band"*; Q2 a: the setup is dead,
+no order). `strategies/vix1_stop_check.py`, called once in `vix1_entry.m1_signals` after the stop is
+final. **Before/after on 8 real orders through the live function** (`test_entry_stop_already_hit.py`):
+10 Sep, 14 Sep, 16 Sep buy and 16 Sep sell were sent -> now no order; 15 Sep, 17 Sep, 18 Sep and gold ->
+the identical order. The original finding is kept below.
 
 **His words, 19 Sep:** *"I do feel the system is making entries wrong"* and *"the whole autotrade is just
 a mess"*. **7 of the 11 VIX.1 orders 10-18 Sep** had price trade THROUGH the order's own stop after the
@@ -295,7 +302,14 @@ judge only candles that opened after the signal existed
 [`vix1_watch.py:56`](../signal_platform/strategies/vix1_watch.py#L56)), so a death BEFORE the signal is
 never seen; the order lives until price touches the stop a second time. **Not fixed — the entry is his.**
 
-### B29 - A trade that opens and closes between two checks is recorded as "Withdrawn", hiding a real loss. 🔴 Verified 19 Sep
+### B29 - ~~A trade that opens and closes between two checks is recorded as "Withdrawn", hiding a real loss~~ FIXED 19 Sep 🔴
+
+**FIXED 19 Sep 2026.** "Order not found" no longer means cancelled: `execution/order_fate.py` asks the
+broker's deal list (`data/ctrader_orders.fill_for_order`, verified live: 361154082 filled 1.34548 at
+15:03:17.525; the truly withdrawn 361459132 -> no fill) and records FILLED when it filled; an unreadable
+deal list writes nothing. Once per process, orders recorded as withdrawn in the last 14 days are
+re-checked, which corrects the 16 Sep row. `test_order_cancel.py` (38 checks). Still unchecked: whether
+that -$125 reached his journal — he checks it on the screen after deploy. Original finding below.
 
 The 16 Sep GBP/USD sell (order 361154082) FILLED at 15:03:17 and was stopped at 15:03:18 for -$125.
 His autotrade screen shows it as **"Withdrawn"**. A fill is only noticed by seeing the position OPEN in
@@ -308,7 +322,14 @@ profit or loss only for status "filled"
 is invisible there and the "Withdrawn" count is inflated. **I have not checked whether this -$125 reached
 his journal.**
 
-### B27 - Once the stop reaches breakeven, the profit ladder is dead: no +1R lock, no trailing. 🔴 Verified 19 Sep
+### B27 - ~~Once the stop reaches breakeven, the profit ladder is dead: no +1R lock, no trailing~~ FIXED 19 Sep 🔴
+
+**FIXED 19 Sep 2026.** R is counted only from each position's STARTING stop, read from the broker's
+opening order (verified 7/7 on his real positions) and kept across restarts (`monitor/start_stops.py`);
+the ladder reads the chart price and hands the firing price to the safety check. **Measured on the
+broker's real ticks through the live code** (`test_ladder_replay_ticks.py`): the old code reproduces the
+broker's real closes on 6 trades to the second; the new code gives 18 Sep **+2.09R** (was $0), 17 Sep
+-0.04R (was -1R), 02 Sep -0.03R. Across 14 trades: -8.22R -> -3.09R. Original finding below.
 
 **His report, 19 Sep:** *"When i checked two of the trades which one was a loss and one a breakeven
 were not supposed to be loss and breakeven. They were wins."*
@@ -332,6 +353,14 @@ from the wrong stop. `tools/replay_ladder.py` holds a FIXED risk, which is why t
 showed this. Chart: `Desktop\VIX1 entries 14-18 Sep\4 ...BREAKEVEN.png`.
 
 ### B28 - A SELL's stop is set on the chart price but the broker fires it on the buy price. Verified 19 Sep
+
+**UPDATE 19 Sep 2026 — the LADDER half is FIXED, the STOP half is OPEN and his to decide.** The ladder now
+reads the chart price (tested: -3.09R vs -5.24R on 14 trades), which gives his 17 Sep sell its breakeven.
+**Tested and REJECTED:** telling the broker to fire sell stops on the chart price (cTrader trigger method
+OPPOSITE, `ProtoOAAmendPositionSLTPReq.stopLossTriggerMethod`) — the stop fires later but the trade closes
+at the buy price, a spread worse (16 Sep -1.04R -> -1.48R; 14 trades -3.18R vs -3.09R). Do not build it.
+**Still open:** a sell's stop is placed with no room for the 1.0-1.4 pip spread, which on 2.5-2.9 pip
+stops is 0.34-0.44R. Placing it a spread further is untested and changes his stop rule.
 
 **The trade:** EUR/USD sell, position 242203419, filled Thu 17 Sep 19:06:14 (his clock) at 1.14758,
 stop 1.14786 (2.7 pips). The broker bought it back at **1.14786 at 19:14:48**; the highest chart

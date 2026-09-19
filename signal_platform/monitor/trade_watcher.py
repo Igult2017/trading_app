@@ -166,12 +166,18 @@ class TradeWatcher:
             self._stream = None
 
     async def _price_for(self, p, streamed: bool) -> float | None:
-        """The price this position's stop would trigger on: the BID for a buy, the ASK for a sell.
+        """The price this position's stop would trigger on: the BID for a buy, the ASK for a sell."""
+        prices = await self._prices_for(p, streamed)
+        return None if prices is None else prices[1]
+
+    async def _prices_for(self, p, streamed: bool) -> tuple[float, float] | None:
+        """(read, guard) — the CHART price that decides when a rung is reached, and the price THIS
+        stop fires on (bid for a buy, ask for a sell). See `position_tracker._prices_now`.
 
         Falls back to the Open API quote whenever the stream has nothing fresh — and says so ONCE,
         rather than every pass, so a genuine outage is visible without becoming noise.
         """
-        from monitor.position_tracker import _price_now
+        from monitor.position_tracker import _prices_now
         if streamed and self._stream is not None:
             if not self._stream.is_stale(_STALE_AFTER_S, p.symbol):
                 q = self._stream.quote(p.symbol)
@@ -186,7 +192,7 @@ class TradeWatcher:
                             self.send,
                             f"✅ The live price stream is flowing again for {p.symbol} — "
                             f"stop moves are back to acting within a second.")
-                    return q[0] if p.bullish else q[1]
+                    return q[0], (q[0] if p.bullish else q[1])
             if not self._degraded:
                 self._degraded = True
                 age = self._stream.age(p.symbol)
@@ -197,7 +203,7 @@ class TradeWatcher:
                 # NOT AWAITED — this sits in the middle of reading the price a stop decision is
                 # made on, so it must cost nothing at all.
                 notify.tell_soon(self.send, msg)
-        return await _price_now(p.symbol, p.bullish)
+        return await _prices_now(p.symbol, p.bullish)
 
     async def _check_all(self, positions, streamed: bool) -> None:
         """One pass over every open position. Delegates every decision to position_tracker."""
@@ -235,12 +241,13 @@ class TradeWatcher:
         from core import delivery_ledger
         from monitor.position_tracker import _auto_move, _key, _lines
 
-        price = await self._price_for(p, streamed)
-        if price is None:
+        prices = await self._prices_for(p, streamed)
+        if prices is None:
             return                        # nothing more to do for THIS position
+        price, guard = prices             # READ decides when a rung is reached; GUARD where a stop may go
         r = p.r_at(price)
         if r is None:
-            return
+            return                        # starting stop not known yet: do nothing, never guess
         if r_seen is not None:
             r_seen[int(p.position_id)] = r
         for tag, new_sl, message in _lines(p, r, price):
@@ -255,7 +262,7 @@ class TradeWatcher:
             # times with 5s sleeps and the Telegram client's own timeouts are 5s, so a dead Telegram
             # could hold this line for ~25 SECONDS — on the path whose entire purpose is to act
             # within half a second, and for every other open position in the same pass.
-            moved = await _auto_move(p, tag, new_sl, self.send, price, quiet=(message is None))
+            moved = await _auto_move(p, tag, new_sl, self.send, guard, quiet=(message is None))
 
             # Now tell him — WITHOUT WAITING. On a 0.5s loop even a 3s bounded wait would sit in
             # front of the next position's amend. With auto-move ON the rung is decided by the

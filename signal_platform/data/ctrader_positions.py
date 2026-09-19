@@ -71,17 +71,32 @@ class Position:
     commission: float      # one side, in account currency — DOUBLE it for the round trip
     swap: float
     opened_at: int         # epoch seconds
+    # THE STOP THE TRADE STARTED WITH — attached by `monitor/start_stops` from the broker's opening
+    # order. None until it is known. It is the ONLY yardstick R is counted in (see `r_at`).
+    start_stop: float | None = None
+
+    def risk(self) -> float | None:
+        """1R in price: the distance from the fill to the STARTING stop. None if that is not known."""
+        if self.start_stop is None:
+            return None
+        r = abs(self.entry - self.start_stop)
+        return r if r > 0 else None
 
     def r_at(self, price: float) -> float | None:
-        """How many R this trade is up at `price`. None when there is no stop to measure against.
+        """How many R this trade is up at `price`, counted from where it STARTED. None = unknown.
+
+        COUNTED FROM THE STARTING STOP, NEVER THE CURRENT ONE (fixed 19 Sep 2026, docs/OPEN.md B27).
+        This used `abs(entry - stop)` with the stop the position carries NOW. The ladder's own first
+        move put that stop on the entry, so risk read zero and R read None for the rest of the trade:
+        his EUR/USD sell of 18 Sep reached 2.85R and closed at $0 with the stop never leaving the entry.
+        With no starting stop known the answer is None and the ladder does nothing — falling back to
+        the current stop would be the defect itself.
 
         R IS A RATIO OF PRICE DISTANCES, so it needs no pip size, no contract size and no currency
         conversion — it is identical on EUR/USD and on gold. Only the printed price needs precision.
         """
-        if self.stop is None:
-            return None
-        risk = abs(self.entry - self.stop)
-        if risk <= 0:
+        risk = self.risk()
+        if risk is None:
             return None
         move = (price - self.entry) if self.bullish else (self.entry - price)
         return move / risk

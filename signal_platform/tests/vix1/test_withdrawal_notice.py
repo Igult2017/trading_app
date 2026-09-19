@@ -70,6 +70,18 @@ acct_mod.load_account = _account
 broker_mod.StopOrderClient = _Broker
 autotrade_repo.order_for_signal = lambda sid: book.get(sid)
 autotrade_repo.record_closed = lambda oid, st: closed.append((oid, st))
+filled: list[tuple] = []
+autotrade_repo.record_filled = lambda oid, px, at=None: filled.append((oid, px))
+# WHAT THE BROKER'S DEAL LIST SAYS about a vanished order (docs/OPEN.md B29, 19 Sep 2026). Default:
+# it never filled, so every "already gone" check below keeps its meaning. This suite never reaches a
+# real broker.
+from data import ctrader_orders                                       # noqa: E402
+_fate = {"answer": (True, None)}
+
+
+async def _fill_for_order(order_id, lookback_days=14):
+    return _fate["answer"]
+ctrader_orders.fill_for_order = _fill_for_order
 # His 14 Sep 07:23 EUR/USD sell, as `autotrade_orders` holds it. Any other order has no record.
 ORDER_0723 = dict(symbol="EUR/USD", side="SELL", entry=1.15508, sl=1.1556, tp=1.15301, lots=3.85, strategy="VIX.1")
 autotrade_repo.intent_for = lambda oid: dict(ORDER_0723) if oid == "360658076" else None
@@ -188,4 +200,22 @@ async def _later_poll():
     return list(cancelled)
 
 s.check("a LATER poll sweeps again — it is no longer once per process", run(_later_poll()), [360700002])
+
+# ── IT FILLED FIRST: a real trade is never announced as a withdrawal (B29, 19 Sep 2026) ──────────
+# His 16 Sep GBP/USD sell, order 361154082: filled 15:03:17.525 at 1.34548 and stopped 1.2 s later.
+from data.ctrader_orders import Fill                                  # noqa: E402
+
+sent.clear(); closed.clear(); filled.clear()
+book["sig-16sep"] = "361154082"
+_Broker.error = "cTrader refused: ORDER_NOT_FOUND Order not found with id 361154082"
+_fate["answer"] = (True, Fill("361154082", 241869270, 1.34548, 1789560197525))
+run(canceller.cancel_for_signal("sig-16sep", "GBP/USD", "its signal is no longer active"))
+s.check("an order that FILLED sends ONE message", len(sent), 1)
+s.check("...saying it had ALREADY FILLED, at its real price",
+        ("HAD ALREADY FILLED" in sent[0], "1.34548" in sent[0]) if sent else None, (True, True))
+s.check("...never that it was withdrawn or merely gone",
+        ("ORDER WITHDRAWN" in sent[0], "ALREADY GONE" in sent[0]) if sent else None, (False, False))
+s.check("...and the record says FILLED, not cancelled", (filled, closed), ([("361154082", 1.34548)], []))
+_Broker.error = None
+_fate["answer"] = (True, None)
 s.done()

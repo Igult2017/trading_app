@@ -59,6 +59,8 @@ class _Acct:
 
 
 _closed: list[tuple] = []
+_filled: list[tuple] = []
+_fate = {"answer": (True, None)}      # (broker readable?, the fill or None)
 _book: dict = {}                      # signal_id -> order_id, only while STATUS_PLACED
 
 
@@ -72,6 +74,14 @@ def _install():
     broker_mod.StopOrderClient = _Broker
     autotrade_repo.order_for_signal = lambda sid: _book.get(sid)
     autotrade_repo.record_closed = lambda oid, st: _closed.append((oid, st))
+    autotrade_repo.record_filled = lambda oid, px, at=None: _filled.append((oid, px))
+    # WHAT THE BROKER'S DEAL LIST SAYS about a vanished order (docs/OPEN.md B29). Default: it never
+    # filled, so every pre-existing check below keeps its meaning.
+    from data import ctrader_orders
+
+    async def _fill_for_order(order_id, lookback_days=14):
+        return _fate["answer"]
+    ctrader_orders.fill_for_order = _fill_for_order
     # The withdrawal MESSAGE is tested in test_withdrawal_notice.py. Here it would reach the delivery
     # ledger and the order record in the database, which this suite never touches, and hold the sweep
     # open long past the checks below.
@@ -289,5 +299,36 @@ s.teeth("ORDER_NOT_FOUND really does close the row",
                   setattr(_Broker, "error", "ORDER_NOT_FOUND"),
                   run(canceller.cancel_for_signal("sig-5", "X", "w")),
                   setattr(_Broker, "fail", False), len(_closed) == 1)[-1])())
+
+
+# ── "GONE" IS NOT "WITHDRAWN" WHEN IT FILLED (19 Sep 2026, docs/OPEN.md B29) ─────────────────────
+# His GBP/USD sell of 16 Sep, order 361154082: filled 15:03:17.525 at 1.34548, stopped 1.2 s later,
+# never seen open. The sweep later got ORDER_NOT_FOUND and recorded it CANCELLED, so a real -$125 loss
+# showed as "Withdrawn". The broker's deal list is now asked first.
+from data.ctrader_orders import Fill                                  # noqa: E402
+
+_Broker.fail, _Broker.error = True, "ORDER_NOT_FOUND"
+_closed.clear(); _filled.clear()
+_book["sig-16sep"] = "361154082"
+_fate["answer"] = (True, Fill("361154082", 241869270, 1.34548, 1789560197525))
+run(canceller.cancel_for_signal("sig-16sep", "GBP/USD", "its signal is no longer active"))
+s.check("an order that FILLED is recorded as filled, at the real price", _filled, [("361154082", 1.34548)])
+s.check("...and NOT as withdrawn", _closed, [])
+
+_closed.clear(); _filled.clear()
+_book["sig-unreadable"] = "777"
+_fate["answer"] = (False, None)
+run(canceller.cancel_for_signal("sig-unreadable", "EUR/USD", "why"))
+s.check("broker's deal list UNREADABLE -> nothing written, the next sweep asks again",
+        (_closed, _filled), ([], []))
+
+_fate["answer"] = (True, None)
+_Broker.fail = False
+s.teeth("without asking the broker, the 16 Sep loss would be recorded as withdrawn",
+        (lambda: (_closed.clear(), _filled.clear(), _book.__setitem__("sig-t", "361154082"),
+                  setattr(_Broker, "fail", True), setattr(_Broker, "error", "ORDER_NOT_FOUND"),
+                  run(canceller.cancel_for_signal("sig-t", "GBP/USD", "w")),
+                  setattr(_Broker, "fail", False),
+                  _closed == [("361154082", autotrade_repo.STATUS_CANCELLED)])[-1])())
 
 s.done()

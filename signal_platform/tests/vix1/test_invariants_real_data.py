@@ -109,17 +109,60 @@ from core.types import Candle
 # asserts the other half — once that same bar HAS closed, a level may read it.
 mutated_ok = True
 checked = 0
+
+
+def _live_setups(label, m1, h1, pip, cap=80):
+    """(momentum candle, direction, window end) wherever a setup is LIVE — every momentum candle in the
+    H1 window, looked at over the 30 minutes after it closes.
+
+    WHY NOT ONE CANDLE AND A FIXED STRETCH, as before 19 Sep 2026. That sampled windows up to hundreds of
+    minutes after a single momentum candle. Those stale setups produced a signal only because nothing
+    checked the STOP against the market; since docs/OPEN.md B30 a setup whose stop price went past after
+    the cross is dead, so that stretch held one live setup and the invariant was barely exercised. The
+    rules under test are unchanged — only WHERE they are sampled: where setups really exist.
+    """
+    at = {c.time: j for j, c in enumerate(m1)}
+    out = []
+    for k in range(len(h1) - 1, 30, -1):
+        for bull in (True, False):
+            if not is_momentum_candle(h1, k, bull, label):
+                continue
+            j0 = at.get(h1[k].time + 3600)
+            if j0 is None:
+                continue
+            for i in range(j0 + 2, min(j0 + 30, len(m1))):
+                if m1_signals(m1[:i + 1], bull, h1[k], pip=pip, symbol=label):
+                    out.append((h1[k], bull, i))
+            if len(out) >= cap:
+                return out
+    return out
+
+
+LIVE = {}
 for label, m1f, h1f, pip in PAIRS:
     m1 = load(m1f, "M1", limit=BARS)
     h1 = load(h1f, "H1", limit=400)
-    if not m1 or not h1:
-        continue
-    vc = next((h1[i] for i in range(len(h1) - 1, 30, -1)
-               if is_momentum_candle(h1, i, True, label) or is_momentum_candle(h1, i, False, label)), None)
-    if vc is None:
-        continue
-    bullish = vc.close > vc.open
-    for i in range(len(m1) - 400, len(m1), 40):
+    if m1 and h1:
+        LIVE[label] = (m1, pip, _live_setups(label, m1, h1, pip))
+print(f"   live setups sampled: {sum(len(v[2]) for v in LIVE.values())} windows")
+
+# THE STRUCTURAL RULES ON EVERY LIVE SETUP TOO. The walk above now meets few live setups (its one
+# momentum candle is mostly stale), so the same rules are held against every sampled live window.
+live_bad = []
+for label, (m1, pip, setups) in LIVE.items():
+    for vc, bullish, i in setups:
+        win = m1[:i + 1]
+        for sig in m1_signals(win, bullish, vc, pip=pip, symbol=label):
+            e, sl, last = sig["entry"], sig["sl"], win[-1].close
+            if e != last and ((e < last) if bullish else (e > last)):
+                live_bad.append(f"{label}@{i}: entry {e} vs price {last}")
+            if (sl >= e) if bullish else (sl <= e):
+                live_bad.append(f"{label}@{i}: sl {sl} vs entry {e}")
+s.check("every LIVE setup: entry is a stop (or market) and its SL is on the losing side",
+        (sum(len(v[2]) for v in LIVE.values()) > 0, live_bad[:3]), (True, []))
+
+for label, (m1, pip, setups) in LIVE.items():
+    for vc, bullish, i in setups:
         win = m1[:i + 1]
         now = win[-1].time + 30          # half-way through the last bar: it is FORMING
         base = m1_signals(win, bullish, vc, pip=pip, symbol=label, now=now)
@@ -147,21 +190,17 @@ s.check("entry/SL are UNCHANGED when the forming bar is mutated", mutated_ok, Tr
 # This is the half that was silently broken: the old code threw the newest closed bar away, so the
 # cross was seen a minute late on every entry. If a future change reinstates that, this check fails.
 uses_closed = False
-for label, m1f, h1f, pip in PAIRS:
-    m1 = load(m1f, "M1", limit=BARS)
-    h1 = load(h1f, "H1", limit=400)
-    if not m1 or not h1:
-        continue
-    vc = next((h1[i] for i in range(len(h1) - 1, 30, -1)
-               if is_momentum_candle(h1, i, True, label) or is_momentum_candle(h1, i, False, label)), None)
-    if vc is None:
-        continue
-    bullish = vc.close > vc.open
-    for i in range(len(m1) - 400, len(m1), 40):
+for label, (m1, pip, setups) in LIVE.items():
+    for vc, bullish, i in setups:
         win = m1[:i + 1]
         now = win[-1].time + 90          # PAST the last bar's close: every bar here is finished
         f = win[-1]
-        wild = Candle(time=f.time, open=f.open, high=f.high + 0.0050, low=f.low - 0.0050,
+        # ONE-SIDED AND SMALL: 3 pips further IN THE TRADE'S DIRECTION, which moves the entry. The old
+        # +-50 pip stretch now also drives the bar past the setup's own stop, which since 19 Sep 2026
+        # (docs/OPEN.md B30) correctly kills the setup — so it could never show a level MOVING.
+        nudge = 0.0003
+        wild = Candle(time=f.time, open=f.open,
+                      high=f.high + (nudge if bullish else 0.0), low=f.low - (0.0 if bullish else nudge),
                       close=f.close, volume=0, timeframe="M1")
         a = m1_signals(win, bullish, vc, pip=pip, symbol=label, now=now)
         b = m1_signals(win[:-1] + [wild], bullish, vc, pip=pip, symbol=label, now=now)

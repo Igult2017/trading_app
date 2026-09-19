@@ -19,8 +19,8 @@ import json
 import logging
 
 from storage.observability_models import (
-    STAGE_AUTOTRADE_CANCELLED, STAGE_AUTOTRADE_FAILED, STAGE_AUTOTRADE_PLACED,
-    STAGE_AUTOTRADE_REFUSED, STAGE_AUTOTRADE_REJECTED,
+    STAGE_AUTOTRADE_CANCELLED, STAGE_AUTOTRADE_FAILED, STAGE_AUTOTRADE_FILLED_UNSEEN,
+    STAGE_AUTOTRADE_PLACED, STAGE_AUTOTRADE_REFUSED, STAGE_AUTOTRADE_REJECTED,
 )
 
 log = logging.getLogger(__name__)
@@ -80,3 +80,10 @@ async def failed(signal, reason: str) -> None:
 async def cancelled(signal_id: str | None, symbol: str, order_id, reason: str) -> None:
     await _write(STAGE_AUTOTRADE_CANCELLED, "", symbol, signal_id,
                  dict(order=str(order_id) if order_id else None, reason=reason))
+
+
+async def filled_unseen(signal_id: str | None, symbol: str, order_id, price, position_id) -> None:
+    """The order was gone because it FILLED before it could be withdrawn (see `order_fate`)."""
+    await _write(STAGE_AUTOTRADE_FILLED_UNSEEN, "", symbol, signal_id,
+                 dict(order=str(order_id) if order_id else None, fill=price, position=position_id,
+                      reason="filled before it could be withdrawn"))

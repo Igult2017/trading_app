@@ -20,7 +20,7 @@ from storage.db import get_session
 
 log = logging.getLogger(__name__)
 
-__all__ = ["record_placed", "record_filled", "record_closed", "pending", "intent_for",
+__all__ = ["record_placed", "record_filled", "record_closed", "cancelled_since", "pending", "intent_for",
            "recent_placements", "order_for_signal",
            "STATUS_PLACED", "STATUS_FILLED", "STATUS_CANCELLED", "STATUS_REJECTED"]
 
@@ -71,6 +71,16 @@ def record_closed(order_id: str, status: str) -> None:
                 row.status = status
     except Exception as exc:
         log.warning(f"[autotrade_repo] could not close {order_id}: {type(exc).__name__}: {exc}")
+
+
+def cancelled_since(days: int = 14) -> list[str]:
+    """Order ids recorded as CANCELLED in the last `days` — for `order_fate.recheck_withdrawn`, which
+    asks the broker whether any of them really FILLED (16 Sep: a -$125 trade recorded as withdrawn)."""
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+    with get_session() as s:
+        return [r.order_id for r in s.query(AutotradeOrderModel)
+                .filter(AutotradeOrderModel.status == STATUS_CANCELLED,
+                        AutotradeOrderModel.placed_at >= cutoff).all()]
 
 
 def pending() -> dict[str, dict]:

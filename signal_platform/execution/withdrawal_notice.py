@@ -30,6 +30,7 @@ log = logging.getLogger(__name__)
 WITHDRAWN = "withdrawn"
 ALREADY_GONE = "already_gone"
 NOT_WITHDRAWN = "not_withdrawn"
+FILLED_FIRST = "filled_first"      # gone because it FILLED — a real trade, not a withdrawal (B29)
 
 # The sender. None means the dispatcher's private DM, resolved at call time; tests put a fake here.
 _sender = None
@@ -54,6 +55,10 @@ def message(outcome: str, order_id, symbol: str, why: str, intent: dict | None) 
         return (f"🤖 <b>AUTOTRADE ORDER WITHDRAWN</b> · {head}\n{levels}"
                 f"why: {why}\n"
                 f"<i>order {order_id} — nothing filled, no trade was opened</i>")
+    if outcome == FILLED_FIRST:
+        return (f"🤖 <b>AUTOTRADE ORDER HAD ALREADY FILLED</b> · {head}\n{levels}"
+                f"it could not be withdrawn: {why}\n"
+                f"<i>order {order_id} — this was a REAL trade, recorded as filled, not withdrawn</i>")
     if outcome == ALREADY_GONE:
         return (f"🤖 <b>AUTOTRADE ORDER ALREADY GONE</b> · {head}\n{levels}"
                 f"the broker no longer had order {order_id}: it filled, expired or was cancelled by hand\n"

@@ -32,6 +32,7 @@ import logging
 import time
 
 from data import ctrader_positions
+from monitor import start_stops
 
 log = logging.getLogger(__name__)
 
@@ -90,6 +91,8 @@ async def refresh() -> list | None:
             _cached, _cached_at, _forced = fresh, time.monotonic(), False
             # Read with nothing awaited in between, so these are the ids that came with `fresh`.
             _resting = ctrader_positions.last_resting_order_ids()
+            # A NEW POSITION'S STARTING STOP is looked up in the background — never awaited here.
+            start_stops.learn_soon(fresh)
             return _cached
         # THE READ FAILED. Keep serving what we last knew, until it is too old to mean anything.
         stale = age()
@@ -103,8 +106,11 @@ async def refresh() -> list | None:
 
 
 async def positions() -> list | None:
-    """Every open position. From memory when it is fresh, from the broker when it is not."""
-    return _cached if _fresh() else await refresh()
+    """Every open position. From memory when it is fresh, from the broker when it is not.
+
+    EACH ONE CARRIES ITS STARTING STOP (`monitor/start_stops`), which is what the ladder counts R
+    from. Both stop-movers read this one list, so neither can miss it."""
+    return start_stops.attach(_cached if _fresh() else await refresh())
 
 
 async def snapshot() -> tuple[list, set[int]] | None:

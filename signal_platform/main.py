@@ -74,6 +74,11 @@ async def _startup() -> None:
     # him. They cannot be recovered after the fact, and they are the MAE/MFE the journal wants.
     from monitor import exit_watch
     exit_watch.rehydrate()
+    # EACH OPEN TRADE'S STARTING STOP, so the profit ladder keeps counting R from where the trade
+    # began after a restart. Without it, a trade whose stop had moved would sit unmanaged until the
+    # broker was asked again (docs/OPEN.md B27).
+    from monitor import start_stops
+    start_stops.rehydrate()
 
     # 1e. ORPHANED ORDERS are swept by the SIGNAL MONITOR on every poll, not here.
     #

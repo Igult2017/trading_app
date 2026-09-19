@@ -44,6 +44,9 @@ STAGE_AUTOTRADE_REFUSED   = "autotrade_refused"    # our own guards said no; `de
 STAGE_AUTOTRADE_REJECTED  = "autotrade_rejected"   # the BROKER said no to an order we sent
 STAGE_AUTOTRADE_CANCELLED = "autotrade_cancelled"  # a resting order withdrawn, or found already gone
 STAGE_AUTOTRADE_FAILED    = "autotrade_failed"     # nothing to trade with, or the path crashed
+# The order was gone when we came to withdraw it because it had FILLED — a real trade the polls never
+# saw open (16 Sep: 1.2 seconds). Recorded instead of "cancelled" since 19 Sep 2026 (docs/OPEN.md B29).
+STAGE_AUTOTRADE_FILLED_UNSEEN = "autotrade_filled_unseen"
 
 
 class SignalEventModel(Base):

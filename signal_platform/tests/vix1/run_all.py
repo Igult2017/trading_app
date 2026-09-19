@@ -109,6 +109,14 @@ TESTS = [
     # updated most recently", across ALL users — so any user syncing became this platform's
     # credentials, live, within ~3 minutes. Every read must now name the account it wants.
     "test_account_pin.py",          # one owned account, and every read asks for it
+    # ADDED 2026-09-19 (docs/OPEN.md B27). The ladder counted R from the MOVED stop and went blind
+    # after breakeven; his 18 Sep sell reached 2.85R and closed at $0. These drive the LIVE count
+    # over the broker's real ticks and prove the old code reproduces what the account really did.
+    "test_ladder_start_stop.py",    # the starting stop: broker lookup, memory, both stop-movers
+    "test_ladder_replay_ticks.py",  # before/after on real ticks, old code == the broker's closes
+    # ADDED 2026-09-19 (docs/OPEN.md B30). 7 of 11 VIX.1 orders were sent after price had already
+    # gone past their own stop, then withdrawn. The entry now checks its stop, not only its entry.
+    "test_entry_stop_already_hit.py",  # 8 real orders: 4 dead refused, 4 clean unchanged
 ]
 
 # AND THIS IS WHY IT WILL NOT HAPPEN A THIRD TIME. Adding a test file without listing it above is

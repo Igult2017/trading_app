@@ -85,6 +85,10 @@ async def check_all() -> None:
         # while the broker order still rests. Fired as a task, never two at once; never delays the poll.
         from execution.canceller import sweep_orphans_soon
         sweep_orphans_soon()
+        # ONCE PER PROCESS: re-ask the broker about orders recorded as withdrawn — any that really
+        # FILLED is corrected (16 Sep: a -$125 trade shown as "Withdrawn", docs/OPEN.md B29).
+        from execution.order_fate import recheck_once_soon
+        recheck_once_soon()
         active = await loop.run_in_executor(None, signal_repo.get_active)
         tally: dict[str, int] = {}
         if active:
