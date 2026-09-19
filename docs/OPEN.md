@@ -264,6 +264,50 @@ red self-test that everyone steps around is how a real regression gets missed: t
 break something here will see two failures and assume they are the usual two.
 
 
+### B30 - VIX.1 places orders on setups that had ALREADY died: price went through the stop after the cross and before the order. 🔴 Verified 19 Sep
+
+**His words, 19 Sep:** *"I do feel the system is making entries wrong"* and *"the whole autotrade is just
+a mess"*. **7 of the 11 VIX.1 orders 10-18 Sep** had price trade THROUGH the order's own stop after the
+cross and before the order was sent. By the platform's own rule (a stop touched before entry = the
+setup is dead) they were dead on arrival. Reproduced exactly through the real `m1_signals` on the
+broker's 1-minute bars (his clock):
+
+| order | cross | level from | through the stop | order sent | what happened |
+|---|---|---|---|---|---|
+| EUR/USD sell 10 Sep | 20:00 | 20:04 | 20:02 | 20:06 | withdrawn 20:12; price later ran to 4R |
+| EUR/USD sell 14 Sep | 10:01 | 10:04 | **10:11-10:21, nine minutes** | 10:23 | withdrawn 10:26; price later ran to 4R |
+| GBP/USD buy 16 Sep (refused, Asian) | 06:00 | 06:01 | 06:03 | 06:05 | would have lost |
+| GBP/USD sell 16 Sep (trade 2) | 15:00 | 15:01 | 15:02 - the very candle that released the order | 15:03 | filled 15:03:17, stopped 1.2 s later, -$125 |
+
+Three more (EUR/USD sell 17 Sep 04:11, GBP/USD sell 17 Sep 04:20, GBP/USD sell 17 Sep 18:05) show the
+same on the candles but did NOT reproduce exactly (the live platform builds its own 1-minute candles,
+B13), so they are candle evidence only. At 04:20 price was ABOVE the sell's stop when it was sent.
+The 4 clean ones: 15 Sep GBP buy, 17 Sep EUR sell, 18 Sep EUR sell, 14 Sep gold sell.
+
+**Where:** `vix1_cross.decide` takes the level from the FIRST pullback within 3 candles of the cross and
+returns ([`vix1_cross.py:152-156`](../signal_platform/strategies/vix1_cross.py#L152-L156)); nothing looks
+at the bars after it. When price is back on the wrong side of the line, `vix1_entry` waits for a fractal
+break ([`vix1_entry.py:130`](../signal_platform/strategies/vix1_entry.py#L130)) and then reuses that SAME
+old level ([`:141`](../signal_platform/strategies/vix1_entry.py#L141)). The only "already through" test is
+on the ENTRY side ([`:180-181`](../signal_platform/strategies/vix1_entry.py#L180-L181)). And both watchers
+judge only candles that opened after the signal existed
+([`signal_monitor.py:152`](../signal_platform/monitor/signal_monitor.py#L152),
+[`vix1_watch.py:56`](../signal_platform/strategies/vix1_watch.py#L56)), so a death BEFORE the signal is
+never seen; the order lives until price touches the stop a second time. **Not fixed — the entry is his.**
+
+### B29 - A trade that opens and closes between two checks is recorded as "Withdrawn", hiding a real loss. 🔴 Verified 19 Sep
+
+The 16 Sep GBP/USD sell (order 361154082) FILLED at 15:03:17 and was stopped at 15:03:18 for -$125.
+His autotrade screen shows it as **"Withdrawn"**. A fill is only noticed by seeing the position OPEN in
+a poll ([`execution/fill_watch.py`](../signal_platform/execution/fill_watch.py)); 1.2 seconds is never
+seen, so the order row stayed "placed". When the signal later went inactive, the orphan sweep asked
+the broker to cancel, got ORDER_NOT_FOUND and wrote CANCELLED
+([`execution/canceller.py:84-92`](../signal_platform/execution/canceller.py#L84-L92)). The screen shows a
+profit or loss only for status "filled"
+([`autotradeRows.ts:59-68`](../client/src/features/admin-autotrade/autotradeRows.ts#L59-L68)), so the loss
+is invisible there and the "Withdrawn" count is inflated. **I have not checked whether this -$125 reached
+his journal.**
+
 ### B27 - Once the stop reaches breakeven, the profit ladder is dead: no +1R lock, no trailing. 🔴 Verified 19 Sep
 
 **His report, 19 Sep:** *"When i checked two of the trades which one was a loss and one a breakeven
