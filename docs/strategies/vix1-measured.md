@@ -7,6 +7,89 @@ and after coding."*
 
 ---
 
+## THE SPREAD ON A SELL — 12 months, his approval 2026-09-20 ("Go ahead")
+
+**This section is NOT a generic mechanic sweep. It is the shipped `detect_bias` + `m1_signals` +
+the shipped ladder, over real bars, with the REAL spread measured from bid AND ask ticks at every
+single fill** (`trading_app_data/tools/vix1_spread_year.py` -> `vix1_spread_ticks.py` ->
+`vix1_spread_score.py`). EUR/USD + GBP/USD 2025-07-17 -> 2026-07-17, XAU/USD 2026-05-01 -> 2026-09-01.
+
+**584 setups -> 357 orders -> 222 fills (122 sells, 100 buys). All 222 spreads measured on the tick
+that touched the entry.** Buy-price history was confirmed available back 18 months before starting.
+
+### The finding
+
+A sell is closed by BUYING BACK, so its stop fires on the buy price. Score the same trades both ways:
+
+| | chart price (what every earlier VIX.1 number did) | the price they are really closed at |
+|---|---|---|
+| every fill | **+16.3 R** | **-21.6 R** |
+| buys (100) | +17.8 R | +17.8 R — identical, by construction |
+| sells (122) | -1.5 R | **-39.4 R** |
+
+**The spread takes 37.9 R a year out of the sells, and the whole book's sign with it.**
+
+### It is the SPREAD, not small stops — the control that proves it
+
+| stop size | BUY n | R per buy | SELL n | R per sell |
+|---|---|---|---|---|
+| under 2.5p | 0 | — | 12 | **-0.92** |
+| 2.5-4p | 16 | **+0.57** | 32 | -0.43 |
+| 4-6p | 38 | +0.20 | 28 | -0.32 |
+| 6-9p | 23 | -0.21 | 21 | -0.47 |
+| over 9p | 11 | +0.01 | 9 | +0.22 |
+
+A small stop is the BEST band for a buy and the WORST for a sell. The only difference between them
+is which side of the market the stop fires on.
+
+### The gradient, sells banded by how much of the stop the spread ate at the fill
+
+| band | trades | median stop | R per trade | losses |
+|---|---|---|---|---|
+| under 20% | 51 | 9.3p | -0.09 | 19 |
+| 20-35% | 47 | 4.2p | -0.39 | 25 |
+| 35-50% | 18 | 2.6p | -0.56 | 11 |
+| 50-75% | 5 | 2.2p | **-1.00** | 5 of 5 |
+| over 75% | 1 | 1.5p | -1.00 | 1 of 1 |
+
+### Two cures, both work — and this CORRECTS the 7-trade conclusion of the same day
+
+| | whole book |
+|---|---|
+| today | **-21.6 R** |
+| **refuse a sell whose stop is under 5x the spread** (refuses 71 of 122 sells; 7 were winners, +7.3R) | **+13.0 R** |
+| widen those stops to 5x the spread instead | +5.2 R |
+
+Threshold sweep: 15% +17.9 R, **20% +13.0 R**, 25% +9.0, 30% +2.0, 35% -5.5, 40% -8.6, 50% -15.6.
+Widening: 3x -13.5, 4x -5.6, **5x +5.2**, 6x +5.3.
+
+**On one week (4 sells) widening measured as useless and refusing as the only lever. On 122 sells both
+work. Do not quote the one-week version.**
+
+### Falsification tests, all passed
+
+* **The same filter on BUYS, where the mechanism says it must NOT help:** +13.0 R -> +1.4 R. It
+  destroys value, exactly as predicted.
+* **Every cut improves:** EUR/USD -19.5 -> +0.7, GBP/USD -10.5 -> +4.0, XAU/USD +8.3 (untouched — no
+  gold fill ever exceeded the threshold), first half -26.9 -> -4.9, second half -3.1 -> +9.6.
+* **The spread assumption:** the fill minute's spread is applied to the whole trade. Scaled down 25%,
+  up 25%, or replaced by a flat per-pair spread, today's number moves (-7.8 to -26.3 R) but the cure
+  does not: **+11.0 to +14.1 R in every one**.
+
+### What it does NOT say
+
+* **The cure stops the bleeding; it does not make sells profitable.** Sells go -39.4 R -> -4.8 R. The
+  year's profit is in the BUYS (+17.8 R) and gold (+8.3 R). Why sells underperform even then is a
+  separate question, not answered here.
+* The first half is still -4.9 R after the cure.
+* Harness limits: the news, session and correlation gates are not applied; today's entry code is run
+  over a year of history; the scan minute is reconstructed; intrabar the adverse extreme is taken
+  first; the live platform builds its own candles, so a stop can differ by ~0.2 pip.
+* Refusing 71 of 122 sells is a large behavioural change, not a tweak. **Nothing is built from this
+  without his decision.**
+
+---
+
 ## ⚠ WHAT THESE NUMBERS ARE, AND WHAT THEY ARE NOT
 
 Every sweep below is a **GENERIC stop entry on every bar** — a level, a cross, an order one tick

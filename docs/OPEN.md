@@ -391,9 +391,16 @@ died in 1.2 s. The floor at `vix1_entry.py:195` already adds the spread to the m
 the ONE instantaneous reading at scan time (`vix1.py:328` -> `ctrader_spread.quote_for`): 1.2 pips that
 minute against 2.6 at the fill.
 
-*Candidate, NOT built, needs his word and a proper test over history (a backtest):* size that floor from a
-recent WORST spread rather than the instant one, or refuse a sell whose stop is under ~2x it. Four sells
-cannot decide an entry rule.
+*THE 12-MONTH TEST WAS RUN (his "Go ahead", 20 Sep) — see `docs/strategies/vix1-measured.md`, top
+section.* 222 real fills, the real spread measured from bid+ask ticks at every one. Scoring sells on the
+price they are really closed at turns the year from **+16.3R into -21.6R**; the spread takes **37.9R off
+the sells** and buys are untouched (+17.8R either way). It is NOT small stops: a 2.5-4p stop is the BEST
+band for a buy (+0.57R each) and a losing one for a sell (-0.43R). Two cures now measure well and **this
+corrects the 7-trade conclusion above**: refuse a sell whose stop is under 5x the spread **-21.6R ->
++13.0R** (71 of 122 sells refused, 7 of them winners), or widen those stops to 5x **+5.2R**. Every cut
+improves and the same filter on buys destroys value, as the mechanism predicts. **But the cure only stops
+the bleeding — sells go -39.4R -> -4.8R, still not profitable; the year's profit is in the buys and gold.**
+Nothing built; refusing 58% of sells is his decision, not mine.
 
 **UPDATE 19 Sep 2026 — the LADDER half is FIXED, the STOP half is OPEN and his to decide.** The ladder now
 reads the chart price (tested: -3.09R vs -5.24R on 14 trades), which gives his 17 Sep sell its breakeven.
