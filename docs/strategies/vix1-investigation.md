@@ -1778,3 +1778,48 @@ identifies, not from a search for the biggest body.
 **Nothing built. VIX.1 has no void logic of any kind today** (the only gap code in the repo belongs
 to the other strategy and is not shared). The protected level his rule needs already exists:
 `vix1_trend`'s `protected` — *"close through this = CHoCH"*.
+
+### THE VOID BACKTEST — 12 months, both pairs (his approval: *"You can backtest"*, 20 Sep 2026)
+
+Harnesses (outside the repo): `trading_app_data/tools/vix1_void_study.py`, `vix1_void_race.py`.
+Voids are anchored to the candle VIX.1 already calls a momentum candle. EUR/USD 2,745 voids and
+GBP/USD 2,719 voids over 26,000 hours each.
+
+**1. HIS PREMISE IS RIGHT — AT THE HALFWAY MARK, NOT THE FULL FILL.** Racing the two outcomes from
+the moment the long candle closes:
+
+| the race | EUR/USD | GBP/USD |
+|---|---|---|
+| comes back **50%** of the body before extending a full body | **filled first 69%** (median 1h) | **68%** (median 1h) |
+| comes back **100%** before extending a full body | filled first 51% · continued 48% | 50% · 49% |
+| comes back 50% before extending 50% | 54% · 46% | 53% · 47% |
+
+So *"in most cases the price goes back to fill it before proceeding"* holds at the **midpoint** —
+roughly 7 in 10 — and is a coin flip for a complete fill. The independent research says the same
+thing: the 50% level is the most reactive zone inside a void. **The midpoint is the level to use.**
+
+**2. HIS CONVICTION TEST, PRICED.** Two candles in the direction, each closing beyond the last, each
+with a body over the normal body AND over a share of its own range (not wick):
+
+| conviction bar | EUR/USD voids that get it | GBP/USD | median wait |
+|---|---|---|---|
+| body >= 1x normal, >= 50% of its range | 54% | 53% | 10h |
+| body >= 1x normal, **>= 60% of its range** | **34%** | **36%** | 10-12h |
+| body >= 1x normal, >= 75% of its range | 10% | 10% | 11-13h |
+| body >= 1.5x normal, >= 60% of its range | 29% | 29% | 11-12h |
+
+Research (ICT displacement) puts a conviction candle's body at 60-75% of its range with wicks under
+20%; VIX.1's own momentum test already uses 50% of range and a counter-wick under 25%. **At 75% only
+one void in ten would ever be tradeable; at 60%, one in three.**
+
+**3. THE STRUCTURAL FINDING, and it decides how this gets built.** Of the 315 orders in the 12-month
+population, **248 (79%) were built on the long candle ITSELF** - VIX.1 trades the close of the
+momentum candle, so the void and the trigger are the same candle. Only 17 were placed while a void
+was filling and 38 after price had gone through one.
+
+**So his rule is not a filter on the current entries - it is a different entry.** Applied as a
+filter it refuses 79% of them by design, because "wait for two more candles" is precisely what today
+does not do. Measuring its P&L therefore needs one thing that has not been stated: **where the stop
+goes on a void entry**, two candles after the long one. Any number produced without his answer would
+be measuring my choice of stop, not his method - the exact mistake the no-backtest rule exists to
+prevent. **Asked, not assumed.**
