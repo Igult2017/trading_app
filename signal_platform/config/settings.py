@@ -156,6 +156,20 @@ class Settings(BaseSettings):
     # it happens rather than letting the shortfall pass silently.
     autotrade_max_lots:    float = 5.0
     autotrade_max_per_day: int   = 6       # hard cap on orders placed in a rolling 24h
+    # HOW MANY SPREADS A SELL'S STOP MUST BE WORTH BEFORE IT IS TRADED. 0.0 switches the rule off.
+    #
+    # A sell is closed by BUYING BACK, so its stop fires on the buy price while the level it was
+    # measured from is drawn on chart prices. Measured over 222 real fills (12 months EUR/USD +
+    # GBP/USD, 4 months XAU/USD, the real spread taken from the broker's own bid AND ask ticks at
+    # every fill — `docs/strategies/vix1-measured.md`): scored on the price the trades are really
+    # closed at, the year is -21.6R against +16.3R on the chart price, and the whole 37.9R
+    # difference is on the SELLS. Not taking the ones whose stop is under 5x the spread was the best
+    # lever measured: -14.9R -> +6.7R, against -1.8R for widening their stops instead.
+    #
+    # BUYS ARE NEVER JUDGED BY THIS — a buy's stop fires on the chart price, and applying the same
+    # filter to buys destroys the gain (+13.0R -> +1.4R). That is the test that says this is the
+    # spread and not a number fitted to the data.
+    autotrade_min_stop_spread: float = 5.0
     autotrade_symbols:     str   = ""      # CSV allow-list; empty = every symbol the strategy fires
     autotrade_strategies:  str   = "vix1"  # CSV of strategy ids allowed to place. VIX.1 only for now
     # WHEN MAY IT TRADE — his instruction, 2026-08-31: *"I want you to make it trade during London

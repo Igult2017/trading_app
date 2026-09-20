@@ -125,6 +125,11 @@ TESTS = [
     # A sell's stop fires on the BUY price, so a gap measured off the chart price was eaten by the
     # spread: 135 refusals on one trade and the trail never moved. Now measured off the firing price.
     "test_trail_symmetry.py",        # a sell's stop gets the same real room as a buy's
+    # ADDED 2026-09-20 on his approval, after 222 real fills measured with the broker's own bid AND
+    # ask ticks: scored on the price trades really close at, the year is -21.6R against +16.3R on the
+    # chart price, and all of that is on SELLS. Most of this file asserts what the guard must NOT
+    # refuse — his words, *"make sure it only refuses orders it is meant to refuse"*.
+    "test_guard_spread_stop.py",     # a sell's stop must clear the spread; nothing else is refused
 ]
 
 # AND THIS IS WHY IT WILL NOT HAPPEN A THIRD TIME. Adding a test file without listing it above is

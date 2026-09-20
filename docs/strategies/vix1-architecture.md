@@ -90,6 +90,21 @@ buy's stop fires on the bid, which IS the price the ladder reads, so its gap was
 the ask, so the spread ate the gap and the trailing move was refused 135 times on the 18 Sep trade and
 never landed. Guarded by `test_trail_symmetry.py` and the live-loop numbers in `test_ladder_live_loop.py`.
 
+**4. A SIGNAL and an ORDER are two decisions, and a rule about tradeability belongs to the second.**
+Added 2026-09-20, his instruction: *"the refusal only works for autotraded orders but the signal is
+still sent to telegram."* `notifications/dispatcher.py` sends the card and only THEN calls `_autotrade`,
+so anything refused inside `execution/guards.check` is structurally incapable of suppressing a Telegram
+signal — and a refusal there already reaches him as a DM (`placer.py`, `refusal_message`) and a row in
+the decision log. The first rule of this kind is **guard 8**: for a SELL only, no order when the stop is
+under `autotrade_min_stop_spread` (5.0) times the spread at that moment, because a sell is closed at the
+buy price. Measured over 222 real fills with the broker's own bid and ask at every one: -14.9R -> +6.7R,
+and the same filter on BUYS destroys the gain, which is how we know it is the spread and not a fitted
+number (`docs/strategies/vix1-measured.md`). **A missing spread never refuses** — unmeasured is not the
+same as bad, a deliberate exception to that module's "anything ambiguous refuses" rule.
+**Contrast with invariant 2:** a setup whose stop was already traded through is DEAD, so that one kills
+the signal itself in `vix1_entry`. Guarded by `test_guard_spread_stop.py`, most of which asserts what the
+guard must NOT refuse.
+
 ---
 
 ## ONE QUESTION, ONE MODULE — the ownership map (2026-09-07)

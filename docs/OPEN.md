@@ -356,7 +356,17 @@ with `stop=1.14693` it is None at every price. After a +1R lock the same formula
 from the wrong stop. `tools/replay_ladder.py` holds a FIXED risk, which is why the replays never
 showed this. Chart: `Desktop\VIX1 entries 14-18 Sep\4 ...BREAKEVEN.png`.
 
-### B28 - A SELL's stop is set on the chart price but the broker fires it on the buy price. Verified 19 Sep
+### ~~B28 - A SELL's stop is set on the chart price but the broker fires it on the buy price~~ — ANSWERED 20 Sep 2026
+
+**BOTH HALVES ARE NOW DEALT WITH.** Moving a stop: every ladder move is placed 0.2R from the price that
+fires it (`monitor/stop_placement.py`). The entry's stop: it is NOT moved — measured, that makes things
+worse — and instead **no autotrade order goes out on a SELL whose stop is under 5x the spread**
+(`execution/guards.py` rule 8, `autotrade_min_stop_spread`, 0.0 turns it off). The Telegram signal is
+unaffected: the dispatcher sends the card before autotrade runs. Driving the REAL guard over 12 months:
+**-14.9R -> +6.7R**. Full evidence in `docs/strategies/vix1-measured.md`.
+**What remains open is not B28:** even with the spread accounted for, VIX.1's SELLS are roughly
+break-even (-39.4R -> -4.8R over the year) while the buys make +17.8R. Why the sell side underperforms
+is unmeasured and is its own question.
 
 **UPDATE 20 Sep 2026 — MOVING a stop is FIXED on both sides; PLACING THE ENTRY's stop is still open.**
 His question: *"how can we move SL in sell the same way we do in buy?"* Every stop the ladder MOVES is now

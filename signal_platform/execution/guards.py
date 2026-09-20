@@ -80,11 +80,15 @@ def _recent(hours: int = 24) -> list[tuple[datetime, str, str, str, int | None]]
 
 def check(symbol: str, direction: str, strategy: str,
           account_type: str, equity: float, lots: float,
-          book: tuple[list, set[int]] | None = None) -> str | None:
+          book: tuple[list, set[int]] | None = None,
+          stop_distance: float | None = None, spread: float | None = None) -> str | None:
     """None = place it. A string = refuse, and that string is the reason.
 
     `book` is what the broker has right now: open positions and the ids of resting orders, from ONE
     reply (`monitor.position_book.snapshot`). None means it could not be read. Only rule 7 uses it.
+
+    `stop_distance` (entry to stop, in price) and `spread` (ask - bid right now) are only rule 8's.
+    Both default to None, which that rule treats as "not measured" and lets through — see there.
     """
 
     # 1. THE KILL SWITCH. One flag, checked first, no exceptions and no overrides.
@@ -165,6 +169,39 @@ def check(symbol: str, direction: str, strategy: str,
         alive = liveness.why_alive(order_id, symbol, direction, volume, placed_at, book)
         if alive:
             return f"an order for {symbol} {direction} is still live: {alive}"
+
+    # 8. A SELL'S STOP MUST BE WORTH SEVERAL SPREADS — his instruction, 2026-09-20, after the
+    #    measurement below: *"build it and make sure it only refuses orders it is meant to refuse."*
+    #
+    #    WHY ONLY A SELL. A sell is closed by BUYING BACK, so its stop fires on the buy price, while
+    #    the line and the pullback it was measured from are drawn on chart prices. A buy's stop fires
+    #    on that same chart price, so the spread cannot reach it. Measured over 222 real fills with
+    #    the broker's own bid AND ask ticks at every one (docs/strategies/vix1-measured.md): the year
+    #    is +16.3R scored on the chart price and -21.6R scored on the price the trades really close
+    #    at, and every bit of that 37.9R is on the sells. His 16 Sep GBP/USD sell is the shape of it
+    #    — a 2.5-pip stop against a 2.6-pip spread at the fill, past its stop the moment it filled,
+    #    gone in 1.2 seconds.
+    #
+    #    AND THE TEST THAT SAYS THIS IS THE SPREAD, NOT A FITTED NUMBER: the same filter applied to
+    #    BUYS, where the mechanism says it must not help, drops +13.0R to +1.4R.
+    #
+    #    IT REFUSES THE ORDER, NOT THE SIGNAL. `dispatcher` sends the card and only then calls
+    #    autotrade, so nothing here can suppress a Telegram signal — that is why the rule lives in
+    #    this module and not in `vix1_entry`, where the B30 dead-setup check rightly kills the signal.
+    mult = settings.autotrade_min_stop_spread
+    if mult > 0 and (direction or "").upper() == "SELL":
+        if spread is None or not spread or stop_distance is None:
+            # UNMEASURED IS NOT THE SAME AS BAD, and this is a deliberate exception to the module's
+            # "anything ambiguous refuses" rule (his instruction above). An unreadable spread does
+            # not make a trade dangerous; refusing on it would silence autotrade on every feed
+            # hiccup, which is refusing orders this rule was never meant to refuse.
+            log.info(f"[guards] {symbol} {direction}: the spread could not be read, so the "
+                     f"{mult:g}x-spread rule did not run — placing on the other gates alone")
+        elif stop_distance < mult * spread:
+            return (f"the stop is {stop_distance / spread:.1f}x the spread "
+                    f"({stop_distance:.5f} against {spread:.5f}), under the {mult:g}x a sell needs: "
+                    f"a sell is closed at the BUY price, so it starts "
+                    f"{100 * spread / stop_distance:.0f}% of its own stop behind")
 
     return None
 
