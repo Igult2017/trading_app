@@ -3968,6 +3968,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                            m.broker_account_id,
                            b.platform, b.name AS account_name, b.login_id AS ctrader_account,
                            b.account_type, b.is_active AS account_active,
+                           b.balance, b.currency, b.last_sync_at, b.sync_status,
                            (b.password_enc IS NOT NULL) AS has_credentials
                       FROM copy_masters m
                  LEFT JOIN broker_accounts b ON b.id = m.broker_account_id
@@ -3979,12 +3980,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
                            f.deployed_at, f.broker_account_id,
                            b.platform, b.name AS account_name, b.login_id AS ctrader_account,
                            b.account_type, b.is_active AS account_active,
+                           b.balance, b.currency, b.last_sync_at, b.sync_status,
                            (b.password_enc IS NOT NULL) AS has_credentials
                       FROM copy_followers f
                  LEFT JOIN broker_accounts b ON b.id = f.broker_account_id
                   ORDER BY f.created_at DESC`),
+        // stop_loss and take_profit decide the risk-% sizing (dispatcher.py: sl_pips needs BOTH the
+        // entry and the stop), so they are the fields that say WHY a copy was skipped.
         pool.query(`SELECT id, master_id, external_id, source, symbol, action, event_type, volume,
-                           entry_price, closed_price, status, created_at
+                           entry_price, stop_loss, take_profit, closed_price, status, created_at
                       FROM copy_trades_master ORDER BY created_at DESC LIMIT 30`),
         pool.query(`SELECT id, master_trade_id, follower_id, external_id, symbol, action, event_type,
                            volume, entry_price, closed_price, status, error_message, retry_count,
