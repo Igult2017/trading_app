@@ -3941,6 +3941,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (err: any) { console.error(err); return res.status(500).json({ error: "Internal server error" }); }
   });
 
+  /** EVERY COPY DECISION, WITH ITS REASON — the Activity tab on Sync Performance.
+   *
+   *  His ask, 2026-09-20: *"a tab that records all the log activities of every slave account — when
+   *  trade was copied, trade was not copied and with the reason it wasnt copied, so that when we
+   *  want to fix something we know exactly where the problem is."*
+   *
+   *  NOTHING NEW IS RECORDED FOR THIS. The engine already writes every decision to
+   *  `copy_execution_logs` through one helper (`copy_platform/dispatcher.py:_log`), successes
+   *  included — that is how the 19-day silent no-copy was diagnosed. This is the window onto it.
+   *
+   *  The joins are what make a row readable on its own: WHICH slave account (not a uuid), which
+   *  provider, and which trade it was about. All LEFT joins — a log line must still show when the
+   *  trade row it refers to has been cleaned up, because the lines with no trade are often the
+   *  interesting ones.
+   */
+  app.get("/api/admin/copy/activity", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const limit = Math.min(Math.max(parseInt(String(req.query.limit ?? "200"), 10) || 200, 1), 500);
+      const follower = String(req.query.follower ?? "").trim();
+      const event = String(req.query.event ?? "").trim();
+      const where: string[] = [];
+      const args: any[] = [];
+      if (follower) { args.push(follower); where.push(`l.follower_id = $${args.length}`); }
+      if (event)    { args.push(event.toUpperCase()); where.push(`UPPER(l.event) = $${args.length}`); }
+      args.push(limit);
+      const { rows } = await pool.query(`
+        SELECT
+          l.id, l.created_at, l.level, l.event, l.message,
+          l.follower_id, l.trade_id,
+          ba.name        AS slave_account,
+          ba.login_id    AS slave_login,
+          ba.platform    AS slave_platform,
+          f.lot_mode, f.is_active AS follower_active,
+          m.strategy_name, m.source_type,
+          t.symbol, t.action, t.event_type, t.volume, t.entry_price, t.stop_loss
+        FROM copy_execution_logs l
+        LEFT JOIN copy_followers   f  ON f.id  = l.follower_id
+        LEFT JOIN broker_accounts  ba ON ba.id = f.broker_account_id
+        LEFT JOIN copy_masters     m  ON m.id  = f.master_id
+        LEFT JOIN copy_trades_master t ON t.id = l.trade_id
+        ${where.length ? "WHERE " + where.join(" AND ") : ""}
+        ORDER BY l.created_at DESC
+        LIMIT $${args.length}
+      `, args);
+      return res.json(rows);
+    } catch (err: any) { console.error("[copy-activity]", err); return res.status(500).json({ error: "Internal server error" }); }
+  });
+
   // ══════════════════════════════════════════════════════════════════════════════════════════════
   // TEMPORARY DIAGNOSTIC — REMOVE BEFORE LAUNCH. Added 2026-09-20; tracked in docs/OPEN.md.
   //

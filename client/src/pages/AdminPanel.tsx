@@ -669,8 +669,11 @@ async function getSyncAuthHeaders(): Promise<Record<string, string>> {
 }
 
 const SyncPerformanceSection = ({ bp }: { bp: any }) => {
-  type TabId = 'overview' | 'providers' | 'telegram' | 'followers' | 'trades' | 'leaderboard';
+  type TabId = 'overview' | 'providers' | 'telegram' | 'followers' | 'trades' | 'activity' | 'leaderboard';
   const [tab, setTab] = useState<TabId>('overview');
+  // Activity Log: hide the copies that worked. The question this tab answers is "why did nothing
+  // happen?", and on a busy day the successes bury the one line that says why.
+  const [actProblemsOnly, setActProblemsOnly] = useState(false);
 
   // ── Shared overview data (providers + followers + tg stats in one call) ────
 
@@ -704,6 +707,12 @@ const SyncPerformanceSection = ({ bp }: { bp: any }) => {
   const at = useAdminData<any[]>('/api/admin/copy/all-trades', { enabled: tab === 'trades', fallback: [] });
   const allTrades = Array.isArray(at.data) ? at.data : []; const atLoading = at.loading;
   const loadAllTrades = at.refresh;
+
+  // EVERY COPY DECISION AND ITS REASON. The engine already writes these; this only reads them.
+  const ac = useAdminData<any[]>('/api/admin/copy/activity?limit=300',
+    { enabled: tab === 'activity', fallback: [] });
+  const activity = Array.isArray(ac.data) ? ac.data : []; const acLoading = ac.loading;
+  const loadActivity = ac.refresh;
 
   const lb = useAdminData<any>('/api/admin/leaderboard/entries', { enabled: tab === 'leaderboard', fallback: null });
   const lbEntries: any[] = lb.data?.entries ?? []; const lbLoading = lb.loading;
@@ -999,6 +1008,7 @@ const SyncPerformanceSection = ({ bp }: { bp: any }) => {
     { id: 'telegram',     label: 'Telegram'     },
     { id: 'followers',    label: 'Followers'    },
     { id: 'trades',       label: 'All Trades'   },
+    { id: 'activity',     label: 'Activity Log' },
     { id: 'leaderboard',  label: 'Leaderboard'  },
   ];
 
@@ -1282,12 +1292,97 @@ const SyncPerformanceSection = ({ bp }: { bp: any }) => {
     );
   };
 
+  // ── Activity Log Tab ───────────────────────────────────────────────────────
+  // His ask, 2026-09-20: *"a tab that records all the log activities of every slave account — when
+  // trade was copied, trade was not copied and with the reason it wasnt copied, so that when we want
+  // to fix something we know exactly where the problem is."*
+  //
+  // THE ENGINE ALREADY WRITES ALL OF IT. This only reads `copy_execution_logs`, which is how the
+  // 19-day silent no-copy was finally diagnosed: five identical "can't size — the trade has no
+  // stop-loss" lines that nothing on screen had ever shown him.
+  //
+  // The engine's own message is printed UNEDITED. It is the sentence that says where the problem is,
+  // and paraphrasing it on screen would be a second version to keep in step with the first.
+  const ACT = (r: any): { label: string; color: string } => {
+    const e = String(r.event || '').toUpperCase();
+    if (e === 'OPEN' || e === 'CLOSE' || e === 'MODIFY') return { label: 'Copied', color: C.green };
+    if (e === 'SKIP')      return { label: 'Not copied', color: C.muted };
+    if (e === 'RISK_CAP')  return { label: 'Blocked',    color: C.amber };
+    if (e === 'FAIL')      return { label: 'Failed',     color: C.red };
+    if (e === 'DISABLED')  return { label: 'Switched off', color: C.amber };
+    if (e === 'DRY_RUN')   return { label: 'Dry run',    color: C.indigoL };
+    if (e === 'RETRY')     return { label: 'Retried',    color: C.amber };
+    return { label: e || '—', color: C.muted };
+  };
+
+  const renderActivity = () => {
+    if (acLoading) return spinner;
+    const rows = actProblemsOnly
+      ? activity.filter((r: any) => ACT(r).label !== 'Copied')
+      : activity;
+    const filters = (
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px', flexWrap: 'wrap' }}>
+        <button onClick={() => setActProblemsOnly(!actProblemsOnly)}
+          style={{ ...btn, padding: '5px 12px', fontSize: '12px',
+                   background: actProblemsOnly ? C.indigo : 'transparent',
+                   color: actProblemsOnly ? '#fff' : C.muted, border: `1px solid ${C.border2}` }}>
+          Problems only
+        </button>
+        <span style={{ fontSize: '12px', color: C.muted }}>
+          {rows.length} of {activity.length} entries
+        </span>
+      </div>
+    );
+    if (activity.length === 0)
+      return <>{filters}{emptyState('No copy activity recorded yet. Every decision the engine makes — copied, not copied, and why — appears here.')}</>;
+    if (rows.length === 0)
+      return <>{filters}{emptyState('No problems: every copy in this window went through.')}</>;
+    return (
+      <>
+        {filters}
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ background: C.card }}>
+                {th('When')} {th('Slave account')} {th('Symbol')} {th('Side')} {th('What happened')} {th('Reason')} {th('Provider')}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r: any) => {
+                const a = ACT(r);
+                return (
+                  <tr key={r.id}>
+                    {td(fmtDate(r.created_at))}
+                    {td(r.slave_account
+                      ? <span>{r.slave_account}{r.slave_login ? <span style={{ color: C.muted }}> · {r.slave_login}</span> : null}</span>
+                      : <span style={{ color: C.muted }}>—</span>)}
+                    {td(<span style={{ fontWeight: 700 }}>{r.symbol || '—'}</span>, false, C.indigoL)}
+                    {td(r.action ? pill(r.action, r.action === 'BUY' ? C.green : C.red)
+                                 : <span style={{ color: C.muted }}>—</span>)}
+                    {td(pill(a.label, a.color))}
+                    {/* The one column that may wrap — the reason is the point of the table. */}
+                    <td style={{ padding: '8px 10px', fontSize: '12px', color: C.text, fontFamily: FONT,
+                                 borderBottom: `1px solid ${C.border}`, minWidth: '280px', whiteSpace: 'normal' }}>
+                      {r.message || '—'}
+                    </td>
+                    {td(r.strategy_name || r.source_type || '—')}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </>
+    );
+  };
+
   /** The Refresh button. Every read is cached now, so this asks each one to go and check —
    *  the screen keeps showing what it has until the new copy lands, rather than blanking. */
   const handleRefresh = () => {
     loadOverview();
     if (tab === 'telegram')    loadTgTrades();
     if (tab === 'trades')      loadAllTrades();
+    if (tab === 'activity')    loadActivity();
     if (tab === 'leaderboard') { loadLbEntries(); loadAdminSessions(); }
   };
 
@@ -1318,6 +1413,7 @@ const SyncPerformanceSection = ({ bp }: { bp: any }) => {
         {tab === 'telegram'     && renderTelegram()}
         {tab === 'followers'    && renderFollowers()}
         {tab === 'trades'       && renderAllTrades()}
+        {tab === 'activity'     && renderActivity()}
         {tab === 'leaderboard'  && renderLeaderboard()}
       </div>
     </div>
