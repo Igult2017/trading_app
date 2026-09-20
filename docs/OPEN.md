@@ -363,9 +363,37 @@ His question: *"how can we move SL in sell the same way we do in buy?"* Every st
 placed 0.2R from the price that fires it (`monitor/stop_placement.py`), so a sell gets the same real room
 as a buy and a trailing move can no longer be refused — before this, the trail was refused as through the
 market 135 times on the 18 Sep trade and never moved once. Measured over all 7 real fills through the real
-monitor loop: -2.16R -> -1.31R (18 Sep +0.98R -> +1.83R). **STILL OPEN, and his to decide:** the stop the
-ENTRY sets (`strategies/vix1_entry.py:141-143`) still has no room for the spread — that is his stop rule,
-not the ladder's, and nothing below has changed.
+monitor loop: -2.16R -> -1.31R (18 Sep +0.98R -> +1.83R).
+
+**THE ENTRY's stop, measured 20 Sep on his ask — SIX cures tested, and the diagnosis moved.** All on the
+7 real fills through the real monitor loop, the broker's own bid+ask ticks (`scratchpad/entry_stop_spread.py`,
+`spread_cures.py`, `spread_at_fill.py`, `spread_reading.py`).
+
+*What is real:* a buy's stop fires on the chart price, so all 3 buys fired with the chart exactly on the
+stop. All 3 sells that were stopped fired while the chart was short of it — 16 Sep by 2.5 pips (a full 1R:
+**the chart price was still at his entry when the account took the loss**), 17 Sep by 1.1 pips and the
+chart did not get there for 3h11m, 18 Sep by 1.3 pips and 20 minutes.
+
+*Every cure that moves the stop FAILS, because a wider stop enlarges 1R and shrinks every winner:*
+widen every sell by one spread **-1.31R -> -2.12R** (18 Sep +1.83R -> +1.00R); widen only the tight ones
+to 2x or 3x the spread **-1.27R** (16 Sep -1.04R -> -1.00R, still a loss, 57s later); the code's own floor
+on an honest spread (3.1p instead of 2.5p) **still loses at 15:04:15**. Firing the stop on the chart price
+instead was tested 19 Sep and is worse (below).
+
+*The only lever that pays is NOT TAKING THE TRADE:* skip a sell whose stop is under 2x the spread
+**-1.31R -> -0.27R** (it removes 16 Sep and nothing else).
+
+*And the mechanism, which is new:* **the spread AT THE FILL, as a share of that trade's stop** — 16 Sep
+**104%** (2.6 pips against a 2.5-pip stop; median over the next 10 minutes 1.1p, so a spike at the fill),
+17 Sep 54%, 18 Sep 17%, the three buys 18-31%. A stop order is triggered by the spike, so the spread at
+YOUR fill is systematically worse than the average one. 16 Sep was past its stop the moment it filled and
+died in 1.2 s. The floor at `vix1_entry.py:195` already adds the spread to the minimum stop, but it uses
+the ONE instantaneous reading at scan time (`vix1.py:328` -> `ctrader_spread.quote_for`): 1.2 pips that
+minute against 2.6 at the fill.
+
+*Candidate, NOT built, needs his word and a proper test over history (a backtest):* size that floor from a
+recent WORST spread rather than the instant one, or refuse a sell whose stop is under ~2x it. Four sells
+cannot decide an entry rule.
 
 **UPDATE 19 Sep 2026 — the LADDER half is FIXED, the STOP half is OPEN and his to decide.** The ladder now
 reads the chart price (tested: -3.09R vs -5.24R on 14 trades), which gives his 17 Sep sell its breakeven.
