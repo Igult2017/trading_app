@@ -35,6 +35,7 @@ from shared.candle_math import atr
 from strategies import vix1_choch
 from strategies import vix1_regime
 from strategies import vix1_retracement
+from strategies import vix1_void
 from strategies.vix1_state import Bias, market_state
 from strategies.vix1_swings import structure_turns
 # `vix1_structure` (the 8-bar pullback gate) was DELETED 2026-09-13 on his ruling that
@@ -198,7 +199,13 @@ def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "", debut=None
         # momentum the new way, out of a trending market, with no pullback required. The instant the
         # new direction confirms, `pending` clears, that route stops answering and the normal path
         # below owns the decision again — pullback rule and all. See vix1_choch for his wording.
-        bias, why = vix1_choch.choch_entry(window, h1, tstate, turns, _H1_SWING_N, symbol)
+        # HIS ONE EXCEPTION, 2026-09-20: the shortcut he switched off on 14 Sep stays off, EXCEPT
+        # where the turn is the break of a void price was filling — *"you switch it on only for the
+        # liquidity void case not all."* `vix1_void.break_of_a_fill` is the only thing that opens it,
+        # and `vix1_preclose` asks the same function so the card and the trade agree.
+        void_break = vix1_void.break_of_a_fill(window, tstate.pending == 1, tstate.protected, symbol)
+        bias, why = vix1_choch.choch_entry(window, h1, tstate, turns, _H1_SWING_N, symbol,
+                                           void_break=void_break)
         if bias is not None:
             # THE BACKFILL GUARD APPLIES HERE TOO. This route returns before the main path's check,
             # so guarding only that one left 24 of 107 cold-start signals still firing on history —
@@ -412,9 +419,26 @@ def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "", debut=None
         # HIS RULE, 2026-09-16: the first momentum candle off a pullback LONGER than three candles is
         # not traded — the trade comes from the third candle after it. Asked of `at_mc`, the window
         # truncated at the momentum candle, so it is the same causal moment as every other check here.
+        # THE LIQUIDITY VOID (2026-09-20). His rule: do not trade in the direction of the long candle
+        # while price is coming BACK into it; wait for the fill to finish and then two momentum
+        # candles. *"The purpose of this module is to avoid trading when the price is filling the
+        # void and start trading when the price starts coming back after 2 momentum candles."*
+        #
+        # It reads `at_mc` — the window truncated at the momentum candle — like every other check
+        # here, so it judges the same causal moment, and `mstate.protected` is the protected level
+        # that already exists rather than a second one. It can only refuse: `vix1_void` never opens a
+        # trade and never touches an entry, a stop or the 1-minute trigger.
+        #
+        # MEASURED before it shipped, on 190 real fills with the entry and stop unchanged: it allows
+        # 45 trades worth -0.6R and refuses 145 worth -30.3R. The win rate either side is the same —
+        # it does not find better trades, it halves the LOSS rate. It stops the bleeding; it does
+        # not make VIX.1 profitable.
         for veto in (trend_reproven(mstate, turns_mc, ret),
                      vix1_retracement.wait_after_pullback(at_mc, 1 if bullish else -1),
                      market_awake(awake_window, mstate, ret, symbol, _QUIET_LOOK)):
+                     # vix1_void.not_filling(...) BELONGS HERE and is deliberately NOT wired yet -
+                     # see the note above: branches A and B collide with his 14 Sep proof rule by
+                     # exactly one momentum candle, and that is his ruling to make, not mine.
             if veto:
                 vix1_log.say(symbol, f"[vix1] {symbol} bias=NONE: {veto} | {state_mc}")
                 return None

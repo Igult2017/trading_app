@@ -121,13 +121,13 @@ def check(h1_closed: list[Candle], h1_raw: list[Candle], symbol: str,
     for bullish in (True, False):
         if not qualifies_for_trade(window, len(h1_closed), bullish, symbol):
             continue
-        if not _could_trade(h1_closed, bullish, bar):
+        if not _could_trade(h1_closed, bullish, symbol, bar):
             return None
         return (bar, bullish, left)
     return None
 
 
-def _could_trade(h1_closed: list[Candle], bullish: bool,
+def _could_trade(h1_closed: list[Candle], bullish: bool, symbol: str,
                  forming_bar: Candle | None = None) -> bool:
     """Could a candle THIS WAY produce a bias at all? If not, there is nothing to be at the screen for.
 
@@ -169,6 +169,12 @@ def _could_trade(h1_closed: list[Candle], bullish: bool,
     w = h1_closed[-_H1_TREND_BARS:]
     st = trend_state(w, n=_H1_SWING_N, turns=structure_turns(w, _H1_SWING_N))
 
+    # HIS SCOPED EXEMPTION (2026-09-20), asked through the SAME function the entry asks, so the card
+    # and the trade can never disagree about it: the 14 Sep shortcut stays off unless this turn is
+    # the break of a void price was filling.
+    from strategies import vix1_void
+    void_break = vix1_void.break_of_a_fill(w, bullish, st.protected, symbol)
+
     # A BUY CANDLE THAT IS ITSELF TURNING THE MARKET UP (added 2026-08-29). Without this, the `pending
     # == 1` test below can never fire on the bar that CREATES the pending turn — and that is not a
     # tuning problem, it is arithmetic. This function is asked BEFORE the candle closes, so the state
@@ -185,12 +191,13 @@ def _could_trade(h1_closed: list[Candle], bullish: bool,
     # only a turn up had the shortcut. Since 2026-09-14 neither does, so by default this branch is
     # shut too — announcing that break would promise a trade the entry refuses. A downward break has
     # never had a route here and still has none.
-    if (forming_bar is not None and bullish and vix1_choch.exempts(True) and st.direction == -1
+    if (forming_bar is not None and bullish and vix1_choch.exempts(True, void_break)
+            and st.direction == -1
             and st.kill_level is not None and forming_bar.close > st.kill_level):
         return True
 
     if bullish:
-        return st.direction == 1 or (st.pending == 1 and vix1_choch.exempts(True))
+        return st.direction == 1 or (st.pending == 1 and vix1_choch.exempts(True, void_break))
     return st.direction == -1
 
 

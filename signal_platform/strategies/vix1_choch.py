@@ -92,14 +92,27 @@ ORIGIN = "choch"
 _EXEMPT_UP_TURNS = False
 
 
-def exempts(bullish: bool) -> bool:
+def exempts(bullish: bool, void_break: bool = False) -> bool:
     """May a pending turn THIS WAY be traded without its pullback? The ONE place this is decided —
-    `vix1_preclose` asks it too, so the notification and the entry can never disagree."""
-    return bullish and _EXEMPT_UP_TURNS
+    `vix1_preclose` asks it too, so the notification and the entry can never disagree.
+
+    `void_break` IS THE ONLY WAY BACK IN, and it is scoped on purpose. His ruling, 2026-09-20:
+    *"you switch it on only for the liquidity void case not all. What I switched off last time
+    remains switched off until I say switch it on."*
+
+    So `_EXEMPT_UP_TURNS` stays False and every ordinary pending turn still has to prove itself the
+    way he ruled on 2026-09-14 — run, pull back, turn back. The single exception is the case he
+    described on 2026-09-20: price was FILLING a liquidity void and broke the level protecting the
+    move that made it. `vix1_void.break_of_a_fill` is the one function that answers that, and both
+    callers ask it, so the exemption cannot mean one thing to the entry and another to the heads-up.
+
+    IT DEFAULTS TO FALSE. A caller that does not know about voids gets exactly today's behaviour.
+    """
+    return void_break or (bullish and _EXEMPT_UP_TURNS)
 
 
 def choch_entry(window: list[Candle], h1: list[Candle], tstate: TrendState,
-                turns, n: int, symbol: str) -> tuple[Bias | None, str]:
+                turns, n: int, symbol: str, void_break: bool = False) -> tuple[Bias | None, str]:
     """His change-of-character route. Returns (Bias or None, the reason either way).
 
     `window` is the trend window (the tail of `h1`); `tstate` and `turns` were already computed from
@@ -134,7 +147,7 @@ def choch_entry(window: list[Candle], h1: list[Candle], tstate: TrendState,
     # So the turn falls through to the normal route (`vix1_bias`), which needs the new trend
     # confirmed, and the second swing that confirms it cannot exist until the pullback has turned
     # back. Asserted stage by stage, in BOTH directions, in `test_choch_bearish_proof.py`.
-    if not exempts(bullish):
+    if not exempts(bullish, void_break):
         return None, (f"change of character {way} at {broke:.5f} — a turn {way.upper()} is not "
                       f"exempted from the pullback rule. It must run, pull back, and turn back "
                       f"{way} before a momentum candle can trade it.")
