@@ -26,7 +26,9 @@ THE THREE BRANCHES, and how often each happens — 937 EUR/USD and 920 GBP/USD v
 
     A  never filled to the midpoint, just pulled back and continued      7% / 8%
     B  filled at least halfway, then resumed                            49% / 49%
-    C  the PROTECTED level broke while filling                          44% / 42%
+    C  the PROTECTED level broke WHILE price was filling                23% / 23%
+       (a further 21% / 20% broke it without price coming back at all — not his case. An earlier
+        count of "44% / 42%" for C left the fill condition out and is wrong; see `OPEN.md` B31.)
 
 THE ORDER OF THE QUESTIONS IS HIS, AND IT IS LOAD-BEARING. On his 28 May chart (`Desktop\Void 2.png`)
 the two momentum candles appear with both closes ABOVE the void, after price had already reversed
@@ -38,17 +40,15 @@ before extending a full body 69% of the time on EUR/USD and 68% on GBP/USD, medi
 COMPLETE fill is a coin flip (51% / 50%). Independent research on liquidity voids says the same: the
 midpoint is the reactive level inside one.
 
-WHAT IT COSTS, on 190 real fills with the entry and stop unchanged: it allows 56 trades worth -1.6R
-and refuses 134 worth -29.3R. It throws away 18 winners including a +4.00R, and the win rate is the
-same on both sides — it does not find better trades, it halves the LOSS rate, 45% -> 27%. It stops
-the bleeding; it does not make VIX.1 profitable, and nothing here should be read as saying it does.
+WHAT IT COSTS, measured as shipped with his scope applied — 190 real fills, entry and stop unchanged
+(`tools/vix1_void_scoped.py`): allows 77 trades worth -8.7R, refuses 113 worth -22.2R; the year goes
+-30.9R -> -8.7R. It throws away 15 winners worth +26.8R and cuts the number of trades by 59%. It
+stops the bleeding; it does NOT make VIX.1 profitable, and nothing here should be read as saying so.
 
-BRANCH C IS NOT BUILT HERE, DELIBERATELY. What he asked for — *"after the price has broken the
-protected area by body with a candle that has momentum we draw the line and take a trade… if there
-is no momentum candle, we wait until we get one"* — already exists in `vix1_choch`, quoted there from
-his own words of 2026-08-15, and he switched it OFF on 2026-09-14 in favour of a proof requirement.
-This module only marks the void dead and stops blocking; a second change-of-character would be the
-"two logics for one question" he has ruled against twice.
+BRANCH C IS SWITCHED OFF — see `_BRANCH_C` below and `OPEN.md` B31. What he asked for there already
+exists in `vix1_choch` from his own words of 2026-08-15; this module only ever marks the void dead
+and stops blocking. A second change-of-character would be the "two logics for one question" he has
+ruled against twice.
 """
 from dataclasses import dataclass
 
@@ -58,6 +58,21 @@ from strategies import vix1_momentum
 
 LOOK = 48         # hours to look back for the long candle that made the leg
 FILL_ON = 0.50    # how much of its body counts as "started filling" — measured, see above
+
+# MAY THE VOID BREAK RE-OPEN THE CHANGE-OF-CHARACTER SHORTCUT? — OFF. He granted it on 2026-09-20
+# (*"you switch it on only for the liquidity void case not all"*), it was built, and measuring it
+# found it does not do that. The evidence is in `OPEN.md` B31 in full; in one line each:
+#
+#   1. it shipped DEAD — both callers read `protected`, which `vix1_trend.py:412` empties on the
+#      line that proposes a turn (0 of 848 pending turns over 12 months could reach it);
+#   2. alive, it fires on almost every reversal — 103 of 103 entries it opens had price already
+#      100-1000% past a median 19-25 pip "void";
+#   3. it cannot reproduce his own image 2 (EUR/USD 28 May 2026): there is no pending turn there to
+#      exempt, because the level that started the trend was taken back (his rule of 2026-09-16).
+#
+# SWITCHED OFF, NOT DELETED, and `test_void_gate.py` keeps it honest — the fault is the anchor
+# (which candle is "the void"), not the plumbing. His branches A and B are unaffected and stay ON.
+_BRANCH_C = False
 
 
 @dataclass(frozen=True)
@@ -74,6 +89,12 @@ class VoidState:
     deepest: float = 0.0          # how far back into the void price came, as a share of its body
     void_time: int = 0
     void_pips: float = 0.0
+    # WAS PRICE FILLING WHEN THE LEVEL BROKE? His branch C is *"IN THE PROCESS OF THE PRICE FILLING
+    # IT, if the price breaks its protected area"* — the fill is half the condition, and without it
+    # the test counts every ordinary reversal. Measured over 12 months: requiring it takes the case
+    # from 44% of long candles to 23% on both pairs; the other 21% broke the level without price
+    # ever coming back, which is not what he described.
+    on_fill: bool = False
 
     @property
     def allows(self) -> bool:
@@ -125,12 +146,15 @@ def state(h1: list[Candle], i: int, bullish: bool, symbol: str,
         if back > deepest:
             deepest, deep_k = back, k
 
-    # 1. BROKEN — asked FIRST, see the note at the top of this file.
+    # 1. BROKEN — asked FIRST, see the note at the top of this file. `fills[k]` is how far back into
+    #    the void price had come AT THE BREAKING BAR, which is what makes it his branch C rather than
+    #    any old reversal; it rides on the state so `break_of_a_fill` can require it and the veto
+    #    below can ignore it (a level broken without a fill still ends the move).
     if protected is not None:
-        for x in after:
+        for k, x in enumerate(after):
             through = (x.close > protected) if not bullish else (x.close < protected)
             if through:
-                return VoidState("broken", deepest, v.time, pips)
+                return VoidState("broken", deepest, v.time, pips, fills[k] >= FILL_ON)
 
     # 2. HAS IT RESUMED? Two momentum candles since the deepest point, the second closing beyond the
     #    first — his *"2 candles one closing on top of each other with direction"*, where "momentum"
@@ -154,7 +178,55 @@ def state(h1: list[Candle], i: int, bullish: bool, symbol: str,
     return VoidState("not-filled-yet", deepest, v.time, pips)
 
 
-def break_of_a_fill(h1: list[Candle], turning_up: bool, protected: float | None,
+def proves_the_turn(h1: list[Candle], mc_idx: int, direction_since: int | None,
+                    bullish: bool, symbol: str) -> bool:
+    """Is this the FIRST momentum candle since the trend was established — the trade his proof
+    sequence exists to take? If so, THIS MODULE HAS NOTHING TO SAY ABOUT IT.
+
+    HIS RULING, 2026-09-21, when I put the clash to him as "one candle or two?":
+
+        *"There is no one or two here. These are two different scenarios and treat each as I
+         explained. For the scenario where I said one keep it one and for a scenario where I said 2
+         keep it 2."*
+
+    THE TWO SCENARIOS, in his own words, and which candle count belongs to each:
+
+        ONE   the turn that has proved itself — *"price breaks down through the old higher low ->
+              it runs down -> it pulls back up -> when that pullback turns back down, that's the
+              proof -> then A MOMENTUM CANDLE down is the trade"* (2026-08-25, extended to a turn up
+              on 2026-09-14). The pullback turning back IS the proof, read from structure.
+
+        TWO   joining a move already under way — *"lets the price move 2 CANDLES one closing on top
+              of each other with direction before we consider taking trades in the direction of
+              that long candle"* (2026-09-20). There is no structural proof here, so the two candles
+              are what stands in for it.
+
+    So the question that separates them is not the direction or the shape: it is whether the trend
+    has JUST TURNED AND PROVED IT, or was already running. The first momentum candle after the trend
+    is established is his proof trade; every one after it is joining a move, and that is this
+    module's business.
+
+    WHY IT IS ASKED THIS WAY AND NOT WITH A TIME LIMIT: `direction_since` is the bar the trend was
+    established on, which `vix1_trend` already records for the retracement tracker. Nothing is
+    invented and no window is tuned — the scope ends at the second momentum candle, whenever that
+    comes.
+
+    MEASURED, because the clash is real and not theoretical: with no scope at all, this module
+    refuses his own 2026-08-25 proof sell AND its mirror (`test_choch_bearish_proof.py`), calling
+    the break candle a void that has not been confirmed by two candles — 36% deepest pullback, one
+    momentum candle since. That is his ONE-candle scenario being judged by his TWO-candle rule.
+
+    A TREND WITH NO RECORDED START KEEPS THE VETO. `direction_since` is None where the trend was not
+    established on this window, and then we cannot tell which scenario this is. The proof trade is
+    one candle per trend and joining a move is everything after it, so the common case wins.
+    """
+    if direction_since is None:
+        return False
+    return not any(vix1_momentum.is_momentum_candle(h1, j, bullish, symbol)
+                   for j in range(max(0, direction_since), mc_idx))
+
+
+def break_of_a_fill(h1: list[Candle], turning_up: bool, broken_level: float | None,
                     symbol: str) -> bool:
     """Is the pending turn the break of a void that price was FILLING? His branch C.
 
@@ -168,10 +240,23 @@ def break_of_a_fill(h1: list[Candle], turning_up: bool, protected: float | None,
     BOTH CALLERS ASK THIS SAME FUNCTION — the entry (`vix1_choch`) and the pre-close heads-up
     (`vix1_preclose`) — so the notification and the trade can never disagree about whether the
     exemption applies, which is the property `exempts` was built to have.
+
+    ⚠ `broken_level` IS `TrendState.choch_price`, NOT `protected`. This shipped once reading
+    `protected` and was DEAD: `vix1_trend.py:412` sets `protected = None` on the very line that
+    proposes the turn, so the level is always empty at the only moment this is asked. Measured over
+    12 months: 0 of 476 pending EUR/USD turns and 0 of 372 GBP/USD ones could ever reach the test.
+    `choch_price` is set on the line above it and holds the level the break went through.
+
+    AND THE FILL IS REQUIRED. Asking only "was the level broken" is near-vacuous here — a pending
+    turn exists BECAUSE that level was closed through, so 89% (EUR/USD) / 93% (GBP/USD) of pending
+    turns would be exempted, which is the shortcut switched back on for everything and the opposite
+    of his ruling. With his own condition applied — price was at least halfway back into the void
+    when the level broke — it is 23% of long candles on both pairs.
     """
-    if not h1 or protected is None:
+    if not _BRANCH_C or not h1 or broken_level is None:
         return False
-    return state(h1, len(h1) - 1, not turning_up, symbol, protected).kind == "broken"
+    st = state(h1, len(h1) - 1, not turning_up, symbol, broken_level)
+    return st.kind == "broken" and st.on_fill
 
 
 def not_filling(h1: list[Candle], protected: float | None, bullish: bool,

@@ -1845,3 +1845,70 @@ first two files completely; of the remaining two, one is a teeth check the gate 
 breaks, and the other is `test_tradeable`'s documented known gap of 2026-08-05 14:00, which the gate
 happens to close. **HIS RULING IS NEEDED on which rule wins** — nothing was loosened to make tests
 pass.
+
+### HIS SCOPE RULING, AND WHAT MEASURING THE BUILD THEN FOUND (2026-09-21)
+
+**His ruling on the "one candle or two" clash above:**
+
+> *"There is no one or two here. These are two different scenarios and treat each as I explained.
+> For the scenario where I said one keep it one and for a scenario where I said 2 keep it 2."*
+
+So it was never a conflict — the two rules belong to two different situations, and the code now says
+which is which (`vix1_void.proves_the_turn`):
+
+| his scenario | the trade | candles asked for |
+|---|---|---|
+| the turn that proved itself (2026-08-25) — runs, pulls back, turns back | the FIRST momentum candle after the trend is established | **one** |
+| joining a move already under way (2026-09-20) | every momentum candle after that one | **two** |
+
+**Branches A and B are now ON.** Measured as shipped, through the real module, on the same 190 real
+fills with the entry and stop unchanged (`tools/vix1_void_scoped.py`):
+
+| | trades | total | winners | losers | loss rate |
+|---|---|---|---|---|---|
+| allowed | 77 | **−8.7 R** | 11 · +17.3 R | 26 · −26.0 R | 34% |
+| refused | 113 | **−22.2 R** | 15 · +26.8 R | 49 · −49.0 R | 43% |
+
+The year goes **−30.9 R → −8.7 R**. It throws away 15 winners worth +26.8 R and cuts the number of
+trades by 59%. **It stops the bleeding; it does not make VIX.1 profitable.** The scope has a price
+too, reported rather than buried: the 39 proof trades it stands aside for are the worst group on the
+year, −10.1 R, −0.26 R each.
+
+**Two cases he has personally ruled on change, both correctly:**
+* his **02 Sep 06:00** EUR/USD sell no longer fires — the long candle IS the trigger candle
+  (12.4 pips, nothing closed after it), so his rule waits for a second momentum candle;
+* **2026-08-05 14:00**, one of the three trades he marked untradeable, is now refused — a known gap
+  closed by an entry-timing rule rather than by the chop rule that is still unbuilt.
+
+### BRANCH C IS SWITCHED BACK OFF, AND THIS IS WHY (2026-09-21)
+
+Three findings, in the order they appeared, each from measuring rather than reading:
+
+1. **What shipped on 20 Sep was DEAD CODE.** Both callers passed `TrendState.protected`, and
+   `vix1_trend.py:412` sets `protected = None` on the very line that proposes a turn. Over 12
+   months, **0 of 476** EUR/USD and **0 of 372** GBP/USD pending turns could reach the test. It was
+   committed with a fix-log entry describing behaviour that could never happen.
+2. **Fixed to read the level that was actually broken (`choch_price`), it fires on almost every
+   reversal** — the opposite of *"only for the liquidity void case not all"*. Asking only "was the
+   level broken" is near-vacuous, because a pending turn exists BECAUSE that level was closed
+   through: 89% / 93% of pending turns. Adding his own fill condition brings it to 61–64% of what
+   the fully-open shortcut would trade — and then the killer: **of the 103 entries it opens over 12
+   months, 103 had price already 100–1000% past the "void"** (median 300% / 277%), and the "long
+   candle" was a median **19–25 pips**. On his own 03 Sep EUR/USD bars it opened three BUYs off a
+   **12.4-pip** candle price was **378%** past.
+3. **The route cannot produce his own example.** On his image 2 (`Desktop\Void 2 .png`, EUR/USD
+   28 May 2026) the module reads the void correctly — the 03:00 UTC candle, −25.5 pips, filled 21%
+   → 58% → 98% → 119% between 04:00 and 07:00 — but from 11:00 the trend engine reads direction 0
+   **and** pending 0, because the level that started the trend was taken back (his rule of
+   2026-09-16, `OPEN.md` B26). An exemption only applies to a pending turn, so on the one chart he
+   drew it for there is nothing to exempt.
+
+**The fault is the ANCHOR, not the plumbing** — which candle counts as "the void". Today it is the
+biggest momentum candle in the last 48 hours, whether or not price is anywhere near it. His sentence
+says it is the one *"that dropped the price to where we took the trade"*, which needs a boundary he
+has not given, so none was invented. `OPEN.md` **B31**.
+
+**Also corrected here:** the "42–44% of voids end with the protected level broken while filling"
+quoted in the backtest section above counted **any** break within 48 hours, with no fill required.
+With his condition applied it is **23%** on both pairs; the other ~21% broke the level without price
+coming back at all, which is not the case he described.

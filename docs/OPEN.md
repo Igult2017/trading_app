@@ -285,6 +285,38 @@ red self-test that everyone steps around is how a real regression gets missed: t
 break something here will see two failures and assume they are the usual two.
 
 
+### B31 - The liquidity void's ANCHOR picks the wrong candle, so his branch C is switched off. NEEDS HIS RULING
+
+**Found 21 Sep 2026 by measuring what shipped.** His branches A and B (don't trade in the long
+candle's direction while price is filling it) are **ON** and work on his own bars. His **branch C** —
+*"In the process of the price filling it, if the price breaks its protected area, we start
+considering CHOCH and a move on the other direction"* — is **switched off**
+(`vix1_void._BRANCH_C = False`), on three pieces of evidence:
+
+1. **It was dead.** Both callers read `TrendState.protected`, which `vix1_trend.py:412` sets to None
+   on the very line that proposes a turn. 0 of 476 EUR/USD and 0 of 372 GBP/USD pending turns over
+   12 months could ever reach the test. Fixed to read `choch_price`; that is what exposed the rest.
+2. **Alive, it fires on almost every reversal** — the opposite of his scope (*"only for the
+   liquidity void case not all"*). Of the 103 entries it opens in 12 months, **103 had price already
+   100–1000% past the "void"** (median 300% EUR/USD, 277% GBP/USD), and the "long candle" was a
+   median **19–25 pips** — an ordinary candle price left behind hours earlier, not *"that long
+   bearish candle that dropped the price to where we took the trade"*.
+3. **The route cannot deliver his own example.** On his image 2 (`Desktop\Void 2 .png`, EUR/USD
+   28 May 2026) the void is read correctly — the 03:00 UTC candle, −25.5 pips, filled 98% by 06:00 —
+   but from 11:00 the trend engine reads direction 0 **and** pending 0, because the level that
+   started the trend was taken back (his own rule of 2026-09-16, B26). There is no pending turn, so
+   there is nothing for an exemption to exempt.
+
+**The question for him:** which candle is "the void"? Today it is the biggest momentum candle in the
+last 48 hours, which is why a 12-pip candle price has left far behind can still be chosen. His
+sentence says it is the one *that dropped the price to where we are*, and that needs a boundary —
+how far past a long candle can price travel before that candle stops counting. **Not invented here.**
+
+**Same question affects the veto slightly:** on his 02 Sep EUR/USD bars the module still says
+"filling" when price is 331% past a 12.4-pip candle. It refuses either way there, so no trade
+changed, but the reason it prints is wrong.
+
+
 ### B30 - ~~VIX.1 places orders on setups that had ALREADY died: price went through the stop after the cross and before the order~~ FIXED 19 Sep 🔴
 
 **FIXED 19 Sep 2026 on his rulings** (Q1 a: every candle after the cross, price PAST the stop, a wick

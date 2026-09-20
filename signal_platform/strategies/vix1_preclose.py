@@ -172,8 +172,14 @@ def _could_trade(h1_closed: list[Candle], bullish: bool, symbol: str,
     # HIS SCOPED EXEMPTION (2026-09-20), asked through the SAME function the entry asks, so the card
     # and the trade can never disagree about it: the 14 Sep shortcut stays off unless this turn is
     # the break of a void price was filling.
+    # ⚠ NEITHER OF THEM IS `protected`. The level a break goes THROUGH differs by branch, and
+    # `vix1_trend.py:412` empties `protected` the moment a turn is proposed, so asking with it was
+    # dead code — 0 of 848 pending turns over 12 months on the two pairs could answer yes.
+    #   forming bar  the trend is still live and the bar is breaking `kill_level` right now
+    #   pending turn the break already happened and `choch_price` holds the level it went through
     from strategies import vix1_void
-    void_break = vix1_void.break_of_a_fill(w, bullish, st.protected, symbol)
+    void_break_now = vix1_void.break_of_a_fill(w, bullish, st.kill_level, symbol)
+    void_break_pending = vix1_void.break_of_a_fill(w, bullish, st.choch_price, symbol)
 
     # A BUY CANDLE THAT IS ITSELF TURNING THE MARKET UP (added 2026-08-29). Without this, the `pending
     # == 1` test below can never fire on the bar that CREATES the pending turn — and that is not a
@@ -191,13 +197,14 @@ def _could_trade(h1_closed: list[Candle], bullish: bool, symbol: str,
     # only a turn up had the shortcut. Since 2026-09-14 neither does, so by default this branch is
     # shut too — announcing that break would promise a trade the entry refuses. A downward break has
     # never had a route here and still has none.
-    if (forming_bar is not None and bullish and vix1_choch.exempts(True, void_break)
+    if (forming_bar is not None and bullish and vix1_choch.exempts(True, void_break_now)
             and st.direction == -1
             and st.kill_level is not None and forming_bar.close > st.kill_level):
         return True
 
     if bullish:
-        return st.direction == 1 or (st.pending == 1 and vix1_choch.exempts(True, void_break))
+        return st.direction == 1 or (st.pending == 1
+                                     and vix1_choch.exempts(True, void_break_pending))
     return st.direction == -1
 
 

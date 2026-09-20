@@ -122,8 +122,14 @@ print("   the choppy case — all three still open (D42, chop rule unbuilt):")
 # silently.
 s.check("   2026-08-03 18:00 no longer trades — his 16 Sep pullback rule refuses it",
         fires("2026-08-03 18:00"), False)
-for w in ("2026-08-05 14:00", "2026-08-05 17:00"):
-    s.check(f"   {w} STILL trades (known gap)", fires(w), True)
+# 2026-09-21: HIS LIQUIDITY-VOID RULE CLOSED A SECOND ONE. 2026-08-05 14:00 is refused because the
+# long candle that made the leg has not been confirmed by two momentum candles — *"lets the price
+# move 2 candles one closing on top of each other with direction before we consider taking trades in
+# the direction of that long candle"*. Again an entry-timing rule, not a chop rule: the chop gap
+# (D42) is still open and 17:00 still trades, so nothing closes silently.
+s.check("   2026-08-05 14:00 no longer trades — his 20 Sep void rule wants a second momentum candle",
+        fires("2026-08-05 14:00"), False)
+s.check("   2026-08-05 17:00 STILL trades (known gap)", fires("2026-08-05 17:00"), True)
 
 
 # ── THE RULE ASKED DIRECTLY ───────────────────────────────────────────────

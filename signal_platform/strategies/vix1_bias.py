@@ -133,6 +133,17 @@ def _upto(window: list[Candle], h1: list[Candle], mc_idx: int) -> list[Candle]:
     return window[:pos + 1] if 0 <= pos < len(window) else window
 
 
+def _h1_index(h1: list[Candle], base: list[Candle], k: int) -> int:
+    """Lift index `k` in a window that is a slice of `h1` up to its index in `h1` itself.
+
+    Found by the bar's TIME rather than by arithmetic on lengths, because the two windows here end
+    at different bars (`window` at the latest, `at_mc` at the momentum candle) and `_upto` above
+    can hand back either. The scan runs backwards and stops within a few bars in every real case.
+    """
+    end = next((j for j in range(len(h1) - 1, -1, -1) if h1[j].time == base[-1].time), len(h1) - 1)
+    return end - (len(base) - 1) + k
+
+
 def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "", debut=None) -> Bias | None:
     """
     Returns a `Bias`, or None when no trade may be taken.
@@ -203,7 +214,11 @@ def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "", debut=None
         # where the turn is the break of a void price was filling — *"you switch it on only for the
         # liquidity void case not all."* `vix1_void.break_of_a_fill` is the only thing that opens it,
         # and `vix1_preclose` asks the same function so the card and the trade agree.
-        void_break = vix1_void.break_of_a_fill(window, tstate.pending == 1, tstate.protected, symbol)
+        # ⚠ `choch_price`, NOT `protected` — `vix1_trend.py:412` empties `protected` on the very line
+        # that proposes the turn, so reading it here asked a question that could never be answered
+        # yes (measured: 0 of 476 pending turns over 12 months).
+        void_break = vix1_void.break_of_a_fill(window, tstate.pending == 1, tstate.choch_price,
+                                               symbol)
         bias, why = vix1_choch.choch_entry(window, h1, tstate, turns, _H1_SWING_N, symbol,
                                            void_break=void_break)
         if bias is not None:
@@ -424,21 +439,48 @@ def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "", debut=None
         # candles. *"The purpose of this module is to avoid trading when the price is filling the
         # void and start trading when the price starts coming back after 2 momentum candles."*
         #
-        # It reads `at_mc` — the window truncated at the momentum candle — like every other check
-        # here, so it judges the same causal moment, and `mstate.protected` is the protected level
-        # that already exists rather than a second one. It can only refuse: `vix1_void` never opens a
-        # trade and never touches an entry, a stop or the 1-minute trigger.
+        # It judges the same causal moment as every other check here, and `mstate.protected` is the
+        # protected level that already exists rather than a second one. It can only refuse:
+        # `vix1_void` never opens a trade and never touches an entry, a stop or the 1-minute trigger.
         #
-        # MEASURED before it shipped, on 190 real fills with the entry and stop unchanged: it allows
-        # 45 trades worth -0.6R and refuses 145 worth -30.3R. The win rate either side is the same —
-        # it does not find better trades, it halves the LOSS rate. It stops the bleeding; it does
-        # not make VIX.1 profitable.
+        # IT GETS `awake_window`, NOT `at_mc`, for the reason spelled out above `awake_window`: it
+        # asks `is_momentum_candle`, and that test silently skips its four-month size floor below
+        # 1,800 bars, so on the 1,500-bar trend window the SAME candle can be judged differently.
+        # Everything that asks a momentum question here gets the long window.
+        #
+        # AND IT IS SCOPED TO THE SCENARIO HE GAVE IT FOR — his ruling of 2026-09-21, the whole of
+        # `vix1_void.proves_the_turn`: the first momentum candle after a trend is established is the
+        # trade his 2026-08-25 proof sequence takes, and it keeps ONE candle. Everything after it is
+        # joining a move already under way, and that keeps TWO. Unscoped, this refused his own proof
+        # sell and its mirror.
+        #
+        # MEASURED AS SHIPPED — the real module, his scope applied, 190 real fills, entry and stop
+        # unchanged (`trading_app_data/tools/vix1_void_scoped.py`):
+        #
+        #     allowed   77 trades   -8.7 R   11 winners +17.3 R   26 losers -26.0 R   loss rate 34%
+        #     refused  113 trades  -22.2 R   15 winners +26.8 R   49 losers -49.0 R   loss rate 43%
+        #     the year: -30.9 R -> -8.7 R
+        #
+        # IT THROWS AWAY 15 WINNERS WORTH +26.8 R. It does not find better trades — it cuts the
+        # number of trades by 59% and the losses with them. It stops the bleeding; it does NOT make
+        # VIX.1 profitable, and nothing here should be read as saying it does.
+        #
+        # ⚠ AND THE SCOPE HAS A PRICE, reported to him rather than buried: the 39 proof trades this
+        # stands aside for are the WORST group on the year, -10.1 R, -0.26 R each. His rule, his
+        # call, but it is not free.
+        # WHICH WINDOW `direction_since` COUNTS IN DEPENDS ON WHICH STATE WE GOT. `t_mc` was read on
+        # `at_mc`, which ends at the momentum candle; the fallback `tstate` was read on `window`,
+        # which ends at the latest bar. Lifting with the wrong one silently scans the wrong stretch
+        # of history, so the base is chosen rather than assumed.
+        _base = at_mc if mstate is t_mc else window
+        _ds = (None if mstate.direction_since is None
+               else _h1_index(h1, _base, mstate.direction_since))
+        void_veto = (None if vix1_void.proves_the_turn(awake_window, mc_idx, _ds, bullish, symbol)
+                     else vix1_void.not_filling(awake_window, mstate.protected, bullish, symbol))
         for veto in (trend_reproven(mstate, turns_mc, ret),
                      vix1_retracement.wait_after_pullback(at_mc, 1 if bullish else -1),
-                     market_awake(awake_window, mstate, ret, symbol, _QUIET_LOOK)):
-                     # vix1_void.not_filling(...) BELONGS HERE and is deliberately NOT wired yet -
-                     # see the note above: branches A and B collide with his 14 Sep proof rule by
-                     # exactly one momentum candle, and that is his ruling to make, not mine.
+                     market_awake(awake_window, mstate, ret, symbol, _QUIET_LOOK),
+                     void_veto):
             if veto:
                 vix1_log.say(symbol, f"[vix1] {symbol} bias=NONE: {veto} | {state_mc}")
                 return None
