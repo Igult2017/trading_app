@@ -1729,3 +1729,52 @@ The only honest test is the shape of the 14 Sep one: his five circled chop regio
 "should refuse" set, the 12-month setup population as the cost side, reporting what each rule
 catches, what it flags in ordinary hours, and what it does to the money. **That is a backtest and
 needs his word.**
+
+### HIS ANSWER TO ISSUE 9 — THE LIQUIDITY VOID RULE (20 Sep 2026)
+
+> *"That long bearish candle that dropped the price to where we took the trade is called liquidity
+> void. In most cases, the price goes back to fill it before proceeding. So, can we have a logic that
+> lets the price move 2 candles one closing on top of each other with direction before we consider
+> taking trades in the direction of that long candle? However, if the price starts moving to fill it,
+> we wait until the price finishes filling it and then starts moving in its direction. In the process
+> of the price filling it, if the price breaks its protected area, we start considering CHOCH and a
+> move on the other direction."*
+
+Charts: `Desktop\Void .png` (circle 1 = not filled, pulled back and continued, his white candles;
+circle 2 = filled then continued) and `Desktop\Void  2 .png` (filled, then CHoCH the other way).
+
+**Measured on the four windows he pointed at** (H1, his clock; the "long candle" is the biggest body
+in the window; the void is its open-to-close body; the gap is the untraded band between the candle
+before and the candle after):
+
+| window | long candle | void | untraded gap | deepest fill | his 2-candle conviction |
+|---|---|---|---|---|---|
+| **his 17 Sep setup** | Wed 16 Sep 21:00 DOWN 67.5p | 1.14701–1.15376 | 1.14818–1.15298 (48p) | **40%**, at Thu 17:00 | Thu 03:00→04:00 (1.14589→1.14584) |
+| image 1 circle 1 | Wed 29 Jul 21:00 UP 56.7p | 1.13946–1.14513 | 1.13993–1.14394 (40p) | **31%** | Thu 30 Jul 11:00→12:00 (1.14478→1.14642) |
+| image 1 circle 2 | Fri 31 Jul 17:00 UP 38.4p | 1.14656–1.15040 | none (wicks overlap) | 19% | Fri 22:00→23:00 |
+| image 2 | Thu 28 May 06:00 DOWN 25.5p | 1.15868–1.16123 | 1.15921–1.16089 (17p) | **288%** — filled and gone | Thu 12:00→13:00 (1.16126→1.16033) |
+
+**IT WOULD HAVE REFUSED HIS 17 SEP TRADE, and for the reason he gives.** At the 19:06 sell price was
+40% back INTO the void and had set that high only two hours earlier (17:00). One down candle had
+closed since; his rule needs two, after the fill is over. The trade was taken mid-fill.
+
+**TWO THINGS THE MEASUREMENT CHANGES ABOUT THE DESIGN:**
+
+1. **The protected-area check must run BEFORE the conviction check, not after.** On image 2 the
+   two-candle conviction appears at 12:00→13:00 with closes of 1.16126 and 1.16033 — both ABOVE the
+   void's top (1.16123). Price had already blown through the void and reversed; a conviction test
+   asked first would have sold the bottom of the reversal. His CHoCH clause is what saves it, so it
+   has to be the first question, not the last.
+2. **The conviction pair needs a SIZE floor.** On 17 Sep the first qualifying pair closes 1.14589 →
+   1.14584: **half a pip** of "conviction". Two candles closing the right way is not evidence on its
+   own; they must also cover ground (the 100-bar median body in `vix1_momentum.baseline_body` is the
+   yardstick already in the code).
+
+**Honest limit:** "the biggest body in the window" is not always the candle he means — for image 1
+circle 2 it picked 31 Jul 17:00 and found only a 19% fill, which does not match his description of
+that circle. Which candle opens a void has to be defined from the momentum candle VIX.1 already
+identifies, not from a search for the biggest body.
+
+**Nothing built. VIX.1 has no void logic of any kind today** (the only gap code in the repo belongs
+to the other strategy and is not shared). The protected level his rule needs already exists:
+`vix1_trend`'s `protected` — *"close through this = CHoCH"*.
