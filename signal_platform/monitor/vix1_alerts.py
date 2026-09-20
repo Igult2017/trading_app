@@ -142,7 +142,7 @@ async def check(row, bars) -> None:
             continue
         sig = _alert(
             row.symbol, buy,
-            # ONE DECIMAL, NOT ZERO (fixed 2026-09-13). His trail moves in TENTHS of an R from 2.1R,
+            # ONE DECIMAL, NOT ZERO (fixed 2026-09-13). His trail moves in TENTHS of an R from 2.2R,
             # so `:.0f` printed "+2R" for locks of 2.0, 2.1, 2.2 and 2.4 alike — a run of messages
             # that all read the same while the real stop was somewhere else. The dedup key already
             # used one decimal, so each step was sent; only the text collapsed them.

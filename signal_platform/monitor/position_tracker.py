@@ -16,11 +16,14 @@ IT TRACKS EVERY OPEN POSITION, including trades the platform never signalled —
 THE LADDER LIVES IN `monitor/rungs.py` AND IS PER STRATEGY. It used to be two ladders with
 different numbers — this file at 1R, `vix1_manage` at 2R — for the same trade. One table now.
 
-VIX.1, his numbers of 2026-09-02 (superseding 2026-08-21, which had withdrawn the 2.5R rung):
+VIX.1, his numbers of 2026-09-02, with the trail as he revised it on 2026-09-20:
 
     0.4R  ->  BREAKEVEN     the stop goes to the NET-ZERO price
     1.5R  ->  LOCK +1R
-    2.1R+ ->  TRAIL, keeping the stop 0.1R behind, in 0.1R steps, until it is hit
+    2.2R+ ->  TRAIL, keeping the stop 0.2R behind, in 0.1R steps, until it is hit
+
+WHERE each of those stops may sit is `monitor/stop_placement.py` — 0.2R from the price that FIRES it,
+so a sell gets the same real room as a buy — and `_lines` takes that firing price as its 4th argument.
 
 THIS IS THE ONLY LADDER. Every position on the account uses it — his ruling, 2026-09-02: *"There is
 no fallback, the change was that we use this new ladder and delete the other one."* A take profit
@@ -64,9 +67,10 @@ log = logging.getLogger(__name__)
 # So the DM advising him and the code moving his stop could disagree about the same position. He
 # asked for them merged; the table is the merge.
 #
-# HIS LADDER, 2026-09-03: breakeven at 0.4R, lock +1R at 1.5R, then TRAIL 0.1R behind in 0.1R steps
-# ("when price moves to 2.1R lock 2R... and go with that math until we are stopped out"). The old
-# fixed 2.5R -> lock 2R rung is gone: the trail protects +2R from 2.1R, earlier and higher. Trailing
+# HIS LADDER: breakeven at 0.4R, lock +1R at 1.5R, then TRAIL 0.2R behind in 0.1R steps from 2.2R
+# ("At 2.2R move to 2R and keep moving 0.2R behind the move until your trailing stop is hit",
+# 2026-09-20; it was 0.1R from 2.1R before that, a gap smaller than the spread on every sell). The old
+# fixed 2.5R -> lock 2R rung is gone: the trail protects +2R from 2.2R, earlier and higher. Trailing
 # tenths move the stop QUIETLY — see `Rung.quiet` in rungs.py.
 #
 # ONE LADDER FOR EVERY POSITION, and the second one is deleted. It used to be chosen per strategy,
