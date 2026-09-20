@@ -217,7 +217,10 @@ class CopyEngine:
             return
         self._providers[master.id] = provider
         provider.start()
-        log.info(f"[engine] provider started for master {master.id} ({broker_account.name})")
+        # THE ACCOUNT NUMBER, so the uuid in every later provider line can be decoded. Reading the
+        # deploy logs, "[67470ef2-…]" tells you nothing about whose account is being watched.
+        log.info(f"[engine] provider started for master {master.id} — account "
+                 f"{broker_account.name} · {broker_account.login_id} ({broker_account.platform})")
 
     async def _start_telegram(self, master: CopyMaster) -> None:
         from db import Session, TelegramSource

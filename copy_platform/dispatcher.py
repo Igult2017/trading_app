@@ -63,7 +63,26 @@ async def dispatch(event: dict, master_id: str) -> None:
             ).all()
 
     if not followers:
-        log.info("[dispatch] master %s: no active+risk-accepted followers for this %s", master_id, etype)
+        # NOBODY TO COPY TO IS ITSELF AN ANSWER, AND IT HAS TO REACH THE SCREEN. This logged one line
+        # naming the master by uuid and wrote NOTHING to the execution log — so a trade that failed to
+        # copy because every follower was switched off, or had never accepted the risk terms, left no
+        # trace at all in the Activity tab: the master traded and the record was simply blank.
+        #
+        # One row per LINKED follower now, each naming its own account and the reason it was passed
+        # over, because "switched off" and "risk terms not accepted" need different fixes.
+        try:
+            with Session() as db:
+                linked = db.query(CopyFollower).filter_by(master_id=master_id).all()
+        except Exception:
+            linked = []
+        for f in linked:
+            why = ("this copier is switched off (Active subscription)" if not f.is_active else
+                   "the risk terms have not been accepted for this copier" if not f.risk_accepted
+                   else "not eligible for this event")
+            _log(f.id, master_trade_id, "INFO", "SKIP", f"Not copied — {why}")
+        if not linked:
+            log.info("[dispatch] master %s: no followers are linked to it at all, so this %s "
+                     "was not copied anywhere", master_id, etype)
         return
 
     await asyncio.gather(*[
@@ -401,8 +420,35 @@ def _record_follower_trade(master_trade_id: str, follower: CopyFollower,
          f"{etype} {snap.symbol} {lots} lots — {'ok' if ok else err}")
 
 
+# follower id -> "TT · 5834793". Resolved once per follower per process: the label is only for
+# reading, so one lookup is plenty and a renamed account catching up at the next restart costs
+# nothing. It must NEVER be the reason a log line does not get written, hence the broad except and
+# the fallback to a short id.
+_labels: dict[str, str] = {}
+
+
+def _follower_label(follower_id: str) -> str:
+    """WHICH SLAVE ACCOUNT, in words. His point, 2026-09-20: *"your logs dont say not copied to what
+    slave account."* The log line printed a uuid, so reading the deploy logs told you a copy was
+    skipped but not whose account it was skipped for — useless the moment there is more than one.
+    """
+    if follower_id in _labels:
+        return _labels[follower_id]
+    label = follower_id[:8]
+    try:
+        with Session() as db:
+            f = db.get(CopyFollower, follower_id)
+            acct = db.get(BrokerAccount, f.broker_account_id) if f and f.broker_account_id else None
+            if acct:
+                label = f"{acct.name or 'account'} · {acct.login_id or '?'}"
+    except Exception:
+        pass
+    _labels[follower_id] = label
+    return label
+
+
 def _log(follower_id: str, trade_id: str, level: str, event: str, msg: str):
-    log.info(f"[{follower_id}] {level} {event}: {msg}")
+    log.info(f"[{_follower_label(follower_id)}] {level} {event}: {msg}")
     try:
         with Session() as db:
             db.add(CopyExecutionLog(
