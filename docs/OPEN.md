@@ -20,6 +20,27 @@ different defects), the VIX.1 docs, and a dozen memory notes.
 
 ---
 
+## 🔴 REMOVE BEFORE LAUNCH — the copy diagnostics endpoint (added 2026-09-20)
+
+**`GET /api/admin/copy/diagnostics`** in `server/routes.ts`, fenced between two banner comments
+(`TEMPORARY DIAGNOSTIC — REMOVE BEFORE LAUNCH` … `END TEMPORARY DIAGNOSTIC`). It reads the copy
+engine's own tables — masters and followers with their cTrader account numbers and `risk_accepted`,
+the master trades the engine saw, the follower attempts INCLUDING failures, and the execution log.
+
+**Why it exists:** his self-copy had never copied a single trade and, from outside the container,
+that could not be diagnosed — the database is only reachable inside Docker and the one admin view
+shows successful copies, so "never saw it", "nobody to send it to" and "the broker refused" were
+indistinguishable. His instruction: *"create a back door access to whatever you need. We will close
+it when we are done building and want to launch."*
+
+**It is NOT a back door:** it sits behind `requireAdmin` (the same admin key every diagnostic read
+already uses) and returns no token, no `password_enc` and nothing decrypted.
+
+**Two ways to close it:** set `COPY_DIAG_ENABLED=false` (it then returns 404), or delete the fenced
+block. **Do the deletion at launch** — the env switch is for turning it off in a hurry.
+
+---
+
 ## A. Supply & demand zones (BX-S/D)
 
 ### A1 — The two Telegram cards can't actually collide. ⚠ I OVERSTATED THIS — corrected 25 Aug

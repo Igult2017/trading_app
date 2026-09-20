@@ -3941,6 +3941,89 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (err: any) { console.error(err); return res.status(500).json({ error: "Internal server error" }); }
   });
 
+  // ══════════════════════════════════════════════════════════════════════════════════════════════
+  // TEMPORARY DIAGNOSTIC — REMOVE BEFORE LAUNCH. Added 2026-09-20; tracked in docs/OPEN.md.
+  //
+  // WHY IT EXISTS. He reported the slave account copying none of his trades, and from outside the
+  // container that could not be diagnosed at all: DATABASE_URL resolves only inside Docker, and the
+  // only admin view of copy trades (`/all-trades` above) returns SUCCESSFUL copies, so "the engine
+  // never saw the trade", "it saw it and had nobody to send it to" and "it tried and the broker
+  // refused" all look identical — an empty list. This reads the engine's own tables so the three can
+  // be told apart.
+  //
+  // HE ASKED FOR A BACK DOOR; THIS IS THE ADMIN KEY INSTEAD. `requireAdmin` already accepts the
+  // `x-admin-secret` header, which is what every diagnostic read already uses, so nothing is harder —
+  // but an unauthenticated route on a public site would hand anyone who found it his broker account
+  // numbers and his trade history. Shutting it at launch: set COPY_DIAG_ENABLED=false (it 404s), or
+  // delete this block, which is why it is fenced by these two banners.
+  //
+  // NOTHING SECRET IS RETURNED: no `password_enc`, no token, nothing decrypted. The account NUMBER
+  // comes from `broker_accounts.login_id`, which is the number he sees in cTrader.
+  app.get("/api/admin/copy/diagnostics", requireAdmin, async (_req: Request, res: Response) => {
+    if (process.env.COPY_DIAG_ENABLED === "false") return res.status(404).json({ error: "Not found" });
+    try {
+      const [beat, masters, followers, mTrades, fTrades, logs] = await Promise.all([
+        pool.query(`SELECT beat_at, masters, providers FROM copy_engine_heartbeat WHERE id = 1`),
+        pool.query(`SELECT m.id, m.source_type, m.strategy_name, m.is_active, m.user_id,
+                           m.broker_account_id,
+                           b.platform, b.name AS account_name, b.login_id AS ctrader_account,
+                           b.account_type, b.is_active AS account_active,
+                           (b.password_enc IS NOT NULL) AS has_credentials
+                      FROM copy_masters m
+                 LEFT JOIN broker_accounts b ON b.id = m.broker_account_id
+                  ORDER BY m.created_at DESC`),
+        pool.query(`SELECT f.id, f.master_id, f.user_id, f.is_active, f.risk_accepted,
+                           f.lot_mode, f.lot_multiplier, f.fixed_lot, f.risk_percent, f.direction,
+                           f.max_open_trades, f.trade_delay_sec, f.symbol_whitelist,
+                           f.symbol_blacklist, f.pause_on_dd, f.max_dd_percent, f.max_daily_loss,
+                           f.deployed_at, f.broker_account_id,
+                           b.platform, b.name AS account_name, b.login_id AS ctrader_account,
+                           b.account_type, b.is_active AS account_active,
+                           (b.password_enc IS NOT NULL) AS has_credentials
+                      FROM copy_followers f
+                 LEFT JOIN broker_accounts b ON b.id = f.broker_account_id
+                  ORDER BY f.created_at DESC`),
+        pool.query(`SELECT id, master_id, external_id, source, symbol, action, event_type, volume,
+                           entry_price, closed_price, status, created_at
+                      FROM copy_trades_master ORDER BY created_at DESC LIMIT 30`),
+        pool.query(`SELECT id, master_trade_id, follower_id, external_id, symbol, action, event_type,
+                           volume, entry_price, closed_price, status, error_message, retry_count,
+                           executed_at, created_at
+                      FROM copy_trades_follower ORDER BY created_at DESC LIMIT 30`),
+        pool.query(`SELECT id, follower_id, trade_id, level, event, message, created_at
+                      FROM copy_execution_logs ORDER BY created_at DESC LIMIT 50`),
+      ]);
+      const at = beat.rows[0]?.beat_at ? new Date(beat.rows[0].beat_at) : null;
+      return res.json({
+        note: "TEMPORARY diagnostic — remove before launch (docs/OPEN.md)",
+        engine: {
+          lastHeartbeat: at,
+          heartbeatAgeSec: at ? Math.round((Date.now() - at.getTime()) / 1000) : null,
+          alive: at ? Date.now() - at.getTime() < 180_000 : false,
+          mastersLoaded: beat.rows[0]?.masters ?? null,
+          providersRunning: beat.rows[0]?.providers ?? null,
+          copyEngineEnabled: process.env.COPY_ENGINE_ENABLED !== "false",
+          encryptionKeySet: !!process.env.COPY_ENCRYPTION_KEY,
+          ctraderConfigured: !!process.env.CTRADER_CLIENT_ID && !!process.env.CTRADER_CLIENT_SECRET,
+        },
+        counts: {
+          masterTradesTotal: (await pool.query(`SELECT COUNT(*)::int AS n FROM copy_trades_master`)).rows[0].n,
+          followerTradesTotal: (await pool.query(`SELECT COUNT(*)::int AS n FROM copy_trades_follower`)).rows[0].n,
+          executionLogTotal: (await pool.query(`SELECT COUNT(*)::int AS n FROM copy_execution_logs`)).rows[0].n,
+        },
+        masters: masters.rows,
+        followers: followers.rows,
+        masterTrades: mTrades.rows,
+        followerTrades: fTrades.rows,
+        executionLog: logs.rows,
+      });
+    } catch (err: any) {
+      console.error("[copy-diagnostics]", err);
+      return res.status(500).json({ error: err.message });
+    }
+  });
+  // ══ END TEMPORARY DIAGNOSTIC ══════════════════════════════════════════════════════════════════
+
   app.get("/api/admin/copy/overview", requireAdmin, async (_req: Request, res: Response) => {
     try {
       const [mastersRes, followersRes, tgStatsRes, selfCopyRes] = await Promise.all([
