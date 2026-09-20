@@ -1823,3 +1823,25 @@ does not do. Measuring its P&L therefore needs one thing that has not been state
 goes on a void entry**, two candles after the long one. Any number produced without his answer would
 be measuring my choice of stop, not his method - the exact mistake the no-backtest rule exists to
 prevent. **Asked, not assumed.**
+
+### WHAT WAS BUILT (2026-09-20, end of session)
+
+**Branch C — wired, scoped exactly to his ruling:** *"you switch it on only for the liquidity void
+case not all. What I switched off last time remains switched off until I say switch it on."*
+`vix1_choch.exempts` now takes `void_break`, defaulting to False, so nothing about the 14 Sep
+decision changes anywhere else; `vix1_void.break_of_a_fill` is the only thing that opens it, and the
+entry and the pre-close heads-up both ask that same function.
+
+**Branches A and B — built, NOT wired.** `vix1_void.not_filling` works and is measured, but wiring
+it fails `test_choch_bearish_proof`, `test_regime_direction_only`, `test_choch_taken_back` and
+`test_tradeable`. The cause is not a bug:
+
+| his 14 Sep proof rule | his 20 Sep void rule |
+|---|---|
+| run -> pull back -> turn back -> **ONE** momentum candle is the trade | after the fill, **TWO** momentum candles before trading |
+
+Same situation, one candle apart. Allowing the `not-filled-yet` state as a diagnostic clears the
+first two files completely; of the remaining two, one is a teeth check the gate MASKS rather than
+breaks, and the other is `test_tradeable`'s documented known gap of 2026-08-05 14:00, which the gate
+happens to close. **HIS RULING IS NEEDED on which rule wins** — nothing was loosened to make tests
+pass.
