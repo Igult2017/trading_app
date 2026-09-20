@@ -57,19 +57,22 @@ print("   the locks, at his levels:")
 st2 = run(ENTRY, SL0, True, bars_to(2.0))
 s.check("peak 2.0R locks +1R", st2.locked_r, 1.0)
 s.check("  stop sits one risk above entry", round(st2.stop, 5), round(ENTRY + RISK, 5))
-# ABOVE 2.0R THE LADDER TRAILS — his revision of 2026-09-02: "when price moves to 2.1R lock 2R and
-# when it moves to 2.5R lock 2.4R and when it moves to 2.6R lock 2.5R and go with that math until we
-# are stopped out". The old fixed 2.5R -> +2R rung is gone; the trail reaches +2R at 2.1R instead.
+# ABOVE 2.2R THE LADDER TRAILS, KEEPING 0.2R BEHIND — his revision of 2026-09-20: *"At 2.2R move to
+# 2R and keep moving 0.2R behind the move until your trailing stop is hit"*. It replaces the 0.1R gap
+# from 2.1R of 02 Sep, which was smaller than the spread on every sell he has traded, so the stop was
+# refused as through the market and never trailed at all (see monitor/stop_placement.py).
 # This advice path reads the SAME table as the code that moves the real stop, so these numbers are
 # the amend's numbers.
 st21 = run(ENTRY, SL0, True, bars_to(2.1))
-s.check("peak 2.1R locks +2R — his first worked example", st21.locked_r, 2.0)
+s.check("peak 2.1R is below the trail's start — the +1R lock still stands", st21.locked_r, 1.0)
+st22 = run(ENTRY, SL0, True, bars_to(2.2))
+s.check("peak 2.2R locks +2R — the trail's first step", st22.locked_r, 2.0)
 st24 = run(ENTRY, SL0, True, bars_to(2.4))
-s.check("peak 2.4R locks +2.3R", st24.locked_r, 2.3)
+s.check("peak 2.4R locks +2.2R", st24.locked_r, 2.2)
 st3 = run(ENTRY, SL0, True, bars_to(2.5))
-s.check("peak 2.5R locks +2.4R — his second worked example", st3.locked_r, 2.4)
+s.check("peak 2.5R locks +2.3R", st3.locked_r, 2.3)
 st4 = run(ENTRY, SL0, True, bars_to(6.0))
-s.check("peak 6R keeps trailing — locks +5.9R", st4.locked_r, 5.9)
+s.check("peak 6R keeps trailing — locks +5.8R", st4.locked_r, 5.8)
 
 print()
 print("   the stop RATCHETS — it never moves backwards:")
@@ -77,12 +80,12 @@ st5 = run(ENTRY, SL0, True, bars_to(2.5))
 after_peak = st5.stop
 st5 = run(ENTRY, SL0, True, bars_to(2.1), state=st5)      # price falls back to 2.1R
 s.check("a lower peak does not pull the stop back", round(st5.stop, 5), round(after_peak, 5))
-s.check("  and the locked R is unchanged", st5.locked_r, 2.4)
+s.check("  and the locked R is unchanged", st5.locked_r, 2.3)
 
 print()
 print("   the same rules short:")
 sh = run(ENTRY, ENTRY + RISK, False, bars_to(2.5, bullish=False))
-s.check("short: peak 2.5R locks +2.4R, the same trail as a long", sh.locked_r, 2.4)
+s.check("short: peak 2.5R locks +2.3R, the same trail as a long", sh.locked_r, 2.3)
 s.check("short: the stop sits ABOVE entry-side, below start", sh.stop < ENTRY + RISK, True)
 
 print()
@@ -121,6 +124,6 @@ s.check("state exposes the peak reached", st6.peak_r >= 3.0, True)
 print()
 s.teeth("nothing locks below 1.5R", run(ENTRY, SL0, True, bars_to(1.4)).locked_r == 0.0)
 s.teeth("...and 1.5R DOES lock 1R", run(ENTRY, SL0, True, bars_to(1.5)).locked_r == 1.0)
-s.teeth("the forward-only ratchet", st5.locked_r == 2.4 and round(st5.stop, 5) == round(after_peak, 5))
+s.teeth("the forward-only ratchet", st5.locked_r == 2.3 and round(st5.stop, 5) == round(after_peak, 5))
 
 s.done()

@@ -73,7 +73,7 @@ log = logging.getLogger(__name__)
 # from a map held in memory — so a restart made a position unattributed and handed it the OLD numbers
 # (breakeven 1.0R). His EUR/USD trade of 01 Sep peaked at +0.50R, between the two breakevens, and
 # took a full -1R loss where this ladder would have scratched it. See the note in rungs.py.
-from monitor import rungs
+from monitor import rungs, stop_placement
 from notifications import safe_notify as notify
 from monitor.rungs import EPS as _EPS
 
@@ -186,12 +186,19 @@ async def _prices_now(symbol: str, bullish: bool) -> tuple[float, float] | None:
     return close, (close if bullish else close + (ctrader_spread.cached(symbol) or 0.0))
 
 
-def _lines(p, r: float, price: float) -> list[tuple[str, str]]:
+def _lines(p, r: float, price: float, guard: float | None = None) -> list[tuple[str, str]]:
     """(tag, price, message) for every milestone this position has reached. Lowest rung first.
 
     THE RUNGS COME FROM THE SHARED TABLE, so the DM written here and the amend performed by
     `_auto_move` can never be built from different numbers. There is ONE table and no selection —
     nothing to get wrong, and nothing to lose across a restart.
+
+    TWO PRICES, AND THE STOP IS PLACED OFF THE SECOND ONE (2026-09-20). `price` is the chart price and
+    decides WHICH rungs have been reached. `guard` is the price THIS stop fires on — the bid for a buy,
+    the ask for a sell — and decides WHERE the stop may sit: see `monitor/stop_placement.py` for the
+    defect that came of using one number for both, and the measurement behind the 0.2R gap. `guard`
+    defaults to None only so a caller that genuinely has one price (a bar replay) still works; every
+    live caller passes it.
     """
     d = price_digits(p.symbol)
     side = "BUY" if p.bullish else "SELL"
@@ -213,6 +220,15 @@ def _lines(p, r: float, price: float) -> list[tuple[str, str]]:
                         f"still take the costs off you."))
             continue
         lock_at = rungs.stop_price_for(rung, p.entry, risk, p.bullish)
+        # WHERE THE STOP MAY SIT — measured off the price that FIRES it, never the one the rung was
+        # read on. A trailing step is the gap itself, so it is priced from `guard` outright; a fixed
+        # lock keeps its own level and is only pushed out when that level sits inside the spread.
+        # `rungs.ladder()` holds the fixed rungs, so anything else came from the trail.
+        if guard is not None and risk:
+            trailing = rung not in rungs.ladder()
+            lock_at = (stop_placement.trail_stop(guard, risk, p.bullish, rungs.trail().gap_r, d)
+                       if trailing else
+                       stop_placement.no_closer_than(lock_at, guard, risk, p.bullish, digits=d))
         if rung.quiet:
             # A trailing tenth. The stop still moves; his phone does not ring. `None` for the
             # message is the caller's signal to skip the send and go straight to the amend.
@@ -360,7 +376,7 @@ async def _one_position(p, send, r_seen: dict) -> None:
     if r is None:
         return          # starting stop not known yet, or no stop: the ladder does nothing
     r_seen[int(p.position_id)] = r
-    for tag, new_sl, message in _lines(p, r, price):
+    for tag, new_sl, message in _lines(p, r, price, guard):
         k = _key(p.position_id, tag)
         if delivery_ledger.is_delivered(k):
             continue

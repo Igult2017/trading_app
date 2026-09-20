@@ -164,8 +164,9 @@ s.check("0.39R reaches nothing", tags_at(0.39), [])
 s.check("0.4R reaches breakeven", tags_at(0.4), ["breakeven"])
 s.check("1.4R is still only breakeven", tags_at(1.4), ["breakeven"])
 s.check("1.5R adds the +1R lock", tags_at(1.5), ["breakeven", "lock_1r"])
-s.check("2.1R starts the trail", tags_at(2.1)[-1], "trail_2.0r")
-s.check("4.0R trails at 3.9R", tags_at(4.0)[-1], "trail_3.9r")
+s.check("2.1R is below the trail — still just the +1R lock", tags_at(2.1)[-1], "lock_1r")
+s.check("2.2R starts the trail", tags_at(2.2)[-1], "trail_2.0r")
+s.check("4.0R trails at 3.8R", tags_at(4.0)[-1], "trail_3.8r")
 
 # THE PRICE THE STOP GOES TO, on the rung that locks +1R.
 _lock = [(t, sl) for t, sl, _m in T._lines(_p, 2.0, 1.1020) if t == "lock_1r"][0]

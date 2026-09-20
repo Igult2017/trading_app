@@ -78,7 +78,11 @@ def replay(name, symbol, buy, fill_ms, fill, stop0, tp, fixed):
         r = p.r_at(read)
         if r is None:
             continue
-        for tag, target, _ in _lines(p, r, read):
+        # THE FIRING PRICE GOES IN ONLY ON THE FIXED PATH (20 Sep 2026). With it, a trailing stop is
+        # placed 0.2R from the price that fires it — the live rule. Without it, `_lines` prices the
+        # stop off the entry, which is what the code did before, so the "BEFORE" run below still
+        # reproduces the broker's own closes exactly.
+        for tag, target, _ in _lines(p, r, read, fire if fixed else None):
             if tag in done or target is None:
                 continue
             blocked = breakeven.why_not(p, "demo", target, fire)
@@ -101,7 +105,10 @@ TRADES = [
     ("EURUSD_0917_sell", "EUR/USD", False, 1789661174731, 1.14758, 1.14786, 1.14649, "19:14:48", 1.14786),
     ("EURUSD_0918_sell", "EUR/USD", False, 1789730164366, 1.14693, 1.14746, 1.14486, "15:56:56", 1.14693),
 ]
-AFTER = {"GBPUSD_0902_sell": -0.03, "EURUSD_0917_sell": -0.04, "EURUSD_0918_sell": 2.09}
+# 18 Sep was +2.09R until 2026-09-20, when the trail became 0.2R behind the FIRING price (from 2.2R)
+# instead of 0.1R behind a level off the entry. This is the tick-perfect number: the live loop, which
+# checks twice a second instead of on every tick, gets +1.83R — see test_ladder_live_loop.py.
+AFTER = {"GBPUSD_0902_sell": -0.03, "EURUSD_0917_sell": -0.04, "EURUSD_0918_sell": 1.87}
 
 if ticks("EURUSD_0918_sell") is None:
     print("   SKIP — the tick files are not on this machine (trading_app_data/ctrader/ticks)")
@@ -127,7 +134,7 @@ else:
     s.check("18 Sep keeps the ladder going past breakeven: lock +1R then the trail",
             [m[1] for m in replay("EURUSD_0918_sell", "EUR/USD", False, 1789730164366, 1.14693,
                                   1.14746, 1.14486, fixed=True)[3]],
-            ["breakeven", "lock_1r", "trail_2.1r"])
+            ["breakeven", "lock_1r", "trail_2.0r", "trail_2.1r"])
     old18 = replay("EURUSD_0918_sell", "EUR/USD", False, 1789730164366, 1.14693, 1.14746,
                    1.14486, fixed=False)
     s.teeth("the OLD count really does go blind after breakeven on 18 Sep",

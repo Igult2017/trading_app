@@ -77,6 +77,19 @@ blind window between the cross and the order: both watchers (`signal_monitor`, `
 candles from the signal's creation onward, so a death before that was invisible and the order was sent,
 then withdrawn. Guarded by `test_entry_stop_already_hit.py` on 8 real orders.
 
+**3. A stop is placed relative to the price that FIRES it, never the price the rung was read on.**
+Added 2026-09-20 (his question: *"how can we move SL in sell the same way we do in buy?"*).
+`monitor/stop_placement.py` owns this: a trailing stop is `gap_r` from the firing price (`trail_stop`),
+no stop may sit closer than `MIN_GAP_R = 0.2` to it (`no_closer_than` — a fixed lock is delayed and
+protects slightly less, never refused into standing still), and every price is snapped to the pair's
+steps away from the market (`on_grid`). **Breakeven is the one exception**: it is his net-zero price, not
+a distance, so it is still refused and retried rather than moved into a loss. `position_tracker._lines`
+takes the firing price as its fourth argument; `_one_position` and `trade_watcher._one` both pass it, and
+`tools/replay_ladder.py` uses the same helper so the tool cannot drift from the rule. Broken before: a
+buy's stop fires on the bid, which IS the price the ladder reads, so its gap was real — a sell's fires on
+the ask, so the spread ate the gap and the trailing move was refused 135 times on the 18 Sep trade and
+never landed. Guarded by `test_trail_symmetry.py` and the live-loop numbers in `test_ladder_live_loop.py`.
+
 ---
 
 ## ONE QUESTION, ONE MODULE — the ownership map (2026-09-07)

@@ -358,6 +358,15 @@ showed this. Chart: `Desktop\VIX1 entries 14-18 Sep\4 ...BREAKEVEN.png`.
 
 ### B28 - A SELL's stop is set on the chart price but the broker fires it on the buy price. Verified 19 Sep
 
+**UPDATE 20 Sep 2026 — MOVING a stop is FIXED on both sides; PLACING THE ENTRY's stop is still open.**
+His question: *"how can we move SL in sell the same way we do in buy?"* Every stop the ladder MOVES is now
+placed 0.2R from the price that fires it (`monitor/stop_placement.py`), so a sell gets the same real room
+as a buy and a trailing move can no longer be refused — before this, the trail was refused as through the
+market 135 times on the 18 Sep trade and never moved once. Measured over all 7 real fills through the real
+monitor loop: -2.16R -> -1.31R (18 Sep +0.98R -> +1.83R). **STILL OPEN, and his to decide:** the stop the
+ENTRY sets (`strategies/vix1_entry.py:141-143`) still has no room for the spread — that is his stop rule,
+not the ladder's, and nothing below has changed.
+
 **UPDATE 19 Sep 2026 — the LADDER half is FIXED, the STOP half is OPEN and his to decide.** The ladder now
 reads the chart price (tested: -3.09R vs -5.24R on 14 trades), which gives his 17 Sep sell its breakeven.
 **Tested and REJECTED:** telling the broker to fire sell stops on the chart price (cTrader trigger method

@@ -18,11 +18,17 @@ than by deleting one of them, because they are not duplicates: `trade_watcher` (
 price) and `position_tracker` (30s poll) already share one rulebook deliberately, one as the fast
 path and one as the safety net. Collapsing THOSE would delete the safety net.
 
-HIS LADDER, 2026-09-03 — and this supersedes the numbers of 02 Sep:
+HIS LADDER, 2026-09-03, with the trail as he revised it on 2026-09-20:
 
     0.4R   ->  BREAKEVEN, net of costs
     1.5R   ->  lock +1R
-    2.1R+  ->  TRAIL, keeping the stop 0.1R behind in 0.1R steps, until it is hit
+    2.2R+  ->  TRAIL, keeping the stop 0.2R behind in 0.1R steps, until it is hit
+
+WHERE that trailing stop sits is `monitor/stop_placement.py`, not this file: 0.2R from the price that
+FIRES it, so a sell gets the same real room as a buy. He also proposed four intermediate locks
+(1R->+0.5R, 1.4R->+1R, 1.9R->+1.5R, and +0.7R after a drop back below 0.9R) and they are NOT built — over
+his 7 real fills they measured -2.44R against -1.31R for the trail alone, because a stop 0.4-0.5R behind
+the price is taken by the trade's own breathing: the 18 Sep trade dipped 1.26R on its way to +2.77R.
 
 His words: *"move breakeven to 0.2R and lock 1R when we are at R1.5. Then when we get to R2.1, we
 lock 2R and start locking after every 0.1R away until we get knocked out."*
@@ -129,9 +135,9 @@ class Trail:
 # is what I had done instead, and it would have left the same trap for the next thing that lost the
 # link.
 #
-# THE 2.5R -> lock 2R RUNG IS GONE, deliberately: the trail protects +2R from 2.1R, which is both
-# earlier and higher than that rung ever was. Leaving it in would fire a second alert at 2.5R telling
-# him to move the stop DOWN from 2.4R to 2.0R.
+# THE 2.5R -> lock 2R RUNG IS GONE, deliberately: the trail protects +2R from 2.2R (2.1R until
+# 2026-09-20), which is both earlier and higher than that rung ever was. Leaving it in would fire a
+# second alert at 2.5R telling him to move the stop DOWN from 2.4R to 2.0R.
 # HIS NUMBERS, 2026-09-03: *"move breakeven to 0.2R and lock 1R when we are at R1.5. Then when we get
 # to R2.1, we lock 2R and start locking after every 0.1R away until we get knocked out."*
 #
@@ -141,7 +147,17 @@ _LADDER = (
     Rung(0.4, None, "breakeven"),
     Rung(1.5, 1.0,  "lock_1r", quiet=True),      # moves the stop; says nothing — his rule above
 )
-_TRAIL = Trail(from_r=2.1, gap_r=0.1, step_r=0.1)
+# THE TRAIL, 2026-09-20 — his numbers, and the gap is now REAL on both sides of the market.
+#
+# His words: *"At 2.2R move to 2R and keep moving 0.2R behind the move until your trailing stop is hit"*,
+# and then *"how can we move SL in sell the same way we do in buy?"*. The gap moved 0.1R -> 0.2R and the
+# start 2.1R -> 2.2R; WHERE the stop is measured from moved out of here entirely, into
+# `monitor/stop_placement.py`, which holds the measurement and the reason.
+#
+# A 0.1R gap was smaller than the spread on every sell he has traded, so the stop was refused as through
+# the market 135 times on the 18 Sep trade and the trail never moved. Measured through the real monitor
+# loop over the broker's own ticks, all 7 real fills: before -2.16R, after -1.31R.
+_TRAIL = Trail(from_r=2.2, gap_r=0.2, step_r=0.1)
 
 
 def ladder() -> tuple[Rung, ...]:
@@ -162,9 +178,9 @@ def trail() -> Trail:
 def trailing_rung(trail: Trail | None, r: float) -> Rung | None:
     """The one trailing step this trade has earned, or None.
 
-    ONLY THE HIGHEST STEP, never the ones below it. If price runs from 2.1R to 3.0R between two
-    checks the stop belongs at 2.9R; sending the nine steps in between would be nine messages and
-    nine broker amends to arrive at the same place.
+    ONLY THE HIGHEST STEP, never the ones below it. If price runs from 2.2R to 3.0R between two
+    checks the stop belongs at 2.8R; sending the steps in between would be several messages and
+    several broker amends to arrive at the same place.
 
     COUNTED IN WHOLE TENTHS, NOT IN FLOATING POINT. R is a ratio of differences between 5-decimal
     prices, so a true 2.5 arrives as 2.4999999999997 — and `int(r * 10)` reads that as 24 and locks

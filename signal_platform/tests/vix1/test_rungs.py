@@ -99,9 +99,11 @@ s.check("breakeven's price is not computed here — only the position knows its 
         rungs.stop_price_for(vix[0], E, RISK, True), None)
 s.check("lock +1R on a BUY sits one risk above entry",
         round(rungs.stop_price_for(vix[1], E, RISK, True), 5), round(E + RISK, 5))
-# +2R is now reached by the TRAIL at 2.1R rather than by a fixed rung, so the price is checked
-# through the trailing step — the same arithmetic, from the rung the code actually produces.
-_two_r = [x for x in rungs.reached(vix, 2.1, rungs.trail()) if x.lock_r == 2.0][0]
+# +2R is reached by the TRAIL at 2.2R (2.1R until 2026-09-20) rather than by a fixed rung, so the
+# price is checked through the trailing step — the same arithmetic, from the rung the code produces.
+# WHERE that stop finally goes on a LIVE position is `monitor/stop_placement.py`: 0.2R from the price
+# that fires it, which is this same level on a buy and a spread further out on a sell.
+_two_r = [x for x in rungs.reached(vix, 2.2, rungs.trail()) if x.lock_r == 2.0][0]
 s.check("lock +2R on a BUY sits two risks above entry",
         round(rungs.stop_price_for(_two_r, E, RISK, True), 5), round(E + 2 * RISK, 5))
 s.check("a SELL locks BELOW its entry",
@@ -141,7 +143,7 @@ s.check("...and no longer defines its own rungs",
 s.check("neither path looks up an owning strategy",
         "owner_of" in tracker or "owner_of" in watcher, False)
 s.check("...and both call the single ladder",
-        "rungs.ladder()" in tracker and "_lines(p, r, price)" in watcher, True)
+        "rungs.ladder()" in tracker and "_lines(p, r, price, guard)" in watcher, True)
 
 
 # ── TEETH ───────────────────────────────────────────────────────────────────
@@ -170,16 +172,18 @@ def _lock_at(r):
     return got[-1].lock_r if got else None
 
 
-s.check("2.1R locks 2.0R — his first example", _lock_at(2.1), 2.0)
-s.check("2.5R locks 2.4R — his second",        _lock_at(2.5), 2.4)
-s.check("2.6R locks 2.5R — his third",         _lock_at(2.6), 2.5)
-s.check("...and it keeps going: 4.7R locks 4.6R", _lock_at(4.7), 4.6)
+# HIS REVISION, 2026-09-20: *"At 2.2R move to 2R and keep moving 0.2R behind the move until your
+# trailing stop is hit"* — the gap was 0.1R from 2.1R until then.
+s.check("2.2R locks 2.0R — his worked example", _lock_at(2.2), 2.0)
+s.check("2.5R locks 2.3R",                      _lock_at(2.5), 2.3)
+s.check("2.6R locks 2.4R",                      _lock_at(2.6), 2.4)
+s.check("...and it keeps going: 4.7R locks 4.5R", _lock_at(4.7), 4.5)
 
 # THE BOUNDARY IS THE WHOLE REASON THIS IS COUNTED IN TENTHS. R is a ratio of differences between
-# 5-decimal prices, so a true 2.5 arrives just under it. `int(r * 10)` would read 24 and lock 2.3R —
+# 5-decimal prices, so a true 2.5 arrives just under it. `int(r * 10)` would read 24 and lock 2.2R —
 # one step low, silently, on exactly the number he named.
-s.check("a hair under 2.5R still locks 2.4R", _lock_at(2.4999999999997), 2.4)
-s.check("a hair under 2.1R still locks 2.0R", _lock_at(2.0999999999998), 2.0)
+s.check("a hair under 2.5R still locks 2.3R", _lock_at(2.4999999999997), 2.3)
+s.check("a hair under 2.2R still locks 2.0R", _lock_at(2.1999999999998), 2.0)
 
 # BELOW THE TRAIL, THE FIXED RUNGS ARE UNCHANGED.
 s.check("0.3R is still too early for anything", _lock_at(0.3), None)
@@ -188,10 +192,10 @@ s.check("2.05R has not earned a trail step yet", _lock_at(2.05), 1.0)
 s.check("breakeven still arrives at 0.4R",
         [x.tag for x in rungs.reached(_LAD, 0.4, _TR)], ["breakeven"])
 
-# ONE STEP PER JUMP. Price running 2.1R -> 3.0R between two checks must move the stop once, to 2.9R.
+# ONE STEP PER JUMP. Price running 2.2R -> 3.0R between two checks must move the stop once, to 2.8R.
 _jump = [x for x in rungs.reached(_LAD, 3.0, _TR) if x.tag.startswith("trail")]
 s.check("a jump to 3.0R yields ONE trailing step", len(_jump), 1)
-s.check("...at 2.9R, not at 2.0R", _jump[0].lock_r, 2.9)
+s.check("...at 2.8R, not at 2.0R", _jump[0].lock_r, 2.8)
 
 # THE TRAIL NEVER PULLS A STOP BACKWARDS — a fixed rung protecting more wins.
 s.check("no trailing step undercuts the 1R rung",
@@ -217,7 +221,7 @@ s.check("a silent step still carries a stop price",
 s.check("EVERY position trails — there is no ladder without one", rungs.trail() is not None, True)
 s.check("...and every position gets the same rungs at 4.5R",
         [x.tag for x in rungs.reached(rungs.ladder(), 4.5, rungs.trail())],
-        ["breakeven", "lock_1r", "trail_4.4r"])
+        ["breakeven", "lock_1r", "trail_4.3r"])
 
 s.teeth("the deleted 2.5R->2R rung cannot come back as a lower target",
         _lock_at(2.5) > 2.0)

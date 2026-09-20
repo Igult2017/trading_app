@@ -44,7 +44,13 @@ s.check("stop at breakeven, price at 1.14608 -> 1.60R (was: unknown)",
         round(at_be.r_at(1.14608), 2), 1.60)
 lines = {t: x for t, x, _ in T._lines(at_be, at_be.r_at(1.14555), 1.14555)}
 s.check("at 2.6R the ladder asks for lock +1R at 1.14640 (entry - 1R)", round(lines["lock_1r"], 5), 1.14640)
-s.check("...and trails to +2.5R at 1.14561 (1.14693 - 2.5 x 0.00053)", round(lines["trail_2.5r"], 5), 1.14561)
+# The trail keeps 0.2R behind since 2026-09-20 (0.1R before it), so 2.6R earns the +2.4R step.
+s.check("...and trails to +2.4R at 1.14566 (1.14693 - 2.4 x 0.00053)", round(lines["trail_2.4r"], 5), 1.14566)
+# ON A LIVE POSITION that level is not what is sent: the stop is placed 0.2R from the price that
+# FIRES it, which on a sell is the ask. Same rung, same R, a stop the broker will actually accept.
+_live = {t: x for t, x, _ in T._lines(at_be, at_be.r_at(1.14555), 1.14555, 1.14565)}
+s.check("...and on the live path it is placed 0.2R above the ASK, not off the entry",
+        round(_live["trail_2.4r"], 5), round(1.14565 + 0.2 * 0.00053, 5))
 s.check("starting stop unknown -> R unknown -> no rung at all", pos(FILL, start=None).r_at(1.14555), None)
 
 # ── 3. the fast watcher, on a REAL position whose stop has moved ────────────────────────────────

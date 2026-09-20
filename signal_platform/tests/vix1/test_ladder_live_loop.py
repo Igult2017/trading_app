@@ -187,13 +187,16 @@ def run(name, symbol, buy, fill_ms, fill, stop0, tp, old_way=False):
 
 # name, symbol, buy, fill ms, fill, STARTING stop, target, what THIS LOOP produces, stop moves
 #
-# THESE ARE THE LIVE LOOP'S OWN NUMBERS, not the tick-perfect replay's. On 18 Sep the replay reached
-# +2.09R by trailing; the live loop gets +0.98R because a stop 0.1R behind (today's trail gap) is
-# smaller than the spread, so the move is refused as "past the market" — 135 times on this trade — and
-# never lands. The replay tries at every tick and eventually squeezes one in; the platform checks every
-# half second and does not. Measured 20 Sep 2026; UPDATE THESE when the ladder changes.
+# THESE ARE THE LIVE LOOP'S OWN NUMBERS, not the tick-perfect replay's (which gets +1.87R on 18 Sep,
+# because it tries on every tick instead of twice a second).
+#
+# THE TRAIL NOW PLACES A SELL'S STOP OFF THE PRICE THAT FIRES IT (20 Sep 2026, his question: *"how can
+# we move SL in sell the same way we do in buy?"*). Before that it was 0.1R behind a level off the
+# entry, and on a sell the spread ate the whole gap: the move was refused as "past the market" 135
+# times on this one trade and the stop never trailed at all, banking +0.98R. Now it trails twice and
+# banks +1.83R. Measured 20 Sep 2026; UPDATE THESE when the ladder changes.
 TRADES = [
-    ("EURUSD_0918_sell", "EUR/USD", False, 1789730164366, 1.14693, 1.14746, 1.14486, 0.98, 2),
+    ("EURUSD_0918_sell", "EUR/USD", False, 1789730164366, 1.14693, 1.14746, 1.14486, 1.83, 4),
     ("EURUSD_0917_sell", "EUR/USD", False, 1789661174731, 1.14758, 1.14786, 1.14649, 0.00, 1),
     ("GBPUSD_0902_sell", "GBP/USD", False, 1788342844240, 1.34880, 1.34939, 1.34672, -0.03, 1),
 ]
@@ -210,10 +213,13 @@ else:
                 f"{n_moves} stop move(s)", (abs(got - expect) <= 0.05, len(moves)), (True, n_moves))
 
     # 18 Sep is the trade that exposed the defect: it reached 2.85R and closed at $0 because the ladder
-    # went blind after breakeven. Through the live path it must now climb the ladder.
+    # went blind after breakeven. Through the live path it must now climb the ladder AND trail.
     bk, moves = run(*TRADES[0][:7])
-    s.check("18 Sep: the live path moves the stop twice — breakeven, then +1R", len(moves), 2)
-    s.check("...ending in real profit, not at the entry where the defect left it", bk.r() > 0.9, True)
+    s.check("18 Sep: the live path moves the stop four times — breakeven, +1R, then two trailing steps",
+            len(moves), 4)
+    s.check("...and the trail really moves, where a 0.1R gap was refused 135 times and never landed",
+            len(moves) > 2, True)
+    s.check("...ending in real profit, not at the entry where the defect left it", bk.r() > 1.5, True)
     s.check("...and every amend the platform sent was accepted and re-read at the broker",
             len(bk.amends) == len(moves), True)
 

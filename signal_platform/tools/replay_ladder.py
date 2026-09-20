@@ -26,6 +26,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from data.ctrader_positions import Position
 from monitor import rungs as R
+from monitor import stop_placement
 
 BARS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "replay_bars.json")
 PIPETTE = 100_000.0          # cTrader reads are pipettes for every symbol — verified 2026-07-30
@@ -118,8 +119,18 @@ def replay(t: Trade, ladder=None, trail=None):
             if rung.lock_r is None:
                 new_stop = t.entry          # breakeven; the real one adds costs, which only makes
                                             # it slightly better for him, so this is the cautious form
+            elif rung not in ladder:
+                # A TRAILING STEP IS PLACED OFF THE FIRING PRICE, through the same helper the live
+                # tracker uses, so this tool cannot drift from the rule again (a private copy of the
+                # R count is exactly how B27 stayed hidden). BAR DATA HAS ONE PRICE, so the firing
+                # price here is the bar's own — i.e. a zero spread, which flatters a SELL by about
+                # one spread. Tick-level truth lives in tests/vix1/test_ladder_live_loop.py.
+                new_stop = stop_placement.trail_stop(
+                    favourable, live.risk(), t.bullish,
+                    trail.gap_r if trail else stop_placement.MIN_GAP_R)
             else:
                 new_stop = R.stop_price_for(rung, t.entry, live.risk(), t.bullish)
+                new_stop = stop_placement.no_closer_than(new_stop, favourable, live.risk(), t.bullish)
             if new_stop is None:
                 continue
             # RATCHET ONLY — a stop never moves against the trade. Same rule as the live tracker.

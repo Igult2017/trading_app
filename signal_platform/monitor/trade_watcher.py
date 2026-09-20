@@ -250,7 +250,7 @@ class TradeWatcher:
             return                        # starting stop not known yet: do nothing, never guess
         if r_seen is not None:
             r_seen[int(p.position_id)] = r
-        for tag, new_sl, message in _lines(p, r, price):
+        for tag, new_sl, message in _lines(p, r, price, guard):
             k = _key(p.position_id, tag)
             if delivery_ledger.is_delivered(k):
                 continue

@@ -121,6 +121,10 @@ TESTS = [
     # data we have"*. Drives the REAL poll, amend path and safety check over the broker's own ticks with
     # only the broker replaced: with the old count it reproduces the real account ($0 at 15:56:56).
     "test_ladder_live_loop.py",      # the whole ladder path, run for real on real ticks
+    # ADDED 2026-09-20 on his question — *"how can we move SL in sell the same way we do in buy?"*.
+    # A sell's stop fires on the BUY price, so a gap measured off the chart price was eaten by the
+    # spread: 135 refusals on one trade and the trail never moved. Now measured off the firing price.
+    "test_trail_symmetry.py",        # a sell's stop gets the same real room as a buy's
 ]
 
 # AND THIS IS WHY IT WILL NOT HAPPEN A THIRD TIME. Adding a test file without listing it above is
