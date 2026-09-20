@@ -66,6 +66,38 @@ Widening: 3x -13.5, 4x -5.6, **5x +5.2**, 6x +5.3.
 **On one week (4 sells) widening measured as useless and refusing as the only lever. On 122 sells both
 work. Do not quote the one-week version.**
 
+### His question: put it in the FLOOR he already has (20 Sep, `vix1_floor_sweep.py`)
+
+*"stop is determined by setup qualifications. How do we know its 5X the spread?"* - it is not set to
+5x anything. The stop stays where the setup puts it; the 5x is a yes/no test afterwards, the same
+shape as his existing refusal when the stop is WIDER than one 1HR candle (`vix1_entry.py:207`).
+
+The alternative is to raise the spread term in the floor he already has (`vix1_entry.py:195`,
+`1.0 x the 1M range + ONE spread`) and let his own code do the rest: slightly tight stops get pushed
+out, and any that then need more room than a 1HR candle are refused by line 199. Both measured in ONE
+harness, same trades, flat per-pair spreads, 12 months + gold's 4:
+
+| | EUR/USD | GBP/USD | XAU/USD | **book** |
+|---|---|---|---|---|
+| today (floor = 1 x range + 1 spread) | -14.2 | -9.0 | +8.3 | **-14.9 R** |
+| floor + 2 spreads | -9.1 | -6.3 | +8.3 | -7.1 R |
+| floor + 3 spreads | -4.9 | -8.3 | +8.3 | -4.9 R |
+| floor + 4 spreads | -8.3 | -5.9 | +8.3 | -5.9 R |
+| floor + 5 spreads | -6.0 | -4.1 | +8.3 | -1.8 R |
+| **today's floor, but don't TAKE a sell whose stop is under 5x the spread** | **-2.1** | **+0.5** | **+8.3** | **+6.7 R** |
+
+**Refusing beats widening, and they are the same medicine:** one pushes the stop out until it clears
+the spread, the other skips the trade. Widening keeps the trade but enlarges 1R, so its winners are
+worth less. Raising the floor also produces MORE orders, not fewer (EUR 73 -> 83, GBP 79 -> 90): a
+wider stop is less often already traded through before the order is sent.
+
+**The floor variant has no stable best number** - EUR/USD is best at 3 spreads, GBP/USD at 5. That
+wandering is what a fitted number looks like; the refusal rule was monotonic across seven thresholds.
+
+**The SIZE of the gain is uncertain, the direction is not.** Refusing measures +13.0 R in the
+per-fill-spread harness and +6.7 R here (different build-time spread, so a different trade set).
+Both are a large improvement on today; do not quote either as a precise expectation.
+
 ### Falsification tests, all passed
 
 * **The same filter on BUYS, where the mechanism says it must NOT help:** +13.0 R -> +1.4 R. It
