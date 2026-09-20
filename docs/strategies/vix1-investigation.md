@@ -1664,3 +1664,68 @@ reaches 12:12 his — 10,000-line cap). Then checked against the broker's own 1-
   passed, so **no new order was placed** for the fall that followed.
 * **Every other hour, 00:00-13:46:** trend DOWN, and the newest closed candle was not a momentum candle
   (too small against the 2.5x / 7.0-pip requirement, or not bigger than the one before).
+
+---
+
+## ISSUE 9 — "IT WASN'T CLEAR WHETHER THE MARKET WAS GOING DOWN OR STILL RANGING" (20 Sep 2026)
+
+**His setup:** the EUR/USD sell of **17 Sep 19:06:09 his clock** — entry 1.14759, stop 1.14786,
+filled 1.14758 (chart: `Desktop\Which one .png`). His words: *"looking at it, nothing qualified …
+if you would have built the chop rule that would ask whether candles are closing on top of each
+other and showing strong conviction of direction, this would not have been allowed."*
+
+### Why it fired — traced through the shipped code on the broker's own bars
+
+| step | what the code found |
+|---|---|
+| trend | DOWN — change of character at 1.15266, break of structure at 1.14517 (the 67.5-pip drop of 16 Sep 21:00) |
+| market awake | yes — 5 momentum candles in 48 hours |
+| the candle | 17 Sep 18:00, body **7.8 pips**; normal body now **3.2p**; **2.5x = 8.0p (FAILS)**, 2.3x with the 0.2 margin = 7.4p (passes) |
+| `is_momentum_candle` | **False** · `qualifies_for_trade` **True** — it traded on the 0.2 margin alone |
+| line / entry / stop | close 1.14781 / one tick past the 1M pullback 1.14759 / line + 0.5p 1.14786 |
+
+**He is right that nothing qualified under the rule he knows.** 0.4 of a pip decided it.
+
+### Would the switched-off chop rule have stopped it? NO — and it would have killed his winner
+
+`vix1_chop.read` at its built setting (24 hours, 6 crossings of the middle):
+
+| window | crossings | band | verdict |
+|---|---|---|---|
+| 12h | 4 | 38 pips | allowed |
+| **24h (live setting)** | **1** | **94 pips** | **allowed** |
+| 36h / 48h | 1 | 104 pips | allowed |
+
+**Why it missed:** the 67.5-pip drop is INSIDE the 24-hour window, so the band is 94 pips wide and
+everything after the drop sits on one side of the middle — one crossing, which reads as a trend. The
+sideways stretch he circled is only 38 pips over ~12 hours. **The rule measures ACROSS the move that
+created the trend instead of after it.** That is the specific, fixable flaw this setup exposes.
+
+**And at the same setting it refuses his only winner:** 18 Sep (+1.83R) counted **8** crossings.
+
+### His own description, measured four ways — none separates the bad signal from the winner
+
+| trade | conviction 6h/12h | closes spread 6h/12h (x avg hour) | bodies overlapping 12h | entry sits in 24h range | drifted back from last extreme |
+|---|---|---|---|---|---|
+| 01 Sep EUR buy −0.03R | 47% / 28% | 1.1 / 2.3 | 45% | 47% | 23p |
+| 02 Sep GBP sell −0.03R | 10% / 13% | 1.4 / 2.2 | 100% | −1% | 12p |
+| 09 Sep GBP buy −1.03R | 15% / 22% | 1.7 / 2.4 | 64% | 95% | 7p |
+| 15 Sep GBP buy −1.00R | 42% / 10% | 1.5 / 2.2 | 82% | 63% | 21p |
+| 16 Sep GBP sell −1.04R | 81% / 19% | 2.0 / 3.5 | 45% | 1% | 1p |
+| **17 Sep EUR sell (his)** | **14% / 26%** | **1.4 / 2.3** | **91%** | **26%** | **26p** |
+| **18 Sep EUR sell +1.83R** | 46% / **8%** | 1.2 / **1.8** | **91%** | **5%** | **6p** |
+
+**On conviction, closes-spread, body overlap and position-in-range the WINNER looks worse than the
+setup he is objecting to.** Only the last column ranks them the way he reads the chart: the 17 Sep
+sell was taken **26 pips above** a low made 18 hours earlier, the winner **6 pips** above its own.
+
+### Where this leaves it — nothing built, nothing switched on
+
+Two candidates worth a proper test, neither shippable on 7 trades with 1 winner:
+1. **Measure the band AFTER the trend-setting move**, not across it (the flaw above).
+2. **How far price has drifted back from the trend's last extreme** in the trade's direction.
+
+The only honest test is the shape of the 14 Sep one: his five circled chop regions as the
+"should refuse" set, the 12-month setup population as the cost side, reporting what each rule
+catches, what it flags in ordinary hours, and what it does to the money. **That is a backtest and
+needs his word.**
