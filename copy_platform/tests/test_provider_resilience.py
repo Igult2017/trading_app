@@ -46,6 +46,7 @@ def make_provider() -> CTraderProvider:
     p.account_type = "demo"
     p.on_event = lambda *a, **k: None
     p._positions = {}
+    p._awaiting_stop = {}        # mirrors the real __init__ — see test_stop_before_copy.py
     p._spec_requested = set()
     p._symbols = {1: "EURUSD"}
     p._authed = p._reconciled = p._reconcile_scheduled = p._connected = False

@@ -3441,3 +3441,33 @@ down"*, so the runs count is not the discriminator either.
 his choppy charts from his tradeable ones, because by every count they sit in the same range. The
 next step is NOT a seventh count — it is to ask him what he SEES in the 03-05 Aug charts that he does
 not see in the six he has just sent.
+
+### C-COPY1 — the copy engine never received the master's stop, so nothing was ever copied. FIXED 2026-09-20
+
+**What he saw:** *"I am currently using self copying and i cant see the slave account copying the
+master for all the trades that have been taken"*, and the slave had copied nothing in 19 days.
+
+**Root cause, from the engine's own tables.** It SAW every trade — 11 events, including all five
+fills (positions 240741293, 241723106, 241869270, 242203419, 242362800) — and skipped every one:
+
+> *"Risk-% mode: can't size — the trade has no stop-loss, or your account balance isn't synced yet"*
+
+Not the balance (both accounts synced, $9,301.72 and $1,000.00). **Every recorded event carried no
+stop and no MODIFY ever arrived.** The fill event does not carry the protection; the 30-second
+reconcile does, and the reconcile branch deliberately stays silent for a position it has not seen
+(`providers/ctrader.py`, *"do NOT emit OPEN — avoids double-copying"*). So the stop arrived and was
+discarded, sizing had nothing to work with, and the entry was lost.
+
+**Fixed:** an OPEN with no stop is HELD, the broker is asked for the position at once, and the OPEN is
+emitted complete. Three endings, all tested: the stop arrives (copy it), the position closes first
+(copy nothing — and no phantom CLOSE either), or three reads pass with no stop (copy it anyway, and
+say so). `copy_platform/tests/test_stop_before_copy.py`.
+
+**Also added:** `lot_mode = 'proportional'` — the follower risks the same PERCENTAGE the master
+risked, against its own balance. The stop cancels out of that arithmetic, leaving the balance ratio,
+so it sizes trades that risk-% mode cannot.
+
+**NOT proven yet:** no live fill has been watched through this connection. The reading above comes
+from 11 stop-less events with no MODIFY, not from observing one. **Read the diagnostics after the
+first trade following Sunday 22:00 UTC** — a master trade carrying a stop and a follower row with
+`status=executed` is the proof.

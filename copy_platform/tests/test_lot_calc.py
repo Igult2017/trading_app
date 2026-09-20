@@ -80,4 +80,50 @@ s.check("mult with no master volume and no fallback -> skip",
         calc_lots(FakeFollower(lot_mode="mult"), 0.0), 0.0)
 s.check("the backstop clamp still holds", calc_lots(mult, 10_000.0), MAX_LOTS)
 
+
+# ── PROPORTIONAL: the slave risks the SAME PERCENTAGE, on its own balance ───
+# His ask, 2026-09-20: *"the master risks 2% and that same 2 percentage is copied in slave account
+# but based on its balance not that of master."* The stop cancels out of that arithmetic, leaving
+# the balance ratio — which is why this mode can size a trade that risk-% mode cannot.
+prop = FakeFollower(lot_mode="proportional")
+# HIS REAL ACCOUNTS: master 5296567 held $9,301.72 and the slave "TT" $1,000.00 on 2026-09-20.
+# His 18 Sep EUR/USD sell was 3.85 lots; his 15-17 Sep trades were 5.00.
+s.check("5.00 master lots on $9,301.72 becomes 0.54 on $1,000",
+        calc_lots(prop, 5.0, follower_equity=1000.0, master_equity=9301.72), 0.54)
+s.check("3.85 master lots becomes 0.41", calc_lots(prop, 3.85, follower_equity=1000.0,
+                                                   master_equity=9301.72), 0.41)
+s.check("equal balances copy the master's size exactly",
+        calc_lots(prop, 2.0, follower_equity=5000.0, master_equity=5000.0), 2.0)
+s.check("a bigger slave scales UP, not just down",
+        calc_lots(prop, 1.0, follower_equity=20_000.0, master_equity=10_000.0), 2.0)
+
+# IT RISKS THE SAME FRACTION, and that is the whole claim — so it is asserted as money, not lots.
+# 5 lots, a 5.3-pip stop at $10/pip/lot = $265 at risk, which is 2.85% of the master's $9,301.72.
+#
+# WITHIN ONE LOT STEP, NOT EXACTLY. Sizes are rounded to the broker's 0.01-lot step, so the slave
+# lands on 0.54 rather than 0.5375 and risks 2.86% against the master's 2.85%. One step on this
+# trade is 0.01 x 5.3 x $10 = $0.53, which is 0.05% of the slave's $1,000 — so the two percentages
+# can never differ by more than that, and asserting equality to the decimal would be asserting a
+# rounding artefact rather than the rule.
+_slave = calc_lots(prop, 5.0, follower_equity=1000.0, master_equity=9301.72)
+_slave_pct = _slave * 5.3 * 10.0 / 1000.0 * 100
+_master_pct = 5.0 * 5.3 * 10.0 / 9301.72 * 100
+s.check("...and the slave risks the same % of its own $1,000, within one 0.01-lot step",
+        abs(_slave_pct - _master_pct) <= 0.06, True)
+s.check("...which is 2.9% against 2.8% — the same trade, the smaller account",
+        (round(_slave_pct, 1), round(_master_pct, 1)), (2.9, 2.8))
+
+# NEVER GUESSED. A missing balance on either side is a skip, exactly like every other mode.
+s.check("no slave balance -> skip", calc_lots(prop, 5.0, follower_equity=None,
+                                              master_equity=9301.72), 0.0)
+s.check("no master balance -> skip", calc_lots(prop, 5.0, follower_equity=1000.0,
+                                               master_equity=None), 0.0)
+s.check("a zero master balance cannot divide by zero", calc_lots(prop, 5.0, follower_equity=1000.0,
+                                                                 master_equity=0.0), 0.0)
+s.check("no master size -> skip", calc_lots(prop, 0.0, follower_equity=1000.0,
+                                            master_equity=9301.72), 0.0)
+# AND IT NEEDS NO STOP — the reason it works where risk-% mode was stuck all along.
+s.check("it sizes with NO stop-loss, where risk mode cannot",
+        calc_lots(prop, 5.0, sl_pips=None, follower_equity=1000.0, master_equity=9301.72), 0.54)
+
 s.done()

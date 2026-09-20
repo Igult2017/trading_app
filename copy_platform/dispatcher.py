@@ -188,10 +188,23 @@ async def _exec_follower(master_trade_id: str, follower: CopyFollower,
                 equity = float(broker_account.balance) if broker_account.balance is not None else None
             except (TypeError, ValueError):
                 equity = None
+            # Proportional mode needs the MASTER's balance too; every other mode ignores it, so it
+            # is only read when it is actually going to be used.
+            master_equity = (_master_balance(follower.master_id)
+                             if (follower.lot_mode or "").lower() == "proportional" else None)
             lots = calc_lots(follower, snap.volume_lots, sl_pips=sl_pips,
-                             follower_equity=equity, pip_value=pip_value(snap.symbol))
+                             follower_equity=equity, pip_value=pip_value(snap.symbol),
+                             master_equity=master_equity)
             if lots <= 0:
-                if (follower.lot_mode or "").lower() == "risk":
+                if (follower.lot_mode or "").lower() == "proportional":
+                    reason = (
+                        "Proportional mode: can't size — "
+                        + ("the master's trade carried no size"
+                           if not snap.volume_lots else
+                           f"a balance is missing (yours={equity}, master's={master_equity}); "
+                           f"both accounts must be synced")
+                    )
+                elif (follower.lot_mode or "").lower() == "risk":
                     # Name the symbol case separately — it is the one a user can act on, by
                     # switching that follower to fixed or mult mode.
                     reason = (
@@ -296,6 +309,27 @@ def _get_broker_account(follower: CopyFollower) -> BrokerAccount | None:
         return None
     with Session() as db:
         return db.get(BrokerAccount, follower.broker_account_id)
+
+
+def _master_balance(master_id: str) -> float | None:
+    """The MASTER account's balance, for proportional sizing. None if it cannot be read.
+
+    Read fresh rather than carried on the event: the balance is refreshed by the Node sync service,
+    and a stale copy would size every later trade off a number the account no longer has. None is
+    returned for every failure, and `calc_lots` treats that as "no size" rather than guessing.
+    """
+    try:
+        with Session() as db:
+            master = db.get(CopyMaster, master_id)
+            if not master or not master.broker_account_id:
+                return None
+            acct = db.get(BrokerAccount, master.broker_account_id)
+            if not acct or acct.balance is None:
+                return None
+            return float(acct.balance)
+    except (TypeError, ValueError, AttributeError) as exc:
+        log.warning("[dispatch] master %s: balance unreadable (%s)", master_id, type(exc).__name__)
+        return None
 
 
 def _get_executor(broker_account: BrokerAccount, creds: dict):

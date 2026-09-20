@@ -23,11 +23,34 @@ def calc_lots(
     sl_pips: float | None = None,
     follower_equity: float | None = None,
     pip_value: float = 10.0,   # USD per pip per standard lot (default for majors)
+    master_equity: float | None = None,
 ) -> float:
     mode = (follower.lot_mode or "mult").lower()
 
     if mode == "fixed" and follower.fixed_lot:
         lots = float(follower.fixed_lot)
+
+    elif mode == "proportional":
+        # THE SLAVE RISKS THE SAME PERCENTAGE THE MASTER RISKED, measured against ITS OWN balance.
+        # His words, 2026-09-20: *"the master risks 2% and that same 2 percentage is copied in slave
+        # account but based on its balance not that of master."*
+        #
+        # IT IS THE BALANCE RATIO, AND THAT IS NOT AN APPROXIMATION — the stop cancels out:
+        #
+        #     master risked      = master_lots x sl_pips x pip_value      (% of master_equity)
+        #     same % of follower = follower_equity x that %  /  (sl_pips x pip_value)
+        #                        = master_lots x follower_equity / master_equity
+        #
+        # Both sides take the same trade with the same stop at the same pip value, so those two
+        # factors appear on the top and the bottom and disappear. His 5.00 lots on $9,301.72 become
+        # 0.54 lots on $1,000 — the same fraction of the account at risk.
+        #
+        # WHY THAT MATTERS BEYOND TIDINESS: it needs NO stop distance, so it sizes a trade the
+        # risk-% mode cannot. (The per-trade risk cap in `risk_guard` still needs one, deliberately.)
+        if master_lots and master_lots > 0 and follower_equity and master_equity:
+            lots = float(master_lots) * float(follower_equity) / float(master_equity)
+        else:
+            lots = 0.0        # a missing balance is never guessed — the caller reads 0 as SKIP
 
     elif mode == "risk":
         # Size so a stop-out costs exactly risk_percent of equity. If we can't size it — the

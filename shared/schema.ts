@@ -127,7 +127,11 @@ export const copyFollowers = pgTable("copy_followers", {
   accountId:       varchar("account_id").references(() => copyAccounts.id),
   brokerAccountId: varchar("broker_account_id"),    // FK → broker_accounts.id — used instead of accountId for API-connected accounts
   masterId:        varchar("master_id").references(() => copyMasters.id),
-  lotMode:         text("lot_mode").notNull().default("mult"),  // mult | fixed | risk
+  // mult | fixed | risk | proportional.
+  // 'proportional' (added 2026-09-20) mirrors the PROVIDER'S RISK PERCENTAGE onto the follower's own
+  // balance: lots = provider lots x (follower balance / provider balance). The stop distance cancels
+  // out of that arithmetic, so unlike 'risk' it can size a trade whose stop is unknown.
+  lotMode:         text("lot_mode").notNull().default("mult"),
   lotMultiplier:   decimal("lot_multiplier",  { precision: 6, scale: 2 }).default("1.0"),
   fixedLot:        decimal("fixed_lot",       { precision: 8, scale: 2 }),
   riskPercent:     decimal("risk_percent",    { precision: 5, scale: 2 }).default("1.0"),

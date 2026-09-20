@@ -390,7 +390,7 @@ function ProviderTab({ userId }: { userId: string }) {
                                   Follower {f.id.slice(0, 8)}…
                                 </div>
                                 <div style={{ color: tone.dim, fontSize: 9, fontFamily: "'JetBrains Mono', monospace", marginTop: 2 }}>
-                                  {f.lotMode} · {f.lotMode === 'mult' ? `${f.lotMultiplier}×` : f.lotMode === 'fixed' ? `${f.fixedLot} lot` : `${f.riskPercent}% risk`}
+                                  {f.lotMode} · {f.lotMode === 'mult' ? `${f.lotMultiplier}×` : f.lotMode === 'fixed' ? `${f.fixedLot} lot` : f.lotMode === 'proportional' ? 'their risk %, your balance' : `${f.riskPercent}% risk`}
                                 </div>
                               </div>
                               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -536,7 +536,7 @@ function FollowerTab({ userId }: { userId: string }) {
                   </div>
                   <div style={{ color: tone.dim, fontSize: 10, fontFamily: "'JetBrains Mono', monospace" }}>
                     Mirroring to {acct ? `${acct.platform} · ${acct.loginId}` : 'account ' + (f.accountId?.slice(0, 8) || '—')}
-                    {' · '}{f.lotMode === 'mult' ? `${f.lotMultiplier}× lot` : f.lotMode === 'fixed' ? `${f.fixedLot} fixed lot` : `${f.riskPercent}% risk`}
+                    {' · '}{f.lotMode === 'mult' ? `${f.lotMultiplier}× lot` : f.lotMode === 'fixed' ? `${f.fixedLot} fixed lot` : f.lotMode === 'proportional' ? 'their risk %, your balance' : `${f.riskPercent}% risk`}
                   </div>
                 </div>
 
@@ -565,9 +565,10 @@ function FollowerTab({ userId }: { userId: string }) {
                               value={f.lotMode}
                               onChange={v => updateFollower(f.id, { lotMode: v })}
                               options={[
+                                { v: 'proportional', l: 'Same risk % as provider (on your balance)' },
                                 { v: 'mult',  l: 'Multiplier (× provider lot)' },
                                 { v: 'fixed', l: 'Fixed lot size' },
-                                { v: 'risk',  l: 'Risk % of balance' },
+                                { v: 'risk',  l: 'Risk % of balance (needs their stop)' },
                               ]} />
                       <Select label="Direction"
                               value={f.direction || 'same'}
@@ -592,6 +593,14 @@ function FollowerTab({ userId }: { userId: string }) {
                         <NumberField label="Fixed Lot Size" suffix="lot" step={0.01}
                                      value={f.fixedLot || '0.01'}
                                      onChange={v => updateFollower(f.id, { fixedLot: v })} />
+                      )}
+                      {/* 'proportional' takes no number: the size is the provider's lot scaled by
+                          the two balances, which is the same fraction of the account at risk. */}
+                      {f.lotMode === 'proportional' && (
+                        <div style={{ color: tone.muted, fontSize: 11, lineHeight: 1.6, marginBottom: 10 }}>
+                          Nothing to set. If they risk 2% of their account, you risk 2% of yours —
+                          their stop and target are copied exactly, only the size changes.
+                        </div>
                       )}
                       {f.lotMode === 'risk' && (
                         <NumberField label="Risk per Trade" suffix="%" step={0.1}

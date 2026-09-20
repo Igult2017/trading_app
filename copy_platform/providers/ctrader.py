@@ -55,6 +55,12 @@ class CTraderProvider:
         self.account_type = account_type
         self.on_event     = on_event
         self._positions: dict[int, PositionSnapshot] = {}
+        # OPENS HELD BACK UNTIL THEIR STOP IS KNOWN — positionId -> how many reconciles we have
+        # waited. See `_handle_execution`: a fill event that carries no stop cannot be sized by
+        # risk (`lot_calc`) and cannot pass the 3% cap (`risk_guard`), so emitting it immediately
+        # only produces a SKIP. Every one of the 11 master events recorded up to 2026-09-20 was
+        # stop-less, which is why not one trade was ever copied.
+        self._awaiting_stop: dict[int, int] = {}
         self._spec_requested: set[int] = set()   # symbolIds whose contract spec we asked for
         self._symbols: dict[int, str] = {}   # symbolId → symbolName (cTrader trades carry only ids)
         self._authed      = False
@@ -85,15 +91,25 @@ class CTraderProvider:
         return (not self._connected and self._disconnected_since is not None
                 and (time.monotonic() - self._disconnected_since) > max_down)
 
+    def _send_reconcile(self) -> None:
+        """Ask for the open positions ONCE. No timer — see `_request_reconcile`.
+
+        SPLIT OUT 2026-09-20 because an out-of-band caller needed it. `_request_reconcile` reschedules
+        itself on every call, so calling THAT to ask an extra question would have started a second
+        repeating chain and doubled the reconcile rate for the provider's whole life, every time.
+        """
+        if not self._authed:
+            return
+        try:
+            req = ProtoOAReconcileReq()
+            req.ctidTraderAccountId = int(self.creds["ctraderId"])
+            self.client.send(req)
+        except Exception as e:
+            log.warning(f"[{self.master_id}] reconcile request failed: {e}")
+
     def _request_reconcile(self) -> None:
         """Periodic safety net — re-fetch open positions to catch missed closes."""
-        if self._authed:
-            try:
-                req = ProtoOAReconcileReq()
-                req.ctidTraderAccountId = int(self.creds["ctraderId"])
-                self.client.send(req)
-            except Exception as e:
-                log.warning(f"[{self.master_id}] reconcile request failed: {e}")
+        self._send_reconcile()
         self._loop.call_later(RECONCILE_INTERVAL, self._request_reconcile)
 
     # ── Twisted callbacks ──────────────────────────────────────────────────────
@@ -224,6 +240,14 @@ class CTraderProvider:
                 for pid, prev in list(self._positions.items()):
                     if pid not in fresh:
                         self._positions.pop(pid, None)
+                        # NEVER ANNOUNCED, SO NEVER RETRACTED. A position still waiting for its stop
+                        # has had no OPEN emitted, so the follower cannot be holding anything to
+                        # close. The dispatcher would safely no-op, but it would also write a master
+                        # CLOSE row with no OPEN beside it and log a skip that reads like a failure —
+                        # exactly the kind of misleading record that made this defect take a day to
+                        # find. `_release_awaiting` reports it properly a few lines below.
+                        if pid in self._awaiting_stop:
+                            continue
                         log.info(f"[{self.master_id}] reconcile: position {pid} closed externally")
                         asyncio.ensure_future(
                             self.on_event({"type": "CLOSE", "snap": prev}, self.master_id))
@@ -231,6 +255,10 @@ class CTraderProvider:
                 # execution event already handles opens; avoids double-copying).
                 for pid, snap in fresh.items():
                     self._positions.setdefault(pid, snap)
+            # RELEASE THE OPENS THAT WERE WAITING FOR THEIR STOP (2026-09-20). This runs on BOTH
+            # branches above — the initial load and the periodic safety net — because the answer to
+            # the out-of-band request fired by `_handle_execution` can arrive as either.
+            self._release_awaiting(fresh)
 
         elif ptype == ProtoOAExecutionEvent().payloadType:
             event = Protobuf.extract(message)
@@ -253,6 +281,15 @@ class CTraderProvider:
 
         if status == ProtoOAPositionStatus.POSITION_STATUS_CLOSED:
             self._positions.pop(pid, None)
+            # A HELD OPEN DIES WITH THE POSITION. Releasing it after the master is out would open the
+            # follower into a trade that no longer exists — and the CLOSE is dropped too, because an
+            # entry we never announced cannot be exited: the follower has nothing open, and a CLOSE
+            # row with no OPEN beside it is a record that reads like a failure.
+            was_held = self._awaiting_stop.pop(pid, None) is not None
+            if was_held:
+                log.info(f"[{self.master_id}] position {pid} closed while still waiting for its "
+                         f"stop — nothing was copied, so there is nothing to close")
+                return
             # Record the exit in closed_price; keep entry_price as the real entry (from
             # our prior snapshot when we have it). Emit CLOSE EVEN IF we never saw the
             # OPEN (e.g. it closed during the auth→reconcile window) — the dispatcher
@@ -264,14 +301,80 @@ class CTraderProvider:
             await self.on_event({"type": "CLOSE", "snap": snap}, self.master_id)
 
         elif status == ProtoOAPositionStatus.POSITION_STATUS_OPEN:
+            # ALREADY HELD, WAITING FOR ITS STOP. If the stop arrives on a live event — the broker
+            # attaching protection a moment after the fill — release the OPEN here rather than wait
+            # for the next reconcile. Without this branch the same event would be read as a MODIFY
+            # of a position the follower has not opened, which can only ever be skipped.
+            if pid in self._awaiting_stop:
+                self._positions[pid] = snap
+                if snap.stop_loss is not None:
+                    self._awaiting_stop.pop(pid, None)
+                    log.info(f"[{self.master_id}] position {pid} {snap.symbol}: stop "
+                             f"{snap.stop_loss} arrived on a live event — copying now")
+                    await self.on_event({"type": "OPEN", "snap": snap}, self.master_id)
+                return
+
             if prev is None:
                 self._positions[pid] = snap
+                # A FILL EVENT WITHOUT A STOP IS HELD, NOT EMITTED (2026-09-20). Emitting it is
+                # worse than waiting: risk-% sizing cannot size without the stop distance and the
+                # 3% per-trade cap cannot measure risk without it, so the copy is SKIPPED and the
+                # entry is lost for good. The stop IS readable from the position — the reconcile
+                # below carries it — so ask for it now and emit the OPEN complete. His five fills
+                # of 09-18 Sep all died here.
+                if snap.stop_loss is None:
+                    self._awaiting_stop[pid] = 0
+                    log.info(f"[{self.master_id}] position {pid} {snap.symbol} filled with no stop "
+                             f"on the event — asking the broker for it before copying")
+                    self._send_reconcile()
+                    return
                 await self.on_event({"type": "OPEN", "snap": snap}, self.master_id)
             elif prev.stop_loss != snap.stop_loss or prev.take_profit != snap.take_profit:
                 self._positions[pid] = snap
                 await self.on_event({"type": "MODIFY", "snap": snap, "prev": prev}, self.master_id)
             else:
                 self._positions[pid] = snap   # volume/other change — track silently
+
+    # How many reconciles an OPEN waits for its stop before it is emitted without one. At the
+    # 30-second reconcile interval that is about a minute and a half — long enough for the broker to
+    # attach protection, short enough that a master who genuinely trades without stops still gets
+    # copied by the modes that do not need one, with an honest reason in the log if one does.
+    MAX_STOP_WAITS = 3
+
+    def _release_awaiting(self, fresh: dict[int, PositionSnapshot]) -> None:
+        """Emit the OPENs held back by `_handle_execution`, now that positions have been re-read.
+
+        THREE ENDINGS, and each one matters:
+          * the position now carries a stop  -> emit OPEN with it. This is the fix.
+          * it is gone from `fresh`          -> it closed before we could read it (his 16 Sep trade
+                                                lasted 1.2 seconds). Emit NOTHING: there is no trade
+                                                left to copy, and a late OPEN would open the follower
+                                                into a position the master has already exited.
+          * still no stop after MAX_STOP_WAITS -> emit it anyway. Waiting for ever would silently
+                                                drop every trade of a master who uses no stops.
+        """
+        for pid, waits in list(self._awaiting_stop.items()):
+            snap = fresh.get(pid)
+            if snap is None:
+                self._awaiting_stop.pop(pid, None)
+                log.info(f"[{self.master_id}] position {pid} closed before its stop could be read — "
+                         f"nothing copied, which is correct: the master is already out")
+                continue
+            if snap.stop_loss is not None:
+                self._awaiting_stop.pop(pid, None)
+                self._positions[pid] = snap
+                log.info(f"[{self.master_id}] position {pid} {snap.symbol}: stop {snap.stop_loss} "
+                         f"read from the broker — copying now")
+                asyncio.ensure_future(self.on_event({"type": "OPEN", "snap": snap}, self.master_id))
+                continue
+            self._awaiting_stop[pid] = waits + 1
+            if waits + 1 >= self.MAX_STOP_WAITS:
+                self._awaiting_stop.pop(pid, None)
+                self._positions[pid] = snap
+                log.warning(f"[{self.master_id}] position {pid} {snap.symbol}: still no stop after "
+                            f"{self.MAX_STOP_WAITS} reads — copying it WITHOUT one; risk-% sizing "
+                            f"and the per-trade risk cap will refuse it, and say so")
+                asyncio.ensure_future(self.on_event({"type": "OPEN", "snap": snap}, self.master_id))
 
     def _snap(self, pos) -> PositionSnapshot:
         """A master position as a copy event.

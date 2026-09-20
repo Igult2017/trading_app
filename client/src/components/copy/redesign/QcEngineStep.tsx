@@ -1,6 +1,6 @@
-import { Scale, Anchor, Percent, ChevronDown } from 'lucide-react';
+import { Scale, Anchor, Percent, Equal, ChevronDown } from 'lucide-react';
 
-type LotMode = 'mult' | 'fixed' | 'risk';
+type LotMode = 'mult' | 'fixed' | 'risk' | 'proportional';
 
 interface Props {
   lotMode: LotMode;
@@ -14,9 +14,12 @@ interface Props {
 }
 
 const CARDS: { id: LotMode; icon: typeof Scale; title: string; desc: string }[] = [
+  // 'proportional' leads: it is the one that needs no setting from the user and no stop-loss from
+  // the provider, so it is the mode that works on the widest set of trades.
+  { id: 'proportional', icon: Equal, title: 'Same Risk %', desc: "Risk what they risked — measured against your balance, not theirs." },
   { id: 'mult', icon: Scale, title: 'Balance Multiplier', desc: 'Scale to your account size. Best for most.' },
   { id: 'fixed', icon: Anchor, title: 'Fixed Lot', desc: 'Always open a set lot, regardless of theirs.' },
-  { id: 'risk', icon: Percent, title: 'Risk %', desc: 'Size by % of equity per trade.' },
+  { id: 'risk', icon: Percent, title: 'Risk %', desc: 'Size by % of equity per trade. Needs their stop-loss.' },
 ];
 
 const labelStyle = { display: 'block', fontSize: 12, fontWeight: 500, color: 'var(--t2)', marginBottom: 7 };
@@ -28,6 +31,8 @@ export default function QcEngineStep({ lotMode, onLotMode, multiplier, onMultipl
     : lotMode === 'fixed'
       ? { label: 'Fixed lot size', hint: 'Every copied trade opens at this exact lot.' }
       : { label: 'Risk per trade (%)', hint: 'Lot is computed from your equity and stop distance.' };
+  // 'Same Risk %' takes no number: the size comes from the two balances and the provider's own lot.
+  const noInput = lotMode === 'proportional';
 
   return (
     <>
@@ -35,7 +40,7 @@ export default function QcEngineStep({ lotMode, onLotMode, multiplier, onMultipl
       <h1 className="qc-h1" style={{ marginTop: 10, marginBottom: 6 }}>How should we size your trades?</h1>
       <div className="qc-sub">Choose how the provider's lot size maps onto your account.</div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12, marginTop: 24 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 12, marginTop: 24 }}>
         {CARDS.map(c => {
           const I = c.icon;
           const sel = lotMode === c.id;
@@ -57,9 +62,24 @@ export default function QcEngineStep({ lotMode, onLotMode, multiplier, onMultipl
 
       <div style={{ marginTop: 22, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
         <div>
-          <label style={labelStyle}>{inputMeta.label}</label>
-          <input className="qc-inp mono" value={multiplier} onChange={e => onMultiplier(e.target.value)} />
-          <div className="qc-hint">{inputMeta.hint}</div>
+          {noInput ? (
+            <>
+              <label style={labelStyle}>Nothing to set</label>
+              <div style={{ height: 40, display: 'flex', alignItems: 'center', background: 'var(--s2)', border: '1px solid var(--b2)', borderRadius: 8, padding: '0 12px', fontSize: 14, color: 'var(--t2)' }}>
+                Worked out for you
+              </div>
+              <div className="qc-hint">
+                If they risk 2% of their account, you risk 2% of yours. Their stop and target are
+                copied exactly; only the size changes.
+              </div>
+            </>
+          ) : (
+            <>
+              <label style={labelStyle}>{inputMeta.label}</label>
+              <input className="qc-inp mono" value={multiplier} onChange={e => onMultiplier(e.target.value)} />
+              <div className="qc-hint">{inputMeta.hint}</div>
+            </>
+          )}
         </div>
         <div>
           <label style={labelStyle}>Direction</label>
