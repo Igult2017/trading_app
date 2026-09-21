@@ -247,111 +247,18 @@ def market_awake(h1: list[Candle], tstate, retracement, symbol: str, look: int) 
     return None
 
 
-# ── IS THE MARKET CHOPPY? ─────────────────────────────────────────────────────────────────────────
+
+# ── THE CHOP READING LIVED HERE AND IS GONE, 2026-09-21 ──────────────────────────────────────────
 #
-# HIS INSTRUCTION, and it decides the whole shape of this: *"Dont use complex math, just develop
-# something that detects how mixed bullish and bearish candles, different candle bodies and wicks
-# and how frequently the market moves with one or 2 candles up then down in a move. No complex math,
-# just pure market tracking."*
+# `choppiness()`, `_wicky()` and `market_not_choppy()` were removed together. They counted his four
+# "signs" of a mixed market (colour, body size, wick shape, run length) and **were wired to
+# nothing** — `market_not_choppy` had never refused a single trade, and `OPEN.md` D42 kept them only
+# because VIX.1 then had no chop detector at all.
 #
-# So there is no ratio, no average, no statistic anywhere below. Every one of the four things he
-# named is counted the same plain way: **how often does it FLIP?** A market that keeps changing its
-# mind — green then red, big then small, wicky then clean, up two then down two — is choppy. A market
-# that means it does the same thing several candles in a row.
+# IT HAS ONE NOW: `vix1_chop` owns ranging and choppy markets — his band idea, the wander ratio and
+# the latch in one module — and `vix1_bias` asks it before anything else, so its answer is final.
+# His instruction that day was *"Dont patch, integrate"*, and leaving a second, dead chop reader
+# behind is the opposite of integrating. Git holds the four-signs code if it is ever wanted back.
 #
-# THE ONLY BOUNDARY USED IS "more often than not", which is not a tuned level — it is the point where
-# a thing stops being occasional and becomes the market's normal behaviour. The same reasoning as the
-# quiet test's boundary being zero: both come from the meaning of the words, not from fitting.
-
-def _wicky(c) -> bool:
-    """Is this candle mostly wick rather than body? No threshold — just which is bigger."""
-    body = abs(c.close - c.open)
-    return (c.high - c.low) - body > body
-
-
-def choppiness(seg) -> dict:
-    """COUNT the four things he named. Returns the counts and how many say 'mixed'.
-
-    Nothing here is scored, weighted or averaged. Each answer is a plain count of flips against the
-    number of chances to flip, and each trait is 'mixed' when it flipped more often than not.
-    """
-    n = len(seg)
-    if n < 6:
-        return {"traits": 0, "runs": 0, "short": 0, "colour": 0, "size": 0, "wick": 0, "pairs": 0}
-
-    colour = size = wick = 0
-    for i in range(1, n):
-        if (seg[i].close > seg[i].open) != (seg[i - 1].close > seg[i - 1].open):
-            colour += 1                                    # green <-> red
-        if _wicky(seg[i]) != _wicky(seg[i - 1]):
-            wick += 1                                      # wicky <-> clean
-    # BIG NEXT TO SMALL — his words are *"a mixture of big bodies, small bodies"*, which is about the
-    # SIZES being inconsistent, not about which way they are heading.
-    #
-    # THE FIRST VERSION OF THIS WAS BROKEN AND THE MEASUREMENT PROVED IT. It counted changes of
-    # DIRECTION in body size ("grew, then shrank"), which is simply what candles do: it fired in
-    # 13-17 of every 23 pairs in EVERY window, choppy or calm. Over 4 years **not one setup in 1,302
-    # scored 0 of 4**, which is only possible if a sign is permanently on. A sign that is always true
-    # carries no information and silently inflates every score.
-    #
-    # Now it asks the plain question instead: is this body more than DOUBLE, or less than HALF, the
-    # one before it? A market building momentum prints bodies of a similar size; a choppy one throws
-    # a big candle, then a stub, then a big one. Double and half are the everyday way of saying "a
-    # different size", not a fitted level.
-    for i in range(1, n):
-        b = abs(seg[i - 1].close - seg[i - 1].open)
-        c = abs(seg[i].close - seg[i].open)
-        if b <= 0:
-            continue
-        if c > 2 * b or c * 2 < b:
-            size += 1
-
-    # HOW OFTEN IT MOVES "ONE OR 2 CANDLES UP THEN DOWN" — count the runs of same-colour candles and
-    # see how many are only one or two long. A market that advances in ones and twos and then turns
-    # is his choppy market; one that runs five or six the same way is grouping.
-    runs, cur = [], 1
-    for i in range(1, n):
-        if (seg[i].close > seg[i].open) == (seg[i - 1].close > seg[i - 1].open):
-            cur += 1
-        else:
-            runs.append(cur)
-            cur = 1
-    runs.append(cur)
-    short = sum(1 for r in runs if r <= 2)
-
-    traits = sum((colour * 2 > n - 1,          # colour flips more often than not
-                  size * 2 > n - 1,            # big body next to small body, more often than not
-                  wick * 2 > n - 1,            # wicky and clean keep alternating
-                  short * 2 > len(runs)))      # most moves are only one or two candles
-    return {"traits": traits, "runs": len(runs), "short": short,
-            "colour": colour, "size": size, "wick": wick, "pairs": n - 1}
-
-
-def market_not_choppy(h1, look: int, need: int) -> str | None:
-    """His chop rule. The refusal reason, or None to allow.
-
-    ⚠⚠ NOT WIRED. NOTHING CALLS THIS — verified 2026-09-07, it appears exactly once in the whole
-    platform and that is this definition. **VIX.1 HAS NO WORKING CHOPPY-MARKET DETECTOR.**
-
-    Do not read the word "chop" in a refusal message and conclude otherwise: that word comes from
-    `vix1_regime.classify`, which is a TREND test choosing a label for a refusal it already made on
-    direction. It performs no chop analysis of any kind. That confusion cost a whole exchange on
-    2026-09-07 and is why this warning is here rather than in a doc nobody opens.
-
-    KEPT DELIBERATELY, NOT DEAD CODE — `docs/OPEN.md` D42 is the open project this belongs to, and it
-    says do not delete this, the same standing as `vix1_regime._PROGRESS_ATR`. What is still missing
-    is his definition — *"it can be trending but prints 1 red volume candle then a bullish candle"*,
-    *"a mixture of big bodies, small bodies, long wicks and no wicks"* — which five measured ideas
-    have so far failed to separate. Wiring this as it stands would refuse markets he trades.
-
-    `need` is how many of the four traits must say 'mixed' before we stand aside, and it lives at the
-    call site with every other number that gates a trade.
-    """
-    if len(h1) < look + 2:
-        return None                     # not enough history to judge; refusing on that is a guess
-    c = choppiness(h1[-(look + 1):])
-    if c["traits"] < need:
-        return None
-    return (f"the market is choppy — {c['traits']} of 4 signs over the last {look} hours: colour "
-            f"changed {c['colour']}x, body size {c['size']}x, wick shape {c['wick']}x, and "
-            f"{c['short']} of {c['runs']} moves lasted only one or two candles")
+# Deleting them REVERSES the "do not delete" note in `OPEN.md` D42, deliberately and on his
+# instruction to integrate; D42 is updated in the same change.

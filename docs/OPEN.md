@@ -1780,6 +1780,48 @@ the `Retracement` the path already computed. Only the SEQUENCE is new, and the s
 
 ### D42 - CHOPPY / QUIET MARKET DETECTION. ONGOING PROJECT, continue from here
 
+**UPDATE 2026-09-21 - THE GATE IS SWITCHED ON, AND ITS ANSWER IS FINAL.** His instruction: *"It
+should be able to detect ranging and choppy market and then inform VIX and its decision is final so
+that VIX can no longer take trades in choppy markets... it stops taking trades immediately."* Plus
+*"Dont patch, integrate."*
+
+**What changed.** `vix1_chop` is now the ONE module that answers this, and `vix1_bias` asks it
+BEFORE the trend is even read, returning immediately on a reason; `vix1_preclose` asks the same
+function so the heads-up cannot promise a trade the entry refuses. It refuses NEW ENTRIES ONLY -
+an open position, its stop and its ladder are untouched. Three parts:
+
+1. **the box and the crossings** - his own idea, unchanged (`_CAME_BACK = 6`);
+2. **the wander ratio** - the standard Choppiness Index, `100 x log10(sum of true ranges / box) /
+   log10(24)`. Not the efficiency ratio he rejected: putting the BOX in the denominator is exactly
+   what separates a respectable range from a messy transition;
+3. **the latch** - the missing piece. ⚠ Measured: across his circled range the wander reading runs
+   33.3-67.1 and everything else runs 25.4-68.4, medians 52.5 vs 49.2. **No per-hour cut can
+   separate them.** So the state turns ON when both readings agree for two hours running and HOLDS
+   until price CLOSES OUT of the box it latched onto.
+
+**Measured as built, 1,387 hours EUR/USD:** his circled 14-16 Sep range is ON from 15 Sep 20:00 and
+**releases on the exact hour of the 67.5-pip drop** (16 Sep 18:00); his 18 Sep card is ON; 14
+episodes, 141 hours (10%). GBP/USD 5%, XAU/USD 5% - not fitted to one pair.
+
+**⚠ WHAT IT CANNOT DO:** it needs a day of sideways price. His range began ~14 Sep 15:00 and this
+latches 29 hours later, so the two trades inside it (14 Sep 19:00, 15 Sep 08:00) are too early for
+this gate - the liquidity-void rule refuses those instead. No detector can call a range four hours
+in.
+
+**⚠ NOT MEASURED: what it costs in money.** That is a backtest and needs his approval.
+
+**THE OLD DUPLICATES ARE DELETED, reversing this item's earlier "do not delete" note, deliberately
+and on his instruction to integrate:** `vix1_tradeable.market_not_choppy`, `choppiness()` and
+`_wicky()` are gone - an unwired four-signs reader that had never refused anything. Git holds them.
+
+**STILL OPEN:** the five older circled chop regions (02 Mar, 16 Dec, 10 Dec, 04 Dec a and b) could
+NOT be used to calibrate - only their dates and lengths were ever recorded, never their hours. If he
+re-marks them the cuts can be re-read against 201 more hours of his own judgement.
+
+---
+
+#### The earlier record, kept
+
 **His instruction 2026-09-04: record it as an ongoing project, we will continue it.**
 
 **UPDATE 2026-09-14 — THE BAND DETECTOR IS BUILT AND NOT SWITCHED ON.** His instruction: *"Build it

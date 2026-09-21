@@ -33,6 +33,7 @@ from strategies.vix1_momentum import momentum_run, size_note, veto_reason
 from strategies import vix1_log
 from shared.candle_math import atr
 from strategies import vix1_choch
+from strategies import vix1_chop
 from strategies import vix1_regime
 from strategies import vix1_retracement
 from strategies import vix1_void
@@ -161,6 +162,24 @@ def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "", debut=None
     #
     # VIX.1 is pro-trend only, so a counter-trend momentum candle can never be traded. Asking the
     # trend first and then looking for momentum ONLY that way is both correct and simpler.
+    # ── IS THIS MARKET WORTH TRADING AT ALL? ASKED FIRST, AND ITS ANSWER IS FINAL ──────────────
+    # His instruction, 2026-09-21: *"It should be able to detect ranging and choppy market and then
+    # inform VIX and its decision is final so that VIX can no longer take trades in choppy markets.
+    # Once a confirmed ranging or choppy market begins to develop, it should send a message to VIX
+    # system and then it stops taking trades immediately."*
+    #
+    # IT IS ASKED BEFORE THE TREND IS EVEN READ, deliberately: every other gate below can be argued
+    # with by the one after it, and he asked for one that cannot. Nothing downstream sees this bar.
+    # It refuses NEW ENTRIES ONLY — an open position, its stop and its ladder are untouched.
+    #
+    # ONE MODULE OWNS THE QUESTION (*"Dont patch, integrate"*): `vix1_chop` holds his band idea, the
+    # wander ratio and the latch together. The older unwired flip-count in `vix1_tradeable` was
+    # deleted in the same change rather than left as a second opinion nobody calls.
+    standdown = vix1_chop.not_tradeable(h1)
+    if standdown:
+        vix1_log.say(symbol, f"[vix1] {symbol} bias=NONE: {standdown}")
+        return None
+
     window = h1[-_H1_TREND_BARS:]
     turns = structure_turns(window, _H1_SWING_N)      # computed ONCE per window
     tstate = trend_state(window, n=_H1_SWING_N, turns=turns)

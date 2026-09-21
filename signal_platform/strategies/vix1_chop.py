@@ -1,48 +1,81 @@
-"""VIX.1 — IS THIS MARKET CHOPPY? Is price moving between two lines, or actually going somewhere?
+"""VIX.1 — IS THIS MARKET RANGING OR CHOPPY? The one module that answers it, and VIX.1 obeys.
 
-⚠ BUILT, NOT SWITCHED ON. Nothing in the live strategy calls this. His instruction, 2026-09-14:
-*"Build it and then dont enable it. We will have to continue working on it."* `test_chop_band.py`
-fails the day it is wired, so switching it on has to be a deliberate change, never a quiet one.
+HIS INSTRUCTION, 2026-09-21:
 
-HIS IDEA, 2026-09-13 — and it is the reading this file makes:
+    "It should be able to detect ranging and choppy market and then inform VIX and its decision is
+     final so that VIX can no longer take trades in choppy markets. Once a confirmed ranging or
+     choppy market begins to develop, it should send a message to VIX system and then it stops
+     taking trades immediately."
+
+    "Dont patch, integrate."
+
+HIS IDEA, 2026-09-13, which is still the heart of it:
 
     "We mark lines at the top and bottom and then ask whether the price is just moving within those
      lines or it is moving in a particular direction ... when it goes here it comes back it doesn't
-     move like would a trend. I guess that would solve both chop and ranging market."
+     move like would a trend."
 
-So: draw a line at the highest high and one at the lowest low of the last 24 candles. The lines alone
-say nothing — price is inside them by definition. What says something is how often price CROSSES BACK
-through the middle of them. A trend crosses once and leaves; a market going nowhere keeps coming back.
-Six or more crossings in 24 candles reads choppy.
+IT REFUSES NEW ENTRIES ONLY. It never touches an open position, its stop, its ladder or its exit.
 
-WHY THIS VERSION — measured 2026-09-14 on real EUR/USD bars, every number in
-`docs/strategies/vix1-investigation.md`:
+─────────────────────────────────────────────────────────────────────────────────────────────────
+THREE PARTS, AND THE THIRD IS WHAT MAKES IT WORK
 
-  * THE FIRST BUILD (his three signs over 12 candles, pullback set aside) caught ~10% of the hours
-    inside his five circled chop markets and one market of five — and what it did flag he judged
-    "not typically choppy". The cause: 12 candles cannot see a band that lasts 1.5 to 4 days.
-  * HIS THREE SIGNS OVER 24 CANDLES caught 66% of his chop hours, but called 53% of ALL hours choppy,
-    and on the 220 trades of the approved backtest it would have refused the better half.
-  * THIS READING catches 32% of his chop hours, fires on only 13-14% of ordinary hours (EUR/USD and
-    GBP/USD alike), flags 7% of his good readings, and is NEUTRAL on money — the 37 backtest trades it
-    refuses did exactly as well as the 183 it keeps. The most honest version so far, and still only a
-    third of his chop. Hence "continue working on it".
+  1. THE BOX AND THE CROSSINGS (his idea) — over the last 24 closed hours, the highest high and the
+     lowest low, counting how often price CLOSED back through the middle. Six or more comes back.
 
-STILL OPEN, and his to decide:
-  * whether the live pullback is set aside first. Measured, doing so halves detection inside chop —
-    the pullback reader treats a sideways drift as one long pullback. Not done here.
-  * the window (24) and the line (6) were read off five EUR/USD regions. More circled chop on GBP/USD
-    and gold should come before either number is trusted.
+  2. THE WANDER RATIO — how long a path price walked against how big the box is:
+     `100 x log10( sum of true ranges / (highest high - lowest low) ) / log10(24)`.
+     This is the standard Choppiness Index. It is NOT the efficiency ratio he rejected in 2026-09-04
+     — efficiency is net move / total movement, and his objection was that *"a perfectly respectable
+     range can have extremely low efficiency, while a messy transition can also have low
+     efficiency"*. Putting the BOX in the denominator is exactly what separates those two.
 
-NO TREND IS NEEDED to read this, deliberately: a band is a band whichever way the last trend ran.
-`h1` must be CLOSED bars — the lines are levels, and a level never comes from a bar still forming.
+  3. THE LATCH — the part that was missing, and the reason the earlier readers were useless.
+     ⚠ MEASURED, and it is why no threshold alone can work: across his own circled range the wander
+     reading runs 33.3 to 67.1 and everything else runs 25.4 to 68.4, medians 52.5 against 49.2.
+     Asked fresh every hour, ANY cut both misses his range and fires elsewhere — his own band
+     detector went quiet for five hours in the middle of the range he circled. A range is a STATE
+     with a beginning and an end, so this holds it: it turns ON when both readings agree for two
+     hours running, and stays on until price CLOSES OUTSIDE THE BOX it latched onto.
+
+THE STATE IS REPLAYED, NEVER STORED. `market_state` walks the recent bars and derives the answer
+every time, which is the same choice `vix1_trend` made for its memory: recomputing is the source of
+truth, so a restart, a backfill or a missed scan cannot leave a stale latch switched on.
+
+WHERE THE NUMBERS CAME FROM, and what is still provisional. `_CAME_BACK = 6` is his, unchanged from
+2026-09-14. `WANDER_ON = 58` is read off HIS marked charts, NOT borrowed: the textbook cut is 61.8,
+a Fibonacci number, and on his data it catches 1% of the hours he marked. 58 with his six crossings
+is where his marked ranges actually sit. **Two hours running** rather than one cut the false starts
+from 16 episodes to 14 without losing his range.
+
+MEASURED AS BUILT, 1,387 hours of EUR/USD (01 Jul - 18 Sep 2026):
+  * his circled 14-16 Sep range — ON from 15 Sep 20:00, and it RELEASES AT 16 Sep 18:00, the exact
+    hour of the 67.5-pip drop that ended it. The drop reads 29.7-32.0 with 1 crossing, which is the
+    cleanest separation in the whole measurement.
+  * his 18 Sep card (the sell at 11:08) — ON.
+  * 14 episodes, 141 hours ON (10%). GBP/USD 9 episodes, 5%. XAU/USD 10 episodes, 5%. The constants
+    are not fitted to one pair.
+
+⚠ WHAT IT CANNOT DO, said plainly: it needs a day of sideways price before it can know. His range
+began about 14 Sep 15:00 and this latches at 15 Sep 20:00 — 29 hours later. The two trades VIX.1
+would have taken inside it (14 Sep 19:00 and 15 Sep 08:00) are BOTH TOO EARLY FOR THIS GATE. They
+are refused by the liquidity-void rule instead. No detector can call a range four hours into it.
+
+⚠ AND WHAT IS NOT MEASURED: what this costs in money. That needs his approval, because it is a
+backtest. Nothing here should be read as evidence that it is profitable.
 """
 from dataclasses import dataclass
+
+import math
 
 from core.types import Candle
 
 LOOK = 24            # hours read. His circled bands last days; 12 could not see them, 24 can.
 _CAME_BACK = 6       # crossings of the middle that make it choppy — read off his marks, not his words
+WANDER_ON = 58.0     # the wander ratio that counts as sideways. NOT the textbook 61.8 — see the top
+_NEED = 2            # hours running that both readings must agree before the state latches ON
+_REPLAY = 240        # how far back the latch is replayed. 10 days: longer than any episode measured
+                     # (longest 22h) by an order of magnitude, so the answer cannot depend on it.
 
 
 @dataclass(frozen=True)
@@ -89,3 +122,79 @@ def market_not_choppy(h1: list[Candle], look: int = LOOK) -> str | None:
     return (f"the market is choppy — over the last {r.counted} hours price crossed back through the "
             f"middle of its range {r.came_back} times: it is moving between two lines "
             f"({r.bottom:.5f} and {r.top:.5f}), not going anywhere")
+
+
+@dataclass(frozen=True)
+class State:
+    """Is the market ranging or choppy RIGHT NOW, held as a state rather than re-asked every bar."""
+    ranging: bool = False
+    since: int = 0            # the bar time it latched on
+    top: float = 0.0          # the box it latched onto
+    bottom: float = 0.0
+    came_back: int = 0        # the reading that latched it
+    wander: float = 0.0
+
+
+def wander(h1: list[Candle], look: int = LOOK) -> float | None:
+    """How long a path price walked against how big the box is — the standard Choppiness Index.
+
+    `100 x log10( sum of true ranges / (highest high - lowest low) ) / log10(look)`. High means
+    price covered a lot of ground without going anywhere. None when it cannot be measured, which
+    never refuses.
+    """
+    if look < 2 or len(h1) < look + 1:
+        return None
+    seg = h1[-look:]
+    top = max(c.high for c in seg)
+    bottom = min(c.low for c in seg)
+    if top <= bottom:
+        return None
+    path = 0.0
+    for k in range(len(h1) - look, len(h1)):
+        prev = h1[k - 1].close
+        path += max(h1[k].high - h1[k].low, abs(h1[k].high - prev), abs(h1[k].low - prev))
+    if path <= 0:
+        return None
+    return 100.0 * math.log10(path / (top - bottom)) / math.log10(look)
+
+
+def market_state(h1: list[Candle], look: int = LOOK) -> State:
+    """THE ANSWER VIX.1 OBEYS. Replayed from the bars every time — never stored, so a restart or a
+    missed scan cannot leave a stale latch switched on.
+
+    ON  when the box crossings and the wander ratio BOTH agree for `_NEED` hours running.
+    OFF the moment a candle CLOSES outside the box it latched onto — that is the range breaking,
+        and on his own chart it releases on the exact hour of the 67.5-pip drop.
+    """
+    if len(h1) < look + 2:
+        return State()                       # cannot measure — never a refusal
+    on, box, since, seen, streak = False, (0.0, 0.0), 0, (0, 0.0), 0
+    start = max(look + 1, len(h1) - _REPLAY)
+    for i in range(start, len(h1)):
+        upto = h1[: i + 1]
+        r = read(upto, look)
+        w = wander(upto, look)
+        if not r.judged or w is None:
+            continue
+        if on:
+            if upto[-1].close > box[0] or upto[-1].close < box[1]:
+                on, streak = False, 0        # closed outside the box — the range is over
+            continue
+        streak = streak + 1 if (r.came_back >= _CAME_BACK and w >= WANDER_ON) else 0
+        if streak >= _NEED:
+            on, box, since, seen = True, (r.top, r.bottom), upto[-1].time, (r.came_back, w)
+    return State(on, since, box[0], box[1], seen[0], seen[1]) if on else State()
+
+
+def not_tradeable(h1: list[Candle], look: int = LOOK) -> str | None:
+    """The message to VIX.1: a reason to stand down, or None to carry on. ITS DECISION IS FINAL —
+    `vix1_bias` asks this before anything else and returns immediately on a reason."""
+    st = market_state(h1, look)
+    if not st.ranging:
+        return None
+    from datetime import datetime, timezone
+    when = datetime.fromtimestamp(st.since, timezone.utc).strftime("%d %b %H:%M UTC")
+    return (f"the market has been going nowhere since {when} — price is boxed between "
+            f"{st.bottom:.5f} and {st.top:.5f}, crossing back through the middle {st.came_back} "
+            f"times in {look} hours (wander {st.wander:.0f}). No trades until it closes out of "
+            f"that box")

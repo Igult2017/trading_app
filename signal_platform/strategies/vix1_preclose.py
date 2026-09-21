@@ -162,10 +162,17 @@ def _could_trade(h1_closed: list[Candle], bullish: bool, symbol: str,
     LEVEL, and a level never comes from a bar still forming. Called only AFTER the momentum test has
     passed, so the cost lands in the last minutes of a qualifying candle, not on every scan.
     """
-    from strategies import vix1_choch
+    from strategies import vix1_choch, vix1_chop
     from strategies.vix1_bias import _H1_SWING_N, _H1_TREND_BARS
     from strategies.vix1_swings import structure_turns
     from strategies.vix1_trend import trend_state
+
+    # A RANGING OR CHOPPY MARKET SILENCES THE HEADS-UP TOO. `detect_bias` asks this first and
+    # returns, so announcing a candle here would promise a trade the entry will refuse — the exact
+    # fault this function was corrected for on 2026-08-26. Same module, same question, one answer.
+    if vix1_chop.not_tradeable(h1_closed):
+        return False
+
     w = h1_closed[-_H1_TREND_BARS:]
     st = trend_state(w, n=_H1_SWING_N, turns=structure_turns(w, _H1_SWING_N))
 
