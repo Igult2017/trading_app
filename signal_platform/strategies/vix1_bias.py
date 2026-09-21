@@ -162,27 +162,31 @@ def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "", debut=None
     #
     # VIX.1 is pro-trend only, so a counter-trend momentum candle can never be traded. Asking the
     # trend first and then looking for momentum ONLY that way is both correct and simpler.
-    # ── IS THIS MARKET WORTH TRADING AT ALL? ASKED FIRST, AND ITS ANSWER IS FINAL ──────────────
-    # His instruction, 2026-09-21: *"It should be able to detect ranging and choppy market and then
-    # inform VIX and its decision is final so that VIX can no longer take trades in choppy markets.
-    # Once a confirmed ranging or choppy market begins to develop, it should send a message to VIX
-    # system and then it stops taking trades immediately."*
+    window = h1[-_H1_TREND_BARS:]
+    turns = structure_turns(window, _H1_SWING_N)      # computed ONCE per window
+    tstate = trend_state(window, n=_H1_SWING_N, turns=turns)
+
+    # ── IS THE MARKET RANGING? THE FIRST DECISION, AND ITS ANSWER IS FINAL ──────────────────────
+    # His rule, 2026-09-21: *"Until the price gets out of the two lines which I have drawn, we are
+    # in a range... it is ranging until it breaks that range. The whole thing by the way works with
+    # CHOCH and BOS, it is nothing new."*
     #
-    # IT IS ASKED BEFORE THE TREND IS EVEN READ, deliberately: every other gate below can be argued
-    # with by the one after it, and he asked for one that cannot. Nothing downstream sees this bar.
+    # IT IS THE FIRST GATE, and it is asked HERE rather than at the top of the function for one
+    # reason: the two lines ARE the trend's own levels (`bos_price` and `protected`), so the trend
+    # has to exist before the question can be asked at all. Nothing between those three lines above
+    # and this check can refuse anything, so this is still the first decision taken — and once it
+    # speaks, `detect_bias` returns and no gate below can argue with it.
+    #
+    # `t1` is the direction VIX.1 would look for, which is what `vix1_chop` needs to ask
+    # `vix1_void` whether a void is filling — his scope: while price is filling one, the VOID rule
+    # owns the decision and this one stays silent.
+    #
     # It refuses NEW ENTRIES ONLY — an open position, its stop and its ladder are untouched.
-    #
-    # ONE MODULE OWNS THE QUESTION (*"Dont patch, integrate"*): `vix1_chop` holds his band idea, the
-    # wander ratio and the latch together. The older unwired flip-count in `vix1_tradeable` was
-    # deleted in the same change rather than left as a second opinion nobody calls.
-    standdown = vix1_chop.not_tradeable(h1)
+    standdown = vix1_chop.not_tradeable(h1, tstate, tstate.direction == 1, symbol)
     if standdown:
         vix1_log.say(symbol, f"[vix1] {symbol} bias=NONE: {standdown}")
         return None
 
-    window = h1[-_H1_TREND_BARS:]
-    turns = structure_turns(window, _H1_SWING_N)      # computed ONCE per window
-    tstate = trend_state(window, n=_H1_SWING_N, turns=turns)
     t1 = tstate.direction
     # THE 4HR READ GETS ITS TURNING POINTS TOO — fixed 2026-09-13 after a review.
     # This was `trend_state(h4)`, passing neither `turns` nor `n`. It never executes while

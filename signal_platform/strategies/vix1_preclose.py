@@ -167,14 +167,22 @@ def _could_trade(h1_closed: list[Candle], bullish: bool, symbol: str,
     from strategies.vix1_swings import structure_turns
     from strategies.vix1_trend import trend_state
 
-    # A RANGING OR CHOPPY MARKET SILENCES THE HEADS-UP TOO. `detect_bias` asks this first and
-    # returns, so announcing a candle here would promise a trade the entry will refuse — the exact
-    # fault this function was corrected for on 2026-08-26. Same module, same question, one answer.
-    if vix1_chop.not_tradeable(h1_closed):
-        return False
-
     w = h1_closed[-_H1_TREND_BARS:]
     st = trend_state(w, n=_H1_SWING_N, turns=structure_turns(w, _H1_SWING_N))
+
+    # A RANGING MARKET SILENCES THE HEADS-UP TOO — `detect_bias` asks this same function and returns,
+    # so announcing a candle here would promise a trade the entry will refuse (the fault this
+    # function was corrected for on 2026-08-26). Asked AFTER the trend, because his two lines ARE
+    # the trend's own levels.
+    #
+    # ⚠ IT IS ASKED OF THE BAR THAT IS FORMING, not the last closed one, and that is the whole
+    # point: the candle being announced is usually the one BREAKING the box. Judged on the previous
+    # close it is still inside, so the announcement would be silenced for exactly the candle he
+    # wants to be at the screen for. This module is the one place that reads the forming bar on
+    # purpose, and this is one of those places.
+    if vix1_chop.not_tradeable(h1_closed + ([forming_bar] if forming_bar else []), st,
+                               bullish, symbol):
+        return False
 
     # HIS SCOPED EXEMPTION (2026-09-20), asked through the SAME function the entry asks, so the card
     # and the trade can never disagree about it: the 14 Sep shortcut stays off unless this turn is

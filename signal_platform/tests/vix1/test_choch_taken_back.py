@@ -25,7 +25,7 @@ import datetime as dt
 
 from _harness import Suite, load
 
-from strategies import vix1_bias, vix1_trend
+from strategies import vix1_bias, vix1_chop, vix1_trend
 from strategies.vix1_swings import structure_turns
 from strategies.vix1_trend import trend_state
 
@@ -43,13 +43,26 @@ else:
         t = int(dt.datetime(2026, 9, day, hour, tzinfo=UTC).timestamp())
         return next((k for k, c in enumerate(bars) if c.time == t), None)
 
-    def under(armed, fn):
+    def under(armed, fn, mute_range=False):
+        """Run `fn` with his armed-level rule on or off.
+
+        `mute_range` silences the RANGE GATE (`vix1_chop`, his rule of 2026-09-21) for the duration.
+        It is used by ONE teeth check below and nowhere else. Why it is needed: that check proves
+        the armed-level rule is what removes his wrong BUY, by showing the BUY comes back when the
+        rule is switched off. The range gate also refuses that bar, so with it live the BUY does not
+        come back and the check can no longer demonstrate its point — the proof is MASKED, not
+        broken. Muting the later rule keeps the older proof honest; the range gate has its own file.
+        """
         keep = vix1_trend._ARM_BROKEN_LEVEL
+        keep_chop = vix1_chop.not_tradeable
         vix1_trend._ARM_BROKEN_LEVEL = armed
+        if mute_range:
+            vix1_chop.not_tradeable = lambda *a, **k: None
         try:
             return fn()
         finally:
             vix1_trend._ARM_BROKEN_LEVEL = keep
+            vix1_chop.not_tradeable = keep_chop
 
     def state(i, armed=True):
         def go():
@@ -57,8 +70,9 @@ else:
             return trend_state(w, n=48, turns=structure_turns(w, 48))
         return under(armed, go)
 
-    def side(i, armed=True):
-        b = under(armed, lambda: vix1_bias.detect_bias(bars[max(0, i + 1 - 3000):i + 1], [], SYM))
+    def side(i, armed=True, mute_range=False):
+        b = under(armed, lambda: vix1_bias.detect_bias(bars[max(0, i + 1 - 3000):i + 1], [], SYM),
+                  mute_range)
         return None if b is None else ("BUY" if b.bullish else "SELL")
 
     print()
@@ -79,7 +93,7 @@ else:
 
     i_buy = at(15, 13)
     s.check("Tue 15 Sep 16:00 — the BUY he reported is gone", side(i_buy), None)
-    s.teeth("the rule", side(i_buy, armed=False) == "BUY")
+    s.teeth("the rule", side(i_buy, armed=False, mute_range=True) == "BUY")
     s.check("...and the market still reads DOWN at that hour", state(i_buy).direction, -1)
 
     last = len(bars) - 1

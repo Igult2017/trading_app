@@ -255,8 +255,9 @@ def market_awake(h1: list[Candle], tstate, retracement, symbol: str, look: int) 
 # nothing** — `market_not_choppy` had never refused a single trade, and `OPEN.md` D42 kept them only
 # because VIX.1 then had no chop detector at all.
 #
-# IT HAS ONE NOW: `vix1_chop` owns ranging and choppy markets — his band idea, the wander ratio and
-# the latch in one module — and `vix1_bias` asks it before anything else, so its answer is final.
+# IT HAS ONE NOW: `vix1_chop` owns the question, and it is HIS rule — is the close still between the
+# two lines the last move drew (`TrendState.bos_price` and `protected`)? No window, no threshold, no
+# counter. `vix1_bias` asks it as its first decision, so its answer is final.
 # His instruction that day was *"Dont patch, integrate"*, and leaving a second, dead chop reader
 # behind is the opposite of integrating. Git holds the four-signs code if it is ever wanted back.
 #

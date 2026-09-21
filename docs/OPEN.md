@@ -1780,45 +1780,29 @@ the `Retracement` the path already computed. Only the SEQUENCE is new, and the s
 
 ### D42 - CHOPPY / QUIET MARKET DETECTION. ONGOING PROJECT, continue from here
 
-**UPDATE 2026-09-21 - THE GATE IS SWITCHED ON, AND ITS ANSWER IS FINAL.** His instruction: *"It
-should be able to detect ranging and choppy market and then inform VIX and its decision is final so
-that VIX can no longer take trades in choppy markets... it stops taking trades immediately."* Plus
-*"Dont patch, integrate."*
+**UPDATE 2026-09-21 (2) - REBUILT AS HIS RULE, WITH NO TUNED NUMBER IN IT.** He rejected the version
+below twice: *"You are still hardcoding numbers. This rule is simpler... it is ranging until it
+breaks that range. The whole thing by the way works with CHOCH and BOS, it is nothing new."*
 
-**What changed.** `vix1_chop` is now the ONE module that answers this, and `vix1_bias` asks it
-BEFORE the trend is even read, returning immediately on a reason; `vix1_preclose` asks the same
-function so the heads-up cannot promise a trade the entry refuses. It refuses NEW ENTRIES ONLY -
-an open position, its stop and its ladder are untouched. Three parts:
+**He was right and the two lines were already in the code:** `TrendState.bos_price` (the extreme the
+last move reached) and `TrendState.protected` (the level whose break ends it). The rule is one
+comparison - is the close still between them - with no window, no threshold and no counter.
 
-1. **the box and the crossings** - his own idea, unchanged (`_CAME_BACK = 6`);
-2. **the wander ratio** - the standard Choppiness Index, `100 x log10(sum of true ranges / box) /
-   log10(24)`. Not the efficiency ratio he rejected: putting the BOX in the denominator is exactly
-   what separates a respectable range from a messy transition;
-3. **the latch** - the missing piece. ⚠ Measured: across his circled range the wander reading runs
-   33.3-67.1 and everything else runs 25.4-68.4, medians 52.5 vs 49.2. **No per-hour cut can
-   separate them.** So the state turns ON when both readings agree for two hours running and HOLDS
-   until price CLOSES OUT of the box it latched onto.
+**On his circled 14-16 Sep range:** inside the box 1.15225-1.16150 every hour for ~50 hours; the
+67.5-pip drop reads broken out ON ITS OWN BAR. **It closes the hole reported that morning** - the two
+trades neither the void rule nor the previous gate caught (14 Sep 19:00, 15 Sep 08:00) are refused.
 
-**Measured as built, 1,387 hours EUR/USD:** his circled 14-16 Sep range is ON from 15 Sep 20:00 and
-**releases on the exact hour of the 67.5-pip drop** (16 Sep 18:00); his 18 Sep card is ON; 14
-episodes, 141 hours (10%). GBP/USD 5%, XAU/USD 5% - not fitted to one pair.
+**Price is inside the box 64% of hours (EUR/USD), 69% (GBP/USD); 3 of 14 trades in the 09-18 Sep
+window survive.** His instruction on approving: *"Dont worry about low number of trades. VIX is meant
+to trade trends and we all know the market ranges most of the time... 3, 4 or 5 per pair per month is
+expected."*
 
-**⚠ WHAT IT CANNOT DO, AND A HOLE THAT IS STILL OPEN:** it needs a day of sideways price. His range
-began ~14 Sep 15:00 and this latches 29 hours later, so the two trades inside it (14 Sep 19:00,
-15 Sep 08:00) are too early for this gate - **and the liquidity-void rule does not refuse them
-either**, so nothing does. An earlier note claimed the void rule covered them; that was measured
-before the band-merge fix and is withdrawn. No detector can call a range four hours in, so closing
-this needs something other than a 24-hour box.
+**Deleted with it:** the 24-hour band, the crossings count, the wander ratio and the latch - measured
+and rejected. Across his circled range the wander reading ran 33.3-67.1 while ordinary market ran
+25.4-68.4, so no cut could ever separate them.
 
-**⚠ NOT MEASURED: what it costs in money.** That is a backtest and needs his approval.
-
-**THE OLD DUPLICATES ARE DELETED, reversing this item's earlier "do not delete" note, deliberately
-and on his instruction to integrate:** `vix1_tradeable.market_not_choppy`, `choppiness()` and
-`_wicky()` are gone - an unwired four-signs reader that had never refused anything. Git holds them.
-
-**STILL OPEN:** the five older circled chop regions (02 Mar, 16 Dec, 10 Dec, 04 Dec a and b) could
-NOT be used to calibrate - only their dates and lengths were ever recorded, never their hours. If he
-re-marks them the cuts can be re-read against 201 more hours of his own judgement.
+**STILL OPEN:** what it costs in money is unmeasured, and the five older circled chop regions could
+not be used to check it because only their dates and lengths were ever recorded, never their hours.
 
 ---
 

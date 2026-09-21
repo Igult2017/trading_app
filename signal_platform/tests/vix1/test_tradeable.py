@@ -10,9 +10,18 @@ HIS THREE DEFINITIONS (2026-09-04), each a separate test in `vix1_tradeable`:
 HE SENT THREE CHARTS OF SUCH MARKETS AND VIX.1 FIRED **12 SIGNALS** IN THEM — driven through the real
 `detect_bias` on real broker bars, all twelve through the normal trend route.
 
-WHAT THIS FILE PINS, AND IT IS DELIBERATELY THE HONEST NUMBER: **3 of the 12 are now refused, not
-all 12.** The quiet test catches the three that came out of a market with no momentum candles at all.
-The other nine need the chop rule, which is NOT built — his third definition has no test yet.
+WHAT THIS FILE PINS, AND IT IS DELIBERATELY THE HONEST NUMBER. The quiet test catches the three that
+came out of a market with no momentum candles at all. Since then two more rules of his have closed
+more of them, each named at the assertion it closes:
+
+  * 2026-09-16, his pullback timing rule — 2026-08-03 18:00;
+  * 2026-09-21, his RANGE rule (`vix1_chop`: is price still inside the box the last move drew?) —
+    2026-08-05 14:00 and 17:00, verified by driving the real `detect_bias` with the gate muted and
+    live.
+
+So the chop definition is no longer "unbuilt" — what is still unbuilt is a test for his THIRD
+definition (candles with no succession), and the assertions below say which is which rather than
+claiming a total.
 
 THE CONTROL MATTERS MORE THAN THE REFUSALS. His one marked TRADEABLE market — EUR/USD 03 Sep 2026,
 *"a trending and volatile market"* — must not be killed by the rules in this file. It comes through
@@ -122,14 +131,19 @@ print("   the choppy case — all three still open (D42, chop rule unbuilt):")
 # silently.
 s.check("   2026-08-03 18:00 no longer trades — his 16 Sep pullback rule refuses it",
         fires("2026-08-03 18:00"), False)
-# ⚠ 2026-09-21, A ROUND TRIP WORTH RECORDING: for one day the void rule closed 2026-08-05 14:00 and
-# this file said so. It closed it for the WRONG REASON — that build called a single momentum candle
-# a "void", so it refused almost everything, including 47% of cases that were not voids at all. With
-# a void defined as a BAND of price (his real rule), 14:00 has no void near it and trades again. The
-# gap is open, not closed, and it is listed as one: a test that claims a gap is shut when it is not
-# is worse than no test.
+# ⚠ 2026-09-21 — A ROUND TRIP, AND THEN THE GAPS ACTUALLY CLOSED. For one day the void rule was
+# credited with closing 2026-08-05 14:00; it closed it for the WRONG REASON (that build called a
+# single momentum candle a "void" and refused almost everything), and once a void was properly a
+# BAND of price these traded again.
+#
+# THEY ARE CLOSED NOW, BY HIS RANGE RULE OF THE SAME DAY — *"until the price gets out of the two
+# lines... it is ranging"*. Verified by driving the real `detect_bias` twice: with the gate muted
+# both trade, with it live both are refused and the reason names the box (1.14549-1.15584). Two of
+# the three markets he marked untradeable are therefore shut, and by a rule that is his, not mine.
 for w in ("2026-08-05 14:00", "2026-08-05 17:00"):
-    s.check(f"   {w} STILL trades (known gap)", fires(w), True)
+    s.check(f"   {w} no longer trades — his range rule: price never left the box",
+            fires(w), False)
+
 
 
 # ── THE RULE ASKED DIRECTLY ───────────────────────────────────────────────
