@@ -112,17 +112,54 @@ going to the **public channel** all along.
 claim about routing was wrong. Moot for routing now that everything BX is public, but it would have
 misled the next session the moment `CHANNEL_ALL` was turned off.
 
-### A9 — SIXTEEN production environment variables are stored WITH quote marks, and 19 keys are duplicated
-**⚠ MEASURED 30 Aug AND IT IS FAR WIDER THAN THIS ENTRY SAID.** When it was written on 25 Aug it
-named ONE variable. A full scan of all 47 while adding the autotrade switches found:
+### A9 — EIGHT production values carry quote marks. There are NO duplicate production keys — that half was a misreading. ✅ MOSTLY CLOSED 2026-09-22
 
-* **16 values stored with quote marks**, every one flagged `is_literal` — including
-  `CTRADER_ACCESS_TOKEN`, `CTRADER_REFRESH_TOKEN`, `CTRADER_ACCOUNT_ID`, `COPY_ENCRYPTION_KEY`,
-  `TELEGRAM_API_HASH`, `WATCHDOG_CHAT_ID`, `COPY_DRY_RUN` and `AUTO_BREAKEVEN_ENABLED`.
-* **19 duplicated keys.** Most duplicates are identical and harmless. Four are NOT:
-  `WATCHDOG_CHAT_ID`, `COPY_DRY_RUN`, `AUTO_BREAKEVEN_ENABLED` and `SIGNALS_DM_ONLY` each have one
-  clean copy and one QUOTED copy — so which one wins decides the behaviour, and nothing here says
-  which does.
+**⚠ THE "19 DUPLICATED KEYS" CLAIM WAS WRONG, and it wasted a later session's time, which is why the
+correction is kept rather than the entry deleted.** The scan of 30 Aug read the whole variable list
+without separating the two ENVIRONMENTS it holds. Coolify stores production variables and
+*preview*-deployment variables in one list, told apart by an `is_preview` flag. Every "duplicate"
+was one production copy and one preview copy. **They are never in the same container and can never
+collide.**
+
+**Re-measured 2026-09-22 over all 59 rows, reading `is_preview` this time:**
+
+| | |
+|---|---|
+| distinct keys | 34 |
+| keys appearing twice | 25 — **all** one production + one preview |
+| keys with TWO PRODUCTION copies | **0** |
+| production values wrapped in quote marks | **8** — `COPY_ENCRYPTION_KEY`, `CTRADER_ACCESS_TOKEN`, `CTRADER_ACCOUNT_ID`, `CTRADER_REFRESH_TOKEN`, `SIGNALS_DM_ONLY`, `TELEGRAM_API_HASH`, `TELEGRAM_API_ID`, `TELEGRAM_COPY_BOT_TOKEN` |
+| preview values wrapped in quote marks | 8 — a separate set, including `AUTO_BREAKEVEN_ENABLED` and `COPY_DRY_RUN` |
+
+So the old "16 quoted" figure was the two environments added together, and the four keys it warned
+about — `WATCHDOG_CHAT_ID`, `COPY_DRY_RUN`, `AUTO_BREAKEVEN_ENABLED`, `SIGNALS_DM_ONLY` — have their
+QUOTED copy in **preview**. Production's copy of each is clean.
+
+**The switches that gate real money, production copies, read 2026-09-22:**
+
+    AUTOTRADE_ENABLED        true    is_literal=False   not quoted   one production copy
+    AUTO_BREAKEVEN_ENABLED   true    is_literal=False   not quoted   one production copy
+    TRADE_WATCHER_ENABLED    true    is_literal=False   not quoted   one production copy
+    COPY_DRY_RUN             true    is_literal=False   not quoted   one production copy
+
+**What is still true and still worth knowing:** a quoted boolean is rejected outright by pydantic —
+re-tested against `config.settings.Settings` on 2026-09-22, not assumed:
+
+    AUTO_BREAKEVEN_ENABLED=true      -> True
+    AUTO_BREAKEVEN_ENABLED='true'    -> REJECTED, ValidationError
+    AUTO_BREAKEVEN_ENABLED="true"    -> REJECTED, ValidationError
+
+**And that now PROVES the quotes are stripped before the container**, which the old entry could only
+guess at. `SIGNALS_DM_ONLY` is a `bool` (`config/settings.py:59`), its production value IS stored
+quoted — and production booted once, cleanly, with **no ValidationError, no Traceback and no restart
+loop** in the log window. A quoted boolean reaching the container would have stopped the app at
+import. It did not, so it does not reach it.
+
+**The remaining eight quoted production values are therefore cosmetic, not a defect.** Three of them
+(`CTRADER_ACCESS_TOKEN`, `CTRADER_REFRESH_TOKEN`, `CTRADER_ACCOUNT_ID`) are not even the live source
+— the platform pulls its tokens from the Node database at boot (`[boot] tokens loaded from Node DB
+(ctrader_id=47535363)`), so the env copies are stale spares. Tidy them if the config is ever touched
+for another reason; do not open a change to production config just for this.
 
 **Re-confirmed by test, not assumed:** a quoted boolean does not merely misparse, pydantic
 **rejects it outright** with a ValidationError. Settings are read at import, so the app would fail
@@ -135,25 +172,19 @@ to START rather than fall back to a default.
 ones reaching the container. **That is inferred from the app booting, not observed; the container's
 own environment is not visible from here.**
 
-**Deliberately NOT fixed while adding the autotrade switches on 30 Aug.** Cleaning 16 values and 19
-duplicates is a large change to live production config, well beyond what was approved, and his
-standing instruction is that the signal platform matters more than any feature. The three new
-variables were added clean (`is_literal=False`, no quotes) and nothing existing was touched.
+**WHAT IS LEFT OPEN, and it is small.** Eight production values are stored quote-wrapped. Nothing
+breaks today, and the boot above proves it. The residual risk is narrow but real: the quote
+stripping happens in Coolify, not in our code, so a Coolify upgrade that changed it would stop the
+app at import — and the failure would look like a crash-loop with no obvious cause. **Fix if the
+config is ever open anyway:** re-save each of the eight as its bare value. One `PATCH` per key,
+applies on the next deploy. **Needs from him:** approval to change live production settings, which
+is why it has not been done on its own account.
 
-**Original 25 Aug note, still accurate for its one variable:** `SIGNALS_DM_ONLY` is stored in
-Coolify as **six characters** — `'true'`, quote marks included — and flagged `is_literal` (pass
-through unchanged).
-
-**It works today.** The app is running and scanning with no error, so the quotes are being stripped
-somewhere between Coolify and the container. **That is inferred from the app booting, not observed —
-I cannot see the container's own environment.**
-
-**Why it is worth recording anyway:** tested locally, `'true'` with quote marks does **not** parse —
-it raises a validation error, and settings are read at import, so the app would fail to start rather
-than fall back to a default. It is one behaviour change in the platform away from a boot failure,
-and the failure would look like a crash-loop with no obvious cause.
-**Fix:** re-save the value as `true` without quotes. One `PATCH` call, applies on the next deploy.
-**Needs from him:** approval to change a live production setting.
+**HOW TO RE-MEASURE THIS, so nobody repeats the 30 Aug mistake.** The Coolify REST endpoint
+`GET /api/v1/applications/<uuid>/envs` **does** return values (`value`, and `real_value` which shows
+the quote marks). **Split the rows by `is_preview` before counting anything** — that single step is
+the whole correction. A key appearing twice is normal and harmless; two rows with `is_preview=false`
+would be the real problem, and there are none.
 
 ### A5 — In 3 of 19 turns, the reaction leaves no zone behind for signal 2 to enter
 **Carried** from 23 Aug, plan written and deliberately closed unbuilt. His rule is already recorded:
