@@ -1803,10 +1803,12 @@ an open position, its stop and its ladder are untouched. Three parts:
 **releases on the exact hour of the 67.5-pip drop** (16 Sep 18:00); his 18 Sep card is ON; 14
 episodes, 141 hours (10%). GBP/USD 5%, XAU/USD 5% - not fitted to one pair.
 
-**⚠ WHAT IT CANNOT DO:** it needs a day of sideways price. His range began ~14 Sep 15:00 and this
-latches 29 hours later, so the two trades inside it (14 Sep 19:00, 15 Sep 08:00) are too early for
-this gate - the liquidity-void rule refuses those instead. No detector can call a range four hours
-in.
+**⚠ WHAT IT CANNOT DO, AND A HOLE THAT IS STILL OPEN:** it needs a day of sideways price. His range
+began ~14 Sep 15:00 and this latches 29 hours later, so the two trades inside it (14 Sep 19:00,
+15 Sep 08:00) are too early for this gate - **and the liquidity-void rule does not refuse them
+either**, so nothing does. An earlier note claimed the void rule covered them; that was measured
+before the band-merge fix and is withdrawn. No detector can call a range four hours in, so closing
+this needs something other than a 24-hour box.
 
 **⚠ NOT MEASURED: what it costs in money.** That is a backtest and needs his approval.
 

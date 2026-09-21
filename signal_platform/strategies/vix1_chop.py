@@ -57,9 +57,11 @@ MEASURED AS BUILT, 1,387 hours of EUR/USD (01 Jul - 18 Sep 2026):
     are not fitted to one pair.
 
 ⚠ WHAT IT CANNOT DO, said plainly: it needs a day of sideways price before it can know. His range
-began about 14 Sep 15:00 and this latches at 15 Sep 20:00 — 29 hours later. The two trades VIX.1
-would have taken inside it (14 Sep 19:00 and 15 Sep 08:00) are BOTH TOO EARLY FOR THIS GATE. They
-are refused by the liquidity-void rule instead. No detector can call a range four hours into it.
+began about 14 Sep 15:00 and this latches at 15 Sep 20:00 — 29 hours later. VIX.1 takes two trades
+inside it, 14 Sep 19:00 and 15 Sep 08:00, and **NOTHING REFUSES THEM** — they are too early for this
+gate and the liquidity-void rule allows them (no qualifying void there). That is a real remaining
+hole in his circled range, not a covered one; an earlier note here claimed the void rule caught them
+and that was measured before the band-merge fix. No detector can call a range four hours into it.
 
 ⚠ AND WHAT IS NOT MEASURED: what this costs in money. That needs his approval, because it is a
 backtest. Nothing here should be read as evidence that it is profitable.

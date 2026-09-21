@@ -106,9 +106,13 @@ s.check("  ...and the message names the box and the crossings",
 print()
 print("IT CANNOT KNOW A RANGE BEFORE IT IS ONE — stated, not hidden")
 # His range began about 14 Sep 15:00. Four hours in, nothing can call it, and this says so rather
-# than pretending otherwise. Those trades are refused by the liquidity-void rule instead.
-s.check("14 Sep 19:00 — four hours in, NOT yet called (the void rule covers this one)",
+# than pretending otherwise. ⚠ AND NOTHING ELSE CATCHES IT EITHER — the liquidity-void rule allows
+# this hour too, so it is a REMAINING HOLE in his circled range, pinned here so it stays visible.
+s.check("14 Sep 19:00 — four hours in, NOT yet called by this gate",
         ranging("2026-09-14 19:00"), False)
+from strategies import vix1_void  # noqa: E402
+s.check("  ...and the void rule does not catch it either — a hole, recorded not hidden",
+        vix1_void.not_filling(sep[: at("2026-09-14 19:00") + 1], None, False, "EUR/USD"), None)
 
 # ── 3. IT IS WIRED, AND ITS ANSWER IS FINAL ─────────────────────────────────────────────────────
 print()
