@@ -285,7 +285,7 @@ red self-test that everyone steps around is how a real regression gets missed: t
 break something here will see two failures and assume they are the usual two.
 
 
-### B32 - His void rule and his 2026-08-25 proof rule disagree by one candle when the change of character IS the void. NEEDS HIS RULING
+### B32 - ~~His void rule and his proof rule disagree by one candle when the change of character IS the void~~ RULED AND BUILT 21 Sep
 
 **Found 21 Sep 2026 while rebuilding the void as a zone.** Both rules are his, four weeks apart, and
 they overlap on one shape:
@@ -306,14 +306,22 @@ second candle. Three assertions in that file are red because of it, both directi
 trades, all ordinary continuations, ZERO proof trades**. So this is a rare shape, not a daily one -
 but it is real, not a fixture artefact.
 
-**His options, and nothing ships until he picks one:**
-* **(A)** the void rule wins where both apply - his proof trade simply waits for the second momentum
-  candle. Stricter, matches his void words literally, and measured to cost nothing in 2.5 months.
-* **(B)** the proof rule wins - the void rule stands aside for the first momentum candle after a
-  confirmed turn-back. This is what was built on 20 Sep and he called it patching; with a correct
-  void definition it would now fire far more rarely.
+**HIS RULING, 2026-09-21, given twice because I kept presenting the two rules as rivals:**
 
-**Not decided here.** An earlier attempt to settle it without him is exactly what he objected to.
+> *"The existing rules have nothing to do with the void rules."*
+> *"The two candle rule is for liquidity void setups. By design it is meant to ENABLE VIX to take
+> CONFIRMED DIRECTIONS... Don't confuse it with the candle rules that existed before and that is
+> why I said you integrate not patch."*
+
+So there was never a contest. The two candles are how a VOID SETUP proves a move is real when
+nothing else has - an enabler, not a second opinion on a direction his change-of-character sequence
+has already proved by structure. Built as `vix1_void.direction_already_confirmed`: the void rule
+says nothing about the first momentum candle after a trend is established (the trade his 2026-08-25
+sequence takes) and applies to everything after it, which is joining a move already under way.
+
+**Measured, so the boundary can be seen to cost nothing:** all four of the real sells the rule
+refuses on 16-18 Sep survive it, and `test_choch_bearish_proof.py` is green again in both
+directions. A trend with no recorded start keeps the veto.
 
 
 ### B31 - ~~The liquidity void's ANCHOR picks the wrong candle~~ ANCHOR FIXED 21 Sep (rebuilt as a zone); branch C still off

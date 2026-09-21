@@ -221,6 +221,42 @@ def state(h1: list[Candle], i: int, bullish: bool, symbol: str,
     return VoidState("not-filled-yet", deepest, v.time, v.pips)
 
 
+def direction_already_confirmed(h1: list[Candle], mc_idx: int, direction_since: int | None,
+                                bullish: bool, symbol: str) -> bool:
+    """Has this direction already been confirmed by something that is NOT these two candles?
+
+    HIS RULING, 2026-09-21, given twice because I kept treating his rules as rivals:
+
+        "The two candle rule is for liquidity void setups. By design it is meant to ENABLE VIX to
+         take CONFIRMED DIRECTIONS... Don't confuse it with the candle rules that existed before
+         and that is why I said you integrate not patch."
+
+        "The existing rules have nothing to do with the void rules."
+
+    So the two candles are an ENABLER — they are how a void setup proves the move is real when
+    nothing else has. They are not a second opinion on a direction the strategy has already proved
+    another way. His change-of-character sequence (2026-08-25) proves a direction on its own terms:
+    price breaks, runs, pulls back, and the pullback TURNS BACK — structure confirms it, and the
+    trade is the first momentum candle after the trend is established. That is a different rule
+    answering a different question, so this module stands aside for it and says nothing.
+
+    EVERYTHING AFTER THAT FIRST CANDLE is joining a move already under way, which IS a void setup
+    and IS this module's business.
+
+    MEASURED, so the scope can be seen to cost nothing: over 2.5 months of real EUR/USD bars the
+    void rule refuses 6 trades and ALL SIX are ordinary continuations — none is a change-of-
+    character trade. It changes nothing that has actually happened; it stops the two rules colliding
+    on the shape where a change of character is itself the candle that leaves the void.
+
+    A trend with no recorded start keeps the veto: we cannot tell which case this is, and joining a
+    move is the common one.
+    """
+    if direction_since is None:
+        return False
+    return not any(vix1_momentum.is_momentum_candle(h1, j, bullish, symbol)
+                   for j in range(max(0, direction_since), mc_idx))
+
+
 def break_of_a_fill(h1: list[Candle], turning_up: bool, broken_level: float | None,
                     symbol: str) -> bool:
     """Is the pending turn the break of a void price was filling? HIS BRANCH C — SWITCHED OFF.

@@ -113,7 +113,25 @@ s.check("on the bar of the big drop there is no void yet — it has not left one
 s.check("...so the drop's own sell is NOT refused",
         vix1_void.not_filling(sep[: _drop + 1], None, False, "EUR/USD"), None)
 
-# ── 4. IT MAY COST A TRADE ON PURPOSE, NEVER BY ACCIDENT ────────────────────────────────────────
+# ── 4. WHERE THE VOID RULE STOPS — his boundary, 2026-09-21 ────────────────────────────────────
+# *"The existing rules have nothing to do with the void rules."* *"By design it is meant to ENABLE
+# VIX to take CONFIRMED DIRECTIONS."* So the two candles confirm a move when nothing else has; they
+# are not a second opinion on a direction his change-of-character sequence already proved. The proof
+# sequence itself is asserted in `test_choch_bearish_proof.py`; here we pin that the boundary exists
+# and that it does NOT quietly disable the rule on ordinary trades.
+print()
+print("THE BOUNDARY — the void rule says nothing about a change-of-character trade")
+_i2 = at(sep, "2026-09-17 15:00")
+s.check("a trade with momentum candles already behind it is NOT a change-of-character trade",
+        vix1_void.direction_already_confirmed(sep[: _i2 + 1], _i2, 0, False, "EUR/USD"), False)
+s.check("...so his 17 Sep sell is still refused — the boundary did not disable the rule",
+        detect_bias(sep[: _i2 + 1], [], "EUR/USD"), None)
+s.check("the first momentum candle after a trend starts IS one, and the rule stands aside",
+        vix1_void.direction_already_confirmed(sep[: _i2 + 1], _i2, _i2, False, "EUR/USD"), True)
+s.check("a trend with no recorded start keeps the veto — we cannot tell, so the common case wins",
+        vix1_void.direction_already_confirmed(sep[: _i2 + 1], _i2, None, False, "EUR/USD"), False)
+
+# ── 5. IT MAY COST A TRADE ON PURPOSE, NEVER BY ACCIDENT ────────────────────────────────────────
 print()
 print("SILENT WHEN THERE IS NO VOID — which is most of the time")
 s.check("no bars at all -> allowed", vix1_void.not_filling([], None, True, "EUR/USD"), None)

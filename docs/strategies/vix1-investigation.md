@@ -1970,3 +1970,17 @@ enough to hide this; the hand-built fixture did not.
 2026-08-25 proof rule (one candle) and his void rule (two) disagree by one candle. `OPEN.md` **B32**.
 Over 2.5 months of real bars it never arose — 6 refusals, all continuations — but it is real, and
 nothing was loosened to make the test pass.
+
+**HIS BOUNDARY, AND IT CLOSED THE QUESTION ABOVE (2026-09-21).** I put the one-candle/two-candle
+overlap to him as a choice between his own rules. He answered that there was never a contest:
+
+> *"The existing rules have nothing to do with the void rules."*
+> *"The two candle rule is for liquidity void setups. By design it is meant to ENABLE VIX to take
+> CONFIRMED DIRECTIONS... Don't confuse it with the candle rules that existed before and that is
+> why I said you integrate not patch."*
+
+The two candles are an **enabler** — how a void setup proves a move is real when nothing else has.
+They are not a second opinion on a direction his change-of-character sequence has already proved by
+structure. Built as `vix1_void.direction_already_confirmed`, and measured: all four real sells the
+rule refuses across 16–18 Sep survive the boundary, and the proof fixture is green in both
+directions. `OPEN.md` B32 closed.

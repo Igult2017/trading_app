@@ -437,22 +437,31 @@ def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "", debut=None
         # 1,800 bars, so on the 1,500-bar trend window the SAME candle can be judged differently.
         # Everything that asks a momentum question here gets the long window.
         #
-        # NO SCOPE, NO EXCEPTIONS, AND THAT IS HIS RULING OF 2026-09-21: *"The two candle rule is for
-        # liquidity void setups... Don't confuse it with the candle rules that existed before and
-        # that is why I said you integrate not patch."* An earlier build stood this aside for the
-        # first momentum candle after a turn, to stop it refusing his own 2026-08-25 proof sell.
-        # That was patching one rule around another. With a void defined as a BAND, a proof candle
-        # is not in a void setup at all, so the clash does not arise and the patch is deleted.
+        # WHERE THE VOID RULE STOPS, AND IT IS HIS BOUNDARY, NOT A PATCH BETWEEN TWO CANDLE RULES.
+        # *"The existing rules have nothing to do with the void rules."* *"The two candle rule is for
+        # liquidity void setups. By design it is meant to ENABLE VIX to take CONFIRMED DIRECTIONS."*
+        # So the two candles are how a void setup proves a move is real when nothing else has — not
+        # a second opinion on a direction his change-of-character sequence has already proved. The
+        # whole of that reasoning is in `vix1_void.direction_already_confirmed`.
         #
         # ⚠ THE COST IS NOT MEASURED YET. The numbers that used to sit here (77 allowed / 113
         # refused, the year -30.9R -> -8.7R) belonged to the one-candle definition and are GONE with
         # it — they were never evidence for his rule. Re-measuring needs his approval, because it is
         # a backtest. Until he gives it, what is proved here is that the rule is CORRECT, not what
         # it COSTS.
+        # `direction_since` counts in whichever window `mstate` was read on, and the two END ON
+        # DIFFERENT BARS — `at_mc` at the momentum candle, the `tstate` fallback at the latest bar.
+        # Lifting it with the wrong one scans the wrong stretch of history, silently.
+        _base = at_mc if mstate is t_mc else window
+        _end = mc_idx if mstate is t_mc else len(h1) - 1
+        _ds = (None if mstate.direction_since is None
+               else _end - (len(_base) - 1) + mstate.direction_since)
         for veto in (trend_reproven(mstate, turns_mc, ret),
                      vix1_retracement.wait_after_pullback(at_mc, 1 if bullish else -1),
                      market_awake(awake_window, mstate, ret, symbol, _QUIET_LOOK),
-                     vix1_void.not_filling(awake_window, mstate.protected, bullish, symbol)):
+                     None if vix1_void.direction_already_confirmed(
+                         awake_window, mc_idx, _ds, bullish, symbol)
+                     else vix1_void.not_filling(awake_window, mstate.protected, bullish, symbol)):
             if veto:
                 vix1_log.say(symbol, f"[vix1] {symbol} bias=NONE: {veto} | {state_mc}")
                 return None
