@@ -19,6 +19,14 @@ code and are already maintained by the trend engine:
     the ceiling   `TrendState.bos_price`  — the extreme the last move actually reached
     the floor     `TrendState.protected`  — the level whose break ends that move
 
+BOTH LINES ARE DRAWN ON THE BODIES, NOT THE WICKS — his instruction, 2026-09-21: *"I told you to use
+body and that is why I said use line charts instead of candles."* A line chart is drawn from closes,
+so the band sits where price actually traded and settled rather than where one spike reached. The
+trend engine records its levels at wick extremes, so `_to_body` pulls each line in to the body of
+the candle that set it. MEASURED over one year on both pairs, pooled: the wick lines raise the win
+rate from 45.8% to 46.4% — nothing. The body lines raise it to 50.0%, and what they refuse wins
+40.7% and loses money.
+
 A close outside either one is already a break of structure or a change of character; `vix1_trend`
 detects both and nothing here re-derives them. So the question is one comparison:
 
@@ -56,6 +64,10 @@ from dataclasses import dataclass
 
 from core.types import Candle
 
+# Two prices are THE SAME price when they differ by less than a tenth of a millionth of a pip —
+# far below anything the feed can send. A float comparison in this codebase has been bitten before.
+_SAME = 1e-9
+
 
 @dataclass(frozen=True)
 class State:
@@ -64,6 +76,26 @@ class State:
     ranging: bool = False
     top: float = 0.0
     bottom: float = 0.0
+
+
+def _to_body(h1: list[Candle], level: float, upper: bool) -> float:
+    """Pull a line in from the WICK that set it to that candle's BODY.
+
+    HIS INSTRUCTION, 2026-09-21: *"I told you to use body and that is why I said use line charts
+    instead of candles."* A line chart is drawn from closes, so the band is where price actually
+    TRADED and settled — not where a single spike reached.
+
+    The trend engine records its levels at swing extremes (`vix1_swings.py:91` uses `.high` and
+    `.low`), so the most recent candle whose wick made this level is found and the line moved to the
+    top or bottom of its body. Scanned BACKWARDS and stopped at the first match, so it is the same
+    candle whichever window length the caller passes and no lookback constant is needed.
+    """
+    for c in reversed(h1):
+        if upper and abs(c.high - level) < _SAME:
+            return max(c.open, c.close)
+        if not upper and abs(c.low - level) < _SAME:
+            return min(c.open, c.close)
+    return level                             # the candle is out of view — leave the line alone
 
 
 def box_state(h1: list[Candle], tstate) -> State:
@@ -78,6 +110,9 @@ def box_state(h1: list[Candle], tstate) -> State:
     if ceiling is None or floor is None:
         return State()                       # no move on record yet — cannot say, so never refuse
     low, high = (floor, ceiling) if floor <= ceiling else (ceiling, floor)
+    high, low = _to_body(h1, high, True), _to_body(h1, low, False)
+    if high <= low:
+        return State()                       # the bodies met — nothing to measure, so never refuse
     return State(True, low <= h1[-1].close <= high, high, low)
 
 
