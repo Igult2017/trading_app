@@ -1,4 +1,4 @@
-"""A COPY MUST NOT GO OUT BEFORE THE MASTER'S STOP IS KNOWN — and must still go out eventually.
+"""A COPY MUST NOT GO OUT WITHOUT THE MASTER'S STOP — and now it never has to wait for one.
 
 WHAT WENT WRONG, from production on 2026-09-20. His self-copy had never mirrored a single trade in
 19 days. The engine saw all five fills — positions 240741293, 241723106, 241869270, 242203419,
@@ -7,29 +7,46 @@ WHAT WENT WRONG, from production on 2026-09-20. His self-copy had never mirrored
     "Risk-% mode: can't size — the trade has no stop-loss, or your account balance isn't synced yet"
 
 It was not the balance (both accounts synced, $9,301.72 and $1,000.00). **Every one of the 11 master
-events ever recorded carried no stop, and no MODIFY ever arrived.** The fill event does not carry the
-protection; the 30-second reconcile does, and the reconcile branch deliberately says nothing for a
-position it has not seen ("do NOT emit OPEN — avoids double-copying"). So the stop arrived and was
-thrown away, sizing had nothing to work with, and the entry was lost for good.
+events ever recorded carried no stop.** Risk-% sizing has no distance to size by without one and the
+per-trade cap has no risk to measure, so every copy was refused.
 
-THE RULE NOW: an OPEN with no stop is HELD, the broker is asked for the position, and the OPEN is
-emitted complete. Most of this file asserts the endings that are NOT the happy one — a position that
-closes first must copy nothing, and a master who genuinely trades without stops must not be held for
-ever.
+THE FIRST FIX WAS AIMED AT THE WRONG LAYER, and this file records that so it is not rebuilt. It held
+the entry back, asked the broker for the position again, and waited up to three reconciles for the
+stop to appear on it. It was chasing a number the engine already had in its hand.
 
-Real provider methods on a real instance, built without a socket (same approach as
-test_provider_resilience.py).
+THE ROOT CAUSE, found 2026-09-21: **at the moment of a fill the stop is on the ORDER, not on the
+position** — and the order is on the very same message. `_handle_execution` read `event.position`
+and ignored `event.order`, so the number was thrown away and then hunted for. Reading it is one
+line, it is instant, and there is nothing left to hold.
+
+WHAT THIS FILE PINS: that the stop is read from the order, that the POSITION still wins when it has
+one of its own (a stop the master has since moved), and that nothing is ever invented.
+
+Real provider methods, real protobuf messages, no socket.
 """
 import asyncio
+import types
 
 from _harness import Suite
-import providers.ctrader as prov
-from providers.ctrader import CTraderProvider, PositionSnapshot
 
-s = Suite("COPY — hold the entry until the master's stop is known")
+import symbol_details
+# A forex contract spec, so `lots_from_volume` can read a size. Stubbed before the provider is
+# imported: without a spec every snapshot reads 0 lots and the checks below would prove nothing.
+symbol_details.get = lambda acct, sid: types.SimpleNamespace(
+    lotSize=10_000_000, stepVolume=100_000, minVolume=100_000, maxVolume=10 ** 12, digits=5)
 
-OPEN_ST = prov.ProtoOAPositionStatus.POSITION_STATUS_OPEN
-CLOSED_ST = prov.ProtoOAPositionStatus.POSITION_STATUS_CLOSED
+import providers.ctrader as prov                                        # noqa: E402
+from providers.ctrader import CTraderProvider                           # noqa: E402
+
+from ctrader_open_api.messages.OpenApiMessages_pb2 import (             # noqa: E402
+    ProtoOAExecutionEvent)
+from ctrader_open_api.messages.OpenApiModelMessages_pb2 import (        # noqa: E402
+    ProtoOAExecutionType as T, ProtoOAOrderType, ProtoOAPositionStatus)
+
+s = Suite("COPY — the master's stop, read from the order it arrives on")
+
+OPEN_ST, CLOSED_ST = (ProtoOAPositionStatus.POSITION_STATUS_OPEN,
+                      ProtoOAPositionStatus.POSITION_STATUS_CLOSED)
 
 
 def make_provider():
@@ -38,7 +55,6 @@ def make_provider():
     p.creds = {"ctraderId": "123", "accessToken": "t"}
     p.account_type = "demo"
     p._positions = {}
-    p._awaiting_stop = {}
     p._spec_requested = set()
     p._symbols = {1: "EURUSD"}
     p._authed = p._reconciled = p._reconcile_scheduled = p._connected = False
@@ -46,149 +62,102 @@ def make_provider():
     p._loop = asyncio.new_event_loop()
     p.client = None
     p.events = []
+
     async def on_event(ev, mid):
         p.events.append(ev)
     p.on_event = on_event
     return p
 
 
-def snap(pid=7, stop=None, price=1.14693):
-    return PositionSnapshot(position_id=pid, symbol="EURUSD", action="SELL", volume_lots=3.85,
-                            entry_price=price, stop_loss=stop, take_profit=None)
+def fill(pos_sl=0.0, order_sl=1.14746, status=OPEN_ST, pid=7, with_order=True):
+    """A real ORDER_FILLED message: a position, and the order that became it."""
+    e = ProtoOAExecutionEvent()
+    e.executionType = T.ORDER_FILLED
+    if with_order:
+        o = e.order
+        o.orderId = 999
+        o.orderType = ProtoOAOrderType.Value("STOP")
+        o.stopPrice = 1.14693
+        if order_sl:
+            o.stopLoss = order_sl
+        o.tradeData.symbolId = 1
+        o.tradeData.volume = 1_000_000
+        o.tradeData.tradeSide = 2
+    p = e.position
+    p.positionId = pid
+    p.positionStatus = status
+    p.price = 1.14693
+    if pos_sl:
+        p.stopLoss = pos_sl
+    p.tradeData.symbolId = 1
+    p.tradeData.volume = 1_000_000
+    p.tradeData.tradeSide = 2
+    return e
 
 
-class Pos:
-    """Only the fields `_handle_execution` reads before `_snap` (which is stubbed)."""
-    def __init__(self, pid, status, price=1.14693):
-        self.positionId, self.positionStatus, self.price = pid, status, price
+def fire(p, event):
+    p._loop.run_until_complete(p._handle_execution(event))
 
 
-class Event:
-    def __init__(self, pos):
-        self.position = pos
-
-    def HasField(self, _name):
-        return True
-
-
-def fire(p, pid, status, stop=None):
-    """Drive the REAL `_handle_execution` with `_snap` stubbed to the snapshot we want to test."""
-    p._snap = lambda pos: snap(pos.positionId, stop)
-    p._loop.run_until_complete(p._handle_execution(Event(Pos(pid, status))))
-
-
-def reconcile(p, positions):
-    """Drive the REAL reconcile branch. `positions` is a list of (pid, stop)."""
-    class Res:
-        position = [Pos(pid, OPEN_ST) for pid, _ in positions]
-    stops = dict(positions)
-    p._snap = lambda pos: snap(pos.positionId, stops[pos.positionId])
-    prov.Protobuf = type("P", (), {"extract": staticmethod(lambda m: Res())})
-
-    class Msg:
-        payloadType = prov.ProtoOAReconcileRes().payloadType
-
-    async def drive():
-        p._dispatch(None, Msg())
-        await asyncio.sleep(0)
-        await asyncio.sleep(0)
-    asyncio.set_event_loop(p._loop)
-    p._loop.run_until_complete(drive())
-
-
-# ── 1. THE FILL THAT STARTED IT: no stop on the event ───────────────────────
+# ── 1. THE FILL THAT STARTED IT: no stop on the POSITION, but one on the ORDER ──────────────────
 p = make_provider()
 p._reconciled = True
-fire(p, 7, OPEN_ST, stop=None)
-s.check("a fill with no stop copies NOTHING yet", p.events, [])
-s.check("...it is held, waiting for the stop", 7 in p._awaiting_stop, True)
-s.check("...and the position is still tracked", 7 in p._positions, True)
-
-# The broker comes back with the position, now carrying its stop. THIS is the fix.
-reconcile(p, [(7, 1.14746)])
-s.check("once the stop is read, the entry is copied", [e["type"] for e in p.events], ["OPEN"])
-s.check("...carrying the master's real stop", p.events[0]["snap"].stop_loss, 1.14746)
-s.check("...and nothing is left waiting", p._awaiting_stop, {})
-
-# A second reconcile must not copy it again.
-reconcile(p, [(7, 1.14746)])
-s.check("a later reconcile does not copy it twice", len(p.events), 1)
-
-
-# ── 2. THE STOP ARRIVES ON A LIVE EVENT INSTEAD ─────────────────────────────
-p = make_provider()
-p._reconciled = True
-fire(p, 7, OPEN_ST, stop=None)
-fire(p, 7, OPEN_ST, stop=1.14746)          # the broker attaching protection a moment later
-s.check("a stop arriving live releases the entry immediately",
-        [e["type"] for e in p.events], ["OPEN"])
-s.check("...as an OPEN, not a MODIFY of a position the follower never took",
+fire(p, fill())
+s.check("the entry copies IMMEDIATELY — nothing is held", [e["type"] for e in p.events], ["OPEN"])
+s.check("...carrying the master's real stop, read off the order",
         p.events[0]["snap"].stop_loss, 1.14746)
+s.check("...and the master's order id travels with it, so a mirrored order is recognised",
+        p.events[0]["master_order_id"], 999)
+s.check("...sized from the contract spec, not guessed", p.events[0]["snap"].volume_lots, 0.1)
 
 
-# ── 3. IT CLOSED BEFORE WE COULD READ IT (his 16 Sep trade: 1.2 seconds) ────
+# ── 2. THE POSITION'S OWN STOP WINS — a stop the master has MOVED ───────────────────────────────
+# The order keeps the price it was placed with for ever. Once the trade is live and the stop is
+# moved (VIX.1 moves it to breakeven at 0.4R) the truth is on the position, and taking the order's
+# stale number would copy a stop the master no longer has.
 p = make_provider()
 p._reconciled = True
-fire(p, 7, OPEN_ST, stop=None)
-fire(p, 7, CLOSED_ST, stop=None)
-# NOTHING AT ALL, not even a CLOSE. The entry was never announced, so the follower is holding
-# nothing to exit — and a master CLOSE row with no OPEN beside it is a record that reads like a
-# failed copy. That misreading is what made this defect take a day to find.
-s.check("a position that closes first copies NOTHING — no entry and no exit", p.events, [])
-s.check("...and stops waiting for a stop it will never get", p._awaiting_stop, {})
+fire(p, fill(pos_sl=1.14800, order_sl=1.14746))
+s.check("a moved stop is not overwritten by the order's original",
+        p.events[0]["snap"].stop_loss, 1.14800)
 
-# BUT THE REAL CASE MUST STILL CLOSE. A position the engine DID copy has to be exited when the
-# master exits, or the follower is stranded in a live trade. That is the check that keeps the
-# suppression above honest.
+
+# ── 3. NEITHER CARRIES ONE — no number is invented ──────────────────────────────────────────────
 p = make_provider()
 p._reconciled = True
-fire(p, 7, OPEN_ST, stop=1.14746)          # copied for real
+fire(p, fill(order_sl=0.0))
+s.check("no stop anywhere -> None, honestly", p.events[0]["snap"].stop_loss, None)
+p = make_provider()
+p._reconciled = True
+fire(p, fill(with_order=False))
+s.check("...and a message with no order at all does not crash", p.events[0]["snap"].stop_loss, None)
+
+
+# ── 4. THE EXIT IS UNTOUCHED ────────────────────────────────────────────────────────────────────
+# Every ending above is an entry. A follower that was copied in must still be copied out, or it is
+# stranded in a live trade — the one failure worse than never copying at all.
+p = make_provider()
+p._reconciled = True
+fire(p, fill())
 p.events.clear()
-fire(p, 7, CLOSED_ST, stop=1.14746)
-s.check("a position that WAS copied is still closed", [e["type"] for e in p.events], ["CLOSE"])
+fire(p, fill(status=CLOSED_ST))
+s.check("a position that was copied is still closed", [e["type"] for e in p.events], ["CLOSE"])
 
-# The same ending by the other route: it simply is not in the reconcile any more.
+
+# ── 5. A FILL IS NOT ANNOUNCED TWICE ────────────────────────────────────────────────────────────
+# The order path and the position path both see this message. If both spoke, the follower would be
+# opened once by the order mirror and again by the fill.
 p = make_provider()
 p._reconciled = True
-fire(p, 7, OPEN_ST, stop=None)
-reconcile(p, [])
-s.check("gone from the broker's list -> nothing copied", p.events, [])
-s.check("...and not held for ever", p._awaiting_stop, {})
+fire(p, fill())
+s.check("one message, one event — the order path stays silent on a fill", len(p.events), 1)
 
 
-# ── 4. A MASTER WHO GENUINELY TRADES WITHOUT STOPS IS NOT HELD FOR EVER ─────
-p = make_provider()
-p._reconciled = True
-fire(p, 7, OPEN_ST, stop=None)
-for _ in range(CTraderProvider.MAX_STOP_WAITS - 1):
-    reconcile(p, [(7, None)])
-s.check(f"still waiting after {CTraderProvider.MAX_STOP_WAITS - 1} reads", p.events, [])
-reconcile(p, [(7, None)])
-s.check("after the last read it is copied anyway", [e["type"] for e in p.events], ["OPEN"])
-s.check("...and honestly, with no stop on it", p.events[0]["snap"].stop_loss, None)
-s.check("...once, not once per reconcile", len(p.events), 1)
-reconcile(p, [(7, None)])
-s.check("...confirmed: a further read adds nothing", len(p.events), 1)
-
-
-# ── 5. THE ORDINARY CASE IS UNTOUCHED ───────────────────────────────────────
-p = make_provider()
-p._reconciled = True
-fire(p, 7, OPEN_ST, stop=1.14746)
-s.check("a fill that DOES carry its stop copies at once, with no wait",
-        [e["type"] for e in p.events], ["OPEN"])
-s.check("...and nothing is held", p._awaiting_stop, {})
-
-
-# ── TEETH ───────────────────────────────────────────────────────────────────
-# The old behaviour, reproduced: emit the fill as it arrives. The entry then goes out with no stop,
-# which is exactly what `lot_calc` and `risk_guard` refuse — his five lost trades.
-p = make_provider()
-p._reconciled = True
-fire(p, 7, OPEN_ST, stop=None)
-held = p.events == []
-reconcile(p, [(7, 1.14746)])
-s.teeth("without the hold, the entry would have gone out stop-less and been skipped",
-        held and p.events[0]["snap"].stop_loss == 1.14746)
+# ── TEETH ───────────────────────────────────────────────────────────────────────────────────────
+# The defect itself, reproduced: read the position alone and the stop is gone. That is the exact
+# state all 11 recorded master events were in, and why not one trade was ever copied.
+_pos_only = prov._protection(fill().position, None, "stopLoss")
+s.teeth("reading the position alone loses the stop — the 19-day defect",
+        _pos_only is None and prov._protection(fill().position, fill().order, "stopLoss") == 1.14746)
 
 s.done()

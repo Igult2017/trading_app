@@ -18,6 +18,7 @@ from lot_calc import calc_lots, apply_direction, is_symbol_allowed, pip_size, pi
 from session_filter import is_session_allowed
 from risk_guard import check_follower_allowed, check_trade_risk
 from providers.ctrader import PositionSnapshot
+import mirror
 
 log = logging.getLogger("dispatcher")
 
@@ -29,10 +30,15 @@ log = logging.getLogger("dispatcher")
 _master_locks: dict[str, asyncio.Lock] = {}
 
 
+
 async def dispatch(event: dict, master_id: str) -> None:
-    """Called by provider on every OPEN / CLOSE / MODIFY event."""
-    snap: PositionSnapshot = event["snap"]
+    """Called by provider on every PLACED / AMENDED / CANCELLED / OPEN / CLOSE / MODIFY event."""
     etype = event["type"]
+    # AN ORDER EVENT CARRIES AN `order`, A POSITION EVENT CARRIES A `snap`. Both answer `.key`
+    # (the master's id for the thing) and both carry symbol/action/size/stop/target, so everything
+    # below — the filters, the sizing, the risk cap, the recording — runs once for both rather
+    # than being written a second time for orders and drifting away from this one.
+    snap = event.get("snap") or event["order"]
 
     lock = _master_locks.setdefault(master_id, asyncio.Lock())
     async with lock:                       # atomic dedup + master-row insert per master
@@ -47,13 +53,23 @@ async def dispatch(event: dict, master_id: str) -> None:
             # main double-entry guard. A re-open after a close is allowed because by then
             # opens == closes for the key.
             if etype == "OPEN":
-                ext    = str(snap.position_id)
+                ext    = snap.key
                 opens  = db.query(CopyTradeMaster).filter_by(
                     master_id=master_id, external_id=ext, event_type="OPEN").count()
                 closes = db.query(CopyTradeMaster).filter_by(
                     master_id=master_id, external_id=ext, event_type="CLOSE").count()
                 if opens > closes:
                     log.info("[dispatch] duplicate OPEN for %s (already open) — skipping", ext)
+                    return
+
+            # The same guard for a resting order: a re-sent PLACED must not put a second mirror
+            # on the book. An order that was cancelled and placed again is a genuinely new order
+            # with a new id, so it is never caught by this.
+            if etype == "PLACED":
+                placed = db.query(CopyTradeMaster).filter_by(
+                    master_id=master_id, external_id=snap.key, event_type="PLACED").count()
+                if placed:
+                    log.info("[dispatch] duplicate PLACED for order %s — skipping", snap.key)
                     return
 
             master_trade    = _save_master_trade(db, master_id, snap, etype, source)
@@ -86,7 +102,7 @@ async def dispatch(event: dict, master_id: str) -> None:
         return
 
     await asyncio.gather(*[
-        _exec_follower(master_trade_id, f, snap, etype)
+        _exec_follower(master_trade_id, f, snap, etype, event.get("master_order_id"))
         for f in followers
     ], return_exceptions=True)
 
@@ -100,10 +116,13 @@ def _save_master_trade(db: DBSession, master_id: str,
     # open, so any OPEN reaching here is a genuine new entry (incl. re-opening a
     # symbol after a prior close). CLOSE/MODIFY dedupe so a synthetic+real duplicate
     # (e.g. the reconcile CLOSE racing the live CLOSE) never creates two rows.
-    if etype != "OPEN":
+    # AMENDED IS EXEMPT FROM THE DEDUP, because the master can legitimately move one order many
+    # times — a trailing entry moves with the market — and every move is a different instruction.
+    # Folding them onto one row would leave the mirror resting at the FIRST price for ever.
+    if etype not in ("OPEN", "AMENDED"):
         existing = db.query(CopyTradeMaster).filter_by(
             master_id=master_id,
-            external_id=str(snap.position_id),
+            external_id=snap.key,
             event_type=etype,
         ).first()
         if existing:
@@ -112,7 +131,7 @@ def _save_master_trade(db: DBSession, master_id: str,
     record = CopyTradeMaster(
         id          = str(uuid4()),
         master_id   = master_id,
-        external_id = str(snap.position_id),
+        external_id = snap.key,
         source      = source,
         symbol      = snap.symbol,
         action      = snap.action,
@@ -122,7 +141,8 @@ def _save_master_trade(db: DBSession, master_id: str,
         stop_loss   = snap.stop_loss,
         take_profit = snap.take_profit,
         closed_price= getattr(snap, "closed_price", None),   # exit price on CLOSE rows
-        raw_payload = {"position_id": snap.position_id},
+        raw_payload = ({"order_id": snap.order_id, "order_type": snap.order_type}
+                       if hasattr(snap, "order_id") else {"position_id": snap.position_id}),
         status      = "dispatched",
     )
     db.add(record)
@@ -133,19 +153,36 @@ def _save_master_trade(db: DBSession, master_id: str,
 # ── Per-follower execution ────────────────────────────────────────────────────
 
 async def _exec_follower(master_trade_id: str, follower: CopyFollower,
-                         snap: PositionSnapshot, etype: str) -> None:
+                         snap: PositionSnapshot, etype: str,
+                         master_order_id=None) -> None:
     fid = follower.id
+    # PUTTING A MIRROR ON THE BOOK IS AN ENTRY, so it faces every gate a fill faces: the session
+    # filter, the safety guards, risk-% sizing and the 3% per-trade cap. The alternative — place
+    # first and check when it fills — would put an order on the account that the follower's own
+    # limits say must never be taken, and by then it is the market's decision, not ours.
+    is_entry = etype in ("OPEN", "PLACED")
     # Wrap the WHOLE body: any unexpected error (DB, decrypt, executor construction…)
     # must be logged + recorded, never silently swallowed by the caller's gather().
     try:
+        # THE MASTER'S ORDER FILLED AND THIS FOLLOWER MIRRORED IT — so the follower's own order
+        # filled by itself and there is nothing to send. Checked FIRST, before any gate: the
+        # follower is already in this trade, and a gate that refused now would not undo the
+        # position, only lose the record needed to close it.
+        if etype == "OPEN" and master_order_id is not None:
+            if await mirror.record_fill_for(fid, master_trade_id, snap, str(master_order_id)):
+                return
+
         if not is_symbol_allowed(snap.symbol, follower):
             _log(fid, master_trade_id, "INFO", "SKIP", f"Symbol {snap.symbol} filtered")
             return
 
-        # THE SESSION GATE APPLIES TO OPENS ONLY, and that is the whole point of the etype check.
+        # THE SESSION GATE APPLIES TO ENTRIES ONLY, and that is the whole point of the etype check.
         # Gating a CLOSE would strand him in a live position because London happened to shut — the
         # filter is about when to ENTER a copied trade, never about whether he may get out of one.
-        if etype == "OPEN":
+        # PLACED counts as an entry: putting the mirror on the book IS the decision to enter.
+        # AMENDED and CANCELLED do not — they move or withdraw an order that is already there, and
+        # refusing a cancel because the session closed would leave a live order nobody wanted.
+        if is_entry:
             in_session, why = is_session_allowed(follower)
             if not in_session:
                 _log(fid, master_trade_id, "INFO", "SKIP", why or "outside the allowed sessions")
@@ -161,20 +198,34 @@ async def _exec_follower(master_trade_id: str, follower: CopyFollower,
             _log(fid, master_trade_id, "ERROR", "FAIL", "Could not get credentials")
             return
 
-        # Safety guard (max open trades, daily loss, drawdown) — only gates new OPENs.
-        allowed, skip_reason = check_follower_allowed(follower, snap, etype, broker_account)
+        # Safety guard (max open trades, daily loss, drawdown) — only gates new entries. It reads
+        # the etype itself, so a PLACED is passed as "OPEN": the guard's question is "may this
+        # follower take on another trade", and a resting mirror is one being taken on.
+        allowed, skip_reason = check_follower_allowed(
+            follower, snap, "OPEN" if is_entry else etype, broker_account)
         if not allowed:
             _log(fid, master_trade_id, "INFO", "SKIP", skip_reason or "blocked by risk guard")
             return
 
         # Optional per-follower delay before mirroring a new entry.
-        if etype == "OPEN" and follower.trade_delay_sec:
+        if is_entry and follower.trade_delay_sec:
             try:
                 await asyncio.sleep(int(follower.trade_delay_sec))
             except (TypeError, ValueError):
                 pass
 
         platform = (broker_account.platform or "").lower()
+        # ONLY cTRADER CAN REST AN ORDER TODAY. The Binance, DXtrade and TradeLocker executors have
+        # open/close/modify and nothing else, so calling place_pending on one would raise
+        # AttributeError and land in the crash handler as "unexpected error" — a message that says
+        # nothing about the real reason. Said plainly here instead, and NOT silently downgraded to
+        # a market order: that would enter a trade the master has only placed an order for.
+        if etype in ("PLACED", "AMENDED", "CANCELLED") and platform not in ("ctrader", "ct"):
+            _log(fid, master_trade_id, "INFO", "SKIP",
+                 f"{platform or 'this platform'} cannot mirror a resting order yet — only cTrader "
+                 f"can. The master's ORDER was not copied; a fill would still be")
+            return
+
         action   = apply_direction(snap.action, follower.direction or "same")
         if (follower.direction or "").lower() == "hedge" and platform in ("ctrader", "ct"):
             log.warning("[%s] 'hedge' on cTrader (netting account): opens the opposite side, "
@@ -186,17 +237,29 @@ async def _exec_follower(master_trade_id: str, follower: CopyFollower,
         if snap.action and action != snap.action:
             sl_price, tp_price = snap.take_profit, snap.stop_loss
 
-        # Resolve the follower's open position (id + recorded volume) for CLOSE/MODIFY.
+        # Resolve the follower's own id for anything that acts on something already there: a
+        # position for CLOSE/MODIFY, a resting order for AMENDED/CANCELLED. Matched by the
+        # MASTER's id, never by symbol — a follower can hold several orders on one symbol and
+        # "cancel the XAUUSD one" would cancel whichever the query happened to return first.
         follower_pos_id: str | None = None
         open_vol: float | None = None
         if etype in ("CLOSE", "MODIFY"):
-            follower_pos_id, open_vol = _find_follower_position_id(fid, str(snap.position_id))
+            follower_pos_id, open_vol = _find_follower_position_id(fid, snap.key)
             if follower_pos_id is None:
                 _log(fid, master_trade_id, "INFO", "SKIP",
-                     f"No open follower position for master pos {snap.position_id}")
+                     f"No open follower position for master pos {snap.key}")
+                return
+        elif etype in ("AMENDED", "CANCELLED"):
+            follower_pos_id, open_vol = mirror.find_follower_order_id(fid, snap.key)
+            if follower_pos_id is None:
+                # NOT AN ERROR. The mirror may never have been placed — a filter refused it, the
+                # session was shut, the risk cap said no. There is simply nothing to act on.
+                _log(fid, master_trade_id, "INFO", "SKIP",
+                     f"No resting follower order mirrors master order {snap.key} — nothing to "
+                     f"{'move' if etype == 'AMENDED' else 'cancel'}")
                 return
 
-        if etype == "OPEN":
+        if is_entry:
             # Risk inputs for risk-% sizing (per-symbol pip value; approximate off USD pairs).
             sl_pips = None
             if snap.entry_price and snap.stop_loss:
@@ -238,8 +301,10 @@ async def _exec_follower(master_trade_id: str, follower: CopyFollower,
                 _log(fid, master_trade_id, "INFO", "SKIP", reason)
                 return
         else:
-            # CLOSE/MODIFY: use the follower's RECORDED open volume so a close fully exits
-            # (re-calculating could under/over-fill and strand size). Fall back to calc_lots.
+            # CLOSE/MODIFY/AMENDED/CANCELLED: use the follower's RECORDED volume so a close fully
+            # exits (re-calculating could under/over-fill and strand size), and so a moved order
+            # keeps the size it was placed at. Fall back to calc_lots.
+            sl_pips = None
             lots = open_vol if (open_vol and open_vol > 0) else calc_lots(
                 follower, snap.volume_lots, follower_equity=None)
 
@@ -247,7 +312,7 @@ async def _exec_follower(master_trade_id: str, follower: CopyFollower,
         # FINAL lot size and the stop distance, and both are computed above. A follower may never
         # risk more than 3% of their account on one copied trade; no stop loss is a refusal, since
         # unbounded risk cannot be checked against a cap.
-        if etype == "OPEN":
+        if is_entry:
             ok_risk, risk_reason = check_trade_risk(
                 follower, broker_account, lots, sl_pips, pip_value(snap.symbol))
             if not ok_risk:
@@ -255,11 +320,18 @@ async def _exec_follower(master_trade_id: str, follower: CopyFollower,
                 return
 
         # ── THE SAFETY CHOKEPOINT ──────────────────────────────────────────────
-        # Every OPEN, CLOSE and MODIFY for every platform passes through here, so this is the one
-        # place a global stop can be honest. Placed AFTER sizing and the risk guard on purpose: in
-        # dry-run we want the whole computation to have happened so the logged order is the real
-        # one, not a sketch of it.
-        if not COPY_ENABLED:
+        # Every event for every platform passes through here, so this is the one place a global
+        # stop can be honest. Placed AFTER sizing and the risk guard on purpose: in dry-run we want
+        # the whole computation to have happened so the logged order is the real one, not a sketch.
+        #
+        # ⚠ A CANCEL IS EXEMPT FROM THE KILL SWITCH, AND THAT IS THE SAFE DIRECTION. The switch
+        # exists to stop the engine TAKING RISK; refusing to withdraw an order would leave a live
+        # order on the account with the engine switched off and nothing left to cancel it when the
+        # master's own order died. Turning the engine off must never strand an order on the book.
+        if not COPY_ENABLED and etype == "CANCELLED":
+            log.warning("[%s] COPY_ENABLED=false, but cancelling order %s anyway — leaving a live "
+                        "order resting would be the more dangerous choice", fid, follower_pos_id)
+        elif not COPY_ENABLED:
             _log(fid, master_trade_id, "WARN", "DISABLED",
                  f"COPY_ENABLED=false — {etype} {snap.symbol} {lots} lots NOT sent")
             return
@@ -272,17 +344,28 @@ async def _exec_follower(master_trade_id: str, follower: CopyFollower,
         executor = _get_executor(broker_account, creds)
         result   = None
 
-        # OPEN is never retried: a retry after an ambiguous failure (e.g. the fill
-        # confirmation lost to a timeout) could place a SECOND live position. A missed
-        # entry is far safer than a duplicate one. CLOSE/MODIFY are idempotent-ish
-        # (closing an already-closed position just no-ops), so they keep retrying.
-        max_attempts = 1 if etype == "OPEN" else 3
+        # AN ENTRY IS NEVER RETRIED: a retry after an ambiguous failure (e.g. the confirmation lost
+        # to a timeout) could place a SECOND live position or a second resting order. A missed entry
+        # is far safer than a duplicate one. CLOSE/MODIFY/AMEND/CANCEL are idempotent-ish (cancelling
+        # an already-cancelled order just no-ops), so they keep retrying.
+        max_attempts = 1 if is_entry else 3
         for attempt in range(1, max_attempts + 1):
             try:
                 if etype == "OPEN":
                     result = await executor.open_position(
                         snap.symbol, action, lots, sl_price, tp_price
                     )
+                elif etype == "PLACED":
+                    result = await executor.place_pending(
+                        snap.symbol, action, lots, snap.order_type, snap.price,
+                        sl_price, tp_price, label=mirror.mirror_label(snap.key)
+                    )
+                elif etype == "AMENDED":
+                    result = await executor.amend_pending(
+                        int(follower_pos_id), snap.order_type, snap.price, sl_price, tp_price
+                    )
+                elif etype == "CANCELLED":
+                    result = await executor.cancel_pending(int(follower_pos_id))
                 elif etype == "CLOSE":
                     if platform == "binance":
                         parts = follower_pos_id.split(":") if follower_pos_id else []
@@ -308,7 +391,14 @@ async def _exec_follower(master_trade_id: str, follower: CopyFollower,
         # A CLOSE that exhausted its retries leaves a live position — surface it loudly.
         if etype == "CLOSE" and not (result and result.ok):
             log.error("[%s] CLOSE FAILED for master pos %s — follower may still hold the "
-                      "position; manual flatten may be required.", fid, snap.position_id)
+                      "position; manual flatten may be required.", fid, snap.key)
+        # A CANCEL that exhausted its retries leaves a live ORDER the master no longer has. It is
+        # not yet a position, so it is less urgent than a failed close — but it is an entry nobody
+        # is watching, and it will fill on its own if price reaches it.
+        if etype == "CANCELLED" and not (result and result.ok):
+            log.error("[%s] CANCEL FAILED for follower order %s (master order %s) — that order is "
+                      "STILL RESTING and will fill if price reaches it; cancel it by hand.",
+                      fid, follower_pos_id, snap.key)
 
         _record_follower_trade(master_trade_id, follower, snap, etype, lots, result,
                                exec_action=action, exec_sl=sl_price, exec_tp=tp_price)

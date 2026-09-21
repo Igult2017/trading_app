@@ -20,7 +20,9 @@ from ctrader_open_api.messages.OpenApiMessages_pb2 import (
     ProtoOAReconcileReq, ProtoOAReconcileRes,
     ProtoOAExecutionEvent,
 )
-from ctrader_open_api.messages.OpenApiModelMessages_pb2 import ProtoOAPositionStatus
+from ctrader_open_api.messages.OpenApiModelMessages_pb2 import (
+    ProtoOAExecutionType, ProtoOAOrderType, ProtoOAPositionStatus,
+)
 
 from config import CT_LIVE_HOST, CT_DEMO_HOST, CT_PORT, RECONNECT_DELAY, \
     RECONCILE_INTERVAL
@@ -44,6 +46,74 @@ class PositionSnapshot:
     take_profit: float | None
     closed_price: float | None = None   # set on CLOSE (exit price); entry_price stays the entry
 
+    @property
+    def key(self) -> str:
+        """What the master's row is filed under, and what a follower row is matched back to."""
+        return str(self.position_id)
+
+
+@dataclass
+class OrderSnapshot:
+    """A master ORDER — one that is resting, not yet a position.
+
+    Separate from `PositionSnapshot` on purpose: an order has no entry price because it has not
+    traded, and it has an `order_id` the follower's cancel must be matched against.
+    """
+    order_id:    int
+    symbol:      str
+    action:      str          # BUY | SELL
+    volume_lots: float
+    order_type:  str          # STOP | LIMIT | STOP_LIMIT | MARKET_RANGE
+    price:       float        # where it rests
+    stop_loss:   float | None
+    take_profit: float | None
+
+    @property
+    def key(self) -> str:
+        """THE ORDER ID, NOT A POSITION ID — the two are different numbers from the broker and a
+        cancel sent against the wrong one either fails or hits somebody else's order."""
+        return str(self.order_id)
+
+    @property
+    def entry_price(self) -> float:
+        """Where it RESTS. An order has not traded, so this is the price it would fill at — which
+        is what the risk distance to the stop must be measured from when sizing the mirror."""
+        return self.price
+
+
+# WHICH EXECUTION EVENTS DESCRIBE A RESTING ORDER, and what each one means to a copier. The broker
+# sends all of these; until 2026-09-21 every one was thrown away because the handler asked only for
+# `event.position` and a resting order has none.
+_ORDER_EVENT = {
+    ProtoOAExecutionType.ORDER_ACCEPTED:  "PLACED",
+    ProtoOAExecutionType.ORDER_REPLACED:  "AMENDED",
+    ProtoOAExecutionType.ORDER_CANCELLED: "CANCELLED",
+    ProtoOAExecutionType.ORDER_EXPIRED:   "CANCELLED",
+    ProtoOAExecutionType.ORDER_REJECTED:  "CANCELLED",
+}
+
+# ONLY ORDERS THAT OPEN A TRADE ARE MIRRORED. A stop-loss or take-profit is itself an order on this
+# wire (`STOP_LOSS_TAKE_PROFIT`), and so is the order that closes a position (`closingOrder`).
+# Mirroring either would place a second entry on the follower, so both are ignored here — the
+# position path already carries closes and stop moves.
+_ENTRY_ORDER_TYPES = {"STOP", "LIMIT", "STOP_LIMIT", "MARKET_RANGE"}
+
+
+def _protection(pos, order, field: str) -> float | None:
+    """A stop or target, read from the position, or from the order when the position has none yet.
+
+    THE POSITION WINS WHEN IT HAS A VALUE, because it is the later truth: once the master moves a
+    stop it moves on the position, while the order keeps the price it was placed with. The order is
+    only consulted for the gap at the moment of a fill, when the position exists but its protection
+    has not been attached to it yet. Protobuf gives an unset number as 0.0, so 0.0 means "not set" —
+    never a real price for a stop.
+    """
+    on_pos = float(getattr(pos, field, 0.0) or 0.0)
+    if on_pos:
+        return on_pos
+    on_order = float(getattr(order, field, 0.0) or 0.0) if order is not None else 0.0
+    return on_order or None
+
 
 class CTraderProvider:
     """Connects to cTrader for one master account and fires on_event callbacks."""
@@ -55,12 +125,6 @@ class CTraderProvider:
         self.account_type = account_type
         self.on_event     = on_event
         self._positions: dict[int, PositionSnapshot] = {}
-        # OPENS HELD BACK UNTIL THEIR STOP IS KNOWN — positionId -> how many reconciles we have
-        # waited. See `_handle_execution`: a fill event that carries no stop cannot be sized by
-        # risk (`lot_calc`) and cannot pass the 3% cap (`risk_guard`), so emitting it immediately
-        # only produces a SKIP. Every one of the 11 master events recorded up to 2026-09-20 was
-        # stop-less, which is why not one trade was ever copied.
-        self._awaiting_stop: dict[int, int] = {}
         self._spec_requested: set[int] = set()   # symbolIds whose contract spec we asked for
         self._symbols: dict[int, str] = {}   # symbolId → symbolName (cTrader trades carry only ids)
         self._authed      = False
@@ -91,25 +155,15 @@ class CTraderProvider:
         return (not self._connected and self._disconnected_since is not None
                 and (time.monotonic() - self._disconnected_since) > max_down)
 
-    def _send_reconcile(self) -> None:
-        """Ask for the open positions ONCE. No timer — see `_request_reconcile`.
-
-        SPLIT OUT 2026-09-20 because an out-of-band caller needed it. `_request_reconcile` reschedules
-        itself on every call, so calling THAT to ask an extra question would have started a second
-        repeating chain and doubled the reconcile rate for the provider's whole life, every time.
-        """
-        if not self._authed:
-            return
-        try:
-            req = ProtoOAReconcileReq()
-            req.ctidTraderAccountId = int(self.creds["ctraderId"])
-            self.client.send(req)
-        except Exception as e:
-            log.warning(f"[{self.master_id}] reconcile request failed: {e}")
-
     def _request_reconcile(self) -> None:
         """Periodic safety net — re-fetch open positions to catch missed closes."""
-        self._send_reconcile()
+        if self._authed:
+            try:
+                req = ProtoOAReconcileReq()
+                req.ctidTraderAccountId = int(self.creds["ctraderId"])
+                self.client.send(req)
+            except Exception as e:
+                log.warning(f"[{self.master_id}] reconcile request failed: {e}")
         self._loop.call_later(RECONCILE_INTERVAL, self._request_reconcile)
 
     # ── Twisted callbacks ──────────────────────────────────────────────────────
@@ -240,14 +294,6 @@ class CTraderProvider:
                 for pid, prev in list(self._positions.items()):
                     if pid not in fresh:
                         self._positions.pop(pid, None)
-                        # NEVER ANNOUNCED, SO NEVER RETRACTED. A position still waiting for its stop
-                        # has had no OPEN emitted, so the follower cannot be holding anything to
-                        # close. The dispatcher would safely no-op, but it would also write a master
-                        # CLOSE row with no OPEN beside it and log a skip that reads like a failure —
-                        # exactly the kind of misleading record that made this defect take a day to
-                        # find. `_release_awaiting` reports it properly a few lines below.
-                        if pid in self._awaiting_stop:
-                            continue
                         log.info(f"[{self.master_id}] reconcile: position {pid} closed externally")
                         asyncio.ensure_future(
                             self.on_event({"type": "CLOSE", "snap": prev}, self.master_id))
@@ -255,10 +301,6 @@ class CTraderProvider:
                 # execution event already handles opens; avoids double-copying).
                 for pid, snap in fresh.items():
                     self._positions.setdefault(pid, snap)
-            # RELEASE THE OPENS THAT WERE WAITING FOR THEIR STOP (2026-09-20). This runs on BOTH
-            # branches above — the initial load and the periodic safety net — because the answer to
-            # the out-of-band request fired by `_handle_execution` can arrive as either.
-            self._release_awaiting(fresh)
 
         elif ptype == ProtoOAExecutionEvent().payloadType:
             event = Protobuf.extract(message)
@@ -267,6 +309,24 @@ class CTraderProvider:
     # ── Event handling ─────────────────────────────────────────────────────────
 
     async def _handle_execution(self, event) -> None:
+        # ── THE ORDER PATH, added 2026-09-21 ────────────────────────────────────────────────────
+        # HIS OBSERVATION IS WHAT FOUND IT: *"if it was working then it would have copied that trade
+        # which was not filled and later cancelled because it should mirror what is happening in
+        # master exactly."* His XAU/USD order of 21 Sep was placed at 12:07 and cancelled at 12:10,
+        # and the follower saw nothing.
+        #
+        # THE CAUSE WAS THREE LINES BELOW THIS ONE. The handler asked for `event.position` and
+        # returned when there was none — and a RESTING ORDER HAS NO POSITION, so every order event
+        # the broker sent was dropped at the door: accepted, amended, cancelled, expired, rejected.
+        #
+        # AND IT IS ALSO WHY NOTHING HAD COPIED FOR THREE WEEKS. VIX.1 attaches the stop when it
+        # PLACES the order (`signal_platform/execution/orders.py:96`), so the stop rides on the
+        # ACCEPTED event — the one we were throwing away. By the time the fill produced a position
+        # the stop was not on it yet, risk-% sizing could not size the trade, and all twelve
+        # decisions in the record read "can't size — the trade has no stop-loss".
+        await self._handle_order(event)
+
+        # ── THE POSITION PATH, unchanged ────────────────────────────────────────────────────────
         # Classify by the position's STATUS (open/closed) + our previous snapshot —
         # NOT executionType (ORDER_FILLED=3 fires for BOTH opens and closes, so the
         # old 2/3/4 code misclassified every fill).
@@ -276,20 +336,17 @@ class CTraderProvider:
 
         pid    = pos.positionId
         status = pos.positionStatus
-        snap   = self._snap(pos)
+        # THE ORDER IS PASSED IN, AND THAT IS THE WHOLE 2026-09-20 DEFECT FIXED AT ITS SOURCE. The
+        # stop rides on the ORDER, not on the position, at the moment of a fill — so the position
+        # alone reads stop-less and the copy is skipped for want of a risk distance. The order is on
+        # THIS SAME MESSAGE; it was simply never read. What used to be here instead — hold the OPEN
+        # back, ask the broker again, wait up to three reconciles — was chasing a number we already
+        # had in hand, and it is deleted.
+        snap   = self._snap(pos, event.order if event.HasField("order") else None)
         prev   = self._positions.get(pid)
 
         if status == ProtoOAPositionStatus.POSITION_STATUS_CLOSED:
             self._positions.pop(pid, None)
-            # A HELD OPEN DIES WITH THE POSITION. Releasing it after the master is out would open the
-            # follower into a trade that no longer exists — and the CLOSE is dropped too, because an
-            # entry we never announced cannot be exited: the follower has nothing open, and a CLOSE
-            # row with no OPEN beside it is a record that reads like a failure.
-            was_held = self._awaiting_stop.pop(pid, None) is not None
-            if was_held:
-                log.info(f"[{self.master_id}] position {pid} closed while still waiting for its "
-                         f"stop — nothing was copied, so there is nothing to close")
-                return
             # Record the exit in closed_price; keep entry_price as the real entry (from
             # our prior snapshot when we have it). Emit CLOSE EVEN IF we never saw the
             # OPEN (e.g. it closed during the auth→reconcile window) — the dispatcher
@@ -301,83 +358,83 @@ class CTraderProvider:
             await self.on_event({"type": "CLOSE", "snap": snap}, self.master_id)
 
         elif status == ProtoOAPositionStatus.POSITION_STATUS_OPEN:
-            # ALREADY HELD, WAITING FOR ITS STOP. If the stop arrives on a live event — the broker
-            # attaching protection a moment after the fill — release the OPEN here rather than wait
-            # for the next reconcile. Without this branch the same event would be read as a MODIFY
-            # of a position the follower has not opened, which can only ever be skipped.
-            if pid in self._awaiting_stop:
-                self._positions[pid] = snap
-                if snap.stop_loss is not None:
-                    self._awaiting_stop.pop(pid, None)
-                    log.info(f"[{self.master_id}] position {pid} {snap.symbol}: stop "
-                             f"{snap.stop_loss} arrived on a live event — copying now")
-                    await self.on_event({"type": "OPEN", "snap": snap}, self.master_id)
-                return
-
             if prev is None:
                 self._positions[pid] = snap
-                # A FILL EVENT WITHOUT A STOP IS HELD, NOT EMITTED (2026-09-20). Emitting it is
-                # worse than waiting: risk-% sizing cannot size without the stop distance and the
-                # 3% per-trade cap cannot measure risk without it, so the copy is SKIPPED and the
-                # entry is lost for good. The stop IS readable from the position — the reconcile
-                # below carries it — so ask for it now and emit the OPEN complete. His five fills
-                # of 09-18 Sep all died here.
-                if snap.stop_loss is None:
-                    self._awaiting_stop[pid] = 0
-                    log.info(f"[{self.master_id}] position {pid} {snap.symbol} filled with no stop "
-                             f"on the event — asking the broker for it before copying")
-                    self._send_reconcile()
-                    return
-                await self.on_event({"type": "OPEN", "snap": snap}, self.master_id)
+                # THE MASTER'S ORDER ID TRAVELS WITH THE FILL, and the dispatcher needs it: if the
+                # follower already has a mirrored order resting at this price, that order fills BY
+                # ITSELF and sending a market order here would open the follower twice.
+                oid = event.order.orderId if event.HasField("order") else None
+                await self.on_event({"type": "OPEN", "snap": snap, "master_order_id": oid},
+                                    self.master_id)
             elif prev.stop_loss != snap.stop_loss or prev.take_profit != snap.take_profit:
                 self._positions[pid] = snap
                 await self.on_event({"type": "MODIFY", "snap": snap, "prev": prev}, self.master_id)
             else:
                 self._positions[pid] = snap   # volume/other change — track silently
 
-    # How many reconciles an OPEN waits for its stop before it is emitted without one. At the
-    # 30-second reconcile interval that is about a minute and a half — long enough for the broker to
-    # attach protection, short enough that a master who genuinely trades without stops still gets
-    # copied by the modes that do not need one, with an honest reason in the log if one does.
-    MAX_STOP_WAITS = 3
+    async def _handle_order(self, event) -> None:
+        """A master ORDER: placed, amended or cancelled. Emits nothing for anything else.
 
-    def _release_awaiting(self, fresh: dict[int, PositionSnapshot]) -> None:
-        """Emit the OPENs held back by `_handle_execution`, now that positions have been re-read.
-
-        THREE ENDINGS, and each one matters:
-          * the position now carries a stop  -> emit OPEN with it. This is the fix.
-          * it is gone from `fresh`          -> it closed before we could read it (his 16 Sep trade
-                                                lasted 1.2 seconds). Emit NOTHING: there is no trade
-                                                left to copy, and a late OPEN would open the follower
-                                                into a position the master has already exited.
-          * still no stop after MAX_STOP_WAITS -> emit it anyway. Waiting for ever would silently
-                                                drop every trade of a master who uses no stops.
+        WHY A FILL EMITS NOTHING HERE. When the master's order fills, the follower's own mirrored
+        order is resting at the same price and fills BY ITSELF — nothing needs to be sent. The
+        position path below records that fill. Emitting here as well would open the follower twice.
         """
-        for pid, waits in list(self._awaiting_stop.items()):
-            snap = fresh.get(pid)
-            if snap is None:
-                self._awaiting_stop.pop(pid, None)
-                log.info(f"[{self.master_id}] position {pid} closed before its stop could be read — "
-                         f"nothing copied, which is correct: the master is already out")
-                continue
-            if snap.stop_loss is not None:
-                self._awaiting_stop.pop(pid, None)
-                self._positions[pid] = snap
-                log.info(f"[{self.master_id}] position {pid} {snap.symbol}: stop {snap.stop_loss} "
-                         f"read from the broker — copying now")
-                asyncio.ensure_future(self.on_event({"type": "OPEN", "snap": snap}, self.master_id))
-                continue
-            self._awaiting_stop[pid] = waits + 1
-            if waits + 1 >= self.MAX_STOP_WAITS:
-                self._awaiting_stop.pop(pid, None)
-                self._positions[pid] = snap
-                log.warning(f"[{self.master_id}] position {pid} {snap.symbol}: still no stop after "
-                            f"{self.MAX_STOP_WAITS} reads — copying it WITHOUT one; risk-% sizing "
-                            f"and the per-trade risk cap will refuse it, and say so")
-                asyncio.ensure_future(self.on_event({"type": "OPEN", "snap": snap}, self.master_id))
+        et = event.executionType
+        kind = _ORDER_EVENT.get(et)
+        if kind is None or not event.HasField("order"):
+            return
+        order = event.order
+        if order.closingOrder:
+            return                      # the order that CLOSES a position — the position path owns it
+        try:
+            otype = ProtoOAOrderType.Name(order.orderType)
+        except ValueError:
+            return
+        if otype not in _ENTRY_ORDER_TYPES:
+            return                      # a stop-loss/take-profit is an order too — never mirrored
 
-    def _snap(self, pos) -> PositionSnapshot:
-        """A master position as a copy event.
+        snap = self._order_snap(order, otype)
+        if snap is None:
+            return
+        log.info(f"[{self.master_id}] order {snap.order_id} {snap.symbol} {snap.action} "
+                 f"{otype} @ {snap.price} sl {snap.stop_loss} tp {snap.take_profit} -> {kind}")
+        await self.on_event({"type": kind, "order": snap}, self.master_id)
+
+    def _order_snap(self, order, otype: str):
+        """A master order as a copy event. None when its size cannot be read, never a guess."""
+        td   = order.tradeData
+        spec = symbol_details.describe(
+            symbol_details.get(int(self.creds["ctraderId"]), td.symbolId))
+        if not spec["known"]:
+            self._want_spec(td.symbolId)
+        lots = lots_from_volume(spec, td.volume)
+        if lots <= 0:
+            log.warning(f"[{self.master_id}] order {order.orderId}: no contract spec yet — size "
+                        f"unreadable, nothing emitted")
+            return None
+        # WHERE IT RESTS depends on the kind: a stop order waits at `stopPrice`, a limit at
+        # `limitPrice`. A stop-limit carries both and the STOP price is the trigger.
+        price = float(order.stopPrice or 0.0) or float(order.limitPrice or 0.0)
+        return OrderSnapshot(
+            order_id    = order.orderId,
+            symbol      = self._symbols.get(td.symbolId, str(td.symbolId)),
+            action      = "BUY" if td.tradeSide == 1 else "SELL",
+            volume_lots = lots,
+            order_type  = otype,
+            price       = price,
+            stop_loss   = float(order.stopLoss)   if order.stopLoss   else None,
+            take_profit = float(order.takeProfit) if order.takeProfit else None,
+        )
+
+
+    def _snap(self, pos, order=None) -> PositionSnapshot:
+        """A master position as a copy event. `order`, when the message carries one, supplies the
+        protection the position does not have yet.
+
+        THE STOP IS ON THE ORDER AT THE MOMENT OF A FILL, NOT ON THE POSITION. That is the whole of
+        the 2026-09-20 defect: every one of the twelve master events on record read stop-less, so
+        risk-% sizing had no distance to size by, the per-trade cap had no risk to measure, and
+        every single copy was skipped. The number was on the same message the entire time.
 
         THE SIZE IS THE DANGEROUS FIELD. This read `td.volume / 100` with the comment "cTrader
         volume = centilots". It is not centilots — cTrader's own words are "Volume in cents (e.g.
@@ -410,8 +467,8 @@ class CTraderProvider:
             action      = "BUY" if td.tradeSide == 1 else "SELL",
             volume_lots = lots,
             entry_price = float(pos.price) if pos.price else 0.0,
-            stop_loss   = float(pos.stopLoss)   if pos.stopLoss   else None,
-            take_profit = float(pos.takeProfit) if pos.takeProfit else None,
+            stop_loss   = _protection(pos, order, "stopLoss"),
+            take_profit = _protection(pos, order, "takeProfit"),
         )
 
     def _want_spec(self, symbol_id: int) -> None:

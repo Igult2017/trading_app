@@ -154,23 +154,63 @@ Or via the UI toggle in the Trade Sync page.
 
 ## How trades are copied
 
-When the master executes a trade on cTrader:
+**A master's ORDER is mirrored as an order, not as a trade.** His instruction, 2026-09-21: *"it
+should mirror what is happening in master exactly."* An order that is placed and later cancelled
+without ever filling — which is most of what VIX.1 does — is copied as exactly that.
 
-1. **cTrader pushes** a `ProtoOAExecutionEvent` over the open TCP connection.
-2. The provider classifies the event:
-   - `executionType = 2` → position opened → `OPEN`
-   - `executionType = 3 or 4` → position closed → `CLOSE`
-   - SL/TP changed on an existing position → `MODIFY`
-3. **Dispatcher** fans out to all active followers of that master:
-   - Filters by symbol whitelist/blacklist
-   - Calculates lot size (`lot_calc.py`)
-   - Applies direction (same/reverse/hedge)
-   - Opens a short-lived TCP connection to the follower's cTrader account
-   - Sends the matching order (`ProtoOANewOrderReq` / `ProtoOAClosePositionReq` / `ProtoOAAmendPositionSLTPReq`)
-4. Up to **3 retries** with exponential back-off (2s, 4s, 8s) on failure.
-5. **Every execution** — success or failure — is recorded in `copy_execution_logs`.
+One `ProtoOAExecutionEvent` carries BOTH an `order` and a `position`, and the two are read
+separately, because a resting order has no position at all:
+
+| what the broker sends | what the follower does |
+|---|---|
+| `ORDER_ACCEPTED` | **PLACED** — an order of the master's own kind, at the master's own price, rests on the follower |
+| `ORDER_REPLACED` | **AMENDED** — the mirror is moved to match. Amended, never cancelled-and-replaced: between the two the follower holds nothing, and that gap is exactly when price runs to the entry |
+| `ORDER_CANCELLED` / `EXPIRED` / `REJECTED` | **CANCELLED** — the mirror comes off the book |
+| `ORDER_FILLED` (with a position) | **OPEN** — and **nothing is sent.** The follower's own order is resting at the same price, so it fills by itself; a market order here would open the follower a second time, at a price the master never took |
+| position closed | **CLOSE** |
+| SL/TP moved on a live position | **MODIFY** (this is how the breakeven ladder reaches the follower) |
+
+An order that is never mirrored: a `MARKET` order (it becomes a position at once), a
+`STOP_LOSS_TAKE_PROFIT` order (protection is not an entry), and any `closingOrder`.
+
+**Three different identifiers, and mixing them up acts on the wrong trade:**
+
+* the master's **order id** — what a follower's mirror is filed under, and what an amend or a
+  cancel is matched by. Never by symbol: a follower can hold several orders on one symbol.
+* the follower's **order id** — what is actually sent to the follower's broker to amend or cancel.
+* the **label** (`cp-<master order id>`, `mirror.mirror_label`) — the only field cTrader carries
+  from an order onto the position it becomes. Nothing listens to follower accounts, so when a
+  mirror fills this is the one thread back to it, and it is how the follower's POSITION id is found
+  so the copy can later be closed. No fallback to "the newest position on that symbol" — that guess
+  is wrong exactly when it matters, with two copies of one symbol resting at different prices.
+
+**Every gate runs when the mirror is PLACED**, not when it fills: the symbol filter, the session
+filter, the safety guards, risk-% sizing and the 3% per-trade cap. Placing first and checking later
+would put an order on the account that the follower's own limits say must never be taken, and by
+then it is the market's decision. Once the mirror is on the book the fill is simply recorded.
+
+Then, for every event: **up to 3 retries** with exponential back-off (2s, 4s, 8s) — except an
+entry, which is never retried, because a retry after an ambiguous failure could place a second live
+order. And **every execution, success or failure, is recorded in `copy_execution_logs`.**
+
+⚠ **Only cTrader can mirror a resting order.** The Binance, DXtrade and TradeLocker executors have
+open/close/modify and nothing else. A PLACED/AMENDED/CANCELLED for one of those followers is
+skipped with that reason in the log — never silently downgraded to a market order, which would
+enter a trade the master has only placed an order for.
 
 Total latency from master trade to follower order: **< 500ms** in normal conditions.
+
+### The stop must be on the copy, and it lives on the ORDER
+
+Risk-% sizing needs the distance to the stop and the per-trade cap needs the risk, so a trade with
+no stop cannot be copied at all. **At the moment of a fill the stop is on the `order`, not on the
+position** — `_protection()` in `providers/ctrader.py` reads the position first (it is the later
+truth once a stop has been moved) and falls back to the order. Protobuf reports an unset number as
+`0.0`, so `0.0` means "not set", never a real price.
+
+This is what broke copying for 19 days: the handler read `event.position`, returned when there was
+none, and every order event — the ones carrying the stop — was dropped at the door. All twelve
+master events on record read stop-less and every single copy was refused. See the fix log below.
 
 ---
 
@@ -269,17 +309,26 @@ _startup()
     │   └── CTraderProvider(master) ← one per active master
     │       ├── TCP connect to cTrader
     │       ├── ApplicationAuth → AccountAuth → ReconcileReq
-    │       └── on ProtoOAExecutionEvent:
+    │       └── on ProtoOAExecutionEvent:            ← carries an `order` AND a `position`
+    │             ├── _handle_order()   → PLACED / AMENDED / CANCELLED   (a resting order)
+    │             ├── _handle_execution → OPEN / CLOSE / MODIFY          (a position)
     │             └── dispatch(event, master_id)
     │                 ├── save copy_trades_master
     │                 └── for each follower:
+    │                     ├── mirror.record_fill_for()  ← a mirrored order that filled:
+    │                     │                                record it, SEND NOTHING
     │                     ├── get_ctrader_creds (+ refresh if needed)
     │                     ├── calc_lots / apply_direction / is_symbol_allowed
-    │                     └── CTraderExecutor.open/close/modify_position()
+    │                     └── CTraderExecutor
+    │                         ├── open / close / modify_position()       (a position)
+    │                         ├── place / amend / cancel_pending()       (a resting order)
+    │                         ├── find_position_by_label()               (read-only)
     │                         ├── one-shot TCP connect
     │                         ├── ApplicationAuth → AccountAuth
     │                         ├── send order
-    │                         └── await ProtoOAExecutionEvent (15s timeout)
+    │                         └── await ProtoOAExecutionEvent (20s timeout)
+    │                             └── ⚠ ORDER_CANCELLED CONFIRMS a cancel
+    │                                 and FAILS everything else
     └── _watch_loop()               ← polls DB every 60s for new masters
 ```
 
@@ -327,6 +376,53 @@ To add Binance, ByBit, or another platform:
 | `[CopyPlatform] CTRADER_CLIENT_ID not set — skipping` | Missing env vars | Add `CTRADER_CLIENT_ID` + `CTRADER_CLIENT_SECRET` to `.env` |
 | `[engine] cannot decrypt creds for master X` | Wrong `ENCRYPTION_KEY` | Ensure key matches `server/lib/crypto.ts` |
 | Provider never authenticates | Wrong `ctraderId` stored | Re-connect the account via the Accounts panel |
-| `Execution timed out after 15s` | cTrader API slow / order rejected | Check symbol name, account permissions, lot size limits |
+| `Execution timed out` (20s) | cTrader API slow / order rejected | Check symbol name, account permissions, lot size limits |
 | `Symbol XAUUSD filtered` | Blacklist match | Adjust `symbol_blacklist` on the follower row |
 | Copy platform restarts every 5s | Python import error | Check `[CopyPlatform] ERR:` lines in server log |
+| `Risk-% mode: can't size — the trade has no stop-loss` on EVERY trade | The stop was being read from the position, where it does not exist yet at a fill | **Fixed 2026-09-21** — see the fix log. If it returns, check `_protection()` is still reading `event.order` |
+| The master placed an order and the follower got nothing | Either no mirror was placed (read the SKIP reason — session, risk cap, symbol filter) or the follower's platform cannot rest an order | Only cTrader can mirror a resting order today |
+| `No resting follower order mirrors master order N` | The mirror was never placed, or was already cancelled | Not an error — the earlier PLACED row says why |
+| `CANCEL FAILED for follower order N` | The cancel exhausted its 3 retries | ⚠ **That order is still resting and will fill if price reaches it.** Cancel it by hand |
+| A mirror filled but `a later close will have to be done by hand` | The follower's position could not be identified by its label | The OPEN row has no `external_id`; close that position manually |
+
+---
+
+## Fix log
+
+### 2026-09-21 — a resting order is mirrored; the stop is read from the order it arrives on
+
+**What he saw.** *"if it was working then it would have copied that trade which was not filled and
+later cancelled because it should mirror what is happening in master exactly."* His XAU/USD order
+of 21 Sep was placed at 12:07 and cancelled at 12:10 without ever filling, and the follower saw
+nothing. Separately, the record showed **12 activity rows, all SKIP, 0 follower trades** — copy
+trading had never copied anything at all, in 19 days.
+
+**Two symptoms, ONE root cause**, and it was three lines in `providers/ctrader.py`:
+
+```python
+pos = event.position if event.HasField("position") else None
+if pos is None:
+    return
+```
+
+A resting order has no position, so **every order event was discarded at the door** — accepted,
+amended, cancelled, expired, rejected. That is the whole of symptom one. And symptom two followed
+from it: VIX.1 attaches the stop when it PLACES the order, so the stop rides on those same
+discarded events. By the time a fill produced a position the stop was not on it, risk-% sizing had
+no distance to size by, the per-trade cap had no risk to measure, and every copy was refused.
+
+**What was deleted, so it is not rebuilt.** A first fix on 2026-09-20 held the entry back, asked the
+broker again, and waited up to three reconciles for the stop to turn up on the position
+(`_awaiting_stop`, `MAX_STOP_WAITS`, `_release_awaiting`). It was aimed at the wrong layer — it was
+chasing a number that was already in hand, on the same message. All of it is gone.
+
+**What was built:** `_handle_order` and `_order_snap` on the listening end; `place_pending`,
+`amend_pending`, `cancel_pending` and `find_position_by_label` on the acting end; `mirror.py` for
+the matching and for the fill that sends nothing; `_protection()` for the stop.
+
+**Measured:** the copy suite is 10 files and 227 checks, all passing
+(`python copy_platform/tests/run_all.py`). `test_stop_before_copy.py` was rewritten against the new
+mechanism rather than deleted — the requirement it protects is still real, only the mechanism
+changed. **Not yet proved on his live accounts**, which is the only proof that counts: place a
+VIX.1 order on the master, watch for a resting mirror on the slave, then confirm both endings —
+a fill that sends no second order, and a cancel that takes the mirror off the book.

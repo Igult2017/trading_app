@@ -17,8 +17,8 @@ from ctrader_open_api.messages.OpenApiMessages_pb2 import (
     ProtoOAAccountAuthReq, ProtoOAAccountAuthRes,
     ProtoOASymbolsListReq, ProtoOASymbolsListRes,
     ProtoOASymbolByIdReq, ProtoOASymbolByIdRes,
-    ProtoOANewOrderReq, ProtoOAClosePositionReq,
-    ProtoOAAmendPositionSLTPReq, ProtoOAExecutionEvent,
+    ProtoOANewOrderReq, ProtoOAClosePositionReq, ProtoOACancelOrderReq,
+    ProtoOAAmendOrderReq, ProtoOAAmendPositionSLTPReq, ProtoOAExecutionEvent,
     ProtoOAReconcileReq, ProtoOAReconcileRes,
 )
 from ctrader_open_api.messages.OpenApiModelMessages_pb2 import ProtoOAOrderType, ProtoOAExecutionType
@@ -36,6 +36,12 @@ _FILLED_TYPE = ProtoOAExecutionType.ORDER_FILLED
 _FAIL_TYPES  = {getattr(ProtoOAExecutionType, n)
                 for n in ("ORDER_REJECTED", "ORDER_CANCELLED", "ORDER_EXPIRED")
                 if hasattr(ProtoOAExecutionType, n)}
+# A RESTING ORDER IS CONFIRMED BY ITS ACCEPTANCE — there is no fill to wait for, and waiting for one
+# would time out every mirror of an order that has not been reached yet. An amend comes back as
+# REPLACED; brokers have been seen to answer it with a plain ACCEPTED instead, so both are taken.
+_ORDER_OK = {getattr(ProtoOAExecutionType, n)
+             for n in ("ORDER_ACCEPTED", "ORDER_REPLACED")
+             if hasattr(ProtoOAExecutionType, n)}
 
 # Canonical (telegram-side) symbol -> equivalent broker spellings. Used ONLY as a
 # fallback when the exact canonical name is absent from the follower's symbol list;
@@ -149,6 +155,61 @@ class CTraderExecutor:
         self._pending_cmd = ("modify", position_id, sl, tp)
         return await self._run()
 
+    async def place_pending(self, symbol: str, action: str, volume_lots: float,
+                            order_type: str, price: float,
+                            sl: float | None, tp: float | None,
+                            label: str = "") -> ExecResult:
+        """Mirror a RESTING order — the master's own kind, at the master's own price.
+
+        WHY THIS EXISTS AND `open_position` DOES NOT COVER IT. His words, 2026-09-21: *"it should
+        mirror what is happening in master exactly."* A market order sent when the master merely
+        PLACED one enters immediately at a price the master never took, and — the case he watched —
+        when the master's order is cancelled unfilled there is nothing on the follower to cancel,
+        because the follower is already in a trade. So the order is mirrored as an order.
+
+        `external_id` comes back as the follower's ORDER id, which is what a later cancel needs.
+
+        `label` IS HOW THE POSITION IS FOUND AGAIN LATER. An order id and a position id are
+        different numbers, and when this order fills the broker sends us nothing — it is the
+        follower's account, which nothing listens to. The label is the one field that travels from
+        the order onto the position it becomes (`ProtoOATradeData.label`), so it is what
+        `find_position_by_label` matches on when the copy has to be closed.
+        """
+        self._pending_cmd = ("place", symbol, action, volume_lots, order_type, price, sl, tp, label)
+        return await self._run()
+
+    async def find_position_by_label(self, label: str) -> ExecResult:
+        """The follower's open position carrying this label, or a failure naming the label.
+
+        Read-only: it sends a reconcile and matches, and places nothing.
+        """
+        self._pending_cmd = ("find", label)
+        return await self._run()
+
+    async def amend_pending(self, order_id: int, order_type: str, price: float,
+                            sl: float | None, tp: float | None) -> ExecResult:
+        """The master moved a resting order — move the mirror to match.
+
+        AMENDED, NOT CANCELLED-AND-REPLACED. Between a cancel and a new order the follower holds
+        nothing, and that gap is exactly when price runs to the entry: the master would be filled
+        and the follower would have no order left to fill. One amend has no such gap.
+
+        ⚠ EVERY FIELD IS SENT EVERY TIME, and that is deliberate — cTrader's amend REPLACES the
+        order rather than patching it, so a field left out is a field CLEARED. Omitting `takeProfit`
+        deletes the target (`reference-ctrader-amend`); it has bitten this codebase before.
+        """
+        self._pending_cmd = ("amend", order_id, order_type, price, sl, tp)
+        return await self._run()
+
+    async def cancel_pending(self, order_id: int) -> ExecResult:
+        """Cancel a resting mirror order, by the follower's OWN order id — never by symbol.
+
+        A follower can hold several orders on one symbol; cancelling "the XAUUSD one" would cancel
+        whichever came back first. The id is the one recorded when the mirror was placed.
+        """
+        self._pending_cmd = ("cancel", order_id)
+        return await self._run()
+
     # ── Internal ───────────────────────────────────────────────────────────────
 
     async def _run(self) -> ExecResult:
@@ -193,8 +254,12 @@ class CTraderExecutor:
             # missing side; only when BOTH fields are supplied do we skip reconcile
             # and send straight away (the cTrader live-copy path, unchanged).
             # Close uses a positionId → send straight away.
-            if self._pending_cmd and self._pending_cmd[0] in ("open", "close"):
+            if self._pending_cmd and self._pending_cmd[0] in ("open", "close", "place"):
                 req = ProtoOASymbolsListReq()
+                req.ctidTraderAccountId = int(self.creds["ctraderId"])
+                client.send(req)
+            elif self._pending_cmd and self._pending_cmd[0] == "find":
+                req = ProtoOAReconcileReq()
                 req.ctidTraderAccountId = int(self.creds["ctraderId"])
                 client.send(req)
             elif self._modify_needs_reconcile():
@@ -222,8 +287,11 @@ class CTraderExecutor:
             self._send_command(client)
 
         elif ptype == ProtoOAReconcileRes().payloadType:
-            # Back-fill any missing SL/TP from the live position so None = unchanged.
             res = Protobuf.extract(message)
+            if self._pending_cmd and self._pending_cmd[0] == "find":
+                self._resolve(self._match_label(res, self._pending_cmd[1]))
+                return
+            # Back-fill any missing SL/TP from the live position so None = unchanged.
             self._backfill_modify(res)
             self._send_command(client)
 
@@ -234,7 +302,30 @@ class CTraderExecutor:
             if event.HasField("errorCode") and event.errorCode:
                 self._resolve(ExecResult(ok=False, error=f"cTrader: {event.errorCode}"))
                 return
-            # 2. Rejected / cancelled / expired → fail now (don't hang until timeout),
+            verb = self._pending_cmd[0] if self._pending_cmd else ""
+            # 2. WHAT COUNTS AS SUCCESS DEPENDS ON WHAT WAS ASKED, and getting this backwards is
+            #    silent: a CANCEL is CONFIRMED by ORDER_CANCELLED, which is a failure for every
+            #    other verb. Read as a failure it would report "cTrader: ORDER_CANCELLED" on a
+            #    cancel that worked perfectly, and the follower's row would be left saying the
+            #    mirror is still resting when the broker had already taken it off the book.
+            if verb == "cancel":
+                if et == ProtoOAExecutionType.ORDER_CANCELLED:
+                    self._resolve(ExecResult(ok=True, external_id=str(event.order.orderId)
+                                             if event.HasField("order") else None))
+                    return
+            #    A PLACED or AMENDED order is CONFIRMED BY ITS ACCEPTANCE, not by a fill — the fill
+            #    may be hours away or never come, and waiting for one would time out every mirror.
+            elif verb in ("place", "amend"):
+                if et in _ORDER_OK and event.HasField("order"):
+                    order = event.order
+                    self._resolve(ExecResult(
+                        ok          = True,
+                        external_id = str(order.orderId),
+                        entry_price = float(order.stopPrice or 0.0) or
+                                      float(order.limitPrice or 0.0) or None,
+                    ))
+                    return
+            # 3. Rejected / cancelled / expired → fail now (don't hang until timeout),
             #    even when no errorCode is set (the reason often lives in the order).
             if et in _FAIL_TYPES:
                 try:
@@ -243,7 +334,7 @@ class CTraderExecutor:
                     reason = str(et)
                 self._resolve(ExecResult(ok=False, error=f"cTrader: {reason}"))
                 return
-            # 3. Only a genuine FILL (with a position) confirms success. Intermediate
+            # 4. Only a genuine FILL (with a position) confirms success. Intermediate
             #    events (ORDER_ACCEPTED / PARTIAL) are ignored — wait for the fill.
             if et == _FILLED_TYPE and event.HasField("position"):
                 pos = event.position
@@ -253,13 +344,27 @@ class CTraderExecutor:
                     entry_price = float(pos.price) if pos.price else None,
                 ))
 
+    def _match_label(self, reconcile_res, label: str) -> ExecResult:
+        """The open position carrying `label`. An exact match only — never a near one.
+
+        NO FALLBACK TO "the newest position on that symbol", deliberately. That guess is wrong
+        exactly when it matters most: two copies of the same symbol resting at different prices, of
+        which one filled. Closing the wrong one would leave the intended trade open and close a
+        trade nobody asked to close. An honest failure is recoverable; a wrong position id is not.
+        """
+        for pos in reconcile_res.position:
+            if (pos.tradeData.label or "") == label:
+                return ExecResult(ok=True, external_id=str(pos.positionId),
+                                  entry_price=float(pos.price) if pos.price else None)
+        return ExecResult(ok=False, error=f"no open position labelled {label!r}")
+
     def _cmd_symbol_id(self) -> int | None:
         """symbolId for a pending OPEN or CLOSE, once the light list has resolved it. Both need it:
         the open to size the entry, the close to size the exit."""
         cmd = self._pending_cmd
         if not cmd:
             return None
-        if cmd[0] == "open":
+        if cmd[0] in ("open", "place"):
             return resolve_symbol_id(cmd[1], self._symbol_map)
         if cmd[0] == "close" and len(cmd) > 3 and cmd[3]:
             return resolve_symbol_id(cmd[3], self._symbol_map)
@@ -360,4 +465,57 @@ class CTraderExecutor:
             req.positionId          = int(pos_id)
             if sl: req.stopLoss   = sl
             if tp: req.takeProfit = tp
+            client.send(req)
+
+        elif cmd[0] == "place":
+            _, symbol, action, lots, order_type, price, sl, tp, label = cmd
+            symbol_id = resolve_symbol_id(symbol, self._symbol_map)
+            if symbol_id is None:
+                self._resolve(ExecResult(ok=False, error=f"Symbol {symbol} not on follower account"))
+                return
+            try:
+                otype = ProtoOAOrderType.Value(order_type)
+            except ValueError:
+                self._resolve(ExecResult(ok=False, error=f"unknown order type {order_type!r}"))
+                return
+            volume, refusal = self._volume(symbol, lots)
+            if refusal:
+                self._resolve(ExecResult(ok=False, error=refusal))
+                return
+            req = ProtoOANewOrderReq()
+            req.ctidTraderAccountId = acct_id
+            req.symbolId            = symbol_id
+            req.orderType           = otype
+            req.tradeSide           = 1 if action == "BUY" else 2
+            req.volume              = volume
+            # WHICH PRICE FIELD depends on the kind, and putting it in the wrong one does not error
+            # — the broker rests the order somewhere else. A STOP waits at `stopPrice`, a LIMIT at
+            # `limitPrice`, and a STOP_LIMIT carries both with the STOP as the trigger.
+            if order_type in ("STOP", "STOP_LIMIT"):
+                req.stopPrice = price
+            if order_type in ("LIMIT", "STOP_LIMIT"):
+                req.limitPrice = price
+            if sl: req.stopLoss   = sl
+            if tp: req.takeProfit = tp
+            if label: req.label = label[:100]     # cTrader caps the label; truncate, never drop it
+            client.send(req)
+
+        elif cmd[0] == "amend":
+            _, order_id, order_type, price, sl, tp = cmd
+            req = ProtoOAAmendOrderReq()
+            req.ctidTraderAccountId = acct_id
+            req.orderId             = int(order_id)
+            if order_type in ("STOP", "STOP_LIMIT"):
+                req.stopPrice = price
+            if order_type in ("LIMIT", "STOP_LIMIT"):
+                req.limitPrice = price
+            if sl: req.stopLoss   = sl
+            if tp: req.takeProfit = tp
+            client.send(req)
+
+        elif cmd[0] == "cancel":
+            _, order_id = cmd
+            req = ProtoOACancelOrderReq()
+            req.ctidTraderAccountId = acct_id
+            req.orderId             = int(order_id)
             client.send(req)

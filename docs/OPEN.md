@@ -3557,16 +3557,67 @@ reconcile does, and the reconcile branch deliberately stays silent for a positio
 (`providers/ctrader.py`, *"do NOT emit OPEN — avoids double-copying"*). So the stop arrived and was
 discarded, sizing had nothing to work with, and the entry was lost.
 
-**Fixed:** an OPEN with no stop is HELD, the broker is asked for the position at once, and the OPEN is
-emitted complete. Three endings, all tested: the stop arrives (copy it), the position closes first
-(copy nothing — and no phantom CLOSE either), or three reads pass with no stop (copy it anyway, and
-say so). `copy_platform/tests/test_stop_before_copy.py`.
+⚠ **THAT DIAGNOSIS WAS RIGHT ABOUT THE SYMPTOM AND WRONG ABOUT THE LAYER — see C-COPY2, which
+supersedes this entry.** The 20 Sep fix held the entry back and asked the broker again for a stop
+that was already in a message the engine had thrown away. All of it — `_awaiting_stop`,
+`MAX_STOP_WAITS`, `_release_awaiting` — was **deleted on 2026-09-21**. Do not rebuild it.
 
-**Also added:** `lot_mode = 'proportional'` — the follower risks the same PERCENTAGE the master
-risked, against its own balance. The stop cancels out of that arithmetic, leaving the balance ratio,
-so it sizes trades that risk-% mode cannot.
+**Also added (and kept):** `lot_mode = 'proportional'` — the follower risks the same PERCENTAGE the
+master risked, against its own balance. The stop cancels out of that arithmetic, leaving the balance
+ratio, so it sizes trades that risk-% mode cannot.
 
-**NOT proven yet:** no live fill has been watched through this connection. The reading above comes
-from 11 stop-less events with no MODIFY, not from observing one. **Read the diagnostics after the
-first trade following Sunday 22:00 UTC** — a master trade carrying a stop and a follower row with
-`status=executed` is the proof.
+### C-COPY2 — a resting ORDER was never copied at all, and that is why the stop went missing. FIXED 2026-09-21, NOT YET PROVEN LIVE
+
+**What he saw:** *"If it was working then it would have copied that trade which was not filled and
+later cancelled because it should mirror what is happening in master exactly."* His XAU/USD order of
+21 Sep was placed 12:07 and cancelled 12:10 without ever filling; the follower saw nothing. The
+record showed **12 activity rows, all SKIP, 0 follower trades.**
+
+**Two symptoms, ONE root cause — three lines** in
+[`providers/ctrader.py`](../copy_platform/providers/ctrader.py):
+
+```python
+pos = event.position if event.HasField("position") else None
+if pos is None:
+    return
+```
+
+**A resting order has no position**, so every order event was discarded at the door — accepted,
+amended, cancelled, expired, rejected. That is symptom one outright. Symptom two follows from it:
+VIX.1 attaches the stop when it PLACES the order
+([`execution/orders.py:96`](../signal_platform/execution/orders.py#L96)), so the stop rides on those
+same discarded events. **At the moment of a fill the stop is on the `order`, not on the position** —
+and the order is on the very same message the handler was already holding.
+
+**Built:**
+
+| where | what |
+|---|---|
+| `providers/ctrader.py` | `_handle_order` / `_order_snap` read order events; `_protection()` reads the stop from the position first, then the order |
+| `executors/ctrader.py` | `place_pending`, `amend_pending`, `cancel_pending`, `find_position_by_label`; `orderType` is no longer hard-coded to MARKET |
+| `mirror.py` (new) | matching a mirror to its master order, and the fill that **sends nothing** |
+| `dispatcher.py` | PLACED / AMENDED / CANCELLED through the same gates and sizing as an entry |
+
+**Three traps worth knowing, each of which is silent when wrong:**
+1. **`ORDER_CANCELLED` CONFIRMS a cancel and FAILS everything else.** Read as a failure it would
+   report a perfect cancel as broken and leave the row saying the mirror is still resting.
+2. **An order id, a position id and the label are three different numbers.** A mirror is matched to
+   its master by the master's ORDER id; the follower's own ORDER id is what gets cancelled; the
+   LABEL (`cp-<master order id>`) is the only field cTrader carries onto the position, so it is how
+   the follower's POSITION id is found when a mirror fills. Nothing listens to follower accounts.
+3. **A fill must send nothing.** The follower's own order is already resting at that price.
+
+**Measured:** `copy_platform/tests/run_all.py` — 10 files, 227 checks, all pass.
+`test_stop_before_copy.py` was rewritten against the new mechanism (the requirement is still real,
+only the mechanism changed); `test_order_mirror.py` and `test_mirror_fill.py` are new.
+
+**NOT PROVEN LIVE, and that is the only proof that counts.** No live order has been watched through
+this connection. The check: place a VIX.1 order on the master, then confirm **a PLACED row naming
+the slave account**, and then BOTH endings — a fill that produces an OPEN row with no second order
+sent, and a cancel that produces a CANCELLED row. A SKIP row instead of a PLACED row means a gate
+refused it, and the row says which.
+
+**Known gap, stated so it is not assumed:** only cTrader can mirror a resting order. Binance,
+DXtrade and TradeLocker followers skip PLACED/AMENDED/CANCELLED with that reason logged — never
+silently downgraded to a market order. Cross-broker (Hola Prime) is separately deferred: each
+broker's minimum stop distance (`slDistance` / `tpDistance`) is not read or enforced yet.
