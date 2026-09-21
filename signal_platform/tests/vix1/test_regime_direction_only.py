@@ -117,29 +117,24 @@ s.check("...his three 03 Sep hours still carry a BUY — 11:00, 12:00 and 16:00 
 # back no longer holds its trend, so the downtrend that preceded his buys is read differently.
 # Before that rule this window produced exactly the three buys and nothing else.
 #
-# 2026-09-21: HIS LIQUIDITY-VOID RULE TOOK THE 06:00 ONE BACK OFF, and that is the rule working, not
-# a regression. *"can we have a logic that lets the price move 2 candles one closing on top of each
-# other with direction before we consider taking trades in the direction of that long candle"* — at
-# 06:00 the long candle IS the trigger candle (12.4 pips, nothing has closed after it), so his rule
-# says wait for the second. The 00:00 sell is untouched: it is the first momentum candle after the
-# trend was established, which is his ONE-candle proof trade and the void rule stands aside for it
-# (`vix1_void.proves_the_turn`). One sell each way is the whole point of his 2026-09-21 ruling that
-# these are two different scenarios.
+# ⚠ 2026-09-21, A ROUND TRIP WORTH RECORDING: for one day the void rule refused the 06:00 sell and
+# this file said so. It refused it because that build called the TRIGGER CANDLE ITSELF a void — a
+# 12.4-pip candle with nothing closed after it. A void is a BAND of price left by a move, so a
+# candle can never be its own void, and both sells are back. This assertion is now the regression
+# test for that: if 06:00 disappears again, the void module has gone back to measuring candles.
 _sells = [(d, bull) for d, bull in fired if not bull]
-s.check("...plus ONE SELL on 02 Sep 00:00 — his proof trade, which the void rule stands aside for",
-        len(_sells), 1)
-s.check("...and the 06:00 sell is refused — the long candle IS the trigger, so his rule waits for "
-        "a second momentum candle",
-        [d.strftime("%H:%M") for d, bull in _sells], ["00:00"])
-s.check("four hours in this window carry a bias (three buys, one sell)", len(fired), 4)
+s.check("...plus two SELLs on 02 Sep, which his 16 Sep rule adds", len(_sells), 2)
+s.check("...and 06:00 is one of them — a candle can never be its own void",
+        sorted(d.strftime("%H:%M") for d, bull in _sells), ["00:00", "06:00"])
+s.check("five hours in this window carry a bias (three buys, two sells)", len(fired), 5)
 
 fired_default = fired_with(False)
 s.check("by DEFAULT (shortcut off since 2026-09-14) his three BUYs trade nothing — the turn up has "
         "not yet run, pulled back and turned back up",
         [d for d, bull in fired_default if bull], [])
-s.check("...and only the 02 Sep proof sell remains, which needs no shortcut", len(fired_default), 1)
+s.check("...and only the two 02 Sep sells remain, which need no shortcut", len(fired_default), 2)
 s.teeth("the shortcut switch is what decides the BUYs",
-        len(fired) == 4 and len(fired_default) == 1)
+        len(fired) == 5 and len(fired_default) == 2)
 
 
 # ── THE CONTROL: a market where the sides DISAGREE is still refused ────────

@@ -133,17 +133,6 @@ def _upto(window: list[Candle], h1: list[Candle], mc_idx: int) -> list[Candle]:
     return window[:pos + 1] if 0 <= pos < len(window) else window
 
 
-def _h1_index(h1: list[Candle], base: list[Candle], k: int) -> int:
-    """Lift index `k` in a window that is a slice of `h1` up to its index in `h1` itself.
-
-    Found by the bar's TIME rather than by arithmetic on lengths, because the two windows here end
-    at different bars (`window` at the latest, `at_mc` at the momentum candle) and `_upto` above
-    can hand back either. The scan runs backwards and stops within a few bars in every real case.
-    """
-    end = next((j for j in range(len(h1) - 1, -1, -1) if h1[j].time == base[-1].time), len(h1) - 1)
-    return end - (len(base) - 1) + k
-
-
 def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "", debut=None) -> Bias | None:
     """
     Returns a `Bias`, or None when no trade may be taken.
@@ -448,39 +437,22 @@ def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "", debut=None
         # 1,800 bars, so on the 1,500-bar trend window the SAME candle can be judged differently.
         # Everything that asks a momentum question here gets the long window.
         #
-        # AND IT IS SCOPED TO THE SCENARIO HE GAVE IT FOR — his ruling of 2026-09-21, the whole of
-        # `vix1_void.proves_the_turn`: the first momentum candle after a trend is established is the
-        # trade his 2026-08-25 proof sequence takes, and it keeps ONE candle. Everything after it is
-        # joining a move already under way, and that keeps TWO. Unscoped, this refused his own proof
-        # sell and its mirror.
+        # NO SCOPE, NO EXCEPTIONS, AND THAT IS HIS RULING OF 2026-09-21: *"The two candle rule is for
+        # liquidity void setups... Don't confuse it with the candle rules that existed before and
+        # that is why I said you integrate not patch."* An earlier build stood this aside for the
+        # first momentum candle after a turn, to stop it refusing his own 2026-08-25 proof sell.
+        # That was patching one rule around another. With a void defined as a BAND, a proof candle
+        # is not in a void setup at all, so the clash does not arise and the patch is deleted.
         #
-        # MEASURED AS SHIPPED — the real module, his scope applied, 190 real fills, entry and stop
-        # unchanged (`trading_app_data/tools/vix1_void_scoped.py`):
-        #
-        #     allowed   77 trades   -8.7 R   11 winners +17.3 R   26 losers -26.0 R   loss rate 34%
-        #     refused  113 trades  -22.2 R   15 winners +26.8 R   49 losers -49.0 R   loss rate 43%
-        #     the year: -30.9 R -> -8.7 R
-        #
-        # IT THROWS AWAY 15 WINNERS WORTH +26.8 R. It does not find better trades — it cuts the
-        # number of trades by 59% and the losses with them. It stops the bleeding; it does NOT make
-        # VIX.1 profitable, and nothing here should be read as saying it does.
-        #
-        # ⚠ AND THE SCOPE HAS A PRICE, reported to him rather than buried: the 39 proof trades this
-        # stands aside for are the WORST group on the year, -10.1 R, -0.26 R each. His rule, his
-        # call, but it is not free.
-        # WHICH WINDOW `direction_since` COUNTS IN DEPENDS ON WHICH STATE WE GOT. `t_mc` was read on
-        # `at_mc`, which ends at the momentum candle; the fallback `tstate` was read on `window`,
-        # which ends at the latest bar. Lifting with the wrong one silently scans the wrong stretch
-        # of history, so the base is chosen rather than assumed.
-        _base = at_mc if mstate is t_mc else window
-        _ds = (None if mstate.direction_since is None
-               else _h1_index(h1, _base, mstate.direction_since))
-        void_veto = (None if vix1_void.proves_the_turn(awake_window, mc_idx, _ds, bullish, symbol)
-                     else vix1_void.not_filling(awake_window, mstate.protected, bullish, symbol))
+        # ⚠ THE COST IS NOT MEASURED YET. The numbers that used to sit here (77 allowed / 113
+        # refused, the year -30.9R -> -8.7R) belonged to the one-candle definition and are GONE with
+        # it — they were never evidence for his rule. Re-measuring needs his approval, because it is
+        # a backtest. Until he gives it, what is proved here is that the rule is CORRECT, not what
+        # it COSTS.
         for veto in (trend_reproven(mstate, turns_mc, ret),
                      vix1_retracement.wait_after_pullback(at_mc, 1 if bullish else -1),
                      market_awake(awake_window, mstate, ret, symbol, _QUIET_LOOK),
-                     void_veto):
+                     vix1_void.not_filling(awake_window, mstate.protected, bullish, symbol)):
             if veto:
                 vix1_log.say(symbol, f"[vix1] {symbol} bias=NONE: {veto} | {state_mc}")
                 return None

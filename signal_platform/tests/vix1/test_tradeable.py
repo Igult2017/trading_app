@@ -122,14 +122,14 @@ print("   the choppy case — all three still open (D42, chop rule unbuilt):")
 # silently.
 s.check("   2026-08-03 18:00 no longer trades — his 16 Sep pullback rule refuses it",
         fires("2026-08-03 18:00"), False)
-# 2026-09-21: HIS LIQUIDITY-VOID RULE CLOSED A SECOND ONE. 2026-08-05 14:00 is refused because the
-# long candle that made the leg has not been confirmed by two momentum candles — *"lets the price
-# move 2 candles one closing on top of each other with direction before we consider taking trades in
-# the direction of that long candle"*. Again an entry-timing rule, not a chop rule: the chop gap
-# (D42) is still open and 17:00 still trades, so nothing closes silently.
-s.check("   2026-08-05 14:00 no longer trades — his 20 Sep void rule wants a second momentum candle",
-        fires("2026-08-05 14:00"), False)
-s.check("   2026-08-05 17:00 STILL trades (known gap)", fires("2026-08-05 17:00"), True)
+# ⚠ 2026-09-21, A ROUND TRIP WORTH RECORDING: for one day the void rule closed 2026-08-05 14:00 and
+# this file said so. It closed it for the WRONG REASON — that build called a single momentum candle
+# a "void", so it refused almost everything, including 47% of cases that were not voids at all. With
+# a void defined as a BAND of price (his real rule), 14:00 has no void near it and trades again. The
+# gap is open, not closed, and it is listed as one: a test that claims a gap is shut when it is not
+# is worse than no test.
+for w in ("2026-08-05 14:00", "2026-08-05 17:00"):
+    s.check(f"   {w} STILL trades (known gap)", fires(w), True)
 
 
 # ── THE RULE ASKED DIRECTLY ───────────────────────────────────────────────

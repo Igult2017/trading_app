@@ -285,7 +285,38 @@ red self-test that everyone steps around is how a real regression gets missed: t
 break something here will see two failures and assume they are the usual two.
 
 
-### B31 - The liquidity void's ANCHOR picks the wrong candle, so his branch C is switched off. NEEDS HIS RULING
+### B32 - His void rule and his 2026-08-25 proof rule disagree by one candle when the change of character IS the void. NEEDS HIS RULING
+
+**Found 21 Sep 2026 while rebuilding the void as a zone.** Both rules are his, four weeks apart, and
+they overlap on one shape:
+
+* **2026-08-25, the proof rule:** *"price breaks down through the old higher low -> it runs down ->
+  it pulls back up -> when that pullback turns back down, that's the proof -> then A MOMENTUM CANDLE
+  down is the trade."* **One** candle.
+* **2026-09-20, the void rule:** *"...two candles one closing on top of each other with direction
+  before we consider taking trades in the direction of that long candle."* **Two** candles.
+
+**When they meet:** if the candle that breaks structure is itself big enough to leave a void, then
+the pullback that proves the turn is also price filling that void. In
+`test_choch_bearish_proof.py`'s fixture the break is a 14x displacement candle, so his proof sell
+sits **37% inside a genuine 58.5-pip void** - his proof rule takes it, his void rule waits for a
+second candle. Three assertions in that file are red because of it, both directions.
+
+**How often it actually happens:** over 2.5 months of real EUR/USD bars the void rule refused **6
+trades, all ordinary continuations, ZERO proof trades**. So this is a rare shape, not a daily one -
+but it is real, not a fixture artefact.
+
+**His options, and nothing ships until he picks one:**
+* **(A)** the void rule wins where both apply - his proof trade simply waits for the second momentum
+  candle. Stricter, matches his void words literally, and measured to cost nothing in 2.5 months.
+* **(B)** the proof rule wins - the void rule stands aside for the first momentum candle after a
+  confirmed turn-back. This is what was built on 20 Sep and he called it patching; with a correct
+  void definition it would now fire far more rarely.
+
+**Not decided here.** An earlier attempt to settle it without him is exactly what he objected to.
+
+
+### B31 - ~~The liquidity void's ANCHOR picks the wrong candle~~ ANCHOR FIXED 21 Sep (rebuilt as a zone); branch C still off
 
 **Found 21 Sep 2026 by measuring what shipped.** His branches A and B (don't trade in the long
 candle's direction while price is filling it) are **ON** and work on his own bars. His **branch C** —

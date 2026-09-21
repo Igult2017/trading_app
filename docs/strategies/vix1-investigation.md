@@ -1912,3 +1912,61 @@ has not given, so none was invented. `OPEN.md` **B31**.
 quoted in the backtest section above counted **any** break within 48 hours, with no fill required.
 With his condition applied it is **23%** on both pairs; the other ~21% broke the level without price
 coming back at all, which is not the case he described.
+
+### THE VOID REBUILT AS A ZONE, AND WHAT THE RESEARCH SETTLED (2026-09-21)
+
+**His correction:** *"Can you research what a void is? A void is made of candles that are more than
+twice bigger than the momentum candle. Please do some research on a liquidity void and FVG candles
+because you are likely to confuse the two. Also get the images and if possible research github repos
+on how it is coded."* And, on being told the 20 Sep build could not reproduce his image 2: *"My
+example is not the only source of truth. I was just trying to tell you how voids look like."*
+
+He also made searching a standing rule: *"make search online a rule and a very important rule.
+Search on both github and google."*
+
+**WHAT THE RESEARCH SETTLED, and it answered a question I had been about to ask him:**
+
+| | fair value gap (FVG) | liquidity void |
+|---|---|---|
+| size | exactly **3 candles** | **many candles** — big bodies, small wicks, little pullback between |
+| shape | one small gap | a **wide band**, often several FVGs stacked inside it |
+| measured | the gap between candle 1 and candle 3 | the **width of the whole untraded band** |
+
+The standard calls a displacement candle *"at least two to three times the average candle body
+size"* — which is what VIX.1's momentum candle already is (2.5x the 100-bar median). So his *"more
+than twice bigger than the momentum candle"* is **more than 5x the median body**, and my reading was
+right — but checked rather than guessed, which is the point of the new rule.
+
+**How real code does it:** `minGapSize := ta.atr(14)` in sonnyparlin/fvg_pinescript (the GAP, not the
+candle, must clear one ATR); a width-versus-ATR filter in LuxAlgo's Liquidity Voids; gap width as a
+percent of price in CedInvest/sm-radar-pine; and in joshyattridge/smart-money-concepts,
+`join_consecutive` merges consecutive gaps into one zone using the highest top and lowest bottom —
+the mechanic that makes a void span candles, and the one the 20 Sep build had no equivalent of.
+
+**WHAT WAS WRONG, measured on his 190 real fills before anything was rewritten:** 47% of the "voids"
+the module picked were not voids by his bar, and **23% of the time the "void" was the very candle
+being traded**. Sizes ran 2.6x–21.4x the median where his bar is 5x. That is why it refused 59% of
+his trades, and why **the −8.7R figure it produced is withdrawn** — it measured the wrong rule.
+
+**PROVED ON HIS OWN BARS.** Real H1 candles were pulled for 16–18 Sep 2026 so his complaint could be
+replayed offline (`EURUSD_H1_sep18.csv`, 1,387 bars, 01 Jul → 18 Sep):
+
+| | |
+|---|---|
+| 16 Sep 18:00 | the 67.5-pip drop — its own sell is **allowed**, there is no void behind it yet |
+| 16 Sep 19:00 | a **48.0-pip void** is on the books, not filled |
+| 17 Sep 06:00 → 18 Sep 09:00 | price comes back 3% → 28% → 33%: **four sells refused**, his own case among them |
+| 18 Sep 10:00 | two momentum candles down since the deepest point → **resumed**, the winner is allowed |
+
+On his 28 May chart the band is 16.8 pips, filling 57% at 05:00 and filled 100% at 06:00 — his
+picture, read correctly, and a fill can no longer exceed 100%.
+
+**A SECOND DEFECT THE FIXTURES CAUGHT:** merging consecutive gaps without limit turns a smooth
+staircase into one enormous void — a 111.5-pip "void" out of a 60-pip candle. His own word fixes it:
+a void is made of **candles** that clear his bar, so only those gaps may join. Real bars overlap
+enough to hide this; the hand-built fixture did not.
+
+**WHAT IS NOT SHIPPED, AND IS HIS:** when the change of character IS the displacement candle, his
+2026-08-25 proof rule (one candle) and his void rule (two) disagree by one candle. `OPEN.md` **B32**.
+Over 2.5 months of real bars it never arose — 6 refusals, all continuations — but it is real, and
+nothing was loosened to make the test pass.
