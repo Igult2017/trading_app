@@ -85,8 +85,17 @@ if got:
     s.check("HIS TRADE: the target multiple is 4R, not 2R", _TP_R, 4.0)
     s.check("HIS TRADE: ...and the entry is unchanged by that", round(e["entry"], 5), 1.11734)
     s.check("HIS TRADE: ...as is the stop", e["sl"] < 1.11705, True)
-    s.check("HIS TRADE: the 4R target is reached in the hours that followed (H1 high 1.11845+)",
-            e["entry"] + _TP_R * risk <= 1.12000, True)
+    # THIS USED TO ASSERT THE 4R TARGET WAS REACHED (entry + 4R <= 1.12000) AND IT NO LONGER IS,
+    # because the 2026-09-26 stop change makes 1R bigger and pushes a fixed 4R further away.
+    # HIS RULING THE SAME DAY, which is why the assertion is gone rather than adjusted: *"The 4R is
+    # not a standard measure. We take what the market has given us. The market does not work on
+    # traders rules but its own rules so dont worry about that."* Scoring the entry rule against a
+    # fixed multiple was measuring the target, not the entry.
+    #
+    # WHAT IS PINNED INSTEAD is the thing that must not drift: the risk stays a sane size against
+    # the candle the setup came from. Entry and stop are asserted above and are unchanged.
+    s.check("HIS TRADE: the risk is still under one 1HR candle's range after the stop change",
+            risk <= (MC.high - MC.low), True)
     print(f"      entry {e['entry']:.5f}  SL {e['sl']:.5f}  risk {risk / PIP:.1f}p  "
           f"TP {e['entry'] + _TP_R * risk:.5f} ({_TP_R:.0f}R)  [{e['kind']}]")
 

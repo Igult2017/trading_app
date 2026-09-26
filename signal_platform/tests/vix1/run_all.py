@@ -125,11 +125,10 @@ TESTS = [
     # A sell's stop fires on the BUY price, so a gap measured off the chart price was eaten by the
     # spread: 135 refusals on one trade and the trail never moved. Now measured off the firing price.
     "test_trail_symmetry.py",        # a sell's stop gets the same real room as a buy's
-    # ADDED 2026-09-20 on his approval, after 222 real fills measured with the broker's own bid AND
-    # ask ticks: scored on the price trades really close at, the year is -21.6R against +16.3R on the
-    # chart price, and all of that is on SELLS. Most of this file asserts what the guard must NOT
-    # refuse — his words, *"make sure it only refuses orders it is meant to refuse"*.
-    "test_guard_spread_stop.py",     # a sell's stop must clear the spread; nothing else is refused
+    # `test_guard_spread_stop.py` WAS HERE, REMOVED 2026-09-26 with the rule it tested — the "a
+    # sell's stop must be worth 5x the spread" refusal, deleted on his instruction (*"How about we
+    # just remove it because I have never understood its essence"*). The measurement that justified
+    # it, and what removing it costs, are kept in `execution/guards.py` where the rule used to be.
     # ADDED 2026-09-21. His liquidity-void rule, on the bars of the chart he drew it on, plus his
     # scope ruling of the same day — the proof trade keeps ONE candle, joining a move keeps TWO.
     "test_void_gate.py",             # don't trade while price is filling the move that made the leg
