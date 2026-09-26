@@ -387,6 +387,53 @@ To add Binance, ByBit, or another platform:
 
 ---
 
+## Scale — what it can carry, and what caps it
+
+**Rebuilt 2026-09-26** on his instruction: *"ensure copy trader can be used by many people and the
+only limit is resources which is hosting."* It was SOFTWARE-bound, not resource-bound. All four
+numbers below are measured, not estimated.
+
+| ceiling | before | now |
+|---|---|---|
+| every database call ran ON the event loop (no `to_thread` anywhere in the package) | 50 x 200ms queries = **10.03 s**, engine fully stopped throughout | **0.41 s** on a worker pool (24.7x), and the loop serviced 30 other things during it |
+| the account's symbol list, re-downloaded per order | **1,941 symbols / 312 KB every order** | fetched once per ACCOUNT, cached in `symbol_details` |
+| follower fan-out | unbounded — 500 followers = 500 simultaneous broker requests | capped by `COPY_MAX_CONCURRENT_FOLLOWERS` (25) |
+| the broker's own rate limit | not respected at all | token bucket at 45/sec; bursts inside one second are NOT slowed |
+| database pool | 20 + 40, starved at ~8-12 concurrent followers | `COPY_DB_POOL` 40 + 80, sized with the thread pool so they cannot drift |
+
+### ⚠ The ceiling that is NOT ours, and no hosting lifts it
+
+> *"a maximum of 50 requests per second per connection for any non-historical data requests"*
+> — https://help.ctrader.com/open-api/
+> *"At most, you should create two connections: one for demo accounts and one for live accounts.
+> Each connection can support an unlimited number of accounts of a certain type."*
+> — https://help.ctrader.com/open-api/connection/
+
+Rate limits are **per connection** and the guidance is **two connections for the whole platform**.
+So the hard ceiling is roughly **50 orders/sec across all demo accounts and 50 across all live**,
+shared by every user. 500 followers on one master event is ~10 seconds to place them all. Going past
+it needs **more cTrader application registrations, not more servers** — a question for the broker.
+
+`gateway.py` is built to exactly that shape: two long-lived connections, many accounts authenticated
+on each (every message carries `ctidTraderAccountId`), heartbeat every 8s as the docs require.
+
+---
+
+## WHAT IS REMAINING — read this before starting anything on the copier
+
+| # | item | state |
+|---|---|---|
+| 1 | **A real mirrored order has still never happened.** The engine is armed and both followers ready; the next VIX.1 signal is the proof. Look for a `PLACED` row naming the slave account in `/api/admin/copy/activity` | ⏳ waiting on a signal |
+| 2 | **`gateway.py` is built but NOT wired.** `executors/ctrader.py` still opens its own connection per order. Wiring the transport through the gateway is the single riskiest change and was deliberately held back — copy trading only started working on 26 Sep | 🔨 next commit |
+| 3 | **Durable fan-out.** A crash mid-fan-out silently drops the remaining followers. Needs a `dispatching` -> `dispatched` state on the master row and a replay on boot | 🔨 not started |
+| 4 | **The horizontal lever is untested.** `COPY_WORKER_INDEX`/`COPY_WORKER_COUNT` shard masters by hash and production runs `worker 0/1`. Never run above one worker | 🔨 not started |
+| 5 | **Cross-broker (Hola Prime).** Each broker's minimum stop distance (`slDistance`/`tpDistance`) is not read or enforced | ⏸ deferred by him |
+| 6 | **`REMOVE BEFORE LAUNCH`** — the copy diagnostics endpoint is still live | ⏸ before launch |
+| 7 | Only cTrader can mirror a RESTING order. Binance/DXtrade/TradeLocker followers skip PLACED/AMENDED/CANCELLED with that reason logged | by design, stated |
+
+**Already done, do not redo:** the dry-run switch (26 Sep), the stop read off the order (21 Sep),
+order mirroring (21 Sep), `clientOrderId` for idempotency, the four scale ceilings above.
+
 ## Fix log
 
 ### 2026-09-26 — the audit: it has never sent an order, and the reason is a switch
