@@ -37,8 +37,12 @@ const D = {
   //   t2  #A8AEB8   8.77:1   the small uppercase captions and panel titles, which sit BEHIND the
   //                          content in the hierarchy and would flatten it if they went white too
   //
-  // The panel carries its own dark palette in every theme (nothing overrides --mp-*), so this is
-  // safe in light mode as well.
+  // ⚠ THIS USED TO SAY the panel carries its own dark palette in every theme and that nothing
+  // overrides --mp-*, "so this is safe in light mode as well". IT IS NOT TRUE and was not true when it
+  // was written: `lightVars` further down overrides all of them. The claim is what let 62 light-theme
+  // contrast failures sit in this panel unexamined — a comment asserting safety is worth less than
+  // nothing when it is the reason nobody measured. The light values live in `lightVars`, and each one
+  // is measured there against the ground it actually lands on.
   text:     'var(--mp-txt, #ECEEF2)',
   label:    'var(--mp-lbl, #A8AEB8)',
   muted:    'var(--mp-mut, #ECEEF2)',
@@ -421,9 +425,30 @@ export default function MetricsPanel({ sessionId, darkMode = true }: { sessionId
   const lightVars = !darkMode ? {
     '--mp-bg':   '#F8FAFC', '--mp-bg2':  '#FFFFFF', '--mp-bg3':  '#F8FAFC', '--mp-bg4':  '#F1F5F9',
     '--mp-bdo':  '#CBD5E1', '--mp-bdi':  '#E2E8F0', '--mp-bdr':  '#F1F5F9', '--mp-bdd':  '#E2E8F0',
-    '--mp-txt':  '#1E293B', '--mp-lbl':  '#64748B', '--mp-mut':  '#475569', '--mp-dim':  '#64748B', '--mp-sub': '#64748B',
-    '--mp-green': '#047857', '--mp-red': '#DC2626', '--mp-amber': '#B45309',
-    '--mp-blue': '#2563EB', '--mp-purple': '#6D28D9', '--mp-cyan': '#0E7490', '--mp-gray': '#475569',
+    // ── MEASURED ON THE GROUND EACH ONE ACTUALLY LANDS ON, corrected 2026-09-26 ──────────────────
+    //
+    // ROOT CAUSE OF 62 LIGHT-THEME FAILURES: every ink below was chosen against the PAGE background
+    // and each of them passes there — #DC2626 is 4.83:1 on white. But a chip's ink does not sit on the
+    // page; it sits on the chip's own tinted wash, and those washes LAYER (a chip wash over --mp-bg4
+    // over --mp-bg2), so the real ground is darker than the source implies. Measured in Chromium:
+    //
+    //   token        ink      on white   on the REAL ground   now
+    //   --mp-red     #DC2626    4.83:1      3.90:1  FAIL   -> #B72020  5.24:1
+    //   --mp-blue    #2563EB    5.17:1      4.23:1  FAIL   -> #2056CC  5.27:1
+    //   --mp-amber   #B45309    5.02:1      4.27:1  FAIL   -> #9E4908  5.24:1
+    //   --mp-lbl     #64748B    7.58:1      4.34:1  FAIL   -> #59677C  5.24:1
+    //
+    // green (4.69), purple (5.70) and cyan (4.71) already cleared it on their own washes and are
+    // UNTOUCHED — a fix that repaints what works is how a fix acquires a regression.
+    //
+    // THE LESSON, and it is why the numbers above are written down: computing the ground from the
+    // source gave 4.25:1 for red where the browser gave 3.90:1, because the source cannot see that the
+    // washes stack. docs/READABILITY.md, trap 3 — the rendered page is the only authority.
+    //
+    // The DARK palette at the top of this file is untouched; only these light overrides move.
+    '--mp-txt':  '#1E293B', '--mp-lbl':  '#59677C', '--mp-mut':  '#475569', '--mp-dim':  '#59677C', '--mp-sub': '#59677C',
+    '--mp-green': '#047857', '--mp-red': '#B72020', '--mp-amber': '#9E4908',
+    '--mp-blue': '#2056CC', '--mp-purple': '#6D28D9', '--mp-cyan': '#0E7490', '--mp-gray': '#475569',
     '--mp-grbg': 'rgba(29,158,117,0.1)',  '--mp-grbd': 'rgba(29,158,117,0.3)',
     '--mp-rdbg': 'rgba(226,75,74,0.1)',   '--mp-rdbd': 'rgba(226,75,74,0.3)',
     '--mp-ambg': 'rgba(239,159,39,0.1)',  '--mp-ambd': 'rgba(239,159,39,0.3)',
@@ -432,7 +457,7 @@ export default function MetricsPanel({ sessionId, darkMode = true }: { sessionId
     '--mp-cybg': 'rgba(74,232,216,0.1)',  '--mp-cybd': 'rgba(74,232,216,0.3)',
     '--mp-gybg': '#F1F5F9', '--mp-gybd': '#CBD5E1',
     // The seven headline cards (KPI strip): caption, line under, win figure, loss figure.
-    '--mp-kpi-cap': '#1E293B', '--mp-kpi-sub': '#334155', '--mp-kpi-pos': '#047857', '--mp-kpi-neg': '#DC2626',
+    '--mp-kpi-cap': '#1E293B', '--mp-kpi-sub': '#334155', '--mp-kpi-pos': '#047857', '--mp-kpi-neg': '#B72020',
   } as React.CSSProperties : {};
 
   // The loading screen draws this page's own layout (MetricsSkeleton) with the stylesheet above. No

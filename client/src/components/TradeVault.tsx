@@ -160,7 +160,9 @@ function DirectionBadge({ direction }: { direction: string }) {
 function RRBadge({ rr }: { rr: string }) {
   const val = parseFloat(rr);
   if (!rr || isNaN(val)) return <span style={{ color: "var(--jr-cap, #A8AEB8)", fontSize: 11 }}>—</span>;
-  const color = val >= 2 ? "#4da6ff" : val >= 1 ? "#a78bfa" : "#8899bb";
+  // Bound to a name, so no `color:` extractor reaches these. Measured on the light vault at 2.56:1
+  // and 2.72:1 before tokenising.
+  const color = val >= 2 ? "var(--jr-info, #4da6ff)" : val >= 1 ? "var(--jr-alt, #a78bfa)" : "var(--jr-ink-mute, #8899bb)";
   return (
     <span className="tv-num" style={{
       display: "inline-block",
@@ -615,11 +617,11 @@ export default function TradeVault({ sessionId, startingBalance: sessionStarting
         </div>
       </div>
       <div className="tv-stats" style={{ display: "flex", flexWrap: isMobile ? "wrap" : "nowrap", background: "var(--jr-panel)", border: "1px solid var(--jr-border)", overflow: "hidden", flexShrink: 0, width: isMobile ? "100%" : "auto" }}>
-        <VaultCell label={t('vault.netPL')}  value={totalPL >= 0 ? `+$${Math.abs(totalPL).toLocaleString()}` : `-$${Math.abs(totalPL).toLocaleString()}`} color={totalPL >= 0 ? "#00d48a" : "#ff4d6d"} isMobile={isMobile} first />
-        <VaultCell label={t('vault.winRate')} value={`${winRate}%`}    color="#4da6ff" isMobile={isMobile} />
-        <VaultCell label="TRADES"   value={String(trades.length)} color="#f0f4ff" isMobile={isMobile} />
-        <VaultCell label="NET GROWTH" value={`${growthPct >= 0 ? "+" : ""}${growthPct.toFixed(1)}%`} color="#a78bfa" isMobile={isMobile} />
-        <VaultCell label="DAYS"     value={String(days)}     color="#f0f4ff" isMobile={isMobile} />
+        <VaultCell label={t('vault.netPL')}  value={totalPL >= 0 ? `+$${Math.abs(totalPL).toLocaleString()}` : `-$${Math.abs(totalPL).toLocaleString()}`} color={totalPL >= 0 ? "var(--jr-up, #00d48a)" : "var(--jr-down, #ff4d6d)"} isMobile={isMobile} first />
+        <VaultCell label={t('vault.winRate')} value={`${winRate}%`}    color="var(--jr-info, #4da6ff)" isMobile={isMobile} />
+        <VaultCell label="TRADES"   value={String(trades.length)} color="var(--jr-ink-text, #f0f4ff)" isMobile={isMobile} />
+        <VaultCell label="NET GROWTH" value={`${growthPct >= 0 ? "+" : ""}${growthPct.toFixed(1)}%`} color="var(--jr-alt, #a78bfa)" isMobile={isMobile} />
+        <VaultCell label="DAYS"     value={String(days)}     color="var(--jr-ink-text, #f0f4ff)" isMobile={isMobile} />
         <div
           onClick={trades.length > 0 ? handleExport : undefined}
           style={{

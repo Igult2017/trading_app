@@ -23,7 +23,7 @@ export default function SignalPlatformStatus({ darkMode = true, selectedSymbol =
     ? { bg: "#080c10", bg2: "#0a0f16", bg3: "#0c1219", border: "#0f1923", border2: "#172233",
         text: "#c8d8e8", muted: "#4a6580", dim: "#2d4a63", hero: "#ffffff" }
     : { bg: "#f0f4f8", bg2: "#ffffff", bg3: "#f1f5f9", border: "#e2e8f0", border2: "#cbd5e1",
-        text: "#1e293b", muted: "#475569", dim: "#94a3b8", hero: "#0f172a" };
+        text: "#1e293b", muted: "#475569", dim: "#5a6c87", hero: "#0f172a" };   // dim was #94a3b8 = 2.34:1
 
   const { data, isLoading } = useQuery<StatusData>({
     queryKey: ["signal-platform-status"],

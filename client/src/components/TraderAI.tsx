@@ -451,7 +451,9 @@ export default function TraderAI({ sessionId, darkMode = true }: { sessionId?: s
   const borderC   = dm ? "rgba(255,255,255,0.06)" : "#e2e8f0";
   const textPrim  = dm ? "rgba(255,255,255,0.90)" : "#0f172a";
   const textMut   = dm ? "rgba(255,255,255,0.22)" : "#64748b";
-  const textDim   = dm ? "rgba(255,255,255,0.15)" : "#94a3b8";
+  // #94a3b8 measures 2.56:1 on white. #5a6c87 is the replacement AssetPage.tsx:369 already recorded
+  // for exactly this colour ("#94a3b8 2.32 FAIL #5a6c87 4.84") — the surface next door, not a new value.
+  const textDim   = dm ? "rgba(255,255,255,0.15)" : "#5a6c87";
   const suggBg    = dm ? "rgba(255,255,255,0.03)" : "#f8fafc";
   const suggBd    = dm ? "rgba(255,255,255,0.08)" : "#e2e8f0";
   const suggText  = dm ? "rgba(255,255,255,0.55)" : "#475569";

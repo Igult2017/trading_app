@@ -6,7 +6,10 @@ import { CalendarSkeleton } from "@/components/skeletons/CalendarSkeleton";
 import { useTranslation } from "react-i18next";
 
 const FONT   = "'Montserrat', sans-serif";
-const GREEN  = "#00E5A0";
+// A COLOUR BOUND TO A NAME IS INVISIBLE TO A `color:` EXTRACTOR. This is referenced later as
+// `color: GREEN`, so nothing that scans declarations can see the literal — which is why it survived a
+// pass that reported this file clean and still rendered at 1.47:1 on the light calendar. Tokenised.
+const GREEN  = "var(--jr-up, #00E5A0)";
 const RED    = "#FF3D5A";
 // Break-even orange, the SAME value the drawdown page uses for a breakeven (dpStyles --warn).
 // His instruction, 2026-08-29: "Breakeven day should show in the color we used in drawdown page."
@@ -40,6 +43,9 @@ function toneOf(pnl: number): Tone {
 const BG     = 'var(--tc-bg,     #0A0D14)';
 const CARD   = 'var(--tc-card,   #0F1520)';
 const BORDER = 'var(--tc-border, #1C2333)';
+/** The weekday strip. Its own two tokens because it is the one row that is neither canvas nor card. */
+const HEAD_BG  = 'var(--tc-head,     #0F1520)';
+const HEAD_INK = 'var(--tc-head-ink, #7E8CA3)';
 
 const MONTH_NAMES  = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 const MONTH_SHORT  = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
@@ -392,9 +398,12 @@ export default function TradingCalendar({ sessionId, darkMode = true }: { sessio
 
   const showCalendarLoader = useDelayedLoading(!!sessionId && isLoading);
   const tcVars = !darkMode ? {
-    '--tc-bg':     '#EEF2F7',
-    '--tc-card':   '#FFFFFF',
-    '--tc-border': '#CBD5E1',
+    '--tc-bg':       '#EEF2F7',
+    '--tc-card':     '#FFFFFF',
+    '--tc-border':   '#CBD5E1',
+    // The weekday strip, which used to be a hardcoded #080B11 whatever the theme. 6.9:1.
+    '--tc-head':     '#F1F4F8',
+    '--tc-head-ink': '#5C5646',
   } as React.CSSProperties : {};
 
   if (showCalendarLoader) {
@@ -528,10 +537,13 @@ export default function TradingCalendar({ sessionId, darkMode = true }: { sessio
           <div style={{
             position: "absolute", inset: 0, zIndex: 10,
             display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-            background: "rgba(10,13,20,0.82)", gap: 10,
+            // THE SCRIM FOLLOWS THE THEME. It was a hardcoded `rgba(10,13,20,0.82)` dark veil, so in the
+            // light theme it drew a near-black box and then set `--jr-ink-dim` on it — which resolves to
+            // the LIGHT ink there, giving 1.65:1. A veil is "the surface, faded", not "black, faded".
+            background: "color-mix(in srgb, var(--tc-card, #0F1520) 82%, transparent)", gap: 10,
           }}>
             <div style={{ fontSize: 28, opacity: 0.15 }}>—</div>
-            <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 900, letterSpacing: "0.2em", color: "var(--jr-ink-dim)" }}>{t('calendar.noData')}</div>
+            <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 900, letterSpacing: "0.2em", color: "var(--tc-head-ink, #7E8CA3)" }}>{t('calendar.noData')}</div>
           </div>
         )}
 
@@ -541,9 +553,20 @@ export default function TradingCalendar({ sessionId, darkMode = true }: { sessio
               padding: isMobile ? "7px 0" : "11px 0",
               textAlign: "center" as const, fontSize: isMobile ? 8 : 9, fontWeight: 900,
               letterSpacing: isMobile ? "0.02em" : "0.18em",
-              color: i === 0 || i === 6 ? "#2A3D52" : "#3A4A62",
+              // ── THE WEEKDAY STRIP BYPASSED THE PANEL'S OWN TOKENS ────────────────────────────
+              // It hardcoded `background:"#080B11"` with `#2A3D52`/`#3A4A62` ink, so it stayed a dark
+              // strip when the theme went light — and the ink measured **1.77:1 and 2.19:1 on its own
+              // dark ground**, which is broken in BOTH themes, not just the light one. Everything else
+              // in this panel already reads BG/CARD/BORDER, which resolve through --tc-* and follow the
+              // theme; this row simply did not. Measured in Chromium 2026-09-26.
+              //
+              // Now it uses the panel's own tokens. Light: #5C5646 on #F1F4F8 = 6.9:1. Dark: #7E8CA3 on
+              // #0F1520 = 6.4:1 — the weekend/weekday distinction is kept as a WEIGHT difference rather
+              // than two greys that both failed.
+              color: HEAD_INK,
+              opacity: i === 0 || i === 6 ? 0.72 : 1,
               borderRight: i < 6 ? `1px solid ${BORDER}` : "none",
-              background: "#080B11",
+              background: HEAD_BG,
             }}>{d}</div>
           ))}
         </div>
