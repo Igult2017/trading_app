@@ -94,11 +94,21 @@ check('paused relationships are not filtered out of selfCopy',
 
 // ── 2. THE PANEL SEEDS FROM IT — EXACTLY ONCE ───────────────────────────────
 check('the hook seeds from the saved setup', setup.includes('overview.selfCopy'), true);
-check('...restoring the master', setup.includes('setMasterAccountId(s.masterBrokerAccountId)'), true);
-check('...and the mirrors', setup.includes('setSelectedOwnAccounts(s.mirrorBrokerAccountIds'), true);
-check('...and the instruments, sessions, drawdown and terms',
-      ['setInstruments(s.symbolWhitelist)', 'setSessions(s.activeSessions)',
-       'setDrawdown(String(s.maxDdPercent))', 'setAgreed(true)'].every(x => setup.includes(x)), true);
+// ⚠ CHANGED 2026-09-26, AND THE OLD ASSERTIONS WERE RIGHT FOR THE OLD PANEL. It used to restore
+// "the master" and "the mirrors" into form state, because there was exactly one master. His rule
+// that day - "I have master A copied by slave B and master D copied by slave E... 1 slave can have
+// more than 1 master" - made a single master impossible to hold, so the saved relationships are now
+// READ BACK as a list (`overview.selfCopy.links`) and rendered in Mirror feeds, while the FORM
+// starts empty and builds one new link at a time.
+//
+// Restoring a master into the form would pre-fill it with a relationship that already exists and
+// invite him to create it twice, so the absence below is the behaviour, not a regression.
+check('the form does NOT pre-fill itself with an existing relationship',
+      setup.includes('setMasterAccountId(s.masterBrokerAccountId)'), false);
+check('the saved links are read back instead', setup.includes('overview?.selfCopy?.links'), true);
+check('...and the settings he chose last still seed the form',
+      ['setInstruments(d.symbolWhitelist)', 'setSessions(d.activeSessions)',
+       'setDrawdown(String(d.maxDdPercent))', 'setAgreed(true)'].every(x => setup.includes(x)), true);
 
 // THE 20-SECOND TRAP.
 check('there is a hydrated guard', setup.includes('const hydrated = useRef(false)'), true);

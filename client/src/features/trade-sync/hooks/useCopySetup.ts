@@ -5,6 +5,21 @@ import type { AccountStatus, CopyAccount, OwnAccount, SourceId } from "../types"
 import type { SetToast } from "./useToast";
 import type { Overview } from "./useOverview";
 
+/** The human sentence out of a thrown API error.
+ *
+ *  `apiRequest` throws `Error("400: {\"error\":\"...\"}")` — the status, then the raw body. Shown
+ *  as-is, the refusal he most needs to read arrives as JSON behind a number. This pulls the
+ *  server's own `error` out and falls back to the raw message when the body is not JSON. */
+function serverReason(err: any): string {
+  const msg = String(err?.message ?? err ?? "something went wrong");
+  const body = msg.slice(msg.indexOf("{"));
+  try {
+    const parsed = JSON.parse(body);
+    if (typeof parsed?.error === "string" && parsed.error) return parsed.error;
+  } catch { /* not JSON — fall through to the raw message */ }
+  return msg;
+}
+
 /** The engine-setup panel, wired to the real copy backend: the accounts being mirrored come from
  *  the overview, and Start actually creates/activates followers (self-copy · provider · telegram). */
 export function useCopySetup(
@@ -50,22 +65,26 @@ export function useCopySetup(
     const s = overview.selfCopy;
     if (!s) return;
     setSource("self-copy");
-    if (s.masterBrokerAccountId) setMasterAccountId(s.masterBrokerAccountId);
-    setSelectedOwnAccounts(s.mirrorBrokerAccountIds ?? []);
-    if (s.symbolWhitelist?.length) setInstruments(s.symbolWhitelist);
-    if (s.activeSessions?.length) setSessions(s.activeSessions);
-    if (s.maxDdPercent != null) setDrawdown(String(s.maxDdPercent));
+    // THE FORM STARTS EMPTY, DELIBERATELY. It now builds ONE link at a time, so there is no single
+    // "saved master" to restore into it — what is saved is the LIST of links, and that is rendered
+    // in Mirror feeds from `overview.selfCopy.links` rather than held in form state. Restoring a
+    // master here would pre-fill the form with a relationship that already exists and invite him to
+    // create it twice.
+    const d = s.defaults;
+    if (d.symbolWhitelist?.length) setInstruments(d.symbolWhitelist);
+    if (d.activeSessions?.length) setSessions(d.activeSessions);
+    if (d.maxDdPercent != null) setDrawdown(String(d.maxDdPercent));
     // Only the two modes the dropdown actually offers (RiskParameters.tsx: "Risk %" / "Lot Size").
     // A follower saved with lotMode 'mult' has no control to restore into, so the default is left
     // alone rather than writing a label the <select> cannot show.
-    if (s.lotMode === "fixed" && s.fixedLot != null) {
-      setSizingMode("Lot Size"); setSizingValue(String(s.fixedLot));
-    } else if (s.lotMode === "risk" && s.riskPercent != null) {
-      setSizingMode("Risk %"); setSizingValue(String(s.riskPercent));
+    if (d.lotMode === "fixed" && d.fixedLot != null) {
+      setSizingMode("Lot Size"); setSizingValue(String(d.fixedLot));
+    } else if (d.lotMode === "risk" && d.riskPercent != null) {
+      setSizingMode("Risk %"); setSizingValue(String(d.riskPercent));
     }
     // The terms were accepted when this was saved; re-ticking a box he already ticked is what made
     // "Stop mirroring" unreachable after a reload.
-    if (s.riskAccepted) setAgreed(true);
+    if (d.riskAccepted) setAgreed(true);
   }, [overview]);
 
   const toggleFrom = (list: string[], setList: (next: string[]) => void, value: string) => {
@@ -130,7 +149,14 @@ export function useCopySetup(
           .map((c) => apiRequest("PUT", `/api/copy/followers/${c.followerId}`, { isActive: false })));
         setToast("Mirroring stopped — all copy relationships paused.");
       } else if (source === "self-copy") {
-        for (const target of selectedOwnAccounts) {
+        // ONE LINK PER SUBMIT — his rule, 2026-09-26: *"the UI should be just like a form that user
+        // marks and if he does everything right, he gets the notification that copying was
+        // successful and then account that copies is displayed in mirror feeds."* This used to loop
+        // over a set of targets for a single master, which is why the panel could only ever express
+        // one master. The list of links now lives in the database and is READ back into Mirror
+        // feeds, instead of being held as form state.
+        {
+          const target = selectedOwnAccounts[0];
           await apiRequest("POST", "/api/copy/self-copy", {
             sourceBrokerAccountId: masterAccountId, targetBrokerAccountId: target,
             ...lotFields(), maxDdPercent: drawdown || null, riskAccepted: true,
@@ -143,7 +169,10 @@ export function useCopySetup(
             sessionFilter:   sessions.length > 0,
           });
         }
-        setToast(`Mirroring started — copying ${masterAccount?.name ?? "your master"} to ${selectedOwnAccounts.length} account${selectedOwnAccounts.length === 1 ? "" : "s"}.`);
+        const into = ownAccounts.find((a) => a.id === selectedOwnAccounts[0]);
+        setToast(`Copying started — ${masterAccount?.name ?? "your master"} → ${into?.name ?? "that account"}. It is now in Mirror feeds.`);
+        // The form empties so the next link is built from scratch, not from the one just made.
+        setSelectedOwnAccounts([]);
       } else if (source === "telegram") {
         const onto = ownAccounts.find((a) => a.connected);
         if (!onto) throw new Error("connect an account first");
@@ -163,7 +192,11 @@ export function useCopySetup(
       }
       invalidate();
     } catch (err: any) {
-      setToast(`Could not ${mirroring ? "stop" : "start"} mirroring: ${err.message}`);
+      // THE SERVER'S OWN REASON, NOT A STATUS CODE. `apiRequest` throws `400: {"error":"..."}`, so
+      // without this the refusal he most needs to read — "that would send the same trade round in
+      // a circle" — reaches him as raw JSON behind a number. He asked for a notification that says
+      // what happened; a refusal is exactly when that matters.
+      setToast(`Could not ${mirroring ? "stop" : "start"} copying: ${serverReason(err)}`);
     } finally { setBusy(false); }
   };
 
@@ -177,6 +210,9 @@ export function useCopySetup(
     agreed, setAgreed,
     telegramChannel, setTelegramChannel,
     mirroring, accounts, ownAccounts,
+    // EVERY SAVED COPY LINK, read straight from the server rather than held as form state. This is
+    // what lets several masters exist at once: the panel no longer keeps a single "the master".
+    links: overview?.selfCopy?.links ?? [],
     selectedOwnAccounts, masterAccountId,
     platformBySource, setPlatformBySource,
     toggleFrom, toggleAccountStatus, toggleOwnAccount, setMasterAccount,

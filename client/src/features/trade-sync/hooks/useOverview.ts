@@ -22,16 +22,32 @@ export interface Overview {
    *  load. Null until he has pressed Start once. Included even when paused, so stopping mirroring
    *  does not blank the panel and strand him with no way to see or restart what he configured. */
   selfCopy: {
-    masterBrokerAccountId: string | null;
-    mirrorBrokerAccountIds: string[];
-    lotMode: string | null;
-    lotMultiplier: string | null;
-    fixedLot: string | null;
-    riskPercent: string | null;
-    maxDdPercent: string | null;
-    symbolWhitelist: string[];
-    activeSessions: string[];
-    riskAccepted: boolean;
+    /** ONE ROW PER LINK, because he can have several masters at once — "master A copied by slave B
+     *  and master D copied by slave E", and one slave may follow several masters. This replaced a
+     *  single `masterBrokerAccountId` plus a flat `mirrorBrokerAccountIds`, which reported
+     *  "A copies to B and E" as soon as a second master existed. */
+    links: {
+      followerId: string;
+      masterAccountId: string;
+      followerAccountId: string;
+      isActive: boolean;
+      lotMode: string | null;
+      lotMultiplier: string | null;
+      fixedLot: string | null;
+      riskPercent: string | null;
+    }[];
+    /** The settings he chose last, so a NEW link starts from those rather than a hardcoded
+     *  default. Not a property of any one link. */
+    defaults: {
+      lotMode: string | null;
+      lotMultiplier: string | null;
+      fixedLot: string | null;
+      riskPercent: string | null;
+      maxDdPercent: string | null;
+      symbolWhitelist: string[];
+      activeSessions: string[];
+      riskAccepted: boolean;
+    };
   } | null;
 }
 

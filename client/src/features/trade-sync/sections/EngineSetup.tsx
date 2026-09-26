@@ -80,7 +80,7 @@ export function EngineSetup({ ts }: EngineSetupProps) {
             </div>
           )}
 
-          {source === "self-copy" && <OwnAccountsList setup={setup} />}
+          {source === "self-copy" && <OwnAccountsList setup={setup} links={setup.links} />}
 
           {source === "telegram" && (
             <div className="mb-8 space-y-2">

@@ -98,6 +98,22 @@ _ORDER_EVENT = {
 # position path already carries closes and stop moves.
 _ENTRY_ORDER_TYPES = {"STOP", "LIMIT", "STOP_LIMIT", "MARKET_RANGE"}
 
+# THE MARK THIS ENGINE PUTS ON EVERY ORDER IT PLACES. `mirror.mirror_label` builds it as
+# "cp-<master order id>" and `executors/ctrader.place_pending` stamps it on both `label` and
+# `clientOrderId`. Kept as a bare prefix here rather than imported, so reading a master's orders
+# never pulls in the dispatcher (and its database) — the provider must stay able to run without it.
+_OUR_COPY_PREFIX = "cp-"
+
+
+def _is_our_own_copy(order) -> bool:
+    """Did THIS engine place this order? Then it is a copy, not a master trade to be copied on.
+
+    Checked on both fields because they are set together and either alone is enough to be sure; a
+    broker that truncates one still leaves the other readable.
+    """
+    return any(str(v or "").startswith(_OUR_COPY_PREFIX)
+               for v in (getattr(order.tradeData, "label", ""), getattr(order, "clientOrderId", "")))
+
 
 def _protection(pos, order, field: str) -> float | None:
     """A stop or target, read from the position, or from the order when the position has none yet.
@@ -386,6 +402,18 @@ class CTraderProvider:
         order = event.order
         if order.closingOrder:
             return                      # the order that CLOSES a position — the position path owns it
+        if _is_our_own_copy(order):
+            # A TRADE THIS ENGINE PLACED IS NOT A NEW MASTER TRADE. An account can be a master AND
+            # somebody's follower at the same time (his rule, 2026-09-26), so a mirror landing on it
+            # arrives here looking exactly like an original. Copying it on again is how A->B->A
+            # turns one trade into an unbounded stream of real orders.
+            #
+            # BELT AND BRACES. `/api/copy/self-copy` refuses a link that would close a ring, so this
+            # should never fire — but that guard only covers rings built through the panel, and this
+            # one covers a ring however it got there. A cheap check on a label we already stamp.
+            log.info(f"[{self.master_id}] order {order.orderId} carries our own copy label "
+                     f"({order.tradeData.label!r}) — not copying a copy")
+            return
         try:
             otype = ProtoOAOrderType.Name(order.orderType)
         except ValueError:

@@ -3336,18 +3336,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // leave him unable to see, or restart, what he had set up.
       const selfRows = rels.rows.filter((r: any) =>
         r.master_user_id === uid && String(r.source_type ?? '').toLowerCase() !== 'telegram');
+      // ⚠ THIS USED TO REPORT ONE MASTER AND WAS WRONG THE MOMENT THERE WERE TWO. It took
+      // `selfRows[0]`'s master and listed EVERY follower under it:
+      //
+      //     masterBrokerAccountId:  s0.master_account_id
+      //     mirrorBrokerAccountIds: selfRows.map(r => r.follower_account_id)
+      //
+      // With A→B and D→E saved, the panel was told "A copies to B and E". E has never copied A.
+      // That is a misreport, not merely an under-report, and the panel restored its state from it.
+      //
+      // HIS RULE, 2026-09-26: *"I have master A copied by slave B and master D copied by slave E...
+      // 1 slave can have more than 1 master."* One row per LINK is the only shape that can say
+      // that, and the rows already carry both sides.
       const s0 = selfRows[0] ?? null;
       const selfCopy = s0 ? {
-        masterBrokerAccountId:  s0.master_account_id ?? null,
-        mirrorBrokerAccountIds: selfRows.map((r: any) => r.follower_account_id).filter(Boolean),
-        lotMode:        s0.lot_mode ?? null,
-        lotMultiplier:  s0.lot_multiplier ?? null,
-        fixedLot:       s0.fixed_lot ?? null,
-        riskPercent:    s0.risk_percent ?? null,
-        maxDdPercent:   s0.max_dd_percent ?? null,
-        symbolWhitelist: s0.symbol_whitelist ?? [],
-        activeSessions:  s0.active_sessions ?? [],
-        riskAccepted:   !!s0.risk_accepted,
+        links: selfRows
+          .filter((r: any) => r.master_account_id && r.follower_account_id)
+          .map((r: any) => ({
+            followerId:        r.id,
+            masterAccountId:   r.master_account_id,
+            followerAccountId: r.follower_account_id,
+            isActive:          !!r.is_active,
+            lotMode:           r.lot_mode ?? null,
+            lotMultiplier:     r.lot_multiplier ?? null,
+            fixedLot:          r.fixed_lot ?? null,
+            riskPercent:       r.risk_percent ?? null,
+          })),
+        // The last-used settings, so a NEW link starts from what he chose last rather than from a
+        // hardcoded default. Not a property of any one link.
+        defaults: {
+          lotMode:        s0.lot_mode ?? null,
+          lotMultiplier:  s0.lot_multiplier ?? null,
+          fixedLot:       s0.fixed_lot ?? null,
+          riskPercent:    s0.risk_percent ?? null,
+          maxDdPercent:   s0.max_dd_percent ?? null,
+          symbolWhitelist: s0.symbol_whitelist ?? [],
+          activeSessions:  s0.active_sessions ?? [],
+          riskAccepted:   !!s0.risk_accepted,
+        },
       } : null;
 
       return res.json({
@@ -5037,6 +5063,54 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
     if (!target || target.userId !== user.id) return res.status(404).json({ error: "Target account not found" });
     if (!API_PLATFORMS.has(source.platform.toLowerCase()) || !API_PLATFORMS.has(target.platform.toLowerCase())) {
       return res.status(400).json({ error: "Both accounts must be API-connected (OAuth)" });
+    }
+
+    // ── A COPY MUST NEVER GO ROUND IN A CIRCLE ────────────────────────────────────────────────
+    //
+    // HIS RULE, 2026-09-26: *"a master can be a slave to another master and a slave can be a master
+    // to a master it does not copy."* That last clause is this check, and nothing enforced it.
+    //
+    // WHY IT MATTERS MORE THAN IT READS. The engine starts a provider for EVERY active master
+    // (`copy_platform/engine.py:119`), whether or not that account is also somebody's follower. So
+    // with A→B and B→A both saved: a trade on A is copied onto B; the provider watching B sees that
+    // copy as a master event and copies it back to A; A's provider copies it to B again. One trade
+    // becomes an unbounded stream of REAL orders on both accounts, and nothing downstream stops it.
+    //
+    // A CHAIN IS FINE AND IS WHAT HE ASKED FOR — A→B with B→C cascades a trade from A to B to C.
+    // Only a RING is fatal, so only a ring is refused.
+    //
+    // ALL RINGS, NOT JUST THE DIRECT ONE. He named the two-account case; a three-account ring
+    // (A→B→C→A) drains money exactly as fast, so the walk below follows the whole chain. Reachable
+    // from the TARGET back to the SOURCE means adding this link would close the circle.
+    {
+      const existing = await pool.query(
+        `SELECT m.broker_account_id AS from_id, f.broker_account_id AS into_id
+           FROM copy_followers f JOIN copy_masters m ON m.id = f.master_id
+          WHERE f.user_id = $1 AND m.broker_account_id IS NOT NULL
+            AND f.broker_account_id IS NOT NULL`, [user.id]);
+      const copiesInto = new Map<string, string[]>();   // master account -> the accounts it feeds
+      for (const r of existing.rows as any[]) {
+        const list = copiesInto.get(r.from_id) ?? [];
+        list.push(r.into_id);
+        copiesInto.set(r.from_id, list);
+      }
+      // Walk forward from the proposed TARGET. If the proposed SOURCE is reachable, the new link
+      // closes a ring. `seen` makes this terminate even on data that is already circular.
+      const seen = new Set<string>();
+      const queue = [targetBrokerAccountId];
+      while (queue.length) {
+        const at = queue.shift()!;
+        if (at === sourceBrokerAccountId) {
+          const names = `${target.name} already feeds back into ${source.name}`;
+          return res.status(400).json({
+            error: `That would send the same trade round in a circle for ever — ${names}. ` +
+                   `An account can be a master and a slave, but not both ways round the same loop.`,
+          });
+        }
+        if (seen.has(at)) continue;
+        seen.add(at);
+        queue.push(...(copiesInto.get(at) ?? []));
+      }
     }
 
     // 1. Private master from the source account (idempotent)
