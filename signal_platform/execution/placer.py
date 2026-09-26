@@ -104,21 +104,7 @@ async def place_for_signal(signal, creds: dict, account_type: str, equity: float
         # WHAT THE BROKER HAS RIGHT NOW, so the duplicate rule can tell a live order from a withdrawn
         # one (guards rule 7, fixed 2026-09-15).
         book = await _live_book()
-        # THE SPREAD RIGHT NOW, for guard 8 (a sell's stop must clear it several times over). Same
-        # two sources in the same order as `position_tracker._prices_now`: the live stream first,
-        # the broker's own quote when it has nothing fresh. None means it could not be read, and
-        # the guard then lets the order through rather than refusing on a number it does not have.
-        spread = None
-        try:
-            from data import ctrader_spread, fix_quotes
-            tick = fix_quotes.live_quote(symbol, 3.0) or await ctrader_spread.quote_for(symbol)
-            if tick and tick[1] > tick[0]:
-                spread = tick[1] - tick[0]
-        except Exception as exc:                 # a price read must never take a placement down
-            log.warning(f"[execution] {symbol}: could not read the spread "
-                        f"({type(exc).__name__}) — the spread rule will not run")
-        why = guards.check(symbol, side, signal.strategy_id, account_type, equity, lots, book=book,
-                           stop_distance=abs(entry - sl), spread=spread)
+        why = guards.check(symbol, side, signal.strategy_id, account_type, equity, lots, book=book)
         if why:
             log.info(f"[execution] NOT placing {symbol} {side} — {why}")
             await decision_log.refused(signal, why, lots)

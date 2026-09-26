@@ -67,6 +67,31 @@ _SL_GAP_MULT   = 0.5   # how far BEYOND the anchor the stop sits, x the 1M's rec
 _GAP_AVG_N     = 14    # bars of 1M in that average — the platform's usual baseline
 _MIN_ROOM_MULT = 1.0   # the floor: the noise a stop has to survive, x that same average
 
+# HOW FAR BEHIND THE LINE THE STOP SITS, as a share of the MOMENTUM CANDLE'S BODY.
+#
+# WHY THIS EXISTS, 2026-09-26. He sent two trades he had placed by hand and asked *"have you seen how
+# I placed my trades manually, where I placed the stop. Does the autotrade do anything close to
+# that?"* It did not. Measured against the broker's own bars:
+#
+#     22 Sep EUR/USD   line 1.14465   his stop 1.14521 = 5.6p behind   platform 1.14479 = 1.4p
+#     22 Sep GBP/USD   line 1.33542   his stop 1.33593 = 5.1p behind   platform 1.33575 = 3.3p
+#
+# The gap above is measured off the 1M's average range, and that is the wrong yardstick: his two
+# stops come out at 2.84x and 0.95x of it — no consistent number to find. Measured against the
+# MOMENTUM CANDLE'S BODY they are 0.32 and 0.27, which is one number, and it is the right shape:
+# the 1HR momentum candle IS the move being traded, so a stop that clears a share of it scales with
+# how violent that move was. His rule, 2026-07-26: *"Make it dynamic and conforming to market
+# dynamics. Not hardcoded but practical."*
+#
+# ⚠ FITTED TO TWO TRADES, AND THAT IS NOT A MEASUREMENT. 0.30 is the midpoint of his two. It has NOT
+# been run against the 222-fill history; doing that needs his approval for a backtest. Until then
+# this is "what he actually does", not "what measured best".
+#
+# WHY IT MATTERS MORE THAN IT LOOKS: the stop being tiny is what made the deleted 5x-spread rule fire
+# — the band it refused had a 4.2-pip median stop and lost 0.39R a trade, while the band that
+# survives has a 9.3-pip median and loses 0.09R (`docs/strategies/vix1-measured.md`).
+_SL_LINE_GAP_BODY = 0.30
+
 
 def _m1_range(wcl: list[Candle]) -> float:
     """The 1M's own recent average RANGE — the yardstick every size here is measured in."""
@@ -155,9 +180,22 @@ def m1_signals(m1: list[Candle], bullish: bool, vc: Candle,
         anchor = min(anchor, x.pullback.low) if bullish else max(anchor, x.pullback.high)
     m1_rng = _m1_range(wcl)
     gap    = max(_SL_GAP_MULT * m1_rng, vix1_cross.tick(pip))
-    sl     = anchor - gap if bullish else anchor + gap
-    where  = "the pullback's far edge" if (x.pullback is not None and anchor != line) else "the line"
-    sl_note = f"{abs(entry - sl)/pip:.1f}p — {gap/pip:.1f}p beyond {where} ({anchor:.{digits}f})"
+    # THE STOP IS THE FURTHER OF TWO THINGS, and it needs both:
+    #
+    #   * a share of the MOMENTUM CANDLE behind THE LINE — his structural distance. Measured from
+    #     the LINE, not the anchor: his two stops land 0.4p and 0.7p from this, where measuring the
+    #     same share from the anchor overshot GBP/USD by 3.4p (the pullback poked 2.7p above the
+    #     line, and that distance got counted twice).
+    #   * the old gap beyond the ANCHOR — so the stop always clears the pullback's far edge. Without
+    #     this a shallow momentum candle could leave the stop inside a candle price already traded.
+    body     = abs(vc.close - vc.open)
+    from_line = line - _SL_LINE_GAP_BODY * body if bullish else line + _SL_LINE_GAP_BODY * body
+    past_anchor = anchor - gap if bullish else anchor + gap
+    sl = min(from_line, past_anchor) if bullish else max(from_line, past_anchor)
+    where = ("the line" if sl == from_line else
+             "the pullback's far edge" if (x.pullback is not None and anchor != line) else "the line")
+    sl_note = (f"{abs(entry - sl)/pip:.1f}p — {abs(sl - line)/pip:.1f}p beyond {where}, "
+               f"{_SL_LINE_GAP_BODY:g}x the momentum candle's {body/pip:.1f}p body")
 
     # ALREADY THROUGH THE LEVEL? THEN WE DO NOT TAKE IT — we wait for the next bar.
     #
