@@ -31,6 +31,7 @@ import AssetPage from '@/pages/AssetPage';
 import Leaderboard from '@/components/Leaderboard';
 import { useJournalSettings, THEMES, FONTS } from '@/hooks/useJournalSettings';
 import { inkVars } from '@/lib/journalInk';
+import { setThemeMode } from '@/lib/appTheme';
 
 const SI = {
   Dashboard: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 12 8.5 8.5" strokeWidth="2"/><circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/><path d="M6.5 17.5a7 7 0 0 1 0-11" strokeWidth="1.4" opacity="0.4"/><path d="M17.5 17.5a7 7 0 0 0 0-11" strokeWidth="1.4" opacity="0.4"/><line x1="12" y1="3" x2="12" y2="4.5" strokeWidth="1.4"/><line x1="3" y1="12" x2="4.5" y2="12" strokeWidth="1.4"/><line x1="21" y1="12" x2="19.5" y2="12" strokeWidth="1.4"/><line x1="6.2" y1="6.2" x2="7.2" y2="7.2" strokeWidth="1.4"/><line x1="17.8" y1="6.2" x2="16.8" y2="7.2" strokeWidth="1.4"/></svg>,
@@ -806,6 +807,14 @@ export default function Journal() {
   const { hasJournalAccess, stripeConfigured, loading: entitlementLoading } = useEntitlement();
   const { settings, setSettings } = useJournalSettings();
   const T = THEMES[settings.theme] ?? THEMES.navy;   // never undefined → never a white fallback
+
+  // ── THE JOURNAL'S CHOICE IS THE APP'S CHOICE ────────────────────────────────────────────────────
+  // His report, 2026-09-26: *"it does not use the app's white theme switch… I want to switch themes from
+  // one switch."* The journal's picker is the richest one (six palettes), so it is the primary UI — and
+  // publishing its light/dark decision here is what makes FX Copier, the admin panel and the public pages
+  // follow it. The PALETTE stays the journal's own; only the mode is shared. See lib/appTheme for the
+  // four disconnected systems this replaced.
+  useEffect(() => { setThemeMode(T.dark ? 'dark' : 'light'); }, [T.dark]);
   const F = FONTS[settings.font];
   // Built OUT HERE with string concatenation, NOT as a nested template literal inside the style
   // block below: a backtick anywhere in that block — even in a comment — closes the template early

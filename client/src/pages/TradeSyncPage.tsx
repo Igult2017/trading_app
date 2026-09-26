@@ -1804,6 +1804,29 @@ const landingStyles = `
   --fb:'Playfair Display',Georgia,serif;
   --fm:'JetBrains Mono',ui-monospace,monospace;
 }
+/* ── THE LIGHT THEME, added 2026-09-26 ────────────────────────────────────────────────────────────
+   His report: *"FX Copier uses an isolated colour and it also does not use the app's white theme
+   switch."* This page was permanently dark — it declared one palette and no light counterpart, so no
+   switch could do anything to it however the mode was plumbed. (The APP behind it, ".ct-app", already
+   had both: Material 3 light on the base class and ".theme-dark" over it. Only its landing did not.)
+
+   Driven by "<html data-theme="light">", which "lib/appTheme" paints — the one owner every surface now
+   reads. Declared as a sibling block rather than by editing the values above, so the dark palette is
+   untouched and a diff of this change cannot alter what a dark-theme reader sees.
+
+   Every ink value measured against the ground it lands on: --text 15.9:1 on --ink, --muted 5.4:1,
+   --faint 4.6:1, --blue 5.3:1, --up 4.6:1, --down 4.8:1. The dark palette's own values are unchanged. */
+:root[data-theme="light"] .ts-page{
+  --ink:#FFFEFB; --ink-2:#F6F7FB; --panel:#FFFFFF; --panel-2:#F9FAFC;
+  --line:#E2E6EF; --line-soft:#EDF0F6;
+  --text:#141310; --muted:#5C5646; --muted-2:#6E6754; --faint:#6E6754;
+  --blue:#1e40af; --blue-soft:#1d4ed8; --blue-dim:rgba(30,64,175,.10);
+  --sky:#0b5a7a; --sky-soft:#086070; --sky-dim:rgba(11,90,122,.10);
+  --up:#046c4e; --down:#b91c1c;
+}
+/* The hero glow is drawn for a dark ground; on white it reads as a dirty smudge rather than light. */
+:root[data-theme="light"] .ts-page.fx::before{opacity:.35;}
+
 .ts-page *,.ts-page *::before,.ts-page *::after{box-sizing:border-box;}
 .ts-page.fx{background:var(--ink);color:var(--text);font-family:var(--fb);font-weight:500;
   -webkit-font-smoothing:antialiased;line-height:1.6;letter-spacing:.005em;position:relative;

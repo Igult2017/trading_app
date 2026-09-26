@@ -81,7 +81,49 @@ export function applyAppSetup(app: Express): void {
   if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
   app.use('/uploads', express.static(uploadsDir));
 
+  // THE GUARD GOES BEFORE THE LOGGER so it wraps the response first and the logger's own `res.json`
+  // override sits on top of a method that can no longer throw.
+  app.use(doubleSendGuard);
   app.use(requestLogger);
+}
+
+/**
+ * A SECOND RESPONSE MUST NOT TAKE THE PROCESS DOWN.
+ *
+ * This is the same reasoning `installErrorHandler` below already records — *"writing a second response
+ * throws ERR_HTTP_HEADERS_SENT"* — applied at the place where it was actually fatal.
+ *
+ * WHAT HAPPENED, measured 2026-09-26 while rendering the journal. `requireAuth(req, res)` SENDS its own
+ * 401 and returns null; its doc says so and tells callers to write `if (!auth) return;`. Twenty-five of
+ * sixty-five route handlers instead wrote `if (!auth) return res.status(401).json(...)`. On any
+ * unauthenticated request the second send threw INSIDE the handler's `try`; the `catch` then ran
+ * `res.status(500).json(...)`, which threw again — this time with nothing above it — so the rejection was
+ * unhandled and **the whole Node process exited**. One unauthenticated GET to
+ * `/api/notifications/unread` was enough. Reproduced twice.
+ *
+ * The 25 call sites are fixed. This exists because fixing them is not the same as making it safe: the
+ * next handler written in that shape, in a file of 6,000 lines and 220 endpoints, would do it again, and
+ * a defect whose symptom is "production restarted" is the worst kind to diagnose after the fact.
+ *
+ * IT LOGS LOUDLY AND NEVER SWALLOWS SILENTLY. A double send is still a bug and the line below is how it
+ * gets found; what it must not be is a crash. The first response — the correct one — has already reached
+ * the client, so returning `res` and carrying on is also what the caller expected to happen.
+ */
+function doubleSendGuard(_req: Request, res: Response, next: NextFunction): void {
+  const guard = <T extends (...a: any[]) => any>(name: string, fn: T): T =>
+    function (this: Response, ...args: any[]) {
+      if (res.headersSent) {
+        log(`[DoubleSend] ${name}() after the response was already sent — ignored. `
+            + `A handler is responding twice (requireAuth already responds; callers must `
+            + `\`if (!auth) return;\`). ${new Error().stack?.split('\n')[2]?.trim() ?? ''}`);
+        return res;
+      }
+      return fn.apply(this, args);
+    } as unknown as T;
+
+  res.json = guard('res.json', res.json.bind(res));
+  res.send = guard('res.send', res.send.bind(res));
+  next();
 }
 
 /** One line per API request, truncated to 80 characters. */

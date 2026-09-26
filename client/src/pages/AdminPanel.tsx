@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { countryToIso } from '@/lib/countryToIso';
+import { setThemeMode, useThemeMode } from '@/lib/appTheme';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { authFetch } from '@/lib/queryClient';
 import TrafficSection from '@/features/admin-traffic/TrafficSection';
@@ -165,6 +166,23 @@ function applyAdminTheme(id: string) {
   const t = ADMIN_THEMES[id] ?? ADMIN_THEMES.dark;
   const r = document.documentElement;
   Object.entries(t).forEach(([k, v]) => r.style.setProperty(`--admin-${k}`, v));
+  // ONE SWITCH ACROSS THE WHOLE APP. The panel keeps its five palettes — they are a brand choice and
+  // flattening them was never asked for — but its light/dark DECISION is published so the journal, FX
+  // Copier and the public pages follow it, and so it follows them. See lib/appTheme for the four
+  // disconnected theme systems this replaced. His report, 2026-09-26.
+  setThemeMode(id === 'light' ? 'light' : 'dark');
+}
+
+/**
+ * The admin palette that matches a mode chosen somewhere else.
+ *
+ * A DARK MODE KEEPS HIS OWN DARK PALETTE rather than snapping to one. He has four to choose between and
+ * `admin_theme_v2` remembers which; switching the app to dark should restore THAT, not overwrite it.
+ */
+function adminThemeForMode(mode: 'light' | 'dark'): string {
+  if (mode === 'light') return 'light';
+  const saved = localStorage.getItem(ADMIN_THEME_KEY);
+  return saved && saved !== 'light' && ADMIN_THEMES[saved] ? saved : 'dark';
 }
 
 /** Apply a chosen font. THE CHOICE IS NOW HONOURED — it used to be ignored, with the id named `_id`
@@ -2804,6 +2822,19 @@ const SettingsSection = ({ bp, getAdminToken = null }: { bp: any; getAdminToken?
   const [showNewTask, setShowNewTask] = useState(false);
   const [selectedAgent, setSelectedAgent] = useState<any>(null);
   const [activeTheme, setActiveTheme] = useState(() => localStorage.getItem(ADMIN_THEME_KEY) || ADMIN_THEME_DEFAULT);
+  // FOLLOW A SWITCH MADE ELSEWHERE. Picking the light journal theme, or toggling FX Copier's button,
+  // changes the shared mode; this is the half that makes the admin panel obey it rather than only drive
+  // it. Guarded on a real change so it cannot fight the picker below.
+  const appMode = useThemeMode();
+  useEffect(() => {
+    const want = adminThemeForMode(appMode);
+    setActiveTheme((cur) => {
+      if ((cur === 'light') === (appMode === 'light')) return cur;   // already on the right side
+      applyAdminTheme(want);
+      localStorage.setItem(ADMIN_THEME_KEY, want);
+      return want;
+    });
+  }, [appMode]);
   const [activeFont, setActiveFont] = useState(() => localStorage.getItem(ADMIN_FONT_KEY) || ADMIN_FONT_DEFAULT);
   const [fontSaved, setFontSaved] = useState(false);
   const [newAgent, setNewAgent] = useState({ name: '', email: '', password: '', functions: [] as string[] });
