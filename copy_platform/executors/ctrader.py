@@ -255,6 +255,16 @@ class CTraderExecutor:
             # and send straight away (the cTrader live-copy path, unchanged).
             # Close uses a positionId → send straight away.
             if self._pending_cmd and self._pending_cmd[0] in ("open", "close", "place"):
+                # THE SYMBOL LIST IS 1,941 SYMBOLS AND 312 KB, so it is fetched ONCE PER ACCOUNT and
+                # cached in `symbol_details`, not once per order. It used to live on this executor,
+                # and `dispatcher._get_executor` builds a new executor for every follower on every
+                # event — so the whole 312 KB came down again to place each single order, and spent
+                # one of the 50 requests per second cTrader allows the connection.
+                cached = symbol_details.symbol_map(int(self.creds["ctraderId"]))
+                if cached:
+                    self._symbol_map = cached
+                    self._after_symbols(client)
+                    return
                 req = ProtoOASymbolsListReq()
                 req.ctidTraderAccountId = int(self.creds["ctraderId"])
                 client.send(req)
@@ -272,14 +282,10 @@ class CTraderExecutor:
         elif ptype == ProtoOASymbolsListRes().payloadType:
             res = Protobuf.extract(message)
             self._symbol_map = {s.symbolName: s.symbolId for s in res.symbol}
-            # The light list carries symbolId and name and NOTHING else — no lotSize, no
-            # minVolume, no stepVolume. Ask for the full ProtoOASymbol before sizing anything.
-            # OBSERVE-ONLY for now: the numbers are logged, not used (see _volume_audit).
-            sid = self._cmd_symbol_id()
-            if sid is not None and symbol_details.get(int(self.creds["ctraderId"]), sid) is None:
-                client.send(symbol_details.build_request(int(self.creds["ctraderId"]), sid))
-                return
-            self._send_command(client)
+            # CACHED FOR EVERY LATER ORDER ON THIS ACCOUNT — this reply is 312 KB and it has not
+            # changed between two orders seconds apart.
+            symbol_details.put_symbol_map(int(self.creds["ctraderId"]), self._symbol_map)
+            self._after_symbols(client)
 
         elif ptype == ProtoOASymbolByIdRes().payloadType:
             res = Protobuf.extract(message)
@@ -343,6 +349,21 @@ class CTraderExecutor:
                     external_id = str(pos.positionId),
                     entry_price = float(pos.price) if pos.price else None,
                 ))
+
+    def _after_symbols(self, client) -> None:
+        """What happens once the name -> id map is in hand, from the cache or from the broker.
+
+        ONE PLACE, TWO CALLERS. The cached path and the freshly-fetched path must do exactly the
+        same next thing; when this was written inline in the response handler only, adding the cache
+        would have quietly skipped the contract-spec fetch and sized orders off nothing.
+        """
+        # The light list carries symbolId and name and NOTHING else — no lotSize, no minVolume, no
+        # stepVolume. Ask for the full ProtoOASymbol before sizing anything.
+        sid = self._cmd_symbol_id()
+        if sid is not None and symbol_details.get(int(self.creds["ctraderId"]), sid) is None:
+            client.send(symbol_details.build_request(int(self.creds["ctraderId"]), sid))
+            return
+        self._send_command(client)
 
     def _match_label(self, reconcile_res, label: str) -> ExecResult:
         """The open position carrying `label`. An exact match only — never a near one.
@@ -498,6 +519,12 @@ class CTraderExecutor:
             if sl: req.stopLoss   = sl
             if tp: req.takeProfit = tp
             if label: req.label = label[:100]     # cTrader caps the label; truncate, never drop it
+            # THE IDEMPOTENCY KEY. cTrader echoes `clientOrderId` back on the execution event
+            # (`ProtoOAOrder.clientOrderId`), so it is both the safety net against placing the same
+            # mirror twice after an ambiguous failure AND the way a reply is matched to its request
+            # when several orders share one connection (`gateway.request`). Derived from the master
+            # order + follower, never random, so a retry produces the SAME key.
+            if label: req.clientOrderId = label[:50]
             client.send(req)
 
         elif cmd[0] == "amend":

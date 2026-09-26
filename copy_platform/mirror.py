@@ -24,6 +24,7 @@ from datetime import datetime, timezone
 from uuid import uuid4
 
 from db import Session, CopyFollower, CopyTradeMaster, CopyTradeFollower
+from db_io import run_db
 
 log = logging.getLogger("dispatcher.mirror")
 
@@ -96,23 +97,26 @@ async def record_fill_for(follower_id: str, master_trade_id: str, snap, order_ke
     # Without it the CLOSE that follows has no position to name and the copy could never be exited
     # — a copied trade nobody can get out of is worse than one that was never opened.
     pos_id, err = await _resolve_mirror_position(follower_id, order_key)
-    with Session() as db:
-        db.add(CopyTradeFollower(
-            id              = str(uuid4()),
-            master_trade_id = master_trade_id,
-            follower_id     = follower_id,
-            external_id     = pos_id,
-            symbol          = snap.symbol,
-            action          = snap.action,
-            event_type      = "OPEN",
-            volume          = float(volume) if volume else 0.0,
-            entry_price     = snap.entry_price,
-            stop_loss       = snap.stop_loss,
-            take_profit     = snap.take_profit,
-            status          = "executed",
-            executed_at     = datetime.now(timezone.utc),
-        ))
-        db.commit()
+
+    def _write():
+        with Session() as db:
+            db.add(CopyTradeFollower(
+                id              = str(uuid4()),
+                master_trade_id = master_trade_id,
+                follower_id     = follower_id,
+                external_id     = pos_id,
+                symbol          = snap.symbol,
+                action          = snap.action,
+                event_type      = "OPEN",
+                volume          = float(volume) if volume else 0.0,
+                entry_price     = snap.entry_price,
+                stop_loss       = snap.stop_loss,
+                take_profit     = snap.take_profit,
+                status          = "executed",
+                executed_at     = datetime.now(timezone.utc),
+            ))
+            db.commit()
+    await run_db(_write)
     _log(follower_id, master_trade_id, "INFO", "OPEN",
          f"master order {order_key} filled — mirror order {mirror_order_id} filled by itself at "
          f"{snap.entry_price}; nothing sent, which is correct"
@@ -127,9 +131,15 @@ async def _resolve_mirror_position(follower_id: str, order_key: str):
     from cred_manager import get_creds
     from dispatcher import _get_broker_account, _get_executor   # circular at module load; see above
     try:
-        with Session() as db:
-            follower = db.get(CopyFollower, follower_id)
-        broker_account = _get_broker_account(follower) if follower else None
+        def _read():
+            with Session() as db:
+                follower = db.get(CopyFollower, follower_id)
+            return _get_broker_account(follower) if follower else None
+
+        # BOTH READS IN ONE TRIP TO THE WORKER THREAD. They are two queries that always happen
+        # together, so crossing the thread boundary twice for them costs a hand-off and buys
+        # nothing.
+        broker_account = await run_db(_read)
         if not broker_account:
             return None, "no broker account linked"
         creds = await get_creds(broker_account)

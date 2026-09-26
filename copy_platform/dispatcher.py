@@ -8,7 +8,8 @@ import logging
 from datetime import datetime, timezone
 from uuid import uuid4
 
-from config import COPY_ENABLED, COPY_DRY_RUN
+from config import COPY_ENABLED, COPY_DRY_RUN, COPY_MAX_CONCURRENT_FOLLOWERS
+from db_io import run_db
 
 from sqlalchemy.orm import Session as DBSession
 from db import Session, CopyMaster, CopyFollower, BrokerAccount, \
@@ -42,41 +43,14 @@ async def dispatch(event: dict, master_id: str) -> None:
 
     lock = _master_locks.setdefault(master_id, asyncio.Lock())
     async with lock:                       # atomic dedup + master-row insert per master
-        with Session() as db:
-            master = db.get(CopyMaster, master_id)
-            if not master:
-                return
-            source    = master.source_type or "unknown"
-
-            # Idempotency for OPEN: never mirror an entry for a position/symbol that is
-            # already open (Telegram edits/re-posts, or any duplicate OPEN event) — the
-            # main double-entry guard. A re-open after a close is allowed because by then
-            # opens == closes for the key.
-            if etype == "OPEN":
-                ext    = snap.key
-                opens  = db.query(CopyTradeMaster).filter_by(
-                    master_id=master_id, external_id=ext, event_type="OPEN").count()
-                closes = db.query(CopyTradeMaster).filter_by(
-                    master_id=master_id, external_id=ext, event_type="CLOSE").count()
-                if opens > closes:
-                    log.info("[dispatch] duplicate OPEN for %s (already open) — skipping", ext)
-                    return
-
-            # The same guard for a resting order: a re-sent PLACED must not put a second mirror
-            # on the book. An order that was cancelled and placed again is a genuinely new order
-            # with a new id, so it is never caught by this.
-            if etype == "PLACED":
-                placed = db.query(CopyTradeMaster).filter_by(
-                    master_id=master_id, external_id=snap.key, event_type="PLACED").count()
-                if placed:
-                    log.info("[dispatch] duplicate PLACED for order %s — skipping", snap.key)
-                    return
-
-            master_trade    = _save_master_trade(db, master_id, snap, etype, source)
-            master_trade_id = master_trade.id      # capture before the session/lock release
-            followers       = db.query(CopyFollower).filter_by(
-                master_id=master_id, is_active=True, risk_accepted=True
-            ).all()
+        # ON A WORKER THREAD, NOT THE EVENT LOOP. This whole block is 4-5 blocking queries, and it
+        # runs under the master's lock — so on the loop it stopped the engine for every event, for
+        # every master, one after another. The lock still makes it atomic; it is simply no longer
+        # atomic AND blocking.
+        got = await run_db(_claim_event, master_id, snap, etype)
+        if got is None:
+            return
+        master_trade_id, followers = got
 
     if not followers:
         # NOBODY TO COPY TO IS ITSELF AN ANSWER, AND IT HAS TO REACH THE SCREEN. This logged one line
@@ -101,10 +75,69 @@ async def dispatch(event: dict, master_id: str) -> None:
                      "was not copied anywhere", master_id, etype)
         return
 
+    # BOUNDED FAN-OUT (2026-09-26). This gathered EVERY follower at once. With 500 followers that is
+    # 500 simultaneous broker requests, and cTrader allows 50 per second per connection
+    # (https://help.ctrader.com/open-api/) — so an unbounded burst does not go faster, it gets the
+    # application throttled. The gateway's token bucket enforces the broker's rule; this stops the
+    # queue in front of it growing without limit, and keeps memory flat at any follower count.
     await asyncio.gather(*[
-        _exec_follower(master_trade_id, f, snap, etype, event.get("master_order_id"))
+        _exec_follower_bounded(master_trade_id, f, snap, etype, event.get("master_order_id"))
         for f in followers
     ], return_exceptions=True)
+
+
+# One slot per concurrent follower execution, for the whole process.
+_fanout = asyncio.Semaphore(COPY_MAX_CONCURRENT_FOLLOWERS)
+
+
+async def _exec_follower_bounded(master_trade_id, follower, snap, etype, master_order_id=None):
+    async with _fanout:
+        await _exec_follower(master_trade_id, follower, snap, etype, master_order_id)
+
+
+def _claim_event(master_id: str, snap, etype: str):
+    """The dedup + master-row insert + follower read, as ONE blocking unit for `run_db`.
+
+    Returns (master_trade_id, followers), or None when this event must not be copied at all.
+
+    WHY IT IS ONE FUNCTION. These queries have to see the same snapshot of the table as each other
+    — the duplicate check is only meaningful if the insert that follows it cannot be raced. Keeping
+    them in one session, called once, under the caller's per-master lock, preserves exactly the
+    atomicity the lock was added for in the first place.
+    """
+    with Session() as db:
+        master = db.get(CopyMaster, master_id)
+        if not master:
+            return None
+        source = master.source_type or "unknown"
+
+        # Idempotency for OPEN: never mirror an entry for a position/symbol that is already open
+        # (Telegram edits/re-posts, or any duplicate OPEN event) — the main double-entry guard. A
+        # re-open after a close is allowed because by then opens == closes for the key.
+        if etype == "OPEN":
+            ext    = snap.key
+            opens  = db.query(CopyTradeMaster).filter_by(
+                master_id=master_id, external_id=ext, event_type="OPEN").count()
+            closes = db.query(CopyTradeMaster).filter_by(
+                master_id=master_id, external_id=ext, event_type="CLOSE").count()
+            if opens > closes:
+                log.info("[dispatch] duplicate OPEN for %s (already open) — skipping", ext)
+                return None
+
+        # The same guard for a resting order: a re-sent PLACED must not put a second mirror on the
+        # book. An order that was cancelled and placed again is a genuinely new order with a new
+        # id, so it is never caught by this.
+        if etype == "PLACED":
+            placed = db.query(CopyTradeMaster).filter_by(
+                master_id=master_id, external_id=snap.key, event_type="PLACED").count()
+            if placed:
+                log.info("[dispatch] duplicate PLACED for order %s — skipping", snap.key)
+                return None
+
+        master_trade = _save_master_trade(db, master_id, snap, etype, source)
+        followers    = db.query(CopyFollower).filter_by(
+            master_id=master_id, is_active=True, risk_accepted=True).all()
+        return master_trade.id, followers
 
 
 # ── Master trade record ───────────────────────────────────────────────────────
@@ -188,7 +221,7 @@ async def _exec_follower(master_trade_id: str, follower: CopyFollower,
                 _log(fid, master_trade_id, "INFO", "SKIP", why or "outside the allowed sessions")
                 return
 
-        broker_account = _get_broker_account(follower)
+        broker_account = await run_db(_get_broker_account, follower)
         if not broker_account:
             _log(fid, master_trade_id, "ERROR", "FAIL", "No broker account linked")
             return
@@ -201,8 +234,8 @@ async def _exec_follower(master_trade_id: str, follower: CopyFollower,
         # Safety guard (max open trades, daily loss, drawdown) — only gates new entries. It reads
         # the etype itself, so a PLACED is passed as "OPEN": the guard's question is "may this
         # follower take on another trade", and a resting mirror is one being taken on.
-        allowed, skip_reason = check_follower_allowed(
-            follower, snap, "OPEN" if is_entry else etype, broker_account)
+        allowed, skip_reason = await run_db(
+            check_follower_allowed, follower, snap, "OPEN" if is_entry else etype, broker_account)
         if not allowed:
             _log(fid, master_trade_id, "INFO", "SKIP", skip_reason or "blocked by risk guard")
             return
@@ -244,13 +277,13 @@ async def _exec_follower(master_trade_id: str, follower: CopyFollower,
         follower_pos_id: str | None = None
         open_vol: float | None = None
         if etype in ("CLOSE", "MODIFY"):
-            follower_pos_id, open_vol = _find_follower_position_id(fid, snap.key)
+            follower_pos_id, open_vol = await run_db(_find_follower_position_id, fid, snap.key)
             if follower_pos_id is None:
                 _log(fid, master_trade_id, "INFO", "SKIP",
                      f"No open follower position for master pos {snap.key}")
                 return
         elif etype in ("AMENDED", "CANCELLED"):
-            follower_pos_id, open_vol = mirror.find_follower_order_id(fid, snap.key)
+            follower_pos_id, open_vol = await run_db(mirror.find_follower_order_id, fid, snap.key)
             if follower_pos_id is None:
                 # NOT AN ERROR. The mirror may never have been placed — a filter refused it, the
                 # session was shut, the risk cap said no. There is simply nothing to act on.
@@ -272,7 +305,7 @@ async def _exec_follower(master_trade_id: str, follower: CopyFollower,
                 equity = None
             # Proportional mode needs the MASTER's balance too; every other mode ignores it, so it
             # is only read when it is actually going to be used.
-            master_equity = (_master_balance(follower.master_id)
+            master_equity = (await run_db(_master_balance, follower.master_id)
                              if (follower.lot_mode or "").lower() == "proportional" else None)
             lots = calc_lots(follower, snap.volume_lots, sl_pips=sl_pips,
                              follower_equity=equity, pip_value=pip_value(snap.symbol),
@@ -313,8 +346,8 @@ async def _exec_follower(master_trade_id: str, follower: CopyFollower,
         # risk more than 3% of their account on one copied trade; no stop loss is a refusal, since
         # unbounded risk cannot be checked against a cap.
         if is_entry:
-            ok_risk, risk_reason = check_trade_risk(
-                follower, broker_account, lots, sl_pips, pip_value(snap.symbol))
+            ok_risk, risk_reason = await run_db(
+                check_trade_risk, follower, broker_account, lots, sl_pips, pip_value(snap.symbol))
             if not ok_risk:
                 _log(fid, master_trade_id, "WARN", "RISK_CAP", risk_reason)
                 return
@@ -400,13 +433,13 @@ async def _exec_follower(master_trade_id: str, follower: CopyFollower,
                       "STILL RESTING and will fill if price reaches it; cancel it by hand.",
                       fid, follower_pos_id, snap.key)
 
-        _record_follower_trade(master_trade_id, follower, snap, etype, lots, result,
-                               exec_action=action, exec_sl=sl_price, exec_tp=tp_price)
+        await run_db(_record_follower_trade, master_trade_id, follower, snap, etype, lots, result,
+                     action, sl_price, tp_price)
     except Exception as e:
         log.exception("[%s] _exec_follower crashed (%s %s)", fid, etype, snap.symbol)
         _log(fid, master_trade_id, "ERROR", "FAIL", f"unexpected error: {e}")
         try:
-            _record_follower_trade(master_trade_id, follower, snap, etype, 0.0, None)
+            _record_follower_trade(master_trade_id, follower, snap, etype, 0.0, None)  # crash path: already off the hot loop
         except Exception:
             pass
 
@@ -537,8 +570,9 @@ def _follower_label(follower_id: str) -> str:
     return label
 
 
-def _log(follower_id: str, trade_id: str, level: str, event: str, msg: str):
-    log.info(f"[{_follower_label(follower_id)}] {level} {event}: {msg}")
+def _write_log_row(follower_id: str, trade_id: str, level: str, event: str, msg: str) -> None:
+    """The blocking half of `_log` — one INSERT. Never raises: losing an audit row must not lose
+    the trade it was describing."""
     try:
         with Session() as db:
             db.add(CopyExecutionLog(
@@ -548,3 +582,27 @@ def _log(follower_id: str, trade_id: str, level: str, event: str, msg: str):
             db.commit()
     except Exception:
         pass
+
+
+def _log(follower_id: str, trade_id: str, level: str, event: str, msg: str):
+    """Record one line of the activity log — the record he actually debugs from.
+
+    CONTEXT-AWARE, AND THAT IS WHY IT LOOKS ODD. `_log` is called from two different worlds: the
+    async dispatcher, and the worker threads that `db_io.run_db` uses (via `_record_follower_trade`).
+    Writing straight to the database is correct in a thread and catastrophic on the event loop —
+    the engine has 15 of these call sites, so blocking each one was a large part of why the whole
+    copier ran on a single stopped thread.
+    * on the event loop  -> hand the INSERT to a worker and DO NOT wait for it. An audit row is
+                            observability, not the trade; nothing downstream reads it back, so
+                            making the fan-out wait for it buys nothing.
+    * already on a thread -> write it directly. We are off the loop already.
+    The stdout line is emitted immediately either way, so the container log keeps its true ordering
+    even if two database rows land microseconds apart.
+    """
+    log.info(f"[{_follower_label(follower_id)}] {level} {event}: {msg}")
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        _write_log_row(follower_id, trade_id, level, event, msg)
+        return
+    loop.create_task(run_db(_write_log_row, follower_id, trade_id, level, event, msg))

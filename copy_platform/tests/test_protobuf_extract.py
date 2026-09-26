@@ -108,7 +108,11 @@ for folder, _dirs, files in os.walk(ROOT):
                 bad.append(f"{os.path.relpath(path, ROOT)}: {m.group(0)}")
 
 s.check("every Protobuf.extract call passes exactly one argument", bad, [])
-s.check("...and all eight call sites are still present", total, 8)
+# NINE SINCE 2026-09-26 — `gateway.py` reads `ProtoOAAccountAuthRes` to learn which account just
+# authenticated on the shared connection. The count is a canary: it catches a call site QUIETLY
+# DISAPPEARING (a reply silently stopping being handled), which the one-argument rule above cannot
+# see. So it is updated deliberately when a real one is added, never to make a red suite green.
+s.check("...and all nine call sites are still present", total, 9)
 
 
 # ── TEETH ───────────────────────────────────────────────────────────────────

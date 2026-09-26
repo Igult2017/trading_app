@@ -6,7 +6,7 @@ from datetime import datetime
 from sqlalchemy import create_engine, Column, String, Boolean, Integer, \
     Numeric, Text, DateTime, JSON, ARRAY
 from sqlalchemy.orm import declarative_base, sessionmaker
-from config import DATABASE_URL
+from config import DATABASE_URL, COPY_DB_POOL, COPY_DB_OVERFLOW
 
 # SQLAlchemy 1.4+ dropped the legacy "postgres://" dialect alias and only accepts
 # "postgresql://" — but DATABASE_URL ships as "postgres://" (psycopg2 / the Node pg
@@ -20,8 +20,14 @@ _DB_URL = (
 
 # Sized for the dispatcher fan-out: a master with many followers opens several
 # short DB sessions per follower concurrently, so the default 5+10 pool starves.
+#
+# CONFIGURABLE SINCE 2026-09-26, and raised from 20+40. At 5-8 sessions per follower the old ceiling
+# of 60 starved at roughly 8-12 concurrent followers. It matters more now than it did: since
+# `db_io.py` moved these calls onto worker threads, one thread holds one connection for real, so the
+# pool and the thread pool are sized from the SAME setting and cannot drift apart.
 engine  = create_engine(_DB_URL, pool_pre_ping=True,
-                        pool_size=20, max_overflow=40, pool_recycle=1800)
+                        pool_size=COPY_DB_POOL, max_overflow=COPY_DB_OVERFLOW,
+                        pool_recycle=1800)
 # expire_on_commit=False keeps attributes accessible after the session closes
 # (prevents DetachedInstanceError when objects are used outside the with-block)
 Session = sessionmaker(engine, expire_on_commit=False)

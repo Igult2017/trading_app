@@ -121,3 +121,29 @@ RECONCILE_INTERVAL = int(os.environ.get("COPY_RECONCILE_SEC", "30"))
 # to a single worker that owns everything (no behaviour change).
 COPY_WORKER_INDEX = int(os.environ.get("COPY_WORKER_INDEX", "0"))
 COPY_WORKER_COUNT = max(1, int(os.environ.get("COPY_WORKER_COUNT", "1")))
+
+# ── SCALE (added 2026-09-26, for "many people, and the only limit is hosting") ──────────────────
+#
+# HOW MANY DATABASE CONNECTIONS, AND THEREFORE HOW MANY WORKER THREADS. One copied trade costs 5-8
+# database round trips per follower, and every one of them used to run ON the event loop (see
+# `db_io.py`). The old pool was 20 + 40 overflow, which starves at roughly 8-12 concurrent
+# followers — and starving a BLOCKING pool stalls the loop rather than queueing politely.
+COPY_DB_POOL     = int(os.environ.get("COPY_DB_POOL", "40"))
+COPY_DB_OVERFLOW = int(os.environ.get("COPY_DB_OVERFLOW", "80"))
+
+# HOW MANY FOLLOWERS MAY BE EXECUTED AT ONCE. The fan-out used to gather EVERY follower with no
+# bound, so 500 followers meant 500 simultaneous broker requests — straight past cTrader's
+# documented 50-per-second-per-connection limit, which gets the application throttled rather than
+# served. 25 is a safe starting number, NOT a measured one; the gateway's own rate limiter is what
+# actually enforces the broker's rule, and this simply stops the queue in front of it growing
+# without limit.
+COPY_MAX_CONCURRENT_FOLLOWERS = int(os.environ.get("COPY_MAX_CONCURRENT_FOLLOWERS", "25"))
+
+# cTrader's OWN limit, quoted from https://help.ctrader.com/open-api/ :
+#   "a maximum of 50 requests per second per connection for any non-historical data requests"
+# It is PER CONNECTION and the platform is meant to hold only two (one demo, one live), so this is
+# the real external ceiling on how fast a fan-out can go. Set slightly under 50 so a clock edge
+# cannot tip us over it.
+CTRADER_REQS_PER_SEC = float(os.environ.get("CTRADER_REQS_PER_SEC", "45"))
+# "make sure that you send a heartbeat to the server at least once every 10 seconds" — same source.
+CTRADER_HEARTBEAT_SEC = float(os.environ.get("CTRADER_HEARTBEAT_SEC", "8"))

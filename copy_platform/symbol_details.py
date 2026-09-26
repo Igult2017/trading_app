@@ -47,6 +47,37 @@ log = logging.getLogger("symbol_details")
 # specs, which is rare and always accompanied by a restart-worthy announcement.
 _cache: dict[tuple[int, int], object] = {}
 
+# ── THE ACCOUNT'S SYMBOL NAME -> ID MAP, CACHED PER ACCOUNT (added 2026-09-26) ──────────────────
+#
+# WHAT IT COSTS WITHOUT THIS, measured on his live account: `ProtoOASymbolsListReq` returns **1,941
+# symbols, 312 KB of JSON**. The executor kept that map on ITSELF, and `dispatcher._get_executor`
+# builds a new executor for every follower on every event — so the whole 312 KB was downloaded
+# again to place each single order. A hundred followers cost 31 MB to place a hundred orders.
+#
+# It also costs a REQUEST, and cTrader's budget is 50 per second per connection
+# (https://help.ctrader.com/open-api/), so re-fetching it was spending the fan-out's own headroom.
+#
+# The map is per ACCOUNT because symbol ids are per account, and it lives here beside the contract
+# specs for the same reason those do: the cache has to outlive the executor that filled it.
+_symbol_maps: dict[int, dict[str, int]] = {}
+
+
+def symbol_map(ctrader_id: int) -> dict[str, int] | None:
+    """The account's name -> symbolId map, or None when it has never been fetched."""
+    return _symbol_maps.get(int(ctrader_id))
+
+
+def put_symbol_map(ctrader_id: int, mapping: dict[str, int]) -> None:
+    """Cache the map from a `ProtoOASymbolsListRes`. Ignores an empty reply rather than caching
+    nothing and then believing it — a broker hiccup must not make every later order unresolvable."""
+    if mapping:
+        _symbol_maps[int(ctrader_id)] = dict(mapping)
+
+
+def forget_account(ctrader_id: int) -> None:
+    """Drop an account's cached symbols. For a reconnect where ids could have been reissued."""
+    _symbol_maps.pop(int(ctrader_id), None)
+
 
 def get(ctrader_id: int, symbol_id: int):
     """Cached ProtoOASymbol, or None if it has not been fetched yet."""
