@@ -389,6 +389,50 @@ To add Binance, ByBit, or another platform:
 
 ## Fix log
 
+### 2026-09-26 — the audit: it has never sent an order, and the reason is a switch
+
+**His ask:** *"audit copy trader system, identify the problems and root causes and then fix it once
+and for all. Since the last fix it has never worked."*
+
+**ROOT CAUSE: `COPY_DRY_RUN=true`, set 2026-07-26 and never changed.** Every copy is computed in
+full — filters, risk-% sizing, the 3% cap — and then LOGGED instead of sent. The two copies of
+22 Sep are the proof that everything upstream works and stops at that one wall:
+
+    2026-09-22T08:04:17  DRY_RUN  WOULD OPEN EURUSD 0.2  lots SL=1.14479 TP=1.14208 - nothing sent
+    2026-09-22T15:05:43  DRY_RUN  WOULD OPEN GBPUSD 0.12 lots SL=1.33479 TP=1.33069 - nothing sent
+
+`followerTradesTotal: 0` for two months is explained by this alone.
+
+**The other blockers, in the order they bite:**
+
+| | what | evidence | state |
+|---|---|---|---|
+| 1 | nothing to copy — the 5x-spread gate refused every VIX.1 signal 22-23 Sep, none since | `autotrade_refused` at 3.4x / 2.9x / 3.6x | removed 2026-09-26 |
+| 2 | master events carried no stop, so risk-% sizing could not size | every OPEN 09-18 Sep has `stop_loss: None`; both 22 Sep OPENs carry theirs | fixed 21 Sep |
+| 3 | **`COPY_DRY_RUN=true`** | the two rows above | **still on** |
+| 4 | the session filter refuses his MANUAL evening trades | 4 rows 22:45-23:47 on 22 Sep, Sydney | working as configured |
+| 5 | "No open follower position for master pos X" on closes | 7 rows | symptom of 3 |
+
+**What the audit PROVED works, so nobody re-investigates it:** the order path fires (3 `PLACED`
+master events recorded — the 21 Sep order-mirroring build is live); the stop fix works (no master
+OPEN carried a stop before it, both did after); the engine is healthy (heartbeat ~1s, both
+followers synced); and both follower accounts are DEMO, so switching dry-run off risks no real
+money.
+
+⚠ **Never exercised against a real broker:** `place_pending`, `amend_pending`, `cancel_pending` and
+`find_position_by_label` have only met synthetic protobuf. The first real mirrored order is also
+their first real test — watch that one.
+
+**How to answer "is copy trading working" without reading any code:**
+
+    GET /api/admin/copy/diagnostics   engine health + masterTradesTotal vs followerTradesTotal
+    GET /api/admin/copy/activity      one row per ATTEMPT, each naming why it was skipped
+    GET /api/admin/autotrade?days=N   whether the master produced anything to copy at all
+
+⚠ `/api/admin/copy/all-trades` returned 0 rows while `masterTradesTotal` was 19 — do not trust it.
+
+### Earlier entries
+
 ### 2026-09-21 — a resting order is mirrored; the stop is read from the order it arrives on
 
 **What he saw.** *"if it was working then it would have copied that trade which was not filled and
