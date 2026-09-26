@@ -73,7 +73,18 @@ check('...and it runs before the heal that journals it',
 // with its $51 loss recorded as a $51 win. It was counted and never returned, so the pipeline
 // rewrote a trade he may already have read and told him nothing.
 console.log('\n3. a corrected value is reported, not swallowed:');
-check('the sync returns it', /return \{ created, duplicates, journaled, healed, backfilled, corrected \}/.test(sync), true);
+// PINNED NAME BY NAME rather than as one literal line. The line itself grew on 2026-09-26 (the
+// position aggregation added `restated` and `retired`), and a test that pins the whole line fails on a
+// change that is not the defect while still not noticing a counter quietly dropped from the middle.
+const returned = /return \{([^}]*)\};/.exec(sync)?.[1] ?? '';
+for (const counter of ['created', 'duplicates', 'journaled', 'healed', 'backfilled', 'corrected',
+                       // A TRADE RESTATED FROM THE WHOLE POSITION AND A SLICE RETIRED ARE BOTH THINGS
+                       // HE MUST BE TOLD ABOUT: one changes a size and a P&L he may already have read,
+                       // the other REMOVES a journal entry. Silence there is the same defect as the
+                       // one this section exists for.
+                       'restated', 'retired']) {
+  check(`the sync returns ${counter}`, new RegExp(`\\b${counter}\\b`).test(returned), true);
+}
 check('...and it is in the return type', /backfilled: number; corrected: number/.test(sync), true);
 check('the outcome carries it', /corrected\?: number;/.test(auto), true);
 check('the server log says so', /counts\.corrected \?/.test(auto), true);

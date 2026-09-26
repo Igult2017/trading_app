@@ -42,6 +42,14 @@ export const EDIT_LOCKABLE_FIELDS = [
   // ADDED 2026-09-05 with the R:R fix. `riskReward` now carries the ACHIEVED multiple and
   // `plannedRR` the plan, so both are rebuilt and both must stop at a hand edit.
   'plannedRR',
+  // ── ADDED 2026-09-26 WITH THE POSITION AGGREGATION ────────────────────────────────────────
+  // A trade scaled out of was recorded once per take-profit, and the row that survives is restated
+  // from the WHOLE position — which moves its SIZE, its average ENTRY and EXIT and the time it ended.
+  // The rebuild could not carry those: `lotSize`, `entryPrice` and `exitTime` were simply not in the
+  // patch, so a 0.9-lot trade would have gone on showing 0.3 lots in the journal while `synced_trades`
+  // held the truth. They are here for the same reason every other name is — so a hand correction of
+  // his still wins over the broker, for ever.
+  'lotSize', 'entryPrice', 'exitTime',
 ] as const;
 
 /**
@@ -171,6 +179,11 @@ export async function repairJournalDerived(trade: SyncedTrade): Promise<void> {
     // and never the journal, and `metrics_calculator.py`'s breakdown had nothing to show.
     mae:                rebuilt.mae,
     mfe:                rebuilt.mfe,
+    // THE SIZE AND THE TWO PRICES, which a restatement from the whole position moves. See the note on
+    // EDIT_LOCKABLE_FIELDS above — without these the journal keeps the last slice's numbers.
+    lotSize:            rebuilt.lotSize,
+    entryPrice:         rebuilt.entryPrice,
+    exitTime:           rebuilt.exitTime,
   };
 
   // ANYTHING HE HAS CORRECTED IS REMOVED FROM THE WRITE ENTIRELY — not set to undefined and left to

@@ -62,6 +62,27 @@ function minutesBetween(a: Date, b: Date): number {
 }
 
 /**
+ * HOW THE POSITION WAS TAKEN OFF, read back from what the adapter stored on the trade.
+ *
+ * His report, 2026-09-26: *"if i took profit at different points, it is recording each profit taken as
+ * an individual trade. It should record one order as an order after the whole order has been closed."*
+ * It now does — `brokerAdapters/ctraderPositions.ts` aggregates a position's deals into one trade — and
+ * `rawData` is where that aggregate keeps the slices, because averaging them into a single exit price
+ * is what the journal row needs and would otherwise be all it remembered.
+ *
+ * `rawData` is a free-form JSONB blob written by whichever adapter produced the trade, so every field
+ * is read defensively: a webhook trade, an older row and a non-cTrader broker have none of this, and
+ * one exit is not a scale-out.
+ */
+function scaleOut(trade: SyncedTrade): { parts: number; exits: Array<Record<string, unknown>> } | null {
+  const raw = (trade.rawData ?? {}) as Record<string, unknown>;
+  const exits = Array.isArray(raw.exits) ? raw.exits as Array<Record<string, unknown>> : [];
+  const parts = Number(raw.closedInParts ?? exits.length);
+  if (!Number.isFinite(parts) || parts < 2) return null;
+  return { parts, exits };
+}
+
+/**
  * Build the journal entry for one synced trade. Pure — it writes nothing.
  *
  * `news` is passed in rather than looked up here so this stays synchronous and testable; the caller
@@ -102,9 +123,15 @@ export function buildJournalEntry(trade: SyncedTrade, sessionId?: string | null,
   // WHY THE TRADE ENDED, computed ONCE and used twice — the risk numbers need it (a stop-out is
   // exactly -1R rather than -1.05R once the spread is taken out of it) and the entry records it for
   // the metrics page's exit breakdown. Two calls would be two chances to drift apart.
+  // WAS IT TAKEN OFF IN PIECES? Read once and used three times — the exit reason, the R (which must
+  // never be snapped to a placed level for a scaled-out trade; see ./risk) and the record of the ladder
+  // in `manualFields` below.
+  const scaled = scaleOut(trade);
+
   const exitReason = exitReasonFor({
     symbol: trade.symbol, entryPrice: trade.openPrice, closePrice: trade.closePrice,
     originalStopLoss: trade.originalStopLoss, originalTakeProfit: trade.originalTakeProfit,
+    closedInParts: scaled?.parts,
   });
 
   // THE RISK COMES FROM THE STOP THE TRADE WAS PLACED WITH, never the one it closed on. `stopLoss`
@@ -238,6 +265,18 @@ export function buildJournalEntry(trade: SyncedTrade, sessionId?: string | null,
       // WHICH CLOCK measured the excursions: "fix" is every 0.5s, "poll" every 30s. They are not the
       // same quality and a number whose sampling rate is unknown is worse than one that says it.
       maeMfeSource: trade.maeMfeSource ?? undefined,
+      // ── THE TRADE WAS TAKEN OFF IN PIECES, AND THE ROW ABOVE IS THE AVERAGE OF THEM ──────────
+      //
+      // One position is one entry (his report, 2026-09-26), so `entryPrice`, `exitTime` and the exit
+      // price are the whole trade: `lotSize` is every lot, and the exit is the VOLUME-WEIGHTED average
+      // of the partials. That is the right row — and on its own it would lose the one thing he asked
+      // the question about, which is that he took profit at more than one point.
+      //
+      // So the ladder is kept beside it: how many exits, and each one's price, size and time. Blank on
+      // a trade closed in a single deal, which is most of them, rather than a noisy `1`.
+      scaledOut:  scaled ? true : undefined,
+      exitCount:  scaled ? scaled.parts : undefined,
+      exitLadder: scaled ? scaled.exits : undefined,
     },
   };
 }

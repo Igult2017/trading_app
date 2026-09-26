@@ -1501,6 +1501,79 @@ test proving the process count returns to zero.
 
 ## D. cTrader & copy trading
 
+### D49 - ~~One trade taken off in pieces was recorded once per take-profit~~ FIXED 26 Sep
+
+**His report, 2026-09-26:** *"Auto sync journal has gap. In one trade, if i took profit at different
+points, it is recording each profit taken as an individual trade. It should record one order as an order
+after the whole order has been closed not recording each take profit as a seperate order."*
+
+**The cause, in one sentence:** a cTrader position scaled out of produces one opening deal and SEVERAL
+closing deals, every one with its own `dealId` — and `dealId` was the `externalId` that
+`processIncomingTrades` de-duplicates on. Three partials, three ids, three rows, three journal entries.
+
+**THREE ROUTES PRODUCED IT, and closing any one alone would have fixed nothing:**
+
+| where | what it did |
+|---|---|
+| [`ctrader.ts` `pairDealsIntoTrades`](../server/services/brokerAdapters/ctrader.ts) | grouped by position correctly, then took the LAST deal as "the close" and asked nothing about whether the position was finished. It emitted a trade after the FIRST partial, sized at that partial, keyed on its id — and a different id at every later sync |
+| [`ctrader.ts` `mergeDealMappings`](../server/services/brokerAdapters/ctrader.ts) | ran `mapClosedDeal` over EVERY deal and keyed each result on that deal's own id. This gateway's deals do carry `closePositionDetail` (measured 02 Sep), so it re-split what the pairing had grouped |
+| [`ctrader.ts` `mapClosedFromEvent`](../server/services/brokerAdapters/ctrader.ts) | the live feed counted ANY opposite-side deal as a close. A partial take-profit is exactly that, so each one was recorded within seconds of filling |
+
+**THE FIX.** [`brokerAdapters/ctraderPositions.ts`](../server/services/brokerAdapters/ctraderPositions.ts)
+owns the aggregation: a position's deals are read TOGETHER and nothing is emitted until the volume
+closed equals the volume opened. Out comes one trade with a volume-weighted entry and exit, the whole
+position's size, money summed leg by leg, and `exits` — every partial's price, size and time, so the row
+is one trade without forgetting it came off in three.
+
+**The externalId is still the FINAL closing deal's id**, which is what makes this safe on live data: for
+a position closed in ONE deal it is byte-for-byte what the old code produced, so nothing already
+recorded correctly is re-created or orphaned. For a scaled-out position it is only minted once the
+position is finished, so it can no longer change under a later sync.
+
+**The money is summed leg by leg, not computed from the rounded average.** On his 0.81-lot example the
+average exit rounds to the 5 decimals its column holds and multiplying that out is **27 cents adrift**
+of what the account received.
+
+**THE ROWS ALREADY STORED WERE THE OTHER HALF**, and the surviving one was WRONG, not merely duplicated:
+sized at the last partial, with that partial's money. `brokerScaleOut.ts` handles them from the ordinary
+sweep — no migration, nothing for him to press:
+
+- **restate** the surviving row from the whole position, and rebuild its journal entry. `lotSize`,
+  `entryPrice` and `exitTime` had to be added to `repairJournalDerived` (and so to the edit lock) — they
+  were not in the patch at all, so the journal would have kept the slice's numbers while
+  `synced_trades` held the truth.
+- **retire** the sibling rows and their entries. **Never** one he has corrected by hand
+  (`manualFields.__editedByHand`) and **never** one the auto-journal did not write; such a row is left
+  in place and the reason is logged and recorded. Every retire is written to `sync_events` BEFORE the
+  row goes, because the container log dies on every deploy and *"where did that entry go?"* will outlive
+  it.
+
+**The live feed defers a scaled-out position rather than guessing.** One execution event carries one
+deal, so it cannot know the other slices' prices — there is no honest single-event answer. It refuses
+the partials AND the final slice (whose status DOES say closed, which is the case that makes the volume
+test load-bearing) and the sweep records the whole thing. A single full close is still recorded in
+seconds, which is what the feed is for. Cost: a scaled-out trade reaches the journal at the next sweep
+instead of immediately — the trade this codebase always makes, *"a feed that quietly fails to open costs
+freshness, not the trade."*
+
+**A scaled-out trade's R is never snapped to a placed level.** Its exit reason is
+`Partial Take Profit` — a shape, not a level, answered before any level is compared — and no branch of
+`computeRisk` snaps that, so the measured figure stands. Both snaps would be fictions: `-1R` erases the
+partials he banked before the rest came off, and the full planned R claims a target only part of the
+position ever reached. The label is in the manual form's own vocabulary already
+(`JournalForm.tsx:958`).
+
+**Tests:** `brokerAdapters/ctraderScaleOut.test.ts` (53 checks — the aggregation, the
+still-open refusal, the merge not re-splitting, the live-feed refusal, the R rule, and the real six-deal
+fixture proved untouched) and `brokerScaleOut.test.ts` (19 checks — what the repair may delete and the
+three things it may not). Every existing suite still passes.
+
+**STILL OPEN, and it is not new:** the automatic pipeline's exit-reason vocabulary
+(`Take Profit` / `Stop Loss` / `Breakeven Stop` / `Trailed Stop` / `Partial Take Profit`) is not the
+manual form's (`Target Hit` / `Stop Hit` / `Break-Even` / `Trailing Stop` / `Partial TP`), so the metrics
+page's exit breakdown buckets a synced trade and a typed one separately. That predates this change and
+was left alone — the manual pipeline is not to be touched, and picking which vocabulary wins is his call.
+
 ### D48 - Autotrade can hold 3 correlated positions at once — 6% on ONE bet. 🔴 BEFORE LIVE MONEY
 
 **HIS RULE, 2026-09-06, and the code does not do it:**

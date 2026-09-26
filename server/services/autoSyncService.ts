@@ -152,6 +152,12 @@ export interface SyncOutcome {
   healed?: number;                  // stored before, but had no journal entry until now
   backfilled?: number;              // fields filled in that the live feed could not supply
   corrected?: number;               // a WRONG value the broker's own deals disproved — see below
+  // ONE TRADE, NOT ONE PER TAKE-PROFIT (his report, 2026-09-26). A position scaled out of used to be
+  // recorded once per partial, so the sweep restates the surviving row from the WHOLE position and
+  // retires the slices. Reported because both change what he is looking at — and a retire DELETES a
+  // journal entry, which must never happen without a word.
+  restated?: number;                // a row rebuilt from every deal of its position
+  retired?: number;                 // a row that was one slice of a trade, not a trade — deleted
   error?: string;
 }
 
@@ -193,7 +199,8 @@ export async function syncAccount(account: BrokerAccount,
                 + `${new Date(now).toISOString()} (${window})`);
 
     const raw = await fetchWithRetry(account, fromMs, now);
-    let counts = { created: 0, duplicates: 0, journaled: 0, healed: 0, backfilled: 0, corrected: 0 };
+    let counts = { created: 0, duplicates: 0, journaled: 0, healed: 0, backfilled: 0, corrected: 0,
+                   restated: 0, retired: 0 };
     if (raw.length) {
       counts = await processIncomingTrades(account.id, account.userId, raw);
       console.log(`[AutoSync] ${tag}: ${raw.length} closed trade(s) from the broker -> `
@@ -213,7 +220,16 @@ export async function syncAccount(account: BrokerAccount,
                   // loss recorded as a $51 win). It was counted and never returned, so the single
                   // most serious thing this pipeline does happened silently.
                   + (counts.corrected ? `, ${counts.corrected} CORRECTED (a stored value the `
-                                        + `broker's own deals disproved)` : ''));
+                                        + `broker's own deals disproved)` : '')
+                  // ONE TRADE PER POSITION, NOT ONE PER TAKE-PROFIT. A restate means a row was sized
+                  // at one partial and now carries the whole trade; a retire means a row that was
+                  // never a trade has been DELETED along with its journal entry. "Where did that entry
+                  // go?" must be answerable from this line and from `sync_events`, because the
+                  // container log dies on every deploy and the question will outlive it.
+                  + (counts.restated ? `, ${counts.restated} RESTATED from the whole position (each `
+                                       + `had been recorded as a single partial take-profit)` : '')
+                  + (counts.retired ? `, ${counts.retired} RETIRED (a partial exit that had been `
+                                      + `recorded as a trade of its own)` : ''));
     } else {
       console.log(`[AutoSync] ${tag}: the broker returned no closed trades in that window`);
     }

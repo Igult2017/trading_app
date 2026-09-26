@@ -125,6 +125,15 @@ export interface IStorage {
     originalStopLoss: string; originalTakeProfit: string | null }): Promise<void>;
   correctSyncedTrade(id: string, fix: { direction?: string; profitLoss?: string;
     orderType?: string; mae?: string; mfe?: string; maeMfeSource?: string }): Promise<void>;
+  /** Every row this account holds for one broker POSITION — the join that finds a trade recorded
+   *  once per partial take-profit before the aggregation of 2026-09-26. */
+  getSyncedTradesByPosition(brokerAccountId: string, positionId: string): Promise<SyncedTrade[]>;
+  /** Restate a row from the WHOLE position once every slice of it is known. */
+  resizeSyncedTrade(id: string, agg: { lots?: string; openPrice?: string; closePrice?: string;
+    profitLoss?: string; commission?: string; swap?: string; openTime?: Date; closeTime?: Date;
+    rawData?: Record<string, unknown> }): Promise<void>;
+  /** Remove a row that a later sync proved was one slice of a trade, not a trade. */
+  deleteSyncedTrade(id: string): Promise<boolean>;
 
   // ── Blog ─────────────────────────────────────────────────────────────────
   getBlogPosts(filters?: { status?: string; section?: string }): Promise<BlogPost[]>;
@@ -1118,6 +1127,33 @@ export class DbStorage implements IStorage {
     if (fix.maeMfeSource)         set.maeMfeSource = fix.maeMfeSource;
     if (!Object.keys(set).length) return;
     await db.update(syncedTrades).set(set).where(eq(syncedTrades.id, id));
+  }
+
+  async getSyncedTradesByPosition(brokerAccountId: string, positionId: string): Promise<SyncedTrade[]> {
+    return db.select().from(syncedTrades)
+      .where(and(
+        eq(syncedTrades.brokerAccountId, brokerAccountId),
+        eq(syncedTrades.positionId, positionId),
+      ));
+  }
+
+  /** Restate a row from the WHOLE position — see `reconcileAggregate` in brokerSyncService. */
+  async resizeSyncedTrade(id: string, agg: { lots?: string; openPrice?: string; closePrice?: string;
+      profitLoss?: string; commission?: string; swap?: string; openTime?: Date; closeTime?: Date;
+      rawData?: Record<string, unknown> }): Promise<void> {
+    const set: Record<string, any> = {};
+    for (const k of ['lots', 'openPrice', 'closePrice', 'profitLoss', 'commission', 'swap',
+                     'openTime', 'closeTime', 'rawData'] as const) {
+      if ((agg as any)[k] !== undefined) set[k] = (agg as any)[k];
+    }
+    if (!Object.keys(set).length) return;
+    await db.update(syncedTrades).set(set).where(eq(syncedTrades.id, id));
+  }
+
+  async deleteSyncedTrade(id: string): Promise<boolean> {
+    const r = await db.delete(syncedTrades).where(eq(syncedTrades.id, id))
+      .returning({ id: syncedTrades.id });
+    return r.length > 0;
   }
 
   // ── Blog ─────────────────────────────────────────────────────────────────

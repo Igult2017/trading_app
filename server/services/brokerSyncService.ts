@@ -23,6 +23,7 @@ import { invalidateComputeCaches } from '../lib/cache';
 import { toPips } from '../lib/pipMath';
 import { journalSyncedTrade, repairJournalTiming, repairJournalDerived, healJournalBlanks, record } from './autoJournal';
 import { marksFor } from './autoJournal/marks';
+import { reconcileAggregate, retireSupersededParts } from './brokerScaleOut';
 
 // ── Auto-journal one synced trade ─────────────────────────────────────────────
 // ── Process a batch of incoming trades (from webhook or poll) ─────────────────
@@ -57,6 +58,17 @@ export interface RawBrokerTrade {
   comment?:    string;
   magic?:      number;
   rawData?:    Record<string, unknown>;
+  // ── HOW THE TRADE WAS TAKEN OFF, when it was taken off in pieces ─────────────────────────────
+  //
+  // His report, 2026-09-26: *"if i took profit at different points, it is recording each profit taken
+  // as an individual trade. It should record one order as an order after the whole order has been
+  // closed."* It now does — one position is one row — and these two fields are what keeps the detail
+  // that averaging the exits would otherwise lose. `exits` is every partial in order (price, volume,
+  // time, deal id); `closedInParts` is how many there were, so `> 1` is the whole test for
+  // "this trade was scaled out of".
+  exits?:         Array<{ dealId: string; price: number; lots?: number; volume: number;
+                          at?: number; profit?: number }>;
+  closedInParts?: number;
 }
 
 function normaliseDirection(d: string): 'Long' | 'Short' {
@@ -121,8 +133,13 @@ export async function processIncomingTrades(
   userId: string,
   trades: RawBrokerTrade[],
 ): Promise<{ created: number; duplicates: number; journaled: number; healed: number;
-             backfilled: number; corrected: number }> {
+             backfilled: number; corrected: number; restated: number; retired: number }> {
   let created = 0, duplicates = 0, journaled = 0, healed = 0, backfilled = 0, corrected = 0;
+  // ONE TRADE TAKEN OFF IN PIECES USED TO BE RECORDED ONCE PER PIECE (his report, 2026-09-26). The
+  // adapter now aggregates the whole position; these two count what that costs on data already stored
+  // wrongly — the surviving row restated from the whole trade, and the slices removed. See
+  // ./brokerScaleOut.
+  let restated = 0, retired = 0;
 
   // Get the account's default session so auto-journaled trades are visible
   // in session-filtered views (metrics, drawdown, audit)
@@ -156,6 +173,33 @@ export async function processIncomingTrades(
                     // incoming value so the next sweep answers it instead of me inferring again.
                     + ` | broker offers openTime=${JSON.stringify(raw.openTime ?? null)}`);
       }
+      // ── ONE TRADE, NOT ONE PER TAKE-PROFIT — on the rows already stored ────────────────────
+      //
+      // His report, 2026-09-26. The adapter now aggregates a position's deals into one trade and only
+      // once the position is finished, so this cannot happen again. But the rows it already made are
+      // what he is looking at, and the surviving one is WRONG rather than merely duplicated: the old
+      // code keyed the trade on the last closing deal and sized it at that slice, so a 0.9-lot trade
+      // scaled out in three was recorded as 0.3 lots with a third of the money.
+      //
+      // The aggregate arriving now carries the whole position, and its externalId is that same last
+      // closing deal — which is exactly why it lands in this branch. Restating it here is what turns
+      // "already had" from a lie into the truth. See ./brokerScaleOut for what it will not do.
+      if ((raw.closedInParts ?? 1) >= 2) {
+        const didRestate = await reconcileAggregate(existing, raw,
+          toDate(raw.openTime), toDate(raw.closeTime)).catch(err => {
+            console.error(`[Sync] could not restate ${existing.externalId} from the whole position: `
+                          + `${err?.message ?? err}`);
+            return false;
+          });
+        if (didRestate) restated++;
+        retired += await retireSupersededParts(brokerAccountId, existing.externalId, raw)
+          .catch(err => {
+            console.error(`[Sync] could not retire the partial exits of position ${raw.positionId}: `
+                          + `${err?.message ?? err}`);
+            return 0;
+          });
+      }
+
       // A TRADE STORED BUT NEVER JOURNALED USED TO STAY THAT WAY FOR EVER.
       //
       // This branch was `{ duplicates++; continue; }` — it asked only "have I seen this trade?",
@@ -475,6 +519,18 @@ export async function processIncomingTrades(
       const journalId = await journalSyncedTrade(synced, defaultSessionId);
       if (journalId) journaled++;
     }
+
+    // AND THE SLICES THIS TRADE SUPERSEDES, on the create path as well as the duplicate one. The
+    // aggregate is keyed on the FINAL closing deal, and that deal's own row may never have been
+    // written (the live feed was down, or the sweep's window ended before it) while the earlier
+    // take-profits' rows were. Retiring only in the duplicate branch would leave exactly those behind.
+    if ((raw.closedInParts ?? 1) >= 2) {
+      retired += await retireSupersededParts(brokerAccountId, raw.externalId, raw).catch(err => {
+        console.error(`[Sync] could not retire the partial exits of position ${raw.positionId}: `
+                      + `${err?.message ?? err}`);
+        return 0;
+      });
+    }
   }
 
   // Update account trade count + lastSyncAt
@@ -487,7 +543,11 @@ export async function processIncomingTrades(
   // cache expired, which reads exactly like "the sync is not working".
   // A HEALED TRADE IS A NEW JOURNAL ENTRY TOO, so the cached pages must be cleared for it as well —
   // otherwise the entry exists and every page keeps showing the old list for up to five minutes.
-  if (created > 0 || healed > 0 || backfilled > 0) {
+  // A RESTATED TRADE AND A RETIRED ONE BOTH CHANGE THE LIST EVERY PAGE IS BUILT FROM — a trade that
+  // now shows its true size, and two entries that are gone. Leaving them out of this test would mean
+  // the journal showed the old three-rows-for-one-trade picture for up to five more minutes, which
+  // reads exactly like the fix not working.
+  if (created > 0 || healed > 0 || backfilled > 0 || restated > 0 || retired > 0) {
     await invalidateComputeCaches(defaultSessionId ?? undefined, userId).catch(() => {});
   }
 
@@ -496,5 +556,5 @@ export async function processIncomingTrades(
   // P&L: his EUR/USD LONG stored as a SHORT with its $51 loss recorded as a $51 WIN. The pipeline
   // now finds and fixes that, and said nothing, so a trade he may already have read as a win was
   // silently rewritten.
-  return { created, duplicates, journaled, healed, backfilled, corrected };
+  return { created, duplicates, journaled, healed, backfilled, corrected, restated, retired };
 }

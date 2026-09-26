@@ -114,6 +114,12 @@ export function computeRisk(t: RiskInput): RiskNumbers {
     ? round2((t.direction === 'Long' ? exit - entry : entry - exit) / risk)
     : undefined;
 
+  // A SCALED-OUT TRADE IS NEVER SNAPPED, and that is what `'Partial Take Profit'` not appearing in any
+  // branch below achieves. Do not add it to one. A trade taken off in pieces did not finish on a
+  // placed level — it finished at the volume-weighted average of several — so both snaps would be
+  // fictions: -1R would erase the partials he banked before the rest stopped out, and the full planned
+  // R would claim the whole position reached a target only part of it ever saw. The measured figure is
+  // the real result there, and it falls out of the last branch.
   if (t.outcome === 'BE') {
     out.achievedRR = 0;                                  // his rule: "Breakeven is 1:0 R"
   } else if (t.outcome === 'LOSS' && t.exitReason === 'Stop Loss') {

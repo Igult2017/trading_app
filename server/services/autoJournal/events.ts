@@ -35,6 +35,12 @@ export type SyncStage =
   | 'healed'       // it was stored earlier but had no journal entry until now
   | 'backfilled'   // a blank field was filled from a source that had it
   | 'skipped'      // nothing was attempted, and `detail` says why
+  // A ROW WAS DELETED because a later sync proved it was not a trade. Added 2026-09-26 with the
+  // position aggregation: one trade scaled out of in three pieces had been recorded three times, and
+  // the two extra rows are removed once the whole position is known. A deletion is not a 'skipped'
+  // and it is not a 'failed'; it is the one stage that REMOVES something, so "where did that entry
+  // go?" needs its own answer that survives the next deploy.
+  | 'retired'      // it was one slice of a trade, not a trade — deleted, and `detail` says which
   | 'failed';      // it threw, and `detail` carries the message
 
 export interface SyncEventInput {

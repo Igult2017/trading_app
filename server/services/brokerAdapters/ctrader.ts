@@ -21,6 +21,8 @@
 import WebSocket from 'ws';
 import type { RawBrokerTrade } from '../brokerSyncService';
 import { acquire, withConnection } from '../ctraderConnPool';
+import { isFilled, usdQuoted, money, lotUnits, dealVolume } from './ctraderFields';
+import { aggregatePositions, viewPositions } from './ctraderPositions';
 
 const CONNECT   = 'https://connect.spotware.com';
 const TOKEN_URL = `${CONNECT}/apps/token`;
@@ -300,105 +302,26 @@ async function fetchDealsInRange(ws: WebSocket, acctId: number, from: number, to
  * Verified against the live Pepperstone demo account on 2026-09-02: all 30 deals in a 14-day window
  * carried `dealStatus: "FILLED"`, and NONE carried `closePositionDetail`.
  */
-function isFilled(d: any): boolean {
-  const s = d?.dealStatus;
-  return s === 2 || s === '2' || String(s).toUpperCase() === 'FILLED';
-}
-
-/** Deals whose position is USD-quoted, so (close − entry) × units IS the P&L in account currency. */
-function usdQuoted(symbol: string): boolean {
-  return /USD$/i.test(symbol.replace(/[^A-Za-z]/g, ''));
-}
-
-/** Money fields are integers scaled by `moneyDigits`, which the broker states per record.
- *
- * It defaults to 2 — hundredths, the near-universal case — but it is stated for a reason and an
- * account whose currency scales differently would have every commission and swap out by a factor of
- * ten or a hundred if the divisor were hardcoded. `ProtoOADeal` and `ProtoOAPosition` both carry it.
- */
-function money(raw: unknown, digits: unknown): number | undefined {
-  if (raw == null) return undefined;
-  const n = Number(raw);
-  if (!Number.isFinite(n)) return undefined;
-  const d = Number(digits);
-  return n / Math.pow(10, Number.isFinite(d) && d >= 0 ? d : 2);
-}
-
-/** Units of the base asset in one lot.
- *
- * NOT A GUESS AND NOT UNIVERSAL: a currency lot is 100,000 units, a metals lot is 100 ounces. The
- * broker states this per symbol (`ProtoOASymbol.lotSize`) but the symbol list this adapter fetches
- * (`ProtoOALightSymbol`) does not carry it — the same gap that made autotrade size gold 1,000x too
- * large. Only `lots` on the journal row depends on this here; prices, times and P&L do not.
- */
-function lotUnits(symbol: string): number {
-  return /^(XAU|XAG|XPT|XPD)/i.test(symbol.replace(/[^A-Za-z]/g, '')) ? 100 : 100_000;
-}
-
 /**
  * Pair a position's deals into ONE closed trade — the path that actually works on this gateway.
  *
  * WHY THIS EXISTS. `mapClosedDeal` needs `closePositionDetail` for the entry price, the gross profit
- * and the swap. The broker does not send it here: 0 of 30 real deals carried it, including six that
- * genuinely closed a position. So the only way to know a deal closed something is to look at the
- * position's deals together — the first opens it, a later one on the opposite side closes it.
+ * and the swap. The broker does not always send it: 0 of 30 real deals carried it on 02 Sep,
+ * including six that genuinely closed a position. So the only way to know a deal closed something is
+ * to look at the position's deals together — the ones on the opening side add to the position, the
+ * ones on the other side take money out of it.
  *
- * Everything used below is a field VERIFIED present on the real payload: dealId, positionId,
- * symbolId, tradeSide, filledVolume, executionPrice, executionTimestamp, dealStatus, commission.
+ * THE AGGREGATION ITSELF NOW LIVES IN `./ctraderPositions`, which reads a position's deals TOGETHER
+ * and emits nothing until the volume closed equals the volume opened. This wrapper is kept because
+ * every caller and every test names it, and because the name says what it does.
  *
- * P&L IS ONLY COMPUTED WHEN IT CAN BE COMPUTED HONESTLY. `volume` is in cents of the base unit, so
- * units = filledVolume / 100 and profit = (close − entry) × units in the QUOTE currency. That is the
- * account currency only for a USD-quoted symbol. For anything else the trade is still recorded — with
- * its prices, times and size — and the profit is left undefined rather than reported wrongly.
+ * His report, 2026-09-26 — *"if i took profit at different points, it is recording each profit taken
+ * as an individual trade"* — was this function taking the LAST deal as "the close" and asking nothing
+ * about whether the position was finished. See the header of `./ctraderPositions` for the whole
+ * account of it.
  */
 export function pairDealsIntoTrades(deals: any[], symbolMap: Record<number, string>): RawBrokerTrade[] {
-  const byPosition = new Map<string, any[]>();
-  for (const d of deals ?? []) {
-    if (!isFilled(d) || d?.positionId == null) continue;
-    const k = String(d.positionId);
-    const list = byPosition.get(k);
-    if (list) list.push(d); else byPosition.set(k, [d]);
-  }
-  const out: RawBrokerTrade[] = [];
-  for (const [, group] of byPosition) {
-    if (group.length < 2) continue;                       // still open — nothing realised yet
-    group.sort((a, b) => Number(a.executionTimestamp ?? 0) - Number(b.executionTimestamp ?? 0));
-    const open = group[0];
-    const shut = group[group.length - 1];
-    const side = String(open.tradeSide ?? '').toUpperCase();
-    const long = side === 'BUY' || open.tradeSide === 1;
-    const symbol = symbolMap[open.symbolId] ?? String(open.symbolId);
-    const units = Number(shut.filledVolume ?? shut.volume ?? 0) / 100;
-    const entry = Number(open.executionPrice);
-    const exit  = Number(shut.executionPrice);
-    const comm  = (money(open.commission, open.moneyDigits) ?? 0)
-                + (money(shut.commission, shut.moneyDigits) ?? 0);
-    const profit = (Number.isFinite(entry) && Number.isFinite(exit) && units > 0 && usdQuoted(symbol))
-      ? Math.round(((long ? exit - entry : entry - exit) * units) * 100) / 100
-      : undefined;
-    out.push({
-      // KEYED ON THE CLOSING DEAL, so the de-duplication in processIncomingTrades still holds: one
-      // closed position produces exactly one externalId, stable across syncs.
-      externalId: String(shut.dealId),
-      positionId: open.positionId != null ? String(open.positionId) : undefined,
-      symbol,
-      direction:  long ? 'Long' : 'Short',
-      lots:       units > 0 ? units / lotUnits(symbol) : undefined,
-      openPrice:  Number.isFinite(entry) ? entry : undefined,
-      closePrice: Number.isFinite(exit) ? exit : undefined,
-      openTime:   open.executionTimestamp ?? undefined,
-      closeTime:  shut.executionTimestamp ?? undefined,
-      // THE ORDER THAT OPENED THE POSITION — the join key to the risk it was placed with. The
-      // CLOSING deal's orderId is a different order (the stop/target that fired) and carries no
-      // levels, so taking the wrong one of the two yields nothing.
-      entryOrderId: open.orderId != null ? String(open.orderId) : undefined,
-      profit,
-      commission: comm || undefined,
-      swap:       undefined,
-      comment:    shut.comment,
-    });
-  }
-  return out;
+  return aggregatePositions(deals, symbolMap);
 }
 
 /**
@@ -412,6 +335,19 @@ export function pairDealsIntoTrades(deals: any[], symbolMap: Record<number, stri
  * CONSERVATIVE BY DESIGN: if the event does not clearly describe a CLOSE, this returns null and the
  * 15-minute sync still catches the trade through `pairDealsIntoTrades`. Recording an opening fill as
  * a closed trade would put a fictional row in his journal, which is worse than recording it late.
+ *
+ * AND A PARTIAL TAKE-PROFIT IS NOT A CLOSE — his report, 2026-09-26. The `closedBySide` test below
+ * asks only whether the deal is on the opposite side to the position, and a partial exit is exactly
+ * that: it SHRINKS the position rather than ending it. Each one therefore arrived here as its own
+ * "closed trade", with its own `dealId` for an externalId, and became its own journal entry — so one
+ * trade taken off in three pieces appeared three times.
+ *
+ * ONE EVENT CANNOT AGGREGATE A POSITION. It carries one deal, so it cannot know the other slices'
+ * prices or volumes; there is no honest single-event answer for a scaled-out trade. So this hands
+ * that case to the sweep, which sees every deal of the position at once (`./ctraderPositions`). The
+ * cost is that a scaled-out trade reaches the journal at the next sweep instead of in seconds — which
+ * is the trade-off this file already makes everywhere: *"a feed that quietly fails to open costs
+ * freshness, not the trade."* Recording it live would cost correctness instead.
  */
 export function mapClosedFromEvent(ev: any, symbolMap: Record<number, string>): RawBrokerTrade | null {
   const d = ev?.deal, p = ev?.position;
@@ -424,6 +360,31 @@ export function mapClosedFromEvent(ev: any, symbolMap: Record<number, string>): 
   const closedByStatus = status.includes('CLOSED');
   const closedBySide = !!posSide && !!dealSide && posSide !== dealSide;
   if (!closedByStatus && !closedBySide) return null;          // an opening fill
+
+  // WAS THIS DEAL THE WHOLE POSITION? `tradeData.volume` is the position's own volume and the deal's
+  // `filledVolume` is what this slice took off. Less than the whole means a partial, whatever the
+  // status says — and on the FINAL slice of a scaled-out position the status DOES say closed, which
+  // is precisely the case that would otherwise be recorded with one third of the trade's size and
+  // one third of its money.
+  const posVolume  = Number(p.tradeData?.volume ?? NaN);
+  const dealVol    = dealVolume(d);
+  const wholeKnown = Number.isFinite(posVolume) && posVolume > 0 && dealVol > 0;
+  if (wholeKnown && dealVol < posVolume) {
+    console.log(`[cTrader] position ${p.positionId} closed ${dealVol} of ${posVolume} — a PARTIAL `
+                + `exit, so the live feed records nothing. The sweep aggregates the whole position `
+                + `once it is finished (one trade, not one per take-profit).`);
+    return null;
+  }
+  // NEITHER STATUS NOR VOLUME SAYS THE POSITION IS FINISHED, so this cannot be told apart from a
+  // partial. Deferring costs at most one sweep; guessing costs a fictional row that then has to be
+  // found and unpicked. Logged rather than silent — a refusal that cannot be seen is a defect that
+  // cannot be found.
+  if (!closedByStatus && !wholeKnown) {
+    console.warn(`[cTrader] position ${p.positionId}: an opposite-side deal with no `
+                 + `positionStatus and no tradeData.volume — cannot tell a full close from a partial `
+                 + `take-profit, so the sweep will record it.`);
+    return null;
+  }
 
   const symbol = symbolMap[d.symbolId] ?? String(d.symbolId);
   // THE CLOSING DEAL IS THE ONLY RELIABLE SOURCE OF THE DIRECTION, and getting this wrong inverted
@@ -517,33 +478,85 @@ export function mapClosedDeal(d: any, symbolMap: Record<number, string>): RawBro
  * Extracted from `fetchCTraderTrades` so it can be tested without a socket — the defect it now
  * guards against was invisible to every existing test precisely because it lived inside the network
  * call.
+ *
+ * TWO RULES, AND EACH ONE IS A DEFECT THAT SHIPPED.
+ *
+ * 1. MERGE FIELD BY FIELD, never wholesale. The detailed path used to REPLACE the aggregated one,
+ *    and that silently threw away the OPEN TIME on every trade. Measured in production on 02 Sep:
+ *    this gateway's deals DO carry `closePositionDetail`, so `mapClosedDeal` fires for every closed
+ *    deal and its result overwrote the paired one. But `closePositionDetail` has no `entryTimestamp`,
+ *    so its `openTime` is undefined — while the aggregated trade, built from the position's real
+ *    deals, has the true one. The overwrite therefore replaced a correct open time with nothing:
+ *
+ *        deals per position: 239821023:2 239582511:2   <- both pairable
+ *        [Sync] had GBPUSD 317367514 ... broker offers openTime=null
+ *
+ *    "Better where present" is not the same as "better", and one `set()` conflated them.
+ *
+ * 2. A DEAL THAT BELONGS TO A POSITION WE AGGREGATED IS NOT A TRADE OF ITS OWN. This loop used to run
+ *    `mapClosedDeal` over every deal and `set()` whatever came back under that deal's own id — which
+ *    on a scaled-out position minted one trade PER PARTIAL TAKE-PROFIT, each sized at that slice and
+ *    each carrying that slice's gross profit. That is the second half of his report of 2026-09-26,
+ *    and it is why aggregating in `pairDealsIntoTrades` alone would not have fixed it. A deal is now
+ *    only ever merged INTO its position's trade; it can stand alone solely when it belongs to no
+ *    position this batch could aggregate, which is how a gateway that sends `closePositionDetail`
+ *    without a usable `positionId` still gets its trades recorded.
+ *
+ * The aggregated trade already reads `closePositionDetail` itself — summing gross profit and swap
+ * across ALL the closing deals, which is the whole position's money rather than the last slice's —
+ * so the merge below fills what it could not know and never overwrites what it computed.
  */
 export function mergeDealMappings(allDeals: any[], symbolMap: Record<number, string>): RawBrokerTrade[] {
   const byId = new Map<string, RawBrokerTrade>();
   for (const t of pairDealsIntoTrades(allDeals, symbolMap)) byId.set(t.externalId, t);
 
-  // MERGE FIELD BY FIELD. THE DETAILED PATH USED TO REPLACE THE PAIRED ONE WHOLESALE, and that
-  // silently threw away the OPEN TIME on every trade.
-  //
-  // Measured in production on 02 Sep: this gateway's deals DO carry `closePositionDetail`, so
-  // `mapClosedDeal` fires for every closed deal and its result overwrote the paired one. But
-  // `closePositionDetail` has no `entryTimestamp`, so its `openTime` is undefined — while the
-  // paired trade, built from the two real deals of the position, has the true one. The overwrite
-  // therefore replaced a correct open time with nothing, on every single trade:
-  //
-  //     deals per position: 239821023:2 239582511:2   <- both pairable
-  //     [Sync] had GBPUSD 317367514 ... broker offers openTime=null
-  //
-  // The broker's own gross profit and swap really are better than anything derived from two
-  // execution prices, which is why the detailed values still win — but only WHERE THEY EXIST. A
-  // field the detailed path leaves undefined must fall back to the paired value rather than erase
-  // it. "Better where present" is not the same as "better", and one `set()` conflated them.
+  // WHICH externalId EACH DEAL'S POSITION PRODUCED, so a partial can be routed to its own trade
+  // instead of becoming one. A position that is not finished maps to nothing at all — its deals must
+  // not be recorded by either path yet.
+  const tradeOf = new Map<string, string>();      // positionId -> the aggregate's externalId
+  const known   = new Set<string>();              // every positionId this batch saw
+  for (const p of viewPositions(allDeals, symbolMap)) {
+    known.add(p.positionId);
+    if (p.fullyClosed) tradeOf.set(p.positionId, String(p.closes[p.closes.length - 1].dealId));
+  }
+
   for (const d of allDeals) {
     const t = mapClosedDeal(d, symbolMap);
     if (!t) continue;
-    const paired = byId.get(t.externalId);
-    if (!paired) { byId.set(t.externalId, t); continue; }
-    const merged = { ...paired };
+    const pid = d?.positionId != null ? String(d.positionId) : undefined;
+
+    if (pid && known.has(pid)) {
+      const id = tradeOf.get(pid);
+      if (!id) continue;                          // the position is still open — nothing realised yet
+      const aggregate = byId.get(id);
+      if (!aggregate) continue;
+      // ONLY WHAT THE AGGREGATE DOES NOT ALREADY KNOW. Its prices, volumes, times and summed money
+      // describe the WHOLE position; this deal describes one slice of it, so a slice's value must
+      // never land on top of the whole.
+      //
+      // AND ON A SCALED-OUT POSITION, NOT THE MONEY EVEN WHEN IT IS BLANK. The aggregate leaves
+      // `profit` and `swap` undefined precisely when it could NOT total them honestly — a non-USD-quoted
+      // symbol, or only some of the closing deals carrying `closePositionDetail`. Filling that blank
+      // from one slice would report a third of a trade's P&L as the trade's P&L, which is worse than the
+      // blank: a blank is visibly missing and a wrong number is not. For a position closed in a single
+      // deal that slice IS the whole position, so there the fill is exactly right.
+      const scaled = (aggregate.closedInParts ?? 1) > 1;
+      const WHOLE_POSITION_ONLY = new Set(['profit', 'swap', 'commission', 'lots']);
+      for (const [k, v] of Object.entries(t)) {
+        if (v === undefined || v === null) continue;
+        if (scaled && WHOLE_POSITION_ONLY.has(k)) continue;
+        if ((aggregate as any)[k] === undefined || (aggregate as any)[k] === null) {
+          (aggregate as any)[k] = v;
+        }
+      }
+      continue;
+    }
+
+    // NO POSITION TO BELONG TO. Keyed on its own deal id, exactly as before — this is the only route
+    // left for a gateway that sends the detail but no position, and losing it would lose the trade.
+    const standalone = byId.get(t.externalId);
+    if (!standalone) { byId.set(t.externalId, t); continue; }
+    const merged = { ...standalone };
     for (const [k, v] of Object.entries(t)) {
       if (v !== undefined && v !== null) (merged as any)[k] = v;
     }
@@ -671,7 +684,16 @@ export async function fetchCTraderTrades(
       }
       console.log(`[cTrader] deals per position: `
                   + `${[...groups].map(([k, n]) => `${k}:${n}`).join(' ')} `
-                  + `(a position needs 2 for the open time to be paired in)`);
+                  + `(a position needs both ends in the window to be aggregated)`);
+      // WHICH POSITIONS ARE FINISHED, AND WHICH ARE STILL HOLDING VOLUME. One trade taken off in
+      // three pieces used to arrive as three trades (his report, 2026-09-26); it is now one, and this
+      // line is how that is read off a production log rather than guessed at. A position listed as
+      // OPEN here is not a missed trade — it is a trade he has not finished taking.
+      for (const v of viewPositions(allDeals, symbolMap)) {
+        console.log(`[cTrader] position ${v.positionId} ${v.symbol}: `
+                    + `opened ${v.openVolume}, closed ${v.closedVolume} in ${v.closes.length} deal(s)`
+                    + ` -> ${v.fullyClosed ? 'FINISHED, recorded as ONE trade' : 'still open'}`);
+      }
     }
 
     const merged = mergeDealMappings(allDeals, symbolMap);
@@ -695,7 +717,8 @@ export async function fetchCTraderTrades(
     const out = merged;
     if (allDeals.length && !out.length) {
       console.warn(`[cTrader] ${allDeals.length} deals fetched but none resolved to a closed trade ` +
-                   `— every position may still be open`);
+                   `— every position is either still open, or only partly inside this window ` +
+                   `(the hourly deep sweep reaches a week back and brings both ends into view)`);
     }
     return out;
   } finally {

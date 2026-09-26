@@ -164,6 +164,36 @@ a losing LONG was recorded as a winning short. Fixed 03 Sep by taking the direct
 DEAL (sells to close = long), and the sweep now corrects rows already stored wrong. **D34** in
 [OPEN.md](./OPEN.md).
 
+### "one trade is in my journal three times" / "each take profit is its own trade"
+
+**ONE POSITION IS ONE TRADE, however many times he took profit.** His report, 2026-09-26. A cTrader
+position scaled out of produces one opening deal and SEVERAL closing deals, each with its own
+`dealId` — and `dealId` was the `externalId` that de-duplication keys on, so three take-profits became
+three `synced_trades` rows and three journal entries for one trade.
+
+| file | what it owns |
+|---|---|
+| [`brokerAdapters/ctraderPositions.ts`](../server/services/brokerAdapters/ctraderPositions.ts) | the aggregation. Reads a position's deals TOGETHER; emits nothing until the volume closed equals the volume opened. Volume-weighted entry and exit, whole-position size, money summed leg by leg, and `exits` — the ladder, kept rather than averaged away |
+| [`brokerScaleOut.ts`](../server/services/brokerScaleOut.ts) | the rows already stored wrongly. RESTATES the surviving one from the whole position and RETIRES the slices, from the ordinary sweep — no migration, nothing to press |
+
+**It was two defects with one symptom**, and fixing either alone would have fixed nothing: the sweep's
+pairing took the LAST deal as "the close" and never asked whether the position was finished, AND
+`mergeDealMappings` ran `mapClosedDeal` over every deal individually, minting a standalone trade per
+partial. The live feed was a third route — it treated any opposite-side deal as a close, which is
+exactly what a partial exit is.
+
+**The externalId is still the FINAL closing deal's id.** For a position closed in ONE deal that is
+byte-for-byte what the old code produced, so nothing already recorded correctly is touched. **D49** in
+[OPEN.md](./OPEN.md).
+
+**A scaled-out trade's R is never snapped to a placed level** — it did not finish on one. Its exit
+reason is `Partial Take Profit`, which no branch of `computeRisk` snaps, so the measured figure stands.
+Snapping would either erase the partials he banked or claim a target only part of the position saw.
+
+**`brokerScaleOut` will not delete an entry he has touched** (`manualFields.__editedByHand`) or one the
+auto-journal did not write. Every retire is written to `sync_events` BEFORE the row goes, so *"where did
+that entry go?"* survives the next deploy.
+
 ### "the metrics page says Unknown for my autosynced trades"
 
 They now carry **strategy, exit reason, order type and entry timeframe**. Note `strategy` is NOT a
@@ -276,12 +306,35 @@ is wrong.** Full wording lives in the linked doc; this is the index so you know 
 | **A contract size, a volume limit and a price precision are READ FROM THE BROKER, never assumed** | the symbol list both platforms fetch is `ProtoOALightSymbol`, which carries **none of them** — only id, name, enabled, asset ids, category, description (verified on the live account, 02 Sep). `execution/connection.load_symbol_spec` asks for the full `ProtoOASymbol`. Assuming a currency lot's 100,000 units sent a gold order **1,000× too large** and the broker refused it (**B17**), and a gold price at three decimals on a two-decimal symbol was refused the day before |
 | **Every journal page is built from ONE list, and anything that writes to it must clear the cache** | `resolveComputeScope` (routes.ts) reads `journal_entries` once and the calendar, drawdown, metrics, timeframe-matrix and strategy-audit engines all consume it — so a new entry reaches every page automatically, but only if `invalidateComputeCaches` (**`lib/cache.ts`, not routes.ts**) is called. It was local to routes.ts, so only typed trades cleared it and synced ones stayed invisible for 5 minutes (**D23**) |
 | **A pip comes from the instrument's precision, never from how big its price is** | `price > 100 ? 100 : 10000` is right for the four currency pairs by luck and 10× wrong for gold. The table lives in **two places that must change together** — `signal_platform/shared/pip.py` and `server/lib/pipMath.ts` — because Node cannot import Python. Gold is **2 decimals**, which the broker established by refusing a 3-decimal price |
+| **One broker POSITION is one journal trade — a partial exit is a slice, not a trade** | a position scaled out of has one opening deal and several closing ones, each with its own `dealId`, and `dealId` is the `externalId` de-duplication keys on. So one trade taken off in three pieces became three rows and three journal entries (**D49**). Nothing is emitted until the volume closed equals the volume opened, and the id is minted from the FINAL closing deal — which for a single-deal close is exactly what the old code produced, so already-correct rows are untouched. A single event can never aggregate a position, so the live feed defers a scaled-out one to the sweep: freshness is the thing this codebase trades away, never correctness |
 | **Every enum from the cTrader JSON gateway arrives BY NAME, not as its integer** | `dealStatus: "FILLED"`, not `2`; `tradeSide: "BUY"`, not `1`. One `!== 2` test meant **no cTrader trade ever reached the journal** (**D22**). Match on the name and the integer both, never the integer alone |
 | **Anything both entries need goes in `server/lib/appSetup.ts` (middleware) or `server/lib/backgroundServices.ts` (services)** — never added to an entry file | keeping the two entries in step by hand failed twice, silently, for months: helmet + both rate limiters (so production had **no brute-force limit on login**) and both trade recorders (so production **recorded no broker trades at all**). `server/lib/entryParity.test.ts` fails if it starts again |
 
 ---
 
 ## PROGRESS — what actually happened, newest first
+
+**2026-09-26 — one trade taken off in three pieces was three trades in the journal.**
+
+His report: *"if i took profit at different points, it is recording each profit taken as an individual
+trade. It should record one order as an order after the whole order has been closed."* Three routes
+produced it, and each had to be closed: the sweep's pairing took the last deal as "the close" without
+asking whether the position was finished; `mergeDealMappings` then re-split what the pairing had
+grouped, by mapping every deal on its own; and the live feed counted any opposite-side deal as a close,
+which is precisely what a partial exit is.
+
+The aggregation moved to `brokerAdapters/ctraderPositions.ts` and now emits ONE trade per position,
+only once the volume closed equals the volume opened — volume-weighted entry and exit, the whole
+position's size, money summed leg by leg (summing the rounded average instead is 27 cents adrift on his
+0.81-lot example), and the ladder kept in `exits` so the row shows one trade without forgetting it came
+off in three. The surviving id is the FINAL closing deal's, which for a single-deal close is what the
+old code produced, so nothing already right was disturbed.
+
+**The rows already stored were the other half**, and the one that survived was WRONG rather than merely
+duplicated — sized at a third of the trade, with a third of the money. `brokerScaleOut.ts` restates it
+from the whole position and deletes the slices, from the ordinary sweep. It never deletes an entry he
+has corrected by hand or one the auto-journal did not write, and every retire reaches `sync_events`
+before the row goes.
 
 **2026-09-03 — a LONG was recorded as a SHORT, its loss recorded as a win, and the metrics page could
 not tell what any synced trade was.**

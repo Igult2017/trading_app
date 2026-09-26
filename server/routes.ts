@@ -4444,6 +4444,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
             // told, because he may already have read the trade as it was.
             + (outcome.corrected ? `, ${outcome.corrected} corrected (a stored value the broker's `
                                    + `own records disproved)` : '')
+            // ── ONE TRADE, NOT ONE PER TAKE-PROFIT ──────────────────────────────────────────────
+            // His report, 2026-09-26. A trade scaled out of used to be recorded once per partial, so
+            // the sweep now restates the surviving row from the WHOLE position and deletes the
+            // slices. Both change what he is looking at — one trade's size and P&L, and two entries
+            // that are GONE — so neither may be silent. A deletion especially: an entry vanishing
+            // with no explanation is indistinguishable from the journal losing data.
+            + (outcome.restated ? `, ${outcome.restated} restated from the whole position (they had `
+                                  + `been recorded as one partial take-profit each)` : '')
+            + (outcome.retired ? `, ${outcome.retired} duplicate part-exit entr`
+                                 + `${outcome.retired === 1 ? 'y' : 'ies'} removed` : '')
             + '.'
           : 'Synced — the broker reported no closed trades in the last 7 days.',
         platform: account.platform, ...outcome,
