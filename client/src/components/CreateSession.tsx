@@ -175,10 +175,10 @@ export const CreateSessionForm = ({ onCreated }: CreateSessionFormProps) => {
           }}>
             <ChevronRight size={26} color="#fff" strokeWidth={1.5} />
           </div>
-          <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: '0.12em', color: '#ffffff', textTransform: 'uppercase', marginBottom: 6, fontFamily: "'Syne', sans-serif" }}>
+          <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: '0.12em', color: 'var(--jr-ink-text, #ffffff)', textTransform: 'uppercase', marginBottom: 6, fontFamily: "'Syne', sans-serif" }}>
             Create New Session
           </div>
-          <div style={{ fontSize: 9, letterSpacing: '0.22em', color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase' }}>
+          <div style={{ fontSize: 9, letterSpacing: '0.22em', color: 'var(--jr-ink-faint, rgba(255,255,255,0.3))', textTransform: 'uppercase' }}>
             System Initialisation Required
           </div>
         </div>
@@ -186,8 +186,8 @@ export const CreateSessionForm = ({ onCreated }: CreateSessionFormProps) => {
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }} data-testid="form-create-session">
 
           <div>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 9, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.35)', marginBottom: 8 }}>
-              <Clock size={9} style={{ color: 'rgba(255,255,255,0.35)' }} />
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 9, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--jr-ink-faint, rgba(255,255,255,0.35))', marginBottom: 8 }}>
+              <Clock size={9} style={{ color: 'var(--jr-ink-faint, rgba(255,255,255,0.35))' }} />
               Session Identifier
             </label>
             <input
@@ -205,7 +205,7 @@ export const CreateSessionForm = ({ onCreated }: CreateSessionFormProps) => {
                 padding: '13px 16px',
                 fontSize: 12,
                 fontWeight: 500,
-                color: '#ffffff',
+                color: 'var(--jr-ink-text, #ffffff)',
                 letterSpacing: '0.06em',
                 transition: 'border-color 0.2s, background 0.2s',
               }}
@@ -213,14 +213,14 @@ export const CreateSessionForm = ({ onCreated }: CreateSessionFormProps) => {
           </div>
 
           <div>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 9, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.35)', marginBottom: 8 }}>
-              <Wallet size={9} style={{ color: 'rgba(255,255,255,0.35)' }} />
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 9, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--jr-ink-faint, rgba(255,255,255,0.35))', marginBottom: 8 }}>
+              <Wallet size={9} style={{ color: 'var(--jr-ink-faint, rgba(255,255,255,0.35))' }} />
               Initial Liquidity
             </label>
             <div style={{ position: 'relative' }}>
               <span style={{
                 position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)',
-                color: 'rgba(255,255,255,0.5)', fontSize: 13,
+                color: 'var(--jr-ink-mute, rgba(255,255,255,0.5))', fontSize: 13,
               }}>$</span>
               <input
                 type="number"
@@ -238,7 +238,7 @@ export const CreateSessionForm = ({ onCreated }: CreateSessionFormProps) => {
                   padding: '13px 16px 13px 32px',
                   fontSize: 12,
                   fontWeight: 500,
-                  color: '#ffffff',
+                  color: 'var(--jr-ink-text, #ffffff)',
                   letterSpacing: '0.06em',
                   transition: 'border-color 0.2s, background 0.2s',
                 }}
@@ -248,7 +248,7 @@ export const CreateSessionForm = ({ onCreated }: CreateSessionFormProps) => {
 
           {formError && (
             <div style={{ background: 'rgba(255,77,77,0.08)', border: '1px solid rgba(255,77,77,0.25)', padding: '10px 14px' }}>
-              <p style={{ fontSize: 11, color: '#ff7070', margin: 0 }} data-testid="text-form-error">{formError}</p>
+              <p style={{ fontSize: 11, color: 'var(--jr-down, #ff7070)', margin: 0 }} data-testid="text-form-error">{formError}</p>
             </div>
           )}
 
@@ -263,7 +263,7 @@ export const CreateSessionForm = ({ onCreated }: CreateSessionFormProps) => {
               border: 'none',
               borderRadius: 0,
               padding: '15px 20px',
-              color: '#ffffff',
+              color: 'var(--jr-ink-text, #ffffff)',
               fontSize: 11,
               fontWeight: 600,
               letterSpacing: '0.16em',
@@ -287,8 +287,8 @@ export const CreateSessionForm = ({ onCreated }: CreateSessionFormProps) => {
         </form>
 
         <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-          <div style={{ fontSize: 9, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.35)' }}>
-            Status: <span style={{ color: '#818cf8' }}>Ready</span>
+          <div style={{ fontSize: 9, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--jr-ink-faint, rgba(255,255,255,0.35))' }}>
+            Status: <span style={{ color: 'var(--jr-info, #818cf8)' }}>Ready</span>
           </div>
           <div style={{ width: 48, height: 2, background: '#4f46e5' }} />
         </div>
@@ -322,7 +322,7 @@ const SESSION_CARDS_CSS = `
   .obs-sessions-root {
     font-family: 'DM Sans', system-ui, -apple-system, sans-serif !important;
     font-size: 14px !important;
-    color: #c9d1d9 !important;
+    color: var(--jr-ink-mute, #c9d1d9) !important;
     background: #0d1117 !important;
     -webkit-font-smoothing: antialiased;
     line-height: 1.5 !important;
@@ -338,15 +338,15 @@ const SESSION_CARDS_CSS = `
   .sc-btn {
     font-size: 9px; text-transform: uppercase; letter-spacing: 0.16em;
     font-weight: 600; padding: 5px 12px;
-    border: 1px solid #333; background: transparent; color: #888;
+    border: 1px solid #333; background: transparent; color: var(--jr-ink-faint, #888);
     cursor: pointer; transition: all 0.15s;
     font-family: 'DM Mono', ui-monospace, monospace;
   }
   .sc-btn:hover   { background: #333; color: #fff; }
-  .sc-btn-danger  { color: rgba(224,85,85,0.6); border-color: #333; }
-  .sc-btn-danger:hover { background: rgba(224,85,85,0.08); color: #e05555; }
-  .sc-btn-primary { color: #a882ff; border-color: #333; }
-  .sc-btn-primary:hover { color: #fff; background: rgba(168,130,255,0.12); }
+  .sc-btn-danger  { color: var(--jr-down, rgba(224,85,85,0.6)); border-color: #333; }
+  .sc-btn-danger:hover { background: rgba(224,85,85,0.08); color: var(--jr-down, #e05555); }
+  .sc-btn-primary { color: var(--jr-alt, #a882ff); border-color: #333; }
+  .sc-btn-primary:hover { color: var(--jr-ink-text, #fff); background: rgba(168,130,255,0.12); }
 `;
 
 function SCBtn({ label, dim, danger, onClick, testId }: {

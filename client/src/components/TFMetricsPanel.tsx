@@ -534,7 +534,7 @@ export default function TFMetricsPanel({ sessionId }: { sessionId?: string | nul
                 {label:'Best WR',  value:`${bestWR}%`,color:C.win,    bg:`${C.win}10`, border:`${C.win}30`},
               ].map(({label,value,color,bg,border})=>(
                 <div key={label} style={{ display:'flex',alignItems:'center',gap:8,background:bg,border:`1px solid ${border}`,borderRadius:5,padding:'5px 12px' }}>
-                  <span style={{ fontFamily:DISPLAY,fontSize:9,fontWeight:600,color:'rgba(148,200,255,0.5)',textTransform:'uppercase',letterSpacing:'0.15em' }}>{label}</span>
+                  <span style={{ fontFamily:DISPLAY,fontSize:9,fontWeight:600,color:'var(--jr-info, rgba(148,200,255,0.5))',textTransform:'uppercase',letterSpacing:'0.15em' }}>{label}</span>
                   <span style={{ fontFamily:DISPLAY,fontSize:15,fontWeight:800,color,lineHeight:1,textShadow:`0 0 14px ${color}55` }}>{value}</span>
                 </div>
               ))}
@@ -562,7 +562,7 @@ export default function TFMetricsPanel({ sessionId }: { sessionId?: string | nul
           {!isMobile&&(
             <div style={{ display:'flex',alignItems:'center',gap:0 }}>
               <div style={{ display:'flex',alignItems:'center',gap:12,paddingRight:18,marginRight:18,borderRight:`1px solid rgba(100,160,255,0.09)` }}>
-                <span style={{ fontFamily:DISPLAY,fontSize:9,fontWeight:700,color:'rgba(148,200,255,0.4)',textTransform:'uppercase',letterSpacing:'0.18em' }}>TF Role</span>
+                <span style={{ fontFamily:DISPLAY,fontSize:9,fontWeight:700,color:'var(--jr-info, rgba(148,200,255,0.4))',textTransform:'uppercase',letterSpacing:'0.18em' }}>TF Role</span>
                 {[{c:C.htf,l:'HTF'},{c:C.atf,l:'ATF'},{c:C.etf,l:'ETF'}].map(x=>(
                   <div key={x.l} style={{ display:'flex',alignItems:'center',gap:6 }}>
                     <div style={{ width:7,height:7,borderRadius:'50%',background:x.c,boxShadow:`0 0 7px ${x.c}`,flexShrink:0 }}/>
@@ -571,7 +571,7 @@ export default function TFMetricsPanel({ sessionId }: { sessionId?: string | nul
                 ))}
               </div>
               <div style={{ display:'flex',alignItems:'center',gap:12 }}>
-                <span style={{ fontFamily:DISPLAY,fontSize:9,fontWeight:700,color:'rgba(148,200,255,0.4)',textTransform:'uppercase',letterSpacing:'0.18em' }}>Win Rate</span>
+                <span style={{ fontFamily:DISPLAY,fontSize:9,fontWeight:700,color:'var(--jr-info, rgba(148,200,255,0.4))',textTransform:'uppercase',letterSpacing:'0.18em' }}>Win Rate</span>
                 {[{c:C.win,l:'≥ 80%'},{c:C.warn,l:'62–79%'},{c:C.loss,l:'< 62%'}].map(x=>(
                   <div key={x.l} style={{ display:'flex',alignItems:'center',gap:6 }}>
                     <div style={{ width:7,height:7,borderRadius:'50%',background:x.c,boxShadow:`0 0 6px ${x.c}80`,flexShrink:0 }}/>
@@ -589,7 +589,7 @@ export default function TFMetricsPanel({ sessionId }: { sessionId?: string | nul
           {[{c:C.htf,l:'HTF'},{c:C.atf,l:'ATF'},{c:C.etf,l:'ETF'},{c:C.win,l:'≥80%'},{c:C.warn,l:'62–79%'},{c:C.loss,l:'<62%'}].map(x=>(
             <div key={x.l} style={{ display:'flex',alignItems:'center',gap:4 }}>
               <div style={{ width:4,height:4,borderRadius:'50%',background:x.c,boxShadow:`0 0 4px ${x.c}` }}/>
-              <span style={{ fontFamily:MONO,fontSize:8.5,color:'rgba(148,200,255,0.28)',letterSpacing:'0.07em' }}>{x.l}</span>
+              <span style={{ fontFamily:MONO,fontSize:8.5,color:'var(--jr-info, rgba(148,200,255,0.28))',letterSpacing:'0.07em' }}>{x.l}</span>
             </div>
           ))}
         </div>

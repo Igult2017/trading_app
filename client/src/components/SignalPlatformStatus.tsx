@@ -79,8 +79,8 @@ export default function SignalPlatformStatus({ darkMode = true, selectedSymbol =
               <div style={{ background: "rgba(244,97,127,0.08)", border: "1px solid rgba(244,97,127,0.3)", borderRadius: 6, padding: "14px 16px", display: "flex", gap: 12, alignItems: "flex-start" }}>
                 <AlertTriangle size={14} color="#f4617f" style={{ flexShrink: 0, marginTop: 1 }} />
                 <div>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: "#f4617f", letterSpacing: "0.08em", marginBottom: 6 }}>BOOT ERROR</div>
-                  <div style={{ fontSize: 10, color: "#f4617f", marginBottom: ps.hint ? 8 : 0, lineHeight: 1.5 }}>{ps.error}</div>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: "var(--jr-down, #f4617f)", letterSpacing: "0.08em", marginBottom: 6 }}>BOOT ERROR</div>
+                  <div style={{ fontSize: 10, color: "var(--jr-down, #f4617f)", marginBottom: ps.hint ? 8 : 0, lineHeight: 1.5 }}>{ps.error}</div>
                   {ps.hint && <div style={{ fontSize: 9, color: C.muted, lineHeight: 1.5 }}>{ps.hint}</div>}
                 </div>
               </div>

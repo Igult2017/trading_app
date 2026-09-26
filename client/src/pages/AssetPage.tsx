@@ -637,10 +637,10 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
         .asset-scroll { scrollbar-width: none; -ms-overflow-style: none; }
         .inst-card:hover { background: ${C.bg3} !important; cursor: pointer; }
         .chart-btn { background: ${C.bg3}; border: 1px solid ${C.border2}; color: ${C.muted}; font-size: 9px; font-weight: 700; letter-spacing: 0.08em; padding: 5px 12px; cursor: pointer; transition: all 0.15s; }
-        .chart-btn:hover { border-color: #3b82f6; color: ${C.text}; }
+        .chart-btn:hover { border-color: var(--jr-info, #3b82f6); color: ${C.text}; }
         .chart-btn-alert { background: ${C.bg3}; border: 1px solid ${C.border2}; color: ${C.text}; font-size: 9px; font-weight: 700; letter-spacing: 0.08em; padding: 5px 12px; cursor: pointer; transition: all 0.15s; display: flex; align-items: center; gap: 6px; }
-        .chart-btn-alert:hover { border-color: #f59e0b; color: #f59e0b; }
-        .set-alert-btn { background: ${darkMode ? '#100d04' : '#fffbec'}; border: 1.5px solid #c8a84b; color: #c8a84b; font-size: 10px; font-weight: 800; letter-spacing: 0.12em; padding: 13px 28px; cursor: pointer; transition: all 0.15s; display: flex; align-items: center; gap: 8px; border-radius: 3px; }
+        .chart-btn-alert:hover { border-color: var(--jr-warn, #f59e0b); color: var(--jr-warn, #f59e0b); }
+        .set-alert-btn { background: ${darkMode ? '#100d04' : '#fffbec'}; border: 1.5px solid #c8a84b; color: var(--jr-warn, #c8a84b); font-size: 10px; font-weight: 800; letter-spacing: 0.12em; padding: 13px 28px; cursor: pointer; transition: all 0.15s; display: flex; align-items: center; gap: 8px; border-radius: 3px; }
         .set-alert-btn:hover { background: rgba(200,168,75,0.12); border-color: #f0c040; color: #f0c040; }
         .set-alert-btn.active { background: rgba(200,168,75,0.18); border-color: #f0c040; color: #f0c040; }
         .share-btn { background: #5b4fcf; border: none; color: #fff; font-size: 10px; font-weight: 800; letter-spacing: 0.12em; padding: 13px 32px; cursor: pointer; transition: all 0.15s; display: flex; align-items: center; gap: 8px; border-radius: 3px; }
@@ -812,7 +812,7 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
               </div>
               <div style={{
                 fontSize: 10, fontWeight: 600,
-                color: "#3d9fd3",
+                color: "var(--jr-info, #3d9fd3)",
                 letterSpacing: "0.1em",
               }}>
                 OPTIMAL RISK: {data?.optimalRisk ?? "—"}
@@ -840,7 +840,7 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
             <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", backdropFilter: "blur(4px)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" }} onClick={() => setAlertModal(false)}>
               <div style={{ background: "#0a0f16", border: "1px solid #1e2d45", borderRadius: 8, padding: 24, width: 340, display: "flex", flexDirection: "column", gap: 16, maxHeight: "85vh", overflowY: "auto" }} onClick={e => e.stopPropagation()}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <span style={{ fontSize: 12, fontWeight: 800, color: "#c8d8e8", letterSpacing: "0.08em" }}>PRICE ALERTS · {selected}</span>
+                  <span style={{ fontSize: 12, fontWeight: 800, color: "var(--jr-info, #c8d8e8)", letterSpacing: "0.08em" }}>PRICE ALERTS · {selected}</span>
                   <button onClick={() => setAlertModal(false)} style={{ background: "none", border: "none", color: "#4a6580", cursor: "pointer" }}><X size={16} /></button>
                 </div>
 
@@ -850,7 +850,7 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
                     <div style={{ fontSize: 9, fontWeight: 700, color: "#4a6580", letterSpacing: "0.1em" }}>ACTIVE ALERTS</div>
                     {activeAlerts.map((a: any) => (
                       <div key={a.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 12px", background: "rgba(59,130,246,0.06)", border: "1px solid rgba(59,130,246,0.2)", borderRadius: 6 }}>
-                        <span style={{ fontSize: 12, color: "#93c5fd", fontWeight: 600 }}>
+                        <span style={{ fontSize: 12, color: "var(--jr-info, #93c5fd)", fontWeight: 600 }}>
                           {a.direction === "above" ? "▲" : "▼"} {parseFloat(a.targetPrice).toPrecision(6)}
                           {parseFloat(a.proximityPct ?? "0") > 0 && <span style={{ fontSize: 10, color: "#4a6580", marginLeft: 6 }}>±{a.proximityPct}%</span>}
                         </span>
@@ -1240,7 +1240,7 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
                         step dimmer so the pair reads as one field, not two competing ones, but it
                         is still 6.6:1, well clear of AA. */}
                     <span style={{ display: "flex", alignItems: "baseline", gap: 5 }}>
-                      <span style={{ color: "#9fb3c8" }}>{timeAgo(card.createdAt)}</span>
+                      <span style={{ color: "var(--jr-info, #9fb3c8)" }}>{timeAgo(card.createdAt)}</span>
                       {/* NAME THE TIMEZONE. This rendered via toLocaleString with no label, so it
                           showed the BROWSER's zone while the Telegram card stamps UTC — the same
                           signal carried two different clock times and neither said which. Checking
@@ -1248,7 +1248,7 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
                           produced it, which is exactly how a correct SELL came to be read off a
                           green candle. `timeZoneName: short` renders e.g. "GMT+3". */}
                       {card.createdAt && (
-                        <span style={{ color: "#6f849b", fontWeight: 600 }}>
+                        <span style={{ color: "var(--jr-ink-faint, #6f849b)", fontWeight: 600 }}>
                           {new Date(card.createdAt).toLocaleString(undefined, {
                             month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
                             hour12: false, timeZoneName: "short",
@@ -1257,7 +1257,7 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
                       )}
                     </span>
                     {card.strategy && (
-                      <span style={{ color: "#c3a8f5", textTransform: "uppercase" }}>{card.strategy}</span>
+                      <span style={{ color: "var(--jr-alt, #c3a8f5)", textTransform: "uppercase" }}>{card.strategy}</span>
                     )}
                   </div>
                 )}

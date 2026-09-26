@@ -167,9 +167,9 @@ export default function Leaderboard() {
   const error = queryError ? (queryError as Error).message : null;
 
   const categories = [
-    { id: 'pnl'          as const, label: 'By PnL',          icon: <TrendingUp size={14} />, color: '#34d399' },
-    { id: 'winRate'      as const, label: 'By Win Rate',      icon: <Percent size={14} />,    color: '#60a5fa' },
-    { id: 'profitFactor' as const, label: 'By Profit Factor', icon: <Trophy size={14} />,     color: '#a78bfa' },
+    { id: 'pnl'          as const, label: 'By PnL',          icon: <TrendingUp size={14} />, color: 'var(--jr-up, #34d399)' },
+    { id: 'winRate'      as const, label: 'By Win Rate',      icon: <Percent size={14} />,    color: 'var(--jr-info, #60a5fa)' },
+    { id: 'profitFactor' as const, label: 'By Profit Factor', icon: <Trophy size={14} />,     color: 'var(--jr-alt, #a78bfa)' },
   ];
 
   const sortedTraders = useMemo(() => {
@@ -195,9 +195,9 @@ export default function Leaderboard() {
 
   // ── Header benchmarks (sort-aware: Leader / Avg / Your Rank follow the toggle) ─
   const catMeta = {
-    pnl:          { label: 'PnL',           color: '#34d399', score: (t: Trader) => fmtPnl(t.pnl) },
-    winRate:      { label: 'Win Rate',      color: '#60a5fa', score: (t: Trader) => `${t.winRate}%` },
-    profitFactor: { label: 'Profit Factor', color: '#a78bfa', score: (t: Trader) => formatProfitFactor(t.profitFactor) },
+    pnl:          { label: 'PnL',           color: 'var(--jr-up, #34d399)', score: (t: Trader) => fmtPnl(t.pnl) },
+    winRate:      { label: 'Win Rate',      color: 'var(--jr-info, #60a5fa)', score: (t: Trader) => `${t.winRate}%` },
+    profitFactor: { label: 'Profit Factor', color: 'var(--jr-alt, #a78bfa)', score: (t: Trader) => formatProfitFactor(t.profitFactor) },
   }[activeCategory];
   const leader = sortedTraders[0];
   const avgRaw = traders.length
@@ -247,13 +247,13 @@ export default function Leaderboard() {
           display: 'grid', placeItems: 'center',
           background: 'rgba(96,165,250,0.14)',
           border: '1px solid rgba(96,165,250,0.26)',
-          color: '#60a5fa',
+          color: 'var(--jr-info, #60a5fa)',
           marginTop: isMobile ? 1 : 0,
         }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="8.01"/><line x1="12" y1="11" x2="12" y2="16"/></svg>
         </div>
         <div style={{ minWidth: 0 }}>
-          <p style={{ margin: '0 0 3px', fontSize: 9, letterSpacing: '0.16em', textTransform: 'uppercase', color: '#60a5fa' }}>
+          <p style={{ margin: '0 0 3px', fontSize: 9, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--jr-info, #60a5fa)' }}>
             Community Rankings · Not Financial Advice
           </p>
           <p style={{ margin: 0, fontSize: isMobile ? 10.5 : 11.5, color: 'var(--jr-muted)', lineHeight: 1.55 }}>
@@ -316,7 +316,7 @@ export default function Leaderboard() {
 
       {/* Error */}
       {!loading && error && (
-        <div style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', padding: '16px 20px', color: '#f87171', fontSize: 13, marginBottom: 16 }}>
+        <div style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', padding: '16px 20px', color: 'var(--jr-down, #f87171)', fontSize: 13, marginBottom: 16 }}>
           Failed to load leaderboard: {error}
         </div>
       )}
@@ -431,7 +431,7 @@ export default function Leaderboard() {
                     </td>
                     <td style={{ padding: isMobile ? '10px 10px' : '12px 20px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 8 : 10 }}>
-                        <div style={{ width: isMobile ? 26 : 30, height: isMobile ? 26 : 30, borderRadius: '50%', background: 'var(--jr-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 800, color: '#94a3b8', flexShrink: 0 }}>
+                        <div style={{ width: isMobile ? 26 : 30, height: isMobile ? 26 : 30, borderRadius: '50%', background: 'var(--jr-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 800, color: 'var(--jr-ink-mute, #94a3b8)', flexShrink: 0 }}>
                           {trader.avatar}
                         </div>
                         {trader.country && (

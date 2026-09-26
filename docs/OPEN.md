@@ -1322,6 +1322,45 @@ real fill, and it has never run. **Nothing here says the strategy is worth armin
 
 ## C. The web app
 
+### C-D50 - ~~The white theme's text was unreadable, and the override sheet never matched anything~~ FIXED 26 Sep
+
+**His report, 2026-09-26:** the trading app has a text-visibility problem on the white theme, and the
+eco-friendly marketplace does the same job well — clone it, see how, and use its approach.
+
+**Full account, with every measurement and the four false-positive classes the tool had to learn:
+[docs/READABILITY.md](READABILITY.md), the 2026-09-26 section.** It is the fourth cause and it is not in
+that document's list of three, because it is a mechanism rather than a colour — which is why darkening
+greys never fixed it.
+
+**The cause, in one sentence:** the journal's light theme was a 283-rule sheet in `Journal.tsx` matching
+literal hex strings inside inline styles, and **React applies inline styles through the CSSOM, which
+serialises colour to `rgb()`** — so `.journal-light [style*="color:#60a5fa"]` could never match. Probed
+in Chromium. A **class**-scoped light rule does work, and that distinction is the whole thing.
+
+**The fix, following the reference project's discipline:** `client/src/lib/journalInk.ts` holds one
+semantic token set, every value measured against `#FFFFFF`, the `#FFFEFB` canvas and its own 20% badge
+wash, reusing the admin panel's signed-off light status inks. **358 failing pairs → 0** across 15
+surfaces.
+
+**Why it is safe on live data:** every token is defined on `.journal-light` ONLY and every call site
+keeps its old literal as the `var()` fallback, so the five dark themes fall through to what was always
+there. Unchanged **by construction** — all 155 rewrites reduce character-for-character back to the line
+they replaced, `journalInk.test.ts` fails if an ink token is defined outside the light scope, and a
+Chromium render of both trees confirms it.
+
+**Deliberately NOT converted**, each with its reason recorded in `SELF_GROUNDED` in the audit script:
+`TradingChart.tsx` (paints its own `#080c10`, no theme prop — a price chart is a dark instrument in both
+themes), `TradeSyncPage`'s `.ts-page` (own `--ink:#090C15`, exempt from journal theming), the admin panel
+(own five palettes, reached zero on 09-10), and `Notifications.tsx`'s accents (already correct via
+class-scoped light rules, which DO work). **If any of those gains a light theme, its `SELF_GROUNDED`
+entry is what has to go.**
+
+**STILL OPEN — the public pages were not in scope and were not measured.** This covered the journal and
+the 15 surfaces reachable inside `journal-root`, which is what the white theme is. `/about` is still
+listed as not clean in READABILITY.md and the home page still has 6 elements below 4.5:1 and 9 serif at
+body size; those are a separate pass with a separate tool (`scripts/check-readability.mjs`, which needs
+a build and serves `dist/public`).
+
 ### C8 - ~~Log-in and log-out were slow~~ FIXED 15 Sep
 **His question:** *"Why is the logout and log in too slow. Can you audit them please and plan a fix if we
 have anything to fix."*

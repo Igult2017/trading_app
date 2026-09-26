@@ -116,7 +116,7 @@ const OBS_CSS = `
      utilities.ts .font-label-sm); an early read of this blamed the serif and was wrong. */
   .obs-jf .uppercase { font-weight: 500 !important; }
   .obs-rating-btn { display:flex; align-items:center; justify-content:center; width:36px; height:36px; border-radius:6px; border:1px solid #27272a; background:#0c0c0e; color:#a6b3d1; font-size:13px; font-weight:500; cursor:pointer; transition:all 0.15s; font-family:inherit; flex-shrink:0; }
-  .obs-rating-btn:hover:not(.obs-rating-active) { border-color:#4e8cff80; color:#4e8cff; background:#4e8cff0d; }
+  .obs-rating-btn:hover:not(.obs-rating-active) { border-color:var(--jr-info, #4e8cff80); color:var(--jr-info, #4e8cff); background:#4e8cff0d; }
   .obs-rating-active { background:#4e8cff; border-color:#4e8cff; color:#fff; box-shadow:0 0 0 2px #4e8cff30; }
   .obs-jf select option { background: #0c0c0e; color: #e8edf9; }
   .obs-jf textarea::placeholder, .obs-jf input::placeholder { opacity: 0.35; }
@@ -304,7 +304,7 @@ const Dots = ({ name, value = 0, onChange, max = 5 }: any) => {
     <div className="space-y-1.5 py-2 border-b border-[#18181b]/60 last:border-0">
       <div className="flex items-center justify-between">
         <span className="text-[11px] text-[#71717a]">{name}</span>
-        <span style={{ fontSize: 10, fontWeight: 700, color: '#4e8cff' }}>{value}/{max}</span>
+        <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--jr-info, #4e8cff)' }}>{value}/{max}</span>
       </div>
       <div style={{ display: 'flex', gap: 8 }}>
         {steps.map(n => (
@@ -327,7 +327,7 @@ const Slider = ({ label, min = 1, max = 5, value, onChange }: any) => {
     <div className="space-y-2">
       <div className="flex items-center justify-between">
         <FieldLabel>{label}</FieldLabel>
-        <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', color: '#4e8cff', textTransform: 'uppercase' }}>{v} / {max}</span>
+        <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', color: 'var(--jr-info, #4e8cff)', textTransform: 'uppercase' }}>{v} / {max}</span>
       </div>
       <div style={{ display: 'flex', gap: 8 }}>
         {steps.map(n => (
@@ -2162,7 +2162,7 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
                 </button>
                 <button onClick={() => { setUnfilledSections(null); handleSave(true); }}
                   style={{ padding:"8px 18px", background:"#1e6fc8", border:"none", borderRadius: 6,
-                           color:"#fff", fontSize: 11, fontWeight: 700, cursor:"pointer", letterSpacing:"0.08em" }}>
+                           color:"var(--jr-ink-text, #fff)", fontSize: 11, fontWeight: 700, cursor:"pointer", letterSpacing:"0.08em" }}>
                   COMMIT ANYWAY
                 </button>
               </div>

@@ -494,7 +494,7 @@ export default function DrawdownPanel({ sessionId, dispFont, bodyFont }:
                     const dot = m.dominantCauseClass === 'bad' ? 'var(--loss)' : m.dominantCauseClass === 'good' ? 'var(--gain)' : 'var(--warn)';
                     return (
                       <tr key={`${m.month}-${m.year}`} style={isLive ? { background: 'rgba(96,165,250,0.06)' } : undefined}>
-                        <td><span className="mmname"><span className="d" style={{ background: isLive ? '#60a5fa' : dot, boxShadow: m.dominantCauseClass === 'good' ? undefined : 'none' }} /><span className="nm">{m.month.toUpperCase()}/{m.year}</span>{isLive && <span style={{ marginLeft: 6, fontSize: 8, fontWeight: 800, letterSpacing: '.1em', color: '#60a5fa', border: '1px solid rgba(96,165,250,.5)', borderRadius: 999, padding: '0 5px', verticalAlign: 'middle' }}>LIVE</span>}</span></td>
+                        <td><span className="mmname"><span className="d" style={{ background: isLive ? '#60a5fa' : dot, boxShadow: m.dominantCauseClass === 'good' ? undefined : 'none' }} /><span className="nm">{m.month.toUpperCase()}/{m.year}</span>{isLive && <span style={{ marginLeft: 6, fontSize: 8, fontWeight: 800, letterSpacing: '.1em', color: 'var(--jr-info, #60a5fa)', border: '1px solid rgba(96,165,250,.5)', borderRadius: 999, padding: '0 5px', verticalAlign: 'middle' }}>LIVE</span>}</span></td>
                         <td className={eqCls}>{eqStr}</td>
                         <td className="mut">{Math.round(m.recoveryPct)}%</td>
                         <td className={m.maxDdPct === 0 ? 'mut' : 'loss'}>{fmtDd(m.maxDdPct)}</td>

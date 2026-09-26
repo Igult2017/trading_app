@@ -35,7 +35,7 @@ export default function JournalPaywall({ stripeConfigured, onUpgrade }: Props) {
       {/* Heading */}
       <div style={{ maxWidth: 420 }}>
         <h1 style={{
-          color: '#ffffff',
+          color: 'var(--jr-ink-text, #ffffff)',
           fontSize: 26,
           fontWeight: 800,
           margin: '0 0 10px',
@@ -64,7 +64,7 @@ export default function JournalPaywall({ stripeConfigured, onUpgrade }: Props) {
               width: '100%',
               padding: '13px 24px',
               background: '#3b82f6',
-              color: '#fff',
+              color: 'var(--jr-ink-text, #fff)',
               border: 'none',
               borderRadius: 8,
               fontSize: 14,
@@ -79,7 +79,7 @@ export default function JournalPaywall({ stripeConfigured, onUpgrade }: Props) {
         <a
           href="/support"
           style={{
-            color: '#3b82f6',
+            color: 'var(--jr-info, #3b82f6)',
             fontSize: 13,
             textDecoration: 'none',
             opacity: 0.8,

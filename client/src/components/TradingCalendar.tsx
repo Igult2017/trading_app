@@ -211,7 +211,7 @@ function NavSelect({ value, onChange, options, width }: { value: number; onChang
         style={{
           appearance: "none", WebkitAppearance: "none",
           background: CARD, border: `2px solid ${BORDER}`,
-          color: "#E8EDF5", height: 40,
+          color: "var(--jr-info, #E8EDF5)", height: 40,
           padding: "0 28px 0 14px",
           fontFamily: FONT, fontSize: 10, fontWeight: 900,
           letterSpacing: "0.1em", cursor: "pointer", outline: "none",
@@ -433,7 +433,7 @@ export default function TradingCalendar({ sessionId, darkMode = true }: { sessio
               </div>
             )}
           </div>
-          <div style={{ fontSize: 13, fontWeight: 900, color: "#E8EDF5", letterSpacing: "0.15em" }}>
+          <div style={{ fontSize: 13, fontWeight: 900, color: "var(--jr-info, #E8EDF5)", letterSpacing: "0.15em" }}>
             TRADING<span style={{ color: GREEN }}>_</span>CALENDAR
           </div>
         </div>
@@ -444,7 +444,7 @@ export default function TradingCalendar({ sessionId, darkMode = true }: { sessio
             data-testid="button-prev-month"
             style={{
               background: CARD, border: `2px solid ${BORDER}`,
-              color: "#E8EDF5", width: 40, height: 40, cursor: "pointer",
+              color: "var(--jr-info, #E8EDF5)", width: 40, height: 40, cursor: "pointer",
               fontFamily: FONT, fontWeight: 900, fontSize: 15,
               display: "flex", alignItems: "center", justifyContent: "center",
               flexShrink: 0, transition: "background .15s, border-color .15s",
@@ -472,7 +472,7 @@ export default function TradingCalendar({ sessionId, darkMode = true }: { sessio
             data-testid="button-next-month"
             style={{
               background: CARD, border: `2px solid ${BORDER}`,
-              color: "#E8EDF5", width: 40, height: 40, cursor: "pointer",
+              color: "var(--jr-info, #E8EDF5)", width: 40, height: 40, cursor: "pointer",
               fontFamily: FONT, fontWeight: 900, fontSize: 15,
               display: "flex", alignItems: "center", justifyContent: "center",
               flexShrink: 0, transition: "background .15s, border-color .15s",
@@ -492,7 +492,7 @@ export default function TradingCalendar({ sessionId, darkMode = true }: { sessio
               height: 40, display: "flex", alignItems: "center",
               padding: "0 14px", gap: 8,
               fontSize: 11, fontWeight: 900, letterSpacing: "0.1em",
-              color: "#E8EDF5", whiteSpace: "nowrap" as const,
+              color: "var(--jr-info, #E8EDF5)", whiteSpace: "nowrap" as const,
               animation: flashKey > 0 ? "tagFlash 1.4s ease forwards" : "none",
               flexShrink: 0,
             }}

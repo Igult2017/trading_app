@@ -375,14 +375,14 @@ function EditModal({ trade, onSave, onClose, isPending, error, onRelease, synced
 
         {error && (
           <div style={{ marginTop: 14, padding: '10px 12px', borderRadius: 6, fontSize: 12.5, lineHeight: 1.5,
-                        background: 'rgba(255,77,109,0.10)', border: '1px solid rgba(255,77,109,0.30)', color: '#ff8fa3' }}
+                        background: 'rgba(255,77,109,0.10)', border: '1px solid rgba(255,77,109,0.30)', color: 'var(--jr-down, #ff8fa3)' }}
                data-testid="text-save-error">
             Could not save: {error}
           </div>
         )}
 
         {parsedPl === null && form.plText.trim() !== '' && (
-          <div style={{ marginTop: 10, fontSize: 12, color: '#fbbf24' }} data-testid="text-pl-invalid">
+          <div style={{ marginTop: 10, fontSize: 12, color: 'var(--jr-warn, #fbbf24)' }} data-testid="text-pl-invalid">
             P/L is not a number yet — finish typing it (a minus sign on its own is fine while you do).
           </div>
         )}
@@ -755,7 +755,7 @@ export default function TradeVault({ sessionId, startingBalance: sessionStarting
           align-items: center;
           justify-content: center;
         }
-        .edit-btn:hover { color: #5b8cf8; transform: scale(1.15); background: rgba(91,140,248,0.1); }
+        .edit-btn:hover { color: var(--jr-info, #5b8cf8); transform: scale(1.15); background: rgba(91,140,248,0.1); }
 
         .delete-btn {
           background: none;
@@ -771,10 +771,10 @@ export default function TradeVault({ sessionId, startingBalance: sessionStarting
           justify-content: center;
           gap: 4px;
         }
-        .delete-btn:hover { color: #ff4d6d; transform: scale(1.1); background: rgba(255,77,109,0.1); }
+        .delete-btn:hover { color: var(--jr-down, #ff4d6d); transform: scale(1.1); background: rgba(255,77,109,0.1); }
         .delete-btn:disabled { opacity: 0.4; cursor: not-allowed; }
         .delete-btn--confirm {
-          color: #ff4d6d !important;
+          color: var(--jr-down, #ff4d6d) !important;
           background: rgba(255,77,109,0.15) !important;
           border: 1px solid rgba(255,77,109,0.35) !important;
           padding: 5px 8px !important;
@@ -1042,17 +1042,17 @@ const styles: Record<string, React.CSSProperties> = {
   },
   win: {
     background: "rgba(0,229,160,0.08)",
-    color: "#00e5a0",
+    color: "var(--jr-up, #00e5a0)",
     borderColor: "rgba(0,229,160,0.2)",
   },
   loss: {
     background: "rgba(255,77,109,0.08)",
-    color: "#ff4d6d",
+    color: "var(--jr-down, #ff4d6d)",
     borderColor: "rgba(255,77,109,0.2)",
   },
   be: {
     background: "rgba(250,204,21,0.08)",
-    color: "#facc15",
+    color: "var(--jr-warn, #facc15)",
     borderColor: "rgba(250,204,21,0.2)",
   },
   pl: {
@@ -1151,7 +1151,7 @@ const styles: Record<string, React.CSSProperties> = {
     background: "#1e6fc8",
     border: "none",
     borderRadius: 6,
-    color: "#fff",
+    color: "var(--jr-ink-text, #fff)",
     fontSize: 11,
     fontWeight: 700,
     cursor: "pointer",

@@ -7,6 +7,157 @@ Five surfaces were fixed the same week — the drawdown panel, the blog, the eco
 landing page and the footer — and they all had **the same cause**. This is the recipe, so the sixth
 takes twenty minutes instead of an afternoon.
 
+## ⭐ 2026-09-26 — THE WHITE THEME'S TEXT: THE OVERRIDE SHEET NEVER MATCHED ANYTHING
+
+**Read this before touching the journal's light theme.** It is the fourth cause, it is not in the list
+of three below, and it is not a colour problem — it is a *mechanism* problem, which is why darkening
+greys never fixed it.
+
+**His report:** the app has a text-visibility problem on the white theme, and the eco-friendly
+marketplace does the same job well — copy how it does it.
+
+### The mechanism that was not working
+
+The journal's light theme was a **283-rule override sheet** inside `Journal.tsx` matching literal hex
+strings inside inline styles:
+
+```css
+.journal-light [style*="color:#60a5fa"] { color: #1d4ed8 !important; }
+```
+
+**Half of that sheet could never fire.** React applies inline styles through the CSSOM, and the CSSOM
+serialises a colour to `rgb()`. Probed in Chromium, 26 Sep:
+
+| | |
+|---|---|
+| `el.style.color = '#0d1117'` → `getAttribute('style')` | `"color: rgb(13, 17, 23);"` |
+| `el.matches('[style*="color:#0d1117"]')` | **FALSE** |
+| `el.matches('[style*="color: #0d1117"]')` | **FALSE** |
+| `el.matches('[style*="rgb(13, 17, 23)"]')` | TRUE |
+
+`Journal.tsx` has recorded the `color` half of this since **2026-08-08** and named the answer in the
+same comment — *"a variable is resolved per theme at the root, so one inline value is correct in
+both"* — and then **only two variables were ever added** (`--jr-ink`, `--jr-ink-dim`). Everything else
+went on hardcoding dark-theme literals, and the sheet grew to 283 rules that looked like a fix.
+
+**The distinction that matters, because both shapes are in the codebase:**
+
+| shape | fate |
+|---|---|
+| `.journal-light [style*="color:#34d399"]` | **dead** — the CSSOM serialises to `rgb()` |
+| `.journal-light .np-pl-up { color:#047857 }` | **works** — an ordinary class selector |
+
+`Notifications.tsx` does the second properly and deliberately (*"an inline style beats a plain CSS
+rule… one place, two themes"*). Do not "fix" it to tokens, and do not read its dark values as defects.
+
+### What the eco-friendly marketplace actually does
+
+Measured in its source, not assumed — it is a discipline, not a trick:
+
+1. **One token set, declared once**, and the **light theme is the base** rather than an override.
+2. **Names that describe the JOB.** `muted` is muted *text*; `border` is a border. (Same lesson as
+   `dim` here — a token used for a job its name does not describe breaks silently at a theme change.)
+3. **A tiny closed ink palette.** Across its 2,139 text-colour usages: **four** values, and **67% of
+   all text is the two darkest** — `#2B3441` at 12.6:1 and `#6B7280` at 4.8:1 on white.
+4. **Status colours belong to the palette**, not to a shared literal table — which is exactly what the
+   admin panel learned here on 09-10.
+
+It is worth knowing it is not flawless: its `#9CA3AF` hint grey measures **2.5:1 on white** and is used
+189 times. The discipline is what to copy, not every value.
+
+### What was done here
+
+**`client/src/lib/journalInk.ts`** holds the token set. Every value measured on `#FFFFFF`, on the
+`#FFFEFB` canvas, and on its own 20% wash (where a status colour actually sits — a badge):
+
+| token | light value | on white | on its wash |
+|---|---|---|---|
+| `--jr-ink-text` | `#141310` (the theme's own) | 18.58:1 | — |
+| `--jr-ink-mute` | `#5C5646` (the theme's own) | 7.31:1 | — |
+| `--jr-ink-faint` | `#6E6754` | 5.63:1 | — |
+| `--jr-up` | `#046c4e` | 6.44:1 | 5.33:1 |
+| `--jr-down` | `#b91c1c` | 6.47:1 | 4.99:1 |
+| `--jr-warn` | `#92400e` | 7.09:1 | 6.10:1 |
+| `--jr-info` | `#1e40af` | 8.72:1 | 6.92:1 |
+| `--jr-alt` | `#5b21b6` | 8.98:1 | 6.97:1 |
+| `--jr-pink` | `#9d174d` | 7.88:1 | 6.13:1 |
+| `--jr-teal` | `#086070` | 7.20:1 | 6.29:1 |
+
+Green, red, amber, blue and teal are **the admin panel's own signed-off light values, reused verbatim**
+— this document's standing rule is to check what the surface next door uses rather than invent one.
+
+**THE RULE THAT MAKES IT SAFE, and it is the part to carry forward:**
+
+> **Every token is defined ONLY on `.journal-light`, and every call site keeps its old literal as the
+> `var()` fallback** — `color: 'var(--jr-up, #34d399)'`.
+
+In the five dark themes the token does not exist, so CSS falls through to the literal that was always
+there. The dark themes are unchanged **by construction**, not by inspection. Proven three ways: all
+155 rewrites reduce character-for-character back to the line they replaced; `inkVars(dark)` returns
+`{}` and a test fails if any ink token is ever defined outside the light scope; and a Chromium render
+of both trees shows the light one resolving to the measured inks while the dark one resolves to its own
+literal.
+
+It is also why **many different dark greens can share one light `--jr-up`**: the dark themes keep every
+shade they had, and only the white theme collapses to the small closed palette that point 3 above is
+about.
+
+**Brand marks are a separate job with a separate bar** — and the bar is text's 4.5:1, not a graphic's
+3:1, because `PLATFORM_ICON_META` uses the same value for a two-letter mark (`'BN'`, `'CT'`) when the
+icon is absent. Binance's `#F3BA2F` measured **1.77:1 on white**: a logo nobody can see. Coinbase's
+`#0052FF` is deliberately left alone at 5.75:1 — changing a colour that works is how a fix acquires a
+regression.
+
+**Result: 358 failing foreground/ground pairs → 0**, across 15 journal surfaces.
+
+### FOUR FALSE-POSITIVE CLASSES THE TOOL HAD TO LEARN — every one cost a wrong number first
+
+This section is the useful half. The measurement was wrong four times before it was right, and all four
+mistakes are the kind that get made again.
+
+1. **`\bcolor` matches the `color` inside `border-color`.** `-` is a word boundary. A focus ring at
+   `border-color: rgba(99,102,241,0.6)` was reported as unreadable ink. `background-color`,
+   `outline-color`, `caret-color` and `text-decoration-color` were all caught by the same slip. The
+   pattern needs `(?<![-\w])`.
+2. **A comment is not a rendered colour.** This codebase's prose quotes the literals it fixed. A
+   `^\s*\*` test catches a JSDoc block and misses the shape actually written here — a `/* … */` block
+   whose continuation lines are plain prose with no leading star. Comment state has to be *tracked*.
+3. **Text on its own declared fill is correct in every theme.** White on `background:'#3b82f6'` is a
+   deliberate pairing; 16 of those were being reported as 1:1 failures and they drowned the real ones.
+4. **A `darkMode ? {…} : {…}` palette already answers per theme.** `SignalPlatformStatus.tsx` does this
+   properly and its dark branch is not a defect. Ten false positives in a compliant file teach the next
+   reader that the tool cries wolf.
+
+And the class the OLD tool could not see at all: **`rgba(255,255,255,α)` text.** White over white is
+`rgb(255,255,255)` at *every* alpha — exactly 1:1, invisible — and a hex-only regex walks straight past
+it. Fourteen were sitting unreported. **Their tier is their alpha**, not their lightness: a dark panel
+dims a label by fading pure white, so `0.35` is a caption and `0.9` is a heading, and grading them by
+lightness flattens three levels into one.
+
+### The two commands
+
+```bash
+node scripts/contrast-audit.mjs      # measures; exits 1 if anything fails. Targets are DERIVED from
+                                     # Journal.tsx's own imports, so a new panel cannot be missed
+node scripts/ink-codemod.mjs         # dry run: what it would rewrite, and to which token
+node scripts/ink-codemod.mjs --write # apply
+npx tsx client/src/lib/journalInk.test.ts   # the dark-themes-cannot-move guarantee
+```
+
+The old audit's hand-typed target list had drifted: it was missing `CreateSession`, `JournalPaywall`,
+`TradingCalendar`, `Notifications` and `TradeSyncPage`, which between them held 40 failures. **Derive
+the list; never type it.**
+
+### Still not converted, and why
+
+`TradingChart.tsx` paints its own opaque `#080c10` and takes no theme prop — a price chart is a dark
+instrument panel in both themes by design. `TradeSyncPage`'s `.ts-page` sets its own `--ink:#090C15`
+ground and is exempt from the journal's theming. The admin panel has its own five palettes and reached
+zero on 09-10. All three are listed with their reasons in `SELF_GROUNDED` in the audit script — **if one
+of those ever gains a light theme, its entry is what has to go.**
+
+---
+
 **Run the tool before reading anything:**
 
 ```bash

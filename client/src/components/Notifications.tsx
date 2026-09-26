@@ -100,7 +100,7 @@ const PANEL_CSS = `
      too dark on a black one, so each theme gets the step that clears. Same hue, same identity. */
   .np-tab.active { color: #60a5fa; border-bottom-color: #60a5fa; }
   .np-tab-count {
-    background: rgba(96,165,250,0.16); color: #60a5fa;
+    background: rgba(96,165,250,0.16); color: var(--jr-info, #60a5fa);
     border-radius: 8px; padding: 1px 6px;
     font-size: 11px; font-weight: 700;
   }
@@ -196,7 +196,7 @@ const PANEL_CSS = `
     border-radius: 6px; display: flex; align-items: center; justify-content: center;
     transition: all 0.12s; flex-shrink: 0; margin-top: -2px;
   }
-  .np-item-del:hover { background: rgba(239,68,68,0.14); color: #fb7185; opacity: 1; }
+  .np-item-del:hover { background: rgba(239,68,68,0.14); color: var(--jr-down, #fb7185); opacity: 1; }
   .np-unread-dot {
     width: 6px; height: 6px; border-radius: 50%;
     background: #1e6fc8;
@@ -217,11 +217,11 @@ const TABS: { key: TabKey; label: string; icon: React.ReactNode; types: string[]
 ];
 
 const TYPE_META: Record<string, { color: string; bg: string; label: string }> = {
-  trading_signal:  { color: '#22d3a5', bg: 'rgba(34,211,165,0.10)',  label: 'Signal' },
-  economic_event:  { color: '#f59e0b', bg: 'rgba(245,158,11,0.10)',  label: 'Economic' },
-  trading_session: { color: '#38bdf8', bg: 'rgba(56,189,248,0.10)',  label: 'Session' },
-  email:           { color: '#3b82f6', bg: 'rgba(59,130,246,0.10)',  label: 'Email' },
-  update:          { color: '#a78bfa', bg: 'rgba(167,139,250,0.10)', label: 'Update' },
+  trading_signal:  { color: 'var(--jr-up, #22d3a5)', bg: 'rgba(34,211,165,0.10)',  label: 'Signal' },
+  economic_event:  { color: 'var(--jr-warn, #f59e0b)', bg: 'rgba(245,158,11,0.10)',  label: 'Economic' },
+  trading_session: { color: 'var(--jr-info, #38bdf8)', bg: 'rgba(56,189,248,0.10)',  label: 'Session' },
+  email:           { color: 'var(--jr-info, #3b82f6)', bg: 'rgba(59,130,246,0.10)',  label: 'Email' },
+  update:          { color: 'var(--jr-alt, #a78bfa)', bg: 'rgba(167,139,250,0.10)', label: 'Update' },
 };
 
 const TYPE_ICONS: Record<string, React.ReactNode> = {
@@ -562,7 +562,7 @@ export function Notifications({ dm }: { dm: boolean }) {
             background: '#ef4444',
             borderRadius: 7,
             fontSize: 8, fontWeight: 800,
-            color: '#fff',
+            color: 'var(--jr-ink-text, #fff)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             padding: '0 3px',
             fontFamily: 'monospace',

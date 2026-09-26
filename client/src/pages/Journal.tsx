@@ -30,6 +30,7 @@ import AccountsPage from '@/pages/AccountsPage';
 import AssetPage from '@/pages/AssetPage';
 import Leaderboard from '@/components/Leaderboard';
 import { useJournalSettings, THEMES, FONTS } from '@/hooks/useJournalSettings';
+import { inkVars } from '@/lib/journalInk';
 
 const SI = {
   Dashboard: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 12 8.5 8.5" strokeWidth="2"/><circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/><path d="M6.5 17.5a7 7 0 0 1 0-11" strokeWidth="1.4" opacity="0.4"/><path d="M17.5 17.5a7 7 0 0 0 0-11" strokeWidth="1.4" opacity="0.4"/><line x1="12" y1="3" x2="12" y2="4.5" strokeWidth="1.4"/><line x1="3" y1="12" x2="4.5" y2="12" strokeWidth="1.4"/><line x1="21" y1="12" x2="19.5" y2="12" strokeWidth="1.4"/><line x1="6.2" y1="6.2" x2="7.2" y2="7.2" strokeWidth="1.4"/><line x1="17.8" y1="6.2" x2="16.8" y2="7.2" strokeWidth="1.4"/></svg>,
@@ -142,7 +143,7 @@ const NavButton = ({ item, isActive, onClick, showLabels, darkMode = true, label
         {showLabels && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
             {item.badge && <span style={{ fontSize: 8, fontWeight: 800, letterSpacing: '0.1em', padding: '3px 8px', borderRadius: 4, background: item.badge === 'Pro' ? 'rgba(139,92,246,0.8)' : '#22d3ee', color: '#020617', textTransform: 'uppercase' }}>{item.badge}</span>}
-            {item.arrow && <span style={{ color: 'rgba(100,116,139,0.5)', display: 'flex', marginLeft: 2 }}><SI.ChevronRight /></span>}
+            {item.arrow && <span style={{ color: 'var(--jr-ink-faint, rgba(100,116,139,0.5))', display: 'flex', marginLeft: 2 }}><SI.ChevronRight /></span>}
           </div>
         )}
       </button>
@@ -183,14 +184,14 @@ const Sidebar = ({ activeNav, setActiveNav, open, isMobile, onClose, darkMode, s
         <aside style={sidebarStyle} data-testid="journal-sidebar">
           {isMobile && (
             <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '12px 12px 0' }}>
-              <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'rgba(148,163,184,0.6)', cursor: 'pointer', padding: 6, borderRadius: 8, display: 'flex' }} data-testid="button-close-sidebar"><SI.Close /></button>
+              <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--jr-ink-mute, rgba(148,163,184,0.6))', cursor: 'pointer', padding: 6, borderRadius: 8, display: 'flex' }} data-testid="button-close-sidebar"><SI.Close /></button>
             </div>
           )}
           <nav style={{ flex: 1, padding: '16px 12px 8px', overflowY: 'auto' }}>
             {NAV_SECTIONS.map((group, gi) => (
               <div key={gi} style={{ marginBottom: group.section ? 12 : 8 }}>
                 {gi > 0 && !group.section && <div style={{ height: 1, background: 'rgba(255,255,255,0.05)', margin: '8px 0' }} />}
-                {showLabels && group.section && <p style={{ fontSize: 8, fontWeight: 800, color: 'rgba(100,116,139,0.5)', letterSpacing: '0.2em', textTransform: 'uppercase', padding: '16px 12px 8px', margin: 0, whiteSpace: 'nowrap' }}>{group.section}</p>}
+                {showLabels && group.section && <p style={{ fontSize: 8, fontWeight: 800, color: 'var(--jr-ink-faint, rgba(100,116,139,0.5))', letterSpacing: '0.2em', textTransform: 'uppercase', padding: '16px 12px 8px', margin: 0, whiteSpace: 'nowrap' }}>{group.section}</p>}
                 {group.items.map(item => (
                   <NavButton key={item.id} item={item} isActive={activeNav === item.id} showLabels={showLabels} darkMode={dm}
                     label={t(`nav.${item.id}`, { defaultValue: item.label })}
@@ -458,9 +459,9 @@ function ActivityCalendar({ entries, darkMode = true }: { entries: any[]; darkMo
   }, [activeMonthKey, tradeMap]);
 
   const cellColor = (status: 'profit' | 'loss' | 'mixed' | undefined) => {
-    if (status === 'profit') return { bg: 'rgba(16,185,129,0.2)', border: 'rgba(16,185,129,0.3)', color: '#34d399' };
-    if (status === 'loss')   return { bg: 'rgba(244,63,94,0.2)',  border: 'rgba(244,63,94,0.3)',  color: '#fb7185' };
-    if (status === 'mixed')  return { bg: 'rgba(251,191,36,0.15)',border: 'rgba(251,191,36,0.25)',color: '#fbbf24' };
+    if (status === 'profit') return { bg: 'rgba(16,185,129,0.2)', border: 'rgba(16,185,129,0.3)', color: 'var(--jr-up, #34d399)' };
+    if (status === 'loss')   return { bg: 'rgba(244,63,94,0.2)',  border: 'rgba(244,63,94,0.3)',  color: 'var(--jr-down, #fb7185)' };
+    if (status === 'mixed')  return { bg: 'rgba(251,191,36,0.15)',border: 'rgba(251,191,36,0.25)',color: 'var(--jr-warn, #fbbf24)' };
     return darkMode
       ? { bg: 'rgba(22,27,34,0.8)',    border: 'transparent', color: 'rgba(55,65,81,0.8)' }
       : { bg: 'rgba(226,232,240,0.6)', border: 'transparent', color: 'rgba(100,116,139,0.7)' };
@@ -562,9 +563,9 @@ function ActivityCalendar({ entries, darkMode = true }: { entries: any[]; darkMo
           {monthSummary.total > 0 && (
             <div style={{ display: 'flex', gap: 8, marginTop: 12, paddingTop: 10, borderTop: '1px solid rgba(255,255,255,0.05)' }}>
               {[
-                { label: 'PROFIT', count: monthSummary.profit, color: '#34d399' },
-                { label: 'LOSS',   count: monthSummary.loss,   color: '#fb7185' },
-                { label: 'MIXED',  count: monthSummary.mixed,  color: '#fbbf24' },
+                { label: 'PROFIT', count: monthSummary.profit, color: 'var(--jr-up, #34d399)' },
+                { label: 'LOSS',   count: monthSummary.loss,   color: 'var(--jr-down, #fb7185)' },
+                { label: 'MIXED',  count: monthSummary.mixed,  color: 'var(--jr-warn, #fbbf24)' },
               ].map(s => s.count > 0 && (
                 <div key={s.label} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                   <div style={{ width: 6, height: 6, borderRadius: 2, background: s.color }} />
@@ -645,9 +646,9 @@ function DashboardView({ sessionId, isMobile, windowWidth, darkMode = true }: { 
 
   const stats = [
     { id: 'pnl', label: 'TOTAL P&L', value: `${plSign}$${Math.abs(totalPL).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, Icon: KPI_ICONS.PnL, color: totalPL >= 0 ? '#34d399' : '#fb7185', bg: totalPL >= 0 ? 'rgba(16,185,129,0.1)' : 'rgba(244,63,94,0.1)' },
-    { id: 'winrate', label: 'WIN RATE', value: `${(core.winRate ?? 0).toFixed(1)}%`, Icon: KPI_ICONS.WinRate, color: '#818cf8', bg: 'rgba(99,102,241,0.1)' },
+    { id: 'winrate', label: 'WIN RATE', value: `${(core.winRate ?? 0).toFixed(1)}%`, Icon: KPI_ICONS.WinRate, color: 'var(--jr-info, #818cf8)', bg: 'rgba(99,102,241,0.1)' },
     { id: 'rexpect', label: 'R EXPECTANCY', value: `${(core.expectancy ?? 0).toFixed(2)}R`, Icon: KPI_ICONS.Expectancy, color: (core.expectancy ?? 0) >= 0 ? '#fbbf24' : '#fb7185', bg: 'rgba(245,158,11,0.1)' },
-    { id: 'tradecount', label: 'TRADES', value: `${core.totalTrades || 0}`, Icon: KPI_ICONS.Trades, color: '#94a3b8', bg: 'rgba(100,116,139,0.1)' },
+    { id: 'tradecount', label: 'TRADES', value: `${core.totalTrades || 0}`, Icon: KPI_ICONS.Trades, color: 'var(--jr-ink-mute, #94a3b8)', bg: 'rgba(100,116,139,0.1)' },
     { id: 'pfactor', label: 'PROFIT FACTOR', value: pfDisplay, Icon: KPI_ICONS.ProfitFactor, color: pfRaw >= 1 || pfRaw >= 999 ? '#c084fc' : '#fb7185', bg: 'rgba(168,85,247,0.1)' },
     { id: 'avgtrade', label: 'AVG TRADE', value: avgTradeDisplay, Icon: KPI_ICONS.AvgTrade, color: avgTradeRaw >= 0 ? '#34d399' : '#fb7185', bg: avgTradeRaw >= 0 ? 'rgba(16,185,129,0.1)' : 'rgba(244,63,94,0.1)' },
   ];
@@ -729,7 +730,7 @@ function DashboardView({ sessionId, isMobile, windowWidth, darkMode = true }: { 
 
         <div style={{ background: 'var(--jr-panel,#0d1117)', border: '1px solid var(--jr-border,rgba(255,255,255,0.1))', padding: 20, borderRadius: 8 }} data-testid="panel-performance-mix">
           <h2 style={{ fontSize: 11, fontWeight: 900, color: 'var(--jr-accent,#38bdf8)', marginBottom: 18, textTransform: 'uppercase', letterSpacing: '0.2em' }}>PERFORMANCE MIX</h2>
-          {[{ label: 'PROFIT RATIO', val: `${profitRatio}%`, color: '#10b981' }, { label: 'LOSS RATIO', val: `${lossRatio}%`, color: '#f43f5e' }].map(m => (
+          {[{ label: 'PROFIT RATIO', val: `${profitRatio}%`, color: 'var(--jr-up, #10b981)' }, { label: 'LOSS RATIO', val: `${lossRatio}%`, color: 'var(--jr-down, #f43f5e)' }].map(m => (
             <div key={m.label} style={{ marginBottom: 18 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
                 <span className="jr-cap" style={{ textTransform: 'uppercase' }}>{m.label}</span>
@@ -1597,7 +1598,17 @@ export default function Journal() {
         // anything you actually READ (its `muted` is deliberately set to the BRIGHT value, not a
         // grey) and #A8AEB8 for the small captions behind it. --jr-cap above is that second step;
         // this is the first. The journal's own --jr-text is #cbd5e1, a step dimmer again.
-        ['--jr-ink' as any]: T.dark ? '#ECEEF2' : T.text, ['--jr-divider' as any]: T.dark ? 'rgba(255,255,255,0.04)' : T.border, ['--jr-accent' as any]: T.accent }}>
+        ['--jr-ink' as any]: T.dark ? '#ECEEF2' : T.text, ['--jr-divider' as any]: T.dark ? 'rgba(255,255,255,0.04)' : T.border, ['--jr-accent' as any]: T.accent,
+        // ── THE REST OF THE INK, and the reason the white theme was unreadable ────────────────────
+        // The light theme used to be a 283-rule sheet below matching hex strings inside inline styles.
+        // Half of it never matched ANYTHING: React sets inline styles through the CSSOM and the CSSOM
+        // serialises colour to rgb(), so `[style*="color:#60a5fa"]` can never fire. The comment at the
+        // top of this <style> block has said so for the `color` case since 2026-08-08 and named the
+        // answer — a variable, resolved per theme — and then only two variables were ever added.
+        // These are the rest, and they are defined for the LIGHT THEME ONLY: every call site keeps its
+        // old literal as the var() fallback, so the five dark themes render byte-identically because
+        // the token is simply not there. See client/src/lib/journalInk.ts for the measurements.
+        ...inkVars(T.dark, T.text, T.textMuted) }}>
         <Sidebar activeNav={activeNav} setActiveNav={setActiveNav} open={isMobile ? mobileOpen : sidebarOpen} isMobile={isMobile} onClose={()=>setMobileOpen(false)} darkMode={T.dark} sidebarBg={T.sidebarBg} accentColor={T.accent} />
 
         <main style={{ flex:1, overflowY:'auto', padding: isMobile ? (activeNav === 'sync' ? '0 0 32px' : '10px 10px 32px') : activeNav === 'dashboard' ? '14px 16px 32px' : activeNav === 'journal' ? '14px 0 0' : activeNav === 'metrics' ? '0' : activeNav === 'drawdown' ? '14px 0 0 6px' : activeNav === 'tfmetrics' ? '14px 0 0 6px' : activeNav === 'sync' ? '0' : activeNav === 'accounts' ? '14px 0 0 6px' : activeNav === 'addaccount' ? '14px 0 0 6px' : activeNav === 'vault' ? '14px 0 0 6px' : activeNav === 'strategy' ? '14px 0 0 6px' : activeNav === 'leaderboard' ? '0 0 0 6px' : activeNav === 'fsdai' ? '14px 0 0' : '14px 8px 32px', minWidth:0, background: activeNav === 'journal' ? (T.dark ? '#0d0f0e' : T.bg) : activeNav === 'metrics' ? (T.dark ? '#0d1117' : T.bg) : activeNav === 'drawdown' ? (T.dark ? '#0d1117' : T.bg) : T.bg }}>

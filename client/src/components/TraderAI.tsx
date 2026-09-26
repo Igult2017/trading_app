@@ -289,7 +289,7 @@ export default function TraderAI({ sessionId, darkMode = true }: { sessionId?: s
       } else if (m[0].startsWith("**"))
         parts.push(<strong key={m.index} className="tai-hl">{m[4]}</strong>);
       else if (m[0].startsWith("*"))
-        parts.push(<em key={m.index} style={{ fontStyle: "italic", color: "rgba(255,255,255,0.55)" }}>{m[5]}</em>);
+        parts.push(<em key={m.index} style={{ fontStyle: "italic", color: "var(--jr-ink-mute, rgba(255,255,255,0.55))" }}>{m[5]}</em>);
       else
         parts.push(<code key={m.index} className="tai-chip">{m[6]}</code>);
       last = m.index + m[0].length;
@@ -346,7 +346,7 @@ export default function TraderAI({ sessionId, darkMode = true }: { sessionId?: s
 
       // ── H3 ###
       if (line.startsWith("### ")) {
-        elements.push(<p key={i} style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: "rgba(255,255,255,0.32)", marginTop: 14, marginBottom: 6 }}>{line.slice(4)}</p>);
+        elements.push(<p key={i} style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--jr-ink-faint, rgba(255,255,255,0.32))", marginTop: 14, marginBottom: 6 }}>{line.slice(4)}</p>);
         i++; continue;
       }
 
@@ -473,9 +473,9 @@ export default function TraderAI({ sessionId, darkMode = true }: { sessionId?: s
         .traderai-ta::placeholder{color:${dm ? "rgba(255,255,255,0.2)" : "#94a3b8"};font-family:'Montserrat',sans-serif;}
         .traderai-chatrow .traderai-chatactions{opacity:0;transition:opacity .15s}
         .traderai-chatrow:hover .traderai-chatactions{opacity:1}
-        .tai-delete-btn{background:none;border:none;cursor:pointer;color:rgba(255,255,255,0.4);transition:color .2s,transform .2s,background .2s;padding:4px;border-radius:5px;display:flex;align-items:center;justify-content:center;gap:3px;width:22px;height:22px;flex-shrink:0;}
-        .tai-delete-btn:hover{color:#f87171;background:rgba(239,68,68,0.15);}
-        .tai-delete-btn--confirm{color:#ff4d6d !important;background:rgba(255,77,109,0.15) !important;border:1px solid rgba(255,77,109,0.35) !important;width:auto !important;padding:3px 6px !important;animation:tai-pulse-red 0.6s ease-in-out infinite alternate;}
+        .tai-delete-btn{background:none;border:none;cursor:pointer;color:var(--jr-ink-faint, rgba(255,255,255,0.4));transition:color .2s,transform .2s,background .2s;padding:4px;border-radius:5px;display:flex;align-items:center;justify-content:center;gap:3px;width:22px;height:22px;flex-shrink:0;}
+        .tai-delete-btn:hover{color:var(--jr-down, #f87171);background:rgba(239,68,68,0.15);}
+        .tai-delete-btn--confirm{color:var(--jr-down, #ff4d6d) !important;background:rgba(255,77,109,0.15) !important;border:1px solid rgba(255,77,109,0.35) !important;width:auto !important;padding:3px 6px !important;animation:tai-pulse-red 0.6s ease-in-out infinite alternate;}
         .tai-delete-btn--confirm:hover{background:rgba(255,77,109,0.28) !important;}
         @keyframes tai-pulse-red{from{box-shadow:0 0 0 0 rgba(255,77,109,0.0);}to{box-shadow:0 0 6px 2px rgba(255,77,109,0.25);}}
 
@@ -483,30 +483,30 @@ export default function TraderAI({ sessionId, darkMode = true }: { sessionId?: s
         .tai-feed,.tai-feed *{font-family:'Inter',sans-serif !important;}
         .tai-feed code,.tai-feed pre,.tai-chip{font-family:'JetBrains Mono',monospace !important;}
         .tai-user-pill{background:#1e2228;border:1px solid #2a2d38;border-radius:20px;padding:10px 18px;font-size:14px;color:#d1d5db;max-width:75%;line-height:1.5;}
-        .tai-ai-row{padding:0.25rem 0 2rem;border-bottom:1px solid #1a1c22;font-size:14px;line-height:1.7;color:#c9ccd4;}
+        .tai-ai-row{padding:0.25rem 0 2rem;border-bottom:1px solid #1a1c22;font-size:14px;line-height:1.7;color:var(--jr-ink-mute, #c9ccd4);}
         .tai-ai-row:last-child{border-bottom:none;}
-        .tai-section-heading{font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#6c63ff;margin:16px 0 10px;display:flex;align-items:center;gap:6px;}
+        .tai-section-heading{font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--jr-info, #6c63ff);margin:16px 0 10px;display:flex;align-items:center;gap:6px;}
         .tai-section-heading:first-child{margin-top:0;}
         .tai-section-heading::after{content:'';flex:1;height:1px;background:#1e2228;}
         .tai-point-list{list-style:none;display:flex;flex-direction:column;gap:8px;padding:0;}
-        .tai-point-item{display:flex;gap:10px;align-items:flex-start;font-size:14px;line-height:1.6;color:#9ca3af;}
+        .tai-point-item{display:flex;gap:10px;align-items:flex-start;font-size:14px;line-height:1.6;color:var(--jr-ink-mute, #9ca3af);}
         .tai-point-dot{width:5px;height:5px;border-radius:50%;background:#6c63ff;flex-shrink:0;margin-top:8px;opacity:0.7;}
         .tai-chip{display:inline-flex;align-items:center;font-size:11px;background:#1a1c22;border:1px solid #2a2d38;border-radius:5px;padding:1px 7px;color:#7c85a2;vertical-align:middle;margin:0 1px;white-space:nowrap;}
         .tai-badge{display:inline-flex;align-items:center;font-size:10.5px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;border-radius:5px;padding:2px 7px;vertical-align:middle;margin:0 1px;}
         .tai-badge-warn{background:#2a1f0a;color:#f59e0b;border:1px solid #3d2e10;}
         .tai-badge-danger{background:#200f0f;color:#f87171;border:1px solid #3d1818;}
         .tai-badge-ok{background:#0d1f12;color:#34d399;border:1px solid #163324;}
-        .tai-hl{color:#e8e9eb;font-weight:600;}
+        .tai-hl{color:var(--jr-ink-text, #e8e9eb);font-weight:600;}
         .tai-rule{height:1px;background:#1e2228;margin:14px 0;}
         .tai-footer-note{margin-top:12px;padding:10px 14px;background:#11131a;border-left:2px solid #6c63ff;border-radius:0 8px 8px 0;font-size:13px;color:var(--jr-ink-dim);line-height:1.65;}
         .tai-pre{font-size:12px;background:#11131a;border:1px solid #1e2228;border-radius:8px;padding:10px 14px;overflow-x:auto;margin:10px 0;color:#9ca3af;line-height:1.6;white-space:pre;}
-        .tai-p{font-size:14px;color:#9ca3af;line-height:1.7;margin-bottom:4px;}
-        .tai-bold-line{font-size:14px;font-weight:700;color:#e8e9eb;margin-bottom:4px;}
+        .tai-p{font-size:14px;color:var(--jr-ink-mute, #9ca3af);line-height:1.7;margin-bottom:4px;}
+        .tai-bold-line{font-size:14px;font-weight:700;color:var(--jr-ink-text, #e8e9eb);margin-bottom:4px;}
         .tai-num-row{display:flex;gap:10px;margin-bottom:8px;align-items:flex-start;}
-        .tai-num{font-size:11px;color:#6c63ff;line-height:1.7;flex-shrink:0;min-width:18px;font-weight:500;opacity:0.8;font-family:'JetBrains Mono',monospace !important;}
+        .tai-num{font-size:11px;color:var(--jr-info, #6c63ff);line-height:1.7;flex-shrink:0;min-width:18px;font-weight:500;opacity:0.8;font-family:'JetBrains Mono',monospace !important;}
         .tai-table{width:100%;border-collapse:collapse;font-size:14px;}
-        .tai-table td{padding:7px 10px;border-bottom:1px solid #1e2228;color:#9ca3af;}
-        .tai-table tr:first-child td{color:#6c63ff;font-size:10px;text-transform:uppercase;letter-spacing:0.06em;font-weight:600;}
+        .tai-table td{padding:7px 10px;border-bottom:1px solid #1e2228;color:var(--jr-ink-mute, #9ca3af);}
+        .tai-table tr:first-child td{color:var(--jr-info, #6c63ff);font-size:10px;text-transform:uppercase;letter-spacing:0.06em;font-weight:600;}
 
         /* ── Mobile optimisation ─────────────────────────────────────── */
         @media (max-width: 640px) {
@@ -598,9 +598,9 @@ export default function TraderAI({ sessionId, darkMode = true }: { sessionId?: s
         {(
         <div className="traderai-scroll" style={{ flex: 1, overflowY: "auto", padding: "4px 8px 12px", paddingRight: 12 }}>
           {chatsLoading && chats.length === 0 ? (
-            <p style={{ fontFamily: F, fontSize: 11, color: "rgba(255,255,255,0.25)", padding: "12px 8px" }}>Loading…</p>
+            <p style={{ fontFamily: F, fontSize: 11, color: "var(--jr-ink-faint, rgba(255,255,255,0.25))", padding: "12px 8px" }}>Loading…</p>
           ) : chats.length === 0 ? (
-            <p style={{ fontFamily: F, fontSize: 11, color: "rgba(255,255,255,0.25)", padding: "12px 8px", lineHeight: 1.5 }}>
+            <p style={{ fontFamily: F, fontSize: 11, color: "var(--jr-ink-faint, rgba(255,255,255,0.25))", padding: "12px 8px", lineHeight: 1.5 }}>
               No saved chats yet. Start a new conversation — it'll be saved automatically.
             </p>
           ) : (
@@ -626,7 +626,7 @@ export default function TraderAI({ sessionId, darkMode = true }: { sessionId?: s
                       }}
                       onBlur={() => submitRename(c.id)}
                       onClick={e => e.stopPropagation()}
-                      style={{ flex: 1, minWidth: 0, background: "rgba(0,0,0,0.3)", border: "1px solid rgba(99,102,241,0.4)", borderRadius: 4, color: "white", fontFamily: F, fontSize: 12, padding: "2px 6px", outline: "none" }}
+                      style={{ flex: 1, minWidth: 0, background: "rgba(0,0,0,0.3)", border: "1px solid rgba(99,102,241,0.4)", borderRadius: 4, color: "var(--jr-ink-text, white)", fontFamily: F, fontSize: 12, padding: "2px 6px", outline: "none" }}
                     />
                   ) : (
                     <span style={{ flex: 1, minWidth: 0, fontFamily: F, fontSize: 12, color: isActive ? "rgba(255,255,255,0.92)" : "rgba(255,255,255,0.6)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontWeight: isActive ? 500 : 400 }}>
@@ -636,7 +636,7 @@ export default function TraderAI({ sessionId, darkMode = true }: { sessionId?: s
                   {!isRenaming && (
                     <div className="traderai-chatactions" style={{ display: "flex", gap: 2, flexShrink: 0 }}>
                       <button onClick={e => { e.stopPropagation(); setRenameValue(c.title); setRenamingId(c.id); }}
-                        style={{ width: 22, height: 22, borderRadius: 5, border: "none", background: "transparent", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "rgba(255,255,255,0.4)" }}
+                        style={{ width: 22, height: 22, borderRadius: 5, border: "none", background: "transparent", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--jr-ink-faint, rgba(255,255,255,0.4))" }}
                         onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.08)"; (e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.8)"; }}
                         onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; (e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.4)"; }}
                         title="Rename"
@@ -727,7 +727,7 @@ export default function TraderAI({ sessionId, darkMode = true }: { sessionId?: s
                             { icon: <Download size={12} />, action: () => { const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(new Blob([msg.content], { type: "text/plain" })), download: `analysis-${Date.now()}.txt` }); a.click(); } },
                           ].map(({ icon, action }, bi) => (
                             <button key={bi} onClick={action}
-                              style={{ width: 26, height: 26, borderRadius: 6, border: "none", background: "transparent", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "rgba(255,255,255,0.35)", opacity: 0, transition: "all 0.15s" }}
+                              style={{ width: 26, height: 26, borderRadius: 6, border: "none", background: "transparent", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "var(--jr-ink-faint, rgba(255,255,255,0.35))", opacity: 0, transition: "all 0.15s" }}
                               onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.background = "rgba(255,255,255,0.07)"; b.style.color = "rgba(255,255,255,0.65)"; }}
                               onMouseLeave={e => { const b = e.currentTarget as HTMLButtonElement; b.style.background = "transparent"; b.style.color = "rgba(255,255,255,0.35)"; }}
                             >{icon}</button>
@@ -757,7 +757,7 @@ export default function TraderAI({ sessionId, darkMode = true }: { sessionId?: s
           {error && (
             <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", background: "rgba(239,68,68,0.07)", border: "1px solid rgba(239,68,68,0.18)", borderRadius: 8, marginBottom: 8 }}>
               <AlertCircle size={12} color="#f87171" />
-              <span style={{ fontFamily: F, fontSize: 12, color: "#f87171" }}>{error}</span>
+              <span style={{ fontFamily: F, fontSize: 12, color: "var(--jr-down, #f87171)" }}>{error}</span>
             </div>
           )}
           <div className="traderai-inputbox" style={{ display: "flex", alignItems: "flex-end", background: inputBg, border: `1px solid ${inputBd}`, borderRadius: 12, padding: "8px 8px 8px 14px", transition: "border-color 0.15s, box-shadow 0.15s" }}

@@ -194,6 +194,24 @@ Snapping would either erase the partials he banked or claim a target only part o
 auto-journal did not write. Every retire is written to `sync_events` BEFORE the row goes, so *"where did
 that entry go?"* survives the next deploy.
 
+### "the white theme's text is hard to read" / "blurred text on the light theme"
+
+**READ [docs/READABILITY.md](./READABILITY.md) FIRST — its 2026-09-26 section is this exact question**,
+and the answer is a mechanism, not a colour, which is why darkening greys never fixed it.
+
+**The journal's light theme was a 283-rule sheet matching hex strings inside inline styles, and half of
+it could never fire.** React applies inline styles through the CSSOM and the CSSOM serialises colour to
+`rgb()`, so `.journal-light [style*="color:#60a5fa"]` matches nothing. Probed in Chromium 26 Sep.
+A **class**-scoped light rule does work — that distinction is the whole thing.
+
+| file | what it owns |
+|---|---|
+| [`lib/journalInk.ts`](../client/src/lib/journalInk.ts) | the token set and every measurement. Defined **on `.journal-light` only** |
+| [`scripts/contrast-audit.mjs`](../scripts/contrast-audit.mjs) | the measurement. Targets DERIVED from Journal.tsx's imports; exits 1 on a failure |
+| [`scripts/ink-codemod.mjs`](../scripts/ink-codemod.mjs) | converts a literal to its token, keeping the literal as the `var()` fallback |
+
+**358 failing pairs → 0** across 15 surfaces. **D50** in [OPEN.md](./OPEN.md).
+
 ### "the metrics page says Unknown for my autosynced trades"
 
 They now carry **strategy, exit reason, order type and entry timeframe**. Note `strategy` is NOT a
@@ -305,6 +323,7 @@ is wrong.** Full wording lives in the linked doc; this is the index so you know 
 | **"Never arrived" and "went quiet" are different states, and a check that conflates them cries wolf** | `age()` returns None for both; `is_stale` returned True for both, so the price stream was called dead **one millisecond after it opened** (**D27**). Anything judging silence must know WHEN it started listening — record the connect time, not just a connected flag |
 | **A contract size, a volume limit and a price precision are READ FROM THE BROKER, never assumed** | the symbol list both platforms fetch is `ProtoOALightSymbol`, which carries **none of them** — only id, name, enabled, asset ids, category, description (verified on the live account, 02 Sep). `execution/connection.load_symbol_spec` asks for the full `ProtoOASymbol`. Assuming a currency lot's 100,000 units sent a gold order **1,000× too large** and the broker refused it (**B17**), and a gold price at three decimals on a two-decimal symbol was refused the day before |
 | **Every journal page is built from ONE list, and anything that writes to it must clear the cache** | `resolveComputeScope` (routes.ts) reads `journal_entries` once and the calendar, drawdown, metrics, timeframe-matrix and strategy-audit engines all consume it — so a new entry reaches every page automatically, but only if `invalidateComputeCaches` (**`lib/cache.ts`, not routes.ts**) is called. It was local to routes.ts, so only typed trades cleared it and synced ones stayed invisible for 5 minutes (**D23**) |
+| **A theme is a TOKEN SET, never a sheet of overrides keyed on the colour being overridden** | React applies inline styles through the CSSOM and the CSSOM serialises colour to `rgb()`, so `.journal-light [style*="color:#60a5fa"]` can never match — 283 such rules looked like a light theme and half of them did nothing (**D50**). A **class**-scoped light rule (`.journal-light .np-pl-up`) DOES work; know which shape you are looking at. The replacement is `var(--jr-role, <the old literal>)` with the token defined on `.journal-light` ONLY, so the dark themes fall through to the literal and are unchanged **by construction** rather than by inspection — which is also how many dark shades share one light value |
 | **A pip comes from the instrument's precision, never from how big its price is** | `price > 100 ? 100 : 10000` is right for the four currency pairs by luck and 10× wrong for gold. The table lives in **two places that must change together** — `signal_platform/shared/pip.py` and `server/lib/pipMath.ts` — because Node cannot import Python. Gold is **2 decimals**, which the broker established by refusing a 3-decimal price |
 | **One broker POSITION is one journal trade — a partial exit is a slice, not a trade** | a position scaled out of has one opening deal and several closing ones, each with its own `dealId`, and `dealId` is the `externalId` de-duplication keys on. So one trade taken off in three pieces became three rows and three journal entries (**D49**). Nothing is emitted until the volume closed equals the volume opened, and the id is minted from the FINAL closing deal — which for a single-deal close is exactly what the old code produced, so already-correct rows are untouched. A single event can never aggregate a position, so the live feed defers a scaled-out one to the sweep: freshness is the thing this codebase trades away, never correctness |
 | **Every enum from the cTrader JSON gateway arrives BY NAME, not as its integer** | `dealStatus: "FILLED"`, not `2`; `tradeSide: "BUY"`, not `1`. One `!== 2` test meant **no cTrader trade ever reached the journal** (**D22**). Match on the name and the integer both, never the integer alone |
@@ -313,6 +332,32 @@ is wrong.** Full wording lives in the linked doc; this is the index so you know 
 ---
 
 ## PROGRESS — what actually happened, newest first
+
+**2026-09-26 — the white theme's text, and the reason years of darkening greys never fixed it.**
+
+He asked for the eco-friendly marketplace's approach to be copied. What that project does is a
+discipline, measured in its source rather than assumed: one token set declared once, the LIGHT theme as
+the base rather than an override, names that describe the job, and a **tiny closed ink palette** — four
+values across 2,139 text usages, 67% of all text in the two darkest.
+
+**The journal had the opposite.** Its light theme was 283 rules matching hex strings inside inline
+styles, and **half of them could never fire**: React applies inline styles through the CSSOM and the
+CSSOM serialises colour to `rgb()`, so `[style*="color:#60a5fa"]` matches nothing. `Journal.tsx` had
+recorded that for the `color` case since 08-08 and named the answer — a variable, resolved per theme —
+and then two variables were added and the rest of the app went on hardcoding dark-theme literals.
+
+`lib/journalInk.ts` is the rest of them. **Every token is defined on `.journal-light` only and every
+call site keeps its old literal as the `var()` fallback**, so the five dark themes are unchanged by
+construction: all 155 rewrites reduce character-for-character back to the line they replaced, a test
+fails if an ink token is ever defined outside the light scope, and a Chromium render of both trees shows
+each resolving as intended. **358 failing foreground/ground pairs → 0** across 15 surfaces.
+
+**The measurement was wrong four times before it was right**, and those four are the useful part —
+`\bcolor` matches the `color` inside `border-color`; a comment is not a rendered colour and needs its
+state tracked, not pattern-matched; text on its own declared fill is correct in every theme; and a
+`darkMode ? {…} : {…}` palette already answers per theme. Plus the class the old tool could not see at
+all: `rgba(255,255,255,α)` text, which is exactly 1:1 on white at every alpha, and whose **tier is its
+alpha rather than its lightness**.
 
 **2026-09-26 — one trade taken off in three pieces was three trades in the journal.**
 
