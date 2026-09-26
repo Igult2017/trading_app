@@ -91,7 +91,7 @@ function SCSelect({ label, value, onChange }: { label: string; value: string; on
               style={{
                 padding: "9px 12px", cursor: "pointer", fontFamily: MONO,
                 fontSize: 12, letterSpacing: "0.04em",
-                color: o.value === value ? "#a5b4fc" : MC.white,
+                color: o.value === value ? "var(--jr-info, #a5b4fc)" : MC.white,
                 background: o.value === value ? "rgba(99,102,241,0.15)" : "transparent",
                 borderBottom: `1px solid ${MC.borderSoft}`,
                 transition: "background 0.1s",

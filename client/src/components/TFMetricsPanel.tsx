@@ -260,7 +260,7 @@ const PerfCell = ({ row }: { row: TFRow }) => {
         <WRBar wr={row.wr} height={3} width={72}/>
         <div style={{ marginTop:9, display:'flex', flexDirection:'column', gap:5 }}>
           {[
-            { label:'AVG R', value:`${row.avgR>0?'+':''}${row.avgR}R`, color:row.avgR>=3?'#60a5fa':C.muted },
+            { label:'AVG R', value:`${row.avgR>0?'+':''}${row.avgR}R`, color:row.avgR>=3?'var(--jr-info, #60a5fa)':C.muted },
             { label:'P/L',   value:`${row.netPL>=0?'+':''}$${row.netPL.toLocaleString()}`, color:row.netPL>=0?C.win:C.loss },
           ].map(({ label, value, color }) => (
             <div key={label} style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
@@ -367,7 +367,7 @@ const MobileCard = ({ row }: { row: TFRow }) => {
         </div>
         <div style={{ display:'flex', gap:20, marginBottom:9 }}>
           {[
-            { label:'AVG R',   value:`${row.avgR>0?'+':''}${row.avgR}R`, color:row.avgR>=3?'#60a5fa':C.muted },
+            { label:'AVG R',   value:`${row.avgR>0?'+':''}${row.avgR}R`, color:row.avgR>=3?'var(--jr-info, #60a5fa)':C.muted },
             { label:'NET P/L', value:`${row.netPL>=0?'+':''}$${row.netPL.toLocaleString()}`, color:row.netPL>=0?C.win:C.loss },
             { label:'TRADES',  value:`${row.trades} · ${wins}W/${losses}L`, color:C.strong },
           ].map(({label,value,color})=>(
@@ -553,8 +553,8 @@ export default function TFMetricsPanel({ sessionId }: { sessionId?: string | nul
               const active=page===tab.n;
               return (
                 <button key={tab.n} onClick={()=>setPage(tab.n)} style={{ display:'flex',alignItems:'center',gap:9,paddingRight:22,paddingLeft:tab.n===1?0:22,borderBottom:active?`2px solid ${C.accent}`:'2px solid transparent',borderRight:tab.n===1?`1px solid rgba(100,160,255,0.09)`:'none',transition:'all 0.15s' }}>
-                  <span style={{ fontFamily:DISPLAY,fontSize:10,fontWeight:active?700:600,color:active?C.bright:'rgba(148,200,255,0.38)',letterSpacing:'0.12em',textTransform:'uppercase',transition:'color 0.15s' }}>{isMobile?(tab.n===1?'Matrix':'Best'):tab.label}</span>
-                  {!isMobile&&(<span style={{ fontFamily:DISPLAY,fontSize:9,fontWeight:600,color:active?C.accent:'rgba(148,200,255,0.2)',background:active?`${C.accent}18`:'transparent',border:active?`1px solid ${C.accent}32`:'1px solid transparent',padding:'2px 7px',borderRadius:3,letterSpacing:'0.08em',transition:'all 0.15s' }}>{tab.sub}</span>)}
+                  <span style={{ fontFamily:DISPLAY,fontSize:10,fontWeight:active?700:600,color:active?C.bright:'var(--jr-info, rgba(148,200,255,0.38))',letterSpacing:'0.12em',textTransform:'uppercase',transition:'color 0.15s' }}>{isMobile?(tab.n===1?'Matrix':'Best'):tab.label}</span>
+                  {!isMobile&&(<span style={{ fontFamily:DISPLAY,fontSize:9,fontWeight:600,color:active?C.accent:'var(--jr-info, rgba(148,200,255,0.2))',background:active?`${C.accent}18`:'transparent',border:active?`1px solid ${C.accent}32`:'1px solid transparent',padding:'2px 7px',borderRadius:3,letterSpacing:'0.08em',transition:'all 0.15s' }}>{tab.sub}</span>)}
                 </button>
               );
             })}

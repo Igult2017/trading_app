@@ -11,10 +11,10 @@ interface Props { darkMode?: boolean; selectedSymbol?: string; state?: SignalSta
 /** Label and colour per lifecycle state. Amber for "watching" deliberately matches the amber the
  *  Telegram stage-1 card uses, so the two surfaces say the same thing in the same colour. */
 const STATE_UI: Record<SignalState, { label: string; color: string }> = {
-  watching:    { label: "Watching for entry", color: "#f59e0b" },
-  confirmed:   { label: "Entry confirmed",    color: "#22d3a5" },
+  watching:    { label: "Watching for entry", color: "var(--jr-warn, #f59e0b)" },
+  confirmed:   { label: "Entry confirmed",    color: "var(--jr-up, #22d3a5)" },
   closed:      { label: "Closed",             color: "#4a6580" },
-  invalidated: { label: "Invalidated",        color: "#f4617f" },
+  invalidated: { label: "Invalidated",        color: "var(--jr-down, #f4617f)" },
   unknown:     { label: "No signal",          color: "#4a6580" },
 };
 
@@ -91,7 +91,7 @@ export default function SignalPlatformStatus({ darkMode = true, selectedSymbol =
               {[{ label: "SIGNALS 24H", value: data?.signalsLast24h ?? 0 }, { label: "ACTIVE NOW", value: data?.activeSignalsLast24h ?? 0 }].map(({ label, value }) => (
                 <div key={label} style={{ flex: 1, background: C.bg3, border: `1px solid ${C.border2}`, borderRadius: 4, padding: "12px 16px" }}>
                   <div style={{ fontSize: 8, fontWeight: 700, color: C.dim, letterSpacing: "0.14em", marginBottom: 6 }}>{label}</div>
-                  <div style={{ fontSize: 22, fontWeight: 800, color: value > 0 ? "#22d3a5" : C.muted }}>{value}</div>
+                  <div style={{ fontSize: 22, fontWeight: 800, color: value > 0 ? "var(--jr-up, #22d3a5)" : C.muted }}>{value}</div>
                 </div>
               ))}
             </div>

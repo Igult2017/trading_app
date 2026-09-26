@@ -108,7 +108,62 @@ icon is absent. Binance's `#F3BA2F` measured **1.77:1 on white**: a logo nobody 
 `#0052FF` is deliberately left alone at 5.75:1 — changing a colour that works is how a fix acquires a
 regression.
 
-**Result: 358 failing foreground/ground pairs → 0**, across 15 journal surfaces.
+### ⚠ THE RENDERED NUMBERS, WHICH ARE THE REAL ONES — and the source claim they corrected
+
+**I first reported this as "358 failing pairs → 0" and that was a SOURCE measurement stated as if it
+were a fact about the app.** `scripts/render-contrast.mjs` then booted the real journal in Chromium, at
+1440×1000, and walked every text element in all eleven panels. It found **81 failures the source audit
+called clean** — including two bugs in the fix itself. This table is the honest result:
+
+| panel | before | after |
+|---|---|---|
+| dashboard | 27 | **0** |
+| accounts | 3 | **0** |
+| leaderboard | 3 | **0** |
+| assets | 5 | 3 |
+| calendar | 14 | 12 |
+| fsdai | 2 | 1 |
+| vault | 3 | 3 |
+| metrics | 62 | 62 |
+| journal · drawdown · strategy | 0 | 0 |
+| **total, 640 text elements** | **119** | **81** |
+
+**The dark theme is 78 before and 78 after, identical panel for panel** — measured the same way, on
+`97df094` and then on the change. That is the guarantee holding in a real browser, not just in the
+`var()` reduction argument.
+
+**Still failing, and what each one is** (the next pass, not this one):
+
+* **metrics — 62, and all of them are NEAR misses**: 3.90, 4.07, 4.25, 4.28, 4.34:1 against a 4.5
+  floor. They are `Panel` badge chips whose ink sits on its own tinted wash (`rgb(220,38,38)` on
+  `rgb(240,228,232)`). One small palette, a handful of values to darken; the static audit calls the file
+  clean because it is theme-branched and the branch does answer — it just answers slightly too faint.
+  **"Answering is not passing" — see darkBranchLines() in the audit.**
+* **calendar — 12**: this panel keeps DARK grounds under the light theme (`rgb(8,11,17)`,
+  `rgb(51,54,61)`), so its `--tc-bg` light override is not reaching everything, and light ink then lands
+  on a dark chip. Its own dark values are also dark-on-dark (`rgb(42,61,82)` on `rgb(8,11,17)`, 1.77:1)
+  which is a defect in BOTH themes.
+* **vault — 3, assets — 3, fsdai — 1**: raw `#00e5a0`, `#00d48a`, `#4da6ff`, `#a78bfa`, `#94a3b8` in
+  computed or interpolated values that no line-based extractor reaches.
+
+**The lesson, and it is the same one this document already records as trap 3:** a source audit is a
+fast gate, not a verdict. It caught 358 things worth fixing and was wrong about being finished.
+
+### TWO BUGS IN THE FIX THAT ONLY THE RENDER FOUND
+
+Both were in the codemod's own classifier, and both are the kind that typecheck and ship.
+
+1. **HSL saturation explodes near white, so a near-white ink was classified as a colour.** `#E8EDF5`
+   spans 13 of 255 channels and reports **s ≈ 0.40**; an `s < 0.22` floor therefore sent it to
+   `--jr-info` and turned the calendar's status line BLUE in the light theme. **Use CHROMA
+   (`max - min` on raw channels), not HSL saturation** — `#E8EDF5` scores 13, `#38bdf8` scores 192,
+   `#94a3b8` scores 36 and correctly stays ink. The cut is 40.
+2. **A bare `white` keyword is not a colour when a `.` precedes it.** `(?<![\w-])white` let `MC.white`
+   through, so `color: MC.white` was rewritten to `color: MC.var(--jr-ink-text, white)`. TypeScript
+   caught that one; a variant that happened to compile would have shipped.
+
+**Result at the source level: 358 failing foreground/ground pairs → 0**, across 15 journal surfaces —
+which is the gate, and the rendered table above is the verdict.
 
 ### FOUR FALSE-POSITIVE CLASSES THE TOOL HAD TO LEARN — every one cost a wrong number first
 
@@ -137,12 +192,39 @@ lightness flattens three levels into one.
 ### The two commands
 
 ```bash
-node scripts/contrast-audit.mjs      # measures; exits 1 if anything fails. Targets are DERIVED from
+node scripts/contrast-audit.mjs      # SOURCE gate; exits 1 if anything fails. Targets are DERIVED from
                                      # Journal.tsx's own imports, so a new panel cannot be missed
 node scripts/ink-codemod.mjs         # dry run: what it would rewrite, and to which token
 node scripts/ink-codemod.mjs --write # apply
 npx tsx client/src/lib/journalInk.test.ts   # the dark-themes-cannot-move guarantee
 ```
+
+**And the one that is the actual verdict** — it needs a running app, which is why it is last and why the
+source gate exists at all:
+
+```bash
+# Postgres + schema, once per container
+apt-get install -y postgresql && service postgresql start
+su postgres -c "psql -c \"CREATE ROLE app WITH LOGIN SUPERUSER PASSWORD 'app';\"" && su postgres -c "createdb -O app fsd"
+export DATABASE_URL="postgres://app:app@127.0.0.1:5432/fsd" DB_SSL=false ADMIN_SECRET=local-admin-token PORT=5055
+npx drizzle-kit push --force && npx tsx server/index.ts &
+
+node scripts/render-contrast.mjs                 # the light theme, all 11 panels
+node scripts/render-contrast.mjs --theme navy     # a dark theme, to prove nothing moved
+node scripts/render-contrast.mjs --shots out/     # plus a PNG per panel
+```
+
+It gets in without Supabase through the app's **own** local-admin path (`VITE_SUPABASE_URL` unset →
+`AuthContext` restores from `sessionStorage.local_admin_session`) and sets the theme the app's own way,
+through `localStorage.journal_settings_v2`. **A panel that renders nothing is reported as NOT MEASURED
+and fails the run** — printing "ok" for zero elements is how a sweep of one screen out of eleven reads
+as a clean sweep, which is the spot-check mistake this document already records.
+
+**⚠ It has to stub `/api/notifications/unread`, and that is a real server bug, not a test convenience.**
+`routes.ts:2398` calls `requireAuth(req, res)`, which SENDS its own 401, and then the handler sends a
+second response; the throw lands in the catch, the catch tries to send a 500, and THAT throw is
+uncaught. **An unauthenticated request to that route takes the whole Node process down** with
+`ERR_HTTP_HEADERS_SENT`. Reproduced twice while measuring. Not fixed here — different subsystem.
 
 The old audit's hand-typed target list had drifted: it was missing `CreateSession`, `JournalPaywall`,
 `TradingCalendar`, `Notifications` and `TradeSyncPage`, which between them held 40 failures. **Derive

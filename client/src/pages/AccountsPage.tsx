@@ -230,7 +230,7 @@ function AddAccountForm({ platform, onCancel, onCreated }: AddFormProps) {
     <form onSubmit={handleSubmit} style={{ padding: "0 24px 24px", display: "flex", flexDirection: "column", gap: 14 }}>
       <div style={{ color: "var(--jr-ink-mute, #94a3b8)", fontSize: 13, marginBottom: 4 }}>
         Platform: <strong style={{ color: "var(--jr-info, #38bdf8)" }}>{pname}</strong>
-        <span style={{ marginLeft: 10, fontSize: 11, color: connType === 'webhook' ? '#facc15' : '#4ade80', fontWeight: 600 }}>
+        <span style={{ marginLeft: 10, fontSize: 11, color: connType === 'webhook' ? 'var(--jr-warn, #facc15)' : 'var(--jr-up, #4ade80)', fontWeight: 600 }}>
           {connType === 'webhook' ? '⚡ EA Webhook' : '🔗 REST API'}
         </span>
       </div>
@@ -683,7 +683,7 @@ export default function AccountsPage({ openModal = false, darkMode = true, onVie
                 style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', background: '#111e30', border: '1px solid #1e3a55', borderRadius: 8, padding: '12px 16px', marginBottom: 10, cursor: 'pointer', color: '#e2e8f0', fontSize: 13 }}
               >
                 <span><strong>{a.traderLogin}</strong> · {a.brokerName}</span>
-                <span style={{ color: a.isLive ? '#4ade80' : '#facc15', fontSize: 11, fontWeight: 700 }}>{a.isLive ? 'LIVE' : 'DEMO'}</span>
+                <span style={{ color: a.isLive ? 'var(--jr-up, #4ade80)' : 'var(--jr-warn, #facc15)', fontSize: 11, fontWeight: 700 }}>{a.isLive ? 'LIVE' : 'DEMO'}</span>
               </button>
             ))}
             <button onClick={() => { setCtSelectAccounts([]); setCtSelectToken(null); }} style={{ background: 'none', border: 'none', color: '#64748b', fontSize: 12, cursor: 'pointer', marginTop: 4 }}>Cancel</button>
@@ -701,7 +701,7 @@ export default function AccountsPage({ openModal = false, darkMode = true, onVie
 
       {/* Manual sync answer — red when any account failed, so a failure never reads as a success */}
       {syncNote && (
-        <div role="status" style={{ background: syncNote.ok ? "#0c2a1a" : "#2a0c0c", border: "1px solid " + (syncNote.ok ? "#166534" : "#991b1b"), padding: "10px 24px", fontSize: 13, color: syncNote.ok ? "#4ade80" : "#fca5a5", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+        <div role="status" style={{ background: syncNote.ok ? "#0c2a1a" : "#2a0c0c", border: "1px solid " + (syncNote.ok ? "#166534" : "#991b1b"), padding: "10px 24px", fontSize: 13, color: syncNote.ok ? "var(--jr-up, #4ade80)" : "var(--jr-down, #fca5a5)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
           <span>{syncNote.text}</span>
           <button onClick={() => setSyncNote(null)} aria-label="Dismiss sync result" style={{ background: "none", border: "none", color: "inherit", cursor: "pointer", fontSize: 16 }}>✕</button>
         </div>
@@ -746,13 +746,13 @@ export default function AccountsPage({ openModal = false, darkMode = true, onVie
               ) : paged.map(a => (
                 <tr key={a.id} style={s.tr as CSSProperties}>
                   <td
-                    style={{ ...s.td, cursor: a.defaultSessionId && onViewSession ? "pointer" : "default", color: a.defaultSessionId && onViewSession ? "#38bdf8" : undefined } as CSSProperties}
+                    style={{ ...s.td, cursor: a.defaultSessionId && onViewSession ? "pointer" : "default", color: a.defaultSessionId && onViewSession ? "var(--jr-info, #38bdf8)" : undefined } as CSSProperties}
                     onClick={() => a.defaultSessionId && onViewSession && onViewSession(a.defaultSessionId)}
                     title={a.defaultSessionId && onViewSession ? "Click to view performance dashboard" : undefined}
                   >{a.name}</td>
                   <td style={{ ...s.td, color: "var(--jr-info, #38bdf8)", fontWeight: 700 } as CSSProperties}>{a.loginId}</td>
                   <td style={{ ...s.td, maxWidth: 110, overflow: "hidden", textOverflow: "ellipsis" } as CSSProperties}>{a.server ?? "—"}</td>
-                  <td style={{ ...s.td, color: a.accountType === "live" ? "#4ade80" : a.accountType === "funded" ? "#a78bfa" : "#ef4444", fontWeight: 700 } as CSSProperties}>
+                  <td style={{ ...s.td, color: a.accountType === "live" ? "var(--jr-up, #4ade80)" : a.accountType === "funded" ? "var(--jr-alt, #a78bfa)" : "var(--jr-down, #ef4444)", fontWeight: 700 } as CSSProperties}>
                     {a.accountType.toUpperCase()}
                   </td>
                   <td style={s.td as CSSProperties}>
@@ -845,7 +845,7 @@ export default function AccountsPage({ openModal = false, darkMode = true, onVie
                 <button
                   disabled={!selectedPlatform}
                   onClick={() => setShowForm(true)}
-                  style={{ width: "100%", background: selectedPlatform ? "#1d6ed8" : "#1e293b", border: "none", color: selectedPlatform ? "white" : "#475569", padding: "11px", fontWeight: 700, fontSize: 14, cursor: selectedPlatform ? "pointer" : "not-allowed" }}
+                  style={{ width: "100%", background: selectedPlatform ? "#1d6ed8" : "#1e293b", border: "none", color: selectedPlatform ? "var(--jr-ink-text, white)" : "#475569", padding: "11px", fontWeight: 700, fontSize: 14, cursor: selectedPlatform ? "pointer" : "not-allowed" }}
                 >
                   Continue →
                 </button>

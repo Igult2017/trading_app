@@ -139,7 +139,7 @@ function DirectionBadge({ direction }: { direction: string }) {
       letterSpacing: "0.08em",
       border: "1px solid transparent",
       background: isBullish ? "rgba(0,212,138,0.08)" : "rgba(255,77,109,0.08)",
-      color: isBullish ? "#00d48a" : "#ff4d6d",
+      color: isBullish ? "var(--jr-up, #00d48a)" : "var(--jr-down, #ff4d6d)",
       borderColor: isBullish ? "rgba(0,212,138,0.2)" : "rgba(255,77,109,0.2)",
       fontFamily: "'Montserrat', sans-serif",
     }}>
@@ -851,7 +851,7 @@ export default function TradeVault({ sessionId, startingBalance: sessionStarting
                   <td style={styles.td}>
                     <span className="tv-num" style={{
                       ...styles.pl,
-                      color: trade.pl >= 0 ? "#00e5a0" : "#ff4d6d",
+                      color: trade.pl >= 0 ? "var(--jr-up, #00e5a0)" : "var(--jr-down, #ff4d6d)",
                     }}>
                       {formatPL(trade.pl)}
                     </span>

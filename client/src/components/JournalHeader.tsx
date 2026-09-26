@@ -39,7 +39,7 @@ function TickerTape() {
           <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "0 28px", borderRight: "1px solid #0f1923", whiteSpace: "nowrap" }}>
             <span style={{ color: "var(--jr-ink-dim)", fontSize: 10, fontWeight: 700, letterSpacing: "0.06em" }}>{t.symbol}</span>
             <span style={{ color: "var(--jr-info, #c8d8e8)", fontSize: 10, fontWeight: 600 }}>{t.price}</span>
-            <span style={{ fontSize: 9, fontWeight: 700, color: t.up ? "#22d3a5" : "#f4617f", background: t.up ? "rgba(34,211,165,0.08)" : "rgba(244,97,127,0.08)", padding: "1px 5px", borderRadius: 3 }}>{t.change}</span>
+            <span style={{ fontSize: 9, fontWeight: 700, color: t.up ? "var(--jr-up, #22d3a5)" : "var(--jr-down, #f4617f)", background: t.up ? "rgba(34,211,165,0.08)" : "rgba(244,97,127,0.08)", padding: "1px 5px", borderRadius: 3 }}>{t.change}</span>
           </div>
         ))}
       </div>
@@ -615,7 +615,7 @@ export default function JournalHeader({ onToggleSidebar, darkMode, onToggleDarkM
               {langOpen && (
                 <div style={{ position: 'absolute', top: 40, left: '50%', transform: 'translateX(-50%)', zIndex: 9999, background: dm ? '#0c1219' : '#fff', border: `1px solid ${dm ? '#1e2d3d' : '#e2e8f0'}`, borderRadius: 10, padding: '6px 0', minWidth: 180, boxShadow: '0 8px 24px rgba(0,0,0,0.25)' }}>
                   <div style={{ padding: '4px 14px 6px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: dm ? '#475569' : '#94a3b8', fontFamily: "'DM Mono',monospace" }}>{t('nav.language')}</span>
+                    <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: dm ? '#475569' : 'var(--jr-ink-mute, #94a3b8)', fontFamily: "'DM Mono',monospace" }}>{t('nav.language')}</span>
                     {langLoading && <span style={{ fontSize: 9, color: 'var(--jr-info, #3b82f6)', fontFamily: "'DM Mono',monospace" }}>translating…</span>}
                   </div>
                   <div style={{ maxHeight: 320, overflowY: 'auto' }}>
@@ -626,8 +626,8 @@ export default function JournalHeader({ onToggleSidebar, darkMode, onToggleDarkM
                         onMouseLeave={e => { if (lang !== code) e.currentTarget.style.background = 'transparent'; }}
                       >
                         <span style={{ fontSize: 14 }}>{meta.flag}</span>
-                        <span style={{ fontSize: 11, fontWeight: lang === code ? 700 : 500, color: lang === code ? '#3b82f6' : (dm ? '#cbd5e1' : '#374151'), fontFamily: "'DM Mono',monospace", letterSpacing: '0.02em', flex: 1 }}>{meta.name}</span>
-                        {meta.static && <span style={{ fontSize: 8, color: dm ? '#8fa3bf' : '#55617a', fontFamily: "'DM Mono',monospace" }}>INSTANT</span>}
+                        <span style={{ fontSize: 11, fontWeight: lang === code ? 700 : 500, color: lang === code ? 'var(--jr-info, #3b82f6)' : (dm ? 'var(--jr-ink-text, #cbd5e1)' : '#374151'), fontFamily: "'DM Mono',monospace", letterSpacing: '0.02em', flex: 1 }}>{meta.name}</span>
+                        {meta.static && <span style={{ fontSize: 8, color: dm ? 'var(--jr-info, #8fa3bf)' : '#55617a', fontFamily: "'DM Mono',monospace" }}>INSTANT</span>}
                         {lang === code && <span style={{ fontSize: 9, color: 'var(--jr-info, #3b82f6)', marginLeft: 4 }}>✓</span>}
                       </button>
                     ))}
@@ -687,7 +687,7 @@ export default function JournalHeader({ onToggleSidebar, darkMode, onToggleDarkM
               onMouseLeave={e => { e.currentTarget.style.background = `${themeAccent ?? '#38bdf8'}12`; e.currentTarget.style.borderColor = `${themeAccent ?? '#38bdf8'}40`; }}
             >
               <div style={{ width: 14, height: 14, borderRadius: '50%', background: themeAccent ?? '#38bdf8', flexShrink: 0, boxShadow: `0 0 6px ${themeAccent ?? '#38bdf8'}80` }} />
-              <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: themeAccent ?? '#38bdf8', whiteSpace: 'nowrap' }}>
+              <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: themeAccent ?? 'var(--jr-info, #38bdf8)', whiteSpace: 'nowrap' }}>
                 {themeLabel ?? 'Theme'}
               </span>
               <svg width="8" height="8" viewBox="0 0 10 10" fill="none" style={{ opacity: 0.6 }}>
@@ -717,7 +717,7 @@ export default function JournalHeader({ onToggleSidebar, darkMode, onToggleDarkM
               onMouseLeave={e => { e.currentTarget.style.background = `${themeAccent ?? '#38bdf8'}12`; e.currentTarget.style.borderColor = `${themeAccent ?? '#38bdf8'}40`; }}
             >
               <div style={{ width: 14, height: 14, borderRadius: '50%', background: themeAccent ?? '#38bdf8', flexShrink: 0, boxShadow: `0 0 6px ${themeAccent ?? '#38bdf8'}80` }} />
-              <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: themeAccent ?? '#38bdf8', whiteSpace: 'nowrap' }}>
+              <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: themeAccent ?? 'var(--jr-info, #38bdf8)', whiteSpace: 'nowrap' }}>
                 {themeLabel ?? 'Theme'}
               </span>
               <svg width="8" height="8" viewBox="0 0 10 10" fill="none" style={{ opacity: 0.6 }}>

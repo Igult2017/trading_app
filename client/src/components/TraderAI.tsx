@@ -470,7 +470,7 @@ export default function TraderAI({ sessionId, darkMode = true }: { sessionId?: s
         .traderai-scroll::-webkit-scrollbar{width:4px}
         .traderai-scroll::-webkit-scrollbar-track{background:transparent}
         .traderai-scroll::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.08);border-radius:10px}
-        .traderai-ta::placeholder{color:${dm ? "rgba(255,255,255,0.2)" : "#94a3b8"};font-family:'Montserrat',sans-serif;}
+        .traderai-ta::placeholder{color:${dm ? "var(--jr-ink-faint, rgba(255,255,255,0.2))" : "var(--jr-ink-mute, #94a3b8)"};font-family:'Montserrat',sans-serif;}
         .traderai-chatrow .traderai-chatactions{opacity:0;transition:opacity .15s}
         .traderai-chatrow:hover .traderai-chatactions{opacity:1}
         .tai-delete-btn{background:none;border:none;cursor:pointer;color:var(--jr-ink-faint, rgba(255,255,255,0.4));transition:color .2s,transform .2s,background .2s;padding:4px;border-radius:5px;display:flex;align-items:center;justify-content:center;gap:3px;width:22px;height:22px;flex-shrink:0;}
@@ -629,7 +629,7 @@ export default function TraderAI({ sessionId, darkMode = true }: { sessionId?: s
                       style={{ flex: 1, minWidth: 0, background: "rgba(0,0,0,0.3)", border: "1px solid rgba(99,102,241,0.4)", borderRadius: 4, color: "var(--jr-ink-text, white)", fontFamily: F, fontSize: 12, padding: "2px 6px", outline: "none" }}
                     />
                   ) : (
-                    <span style={{ flex: 1, minWidth: 0, fontFamily: F, fontSize: 12, color: isActive ? "rgba(255,255,255,0.92)" : "rgba(255,255,255,0.6)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontWeight: isActive ? 500 : 400 }}>
+                    <span style={{ flex: 1, minWidth: 0, fontFamily: F, fontSize: 12, color: isActive ? "var(--jr-ink-text, rgba(255,255,255,0.92))" : "var(--jr-ink-mute, rgba(255,255,255,0.6))", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontWeight: isActive ? 500 : 400 }}>
                       {c.title}
                     </span>
                   )}

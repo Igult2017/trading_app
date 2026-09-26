@@ -168,89 +168,40 @@ export function reachable() {
 }
 
 /**
- * Every foreground a file declares, with the fill behind it where one is declared alongside.
+ * Line ranges holding the DARK BRANCH of a theme ternary — `darkMode ? {…THIS…} : {…light…}`.
  *
- * THE FILL IS THE POINT. `color:'#fff'` on `background:'#3b82f6'` is correct in every theme; the old
- * audit reported 16 of those as 1:1 failures and they drowned the real ones. The pairing is textual —
- * the nearest `background`/`backgroundColor` within the same `{…}` inline-style object — which is how
- * these are actually written in this codebase.
+ * ══ THIS REPLACED A HEURISTIC THAT HID REAL FAILURES, WHICH IS THE ONE DIRECTION A TOOL MUST NOT FAIL
+ *
+ * The first version skipped BOTH branches, on the reasoning that "a theme-branched palette already
+ * answers per theme". Two things were wrong with that, and only the RENDERED measurement found them:
+ *
+ *   1. ANSWERING IS NOT PASSING. `Journal.tsx`'s calendar has a real light branch —
+ *      `color:'rgba(100,116,139,0.7)'` on `bg:'rgba(226,232,240,0.6)'` — and it measures **2.54:1**.
+ *      Skipping it as "already handled" is how every day number on the dashboard calendar stayed faint
+ *      while the source audit reported the file clean.
+ *   2. IT WAS GREEDY. Counting braces to the end of the SECOND branch overran a 25-line region
+ *      (471-495), swallowing the ACTIVITY heading's `#38bdf8` at 2.14:1 and the month pips with it.
+ *
+ * So only the DARK branch is skipped now — the single balanced `{…}` immediately after the `?` — and
+ * the light branch is measured like any other colour. The condition must be a real theme flag, not a
+ * bare `dark`, and the branch must look like a palette object (8 lines or fewer) or nothing is skipped.
  */
-export function foregrounds(src) {
-  const out = [];
-  const lines = src.split('\n');
-  const branched = themeBranchedLines(src);
-  const covered = lightCoveredClasses(src);
-  const comments = commentLines(src);
-  // A colour value: hex, rgb()/rgba(), or the two keywords.
-  const VAL = String.raw`#[0-9a-fA-F]{3,8}|rgba?\([^)]*\)|white|black`;
-  // `(?<![-\w])` IS LOAD-BEARING. `\bcolor` matches the `color` inside `border-color`, because `-` is a
-  // word boundary — so a focus ring at `border-color: rgba(99,102,241,0.6)` was reported as unreadable
-  // ink three times over. A border is not text and has its own 3:1 bar against its own neighbours.
-  // `background-color`, `outline-color`, `caret-color` and `text-decoration-color` were all caught by
-  // the same slip. docs/READABILITY.md: *"if it ever reports exactly 1:1, suspect the tool first."*
-  const FG = new RegExp(String.raw`(?<![-\w])(?:color|fill|stroke)\s*:\s*["'\`]?(${VAL})`, 'gi');
-  const BG = new RegExp(String.raw`\bbackground(?:-?[Cc]olor)?\s*:\s*["'\`]?(${VAL})`, 'g');
-  const GRADIENT = /\bbackground[^,;]*(?:linear|radial)-gradient/;
-
-  lines.forEach((line, i) => {
-    // The override sheet is the FIX, not the problem: a remap rule carries both the colour being
-    // corrected and the correction, and counting either as ink on white is nonsense.
-    if (line.includes('journal-light')) return;
-    if (branched.has(i + 1)) return;            // a per-theme palette already answers for it
-    // A COMMENT IS NOT A RENDERED COLOUR. This codebase's prose quotes the literals it fixed, so
-    // reporting those measures the documentation rather than the page. See commentLines().
-    if (comments.has(i + 1)) return;
-    // A CSS rule whose own class already has a light override needs nothing from this tool.
-    const selector = line.slice(0, line.indexOf('{'));
-    if (line.includes('{') && [...selector.matchAll(/\.([A-Za-z][\w-]*)/g)].some((c) => covered.has(c[1]))) return;
-    FG.lastIndex = 0;
-    let m;
-    while ((m = FG.exec(line))) {
-      // Already a token — that is the fix, and its light value is measured where it is defined.
-      if (/var\(\s*--/.test(line.slice(Math.max(0, m.index - 24), m.index))) continue;
-      BG.lastIndex = 0;
-      const bgs = [...line.matchAll(BG)].map((x) => x[1]);
-      const opaque = bgs.map(parse).filter((c) => c && c[3] === 1).pop() ?? null;
-      out.push({
-        color: m[1],
-        line: i + 1,
-        // A gradient fill is opaque and saturated; its exact stops are not worth parsing, and text
-        // on one is a deliberate pairing rather than an accident.
-        onFill: opaque ? opaque : (GRADIENT.test(line) ? 'gradient' : null),
-      });
-    }
-  });
-  return out;
-}
-
-/**
- * Line ranges holding a THEME-BRANCHED palette — `darkMode ? {…dark…} : {…light…}`.
- *
- * THIS IS THE PATTERN THE FIX ADOPTS, so its dark half must not be reported as a defect.
- * `SignalPlatformStatus.tsx` already does it properly — one object per theme, light values measured —
- * and a static reader cannot otherwise tell its `text:"#c8d8e8"` (correct, dark branch) from
- * `AccountsPage`'s `color:"#e2e8f0"` (a dark literal with no light answer at all). Ten false
- * positives in a compliant file teach the next reader to ignore the tool.
- *
- * Brace-counted from the `?` to the end of the second branch, so a nested object inside either half
- * is covered. Over-reporting outside such a block is the safe direction and is left alone.
- */
-export function themeBranchedLines(src) {
+export function darkBranchLines(src) {
   const skip = new Set();
-  const re = /\b(?:darkMode|isDark|dark|T\.dark)\s*\?/g;
+  const re = /\b(?:darkMode|isDark|T\.dark|props\.dark|theme\.dark)\s*\?/g;
   let m;
   while ((m = re.exec(src))) {
-    let i = src.indexOf('{', m.index);
-    if (i < 0 || i > src.indexOf('\n', src.indexOf(':', m.index)) + 400) continue;
-    let depth = 0, end = i, branches = 0;
-    for (; end < src.length && branches < 2; end++) {
-      const c = src[end];
-      if (c === '{') depth++;
-      else if (c === '}') { depth--; if (depth === 0) { branches++; } }
+    const open = src.indexOf('{', m.index);
+    if (open < 0) continue;
+    if (/[^\s]/.test(src.slice(m.index + 1, open))) continue;   // not a palette-object branch
+    let depth = 0, end = open;
+    for (; end < src.length; end++) {
+      if (src[end] === '{') depth++;
+      else if (src[end] === '}' && --depth === 0) break;
     }
-    const from = src.slice(0, i).split('\n').length;
+    const from = src.slice(0, open).split('\n').length;
     const to = src.slice(0, end).split('\n').length;
-    if (to - from > 40) continue;            // not a palette object; a big conditional block
+    if (to - from > 8) continue;
     for (let l = from; l <= to; l++) skip.add(l);
   }
   return skip;
@@ -265,15 +216,15 @@ export function themeBranchedLines(src) {
  *   `.journal-light [style*="color:#34d399"] { … }`   DEAD — the CSSOM serialises to rgb(), probed
  *   `.journal-light .np-pl-up { color:#047857 }`      WORKS — an ordinary class selector
  *
- * `Notifications.tsx` does the second properly: its accents are set in a `<style>` block precisely so
- * a light override can reach them (*"an inline style beats a plain CSS rule… one place, two themes"*),
- * with the light values measured. Reporting those 12 as failures would teach the next reader that this
- * tool cries wolf, and the fix it was pointing at was already there.
+ * `Notifications.tsx` does the second properly: its accents are set in a `<style>` block precisely so a
+ * light override can reach them (*"an inline style beats a plain CSS rule… one place, two themes"*),
+ * with the light values measured. Reporting those as failures would teach the next reader that this tool
+ * cries wolf, and the fix it was pointing at was already there.
  *
  * Matched on the CLASS TOKEN, not the colour: a light rule naming `.np-cat-email` covers whatever the
  * base `.np-cat-email` rule sets, which is what a stylesheet actually does.
  */
-function lightCoveredClasses(src) {
+export function lightCoveredClasses(src) {
   const covered = new Set();
   for (const line of src.split('\n')) {
     if (!line.includes('journal-light')) continue;
@@ -289,16 +240,13 @@ function lightCoveredClasses(src) {
  * Line numbers that are inside a comment.
  *
  * TRACKED, NOT PATTERN-MATCHED. A `^\s*\*` test catches a JSDoc block and misses the shape this
- * codebase actually writes — a `/* … *\/` block whose continuation lines are plain prose with no
- * leading star. Two such lines survived every earlier filter, and both were this codebase explaining
- * the very defect being fixed: JournalForm's account of `color: #e8edf9 !important` flattening its
- * section headings, and Journal.tsx's note that `[style*="color: #fff"]` also matches
- * `background-color: #fff`. Measuring a paragraph about a colour is not measuring the colour.
- *
- * Deliberately naive about strings: a `/*` inside a CSS template literal opens a real CSS comment
- * anyway, so treating it as one is right for this codebase's `<style>` blocks.
+ * codebase actually writes — a block comment whose continuation lines are plain prose with no leading
+ * star. Two such lines survived every earlier filter, and both were this codebase explaining the very
+ * defect being fixed: JournalForm's account of `color: #e8edf9 !important` flattening its section
+ * headings, and Journal.tsx's note that `[style*="color: #fff"]` also matches `background-color: #fff`.
+ * Measuring a paragraph about a colour is not measuring the colour.
  */
-function commentLines(src) {
+export function commentLines(src) {
   const out = new Set();
   let inBlock = false;
   src.split('\n').forEach((line, i) => {
@@ -310,6 +258,109 @@ function commentLines(src) {
       if (!inBlock && line.startsWith('/*', j)) { inBlock = true; out.add(n); j += 2; continue; }
       if (inBlock && line.startsWith('*/', j)) { inBlock = false; j += 2; continue; }
       j++;
+    }
+  });
+  return out;
+}
+
+/**
+ * THE VALUE REGION of a `color` / `fill` / `stroke` declaration on one line.
+ *
+ * WHY A REGION AND NOT THE NEXT TOKEN. The first version captured the literal immediately after the
+ * colon, so it read `color: '#38bdf8'` and was blind to the shape right beside it in the same file:
+ *
+ *     color: isToday ? '#38bdf8' : c.color
+ *
+ * There the next token is `isToday`, not a colour, so the declaration produced NOTHING — and the
+ * "today" ring on the dashboard calendar, the one cell a reader looks for, sat at 2.14:1 while the
+ * audit reported the file clean. A ternary in a style value is normal in this codebase; a reader of
+ * the source has to handle it.
+ *
+ * The region ends at the next `,` or `;` at paren depth zero that is followed by another property —
+ * so `rgba(1,2,3)`'s own commas are inside the region, and `, textTransform:` ends it.
+ */
+export function valueRegions(line) {
+  const out = [];
+  const PROP = /(?<![-\w])(color|fill|stroke)\s*:/g;
+  let m;
+  while ((m = PROP.exec(line))) {
+    let i = m.index + m[0].length, depth = 0;
+    for (; i < line.length; i++) {
+      const c = line[i];
+      if (c === '(') depth++;
+      else if (c === ')') depth--;
+      else if (depth === 0 && (c === ',' || c === ';')) {
+        if (/^\s*(?:[A-Za-z$_][\w$]*|'[^']*'|"[^"]*")\s*:/.test(line.slice(i + 1))) break;
+        if (c === ';') break;
+      }
+    }
+    out.push({ prop: m[1], from: m.index + m[0].length, to: i });
+  }
+  return out;
+}
+
+/**
+ * A colour LITERAL, and the lookbehind on the keywords is load-bearing.
+ *
+ * `(?<![\w-])white` lets `MC.white` through, because `.` is not a word character — so a codemod built on
+ * this regex rewrote a PROPERTY ACCESS, `color: MC.white`, into `color: MC.var(--jr-ink-text, white)`.
+ * TypeScript caught that one; a version that happened to typecheck would have shipped. A bare keyword is
+ * only a colour when nothing that could make it an identifier or a member expression precedes it.
+ */
+const COLOUR_LITERAL = /#[0-9a-fA-F]{3,8}\b|rgba?\([^)]*\)|(?<![\w.$-])(?:white|black)(?![\w-])/g;
+
+/**
+ * Every foreground a file declares, with the fill behind it where one is declared alongside.
+ *
+ * THE FILL IS THE POINT. `color:'#fff'` on `background:'#3b82f6'` is correct in every theme; an early
+ * version reported 16 of those as 1:1 failures and they drowned the real ones. The pairing is textual —
+ * the nearest `background`/`backgroundColor` within the same `{…}` inline-style object — which is how
+ * these are actually written here.
+ */
+export function foregrounds(src) {
+  const out = [];
+  const lines = src.split('\n');
+  const darkBranch = darkBranchLines(src);
+  const covered = lightCoveredClasses(src);
+  const comments = commentLines(src);
+  const VAL = String.raw`#[0-9a-fA-F]{3,8}|rgba?\([^)]*\)|white|black`;
+  const BG = new RegExp(String.raw`\bbackground(?:-?[Cc]olor)?\s*:\s*["'\`]?(${VAL})`, 'g');
+  const GRADIENT = /\bbackground[^,;]*(?:linear|radial)-gradient/;
+
+  lines.forEach((line, i) => {
+    // The override sheet is the FIX, not the problem: a remap rule carries both the colour being
+    // corrected and the correction, and counting either as ink on white is nonsense.
+    if (line.includes('journal-light')) return;
+    if (darkBranch.has(i + 1)) return;          // the DARK half of a theme ternary
+    // A COMMENT IS NOT A RENDERED COLOUR. This codebase's prose quotes the literals it fixed, so
+    // reporting those measures the documentation rather than the page. See commentLines().
+    if (comments.has(i + 1)) return;
+    // A CSS rule whose own class already has a light override needs nothing from this tool.
+    if (line.includes('{')) {
+      const selector = line.slice(0, line.indexOf('{'));
+      if ([...selector.matchAll(/\.([A-Za-z][\w-]*)/g)].some((c) => covered.has(c[1]))) return;
+    }
+
+    BG.lastIndex = 0;
+    const bgs = [...line.matchAll(BG)].map((x) => x[1]);
+    const opaque = bgs.map(parse).filter((c) => c && c[3] === 1).pop() ?? null;
+
+    for (const region of valueRegions(line)) {
+      const value = line.slice(region.from, region.to);
+      // Already a token: `var(--jr-up, #34d399)`. That IS the fix, and its light value is measured
+      // where it is defined. A literal sitting OUTSIDE any var() on the same line is still reported.
+      const outsideVars = value.replace(/var\(\s*--[\w-]+\s*,[^)]*\)/g, ' ')
+                               .replace(/var\(\s*--[\w-]+\s*\)/g, ' ');
+      COLOUR_LITERAL.lastIndex = 0;
+      for (const lit of outsideVars.match(COLOUR_LITERAL) ?? []) {
+        out.push({
+          color: lit,
+          line: i + 1,
+          // A gradient fill is opaque and saturated; its exact stops are not worth parsing, and text
+          // on one is a deliberate pairing rather than an accident.
+          onFill: opaque ? opaque : (GRADIENT.test(line) ? 'gradient' : null),
+        });
+      }
     }
   });
   return out;

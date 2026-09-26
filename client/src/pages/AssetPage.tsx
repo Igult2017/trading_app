@@ -641,12 +641,12 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
         .chart-btn-alert { background: ${C.bg3}; border: 1px solid ${C.border2}; color: ${C.text}; font-size: 9px; font-weight: 700; letter-spacing: 0.08em; padding: 5px 12px; cursor: pointer; transition: all 0.15s; display: flex; align-items: center; gap: 6px; }
         .chart-btn-alert:hover { border-color: var(--jr-warn, #f59e0b); color: var(--jr-warn, #f59e0b); }
         .set-alert-btn { background: ${darkMode ? '#100d04' : '#fffbec'}; border: 1.5px solid #c8a84b; color: var(--jr-warn, #c8a84b); font-size: 10px; font-weight: 800; letter-spacing: 0.12em; padding: 13px 28px; cursor: pointer; transition: all 0.15s; display: flex; align-items: center; gap: 8px; border-radius: 3px; }
-        .set-alert-btn:hover { background: rgba(200,168,75,0.12); border-color: #f0c040; color: #f0c040; }
-        .set-alert-btn.active { background: rgba(200,168,75,0.18); border-color: #f0c040; color: #f0c040; }
+        .set-alert-btn:hover { background: rgba(200,168,75,0.12); border-color: #f0c040; color: var(--jr-warn, #f0c040); }
+        .set-alert-btn.active { background: rgba(200,168,75,0.18); border-color: #f0c040; color: var(--jr-warn, #f0c040); }
         .share-btn { background: #5b4fcf; border: none; color: #fff; font-size: 10px; font-weight: 800; letter-spacing: 0.12em; padding: 13px 32px; cursor: pointer; transition: all 0.15s; display: flex; align-items: center; gap: 8px; border-radius: 3px; }
         .share-btn:hover { background: #6c63d9; }
         .ctx-row:hover { background: ${darkMode ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.03)'}; }
-        .news-btn { background: ${darkMode ? '#1a0a0e' : '#fff0f3'}; border: 1px solid #f4617f; color: #f4617f; font-size: 9px; font-weight: 800; letter-spacing: 0.12em; padding: 5px 14px; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+        .news-btn { background: ${darkMode ? '#1a0a0e' : '#fff0f3'}; border: 1px solid #f4617f; color: var(--jr-down, #f4617f); font-size: 9px; font-weight: 800; letter-spacing: 0.12em; padding: 5px 14px; cursor: pointer; display: flex; align-items: center; gap: 6px; }
         .mob-instruments-fab { display: none; }
         @media (max-width: 767px) {
           .entry-grid { grid-template-columns: 1fr 1fr !important; }
@@ -894,7 +894,7 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
                   <label style={{ fontSize: 9, fontWeight: 700, color: "#4a6580", letterSpacing: "0.1em" }}>NOTIFY WHEN</label>
                   <div style={{ display: "flex", gap: 6 }}>
                     {[["0","At price"],["0.2","Within 0.2%"],["0.5","Within 0.5%"],["1","Within 1%"]].map(([v,lbl]) => (
-                      <button key={v} onClick={() => setAlertProx(v)} style={{ flex: 1, padding: "6px 4px", fontSize: 9, fontWeight: 700, background: alertProx === v ? "rgba(34,211,165,0.15)" : "transparent", border: `1px solid ${alertProx === v ? "#22d3a5" : "#1e2d45"}`, borderRadius: 6, color: alertProx === v ? "#22d3a5" : "#4a6580", cursor: "pointer", letterSpacing: "0.04em" }}>
+                      <button key={v} onClick={() => setAlertProx(v)} style={{ flex: 1, padding: "6px 4px", fontSize: 9, fontWeight: 700, background: alertProx === v ? "rgba(34,211,165,0.15)" : "transparent", border: `1px solid ${alertProx === v ? "#22d3a5" : "#1e2d45"}`, borderRadius: 6, color: alertProx === v ? "var(--jr-up, #22d3a5)" : "#4a6580", cursor: "pointer", letterSpacing: "0.04em" }}>
                         {lbl}
                       </button>
                     ))}
@@ -951,7 +951,7 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
                       style={{
                         background: active ? "rgba(59,130,246,0.18)" : "transparent",
                         border: `1px solid ${active ? "#3b82f6" : "transparent"}`,
-                        borderRadius: 3, color: active ? "#60a5fa" : C.dim,
+                        borderRadius: 3, color: active ? "var(--jr-info, #60a5fa)" : C.dim,
                         fontSize: 9, fontWeight: 800, letterSpacing: "0.07em",
                         padding: "4px 8px", cursor: "pointer", transition: "all 0.12s",
                       }}
@@ -969,7 +969,7 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
                 <div ref={tfBtnRef} style={{ position: "relative" }}>
                   <button
                     className="chart-btn"
-                    style={{ borderColor: showTF ? "#22d3a5" : undefined, color: showTF ? "#22d3a5" : undefined }}
+                    style={{ borderColor: showTF ? "#22d3a5" : undefined, color: showTF ? "var(--jr-up, #22d3a5)" : undefined }}
                     onClick={() => setShowTF(v => !v)}
                   >
                     {activeTF}
@@ -992,7 +992,7 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
                             style={{
                               background: isActive ? "rgba(34,211,165,0.15)" : "transparent",
                               border: `1px solid ${isActive ? "#22d3a5" : C.border2}`,
-                              borderRadius: 4, color: isActive ? "#22d3a5" : C.muted,
+                              borderRadius: 4, color: isActive ? "var(--jr-up, #22d3a5)" : C.muted,
                               fontSize: 10, fontWeight: 800, letterSpacing: "0.06em",
                               padding: "6px 0", cursor: "pointer",
                               transition: "all 0.1s",
@@ -1012,7 +1012,7 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
                 <div ref={indicatorBtnRef} style={{ position: "relative" }}>
                   <button
                     className="chart-btn"
-                    style={{ borderColor: showIndicators ? "#7c3aed" : undefined, color: showIndicators ? "#a78bfa" : undefined }}
+                    style={{ borderColor: showIndicators ? "#7c3aed" : undefined, color: showIndicators ? "var(--jr-alt, #a78bfa)" : undefined }}
                     onClick={() => setShowIndicators(v => !v)}
                   >
                     INDICATORS
@@ -1196,7 +1196,7 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
               >
                 {/* Row 1: Symbol + Category badge (sidebar stays a clean pair list) */}
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                  <span style={{ fontSize: 10, fontWeight: 700, color: isActive ? "#7c6ff7" : C.muted, letterSpacing: "0.04em" }}>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: isActive ? "var(--jr-info, #7c6ff7)" : C.muted, letterSpacing: "0.04em" }}>
                     {card.symbol}
                   </span>
                   {card.state && (() => {
@@ -1301,7 +1301,7 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
                       </div>
                       {chg != null && sidebarWidth >= 200 && (
                         <span style={{ fontSize: 10, fontWeight: 700,
-                          color: chg >= 0 ? "#22d3a5" : "#f4617f", letterSpacing: "0.04em" }}>
+                          color: chg >= 0 ? "var(--jr-up, #22d3a5)" : "var(--jr-down, #f4617f)", letterSpacing: "0.04em" }}>
                           {chg >= 0 ? "+" : ""}{chg.toFixed(2)}%
                         </span>
                       )}

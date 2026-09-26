@@ -298,7 +298,7 @@ function NavSearch({ onNavigate }: { onNavigate: (year: number, month: number) =
         spellCheck={false}
         style={{
           background: CARD, border: `2px solid ${borderColor}`,
-          color: state === "error" ? RED : "#E8EDF5",
+          color: state === "error" ? RED : "var(--jr-ink-text, #E8EDF5)",
           height: 40, width: 170,
           padding: "0 12px 0 32px",
           fontFamily: FONT, fontSize: 10, fontWeight: 900,

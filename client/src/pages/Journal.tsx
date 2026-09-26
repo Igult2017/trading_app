@@ -464,17 +464,17 @@ function ActivityCalendar({ entries, darkMode = true }: { entries: any[]; darkMo
     if (status === 'mixed')  return { bg: 'rgba(251,191,36,0.15)',border: 'rgba(251,191,36,0.25)',color: 'var(--jr-warn, #fbbf24)' };
     return darkMode
       ? { bg: 'rgba(22,27,34,0.8)',    border: 'transparent', color: 'rgba(55,65,81,0.8)' }
-      : { bg: 'rgba(226,232,240,0.6)', border: 'transparent', color: 'rgba(100,116,139,0.7)' };
+      : { bg: 'rgba(226,232,240,0.6)', border: 'transparent', color: 'var(--jr-ink-faint, rgba(100,116,139,0.7))' };
   };
 
   return (
     <div style={{ background: darkMode ? '#0d1117' : '#ffffff', border: `1px solid ${darkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)'}`, padding: 20, borderRadius: 8 }} data-testid="panel-activity-calendar">
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-        <div style={{ width: 28, height: 28, background: 'rgba(56,189,248,0.1)', border: '1px solid rgba(56,189,248,0.1)', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#38bdf8' }}>
+        <div style={{ width: 28, height: 28, background: 'rgba(56,189,248,0.1)', border: '1px solid rgba(56,189,248,0.1)', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--jr-info, #38bdf8)' }}>
           <Activity size={14} strokeWidth={3} />
         </div>
-        <h2 style={{ fontSize: 11, fontWeight: 900, color: '#38bdf8', textTransform: 'uppercase', letterSpacing: '0.2em', margin: 0 }}>ACTIVITY</h2>
+        <h2 style={{ fontSize: 11, fontWeight: 900, color: 'var(--jr-info, #38bdf8)', textTransform: 'uppercase', letterSpacing: '0.2em', margin: 0 }}>ACTIVITY</h2>
       </div>
 
       <>
@@ -483,11 +483,11 @@ function ActivityCalendar({ entries, darkMode = true }: { entries: any[]; darkMo
             <button
               onClick={prev}
               disabled={!canPrev}
-              style={{ background: 'none', border: 'none', cursor: canPrev ? 'pointer' : 'default', color: canPrev ? '#38bdf8' : (darkMode ? 'rgba(55,65,81,0.4)' : 'rgba(203,213,225,0.8)'), padding: 4, display: 'flex', borderRadius: 4, transition: 'all 0.15s' }}>
+              style={{ background: 'none', border: 'none', cursor: canPrev ? 'pointer' : 'default', color: canPrev ? 'var(--jr-info, #38bdf8)' : (darkMode ? 'var(--jr-ink-faint, rgba(55,65,81,0.4))' : 'var(--jr-ink-text, rgba(203,213,225,0.8))'), padding: 4, display: 'flex', borderRadius: 4, transition: 'all 0.15s' }}>
               <ChevronLeft size={14} strokeWidth={3} />
             </button>
             <div style={{ textAlign: 'center' }}>
-              <p style={{ fontSize: 12, fontWeight: 700, color: darkMode ? '#fff' : '#0f172a', letterSpacing: '0.1em', textTransform: 'uppercase', margin: 0 }}>
+              <p style={{ fontSize: 12, fontWeight: 700, color: darkMode ? 'var(--jr-ink-text, #fff)' : '#0f172a', letterSpacing: '0.1em', textTransform: 'uppercase', margin: 0 }}>
                 {MONTH_NAMES[activeMonth - 1]} {activeYear}
               </p>
               {/* Dot indicators — one per month that has trades; click to jump */}
@@ -512,7 +512,7 @@ function ActivityCalendar({ entries, darkMode = true }: { entries: any[]; darkMo
             <button
               onClick={next}
               disabled={!canNext}
-              style={{ background: 'none', border: 'none', cursor: canNext ? 'pointer' : 'default', color: canNext ? '#38bdf8' : (darkMode ? 'rgba(55,65,81,0.4)' : 'rgba(203,213,225,0.8)'), padding: 4, display: 'flex', borderRadius: 4, transition: 'all 0.15s' }}>
+              style={{ background: 'none', border: 'none', cursor: canNext ? 'pointer' : 'default', color: canNext ? 'var(--jr-info, #38bdf8)' : (darkMode ? 'var(--jr-ink-faint, rgba(55,65,81,0.4))' : 'var(--jr-ink-text, rgba(203,213,225,0.8))'), padding: 4, display: 'flex', borderRadius: 4, transition: 'all 0.15s' }}>
               <ChevronRight size={14} strokeWidth={3} />
             </button>
           </div>
@@ -548,7 +548,7 @@ function ActivityCalendar({ entries, darkMode = true }: { entries: any[]; darkMo
                     aspectRatio: '1', display: 'flex', alignItems: 'center', justifyContent: 'center',
                     borderRadius: 4, fontSize: 11, fontWeight: 700,
                     background: isToday && !status ? 'rgba(56,189,248,0.08)' : c.bg,
-                    color: isToday ? '#38bdf8' : c.color,
+                    color: isToday ? 'var(--jr-info, #38bdf8)' : c.color,
                     border: isToday ? '1.5px solid #38bdf8' : `1px solid ${c.border}`,
                     opacity: 1,
                     transition: 'all 0.15s',
@@ -645,12 +645,12 @@ function DashboardView({ sessionId, isMobile, windowWidth, darkMode = true }: { 
   const avgTradeDisplay = `${avgTradeRaw >= 0 ? '+' : '-'}$${Math.abs(avgTradeRaw).toFixed(2)}`;
 
   const stats = [
-    { id: 'pnl', label: 'TOTAL P&L', value: `${plSign}$${Math.abs(totalPL).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, Icon: KPI_ICONS.PnL, color: totalPL >= 0 ? '#34d399' : '#fb7185', bg: totalPL >= 0 ? 'rgba(16,185,129,0.1)' : 'rgba(244,63,94,0.1)' },
+    { id: 'pnl', label: 'TOTAL P&L', value: `${plSign}$${Math.abs(totalPL).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, Icon: KPI_ICONS.PnL, color: totalPL >= 0 ? 'var(--jr-up, #34d399)' : 'var(--jr-down, #fb7185)', bg: totalPL >= 0 ? 'rgba(16,185,129,0.1)' : 'rgba(244,63,94,0.1)' },
     { id: 'winrate', label: 'WIN RATE', value: `${(core.winRate ?? 0).toFixed(1)}%`, Icon: KPI_ICONS.WinRate, color: 'var(--jr-info, #818cf8)', bg: 'rgba(99,102,241,0.1)' },
-    { id: 'rexpect', label: 'R EXPECTANCY', value: `${(core.expectancy ?? 0).toFixed(2)}R`, Icon: KPI_ICONS.Expectancy, color: (core.expectancy ?? 0) >= 0 ? '#fbbf24' : '#fb7185', bg: 'rgba(245,158,11,0.1)' },
+    { id: 'rexpect', label: 'R EXPECTANCY', value: `${(core.expectancy ?? 0).toFixed(2)}R`, Icon: KPI_ICONS.Expectancy, color: (core.expectancy ?? 0) >= 0 ? 'var(--jr-warn, #fbbf24)' : 'var(--jr-down, #fb7185)', bg: 'rgba(245,158,11,0.1)' },
     { id: 'tradecount', label: 'TRADES', value: `${core.totalTrades || 0}`, Icon: KPI_ICONS.Trades, color: 'var(--jr-ink-mute, #94a3b8)', bg: 'rgba(100,116,139,0.1)' },
-    { id: 'pfactor', label: 'PROFIT FACTOR', value: pfDisplay, Icon: KPI_ICONS.ProfitFactor, color: pfRaw >= 1 || pfRaw >= 999 ? '#c084fc' : '#fb7185', bg: 'rgba(168,85,247,0.1)' },
-    { id: 'avgtrade', label: 'AVG TRADE', value: avgTradeDisplay, Icon: KPI_ICONS.AvgTrade, color: avgTradeRaw >= 0 ? '#34d399' : '#fb7185', bg: avgTradeRaw >= 0 ? 'rgba(16,185,129,0.1)' : 'rgba(244,63,94,0.1)' },
+    { id: 'pfactor', label: 'PROFIT FACTOR', value: pfDisplay, Icon: KPI_ICONS.ProfitFactor, color: pfRaw >= 1 || pfRaw >= 999 ? 'var(--jr-alt, #c084fc)' : 'var(--jr-down, #fb7185)', bg: 'rgba(168,85,247,0.1)' },
+    { id: 'avgtrade', label: 'AVG TRADE', value: avgTradeDisplay, Icon: KPI_ICONS.AvgTrade, color: avgTradeRaw >= 0 ? 'var(--jr-up, #34d399)' : 'var(--jr-down, #fb7185)', bg: avgTradeRaw >= 0 ? 'rgba(16,185,129,0.1)' : 'rgba(244,63,94,0.1)' },
   ];
 
   const chartData = equityCurve.length > 0
@@ -715,7 +715,7 @@ function DashboardView({ sessionId, isMobile, windowWidth, darkMode = true }: { 
               <h2 style={{ fontSize: 11, fontWeight: 900, color: 'var(--jr-accent,#38bdf8)', textTransform: 'uppercase', letterSpacing: '0.2em', margin: 0 }}>EQUITY CURVE</h2>
             </div>
             {equityGrowth && (
-              <span className="jr-num" style={{ fontSize: 12, color: equityGrowth.totalReturnPct >= 0 ? '#34d399' : '#fb7185', fontWeight: 900 }}>
+              <span className="jr-num" style={{ fontSize: 12, color: equityGrowth.totalReturnPct >= 0 ? 'var(--jr-up, #34d399)' : 'var(--jr-down, #fb7185)', fontWeight: 900 }}>
                 {equityGrowth.totalReturnPct >= 0 ? '+' : ''}{equityGrowth.totalReturnPct.toFixed(2)}%
               </span>
             )}
@@ -775,9 +775,9 @@ function DashboardView({ sessionId, isMobile, windowWidth, darkMode = true }: { 
                         <div className="jr-cap jr-num" style={{ marginTop: 3, letterSpacing: '.02em' }}>{t.date}</div>
                       </td>
                       <td style={{ padding: '8px 14px', textAlign: 'center' }}>
-                        <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', background: t.type === 'LONG' ? 'rgba(16,185,129,0.1)' : 'rgba(244,63,94,0.1)', color: t.type === 'LONG' ? '#34d399' : '#fb7185', border: `1px solid ${t.type === 'LONG' ? 'rgba(16,185,129,0.15)' : 'rgba(244,63,94,0.15)'}` }}>{t.type}</span>
+                        <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', background: t.type === 'LONG' ? 'rgba(16,185,129,0.1)' : 'rgba(244,63,94,0.1)', color: t.type === 'LONG' ? 'var(--jr-up, #34d399)' : 'var(--jr-down, #fb7185)', border: `1px solid ${t.type === 'LONG' ? 'rgba(16,185,129,0.15)' : 'rgba(244,63,94,0.15)'}` }}>{t.type}</span>
                       </td>
-                      <td className="jr-num" style={{ padding: '8px 14px', textAlign: 'right', fontSize: 12, fontWeight: 700, color: t.status === 'win' ? '#34d399' : t.status === 'be' ? '#fbbf24' : '#fb7185' }}>
+                      <td className="jr-num" style={{ padding: '8px 14px', textAlign: 'right', fontSize: 12, fontWeight: 700, color: t.status === 'win' ? 'var(--jr-up, #34d399)' : t.status === 'be' ? 'var(--jr-warn, #fbbf24)' : 'var(--jr-down, #fb7185)' }}>
                         {/* THE SIGN COMES FROM THE MONEY, never from the label — a break-even
                             printed "-$0.00" when it was read off the class. */}
                         {t.pnl >= 0 ? '+' : '-'}${Math.abs(t.pnl).toFixed(2)}

@@ -1355,6 +1355,30 @@ themes), `TradeSyncPage`'s `.ts-page` (own `--ink:#090C15`, exempt from journal 
 class-scoped light rules, which DO work). **If any of those gains a light theme, its `SELF_GROUNDED`
 entry is what has to go.**
 
+**⚠ THE RENDERED MEASUREMENT CORRECTED THE CLAIM.** "358 → 0" is a SOURCE result. Booting the real
+journal in Chromium and walking all 640 text elements across eleven panels gives the real one:
+**119 failures → 81**, with dashboard, accounts and leaderboard at zero and **the dark theme identical
+panel for panel (78 → 78)**. It also found two bugs in the fix itself, both in the codemod's classifier:
+HSL saturation explodes near white so `#E8EDF5` was classified as a blue, and a bare `white` keyword
+preceded by `.` matched the property access `MC.white`. Both are recorded in READABILITY.md.
+
+**STILL OPEN — 81 rendered failures in four panels.** `scripts/render-contrast.mjs` is committed, so
+these are measurable rather than anecdotal:
+
+| panel | left | what they are |
+|---|---|---|
+| metrics | 62 | `Panel` badge ink on its own tinted wash — all NEAR misses (3.90-4.34 against 4.5). One palette, a handful of values |
+| calendar | 12 | the panel keeps DARK grounds under the light theme, so `--tc-bg` is not reaching everything and light ink lands on a dark chip. Its own values are dark-on-dark too (1.77:1) — broken in BOTH themes |
+| vault / assets / fsdai | 3 / 3 / 1 | raw `#00e5a0`, `#00d48a`, `#4da6ff`, `#a78bfa`, `#94a3b8` in computed or interpolated values no line-based extractor reaches |
+
+**AND A SEPARATE, MORE SERIOUS BUG FOUND WHILE MEASURING — an unauthenticated request can kill the
+server.** `GET /api/notifications/unread` (routes.ts:2398) calls `requireAuth(req, res)`, which sends its
+own 401, then the handler sends a second response; the catch then tries to send a 500 and that throw is
+uncaught, so the Node process exits with `ERR_HTTP_HEADERS_SENT`. Reproduced twice. **Not fixed here** —
+it is a different subsystem and was not what was asked for, but it is a one-line fix (`requireAuth`
+already responded; the handler must just `return`) and every route in that file using the same pattern
+should be checked.
+
 **STILL OPEN — the public pages were not in scope and were not measured.** This covered the journal and
 the 15 surfaces reachable inside `journal-root`, which is what the white theme is. `/about` is still
 listed as not clean in READABILITY.md and the home page still has 6 elements below 4.5:1 and 9 serif at

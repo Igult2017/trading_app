@@ -269,7 +269,7 @@ export default function Leaderboard() {
           { id: 'session' as const, label: 'By Session', icon: <Layers size={13} /> },
         ]).map(m => (
           <button key={m.id} onClick={() => setViewMode(m.id)}
-            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: isMobile ? '6px 12px' : '7px 16px', borderRadius: 4, fontSize: isMobile ? 10 : 11, fontWeight: 700, letterSpacing: '0.06em', cursor: 'pointer', border: `1px solid ${viewMode === m.id ? '#2563eb' : 'var(--jr-border)'}`, background: viewMode === m.id ? 'rgba(37,99,235,0.15)' : 'var(--jr-panel)', color: viewMode === m.id ? '#60a5fa' : 'var(--jr-muted)', transition: 'all 0.15s', fontFamily: 'inherit' }}>
+            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: isMobile ? '6px 12px' : '7px 16px', borderRadius: 4, fontSize: isMobile ? 10 : 11, fontWeight: 700, letterSpacing: '0.06em', cursor: 'pointer', border: `1px solid ${viewMode === m.id ? '#2563eb' : 'var(--jr-border)'}`, background: viewMode === m.id ? 'rgba(37,99,235,0.15)' : 'var(--jr-panel)', color: viewMode === m.id ? 'var(--jr-info, #60a5fa)' : 'var(--jr-muted)', transition: 'all 0.15s', fontFamily: 'inherit' }}>
             {m.icon}{m.label}
           </button>
         ))}
@@ -278,7 +278,7 @@ export default function Leaderboard() {
           <select
             value={selectedSession}
             onChange={e => setSelectedSession(e.target.value)}
-            style={{ marginLeft: 6, padding: isMobile ? '6px 10px' : '7px 14px', fontSize: isMobile ? 10 : 11, fontWeight: 700, background: 'var(--jr-panel)', color: selectedSession ? '#60a5fa' : 'var(--jr-muted)', border: `1px solid ${selectedSession ? '#2563eb60' : 'var(--jr-border)'}`, cursor: 'pointer', fontFamily: 'inherit', outline: 'none' }}>
+            style={{ marginLeft: 6, padding: isMobile ? '6px 10px' : '7px 14px', fontSize: isMobile ? 10 : 11, fontWeight: 700, background: 'var(--jr-panel)', color: selectedSession ? 'var(--jr-info, #60a5fa)' : 'var(--jr-muted)', border: `1px solid ${selectedSession ? '#2563eb60' : 'var(--jr-border)'}`, cursor: 'pointer', fontFamily: 'inherit', outline: 'none' }}>
             <option value="">All Sessions</option>
             {sessionNames.map(n => <option key={n} value={n}>{n}</option>)}
           </select>
@@ -358,7 +358,7 @@ export default function Leaderboard() {
                     )}
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', marginTop: 10 }}>
                       <div style={{ position: 'relative', marginBottom: 8 }}>
-                        <div style={{ width: isFirst ? 60 : 50, height: isFirst ? 60 : 50, borderRadius: '50%', background: isFirst ? '#eab308' : 'var(--jr-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: isFirst ? 18 : 14, fontWeight: 800, color: isFirst ? '#000' : '#94a3b8' }}>
+                        <div style={{ width: isFirst ? 60 : 50, height: isFirst ? 60 : 50, borderRadius: '50%', background: isFirst ? '#eab308' : 'var(--jr-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: isFirst ? 18 : 14, fontWeight: 800, color: isFirst ? '#000' : 'var(--jr-ink-mute, #94a3b8)' }}>
                           {trader.avatar}
                         </div>
                         {isFirst && (
@@ -377,7 +377,7 @@ export default function Leaderboard() {
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 14 }}>
                       <div>
                         <p style={{ fontSize: 9, color: 'var(--jr-muted)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.1em', margin: '0 0 2px' }}>Profit</p>
-                        <p style={{ fontSize: 14, fontWeight: 800, margin: 0, color: trader.pnl >= 0 ? '#34d399' : '#f87171' }}>{fmtPnl(trader.pnl)}</p>
+                        <p style={{ fontSize: 14, fontWeight: 800, margin: 0, color: trader.pnl >= 0 ? 'var(--jr-up, #34d399)' : 'var(--jr-down, #f87171)' }}>{fmtPnl(trader.pnl)}</p>
                       </div>
                       <div style={{ textAlign: 'right' }}>
                         <p style={{ fontSize: 9, color: 'var(--jr-muted)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.1em', margin: '0 0 2px' }}>
@@ -426,7 +426,7 @@ export default function Leaderboard() {
                     <td style={{ padding: isMobile ? '10px 10px' : '12px 20px' }}>
                       <div style={{ position: 'relative', width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         <div style={{ position: 'absolute', width: 24, height: 24, border: `1px solid ${index < 3 ? '#eab308' : 'var(--jr-border)'}`, background: index < 3 ? 'rgba(234,179,8,0.08)' : 'rgba(0,0,0,0.04)', transform: 'rotate(45deg)' }} />
-                        <span style={{ position: 'relative', zIndex: 1, fontSize: 10, fontWeight: 700, color: index < 3 ? '#eab308' : 'var(--jr-muted)' }}>{trader.rank}</span>
+                        <span style={{ position: 'relative', zIndex: 1, fontSize: 10, fontWeight: 700, color: index < 3 ? 'var(--jr-warn, #eab308)' : 'var(--jr-muted)' }}>{trader.rank}</span>
                       </div>
                     </td>
                     <td style={{ padding: isMobile ? '10px 10px' : '12px 20px' }}>
@@ -445,14 +445,14 @@ export default function Leaderboard() {
                         {trader.sessionName || '—'}
                       </td>
                     )}
-                    <td style={{ padding: isMobile ? '10px 10px' : '12px 20px', textAlign: 'right', fontSize: isMobile ? 11 : 12, fontWeight: 700, whiteSpace: 'nowrap', color: trader.pnl >= 0 ? '#34d399' : '#f87171' }}>
+                    <td style={{ padding: isMobile ? '10px 10px' : '12px 20px', textAlign: 'right', fontSize: isMobile ? 11 : 12, fontWeight: 700, whiteSpace: 'nowrap', color: trader.pnl >= 0 ? 'var(--jr-up, #34d399)' : 'var(--jr-down, #f87171)' }}>
                       {fmtPnl(trader.pnl)}
                     </td>
-                    <td style={{ padding: isMobile ? '10px 10px' : '12px 20px', textAlign: 'right', fontSize: isMobile ? 11 : 12, fontWeight: 700, whiteSpace: 'nowrap', color: activeCategory === 'winRate' ? '#60a5fa' : 'var(--jr-muted)' }}>
+                    <td style={{ padding: isMobile ? '10px 10px' : '12px 20px', textAlign: 'right', fontSize: isMobile ? 11 : 12, fontWeight: 700, whiteSpace: 'nowrap', color: activeCategory === 'winRate' ? 'var(--jr-info, #60a5fa)' : 'var(--jr-muted)' }}>
                       {trader.winRate}%
                     </td>
                     {!isMobile && (
-                      <td style={{ padding: '12px 20px', textAlign: 'right', fontSize: 12, fontWeight: 700, color: activeCategory === 'profitFactor' ? '#a78bfa' : 'var(--jr-muted)' }}>
+                      <td style={{ padding: '12px 20px', textAlign: 'right', fontSize: 12, fontWeight: 700, color: activeCategory === 'profitFactor' ? 'var(--jr-alt, #a78bfa)' : 'var(--jr-muted)' }}>
                         {formatProfitFactor(trader.profitFactor)}
                       </td>
                     )}
@@ -497,7 +497,7 @@ export default function Leaderboard() {
               <div style={tileBox} {...tileHover}>
                 <p style={tileLbl}>Your Rank</p>
                 {myRank ? (
-                  <p style={{ ...tileVal, color: myRank <= 3 ? '#eab308' : 'var(--jr-text)' }}>
+                  <p style={{ ...tileVal, color: myRank <= 3 ? 'var(--jr-warn, #eab308)' : 'var(--jr-text)' }}>
                     #{myRank} <span style={{ fontSize: isMobile ? 11 : 12, fontWeight: 700, color: 'var(--jr-muted)' }}>of {totalRanked}</span>
                   </p>
                 ) : (
