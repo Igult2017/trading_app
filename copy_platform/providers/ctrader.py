@@ -403,14 +403,20 @@ class CTraderProvider:
         if order.closingOrder:
             return                      # the order that CLOSES a position — the position path owns it
         if _is_our_own_copy(order):
-            # A TRADE THIS ENGINE PLACED IS NOT A NEW MASTER TRADE. An account can be a master AND
-            # somebody's follower at the same time (his rule, 2026-09-26), so a mirror landing on it
-            # arrives here looking exactly like an original. Copying it on again is how A->B->A
-            # turns one trade into an unbounded stream of real orders.
+            # ⚠ THIS IS THE RULE, not a safety net behind one. His words, 2026-09-27:
             #
-            # BELT AND BRACES. `/api/copy/self-copy` refuses a link that would close a ring, so this
-            # should never fire — but that guard only covers rings built through the panel, and this
-            # one covers a ring however it got there. A cheap check on a label we already stamp.
+            #   "a trade can only be copied directly from the master which is the origin. A
+            #    slave that copied a trade from a master cannot act as a master for another
+            #    slave for the trade it copied. A master can only be copied if the trade
+            #    originated from it."
+            #
+            # An account can be a master AND somebody's follower at once - he wants that - so a
+            # copy landing on it arrives here looking exactly like a trade its owner placed. This
+            # mark is the only thing that tells the two apart. A copy takes ONE hop and stops.
+            #
+            # IT ALSO MAKES A RING HARMLESS BY CONSTRUCTION, which is why the ring check that
+            # used to sit in `/api/copy/self-copy` is gone: a trade that can never be copied
+            # twice can never come back round, however the accounts are wired.
             log.info(f"[{self.master_id}] order {order.orderId} carries our own copy label "
                      f"({order.tradeData.label!r}) — not copying a copy")
             return

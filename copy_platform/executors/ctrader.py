@@ -138,8 +138,19 @@ class CTraderExecutor:
 
     async def open_position(self, symbol: str, action: str,
                             volume_lots: float, sl: float | None,
-                            tp: float | None) -> ExecResult:
-        self._pending_cmd = ("open", symbol, action, volume_lots, sl, tp)
+                            tp: float | None, label: str = "") -> ExecResult:
+        """Copy a master's POSITION as a market order.
+
+        `label` MARKS IT AS A COPY, and that mark is the whole of his rule: *"a slave that copied a
+        trade from a master cannot act as a master for another slave for the trade it copied."* The
+        provider reads it (`providers/ctrader._is_our_own_copy`) and refuses to copy a copy.
+
+        ⚠ IT WAS MISSING HERE UNTIL 2026-09-27 — the resting-order path stamped it and this one did
+        not. So a market copy landing on an account that is ALSO a master looked like that account's
+        own trade and was passed on again. The rule held for resting orders and quietly did not hold
+        for market ones, which is the worst shape for a safety rule to be in.
+        """
+        self._pending_cmd = ("open", symbol, action, volume_lots, sl, tp, label)
         return await self._run()
 
     async def close_position(self, position_id: int, volume_lots: float,
@@ -445,7 +456,7 @@ class CTraderExecutor:
         acct_id = int(self.creds["ctraderId"])
 
         if cmd[0] == "open":
-            _, symbol, action, lots, sl, tp = cmd
+            _, symbol, action, lots, sl, tp, label = cmd
             symbol_id = resolve_symbol_id(symbol, self._symbol_map)
             if symbol_id is None:
                 self._resolve(ExecResult(ok=False, error=f"Symbol {symbol} not on follower account"))
@@ -462,6 +473,11 @@ class CTraderExecutor:
             req.volume = volume
             if sl: req.stopLoss   = sl
             if tp: req.takeProfit = tp
+            # THE COPY MARK — see `open_position`. Without it a market copy is indistinguishable
+            # from a trade the account's owner placed, and gets copied onward.
+            if label:
+                req.label = label[:100]
+                req.clientOrderId = label[:50]
             client.send(req)
 
         elif cmd[0] == "close":

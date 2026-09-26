@@ -5065,53 +5065,23 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
       return res.status(400).json({ error: "Both accounts must be API-connected (OAuth)" });
     }
 
-    // ── A COPY MUST NEVER GO ROUND IN A CIRCLE ────────────────────────────────────────────────
+    // ── WHY THERE IS NO RING CHECK HERE ANY MORE ─────────────────────────────────────────────
     //
-    // HIS RULE, 2026-09-26: *"a master can be a slave to another master and a slave can be a master
-    // to a master it does not copy."* That last clause is this check, and nothing enforced it.
+    // I ADDED ONE ON 2026-09-26 AND IT WAS WRONG. It refused to create B->A when A->B already
+    // existed — it banned the ARRANGEMENT. He corrected it the next day: *"a master can be a slave
+    // to a slave account and slave can be a master... I dint mean they can copy the same trade."*
+    // The arrangement is fine; it is the TRADE that must not go round.
     //
-    // WHY IT MATTERS MORE THAN IT READS. The engine starts a provider for EVERY active master
-    // (`copy_platform/engine.py:119`), whether or not that account is also somebody's follower. So
-    // with A→B and B→A both saved: a trade on A is copied onto B; the provider watching B sees that
-    // copy as a master event and copies it back to A; A's provider copies it to B again. One trade
-    // becomes an unbounded stream of REAL orders on both accounts, and nothing downstream stops it.
+    // HIS RULE, IN HIS WORDS: *"a trade can only be copied directly from the master which is the
+    // origin. A slave that copied a trade from a master cannot act as a master for another slave
+    // for the trade it copied. A master can only be copied if the trade originated from it."*
     //
-    // A CHAIN IS FINE AND IS WHAT HE ASKED FOR — A→B with B→C cascades a trade from A to B to C.
-    // Only a RING is fatal, so only a ring is refused.
+    // So the rule lives where the TRADE is, not where the link is made:
+    // `copy_platform/providers/ctrader.py` ignores any order carrying the copier's own mark, so a
+    // copy is never copied again. That makes a ring harmless by construction — a trade takes one
+    // hop and stops — and it leaves him free to wire the accounts however he likes.
     //
-    // ALL RINGS, NOT JUST THE DIRECT ONE. He named the two-account case; a three-account ring
-    // (A→B→C→A) drains money exactly as fast, so the walk below follows the whole chain. Reachable
-    // from the TARGET back to the SOURCE means adding this link would close the circle.
-    {
-      const existing = await pool.query(
-        `SELECT m.broker_account_id AS from_id, f.broker_account_id AS into_id
-           FROM copy_followers f JOIN copy_masters m ON m.id = f.master_id
-          WHERE f.user_id = $1 AND m.broker_account_id IS NOT NULL
-            AND f.broker_account_id IS NOT NULL`, [user.id]);
-      const copiesInto = new Map<string, string[]>();   // master account -> the accounts it feeds
-      for (const r of existing.rows as any[]) {
-        const list = copiesInto.get(r.from_id) ?? [];
-        list.push(r.into_id);
-        copiesInto.set(r.from_id, list);
-      }
-      // Walk forward from the proposed TARGET. If the proposed SOURCE is reachable, the new link
-      // closes a ring. `seen` makes this terminate even on data that is already circular.
-      const seen = new Set<string>();
-      const queue = [targetBrokerAccountId];
-      while (queue.length) {
-        const at = queue.shift()!;
-        if (at === sourceBrokerAccountId) {
-          const names = `${target.name} already feeds back into ${source.name}`;
-          return res.status(400).json({
-            error: `That would send the same trade round in a circle for ever — ${names}. ` +
-                   `An account can be a master and a slave, but not both ways round the same loop.`,
-          });
-        }
-        if (seen.has(at)) continue;
-        seen.add(at);
-        queue.push(...(copiesInto.get(at) ?? []));
-      }
-    }
+    // The only structural rule left here is the one he named: an account cannot copy itself.
 
     // 1. Private master from the source account (idempotent)
     let master = await storage.getCopyMasterByBrokerAccountId(source.id);

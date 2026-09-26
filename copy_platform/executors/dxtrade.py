@@ -45,7 +45,15 @@ class DXTradeExecutor:
 
     async def open_position(self, symbol: str, action: str,
                             volume_lots: float, sl: float | None,
-                            tp: float | None) -> ExecResult:
+                            tp: float | None, label: str = "") -> ExecResult:
+        # `label` IS ACCEPTED AND IGNORED HERE. The dispatcher marks every copy so the engine can
+        # tell a copy from a trade the account's owner placed — his rule, 2026-09-27: a slave may
+        # not pass on a trade it copied. Only the cTrader executor can carry that mark onto the
+        # broker today, so on this platform the rule is NOT enforced: if one of these accounts is
+        # ever both a follower and a master, a copy landing on it would look original.
+        #
+        # Accepting the argument keeps the call signature uniform; dropping it silently is why this
+        # comment exists rather than nothing.
         try:
             async with aiohttp.ClientSession() as session:
                 token  = await self._auth(session)

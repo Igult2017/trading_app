@@ -100,16 +100,38 @@ ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 routes = open(os.path.join(ROOT, "server", "routes.ts"), encoding="utf-8").read()
 
 print()
-print("THE SERVER'S RING CHECK IS STILL THERE")
+# ── EVERY WAY A COPY IS PLACED MUST CARRY THE MARK ──────────────────────────────────
+#
+# THE HOLE THIS CLOSES, found 2026-09-27 while confirming his rule. The resting-order path stamped
+# the mark and the MARKET path did not. So the rule held for one kind of copy and quietly did not
+# hold for the other: a market copy landing on an account that is also a master looked like that
+# account's own trade and would have been passed on again. A safety rule that holds on one path
+# only is the worst shape for one to be in, because it tests green.
+ex = open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                       "executors", "ctrader.py"), encoding="utf-8").read()
+print()
+print("A COPY IS MARKED HOWEVER IT IS PLACED")
+s.check("the resting-order path marks it", 'if label: req.label = label[:100]' in ex, True)
+s.check("the MARKET path marks it too", "req.clientOrderId = label[:50]" in ex, True)
+s.check("...and open_position actually takes a label to stamp",
+        'tp: float | None, label: str = "") -> ExecResult:' in ex, True)
+dispatch = open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                             "dispatcher.py"), encoding="utf-8").read()
+s.check("the dispatcher passes one on a market copy",
+        "label=mirror.mirror_label(snap.key)" in dispatch, True)
+
+print("THE SERVER REFUSES ONLY WHAT HE NAMED: AN ACCOUNT COPYING ITSELF")
 s.check("an account still cannot copy itself",
         "Source and target must be different accounts" in routes, True)
-s.check("a ring is refused, in words he can read",
-        "round in a circle for ever" in routes, True)
-s.check("it WALKS the existing links rather than checking only the direct pair",
-        "copiesInto" in routes and "queue.push" in routes, True)
-s.check("the walk terminates on data that is already circular",
-        "seen.has(at)" in routes, True)
 
+# ⚠ THE RING CHECK WAS REMOVED 2026-09-27, AND ITS ABSENCE IS THE ASSERTION. I added one the
+# day before that refused to create B->A when A->B existed - it banned the ARRANGEMENT. He
+# corrected it: *"a master can be a slave to a slave account and slave can be a master... I dint
+# mean they can copy the same trade."* The arrangement is fine; the TRADE must not go round, and
+# the mark above is what stops it. Re-adding a ring check would break a setup he wants.
+s.check("the arrangement B->A is NOT refused any more",
+        "round in a circle for ever" in routes, False)
+s.check("...and the walk that enforced it is gone", "copiesInto" in routes, False)
 
 # ── 3. THE OVERVIEW REPORTS EVERY LINK, NOT ONE MASTER ─────────────────────────────────────────
 # THE BUG THIS REPLACED: it took `selfRows[0]`'s master and listed EVERY follower under it, so with

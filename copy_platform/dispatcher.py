@@ -386,7 +386,11 @@ async def _exec_follower(master_trade_id: str, follower: CopyFollower,
             try:
                 if etype == "OPEN":
                     result = await executor.open_position(
-                        snap.symbol, action, lots, sl_price, tp_price
+                        snap.symbol, action, lots, sl_price, tp_price,
+                        # MARK IT AS A COPY. His rule, 2026-09-27: a slave may not pass on a
+                        # trade it copied. The mark is what the provider reads to tell a copy
+                        # from a trade the account's own owner placed.
+                        label=mirror.mirror_label(snap.key)
                     )
                 elif etype == "PLACED":
                     result = await executor.place_pending(
