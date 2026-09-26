@@ -63,7 +63,12 @@ check('...and the master\'s account',
       routes.includes('m.broker_account_id AS master_account_id'), true);
 check('...and the saved filters and sizing',
       routes.includes('f.symbol_whitelist, f.active_sessions, f.max_dd_percent, f.risk_accepted'), true);
-check('the response carries a selfCopy block', /\n\s+selfCopy,\n/.test(routes), true);
+// CRLF-TOLERANT, and that is not pedantry. `server/routes.ts` is checked out with WINDOWS line
+// endings, so `selfCopy,` is followed by a carriage return before the newline, and a pattern that
+// demanded a bare newline never matched. On 2026-09-26 this reported the block MISSING while it
+// sat at routes.ts:3418 doing its job. A source-text assertion must tolerate both endings, or it
+// fails by platform rather than by fault.
+check('the response carries a selfCopy block', /^\s*selfCopy,\s*$/m.test(routes), true);
 check('the client type knows about it', overview.includes('masterBrokerAccountId'), true);
 
 // WHICH ROWS COUNT AS "HIS SELF-COPY SETUP" — and this is where the first attempt was wrong.
