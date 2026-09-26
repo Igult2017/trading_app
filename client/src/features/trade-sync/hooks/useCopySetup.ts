@@ -70,7 +70,18 @@ export function useCopySetup(
     // in Mirror feeds from `overview.selfCopy.links` rather than held in form state. Restoring a
     // master here would pre-fill the form with a relationship that already exists and invite him to
     // create it twice.
-    const d = s.defaults;
+    // ⚠ NEVER ASSUME THE SHAPE OF A PERSISTED PAYLOAD. This read `s.defaults.symbolWhitelist`
+    // directly and WHITE-SCREENED the whole Journal on 2026-09-27. The React Query cache is written
+    // to localStorage and seeded SYNCHRONOUSLY at startup (`lib/queryClient.ts:136`), so the first
+    // `overview` this effect sees can be a payload saved by an OLDER build of the app — one with
+    // `masterBrokerAccountId` and no `defaults` at all. Reading a property off that undefined threw,
+    // the whole React tree died, and the page rendered nothing.
+    //
+    // A SHAPE CHANGE IS A MIGRATION when the old shape lives on disk. Optional-chaining every read
+    // here means any payload, of any age, degrades to "restore nothing" instead of taking the page
+    // down. The cache key was bumped in the same change so nobody has to wait it out — but the key
+    // is the cure for THIS one, and this is the cure for the next one.
+    const d = s.defaults ?? ({} as Partial<NonNullable<typeof s.defaults>>);
     if (d.symbolWhitelist?.length) setInstruments(d.symbolWhitelist);
     if (d.activeSessions?.length) setSessions(d.activeSessions);
     if (d.maxDdPercent != null) setDrawdown(String(d.maxDdPercent));

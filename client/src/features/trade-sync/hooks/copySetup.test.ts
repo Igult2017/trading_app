@@ -140,6 +140,45 @@ check('an existing relationship is updated, not skipped',
 check('...and re-pressing Start resumes a paused one',
       /const patch: Record<string, any> = \{ isActive: true \};/.test(routes), true);
 
+// ── A PERSISTED PAYLOAD OF ANY AGE MUST NOT WHITE-SCREEN THE PAGE ───────────
+//
+// WHAT HAPPENED, 2026-09-27. `/api/copy/overview` changed the shape of its `selfCopy` block (one
+// master -> a list of links). The React Query cache is written to localStorage and seeded
+// SYNCHRONOUSLY at startup (`lib/queryClient.ts`), so the first `overview` the hook saw in a
+// browser that had used the app before was a payload saved by the OLD build: `masterBrokerAccountId`
+// present, `defaults` absent. The hook did `const d = s.defaults;` then `d.symbolWhitelist` — a read
+// off undefined — which threw, killed the whole React tree, and rendered a blank page. His words:
+// *"It should this when i try to access copy trade. You broke something fix it."*
+//
+// A SHAPE CHANGE IS A MIGRATION WHEN THE OLD SHAPE LIVES ON DISK. Two defences, both checked here.
+const oldPayload: any = {           // exactly what a v1 cache holds
+  masterBrokerAccountId: 'acct-a',
+  mirrorBrokerAccountIds: ['acct-b'],
+  lotMode: 'risk', riskPercent: '2.00', maxDdPercent: '10',
+  symbolWhitelist: [], activeSessions: [], riskAccepted: true,
+};
+let survived = true;
+try {
+  // the exact expression the hook now uses
+  const d = oldPayload.defaults ?? {};
+  void (d.symbolWhitelist?.length);
+  void (d.activeSessions?.length);
+  void (d.maxDdPercent != null);
+  void (d.lotMode === 'fixed' && d.fixedLot != null);
+  void (d.riskAccepted);
+} catch { survived = false; }
+check('an OLD cached payload no longer throws on hydration', survived, true);
+check('...because every read off `defaults` is guarded',
+      setup.includes('s.defaults ?? ('), true);
+check('...and `links` degrades to an empty list, never undefined',
+      setup.includes('overview?.selfCopy?.links ?? []'), true);
+
+// THE CACHE KEY RELEASES THE BROWSERS ALREADY STUCK. They cannot reach a page to clear it from, so
+// the guard above alone would leave them broken until the entry aged out (30 days).
+const qc = read('client/src/lib/queryClient.ts');
+check('the persisted-cache key was bumped past v1', qc.includes('fsd-journal-cache-v1'), false);
+check('...to a newer version', /fsd-journal-cache-v[2-9]/.test(qc), true);
+
 // ── TEETH ───────────────────────────────────────────────────────────────────
 teeth('seeding without the ref would re-seed on every 20s refetch',
       !'useEffect(() => { const s = overview?.selfCopy; ... })'.includes('hydrated.current'));

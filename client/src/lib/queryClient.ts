@@ -96,7 +96,15 @@ export const getQueryFn: <T>(options: { on401: UnauthorizedBehavior }) => QueryF
 
 const DAY = 24 * 60 * 60 * 1000;
 const RETAIN_MS = 30 * DAY;                        // keep the persisted cache ~30 days (survives logout)
-const CACHE_KEY = "fsd-journal-cache-v1";
+// BUMPED TO v2 ON 2026-09-27, AND WHY MATTERS MORE THAN THE NUMBER. `/api/copy/overview` changed
+// the shape of its `selfCopy` block (one master -> a list of links). This cache is seeded
+// SYNCHRONOUSLY at startup, so every browser holding a v1 payload fed the OLD shape to the NEW code
+// and the Journal white-screened. The reader was made shape-proof in the same change; this key is
+// what releases the people already stuck, because they cannot reach a page to clear it from.
+//
+// BUMP THIS WHENEVER A PERSISTED PAYLOAD CHANGES SHAPE. An old key is simply ignored and the app
+// refetches - the only cost is one cold load.
+const CACHE_KEY = "fsd-journal-cache-v2";
 const OWNER_KEY = "fsd-journal-cache-owner";       // userId the persisted cache belongs to
 
 /** Synchronously read the signed-in user's id from the Supabase session that
