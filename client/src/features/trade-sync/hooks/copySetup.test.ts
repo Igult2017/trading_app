@@ -179,6 +179,17 @@ const qc = read('client/src/lib/queryClient.ts');
 check('the persisted-cache key was bumped past v1', qc.includes('fsd-journal-cache-v1'), false);
 check('...to a newer version', /fsd-journal-cache-v[2-9]/.test(qc), true);
 
+// ...AND NOTHING ELSE MAY HARDCODE IT. `AuthContext` drops the previous user's cache when a
+// DIFFERENT user signs in on a shared device — a security cleanup — and it had the key typed out by
+// hand. The v1 -> v2 bump left it removing a key that no longer held anything, so that user's data
+// would have survived the switch. A cleanup that silently targets nothing still reads as done.
+const auth = read('client/src/context/AuthContext.tsx');
+check('the cache key is defined once and exported', qc.includes('export const CACHE_KEY'), true);
+check('...and AuthContext imports it rather than retyping it',
+      auth.includes('CACHE_KEY') && !/['"]fsd-journal-cache-v\d/.test(auth), true);
+teeth('a second hardcoded copy is what broke the cross-user cleanup',
+      !/['"]fsd-journal-cache-v\d/.test(auth));
+
 // ── TEETH ───────────────────────────────────────────────────────────────────
 teeth('seeding without the ref would re-seed on every 20s refetch',
       !'useEffect(() => { const s = overview?.selfCopy; ... })'.includes('hydrated.current'));

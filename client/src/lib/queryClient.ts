@@ -104,8 +104,8 @@ const RETAIN_MS = 30 * DAY;                        // keep the persisted cache ~
 //
 // BUMP THIS WHENEVER A PERSISTED PAYLOAD CHANGES SHAPE. An old key is simply ignored and the app
 // refetches - the only cost is one cold load.
-const CACHE_KEY = "fsd-journal-cache-v2";
-const OWNER_KEY = "fsd-journal-cache-owner";       // userId the persisted cache belongs to
+export const CACHE_KEY = "fsd-journal-cache-v2";
+export const OWNER_KEY = "fsd-journal-cache-owner";       // userId the persisted cache belongs to
 
 /** Synchronously read the signed-in user's id from the Supabase session that
  *  supabase-js stores in localStorage — used to guard the persisted cache so a

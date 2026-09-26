@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import type { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
-import { queryClient } from '@/lib/queryClient';
+import { queryClient, CACHE_KEY, OWNER_KEY } from '@/lib/queryClient';
 import { prepareDashboard } from '@/lib/prefetchPanels';
 import { clearInactivityTracking, rememberReturnTo } from '@/lib/inactivity';
 
@@ -124,11 +124,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (loading || !user?.id) return;
     try {
-      const OWNER_KEY = 'fsd-journal-cache-owner';
+      // THE KEYS ARE IMPORTED, NEVER RETYPED. Both were written out by hand here, and when the
+      // cache key was bumped v1 -> v2 on 2026-09-27 this kept removing the OLD one - so the
+      // previous user's data would have survived a user switch on a shared device. A security
+      // cleanup that silently targets nothing is worse than none: it still reads as done.
       const owner = localStorage.getItem(OWNER_KEY);
       if (owner && owner !== user.id) {
         queryClient.clear();
-        localStorage.removeItem('fsd-journal-cache-v1');
+        localStorage.removeItem(CACHE_KEY);
       }
       localStorage.setItem(OWNER_KEY, user.id);
     } catch { /* ignore */ }
