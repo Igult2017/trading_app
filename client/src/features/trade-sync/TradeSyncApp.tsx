@@ -87,7 +87,7 @@ export function TradeSyncApp({ panel = false, onExit }: TradeSyncAppProps = {}) 
                 phone; `order` only applies at the breakpoint, the reading order does not.
               */}
               <div className="w-full lg:w-96 lg:order-first flex flex-col bg-surface">
-                <ConnectedAccounts accounts={setup.accounts} onToggle={setup.toggleAccountStatus} />
+                <ConnectedAccounts accounts={setup.accounts} onDrop={setup.dropAccount} />
                 <MirrorFeed feed={feed} mirroring={setup.mirroring} />
               </div>
             </div>

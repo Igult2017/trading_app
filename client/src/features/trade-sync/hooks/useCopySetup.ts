@@ -102,16 +102,36 @@ export function useCopySetup(
     setList(list.includes(value) ? list.filter((v) => v !== value) : [...list, value]);
   };
 
-  /** Pause/resume a copy relationship — PUT the follower's isActive and refetch. */
-  const toggleAccountStatus = async (id: number) => {
+  /**
+   * DROP a copy relationship — disconnect the account from its master and remove it.
+   *
+   * His instruction: "when i click on 'drop' the account is disconnected from copying trades from
+   * master and also it is dropped from connected accounts list". Both halves fall out of one
+   * DELETE: the copy engine reads `copy_followers` (copy_platform/db.py), so removing the row stops
+   * the mirroring, and BOTH lists he sees — Connected accounts and Mirror feeds — are built from
+   * that same table, so one refetch clears it from each without either of them filtering anything.
+   *
+   * ⚠ PERMANENT, unlike the pause it replaces. The sizing, drawdown cap, instrument list and
+   * session filters go with the row; re-creating it means picking the pair again and re-entering
+   * them. That is why the button confirms first (ConnectedAccounts).
+   *
+   * IT DOES NOT TOUCH OPEN POSITIONS. "Disconnected from copying trades" is about what happens
+   * next; anything already mirrored into that account stays open and stays his to manage.
+   */
+  const dropAccount = async (id: number) => {
     const row = overview?.copies.find((c) => c.id === id);
-    if (!row) return;
+    if (!row?.followerId) return;
     try {
-      await apiRequest("PUT", `/api/copy/followers/${row.followerId}`, { isActive: row.status !== "live" });
-      setToast(row.status === "live" ? `${row.name} paused.` : `${row.name} is live again.`);
+      await apiRequest("DELETE", `/api/copy/followers/${row.followerId}`);
+      setToast(`${row.name} dropped — it no longer copies from its master.`);
       invalidate();
-    } catch (err: any) { setToast(`Could not update ${row.name}: ${err.message}`); }
+    } catch (err: any) { setToast(`Could not drop ${row.name}: ${err.message}`); }
   };
+
+  // The per-row PAUSE that used to live here is gone (2026-09-28). His instruction was "instead of
+  // pause lets use drop", so the Connected-accounts row now deletes the relationship rather than
+  // flipping a flag, and nothing called this any more. Pausing EVERYTHING at once still exists —
+  // that is the Stop button below, which sets isActive:false on each live relationship.
 
   const activeSource = useMemo(() => SOURCES.find((s) => s.id === source), [source]);
   const needsAccountConnect = (source === "provider" || source === "self-copy") && accountStatus !== "connected";
@@ -226,7 +246,7 @@ export function useCopySetup(
     links: overview?.selfCopy?.links ?? [],
     selectedOwnAccounts, masterAccountId,
     platformBySource, setPlatformBySource,
-    toggleFrom, toggleAccountStatus, toggleOwnAccount, setMasterAccount,
+    toggleFrom, dropAccount, toggleOwnAccount, setMasterAccount,
     startBlockers, handleStart, lotFields, busy,
   };
 }
