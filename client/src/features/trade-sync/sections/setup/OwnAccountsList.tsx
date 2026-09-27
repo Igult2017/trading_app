@@ -1,4 +1,5 @@
 import { Avatar } from "../../components/Avatar";
+import { MirrorFeedList } from "./MirrorFeedList";
 import { Icon } from "../../components/Icon";
 import type { CopySetup } from "../../hooks/useCopySetup";
 import type { Overview } from "../../hooks/useOverview";
@@ -41,6 +42,12 @@ export function OwnAccountsList({ setup, links }: OwnAccountsListProps) {
   const { ownAccounts, masterAccountId, selectedOwnAccounts, setMasterAccount, toggleOwnAccount } = setup;
 
   const byId = (id: string) => ownAccounts.find((a) => a.id === id);
+
+  // COUNTS WHAT IS ACTUALLY COPYING, not what is merely configured. A paused feed no longer appears
+  // in the list below (see MirrorFeedList), so a header that still counted it would contradict what
+  // he can see — "3 links" above an empty list.
+  const live        = links.filter((l) => l.isActive);
+  const liveMasters = new Set(live.map((l) => l.masterAccountId)).size;
   const fromId = masterAccountId;
   const intoId = selectedOwnAccounts[0] ?? "";
   // An account may be a master AND a slave, so the only one excluded is the account already chosen
@@ -57,20 +64,15 @@ export function OwnAccountsList({ setup, links }: OwnAccountsListProps) {
     if (next) toggleOwnAccount(next);
   };
 
-  // GROUPED BY MASTER, so several masters read as several feeds rather than one long list.
-  const groups = links.reduce<Record<string, typeof links>>((acc, l) => {
-    (acc[l.masterAccountId] ??= []).push(l);
-    return acc;
-  }, {});
 
   return (
     <div className="mb-8 space-y-4">
       <div className="flex items-center justify-between gap-3">
         <span className="font-label-xs text-on-surface-variant uppercase">Set up copying</span>
         <span className="font-label-xs text-on-surface-variant">
-          {links.length === 0
+          {live.length === 0
             ? `${ownAccounts.length} linked · nothing copying yet`
-            : `${links.length} link${links.length === 1 ? "" : "s"} · ${Object.keys(groups).length} master${Object.keys(groups).length === 1 ? "" : "s"}`}
+            : `${live.length} link${live.length === 1 ? "" : "s"} · ${liveMasters} master${liveMasters === 1 ? "" : "s"}`}
         </span>
       </div>
       <p className="font-body-md text-on-surface-variant text-[12px] leading-snug">
@@ -136,72 +138,7 @@ export function OwnAccountsList({ setup, links }: OwnAccountsListProps) {
             </p>
           )}
 
-          {/* ── WHAT IS ALREADY COPYING ─────────────────────────────────── */}
-          <div className="space-y-1.5">
-            <span className="font-label-xs text-on-surface-variant uppercase block">
-              Mirror feeds{links.length > 0 && ` (${links.length})`}
-            </span>
-            {links.length === 0 ? (
-              <p className="border border-dashed border-surface-container-highest rounded-lg p-4
-                            font-body-md text-[12px] text-on-surface-variant text-center">
-                Nothing is copying yet. Choose a pair above and press Start.
-              </p>
-            ) : (
-              <div className="space-y-3">
-                {Object.entries(groups).map(([masterId, rows]) => (
-                  <div
-                    key={masterId}
-                    className="border border-surface-container-highest rounded-lg overflow-hidden"
-                  >
-                    <div className="px-3 py-2 bg-surface-container-low flex items-center gap-2">
-                      <Avatar name={byId(masterId)?.name ?? "?"} />
-                      <div className="min-w-0">
-                        <p className="font-body-md font-bold text-[12px] leading-tight truncate">
-                          {byId(masterId)?.name ?? "an account no longer linked"}
-                        </p>
-                        <p className="text-[9px] text-on-surface-variant font-dm-mono">
-                          master · feeding {rows.length} account{rows.length === 1 ? "" : "s"}
-                        </p>
-                      </div>
-                    </div>
-                    <ul className="divide-y divide-surface-container-highest">
-                      {rows.map((l) => (
-                        <li
-                          key={l.followerId}
-                          className="ct-account-row p-3 flex items-center justify-between gap-3
-                                     hover:bg-surface-container-low transition-colors duration-200"
-                        >
-                          <div className="flex items-center gap-2 min-w-0">
-                            <Icon name="subdirectory_arrow_right"
-                                  className="text-on-surface-variant text-[14px] shrink-0" />
-                            <div className="min-w-0">
-                              <p className="font-body-md font-bold text-[12px] leading-tight truncate">
-                                {byId(l.followerAccountId)?.name ?? "an account no longer linked"}
-                              </p>
-                              <p className="text-[9px] text-on-surface-variant font-dm-mono truncate">
-                                {l.lotMode === "risk" && l.riskPercent ? `risk ${l.riskPercent}%`
-                                  : l.lotMode === "fixed" && l.fixedLot ? `${l.fixedLot} lots`
-                                  : l.lotMultiplier ? `${l.lotMultiplier}x the master` : l.lotMode ?? ""}
-                              </p>
-                            </div>
-                          </div>
-                          <span
-                            className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase shrink-0 ${
-                              l.isActive
-                                ? "bg-tertiary text-on-tertiary"
-                                : "bg-surface-container-highest text-on-surface-variant"
-                            }`}
-                          >
-                            {l.isActive ? "Copying" : "Paused"}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+          <MirrorFeedList links={links} ownAccounts={ownAccounts} />
         </div>
       )}
     </div>
