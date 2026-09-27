@@ -305,6 +305,24 @@ function isFilled(d: any): boolean {
   return s === 2 || s === '2' || String(s).toUpperCase() === 'FILLED';
 }
 
+/** BUY or SELL, however this gateway spelled it.
+ *
+ * ⚠ THE TRAP, and I fell into it on 2026-09-27. The JSON gateway names its enums ("BUY"), the
+ * protobuf path sends the INTEGER (1). Writing `String(d.tradeSide).toUpperCase() || fallback`
+ * looks like it covers both and does not: `String(1)` is "1", which is TRUTHY, so the fallback
+ * never runs and the side reads as "1". `long` then came out false and a BUY was recorded as a
+ * Short — with the profit signed by that same flag, so a $500 WIN was journalled as a $500 LOSS.
+ *
+ * The original code had `side === 'BUY' || d.tradeSide === 1` and was right. This is that, in one
+ * place, so the two callers cannot drift.
+ */
+function sideOf(d: any): string {
+  const s = String(d?.tradeSide ?? '').toUpperCase();
+  if (s === 'BUY' || s === '1') return 'BUY';
+  if (s === 'SELL' || s === '2') return 'SELL';
+  return s;
+}
+
 /** Deals whose position is USD-quoted, so (close − entry) × units IS the P&L in account currency. */
 function usdQuoted(symbol: string): boolean {
   return /USD$/i.test(symbol.replace(/[^A-Za-z]/g, ''));
@@ -364,7 +382,7 @@ export function pairDealsIntoTrades(deals: any[], symbolMap: Record<number, stri
     if (group.length < 2) continue;                       // still open — nothing realised yet
     group.sort((a, b) => Number(a.executionTimestamp ?? 0) - Number(b.executionTimestamp ?? 0));
     const first = group[0];
-    const openSide = String(first.tradeSide ?? '').toUpperCase() || (first.tradeSide === 1 ? 'BUY' : 'SELL');
+    const openSide = sideOf(first);
     const vol = (d: any) => Number(d.filledVolume ?? d.volume ?? 0) / 100;
 
     // ── EVERY PIECE COUNTS, NOT JUST THE LAST ONE ─────────────────────────────────────────────
@@ -376,7 +394,7 @@ export function pairDealsIntoTrades(deals: any[], symbolMap: Record<number, stri
     //
     // Deals on the opening side ADD to the position (scaling in), deals on the other side TAKE
     // FROM it. Both are averaged by size, so the entry and exit are the prices he actually got.
-    const opens  = group.filter((d) => (String(d.tradeSide ?? '').toUpperCase() || (d.tradeSide === 1 ? 'BUY' : 'SELL')) === openSide);
+    const opens  = group.filter((d) => sideOf(d) === openSide);
     const closes = group.filter((d) => !opens.includes(d));
     if (closes.length === 0) continue;                    // nothing has been taken off yet
 
@@ -461,9 +479,14 @@ export function mapClosedFromEvent(ev: any, symbolMap: Record<number, string>): 
   //
   // THE POSITION ITSELF SAYS WHETHER IT IS FINISHED, so that is what is asked now. While any part
   // remains open the position is OPEN, and there is no trade to record yet.
-  const dealCloses = !!posSide && !!dealSide && posSide !== dealSide;
-  if (!dealCloses) return null;                            // an opening fill
-  if (!status.includes('CLOSED')) return null;             // a PARTIAL close — still running
+  // ⚠ ASK THE POSITION, NOT THE SIDE. My first attempt at this required the sides to differ, and
+  // that DROPPED A REAL CLOSE: this gateway sometimes sends no `tradeData` at all (his EUR/USD trade
+  // of 01 Sep — see LIVE_LONG_NO_TRADEDATA in the tests), so `posSide` is '' and a side comparison
+  // can never be true. The position's own status is always there and is the thing being asked.
+  if (!status.includes('CLOSED')) return null;   // still running: an opening fill, OR a PARTIAL close
+  // The opening fill of a position that is ALREADY closed — only reachable on a replayed event, but
+  // recording it would file an entry as an exit. Skipped only when the sides are actually readable.
+  if (posSide && dealSide && posSide === dealSide) return null;
 
   const symbol = symbolMap[d.symbolId] ?? String(d.symbolId);
   // THE CLOSING DEAL IS THE ONLY RELIABLE SOURCE OF THE DIRECTION, and getting this wrong inverted

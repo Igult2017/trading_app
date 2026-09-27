@@ -204,6 +204,99 @@ teeth('mapClosedDeal still refuses a deal with no closePositionDetail',
       mapClosedDeal(DEALS[0], SYMBOLS) === null);
 
 console.log();
+
+// PARTIAL TAKE-PROFITS ARE ONE TRADE, NOT SEVERAL
+//
+// HIS REPORT, 2026-09-27: "in one trade, if i took profit at different points, it is recording each
+// profit taken as an individual trade. It should record one order as an order after the whole order
+// has been closed not recording each take profit as a seperate order."
+//
+// A LONG of 3 lots, banked in three pieces at rising prices, then finished.
+const TP_OPEN = { dealId: 900, positionId: 77, symbolId: 1, tradeSide: 'BUY',
+                  filledVolume: 30000000, executionPrice: 1.1000,
+                  executionTimestamp: 1000, dealStatus: 'FILLED', orderId: 500 };
+const tp = (id: number, vol: number, px: number, at: number) =>
+  ({ dealId: id, positionId: 77, symbolId: 1, tradeSide: 'SELL', filledVolume: vol,
+     executionPrice: px, executionTimestamp: at, dealStatus: 'FILLED' });
+
+console.log();
+console.log('ONE POSITION BANKED IN THREE PIECES');
+const banked = pairDealsIntoTrades(
+  [TP_OPEN, tp(901, 10000000, 1.1020, 2000), tp(902, 10000000, 1.1040, 3000),
+   tp(903, 10000000, 1.1060, 4000)], SYMBOLS);
+check('three take-profits make ONE trade, not three', banked.length, 1);
+check('...carrying the WHOLE size, not the last slice', banked[0].lots, 3);
+check('...the direction is the one he opened', banked[0].direction, 'Long');
+check('...the entry is where he got in', banked[0].openPrice, 1.1);
+check('...the exit is the average of the three exits',
+      Number(Number(banked[0].closePrice).toFixed(5)), 1.104);
+// 3 lots = 300,000 units; average exit 1.1040 - entry 1.1000 = 0.0040 -> 1200.
+check('...and the profit is the WHOLE trade, not one piece', banked[0].profit, 1200);
+// THE POINT OF THE FIX: the last piece alone was 1 lot x 6 pips = 600. Recording that as the
+// trade - which is what the old code did - understates it by half.
+check('...not just what the last piece made', banked[0].profit !== 600, true);
+check('...opened when the first piece opened', banked[0].openTime, 1000);
+check('...closed when the LAST piece closed', banked[0].closeTime, 4000);
+
+console.log();
+console.log('WHILE PART OF IT IS STILL RUNNING, THERE IS NO TRADE YET');
+check('two of three lots banked -> nothing recorded yet',
+      pairDealsIntoTrades([TP_OPEN, tp(901, 10000000, 1.1020, 2000)], SYMBOLS).length, 0);
+
+console.log();
+console.log('THE ORDINARY ONE-IN-ONE-OUT TRADE IS UNCHANGED');
+check('the six real deals still make three trades', pairDealsIntoTrades(DEALS, SYMBOLS).length, 3);
+
+console.log();
+console.log('SCALING IN, THEN OUT IN ONE GO');
+const scaled = pairDealsIntoTrades(
+  [TP_OPEN,
+   { ...TP_OPEN, dealId: 904, filledVolume: 10000000, executionPrice: 1.1040,
+     executionTimestamp: 1500 },
+   tp(905, 40000000, 1.1100, 5000)], SYMBOLS);
+check('two entries and one exit make ONE trade', scaled.length, 1);
+check('...sized at everything that was opened', scaled[0].lots, 4);
+check('...entered at the size-weighted average',
+      Number(Number(scaled[0].openPrice).toFixed(5)), 1.101);
+
+console.log();
+console.log('THE LIVE FEED WAITS FOR THE POSITION TO BE FINISHED');
+const liveEv = (status: string) => ({
+  deal: { dealId: 910, positionId: 77, symbolId: 1, tradeSide: 'SELL', filledVolume: 10000000,
+          executionPrice: 1.1020, executionTimestamp: 2000, dealStatus: 'FILLED' },
+  position: { positionId: 77, positionStatus: status, price: 1.1000,
+              tradeData: { tradeSide: 'BUY', openTimestamp: 1000 } },
+});
+check('a PARTIAL close records nothing',
+      mapClosedFromEvent(liveEv('POSITION_STATUS_OPEN'), SYMBOLS), null);
+const finalClose = mapClosedFromEvent(liveEv('POSITION_STATUS_CLOSED'), SYMBOLS);
+check('the FINAL close records the trade', finalClose === null ? null : finalClose.positionId, '77');
+teeth('the side-only test treated every partial as a close',
+      mapClosedFromEvent(liveEv('POSITION_STATUS_OPEN'), SYMBOLS) === null);
+
+// A BUY IS A BUY WHETHER THE GATEWAY NAMES IT OR NUMBERS IT
+//
+// A REGRESSION I INTRODUCED AND ALMOST SHIPPED, 2026-09-27. Rewriting this for partial
+// take-profits I read the side with String(x).toUpperCase() and an integer fallback after it. That
+// fallback can never run: String(1) is "1", which is truthy. So a BUY read as "1", came out as a
+// Short, and because the profit is signed by that same flag a 500 WIN was recorded as a 500 LOSS.
+// The JSON gateway names its enums and the protobuf path sends integers, so BOTH are asserted.
+const sideCase = (buy: any, sell: any) => pairDealsIntoTrades([
+  { dealId: 1, positionId: 9, symbolId: 1, tradeSide: buy, filledVolume: 10000000,
+    executionPrice: 1.1000, executionTimestamp: 1000, dealStatus: 'FILLED' },
+  { dealId: 2, positionId: 9, symbolId: 1, tradeSide: sell, filledVolume: 10000000,
+    executionPrice: 1.1050, executionTimestamp: 2000, dealStatus: 'FILLED' },
+], SYMBOLS)[0];
+
+console.log();
+console.log('A BUY IS A BUY WHETHER NAMED OR NUMBERED');
+check('named BUY/SELL -> Long', sideCase('BUY', 'SELL').direction, 'Long');
+check('integer 1/2    -> Long', sideCase(1, 2).direction, 'Long');
+check('...and the 50-pip win is a WIN either way',
+      [sideCase('BUY', 'SELL').profit, sideCase(1, 2).profit], [500, 500]);
+teeth('a truthy String(1) really did defeat the integer fallback',
+      String(1).toUpperCase() === '1');
+
 if (failed) { console.log(`${failed} of ${count} FAILED`); process.exit(1); }
 
 // ── THE MERGE MUST NOT ERASE WHAT THE OTHER PATH KNEW ──────────────────────
