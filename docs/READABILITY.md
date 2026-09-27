@@ -165,6 +165,49 @@ Both were in the codemod's own classifier, and both are the kind that typecheck 
 **Result at the source level: 358 failing foreground/ground pairs → 0**, across 15 journal surfaces —
 which is the gate, and the rendered table above is the verdict.
 
+### 2026-09-27 — SWEEPING EVERY SURFACE, AND FOUR MORE TOOL BUGS
+
+`scripts/render-contrast.mjs --routes /,/calendar,/blog,/about,/support,/legal` measures public pages the
+same way `--panels` measures the journal. **1,331 text elements across 18 surfaces, all at zero.**
+
+**A static grep said the public pages were "permanently dark" and that was wrong.** They hardcode
+`#020817` and `#0f172a`, but those are TEXT on a light ground, not the ground. Rendering them showed
+`rgb(255,255,255)` canvases and 21 failures, not a dark theme. One more instance of the same lesson.
+
+**Of those 21, sixteen were the tool.** Four more classes, on top of the four below:
+
+5. **`background-clip: text`.** The landing page's "Start free" has `color: rgba(0,0,0,0)` and is painted
+   by a `linear-gradient`. The glyphs ARE the gradient. Measuring `color` gives exactly 1:1 on text
+   anyone can read. Measure the gradient's stops, and take the WORST — text spans the whole sweep.
+6. **A gradient BACKGROUND is an opaque layer.** The "Most Popular" badge is white on
+   `linear-gradient(to right, rgb(96,165,250)…)`; its background-COLOR is transparent, so the ground walk
+   went past it to the white page and reported 1.04:1 on a legible badge. (Once fixed it showed the REAL
+   failure underneath: white on blue-400 is 2.54:1.)
+7. **`aria-hidden` text is decorative and exempt.** WCAG 1.4.3 covers text that conveys information. The
+   landing's "01" step watermark duplicates a full-contrast title right below it; reaching 3:1 would need
+   roughly triple the alpha and it stops being a watermark. **The fix is to DECLARE the intent, not to
+   repaint it** — and `aria-hidden` also stops "01" being read aloud before every step.
+8. **A theme-ternary skip that hid REAL failures.** Covered under `darkBranchLines` above: it skipped BOTH
+   branches, and *answering is not passing*.
+
+**And a class no line-based extractor can ever reach: a colour bound to a NAME.** `const GREEN =
+"#00E5A0"`, `const color = val >= 2 ? "#4da6ff" : …`, `<VaultCell color="#4da6ff" />`. None is on a
+`color:` line. They rendered at 1.47:1, 1.95:1 and 2.56:1 in files the source audit called clean.
+**Tokenise at the binding.**
+
+### ⭐ THE RULE THE METRICS PANEL COST 62 FAILURES TO LEARN
+
+**An ink is measured against the ground it LANDS on, never against the page.** Every metrics chip ink was
+chosen against the page background and passes there. A chip's ink sits on the chip's own tinted wash — and
+those washes LAYER (chip over `--mp-bg4` over `--mp-bg2`), so **even computing the ground from the source
+was wrong**: 4.25:1 for red where the browser gave 3.90:1.
+
+The panel's own comment said *"nothing overrides `--mp-*`, so this is safe in light mode as well"*. It was
+never true; `lightVars` overrides all of them forty lines below. **A comment asserting safety is worth less
+than nothing when it is the reason nobody measured.**
+
+---
+
 ### FOUR FALSE-POSITIVE CLASSES THE TOOL HAD TO LEARN — every one cost a wrong number first
 
 This section is the useful half. The measurement was wrong four times before it was right, and all four

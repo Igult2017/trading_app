@@ -67,7 +67,11 @@ export default function PricingSection({ darkMode }: { darkMode: boolean }) {
                 <div className={cn(
                   'absolute top-0 z-10 px-3 py-1 rounded text-xs font-bold text-white whitespace-nowrap',
                   plan.popular
-                    ? 'left-1/2 -translate-x-1/2 bg-gradient-to-r from-blue-400 to-blue-500'
+                    // WHITE ON blue-400 IS 2.54:1 — measured in Chromium. This is the badge on the
+                    // plan the page is steering people to, so it was the least readable label on the
+                    // pricing section. blue-600 -> blue-700 puts white at 5.17:1 at the light end and
+                    // matches the non-popular badge beside it, which was already correct.
+                    ? 'left-1/2 -translate-x-1/2 bg-gradient-to-r from-blue-600 to-blue-700'
                     : 'right-4 bg-gradient-to-r from-blue-600 to-blue-700'
                 )}>
                   {plan.badge}

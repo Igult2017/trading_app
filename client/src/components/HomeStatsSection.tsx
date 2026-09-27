@@ -34,13 +34,16 @@ export default function HomeStatsSection({ darkMode }: { darkMode: boolean }) {
   const bg         = dm ? '#0b1220' : '#eef2ff';
   const ctaBg      = dm ? '#020817' : '#f0f5ff';
   const text       = dm ? '#f1f5f9' : '#0f172a';
-  const muted      = dm ? '#94a3b8' : '#64748b';
+  // #64748b measures 4.26:1 on this section's own tinted panels (#EEF2FF / #F0F5FF) — it clears AA on
+  // white and fails on the ground it actually lands on, which is the same mistake the metrics panel made
+  // with its chips. Measured in Chromium 2026-09-26; #5C6B80 is 4.85:1 there.
+  const muted      = dm ? '#94a3b8' : '#5C6B80';
   const border     = dm ? '#1e293b' : '#e0e7ff';
   const cardBg     = dm ? '#131e35' : '#ffffff';
   const cardBorder = dm ? '#1e3050' : '#e0e7ff';
   const pill       = dm ? '#1e293b' : '#ffffff';
   const pillBorder = dm ? '#334155' : '#d1daf5';
-  const pillText   = dm ? '#94a3b8' : '#64748b';
+  const pillText   = dm ? '#94a3b8' : '#5C6B80';
 
   return (
     <>

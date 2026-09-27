@@ -194,6 +194,22 @@ Snapping would either erase the partials he banked or claim a target only part o
 auto-journal did not write. Every retire is written to `sync_events` BEFORE the row goes, so *"where did
 that entry go?"* survives the next deploy.
 
+### "the theme switch doesn't change X" / "FX Copier is still dark"
+
+**ONE SWITCH, and `client/src/lib/appTheme.ts` is it.** Before 2026-09-26 there were FOUR answers to
+"what theme is this app in", none of which knew about the others — the journal's
+`journal_settings_v2`, the admin's own picker, FX Copier's `useState("dark")` (never persisted), and
+`localStorage.theme` written by a `ThemeToggle` **nothing rendered**. So no switch could drive the app,
+because there was nothing for one to drive.
+
+`appTheme` owns ONE fact — light or dark — painted onto `<html>` as `data-theme` AND `.dark`. Every
+surface reads and publishes it, so it works from either end: the journal's palette picker, FX Copier's
+own button, the admin's picker. **Palettes stay per-surface** (six in the journal, five in the admin,
+Material 3 in FX Copier) because those are brand choices; only the light/dark decision is shared.
+
+**Adding a surface?** Read `useThemeMode()`, publish with `setThemeMode()`, and give it a light palette —
+FX Copier's landing had the plumbing and no light values, which is why it stayed dark anyway.
+
 ### "the white theme's text is hard to read" / "blurred text on the light theme"
 
 **READ [docs/READABILITY.md](./READABILITY.md) FIRST — its 2026-09-26 section is this exact question**,
@@ -323,6 +339,9 @@ is wrong.** Full wording lives in the linked doc; this is the index so you know 
 | **"Never arrived" and "went quiet" are different states, and a check that conflates them cries wolf** | `age()` returns None for both; `is_stale` returned True for both, so the price stream was called dead **one millisecond after it opened** (**D27**). Anything judging silence must know WHEN it started listening — record the connect time, not just a connected flag |
 | **A contract size, a volume limit and a price precision are READ FROM THE BROKER, never assumed** | the symbol list both platforms fetch is `ProtoOALightSymbol`, which carries **none of them** — only id, name, enabled, asset ids, category, description (verified on the live account, 02 Sep). `execution/connection.load_symbol_spec` asks for the full `ProtoOASymbol`. Assuming a currency lot's 100,000 units sent a gold order **1,000× too large** and the broker refused it (**B17**), and a gold price at three decimals on a two-decimal symbol was refused the day before |
 | **Every journal page is built from ONE list, and anything that writes to it must clear the cache** | `resolveComputeScope` (routes.ts) reads `journal_entries` once and the calendar, drawdown, metrics, timeframe-matrix and strategy-audit engines all consume it — so a new entry reaches every page automatically, but only if `invalidateComputeCaches` (**`lib/cache.ts`, not routes.ts**) is called. It was local to routes.ts, so only typed trades cleared it and synced ones stayed invisible for 5 minutes (**D23**) |
+| **There is ONE owner of light-vs-dark, and every surface reads it** | four private answers meant no switch could drive the app (**D51**). `lib/appTheme` owns the MODE; palettes stay per-surface. A new surface reads `useThemeMode()`, publishes with `setThemeMode()`, and must have a light palette to switch INTO — plumbing alone left FX Copier's landing dark |
+| **An ink is measured against the ground it LANDS on, never against the page** | every metrics chip ink passed on white and failed on its own chip: the washes LAYER (chip over `--mp-bg4` over `--mp-bg2`), so computing the ground from source gave 4.25:1 where the browser gave 3.90:1. 62 failures from one wrong reference point (**D52**) |
+| **A helper that responds OWNS the response; the caller only returns** | `requireAuth(req, res)` sends its own 401 and says so in its doc. 25 of 65 handlers responded again, and the second write threw inside the try, so the catch's own send threw with nothing above it and **the process exited** — one unauthenticated GET was enough (**D53**). `doubleSendGuard` makes any repeat non-fatal and loud; `authContract.test.ts` pins both halves |
 | **A theme is a TOKEN SET, never a sheet of overrides keyed on the colour being overridden** | React applies inline styles through the CSSOM and the CSSOM serialises colour to `rgb()`, so `.journal-light [style*="color:#60a5fa"]` can never match — 283 such rules looked like a light theme and half of them did nothing (**D50**). A **class**-scoped light rule (`.journal-light .np-pl-up`) DOES work; know which shape you are looking at. The replacement is `var(--jr-role, <the old literal>)` with the token defined on `.journal-light` ONLY, so the dark themes fall through to the literal and are unchanged **by construction** rather than by inspection — which is also how many dark shades share one light value |
 | **A pip comes from the instrument's precision, never from how big its price is** | `price > 100 ? 100 : 10000` is right for the four currency pairs by luck and 10× wrong for gold. The table lives in **two places that must change together** — `signal_platform/shared/pip.py` and `server/lib/pipMath.ts` — because Node cannot import Python. Gold is **2 decimals**, which the broker established by refusing a 3-decimal price |
 | **One broker POSITION is one journal trade — a partial exit is a slice, not a trade** | a position scaled out of has one opening deal and several closing ones, each with its own `dealId`, and `dealId` is the `externalId` de-duplication keys on. So one trade taken off in three pieces became three rows and three journal entries (**D49**). Nothing is emitted until the volume closed equals the volume opened, and the id is minted from the FINAL closing deal — which for a single-deal close is exactly what the old code produced, so already-correct rows are untouched. A single event can never aggregate a position, so the live feed defers a scaled-out one to the sweep: freshness is the thing this codebase trades away, never correctness |
@@ -332,6 +351,38 @@ is wrong.** Full wording lives in the linked doc; this is the index so you know 
 ---
 
 ## PROGRESS — what actually happened, newest first
+
+**2026-09-27 — sweep everything: one theme switch, every surface measured, and a crash anyone could cause.**
+
+His instruction: *"I didn't see FX Copier in your list. It uses an isolated colour and it does not use the
+app's white theme switch… When I said white colour theme fix I meant everything including the admin page
+and home pages… Sweep everything. First explore, then plan based on identified root causes not patching."*
+
+**Three root causes, none of them the thing that was reported.**
+
+**There was no single answer to "what theme is this app in"** — four private ones, and the public pages'
+was written by a component nothing renders. `lib/appTheme` is the one owner now; the journal, the admin,
+FX Copier and the public toggle all read and publish it, so the switch works from either end. FX Copier's
+landing had no light palette at all, so no plumbing could have reached it; it has one now, declared as a
+sibling block so the dark values are untouched.
+
+**Inks were measured against the page rather than against the ground they land on.** That is the whole of
+the metrics panel's 62 failures: every chip ink passes on white and fails on its own tinted wash, and the
+washes layer, so even computing the ground from source was wrong — 4.25:1 where the browser said 3.90:1.
+
+**`requireAuth` responds, and 25 of 65 handlers responded again**, which killed the process. Its own doc
+said so. Fixed at every call site, and made non-fatal at the source.
+
+**Measured, not asserted: 1,331 text elements across 18 surfaces, all at zero.** The journal's 11 panels
+(81 → 0), six public routes (21 → 0) and the admin panel. The dark theme went 78 → 71, an improvement
+rather than a hold, because the calendar's weekday strip was broken in both. `scripts/render-contrast.mjs`
+does routes as well as panels now, so this is repeatable rather than a one-off.
+
+**And four more tool bugs, all found by the render.** `background-clip:text` made a gradient-painted call
+to action read as 1:1; a gradient BACKGROUND was invisible to the ground walk, so a white badge on blue
+read as white-on-white; `aria-hidden` decorative text was being counted; and a theme-ternary skip was
+hiding real failures rather than false ones. Every one is written up in READABILITY.md, because the tool
+being wrong in the quiet direction is the failure mode that matters.
 
 **2026-09-26 — the white theme's text, and the reason years of darkening greys never fixed it.**
 

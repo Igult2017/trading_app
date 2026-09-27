@@ -123,8 +123,16 @@ check('  teeth: and no hand-rolled BE list left either',
 check('the dashboard log classifies the row', /status: classifyOutcome\(e\),/.test(journal), true);
 check('...and takes the +/- sign from the MONEY, not the label',
       /\{t\.pnl >= 0 \? '\+' : '-'\}\$\{Math\.abs\(t\.pnl\)\.toFixed\(2\)\}/.test(journal), true);
-check('...and gives a break-even its own colour rather than red',
-      /t\.status === 'be' \? '#fbbf24'/.test(journal), true);
+// PINNED ON THE BEHAVIOUR, NOT THE SPELLING. This used to require the literal `'#fbbf24'` immediately
+// after the test, and the white-theme work (2026-09-26) wrapped it as `var(--jr-warn, #fbbf24)` — which
+// renders the SAME amber in every dark theme and a legible dark amber in the light one. A test that
+// fails on a change it was never about trains the next reader to ignore it. What matters is that a
+// break-even gets its own colour and specifically not the loss colour.
+{
+  const beBranch = /t\.status === 'be' \? ([^:]+):/.exec(journal)?.[1] ?? '';
+  check('...and gives a break-even its own colour', /#fbbf24|--jr-warn/.test(beBranch), true);
+  check('...which is not the loss colour', /#f43f5e|--jr-down/.test(beBranch), false);
+}
 
 // B3. Profit/Loss ratio counted break-evens as losses.
 check('the profit ratio divides by DECISIVE trades',

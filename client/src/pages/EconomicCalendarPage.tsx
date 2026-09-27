@@ -272,7 +272,7 @@ export default function EconomicCalendarPage({ active = true }: { active?: boole
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
 
               {/* Live dot + timestamps */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontFamily: SANS, fontSize: 11.5, fontWeight: 500, letterSpacing: '0.12em', color: '#22c55e' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontFamily: SANS, fontSize: 11.5, fontWeight: 500, letterSpacing: '0.12em', color: '#16823E' }}>
                 <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#22c55e', display: 'inline-block', animation: 'ec-live 2s infinite' }} />
                 LIVE
                 <LiveClock lastUpdate={lastUpdate} textMut={textMut} />

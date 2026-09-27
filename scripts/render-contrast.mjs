@@ -101,7 +101,8 @@ for (const [pattern, body] of Object.entries(EMPTY)) {
   await page.route(pattern, (r) => r.fulfill({ status: 200, contentType: 'application/json', body }));
 }
 
-const MEASURE = ({ aa, aaLarge }) => {
+const MEASURE = ({ aa, aaLarge, sel }) => {
+  const ROOT = sel ?? '.journal-root';
   const parse = (css) => {
     const m = String(css).match(/rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)(?:,\s*([\d.]+))?\)/);
     if (!m) return null;
@@ -121,15 +122,31 @@ const MEASURE = ({ aa, aaLarge }) => {
   const blend = (top, under) =>
     [0, 1, 2].map((i) => top[3] * top[i] + (1 - top[3]) * under[i]);
 
+  /** Every rgb()/rgba() stop in a gradient string, in order. */
+  const gradientStops = (bgImage) => {
+    if (!bgImage || !/gradient/.test(bgImage)) return [];
+    return [...bgImage.matchAll(/rgba?\([^)]*\)/g)].map((m) => parse(m[0])).filter(Boolean);
+  };
+
   /**
    * THE COLOUR ACTUALLY PAINTED BEHIND an element: every translucent layer from the element upward,
    * composited down onto the first opaque one. Taking the first non-transparent layer and ignoring its
    * alpha is the bug that produced 16 false 1:1 failures on the blog.
+   *
+   * A GRADIENT IS AN OPAQUE LAYER TOO, and reading only `background-color` walks straight past it. The
+   * landing page's "Most Popular" badge is white text on its own `linear-gradient(to right, rgb(96,165,250)…)`
+   * — its background-COLOR is transparent, so the walk found the white page behind and reported 1.04:1 on
+   * a badge that is perfectly legible. The gradient's stops are used instead, and the WORST of them is
+   * taken: text spans the whole sweep, so the ground is whichever stop reads least well.
    */
   const groundOf = (el) => {
     const stack = [];
     for (let n = el; n; n = n.parentElement) {
-      const c = parse(getComputedStyle(n).backgroundColor);
+      const cs = getComputedStyle(n);
+      const stops = cs.backgroundClip !== 'text' && cs.webkitBackgroundClip !== 'text'
+        ? gradientStops(cs.backgroundImage) : [];
+      if (stops.length) { stack.push(...stops.map((c) => [c[0], c[1], c[2], 1])); break; }
+      const c = parse(cs.backgroundColor);
       if (!c || c[3] === 0) continue;
       stack.push(c);
       if (c[3] === 1) break;
@@ -142,7 +159,7 @@ const MEASURE = ({ aa, aaLarge }) => {
 
   const out = [];
   const seen = new Set();
-  for (const el of document.querySelectorAll('.journal-root *')) {
+  for (const el of document.querySelectorAll(`${ROOT} *`)) {
     // Only elements that paint their OWN text. An inherited colour counted on every descendant
     // reports one label forty times.
     const ownText = [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim().length > 1);
@@ -151,10 +168,34 @@ const MEASURE = ({ aa, aaLarge }) => {
     if (r.width < 2 || r.height < 2) continue;
     const cs = getComputedStyle(el);
     if (cs.visibility === 'hidden' || cs.display === 'none' || +cs.opacity === 0) continue;
+    // DECORATIVE TEXT IS EXEMPT, and `aria-hidden` is how a page declares it. WCAG 1.4.3 applies to text
+    // that conveys information; the landing page's "01" step watermark duplicates a full-contrast title
+    // sitting right below it. Honouring the attribute also means the fix for such a case is to DECLARE
+    // the intent rather than to repaint something that was never meant to be read.
+    if (el.closest('[aria-hidden="true"]')) continue;
 
-    const fgRaw = parse(cs.color);
+    let fgRaw = parse(cs.color);
     if (!fgRaw) continue;
     const ground = groundOf(el);
+
+    // TEXT PAINTED BY A GRADIENT. `background-clip: text` with `color: transparent` is how the landing
+    // page draws its "Start free" call to action: the glyphs ARE the gradient, and `color` is
+    // deliberately `rgba(0,0,0,0)`. Measuring that reports exactly 1:1 on text a reader can see
+    // perfectly — docs/READABILITY.md's own rule, *"if it ever reports exactly 1:1, suspect the tool
+    // before the page."* The gradient's stops are the ink; the worst of them is the one that counts.
+    const clipped = cs.backgroundClip === 'text' || cs.webkitBackgroundClip === 'text';
+    if (clipped && fgRaw[3] === 0) {
+      const stops = gradientStops(cs.backgroundImage);
+      if (!stops.length) continue;                 // transparent text with nothing painting it
+      let worst = null, worstR = Infinity;
+      for (const stop of stops) {
+        const r = ratio(stop.slice(0, 3), ground);
+        if (r < worstR) { worstR = r; worst = stop; }
+      }
+      fgRaw = worst;
+    }
+    if (fgRaw[3] === 0) continue;                  // genuinely invisible-by-design, not ink
+
     const fg = fgRaw[3] === 1 ? fgRaw.slice(0, 3) : blend(fgRaw, ground);
     const size = parseFloat(cs.fontSize);
     const weight = +cs.fontWeight || 400;
@@ -183,6 +224,48 @@ const errors = [];
 page.on('pageerror', (e) => errors.push(String(e.message).slice(0, 120)));
 
 console.log(`\nRENDERED CONTRAST — theme "${THEME}" at ${BASE}\n`);
+
+/**
+ * THE PUBLIC PAGES ARE ROUTES, NOT PANELS, so they are measured by navigating rather than by clicking a
+ * sidebar. `--routes` switches this script to that mode. His instruction, 2026-09-26: *"When I said white
+ * colour theme fix I meant everything including the admin page and home pages such as landing page,
+ * economic calendar, blog and everything. Sweep everything."*
+ */
+const ROUTES = arg('routes', '').split(',').filter(Boolean);
+if (ROUTES.length) {
+  let rGrand = 0, rFail = 0;
+  const rWorst = [];
+  for (const route of ROUTES) {
+    await page.goto(`${BASE}${route}`, { waitUntil: 'domcontentloaded' }).catch(() => {});
+    await page.waitForTimeout(3_000);
+    // MEASURE is passed in per navigation — a page function does not survive one.
+    const rows = await page.evaluate(MEASURE, { aa: AA, aaLarge: AA_LARGE, sel: 'body' }).catch(() => []);
+    const fails = rows.filter((r) => !r.pass);
+    rGrand += rows.length; rFail += fails.length;
+    rWorst.push(...fails.map((f) => ({ ...f, panel: route })));
+    const flag = rows.length === 0 ? '  NO CONTENT — not measured'
+               : fails.length ? `${String(fails.length).padStart(3)} FAIL` : '      ok';
+    console.log(`  ${route.padEnd(16)} ${String(rows.length).padStart(4)} text elements   ${flag}`);
+    if (SHOTS) await page.screenshot({ path: `${SHOTS}/${THEME}-route${route.replace(/\//g, '_') || '_home'}.png` });
+  }
+  if (rWorst.length) {
+    console.log('\n  the failures, worst first:\n');
+    console.log('   ratio  size/wt  colour                  on ground              text');
+    const seen = new Set();
+    for (const f of rWorst.sort((a, b) => a.ratio - b.ratio)) {
+      const k = f.color + f.ground + f.panel;
+      if (seen.has(k)) continue;
+      seen.add(k);
+      if (seen.size > 30) break;
+      console.log(`  ${String(f.ratio).padStart(5)}:1  ${String(f.size).padStart(4)}/${String(f.weight).padEnd(3)} ` +
+                  `${f.color.padEnd(23)} ${f.ground.padEnd(21)} ${f.panel}: ${f.text}`);
+    }
+  }
+  console.log(`\n  ${rGrand} text elements across ${ROUTES.length} route(s) · ${rFail} below their floor`);
+  await browser.close();
+  process.exit(rFail ? 1 : 0);
+}
+
 await page.goto(`${BASE}/journal`, { waitUntil: 'domcontentloaded' });
 try {
   await page.waitForSelector('.journal-root', { timeout: 45_000 });
@@ -218,7 +301,7 @@ for (const panel of PANELS) {
   }, { timeout: 12_000 }).catch(() => {});
   await page.waitForTimeout(1_200);
 
-  const rows = await page.evaluate(MEASURE, { aa: AA, aaLarge: AA_LARGE });
+  const rows = await page.evaluate(MEASURE, { aa: AA, aaLarge: AA_LARGE, sel: '.journal-root' });
   const fails = rows.filter((r) => !r.pass);
   grand += rows.length;
   grandFail += fails.length;

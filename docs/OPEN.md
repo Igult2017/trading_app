@@ -1322,6 +1322,87 @@ real fill, and it has never run. **Nothing here says the strategy is worth armin
 
 ## C. The web app
 
+### C-D51 - ~~Four theme systems, so no switch could drive the app~~ FIXED 27 Sep
+
+**His report, 2026-09-26:** *"FX Copier uses an isolated colour and it also does not use the app's white
+theme switch. I want you to consolidate it too so that I switch themes from one switch."*
+
+**The cause was bigger than the surface he named.** There was no single answer to "what theme is this app
+in" — there were four, and none could see the others:
+
+| owner | state | default | reach |
+|---|---|---|---|
+| journal | `journal_settings_v2.theme`, 6 palettes | navy | `.journal-root` |
+| admin | `admin_theme_v2`, 5 palettes | light | `--admin-*` |
+| FX Copier | `useState<"light"\|"dark">("dark")` — **never persisted** | dark | `.ct-app` |
+| public | `localStorage.theme` + `html.dark`, written by `ThemeToggle.tsx` — **which nothing renders** | dark | nothing |
+
+**`client/src/lib/appTheme.ts` owns ONE fact**, light or dark, painted on `<html>` as `data-theme` and
+`.dark`. Every surface reads and publishes it, so it works from either end. **Palettes stay per-surface** —
+those are brand choices and flattening them was never asked for.
+
+**Plumbing alone would not have been enough.** FX Copier's `.ts-page` landing had no light palette at all;
+`.ct-app` already had both (Material 3 light + `.theme-dark`). The landing has one now, added as a sibling
+block so a diff cannot alter the dark rendering.
+
+**Two bugs the browser found in the fix:** `setThemeMode` early-returned when the value matched, but
+`read()` DERIVES a mode from the journal's palette when nothing is stored — so the first explicit choice
+that agreed with the derivation was never written down. And backticks in a CSS comment inside a JS
+template literal closed the literal.
+
+### C-D52 - ~~The white theme across every surface~~ FIXED 27 Sep
+
+**His instruction:** *"When I said white colour theme fix I meant everything including the admin page and
+home pages such as landing page, economic calendar, blog and everything. Sweep everything."*
+
+**Measured, not asserted — 1,331 text elements across 18 surfaces, rendered in Chromium:**
+
+| surface | before | after |
+|---|---|---|
+| journal, 11 panels (640 elements) | 81 | **0** |
+| public routes: `/`, `/calendar`, `/blog`, `/about`, `/support`, `/legal` (641) | 21 | **0** |
+| `/admin` (50) | 0 | **0** |
+| dark theme, journal (641) | 78 | **71** — improved, see below |
+
+**Three causes, each fixed at its source rather than value by value:**
+
+1. **62 in metrics: an ink measured against the page, not against the ground it lands on.** Every chip ink
+   passes on white (`#DC2626` is 4.83:1) and fails on its own tinted wash — and the washes LAYER, so even
+   computing the ground from source was wrong (4.25:1 where the browser said 3.90:1). That panel's own
+   comment claimed *"nothing overrides `--mp-*`, so this is safe in light mode as well"*, which was never
+   true — `lightVars` overrides all of them forty lines below. **A comment asserting safety is worth less
+   than nothing when it is the reason nobody measured.**
+2. **12 in calendar: a row that bypassed the panel's own tokens.** The weekday strip hardcoded
+   `background:"#080B11"` and measured 1.77:1 on its OWN dark ground — broken in both themes, which is why
+   the dark theme improved rather than merely holding.
+3. **7 in vault/assets/fsdai: colours bound to a NAME.** `const GREEN = "#00E5A0"`, `<VaultCell color="…">`.
+   None is on a `color:` line, so no extractor keyed on declarations can ever see them.
+
+**On the public pages, most of what was reported was the TOOL being wrong** — `background-clip:text` (a
+gradient-painted CTA reading as 1:1), a gradient BACKGROUND invisible to the ground walk, and `aria-hidden`
+decorative text being counted. Only 5 were real. All four tool bugs are written up in READABILITY.md.
+
+**STILL OPEN — 71 dark-theme failures** in dashboard, accounts, calendar, fsdai and assets. Pre-existing,
+measurable with `node scripts/render-contrast.mjs --theme navy`, and a separate pass: the ask was the white
+theme, and repainting the dark themes he is happy with was not it.
+
+### C-D53 - ~~An unauthenticated request could kill the server~~ FIXED 27 Sep
+
+**`requireAuth(req, res)` SENDS its own 401 and returns null.** Its doc, directly above it, says so and
+tells callers what to write: *"so that callers can simply `if (!auth) return;`"*.
+
+**Twenty-five of sixty-five handlers responded again.** The second write threw inside the handler's `try`;
+the `catch` then ran `res.status(500).json(...)`, which threw with nothing above it, so the rejection was
+unhandled and **the Node process exited**. One unauthenticated GET to `/api/notifications/unread` was
+enough — it crashed the dev server twice while measuring contrast.
+
+All 25 now follow the contract. `doubleSendGuard` (`server/lib/appSetup.ts`) applies the same `headersSent`
+reasoning `installErrorHandler` already recorded, at the place where it was actually fatal: a second
+response is logged loudly and ignored rather than thrown. `server/lib/authContract.test.ts` pins the
+contract at every call site AND exercises the guard against a response already sent.
+
+**Verified live:** five unauthenticated hits on that route, five clean 401s, process still up.
+
 ### C-D50 - ~~The white theme's text was unreadable, and the override sheet never matched anything~~ FIXED 26 Sep
 
 **His report, 2026-09-26:** the trading app has a text-visibility problem on the white theme, and the

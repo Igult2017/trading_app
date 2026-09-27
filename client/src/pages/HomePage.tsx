@@ -51,7 +51,7 @@ export default function HomePage() {
   const bg     = dm ? '#020817' : '#ffffff';
   const bg2    = dm ? 'rgba(15,23,42,0.6)' : '#f8fafc';
   const text   = dm ? '#f1f5f9' : '#0f172a';
-  const muted  = dm ? '#94a3b8' : '#64748b';
+  const muted  = dm ? '#94a3b8' : '#5C6B80';
   const card   = dm ? '#0f172a' : '#ffffff';
   const border = dm ? '#1e293b' : '#e2e8f0';
 
@@ -146,7 +146,15 @@ export default function HomePage() {
             {steps.map((s, i) => (
               <div key={i}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18 }}>
-                  <span style={{ ...display, fontSize: '2.55rem', lineHeight: 1, color: 'rgba(37,99,235,0.18)', fontWeight: 400 }}>{s.n}</span>
+                  {/* DECORATIVE, and marked so rather than repainted. At 1.29:1 a contrast tool is
+                      right to flag it — but each step already carries its own full-contrast <h3> title
+                      and <p> description below, so this numeral conveys nothing they do not, and the
+                      grid already gives the ordering. Darkening it enough to pass (3:1 for large text)
+                      would need roughly triple the alpha and it stops being a watermark. WCAG 1.4.3
+                      exempts decorative text; `aria-hidden` is how that is DECLARED rather than argued,
+                      and it takes the numeral out of the screen-reader flow too, where "01" read aloud
+                      before every step title is noise. */}
+                  <span aria-hidden="true" style={{ ...display, fontSize: '2.55rem', lineHeight: 1, color: 'rgba(37,99,235,0.18)', fontWeight: 400 }}>{s.n}</span>
                   <div style={{ width: 38, height: 38, borderRadius: 10, border: `1.5px solid ${border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2563eb', flexShrink: 0 }}>
                     {s.icon}
                   </div>
@@ -169,7 +177,7 @@ export default function HomePage() {
             {[...BROKERS, ...BROKERS].map((name, i) => (
               <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '6px 16px', borderRadius: 999, border: `1px solid ${border}`, background: card, fontSize: 12.5, fontWeight: 600, color: muted, whiteSpace: 'nowrap', flexShrink: 0, ...sans, transition: 'color 0.2s, border-color 0.2s' }}
                 onMouseEnter={e => { const t = e.currentTarget; t.style.color = '#2563eb'; t.style.borderColor = '#93c5fd'; }}
-                onMouseLeave={e => { const t = e.currentTarget; t.style.color = dm ? '#94a3b8' : '#64748b'; t.style.borderColor = dm ? '#1e293b' : '#e2e8f0'; }}>
+                onMouseLeave={e => { const t = e.currentTarget; t.style.color = dm ? '#94a3b8' : '#5C6B80'; t.style.borderColor = dm ? '#1e293b' : '#e2e8f0'; }}>
                 <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#94a3b8', flexShrink: 0 }} />
                 {name}
               </span>
