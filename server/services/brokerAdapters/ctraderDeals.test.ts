@@ -297,6 +297,27 @@ check('...and the 50-pip win is a WIN either way',
 teeth('a truthy String(1) really did defeat the integer fallback',
       String(1).toUpperCase() === '1');
 
+
+// THE MERGE MUST NOT RE-ADMIT THE PIECES THE PAIRING JUST FOLDED TOGETHER
+//
+// THE GAP I MISSED, caught by the live log on 2026-09-27: the sweep reported '4 closed trade(s)'
+// for an account with TWO positions. mapClosedDeal runs on every deal on its own, so the two
+// pieces that pairDealsIntoTrades no longer keys had no match in the merge and were ADDED as
+// separate trades - rebuilding the very rows the fix exists to prevent.
+const detail = (d: any, entry: number) => ({ ...d, closePositionDetail: {
+  entryPrice: entry, profit: 0, swap: 0, commission: 0, moneyDigits: 2, balance: 0 } });
+const bankedDeals = [detail(TP_OPEN, 1.1000),
+                     detail(tp(901, 10000000, 1.1020, 2000), 1.1000),
+                     detail(tp(902, 10000000, 1.1040, 3000), 1.1000),
+                     detail(tp(903, 10000000, 1.1060, 4000), 1.1000)];
+console.log();
+console.log('THE MERGED RESULT IS STILL ONE TRADE');
+const merged = mergeDealMappings(bankedDeals, SYMBOLS);
+check('three pieces + the pairing = ONE trade, not four', merged.length, 1);
+check('...and it is the position, not a piece', merged[0].positionId, '77');
+teeth('without the position check the pieces come back as their own trades',
+      bankedDeals.filter((d) => d.closePositionDetail).length > 1);
+
 if (failed) { console.log(`${failed} of ${count} FAILED`); process.exit(1); }
 
 // ── THE MERGE MUST NOT ERASE WHAT THE OTHER PATH KNEW ──────────────────────

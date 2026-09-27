@@ -601,11 +601,31 @@ export function mergeDealMappings(allDeals: any[], symbolMap: Record<number, str
   // execution prices, which is why the detailed values still win — but only WHERE THEY EXIST. A
   // field the detailed path leaves undefined must fall back to the paired value rather than erase
   // it. "Better where present" is not the same as "better", and one `set()` conflated them.
+  // ⚠ A PARTIAL CLOSE MUST NOT SNEAK BACK IN HERE. `mapClosedDeal` runs on EVERY deal on its own,
+  // so a position banked in three pieces yields three trades from this loop. Once
+  // `pairDealsIntoTrades` started folding those pieces into ONE trade (2026-09-27), the two pieces
+  // it no longer keys lost their `paired` match and fell into the `!paired` branch below — which
+  // ADDS them as separate trades. The sweep then reported "4 closed trade(s)" for an account with
+  // two positions, and would have rebuilt the very rows the fix exists to prevent.
+  //
+  // I MISSED THIS WHEN I FIXED THE OTHER TWO PATHS, and the live log is what caught it: the count
+  // did not match the number of positions. The `!paired` branch is still needed — a position whose
+  // OPENING deal falls outside the fetch window cannot be paired, and its close should still be
+  // recorded — so the test is not "was it paired" but "does its POSITION already have a trade".
+  const pairedPositions = new Set<string>();
+  for (const t of byId.values()) if (t.positionId) pairedPositions.add(String(t.positionId));
+
   for (const d of allDeals) {
     const t = mapClosedDeal(d, symbolMap);
     if (!t) continue;
     const paired = byId.get(t.externalId);
-    if (!paired) { byId.set(t.externalId, t); continue; }
+    if (!paired) {
+      const pos = d?.positionId != null ? String(d.positionId) : (t.positionId ? String(t.positionId) : null);
+      if (pos && pairedPositions.has(pos)) continue;   // another piece of an already-recorded trade
+      byId.set(t.externalId, t);
+      if (pos) pairedPositions.add(pos);
+      continue;
+    }
     const merged = { ...paired };
     for (const [k, v] of Object.entries(t)) {
       if (v !== undefined && v !== null) (merged as any)[k] = v;
