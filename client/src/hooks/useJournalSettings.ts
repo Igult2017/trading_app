@@ -87,7 +87,12 @@ export const THEMES: Record<ThemeId, ThemeDef> = {
     sidebarBg: '#07101C',
     surface: '#111E2D',
     text: '#D0DAEC',
-    textMuted: '#768BA9',   // was #5A7090 — 3.68:1 on bg, below AA; now 5.35:1
+    // MEASURED ON THE LIGHTEST SURFACE IT MEETS, not on `bg`. #5A7090 was 3.68:1; #768BA9 fixed that
+    // against `bg` (5.35:1) and was still 4.34:1 on the leaderboard's #17273B panel, which is lighter
+    // than `surface` — so slate was the ONE theme of six still failing after everything else reached
+    // zero. Same root cause as the metrics chips: an ink is measured against the ground it LANDS on.
+    // #7B90AC is 4.62:1 there and 5.70:1 on bg.
+    textMuted: '#7B90AC',
     border: '#1A2840',
     accent: '#7dd3fc',
     swatches: ['#0B1320', '#111E2D', '#7dd3fc'],

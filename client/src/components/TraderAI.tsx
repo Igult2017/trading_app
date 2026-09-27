@@ -450,10 +450,12 @@ export default function TraderAI({ sessionId, darkMode = true }: { sessionId?: s
   const panelBg   = dm ? "rgba(7,13,21,0.97)"    : "#ffffff";
   const borderC   = dm ? "rgba(255,255,255,0.06)" : "#e2e8f0";
   const textPrim  = dm ? "rgba(255,255,255,0.90)" : "#0f172a";
-  const textMut   = dm ? "rgba(255,255,255,0.22)" : "#64748b";
+  const textMut   = dm ? "rgba(255,255,255,0.46)" : "#64748b";
   // #94a3b8 measures 2.56:1 on white. #5a6c87 is the replacement AssetPage.tsx:369 already recorded
   // for exactly this colour ("#94a3b8 2.32 FAIL #5a6c87 4.84") — the surface next door, not a new value.
-  const textDim   = dm ? "rgba(255,255,255,0.15)" : "#5a6c87";
+  // 0.15 / 0.22 / 0.25 alpha composite to 1.49 / 1.93 / 2.18:1 on this panel's #070D15 — a "dim" tier
+  // taken past legibility. 0.46 is the first alpha that clears 4.5:1 there.
+  const textDim   = dm ? "rgba(255,255,255,0.46)" : "#5a6c87";
   const suggBg    = dm ? "rgba(255,255,255,0.03)" : "#f8fafc";
   const suggBd    = dm ? "rgba(255,255,255,0.08)" : "#e2e8f0";
   const suggText  = dm ? "rgba(255,255,255,0.55)" : "#475569";
@@ -590,7 +592,7 @@ export default function TraderAI({ sessionId, darkMode = true }: { sessionId?: s
 
         <div style={{ padding: "12px 10px 8px", display: "flex", alignItems: "center", gap: 6, paddingRight: 14 }}>
           <button onClick={newChat}
-            style={{ flex: 1, display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", background: "linear-gradient(135deg, #6366f1, #8b5cf6)", border: "none", borderRadius: 9, color: "white", fontFamily: F, fontSize: 12, fontWeight: 600, cursor: "pointer", boxShadow: "0 2px 14px rgba(99,102,241,0.25)", whiteSpace: "nowrap", overflow: "hidden" }}
+            style={{ flex: 1, display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", background: "linear-gradient(135deg, #4f46e5, #7c3aed)", border: "none", borderRadius: 9, color: "white", fontFamily: F, fontSize: 12, fontWeight: 600, cursor: "pointer", boxShadow: "0 2px 14px rgba(99,102,241,0.25)", whiteSpace: "nowrap", overflow: "hidden" }}
           >
             <Plus size={13} style={{ flexShrink: 0 }} />
             <span>New chat</span>
@@ -600,9 +602,9 @@ export default function TraderAI({ sessionId, darkMode = true }: { sessionId?: s
         {(
         <div className="traderai-scroll" style={{ flex: 1, overflowY: "auto", padding: "4px 8px 12px", paddingRight: 12 }}>
           {chatsLoading && chats.length === 0 ? (
-            <p style={{ fontFamily: F, fontSize: 11, color: "var(--jr-ink-faint, rgba(255,255,255,0.25))", padding: "12px 8px" }}>Loading…</p>
+            <p style={{ fontFamily: F, fontSize: 11, color: "var(--jr-ink-faint, rgba(255,255,255,0.46))", padding: "12px 8px" }}>Loading…</p>
           ) : chats.length === 0 ? (
-            <p style={{ fontFamily: F, fontSize: 11, color: "var(--jr-ink-faint, rgba(255,255,255,0.25))", padding: "12px 8px", lineHeight: 1.5 }}>
+            <p style={{ fontFamily: F, fontSize: 11, color: "var(--jr-ink-faint, rgba(255,255,255,0.46))", padding: "12px 8px", lineHeight: 1.5 }}>
               No saved chats yet. Start a new conversation — it'll be saved automatically.
             </p>
           ) : (
@@ -744,7 +746,7 @@ export default function TraderAI({ sessionId, darkMode = true }: { sessionId?: s
                 <div className="tai-ai-row" style={{ borderBottom: "none" }}>
                   <div style={{ display: "flex", gap: 5 }}>
                     {[0, 1, 2].map(d => (
-                      <div key={d} style={{ width: 6, height: 6, borderRadius: "50%", background: "rgba(255,255,255,0.22)", animation: `traderai-bounce 1.2s ${d * 0.18}s ease-in-out infinite` }} />
+                      <div key={d} style={{ width: 6, height: 6, borderRadius: "50%", background: "rgba(255,255,255,0.46)", animation: `traderai-bounce 1.2s ${d * 0.18}s ease-in-out infinite` }} />
                     ))}
                   </div>
                 </div>
@@ -781,7 +783,7 @@ export default function TraderAI({ sessionId, darkMode = true }: { sessionId?: s
               style={{ width: 32, height: 32, borderRadius: 8, border: "none", background: input.trim() && !loading ? "linear-gradient(135deg, #6366f1, #8b5cf6)" : "rgba(255,255,255,0.06)", display: "flex", alignItems: "center", justifyContent: "center", cursor: input.trim() && !loading ? "pointer" : "default", transition: "all 0.15s", flexShrink: 0, boxShadow: input.trim() && !loading ? "0 2px 14px rgba(99,102,241,0.35)" : "none" }}
             >
               {loading
-                ? <div style={{ width: 13, height: 13, border: "2px solid rgba(255,255,255,0.15)", borderTopColor: "white", borderRadius: "50%", animation: "traderai-spin 0.7s linear infinite" }} />
+                ? <div style={{ width: 13, height: 13, border: "2px solid rgba(255,255,255,0.46)", borderTopColor: "white", borderRadius: "50%", animation: "traderai-spin 0.7s linear infinite" }} />
                 : <Send size={13} color={input.trim() ? "white" : "rgba(255,255,255,0.18)"} />
               }
             </button>

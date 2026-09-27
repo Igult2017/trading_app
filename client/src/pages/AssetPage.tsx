@@ -29,8 +29,19 @@ interface TechItem    { label: string; value: string; color: string }
 
 // ─── Signal → display data transformer ────────────────────────────────────────
 
+/**
+ * THE NEUTRAL RETURN HAS TO FOLLOW THE THEME, and a module-scope helper cannot reach `C`.
+ *
+ * `#4a6580` is the PRE-AUGUST `muted` — the exact value this file's own comment records as
+ * "muted #4a6580 3.10:1 FAIL -> #95acc2". That fix went into the `C` palette so all 28 uses moved at
+ * once, and these two helpers sat outside it and kept the broken literal, which is how "No signal"
+ * still rendered at 3.17:1 on the dark theme. Swapping in the dark value alone is not the fix either —
+ * #95acc2 is 2:1 on the LIGHT theme — so it goes through `--ap-muted`, which AssetPage sets from `C`.
+ */
+const NEUTRAL = "var(--ap-muted, #95acc2)";
+
 function trendColor(dir?: string | null): string {
-  if (!dir) return "#4a6580";
+  if (!dir) return NEUTRAL;
   const d = dir.toLowerCase();
   if (d === "bullish") return "#22d3a5";
   if (d === "bearish") return "#f4617f";
@@ -38,7 +49,7 @@ function trendColor(dir?: string | null): string {
 }
 
 function valueColor(val?: string | null): string {
-  if (!val) return "#4a6580";
+  if (!val) return NEUTRAL;
   const v = val.toUpperCase();
   if (["BULLISH","CONFIRMED","HIGH","TAKEN","DISCOUNT","AVAILABLE"].some(k => v.includes(k))) return "#22d3a5";
   if (["BEARISH","REJECTED","LOW","PREMIUM"].some(k => v.includes(k))) return "#f4617f";
@@ -405,6 +416,10 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
     accent:   '#2563eb',   // the light-theme pair — 5.17:1 on white, measured
   };
 
+  // The two module-scope helpers above cannot reach `C`, so the palette is published as a variable for
+  // them. Set on the page root below, which is an ancestor of everything they colour.
+  const apVars = { ['--ap-muted' as any]: C.muted, ['--ap-dim' as any]: C.dim } as React.CSSProperties;
+
   // Right sidebar resize
   const [sidebarWidth, setSidebarWidth] = useState(320);
   const isDragging = useRef(false);
@@ -629,7 +644,7 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", background: C.bg, fontFamily: "'Poppins', sans-serif", overflow: "hidden" }}>
+    <div style={{ ...apVars, display: "flex", flexDirection: "column", height: "100%", background: C.bg, fontFamily: "'Poppins', sans-serif", overflow: "hidden" }}>
       <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
       <style>{`
         * { box-sizing: border-box; }
@@ -841,20 +856,20 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
               <div style={{ background: "#0a0f16", border: "1px solid #1e2d45", borderRadius: 8, padding: 24, width: 340, display: "flex", flexDirection: "column", gap: 16, maxHeight: "85vh", overflowY: "auto" }} onClick={e => e.stopPropagation()}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <span style={{ fontSize: 12, fontWeight: 800, color: "var(--jr-info, #c8d8e8)", letterSpacing: "0.08em" }}>PRICE ALERTS · {selected}</span>
-                  <button onClick={() => setAlertModal(false)} style={{ background: "none", border: "none", color: "#4a6580", cursor: "pointer" }}><X size={16} /></button>
+                  <button onClick={() => setAlertModal(false)} style={{ background: "none", border: "none", color: C.muted, cursor: "pointer" }}><X size={16} /></button>
                 </div>
 
                 {/* Existing active alerts */}
                 {activeAlerts.length > 0 && (
                   <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                    <div style={{ fontSize: 9, fontWeight: 700, color: "#4a6580", letterSpacing: "0.1em" }}>ACTIVE ALERTS</div>
+                    <div style={{ fontSize: 9, fontWeight: 700, color: C.muted, letterSpacing: "0.1em" }}>ACTIVE ALERTS</div>
                     {activeAlerts.map((a: any) => (
                       <div key={a.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 12px", background: "rgba(59,130,246,0.06)", border: "1px solid rgba(59,130,246,0.2)", borderRadius: 6 }}>
                         <span style={{ fontSize: 12, color: "var(--jr-info, #93c5fd)", fontWeight: 600 }}>
                           {a.direction === "above" ? "▲" : "▼"} {parseFloat(a.targetPrice).toPrecision(6)}
-                          {parseFloat(a.proximityPct ?? "0") > 0 && <span style={{ fontSize: 10, color: "#4a6580", marginLeft: 6 }}>±{a.proximityPct}%</span>}
+                          {parseFloat(a.proximityPct ?? "0") > 0 && <span style={{ fontSize: 10, color: C.muted, marginLeft: 6 }}>±{a.proximityPct}%</span>}
                         </span>
-                        <button onClick={() => deleteAlertMutation.mutate(a.id)} style={{ background: "none", border: "none", color: "#4a6580", cursor: "pointer", padding: 4 }} title="Remove alert"><X size={13} /></button>
+                        <button onClick={() => deleteAlertMutation.mutate(a.id)} style={{ background: "none", border: "none", color: C.muted, cursor: "pointer", padding: 4 }} title="Remove alert"><X size={13} /></button>
                       </div>
                     ))}
                     <div style={{ height: 1, background: "#1e2d45", margin: "4px 0" }} />
@@ -862,7 +877,7 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
                 )}
 
                 {/* Add new alert */}
-                <div style={{ fontSize: 11, color: "#4a6580" }}>
+                <div style={{ fontSize: 11, color: C.muted }}>
                   Add a new level — Telegram fires when price {parseFloat(alertProx) > 0 ? "nears or reaches" : "reaches"} the target.
                 </div>
                 <div style={{ display: "flex", gap: 8 }}>
@@ -881,7 +896,7 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
                   })}
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                  <label style={{ fontSize: 9, fontWeight: 700, color: "#4a6580", letterSpacing: "0.1em" }}>TARGET PRICE</label>
+                  <label style={{ fontSize: 9, fontWeight: 700, color: C.muted, letterSpacing: "0.1em" }}>TARGET PRICE</label>
                   <input
                     type="number" step="any" value={alertTarget}
                     onChange={e => setAlertTarget(e.target.value)}
@@ -891,10 +906,10 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
                   />
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                  <label style={{ fontSize: 9, fontWeight: 700, color: "#4a6580", letterSpacing: "0.1em" }}>NOTIFY WHEN</label>
+                  <label style={{ fontSize: 9, fontWeight: 700, color: C.muted, letterSpacing: "0.1em" }}>NOTIFY WHEN</label>
                   <div style={{ display: "flex", gap: 6 }}>
                     {[["0","At price"],["0.2","Within 0.2%"],["0.5","Within 0.5%"],["1","Within 1%"]].map(([v,lbl]) => (
-                      <button key={v} onClick={() => setAlertProx(v)} style={{ flex: 1, padding: "6px 4px", fontSize: 9, fontWeight: 700, background: alertProx === v ? "rgba(34,211,165,0.15)" : "transparent", border: `1px solid ${alertProx === v ? "#22d3a5" : "#1e2d45"}`, borderRadius: 6, color: alertProx === v ? "var(--jr-up, #22d3a5)" : "#4a6580", cursor: "pointer", letterSpacing: "0.04em" }}>
+                      <button key={v} onClick={() => setAlertProx(v)} style={{ flex: 1, padding: "6px 4px", fontSize: 9, fontWeight: 700, background: alertProx === v ? "rgba(34,211,165,0.15)" : "transparent", border: `1px solid ${alertProx === v ? "#22d3a5" : "#1e2d45"}`, borderRadius: 6, color: alertProx === v ? "var(--jr-up, #22d3a5)" : C.muted, cursor: "pointer", letterSpacing: "0.04em" }}>
                         {lbl}
                       </button>
                     ))}

@@ -165,6 +165,69 @@ Both were in the codemod's own classifier, and both are the kind that typecheck 
 **Result at the source level: 358 failing foreground/ground pairs → 0**, across 15 journal surfaces —
 which is the gate, and the rendered table above is the verdict.
 
+### 2026-09-27 — THE DARK THEMES, AND THE SIX CAUSES BEHIND 74 FAILURES
+
+All five dark palettes plus light now measure **0 across 641 text elements and 11 panels**, and the
+public routes 0 across 691. The 74 dark failures came from six causes, and the theme running through
+all of them is the mirror of the light-theme disease: **a "dim" tier picked by eye against a dark
+ground and never measured.**
+
+| where | was | cause |
+|---|---|---|
+| calendar, 30 day numbers | `#2A3348` 1.45:1 | an empty day's date is still a date |
+| dashboard, 20 day numbers | `rgba(55,65,81,.8)` 1.51:1 | the same cell's DARK branch — only light was being measured |
+| fsdai, 4 | `rgba(255,255,255,.15/.22/.25)` 1.49-2.17:1 | white-alpha tiers taken past legibility |
+| assets, 4 | `#2d4a63` 2.03:1 | **a private copy of tokens fixed elsewhere** — see below |
+| accounts, 13 | `#64748b` 3.93:1 | a near-miss on its own panel |
+| leaderboard, 2 | — | a TOOL bug, see below |
+
+**THE ONE WORTH REMEMBERING: `#4a6580` / `#2d4a63` existed in THREE places.** AssetPage measured and
+fixed them in its `C` palette on 2026-08-23, writing *"fixing the tokens corrects all 28 uses at once"*.
+But `SignalPlatformStatus.tsx` held its own copy of the same two tokens, **and a third copy in a
+module-scope badge map**, so "SIGNALS 24H" and "No signal" went on rendering at 2.03:1 and 3.17:1 for
+five weeks. Exactly the failure this document already records about `TrafficSection.tsx`: **a private
+colour table is how a screen misses a fix.** The values now come from the palette through a variable,
+because a module-scope map cannot reach `C`.
+
+**AND ONE THEME OF SIX FAILED WHERE THE OTHER FIVE PASSED.** Slate's `textMuted` was measured against
+its `bg` (5.35:1) and lands on a panel lighter than its `surface` (4.34:1). Same root cause as the
+metrics chips — *an ink is measured against the ground it LANDS on* — and it only showed because every
+theme was measured, not just the default. **Measure the lightest surface in a dark theme, not the
+darkest.**
+
+### FOUR MORE TOOL BUGS, and one that had never worked at all
+
+9. **A translucent gradient is not a solid fill.** Forcing gradient stops to alpha 1 made a
+   `rgba(96,165,250,0.07)` wash read as solid blue, so blue text on a barely-tinted panel reported
+   exactly **1:1**. Keep the stops' alpha and carry on up the chain.
+10. **A failed navigation must not pass.** The dev server died mid-run and every route reported
+    *"9 text elements ok"* — Chromium's own connection-refused page, measured and pronounced clean. The
+    zero-element guard could not see it, because an error page is not empty. A route now has to load
+    AND mount, or the run fails naming it. **This produced a false ZERO, which is the worst output a
+    verification tool can give.**
+11. **`darkBranchLines` had never fired.** Its gap test sliced from `m.index + 1` — one character INTO
+    the match — so `"arkMode ?"` was always in the gap and every branch was rejected. The audit was
+    therefore stricter than described rather than looser, which is the safe direction, but the code did
+    not do what its comment said. It also could not see a ternary with comments between `darkMode` and
+    `?`, which this codebase writes; comments are blanked before scanning now.
+12. **A test inherited a bug the tool had already fixed.** `journalInk.test.ts` flagged Journal.tsx's
+    own prose explaining the `color:'white'` remap, because the comment-tracking added to the audit was
+    never carried across. **When a tool learns something, check what else reads the same source.**
+
+### AND A LIVE DEFECT THE SHEET WAS STILL CAUSING — correcting an earlier claim
+
+**"The `[style*=...]` sheet never matched anything" was too strong.** A HEX in a React inline style is
+serialised by the CSSOM to `rgb(13,17,23)`, so those selectors are dead. **A KEYWORD is not:**
+`style={{color:'white'}}` reads back as `color: white`, so `[style*="color: white"]` fires.
+
+Which made it a live defect. TraderAI's "New chat" button is `color:"white"` on an indigo gradient —
+white is right there in both themes — and the unguarded remap forced near-black onto it at 4.16:1. The
+later white-remap block already carried a `:not([style*="background"])` guard for exactly this; the
+earlier one never got it. **An element that declares its own background chose its text colour against
+that background.**
+
+---
+
 ### 2026-09-27 — SWEEPING EVERY SURFACE, AND FOUR MORE TOOL BUGS
 
 `scripts/render-contrast.mjs --routes /,/calendar,/blog,/about,/support,/legal` measures public pages the

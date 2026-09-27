@@ -175,7 +175,7 @@ export const INDICATOR_DEFS: IndicatorDef[] = [
     series:[
       {field:"macd",       color:"#22d3a5",lineWidth:1, label:"MACD"},
       {field:"macd_signal",color:"#f59e0b",lineWidth:1, label:"Signal"},
-      {field:"macd_hist",  color:"#4a6580",isHistogram:true, label:"Hist"},
+      {field:"macd_hist",  color:"#95acc2",isHistogram:true, label:"Hist"},
     ]},
   { id:"STOCH",    label:"Stochastic",     category:"Momentum",  color:"#60a5fa", renderType:"osc",
     series:[
@@ -476,7 +476,7 @@ export default function TradingChart({
       height: height - 28,
       layout: {
         background: { type: ColorType.Solid, color: "#080c10" },
-        textColor:  "#4a6580",
+        textColor:  "#95acc2",
         fontFamily: "'Poppins', sans-serif",
         fontSize:   10,
       },
@@ -491,7 +491,7 @@ export default function TradingChart({
       },
       rightPriceScale: {
         borderColor:  "#0f1923",
-        textColor:    "#4a6580",
+        textColor:    "#95acc2",
         scaleMargins: SM.main,
       },
       timeScale: { borderColor: "#0f1923", timeVisible: true, secondsVisible: false },
@@ -983,7 +983,7 @@ export default function TradingChart({
           position: "absolute", inset: 0, display: "flex",
           alignItems: "center", justifyContent: "center",
           background: "rgba(8,12,16,0.85)",
-          fontSize: 11, color: "#4a6580", letterSpacing: "0.1em",
+          fontSize: 11, color: "#95acc2", letterSpacing: "0.1em",
         }}>
           LOADING CHART…
         </div>
@@ -998,7 +998,7 @@ export default function TradingChart({
           fontSize: 11, color: "#ef5350", letterSpacing: "0.1em",
         }}>
           <span>CHART UNAVAILABLE</span>
-          <span style={{ fontSize: 9, color: "#4a6580" }}>{error}</span>
+          <span style={{ fontSize: 9, color: "#95acc2" }}>{error}</span>
         </div>
       )}
     </div>

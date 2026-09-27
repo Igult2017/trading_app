@@ -56,7 +56,7 @@ async function authHeaders(): Promise<HeadersInit> {
 
 // ── Sync status badge ─────────────────────────────────────────────────────────
 function SyncBadge({ status, lastSyncAt, lastSyncError }: { status: string; lastSyncAt: string | null; lastSyncError?: string | null }) {
-  const color = status === "ok" ? "#4ade80" : status === "error" ? "#ef4444" : status === "syncing" ? "#facc15" : "#64748b";
+  const color = status === "ok" ? "#4ade80" : status === "error" ? "#ef4444" : status === "syncing" ? "#facc15" : "var(--jr-ink-mute, #748297)";
   const label = status === "ok" && lastSyncAt
     ? new Date(lastSyncAt).toLocaleDateString()
     : status === "error" ? "Error" : status === "syncing" ? "Syncing…" : "Pending";
@@ -125,7 +125,7 @@ const PLATFORM_LOGOS: Record<string, (size: number) => React.ReactNode> = {
 function PlatformIcon({ id, size = 36 }: { id: string; size?: number }) {
   const logo = PLATFORM_LOGOS[id];
   if (logo) return <span style={{ display: 'inline-flex', lineHeight: 0, flexShrink: 0 }}>{logo(size)}</span>;
-  const meta = PLATFORM_ICON_META[id] ?? { color: '#64748b', letters: '?' };
+  const meta = PLATFORM_ICON_META[id] ?? { color: 'var(--jr-ink-mute, #748297)', letters: '?' };
   return (
     <div style={{ width: size, height: size, background: `${meta.color}22`, border: `1.5px solid ${meta.color}55`, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', color: meta.color, fontSize: meta.icon ? size * 0.58 : size * 0.3, fontWeight: 800, flexShrink: 0 }}>
       {meta.icon ?? meta.letters}
@@ -223,7 +223,7 @@ function AddAccountForm({ platform, onCancel, onCreated }: AddFormProps) {
   }
 
   const inp: CSSProperties = { background: "#0d1827", border: "1px solid #1e3050", color: "#e2e8f0", borderRadius: 0, padding: "9px 12px", fontSize: 13, width: "100%", outline: "none" };
-  const lbl: CSSProperties = { color: "#64748b", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", display: "block", marginBottom: 5 };
+  const lbl: CSSProperties = { color: "var(--jr-ink-mute, #748297)", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", display: "block", marginBottom: 5 };
   const pname = PLATFORMS.find(p => p.id === platform)?.name ?? platform;
 
   return (
@@ -251,7 +251,7 @@ function AddAccountForm({ platform, onCancel, onCreated }: AddFormProps) {
         <div><label style={lbl}>Investor Password (optional)</label>
           <input style={inp} type="password" placeholder="Read-only investor password" value={secret} onChange={e => setSecret(e.target.value)} />
         </div>
-        <div style={{ background: "#0a1628", border: "1px solid #1e3a55", padding: "11px 14px", fontSize: 12, color: "#64748b" }}>
+        <div style={{ background: "#0a1628", border: "1px solid #1e3a55", padding: "11px 14px", fontSize: 12, color: "var(--jr-ink-mute, #748297)" }}>
           After adding, you'll receive a webhook URL. Install the EA on any chart — trades sync automatically.
         </div>
       </>)}
@@ -274,7 +274,7 @@ function AddAccountForm({ platform, onCancel, onCreated }: AddFormProps) {
             <input style={inp} placeholder="e.g. BTCUSDT, ETHUSDT" value={server} onChange={e => setServer(e.target.value)} />
           </div>
         )}
-        <div style={{ background: "#0a1628", border: "1px solid #1e3a55", padding: "11px 14px", fontSize: 12, color: "#64748b" }}>
+        <div style={{ background: "#0a1628", border: "1px solid #1e3a55", padding: "11px 14px", fontSize: 12, color: "var(--jr-ink-mute, #748297)" }}>
           Use a <strong style={{ color: "var(--jr-info, #38bdf8)" }}>read-only API key</strong> — <Brand /> only reads your trade history, never places orders.
         </div>
       </>)}
@@ -297,7 +297,7 @@ function AddAccountForm({ platform, onCancel, onCreated }: AddFormProps) {
             <input style={inp} placeholder="e.g. ICMarkets-Live01" value={server} onChange={e => setServer(e.target.value)} />
           </div>
         )}
-        <div style={{ background: "#0a1628", border: "1px solid #1e3a55", padding: "11px 14px", fontSize: 12, color: "#64748b" }}>
+        <div style={{ background: "#0a1628", border: "1px solid #1e3a55", padding: "11px 14px", fontSize: 12, color: "var(--jr-ink-mute, #748297)" }}>
           Connects via REST API — no EA or desktop terminal needed. Trade history syncs automatically every 15 min.
         </div>
       </>)}
@@ -374,7 +374,7 @@ function WebhookModal({ account, onClose }: { account: BrokerAccount; onClose: (
 
           {/* Steps */}
           <div>
-            <div style={{ color: "#64748b", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 12 }}>Setup Steps</div>
+            <div style={{ color: "var(--jr-ink-mute, #748297)", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 12 }}>Setup Steps</div>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {SETUP_STEPS.map(step => (
                 <div key={step.n} style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
@@ -387,12 +387,12 @@ function WebhookModal({ account, onClose }: { account: BrokerAccount; onClose: (
 
           {/* Webhook URL */}
           <div>
-            <div style={{ color: "#64748b", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>Your Webhook URL</div>
+            <div style={{ color: "var(--jr-ink-mute, #748297)", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>Your Webhook URL</div>
             <div style={{ background: "#070f1e", border: "1px solid #1e3a55", padding: "11px 14px", display: "flex", alignItems: "center", gap: 8 }}>
               <span style={{ color: "var(--jr-info, #38bdf8)", fontSize: 12, fontFamily: "monospace", flex: 1, wordBreak: "break-all" }}>{webhookUrl}</span>
               <CopyBtn text={webhookUrl} />
             </div>
-            <p style={{ color: "#475569", fontSize: 11, margin: "6px 0 0" }}>Paste this URL into the EA's <strong style={{ color: "#64748b" }}>InpWebhookURL</strong> input field.</p>
+            <p style={{ color: "#475569", fontSize: 11, margin: "6px 0 0" }}>Paste this URL into the EA's <strong style={{ color: "var(--jr-ink-mute, #748297)" }}>InpWebhookURL</strong> input field.</p>
           </div>
 
           {/* Info note */}
@@ -429,7 +429,7 @@ function EditModal({ account, onClose, onSaved }: { account: BrokerAccount; onCl
   const ov: CSSProperties  = { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' };
   const card: CSSProperties = { background: '#0d1829', border: '1px solid #1e3a55', borderRadius: 12, padding: 24, width: 320, maxWidth: '90vw' };
   const inp: CSSProperties  = { background: '#0b1220', border: '1px solid #1e3050', color: '#e2e8f0', padding: '8px 12px', fontSize: 13, width: '100%', borderRadius: 4, outline: 'none' };
-  const lbl: CSSProperties  = { color: '#64748b', fontSize: 11, fontWeight: 600, display: 'block', marginBottom: 4, textTransform: 'uppercase' };
+  const lbl: CSSProperties  = { color: 'var(--jr-ink-mute, #748297)', fontSize: 11, fontWeight: 600, display: 'block', marginBottom: 4, textTransform: 'uppercase' };
 
   return (
     <div style={ov} onClick={onClose}>
@@ -657,7 +657,7 @@ export default function AccountsPage({ openModal = false, darkMode = true, onVie
       <div style={s.banner as CSSProperties}>
         <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 16, height: 16, borderRadius: "50%", background: "#38bdf8", color: "#070d1a", fontSize: 10, fontWeight: 800, flexShrink: 0, lineHeight: 1 }}>i</span>
         <span>Issues syncing? Try an account history repair</span>
-        <Wrench size={13} color="#64748b" style={{ flexShrink: 0 }} />
+        <Wrench size={13} color="var(--jr-ink-mute, #748297)" style={{ flexShrink: 0 }} />
       </div>
 
       {/* cTrader multi-account picker */}
@@ -665,7 +665,7 @@ export default function AccountsPage({ openModal = false, darkMode = true, onVie
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <div style={{ background: '#0d1829', border: '1px solid #1e3a55', borderRadius: 12, padding: 28, width: 360, maxWidth: '90vw' }}>
             <div style={{ color: 'var(--jr-info, #e2e8f0)', fontWeight: 700, fontSize: 16, marginBottom: 6 }}>Select cTrader Account</div>
-            <div style={{ color: '#64748b', fontSize: 12, marginBottom: 20 }}>Multiple accounts found. Choose which one to link.</div>
+            <div style={{ color: 'var(--jr-ink-mute, #748297)', fontSize: 12, marginBottom: 20 }}>Multiple accounts found. Choose which one to link.</div>
             {ctSelectAccounts.map((a: any) => (
               <button
                 key={a.ctidTraderAccountId}
@@ -686,7 +686,7 @@ export default function AccountsPage({ openModal = false, darkMode = true, onVie
                 <span style={{ color: a.isLive ? 'var(--jr-up, #4ade80)' : 'var(--jr-warn, #facc15)', fontSize: 11, fontWeight: 700 }}>{a.isLive ? 'LIVE' : 'DEMO'}</span>
               </button>
             ))}
-            <button onClick={() => { setCtSelectAccounts([]); setCtSelectToken(null); }} style={{ background: 'none', border: 'none', color: '#64748b', fontSize: 12, cursor: 'pointer', marginTop: 4 }}>Cancel</button>
+            <button onClick={() => { setCtSelectAccounts([]); setCtSelectToken(null); }} style={{ background: 'none', border: 'none', color: 'var(--jr-ink-mute, #748297)', fontSize: 12, cursor: 'pointer', marginTop: 4 }}>Cancel</button>
           </div>
         </div>
       )}
@@ -740,7 +740,7 @@ export default function AccountsPage({ openModal = false, darkMode = true, onVie
               {loading ? (
                 <tr><td colSpan={9} style={{ ...s.td, textAlign: "center", color: "var(--jr-info, #38bdf8)", padding: 24 } as CSSProperties}>Loading accounts…</td></tr>
               ) : paged.length === 0 ? (
-                <tr><td colSpan={9} style={{ ...s.td, textAlign: "center", color: "#64748b", padding: 28 } as CSSProperties}>
+                <tr><td colSpan={9} style={{ ...s.td, textAlign: "center", color: "var(--jr-ink-mute, #748297)", padding: 28 } as CSSProperties}>
                   No accounts yet. Click <strong style={{ color: "var(--jr-info, #38bdf8)" }}>+ Add Account</strong> to connect your first broker.
                 </td></tr>
               ) : paged.map(a => (
@@ -803,7 +803,7 @@ export default function AccountsPage({ openModal = false, darkMode = true, onVie
         </div>
 
         {/* Pagination */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 10, padding: "14px 0 0", fontSize: 13, color: "#64748b", flexWrap: "wrap" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 10, padding: "14px 0 0", fontSize: 13, color: "var(--jr-ink-mute, #748297)", flexWrap: "wrap" }}>
           <span>Page Size:</span>
           <select style={s.pageSelect as CSSProperties} value={pageSize} onChange={e => { setPageSize(Number(e.target.value)); setPage(1); }}>
             {[10, 25, 50].map(n => <option key={n} value={n}>{n}</option>)}
@@ -911,7 +911,7 @@ export default function AccountsPage({ openModal = false, darkMode = true, onVie
 const s: Record<string, CSSProperties> = {
   root:    { minHeight: "100%", background: "#070d1a", fontFamily: "'Montserrat','Segoe UI',sans-serif", color: "#cbd5e1", display: "flex", flexDirection: "column" },
   banner:  { background: "#0c1a2e", borderBottom: "1px solid #1a3050", padding: "10px 24px", fontSize: 13, color: "#94a3b8", display: "flex", alignItems: "center", gap: 6 },
-  tab:     { background: "none", border: "none", color: "#64748b", fontSize: 15, fontWeight: 500, cursor: "pointer", padding: "6px 0", display: "flex", alignItems: "center", gap: 6, fontFamily: "inherit" },
+  tab:     { background: "none", border: "none", color: "var(--jr-ink-mute, #748297)", fontSize: 15, fontWeight: 500, cursor: "pointer", padding: "6px 0", display: "flex", alignItems: "center", gap: 6, fontFamily: "inherit" },
   tabActive:{ color: "var(--jr-info, #38bdf8)", borderBottom: "2px solid #38bdf8", fontWeight: 700 },
   proBadge:{ background: "#1e40af", color: "#93c5fd", fontSize: 10, fontWeight: 700, padding: "2px 6px" },
   counter: { background: "#1e293b", border: "1px solid #334155", padding: "4px 10px", fontSize: 13, color: "#94a3b8" },
@@ -919,12 +919,12 @@ const s: Record<string, CSSProperties> = {
   syncBtn: { background: "transparent", border: "1.5px solid #334155", color: "var(--jr-ink-mute, #94a3b8)", padding: "7px 16px", fontSize: 13, fontWeight: 500, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontFamily: "inherit" },
   tableWrap:{ border: "1px solid #1e293b", overflow: "hidden" },
   table:   { width: "100%", borderCollapse: "collapse", background: "#0b1220" },
-  th:      { padding: "12px 14px", textAlign: "left", fontSize: 12, fontWeight: 600, color: "#64748b", borderBottom: "1px solid #1e293b", whiteSpace: "nowrap" },
+  th:      { padding: "12px 14px", textAlign: "left", fontSize: 12, fontWeight: 600, color: "var(--jr-ink-mute, #748297)", borderBottom: "1px solid #1e293b", whiteSpace: "nowrap" },
   tr:      { borderBottom: "1px solid #111d30" },
   td:      { padding: "13px 14px", fontSize: 13, color: "var(--jr-info, #cbd5e1)", whiteSpace: "nowrap" },
   actionBtn:{ background: "none", border: "none", color: "var(--jr-ink-mute, #94a3b8)", cursor: "pointer", padding: "2px 4px" },
   pageSelect:{ background: "#1e293b", border: "1px solid #334155", color: "#cbd5e1", padding: "3px 8px", fontSize: 12, cursor: "pointer" },
-  pageBtn: { background: "none", border: "1px solid #1e293b", color: "#64748b", padding: "3px 8px", cursor: "pointer", fontSize: 12 },
+  pageBtn: { background: "none", border: "1px solid #1e293b", color: "var(--jr-ink-mute, #748297)", padding: "3px 8px", cursor: "pointer", fontSize: 12 },
   overlay: { position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, backdropFilter: "blur(4px)" },
   modal:   { background: "#0d1827", border: "1px solid #1e3050", width: 560, maxWidth: "95vw", maxHeight: "90vh", overflowY: "auto", position: "relative", boxShadow: "0 24px 80px rgba(0,0,0,0.7)" },
   modalHeader:{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "20px 24px 14px", position: "sticky", top: 0, background: "#0d1827", zIndex: 1, borderBottom: "1px solid #1e3050" },

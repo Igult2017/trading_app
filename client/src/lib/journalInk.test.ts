@@ -150,12 +150,35 @@ function walk(dir: string, out: string[] = []): string[] {
 const EXEMPT = /TradingChart|AdminPanel|TradeSyncPage|journalInk/;
 const NEAR_WHITE = /(?<![-\w])color\s*:\s*["'`](#(?:f{3,6}|[ef][0-9a-f]{5})|white)["'`]/gi;
 const offenders: string[] = [];
+/** Lines inside a comment — the same tracking scripts/contrast-audit.mjs does, for the same reason. */
+function commentLines(src: string): Set<number> {
+  const out = new Set<number>();
+  let inBlock = false;
+  src.split('\n').forEach((line, i) => {
+    const n = i + 1;
+    if (inBlock) out.add(n);
+    let j = 0;
+    while (j < line.length) {
+      if (!inBlock && line.startsWith('//', j)) { out.add(n); break; }
+      if (!inBlock && line.startsWith('/*', j)) { inBlock = true; out.add(n); j += 2; continue; }
+      if (inBlock && line.startsWith('*/', j)) { inBlock = false; j += 2; continue; }
+      j++;
+    }
+  });
+  return out;
+}
+
 for (const f of walk(join(process.cwd(), 'client/src'))) {
   if (EXEMPT.test(f)) continue;
   const src = readFileSync(f, 'utf8');
   if (!/journal-root|journal-light|JournalHeader|jr-ink/.test(src)) continue;   // journal surfaces only
+  // A COMMENT IS NOT A RENDERED COLOUR. Journal.tsx's account of WHY the `[style*="color: white"]`
+  // remap had to be guarded quotes `color:'white'` twice in its prose; flagging those measures the
+  // explanation rather than the page. The audit script learned this on 2026-09-26; this test did not.
+  const comments = commentLines(src);
   for (const m of src.matchAll(NEAR_WHITE)) {
     const line = src.slice(0, m.index).split('\n').length;
+    if (comments.has(line)) continue;
     // On a declared fill in the same object, white is correct in every theme.
     const ctx = src.split('\n')[line - 1];
     if (/background/.test(ctx)) continue;

@@ -13,15 +13,30 @@ interface Props { darkMode?: boolean; selectedSymbol?: string; state?: SignalSta
 const STATE_UI: Record<SignalState, { label: string; color: string }> = {
   watching:    { label: "Watching for entry", color: "var(--jr-warn, #f59e0b)" },
   confirmed:   { label: "Entry confirmed",    color: "var(--jr-up, #22d3a5)" },
-  closed:      { label: "Closed",             color: "#4a6580" },
+  // A THIRD COPY OF THE SAME BROKEN VALUE. `#4a6580` is the pre-August `muted` that AssetPage.tsx
+  // measured at 3.10:1 and replaced in its palette; this file kept it in its own `C` table (fixed just
+  // above) AND here, in a module-scope map, where "No signal" went on rendering at 3.17:1. Three copies
+  // of one colour, two of them missed by a fix that was applied to the third.
+  //
+  // Module scope cannot reach `C`, so it goes through a variable the component publishes from the
+  // palette — theme-aware, and the light branch is already measured too.
+  closed:      { label: "Closed",             color: "var(--sp-neutral, #95acc2)" },
   invalidated: { label: "Invalidated",        color: "var(--jr-down, #f4617f)" },
-  unknown:     { label: "No signal",          color: "#4a6580" },
+  unknown:     { label: "No signal",          color: "var(--sp-neutral, #95acc2)" },
 };
 
 export default function SignalPlatformStatus({ darkMode = true, selectedSymbol = "", state = null }: Props) {
   const C = darkMode
+    // ── A PRIVATE COLOUR TABLE IS HOW A SCREEN MISSES A FIX ──────────────────────────────────
+    // `muted:#4a6580` and `dim:#2d4a63` are the SAME two tokens AssetPage.tsx measured and corrected on
+    // 2026-08-23 (its comment records "muted #4a6580 3.10:1 FAIL -> #95acc2 8.03" and "dim #2d4a63
+    // 2.03:1 FAIL -> #5386b1 4.85"). That fix deliberately went into the TOKENS so all 28 uses moved at
+    // once — and this file held its own copy, so it kept the broken values and went on rendering
+    // "SIGNALS 24H" and "ACTIVE NOW" at 2.03:1. Exactly the failure docs/READABILITY.md already records
+    // about TrafficSection.tsx: "a private colour table is how a screen misses a theme change".
+    // The values below are AssetPage's, not new ones.
     ? { bg: "#080c10", bg2: "#0a0f16", bg3: "#0c1219", border: "#0f1923", border2: "#172233",
-        text: "#c8d8e8", muted: "#4a6580", dim: "#2d4a63", hero: "#ffffff" }
+        text: "#c8d8e8", muted: "#95acc2", dim: "#5386b1", hero: "#ffffff" }
     : { bg: "#f0f4f8", bg2: "#ffffff", bg3: "#f1f5f9", border: "#e2e8f0", border2: "#cbd5e1",
         text: "#1e293b", muted: "#475569", dim: "#5a6c87", hero: "#0f172a" };   // dim was #94a3b8 = 2.34:1
 
@@ -44,7 +59,7 @@ export default function SignalPlatformStatus({ darkMode = true, selectedSymbol =
   const lightScanner = isOk ? "#3b82f6" : "#f4617f";
 
   return (
-    <div style={{ background: C.bg2, border: `1px solid ${C.border}`, borderRadius: 4, overflow: "hidden" }}>
+    <div style={{ ['--sp-neutral' as any]: C.dim, background: C.bg2, border: `1px solid ${C.border}`, borderRadius: 4, overflow: "hidden" }}>
       {/* Header */}
       <div style={{ padding: "10px 16px 8px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>

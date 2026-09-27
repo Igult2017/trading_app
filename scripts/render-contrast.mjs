@@ -145,7 +145,16 @@ const MEASURE = ({ aa, aaLarge, sel }) => {
       const cs = getComputedStyle(n);
       const stops = cs.backgroundClip !== 'text' && cs.webkitBackgroundClip !== 'text'
         ? gradientStops(cs.backgroundImage) : [];
-      if (stops.length) { stack.push(...stops.map((c) => [c[0], c[1], c[2], 1])); break; }
+      if (stops.length) {
+        // KEEP THE STOPS' ALPHA. Forcing them to 1 treated a 7% wash as a solid fill: the leaderboard's
+        // `linear-gradient(rgba(96,165,250,0.07), …)` was read as solid rgb(96,165,250), so blue text on
+        // a barely-tinted dark panel reported exactly 1:1. A translucent gradient is a LAYER like any
+        // other and the walk must continue past it to whatever is underneath.
+        const worst = stops.reduce((a, c) => (a && a[3] >= c[3] ? a : c));
+        stack.push(worst);
+        if (worst[3] === 1) break;
+        continue;
+      }
       const c = parse(cs.backgroundColor);
       if (!c || c[3] === 0) continue;
       stack.push(c);
@@ -235,9 +244,25 @@ const ROUTES = arg('routes', '').split(',').filter(Boolean);
 if (ROUTES.length) {
   let rGrand = 0, rFail = 0;
   const rWorst = [];
+  const empty = [];
   for (const route of ROUTES) {
-    await page.goto(`${BASE}${route}`, { waitUntil: 'domcontentloaded' }).catch(() => {});
+    // A NAVIGATION THAT FAILED MUST NOT PASS. The server died mid-run once and every route reported
+    // "9 text elements ok" — Chromium's own connection-refused page, measured and pronounced clean. The
+    // zero-element guard below could not see it because an error page is not empty. A route now has to
+    // load AND mount the app, or the run fails saying so.
+    const resp = await page.goto(`${BASE}${route}`, { waitUntil: 'domcontentloaded' }).catch(() => null);
+    if (!resp || !resp.ok()) {
+      console.log(`  ${route.padEnd(16)} ${'—'.padStart(4)} DID NOT LOAD (${resp ? resp.status() : 'no response'})`);
+      empty.push(route);
+      continue;
+    }
     await page.waitForTimeout(3_000);
+    const mounted = await page.evaluate(() => !!document.getElementById('root')?.firstElementChild);
+    if (!mounted) {
+      console.log(`  ${route.padEnd(16)} ${'—'.padStart(4)} LOADED BUT DID NOT MOUNT`);
+      empty.push(route);
+      continue;
+    }
     // MEASURE is passed in per navigation — a page function does not survive one.
     const rows = await page.evaluate(MEASURE, { aa: AA, aaLarge: AA_LARGE, sel: 'body' }).catch(() => []);
     const fails = rows.filter((r) => !r.pass);
@@ -261,9 +286,11 @@ if (ROUTES.length) {
                   `${f.color.padEnd(23)} ${f.ground.padEnd(21)} ${f.panel}: ${f.text}`);
     }
   }
-  console.log(`\n  ${rGrand} text elements across ${ROUTES.length} route(s) · ${rFail} below their floor`);
+  console.log(`\n  ${rGrand} text elements across ${ROUTES.length - empty.length} of ${ROUTES.length} route(s)` +
+              ` · ${rFail} below their floor`);
+  if (empty.length) console.log(`  NOT MEASURED: ${empty.join(', ')}`);
   await browser.close();
-  process.exit(rFail ? 1 : 0);
+  process.exit((rFail || empty.length) ? 1 : 0);
 }
 
 await page.goto(`${BASE}/journal`, { waitUntil: 'domcontentloaded' });

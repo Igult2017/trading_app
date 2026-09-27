@@ -464,7 +464,10 @@ function ActivityCalendar({ entries, darkMode = true }: { entries: any[]; darkMo
     if (status === 'loss')   return { bg: 'rgba(244,63,94,0.2)',  border: 'rgba(244,63,94,0.3)',  color: 'var(--jr-down, #fb7185)' };
     if (status === 'mixed')  return { bg: 'rgba(251,191,36,0.15)',border: 'rgba(251,191,36,0.25)',color: 'var(--jr-warn, #fbbf24)' };
     return darkMode
-      ? { bg: 'rgba(22,27,34,0.8)',    border: 'transparent', color: 'rgba(55,65,81,0.8)' }
+      // THE DARK SIDE OF THE SAME CELL. rgba(55,65,81,0.8) composites to rgb(48,57,71) on this panel —
+      // 1.51:1, on every day of the month that has no trade. The light branch below was raised on
+      // 2026-09-26; this one was not, because only the light theme was being measured then.
+      ? { bg: 'rgba(22,27,34,0.8)',    border: 'transparent', color: '#7F848D' }
       : { bg: 'rgba(226,232,240,0.6)', border: 'transparent', color: 'var(--jr-ink-faint, rgba(100,116,139,0.7))' };
   };
 
@@ -1151,6 +1154,28 @@ export default function Journal() {
         .journal-light [style*="color:rgb(255,255,255)"],
         .journal-light [style*="color: rgba(255,255,255"],
         .journal-light [style*="color:rgba(255,255,255"] { color: ${T.text} !important; }
+
+        /* ── AND NOT WHEN THE ELEMENT PAINTS ITS OWN FILL ────────────────────────────────────────
+           The block above is the only part of this sheet that still MATCHES anything, and that is worth
+           knowing precisely. A hex in a React inline style is serialised by the CSSOM to "rgb(13,17,23)",
+           so every "[style*="color:#..."]" selector here is dead — measured in Chromium 2026-09-26. But a
+           KEYWORD survives serialisation: "style={{color:'white'}}" really does read back as
+           "color: white", so "[style*="color: white"]" fires.
+
+           Which made it a live defect. TraderAI's "New chat" button is "color:"white"" on
+           "linear-gradient(135deg,#6366f1,#8b5cf6)" — an indigo pill where white is right in BOTH themes.
+           This rule forced near-black onto it: 4.16:1, found by the rendered sweep on 2026-09-27. The
+           later white-remap block at the bottom of this sheet already carries exactly this guard, with
+           the reason written out; this one never got it.
+
+           A colour keyword ON AN ELEMENT THAT DECLARES ITS OWN BACKGROUND was chosen deliberately
+           against that background and must be left alone. */
+        .journal-light [style*="color: white"][style*="background"],
+        .journal-light [style*="color:white"][style*="background"],
+        .journal-light [style*="color: #fff"][style*="background"],
+        .journal-light [style*="color:#fff"][style*="background"],
+        .journal-light [style*="color: rgb(255, 255, 255)"][style*="background"],
+        .journal-light [style*="color:rgb(255,255,255)"][style*="background"] { color: var(--jr-on-fill, #fff) !important; }
 
         /* Common dark surface literals → theme surface so cards are visible. */
         .journal-light [style*="background: #0d1117"],

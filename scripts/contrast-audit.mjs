@@ -188,12 +188,27 @@ export function reachable() {
  */
 export function darkBranchLines(src) {
   const skip = new Set();
+  // BLANK THE COMMENTS FIRST, keeping every character position so line numbers still line up.
+  //
+  // This codebase explains itself INSIDE a ternary — `Journal.tsx`'s cellColor has three comment lines
+  // between `return darkMode` and its `? {`. A `darkMode\s*\?` pattern therefore matched nothing there,
+  // the dark branch was never recognised, and its `#7F848D` was measured against the LIGHT canvas and
+  // reported as a failure it is not. Blanking comments once is simpler and more robust than widening
+  // every gap test, and it is the same thing a parser would do.
+  const bare = src.replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, (m) => m.replace(/[^\n]/g, ' '));
+  src = bare;
   const re = /\b(?:darkMode|isDark|T\.dark|props\.dark|theme\.dark)\s*\?/g;
   let m;
   while ((m = re.exec(src))) {
     const open = src.indexOf('{', m.index);
     if (open < 0) continue;
-    if (/[^\s]/.test(src.slice(m.index + 1, open))) continue;   // not a palette-object branch
+    // COMMENTS COUNT AS WHITESPACE HERE. The gap between the `?` and the `{` is normally empty, but this
+    // codebase explains itself in the middle of a ternary — `Journal.tsx`'s cellColor has three comment
+    // lines there — and a bare non-whitespace test then refuses to recognise the branch, leaving a DARK
+    // value measured against the light canvas. Strip comments before deciding.
+    // FROM THE END OF THE MATCH, not one character into it. `m.index + 1` left "arkMode ?" inside the
+    // gap, so the non-whitespace test always failed and no branch was ever recognised.
+    if (/[^\s]/.test(src.slice(m.index + m[0].length, open))) continue;   // not a palette-object branch
     let depth = 0, end = open;
     for (; end < src.length; end++) {
       if (src[end] === '{') depth++;

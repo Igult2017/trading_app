@@ -1382,9 +1382,13 @@ home pages such as landing page, economic calendar, blog and everything. Sweep e
 gradient-painted CTA reading as 1:1), a gradient BACKGROUND invisible to the ground walk, and `aria-hidden`
 decorative text being counted. Only 5 were real. All four tool bugs are written up in READABILITY.md.
 
-**STILL OPEN — 71 dark-theme failures** in dashboard, accounts, calendar, fsdai and assets. Pre-existing,
-measurable with `node scripts/render-contrast.mjs --theme navy`, and a separate pass: the ask was the white
-theme, and repainting the dark themes he is happy with was not it.
+**THE DARK THEMES ARE DONE TOO — FIXED 27 Sep.** All five dark palettes and light now measure **0 across
+641 text elements and 11 panels**, verified per theme rather than on the default one, which is what caught
+slate failing where the other five passed. Six causes, all in READABILITY.md; the one worth carrying is
+that `#4a6580`/`#2d4a63` lived in **three** places — AssetPage fixed them in its palette on 23 Aug and
+`SignalPlatformStatus` held two private copies, so "No signal" rendered at 3.17:1 for five weeks. **A
+private colour table is how a screen misses a fix**, which this codebase had already recorded once about
+`TrafficSection.tsx`.
 
 ### C-D53 - ~~An unauthenticated request could kill the server~~ FIXED 27 Sep
 

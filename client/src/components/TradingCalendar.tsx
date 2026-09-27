@@ -159,7 +159,10 @@ function DayCell({ day, data, maxPnl, cellHeight, isMobile }: { day: number | nu
     >
       <div style={{
         fontFamily: FONT, fontSize: isMobile ? 8 : 11, fontWeight: 900,
-        color: d ? `rgba(${T.rgb},0.5)` : "#2A3348",
+        // AN EMPTY DAY'S DATE IS STILL A DATE. #2A3348 on the card measured 1.45:1 — subordinate past
+        // the point of being readable, on all 30 of them. It stays clearly quieter than a day that
+        // traded (those carry the outcome hue at full strength) and is now legible: 4.68:1.
+        color: d ? `rgba(${T.rgb},0.5)` : "var(--tc-empty, #7B818E)",
       }}>{String(day).padStart(2, "0")}</div>
 
       {d && (
@@ -404,6 +407,7 @@ export default function TradingCalendar({ sessionId, darkMode = true }: { sessio
     // The weekday strip, which used to be a hardcoded #080B11 whatever the theme. 6.9:1.
     '--tc-head':     '#F1F4F8',
     '--tc-head-ink': '#5C5646',
+    '--tc-empty':    '#6E6754',   // the no-trade day number: 5.6:1 on the light card
   } as React.CSSProperties : {};
 
   if (showCalendarLoader) {
@@ -595,7 +599,7 @@ export default function TradingCalendar({ sessionId, darkMode = true }: { sessio
         paddingLeft: 8, paddingRight: 8,
       }}>
         <div style={{ display: "flex", gap: isMobile ? 10 : 18, flexWrap: "wrap" as const }}>
-          {[{ dot: GREEN, label: t('calendar.profit') }, { dot: RED, label: t('calendar.loss') }, { dot: "#2A3348", label: t('calendar.noTrade') }].map(({ dot, label }) => (
+          {[{ dot: GREEN, label: t('calendar.profit') }, { dot: RED, label: t('calendar.loss') }, { dot: "var(--tc-empty, #7B818E)", label: t('calendar.noTrade') }].map(({ dot, label }) => (
             <div key={label} style={{ display: "flex", alignItems: "center", gap: 6 }}>
               <div style={{ width: 8, height: 8, background: dot }} />
               <span style={{ fontSize: isMobile ? 7 : 9, fontWeight: 800, letterSpacing: "0.12em", color: "var(--jr-ink-dim)" }}>{label}</span>
