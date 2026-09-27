@@ -23,18 +23,24 @@ interface TradeSyncAppProps {
 }
 
 /**
- * Trade Sync — copy-trading dashboard (presentation only; no backend wiring yet).
+ * Trade Sync — copy-trading dashboard.
  *
  * `.ct-app` is the boundary: every token, utility and font rule in CT_STYLES is scoped to it, so
- * this screen neither reads nor leaks the host app's theme. See styles/fontGuard.ts for why the
- * scoping is load-bearing rather than cosmetic.
+ * this screen owns its own palette and cannot leak colours into the host app. See styles/fontGuard.ts
+ * for why the scoping is load-bearing rather than cosmetic.
+ *
+ * IT DOES, HOWEVER, FOLLOW THE HOST'S LIGHT/DARK CHOICE (changed 2026-09-27). Which of its two
+ * palettes applies is decided by the journal's marker class on an ancestor, so the app's single
+ * theme switch moves this panel too. It holds no theme state of its own — styles/tokens.ts says why.
  */
 export function TradeSyncApp({ panel = false, onExit }: TradeSyncAppProps = {}) {
   const ts = useTradeSync();
-  const { theme, collapsed, setCollapsed, activePage, setActivePage, helpOpen, accountOpen, closeMenus, toast, setup, feed } = ts;
+  const { collapsed, setCollapsed, activePage, setActivePage, helpOpen, accountOpen, closeMenus, toast, setup, feed } = ts;
 
+  // NO theme class here. The palette follows the journal's own light/dark marker on .journal-root,
+  // so the main switch moves this panel too — see styles/tokens.ts for why it is a class and not a hook.
   return (
-    <div className={`ct-app ${panel ? "ct-panel" : ""} ${theme === "dark" ? "theme-dark" : ""}`}>
+    <div className={`ct-app ${panel ? "ct-panel" : ""}`}>
       <AppHeader ts={ts} />
       {(helpOpen || accountOpen) && <div className="fixed inset-0 z-30" onClick={closeMenus} />}
 

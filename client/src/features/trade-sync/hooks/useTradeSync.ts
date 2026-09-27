@@ -15,7 +15,9 @@ import type { PageId } from "../types";
  * GET /api/copy/overview aggregate and every action hits the real /api/copy endpoints.
  */
 export function useTradeSync() {
-  const [theme, setTheme] = useState<"light" | "dark">("dark");
+  // NO theme state. This panel's palette follows the journal's light/dark marker class, so the app's
+  // one switch moves it too (2026-09-27). It used to hold useState<"light"|"dark">("dark") here plus
+  // its own header button, which is why it stayed dark when the rest of the app went white.
   const [collapsed, setCollapsed] = useState(false);
   const [activePage, setActivePage] = useState<PageId>("dashboard");
   const [helpOpen, setHelpOpen] = useState(false);
@@ -54,7 +56,6 @@ export function useTradeSync() {
   };
 
   return {
-    theme, setTheme,
     collapsed, setCollapsed,
     activePage, setActivePage,
     helpOpen, setHelpOpen,

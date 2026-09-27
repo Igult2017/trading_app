@@ -58,8 +58,23 @@ export const CT_TOKENS = `
   transition:background-color .3s ease,color .3s ease;
 }
 
-/* dark blue theme ---------------------------------------------------*/
-.ct-app.theme-dark{
+/* dark blue theme ---------------------------------------------------
+   TRIGGERED BY THE JOURNAL'S OWN MARKER CLASS, not by a class this panel sets itself
+   (2026-09-27, his "consolidate theme color switch so that even fx copier theme can be switched
+   from the main switch"). This panel used to hold its own useState<"light"|"dark">("dark") plus a
+   second toggle button in its header, so it stayed dark while the rest of the app went white and
+   the main LIGHT pill could not reach it.
+
+   WHY A CLASS AND NOT A REACT HOOK. The obvious wiring — call useJournalSettings() here — would
+   have shipped DEAD. That hook (hooks/useJournalSettings.ts) is plain useState: it writes the
+   theme to localStorage but never notifies other callers, so a second caller gets its OWN copy,
+   reads the theme once at mount and never hears the switch flip. Measured before choosing.
+
+   .journal-root carries journal-dark or journal-light (Journal.tsx), and this panel always
+   renders inside it (Journal.tsx -> TradeSyncPage -> TradeSyncApp). So the ancestor class changes
+   in the same render as the rest of the app and the palette follows with zero JavaScript.
+   Specificity: .ct-app is (0,1,0) and holds the light palette; .journal-dark .ct-app is (0,2,0). */
+.journal-dark .ct-app{
   --md-background:#0a1220;
   --md-surface:#0f1930;
   --md-surface-container-lowest:#070d1a;
@@ -76,6 +91,6 @@ export const CT_TOKENS = `
   --md-inverse-surface:#e8edf9;
   --md-inverse-on-surface:#101a33;
 }
-.ct-app.theme-dark,
-.ct-app.theme-dark *{transition:background-color .3s ease,color .3s ease,border-color .3s ease}
+.journal-dark .ct-app,
+.journal-dark .ct-app *{transition:background-color .3s ease,color .3s ease,border-color .3s ease}
 `;

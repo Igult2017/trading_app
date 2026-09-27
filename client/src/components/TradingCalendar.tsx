@@ -6,11 +6,35 @@ import { CalendarSkeleton } from "@/components/skeletons/CalendarSkeleton";
 import { useTranslation } from "react-i18next";
 
 const FONT   = "'Montserrat', sans-serif";
-const GREEN  = "#00E5A0";
-const RED    = "#FF3D5A";
+
+/* EVERY COLOUR IN THIS PANEL IS A VARIABLE WITH A DARK FALLBACK, and the light values are supplied
+   by `tcVars` further down (search --tc-). Same pattern BG/CARD/BORDER already used here.
+
+   WHY (2026-09-27). `tcVars` already turned the CARD white in the light theme, but the text colours
+   were left at values chosen for a dark background, so they were painted near-white ON white. His
+   four ticked items measured, against #FFFFFF, where AA needs 4.5:1:
+       "TRADING CALENDAR" and the W/L ratio   #E8EDF5   1.18:1   (invisible)
+       the trades count "116"                 #4D9FFF   2.72:1
+       the month total "+400.8%"              #00E5A0   1.65:1
+       losing figures                         #FF3D5A   3.46:1
+   The light replacements below are the ones this repo already settled on elsewhere (the
+   Notifications and Trade Sync light blocks), not new inventions: 5.48 / 6.29 / 5.17 / 5.02:1.
+
+   PROFIT STAYS GREEN AND LOSS STAYS RED. These are not flattened to ink — the colour IS the
+   information this panel carries. They are only taken to a strength that reads on white. */
+const GREEN  = "var(--tc-up,   #00E5A0)";
+const RED    = "var(--tc-down, #FF3D5A)";
 // Break-even orange, the SAME value the drawdown page uses for a breakeven (dpStyles --warn).
 // His instruction, 2026-08-29: "Breakeven day should show in the color we used in drawdown page."
-const ORANGE = "#FFC155";
+const ORANGE = "var(--tc-warn, #FFC155)";
+/** Headings, figures and control text — the one strong ink. */
+const INK    = "var(--tc-ink,  #E8EDF5)";
+/** A count, carrying no win/loss meaning of its own. */
+const BLUE   = "var(--tc-info, #4D9FFF)";
+/** Deliberately faded: a day with no trades, and the weekday letters. */
+const DIM    = "var(--tc-dim,  #3A4A62)";
+/** Fainter still — the Sat/Sun column letters. */
+const DIM_WEEKEND = "var(--tc-dim-weekend, #2A3D52)";
 
 /**
  * A day is a WIN, a LOSS, or FLAT — and every colour on the cell comes from here.
@@ -25,10 +49,15 @@ const ORANGE = "#FFC155";
  * in that form; keeping it beside the hex stops the two drifting apart.
  */
 type Tone = "win" | "loss" | "flat";
+/* `rgb` is a variable holding BARE CHANNELS, so it can be dropped into rgba(...) for the translucent
+   tints and glows. Verified in a browser that a custom property carrying a comma list substitutes
+   into rgba() correctly, and that the fallback applies when the variable is unset:
+       rgba(var(--tc-up-rgb, 0,229,160),0.5)  ->  rgba(4, 120, 87, 0.5)   when set
+                                              ->  rgba(0, 229, 160, 0.5) when unset            */
 const TONE: Record<Tone, { hex: string; rgb: string }> = {
-  win:  { hex: GREEN,  rgb: "0,229,160" },
-  loss: { hex: RED,    rgb: "255,61,90" },
-  flat: { hex: ORANGE, rgb: "255,193,85" },
+  win:  { hex: GREEN,  rgb: "var(--tc-up-rgb,   0,229,160)" },
+  loss: { hex: RED,    rgb: "var(--tc-down-rgb, 255,61,90)" },
+  flat: { hex: ORANGE, rgb: "var(--tc-warn-rgb, 255,193,85)" },
 };
 /** Half a cent, so a day that nets to zero out of a +100 and a -100 reads as flat rather than as a
  *  win off a rounding crumb. */
@@ -153,7 +182,7 @@ function DayCell({ day, data, maxPnl, cellHeight, isMobile }: { day: number | nu
     >
       <div style={{
         fontFamily: FONT, fontSize: isMobile ? 8 : 11, fontWeight: 900,
-        color: d ? `rgba(${T.rgb},0.5)` : "#2A3348",
+        color: d ? `rgba(${T.rgb},0.5)` : DIM,
       }}>{String(day).padStart(2, "0")}</div>
 
       {d && (
@@ -183,8 +212,8 @@ function DayCell({ day, data, maxPnl, cellHeight, isMobile }: { day: number | nu
         }}>
           {[
             { l: "P&L",      v: fmt(d.pnl),          c: T.hex },
-            { l: "TRADES",   v: String(d.trades),     c: "#E8EDF5" },
-            { l: "WIN RATE", v: `${d.winRate}%`,      c: "#E8EDF5" },
+            { l: "TRADES",   v: String(d.trades),     c: INK },
+            { l: "WIN RATE", v: `${d.winRate}%`,      c: INK },
           ].map(r => (
             <div key={r.l} style={{ display: "flex", justifyContent: "space-between", gap: 20, marginBottom: 5 }}>
               <span style={{ fontFamily: FONT, fontSize: 9, fontWeight: 800, letterSpacing: "0.1em", color: "var(--jr-ink-dim)" }}>{r.l}</span>
@@ -211,7 +240,7 @@ function NavSelect({ value, onChange, options, width }: { value: number; onChang
         style={{
           appearance: "none", WebkitAppearance: "none",
           background: CARD, border: `2px solid ${BORDER}`,
-          color: "#E8EDF5", height: 40,
+          color: INK, height: 40,
           padding: "0 28px 0 14px",
           fontFamily: FONT, fontSize: 10, fontWeight: 900,
           letterSpacing: "0.1em", cursor: "pointer", outline: "none",
@@ -224,7 +253,7 @@ function NavSelect({ value, onChange, options, width }: { value: number; onChang
         onMouseLeave={e => { if (document.activeElement !== e.currentTarget) e.currentTarget.style.borderColor = BORDER; }}
       >
         {options.map(o => (
-          <option key={o.value} value={o.value} style={{ background: "#0F1520", color: "#E8EDF5" }}>
+          <option key={o.value} value={o.value} style={{ background: "var(--tc-card, #0F1520)", color: INK }}>
             {o.label}
           </option>
         ))}
@@ -298,7 +327,7 @@ function NavSearch({ onNavigate }: { onNavigate: (year: number, month: number) =
         spellCheck={false}
         style={{
           background: CARD, border: `2px solid ${borderColor}`,
-          color: state === "error" ? RED : "#E8EDF5",
+          color: state === "error" ? RED : INK,
           height: 40, width: 170,
           padding: "0 12px 0 32px",
           fontFamily: FONT, fontSize: 10, fontWeight: 900,
@@ -391,10 +420,29 @@ export default function TradingCalendar({ sessionId, darkMode = true }: { sessio
   const yearOptions  = YEARS.map(y => ({ value: y, label: String(y) }));
 
   const showCalendarLoader = useDelayedLoading(!!sessionId && isLoading);
+  /* THE LIGHT THEME'S VALUES. Only the three surface variables were here until 2026-09-27, which is
+     exactly why his text was washed out: the card turned white and the text stayed at the near-white
+     it needs on a dark ground. Every contrast figure below is measured against #FFFFFF, the card
+     these sit on; AA wants 4.5:1 for text.
+
+     The signal colours are the values already used by this repo's other light-theme blocks
+     (Notifications, Trade Sync), so profit/loss keep meaning the same thing app-wide. */
   const tcVars = !darkMode ? {
     '--tc-bg':     '#EEF2F7',
     '--tc-card':   '#FFFFFF',
     '--tc-border': '#CBD5E1',
+    '--tc-ink':          '#141310',  // 18.58:1 — headings, figures, control text
+    '--tc-up':           '#047857',  //  5.48:1 — profit, still green
+    '--tc-up-rgb':       '4,120,87',
+    '--tc-down':         '#be123c',  //  6.29:1 — loss, still red
+    '--tc-down-rgb':     '190,18,60',
+    '--tc-warn':         '#b45309',  //  5.02:1 — break-even
+    '--tc-warn-rgb':     '180,83,9',
+    '--tc-info':         '#2563eb',  //  5.17:1 — a plain count
+    '--tc-dim':          '#5C5646',  //  7.31:1 — faded, but still legible
+    '--tc-dim-weekend':  '#6E6554',  //  5.11:1 on the #EEF2F7 strip it actually sits on
+    '--tc-scrim-rgb':    '255,255,255',  // the empty-state veil — white here, near-black on dark
+    '--tc-strip':        '#EEF2F7',  // the SUN..SAT header strip; was a hardcoded near-black
   } as React.CSSProperties : {};
 
   if (showCalendarLoader) {
@@ -433,7 +481,7 @@ export default function TradingCalendar({ sessionId, darkMode = true }: { sessio
               </div>
             )}
           </div>
-          <div style={{ fontSize: 13, fontWeight: 900, color: "#E8EDF5", letterSpacing: "0.15em" }}>
+          <div style={{ fontSize: 13, fontWeight: 900, color: INK, letterSpacing: "0.15em" }}>
             TRADING<span style={{ color: GREEN }}>_</span>CALENDAR
           </div>
         </div>
@@ -444,7 +492,7 @@ export default function TradingCalendar({ sessionId, darkMode = true }: { sessio
             data-testid="button-prev-month"
             style={{
               background: CARD, border: `2px solid ${BORDER}`,
-              color: "#E8EDF5", width: 40, height: 40, cursor: "pointer",
+              color: INK, width: 40, height: 40, cursor: "pointer",
               fontFamily: FONT, fontWeight: 900, fontSize: 15,
               display: "flex", alignItems: "center", justifyContent: "center",
               flexShrink: 0, transition: "background .15s, border-color .15s",
@@ -472,7 +520,7 @@ export default function TradingCalendar({ sessionId, darkMode = true }: { sessio
             data-testid="button-next-month"
             style={{
               background: CARD, border: `2px solid ${BORDER}`,
-              color: "#E8EDF5", width: 40, height: 40, cursor: "pointer",
+              color: INK, width: 40, height: 40, cursor: "pointer",
               fontFamily: FONT, fontWeight: 900, fontSize: 15,
               display: "flex", alignItems: "center", justifyContent: "center",
               flexShrink: 0, transition: "background .15s, border-color .15s",
@@ -492,7 +540,7 @@ export default function TradingCalendar({ sessionId, darkMode = true }: { sessio
               height: 40, display: "flex", alignItems: "center",
               padding: "0 14px", gap: 8,
               fontSize: 11, fontWeight: 900, letterSpacing: "0.1em",
-              color: "#E8EDF5", whiteSpace: "nowrap" as const,
+              color: INK, whiteSpace: "nowrap" as const,
               animation: flashKey > 0 ? "tagFlash 1.4s ease forwards" : "none",
               flexShrink: 0,
             }}
@@ -518,8 +566,8 @@ export default function TradingCalendar({ sessionId, darkMode = true }: { sessio
       <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2,1fr)" : "repeat(4,1fr)", gap: 2, marginBottom: 2 }}>
         <StatCard label={t('calendar.netPnl')}      value={fmt(stats.net)}       color={netColor} sub={`${stats.profitDays}W / ${stats.lossDays}L`} compact={compact} />
         <StatCard label={t('calendar.winRate')}      value={`${stats.winRate}%`}  color={GREEN}    sub={`${stats.profitDays} ${t('calendar.profitDays')}`}            compact={compact} />
-        <StatCard label={t('calendar.totalTrades')}  value={stats.trades}         color="#4D9FFF"  sub={t('calendar.allActiveDays')}                              compact={compact} />
-        <StatCard label={t('calendar.wlRatio')}      value={stats.ratio}          color="#E8EDF5"  sub={t('calendar.avgWinDivLoss')}                           compact={compact} />
+        <StatCard label={t('calendar.totalTrades')}  value={stats.trades}         color={BLUE}  sub={t('calendar.allActiveDays')}                              compact={compact} />
+        <StatCard label={t('calendar.wlRatio')}      value={stats.ratio}          color={INK}  sub={t('calendar.avgWinDivLoss')}                           compact={compact} />
       </div>
 
       {/* ── CALENDAR GRID ── */}
@@ -528,7 +576,9 @@ export default function TradingCalendar({ sessionId, darkMode = true }: { sessio
           <div style={{
             position: "absolute", inset: 0, zIndex: 10,
             display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-            background: "rgba(10,13,20,0.82)", gap: 10,
+            // A SCRIM, so it must follow the theme: on the light card this was a near-black slab
+            // over the whole grid (found 2026-09-27 by looking at the rendered page, not the source).
+            background: "rgba(var(--tc-scrim-rgb, 10,13,20),0.82)", gap: 10,
           }}>
             <div style={{ fontSize: 28, opacity: 0.15 }}>—</div>
             <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 900, letterSpacing: "0.2em", color: "var(--jr-ink-dim)" }}>{t('calendar.noData')}</div>
@@ -541,9 +591,9 @@ export default function TradingCalendar({ sessionId, darkMode = true }: { sessio
               padding: isMobile ? "7px 0" : "11px 0",
               textAlign: "center" as const, fontSize: isMobile ? 8 : 9, fontWeight: 900,
               letterSpacing: isMobile ? "0.02em" : "0.18em",
-              color: i === 0 || i === 6 ? "#2A3D52" : "#3A4A62",
+              color: i === 0 || i === 6 ? DIM_WEEKEND : DIM,
               borderRight: i < 6 ? `1px solid ${BORDER}` : "none",
-              background: "#080B11",
+              background: "var(--tc-strip, #080B11)",
             }}>{d}</div>
           ))}
         </div>
@@ -572,7 +622,7 @@ export default function TradingCalendar({ sessionId, darkMode = true }: { sessio
         paddingLeft: 8, paddingRight: 8,
       }}>
         <div style={{ display: "flex", gap: isMobile ? 10 : 18, flexWrap: "wrap" as const }}>
-          {[{ dot: GREEN, label: t('calendar.profit') }, { dot: RED, label: t('calendar.loss') }, { dot: "#2A3348", label: t('calendar.noTrade') }].map(({ dot, label }) => (
+          {[{ dot: GREEN, label: t('calendar.profit') }, { dot: RED, label: t('calendar.loss') }, { dot: DIM, label: t('calendar.noTrade') }].map(({ dot, label }) => (
             <div key={label} style={{ display: "flex", alignItems: "center", gap: 6 }}>
               <div style={{ width: 8, height: 8, background: dot }} />
               <span style={{ fontSize: isMobile ? 7 : 9, fontWeight: 800, letterSpacing: "0.12em", color: "var(--jr-ink-dim)" }}>{label}</span>

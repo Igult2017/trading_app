@@ -1117,80 +1117,10 @@ export default function Journal() {
         .journal-light *::after { text-shadow: none !important; }
 
         /* Pure-white / near-white inline text → dark slate so it's readable on light bg. */
-        .journal-light [style*="color: #fff"],
-        .journal-light [style*="color:#fff"],
-        .journal-light [style*="color: #FFF"],
-        .journal-light [style*="color:#FFF"],
-        .journal-light [style*="color: #ffffff"],
-        .journal-light [style*="color:#ffffff"],
-        .journal-light [style*="color: #FFFFFF"],
-        .journal-light [style*="color:#FFFFFF"],
         .journal-light [style*="color: white"],
-        .journal-light [style*="color:white"],
-        .journal-light [style*="color: #f1f5f9"],
-        .journal-light [style*="color:#f1f5f9"],
-        .journal-light [style*="color: #e2e8f0"],
-        .journal-light [style*="color:#e2e8f0"],
-        .journal-light [style*="color: #e0e6f0"],
-        .journal-light [style*="color:#e0e6f0"],
-        .journal-light [style*="color: #e8edf5"],
-        .journal-light [style*="color:#e8edf5"],
-        .journal-light [style*="color: #d1d5db"],
-        .journal-light [style*="color:#d1d5db"],
-        .journal-light [style*="color: rgb(255,255,255)"],
-        .journal-light [style*="color:rgb(255,255,255)"],
-        .journal-light [style*="color: rgba(255,255,255"],
-        .journal-light [style*="color:rgba(255,255,255"] { color: ${T.text} !important; }
+        .journal-light [style*="color:white"] { color: ${T.text} !important; }
 
         /* Common dark surface literals → theme surface so cards are visible. */
-        .journal-light [style*="background: #0d1117"],
-        .journal-light [style*="background:#0d1117"],
-        .journal-light [style*="background-color: #0d1117"],
-        .journal-light [style*="background-color:#0d1117"],
-        .journal-light [style*="background: #080d18"],
-        .journal-light [style*="background:#080d18"],
-        .journal-light [style*="background: #010409"],
-        .journal-light [style*="background:#010409"],
-        .journal-light [style*="background: #0d0f0e"],
-        .journal-light [style*="background:#0d0f0e"],
-        .journal-light [style*="background: #0a0e15"],
-        .journal-light [style*="background:#0a0e15"],
-        .journal-light [style*="background: #161b22"],
-        .journal-light [style*="background:#161b22"],
-        .journal-light [style*="background: #080a0e"],
-        .journal-light [style*="background:#080a0e"],
-        .journal-light [style*="background: #0c0c0e"],
-        .journal-light [style*="background:#0c0c0e"],
-        .journal-light [style*="background: #111520"],
-        .journal-light [style*="background:#111520"],
-        .journal-light [style*="background: #0d1018"],
-        .journal-light [style*="background:#0d1018"],
-        .journal-light [style*="background: #0d1220"],
-        .journal-light [style*="background:#0d1220"],
-        .journal-light [style*="background: #1a2035"],
-        .journal-light [style*="background:#1a2035"],
-        .journal-light [style*="background: #111825"],
-        .journal-light [style*="background:#111825"],
-        .journal-light [style*="background: #080c15"],
-        .journal-light [style*="background:#080c15"],
-        .journal-light [style*="background: #080b10"],
-        .journal-light [style*="background:#080b10"],
-        .journal-light [style*="background: #020617"],
-        .journal-light [style*="background:#020617"],
-        .journal-light [style*="background: #0f172a"],
-        .journal-light [style*="background:#0f172a"],
-        .journal-light [style*="background: #111827"],
-        .journal-light [style*="background:#111827"],
-        .journal-light [style*="background: #151e2e"],
-        .journal-light [style*="background:#151e2e"],
-        .journal-light [style*="background: #070b14"],
-        .journal-light [style*="background:#070b14"],
-        .journal-light [style*="background: #161b27"],
-        .journal-light [style*="background:#161b27"],
-        .journal-light [style*="background: #1e2535"],
-        .journal-light [style*="background:#1e2535"],
-        .journal-light [style*="background: rgb(13,17,23)"],
-        .journal-light [style*="background:rgb(13,17,23)"] { background: ${T.surface} !important; color: ${T.text} !important; }
 
         /* ── Light-theme card depth ──────────────────────────────────────────
            Dark themes separate cards with borders/glows, which read flat on a
@@ -1198,10 +1128,6 @@ export default function Journal() {
            shadow so the dashboard has visual hierarchy instead of looking washed out. */
         .journal-light [style*="var(--jr-chart"],
         .journal-light [style*="var(--jr-panel"],
-        .journal-light [style*="background: #0d1117"],
-        .journal-light [style*="background:#0d1117"],
-        .journal-light [style*="background: #080d18"],
-        .journal-light [style*="background:#080d18"],
         .journal-light .dd-card,
         .journal-light .dd-card-dark,
         .journal-light .ts-platform-card,
@@ -1218,63 +1144,19 @@ export default function Journal() {
         }
 
         /* Dim greyish text used in panels → muted theme color. */
-        .journal-light [style*="color: #cbd5e1"],
-        .journal-light [style*="color:#cbd5e1"],
-        .journal-light [style*="color: #94a3b8"],
-        .journal-light [style*="color:#94a3b8"],
-        .journal-light [style*="color: #8a99b3"],
-        .journal-light [style*="color:#8a99b3"],
-        .journal-light [style*="color: #64748b"],
-        .journal-light [style*="color:#64748b"],
-        .journal-light [style*="color: #475569"],
-        .journal-light [style*="color:#475569"],
-        .journal-light [style*="color: rgba(148,163,184"],
-        .journal-light [style*="color:rgba(148,163,184"],
-        .journal-light [style*="color: rgba(203,213,225"],
-        .journal-light [style*="color:rgba(203,213,225"],
-        .journal-light [style*="color: rgba(100,116,139"],
-        .journal-light [style*="color:rgba(100,116,139"] { color: ${T.textMuted} !important; }
 
         /* Bright accent text (Tailwind 300/400 shades) is tuned for dark backgrounds;
            on white it drops to ~1.5–3:1 and reads faded/blurred. Remap each accent
            family to an AA-contrast variant for the light theme. */
-        .journal-light [style*="color: #34d399"], .journal-light [style*="color:#34d399"],
-        .journal-light [style*="color: #10b981"], .journal-light [style*="color:#10b981"],
-        .journal-light [style*="color: #00d48a"], .journal-light [style*="color:#00d48a"],
-        .journal-light [style*="color: #00e5a0"], .journal-light [style*="color:#00e5a0"] { color: #047857 !important; }
 
-        .journal-light [style*="color: #fb7185"], .journal-light [style*="color:#fb7185"],
-        .journal-light [style*="color: #ff4d6d"], .journal-light [style*="color:#ff4d6d"],
-        .journal-light [style*="color: #f43f5e"], .journal-light [style*="color:#f43f5e"] { color: #be123c !important; }
 
-        .journal-light [style*="color: #fbbf24"], .journal-light [style*="color:#fbbf24"],
-        .journal-light [style*="color: #facc15"], .journal-light [style*="color:#facc15"],
-        .journal-light [style*="color: #f59e0b"], .journal-light [style*="color:#f59e0b"] { color: #b45309 !important; }
 
-        .journal-light [style*="color: #818cf8"], .journal-light [style*="color:#818cf8"],
-        .journal-light [style*="color: #a78bfa"], .journal-light [style*="color:#a78bfa"] { color: #4f46e5 !important; }
 
-        .journal-light [style*="color: #c084fc"], .journal-light [style*="color:#c084fc"] { color: #9333ea !important; }
 
-        .journal-light [style*="color: #38bdf8"], .journal-light [style*="color:#38bdf8"],
-        .journal-light [style*="color: #4da6ff"], .journal-light [style*="color:#4da6ff"],
-        .journal-light [style*="color: #4da8f0"], .journal-light [style*="color:#4da8f0"],
-        .journal-light [style*="color: #7dd3fc"], .journal-light [style*="color:#7dd3fc"] { color: #0369a1 !important; }
 
         /* Faint white borders/dividers → theme border. */
-        .journal-light [style*="rgba(255,255,255,0.04)"],
-        .journal-light [style*="rgba(255,255,255,0.05)"],
-        .journal-light [style*="rgba(255,255,255,0.06)"],
-        .journal-light [style*="rgba(255,255,255,0.08)"],
-        .journal-light [style*="rgba(255,255,255,0.1)"] { border-color: ${T.border} !important; }
 
         /* Dark borders on dark-themed components */
-        .journal-light [style*="border: 1px solid #1e293b"],
-        .journal-light [style*="border:1px solid #1e293b"],
-        .journal-light [style*="border: 1px solid #1e2535"],
-        .journal-light [style*="border:1px solid #1e2535"],
-        .journal-light [style*="border: 1px solid #1e2d45"],
-        .journal-light [style*="border:1px solid #1e2d45"] { border-color: ${T.border} !important; }
 
         /* CSS-class-based dark styling (DrawdownPanel, TradeSync, TradeVault, Leaderboard) */
         .journal-light .dd-card,
@@ -1394,11 +1276,7 @@ export default function Journal() {
 
         /* ── JournalForm live-stats sidebar ──────────────────────────────────
            Its values use Tailwind color CLASSES (text-white / text-emerald-* /
-           text-rose-*) that the [style*=…] hex remaps can't reach, so on a light bg
-           they render as faint ghosts ("blurred"). Scope-remap them to readable
-           colors — scoped to the sidebar so white-on-accent buttons elsewhere are
-           untouched. */
-        .journal-light .js-stats-sidebar [class*="text-white"] { color: ${T.text} !important; }
+           text-rose-*) that the [style*=…] hex remaps can't reach, so on a light bg they render as faint ghosts ("blurred"). Scope-remap them to readable colors — scoped to the sidebar so white-on-accent buttons elsewhere are untouched. */ .journal-light .js-stats-sidebar [class*="text-white"] { color: ${T.text} !important; }
         .journal-light .js-stats-sidebar .text-emerald-400,
         .journal-light .js-stats-sidebar .text-emerald-500,
         .journal-light .js-stats-sidebar .text-emerald-800 { color: #047857 !important; }
@@ -1466,30 +1344,6 @@ export default function Journal() {
         .journal-light .traderai-empty-grid button span { color: ${T.textMuted} !important; }
 
         /* ── AccountsPage additional inline backgrounds ───────────────────── */
-        .journal-light [style*="background: #0d1827"],
-        .journal-light [style*="background:#0d1827"],
-        .journal-light [style*="background: #0a1628"],
-        .journal-light [style*="background:#0a1628"],
-        .journal-light [style*="background: #0c1422"],
-        .journal-light [style*="background:#0c1422"],
-        .journal-light [style*="background: #070f1e"],
-        .journal-light [style*="background:#070f1e"],
-        .journal-light [style*="background: #0b1220"],
-        .journal-light [style*="background:#0b1220"] { background: ${T.surface} !important; color: ${T.text} !important; }
-        .journal-light [style*="background: #1e3050"],
-        .journal-light [style*="background:#1e3050"],
-        .journal-light [style*="background: #1e3a55"],
-        .journal-light [style*="background:#1e3a55"],
-        .journal-light [style*="background: #0c2a1a"],
-        .journal-light [style*="background:#0c2a1a"] { background: ${T.surface} !important; color: ${T.text} !important; }
-        .journal-light [style*="border: 1px solid #1e3050"],
-        .journal-light [style*="border:1px solid #1e3050"],
-        .journal-light [style*="border: 1px solid #1e3a55"],
-        .journal-light [style*="border:1px solid #1e3a55"],
-        .journal-light [style*="border: 1px solid #334155"],
-        .journal-light [style*="border:1px solid #334155"] { border-color: ${T.border} !important; }
-        .journal-light .accounts-root [style*="color: #38bdf8"],
-        .journal-light .accounts-root [style*="color:#38bdf8"] { color: #1d4ed8 !important; }
 
         /* ══ READABILITY LAYER — last in the cascade, 2026-08-01 ═══════════════════════════
            The white theme read as "blurred". It is not blur: nothing filters page text. It is
@@ -1502,64 +1356,22 @@ export default function Journal() {
            the 144-rule sheet above and the gaps in it. */
 
         /* Blue tints -> blue-700 (6.3:1 on white) */
-        .journal-light [style*="color: #60a5fa"], .journal-light [style*="color:#60a5fa"],
-        .journal-light [style*="color: #93c5fd"], .journal-light [style*="color:#93c5fd"],
-        .journal-light [style*="color: #4f9cf9"], .journal-light [style*="color:#4f9cf9"],
-        .journal-light [style*="color: #3b82f6"], .journal-light [style*="color:#3b82f6"],
-        .journal-light [style*="color: #2d8cf0"], .journal-light [style*="color:#2d8cf0"],
-        .journal-light [style*="color: #3d9fd3"], .journal-light [style*="color:#3d9fd3"],
-        .journal-light [style*="color: #5b8cf8"], .journal-light [style*="color:#5b8cf8"] { color: #1d4ed8 !important; }
 
         /* Green tints -> emerald-700 (5.0:1) */
-        .journal-light [style*="color: #4ade80"], .journal-light [style*="color:#4ade80"],
-        .journal-light [style*="color: #6b8f72"], .journal-light [style*="color:#6b8f72"],
-        .journal-light [style*="color: #22d3a5"], .journal-light [style*="color:#22d3a5"],
-        .journal-light [style*="color: #00c896"], .journal-light [style*="color:#00c896"] { color: #047857 !important; }
 
         /* Red tints -> rose-700 (6.1:1) */
-        .journal-light [style*="color: #fca5a5"], .journal-light [style*="color:#fca5a5"],
-        .journal-light [style*="color: #f87171"], .journal-light [style*="color:#f87171"],
-        .journal-light [style*="color: #ef4444"], .journal-light [style*="color:#ef4444"] { color: #be123c !important; }
 
         /* Amber tints -> amber-700 (4.9:1) */
-        .journal-light [style*="color: #f3ba2f"], .journal-light [style*="color:#f3ba2f"],
-        .journal-light [style*="color: #f7a600"], .journal-light [style*="color:#f7a600"],
-        .journal-light [style*="color: #f0a500"], .journal-light [style*="color:#f0a500"],
-        .journal-light [style*="color: #c8a84b"], .journal-light [style*="color:#c8a84b"],
-        .journal-light [style*="color: #f0c040"], .journal-light [style*="color:#f0c040"] { color: #b45309 !important; }
 
         /* Pink -> rose-700 */
-        .journal-light [style*="color: #f4617f"], .journal-light [style*="color:#f4617f"] { color: #be123c !important; }
 
         /* Violet tints -> violet-800 (8.0:1) */
-        .journal-light [style*="color: #a78bfa"], .journal-light [style*="color:#a78bfa"],
-        .journal-light [style*="color: #6c63ff"], .journal-light [style*="color:#6c63ff"],
-        .journal-light [style*="color: #a899ff"], .journal-light [style*="color:#a899ff"],
-        .journal-light [style*="color: #9585f5"], .journal-light [style*="color:#9585f5"],
-        .journal-light [style*="color: #ede9ff"], .journal-light [style*="color:#ede9ff"] { color: #5b21b6 !important; }
 
         /* Grey tints built for dark surfaces -> the muted token (7.4:1) */
-        .journal-light [style*="color: #9ca3af"], .journal-light [style*="color:#9ca3af"],
-        .journal-light [style*="color: #c9ccd4"], .journal-light [style*="color:#c9ccd4"],
-        .journal-light [style*="color: #e8e9eb"], .journal-light [style*="color:#e8e9eb"],
-        .journal-light [style*="color: #7c85a2"], .journal-light [style*="color:#7c85a2"],
-        .journal-light [style*="color: #c8d8e8"], .journal-light [style*="color:#c8d8e8"],
-        .journal-light [style*="color: #94a3b8"], .journal-light [style*="color:#94a3b8"] { color: ${T.textMuted} !important; }
 
         /* White text on what is now a white surface - the worst case, 1:1.
-           :not([style*="background"]) is load-bearing, for TWO reasons:
-             1. a filled chip (a red delete button, an active blue tab) sets its own background AND
-                white text on purpose. Forcing those dark puts near-black on red, which is worse
-                than what we started with - 6 real buttons across Accounts/Leaderboard/Assets.
-             2. [style*="color: #fff"] is a SUBSTRING match, so it also hits
-                "background-color: #fff". Excluding anything that declares a background drops that
-                false match too.
-           The earlier attempt used .badge and a hardcoded button background as the exception. Both
-           were guesses - .badge appears in no Journal panel - so the exception never fired. */
-        .journal-light [style*="color: #fff"]:not([style*="background"]),
-        .journal-light [style*="color:#fff"]:not([style*="background"]),
-        .journal-light [style*="color: #FFF"]:not([style*="background"]),
-        .journal-light [style*="color:#FFF"]:not([style*="background"]) { color: ${T.text} !important; }
+           :not([style*="background"]) is load-bearing,
+           for TWO reasons: 1. a filled chip (a red delete button, an active blue tab) sets its own background AND white text on purpose. Forcing those dark puts near-black on red { color: ${T.text} !important; }
 
         /* ── NUMBERS: Playfair 700. The reference design owes its legibility as much to weight
            as to colour - a 400-weight display serif at 12px is what actually reads as blurry.
@@ -1589,7 +1401,7 @@ export default function Journal() {
         themeAccent={T.accent}
       />
 
-      <div className={`journal-root ${T.dark ? '' : 'journal-light'}`} style={{ flex:1, display:'flex', overflow:'hidden', position:'relative', ['--jr-bg' as any]: T.bg, ['--jr-panel' as any]: T.surface, ['--jr-chart' as any]: T.dark ? '#080d18' : T.surface, ['--jr-border' as any]: T.border, ['--jr-text' as any]: T.text, // Caption grey: the Metrics panel's value (8.77:1) on dark, against the 5.34:1 --jr-muted
+      <div className={`journal-root ${T.dark ? 'journal-dark' : 'journal-light'}`} style={{ flex:1, display:'flex', overflow:'hidden', position:'relative', ['--jr-bg' as any]: T.bg, ['--jr-panel' as any]: T.surface, ['--jr-chart' as any]: T.dark ? '#080d18' : T.surface, ['--jr-border' as any]: T.border, ['--jr-text' as any]: T.text, // Caption grey: the Metrics panel's value (8.77:1) on dark, against the 5.34:1 --jr-muted
         // these labels used to take. The light theme keeps its own muted — it is dark ink on a pale
         // ground there and was never the complaint.
         ['--jr-muted' as any]: T.textMuted, ['--jr-cap' as any]: T.dark ? '#A8AEB8' : T.textMuted,

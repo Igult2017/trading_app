@@ -8,20 +8,14 @@ interface AppHeaderProps {
 }
 
 export function AppHeader({ ts }: AppHeaderProps) {
-  const { theme, setTheme, setActivePage, setToast, helpOpen, setHelpOpen, accountOpen, setAccountOpen, studio } = ts;
+  const { setActivePage, setToast, helpOpen, setHelpOpen, accountOpen, setAccountOpen, studio } = ts;
 
+  // The light/dark button that used to sit here is GONE (2026-09-27). It was a SECOND theme switch
+  // that fought the journal's main one, which is what he asked to have consolidated. This panel now
+  // follows .journal-root's marker class — see styles/tokens.ts.
   return (
     <header className="flex justify-end items-center px-6 h-14 w-full bg-surface border-b border-surface-container-highest sticky top-0 z-40">
       <div className="flex items-center gap-4">
-        <button
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-surface-container-highest text-on-surface-variant hover:text-on-surface"
-          onClick={() => setTheme(theme === "light" ? "dark" : "light")}
-          aria-label="Toggle dark blue theme"
-          title="Toggle dark blue theme"
-        >
-          <Icon name={theme === "light" ? "dark_mode" : "light_mode"} className="text-[15px]" />
-          <span className="font-label-xs uppercase hidden sm:inline">{theme === "light" ? "Dark blue" : "Default"}</span>
-        </button>
         <button
           className="relative"
           onClick={() => setActivePage("provider")}

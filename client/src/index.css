@@ -411,6 +411,46 @@
     font-family: 'Playfair Display Variable', 'Playfair Display', Georgia, serif;
     font-weight: 400;
   }
+
+  /* ── THE INK FLOOR: nothing in the journal may inherit an unreadable text colour ────────────
+     Borrowed from the eco-friendly-marketplace project (app/globals.css), which is what he asked
+     for: "copy how eco friendly marketplace manages to balance text colors for visibility in white
+     theme". Its whole method is four things, and this rule is the two the journal was missing —
+     give the ELEMENTS a colour so nothing falls through to a pale default, and put that rule IN A
+     LAYER so a panel which deliberately wants white-on-dark still wins.
+
+     WHY IT MUST BE LAYERED, which that project learned the hard way and fixed in two commits: an
+     UNLAYERED element rule outranks a layered utility class, so their `text-white` headings on dark
+     heroes rendered charcoal-on-charcoal and were invisible. Inside @layer base it is the floor
+     rather than the ceiling — any real declaration, utility, or inline style beats it.
+
+     WHAT IT REPLACES. The journal used to defend against washed-out text by matching the TEXT of
+     the style attribute (`[style*="color:#fff"]`, ~200 selectors in Journal.tsx). That cannot work
+     and never did: React assigns styles onto the element and the browser rewrites the attribute in
+     its own words, so `color:'#fff'` comes back as `color: rgb(255, 255, 255)` and no hex selector
+     matches. Measured in a real browser, 2026-09-27. See docs/READABILITY.md.
+
+     --jr-ink / --jr-ink-dim are set per theme on .journal-root (Journal.tsx), so one pair of names
+     is correct in both themes and no component needs to know which theme is on.
+
+     ONLY THE ROOT AND THE HEADINGS, which is also all that project floors — and the restraint is
+     the point. Putting a colour on every div/span/p instead would match each child DIRECTLY and so
+     BREAK INHERITANCE: a panel that colours a wrapper green would have its nested figures reset to
+     ink, which would silently destroy the one signal the dashboard carries. The root plus headings
+     is enough, because every other element inherits from it. */
+  .journal-root {
+    color: var(--jr-ink);
+  }
+
+  .journal-root h1,
+  .journal-root h2,
+  .journal-root h3,
+  .journal-root h4,
+  .journal-root h5,
+  .journal-root h6 {
+    color: var(--jr-ink);
+  }
+
   :root {
     --sidebar-background: 0 0% 98%;
     --sidebar-foreground: 240 5.3% 26.1%;

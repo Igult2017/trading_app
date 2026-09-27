@@ -391,6 +391,112 @@ one place is overridden in three others, and only the browser knows which won.
 
 ---
 
+## 2026-09-27 — THE SAME CAUSE, A THIRD TIME (the journal calendar), AND WHY THE APP'S DEFENCE AGAINST IT COULD NEVER WORK
+
+His words: *"copy how eco friendly marketplace manages to balance text colors for visibility in white
+theme and then consolidate theme color switch so that even fx copier theme can be switched from the
+main switch."* The instruction was originally given in Claude web, so it had never reached this repo.
+
+### The cause was the one above, again — a dark theme's colours left on a white card
+
+`TradingCalendar.tsx` already turned its CARD white in the light theme (`tcVars`, three surface
+variables) but **never gave the TEXT a light value.** So near-white ink was painted on a white card.
+Measured against `#FFFFFF`, where AA wants 4.5:1:
+
+| what he pointed at | was | measured on white |
+|---|---|---|
+| the "TRADING CALENDAR" heading | `#E8EDF5` | **1.18:1** |
+| the W/L ratio, "2.78" | `#E8EDF5` | **1.18:1** |
+| the trades count, "116" | `#4D9FFF` | **2.72:1** |
+| the month total, "+400.8%" | `#00E5A0` (GREEN) | **1.65:1** |
+| losing figures | `#FF3D5A` (RED) | **3.46:1** |
+
+Fixed the same way the admin panel was: **the colour becomes part of the theme instead of a fixed
+literal.** Every colour in that panel is now a variable with its dark value as the fallback, and
+`tcVars` supplies the light values — which are the ones this repo had already settled on elsewhere,
+not new inventions: up `#047857` (5.48:1), down `#be123c` (6.29:1), warn `#b45309` (5.02:1), info
+`#2563eb` (5.17:1), dim `#5C5646` (7.31:1).
+
+**Profit stayed green and loss stayed red.** They were taken to a strength that reads on white, not
+flattened to ink — the colour IS the information the panel carries.
+
+### ⚠ THE NEW FINDING, AND IT INVALIDATES ~200 LINES OF CSS: you cannot catch an inline colour by matching the style attribute's TEXT
+
+`Journal.tsx` carried a 478-line light-theme block whose method was to match the text of the style
+attribute — `[style*="color:#fff"]`, `[style*="background:#0d1117"]`, and so on. **218 distinct
+selectors. 211 of them can never match anything.**
+
+React does not put your hex into the attribute. It assigns onto the element, and the browser writes
+the attribute back out in its own words. Measured in a real browser:
+
+```
+style={{ color: '#fff' }}        -> attribute reads "color: rgb(255, 255, 255);"        matches: FALSE
+style={{ background: '#0d1117'}} -> attribute reads "background: rgb(13, 17, 23);"      matches: FALSE
+style={{ color: 'white' }}       -> attribute reads "color: white;"                     matches: TRUE
+style="color:#fff"  (raw HTML)   -> attribute reads "color:#fff"                        matches: TRUE
+```
+
+Every hex becomes `rgb(...)`. `rgba(255,255,255,0.04)` gains spaces and becomes
+`rgba(255, 255, 255, 0.04)`, so even the `rgba` selectors written without spaces miss. Only a keyword
+(`white`), a `var(--…)` reference, or a style written as a **raw HTML string** (injected markup, not
+JSX) survives into the attribute where a selector can see it.
+
+**Why this mattered more than the dead code itself:** the block READ like a working safety net, so
+nobody went and fixed the panels behind it. A note at the top of that same block had already recorded
+the mechanism and said "Measured 2026-08-08" — and the 211 selectors were left in place below it.
+
+**The rule: never try to fix a colour by matching the style attribute's text.** Put the colour in a
+variable resolved per theme, which is what the rest of this file already tells you to do.
+
+### What replaced it — copied from the eco-friendly-marketplace project, as he asked
+
+That project's whole colour system is 250 lines (`app/globals.css`). Four things make its white theme
+readable, and the journal was missing the last two:
+
+1. every colour is a **named token declared once** — three inks exist and no component invents a fourth;
+2. the same token **NAMES are redefined per theme at the root** (`:root` vs `.dark`), so one class on
+   an ancestor recolours the whole site;
+3. a **floor is set on the elements themselves** (`body`, `h1…h6` each get a colour) so nothing can
+   inherit a pale default;
+4. that floor sits **inside `@layer base`**, so a panel that deliberately wants white-on-dark wins.
+
+Point 4 is the one they learned the hard way and it is worth carrying: an **unlayered** element rule
+outranks a layered utility class, so their `text-white` headings on dark heroes rendered
+charcoal-on-charcoal and were invisible. They patched the symptom first (wrapping each headline in a
+`<span>`), then fixed the cause by moving the rules into `@layer base`.
+
+The journal's floor is now in `client/src/index.css`, inside the existing `@layer base`: `.journal-root`
+and its `h1…h6` take `var(--jr-ink)`.
+
+**It floors ONLY the root and the headings, and the restraint is deliberate.** Putting a colour on
+every `div`/`span`/`p` would match each child DIRECTLY and so break inheritance — a panel that colours
+a wrapper green would have its nested figures reset to ink, silently destroying the one signal the
+dashboard carries. The root plus headings is enough, because everything else inherits from it.
+
+### The theme switch was consolidated at the same time
+
+There were **three** theme mechanisms; two were wrong.
+
+| | what | verdict |
+|---|---|---|
+| 1 | `Journal.tsx` `toggleDarkMode()` -> `settings.theme` -> `THEMES[id]` | the real switch |
+| 2 | `features/trade-sync/hooks/useTradeSync.ts` `useState<"light"|"dark">("dark")` + its own header button | **removed** — FX Copier held its own theme and ignored the main switch |
+| 3 | `components/ThemeToggle.tsx` | **deleted** — no importer, its own storage key, belonged to no live system |
+
+`.ct-app` was already built the right way: `styles/tokens.ts` declares a full light palette on
+`.ct-app` and a full dark one for the dark case. Only the question of WHO supplies the class was
+wrong. `.journal-root` now carries `journal-dark` as well as `journal-light`, and the dark palette
+triggers from `.journal-dark .ct-app` — so the panel follows the app's one switch with **zero
+JavaScript**.
+
+**⚠ THE TRAP THAT WOULD HAVE SHIPPED DEAD, checked before choosing:** the obvious wiring — have
+`TradeSyncApp` call `useJournalSettings()` — does not work. That hook is plain `useState`: it writes
+the theme to localStorage but **never notifies other callers**, so a second caller gets its OWN copy,
+reads the theme once at mount, and never hears the switch flip. It would have looked correctly wired
+and done nothing.
+
+---
+
 ## ⭐ THE SETTLED RULING — display serif vs TEXT serif (2026-09-10)
 
 **This supersedes every earlier note in this document about Playfair, Inter and Montserrat. It is
