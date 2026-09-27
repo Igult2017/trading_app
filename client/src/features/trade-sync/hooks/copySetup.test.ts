@@ -51,6 +51,9 @@ const F = ['client', 'src', 'features', 'trade-sync'];
 const setup    = read(...F, 'hooks', 'useCopySetup.ts');
 const overview = read(...F, 'hooks', 'useOverview.ts');
 const routes   = read('server', 'routes.ts');
+const agree    = read(...F, 'sections', 'setup', 'AgreementAndStart.tsx');
+const picker   = read(...F, 'sections', 'setup', 'AccountPicker.tsx');
+const ownList  = read(...F, 'sections', 'setup', 'OwnAccountsList.tsx');
 
 console.log('\nCOPY SETUP — the panel remembers what was saved');
 
@@ -122,7 +125,57 @@ check('only the two sizing modes the dropdown offers are restored',
       !setup.includes('setSizingMode("Lot Multiplier")'), true);
 
 // ── 3. STOP IS NOT GATED BY THE START-BLOCKERS ──────────────────────────────
-check('blockers apply only when starting', /const startBlockers = mirroring \? \[\] :/.test(setup), true);
+// ⚠ REPLACED, NOT DELETED, 2026-09-28. This asserted `startBlockers = mirroring ? [] :` — the
+// blockers were skipped while copying was live, and for a real reason: the SAME button also stopped
+// mirroring, so after a reload (master blank) the "declare a master" blocker fired and disabled the
+// stop. He could not turn off copying that was already running.
+//
+// That button no longer stops anything. His instruction: "there is no need for things like 'stop
+// mirroring' in this form... The connected accounts appear in the connected accounts section" —
+// stopping is per-account there, the Drop button. With one job left, gating the submit on a complete
+// form is simply correct, and the bug the old assertion guarded cannot occur.
+check('the form only ever starts — no stop branch left in it',
+      /if \(mirroring\) \{/.test(setup), false);
+check('...so the blockers are no longer skipped while copying is live',
+      /const startBlockers = mirroring \? \[\] :/.test(setup), false);
+// COMMENTS STRIPPED FIRST. The docblock in that file EXPLAINS the old "Stop mirroring" button, so a
+// plain text search matches the explanation and reports the behaviour as still present. The question
+// is what the component renders, not what its history says.
+const agreeCode = agree.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+check('...and the button label never says stop',
+      /Stop mirroring/.test(agreeCode), false);
+check('...nor switches its label on whether copying is live',
+      /mirroring \?/.test(agreeCode), false);
+
+// ── THE PANEL IS A FORM: pick, submit, clear, repeat ────────────────────────
+// His instruction: "This should just be like a form that enable users to connect accounts... Whatever
+// is marked here is submitted and it remains cleared for the next task... the accounts that users can
+// follow should be displayed explicitly not in a dropdown... User picks master account and then it is
+// shown accounts to copy to."
+check('the pair is chosen from cards, not a dropdown', /<select/.test(ownList), false);
+check('...and the picker uses buttons per account', /<button/.test(picker), true);
+check('the targets step waits for a master', /\{masterId && \(/.test(picker), true);
+check('...and never offers the master as its own target',
+      /a\.id !== masterId/.test(picker), true);
+check('a pair that already exists is marked rather than blocked',
+      /already copying/.test(picker), true);
+
+// CLEARED FOR THE NEXT TASK — the whole form, not just the target. It used to reset only
+// selectedOwnAccounts, so the master and every risk setting carried into the next link.
+for (const [what, re] of [
+  ['the master',      /setMasterAccountId\(""\)/],
+  ['the target',      /setSelectedOwnAccounts\(\[\]\)/],
+  ['the sizing mode', /setSizingMode\("Risk %"\)/],
+  ['the sizing value',/setSizingValue\("1\.00"\)/],
+  ['the drawdown',    /setDrawdown\("10"\)/],
+  ['the sessions',    /setSessions\(\["London"\]\)/],
+  ['the instruments', /setInstruments\(\["Forex", "Metals"\]\)/],
+] as [string, RegExp][]) {
+  check(`a successful submit clears ${what}`, re.test(setup), true);
+}
+check('...but NOT the terms tick, which is consent to the service not to one link',
+      /setAgreed\(false\)/.test(setup), false);
+check('the form says what it just created', /lastLinked/.test(agree), true);
 
 // ── 4. THE CHOICES ACTUALLY LEAVE THE BROWSER ───────────────────────────────
 // Collected since the panel was built, never sent — both sets of buttons were decoration.

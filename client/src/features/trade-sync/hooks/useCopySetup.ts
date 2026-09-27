@@ -39,6 +39,10 @@ export function useCopySetup(
   const [selectedOwnAccounts, setSelectedOwnAccounts] = useState<string[]>([]);
   const [masterAccountId, setMasterAccountId] = useState("");
   const [busy, setBusy] = useState(false);
+  // WHAT THE LAST SUBMIT PRODUCED, so the form can say so and then stand ready - his "it should
+  // just show success message then wait for the next connection task". Cleared the moment he starts
+  // choosing the next pair, so it never lingers over a form he has already moved on from.
+  const [lastLinked, setLastLinked] = useState<{ from: string; to: string } | null>(null);
   const [platformBySource, setPlatformBySource] = useState<Record<SourceId, string>>({
     provider: "cTrader", "self-copy": "cTrader", telegram: "Channel",
   });
@@ -138,11 +142,13 @@ export function useCopySetup(
   const needsMasterAccount = source === "self-copy" && !masterAccountId;
   const needsChannel = source === "telegram" && !telegramChannel.trim();
   const masterAccount = useMemo(() => ownAccounts.find((a) => a.id === masterAccountId), [ownAccounts, masterAccountId]);
-  // THESE GATE STARTING ONLY. The same button stops mirroring, and stopping needs no master, no
-  // mirror and no channel — it just pauses what is already running. Leaving them applied meant that
-  // after a reload (master blank) the "declare a master" blocker fired and the STOP button was
-  // disabled too: he could not turn off copying that was already live, and had no way to reach it.
-  const startBlockers = mirroring ? [] : ([
+  // ALWAYS APPLIED, because the button now has only one job. They used to be skipped while
+  // `mirroring` was true, and for a real reason: the same button also STOPPED mirroring, and after a
+  // reload the master is blank, so the "declare a master" blocker fired and disabled the stop - he
+  // could not turn off copying that was already live. With Stop gone from this form (his "no need
+  // for things like 'stop mirroring' in this form") that cannot happen, and gating the submit on a
+  // complete form is simply correct.
+  const startBlockers = ([
     needsAccountConnect && "Add and connect a trading account above before you can start mirroring.",
     needsMasterAccount && "Declare a master account below before you can start mirroring.",
     source === "self-copy" && !needsMasterAccount && selectedOwnAccounts.length === 0 &&
@@ -159,6 +165,7 @@ export function useCopySetup(
   };
 
   const setMasterAccount = (account: OwnAccount) => {
+    setLastLinked(null);          // he has moved on to the next task
     setMasterAccountId(account.id);
     setSelectedOwnAccounts((prev) => prev.filter((id) => id !== account.id));
     setToast(`${account.name} set as your master account.`);
@@ -174,12 +181,10 @@ export function useCopySetup(
     if (!agreed || startBlockers.length > 0 || busy) return;
     setBusy(true);
     try {
-      if (mirroring) {
-        // Stop = pause every live relationship (they stay configured, nothing is deleted).
-        await Promise.all((overview?.copies ?? []).filter((c) => c.status === "live")
-          .map((c) => apiRequest("PUT", `/api/copy/followers/${c.followerId}`, { isActive: false })));
-        setToast("Mirroring stopped — all copy relationships paused.");
-      } else if (source === "self-copy") {
+      // NO STOP BRANCH. This panel is a FORM for connecting accounts - his instruction: "there is no
+      // need for things like 'stop mirroring' in this form... The connected accounts appear in the
+      // connected accounts section". Stopping is per-account now, the Drop button there.
+      if (source === "self-copy") {
         // ONE LINK PER SUBMIT — his rule, 2026-09-26: *"the UI should be just like a form that user
         // marks and if he does everything right, he gets the notification that copying was
         // successful and then account that copies is displayed in mirror feeds."* This used to loop
@@ -202,8 +207,21 @@ export function useCopySetup(
         }
         const into = ownAccounts.find((a) => a.id === selectedOwnAccounts[0]);
         setToast(`Copying started — ${masterAccount?.name ?? "your master"} → ${into?.name ?? "that account"}. It is now in Mirror feeds.`);
-        // The form empties so the next link is built from scratch, not from the one just made.
+        // THE FORM EMPTIES FOR THE NEXT TASK - his "whatever is marked here is submitted and it
+        // remains cleared for the next task". It used to clear only the target, so the master and
+        // every risk setting carried over and the next link silently inherited the last one's
+        // sizing, drawdown, sessions and instruments. Back to the same defaults this hook starts at.
+        //
+        // THE TERMS TICK IS LEFT ALONE on purpose: it is consent to the service, not to one link,
+        // and re-ticking a legal checkbox on every submit teaches people to click it unread.
         setSelectedOwnAccounts([]);
+        setMasterAccountId("");
+        setSizingMode("Risk %");
+        setSizingValue("1.00");
+        setDrawdown("10");
+        setSessions(["London"]);
+        setInstruments(["Forex", "Metals"]);
+        setLastLinked({ from: masterAccount?.name ?? "your master", to: into?.name ?? "that account" });
       } else if (source === "telegram") {
         const onto = ownAccounts.find((a) => a.connected);
         if (!onto) throw new Error("connect an account first");
@@ -227,7 +245,7 @@ export function useCopySetup(
       // without this the refusal he most needs to read — "that would send the same trade round in
       // a circle" — reaches him as raw JSON behind a number. He asked for a notification that says
       // what happened; a refusal is exactly when that matters.
-      setToast(`Could not ${mirroring ? "stop" : "start"} copying: ${serverReason(err)}`);
+      setToast(`Could not start copying: ${serverReason(err)}`);
     } finally { setBusy(false); }
   };
 
@@ -246,7 +264,7 @@ export function useCopySetup(
     links: overview?.selfCopy?.links ?? [],
     selectedOwnAccounts, masterAccountId,
     platformBySource, setPlatformBySource,
-    toggleFrom, dropAccount, toggleOwnAccount, setMasterAccount,
+    toggleFrom, dropAccount, toggleOwnAccount, setMasterAccount, lastLinked,
     startBlockers, handleStart, lotFields, busy,
   };
 }

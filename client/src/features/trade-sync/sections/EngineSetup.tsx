@@ -62,16 +62,21 @@ export function EngineSetup({ ts }: EngineSetupProps) {
         )}
 
         <section>
-          <div className="relative mb-6">
-            <Icon name="search" className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant" />
-            <input
-              className="w-full bg-surface border border-surface-container-highest rounded py-3 pl-10 pr-4 font-body-md focus:ring-1 focus:ring-primary focus:border-primary placeholder:opacity-40"
-              placeholder="Search verified providers by name or ID"
-              type="text"
-              value={search.providerQuery}
-              onChange={(e) => search.setProviderQuery(e.target.value)}
-            />
-          </div>
+          {/* ONLY WHERE THERE ARE PROVIDERS TO SEARCH. This rendered for every source, so setting
+              up copying between his OWN accounts offered "Search verified providers by name or ID"
+              - a box that filters a directory the self-copy and Telegram flows never show. */}
+          {source === "provider" && (
+            <div className="relative mb-6">
+              <Icon name="search" className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant" />
+              <input
+                className="w-full bg-surface border border-surface-container-highest rounded py-3 pl-10 pr-4 font-body-md focus:ring-1 focus:ring-primary focus:border-primary placeholder:opacity-40"
+                placeholder="Search verified providers by name or ID"
+                type="text"
+                value={search.providerQuery}
+                onChange={(e) => search.setProviderQuery(e.target.value)}
+              />
+            </div>
+          )}
 
           {(source === "self-copy" || source === "telegram") && (
             <div className="mb-8 flex items-start gap-2 p-3 rounded border border-surface-container-highest bg-surface-container-low">

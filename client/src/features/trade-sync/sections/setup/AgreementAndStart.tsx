@@ -5,9 +5,16 @@ interface AgreementAndStartProps {
   setup: CopySetup;
 }
 
-/** The commit step. Start stays disabled until the terms are accepted AND every blocker clears. */
+/**
+ * The commit step. Start stays disabled until the terms are accepted AND every blocker clears.
+ *
+ * START ONLY. This button used to relabel itself "Stop mirroring" whenever copying was live, and
+ * pressing it paused every relationship at once. His instruction: "there is no need for things like
+ * 'stop mirroring' in this form... The connected accounts appear in the connected accounts section".
+ * Stopping is per-account now - the Drop button there - so this panel does one thing: submit a pair.
+ */
 export function AgreementAndStart({ setup }: AgreementAndStartProps) {
-  const { agreed, setAgreed, startBlockers, handleStart, mirroring, busy } = setup;
+  const { agreed, setAgreed, startBlockers, handleStart, busy, lastLinked } = setup;
   // `busy` blocks a double-click from firing the start mutations twice (each one creates real
   // follower rows / self-copy links server-side).
   const canStart = agreed && startBlockers.length === 0 && !busy;
@@ -53,9 +60,22 @@ export function AgreementAndStart({ setup }: AgreementAndStartProps) {
         disabled={!canStart}
         onClick={handleStart}
       >
-        <Icon name={busy ? "hourglass_top" : mirroring ? "stop" : "play_arrow"} filled />
-        {busy ? "Working…" : mirroring ? "Stop mirroring" : "Start mirroring"}
+        <Icon name={busy ? "hourglass_top" : "play_arrow"} filled />
+        {busy ? "Working…" : "Start copying"}
       </button>
+
+      {/* SAYS WHAT IT DID, THEN WAITS - his "it should just show success message then wait for the
+          next connection task". It clears itself the moment he picks the next master, so it never
+          describes a form he has already moved past. */}
+      {lastLinked && (
+        <p className="mt-3 flex items-center gap-1.5 text-[11px] text-tertiary font-body-md">
+          <Icon name="check_circle" className="text-[13px]" filled />
+          <span>
+            <span className="font-bold">{lastLinked.from}</span> is now copying into{" "}
+            <span className="font-bold">{lastLinked.to}</span>. Pick another master to set up the next one.
+          </span>
+        </p>
+      )}
     </div>
   );
 }

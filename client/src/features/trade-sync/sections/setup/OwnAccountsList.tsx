@@ -1,4 +1,5 @@
 import { Avatar } from "../../components/Avatar";
+import { AccountPicker } from "./AccountPicker";
 import { MirrorFeedList } from "./MirrorFeedList";
 import { Icon } from "../../components/Icon";
 import type { CopySetup } from "../../hooks/useCopySetup";
@@ -13,11 +14,6 @@ interface OwnAccountsListProps {
  *  `OwnAccount` (it adds `connected`, `loginId`, `isCtrader`), so importing the narrower type made
  *  every read of a row an error and `toggleOwnAccount` reject what the list had just handed it. */
 type Account = CopySetup["ownAccounts"][number];
-
-const SELECT_CLASS =
-  "w-full bg-surface border border-surface-container-highest rounded py-2.5 px-3 font-body-md " +
-  "text-[12px] focus:ring-1 focus:ring-primary focus:border-primary transition-colors duration-200 " +
-  "disabled:opacity-40 disabled:cursor-not-allowed";
 
 /** Self-copy: a FORM that creates ONE copy link, and a list of every link that exists.
  *
@@ -89,45 +85,14 @@ export function OwnAccountsList({ setup, links }: OwnAccountsListProps) {
         </div>
       ) : (
         <div className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <label htmlFor="copy-from" className="font-label-xs text-on-surface-variant uppercase block">
-                Copy from <span className="normal-case opacity-60">(master)</span>
-              </label>
-              <select
-                id="copy-from"
-                className={SELECT_CLASS}
-                value={fromId}
-                onChange={(e) => {
-                  const a = byId(e.target.value);
-                  if (a) setMasterAccount(a);
-                }}
-              >
-                <option value="">Choose an account…</option>
-                {ownAccounts.map((a) => (
-                  <option key={a.id} value={a.id}>{label(a)}</option>
-                ))}
-              </select>
-            </div>
-
-            <div className="space-y-1.5">
-              <label htmlFor="copy-into" className="font-label-xs text-on-surface-variant uppercase block">
-                Copy into <span className="normal-case opacity-60">(mirror)</span>
-              </label>
-              <select
-                id="copy-into"
-                className={SELECT_CLASS}
-                value={intoId}
-                disabled={!fromId}
-                onChange={(e) => pickInto(e.target.value)}
-              >
-                <option value="">{fromId ? "Choose an account…" : "Choose a master first…"}</option>
-                {intoChoices.map((a) => (
-                  <option key={a.id} value={a.id}>{label(a)}</option>
-                ))}
-              </select>
-            </div>
-          </div>
+          <AccountPicker
+            accounts={ownAccounts}
+            links={links}
+            masterId={fromId}
+            targetId={intoId}
+            onPickMaster={setMasterAccount}
+            onPickTarget={pickInto}
+          />
 
           {fromId && intoId && (
             <p className="font-body-md text-[11px] text-on-surface-variant leading-snug">
@@ -138,7 +103,8 @@ export function OwnAccountsList({ setup, links }: OwnAccountsListProps) {
             </p>
           )}
 
-          <MirrorFeedList links={links} ownAccounts={ownAccounts} />
+          {fromId && <MirrorFeedList links={links.filter((l) => l.masterAccountId === fromId)}
+                                     ownAccounts={ownAccounts} />}
         </div>
       )}
     </div>
