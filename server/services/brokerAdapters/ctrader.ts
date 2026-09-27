@@ -363,24 +363,50 @@ export function pairDealsIntoTrades(deals: any[], symbolMap: Record<number, stri
   for (const [, group] of byPosition) {
     if (group.length < 2) continue;                       // still open — nothing realised yet
     group.sort((a, b) => Number(a.executionTimestamp ?? 0) - Number(b.executionTimestamp ?? 0));
-    const open = group[0];
-    const shut = group[group.length - 1];
-    const side = String(open.tradeSide ?? '').toUpperCase();
-    const long = side === 'BUY' || open.tradeSide === 1;
-    const symbol = symbolMap[open.symbolId] ?? String(open.symbolId);
-    const units = Number(shut.filledVolume ?? shut.volume ?? 0) / 100;
-    const entry = Number(open.executionPrice);
-    const exit  = Number(shut.executionPrice);
-    const comm  = (money(open.commission, open.moneyDigits) ?? 0)
-                + (money(shut.commission, shut.moneyDigits) ?? 0);
+    const first = group[0];
+    const openSide = String(first.tradeSide ?? '').toUpperCase() || (first.tradeSide === 1 ? 'BUY' : 'SELL');
+    const vol = (d: any) => Number(d.filledVolume ?? d.volume ?? 0) / 100;
+
+    // ── EVERY PIECE COUNTS, NOT JUST THE LAST ONE ─────────────────────────────────────────────
+    //
+    // HIS REPORT, 2026-09-27: taking profit at several points was recording several trades. The
+    // live path was creating those rows; THIS path had the matching half of the bug — it read
+    // `group[group.length - 1]` as "the close", so a position banked in three pieces was written
+    // as one trade carrying only the LAST piece's size, price and profit. One row, and wrong.
+    //
+    // Deals on the opening side ADD to the position (scaling in), deals on the other side TAKE
+    // FROM it. Both are averaged by size, so the entry and exit are the prices he actually got.
+    const opens  = group.filter((d) => (String(d.tradeSide ?? '').toUpperCase() || (d.tradeSide === 1 ? 'BUY' : 'SELL')) === openSide);
+    const closes = group.filter((d) => !opens.includes(d));
+    if (closes.length === 0) continue;                    // nothing has been taken off yet
+
+    const openedUnits = opens.reduce((t, d) => t + vol(d), 0);
+    const closedUnits = closes.reduce((t, d) => t + vol(d), 0);
+    // ⚠ ONLY WHEN THE WHOLE THING IS FINISHED — his rule: "record one order as an order AFTER the
+    // whole order has been closed". While part of it is still running the trade has no final size
+    // and no final result, so recording it now would be recording a guess. The next sweep sees it.
+    if (!(openedUnits > 0) || closedUnits + 1e-9 < openedUnits) continue;
+
+    const wavg = (ds: any[]) => {
+      const t = ds.reduce((a, d) => a + vol(d), 0);
+      return t > 0 ? ds.reduce((a, d) => a + Number(d.executionPrice) * vol(d), 0) / t : NaN;
+    };
+    const open = opens[0];
+    const shut = closes[closes.length - 1];
+    const long = openSide === 'BUY';
+    const symbol = symbolMap[first.symbolId] ?? String(first.symbolId);
+    const units = closedUnits;
+    const entry = wavg(opens);
+    const exit  = wavg(closes);
+    const comm  = group.reduce((t, d) => t + (money(d.commission, d.moneyDigits) ?? 0), 0);
     const profit = (Number.isFinite(entry) && Number.isFinite(exit) && units > 0 && usdQuoted(symbol))
       ? Math.round(((long ? exit - entry : entry - exit) * units) * 100) / 100
       : undefined;
     out.push({
-      // KEYED ON THE CLOSING DEAL, so the de-duplication in processIncomingTrades still holds: one
-      // closed position produces exactly one externalId, stable across syncs.
+      // KEYED ON THE LAST CLOSING DEAL, so the de-duplication in processIncomingTrades still holds:
+      // one finished position produces exactly one externalId, stable across syncs.
       externalId: String(shut.dealId),
-      positionId: open.positionId != null ? String(open.positionId) : undefined,
+      positionId: first.positionId != null ? String(first.positionId) : undefined,
       symbol,
       direction:  long ? 'Long' : 'Short',
       lots:       units > 0 ? units / lotUnits(symbol) : undefined,
@@ -421,9 +447,23 @@ export function mapClosedFromEvent(ev: any, symbolMap: Record<number, string>): 
   // side is only ever inside `tradeData`. Reading it was a fallback that could never fire.
   const posSide = String(p.tradeData?.tradeSide ?? '').toUpperCase();
   const dealSide = String(d.tradeSide ?? '').toUpperCase();
-  const closedByStatus = status.includes('CLOSED');
-  const closedBySide = !!posSide && !!dealSide && posSide !== dealSide;
-  if (!closedByStatus && !closedBySide) return null;          // an opening fill
+  // ── A PARTIAL TAKE-PROFIT IS NOT A CLOSED TRADE ────────────────────────────────────────────
+  //
+  // HIS REPORT, 2026-09-27: *"in one trade, if i took profit at different points, it is recording
+  // each profit taken as an individual trade. It should record one order as an order after the
+  // whole order has been closed."*
+  //
+  // THE CAUSE WAS `closedBySide`. It asked only "is this deal on the opposite side to the
+  // position?" — which is TRUE of every partial close, not just the last one. So each time he
+  // banked part of a position, that deal arrived here, passed the test, and was written as its own
+  // journal row keyed on its own dealId. Three take-profits meant three trades, each carrying only
+  // its own slice of the size.
+  //
+  // THE POSITION ITSELF SAYS WHETHER IT IS FINISHED, so that is what is asked now. While any part
+  // remains open the position is OPEN, and there is no trade to record yet.
+  const dealCloses = !!posSide && !!dealSide && posSide !== dealSide;
+  if (!dealCloses) return null;                            // an opening fill
+  if (!status.includes('CLOSED')) return null;             // a PARTIAL close — still running
 
   const symbol = symbolMap[d.symbolId] ?? String(d.symbolId);
   // THE CLOSING DEAL IS THE ONLY RELIABLE SOURCE OF THE DIRECTION, and getting this wrong inverted
