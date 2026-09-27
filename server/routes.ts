@@ -4016,6 +4016,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ══════════════════════════════════════════════════════════════════════════════════════════════
+  // ── TEMPORARY MAINTENANCE — REMOVE AFTER USE. Added 2026-09-27; tracked in docs/OPEN.md. ────
+  //
+  // WHY IT EXISTS. Until 2026-09-27 a position closed in several take-profits was journalled as
+  // SEVERAL trades, one per piece, each carrying only its own slice of the size. That is fixed, but
+  // the rows already written cannot heal themselves: a journal row is keyed on its closing deal and
+  // the corrected single row would be keyed on the LAST piece — the very key one of the wrong rows
+  // already holds — so the sync sees it, says "already had", and skips for ever
+  // (`brokerSyncService.ts:135`).
+  //
+  // DELIBERATELY DUMB. It deletes ONLY the broker ids it is handed, on ONE account. No scanning, no
+  // heuristics, no "find everything that looks wrong" — automatic deletion of trade records is not
+  // something to build on a hunch. He named the ids; this removes exactly those.
+  //
+  // A HAND EDIT IS NEVER DELETED. `repair.EDIT_LOCK_KEY` marks fields he has corrected himself, and
+  // the rule in that file is that a hand edit beats the broker FOR EVER. A row carrying one is
+  // skipped and reported, not removed.
+  app.post("/api/admin/journal/forget-trades", requireAdmin, async (req: Request, res: Response) => {
+    const { brokerAccountId, externalIds } = req.body as { brokerAccountId?: string; externalIds?: string[] };
+    if (!brokerAccountId || !Array.isArray(externalIds) || externalIds.length === 0) {
+      return res.status(400).json({ error: "brokerAccountId and a non-empty externalIds[] are required" });
+    }
+    const removed: any[] = [], kept: any[] = [], missing: string[] = [];
+    for (const ext of externalIds.map(String)) {
+      const row: any = await storage.getSyncedTradeByExternal(brokerAccountId, ext);
+      if (!row) { missing.push(ext); continue; }
+      let entry: any = null;
+      if (row.journalEntryId) {
+        try { entry = await storage.getJournalEntryById(row.journalEntryId); } catch { entry = null; }
+      }
+      const edited = entry?.manualFields?.[EDIT_LOCK_KEY];
+      if (Array.isArray(edited) && edited.length > 0) {
+        kept.push({ externalId: ext, reason: `hand-edited (${edited.join(', ')}) — left alone` });
+        continue;
+      }
+      if (row.journalEntryId) { try { await storage.deleteJournalEntry(row.journalEntryId); } catch { /* already gone */ } }
+      await storage.deleteSyncedTrade(row.id);
+      console.log(`[maintenance] forgot synced trade ${ext} (${row.symbol}) on ${brokerAccountId} — `
+                  + `journal entry ${row.journalEntryId ?? 'none'}; the next sweep will re-record the position`);
+      removed.push({ externalId: ext, symbol: row.symbol, journalEntryId: row.journalEntryId ?? null });
+    }
+    res.json({ removed, kept, missing,
+               note: "the next broker sweep re-records these positions from the broker's own deals" });
+  });
+
   // TEMPORARY DIAGNOSTIC — REMOVE BEFORE LAUNCH. Added 2026-09-20; tracked in docs/OPEN.md.
   //
   // WHY IT EXISTS. He reported the slave account copying none of his trades, and from outside the

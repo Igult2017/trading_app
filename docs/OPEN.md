@@ -20,6 +20,28 @@ different defects), the VIX.1 docs, and a dozen memory notes.
 
 ---
 
+## 🔴 REMOVE AFTER USE — the journal maintenance endpoint (added 2026-09-27)
+
+**`POST /api/admin/journal/forget-trades`** in `server/routes.ts`, admin-secret guarded, fenced by a
+`TEMPORARY MAINTENANCE — REMOVE AFTER USE` banner.
+
+**Why it exists:** until 2026-09-27 a position closed in several take-profits was journalled as
+SEVERAL trades, one per piece. That is fixed, but the rows already written **cannot heal
+themselves**: a journal row is keyed on its closing deal, and the corrected single row would be
+keyed on the LAST piece — the very key one of the wrong rows already holds — so the sync says
+"already had" and skips for ever (`brokerSyncService.ts:135`).
+
+**What it does:** deletes ONLY the broker ids it is handed, on ONE account, and the journal entry
+each one points at. No scanning, no heuristics. A row carrying a hand edit (`EDIT_LOCK_KEY`) is
+reported and left alone — a hand edit beats the broker for ever.
+
+**It is a DESTRUCTIVE endpoint on production.** Remove it once the affected trades are re-recorded.
+Also added for it: `storage.deleteSyncedTrade`, which nothing else calls and which should go with it
+unless another caller appears.
+
+**Used for:** the 23 Sep XAU/USD position `243253288` on account `5347048` — deals `320862945`,
+`320867971`, `320874862`.
+
 ## 🔴 REMOVE BEFORE LAUNCH — the copy diagnostics endpoint (added 2026-09-20)
 
 **`GET /api/admin/copy/diagnostics`** in `server/routes.ts`, fenced between two banner comments

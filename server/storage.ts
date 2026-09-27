@@ -119,6 +119,7 @@ export interface IStorage {
   markSyncedTradeJournaled(id: string, journalEntryId: string): Promise<void>;
   /** Release a deleted entry's synced trades so the next sync writes them again. */
   clearSyncedTradeJournalEntry(journalEntryId: string): Promise<number>;
+  deleteSyncedTrade(id: string): Promise<boolean>;
   updateSyncedTradeOpenTime(id: string, openTime: Date): Promise<void>;
   updateSyncedTradeCloseTime(id: string, closeTime: Date): Promise<void>;
   updateSyncedTradeOriginalRisk(id: string, risk: { entryOrderId: string | null;
@@ -545,6 +546,24 @@ export class DbStorage implements IStorage {
     } catch (error) {
       console.error('[Storage] Error updating journal entry:', error);
       return undefined;
+    }
+  }
+
+  /** Forget a synced broker trade so the next sweep can record it again from the broker's deals.
+   *
+   * ONLY EVER CALLED BY THE MAINTENANCE ROUTE, which is handed explicit broker ids. Nothing in the
+   * sync deletes a trade record on its own, and nothing should: the sweep's job is to ADD what the
+   * broker has, never to decide that something already stored is wrong. Added 2026-09-27 to undo
+   * the rows the partial-take-profit bug wrote, which cannot heal themselves because the corrected
+   * row would collide with one of them on `external_id`.
+   */
+  async deleteSyncedTrade(id: string): Promise<boolean> {
+    try {
+      const result = await db.delete(syncedTrades).where(eq(syncedTrades.id, id)).returning();
+      return result.length > 0;
+    } catch (error) {
+      console.error('[Storage] Error deleting synced trade:', error);
+      return false;
     }
   }
 
