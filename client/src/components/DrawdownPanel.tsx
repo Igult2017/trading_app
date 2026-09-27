@@ -331,20 +331,32 @@ export default function DrawdownPanel({ sessionId, dispFont, bodyFont }:
             ))}
           </div>
 
-          <div className="chart-wrap">
-            <DiveProfile series={intel.series ?? []} inDrawdown={inDd} currentDdPct={cur.ddPct ?? 0} />
-          </div>
+          {/* THE CHART SITS IN A PANEL, because that is what the Metrics page does with its equity
+              chart — same body, same title bar, same 0.5px border and radius (MetricsPanel
+              EquityChart). The KPI cards above stay OUTSIDE it, also matching Metrics, where the
+              headline strip sits above the panels rather than inside one. */}
+          <div className="panel">
+            <div className="rule">
+              <div className="lab"><span className="pin" /><span className="t">Drawdown Profile</span></div>
+              <span className={`chip ${inDd ? 'loss' : 'gain'}`}>{inDd ? `${fmtDd(cur.ddPct)} below peak` : 'At equity high'}</span>
+            </div>
+            <div className="body">
+              <div className="chart-wrap">
+                <DiveProfile series={intel.series ?? []} inDrawdown={inDd} currentDdPct={cur.ddPct ?? 0} />
+              </div>
 
           <div className="chart-foot">
             <div className="foot"><div className="k">Since Peak</div><div className="v">{cur.tradesSincePeak ?? 0}<span className="u">trades{cur.daysSincePeak != null ? ` · ${cur.daysSincePeak}d` : ''}</span></div></div>
             <div className="foot"><div className="k">Longest Underwater</div><div className="v">{uw.longestTrades ?? 0}<span className="u">trades{uw.longestDays ? ` · ${uw.longestDays}d` : ''}</span></div></div>
             <div className="foot"><div className="k">Avg Recovery</div><div className="v">{uw.avgRecoveryTrades ?? 0}<span className="u">trades</span></div></div>
             <div className="foot" style={{ marginLeft: 'auto' }}><div className="k">Deepest</div><div className="v loss">{fmtDd(ts.maxDrawdown)}</div></div>
+              </div>
+            </div>
           </div>
         </section>
 
         {/* ── STRATEGY LEADERBOARD ── */}
-        <section>
+        <section className="panel">
           <Rule label={`Drawdown by ${ddView === 'INSTRUMENT' ? 'Instrument' : 'Strategy'}`} right={
             <div style={{ display: 'flex', alignItems: 'center', gap: 18, flexWrap: 'wrap' }}>
               <Seg options={['BEARISH', 'BULLISH']} value={dir} onChange={setDir} accents={{ BEARISH: 'var(--loss)', BULLISH: 'var(--gain)' }} />
@@ -352,6 +364,7 @@ export default function DrawdownPanel({ sessionId, dispFont, bodyFont }:
               <Seg options={['STRATEGY', 'INSTRUMENT']} value={ddView} onChange={setDdView} />
             </div>
           } />
+          <div className="body">
           <div className="colh"><span /><span /><span>Loss Contribution</span><span style={{ textAlign: 'right' }}>Drawdown</span></div>
           <div className="lead">
             {leaderRows.length === 0 ? (
@@ -369,11 +382,13 @@ export default function DrawdownPanel({ sessionId, dispFont, bodyFont }:
               );
             })}
           </div>
+          </div>
         </section>
 
         {/* ── MODEL TRIPLE ── */}
-        <section>
+        <section className="panel">
           <Rule label="Edge & Risk Model" sub="Model · Projection · Recovery" />
+          <div className="body">
           <div className="trip">
             <div>
               <div className="subh">Edge & Risk Model</div>
@@ -392,23 +407,27 @@ export default function DrawdownPanel({ sessionId, dispFont, bodyFont }:
               <p className="note">{recNote}</p>
             </div>
           </div>
+          </div>
         </section>
 
         {/* ── LOSS CONTRIBUTION ── two bar graphs, one for instruments and one for sessions. His request,
             2026-09-15: "two seperate bar graphs. One for sessions and one for instruments and their loss
             shares". They replaced two pies (2026-09-14), which had replaced a pair-vs-strategy heatmap and,
             beside it, the Loss Frequency list. */}
-        <section>
+        <section className="panel">
           <Rule label="Loss Contribution · Instrument & Session" sub="Share of Total Loss" />
+          <div className="body">
           <div className="lgraphs">
             <LossBars title="By Instrument" tone="instr" rows={lossShare.byPair ?? []} />
             <LossBars title="By Session" tone="sess" rows={lossShare.bySession ?? []} />
           </div>
+          </div>
         </section>
 
         {/* ── STRUCTURAL ── */}
-        <section>
+        <section className="panel">
           <Rule label="Structural Diagnostics" right={<Seg options={['CONTEXT', 'ENTRY']} value={diag} onChange={setDiag} />} />
+          <div className="body">
           <div className="struct-top">
             {structSections.length === 0 ? (
               <span className="mut" style={{ fontSize: 12 }}>No structural data yet</span>
@@ -472,11 +491,15 @@ export default function DrawdownPanel({ sessionId, dispFont, bodyFont }:
               </>}
             </div>
           </div>
+          </div>
         </section>
 
         {/* ── MONTHLY TABLE ── */}
         {monthly.length > 0 && (
-          <section>
+          /* NOT WRAPPED IN A PANEL, and NOT restyled. His instruction 2026-09-27: "dont change how
+             Monthly Drawdown / Dominant Cause per Month is displayed" - its columns, rows, text and
+             background all stay. .mtbl-sec is the hook dpStyles uses to keep the original heading. */
+          <section className="mtbl-sec">
             <Rule label={`Monthly Drawdown${monthlyRange ? ` · ${monthlyRange}` : ''}`} sub="Dominant Cause per Month" />
             <div className="mwrap">
               <table className="mtbl">

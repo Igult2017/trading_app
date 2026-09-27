@@ -5,67 +5,16 @@ import { useSessionBalance } from '@/hooks/useSessionBalance';
 import { useDelayedLoading } from '@/lib/useDelayedLoading';
 import { MetricsSkeleton } from '@/components/skeletons/MetricsSkeleton';
 import { useTranslation } from 'react-i18next';
+import { MP_REF, mpLightVars } from '@/components/shared/mpTokens';
 
 /* ─────────────────────────────────────────────────────────────────────
-   DESIGN TOKENS  (matches attached reference)
+   DESIGN TOKENS
+   Moved to components/shared/mpTokens.ts on 2026-09-27 so the DRAWDOWN page can read the same
+   palette rather than carry a copy of it — his "copy the design and colors used in metrics page
+   to be copied and use in the drawdown page". The values did not change; only where they live.
+   The measurement history for them is in that file and in docs/READABILITY.md.
 ───────────────────────────────────────────────────────────────────── */
-// Dark text tiers meet WCAG AA (4.5:1) on bg #0A0C10. label/muted/sub/dim all used to FAIL
-// (2.60 / 3.22 / 1.89 / 1.59) — dim is the colour of the 7-9px section labels (REGIME,
-// VOLATILITY STATE...), so those were effectively invisible. Now 5.82 / 6.45 / 5.24 / 4.81:
-// each keeps its hue, and the tiers stay in their original order (dim < sub < label < muted
-// < text) so the emphasis hierarchy survives. `gray` is a CHIP colour, measured against grayBg
-// rather than the page bg — it failed there too (2.43:1) and is lifted to 4.63:1. Every other
-// chip colour already passed on its own background (4.84-11.21) and is untouched.
-const D = {
-  bg:       'var(--mp-bg,  #0A0C10)',
-  bg2:      'var(--mp-bg2, #111318)',
-  bg3:      'var(--mp-bg3, #0E1016)',
-  bg4:      'var(--mp-bg4, #0C0E14)',
-  bdOuter:  'var(--mp-bdo, #1E2330)',
-  bdInner:  'var(--mp-bdi, #1A1F2E)',
-  bdRow:    'var(--mp-bdr, #12161E)',
-  bdDiv:    'var(--mp-bdd, #141820)',
-  // TEXT SCALE — adopted from the copier UI (components/copy/qcTheme.ts) on 2026-08-08, at the
-  // user's request: "can we use white that is being used in copier UI".
-  //
-  // The old values were not unreadable — every one of them cleared AA on this #0A0C10 ground
-  // (12.28 / 6.45 / 5.82 / 5.24 / 4.81). They just read as grey next to the copier, which runs its
-  // primary text at #ECEEF2. This is a preference, not a defect fix, so the only thing that changes
-  // is the two-step scale below:
-  //
-  //   t1  #ECEEF2  16.85:1   values and row labels — everything you actually read
-  //   t2  #A8AEB8   8.77:1   the small uppercase captions and panel titles, which sit BEHIND the
-  //                          content in the hierarchy and would flatten it if they went white too
-  //
-  // The panel carries its own dark palette in every theme (nothing overrides --mp-*), so this is
-  // safe in light mode as well.
-  text:     'var(--mp-txt, #ECEEF2)',
-  label:    'var(--mp-lbl, #A8AEB8)',
-  muted:    'var(--mp-mut, #ECEEF2)',
-  dim:      'var(--mp-dim, #A8AEB8)',
-  sub:      'var(--mp-sub, #A8AEB8)',
-  green:    'var(--mp-green,  #1D9E75)',
-  greenBg:  'var(--mp-grbg, #0A2016)',
-  greenBd:  'var(--mp-grbd, #0F3020)',
-  red:      'var(--mp-red,    #E24B4A)',
-  redBg:    'var(--mp-rdbg, #1E0A0A)',
-  redBd:    'var(--mp-rdbd, #3A1010)',
-  amber:    'var(--mp-amber,  #EF9F27)',
-  amberBg:  'var(--mp-ambg, #1E1200)',
-  amberBd:  'var(--mp-ambd, #3A2200)',
-  blue:     'var(--mp-blue,   #378ADD)',
-  blueBg:   'var(--mp-blbg, #0A1628)',
-  blueBd:   'var(--mp-blbd, #0F2A4A)',
-  purple:   'var(--mp-purple, #7F77DD)',
-  purpleBg: 'var(--mp-pubg, #140F28)',
-  purpleBd: 'var(--mp-pubd, #251B4A)',
-  cyan:     'var(--mp-cyan,   #4AE8D8)',
-  cyanBg:   'var(--mp-cybg, #0A2028)',
-  cyanBd:   'var(--mp-cybd, #0F3038)',
-  gray:     'var(--mp-gray,   #72819B)',   // was #4A5568 — 2.43:1 on grayBg, the worst text in the panel; now 4.63:1
-  grayBg:   'var(--mp-gybg, #12151C)',
-  grayBd:   'var(--mp-gybd, #1A1F2E)',
-};
+const D = MP_REF;
 
 const MONO: React.CSSProperties = {
   fontFamily: "'JetBrains Mono Variable', 'JetBrains Mono', 'Fira Mono', 'Courier New', monospace",
@@ -418,22 +367,9 @@ export default function MetricsPanel({ sessionId, darkMode = true }: { sessionId
   // is cached the panel renders straight to content — no skeleton↔content height
   // swap, which was the main "shaking on open".
   const showMetricsLoader = useDelayedLoading(!!sessionId && isLoading && !metricsData);
-  const lightVars = !darkMode ? {
-    '--mp-bg':   '#F8FAFC', '--mp-bg2':  '#FFFFFF', '--mp-bg3':  '#F8FAFC', '--mp-bg4':  '#F1F5F9',
-    '--mp-bdo':  '#CBD5E1', '--mp-bdi':  '#E2E8F0', '--mp-bdr':  '#F1F5F9', '--mp-bdd':  '#E2E8F0',
-    '--mp-txt':  '#1E293B', '--mp-lbl':  '#64748B', '--mp-mut':  '#475569', '--mp-dim':  '#64748B', '--mp-sub': '#64748B',
-    '--mp-green': '#047857', '--mp-red': '#DC2626', '--mp-amber': '#B45309',
-    '--mp-blue': '#2563EB', '--mp-purple': '#6D28D9', '--mp-cyan': '#0E7490', '--mp-gray': '#475569',
-    '--mp-grbg': 'rgba(29,158,117,0.1)',  '--mp-grbd': 'rgba(29,158,117,0.3)',
-    '--mp-rdbg': 'rgba(226,75,74,0.1)',   '--mp-rdbd': 'rgba(226,75,74,0.3)',
-    '--mp-ambg': 'rgba(239,159,39,0.1)',  '--mp-ambd': 'rgba(239,159,39,0.3)',
-    '--mp-blbg': 'rgba(55,138,221,0.1)',  '--mp-blbd': 'rgba(55,138,221,0.3)',
-    '--mp-pubg': 'rgba(127,119,221,0.1)', '--mp-pubd': 'rgba(127,119,221,0.3)',
-    '--mp-cybg': 'rgba(74,232,216,0.1)',  '--mp-cybd': 'rgba(74,232,216,0.3)',
-    '--mp-gybg': '#F1F5F9', '--mp-gybd': '#CBD5E1',
-    // The seven headline cards (KPI strip): caption, line under, win figure, loss figure.
-    '--mp-kpi-cap': '#1E293B', '--mp-kpi-sub': '#334155', '--mp-kpi-pos': '#047857', '--mp-kpi-neg': '#DC2626',
-  } as React.CSSProperties : {};
+  // The light theme's values, from the shared palette (components/shared/mpTokens.ts) so this page
+  // and the Drawdown page cannot drift apart. Nothing is set in dark mode - the var() fallbacks carry it.
+  const lightVars = (!darkMode ? mpLightVars() : {}) as React.CSSProperties;
 
   // The loading screen draws this page's own layout (MetricsSkeleton) with the stylesheet above. No
   // `padding: 16` any more: the loaded page has none, so the placeholder sat 16px in from where the

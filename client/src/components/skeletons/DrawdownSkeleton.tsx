@@ -50,6 +50,11 @@ export function DrawdownSkeleton({ style }: { style?: React.CSSProperties }) {
 
         <section>
           <div className="kpis">{[96, 104, 122, 124].map((k, i) => <Readout key={i} className="kpi" k={k} v={72} px={17} />)}</div>
+          <div className="panel">
+            <div className="rule">
+              <div className="lab"><span className="pin" /><TextLine w={132} px={11} /></div>
+            </div>
+            <div className="body">
           <div className="chart-wrap">
             <div style={{ width: "100%", aspectRatio: "1000 / 360", borderTop: "1px solid var(--line)", display: "flex", alignItems: "flex-start", gap: 3 }}>
               {DEPTHS.map((d, i) => <Skeleton key={i} className="flex-1 rounded-b-sm" style={{ height: `${d}%`, opacity: 0.09 }} />)}
@@ -59,10 +64,13 @@ export function DrawdownSkeleton({ style }: { style?: React.CSSProperties }) {
             {[[76, 96], [128, 96], [92, 70]].map(([k, v], i) => <Readout key={i} className="foot" k={k} v={v} px={16} />)}
             <Readout className="foot" k={58} v={62} px={16} style={{ marginLeft: "auto" }} />
           </div>
+            </div>
+          </div>
         </section>
 
-        <section>
+        <section className="panel">
           <Rule title={176} right={[58, 58, 70, 86]} />
+          <div className="body">
           <div className="colh"><span /><span /><span><TextLine w={120} px={11} /></span><span><Right><TextLine w={66} px={11} /></Right></span></div>
           <div className="lead">
             {[[92, 64], [74, 44], [110, 30], [66, 18]].map(([name, bar], i) => (
@@ -74,10 +82,12 @@ export function DrawdownSkeleton({ style }: { style?: React.CSSProperties }) {
               </div>
             ))}
           </div>
+          </div>
         </section>
 
-        <section>
+        <section className="panel">
           <Rule title={150} sub={200} />
+          <div className="body">
           <div className="trip">
             {([[4, 130, false], [4, 170, true], [1, 130, true]] as const).map(([rows, subh, note], i) => (
               <div key={i}>
@@ -91,10 +101,12 @@ export function DrawdownSkeleton({ style }: { style?: React.CSSProperties }) {
               </div>
             ))}
           </div>
+          </div>
         </section>
 
-        <section>
+        <section className="panel">
           <Rule title={230} sub={150} />
+          <div className="body">
           {/* Two bar-graph placeholders: the axis, faint gridlines, four bars and their names. The bars do
               not pulse — the pulse lifts opacity to 0.5, which turns a large placeholder into a solid slab. */}
           <div className="lgraphs">
@@ -118,10 +130,12 @@ export function DrawdownSkeleton({ style }: { style?: React.CSSProperties }) {
               </div>
             ))}
           </div>
+          </div>
         </section>
 
-        <section>
+        <section className="panel">
           <Rule title={180} right={[58, 44]} />
+          <div className="body">
           <div className="struct-top">
             <div className="subh"><TextLine w={140} px={11} /></div>
             {[150, 120, 170].map((w, i) => (
@@ -162,6 +176,7 @@ export function DrawdownSkeleton({ style }: { style?: React.CSSProperties }) {
                 </div>
               ))}
             </div>
+          </div>
           </div>
         </section>
 

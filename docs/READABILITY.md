@@ -522,6 +522,68 @@ and done nothing.
 
 ---
 
+## 2026-09-27 (b) — THE DRAWDOWN PAGE TOOK THE METRICS PAGE'S DESIGN, and three measuring traps came with it
+
+His instruction: *"copy the design and colors used in metrics page to be copied and use in the
+drawdown page... dont change how Monthly Drawdown / Dominant Cause per Month is displayed but
+everything else you can copy from the metrics page including the header"*.
+
+The palette now lives in ONE file, `client/src/components/shared/mpTokens.ts`, which both pages read.
+Copying the VALUES into a second file is how two pages drift apart — one gets a contrast fix and the
+other does not. `components/drawdown/dpTokens.ts` maps the drawdown's own token names onto it, so
+every rule in its stylesheet kept working; only the values behind the names moved.
+
+### ⚠ TRAP 1 — measuring a colour against WHITE when it does not sit on white
+
+Two of the Metrics light-theme colours were failing and had gone unnoticed for months because they
+had only ever been checked against `#FFFFFF`:
+
+| token | on white | on the surface it ACTUALLY sits on | fixed to |
+|---|---|---|---|
+| `label` `#64748B` | 4.76:1 pass | **4.34:1 FAIL** on the panel title bar `#F1F5F9` | `#5A697C` — 5.12:1 |
+| `red` `#DC2626` | 4.83:1 pass | **4.25:1 FAIL** on the red chip tint `#FCEDED` | `#C81E1E` — 5.05:1 |
+
+Both pages carry these, so fixing them in the shared file fixed the Metrics page too. **Always
+measure against the surface the text is painted on — a panel bar, a chip tint, a coloured row — not
+the page background.**
+
+### ⚠ TRAP 2 — the measuring script itself lied, by walking the DOM instead of the paint
+
+The sweep reported 18 failures in light, including three loss-bar labels at 2.57–2.83:1. They were
+fine. `.lg-val` is `position:absolute; bottom:100%` — it sits ABOVE its bar, but its DOM PARENT is
+the bar, so walking up the tree found the bar's colour and scored dark text against a blue bar.
+
+**The fix: when walking up for the background, only accept an ancestor whose box GEOMETRICALLY
+CONTAINS the text.** With that one condition the same sweep went from 18 failures to 1. An
+alternative is hit-testing with `elementsFromPoint`, but that only sees what is inside the viewport,
+so it silently measures a fraction of a long page (it found 18 of 148 elements here).
+
+### ⚠ TRAP 3 — redefining a variable does NOT recolour text that already inherited a value
+
+The Monthly section had to keep its old colours. Re-declaring the old tokens on `.mtbl-sec` looked
+right and was not: 3 of its 28 cells still showed the new palette.
+
+`.dp` sets `color:var(--ink)` **once, on itself**. Every cell then INHERITS that already-resolved
+colour — it never re-reads the variable. So the cells with their own `color:` rule (the month names)
+picked up the pinned value while the plain cells kept the inherited one. **Re-declare `color` too,
+not just the custom properties**, whenever you pin a subtree to a different palette.
+
+Caught by fingerprinting all 28 cells (text, colour, size, weight, background, column width) on the
+pre-change build and diffing. After the fix: 28 of 28 identical, heading identical, row backgrounds
+identical.
+
+### Where it landed
+
+Every text element measured against its real background: **dark 148 of 148 clear AA; light 147 of
+148.** The one failure is the `LIVE` badge in the monthly table, `#60a5fa` at 2.43:1 — hardcoded
+inline at `DrawdownPanel.tsx`, byte-identical to before this change, and inside the section he asked
+not to be touched. **Left alone deliberately, recorded here.**
+
+His own colours were preserved and checked: the loss-share bars stay `#38bdf8` / `#a78bfa` in dark
+and `#2563eb` / `#7c3aed` in light (his choice, 2026-09-14).
+
+---
+
 ## ⭐ THE SETTLED RULING — display serif vs TEXT serif (2026-09-10)
 
 **This supersedes every earlier note in this document about Playfair, Inter and Montserrat. It is
