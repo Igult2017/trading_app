@@ -68,7 +68,8 @@ const OBS_CSS = `
      tradesync? I prefer it because it makes the text and numbers so visible."
 
      Trade Sync's dark theme declares exactly TWO text colours (features/trade-sync/styles/tokens.ts,
-     .ct-app.theme-dark), and every piece of text in it is one or the other:
+     .journal-dark .ct-app — renamed from .ct-app.theme-dark on 2026-09-27 when that panel stopped
+     holding its own theme), and every piece of text in it is one or the other:
 
          --md-on-surface          #e8edf9    main text AND numbers     16.97:1 on this #09090b
          --md-on-surface-variant  #a6b3d1    secondary text             9.46:1

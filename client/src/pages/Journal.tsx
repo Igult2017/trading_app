@@ -1006,7 +1006,8 @@ export default function Journal() {
            --jr-ink      text and numbers
            --jr-ink-dim  labels and captions
            Dark themes take Trade Sync's own two text colours (features/trade-sync/styles/tokens.ts,
-           .ct-app.theme-dark), which is the panel the user pointed at as the one that reads cleanly:
+           .journal-dark .ct-app — renamed from .ct-app.theme-dark on 2026-09-27), which is the panel
+           the user pointed at as the one that reads cleanly:
                #e8edf9  16.97:1 on the panel ground        #a6b3d1  9.46:1
            Light mode falls through to the theme's own text colours, so nothing is hardcoded twice.
 
