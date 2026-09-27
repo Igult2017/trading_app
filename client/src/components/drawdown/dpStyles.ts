@@ -119,8 +119,16 @@ const DP_CORE_CSS = `
   border-bottom:1px solid var(--line);padding-bottom:13px;margin-bottom:24px;}
 .dp .rule .lab{display:flex;align-items:center;gap:11px;}
 .dp .rule .pin{width:6px;height:6px;background:var(--gain);transform:rotate(45deg);}
-.dp .rule .t{font-family:var(--disp);font-weight:600;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3);}
-.dp .rule .sub{font-size:11px;letter-spacing:.11em;text-transform:uppercase;color:var(--ink3);;font-weight:600}
+/* THE TITLE KEEPS ITS ORIGINAL SIZE, WEIGHT AND INK — 12.5px / 700 / --ink.
+   It was briefly 11px / 600 / --ink3 to copy the Metrics title bar exactly, and that was a mistake
+   he spotted immediately ("the white theme text visibility is poor"). Three things went wrong in
+   one line: smaller, lighter in weight, and the dimmest colour tier.
+   MEASURED WITH INK, which is the measure docs/READABILITY.md says matches what the eye reports:
+   Playfair at 11px/600 lays down 4.80% ink against Times' 5.83% - the THINNEST point on the curve.
+   At 12.5px/700 it is 6.02%. The panel BAR stays (that is the design he asked for); only the title
+   inside it stops being small, light and dim. */
+.dp .rule .t{font-family:var(--disp);font-weight:700;font-size:12.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink);}
+.dp .rule .sub{font-size:11px;letter-spacing:.11em;text-transform:uppercase;color:var(--ink3);;font-weight:700}
 /* ⚠ THE MONTHLY SECTION IS PINNED TO THE OLD PALETTE AND THE OLD HEADING — his instruction:
    "dont change how Monthly Drawdown / Dominant Cause per Month is displayed". Re-declaring the
    original tokens on this subtree keeps its columns, rows, text and background exactly as they
@@ -132,10 +140,19 @@ const DP_CORE_CSS = `
 .dp .mtbl-sec{${DP_TOKENS_MONTHLY_DARK}color:var(--ink);}
 .journal-light .dp .mtbl-sec{${DP_TOKENS_MONTHLY_LIGHT}color:var(--ink);}
 .dp .mtbl-sec > .rule{border-bottom:1px solid var(--line);padding-bottom:13px;margin-bottom:24px;background:none;}
-.dp .mtbl-sec > .rule .t{font-weight:700;font-size:12.5px;letter-spacing:.12em;color:var(--ink);}
+/* THE LIVE BADGE on the current month's row. Measured on the row it actually sits on, which tints
+   itself rgba(96,165,250,0.06):
+       dark  rgb(14,21,31)    7.21:1  fine - UNCHANGED, still #60a5fa
+       light rgb(245,250,255) 2.42:1  FAIL - this is the one he asked to have fixed
+   So only the light value moves, to #1d4ed8 (6.38:1) - already this codebase's light-theme blue
+   (Notifications.tsx), not a new colour. It was also 8px, under this page's 11px floor. */
+.dp .mtbl-sec .live-badge{color:#60a5fa;}
+.journal-light .dp .mtbl-sec .live-badge{color:#1d4ed8;border-color:rgba(29,78,216,.5);}
+/* No .t override here any more: the base rule above is once again 12.5px / 700 / --ink, which is
+   what this section always had, so restating it would be dead code. */
 
 /* CHIPS — Metrics shows a status figure as a pill with its own background and border. */
-.dp .chip{display:inline-flex;align-items:center;font-size:11px;font-weight:600;
+.dp .chip{display:inline-flex;align-items:center;font-size:11px;font-weight:700;
   padding:1px 6px;border-radius:20px;letter-spacing:.04em;white-space:nowrap;line-height:16px;
   background:var(--chip-gray-bg);color:var(--chip-gray);border:0.5px solid var(--chip-gray-bd);}
 .dp .chip.gain{background:var(--gain-d);color:var(--gain);border-color:var(--chip-green-bd);}
@@ -145,7 +162,7 @@ const DP_CORE_CSS = `
 
 /* toggle */
 .dp .seg{display:inline-flex;gap:22px;}
-.dp .seg button{font-family:var(--mono);font-size:11.5px;letter-spacing:.10em;text-transform:uppercase;font-weight:500;
+.dp .seg button{font-family:var(--mono);font-size:11.5px;letter-spacing:.10em;text-transform:uppercase;font-weight:700;
   color:var(--ink3);background:none;border:0;padding:0 0 4px;cursor:pointer;border-bottom:1.5px solid transparent;transition:.16s;}
 .dp .seg button:hover{color:var(--ink2);}
 .dp .seg button.on{color:var(--ink);border-bottom-color:var(--gain);}
@@ -170,7 +187,7 @@ const DP_CORE_CSS = `
 .dp .chart-wrap{position:relative;margin-top:14px;}
 .dp .chart-wrap svg{display:block;width:100%;height:auto;}
 .dp .chart-foot{display:flex;flex-wrap:wrap;gap:28px 40px;margin-top:16px;}
-.dp .foot .k{font-size:11px;letter-spacing:.11em;text-transform:uppercase;color:var(--ink3);;font-weight:600}
+.dp .foot .k{font-size:11px;letter-spacing:.11em;text-transform:uppercase;color:var(--ink3);;font-weight:700}
 .dp .foot .v{font-size:16px;font-weight:700;margin-top:5px;}
 .dp .foot .v .u{color:var(--ink3);font-size:11px;margin-left:6px;}
 `;

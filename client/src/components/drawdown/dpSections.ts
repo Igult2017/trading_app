@@ -57,7 +57,7 @@ export const DP_SECTIONS_CSS = `
 .dp .lg-scroll{overflow-x:auto;overflow-y:hidden;}
 .dp .lg-plot{display:grid;grid-template-columns:46px minmax(0,1fr);height:280px;}
 .dp .lg-axis,.dp .lg-area{position:relative;margin-top:26px;}
-.dp .lg-axis span{position:absolute;right:10px;transform:translateY(50%);font-size:11px;font-weight:600;
+.dp .lg-axis span{position:absolute;right:10px;transform:translateY(50%);font-size:11px;font-weight:700;
   color:var(--ink3);white-space:nowrap;line-height:1;}
 .dp .lg-area{border-left:1px solid var(--line2);border-bottom:1px solid var(--line2);}
 .dp .lg-grid{position:absolute;left:0;right:0;height:0;border-top:1px dashed var(--line);}
@@ -70,7 +70,7 @@ export const DP_SECTIONS_CSS = `
 .dp .lg-name{display:flex;flex-direction:column;align-items:center;gap:4px;min-width:0;text-align:center;}
 /* 11px is this page's floor (docs/READABILITY.md). A long name wraps at a space or after a slash, never
    inside a word: the squeezed first version turned EURUSD into EURUS / D. */
-.dp .lg-name .nm{font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--ink2);font-weight:600;
+.dp .lg-name .nm{font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--ink2);font-weight:700;
   line-height:1.35;overflow-wrap:normal;word-break:normal;max-width:100%;}
 .dp .lg-name .lp{font-size:12px;font-weight:700;}
 @media(max-width:760px){.dp .lgraphs{grid-template-columns:1fr;gap:44px;}}
@@ -79,7 +79,7 @@ export const DP_SECTIONS_CSS = `
 .dp .struct-top{padding:16px 0 22px;border-bottom:1px solid var(--line);margin-bottom:24px;}
 .dp .rp{display:flex;justify-content:space-between;align-items:baseline;padding:11px 0;border-top:1px solid var(--line);gap:14px;}
 .dp .rp:first-of-type{border-top:0;}
-.dp .rp .nm{font-family:var(--disp);font-weight:600;font-size:11px;letter-spacing:.1em;text-transform:uppercase;}
+.dp .rp .nm{font-family:var(--disp);font-weight:700;font-size:11px;letter-spacing:.1em;text-transform:uppercase;}
 .dp .rp .v{font-size:16px;font-weight:700;color:var(--loss);}
 .dp .rp .tl{font-size:11px;color:var(--ink3);}
 .dp .sg{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;}
@@ -99,7 +99,7 @@ export const DP_SECTIONS_CSS = `
 .dp .sess .wp .r{font-size:11px;color:var(--ink2);}
 
 .dp .ls{display:grid;grid-template-columns:1fr 1fr;gap:18px 22px;}
-.dp .ls .k{font-size:11px;letter-spacing:.10em;text-transform:uppercase;color:var(--ink3);margin-bottom:8px;;font-weight:600}
+.dp .ls .k{font-size:11px;letter-spacing:.10em;text-transform:uppercase;color:var(--ink3);margin-bottom:8px;;font-weight:700}
 .dp .ls .big{font-size:24px;font-weight:700;line-height:1;}
 .dp .ls .s{font-size:11px;color:var(--ink3);margin-top:7px;}
 .dp .tl{display:flex;flex-wrap:wrap;gap:3px;margin-top:14px;}
@@ -177,4 +177,22 @@ export const DP_SECTIONS_CSS = `
    specific instruction, so it wins here; every figure elsewhere on the page is unaffected. */
 .dp .lrow, .dp .lrow .lrank, .dp .lrow .ltag,
 .dp .lrow .lmeta, .dp .lrow .lval{font-family:var(--disp);}
+
+/* ── WEIGHT FLOOR FOR SMALL TEXT, 2026-09-27 ─────────────────────────────────────────────────
+   A DISPLAY serif loses its thin strokes at small sizes (docs/READABILITY.md, cause 1), and this
+   page is Playfair at his instruction. Weight is the lever that does NOT touch his font choice.
+   Measured as average ink on the word, which is the measure that matches what the eye reports:
+       11px weight 600 -> 4.80%      11px weight 700 -> 5.29%      (+10%)
+   These five all sat at weight 400 because their rules set a size but never a weight, so they
+   inherited the page default - thinner still than the 600 he had just told me was too faint.
+
+   TWO DELIBERATE EXCEPTIONS, both left alone:
+     .wlb .sl   the / between the win and loss counts is MEANT to be lighter, so the eye lands on
+                the numbers either side (see the wins/losses/breakevens note above).
+     .mtbl th   the monthly table header - his "dont change how Monthly Drawdown is displayed". */
+.dp .colh span,
+.dp .lrow .lname .lmeta,
+.dp .dl .r .k,
+.dp .sess .wp .l,
+.dp .rr .ct{font-weight:700;}
 `;

@@ -52,7 +52,17 @@ export const MP_DARK = {
  * The light palette — the same names, different values.
  *
  * Contrast measured on this palette's own surfaces (card #FFFFFF, page #F8FAFC):
- *   text   #1E293B  13.2:1      label/dim/sub #5A697C  5.6:1     muted #475569  7.5:1
+ *   text   #0B1220  18.7:1      label/dim/sub #526277  6.2:1     muted #334155 10.4:1
+ *
+ * ⚠ THESE THREE WERE DARKENED AGAIN on 2026-09-27, hours after they were first set, because HE
+ * READ THE PAGE AND SAID THE WHITE THEME WAS POOR — and he was right. Taking the Metrics values
+ * wholesale had made every tier on the Drawdown page LIGHTER than it had been:
+ *       text  18.72:1 -> 14.63:1     muted 10.35:1 -> 7.58:1     label 6.23:1 -> 5.61:1
+ * Every one of those still cleared AA, which is exactly why the sweep reported no problem.
+ * AA (4.5:1) IS A FLOOR, NOT A TARGET. Never report "passes AA" as evidence that text reads well,
+ * and never let a palette swap LOWER a tier that was already comfortably above the line.
+ * Checked on both surfaces these land on - the white card and the #F1F5F9 panel title bar:
+ *       text 18.72 / 17.09      muted 10.35 / 9.45      label 6.23 / 5.68
  *   green  #047857   5.5:1      red   #C81E1E  5.7:1   amber #B45309  5.0:1
  *
  * TWO OF THESE WERE RAISED on 2026-09-27, measured on the surfaces they ACTUALLY sit on rather than
@@ -74,11 +84,11 @@ export const MP_LIGHT = {
   bdInner: '#E2E8F0',
   bdRow:   '#F1F5F9',
   bdDiv:   '#E2E8F0',
-  text:  '#1E293B',
-  label: '#5A697C',
-  muted: '#475569',
-  dim:   '#5A697C',
-  sub:   '#5A697C',
+  text:  '#0B1220',
+  label: '#526277',
+  muted: '#334155',
+  dim:   '#526277',
+  sub:   '#526277',
   green:    '#047857', greenBg:  'rgba(29,158,117,0.1)',  greenBd:  'rgba(29,158,117,0.3)',
   red:      '#C81E1E', redBg:    'rgba(226,75,74,0.1)',   redBd:    'rgba(226,75,74,0.3)',
   amber:    '#B45309', amberBg:  'rgba(239,159,39,0.1)',  amberBd:  'rgba(239,159,39,0.3)',

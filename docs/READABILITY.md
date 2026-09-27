@@ -584,6 +584,66 @@ and `#2563eb` / `#7c3aed` in light (his choice, 2026-09-14).
 
 ---
 
+## 2026-09-27 (c) — "PASSES AA" IS NOT "READS WELL", and I shipped that mistake
+
+Hours after the Drawdown page took the Metrics design, he said: *"even the white theme text
+visibility is poor in the drawdown page"*. **He was right and it was my regression.** My sweep had
+reported 147 of 148 elements clearing AA and I presented that as evidence the page was fine.
+
+**AA (4.5:1) IS A FLOOR, NOT A TARGET.** Copying the Metrics light palette wholesale had made every
+text tier on that page LIGHTER than it had been, and every one still "passed":
+
+| role | before | after (shipped) | |
+|---|---|---|---|
+| body `--ink` | `#0B1220` 18.72:1 | `#1E293B` 14.63:1 | −4.09 |
+| labels `--ink2` | `#334155` 10.35:1 | `#475569` 7.58:1 | −2.78 |
+| captions `--ink3` | `#526277` 6.23:1 | `#5A697C` 5.61:1 | −0.62 |
+
+**The rule that follows: a palette change must never LOWER a tier that was already above the line.
+Compare against the previous values, not against 4.5.** A sweep that only asks "does it pass" cannot
+see a page getting greyer.
+
+### And I made the section titles worse three ways in one line
+
+To match the Metrics panel title bar I set `.dp .rule .t` from **12.5px / 700 / `--ink`** to
+**11px / 600 / `--ink3`** — smaller, lighter in weight, and the dimmest colour tier, all at once.
+
+Measured as average ink on the word (the measure this document already says matches what the eye
+reports), both faces width-checked first so neither silently fell back (Playfair 185px vs Times
+177px on the same string):
+
+| size / weight | Playfair | Times | Times lays down |
+|---|---|---|---|
+| **11px w600** | **4.80%** | 5.83% | **+21%** |
+| 11px w700 | 5.29% | 5.83% | +10% |
+| 12.5px w700 | 6.02% | 6.78% | +13% |
+| 13px w700 | 6.38% | 6.55% | +3% |
+| 16px w700 | 7.79% | 7.60% | −2% |
+
+**11px at weight 600 is the thinnest point on the curve.** Weight is the lever that costs nothing:
+going 600 → 700 at 11px recovers about half the gap to the text serif, and 12.5px/700 more again.
+
+### What was NOT changed, deliberately
+
+132 of 147 elements on that page are Playfair below 16px, which the settled ruling above calls the
+number-one cause of blurred text. **That is his instruction, not a defect** — *"write the whole line
+in Playfair"* (2026-09-05) plus Playfair on the figures, both recorded in `dpSections.ts` with his
+words. A problem I caused is not a reason to overturn a decision he made. The fix was colour, size
+and weight only; the font question was put to him separately with the ink table.
+
+Two further exceptions kept on purpose: the `/` between the win and loss counts stays lighter so the
+eye lands on the numbers, and the monthly table's header stays exactly as it was.
+
+### Where it landed
+
+Light and dark both: **147 of 147 text elements clear AA**, nothing below 11px, no tracking above
+0.12em on small text, and no Playfair under 13px left below weight 700 (bar the two exceptions).
+The `LIVE` badge was the one thing he asked to have fixed: measured on the row it actually sits on,
+it was **7.21:1 in dark (fine, untouched) and 2.42:1 in light** — so only the light value moved, to
+`#1d4ed8` (6.4:1), a blue this codebase already uses.
+
+---
+
 ## ⭐ THE SETTLED RULING — display serif vs TEXT serif (2026-09-10)
 
 **This supersedes every earlier note in this document about Playfair, Inter and Montserrat. It is

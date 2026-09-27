@@ -469,7 +469,9 @@ export default function DrawdownPanel({ sessionId, dispFont, bodyFont }:
                 <div><div className="k">Post-Streak Revenge</div><div className="big loss">{sk?.revengeRate ?? 0}%</div><div className="s">of streaks triggered</div></div>
                 <div><div className="k">Best Win Streak</div><div className="big gain">{sk?.bestWinStreak?.length ?? 0}</div><div className="s">{fmtRange(sk?.bestWinStreak?.startDate, sk?.bestWinStreak?.endDate) || 'no data'}</div></div>
               </div>
-              <div className="k" style={{ fontSize: 9, letterSpacing: '.13em', textTransform: 'uppercase', color: 'var(--ink3)', marginTop: 20 }}>Trade Timeline</div>
+              {/* 11px is this page's floor and .12em its tracking cap (docs/READABILITY.md, causes 2
+                  and 3). This was 9px at .13em - under both at once. */}
+              <div className="k" style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--ink3)', marginTop: 20 }}>Trade Timeline</div>
               <div className="tl">{timeline.length === 0 ? <span className="mut" style={{ fontSize: 10 }}>—</span> : timeline.map((c, i) => <span key={i} className={c === 'W' ? 'tw' : c === 'L' ? 'tlo' : 'tb'}>{c}</span>)}</div>
             </div>
             <div>
@@ -517,7 +519,7 @@ export default function DrawdownPanel({ sessionId, dispFont, bodyFont }:
                     const dot = m.dominantCauseClass === 'bad' ? 'var(--loss)' : m.dominantCauseClass === 'good' ? 'var(--gain)' : 'var(--warn)';
                     return (
                       <tr key={`${m.month}-${m.year}`} style={isLive ? { background: 'rgba(96,165,250,0.06)' } : undefined}>
-                        <td><span className="mmname"><span className="d" style={{ background: isLive ? '#60a5fa' : dot, boxShadow: m.dominantCauseClass === 'good' ? undefined : 'none' }} /><span className="nm">{m.month.toUpperCase()}/{m.year}</span>{isLive && <span style={{ marginLeft: 6, fontSize: 8, fontWeight: 800, letterSpacing: '.1em', color: '#60a5fa', border: '1px solid rgba(96,165,250,.5)', borderRadius: 999, padding: '0 5px', verticalAlign: 'middle' }}>LIVE</span>}</span></td>
+                        <td><span className="mmname"><span className="d" style={{ background: isLive ? '#60a5fa' : dot, boxShadow: m.dominantCauseClass === 'good' ? undefined : 'none' }} /><span className="nm">{m.month.toUpperCase()}/{m.year}</span>{isLive && <span className="live-badge" style={{ marginLeft: 6, fontSize: 11, fontWeight: 800, letterSpacing: '.1em', border: '1px solid rgba(96,165,250,.5)', borderRadius: 999, padding: '0 5px', verticalAlign: 'middle' }}>LIVE</span>}</span></td>
                         <td className={eqCls}>{eqStr}</td>
                         <td className="mut">{Math.round(m.recoveryPct)}%</td>
                         <td className={m.maxDdPct === 0 ? 'mut' : 'loss'}>{fmtDd(m.maxDdPct)}</td>
