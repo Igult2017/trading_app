@@ -626,9 +626,38 @@ export function mergeDealMappings(allDeals: any[], symbolMap: Record<number, str
       if (pos) pairedPositions.add(pos);
       continue;
     }
+    // ⚠ A SLICE MUST NOT OVERWRITE THE WHOLE POSITION — the third path of the partial-close bug,
+    // and the one that actually reached him. He said "the fix you made is not working" and he was
+    // right; production, 2026-09-27 18:03:27, after the other two paths were fixed AND deployed:
+    //
+    //     recorded | 320874862 | Short 0.25 lots, P/L 225.25
+    //
+    // That is one piece of a 1.00-lot position. `pairDealsIntoTrades` had already built the whole
+    // thing correctly. But `mapClosedDeal` runs on EVERY deal on its own, so the LAST closing deal
+    // also produces a standalone 0.25-lot trade under the SAME externalId — and this loop let every
+    // non-null field of that slice win, taking volume, profit and close price down with it.
+    //
+    // The note above explains why the detailed path normally wins: the broker's own gross profit
+    // and swap beat anything derived from two execution prices. TRUE FOR A POSITION CLOSED ONCE,
+    // FALSE FOR ONE BANKED IN PIECES, where that deal's profit describes a piece. The code never
+    // told the two apart, so the better-data rule quietly became a data-loss rule.
+    //
+    // THE TEST IS THE VOLUME, not a new flag: if the standalone deal covers LESS than the paired
+    // trade, the paired trade is an aggregate of several closes and is authoritative. No new field
+    // on RawBrokerTrade and no second copy of the opening/closing side logic — the pairing already
+    // did that work and the answer is sitting in `lots` on both objects.
+    //
+    // `lots` is optional (brokerSyncService.ts), so when either side cannot be read the volume test
+    // is impossible and the CURRENT behaviour is kept — nothing regresses on a deal shape that does
+    // not report volume, or on the seven other adapters.
+    const isAggregate = typeof paired.lots === 'number' && typeof t.lots === 'number'
+                        && t.lots + 1e-9 < paired.lots;
     const merged = { ...paired };
     for (const [k, v] of Object.entries(t)) {
-      if (v !== undefined && v !== null) (merged as any)[k] = v;
+      if (v === undefined || v === null) continue;
+      // On an aggregate, the detail may only FILL A BLANK; it may never replace a computed total.
+      if (isAggregate && (merged as any)[k] !== undefined && (merged as any)[k] !== null) continue;
+      (merged as any)[k] = v;
     }
     byId.set(t.externalId, merged);
   }

@@ -429,3 +429,77 @@ check('TEETH — ...so it filed this LONG as a Short',
       (oldPosSide === 'BUY' || p.tradeData?.tradeSide === 1) ? 'Long' : 'Short', 'Short');
 
 console.log(`ALL PASS (${count} checks)`);
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+// THE THIRD PATH, AND THE ONE THAT ACTUALLY BIT HIM — 2026-09-27
+//
+// His words after I reported the partial-close bug fixed: "the fix you made is not working".
+// He was right, and production said so plainly at 18:03:27 that day:
+//
+//     recorded | 320874862 | Short 0.25 lots, P/L 225.25
+//
+// That is ONE SLICE of a 1.00-lot position. `pairDealsIntoTrades` had already done its job and
+// built the whole position; `mergeDealMappings` then overwrote it. `mapClosedDeal` runs on EVERY
+// deal on its own, so the last closing deal also yields a standalone 0.25-lot trade under the SAME
+// externalId, and the field-by-field merge let every non-null value of that slice win — volume,
+// profit and close price together.
+//
+// The existing comment in that merge defends the detailed path because "the broker's own gross
+// profit and swap really are better than anything derived from two execution prices". True for a
+// position closed ONCE. False for one banked in pieces, where the deal's profit is one piece.
+//
+// The numbers below are HIS: 0.5 + 0.25 + 0.25 lots = 1.00, and 26 + 111 + 225.25 = 362.25.
+const PC_MAP = { 42: 'XAUUSD' };
+const PC_POS = '243253288';
+const pcDeal = (dealId: string, side: string, lots: number, price: number, ts: number, profit?: number) => ({
+  dealId, positionId: PC_POS, symbolId: 42, dealStatus: 'FILLED',
+  tradeSide: side, filledVolume: lots * 100 * 100,   // lots -> units -> cents
+  executionPrice: price, executionTimestamp: ts,
+  moneyDigits: 2,
+  ...(profit == null ? {} : { closePositionDetail: { grossProfit: Math.round(profit * 100), moneyDigits: 2 } }),
+});
+
+// one open of 1.00 lot, then three closes that bank it in pieces
+// HIS ACTUAL FILLS. Derived from what the fix log recorded for this position — weighted-average
+// exit 4316.2975 on 100 units for 362.25 — so the entry works back to 4319.92 and each slice's
+// price to the profit the broker reported. 4310.91 is the last slice's exit, and it is exactly the
+// figure the journal used to show when it recorded that slice alone.
+const PARTIALS = [
+  pcDeal('320850000', 'SELL', 1.00, 4319.92, 1_758_600_000_000),
+  pcDeal('320862945', 'BUY',  0.50, 4319.40, 1_758_610_000_000, 26),
+  pcDeal('320867971', 'BUY',  0.25, 4315.48, 1_758_612_000_000, 111),
+  pcDeal('320874862', 'BUY',  0.25, 4310.91, 1_758_614_000_000, 225.25),
+];
+
+const mergedOut = mergeDealMappings(PARTIALS, PC_MAP);
+check('a position banked in three pieces is ONE trade', mergedOut.length, 1);
+check('...keyed on the last closing deal', mergedOut[0].externalId, '320874862');
+check('...carrying the WHOLE position, not the last slice', mergedOut[0].lots, 1);
+check('...and the whole profit', Math.round((mergedOut[0].profit ?? 0) * 100) / 100, 362.25);
+check('...at the weighted-average exit across all three fills',
+      Math.round((mergedOut[0].closePrice ?? 0) * 10000) / 10000, 4316.2975);
+check('...NOT the last slice alone, which is what he was shown',
+      mergedOut[0].closePrice === 4310.91, false);
+
+// TEETH — the old merge really did hand back the last slice.
+const pairedOnly = pairDealsIntoTrades(PARTIALS, PC_MAP)[0];
+check('TEETH — the pairing alone was always right', pairedOnly.lots, 1);
+const slice = mapClosedDeal(PARTIALS[3], PC_MAP)!;
+check('TEETH — but the lone deal says 0.25 lots', slice.lots, 0.25);
+const oldMerge: any = { ...pairedOnly };
+for (const [k, v] of Object.entries(slice)) if (v !== undefined && v !== null) oldMerge[k] = v;
+check('TEETH — ...and the old field-by-field merge let it win', oldMerge.lots, 0.25);
+
+// THE OTHER HALF MUST NOT REGRESS: closed once, the detailed path still wins. That is what it is
+// for — the broker's own gross profit beats one derived from two execution prices.
+const ONCE = [
+  pcDeal('320900000', 'SELL', 0.40, 4300.00, 1_758_700_000_000),
+  pcDeal('320900001', 'BUY',  0.40, 4295.00, 1_758_701_000_000, 199.99),
+];
+const onceOut = mergeDealMappings(ONCE, PC_MAP);
+check('a position closed once is still one trade', onceOut.length, 1);
+check('...at its full size', onceOut[0].lots, 0.4);
+check("...and still takes the broker's own profit, not a derived one",
+      Math.round((onceOut[0].profit ?? 0) * 100) / 100, 199.99);
+
+console.log(`PARTIAL-CLOSE MERGE CHECKS DONE (${count} checks total)`);
