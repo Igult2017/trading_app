@@ -460,13 +460,38 @@ readable, and the journal was missing the last two:
    inherit a pale default;
 4. that floor sits **inside `@layer base`**, so a panel that deliberately wants white-on-dark wins.
 
-Point 4 is the one they learned the hard way and it is worth carrying: an **unlayered** element rule
-outranks a layered utility class, so their `text-white` headings on dark heroes rendered
-charcoal-on-charcoal and were invisible. They patched the symptom first (wrapping each headline in a
-`<span>`), then fixed the cause by moving the rules into `@layer base`.
+Point 4 is the one they learned the hard way: an **unlayered** element rule outranks a layered utility
+class, so their `text-white` headings on dark heroes rendered charcoal-on-charcoal and were invisible.
+They patched the symptom first (wrapping each headline in a `<span>`), then fixed the cause by moving
+the rules into `@layer base`.
 
-The journal's floor is now in `client/src/index.css`, inside the existing `@layer base`: `.journal-root`
-and its `h1…h6` take `var(--jr-ink)`.
+### ⚠ AND THAT LAST STEP DOES NOT PORT TO THIS APP — `@layer` is not what protects us here
+
+**That project runs Tailwind v4, where a native cascade layer genuinely loses to any utility whatever
+its specificity. This app is Tailwind 3.4.17, where `@layer base` is a build-time directive that is
+COMPILED AWAY** — the shipped stylesheet contains no cascade layers at all (checked against the
+deployed CSS: zero occurrences of `@layer`). The cascade therefore falls back to specificity, and
+`.journal-root h1` (0,1,1) would BEAT `.text-white` (0,1,0).
+
+I shipped it that way first and caught it only by checking the deployed stylesheet. Five real headings
+would have been flattened to plain ink: `JournalForm.tsx:138` `text-[#4e8cff]`, `:1142` `text-white`,
+`:1210` and `:1225` `text-[#e4e4e7]`, and `CreateSession.tsx:635` `text-[#f0f6fc]`.
+
+**`:where()` is what makes it a floor here.** It contributes ZERO specificity, so the rules sit at
+(0,0,0): they beat the browser default and nothing else — any class, utility or inline style wins.
+Journal.tsx already uses `:where()` for exactly this reason on its font rule. The floor in
+`client/src/index.css` reads:
+
+```css
+:where(.journal-root) { color: var(--jr-ink); }
+:where(.journal-root) :where(h1, h2, h3, h4, h5, h6) { color: var(--jr-ink); }
+```
+
+Verified in a browser: a heading with `text-[#4e8cff]` keeps its blue, `text-white` keeps white,
+`text-[#e4e4e7]` keeps its zinc, and a heading that sets no colour gets `--jr-ink`.
+
+**The general rule: before trusting `@layer` to lose a specificity fight, check which Tailwind major
+version is building the CSS.** In v3 it is a grouping directive, not a cascade layer.
 
 **It floors ONLY the root and the headings, and the restraint is deliberate.** Putting a colour on
 every `div`/`span`/`p` would match each child DIRECTLY and so break inheritance — a panel that colours

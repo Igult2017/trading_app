@@ -416,13 +416,21 @@
      Borrowed from the eco-friendly-marketplace project (app/globals.css), which is what he asked
      for: "copy how eco friendly marketplace manages to balance text colors for visibility in white
      theme". Its whole method is four things, and this rule is the two the journal was missing —
-     give the ELEMENTS a colour so nothing falls through to a pale default, and put that rule IN A
-     LAYER so a panel which deliberately wants white-on-dark still wins.
+     give the ELEMENTS a colour so nothing falls through to a pale default, while making sure a panel
+     that deliberately wants white-on-dark still wins.
 
-     WHY IT MUST BE LAYERED, which that project learned the hard way and fixed in two commits: an
-     UNLAYERED element rule outranks a layered utility class, so their `text-white` headings on dark
-     heroes rendered charcoal-on-charcoal and were invisible. Inside @layer base it is the floor
-     rather than the ceiling — any real declaration, utility, or inline style beats it.
+     ⚠ :where() IS DOING THAT JOB, NOT @layer — and the difference is not cosmetic. That project runs
+     Tailwind v4, where a native cascade layer genuinely loses to any utility whatever its
+     specificity. THIS APP IS TAILWIND 3 (3.4.17), where `@layer base` is a build-time directive that
+     is COMPILED AWAY: the output has no cascade layers at all (verified against the deployed
+     stylesheet, 2026-09-27 — zero occurrences of @layer). So the cascade falls back to specificity,
+     and `.journal-root h1` (0,1,1) would BEAT `.text-white` (0,1,0) — which is precisely the bug that
+     project hit, where deliberate headings rendered invisible. Five real headings in JournalForm and
+     CreateSession set their own colour this way (text-[#4e8cff], text-white, text-[#e4e4e7]).
+
+     :where() contributes ZERO specificity, so these rules sit at (0,0,0): they beat the browser
+     default and nothing else. Any class, any utility, any inline style wins. That is a true floor
+     rather than a ceiling. Journal.tsx already uses :where() for the same reason on its font rule.
 
      WHAT IT REPLACES. The journal used to defend against washed-out text by matching the TEXT of
      the style attribute (`[style*="color:#fff"]`, ~200 selectors in Journal.tsx). That cannot work
@@ -438,16 +446,11 @@
      BREAK INHERITANCE: a panel that colours a wrapper green would have its nested figures reset to
      ink, which would silently destroy the one signal the dashboard carries. The root plus headings
      is enough, because every other element inherits from it. */
-  .journal-root {
+  :where(.journal-root) {
     color: var(--jr-ink);
   }
 
-  .journal-root h1,
-  .journal-root h2,
-  .journal-root h3,
-  .journal-root h4,
-  .journal-root h5,
-  .journal-root h6 {
+  :where(.journal-root) :where(h1, h2, h3, h4, h5, h6) {
     color: var(--jr-ink);
   }
 
