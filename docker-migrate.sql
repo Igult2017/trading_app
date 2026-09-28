@@ -64,7 +64,7 @@ ALTER TABLE broker_accounts ADD COLUMN IF NOT EXISTS trade_count        INTEGER 
 ALTER TABLE broker_accounts ADD COLUMN IF NOT EXISTS equity             DECIMAL(14,2);
 ALTER TABLE broker_accounts ADD COLUMN IF NOT EXISTS leverage           INTEGER;
 ALTER TABLE broker_accounts ADD COLUMN IF NOT EXISTS connection_type    TEXT DEFAULT 'webhook';
--- Is this account offered in the copier at all (2026-09-28). Off = it appears in neither side of the
+-- Is this account offered in the copier at all (2026-09-29). Off = it appears in neither side of the
 -- copy setup form. DEFAULT TRUE so existing accounts keep working; he switches OFF what he does not
 -- want. THIS FILE IS PROD'S ONLY SCHEMA PATH - a column added to shared/schema.ts alone gives a live
 -- "42703 column does not exist".

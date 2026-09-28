@@ -1523,7 +1523,7 @@ test proving the process count returns to zero.
 
 ## D. cTrader & copy trading
 
-### D49 - Drop fails on any account that has actually copied something. 🔴 MINE, 2026-09-28
+### D49 - Drop fails on any account that has actually copied something. 🔴 MINE, 2026-09-29
 
 **His report, 2026-09-29:** *"Why is this account not dropping?"*
 
