@@ -82,8 +82,15 @@ class Retracement:
     # at "reversal proposed, not confirmed" the whole time, so the retracement was never measured. It
     # read as a verdict on his pullback. It was a placeholder, and it sent the investigation the wrong
     # way for two rounds before the early return was found.
+    #
+    # ⚠ AND IT MUST NOT CLAIM THERE IS NO TREND. The first version of this note said "no confirmed
+    # trend", and he corrected it: *"trend is and was confirmed only pullback was not"*. He is right.
+    # When a turn is pending the direction IS held — `TrendState.pending` was -1 (down) and the level
+    # it broke, 4254.45, was recorded — what `measure` lacks is the LEG to measure a pullback from,
+    # because `vix1_trend` clears `direction_since` at the change of character. So the note names the
+    # missing measurement, never a missing market.
     measured: bool = False
-    note: str = "no confirmed trend"    # why not, when `measured` is False
+    note: str = "no leg to measure from"    # why not, when `measured` is False
 
     def describe(self, pip: float) -> str:
         """One line for the card and the log. Decimals ON PURPOSE — `vix1_log.shape` collapses
@@ -156,7 +163,8 @@ def pullback_since(candles: list[Candle], direction: int,
     return None if first is None else after[first].time
 
 
-def measure(candles: list[Candle], direction: int, since: int | None = None) -> Retracement:
+def measure(candles: list[Candle], direction: int, since: int | None = None,
+            pending: int = 0) -> Retracement:
     """Measure the live retracement. `candles` must be CLOSED bars; `direction` +1 up / -1 down.
 
     `since` is the bar the trend's current direction was established on (`TrendState.direction_since`)
@@ -170,12 +178,16 @@ def measure(candles: list[Candle], direction: int, since: int | None = None) -> 
     different question; see the module docstring for why both are here.
     """
     # NOTHING TO MEASURE FROM — and it is reported as that, not as "no retracement" (see `describe`).
-    # `direction == 0` is the common one by far: it is every bar of a trend that is changing, which on
-    # XAU/USD ran for 22 unbroken hours on 28 Sep 2026.
+    #
+    # `pending` CHANGES ONLY THE WORDING, never the measurement. A turn that is proposed but not yet
+    # confirmed still has a direction and a level; what it does not have is a leg, because
+    # `vix1_trend` clears `direction_since` there. Saying "no trend" in that state is simply false,
+    # and on XAU/USD it was said for 22 unbroken hours on 28 Sep 2026 while the market trended hard.
     if not candles:
         return Retracement(note="no candles")
     if direction == 0:
-        return Retracement(note="no confirmed trend")
+        return Retracement(note="turn pending — no leg to measure from" if pending
+                           else "no trend direction")
     start = 0 if since is None else max(0, min(since, len(candles) - 1))
     seg = candles[start:]
     # `seg` cannot be empty here: `candles` is non-empty and `start` is clamped to its last index, so

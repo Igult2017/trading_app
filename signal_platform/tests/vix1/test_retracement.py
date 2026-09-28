@@ -168,7 +168,10 @@ check("since=None falls back to the whole window", measure(seq, +1).extreme_inde
 # ---------------------------------------------------------------- 7. must never raise
 print("\nEDGES — nothing here may raise")
 check("no candles -> inactive", measure([], +1, since=0), Retracement(note="no candles"))
-check("no direction -> inactive", measure(up, 0, since=0), Retracement())
+check("no direction -> inactive", measure(up, 0, since=0),
+      Retracement(note="no trend direction"))
+check("a pending turn is inactive too, but says so differently",
+      measure(up, 0, since=0, pending=-1), Retracement(note="turn pending — no leg to measure from"))
 check("one candle -> inactive", measure(up[:1], +1, since=0).active, False)
 check("since beyond the end is clamped", measure(up, +1, since=999).bars, 0)
 check("negative since is clamped", measure(drop(up, 2), +1, since=-5).bars, 2)
@@ -187,10 +190,19 @@ print("\nTHE DESCRIPTION LINE")
 # he could see on the chart; this line looked like the answer and was not one.
 #
 # BOTH SIDES ARE ASSERTED, because the fix is worth nothing unless the two stay DIFFERENT.
-check("not measured says so, and names why",
-      measure(up, 0, since=0).describe(PIP), "pullback not measured (no confirmed trend)")
+# HIS CORRECTION, 2026-09-29: *"trend is and was confirmed only pullback was not"*. The note said
+# "no confirmed trend" and that is FALSE for a pending turn — the direction is held (`pending`) along
+# with the level it broke; what is missing is the leg to measure a pullback from. The note may name
+# the missing MEASUREMENT; it may never claim the market had no trend.
+check("a pending turn blames the missing leg, NOT the trend",
+      measure(up, 0, since=0, pending=-1).describe(PIP),
+      "pullback not measured (turn pending — no leg to measure from)")
+check("...and never says the trend was absent",
+      "no confirmed trend" in measure(up, 0, since=0, pending=-1).describe(PIP), False)
+check("genuinely no direction says that instead",
+      measure(up, 0, since=0).describe(PIP), "pullback not measured (no trend direction)")
 check("...and quotes NO numbers, so no zero can be read as a measurement",
-      any(ch.isdigit() for ch in measure(up, 0, since=0).describe(PIP)), False)
+      any(ch.isdigit() for ch in measure(up, 0, since=0, pending=-1).describe(PIP)), False)
 check("...and no candles names its own reason instead",
       measure([], +1, since=0).describe(PIP), "pullback not measured (no candles)")
 check("MEASURED-and-empty still reads as a real finding",

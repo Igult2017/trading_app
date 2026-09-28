@@ -54,7 +54,11 @@ def market_state(window: list[Candle], tstate, symbol: str) -> tuple[Retracement
     the start of whatever window was passed — a peak belonging to the PREVIOUS trend is not this
     trend's high-water mark.
     """
-    ret = measure(window, tstate.direction, tstate.direction_since)
+    # `pending` is passed for the WORDING of a skipped measurement only — see `measure`. Without it
+    # a pending turn was reported as "no confirmed trend", which is false: the direction is held, the
+    # leg to measure a pullback from is not.
+    ret = measure(window, tstate.direction, tstate.direction_since,
+                  pending=getattr(tstate, "pending", 0) or 0)
     eff = vix1_regime.efficiency(window)
     return ret, eff, f"{ret.describe(pip_size(symbol))}; {vix1_regime.describe(eff)}"
 
