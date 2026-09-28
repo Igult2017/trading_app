@@ -987,20 +987,23 @@ export class DbStorage implements IStorage {
 
   // ── Broker Account Sync ─────────────────────────────────────────────────────
 
+  /** THE ROWS AS STORED. `copyEnabled` is a real column on the table (2026-09-29) and is returned
+   *  as it was written.
+   *
+   *  ⚠ IT USED TO BE OVERWRITTEN HERE. This method derived `copyEnabled` from a second query -
+   *  "true iff the account has an active copy_masters row" - and stamped that over every row. Once
+   *  the switch got its own column, that derivation SILENTLY WON: the Accounts page would have kept
+   *  showing whether the account was publicly followable instead of whether it is used in the
+   *  copier, so a manual account switched on read as off, and the icon disagreed with the gate it
+   *  had just set. The endpoint reading the column was correct and still would have displayed the
+   *  wrong thing, because this ran first.
+   *
+   *  Dropping it also removes a second round trip from both callers; the other one
+   *  (`GET /api/sessions`) only ever read `defaultSessionId` off these rows. */
   async getBrokerAccounts(userId: string): Promise<BrokerAccount[]> {
-    const accounts = await db.select().from(brokerAccounts)
+    return db.select().from(brokerAccounts)
       .where(eq(brokerAccounts.userId, userId))
       .orderBy(desc(brokerAccounts.createdAt));
-    if (!accounts.length) return accounts;
-    // Derive copyEnabled so the Accounts-page Copy toggle survives a reload: an account is
-    // "listed for copying" iff it has an active master row (copy-listing ON sets is_active=true).
-    const { rows } = await pool.query(
-      `SELECT DISTINCT broker_account_id FROM copy_masters
-         WHERE is_active = true AND broker_account_id = ANY($1::text[])`,
-      [accounts.map(a => a.id)],
-    );
-    const enabled = new Set(rows.map((r: any) => r.broker_account_id));
-    return accounts.map(a => ({ ...a, copyEnabled: enabled.has(a.id) })) as any;
   }
 
   async getBrokerAccountById(id: string): Promise<BrokerAccount | undefined> {

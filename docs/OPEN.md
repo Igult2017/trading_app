@@ -1523,6 +1523,30 @@ test proving the process count returns to zero.
 
 ## D. cTrader & copy trading
 
+### D49 - Drop fails on any account that has actually copied something. 🔴 MINE, 2026-09-28
+
+**His report, 2026-09-29:** *"Why is this account not dropping?"*
+
+**What happens.** Pressing Drop in the copier's Connected accounts list returns a server error (500)
+and the row stays. The database refuses the delete:
+
+    violates foreign key constraint "copy_execution_logs_follower_id_fkey"
+
+**Root cause, and it is mine.** I wired Drop to permanently delete the `copy_followers` row. Two
+other tables point at that row and neither is set to clear itself when it goes
+(`copy_execution_logs.follower_id`, `copy_trades_follower.follower_id`), so the database blocks the
+delete to avoid leaving records pointing at nothing. The button therefore works only on a
+relationship that has never copied a trade and never logged anything — which is to say, only on one
+that was never used.
+
+**The fix, planned and NOT built: a soft drop.** Mark the relationship inactive and hidden instead of
+deleting it, and have both lists skip hidden rows. That keeps the trade history the logs refer to,
+which is worth keeping anyway — deleting the relationship was also deleting the record of what it
+had copied.
+
+**Why it is still open:** he moved to the copier opt-in switch before I built it. It is a broken
+button, not a missing feature, so it should go first.
+
 ### D48 - Autotrade can hold 3 correlated positions at once — 6% on ONE bet. 🔴 BEFORE LIVE MONEY
 
 **HIS RULE, 2026-09-06, and the code does not do it:**
