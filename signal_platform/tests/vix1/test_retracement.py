@@ -167,7 +167,7 @@ check("since=None falls back to the whole window", measure(seq, +1).extreme_inde
 
 # ---------------------------------------------------------------- 7. must never raise
 print("\nEDGES — nothing here may raise")
-check("no candles -> inactive", measure([], +1, since=0), Retracement())
+check("no candles -> inactive", measure([], +1, since=0), Retracement(note="no candles"))
 check("no direction -> inactive", measure(up, 0, since=0), Retracement())
 check("one candle -> inactive", measure(up[:1], +1, since=0).active, False)
 check("since beyond the end is clamped", measure(up, +1, since=999).bars, 0)
@@ -176,6 +176,28 @@ flat = [bar(1.3000, 1.3000, close=1.3000, t=i) for i in range(20)]
 check("a dead-flat market -> no retracement, no divide-by-zero", measure(flat, +1, since=0).atr, 0.0)
 
 print("\nTHE DESCRIPTION LINE")
+# ── "I LOOKED AND FOUND NOTHING" MUST NEVER READ THE SAME AS "I NEVER LOOKED" ────────────────────
+# `measure` returns early, before touching a candle, when there is no confirmed trend direction. Its
+# defaults used to print as a finding: "no retracement before this candle; 0.0 pips (0.00x ATR) below
+# the trend extreme, which is 0 candles old".
+#
+# WHAT IT COST (2026-09-29): that exact sentence stood UNCHANGED in production's record for 22 hours
+# while XAU/USD fell ~$200, bounced and fell again — the trend sat at "reversal proposed, not
+# confirmed" throughout, so the retracement was never measured. He asked why VIX.1 ignored a pullback
+# he could see on the chart; this line looked like the answer and was not one.
+#
+# BOTH SIDES ARE ASSERTED, because the fix is worth nothing unless the two stay DIFFERENT.
+check("not measured says so, and names why",
+      measure(up, 0, since=0).describe(PIP), "pullback not measured (no confirmed trend)")
+check("...and quotes NO numbers, so no zero can be read as a measurement",
+      any(ch.isdigit() for ch in measure(up, 0, since=0).describe(PIP)), False)
+check("...and no candles names its own reason instead",
+      measure([], +1, since=0).describe(PIP), "pullback not measured (no candles)")
+check("MEASURED-and-empty still reads as a real finding",
+      "no retracement before" in measure(up, +1, since=0).describe(PIP), True)
+check("...and that one DOES still carry its numbers",
+      "0.0 pips" in measure(up, +1, since=0).describe(PIP), True)
+
 check("nothing before it reads plainly",
       "no retracement before" in measure(up, +1, since=0).describe(PIP), True)
 d = measure(drop(up, 1), +1, since=0).describe(PIP)

@@ -70,11 +70,31 @@ class Retracement:
     atr: float = 0.0            # ...and the same distance as a multiple of ATR(14)
     extreme: float | None = None
     extreme_index: int | None = None
+    # WAS ANYTHING ACTUALLY MEASURED? Everything above defaults to "nothing", and those defaults used
+    # to be reported as a FINDING: "no retracement before this candle; 0.0 pips (0.00x ATR) below the
+    # trend extreme, which is 0 candles old". That reads as "I looked and there was no pullback" when
+    # it means "I never looked" — `measure` returns early, before touching a single candle, whenever
+    # there is no confirmed trend direction.
+    #
+    # WHAT THAT COST, 2026-09-29. He asked why VIX.1 took nothing from gold's fall on 28 Sep and
+    # pointed at a small green pullback candle. Production's record carried that same sentence,
+    # IDENTICAL, for 22 hours while XAU/USD fell ~$200, bounced and fell again — because the trend sat
+    # at "reversal proposed, not confirmed" the whole time, so the retracement was never measured. It
+    # read as a verdict on his pullback. It was a placeholder, and it sent the investigation the wrong
+    # way for two rounds before the early return was found.
+    measured: bool = False
+    note: str = "no confirmed trend"    # why not, when `measured` is False
 
     def describe(self, pip: float) -> str:
         """One line for the card and the log. Decimals ON PURPOSE — `vix1_log.shape` collapses
         decimals but keeps integers, so only the BAR COUNTS changing mark the line as new. That is
         the intent: one line an hour per instrument, not one per 60-second scan."""
+        # NOT MEASURED SAYS SO, AND PRINTS NO NUMBERS. The zeros are not readings — quoting them
+        # alongside "no retracement" is what made this line look like a verdict. The whole clause is
+        # replaced rather than just the wording, so no figure here can ever be cited as evidence
+        # about a market the code did not look at.
+        if not self.measured:
+            return f"pullback not measured ({self.note})"
         n = self.bars
         head = (f"came after a retracement of {n} candle{'s' if n != 1 else ''}" if self.active
                 else "no retracement before this candle")
@@ -149,12 +169,17 @@ def measure(candles: list[Candle], direction: int, since: int | None = None) -> 
     uses on the 1M. `stall_bars` counts from the trend's own extreme instead, and answers a
     different question; see the module docstring for why both are here.
     """
-    if direction == 0 or not candles:
-        return Retracement()
+    # NOTHING TO MEASURE FROM — and it is reported as that, not as "no retracement" (see `describe`).
+    # `direction == 0` is the common one by far: it is every bar of a trend that is changing, which on
+    # XAU/USD ran for 22 unbroken hours on 28 Sep 2026.
+    if not candles:
+        return Retracement(note="no candles")
+    if direction == 0:
+        return Retracement(note="no confirmed trend")
     start = 0 if since is None else max(0, min(since, len(candles) - 1))
     seg = candles[start:]
-    if not seg:
-        return Retracement()
+    # `seg` cannot be empty here: `candles` is non-empty and `start` is clamped to its last index, so
+    # the slice always keeps at least that candle. The guard that used to sit here could never run.
 
     up = direction == 1
     # The extreme is the FIRST bar to reach the best price, not the last. A flat top printed over
@@ -191,7 +216,7 @@ def measure(candles: list[Candle], direction: int, since: int | None = None) -> 
     a = atr(candles, _ATR_N)
     return Retracement(active=bars > 0, bars=bars, stall_bars=len(seg) - 1 - off, pips=depth,
                        atr=(depth / a if a > 0 else 0.0),
-                       extreme=best, extreme_index=start + off)
+                       extreme=best, extreme_index=start + off, measured=True)
 
 
 # ── HOW LONG SINCE THE PULLBACK ENDED (his rule, 2026-09-16) ─────────────────────────────────────────
