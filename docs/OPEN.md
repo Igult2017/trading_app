@@ -1523,29 +1523,54 @@ test proving the process count returns to zero.
 
 ## D. cTrader & copy trading
 
-### D49 - Drop fails on any account that has actually copied something. 🔴 MINE, 2026-09-29
+### D49 - ~~Drop fails on any account that has actually copied something~~ FIXED 2026-09-29 — MINE
 
 **His report, 2026-09-29:** *"Why is this account not dropping?"*
 
-**What happens.** Pressing Drop in the copier's Connected accounts list returns a server error (500)
-and the row stays. The database refuses the delete:
+**What happened.** Pressing Drop in the copier's Connected accounts list returned a server error
+(500) and the row stayed. The database refused the delete:
 
     violates foreign key constraint "copy_execution_logs_follower_id_fkey"
 
-**Root cause, and it is mine.** I wired Drop to permanently delete the `copy_followers` row. Two
+**Root cause, and it was mine.** I wired Drop to permanently delete the `copy_followers` row. Two
 other tables point at that row and neither is set to clear itself when it goes
-(`copy_execution_logs.follower_id`, `copy_trades_follower.follower_id`), so the database blocks the
-delete to avoid leaving records pointing at nothing. The button therefore works only on a
-relationship that has never copied a trade and never logged anything — which is to say, only on one
-that was never used.
+(`copy_execution_logs.follower_id`, `copy_trades_follower.follower_id`), so the database blocked the
+delete rather than leave records pointing at nothing. Drop therefore worked only on a relationship
+that had never copied a trade and never logged anything — one that was never used.
 
-**The fix, planned and NOT built: a soft drop.** Mark the relationship inactive and hidden instead of
-deleting it, and have both lists skip hidden rows. That keeps the trade history the logs refer to,
-which is worth keeping anyway — deleting the relationship was also deleting the record of what it
-had copied.
+**The fix: Drop retires the relationship instead of destroying it.** A new `dropped_at` column on
+`copy_followers` (empty = live). Drop sets it plus `is_active = false`, and every list that shows
+relationships skips marked rows, so the row leaves both Connected accounts and Mirror feeds exactly
+as deleting did. The trades it copied and the audit lines survive — which matters beyond tidiness,
+because those rows are what the history tab and the win-rate figure are computed from, so cascading
+the delete would have silently rewritten his past numbers.
 
-**Why it is still open:** he moved to the copier opt-in switch before I built it. It is a broken
-button, not a missing feature, so it should go first.
+**Not `is_active` on its own, and this is the part worth remembering.** That flag already means
+PAUSED and is still set by something other than the user: the engine auto-pauses a relationship that
+breaches its drawdown or daily-loss cap (`copy_platform/risk_guard.py`). Reusing it for "dropped"
+would have made a safety event look like the user's own tidying and hidden it from the list he needs
+to see it in.
+
+**Three things found while fixing it, all built:**
+
+1. **Decline had the identical crash** (`routes.ts`, `/api/copy/followers/:id/decline`). It deleted a
+   follower row through the same helper, and a pending request picks up audit lines as soon as the
+   provider's master trades — so it would 500 too. It uses the same mark now. Its old comment said it
+   had to delete "or it would leave the queue forever"; the pending-approval query now skips marked
+   rows, so that reason no longer holds.
+2. **Re-adding a dropped pair had to un-mark it.** Start looks the pair up on account + master and
+   sets it live. Left marked, the relationship would mirror real trades while every list still hid it
+   — copying with nothing on screen to say so, which is worse than the visible error. Both upsert
+   paths clear the mark, and the engine's copy query also requires `dropped_at IS NULL` so that state
+   cannot copy even if the flag were set by hand.
+3. **The engine was writing about it for ever.** It logs a "not copied" audit line for every linked
+   relationship each time the master trades, live or not (`copy_platform/dispatcher.py`). A dropped
+   one would have kept earning them — an audit trail filling with notes about something he was told
+   no longer exists. Dropped rows are excluded; paused ones still get their line, because that one he
+   can act on.
+
+**Dead code removed with it:** `storage.deleteCopyFollower` — nothing hard-deletes a relationship any
+more.
 
 ### D48 - Autotrade can hold 3 correlated positions at once — 6% on ONE bet. 🔴 BEFORE LIVE MONEY
 

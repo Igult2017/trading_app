@@ -154,6 +154,26 @@ export const copyFollowers = pgTable("copy_followers", {
   isActive:        boolean("is_active").default(false),
   riskAccepted:    boolean("risk_accepted").default(false),
   deployedAt:      timestamp("deployed_at"),
+  /**
+   * WHEN THE USER DROPPED THIS RELATIONSHIP. Empty means it is live. Set = it is retired: it shows in
+   * no list and copies nothing, but everything it ever copied is still on record.
+   *
+   * ⚠ NOT the same thing as `isActive: false`, and the two must never be merged. That flag means
+   * PAUSED, and it is still set for real by something other than the user: the engine auto-pauses a
+   * relationship that breaches its drawdown or daily-loss cap (`copy_platform/risk_guard.py`,
+   * "re-enable from the UI"). If dropping reused that flag, a safety event would look like the user's
+   * own tidying and vanish from the list he needs to see it in.
+   *
+   * WHY A MARK AND NOT A DELETE. Drop used to delete the row. Two tables point at it -
+   * `copy_trades_follower.follower_id` and `copy_execution_logs.follower_id` - and neither clears
+   * itself, so the database refused and the button returned a 500 on every relationship that had
+   * actually copied anything. Cascading instead would have erased the trades and the audit trail that
+   * the history tab and the win-rate figure are computed from, so tidying a list would have quietly
+   * rewritten his past numbers.
+   *
+   * A timestamp rather than a yes/no because it also records WHEN, at no extra cost.
+   */
+  droppedAt:       timestamp("dropped_at"),
   createdAt:       timestamp("created_at").defaultNow(),
   updatedAt:       timestamp("updated_at").defaultNow(),
 }, (t) => [

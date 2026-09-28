@@ -3220,6 +3220,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // not move a number about how much he has.
         pool.query(`SELECT id, name, platform, balance, currency, connection_type, login_id, copy_enabled
                       FROM broker_accounts WHERE user_id = $1 ORDER BY created_at`, [uid]),
+        // A DROPPED RELATIONSHIP IS GONE FROM HERE, and this ONE filter is the whole of it. Both lists
+        // he sees are built from these rows - Connected accounts (`copies`) and Mirror feeds (via
+        // `selfRows`) - so excluding a dropped row once removes it from both, which is what Drop
+        // deleting the row used to achieve.
+        //
+        // `dropped_at IS NULL`, NOT `is_active = true`. There is deliberately no live-only filter
+        // here, because a PAUSED relationship must still show, badged Paused - the engine auto-pauses
+        // one that breaches its drawdown cap (copy_platform/risk_guard.py) and he has to be able to
+        // see that happened. Dropped and paused are different states and only one of them hides.
+        //
         // WHICH ACCOUNTS are on each side is selected here on purpose. Without
         // `f.broker_account_id` and `m.broker_account_id` the setup panel cannot say which of his
         // accounts is the master or which are mirrors, so it showed "no master set" while the same
@@ -3234,7 +3244,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
                            m.broker_account_id AS master_account_id,
                            m.user_id AS master_user_id
                       FROM copy_followers f JOIN copy_masters m ON m.id = f.master_id
-                     WHERE f.user_id = $1 ORDER BY f.created_at DESC`, [uid]),
+                     WHERE f.user_id = $1 AND f.dropped_at IS NULL
+                     ORDER BY f.created_at DESC`, [uid]),
         pool.query(`SELECT cf.id, cf.symbol, cf.action, cf.volume, cf.entry_price, cf.closed_price,
                            cf.event_type, COALESCE(cf.executed_at, cf.created_at) AS at,
                            EXTRACT(EPOCH FROM (cf.executed_at - ctm.created_at)) * 1000 AS ms,
@@ -3292,6 +3303,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
                            AND f.user_id <> m.user_id
                            AND m.require_approval = true
                            AND f.deployed_at IS NULL
+                           -- DECLINED REQUESTS LEAVE THE QUEUE. Decline marks the row retired rather
+                           -- than deleting it (it could not delete it - audit rows point at it), so
+                           -- without this the declined request would sit in the queue for ever and the
+                           -- button would look like it had done nothing.
+                           AND f.dropped_at IS NULL
                          ORDER BY f.created_at DESC LIMIT 20`, [uid]),
             // ACTIVE FOLLOWERS + AUM — him copying himself is excluded, or mirroring his own $9,999
             // account into his own $1,000 account reports him as a provider with a follower and
@@ -3623,8 +3639,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Prevent duplicate subscriptions (match on whichever account ref was supplied —
       // brokerAccountId for OAuth/API accounts, accountId for legacy copy_accounts).
       const dupCol = brokerAccountId ? "broker_account_id" : "account_id";
+      // A DROPPED SUBSCRIPTION DOES NOT COUNT AS A DUPLICATE. Without `dropped_at IS NULL` the 409
+      // below would fire on a relationship he had already dropped, and following that provider with
+      // that account again would be refused for ever with "Already subscribed".
       const existing = await pool.query(
-        `SELECT id FROM copy_followers WHERE master_id = $1 AND user_id = $2 AND ${dupCol} = $3`,
+        `SELECT id FROM copy_followers
+          WHERE master_id = $1 AND user_id = $2 AND ${dupCol} = $3 AND dropped_at IS NULL`,
         [masterId, user.id, brokerAccountId || accountId],
       );
       if (existing.rows.length) return res.status(409).json({ error: "Already subscribed with this account" });
@@ -3710,6 +3730,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (err: any) { console.error(err); return res.status(500).json({ error: "Internal server error" }); }
   });
 
+  /**
+   * DROP - retire the relationship. This is the copier's "Drop" button.
+   *
+   * IT USED TO DELETE THE ROW AND THAT IS WHY IT FAILED. His report: *"Why is this account not
+   * dropping?"* Production answered `violates foreign key constraint
+   * copy_execution_logs_follower_id_fkey`. Two tables point at this row -
+   * `copy_trades_follower.follower_id` and `copy_execution_logs.follower_id` - and neither clears
+   * itself, so the database refuses to delete it. Drop therefore only ever worked on a relationship
+   * that had never copied a trade and never logged anything, which is one that was never used.
+   *
+   * NOW IT MARKS THE ROW RETIRED. `droppedAt` takes it out of every list (see /api/copy/overview) and
+   * `isActive: false` is what actually stops the copying - the engine only mirrors for
+   * `is_active = true` (`copy_platform/dispatcher.py`). The trades it copied and the audit trail stay,
+   * which is the point: they are what the history tab and the win-rate figure are computed from, so
+   * deleting them would have rewritten his past numbers because he tidied a list.
+   *
+   * STILL A DELETE FROM THE CLIENT'S POINT OF VIEW - same method, same URL, and its message ("dropped
+   * - it no longer copies from its master") is still true, so nothing on the page had to change.
+   *
+   * BRINGING IT BACK: pick the same pair in the setup form and press Start. That path clears the mark
+   * (see /api/copy/self-copy), which it MUST - a row set live again while still marked would copy
+   * trades with nothing on screen saying so, and silent copying is worse than a visible error.
+   */
   app.delete("/api/copy/followers/:id", async (req, res) => {
     try {
       const auth = await requireAuth(req, res);
@@ -3717,7 +3760,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const existing = await storage.getCopyFollowerById(req.params.id);
       if (!existing) return res.status(404).json({ error: "Follower not found" });
       if (existing.userId !== auth.id) return res.status(403).json({ error: "Forbidden" });
-      return res.json({ success: await storage.deleteCopyFollower(req.params.id) });
+      await storage.updateCopyFollower(req.params.id, { isActive: false, droppedAt: new Date() } as any);
+      // Tell the engine now instead of letting it find out on its 60s poll, the same as every other
+      // path that changes what it should be copying.
+      await pool.query("SELECT pg_notify('copy_change', 'follower-dropped')").catch(() => {});
+      return res.json({ success: true, dropped: true });
     } catch (err: any) { console.error(err); return res.status(500).json({ error: "Internal server error" }); }
   });
 
@@ -5226,7 +5273,11 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
       // and pressing Start again did nothing at all — the panel said it had saved and the stored
       // settings never moved. Re-pressing Start is also how mirroring is resumed after a stop,
       // which is why isActive goes back to true here.
-      const patch: Record<string, any> = { isActive: true };
+      // `droppedAt: null` IS LOAD-BEARING. Pressing Start on a pair he had dropped finds the retired
+      // row (the lookup above matches on account + master and nothing else) and sets it live. Leaving
+      // the mark on would make it copy trades while both lists still hid it - copying with nothing on
+      // screen to say so, which is worse than the error this whole change fixes.
+      const patch: Record<string, any> = { isActive: true, droppedAt: null };
       if (b.lotMode        !== undefined) patch.lotMode        = b.lotMode;
       if (b.lotMultiplier  !== undefined) patch.lotMultiplier  = b.lotMultiplier;
       if (b.fixedLot       !== undefined) patch.fixedLot       = b.fixedLot;
@@ -5319,9 +5370,20 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
     if (!master || master.userId !== user.id) {
       return res.status(403).json({ error: "Only the provider can decline followers" });
     }
-    // Deleted, not deactivated: a pending request IS an inactive row, so deactivating it would
-    // leave it in the queue forever and the button would appear to do nothing.
-    return res.json({ declined: await storage.deleteCopyFollower(follower.id) });
+    // RETIRED, NOT DELETED (changed 2026-09-29). This deleted the row, and the comment here explained
+    // why: "a pending request IS an inactive row, so deactivating it would leave it in the queue
+    // forever and the button would appear to do nothing."
+    //
+    // That reasoning was right and is now obsolete, because a retired row is a THIRD state rather
+    // than just an inactive one: the pending queue excludes anything carrying `dropped_at`, so
+    // marking it does take it out of the queue.
+    //
+    // It also had the SAME DEFECT AS DROP, and would have failed the same way. The engine writes a
+    // "not copied" audit line for every linked relationship each time the master trades, pending ones
+    // included (`copy_platform/dispatcher.py`), so as soon as the provider traded once, a pending
+    // request had audit rows pointing at it and the database refused to delete it - 500, every time.
+    await storage.updateCopyFollower(follower.id, { isActive: false, droppedAt: new Date() } as any);
+    return res.json({ declined: true });
   });
 
   /**
@@ -5389,6 +5451,10 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
       // engine silently skips every trade. Force fixed/risk — never multiplier.
       lotMode: (b.lotMode && b.lotMode !== "mult") ? b.lotMode : "fixed", lotMultiplier: b.lotMultiplier || "1.0",
       fixedLot: b.fixedLot ?? "0.01", riskPercent: b.riskPercent || "1.0", direction: b.direction || "same",
+      // Clears a previous drop — this config is reused to UPDATE an existing row (see dupFollower
+      // below), so re-following a channel he had dropped must un-retire it or it would mirror
+      // invisibly.
+      droppedAt: null,
       symbolWhitelist: b.symbolWhitelist ?? null, symbolBlacklist: b.symbolBlacklist ?? null,
       maxOpenTrades: b.maxOpenTrades ?? 10, tradeDelaySec: b.tradeDelaySec ?? 0,
       pauseInactive: b.pauseInactive ?? true, pauseOnDD: b.pauseOnDD ?? true,

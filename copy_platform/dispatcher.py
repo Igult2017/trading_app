@@ -60,9 +60,19 @@ async def dispatch(event: dict, master_id: str) -> None:
         #
         # One row per LINKED follower now, each naming its own account and the reason it was passed
         # over, because "switched off" and "risk terms not accepted" need different fixes.
+        #
+        # A DROPPED RELATIONSHIP IS NOT WRITTEN ABOUT (2026-09-29). `dropped_at` means the user took it
+        # off the copier, so it appears in no list he can see. Without this filter it would still earn a
+        # "Not copied - this copier is switched off" line every single time the master traded: an
+        # audit trail filling up with notes about something he was told no longer exists, and no way to
+        # act on them. Dropped rows are excluded; PAUSED ones (is_active false, dropped_at null) still
+        # get their line, because that one he can fix.
         try:
             with Session() as db:
-                linked = db.query(CopyFollower).filter_by(master_id=master_id).all()
+                linked = (db.query(CopyFollower)
+                            .filter(CopyFollower.master_id == master_id,
+                                    CopyFollower.dropped_at.is_(None))
+                            .all())
         except Exception:
             linked = []
         for f in linked:
@@ -135,8 +145,17 @@ def _claim_event(master_id: str, snap, etype: str):
                 return None
 
         master_trade = _save_master_trade(db, master_id, snap, etype, source)
-        followers    = db.query(CopyFollower).filter_by(
-            master_id=master_id, is_active=True, risk_accepted=True).all()
+        # `dropped_at IS NULL` is belt as well as braces. is_active=False alone already keeps a dropped
+        # relationship out of here, because Drop sets both. But the one outcome worth making
+        # STRUCTURALLY impossible is a dropped row that somehow ends up active: it would mirror real
+        # trades while every list on screen still hid it. This makes that unreachable no matter how
+        # is_active got set.
+        followers    = (db.query(CopyFollower)
+                          .filter(CopyFollower.master_id == master_id,
+                                  CopyFollower.is_active.is_(True),
+                                  CopyFollower.risk_accepted.is_(True),
+                                  CopyFollower.dropped_at.is_(None))
+                          .all())
         return master_trade.id, followers
 
 

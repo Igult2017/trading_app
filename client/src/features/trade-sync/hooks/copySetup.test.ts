@@ -191,7 +191,14 @@ check('the server stores both', routes.includes('sessionFilter:   b.sessionFilte
 check('an existing relationship is updated, not skipped',
       routes.includes('storage.updateCopyFollower(follower.id, patch as any)'), true);
 check('...and re-pressing Start resumes a paused one',
-      /const patch: Record<string, any> = \{ isActive: true \};/.test(routes), true);
+      /const patch: Record<string, any> = \{ isActive: true,/.test(routes), true);
+// ...AND UN-RETIRES A DROPPED ONE, which is the half that can fail silently. Drop marks the row with
+// `dropped_at` instead of deleting it (2026-09-29), and this same patch is what brings the pair back.
+// If it set the row live without clearing the mark, the relationship would mirror real trades while
+// every list on screen still hid it — copying with nothing to say so, which is worse than the server
+// error this replaced. Asserted separately from isActive so neither can be dropped without noticing.
+check('...and un-retires a dropped one, so it cannot copy invisibly',
+      /const patch: Record<string, any> = \{[^}]*droppedAt: null/.test(routes), true);
 
 // ── A PERSISTED PAYLOAD OF ANY AGE MUST NOT WHITE-SCREEN THE PAGE ───────────
 //
@@ -242,6 +249,56 @@ check('...and AuthContext imports it rather than retyping it',
       auth.includes('CACHE_KEY') && !/['"]fsd-journal-cache-v\d/.test(auth), true);
 teeth('a second hardcoded copy is what broke the cross-user cleanup',
       !/['"]fsd-journal-cache-v\d/.test(auth));
+
+// ── DROP RETIRES THE RELATIONSHIP, IT DOES NOT DELETE IT ────────────────────
+// His report: "Why is this account not dropping?" — the button returned a server error on every
+// relationship that had actually copied something. It deleted the row, and the trades it had copied
+// plus the audit lines about them point AT that row, so the database refused:
+//     violates foreign key constraint "copy_execution_logs_follower_id_fkey"
+// Cascading instead would have erased those records — and they are what the history tab and the
+// win-rate figure are computed from, so tidying a list would have rewritten his past numbers.
+check('Drop no longer deletes the row',
+      /app\.delete\("\/api\/copy\/followers\/:id"[\s\S]{0,900}?deleteCopyFollower/.test(routes), false);
+check('...it marks it retired instead',
+      /app\.delete\("\/api\/copy\/followers\/:id"[\s\S]{0,900}?droppedAt: new Date\(\)/.test(routes), true);
+check('...and switches it off, which is what actually stops the copying',
+      /app\.delete\("\/api\/copy\/followers\/:id"[\s\S]{0,900}?isActive: false/.test(routes), true);
+check('...and wakes the engine instead of waiting for its 60s poll',
+      /app\.delete\("\/api\/copy\/followers\/:id"[\s\S]{0,1200}?pg_notify\('copy_change'/.test(routes), true);
+
+// THE ROW MUST LEAVE BOTH LISTS. Connected accounts and Mirror feeds are built from the SAME rows, so
+// one filter removes it from both — that is what deleting used to achieve. Filtered on the drop mark
+// and NOT on is_active, because a PAUSED relationship must still show: the engine auto-pauses one that
+// breaches its drawdown cap (copy_platform/risk_guard.py) and he has to see that happened.
+check('the relationship list excludes dropped rows',
+      /FROM copy_followers f JOIN copy_masters m[\s\S]{0,200}?f\.dropped_at IS NULL/.test(routes), true);
+check('...and does NOT hide merely paused ones',
+      /WHERE f\.user_id = \$1 AND f\.is_active/.test(routes), false);
+
+// RE-FOLLOWING MUST STILL BE POSSIBLE. The "Already subscribed with this account" refusal matches any
+// existing row, so without the mark a dropped subscription would block re-following that provider with
+// that account for ever.
+check('a dropped subscription does not count as a duplicate',
+      /SELECT id FROM copy_followers[\s\S]{0,200}?dropped_at IS NULL/.test(routes), true);
+
+// THE ENGINE. Two separate paths, and the second is the one easily missed.
+const disp = read('copy_platform/dispatcher.py');
+check('the engine will not copy for a dropped relationship',
+      /is_active\.is_\(True\)[\s\S]{0,200}?dropped_at\.is_\(None\)/.test(disp), true);
+check('...and stops writing "not copied" audit lines about one',
+      /master_id == master_id[\s\S]{0,200}?dropped_at\.is_\(None\)/.test(disp), true);
+
+// PROD'S SCHEMA PATH. A column added to shared/schema.ts alone gives a live 42703 — production syncs
+// from docker-migrate.sql and never runs db:push.
+check('the column is in the migration file, not only the schema',
+      read('docker-migrate.sql').includes('ADD COLUMN IF NOT EXISTS dropped_at'), true);
+check('...and on the Python model, or the engine cannot filter on it',
+      read('copy_platform/db.py').includes('dropped_at'), true);
+
+teeth('deleting the row really was refused — two tables reference it with no ON DELETE rule',
+      !/references\(\(\) => copyFollowers\.id, \{ onDelete/.test(read('shared/schema.ts')));
+teeth('reusing is_active as "dropped" would have hidden the drawdown auto-pause',
+      read('copy_platform/risk_guard.py').includes('is_active = False'));
 
 // ── TEETH ───────────────────────────────────────────────────────────────────
 teeth('seeding without the ref would re-seed on every 20s refetch',

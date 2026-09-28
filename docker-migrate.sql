@@ -317,6 +317,10 @@ ALTER TABLE copy_followers ADD COLUMN IF NOT EXISTS notif_daily_warn  BOOLEAN DE
 ALTER TABLE copy_followers ADD COLUMN IF NOT EXISTS is_active         BOOLEAN DEFAULT FALSE;
 ALTER TABLE copy_followers ADD COLUMN IF NOT EXISTS risk_accepted     BOOLEAN DEFAULT FALSE;
 ALTER TABLE copy_followers ADD COLUMN IF NOT EXISTS deployed_at       TIMESTAMP;
+-- When the user dropped this relationship (2026-09-29). NULL = live. Set = retired: shown in no list,
+-- copies nothing, but its trades and audit lines survive. NOT the same as is_active=false, which means
+-- PAUSED and is still set by the engine's drawdown auto-pause. THIS FILE IS PROD'S ONLY SCHEMA PATH.
+ALTER TABLE copy_followers ADD COLUMN IF NOT EXISTS dropped_at        TIMESTAMP;
 ALTER TABLE copy_followers ADD COLUMN IF NOT EXISTS created_at        TIMESTAMP DEFAULT NOW();
 ALTER TABLE copy_followers ADD COLUMN IF NOT EXISTS updated_at        TIMESTAMP DEFAULT NOW();
 

@@ -133,9 +133,14 @@ export function useCopySetup(
   };
 
   // The per-row PAUSE that used to live here is gone (2026-09-28). His instruction was "instead of
-  // pause lets use drop", so the Connected-accounts row now deletes the relationship rather than
-  // flipping a flag, and nothing called this any more. Pausing EVERYTHING at once still exists —
-  // that is the Stop button below, which sets isActive:false on each live relationship.
+  // pause lets use drop", so the Connected-accounts row retires the relationship rather than flipping
+  // a flag, and nothing called this any more.
+  //
+  // TWO CORRECTIONS to what this note used to say. It claimed Drop "deletes the relationship" — it
+  // marks it retired now, because deleting was refused by the database whenever the relationship had
+  // copied anything (2026-09-29). And it pointed at "the Stop button below" for pausing everything at
+  // once: that button is gone too. A relationship still becomes Paused, but the engine does it, on a
+  // drawdown or daily-loss breach (copy_platform/risk_guard.py).
 
   const activeSource = useMemo(() => SOURCES.find((s) => s.id === source), [source]);
   const needsAccountConnect = (source === "provider" || source === "self-copy") && accountStatus !== "connected";

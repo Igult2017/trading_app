@@ -58,8 +58,19 @@ console.log('\nPROVIDER STUDIO — both buttons work, and nothing claims what it
 check('there is a decline endpoint', routes.includes('"/api/copy/followers/:id/decline"'), true);
 check('...and it checks you own the MASTER, like approve does',
       routes.includes('Only the provider can decline followers'), true);
-check('...and deletes, so the request leaves the queue',
-      /declined: await storage\.deleteCopyFollower\(follower\.id\)/.test(routes), true);
+// RETIRES IT, rather than deleting (changed 2026-09-29). Deleting could not work: the engine writes a
+// "not copied" audit line for every linked request each time the master trades, so a pending request
+// had rows pointing at it and the database refused - the same 500 that broke Drop.
+// BOTH HALVES are asserted, because marking the row only takes the request out of the queue if the
+// queue is also looking at the mark. Assert one without the other and a declined request either
+// crashes or sits there for ever.
+check('...and retires the row instead of deleting it',
+      /declined[\s\S]{0,300}?droppedAt: new Date\(\)/.test(routes) ||
+      /droppedAt: new Date\(\)[\s\S]{0,300}?declined: true/.test(routes), true);
+check('...and the pending queue skips retired rows, so it really does leave the queue',
+      /require_approval = true[\s\S]{0,600}?f\.dropped_at IS NULL/.test(routes), true);
+check('...and nothing hard-deletes a follower row any more',
+      /storage\.deleteCopyFollower\(/.test(routes), false);
 check('the studio calls it', hook.includes('/decline`'), true);
 check('...and no longer DELETEs a row it does not own',
       /apiRequest\("DELETE", `\/api\/copy\/followers\/\$\{req\.id\}`\)/.test(hook), false);

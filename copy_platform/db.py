@@ -87,6 +87,9 @@ class CopyFollower(Base):
     max_daily_loss    = Column(Numeric)
     is_active         = Column(Boolean)
     risk_accepted     = Column(Boolean)
+    # Set = the user dropped this relationship. It copies nothing and must not be written ABOUT either
+    # - see dispatcher._log_skips. NULL = live. Not the same as is_active=False, which means paused.
+    dropped_at        = Column(DateTime)
 
 
 class TelegramSource(Base):

@@ -91,7 +91,6 @@ export interface IStorage {
   getCopyFollowerByBrokerAccountAndMaster(brokerAccountId: string, masterId: string): Promise<CopyFollower | undefined>;
   createCopyFollower(follower: InsertCopyFollower): Promise<CopyFollower>;
   updateCopyFollower(id: string, follower: Partial<InsertCopyFollower>): Promise<CopyFollower | undefined>;
-  deleteCopyFollower(id: string): Promise<boolean>;
 
   getCopyMasterTrades(masterId: string, limit?: number): Promise<CopyTradeMaster[]>;
   createCopyMasterTrade(trade: InsertCopyTradeMaster): Promise<CopyTradeMaster>;
@@ -941,11 +940,6 @@ export class DbStorage implements IStorage {
   async updateCopyFollower(id: string, follower: Partial<InsertCopyFollower>): Promise<CopyFollower | undefined> {
     const r = await db.update(copyFollowers).set({ ...follower, updatedAt: new Date() }).where(eq(copyFollowers.id, id)).returning();
     return r[0];
-  }
-
-  async deleteCopyFollower(id: string): Promise<boolean> {
-    const r = await db.delete(copyFollowers).where(eq(copyFollowers.id, id)).returning();
-    return r.length > 0;
   }
 
   async getCopyMasterTrades(masterId: string, limit = 100): Promise<CopyTradeMaster[]> {

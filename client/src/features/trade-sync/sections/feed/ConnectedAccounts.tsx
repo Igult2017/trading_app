@@ -17,9 +17,15 @@ interface ConnectedAccountsProps {
  * accounts list."*
  *
  * It used to be a pause: the WHOLE ROW was the button and a click flipped a live/paused flag, so the
- * row never left. Dropping deletes the copy relationship outright, and because both this list and
- * Mirror feeds are built from `copy_followers`, the row disappears from both on the next refetch
- * without either list having to filter anything.
+ * row never left. Dropping RETIRES the relationship - it stops copying and disappears from this list
+ * and from Mirror feeds, both of which are built from the same rows, so one filter on the server
+ * removes it from both.
+ *
+ * ⚠ IT NO LONGER DELETES ANYTHING (fixed 2026-09-29). It did, and that is why he reported it "not
+ * dropping": the trades it had copied and the audit lines about them point at the relationship row,
+ * so the database refused to delete it and the button returned a server error on every relationship
+ * that had actually been used. The records stay; the relationship is marked retired instead. Picking
+ * the same pair in the setup form and pressing Start brings it back.
  *
  * ⚠ THE ROW IS NO LONGER CLICKABLE, and that is deliberate. A stray click used to cost a pause,
  * which undid itself. It would now cost the relationship and every setting on it — the sizing, the
@@ -67,8 +73,13 @@ export function ConnectedAccounts({ accounts, onDrop }: ConnectedAccountsProps) 
                 >
                   {a.pnl == null ? "—" : money(a.pnl)}
                 </p>
-                {/* The badge STAYS. Stop-all still pauses every relationship at once, so a row can
-                    legitimately read Paused even though per-row pausing is gone. */}
+                {/* The badge STAYS, and the reason is not the one written here before. It said
+                    "Stop-all still pauses every relationship at once" - there is no stop-all endpoint
+                    any more, and nothing in routes.ts sets a relationship inactive.
+                    The real source is the ENGINE: it auto-pauses a relationship that breaches its
+                    drawdown or daily-loss cap (copy_platform/risk_guard.py, "re-enable from the UI").
+                    That is a safety event he must be able to see, which is also why dropping uses its
+                    own mark instead of reusing this flag - a drop would otherwise hide it. */}
                 <div className="flex items-center justify-end gap-1">
                   <span
                     className={`w-1.5 h-1.5 rounded-full ${a.status === "live" ? "bg-tertiary ct-pulse" : "bg-error"}`}
