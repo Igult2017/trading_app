@@ -682,6 +682,22 @@ export const brokerAccounts = pgTable("broker_accounts", {
   equity:         decimal("equity",   { precision: 14, scale: 2 }),
   leverage:       integer("leverage"),
   isActive:       boolean("is_active").default(true),
+  // ── IS THIS ACCOUNT USED IN THE COPIER AT ALL ────────────────────────────────────────────────
+  // His instruction, 2026-09-28: "a button that user can click to be listed in the copier list of
+  // accounts that can be copied and also to enable that account to copy another in copier. If that
+  // button is not enabled the account does not appear in copier."
+  //
+  // ONE SWITCH, BOTH ROLES. The copier's own-accounts list used to be every broker account he owns,
+  // unfiltered, so all four showed up whatever the toggle on the Accounts page said - that toggle
+  // only ever created a copy_masters row. This column is the gate the toggle never had.
+  //
+  // NOT DERIVED FROM copy_masters. An account he wants only as a MIRROR - copying another, never
+  // copied itself - would otherwise have to be registered as a master to appear at all, which would
+  // also list it publicly as followable. The account's own opt-in is its own field.
+  //
+  // DEFAULT TRUE so nothing he has already set up disappears on deploy; he turns OFF what he does
+  // not want rather than having to re-enable four accounts.
+  copyEnabled:    boolean("copy_enabled").default(true),
   syncStatus:     text("sync_status").default("pending"), // pending|syncing|ok|error
   lastSyncAt:     timestamp("last_sync_at"),
   lastSyncError:  text("last_sync_error"),

@@ -236,10 +236,22 @@ for (const [name, file, re] of panels) {
   check(`the ${name} panel re-asks the server rather than inheriting "never stale"`,
         re.test(readFileSync(join(process.cwd(), file), 'utf8')), true);
 }
-// BOTH Dashboard queries, not just one — it shows the metrics AND the recent-trades list.
+// THE DASHBOARD'S METRICS AND ITS RECENT-TRADES LIST BOTH RE-ASK THE SERVER.
+//
+// This used to require the number 2, because they were two separate queries and only one carried the
+// freshness setting. They are now ONE request — `/api/dashboard` returns `{ entries, metrics }` and
+// Journal.tsx reads both off it (`dash?.entries`, `dash?.metrics`), so one `staleTime` covers both
+// and a second occurrence would mean a second round trip had come back.
+//
+// ⚠ THE ASSERTION WAS FAILING WHILE THE CODE WAS CORRECT, which is the worse way round: a stale test
+// tells the next session the app is broken and sends it to fix something that is already right.
 const journalSrc = readFileSync(join(process.cwd(), 'client', 'src', 'pages', 'Journal.tsx'), 'utf8');
-check('...and the Dashboard sets it on BOTH of its queries',
-      (journalSrc.match(/staleTime: PANEL_STALE_MS/g) ?? []).length, 2);
+check('...and the one Dashboard query that serves metrics AND entries sets it',
+      (journalSrc.match(/staleTime: PANEL_STALE_MS/g) ?? []).length, 1);
+// The merge is the reason the count is 1, so assert the merge itself — otherwise someone splitting
+// the request back into two would drop to one `staleTime` again and this would still pass.
+check('...and that query really does serve both halves',
+      /dash\?\.entries/.test(journalSrc) && /dash\?\.metrics/.test(journalSrc), true);
 
 // ── TEETH ──────────────────────────────────────────────────────────────────
 teeth('the old pip rule really was wrong for gold', Math.round(4.20 * 100) !== 42);

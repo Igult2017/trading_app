@@ -3213,7 +3213,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const uid = user.id;
 
       const [own, rels, feedR, provR, studioM, kpiT, histR] = await Promise.all([
-        pool.query(`SELECT id, name, platform, balance, currency, connection_type, login_id
+        // `copy_enabled` IS SELECTED, NOT FILTERED ON, and the filter happens where the LIST is
+        // built (see `ownAccounts` below). These same rows also feed the TOTAL EQUITY KPI, and
+        // filtering here would have made switching an account off shrink the money figure at the top
+        // of the panel - reading as though his balance had gone somewhere. A visibility switch must
+        // not move a number about how much he has.
+        pool.query(`SELECT id, name, platform, balance, currency, connection_type, login_id, copy_enabled
                       FROM broker_accounts WHERE user_id = $1 ORDER BY created_at`, [uid]),
         // WHICH ACCOUNTS are on each side is selected here on purpose. Without
         // `f.broker_account_id` and `m.broker_account_id` the setup panel cannot say which of his
@@ -3313,6 +3318,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           : s < 129600 ? `${Math.round(s / 3600)}h ago` : `${Math.round(s / 86400)}d ago`;
       };
       const short = (id: string) => `Trader ${String(id).slice(0, 6)}`;
+      // EVERY account, switched on for the copier or not - this is "how much I have", not "how much
+      // the copier is driving". Narrowing it to the copier-enabled ones is the bug described above.
       const equity = own.rows.reduce((a: number, r: any) => a + num(r.balance), 0);
       const active = rels.rows.filter((r: any) => r.is_active);
       const closed = num(histR.rows[0]?.closed), won = num(histR.rows[0]?.won);
@@ -3393,7 +3400,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           lot: num(r.volume).toFixed(2), price: String(num(r.closed_price) || num(r.entry_price) || '—'),
           ms: Math.min(9999, Math.max(0, Math.round(num(r.ms)))), pnl: null, time: ago(r.at),
         })),
-        ownAccounts: own.rows.map((r: any) => ({
+        // ONLY ACCOUNTS SWITCHED ON FOR THE COPIER. His instruction, 2026-09-29: "If that button is
+        // not enabled the account does not appear in copier." This one list feeds BOTH steps of the
+        // setup form - "copy from" and "copy into" - so filtering it once removes a switched-off
+        // account from both sides, which is what "does not appear" has to mean.
+        //
+        // `!== false` rather than `=== true`, so a row written before the column existed (NULL) is
+        // still offered. Otherwise every account he owns would vanish from the copier on deploy day
+        // and he would have to switch four of them back on to get where he already was.
+        ownAccounts: own.rows.filter((r: any) => r.copy_enabled !== false).map((r: any) => ({
           id: r.id, name: r.name, platform: r.platform,
           broker: r.connection_type === 'api' ? 'API-connected' : 'Manual',
           balance: r.balance != null ? `$${num(r.balance).toLocaleString()}` : '—',
@@ -4080,7 +4095,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/admin/copy/diagnostics", requireAdmin, async (_req: Request, res: Response) => {
     if (process.env.COPY_DIAG_ENABLED === "false") return res.status(404).json({ error: "Not found" });
     try {
-      const [beat, masters, followers, mTrades, fTrades, logs] = await Promise.all([
+      const [beat, masters, followers, mTrades, fTrades, logs, accts] = await Promise.all([
         pool.query(`SELECT beat_at, masters, providers FROM copy_engine_heartbeat WHERE id = 1`),
         pool.query(`SELECT m.id, m.source_type, m.strategy_name, m.is_active, m.user_id,
                            m.broker_account_id,
@@ -4114,6 +4129,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
                       FROM copy_trades_follower ORDER BY created_at DESC LIMIT 30`),
         pool.query(`SELECT id, follower_id, trade_id, level, event, message, created_at
                       FROM copy_execution_logs ORDER BY created_at DESC LIMIT 50`),
+        // EVERY account and whether the copier offers it, so "why is this account not in the copier"
+        // is one read instead of a guess. The two queries above only reach accounts that are already
+        // a master or a follower, which are exactly the ones the question is never about.
+        pool.query(`SELECT id, name, platform, connection_type, copy_enabled
+                      FROM broker_accounts ORDER BY created_at DESC LIMIT 50`),
       ]);
       const at = beat.rows[0]?.beat_at ? new Date(beat.rows[0].beat_at) : null;
       return res.json({
@@ -4138,6 +4158,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         masterTrades: mTrades.rows,
         followerTrades: fTrades.rows,
         executionLog: logs.rows,
+        brokerAccounts: accts.rows,
       });
     } catch (err: any) {
       console.error("[copy-diagnostics]", err);
@@ -4225,15 +4246,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     try {
       const accounts = await storage.getBrokerAccounts(user.id);
-      // copyEnabled is a SECONDARY flag — its lookup failing must never blank the
-      // user's accounts. Default to "none enabled" if the copy query errors.
-      let copyOn = new Set<string>();
-      try {
-        const masters = await storage.getCopyMasters(user.id);
-        copyOn = new Set(masters.filter((m: any) => m.isActive && m.brokerAccountId).map((m: any) => m.brokerAccountId));
-      } catch (e) { console.error("[broker-accounts] copyEnabled lookup failed:", e); }
+      // `copyEnabled` IS NOW THE ACCOUNT'S OWN COLUMN, not a guess from its master row.
+      //
+      // It used to be derived: true when the account had an active copy_masters row. That made the
+      // icon report a SIDE EFFECT of the switch rather than the switch, and it could not express
+      // "use this account in the copier as a MIRROR only" at all - being offered required being
+      // registered as a master, which also lists it publicly as followable.
+      //
+      // Reading a stored column also means the icon survives a reload without a second query that
+      // could fail and silently blank every account's state.
       // Never return encrypted password to client
-      const safe = accounts.map(({ passwordEnc: _, ...a }) => ({ ...a, copyEnabled: copyOn.has(a.id) }));
+      const safe = accounts.map(({ passwordEnc: _, ...a }) => ({ ...a, copyEnabled: a.copyEnabled !== false }));
       return res.json(safe);
     } catch (e: any) {
       console.error("[broker-accounts] fetch failed:", e);
@@ -4967,22 +4990,46 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
   });
 
   /**
-   * Toggle whether an account is followable in the public marketplace. ON creates/
-   * activates a public copy_master (the engine then runs its provider); OFF
-   * deactivates it. Self-copy never needs this.
+   * ONE SWITCH: "use this account in the copier."
+   *
+   * HIS INSTRUCTION, 2026-09-29: *"Can you add a button here that user can click to be listed in the
+   * copier list of accounts that can be copied and also to enable that account to copy another in
+   * copier. If that button is not enabled the account does not appear in copier."*
+   *
+   * So the one press does BOTH halves of that sentence:
+   *   1. `broker_accounts.copy_enabled` - whether the copier offers this account AT ALL, on either
+   *      side. That is the gate the switch was missing: `/api/copy/overview` filters its account
+   *      list on it, so OFF removes the account from the "copy from" step AND the "copy into" step.
+   *   2. the public `copy_masters` row - whether OTHER people can follow it in the marketplace,
+   *      which is what this endpoint already did.
+   *
+   * ⚠ IT DOES NOT TEAR DOWN LINKS THAT ALREADY EXIST. Switching an account off hides it from the
+   * setup form; relationships built on it keep mirroring. Ending one of those is Drop, in Connected
+   * accounts. A visibility toggle that silently stopped live copying would be a far bigger action
+   * than the button claims to be - and there would be nothing on screen saying it had happened.
    */
   app.post("/api/broker-accounts/:id/copy-listing", async (req: Request, res: Response) => {
     const user = await verifyToken(req.headers.authorization);
     if (!user) return res.status(401).json({ error: "Unauthorized" });
     const account = await storage.getBrokerAccountById(req.params.id);
     if (!account || account.userId !== user.id) return res.status(404).json({ error: "Not found" });
-    if (!API_PLATFORMS.has(account.platform.toLowerCase())) {
-      return res.status(400).json({ error: "Only API-connected accounts can be copied by others" });
-    }
 
     const enabled = req.body?.enabled !== false;
     const requireApproval = req.body?.requireApproval === true;
     let master = await storage.getCopyMasterByBrokerAccountId(account.id);
+
+    // THE GATE IS SET FOR EVERY ACCOUNT, whatever it is connected by. It used to 400 here for
+    // anything not API-connected, which would leave those rows permanently visible in the copier
+    // with no switch able to reach them - his rule would hold for some of his accounts and not
+    // others, which is worse than not having it.
+    await storage.updateBrokerAccount(account.id, { copyEnabled: enabled });
+
+    // THE MARKETPLACE HALF IS STILL API-ONLY, because the engine has to read the master's fills to
+    // have anything to copy, and it can only do that over an API connection. A manual account
+    // therefore gets the gate and no public listing - not an error.
+    if (!API_PLATFORMS.has(account.platform.toLowerCase())) {
+      return res.json({ enabled, listed: false, reason: "Only API-connected accounts can be followed by others" });
+    }
 
     if (enabled) {
       if (master) {

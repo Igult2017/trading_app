@@ -621,7 +621,19 @@ export default function AccountsPage({ openModal = false, darkMode = true, onVie
     }
   }
 
-  // Toggle whether others can copy this account (lists it as followable in the marketplace).
+  /** ONE SWITCH: "use this account in the copier."
+   *
+   *  HIS INSTRUCTION, 2026-09-29: *"a button here that user can click to be listed in the copier list
+   *  of accounts that can be copied and also to enable that account to copy another in copier. If
+   *  that button is not enabled the account does not appear in copier."*
+   *
+   *  So it is not just a marketplace listing any more. OFF removes the account from the copier's
+   *  setup form entirely - both the "copy from" step and the "copy into" step - because the server
+   *  filters that list on the flag this writes.
+   *
+   *  ⚠ IT DOES NOT STOP COPYING THAT IS ALREADY RUNNING. Links built on the account keep mirroring;
+   *  ending one is Drop, in the copier's Connected accounts list. This switch governs what the copier
+   *  OFFERS, and the tooltip says so rather than implying a kill switch. */
   async function handleToggleCopy(account: BrokerAccount) {
     const next = !account.copyEnabled;
     setAccounts(prev => prev.map(a => a.id === account.id ? { ...a, copyEnabled: next } : a));
@@ -780,13 +792,18 @@ export default function AccountsPage({ openModal = false, darkMode = true, onVie
                           <BarChart2 size={14} color="#4ade80" />
                         </button>
                       )}
-                      {a.connectionType === "api" && (
-                        <button style={s.actionBtn as CSSProperties}
-                          title={a.copyEnabled ? "Copying ON — others can follow this account. Click to disable." : "Allow others to copy this account"}
-                          onClick={() => handleToggleCopy(a)}>
-                          <Copy size={14} color={a.copyEnabled ? "#4ade80" : "#475569"} />
-                        </button>
-                      )}
+                      {/* ON EVERY ROW, not just API accounts. The switch decides whether the copier
+                          offers the account at all, and a row with no switch would be stuck visible
+                          there for good. Being FOLLOWED by other people is still API-only — the
+                          server allows the gate and skips the public listing. */}
+                      <button style={s.actionBtn as CSSProperties}
+                        title={a.copyEnabled
+                          ? `Used in the copier — ${a.name} can copy, and be copied. Click to remove it from the copier.`
+                          : `Not in the copier. Click to use ${a.name} for copying.`}
+                        aria-pressed={!!a.copyEnabled}
+                        onClick={() => handleToggleCopy(a)}>
+                        <Copy size={14} color={a.copyEnabled ? "#4ade80" : "#475569"} />
+                      </button>
                       <button style={s.actionBtn as CSSProperties} title="Webhook / Settings" onClick={() => setWebhookAcc(a)}><Wrench size={14} color="#f59e0b" /></button>
                       <button style={{ ...s.actionBtn, ...(syncing.has(a.id) ? { cursor: "wait" } : {}) } as CSSProperties}
                         title={syncing.has(a.id) ? "Syncing…" : "Sync"} disabled={syncing.has(a.id)} onClick={() => handleSync(a)}>
