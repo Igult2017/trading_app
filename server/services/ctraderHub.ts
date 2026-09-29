@@ -80,8 +80,19 @@ export function hubStats(): { hubs: number; accounts: number; perHub: number[] }
   return { hubs: hubs.length, accounts: hubOf.size, perHub: hubs.map(h => h.members.size) };
 }
 
-export function logRoutingEvidence(): void {
-  if (reported || sawRouted + sawUnrouted === 0) return;
+/**
+ * The verdict on THE GATE, in a form that outlives the log.
+ *
+ * WHY IT RETURNS SOMETHING NOW. This printed to the console and nothing else — and the container log
+ * holds roughly **50 seconds** of history, because the Python signal platform writes continuously. The
+ * one line that answers "can accounts share a socket?" would therefore appear once, after the first
+ * fill, and be gone long before anyone looked. A console-only answer to a question this load-bearing is
+ * an answer we do not have (docs/ctrader-scaling.md, THE GATE).
+ *
+ * The caller persists it. The hub stays transport-only and does not reach into the database itself.
+ */
+export function logRoutingEvidence(): { carriesId: boolean; routed: number; unrouted: number } | null {
+  if (reported || sawRouted + sawUnrouted === 0) return null;
   reported = true;
   if (sawUnrouted === 0) {
     console.log(`[cTraderHub] execution events DO carry ctidTraderAccountId (${sawRouted} seen) — ` +
@@ -90,6 +101,12 @@ export function logRoutingEvidence(): void {
     console.warn(`[cTraderHub] ${sawUnrouted} execution event(s) arrived WITHOUT ctidTraderAccountId ` +
                  `— do NOT raise CTRADER_ACCOUNTS_PER_CONN above 1; routing would be a guess`);
   }
+  return { carriesId: sawUnrouted === 0, routed: sawRouted, unrouted: sawUnrouted };
+}
+
+/** Live counters, for a status read that does not consume the one-shot verdict above. */
+export function routingCounters(): { routed: number; unrouted: number } {
+  return { routed: sawRouted, unrouted: sawUnrouted };
 }
 
 function hubKey(host: string, app: string | undefined): string {

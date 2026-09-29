@@ -261,7 +261,20 @@ what can actually break the code, not what is easy to model.
 2. **Does a fill carry `positionStatus` reliably?** Both paths now depend on the position's own status
    to know a trade is finished, so the detector and the duplicate rule both inherit that assumption.
 
-**Files.** One new script. **No production code changes.**
+**⚠ A MUCH SIMPLER ROUTE, FOUND 30 Sep — no script and no local tokens are needed for the MAIN
+question.** The counters that answer it (`sawRouted` / `sawUnrouted`,
+[`ctraderHub.ts:185`](../server/services/ctraderHub.ts#L185)) increment on **every fill, whatever
+`CTRADER_ACCOUNTS_PER_CONN` is set to** — they only test whether the id is PRESENT on the frame, not
+whether anything is being shared. Production already runs 4 cTrader feeds. **So one ordinary fill on
+production settles THE GATE**, with no sharing switched on and nothing to set up.
+
+The four-account script is still what proves *routing* end to end (that A’s fill reaches A and not B)
+before the ramp — but the yes/no that unblocks everything does not need it.
+
+**And that answer is now durable** — see Step 4a. It used to be a console line printed once, in a log
+that holds about 50 seconds.
+
+**Files.** One new script, for the end-to-end routing proof only. **No production code changes.**
 
 **MEASURED.** For each of the four: a fill arrives, it names its own `ctidTraderAccountId`, and it is
 delivered to that account and no other. **Zero cross-account deliveries** — Account A's trade must
@@ -396,7 +409,17 @@ well under 20, and the comment there claiming ~160 is wrong for production.
 "pool exhausted" or 3-second timeout errors appear**; the sweep still finishes inside its 15-minute
 window; the signal platform's own timings do not move while it runs.
 
-### Step 4a — make every event measurable (his item 8)
+### Step 4a — make every event measurable (his item 8). **PART BUILT 30 Sep — not deployed**
+
+**Built, and it turned out to be a prerequisite rather than a nicety:** the routing verdict is now
+written to `sync_events` as `routing-ok` / `routing-missing-id`, readable for good at
+`GET /api/admin/sync-events`. It was a console line printed **once**, in a log that holds about **50
+seconds** of history because the Python signal platform writes continuously — so the answer to THE GATE
+would have appeared and vanished unread. `logRoutingEvidence` now returns its verdict and
+`ctraderRealtime.persistRoutingEvidence` stores it, keeping the hub transport-only.
+
+**Still to do in this step:** per-event timings (arrival → committed), the socket id, and the remaining
+alerts (duplicate, session expired, reauth failed, rate limited).
 
 **What.** Record, per real-time event: when it arrived, which account it named, which socket carried
 it, and when the database committed it. Then alert on the five things that mean something is wrong:

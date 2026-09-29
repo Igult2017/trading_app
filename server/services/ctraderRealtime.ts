@@ -34,6 +34,7 @@ import { processIncomingTrades } from './brokerSyncService';
 import { notificationService } from './notificationService';
 import { refreshCTraderToken } from './autoSyncService';
 import { mapClosedDeal, mapClosedFromEvent } from './brokerAdapters/ctrader';
+import { record } from './autoJournal';
 import { logUtilisation, stats } from './ctraderConnPool';
 import {
   attach, detach, isAttached, attachedIds, hubStats, logRoutingEvidence,
@@ -168,6 +169,31 @@ async function reconcile(): Promise<void> {
   attachedIds().forEach(id => { if (!wanted.has(id)) removeCTraderAccount(id); });
 }
 
+/**
+ * THE ANSWER TO "CAN ACCOUNTS SHARE A SOCKET?" MUST SURVIVE THE LOG.
+ *
+ * `logRoutingEvidence` prints its verdict once, after the first fill arrives. The container log holds
+ * roughly 50 seconds of history — the Python signal platform writes continuously — so that line would be
+ * gone long before anyone read it, and there have been no fills since 09 Sep to produce it in the first
+ * place. Writing it to `sync_events` makes it readable at `GET /api/admin/sync-events` for good.
+ *
+ * WHY IT IS WORTH A ROW. Whether this JSON gateway puts `ctidTraderAccountId` on a fill is the single
+ * fact that decides the platform's capacity ceiling (docs/ctrader-scaling.md, THE GATE). The counters
+ * that answer it already increment on EVERY fill, whatever `CTRADER_ACCOUNTS_PER_CONN` is set to — so
+ * one ordinary fill on one account settles it, with no socket sharing switched on and nothing to set up.
+ */
+async function persistRoutingEvidence(): Promise<void> {
+  const verdict = logRoutingEvidence();
+  if (!verdict) return;                                  // no fills seen yet, or already recorded
+  await record({
+    stage:  verdict.carriesId ? 'routing-ok' : 'routing-missing-id',
+    detail: verdict.carriesId
+      ? `execution events DO carry ctidTraderAccountId (${verdict.routed} seen) — accounts may share a socket`
+      : `${verdict.unrouted} execution event(s) arrived with NO ctidTraderAccountId `
+        + `(${verdict.routed} did carry it) — accounts must NOT share a socket`,
+  }).catch(err => console.error(`[cTraderRT] could not record routing evidence: ${err?.message ?? err}`));
+}
+
 /** Boot hook (primary worker only) — open all feeds, then keep them reconciled. */
 export async function startCTraderRealtime(): Promise<void> {
   if (!IS_PRIMARY) return;
@@ -180,7 +206,7 @@ export async function startCTraderRealtime(): Promise<void> {
                 `${h.hubs} socket(s) (max ${ACCOUNTS_PER_CONN}/socket) — ` +
                 `pool ${p.held}/${p.max}`);
     setInterval(() => { reconcile().catch(() => {}); }, RECONCILE_MS);
-    setInterval(() => { logUtilisation(); logRoutingEvidence(); }, 60_000);
+    setInterval(() => { logUtilisation(); void persistRoutingEvidence(); }, 60_000);
   } catch (e: any) {
     console.error(`[cTraderRT] startup failed: ${e.message}`);
   }

@@ -35,7 +35,15 @@ export type SyncStage =
   | 'healed'       // it was stored earlier but had no journal entry until now
   | 'backfilled'   // a blank field was filled from a source that had it
   | 'skipped'      // nothing was attempted, and `detail` says why
-  | 'failed';      // it threw, and `detail` carries the message
+  | 'failed'       // it threw, and `detail` carries the message
+  // ── THE ONE FACT THAT SETS THE PLATFORM'S CAPACITY CEILING ─────────────────────────────────────
+  // Whether a real fill on this JSON gateway names the account it belongs to. If it does, many accounts
+  // may share one cTrader socket; if it does not, they must not, because routing would be a guess and a
+  // wrong guess writes a real trade into the wrong person's journal (docs/ctrader-scaling.md, THE GATE).
+  // Recorded rather than only logged because the container log holds about 50 seconds of history, and
+  // this verdict is printed exactly once, after the first fill.
+  | 'routing-ok'          // fills carry ctidTraderAccountId — sharing a socket is safe
+  | 'routing-missing-id'; // at least one fill did not — sharing a socket is NOT safe
 
 export interface SyncEventInput {
   brokerAccountId?: string | null;
