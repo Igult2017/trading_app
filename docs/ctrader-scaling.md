@@ -712,6 +712,55 @@ this one must not be added.
 
 ---
 
+## THE LOAD TEST OF 29-30 Sep — ATTEMPTED, AND IT CANNOT ANSWER THE QUESTION FROM HERE
+
+**Run with his approval** ("Do A now because i trade New York and London only"), against production at
+23:20 UTC, after the New York close. **It did not produce a user capacity number, and the reason is
+methodological, not a matter of trying harder.**
+
+**Two hard blockers, both measured:**
+
+| blocker | evidence |
+|---|---|
+| **`/api` is rate-limited to 200 requests per minute PER IP** | [`appSetup.ts:67-69`](../server/lib/appSetup.ts#L67). At 50 concurrent, **94 of 100 requests came back 429** — the ramp was measuring the rate limiter, not the server |
+| **Network round-trip from this laptop swamps the signal** | measured **p50 1117 ms** from here, while production's own log says the same endpoint completes in **2-16 ms** (`GET /api/market-sessions 200 in 5ms`). **So ~99% of what I measured was the trip to Kenya and back, not his server** |
+
+**What the numbers were**, for the record, and why each is not an answer:
+
+| concurrency | p50 | p95 | max | responses |
+|---|---|---|---|---|
+| 2 | 1109 ms | 1512 ms | 1512 ms | all 200 |
+| 5 | 1199 ms | 2169 ms | 2213 ms | all 200 |
+| 10 | 1142 ms | 1760 ms | 2192 ms | all 200 |
+| 25 | 1170 ms | 2215 ms | **8180 ms** | all 200 |
+| 50 | 1180 ms | 2152 ms | 4140 ms | **94 of 100 were 429** |
+
+p50 barely moves from 2 to 50 concurrent, which is the tell: it is a fixed network cost, not server load.
+The one real signal is the **8.2-second worst case at 25 concurrent** — something queued — but it cannot
+be attributed to the server rather than the path with this method.
+
+**A database-backed endpoint cost ~270 ms more than one that touches no database** (1385 ms vs 1117 ms at
+10 concurrent). At 1.1 s of noise that difference is indicative at best.
+
+**One genuinely reassuring finding:** the 200/min limit is **per IP**, so 250 real users on 250 addresses
+each get their own budget. It caps a test from one machine, not real traffic.
+
+### What a real capacity test needs
+
+1. **Run it from inside or beside the server** — the VPS itself, or a box in the same region — so server
+   time is not buried under a 1.1-second round trip.
+2. **Exempt the test source from the rate limit**, or raise it for the duration.
+3. **Authenticate.** The endpoints that matter (journal reads, metrics, the copier overview) all require a
+   login, and the unauthenticated ones are the cheap ones. Without a user token this only exercises the
+   public surface.
+4. **Watch the signal platform throughout** and stop on the first degraded timing — its position tracker is
+   already skipping runs at four accounts (`docs/OPEN.md` C10).
+
+**Until that runs, the honest statement stands: the ceiling is no longer one account per socket, and what
+it now is has NOT been measured.**
+
+---
+
 ## Where that lands at 2000 users
 
 | holder | connections |
