@@ -1523,6 +1523,57 @@ test proving the process count returns to zero.
 
 ## D. cTrader & copy trading
 
+### D50 - ~~An account could be published to every user by OMISSION~~ FIXED 2026-09-29
+
+**His ruling, 2026-09-29:** *"Every ctrader account added by a logged in user remains private by
+default until the user sets it to public. When it is made public any other user can see it and
+follow it."*
+
+**What prompted it.** He asked whether other users could see and copy his four cTrader accounts.
+**Read from production: no — none of them was public.** But they were private by luck of which
+buttons he happened to press, not by rule.
+
+**The gap.** `copy_masters.is_public` is the ONE field the provider directory joins on
+(`storage.getProviderDirectory`: `cm.is_public = true AND cm.is_active = true`), so it alone decides
+whether a stranger can see an account — and **it defaulted to TRUE**, in `shared/schema.ts` and in
+production's own schema. Three handlers leaned on that default:
+
+| where | what it read |
+|---|---|
+| `/api/copy/deploy` | `masterConfig?.isPublic ?? true` |
+| `register-as-provider` | `b.isPublic !== false` |
+| `POST /api/copy/masters` | the body straight through — omit the field, the column publishes it |
+
+So a caller that simply did not mention the field published somebody's account.
+
+**Fixed.** The column defaults to private in both places; the two `?? true` / `!== false` readings
+became `=== true`; and the Accounts-page toggle **stopped publishing** — it used to set
+`isPublic: true`, so switching an account on for his OWN copier also showed it to every other user.
+It now governs `copy_enabled` only, and enabling your own copier is not "the user setting it to
+public".
+
+**⚠ THE ONE THAT WOULD HAVE SHIPPED SILENTLY.** `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` does
+nothing at all when the column already exists, so re-declaring the default could not change
+production's, which has been TRUE since the table was created. It needs
+`ALTER TABLE copy_masters ALTER COLUMN is_public SET DEFAULT FALSE`, which is now in
+`docker-migrate.sql`. **Only the default changes — no existing row is touched**, so an account
+somebody deliberately published stays published.
+
+**Guarded** in `copy_platform/tests/test_route_ownership.py`, beside the ownership check and for the
+same reason: the failure is not "the value is computed wrongly", it is "somebody adds another
+handler and writes `?? true`". The guard strips comments before matching — its first version matched
+the words in the new code's own comment explaining what had been REMOVED, and reported working code
+as broken.
+
+**⚠ THERE IS DELIBERATELY NO PUBLISH BUTTON NOW.** His words in the same message: *"We will build
+the components that enable other users to follow a public account later. We will build things like a
+code that a user has to enter to be allowed to follow a provider and the provider can revoke that
+code on their end."*
+
+**Still open, his call (not a defect):** four master rows on production are public — three Telegram
+channels and one inactive MT5 (`M1H1D1`). **None has a broker account attached**, so none can put any
+account in the directory. Left alone: they are existing data and flipping them is his decision.
+
 ### D49 - ~~Drop fails on any account that has actually copied something~~ FIXED 2026-09-29 — MINE
 
 **His report, 2026-09-29:** *"Why is this account not dropping?"*

@@ -141,6 +141,59 @@ s.check("a private master is not readable by a stranger at all",
         "!master.isPublic" in mid, True)
 
 
+# ── PRIVATE BY DEFAULT — no path may publish an account by omission (his ruling, 2026-09-29) ─────
+#
+# *"Every ctrader account added by a logged in user remains private by default until the user sets
+#  it to public. When it is made public any other user can see it and follow it."*
+#
+# `is_public` is the ONE field the provider directory joins on
+# (`storage.getProviderDirectory`: `cm.is_public = true AND cm.is_active = true`), so it alone
+# decides whether a stranger can see somebody's account. Until this ruling the column DEFAULTED TO
+# TRUE and three handlers leaned on that default — `?? true` and `!== false` — so a caller that
+# simply did not mention the field published the account.
+#
+# SAME REASONING AS THE OWNERSHIP CHECK ABOVE: the failure guarded against is not "the value is
+# computed wrongly", it is "somebody adds another handler and writes `?? true`". Source sees that;
+# a request against today's handlers cannot.
+SCHEMA = open(repo_path("shared", "schema.ts"), encoding="utf-8").read()
+MIGRATE = open(repo_path("docker-migrate.sql"), encoding="utf-8").read()
+
+s.check("the column itself defaults to PRIVATE",
+        'isPublic:         boolean("is_public").default(false)' in SCHEMA, True)
+s.check("...and so does production's schema path",
+        "is_public         BOOLEAN   DEFAULT FALSE" in MIGRATE, True)
+
+# ⚠ THE ONE THAT WOULD HAVE SHIPPED SILENTLY. `ADD COLUMN IF NOT EXISTS` does nothing at all when the
+# column already exists, so it cannot change a default that is already TRUE in the live database.
+# Without an explicit ALTER COLUMN the flip passes every test here and leaves production publishing.
+s.check("...and the EXISTING production column is altered, not just re-declared",
+        "ALTER TABLE copy_masters ALTER COLUMN is_public SET DEFAULT FALSE" in MIGRATE, True)
+
+# No handler may leave it to a default. `?? true` and `!== false` both mean "public unless argued".
+s.check("no handler publishes by omission — `?? true` is gone",
+        "isPublic:        masterConfig?.isPublic ?? true" in ROUTES, False)
+s.check("...and `!== false` is gone too",
+        "isPublic:          b.isPublic !== false" in ROUTES, False)
+
+# The Accounts-page toggle governs HIS copier and must not publish: enabling your own copier is not
+# "the user setting it to public".
+#
+# ⚠ COMMENTS STRIPPED FIRST, and this test caught itself doing the exact thing this file's header
+# warns about. The handler carries a comment explaining what was REMOVED — "It used to set
+# `isPublic: true`" — and the raw-text check matched those words and reported the code as broken.
+# A claim about what code does must be read from the code.
+def _code_only(src: str) -> str:
+    """Handler source with // line comments and /* block */ comments removed."""
+    src = re.sub(r"/\*.*?\*/", "", src, flags=re.S)
+    return re.sub(r"//[^\r\n]*", "", src)
+
+
+_listing = _code_only(_handler_body('app.post("/api/broker-accounts/:id/copy-listing"'))
+s.check("the copier toggle never sets isPublic true",
+        "isPublic: true" in _listing, False)
+s.check("...and creates its master PRIVATE", "isPublic: false" in _listing, True)
+
+
 # ── TEETH ───────────────────────────────────────────────────────────────────
 # The pre-fix handler body must fail this suite's own test.
 OLD_HANDLER = """  app.post("/api/copy/masters", async (req, res) => {
@@ -148,5 +201,12 @@ OLD_HANDLER = """  app.post("/api/copy/masters", async (req, res) => {
       return res.status(201).json(await storage.createCopyMaster({ ...rest, userId: auth.id }));
   });"""
 s.teeth("the pre-fix master endpoint", GUARD not in OLD_HANDLER)
+
+# ...and the pre-ruling defaults must fail the checks above.
+s.teeth("a handler that publishes by omission",
+        "isPublic: masterConfig?.isPublic ?? true".replace(" ", "")
+        in "isPublic:        masterConfig?.isPublic ?? true".replace(" ", ""))
+s.teeth("a column that defaults to public",
+        'boolean("is_public").default(true)' not in SCHEMA)
 
 s.done()

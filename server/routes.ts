@@ -3812,7 +3812,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           description:     masterConfig?.description,
           tradingStyle:    masterConfig?.tradingStyle,
           primaryMarket:   masterConfig?.primaryMarket,
-          isPublic:        masterConfig?.isPublic ?? true,
+          // PRIVATE UNLESS ASKED FOR (2026-09-29). This read `?? true`, so a caller that simply
+          // did not mention the field published the account to every other user.
+          isPublic:        masterConfig?.isPublic === true,
           requireApproval: masterConfig?.requireApproval ?? false,
           showOpenTrades:  masterConfig?.showOpenTrades ?? true,
           isActive:        true,
@@ -5010,7 +5012,9 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
       description:       b.description  ?? '',
       tradingStyle:      b.tradingStyle ?? 'intraday',
       primaryMarket:     b.primaryMarket ?? 'fx',
-      isPublic:          b.isPublic !== false,
+      // PRIVATE UNLESS ASKED FOR (2026-09-29). `!== false` meant "public unless you argue", which
+      // is the wrong way round for a switch that shows one person's account to everybody.
+      isPublic:          b.isPublic === true,
       requireApproval:   b.requireApproval === true,
       showOpenTrades:    b.showOpenTrades !== false,
       maxLotSize:        (b.maxLotSize != null && b.maxLotSize !== '') ? String(b.maxLotSize) : null,
@@ -5083,14 +5087,25 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
       return res.json({ enabled, listed: false, reason: "Only API-connected accounts can be followed by others" });
     }
 
+    // ⚠ THIS BUTTON NO LONGER PUBLISHES ANYTHING (2026-09-29). It used to set `isPublic: true`, so
+    // switching an account on for HIS OWN copier also showed it to every other user of the platform.
+    //
+    // HIS RULING: *"Every ctrader account added by a logged in user remains private by default until
+    // the user sets it to public."* Turning on his own copier is not the user setting it to public,
+    // so the two were one click and are now separate concerns: this button owns `copy_enabled`, and
+    // `is_public` is left exactly as it is — untouched on an existing row, and private on a new one
+    // by the column's own default.
+    //
+    // THERE IS DELIBERATELY NO PUBLISH BUTTON YET. His words in the same message: *"We will build
+    // the components that enable other users to follow a public account later."*
     if (enabled) {
       if (master) {
-        master = await storage.updateCopyMaster(master.id, { isActive: true, isPublic: true, requireApproval });
+        master = await storage.updateCopyMaster(master.id, { isActive: true, requireApproval });
       } else {
         master = await storage.createCopyMaster({
           userId: user.id, brokerAccountId: account.id, sourceType: account.platform.toLowerCase(),
           strategyName: account.name, description: '', tradingStyle: 'intraday', primaryMarket: 'fx',
-          isPublic: true, requireApproval, showOpenTrades: true, isActive: true,
+          isPublic: false, requireApproval, showOpenTrades: true, isActive: true,
         });
       }
       return res.json({ enabled: true, master });

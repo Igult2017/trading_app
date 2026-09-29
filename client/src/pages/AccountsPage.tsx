@@ -794,12 +794,18 @@ export default function AccountsPage({ openModal = false, darkMode = true, onVie
                       )}
                       {/* ON EVERY ROW, not just API accounts. The switch decides whether the copier
                           offers the account at all, and a row with no switch would be stuck visible
-                          there for good. Being FOLLOWED by other people is still API-only — the
-                          server allows the gate and skips the public listing. */}
+                          there for good.
+
+                          ⚠ AND IT NO LONGER PUBLISHES THE ACCOUNT (2026-09-29). It used to set the
+                          master row public, so switching an account on for HIS OWN copier also
+                          showed it to every other user — his ruling: "Every ctrader account added by
+                          a logged in user remains private by default until the user sets it to
+                          public." Nothing on this page makes an account visible to anyone else any
+                          more, and the wording says only what the button does. */}
                       <button style={s.actionBtn as CSSProperties}
                         title={a.copyEnabled
-                          ? `Used in the copier — ${a.name} can copy, and be copied. Click to remove it from the copier.`
-                          : `Not in the copier. Click to use ${a.name} for copying.`}
+                          ? `Used in your copier — ${a.name} can copy your other accounts, and be copied by them. Private to you. Click to remove it from the copier.`
+                          : `Not in your copier. Click to use ${a.name} for copying between your own accounts.`}
                         aria-pressed={!!a.copyEnabled}
                         onClick={() => handleToggleCopy(a)}>
                         <Copy size={14} color={a.copyEnabled ? "#4ade80" : "#475569"} />

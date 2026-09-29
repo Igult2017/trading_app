@@ -229,7 +229,7 @@ CREATE TABLE IF NOT EXISTS copy_masters (
   description       TEXT,
   trading_style     TEXT,
   primary_market    TEXT,
-  is_public         BOOLEAN   DEFAULT TRUE,
+  is_public         BOOLEAN   DEFAULT FALSE,   -- private until its owner publishes it (2026-09-29)
   require_approval  BOOLEAN   DEFAULT FALSE,
   show_open_trades  BOOLEAN   DEFAULT TRUE,
   is_active         BOOLEAN   DEFAULT FALSE,
@@ -243,7 +243,18 @@ ALTER TABLE copy_masters ADD COLUMN IF NOT EXISTS strategy_name     TEXT;
 ALTER TABLE copy_masters ADD COLUMN IF NOT EXISTS description       TEXT;
 ALTER TABLE copy_masters ADD COLUMN IF NOT EXISTS trading_style     TEXT;
 ALTER TABLE copy_masters ADD COLUMN IF NOT EXISTS primary_market    TEXT;
-ALTER TABLE copy_masters ADD COLUMN IF NOT EXISTS is_public         BOOLEAN DEFAULT TRUE;
+ALTER TABLE copy_masters ADD COLUMN IF NOT EXISTS is_public         BOOLEAN DEFAULT FALSE;
+-- ⚠ AND THE DEFAULT ON A COLUMN THAT ALREADY EXISTS. `ADD COLUMN IF NOT EXISTS` does NOTHING at all
+-- when the column is already there, so the line above cannot change production's default — it has
+-- been TRUE since the table was made. Without this statement the flip would ship, pass every test,
+-- and leave the live database still publishing by default.
+--
+-- HIS RULING, 2026-09-29: "Every ctrader account added by a logged in user remains private by
+-- default until the user sets it to public."
+--
+-- ONLY THE DEFAULT CHANGES. No existing row is touched: an account somebody deliberately published
+-- stays published, which is theirs to decide, not this migration's.
+ALTER TABLE copy_masters ALTER COLUMN is_public SET DEFAULT FALSE;
 ALTER TABLE copy_masters ADD COLUMN IF NOT EXISTS require_approval  BOOLEAN DEFAULT FALSE;
 ALTER TABLE copy_masters ADD COLUMN IF NOT EXISTS show_open_trades  BOOLEAN DEFAULT TRUE;
 ALTER TABLE copy_masters ADD COLUMN IF NOT EXISTS is_active         BOOLEAN DEFAULT FALSE;

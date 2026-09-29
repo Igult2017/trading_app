@@ -42,7 +42,23 @@ export const copyMasters = pgTable("copy_masters", {
   description:      text("description"),
   tradingStyle:     text("trading_style"),           // scalp | intraday | swing | position | hft
   primaryMarket:    text("primary_market"),          // fx | crypto | stocks | commodities | mixed
-  isPublic:         boolean("is_public").default(true),
+  /**
+   * IS THIS ACCOUNT VISIBLE TO OTHER USERS? **Private unless its owner says otherwise.**
+   *
+   * HIS RULING, 2026-09-29: *"Every ctrader account added by a logged in user remains private by
+   * default until the user sets it to public. When it is made public any other user can see it and
+   * follow it."*
+   *
+   * ⚠ IT DEFAULTED TO TRUE UNTIL THAT DAY. Anything that created a master row without naming this
+   * field published the account — and `POST /api/copy/masters` passes the request body straight
+   * through, so omitting one field was enough. His own accounts were private only because the paths
+   * he happened to use set it explicitly; nothing made that so.
+   *
+   * This is the ONE field the provider directory joins on (`storage.getProviderDirectory`:
+   * `cm.is_public = true AND cm.is_active = true`), so it alone decides whether a stranger can see
+   * an account at all. A default of "share it" is the wrong default for somebody's money.
+   */
+  isPublic:         boolean("is_public").default(false),
   requireApproval:  boolean("require_approval").default(false),
   showOpenTrades:   boolean("show_open_trades").default(true),
   // Provider profile metadata — shown on the marketplace card; set in the wizard Strategy/Limits/Notify steps.
