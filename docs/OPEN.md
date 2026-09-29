@@ -3720,6 +3720,28 @@ tracks Web Push (phone notifications), which is a different thing from this.
 
 ---
 
+### D55 — Reconnecting a live feed does NOT fetch the trades it missed. Found 29 Sep 2026
+
+`reconcile()` in `server/services/ctraderRealtime.ts:138-151` only fixes **which accounts have a feed
+open** — it opens feeds for accounts that should have one and drops feeds for deleted accounts. It
+**fetches nothing**. There is no call to `syncAccount` anywhere in that file.
+
+**So the only thing that recovers a trade missed during an outage is the 15-minute sweep.** A socket
+drops, a trade closes, the socket comes back — and that trade is not recorded until the next sweep
+happens to cover it.
+
+**Why this matters more than it looks.** It is the whole reason the sweep has to run every 15 minutes
+for every account whether they traded or not. **A catch-up on reconnect would let the sweep become
+rare**, which is the change that actually reduces cTrader requests.
+
+**⚠ If the sweep is made rarer, the overlap must grow to match.** Today the sweep looks back 2 hours
+(`autoSyncService.ts:19`) against a 15-minute cycle — 8× headroom. A daily sweep with a 2-hour
+look-back would create exactly the hole it is meant to close.
+
+**Fix:** `docs/ctrader-scaling.md` — his event-first question of 29 Sep. Shape not yet chosen.
+
+---
+
 ## E. Parked — do not start these
 
 | | | |
