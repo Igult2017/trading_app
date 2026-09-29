@@ -154,6 +154,29 @@ s.check("the turn is no longer merely proposed", pending_of(_after) == -1, False
 s.check("the closure notification IS sent", _got_a is not None, True)
 s.check("...and it is a SELL", bool(_got_a) and _got_a[1] is False, True)
 
+# ── THE VOID EXEMPTION MUST STILL SKIP THE COUNT, HERE AS WELL AS AT THE ENTRY ──────────────────
+# He caught this on 2026-09-29: when `entry_timing` replaced `exempts(...)` in `_could_trade`, the
+# heads-up stopped asking about the liquidity void entirely, while the ENTRY still skips the whole
+# wait for one (`vix1_choch.choch_entry`: `if not exempts(bullish, void_break)`). A void break would
+# have been TRADED and never announced until the 3rd candle.
+#
+# ASKED OF `_could_trade` DIRECTLY, not through `check()`. `check()` runs the momentum test first,
+# and on `_fresh` the bar before the forming one is the big break candle, so nothing can be bigger
+# than it and the momentum test refuses before the route question is ever reached. That would make
+# this pass for the wrong reason. `_could_trade` IS the route question.
+_fresh_bar, _ = forming_sell(_fresh)
+_route_without = pc._could_trade(_fresh, False, SYM, _fresh_bar)
+_keep_ex = vix1_choch.exempts
+try:
+    vix1_choch.exempts = lambda bullish, void_break=False: True
+    _route_with = pc._could_trade(_fresh, False, SYM, _fresh_bar)
+finally:
+    vix1_choch.exempts = _keep_ex
+s.check("the count alone closes the route on this candle", _route_without, False)
+s.check("...but a void break opens it, exactly as it opens the entry", _route_with, True)
+s.teeth("the void exemption is what does it — same bars, opposite answers",
+        _route_with is True and _route_without is False)
+
 s.teeth("the count is doing real work — same candle, opposite answers either side of candle 3",
         _spoke_1 is False and _spoke_b is True)
 s.teeth("...and the notification never announces a candle the count will refuse at close",

@@ -229,9 +229,20 @@ def _could_trade(h1_closed: list[Candle], bullish: bool, symbol: str,
     # window plus the bar in progress. That is the rule this module has always followed and the
     # reason it never restates a condition: the heads-up and the trade cannot disagree if there is
     # only one place that answers.
+    # ⚠ THE VOID EXEMPTION IS ASKED FIRST, EXACTLY AS THE ENTRY ASKS IT. He caught this missing on
+    # 2026-09-29, the same day the count shipped: `entry_timing` replaced `exempts(...)` here, and
+    # `void_break_pending` was left computed and unread. The entry is
+    #
+    #     if not exempts(bullish, void_break):   <the count decides>
+    #
+    # so a void break skips the wait ENTIRELY (his scoped ruling, 2026-09-20). Without the same
+    # first question here, a void break would be TRADED by the entry while this stayed silent until
+    # the 3rd candle — the exact disagreement this module exists to prevent.
     def _turn_open(way: int) -> bool:
         if st.pending != way or st.choch_index is None or not (0 <= st.choch_index < len(w)):
             return False
+        if vix1_choch.exempts(way == 1, void_break_pending):
+            return True
         bars = w + ([forming_bar] if forming_bar is not None else [])
         return vix1_retracement.entry_timing(
             bars, way, break_time=w[st.choch_index].time) is None
