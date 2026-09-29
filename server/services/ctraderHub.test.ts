@@ -13,7 +13,11 @@
  * Never by guessing.
  *
  * `ProtoOAExecutionEvent` carries `ctidTraderAccountId` in the protobuf schema, but that has NOT been
- * observed on this JSON gateway, which is why CTRADER_ACCOUNTS_PER_CONN ships at 1.
+ * observed on this JSON gateway, which is why CTRADER_ACCOUNTS_PER_CONN shipped at 1.
+ *
+ * MEASURED 2026-09-30, AND IT DOES: a demo trade produced 4 execution events and every one carried the
+ * id. The setting is now 2 — notch one of the 1/2/5/10/20/50 ramp. The checks below are what make that
+ * safe to do: with several accounts on a socket, an unlabelled fill is DROPPED, never guessed at.
  */
 import { PT_EXECUTION_EVENT, PT_TOKEN_INVALIDATED, PT_ACCOUNT_DISCONNECT } from './brokerAdapters/ctrader';
 import { ACCOUNTS_PER_CONN, _internals, _resetForTests } from './ctraderHub';
@@ -112,8 +116,8 @@ check('same host and app do share', hubKey('wss://demo', 'sync'), hubKey('wss://
 check('no app recorded is treated as legacy', hubKey('wss://demo', undefined), 'wss://demo|legacy');
 
 // ── THE SHIPPED DEFAULT ─────────────────────────────────────────────────────
-check('CTRADER_ACCOUNTS_PER_CONN ships at 1 — identical to the old behaviour until routing is proven',
-      ACCOUNTS_PER_CONN, 1);
+check('CTRADER_ACCOUNTS_PER_CONN is 2 — notch one of the ramp, now that fills are proven to carry the id',
+      ACCOUNTS_PER_CONN, 2);
 
 // ── TEETH ───────────────────────────────────────────────────────────────────
 // Prove the routing test can fail: a router that ignored the id and always took the first member

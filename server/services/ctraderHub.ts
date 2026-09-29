@@ -43,7 +43,31 @@ function envInt(name: string, fallback: number, min: number, max: number): numbe
 }
 
 /** Accounts per socket. 1 = exactly today's behaviour. Raise only once routing is proven — above. */
-export const ACCOUNTS_PER_CONN = envInt('CTRADER_ACCOUNTS_PER_CONN', 1, 1, 200);
+/**
+ * DEFAULT RAISED 1 -> 2 ON 2026-09-30, on measurement rather than on hope.
+ *
+ * It shipped at 1 because nobody had seen whether a real fill on this JSON gateway names the account it
+ * belongs to. That is now measured: a demo trade produced **4 execution events and every one carried
+ * `ctidTraderAccountId`** (`[cTraderHub] execution events DO carry ctidTraderAccountId (4 seen)`, and a
+ * `routing-ok` row). So the premise the 1 was protecting no longer holds.
+ *
+ * AND THERE IS NO PATH TO A WRONG DELIVERY — read `route` below, all three branches:
+ *   * id present  -> the member is looked up BY that id, so it is either the right one or none at all;
+ *   * id absent, one member  -> unambiguous, exactly the old behaviour;
+ *   * id absent, several  -> dropped and said out loud, never guessed.
+ * The worst case at 2 is therefore a DROPPED fill, not a misfiled one — and a drop is now recovered
+ * twice over: the catch-up on the next attach, and the 15-minute sweep.
+ *
+ * WHY 2 AND NOT 50. One dropped socket takes every account on it down together, and there is no
+ * documented limit on accounts per connection, so the real number has to be found rather than assumed.
+ * The agreed ramp is 1 -> 2 -> 5 -> 10 -> 20 -> 50, verifying at each notch
+ * (docs/ctrader-scaling.md Step 5). This is notch one.
+ *
+ * HOW TO SEE IT WORKED: the boot line reports accounts and sockets separately, so accounts must now
+ * EXCEED sockets. Set `CTRADER_ACCOUNTS_PER_CONN=1` to fall straight back — no code change, though it
+ * needs a restart, because this is read once at startup.
+ */
+export const ACCOUNTS_PER_CONN = envInt('CTRADER_ACCOUNTS_PER_CONN', 2, 1, 200);
 
 export interface Member {
   account:   BrokerAccount;
