@@ -20,8 +20,6 @@ export function useTradeSync() {
   // its own header button, which is why it stayed dark when the rest of the app went white.
   const [collapsed, setCollapsed] = useState(false);
   const [activePage, setActivePage] = useState<PageId>("dashboard");
-  const [helpOpen, setHelpOpen] = useState(false);
-  const [accountOpen, setAccountOpen] = useState(false);
 
   useCtFonts();
   const { toast, setToast } = useToast();
@@ -50,17 +48,9 @@ export function useTradeSync() {
     else if (activePage === "telegram") setSource("telegram");
   }, [activePage, setSource]);
 
-  const closeMenus = () => {
-    setHelpOpen(false);
-    setAccountOpen(false);
-  };
-
   return {
     collapsed, setCollapsed,
     activePage, setActivePage,
-    helpOpen, setHelpOpen,
-    accountOpen, setAccountOpen,
-    closeMenus,
     toast, setToast,
     overview, overviewLoading: ov.isLoading, invalidate,
     account, providerAccount,
