@@ -8,12 +8,13 @@ week a rule was re-derived from the code instead of read from the doc, and each 
 wrong. **Read this file first. Then read the ONE doc it points you at. Do not go straight to the
 code.**
 
-Two companions, and only two:
+Three companions, and only three:
 
 | file | what it holds |
 |---|---|
 | **[OPEN.md](./OPEN.md)** | every issue we have NOT addressed — one numbered list, one at a time |
 | this file | where everything lives, what state it is in, and what has been SETTLED |
+| **[ctrader-scaling.md](./ctrader-scaling.md)** | the AGREED PLAN for cTrader connections and capacity (29 Sep 2026). Read it for anything about how many users we can carry, socket sharing, or the 15-minute sweep |
 
 ---
 

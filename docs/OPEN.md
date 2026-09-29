@@ -3665,6 +3665,61 @@ only honest, not finished.
 
 ---
 
+### D52 — Nothing in the DATABASE stops the same trade being recorded twice. Found 29 Sep 2026
+
+Two paths now record the same trade — the live feed and the 15-minute safety net — and they can run at
+the same moment. The only thing preventing a double entry is a **look-then-write in application code**
+(`server/services/brokerSyncService.ts:134`): ask whether the trade exists, then insert if it did not.
+Between those two moments the other path can insert the same trade.
+
+`shared/schema.ts:756` **claims** *"externalId + brokerAccountId is a unique pair"*. **The database
+does not enforce it** — verified 29 Sep, no uniqueness rule on `synced_trades` in either
+`shared/schema.ts` or `docker-migrate.sql`.
+
+**Why it has not bitten yet:** the two paths have rarely overlapped, and there have been no fills
+since 09 Sep. It gets worse as trades speed up.
+
+**Fix:** `docs/ctrader-scaling.md` Step 2.
+
+### D53 — When cTrader ends ONE account's session, nothing hears it. Found 29 Sep 2026
+
+`docs/ctrader-open-api-apps.md:90` records, sourced to cTrader's own message reference, that this
+event ends the session for **that one account only** while the others on the connection survive — and
+that it fires on **token refresh**, which happens routinely by design.
+
+`server/services/ctraderHub.ts:139` **discards every frame that is not a fill**, and no payload type
+for this event is defined at all (`server/services/brokerAdapters/ctrader.ts:71-88`).
+
+**Harmless today** (one account per socket, so a dead session surfaces as our own request failing and
+the one-shot refresh recovers it). **A blocker** for putting several accounts on one socket: the socket
+would stay healthy while one account silently stopped streaming.
+
+**Fix:** `docs/ctrader-scaling.md` Step 3 — and note the testing hazard recorded there, because
+forcing a refresh can invalidate the scanner's token.
+
+### D54 — The 15-minute sweep starts every account at once and waits for none. Found 29 Sep 2026
+
+`server/services/autoSyncService.ts:262` launches every account's sync un-awaited. The cTrader side is
+protected (each takes a slot from the pool of 8) but **nothing bounds the database side**, and
+non-cTrader platforms take no slot at all. At 250 accounts that is 250 syncs querying at once on a
+2-CPU box.
+
+**Fix:** `docs/ctrader-scaling.md` Step 4.
+
+### C9 — There is no push channel to the browser at all. Found 29 Sep 2026
+
+Verified 29 Sep: no WebSocket server and no server-sent-events endpoint anywhere in `server/`. A
+recorded trade only reaches an open page when the page next asks.
+
+**Not as bad as it sounds.** Polling is **off by default** (`client/src/lib/queryClient.ts:130`) and
+only 12 places opt in, between 10 seconds and 5 minutes — **the journal's own trade list does not
+poll.** The heaviest are the copier overview (20 s) and signals (10 s).
+
+**Not urgent at 4 users; real at 250.** `docs/ctrader-scaling.md` Step 6. Note C7 in this list already
+tracks Web Push (phone notifications), which is a different thing from this.
+
+---
+
 ## E. Parked — do not start these
 
 | | | |
