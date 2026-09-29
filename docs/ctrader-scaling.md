@@ -39,6 +39,12 @@ corrected too.
 | Rate limits are **per connection**: 50 req/s normal, **5 req/s historical**. **Nothing in this codebase reads, counts or reacts to a rate limit** — verified by search 29 Sep | [ctrader-open-api-apps.md:85](./ctrader-open-api-apps.md), staff-confirmed |
 | The ~25 connections-per-app ceiling is **forum-only, not in the docs** | [ctrader-open-api-apps.md:86](./ctrader-open-api-apps.md) — already labelled unverified there |
 | **No stated limit on accounts per app** in the docs | [ctrader-open-api-apps.md:82](./ctrader-open-api-apps.md) |
+| **Production runs ONE plain Node process** — not a cluster. A PM2 cluster config exists (`instances: "max"`) but **nothing in the container uses it**; only `replit.md` mentions it | [`start.sh:69`](../start.sh#L69), [`ecosystem.config.cjs`](../ecosystem.config.cjs) |
+| **Three processes share the 2 CPUs in one container**: the Python signal platform, the Python copy engine, and Node | [`start.sh:27`](../start.sh#L27), [`:52`](../start.sh#L52), [`:69`](../start.sh#L69) |
+| The database allows **20 connections at once and gives up after 3 seconds**. ⚠ The comment beside it claims *"20 per process × PM2 workers = ~160 total"* — **wrong for production**, which has one process, so it is 20 in total, shared with all web traffic | [`db.ts:65-67`](../server/db.ts#L65) |
+| The sweep asks each account for **the last 2 hours**; **every 4th sweep (once an hour) asks for the last 7 days**; a brand-new account asks for **730 days** | [`autoSyncService.ts:17-32`](../server/services/autoSyncService.ts#L17), [`:187`](../server/services/autoSyncService.ts#L187) |
+| `CTRADER_ACCOUNTS_PER_CONN` is read **once when the process starts**, not per use — so changing it needs a **restart**, which drops every socket | [`ctraderHub.ts:46`](../server/services/ctraderHub.ts#L46) |
+| A record of every step a trade took already exists — stages `fetched, recorded, duplicate, journaled, healed, backfilled, skipped, failed`, indexed by account and time | [`schema.ts:981`](../shared/schema.ts#L981) |
 
 ### The correction that shapes everything below — itself now corrected
 
@@ -74,6 +80,48 @@ first — is not a constraint to delete but a safety catch waiting on a fact nob
 | 11 | Don't fire all accounts at once; use a bounded queue | He warns against something the code does a version of. **REAL GAP on the database side.** Step 4 |
 | 12 | A solid keep-alive / reconnect layer | **Mostly built** (10 s keep-alive, whole-socket recovery, one token refresh). **One real hole** — Step 3 |
 | 13 | Target architecture + Redis | Fine as a destination. Nothing here needs Redis at 250 users |
+
+---
+
+## The REVISED architecture document, 29 Sep — this supersedes the 13 points
+
+He sent a fuller version the same day. **It settles the one thing I flagged for his ruling**: its items
+14 and 15 say the journal must **not** share a cTrader layer with the signal platform, in his own
+terms — *"the signal platform's independence is more important than eliminating a connection."* **That
+closes old Step 7. It is decided, and decided the safe way.**
+
+It also improves three things this plan had, and adds four it did not have:
+
+| his item | verdict against the code |
+|---|---|
+| **0 / 18** Baseline the production numbers BEFORE any change | **Right, and this plan was missing it.** Becomes Step 0 |
+| **4** The **database**, not a preceding "does it exist?" check, must be the final duplicate guard | **Exactly the defect.** That check is [`brokerSyncService.ts:134`](../server/services/brokerSyncService.ts#L134). Sharpens Step 2 |
+| **5** Prove routing with **four** demo accounts in mixed order, zero cross-deliveries | **Better than my two-account version.** Replaces Step 1's scope |
+| **7** Test per-account recovery and token refresh **separately**, and use an account the signal platform does not need | **He reached the same hazard independently.** Confirms Step 3 |
+| **11** Ramp 1 → 2 → 5 → 10 → 20 → 50, verifying at each stage | **Better than my "start at 20".** Replaces Step 5 |
+| **6** Track each account's health **separately from its socket's** | **NEW, and it is the right shape.** A healthy socket does not mean a healthy account — that is exactly the silent failure in D53. Folded into Step 3 |
+| **8** Record timing per event and alert on unrouted / duplicate / session-expired / reauth-failed / rate-limited | **NEW. Most of the foundation already exists** — [`sync_events`](../shared/schema.ts#L981) already has `duplicate`, `failed` and `skipped` stages, indexed by account and time. **What is missing:** per-event timings, the socket, and the unrouted case, which today is only a console line ([`ctraderHub.ts:152`](../server/services/ctraderHub.ts#L152)) and not a queryable row. Becomes Step 4a |
+| **9** Separate limits for reconciliation workers, cTrader requests and database queries | **NEW and necessary — and there is already a hard ceiling he does not know about:** the database allows **20 connections and gives up after 3 seconds** ([`db.ts:65`](../server/db.ts#L65)), shared with all web traffic. Worker count must sit well under 20, not be chosen freely. Sharpens Step 4 |
+| **12** Keep the setting reversible, no code deploy to change it | **Already true — it is an environment variable.** ⚠ But it is read **once at process start**, so the emergency fall back to 1 needs a **restart**, which drops every socket and feed. It is reversible, not instant. Say that plainly in the rollout |
+| **17** Do not add Redis, Kafka, more Node instances or sharding until measurements demand it | **Agreed, and it DEFERS old Stage 9.** Worth knowing: a PM2 cluster config already exists but **production runs one plain Node process** ([`start.sh:69`](../start.sh#L69)) |
+
+### One tension in his document, and how it resolves
+
+His item 3 keeps the 15-minute sweep. His item 10 says *"250 accounts do not create 250 continuous
+polling workloads"* and *"account idle → no journal request required."* **Those contradict each other,
+and item 10 is false as written for this codebase.** The sweep asks **every** account every 15
+minutes whether it traded or not.
+
+**The arithmetic, from the constants** ([`autoSyncService.ts:17-32`](../server/services/autoSyncService.ts#L17)):
+at 250 accounts that is **1,000 requests an hour** for a 2-hour window each, **plus 250 requests an
+hour asking for a full 7 days** (every 4th sweep goes deep). Idle accounts cost exactly as much as
+busy ones.
+
+**How it resolves:** his direction is still right — events carry the speed, the sweep carries the
+correctness — but the sweep's cost must be **measured, not assumed away**. Step 0 measures it, and
+Step 6 bounds it. *I have not verified which rate-limit bucket deal-history requests fall into* (the
+5-per-second historical one or the 50-per-second one), and that single fact decides whether 1,250
+requests an hour is comfortable or tight. It goes in Step 0.
 
 ### What I got wrong, and he was right to correct it
 
@@ -149,11 +197,57 @@ off** — see THE GATE.
 
 ## The plan — in the order it gets written
 
+**Step numbers are stable.** `docs/OPEN.md` D52, D53, D54 and C9 point at Steps 2, 3, 4 and 6 by
+number, so new work is added as Step 0 and Step 4a rather than by renumbering.
+
+**THE AGREED ORDER** (his item 18, mapped onto these steps):
+
+| order | step | gate it clears |
+|---|---|---|
+| 1 | **Step 0** — baseline production numbers | nothing later can claim an improvement without it |
+| 2 | **Step 2** — database refuses duplicates | required before two paths can race |
+| 3 | **Step 1** — four-account routing proof on the real gateway | THE GATE |
+| 4 | **Step 3** — per-account session recovery + per-account health | the silent failure on a shared socket |
+| 5 | **Step 4a** — event timings and alerts | gives the ramp something to read |
+| 6 | **Step 4** — bounded reconciliation, three separate limits | stops the sweep swamping 20 db connections |
+| 7 | **Step 5** — ramp 1 → 2 → 5 → 10 → 20 → 50 | one notch at a time, verified each time |
+| 8 | **Step 6** — browser push | after the server side is reliable, not before |
+| 9 | 250-user load test, then rollout, then tune | his items 16 and 18 |
+| 10 | only then design 2,000 users | his item 17 — **Stage 9 is DEFERRED until here** |
+
+⚠ **Note the swap against his order.** He puts database uniqueness (his 1) before the routing proof
+(his 2); this plan agrees, and that is a change from the earlier version, which led with the proof.
+Step 2 is cheap, it is safe on its own, and it protects the very race the event path creates — so it
+goes first even though Step 1 is the more interesting question.
+
+### Step 0 — measure what production does now, before changing anything
+
+**What.** Write down today's numbers so every later claim has a before: how long a sweep takes end to
+end, how many database connections it uses out of the 20, how long the signal platform's 2-second
+position tracker actually takes and how often it is skipped, CPU and memory for each of the three
+processes, and how many accounts sit on each of the two cTrader apps.
+
+**Why it comes first.** His item 16 says the 2-CPU box should be **benchmarked, not assumed** to be
+the limit — and one production log line on 29 Sep already showed the position tracker being skipped
+(*"maximum number of running instances reached (1)"*) with only four accounts. Without a baseline,
+every later "this made it worse" is an opinion.
+
+**One unknown to settle here:** whether cTrader counts deal-history requests against the
+**5-per-second** historical limit or the 50-per-second one. **I have not verified which.** At 250
+accounts the sweep is ~1,250 history requests an hour, so that one fact decides whether Step 6 needs
+5 workers or 50.
+
+**MEASURED.** A written baseline in this doc. No code changed.
+
 ### Step 1 — prove the routing on demo accounts. **Unblocks Step 5 and the capacity number**
 
-**What.** A script that puts two or more demo accounts on ONE socket, prints every incoming frame's
-type and whether it carries `ctidTraderAccountId`, then places a small order on each demo account in
-turn and shows which account each fill was delivered to.
+**What.** A script that puts **four** demo accounts on ONE socket, prints every incoming frame's type
+and whether it carries `ctidTraderAccountId`, then generates fills **in mixed order** (A, C, B, D, C,
+A, D, B — his item 5) and shows which account each fill was delivered to.
+
+**Four, not two, and mixed order** — his refinement, and it is right: two accounts in sequence can
+pass by luck, because a wrong answer and a right answer can look the same when there is only one
+other place the fill could have gone.
 
 **Why a script and not a unit test.** [`ctraderHub.test.ts`](../server/services/ctraderHub.test.ts)
 already proves the routing logic is correct against **invented** frames — 16 checks, including that
@@ -163,15 +257,15 @@ what can actually break the code, not what is easy to model.
 
 **Files.** One new script. **No production code changes.**
 
-**MEASURED.** For each demo account: a fill arrives, it names its own `ctidTraderAccountId`, and it
-is delivered to that account and no other. Account A's trade must never appear under Account B. Run
-it more than once.
+**MEASURED.** For each of the four: a fill arrives, it names its own `ctidTraderAccountId`, and it is
+delivered to that account and no other. **Zero cross-account deliveries** — Account A's trade must
+never appear under Account B. Run it more than once.
 
 **Two outcomes, both useful.** The id is there → Step 5 becomes a one-setting change. The id is
 missing → **the socket-sharing approach is dead as built**, and that is the finding; it gets written
 here, not forced.
 
-### Step 2 — make the database refuse duplicates. **Do this first if Step 1 is delayed**
+### Step 2 — make the database refuse duplicates. **FIRST — before the routing proof**
 
 **What.** A uniqueness rule in PostgreSQL on `synced_trades (broker_account_id, external_id)`, and
 correct the comment that claims one already exists.
@@ -211,11 +305,21 @@ because [the hub discards every frame that is not a fill](../server/services/ctr
 no payload type for this event is even defined
 ([`brokerAdapters/ctrader.ts:71-88`](../server/services/brokerAdapters/ctrader.ts#L71)).
 
-**Files.** `brokerAdapters/ctrader.ts` (the payload type), `ctraderHub.ts` (notice it, name the
-account), `ctraderRealtime.ts` (refresh that account's token and re-authorise it alone).
+**Also in this step — track each account's health separately from its socket's** (his item 6). A
+socket being up does not mean every account on it is streaming. Each account needs its own state:
+*connecting → authorised → streaming*, and the failure states *session expired, refreshing,
+re-authorising, auth failed, token invalid*. Without that, the exact failure above is invisible.
 
-**MEASURED.** Two demo accounts on one socket; force a token refresh on A; B keeps streaming
-throughout and A resumes without the socket being torn down.
+**Files.** `brokerAdapters/ctrader.ts` (the payload type), `ctraderHub.ts` (notice it, name the
+account, hold its state), `ctraderRealtime.ts` (refresh that account's token and re-authorise it
+alone).
+
+**MEASURED — as TWO separate tests, never combined** (his item 7, and he is right: run together, a
+pass cannot tell you which mechanism worked):
+1. **Session recovery.** Two demo accounts on one socket; end A's session; **B keeps streaming
+   throughout** and A is re-authorised and resumes, with the socket never torn down.
+2. **Token refresh.** Separately, and **on a demo account the signal platform does not use** — see
+   the hazard above. Confirm the scanner's own token still works afterwards.
 
 ### Step 4 — put a limit on the 15-minute sweep
 
@@ -227,24 +331,62 @@ account's sync and waits for none of them. The cTrader side is protected — eac
 from the pool of 8 — but **nothing bounds the database side**, and non-cTrader platforms take no slot
 at all. At 250 accounts that is 250 syncs querying at once on a 2-CPU box.
 
+**THREE separate limits, not one** (his item 9): how many accounts are being reconciled at once, how
+many cTrader requests are in flight, and how many database queries are in flight. ⚠ **The database
+limit is not ours to choose freely** — the pool allows **20 connections and gives up after 3 seconds**
+([`db.ts:65`](../server/db.ts#L65)), and all web traffic shares those 20. So the worker count sits
+well under 20, and the comment there claiming ~160 is wrong for production.
+
 **Files.** `autoSyncService.ts` only.
 
-**MEASURED.** 250 fake accounts produce no more than the worker count in flight at once; the sweep
-still finishes inside its 15-minute window; the signal platform's own timings do not move while it
-runs.
+**MEASURED.** 250 fake accounts produce no more than the worker count in flight at once; **no
+"pool exhausted" or 3-second timeout errors appear**; the sweep still finishes inside its 15-minute
+window; the signal platform's own timings do not move while it runs.
+
+### Step 4a — make every event measurable (his item 8)
+
+**What.** Record, per real-time event: when it arrived, which account it named, which socket carried
+it, and when the database committed it. Then alert on the five things that mean something is wrong:
+**unrouted, duplicate, session expired, re-auth failed, rate limited.**
+
+**Most of the foundation already exists.** [`sync_events`](../shared/schema.ts#L981) already records a
+row per step with stages `fetched, recorded, duplicate, journaled, healed, backfilled, skipped,
+failed`, indexed by account and by time, and it is already readable at
+`GET /api/admin/sync-events`. **What is missing:** the timings, the socket, and **the unrouted case —
+which today is only a line in the console** ([`ctraderHub.ts:152`](../server/services/ctraderHub.ts#L152))
+and not a row anyone can query. That is the single most important one, because it is the symptom of
+THE GATE being wrong.
+
+**Why it comes before the ramp, not after.** Step 5 raises accounts per socket one notch at a time and
+checks after each. Without this, "checks after each" has nothing to read.
+
+**MEASURED.** A fill produces one row with all four timings; a deliberately unlabelled fill produces
+an `unrouted` row, not just a console line.
 
 ### Step 5 — raise accounts-per-socket, on evidence only
 
-**What.** `CTRADER_ACCOUNTS_PER_CONN` from 1 upward. **Requires Steps 1 and 3 green.**
+**What.** `CTRADER_ACCOUNTS_PER_CONN` **one notch at a time: 1 → 2 → 5 → 10 → 20 → 50**, checking
+after each. **Requires Steps 1, 3 and 4a green.**
 
-Start at **20**, not 200 — there is no documented limit on accounts per connection, so the number is
-ours to establish, and one dropped socket takes all its accounts down together.
+**His item 11, and it replaces what this plan said before.** The old version said "start at 20". That
+was wrong for the same reason two demo accounts was wrong in Step 1: there is **no documented limit**
+on accounts per connection, so the real number has to be found, not assumed — and one dropped socket
+takes every account on it down together.
 
-**MEASURED.** The boot line reports accounts and sockets separately — accounts must exceed sockets.
-Then: every account on a shared socket receives its own fills for a full session, and the 15-minute
-safety net reports nothing missed.
+**⚠ Going back is not instant.** The setting is read **once when the process starts**
+([`ctraderHub.ts:46`](../server/services/ctraderHub.ts#L46)), so falling back to 1 needs a **restart**,
+which drops every socket and every live feed. It is reversible without a code deploy — his item 12 —
+but it is not a live switch, and the rollout plan has to say so.
 
-### Step 6 — tell the browser instead of letting it ask. **Needs his go-ahead on scope**
+**MEASURED, at every notch.** The boot line reports accounts and sockets separately, so accounts must
+exceed sockets. Then, before the next notch: **zero unrouted events, zero cross-account trades, zero
+unexpected duplicate rows**, account recovery still works, socket recovery still works, the 15-minute
+safety net finds nothing unexplained, event latency has not grown, and — **every time, his item 14** —
+the signal platform's connection, scanner and position-tracker timings are unchanged.
+
+**Stop and investigate, do not push on**, if any of those appear. That is what Step 4a is for.
+
+### Step 6 — tell the browser instead of letting it ask. **APPROVED 29 Sep, and it comes AFTER the server side is reliable**
 
 **What.** One push channel to the browser, so a recorded trade appears without the page asking.
 
@@ -259,12 +401,18 @@ overview (20 s) and signals (10 s).
 **MEASURED.** A recorded trade reaches the open page with no request from the page; the polling
 intervals it replaces are removed, not left running beside it.
 
-### Step 7 — one cTrader layer for all three consumers. **HIS RULING NEEDED — I do not recommend it**
+### Step 7 — one cTrader layer for all three consumers. **CLOSED 29 Sep — decided AGAINST, and not by me**
 
-**What he proposes.** The journal, the signal engine and the copier all consume one shared cTrader
-connection layer instead of connecting independently.
+**⛔ DO NOT BUILD THIS.** His revised document of 29 Sep rules it out in its own items 14 and 15:
+*"Do NOT merge the journal's cTrader connection layer with the Python signal platform for the
+250-user target… the signal platform's independence is more important than eliminating a
+connection."* So this is settled, and settled the safe way. What follows is kept only so nobody
+re-proposes it.
 
-**Why I would not.** It deletes the one property he told us to protect. The signal platform is a
+**What the earlier review proposed.** The journal, the signal engine and the copier all consume one
+shared cTrader connection layer instead of connecting independently.
+
+**Why that was refused.** It deletes the one property he told us to protect. The signal platform is a
 separate Python process with its own connection, and
 [`ctraderConnPool.ts`](../server/services/ctraderConnPool.ts) says why in as many words: *"the
 scanner can never be stuck behind a user's history backfill, because it is not in this queue."* A
@@ -282,7 +430,15 @@ is useful immediately, and queue the remaining ~700 days as low-priority work. 7
 requests ≈ 26 s of the scarce 5-per-second historical budget; 500 signups in a day is ~3.6 hours of
 continuous fetching with nothing scheduling it.
 
-**Stage 9 — spread the feeds across Node instances.** At 2000 users one process holds every socket
+**Stage 9 — spread the feeds across Node instances. DEFERRED 29 Sep — do not start it.** His item 17
+is explicit: do not add Redis, Kafka, more Node instances or sharding *"merely because the eventual
+target is 2,000 users"*. Prove 0–250 on what exists, measure, and only then design the next phase.
+Worth knowing when that day comes: a PM2 cluster config already exists
+([`ecosystem.config.cjs`](../ecosystem.config.cjs), `instances: "max"`) but **production runs one
+plain Node process** ([`start.sh:69`](../start.sh#L69)) — only `replit.md` references the cluster path.
+The reasoning below stays on file for that phase.
+
+At 2000 users one process holds every socket
 and sends a keep-alive every 10 s for each — about 300 a second. That is a process limit, not an API
 limit, and no amount of socket sharing fixes it. Shard the way the copy engine already shards
 ([`config.py:122`](../copy_platform/config.py#L122)).
@@ -310,6 +466,12 @@ limit, and no amount of socket sharing fixes it. Shard the way the copy engine a
 * **How many accounts one connection tolerates.** No documented limit. Start at 20, on evidence.
 * **Whether we are anywhere near the rate limits.** Nothing in this codebase reads, counts or reacts
   to a rate-limit response — verified 29 Sep. So we would not know if we were.
+* **Which rate-limit bucket a deal-history request falls into** — the scarce 5-per-second historical
+  one, or the 50-per-second one. **Not verified.** At 250 accounts the sweep is ~1,250 history
+  requests an hour, so this decides whether Step 6 needs 5 workers or 50. Settled in Step 0.
+* **What the real ceiling is for this box.** Three processes share 2 CPUs in one container. His item
+  16 is right that it should be benchmarked rather than assumed — and one production line on 29 Sep
+  already showed the position tracker skipping a run with only four accounts.
 
 The design is built so none of these need answering: at ~10 connections every plausible limit is far
 away.
