@@ -28,10 +28,11 @@ export function useTradeSync() {
   const overview = ov.data;
   const invalidate = ov.invalidate;
 
-  // Two views over the SAME account link set: the copy-from side and the broadcast side both
-  // resolve against the user's real connected accounts, so connecting once serves both.
+  // ONE view now. There were two identical `useBrokerAccount` instances — the copy-from side and a
+  // "broadcast side" for the Provider studio's connect widget. That widget is gone (2026-09-29): the
+  // studio lists the accounts he ALREADY has rather than offering to connect one, so the second
+  // instance had no consumer and was doing the same work twice on every render.
   const account = useBrokerAccount(setToast, overview, invalidate);
-  const providerAccount = useBrokerAccount(setToast, overview, invalidate);
 
   const setup = useCopySetup(setToast, account.status, overview, invalidate);
   const feed = useMirrorFeed(overview);
@@ -53,7 +54,7 @@ export function useTradeSync() {
     activePage, setActivePage,
     toast, setToast,
     overview, overviewLoading: ov.isLoading, invalidate,
-    account, providerAccount,
+    account,
     setup, feed, follow, search, studio,
   };
 }

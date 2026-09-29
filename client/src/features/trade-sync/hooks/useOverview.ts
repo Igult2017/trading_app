@@ -11,6 +11,21 @@ export interface Overview {
   providers: (Provider & { requireApproval: boolean })[];
   followStatus: Record<string, { followerId: string; status: "pending" | "following" }>;
   studio: {
+    /** EVERY account he owns, with its own listing state — his rule, 2026-09-29: "list all the
+     *  ctrader accounts that user has... I should be able to list and unlist all of them."
+     *
+     *  ⚠ NOT the same list as `ownAccounts`, which is filtered on the copier gate. An account
+     *  switched off for self-copying must still be listable here. */
+    accounts: {
+      id: string; name: string; platform: string; loginId: string | null;
+      balance: string;
+      /** Only an API-connected account can be mirrored from, so only one can be listed. */
+      apiConnected: boolean;
+      masterId: string | null;
+      /** `is_public` — the ONE field the marketplace joins on. */
+      listed: boolean;
+      serviceName: string; description: string;
+    }[];
     master: { id: string; serviceName: string; strategyDesc: string; listed: boolean } | null;
     stats: { aum: number; activeFollowers: number; ret30d: string; avgRating: string };
     requests: FollowRequest[];

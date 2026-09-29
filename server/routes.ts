@@ -3261,11 +3261,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
                       FROM copy_masters m
                      WHERE m.is_public = true AND m.is_active = true AND m.user_id <> $1
                      ORDER BY followers DESC, m.created_at DESC LIMIT 30`, [uid]),
-        pool.query(`SELECT m.id, m.strategy_name, m.description, m.is_public, m.require_approval
+        // EVERY master, not one. His instruction, 2026-09-29: *"list all the ctrader accounts that
+        // user has so that he can choose which ones to list to public to be followed... I should be
+        // able to list and unlist all of them."* This read `LIMIT 1`, so however many accounts he
+        // had, the Provider studio could only ever describe ONE — and which one was decided by
+        // `created_at DESC`, not by him.
+        //
+        // `broker_account_id` is selected because it is the JOIN KEY: each account's own listing
+        // state hangs off it, and without it a per-account switch has nothing to read.
+        pool.query(`SELECT m.id, m.broker_account_id, m.strategy_name, m.description,
+                           m.is_public, m.require_approval
                       FROM copy_masters m
                      WHERE m.user_id = $1 AND m.source_type NOT IN ('telegram', 'telegram_user')
                        AND COALESCE(m.description, '') <> 'Self-copy source'
-                     ORDER BY m.created_at DESC LIMIT 1`, [uid]),
+                     ORDER BY m.created_at DESC`, [uid]),
         pool.query(`SELECT COALESCE(SUM(pnl), 0) AS today
                       FROM trades WHERE user_id = $1 AND created_at >= date_trunc('day', now())`, [uid]),
         // EVERY column qualified: copy_trades_follower and copy_followers BOTH have created_at,
@@ -3281,6 +3290,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       ]);
 
       const myMaster = studioM.rows[0] ?? null;
+      // ⚠ THE STUDIO'S ACCOUNT LIST IS NOT `ownAccounts` AND MUST NOT BECOME IT. `ownAccounts` is
+      // filtered on `copy_enabled` (his copier gate, added the same morning), so an account he had
+      // switched OFF for self-copying would silently disappear from the Provider studio as well —
+      // straight against *"list all the ctrader accounts that user has"*. Two questions, two lists,
+      // built from the same rows.
+      const masterFor = new Map<string, any>();
+      for (const m of studioM.rows) if (m.broker_account_id) masterFor.set(m.broker_account_id, m);
       const [reqsR, folsR] = myMaster
         ? await Promise.all([
             // PENDING FOLLOW REQUESTS — three clauses, each stopping a different false positive.
@@ -3443,6 +3459,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
           status: (!r.is_active && r.require_approval) ? 'pending' : 'following',
         }])),
         studio: {
+          // ONE ENTRY PER ACCOUNT HE OWNS, each carrying its own listing state. `apiConnected` is
+          // reported rather than used to hide anything: `register-as-provider` refuses a non-API
+          // platform, so the row shows the reason instead of vanishing and inviting "where did it
+          // go". `listed` is the ONE field the marketplace joins on (`is_public`).
+          accounts: own.rows.map((r: any) => {
+            const m = masterFor.get(r.id) ?? null;
+            return {
+              id: r.id, name: r.name, platform: r.platform, loginId: r.login_id,
+              balance: r.balance != null ? `$${num(r.balance).toLocaleString()}` : '—',
+              apiConnected: r.connection_type === 'api'
+                            && !String(r.login_id || '').startsWith('pending_'),
+              masterId:    m?.id ?? null,
+              listed:      !!m?.is_public,
+              serviceName: m?.strategy_name || r.name || '',
+              description: m?.description || '',
+            };
+          }),
           master: myMaster ? {
             id: myMaster.id, serviceName: myMaster.strategy_name || '', strategyDesc: myMaster.description || '',
             listed: !!myMaster.is_public,

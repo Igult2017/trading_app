@@ -1523,6 +1523,47 @@ test proving the process count returns to zero.
 
 ## D. cTrader & copy trading
 
+### D51 - ~~The Provider studio could only ever publish ONE account~~ FIXED 2026-09-29
+
+**His instruction:** *"list all the ctrader accounts that user has so that he can choose which ones
+to list to public to be followed. ctrader allows more than one account... I should be able to list
+and unlist all of them. Also can you rework and redesign the provider studio? It looks so
+amateurish."*
+
+**The gap.** The studio was built around ONE service: `routes.ts` fetched his master with
+**`LIMIT 1`**, and `useProviderStudio.persist` created it on
+`ownAccounts.find(a => a.connected)` — the first connected account, whichever that happened to be.
+One name, one description, one checkbox, for the whole user. With four accounts he could publish
+exactly one and could not choose which.
+
+**Fixed.** The studio query returns EVERY non-Telegram master with its `broker_account_id`, and the
+overview carries `studio.accounts` — one entry per account with its own listing state, name and
+description. Listing and unlisting go through
+`POST /api/broker-accounts/:id/register-as-provider`, which was **already** per-account and already
+checked ownership and the API-platform requirement; no new route was written.
+
+**⚠ THE TRAP, and it is the one worth remembering.** `ownAccounts` is filtered on `copy_enabled` —
+his copier gate from the same morning. Reusing that list for the studio would have silently hidden
+any account he had switched OFF for self-copying, straight against *"list ALL the ctrader accounts"*.
+Two questions, two lists, built from the same rows. Both are asserted in
+`providerStudio.test.ts`.
+
+**And one that would have cost him a listing.** `register-as-provider` reads `isPublic === true`, so
+saving a renamed description WITHOUT sending the field would quietly unlist the account. The save
+sends the current state back, and there is a check with teeth for it.
+
+**Redesign:** the connect widget (he already has four accounts) became a list of them, each a card
+with its balance, login id, a readable Listed/Private state and its own switch. Deleted with it:
+`BusinessSetup.tsx`, the single-service state in the hook (`persist`, `setListed`, `saveProfile`, the
+seeding effect), and a **duplicate `useBrokerAccount` instance** that existed only for that widget
+and ran the same work twice on every render.
+
+**⚠ NOT DONE IN shadcn/ui, deliberately.** `.ct-app` is a deliberately self-contained surface — every
+token and font rule is scoped to it so it cannot leak into the journal. Importing journal components
+would either inherit nothing or break that scoping.
+
+**⚠ NOT SEEN RENDERED.** The copier is behind his login; verified by reading, typecheck and build.
+
 ### D50 - ~~An account could be published to every user by OMISSION~~ FIXED 2026-09-29
 
 **His ruling, 2026-09-29:** *"Every ctrader account added by a logged in user remains private by

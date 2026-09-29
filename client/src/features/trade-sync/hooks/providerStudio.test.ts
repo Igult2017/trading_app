@@ -47,7 +47,7 @@ function teeth(name: string, brokeItAndFailed: boolean) {
 const read = (...p: string[]) => readFileSync(join(process.cwd(), ...p), 'utf8');
 const P = ['client', 'src', 'features', 'trade-sync'];
 const hook    = read(...P, 'hooks', 'useProviderStudio.ts');
-const setup   = read(...P, 'sections', 'provider', 'BusinessSetup.tsx');
+const accts   = read(...P, 'sections', 'provider', 'ListedAccounts.tsx');
 const support = read(...P, 'sections', 'provider', 'SupportBox.tsx');
 const page    = read(...P, 'sections', 'ProviderStudioPage.tsx');
 const routes  = read('server', 'routes.ts');
@@ -133,23 +133,67 @@ const code = (s: string) =>
    .replace(/(^|[^:])\/\/.*$/gm, '$1');
 check('the mockup support address is no longer rendered', code(support).includes('tradesync.app'), false);
 check('...and nowhere else in the studio',
-      code(hook + setup + page).includes('tradesync.app'), false);
+      code(hook + accts + page).includes('tradesync.app'), false);
 
 // ── 5. THE FEE DROPDOWN IS GONE ─────────────────────────────────────────────
-check('the fee dropdown is removed from the form', setup.includes('Performance fee'), false);
+check('the fee dropdown is gone for good', (hook + accts).includes('Performance fee'), false);
 check('...and its state with it', hook.includes('feeModel'), false);
 
 // ── DEAD PROPS SWEPT ────────────────────────────────────────────────────────
 // Removing the fake email button orphaned `setToast` in SupportBox — and it turned out BusinessSetup
 // had been taking it without ever using it, from before this change.
 check('SupportBox no longer takes a toast setter it does not use', support.includes('setToast'), false);
-check('BusinessSetup no longer takes one either', setup.includes('setToast'), false);
+check('the account list does not take one either', accts.includes('setToast'), false);
 check('...and the page stopped passing them', page.includes('setToast'), false);
 
 // ── WHAT MUST NOT HAVE BROKEN ───────────────────────────────────────────────
-check('the profile still saves', hook.includes("apiRequest(\"PUT\", `/api/copy/masters/${master.id}`"), true);
-check('the marketplace listing still saves', hook.includes('persist({ isPublic: next }'), true);
-check('the fields still seed only once', hook.includes('if (master && !seeded)'), true);
+// SAVING STILL WORKS — through the per-account endpoint now, not a PUT at one master.
+check('the profile still saves', hook.includes('saveAccountProfile'), true);
+// ── ONE LISTING PER ACCOUNT (his instruction, 2026-09-29) ──────────────────────────────────
+//
+// *"list all the ctrader accounts that user has so that he can choose which ones to list to public
+//  to be followed... I should be able to list and unlist all of them."*
+//
+// IT USED TO BE ONE SERVICE FOR THE WHOLE USER. `persist({ isPublic: next })` toggled a single
+// master, created on `ownAccounts.find(a => a.connected)` — the first connected account, whichever
+// that was. With four accounts he could publish exactly one and could not choose which.
+check('listing is per ACCOUNT, through the endpoint that already checks ownership',
+      hook.includes('/api/broker-accounts/${acct.id}/register-as-provider'), true);
+check('...and the single-service path is gone, not left beside it',
+      hook.includes('persist('), false);
+check('...unlisting is the same call, so one field decides visibility',
+      /setAccountListed[\s\S]{0,600}?isPublic: next/.test(hook), true);
+
+// ⚠ EDITING A DESCRIPTION MUST NOT UNLIST THE ACCOUNT. `register-as-provider` reads
+// `b.isPublic === true`, so a save that omits the field would quietly publish-off an account he
+// only meant to rename. The save sends the CURRENT state back.
+check('saving a profile preserves whether it is listed',
+      /saveAccountProfile[\s\S]{0,600}?isPublic: acct\.listed/.test(hook), true);
+
+// ⚠ THE STUDIO'S LIST IS NOT THE COPIER'S LIST. `ownAccounts` is filtered on `copy_enabled`, so
+// reusing it would hide any account he had switched off for self-copying — against "list ALL the
+// ctrader accounts". The server builds a separate, unfiltered one.
+check('the studio list is built unfiltered, not from ownAccounts',
+      /accounts: own\.rows\.map/.test(routes), true);
+check('...while the copier list stays filtered on the gate',
+      /ownAccounts: own\.rows\.filter\(\(r: any\) => r\.copy_enabled !== false\)/.test(routes), true);
+
+// EVERY master, not one — the LIMIT 1 is what made a second listing impossible.
+check('the studio query no longer takes only the newest master',
+      /FROM copy_masters m[\s\S]{0,400}?ORDER BY m\.created_at DESC LIMIT 1/.test(routes), false);
+check('...and selects the account each one belongs to, so a per-account switch can read it',
+      /SELECT m\.id, m\.broker_account_id/.test(routes), true);
+// ⚠ THE POLL MUST NOT CLOBBER WHAT HE IS TYPING — the original reason this file exists. The
+// overview refetches every 20 seconds; the old hook guarded it with a `seeded` ref so the server's
+// values were copied into the form ONCE. That form is gone, and the same risk had to be answered a
+// different way: the editable fields are now LOCAL DRAFT state, filled when he opens one account's
+// editor and never touched by a refetch. A refetch cannot reach them, so there is nothing to guard.
+check('the editor keeps its own draft, so a refetch cannot overwrite it',
+      /const \[draft, setDraft\]/.test(accts), true);
+check('...seeded when he opens one account, not on every poll',
+      /const open = \(a: Acct\) => \{[\s\S]{0,160}?setDraft\(/.test(accts), true);
+check('...and the hook no longer copies server values into form state at all',
+      hook.includes('setSeeded'), false);
 check('accept still calls approve', hook.includes('/approve`'), true);
 
 // ── TEETH ───────────────────────────────────────────────────────────────────
