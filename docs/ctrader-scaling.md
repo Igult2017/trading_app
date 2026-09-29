@@ -271,7 +271,13 @@ never appear under Account B. Run it more than once.
 missing → **the socket-sharing approach is dead as built**, and that is the finding; it gets written
 here, not forced.
 
-### Step 2 — make the database refuse duplicates. **FIRST — before the routing proof**
+### Step 2 — make the database refuse duplicates. **BUILT 29 Sep — SQL not yet run against a database**
+
+**Done:** the uniqueness rule is in `shared/schema.ts` and in `docker-migrate.sql` (which collapses any
+existing duplicates first, keeping the journaled row); `createSyncedTrade` reports whether it inserted;
+a lost race counts as a duplicate and does not reach the journal; `startAutoSync` logs at boot whether
+the rule is present. 38 checks guard it, proven to have teeth. **Not done: the migration SQL has never
+been executed** — no `psql` here and Docker's engine is not running. Full account in `docs/OPEN.md` D52.
 
 **What.** A uniqueness rule in PostgreSQL on `synced_trades (broker_account_id, external_id)`, and
 correct the comment that claims one already exists.
@@ -500,8 +506,11 @@ in [`brokerAdapters/ctrader.ts`](../server/services/brokerAdapters/ctrader.ts).
 |---|---|---|
 | **Live events** | the fast path — a fill is recorded on arrival | **already built** ([`ctraderRealtime.ts:108`](../server/services/ctraderRealtime.ts#L108)) |
 | **Catch-up** on boot, on reconnect, and on a detected dead session | recovers anything missed during an outage | **not built** — D55 + Step 3 |
-| **Open-position check** every few minutes | *detects* a missed close within minutes, then fetches history for **that one position only** | **not built** — new |
-| **Daily sweep** | covers the one case the detector cannot see | exists; drops from 15 min to daily |
+| **Open-position check** — **every 5 minutes, HIS RULING 29 Sep** | *detects* a missed close within minutes, then fetches history for **that one position only** | **not built** — new |
+| **Daily sweep — KEPT, HIS RULING 29 Sep** | covers the one case the detector cannot see | exists; drops from 15 min to daily |
+
+**Both of those are his decisions, not defaults**, asked and answered 29 Sep: the check runs every
+**5 minutes**, and the **daily sweep stays** rather than being removed once the detector works.
 
 **How the detector works.** Remember which positions the broker says are open. When one **disappears
 from that list and there is no recorded trade for it**, a close was missed. The recorded trade already

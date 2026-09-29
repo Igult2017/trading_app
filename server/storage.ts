@@ -114,7 +114,8 @@ export interface IStorage {
 
   getSyncedTrades(brokerAccountId: string, limit?: number): Promise<SyncedTrade[]>;
   getSyncedTradeByExternal(brokerAccountId: string, externalId: string): Promise<SyncedTrade | undefined>;
-  createSyncedTrade(trade: InsertSyncedTrade): Promise<SyncedTrade>;
+  /** Returns `inserted: false` when the uniqueness rule refused a second copy of the same trade. */
+  createSyncedTrade(trade: InsertSyncedTrade): Promise<{ trade: SyncedTrade; inserted: boolean }>;
   markSyncedTradeJournaled(id: string, journalEntryId: string): Promise<void>;
   /** Release a deleted entry's synced trades so the next sync writes them again. */
   clearSyncedTradeJournalEntry(journalEntryId: string): Promise<number>;
@@ -1057,9 +1058,48 @@ export class DbStorage implements IStorage {
     return r[0];
   }
 
-  async createSyncedTrade(trade: InsertSyncedTrade): Promise<SyncedTrade> {
-    const r = await db.insert(syncedTrades).values({ ...trade, id: randomUUID() }).returning();
-    return r[0];
+  /**
+   * Insert one broker trade, and SAY WHETHER IT ACTUALLY WENT IN.
+   *
+   * `synced_trades_account_external_key` makes a second row for the same broker trade impossible, so
+   * the loser of a race between the live feed and the sweep now gets `inserted: false` instead of a
+   * thrown error. The caller needs that answer for two reasons, and both were silent bugs waiting to
+   * happen: the sync's own log line counts "recorded" (a race must not read as a new trade), and the
+   * journal must not be written twice.
+   *
+   * WHY IT RETURNS A PAIR RATHER THAN JUST THE ROW. With `onConflictDoNothing`, `returning()` comes
+   * back EMPTY when the insert was skipped — so the old `return r[0]` would have handed back
+   * `undefined` typed as a `SyncedTrade`, straight into `journalSyncedTrade`. A hole that typechecks
+   * is worse than one that does not.
+   */
+  async createSyncedTrade(trade: InsertSyncedTrade): Promise<{ trade: SyncedTrade; inserted: boolean }> {
+    // NO `target` ON PURPOSE, AND IT IS A SAFETY DECISION, NOT A SHORTCUT.
+    //
+    // Naming the index (`target: [brokerAccountId, externalId]`) would make Postgres REJECT this
+    // statement outright if that index were ever missing — "no unique or exclusion constraint matching
+    // the ON CONFLICT specification". And it CAN be missing: the production migration runs at boot as
+    // `psql -f docker-migrate.sql ... || echo "Migration warning (non-fatal)"` (start.sh:17), so a
+    // migration that fails does NOT stop the container. Naming the index would turn one failed
+    // migration into "no trade is ever recorded again", silently.
+    //
+    // Un-targeted, the worst case is that this degrades to exactly today's behaviour — the duplicate
+    // goes in, as it would have anyway — instead of taking trade recording down. Trade recording must
+    // never be the thing that breaks. The only other unique constraint on this table is the primary
+    // key, which is a fresh UUID per call, so nothing else can swallow a conflict here.
+    const r = await db.insert(syncedTrades).values({ ...trade, id: randomUUID() })
+      .onConflictDoNothing()
+      .returning();
+    if (r[0]) return { trade: r[0], inserted: true };
+
+    // The other writer won. Hand back the row IT wrote, so the caller still has a real trade to
+    // report on rather than an absence it has to guess about.
+    const existing = await this.getSyncedTradeByExternal(trade.brokerAccountId, trade.externalId);
+    if (existing) return { trade: existing, inserted: false };
+
+    // Neither inserted nor findable: the uniqueness rule refused it and the row is not there. That is
+    // a contradiction, so it is raised rather than papered over.
+    throw new Error(`createSyncedTrade: ${trade.externalId} on account ${trade.brokerAccountId} was `
+                  + `neither inserted nor found — the uniqueness rule and the table disagree`);
   }
 
   async markSyncedTradeJournaled(id: string, journalEntryId: string): Promise<void> {

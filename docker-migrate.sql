@@ -599,5 +599,50 @@ CREATE INDEX IF NOT EXISTS idx_blog_posts_publish_at ON blog_posts (publish_at) 
 ALTER TABLE blog_posts ADD COLUMN IF NOT EXISTS allow_comments BOOLEAN DEFAULT TRUE;
 ALTER TABLE blog_posts ADD COLUMN IF NOT EXISTS allow_sharing  BOOLEAN DEFAULT TRUE;
 
+-- ── ONE ROW PER BROKER TRADE — the database now refuses a duplicate ──────────
+-- Added 2026-09-29. See docs/OPEN.md D52 and docs/ctrader-scaling.md Step 2.
+--
+-- shared/schema.ts CLAIMED "externalId + brokerAccountId is a unique pair" and NOTHING enforced it.
+-- The only guard was a look-then-insert in brokerSyncService.ts:134 — ask whether the trade exists,
+-- then insert if it did not. Two writers can sit in the gap between those two moments, and there are
+-- now exactly two: the live cTrader feed and the 15-minute sweep, whose loop is deliberately not
+-- awaited (autoSyncService.ts:262). The claim was true of the DESIGN and false of the DATABASE.
+--
+-- DUPLICATES MUST GO FIRST or the index cannot be created — same shape as the trading_signals
+-- indexes above: collapse, then create.
+--
+-- WHICH ROW SURVIVES, and the order is the whole point: the JOURNALED row wins, because
+-- synced_trades carries journal_entry_id and deleting the journaled row would leave a journal entry
+-- whose source is gone. Oldest wins the remaining tie — that is the original, not the copy.
+--
+-- ⚠ WHAT THIS DELIBERATELY DOES NOT DO: if a duplicate had already been journaled, its journal ENTRY
+-- is NOT removed here. Deleting a synced trade does not delete the entry it created, and those
+-- entries are visible user data — his call, not this migration's. The notice reports the count so
+-- that decision is never silent.
+DO $$
+DECLARE removed INTEGER;
+BEGIN
+  WITH ranked AS (
+    SELECT id, ROW_NUMBER() OVER (
+             PARTITION BY broker_account_id, external_id
+             ORDER BY (journal_entry_id IS NOT NULL) DESC, created_at ASC NULLS LAST, id ASC
+           ) AS rn
+      FROM synced_trades
+  )
+  DELETE FROM synced_trades st
+   USING ranked r
+   WHERE st.id = r.id AND r.rn > 1;
+
+  GET DIAGNOSTICS removed = ROW_COUNT;
+  IF removed > 0 THEN
+    RAISE NOTICE 'synced_trades: removed % duplicate row(s) before adding the uniqueness rule. Any journal entries those rows created STILL EXIST and were not touched.', removed;
+  ELSE
+    RAISE NOTICE 'synced_trades: no duplicate (broker_account_id, external_id) rows found.';
+  END IF;
+END $$;
+
+CREATE UNIQUE INDEX IF NOT EXISTS synced_trades_account_external_key
+    ON synced_trades (broker_account_id, external_id);
+
 -- ── Done ─────────────────────────────────────────────────────────────────────
 DO $$ BEGIN RAISE NOTICE 'docker-migrate.sql complete'; END $$;

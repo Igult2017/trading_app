@@ -3665,7 +3665,36 @@ only honest, not finished.
 
 ---
 
-### D52 — Nothing in the DATABASE stops the same trade being recorded twice. Found 29 Sep 2026
+### D52 — ~~Nothing in the DATABASE stops the same trade being recorded twice~~ BUILT 29 Sep 2026, SQL NOT YET RUN
+
+**What was built.** A uniqueness rule on `synced_trades (broker_account_id, external_id)`, in
+`shared/schema.ts` **and** in `docker-migrate.sql` (production's only schema path), which collapses any
+existing duplicates first — **keeping the journaled row**, so no journal entry is left pointing at a
+deleted trade. `storage.createSyncedTrade` now returns `{ trade, inserted }`, and
+`brokerSyncService.ts` counts a lost race as a **duplicate** rather than as a new trade and **stops
+before journaling it** (the winner journals it; `autoJournal/index.ts:50` only refuses a second entry
+once `journal_entry_id` is set, which in a true race it may not be yet).
+
+**⚠ `onConflictDoNothing()` deliberately does NOT name the index.** Naming it makes Postgres reject the
+statement outright if the index is absent — and a failed migration is **non-fatal** at boot
+(`start.sh:17` ends `|| echo "Migration warning (non-fatal)"`). Naming it would turn one bad migration
+into "no trade is ever recorded again". Un-targeted, the worst case degrades to the old behaviour.
+`startAutoSync` now logs at boot whether the rule is actually present, so losing it is not silent.
+
+**⚠ STILL UNVERIFIED: the migration SQL has not been run against a real Postgres.** No `psql` on this
+machine and Docker Desktop's engine is not running, so it could not be tested. 38 source-level checks
+in `tradeRecording.test.ts` guard the wiring (proven to have teeth — deliberately naming the index made
+3 of them fail), and typecheck is clean, **but the SQL itself is reviewed, not executed.** Watch the
+deploy log for `synced_trades: no duplicate … rows found` or the removal count, and for
+`[AutoSync] duplicate guard: ON`.
+
+**Out of scope, and his decision:** if duplicates already exist, each may have created its own journal
+entry, and deleting a synced trade does **not** delete that entry. The migration reports the count
+rather than touching visible user data.
+
+---
+
+### D52 (original finding) — Nothing in the DATABASE stops the same trade being recorded twice. Found 29 Sep 2026
 
 Two paths now record the same trade — the live feed and the 15-minute safety net — and they can run at
 the same moment. The only thing preventing a double entry is a **look-then-write in application code**

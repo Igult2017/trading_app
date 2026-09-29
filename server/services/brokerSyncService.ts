@@ -429,7 +429,7 @@ export async function processIncomingTrades(
     const openTime  = toDate(raw.openTime);
     const closeTime = toDate(raw.closeTime);
 
-    const synced = await storage.createSyncedTrade({
+    const { trade: synced, inserted } = await storage.createSyncedTrade({
       brokerAccountId,
       userId,
       externalId:  raw.externalId,
@@ -454,6 +454,22 @@ export async function processIncomingTrades(
       magic:       raw.magic,
       rawData:     raw.rawData ?? raw as unknown as Record<string, unknown>,
     });
+
+    // THE OTHER WRITER GOT THERE FIRST — count it as a duplicate and stop, exactly as the check at
+    // the top of this loop does. The check catches the ordinary case; this catches the race it cannot
+    // see, now that the database refuses the second row (docs/OPEN.md D52).
+    //
+    // BOTH LINES BELOW MATTER. Counting a race as `created` would make the sync's own log line lie —
+    // "N recorded" is the diagnostic that answers "has it recorded anything", so it must mean what it
+    // says. And journaling must be skipped: the winner journals it, and `journalSyncedTrade` only
+    // refuses a second entry once `journal_entry_id` is set, which in a true race it may not be yet.
+    if (!inserted) {
+      duplicates++;
+      await record({ brokerAccountId, externalId: raw.externalId, symbol: raw.symbol,
+                     stage: 'duplicate',
+                     detail: 'the other sync path recorded this trade first (uniqueness rule)' });
+      continue;
+    }
 
     created++;
     await record({ brokerAccountId, externalId: raw.externalId, symbol: raw.symbol,

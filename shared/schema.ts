@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, decimal, boolean, integer, jsonb, index } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, decimal, boolean, integer, jsonb, index, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -753,7 +753,19 @@ export type BrokerAccount = typeof brokerAccounts.$inferSelect;
 /**
  * Raw trades synced from broker (via webhook or API poll).
  * Each record maps 1-to-1 to a journal entry once journaled.
- * externalId + brokerAccountId is a unique pair — prevents duplicate journaling.
+ *
+ * `brokerAccountId` + `externalId` IS A UNIQUE PAIR, AND THE DATABASE NOW ENFORCES IT.
+ *
+ * This comment used to assert that on its own, and nothing backed it: the table carried only the two
+ * plain indexes below, so the ONLY thing standing between two writers and a doubled trade was a
+ * look-then-insert in application code (`brokerSyncService.ts:134`) — ask whether the trade exists,
+ * then insert if it did not. Two paths can occupy the gap between those two moments, and there are
+ * now exactly two: the live cTrader feed and the 15-minute sweep, whose loop is deliberately not
+ * awaited (`autoSyncService.ts:262`). The claim was true of the DESIGN and false of the DATABASE.
+ *
+ * The check stays as the fast path — it avoids a pointless insert attempt on the common path — and
+ * `synced_trades_account_external_key` below is what actually makes a second row impossible.
+ * See docs/OPEN.md D52 and docs/ctrader-scaling.md Step 2.
  */
 export const syncedTrades = pgTable("synced_trades", {
   id:              varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -805,6 +817,10 @@ export const syncedTrades = pgTable("synced_trades", {
 }, (t) => [
   index("synced_trades_broker_account_id_idx").on(t.brokerAccountId),
   index("synced_trades_user_id_idx").on(t.userId),
+  // ONE ROW PER BROKER TRADE, ENFORCED BY THE DATABASE — see the note above the table.
+  // Both columns are NOT NULL, so there is no NULL-never-conflicts hole here.
+  // Production gets this from docker-migrate.sql, which collapses any existing duplicates first.
+  uniqueIndex("synced_trades_account_external_key").on(t.brokerAccountId, t.externalId),
 ]);
 
 export const insertSyncedTradeSchema = createInsertSchema(syncedTrades).omit({ id: true, createdAt: true });

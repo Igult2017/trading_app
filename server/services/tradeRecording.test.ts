@@ -149,6 +149,62 @@ check('the periodic balance refresh seeds it too',
 
 teeth('a balance write with no seed would be caught', seeded === writeAt.length);
 
+// ── THE DATABASE REFUSES A SECOND COPY OF THE SAME TRADE (docs/OPEN.md D52) ──────────────────────
+//
+// Two writers now record the same trade — the live feed and this sweep — and the sweep's loop is not
+// awaited, so they can overlap. The application check at the top of `processIncomingTrades` cannot
+// close that gap: it asks whether the trade exists, then inserts, and the other path can land between
+// the two. Only a uniqueness rule in the database can.
+//
+// ⚠ COMMENTS ARE STRIPPED BEFORE MATCHING. A check that matches the prose explaining a rule passes
+// whether or not the rule is there — that exact trap bit this repo once already, in the route guard.
+const decomment = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+const schemaSrc  = decomment(read('shared', 'schema.ts'));
+const migrateSrc = decomment(read('docker-migrate.sql').replace(/^\s*--.*$/gm, ''));
+const storeSrc   = decomment(read('server', 'storage.ts'));
+const brokerCode = decomment(broker);
+
+console.log('\nDUPLICATE TRADES ARE IMPOSSIBLE, NOT JUST UNLIKELY\n');
+
+check('the schema declares the uniqueness rule',
+      /uniqueIndex\("synced_trades_account_external_key"\)\s*\.on\(\s*t\.brokerAccountId\s*,\s*t\.externalId\s*\)/
+        .test(schemaSrc), true);
+// Production never runs db:push — docker-migrate.sql is its only schema path, so the rule must be
+// there too or prod simply does not have it.
+check('production’s migration creates it as well',
+      /CREATE UNIQUE INDEX IF NOT EXISTS\s+synced_trades_account_external_key/i.test(migrateSrc), true);
+check('...and collapses existing duplicates FIRST, or the index cannot be created',
+      /PARTITION BY broker_account_id, external_id/.test(migrateSrc)
+      && migrateSrc.indexOf('DELETE FROM synced_trades')
+         < migrateSrc.indexOf('CREATE UNIQUE INDEX IF NOT EXISTS synced_trades_account_external_key'), true);
+check('...keeping the JOURNALED row, so no journal entry is orphaned',
+      /ORDER BY \(journal_entry_id IS NOT NULL\) DESC/.test(migrateSrc), true);
+
+check('the insert tolerates the conflict instead of throwing',
+      /\.onConflictDoNothing\(\)/.test(storeSrc), true);
+// NOT `onConflictDoNothing({ target: ... })`. Naming the index makes Postgres reject the statement
+// outright when the index is absent, and a failed migration is NON-FATAL at boot (start.sh:17) — so
+// naming it would turn one bad migration into "no trade is ever recorded again".
+check('...and does NOT name the index, which would break every insert if it were missing',
+      /onConflictDoNothing\(\s*\{/.test(storeSrc), false);
+check('the insert reports whether it actually inserted',
+      /inserted:\s*true/.test(storeSrc) && /inserted:\s*false/.test(storeSrc), true);
+
+check('the caller reads that answer', /\{\s*trade:\s*synced\s*,\s*inserted\s*\}/.test(brokerCode), true);
+check('...and a race is counted as a duplicate, never as a new trade',
+      /if \(!inserted\)\s*\{[\s\S]{0,400}?duplicates\+\+/.test(brokerCode), true);
+// The winner journals it. `journalSyncedTrade` only refuses a second entry once journal_entry_id is
+// set, which in a true race it may not be yet — so the loser must not reach it at all.
+const notInserted = brokerCode.slice(brokerCode.indexOf('if (!inserted)'));
+check('...and the loser stops before journaling',
+      notInserted.slice(0, notInserted.indexOf('continue;')).includes('journalSyncedTrade'), false);
+check('a missing guard is reported at boot rather than being silent',
+      /synced_trades_account_external_key/.test(decomment(sync)), true);
+
+teeth('a target on onConflictDoNothing would be caught', !/onConflictDoNothing\(\s*\{/.test(storeSrc));
+teeth('dropping the de-dup but keeping the index would be caught',
+      /PARTITION BY broker_account_id, external_id/.test(migrateSrc));
+
 console.log();
 if (failed) { console.log(`${failed} of ${count} FAILED`); process.exit(1); }
 console.log(`ALL PASS (${count} checks)`);

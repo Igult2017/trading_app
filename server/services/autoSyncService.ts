@@ -4,7 +4,7 @@
  * Subsequent syncs pull since lastSyncAt with a 2hr overlap.
  * cTrader tokens are refreshed reactively (on error) and proactively (near expiry).
  */
-import { db } from '../db';
+import { db, pool } from '../db';
 import { brokerAccounts } from '../../shared/schema';
 import { eq } from 'drizzle-orm';
 import { fetchTradesForAccount, API_PLATFORMS } from './brokerAdapters/index';
@@ -313,8 +313,37 @@ async function repairApiConnectionType(): Promise<void> {
   }
 }
 
+/**
+ * SAY OUT LOUD WHETHER THE DATABASE IS ACTUALLY REFUSING DUPLICATE TRADES.
+ *
+ * `synced_trades_account_external_key` is what stops the live feed and this sweep both writing the
+ * same trade (docs/OPEN.md D52). It is created by `docker-migrate.sql`, which runs at boot as
+ * `psql -f ... || echo "Migration warning (non-fatal)"` (start.sh:17) — so a migration that fails does
+ * NOT stop the container, and the protection would simply be absent.
+ *
+ * `createSyncedTrade` is deliberately written to survive that (it degrades to the old behaviour rather
+ * than throwing), which is right — trade recording must never be what breaks — but it also means the
+ * loss of protection would be SILENT. Hence one line at boot, so "are we protected?" is answerable
+ * from the log instead of by guessing.
+ */
+async function reportDuplicateGuard(): Promise<void> {
+  try {
+    const r = await pool.query(
+      `SELECT 1 FROM pg_indexes WHERE tablename = 'synced_trades'
+         AND indexname = 'synced_trades_account_external_key'`);
+    if (r.rowCount) console.log('[AutoSync] duplicate guard: ON — the database refuses a second copy '
+                                + 'of the same broker trade');
+    else console.error('[AutoSync] ⚠ duplicate guard MISSING — synced_trades_account_external_key is '
+                     + 'not present, so only the application check stands between the live feed and a '
+                     + 'doubled trade. Check the migration output above for a failure.');
+  } catch (err: any) {
+    console.error('[AutoSync] could not check the duplicate guard: ' + (err?.message ?? err));
+  }
+}
+
 export function startAutoSync(): void {
   console.log('[AutoSync] Starting — 15-min interval for all API-connected accounts');
+  void reportDuplicateGuard();
   // THE OUTERMOST SWALLOW, AND THE WORST OF THEM. `.catch(() => {})` here covers
   // `getAllApiAccounts()` — one failed database read and the entire sweep stops for ever, on the
   // boot run AND on every 15-minute tick after it, without a single character in the log.
