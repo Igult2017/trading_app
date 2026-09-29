@@ -14,9 +14,40 @@ import { refreshAccessToken, fetchCTraderBalance } from './brokerAdapters/ctrade
 import type { BrokerAccount } from '../../shared/schema';
 import { storage } from '../storage';
 
-const SYNC_INTERVAL_MS = 15 * 60 * 1_000;
+/** Read a whole number from the environment, clamped, with a fallback. */
+function envInt(name: string, fallback: number, min: number, max: number): number {
+  const n = Number.parseInt(String(process.env[name] ?? ''), 10);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(max, Math.max(min, n));
+}
+
+/**
+ * HOW OFTEN THE SWEEP RUNS, AND HOW FAR BACK IT LOOKS — AS ONE LINKED PAIR, NOT TWO NUMBERS.
+ *
+ * DROPPED FROM 15 MINUTES TO DAILY, 2026-09-30. The sweep used to be the ONLY thing that recovered a
+ * trade the live feed missed, which is why it had to run every 15 minutes for every account whether they
+ * had traded or not — at 250 accounts that is about 1,250 history requests an hour, forever, and almost
+ * every one returns nothing. That is the single largest recurring cost in the platform at scale.
+ *
+ * WHAT MADE IT SAFE TO DROP. Three gaps used to be invisible until the next sweep, and all three now
+ * close the moment they end, in seconds:
+ *   * the process restarted (a deploy) — catch-up on boot;
+ *   * a socket dropped — catch-up on reconnect;
+ *   * one account's session died while its socket stayed healthy — detected, then catch-up
+ *     (`ctraderRealtime.onAccountLost`, docs/OPEN.md D53 and D55).
+ * What is LEFT for the sweep is the one case no detector can see: an event cTrader never sent and never
+ * reported an error for. That is a daily job, not a quarter-hourly one.
+ *
+ * ⚠ WHY THE LOOK-BACK IS DERIVED AND NOT TYPED. Written as two independent numbers, someone changes the
+ * interval and not the window, and that opens exactly the hole the sweep exists to close — the likeliest
+ * way this gets broken later. So the look-back is COMPUTED from the interval at 1.5×, and cannot drift
+ * from it. A daily sweep therefore looks back 36 hours; a 15-minute sweep would look back 22.5 minutes.
+ * The floor keeps short intervals sane.
+ */
+const SYNC_INTERVAL_MS = envInt('SYNC_INTERVAL_MINUTES', 24 * 60, 5, 7 * 24 * 60) * 60_000;
+const LOOKBACK_RATIO   = 1.5;
+const OVERLAP_MS       = Math.max(2 * 3_600_000, SYNC_INTERVAL_MS * LOOKBACK_RATIO);
 const HISTORY_DAYS     = 730;   // 2 years
-const OVERLAP_MS       = 2 * 3_600_000;
 // A DEEPER SWEEP, PERIODICALLY, SO A MISSED TRADE CAN HEAL ITSELF.
 //
 // The incremental window only ever looks back `OVERLAP_MS` from the last successful sync. That is
@@ -29,7 +60,7 @@ const OVERLAP_MS       = 2 * 3_600_000;
 // so looking further back costs a slightly larger fetch and can never double-record. Every
 // DEEP_EVERY-th sync therefore reaches back DEEP_LOOKBACK_MS instead of the usual two hours.
 const DEEP_LOOKBACK_MS = 7 * 24 * 3_600_000;   // one week
-const DEEP_EVERY       = 4;                    // = once an hour on the 15-minute timer
+const DEEP_EVERY       = 4;                    // every 4th sweep — every 4th day on the daily timer
 const PROACTIVE_MS     = 5 * 60 * 1_000; // refresh if token expires within 5 min
 
 async function getAllApiAccounts(): Promise<BrokerAccount[]> {
@@ -253,11 +284,6 @@ export async function syncAccount(account: BrokerAccount,
  */
 const SWEEP_WORKERS = envInt('SYNC_SWEEP_WORKERS', 4, 1, 16);
 
-function envInt(name: string, fallback: number, min: number, max: number): number {
-  const n = Number.parseInt(String(process.env[name] ?? ''), 10);
-  if (!Number.isFinite(n)) return fallback;
-  return Math.min(max, Math.max(min, n));
-}
 
 async function syncAllAccounts(): Promise<void> {
   const accounts = await getAllApiAccounts();
@@ -401,7 +427,9 @@ async function reportDuplicateGuard(): Promise<void> {
 }
 
 export function startAutoSync(): void {
-  console.log('[AutoSync] Starting — 15-min interval for all API-connected accounts');
+  console.log(`[AutoSync] Starting — every ${SYNC_INTERVAL_MS / 60_000} min for all API-connected `
+              + `accounts, looking back ${(OVERLAP_MS / 3_600_000).toFixed(1)}h `
+              + `(${LOOKBACK_RATIO}x the interval, derived — the two cannot drift apart)`);
   void reportDuplicateGuard();
   // THE OUTERMOST SWALLOW, AND THE WORST OF THEM. `.catch(() => {})` here covers
   // `getAllApiAccounts()` — one failed database read and the entire sweep stops for ever, on the

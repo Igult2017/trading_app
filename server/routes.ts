@@ -1110,6 +1110,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
   //
   // `accounts` above `sockets` is the whole point of socket sharing: while they are equal, connections
   // still grow one-for-one with users, which is the ceiling this is all meant to remove.
+  // ── FORCE ONE ACCOUNT'S PASS TO BE REPLACED, SO THE DETECTION CAN BE PROVEN ─────────────────────
+  //
+  // WHY THIS EXISTS. cTrader ends a single account's session whenever its pass is replaced, leaving the
+  // socket healthy and that one account silently unfed (docs/OPEN.md D53). The handler for that is built
+  // and deployed, but it had no way of being PROVEN, because a pass is only replaced when it is within an
+  // hour of expiring (`healthWatchdog.ts:97`) and one lasts about 30 days. "Wait for it to happen" meant
+  // parking the whole polling reduction for a month, which is not caution, it is drift.
+  //
+  // WHAT IT IS SAFE TO DO. A pass is stored PER BROKER ACCOUNT (`refreshCTraderToken` reads that row's
+  // own `passwordEnc`, and the in-flight guard is keyed by account id), so replacing one account's pass
+  // cannot disturb another's. `accountId` is REQUIRED and there is no default: this must never be
+  // fireable at "whatever account comes first", because the signal platform reads one of them and its
+  // pass is the one thing that must not be pulled out from under it.
+  app.post("/api/admin/ctrader/force-token-refresh", requireAdmin, async (req: Request, res: Response) => {
+    const accountId = String((req.body ?? {}).accountId ?? '').trim();
+    if (!accountId) return res.status(400).json({ error: "accountId is required — this is deliberately not defaultable" });
+    try {
+      const { rows } = await pool.query(
+        `SELECT id, platform, password_enc FROM broker_accounts WHERE id = $1`, [accountId]);
+      const row = rows[0];
+      if (!row) return res.status(404).json({ error: "no such broker account" });
+      if (String(row.platform).toLowerCase() !== 'ctrader') {
+        return res.status(400).json({ error: `account is ${row.platform}, not cTrader` });
+      }
+      console.log(`[admin] forcing a pass refresh for cTrader account ${accountId} — expect a `
+                  + `session-lost event for this account and no other`);
+      const fresh = await refreshCTraderToken({ id: row.id, platform: row.platform,
+                                                passwordEnc: row.password_enc } as any);
+      res.json({
+        accountId,
+        refreshed: fresh !== null,
+        // null means the refresh pass itself is spent — that account needs re-connecting by hand, and
+        // saying so is the point: it is a real state, not a transient error.
+        note: fresh ? "pass replaced; cTrader should now end this account's old session"
+                    : "refresh failed — the refresh pass is spent and this account needs reconnecting",
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err?.message ?? String(err) });
+    }
+  });
+
   app.get("/api/admin/ctrader-capacity", requireAdmin, async (_req: Request, res: Response) => {
     const hub  = hubStats();
     const pool = poolStats();
