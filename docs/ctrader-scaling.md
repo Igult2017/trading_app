@@ -271,13 +271,22 @@ never appear under Account B. Run it more than once.
 missing → **the socket-sharing approach is dead as built**, and that is the finding; it gets written
 here, not forced.
 
-### Step 2 — make the database refuse duplicates. **BUILT 29 Sep — SQL not yet run against a database**
+### Step 2 — make the database refuse duplicates. **BUILT AND VERIFIED 29 Sep**
 
 **Done:** the uniqueness rule is in `shared/schema.ts` and in `docker-migrate.sql` (which collapses any
-existing duplicates first, keeping the journaled row); `createSyncedTrade` reports whether it inserted;
-a lost race counts as a duplicate and does not reach the journal; `startAutoSync` logs at boot whether
-the rule is present. 38 checks guard it, proven to have teeth. **Not done: the migration SQL has never
-been executed** — no `psql` here and Docker's engine is not running. Full account in `docs/OPEN.md` D52.
+existing duplicates first, **keeping the journaled row**); `createSyncedTrade` reports whether it
+inserted; a lost race counts as a duplicate and does not reach the journal; `startAutoSync` logs at boot
+whether the rule is present.
+
+**Verified, not just reviewed:** the migration block was **extracted from the real file** and run
+against real PostgreSQL via **PGlite** (Postgres compiled to WebAssembly — no server, no virtual
+machine, which this laptop cannot provide). 8 checks passed, including the two that matter most: the
+**journaled** row survives a collapse, and the **same trade id on a different account is left alone**.
+Plus 38 source-level wiring checks, proven to have teeth. Full account in `docs/OPEN.md` D52.
+
+**⚠ PGlite is installed with `--no-save`, so this test is not repeatable from a clean checkout.** Making
+it permanent means adding one dev dependency — his call, and worth asking, because it is the only thing
+that can verify a migration that DELETES rows.
 
 **What.** A uniqueness rule in PostgreSQL on `synced_trades (broker_account_id, external_id)`, and
 correct the comment that claims one already exists.

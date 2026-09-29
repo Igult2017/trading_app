@@ -3681,11 +3681,28 @@ statement outright if the index is absent — and a failed migration is **non-fa
 into "no trade is ever recorded again". Un-targeted, the worst case degrades to the old behaviour.
 `startAutoSync` now logs at boot whether the rule is actually present, so losing it is not silent.
 
-**⚠ STILL UNVERIFIED: the migration SQL has not been run against a real Postgres.** No `psql` on this
-machine and Docker Desktop's engine is not running, so it could not be tested. 38 source-level checks
-in `tradeRecording.test.ts` guard the wiring (proven to have teeth — deliberately naming the index made
-3 of them fail), and typecheck is clean, **but the SQL itself is reviewed, not executed.** Watch the
-deploy log for `synced_trades: no duplicate … rows found` or the removal count, and for
+**✅ THE MIGRATION SQL WAS RUN FOR REAL AND PASSED — 8 checks, 29 Sep.** Docker needs a virtual machine
+this laptop does not have, so it was run against **PGlite** instead — real PostgreSQL compiled to
+WebAssembly, in-process, no server and no admin rights (`npm install --no-save @electric-sql/pglite`).
+The **actual block was extracted from `docker-migrate.sql`** rather than retyped, so what ran is what
+ships. Seeded 9 rows across 5 cases; 5 survived, and they were exactly the right 5:
+
+| case | expected to survive | why it matters |
+|---|---|---|
+| 3 copies, the middle one journaled | **the journaled one**, not the oldest | the safety-critical rule — a deleted journaled row orphans a journal entry |
+| 2 copies, both journaled | the **older** | tie-break |
+| 1 copy, no duplicate | itself, untouched | must not touch innocent rows |
+| **same trade id on a DIFFERENT account** | **both** | teeth — the key is the PAIR, and collapsing these would destroy real trades |
+| a NULL `created_at` beside a real one | the one with a real time | `NULLS LAST` |
+
+Then proven directly: a second copy of the same trade is **refused**, the same id on another account is
+**still allowed**, and running the migration twice **changes nothing**. The notice reported
+`removed 4 duplicate row(s)`.
+
+Plus 38 source-level checks in `tradeRecording.test.ts` guarding the wiring — proven to have teeth, as
+deliberately naming the index made 3 of them fail — and typecheck clean.
+
+**On deploy, watch for** `synced_trades: no duplicate … rows found` (or a removal count) and
 `[AutoSync] duplicate guard: ON`.
 
 **Out of scope, and his decision:** if duplicates already exist, each may have created its own journal
