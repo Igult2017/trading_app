@@ -32,7 +32,7 @@ import type { BrokerAccount } from '../../shared/schema';
 import { safeDecrypt } from '../lib/crypto';
 import { processIncomingTrades } from './brokerSyncService';
 import { notificationService } from './notificationService';
-import { refreshCTraderToken } from './autoSyncService';
+import { refreshCTraderToken, syncAccount } from './autoSyncService';
 import { mapClosedDeal, mapClosedFromEvent } from './brokerAdapters/ctrader';
 import { record } from './autoJournal';
 import { logUtilisation, stats } from './ctraderConnPool';
@@ -110,6 +110,17 @@ async function openFeed(id: string, attempt: number): Promise<void> {
   try {
     await attach(account, creds, onTrade, onHubLost, onAccountLost);
     console.log(`[cTraderRT] live feed attached — account ${id} (ctid ${creds.ctraderId})`);
+    // CATCH UP ON WHAT HAPPENED WHILE WE WERE NOT LISTENING (docs/OPEN.md D55).
+    //
+    // A live event only reaches us while the feed is up. Until now the ONLY thing that recovered a
+    // trade closed during an outage was the 15-minute sweep — `reconcile()` reopens feeds and fetches
+    // nothing — which is the whole reason that sweep has to run every 15 minutes for every account
+    // whether they traded or not.
+    //
+    // Fired on EVERY successful attach, which covers all three gaps at once: boot after a deploy or
+    // restart, a dropped socket coming back, and one account's session being re-authorised. Not
+    // awaited, because a feed that is up must not wait on a history fetch to start streaming.
+    void catchUp(account);
   } catch (err: any) {
     const msg = String(err?.message ?? '');
     if (attempt === 0 && /2142|token|auth/i.test(msg)) {       // expired token → refresh once
@@ -120,6 +131,44 @@ async function openFeed(id: string, attempt: number): Promise<void> {
     // give up on an account whose trades would then never be recorded.
     console.error(`[cTraderRT] could not attach account ${id}: ${msg}`);
     scheduleReconnect(id);
+  }
+}
+
+/**
+ * FETCH WHAT THE FEED MISSED WHILE IT WAS DOWN — one account, once per attach.
+ *
+ * WHY THIS IS THE CHANGE THAT MATTERS. Events carry speed; they cannot carry correctness on their own,
+ * because an event that arrives while nothing is listening is simply gone. cTrader documents no
+ * sequence numbers, no acknowledgements and no replay, so there is no way to ask "what did I miss?" —
+ * the only answer is to re-read the window ourselves.
+ *
+ * WHY IT MAKES THE FREQUENT SWEEP UNNECESSARY. The 15-minute sweep exists because nothing else
+ * recovered a missed trade. With a catch-up on every attach, the three gaps we can actually detect —
+ * a restart, a dropped socket, a re-authorised account — are closed at the moment they end, in seconds
+ * rather than up to 15 minutes. What is left for the sweep is the one case no detector can see: an
+ * event the broker never sent and never reported. That is a daily job, not a quarter-hourly one.
+ *
+ * ⚠ THE SWEEP'S INTERVAL AND ITS LOOK-BACK MOVE TOGETHER, AS A RATIO. The look-back must stay at least
+ * 1.5× the interval. Today it is 2 hours against 15 minutes; a daily sweep still looking back 2 hours
+ * would open exactly the hole it is meant to close. Changing one without the other is the likeliest way
+ * this gets broken later, which is why it is written here and in docs/ctrader-scaling.md.
+ *
+ * IT REUSES THE SWEEP'S OWN SYNC — deliberately not a second implementation. `syncAccount` already
+ * asks only for the window since the last recorded moment, already takes a pooled cTrader connection,
+ * and already de-duplicates against the uniqueness rule, so a trade the feed also delivers cannot be
+ * written twice.
+ */
+async function catchUp(account: BrokerAccount): Promise<void> {
+  try {
+    const r = await syncAccount(account);
+    if (r.ok && (r.created ?? 0) > 0) {
+      console.log(`[cTraderRT] catch-up recovered ${r.created} trade(s) missed while the feed was `
+                  + `down — account ${account.id.slice(0, 8)}`);
+    }
+  } catch (err: any) {
+    // Never fatal: the feed is already attached and streaming. A failed catch-up leaves the 15-minute
+    // sweep as the backstop, which is exactly what it is for.
+    console.error(`[cTraderRT] catch-up failed for ${account.id.slice(0, 8)}: ${err?.message ?? err}`);
   }
 }
 

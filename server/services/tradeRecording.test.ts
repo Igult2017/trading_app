@@ -201,6 +201,34 @@ check('...and the loser stops before journaling',
 check('a missing guard is reported at boot rather than being silent',
       /synced_trades_account_external_key/.test(decomment(sync)), true);
 
+// ── WHAT THE FEED MISSED WHILE IT WAS DOWN IS FETCHED (docs/OPEN.md D55) ─────────────────────────
+//
+// An event only arrives while something is listening. Before this, the ONLY thing that recovered a
+// trade closed during an outage was the 15-minute sweep — `reconcile()` reopens feeds and fetches
+// nothing — which is precisely why that sweep has to run every 15 minutes for every account whether
+// they traded or not.
+console.log('\nA MISSED TRADE IS RECOVERED WHEN THE FEED COMES BACK\n');
+const rtSrc = decomment(read('server', 'services', 'ctraderRealtime.ts'));
+
+check('a successful attach triggers a catch-up',
+      /live feed attached[\s\S]{0,200}?catchUp\(account\)/.test(rtSrc), true);
+// REUSED, NOT REIMPLEMENTED. `syncAccount` already asks only for the window since the last recorded
+// moment, already takes a pooled cTrader connection, and already lands behind the uniqueness rule — a
+// second fetch implementation here would drift from all three.
+check('...and it reuses the sweep’s own sync rather than fetching separately',
+      /async function catchUp[\s\S]{0,400}?await syncAccount\(account\)/.test(rtSrc), true);
+check('...imported from the sweep, so there is one implementation',
+      /import \{[^}]*syncAccount[^}]*\} from '\.\/autoSyncService'/.test(rtSrc), true);
+// NOT AWAITED at the call site: a feed that is up must not wait on a history fetch before streaming.
+check('the catch-up does not block the feed from streaming',
+      /void catchUp\(account\)/.test(rtSrc), true);
+// AND IT MUST NOT BE FATAL. The feed is already attached; a failed catch-up leaves the sweep as the
+// backstop, which is what the sweep is for.
+check('a failed catch-up is caught, not left to reject',
+      /async function catchUp[\s\S]{0,900}?catch \(err/.test(rtSrc), true);
+
+teeth('removing the catch-up would be caught', /catchUp\(account\)/.test(rtSrc));
+
 teeth('a target on onConflictDoNothing would be caught', !/onConflictDoNothing\(\s*\{/.test(storeSrc));
 teeth('dropping the de-dup but keeping the index would be caught',
       /PARTITION BY broker_account_id, external_id/.test(migrateSrc));

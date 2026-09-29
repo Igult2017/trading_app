@@ -3791,8 +3791,17 @@ it fails page loads. 4 leaves the majority for real users.
 250 accounts with 4 workers never exceeds **4 in flight** and all 250 still run; and the teeth check
 proves the test can tell the difference (250 workers really does put 250 in flight).
 
-**Still to do:** deploy, then confirm the log reads `sweep: N account(s) to check, 4 at a time` and a
-`sweep finished in Xs` line.
+**✅ LIVE AND CONFIRMED — deployed 29 Sep 21:47 UTC, commit `cc0ee376`.** Production's own log:
+
+```
+[AutoSync] duplicate guard: ON — the database refuses a second copy of the same broker trade
+[AutoSync] sweep: 4 API-connected account(s) to check, 4 at a time
+[AutoSync] sweep finished in 3.5s
+```
+
+The `4 at a time` and the `sweep finished in` line are both new, so the bounded, awaited sweep is
+running. D53's detection deployed in the same commit but has had no event to react to yet, which is
+expected.
 
 ---
 
@@ -3819,7 +3828,40 @@ tracks Web Push (phone notifications), which is a different thing from this.
 
 ---
 
-### D55 — Reconnecting a live feed does NOT fetch the trades it missed. Found 29 Sep 2026
+### D55 — ~~Reconnecting a live feed does NOT fetch the trades it missed~~ BUILT 30 Sep, NOT DEPLOYED
+
+**Fixed.** Every successful attach now fires `catchUp(account)` in `ctraderRealtime.ts`, which **covers
+all three recoverable gaps at once**: boot after a deploy or restart, a dropped socket coming back, and
+one account's session being re-authorised (D53).
+
+**It reuses `syncAccount`, deliberately not a second fetch.** That function already asks only for the
+window since the last recorded moment, already takes a pooled cTrader connection, and already lands
+behind the uniqueness rule (D52) — so a trade the feed also delivers cannot be written twice. A separate
+implementation here would drift from all three.
+
+**Not awaited, and never fatal:** a feed that is up must not wait on a history fetch before it starts
+streaming, and a failed catch-up leaves the 15-minute sweep as the backstop, which is what it is for.
+
+**No import cycle:** `autoSyncService` already reaches back the other way through a **dynamic** import
+(`autoSyncService.ts:367`) for exactly this reason, so the static graph stays one-directional.
+
+**6 checks** in `tradeRecording.test.ts` (44 total in that file), with teeth.
+
+**⚠ WHAT THIS UNLOCKS, AND THE RULE THAT COMES WITH IT.** The frequent sweep exists *because* nothing
+recovered a missed trade. With catch-up in place, the three detectable gaps close in seconds instead of
+up to 15 minutes, and the sweep is left covering only the case no detector can see — an event the broker
+never sent and never reported. **That is a daily job, not a quarter-hourly one.** When it is turned down:
+**the interval and the look-back move together, as a ratio — the look-back stays at least 1.5× the
+interval.** Today it is 2 hours against 15 minutes. A daily sweep still looking back 2 hours would open
+exactly the hole it is meant to close, and changing one without the other is the likeliest way this gets
+broken later.
+
+**Not done:** the sweep is still at 15 minutes. Turning it down is the LAST step, and it waits on D53
+being proven live.
+
+---
+
+### D55 (original finding) — Reconnecting a live feed does NOT fetch the trades it missed. Found 29 Sep 2026
 
 `reconcile()` in `server/services/ctraderRealtime.ts:138-151` only fixes **which accounts have a feed
 open** — it opens feeds for accounts that should have one and drops feeds for deleted accounts. It
