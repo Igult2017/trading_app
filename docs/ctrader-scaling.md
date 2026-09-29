@@ -255,6 +255,12 @@ an unlabelled fill on a shared socket is dropped rather than guessed. What no te
 the **real gateway actually sends**. This is the trap that rule exists for: a harness must reproduce
 what can actually break the code, not what is easy to model.
 
+**Two more things the same script must answer** (added 29 Sep, both gateway facts nobody has checked):
+1. **Does this gateway implement `ProtoOAReconcileReq`, and what does it name its fields?** The whole
+   open-position detector rests on it — see the event-first section.
+2. **Does a fill carry `positionStatus` reliably?** Both paths now depend on the position's own status
+   to know a trade is finished, so the detector and the duplicate rule both inherit that assumption.
+
 **Files.** One new script. **No production code changes.**
 
 **MEASURED.** For each of the four: a fill arrives, it names its own `ctidTraderAccountId`, and it is
@@ -463,6 +469,98 @@ limit, and no amount of socket sharing fixes it. Shard the way the copy engine a
 
 ---
 
+## EVENT-FIRST SYNC — his direction, 29 Sep. The design is settled; the go-ahead is not
+
+**His question:** *"why don't we fix the gaps in event listening and then use it… can we make it not
+fail and also have plan B of requesting what it failed it sent?"* He is right, and researching it
+produced a better answer than the daily sweep either of us had proposed.
+
+### The hard limit, and it is cTrader's, not ours
+
+Their message reference documents **no sequence numbers, no acknowledgements and no delivery
+guarantees**, and fills are **not a subscription that can be replayed** — only market data has
+subscriptions. **There is no documented way to ask "did I miss anything?"** So event delivery cannot be
+made *provably* lossless. That is the ceiling, and it is a property of their API.
+([messages reference](https://help.ctrader.com/open-api/messages/))
+
+### But there is a cheap detector we are not using
+
+`ProtoOAReconcileReq` returns **the account's currently open positions and pending orders.** The docs
+put only three requests in the scarce bucket — *"Historical Data (ProtoOAGetTrendbarsReq,
+ProtoOAGetTickDataReq, ProtoOADealListReq): 5 requests/second. All other requests: 50
+requests/second."* ([FAQ](https://spotware-open-api.readthedocs.io/en/latest/faq/)) **Reconcile is not
+one of them**, so it has ten times the budget of the deal-history fetch every sweep uses today.
+
+**Nothing on the Node side asks for positions at all** — verified 29 Sep, no Reconcile request exists
+in [`brokerAdapters/ctrader.ts`](../server/services/brokerAdapters/ctrader.ts).
+
+### The four layers
+
+| layer | job | state |
+|---|---|---|
+| **Live events** | the fast path — a fill is recorded on arrival | **already built** ([`ctraderRealtime.ts:108`](../server/services/ctraderRealtime.ts#L108)) |
+| **Catch-up** on boot, on reconnect, and on a detected dead session | recovers anything missed during an outage | **not built** — D55 + Step 3 |
+| **Open-position check** every few minutes | *detects* a missed close within minutes, then fetches history for **that one position only** | **not built** — new |
+| **Daily sweep** | covers the one case the detector cannot see | exists; drops from 15 min to daily |
+
+**How the detector works.** Remember which positions the broker says are open. When one **disappears
+from that list and there is no recorded trade for it**, a close was missed. The recorded trade already
+stores `position_id` ([`schema.ts:788`](../shared/schema.ts#L788)), so that match is a direct lookup.
+
+**What it costs.** 250 accounts checked every 5 minutes ≈ **0.8 requests a second against a
+50-per-second budget** — about 1.7% of it. Against today: **1,000 two-hour history fetches an hour,
+plus 250 seven-day ones**, all against the 5-per-second budget.
+
+| | the daily-sweep version | with the detector |
+|---|---|---|
+| time to notice a missed trade | up to 36 hours | a few minutes |
+| the expensive request | every account, every day | only when a gap is found |
+
+### The one case that still cannot be caught
+
+**A position opened AND closed between two checks, with both events missed.** The broker's open list
+never held it, so its disappearance cannot be noticed — only a history fetch finds it. **That single
+case is the reason the daily sweep stays.** Not "events are unreliable" — that one hole. With a
+5-minute check it needs a trade that opens and closes inside 5 minutes and loses both its events;
+rare, but his timeframes make it less rare than it sounds.
+
+### ⚠ The assumption that must be measured before any of this is built
+
+**I have not verified that this JSON gateway implements Reconcile, or what it names its fields.** That
+caveat is not routine here: this gateway has already been proven to differ from the spec twice — it
+spells codes as words (`"FILLED"` not `2`), and `closePositionDetail` was **absent on 0 of 30 real
+deals** though the spec carries it ([`ctraderRealtime.ts:110`](../server/services/ctraderRealtime.ts#L110)).
+So *"the spec says Reconcile returns positions"* is **not** *"this gateway returns positions."* It goes
+in the same script as Step 1.
+
+### The order is the risk, not the design
+
+Cutting the frequent sweep is the **last** move, because it is what currently hides the gaps:
+
+1. Step 2 — the database refuses duplicates
+2. Step 3 — a dead account session becomes detectable *(without this, the catch-up's third trigger does not exist)*
+3. Catch-up on boot and reconnect *(D55)*
+4. The open-position detector, once the gateway probe passes
+5. Step 4 — bounded queue *(250 accounts reconnecting after a deploy is 250 catch-ups at once)*
+6. **Only then** the sweep drops to daily
+
+**And the sweep's interval and look-back move together.** Today it is 2 hours against 15 minutes — 8×
+headroom ([`autoSyncService.ts:19`](../server/services/autoSyncService.ts#L19)). Write it as a **ratio,
+never two numbers**: the look-back is always at least 1.5× the interval. A daily sweep still looking
+back 2 hours creates exactly the hole it is meant to close, and changing one without the other is the
+most likely way this gets broken later.
+
+**One marker, not two.** `lastSyncAt` is written by **both** the sweep
+([`autoSyncService.ts:222`](../server/services/autoSyncService.ts#L222)) and the live feed
+([`brokerSyncService.ts:481`](../server/services/brokerSyncService.ts#L481) →
+[`storage.ts:1035`](../server/storage.ts#L1035)), so it means *"when we last recorded or checked"* —
+**not** *"the point up to which we are complete."* Two trades close a minute apart, the feed catches
+the second and missed the first, and the marker now sits after a trade never recorded. **The overlap is
+what absorbs that** — which is why it is load-bearing, and why a second marker that can disagree with
+this one must not be added.
+
+---
+
 ## Where that lands at 2000 users
 
 | holder | connections |
@@ -484,9 +582,9 @@ limit, and no amount of socket sharing fixes it. Shard the way the copy engine a
 * **How many accounts one connection tolerates.** No documented limit. Start at 20, on evidence.
 * **Whether we are anywhere near the rate limits.** Nothing in this codebase reads, counts or reacts
   to a rate-limit response — verified 29 Sep. So we would not know if we were.
-* **Which rate-limit bucket a deal-history request falls into** — the scarce 5-per-second historical
-  one, or the 50-per-second one. **Not verified.** At 250 accounts the sweep is ~1,250 history
-  requests an hour, so this decides whether Step 6 needs 5 workers or 50. Settled in Step 0.
+* ~~Which rate-limit bucket a deal-history request falls into~~ — **ANSWERED 29 Sep from the docs.**
+  `ProtoOADealListReq` **is** one of the three scarce 5-per-second requests; everything else is
+  50-per-second. See the event-first section below, which is built on this.
 * **What the real ceiling is for this box.** Three processes share 2 CPUs in one container. His item
   16 is right that it should be benchmarked rather than assumed — and one production line on 29 Sep
   already showed the position tracker skipping a run with only four accounts.
