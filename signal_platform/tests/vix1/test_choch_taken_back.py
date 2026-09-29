@@ -82,7 +82,7 @@ else:
             state(i_turn).direction, -1)
     # THE SELL THAT DIRECTION WOULD ALLOW IS HELD BACK BY HIS OTHER RULE OF THE SAME DAY: the pullback
     # before that candle ran FIVE candles and the candle is the FIRST after it, so the trade waits for
-    # the third (`vix1_retracement.wait_after_pullback`). With both of his rules live this market
+    # the third (`vix1_retracement.entry_timing`, renamed 2026-09-29 when it grew its breakout branch). With both of his rules live this market
     # produces nothing at all — the wrong BUY is gone and the SELL waits.
     from strategies import vix1_retracement                          # noqa: E402
     _w = bars[max(0, i_turn + 1 - 3000):i_turn + 1][-1500:]

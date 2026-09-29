@@ -128,13 +128,23 @@ s.check("...and 06:00 is one of them — a candle can never be its own void",
         sorted(d.strftime("%H:%M") for d, bull in _sells), ["00:00", "06:00"])
 s.check("five hours in this window carry a bias (three buys, two sells)", len(fired), 5)
 
+# ⚠ WHAT THE DEFAULT DOES CHANGED ON 2026-09-29, and only for the 16:00 bar.
+#
+# It used to be that with the shortcut off NONE of his three BUYs traded. Two still do not. The
+# 16:00 one does, and the cause is his instruction of that day: *"Pullback is just the opposite
+# candle in our move so it can be detected without those complicated ineffective and inaccurate
+# tools."* The re-proof rule used to ask a CONFIRMED SWING whether the market had pulled back, and
+# the swing detector misses 93% of one-candle pullbacks (measured over six instruments on real
+# broker H1, `tools/pullback_vs_swings.py`). Counting candles, the pullback behind that bar is
+# plainly there.
+#
+# `test_tradeable.py` holds the same three bars and agrees: 11:00 and 12:00 silent, 16:00 trades.
 fired_default = fired_with(False)
-s.check("by DEFAULT (shortcut off since 2026-09-14) his three BUYs trade nothing — the turn up has "
-        "not yet run, pulled back and turned back up",
-        [d for d, bull in fired_default if bull], [])
-s.check("...and only the two 02 Sep sells remain, which need no shortcut", len(fired_default), 2)
-s.teeth("the shortcut switch is what decides the BUYs",
-        len(fired) == 5 and len(fired_default) == 2)
+s.check("by DEFAULT only the 16:00 BUY trades — the other two still have no pullback behind them",
+        [d.strftime("%H:%M") for d, bull in fired_default if bull], ["16:00"])
+s.check("...plus the two 02 Sep sells, which need no shortcut", len(fired_default), 3)
+s.teeth("the shortcut switch still decides the other two BUYs",
+        len(fired) == 5 and len(fired_default) == 3)
 
 
 # ── THE CONTROL: a market where the sides DISAGREE is still refused ────────

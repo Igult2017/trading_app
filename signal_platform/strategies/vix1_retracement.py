@@ -231,9 +231,24 @@ def measure(candles: list[Candle], direction: int, since: int | None = None,
                        extreme=best, extreme_index=start + off, measured=True)
 
 
-# ── HOW LONG SINCE THE PULLBACK ENDED (his rule, 2026-09-16) ─────────────────────────────────────────
+# ── WHEN MAY A MOMENTUM CANDLE TRADE? ONE RULE, THREE BRANCHES — all his ────────────────────────────
+#
+# 2026-09-16:  "after the pullback, we take trade from the 3rd candle and above if it is the momentum
+#               candle... unless the pullback was made of 1-3 candles."
+# 2026-09-29:  "in a breakout, after the price has come out of the band, we count the first 2 candles
+#               and fire signal when the 3rd candle closes if it is a momentum candle and we haven't
+#               had a pullback yet."
+# 2026-09-29:  "in a CHOCH, we wait for a pullback to take a trade but the band issue has proven to us
+#               that sometimes price can move for a very long time without a pullback. so that 3
+#               candle rule also applies in a CHOCH scenario if we have not had a pullback."
+#
+# THE THREE BRANCHES ARE ONE QUESTION, which is why they are one function. "How long since the move
+# committed, and has it pulled back yet" — a pullback of 1-3 candles trades its first momentum candle,
+# a longer one waits three, and NO pullback at all waits three from the break. Split across two
+# functions they would drift, and the middle branch would be asked in one place and not the other.
 _SHORT_PULLBACK = 3     # a pullback of this many candles or fewer is SHORT: its first momentum candle trades
 _WAIT_CANDLES   = 3     # after a longer one, the trade may only come from this candle onward
+_BREAK_CANDLES  = 3     # with NO pullback at all, the trade comes from this candle after the break
 
 
 def since_pullback(candles: list[Candle], direction: int) -> tuple[int, int]:
@@ -259,21 +274,56 @@ def since_pullback(candles: list[Candle], direction: int) -> tuple[int, int]:
     return after, bars
 
 
-def wait_after_pullback(candles: list[Candle], direction: int) -> str | None:
-    """HIS RULE, 2026-09-16, in his words:
+def entry_timing(candles: list[Candle], direction: int,
+                 break_time: int | None = None) -> str | None:
+    """May the NEWEST candle trade? The refusal in his words, or None to go ahead.
 
-        "after the pullback, we take trade from the 3rd candle and above if it is the momentum candle.
-         We no longer take trade from the first candle (if its a momentum candle) after pullback unless
-         the pullback was made of 1-3 candles. I realized most of first momentum candles after pullback
-         are never successful when the pullback itself was a long word that took more than 3 candles
-         down."
+    `direction` is the way the move is going — the CONFIRMED trend where there is one, otherwise the
+    direction the break committed to. It is passed in rather than read off a trend state, so this
+    answers during a change of character too, which is the whole point of the 2026-09-29 rules.
 
-    So: a pullback of ONE TO THREE candles is unchanged — its first momentum candle still trades. After a
-    LONGER pullback the first two candles are refused and the trade comes from the third onward.
+    `break_time` is the BAR TIME of the candle the move broke out on — the change of character, or
+    the break of structure that left the band. **THAT CANDLE IS CANDLE 1**, his ruling 2026-09-29.
+    Without it the first branch cannot apply and only the pullback branches run, which is exactly
+    today's behaviour for a trend that is merely continuing.
 
-    Returns the refusal in his words, or None when there is nothing to wait for.
+    ⚠ A TIME AND NOT AN INDEX, deliberately. VIX.1 carries several windows of the same bars — the
+    trend window, the same window truncated at the momentum candle, the full history — and a trend
+    state's indexes belong to whichever one built it. Translating between them is arithmetic that
+    fails silently when a window changes length, and it has cost this platform before. A bar time is
+    the same number in every window, so there is nothing to translate and nothing to get wrong.
+
+    THE THREE BRANCHES:
+
+      no pullback since the break   ->  the trade comes from the 3rd candle, counting the break
+                                        candle as the 1st
+      a pullback of 1-3 candles     ->  its FIRST momentum candle trades (unchanged, 2026-09-16)
+      a longer pullback             ->  the trade comes from the 3rd candle after it (unchanged)
+
+    WHY THE FIRST BRANCH HAD TO EXIST, in his words: *"the band issue has proven to us that sometimes
+    price can move for a very long time without a pullback"*. Waiting for a pullback that never comes
+    is how a move runs its whole length untraded — measured on XAU/USD 28 Sep 2026, six momentum
+    candles qualified across 22 hours and none could be taken.
     """
-    after, bars = since_pullback(candles, direction)
+    bi = None
+    if break_time is not None:
+        bi = next((k for k, c in enumerate(candles) if c.time == break_time), None)
+    # A break that is not in this window cannot be counted from, and guessing where it fell would be
+    # worse than not applying the branch — so it degrades to the pullback branches alone.
+    seg = candles if bi is None else candles[bi:]
+    after, bars = since_pullback(seg, direction)
+
+    if bars == 0:
+        # NOTHING HAS PULLED BACK YET. Before the break is known this is simply "no reason to wait",
+        # which is what shipped before and is right for a trend already under way.
+        if bi is None:
+            return None
+        n = len(candles) - bi                   # the break candle itself is candle 1
+        if n >= _BREAK_CANDLES:
+            return None
+        return (f"the move broke out {n} candle{'s' if n != 1 else ''} ago and has not pulled back yet "
+                f"— with no pullback the trade comes from the {_BREAK_CANDLES}rd candle after the break")
+
     if bars <= _SHORT_PULLBACK or after >= _WAIT_CANDLES:
         return None
     return (f"the pullback ran {bars} candles and this is only candle {after} after it — after a pullback "
@@ -307,17 +357,28 @@ def swings(candles: list[Candle], direction: int, since: int | None) -> tuple[li
     a turning point** and the counter-leg starts. Same sensitivity `pullback_since` already has —
     *"A pullback can be from 1 candle or more so it should count candles"*.
 
-    ⚠ MEASURED COST, AND HE RULED WITH IT IN FRONT OF HIM: this refuses MORE, not less. Across the
-    three instruments the shape test goes from 34/39/9 refusals to 52/63/13 — **19 setups freed, 65
-    newly refused**. Fine swings zigzag, so "the last two highs AND the last two lows both step the
-    trend's way" is harder to satisfy than on coarse ones. He chose it anyway, on the principle that
-    the pullback reading must DECIDE rather than decorate.
+    ⚠⚠ NOTHING CALLS THIS. IT IS BUILT, PROVEN, AND NOT WIRED IN — and the two paragraphs that used
+    to sit here said the opposite ("He chose it anyway", "ONLY THE SHAPE QUESTION USES THIS"). They
+    described a state that was tried on 2026-09-13 and REVERTED the same day, and they stood here
+    misdescribing the code for sixteen days. He asked on 2026-09-29 whether it works and why it was
+    off; the honest answer is below.
 
-    ONLY THE SHAPE QUESTION USES THIS. Direction, the break of structure, the change of character and
-    the protected level all still read `vix1_swings` — he asked for those explicitly (*"We have CHOCH
-    logic and we also have protected area which protects us"*), and `vix1_trend` still confirms a
-    pending reversal from its own `highs`/`lows`. This is one pullback logic answering the
-    pullback-shaped question, not a second trend engine.
+    DOES IT WORK? YES — measured on real broker H1, 3,000 bars: it marks 991 turning points on
+    EUR/USD and 978 on XAU/USD where `vix1_swings` marks 442 and 465. About 2.2x as many, which is
+    the point of it: it sees the one-candle pullbacks the detector misses 93% of the time
+    (`tools/pullback_vs_swings.py`).
+
+    WHY IT IS OFF, AND IT IS NOT BECAUSE IT IS WRONG. It was wired into the SHAPE test — "do the last
+    two highs AND the last two lows both step the trend's way". Fine swings zigzag, so that question
+    gets HARDER on them, not easier: refusals went 34/39/9 to 52/63/13 across the three instruments,
+    **19 setups freed and 65 newly refused**, and four test files went red including his own
+    2026-08-25 bearish proof. The fault was the QUESTION, not the swings: his pullback rule never
+    compares two swings, it asks "did a pullback run, and has this candle ended it".
+
+    WHAT ANSWERS THAT QUESTION NOW is `since_pullback` and `entry_timing` above, which count candles
+    and are wired into both routes. So this function is kept for the shape question if he ever rules
+    on it, and for nothing else. If that ruling does not come, it should be deleted rather than left
+    sitting here looking live.
     """
     highs: list[float] = []
     lows: list[float] = []

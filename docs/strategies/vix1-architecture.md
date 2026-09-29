@@ -125,7 +125,8 @@ answer belongs in the owning module, not in a new one.
 | How long has this been the answer? | `vix1_trend.remember` | **sole owner.** Age only, in 1HR bars; never a verdict |
 | Are we mid-pullback on the faster structure? | `vix1_structure.leg_state` | sole owner |
 | *When* did the pullback that is running now begin? | `vix1_retracement.pullback_since` | sole owner |
-| Has the trend run and pulled back at least once? | `vix1_tradeable.trend_reproven` | sole owner |
+| Has the trend run and pulled back at least once? | `vix1_tradeable.trend_reproven` | sole owner. **Rebuilt 2026-09-29 on `vix1_retracement.since_pullback`** — it used to take EITHER a confirmed swing (a DISTANT pullback) or `measure().active` (an ADJACENT one); one candle-counting reader covers both distances, because `since_pullback` walks back over every resuming candle first |
+| **WHEN may a momentum candle trade?** | `vix1_retracement.entry_timing` | **sole owner, added 2026-09-29.** ONE function, three branches, all his: no pullback since the break → the **3rd** candle, counting the break candle as the **1st**; a **1-3** candle pullback → its **first** momentum candle; a **longer** one → the **3rd** after it. Asked by BOTH routes (`vix1_bias` and `vix1_choch`) and by `vix1_preclose`, so the trend route, the change-of-character route and the heads-up cannot drift apart. **Keyed on a bar TIME, never an index** |
 | Was this candle born out of a dead market? | `vix1_tradeable.market_awake` | sole owner |
 | Is this candle a momentum candle? | `vix1_momentum.is_momentum_candle` | sole owner — imported unchanged by `market_awake` so the two can never drift |
 | Is the market ranging? | `vix1_chop.not_tradeable` — **is the close still between the two lines the last move drew?** Those lines are `TrendState.bos_price` and `TrendState.protected`, so a break of either is already a BOS or a change of character | **ON since 2026-09-21, and FINAL** — asked in `detect_bias` the moment the trend exists and in `vix1_preclose`. **No window, no threshold, no counter.** Silent while `vix1_void` reports a void filling. New entries only. See D42 |
@@ -134,12 +135,32 @@ answer belongs in the owning module, not in a new one.
 | How is the market described on the card? | `vix1_regime.describe` / `efficiency` | sole owner, reporting only, decides nothing |
 | Which way does the 1M enter? | `vix1_cross` | sole owner since 2026-08-20 |
 
-**THE FOUR PULLBACK-ISH FUNCTIONS ARE NOT DUPLICATES, and that was checked rather than assumed.**
+**THE PULLBACK-ISH FUNCTIONS ARE NOT DUPLICATES, and that was checked rather than assumed.**
 `leg_state` asks *"is the faster structure going the other way right now"*; `pullback_since` asks
 *"when did the current pullback start"* (so a candle from before it cannot be the one that ended
 it); `trend_reproven` asks *"has this trend ever re-proven itself"*; `market_awake` asks *"was this
-momentum born out of a quiet market"*. Four different questions, four different failures they were
-each built for. **Leave them alone.**
+momentum born out of a quiet market"*. Different questions, different failures they were each built
+for. **Leave them alone.**
+
+**⚠ WHAT DOES *NOT* ANSWER "HAS IT PULLED BACK" ANY MORE — a swing (2026-09-29).** His instruction:
+*"Forget about those complicated ineffective tools you are using to measure pullback. Pullback is
+just the opposite candle in our move."* He asked for it to be tested rather than taken on trust, and
+it was — `tools/pullback_vs_swings.py`, six instruments, real broker H1, the real detector, his
+definition of a pullback:
+
+| pullback length | found | the detector saw | **missed** |
+|---|---|---|---|
+| **1 candle** | 24,388 | 1,766 | **93%** |
+| 2 candles | 12,101 | 2,510 | 79% |
+| 3 candles | 5,821 | 1,638 | 72% |
+| 4+ candles | 6,463 | 2,294 | 65% |
+| **all** | **48,773** | **8,208** | **83%** |
+
+Every instrument lands at 6-8% on one-candle pullbacks, and a confirmation arrives a **median 2 bars
+late**. So the pullback question is counted in candles now, everywhere it is asked. A swing still
+owns the trend, the break of structure, the change of character and the protected level — he asked
+for those explicitly (*"you cant implement that pullback logic without CHOCH"*) and `st.highs` /
+`st.lows` are untouched.
 
 ### ✅ RESOLVED 2026-09-08 — one module owns the trend, and it reads 1HR only
 

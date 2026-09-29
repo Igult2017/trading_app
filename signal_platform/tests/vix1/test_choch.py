@@ -147,7 +147,8 @@ _, t_bear, _ = state_of(bear)
 bias_bear, why_bear = entry_for(bear)
 s.check("the mirrored staircase turns DOWN", t_bear.pending, -1)
 s.check("...and a turn down gets NO exemption", bias_bear is None, True)
-s.check("...it must run, pull back and turn back down first", "must run, pull back" in why_bear, True)
+s.check("...it waits for the 3rd candle, because nothing has pulled back (2026-09-29)",
+        "3rd candle after the break" in why_bear, True)
 s.teeth("the rule is one-sided — up is granted, down is refused",
         bias is not None and bias_bear is None)
 
@@ -203,9 +204,19 @@ _w, _t, _turns = state_of(fires)
 _pull = type(_turns[-1])(is_high=True, price=1.1060, index=_t.choch_index + 1,
                          confirmed=_t.choch_index + 2)     # a HIGH = a pullback off an UP-turn
 bias_pb, why_pb = entry_for(fires, turns=list(_turns) + [_pull])
-s.check("once the first pullback after the break is confirmed, the route stops", bias_pb is None, True)
-s.check("...and says the pullback rule is back", "first pullback has already begun" in why_pb, True)
-s.check("...while the SAME bars without that swing still trade", entry_for(fires)[0] is not None, True)
+# ── A CONFIRMED SWING NO LONGER DECIDES ANYTHING HERE (2026-09-29) ───────────────────────────────
+# This used to assert that the first CONFIRMED pullback swing after the break SHUT the route, handing
+# the turn back to the normal route — which then could not trade it either, because that route waits
+# for a second swing to confirm the new trend. Between them the turn was refused here and unreachable
+# there.
+#
+# HIS INSTRUCTION: *"Pullback is just the opposite candle in our move so it can be detected without
+# those complicated ineffective and inaccurate tools."* The pullback is counted in candles now, so an
+# injected swing changes NOTHING — which is exactly what this asserts. Measured cost of the old
+# reader: it misses 93% of one-candle pullbacks (`tools/pullback_vs_swings.py`).
+s.check("an injected pullback SWING no longer changes the answer — candles decide",
+        (bias_pb is None) == (entry_for(fires)[0] is None), True)
+s.check("...and the reason is the same either way", why_pb, entry_for(fires)[1])
 
 # ── THE CHOP / RANGE FILTER, ON REAL BARS ────────────────────────────────────────────────────────
 # His answer (a): "if the break is... arising from a choppy or a ranging market we don't trade."
@@ -263,8 +274,8 @@ print("DEFAULT (switch OFF, live since 2026-09-14) — a turn up must prove itse
 vix1_choch._EXEMPT_UP_TURNS = False
 bias_def, why_def = entry_for(fires)
 s.check("the big candle breaking the protecting high is NOT traded on the break", bias_def is None, True)
-s.check("...because a turn UP now has to run, pull back and turn back up",
-        "must run, pull back, and turn back up" in why_def, True)
+s.check("...because nothing has pulled back and it is only candle 1 after the break",
+        "3rd candle after the break" in why_def, True)
 s.teeth("the switch is what decides it — the same bars traded with it on",
         bias is not None and bias_def is None)
 if eur and i17 > 0:

@@ -68,6 +68,7 @@ candle from `vix1_momentum`; the market kind from `vix1_regime`. This file only 
 from core.types import Candle
 from shared.candle_math import atr
 from strategies import vix1_regime
+from strategies import vix1_retracement
 from strategies.vix1_momentum import momentum_run
 from strategies.vix1_state import Bias, market_state
 from strategies.vix1_swings import structure_turns
@@ -129,40 +130,45 @@ def choch_entry(window: list[Candle], h1: list[Candle], tstate: TrendState,
     ci = tstate.choch_index                      # indexes into `window`
     broke = tstate.choch_price
 
-    # 1a. A TURN MUST PROVE ITSELF FIRST — his rule for a turn DOWN (2026-08-25), and since
-    #     2026-09-14 for a turn UP too, unless `_EXEMPT_UP_TURNS` is switched back on:
+    # 1a. WHEN MAY IT TRADE? ONE TIMING RULE, HIS, AND IT OWNS BOTH QUESTIONS THIS USED TO ASK.
     #
-    #     "price breaks down through the old higher low -> it runs down -> it pulls back up -> when
-    #      that pullback turns back down, that's the proof -> then a momentum candle down is the
-    #      trade."   ...and the same sequence the other way up for a turn up.
+    # WHAT THIS REPLACES. Two separate gates sat here:
+    #   * a flat refusal unless the turn was exempt — which, with the shortcut switched off, meant
+    #     NO change of character could ever be traded on this route, either way;
+    #   * "the first pullback after the break closes the window", which handed the turn back to the
+    #     normal route — and that route cannot trade it either, because it waits for a second swing
+    #     to confirm the new trend.
+    # Between them a change of character was refused here and unreachable there. Measured on
+    # XAU/USD, 28 Sep 2026: six momentum candles qualified across 22 hours and not one could be
+    # taken while price ran ~$200.
     #
-    # WHY IT IS A REFUSAL AND NOT A FIFTH CONDITION, which decided the shape. His proof lands AFTER
-    # this function has already returned:
+    # HIS RULE, 2026-09-29, which makes the two one question:
     #
-    #     breaks + runs              -> exemption window OPEN (where the shortcut used to trade)
-    #     the pullback begins        -> `pending` is 0 and test 1b fires; the window is already SHUT
-    #     it turns back the new way  -> HIS PROOF lands here, one turn later
+    #     "in a breakout, after the price has come out of the band, we count the first 2 candles and
+    #      fire signal when the 3rd candle closes if it is a momentum candle and we haven't had a
+    #      pullback yet."
+    #     "in a CHOCH, we wait for a pullback to take a trade but the band issue has proven to us
+    #      that sometimes price can move for a very long time without a pullback. so that 3 candle
+    #      rule also applies in a CHOCH scenario if we have not had a pullback."
     #
-    # A fifth condition would sit below code that has already returned — dead, and LOOKING enforced.
-    # So the turn falls through to the normal route (`vix1_bias`), which needs the new trend
-    # confirmed, and the second swing that confirms it cannot exist until the pullback has turned
-    # back. Asserted stage by stage, in BOTH directions, in `test_choch_bearish_proof.py`.
+    # So: no pullback yet -> wait until the 3rd candle counting the break as the 1st; a pullback of
+    # 1-3 candles -> its first momentum candle trades; a longer one -> the 3rd candle after it. All
+    # three live in `vix1_retracement.entry_timing`, so the CHoCH route and the trend route answer
+    # the timing question with the same code and cannot drift apart.
+    #
+    # THE PULLBACK IS COUNTED IN CANDLES, NOT READ OFF A SWING — his instruction of the same day,
+    # and the reason 1b had to go rather than be kept beside this. The swing detector misses 93% of
+    # one-candle pullbacks (measured, six instruments, `tools/pullback_vs_swings.py`), so "has it
+    # pulled back" was being answered by something that mostly cannot see one.
+    #
+    # `void_break` STILL SKIPS THE WAIT ENTIRELY — his scoped ruling of 2026-09-20 is untouched:
+    # price filling a liquidity void and breaking the level protecting the move that made it trades
+    # at once, with no count.
     if not exempts(bullish, void_break):
-        return None, (f"change of character {way} at {broke:.5f} — a turn {way.upper()} is not "
-                      f"exempted from the pullback rule. It must run, pull back, and turn back "
-                      f"{way} before a momentum candle can trade it.")
-
-    # 1b. THE FIRST PULLBACK AFTER THE BREAK CLOSES THE WINDOW — his refinement, 2026-08-15:
-    #     "the exemption ends when we have the first pullback after CHOCH so that we dont trade in
-    #      pullbacks again."
-    #
-    #     After an UP-turn a pullback is a move down, which begins at a HIGH; mirrored for a
-    #     down-turn. So the counter-swing to look for is one whose `is_high` MATCHES `bullish`.
-    #     Only CONFIRMED turns are considered — an unconfirmed one is not knowable in real time, and
-    #     `structure_turns` returns only confirmed ones by construction.
-    if any(p.is_high == bullish and p.index > ci for p in turns):
-        return None, (f"change of character {way} at {broke:.5f}, but its first pullback has already "
-                      f"begun — from here the pullback rule applies again")
+        wait = vix1_retracement.entry_timing(window, 1 if bullish else -1,
+                                             break_time=window[ci].time)
+        if wait:
+            return None, f"change of character {way} at {broke:.5f} — {wait}"
 
     # 2. MOMENTUM MUST HAVE DEVELOPED THE NEW WAY — "a CHOCH is not a qualification for momentum".
     run = momentum_run(h1, bullish, symbol)

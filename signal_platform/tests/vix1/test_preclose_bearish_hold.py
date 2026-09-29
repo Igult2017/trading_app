@@ -53,13 +53,19 @@ def big(out, frm, to):
     return out
 
 
-def uptrend_then_break():
-    """An uptrend, then a big candle DOWN through the last higher low, then the run down."""
+def uptrend_then_break(after=6):
+    """An uptrend, then a big candle DOWN through the last higher low, then `after` candles of run.
+
+    `after` is what makes his 2026-09-29 count testable: the break candle is candle 1, so `after=0`
+    is candle 1 and `after=6` is candle 7 — one side of his 3-candle rule and the other.
+    """
     b = []
     leg(b, 1.1000, 1.1050, 14); leg(b, 1.1050, 1.1025, 8)
     leg(b, 1.1025, 1.1100, 16); leg(b, 1.1100, 1.1070, 8)
     leg(b, 1.1070, 1.1130, 14); leg(b, 1.1130, 1.1095, 8)
-    big(b, 1.1095, 1.1035); leg(b, 1.1035, 1.1010, 6)
+    big(b, 1.1095, 1.1035)
+    if after:
+        leg(b, 1.1035, 1.1010, after)
     return b
 
 
@@ -87,23 +93,55 @@ def pending_of(closed):
 
 # ── BEFORE THE PROOF: the turn is only proposed ──────────────────────────────────────────────────
 print()
-print("BROKEN DOWN AND RUNNING — no pullback yet, so nothing should be announced")
-_before = uptrend_then_break()
-_bar_b, _clock_b = forming_sell(_before)
-_got_b = pc.check(_before, _before + [_bar_b], SYM, _clock_b)
+print("JUST BROKEN — candle 1 of his count, so nothing should be announced")
 
-s.check("the fixture really is a proposed-but-unproved downturn", pending_of(_before), -1)
-s.check("...and the forming bar really would qualify as a SELL momentum candle",
-        pc.qualifies_for_trade(_before + [_bar_b], len(_before), False, SYM), True)
-s.check("NO closure notification is sent", _got_b, None)
 
-# THE ENTRY RULE, ASKED ABOUT THE SAME BARS — the two must agree, not merely both be plausible.
-_w = _before[-_H1_TREND_BARS:]
-_tn = vix1_swings.structure_turns(_w, _H1_SWING_N)
-_ts = vix1_trend.trend_state(_w, n=_H1_SWING_N, turns=_tn)
-_entry_b, _why_b = vix1_choch.choch_entry(_w, _before, _ts, _tn, _H1_SWING_N, SYM)
-s.check("...and the ENTRY refuses the same setup", _entry_b, None)
-s.check("...for his reason", "must run, pull back" in _why_b, True)
+def both(closed):
+    """The notification and the entry, asked about the SAME CANDLE. Returns (spoke, why_at_close).
+
+    ⚠ THE ENTRY IS ASKED WITH THE FORMING BAR INCLUDED, and that is the only comparison that means
+    anything. The notification is a warning about a bar that has NOT closed yet — so the question it
+    answers is "will this candle be tradeable when it closes". Asking the entry about the closed bars
+    ALONE asks about the bar before it, and the two would differ by one candle for ever: at candle 2
+    the notification speaks (the forming bar will be candle 3) while a closed-bars-only entry still
+    reads candle 2. That is an artefact of comparing different bars, not a disagreement.
+    """
+    bar, clock = forming_sell(closed)
+    spoke = pc.check(closed, closed + [bar], SYM, clock) is not None
+    at_close = closed + [bar]
+    w = at_close[-_H1_TREND_BARS:]
+    tn = vix1_swings.structure_turns(w, _H1_SWING_N)
+    ts = vix1_trend.trend_state(w, n=_H1_SWING_N, turns=tn)
+    _, why = vix1_choch.choch_entry(w, at_close, ts, tn, _H1_SWING_N, SYM)
+    return spoke, why
+
+
+# ── HIS RULE OF 2026-09-29 REPLACED THE FLAT HOLD ────────────────────────────────────────────────
+# This file used to assert that a broken-but-unproved downturn is announced by NOTHING, ever —
+# because the entry refused it outright. He changed that: *"the band issue has proven to us that
+# sometimes price can move for a very long time without a pullback. so that 3 candle rule also
+# applies in a CHOCH scenario if we have not had a pullback."*
+#
+# So the hold is no longer "never", it is HIS COUNT — and the old fixture (break + 6 candles of run)
+# was on the trading side of it all along. What this file proves is unchanged and is the only thing
+# worth proving here: the notification and the entry answer the SAME WAY about the SAME BARS.
+# CANDLE 2 — the break candle is 1, the closed one is 2, so the bar now forming would be candle 3.
+# Wait: with `after=0` the forming bar IS candle 2, which is still short of his three.
+_fresh = uptrend_then_break(after=0)
+_spoke_1, _why_1 = both(_fresh)
+s.check("the fixture really is a proposed-but-unproved downturn", pending_of(_fresh), -1)
+s.check("the forming bar would be candle 2 — the count refuses it at close",
+        "3rd candle after the break" in _why_1, True)
+s.check("...and the notification agrees: NOTHING is announced", _spoke_1, False)
+
+print()
+print("ONE CANDLE LATER — the forming bar is his 3rd, so it may trade and must be announced")
+_before = uptrend_then_break(after=1)
+_spoke_b, _why_b = both(_before)
+s.check("it is still a proposed-but-unproved downturn", pending_of(_before), -1)
+s.check("the count no longer refuses it at close",
+        "3rd candle after the break" in _why_b, False)
+s.check("...and the notification agrees: it speaks", _spoke_b, True)
 
 # ── AFTER THE PROOF: it pulled back and turned back down ─────────────────────────────────────────
 print()
@@ -116,8 +154,11 @@ s.check("the turn is no longer merely proposed", pending_of(_after) == -1, False
 s.check("the closure notification IS sent", _got_a is not None, True)
 s.check("...and it is a SELL", bool(_got_a) and _got_a[1] is False, True)
 
-s.teeth("the hold is doing real work — same candle, opposite answers either side of the pullback",
-        _got_b is None and _got_a is not None)
+s.teeth("the count is doing real work — same candle, opposite answers either side of candle 3",
+        _spoke_1 is False and _spoke_b is True)
+s.teeth("...and the notification never announces a candle the count will refuse at close",
+        (_spoke_1 is False and "3rd candle after the break" in _why_1)
+        and (_spoke_b is True and "3rd candle after the break" not in _why_b))
 
 # ── THE HOLD IS ABOUT THE UNPROVED TURN, NOT ABOUT SELLS ─────────────────────────────────────────
 print()
@@ -144,8 +185,8 @@ _got_up = pc.check(_up, _up + [_up_bar], SYM, _up_bar.time + tf_seconds("H1") - 
 s.check("the control fixture really is an uptrend", pending_of(_up) == -1, False)
 s.check("a BUY momentum candle in an uptrend notifies", _got_up is not None, True)
 s.check("...and it is a BUY", bool(_got_up) and _got_up[1] is True, True)
-s.teeth("the bearish hold does not silence bullish candles",
-        _got_b is None and _got_up is not None)
+s.teeth("the count does not silence bullish candles",
+        _spoke_1 is False and _got_up is not None)
 
 # ...AND THE SAME BUY CANDLE WHERE IT COULD NOT TRADE IS SILENT. Not the hold — the route test.
 _bad_up = Candle(time=_before[-1].time + 3600, open=_before[-1].close,

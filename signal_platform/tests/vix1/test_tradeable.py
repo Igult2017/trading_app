@@ -39,7 +39,7 @@ import datetime
 import sys
 
 import _harness  # noqa: F401
-from _harness import Suite, load                                    # noqa: E402
+from _harness import Suite, body, load                              # noqa: E402
 
 from strategies import vix1_bias                                    # noqa: E402
 from strategies.vix1_tradeable import market_awake, trend_reproven  # noqa: E402
@@ -81,8 +81,21 @@ for w in ("2026-09-03 11:00", "2026-09-03 12:00", "2026-09-03 16:00"):
     finally:
         vix1_choch._EXEMPT_UP_TURNS = False
     s.check(f"   {w} still trades with the up-turn shortcut on", _on, True)
-    s.check(f"   {w} does NOT trade by default — the turn up has not proved itself yet",
-            fires(w), False)
+
+# WHAT THE DEFAULT DOES NOW, and it changed on 2026-09-29 for the 16:00 bar only.
+#
+# This used to assert all three stay silent by default — "the turn up has not proved itself yet".
+# Two still do. The 16:00 one trades, and the cause is his instruction of that day: *"Pullback is
+# just the opposite candle in our move."* `trend_reproven` used to ask a CONFIRMED SWING whether the
+# market had pulled back, and the swing detector misses 93% of one-candle pullbacks (measured, six
+# instruments, `tools/pullback_vs_swings.py`). Counting candles instead, the pullback behind that
+# bar is plainly there, so the re-proof rule stops refusing it.
+#
+# ⚠ THIS IS NOT THE GATE GOING AWAY. It moves: what may trade and when is now the TIMING rule
+# (`vix1_retracement.entry_timing`), which is where he put it — 1-3 candle pullback trades its first
+# momentum candle, a longer one waits three, no pullback at all waits three from the break.
+for w, want in (("2026-09-03 11:00", False), ("2026-09-03 12:00", False), ("2026-09-03 16:00", True)):
+    s.check(f"   {w} by default: {'TRADES' if want else 'silent'}", fires(w), want)
 
 
 # ── HIS RULE: A QUIET MARKET MUST PROVE ITSELF ────────────────────────────
@@ -182,43 +195,64 @@ s.check("no trend means this rule stays silent — other gates own that case",
 # `trend_reproven` must never fire when there is no trend to re-prove.
 h1b, stb, retb, turnsb = state_at("2026-09-03 12:00")
 s.check("no established trend -> the re-proof rule stays silent", stb.direction, 0)
-s.check("...and returns None rather than refusing", trend_reproven(stb, turnsb, retb), None)
-s.check("a missing trend state is not a refusal", trend_reproven(None, turnsb, retb), None)
-s.check("a missing measurement is not a refusal either", trend_reproven(stb, turnsb, None), None)
+s.check("...and returns None rather than refusing", trend_reproven(stb, h1b, h1b[-1].time), None)
+s.check("a missing trend state is not a refusal", trend_reproven(None, h1b, h1b[-1].time), None)
+s.check("no candles is not a refusal either", trend_reproven(stb, None, h1b[-1].time), None)
 
 # ── THE 2026-09-13 FIX: THE PULLBACK HAS ONE OWNER ────────────────────────
 #
 # HIS RULE, in his words: *"we start taking trades when the pullback [ends] and if the first candle
 # after the pullback is a momentum candle, we take trade there."*
 #
-# `trend_reproven` used to answer "has it pulled back?" itself, by looking for a CONFIRMED turn
-# against the trend. A turn is only confirmed once price closes back through the candle that made
-# it — and that candle IS the momentum candle. So the proof arrived one bar too late, every time,
-# and a momentum candle that ENDED a pullback could never be traded. It now asks
-# `vix1_retracement`, which owns the question and already had the right answer.
+# `trend_reproven` used to answer "has it pulled back?" from a CONFIRMED TURN, and fell back to
+# `measure().active`. Both are gone. HIS INSTRUCTION, 2026-09-29: *"Forget about those complicated
+# ineffective tools you are using to measure pullback. Pullback is just the opposite candle in our
+# move."* Measured before changing it (`tools/pullback_vs_swings.py`, six instruments, real broker
+# H1): the swing detector confirms only 7% of ONE-CANDLE pullbacks and 17% of all of them.
 #
-# THE CASE IS HIS OWN: EUR/USD 11 Sep 2026 15:00 UTC, a 10.6-pip sell after a three-candle bounce.
+# ONE READER NOW, AND IT COVERS BOTH DISTANCES. `measure` steps over only ONE resuming candle, so it
+# could not see the pullback in his 2026-08-25 proof, which ends six bars before the momentum candle
+# — that is why a second reader existed at all. `since_pullback` walks back over EVERY resuming
+# candle first, so the adjacent case and the distant one are the same question again.
 print()
-print("   the pullback question has ONE owner (his 11 Sep EUR/USD sell):")
+print("   the pullback question has ONE owner, and it counts candles:")
 
 
-class _Ret:
-    """Only the field the rule reads."""
-    def __init__(self, active):
-        self.active = active
+def _move(rises, falls_then=0, start=1.1000, step=0.0010, t0=0):
+    """`rises` candles up, then `falls_then` against — built with the harness's own candle."""
+    out, price, t = [], start, t0
+    for _ in range(rises):
+        out.append(body(price, price + step, tf="H1", t=t)); price += step; t += 1
+    for _ in range(falls_then):
+        out.append(body(price, price - step, tf="H1", t=t)); price -= step; t += 1
+    return out
 
 
 class _FakeTrend:
-    """A downtrend that has run — enough for the rule to reach its pullback question."""
-    direction = -1
-    bos_index = 10
-    direction_since = 5
+    """An uptrend that has run — enough for the rule to reach its pullback question."""
+    direction = 1
+    bos_index = 0
+    direction_since = 0
 
 
-s.check("a measured pullback is accepted with NO confirmed turn — the candle need not prove itself",
-        trend_reproven(_FakeTrend(), [], _Ret(True)), None)
-s.check("neither source sees one -> still refused, in his words",
-        "pulled back" in (trend_reproven(_FakeTrend(), [], _Ret(False)) or ""), True)
+# ADJACENT: the pullback sits right behind the newest candle.
+_adj = _move(2) + _move(1, 0, start=1.1020, t0=2)[:0] + [body(1.1020, 1.1010, tf="H1", t=2),
+                                                         body(1.1010, 1.1020, tf="H1", t=3)]
+s.check("a pullback right behind the candle is seen — no confirmed turn needed",
+        trend_reproven(_FakeTrend(), _adj, _adj[0].time), None)
+
+# DISTANT: the pullback ended six candles ago — the case that used to need the turn-scan.
+_far = ([body(1.1000, 1.1010, tf="H1", t=0), body(1.1010, 1.1000, tf="H1", t=1)]
+        + _move(6, 0, start=1.1000, t0=2))
+s.check("...and so is one that ended SIX candles ago (his 2026-08-25 shape)",
+        trend_reproven(_FakeTrend(), _far, _far[0].time), None)
+
+# NOTHING AGAINST THE MOVE AT ALL -> still refused, in his words.
+_none = _move(6)
+s.check("a move with nothing against it -> still refused, in his words",
+        "pulled back" in (trend_reproven(_FakeTrend(), _none, _none[0].time) or ""), True)
+s.check("a run time that is not in the window is not a refusal",
+        trend_reproven(_FakeTrend(), _none, 999999999), None)
 
 # THE REAL BAR, THROUGH THE REAL PATH. The synthetic checks above pin the rule; this pins the
 # actual candle he sent, so a later change cannot quietly re-break it.
@@ -240,24 +274,27 @@ if _i is not None:
             _ret, _, _ = market_state(_w, _st, "EUR/USD")
             _ran = _st.bos_index if _st.bos_index is not None else _st.direction_since
             _confirmed = [t for t in _turns if _ran is not None and t.index > _ran and t.is_high]
-            return _st, _turns, _ret, len(_confirmed)
+            # The run as a BAR TIME — what `trend_reproven` takes since 2026-09-29, so nothing has
+            # to translate an index between windows.
+            _rt = _w[_ran].time if _ran is not None and 0 <= _ran < len(_w) else None
+            return _st, _turns, _ret, len(_confirmed), _w, _rt
         finally:
             _vt._ARM_BROKEN_LEVEL = _keep
 
     # THE 13 SEP FIX, PROVED EXACTLY AS IT WAS — with the 16 Sep rule switched off, because that is the
     # code this case was written against. Nothing here is weakened.
-    _st, _turns, _ret, _confirmed = _read(False)
+    _st, _turns, _ret, _confirmed, _w13, _rt13 = _read(False)
     s.check("   11 Sep 15:00 UTC — the trend really was DOWN", _st.direction, -1)
     s.check("   ...and NO confirmed turn had landed yet — this is the trap", _confirmed, 0)
     s.teeth("   ...but the retracement module did see the bounce", _ret.active and _ret.bars >= 1)
     s.check("   ...so the re-proof rule no longer refuses it",
-            trend_reproven(_st, _turns, _ret), None)
+            trend_reproven(_st, _w13, _rt13), None)
 
     # AND WHAT HIS 16 SEP RULE DOES TO THE SAME HOUR — recorded, not hidden (docs/OPEN.md B26).
     # That downtrend was born when a close broke 1.16216; on 10 Sep 17:00 price closed back above it
     # (1.16289), so by his rule the trend was over. This sell therefore does NOT fire any more: the
     # market reads "changing" here, where before the rule it read DOWN with a 3-bar pullback.
-    _st_now, _, _ret_now, _ = _read(True)
+    _st_now, _, _ret_now, _, _, _ = _read(True)
     s.check("   ...but his 16 Sep rule had already ended that downtrend",
             (_st_now.direction, _st_now.pending), (0, 1))
     s.check("   ...so this sell no longer fires (before the rule: DOWN, pullback active)",

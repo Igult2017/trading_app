@@ -162,7 +162,7 @@ def _could_trade(h1_closed: list[Candle], bullish: bool, symbol: str,
     LEVEL, and a level never comes from a bar still forming. Called only AFTER the momentum test has
     passed, so the cost lands in the last minutes of a qualifying candle, not on every scan.
     """
-    from strategies import vix1_choch, vix1_chop
+    from strategies import vix1_choch, vix1_chop, vix1_retracement
     from strategies.vix1_bias import _H1_SWING_N, _H1_TREND_BARS
     from strategies.vix1_swings import structure_turns
     from strategies.vix1_trend import trend_state
@@ -217,10 +217,28 @@ def _could_trade(h1_closed: list[Candle], bullish: bool, symbol: str,
             and st.kill_level is not None and forming_bar.close > st.kill_level):
         return True
 
+    # ── A PENDING TURN IS DECIDED BY THE TIMING RULE NOW, BOTH WAYS (2026-09-29) ────────────────
+    #
+    # It used to be `exempts(True, ...)` for a turn up and nothing at all for a turn down, so with
+    # the shortcut off this went silent on every pending turn. Since his rule of 2026-09-29 the
+    # entry CAN take one — the 3rd candle after the break when nothing has pulled back, or the
+    # momentum candle that ends a short pullback — so staying silent would hide exactly the candle
+    # he asked to be warned about.
+    #
+    # ASKED THROUGH `vix1_retracement.entry_timing`, THE SAME FUNCTION THE ENTRY ASKS, on the same
+    # window plus the bar in progress. That is the rule this module has always followed and the
+    # reason it never restates a condition: the heads-up and the trade cannot disagree if there is
+    # only one place that answers.
+    def _turn_open(way: int) -> bool:
+        if st.pending != way or st.choch_index is None or not (0 <= st.choch_index < len(w)):
+            return False
+        bars = w + ([forming_bar] if forming_bar is not None else [])
+        return vix1_retracement.entry_timing(
+            bars, way, break_time=w[st.choch_index].time) is None
+
     if bullish:
-        return st.direction == 1 or (st.pending == 1
-                                     and vix1_choch.exempts(True, void_break_pending))
-    return st.direction == -1
+        return st.direction == 1 or _turn_open(1)
+    return st.direction == -1 or _turn_open(-1)
 
 
 def preclose_signal(symbol: str, bullish: bool, bar: Candle, secs_left: float,

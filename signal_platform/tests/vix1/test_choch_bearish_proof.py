@@ -135,8 +135,11 @@ print("A TURN UP NOW PROVES ITSELF TOO — 'enable pullback to uptrend the same 
 s.check("the upward exemption is switched OFF by default", vix1_choch._EXEMPT_UP_TURNS, False)
 _up_off, _up_off_why = route(bull())
 s.check("a bullish change of character is refused the shortcut", _up_off is None, True)
+# THE REASON CHANGED ON 2026-09-29 and the change is the point: it is no longer "you get no
+# shortcut", it is his COUNT — the break candle is candle 1 and this is it, so the 3rd is the
+# earliest that may trade. The refusal stands; what it is waiting for is now nameable.
 s.check("  ...and the refusal says WHY, in his terms",
-        "must run, pull back, and turn back up" in _up_off_why, True)
+        "3rd candle after the break" in _up_off_why, True)
 
 # ── 2. SWITCHED OFF, NOT DELETED ─────────────────────────────────────────────────────────────────
 print()
@@ -166,7 +169,11 @@ print()
 print("A TURN DOWN — it must run, pull back, and turn back down first")
 _bear_bias, _bear_why = route(bear(1))
 s.check("a bearish change of character is refused the shortcut", _bear_bias is None, True)
-s.check("  ...and the refusal says WHY, in his terms", "must run, pull back" in _bear_why, True)
+# THIS ONE GETS PAST THE COUNT AND IS REFUSED ON MOMENTUM INSTEAD — the honest answer for these
+# bars: *"a CHOCH is not a qualification for momentum"*. The timing rule allowed it; there is simply
+# no momentum candle that way yet.
+s.check("  ...and the refusal says WHY, in his terms",
+        "no momentum candle that way yet" in _bear_why, True)
 
 # ── 4. HIS SEQUENCE, STAGE BY STAGE, THROUGH THE REAL `detect_bias` — BOTH WAYS ──────────────────
 print()

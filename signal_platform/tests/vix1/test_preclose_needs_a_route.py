@@ -214,8 +214,13 @@ if _us.protected is not None:
     s.check("  ...because that break proposes a turn DOWN", _t2.pending, -1)
     _bias2, _why2 = choch_entry(_w2, _h2, _t2, structure_turns(_w2, _H1_SWING_N),
                                 _H1_SWING_N, "EUR/USD")
-    s.check("  ...and the entry refuses a turn DOWN outright", _bias2, None)
-    s.check("  ...for his stated reason", "not exempted from the pullback rule" in _why2, True)
+    s.check("  ...and the entry still refuses it here", _bias2, None)
+    # NOT "outright" ANY MORE (2026-09-29). It used to refuse every turn down flatly — no exemption,
+    # no route. Now it refuses on his COUNT: the break candle is candle 1, so the 3rd is the earliest
+    # that may trade, and this bar is not it yet. The refusal is the same; the reason is a fact about
+    # the market rather than a switch.
+    s.check("  ...for his stated reason — the count, not a blanket refusal",
+            "3rd candle after the break" in _why2 or "no momentum candle that way yet" in _why2, True)
     s.teeth("the fix is one-sided: the BUY break speaks and the SELL break does not",
             _got is not None and _got_dn is None)
 

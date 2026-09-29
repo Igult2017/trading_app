@@ -479,8 +479,25 @@ def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "", debut=None
         _end = mc_idx if mstate is t_mc else len(h1) - 1
         _ds = (None if mstate.direction_since is None
                else _end - (len(_base) - 1) + mstate.direction_since)
-        for veto in (trend_reproven(mstate, turns_mc, ret),
-                     vix1_retracement.wait_after_pullback(at_mc, 1 if bullish else -1),
+        # WHERE THIS MOVE BROKE OUT, as a BAR TIME rather than an index — `mstate`'s indexes belong to
+        # `_base`, which is not always the window the rule is asked about, and translating between
+        # them is the kind of silent arithmetic his "don't patch" is aimed at. A time is the same
+        # number in every window.
+        #
+        # THE BREAK OF STRUCTURE IS THE BREAKOUT on this route: a close outside the band is either a
+        # break of structure or a change of character (`vix1_chop`), and a trend that is merely
+        # continuing left the band by extending — which is its BOS. The change of character is the
+        # other route's break and is handled there.
+        _bi = mstate.bos_index
+        _bt = (_base[_bi].time if _bi is not None and 0 <= _bi < len(_base) else None)
+        # WHERE THE TREND RAN, for the pullback re-proof. The break of structure where there is one,
+        # otherwise the bar the direction was established on — `_establish` sets `direction_since`
+        # and never `bos_index`, so a brand-new trend would otherwise read as "never ran" although
+        # it was established by running. Same bar-time reasoning as `_bt`.
+        _ri = mstate.bos_index if mstate.bos_index is not None else mstate.direction_since
+        _rt = (_base[_ri].time if _ri is not None and 0 <= _ri < len(_base) else None)
+        for veto in (trend_reproven(mstate, at_mc, run_time=_rt),
+                     vix1_retracement.entry_timing(at_mc, 1 if bullish else -1, break_time=_bt),
                      market_awake(awake_window, mstate, ret, symbol, _QUIET_LOOK),
                      None if vix1_void.direction_already_confirmed(
                          awake_window, mc_idx, _ds, bullish, symbol)

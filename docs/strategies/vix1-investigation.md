@@ -13,6 +13,49 @@ file and line that did the rejecting. Nothing is fixed until he says so.
 
 ---
 
+## 2026-09-29 — "IS THE SIGNAL PLATFORM WORKING? I DIDN'T SEE ANY SIGNAL" (XAU/USD, 28 Sep)
+
+**Answered from what production RECORDED** — `signal_events` for XAU/USD, read over Coolify's REST
+env, not a replay.
+
+**The platform was fine.** Heartbeat 46s old, 84,869 scans, gold analysed every ~60s, last outage
+22 Aug. **What it produced in 24h: two signals, both BX-S/D watching rows. VIX.1: none.**
+
+**Six momentum candles qualified on 28 Sep and NOT ONE was sent** — 03:00, 05:00, 08:00, 09:00,
+17:00 and 22:00 his clock, every one `told=None`. From 04:00 EAT to 01:54 the next morning the
+reason was the SAME SENTENCE, **22 hours unchanged**:
+
+> `bias=NONE: no established 1HR trend (trend changing — a reversal is proposed but not yet
+> confirmed) — change of character down at 4254.45000 — a turn DOWN is not exempted from the
+> pullback rule.`
+
+**HIS TWO CORRECTIONS, both right, both verified in the code before being accepted:**
+
+1. *"a CHOCH is a CHOCH whether it comes from a band or a ranging market or a trend. What do you
+   mean it has never been allowed through that gate?"* — I had said a turn **down** was never
+   allowed. `exempts()` is `void_break or (bullish and _EXEMPT_UP_TURNS)`, and with the flag False
+   that is `void_break` **either way**: the gate does not discriminate by direction at all. And it
+   never refused the change of character — only permission to trade it **without a pullback**.
+2. *"trend is and was confirmed only pullback was not"* — also right. At a change of character
+   `vix1_trend` keeps `pending` (-1, down) and `choch_price` (4254.45) and clears only
+   `direction_since`, with its own comment *"no direction, so nothing to measure a leg from"*. So
+   the direction was held; the LEG to measure a pullback from was not.
+
+**A REPORTING DEFECT FOUND ON THE WAY, and it cost two rounds of this investigation.** The log line
+`no retracement before this candle; 0.0 pips (0.00x ATR) below the trend extreme, which is 0 candles
+old` is what `measure()` returns **before touching a single candle** when there is no confirmed
+direction — the dataclass defaults, printed as though they were a finding. I quoted those zeros back
+to him as evidence the market had not pulled back. They were evidence of nothing. It now says
+`pullback not measured (turn pending — no leg to measure from)` and prints **no numbers at all**.
+
+**THE RULE HE THEN GAVE, AND THE MEASUREMENT HE ASKED FOR.** He told me to stop using swings to find
+a pullback — *"If it cant see 1 candle pullback, then what is its use. Please test and don't take my
+word for it."* Tested, six instruments, real broker H1, the real detector: **it misses 93% of
+one-candle pullbacks and 83% of all of them**, and is a median 2 bars late when it does see one. The
+build that followed is the fix-log row of the same date in `vix1.md`.
+
+---
+
 ## ISSUE 4 — "THE FASTER STRUCTURE" IS READING EVIDENCE HALF A DAY OLD ✅ **CLOSED 2026-09-13**
 
 **HIS RULING — the 8-bar gate is DELETED and there is now ONE pullback logic on the 1-hour chart:**
