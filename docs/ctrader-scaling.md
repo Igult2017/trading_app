@@ -286,6 +286,24 @@ since 09 Sep. It gets worse, not better, as trades speed up.
 `db:push`); and the insert in `brokerSyncService.ts` changed to "insert, ignore if already there" so
 the race cannot raise an error either.
 
+**✅ VERIFIED 29 Sep — the two paths DO agree on what identifies a trade, so a uniqueness rule will
+actually collapse them.** This had to be checked before relying on it: a uniqueness rule only works if
+both writers name the same trade the same way, and if they disagreed the rule would let both rows in
+under different names and look like it was working.
+
+| path | names a trade by | where |
+|---|---|---|
+| the 15-minute sweep | the **last closing deal's** id | [`ctrader.ts:426`](../server/services/brokerAdapters/ctrader.ts#L426) |
+| the live event feed | the **same** closing deal's id | [`ctrader.ts:515`](../server/services/brokerAdapters/ctrader.ts#L515), [`:555`](../server/services/brokerAdapters/ctrader.ts#L555) |
+
+**And partial take-profits are handled on BOTH sides** — his report of 27 Sep (*"if i took profit at
+different points, it is recording each profit taken as an individual trade"*) was fixed in both: the
+sweep averages every piece into one trade and only records once the whole position is finished
+([`:405`](../server/services/brokerAdapters/ctrader.ts#L405)), and the live path now asks the
+position's own status instead of "is this deal on the opposite side"
+([`:469`](../server/services/brokerAdapters/ctrader.ts#L469)). So one finished position produces one
+id on both paths.
+
 **MEASURED.** Fire the same trade down both paths at once and get exactly one row. Then re-run the
 sweep over real history and confirm the recorded count does not change.
 
