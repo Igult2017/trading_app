@@ -257,7 +257,33 @@ number, so new work is added as Step 0 and Step 4a rather than by renumbering.
 Step 2 is cheap, it is safe on its own, and it protects the very race the event path creates — so it
 goes first even though Step 1 is the more interesting question.
 
-### Step 0 — measure what production does now, before changing anything
+### Step 0 — measure what production does now. **BASELINE TAKEN 29-30 Sep**
+
+**What production actually does today**, read from its own log, not estimated:
+
+| measure | value | where it came from |
+|---|---|---|
+| accounts with a live feed | **4**, on **4 sockets** (1 per socket) | `live feeds active for 4 cTrader account(s) on 4 socket(s)` |
+| cTrader connections held | **6 of 8** | `pool 6/8` — with only four accounts |
+| sweep duration | **3.5 s** for 4 accounts, 4 at a time | `sweep finished in 3.5s` |
+| sweep window, ordinary | last **2 hours** per account | `autoSyncService.ts:19` |
+| sweep window, hourly | last **7 days** per account (every 4th sweep) | `:31-32` |
+| database connections allowed | **20**, gives up after **3 s**, shared with all web traffic | `db.ts:65-67` |
+| Node processes | **1** (not a cluster) | `start.sh:69` |
+| processes sharing the 2 CPUs | **3** — signal platform, copy engine, Node | `start.sh:27`, `:52`, `:69` |
+| fills carry the account id | **4 of 4, none missing** | `[cTraderHub] ... (4 seen)` |
+| a demo fill, feed → recorded → journalled | worked end to end | `[Sync:recorded]` / `[Sync:journaled]` |
+| position tracker (signal platform) | ran clean after the 29 Sep deploy; **had been skipping runs before it** | `maximum number of running instances reached (1)` |
+
+**⚠ The headline number: 6 of 8 cTrader connections are already held with FOUR accounts.** That is the
+ceiling this whole plan exists to remove, and it is visible today rather than at 250 users.
+
+**Still not measured, and each is named where it matters:**
+* **How many accounts sit on each of the two cTrader apps** — the first measurement of Step 5, because
+  accounts cannot share a socket across apps.
+* **Live-fill latency** — arriving to stored. Now recorded per fill as a `live-latency` row (Step 4a), so
+  the next fill supplies it.
+* **CPU and memory per process** — not read; the Coolify API returns logs, not resource metrics.
 
 **What.** Write down today's numbers so every later claim has a before: how long a sweep takes end to
 end, how many database connections it uses out of the 20, how long the signal platform's 2-second
@@ -446,7 +472,7 @@ well under 20, and the comment there claiming ~160 is wrong for production.
 "pool exhausted" or 3-second timeout errors appear**; the sweep still finishes inside its 15-minute
 window; the signal platform's own timings do not move while it runs.
 
-### Step 4a — make every event measurable (his item 8). **PART BUILT 30 Sep — not deployed**
+### Step 4a — make every event measurable (his item 8). **BUILT AND DEPLOYED 30 Sep**
 
 **Built, and it turned out to be a prerequisite rather than a nicety:** the routing verdict is now
 written to `sync_events` as `routing-ok` / `routing-missing-id`, readable for good at
@@ -455,8 +481,17 @@ seconds** of history because the Python signal platform writes continuously — 
 would have appeared and vanished unread. `logRoutingEvidence` now returns its verdict and
 `ctraderRealtime.persistRoutingEvidence` stores it, keeping the hub transport-only.
 
-**Still to do in this step:** per-event timings (arrival → committed), the socket id, and the remaining
-alerts (duplicate, session expired, reauth failed, rate limited).
+**Also built:** every live fill records how long it took from arriving to being stored (`live-latency`),
+and a lost account session records a row (`session-lost`). **Why those two and not a metrics system:**
+once events are primary and the sweep is only a safety net, **a live path that has quietly stopped looks
+exactly like one that works** — the trade still appears, because the sweep covers for it. These two
+stages are what tell them apart.
+
+**Not built, and deliberately:** the socket id per event, and rate-limit alerts — nothing in this
+codebase reads a rate-limit response yet, so an alert would have nothing to fire on.
+
+**⚠ NOT YET OBSERVED IN PRODUCTION.** Both stages need a real fill to write their first row, and no fill
+has happened since the deploy. The code is live; the rows are unconfirmed.
 
 **What.** Record, per real-time event: when it arrived, which account it named, which socket carried
 it, and when the database committed it. Then alert on the five things that mean something is wrong:
@@ -499,7 +534,31 @@ the signal platform's connection, scanner and position-tracker timings are uncha
 
 **Stop and investigate, do not push on**, if any of those appear. That is what Step 4a is for.
 
-### Step 6 — tell the browser instead of letting it ask. **APPROVED 29 Sep, and it comes AFTER the server side is reliable**
+### Step 6 — tell the browser instead of letting it ask. **BUILT AND DEPLOYED 30 Sep**
+
+**Built:** `server/services/journalPush.ts` holds a connection open per user and writes down it when that
+user's journal changes; `GET /api/journal/stream` is the route, and `client/src/hooks/useJournalStream.ts`
+reads it. The push is raised at **the one point both recording paths converge**
+(`brokerSyncService.processIncomingTrades`), so neither the live feed nor the sweep can store a trade the
+screen never hears about, and there is no second place to keep in step.
+
+**The copier overview's 20-second timer is gone** — now five minutes as a fallback, not the mechanism.
+A slow fallback is kept on purpose: the push only makes the screen faster, and must never be the only
+thing that can make it correct.
+
+**Two decisions worth knowing:**
+* **Server-sent events, not a WebSocket.** The traffic is one-directional and rides on ordinary HTTP —
+  no new port, no upgrade handling, no second authentication path.
+* **The client reads it with `fetch`, not `EventSource`.** EventSource cannot send an Authorization
+  header, and the usual workaround — the token in the query string — writes it into every access and
+  proxy log it passes through.
+
+**⚠ CONNECTIONS LIVE IN ONE PROCESS.** Production runs a single Node process, so this works today. Run
+several instances and a push raised in one will NOT reach a browser attached to another — it fails
+silently, as a page that just stops updating. Recorded in `journalPush.ts` too.
+
+**Verified:** the route is live and protected — `GET /api/journal/stream 401` in production's log for an
+unauthenticated request. **Not verified:** a push actually arriving in a browser, which needs a fill.
 
 **What.** One push channel to the browser, so a recorded trade appears without the page asking.
 

@@ -3814,7 +3814,24 @@ non-cTrader platforms take no slot at all. At 250 accounts that is 250 syncs que
 
 **Fix:** `docs/ctrader-scaling.md` Step 4.
 
-### C9 — There is no push channel to the browser at all. Found 29 Sep 2026
+### C9 — ~~There is no push channel to the browser at all~~ BUILT + DEPLOYED 30 Sep 2026
+
+`server/services/journalPush.ts` + `GET /api/journal/stream` + `client/src/hooks/useJournalStream.ts`.
+Held open per user; the server writes down it when that user's journal changes. Raised at the one point
+both recording paths converge, so neither the live feed nor the sweep can store a trade the screen never
+hears about. The copier overview's 20-second timer is now a five-minute fallback.
+
+**Verified:** `GET /api/journal/stream 401` in production's log for an unauthenticated request — the route
+is live and protected. **Not verified:** a push arriving in a browser; that needs a real fill.
+
+**⚠ One process only.** Connections are held in memory, and production runs a single Node process. Several
+instances would mean a push raised in one never reaching a browser attached to another — and it fails
+*silently*, as a page that simply stops updating. Needs a shared channel (PostgreSQL LISTEN/NOTIFY is
+already used elsewhere) before the app is ever scaled out.
+
+---
+
+### C9 (original finding) — There is no push channel to the browser at all. Found 29 Sep 2026
 
 Verified 29 Sep: no WebSocket server and no server-sent-events endpoint anywhere in `server/`. A
 recorded trade only reaches an open page when the page next asks.
@@ -3880,6 +3897,26 @@ rare**, which is the change that actually reduces cTrader requests.
 look-back would create exactly the hole it is meant to close.
 
 **Fix:** `docs/ctrader-scaling.md` — his event-first question of 29 Sep. Shape not yet chosen.
+
+---
+
+### C10 — The signal platform's 2-second position tracker keeps SKIPPING runs. Found 29-30 Sep 2026
+
+Production logs `Execution of job "Position tracker (trigger: interval[0:00:02])" skipped: maximum number
+of running instances reached (1)` — repeatedly, three times inside one two-minute window on 30 Sep. It
+means a job scheduled every 2 seconds is not finishing inside 2 seconds, so the next run is dropped.
+
+**This is with FOUR accounts and no open positions.** The same window shows a scanner tick taking **13.3
+seconds** and individual on-demand scans at 3-4 seconds each.
+
+**Why it matters for the scaling plan:** three processes share 2 CPUs in one container — the signal
+platform, the copy engine and Node (`start.sh:27`, `:52`, `:69`). The reviewer's position was that the
+2-CPU box is probably not the bottleneck; this is the one measurement that argues back, and it is visible
+today rather than at 250 users.
+
+**NOT investigated.** I have not established whether the skipped runs lose anything — the tracker may be
+idempotent and simply catch up on the next tick. That is the first question, before any tuning.
+`docs/ctrader-scaling.md` Step 0 records it in the baseline.
 
 ---
 
