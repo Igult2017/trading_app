@@ -4144,7 +4144,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const [beat, masters, followers, mTrades, fTrades, logs, accts] = await Promise.all([
         pool.query(`SELECT beat_at, masters, providers FROM copy_engine_heartbeat WHERE id = 1`),
-        pool.query(`SELECT m.id, m.source_type, m.strategy_name, m.is_active, m.user_id,
+        // `is_public` IS THE ONE FIELD THAT ANSWERS "can anyone else see this account". His question,
+        // 2026-09-29: *"can anyone see these accounts and copy them if they sign in to their own
+        // accounts not mine?"* The provider directory joins on `is_public = true AND is_active =
+        // true` (storage.getProviderDirectory), so without it here the question cannot be answered
+        // from this endpoint at all — which is exactly where it was asked.
+        pool.query(`SELECT m.id, m.source_type, m.strategy_name, m.is_active, m.is_public, m.user_id,
                            m.broker_account_id,
                            b.platform, b.name AS account_name, b.login_id AS ctrader_account,
                            b.account_type, b.is_active AS account_active,
