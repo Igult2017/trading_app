@@ -328,7 +328,14 @@ id on both paths.
 **MEASURED.** Fire the same trade down both paths at once and get exactly one row. Then re-run the
 sweep over real history and confirm the recorded count does not change.
 
-### Step 3 — react when cTrader ends ONE account's session. **Blocker for Step 5**
+### Step 3 — react when cTrader ends ONE account's session. **DETECTION BUILT 29 Sep — not deployed, not proven live**
+
+**Built:** payload types 2147 and 2164, read from Spotware's own protobuf (four other values in the
+same fetch match the existing constants exactly, which is what makes them trustworthy). The hub now
+handles both BEFORE the guard that was dropping them, and re-attaches **that account alone**.
+25 checks in `ctraderHub.test.ts`. **NOT built:** the per-account health state machine (item 6).
+**NOT proven:** the live test needs a real token refresh on one account while another streams, and the
+local `.env` has no account token. Full account in `docs/OPEN.md` D53.
 
 **What.** Listen for the frame that says *this account's session has ended*, and re-authorise that
 account on its socket.
@@ -360,7 +367,14 @@ pass cannot tell you which mechanism worked):
 2. **Token refresh.** Separately, and **on a demo account the signal platform does not use** — see
    the hazard above. Confirm the scanner's own token still works afterwards.
 
-### Step 4 — put a limit on the 15-minute sweep
+### Step 4 — put a limit on the 15-minute sweep. **BUILT AND VERIFIED 29 Sep — not deployed**
+
+**Built:** a fixed number of workers share one queue (`SYNC_SWEEP_WORKERS`, default **4**), and the
+sweep is **awaited**, so the timer can no longer start a second sweep on top of one still running.
+4 because the database allows only 20 connections and gives up after 3 seconds, shared with all web
+traffic. **Verified by running it** — `sweepConcurrency.test.ts`, 9 checks: 250 accounts with 4
+workers never exceeds 4 in flight and all 250 still run, and the teeth check proves the test can tell
+bounded from unbounded. `docs/OPEN.md` D54.
 
 **What.** A small number of workers drain a queue of accounts, instead of every account being
 launched at once.

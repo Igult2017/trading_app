@@ -3702,8 +3702,20 @@ Then proven directly: a second copy of the same trade is **refused**, the same i
 Plus 38 source-level checks in `tradeRecording.test.ts` guarding the wiring — proven to have teeth, as
 deliberately naming the index made 3 of them fail — and typecheck clean.
 
-**On deploy, watch for** `synced_trades: no duplicate … rows found` (or a removal count) and
-`[AutoSync] duplicate guard: ON`.
+**✅ LIVE AND CONFIRMED IN PRODUCTION — deployed 29 Sep 20:20 UTC, commit `b8d8034c`.** Both lines the
+deploy was meant to produce are in the container log, so this is not "shipped and assumed":
+
+```
+psql:/app/docker-migrate.sql:642: NOTICE:  synced_trades: no duplicate (broker_account_id, external_id) rows found.
+DO
+CREATE INDEX
+Migrations complete
+[AutoSync] duplicate guard: ON — the database refuses a second copy of the same broker trade
+```
+
+**And it answers the open question: production held ZERO duplicates.** So nothing was deleted, and the
+out-of-scope worry below — duplicate journal entries needing his decision — **does not arise.** There
+was never anything to clean up.
 
 **Out of scope, and his decision:** if duplicates already exist, each may have created its own journal
 entry, and deleting a synced trade does **not** delete that entry. The migration reports the count
@@ -3727,7 +3739,29 @@ since 09 Sep. It gets worse as trades speed up.
 
 **Fix:** `docs/ctrader-scaling.md` Step 2.
 
-### D53 — When cTrader ends ONE account's session, nothing hears it. Found 29 Sep 2026
+### D53 — ~~When cTrader ends ONE account's session, nothing hears it~~ DETECTION BUILT 29 Sep, NOT DEPLOYED, NOT PROVEN LIVE
+
+**Built.** Two payload types added — `PT_TOKEN_INVALIDATED = 2147` and `PT_ACCOUNT_DISCONNECT = 2164`,
+**read from Spotware's own `OpenApiModelMessages.proto`, not guessed.** The same fetch returned
+2102/2103/2126/2142, which match the constants already in `brokerAdapters/ctrader.ts` exactly — that
+agreement is what makes these two trustworthy, and the file's own warning is that a wrong payload type
+fails *silently*.
+
+`ctraderHub.route` now handles both **before** the execution-event guard that was dropping them, and
+reports the named account through a new per-account callback. `ctraderRealtime.onAccountLost` detaches
+**that account only** and reconnects it, which re-reads the current token — the socket and every other
+account on it are untouched. Tearing the socket down would take healthy accounts offline to fix one.
+
+**Verified by running the real router** — `ctraderHub.test.ts`, now 25 checks. Both message shapes are
+read (the invalidation names accounts in an array, the disconnect names one in a singular field —
+reading only the array would have silently ignored disconnects); an account that is not ours is ignored;
+and with **no id on a socket carrying several accounts, every member is re-checked rather than one
+being guessed at** — guessing would re-authorise the wrong account and leave the broken one broken.
+
+**NOT done, and not claimed:** the per-account health *state machine* (the reviewer's item 6) — losses
+are detected and logged, but no explicit state field is held per member. And **the live proof is
+impossible on this machine**: it needs a real token refresh on one account while another keeps
+streaming, and the local `.env` has no cTrader account token.
 
 `docs/ctrader-open-api-apps.md:90` records, sourced to cTrader's own message reference, that this
 event ends the session for **that one account only** while the others on the connection survive — and
@@ -3743,7 +3777,26 @@ would stay healthy while one account silently stopped streaming.
 **Fix:** `docs/ctrader-scaling.md` Step 3 — and note the testing hazard recorded there, because
 forcing a refresh can invalidate the scanner's token.
 
-### D54 — The 15-minute sweep starts every account at once and waits for none. Found 29 Sep 2026
+### D54 — ~~The 15-minute sweep starts every account at once and waits for none~~ BUILT 29 Sep, NOT YET DEPLOYED
+
+**Fixed:** `syncAllAccounts` now runs accounts through a fixed number of workers sharing one queue
+(`SYNC_SWEEP_WORKERS`, default **4**), and **the sweep is awaited**, so the 15-minute timer can no
+longer start a second sweep on top of one still running.
+
+**Why 4 and not a free choice:** `server/db.ts:65` allows **20 database connections and gives up after
+3 seconds**, and every web request shares those 20. A sweep that takes all of them does not run slowly,
+it fails page loads. 4 leaves the majority for real users.
+
+**Verified by running it, not reading it** — `server/services/sweepConcurrency.test.ts`, 9 checks:
+250 accounts with 4 workers never exceeds **4 in flight** and all 250 still run; and the teeth check
+proves the test can tell the difference (250 workers really does put 250 in flight).
+
+**Still to do:** deploy, then confirm the log reads `sweep: N account(s) to check, 4 at a time` and a
+`sweep finished in Xs` line.
+
+---
+
+### D54 (original finding) — The 15-minute sweep starts every account at once and waits for none. Found 29 Sep 2026
 
 `server/services/autoSyncService.ts:262` launches every account's sync un-awaited. The cTrader side is
 protected (each takes a slot from the pool of 8) but **nothing bounds the database side**, and

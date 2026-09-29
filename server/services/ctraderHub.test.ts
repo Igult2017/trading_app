@@ -15,7 +15,7 @@
  * `ProtoOAExecutionEvent` carries `ctidTraderAccountId` in the protobuf schema, but that has NOT been
  * observed on this JSON gateway, which is why CTRADER_ACCOUNTS_PER_CONN ships at 1.
  */
-import { PT_EXECUTION_EVENT } from './brokerAdapters/ctrader';
+import { PT_EXECUTION_EVENT, PT_TOKEN_INVALIDATED, PT_ACCOUNT_DISCONNECT } from './brokerAdapters/ctrader';
 import { ACCOUNTS_PER_CONN, _internals, _resetForTests } from './ctraderHub';
 
 let failed = 0;
@@ -126,6 +126,65 @@ teeth('a router that ignored the id would deliver to the WRONG account', got[0] 
 got = [];
 route(hub, frame({ ctidTraderAccountId: 222, deal: { dealId: 7 } }), collect);
 teeth('...while the real router delivers to the right one', got[0] === 'acct-222');
+
+// ── ONE ACCOUNT'S SESSION ENDING MUST NOT TAKE THE OTHERS DOWN (docs/OPEN.md D53) ────────────────
+//
+// cTrader ends a single account's session on a routine token refresh. The socket and every other
+// account on it keep working, so the event has to name WHICH account and only that one may be touched.
+// Before this, `route` dropped every frame that was not a fill, so the event was invisible.
+console.log('\nA DEAD ACCOUNT SESSION IS SEEN, AND ONLY THAT ACCOUNT IS TOUCHED\n');
+
+/** A hub that records which accounts were reported lost, instead of reconnecting them. */
+function lossHub(ctids: number[]) {
+  const h = fakeHub(ctids);
+  const lost: string[] = [];
+  h.onAccountLost = (id: string) => lost.push(id);
+  return { h, lost };
+}
+const nothing = () => { /* fills are irrelevant here */ };
+
+let L = lossHub([111, 222, 333]);
+route(L.h, frame({ ctidTraderAccountIds: [222] }, PT_TOKEN_INVALIDATED), nothing);
+check('an invalidated token reports ONLY the account it names', L.lost, ['acct-222']);
+
+L = lossHub([111, 222, 333]);
+route(L.h, frame({ ctidTraderAccountIds: [111, 333] }, PT_TOKEN_INVALIDATED), nothing);
+check('...and it reads the ARRAY form, so several named accounts are all handled',
+      L.lost, ['acct-111', 'acct-333']);
+
+// The disconnect event names ONE account in a different field. Reading only the array form would have
+// silently ignored it — the same class of miss as the fill router's missing id.
+L = lossHub([111, 222]);
+route(L.h, frame({ ctidTraderAccountId: 222 }, PT_ACCOUNT_DISCONNECT), nothing);
+check('a disconnect names its account in the SINGULAR field and is still handled',
+      L.lost, ['acct-222']);
+
+L = lossHub([111, 222]);
+route(L.h, frame({ ctidTraderAccountIds: [999] }, PT_TOKEN_INVALIDATED), nothing);
+check('an account that is not ours is ignored rather than mistaken for one of ours', L.lost, []);
+
+// NO ID AND SEVERAL MEMBERS: which session died is unknowable, so every member is re-checked rather
+// than one being guessed at. Re-checking is cheap and safe; guessing re-authorises the wrong account
+// and leaves the broken one broken.
+L = lossHub([111, 222, 333]);
+route(L.h, frame({}, PT_TOKEN_INVALIDATED), nothing);
+check('no id + several accounts -> ALL are re-checked, never one guessed',
+      L.lost, ['acct-111', 'acct-222', 'acct-333']);
+
+L = lossHub([111]);
+route(L.h, frame({}, PT_TOKEN_INVALIDATED), nothing);
+check('no id + one account -> that account, unambiguously', L.lost, ['acct-111']);
+
+// AND IT MUST NOT BE CONFUSED WITH A FILL. A fill still routes as a fill, and a session event must
+// never be delivered to `onTrade` as though a trade had happened.
+let fills: string[] = [];
+L = lossHub([111, 222]);
+route(L.h, frame({ ctidTraderAccountIds: [222] }, PT_TOKEN_INVALIDATED),
+      (m: any) => fills.push(m.account.id));
+check('a session event is never delivered as a trade', fills, []);
+
+teeth('a router that dropped these events would report no loss at all',
+      L.lost.length === 1 && fills.length === 0);
 
 _resetForTests();
 console.log();

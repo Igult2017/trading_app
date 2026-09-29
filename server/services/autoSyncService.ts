@@ -236,13 +236,69 @@ export async function syncAccount(account: BrokerAccount,
   }
 }
 
+/**
+ * HOW MANY ACCOUNTS MAY BE RECONCILED AT ONCE.
+ *
+ * The loop below used to start EVERY account and wait for none of them. At four accounts that is
+ * invisible; at 250 it is 250 syncs querying the database at the same moment.
+ *
+ * ⚠ THE CEILING IS NOT OURS TO PICK FREELY. `server/db.ts:65` allows **20 database connections and
+ * gives up after 3 seconds**, and every web request shares those 20 — so a sweep that helps itself to
+ * all of them does not just slow down, it starts failing page loads. (The comment there claims
+ * "20 per process × PM2 workers = ~160 total"; that is wrong for production, which runs ONE plain Node
+ * process — `start.sh:69`.)
+ *
+ * 4 leaves the clear majority of the pool for actual users, and is still 4× the cTrader side's own
+ * limit of one socket at a time per account. Raise it only against a measurement.
+ */
+const SWEEP_WORKERS = envInt('SYNC_SWEEP_WORKERS', 4, 1, 16);
+
+function envInt(name: string, fallback: number, min: number, max: number): number {
+  const n = Number.parseInt(String(process.env[name] ?? ''), 10);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(max, Math.max(min, n));
+}
+
 async function syncAllAccounts(): Promise<void> {
   const accounts = await getAllApiAccounts();
   // WITHOUT THIS LINE THERE IS NO PROOF THE SWEEP EVER RAN. "[AutoSync] Starting" appeared once at
   // boot and then 2h44m of production log held not one further word about syncing — so "the sweep
   // is running and finding nothing" and "the sweep died at the first line" looked identical.
-  console.log(`[AutoSync] sweep: ${accounts.length} API-connected account(s) to check`);
-  for (const account of accounts) {
+  console.log(`[AutoSync] sweep: ${accounts.length} API-connected account(s) to check, `
+              + `${SWEEP_WORKERS} at a time`);
+
+  const started = Date.now();
+  await runWithWorkers(accounts, SWEEP_WORKERS, syncOne);
+  console.log(`[AutoSync] sweep finished in ${((Date.now() - started) / 1000).toFixed(1)}s`);
+}
+
+/**
+ * Run `fn` over every item with at most `workers` of them in flight at once.
+ *
+ * A FIXED NUMBER OF WORKERS SHARING ONE QUEUE, rather than one promise per item. Each worker takes the
+ * next item only when it has finished the last, so the number in flight can never exceed `workers` no
+ * matter how many items there are — which is the property `Promise.all(items.map(fn))` does not have.
+ *
+ * EXPORTED SO THE LIMIT CAN BE PROVEN BY RUNNING IT, not by reading it. The thing worth protecting here
+ * is a number that is invisible at four accounts and harmful at 250, so a test that actually counts
+ * what is in flight is worth more than one that greps for the word "worker".
+ */
+export async function runWithWorkers<T>(
+  items: readonly T[], workers: number, fn: (item: T) => Promise<void>,
+): Promise<void> {
+  const queue = [...items];
+  const worker = async (): Promise<void> => {
+    for (;;) {
+      const item = queue.shift();
+      if (item === undefined) return;
+      await fn(item);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.max(1, Math.min(workers, queue.length)) }, worker));
+}
+
+async function syncOne(account: BrokerAccount): Promise<void> {
+  {
     // cTRADER IS INCLUDED AGAIN (31 Aug 2026), and this is the SAFETY NET under trade recording.
     //
     // It used to be skipped here — "cTrader has strict WS rate limits, only sync on connect or
@@ -257,11 +313,14 @@ async function syncAllAccounts(): Promise<void> {
     // queue instead of storming the broker — which is also why the un-awaited loop below is safe.
     // A sync here is CHEAP: with `lastSyncAt` set it asks only for the window since the last one.
     //
-    // Recording twice is impossible: `processIncomingTrades` de-duplicates on
-    // externalId + brokerAccountId, so the feed and this sync cannot both file the same deal.
+    // Recording twice is impossible, AND THE DATABASE IS NOW WHAT MAKES IT SO (29 Sep, docs/OPEN.md
+    // D52). This used to rest entirely on `processIncomingTrades` looking before it inserted, which
+    // cannot close the gap between the look and the insert — and the feed and this sweep can both be
+    // inside that gap. `synced_trades_account_external_key` closes it.
+    //
     // THE ERROR IS LOGGED, NOT SWALLOWED. `.catch(() => {})` meant anything that threw before
     // syncAccount's own try/except vanished without trace.
-    syncAccount(account).catch(err =>
+    await syncAccount(account).catch(err =>
       console.error(`[AutoSync] ${account.platform}(${account.id.slice(0, 8)}) sweep failed: `
                     + (err?.message ?? err)));
   }

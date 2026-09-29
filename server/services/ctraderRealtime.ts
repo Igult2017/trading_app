@@ -57,6 +57,24 @@ function scheduleReconnect(id: string): void {
   setTimeout(() => { connect(id).catch(() => {}); }, RECONNECT_MS);
 }
 
+/**
+ * ONE account lost its session while its socket stayed up — put that account back, alone.
+ *
+ * cTrader ends a single account's session on a routine token refresh, and the socket and every other
+ * account on it are unaffected (docs/ctrader-open-api-apps.md:90). So the socket must NOT be torn down:
+ * doing that would take healthy accounts offline to fix one broken one.
+ *
+ * `detach` removes just this member (and only closes the socket if it was the last one), then the
+ * ordinary connect path runs — which re-reads the CURRENT token from the database and re-authorises.
+ * That matters because the reason the session ended is usually that the token was rotated, so the
+ * token this account was attached with is exactly the one that no longer works.
+ */
+function onAccountLost(accountId: string, reason: string): void {
+  console.warn(`[cTraderRT] account ${accountId} lost its session (${reason}) — re-attaching it alone`);
+  detach(accountId);
+  scheduleReconnect(accountId);
+}
+
 /** Every account that shared a dropped socket comes back together. */
 function onHubLost(accountIds: string[]): void {
   console.warn(`[cTraderRT] socket dropped carrying ${accountIds.length} account(s) — reconnecting`);
@@ -89,7 +107,7 @@ async function openFeed(id: string, attempt: number): Promise<void> {
   if (!creds.accessToken || !creds.ctraderId) return;        // OAuth not finished yet
 
   try {
-    await attach(account, creds, onTrade, onHubLost);
+    await attach(account, creds, onTrade, onHubLost, onAccountLost);
     console.log(`[cTraderRT] live feed attached — account ${id} (ctid ${creds.ctraderId})`);
   } catch (err: any) {
     const msg = String(err?.message ?? '');

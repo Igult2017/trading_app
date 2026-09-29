@@ -32,7 +32,7 @@ import { acquire, type Lease } from './ctraderConnPool';
 import {
   LIVE_WS, DEMO_WS, openWS, send, waitFor, appAuth,
   PT_ACCT_AUTH_REQ, PT_ACCT_AUTH_RES, PT_SYMBOLS_REQ, PT_SYMBOLS_RES,
-  PT_EXECUTION_EVENT, PT_HEARTBEAT,
+  PT_EXECUTION_EVENT, PT_HEARTBEAT, PT_TOKEN_INVALIDATED, PT_ACCOUNT_DISCONNECT,
 } from './brokerAdapters/ctrader';
 
 const HEARTBEAT_MS = 10_000;
@@ -58,10 +58,14 @@ interface Hub {
   key:     string;                    // `${host}|${app}` — see the header
   closing: boolean;
   members: Map<number, Member>;       // ctidTraderAccountId -> member
+  // Called when ONE account on this socket loses its session while the socket stays up.
+  onAccountLost?: OnAccountLost;
 }
 
 type OnTrade = (member: Member, payload: any) => void;
 type OnHubLost = (accountIds: string[]) => void;
+/** ONE account lost its session; the socket and its other accounts are unaffected. */
+type OnAccountLost = (accountId: string, reason: string) => void;
 
 const hubs: Hub[] = [];
 const hubOf = new Map<string, Hub>();   // brokerAccountId -> hub
@@ -94,7 +98,8 @@ function hubKey(host: string, app: string | undefined): string {
 
 /** A hub for this host+app with room, or a new one. */
 async function hubWithRoom(host: string, app: string | undefined,
-                           onTrade: OnTrade, onHubLost: OnHubLost): Promise<Hub> {
+                           onTrade: OnTrade, onHubLost: OnHubLost,
+                           onAccountLost?: OnAccountLost): Promise<Hub> {
   const key = hubKey(host, app);
   const existing = hubs.find(h => h.key === key && !h.closing && h.members.size < ACCOUNTS_PER_CONN);
   if (existing) return existing;
@@ -110,7 +115,7 @@ async function hubWithRoom(host: string, app: string | undefined,
   }
 
   const hub: Hub = {
-    ws, lease, key, closing: false, members: new Map(),
+    ws, lease, key, closing: false, members: new Map(), onAccountLost,
     hb: setInterval(() => { try { send(ws, PT_HEARTBEAT, {}); } catch { /* socket gone */ } }, HEARTBEAT_MS),
   };
   hubs.push(hub);
@@ -136,6 +141,46 @@ async function hubWithRoom(host: string, app: string | undefined,
 function route(hub: Hub, raw: WebSocket.RawData, onTrade: OnTrade): void {
   let msg: any;
   try { msg = JSON.parse(raw.toString()); } catch { return; }
+
+  // ── ONE ACCOUNT'S SESSION ENDED, AND THE SOCKET IS FINE ────────────────────────────────────────
+  //
+  // Checked BEFORE the execution-event guard below, because that guard drops every other frame — which
+  // is why this was invisible. cTrader sends this on a routine token refresh, and it ends the session
+  // for the named account ONLY; the others on this socket keep streaming
+  // (docs/ctrader-open-api-apps.md:90, docs/OPEN.md D53).
+  //
+  // Harmless while each socket carries one account — a dead session then surfaces as our own next
+  // request failing, and the one-shot token refresh recovers it. A BLOCKER for sharing: the socket
+  // stays healthy, so nothing would notice that one account had gone quiet.
+  if (msg.payloadType === PT_TOKEN_INVALIDATED || msg.payloadType === PT_ACCOUNT_DISCONNECT) {
+    const why = msg.payloadType === PT_TOKEN_INVALIDATED ? 'token invalidated' : 'account disconnected';
+    // The invalidation event names accounts in an ARRAY (`ctidTraderAccountIds`); the disconnect event
+    // names one (`ctidTraderAccountId`). Both shapes are read, so neither is silently ignored.
+    const ids: number[] = Array.isArray(msg.payload?.ctidTraderAccountIds)
+      ? msg.payload.ctidTraderAccountIds.map(Number).filter(Number.isFinite)
+      : [Number(msg.payload?.ctidTraderAccountId ?? NaN)].filter(Number.isFinite);
+
+    // NO ID AND ONE MEMBER is unambiguous — the same fallback the fill router uses. With several
+    // members it would be a guess about whose session died, and guessing here means re-authorising the
+    // wrong account while the broken one stays broken.
+    const targets = ids.length ? ids
+                  : (hub.members.size === 1 ? [...hub.members.keys()] : []);
+    if (!targets.length) {
+      console.error(`[cTraderHub] ${why} with no account id on a socket carrying ${hub.members.size} `
+                  + `accounts — cannot tell which; every member will be re-checked`);
+      hub.members.forEach(m => hub.onAccountLost?.(m.account.id, why));
+      return;
+    }
+    for (const ctid of targets) {
+      const m = hub.members.get(ctid);
+      if (!m) continue;                                    // not ours — another app's account
+      console.warn(`[cTraderHub] ${why} for account ${m.account.id} (ctid ${ctid}) — `
+                 + `re-authorising it alone; ${hub.members.size - 1} other account(s) keep streaming`);
+      hub.onAccountLost?.(m.account.id, why);
+    }
+    return;
+  }
+
   if (msg.payloadType !== PT_EXECUTION_EVENT) return;      // heartbeats and everything else
 
   const ctid = Number(msg.payload?.ctidTraderAccountId ?? NaN);
@@ -161,11 +206,16 @@ function route(hub: Hub, raw: WebSocket.RawData, onTrade: OnTrade): void {
 
 /** Put one account on a socket. Throws so the caller can retry/refresh exactly as before. */
 export async function attach(account: BrokerAccount, creds: any,
-                             onTrade: OnTrade, onHubLost: OnHubLost): Promise<void> {
+                             onTrade: OnTrade, onHubLost: OnHubLost,
+                             onAccountLost?: OnAccountLost): Promise<void> {
   if (hubOf.has(account.id)) return;
   const ctid   = Number(creds.ctraderId);
   const isLive = account.accountType?.toLowerCase() !== 'demo';
-  const hub    = await hubWithRoom(isLive ? LIVE_WS : DEMO_WS, creds.app, onTrade, onHubLost);
+  const hub    = await hubWithRoom(isLive ? LIVE_WS : DEMO_WS, creds.app, onTrade, onHubLost,
+                                  onAccountLost);
+  // An EXISTING socket was created with an earlier account’s callback; keep the latest so a member
+  // added later is never left without one.
+  if (onAccountLost) hub.onAccountLost = onAccountLost;
 
   send(hub.ws, PT_ACCT_AUTH_REQ, { ctidTraderAccountId: ctid, accessToken: creds.accessToken });
   await waitFor(hub.ws, PT_ACCT_AUTH_RES);

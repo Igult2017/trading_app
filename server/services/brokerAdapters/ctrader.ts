@@ -87,6 +87,20 @@ export const PT_OA_ERROR        = 2142;
 export const PT_EXECUTION_EVENT = 2126;  // PROTO_OA_EXECUTION_EVENT — real-time fills
 export const PT_HEARTBEAT       = 51;    // ProtoHeartbeatEvent — keep-alive, send every ~10s
 
+// ── ONE ACCOUNT'S SESSION ENDING, WHICH IS NOT THE SOCKET ENDING ─────────────────────────────────
+//
+// Read from Spotware's own `OpenApiModelMessages.proto` (`ProtoOAPayloadType`), never guessed — a wrong
+// payload type here fails SILENTLY, because an unrecognised message simply never matches. The same
+// fetch also returned 2102/2103/2126/2142, which match the constants above exactly; that agreement is
+// what makes these two trustworthy.
+//
+// WHY THEY MATTER NOW: `ProtoOAAccountsTokenInvalidatedEvent` fires on a routine token REFRESH and ends
+// the session for that ONE account while every other account on the socket keeps streaming
+// (docs/ctrader-open-api-apps.md:90). With one account per socket that shows up as our own request
+// failing. With several, the socket stays healthy and one account goes quiet with nothing reporting it.
+export const PT_TOKEN_INVALIDATED  = 2147;  // PROTO_OA_ACCOUNTS_TOKEN_INVALIDATED_EVENT
+export const PT_ACCOUNT_DISCONNECT = 2164;  // PROTO_OA_ACCOUNT_DISCONNECT_EVENT
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 export function openWS(url: string): Promise<WebSocket> {
