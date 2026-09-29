@@ -39,7 +39,7 @@ function teeth(name: string, brokeItAndFailed: boolean) {
   if (!brokeItAndFailed) failed++;
 }
 
-const { route, hubKey } = _internals;
+const { route, hubKey, hasRoom } = _internals;
 
 /** A hub with no real socket — routing is pure and needs none. */
 function fakeHub(ctids: number[]) {
@@ -189,6 +189,34 @@ check('a session event is never delivered as a trade', fills, []);
 
 teeth('a router that dropped these events would report no loss at all',
       L.lost.length === 1 && fills.length === 0);
+
+// ── ROOM IS COUNTED INCLUDING SLOTS ALREADY PROMISED (the bug that made sharing impossible) ──────
+//
+// A member is only added to `members` AFTER its authorisation round-trip finishes. Counting `members`
+// alone therefore reports an EMPTY socket while three accounts are already on their way to it — so on a
+// concurrent boot every account was told there was room, and each opened its own socket instead.
+// MEASURED on production 2026-09-30 with the limit set to 2: accounts 4, sockets 4, [1,1,1,1].
+console.log(`
+ROOM COUNTS RESERVATIONS, NOT JUST ARRIVALS
+`);
+
+const roomy = (members: number, pending: number) =>
+  ({ key: 'k', closing: false, members: new Map(Array.from({ length: members }, (_, i) => [i, {} as any])), pending } as any);
+
+check('an empty socket has room', hasRoom(roomy(0, 0), 'k'), true);
+check('...and one already promised to somebody still has room, at a limit of 2',
+      hasRoom(roomy(0, 1), 'k'), true);
+check('...but one promised to two does NOT, even with no member arrived yet',
+      hasRoom(roomy(0, 2), 'k'), false);
+check('a socket with one member and one promise is full', hasRoom(roomy(1, 1), 'k'), false);
+check('a socket at the member limit is full', hasRoom(roomy(2, 0), 'k'), false);
+check('a closing socket is never offered', hasRoom({ ...roomy(0, 0), closing: true }, 'k'), false);
+check('a socket for a different host+app is never offered', hasRoom(roomy(0, 0), 'other'), false);
+
+// TEETH — the old test. Counting members alone says the 0-member/2-promised socket has room, which is
+// exactly how four accounts ended up on four sockets.
+teeth('counting members alone would wrongly report room',
+      roomy(0, 2).members.size < ACCOUNTS_PER_CONN && !hasRoom(roomy(0, 2), 'k'));
 
 _resetForTests();
 console.log();

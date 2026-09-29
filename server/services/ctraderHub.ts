@@ -82,6 +82,14 @@ interface Hub {
   key:     string;                    // `${host}|${app}` — see the header
   closing: boolean;
   members: Map<number, Member>;       // ctidTraderAccountId -> member
+  /**
+   * Slots promised to accounts that are still authorising.
+   *
+   * A member only appears in `members` AFTER its authorisation round-trip finishes, so counting
+   * `members` alone says a socket is empty while three accounts are already on their way to it. Room is
+   * therefore `members.size + pending`, and a slot is reserved at the moment a socket is CHOSEN.
+   */
+  pending: number;
   // Called when ONE account on this socket loses its session while the socket stays up.
   onAccountLost?: OnAccountLost;
 }
@@ -138,13 +146,55 @@ function hubKey(host: string, app: string | undefined): string {
 }
 
 /** A hub for this host+app with room, or a new one. */
+/**
+ * Sockets being opened right now, by key, so concurrent callers wait instead of each opening their own.
+ *
+ * ⚠ THIS IS WHY SHARING NEVER ACTUALLY HAPPENED. Accounts connect concurrently
+ * (`ctraderRealtime.ts:233` is a `Promise.all`), and the search for an existing socket below runs
+ * SYNCHRONOUSLY, before any await — while the socket it would find is only registered three awaits
+ * later. So every account on a concurrent boot looked, saw nothing, and opened its own. Measured on
+ * production 2026-09-30 with the limit set to 2: `accounts 4, sockets 4, accountsPerSocket [1,1,1,1]`.
+ * The setting was being honoured and the sharing was still impossible.
+ */
+const creating = new Map<string, Promise<Hub>>();
+
+/** Room accounts for slots already promised, not just members already authorised. */
+function hasRoom(h: Hub, key: string): boolean {
+  return h.key === key && !h.closing && (h.members.size + h.pending) < ACCOUNTS_PER_CONN;
+}
+
+/**
+ * A socket for this host+app with room, or a new one. **Reserves a slot on the socket it returns** —
+ * the caller MUST release it (see `attach`), or the socket leaks capacity and slowly stops accepting.
+ */
 async function hubWithRoom(host: string, app: string | undefined,
                            onTrade: OnTrade, onHubLost: OnHubLost,
                            onAccountLost?: OnAccountLost): Promise<Hub> {
   const key = hubKey(host, app);
-  const existing = hubs.find(h => h.key === key && !h.closing && h.members.size < ACCOUNTS_PER_CONN);
-  if (existing) return existing;
+  for (;;) {
+    const existing = hubs.find(h => hasRoom(h, key));
+    if (existing) { existing.pending++; return existing; }
 
+    const inFlight = creating.get(key);
+    if (inFlight) {
+      // Someone is already opening a socket for this key. Wait for it, then look again — it may have
+      // room for this account, or may already be full, in which case the loop opens the next one.
+      try { await inFlight; } catch { /* the opener logs its own failure; just re-evaluate */ }
+      continue;
+    }
+
+    const opening = openHub(host, app, key, onTrade, onHubLost, onAccountLost)
+      .finally(() => { if (creating.get(key) === opening) creating.delete(key); });
+    creating.set(key, opening);
+    const hub = await opening;
+    hub.pending++;
+    return hub;
+  }
+}
+
+async function openHub(host: string, app: string | undefined, key: string,
+                       onTrade: OnTrade, onHubLost: OnHubLost,
+                       onAccountLost?: OnAccountLost): Promise<Hub> {
   const lease = await acquire('feed', 'live-feed');
   let ws: WebSocket;
   try {
@@ -156,7 +206,7 @@ async function hubWithRoom(host: string, app: string | undefined,
   }
 
   const hub: Hub = {
-    ws, lease, key, closing: false, members: new Map(), onAccountLost,
+    ws, lease, key, closing: false, members: new Map(), pending: 0, onAccountLost,
     hb: setInterval(() => { try { send(ws, PT_HEARTBEAT, {}); } catch { /* socket gone */ } }, HEARTBEAT_MS),
   };
   hubs.push(hub);
@@ -258,20 +308,27 @@ export async function attach(account: BrokerAccount, creds: any,
   // added later is never left without one.
   if (onAccountLost) hub.onAccountLost = onAccountLost;
 
-  send(hub.ws, PT_ACCT_AUTH_REQ, { ctidTraderAccountId: ctid, accessToken: creds.accessToken });
-  await waitFor(hub.ws, PT_ACCT_AUTH_RES);
+  // `hubWithRoom` RESERVED a slot on this socket, and the reservation is what stops three concurrent
+  // accounts all being told an empty socket has room for them. It must be given back on BOTH paths: a
+  // reservation that is never released is capacity this socket silently stops offering for ever.
+  try {
+    send(hub.ws, PT_ACCT_AUTH_REQ, { ctidTraderAccountId: ctid, accessToken: creds.accessToken });
+    await waitFor(hub.ws, PT_ACCT_AUTH_RES);
 
-  // Execution events carry a numeric symbolId, so each account needs the id->name map. Accounts on
-  // the same broker return identical lists, so one copy is SHARED rather than held per account —
-  // 3,000 separate maps is real memory for no benefit.
-  send(hub.ws, PT_SYMBOLS_REQ, { ctidTraderAccountId: ctid });
-  const symPayload = await waitFor(hub.ws, PT_SYMBOLS_RES, 30_000);
-  const fresh: Record<number, string> = {};
-  for (const s of (symPayload?.symbol ?? [])) if (s.symbolId && s.symbolName) fresh[s.symbolId] = s.symbolName;
-  const symbolMap = shareSymbolMap(fresh);
+    // Execution events carry a numeric symbolId, so each account needs the id->name map. Accounts on
+    // the same broker return identical lists, so one copy is SHARED rather than held per account —
+    // 3,000 separate maps is real memory for no benefit.
+    send(hub.ws, PT_SYMBOLS_REQ, { ctidTraderAccountId: ctid });
+    const symPayload = await waitFor(hub.ws, PT_SYMBOLS_RES, 30_000);
+    const fresh: Record<number, string> = {};
+    for (const s of (symPayload?.symbol ?? [])) if (s.symbolId && s.symbolName) fresh[s.symbolId] = s.symbolName;
+    const symbolMap = shareSymbolMap(fresh);
 
-  hub.members.set(ctid, { account, ctid, symbolMap });
-  hubOf.set(account.id, hub);
+    hub.members.set(ctid, { account, ctid, symbolMap });
+    hubOf.set(account.id, hub);
+  } finally {
+    hub.pending = Math.max(0, hub.pending - 1);
+  }
 }
 
 /** Take one account off its socket, and close the socket when it is the last one. */
@@ -308,4 +365,4 @@ export function _resetForTests(): void {
   symbolMapCache.clear();
   sawRouted = 0; sawUnrouted = 0; reported = false;
 }
-export const _internals = { hubs, hubOf, route, hubKey };
+export const _internals = { hubs, hubOf, route, hubKey, hasRoom, creating };
