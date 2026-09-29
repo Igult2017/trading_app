@@ -11,8 +11,10 @@
  * + navbar and the panel spills. These rules re-anchor the frame to the panel; nothing about the
  * type, colour, spacing or component layout changes.
  *
- * The header stays `sticky top-0`: inside a scrolling `<main>` it pins to the panel's top edge,
- * which is the behaviour a panel wants anyway.
+ * ⚠ THERE IS NO HEADER ANY MORE (2026-09-29). This used to explain that the header stayed
+ * `sticky top-0` so it pinned to the panel's top edge. He had it removed — it held a notifications
+ * bell for a feature that does not exist, a Help menu that only raised toasts, and an account menu
+ * naming a person who is not him. Nothing pins to the top now; the content starts there.
  */
 export const CT_PANEL = `
 .ct-app.ct-panel{
@@ -26,13 +28,22 @@ export const CT_PANEL = `
   align-self:stretch;
 }
 
-/* HUG THE JOURNAL NAV. Standalone, this UI sits in a browser window and its content main carries
-   p-6 (24px) all round, which is right — it needs breathing room against the viewport edge. In
-   PANEL mode the left edge is not the viewport, it is Journal's nav rail, and 24px there reads as
-   the card floating with its border hanging in space rather than sitting against the rail.
-   Only the LEFT is dropped: top, right and bottom padding still do their job.
-   Panel-scoped, so the standalone /trade-sync page is unaffected. */
+/* HUG THE JOURNAL NAV AND ITS TOP EDGE. Standalone, this UI sits in a browser window and its
+   content main carries p-6 (24px) all round, which is right — it needs breathing room against the
+   viewport edge. In PANEL mode neither the left nor the top edge is the viewport: the left is
+   Journal's nav rail and the top is Journal's own navbar, and 24px against either reads as the card
+   floating with its border hanging in space rather than sitting against them.
+
+   THE TOP WENT ON 2026-09-29, at his instruction — he drew a line across where the content should
+   begin and said "remove the top space". It became visible the same day the copier's own header
+   strip was removed: that bar used to occupy the space, and taking it away left the padding behind
+   as a bare gap, with the nav rail on the right starting 24px higher than the content beside it.
+   Dropping it closes the gap AND squares the two up.
+
+   RIGHT AND BOTTOM ARE KEPT — they separate the content from the panel's own edges, which is a real
+   job. Panel-scoped, so the standalone /trade-sync page is unaffected. */
 .ct-app.ct-panel > .flex > main{
   padding-left:0;
+  padding-top:0;
 }
 `;
