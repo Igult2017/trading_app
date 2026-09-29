@@ -2,6 +2,8 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { supabaseAdmin, verifyToken } from "./lib/supabaseAdmin";
 import { subscribe } from "./services/journalPush";
+import { hubStats, ACCOUNTS_PER_CONN } from "./services/ctraderHub";
+import { stats as poolStats } from "./services/ctraderConnPool";
 import { cacheGet, cacheSet, cacheDel, userSessionKey,
          invalidateComputeCaches } from "./lib/cache";
 // The two halves of "a hand edit beats the broker" — the list of fields it can cover and the key it
@@ -1099,6 +1101,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
    *
    * Same shape and same guard as /api/admin/signal-events, which solved this for signals first.
    */
+  // ── HOW CLOSE ARE WE TO THE CEILING, RIGHT NOW ──────────────────────────────────────────────────
+  //
+  // ADDED BECAUSE THE ANSWER WAS UNREADABLE. Accounts-per-socket and pool usage were printed once, at
+  // boot, into a log that holds roughly two minutes of history — so "how many users can this carry?"
+  // could not be answered from a running system at all, only from a boot line nobody caught in time.
+  // A capacity limit you cannot read is a capacity limit you cannot manage.
+  //
+  // `accounts` above `sockets` is the whole point of socket sharing: while they are equal, connections
+  // still grow one-for-one with users, which is the ceiling this is all meant to remove.
+  app.get("/api/admin/ctrader-capacity", requireAdmin, async (_req: Request, res: Response) => {
+    const hub  = hubStats();
+    const pool = poolStats();
+    res.json({
+      accounts:          hub.accounts,
+      sockets:           hub.hubs,
+      accountsPerSocket: hub.perHub,
+      maxAccountsPerSocket: ACCOUNTS_PER_CONN,
+      connectionsHeld:   pool.held,
+      connectionsMax:    pool.max,
+      sharingIsOn:       hub.accounts > hub.hubs,
+      // The arithmetic, stated rather than left to be re-derived: how many accounts this process could
+      // carry feeds for if every socket filled up. NOT a user count and NOT a tested limit — the
+      // database pool (20, db.ts:65) and the 2 shared CPUs bind well before this does.
+      feedCeilingIfSocketsFill: pool.max * ACCOUNTS_PER_CONN,
+    });
+  });
+
   app.get("/api/admin/sync-events", requireAdmin, async (req: Request, res: Response) => {
     try {
       const { account, externalId, stage, since, limit = "200" } = req.query as Record<string, string>;
