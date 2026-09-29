@@ -67,7 +67,19 @@ console.log('\n2. the surface and text come from theme tokens, not hardcoded:');
 check('the panel background is a token', /\.np-root\s*\{[^}]*background:\s*var\(--jr-panel/.test(RULES), true);
 check('its border is a token',           /\.np-root\s*\{[^}]*border:\s*1px solid var\(--jr-border/.test(RULES), true);
 check('the title colour is a token',     /\.np-title\s*\{[^}]*color:\s*var\(--jr-ink/.test(RULES), true);
-check('the message colour is a token',   /\.np-item-msg\s*\{[^}]*color:\s*var\(--jr-cap/.test(RULES), true);
+// ⚠ THE TOKEN HAS TO EXIST. This asked for `--jr-cap` and passed for a year — and that token is
+// DEFINED NOWHERE in the app, so its fallback rendered every time, in both themes. The check tested
+// the SPELLING of a variable, not whether anything gives it a value, so a hardcoded grey wearing a
+// token's name sailed through. `--jr-ink-dim` is real (Journal.tsx: #a6b3d1 dark, var(--jr-muted)
+// light).
+check('the message colour is a token',   /\.np-item-msg\s*\{[^}]*color:\s*var\(--jr-ink-dim/.test(RULES), true);
+check('...and the panel no longer uses the token that does not exist',
+      RULES.includes('--jr-cap'), false);
+// TEETH: prove the old spelling really was a phantom, by checking the one file that defines the ink
+// tiers. If --jr-cap is ever given a value, this fails and the rule above can be reconsidered.
+const JOURNAL = readFileSync(join(import.meta.dirname, '..', 'pages', 'Journal.tsx'), 'utf8');
+check('  teeth — --jr-cap is defined nowhere, --jr-ink-dim is',
+      [JOURNAL.includes('--jr-cap:'), JOURNAL.includes('--jr-ink-dim:')], [false, true]);
 // THE OLD DARK VALUE MAY ONLY SURVIVE AS A FALLBACK. `var(--jr-panel, #13131f)` is correct — the
 // fallback is what renders if the panel is ever mounted where the token does not reach. What must
 // never come back is that colour as a STANDALONE declaration, which is what made it a dark slab on

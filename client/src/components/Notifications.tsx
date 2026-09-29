@@ -25,7 +25,7 @@ import type { Notification } from '@shared/schema';
   THE CONTRACT BELOW IS COPIED FROM TradeVault.tsx:1061-1158, not invented:
     surface  --jr-panel, 1px --jr-border, radius 12, generous padding
     title    14px / 800, --jr-ink, tracking 0.1em
-    label    11px / 700, --jr-cap, tracking 0.12em
+    label    11px / 700, --jr-ink-dim, tracking 0.12em
     buttons  radius 6, 11px / 700, tracking 0.08em, primary #1e6fc8
     spacing  6 / 10 / 16 / 24
 
@@ -35,6 +35,17 @@ import type { Notification } from '@shared/schema';
   the WEIGHT axis: Playfair is a high-contrast serif and its hairlines are what disappear. Same
   finding as the audit page and the dashboard figures.
 */
+// ⚠ --jr-cap DOES NOT EXIST. Every rule here used to read `var(--jr-cap, #A8AEB8)`, and that token
+// is DEFINED NOWHERE in the app — so the fallback rendered every time, in both themes. The muted
+// text was a hardcoded grey pretending to be a theme value: right-ish on the dark panel, and about
+// 2.3:1 on the light one. The panel's own test asserted "the colour is a token" and passed, because
+// it checked the SPELLING and not whether anything defines it.
+//
+// `--jr-ink-dim` is the journal's real second ink tier (Journal.tsx: #a6b3d1 on dark, var(--jr-muted)
+// on light), so these now change with the theme instead of only claiming to.
+//
+// ⚠ IT IS USED THE SAME WAY IN SIX OTHER FILES (JournalForm, JournalHeader, TradeVault, Journal,
+// profileSettingsCss, streakCss). Those are NOT touched here — he asked for the notification box.
 const PANEL_CSS = `
   .np-root, .np-root * { box-sizing: border-box; margin: 0; padding: 0; }
   .np-root {
@@ -60,16 +71,19 @@ const PANEL_CSS = `
     border-bottom: 1px solid var(--jr-border, rgba(255,255,255,0.06));
     flex-shrink: 0;
   }
+  /* 12px, down from 14px (2026-09-29, his instruction). It is a panel heading, not a page title,
+     and at 14px + 800 weight + wide tracking it shouted over the notices themselves. Still clear of
+     the 11px floor this file is tested against. */
   .np-title {
-    font-size: 14px; font-weight: 800; color: var(--jr-ink, #ECEEF2);
-    letter-spacing: 0.1em; text-transform: uppercase;
+    font-size: 12px; font-weight: 800; color: var(--jr-ink, #ECEEF2);
+    letter-spacing: 0.08em; text-transform: uppercase;
   }
   .np-actions { display: flex; align-items: center; gap: 6px; }
   .np-action-btn {
     display: flex; align-items: center; gap: 5px;
     background: transparent; border: 1px solid var(--jr-border, rgba(255,255,255,0.1));
     cursor: pointer;
-    color: var(--jr-cap, #A8AEB8); font-size: 11px; font-weight: 700;
+    color: var(--jr-ink-dim, #a6b3d1); font-size: 11px; font-weight: 700;
     font-family: inherit; letter-spacing: 0.08em;
     padding: 6px 12px; border-radius: 6px;
     transition: all 0.15s;
@@ -77,20 +91,23 @@ const PANEL_CSS = `
   .np-action-btn:hover { background: var(--jr-border, rgba(255,255,255,0.06)); color: var(--jr-ink, #fff); }
   .np-action-btn svg { flex-shrink: 0; }
   .np-tabs {
-    display: flex; gap: 4px;
-    padding: 12px 16px 0;
+    display: flex; gap: 2px; justify-content: space-between;
+    padding: 12px 12px 0;
     border-bottom: 1px solid var(--jr-border, rgba(255,255,255,0.06));
     flex-shrink: 0;
   }
-  /* THE TABS USED TO CLIP. Five labels plus counts do not fit 380px — his screenshot shows
-     "UPDAT..." cut off. The label now shows only on the ACTIVE tab; the rest are icon + count, so
-     every filter stays reachable and nothing is truncated. */
+  /* EVERY TAB IS A WORD NOW (2026-09-29, his instruction: "Remove all these icons ... and also make
+     the text here visible"). It used to be an icon per tab with the label on the ACTIVE one only,
+     because five labels plus counts would not fit 380px and the last was clipping mid-word. Taking
+     the icons out is what buys the room back: the space they held, plus their 6px gap, plus tighter
+     side padding and tracking, is more than the four missing words need. A filter you have to
+     recognise by a picture is not a filter you can read. */
   .np-tab {
-    display: flex; align-items: center; gap: 6px;
-    padding: 8px 10px 10px;
-    font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+    display: flex; align-items: center; gap: 4px;
+    padding: 8px 6px 10px;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase;
     font-family: inherit;
-    color: var(--jr-cap, #A8AEB8); border: none; background: transparent;
+    color: var(--jr-ink-dim, #a6b3d1); border: none; background: transparent;
     cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;
     transition: all 0.15s;
   }
@@ -118,12 +135,12 @@ const PANEL_CSS = `
     background: var(--jr-panel, #13131f);
     border-bottom: 1px solid var(--jr-border, rgba(255,255,255,0.05));
     font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
-    color: var(--jr-cap, #A8AEB8);
+    color: var(--jr-ink-dim, #a6b3d1);
   }
   .np-empty {
     display: flex; flex-direction: column; align-items: center; justify-content: center;
     padding: 48px 24px; gap: 12px;
-    color: var(--jr-cap, #A8AEB8);
+    color: var(--jr-ink-dim, #a6b3d1);
   }
   .np-empty-icon { opacity: 0.5; }
   .np-empty-text { font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-align: center; }
@@ -154,7 +171,7 @@ const PANEL_CSS = `
     margin-bottom: 3px;
   }
   .np-item-msg {
-    font-size: 12px; font-weight: 500; color: var(--jr-cap, #A8AEB8); line-height: 1.45;
+    font-size: 12px; font-weight: 500; color: var(--jr-ink-dim, #a6b3d1); line-height: 1.45;
     display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
   }
   /* THE MONEY, COLOURED. A notice reading "P/L -1.88" in the same grey as the rest tells him
@@ -179,7 +196,7 @@ const PANEL_CSS = `
   .np-cat-trading_session { color: #38bdf8; }
   .np-cat-email           { color: #3b82f6; }
   .np-cat-update          { color: #a78bfa; }
-  .np-cat-default         { color: #9ca3af; }
+  .np-cat-default         { color: #c3cad6; }
 
   .journal-light .np-root .np-pl-up   { color: #047857; }
   .journal-light .np-root .np-pl-down { color: #be123c; }
@@ -189,10 +206,14 @@ const PANEL_CSS = `
   .journal-light .np-root .np-cat-email           { color: #1d4ed8; }
   .journal-light .np-root .np-cat-update          { color: #6d28d9; }
   .journal-light .np-root .np-cat-default         { color: #4b5563; }
-  .np-item-time { font-size: 11px; font-weight: 500; color: var(--jr-cap, #A8AEB8); opacity: 0.8; margin-top: 5px; }
+  /* ⚠ NO OPACITY MULTIPLIER HERE ANY MORE, AND THAT WAS THE WHOLE DEFECT (2026-09-29). The colour passed its
+     contrast check on its own — and then 0.8 opacity blended it 20% back into the panel behind it,
+     which no colour check ever sees. That is docs/READABILITY.md's first lesson: "the cause is
+     almost never the colour". It is now the journal's own dim-ink tier at full strength. */
+  .np-item-time { font-size: 11px; font-weight: 500; color: var(--jr-ink-dim, #a6b3d1); margin-top: 5px; }
   .np-item-del {
     background: transparent; border: none; cursor: pointer;
-    color: var(--jr-cap, #A8AEB8); opacity: 0.5; padding: 5px;
+    color: var(--jr-ink-dim, #a6b3d1); opacity: 0.5; padding: 5px;
     border-radius: 6px; display: flex; align-items: center; justify-content: center;
     transition: all 0.12s; flex-shrink: 0; margin-top: -2px;
   }
@@ -208,12 +229,14 @@ const PANEL_CSS = `
 
 type TabKey = 'all' | 'signals' | 'calendar' | 'emails' | 'updates';
 
-const TABS: { key: TabKey; label: string; icon: React.ReactNode; types: string[] }[] = [
-  { key: 'all',       label: 'All',       icon: <Bell size={10} />,       types: [] },
-  { key: 'signals',   label: 'Signals',   icon: <TrendingUp size={10} />, types: ['trading_signal'] },
-  { key: 'calendar',  label: 'Calendar',  icon: <Calendar size={10} />,   types: ['economic_event', 'trading_session'] },
-  { key: 'emails',    label: 'Emails',    icon: <Mail size={10} />,       types: ['email'] },
-  { key: 'updates',   label: 'Updates',   icon: <Zap size={10} />,        types: ['update'] },
+// NO `icon` FIELD — the tabs are words (2026-09-29). The icons themselves are still used for the
+// notice cards (TYPE_META below) and the empty states, so nothing is orphaned by this.
+const TABS: { key: TabKey; label: string; types: string[] }[] = [
+  { key: 'all',       label: 'All',       types: [] },
+  { key: 'signals',   label: 'Signals',   types: ['trading_signal'] },
+  { key: 'calendar',  label: 'Calendar',  types: ['economic_event', 'trading_session'] },
+  { key: 'emails',    label: 'Emails',    types: ['email'] },
+  { key: 'updates',   label: 'Updates',   types: ['update'] },
 ];
 
 const TYPE_META: Record<string, { color: string; bg: string; label: string }> = {
@@ -399,11 +422,10 @@ function NotificationsPanel({ panelRef, pos }: NotificationsPanelProps) {
                 onClick={() => setTab(t.key)}
                 title={t.label}
               >
-                {t.icon}
-                {/* THE LABEL ONLY ON THE ACTIVE TAB. Five labels plus counts do not fit 380px and
-                    the last one was being clipped mid-word. Every filter is still one click away,
-                    and the title attribute names it on hover. */}
-                {tab === t.key && t.label}
+                {/* THE WORD, ALWAYS — his instruction, 2026-09-29. It was the icon always and the
+                    label only on the active tab, so four of the five filters could only be told
+                    apart by a 10px picture. */}
+                {t.label}
                 {count > 0 && <span className="np-tab-count">{count}</span>}
               </button>
             );
