@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useCtFonts } from "./useCtFonts";
+import { useJournalStream } from "@/hooks/useJournalStream";
 import { useToast } from "./useToast";
 import { useOverview } from "./useOverview";
 import { useBrokerAccount } from "./useBrokerAccount";
@@ -22,6 +23,8 @@ export function useTradeSync() {
   const [activePage, setActivePage] = useState<PageId>("dashboard");
 
   useCtFonts();
+  // Told when a trade lands, instead of asking on a timer — see hooks/useJournalStream.
+  useJournalStream();
   const { toast, setToast } = useToast();
 
   const ov = useOverview();

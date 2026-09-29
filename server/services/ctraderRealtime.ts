@@ -72,6 +72,12 @@ function scheduleReconnect(id: string): void {
  */
 function onAccountLost(accountId: string, reason: string): void {
   console.warn(`[cTraderRT] account ${accountId} lost its session (${reason}) — re-attaching it alone`);
+  // RECORDED, NOT JUST LOGGED. This fires on a routine token refresh, so it is expected occasionally —
+  // but a row that repeats every few minutes for one account is a broken account, and that pattern is
+  // invisible in a log holding 50 seconds. It is only findable if each occurrence is stored.
+  void record({ brokerAccountId: accountId, stage: 'session-lost',
+                detail: `${reason} — re-authorising this account alone; its socket and the other `
+                        + `accounts on it were left alone` });
   detach(accountId);
   scheduleReconnect(accountId);
 }
@@ -175,6 +181,9 @@ async function catchUp(account: BrokerAccount): Promise<void> {
 /** One closed deal, for one account. Unchanged from the one-socket-per-account version. */
 function onTrade(member: Member, payload: any): void {
   const account = member.account;
+  // WHEN IT ARRIVED, so how long it took to reach the database can be stated rather than guessed.
+  // "Real-time" is a claim until something measures it; this is the number that makes it checkable.
+  const arrivedAt = Date.now();
   // THE POSITION IS IN THE SAME EVENT AND WAS BEING THROWN AWAY. `ProtoOAExecutionEvent` carries
   // `deal` AND `position`; this read only the deal, and `mapClosedDeal` then needed
   // `closePositionDetail`, which this gateway does not send — verified on the live demo account,
@@ -191,7 +200,16 @@ function onTrade(member: Member, payload: any): void {
   processIncomingTrades(account.id, account.userId, [trade])
     .then(({ created }) => {
       if (created <= 0) return;
-      console.log(`[cTraderRT] recorded live trade ${trade.externalId} ${trade.symbol} (acct ${account.id})`);
+      const ms = Date.now() - arrivedAt;
+      console.log(`[cTraderRT] recorded live trade ${trade.externalId} ${trade.symbol} `
+                  + `(acct ${account.id}) in ${ms}ms`);
+      // ONE ROW PER LIVE FILL, WITH ITS LATENCY. `[Sync:recorded]` already says a trade was stored;
+      // it cannot say whether the live path or the 15-minute sweep stored it, nor how long it took.
+      // Both matter once events are the primary mechanism: a live path that has quietly stopped
+      // working looks identical to one that is working, because the sweep covers for it.
+      void record({ brokerAccountId: account.id, externalId: trade.externalId, symbol: trade.symbol,
+                    stage: 'live-latency',
+                    detail: `live feed -> database in ${ms}ms` });
       return notificationService.createNotification({
         userId:  account.userId,
         type:    'trade_synced',

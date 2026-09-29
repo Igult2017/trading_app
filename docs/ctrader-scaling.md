@@ -135,7 +135,42 @@ and passed an unverified figure on as if it were a limit. The honest statement:
 
 ---
 
-## ⛔ THE GATE — one unobserved fact blocks the first stage
+## ✅ THE GATE — OPENED 2026-09-30. Fills DO carry the account id
+
+**MEASURED IN PRODUCTION, not inferred.** A 0.01 lot EUR/USD market order was placed and closed on the
+Pepperstone demo account (ctid 48833868 — one of the four with a live feed), and production logged:
+
+```
+[cTraderHub] execution events DO carry ctidTraderAccountId (4 seen) — CTRADER_ACCOUNTS_PER_CONN can safely be raised above 1
+[Sync:routing-ok] — execution events DO carry ctidTraderAccountId (4 seen) — accounts may share a socket
+```
+
+**4 execution events, every one carrying the id, none without it.** So the JSON gateway does NOT differ
+from the protobuf spec on this field, and **many accounts may share one socket**. Step 5 is unblocked and
+the capacity ceiling is no longer one account per socket.
+
+**The whole pipeline worked in the same test**, which was not the question but is worth having:
+
+```
+[cTraderRT] recorded live trade 321984806 EURUSD (acct 36bfd2b3-6778-402d-abbe-13b81a63886f)
+[Sync:recorded]  EURUSD 321984806 — Long 0.01 lots, P/L -0.25
+[Sync:journaled] EURUSD 321984806 — LOSS -0.28 — no R (no original stop)
+```
+
+The **live feed** recorded it, not the sweep — so the fast path works end to end. ("no R" is correct: the
+probe was a market order with no stop, and R is read from the entry order's stop.)
+
+**Step 4a earned itself here.** The verdict line appears ONCE and the log holds about 50 seconds; without
+the `routing-ok` row it would have been gone before it could be read.
+
+**What is still NOT proven:** that a fill for account A, on a socket shared with B, reaches A and not B.
+The id is present, and the router keys on it — but end-to-end routing across several accounts on ONE
+socket is the four-account test, and it must pass before the ramp goes past 1.
+
+<details>
+<summary>The original gate, kept so the reasoning is not lost</summary>
+
+### ⛔ THE GATE — one unobserved fact blocked the first stage
 
 Sharing a socket between accounts only works if each incoming fill says **which account it belongs
 to**. cTrader's official message spec says it does. **This app does not talk that wire format** — it
@@ -153,6 +188,8 @@ guesses — it routes by the id, or delivers to the only account on the socket, 
 either *"execution events DO carry ctidTraderAccountId — can safely be raised"* or a refusal. It only
 prints once a fill actually arrives, and **there have been no fills since 09 Sep**, so it has almost
 certainly never printed. One deliberate demo trade answers it. That is Step 1.
+
+</details>
 
 ---
 

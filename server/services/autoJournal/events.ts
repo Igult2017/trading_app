@@ -43,7 +43,13 @@ export type SyncStage =
   // Recorded rather than only logged because the container log holds about 50 seconds of history, and
   // this verdict is printed exactly once, after the first fill.
   | 'routing-ok'          // fills carry ctidTraderAccountId — sharing a socket is safe
-  | 'routing-missing-id'; // at least one fill did not — sharing a socket is NOT safe
+  | 'routing-missing-id'  // at least one fill did not — sharing a socket is NOT safe
+  // ── IS THE LIVE PATH STILL THE ONE DOING THE WORK? ─────────────────────────────────────────────
+  // Once events are the primary mechanism and the sweep is only a safety net, a live feed that has
+  // quietly stopped working looks EXACTLY like one that is working — because the sweep covers for it,
+  // and the trade still appears. These two stages are what tell them apart.
+  | 'live-latency'        // a fill went from arriving to stored in N ms, on the live path
+  | 'session-lost';       // one account's session ended (usually a token refresh); it alone re-attaches
 
 export interface SyncEventInput {
   brokerAccountId?: string | null;

@@ -22,6 +22,7 @@ import type { InsertJournalEntry, SyncedTrade, BrokerAccount } from '../../share
 import { invalidateComputeCaches } from '../lib/cache';
 import { toPips } from '../lib/pipMath';
 import { journalSyncedTrade, repairJournalTiming, repairJournalDerived, healJournalBlanks, record } from './autoJournal';
+import { pushToUser } from './journalPush';
 import { marksFor } from './autoJournal/marks';
 
 // ── Auto-journal one synced trade ─────────────────────────────────────────────
@@ -505,6 +506,15 @@ export async function processIncomingTrades(
   // otherwise the entry exists and every page keeps showing the old list for up to five minutes.
   if (created > 0 || healed > 0 || backfilled > 0) {
     await invalidateComputeCaches(defaultSessionId ?? undefined, userId).catch(() => {});
+    // AND TELL THIS USER'S OPEN TABS, so a recorded trade appears without the page asking.
+    //
+    // PLACED HERE ON PURPOSE: this is the ONE point both recording paths pass through — the live feed
+    // and the 15-minute sweep both end up in processIncomingTrades — so neither can deliver a trade the
+    // screen never hears about, and there is no second place to keep in step.
+    //
+    // AFTER the trade is stored and the caches are cleared, never before: a browser told to refetch
+    // before the cache is cleared would fetch the old list and believe it was current.
+    pushToUser(userId, { type: 'trade-recorded', count: created + healed + backfilled });
   }
 
   // `corrected` WAS COUNTED AND NEVER RETURNED (found by audit, 2026-09-04) — so the most serious

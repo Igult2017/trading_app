@@ -73,7 +73,15 @@ export function useOverview() {
   const q = useQuery<Overview>({
     queryKey: OVERVIEW_KEY,
     queryFn: () => fetchJson<Overview>("/api/copy/overview"),
-    refetchInterval: 20_000,      // the mirror feed + statuses stay live without a socket
+    // THE 20-SECOND TIMER IS GONE (30 Sep). It read "the mirror feed + statuses stay live without a
+    // socket" — and there now IS one: the server pushes when this user's journal changes
+    // (useJournalStream), so this asked every 20 seconds, per open tab, for ever, and almost every
+    // answer was "nothing changed".
+    //
+    // A SLOW FALLBACK IS KEPT, NOT ZERO. The push only makes the screen faster; it must never be the
+    // only thing that can make it correct. Five minutes is invisible as load and still recovers a tab
+    // whose stream died quietly.
+    refetchInterval: 5 * 60_000,
     staleTime: 10_000,
   });
   return { ...q, invalidate: () => qc.invalidateQueries({ queryKey: OVERVIEW_KEY }) };

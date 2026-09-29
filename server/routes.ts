@@ -1,6 +1,7 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { supabaseAdmin, verifyToken } from "./lib/supabaseAdmin";
+import { subscribe } from "./services/journalPush";
 import { cacheGet, cacheSet, cacheDel, userSessionKey,
          invalidateComputeCaches } from "./lib/cache";
 // The two halves of "a hand edit beats the broker" — the list of fields it can cover and the key it
@@ -426,6 +427,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     });
     next();
+  });
+
+  // ── THE JOURNAL TELLS THE BROWSER, INSTEAD OF THE BROWSER ASKING ────────────────────────────────
+  //
+  // Held open, and the server writes down it whenever that user's journal changes. journalPush.ts
+  // explains why this is server-sent events rather than a WebSocket, and the one-process caveat.
+  //
+  // ⚠ AUTHENTICATED BY HEADER, WHICH IS WHY THE CLIENT CANNOT USE `EventSource`. The browser's built-in
+  // EventSource cannot send an Authorization header, and the usual workaround — putting the token in the
+  // query string — writes it into every access log and proxy log it passes through. So the client reads
+  // this with `fetch` instead (client/src/hooks/useJournalStream.ts) and `requireAuth` is unchanged.
+  //
+  // NO TIMEOUT ON THIS ONE. `req.setTimeout(0)` because a request that is meant to stay open for hours
+  // must not be closed by the server's own idle timer.
+  app.get("/api/journal/stream", async (req, res) => {
+    const auth = await requireAuth(req, res);
+    if (!auth) return;
+    req.setTimeout(0);
+    subscribe(auth.id, res);
   });
 
   app.get("/api/trades", async (req, res) => {
