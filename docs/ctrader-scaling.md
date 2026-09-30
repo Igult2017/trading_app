@@ -647,9 +647,9 @@ in [`brokerAdapters/ctrader.ts`](../server/services/brokerAdapters/ctrader.ts).
 | layer | job | state |
 |---|---|---|
 | **Live events** | the fast path — a fill is recorded on arrival | **already built** ([`ctraderRealtime.ts:108`](../server/services/ctraderRealtime.ts#L108)) |
-| **Catch-up** on boot, on reconnect, and on a detected dead session | recovers anything missed during an outage | **not built** — D55 + Step 3 |
-| **Open-position check** — **every 5 minutes, HIS RULING 29 Sep** | *detects* a missed close within minutes, then fetches history for **that one position only** | **not built** — new |
-| **Daily sweep — KEPT, HIS RULING 29 Sep** | covers the one case the detector cannot see | exists; drops from 15 min to daily |
+| **Catch-up** on boot, on reconnect, and on a detected dead session | recovers anything missed during an outage | **BUILT 30 Sep** — D55 + Step 3 |
+| **Open-position check** — **every 5 minutes, HIS RULING 29 Sep** | *detects* a missed close within minutes, then fetches history for that account | **BUILT 30 Sep** — `missedCloseWatch.ts`, `docs/OPEN.md` D56 |
+| **Daily sweep — KEPT, HIS RULING 29 Sep** | covers the one case the detector cannot see: a position opened AND closed between two checks | **LIVE 30 Sep** — dropped from 15 min to daily, look-back derived at 1.5× |
 
 **Both of those are his decisions, not defaults**, asked and answered 29 Sep: the check runs every
 **5 minutes**, and the **daily sweep stays** rather than being removed once the detector works.

@@ -3920,6 +3920,43 @@ idempotent and simply catch up on the next tick. That is the first question, bef
 
 ---
 
+### D56 — ~~The layer that notices a close the broker never reported was never built~~ BUILT 30 Sep 2026
+
+**His catch, and it was a real hole:** *"in the plan we agreed that with events listening, we need
+another function that bridges the gap of sending a request for events that have not been sent."* The
+agreed design had **four** layers and only three were shipped. This is the missing one.
+
+**What it does.** Every **5 minutes** (his ruling) it asks cTrader what positions it is holding for each
+account (`ProtoOAReconcileReq`), compares that with the set it last saw, and for anything that has
+**gone** checks whether a trade was recorded for it. Gone with no trade recorded = its close was missed,
+and it fetches that account's history to recover it.
+
+**Why it has to work this way.** cTrader documents no sequence numbers, no acknowledgements and no
+replay, so *"what did I miss?"* cannot be asked. *"What are you holding?"* can — and a position that has
+vanished answers the first question sideways.
+
+**Why it is cheap.** Reconcile is **not** one of the three requests cTrader rates at 5 per second, so at
+250 accounts every 5 minutes it is **under one request a second against a 50-per-second budget**. The
+expensive request — deal history — is now made only when something is actually found missing.
+
+**⚠ MY SEQUENCING WAS WRONG AND IT WAS LIVE FOR ABOUT AN HOUR.** I dropped the sweep to daily *before*
+building this. Catch-up only fires when a feed re-attaches; if the feed stays up and one fill simply
+never arrives, nothing re-attaches and nothing recovers it. So the daily sweep was briefly the only
+thing covering that case — a 36-hour blind spot where there should have been a 5-minute one. This layer
+is what makes the daily sweep correct rather than merely cheaper.
+
+**`waitFor` gained an account match** at the same time: with sockets now shared, two accounts asking the
+same question at once would each take whichever reply arrived first — one account being told about
+another's positions, the same class of mix-up the fill router exists to prevent, one layer down.
+
+**What it still cannot see,** and the only reason a periodic sweep exists at all: a position opened
+**and** closed between two checks, whose events were both missed. The broker's list never held it, so
+its absence cannot be noticed.
+
+**9 checks** in `tradeRecording.test.ts` (54 in that file), with teeth.
+
+---
+
 ## E. Parked — do not start these
 
 | | | |
