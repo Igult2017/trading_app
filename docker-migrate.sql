@@ -644,5 +644,65 @@ END $$;
 CREATE UNIQUE INDEX IF NOT EXISTS synced_trades_account_external_key
     ON synced_trades (broker_account_id, external_id);
 
+-- ── ONE JOURNAL ENTRY PER BROKER TRADE ──────────────────────────────────────
+-- Added 2026-09-30. See docs/OPEN.md D57.
+--
+-- ONE DEMO TRADE WAS JOURNALED THREE TIMES. Whether a trade had been journaled was answered by reading
+-- synced_trades.journal_entry_id -- a pointer FROM the trade TO the entry. The moment that column is
+-- null for any reason, every guard in the pipeline agrees the trade has never been journaled and writes
+-- another entry. Trade 321984806 was journaled at 21:58, 22:17 and 22:58 on 29 Sep, each pass reporting
+-- "it was stored but had no journal entry until now". Nothing compared against the entries that existed,
+-- because journal_entries carried NO broker identity at all.
+--
+-- The entry now names its trade, where nothing that touches the trade can clear it.
+ALTER TABLE journal_entries ADD COLUMN IF NOT EXISTS synced_trade_id VARCHAR;
+
+-- BACKFILL FROM THE POINTERS THAT ARE STILL INTACT, so existing auto-journaled entries are protected
+-- too and not just future ones.
+UPDATE journal_entries je
+   SET synced_trade_id = st.id
+  FROM synced_trades st
+ WHERE st.journal_entry_id = je.id
+   AND je.synced_trade_id IS NULL;
+
+-- COLLAPSE THE DUPLICATES ALREADY WRITTEN, oldest kept, before the rule can exist.
+--
+-- The oldest is kept deliberately: it is the one the trade most likely still points at, and the one any
+-- edit the user has made will be on. The newer copies are the accidental ones.
+DO $$
+DECLARE removed INTEGER;
+BEGIN
+  WITH ranked AS (
+    SELECT id, ROW_NUMBER() OVER (
+             PARTITION BY synced_trade_id ORDER BY created_at ASC NULLS LAST, id ASC
+           ) AS rn
+      FROM journal_entries
+     WHERE synced_trade_id IS NOT NULL
+  )
+  DELETE FROM journal_entries je USING ranked r
+   WHERE je.id = r.id AND r.rn > 1;
+
+  GET DIAGNOSTICS removed = ROW_COUNT;
+  IF removed > 0 THEN
+    RAISE NOTICE 'journal_entries: removed % duplicate auto-journaled entry(ies) - one broker trade had been journaled more than once', removed;
+  ELSE
+    RAISE NOTICE 'journal_entries: no duplicate auto-journaled entries found.';
+  END IF;
+END $$;
+
+-- AND RE-POINT ANY TRADE whose pointer named a copy that has just been removed, so it is not left
+-- looking un-journaled all over again.
+UPDATE synced_trades st
+   SET journal_entry_id = je.id
+  FROM journal_entries je
+ WHERE je.synced_trade_id = st.id
+   AND (st.journal_entry_id IS NULL OR st.journal_entry_id <> je.id);
+
+-- PARTIAL, because hand-typed entries have no trade and there are many of them; a plain unique index
+-- would allow only one such entry in the entire table.
+CREATE UNIQUE INDEX IF NOT EXISTS journal_entries_synced_trade_key
+    ON journal_entries (synced_trade_id)
+ WHERE synced_trade_id IS NOT NULL;
+
 -- ── Done ─────────────────────────────────────────────────────────────────────
 DO $$ BEGIN RAISE NOTICE 'docker-migrate.sql complete'; END $$;

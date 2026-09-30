@@ -3957,6 +3957,56 @@ its absence cannot be noticed.
 
 ---
 
+### D57 — One demo trade was journaled THREE times. Root cause fixed 30 Sep 2026; the two stale entries CANNOT be cleaned up automatically
+
+**The evidence.** Trade `321984806` in `GET /api/admin/sync-events?externalId=321984806`:
+
+```
+21:58:50  recorded    Long 0.01 lots, P/L -0.25
+21:58:50  journaled   LOSS -0.28
+22:02:01  backfilled  journal timing corrected
+22:17:02  journaled   LOSS -0.28     <- again
+22:17:02  healed      "it was stored but had no journal entry until now"
+22:58:13  journaled   LOSS -0.28     <- and again
+22:58:13  healed      "it was stored but had no journal entry until now"
+```
+
+**ROOT CAUSE — identity was carried by a mutable pointer.** "Has this trade been journaled?" was answered
+by reading `synced_trades.journal_entry_id`, a pointer **from** the trade **to** the entry. Every guard in
+the pipeline asked that same question, so the instant that column was null for any reason, all of them
+agreed the trade had never been journaled and wrote another entry. **`journal_entries` carried no broker
+identity at all**, so nothing could compare against what already existed. It is the same mistake the
+delete-entry path already documents: *asking whether a column is SET rather than whether the thing it
+names EXISTS.*
+
+**⚠ I did NOT establish what nulls the pointer.** `markSyncedTradeJournaled` is called, and a failure to
+write it deletes the entry and throws, so the obvious path is covered. The two re-journalings happened at
+boot, seconds before two deploys finished. **Unfound.** The fix below makes it not matter — the duplicate
+cannot be created and the pointer repairs itself — but the nulling is still unexplained and worth chasing
+if `relinked` rows keep appearing.
+
+**Fixed three ways:**
+1. **`journal_entries.synced_trade_id`** — the entry now names its trade, where nothing that touches the
+   trade can clear it.
+2. **`journal_entries_synced_trade_key`** — a uniqueness rule making a second entry for one trade
+   impossible. **Partial** (`WHERE synced_trade_id IS NOT NULL`) because hand-typed entries have no trade
+   and there are many of them; a plain rule would allow only one in the whole table.
+3. **`journalSyncedTrade` now asks the entries, not the pointer** — if an entry already names this trade it
+   re-stamps the pointer and returns that entry, recording a **`relinked`** row instead of duplicating.
+
+**⚠ THE TWO STALE ENTRIES ALREADY IN HIS JOURNAL CANNOT BE REMOVED AUTOMATICALLY, and the test proves it.**
+The pointer only ever named the **last** entry written, so the two earlier copies have nothing linking them
+to any trade — they are indistinguishable from entries he typed himself. **Deleting a user's journal
+entries on a guess is worse than leaving two stale ones, so the migration does not guess.** They are
+EURUSD, about **-0.28**, all three within an hour on 29 Sep, on the demo account — **his call to delete.**
+
+**Verified against real PostgreSQL** (PGlite, extracting the real block from `docker-migrate.sql`):
+11 checks — nothing is deleted that cannot be attributed, hand-typed entries stay unlimited, a second
+entry for one trade is refused, the migration is safe to run twice, and the teeth check proves that when
+two entries DO name the same trade the older survives.
+
+---
+
 ## E. Parked — do not start these
 
 | | | |

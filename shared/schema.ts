@@ -680,11 +680,31 @@ export const journalEntries = pgTable("journal_entries", {
   manualFields: jsonb("manual_fields"),
 
   createdAt: timestamp("created_at").defaultNow(),
+
+  /**
+   * WHICH BROKER TRADE THIS ENTRY CAME FROM — null for anything typed in by hand.
+   *
+   * ADDED 2026-09-30 BECAUSE ONE DEMO TRADE WAS JOURNALED THREE TIMES. Whether a trade had been
+   * journaled was answered by reading `synced_trades.journal_entry_id`, a pointer FROM the trade TO the
+   * entry — so the moment that pointer is null for any reason, nothing can tell that an entry already
+   * exists, and the next pass writes another one. Trade 321984806 was journaled at 21:58, 22:17 and
+   * 22:58, each time reported as "it was stored but had no journal entry until now".
+   *
+   * Identity now lives on the ENTRY, where it cannot be cleared by anything that touches the trade,
+   * and `journal_entries_synced_trade_key` makes a second entry for the same trade impossible. This is
+   * the same mistake the delete-entry path already documents: asking whether a column is SET rather
+   * than whether the thing it names EXISTS.
+   */
+  syncedTradeId: varchar("synced_trade_id"),
 }, (t) => [
   index("journal_entries_user_id_idx").on(t.userId),
   index("journal_entries_session_id_idx").on(t.sessionId),
   index("journal_entries_user_session_idx").on(t.userId, t.sessionId),
   index("journal_entries_created_at_idx").on(t.createdAt),
+  // ONE ENTRY PER BROKER TRADE. Partial, because hand-typed entries have no trade and there are many
+  // of them — a plain unique index would allow only one such entry in the whole table.
+  uniqueIndex("journal_entries_synced_trade_key").on(t.syncedTradeId)
+    .where(sql`synced_trade_id IS NOT NULL`),
 ]);
 
 export const insertJournalEntrySchema = createInsertSchema(journalEntries).omit({

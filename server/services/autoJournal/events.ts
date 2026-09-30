@@ -54,7 +54,11 @@ export type SyncStage =
   // was ever recorded: its close was missed. Found by asking what the broker holds, every 5 minutes, and
   // noticing what went away - which is the only way to detect a missed event on an API that has no
   // sequence numbers, no acknowledgements and no replay.
-  | 'missed-close';
+  | 'missed-close'
+  // A trade that had LOST its pointer to an entry that already existed. Re-linked instead of journaled
+  // again. If this appears repeatedly for the same trade, something is still clearing the pointer and
+  // that is the thing to chase - but the duplicate entry can no longer be created either way.
+  | 'relinked';
 
 export interface SyncEventInput {
   brokerAccountId?: string | null;

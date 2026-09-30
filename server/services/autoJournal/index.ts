@@ -49,6 +49,29 @@ export async function journalSyncedTrade(
 ): Promise<string | null> {
   if (trade.journalEntryId) return trade.journalEntryId;   // already journaled — never write twice
 
+  // AND ASK THE ENTRIES THEMSELVES, because the pointer above can be null while an entry exists.
+  //
+  // ONE DEMO TRADE WAS JOURNALED THREE TIMES (321984806, at 21:58, 22:17 and 22:58 on 2026-09-29), each
+  // pass reporting "it was stored but had no journal entry until now". Every guard in the pipeline asked
+  // the same question — is `synced_trades.journal_entry_id` set? — so the instant that column was null
+  // for any reason, the whole pipeline agreed the trade had never been journaled and wrote another entry.
+  // Nothing compared against the entries that already existed.
+  //
+  // This is the question that cannot be wrong: does an entry already NAME this trade? If one does, the
+  // pointer is simply re-stamped and that entry returned, which repairs the row instead of duplicating it.
+  const already = await storage.getJournalEntryBySyncedTrade(trade.id).catch(() => null);
+  if (already) {
+    await storage.markSyncedTradeJournaled(trade.id, already.id).catch(() => {});
+    console.warn(`[autoJournal] ${trade.symbol} ${trade.externalId} already had journal entry `
+                 + `${already.id} but the trade had lost its pointer to it — re-linked instead of `
+                 + `writing a second entry`);
+    await record({ brokerAccountId: trade.brokerAccountId, externalId: trade.externalId,
+                   symbol: trade.symbol, stage: 'relinked',
+                   detail: `the trade had lost its pointer to entry ${already.id}; re-linked rather `
+                           + `than journaling it twice` });
+    return already.id;
+  }
+
   try {
     const at = trade.openTime ? new Date(trade.openTime)
                               : (trade.closeTime ? new Date(trade.closeTime) : null);
@@ -84,7 +107,9 @@ export async function journalSyncedTrade(
     if (Number.isFinite(risked) && risked > 0 && planned > 0)
       (finalEntry as any).potentialReward = (risked * planned).toFixed(2);
 
-    const journalEntry = await storage.createJournalEntry(finalEntry);
+    // THE ENTRY CARRIES THE TRADE'S IDENTITY. This is what `journal_entries_synced_trade_key` enforces,
+    // and what makes the duplicate impossible rather than merely unlikely.
+    const journalEntry = await storage.createJournalEntry({ ...finalEntry, syncedTradeId: trade.id } as any);
 
     // WRITING THE ENTRY AND BOOKMARKING IT ARE TWO SEPARATE WRITES, and if the second fails the
     // first is left ORPHANED: the trade still reads as un-journaled, so the next sync journals it

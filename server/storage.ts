@@ -118,6 +118,8 @@ export interface IStorage {
   createSyncedTrade(trade: InsertSyncedTrade): Promise<{ trade: SyncedTrade; inserted: boolean }>;
   markSyncedTradeJournaled(id: string, journalEntryId: string): Promise<void>;
   /** Release a deleted entry's synced trades so the next sync writes them again. */
+  /** The entry that NAMES this broker trade, if one exists. The question a pointer cannot answer. */
+  getJournalEntryBySyncedTrade(syncedTradeId: string): Promise<JournalEntry | undefined>;
   clearSyncedTradeJournalEntry(journalEntryId: string): Promise<number>;
   deleteSyncedTrade(id: string): Promise<boolean>;
   updateSyncedTradeOpenTime(id: string, openTime: Date): Promise<void>;
@@ -1122,6 +1124,21 @@ export class DbStorage implements IStorage {
    *
    * Returns how many rows were released, so the caller can say what it did.
    */
+  /**
+   * Does a journal entry already name this broker trade?
+   *
+   * The pipeline used to ask only "is the trade's pointer set?", so a null pointer meant "never
+   * journaled" even when an entry existed — and one demo trade was journaled three times. This asks the
+   * entries, which cannot be wrong about their own contents.
+   */
+  async getJournalEntryBySyncedTrade(syncedTradeId: string): Promise<JournalEntry | undefined> {
+    const r = await db.select().from(journalEntries)
+      .where(eq(journalEntries.syncedTradeId, syncedTradeId))
+      .orderBy(journalEntries.createdAt)
+      .limit(1);
+    return r[0];
+  }
+
   async clearSyncedTradeJournalEntry(journalEntryId: string): Promise<number> {
     const r = await db.update(syncedTrades)
       .set({ journalEntryId: null, journaledAt: null })
