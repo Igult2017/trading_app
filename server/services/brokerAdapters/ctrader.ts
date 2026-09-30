@@ -755,6 +755,10 @@ export async function fetchCTraderTrades(
   // 730 days in 7-day chunks 250ms apart, so ~105 requests and ~26 seconds on one connection. Ten
   // simultaneous signups is ten connections for half a minute — which is exactly the burst that
   // could have left the signal platform unable to reconnect. It queues now instead.
+  // TWO LIMITS APPLY HERE, AND THEY GUARD DIFFERENT THINGS. The pool lease caps how many cTrader
+  // CONNECTIONS exist; this gate caps how many REQUESTS are in flight across all of them. A burst of
+  // requests down a few connections is what earns a rate-limit refusal, and history is the scarce
+  // budget at 5 per second.
   const lease = await acquire('task', 'trade-sync');
   const ws = await openWS(wsUrl).catch((e) => { lease.release(); throw e; });
   try {

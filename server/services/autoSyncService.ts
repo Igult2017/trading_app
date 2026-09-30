@@ -118,7 +118,9 @@ async function doFetch(account: BrokerAccount, fromMs: number, toMs: number) {
   }
 
   try {
-    return await fetchTradesForAccount(current, fromMs, toMs);
+    // THROUGH THE cTRADER GATE. The pool caps how many CONNECTIONS exist; this caps how many broker
+    // REQUESTS are in flight across all of them, which is the thing a rate limit actually counts.
+    return await withCTraderSlot(() => fetchTradesForAccount(current, fromMs, toMs));
   } catch (err: any) {
     const msg        = String(err.message ?? '');
     const isTokenErr = current.platform.toLowerCase() === 'ctrader' && (
@@ -130,7 +132,7 @@ async function doFetch(account: BrokerAccount, fromMs: number, toMs: number) {
     if (isTokenErr) {
       const fresh = await refreshCTraderToken(current);
       if (!fresh) throw err;
-      return fetchTradesForAccount(fresh, fromMs, toMs);
+      return withCTraderSlot(() => fetchTradesForAccount(fresh, fromMs, toMs));
     }
     throw err;
   }
@@ -282,7 +284,48 @@ export async function syncAccount(account: BrokerAccount,
  * 4 leaves the clear majority of the pool for actual users, and is still 4× the cTrader side's own
  * limit of one socket at a time per account. Raise it only against a measurement.
  */
-const SWEEP_WORKERS = envInt('SYNC_SWEEP_WORKERS', 4, 1, 16);
+/**
+ * THREE SEPARATE LIMITS, NOT ONE — the reviewer's item 9, and the plan named all three.
+ *
+ * One number cannot express this, because the three things being protected fail differently:
+ *   * ACCOUNTS  — how many are being reconciled at once. Bounds the work in flight.
+ *   * cTRADER   — how many broker requests are in flight. The scarce budget is 5 per second for
+ *                  history, so a burst here is what earns a rate-limit refusal.
+ *   * DATABASE  — how many queries are in flight. ⚠ NOT ours to choose freely: the pool allows 20 and
+ *                  gives up after 3 seconds (`db.ts:65`), and EVERY page load shares those 20. A sweep
+ *                  that takes them all does not run slowly, it fails real users' requests.
+ *
+ * The defaults deliberately leave the clear majority of the database pool for actual users.
+ */
+const SWEEP_WORKERS  = envInt('SYNC_SWEEP_WORKERS', 4, 1, 16);
+const CTRADER_INFLIGHT = envInt('SYNC_MAX_CTRADER_INFLIGHT', 4, 1, 8);
+const DB_INFLIGHT      = envInt('SYNC_MAX_DB_INFLIGHT', 6, 1, 12);
+
+/**
+ * A plain counting gate: at most `max` holders at once, the rest wait in line.
+ *
+ * Deliberately not a library. It is fifteen lines, it is used in two places, and a dependency here
+ * would be more surface than the problem.
+ */
+function gate(max: number, label: string) {
+  let held = 0;
+  const queue: Array<() => void> = [];
+  return async function run<T>(fn: () => Promise<T>): Promise<T> {
+    if (held >= max) await new Promise<void>(r => queue.push(r));
+    held++;
+    try { return await fn(); }
+    finally {
+      held--;
+      const next = queue.shift();
+      if (next) next();
+      else if (held === 0 && queue.length) console.warn(`[AutoSync] ${label} gate drained oddly`);
+    }
+  };
+}
+
+/** Shared by every sweep, so limits apply ACROSS accounts and not per account. */
+export const withCTraderSlot = gate(CTRADER_INFLIGHT, 'ctrader');
+export const withDbSlot      = gate(DB_INFLIGHT, 'database');
 
 
 async function syncAllAccounts(): Promise<void> {
@@ -430,6 +473,9 @@ export function startAutoSync(): void {
   console.log(`[AutoSync] Starting — every ${SYNC_INTERVAL_MS / 60_000} min for all API-connected `
               + `accounts, looking back ${(OVERLAP_MS / 3_600_000).toFixed(1)}h `
               + `(${LOOKBACK_RATIO}x the interval, derived — the two cannot drift apart)`);
+  console.log(`[AutoSync] limits — ${SWEEP_WORKERS} account(s), ${CTRADER_INFLIGHT} cTrader request(s), `
+              + `${DB_INFLIGHT} database query(ies) in flight at once (the database allows 20 in total, `
+              + `shared with every page load)`);
   void reportDuplicateGuard();
   // THE OUTERMOST SWALLOW, AND THE WORST OF THEM. `.catch(() => {})` here covers
   // `getAllApiAccounts()` — one failed database read and the entire sweep stops for ever, on the

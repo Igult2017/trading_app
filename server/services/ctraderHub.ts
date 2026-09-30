@@ -68,7 +68,11 @@ function envInt(name: string, fallback: number, min: number, max: number): numbe
  * EXCEED sockets. Set `CTRADER_ACCOUNTS_PER_CONN=1` to fall straight back — no code change, though it
  * needs a restart, because this is read once at startup.
  */
-export const ACCOUNTS_PER_CONN = envInt('CTRADER_ACCOUNTS_PER_CONN', 2, 1, 200);
+// NOTCH TWO, 2026-09-30: 2 -> 5. Sharing was MEASURED working at 2 first (4 accounts on 2 sockets,
+// `accountsPerSocket [2,2]`, via GET /api/admin/ctrader-capacity) after fixing the race that had made it
+// impossible, and a fill on a shared socket was proven to reach the right account. Read the capacity
+// endpoint after each notch; the ramp is 1 -> 2 -> 5 -> 10 -> 20 -> 50 and it is not to be skipped.
+export const ACCOUNTS_PER_CONN = envInt('CTRADER_ACCOUNTS_PER_CONN', 5, 1, 200);
 
 export interface Member {
   account:   BrokerAccount;

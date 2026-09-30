@@ -116,8 +116,8 @@ check('same host and app do share', hubKey('wss://demo', 'sync'), hubKey('wss://
 check('no app recorded is treated as legacy', hubKey('wss://demo', undefined), 'wss://demo|legacy');
 
 // ── THE SHIPPED DEFAULT ─────────────────────────────────────────────────────
-check('CTRADER_ACCOUNTS_PER_CONN is 2 — notch one of the ramp, now that fills are proven to carry the id',
-      ACCOUNTS_PER_CONN, 2);
+check('CTRADER_ACCOUNTS_PER_CONN is 5 — notch two, after sharing was measured working at 2',
+      ACCOUNTS_PER_CONN, 5);
 
 // ── TEETH ───────────────────────────────────────────────────────────────────
 // Prove the routing test can fail: a router that ignored the id and always took the first member
@@ -204,19 +204,21 @@ const roomy = (members: number, pending: number) =>
   ({ key: 'k', closing: false, members: new Map(Array.from({ length: members }, (_, i) => [i, {} as any])), pending } as any);
 
 check('an empty socket has room', hasRoom(roomy(0, 0), 'k'), true);
-check('...and one already promised to somebody still has room, at a limit of 2',
+check('...and one already promised to somebody still has room, below the limit',
       hasRoom(roomy(0, 1), 'k'), true);
-check('...but one promised to two does NOT, even with no member arrived yet',
-      hasRoom(roomy(0, 2), 'k'), false);
-check('a socket with one member and one promise is full', hasRoom(roomy(1, 1), 'k'), false);
-check('a socket at the member limit is full', hasRoom(roomy(2, 0), 'k'), false);
+check('...but one promised up to the limit does NOT, even with no member arrived yet',
+      hasRoom(roomy(0, ACCOUNTS_PER_CONN), 'k'), false);
+check('members and promises are counted TOGETHER against the limit',
+      hasRoom(roomy(1, ACCOUNTS_PER_CONN - 1), 'k'), false);
+check('a socket at the member limit is full', hasRoom(roomy(ACCOUNTS_PER_CONN, 0), 'k'), false);
 check('a closing socket is never offered', hasRoom({ ...roomy(0, 0), closing: true }, 'k'), false);
 check('a socket for a different host+app is never offered', hasRoom(roomy(0, 0), 'other'), false);
 
 // TEETH — the old test. Counting members alone says the 0-member/2-promised socket has room, which is
 // exactly how four accounts ended up on four sockets.
 teeth('counting members alone would wrongly report room',
-      roomy(0, 2).members.size < ACCOUNTS_PER_CONN && !hasRoom(roomy(0, 2), 'k'));
+      roomy(0, ACCOUNTS_PER_CONN).members.size < ACCOUNTS_PER_CONN
+      && !hasRoom(roomy(0, ACCOUNTS_PER_CONN), 'k'));
 
 _resetForTests();
 console.log();

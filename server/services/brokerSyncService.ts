@@ -23,6 +23,7 @@ import { invalidateComputeCaches } from '../lib/cache';
 import { toPips } from '../lib/pipMath';
 import { journalSyncedTrade, repairJournalTiming, repairJournalDerived, healJournalBlanks, record } from './autoJournal';
 import { pushToUser } from './journalPush';
+import { withDbSlot } from './autoSyncService';
 import { marksFor } from './autoJournal/marks';
 
 // ── Auto-journal one synced trade ─────────────────────────────────────────────
@@ -132,7 +133,11 @@ export async function processIncomingTrades(
 
   for (const raw of trades) {
     // De-duplicate by externalId + brokerAccountId
-    const existing = await storage.getSyncedTradeByExternal(brokerAccountId, raw.externalId);
+    // THROUGH THE DATABASE GATE. This runs once per trade returned, so a sweep over many accounts with
+    // busy history is where the 20-connection pool actually gets consumed — and those 20 are shared with
+    // every page load, so exhausting them fails real users' requests rather than merely slowing the sweep.
+    const existing = await withDbSlot(() =>
+      storage.getSyncedTradeByExternal(brokerAccountId, raw.externalId));
     if (existing) {
       duplicates++;
       // "ALREADY HAD" IS NOT AN ANSWER — it hides WHEN, and when is the whole question.
