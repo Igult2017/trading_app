@@ -98,6 +98,13 @@ export const PT_HEARTBEAT       = 51;    // ProtoHeartbeatEvent — keep-alive, 
 // the session for that ONE account while every other account on the socket keeps streaming
 // (docs/ctrader-open-api-apps.md:90). With one account per socket that shows up as our own request
 // failing. With several, the socket stays healthy and one account goes quiet with nothing reporting it.
+// THE OPEN-POSITION CHECK — "what are you actually holding for this account right now?"
+// Read from Spotware's `OpenApiModelMessages.proto` in the same fetch that gave 2147/2164 and confirmed
+// 2102/2103/2126/2142 against the constants already here. Reconcile is NOT one of the three
+// history requests, so it is on the 50-per-second budget, not the scarce 5-per-second one.
+export const PT_RECONCILE_REQ = 2124;  // PROTO_OA_RECONCILE_REQ
+export const PT_RECONCILE_RES = 2125;  // PROTO_OA_RECONCILE_RES
+
 export const PT_TOKEN_INVALIDATED  = 2147;  // PROTO_OA_ACCOUNTS_TOKEN_INVALIDATED_EVENT
 export const PT_ACCOUNT_DISCONNECT = 2164;  // PROTO_OA_ACCOUNT_DISCONNECT_EVENT
 
@@ -116,7 +123,16 @@ export function send(ws: WebSocket, payloadType: number, payload: object) {
   ws.send(JSON.stringify({ payloadType, payload }));
 }
 
-export function waitFor(ws: WebSocket, targetType: number, timeoutMs = 20000): Promise<any> {
+/**
+ * Wait for one reply on this socket.
+ *
+ * ⚠ `match` EXISTS BECAUSE SOCKETS ARE NOW SHARED. Matching on the message type alone was correct while
+ * every socket carried one account; with several, two accounts asking the same question at the same
+ * moment would each be handed whichever reply arrived first — so one account would be told about the
+ * other's positions. Pass `match` to require the reply to name the account that asked.
+ */
+export function waitFor(ws: WebSocket, targetType: number, timeoutMs = 20000,
+                        match?: (payload: any) => boolean): Promise<any> {
   return new Promise((resolve, reject) => {
     const t = setTimeout(() => reject(new Error(`cTrader timeout waiting for type ${targetType}`)), timeoutMs);
     ws.on('message', function handler(raw) {
@@ -130,6 +146,8 @@ export function waitFor(ws: WebSocket, targetType: number, timeoutMs = 20000): P
         clearTimeout(t); ws.off('message', handler);
         reject(new Error(`cTrader: ${desc}`));
       } else if (msg.payloadType === targetType) {
+        // Not ours — another account on this same socket asked too. Keep waiting rather than stealing it.
+        if (match && !match(msg.payload ?? {})) return;
         clearTimeout(t); ws.off('message', handler);
         resolve(msg.payload ?? {});
       }

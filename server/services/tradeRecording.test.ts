@@ -229,6 +229,38 @@ check('a failed catch-up is caught, not left to reject',
 
 teeth('removing the catch-up would be caught', /catchUp\(account\)/.test(rtSrc));
 
+// ── AND THE LAYER THAT NOTICES WHAT THE BROKER NEVER TOLD US (docs/OPEN.md D56) ───────────────────
+//
+// Catch-up only fires when a feed re-attaches. If the feed stays up and cTrader simply fails to send one
+// fill, nothing re-attaches, so nothing catches up — and cTrader offers no sequence numbers, no
+// acknowledgements and no replay, so the loss cannot be asked about directly. What CAN be asked is what
+// the broker is holding right now; a position that has gone from that list with no trade recorded had its
+// close missed. THIS is what lets the sweep be daily instead of quarter-hourly.
+const missSrc = decomment(read('server', 'services', 'missedCloseWatch.ts'));
+
+check('it asks the broker what it is holding', /openPositionIds\(accountId\)/.test(missSrc), true);
+check('...compares against what it last saw', /lastSeen/.test(missSrc)
+      && /filter\(id => !current\.has\(id\)\)/.test(missSrc), true);
+// The join that makes it a MISS rather than a normal close. Without it every ordinary close would look
+// like a missed one and it would fetch history constantly.
+check('...and only calls it missed when no trade was recorded for that position',
+      /haveTradeFor\(accountId, positionId\)/.test(missSrc)
+      && /position_id = \$2/.test(missSrc), true);
+check('a genuine miss triggers a recovery fetch', /await syncAccount\(full\)/.test(missSrc), true);
+check('...and is recorded, not just logged', /stage: 'missed-close'/.test(missSrc), true);
+// The first look can only build a baseline; treating an empty memory as "everything vanished" would fetch
+// history for every position on every restart.
+check('the first look builds a baseline instead of reporting everything as vanished',
+      /if \(!before\) return;/.test(missSrc), true);
+check('it runs every 5 minutes, per his ruling', /5 \* 60_000/.test(missSrc), true);
+check('it is wired where BOTH server entries share startup',
+      /startMissedCloseWatch\(\)/.test(decomment(read('server', 'lib', 'backgroundServices.ts'))), true);
+// A stale remembered set across a re-attach would report every position as vanished at once.
+check('a lost feed forgets what it thought was held', /forgetAccount/.test(rtSrc), true);
+
+teeth('removing the recorded-trade check would be caught — every close would look missed',
+      /haveTradeFor/.test(missSrc));
+
 teeth('a target on onConflictDoNothing would be caught', !/onConflictDoNothing\(\s*\{/.test(storeSrc));
 teeth('dropping the de-dup but keeping the index would be caught',
       /PARTITION BY broker_account_id, external_id/.test(migrateSrc));

@@ -16,6 +16,7 @@
 import fs from "fs";
 import { scraperScheduler } from "../scrapers/scheduler";
 import { startAutoSync } from "../services/autoSyncService";
+import { startMissedCloseWatch } from "../services/missedCloseWatch";
 import { startHealthWatchdog } from "../services/healthWatchdog";
 import { startCTraderRealtime } from "../services/ctraderRealtime";
 import { startPublishScheduler } from "../services/publishScheduler";
@@ -42,7 +43,10 @@ export function startBackgroundServices(): void {
   if (!isPrimaryWorker) return;
 
   scraperScheduler.start();
-  startAutoSync();              // 15-min trade sync for every API-connected account
+  startAutoSync();              // the reconciliation sweep (daily) for every API-connected account
+  // Asks the broker what it is holding every 5 min and recovers any close the live feed missed.
+  // THE LAYER THAT LETS THE SWEEP BE DAILY: without it a missed close waits up to 36 hours.
+  startMissedCloseWatch();
   startHealthWatchdog();        // coded health alerts (token / scanner / engine)
   startCTraderRealtime();       // instant cTrader trade recording
   startPublishScheduler();      // scheduled blog posts go live when their time arrives

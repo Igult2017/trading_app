@@ -49,7 +49,12 @@ export type SyncStage =
   // quietly stopped working looks EXACTLY like one that is working — because the sweep covers for it,
   // and the trade still appears. These two stages are what tell them apart.
   | 'live-latency'        // a fill went from arriving to stored in N ms, on the live path
-  | 'session-lost';       // one account's session ended (usually a token refresh); it alone re-attaches
+  | 'session-lost'        // one account's session ended (usually a token refresh); it alone re-attaches
+  // THE ONE THAT PROVES EVENTS CAN BE TRUSTED. A position the broker no longer holds, for which no trade
+  // was ever recorded: its close was missed. Found by asking what the broker holds, every 5 minutes, and
+  // noticing what went away - which is the only way to detect a missed event on an API that has no
+  // sequence numbers, no acknowledgements and no replay.
+  | 'missed-close';
 
 export interface SyncEventInput {
   brokerAccountId?: string | null;

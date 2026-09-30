@@ -35,6 +35,7 @@ import { notificationService } from './notificationService';
 import { refreshCTraderToken, syncAccount } from './autoSyncService';
 import { mapClosedDeal, mapClosedFromEvent } from './brokerAdapters/ctrader';
 import { record } from './autoJournal';
+import { forgetAccount } from './missedCloseWatch';
 import { logUtilisation, stats } from './ctraderConnPool';
 import {
   attach, detach, isAttached, attachedIds, hubStats, logRoutingEvidence,
@@ -72,6 +73,10 @@ function scheduleReconnect(id: string): void {
  */
 function onAccountLost(accountId: string, reason: string): void {
   console.warn(`[cTraderRT] account ${accountId} lost its session (${reason}) — re-attaching it alone`);
+  // FORGET WHAT WE THOUGHT IT WAS HOLDING. The missed-close check compares the broker's current
+  // positions against the last set it saw; carrying a stale set across a re-attach would report every
+  // one of them as vanished and fetch history for nothing.
+  forgetAccount(accountId);
   // RECORDED, NOT JUST LOGGED. This fires on a routine token refresh, so it is expected occasionally —
   // but a row that repeats every few minutes for one account is a broken account, and that pattern is
   // invisible in a log holding 50 seconds. It is only findable if each occurrence is stored.
@@ -85,6 +90,7 @@ function onAccountLost(accountId: string, reason: string): void {
 /** Every account that shared a dropped socket comes back together. */
 function onHubLost(accountIds: string[]): void {
   console.warn(`[cTraderRT] socket dropped carrying ${accountIds.length} account(s) — reconnecting`);
+  accountIds.forEach(forgetAccount);      // same reason as above, for every account on the lost socket
   accountIds.forEach(scheduleReconnect);
 }
 

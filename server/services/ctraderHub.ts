@@ -33,6 +33,7 @@ import {
   LIVE_WS, DEMO_WS, openWS, send, waitFor, appAuth,
   PT_ACCT_AUTH_REQ, PT_ACCT_AUTH_RES, PT_SYMBOLS_REQ, PT_SYMBOLS_RES,
   PT_EXECUTION_EVENT, PT_HEARTBEAT, PT_TOKEN_INVALIDATED, PT_ACCOUNT_DISCONNECT,
+  PT_RECONCILE_REQ, PT_RECONCILE_RES,
 } from './brokerAdapters/ctrader';
 
 const HEARTBEAT_MS = 10_000;
@@ -342,6 +343,34 @@ export function detach(accountId: string): void {
     clearInterval(hub.hb);
     try { hub.ws.close(); } catch { /* noop */ }
   }
+}
+
+/**
+ * Ask cTrader what positions it is holding for ONE account, on that account's existing feed socket.
+ *
+ * WHY ON THE FEED SOCKET and not a fresh connection: a fresh one would take a slot from the pool of 8
+ * every five minutes, for every account — which is the cost this whole exercise is removing. The socket
+ * is already open and already authorised for this account.
+ *
+ * ⚠ THE REPLY IS MATCHED ON THE ACCOUNT, not just the message type. With several accounts on one socket,
+ * two asking at once would otherwise each take whichever reply came back first, and one account would be
+ * told about the other's positions — which is exactly the class of mix-up the fill router exists to
+ * prevent, reappearing one layer down.
+ *
+ * Returns the open position ids, or null when this account has no feed to ask on.
+ */
+export async function openPositionIds(accountId: string): Promise<string[] | null> {
+  const hub = hubOf.get(accountId);
+  if (!hub || hub.closing) return null;
+  let ctid: number | undefined;
+  hub.members.forEach((m, k) => { if (m.account.id === accountId) ctid = k; });
+  if (ctid === undefined) return null;
+
+  send(hub.ws, PT_RECONCILE_REQ, { ctidTraderAccountId: ctid });
+  const payload = await waitFor(hub.ws, PT_RECONCILE_RES, 20_000,
+                                (p) => Number(p?.ctidTraderAccountId) === ctid);
+  const list = Array.isArray(payload?.position) ? payload.position : [];
+  return list.map((p: any) => String(p?.positionId)).filter((id: string) => id && id !== 'undefined');
 }
 
 export function isAttached(accountId: string): boolean { return hubOf.has(accountId); }
