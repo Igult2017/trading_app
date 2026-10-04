@@ -232,6 +232,33 @@ goes quiet.
 
 ## B. VIX.1
 
+### B33 — The count-wait notification has no test on the TREND route, so a break there would be silent
+**Found 2026-10-04**, by sabotage rather than by reading — and worth recording because it is the exact
+shape of defect this platform keeps shipping: a green suite that is green because nothing asks.
+
+**What it is.** The DM notification for candle 1 / candle 2 of a count wait
+([`vix1_countwatch.py`](../signal_platform/strategies/vix1_countwatch.py)) decides "did ONLY the count
+refuse this?" by running the entry twice — once normally, once with the count refusal muted
+(`ignore_count`). VIX.1 counts candles on **two** routes, and the switch is wired into both:
+
+| route | the switch | covered by a test? |
+|---|---|---|
+| change of character | [`vix1_choch.py:171`](../signal_platform/strategies/vix1_choch.py#L171) | **yes** — deliberately breaking it turns 7 checks red |
+| the trend route | [`vix1_bias.py:516`](../signal_platform/strategies/vix1_bias.py#L516) | **no** — deliberately breaking it leaves the suite entirely green |
+
+**Why it matters.** If the trend route's half broke, the notification would quietly stop firing for
+trend-route setups. Nothing would fail, nothing would log, and the only symptom would be silence in his
+DM — which is indistinguishable from "no setup happened". That is the same failure mode as the socket
+sharing that was honoured and had no effect.
+
+**What closing it needs.** A real window where the trend route is refused by the **count alone**. The
+case that covers the other route was found inside the existing suite (his own 28 Jul EUR/USD chart);
+there is no equivalent already-pinned fixture for this one, so it means searching history for a
+fixture. **That is his call** — not because it scores anything (no P&L, no win rate, no frequency), but
+because he has asked to be asked before history is replayed.
+
+**Not a defect in the feature.** The notification works; this is a hole in what the tests can see.
+
 ### B1 — The trend flips about 90 times a year, not the 9–10 its own note claims
 **Carried** from 15 Aug. Median run 1.6 days. Not a coding error — a consequence of reading the trend
 in real time with no "major swing" filter. The table in the doc is stale: it was measured the day

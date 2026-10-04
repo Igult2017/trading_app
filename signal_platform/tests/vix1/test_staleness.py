@@ -21,6 +21,8 @@ TWO SEPARATE DEFECTS, one test file:
 
 NOT A BACKTEST: no P&L, no win rate, no trades simulated.
 """
+import inspect
+
 from _harness import Suite, load
 
 from core.instrument_debut import InstrumentDebut
@@ -194,10 +196,14 @@ s.teeth("the pullback state", pullback_since(mixed, 1) == mixed[3].time)
 
 # ── the wiring cannot silently come undone ───────────────────────────────────────────────────────
 print()
-s.check("detect_bias accepts a debut registry",
-        "debut" in vix1_bias.detect_bias.__code__.co_varnames[
-            :vix1_bias.detect_bias.__code__.co_argcount], True)
+# ⚠ ASKED BY NAME, NOT BY POSITION. This read `__defaults__[-1]` — the LAST default — until
+# 2026-10-04, which only worked while `debut` happened to be the last argument. Adding one more
+# optional argument to `detect_bias` (`ignore_count`) made it read the NEW argument's default and go
+# red, with nothing wrong with `debut` at all. The fact being protected is "debut defaults to None",
+# so ask for `debut` by name and the check survives every future argument.
+_sig = inspect.signature(vix1_bias.detect_bias).parameters
+s.check("detect_bias accepts a debut registry", "debut" in _sig, True)
 s.check("...and defaults to None, so no existing replay is silently muted",
-        vix1_bias.detect_bias.__defaults__[-1], None)
+        _sig["debut"].default, None)
 
 s.done()

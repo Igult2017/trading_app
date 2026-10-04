@@ -132,6 +132,11 @@ TESTS = [
     # ADDED 2026-09-21. His liquidity-void rule, on the bars of the chart he drew it on, plus his
     # scope ruling of the same day — the proof trade keeps ONE candle, joining a move keeps TWO.
     "test_void_gate.py",             # don't trade while price is filling the move that made the leg
+    # ADDED 2026-10-04. His ask: *"i need notification for 1st and second candles if they are momentum
+    # candles and then signal starts at 3rd candle going forward"* — and only for a candle that fails
+    # NOTHING but the count. The entry gained an `ignore_count` switch to answer that question, so the
+    # first thing this file asserts is that the switch is off everywhere the platform actually trades.
+    "test_countwatch.py",            # a candle refused ONLY by the count is reported to his DM
 ]
 
 # AND THIS IS WHY IT WILL NOT HAPPEN A THIRD TIME. Adding a test file without listing it above is

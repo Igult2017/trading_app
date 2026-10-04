@@ -97,10 +97,21 @@ def note(symbol: str, bullish: bool, bar: Candle, why: str, pip: float, strategy
     return Signal(
         symbol            = symbol,
         direction         = Direction.BUY if bullish else Direction.SELL,
-        # The `_watch` suffix is what routes this to the admin DM instead of the public channel
-        # (`notifications/dispatcher.py`). It is emphatically not channel material: it is a candle he
-        # may choose to trade, not a signal the strategy is taking.
-        strategy_id       = "vix1_count_watch",
+        # `vix1_watch` — THE SAME ID EVERY OTHER VIX.1 DM CARD USES (`vix1_preclose`,
+        # `vix1_building`). The `_watch` suffix is what routes it to the admin DM instead of the
+        # public channel, and it also picks the `format_signal_watch` card
+        # (`notifications/dispatcher.py:148`, `:199`, `:256`). It is emphatically not channel
+        # material: a candle he may choose to trade, not a signal the strategy is taking.
+        #
+        # ⚠ IT IS DELIBERATELY NOT `vix1_count_watch`, which is what this shipped as first. The
+        # dispatcher STRIPS `_watch` and looks the rest up in three settings — `dm_only_exempt`
+        # ("bx_sd,vix1"), `channel_all` ("bx_sd") and `min_confidence_overrides` ("vix1:0.60"). A
+        # card calling itself `vix1_count_watch` is looked up as `vix1_count`, a name none of them
+        # knows, so it would silently stop following VIX.1 the moment any of those is changed.
+        # Both ids route to the DM today, so this was not yet a live fault — it was one waiting for
+        # a settings change. The CARD TYPE is told apart by its headline and its own dedup key, which
+        # is how preclose and building already share this id.
+        strategy_id       = "vix1_watch",
         strategy_name     = strategy_name,
         alert_only        = True,
         # NO WATCHING ROW. There is one per strategy+symbol+direction, and claiming it here would take
