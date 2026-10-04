@@ -146,6 +146,81 @@ run(canceller.cancel_for_signal("sig-0723", "EUR/USD",
 s.check("a withdrawal writes ONE cancelled row", [r[0] for r in rows], ["autotrade_cancelled"])
 s.check("...naming the order and why", ("360658076" in rows[0][3], "1.15568" in rows[0][3]), (True, True))
 
+# ── AUTOTRADE OFF: IT RECORDS THE SETUP, AND STILL PLACES NOTHING ──────────────────────────────
+# HIS INSTRUCTION, 2026-10-05: *"Disable autotrade... However, the setups recording in autotrade
+# section still remains so that we can use it for investigations. Just disable it from taking trades
+# only."*
+#
+# ⚠ WHY THIS SECTION EXISTS. The kill switch used to be a bare `return` in `dispatcher._autotrade`,
+# which skipped the placer — and the placer is what writes the row. So turning autotrade off ALSO
+# turned the Autotrade screen off, and the period he most wanted to investigate was the one with no
+# record. The two halves are asserted together here because they pull in opposite directions: the
+# recording must happen, and NOTHING must reach a broker.
+print()
+print("   autotrade OFF — the setup is recorded, and nothing is placed:")
+import notifications.dispatcher as disp                                      # noqa: E402
+
+_touched = {"account": 0, "placer": 0}
+_off_real = dict(load=acct_mod.load_account, place=placer.place_for_signal)
+
+
+# A USABLE ACCOUNT, so the ON case below is not short-circuited by `acct is None` — the first build of
+# this section returned None here and the ON check failed for that reason, not for a real one. It
+# carries all four attributes the dispatcher reads, so a missing one cannot look like a wiring fault.
+async def _counting_account():
+    _touched["account"] += 1
+
+    class A:
+        creds, account_type = {"ctraderId": 1, "accessToken": "x"}, "demo"
+        equity, risk_base = 10_000.0, 10_000.0
+    return A()
+
+
+async def _never_place(*a, **k):
+    _touched["placer"] += 1
+    return None
+
+
+acct_mod.load_account = _counting_account
+placer.place_for_signal = _never_place
+object.__setattr__(settings, "autotrade_enabled", False)
+rows.clear()
+run(disp._autotrade(Sig()))
+
+s.check("ONE row is written", len(rows), 1)
+s.check("...and it is a refusal, so the Autotrade screen shows it",
+        rows and rows[0][0], "autotrade_refused")
+s.check("...naming the signal, so it can be tied back to the setup", rows and rows[0][2], "sig-1303")
+s.check("...and it says the switch is the reason, in words he can act on",
+        rows and "autotrade is OFF" in rows[0][3], True)
+s.check("...and it says the setup was kept for investigation",
+        rows and "recorded for investigation" in rows[0][3], True)
+# THE LEVELS ARE THE SETUP. Without them the row says only "something was refused", which is the
+# question rather than the answer.
+for _field, _value in (("entry", "1.15295"), ("stop", "1.15327"), ("target", "1.15167")):
+    s.check(f"...and carries the {_field}", rows and _value in rows[0][3], True)
+
+# ⚠ THE TEETH, AND THE WHOLE POINT. The easy way to make the OFF state record would be to delete the
+# early return and let guard 1 refuse further down — and that would load the account and open a broker
+# connection on every signal while he believes autotrade is disabled. These two checks are what make
+# that impossible to ship by accident.
+s.check("the account is NEVER loaded — no credentials fetched while OFF", _touched["account"], 0)
+s.check("the placer is NEVER called — nothing can reach a broker", _touched["placer"], 0)
+s.teeth("OFF records but does not place",
+        len(rows) == 1 and _touched["account"] == 0 and _touched["placer"] == 0)
+
+# ...AND THE ON PATH IS UNCHANGED. The risk in this change is breaking the live path while disabling
+# it, so the same call with the switch ON must still reach the placer.
+object.__setattr__(settings, "autotrade_enabled", True)
+rows.clear()
+run(disp._autotrade(Sig()))
+s.check("with the switch ON the account IS loaded", _touched["account"], 1)
+s.check("...and the placer IS reached, exactly as before", _touched["placer"], 1)
+s.teeth("the switch actually decides, both ways",
+        _touched["placer"] == 1 and _touched["account"] == 1)
+
+acct_mod.load_account, placer.place_for_signal = _off_real["load"], _off_real["place"]
+
 # ── RESTORE ────────────────────────────────────────────────────────────────
 CP.open_positions, broker_mod.StopOrderClient = _real["open"], _real["broker"]
 acct_mod.load_account, autotrade_repo.record_placed = _real["load"], _real["record_placed"]

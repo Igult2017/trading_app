@@ -1550,6 +1550,54 @@ test proving the process count returns to zero.
 
 ## D. cTrader & copy trading
 
+### D59 — AUTOTRADE IS SWITCHED OFF (2026-10-05, his instruction). It places nothing; it still RECORDS every setup
+
+**Read `docs/autotrade-disabled.md` before concluding anything about autotrade.** This entry exists so
+the next session does not read "no orders placed" as a defect and go looking for a broken pipeline.
+
+**His instruction:** *"Disable autotrade and document how you did it. However, the setups recording in
+autotrade section still remains so that we can use it for investigations. Just disable it from taking
+trades only."*
+
+**What was done:** `AUTOTRADE_ENABLED` set to `false` on **both** copies of the Coolify variable (it
+mirrors every var into a preview scope), plus a code change so the OFF state still writes to the
+Autotrade screen.
+
+**⚠ THE CODE CHANGE WAS NECESSARY, NOT OPTIONAL.** The kill switch was a bare `return` in
+`notifications/dispatcher._autotrade`, and the row saying "a signal fired, no order went out, here is
+why" is written further down by `execution/placer.py`. That return skipped it — so flipping the variable
+alone would have taken the Autotrade screen's recording with it, and **the disabled period would have
+been the one with no record**. It now writes the row itself and still touches no network: the credential
+fetch, the balance call and the broker connection all remain below that return.
+
+**So, when reading the Autotrade screen while this holds:**
+
+| what you see | what it means |
+|---|---|
+| **Refused — "autotrade is OFF"** | normal. One row per confirmed signal. The entry, stop and target are on the row |
+| **no Placed rows at all** | expected, not a defect |
+| **no lot size on the rows** | expected — sizing needs the account balance, which needs a broker call |
+| **nothing about the other guards** (session, duplicate order, daily cap) | expected, same reason |
+
+**STILL RUNNING and deliberately untouched:** both strategies and all Telegram signals; breakeven and
+the profit ladder, which have their own `auto_breakeven_enabled` switch, so **an open trade keeps being
+managed** — abandoning a live trade's stop would be the dangerous way to disable this; broker sync and
+journaling.
+
+**At the moment of the change the broker held no open positions and no resting orders**, so nothing was
+left in flight that could still fill. A stop order already resting would have filled on its own — the
+switch stops new orders, it does not withdraw existing ones.
+
+**To re-enable:** both copies of the variable back to `true`, redeploy, and confirm the next signal
+shows Placed. No code needs reverting — with the switch on, the new branch is never taken.
+
+⚠ **`signal_events` is purged after 30 days** and the screen shows at most 30, so a disabled stretch
+longer than a month cannot be reviewed in full from there.
+
+**Guarded by `tests/vix1/test_autotrade_decision_log.py` (28 checks)**: with the switch off a refusal
+row IS written carrying the levels, AND the account is never loaded and the placer never called — both
+asserted together because they pull against each other. Restoring the bare `return` turns 9 red.
+
 ### D58 — ~~Deleting a synced trade from the journal did not stick: the sweep wrote it back within 15 minutes~~ FIXED 2026-10-04
 
 **His report:** *"Make the journal autosync for synced accounts to remember that a recorded trade was

@@ -324,9 +324,43 @@ async def _autotrade(signal) -> None:
 
     Everything expensive — the credential fetch, the balance call, the broker connection — sits
     BEHIND the kill switch, so with autotrade off this costs one boolean and touches no network.
+
+    ⚠ WITH AUTOTRADE OFF THE SETUP IS STILL RECORDED. That is his instruction of 2026-10-05:
+    *"Disable autotrade... However, the setups recording in autotrade section still remains so that
+    we can use it for investigations. Just disable it from taking trades only."* See below.
     """
     from config.settings import settings as _s
     if not _s.autotrade_enabled:
+        # ── OFF MEANS "PLACE NOTHING", NOT "SEE NOTHING" (2026-10-05) ───────────────────────────────
+        #
+        # THIS LINE USED TO BE A BARE `return`, and that quietly took the Autotrade screen with it.
+        # The row that says a signal fired and no order went out is written by `placer.py`
+        # (`decision_log.refused`), which this return skips — so turning the switch off stopped the
+        # recording as well as the trading, and *"why did autotrade not take this?"* became
+        # unanswerable for exactly the period he most wanted to investigate.
+        #
+        # ONE ROW PER CONFIRMED SIGNAL, which is the right volume: `_autotrade` runs at dispatch, not
+        # per scan (`placer.py`, the same note on `guards.check`), and a `_watch` alert never gets
+        # here at all — the caller above checks `is_watch` first.
+        #
+        # THE "TOUCHES NO NETWORK" PROMISE IN THE DOCSTRING STILL HOLDS. This writes to the audit
+        # trail the platform already keeps (`signal_events`) on a worker thread, and the credential
+        # fetch, the balance call and the broker connection all remain below this return. Nothing
+        # here can reach a broker, which is the point of the switch.
+        #
+        # IT REUSES THE EXISTING `autotrade_refused` STAGE rather than inventing one, because a new
+        # stage is invisible unless it is added in TWO more places — `AUTOTRADE_STAGES` in
+        # `server/routes.ts`, or the endpoint never returns it, and the `NOT_PLACED` map in
+        # `client/src/features/admin-autotrade/autotradeRows.ts`, which drops an unmapped stage with
+        # a bare `continue`. This renders today, as "Refused", with the reason in the note column.
+        # And it is honest: the order WAS refused.
+        from execution import decision_log
+        await decision_log.refused(
+            signal,
+            "autotrade is OFF (autotrade_enabled=false) — the setup is recorded for investigation, "
+            "no order was sent",
+            None,           # no lot size: sizing needs the account, and that is behind the switch
+        )
         return
     from execution.placer import place_for_signal
     from execution.account import load_account

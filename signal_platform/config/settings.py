@@ -140,7 +140,17 @@ class Settings(BaseSettings):
     # it would, so entry quality is measured instead of argued about. Every backtest number this
     # platform has produced is gross of spread and assumes a fill exactly at the stop price;
     # neither survives contact with a broker, and this is how we find out by how much.
-    autotrade_enabled:     bool  = False   # THE KILL SWITCH. Nothing is placed while this is False.
+    # THE KILL SWITCH. Nothing is placed while this is False — but the SETUP IS STILL RECORDED to the
+    # Autotrade screen as "Refused — autotrade is OFF" (`notifications/dispatcher._autotrade`), so a
+    # disabled period can still be investigated. His instruction, 2026-10-05: *"Just disable it from
+    # taking trades only."* Before that date OFF also meant "record nothing", which made the screen go
+    # blank and looked exactly like a broken pipeline. See `docs/autotrade-disabled.md`.
+    #
+    # ⚠ SET TO FALSE IN PRODUCTION ON 2026-10-05 ON HIS INSTRUCTION. The default here has always been
+    # False; what changed is the `AUTOTRADE_ENABLED` environment variable in Coolify, which had been
+    # `true`. To re-enable, set it back to `true` on BOTH copies of the variable (Coolify mirrors every
+    # var into the preview scope) and redeploy.
+    autotrade_enabled:     bool  = False
     autotrade_demo_only:   bool  = True    # refuse to place on a live account, checked at runtime
     # % OF THE STARTING BALANCE risked per trade — not of the live one. His instruction,
     # 2026-09-03: "change our risk to static 2% of the starting account balance." Sizing off the
