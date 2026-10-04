@@ -36,7 +36,7 @@ from strategies.vix1_bias import _ALLOW_H4, detect_bias
 from strategies.vix1_entry import m1_signals
 from strategies.vix1_lines import draw_line
 from strategies.vix1_momentum import LOOKBACK, momentum_grade   # candle_counts[M1] derives from LOOKBACK
-from strategies import vix1_building, vix1_preclose
+from strategies import vix1_building, vix1_countwatch, vix1_preclose
 from strategies.vix1_signal import build_signal
 from strategies import vix1_spacing, vix1_log
 from strategies.vix1_watch import check_invalidation, invalidation_signal, WATCH_M1
@@ -166,6 +166,23 @@ class Vix1Strategy(BaseStrategy):
                 vix1_log.say_always(f"[vix1] {sym} PRE-CLOSE notification — "
                                     f"{'BUY' if pc_bull else 'SELL'} momentum candle forming, "
                                     f"{left/60:.1f} min to close")
+
+        # A CANDLE THAT IS TRADEABLE EXCEPT FOR THE COUNT — his instruction, 2026-10-04:
+        # *"i need notification for 1st and second candles if they are momentum candles and then
+        # signal starts at 3rd candle going forward"*. The entry is unchanged; this only reports what
+        # has formed so he can take it on his own judgement. See `vix1_countwatch` for how "only the
+        # count failed" is decided without keeping a second copy of the rule set.
+        cw = vix1_countwatch.check(h1, h4, sym, debut=self._debut)
+        if cw is not None:
+            cw_bar, cw_bull, cw_why = cw
+            cwkey = vix1_countwatch.dedup_key(sym, cw_bull, cw_bar)
+            if not delivery_ledger.is_delivered(cwkey):
+                cnote = vix1_countwatch.note(sym, cw_bull, cw_bar, cw_why, pip, self.name)
+                cnote.dedup_key = cwkey      # committed only once the DM actually lands
+                out.append(cnote)
+                vix1_log.say_always(f"[vix1] {sym} COUNT-WAIT notification — "
+                                    f"{'BUY' if cw_bull else 'SELL'} momentum candle closed and "
+                                    f"passes everything; held only by the candle count")
 
         # ...AND THE OTHER HALF: report back when that candle does NOT make it. His instruction,
         # 2026-08-21: *"It does not report back when the momentum candle fails to qualify. It should,

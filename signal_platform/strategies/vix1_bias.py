@@ -134,13 +134,29 @@ def _upto(window: list[Candle], h1: list[Candle], mc_idx: int) -> list[Candle]:
     return window[:pos + 1] if 0 <= pos < len(window) else window
 
 
-def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "", debut=None) -> Bias | None:
+def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "", debut=None,
+                ignore_count: bool = False) -> Bias | None:
     """
     Returns a `Bias`, or None when no trade may be taken.
 
     `debut` — an optional `core.instrument_debut.InstrumentDebut`. When given, a momentum candle
     that closed BEFORE this instrument was first scanned is refused as backfill. Left None (tests,
     ad-hoc replays) nothing is refused, so this can never silently mute an existing measurement.
+
+    ⚠ `ignore_count` — FOR THE NOTIFICATION ONLY. NEVER PASS True FROM A TRADING PATH.
+
+    It skips the candle-COUNT refusal (`vix1_retracement.entry_timing`) and nothing else: every other
+    gate runs exactly as it does now. Its only purpose is to let `vix1_countwatch` ask one question —
+    *"would this trade if the count were satisfied?"* — so a candle that passes everything and is only
+    waiting on the count can be reported to him (his instruction, 2026-10-04: *"a candle that qualifies
+    based on all qualifications including margin and memory and only fails candle count"*).
+
+    THE QUESTION IS ASKED OF THE ENTRY ITSELF, deliberately. Listing the other gates here and checking
+    them separately would be a second copy of the rule set that drifts the moment a gate is added —
+    this cannot drift, because it IS the entry with one refusal muted.
+
+    `test_countwatch.py` asserts that no trading caller passes it. A switch that relaxes a trading rule
+    is exactly the kind that leaks into the live path later.
 
     `Bias.mc_idx` indexes into H1 — the FIRST candle of the freshest momentum run; VIX.1 operates
     from it and its close opens the 1M watch. `Bias.reason` names the BOS/CHoCH and the leg that
@@ -232,7 +248,7 @@ def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "", debut=None
         void_break = vix1_void.break_of_a_fill(window, tstate.pending == 1, tstate.choch_price,
                                                symbol)
         bias, why = vix1_choch.choch_entry(window, h1, tstate, turns, _H1_SWING_N, symbol,
-                                           void_break=void_break)
+                                           void_break=void_break, ignore_count=ignore_count)
         if bias is not None:
             # THE BACKFILL GUARD APPLIES HERE TOO. This route returns before the main path's check,
             # so guarding only that one left 24 of 107 cold-start signals still firing on history —
@@ -497,7 +513,8 @@ def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "", debut=None
         _ri = mstate.bos_index if mstate.bos_index is not None else mstate.direction_since
         _rt = (_base[_ri].time if _ri is not None and 0 <= _ri < len(_base) else None)
         for veto in (trend_reproven(mstate, at_mc, run_time=_rt),
-                     vix1_retracement.entry_timing(at_mc, 1 if bullish else -1, break_time=_bt),
+                     (None if ignore_count else
+                      vix1_retracement.entry_timing(at_mc, 1 if bullish else -1, break_time=_bt)),
                      market_awake(awake_window, mstate, ret, symbol, _QUIET_LOOK),
                      None if vix1_void.direction_already_confirmed(
                          awake_window, mc_idx, _ds, bullish, symbol)

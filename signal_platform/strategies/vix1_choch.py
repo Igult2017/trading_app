@@ -113,7 +113,8 @@ def exempts(bullish: bool, void_break: bool = False) -> bool:
 
 
 def choch_entry(window: list[Candle], h1: list[Candle], tstate: TrendState,
-                turns, n: int, symbol: str, void_break: bool = False) -> tuple[Bias | None, str]:
+                turns, n: int, symbol: str, void_break: bool = False,
+                ignore_count: bool = False) -> tuple[Bias | None, str]:
     """His change-of-character route. Returns (Bias or None, the reason either way).
 
     `window` is the trend window (the tail of `h1`); `tstate` and `turns` were already computed from
@@ -164,7 +165,10 @@ def choch_entry(window: list[Candle], h1: list[Candle], tstate: TrendState,
     # `void_break` STILL SKIPS THE WAIT ENTIRELY — his scoped ruling of 2026-09-20 is untouched:
     # price filling a liquidity void and breaking the level protecting the move that made it trades
     # at once, with no count.
-    if not exempts(bullish, void_break):
+    # ⚠ `ignore_count` IS THE NOTIFICATION'S QUESTION, NEVER A TRADING PATH'S — see `detect_bias`.
+    # It mutes this one refusal so `vix1_countwatch` can ask "would this trade but for the count?";
+    # every check below it still runs, which is the whole point.
+    if not ignore_count and not exempts(bullish, void_break):
         wait = vix1_retracement.entry_timing(window, 1 if bullish else -1,
                                              break_time=window[ci].time)
         if wait:
