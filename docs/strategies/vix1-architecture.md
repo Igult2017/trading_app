@@ -327,10 +327,8 @@ than three candles** and the momentum candle is only the **first or second** can
 of one to three candles is untouched.
 
 - His rule, 2026-09-16: *"we take trade from the 3rd candle and above... unless the pullback was made
-  of 1-3 candles."* **⚠ SUPERSEDED FOR THE LONG-PULLBACK BRANCH, 2026-10-04** — *"After a pullback that
-  took more than 3 candles, we count the first candle, then if the second candle is a momentum candle,
-  we enter when it closes."* The long-pullback wait is now **2**, not 3. A 1-3 candle pullback and the
-  no-pullback breakout count are both unchanged.
+  of 1-3 candles."* **STILL 3.** A 3 -> 2 change was built and reverted on 2026-10-04 — the move it was
+  asked for was refused by the RANGE BAND, not this branch. See `vix1.md` 2026-10-04.
 - **One pullback logic:** the count comes from `since_pullback`, which walks the candles exactly as
   `measure` does (trend-way or not, a doji counts as part of the pullback).
 - Asked at the entry (`vix1_bias`) on `at_mc` — the window truncated at the momentum candle — so it is

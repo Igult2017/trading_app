@@ -9,15 +9,10 @@ HIS WORDS:
 
 So a pullback of ONE TO THREE candles is untouched — its first momentum candle still trades.
 
-⚠ THE SECOND HALF OF THAT RULING WAS CHANGED BY HIM ON 2026-10-04:
-
-    "After a pullback that took more than 3 candles, we count the first candle, then if the second
-     candle is a momentum candle, we enter when it closes. That means we dont wait for a pullback
-     because sometime a pullback may never come."
-
-So after a longer pullback the FIRST candle is still refused and the SECOND onward may now trade — it
-was the third. He was shown his own 16 Sep reasoning and the §7 measurement before approving; see the
-note above the constants in `vix1_retracement.py` for what that measurement does and does not say.
+⚠ A 3 -> 2 CHANGE TO THIS BRANCH WAS BUILT AND REVERTED ON 2026-10-04. He asked for it, and the
+premise it rested on was mine and was wrong: the pullback he described turned out to be the RANGE BAND
+refusing (`vix1_chop`), not this branch at all. He read the measurement and said revert. The rule below
+is unchanged. See the note above the constants in `vix1_retracement.py` before re-opening it.
 
 AND THE THIRD BRANCH, added 2026-09-29 in his words:
 
@@ -42,7 +37,7 @@ from strategies.vix1_retracement import (
 s = Suite("VIX.1 — the wait after a long pullback")
 
 s.check("a short pullback is up to 3 candles (his number)", _SHORT_PULLBACK, 3)
-s.check("and the trade then comes from the 2nd candle on (his number, 2026-10-04)", _WAIT_CANDLES, 2)
+s.check("and the trade then comes from the 3rd candle on (his number)", _WAIT_CANDLES, 3)
 s.check("with NO pullback the trade comes from the 3rd candle after the break (his number, unchanged)",
         _BREAK_CANDLES, 3)
 
@@ -70,23 +65,24 @@ _five = entry_timing(market(5, 1), 1)
 s.check("a 5-candle pullback, first candle after it — REFUSED", _five is not None, True)
 s.check("...and the refusal says what it is waiting for",
         _five is not None and "5 candles" in _five and "only candle 1" in _five, True)
-# HIS CHANGE, 2026-10-04: the SECOND candle may now trade. The first still may not — that half of his
-# 16 Sep ruling stands, and losing it would be the silent half of this change.
-s.check("...and the SECOND candle may now trade (his change, 2026-10-04)",
-        entry_timing(market(5, 2), 1), None)
-s.check("...the third still may, as before", entry_timing(market(5, 3), 1), None)
+# 2026-10-04: a 3 -> 2 change was built here and REVERTED the same day — the case it was asked for
+# turned out to be the range band, not this branch. The second candle is refused again.
+s.check("...the second candle is still refused", entry_timing(market(5, 2), 1) is not None, True)
+s.check("...and the THIRD candle may trade", entry_timing(market(5, 3), 1), None)
 s.check("...as may the fourth", entry_timing(market(5, 4), 1), None)
 
 # TEETH — the number is the whole rule, so the test has to be able to tell 2 from 3. If this ever reads
 # None, the first candle after a long pullback has started trading and his 16 Sep finding has been lost.
-s.teeth("the FIRST candle after a long pullback is still refused — the half of 16 Sep that stands",
+s.teeth("the FIRST candle after a long pullback is still refused",
         entry_timing(market(5, 1), 1) is not None)
 
 # AND THE REFUSAL MUST READ CORRECTLY. The text used to glue "rd" on by hand, so the moment his number
 # moved off 3 it printed "2rd" — and this string is what HE reads when a trade is refused.
 _one = entry_timing(market(5, 1), 1)
-s.check("the refusal says '2nd candle', not '2rd'",
-        _one is not None and "2nd candle on" in _one and "2rd" not in _one, True)
+# THE ORDINAL FIX IS KEPT. The text used to glue "rd" on by hand and printed "2rd" the moment the
+# number moved — a real bug in what HE reads, independent of which number wins.
+s.check("the refusal builds a real ordinal, so it can never print '2rd' or '1rd'",
+        _one is not None and "3rd candle on" in _one, True)
 
 print()
 print("   the same the other way up, and the edges:")
