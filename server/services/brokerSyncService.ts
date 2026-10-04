@@ -122,9 +122,21 @@ export async function processIncomingTrades(
   brokerAccountId: string,
   userId: string,
   trades: RawBrokerTrade[],
+  // ── IS THIS HIM ASKING, OR A TIMER? (2026-10-04) ─────────────────────────────────────────────────
+  // A trade whose journal entry he DELETED is never re-journaled automatically. Pressing Sync on the
+  // account is him explicitly asking for a rebuild — his 2026-09-06 rule — so that one clears the
+  // mark and writes the entry again.
+  //
+  // ⚠ IT DEFAULTS TO AUTOMATIC, and that direction is deliberate. Every recording path funnels
+  // through this function (the 15-minute sweep, the live push feed, the missed-close watcher, the EA
+  // webhook and the manual button), so if a caller is ever added and nobody threads the flag, it
+  // behaves as a timer and RESPECTS his deletion. The failure mode of the default is "he has to
+  // press Sync", not "his deletion is silently undone".
+  opts: { manual?: boolean } = {},
 ): Promise<{ created: number; duplicates: number; journaled: number; healed: number;
-             backfilled: number; corrected: number }> {
+             backfilled: number; corrected: number; skippedDeleted: number }> {
   let created = 0, duplicates = 0, journaled = 0, healed = 0, backfilled = 0, corrected = 0;
+  let skippedDeleted = 0;
 
   // Get the account's default session so auto-journaled trades are visible
   // in session-filtered views (metrics, drawdown, audit)
@@ -375,6 +387,48 @@ export async function processIncomingTrades(
         (entry?.manualFields as any)?.autoJournaled === true
         && entry?.achievedRR != null && !String(entry.achievedRR).startsWith('1:');
 
+      // ── HE DELETED THIS TRADE'S JOURNAL ENTRY. LEAVE IT DELETED. (2026-10-04) ───────────────────
+      //
+      // HIS REPORT: *"I try deleting trades from my synced account and it keeps getting
+      // rerecorded."* Everything below this point that WRITES a journal entry is skipped — the
+      // revive-a-dangling-pointer branch and the heal-an-unjournaled-trade branch, which are the two
+      // places that brought it back.
+      //
+      // WHAT IS DELIBERATELY *NOT* SKIPPED: the backfills and corrections above. Those fix THIS row
+      // — open time, close time, MAE/MFE, order type — which are the broker's own facts, not his
+      // journal. They already guard their journal writes behind `if (existing.journalEntryId)`,
+      // which is null here. Keeping them means the row stays accurate for a later rebuild.
+      //
+      // PRESSING SYNC CLEARS THE MARK instead of obeying it, because that is him asking (his
+      // 2026-09-06 rule). The mark is cleared FIRST so the row can never end up journaled and marked
+      // at the same time — in that state the next sweep would skip a trade that IS in his journal,
+      // and deleting it again could never take effect.
+      if (existing.journalDeletedAt) {
+        if (!opts.manual) {
+          skippedDeleted++;
+          continue;        // counted, and reported once per account by the caller's log line
+        }
+        // ⚠ IF THE MARK CANNOT BE CLEARED, DO NOT REBUILD. A swallowed failure here would write the
+        // entry and leave the row still marked — and in THAT state the next sweep skips a trade that
+        // IS in his journal, so deleting it again could never take effect. Leaving it alone is
+        // recoverable (he presses Sync again); the contradictory state is not.
+        //
+        // This is also why it is not `.catch(() => {})`: a silent swallow on this path is the exact
+        // shape of the 02 Sep defect, where one failed write stopped real work with no output.
+        const cleared = await storage.clearJournalDeletedMark(existing.id)
+          .then(() => true)
+          .catch((err: any) => {
+            console.error(`[Sync] ${existing.symbol} ${existing.externalId}: could not clear the `
+                          + `deleted-on-purpose mark (${err?.message ?? err}) — NOT rebuilding, `
+                          + `because journaling it while still marked would strand it`);
+            return false;
+          });
+        if (!cleared) { skippedDeleted++; continue; }
+        (existing as any).journalDeletedAt = null;
+        console.log(`[Sync] ${existing.symbol} ${existing.externalId}: he deleted this journal `
+                    + `entry, but this is a manual Sync — rebuilding it as asked`);
+      }
+
       if (existing.journalEntryId) {
         const entry = await storage.getJournalEntryById(existing.journalEntryId).catch(() => null);
         if (entry) {
@@ -527,5 +581,5 @@ export async function processIncomingTrades(
   // P&L: his EUR/USD LONG stored as a SHORT with its $51 loss recorded as a $51 WIN. The pipeline
   // now finds and fixes that, and said nothing, so a trade he may already have read as a win was
   // silently rewritten.
-  return { created, duplicates, journaled, healed, backfilled, corrected };
+  return { created, duplicates, journaled, healed, backfilled, corrected, skippedDeleted };
 }

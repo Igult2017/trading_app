@@ -185,11 +185,19 @@ export interface SyncOutcome {
   healed?: number;                  // stored before, but had no journal entry until now
   backfilled?: number;              // fields filled in that the live feed could not supply
   corrected?: number;               // a WRONG value the broker's own deals disproved — see below
+  // Trades whose journal entry HE deleted, so no automatic sync may write it again (2026-10-04).
+  // Returned rather than only logged: a filter that stops real work and says nothing is how the
+  // 02 Sep defect survived a whole day looking exactly like a working sync.
+  skippedDeleted?: number;
   error?: string;
 }
 
 export async function syncAccount(account: BrokerAccount,
-                                  opts: { deep?: boolean } = {}): Promise<SyncOutcome> {
+                                  // `manual` — HE pressed Sync, so a trade whose journal entry he
+                                  // deleted is rebuilt rather than skipped (his 2026-09-06 rule).
+                                  // Absent = a timer, which respects the deletion.
+                                  opts: { deep?: boolean; manual?: boolean } = {},
+                                 ): Promise<SyncOutcome> {
   const tag = `${account.platform}(${account.id.slice(0, 8)})`;
   // THESE TWO SKIPS WERE SILENT, and silence is why this could go a day without anyone noticing
   // the sync had recorded nothing: a skipped account looked exactly like a working one.
@@ -226,9 +234,11 @@ export async function syncAccount(account: BrokerAccount,
                 + `${new Date(now).toISOString()} (${window})`);
 
     const raw = await fetchWithRetry(account, fromMs, now);
-    let counts = { created: 0, duplicates: 0, journaled: 0, healed: 0, backfilled: 0, corrected: 0 };
+    let counts = { created: 0, duplicates: 0, journaled: 0, healed: 0, backfilled: 0, corrected: 0,
+                   skippedDeleted: 0 };
     if (raw.length) {
-      counts = await processIncomingTrades(account.id, account.userId, raw);
+      counts = await processIncomingTrades(account.id, account.userId, raw,
+                                          { manual: opts.manual });
       console.log(`[AutoSync] ${tag}: ${raw.length} closed trade(s) from the broker -> `
                   + `${counts.created} recorded, ${counts.duplicates} already had, `
                   + `${counts.journaled} journaled`
@@ -246,7 +256,14 @@ export async function syncAccount(account: BrokerAccount,
                   // loss recorded as a $51 win). It was counted and never returned, so the single
                   // most serious thing this pipeline does happened silently.
                   + (counts.corrected ? `, ${counts.corrected} CORRECTED (a stored value the `
-                                        + `broker's own deals disproved)` : ''));
+                                        + `broker's own deals disproved)` : '')
+                  // ONE COUNT PER ACCOUNT, NOT ONE ROW PER TRADE PER TICK. The skip has to be
+                  // visible — a guard that stops real work in silence is its own defect — but an
+                  // audit row every 15 minutes for every trade he has ever deleted would be ~96 a
+                  // day each. So: counted here, and written to `sync_events` once, at the moment he
+                  // deleted it.
+                  + (counts.skippedDeleted ? `, ${counts.skippedDeleted} left alone (he deleted `
+                                             + `their journal entries — press Sync to rebuild)` : ''));
     } else {
       console.log(`[AutoSync] ${tag}: the broker returned no closed trades in that window`);
     }

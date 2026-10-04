@@ -58,7 +58,15 @@ export type SyncStage =
   // A trade that had LOST its pointer to an entry that already existed. Re-linked instead of journaled
   // again. If this appears repeatedly for the same trade, something is still clearing the pointer and
   // that is the thing to chase - but the duplicate entry can no longer be created either way.
-  | 'relinked';
+  | 'relinked'
+  // HE DELETED THE JOURNAL ENTRY ON PURPOSE, so no automatic sync may write it again (2026-10-04).
+  //
+  // Written ONCE, at the moment of the decision - never by the sweep. The sweep runs every 15
+  // minutes, so a row per skipped trade per tick would be ~96 a day for every trade he has ever
+  // deleted: an audit trail filling with notes about something he was told is gone. That is the
+  // mistake the copier's Drop fix already paid for. The sweep instead carries a COUNT on its own
+  // per-account log line, so the skip is still visible without the flood.
+  | 'journal-deleted';
 
 export interface SyncEventInput {
   brokerAccountId?: string | null;

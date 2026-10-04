@@ -583,6 +583,13 @@ ALTER TABLE synced_trades ADD COLUMN IF NOT EXISTS mae_mfe_source       TEXT;
 ALTER TABLE synced_trades ADD COLUMN IF NOT EXISTS original_stop_loss   NUMERIC(12,5);
 ALTER TABLE synced_trades ADD COLUMN IF NOT EXISTS original_take_profit NUMERIC(12,5);
 
+-- ── HE DELETED THE JOURNAL ENTRY ON PURPOSE — REMEMBER IT (2026-10-04) ───────────────────────────
+-- His report: "I try deleting trades from my synced account and it keeps getting rerecorded." The
+-- delete route cleared `journal_entry_id` deliberately, the sweep then saw a stored trade with no
+-- entry and wrote a fresh one, and nothing anywhere recorded that the absence was his decision.
+-- NULL means "never deleted", so every existing row keeps exactly today's behaviour.
+ALTER TABLE synced_trades ADD COLUMN IF NOT EXISTS journal_deleted_at   TIMESTAMP;
+
 -- Read time is worked out from the article (shared/readingTime.ts), never assumed. This column
 -- defaulted to '5 min', which is why every published post claimed about five minutes regardless of
 -- length. Dropping the default only affects rows inserted WITHOUT a read time; existing rows keep

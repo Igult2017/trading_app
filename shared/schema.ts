@@ -832,6 +832,25 @@ export const syncedTrades = pgTable("synced_trades", {
   maeMfeSource:    text("mae_mfe_source"),
   journalEntryId:  varchar("journal_entry_id"),           // null until auto-journaled
   journaledAt:     timestamp("journaled_at"),
+  // ── HE DELETED THE JOURNAL ENTRY FOR THIS TRADE, SO DO NOT WRITE IT AGAIN ───────────────────────
+  // His report, 2026-10-04: *"I try deleting trades from my synced account and it keeps getting
+  // rerecorded."* He was right, and it was deliberate: deleting an entry CLEARED `journalEntryId`
+  // above on purpose (`routes.ts`, the delete route), and the sweep then saw a stored trade with no
+  // entry and wrote a fresh one. Nothing recorded that the absence was his decision.
+  //
+  // WHY THE MARK LIVES HERE AND NOT ON THE ENTRY. The journal entry is the thing being destroyed, so
+  // a mark on it dies with it. This row survives, carries the broker identity
+  // (`broker_account_id` + `external_id`, unique below) and is what the sweep already consults.
+  //
+  // WHY IT IS NOT FOLDED INTO `journaledAt` ABOVE. That is null for a trade that was NEVER journaled
+  // — a brand-new one the sweep is about to write — and the recording path writes it. Reusing it
+  // would make "he deleted this" and "this has not been journaled yet" the same state, and the
+  // second must still be healed (the 02 Sep fix). One flag, one meaning.
+  //
+  // A MANUAL SYNC CLEARS IT, which is his earlier rule of 2026-09-06 kept intact: *"i deleted auto
+  // synced data and tried to sync again for them to be recalculated."* Pressing Sync is him asking;
+  // the 15-minute sweep, the live feed and the missed-close watcher are not.
+  journalDeletedAt: timestamp("journal_deleted_at"),
   rawData:         jsonb("raw_data"),
   createdAt:       timestamp("created_at").defaultNow(),
 }, (t) => [

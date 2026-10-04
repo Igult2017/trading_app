@@ -1550,6 +1550,72 @@ test proving the process count returns to zero.
 
 ## D. cTrader & copy trading
 
+### D58 — ~~Deleting a synced trade from the journal did not stick: the sweep wrote it back within 15 minutes~~ FIXED 2026-10-04
+
+**His report:** *"Make the journal autosync for synced accounts to remember that a recorded trade was
+deleted so it does not autosync it again. I currently have that problem. I try deleting trades from my
+synced account and it keeps getting rerecorded."*
+
+**⚠ IT WAS DELIBERATE, AND IT WAS HIS OWN EARLIER REQUEST — which is why this is recorded rather than
+quietly reversed.** On 2026-09-06 he reported *"i deleted auto synced data and tried to sync again for
+them to be recalculated but the data didnt come back after syncing"*, so deleting an entry was wired to
+release the broker trade's pointer and let the next sync rebuild it. Both files said so in as many words:
+`routes.ts` — *"Deleting is also the ONLY sensible way to ask for a rebuild, which is exactly what he was
+doing"*.
+
+**The three places that brought it back**, all verified by reading them:
+
+| # | where | what it did |
+|---|---|---|
+| 1 | `server/routes.ts` delete route | **actively cleared** `synced_trades.journal_entry_id` — *"so the next sync writes it again"* |
+| 2 | `brokerSyncService.ts` | pointer naming a destroyed row → cleared it, logged `healed` |
+| 3 | `brokerSyncService.ts` | `if (!journalEntryId && closeTime)` → wrote a fresh entry |
+
+Nothing recorded that the absence was **his decision**: `synced_trades` had no deleted/dismissed column,
+and `journal_entry_id` — the only link — was the very thing being cleared.
+
+**A SECOND DELETION ROUTE, found while tracing and NOT in his report.** `storage.deleteSession` wiped a
+session's entries with raw SQL and never touched `synced_trades` at all, so deleting a whole session
+brought its synced trades back **into the account's DEFAULT session** rather than the one he deleted.
+Both the user route and the admin route call that one function. Fixing only the single-entry route would
+have left this standing — the "find EVERY enforcement point" rule earning itself again.
+
+**HOW BOTH OF HIS REQUESTS ARE NOW SATISFIED.** What actually differed was the TRIGGER, not deletion: in
+September he deleted and then **pressed Sync himself** expecting a rebuild; now it returns on its own,
+and his words this time are *"does not **autosync** it again"*. So:
+
+- a new `synced_trades.journal_deleted_at` mark, stamped by both deletion routes;
+- the automatic paths — the 15-minute sweep, the live push feed, the missed-close watcher, the EA
+  webhook — see the mark and never re-journal;
+- **pressing Sync clears the mark and rebuilds**, which is the September behaviour kept intact. It is the
+  only caller passing `manual: true`, and the flag **defaults to automatic**, so a caller added later
+  respects the deletion rather than silently undoing it.
+
+**What is deliberately NOT skipped:** the backfills that correct the `synced_trades` row itself (open
+time, close time, MAE/MFE, order type). Those are the broker's own facts, not his journal, so the row
+stays accurate for a later rebuild.
+
+**What is deliberately NOT marked:** a pointer found dangling by something OTHER than his deletion (a
+direct database change, a cascade, a future endpoint). That is a broken state, not a decision, and the
+sweep still repairs it — the 02 Sep fix (D29) survives intact. Two separate storage functions, so the
+two cases cannot be confused.
+
+**⚠ IT DOES NOT REMOVE THE COPIES ALREADY WRITTEN.** The trades that came back are real journal entries
+now. This stops the next sweep re-creating them; it does not retroactively delete them. **He must delete
+each one once more after this ships, and that deletion will stick.**
+
+**Guarded by `server/services/syncedTradeDeletion.test.ts` (30 checks)** — the migration column and the
+real session-delete statement **extracted from their source files, not retyped**, run against real
+Postgres via PGlite; the sweep's guard asserted as wiring, including that it sits ABOVE both
+journal-writing branches. Proven to fail by sabotage: removing the skip turns 1 check red, moving the
+guard below the branches it protects turns 2 red.
+
+**Also fixed, and it was my break:** `autoSyncWiring.test.ts` asserted the manual route awaits its sync
+by requiring `[` to be immediately followed by `syncAccount(`, inside a fixed 2,600-character window.
+A five-line comment inside that call turned **both** checks red with the behaviour unchanged. Now strips
+comments and ends the window at the next route declaration — the same lesson that file's own notes
+already record about a check that was "permanently RED".
+
 ### D51 - ~~The Provider studio could only ever publish ONE account~~ FIXED 2026-09-29
 
 **His instruction:** *"list all the ctrader accounts that user has so that he can choose which ones

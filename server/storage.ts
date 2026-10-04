@@ -121,6 +121,9 @@ export interface IStorage {
   /** The entry that NAMES this broker trade, if one exists. The question a pointer cannot answer. */
   getJournalEntryBySyncedTrade(syncedTradeId: string): Promise<JournalEntry | undefined>;
   clearSyncedTradeJournalEntry(journalEntryId: string): Promise<number>;
+  // Release the pointer AND remember that HE deleted it, so no automatic path writes it again.
+  markSyncedTradeJournalDeleted(journalEntryId: string): Promise<number>;
+  clearJournalDeletedMark(syncedTradeId: string): Promise<void>;
   deleteSyncedTrade(id: string): Promise<boolean>;
   updateSyncedTradeOpenTime(id: string, openTime: Date): Promise<void>;
   updateSyncedTradeCloseTime(id: string, closeTime: Date): Promise<void>;
@@ -660,6 +663,23 @@ export class DbStorage implements IStorage {
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
+      // ── REMEMBER THE DELETION BEFORE THE ROWS GO (2026-10-04) ─────────────────────────────────
+      // THE SECOND DELETION ROUTE, and it is not the one he reported. Deleting a session wipes its
+      // journal entries here, and until now it did not touch `synced_trades` at all — so every
+      // synced trade in the session kept a pointer to a destroyed entry, the sweep repaired the
+      // pointer and re-journaled the trade, and it reappeared in the account's DEFAULT session
+      // rather than the one he deleted. Fixing only the single-entry route would have left this.
+      //
+      // ORDER MATTERS: this must run BEFORE the delete below, because it finds the trades by
+      // joining on the entries. Afterwards there is nothing left to join to.
+      //
+      // Both the user route and the admin route call this function, so one statement covers both.
+      await client.query(
+        `UPDATE synced_trades SET journal_entry_id = NULL, journaled_at = NULL,
+                                  journal_deleted_at = NOW()
+          WHERE journal_entry_id IN (SELECT id FROM journal_entries WHERE session_id = $1)`,
+        [id],
+      );
       await client.query('DELETE FROM journal_entries WHERE session_id = $1', [id]);
       const result = await client.query(
         'DELETE FROM trading_sessions WHERE id = $1 RETURNING id',
@@ -1145,6 +1165,49 @@ export class DbStorage implements IStorage {
       .where(eq(syncedTrades.journalEntryId, journalEntryId))
       .returning({ id: syncedTrades.id });
     return r.length;
+  }
+
+  /**
+   * HE DELETED THIS JOURNAL ENTRY ON PURPOSE — release the pointer AND remember the decision.
+   *
+   * HIS REPORT, 2026-10-04: *"Make the journal autosync for synced accounts to remember that a
+   * recorded trade was deleted so it does not autosync it again... I try deleting trades from my
+   * synced account and it keeps getting rerecorded."*
+   *
+   * This is `clearSyncedTradeJournalEntry` above PLUS the stamp, and the two are deliberately
+   * separate functions rather than one with a flag:
+   *
+   *  - THIS one is for a DELIBERATE deletion — a route where the user said "remove this".
+   *  - THAT one is for a pointer found dangling by something else (a direct database change, a
+   *    cascade, a future endpoint). That is a broken state, not a decision, and the sweep still
+   *    repairs it by writing the entry again. Marking it here would turn every accident into a
+   *    permanent refusal.
+   *
+   * Returns how many rows were marked, so the caller can say what it did.
+   */
+  async markSyncedTradeJournalDeleted(journalEntryId: string): Promise<number> {
+    const r = await db.update(syncedTrades)
+      .set({ journalEntryId: null, journaledAt: null, journalDeletedAt: new Date() })
+      .where(eq(syncedTrades.journalEntryId, journalEntryId))
+      .returning({ id: syncedTrades.id });
+    return r.length;
+  }
+
+  /**
+   * FORGET THAT IT WAS DELETED, so this trade can be journaled again.
+   *
+   * Called only when he presses Sync on the account — his 2026-09-06 rule, kept: *"i deleted auto
+   * synced data and tried to sync again for them to be recalculated."* Pressing the button is him
+   * asking; the 15-minute sweep, the live feed and the missed-close watcher are not.
+   *
+   * ⚠ IT MUST RUN BEFORE THE REBUILD, NOT AFTER. A row left marked while carrying a fresh
+   * `journal_entry_id` is a contradictory state — the next sweep would read the mark and skip a
+   * trade that is in his journal, so the entry could never be removed by deleting it again.
+   */
+  async clearJournalDeletedMark(syncedTradeId: string): Promise<void> {
+    await db.update(syncedTrades)
+      .set({ journalDeletedAt: null })
+      .where(eq(syncedTrades.id, syncedTradeId));
   }
 
   /** Fill in an open time the live feed never received. Only ever called on a row where it is null. */

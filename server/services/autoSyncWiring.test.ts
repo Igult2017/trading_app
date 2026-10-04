@@ -108,12 +108,27 @@ const swallows = auto.split(/\r?\n/)
   .map(([n, l]) => `${n}: ${l.trim()}`);
 check('no silent .catch(() => {}) left on the sync path', swallows, []);
 
-const syncRoute = routes.slice(routes.indexOf("app.post(\"/api/broker-accounts/:id/sync"),
-                               routes.indexOf("app.post(\"/api/broker-accounts/:id/sync") + 2600);
+// ⚠ COMMENTS STRIPPED, AND THE WINDOW ENDS AT THE NEXT ROUTE — both learned the hard way, 2026-10-04.
+// This read a fixed 2,600 characters and matched `[` immediately followed by `syncAccount(`. Adding a
+// five-line comment inside the `Promise.race([...])` call turned BOTH checks red at once with the
+// behaviour completely unchanged: the comment broke the adjacency, and its length pushed
+// `outcome.created` past the 2,600 mark. That is the same failure the note above this block describes
+// — a safety check that goes red for a reason unrelated to what it protects is one people learn to
+// ignore. A route's own end is where the next `app.` declaration begins; a character count is a guess.
+const _syncStart = routes.indexOf('app.post("/api/broker-accounts/:id/sync');
+const _syncEnd   = routes.indexOf('\n  app.', _syncStart + 10);
+const syncRoute  = routes.slice(_syncStart, _syncEnd > 0 ? _syncEnd : _syncStart + 4000)
+  .split(/\r?\n/).map(l => l.replace(/\/\/.*$/, '')).join('\n');
 check('the manual Sync button awaits the sync instead of firing and forgetting',
       /await\s+Promise\.race\(\[\s*syncAccount\(/.test(syncRoute), true);
 check('...and reports what was actually recorded',
       /outcome\.created/.test(syncRoute), true);
+// AND IT TELLS THE SYNC THAT THIS IS HIM ASKING (2026-10-04). A trade whose journal entry he deleted
+// is skipped by every automatic path; this button is the one caller that rebuilds it instead, which is
+// his 2026-09-06 rule kept intact. Asserted here as well as in `syncedTradeDeletion.test.ts`, because
+// losing it would silently take away the only way back.
+check('...and says it is a MANUAL sync, so a deleted trade is rebuilt rather than skipped',
+      /manual:\s*true/.test(syncRoute), true);
 
 // ── 5. A MISSED TRADE CAN HEAL ITSELF ──────────────────────────────────────
 // The incremental window only looked back 2 hours from the last sync, so a trade missed ONCE fell

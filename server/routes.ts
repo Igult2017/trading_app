@@ -9,7 +9,8 @@ import { cacheGet, cacheSet, cacheDel, userSessionKey,
 // The two halves of "a hand edit beats the broker" — the list of fields it can cover and the key it
 // is stored under. Imported rather than re-declared so the PUT below and the sync's repair cannot
 // drift apart. See the note on EDIT_LOCK_KEY in services/autoJournal/index.ts.
-import { EDIT_LOCK_KEY, EDIT_LOCKABLE_ALL } from "./services/autoJournal";
+// `record` is aliased: in a file this size a bare `record` says nothing about what it records.
+import { EDIT_LOCK_KEY, EDIT_LOCKABLE_ALL, record as recordSyncEvent } from "./services/autoJournal";
 import { db, pool } from "./db";
 import { userProfiles, adminAccessLogs, tradingSignals, priceAlerts, emailTracking,
          platformHeartbeat, platformDowntime } from "@shared/schema";
@@ -1832,23 +1833,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Journal entry not found" });
       }
 
-      // AND RELEASE ANY SYNCED TRADE THAT POINTED AT IT, so the next sync writes it again.
+      // RELEASE ANY SYNCED TRADE THAT POINTED AT IT, AND REMEMBER THAT HE DELETED IT.
       //
-      // HIS REPORT, 2026-09-06: *"i deleted auto synced data and tried to sync again for them to be
-      // recalculated but the data didnt come back after syncing."*
+      // HIS REPORT, 2026-10-04: *"Make the journal autosync for synced accounts to remember that a
+      // recorded trade was deleted so it does not autosync it again. I currently have that problem.
+      // I try deleting trades from my synced account and it keeps getting rerecorded."*
       //
-      // Deleting the entry left `synced_trades.journal_entry_id` pointing at a row that was gone,
-      // and every path that could have rebuilt it asks whether that column is SET rather than
-      // whether what it points at still EXISTS. So the trade was recognised as "already had" on
-      // every pass and never journaled again — stranded for good. Measured on his account: the
-      // session dropped to 0 entries and the sync logged nothing at all for the next four hours.
+      // ⚠ THIS LINE USED TO DO THE OPPOSITE ON PURPOSE, and the reasoning is kept here because it
+      // was HIS: on 2026-09-06 he reported *"i deleted auto synced data and tried to sync again for
+      // them to be recalculated but the data didnt come back after syncing"*, so deleting was wired
+      // to release the pointer and let the next sync rebuild the entry. That is what now brings a
+      // trade back ~15 minutes after he removes it.
       //
-      // Deleting is also the ONLY sensible way to ask for a rebuild, which is exactly what he was
-      // doing. It now works.
-      const released = await storage.clearSyncedTradeJournalEntry(req.params.id).catch(() => 0);
+      // BOTH REQUESTS ARE SATISFIED, because what actually differed was the TRIGGER, not deletion:
+      // in September he deleted and then PRESSED SYNC himself, expecting a rebuild; today it returns
+      // on its own. His words this time are *"does not AUTOsync it again"*. So:
+      //
+      //   * the automatic paths (the 15-minute sweep, the live push feed, the missed-close watcher)
+      //     see the mark and never re-journal it;
+      //   * pressing Sync on the account clears the mark and rebuilds — him asking, explicitly.
+      //
+      // Releasing the pointer is still right and is not the bug: a column naming a destroyed row is
+      // a broken state. What was missing was any record that the absence was his decision.
+      const released = await storage.markSyncedTradeJournalDeleted(req.params.id).catch(() => 0);
       if (released) {
-        console.log(`[Journal] entry ${req.params.id} deleted — released ${released} synced `
-                    + `trade(s) so the next sync will re-journal them`);
+        console.log(`[Journal] entry ${req.params.id} deleted — marked ${released} synced trade(s) `
+                    + `as deleted on purpose; no automatic sync will re-journal them`);
+        // ONE AUDIT ROW, AT THE MOMENT OF THE DECISION — not one per sweep. The sweep runs every 15
+        // minutes, so logging the skip each time would be ~96 rows a day per deleted trade, which is
+        // the audit-trail mistake the copier's Drop fix already paid for.
+        await recordSyncEvent({ externalId: null, symbol: existing.instrument ?? null,
+                                stage: 'journal-deleted',
+                                detail: `he deleted the journal entry for ${released} synced `
+                                        + `trade(s) — automatic syncs will not write it again` })
+          .catch(() => {});
       }
 
       await invalidateComputeCaches(existing.sessionId ?? undefined, existing.userId ?? undefined);
@@ -4657,7 +4675,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Bounded, so a slow broker cannot hold the request open: past the cap the sync carries on in
       // the background and the reply says exactly that rather than pretending it finished.
       const outcome = await Promise.race([
-        syncAccount(account, { deep: true }),
+        // `manual: true` — THE ONLY CALLER THAT SETS IT. This is him pressing the button, so a trade
+        // whose journal entry he deleted is rebuilt rather than left alone: his 2026-09-06 rule
+        // (*"i deleted auto synced data and tried to sync again for them to be recalculated"*) kept
+        // intact, while the 15-minute sweep, the live feed and the missed-close watcher respect the
+        // deletion. Every other caller omits it and therefore behaves as a timer.
+        syncAccount(account, { deep: true, manual: true }),
         new Promise<null>(r => setTimeout(() => r(null), 30_000)),
       ]);
 
