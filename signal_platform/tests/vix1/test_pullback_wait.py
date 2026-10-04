@@ -7,8 +7,17 @@ HIS WORDS:
      pullback was made of 1-3 candles. I realized most of first momentum candles after pullback are
      never successful when the pullback itself was a long word that took more than 3 candles down."
 
-So a pullback of ONE TO THREE candles is untouched — its first momentum candle still trades. After a
-longer pullback the first two candles are refused and the third onward may trade.
+So a pullback of ONE TO THREE candles is untouched — its first momentum candle still trades.
+
+⚠ THE SECOND HALF OF THAT RULING WAS CHANGED BY HIM ON 2026-10-04:
+
+    "After a pullback that took more than 3 candles, we count the first candle, then if the second
+     candle is a momentum candle, we enter when it closes. That means we dont wait for a pullback
+     because sometime a pullback may never come."
+
+So after a longer pullback the FIRST candle is still refused and the SECOND onward may now trade — it
+was the third. He was shown his own 16 Sep reasoning and the §7 measurement before approving; see the
+note above the constants in `vix1_retracement.py` for what that measurement does and does not say.
 
 AND THE THIRD BRANCH, added 2026-09-29 in his words:
 
@@ -33,8 +42,8 @@ from strategies.vix1_retracement import (
 s = Suite("VIX.1 — the wait after a long pullback")
 
 s.check("a short pullback is up to 3 candles (his number)", _SHORT_PULLBACK, 3)
-s.check("and the trade then comes from the 3rd candle on (his number)", _WAIT_CANDLES, 3)
-s.check("with NO pullback the trade comes from the 3rd candle after the break (his number)",
+s.check("and the trade then comes from the 2nd candle on (his number, 2026-10-04)", _WAIT_CANDLES, 2)
+s.check("with NO pullback the trade comes from the 3rd candle after the break (his number, unchanged)",
         _BREAK_CANDLES, 3)
 
 
@@ -61,9 +70,23 @@ _five = entry_timing(market(5, 1), 1)
 s.check("a 5-candle pullback, first candle after it — REFUSED", _five is not None, True)
 s.check("...and the refusal says what it is waiting for",
         _five is not None and "5 candles" in _five and "only candle 1" in _five, True)
-s.check("...the second candle is still refused", entry_timing(market(5, 2), 1) is not None, True)
-s.check("...and the THIRD candle may trade", entry_timing(market(5, 3), 1), None)
+# HIS CHANGE, 2026-10-04: the SECOND candle may now trade. The first still may not — that half of his
+# 16 Sep ruling stands, and losing it would be the silent half of this change.
+s.check("...and the SECOND candle may now trade (his change, 2026-10-04)",
+        entry_timing(market(5, 2), 1), None)
+s.check("...the third still may, as before", entry_timing(market(5, 3), 1), None)
 s.check("...as may the fourth", entry_timing(market(5, 4), 1), None)
+
+# TEETH — the number is the whole rule, so the test has to be able to tell 2 from 3. If this ever reads
+# None, the first candle after a long pullback has started trading and his 16 Sep finding has been lost.
+s.teeth("the FIRST candle after a long pullback is still refused — the half of 16 Sep that stands",
+        entry_timing(market(5, 1), 1) is not None)
+
+# AND THE REFUSAL MUST READ CORRECTLY. The text used to glue "rd" on by hand, so the moment his number
+# moved off 3 it printed "2rd" — and this string is what HE reads when a trade is refused.
+_one = entry_timing(market(5, 1), 1)
+s.check("the refusal says '2nd candle', not '2rd'",
+        _one is not None and "2nd candle on" in _one and "2rd" not in _one, True)
 
 print()
 print("   the same the other way up, and the edges:")

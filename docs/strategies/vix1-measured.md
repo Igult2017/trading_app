@@ -313,6 +313,14 @@ the p90.
 
 ## 7. THE WAIT AFTER A LONG PULLBACK — his claim, checked (2026-09-16, he approved this backtest)
 
+> **⚠ THE RULE THIS MEASURED WAS CHANGED ON 2026-10-04.** The wait after a long pullback went from the
+> **3rd** candle to the **2nd**, at his instruction. He was shown this table before approving.
+>
+> **⚠ AND THIS TABLE DOES NOT SCORE THE NEW RULE.** Group **B** below lumps the **1st and 2nd candle
+> together**; the new rule admits only the **2nd** and still refuses the 1st. If the losses sit in the 1st
+> candle, group B says nothing about what changed. **Nothing here separates them**, and splitting it is a
+> backtest that needs his say-so — it has NOT been run.
+
 **His claim:** *"most of first momentum candles after pullback are never successful when the pullback
 itself was a long word that took more than 3 candles down."* He asked for it to be built first and
 measured after; both are done.

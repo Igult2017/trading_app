@@ -242,13 +242,45 @@ def measure(candles: list[Candle], direction: int, since: int | None = None,
 #               that sometimes price can move for a very long time without a pullback. so that 3
 #               candle rule also applies in a CHOCH scenario if we have not had a pullback."
 #
+# 2026-10-04:  "After a pullback that took more than 3 candles, we count the first candle, then if the
+#               second candle is a momentum candle, we enter when it closes. That means we dont wait
+#               for a pullback because sometime a pullback may never come."
+#
+#   ⚠ THIS SUPERSEDES HIS 2026-09-16 NUMBER FOR THIS BRANCH ONLY — the long-pullback wait goes 3 -> 2.
+#   He set it to 3 himself, deliberately: *"most of first momentum candles after pullback are never
+#   successful when the pullback itself was a long word that took more than 3 candles down."* He was
+#   told that before approving, and told what the measurement says:
+#   `docs/strategies/vix1-measured.md` §7 scored group B — a longer pullback's **1st OR 2nd** candle —
+#   at 35 entries, 4W/9L, -2.0R across both pairs. **That measurement does NOT score this rule**: it
+#   lumps the 1st and 2nd candle together and he is admitting only the 2nd. Nothing we have separates
+#   them, and splitting it is a backtest that needs his say-so.
+#
+#   WHAT PROMPTED IT — GBP/USD 30 Sep, from production's own record, not a reconstruction:
+#   at 07:00 UTC the refusal was *"the move broke out 2 candles ago ... the trade comes from the 3rd
+#   candle after the break"*. That is this exact count.
+#
 # THE THREE BRANCHES ARE ONE QUESTION, which is why they are one function. "How long since the move
 # committed, and has it pulled back yet" — a pullback of 1-3 candles trades its first momentum candle,
-# a longer one waits three, and NO pullback at all waits three from the break. Split across two
+# a longer one waits TWO, and NO pullback at all waits three from the break. Split across two
 # functions they would drift, and the middle branch would be asked in one place and not the other.
+#
+# THE MOMENTUM REQUIREMENT IS NOT HERE, AND DELIBERATELY SO. "if the second candle is a momentum
+# candle" is already guaranteed by every caller: the main path asks this on the window truncated AT the
+# momentum candle (`vix1_bias.py:500`), and the change-of-character route demands `momentum_run` on the
+# very next check (`vix1_choch.py:170`). Re-testing it here would be a second enforcement point that
+# can drift from those two — the thing this one-function design exists to prevent.
 _SHORT_PULLBACK = 3     # a pullback of this many candles or fewer is SHORT: its first momentum candle trades
-_WAIT_CANDLES   = 3     # after a longer one, the trade may only come from this candle onward
+_WAIT_CANDLES   = 2     # after a longer one, the trade may only come from this candle onward (his, 04 Oct)
 _BREAK_CANDLES  = 3     # with NO pullback at all, the trade comes from this candle after the break
+
+
+def _ordinal(n: int) -> str:
+    """1 -> '1st', 2 -> '2nd', 3 -> '3rd'. Built because the refusal text used to glue "rd" on by hand,
+    which printed "2rd" the moment his number moved off 3 — and that text is what HE reads when a trade
+    is refused, so a number that reads wrong is a rule that looks wrong."""
+    if 10 <= n % 100 <= 20:
+        return f"{n}th"
+    return f"{n}{ {1: 'st', 2: 'nd', 3: 'rd'}.get(n % 10, 'th') }"
 
 
 def since_pullback(candles: list[Candle], direction: int) -> tuple[int, int]:
@@ -298,7 +330,8 @@ def entry_timing(candles: list[Candle], direction: int,
       no pullback since the break   ->  the trade comes from the 3rd candle, counting the break
                                         candle as the 1st
       a pullback of 1-3 candles     ->  its FIRST momentum candle trades (unchanged, 2026-09-16)
-      a longer pullback             ->  the trade comes from the 3rd candle after it (unchanged)
+      a longer pullback             ->  the trade comes from the 2nd candle after it (his, 2026-10-04 —
+                                        was the 3rd; see the note above the constants)
 
     WHY THE FIRST BRANCH HAD TO EXIST, in his words: *"the band issue has proven to us that sometimes
     price can move for a very long time without a pullback"*. Waiting for a pullback that never comes
@@ -322,12 +355,14 @@ def entry_timing(candles: list[Candle], direction: int,
         if n >= _BREAK_CANDLES:
             return None
         return (f"the move broke out {n} candle{'s' if n != 1 else ''} ago and has not pulled back yet "
-                f"— with no pullback the trade comes from the {_BREAK_CANDLES}rd candle after the break")
+                f"— with no pullback the trade comes from the {_ordinal(_BREAK_CANDLES)} candle "
+                f"after the break")
 
     if bars <= _SHORT_PULLBACK or after >= _WAIT_CANDLES:
         return None
     return (f"the pullback ran {bars} candles and this is only candle {after} after it — after a pullback "
-            f"longer than {_SHORT_PULLBACK} candles the trade comes from the {_WAIT_CANDLES}rd candle on")
+            f"longer than {_SHORT_PULLBACK} candles the trade comes from the {_ordinal(_WAIT_CANDLES)} "
+            f"candle on")
 
 
 def swings(candles: list[Candle], direction: int, since: int | None) -> tuple[list[float], list[float]]:
