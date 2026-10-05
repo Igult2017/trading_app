@@ -54,7 +54,11 @@ async def _emit(sig: Signal, bars, symbol: str) -> None:
     Never raises: `render_async` returns None on any failure and the dispatcher falls back to text.
     """
     try:
-        digits = 3 if symbol.upper().endswith("JPY") else 5
+        # ASKS `shared/pip.py` RATHER THAN RE-DERIVING (fixed 2026-10-05). This was the same
+        # superseded "JPY -> 3, everything else -> 5" rule that `strategy_runner` carried, with the
+        # same effect: gold got 5 digits and its card then computed a pip of 0.0001 instead of 0.1,
+        # printing a stop a thousand times larger in pips than it was.
+        digits = price_digits(symbol)
         sig.chart_path = await signal_card.render_async(
             sig, bars, digits, list(sig.chart_bands or []), subtitle="M1",
             marks=list(sig.chart_marks or []))

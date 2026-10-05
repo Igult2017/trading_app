@@ -21,6 +21,9 @@ from data.candle_fetcher import fetch_candles
 from data import candle_aggregator, ctrader_spread, fix_quotes
 from news import news_filter
 from shared import trend_detector
+# THE ONE PLACE THE PIP RULE LIVES. Anything here that needs a pip or a price precision asks it,
+# rather than re-deriving from the symbol's name — see the note at `_attach_chart`'s `digits`.
+from shared.pip import pip_size, price_digits
 from shared.mtf_utils import closed_only, to_minutes
 from storage import observability_repo as obs
 from storage import signal_repo
@@ -93,12 +96,25 @@ async def _attach_chart(signal, candles, symbol: str, candle_view: dict | None =
     bars = _chart_candles(signal, candle_view or {}, candles)
     if not bars:
         return
-    digits = 3 if symbol.upper().endswith("JPY") else 5
+    # ⚠ THIS USED TO BE `3 if symbol.endswith("JPY") else 5` — a SECOND COPY of a rule that
+    # `shared/pip.py` owns, and the copy was the version that module was created to REPLACE. Its
+    # docstring says so: the old "JPY -> 3, everything else -> 5" rule is "right for FX majors and
+    # WRONG for 11 of the 20 symbols cTrader lists". Gold is one of the eleven.
+    #
+    # WHAT IT COST, measured 2026-10-05 on his own broker quote (XAU/USD entry 4436.69, stop
+    # 4433.26, a $3.43 risk): this handed the chart card 5 digits, the card derived a pip of 0.0001
+    # from that, and printed **34,300.0 PIPS RISK for a 34.3-pip stop** — a thousand times out, on
+    # every gold card he has ever been sent. It also printed the price as 4436.69000 when the broker
+    # allows two decimals.
+    #
+    # The dollar pairs were right, and GBP/JPY would have been right BY LUCK (the rule happens to
+    # test for JPY) — which is exactly how a wrong duplicate survives for months.
+    digits = price_digits(symbol)
     tf = getattr(bars[-1], "timeframe", "") or ""
     # THE ORDER TYPE READS THE RAW LAST BAR ON PURPOSE. It answers "where is price RIGHT NOW relative
     # to the entry", which is a trigger, not a level — the forming bar's close IS the current price
     # and is exactly what should decide between a stop and a market order.
-    _set_order_type(signal, bars[-1].close, digits)
+    _set_order_type(signal, bars[-1].close, pip_size(symbol))
     # THE CARD DOES NOT DRAW THE UNFINISHED BAR. The feed hands back the bar currently forming as its
     # newest, so a card sent seconds after an H1 close drew the momentum candle SECOND from the right
     # with a fresh near-zero-range stub beside it. To a reader that stub is a whole candle that has
@@ -118,7 +134,7 @@ async def _attach_chart(signal, candles, symbol: str, candle_view: dict | None =
         marks=list(signal.chart_marks or []))
 
 
-def _set_order_type(signal, price: float, digits: int) -> None:
+def _set_order_type(signal, price: float, pip: float) -> None:
     """Name the order the trader has to place, from the entry against LIVE price.
 
     The user asked the card to say "whether it is buy stop, sell stop or market buy or sell". That
@@ -135,7 +151,13 @@ def _set_order_type(signal, price: float, digits: int) -> None:
     buy = str(getattr(signal.direction, "value", signal.direction)).lower() == "buy"
     # "At market" needs a tolerance: an exact float match never happens. Half a pip is inside the
     # spread on every pair traded here, so anything closer is not worth a pending order.
-    tol = (0.01 if digits <= 3 else 0.0001) * 0.5
+    # ⚠ IT NOW TAKES THE PIP, not a digit count to turn into one. It used to read
+    # `(0.01 if digits <= 3 else 0.0001) * 0.5`, which on GOLD gave 0.00005 where half a pip is
+    # 0.05 — a thousand times too tight, so a gold entry sitting right at the market was never
+    # called MARKET and was always labelled a STOP or a LIMIT. The comment above says "half a pip
+    # is inside the spread on every pair traded here", and that was true of the intent and false of
+    # the arithmetic for every instrument whose pip is not 0.0001 or 0.01.
+    tol = pip * 0.5
     diff = signal.entry_price - price
     if abs(diff) <= tol:
         signal.order_type = "MARKET BUY" if buy else "MARKET SELL"

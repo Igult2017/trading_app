@@ -34,6 +34,8 @@ from matplotlib.figure import Figure
 
 from core.types import Candle, Signal
 from charting import theme, price_panel, card_panel
+# The pip belongs to the INSTRUMENT, and `shared/pip.py` is the one place that knows it.
+from shared.pip import pip_size
 
 log = logging.getLogger(__name__)
 
@@ -54,7 +56,11 @@ def _notes(sig: Signal, buy: bool, digits: int) -> list[str]:
     given = list(getattr(sig, "level_notes", None) or [])
     if len(given) == 3:
         return given
-    pip = 0.01 if digits <= 3 else 0.0001
+    # FROM THE SYMBOL, NOT FROM THE DIGIT COUNT (fixed 2026-10-05). Deriving a pip from `digits`
+    # cannot be right for every instrument: gold has TWO price decimals and a pip of 0.1, so
+    # `digits <= 3` made its pip 0.01 — and when the caller also handed down the wrong digits (5),
+    # it became 0.0001. A 34.3-pip gold stop printed as 34,300 pips.
+    pip = pip_size(sig.symbol)
     to_tp = abs(sig.take_profit - sig.entry_price) / pip if sig.take_profit and sig.entry_price else 0
     return ["Confirmed entry",
             "Beyond the invalidation",

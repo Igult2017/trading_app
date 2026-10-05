@@ -9,6 +9,8 @@ reference here — a page number is noise to someone deciding whether to take a 
 """
 from core.types import Signal
 from charting import theme
+# The pip belongs to the INSTRUMENT, and `shared/pip.py` is the one place that knows it.
+from shared.pip import pip_size
 
 
 
@@ -94,7 +96,11 @@ def levels(ax, sig: Signal, digits: int, notes: list[str]) -> None:
 def stats(ax, sig: Signal, digits: int) -> None:
     """The washed band: reward:risk, pips risked, confidence."""
     _blank(ax, theme.WASH)
-    pip = 0.01 if digits <= 3 else 0.0001
+    # FROM THE SYMBOL, NOT FROM THE DIGIT COUNT (fixed 2026-10-05) — this is the line that printed
+    # "PIPS RISK" on the card, and for gold it printed a 34.3-pip stop as 34,300. See the same fix
+    # in `signal_card._notes`; the signal has always carried its own symbol, so neither needed to
+    # guess from the precision it was handed.
+    pip = pip_size(sig.symbol)
     risk = abs(sig.entry_price - sig.stop_loss) / pip if sig.entry_price and sig.stop_loss else 0
     cells = ((f"{sig.risk_reward:g}R" if sig.risk_reward else "—", "REWARD : RISK"),
              (f"{risk:.1f}" if risk else "—", "PIPS RISK"),

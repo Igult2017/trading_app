@@ -111,7 +111,17 @@ class Vix1Strategy(BaseStrategy):
     # ...and the full 1HR bias lands in the same place: gold gives 9.2 signals/month against 9.0
     # (EUR/USD) and 9.9 (GBP/USD) over 6.1 months of real broker H1. That is the whole argument for
     # "nothing hardcoded where the market can say it" — the pair-agnostic multiple earned its keep.
-    allowed_instruments = ["EUR/USD", "GBP/USD", "XAU/USD"]
+    # GBP/JPY ADDED 2026-10-05 at his request. Nothing was re-tuned for it, and that is a measured
+    # claim rather than a hope: every threshold in VIX.1's path is a COUNT, a RATIO, or a MULTIPLE of
+    # what the instrument itself measures — its own 100-bar and 2,000-bar median body, its own ATR,
+    # its own candle range. Not one is denominated in price or pips, so the strategy re-calibrates
+    # itself to a ~201-price pair with no number to change. (`LOOKBACK`, the constant that caused the
+    # gold trouble, no longer selects the candle at all — see `vix1_momentum`.)
+    #
+    # ⚠ A JPY PAIR'S PIP IS 0.01, NOT 0.0001 — three price decimals, confirmed live against the
+    # broker on 2026-10-05 (GBPJPY, symbol id 7, digits 3, pipPosition 2) and matched against
+    # `shared/pip.py`, which is the one place that rule lives.
+    allowed_instruments = ["EUR/USD", "GBP/USD", "XAU/USD", "GBP/JPY"]
     news_stance         = NewsStance.NEWS_AGNOSTIC   # news candle + news-window guards applied in analyze()
     news_impact_filter  = [NewsImpact.HIGH]
 

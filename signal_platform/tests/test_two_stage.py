@@ -51,25 +51,25 @@ cases = [
     ("sell, entry AT market", sig(direction=Direction.SELL, entry_price=PRICE), "MARKET SELL"),
 ]
 for label, s, want in cases:
-    _set_order_type(s, PRICE, 5)
+    _set_order_type(s, PRICE, 0.0001)
     check(label, s.order_type, want)
 
 # Half a pip is inside the spread — closer than that is not worth a pending order.
 s = sig(direction=Direction.BUY, entry_price=PRICE + 0.00004)
-_set_order_type(s, PRICE, 5)
+_set_order_type(s, PRICE, 0.0001)
 check("within half a pip counts as AT market", s.order_type, "MARKET BUY")
 
 print("\nA BUILDING CARD MUST NOT LOOK TRADEABLE")
 b = sig(stage="building", entry_price=0.0)
-_set_order_type(b, PRICE, 5)
+_set_order_type(b, PRICE, 0.0001)
 check("a building signal gets NO order type", b.order_type, "")
 b2 = sig(stage="building", entry_price=1.3500)
-_set_order_type(b2, PRICE, 5)
+_set_order_type(b2, PRICE, 0.0001)
 check("...even when it happens to carry an entry price", b2.order_type, "")
 check("stage defaults to 'ready' so existing signals are unchanged", sig().stage, "ready")
 
 s3 = sig(order_type="BUY STOP", entry_price=1.3400)
-_set_order_type(s3, PRICE, 5)
+_set_order_type(s3, PRICE, 0.0001)
 check("a strategy's own order type is never overwritten", s3.order_type, "BUY STOP")
 
 print("\nVIX.1 STAGE 1 — the momentum candle closed, entry pending")
