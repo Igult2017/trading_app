@@ -9,6 +9,34 @@ on the playbook; never by analogy to anything else.
 
 ---
 
+## WHICH INSTRUMENTS, AND WHY NOTHING IS RE-TUNED PER PAIR (2026-10-05)
+
+`EUR/USD`, `GBP/USD`, `XAU/USD`, **`GBP/JPY`** (`vix1.allowed_instruments`). GBP/JPY added 2026-10-05
+at his request.
+
+**Adding a pair re-opens every constant tuned when it did not exist** — that is the standing rule the
+gold incident bought. For VIX.1 the answer is structural rather than per-pair: **all 54 module-level
+constants across the `vix1_*` modules are counts, ratios, or multiples of what the instrument itself
+measures** — its own 100-bar and 2,000-bar median body, its own ATR, its own candle range. **Not one is
+denominated in price or pips.** So the strategy re-calibrates itself and there is no number to change
+for a ~201-price pair. Swept and classified on 2026-10-05; the three that could have hidden an absolute
+assumption:
+
+| constant | why it is scale-free |
+|---|---|
+| `LOOKBACK = 12` — the gold-incident constant | no longer selects the candle at all; survives only as a window size, in BARS |
+| `_LONG_EPS = 1e-6` | compared against a value already divided by the pip — it is in PIP units |
+| `_SAME` / `_EPS = 1e-9` | compare price differences, but a million times below GBP/JPY's smallest real step (0.001) — float-noise guards |
+
+**⚠ THE PIP RULE LIVES IN EXACTLY ONE PLACE: `shared/pip.py`.** Five modules used to re-derive it from
+the symbol's name, using the superseded *"JPY -> 3, everything else -> 5"* version — and on GOLD that
+printed a 34.3-pip stop as **34,300 pips** on every card. Fixed 2026-10-05. **Anything needing a pip or
+a price precision asks `pip_size(symbol)` / `price_digits(symbol)`; nothing derives one from a digit
+count.** A pip cannot be inferred from precision — gold has two price decimals and a pip of 0.1.
+
+Verified against the broker, not against comments: GBPJPY is symbol id 7, digits 3, pipPosition 2 →
+pip 0.01, and `shared/pip.py` agrees for all four instruments.
+
 ## The model, in one paragraph
 
 **1HR says which way; 1M says when — and NOTHING ELSE.** A confirmed trend carried by momentum sets

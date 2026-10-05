@@ -232,6 +232,52 @@ goes quiet.
 
 ## B. VIX.1
 
+### B34 — ~~Gold's pip was 1,000x wrong on every signal card: a 34-pip stop printed as 34,300 pips~~ FIXED 2026-10-05
+
+**Found while adding GBP/JPY**, by the sweep the standing rule demands — *"adding a symbol re-opens
+every constant calibrated for the old one"*. The pair he asked for was fine; the pair already trading
+was not.
+
+**FIVE places re-derived the pip rule instead of asking `shared/pip.py`, which owns it** — and they
+used the version that module was created to REPLACE. Its own docstring: the old *"JPY -> 3, everything
+else -> 5"* rule is *"right for FX majors and WRONG for 11 of the 20 symbols cTrader lists"*. Gold is
+one of the eleven.
+
+| place | what it said |
+|---|---|
+| `orchestrator/strategy_runner.py` (digits) | `3 if symbol.endswith("JPY") else 5` |
+| `orchestrator/strategy_runner.py` (`_set_order_type`) | `tol = (0.01 if digits <= 3 else 0.0001) * 0.5` |
+| `monitor/vix1_alerts.py` | the same `endswith("JPY")` rule — **while already importing `price_digits` and ignoring it** |
+| `charting/signal_card.py` | `pip = 0.01 if digits <= 3 else 0.0001` |
+| `charting/card_panel.py` | the same line — this is the one that printed "PIPS RISK" |
+
+**MEASURED on his own broker quote** (XAU/USD entry 4436.69, stop 4433.26 — a $3.43 risk):
+
+| | was | correct |
+|---|---|---|
+| card "PIPS RISK" | **34,300.0** | **34.3** |
+| price printed | `4436.69000` (5 decimals) | `4436.69` (broker allows 2) |
+| order-type "at market" tolerance | 0.00005 | 0.05 (half a pip) |
+
+**⚠ SCOPE, STATED PRECISELY — I first told him "your gold signals are wrong", which OVERSTATED it.**
+Checked, and all three of these were already correct: the trade DECISION (no VIX.1 constant is
+pip-denominated), the signal's STORED prices (`vix1.py` uses `price_digits`), and POSITION SIZING
+(`execution/sizing.py` uses `pip_size`). Nothing in `execution/` reads `order_type`. **So no money was
+mis-sized and no decision was wrong — it was a DISPLAY defect.** Correcting the overstatement mattered,
+because it changes how he would weigh it.
+
+**GBP/JPY passed through all five correctly BY LUCK**, because the rule happens to test for JPY. That
+is exactly how a wrong duplicate survives for months — and why the fix is to delete the duplicates
+rather than add a sixth case.
+
+**THE FIX:** all five ask `shared/pip.py`; `_set_order_type` now takes the PIP rather than a digit
+count it converted. **Measured against baselines taken BEFORE editing:** suite 61 of 62 files green
+before and after, `test_tradeable.py` exactly 2-of-38 red both times on the same two names;
+`test_two_stage` 37→37, `test_card_annotations` 33→33; EUR/USD and GBP/USD unchanged.
+
+**THE RULE THAT FOLLOWS:** a pip cannot be inferred from a price precision. Gold has two price decimals
+and a pip of 0.1. Ask `pip_size(symbol)`; never compute one from `digits`.
+
 ### B33 — The count-wait notification has no test on the TREND route, so a break there would be silent
 **Found 2026-10-04**, by sabotage rather than by reading — and worth recording because it is the exact
 shape of defect this platform keeps shipping: a green suite that is green because nothing asks.
