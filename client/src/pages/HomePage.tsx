@@ -22,28 +22,46 @@ const display = { fontFamily: "'Playfair Display', Georgia, serif" } as const;
 const serif   = { fontFamily: "'Playfair Display', Georgia, serif" } as const;
 const sans    = { fontFamily: "'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif" } as const;
 
+// HIS OWN EDIT, 2026-10-06. He rewrote the landing copy and said *"The landing page has some false
+// information... only include brokers that allow use of ctrader because that is what we have
+// integrated."* These six are his wording and his tiers, not a paraphrase.
 const features = [
-  { icon: <BookOpen size={18} />,  title: "Trade Journal",   sub: "Free forever" },
-  { icon: <Copy size={18} />,      title: "Copier",          sub: "Premium" },
-  { icon: <Brain size={18} />,     title: "AI Coach",        sub: "Free" },
-  { icon: <ClipboardCheck size={18} />, title: "Strategy Audit", sub: "Free" },
-  { icon: <Diamond size={18} />,   title: "Edge Builder",    sub: "Included" },
-  { icon: <PieChart size={18} />,  title: "Broker Sync",     sub: "50+ brokers" },
+  { icon: <BookOpen size={18} />,  title: "Live auto journaling", sub: "Free" },
+  { icon: <Copy size={18} />,      title: "Copier",               sub: "Premium" },
+  { icon: <BarChart3 size={18} />, title: "Analytics",            sub: "Freemium" },
+  { icon: <ClipboardCheck size={18} />, title: "Drawdown tracking", sub: "Freemium" },
+  { icon: <Diamond size={18} />,   title: "Edge Builder",         sub: "Included" },
+  { icon: <Brain size={18} />,     title: "Backtesting",          sub: "Premium" },
 ];
 
 const steps = [
-  { n: "01", icon: <Search size={20} />,    title: "Connect your broker",       desc: "Link your MT4/MT5 account in seconds. Trades import automatically — no manual entry needed." },
+  // ⚠ "MT4/MT5" WAS FALSE AND IS THE REASON HE FLAGGED THIS PAGE. The platform integrates cTrader
+  // and nothing else; a MetaTrader user can still journal by hand, but nothing auto-imports for them.
+  { n: "01", icon: <Search size={20} />,    title: "Connect your broker",       desc: "Link your cTrader account in seconds. Trades import automatically — no manual entry needed." },
   { n: "02", icon: <Calendar size={20} />,  title: "Log & journal trades",      desc: "Capture context, screenshots, and psychology for every trade. Build a searchable decision database." },
   { n: "03", icon: <BarChart3 size={20} />, title: "Analyse & build your edge", desc: "Spot patterns in wins and losses. Refine strategy, timing, and execution habits with AI insights." },
 ];
 
-const trustItems = ["MT5 Auto-Import", "No Subscription Required", "AI-Powered Analytics", "GDPR Compliant", "Real-time Sync", "50+ Brokers Supported"];
+const trustItems = ["cTrader Auto-Import", "No Subscription Required", "AI-Powered Analytics", "GDPR Compliant", "Real-time Sync", "50+ Brokers Supported"];
 
+// ⚠ ONLY BROKERS THAT ACTUALLY OFFER cTRADER — his instruction, 2026-10-06: *"only include brokers
+// that allow use of ctrader because that is what we have integrated. For other traders, the users can
+// enter them manually using our journaling tool. Only ctrader allows autosyncing."*
+//
+// THE OLD LIST WAS 18 AND MOSTLY WRONG. Checked against the broker comparisons rather than recalled:
+// of the 18 named here before, only Pepperstone, IC Markets, FxPro and FP Markets offer cTrader at
+// all. OANDA, XM, Exness, FXCM, AvaTrade, Tickmill, Admirals, Axi, LMAX, InstaForex, HFM,
+// ThinkMarkets, Vantage and EasyMarkets do not — Axi explicitly discontinued it. Listing them told a
+// MetaTrader user their trades would import automatically, and they would not.
+//
+// ⚠ EVERY NAME BELOW IS ONE I VERIFIED. If more are added, verify first — this list is a promise
+// about what will auto-sync, and a wrong one is a support ticket at best.
+//
+// "50+ Brokers Supported" STAYS TRUE and is deliberately conservative: over 250 brokers and prop
+// firms offer cTrader, so anyone on one of them can connect. These nine are the well-known examples.
 const BROKERS = [
-  "Pepperstone", "IC Markets", "OANDA", "XM", "Exness",
-  "FXCM", "AvaTrade", "Tickmill", "Admirals", "AxiTrader",
-  "FxPro", "LMAX", "InstaForex", "HFM", "ThinkMarkets",
-  "Vantage", "FP Markets", "EasyMarkets",
+  "Pepperstone", "IC Markets", "FxPro", "FP Markets", "Fusion Markets",
+  "BlackBull Markets", "GO Markets", "Blueberry Markets", "Purple Trading",
 ];
 
 export default function HomePage() {
@@ -124,7 +142,7 @@ export default function HomePage() {
             </div>
 
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 20px' }}>
-              {["MT5 Auto-Import", "No subscription", "Real-time sync"].map(t => (
+              {["cTrader Auto-Import", "No subscription", "Real-time sync"].map(t => (
                 <span key={t} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: 'rgba(255,255,255,0.92)', ...sans, textShadow: '0 1px 6px rgba(0,0,0,0.5)' }}>
                   <Check size={12} color="#34d399" strokeWidth={2.5} /> {t}
                 </span>

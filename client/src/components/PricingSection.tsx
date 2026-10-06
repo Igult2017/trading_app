@@ -9,29 +9,41 @@ interface Plan {
   features: string[]; cta: string; popular: boolean; badge: string | null;
 }
 
+// ⚠ HIS OWN WORDING AND HIS OWN TIERS, 2026-10-06 — he rewrote these and sent them back, so they are
+// transcribed rather than paraphrased. Two things that changed and are easy to undo by accident:
+//
+//   * "MT4/MT5 integration" is now "cTrader integration". The platform integrates cTrader and nothing
+//     else, so the old line promised an import a MetaTrader user would never get.
+//   * The free tier is 30 trades a month, not 50.
+//   * Weekly no longer says "Everything in Free" — he listed it out in full instead.
+//   * The copier tiers now name their real limits: 1 master + 2 slaves monthly, 2 + 4 yearly.
 const plans: Plan[] = [
   {
     name: 'Free', price: '$0', period: 'forever',
     tagline: 'Start tracking your trades with no commitment.',
-    features: ['Core trade stats', 'Trade calendar view', 'MT4/MT5 integration', 'Basic P&L tracking', 'Up to 50 trades/month'],
+    features: ['Core trade stats', 'Trade calendar view', 'cTrader integration', 'Basic P&L tracking', 'Up to 30 trades/month'],
     cta: 'Get Started Free', popular: false, badge: null,
   },
   {
     name: 'Weekly', price: '$7', period: 'week',
     tagline: 'Full access for traders testing the waters.',
-    features: ['Everything in Free', 'Full trade journal', 'Detailed analytics', 'Strategy audit', 'Unlimited trades'],
+    features: ['Live journaling with the cTrader platform', 'cTrader trade history syncing and analysis',
+               'Prop firm drawdown viability tracking', 'Full trade journal', 'Detailed analytics',
+               'Strategy audit', 'Unlimited trades', 'Backtesting'],
     cta: 'Start Weekly', popular: false, badge: null,
   },
   {
     name: 'Monthly', price: '$20', period: 'month',
     tagline: 'The complete platform for serious traders.',
-    features: ['Everything in Weekly', 'AI Coach (Trader AI)', 'Behaviour analysis', 'Export reports (PDF/CSV)', 'FX Copier add-on'],
+    features: ['Everything in Weekly', 'AI Coach (Trader AI)', 'Behaviour analysis', 'Export reports (PDF/CSV)',
+               'cTrader-based FX Copier add-on — 1 master, 2 slave accounts'],
     cta: 'Start Monthly', popular: true, badge: 'Most Popular',
   },
   {
     name: 'Yearly', price: '$180', period: 'year',
     tagline: 'Maximum value for committed traders.',
-    features: ['Everything in Monthly', 'Priority support', 'Onboarding session', 'FX Copier add-on'],
+    features: ['Everything in Monthly', 'Priority support', 'Onboarding session',
+               'FX Copier add-on — 2 masters, 4 slave accounts'],
     cta: 'Start Yearly', popular: false, badge: 'Best Value — $15/mo',
   },
 ];
