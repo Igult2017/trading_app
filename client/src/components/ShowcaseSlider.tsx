@@ -41,9 +41,32 @@ export default function ShowcaseSlider({ darkMode }: { darkMode: boolean }) {
   const [paused, setPaused] = useState(false);
   const timer = useRef<ReturnType<typeof setInterval>>();
 
+  // ⚠ WHICH SLIDES MAY HAVE AN IMAGE AT ALL — and this, not `loading="lazy"`, is what keeps the page
+  // light.
+  //
+  // MEASURED 2026-10-06, and it disproved the first build. With `loading="lazy"` on slides 2-13 the
+  // browser fetched ALL THIRTEEN on first paint — 337 KB, not the 26 KB intended. The attribute is
+  // working as specified; the assumption about it was wrong. "Lazy" means "defer until near the
+  // viewport", and a carousel lays every slide out SIDE BY SIDE inside a container that IS in the
+  // viewport, so by the browser's reckoning they are all nearly visible.
+  //
+  // So the `src` is withheld instead. A slide gets its image when it is reached, plus the one on
+  // either side so the next move is instant. Once given, it is kept — going back must not refetch
+  // and flash. `loading="lazy"` stays as a belt-and-braces second line, but the set below is the
+  // thing that actually works.
+  const [armed, setArmed] = useState<Set<number>>(() => new Set([0, 1, SLIDES.length - 1]));
+
   useEffect(() => {
     if (!api) return;
-    const sync = () => setCurrent(api.selectedScrollSnap());
+    const sync = () => {
+      const i = api.selectedScrollSnap();
+      setCurrent(i);
+      setArmed(prev => {
+        const next = new Set(prev);
+        [i - 1, i, i + 1].forEach(n => next.add((n + SLIDES.length) % SLIDES.length));
+        return next;
+      });
+    };
     sync();
     api.on('select', sync);
     return () => { api.off('select', sync); };
@@ -102,17 +125,22 @@ export default function ShowcaseSlider({ darkMode }: { darkMode: boolean }) {
                     transition: 'transform 0.45s ease, box-shadow 0.45s ease',
                   }}
                 >
-                  <img
-                    src={src}
-                    width={IMG_W}
-                    height={IMG_H}
-                    // THE FIRST ONE IS THE ONLY ONE THE PAGE WAITS FOR.
-                    loading={i === 0 ? 'eager' : 'lazy'}
-                    decoding={i === 0 ? 'sync' : 'async'}
-                    {...(i === 0 ? { fetchPriority: 'high' as const } : {})}
-                    alt={`App screen ${i + 1} of ${SLIDES.length}`}
-                    style={{ display: 'block', width: '100%', height: 'auto' }}
-                  />
+                  {/* The box is drawn from the aspect ratio whether or not the image is here yet, so
+                      the page reserves exactly the right space and nothing shifts when one arrives. */}
+                  <div style={{ aspectRatio: `${IMG_W} / ${IMG_H}`, width: '100%' }}>
+                    {armed.has(i) && (
+                      <img
+                        src={src}
+                        width={IMG_W}
+                        height={IMG_H}
+                        loading={i === 0 ? 'eager' : 'lazy'}
+                        decoding={i === 0 ? 'sync' : 'async'}
+                        {...(i === 0 ? { fetchPriority: 'high' as const } : {})}
+                        alt={`App screen ${i + 1} of ${SLIDES.length}`}
+                        style={{ display: 'block', width: '100%', height: '100%' }}
+                      />
+                    )}
+                  </div>
                 </div>
               </CarouselItem>
             ))}
