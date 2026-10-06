@@ -172,12 +172,25 @@ export default function HomePage() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               {features.map((f, i) => (
                 <div key={i}
-                  style={{ padding: '20px', borderRadius: 18, background: 'rgba(12,20,34,0.56)', border: '1px solid rgba(255,255,255,0.16)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', cursor: 'default', transition: 'transform 0.2s ease, background 0.2s ease, border-color 0.2s ease' }}
-                  onMouseEnter={e => { const t = e.currentTarget; t.style.transform = 'translateY(-2px)'; t.style.background = 'rgba(12,20,34,0.70)'; t.style.borderColor = 'rgba(125,211,252,0.45)'; }}
-                  onMouseLeave={e => { const t = e.currentTarget; t.style.transform = 'none'; t.style.background = 'rgba(12,20,34,0.56)'; t.style.borderColor = 'rgba(255,255,255,0.16)'; }}>
-                  <div style={{ marginBottom: 12, color: '#7dd3fc' }}>{f.icon}</div>
-                  <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 4, color: '#ffffff', ...sans }}>{f.title}</div>
-                  <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.72)', ...sans }}>{f.sub}</div>
+                  // ⚠ A WHITE VEIL, NOT A DARK FILL — his instruction, 2026-10-06: *"make these boxes
+                  // or cards totally transparent like eco friendly market place did so that slider
+                  // images can be visible."* These were `rgba(12,20,34,0.56)`, a dark panel 56%
+                  // opaque, which hid the very screenshot it sat on.
+                  //
+                  // COPIED FROM THAT SITE'S OWN VALUES rather than invented: its frosted elements are
+                  // `bg-white/15 backdrop-blur-sm border border-white/25` — a LIGHT tint at 10-15%
+                  // with a thin white border. A white veil lifts the panel off the image without
+                  // blocking it; a dark one just covers it up.
+                  style={{ padding: '20px', borderRadius: 18, background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.24)', backdropFilter: 'blur(5px)', WebkitBackdropFilter: 'blur(5px)', cursor: 'default', transition: 'transform 0.2s ease, background 0.2s ease, border-color 0.2s ease' }}
+                  onMouseEnter={e => { const t = e.currentTarget; t.style.transform = 'translateY(-2px)'; t.style.background = 'rgba(255,255,255,0.17)'; t.style.borderColor = 'rgba(125,211,252,0.55)'; }}
+                  onMouseLeave={e => { const t = e.currentTarget; t.style.transform = 'none'; t.style.background = 'rgba(255,255,255,0.10)'; t.style.borderColor = 'rgba(255,255,255,0.24)'; }}>
+                  {/* The panel is now only a 10% veil, so the text sits almost directly on the
+                      screenshot. These shadows are what keep it readable when a bright part of a
+                      chart passes underneath — the same `drop-shadow` the cleaning site puts on
+                      every piece of text over its photos. */}
+                  <div style={{ marginBottom: 12, color: '#7dd3fc', filter: 'drop-shadow(0 1px 4px rgba(0,0,0,0.6))' }}>{f.icon}</div>
+                  <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 4, color: '#ffffff', ...sans, textShadow: '0 1px 6px rgba(0,0,0,0.7)' }}>{f.title}</div>
+                  <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.86)', ...sans, textShadow: '0 1px 5px rgba(0,0,0,0.65)' }}>{f.sub}</div>
                 </div>
               ))}
             </div>
