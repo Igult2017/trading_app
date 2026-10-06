@@ -6,7 +6,6 @@ import HomeFooter from "@/components/HomeFooter";
 import PricingSection from "@/components/PricingSection";
 import TestimonialsSection from "@/components/TestimonialsSection";
 import HomeStatsSection from "@/components/HomeStatsSection";
-import Brand from '@/components/Brand';
 import StartFreeButton from '@/components/StartFreeButton';
 import HeroBackground from '@/components/HeroBackground';
 
@@ -123,10 +122,23 @@ export default function HomePage() {
               Trusted by 10,000+ retail traders
             </div>
 
-            <h1 style={{ ...serif, fontSize: 'clamp(1.9rem,4.1vw,3.4rem)', lineHeight: 1.08, marginBottom: 20, color: '#ffffff', fontWeight: 900, textShadow: '0 2px 16px rgba(0,0,0,0.55)' }}>
-              Trade and<br />
-              Journal,<br />
-              <span style={{ color: '#7dd3fc' }}>Find your edge</span>
+            {/* ⚠ THE SIZE CAME DOWN BECAUSE THE NAME GOT LONGER (2026-10-06). At the old
+                clamp(1.9rem,4.1vw,3.4rem) the new headline broke into FIVE lines on a 1440px screen —
+                "Traders Workspace" and "For building real edge" each wrapped — which pushed the form
+                down and made the hero look cramped. The left column is 5 of 12 columns (~480px), and
+                the longest line is 22 characters, so the cap has to be about 2.7rem for all three
+                lines to hold. Measured on the rendered page, not guessed. If the wording changes
+                again, check the wrap before shipping. */}
+            <h1 style={{ ...serif, fontSize: 'clamp(1.6rem,3.0vw,2.7rem)', lineHeight: 1.1, marginBottom: 20, color: '#ffffff', fontWeight: 900, textShadow: '0 2px 16px rgba(0,0,0,0.55)' }}>
+              {/* ⚠ HIS NEW NAME, 2026-10-06 — LANDING-PAGE TEXT ONLY, ON HIS INSTRUCTION: *"Just fix
+                  it in the landing page only, i will give you the new logo later then we change the
+                  logo and everything later. For now focus on the landing page not the logo."*
+                  So the header wordmark, the footer, the sign-in box and the browser tab still say
+                  Trade&Journal (the `Brand` component) and are deliberately NOT touched. This is a
+                  known, temporary mismatch — do not "tidy" it by half-renaming the rest. */}
+              Daily Trade Book<br />
+              Traders Workspace<br />
+              <span style={{ color: '#7dd3fc' }}>For building real edge</span>
             </h1>
 
             <p style={{ fontSize: 16, color: 'rgba(255,255,255,0.90)', lineHeight: 1.8, marginBottom: 32, ...sans, textShadow: '0 1px 8px rgba(0,0,0,0.45)' }}>
@@ -194,7 +206,8 @@ export default function HomePage() {
       <section id="features" style={{ padding: '96px 24px', background: bg, transition: 'all 0.4s ease' }}>
         <div className="max-w-6xl mx-auto">
           <h2 style={{ ...display, fontSize: 'clamp(1.7rem,2.8vw,2.4rem)', textAlign: 'center', marginBottom: 12, color: text, fontWeight: 700 }}>
-            How <Brand /> works
+            {/* His new name, landing-page copy only — see the note on the headline above. */}
+            How Daily Trade Book works
           </h2>
           <p style={{ textAlign: 'center', fontSize: 15, color: muted, marginBottom: 72, maxWidth: 480, margin: '0 auto 72px', lineHeight: 1.75, ...sans }}>
             From broker connection to edge-building in three steps — no manual entry, no hassle.

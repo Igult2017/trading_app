@@ -7,7 +7,6 @@
  * SEE THE NOTE ON `reviews` BELOW before touching the copy.
  */
 import { Star } from 'lucide-react';
-import Brand from '@/components/Brand';
 
 const SERIF = { fontFamily: "'Playfair Display', Georgia, serif" } as const;
 // The pull-quote stays in the serif on purpose — a testimonial set in it reads as a quotation.
@@ -24,11 +23,11 @@ const SANS  = { fontFamily: "'Inter', system-ui, -apple-system, 'Segoe UI', sans
  *  replace with real, attributable reviews or label the section as illustrative before launch. */
 const reviews = [
   {
-    quote: "My trading has never been this consistent. The journal used MT5 auto-import and AI analysis that improved my edge immediately. Booking confirmation came in under 2 minutes of signup.",
+    quote: "My trading has never been this consistent. The journal used cTrader auto-import and AI analysis that improved my edge immediately. My account was connected in under 2 minutes of signup.",
     name: "Alex M.", city: "London", service: "Trade Journal",
   },
   {
-    quote: "Used Trade&Journal for our trading desk monthly review. The analytics team is professional, the export dashboard is a dream. Our whole firm switched after the first month.",
+    quote: "Used Daily Trade Book for our trading desk monthly review. The analytics are thorough and the export dashboard is a dream. Our whole firm switched after the first month.",
     name: "Jordan K.", city: "New York", service: "Analytics",
   },
   {
@@ -66,7 +65,11 @@ export default function TestimonialsSection({ darkMode }: { darkMode: boolean })
           Loved by traders across the globe
         </h2>
         <p style={{ ...SANS, textAlign: 'center', fontSize: 15, color: t.body, margin: '0 0 52px' }}>
-          What traders say about <Brand />
+          {/* His new name, 2026-10-06 — landing-page copy only. The `Brand` component (header
+              wordmark, footer, sign-in box, browser tab) still reads Trade&Journal on his
+              instruction: *"i will give you the new logo later then we change the logo and
+              everything later."* Deliberate, temporary mismatch. */}
+          What traders say about Daily Trade Book
         </p>
 
         {/* items-stretch + flex-1 on the quote = every card ends level, whatever the quote length */}
