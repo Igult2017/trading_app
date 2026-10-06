@@ -181,16 +181,28 @@ export default function HomePage() {
                   // `bg-white/15 backdrop-blur-sm border border-white/25` — a LIGHT tint at 10-15%
                   // with a thin white border. A white veil lifts the panel off the image without
                   // blocking it; a dark one just covers it up.
-                  style={{ padding: '20px', borderRadius: 18, background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.24)', backdropFilter: 'blur(5px)', WebkitBackdropFilter: 'blur(5px)', cursor: 'default', transition: 'transform 0.2s ease, background 0.2s ease, border-color 0.2s ease' }}
-                  onMouseEnter={e => { const t = e.currentTarget; t.style.transform = 'translateY(-2px)'; t.style.background = 'rgba(255,255,255,0.17)'; t.style.borderColor = 'rgba(125,211,252,0.55)'; }}
-                  onMouseLeave={e => { const t = e.currentTarget; t.style.transform = 'none'; t.style.background = 'rgba(255,255,255,0.10)'; t.style.borderColor = 'rgba(255,255,255,0.24)'; }}>
+                  // ⚠ NO CARD AT ALL — his instruction, 2026-10-06: *"This is not invisible. Make
+                  // these cards invisible and frameless."* No background, no border, no blur: the
+                  // icon and the words sit straight on the screenshot. Two earlier attempts were
+                  // still panels — a dark fill at 56%, then a white veil at 10% — and both were
+                  // visibly boxes. This one is not a box.
+                  //
+                  // THE TEXT SHADOWS BELOW ARE NOW LOAD-BEARING, not polish. With nothing behind the
+                  // text, a pale patch of a chart passing underneath is the only thing between the
+                  // label and being unreadable. Do not remove them to "clean up" the styles.
+                  style={{ padding: '20px 20px 20px 0', cursor: 'default', transition: 'transform 0.2s ease' }}
+                  onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.transform = 'none'; }}>
                   {/* The panel is now only a 10% veil, so the text sits almost directly on the
                       screenshot. These shadows are what keep it readable when a bright part of a
                       chart passes underneath — the same `drop-shadow` the cleaning site puts on
                       every piece of text over its photos. */}
-                  <div style={{ marginBottom: 12, color: '#7dd3fc', filter: 'drop-shadow(0 1px 4px rgba(0,0,0,0.6))' }}>{f.icon}</div>
-                  <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 4, color: '#ffffff', ...sans, textShadow: '0 1px 6px rgba(0,0,0,0.7)' }}>{f.title}</div>
-                  <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.86)', ...sans, textShadow: '0 1px 5px rgba(0,0,0,0.65)' }}>{f.sub}</div>
+                  {/* TWO SHADOWS EACH, not one: a tight dark halo that hugs the letters so they stay
+                      crisp against a busy chart, and a wider soft one that separates the whole label
+                      from whatever is behind it. One shadow does one of those jobs, not both. */}
+                  <div style={{ marginBottom: 12, color: '#7dd3fc', filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.95)) drop-shadow(0 2px 10px rgba(0,0,0,0.7))' }}>{f.icon}</div>
+                  <div style={{ fontWeight: 700, fontSize: 13.5, marginBottom: 4, color: '#ffffff', ...sans, textShadow: '0 1px 3px rgba(0,0,0,0.95), 0 2px 12px rgba(0,0,0,0.75)' }}>{f.title}</div>
+                  <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.90)', ...sans, textShadow: '0 1px 3px rgba(0,0,0,0.95), 0 2px 10px rgba(0,0,0,0.7)' }}>{f.sub}</div>
                 </div>
               ))}
             </div>
