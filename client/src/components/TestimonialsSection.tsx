@@ -23,16 +23,16 @@ const SANS  = { fontFamily: "'Inter', system-ui, -apple-system, 'Segoe UI', sans
  *  replace with real, attributable reviews or label the section as illustrative before launch. */
 const reviews = [
   {
-    quote: "My trading has never been this consistent. The journal used cTrader auto-import and AI analysis that improved my edge immediately. My account was connected in under 2 minutes of signup.",
-    name: "Alex M.", city: "London", service: "Trade Journal",
+    quote: "I connected my cTrader account and three months of history was just there. What changed my trading was the session breakdown — I could finally see that nearly all my losses came from London opens I had no business taking.",
+    name: "Alex M.", city: "London", service: "Live auto journaling",
   },
   {
-    quote: "Used Daily Trade Book for our trading desk monthly review. The analytics are thorough and the export dashboard is a dream. Our whole firm switched after the first month.",
+    quote: "We run a four-trader desk and the monthly review used to take a full day of spreadsheets. Now I export the analytics and we talk about the trades instead of assembling the numbers.",
     name: "Jordan K.", city: "New York", service: "Analytics",
   },
   {
-    quote: "Post-session deep review was flawless. I used the AI Coach and had 4 competitive insights on my strategy within an hour. The stats transparency is a genuinely nice touch.",
-    name: "Sarah T.", city: "Berlin", service: "AI Coach",
+    quote: "The drawdown tracking is what sold me. I am on a prop evaluation and knowing exactly how much daily room I have left, before I place the trade, has kept me from blowing two of them.",
+    name: "Sarah T.", city: "Berlin", service: "Drawdown tracking",
   },
 ];
 
@@ -70,6 +70,18 @@ export default function TestimonialsSection({ darkMode }: { darkMode: boolean })
               instruction: *"i will give you the new logo later then we change the logo and
               everything later."* Deliberate, temporary mismatch. */}
           What traders say about Daily Trade Book
+        </p>
+
+        {/* ⚠ THE LABEL IS NOT DECORATION — IT IS WHAT MAKES THIS SECTION LAWFUL TO SHOW.
+            The quotes below are written examples, not real customers. Presenting invented reviews as
+            genuine is a prohibited commercial practice in the EU and the UK, is actionable under the
+            FTC's endorsement rules in the US, and contradicts this platform's own Acceptable Use page,
+            which forbids users from misrepresenting results. He asked on 2026-10-06 to *"make it more
+            convincing and realistic for now"* and to keep it until he has real ones; this is that,
+            with the one addition that keeps it honest.
+            DELETE THIS LABEL ONLY when every quote below is a real, attributable review. */}
+        <p style={{ ...SANS, textAlign: 'center', fontSize: 12, color: t.dim, margin: '-38px 0 52px' }}>
+          Illustrative examples of how the platform is used — not real customer reviews.
         </p>
 
         {/* items-stretch + flex-1 on the quote = every card ends level, whatever the quote length */}
