@@ -8,6 +8,7 @@ import TestimonialsSection from "@/components/TestimonialsSection";
 import HomeStatsSection from "@/components/HomeStatsSection";
 import Brand from '@/components/Brand';
 import StartFreeButton from '@/components/StartFreeButton';
+import ShowcaseSlider from '@/components/ShowcaseSlider';
 
 /**
  * THE THREE TYPE ROLES. `sans` used to be Playfair Display too (2026-08-30) — a constant named
@@ -116,6 +117,20 @@ export default function HomePage() {
               Or <button type="button" onClick={() => openAuthModal("login")} style={{ color: '#2563eb', background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontWeight: 600, font: 'inherit' }}>sign in →</button>
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* ── Product slideshow ────────────────────────────────────────── */}
+      {/* Added 2026-10-06 on his ask — the landing page had no images at all before this, only the
+          two TEXT marquees below. Full width on purpose: the screens are 2.6:1, so in the hero's
+          745px right column the text inside them would be unreadable. Only the first image is
+          fetched on load (~26 KB); see `ShowcaseSlider`. */}
+      <section style={{ background: dm ? bg : '#f0f5ff', padding: '8px 0 72px', transition: 'background 0.4s' }}>
+        <div className="max-w-[1180px] mx-auto px-6 lg:px-8">
+          <p style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: muted, marginBottom: 18, textAlign: 'center', ...sans }}>
+            Inside the platform
+          </p>
+          <ShowcaseSlider darkMode={dm} />
         </div>
       </section>
 
