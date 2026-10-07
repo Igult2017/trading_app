@@ -1596,6 +1596,38 @@ test proving the process count returns to zero.
 
 ## D. cTrader & copy trading
 
+### D60 — The LIVE socket route's commission is UNVERIFIED. The one-leg bug is fixed; which route caused it is not known
+
+**Opened 2026-10-07, while fixing the "$2 win on a $4.38 loss" defect (commit `5cabbafc`).**
+
+**What is settled.** cTrader charges commission on **both** deals of a position and only one was being
+counted, so every closed trade's result was overstated by one leg. Measured on his GBPUSD position
+141815: gross +8.76, one leg −6.57 → the +2.19 he was shown; both legs −13.14 → the −4.38 his balance
+actually moved. Two fixes shipped — `PER_LEG` in `brokerAdapters/ctrader.ts` stops a per-deal value
+overwriting a per-position total, and `brokerSyncService.ts` now **corrects** the commission on a row
+it already has instead of only filling blanks.
+
+**What is NOT settled, and this is the honest gap.** Commission reaches a trade by three routes:
+
+| route | commission source | verified? |
+|---|---|---|
+| `pairDealsIntoTrades` (`ctrader.ts:451`) | sums every deal of the position | ✅ correct |
+| `mapClosedDeal` (`ctrader.ts:603`) | the ONE closing deal | ✅ confirmed one leg |
+| `mapClosedFromEvent` (`ctrader.ts:571`) | the position's own `commission` field | ❌ **never checked** |
+
+I could not tell which route recorded his trade. `mapClosedDeal` refuses a deal with no
+`closePositionDetail` (`ctrader.ts:578`), and the deals I pulled from his account carry none — but
+that was read through the MCP server, which returns a filtered view, so it is **not** proof the raw
+gateway omits it either. So the live route remains a live suspect and I did not claim otherwise.
+
+**Why it is not urgent:** the sweep now recomputes commission from the deals and corrects the row
+whatever wrote it, so a wrong live value self-heals within 15 minutes. **Why it still matters:** for
+those 15 minutes the journal shows a wrong result, and if `ProtoOAPosition.commission` really is one
+leg, the live path should be fixed at source rather than papered over.
+
+**How to close it:** open and close one small position, read the row the live feed writes *before* the
+next sweep, and compare its commission against the two deals' own. One trade settles it.
+
 ### D59 — AUTOTRADE IS SWITCHED OFF (2026-10-05, his instruction). It places nothing; it still RECORDS every setup
 
 **Read `docs/autotrade-disabled.md` before concluding anything about autotrade.** This entry exists so
