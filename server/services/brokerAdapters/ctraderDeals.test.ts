@@ -503,3 +503,80 @@ check("...and still takes the broker's own profit, not a derived one",
       Math.round((onceOut[0].profit ?? 0) * 100) / 100, 199.99);
 
 console.log(`PARTIAL-CLOSE MERGE CHECKS DONE (${count} checks total)`);
+
+// ── HIS REAL TRADE: BOTH COMMISSION LEGS, OR A LOSS READS AS A WIN ──────────
+//
+// His report, 2026-10-07: *"it syncs account balance accurately but fails to sync amount accrued
+// from a trade accurately... in the dashboard it is showing that i won 2 dollars"* — on a trade that
+// LOST money.
+//
+// THE DEALS BELOW ARE REAL, pulled from his Hola Prime challenge account the same hour. GBPUSD
+// position 141815, 2.19 lots, opened by the stop order placed for him minutes earlier:
+//
+//     gross (price only)   (1.32115 - 1.32111) x 219,000  =  +8.76
+//     commission           -6.57 on the OPEN, -6.57 on the CLOSE  = -13.14
+//     true net                                                   =  -4.38
+//     his balance moved    10,000.00 -> 9,995.62                  =  -4.38   <- confirms it
+//     what was recorded    8.76 - 6.57                            =  +2.19   <- ONE leg only
+//
+// cTrader charges commission on BOTH deals. Counting one turns this loss into a win, and every
+// per-trade figure downstream (Trade Vault, Dashboard, win rate, expectancy, R) inherits it.
+const HIS_MAP = { 2: 'GBPUSD' };
+const HIS_OPEN = {
+  dealId: 262442, orderId: 312164, positionId: 141815, symbolId: 2,
+  tradeSide: 'SELL', volume: 21900000, filledVolume: 21900000,
+  executionPrice: 1.32115, executionTimestamp: 1791372420913,
+  dealStatus: 'FILLED', commission: -657, moneyDigits: 2,
+};
+const HIS_CLOSE = {
+  dealId: 262446, orderId: 312201, positionId: 141815, symbolId: 2,
+  tradeSide: 'BUY', volume: 21900000, filledVolume: 21900000,
+  executionPrice: 1.32111, executionTimestamp: 1791372578059,
+  dealStatus: 'FILLED', commission: -657, moneyDigits: 2,
+};
+
+// The net the journal will store — `buildJournalEntry` adds exactly these three (autoJournal/fields.ts).
+const netOf = (t: any) => Math.round(((t.profit ?? 0) + (t.commission ?? 0) + (t.swap ?? 0)) * 100) / 100;
+
+console.log();
+console.log('HIS GBPUSD TRADE — COMMISSION MUST COUNT BOTH LEGS');
+const hisPlain = mergeDealMappings([HIS_OPEN, HIS_CLOSE], HIS_MAP);
+check('his two deals make one trade', hisPlain.length, 1);
+check('...2.19 lots', hisPlain[0].lots, 2.19);
+check('...gross from the two prices', Math.round((hisPlain[0].profit ?? 0) * 100) / 100, 8.76);
+check('...BOTH commission legs', hisPlain[0].commission, -13.14);
+check('...so the journal stores the loss he actually took', netOf(hisPlain[0]), -4.38);
+
+// THE SHAPE THAT ACTUALLY BIT. On a gateway that DOES send `closePositionDetail` (measured on
+// Pepperstone, 02 Sep), `mapClosedDeal` also fires and reports the CLOSING deal's commission alone.
+// The merge used to let that single leg overwrite the summed total, because its rule was "the
+// detailed value is better" — true of gross profit and swap, which describe the whole position, and
+// false of commission, which is charged per deal. That is what `PER_LEG` in ctrader.ts now guards.
+const HIS_CLOSE_DETAILED = {
+  ...HIS_CLOSE,
+  closePositionDetail: { entryPrice: 1.32115, grossProfit: 876, swap: 0, moneyDigits: 2 },
+};
+const hisDetailed = mergeDealMappings([HIS_OPEN, HIS_CLOSE_DETAILED], HIS_MAP);
+check('with the detail present it is still one trade', hisDetailed.length, 1);
+check('...still the full 2.19 lots', hisDetailed[0].lots, 2.19);
+check("...the broker's own gross profit still wins", hisDetailed[0].profit, 8.76);
+check('...but the ONE-leg commission must NOT overwrite the sum', hisDetailed[0].commission, -13.14);
+check('...so the net is the real loss, not a $2 win', netOf(hisDetailed[0]), -4.38);
+
+// TEETH — without the guard, the single leg really does win and the loss becomes a win.
+const pairedHis = pairDealsIntoTrades([HIS_OPEN, HIS_CLOSE_DETAILED], HIS_MAP)[0];
+const detailHis = mapClosedDeal(HIS_CLOSE_DETAILED, HIS_MAP)!;
+check('TEETH — the pairing alone always had both legs', pairedHis.commission, -13.14);
+check('TEETH — the lone closing deal reports one leg', detailHis.commission, -6.57);
+const naive: any = { ...pairedHis };
+for (const [k, v] of Object.entries(detailHis)) if (v !== undefined && v !== null) naive[k] = v;
+check('TEETH — an unguarded merge lets the one leg win', naive.commission, -6.57);
+check('TEETH — ...which is the +$2.19 "win" he was shown', netOf(naive), 2.19);
+
+console.log(`COMMISSION CHECKS DONE (${count} checks total)`);
+
+// ⚠ THE ONLY FAILURE EXIT USED TO SIT AT LINE 321, MID-FILE. Every check after it — the partial-close
+// merge suite and this one — could fail and the process still exited 0, so CI would have reported a
+// green run on a broken adapter. The run must fail if anything failed, wherever it failed.
+if (failed) { console.log(`${failed} of ${count} FAILED`); process.exit(1); }
+console.log(`ALL ${count} CHECKS PASSED`);

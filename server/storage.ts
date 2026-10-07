@@ -130,6 +130,7 @@ export interface IStorage {
   updateSyncedTradeOriginalRisk(id: string, risk: { entryOrderId: string | null;
     originalStopLoss: string; originalTakeProfit: string | null }): Promise<void>;
   correctSyncedTrade(id: string, fix: { direction?: string; profitLoss?: string;
+    commission?: string; swap?: string;
     orderType?: string; mae?: string; mfe?: string; maeMfeSource?: string }): Promise<void>;
 
   // ── Blog ─────────────────────────────────────────────────────────────────
@@ -1244,10 +1245,16 @@ export class DbStorage implements IStorage {
   /** Overwrite a value the broker's own deals prove wrong. Only the sweep calls this — see the note
    *  in `processIncomingTrades`: it is the one place a stored value is corrected rather than filled. */
   async correctSyncedTrade(id: string, fix: { direction?: string; profitLoss?: string;
+      commission?: string; swap?: string;
       orderType?: string; mae?: string; mfe?: string; maeMfeSource?: string }): Promise<void> {
     const set: Record<string, any> = {};
     if (fix.direction)  set.direction  = fix.direction;
     if (fix.profitLoss) set.profitLoss = fix.profitLoss;
+    // ⚠ `!= null`, NOT a truthiness test. A commission or swap of exactly "0" is a real correction —
+    // it is what a wrongly-charged row must come back to — and `if (fix.commission)` would drop it
+    // silently, which is the same class of bug as the number-input zero trap.
+    if (fix.commission != null) set.commission = fix.commission;
+    if (fix.swap       != null) set.swap       = fix.swap;
     if (fix.orderType)  set.orderType  = fix.orderType;
     if (fix.mae != null)          set.mae          = fix.mae;
     if (fix.mfe != null)          set.mfe          = fix.mfe;

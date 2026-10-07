@@ -613,6 +613,33 @@ export function mapClosedDeal(d: any, symbolMap: Record<number, string>): RawBro
  * guards against was invisible to every existing test precisely because it lived inside the network
  * call.
  */
+/**
+ * FIELDS WHOSE DETAILED SOURCE DESCRIBES ONE DEAL, NOT THE WHOLE POSITION.
+ *
+ * THE DEFECT THIS EXISTS FOR, 2026-10-07. He reported: *"it syncs account balance accurately but
+ * fails to sync amount accrued from a trade accurately... in the dashboard it is showing that i won
+ * 2 dollars"* — on a trade that LOST money. Measured on his own GBPUSD position 141815:
+ *
+ *     opening deal 262442  SELL 1.32115   commission -6.57
+ *     closing deal 262446  BUY  1.32111   commission -6.57
+ *     gross (price only)   +8.76          both legs      -13.14
+ *     true net             -4.38          <- and the balance moved exactly -4.38
+ *     what was recorded    +2.19          = 8.76 - 6.57, ONE leg
+ *
+ * WHY IT IS A SCOPE BUG AND NOT A MISSING ADDITION. `pairDealsIntoTrades` already sums commission
+ * across every deal of the position and had the right answer, -13.14. The merge below then threw it
+ * away, because of the rule stated in its own comment: the detailed mapping wins "because the
+ * broker's own gross profit and swap really are better than anything derived from two execution
+ * prices". That is TRUE for `profit` and `swap` — both come off `closePositionDetail` and describe
+ * the whole position. It is FALSE for `commission`, because `ProtoOADeal.commission` is charged PER
+ * DEAL and cTrader charges on both the open and the close. "Better data" was applied to a field
+ * whose better data has a different SCOPE.
+ *
+ * So the test is not "is the detail present" but "does the detail describe the same thing". Any
+ * future per-leg field added to `mapClosedDeal` belongs in this set, or it will repeat the bug.
+ */
+const PER_LEG = new Set<string>(['commission']);
+
 export function mergeDealMappings(allDeals: any[], symbolMap: Record<number, string>): RawBrokerTrade[] {
   const byId = new Map<string, RawBrokerTrade>();
   for (const t of pairDealsIntoTrades(allDeals, symbolMap)) byId.set(t.externalId, t);
@@ -689,6 +716,9 @@ export function mergeDealMappings(allDeals: any[], symbolMap: Record<number, str
       if (v === undefined || v === null) continue;
       // On an aggregate, the detail may only FILL A BLANK; it may never replace a computed total.
       if (isAggregate && (merged as any)[k] !== undefined && (merged as any)[k] !== null) continue;
+      // ⚠ A PER-LEG FIELD MAY NEVER REPLACE A PER-POSITION TOTAL — see PER_LEG above. This is the
+      // "$2 win on a $4.38 loss" defect of 2026-10-07, and it is a SCOPE bug, not a sum bug.
+      if (PER_LEG.has(k) && (merged as any)[k] !== undefined && (merged as any)[k] !== null) continue;
       (merged as any)[k] = v;
     }
     byId.set(t.externalId, merged);

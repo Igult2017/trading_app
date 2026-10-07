@@ -349,6 +349,50 @@ export async function processIncomingTrades(
         backfilled++;
       }
 
+      // ── THE MONEY ON A ROW ALREADY STORED (2026-10-07) ───────────────────────────────────────
+      //
+      // HIS REPORT: *"it syncs account balance accurately but fails to sync amount accrued from a
+      // trade accurately... in the dashboard it is showing that i won 2 dollars"* — on a trade that
+      // LOST $4.38. cTrader charges commission on BOTH deals of a position, and only ONE was being
+      // counted. Measured on his GBPUSD position 141815: gross +8.76, one leg -6.57 gives the +2.19
+      // he was shown; both legs -13.14 give the -4.38 his balance actually moved.
+      //
+      // ⚠ THIS IS A CORRECTION, NOT A BACKFILL, and that is the point. Every other repair above only
+      // FILLS A BLANK. The stored commission is not missing, it is WRONG, so a fill-a-blank rule can
+      // never reach it — and the adapter fix alone changes nothing for a trade already recorded.
+      // Without this, every trade already in his journal keeps its wrong figure for ever, including
+      // the one he reported.
+      //
+      // IT ALSO CLOSES A GAP I COULD NOT CLOSE HONESTLY ANY OTHER WAY. Commission reaches a trade by
+      // three routes. Two I verified by reading them against his real deals; the LIVE socket route
+      // (`mapClosedFromEvent`) takes the position's own `commission` field and I have NOT confirmed
+      // whether that carries one leg or both. Recomputing from the deals on the next sweep corrects
+      // it whichever it is, which beats asserting a path is fine without evidence.
+      //
+      // Tolerance of half a cent, because both sides are decimals round-tripped through strings and
+      // an exact-equality test would rewrite the same row on every sweep for ever.
+      const storedComm = existing.commission != null ? Number(existing.commission) : null;
+      if (raw.commission != null && Number.isFinite(raw.commission)
+          && (storedComm == null || !Number.isFinite(storedComm)
+              || Math.abs(storedComm - raw.commission) > 0.005)) {
+        await storage.correctSyncedTrade(existing.id, { commission: String(raw.commission) });
+        (existing as any).commission = String(raw.commission);
+        backfilled++;
+        await record({ brokerAccountId, externalId: existing.externalId, symbol: existing.symbol,
+                       stage: 'backfilled',
+                       detail: `commission corrected ${storedComm ?? 'none'} -> ${raw.commission}`
+                               + ' — the broker charges on the open AND the close' });
+        // THE JOURNAL ENTRY DERIVES ITS P&L FROM THIS ROW (`buildJournalEntry`: profit + commission
+        // + swap), so leaving it alone would make the row and the entry disagree — and the entry is
+        // what the Dashboard, Trade Vault and Metrics all read. `repairJournalDerived` recomputes it
+        // and still protects anything he has corrected by hand (EDIT_LOCK_KEY).
+        if (existing.journalEntryId) {
+          await repairJournalDerived(existing).catch(err =>
+            console.error(`[Sync] corrected the commission on ${existing.externalId} but could not `
+                          + `rebuild its journal entry: ${err?.message ?? err}`));
+        }
+      }
+
       // AND AN ENTRY WRITTEN BEFORE THESE FIELDS EXISTED STILL NEEDS THEM.
       //
       // The corrections above only fire when something DISAGREES. A trade that was recorded
