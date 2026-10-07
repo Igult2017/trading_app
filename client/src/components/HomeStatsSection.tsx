@@ -34,7 +34,11 @@ export default function HomeStatsSection({ darkMode }: { darkMode: boolean }) {
   const bg         = dm ? '#0b1220' : '#eef2ff';
   const ctaBg      = dm ? '#020817' : '#f0f5ff';
   const text       = dm ? '#f1f5f9' : '#0f172a';
-  const muted      = dm ? '#94a3b8' : '#64748b';
+  // ⚠ LIGHT WAS #64748b AND MEASURED 4.26:1 ON THIS SECTION'S OWN #eef2ff GROUND — under the 4.5:1
+  // floor, caught by scripts/check-readability.mjs on 2026-10-07, not by eye. #5e6e85 reads the same
+  // and measures 4.69:1 here. Same value as `muted` in components/homeTokens.ts; this section still
+  // keeps its own palette because its grounds differ from the rest of the page.
+  const muted      = dm ? '#94a3b8' : '#5e6e85';
   const border     = dm ? '#1e293b' : '#e0e7ff';
   const cardBg     = dm ? '#131e35' : '#ffffff';
   const cardBorder = dm ? '#1e3050' : '#e0e7ff';
@@ -106,8 +110,13 @@ export default function HomeStatsSection({ darkMode }: { darkMode: boolean }) {
       {/* ── CTA ───────────────────────────────────────────────────────────── */}
       <section style={{ background: ctaBg, padding: '80px 24px', textAlign: 'center', transition: 'background 0.4s' }}>
         <div className="max-w-xl mx-auto">
+          {/* ⚠ THE PILL HERE SAID "Join 10,000+ traders across the globe" UNTIL 2026-10-07 and is now
+              the free-plan terms, which are checkable in PricingSection. The number was never
+              verifiable, and it was on the page TWICE — the other copy was the hero badge in
+              HomePage.tsx. He chose to drop both (option A1). If a real figure ever arrives, it goes
+              in BOTH places or neither. */}
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 14px', borderRadius: 999, border: `1px solid ${pillBorder}`, background: pill, fontSize: 12, color: pillText, marginBottom: 24, ...sans, fontWeight: 600 }}>
-            ✦ Join 10,000+ traders across the globe
+            ✦ Free plan, no credit card
           </div>
           <h2 style={{ ...serif, fontSize: 'clamp(2rem,3.5vw,3rem)', fontWeight: 700, color: text, marginBottom: 16, lineHeight: 1.15 }}>
             Start journaling free.<br />

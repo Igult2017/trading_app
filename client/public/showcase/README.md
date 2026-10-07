@@ -1,35 +1,41 @@
-# Showcase screens — KEPT ON PURPOSE. Do not delete as dead code.
+# Showcase screens — IN USE on the landing page.
 
-**His instruction, 2026-10-07: _"Keep those images in the codebase we gona use them."_**
+Thirteen screens of the app, optimised for the web. **They are the landing page's slideshow**, read by
+`client/src/components/HomeShowcase.tsx`, which sits directly under the hero.
 
-Thirteen screens of the app, optimised and ready to use. **Nothing imports them right now**, and that
-is exactly why this file exists: the standing rule in this project is that unused files get deleted,
-and these would be the obvious candidate. They are not dead — they are waiting for the next place he
-wants them.
+⚠ **`HomeShowcase.tsx` holds its own list of the 13 files with a caption for each. Adding or removing
+a screen means editing BOTH** — re-run the build script below, then add the line there. `manifest.json`
+is written by the build script and is not what the component reads.
 
 ## What happened, so nobody repeats it
 
-They were built for a **crossfading background behind the hero headline** (2026-10-06, copied from the
-cleaning marketplace's `HeroBackground`). He looked at it and said: *"revert the slideshow images
-changes back to this which was there initially. I dont like it."* The hero went back to the original
-pale-blue, dark-type, white-card look.
+They were first built for a **crossfading background behind the hero headline** (2026-10-06, copied
+from the cleaning marketplace's `HeroBackground`). He looked at it and said: *"revert the slideshow
+images changes back to this which was there initially. I dont like it."* The hero went back to the
+original pale-blue, dark-type, white-card look, and the images sat unused for a day.
 
-So: **the images are good, the hero treatment was not.** When they are used again it should be
-somewhere else — a features section, a product tour, a page of its own — not behind the headline.
+**The images were never the problem — the hero treatment was.** He kept them on purpose (*"Keep those
+images in the codebase we gona use them"*), and on 2026-10-07 picked the placement himself from a
+reference design: a framed panel BELOW the headline rather than wallpaper behind it. That is
+`HomeShowcase`.
 
-The component that displayed them, `client/src/components/HeroBackground.tsx`, was deleted and is in
-git up to commit `fd7b5fbe`. It has the crossfade, the one-step-ahead loading and the reduced-motion
-handling already solved, so it is worth reading before writing a new one.
+The old component, `client/src/components/HeroBackground.tsx`, was deleted and is in git up to commit
+`fd7b5fbe`. Do not revive it — it is the treatment he rejected.
 
 ## What these files are
 
 | | |
 |---|---|
-| `slide-01..13.webp` | **2560 × 985**, about 70 KB each |
-| `manifest.json` | the slide list plus the dimensions, so a component need not hardcode them |
+| `slide-01..13.webp` | **2560 × 985**, about 70 KB each, 918 KB for the set |
+| `manifest.json` | written by the build script as a record of what it produced. **`HomeShowcase.tsx` does NOT read it** — it keeps its own list, because each slide also needs a caption naming the screen |
 
-**They ship in the build but cost a visitor nothing** — static files are only fetched when something
-references them.
+**A visitor pays for two of the thirteen, not all of them — measured, 125 KB.** `HomeShowcase` withholds
+each image's `src` until that slide is reached, keeping only the current one and the next one loaded.
+
+⚠ **`loading="lazy"` DOES NOT WORK HERE and was tried.** Measured on 2026-10-06: all 13 were fetched
+anyway (337 KB at the then-smaller sizes), because every slide lives inside the carousel's track and
+so counts as "in the viewport". Withholding `src` is the only thing that works. Do not "simplify" it
+back to the attribute.
 
 ## Two things that were hard-won. Do not undo them.
 

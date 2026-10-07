@@ -104,7 +104,7 @@ trading_app/
 | `CreateSession.tsx`, `TradingSession.tsx` | `platforms/journal/panels/sessions/` |
 | `TradingSignals.tsx`, `components/assets/` | `platforms/journal/panels/assets/` |
 | `AppSidebar.tsx`, `JournalHeader.tsx`, `JournalPaywall.tsx` | `platforms/journal/shell/` |
-| `HomeHeader/HomeFooter/HomeStatsSection/PricingSection/TestimonialsSection/StartFreeButton` | `platforms/public/marketing/` |
+| `HomeHeader/HomeFooter/HomeStatsSection/PricingSection/TestimonialsSection/StartFreeButton` **plus the 2026-10-07 landing rebuild: `HomeHero`, `HomeShowcase`, `HomeValueStrip`, `HomeConnectDiagram`, `homeTokens.ts`** | `platforms/public/marketing/` |
 | `BlogPostEditor.tsx` | `platforms/public/blog/` |
 | `SignalPlatformStatus.tsx` | `platforms/admin/` |
 | `Brand.tsx`, `Wordmark.tsx`, `ThemeToggle.tsx`, `TradingLoader.tsx`, `TickingPrice.tsx`, `SEOHead.tsx`, `Notifications.tsx`, `TradingChart.tsx`, `MarketOverview.tsx` | `components/` (genuinely shared) |
