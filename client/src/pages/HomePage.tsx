@@ -7,7 +7,6 @@ import PricingSection from "@/components/PricingSection";
 import TestimonialsSection from "@/components/TestimonialsSection";
 import HomeStatsSection from "@/components/HomeStatsSection";
 import StartFreeButton from '@/components/StartFreeButton';
-import HeroBackground from '@/components/HeroBackground';
 
 /**
  * THE THREE TYPE ROLES. `sans` used to be Playfair Display too (2026-08-30) — a constant named
@@ -79,84 +78,52 @@ export default function HomePage() {
       <HomeHeader darkMode={dm} setDarkMode={setDarkMode} activePath="/" />
 
       {/* ── Hero ─────────────────────────────────────────────────────── */}
-      {/* `relative isolate` makes this the stacking context the background and scrims sit inside, so
-          their negative z-index cannot slide behind the page itself. `overflow-hidden` keeps the
-          covering image from bleeding past the section. Same shape as the cleaning marketplace's
-          hero, which he asked me to copy. */}
-      <section className="relative isolate overflow-hidden pt-24 pb-16 lg:pt-36 lg:pb-20" style={{ background: dm ? bg : '#0b1220', transition: 'background 0.4s' }}>
-        {/* Screens of the app, crossfading behind everything. */}
-        <HeroBackground />
+      {/* ⚠ THE BACKGROUND SLIDESHOW WAS REMOVED HERE ON 2026-10-07, AT HIS REQUEST:
+          *"i need you to revert the slideshow images changes back to this which was there
+          initially. I dont like it"*. This is the original light hero — no image behind the text,
+          no contrast scrims, dark type on the pale blue, and solid white feature cards.
 
-        {/* CONTRAST SCRIMS — without these the headline sits on a busy dashboard and becomes
-            unreadable. Two layers, each doing a different job, exactly as the cleaning site does it:
-            one darkens top-to-bottom so the headline has a calm band to sit on, and one darkens the
-            LEFT hard (82%) because that is where the text column is, fading to clear on the right so
-            the screenshot still shows. */}
-        {/* ⚠ THE BALANCE HERE IS THE WHOLE DESIGN, and the first attempt got it wrong in the safe
-            direction: at 0.88 on the left and 0.62 overall the text was perfectly readable and the
-            screenshot behind it was a dark smudge — which defeats the point of putting it there.
-            Lightened so the app is actually visible on the right while the left stays dark enough
-            to carry white text. The headline's own shadow does the rest, so the scrim does not have
-            to be heavy enough to do both jobs. */}
-        <div aria-hidden="true" style={{ position: 'absolute', inset: 0, zIndex: -10,
-             background: 'linear-gradient(to bottom, rgba(5,10,20,0.42), rgba(5,10,20,0.16) 45%, rgba(5,10,20,0.38))' }} />
-        <div aria-hidden="true" style={{ position: 'absolute', inset: 0, zIndex: -10,
-             background: 'linear-gradient(to right, rgba(5,10,20,0.82), rgba(5,10,20,0.34) 46%, rgba(5,10,20,0.04))' }} />
-        {/* Blends the bottom edge into whatever follows, so the photo does not stop on a hard line. */}
-        <div aria-hidden="true" style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 96, zIndex: -10,
-             background: `linear-gradient(to top, ${dm ? bg : '#f8fafc'}, transparent)` }} />
+          WHAT WAS KEPT, because he said *"Apart from the ctrader changes and subscription changes
+          we made"*: every cTrader correction, the six feature names and their tiers, the pricing,
+          and the headline wording he gave me. Only the LOOK went back.
 
+          The slideshow is not deleted, it is in git (`HeroBackground.tsx` and the build script, up
+          to commit fd7b5fbe) if he ever wants it somewhere else. */}
+      <section className="pt-24 pb-16 lg:pt-36 lg:pb-20" style={{ background: dm ? bg : '#f0f5ff', transition: 'background 0.4s' }}>
         {/* Stacks to one column below lg; matches HomeHeader's 1280/32px edges on desktop. */}
         <div className="max-w-[1280px] mx-auto px-6 lg:px-8 grid grid-cols-1 lg:grid-cols-[5fr_7fr] gap-10 lg:gap-16 items-center">
 
           {/* Left — copy */}
           <div>
-            {/* ⚠ THE HERO'S TEXT IS NOW WHITE IN BOTH THEMES, and that is not an oversight. Behind it
-                sit dark screenshots under a dark scrim, so the light-mode charcoal this used to use
-                would be invisible. The scrim makes this band dark whichever way his toggle is set —
-                so the text follows the BACKGROUND IT IS ON, not the page theme. Frosted translucent
-                chip, white headline with a shadow, and a lighter blue for the accent line (the old
-                #2563eb is too dark to read against a photo). Same treatment as the cleaning site. */}
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '5px 14px', borderRadius: 999, border: '1px solid rgba(255,255,255,0.25)', background: 'rgba(255,255,255,0.13)', backdropFilter: 'blur(6px)', fontSize: 12, color: '#ffffff', marginBottom: 28, ...sans, fontWeight: 500 }}>
-              <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#34d399', display: 'inline-block', flexShrink: 0 }} />
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '5px 14px', borderRadius: 999, border: `1px solid ${border}`, fontSize: 12, color: muted, marginBottom: 28, ...sans, fontWeight: 500 }}>
+              <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#10b981', display: 'inline-block', flexShrink: 0 }} />
               Trusted by 10,000+ retail traders
             </div>
 
-            {/* ⚠ THE SIZE CAME DOWN BECAUSE THE NAME GOT LONGER (2026-10-06). At the old
-                clamp(1.9rem,4.1vw,3.4rem) the new headline broke into FIVE lines on a 1440px screen —
-                "Traders Workspace" and "For building real edge" each wrapped — which pushed the form
-                down and made the hero look cramped. The left column is 5 of 12 columns (~480px), and
-                the longest line is 22 characters, so the cap has to be about 2.7rem for all three
-                lines to hold. Measured on the rendered page, not guessed. If the wording changes
-                again, check the wrap before shipping. */}
-            <h1 style={{ ...serif, fontSize: 'clamp(1.6rem,3.0vw,2.7rem)', lineHeight: 1.1, marginBottom: 20, color: '#ffffff', fontWeight: 900, textShadow: '0 2px 16px rgba(0,0,0,0.55)' }}>
-              {/* ⚠ HIS NEW NAME, 2026-10-06 — LANDING-PAGE TEXT ONLY, ON HIS INSTRUCTION: *"Just fix
-                  it in the landing page only, i will give you the new logo later then we change the
-                  logo and everything later. For now focus on the landing page not the logo."*
-                  So the header wordmark, the footer, the sign-in box and the browser tab still say
-                  Trade&Journal (the `Brand` component) and are deliberately NOT touched. This is a
-                  known, temporary mismatch — do not "tidy" it by half-renaming the rest. */}
+            {/* His name, 2026-10-06 — landing-page copy only; the logo, footer and browser tab still
+                read Trade&Journal until he sends the new logo. The size is capped lower than the
+                original because this headline is longer: at the old clamp "Traders Workspace" and
+                "For building real edge" each wrapped, making five lines out of three. */}
+            <h1 style={{ ...serif, fontSize: 'clamp(1.6rem,3.0vw,2.7rem)', lineHeight: 1.1, marginBottom: 20, color: text, fontWeight: 900 }}>
               Daily Trade Book<br />
               Traders Workspace<br />
-              <span style={{ color: '#7dd3fc' }}>For building real edge</span>
+              <span style={{ color: '#2563eb' }}>For building real edge</span>
             </h1>
 
-            <p style={{ fontSize: 16, color: 'rgba(255,255,255,0.90)', lineHeight: 1.8, marginBottom: 32, ...sans, textShadow: '0 1px 8px rgba(0,0,0,0.45)' }}>
+            <p style={{ fontSize: 16, color: muted, lineHeight: 1.8, marginBottom: 32, ...sans }}>
               Log trades, capture decisions, and build your edge — for free.
             </p>
 
             <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
-              {/* Kept SOLID white, not frosted. This is the one thing on the hero he actually types
-                  into, and a translucent field over a moving picture is hard to read what you typed. */}
               <input type="email" placeholder="Enter your email address"
-                style={{ flex: 1, padding: '13px 16px', borderRadius: 10, border: 'none', fontSize: 14, background: '#ffffff', color: '#0f172a', outline: 'none', ...sans, boxShadow: '0 2px 12px rgba(0,0,0,0.25)', minWidth: 0 }} />
+                style={{ flex: 1, padding: '13px 16px', borderRadius: 10, border: 'none', fontSize: 14, background: dm ? card : '#ffffff', color: text, outline: 'none', ...sans, boxShadow: dm ? `0 0 0 1.5px ${border}` : '0 1px 6px rgba(0,0,0,0.09)', minWidth: 0 }} />
               <StartFreeButton dark={dm} />
             </div>
 
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 20px' }}>
               {["cTrader Auto-Import", "No subscription", "Real-time sync"].map(t => (
-                <span key={t} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: 'rgba(255,255,255,0.92)', ...sans, textShadow: '0 1px 6px rgba(0,0,0,0.5)' }}>
-                  <Check size={12} color="#34d399" strokeWidth={2.5} /> {t}
+                <span key={t} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: muted, ...sans }}>
+                  <Check size={12} color="#10b981" strokeWidth={2.5} /> {t}
                 </span>
               ))}
             </div>
@@ -164,50 +131,21 @@ export default function HomePage() {
 
           {/* Right — feature cards */}
           <div>
-            <p style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.72)', marginBottom: 14, ...sans }}>OUR FEATURES</p>
-            {/* FROSTED, NOT SOLID. Six solid cards over the right half would hide the very screenshot
-                they are sitting on — which is the whole point of putting it there. Translucent with a
-                blur lets the app show through while the labels stay readable, and the hover lifts the
-                card rather than changing a shadow nobody can see against a photo. */}
+            <p style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: muted, marginBottom: 14, ...sans }}>OUR FEATURES</p>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               {features.map((f, i) => (
                 <div key={i}
-                  // ⚠ A WHITE VEIL, NOT A DARK FILL — his instruction, 2026-10-06: *"make these boxes
-                  // or cards totally transparent like eco friendly market place did so that slider
-                  // images can be visible."* These were `rgba(12,20,34,0.56)`, a dark panel 56%
-                  // opaque, which hid the very screenshot it sat on.
-                  //
-                  // COPIED FROM THAT SITE'S OWN VALUES rather than invented: its frosted elements are
-                  // `bg-white/15 backdrop-blur-sm border border-white/25` — a LIGHT tint at 10-15%
-                  // with a thin white border. A white veil lifts the panel off the image without
-                  // blocking it; a dark one just covers it up.
-                  // ⚠ NO CARD AT ALL — his instruction, 2026-10-06: *"This is not invisible. Make
-                  // these cards invisible and frameless."* No background, no border, no blur: the
-                  // icon and the words sit straight on the screenshot. Two earlier attempts were
-                  // still panels — a dark fill at 56%, then a white veil at 10% — and both were
-                  // visibly boxes. This one is not a box.
-                  //
-                  // THE TEXT SHADOWS BELOW ARE NOW LOAD-BEARING, not polish. With nothing behind the
-                  // text, a pale patch of a chart passing underneath is the only thing between the
-                  // label and being unreadable. Do not remove them to "clean up" the styles.
-                  style={{ padding: '20px 20px 20px 0', cursor: 'default', transition: 'transform 0.2s ease' }}
-                  onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; }}
-                  onMouseLeave={e => { e.currentTarget.style.transform = 'none'; }}>
-                  {/* The panel is now only a 10% veil, so the text sits almost directly on the
-                      screenshot. These shadows are what keep it readable when a bright part of a
-                      chart passes underneath — the same `drop-shadow` the cleaning site puts on
-                      every piece of text over its photos. */}
-                  {/* TWO SHADOWS EACH, not one: a tight dark halo that hugs the letters so they stay
-                      crisp against a busy chart, and a wider soft one that separates the whole label
-                      from whatever is behind it. One shadow does one of those jobs, not both. */}
-                  <div style={{ marginBottom: 12, color: '#7dd3fc', filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.95)) drop-shadow(0 2px 10px rgba(0,0,0,0.7))' }}>{f.icon}</div>
-                  <div style={{ fontWeight: 700, fontSize: 13.5, marginBottom: 4, color: '#ffffff', ...sans, textShadow: '0 1px 3px rgba(0,0,0,0.95), 0 2px 12px rgba(0,0,0,0.75)' }}>{f.title}</div>
-                  <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.90)', ...sans, textShadow: '0 1px 3px rgba(0,0,0,0.95), 0 2px 10px rgba(0,0,0,0.7)' }}>{f.sub}</div>
+                  style={{ padding: '20px', borderRadius: 18, background: dm ? card : '#ffffff', border: dm ? `1px solid ${border}` : 'none', boxShadow: dm ? 'none' : '0 2px 14px rgba(0,0,0,0.07)', cursor: 'default', transition: 'box-shadow 0.2s' }}
+                  onMouseEnter={e => { e.currentTarget.style.boxShadow = dm ? 'none' : '0 6px 28px rgba(37,99,235,0.13)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.boxShadow = dm ? 'none' : '0 2px 14px rgba(0,0,0,0.07)'; }}>
+                  <div style={{ marginBottom: 12, color: '#2563eb' }}>{f.icon}</div>
+                  <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 4, color: text, ...sans }}>{f.title}</div>
+                  <div style={{ fontSize: 12, color: muted, ...sans }}>{f.sub}</div>
                 </div>
               ))}
             </div>
-            <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.72)', textAlign: 'right', marginTop: 10, ...sans, textShadow: '0 1px 6px rgba(0,0,0,0.5)' }}>
-              Or <button type="button" onClick={() => openAuthModal("login")} style={{ color: '#7dd3fc', background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontWeight: 600, font: 'inherit' }}>sign in →</button>
+            <div style={{ fontSize: 12, color: muted, textAlign: 'right', marginTop: 10, ...sans }}>
+              Or <button type="button" onClick={() => openAuthModal("login")} style={{ color: '#2563eb', background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontWeight: 600, font: 'inherit' }}>sign in →</button>
             </div>
           </div>
         </div>
