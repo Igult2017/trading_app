@@ -87,8 +87,13 @@ export default function HomePage() {
           we made"*: every cTrader correction, the six feature names and their tiers, the pricing,
           and the headline wording he gave me. Only the LOOK went back.
 
-          The slideshow is not deleted, it is in git (`HeroBackground.tsx` and the build script, up
-          to commit fd7b5fbe) if he ever wants it somewhere else. */}
+          THE IMAGES ARE STILL IN THE REPO and are meant to be used — his instruction of 2026-10-07,
+          *"Keep those images in the codebase we gona use them."* They are at
+          `client/public/showcase/` with a README explaining why they are kept although nothing
+          imports them yet. What he disliked was this HERO treatment, not the screens, so when they
+          come back it should be somewhere else — a features section, a product tour — not behind
+          the headline. The component that displayed them (`HeroBackground.tsx`) is in git up to
+          commit fd7b5fbe and already solves the crossfade, the lazy loading and reduced motion. */}
       <section className="pt-24 pb-16 lg:pt-36 lg:pb-20" style={{ background: dm ? bg : '#f0f5ff', transition: 'background 0.4s' }}>
         {/* Stacks to one column below lg; matches HomeHeader's 1280/32px edges on desktop. */}
         <div className="max-w-[1280px] mx-auto px-6 lg:px-8 grid grid-cols-1 lg:grid-cols-[5fr_7fr] gap-10 lg:gap-16 items-center">
