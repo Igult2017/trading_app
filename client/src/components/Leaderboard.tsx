@@ -210,7 +210,7 @@ export default function Leaderboard() {
   const myRank = user?.id ? (sortedTraders.find((t) => t.userId === user.id)?.rank ?? null) : null;
   const totalRanked = sortedTraders.length;
   const tileBox: React.CSSProperties = { background: 'var(--jr-panel)', border: '1px solid var(--jr-border)', padding: isMobile ? '12px 14px' : '16px 18px', transition: 'border-color 0.15s', minWidth: 0 };
-  const tileLbl: React.CSSProperties = { fontSize: 9, color: 'var(--jr-muted)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.14em', margin: '0 0 6px', display: 'flex', alignItems: 'center', gap: 4 };
+  const tileLbl: React.CSSProperties = { fontSize: 12, color: 'var(--jr-muted)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.14em', margin: '0 0 6px', display: 'flex', alignItems: 'center', gap: 4 };
   const tileVal: React.CSSProperties = { fontSize: isMobile ? 17 : 22, fontWeight: 800, color: 'var(--jr-text)', margin: 0, letterSpacing: '-0.02em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' };
   const tileHover = {
     onMouseEnter: (e: React.MouseEvent<HTMLDivElement>) => (e.currentTarget.style.borderColor = 'var(--jr-muted)'),
@@ -218,7 +218,7 @@ export default function Leaderboard() {
   };
 
   const btnBase: React.CSSProperties = {
-    padding: '7px 16px', fontSize: 11, fontWeight: 700,
+    padding: '7px 16px', fontSize: 12, fontWeight: 700,
     letterSpacing: '0.08em', border: '1px solid var(--jr-border)',
     cursor: 'pointer', transition: 'all 0.15s', fontFamily: 'inherit',
   };
@@ -253,7 +253,7 @@ export default function Leaderboard() {
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="8.01"/><line x1="12" y1="11" x2="12" y2="16"/></svg>
         </div>
         <div style={{ minWidth: 0 }}>
-          <p style={{ margin: '0 0 3px', fontSize: 9, letterSpacing: '0.16em', textTransform: 'uppercase', color: '#60a5fa' }}>
+          <p style={{ margin: '0 0 3px', fontSize: 12, letterSpacing: '0.16em', textTransform: 'uppercase', color: '#60a5fa' }}>
             Community Rankings · Not Financial Advice
           </p>
           <p style={{ margin: 0, fontSize: isMobile ? 10.5 : 11.5, color: 'var(--jr-muted)', lineHeight: 1.55 }}>
@@ -348,7 +348,7 @@ export default function Leaderboard() {
                     {/* Top-left rank diamond */}
                     <div style={{ position: 'absolute', top: 12, left: 12, width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       <div style={{ position: 'absolute', width: 22, height: 22, border: `1px solid ${podiumColor}`, background: isFirst ? 'rgba(234,179,8,0.12)' : 'rgba(0,0,0,0.06)', transform: 'rotate(45deg)' }} />
-                      <span style={{ position: 'relative', zIndex: 1, fontSize: 11, fontWeight: 800, color: podiumColor }}>{rank}</span>
+                      <span style={{ position: 'relative', zIndex: 1, fontSize: 12, fontWeight: 800, color: podiumColor }}>{rank}</span>
                     </div>
                     {/* Top-right country flag */}
                     {trader.country && (
@@ -369,18 +369,18 @@ export default function Leaderboard() {
                       </div>
                       <h3 style={{ fontSize: isFirst ? 14 : 12, fontWeight: 800, margin: 0, color: 'var(--jr-text)', lineHeight: 1.3 }}>{truncateName(trader.name)}</h3>
                       {viewMode === 'session' && trader.sessionName && (
-                        <span style={{ marginTop: 4, fontSize: 9, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--jr-muted)', background: 'var(--jr-panel)', border: '1px solid var(--jr-border)', padding: '2px 7px', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <span style={{ marginTop: 4, fontSize: 12, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--jr-muted)', background: 'var(--jr-panel)', border: '1px solid var(--jr-border)', padding: '2px 7px', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {trader.sessionName}
                         </span>
                       )}
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 14 }}>
                       <div>
-                        <p style={{ fontSize: 9, color: 'var(--jr-muted)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.1em', margin: '0 0 2px' }}>Profit</p>
+                        <p style={{ fontSize: 12, color: 'var(--jr-muted)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.1em', margin: '0 0 2px' }}>Profit</p>
                         <p style={{ fontSize: 14, fontWeight: 800, margin: 0, color: trader.pnl >= 0 ? '#34d399' : '#f87171' }}>{fmtPnl(trader.pnl)}</p>
                       </div>
                       <div style={{ textAlign: 'right' }}>
-                        <p style={{ fontSize: 9, color: 'var(--jr-muted)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.1em', margin: '0 0 2px' }}>
+                        <p style={{ fontSize: 12, color: 'var(--jr-muted)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.1em', margin: '0 0 2px' }}>
                           {activeCategory === 'profitFactor' ? 'P. Factor' : 'Win Rate'}
                         </p>
                         <p style={{ fontSize: 14, fontWeight: 800, margin: 0, color: accentFor(activeCategory) }}>
@@ -412,7 +412,7 @@ export default function Leaderboard() {
                     { label: 'Trades',        align: 'right' as const, key: null,            hideOnMobile: true  },
                     { label: 'Growth',        align: 'right' as const, key: null,            hideOnMobile: false },
                   ].filter(col => !(isMobile && col.hideOnMobile)).map(col => (
-                    <th key={col.label} style={{ padding: isMobile ? '10px 10px' : '12px 20px', fontSize: 9, textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.16em', color: col.key === activeCategory ? accentFor(activeCategory) : 'var(--jr-muted)', textAlign: col.align, whiteSpace: 'nowrap' }}>
+                    <th key={col.label} style={{ padding: isMobile ? '10px 10px' : '12px 20px', fontSize: 12, textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.16em', color: col.key === activeCategory ? accentFor(activeCategory) : 'var(--jr-muted)', textAlign: col.align, whiteSpace: 'nowrap' }}>
                       {col.label}
                     </th>
                   ))}
@@ -426,12 +426,12 @@ export default function Leaderboard() {
                     <td style={{ padding: isMobile ? '10px 10px' : '12px 20px' }}>
                       <div style={{ position: 'relative', width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         <div style={{ position: 'absolute', width: 24, height: 24, border: `1px solid ${index < 3 ? '#eab308' : 'var(--jr-border)'}`, background: index < 3 ? 'rgba(234,179,8,0.08)' : 'rgba(0,0,0,0.04)', transform: 'rotate(45deg)' }} />
-                        <span style={{ position: 'relative', zIndex: 1, fontSize: 10, fontWeight: 700, color: index < 3 ? '#eab308' : 'var(--jr-muted)' }}>{trader.rank}</span>
+                        <span style={{ position: 'relative', zIndex: 1, fontSize: 12, fontWeight: 700, color: index < 3 ? '#eab308' : 'var(--jr-muted)' }}>{trader.rank}</span>
                       </div>
                     </td>
                     <td style={{ padding: isMobile ? '10px 10px' : '12px 20px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 8 : 10 }}>
-                        <div style={{ width: isMobile ? 26 : 30, height: isMobile ? 26 : 30, borderRadius: '50%', background: 'var(--jr-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 800, color: '#94a3b8', flexShrink: 0 }}>
+                        <div style={{ width: isMobile ? 26 : 30, height: isMobile ? 26 : 30, borderRadius: '50%', background: 'var(--jr-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 800, color: '#94a3b8', flexShrink: 0 }}>
                           {trader.avatar}
                         </div>
                         {trader.country && (
@@ -441,7 +441,7 @@ export default function Leaderboard() {
                       </div>
                     </td>
                     {viewMode === 'session' && !isMobile && (
-                      <td style={{ padding: '12px 20px', fontSize: 11, fontWeight: 600, color: 'var(--jr-muted)', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <td style={{ padding: '12px 20px', fontSize: 12, fontWeight: 600, color: 'var(--jr-muted)', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {trader.sessionName || '—'}
                       </td>
                     )}
@@ -457,7 +457,7 @@ export default function Leaderboard() {
                       </td>
                     )}
                     {!isMobile && (
-                      <td style={{ padding: '12px 20px', textAlign: 'right', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--jr-muted)' }}>
+                      <td style={{ padding: '12px 20px', textAlign: 'right', fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--jr-muted)' }}>
                         {trader.trades}
                       </td>
                     )}
