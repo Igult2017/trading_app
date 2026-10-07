@@ -7,6 +7,7 @@
  * SEE THE NOTE ON `reviews` BELOW before touching the copy.
  */
 import { Star } from 'lucide-react';
+import { page, TYPE } from '@/components/homeTokens';
 
 const SERIF = { fontFamily: "'Playfair Display', Georgia, serif" } as const;
 // The pull-quote stays in the serif on purpose — a testimonial set in it reads as a quotation.
@@ -55,8 +56,8 @@ export default function TestimonialsSection({ darkMode }: { darkMode: boolean })
 
   return (
     <section id="reviews" style={{ background: t.bg, padding: '84px 0', transition: 'background .4s ease' }}>
-      <div style={{ maxWidth: 1240, margin: '0 auto', padding: '0 24px' }}>
-        <p style={{ ...SANS, textAlign: 'center', fontSize: 11.5, fontWeight: 700, letterSpacing: '0.18em',
+      <div style={page()}>
+        <p style={{ ...SANS, textAlign: 'center', fontSize: TYPE.small, fontWeight: 700, letterSpacing: '0.12em',
                     textTransform: 'uppercase', color: t.dim, marginBottom: 14 }}>
           Testimonials
         </p>
@@ -64,7 +65,7 @@ export default function TestimonialsSection({ darkMode }: { darkMode: boolean })
                      color: t.ink, margin: '0 0 12px', letterSpacing: '-0.015em' }}>
           Loved by traders across the globe
         </h2>
-        <p style={{ ...SANS, textAlign: 'center', fontSize: 15, color: t.body, margin: '0 0 52px' }}>
+        <p style={{ ...SANS, textAlign: 'center', fontSize: TYPE.lead, color: t.body, margin: '0 0 52px' }}>
           {/* His new name, 2026-10-06 — landing-page copy only. The `Brand` component (header
               wordmark, footer, sign-in box, browser tab) still reads Trade&Journal on his
               instruction: *"i will give you the new logo later then we change the logo and
@@ -80,7 +81,7 @@ export default function TestimonialsSection({ darkMode }: { darkMode: boolean })
             convincing and realistic for now"* and to keep it until he has real ones; this is that,
             with the one addition that keeps it honest.
             DELETE THIS LABEL ONLY when every quote below is a real, attributable review. */}
-        <p style={{ ...SANS, textAlign: 'center', fontSize: 12, color: t.dim, margin: '-38px 0 52px' }}>
+        <p style={{ ...SANS, textAlign: 'center', fontSize: TYPE.small, color: t.dim, margin: '-38px 0 52px' }}>
           Illustrative examples of how the platform is used — not real customer reviews.
         </p>
 
@@ -99,7 +100,7 @@ export default function TestimonialsSection({ darkMode }: { darkMode: boolean })
               </div>
 
               <blockquote style={{
-                ...SANS, margin: 0, flex: 1, fontStyle: 'italic', fontSize: 14.5,
+                ...SANS, margin: 0, flex: 1, fontStyle: 'italic', fontSize: TYPE.body,
                 lineHeight: 1.75, color: t.body,
               }}>
                 &ldquo;{r.quote}&rdquo;
@@ -108,13 +109,13 @@ export default function TestimonialsSection({ darkMode }: { darkMode: boolean })
               <figcaption style={{ display: 'flex', justifyContent: 'space-between',
                                    alignItems: 'flex-end', gap: 12 }}>
                 <div>
-                  <div style={{ ...SANS, fontWeight: 700, fontSize: 14, color: t.ink }}>{r.name}</div>
-                  <div style={{ ...SANS, fontSize: 12.5, color: t.dim, marginTop: 2 }}>{r.city}</div>
+                  <div style={{ ...SANS, fontWeight: 700, fontSize: TYPE.chip, color: t.ink }}>{r.name}</div>
+                  <div style={{ ...SANS, fontSize: TYPE.small, color: t.dim, marginTop: 2 }}>{r.city}</div>
                 </div>
                 <span style={{
-                  ...SERIF, flexShrink: 0, padding: '4px 12px', borderRadius: 999,
+                  ...SANS, flexShrink: 0, padding: '4px 12px', borderRadius: 999,
                   border: `1px solid ${t.border}`, background: t.pillBg,
-                  fontSize: 11.5, color: t.dim, whiteSpace: 'nowrap',
+                  fontSize: TYPE.small, color: t.dim, whiteSpace: 'nowrap',
                 }}>
                   {r.service}
                 </span>

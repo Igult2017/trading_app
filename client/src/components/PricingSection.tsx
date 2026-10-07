@@ -3,6 +3,7 @@ import { Check } from 'lucide-react';
 import { Card, CardHeader, CardContent, CardFooter } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { openAuthModal } from "@/components/auth/AuthModal";
+import { page } from '@/components/homeTokens';
 
 interface Plan {
   name: string; price: string; period: string; tagline: string;
@@ -52,10 +53,10 @@ export default function PricingSection({ darkMode }: { darkMode: boolean }) {
   return (
     <section
       id="pricing"
-      className={cn('py-20 px-4 sm:px-6 lg:px-8 transition-colors duration-300',
+      className={cn('py-20 transition-colors duration-300',
         darkMode ? 'bg-slate-900/60' : 'bg-slate-50/80')}
     >
-      <div className="max-w-6xl mx-auto">
+      <div style={page()}>
         <h2
           className={cn('text-4xl text-center mb-4 font-bold tracking-tight',
             darkMode ? 'text-white' : 'text-slate-900')}
@@ -107,7 +108,7 @@ export default function PricingSection({ darkMode }: { darkMode: boolean }) {
                       / {plan.period}
                     </span>
                   </div>
-                  <p className={cn('text-xs mt-1', darkMode && !plan.popular ? 'text-slate-400' : 'text-slate-500')}>
+                  <p className={cn('text-[15px] mt-1', darkMode && !plan.popular ? 'text-slate-400' : 'text-slate-500')}>
                     {plan.tagline}
                   </p>
                 </CardHeader>

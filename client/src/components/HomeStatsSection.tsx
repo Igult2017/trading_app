@@ -1,6 +1,7 @@
 import { Calendar, BarChart2, Diamond, PieChart, ArrowRight } from 'lucide-react';
 import { openAuthModal } from "@/components/auth/AuthModal";
 import StartFreeButton from '@/components/StartFreeButton';
+import { page, MEASURE, GUTTER, TYPE } from '@/components/homeTokens';
 
 // `sans` was Playfair Display here too — same misnaming as HomePage (2026-08-30).
 const serif = { fontFamily: "'Playfair Display', Georgia, serif" } as const;
@@ -49,13 +50,13 @@ export default function HomeStatsSection({ darkMode }: { darkMode: boolean }) {
   return (
     <>
       {/* ── Features grid ─────────────────────────────────────────────────── */}
-      <section style={{ background: bg, padding: '88px 24px', transition: 'background 0.4s' }}>
-        <div className="max-w-4xl mx-auto">
+      <section style={{ background: bg, padding: '88px 0', transition: 'background 0.4s' }}>
+        <div style={page()}>
 
           <h2 style={{ ...serif, fontSize: 'clamp(1.9rem,3vw,2.6rem)', fontWeight: 800, color: text, textAlign: 'center', marginBottom: 14, letterSpacing: '-0.02em' }}>
             Unlock Powerful Insights
           </h2>
-          <p style={{ ...sans, textAlign: 'center', fontSize: 15, color: muted, lineHeight: 1.75, maxWidth: 500, margin: '0 auto 60px' }}>
+          <p style={{ ...sans, textAlign: 'center', fontSize: TYPE.lead, color: muted, lineHeight: 1.75, maxWidth: MEASURE, margin: '0 auto 60px' }}>
             The most comprehensive analytics dashboard that can be customised to your needs
           </p>
 
@@ -97,7 +98,7 @@ export default function HomeStatsSection({ darkMode }: { darkMode: boolean }) {
                   <p style={{ ...sans, fontWeight: 700, fontSize: 16, color: text, marginBottom: 7 }}>
                     {title}
                   </p>
-                  <p style={{ ...sans, fontSize: 14, color: muted, lineHeight: 1.7, margin: 0 }}>
+                  <p style={{ ...sans, fontSize: TYPE.body, color: muted, lineHeight: 1.7, margin: 0 }}>
                     {desc}
                   </p>
                 </div>
@@ -108,27 +109,29 @@ export default function HomeStatsSection({ darkMode }: { darkMode: boolean }) {
       </section>
 
       {/* ── CTA ───────────────────────────────────────────────────────────── */}
-      <section style={{ background: ctaBg, padding: '80px 24px', textAlign: 'center', transition: 'background 0.4s' }}>
-        <div className="max-w-xl mx-auto">
+      <section style={{ background: ctaBg, padding: '80px 0', textAlign: 'center', transition: 'background 0.4s' }}>
+        {/* B1, 2026-10-07: was max-w-xl (576px). The CONTAINER is now full width and only the TEXT
+            narrows to the shared measure, which is how the reference sets a centred block. */}
+        <div style={{ ...page(), maxWidth: MEASURE + GUTTER * 2 }}>
           {/* ⚠ THE PILL HERE SAID "Join 10,000+ traders across the globe" UNTIL 2026-10-07 and is now
               the free-plan terms, which are checkable in PricingSection. The number was never
               verifiable, and it was on the page TWICE — the other copy was the hero badge in
               HomePage.tsx. He chose to drop both (option A1). If a real figure ever arrives, it goes
               in BOTH places or neither. */}
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 14px', borderRadius: 999, border: `1px solid ${pillBorder}`, background: pill, fontSize: 12, color: pillText, marginBottom: 24, ...sans, fontWeight: 600 }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 14px', borderRadius: 999, border: `1px solid ${pillBorder}`, background: pill, fontSize: TYPE.small, color: pillText, marginBottom: 24, ...sans, fontWeight: 600 }}>
             ✦ Free plan, no credit card
           </div>
           <h2 style={{ ...serif, fontSize: 'clamp(2rem,3.5vw,3rem)', fontWeight: 700, color: text, marginBottom: 16, lineHeight: 1.15 }}>
             Start journaling free.<br />
             <span style={{ color: '#2563eb' }}>Build your edge today.</span>
           </h2>
-          <p style={{ ...sans, fontSize: 15, color: muted, marginBottom: 36, lineHeight: 1.75 }}>
+          <p style={{ ...sans, fontSize: TYPE.lead, color: muted, marginBottom: 36, lineHeight: 1.75 }}>
             Connect your broker in under a minute and let the platform track, analyse, and sharpen your trading — no credit card required.
           </p>
           <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
             <StartFreeButton dark={dm} />
             <a href="/#pricing"
-              style={{ ...sans, padding: '13px 28px', borderRadius: 4, border: `1.5px solid ${border}`, color: text, fontSize: 14, fontWeight: 600, textDecoration: 'none' }}>
+              style={{ ...sans, padding: '13px 28px', borderRadius: 4, border: `1.5px solid ${border}`, color: text, fontSize: TYPE.chip, fontWeight: 600, textDecoration: 'none' }}>
               View pricing
             </a>
           </div>
