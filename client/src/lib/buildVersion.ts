@@ -29,7 +29,7 @@
  * differs from the one baked into the running code, a newer build exists and the page reloads.
  */
 
-declare const __BUILD_ID__: string;
+// __BUILD_ID__ is declared globally in client/src/globals.d.ts (the footer reads it too).
 
 /** How often to ask, while the tab is in the foreground. */
 const CHECK_EVERY_MS = 5 * 60 * 1000;

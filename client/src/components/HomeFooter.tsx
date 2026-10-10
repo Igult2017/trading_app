@@ -175,6 +175,17 @@ export default function HomeFooter({ darkMode = false }: HomeFooterProps) {
         <div style={{ borderTop: `1px solid ${divider}`, padding: "18px 0", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
           <span style={{ fontSize: 13.5, color: muted, ...bFont }}>
             © {new Date().getFullYear()} <Brand />. All rights reserved.
+            {/* THE BUILD STAMP, VISIBLE ON PURPOSE (2026-10-10).
+                He spent days on a page that would not update, and every diagnosis needed him to
+                open the console and run something. A version you can SEE ends that: if this line is
+                missing, the page is running code from before 10 Oct; if it shows an id, that is
+                exactly which build is on screen and it can be compared with /version.json.
+                Deliberately quiet — small, muted, after the copyright. */}
+            {' '}
+            <span title="Build currently running in this tab"
+                  style={{ opacity: 0.55, fontVariantNumeric: 'tabular-nums' }}>
+              build {typeof __BUILD_ID__ === 'string' ? __BUILD_ID__ : '?'}
+            </span>
           </span>
           <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
             {LEGAL.map(({ label, href }, i) => (
