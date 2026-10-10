@@ -88,8 +88,28 @@ async function check(): Promise<void> {
   window.location.reload();
 }
 
-/** Start watching. Called once from main.tsx. */
+/**
+ * Start watching. Called once from main.tsx.
+ *
+ * IT ALSO PUBLISHES THE RUNNING ID ON `window`, and that is not a nicety — it is the diagnostic
+ * this mechanism was missing. On 2026-10-10 he reported seeing SOME new work and not other work in
+ * the same deploy, and I could not tell whether his tab was stale or the change simply was not what
+ * he expected, because nothing in a running page says which build it is. Now:
+ *
+ *     __APP_BUILD__            -> the build this tab is running
+ *     await __APP_BUILD_CHECK__() -> { running, server, stale }
+ *
+ * Typed into the browser console, those answer in one line what otherwise costs a round trip.
+ */
 export function watchForNewBuild(): void {
+  try {
+    (window as any).__APP_BUILD__ = __BUILD_ID__;
+    (window as any).__APP_BUILD_CHECK__ = async () => {
+      const server = await serverBuildId();
+      return { running: __BUILD_ID__, server, stale: !!server && server !== __BUILD_ID__ };
+    };
+  } catch { /* never let a diagnostic break the app */ }
+
   void check();
   window.setInterval(() => void check(), CHECK_EVERY_MS);
   // Coming back to the tab is the moment a stale page is most likely AND the least disruptive

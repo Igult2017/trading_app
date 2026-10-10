@@ -97,6 +97,15 @@ export function serveStatic(app: Express) {
     lastModified: true,
     index: false,
     setHeaders(res, filePath) {
+      // ⚠ `index:false` ABOVE DOES NOT COVER A DIRECT REQUEST FOR THE SHELL. It only stops this
+      // middleware answering a DIRECTORY request ("/") with index.html; a request for the FILE
+      // "/index.html" is an ordinary file hit and would be sent with the one-HOUR default below —
+      // the exact stale-shell problem the index:false note describes, through the other door.
+      // Found 2026-10-10 while tracing why he saw part of a deploy and not the rest.
+      if (/[\\/]index\.html$/i.test(filePath)) {
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        return;
+      }
       res.setHeader('Cache-Control',
         isFont(filePath) ? YEAR : isBrandArt(filePath) ? WEEK : HOUR);
     },
