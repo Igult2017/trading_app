@@ -1,6 +1,6 @@
 import { Zap, PenLine, Camera, BookOpen, BarChart3, ClipboardCheck, Diamond, Repeat2 } from 'lucide-react';
 import Wordmark from '@/components/Wordmark';
-import { display, sans, homeTokens, page, MEASURE, TYPE, type HomeTokens } from '@/components/homeTokens';
+import { display, sans, homeTokens, page, PAGE_MAX, MEASURE, TYPE, type HomeTokens } from '@/components/homeTokens';
 
 /**
  * HomeConnectDiagram — "Your trades. One connected workspace." Added 2026-10-07 from the fifth and
@@ -178,7 +178,9 @@ export default function HomeConnectDiagram({ darkMode, brokers }: { darkMode: bo
           Compatible with 50+ brokers
         </p>
       </div>
-      <div style={{ maxWidth: 1280, margin: '0 auto', overflow: 'hidden', paddingBottom: 88 }}>
+      {/* PAGE_MAX, not a literal 1280 — the testimonials marquee was given this same treatment on
+          2026-10-10 and the comment there says they share one constant, so they must. */}
+      <div style={{ maxWidth: PAGE_MAX, margin: '0 auto', overflow: 'hidden', paddingBottom: 88 }}>
         <div className="hp-mq" style={{ gap: 10, alignItems: 'center', animationDuration: '36s' }}>
           {[...brokers, ...brokers].map((name, i) => (
             <span key={i} style={{

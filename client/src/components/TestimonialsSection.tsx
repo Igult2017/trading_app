@@ -19,7 +19,7 @@
  * `reviews` and the rows stop repeating on their own.
  */
 import { Star } from 'lucide-react';
-import { page, TYPE } from '@/components/homeTokens';
+import { page, PAGE_MAX, TYPE } from '@/components/homeTokens';
 
 const SERIF = { fontFamily: "'Playfair Display', Georgia, serif" } as const;
 const SANS  = { fontFamily: "'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif" } as const;
@@ -147,8 +147,17 @@ export default function TestimonialsSection({ darkMode }: { darkMode: boolean })
         </p>
       </div>
 
-      {/* FULL-BLEED, not inside the container: the cards are meant to run off both edges. */}
-      <div style={{ display: 'grid', gap: 20, overflow: 'hidden' }}>
+      {/* ⚠ CAPPED AT THE PAGE WIDTH, NOT FULL-BLEED — his correction, 2026-10-10: *"It is scrolling
+          end to end and has no padding. Can you check padding of other slideshows like brokers
+          slideshow and give it that padding on the left and right."*
+          He was right and the two really did differ. The broker strip
+          (HomeConnectDiagram.tsx) wraps its marquee in `maxWidth: PAGE_MAX, margin: 0 auto`, so the
+          pills are clipped at the page width and sit in the same left/right gap as every other band.
+          This one had `overflow: hidden` and no cap, so the cards ran to the window edge and the
+          section was the only thing on the page ignoring the margins.
+          Same treatment now, from the same constant, so they cannot drift apart again. Cards still
+          bleed off the edge — just the page's edge instead of the screen's. */}
+      <div style={{ maxWidth: PAGE_MAX, margin: '0 auto', display: 'grid', gap: 20, overflow: 'hidden' }}>
         {ROWS.map((row, i) => {
           const cards = rotate(row.from);
           return (
