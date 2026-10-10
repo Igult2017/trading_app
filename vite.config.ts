@@ -1,12 +1,44 @@
-import { defineConfig } from "vite";
+import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
 import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
 
+/**
+ * ONE ID PER BUILD, stamped into the bundle AND written to `/version.json`.
+ *
+ * The running app compares the two and reloads itself when they differ — see
+ * `client/src/lib/buildVersion.ts` for why that is needed at all (short version: an already-open
+ * tab never re-requests the HTML shell, and every old hashed bundle is still served, so a stale tab
+ * keeps working perfectly and never notices a deploy).
+ *
+ * A timestamp, not a content hash, and deliberately: it has to change on every deploy, including a
+ * redeploy of the same commit, because "the files on the server changed" is the thing we are
+ * detecting. The cost of being wrong is one reload.
+ */
+const BUILD_ID = Date.now().toString(36);
+
+/** Writes the id where the browser can ask for it. */
+function emitVersionFile(): Plugin {
+  return {
+    name: "emit-version-file",
+    generateBundle() {
+      this.emitFile({
+        type: "asset",
+        fileName: "version.json",
+        source: JSON.stringify({ buildId: BUILD_ID, builtAt: new Date().toISOString() }),
+      });
+    },
+  };
+}
+
 export default defineConfig({
+  define: {
+    __BUILD_ID__: JSON.stringify(BUILD_ID),
+  },
   plugins: [
     react(),
     runtimeErrorOverlay(),
+    emitVersionFile(),
     ...(process.env.NODE_ENV !== "production" &&
     process.env.REPL_ID !== undefined
       ? [

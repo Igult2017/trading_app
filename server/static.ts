@@ -64,6 +64,27 @@ export function serveStatic(app: Express) {
   const isFont = (p: string) => /\.(woff2?|ttf|otf)$/i.test(p);
   const isBrandArt = (p: string) => /(^|[\\/])(logo(-dark)?\.webp|favicon\.svg|broker-[^\\/]+)$/i.test(p);
 
+  // THE DEPLOY STAMP — must never be cached, or it cannot report a deploy.
+  //
+  // Added 2026-10-10. `index:false` below already keeps the HTML shell fresh for a NEW page load,
+  // but a tab that is already open never asks for the shell again, so it keeps running old code
+  // indefinitely — and because every old hashed bundle is still served here, that old code keeps
+  // WORKING, with no error to reveal it. He sat on a three-day-old build while the server was
+  // serving the current one.
+  //
+  // The running app polls this file and reloads when the id differs (client/src/lib/buildVersion.ts).
+  // ⚠ It is declared BEFORE the express.static below on purpose: that middleware would otherwise
+  // serve this file with the one-HOUR default, which would cap how fast a deploy can be noticed at
+  // an hour and make the whole mechanism pointless.
+  app.get('/version.json', (_req, res) => {
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.sendFile(path.resolve(distPath, 'version.json'), (err) => {
+      // Before the first build that emits it, or if it is missing: say so plainly rather than
+      // letting the SPA fallback answer with HTML, which the client would fail to parse.
+      if (err && !res.headersSent) res.status(404).json({ buildId: null });
+    });
+  });
+
   // index:false is load-bearing: without it, express.static serves index.html for "/" with the
   // maxAge below, so returning visitors keep a STALE HTML shell (pointing at old hashed asset
   // filenames) after every deploy — new code deployed but invisible until the cache expires or the
