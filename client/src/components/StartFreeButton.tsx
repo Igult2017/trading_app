@@ -23,9 +23,30 @@ import { ChevronsRight } from 'lucide-react';
 import { openAuthModal } from '@/components/auth/AuthModal';
 
 /** Stops as supplied, kept for the dark theme where they measure well. */
-const DARK_STOPS  = ['#2E86FF', '#07ADD2', '#02E6B5'];
+export const DARK_STOPS  = ['#2E86FF', '#07ADD2', '#02E6B5'];
 /** The same travel, darkened until every stop clears 4.5:1 on white. */
-const LIGHT_STOPS = ['#0B5FD0', '#067A93', '#0A7A55'];
+export const LIGHT_STOPS = ['#0B5FD0', '#067A93', '#0A7A55'];
+
+/**
+ * THE RING, AS CSS, so anything else that wants this button's outline uses the SAME one.
+ *
+ * Exported 2026-10-10 because he asked for the hero badge to carry it too. Copying the rule into
+ * the hero would have meant two gradients drifting apart at the first tweak; this way the badge and
+ * the button are the same ring by construction. The caller sets --sfb-a/b/c and gives the element
+ * `position: relative`.
+ *
+ * WHY A MASKED PSEUDO-ELEMENT and not a border-image or the padding-box/border-box trick: both of
+ * those force the fill to a solid colour, and these sit over several different surfaces.
+ * mask-composite leaves the middle genuinely transparent.
+ */
+export const GRADIENT_RING_CSS =
+  '.sfb-ring{position:relative}'
+  + '.sfb-ring::before{content:"";position:absolute;inset:0;border-radius:inherit;padding:2px;'
+  + 'background:linear-gradient(135deg,var(--sfb-a),var(--sfb-b),var(--sfb-c));'
+  + '-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);'
+  + '-webkit-mask-composite:xor;'
+  + 'mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);'
+  + 'mask-composite:exclude;pointer-events:none}';
 
 // NO BACKTICKS ANYWHERE IN THIS TEMPLATE, including comments — one inside a <style>{...} literal
 // is a runtime crash that still builds clean. Learned the hard way; see the memory note.

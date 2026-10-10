@@ -1,5 +1,5 @@
 import { BookOpen, Copy, BarChart3, ClipboardCheck, Diamond, Brain } from 'lucide-react';
-import StartFreeButton from '@/components/StartFreeButton';
+import StartFreeButton, { GRADIENT_RING_CSS, DARK_STOPS, LIGHT_STOPS } from '@/components/StartFreeButton';
 import { display, sans, homeTokens, page, MEASURE, TYPE } from '@/components/homeTokens';
 
 /**
@@ -36,6 +36,8 @@ const FEATURES = [
 
 export default function HomeHero({ darkMode }: { darkMode: boolean }) {
   const t = homeTokens(darkMode);
+  // Same stops the Start Free button uses for this theme, so the badge ring matches it exactly.
+  const [ringA, ringB, ringC] = darkMode ? DARK_STOPS : LIGHT_STOPS;
 
   return (
     // ⚠ THE TOP PADDING HAS TO CLEAR THE NAV, WHICH IS `position: fixed` AND 101px TALL (measured,
@@ -51,14 +53,25 @@ export default function HomeHero({ darkMode }: { darkMode: boolean }) {
     >
       <div style={page()}>
 
-        {/* Badge — the name plus the one integration that actually auto-syncs. */}
-        <div style={{
-          display: 'inline-flex', alignItems: 'center', gap: 9, padding: '6px 16px', borderRadius: 999,
-          border: `1px solid ${t.border}`, background: t.card, fontSize: TYPE.small, fontWeight: 600,
+        {/* Badge — his wording and his ring, 2026-10-10: *"Change this to DailyTradeBook. Trusted by
+            over 10,000 protraders. Then give it that lining/ring in image 2."* Image 2 was the Start
+            Free button, so the outline is literally that button's, shared from
+            StartFreeButton.GRADIENT_RING_CSS rather than copied — see the note there.
+
+            ⚠ THE 10,000 FIGURE IS BACK, AND HE ASKED FOR IT. I removed it from this page on
+            2026-10-06 as a number nobody could verify (his option A1, which also took it out of
+            HomeStatsSection). It is his claim to make; recording here only that it is a claim, so a
+            later session does not "tidy" it away again or assume it was checked. */}
+        <style>{GRADIENT_RING_CSS}</style>
+        <div className="sfb-ring" style={{
+          display: 'inline-flex', alignItems: 'center', gap: 9, padding: '8px 18px', borderRadius: 999,
+          background: t.card, fontSize: TYPE.small, fontWeight: 600,
           color: t.muted, marginBottom: 28, ...sans,
+          // The ring reads these; same stops as the button, per theme, so the two always match.
+          ['--sfb-a' as string]: ringA, ['--sfb-b' as string]: ringB, ['--sfb-c' as string]: ringC,
         }}>
           <span style={{ width: 7, height: 7, borderRadius: '50%', background: t.live, flexShrink: 0 }} />
-          Daily Trade Book &middot; cTrader auto-sync
+          DailyTradeBook. Trusted by over 10,000 protraders.
         </div>
 
         {/* HIS WORDS, set the way the reference sets a headline — one big line and a coloured second
