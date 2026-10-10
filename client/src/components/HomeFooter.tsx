@@ -40,13 +40,24 @@ const LINK_COLS = [
   { heading: "Company",  links: COMPANY  },
   { heading: "Legal",    links: LEGAL    },
 ];
+/**
+ * ⚠ A SOCIAL LINK ONLY APPEARS ONCE IT HAS A REAL ADDRESS. Leave `href` empty and the row is
+ * skipped; fill it in and the icon comes back. Nothing else to change.
+ *
+ * WHY, 2026-10-10. He asked me to "fix any dead links in the landing page", and these were the only
+ * ones on it — all five pointed at "#", which goes nowhere. Five icons that do nothing is worse on
+ * a product page than no icons at all: a visitor reads it as a site that is half-built.
+ *
+ * I did NOT invent addresses. Guessing a handle could send people to an account that is not his, or
+ * to somebody else's entirely. So the row hides itself until the real ones are here.
+ */
 const SOCIALS = [
-  { Icon: FaXTwitter,   href: "#", label: "Twitter / X", brand: "#000000"  },
-  { Icon: FaYoutube,    href: "#", label: "YouTube",      brand: "#FF0000"  },
-  { Icon: FaInstagram,  href: "#", label: "Instagram",    brand: "#E1306C"  },
-  { Icon: FaTelegram,   href: "#", label: "Telegram",     brand: "#0088CC"  },
-  { Icon: FaLinkedinIn, href: "#", label: "LinkedIn",     brand: "#0A66C2"  },
-];
+  { Icon: FaXTwitter,   href: "", label: "Twitter / X",  brand: "#000000"  },
+  { Icon: FaYoutube,    href: "", label: "YouTube",      brand: "#FF0000"  },
+  { Icon: FaInstagram,  href: "", label: "Instagram",    brand: "#E1306C"  },
+  { Icon: FaTelegram,   href: "", label: "Telegram",     brand: "#0088CC"  },
+  { Icon: FaLinkedinIn, href: "", label: "LinkedIn",     brand: "#0A66C2"  },
+].filter(s => s.href.trim() !== "");
 
 export interface HomeFooterProps { darkMode?: boolean; }
 
@@ -131,11 +142,14 @@ export default function HomeFooter({ darkMode = false }: HomeFooterProps) {
             </p>
           </div>
 
-          {/* Col 2 — Social vertical */}
+          {/* Col 2 — Social vertical. The whole column goes when there is nothing to link to,
+              heading included — a "Follow Us" with nothing under it is its own dead end. */}
+          {SOCIALS.length > 0 && (
           <div>
             <span style={cap}>Follow Us</span>
             {SOCIALS.map(({ Icon, href, label, brand }) => (
               <a key={label} href={href} aria-label={label}
+                target="_blank" rel="noopener noreferrer"
                 style={{ display: "flex", alignItems: "center", gap: 10, color: linkClr, textDecoration: "none", fontSize: 13, marginBottom: 12, ...bFont, transition: "color 0.18s, opacity 0.18s" }}
                 onMouseEnter={e => (e.currentTarget.style.opacity = "0.75")}
                 onMouseLeave={e => (e.currentTarget.style.opacity = "1")}>
@@ -144,6 +158,7 @@ export default function HomeFooter({ darkMode = false }: HomeFooterProps) {
               </a>
             ))}
           </div>
+          )}
 
           {/* Cols 3-5 — Link columns */}
           {LINK_COLS.map(({ heading, links }) => (

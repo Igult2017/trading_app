@@ -64,7 +64,10 @@ export default function HomeHero({ darkMode }: { darkMode: boolean }) {
             later session does not "tidy" it away again or assume it was checked. */}
         <style>{GRADIENT_RING_CSS}</style>
         <div className="sfb-ring" style={{
-          display: 'inline-flex', alignItems: 'center', gap: 9, padding: '8px 18px', borderRadius: 999,
+          // 12px, not a 999 pill — his note, 2026-10-10: *"Its corners are too sharp. Reduce border
+          // radius."* 12 is the Start Free button's own radius, so the badge and the button match in
+          // shape as well as in ring, which is what asking for that ring implied.
+          display: 'inline-flex', alignItems: 'center', gap: 9, padding: '8px 18px', borderRadius: 12,
           background: t.card, fontSize: TYPE.small, fontWeight: 600,
           color: t.muted, marginBottom: 28, ...sans,
           // The ring reads these; same stops as the button, per theme, so the two always match.
