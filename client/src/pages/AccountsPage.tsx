@@ -62,10 +62,10 @@ function SyncBadge({ status, lastSyncAt, lastSyncError }: { status: string; last
     : status === "error" ? "Error" : status === "syncing" ? "Syncing…" : "Pending";
   return (
     <span title={status === "error" && lastSyncError ? lastSyncError : undefined}
-          style={{ color, fontWeight: 600, fontSize: 13, cursor: status === "error" && lastSyncError ? "help" : "default" }}>
+          style={{ color, fontWeight: 600, fontSize: 15.5, cursor: status === "error" && lastSyncError ? "help" : "default" }}>
       {label}
       {status === "error" && lastSyncError && (
-        <span style={{ display: "block", color: "#94a3b8", fontWeight: 400, fontSize: 10, maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        <span style={{ display: "block", color: "#94a3b8", fontWeight: 400, fontSize: 12.5, maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {lastSyncError}
         </span>
       )}
@@ -222,15 +222,15 @@ function AddAccountForm({ platform, onCancel, onCreated }: AddFormProps) {
     }
   }
 
-  const inp: CSSProperties = { background: "#0d1827", border: "1px solid #1e3050", color: "#e2e8f0", borderRadius: 0, padding: "9px 12px", fontSize: 13, width: "100%", outline: "none" };
-  const lbl: CSSProperties = { color: "#64748b", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", display: "block", marginBottom: 5 };
+  const inp: CSSProperties = { background: "#0d1827", border: "1px solid #1e3050", color: "#e2e8f0", borderRadius: 0, padding: "9px 12px", fontSize: 15.5, width: "100%", outline: "none" };
+  const lbl: CSSProperties = { color: "#64748b", fontSize: 13.5, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", display: "block", marginBottom: 5 };
   const pname = PLATFORMS.find(p => p.id === platform)?.name ?? platform;
 
   return (
     <form onSubmit={handleSubmit} style={{ padding: "0 24px 24px", display: "flex", flexDirection: "column", gap: 14 }}>
-      <div style={{ color: "#94a3b8", fontSize: 13, marginBottom: 4 }}>
+      <div style={{ color: "#94a3b8", fontSize: 15.5, marginBottom: 4 }}>
         Platform: <strong style={{ color: "#38bdf8" }}>{pname}</strong>
-        <span style={{ marginLeft: 10, fontSize: 11, color: connType === 'webhook' ? '#facc15' : '#4ade80', fontWeight: 600 }}>
+        <span style={{ marginLeft: 10, fontSize: 13.5, color: connType === 'webhook' ? '#facc15' : '#4ade80', fontWeight: 600 }}>
           {connType === 'webhook' ? '⚡ EA Webhook' : '🔗 REST API'}
         </span>
       </div>
@@ -251,7 +251,7 @@ function AddAccountForm({ platform, onCancel, onCreated }: AddFormProps) {
         <div><label style={lbl}>Investor Password (optional)</label>
           <input style={inp} type="password" placeholder="Read-only investor password" value={secret} onChange={e => setSecret(e.target.value)} />
         </div>
-        <div style={{ background: "#0a1628", border: "1px solid #1e3a55", padding: "11px 14px", fontSize: 12, color: "#64748b" }}>
+        <div style={{ background: "#0a1628", border: "1px solid #1e3a55", padding: "11px 14px", fontSize: 14.5, color: "#64748b" }}>
           After adding, you'll receive a webhook URL. Install the EA on any chart — trades sync automatically.
         </div>
       </>)}
@@ -274,7 +274,7 @@ function AddAccountForm({ platform, onCancel, onCreated }: AddFormProps) {
             <input style={inp} placeholder="e.g. BTCUSDT, ETHUSDT" value={server} onChange={e => setServer(e.target.value)} />
           </div>
         )}
-        <div style={{ background: "#0a1628", border: "1px solid #1e3a55", padding: "11px 14px", fontSize: 12, color: "#64748b" }}>
+        <div style={{ background: "#0a1628", border: "1px solid #1e3a55", padding: "11px 14px", fontSize: 14.5, color: "#64748b" }}>
           Use a <strong style={{ color: "#38bdf8" }}>read-only API key</strong> — <Brand /> only reads your trade history, never places orders.
         </div>
       </>)}
@@ -297,7 +297,7 @@ function AddAccountForm({ platform, onCancel, onCreated }: AddFormProps) {
             <input style={inp} placeholder="e.g. ICMarkets-Live01" value={server} onChange={e => setServer(e.target.value)} />
           </div>
         )}
-        <div style={{ background: "#0a1628", border: "1px solid #1e3a55", padding: "11px 14px", fontSize: 12, color: "#64748b" }}>
+        <div style={{ background: "#0a1628", border: "1px solid #1e3a55", padding: "11px 14px", fontSize: 14.5, color: "#64748b" }}>
           Connects via REST API — no EA or desktop terminal needed. Trade history syncs automatically every 15 min.
         </div>
       </>)}
@@ -305,15 +305,15 @@ function AddAccountForm({ platform, onCancel, onCreated }: AddFormProps) {
       {/* cTrader — OAuth only (cTrader ID supports Google login) */}
       {isCT && (
         ctConfigured === false ? (
-          <div style={{ background: "#120a04", border: "1px solid #7c2d12", padding: "14px 16px", fontSize: 12, color: "#fca5a5", display: "flex", flexDirection: "column", gap: 8 }}>
-            <div style={{ fontWeight: 700, fontSize: 13, color: "#f87171" }}>cTrader connection pending Spotware approval</div>
+          <div style={{ background: "#120a04", border: "1px solid #7c2d12", padding: "14px 16px", fontSize: 14.5, color: "#fca5a5", display: "flex", flexDirection: "column", gap: 8 }}>
+            <div style={{ fontWeight: 700, fontSize: 15.5, color: "#f87171" }}>cTrader connection pending Spotware approval</div>
             <div>The app has been submitted to Spotware for review. KYC approval takes up to 3 business days. Once the status changes to <strong>Active</strong>, cTrader accounts can be connected here automatically — no further setup needed.</div>
           </div>
         ) : (
-          <div style={{ background: "#0a1628", border: "1px solid #1e3a55", padding: "14px 16px", fontSize: 13, color: "#94a3b8", display: "flex", flexDirection: "column", gap: 8 }}>
+          <div style={{ background: "#0a1628", border: "1px solid #1e3a55", padding: "14px 16px", fontSize: 15.5, color: "#94a3b8", display: "flex", flexDirection: "column", gap: 8 }}>
             <div style={{ color: "#38bdf8", fontWeight: 600 }}>No account ID or password required</div>
             <div>Click <strong>Connect with cTrader</strong> below. You'll be taken to cTrader's login page — sign in with your <strong>broker credentials, Google, or email</strong>. Your account number, balance, and trade history are fetched automatically after you approve access.</div>
-            <div style={{ fontSize: 11, color: "#475569" }}>Works with Pepperstone, IC Markets, Exness, FP Markets, and all cTrader-powered brokers.</div>
+            <div style={{ fontSize: 13.5, color: "#475569" }}>Works with Pepperstone, IC Markets, Exness, FP Markets, and all cTrader-powered brokers.</div>
           </div>
         )
       )}
@@ -327,11 +327,11 @@ function AddAccountForm({ platform, onCancel, onCreated }: AddFormProps) {
         </select>
       </div>
 
-      {error && <div style={{ color: "#ef4444", fontSize: 12 }}>{error}</div>}
+      {error && <div style={{ color: "#ef4444", fontSize: 14.5 }}>{error}</div>}
 
       <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-        <button type="button" onClick={onCancel} style={{ background: "none", border: "1px solid #1e3050", color: "#94a3b8", padding: "9px 20px", cursor: "pointer", fontSize: 13, fontWeight: 600 }}>Cancel</button>
-        <button type="submit" disabled={busy || (isCT && ctConfigured === false)} style={{ background: "linear-gradient(to right,#1d4ed8,#3b82f6)", border: "none", color: "white", padding: "9px 20px", cursor: (busy || (isCT && ctConfigured === false)) ? "not-allowed" : "pointer", fontSize: 13, fontWeight: 700, opacity: (busy || (isCT && ctConfigured === false)) ? 0.5 : 1, display: "flex", alignItems: "center", gap: 6 }}>
+        <button type="button" onClick={onCancel} style={{ background: "none", border: "1px solid #1e3050", color: "#94a3b8", padding: "9px 20px", cursor: "pointer", fontSize: 15.5, fontWeight: 600 }}>Cancel</button>
+        <button type="submit" disabled={busy || (isCT && ctConfigured === false)} style={{ background: "linear-gradient(to right,#1d4ed8,#3b82f6)", border: "none", color: "white", padding: "9px 20px", cursor: (busy || (isCT && ctConfigured === false)) ? "not-allowed" : "pointer", fontSize: 15.5, fontWeight: 700, opacity: (busy || (isCT && ctConfigured === false)) ? 0.5 : 1, display: "flex", alignItems: "center", gap: 6 }}>
           {busy ? (isCT ? "Redirecting…" : "Adding…") : isCT ? (<>Connect with cTrader <ExternalLink size={13} /></>) : "Add Account"}
         </button>
       </div>
@@ -367,19 +367,19 @@ function WebhookModal({ account, onClose }: { account: BrokerAccount; onClose: (
           <a
             href="/ea/FSD_Journal_EA.mq5"
             download="FSD_Journal_EA.mq5"
-            style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, background: "linear-gradient(to right,#1d4ed8,#3b82f6)", color: "#fff", padding: "13px 20px", fontWeight: 700, fontSize: 14, textDecoration: "none", borderRadius: 4 }}
+            style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, background: "linear-gradient(to right,#1d4ed8,#3b82f6)", color: "#fff", padding: "13px 20px", fontWeight: 700, fontSize: 16.5, textDecoration: "none", borderRadius: 4 }}
           >
             ⬇ Download TradeJournal_EA.mq5
           </a>
 
           {/* Steps */}
           <div>
-            <div style={{ color: "#64748b", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 12 }}>Setup Steps</div>
+            <div style={{ color: "#64748b", fontSize: 13.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 12 }}>Setup Steps</div>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {SETUP_STEPS.map(step => (
                 <div key={step.n} style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-                  <span style={{ minWidth: 24, height: 24, background: "#1e3a6e", color: "#60a5fa", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, flexShrink: 0 }}>{step.n}</span>
-                  <span style={{ color: "#94a3b8", fontSize: 13, lineHeight: 1.5 }}>{step.text}</span>
+                  <span style={{ minWidth: 24, height: 24, background: "#1e3a6e", color: "#60a5fa", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13.5, fontWeight: 700, flexShrink: 0 }}>{step.n}</span>
+                  <span style={{ color: "#94a3b8", fontSize: 15.5, lineHeight: 1.5 }}>{step.text}</span>
                 </div>
               ))}
             </div>
@@ -387,21 +387,21 @@ function WebhookModal({ account, onClose }: { account: BrokerAccount; onClose: (
 
           {/* Webhook URL */}
           <div>
-            <div style={{ color: "#64748b", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>Your Webhook URL</div>
+            <div style={{ color: "#64748b", fontSize: 13.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>Your Webhook URL</div>
             <div style={{ background: "#070f1e", border: "1px solid #1e3a55", padding: "11px 14px", display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ color: "#38bdf8", fontSize: 12, fontFamily: "monospace", flex: 1, wordBreak: "break-all" }}>{webhookUrl}</span>
+              <span style={{ color: "#38bdf8", fontSize: 14.5, fontFamily: "monospace", flex: 1, wordBreak: "break-all" }}>{webhookUrl}</span>
               <CopyBtn text={webhookUrl} />
             </div>
-            <p style={{ color: "#475569", fontSize: 11, margin: "6px 0 0" }}>Paste this URL into the EA's <strong style={{ color: "#64748b" }}>InpWebhookURL</strong> input field.</p>
+            <p style={{ color: "#475569", fontSize: 13.5, margin: "6px 0 0" }}>Paste this URL into the EA's <strong style={{ color: "#64748b" }}>InpWebhookURL</strong> input field.</p>
           </div>
 
           {/* Info note */}
           <div style={{ background: "#0c1e10", border: "1px solid #1a4020", padding: "11px 14px", borderRadius: 4 }}>
-            <span style={{ color: "#4ade80", fontSize: 12, fontWeight: 600 }}>How it works: </span>
-            <span style={{ color: "#6b8f72", fontSize: 12 }}>When you close a trade in MT5, the EA automatically posts it to <Brand />. It is journaled instantly with P&amp;L, session, pips, and duration — no manual entry needed.</span>
+            <span style={{ color: "#4ade80", fontSize: 14.5, fontWeight: 600 }}>How it works: </span>
+            <span style={{ color: "#6b8f72", fontSize: 14.5 }}>When you close a trade in MT5, the EA automatically posts it to <Brand />. It is journaled instantly with P&amp;L, session, pips, and duration — no manual entry needed.</span>
           </div>
 
-          <button onClick={onClose} style={{ background: "#1e293b", border: "1px solid #334155", color: "#94a3b8", padding: "10px 20px", cursor: "pointer", fontSize: 13, fontWeight: 600, alignSelf: "flex-end" }}>
+          <button onClick={onClose} style={{ background: "#1e293b", border: "1px solid #334155", color: "#94a3b8", padding: "10px 20px", cursor: "pointer", fontSize: 15.5, fontWeight: 600, alignSelf: "flex-end" }}>
             Close
           </button>
         </div>
@@ -428,23 +428,23 @@ function EditModal({ account, onClose, onSaved }: { account: BrokerAccount; onCl
 
   const ov: CSSProperties  = { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' };
   const card: CSSProperties = { background: '#0d1829', border: '1px solid #1e3a55', borderRadius: 12, padding: 24, width: 320, maxWidth: '90vw' };
-  const inp: CSSProperties  = { background: '#0b1220', border: '1px solid #1e3050', color: '#e2e8f0', padding: '8px 12px', fontSize: 13, width: '100%', borderRadius: 4, outline: 'none' };
-  const lbl: CSSProperties  = { color: '#64748b', fontSize: 11, fontWeight: 600, display: 'block', marginBottom: 4, textTransform: 'uppercase' };
+  const inp: CSSProperties  = { background: '#0b1220', border: '1px solid #1e3050', color: '#e2e8f0', padding: '8px 12px', fontSize: 15.5, width: '100%', borderRadius: 4, outline: 'none' };
+  const lbl: CSSProperties  = { color: '#64748b', fontSize: 13.5, fontWeight: 600, display: 'block', marginBottom: 4, textTransform: 'uppercase' };
 
   return (
     <div style={ov} onClick={onClose}>
       <div style={card} onClick={e => e.stopPropagation()}>
-        <div style={{ color: '#e2e8f0', fontWeight: 700, fontSize: 15, marginBottom: 18 }}>Edit Account</div>
+        <div style={{ color: '#e2e8f0', fontWeight: 700, fontSize: 17.5, marginBottom: 18 }}>Edit Account</div>
         <label style={lbl}>Name</label>
         <input value={name} onChange={e => setName(e.target.value)} style={{ ...inp, marginBottom: 14 }} />
         <label style={lbl}>Type</label>
         <select value={accountType} onChange={e => setAccountType(e.target.value)} style={{ ...inp, marginBottom: err ? 8 : 20 }}>
           {['demo', 'live', 'funded'].map(t => <option key={t} value={t}>{t.toUpperCase()}</option>)}
         </select>
-        {err && <div style={{ color: '#ef4444', fontSize: 12, marginBottom: 12 }}>{err}</div>}
+        {err && <div style={{ color: '#ef4444', fontSize: 14.5, marginBottom: 12 }}>{err}</div>}
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-          <button onClick={onClose} style={{ background: 'none', border: '1px solid #334155', color: '#94a3b8', padding: '7px 16px', cursor: 'pointer', fontSize: 13, borderRadius: 4 }}>Cancel</button>
-          <button onClick={save} disabled={busy} style={{ background: '#1d6ed8', border: 'none', color: 'white', padding: '7px 16px', cursor: 'pointer', fontSize: 13, fontWeight: 600, borderRadius: 4 }}>
+          <button onClick={onClose} style={{ background: 'none', border: '1px solid #334155', color: '#94a3b8', padding: '7px 16px', cursor: 'pointer', fontSize: 15.5, borderRadius: 4 }}>Cancel</button>
+          <button onClick={save} disabled={busy} style={{ background: '#1d6ed8', border: 'none', color: 'white', padding: '7px 16px', cursor: 'pointer', fontSize: 15.5, fontWeight: 600, borderRadius: 4 }}>
             {busy ? 'Saving…' : 'Save'}
           </button>
         </div>
@@ -667,7 +667,7 @@ export default function AccountsPage({ openModal = false, darkMode = true, onVie
 
       {/* Top Banner */}
       <div style={s.banner as CSSProperties}>
-        <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 16, height: 16, borderRadius: "50%", background: "#38bdf8", color: "#070d1a", fontSize: 10, fontWeight: 800, flexShrink: 0, lineHeight: 1 }}>i</span>
+        <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 16, height: 16, borderRadius: "50%", background: "#38bdf8", color: "#070d1a", fontSize: 12.5, fontWeight: 800, flexShrink: 0, lineHeight: 1 }}>i</span>
         <span>Issues syncing? Try an account history repair</span>
         <Wrench size={13} color="#64748b" style={{ flexShrink: 0 }} />
       </div>
@@ -676,8 +676,8 @@ export default function AccountsPage({ openModal = false, darkMode = true, onVie
       {ctSelectAccounts.length > 0 && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <div style={{ background: '#0d1829', border: '1px solid #1e3a55', borderRadius: 12, padding: 28, width: 360, maxWidth: '90vw' }}>
-            <div style={{ color: '#e2e8f0', fontWeight: 700, fontSize: 16, marginBottom: 6 }}>Select cTrader Account</div>
-            <div style={{ color: '#64748b', fontSize: 12, marginBottom: 20 }}>Multiple accounts found. Choose which one to link.</div>
+            <div style={{ color: '#e2e8f0', fontWeight: 700, fontSize: 18, marginBottom: 6 }}>Select cTrader Account</div>
+            <div style={{ color: '#64748b', fontSize: 14.5, marginBottom: 20 }}>Multiple accounts found. Choose which one to link.</div>
             {ctSelectAccounts.map((a: any) => (
               <button
                 key={a.ctidTraderAccountId}
@@ -692,30 +692,30 @@ export default function AccountsPage({ openModal = false, darkMode = true, onVie
                   } catch { setInfo('cTrader: selection failed'); }
                   setCtSelectBusy(false);
                 }}
-                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', background: '#111e30', border: '1px solid #1e3a55', borderRadius: 8, padding: '12px 16px', marginBottom: 10, cursor: 'pointer', color: '#e2e8f0', fontSize: 13 }}
+                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', background: '#111e30', border: '1px solid #1e3a55', borderRadius: 8, padding: '12px 16px', marginBottom: 10, cursor: 'pointer', color: '#e2e8f0', fontSize: 15.5 }}
               >
                 <span><strong>{a.traderLogin}</strong> · {a.brokerName}</span>
-                <span style={{ color: a.isLive ? '#4ade80' : '#facc15', fontSize: 11, fontWeight: 700 }}>{a.isLive ? 'LIVE' : 'DEMO'}</span>
+                <span style={{ color: a.isLive ? '#4ade80' : '#facc15', fontSize: 13.5, fontWeight: 700 }}>{a.isLive ? 'LIVE' : 'DEMO'}</span>
               </button>
             ))}
-            <button onClick={() => { setCtSelectAccounts([]); setCtSelectToken(null); }} style={{ background: 'none', border: 'none', color: '#64748b', fontSize: 12, cursor: 'pointer', marginTop: 4 }}>Cancel</button>
+            <button onClick={() => { setCtSelectAccounts([]); setCtSelectToken(null); }} style={{ background: 'none', border: 'none', color: '#64748b', fontSize: 14.5, cursor: 'pointer', marginTop: 4 }}>Cancel</button>
           </div>
         </div>
       )}
 
       {/* OAuth / info message */}
       {info && (
-        <div style={{ background: "#0c2a1a", border: "1px solid #166534", padding: "10px 24px", fontSize: 13, color: "#4ade80", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div style={{ background: "#0c2a1a", border: "1px solid #166534", padding: "10px 24px", fontSize: 15.5, color: "#4ade80", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <span>{info}</span>
-          <button onClick={() => setInfo(null)} style={{ background: "none", border: "none", color: "#4ade80", cursor: "pointer", fontSize: 16 }}>✕</button>
+          <button onClick={() => setInfo(null)} style={{ background: "none", border: "none", color: "#4ade80", cursor: "pointer", fontSize: 18 }}>✕</button>
         </div>
       )}
 
       {/* Manual sync answer — red when any account failed, so a failure never reads as a success */}
       {syncNote && (
-        <div role="status" style={{ background: syncNote.ok ? "#0c2a1a" : "#2a0c0c", border: "1px solid " + (syncNote.ok ? "#166534" : "#991b1b"), padding: "10px 24px", fontSize: 13, color: syncNote.ok ? "#4ade80" : "#fca5a5", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+        <div role="status" style={{ background: syncNote.ok ? "#0c2a1a" : "#2a0c0c", border: "1px solid " + (syncNote.ok ? "#166534" : "#991b1b"), padding: "10px 24px", fontSize: 15.5, color: syncNote.ok ? "#4ade80" : "#fca5a5", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
           <span>{syncNote.text}</span>
-          <button onClick={() => setSyncNote(null)} aria-label="Dismiss sync result" style={{ background: "none", border: "none", color: "inherit", cursor: "pointer", fontSize: 16 }}>✕</button>
+          <button onClick={() => setSyncNote(null)} aria-label="Dismiss sync result" style={{ background: "none", border: "none", color: "inherit", cursor: "pointer", fontSize: 18 }}>✕</button>
         </div>
       )}
 
@@ -729,7 +729,7 @@ export default function AccountsPage({ openModal = false, darkMode = true, onVie
           <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
             <span style={s.counter as CSSProperties}>{accounts.length}/20</span>
             <button style={s.addBtn as CSSProperties} onClick={() => { setModalOpen(true); setShowForm(false); setSelectedPlatform(null); }}>
-              <span style={{ fontSize: 18, lineHeight: 1 }}>+</span> {isMobile ? "Add" : "Add Account"}
+              <span style={{ fontSize: 19, lineHeight: 1 }}>+</span> {isMobile ? "Add" : "Add Account"}
             </button>
             <button style={{ ...s.syncBtn, ...(syncing.size ? { opacity: 0.6, cursor: "wait" } : {}) } as CSSProperties}
                     onClick={handleSyncAll} disabled={syncing.size > 0}>
@@ -826,7 +826,7 @@ export default function AccountsPage({ openModal = false, darkMode = true, onVie
         </div>
 
         {/* Pagination */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 10, padding: "14px 0 0", fontSize: 13, color: "#64748b", flexWrap: "wrap" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 10, padding: "14px 0 0", fontSize: 15.5, color: "#64748b", flexWrap: "wrap" }}>
           <span>Page Size:</span>
           <select style={s.pageSelect as CSSProperties} value={pageSize} onChange={e => { setPageSize(Number(e.target.value)); setPage(1); }}>
             {[10, 25, 50].map(n => <option key={n} value={n}>{n}</option>)}
@@ -861,14 +861,14 @@ export default function AccountsPage({ openModal = false, darkMode = true, onVie
                       onClick={() => setSelectedPlatform(p.id)}
                     >
                       <PlatformIcon id={p.id} size={38} />
-                      <span style={{ fontSize: 11, fontWeight: 600, textAlign: "center" }}>{p.name}</span>
+                      <span style={{ fontSize: 13.5, fontWeight: 600, textAlign: "center" }}>{p.name}</span>
                     </button>
                   ))}
                 </div>
                 <button
                   disabled={!selectedPlatform}
                   onClick={() => setShowForm(true)}
-                  style={{ width: "100%", background: selectedPlatform ? "#1d6ed8" : "#1e293b", border: "none", color: selectedPlatform ? "white" : "#475569", padding: "11px", fontWeight: 700, fontSize: 14, cursor: selectedPlatform ? "pointer" : "not-allowed" }}
+                  style={{ width: "100%", background: selectedPlatform ? "#1d6ed8" : "#1e293b", border: "none", color: selectedPlatform ? "white" : "#475569", padding: "11px", fontWeight: 700, fontSize: 16.5, cursor: selectedPlatform ? "pointer" : "not-allowed" }}
                 >
                   Continue →
                 </button>
@@ -905,21 +905,21 @@ export default function AccountsPage({ openModal = false, darkMode = true, onVie
                 <Trash2 size={18} color="#ef4444" />
               </div>
               <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: 16, fontWeight: 700, color: '#f1f5f9' }}>Delete “{confirmDel.name}”?</div>
-                <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 2 }}>{(confirmDel.platform || '').toUpperCase()} · {confirmDel.loginId}</div>
+                <div style={{ fontSize: 18, fontWeight: 700, color: '#f1f5f9' }}>Delete “{confirmDel.name}”?</div>
+                <div style={{ fontSize: 14.5, color: '#94a3b8', marginTop: 2 }}>{(confirmDel.platform || '').toUpperCase()} · {confirmDel.loginId}</div>
               </div>
             </div>
-            <p style={{ fontSize: 13, color: '#cbd5e1', lineHeight: 1.6, marginBottom: delErr ? 12 : 20 }}>
+            <p style={{ fontSize: 15.5, color: '#cbd5e1', lineHeight: 1.6, marginBottom: delErr ? 12 : 20 }}>
               Everything tied to this account — all its <strong style={{ color: '#f1f5f9' }}>synced trades</strong>, <strong style={{ color: '#f1f5f9' }}>journal entries</strong> and its <strong style={{ color: '#f1f5f9' }}>performance dashboard</strong> — will be permanently removed. <span style={{ color: '#fca5a5' }}>This cannot be undone.</span>
             </p>
-            {delErr && <div style={{ fontSize: 12, color: '#fca5a5', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 8, padding: '8px 12px', marginBottom: 18 }}>{delErr}</div>}
+            {delErr && <div style={{ fontSize: 14.5, color: '#fca5a5', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 8, padding: '8px 12px', marginBottom: 18 }}>{delErr}</div>}
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
               <button onClick={() => setConfirmDel(null)} disabled={deleting}
-                style={{ padding: '9px 18px', borderRadius: 8, border: '1px solid #1e3050', background: 'transparent', color: '#cbd5e1', fontSize: 13, fontWeight: 600, cursor: deleting ? 'default' : 'pointer' }}>
+                style={{ padding: '9px 18px', borderRadius: 8, border: '1px solid #1e3050', background: 'transparent', color: '#cbd5e1', fontSize: 15.5, fontWeight: 600, cursor: deleting ? 'default' : 'pointer' }}>
                 Cancel
               </button>
               <button onClick={() => handleDelete(confirmDel.id)} disabled={deleting}
-                style={{ padding: '9px 18px', borderRadius: 8, border: 'none', background: '#dc2626', color: '#fff', fontSize: 13, fontWeight: 700, cursor: deleting ? 'default' : 'pointer', opacity: deleting ? 0.65 : 1, display: 'flex', alignItems: 'center', gap: 6 }}>
+                style={{ padding: '9px 18px', borderRadius: 8, border: 'none', background: '#dc2626', color: '#fff', fontSize: 15.5, fontWeight: 700, cursor: deleting ? 'default' : 'pointer', opacity: deleting ? 0.65 : 1, display: 'flex', alignItems: 'center', gap: 6 }}>
                 <Trash2 size={14} /> {deleting ? 'Deleting…' : 'Delete permanently'}
               </button>
             </div>
@@ -933,26 +933,26 @@ export default function AccountsPage({ openModal = false, darkMode = true, onVie
 // ── Styles ────────────────────────────────────────────────────────────────────
 const s: Record<string, CSSProperties> = {
   root:    { minHeight: "100%", background: "#070d1a", fontFamily: "'Montserrat','Segoe UI',sans-serif", color: "#cbd5e1", display: "flex", flexDirection: "column" },
-  banner:  { background: "#0c1a2e", borderBottom: "1px solid #1a3050", padding: "10px 24px", fontSize: 13, color: "#94a3b8", display: "flex", alignItems: "center", gap: 6 },
-  tab:     { background: "none", border: "none", color: "#64748b", fontSize: 15, fontWeight: 500, cursor: "pointer", padding: "6px 0", display: "flex", alignItems: "center", gap: 6, fontFamily: "inherit" },
+  banner:  { background: "#0c1a2e", borderBottom: "1px solid #1a3050", padding: "10px 24px", fontSize: 15.5, color: "#94a3b8", display: "flex", alignItems: "center", gap: 6 },
+  tab:     { background: "none", border: "none", color: "#64748b", fontSize: 17.5, fontWeight: 500, cursor: "pointer", padding: "6px 0", display: "flex", alignItems: "center", gap: 6, fontFamily: "inherit" },
   tabActive:{ color: "#38bdf8", borderBottom: "2px solid #38bdf8", fontWeight: 700 },
-  proBadge:{ background: "#1e40af", color: "#93c5fd", fontSize: 10, fontWeight: 700, padding: "2px 6px" },
-  counter: { background: "#1e293b", border: "1px solid #334155", padding: "4px 10px", fontSize: 13, color: "#94a3b8" },
-  addBtn:  { background: "transparent", border: "1.5px solid #38bdf8", color: "#38bdf8", padding: "7px 16px", fontSize: 13, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontFamily: "inherit" },
-  syncBtn: { background: "transparent", border: "1.5px solid #334155", color: "#94a3b8", padding: "7px 16px", fontSize: 13, fontWeight: 500, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontFamily: "inherit" },
+  proBadge:{ background: "#1e40af", color: "#93c5fd", fontSize: 12.5, fontWeight: 700, padding: "2px 6px" },
+  counter: { background: "#1e293b", border: "1px solid #334155", padding: "4px 10px", fontSize: 15.5, color: "#94a3b8" },
+  addBtn:  { background: "transparent", border: "1.5px solid #38bdf8", color: "#38bdf8", padding: "7px 16px", fontSize: 15.5, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontFamily: "inherit" },
+  syncBtn: { background: "transparent", border: "1.5px solid #334155", color: "#94a3b8", padding: "7px 16px", fontSize: 15.5, fontWeight: 500, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontFamily: "inherit" },
   tableWrap:{ border: "1px solid #1e293b", overflow: "hidden" },
   table:   { width: "100%", borderCollapse: "collapse", background: "#0b1220" },
-  th:      { padding: "12px 14px", textAlign: "left", fontSize: 12, fontWeight: 600, color: "#64748b", borderBottom: "1px solid #1e293b", whiteSpace: "nowrap" },
+  th:      { padding: "12px 14px", textAlign: "left", fontSize: 14.5, fontWeight: 600, color: "#64748b", borderBottom: "1px solid #1e293b", whiteSpace: "nowrap" },
   tr:      { borderBottom: "1px solid #111d30" },
-  td:      { padding: "13px 14px", fontSize: 13, color: "#cbd5e1", whiteSpace: "nowrap" },
+  td:      { padding: "13px 14px", fontSize: 15.5, color: "#cbd5e1", whiteSpace: "nowrap" },
   actionBtn:{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", padding: "2px 4px" },
-  pageSelect:{ background: "#1e293b", border: "1px solid #334155", color: "#cbd5e1", padding: "3px 8px", fontSize: 12, cursor: "pointer" },
-  pageBtn: { background: "none", border: "1px solid #1e293b", color: "#64748b", padding: "3px 8px", cursor: "pointer", fontSize: 12 },
+  pageSelect:{ background: "#1e293b", border: "1px solid #334155", color: "#cbd5e1", padding: "3px 8px", fontSize: 14.5, cursor: "pointer" },
+  pageBtn: { background: "none", border: "1px solid #1e293b", color: "#64748b", padding: "3px 8px", cursor: "pointer", fontSize: 14.5 },
   overlay: { position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, backdropFilter: "blur(4px)" },
   modal:   { background: "#0d1827", border: "1px solid #1e3050", width: 560, maxWidth: "95vw", maxHeight: "90vh", overflowY: "auto", position: "relative", boxShadow: "0 24px 80px rgba(0,0,0,0.7)" },
   modalHeader:{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "20px 24px 14px", position: "sticky", top: 0, background: "#0d1827", zIndex: 1, borderBottom: "1px solid #1e3050" },
-  modalTitle: { fontSize: 17, fontWeight: 700, color: "#f1f5f9", margin: 0 },
-  closeBtn:   { background: "none", border: "none", color: "#ef4444", fontSize: 18, cursor: "pointer", padding: "2px 6px" },
+  modalTitle: { fontSize: 18.5, fontWeight: 700, color: "#f1f5f9", margin: 0 },
+  closeBtn:   { background: "none", border: "none", color: "#ef4444", fontSize: 19, cursor: "pointer", padding: "2px 6px" },
   platformCard:       { background: "#111e30", border: "1.5px solid #1e3050", padding: "14px 8px 10px", display: "flex", flexDirection: "column", alignItems: "center", gap: 8, cursor: "pointer", color: "#e2e8f0", fontFamily: "inherit" },
   platformCardSelected:{ border: "1.5px solid #38bdf8", background: "#0c2233" },
 };

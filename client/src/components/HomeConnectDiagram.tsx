@@ -1,6 +1,6 @@
 import { Zap, PenLine, Camera, BookOpen, BarChart3, ClipboardCheck, Diamond } from 'lucide-react';
 import Wordmark from '@/components/Wordmark';
-import { display, sans, homeTokens, type HomeTokens } from '@/components/homeTokens';
+import { display, sans, homeTokens, page, MEASURE, TYPE, type HomeTokens } from '@/components/homeTokens';
 
 /**
  * HomeConnectDiagram — "Your trades. One connected workspace." Added 2026-10-07 from the fifth and
@@ -76,12 +76,12 @@ export default function HomeConnectDiagram({ darkMode, brokers }: { darkMode: bo
   const InputCard = ({ icon: Icon, title, note, badge }: typeof INPUTS[number]) => (
     <>
       <Icon size={18} color={badge ? t.accent : t.muted} strokeWidth={2} aria-hidden />
-      <span style={{ ...sans, fontSize: 14, fontWeight: 700, color: t.text }}>{title}</span>
+      <span style={{ ...sans, fontSize: TYPE.chip, fontWeight: 700, color: t.text }}>{title}</span>
       {/* 11px, not 10.5 — the readability sweep flags anything under 11px, and these three badges
           were the only text on the page below it. `accentInk`, not `accent`: accent on its own wash
           measures 4.01:1 light / 3.61:1 dark, both under the floor. */}
       <span style={{
-        ...sans, marginLeft: 'auto', fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 999,
+        ...sans, marginLeft: 'auto', fontSize: TYPE.small, fontWeight: 700, padding: '3px 9px', borderRadius: 999,
         letterSpacing: '0.04em', whiteSpace: 'nowrap',
         color: badge ? t.accentInk : t.muted,
         background: badge ? t.accentSoft : 'transparent',
@@ -94,27 +94,33 @@ export default function HomeConnectDiagram({ darkMode, brokers }: { darkMode: bo
     <>
       <Icon size={18} color={t.accent} strokeWidth={2} aria-hidden style={{ flexShrink: 0 }} />
       <span style={{ minWidth: 0 }}>
-        <span style={{ ...sans, display: 'block', fontSize: 14, fontWeight: 700, color: t.text }}>{title}</span>
-        <span style={{ ...sans, display: 'block', fontSize: 11.5, color: t.muted, marginTop: 1 }}>{desc}</span>
+        <span style={{ ...sans, display: 'block', fontSize: TYPE.chip, fontWeight: 700, color: t.text }}>{title}</span>
+        <span style={{ ...sans, display: 'block', fontSize: TYPE.dense, color: t.muted, marginTop: 1 }}>{desc}</span>
       </span>
     </>
   );
 
   return (
     <section style={{ background: t.bg, padding: '88px 0 0', transition: 'background 0.4s ease' }}>
-      <div className="max-w-[1180px] mx-auto px-6">
+      <div style={page()}>
         <h2 style={{ ...display, fontSize: 'clamp(1.8rem,3.4vw,2.9rem)', fontWeight: 800, textAlign: 'center',
                      color: t.text, margin: '0 0 14px', lineHeight: 1.15, letterSpacing: '-0.02em' }}>
           Your trades.<br />One connected workspace.
         </h2>
-        <p style={{ ...sans, textAlign: 'center', fontSize: 15, color: t.muted, lineHeight: 1.75,
-                    maxWidth: 520, margin: '0 auto 56px' }}>
+        <p style={{ ...sans, textAlign: 'center', fontSize: TYPE.lead, color: t.muted, lineHeight: 1.75,
+                    maxWidth: MEASURE, margin: '0 auto 56px' }}>
           Automatically from cTrader, by hand from anywhere else &mdash; then everything downstream works
           off the same record.
         </p>
 
         {/* ── Desktop: the wired diagram ─────────────────────────────── */}
-        <div className="hidden lg:block" style={{ position: 'relative', maxWidth: 1000, margin: '0 auto',
+        {/* ⚠ WIDENING THIS IS WHAT GIVES THE TEXT ROOM — do not shrink it back. Every card is placed
+            as a PERCENTAGE of the shared 1000x420 space, so the whole diagram scales with this one
+            number while the wires stay on the cards. The card text does NOT scale (it is set in px),
+            so a wider diagram is literally more room for the same words. At 1000 the output cards
+            were 260px wide and the 13px descriptions no longer fitted on one line; at 1120 they are
+            291px and fit with room to spare. */}
+        <div className="hidden lg:block" style={{ position: 'relative', maxWidth: 1120, margin: '0 auto',
                                                   aspectRatio: '1000 / 420' }}>
           <svg viewBox="0 0 1000 420" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
                aria-hidden focusable="false">
@@ -162,7 +168,7 @@ export default function HomeConnectDiagram({ darkMode, brokers }: { darkMode: bo
 
         {/* The broker strip, folded in here rather than standing as its own section — it is the
             evidence for the "cTrader" card directly above it, so it belongs with it. */}
-        <p style={{ ...sans, textAlign: 'center', fontSize: 11, color: t.muted, fontWeight: 600,
+        <p style={{ ...sans, textAlign: 'center', fontSize: TYPE.small, color: t.muted, fontWeight: 600,
                     letterSpacing: '0.1em', textTransform: 'uppercase', margin: '72px 0 24px' }}>
           Compatible with 50+ brokers
         </p>
@@ -172,8 +178,8 @@ export default function HomeConnectDiagram({ darkMode, brokers }: { darkMode: bo
           {[...brokers, ...brokers].map((name, i) => (
             <span key={i} style={{
               display: 'inline-flex', alignItems: 'center', gap: 7, padding: '6px 16px', borderRadius: 999,
-              border: `1px solid ${t.border}`, background: t.card, fontSize: 12.5, fontWeight: 600,
-              color: t.muted, whiteSpace: 'nowrap', flexShrink: 0, ...sans,
+              border: `1px solid ${t.border}`, background: t.card, fontWeight: 600,
+              color: t.muted, whiteSpace: 'nowrap', flexShrink: 0, ...sans, fontSize: TYPE.small,
             }}>
               <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#94a3b8', flexShrink: 0 }} />
               {name}

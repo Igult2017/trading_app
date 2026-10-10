@@ -35,7 +35,7 @@ const VaultCell = ({ label, value, color, isMobile, first = false }: { label: st
     borderLeft: first ? "none" : "1px solid var(--jr-border)",
     borderTop: "1px solid transparent",
   }}>
-    <span style={{ fontSize: 11, fontWeight: 900, color: "var(--jr-cap, #A8AEB8)", letterSpacing: "0.12em", fontFamily: "'Montserrat', sans-serif" }}>
+    <span style={{ fontSize: 13.5, fontWeight: 900, color: "var(--jr-cap, #A8AEB8)", letterSpacing: "0.12em", fontFamily: "'Montserrat', sans-serif" }}>
       {label}
     </span>
     <span className="tv-fig" style={{
@@ -124,7 +124,7 @@ function DirectionBadge({ direction }: { direction: string }) {
   const isBearish = direction === "bearish";
 
   if (!isBullish && !isBearish) {
-    return <span style={{ color: "var(--jr-cap, #A8AEB8)", fontSize: 11 }}>—</span>;
+    return <span style={{ color: "var(--jr-cap, #A8AEB8)", fontSize: 13.5 }}>—</span>;
   }
 
   return (
@@ -134,7 +134,7 @@ function DirectionBadge({ direction }: { direction: string }) {
       gap: 5,
       padding: "4px 10px",
       borderRadius: 20,
-      fontSize: 11,
+      fontSize: 13.5,
       fontWeight: 700,
       letterSpacing: "0.08em",
       border: "1px solid transparent",
@@ -159,14 +159,14 @@ function DirectionBadge({ direction }: { direction: string }) {
 
 function RRBadge({ rr }: { rr: string }) {
   const val = parseFloat(rr);
-  if (!rr || isNaN(val)) return <span style={{ color: "var(--jr-cap, #A8AEB8)", fontSize: 11 }}>—</span>;
+  if (!rr || isNaN(val)) return <span style={{ color: "var(--jr-cap, #A8AEB8)", fontSize: 13.5 }}>—</span>;
   const color = val >= 2 ? "#4da6ff" : val >= 1 ? "#a78bfa" : "#8899bb";
   return (
     <span className="tv-num" style={{
       display: "inline-block",
       padding: "4px 10px",
       borderRadius: 6,
-      fontSize: 11,
+      fontSize: 13.5,
       fontWeight: 700,
       letterSpacing: "0.08em",
       background: "rgba(77,166,255,0.06)",
@@ -374,7 +374,7 @@ function EditModal({ trade, onSave, onClose, isPending, error, onRelease, synced
         </div>
 
         {error && (
-          <div style={{ marginTop: 14, padding: '10px 12px', borderRadius: 6, fontSize: 12.5, lineHeight: 1.5,
+          <div style={{ marginTop: 14, padding: '10px 12px', borderRadius: 6, fontSize: 15, lineHeight: 1.5,
                         background: 'rgba(255,77,109,0.10)', border: '1px solid rgba(255,77,109,0.30)', color: '#ff8fa3' }}
                data-testid="text-save-error">
             Could not save: {error}
@@ -382,7 +382,7 @@ function EditModal({ trade, onSave, onClose, isPending, error, onRelease, synced
         )}
 
         {parsedPl === null && form.plText.trim() !== '' && (
-          <div style={{ marginTop: 10, fontSize: 12, color: '#fbbf24' }} data-testid="text-pl-invalid">
+          <div style={{ marginTop: 10, fontSize: 14.5, color: '#fbbf24' }} data-testid="text-pl-invalid">
             P/L is not a number yet — finish typing it (a minus sign on its own is fine while you do).
           </div>
         )}
@@ -610,8 +610,8 @@ export default function TradeVault({ sessionId, startingBalance: sessionStarting
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
         <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#00d48a", boxShadow: "0 0 6px #00d48a", flexShrink: 0 }} />
         <div>
-          <div style={{ fontSize: 12, fontWeight: 900, color: "var(--jr-ink, #ECEEF2)", letterSpacing: "0.12em", fontFamily: "'Montserrat', sans-serif" }}>{t('vault.title')}</div>
-          <div style={{ fontSize: 11, fontWeight: 900, color: "var(--jr-cap, #A8AEB8)", marginTop: 2, fontFamily: "'Montserrat', sans-serif" }}>{subtitle}</div>
+          <div style={{ fontSize: 14.5, fontWeight: 900, color: "var(--jr-ink, #ECEEF2)", letterSpacing: "0.12em", fontFamily: "'Montserrat', sans-serif" }}>{t('vault.title')}</div>
+          <div style={{ fontSize: 13.5, fontWeight: 900, color: "var(--jr-cap, #A8AEB8)", marginTop: 2, fontFamily: "'Montserrat', sans-serif" }}>{subtitle}</div>
         </div>
       </div>
       <div className="tv-stats" style={{ display: "flex", flexWrap: isMobile ? "wrap" : "nowrap", background: "var(--jr-panel)", border: "1px solid var(--jr-border)", overflow: "hidden", flexShrink: 0, width: isMobile ? "100%" : "auto" }}>
@@ -635,7 +635,7 @@ export default function TradeVault({ sessionId, startingBalance: sessionStarting
           onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}
           data-testid="button-download-csv"
         >
-          <span style={{ fontSize: 11, fontWeight: 900, color: "var(--jr-cap, #A8AEB8)", letterSpacing: "0.12em", fontFamily: "'Montserrat', sans-serif" }}>
+          <span style={{ fontSize: 13.5, fontWeight: 900, color: "var(--jr-cap, #A8AEB8)", letterSpacing: "0.12em", fontFamily: "'Montserrat', sans-serif" }}>
             {exported ? t('vault.exported') : t('vault.exportCsv')}
           </span>
           <CircleDownloadIcon success={exported} />
@@ -792,11 +792,11 @@ export default function TradeVault({ sessionId, startingBalance: sessionStarting
       <div style={{ padding: 0 }}>
       {!sessionId ? (
         <div style={{ ...styles.tableWrapper, padding: 40, textAlign: "center" as const }}>
-          <div style={{ color: "var(--jr-ink, #ECEEF2)", fontSize: 13 }}>Select a session to view your trades.</div>
+          <div style={{ color: "var(--jr-ink, #ECEEF2)", fontSize: 15.5 }}>Select a session to view your trades.</div>
         </div>
       ) : loading ? null : trades.length === 0 ? (
         <div style={{ ...styles.tableWrapper, padding: 40, textAlign: "center" as const }}>
-          <div style={{ color: "var(--jr-ink, #ECEEF2)", fontSize: 14 }} data-testid="text-empty-state">{t('vault.noTrades')}</div>
+          <div style={{ color: "var(--jr-ink, #ECEEF2)", fontSize: 16.5 }} data-testid="text-empty-state">{t('vault.noTrades')}</div>
         </div>
       ) : (
         <div className="tv-table-wrap" style={{ ...styles.tableWrapper, overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
@@ -877,7 +877,7 @@ export default function TradeVault({ sessionId, startingBalance: sessionStarting
                           data-testid={`button-confirm-delete-${trade.id}`}
                         >
                           <Trash2 size={14} />
-                          <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", lineHeight: 1 }}>DELETE?</span>
+                          <span style={{ fontSize: 13.5, fontWeight: 700, letterSpacing: "0.06em", lineHeight: 1 }}>DELETE?</span>
                         </button>
                       ) : (
                         <button
@@ -934,12 +934,12 @@ const styles: Record<string, React.CSSProperties> = {
   vaultLabel: {
     fontFamily: "'Montserrat', sans-serif",
     fontWeight: 700,
-    fontSize: 14,
+    fontSize: 16.5,
     color: "var(--jr-ink, #ECEEF2)",
     letterSpacing: "0.06em",
   },
   vaultSub: {
-    fontSize: 11,
+    fontSize: 13.5,
     color: "var(--jr-cap, #A8AEB8)",
     marginTop: 4,
     letterSpacing: "0.05em",
@@ -955,7 +955,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   statCard: { textAlign: "center" as const },
   statLabel: {
-    fontSize: 11,
+    fontSize: 13.5,
     color: "var(--jr-cap, #A8AEB8)",
     letterSpacing: "0.12em",
     marginBottom: 4,
@@ -963,7 +963,7 @@ const styles: Record<string, React.CSSProperties> = {
   statValue: {
     fontFamily: "'Montserrat', sans-serif",
     fontWeight: 700,
-    fontSize: 18,
+    fontSize: 19,
   },
   statDivider: {
     width: 1,
@@ -983,7 +983,7 @@ const styles: Record<string, React.CSSProperties> = {
   th: {
     padding: "14px 20px",
     textAlign: "left" as const,
-    fontSize: 11,
+    fontSize: 13.5,
     fontWeight: 600,
     color: "var(--jr-cap, #A8AEB8)",
     letterSpacing: "0.12em",
@@ -999,25 +999,25 @@ const styles: Record<string, React.CSSProperties> = {
     verticalAlign: "middle" as const,
   },
   dateText: {
-    fontSize: 11,
+    fontSize: 13.5,
     color: "var(--jr-ink, #ECEEF2)",
     fontWeight: 500,
   },
   timeText: {
-    fontSize: 11,
+    fontSize: 13.5,
     color: "var(--jr-ink, #ECEEF2)",
     marginTop: 2,
   },
   asset: {
     fontFamily: "'Montserrat', sans-serif",
     fontWeight: 700,
-    fontSize: 11,
+    fontSize: 13.5,
     color: "var(--jr-ink, #ECEEF2)",
     letterSpacing: "0.05em",
     fontStyle: "italic" as const,
   },
   strategy: {
-    fontSize: 11,
+    fontSize: 13.5,
     color: "var(--jr-ink, #ECEEF2)",
   },
   sessionBadge: {
@@ -1026,7 +1026,7 @@ const styles: Record<string, React.CSSProperties> = {
     background: "var(--jr-panel)",
     border: "1px solid var(--jr-border)",
     borderRadius: 6,
-    fontSize: 11,
+    fontSize: 13.5,
     fontWeight: 600,
     color: "var(--jr-ink, #ECEEF2)",
     letterSpacing: "0.08em",
@@ -1035,7 +1035,7 @@ const styles: Record<string, React.CSSProperties> = {
     display: "inline-block",
     padding: "5px 14px",
     borderRadius: 20,
-    fontSize: 11,
+    fontSize: 13.5,
     fontWeight: 700,
     letterSpacing: "0.1em",
     border: "1px solid transparent",
@@ -1058,7 +1058,7 @@ const styles: Record<string, React.CSSProperties> = {
   pl: {
     fontFamily: "'Montserrat', sans-serif",
     fontWeight: 800,
-    fontSize: 12,
+    fontSize: 14.5,
   },
   overlay: {
     position: "fixed" as const,
@@ -1089,7 +1089,7 @@ const styles: Record<string, React.CSSProperties> = {
   modalTitle: {
     fontFamily: "'Montserrat', sans-serif",
     fontWeight: 800,
-    fontSize: 14,
+    fontSize: 16.5,
     color: "var(--jr-ink, #ECEEF2)",
     letterSpacing: "0.1em",
   },
@@ -1098,7 +1098,7 @@ const styles: Record<string, React.CSSProperties> = {
     border: "none",
     color: "var(--jr-cap, #A8AEB8)",
     cursor: "pointer",
-    fontSize: 16,
+    fontSize: 18,
   },
   formGrid: {
     display: "grid",
@@ -1112,7 +1112,7 @@ const styles: Record<string, React.CSSProperties> = {
     gap: 6,
   },
   label: {
-    fontSize: 11,
+    fontSize: 13.5,
     fontWeight: 700,
     color: "var(--jr-cap, #A8AEB8)",
     letterSpacing: "0.12em",
@@ -1124,7 +1124,7 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: 6,
     padding: "8px 10px",
     color: "var(--jr-ink, #ECEEF2)",
-    fontSize: 12,
+    fontSize: 14.5,
     fontFamily: "'JetBrains Mono', monospace",
     outline: "none",
     width: "100%",
@@ -1140,7 +1140,7 @@ const styles: Record<string, React.CSSProperties> = {
     border: "1px solid var(--jr-border)",
     borderRadius: 6,
     color: "var(--jr-cap, #A8AEB8)",
-    fontSize: 11,
+    fontSize: 13.5,
     fontWeight: 700,
     cursor: "pointer",
     fontFamily: "'Montserrat', sans-serif",
@@ -1152,7 +1152,7 @@ const styles: Record<string, React.CSSProperties> = {
     border: "none",
     borderRadius: 6,
     color: "#fff",
-    fontSize: 11,
+    fontSize: 13.5,
     fontWeight: 700,
     cursor: "pointer",
     fontFamily: "'Montserrat', sans-serif",

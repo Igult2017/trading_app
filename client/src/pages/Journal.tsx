@@ -137,11 +137,11 @@ const NavButton = ({ item, isActive, onClick, showLabels, darkMode = true, label
         onMouseLeave={e => { if (!isActive && !item.disabled) e.currentTarget.style.background = 'transparent'; }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0, flex: 1 }}>
           <span style={{ color: isActive ? iconActive : iconIdle, flexShrink: 0, display: 'flex', transform: !showLabels ? 'scale(1.3)' : 'scale(1)', transition: 'transform 0.2s ease' }}><item.icon /></span>
-          {showLabels && <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: '0.02em', color: isActive ? labelActive : labelIdle, whiteSpace: 'nowrap' }}>{label ?? item.label}</span>}
+          {showLabels && <span style={{ fontSize: 15.5, fontWeight: 700, letterSpacing: '0.02em', color: isActive ? labelActive : labelIdle, whiteSpace: 'nowrap' }}>{label ?? item.label}</span>}
         </div>
         {showLabels && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-            {item.badge && <span style={{ fontSize: 8, fontWeight: 800, letterSpacing: '0.1em', padding: '3px 8px', borderRadius: 4, background: item.badge === 'Pro' ? 'rgba(139,92,246,0.8)' : '#22d3ee', color: '#020617', textTransform: 'uppercase' }}>{item.badge}</span>}
+            {item.badge && <span style={{ fontSize: 11.5, fontWeight: 800, letterSpacing: '0.1em', padding: '3px 8px', borderRadius: 4, background: item.badge === 'Pro' ? 'rgba(139,92,246,0.8)' : '#22d3ee', color: '#020617', textTransform: 'uppercase' }}>{item.badge}</span>}
             {item.arrow && <span style={{ color: 'rgba(100,116,139,0.5)', display: 'flex', marginLeft: 2 }}><SI.ChevronRight /></span>}
           </div>
         )}
@@ -190,7 +190,7 @@ const Sidebar = ({ activeNav, setActiveNav, open, isMobile, onClose, darkMode, s
             {NAV_SECTIONS.map((group, gi) => (
               <div key={gi} style={{ marginBottom: group.section ? 12 : 8 }}>
                 {gi > 0 && !group.section && <div style={{ height: 1, background: 'rgba(255,255,255,0.05)', margin: '8px 0' }} />}
-                {showLabels && group.section && <p style={{ fontSize: 8, fontWeight: 800, color: 'rgba(100,116,139,0.5)', letterSpacing: '0.2em', textTransform: 'uppercase', padding: '16px 12px 8px', margin: 0, whiteSpace: 'nowrap' }}>{group.section}</p>}
+                {showLabels && group.section && <p style={{ fontSize: 11.5, fontWeight: 800, color: 'rgba(100,116,139,0.5)', letterSpacing: '0.2em', textTransform: 'uppercase', padding: '16px 12px 8px', margin: 0, whiteSpace: 'nowrap' }}>{group.section}</p>}
                 {group.items.map(item => (
                   <NavButton key={item.id} item={item} isActive={activeNav === item.id} showLabels={showLabels} darkMode={dm}
                     label={t(`nav.${item.id}`, { defaultValue: item.label })}
@@ -226,7 +226,7 @@ const StatCard = ({ stat }: { stat: { id: string; label: string; value: string; 
   <div style={{ background: 'var(--jr-panel,#0d1117)', border: '1px solid var(--jr-border,rgba(255,255,255,0.05))', padding: 12, borderRadius: 8, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4 }} data-testid={`stat-${stat.id}`}>
     <p className="jr-cap" style={{ margin: 0, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{stat.label}</p>
     {/* Playfair, and BIGGER because of it — see the .jr-fig rule for why the two go together. */}
-    <p className="jr-fig" style={{ fontSize: 19, fontWeight: 700, color: stat.color, margin: 0 }}>{stat.value}</p>
+    <p className="jr-fig" style={{ fontSize: 20, fontWeight: 700, color: stat.color, margin: 0 }}>{stat.value}</p>
   </div>
 );
 
@@ -473,7 +473,7 @@ function ActivityCalendar({ entries, darkMode = true }: { entries: any[]; darkMo
         <div style={{ width: 28, height: 28, background: 'rgba(56,189,248,0.1)', border: '1px solid rgba(56,189,248,0.1)', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#38bdf8' }}>
           <Activity size={14} strokeWidth={3} />
         </div>
-        <h2 style={{ fontSize: 11, fontWeight: 900, color: '#38bdf8', textTransform: 'uppercase', letterSpacing: '0.2em', margin: 0 }}>ACTIVITY</h2>
+        <h2 style={{ fontSize: 13.5, fontWeight: 900, color: '#38bdf8', textTransform: 'uppercase', letterSpacing: '0.2em', margin: 0 }}>ACTIVITY</h2>
       </div>
 
       <>
@@ -486,7 +486,7 @@ function ActivityCalendar({ entries, darkMode = true }: { entries: any[]; darkMo
               <ChevronLeft size={14} strokeWidth={3} />
             </button>
             <div style={{ textAlign: 'center' }}>
-              <p style={{ fontSize: 12, fontWeight: 700, color: darkMode ? '#fff' : '#0f172a', letterSpacing: '0.1em', textTransform: 'uppercase', margin: 0 }}>
+              <p style={{ fontSize: 14.5, fontWeight: 700, color: darkMode ? '#fff' : '#0f172a', letterSpacing: '0.1em', textTransform: 'uppercase', margin: 0 }}>
                 {MONTH_NAMES[activeMonth - 1]} {activeYear}
               </p>
               {/* Dot indicators — one per month that has trades; click to jump */}
@@ -545,7 +545,7 @@ function ActivityCalendar({ entries, darkMode = true }: { entries: any[]; darkMo
                   title={isToday ? 'Today' : undefined}
                   style={{
                     aspectRatio: '1', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    borderRadius: 4, fontSize: 11, fontWeight: 700,
+                    borderRadius: 4, fontSize: 13.5, fontWeight: 700,
                     background: isToday && !status ? 'rgba(56,189,248,0.08)' : c.bg,
                     color: isToday ? '#38bdf8' : c.color,
                     border: isToday ? '1.5px solid #38bdf8' : `1px solid ${c.border}`,
@@ -711,29 +711,29 @@ function DashboardView({ sessionId, isMobile, windowWidth, darkMode = true }: { 
                   <path d="M11 18 c1.2 0 1.8 -1 2.4 -3 c0.6 -2.5 1.2 -7 2.6 -7 c1.4 0 2 4.5 2.6 7 c0.6 2 1.2 3 2.4 3" />
                 </svg>
               </div>
-              <h2 style={{ fontSize: 11, fontWeight: 900, color: 'var(--jr-accent,#38bdf8)', textTransform: 'uppercase', letterSpacing: '0.2em', margin: 0 }}>EQUITY CURVE</h2>
+              <h2 style={{ fontSize: 13.5, fontWeight: 900, color: 'var(--jr-accent,#38bdf8)', textTransform: 'uppercase', letterSpacing: '0.2em', margin: 0 }}>EQUITY CURVE</h2>
             </div>
             {equityGrowth && (
-              <span className="jr-num" style={{ fontSize: 12, color: equityGrowth.totalReturnPct >= 0 ? '#34d399' : '#fb7185', fontWeight: 900 }}>
+              <span className="jr-num" style={{ fontSize: 14.5, color: equityGrowth.totalReturnPct >= 0 ? '#34d399' : '#fb7185', fontWeight: 900 }}>
                 {equityGrowth.totalReturnPct >= 0 ? '+' : ''}{equityGrowth.totalReturnPct.toFixed(2)}%
               </span>
             )}
           </div>
           <div style={{ height: 220, width: '100%' }}>
             {equityCurve.length > 0 ? <NeonLineChart data={chartData} /> : (
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--jr-muted,rgba(100,116,139,0.5))', fontSize: 11 }}>No equity data yet</div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--jr-muted,rgba(100,116,139,0.5))', fontSize: 13.5 }}>No equity data yet</div>
             )}
           </div>
           <div style={{ position: 'absolute', bottom: 0, right: 0, width: 180, height: 180, background: 'var(--jr-accent,#38bdf8)0a', filter: 'blur(70px)', pointerEvents: 'none' }} />
         </div>
 
         <div style={{ background: 'var(--jr-panel,#0d1117)', border: '1px solid var(--jr-border,rgba(255,255,255,0.1))', padding: 20, borderRadius: 8 }} data-testid="panel-performance-mix">
-          <h2 style={{ fontSize: 11, fontWeight: 900, color: 'var(--jr-accent,#38bdf8)', marginBottom: 18, textTransform: 'uppercase', letterSpacing: '0.2em' }}>PERFORMANCE MIX</h2>
+          <h2 style={{ fontSize: 13.5, fontWeight: 900, color: 'var(--jr-accent,#38bdf8)', marginBottom: 18, textTransform: 'uppercase', letterSpacing: '0.2em' }}>PERFORMANCE MIX</h2>
           {[{ label: 'PROFIT RATIO', val: `${profitRatio}%`, color: '#10b981' }, { label: 'LOSS RATIO', val: `${lossRatio}%`, color: '#f43f5e' }].map(m => (
             <div key={m.label} style={{ marginBottom: 18 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
                 <span className="jr-cap" style={{ textTransform: 'uppercase' }}>{m.label}</span>
-                <span className="jr-num" style={{ fontSize: 12, fontWeight: 700, color: m.color }}>{m.val}</span>
+                <span className="jr-num" style={{ fontSize: 14.5, fontWeight: 700, color: m.color }}>{m.val}</span>
               </div>
               <div style={{ height: 2, background: 'var(--jr-divider,#161b22)', borderRadius: 4 }}><div style={{ height: '100%', width: m.val, background: m.color, borderRadius: 4 }} /></div>
             </div>
@@ -742,9 +742,9 @@ function DashboardView({ sessionId, isMobile, windowWidth, darkMode = true }: { 
             <p className="jr-cap" style={{ textTransform: 'uppercase', marginBottom: 12 }}>PAIR VOLUME / FREQUENCY</p>
             {instEntries.map(([name, data]: any) => (
               <div key={name} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-                <span style={{ fontSize: 11, color: 'var(--jr-ink,#ECEEF2)', width: 58, flexShrink: 0, fontWeight: 600 }}>{name}</span>
+                <span style={{ fontSize: 13.5, color: 'var(--jr-ink,#ECEEF2)', width: 58, flexShrink: 0, fontWeight: 600 }}>{name}</span>
                 <div style={{ flex: 1, height: 2, background: 'var(--jr-divider,#161b22)', borderRadius: 4, overflow: 'hidden' }}><div style={{ height: '100%', width: `${Math.round((data.trades / maxInstTrades) * 100)}%`, background: 'var(--jr-accent,#38bdf8)', borderRadius: 4 }} /></div>
-                <span className="jr-num" style={{ fontSize: 11, color: 'var(--jr-ink,#ECEEF2)', width: 22, textAlign: 'right', flexShrink: 0, fontWeight: 600 }}>{data.trades}</span>
+                <span className="jr-num" style={{ fontSize: 13.5, color: 'var(--jr-ink,#ECEEF2)', width: 22, textAlign: 'right', flexShrink: 0, fontWeight: 600 }}>{data.trades}</span>
               </div>
             ))}
             {instEntries.length === 0 && <p className="jr-cap" style={{ textTransform: 'none', letterSpacing: '.02em' }}>No instrument data yet</p>}
@@ -755,7 +755,7 @@ function DashboardView({ sessionId, isMobile, windowWidth, darkMode = true }: { 
       <div style={{ display: 'grid', gridTemplateColumns: windowWidth >= 900 ? '7fr 5fr' : '1fr', gap: 6 }}>
         <div style={{ background: 'var(--jr-panel,#0d1117)', border: '1px solid var(--jr-border,rgba(255,255,255,0.1))', borderRadius: 8, overflow: 'hidden', display: 'flex', flexDirection: 'column' }} data-testid="panel-trade-log">
           <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--jr-border,rgba(255,255,255,0.08))', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: 11, fontWeight: 900, color: 'var(--jr-accent,#38bdf8)', textTransform: 'uppercase', letterSpacing: '0.2em', fontStyle: 'italic' }}>RECENT TRADE LOG</span>
+            <span style={{ fontSize: 13.5, fontWeight: 900, color: 'var(--jr-accent,#38bdf8)', textTransform: 'uppercase', letterSpacing: '0.2em', fontStyle: 'italic' }}>RECENT TRADE LOG</span>
             <Activity size={14} strokeWidth={3} style={{ color: 'var(--jr-accent,#38bdf8)', opacity: .3 }} />
           </div>
           <div style={{ overflowX: 'auto' }}>
@@ -770,13 +770,13 @@ function DashboardView({ sessionId, isMobile, windowWidth, darkMode = true }: { 
                   {recentTrades.map(t => (
                     <tr key={t.id} style={{ borderTop: '1px solid var(--jr-divider,rgba(255,255,255,0.04))' }} data-testid={`trade-row-${t.id}`}>
                       <td style={{ padding: '8px 14px' }}>
-                        <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--jr-ink,#ECEEF2)' }}>{t.ticker}</div>
+                        <div style={{ fontSize: 14.5, fontWeight: 700, color: 'var(--jr-ink,#ECEEF2)' }}>{t.ticker}</div>
                         <div className="jr-cap jr-num" style={{ marginTop: 3, letterSpacing: '.02em' }}>{t.date}</div>
                       </td>
                       <td style={{ padding: '8px 14px', textAlign: 'center' }}>
-                        <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', background: t.type === 'LONG' ? 'rgba(16,185,129,0.1)' : 'rgba(244,63,94,0.1)', color: t.type === 'LONG' ? '#34d399' : '#fb7185', border: `1px solid ${t.type === 'LONG' ? 'rgba(16,185,129,0.15)' : 'rgba(244,63,94,0.15)'}` }}>{t.type}</span>
+                        <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: 4, fontSize: 13.5, fontWeight: 700, letterSpacing: '0.08em', background: t.type === 'LONG' ? 'rgba(16,185,129,0.1)' : 'rgba(244,63,94,0.1)', color: t.type === 'LONG' ? '#34d399' : '#fb7185', border: `1px solid ${t.type === 'LONG' ? 'rgba(16,185,129,0.15)' : 'rgba(244,63,94,0.15)'}` }}>{t.type}</span>
                       </td>
-                      <td className="jr-num" style={{ padding: '8px 14px', textAlign: 'right', fontSize: 12, fontWeight: 700, color: t.status === 'win' ? '#34d399' : t.status === 'be' ? '#fbbf24' : '#fb7185' }}>
+                      <td className="jr-num" style={{ padding: '8px 14px', textAlign: 'right', fontSize: 14.5, fontWeight: 700, color: t.status === 'win' ? '#34d399' : t.status === 'be' ? '#fbbf24' : '#fb7185' }}>
                         {/* THE SIGN COMES FROM THE MONEY, never from the label — a break-even
                             printed "-$0.00" when it was read off the class. */}
                         {t.pnl >= 0 ? '+' : '-'}${Math.abs(t.pnl).toFixed(2)}
@@ -786,7 +786,7 @@ function DashboardView({ sessionId, isMobile, windowWidth, darkMode = true }: { 
                 </tbody>
               </table>
             ) : (
-              <div style={{ padding: 40, textAlign: 'center', color: 'var(--jr-muted,rgba(100,116,139,0.5))', fontSize: 11 }}>No trades in this session yet</div>
+              <div style={{ padding: 40, textAlign: 'center', color: 'var(--jr-muted,rgba(100,116,139,0.5))', fontSize: 13.5 }}>No trades in this session yet</div>
             )}
           </div>
         </div>

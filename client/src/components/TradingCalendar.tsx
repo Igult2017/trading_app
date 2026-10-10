@@ -146,7 +146,7 @@ function StatCard({ label, value, color, sub, compact }: { label: string; value:
     }} data-testid={`stat-${label.toLowerCase().replace(/[^a-z0-9]/g, "-")}`}>
       <div style={{ fontFamily: FONT, fontSize: compact ? 7 : 9, fontWeight: 800, letterSpacing: "0.15em", color: "var(--jr-ink-dim)", textTransform: "uppercase" as const, marginBottom: compact ? 5 : 10 }}>{label}</div>
       <div style={{ fontFamily: FONT, fontSize: compact ? 13 : 18, fontWeight: 900, color, letterSpacing: "-0.03em", lineHeight: 1 }}>{value}</div>
-      {sub && !compact && <div style={{ fontFamily: FONT, fontSize: 10, fontWeight: 600, color: "var(--jr-ink-dim)", marginTop: 6, letterSpacing: "0.05em" }}>{sub}</div>}
+      {sub && !compact && <div style={{ fontFamily: FONT, fontSize: 12.5, fontWeight: 600, color: "var(--jr-ink-dim)", marginTop: 6, letterSpacing: "0.05em" }}>{sub}</div>}
     </div>
   );
 }
@@ -216,8 +216,8 @@ function DayCell({ day, data, maxPnl, cellHeight, isMobile }: { day: number | nu
             { l: "WIN RATE", v: `${d.winRate}%`,      c: INK },
           ].map(r => (
             <div key={r.l} style={{ display: "flex", justifyContent: "space-between", gap: 20, marginBottom: 5 }}>
-              <span style={{ fontFamily: FONT, fontSize: 9, fontWeight: 800, letterSpacing: "0.1em", color: "var(--jr-ink-dim)" }}>{r.l}</span>
-              <span style={{ fontFamily: FONT, fontSize: 11, fontWeight: 900, color: r.c }}>{r.v}</span>
+              <span style={{ fontFamily: FONT, fontSize: 12, fontWeight: 800, letterSpacing: "0.1em", color: "var(--jr-ink-dim)" }}>{r.l}</span>
+              <span style={{ fontFamily: FONT, fontSize: 13.5, fontWeight: 900, color: r.c }}>{r.v}</span>
             </div>
           ))}
           <div style={{
@@ -242,7 +242,7 @@ function NavSelect({ value, onChange, options, width }: { value: number; onChang
           background: CARD, border: `2px solid ${BORDER}`,
           color: INK, height: 40,
           padding: "0 28px 0 14px",
-          fontFamily: FONT, fontSize: 10, fontWeight: 900,
+          fontFamily: FONT, fontSize: 12.5, fontWeight: 900,
           letterSpacing: "0.1em", cursor: "pointer", outline: "none",
           width: width || "auto",
           transition: "border-color .15s",
@@ -330,7 +330,7 @@ function NavSearch({ onNavigate }: { onNavigate: (year: number, month: number) =
           color: state === "error" ? RED : INK,
           height: 40, width: 170,
           padding: "0 12px 0 32px",
-          fontFamily: FONT, fontSize: 10, fontWeight: 900,
+          fontFamily: FONT, fontSize: 12.5, fontWeight: 900,
           letterSpacing: "0.08em", outline: "none",
           transition: "border-color .15s, color .15s",
         }}
@@ -340,7 +340,7 @@ function NavSearch({ onNavigate }: { onNavigate: (year: number, month: number) =
       {val && (
         <button
           onClick={() => { setVal(""); setState("idle"); inputRef.current?.focus(); }}
-          style={{ position: "absolute", right: 8, background: "none", border: "none", color: "var(--jr-ink-dim)", cursor: "pointer", fontSize: 14, lineHeight: 1, padding: 2 }}
+          style={{ position: "absolute", right: 8, background: "none", border: "none", color: "var(--jr-ink-dim)", cursor: "pointer", fontSize: 16.5, lineHeight: 1, padding: 2 }}
         >×</button>
       )}
     </div>
@@ -473,15 +473,15 @@ export default function TradingCalendar({ sessionId, darkMode = true }: { sessio
       }}>
         <div style={{ paddingLeft: 8 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 5 }}>
-            <div style={{ fontSize: 8, fontWeight: 800, letterSpacing: "0.28em", color: "var(--jr-ink-dim)" }}>{t('calendar.overview')}</div>
+            <div style={{ fontSize: 11.5, fontWeight: 800, letterSpacing: "0.28em", color: "var(--jr-ink-dim)" }}>{t('calendar.overview')}</div>
             {isFetching && !isLoading && (
               <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                 <div style={{ width: 4, height: 4, borderRadius: "50%", background: GREEN, animation: "dotBlink 1s ease infinite" }} />
-                <span style={{ fontSize: 7, fontWeight: 700, letterSpacing: "0.2em", color: GREEN, opacity: 0.7 }}>SYNCING</span>
+                <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.2em", color: GREEN, opacity: 0.7 }}>SYNCING</span>
               </div>
             )}
           </div>
-          <div style={{ fontSize: 13, fontWeight: 900, color: INK, letterSpacing: "0.15em" }}>
+          <div style={{ fontSize: 15.5, fontWeight: 900, color: INK, letterSpacing: "0.15em" }}>
             TRADING<span style={{ color: GREEN }}>_</span>CALENDAR
           </div>
         </div>
@@ -493,7 +493,7 @@ export default function TradingCalendar({ sessionId, darkMode = true }: { sessio
             style={{
               background: CARD, border: `2px solid ${BORDER}`,
               color: INK, width: 40, height: 40, cursor: "pointer",
-              fontFamily: FONT, fontWeight: 900, fontSize: 15,
+              fontFamily: FONT, fontWeight: 900, fontSize: 17.5,
               display: "flex", alignItems: "center", justifyContent: "center",
               flexShrink: 0, transition: "background .15s, border-color .15s",
             }}
@@ -521,7 +521,7 @@ export default function TradingCalendar({ sessionId, darkMode = true }: { sessio
             style={{
               background: CARD, border: `2px solid ${BORDER}`,
               color: INK, width: 40, height: 40, cursor: "pointer",
-              fontFamily: FONT, fontWeight: 900, fontSize: 15,
+              fontFamily: FONT, fontWeight: 900, fontSize: 17.5,
               display: "flex", alignItems: "center", justifyContent: "center",
               flexShrink: 0, transition: "background .15s, border-color .15s",
             }}
@@ -539,7 +539,7 @@ export default function TradingCalendar({ sessionId, darkMode = true }: { sessio
               background: CARD, border: `2px solid ${BORDER}`,
               height: 40, display: "flex", alignItems: "center",
               padding: "0 14px", gap: 8,
-              fontSize: 11, fontWeight: 900, letterSpacing: "0.1em",
+              fontSize: 13.5, fontWeight: 900, letterSpacing: "0.1em",
               color: INK, whiteSpace: "nowrap" as const,
               animation: flashKey > 0 ? "tagFlash 1.4s ease forwards" : "none",
               flexShrink: 0,
@@ -581,7 +581,7 @@ export default function TradingCalendar({ sessionId, darkMode = true }: { sessio
             background: "rgba(var(--tc-scrim-rgb, 10,13,20),0.82)", gap: 10,
           }}>
             <div style={{ fontSize: 28, opacity: 0.15 }}>—</div>
-            <div style={{ fontFamily: FONT, fontSize: 11, fontWeight: 900, letterSpacing: "0.2em", color: "var(--jr-ink-dim)" }}>{t('calendar.noData')}</div>
+            <div style={{ fontFamily: FONT, fontSize: 13.5, fontWeight: 900, letterSpacing: "0.2em", color: "var(--jr-ink-dim)" }}>{t('calendar.noData')}</div>
           </div>
         )}
 
@@ -639,7 +639,7 @@ export default function TradingCalendar({ sessionId, darkMode = true }: { sessio
       </div>
 
       {!isMobile && (
-        <div style={{ marginTop: 8, textAlign: "right" as const, fontSize: 8, fontWeight: 800, letterSpacing: "0.12em", color: "var(--jr-ink-dim)", paddingRight: 8 }}>
+        <div style={{ marginTop: 8, textAlign: "right" as const, fontSize: 11.5, fontWeight: 800, letterSpacing: "0.12em", color: "var(--jr-ink-dim)", paddingRight: 8 }}>
           SEARCH: TYPE <span style={{ color: "var(--jr-ink-dim)" }}>MMM YYYY</span> OR <span style={{ color: "var(--jr-ink-dim)" }}>MM/YYYY</span> AND PRESS ENTER
         </div>
       )}

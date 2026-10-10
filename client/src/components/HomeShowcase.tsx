@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ArrowLeft, ArrowRight, Pause, Play } from 'lucide-react';
 import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from '@/components/ui/carousel';
-import { sans, homeTokens } from '@/components/homeTokens';
+import { sans, homeTokens, page, TYPE } from '@/components/homeTokens';
 
 /**
  * HomeShowcase — the product slideshow, directly under the hero. Built 2026-10-07.
@@ -97,7 +97,7 @@ export default function HomeShowcase({ darkMode }: { darkMode: boolean }) {
     <section style={{ background: t.heroBg, transition: 'background 0.4s ease' }}>
       {/* Pulled UP into the hero's bottom padding, so the panel tucks under the headline block
           instead of reading as a separate band — the reference's defining move. */}
-      <div className="max-w-[1180px] mx-auto px-6" style={{ marginTop: -110 }}>
+      <div style={{ ...page(), marginTop: -110 }}>
 
         <div style={{
           position: 'relative', padding: 8, borderRadius: 22,
@@ -162,7 +162,7 @@ export default function HomeShowcase({ darkMode }: { darkMode: boolean }) {
                       style={{ ...chip, width: 32, height: 32, padding: 0 }}>
                 <ArrowRight size={15} aria-hidden />
               </button>
-              <span style={{ ...chip, padding: '7px 13px', fontSize: 11.5, fontWeight: 600,
+              <span style={{ ...chip, padding: '7px 13px', fontSize: TYPE.small, fontWeight: 600,
                              cursor: 'default', fontVariantNumeric: 'tabular-nums' }}>
                 {SLIDES[current].label}
                 <span style={{ opacity: 0.6 }}>&nbsp;&middot;&nbsp;{current + 1}/{SLIDES.length}</span>
@@ -172,7 +172,7 @@ export default function HomeShowcase({ darkMode }: { darkMode: boolean }) {
             <button type="button" onClick={() => setPlaying(p => !p)}
                     aria-label={playing ? 'Pause the slideshow' : 'Play the slideshow'}
                     style={{ ...chip, position: 'absolute', bottom: 14, right: 14, padding: '7px 14px',
-                             fontSize: 11.5, fontWeight: 600 }}>
+                             fontSize: TYPE.small, fontWeight: 600 }}>
               {playing ? <Pause size={13} aria-hidden /> : <Play size={13} aria-hidden />}
               {playing ? 'Pause' : 'Play'}
             </button>
@@ -183,10 +183,10 @@ export default function HomeShowcase({ darkMode }: { darkMode: boolean }) {
             profile, so it is a link to the thing that IS true — the screens are free to try. */}
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center',
                       justifyContent: 'space-between', padding: '20px 2px 0' }}>
-          <p style={{ ...sans, fontSize: 13.5, color: t.muted, margin: 0 }}>
+          <p style={{ ...sans, fontSize: TYPE.body, color: t.muted, margin: 0 }}>
             A closer look at your trading workspace.
           </p>
-          <a href="/#pricing" style={{ ...sans, fontSize: 13.5, fontWeight: 600, color: t.accent, textDecoration: 'none' }}>
+          <a href="/#pricing" style={{ ...sans, fontSize: TYPE.body, fontWeight: 600, color: t.accent, textDecoration: 'none' }}>
             Every screen, free to try &rarr;
           </a>
         </div>
