@@ -37,6 +37,51 @@ const CHECK_EVERY_MS = 5 * 60 * 1000;
 /** Remembers which version we already reloaded for, so a failed update cannot loop. */
 const RELOADED_FOR = 'dtb-reloaded-for-build';
 
+/** Remembers that we already cleared a stray service worker, so that reload cannot loop either. */
+const SW_CLEARED = 'dtb-sw-cleared';
+
+/**
+ * REMOVE ANY SERVICE WORKER ON THIS ORIGIN. THIS APP HAS NEVER HAD ONE, so anything found here is
+ * not ours and is intercepting requests it should not.
+ *
+ * WHY THIS EXISTS — the evidence, 2026-10-10. He reported that the Coolify address showed every
+ * update while his own domain stayed stale until he opened a different Chrome profile:
+ *
+ *     http://nok80c8kksg00so08884ggk4.72.61.3.130.sslip.io/   always current
+ *     https://www.fsdzones.cloud/                             stale, except in a fresh profile
+ *
+ * Both names resolve to the SAME server (72.61.3.130, no CDN) and return byte-identical responses —
+ * same status, same no-store headers, the same ETag W/"6115-fxueX1Foh..." and the same build id. So
+ * the server is provably not the difference. Whatever it is, it is stored in his browser, scoped to
+ * one origin, survives a hard refresh, and is absent from a new profile.
+ *
+ * ⚠ ONE MECHANISM FITS ALL OF THAT, AND THE HTTP/HTTPS SPLIT IS WHY: a service worker can only run
+ * on a secure origin. The sslip.io address is plain HTTP, so it CANNOT have one, which is exactly
+ * why it is never stale. His domain is HTTPS and can. A registered worker sits in front of the
+ * network, serves its own cached copies, and a hard refresh does not remove it.
+ *
+ * I CANNOT SEE HIS PROFILE, so I have not confirmed one is there — this removes it if it is, and
+ * costs one cheap call if it is not. Nothing here can break the app: we register no worker, so
+ * there is never one of ours to destroy.
+ */
+async function removeForeignServiceWorkers(): Promise<boolean> {
+  if (!('serviceWorker' in navigator)) return false;
+  try {
+    const regs = await navigator.serviceWorker.getRegistrations();
+    if (!regs.length) return false;
+    await Promise.all(regs.map(r => r.unregister().catch(() => false)));
+    // Its cached copies outlive it, so they go too.
+    if (typeof caches !== 'undefined') {
+      const keys = await caches.keys();
+      await Promise.all(keys.map(k => caches.delete(k).catch(() => false)));
+    }
+    console.warn(`[build] removed ${regs.length} service worker(s) that this app never registered`);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** The id the SERVER is currently on, or null if it cannot be read. */
 async function serverBuildId(): Promise<string | null> {
   try {
@@ -109,6 +154,18 @@ export function watchForNewBuild(): void {
       return { running: __BUILD_ID__, server, stale: !!server && server !== __BUILD_ID__ };
     };
   } catch { /* never let a diagnostic break the app */ }
+
+  // A worker that is still in place would keep serving its own copies of everything, so it goes
+  // BEFORE the version check — otherwise the check could be answered from its cache too. One
+  // reload after removing it, guarded so it cannot repeat.
+  void removeForeignServiceWorkers().then(removed => {
+    if (!removed) return;
+    try {
+      if (sessionStorage.getItem(SW_CLEARED) === '1') return;
+      sessionStorage.setItem(SW_CLEARED, '1');
+    } catch { /* storage blocked — reloading once is still the right move */ }
+    window.location.reload();
+  });
 
   void check();
   window.setInterval(() => void check(), CHECK_EVERY_MS);
