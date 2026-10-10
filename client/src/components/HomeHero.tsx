@@ -1,6 +1,6 @@
 import { BookOpen, Copy, BarChart3, ClipboardCheck, Diamond, Brain } from 'lucide-react';
 import StartFreeButton from '@/components/StartFreeButton';
-import { display, sans, homeTokens, page, MEASURE, TYPE } from '@/components/homeTokens';
+import { display, sans, homeTokens } from '@/components/homeTokens';
 
 /**
  * HomeHero — the centred opening block, rebuilt 2026-10-07 from the layout he picked.
@@ -49,12 +49,12 @@ export default function HomeHero({ darkMode }: { darkMode: boolean }) {
       className="pt-36 pb-36 lg:pt-48 lg:pb-44"
       style={{ background: t.heroBg, transition: 'background 0.4s ease', textAlign: 'center' }}
     >
-      <div style={page()}>
+      <div className="max-w-[880px] mx-auto px-6">
 
         {/* Badge — the name plus the one integration that actually auto-syncs. */}
         <div style={{
           display: 'inline-flex', alignItems: 'center', gap: 9, padding: '6px 16px', borderRadius: 999,
-          border: `1px solid ${t.border}`, background: t.card, fontSize: TYPE.small, fontWeight: 600,
+          border: `1px solid ${t.border}`, background: t.card, fontSize: 12.5, fontWeight: 600,
           color: t.muted, marginBottom: 28, ...sans,
         }}>
           <span style={{ width: 7, height: 7, borderRadius: '50%', background: t.live, flexShrink: 0 }} />
@@ -72,7 +72,7 @@ export default function HomeHero({ darkMode }: { darkMode: boolean }) {
           <span style={{ color: t.accent }}>For building real edge.</span>
         </h1>
 
-        <p style={{ ...sans, fontSize: TYPE.lead, color: t.muted, lineHeight: 1.7, margin: '0 auto 34px', maxWidth: MEASURE }}>
+        <p style={{ ...sans, fontSize: 17, color: t.muted, lineHeight: 1.7, margin: '0 auto 34px', maxWidth: 560 }}>
           Log trades, capture decisions, and build your edge &mdash; for free.
         </p>
 
@@ -91,13 +91,12 @@ export default function HomeHero({ darkMode }: { darkMode: boolean }) {
         </div>
 
         {/* Both halves are true: PricingSection has a $0 'forever' tier and it takes no card. */}
-        <p style={{ ...sans, fontSize: TYPE.small, color: t.muted, margin: '0 0 44px' }}>
+        <p style={{ ...sans, fontSize: 12.5, color: t.muted, margin: '0 0 44px' }}>
           Free plan available &middot; No credit card needed
         </p>
 
         {/* The six features as chips. These were cards in the hero's right column until 2026-10-07.
-            They used to break OUT of a narrow 880px text column with a negative-margin trick; the
-            container is the full page width now, so they simply sit in it.
+            The row breaks OUT of the 880px text column; the measure of the text above is unaffected.
 
             ⚠ A GRID, NOT `flex-wrap`, AND THAT IS THE POINT. Measured, the six chips need 1203px on
             one line but their natural widths are uneven (153px to 239px), so wrapping gave 5-then-1
@@ -105,7 +104,8 @@ export default function HomeHero({ darkMode }: { darkMode: boolean }) {
             make the chips one object: six across on a wide screen, three on a tablet, two on a phone,
             every row full. Stacking the tier under the title is what lets six fit at all. */}
         <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6"
-             style={{ gap: 10 }}>
+             style={{ gap: 10, maxWidth: 1240, width: 'calc(100vw - 48px)', marginLeft: '50%',
+                      transform: 'translateX(-50%)' }}>
           {FEATURES.map(({ icon: Icon, title, tier }) => (
             <span key={title} style={{
               display: 'flex', alignItems: 'center', gap: 10, padding: '11px 14px', borderRadius: 12,
@@ -116,8 +116,8 @@ export default function HomeHero({ darkMode }: { darkMode: boolean }) {
               onMouseLeave={e => { e.currentTarget.style.borderColor = t.border; e.currentTarget.style.transform = 'none'; }}>
               <Icon size={17} color={t.accent} strokeWidth={2} aria-hidden style={{ flexShrink: 0 }} />
               <span style={{ minWidth: 0 }}>
-                <span style={{ display: 'block', fontSize: TYPE.chip, fontWeight: 700, color: t.text, lineHeight: 1.25 }}>{title}</span>
-                <span style={{ display: 'block', fontSize: TYPE.small, fontWeight: 600, color: t.muted, lineHeight: 1.3 }}>{tier}</span>
+                <span style={{ display: 'block', fontSize: 12.5, fontWeight: 700, color: t.text, lineHeight: 1.25 }}>{title}</span>
+                <span style={{ display: 'block', fontSize: 11, fontWeight: 600, color: t.muted, lineHeight: 1.3 }}>{tier}</span>
               </span>
             </span>
           ))}

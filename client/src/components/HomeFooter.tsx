@@ -85,7 +85,7 @@ export default function HomeFooter({ darkMode = false }: HomeFooterProps) {
   const hFont = { fontFamily: "'Playfair Display', serif", fontWeight: 700, letterSpacing: "0.01em" } as const;
   // Body/links are sans; the logo above keeps the serif (2026-08-30).
   const bFont = { fontFamily: "'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif" } as const;
-  const cap: React.CSSProperties = { ...bFont, fontSize: 13, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: capClr, marginBottom: 20, display: "block" };
+  const cap: React.CSSProperties = { ...bFont, fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: capClr, marginBottom: 20, display: "block" };
 
   const scrollToHash = (hash: string) => {
     const el = document.getElementById(hash);
@@ -173,7 +173,7 @@ export default function HomeFooter({ darkMode = false }: HomeFooterProps) {
 
         {/* Bottom bar */}
         <div style={{ borderTop: `1px solid ${divider}`, padding: "18px 0", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
-          <span style={{ fontSize: 13.5, color: muted, ...bFont }}>
+          <span style={{ fontSize: 12, color: muted, ...bFont }}>
             © {new Date().getFullYear()} <Brand />. All rights reserved.
           </span>
           <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
@@ -181,7 +181,7 @@ export default function HomeFooter({ darkMode = false }: HomeFooterProps) {
               <span key={label} style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 {i > 0 && <span aria-hidden="true" style={{ color: dotClr }}>·</span>}
                 <Link href={href}
-                  style={{ fontSize: 13.5, color: muted, textDecoration: "none", ...bFont, transition: "color 0.18s" }}
+                  style={{ fontSize: 12, color: muted, textDecoration: "none", ...bFont, transition: "color 0.18s" }}
                   onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = linkClr)}
                   onMouseLeave={e => ((e.currentTarget as HTMLElement).style.color = muted)}>
                   {label}

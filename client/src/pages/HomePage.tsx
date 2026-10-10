@@ -9,7 +9,7 @@ import HomeHero from "@/components/HomeHero";
 import HomeShowcase from "@/components/HomeShowcase";
 import HomeValueStrip from "@/components/HomeValueStrip";
 import HomeConnectDiagram from "@/components/HomeConnectDiagram";
-import { display, sans, homeTokens, page, MEASURE, TYPE } from "@/components/homeTokens";
+import { display, sans, homeTokens } from "@/components/homeTokens";
 
 /**
  * HomePage — the landing page, re-laid-out 2026-10-07 on the reference design he supplied.
@@ -81,12 +81,12 @@ export default function HomePage() {
 
       {/* ── How it works ─────────────────────────────────────────────── */}
       {/* `id="features"` is the header's Features link — renaming it breaks that nav item. */}
-      <section id="features" style={{ padding: '96px 0', background: t.bg2, transition: 'all 0.4s ease' }}>
-        <div style={page()}>
+      <section id="features" style={{ padding: '96px 24px', background: t.bg2, transition: 'all 0.4s ease' }}>
+        <div className="max-w-6xl mx-auto">
           <h2 style={{ ...display, fontSize: 'clamp(1.7rem,2.8vw,2.4rem)', textAlign: 'center', marginBottom: 12, color: t.text, fontWeight: 700 }}>
             How Daily Trade Book works
           </h2>
-          <p style={{ textAlign: 'center', fontSize: TYPE.lead, color: t.muted, maxWidth: MEASURE, margin: '0 auto 72px', lineHeight: 1.75, ...sans }}>
+          <p style={{ textAlign: 'center', fontSize: 15, color: t.muted, marginBottom: 72, maxWidth: 480, margin: '0 auto 72px', lineHeight: 1.75, ...sans }}>
             From broker connection to edge-building in three steps — no manual entry, no hassle.
           </p>
           <div className="grid md:grid-cols-3 gap-12">
@@ -98,8 +98,8 @@ export default function HomePage() {
                     {s.icon}
                   </div>
                 </div>
-                <h3 style={{ ...sans, fontSize: TYPE.cardTitle, fontWeight: 700, marginBottom: 10, color: t.text }}>{s.title}</h3>
-                <p style={{ fontSize: TYPE.body, color: t.muted, lineHeight: 1.8, ...sans }}>{s.desc}</p>
+                <h3 style={{ ...sans, fontSize: '1rem', fontWeight: 700, marginBottom: 10, color: t.text }}>{s.title}</h3>
+                <p style={{ fontSize: 14, color: t.muted, lineHeight: 1.8, ...sans }}>{s.desc}</p>
               </div>
             ))}
           </div>

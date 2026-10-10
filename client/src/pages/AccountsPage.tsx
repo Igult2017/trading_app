@@ -65,7 +65,7 @@ function SyncBadge({ status, lastSyncAt, lastSyncError }: { status: string; last
           style={{ color, fontWeight: 600, fontSize: 13, cursor: status === "error" && lastSyncError ? "help" : "default" }}>
       {label}
       {status === "error" && lastSyncError && (
-        <span style={{ display: "block", color: "#94a3b8", fontWeight: 400, fontSize: 12, maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        <span style={{ display: "block", color: "#94a3b8", fontWeight: 400, fontSize: 10, maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {lastSyncError}
         </span>
       )}
@@ -223,14 +223,14 @@ function AddAccountForm({ platform, onCancel, onCreated }: AddFormProps) {
   }
 
   const inp: CSSProperties = { background: "#0d1827", border: "1px solid #1e3050", color: "#e2e8f0", borderRadius: 0, padding: "9px 12px", fontSize: 13, width: "100%", outline: "none" };
-  const lbl: CSSProperties = { color: "#64748b", fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", display: "block", marginBottom: 5 };
+  const lbl: CSSProperties = { color: "#64748b", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", display: "block", marginBottom: 5 };
   const pname = PLATFORMS.find(p => p.id === platform)?.name ?? platform;
 
   return (
     <form onSubmit={handleSubmit} style={{ padding: "0 24px 24px", display: "flex", flexDirection: "column", gap: 14 }}>
       <div style={{ color: "#94a3b8", fontSize: 13, marginBottom: 4 }}>
         Platform: <strong style={{ color: "#38bdf8" }}>{pname}</strong>
-        <span style={{ marginLeft: 10, fontSize: 12, color: connType === 'webhook' ? '#facc15' : '#4ade80', fontWeight: 600 }}>
+        <span style={{ marginLeft: 10, fontSize: 11, color: connType === 'webhook' ? '#facc15' : '#4ade80', fontWeight: 600 }}>
           {connType === 'webhook' ? '⚡ EA Webhook' : '🔗 REST API'}
         </span>
       </div>
@@ -313,7 +313,7 @@ function AddAccountForm({ platform, onCancel, onCreated }: AddFormProps) {
           <div style={{ background: "#0a1628", border: "1px solid #1e3a55", padding: "14px 16px", fontSize: 13, color: "#94a3b8", display: "flex", flexDirection: "column", gap: 8 }}>
             <div style={{ color: "#38bdf8", fontWeight: 600 }}>No account ID or password required</div>
             <div>Click <strong>Connect with cTrader</strong> below. You'll be taken to cTrader's login page — sign in with your <strong>broker credentials, Google, or email</strong>. Your account number, balance, and trade history are fetched automatically after you approve access.</div>
-            <div style={{ fontSize: 12, color: "#475569" }}>Works with Pepperstone, IC Markets, Exness, FP Markets, and all cTrader-powered brokers.</div>
+            <div style={{ fontSize: 11, color: "#475569" }}>Works with Pepperstone, IC Markets, Exness, FP Markets, and all cTrader-powered brokers.</div>
           </div>
         )
       )}
@@ -374,11 +374,11 @@ function WebhookModal({ account, onClose }: { account: BrokerAccount; onClose: (
 
           {/* Steps */}
           <div>
-            <div style={{ color: "#64748b", fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 12 }}>Setup Steps</div>
+            <div style={{ color: "#64748b", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 12 }}>Setup Steps</div>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {SETUP_STEPS.map(step => (
                 <div key={step.n} style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-                  <span style={{ minWidth: 24, height: 24, background: "#1e3a6e", color: "#60a5fa", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, flexShrink: 0 }}>{step.n}</span>
+                  <span style={{ minWidth: 24, height: 24, background: "#1e3a6e", color: "#60a5fa", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, flexShrink: 0 }}>{step.n}</span>
                   <span style={{ color: "#94a3b8", fontSize: 13, lineHeight: 1.5 }}>{step.text}</span>
                 </div>
               ))}
@@ -387,12 +387,12 @@ function WebhookModal({ account, onClose }: { account: BrokerAccount; onClose: (
 
           {/* Webhook URL */}
           <div>
-            <div style={{ color: "#64748b", fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>Your Webhook URL</div>
+            <div style={{ color: "#64748b", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>Your Webhook URL</div>
             <div style={{ background: "#070f1e", border: "1px solid #1e3a55", padding: "11px 14px", display: "flex", alignItems: "center", gap: 8 }}>
               <span style={{ color: "#38bdf8", fontSize: 12, fontFamily: "monospace", flex: 1, wordBreak: "break-all" }}>{webhookUrl}</span>
               <CopyBtn text={webhookUrl} />
             </div>
-            <p style={{ color: "#475569", fontSize: 12, margin: "6px 0 0" }}>Paste this URL into the EA's <strong style={{ color: "#64748b" }}>InpWebhookURL</strong> input field.</p>
+            <p style={{ color: "#475569", fontSize: 11, margin: "6px 0 0" }}>Paste this URL into the EA's <strong style={{ color: "#64748b" }}>InpWebhookURL</strong> input field.</p>
           </div>
 
           {/* Info note */}
@@ -429,7 +429,7 @@ function EditModal({ account, onClose, onSaved }: { account: BrokerAccount; onCl
   const ov: CSSProperties  = { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' };
   const card: CSSProperties = { background: '#0d1829', border: '1px solid #1e3a55', borderRadius: 12, padding: 24, width: 320, maxWidth: '90vw' };
   const inp: CSSProperties  = { background: '#0b1220', border: '1px solid #1e3050', color: '#e2e8f0', padding: '8px 12px', fontSize: 13, width: '100%', borderRadius: 4, outline: 'none' };
-  const lbl: CSSProperties  = { color: '#64748b', fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4, textTransform: 'uppercase' };
+  const lbl: CSSProperties  = { color: '#64748b', fontSize: 11, fontWeight: 600, display: 'block', marginBottom: 4, textTransform: 'uppercase' };
 
   return (
     <div style={ov} onClick={onClose}>
@@ -667,7 +667,7 @@ export default function AccountsPage({ openModal = false, darkMode = true, onVie
 
       {/* Top Banner */}
       <div style={s.banner as CSSProperties}>
-        <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 16, height: 16, borderRadius: "50%", background: "#38bdf8", color: "#070d1a", fontSize: 12, fontWeight: 800, flexShrink: 0, lineHeight: 1 }}>i</span>
+        <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 16, height: 16, borderRadius: "50%", background: "#38bdf8", color: "#070d1a", fontSize: 10, fontWeight: 800, flexShrink: 0, lineHeight: 1 }}>i</span>
         <span>Issues syncing? Try an account history repair</span>
         <Wrench size={13} color="#64748b" style={{ flexShrink: 0 }} />
       </div>
@@ -695,7 +695,7 @@ export default function AccountsPage({ openModal = false, darkMode = true, onVie
                 style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', background: '#111e30', border: '1px solid #1e3a55', borderRadius: 8, padding: '12px 16px', marginBottom: 10, cursor: 'pointer', color: '#e2e8f0', fontSize: 13 }}
               >
                 <span><strong>{a.traderLogin}</strong> · {a.brokerName}</span>
-                <span style={{ color: a.isLive ? '#4ade80' : '#facc15', fontSize: 12, fontWeight: 700 }}>{a.isLive ? 'LIVE' : 'DEMO'}</span>
+                <span style={{ color: a.isLive ? '#4ade80' : '#facc15', fontSize: 11, fontWeight: 700 }}>{a.isLive ? 'LIVE' : 'DEMO'}</span>
               </button>
             ))}
             <button onClick={() => { setCtSelectAccounts([]); setCtSelectToken(null); }} style={{ background: 'none', border: 'none', color: '#64748b', fontSize: 12, cursor: 'pointer', marginTop: 4 }}>Cancel</button>
@@ -861,7 +861,7 @@ export default function AccountsPage({ openModal = false, darkMode = true, onVie
                       onClick={() => setSelectedPlatform(p.id)}
                     >
                       <PlatformIcon id={p.id} size={38} />
-                      <span style={{ fontSize: 12, fontWeight: 600, textAlign: "center" }}>{p.name}</span>
+                      <span style={{ fontSize: 11, fontWeight: 600, textAlign: "center" }}>{p.name}</span>
                     </button>
                   ))}
                 </div>
@@ -936,7 +936,7 @@ const s: Record<string, CSSProperties> = {
   banner:  { background: "#0c1a2e", borderBottom: "1px solid #1a3050", padding: "10px 24px", fontSize: 13, color: "#94a3b8", display: "flex", alignItems: "center", gap: 6 },
   tab:     { background: "none", border: "none", color: "#64748b", fontSize: 15, fontWeight: 500, cursor: "pointer", padding: "6px 0", display: "flex", alignItems: "center", gap: 6, fontFamily: "inherit" },
   tabActive:{ color: "#38bdf8", borderBottom: "2px solid #38bdf8", fontWeight: 700 },
-  proBadge:{ background: "#1e40af", color: "#93c5fd", fontSize: 12, fontWeight: 700, padding: "2px 6px" },
+  proBadge:{ background: "#1e40af", color: "#93c5fd", fontSize: 10, fontWeight: 700, padding: "2px 6px" },
   counter: { background: "#1e293b", border: "1px solid #334155", padding: "4px 10px", fontSize: 13, color: "#94a3b8" },
   addBtn:  { background: "transparent", border: "1.5px solid #38bdf8", color: "#38bdf8", padding: "7px 16px", fontSize: 13, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontFamily: "inherit" },
   syncBtn: { background: "transparent", border: "1.5px solid #334155", color: "#94a3b8", padding: "7px 16px", fontSize: 13, fontWeight: 500, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontFamily: "inherit" },

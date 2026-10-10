@@ -1,5 +1,5 @@
 import { Plug, PenLine, BadgeCheck, Lock } from 'lucide-react';
-import { sans, homeTokens, page, TYPE } from '@/components/homeTokens';
+import { sans, homeTokens } from '@/components/homeTokens';
 
 /**
  * HomeValueStrip — the four-card row under the slideshow. Added 2026-10-07 from the reference he
@@ -49,7 +49,7 @@ export default function HomeValueStrip({ darkMode }: { darkMode: boolean }) {
 
   return (
     <section style={{ background: t.heroBg, padding: '64px 0 80px', transition: 'background 0.4s ease' }}>
-      <div style={page()}>
+      <div className="max-w-[1180px] mx-auto px-6">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 items-stretch">
           {CARDS.map(({ icon: Icon, title, body, link }) => (
             <div key={title} style={{
@@ -61,11 +61,11 @@ export default function HomeValueStrip({ darkMode }: { darkMode: boolean }) {
               onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.borderColor = t.border; }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <Icon size={19} color={t.accent} strokeWidth={2} aria-hidden />
-                <h3 style={{ ...sans, fontSize: TYPE.cardTitle, fontWeight: 700, color: t.text, margin: 0 }}>{title}</h3>
+                <h3 style={{ ...sans, fontSize: 15.5, fontWeight: 700, color: t.text, margin: 0 }}>{title}</h3>
               </div>
-              <p style={{ ...sans, fontSize: TYPE.body, lineHeight: 1.7, color: t.muted, margin: 0, flex: 1 }}>{body}</p>
+              <p style={{ ...sans, fontSize: 13.5, lineHeight: 1.7, color: t.muted, margin: 0, flex: 1 }}>{body}</p>
               {link && (
-                <a href={link.href} style={{ ...sans, fontSize: TYPE.small, fontWeight: 600, color: t.accent, textDecoration: 'none' }}>
+                <a href={link.href} style={{ ...sans, fontSize: 13, fontWeight: 600, color: t.accent, textDecoration: 'none' }}>
                   {link.label}
                 </a>
               )}
