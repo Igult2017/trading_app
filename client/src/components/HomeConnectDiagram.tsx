@@ -1,4 +1,4 @@
-import { Zap, PenLine, Camera, BookOpen, BarChart3, ClipboardCheck, Diamond } from 'lucide-react';
+import { Zap, PenLine, Camera, BookOpen, BarChart3, ClipboardCheck, Diamond, Repeat2 } from 'lucide-react';
 import Wordmark from '@/components/Wordmark';
 import { display, sans, homeTokens, page, MEASURE, TYPE, type HomeTokens } from '@/components/homeTokens';
 
@@ -39,10 +39,14 @@ const INPUTS = [
 // of the card's bottom border. If a description has to grow, grow the BOX and move the wire anchor
 // with it — do not let it wrap.
 const OUTPUTS = [
-  { icon: BookOpen,       title: 'Journal',      desc: 'The thinking behind every trade.', box: [720, 25, 260, 62] },
-  { icon: BarChart3,      title: 'Analytics',    desc: 'Where your edge actually is.',     box: [720, 120, 260, 62] },
-  { icon: ClipboardCheck, title: 'Drawdown',     desc: 'Your room, before you trade.',     box: [720, 215, 260, 62] },
-  { icon: Diamond,        title: 'Edge Builder', desc: 'Patterns, turned into rules.',     box: [720, 310, 260, 62] },
+  { icon: BookOpen,       title: 'Journal',      desc: 'The thinking behind every trade.', box: [720, 8, 260, 62] },
+  { icon: BarChart3,      title: 'Analytics',    desc: 'Where your edge actually is.',     box: [720, 90, 260, 62] },
+  { icon: ClipboardCheck, title: 'Drawdown',     desc: 'Your room, before you trade.',     box: [720, 172, 260, 62] },
+  { icon: Diamond,        title: 'Edge Builder', desc: 'Patterns, turned into rules.',     box: [720, 254, 260, 62] },
+  // FIFTH CARD, 2026-10-10. He pointed out the copier was named on the page but never appeared in
+  // the one list of what you GET. Adding it re-spaced all five boxes (82px apart, was 95) and moved
+  // every right-hand wire and dot with them — same coordinate space, so they stay on the cards.
+  { icon: Repeat2,        title: 'FX Copier',    desc: 'One trade, every account.',        box: [720, 336, 260, 62] },
 ];
 
 /** Paths and their midpoint dots, in the same 1000x420 space. */
@@ -50,10 +54,11 @@ const WIRES = [
   { d: 'M 270 71 C 340 71, 360 210, 420 210',   dot: [349, 141] },
   { d: 'M 300 210 L 420 210',                   dot: [360, 210] },
   { d: 'M 270 349 C 340 349, 360 210, 420 210', dot: [349, 280] },
-  { d: 'M 620 210 C 670 210, 680 56, 720 56',   dot: [674, 133] },
-  { d: 'M 620 210 C 670 210, 680 151, 720 151', dot: [674, 181] },
-  { d: 'M 620 210 C 670 210, 680 246, 720 246', dot: [674, 228] },
-  { d: 'M 620 210 C 670 210, 680 341, 720 341', dot: [674, 276] },
+  { d: 'M 620 210 C 670 210, 680 39, 720 39',   dot: [674, 125] },
+  { d: 'M 620 210 C 670 210, 680 121, 720 121', dot: [674, 166] },
+  { d: 'M 620 210 C 670 210, 680 203, 720 203', dot: [674, 207] },
+  { d: 'M 620 210 C 670 210, 680 285, 720 285', dot: [674, 248] },
+  { d: 'M 620 210 C 670 210, 680 367, 720 367', dot: [674, 289] },
 ];
 
 const pct = ([x, y, w, h]: number[]) => ({

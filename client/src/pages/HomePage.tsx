@@ -9,6 +9,7 @@ import HomeHero from "@/components/HomeHero";
 import HomeShowcase from "@/components/HomeShowcase";
 import HomeValueStrip from "@/components/HomeValueStrip";
 import HomeConnectDiagram from "@/components/HomeConnectDiagram";
+import HomeCopier from "@/components/HomeCopier";
 import { display, sans, homeTokens, page, MEASURE, TYPE } from "@/components/homeTokens";
 
 /**
@@ -78,6 +79,7 @@ export default function HomePage() {
       <HomeShowcase darkMode={dm} />
       <HomeValueStrip darkMode={dm} />
       <HomeConnectDiagram darkMode={dm} brokers={BROKERS} />
+      <HomeCopier darkMode={dm} />
 
       {/* ── How it works ─────────────────────────────────────────────── */}
       {/* `id="features"` is the header's Features link — renaming it breaks that nav item. */}
