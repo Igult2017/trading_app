@@ -11,6 +11,11 @@ import "./index.css";
 // and keeps working while it does — see client/src/lib/buildVersion.ts.
 watchForNewBuild();
 
+// Take down the pre-React placeholder in index.html the moment the real page exists. It is
+// `position: fixed` over everything, so leaving it would hide the app entirely — removing it here,
+// immediately before the first render, is what makes it a placeholder rather than a cover.
+document.getElementById("boot-skeleton")?.remove();
+
 createRoot(document.getElementById("root")!).render(
   <HelmetProvider>
     <I18nextProvider i18n={i18n}>

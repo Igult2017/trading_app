@@ -1,86 +1,37 @@
 /**
- * buildVersion — notice that a new version has been deployed, and reload once to pick it up.
+ * buildVersion — notice when a newer build has been deployed, and OFFER to load it.
  *
- * WHY THIS EXISTS, 2026-10-10. He reported: *"Hard refresh does not work but openning it in a new
- * chrome profile shows you fixed it."* He was right, and the reason is worth writing down.
+ * WHY IT EXISTS. `server/static.ts` sends the HTML shell with `no-cache, no-store`, so a NEW page
+ * load always gets the latest code. But a tab that is ALREADY OPEN never asks for the shell again —
+ * it keeps running whatever it loaded. And it keeps WORKING, because every old hashed bundle is
+ * still on the server. Measured on the live site:
  *
- * `server/static.ts` already does the server half correctly — the HTML shell is sent with
- * `no-cache, no-store` so a NEW page load always gets the latest asset filenames. But a tab that is
- * ALREADY OPEN never asks for the shell again. It just keeps running the JavaScript it loaded
- * however long ago.
+ *     assets/index-D4l2Z83D.js    still served 200   (a build from three days earlier)
+ *     assets/index-Dc991HIp.js    still served 200
  *
- * And it keeps working, which is what makes this invisible: every old hashed bundle is still on the
- * server and still answers 200. Checked on the live site —
+ * So a stale tab renders a complete, working, OLD site with no error of any kind, and nothing ever
+ * pushes it forward.
  *
- *     assets/index-D4l2Z83D.js   still served   (a build from three days earlier)
- *     assets/index-Dc991HIp.js   still served
- *     assets/Journal-JsrDndEf.js still served
+ * ⚠ IT ASKS, IT DOES NOT RELOAD YOU. Until 2026-10-10 this called `window.location.reload()` on a
+ * five-minute timer, guarded only by a "are they typing" check that I wrote and never tested. In a
+ * journal full of forms that is a real risk of losing someone's notes, to fix a problem that had
+ * never actually bitten him. He chose option C: show a bar, let the person decide. Nothing in this
+ * file navigates on its own any more.
  *
- * So a stale tab renders a complete, working, OLD site with no error of any kind. Nothing ever
- * forces it to update. That is why he sat on an old build for days while the server was serving the
- * new one the whole time.
- *
- * ⚠ I TOLD HIM CACHING COULD NOT DO THIS, AND I WAS WRONG. My reasoning was that a content hash in
- * the filename makes a stale bundle impossible — which only holds if the old file STOPS EXISTING.
- * It does not. Do not repeat that argument.
- *
- * HOW IT WORKS: the build stamps an id into the bundle (`__BUILD_ID__`, set in vite.config.ts) and
- * writes the same id to `/version.json`. This asks the server for that file now and then; if the id
- * differs from the one baked into the running code, a newer build exists and the page reloads.
+ * ⚠ WHAT WAS REMOVED, so nobody adds it back. This also used to unregister service workers, on the
+ * theory that a stray one was serving him a stale copy. It was wrong: searching his Chrome profile
+ * on disk found NO service worker record for the domain, and this app has never registered one. The
+ * real cause was his browser holding that site at 50% zoom, which is not a delivery problem at all.
+ * Deleted under the project's own rule about code that is not needed.
  */
 
-// __BUILD_ID__ is declared globally in client/src/globals.d.ts (the footer reads it too).
+// __BUILD_ID__ is declared globally in client/src/globals.d.ts (the footer stamp reads it too).
 
 /** How often to ask, while the tab is in the foreground. */
 const CHECK_EVERY_MS = 5 * 60 * 1000;
 
-/** Remembers which version we already reloaded for, so a failed update cannot loop. */
-const RELOADED_FOR = 'dtb-reloaded-for-build';
-
-/** Remembers that we already cleared a stray service worker, so that reload cannot loop either. */
-const SW_CLEARED = 'dtb-sw-cleared';
-
-/**
- * REMOVE ANY SERVICE WORKER ON THIS ORIGIN. THIS APP HAS NEVER HAD ONE, so anything found here is
- * not ours and is intercepting requests it should not.
- *
- * WHY THIS EXISTS — the evidence, 2026-10-10. He reported that the Coolify address showed every
- * update while his own domain stayed stale until he opened a different Chrome profile:
- *
- *     http://nok80c8kksg00so08884ggk4.72.61.3.130.sslip.io/   always current
- *     https://www.fsdzones.cloud/                             stale, except in a fresh profile
- *
- * Both names resolve to the SAME server (72.61.3.130, no CDN) and return byte-identical responses —
- * same status, same no-store headers, the same ETag W/"6115-fxueX1Foh..." and the same build id. So
- * the server is provably not the difference. Whatever it is, it is stored in his browser, scoped to
- * one origin, survives a hard refresh, and is absent from a new profile.
- *
- * ⚠ ONE MECHANISM FITS ALL OF THAT, AND THE HTTP/HTTPS SPLIT IS WHY: a service worker can only run
- * on a secure origin. The sslip.io address is plain HTTP, so it CANNOT have one, which is exactly
- * why it is never stale. His domain is HTTPS and can. A registered worker sits in front of the
- * network, serves its own cached copies, and a hard refresh does not remove it.
- *
- * I CANNOT SEE HIS PROFILE, so I have not confirmed one is there — this removes it if it is, and
- * costs one cheap call if it is not. Nothing here can break the app: we register no worker, so
- * there is never one of ours to destroy.
- */
-async function removeForeignServiceWorkers(): Promise<boolean> {
-  if (!('serviceWorker' in navigator)) return false;
-  try {
-    const regs = await navigator.serviceWorker.getRegistrations();
-    if (!regs.length) return false;
-    await Promise.all(regs.map(r => r.unregister().catch(() => false)));
-    // Its cached copies outlive it, so they go too.
-    if (typeof caches !== 'undefined') {
-      const keys = await caches.keys();
-      await Promise.all(keys.map(k => caches.delete(k).catch(() => false)));
-    }
-    console.warn(`[build] removed ${regs.length} service worker(s) that this app never registered`);
-    return true;
-  } catch {
-    return false;
-  }
-}
+/** The version we have already offered, so the bar cannot reappear for the same build. */
+const OFFERED_FOR = 'dtb-offered-build';
 
 /** The id the SERVER is currently on, or null if it cannot be read. */
 async function serverBuildId(): Promise<string | null> {
@@ -98,53 +49,89 @@ async function serverBuildId(): Promise<string | null> {
   }
 }
 
+/** Already on screen? Only ever one. */
+let barShown = false;
+
 /**
- * ⚠ NEVER RELOAD WHILE HE IS TYPING. This runs on a timer in a journal full of forms, and throwing
- * a reload at someone mid-sentence would lose what they wrote — a far worse bug than the stale page
- * this fixes. The check repeats, so it simply updates at the next quiet moment instead.
+ * The offer. Built with plain DOM calls on purpose — this module runs before React mounts, and it
+ * must work on any page of the app regardless of which theme or layout is in charge.
+ *
+ * `position: fixed` so it can never push the page around, and dark with its own colours so it reads
+ * on the pale landing page and the dark journal alike.
  */
-function isBusyTyping(): boolean {
-  const el = document.activeElement as HTMLElement | null;
-  if (!el) return false;
-  if (el.isContentEditable) return true;
-  const tag = el.tagName;
-  return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+function showUpdateBar(latest: string): void {
+  if (barShown || typeof document === 'undefined') return;
+  barShown = true;
+
+  const bar = document.createElement('div');
+  bar.setAttribute('role', 'status');
+  bar.style.cssText = [
+    'position:fixed', 'left:50%', 'bottom:20px', 'transform:translateX(-50%)',
+    'z-index:2147483000', 'display:flex', 'align-items:center', 'gap:14px',
+    'padding:11px 14px 11px 18px', 'border-radius:12px',
+    'background:#0f172a', 'color:#e8eefc', 'border:1px solid #27354d',
+    'box-shadow:0 10px 34px rgba(0,0,0,.34)',
+    "font:500 14px/1.3 'Inter',system-ui,-apple-system,'Segoe UI',sans-serif",
+    'max-width:calc(100vw - 32px)',
+  ].join(';');
+
+  const text = document.createElement('span');
+  text.textContent = 'A newer version of this page is available.';
+
+  const refresh = document.createElement('button');
+  refresh.type = 'button';
+  refresh.textContent = 'Refresh';
+  refresh.style.cssText = [
+    'cursor:pointer', 'border:none', 'border-radius:8px', 'padding:8px 15px',
+    'background:#2e86ff', 'color:#fff', 'font:700 13px/1 inherit', 'letter-spacing:.02em',
+  ].join(';');
+  // The ONLY place in this file that navigates, and a person has to press it.
+  refresh.addEventListener('click', () => window.location.reload());
+
+  const later = document.createElement('button');
+  later.type = 'button';
+  later.textContent = 'Not now';
+  later.setAttribute('aria-label', 'Dismiss the update notice');
+  later.style.cssText = [
+    'cursor:pointer', 'border:none', 'background:transparent', 'color:#9fb0cc',
+    'font:600 13px/1 inherit', 'padding:8px 4px',
+  ].join(';');
+  later.addEventListener('click', () => bar.remove());
+
+  bar.append(text, refresh, later);
+  document.body.appendChild(bar);
+
+  // Remember the version we offered, so dismissing it is not undone by the next check five minutes
+  // later. A genuinely newer build after this one will have a different id and will ask again.
+  try { sessionStorage.setItem(OFFERED_FOR, latest); } catch { /* storage blocked: bar still shown */ }
 }
 
 async function check(): Promise<void> {
   if (document.visibilityState !== 'visible') return;   // nothing to see; don't spend the request
-  if (isBusyTyping()) return;
+  if (barShown) return;
 
   const latest = await serverBuildId();
   if (!latest || latest === __BUILD_ID__) return;
 
-  // THE LOOP GUARD. If the reload somehow does not land on the new build — a proxy, an extension,
-  // a browser holding the shell anyway — reloading again would spin forever. One attempt per new
-  // id per tab, then leave it alone.
   try {
-    if (sessionStorage.getItem(RELOADED_FOR) === latest) return;
-    sessionStorage.setItem(RELOADED_FOR, latest);
-  } catch {
-    // Storage blocked (private window, blocked cookies). Reloading once is still right; we just
-    // cannot remember it, so fall through rather than skipping the update entirely.
-  }
+    if (sessionStorage.getItem(OFFERED_FOR) === latest) return;   // already asked, they said no
+  } catch { /* storage blocked — offering again is harmless */ }
 
-  console.info(`[build] running ${__BUILD_ID__}, server has ${latest} — reloading`);
-  window.location.reload();
+  console.info(`[build] running ${__BUILD_ID__}, server has ${latest}`);
+  showUpdateBar(latest);
 }
 
 /**
  * Start watching. Called once from main.tsx.
  *
  * IT ALSO PUBLISHES THE RUNNING ID ON `window`, and that is not a nicety — it is the diagnostic
- * this mechanism was missing. On 2026-10-10 he reported seeing SOME new work and not other work in
- * the same deploy, and I could not tell whether his tab was stale or the change simply was not what
- * he expected, because nothing in a running page says which build it is. Now:
+ * that ended a multi-day hunt. Nothing in a running page said which build it was, so a stale tab
+ * and a misread expectation looked identical. Now:
  *
- *     __APP_BUILD__            -> the build this tab is running
- *     await __APP_BUILD_CHECK__() -> { running, server, stale }
+ *     __APP_BUILD__                -> the build this tab is running
+ *     await __APP_BUILD_CHECK__()  -> { running, server, stale }
  *
- * Typed into the browser console, those answer in one line what otherwise costs a round trip.
+ * The same id is printed in the page footer, for anyone who should not need a console.
  */
 export function watchForNewBuild(): void {
   try {
@@ -155,22 +142,8 @@ export function watchForNewBuild(): void {
     };
   } catch { /* never let a diagnostic break the app */ }
 
-  // A worker that is still in place would keep serving its own copies of everything, so it goes
-  // BEFORE the version check — otherwise the check could be answered from its cache too. One
-  // reload after removing it, guarded so it cannot repeat.
-  void removeForeignServiceWorkers().then(removed => {
-    if (!removed) return;
-    try {
-      if (sessionStorage.getItem(SW_CLEARED) === '1') return;
-      sessionStorage.setItem(SW_CLEARED, '1');
-    } catch { /* storage blocked — reloading once is still the right move */ }
-    window.location.reload();
-  });
-
   void check();
   window.setInterval(() => void check(), CHECK_EVERY_MS);
-  // Coming back to the tab is the moment a stale page is most likely AND the least disruptive
-  // moment to replace it.
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') void check();
   });

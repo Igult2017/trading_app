@@ -205,19 +205,89 @@ function RequireAdmin({ children }: { children: React.ReactNode }) {
  *  nothing. It reserves the height so the page does not jump when the content lands. */
 /** The gap while a route's JavaScript downloads, INSIDE an already-painted shell. Measured
  *  against production that is 1.8-2.2s on a cold cache, and it used to be an empty box. */
+/**
+ * ⚠ THE SHAPE FOLLOWS THE ROUTE. His report, 2026-10-10: *"fix skeletones in other pages where the
+ * skeleton does not look like that page. One of such pages is the landing page."*
+ *
+ * He was right. There was ONE placeholder — a left-aligned title, a line, FOUR CARDS IN A ROW and a
+ * big block — and all three Suspense boundaries used it. That is a dashboard, and it is the correct
+ * shape for exactly four of the routes it was covering:
+ *
+ *     /                       a CENTRED hero: pill, huge headline, two buttons, chips, wide panel
+ *     /legal /support /about  a narrow column of article text
+ *     /blog/:slug             the same
+ *     /journal /admin         a full app shell with a navigation rail
+ *     /history /analytics ... a dashboard  <- the only ones the old shape fitted
+ *
+ * So the landing page announced itself as a four-card dashboard and then painted a centred hero,
+ * which is a visible lurch on every cold load.
+ *
+ * It reads the path rather than taking a prop because a Suspense fallback cannot be told which
+ * route it is standing in for — the route has not resolved yet. `useLocation` works here: wouter
+ * reads browser history directly, and TitleUpdater beside this Suspense already relies on it.
+ */
 function PageLoading() {
+  const [path] = useLocation();
+
+  // The landing page is the one surface that is not part of the signed-in shell, so it is also the
+  // one whose placeholder has to follow the public light/dark switch (stored by usePublicTheme).
+  let pubDark = false;
+  try { pubDark = localStorage.getItem('pub-theme') === 'dark'; } catch { /* storage blocked */ }
+
+  const isLanding = path === '/';
+  const isArticle = /^\/(legal|support|about|blog)(\/|$)/.test(path);
+  const isAppShell = /^\/(journal|admin)(\/|$)/.test(path);
+
+  // An app shell already has a dedicated full-screen placeholder with the navigation rail.
+  if (isAppShell) return <LoadingScreen variant={path.startsWith('/admin') ? 'admin' : 'journal'} />;
+
   return (
     <div style={{ minHeight: "60vh", padding: "8px 4px" }} aria-busy="true" aria-live="polite" role="status" aria-label="Loading">
       <style>{BONE_CSS}</style>
       <AfterDelay>
-        <div style={{ maxWidth: 1100, margin: '0 auto' }}>
-          <Bone w={240} h={28} r={10} />
-          <Bone w={380} h={14} mt={12} />
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 18, marginTop: 26 }}>
-            {Array.from({ length: 4 }).map((_, i) => <Bone key={i} w="100%" h={112} r={14} />)}
+        {isLanding ? (
+          // CENTRED, matching HomeHero: badge, two headline lines, one supporting line, two
+          // buttons, the six feature chips, then the wide showcase panel.
+          <div style={{ maxWidth: 1280, margin: '0 auto', padding: '72px 32px 0', textAlign: 'center' }}>
+            <div style={{ display: 'flex', justifyContent: 'center' }}><Bone w={240} h={30} r={999} dark={pubDark} /></div>
+            <div style={{ display: 'flex', justifyContent: 'center', marginTop: 28 }}><Bone w="62%" h={54} r={12} dark={pubDark} /></div>
+            <div style={{ display: 'flex', justifyContent: 'center', marginTop: 14 }}><Bone w="48%" h={54} r={12} dark={pubDark} /></div>
+            <div style={{ display: 'flex', justifyContent: 'center', marginTop: 24 }}><Bone w={420} h={16} dark={pubDark} /></div>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: 12, marginTop: 30 }}>
+              <Bone w={168} h={48} r={12} dark={pubDark} /><Bone w={150} h={48} r={12} dark={pubDark} />
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 10, marginTop: 44 }}>
+              {Array.from({ length: 6 }).map((_, i) => <Bone key={i} w="100%" h={56} r={12} dark={pubDark} />)}
+            </div>
+            {/* the showcase panel: 2.6:1, the shape HomeShowcase locks itself to */}
+            <div style={{ marginTop: 56 }}><Bone w="100%" h={430} r={22} dark={pubDark} /></div>
           </div>
-          <Bone w="100%" h={280} r={14} mt={18} />
-        </div>
+        ) : isArticle ? (
+          // A column of running text, which is what these pages actually are.
+          <div style={{ maxWidth: 760, margin: '0 auto', padding: '16px 24px 0' }}>
+            <Bone w="70%" h={36} r={10} />
+            <Bone w={200} h={14} mt={16} />
+            <div style={{ marginTop: 34 }}>
+              {[100, 96, 99, 72, 98, 94, 99, 61].map((pc, i) => (
+                <Bone key={i} w={pc + '%'} h={13} mt={i ? 14 : 0} />
+              ))}
+            </div>
+            <Bone w="100%" h={220} r={12} mt={32} />
+            <div style={{ marginTop: 30 }}>
+              {[98, 93, 100, 68].map((pc, i) => <Bone key={i} w={pc + '%'} h={13} mt={i ? 14 : 0} />)}
+            </div>
+          </div>
+        ) : (
+          // The dashboard shape, kept for the pages it was always right for.
+          <div style={{ maxWidth: 1100, margin: '0 auto' }}>
+            <Bone w={240} h={28} r={10} />
+            <Bone w={380} h={14} mt={12} />
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 18, marginTop: 26 }}>
+              {Array.from({ length: 4 }).map((_, i) => <Bone key={i} w="100%" h={112} r={14} />)}
+            </div>
+            <Bone w="100%" h={280} r={14} mt={18} />
+          </div>
+        )}
       </AfterDelay>
     </div>
   );

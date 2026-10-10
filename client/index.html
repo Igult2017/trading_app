@@ -76,6 +76,78 @@
     <!-- Fonts loaded via Fontsource (self-hosted npm packages, no Google Fonts request) -->
   </head>
   <body>
+    <!--
+      THE FIRST PAINT, BEFORE ANY JAVASCRIPT RUNS.
+
+      His report, 2026-10-10: *"fix skeletones in other pages where the skeleton does not look like
+      that page. One of such pages is the landing page."* On the landing page the honest answer was
+      worse than a mismatched skeleton — there was NO skeleton. HomePage is imported eagerly
+      (App.tsx:29), so React's Suspense placeholder never fires for "/", and nothing at all paints
+      until the main bundle parses.
+
+      MEASURED on the built site at 400 kbps: rootKids 0, textLen 0 for the whole sample —
+      OVER EIGHT SECONDS OF WHITE on the most important page on the site.
+
+      This is plain HTML and CSS in the document, so the browser paints it while the bundle is still
+      downloading. It mirrors HomeHero: badge, two headline lines, one supporting line, two buttons,
+      six feature chips, then the 2.6:1 showcase panel. main.tsx removes it the moment React mounts.
+
+      ⚠ KEEP IT IN STEP WITH HomeHero. If the hero's shape changes and this does not, the page will
+      visibly jump as it swaps — which is the exact complaint this is answering.
+    -->
+    <div id="boot-skeleton" aria-hidden="true">
+      <div class="bs-wrap">
+        <div class="bs b-pill"></div>
+        <div class="bs b-h1"></div>
+        <div class="bs b-h2"></div>
+        <div class="bs b-sub"></div>
+        <div class="bs-row">
+          <div class="bs b-btn"></div><div class="bs b-btn2"></div>
+        </div>
+        <div class="bs-chips">
+          <i class="bs"></i><i class="bs"></i><i class="bs"></i>
+          <i class="bs"></i><i class="bs"></i><i class="bs"></i>
+        </div>
+        <div class="bs b-panel"></div>
+      </div>
+    </div>
+    <style>
+      /* The hero's own pale ground, so the swap to the real page is not a flash of a different
+         colour. The dark variant follows the saved public theme, applied by the script below. */
+      #boot-skeleton { position: fixed; inset: 0; background: #f0f5ff; z-index: 1; overflow: hidden; }
+      #boot-skeleton.bs-dark { background: #020817; }
+      .bs-wrap { max-width: 1280px; margin: 0 auto; padding: 150px 32px 0; text-align: center; }
+      .bs, .bs-chips i { display: block; border-radius: 10px; background: rgba(15,23,42,.07);
+                         animation: bsPulse 1.5s ease-in-out infinite; }
+      .bs-dark .bs, .bs-dark .bs-chips i { background: rgba(255,255,255,.07); }
+      @keyframes bsPulse { 0%,100% { opacity:.55 } 50% { opacity:1 } }
+      .b-pill  { width: 240px; height: 30px; border-radius: 999px; margin: 0 auto; }
+      .b-h1    { width: 62%;  height: 54px; border-radius: 12px; margin: 28px auto 0; }
+      .b-h2    { width: 48%;  height: 54px; border-radius: 12px; margin: 14px auto 0; }
+      .b-sub   { width: 420px; max-width: 80%; height: 16px; margin: 24px auto 0; }
+      .bs-row  { display: flex; gap: 12px; justify-content: center; margin-top: 30px; }
+      .b-btn   { width: 168px; height: 48px; border-radius: 12px; }
+      .b-btn2  { width: 150px; height: 48px; border-radius: 12px; }
+      .bs-chips { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+                  gap: 10px; margin-top: 44px; }
+      .bs-chips i { height: 56px; border-radius: 12px; }
+      .b-panel { width: 100%; aspect-ratio: 2.6 / 1; border-radius: 22px; margin-top: 56px; }
+      @media (max-width: 640px) { .bs-wrap { padding-top: 120px; } .b-h1, .b-h2 { width: 86%; height: 40px; } }
+      @media (prefers-reduced-motion: reduce) { .bs, .bs-chips i { animation: none } }
+    </style>
+    <script>
+      // Match the saved public theme so the placeholder is not a white flash for a dark-mode
+      // visitor. Wrapped because storage can throw in a private window.
+      try { if (localStorage.getItem('pub-theme') === 'dark')
+              document.getElementById('boot-skeleton').classList.add('bs-dark'); } catch (e) {}
+      // Only the landing page looks like this. Every other route has its own placeholder inside
+      // the app (App.tsx PageLoading), so showing a hero shape there would be the same mismatch
+      // in the other direction.
+      if (location.pathname !== '/') {
+        var el = document.getElementById('boot-skeleton');
+        if (el) el.remove();
+      }
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
     <!-- This is a replit script which adds a banner on the top of the page when opened in development mode outside the replit environment -->
