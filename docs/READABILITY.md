@@ -33,6 +33,7 @@ grey" — and four times out of five that is the wrong repair.
 | drawdown panel | dim labels | already AA. 17 rules below 11px, tracking up to `.32em` |
 | landing page | soft, low-contrast | a constant **named `sans` that was the serif** |
 | footer | links ran together | one colour doing two jobs — a 1.18:1 `·` separator |
+| admin notification card | dim, hard to read | a **near-black panel on a light page** — every colour hardcoded `#07090e`/`rgba(255,255,255,…)` while the admin panel defaults to light — plus six sizes under 11px (category 8, time 9, badge 9, tabs 10, buttons 10, body 10.5). Fixed 2026-10-11 by using the palette's own `--admin-*` tokens, which corrects all five themes at once |
 
 **Measure first. Change second.**
 

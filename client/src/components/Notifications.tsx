@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  Bell, Check, Trash2, X, TrendingUp, Calendar, Mail, Zap, Megaphone, Info,
+  Bell, Check, Trash2, X, TrendingUp, Calendar, Mail, Zap, Info,
 } from 'lucide-react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { queryClient, authFetch, fetchJson } from '@/lib/queryClient';
@@ -54,7 +54,9 @@ const PANEL_CSS = `
     max-height: calc(100vh - 120px);
     background: var(--jr-panel, #13131f);
     border: 1px solid var(--jr-border, rgba(255,255,255,0.08));
-    border-radius: 12px;
+    /* 16, up from 12 — the eco marketplace's notification card is rounded-2xl, and the softer
+       corner is most of why it reads as calm rather than boxy. */
+    border-radius: 16px;
     box-shadow: 0 28px 72px rgba(0,0,0,0.28);
     animation: np-rise .25s cubic-bezier(.34,1.4,.64,1) both;
     display: flex;
@@ -90,40 +92,10 @@ const PANEL_CSS = `
   }
   .np-action-btn:hover { background: var(--jr-border, rgba(255,255,255,0.06)); color: var(--jr-ink, #fff); }
   .np-action-btn svg { flex-shrink: 0; }
-  .np-tabs {
-    display: flex; gap: 2px; justify-content: space-between;
-    padding: 12px 12px 0;
-    border-bottom: 1px solid var(--jr-border, rgba(255,255,255,0.06));
-    flex-shrink: 0;
-  }
-  /* EVERY TAB IS A WORD NOW (2026-09-29, his instruction: "Remove all these icons ... and also make
-     the text here visible"). It used to be an icon per tab with the label on the ACTIVE one only,
-     because five labels plus counts would not fit 380px and the last was clipping mid-word. Taking
-     the icons out is what buys the room back: the space they held, plus their 6px gap, plus tighter
-     side padding and tracking, is more than the four missing words need. A filter you have to
-     recognise by a picture is not a filter you can read. */
-  .np-tab {
-    display: flex; align-items: center; gap: 4px;
-    padding: 8px 6px 10px;
-    font-size: 11px; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase;
-    font-family: inherit;
-    color: var(--jr-ink-dim, #a6b3d1); border: none; background: transparent;
-    cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;
-    transition: all 0.15s;
-  }
-  .np-tab:hover { color: var(--jr-ink, #fff); }
-  /* THE ACTIVE TAB IS BRIGHTER ON DARK. Measured: the modal's #1e6fc8 against the dark panel is
-     3.75:1 — under the 4.5:1 minimum for 11px text. It is the right blue on a light surface and
-     too dark on a black one, so each theme gets the step that clears. Same hue, same identity. */
-  .np-tab.active { color: #60a5fa; border-bottom-color: #60a5fa; }
-  .np-tab-count {
-    background: rgba(96,165,250,0.16); color: #60a5fa;
-    border-radius: 8px; padding: 1px 6px;
-    font-size: 11px; font-weight: 700;
-  }
-  .journal-light .np-root .np-tab.active { color: #1e6fc8; border-bottom-color: #1e6fc8; }
-  .journal-light .np-root .np-tab-count { background: rgba(30,111,200,0.16); color: #1e6fc8; }
-  .np-tab.active .np-tab-count { background: rgba(30,111,200,0.28); }
+  /* ⚠ THERE IS NO FILTER ROW, AND THERE MUST NOT BE ONE (2026-10-11, his instruction).
+     ALL · SIGNALS · CALENDAR · EMAILS · UPDATES used to sit here. He ticked all five and said:
+     *"Notification is notification no categorization."* The panel is ONE list now. If a future
+     session is tempted to add filtering back, that is the sentence to read first. */
   .np-body { flex: 1; overflow-y: auto; min-height: 0; max-height: 430px; }
   .np-body::-webkit-scrollbar { width: 4px; }
   .np-body::-webkit-scrollbar-thumb { background: var(--jr-border, rgba(255,255,255,0.08)); border-radius: 2px; }
@@ -144,32 +116,43 @@ const PANEL_CSS = `
   }
   .np-empty-icon { opacity: 0.5; }
   .np-empty-text { font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-align: center; }
+  /* ROOMIER ROWS, borrowed from the eco marketplace's notification centre (px-5 py-4 there).
+     14px top and bottom was tight for three lines of text. */
   .np-item {
     display: flex; align-items: flex-start; gap: 12px;
-    padding: 14px 20px;
+    padding: 16px 20px;
     border-bottom: 1px solid var(--jr-border, rgba(255,255,255,0.04));
     cursor: pointer;
     transition: background 0.12s;
-    position: relative;
   }
   .np-item:hover { background: rgba(30,111,200,0.06); }
   .np-item.unread { background: rgba(30,111,200,0.07); }
   .np-item.unread:hover { background: rgba(30,111,200,0.11); }
+  /* THE TILE'S WASH IS DERIVED FROM ITS OWN INK, so one colour per type serves BOTH themes.
+     The type colour arrives on this element as an np-cat- class (see the accent block below), so
+     currentColor is that colour, and the background is a 12% mix of it. Before
+     2026-10-11 the colour and the wash were set as INLINE STYLES from a second table — which meant
+     the light-theme accents further down could never reach the tile, because an inline style beats
+     a plain rule. The tile kept its dark-theme colour on the light panel. */
   .np-item-icon {
     width: 32px; height: 32px; border-radius: 8px; flex-shrink: 0;
     display: flex; align-items: center; justify-content: center;
     margin-top: 1px;
+    background: color-mix(in srgb, currentColor 12%, transparent);
   }
   .np-item-body { flex: 1; min-width: 0; }
-  .np-item-cat {
-    font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
-    margin-bottom: 4px;
-  }
+  /* TITLE AND UNREAD DOT SHARE A LINE, the dot on the right — the eco notification centre's
+     arrangement. The dot used to be absolutely positioned on the LEFT edge, which forced unread
+     rows to carry 24px of extra left padding, so a read row and an unread row did not line up. */
+  .np-item-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
   .np-item-title {
     font-size: 13px; font-weight: 700; color: var(--jr-ink, #ECEEF2);
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    margin-bottom: 3px;
+    margin-bottom: 3px; min-width: 0;
   }
+  /* 800 on unread, 700 on read. NOTHING GOES UNDER 700 — Playfair is a high-contrast serif and its
+     hairlines are what disappear, which is the whole reason this panel reads in weight. */
+  .np-item.unread .np-item-title { font-weight: 800; }
   .np-item-msg {
     font-size: 12px; font-weight: 500; color: var(--jr-ink-dim, #a6b3d1); line-height: 1.45;
     display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
@@ -181,16 +164,23 @@ const PANEL_CSS = `
   .np-pl-down { color: #fb7185; }
 
   /* ── THE TYPE ACCENTS, ONE SOURCE, BOTH THEMES ────────────────────────────────────────────
-     THE COLOUR IS SET HERE AND NOT INLINE, and that is deliberate. An inline style beats a plain
-     CSS rule, so leaving the colour on the element as an inline style would have silently defeated
-     every light-theme override below — the rule would exist, look right in the file, and never
-     apply. One place, two themes.
+     WHAT THESE COLOUR, as of 2026-10-11: the small icon tile at the left of each row, and nothing
+     else. They used to colour a CATEGORY WORD above the title ("SIGNAL", "EMAIL", "NOTICE"); the
+     word is gone on his instruction — *"Notification is notification no categorization"* — and the
+     tile inherited the rules, which is also how the tile stopped being coloured inline and started
+     obeying the light theme. Its 12% background wash is mixed from this same colour, so adding a
+     type here needs ONE line, not three.
 
-     THE LIGHT VALUES ARE NOT COSMETIC. Rendered on the light theme and MEASURED, the category
-     labels came back at 1.92:1 and 2.15:1 against white and the green P/L at 1.92:1, against a
-     4.5:1 minimum. Every accent had been chosen for a dark panel; on white they are nearly
-     invisible — the same defect docs/READABILITY.md exists for. Each light value is the 700 step
-     of the same hue: it clears 4.5:1 and still reads as that colour. */
+     THE COLOUR IS SET HERE AND NOT INLINE, and that is deliberate. An inline style beats a plain
+     CSS rule, so setting it on the element from JS would silently defeat every light-theme
+     override below — the rules would exist, look right in the file, and never apply. That is
+     exactly what WAS happening to the tile.
+
+     THE LIGHT VALUES ARE NOT COSMETIC. Rendered on the light theme and MEASURED, these accents
+     came back at 1.92:1 and 2.15:1 against white, and the green P/L at 1.92:1, against a 4.5:1
+     minimum. Every one had been chosen for a dark panel; on white they are nearly invisible — the
+     same defect docs/READABILITY.md exists for. Each light value is the 700 step of the same hue:
+     it clears 4.5:1 and still reads as that colour. */
   .np-cat-trading_signal  { color: #22d3a5; }
   .np-cat-economic_event  { color: #f59e0b; }
   .np-cat-trading_session { color: #38bdf8; }
@@ -218,35 +208,24 @@ const PANEL_CSS = `
     transition: all 0.12s; flex-shrink: 0; margin-top: -2px;
   }
   .np-item-del:hover { background: rgba(239,68,68,0.14); color: #fb7185; opacity: 1; }
+  /* IN THE FLOW, NOT ABSOLUTELY POSITIONED, and that is what keeps the rows aligned. It sits at the
+     end of the title line; margin-top centres it against the first line of a 13px title. */
   .np-unread-dot {
-    width: 6px; height: 6px; border-radius: 50%;
-    background: #1e6fc8;
-    position: absolute; top: 18px; left: 8px;
-    flex-shrink: 0;
+    width: 7px; height: 7px; border-radius: 50%;
+    background: #60a5fa;
+    flex-shrink: 0; margin-top: 6px;
   }
-  .np-item.unread { padding-left: 24px; }
+  .journal-light .np-root .np-unread-dot { background: #1e6fc8; }
 `;
 
-type TabKey = 'all' | 'signals' | 'calendar' | 'emails' | 'updates';
-
-// NO `icon` FIELD — the tabs are words (2026-09-29). The icons themselves are still used for the
-// notice cards (TYPE_META below) and the empty states, so nothing is orphaned by this.
-const TABS: { key: TabKey; label: string; types: string[] }[] = [
-  { key: 'all',       label: 'All',       types: [] },
-  { key: 'signals',   label: 'Signals',   types: ['trading_signal'] },
-  { key: 'calendar',  label: 'Calendar',  types: ['economic_event', 'trading_session'] },
-  { key: 'emails',    label: 'Emails',    types: ['email'] },
-  { key: 'updates',   label: 'Updates',   types: ['update'] },
-];
-
-const TYPE_META: Record<string, { color: string; bg: string; label: string }> = {
-  trading_signal:  { color: '#22d3a5', bg: 'rgba(34,211,165,0.10)',  label: 'Signal' },
-  economic_event:  { color: '#f59e0b', bg: 'rgba(245,158,11,0.10)',  label: 'Economic' },
-  trading_session: { color: '#38bdf8', bg: 'rgba(56,189,248,0.10)',  label: 'Session' },
-  email:           { color: '#3b82f6', bg: 'rgba(59,130,246,0.10)',  label: 'Email' },
-  update:          { color: '#a78bfa', bg: 'rgba(167,139,250,0.10)', label: 'Update' },
-};
-
+/*
+  ONE TABLE, NOT THREE. There used to be a TABS list (the five filters), a TYPE_META table carrying
+  a colour, a wash and a WORD per type, and this icon list. The filters are gone on his instruction;
+  the word is gone with them — *"Notification is notification no categorization"* — and the colour
+  and the wash now live in the stylesheet as the np-cat- rules, which is the only place they can be
+  corrected per theme. What is left is the picture, which is not a label: it tells a signal from an
+  email at a glance without naming a category, exactly as the eco marketplace's own list does.
+*/
 const TYPE_ICONS: Record<string, React.ReactNode> = {
   trading_signal:  <TrendingUp size={14} />,
   economic_event:  <Calendar size={14} />,
@@ -255,12 +234,14 @@ const TYPE_ICONS: Record<string, React.ReactNode> = {
   update:          <Zap size={14} />,
 };
 
-function getMeta(type: string) {
-  return TYPE_META[type] ?? { color: '#6b7280', bg: 'rgba(107,114,128,0.10)', label: 'Notice' };
-}
-
 function getIcon(type: string) {
   return TYPE_ICONS[type] ?? <Info size={14} />;
+}
+
+/** The accent class for a type, falling back to the neutral one. TYPE_ICONS is the list of types
+ *  the panel knows — keeping a second list in step with it is how one of them goes stale. */
+function catClass(type: string) {
+  return `np-cat-${TYPE_ICONS[type] ? type : 'default'}`;
 }
 
 /**
@@ -329,20 +310,39 @@ interface NotificationsPanelProps {
   pos: { top: number; right: number };
 }
 
-function NotificationsPanel({ panelRef, pos }: NotificationsPanelProps) {
-  const [tab, setTab] = useState<TabKey>('all');
+/**
+ * A list, whatever arrived.
+ *
+ * ⚠ THIS GUARD IS NOT PARANOIA — IT STOPS THE WHOLE JOURNAL GOING BLANK. These two queries are
+ * PERSISTED (App.tsx mounts PersistQueryClientProvider), so whatever shape was last written under
+ * these keys is restored from the browser on the next load, before any request is made. Let one
+ * non-array in — an old cache from before a response shape changed, a proxy or a captive portal
+ * answering with an object — and `unread.some(...)` throws during render. There is no error
+ * boundary above this panel, so React unmounts the entire tree: the journal renders as an empty
+ * page, and a reload does not clear it because the bad value is in storage.
+ *
+ * Observed exactly that way on 2026-10-11 (TypeError: unread.some is not a function, taking
+ * Journal.tsx down with it). A notification list must never be able to do that.
+ */
+function asList(v: unknown): Notification[] {
+  return Array.isArray(v) ? v as Notification[] : [];
+}
 
-  const { data: allNotifs = [], isLoading } = useQuery<Notification[]>({
+function NotificationsPanel({ panelRef, pos }: NotificationsPanelProps) {
+  const { data: allRaw, isLoading } = useQuery<Notification[]>({
     queryKey: ['/api/notifications'],
     queryFn: () => fetchJson<Notification[]>('/api/notifications'),
     refetchInterval: 30000,
   });
 
-  const { data: unread = [] } = useQuery<Notification[]>({
+  const { data: unreadRaw } = useQuery<Notification[]>({
     queryKey: ['/api/notifications/unread'],
     queryFn: () => fetchJson<Notification[]>('/api/notifications/unread'),
     refetchInterval: 30000,
   });
+
+  const allNotifs = asList(allRaw);
+  const unread    = asList(unreadRaw);
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ['/api/notifications'] });
@@ -369,17 +369,7 @@ function NotificationsPanel({ panelRef, pos }: NotificationsPanelProps) {
     onSuccess: invalidate,
   });
 
-  const tabDef = TABS.find(t => t.key === tab)!;
-  const filtered = tab === 'all'
-    ? allNotifs
-    : allNotifs.filter(n => tabDef.types.includes(n.type));
-
-  const unreadCount = (id: string) => unread.some(u => u.id === id);
-  const unreadCountForTab = tab === 'all'
-    ? unread.length
-    : unread.filter(n => tabDef.types.includes(n.type)).length;
-  const tabCount = (t: typeof TABS[0]) =>
-    t.key === 'all' ? unread.length : unread.filter(n => t.types.includes(n.type)).length;
+  const isUnreadId = (id: string) => unread.some(u => u.id === id);
 
   return createPortal(
     <div
@@ -412,53 +402,24 @@ function NotificationsPanel({ panelRef, pos }: NotificationsPanelProps) {
           </div>
         </div>
 
-        <div className="np-tabs">
-          {TABS.map(t => {
-            const count = tabCount(t);
-            return (
-              <button
-                key={t.key}
-                className={`np-tab${tab === t.key ? ' active' : ''}`}
-                onClick={() => setTab(t.key)}
-                title={t.label}
-              >
-                {/* THE WORD, ALWAYS — his instruction, 2026-09-29. It was the icon always and the
-                    label only on the active tab, so four of the five filters could only be told
-                    apart by a 10px picture. */}
-                {t.label}
-                {count > 0 && <span className="np-tab-count">{count}</span>}
-              </button>
-            );
-          })}
-        </div>
-
         <div className="np-body">
           {isLoading ? (
             <div className="np-empty">
               <div className="np-empty-icon"><Bell size={28} /></div>
               <div className="np-empty-text">Loading notifications...</div>
             </div>
-          ) : filtered.length === 0 ? (
+          ) : allNotifs.length === 0 ? (
             <div className="np-empty">
-              <div className="np-empty-icon">
-                {tab === 'signals'   ? <TrendingUp size={28} /> :
-                 tab === 'calendar'  ? <Calendar size={28} /> :
-                 tab === 'emails'    ? <Mail size={28} /> :
-                 tab === 'updates'   ? <Zap size={28} /> :
-                 <Bell size={28} />}
-              </div>
-              <div className="np-empty-text">
-                No {tab === 'all' ? '' : tab + ' '}notifications yet
-              </div>
+              <div className="np-empty-icon"><Bell size={28} /></div>
+              <div className="np-empty-text">No notifications yet</div>
             </div>
           ) : (
             /* GROUPED BY DAY. A flat run of notices is a wall; "Today / Yesterday / Tuesday" makes
                it scannable, and the header sticks while you scroll its group. */
-            filtered.map((n, i) => {
-              const meta = getMeta(n.type);
-              const isUnread = unreadCount(n.id);
+            allNotifs.map((n, i) => {
+              const isUnread = isUnreadId(n.id);
               const at = n.createdAt ? new Date(n.createdAt) : null;
-              const prev = i > 0 ? filtered[i - 1] : null;
+              const prev = i > 0 ? allNotifs[i - 1] : null;
               const prevAt = prev?.createdAt ? new Date(prev.createdAt) : null;
               const showDay = at !== null
                 && (prevAt === null || dayLabel(at) !== dayLabel(prevAt));
@@ -469,18 +430,20 @@ function NotificationsPanel({ panelRef, pos }: NotificationsPanelProps) {
                     className={`np-item${isUnread ? ' unread' : ''}`}
                     onClick={() => { if (isUnread) markRead.mutate(n.id); }}
                   >
-                    {isUnread && <div className="np-unread-dot" />}
-                    <div className="np-item-icon" style={{ background: meta.bg, color: meta.color }}>
+                    {/* ⚠ THE TYPE COLOUR IS A CLASS, NEVER AN INLINE STYLE. Inline wins over a plain
+                        rule, so colouring this tile from JS would silently defeat every
+                        light-theme accent in PANEL_CSS — the rules would exist, look right in the
+                        file, and never apply. */}
+                    <div className={`np-item-icon ${catClass(n.type)}`}>
                       {getIcon(n.type)}
                     </div>
                     <div className="np-item-body">
-                      {/* The class carries the type so the light theme can darken this accent —
-                          the inline colour stays as the dark-theme value and the rule wins on
-                          light. See the light-theme block in PANEL_CSS for the measured reason. */}
-                      <div className={`np-item-cat np-cat-${TYPE_META[n.type] ? n.type : 'default'}`}>
-                        {meta.label}
+                      {/* No category word above the title any more (2026-10-11, his instruction).
+                          The picture on the left is the only type cue, as in the reference design. */}
+                      <div className="np-item-head">
+                        <div className="np-item-title">{n.title}</div>
+                        {isUnread && <div className="np-unread-dot" />}
                       </div>
-                      <div className="np-item-title">{n.title}</div>
                       <div className="np-item-msg">{withColouredPL(n.message)}</div>
                       {/* Relative, with the exact stamp on hover for when it matters. */}
                       <div
@@ -528,11 +491,14 @@ export function Notifications({ dm }: { dm: boolean }) {
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
-  const { data: unread = [] } = useQuery<Notification[]>({
+  // Same persisted-cache guard as the panel — see asList. A bad shape here is milder (the badge
+  // would silently never appear rather than crashing), but it is the same key and the same risk.
+  const { data: unreadRaw } = useQuery<Notification[]>({
     queryKey: ['/api/notifications/unread'],
     queryFn: () => fetchJson<Notification[]>('/api/notifications/unread'),
     refetchInterval: 30000,
   });
+  const unread = asList(unreadRaw);
 
   const handleToggle = useCallback(() => {
     if (triggerRef.current) {

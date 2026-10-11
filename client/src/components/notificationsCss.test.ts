@@ -56,7 +56,11 @@ console.log('\nTHE NOTIFICATION PANEL STAYS READABLE\n');
 // The defect he could see. 8.5px on a white ground is not dim, it is gone.
 console.log('1. nothing is under the 11px floor:');
 const sizes = [...RULES.matchAll(/font-size:\s*([\d.]+)px/g)].map(m => parseFloat(m[1]));
-check('there are font sizes to check at all', sizes.length > 8, true);
+// The guard that the slice above actually caught the stylesheet. It was `> 8` until 2026-10-11,
+// when removing the filter row and the category label took three size rules with them — seven
+// remain (12, 11, 11, 12, 13, 12, 11). It is a sanity floor, not a budget; if it ever trips again,
+// count the sizes before lowering it, because "the slice matched nothing" fails the same way.
+check('there are font sizes to check at all', sizes.length >= 6, true);
 check('none is below 11px', sizes.filter(s => s < 11), []);
 check('  teeth — the OLD sheet would fail this', [8.5, 9.5, 10, 10.5].filter(s => s < 11).length, 4);
 
@@ -99,13 +103,23 @@ for (const type of ['trading_signal', 'economic_event', 'trading_session', 'emai
         new RegExp(`\\.journal-light \\.np-root \\.np-cat-${type}\\s*\\{`).test(RULES), true);
 check('the money is too — up',   /\.journal-light \.np-root \.np-pl-up\s*\{/.test(RULES), true);
 check('...and down',             /\.journal-light \.np-root \.np-pl-down\s*\{/.test(RULES), true);
-check('and the active tab, which measured 3.75:1 on dark',
-      /\.journal-light \.np-root \.np-tab\.active\s*\{/.test(RULES), true);
+check('and the unread dot',      /\.journal-light \.np-root \.np-unread-dot\s*\{/.test(RULES), true);
 
 // AND THE ACCENT MUST NOT BE SET INLINE, or every rule above is silently defeated: an inline style
 // beats a plain CSS rule, so the light overrides would exist, look right, and never apply.
-check('the category colour is NOT set inline on the element',
-      /className=\{`np-item-cat np-cat-\$\{[^}]*\}`\}\s*\n?\s*style=\{\{\s*color/.test(SRC), false);
+//
+// ⚠ THIS USED TO GUARD THE CATEGORY WORD, WHICH NO LONGER EXISTS — and the thing it was guarding
+// against was happening one element away the whole time. The icon TILE was being coloured inline
+// from a JS table (`style={{ background: meta.bg, color: meta.color }}`) with dark-theme values,
+// so the light accents below could never reach it. The tile now takes the same np-cat- class, and
+// this check follows it there.
+console.log('\n3b. the type colour reaches the icon tile as a CLASS, not an inline style:');
+check('the tile carries the accent class',
+      /className=\{`np-item-icon \$\{catClass\(n\.type\)\}`\}/.test(SRC), true);
+check('...and nothing sets background or color on it inline',
+      /className=\{`np-item-icon[^`]*`\}\s*style=/.test(SRC), false);
+check('  teeth — the OLD markup would fail that',
+      /className="np-item-icon" style=\{\{ background: meta\.bg/.test(SRC), false);
 
 // ── 4. THE PANEL IS MOUNTED WHERE THE TOKENS REACH IT ──────────────────────
 // The tokens are inline styles on .journal-root, so they inherit only to its descendants. Portalled
@@ -114,6 +128,57 @@ check('the category colour is NOT set inline on the element',
 console.log('\n4. it is portalled inside the journal, so the tokens actually reach it:');
 check('the portal targets .journal-root', /document\.querySelector\('\.journal-root'\)/.test(SRC), true);
 check('...falling back to body when there is none', /\?\?\s*document\.body/.test(SRC), true);
+
+// ── 5. NEITHER CARD CATEGORISES ────────────────────────────────────────────
+// His instruction, 2026-10-11: he ticked ALL · SIGNALS · CALENDAR · EMAILS · UPDATES and said
+// *"Notification is notification no categorization."* Both panels are ONE list now. This is the
+// check that stops a future session quietly adding filtering back.
+console.log('\n5. there is no filter row, and no category word, on either card:');
+check('the journal card has no tab rules',   /\.np-tab[\s{.:]/.test(RULES), false);
+check('...and no TABS list in the component', /const TABS\b/.test(SRC), false);
+check('...and no category label element',    /np-item-cat/.test(SRC), false);
+
+// ── 6. THE ADMIN CARD — the same two defects, in the other file ────────────
+// It was hardcoded near-black (#07090e) while the admin panel DEFAULTS TO LIGHT
+// (AdminPanel.tsx:115), so it was a black slab on a pale page — the journal card's 2026-09-06 bug,
+// living on in a file nobody re-checked. Six of its sizes were under the floor as well.
+console.log('\n6. the admin card follows its palette and clears the floor:');
+const ADMIN = readFileSync(
+  join(import.meta.dirname, '..', 'features', 'admin-notifications', 'AdminNotificationsPanel.tsx'),
+  'utf8');
+const aOpen = 'const PANEL_STYLES = `';
+const aFrom = ADMIN.indexOf(aOpen) + aOpen.length;
+const aTo   = ADMIN.indexOf('`;', aFrom);
+if (aFrom < aOpen.length || aTo < 0) {
+  console.error('  FAIL  could not find PANEL_STYLES — the slice anchors have moved');
+  process.exit(1);
+}
+const ARULES = ADMIN.slice(aFrom, aTo).replace(/\/\*[\s\S]*?\*\//g, '');
+
+const aSizes = [...ARULES.matchAll(/font-size:\s*([\d.]+)px/g)].map(m => parseFloat(m[1]));
+check('there are sizes to check at all', aSizes.length > 5, true);
+check('none is below 11px', aSizes.filter(s => s < 11), []);
+check('  teeth — the OLD sheet had six under the floor', [8, 9, 9, 10, 10, 10.5].filter(s => s < 11).length, 6);
+
+check('the surface is a palette token', /\.anp-root\s*\{[^}]*background:\s*var\(--admin-card/.test(ARULES), true);
+check('the border is a palette token',  /\.anp-root\s*\{[^}]*border:\s*1px solid var\(--admin-border/.test(ARULES), true);
+check('the title ink is a palette token', /\.anp-title\s*\{[^}]*color:\s*var\(--admin-text/.test(ARULES), true);
+check('the body ink is a palette token',  /\.anp-item-body-text\s*\{[^}]*color:\s*var\(--admin-muted/.test(ARULES), true);
+// THE OLD BLACK MAY ONLY SURVIVE AS A var() FALLBACK, exactly as #13131f may on the journal card.
+// A standalone declaration of it is the slab coming back.
+const aStandalone = [...ARULES.matchAll(/(?:background|color|border[a-z-]*):[^;]*/g)]
+  .map(m => m[0])
+  .filter(d => /#07090e/.test(d) && !/var\(--admin-[a-zA-Z-]+,\s*#07090e/.test(d));
+check('the old panel black survives only as a fallback', aStandalone, []);
+// ⚠ accentL IS THE TRAP. The palette's own note (AdminPanel.tsx:76-79) records that the bright
+// brand cyan measures 2.03:1 on white, so it must never be used for text.
+check('the bright accent is never used for text', /--admin-accentL/.test(ARULES), false);
+
+console.log('\n   ...and it does not categorise either:');
+check('no tab rules',        /\.anp-tab[\s{.:]/.test(ARULES), false);
+check('no TABS list',        /const TABS\b/.test(ADMIN), false);
+check('no category label',   /anp-item-cat/.test(ADMIN), false);
+check('no hardcoded category table', /CATEGORY_META/.test(ADMIN), false);
 
 console.log(`\n  ${pass} passed, ${fail} failed\n`);
 process.exit(fail ? 1 : 0);

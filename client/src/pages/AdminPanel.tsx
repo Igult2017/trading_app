@@ -3545,12 +3545,14 @@ export default function AdminPanel() {
         </div>
       </header>
 
-      {/* ── Admin notification dropdown panel ── */}
+      {/* ── Admin notification dropdown panel ──
+          NO `mode` PROP ANY MORE (2026-10-11). It used to preselect a Messages/Alerts tab; the tabs
+          are gone on his instruction, so both header bells open the same single list.
+          `notifPanelOpen` still decides WHETHER the panel is open, which is why it stays. */}
       {notifPanelOpen && (
         <AdminNotificationsPanel
           panelRef={notifPanelRef}
           pos={notifPanelPos}
-          mode={notifPanelOpen}
           hook={adminNotifs}
           onClose={() => setNotifPanelOpen(null)}
         />

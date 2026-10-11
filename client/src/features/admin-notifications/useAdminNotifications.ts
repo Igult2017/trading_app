@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { authFetch } from '@/lib/queryClient';
-import type { AdminNotification, AdminUnreadCounts, AdminNotifCategory } from './types';
+import type { AdminNotification, AdminUnreadCounts } from './types';
 import { ADMIN_NOTIF_REFETCH_MS } from './constants';
 
 export function useAdminNotifications() {
@@ -34,11 +34,11 @@ export function useAdminNotifications() {
     fetchAll();
   }, [fetchAll]);
 
-  const markAllRead = useCallback(async (category?: AdminNotifCategory) => {
-    const path = category
-      ? `/api/admin/notifications/read-all?category=${category}`
-      : '/api/admin/notifications/read-all';
-    try { await authFetch(path, { method: 'PATCH' }); } catch {}
+  // NO `category` ARGUMENT (2026-10-11). It scoped the action to the open filter tab; the tabs are
+  // gone on his instruction, so every caller marks everything. The server still accepts
+  // `?category=`, so narrowing is one argument away if it is ever wanted again.
+  const markAllRead = useCallback(async () => {
+    try { await authFetch('/api/admin/notifications/read-all', { method: 'PATCH' }); } catch {}
     fetchAll();
   }, [fetchAll]);
 
@@ -47,11 +47,8 @@ export function useAdminNotifications() {
     fetchAll();
   }, [fetchAll]);
 
-  const clearAll = useCallback(async (category?: AdminNotifCategory) => {
-    const path = category
-      ? `/api/admin/notifications/clear?category=${category}`
-      : '/api/admin/notifications/clear';
-    try { await authFetch(path, { method: 'DELETE' }); } catch {}
+  const clearAll = useCallback(async () => {
+    try { await authFetch('/api/admin/notifications/clear', { method: 'DELETE' }); } catch {}
     fetchAll();
   }, [fetchAll]);
 
