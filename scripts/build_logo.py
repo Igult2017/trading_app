@@ -52,9 +52,54 @@ from PIL import Image, ImageDraw
 
 OUT_H = 160                   # ~4x the largest place it is displayed; sharp on a 3x panel, still small
 INK_DARK = (241, 245, 249)    # #F1F5F9 — the app's light-on-dark ink
-INK_TILE = (28, 44, 52)       # the artwork's own ink, measured — the tab tile's ground
+INK_FLAT = (26, 37, 37)       # #1a2525 — DTB.jpg's own ink, measured off its solid strokes
+INK_TILE = INK_FLAT           # the tab tile's ground is that same ink
 PAD_FRAC = 0.04               # a sliver of breathing room, as a share of the trimmed height
 ALPHA_FLOOR = 8               # below this it is the file's empty margin, not artwork
+COVERAGE_FLOOR = 0.12         # below this it is JPEG noise or a background tint, not ink
+
+
+def from_opaque(im: Image.Image) -> Image.Image:
+    """A picture with a light ground (a JPEG, a flat PNG) -> RGBA artwork on nothing.
+
+    WHY THIS CAME BACK. The September rewrite deleted the machinery for lifting artwork off a
+    paper ground, with a note saying git had it if a printed original ever returned. One did:
+    `DTB.jpg`, 2026-10-12. The OLD code is not what returned, though — it was built for a
+    photograph of print, with a vignette across the sheet and pale areas inside the mark that had
+    to be told apart from paper by connectivity. This file is a clean digital render: one flat
+    ink, one flat ground. Measured on it:
+
+        ground   luminance 253.7        ink  luminance 6.2 at its darkest
+        the pale blue strip across the bottom    238.5  ->  coverage 0.07
+
+    So the honest conversion is the simple one. How dark a pixel is, against how dark solid ink
+    is, IS how much ink covers it — which is exactly what an alpha channel means. The soft pixels
+    along every curve come out as partial alpha for free, so the letterforms keep their shape.
+
+    THE COLOUR IS SET FLAT, not kept. An edge pixel in the source is ink ALREADY BLENDED WITH
+    WHITE; carried over onto a dark shell it would read as a pale fringe around every stroke.
+    Taking only the coverage and repainting the ink underneath is what avoids that — the same
+    reasoning `recolour` below is built on.
+
+    THE FLOOR IS WHAT REMOVES THE BOTTOM STRIP. At 0.07 coverage it sits well under 0.12, so it
+    becomes fully transparent and `trim` then crops it away entirely. Without it the logo would
+    ship with a faint rectangle under it, visible on any shell that is not white.
+    """
+    c = np.asarray(im.convert("RGB")).astype(np.float32)
+    lum = c @ np.array([0.2126, 0.7152, 0.0722], np.float32)
+    # The ground dominates the frame, so a high percentile IS the ground; a very low one is the
+    # solid core of a stroke. Both are read off the file rather than assumed, so a different
+    # artwork with a different ground still converts.
+    paper = float(np.percentile(lum, 90))
+    ink = float(np.percentile(lum, 0.5))
+    cov = np.clip((paper - lum) / max(1.0, paper - ink), 0.0, 1.0)
+    cov[cov < COVERAGE_FLOOR] = 0.0
+
+    out = np.zeros(c.shape[:2] + (4,), np.uint8)
+    out[..., 0], out[..., 1], out[..., 2] = INK_FLAT
+    out[..., 3] = (cov * 255.0).round().astype(np.uint8)
+    print("opaque source : ground lum %.1f, ink lum %.1f -> alpha from coverage" % (paper, ink))
+    return Image.fromarray(out, "RGBA")
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT_DIR = os.path.join(HERE, "client", "public")
@@ -151,8 +196,17 @@ def main() -> None:
     if len(sys.argv) < 2:
         raise SystemExit(__doc__)
     src = sys.argv[1]
-    im = Image.open(src).convert("RGBA")
-    print("source        : %s  %dx%d" % (os.path.basename(src), im.width, im.height))
+    im = Image.open(src)
+    print("source        : %s  %dx%d  %s" % (os.path.basename(src), im.width, im.height, im.mode))
+
+    # AN OPAQUE FILE HAS NO ALPHA TO TRIM BY, and everything below reads alpha. A JPEG never has
+    # one; a PNG can be RGBA and still be fully opaque. Both are the same case, so the test is
+    # "is anything actually transparent", not "what is the file extension".
+    rgba = im.convert("RGBA")
+    if np.asarray(rgba)[..., 3].min() == 255:
+        im = from_opaque(im)
+    else:
+        im = rgba
 
     art = trim(im)
     print("trimmed       : %dx%d   aspect %.2f:1" % (art.width, art.height, art.width / art.height))
