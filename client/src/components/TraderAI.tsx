@@ -543,8 +543,14 @@ export default function TraderAI({ sessionId, darkMode = true }: { sessionId?: s
           /* Empty state — single column suggestions */
           .traderai-empty-grid { grid-template-columns: 1fr !important; max-width: 100% !important; }
           .traderai-empty-wrap { padding: 20px 14px !important; }
-          .traderai-empty-title { font-size: 13px !important; }
-          .traderai-empty-sub { font-size: 7px !important; margin-bottom: 18px !important; }
+          /* ⚠ THESE BEAT THE INLINE SIZES, so raising the desktop values alone fixes nothing on a
+             phone. The sub-line was 7px here too — the same invisible text he reported, hiding
+             behind an !important in a breakpoint. Found by grepping the BUILT bundle after the
+             desktop measurement already read a healthy 14px.
+             Smaller than desktop, as a phone should be, but both clear the 11px floor and the
+             heading stays larger than the line under it. */
+          .traderai-empty-title { font-size: 17px !important; }
+          .traderai-empty-sub { font-size: 13px !important; margin-bottom: 20px !important; }
 
           /* Tighter message padding */
           .traderai-msglist { padding: 16px 12px 6px !important; }
