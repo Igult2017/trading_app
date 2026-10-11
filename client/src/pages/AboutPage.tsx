@@ -18,9 +18,14 @@ export default function AboutPage() {
 
   return (
     <>
+      {/* `title` IS JUST THE PAGE NAME. SEOHead runs it through `pageTitle`, which appends
+          " — DailyTradeBook" itself, so naming the app here too produced
+          "About DailyTradeBook — DailyTradeBook" in the tab. It read as two different things
+          before the 2026-10-11 rename ("About Trade & Journal — Trade&Journal"), which is why
+          nobody had noticed. */}
       <SEOHead
-        title="About Trade & Journal"
-        description="What Trade & Journal is, who builds it, and what it does not do. A trading journal, analytics, and copy trading for retail traders."
+        title="About"
+        description="What DailyTradeBook is, who builds it, and what it does not do. A trading journal, analytics, and copy trading for retail traders."
         canonical="/about"
         noindex={false}
       />
@@ -29,7 +34,7 @@ export default function AboutPage() {
           <article style={{ fontFamily: SANS }}>
             <H1 dm={dm}>About</H1>
             <p style={{ fontFamily: SANS, fontSize: 15, fontWeight: 700, color: t.ink, margin: '0 0 22px' }}>
-              Trade &amp; Journal — a trading journal that tells you the truth about your own trading.
+              DailyTradeBook — a trading journal that tells you the truth about your own trading.
             </p>
 
             <P dm={dm}>
@@ -99,7 +104,7 @@ export default function AboutPage() {
 
           <footer style={{ marginTop: 52, paddingTop: 22, borderTop: `1px solid ${t.rule}` }}>
             <p style={{ fontFamily: SANS, fontSize: 12, lineHeight: 1.7, color: t.dim, margin: 0 }}>
-              Trade &amp; Journal is a software provider and holds no financial services
+              DailyTradeBook is a software provider and holds no financial services
               authorisation. Trading carries a high risk of loss.
             </p>
           </footer>

@@ -67,9 +67,12 @@ export default function LegalPage() {
 
   return (
     <>
+      {/* THE DOCUMENT'S NAME ONLY. SEOHead appends " — DailyTradeBook" through `pageTitle`, so
+          adding it here gave "Privacy & Cookies — DailyTradeBook — DailyTradeBook". Before the
+          2026-10-11 rename the two halves were spelled differently, which is why it went unseen. */}
       <SEOHead
-        title={`${docByParam(active).title} — Trade & Journal`}
-        description="Trade & Journal's terms of service, risk disclosure, privacy policy, cookie policy, refund terms, acceptable use and legal notice."
+        title={docByParam(active).title}
+        description="DailyTradeBook's terms of service, risk disclosure, privacy policy, cookie policy, refund terms, acceptable use and legal notice."
         canonical="/legal"
         noindex={false}
       />

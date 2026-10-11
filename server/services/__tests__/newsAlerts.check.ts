@@ -11,6 +11,7 @@ import {
   buildNewsSchedule, affectedPairs, TRADED_PAIRS, TRADED_CURRENCIES,
   LEAD_MINUTES, MAX_HORIZON_MS, type NewsEventLike,
 } from '../newsAlerts';
+import { BRAND_NAME } from '../../lib/brand';
 
 let pass = 0, fail = 0;
 const check = (label: string, got: unknown, want: unknown) => {
@@ -72,7 +73,16 @@ check('names the lead time', m15.includes('IN 15 MINUTES'), true);
 check('the 5-minute one is marked urgent', m5.includes('🚨'), true);
 check('lists the affected pairs', m15.includes('EUR/USD') && m15.includes('USD/JPY'), true);
 check('carries the disclaimer', m15.includes('does not offer financial advice'), true);
-check('escapes & for HTML mode', m15.includes('Trade&amp;Journal'), true);
+// ⚠ THIS CHECK USED TO READ `m15.includes('Trade&amp;Journal')`, and it was the ONLY thing holding
+// the app's name in the news disclaimer. It broke on the 2026-10-11 rename, which is how the
+// second hand-written copy of the name came to light — this file and `sessionMessages.ts` each
+// spelled it out, and the rename's file list only caught one. Both read `lib/brand.ts` now, and
+// this asserts the NAME IS PRESENT rather than asserting one particular spelling of it, so a
+// future rename cannot leave the disclaimer behind without this going red.
+check('the disclaimer names the app', m15.includes(BRAND_NAME), true);
+// The escaping still matters — just not for the name, which no longer contains an ampersand. A
+// symbol, a strategy name or anything else carrying & < > would break Telegram's HTML parse and
+// the message would silently never arrive.
 check('no raw unescaped ampersand', /&(?!amp;|lt;|gt;)/.test(m15), false);
 
 console.log('\nTHE NODE PAIR LIST MATCHES THE PLATFORM (instruments.py)');

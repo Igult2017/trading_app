@@ -545,7 +545,7 @@ export default function BlogPostPage() {
         author: { '@type': 'Person', name: post.author },
         datePublished: post.date,
         image: post.imageUrl || undefined,
-        publisher: { '@type': 'Organization', name: 'Trade&Journal', url: 'https://tradeandjournal.com' },
+        publisher: { '@type': 'Organization', name: 'DailyTradeBook', url: 'https://tradeandjournal.com' },
       }}
     />
     {/* READING TEXT IS SANS, HEADLINES ARE SERIF — the same split the blog index uses. The whole

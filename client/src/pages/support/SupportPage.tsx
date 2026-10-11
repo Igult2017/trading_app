@@ -45,7 +45,7 @@ export default function SupportPage() {
     <>
       <SEOHead
         title="Help & Support"
-        description="Get help with Trade & Journal. Send us a message and we will reply by email, or browse answers to common questions."
+        description="Get help with DailyTradeBook. Send us a message and we will reply by email, or browse answers to common questions."
         canonical="/support"
         noindex={false}
       />

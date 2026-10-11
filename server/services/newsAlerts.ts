@@ -13,6 +13,14 @@
  * subscribers rather than the channel. It is deleted rather than extended.
  */
 
+// THE ONLY IMPORT IN THIS FILE, AND IT IS A PURE STRING. The header above keeps this module
+// free of Telegram and the database so the whole rule stays testable on a fixed clock; that is
+// about I/O, not about constants. `brand.ts` has no side effects and no dependencies of its
+// own. It is here because the app name was written out BY HAND in this file and in
+// sessionMessages.ts, and the 2026-10-11 rename missed this copy — a full-text sweep caught
+// it, not the file list. One definition means a third message cannot drift.
+import { RISK_DISCLAIMER_HTML } from '../lib/brand';
+
 /** Warning offsets, in minutes before the release. Both fire for every qualifying event. */
 export const LEAD_MINUTES = [15, 5] as const;
 
@@ -86,8 +94,7 @@ export function newsMessage(ev: NewsEventLike, lead: number, pairs: string[]): s
         `know where your stop is. If you are not, waiting costs nothing.</blockquote>`
       : `<blockquote>Our agents keep scanning, but price around a release is news-driven, not ` +
         `structure-driven. Size accordingly — <b>1–2% of your account</b>.</blockquote>`) +
-    `\n\n<i>⚠️ Trade&amp;Journal does not offer financial advice and is not liable for any losses ` +
-    `you incur.</i>`
+    `\n\n${RISK_DISCLAIMER_HTML}`
   );
 }
 

@@ -369,7 +369,7 @@ function WebhookModal({ account, onClose }: { account: BrokerAccount; onClose: (
             download="FSD_Journal_EA.mq5"
             style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, background: "linear-gradient(to right,#1d4ed8,#3b82f6)", color: "#fff", padding: "13px 20px", fontWeight: 700, fontSize: 16.5, textDecoration: "none", borderRadius: 4 }}
           >
-            ⬇ Download TradeJournal_EA.mq5
+            ⬇ Download FSD_Journal_EA.mq5
           </a>
 
           {/* Steps */}

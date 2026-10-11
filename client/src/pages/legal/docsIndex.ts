@@ -11,7 +11,7 @@
  * Layout follows the reference page supplied 2026-08-08: title, bold subtitle, an effective/reviewed/
  * version line, a scope paragraph that cross-links the sibling documents, then a rule.
  */
-export const ORG = 'Trade & Journal — Trading Journal & Copy-Trading Platform';
+export const ORG = 'DailyTradeBook — Trading Journal & Copy-Trading Platform';
 export const EFFECTIVE = '8 August 2026';
 export const REVIEWED  = '8 August 2026';
 export const VERSION   = '3.0';

@@ -19,7 +19,7 @@ export default function Privacy({ dm }: Themed) {
 
       <H2 dm={dm}>1. Who is responsible for your data</H2>
       <P dm={dm}>
-        Trade &amp; Journal decides how and why your personal data is used — in data protection
+        DailyTradeBook decides how and why your personal data is used — in data protection
         language, we are the <em>controller</em>. The operating entity is being registered and its
         details will be published in the Legal Notice. The service is operated from Kenya. For
         anything about your data, email <strong>legal@tradeandjournal.com</strong>.

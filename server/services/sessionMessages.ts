@@ -19,16 +19,25 @@
  * with parse_mode 'HTML' — the two must stay in step.
  *
  * THE RISK DISCLAIMER IS NOT DECORATION. Every message carries, in the user's own words, that
- * Trade&Journal does not offer financial advice, is not liable for losses, and that position size
+ * DailyTradeBook does not offer financial advice, is not liable for losses, and that position size
  * stays at 1-2%. Do not trim it to shorten a message: on a channel that publishes trade signals it
  * is the part that matters most.
  */
 
-/** `&`, `<` and `>` are HTML syntax to Telegram. "Trade&Journal" breaks the parse without this. */
+import { BRAND_NAME } from '../lib/brand';
+
+/** `&`, `<` and `>` are HTML syntax to Telegram, and any one of them unescaped makes Telegram
+ *  REJECT the whole message — nobody is told anything, silently.
+ *
+ *  ⚠ KEPT AFTER THE RENAME, EVEN THOUGH THE NAME NO LONGER NEEDS IT. The brand was "Trade&Journal"
+ *  until 2026-10-11 and the ampersand was the reason this existed; "DailyTradeBook" has none. It
+ *  stays because it guards every OTHER value that passes through it — a symbol, a strategy name, a
+ *  user's own text — and removing it would turn a rename into a message-delivery outage the first
+ *  time one of those contained a `<`. */
 const esc = (s: string) =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-const BRAND = esc('Trade&Journal');
+const BRAND = esc(BRAND_NAME);
 const RULE = '━━━━━━━━━━━━━━━━━━━━━';
 
 /** The risk block and the disclaimer — identical everywhere, so they cannot drift apart. */

@@ -4454,3 +4454,35 @@ the one time the database hiccups the whole API goes down rather than one widget
 fixing on that basis alone.
 
 Found while verifying the ticker; nothing to do with it.
+
+---
+
+### C14 — High-impact news on GOLD is never warned about. Found 2026-10-11
+
+**Where to look:** `TRADED_PAIRS` in `server/services/newsAlerts.ts`, against
+`signal_platform/config/instruments.py`. The check that catches it is already written and already
+red: `server/services/__tests__/newsAlerts.check.ts`.
+
+The Node side warns the Telegram channel 15 minutes and 5 minutes before a high-impact release, but
+only for the currencies in its own list of traded pairs. That list holds **four** pairs:
+
+    EUR/USD   GBP/USD   USD/JPY   GBP/JPY
+
+The platform trades **five**. **XAU/USD — gold — is missing**, so no USD release ever produces a
+gold warning, and nothing in the running system says so.
+
+**It is PRE-EXISTING, and the test already knows.** `newsAlerts.check.ts` parses the Python list and
+compares it with the Node one; it fails on exactly this, 2 of 31 checks, and it failed the same way
+on the unmodified code (verified by stashing the rename and re-running). Found while renaming the
+app, nothing to do with that change.
+
+```
+FAIL  Node TRADED_PAIRS equals the Python list:
+      got  [EUR/USD, GBP/USD, USD/JPY, GBP/JPY]
+      want [EUR/USD, GBP/USD, USD/JPY, GBP/JPY, XAU/USD]
+FAIL  currency set derived from it: got [EUR,GBP,JPY,USD], want [EUR,GBP,JPY,USD,XAU]
+```
+
+**Why it is not fixed here:** adding XAU turns on a new stream of alerts on a live Telegram channel
+— gold reacts to every USD release, so this is a decision about alert volume, not a typo. It needs
+his say-so, and it is one line plus the currency mapping once he gives it.

@@ -85,7 +85,7 @@ const NAV_SECTIONS: NavGroup[] = [
   ]},
 ];
 
-// Browser-tab titles: "<Panel>-Trade&Journal", e.g. "Trade Vault-Trade&Journal".
+// Browser-tab titles: "<Panel> — DailyTradeBook", e.g. "Trade Vault — DailyTradeBook".
 //
 // Derived from the SIDEBAR LABELS above, never hand-written. There used to be a second map inside
 // the component spelling all thirteen again in lowercase ("journal | trade vault"), and it had
@@ -102,7 +102,7 @@ const EXTRA_TITLES: Record<string, string> = { tfmetrics: 'TF Metrics', settings
 export function tabTitle(navId: string): string {
   const label = NAV_LABELS[navId] ?? EXTRA_TITLES[navId];
   // The separator comes from `pageTitle` so every tab in the app matches. This used to join with a
-  // bare hyphen and no spaces ("Drawdown-Trade&Journal"); he asked for the long dash (2026-08-29).
+  // bare hyphen and no spaces ("Drawdown-<app name>"); he asked for the long dash (2026-08-29).
   return pageTitle(label);
 }
 

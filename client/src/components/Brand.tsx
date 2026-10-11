@@ -1,38 +1,39 @@
 /**
- * Brand — the name "Trade&Journal" wherever it is set as TEXT: in running prose, and beside the
+ * Brand — the name "DailyTradeBook" wherever it is set as TEXT: in running prose, and beside the
  * mark in `Wordmark`. One definition, so the logo and a sentence cannot disagree about it.
  *
- * PLAYFAIR DISPLAY, EXCEPT THE AMPERSAND — his instruction, 2026-08-30: *"write Trade & Journal in
- * playfair but not write '&' in playfair because it will look bad."* So "Trade" and "Journal" are
- * the serif and the `&` is set in Inter, slightly smaller and nudged down: a sans ampersand dropped
- * into a serif word at the same size sits optically large and rides high against the serif's cap
- * height. Those two adjustments are the reason this is a nested span rather than one font swap.
+ * RENAMED 2026-10-11, his instruction: *"Change the app name to DailyTradeBook everywhere."*
  *
- * WHAT THIS USED TO SAY, and why it changed. It was Inter at 0.96em, and the reason given was that
- * the logo had become a bold sans, so a serif name in prose "read as a different company". The logo
- * changed again on 2026-08-30 and its lettering is now this component, so the argument inverted:
- * matching the logo now MEANS being Playfair. The size compensation went with it — it existed to
- * stop a sans name looking shrunken inside serif copy, and there is no longer a mismatch to correct.
+ * ⚠ THE LOGO STILL SAYS THE OLD NAME, AND THAT IS DELIBERATE. He asked for the name changed
+ * everywhere EXCEPT the logo — *"Only leave the logo we can fix it later because i am about to
+ * create a new logo."* So `Wordmark` and the artwork it points at are untouched, and the header
+ * reads Trade&Journal until the new artwork arrives. The comment above about the logo and a
+ * sentence agreeing is the goal, not today's state.
  *
- * FOR THE RECORD, since it was checked rather than assumed: Playfair's ampersand was rendered beside
- * Inter's at 64px before this change. It is a conventional form, not the ornate italic "Et" some
- * serifs use. He wants it in the sans anyway, which is his call to make about his own brand.
+ * PLAYFAIR DISPLAY, and it is not the logo's doing — it is the app's display face, used for every
+ * heading. It stays when the artwork changes.
+ *
+ * WHAT THIS FILE USED TO DO, and why almost all of it is gone. The name was "Trade&Journal", and
+ * his instruction on 2026-08-30 was *"write Trade & Journal in playfair but not write '&' in
+ * playfair because it will look bad."* So the component wrapped the ampersand in a nested span
+ * with its own font, a 0.88em size and a baseline nudge — a sans ampersand dropped into a serif
+ * word at full size sits optically large and rides high against the serif's cap height. Those
+ * three adjustments WERE this component.
+ *
+ * DailyTradeBook has no ampersand, so all of it went: the nested span, the AMP_FONT constant, and
+ * the `upper` prop whose only job was to split the name into TRADE + & + JOURNAL — and which no
+ * caller passed even before the rename.
  */
 
-/** The letters. Playfair Display — his instruction, 2026-08-30. */
+/** The letters. Playfair Display — the app's display face. */
 const SERIF = "'Playfair Display', Georgia, serif";
 
 export interface BrandProps {
-  /** Render as TRADE&JOURNAL. Off by default — see the note above. */
-  upper?: boolean;
   style?: React.CSSProperties;
   className?: string;
 }
 
-/** The ampersand is set apart from the letters — see the note at the top of this file. */
-const AMP_FONT = "'Inter Variable', 'Inter', system-ui, sans-serif";
-
-export default function Brand({ upper = false, style, className }: BrandProps) {
+export default function Brand({ style, className }: BrandProps) {
   return (
     <span
       className={className}
@@ -43,25 +44,7 @@ export default function Brand({ upper = false, style, className }: BrandProps) {
         ...style,
       }}
     >
-      {upper ? 'TRADE' : 'Trade'}
-      <span
-        style={{
-          // THE AMPERSAND IS NOT PLAYFAIR — his instruction, 2026-08-30: *"write Trade & Journal in
-          // playfair but not write '&' in playfair because it will look bad."*
-          //
-          // Set slightly smaller and nudged, because a sans ampersand dropped into a serif word at
-          // the same size sits optically large and rides high next to the serif's cap height. These
-          // two numbers are the whole reason this is a nested span rather than a font swap.
-          fontFamily: AMP_FONT,
-          fontWeight: 700,
-          fontSize: '0.88em',
-          verticalAlign: '0.02em',
-          margin: '0 0.02em',
-        }}
-      >
-        &amp;
-      </span>
-      {upper ? 'JOURNAL' : 'Journal'}
+      DailyTradeBook
     </span>
   );
 }

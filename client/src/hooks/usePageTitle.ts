@@ -9,20 +9,26 @@ import { useEffect } from "react";
  * THREE PLACES WERE BUILDING TAB TITLES AND ALL THREE DISAGREED, so changing one dash would have
  * fixed one third of the tabs:
  *
- *     SEOHead.tsx        "Blog | Trade&Journal"          a pipe, and an en dash (–) on the default
- *     Journal.tsx        "Drawdown-Trade&Journal"        a hyphen with NO spaces
+ *     SEOHead.tsx        "Blog | <app name>"             a pipe, and an en dash (–) on the default
+ *     Journal.tsx        "Drawdown-<app name>"           a hyphen with NO spaces
  *     this file          "journal | blog"                lowercase, and the two halves reversed
  *
  * They now all call `pageTitle()`, so the separator exists once. Anything that wants a tab title
  * asks here rather than assembling its own.
  */
 
-export const SITE_NAME = "Trade&Journal";
+/** THE APP'S NAME, AND THE ONLY PLACE IT IS SPELLED FOR A BROWSER TAB. Renamed from
+ *  "Trade&Journal" on 2026-10-11, his instruction: *"Change the app name to DailyTradeBook
+ *  everywhere including the favicon text that appears in the tabs."* Every tab in the app builds
+ *  its title through `pageTitle` below, so this one line is all of them — EXCEPT the static
+ *  `<title>` in client/index.html, which is what the tab reads before React has started. Change
+ *  both or a tab shows the old name for the first second. */
+export const SITE_NAME = "DailyTradeBook";
 
 /** The em dash he asked for, with the spaces that make it read as a separator rather than a join. */
 export const TITLE_SEP = " — ";
 
-/** "<Page> — Trade&Journal", or the site's own line when there is no page name. */
+/** "<Page> — DailyTradeBook", or the site's own line when there is no page name. */
 export function pageTitle(page?: string | null): string {
   const p = page?.trim();
   return p ? `${p}${TITLE_SEP}${SITE_NAME}` : `${SITE_NAME}${TITLE_SEP}Professional Trading Journal`;

@@ -16,7 +16,7 @@ export default function Notice({ dm }: Themed) {
   return (
     <>
       <H2 dm={dm}>1. Who operates this service</H2>
-      <P dm={dm}>Trade &amp; Journal is operated by:</P>
+      <P dm={dm}>DailyTradeBook is operated by:</P>
       <DL dm={dm} items={[
         ['Legal entity name and form:', 'the business is completing its registration. The full registered name and legal form will be published here at that time.'],
         ['Registered office:', 'the postal address will be published here as part of completing registration. In the meantime the email addresses below are monitored and are the fastest way to reach us.'],

@@ -524,7 +524,7 @@ export class TelegramNotificationService {
           return;
         }
         // HTML, not Markdown: the session copy uses <blockquote> for the risk rule, which legacy
-        // Markdown cannot express. `sessionMessages` builds HTML and escapes `&` in "Trade&Journal"
+        // Markdown cannot express. `sessionMessages` builds HTML and escapes `&`, `<` and `>`
         // — the two must stay in step, or Telegram rejects the message and nobody is told anything.
         const ok = await this.sendToChannel(alert.message, { parse_mode: 'HTML' }).catch(() => false);
         console.log(`[Telegram] ${alert.kind} -> channel: ${ok ? 'sent' : 'FAILED'}`);
