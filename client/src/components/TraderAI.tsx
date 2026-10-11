@@ -458,6 +458,11 @@ export default function TraderAI({ sessionId, darkMode = true }: { sessionId?: s
   const inputBg   = dm ? "rgba(255,255,255,0.05)" : "#f1f5f9";
   const inputBd   = dm ? "rgba(255,255,255,0.09)" : "#e2e8f0";
   const taColor   = dm ? "rgba(255,255,255,0.88)" : "#0f172a";
+  // The blue he asked for on the empty-state sub-line, 2026-10-11. Two values because one cannot
+  // clear 4.5:1 on both grounds: measured, #60a5fa is 7.67:1 on this panel's near-black and
+  // #1d4ed8 is 5.92:1 on the light one. Both are already in the app's palette (the notification
+  // panel uses the same pair), so this is not a new colour, just the right step per theme.
+  const accentBlue = dm ? "#60a5fa" : "#1d4ed8";
 
   return (
     <div className="traderai-root" style={{ display: "flex", height: "100%", minHeight: "calc(100dvh - 84px)", background: dm ? "#070d15" : "var(--jr-bg, #EEF2F7)", borderRadius: 0, overflow: "hidden", border: "none", fontFamily: F, position: "relative" }}>
@@ -684,10 +689,27 @@ export default function TraderAI({ sessionId, darkMode = true }: { sessionId?: s
         <div className="traderai-scroll" style={{ flex: 1, overflowY: "auto", overflowX: "hidden" }}>
           {messages.length === 0 ? (
             <div className="traderai-empty-wrap" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "100%", padding: "40px 32px", textAlign: "center" }}>
-              <h2 className="traderai-empty-title" style={{ fontFamily: F, fontSize: 13, fontWeight: 800, color: textPrim, letterSpacing: "-0.03em", marginBottom: 8, lineHeight: 1.15 }}>
+              {/* 20px, up from 13. NOT part of what he asked for — it is forced by it. The line
+                  below had to grow to be readable at all, and at 14px it would otherwise have been
+                  LARGER than the heading it sits under, which reads as a mistake. His note that it
+                  "does not have to be same size as its header" is what makes this the right way to
+                  resolve that rather than capping the sub-line at 12px. */}
+              <h2 className="traderai-empty-title" style={{ fontFamily: F, fontSize: 20, fontWeight: 800, color: textPrim, letterSpacing: "-0.02em", marginBottom: 10, lineHeight: 1.2 }}>
                 How can I analyse your trades today?
               </h2>
-              <p className="traderai-empty-sub" style={{ fontFamily: F, fontSize: 7, fontWeight: 400, color: textMut, marginBottom: 30, maxWidth: 540, lineHeight: 1.6 }}>
+              {/* ⚠ THIS WAS SET TO 7px. Seven. His report, 2026-10-11: *"this text here in Trader AI
+                  is not visible."* It is the smallest text anywhere in the app and barely half the
+                  11px floor docs/READABILITY.md sets — but unusually for that doc, the size was not
+                  the only cause: it was ALSO painted in `textMut`, which on this dark panel is
+                  rgba(255,255,255,0.22). Twenty-two percent white at 7px is not dim, it is absent.
+                  Both halves are fixed — 14px, and a blue that measures 7.67:1 here.
+
+                  ITALIC IS HIS INSTRUCTION. Note that the journal forces its own face over this
+                  panel (Journal.tsx font rule; TraderAI's own `F` never wins), and the self-hosted
+                  Playfair has NO italic file — only playfair-display-var-latin.woff2, which is
+                  upright. So the browser slants the upright face rather than using a drawn italic.
+                  It reads fine at this size; loading the real italic would make it crisper. */}
+              <p className="traderai-empty-sub" style={{ fontFamily: F, fontSize: 14, fontWeight: 400, fontStyle: "italic", color: accentBlue, marginBottom: 30, maxWidth: 560, lineHeight: 1.6 }}>
                 Ask anything about your journal — I read your real trade data to surface your edge, your leaks, and your best setups.
               </p>
               <div className="traderai-empty-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", columnGap: 28, rowGap: 12, width: "100%", maxWidth: 940 }}>

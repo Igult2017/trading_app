@@ -76,7 +76,11 @@ const NAV_SECTIONS: NavGroup[] = [
     { id: 'vault',       label: 'Trade Vault',     icon: SI.Vault },
     { id: 'calendar',    label: 'Calendar',        icon: SI.Calendar },
     { id: 'drawdown',    label: 'Drawdown',        icon: SI.Drawdown },
-    { id: 'metrics',     label: 'Metrics',         icon: SI.Metrics },
+    // Renamed Metrics -> Analytics on his instruction, 2026-10-11. The `id` stays 'metrics' ON
+    // PURPOSE: it is the ?tab= value in the URL, so changing it would break every existing link
+    // and bookmark to this panel for a label change. The browser tab follows the LABEL (tabTitle
+    // reads NAV_LABELS), so it now says "Analytics — DailyTradeBook" with no extra work.
+    { id: 'metrics',     label: 'Analytics',       icon: SI.Metrics },
     { id: 'strategy',    label: 'Audit',           icon: SI.Strategy },
     { id: 'fsdai',       label: 'Trader AI',       icon: SI.FsdAi },
     { id: 'sync',        label: 'FX Copier',         icon: SI.Sync },

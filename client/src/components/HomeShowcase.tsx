@@ -35,7 +35,10 @@ const SLIDES = [
   { src: '/showcase/slide-05.webp', label: 'Trade Vault' },
   { src: '/showcase/slide-06.webp', label: 'Calendar' },
   { src: '/showcase/slide-07.webp', label: 'Drawdown' },
-  { src: '/showcase/slide-08.webp', label: 'Metrics' },
+  // These labels mirror the journal's own sidebar, so they move with it — renamed Metrics ->
+  // Analytics 2026-10-11. Leaving it would have the landing page advertising a page name that no
+  // longer exists anywhere in the product.
+  { src: '/showcase/slide-08.webp', label: 'Analytics' },
   { src: '/showcase/slide-09.webp', label: 'Performance summary' },
   { src: '/showcase/slide-10.webp', label: 'Strategy audit' },
   { src: '/showcase/slide-11.webp', label: 'Trader AI' },
