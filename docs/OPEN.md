@@ -4457,7 +4457,7 @@ Found while verifying the ticker; nothing to do with it.
 
 ---
 
-### C14 — High-impact news on GOLD is never warned about. Found 2026-10-11
+### C14 — ~~High-impact news on GOLD is never warned about~~ FIXED 2026-10-11 — and it was the SMALLER half
 
 **Where to look:** `TRADED_PAIRS` in `server/services/newsAlerts.ts`, against
 `signal_platform/config/instruments.py`. The check that catches it is already written and already
@@ -4483,6 +4483,17 @@ FAIL  Node TRADED_PAIRS equals the Python list:
 FAIL  currency set derived from it: got [EUR,GBP,JPY,USD], want [EUR,GBP,JPY,USD,XAU]
 ```
 
-**Why it is not fixed here:** adding XAU turns on a new stream of alerts on a live Telegram channel
-— gold reacts to every USD release, so this is a decision about alert volume, not a typo. It needs
-his say-so, and it is one line plus the currency mapping once he gives it.
+**FIXED 2026-10-11, on his instruction.** `XAU/USD` is in `TRADED_PAIRS`; gold is now listed on
+every USD release, which is the only way it can be reached ("XAU" has no economic calendar).
+
+**⚠ AND FIXING IT UNCOVERED SOMETHING MUCH BIGGER.** He said he had never seen a high-impact
+warning in the channel at all. He was right, and gold was not the reason: **not one warning had
+ever been sent.** `scheduler.ts:53` loaded the events with `eq(impactLevel, 'high')` in lower case
+while every writer stores `'High'`, and Postgres is case-sensitive — so the query matched nothing
+for the entire life of the feature, logging `Scheduled 0 news warning(s)` every hour against a
+database holding 13 'High' events that week. Fixed by comparing in lower case, and now covered by
+`server/services/__tests__/newsQuery.check.ts`.
+
+**The lesson worth keeping:** `newsAlerts.check.ts` was green throughout — 31 checks, one of them
+literally named "impact match is case-insensitive". It tested the in-memory filter, which was never
+the broken half. Nothing anywhere tested the query. A green suite beside a dead feature.

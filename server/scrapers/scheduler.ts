@@ -7,7 +7,7 @@ import { signalScannerService } from '../services/signalScanner';
 import { storage } from '../storage';
 import { db } from '../db';
 import { economicEvents } from '@shared/schema';
-import { and, eq, gte, lte } from 'drizzle-orm';
+import { and, gte, lte, sql } from 'drizzle-orm';
 import { MAX_HORIZON_MS } from '../services/newsAlerts';
 
 export class ScraperScheduler {
@@ -47,10 +47,22 @@ export class ScraperScheduler {
     try {
       const now = new Date();
       const horizon = new Date(now.getTime() + MAX_HORIZON_MS);
+      // ⚠ COMPARED IN LOWER CASE, AND THAT IS THE WHOLE BUG THIS LINE ONCE WAS.
+      //
+      // Until 2026-10-11 this read `eq(economicEvents.impactLevel, 'high')`. Every writer stores
+      // 'High' with a capital H (news_calendar.py:293 -> calendarDb.ts:43, and calendarDb.ts:60
+      // types the column High|Medium|Low), and Postgres text comparison is case-sensitive — so
+      // this matched NOTHING, EVER. The feature shipped, logged "Scheduled 0 news warning(s)"
+      // every hour, and in all that time not one high-impact warning reached the channel. He
+      // reported it as never having seen one; production had 13 'High' events that week.
+      //
+      // `lower(...)` rather than swapping one spelling for another: the casing is set by a Python
+      // scraper two files away, and the next person to change it must not be able to switch this
+      // feature off again without noticing.
       const rows = await db.select().from(economicEvents)
         .where(and(gte(economicEvents.eventTime, now),
                    lte(economicEvents.eventTime, horizon),
-                   eq(economicEvents.impactLevel, 'high')));
+                   sql`lower(${economicEvents.impactLevel}) = 'high'`));
       telegramNotificationService?.scheduleNewsNotifications(rows as any);
     } catch (err) {
       // Never allowed to take the scheduler down — a missed news warning is a missed courtesy;
