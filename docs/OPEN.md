@@ -4376,3 +4376,81 @@ refused it, and the row says which.
 DXtrade and TradeLocker followers skip PLACED/AMENDED/CANCELLED with that reason logged — never
 silently downgraded to a market order. Cross-broker (Hola Prime) is separately deferred: each
 broker's minimum stop distance (`slDistance` / `tpDistance`) is not read or enforced yet.
+
+---
+
+### C11 — The journal ticker's GBP/JPY price has NOT been checked against the broker. Found 2026-10-11
+
+**Where to look:** `client/src/components/TickerTape.tsx`, `signal_platform/data/price_publisher.py`,
+`signal_platform/data/tick_serving.py` (the original GBP/JPY measurement).
+
+The journal's price band stopped being invented numbers on 2026-10-11 and now carries the live FIX
+feed — five pairs: EUR/USD, GBP/USD, USD/JPY, GBP/JPY, XAU/USD.
+
+**GBP/JPY is the one to distrust.** `tick_serving.py` records that candles BUILT from these ticks
+came out **0.005 below the broker's on 200 of 200 bars**, cause never established, which is why the
+platform refuses to serve them to a strategy. That measurement was about tick-built *bars*. Whether
+the RAW QUOTE carries the same offset is a different question and **I have not tested it.**
+
+**Why it is still open:** the build landed on Sunday 2026-10-11 with the market shut — the broker's
+last tick was Friday 2026-10-09 20:54:59 UTC — so there was no live quote on either side to compare.
+
+**The check, when the market is open:** read `GET /api/prices/live` signed in, read the same five
+symbols from the cTrader MCP `get_spot_prices` (symbol ids 1, 2, 4, 7, 41), and compare. They must
+agree to the instrument's own precision. If GBP/JPY is off, drop it from
+`fix_wire.SYMBOL_IDS`'s ticker use and the band becomes four pairs.
+
+**What IS verified:** the decimals. Converted from the broker's own pipettes, EUR/USD and GBP/USD
+quote to 5 places, USD/JPY and GBP/JPY to 3, XAU/USD to 2 — which is exactly what
+`TickerTape.digitsFor()` produces.
+
+---
+
+### C12 — Signed in with no Supabase, the app sends NO token and every request 401s. Found 2026-10-11
+
+**Where to look:** `client/src/lib/queryClient.ts:22` against `client/src/context/AuthContext.tsx:25,88,205,276`.
+
+Both sides use the same key name, `'local_admin_session'`, **but not the same store**:
+
+| file:line | store |
+|---|---|
+| `AuthContext.tsx:25, 88, 205, 276` | `sessionStorage` — writes it at login, reads it at boot |
+| `queryClient.ts:22` | `localStorage` — reads it to build the `Authorization` header |
+
+So on the local-admin login path the app shows itself as signed in, renders the journal, and then
+sends no token at all: `/api/me/entitlement`, `/api/sessions` and `/api/prices/live` all answered
+401 in one measured page load.
+
+**Scope — read this before fixing.** This is the **no-Supabase fallback only** (`if (supabase)`
+takes the other branch at `queryClient.ts:16`). Production has Supabase configured, so production is
+NOT affected; it bites local development and any deployment without Supabase. Found while verifying
+the ticker, which is how it surfaced — not caused by it.
+
+**The fix is one word** (one side must change store), but which side is a real decision:
+`sessionStorage` dies with the tab, `localStorage` survives a browser restart — so moving the reader
+to `sessionStorage` keeps today's "log in again each session" behaviour, and moving the writer to
+`localStorage` changes how long a local admin stays signed in. Not changed here, deliberately.
+
+---
+
+### C13 — `/api/notifications/unread` sends its response twice and KILLS the server. Found 2026-10-11
+
+**Where to look:** `server/routes.ts:2512`.
+
+When the database is unreachable, that handler answers once with a 500 and then tries to answer
+again, which Node refuses — `ERR_HTTP_HEADERS_SENT: Cannot set headers after they are sent to the
+client` — and the uncaught throw takes the whole Express process down. Measured locally: opening
+`/journal` crashed the dev server every time, within about one second.
+
+```
+3:24:56 AM [express] GET /api/notifications/unread 500 in 1ms :: {"error":"Failed to fetch unread no…
+Error [ERR_HTTP_HEADERS_SENT]: Cannot set headers after they are sent to the client
+    at <anonymous> (C:\Users\FSD\trading_app\server\routes.ts:2512:23)
+```
+
+**How likely is it in production?** It needs a failing database query on that route. Production's
+database is reachable, so this has not been seen there — but it is a crash, not an error page, so
+the one time the database hiccups the whole API goes down rather than one widget failing. Worth
+fixing on that basis alone.
+
+Found while verifying the ticker; nothing to do with it.

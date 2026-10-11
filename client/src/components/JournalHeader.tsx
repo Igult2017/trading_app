@@ -13,39 +13,10 @@ import type { LangCode } from "@/i18n/languages";
 import Wordmark from '@/components/Wordmark';
 import ProfileSettings from '@/components/profile/ProfileSettings';
 import StreakDetail from '@/components/profile/StreakDetail';
-
-const TICKER_DATA = [
-  { symbol: "EUR/USD", price: "1.0842", change: "+0.12%", up: true },
-  { symbol: "BTC/USD", price: "67,204", change: "-1.34%", up: false },
-  { symbol: "GOLD", price: "2,318.4", change: "+0.45%", up: true },
-  { symbol: "SPX500", price: "5,236.1", change: "+0.28%", up: true },
-  { symbol: "GBP/USD", price: "1.2691", change: "-0.08%", up: false },
-  { symbol: "ETH/USD", price: "3,512.7", change: "+2.11%", up: true },
-  { symbol: "OIL/WTI", price: "78.34", change: "-0.67%", up: false },
-  { symbol: "USD/JPY", price: "156.72", change: "+0.19%", up: true },
-];
-
-function TickerTape() {
-  const items = [...TICKER_DATA, ...TICKER_DATA];
-  return (
-    <div style={{ background: "#080c10", borderBottom: "1px solid #0f1923", height: 32, overflow: "hidden", display: "flex", alignItems: "center" }}>
-      <style>{`
-        @keyframes ticker { from{transform:translateX(0)} to{transform:translateX(-50%)} }
-        .ticker-wrap { display:flex; animation: ticker 35s linear infinite; will-change:transform; }
-        .ticker-wrap:hover { animation-play-state: paused; }
-      `}</style>
-      <div className="ticker-wrap">
-        {items.map((t, i) => (
-          <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "0 28px", borderRight: "1px solid #0f1923", whiteSpace: "nowrap" }}>
-            <span style={{ color: "var(--jr-ink-dim)", fontSize: 12.5, fontWeight: 700, letterSpacing: "0.06em" }}>{t.symbol}</span>
-            <span style={{ color: "#c8d8e8", fontSize: 12.5, fontWeight: 600 }}>{t.price}</span>
-            <span style={{ fontSize: 12, fontWeight: 700, color: t.up ? "#22d3a5" : "#f4617f", background: t.up ? "rgba(34,211,165,0.08)" : "rgba(244,97,127,0.08)", padding: "1px 5px", borderRadius: 3 }}>{t.change}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
+// The price band, on real broker prices since 2026-10-11 and its own file since then too —
+// this one is already far past the 200-line limit. See TickerTape.tsx for why it shows five
+// symbols and no percentage.
+import TickerTape from '@/components/TickerTape';
 
 interface JournalHeaderProps {
   onToggleSidebar: () => void;

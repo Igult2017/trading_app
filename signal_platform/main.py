@@ -227,7 +227,13 @@ async def _startup() -> None:
             # scheduled scan carries on and behaviour is exactly what it is today.
             _entry = EntryWatcher(_send_private)
             asyncio.create_task(_entry.run_forever())
-            log.info("[boot] real-time watchers started (trade + entry)")
+            # AND the journal ticker's prices, 2026-10-11. It reads the quote book the two watchers
+            # above fill and pushes it to Node for the browser to read — which is why it lives INSIDE
+            # this block: no watcher means no FIX session, which means there is nothing to publish.
+            # Cosmetic only; see data/price_publisher.py for why it is a separate task.
+            from data.price_publisher import run_forever as _publish_prices
+            asyncio.create_task(_publish_prices())
+            log.info("[boot] real-time watchers started (trade + entry + price publisher)")
         except Exception as exc:
             log.warning(f"[boot] watchers failed to start (non-fatal): {exc}")
     else:

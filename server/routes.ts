@@ -2955,6 +2955,75 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ── LIVE BROKER PRICES, for the journal ticker ────────────────────────────────────────────────
+  //
+  // His ask, 2026-10-11: real broker prices in the ticker, "in the journal only not landing page".
+  //
+  // WHERE THEY COME FROM. The signal platform already holds a live FIX quote book
+  // (`signal_platform/data/fix_quotes.py`) for the instruments the strategies trade. It pushes the
+  // latest bid/ask here every couple of seconds; this file keeps the newest one per symbol IN
+  // MEMORY and hands it to signed-in users. Nothing is written to the database — a price is
+  // worthless a second later, and a row per tick would be the most pointless table in the schema.
+  //
+  // ⚠ ONE FEED IN, ONE MAP OUT. Every journal user reads the same object. No browser ever opens a
+  // broker connection of its own — that would multiply sockets with the user base, which is the
+  // exact failure `docs/ctrader-scaling.md` exists to prevent.
+  //
+  // ⚠ DECLARED BEFORE `/api/prices/:symbol` BELOW, AND THAT ORDER IS LOAD-BEARING. Express matches
+  // in order, so with the routes the other way round "live" is read as a SYMBOL NAME and this
+  // endpoint can never be reached.
+  //
+  // The four stub routes below are deliberately untouched: AssetPage.tsx still calls them through
+  // useFastPrice/usePrices, and changing what they return would change that page.
+  type LivePrice = { bid: number; ask: number; receivedAt: number };
+  const livePrices = new Map<string, LivePrice>();
+
+  /** The platform pushes the whole book at once. Admin secret, same guard as the other internal routes. */
+  app.post("/api/internal/prices", requireAdminSecret, (req: Request, res: Response) => {
+    const rows = Array.isArray((req.body as any)?.prices) ? (req.body as any).prices : null;
+    if (!rows) return res.status(400).json({ error: "prices[] required" });
+    const now = Date.now();
+    let stored = 0;
+    for (const r of rows) {
+      const symbol = String(r?.symbol ?? "").trim();
+      const bid = Number(r?.bid), ask = Number(r?.ask);
+      // A symbol the feed could not price arrives as null — skip it rather than storing a zero,
+      // which would render as a real price of 0.00000.
+      //
+      // ⚠ `> 0`, NOT JUST `isFinite`. `Number(null)` is 0 and 0 IS finite, so a finiteness check
+      // alone accepted exactly the unpriceable symbol it was written to reject — measured, it stored
+      // 6 of 6 when 5 were valid. No instrument trades at or below zero, so this is also the right
+      // rule and not merely a null guard.
+      //
+      // A crossed book (ask <= bid) is refused upstream at `fix_quotes.live_quote`
+      // (signal_platform/data/fix_quotes.py:98), which is the only writer here.
+      if (!symbol || !(bid > 0) || !(ask > 0)) continue;
+      livePrices.set(symbol, { bid, ask, receivedAt: now });
+      stored++;
+    }
+    return res.json({ ok: true, stored });
+  });
+
+  /**
+   * Read by the journal ticker. REQUIRING AUTH IS WHAT MAKES THIS JOURNAL-ONLY — it is the whole
+   * mechanism behind "not landing page", not a convention. The landing page keeps its static list.
+   */
+  app.get("/api/prices/live", async (req: Request, res: Response) => {
+    const auth = await requireAuth(req, res);
+    if (!auth) return;
+    const now = Date.now();
+    // AGE IS MEASURED FROM THE PUSH, AND THAT IS ENOUGH TO SPOT A SHUT MARKET. The feed refuses to
+    // hand out a quote older than 15s (`fix_quotes._FRESH_S`), so a symbol that goes quiet simply
+    // stops being pushed and its age here climbs without limit. The 15s the feed allows is the only
+    // error in this number, which is why the client's "market closed" threshold is minutes, not
+    // seconds — see JournalHeader.tsx.
+    const prices = [...livePrices.entries()].map(([symbol, p]) => ({
+      symbol, bid: p.bid, ask: p.ask, ageMs: now - p.receivedAt,
+    }));
+    res.setHeader("Cache-Control", "no-store");
+    return res.json({ prices, at: new Date(now).toISOString() });
+  });
+
   // Price routes — not used (signal-only mode, no price streaming)
   app.get("/api/prices/status",          (_req, res) => res.json({ ok: false, mode: "signal-only" }));
   app.get("/api/prices/:symbol/candles", (_req, res) => res.status(204).end());
