@@ -27,10 +27,25 @@ function TickerBand() {
         .hh-ticker-wrap { display:flex; animation: hh-ticker 40s linear infinite; will-change:transform; }
         .hh-ticker-wrap:hover { animation-play-state: paused; }
       `}</style>
-      {/* THE TICKER IS SANS AND LEGIBLE (2026-08-30). It was inheriting the page's Playfair Display —
-          a display serif rendering live prices at 11px — and its symbol labels measured 3.24:1 on
-          the dark bar, below the 4.5:1 floor. Found by scripts/check-readability.mjs, not by eye. */}
-      <div className="hh-ticker-wrap" style={{ fontFamily: "'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif" }}>
+      {/* ⚠ PLAYFAIR, BY HIS INSTRUCTION 2026-10-12 — AND THIS REVERSES A DELIBERATE FIX. Read this
+          before "correcting" it back.
+
+          On 2026-08-30 this band was moved OFF Playfair onto Inter for two measured reasons: a
+          DISPLAY serif was rendering live prices at 11px, and the symbol labels came back at
+          3.24:1 against the dark bar, under the 4.5:1 floor. `homeTokens.ts` still carries the
+          general rule that came out of it — "display ... never use it for body copy or small
+          labels", because Playfair's hairlines go soft below ~16px.
+
+          WHAT CHANGED SINCE, and why this is not simply undoing that fix:
+            * the CONTRAST half was fixed separately and is not the typeface's doing — the symbol
+              is #6B8AA8 and the price #c8d8e8 on #080c10, both re-measured after this change
+            * the brand mark became a serif on 2026-10-12, so the band now matches the logo
+            * the weights here are 600-700, and weight is exactly what keeps a high-contrast serif
+              readable at small sizes — it is the hairlines that disappear, not the stems
+
+          It is his brand call to make. The sizes were left where they were and the result
+          measured rather than assumed. */}
+      <div className="hh-ticker-wrap" style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>
         {items.map((t, i) => (
           <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "0 28px", borderRight: "1px solid #0f1923", whiteSpace: "nowrap" }}>
             <span style={{ color: "#6B8AA8", fontSize: 12.5, fontWeight: 700, letterSpacing: "0.04em" }}>{t.symbol}</span>

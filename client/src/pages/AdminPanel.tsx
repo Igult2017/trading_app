@@ -3454,7 +3454,12 @@ export default function AdminPanel() {
         {/* Brand — the supplied artwork, unmodified. It carries the name itself, so the name is
             never set again as text beside it. */}
         <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'flex-start', padding: '18px 16px 12px' }}>
-          <Wordmark dark height="30px" />
+          {/* 36px, up from 30px with the October artwork. The lockup went from 5.86:1 to 4.22:1,
+              so a fixed HEIGHT now draws 127px where it used to draw 176px — the logo quietly
+              shrank by a third in this rail while every surface using the em default was raised
+              to compensate. Measured: the rail is 224px with 16px of side padding, and 36px draws
+              152px, leaving 40px spare. */}
+          <Wordmark dark height="36px" />
         </div>
 
         <div style={{ flex: 1, overflowY: 'auto', padding: '4px 0 14px', minHeight: 0, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>

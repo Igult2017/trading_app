@@ -68,8 +68,14 @@ export default function HomeHero({ darkMode }: { darkMode: boolean }) {
           // radius."* 12 is the Start Free button's own radius, so the badge and the button match in
           // shape as well as in ring, which is what asking for that ring implied.
           display: 'inline-flex', alignItems: 'center', gap: 9, padding: '8px 18px', borderRadius: 12,
+          // PLAYFAIR, his instruction 2026-10-12 — `display`, not `sans`. Note this is the one
+          // place on the page where a small label is deliberately set in the brand serif: the
+          // badge IS the brand line, and it now matches the serif logo above it. `homeTokens`
+          // still says display is for headlines only, and that rule stands for everything else.
+          // Weight stays 600 — with a high-contrast serif at this size the weight is what keeps
+          // it readable, since it is the hairlines that go first.
           background: t.card, fontSize: TYPE.small, fontWeight: 600,
-          color: t.muted, marginBottom: 28, ...sans,
+          color: t.muted, marginBottom: 28, ...display,
           // The ring reads these; same stops as the button, per theme, so the two always match.
           ['--sfb-a' as string]: ringA, ['--sfb-b' as string]: ringB, ['--sfb-c' as string]: ringC,
         }}>
