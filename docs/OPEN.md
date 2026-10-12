@@ -4497,3 +4497,29 @@ database holding 13 'High' events that week. Fixed by comparing in lower case, a
 **The lesson worth keeping:** `newsAlerts.check.ts` was green throughout — 31 checks, one of them
 literally named "impact match is case-insensitive". It tested the in-memory filter, which was never
 the broken half. Nothing anywhere tested the query. A green suite beside a dead feature.
+
+### C15 — The admin Appearance picker draws its swatches from a SECOND, drifting colour table. Found 2026-10-12
+
+**What it is.** The admin panel has five themes. Which colours each one actually paints comes from
+`ADMIN_THEMES` (now `client/src/components/admin-ui/adminThemes.ts:28`). What the Appearance picker
+SHOWS you — the little preview swatch on each theme button — comes from a completely separate list,
+`THEME_OPTIONS` at `client/src/pages/AdminPanel.tsx:2709`, which hardcodes its own copies.
+
+**They have already drifted.** Two of the five preview swatches are wrong today:
+
+| theme | swatch says the card is | the card actually is |
+|---|---|---|
+| Midnight | `#111111` | `#0d0d14` |
+| Forest | `#14532d` | `#073b1d` |
+
+**Why it matters.** You pick a theme by looking at the swatch. Where the swatch is wrong, you are
+choosing from a picture of something else — and nothing will ever flag it, because the two lists do
+not know about each other.
+
+**This is the same shape as a bug this file already records.** `AdminPanel.tsx` carries a comment
+about the FONT picker: *"ONE font table. There used to be TWO, and that is the whole bug."* The
+font pair was fixed; the colour pair was not noticed at the time.
+
+**The fix** is to delete `THEME_OPTIONS` and have the picker read `ADMIN_THEMES` directly — the
+swatch then cannot disagree with the theme, because it is the theme. Not done: found while moving
+the palettes out for the app-shell placeholder, and outside what was asked for.

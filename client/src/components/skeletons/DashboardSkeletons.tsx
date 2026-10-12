@@ -36,6 +36,38 @@ export const Skeleton = ({ className = "", style }: { className?: string; style?
     style={{ background: "currentColor", opacity: 0.13, color: "var(--jr-ink,#ECEEF2)", ...style }} />
 );
 
+/**
+ * THE DASHBOARD'S GEOMETRY, IN ONE PLACE, because two placeholders draw it.
+ *
+ * This file covers the SECOND loading moment — the journal is running and fetching data. There is
+ * an earlier one: `App.tsx LoadingScreen`, the full-screen shell shown while the journal BUNDLE is
+ * still downloading. It cannot import the component below (its colours are `--jr-*` variables that
+ * live on `.journal-root`, which does not exist yet at that point), so it copies the shape — and
+ * copied numbers drift. He reported exactly that on 2026-10-12: the shell placeholder had four
+ * cards where the page has six, and a flat slab where the page has two panels.
+ *
+ * These are the numbers both must agree on. Change them here, not in two files.
+ */
+export const DASH_GEOMETRY = {
+  /** KPI tiles across, at the three widths (`Journal.tsx:696`). */
+  kpiCols: { base: 2, md: 3, lg: 6 },
+  kpiGapPx: 4,
+  /** 80, MEASURED off the rendered StatCard — not the 64 both skeletons used to guess. A tile
+   *  16px short means the whole page below it shifts up the moment the data lands, which is the
+   *  one thing a placeholder is for. Found 2026-10-12 while matching the shell placeholder. */
+  kpiMinHeight: 80,
+  /** The equity curve beside the performance mix. */
+  splitRatio: '7fr 5fr',
+  splitGapPx: 6,
+  radiusPx: 8,
+  panelPadPx: 16,
+  /** 302, MEASURED off the rendered equity-curve panel — not the 240 that was guessed. Both
+   *  placeholders were 62px short, so everything under them slid up when the data arrived. */
+  panelMinHeight: 302,
+  /** The falling bars that stand in for the equity curve — a flat block reads as a broken image. */
+  curveBars: [62, 74, 55, 83, 47, 70, 38, 60, 52, 44, 66, 34] as const,
+} as const;
+
 /** The card the KPI tiles, the panels and the log all share. */
 const CARD: React.CSSProperties = {
   background: "var(--jr-panel,#0d1117)",
@@ -47,7 +79,8 @@ const CARD: React.CSSProperties = {
 function KpiCardSkeleton() {
   return (
     <div style={{ ...CARD, padding: 12, display: "flex", flexDirection: "column",
-                  alignItems: "center", justifyContent: "center", gap: 6, minHeight: 64 }}>
+                  alignItems: "center", justifyContent: "center", gap: 6,
+                  minHeight: DASH_GEOMETRY.kpiMinHeight }}>
       <Skeleton className="h-2.5 w-16 rounded-sm" />
       <Skeleton className="h-4 w-20 rounded-sm" />
     </div>
@@ -55,7 +88,7 @@ function KpiCardSkeleton() {
 }
 
 /** A panel with the real title bar, so the heading does not appear out of nowhere. */
-function PanelShell({ children, chart = false, minHeight = 240 }:
+function PanelShell({ children, chart = false, minHeight = DASH_GEOMETRY.panelMinHeight }:
     { children: React.ReactNode; chart?: boolean; minHeight?: number }) {
   return (
     <div style={{ ...CARD, ...(chart ? { background: "var(--jr-chart,#080d18)" } : {}),

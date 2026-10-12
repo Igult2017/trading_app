@@ -74,90 +74,13 @@ import EconomicCalendarPage from "@/pages/EconomicCalendarPage";
 
 
 import NotFound from "@/pages/not-found";
-
-// ── Shared loading screen ─────────────────────────────────────────────────────
-//
-// HIS INSTRUCTION, 2026-09-06: *"i noticed there is a rolling loader when the user reloads the page,
-// please remove it because i havent seen that approach in any modern app. Just make the page go
-// white when the user reloads."*
-//
-// What was here: a spinning ring, a progress bar that crept to 90% on a timer — measuring NOTHING,
-// it was a `setInterval` that just kept adding — and ten rotating messages ("Crunching your trade
-// data…"). A reload is usually a few hundred milliseconds of re-checking the session, so all of that
-// appeared and vanished, which is worse than nothing at all.
-//
-// PAINTED IN THE APP'S OWN BACKGROUND, NOT WHITE. The journal is a dark app; a literal white flash
-// on every reload would be the more jarring of the two. Same idea, one colour value if he wants it
-// white after all.
-// ── UPDATE 2026-09-12 — the blankness was right for a RELOAD and wrong for a LOGIN ──────────
-//
-// He reported staring at an empty screen after signing in, on both the panel and the journal.
-// Two things were stacked up behind that blank rectangle:
-//   1. sign-in AWAITED the dashboard data before it would navigate — up to six seconds (see the
-//      note in AuthContext.signIn, now fixed);
-//   2. the route's JavaScript is only fetched once you arrive, and measured against production
-//      that is 1.8-2.2s on a cold cache.
-//
-// The reasoning above still holds for the case it was written for: on a fast reload a spinner
-// appears and vanishes, which is worse than nothing. So the skeleton is DELAYED — nothing at all
-// for the first 400ms, so a quick reload stays clean, and only a genuinely slow wait ever shows
-// it. Both cases are served rather than one traded for the other.
-
-/** Shows nothing until `after` ms have passed, then renders. Keeps fast waits flicker-free. */
-function AfterDelay({ after = 400, children }: { after?: number; children: React.ReactNode }) {
-  const [show, setShow] = useState(false);
-  useEffect(() => {
-    const t = setTimeout(() => setShow(true), after);
-    return () => clearTimeout(t);
-  }, [after]);
-  return show ? <>{children}</> : null;
-}
-
-/** One placeholder block. No backticks anywhere in the style tag below — a backtick inside a
- *  template-literal <style> is a runtime crash that still builds clean. */
-function Bone({ w, h, r = 8, dark = false, mt = 0 }: { w: number | string; h: number; r?: number; dark?: boolean; mt?: number }) {
-  return (
-    <div className="app-bone" style={{
-      width: w, height: h, borderRadius: r, marginTop: mt,
-      background: dark ? 'rgba(255,255,255,0.07)' : 'rgba(15,23,42,0.07)',
-    }} />
-  );
-}
-
-const BONE_CSS = '@keyframes appBonePulse{0%,100%{opacity:.55}50%{opacity:1}}'
-               + '.app-bone{animation:appBonePulse 1.5s ease-in-out infinite}';
-
-/** The wait between "you are signed in" and "the screen is here".
- *  `admin` mirrors the panel (dark rail, light content); `journal` is the dark app. */
-function LoadingScreen({ variant = 'journal' }: { variant?: 'journal' | 'admin' }) {
-  const admin = variant === 'admin';
-  return (
-    <div style={{ position: 'fixed', inset: 0, background: admin ? '#f5f7fa' : '#07090f', display: 'flex' }}
-         role="status" aria-label="Loading">
-      <style>{BONE_CSS}</style>
-      <AfterDelay>
-        <div style={{ display: 'flex', width: '100%' }}>
-          {/* the navigation rail */}
-          <div style={{ width: admin ? 224 : 232, flexShrink: 0, background: '#0a0f16',
-                        padding: '22px 16px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <Bone w={120} h={26} dark />
-            <div style={{ height: 10 }} />
-            {Array.from({ length: 8 }).map((_, i) => <Bone key={i} w="100%" h={17} dark />)}
-          </div>
-          {/* the content */}
-          <div style={{ flex: 1, padding: '28px 28px 0', minWidth: 0 }}>
-            <Bone w={210} h={30} r={10} dark={!admin} />
-            <Bone w={330} h={14} mt={12} dark={!admin} />
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 18, marginTop: 28 }}>
-              {Array.from({ length: 4 }).map((_, i) => <Bone key={i} w="100%" h={122} r={14} dark={!admin} />)}
-            </div>
-            <Bone w="100%" h={300} r={14} mt={18} dark={!admin} />
-          </div>
-        </div>
-      </AfterDelay>
-    </div>
-  );
-}
+// ── Shared loading screens ──────────────────────────────────────
+// The app-shell placeholder now lives in its own files, each measured against the page it stands
+// in for — see the header of AppShellSkeleton.tsx for why, and for what was wrong with the single
+// conditional tree that used to be here. The primitives stay shared with the public-site
+// placeholder further down this file.
+import LoadingScreen from "@/components/skeletons/AppShellSkeleton";
+import { AfterDelay, Bone, BONE_CSS } from "@/components/skeletons/shellBones";
 
 // ── Route guards ─────────────────────────────────────────────────────────────
 
