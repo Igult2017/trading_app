@@ -13,6 +13,10 @@ import type { LangCode } from "@/i18n/languages";
 import Wordmark from '@/components/Wordmark';
 import ProfileSettings from '@/components/profile/ProfileSettings';
 import StreakDetail from '@/components/profile/StreakDetail';
+// The theme pill and its list. It was pasted inline TWICE in this file — desktop and mobile —
+// with every style repeated, which is exactly how two copies of one control drift apart.
+import ThemePicker from '@/components/ThemePicker';
+import type { ThemeId } from '@/hooks/useJournalSettings';
 // The price band, on real broker prices since 2026-10-11 and its own file since then too —
 // this one is already far past the 200-line limit. See TickerTape.tsx for why it shows five
 // symbols and no percentage.
@@ -22,8 +26,11 @@ interface JournalHeaderProps {
   onToggleSidebar: () => void;
   darkMode: boolean;
   onToggleDarkMode: () => void;
-  themeLabel?: string;
-  themeAccent?: string;
+  /** The live theme's id. The picker reads its label, accent and swatches off THEMES itself —
+   *  passing a label and an accent separately, as this used to, is three sources for one fact. */
+  themeId?: ThemeId;
+  /** Choose a specific theme. Journal.tsx owns the bookkeeping; this just reports the pick. */
+  onPickTheme?: (id: ThemeId) => void;
 }
 
 /* No Google Fonts @import (2026-08-22) — DM Mono is self-hosted in client/src/index.css, so this
@@ -353,7 +360,7 @@ function resizeImageToDataUrl(file: File, maxSize = 220): Promise<string> {
   });
 }
 
-export default function JournalHeader({ onToggleSidebar, darkMode, onToggleDarkMode, themeLabel, themeAccent }: JournalHeaderProps) {
+export default function JournalHeader({ onToggleSidebar, darkMode, onToggleDarkMode, themeId = 'navy', onPickTheme }: JournalHeaderProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [avatarUploading, setAvatarUploading] = useState(false);
@@ -610,7 +617,7 @@ export default function JournalHeader({ onToggleSidebar, darkMode, onToggleDarkM
             <button className="jh-icon-btn" style={iconButtonStyle} title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'} onClick={toggleFullscreen}>
               {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
             </button>
-            <button className="jh-icon-btn" style={iconButtonStyle} title="Brightness" onClick={() => onToggleDarkMode()}><SunMedium size={16} /></button>
+            <button className="jh-icon-btn" style={iconButtonStyle} title="Light / dark" onClick={() => onToggleDarkMode()}><SunMedium size={16} /></button>
 
             <div style={{ width: 1, height: 24, background: theme.navBorder, margin: '0 6px' }} />
 
@@ -641,60 +648,13 @@ export default function JournalHeader({ onToggleSidebar, darkMode, onToggleDarkM
             </div>
             <div style={{ width: 1, height: 24, background: theme.navBorder, margin: '0 6px' }} />
 
-            <button
-              onClick={() => onToggleDarkMode()}
-              title="Cycle theme"
-              style={{
-                display: 'flex', alignItems: 'center', gap: 6,
-                padding: '4px 10px 4px 6px',
-                borderRadius: 20,
-                border: `1px solid ${themeAccent ?? '#38bdf8'}40`,
-                background: `${themeAccent ?? '#38bdf8'}12`,
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-                flexShrink: 0,
-              }}
-              onMouseEnter={e => { e.currentTarget.style.background = `${themeAccent ?? '#38bdf8'}22`; e.currentTarget.style.borderColor = `${themeAccent ?? '#38bdf8'}80`; }}
-              onMouseLeave={e => { e.currentTarget.style.background = `${themeAccent ?? '#38bdf8'}12`; e.currentTarget.style.borderColor = `${themeAccent ?? '#38bdf8'}40`; }}
-            >
-              <div style={{ width: 14, height: 14, borderRadius: '50%', background: themeAccent ?? '#38bdf8', flexShrink: 0, boxShadow: `0 0 6px ${themeAccent ?? '#38bdf8'}80` }} />
-              <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: themeAccent ?? '#38bdf8', whiteSpace: 'nowrap' }}>
-                {themeLabel ?? 'Theme'}
-              </span>
-              <svg width="8" height="8" viewBox="0 0 10 10" fill="none" style={{ opacity: 0.6 }}>
-                <path d="M2 4 L5 7 L8 4" stroke={themeAccent ?? '#38bdf8'} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-            </button>
+            <ThemePicker current={themeId} onPick={id => onPickTheme?.(id)} />
 
           </div>
 
           {/* Mobile Controls */}
           <div className="nav-mob-controls">
-            <button
-              className="jh-mobile-theme"
-              onClick={() => onToggleDarkMode()}
-              title="Cycle theme"
-              style={{
-                display: 'flex', alignItems: 'center', gap: 6,
-                padding: '4px 10px 4px 6px',
-                borderRadius: 20,
-                border: `1px solid ${themeAccent ?? '#38bdf8'}40`,
-                background: `${themeAccent ?? '#38bdf8'}12`,
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-                flexShrink: 0,
-              }}
-              onMouseEnter={e => { e.currentTarget.style.background = `${themeAccent ?? '#38bdf8'}22`; e.currentTarget.style.borderColor = `${themeAccent ?? '#38bdf8'}80`; }}
-              onMouseLeave={e => { e.currentTarget.style.background = `${themeAccent ?? '#38bdf8'}12`; e.currentTarget.style.borderColor = `${themeAccent ?? '#38bdf8'}40`; }}
-            >
-              <div style={{ width: 14, height: 14, borderRadius: '50%', background: themeAccent ?? '#38bdf8', flexShrink: 0, boxShadow: `0 0 6px ${themeAccent ?? '#38bdf8'}80` }} />
-              <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: themeAccent ?? '#38bdf8', whiteSpace: 'nowrap' }}>
-                {themeLabel ?? 'Theme'}
-              </span>
-              <svg width="8" height="8" viewBox="0 0 10 10" fill="none" style={{ opacity: 0.6 }}>
-                <path d="M2 4 L5 7 L8 4" stroke={themeAccent ?? '#38bdf8'} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-            </button>
+            <ThemePicker current={themeId} onPick={id => onPickTheme?.(id)} className="jh-mobile-theme" />
             <button
               className="jh-sidebar-mobile"
               onClick={onToggleSidebar}

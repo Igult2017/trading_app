@@ -873,19 +873,33 @@ export default function Journal() {
   const lastDarkThemeRef = useRef<import('@/hooks/useJournalSettings').ThemeId>(
     (settings.theme !== 'light' ? settings.theme : 'forest') as import('@/hooks/useJournalSettings').ThemeId
   );
+  /**
+   * THE ONE PLACE A THEME IS CHANGED. Three things have to move together — the stored theme, the
+   * `darkMode` state the header and panels read, and the `journal_dark_mode` key that survives a
+   * reload. Written twice they drift, and the symptom is a journal whose shell says dark while a
+   * panel reading the marker class says light.
+   *
+   * Introduced 2026-10-12 with the theme picker, which gave this a second caller for the first
+   * time; before that it existed only inside `toggleDarkMode`.
+   */
+  const applyTheme = (id: import('@/hooks/useJournalSettings').ThemeId) => {
+    // Remember where the light/dark toggle should come BACK to. Only dark themes qualify, or
+    // flipping to light would record 'light' as the thing to restore and strand the user there.
+    if (id !== 'light') lastDarkThemeRef.current = id;
+    setSettings({ theme: id });
+    setDarkMode(THEMES[id].dark);
+    localStorage.setItem('journal_dark_mode', String(THEMES[id].dark));
+  };
+
+  /** The sun icon: a straight light/dark flip that returns you to the dark theme you chose. */
   const toggleDarkMode = () => {
     if (settings.theme === 'light') {
-      // Switch back to the last dark theme
-      const prev = lastDarkThemeRef.current;
-      setSettings({ theme: prev });
-      setDarkMode(THEMES[prev].dark);
-      localStorage.setItem('journal_dark_mode', 'true');
+      applyTheme(lastDarkThemeRef.current);
     } else {
-      // Remember current dark theme, then switch to light
+      // Record the current one BEFORE leaving it — applyTheme deliberately will not do this for
+      // 'light', so the round trip has to be remembered here.
       lastDarkThemeRef.current = settings.theme;
-      setSettings({ theme: 'light' });
-      setDarkMode(false);
-      localStorage.setItem('journal_dark_mode', 'false');
+      applyTheme('light');
     }
   };
   const dm = T.dark;
@@ -1398,12 +1412,14 @@ export default function Journal() {
         }
       `}</style>
 
+      {/* `themeId`, not the label and accent the header used to be handed: the picker reads both
+          off THEMES itself, so there is one source for what a theme looks like instead of three. */}
       <JournalHeader
         onToggleSidebar={() => isMobile ? setMobileOpen(o => !o) : setSidebarOpen(o => !o)}
         darkMode={T.dark}
         onToggleDarkMode={toggleDarkMode}
-        themeLabel={T.label}
-        themeAccent={T.accent}
+        themeId={settings.theme}
+        onPickTheme={applyTheme}
       />
 
       <div className={`journal-root ${T.dark ? 'journal-dark' : 'journal-light'}`} style={{ flex:1, display:'flex', overflow:'hidden', position:'relative', ['--jr-bg' as any]: T.bg, ['--jr-panel' as any]: T.surface, ['--jr-chart' as any]: T.dark ? '#080d18' : T.surface, ['--jr-border' as any]: T.border, ['--jr-text' as any]: T.text, // Caption grey: the Metrics panel's value (8.77:1) on dark, against the 5.34:1 --jr-muted
