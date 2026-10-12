@@ -137,6 +137,8 @@ TESTS = [
     # NOTHING but the count. The entry gained an `ignore_count` switch to answer that question, so the
     # first thing this file asserts is that the switch is off everywhere the platform actually trades.
     "test_countwatch.py",            # a candle refused ONLY by the count is reported to his DM
+    "test_momentum_announce.py",     # EVERY qualifying momentum candle is announced to his DM,
+                                     # setup or no setup — the one message no gate can silence
 ]
 
 # AND THIS IS WHY IT WILL NOT HAPPEN A THIRD TIME. Adding a test file without listing it above is

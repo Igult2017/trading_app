@@ -48,6 +48,19 @@ MOMENTUM_CLOSED = "MOMENTUM CANDLE CLOSED — SETUP BUILDING"
 # A candle that passes every qualification and is held back ONLY by the candle count. His, 04 Oct:
 # he takes these on his own judgement, so the card must never read like a signal.
 MOMENTUM_WAITING_COUNT = "MOMENTUM CANDLE CLOSED — WAITING ON THE CANDLE COUNT"
+# ─ ANNOUNCEMENT ONLY ────────────────────────────────────────────────────────────────────────
+# HIS INSTRUCTION, 2026-10-12: *"I want momentum candles to be announced whether the setup
+# qualifies or not. That is not a signal, it is just announcement of momentum candles."*
+#
+# ⚠ THE WORDS "ANNOUNCEMENT ONLY" ARE LOAD-BEARING, not decoration. Every other title in this
+# block belongs to a candle the strategy might still trade; this one belongs to a candle it has
+# very likely already refused. He marked two real momentum candles on a RANGING EUR/USD and got
+# nothing, because all four messages above are gated on "could this trade". This one is not
+# gated at all, so the title has to carry the difference on its own.
+#
+# NOT a variant of MOMENTUM_CLOSED ("— SETUP BUILDING"), which means the opposite: there IS a
+# setup forming behind it.
+MOMENTUM_ANNOUNCEMENT = "MOMENTUM CANDLE CLOSED — ANNOUNCEMENT ONLY"
 ENTRY_SIGNAL = "ENTRY SIGNAL"
 SETUP_INVALIDATED = "SETUP INVALIDATED"
 
@@ -90,6 +103,7 @@ PLATFORM_RESTARTED = "PLATFORM RESTARTED"
 
 _EMOJI = {
     MOMENTUM_CLOSING: "🔔", MOMENTUM_FAILED: "⚪", MOMENTUM_CLOSED: "🟡",
+    MOMENTUM_ANNOUNCEMENT: "📣",
     ENTRY_SIGNAL: "🟢", SETUP_INVALIDATED: "🚫",
     ZONE_TAPPED: "👀",
     UNCONFIRMED_ENTRY: "🟡", CONFIRMED_ENTRY: "🟢",

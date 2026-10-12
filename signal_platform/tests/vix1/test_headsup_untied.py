@@ -70,30 +70,50 @@ def stages(sigs):
     return sorted(x.stage for x in sigs)
 
 
+# ── EVERY TICK NOW ALSO CARRIES THE ANNOUNCEMENT (2026-10-12) ────────────────
+# His rule: *"I want momentum candles to be announced whether the setup qualifies or not."*
+# `vix1_momentum_watch` runs FIRST in `analyze` and speaks for any qualifying closed candle, so the
+# fixture's 70-pip bar now produces a message of its own ON TOP of whatever this file is asserting.
+# These tests are about the HEADS-UP, so they select it by headline rather than by position — an
+# index into `signals` was only ever right while VIX.1 sent one kind of message per tick.
+def headsups(sigs):
+    return [x for x in sigs if x.headline == titles.MOMENTUM_CLOSED]
+
+
+def announces(sigs):
+    return [x for x in sigs if x.headline == titles.MOMENTUM_ANNOUNCEMENT]
+
+
+def entries(sigs):
+    return [x for x in sigs if x.stage == "ready"]
+
+
 # ── 1. NO ENTRY YET — the heads-up fires, as it always did ───────────────────
 no_entry = run([])
-s.check("with no 1M entry, exactly one signal comes out", len(no_entry), 1)
-s.check("...and it is the heads-up", no_entry[0].stage, "building")
-s.check("...as a DM, not the channel", no_entry[0].strategy_id, "vix1_watch")
-s.check("...with no entry price on it", no_entry[0].entry_price, 0.0)
+s.check("with no 1M entry, exactly one HEADS-UP comes out", len(headsups(no_entry)), 1)
+s.check("...and no entry alongside it", len(entries(no_entry)), 0)
+s.check("...and the announcement rides with it", len(announces(no_entry)), 1)
+s.check("...and it is the heads-up", headsups(no_entry)[0].stage, "building")
+s.check("...as a DM, not the channel", headsups(no_entry)[0].strategy_id, "vix1_watch")
+s.check("...with no entry price on it", headsups(no_entry)[0].entry_price, 0.0)
 # The heads-up IS a real setup being watched, so it keeps its Assets-board row — unlike the pre-close
 # forecast, which must not take that row from it.
-s.check("...and it DOES claim the watching row", no_entry[0].persist_watch, True)
+s.check("...and it DOES claim the watching row", headsups(no_entry)[0].persist_watch, True)
 
 # ── 2. THE ENTRY IS AVAILABLE ON THE SAME TICK — the regression ──────────────
 # THIS is the case that used to produce no heads-up at all. It must now produce BOTH.
 ENTRY = [{"kind": "pullback", "entry": 1.1075, "sl": 1.1055}]
 both = run(ENTRY)
-s.check("with an entry on the same tick, BOTH signals come out", len(both), 2)
-s.check("...one heads-up and one ready entry", stages(both), ["building", "ready"])
-s.check("THE HEADS-UP COMES FIRST — it is the earlier moment", both[0].stage, "building")
-s.check("...and the entry second", both[1].stage, "ready")
-s.check("the entry is the real one, with a price on it", both[1].entry_price, 1.1075)
-s.check("the entry goes to the CHANNEL (no _watch suffix)", both[1].strategy_id, "vix1")
+s.check("with an entry on the same tick, BOTH still come out", len(headsups(both)), 1)
+s.check("...and the entry with them", len(entries(both)), 1)
+s.check("THE HEADS-UP COMES BEFORE THE ENTRY — it is the earlier moment",
+        both.index(headsups(both)[0]) < both.index(entries(both)[0]), True)
+s.check("the entry is the real one, with a price on it", entries(both)[0].entry_price, 1.1075)
+s.check("the entry goes to the CHANNEL (no _watch suffix)", entries(both)[0].strategy_id, "vix1")
 
 # ── 3. the heads-up is identical either way ─────────────────────────────────
 # It must describe the CANDLE, so nothing about it may change because an entry happened to exist.
-a, b = no_entry[0], both[0]
+a, b = headsups(no_entry)[0], headsups(both)[0]
 s.check("same direction whether or not an entry existed", a.direction == b.direction, True)
 s.check("same headline", a.headline == b.headline, True)
 s.check("same dedup key — one heads-up per candle either way", a.dedup_key == b.dedup_key, True)
@@ -108,20 +128,27 @@ s.check("...and not the zone vocabulary that used to leak onto it",
 # ── 5. a SELL bias mirrors ──────────────────────────────────────────────────
 BIAS = Bias(bullish=False, mc_idx=len(h1) - 1, origin="trend", run_len=1, reason="test leg")
 sell = run([{"kind": "pullback", "entry": 1.0930, "sl": 1.0950}])
-s.check("a SELL bias also emits both", stages(sell), ["building", "ready"])
-s.check("...and the heads-up is a SELL", sell[0].direction, Direction.SELL)
+s.check("a SELL bias also emits both", stages(headsups(sell) + entries(sell)), ["building", "ready"])
+s.check("...and the heads-up is a SELL", headsups(sell)[0].direction, Direction.SELL)
 # The SIDE is no longer in the headline — it is on the title's second line and twice on
 # the card. The headline names the MESSAGE TYPE, which is what was missing.
-s.check("...and a SELL carries the same title", sell[0].headline, titles.MOMENTUM_CLOSED)
-s.check("...with the side on the signal, not in the title", sell[0].direction, Direction.SELL)
+s.check("...and a SELL carries the same title", headsups(sell)[0].headline, titles.MOMENTUM_CLOSED)
+s.check("...with the side on the signal, not in the title", headsups(sell)[0].direction, Direction.SELL)
 
 # ── TEETH ───────────────────────────────────────────────────────────────────
 BIAS = Bias(bullish=True, mc_idx=len(h1) - 1, origin="trend", run_len=1, reason="test leg")
-s.teeth("the entry path is genuinely reached (2 signals, not 1)", len(run(ENTRY)) == 2)
+s.teeth("the entry path is genuinely reached (an entry is emitted)", len(entries(run(ENTRY))) == 1)
 
 # NO BIAS -> NO HEADS-UP. The heads-up is untied from the ENTRY, not from the momentum candle: a tick
-# on which the 1HR decided nothing must stay silent, or "untied" would have quietly become "fires on
-# every tick".
-s.teeth("a tick with no bias emits nothing at all", len(run(ENTRY, bias=None)) == 0)
+# on which the 1HR decided nothing must emit no heads-up and no entry, or "untied" would have quietly
+# become "fires on every tick".
+#
+# ⚠ THIS USED TO READ "emits nothing at all", AND THAT SENTENCE IS THE BUG HE REPORTED. On 12 Oct he
+# marked two real momentum candles on a ranging EUR/USD — exactly this state, bias None — and heard
+# nothing. The tick is no longer silent: it carries the ANNOUNCEMENT and nothing else. The heads-up
+# and the entry are still absent, which is what this check is actually for.
+no_bias = run(ENTRY, bias=None)
+s.teeth("a tick with no bias emits no heads-up and no entry", len(headsups(no_bias)) == 0 and len(entries(no_bias)) == 0)
+s.check("...but it DOES announce the candle — the silence he reported, removed", len(announces(no_bias)), 1)
 
 s.done()

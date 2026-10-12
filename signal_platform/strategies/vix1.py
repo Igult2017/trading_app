@@ -36,7 +36,7 @@ from strategies.vix1_bias import _ALLOW_H4, detect_bias
 from strategies.vix1_entry import m1_signals
 from strategies.vix1_lines import draw_line
 from strategies.vix1_momentum import LOOKBACK, momentum_grade   # candle_counts[M1] derives from LOOKBACK
-from strategies import vix1_building, vix1_countwatch, vix1_preclose
+from strategies import vix1_building, vix1_countwatch, vix1_momentum_watch, vix1_preclose
 from strategies.vix1_signal import build_signal
 from strategies import vix1_spacing, vix1_log
 from strategies.vix1_watch import check_invalidation, invalidation_signal, WATCH_M1
@@ -156,6 +156,32 @@ class Vix1Strategy(BaseStrategy):
         now    = time.time()
         sym    = context.symbol
         out: list[Signal] = []
+
+        # ── ANNOUNCEMENT ONLY — EVERY QUALIFYING MOMENTUM CANDLE, TRADEABLE OR NOT ─────────────
+        #
+        # HIS INSTRUCTION, 2026-10-12: *"I want momentum candles to be announced whether the setup
+        # qualifies or not. That is not a signal, it is just announcement of momentum candles."*
+        #
+        # ⚠ FIRST IN THE FUNCTION, AND THAT POSITION IS THE WHOLE FEATURE. Everything below this
+        # line can refuse a trade — the bias returns None while the market is ranging, and that
+        # single return silences the other three momentum messages. He marked two real momentum
+        # candles on a ranging EUR/USD and heard nothing. Moving this call below any gate puts the
+        # silence straight back.
+        #
+        # IT ASKS NOTHING ABOUT A SETUP. No trend, no box, no pullback, no count, no news, no
+        # spacing. `vix1_momentum_watch.check` asks one question of the newest CLOSED bar and
+        # returns. Nothing downstream reads its result, so it cannot change what gets traded.
+        ann = vix1_momentum_watch.check(h1, sym)
+        if ann is not None:
+            abar, a_bull, a_how = ann
+            akey = vix1_momentum_watch.dedup_key(sym, abar)
+            if not delivery_ledger.is_delivered(akey):
+                anote = vix1_momentum_watch.note(sym, a_bull, abar, pip, self.name, a_how)
+                anote.dedup_key = akey    # committed only once the DM actually lands
+                out.append(anote)
+                vix1_log.say_always(f"[vix1] {sym} MOMENTUM ANNOUNCEMENT — "
+                                    f"{'BUY' if a_bull else 'SELL'} candle closed at {abar.time}, "
+                                    f"announced regardless of any setup")
 
         # PRE-CLOSE — "a momentum candle is about to close, be at the screen". FIRST, and deliberately
         # ahead of everything else: it is the only message here that is about a bar still forming, and
