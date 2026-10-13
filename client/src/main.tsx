@@ -19,6 +19,15 @@ document.getElementById("boot-skeleton")?.remove();
 // behind does not look like a slow load — it covers the whole app permanently. Adding the
 // journal outline (index.html, 2026-10-13) without this line would have hidden the journal.
 document.getElementById("boot-journal")?.remove();
+// ...and drop the class the head script set. While it is on <html> a rule in index.html
+// forces the body background, which would fight the journal if the theme were switched
+// without a reload. Removed here, one line before the first render, so nothing paints
+// between the two.
+const bootCls = document.documentElement.className.split(" ");
+document.documentElement.className = bootCls
+  .filter((c) => c !== "boot-journal-route" && !c.startsWith("boot-theme-"))
+  .join(" ")
+  .trim();
 
 createRoot(document.getElementById("root")!).render(
   <HelmetProvider>

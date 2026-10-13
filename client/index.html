@@ -4,6 +4,54 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
 
+    <!--
+      WHICH PLACEHOLDER, AND WHAT COLOUR — DECIDED HERE, AT THE TOP OF THE HEAD, ON PURPOSE.
+
+      ⚠ IT CANNOT LIVE WITH THE PLACEHOLDERS DOWN IN THE BODY, and that is not a style choice —
+      a PENDING STYLESHEET BLOCKS EVERY SCRIPT AFTER IT. Vite injects `<link rel="stylesheet">`
+      further down this head, so a script in the body does not run until that CSS has downloaded.
+      Measured on the built site at 500 kbps with a cold cache: the body script had not run after
+      five seconds, so the journal was still showing the LANDING HERO outline with no dark ground.
+      This sits above the link, so it runs while the HTML is still arriving.
+
+      It only sets a colour and a class. The class is what the CSS further down uses to show the
+      right outline and hide the other, so the CHOICE costs no script at all.
+    -->
+    <script>
+      (function () {
+        var p = location.pathname;
+        var r0 = document.documentElement;
+        // The landing page keeps the hero; everything else gets neither, which is why both are
+        // hidden by default in the <style> below and only a class turns one on.
+        if (p === '/') { r0.className += ' boot-hero-route'; return; }
+        if (p !== '/journal' && p.indexOf('/journal/') !== 0) return;
+        // The journal's own grounds, from the key the journal itself writes
+        // (client/src/hooks/useJournalSettings.ts, THEMES[id].bg).
+        var G = { navy: '#010409', midnight: '#06070F', slate: '#0B1320',
+                  forest: '#070F0A', rose: '#130A0E', light: '#FFFEFB' };
+        var id = 'navy';
+        try {
+          var raw = localStorage.getItem('journal_settings_v2');
+          if (raw) { var t = (JSON.parse(raw) || {}).theme; if (G[t]) id = t; }
+        } catch (e) {}                       // storage throws in a private window
+        var r = document.documentElement;
+        r.style.background = G[id];          // paints before anything else can paint white
+        r.className += ' boot-journal-route boot-theme-' + id;
+      })();
+    </script>
+
+    <!--
+      WHICH OUTLINE IS VISIBLE — IN THE HEAD, ABOVE BOTH OF THEM, AND THAT POSITION IS THE POINT.
+      These rules were in the <style> down in the body at first, which is AFTER the hero markup:
+      measured on a cold load, the hero outline flashed up on the journal for ~350ms before the
+      rule that hides it had even been parsed. Up here, neither can paint before it is allowed to.
+    -->
+    <style>
+      #boot-skeleton, #boot-journal { display: none; }
+      html.boot-hero-route    #boot-skeleton { display: block; }
+      html.boot-journal-route #boot-journal  { display: block; }
+    </style>
+
     <!-- PRELOAD THE BODY FACE — this is what stops the font swapping in after the page has drawn.
          Playfair Display is the default body font (index.css `body`) and the face the landing page
          and Trade Sync both use. It was reaching the browser only via `@import '@fontsource-...'`
@@ -175,8 +223,24 @@
       @media (max-width: 640px) { .bs-wrap { padding-top: 120px; } .b-h1, .b-h2 { width: 86%; height: 40px; } }
       @media (prefers-reduced-motion: reduce) { .bs, .bs-chips i { animation: none } }
 
-      /* ── the journal outline. Hidden by default; the script below shows it only on /journal. ── */
+      /* ── THE JOURNAL OUTLINE ──────────────────────────────────────────────────────────
+         WHICH ONE SHOWS IS DECIDED BY CSS, not by script, because the body script is blocked
+         until the stylesheet arrives (see the note at the top of <head>). These rules are in the
+         document itself, so they apply the moment the parser reaches them. */
       #boot-journal { position: fixed; inset: 0; z-index: 1; display: none; overflow: hidden; }
+      html.boot-journal-route #boot-journal { display: block; }
+      html.boot-journal-route #boot-skeleton { display: none; }
+
+      /* The ground again, on BODY this time: the app's own stylesheet sets a body background and
+         would otherwise paint over the colour the head script put on <html>. Later in the document
+         than that stylesheet, so these win. `main.tsx` drops the class when React takes over. */
+      html.boot-journal-route body { background: #010409; }
+      html.boot-theme-midnight body { background: #06070F; }
+      html.boot-theme-slate    body { background: #0B1320; }
+      html.boot-theme-forest   body { background: #070F0A; }
+      html.boot-theme-rose     body { background: #130A0E; }
+      html.boot-theme-light    body { background: #FFFEFB; }
+
       .bj-top { height: 32px; background: rgba(255,255,255,.03); }
       .bj-nav { height: 60px; background: rgba(255,255,255,.05);
                 border-bottom: 1px solid rgba(255,255,255,.06); }
@@ -204,48 +268,28 @@
         .bj-split { grid-template-columns: 7fr 5fr; }
       }
       /* The Light journal theme is a pale page, so its bones are dark ink, not white. */
-      #boot-journal.bj-light .bj-top { background: rgba(15,23,42,.03); }
-      #boot-journal.bj-light .bj-nav { background: rgba(15,23,42,.05);
-                                       border-bottom-color: rgba(15,23,42,.08); }
-      #boot-journal.bj-light .bj-rail { background: rgba(15,23,42,.04); }
-      #boot-journal.bj-light .bj-rail > div,
-      #boot-journal.bj-light .bj-kpi > div,
-      #boot-journal.bj-light .bj-split > div { background: rgba(15,23,42,.07);
-                                               border-color: rgba(15,23,42,.10); }
+      html.boot-theme-light .bj-top { background: rgba(15,23,42,.03); }
+      html.boot-theme-light .bj-nav { background: rgba(15,23,42,.05);
+                                      border-bottom-color: rgba(15,23,42,.08); }
+      html.boot-theme-light .bj-rail { background: rgba(15,23,42,.04); }
+      html.boot-theme-light .bj-rail > div,
+      html.boot-theme-light .bj-kpi > div,
+      html.boot-theme-light .bj-split > div { background: rgba(15,23,42,.07);
+                                              border-color: rgba(15,23,42,.10); }
     </style>
     <script>
-      // WHICH PLACEHOLDER THIS PAGE GETS, decided before a line of the app has downloaded.
-      //
-      // Each route keeps exactly one and the other is REMOVED, never just hidden: both are
-      // `position: fixed` over everything, so a leftover would cover the real page.
+      // CLEANUP ONLY. The choice and the colour were made at the top of <head>; the CSS above
+      // already shows the right outline. This just takes the unused one OUT of the document —
+      // both are `position: fixed` over everything, so a leftover would cover the real page — and
+      // records when a placeholder went up, which `AfterDelay` reads so it does not add its 400ms
+      // on top of a wait the user has already been sitting through.
       (function () {
         var hero = document.getElementById('boot-skeleton');
         var jnl  = document.getElementById('boot-journal');
-        var path = location.pathname;
-        var isJournal = path === '/journal' || path.indexOf('/journal/') === 0;
+        var onJournal = document.documentElement.className.indexOf('boot-journal-route') !== -1;
 
-        if (isJournal) {
+        if (onJournal) {
           if (hero) hero.remove();
-
-          // THE JOURNAL'S OWN GROUND, FROM THE KEY THE JOURNAL ITSELF WRITES
-          // (`journal_settings_v2`, see client/src/hooks/useJournalSettings.ts). Without this the
-          // page painted #ffffff for seven seconds and then snapped to near-black. The map is a
-          // copy of THEMES[id].bg — six values that change about once a year; reading it here costs
-          // nothing and is the half of this fix that cannot break anything.
-          var GROUNDS = { navy: '#010409', midnight: '#06070F', slate: '#0B1320',
-                          forest: '#070F0A', rose: '#130A0E', light: '#FFFEFB' };
-          var bg = '#010409';                       // navy, the journal's own default
-          try {
-            var raw = localStorage.getItem('journal_settings_v2');
-            if (raw) { var id = (JSON.parse(raw) || {}).theme; if (GROUNDS[id]) bg = GROUNDS[id]; }
-          } catch (e) {}                            // storage throws in a private window
-          document.documentElement.style.background = bg;
-          document.body.style.background = bg;
-          if (jnl) {
-            jnl.style.background = bg;
-            if (bg === GROUNDS.light) jnl.className = 'bj-light';
-            jnl.style.display = 'block';
-          }
         } else {
           if (jnl) jnl.remove();
           // Match the saved public theme so the placeholder is not a white flash for a dark-mode
@@ -253,15 +297,10 @@
           try { if (hero && localStorage.getItem('pub-theme') === 'dark')
                   hero.classList.add('bs-dark'); } catch (e) {}
           // Only the landing page looks like the hero. Every other route has its own placeholder
-          // inside the app (App.tsx PageLoading), so showing a hero shape there would be the same
-          // mismatch in the other direction.
-          if (path !== '/' && hero) hero.remove();
+          // inside the app (App.tsx PageLoading), so a hero shape there would be the same mismatch
+          // in the other direction.
+          if (location.pathname !== '/' && hero) hero.remove();
         }
-
-        // WHEN A PLACEHOLDER WENT UP. `AfterDelay` (components/skeletons/shellBones.tsx) reads this
-        // so it does NOT sit out its 400ms on a cold load: React mounting would otherwise take this
-        // block down and leave a bare ground for another 400ms — a new blank gap in the middle of
-        // the very wait this is here to fill.
         if (document.getElementById('boot-skeleton') || document.getElementById('boot-journal')) {
           window.__bootShownAt = Date.now();
         }
