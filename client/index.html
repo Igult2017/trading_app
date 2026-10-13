@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" style="background:#ffffff">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
@@ -112,6 +112,45 @@
         <div class="bs b-panel"></div>
       </div>
     </div>
+    <!--
+      THE JOURNAL'S OWN FIRST PAINT (added 2026-10-13).
+
+      His report: *"When I reload the page after it has stayed inactive for a while, the skeleton
+      for that reload is ugly and does not represent the page being reloaded."* "After inactivity"
+      is the whole clue: a quick reload comes from the browser's memory cache and the gap is
+      invisible; once that cache is dropped the reload is COLD and the gap is seconds long.
+
+      MEASURED on the live site at 500 kbps with the cache cleared: from 5.6s to 7.6s there was
+      NOTHING on screen — no text, no elements in #root — on a WHITE page, and then a hard snap to
+      the journal's near-black ground. Seven and a half seconds of white claiming to be a dark app.
+
+      Two lines caused it: `<html style="background:#ffffff">` above, and the script below removing
+      the hero placeholder on every path that is not "/". That removal was RIGHT — drawing a landing
+      hero over the journal is the same mismatch in the other direction. The answer is not to keep
+      the hero, it is to give the journal its own, which is this block.
+
+      ⚠ THESE NUMBERS ARE A COPY and index.html cannot import the original. The source of truth is
+      `client/src/components/skeletons/AppShellSkeleton.tsx` / `JournalShellSkeleton.tsx`, measured
+      against the real dashboard: a 32px price strip over a 60px nav, a 185px rail, six tiles 80
+      tall at a 4px gap, then a 7fr/5fr split. Deliberately COARSE — no tile internals — so there is
+      as little as possible that can drift out of step with the page.
+    -->
+    <div id="boot-journal" aria-hidden="true">
+      <div class="bj-top"></div>
+      <div class="bj-nav"></div>
+      <div class="bj-body">
+        <div class="bj-rail">
+          <div></div><div></div><div></div><div></div><div></div><div></div><div></div>
+          <div></div><div></div><div></div><div></div><div></div><div></div>
+        </div>
+        <div class="bj-main">
+          <div class="bj-kpi">
+            <div></div><div></div><div></div><div></div><div></div><div></div>
+          </div>
+          <div class="bj-split"><div></div><div></div></div>
+        </div>
+      </div>
+    </div>
     <style>
       /* The hero's own pale ground, so the swap to the real page is not a flash of a different
          colour. The dark variant follows the saved public theme, applied by the script below. */
@@ -135,19 +174,98 @@
       .b-panel { width: 100%; aspect-ratio: 2.6 / 1; border-radius: 22px; margin-top: 56px; }
       @media (max-width: 640px) { .bs-wrap { padding-top: 120px; } .b-h1, .b-h2 { width: 86%; height: 40px; } }
       @media (prefers-reduced-motion: reduce) { .bs, .bs-chips i { animation: none } }
+
+      /* ── the journal outline. Hidden by default; the script below shows it only on /journal. ── */
+      #boot-journal { position: fixed; inset: 0; z-index: 1; display: none; overflow: hidden; }
+      .bj-top { height: 32px; background: rgba(255,255,255,.03); }
+      .bj-nav { height: 60px; background: rgba(255,255,255,.05);
+                border-bottom: 1px solid rgba(255,255,255,.06); }
+      .bj-body { display: flex; height: calc(100% - 92px); }
+      .bj-rail { width: 185px; min-width: 185px; padding: 14px 12px; display: flex;
+                 flex-direction: column; gap: 11px; background: rgba(255,255,255,.04); }
+      .bj-rail > div { height: 16px; border-radius: 8px; background: rgba(255,255,255,.07);
+                       animation: bsPulse 1.5s ease-in-out infinite; }
+      .bj-main { flex: 1; min-width: 0; padding: 14px 16px; display: flex;
+                 flex-direction: column; gap: 6px; }
+      .bj-kpi { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 4px; }
+      .bj-kpi > div { height: 80px; border-radius: 8px; background: rgba(255,255,255,.05);
+                      border: 1px solid rgba(255,255,255,.08);
+                      animation: bsPulse 1.5s ease-in-out infinite; }
+      .bj-split { display: grid; grid-template-columns: minmax(0,1fr); gap: 6px; }
+      .bj-split > div { height: 302px; border-radius: 8px; background: rgba(255,255,255,.05);
+                        border: 1px solid rgba(255,255,255,.08);
+                        animation: bsPulse 1.5s ease-in-out infinite; }
+      /* The journal's OWN breakpoints (AppShellSkeleton BONE_CSS): 2/3/6 tiles at 768 and 1024,
+         the split at 1024, and the rail hidden under 768 exactly as Journal.tsx hides it. */
+      @media (max-width: 767px) { .bj-rail { display: none; } }
+      @media (min-width: 768px) { .bj-kpi { grid-template-columns: repeat(3, minmax(0,1fr)); } }
+      @media (min-width: 1024px) {
+        .bj-kpi { grid-template-columns: repeat(6, minmax(0,1fr)); }
+        .bj-split { grid-template-columns: 7fr 5fr; }
+      }
+      /* The Light journal theme is a pale page, so its bones are dark ink, not white. */
+      #boot-journal.bj-light .bj-top { background: rgba(15,23,42,.03); }
+      #boot-journal.bj-light .bj-nav { background: rgba(15,23,42,.05);
+                                       border-bottom-color: rgba(15,23,42,.08); }
+      #boot-journal.bj-light .bj-rail { background: rgba(15,23,42,.04); }
+      #boot-journal.bj-light .bj-rail > div,
+      #boot-journal.bj-light .bj-kpi > div,
+      #boot-journal.bj-light .bj-split > div { background: rgba(15,23,42,.07);
+                                               border-color: rgba(15,23,42,.10); }
     </style>
     <script>
-      // Match the saved public theme so the placeholder is not a white flash for a dark-mode
-      // visitor. Wrapped because storage can throw in a private window.
-      try { if (localStorage.getItem('pub-theme') === 'dark')
-              document.getElementById('boot-skeleton').classList.add('bs-dark'); } catch (e) {}
-      // Only the landing page looks like this. Every other route has its own placeholder inside
-      // the app (App.tsx PageLoading), so showing a hero shape there would be the same mismatch
-      // in the other direction.
-      if (location.pathname !== '/') {
-        var el = document.getElementById('boot-skeleton');
-        if (el) el.remove();
-      }
+      // WHICH PLACEHOLDER THIS PAGE GETS, decided before a line of the app has downloaded.
+      //
+      // Each route keeps exactly one and the other is REMOVED, never just hidden: both are
+      // `position: fixed` over everything, so a leftover would cover the real page.
+      (function () {
+        var hero = document.getElementById('boot-skeleton');
+        var jnl  = document.getElementById('boot-journal');
+        var path = location.pathname;
+        var isJournal = path === '/journal' || path.indexOf('/journal/') === 0;
+
+        if (isJournal) {
+          if (hero) hero.remove();
+
+          // THE JOURNAL'S OWN GROUND, FROM THE KEY THE JOURNAL ITSELF WRITES
+          // (`journal_settings_v2`, see client/src/hooks/useJournalSettings.ts). Without this the
+          // page painted #ffffff for seven seconds and then snapped to near-black. The map is a
+          // copy of THEMES[id].bg — six values that change about once a year; reading it here costs
+          // nothing and is the half of this fix that cannot break anything.
+          var GROUNDS = { navy: '#010409', midnight: '#06070F', slate: '#0B1320',
+                          forest: '#070F0A', rose: '#130A0E', light: '#FFFEFB' };
+          var bg = '#010409';                       // navy, the journal's own default
+          try {
+            var raw = localStorage.getItem('journal_settings_v2');
+            if (raw) { var id = (JSON.parse(raw) || {}).theme; if (GROUNDS[id]) bg = GROUNDS[id]; }
+          } catch (e) {}                            // storage throws in a private window
+          document.documentElement.style.background = bg;
+          document.body.style.background = bg;
+          if (jnl) {
+            jnl.style.background = bg;
+            if (bg === GROUNDS.light) jnl.className = 'bj-light';
+            jnl.style.display = 'block';
+          }
+        } else {
+          if (jnl) jnl.remove();
+          // Match the saved public theme so the placeholder is not a white flash for a dark-mode
+          // visitor. Wrapped because storage can throw in a private window.
+          try { if (hero && localStorage.getItem('pub-theme') === 'dark')
+                  hero.classList.add('bs-dark'); } catch (e) {}
+          // Only the landing page looks like the hero. Every other route has its own placeholder
+          // inside the app (App.tsx PageLoading), so showing a hero shape there would be the same
+          // mismatch in the other direction.
+          if (path !== '/' && hero) hero.remove();
+        }
+
+        // WHEN A PLACEHOLDER WENT UP. `AfterDelay` (components/skeletons/shellBones.tsx) reads this
+        // so it does NOT sit out its 400ms on a cold load: React mounting would otherwise take this
+        // block down and leave a bare ground for another 400ms — a new blank gap in the middle of
+        // the very wait this is here to fill.
+        if (document.getElementById('boot-skeleton') || document.getElementById('boot-journal')) {
+          window.__bootShownAt = Date.now();
+        }
+      })();
     </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>

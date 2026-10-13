@@ -50,11 +50,26 @@ import { useEffect, useState } from 'react';
 /** Shows nothing until `after` ms have passed, then renders. Keeps fast waits flicker-free — on a
  *  quick reload a placeholder that appears and vanishes is worse than no placeholder at all. */
 export function AfterDelay({ after = 400, children }: { after?: number; children: React.ReactNode }) {
-  const [show, setShow] = useState(false);
+  // ⚠ NO WAIT WHEN SOMETHING WAS ALREADY ON SCREEN. `index.html` paints a placeholder before any
+  // JavaScript runs and stamps `__bootShownAt`; `main.tsx` takes it down the instant React mounts.
+  // On a COLD load that placeholder has been up for seconds, so sitting out another 400ms here
+  // would blank the screen in the middle of the wait — a new gap, in the exact place this whole
+  // thing exists to fill. If it was up for more than a blink, carry straight on from it.
+  //
+  // The 400ms still applies on a WARM reload, which is the case it was written for: React mounts in
+  // about 100ms, nothing has really been shown, and the delay is what stops a placeholder flashing
+  // in and out.
+  const [show, setShow] = useState(() => {
+    try {
+      const at = (window as unknown as { __bootShownAt?: number }).__bootShownAt;
+      return typeof at === 'number' && Date.now() - at > 250;
+    } catch { return false; }
+  });
   useEffect(() => {
+    if (show) return;
     const t = setTimeout(() => setShow(true), after);
     return () => clearTimeout(t);
-  }, [after]);
+  }, [after, show]);
   return show ? <>{children}</> : null;
 }
 

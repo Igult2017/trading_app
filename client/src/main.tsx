@@ -15,6 +15,10 @@ watchForNewBuild();
 // `position: fixed` over everything, so leaving it would hide the app entirely — removing it here,
 // immediately before the first render, is what makes it a placeholder rather than a cover.
 document.getElementById("boot-skeleton")?.remove();
+// ⚠ AND THE JOURNAL ONE. Both are `position: fixed` over everything, so a placeholder left
+// behind does not look like a slow load — it covers the whole app permanently. Adding the
+// journal outline (index.html, 2026-10-13) without this line would have hidden the journal.
+document.getElementById("boot-journal")?.remove();
 
 createRoot(document.getElementById("root")!).render(
   <HelmetProvider>
