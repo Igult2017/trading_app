@@ -190,6 +190,13 @@ export async function storeReleasedValues(values: ReleasedValue[]): Promise<numb
     buckets.set(k, list);
   }
 
+  // WHAT WAS ACTUALLY THERE TO MATCH AGAINST. Printed because the first two production runs both
+  // reported everything unmatched, and "unmatched" alone cannot tell apart "the stored row is named
+  // differently" from "there is no stored row for that day at all" — two different faults.
+  console.log(`[calendarDb] ${rows.length} stored row(s) in window; day buckets: `
+    + (Array.from(byDay.keys()).sort().join(", ") || "NONE")
+    + ` | released asks for: ` + Array.from(new Set(values.map(v => `${v.currency}|${v.date}`))).sort().join(", "));
+
   let filled = 0, refused = 0, unmatched = 0;
   for (const [k, group] of buckets) {
     const candidates = byDay.get(k);
