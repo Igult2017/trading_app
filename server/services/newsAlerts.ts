@@ -87,6 +87,10 @@ export interface NewsEventLike {
   eventTime: Date | string;
   expectedValue?: string | null;
   previousValue?: string | null;
+  /** The number as it actually landed. Absent until the release is published — the ForexFactory
+   *  feed never carries it, so it is filled from Trading Economics (calendarDb.storeReleasedValues).
+   *  Everything that reads it must treat "missing" as "say nothing", never as "no change". */
+  actualValue?: string | null;
 }
 
 export interface NewsAlert {
@@ -203,6 +207,85 @@ export function newsMessage(release: NewsRelease, lead: number, pairs: string[])
     + NL + "📉 <b>Affects:</b> " + pairs.map(esc).join(" · ") + NL
     + outlookLine(release, pairs)
     + NL + advice
+    + NL + NL + RISK_DISCLAIMER_HTML;
+}
+
+/** A number as a plain float, or null when it is not one. Handles "3.5%", "-0.1%", "1,234". */
+function num(v?: string | null): number | null {
+  if (v == null) return null;
+  const n = Number(String(v).replace(/[,%\s]/g, ""));
+  return Number.isFinite(n) ? n : null;
+}
+
+/** "beat the forecast by 1.7" / "missed by 0.4" / "came in as forecast" — the surprise, in words. */
+function surprise(actual?: string | null, forecast?: string | null): string {
+  const a = num(actual), f = num(forecast);
+  if (a === null || f === null) return "";
+  const d = a - f;
+  if (Math.abs(d) < 1e-9) return "came in exactly as forecast";
+  const size = Math.abs(d).toFixed(Math.abs(d) < 1 ? 2 : 1).replace(/\.0+$/, "");
+  return (d > 0 ? "beat the forecast by " : "missed the forecast by ") + size;
+}
+
+/**
+ * THE MESSAGE AFTER THE RELEASE — what the number actually was, and what it means for his pairs.
+ *
+ * HIS INSTRUCTION, 2026-10-25: *"the economic calendar should also send the outcome of news and the
+ * expected move of specific pairs affected by that news after the news release."*
+ *
+ * ⚠ IT COMPARES THE RELEASED NUMBER WITH THE FORECAST — a different question from the warning sent
+ * beforehand, which can only compare forecast with previous because the released number does not
+ * exist yet. That is the whole point of this message.
+ *
+ * ⚠ RETURNS "" WHEN NOTHING WAS RELEASED. A release whose number never arrived must produce NO
+ * message rather than one that says nothing — the caller checks for the empty string. A blank
+ * outcome on a channel people trade from is worse than silence.
+ *
+ * The direction is DROPPED, not guessed, when the release is not one `currencyOutlook` models.
+ */
+export function outcomeMessage(release: NewsRelease, pairs: string[]): string {
+  const landed = release.events.filter(e => e.actualValue != null && String(e.actualValue).trim() !== "");
+  if (landed.length === 0) return "";
+
+  const lines = landed.map(e => {
+    const bits = [
+      "Actual <b>" + esc(String(e.actualValue)) + "</b>",
+      e.expectedValue ? "Forecast <b>" + esc(e.expectedValue) + "</b>" : "",
+      e.previousValue ? "Previous <b>" + esc(e.previousValue) + "</b>" : "",
+    ].filter(Boolean).join("   ·   ");
+    const s = surprise(e.actualValue, e.expectedValue);
+    return "   • " + esc(e.title) + NL + "      " + bits + (s ? NL + "      <i>" + esc(s) + "</i>" : "");
+  });
+
+  // The lead number decides the direction: the first released row we can also compare.
+  const lead = landed.find(e => num(e.actualValue) !== null && num(e.expectedValue) !== null);
+  let move = "";
+  if (lead) {
+    const dir = currencyOutlook(lead.title, String(lead.actualValue), lead.expectedValue ?? null);
+    if (dir === "bullish" || dir === "bearish") {
+      const stronger = dir === "bullish";
+      const moves = pairs.map(p => {
+        const isBase = p.startsWith(release.currency);
+        const up = isBase ? stronger : !stronger;
+        return esc(p) + " " + (up ? "↑" : "↓");
+      });
+      move = NL + "🧭 <b>What it points to:</b> " + esc(release.currency) + " "
+           + (stronger ? "stronger" : "weaker") + " — " + moves.join("  ·  ") + NL;
+    }
+  }
+
+  const t = release.at;
+  const hhmm = String(t.getUTCHours()).padStart(2, "0") + ":" + String(t.getUTCMinutes()).padStart(2, "0");
+
+  return "📊 <b>NEWS RESULT — " + esc(release.currency) + "</b>" + NL
+    + RULE + NL + NL
+    + lines.join(NL) + NL
+    + "🕐 Released " + hhmm + " UTC" + NL
+    + NL + "📉 <b>Affects:</b> " + pairs.map(esc).join(" · ") + NL
+    + move
+    + NL + "<blockquote>This is what the number did against expectations, not a trade call. The "
+    + "first move after a release is often reversed — let the dust settle before acting on it."
+    + "</blockquote>"
     + NL + NL + RISK_DISCLAIMER_HTML;
 }
 

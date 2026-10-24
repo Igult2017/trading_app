@@ -8,7 +8,8 @@ import { storage } from '../storage';
 import { db } from '../db';
 import { economicEvents } from '@shared/schema';
 import { and, gte, lte, sql } from 'drizzle-orm';
-import { MAX_HORIZON_MS } from '../services/newsAlerts';
+import { MAX_HORIZON_MS, groupReleases, outcomeMessage, affectedPairs } from '../services/newsAlerts';
+import { refreshReleasedValues } from '../services/homepageCalendar';
 
 export class ScraperScheduler {
   private upcomingEventsJob: ReturnType<typeof cron.schedule> | null = null;
@@ -43,6 +44,95 @@ export class ScraperScheduler {
    * pulling the whole calendar would make `buildNewsSchedule` sift thousands of rows every hour to
    * find a handful.
    */
+  /** MINUTES AFTER A RELEASE AT WHICH TO LOOK FOR THE NUMBER.
+   *
+   * ⚠ THESE FOUR VALUES ARE A GUESS AND ARE MARKED AS ONE. How quickly Trading Economics fills a
+   * released figure has NOT been measured — the ladder exists so a slow publisher does not cost the
+   * message, and it stops at the first check that finds a value. Measure it against a real release
+   * and set these from the measurement; do not let the guess harden into a fact. */
+  private static readonly OUTCOME_CHECKS_MIN = [2, 5, 10, 15];
+
+  /** Releases already reported, so the ladder and the hourly re-arm cannot send twice. */
+  private _outcomeSent = new Set<string>();
+  private _outcomeTimers: NodeJS.Timeout[] = [];
+
+  /**
+   * Arm the "what the number actually was" message for releases that have just happened or are
+   * about to.
+   *
+   * HIS INSTRUCTION, 2026-10-25: *"the economic calendar should also send the outcome of news and
+   * the expected move of specific pairs affected by that news after the news release."*
+   *
+   * WHY IT NEEDS ITS OWN PASS. The warning messages are built once from rows already in hand; this
+   * one cannot be, because the number does not exist yet at arming time. Each check re-fetches the
+   * released values (Trading Economics — the ForexFactory feed carries none), re-reads the rows,
+   * and only then decides whether there is anything to say.
+   *
+   * ⚠ SILENCE IS THE DEFAULT. If the number has not been published, `outcomeMessage` returns "" and
+   * nothing is sent. A message that says nothing is worse than no message.
+   */
+  private async refreshNewsOutcomes(): Promise<void> {
+    try {
+      this._outcomeTimers.forEach(t => clearTimeout(t));
+      this._outcomeTimers = [];
+
+      const now = new Date();
+      // Releases from the recent past (whose number may now exist) through the next few hours.
+      const from = new Date(now.getTime() - 60 * 60_000);
+      const to   = new Date(now.getTime() + MAX_HORIZON_MS);
+      const rows = await db.select().from(economicEvents)
+        .where(and(gte(economicEvents.eventTime, from),
+                   lte(economicEvents.eventTime, to),
+                   sql`lower(${economicEvents.impactLevel}) = 'high'`));
+
+      let armed = 0;
+      for (const release of groupReleases(rows as any)) {
+        const pairs = affectedPairs(release.currency);
+        if (pairs.length === 0) continue;
+        const key = 'outcome_' + release.currency + '_' + release.at.getTime();
+        if (this._outcomeSent.has(key)) continue;
+
+        for (const mins of ScraperScheduler.OUTCOME_CHECKS_MIN) {
+          const delay = release.at.getTime() + mins * 60_000 - now.getTime();
+          if (delay < 0 || delay > MAX_HORIZON_MS) continue;
+          const t = setTimeout(() => { void this.trySendOutcome(key, release.at, release.currency); }, delay);
+          this._outcomeTimers.push(t);
+          armed += 1;
+        }
+      }
+      console.log(`[scheduler] armed ${armed} news-outcome check(s)`);
+    } catch (err) {
+      console.error('[scheduler] news outcome refresh failed:', err);
+    }
+  }
+
+  /** One rung of the ladder: fetch, re-read, and send only if the number is actually there. */
+  private async trySendOutcome(key: string, at: Date, currency: string): Promise<void> {
+    if (this._outcomeSent.has(key)) return;
+    try {
+      await refreshReleasedValues();          // pull whatever has been published since
+      const pad = 90 * 1000;                  // the release's own minute, give or take
+      const rows = await db.select().from(economicEvents)
+        .where(and(gte(economicEvents.eventTime, new Date(at.getTime() - pad)),
+                   lte(economicEvents.eventTime, new Date(at.getTime() + pad)),
+                   sql`lower(${economicEvents.impactLevel}) = 'high'`));
+      const release = groupReleases(rows as any).find(r => r.currency === currency);
+      if (!release) return;
+
+      const message = outcomeMessage(release, affectedPairs(currency));
+      if (!message) return;                   // not published yet — say nothing, try the next rung
+
+      const ok = await telegramNotificationService?.sendToChannel(message, { parse_mode: 'HTML' })
+        .catch(() => false);
+      if (ok) {
+        this._outcomeSent.add(key);
+        console.log(`[scheduler] news OUTCOME sent for ${key}`);
+      }
+    } catch (err) {
+      console.error('[scheduler] news outcome send failed:', err);
+    }
+  }
+
   private async refreshNewsAlerts(): Promise<void> {
     try {
       const now = new Date();
@@ -64,6 +154,7 @@ export class ScraperScheduler {
                    lte(economicEvents.eventTime, horizon),
                    sql`lower(${economicEvents.impactLevel}) = 'high'`));
       telegramNotificationService?.scheduleNewsNotifications(rows as any);
+      void this.refreshNewsOutcomes();
     } catch (err) {
       // Never allowed to take the scheduler down — a missed news warning is a missed courtesy;
       // a dead scheduler also stops the session alerts and the cleanup.

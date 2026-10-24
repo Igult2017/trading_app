@@ -2,7 +2,8 @@ import { spawn } from "child_process";
 import * as path from "path";
 import { PYTHON_BIN } from "../lib/pythonBin";
 import { cacheGet, cacheSet } from "../lib/cache";
-import { upsertCalendarEvents, loadCalendarFromDb } from "./calendarDb";
+import { upsertCalendarEvents, loadCalendarFromDb, storeReleasedValues } from "./calendarDb";
+import type { ReleasedValue } from "./calendarDb";
 export type { CalendarEvent, RateEntry } from "./calendarDb";
 import type { CalendarEvent, RateEntry } from "./calendarDb";
 
@@ -55,12 +56,15 @@ export function getCalendarServiceStatus() {
 // The calendar is a single JSON request again as of 2026-09-09 — measured at ~1.3 seconds — so 30
 // seconds is generous and a hang gets reported instead of waited out. The rates run visits eight
 // central banks plus Trading Economics and legitimately takes longer, so it keeps a wide budget.
-const PY_TIMEOUT_MS: Record<"calendar" | "rates", number> = {
+// `actuals` visits four Trading Economics country pages, each possibly through the TLS-impersonation
+// fallback, so it needs a rates-sized budget rather than the calendar's single-request one.
+const PY_TIMEOUT_MS: Record<"calendar" | "rates" | "actuals", number> = {
   calendar:  30_000,
   rates:    180_000,
+  actuals:  120_000,
 };
 
-function runPython(mode: "calendar" | "rates"): Promise<string> {
+function runPython(mode: "calendar" | "rates" | "actuals"): Promise<string> {
   return new Promise((resolve, reject) => {
     let out = "", err = "", done = false;
     const budget = PY_TIMEOUT_MS[mode];
@@ -164,3 +168,28 @@ export async function getHomepageRates(): Promise<Record<string, RateEntry>> {
     getHomepageRates().catch(() => {});
   }, RETRY_MS);
 })();
+
+/**
+ * Fetch the numbers that have actually been released and write them onto the stored events.
+ *
+ * WHY THIS EXISTS: the ForexFactory feed the calendar is built from carries no `actual` field at
+ * all, so no amount of re-reading it can ever produce an outcome. Trading Economics country pages
+ * do carry it, with no API key. See news_calendar.fetch_released_values.
+ *
+ * Returns how many rows were filled. Never throws — a failed fetch must not take down the caller
+ * that is also arming news warnings.
+ */
+export async function refreshReleasedValues(): Promise<number> {
+  try {
+    const { stdout } = JSON.parse(await runPython("actuals"));
+    const values: ReleasedValue[] = JSON.parse(stdout);
+    if (!Array.isArray(values) || values.length === 0) {
+      console.log("[homepageCalendar] released values: none published yet");
+      return 0;
+    }
+    return await storeReleasedValues(values);
+  } catch (e: any) {
+    console.error("[homepageCalendar] released-value fetch failed:", e.message);
+    return 0;
+  }
+}

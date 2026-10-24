@@ -1,6 +1,6 @@
 import { db } from "../db";
 import { economicEvents } from "@shared/schema";
-import { and, gte, inArray, lt, lte, or } from "drizzle-orm";
+import { and, eq, gte, inArray, lt, lte, or, sql } from "drizzle-orm";
 
 export interface CalendarEvent {
   date: string; time: string; currency: string; event: string;
@@ -138,6 +138,70 @@ export async function upsertCalendarEvents(events: CalendarEvent[]): Promise<voi
 }
 
 /** Load the ±14-day window from DB — used to warm the cache on server startup. */
+/** One released reading, as Trading Economics publishes it. */
+export interface ReleasedValue {
+  currency: string;
+  event:    string;
+  date:     string;      // YYYY-MM-DD, the day TE lists it under
+  time:     string;
+  actual:   string;
+  forecast: string;
+  previous: string;
+}
+
+/** Strip a title to its comparable core, so the SAME event named slightly differently on two sites
+ *  still matches: case, punctuation and the month tag TE appends ("OCT") all go. */
+function titleKey(t: string): string {
+  return String(t || "")
+    .toLowerCase()
+    .replace(/\(.*?\)/g, " ")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+/**
+ * Write released numbers onto the calendar rows they belong to.
+ *
+ * ⚠ MATCHED ON CURRENCY + TITLE + CALENDAR DAY, NOT ON THE CLOCK. The two sources print times in
+ * different zones, so matching on the minute would silently attach the wrong number to the wrong
+ * event — the one outcome worse than having no outcome at all.
+ *
+ * ⚠ AND AN AMBIGUOUS MATCH IS SKIPPED. If a currency has two rows with the same title on the same
+ * day, nothing is written: a blank is honest, a guess is a false number next to a real event.
+ *
+ * Returns how many rows were filled, so the caller can log a real figure rather than "ok".
+ */
+export async function storeReleasedValues(values: ReleasedValue[]): Promise<number> {
+  if (!Array.isArray(values) || values.length === 0) return 0;
+  const { from, to } = dbWindow();
+  const rows = await db.select().from(economicEvents)
+    .where(and(gte(economicEvents.eventTime, from), lte(economicEvents.eventTime, to)));
+
+  // Index what is stored by currency + title + day, counting collisions as we go.
+  const index = new Map<string, { id: string; hits: number }>();
+  for (const r of rows) {
+    const day = new Date(r.eventTime).toISOString().slice(0, 10);
+    const k = `${r.currency}|${titleKey(r.title)}|${day}`;
+    const seen = index.get(k);
+    if (seen) seen.hits += 1;
+    else index.set(k, { id: r.id, hits: 1 });
+  }
+
+  let filled = 0, ambiguous = 0, unmatched = 0;
+  for (const v of values) {
+    const k = `${v.currency}|${titleKey(v.event)}|${v.date}`;
+    const hit = index.get(k);
+    if (!hit) { unmatched += 1; continue; }
+    if (hit.hits > 1) { ambiguous += 1; continue; }     // never guess between two same-named rows
+    await db.update(economicEvents)
+      .set({ actualValue: v.actual })
+      .where(and(eq(economicEvents.id, hit.id), sql`${economicEvents.actualValue} IS NULL`));
+    filled += 1;
+  }
+  console.log(`[calendarDb] released values: ${filled} filled, ${unmatched} unmatched, ${ambiguous} ambiguous`);
+  return filled;
+}
+
 export async function loadCalendarFromDb(): Promise<CalendarEvent[]> {
   const { from, to } = dbWindow();
   const rows = await db

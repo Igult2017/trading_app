@@ -9,7 +9,7 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import {
   buildNewsSchedule, affectedPairs, TRADED_PAIRS, TRADED_CURRENCIES,
-  LEAD_MINUTES, MAX_HORIZON_MS, type NewsEventLike,
+  LEAD_MINUTES, MAX_HORIZON_MS, groupReleases, outcomeMessage, type NewsEventLike,
 } from '../newsAlerts';
 import { BRAND_NAME } from '../../lib/brand';
 
@@ -170,6 +170,58 @@ check('Node TRADED_PAIRS equals the Python list',
 check('currency set derived from it',
       Array.from(TRADED_CURRENCIES).sort(),
       Array.from(new Set(pyPairs.flatMap(p => [p[1], p[2]]))).sort());
+
+// -- THE MESSAGE AFTER THE RELEASE (added 2026-10-25) -------------------------
+//
+// HIS INSTRUCTION: *"the economic calendar should also send the outcome of news and the expected
+// move of specific pairs affected by that news after the news release. It is not doing that right
+// now."*
+//
+// It could not: nothing was ever scheduled after a release, AND the ForexFactory feed carries no
+// released value at all (six fields, `actual` absent, 0 of 86 rows). The number now comes from a
+// Trading Economics country page and lands in `actualValue`.
+//
+// THE MOST IMPORTANT CHECK HERE IS THE SILENT ONE. A release whose number has not been published
+// must produce NO MESSAGE -- a card on a channel people trade from that says nothing is worse than
+// no card. The ladder of retries relies on "" meaning "not yet, try again".
+
+const rel = (evs: NewsEventLike[]) => groupReleases(evs)[0];
+
+check('a release with no published number sends NOTHING',
+      outcomeMessage(rel([ev({ expectedValue: '0.3%', previousValue: '0.2%' })]), affectedPairs('USD')), '');
+check('...and an all-spaces actual counts as not published',
+      outcomeMessage(rel([ev({ expectedValue: '0.3%', actualValue: '   ' })]), ['EUR/USD']), '');
+
+const msg = outcomeMessage(rel([ev({
+  title: 'Core CPI m/m', expectedValue: '0.3%', previousValue: '0.2%', actualValue: '0.5%',
+})]), affectedPairs('USD'));
+
+check('a published number DOES produce a message', msg.length > 0, true);
+check('...titled as a result, not a warning', msg.includes('NEWS RESULT'), true);
+check('...showing what actually landed', msg.includes('Actual <b>0.5%</b>'), true);
+check('...beside the forecast it is measured against', msg.includes('Forecast <b>0.3%</b>'), true);
+check('...and the previous reading', msg.includes('Previous <b>0.2%</b>'), true);
+check('...it says by how much it surprised', msg.includes('beat the forecast by 0.2'), true);
+check('...it names the pairs affected', msg.includes('EUR/USD') && msg.includes('XAU/USD'), true);
+check('...and it is explicit that it is not a call', msg.includes('not a trade call'), true);
+
+const missed = outcomeMessage(rel([ev({
+  title: 'Core CPI m/m', expectedValue: '0.3%', previousValue: '0.2%', actualValue: '0.1%',
+})]), affectedPairs('USD'));
+check('a number below forecast reads as a miss', missed.includes('missed the forecast by 0.2'), true);
+
+const onForecast = outcomeMessage(rel([ev({
+  title: 'Core CPI m/m', expectedValue: '0.3%', previousValue: '0.2%', actualValue: '0.3%',
+})]), affectedPairs('USD'));
+check('a number exactly on forecast says so', onForecast.includes('exactly as forecast'), true);
+
+const many = outcomeMessage(groupReleases([
+  ev({ id: 'a', title: 'CPI m/m', expectedValue: '0.3%', actualValue: '0.5%' }),
+  ev({ id: 'b', title: 'CPI y/y', expectedValue: '2.9%', actualValue: '3.1%' }),
+])[0], affectedPairs('USD'));
+check('several numbers in one release make ONE message',
+      (many.match(/Actual <b>/g) || []).length, 2);
+
 
 console.log(`\n${fail === 0 ? 'ALL PASS' : `${fail} FAILED`}  (${pass + fail} checks)`);
 process.exit(fail === 0 ? 0 : 1);
