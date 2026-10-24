@@ -76,6 +76,15 @@ export class ScraperScheduler {
       this._outcomeTimers.forEach(t => clearTimeout(t));
       this._outcomeTimers = [];
 
+      // PULL WHATEVER HAS BEEN PUBLISHED, every pass, not only when a message is pending.
+      //
+      // Two reasons it belongs here rather than inside the ladder alone. It keeps
+      // `economic_events.actual_value` current for the HOMEPAGE calendar, which showed a dash
+      // against every past release for the same reason Telegram said nothing — the column was
+      // never filled. And it exercises the Trading Economics fetch on a schedule, so a page that
+      // starts failing is visible in the log straight away instead of on the next release.
+      await refreshReleasedValues();
+
       const now = new Date();
       // Releases from the recent past (whose number may now exist) through the next few hours.
       const from = new Date(now.getTime() - 60 * 60_000);
