@@ -313,10 +313,39 @@ class CTraderProvider:
                         log.info(f"[{self.master_id}] reconcile: position {pid} closed externally")
                         asyncio.ensure_future(
                             self.on_event({"type": "CLOSE", "snap": prev}, self.master_id))
-                # Track newly-seen positions silently — do NOT emit OPEN (the live
-                # execution event already handles opens; avoids double-copying).
+                # A POSITION THAT APPEARED IS AN ENTRY THE LIVE EVENT MISSED — EMIT OPEN.
+                #
+                # ⚠ THIS USED TO BE SILENT, AND THE SILENCE WAS THE BUG. The comment here read
+                # "do NOT emit OPEN (the live execution event already handles opens; avoids
+                # double-copying)" — an assumption that holds only while no event is ever dropped.
+                # The live feed DOES drop them. On 18 Oct his EURUSD short of 1.5 lots reached the
+                # journal in 43ms and the journal logged "the live feed missed them" for a close,
+                # while this engine's newest master trade was still SIX DAYS old. Nothing was
+                # dispatched, so there was no master row, no follower decision, and NO LOG LINE AT
+                # ALL — which is why he reported the copy log as broken when it was faithfully
+                # reporting nothing.
+                #
+                # It left a worse tail too: the position was adopted silently, so when it later
+                # closed, the loop above emitted a CLOSE for something the follower had never
+                # opened — the "No open follower position for master pos ..." skips already sitting
+                # in his log from September.
+                #
+                # DOUBLE-COPYING IS NOT A RISK HERE, and that is checked rather than hoped:
+                # `dispatcher.dispatch` counts this master's OPEN rows against its CLOSE rows for
+                # the same position id and refuses a second OPEN while one is already open
+                # (dispatcher.py:127-135). If the live event did arrive, this one is dropped there.
+                #
+                # ⚠ THE INITIAL LOAD ABOVE MUST STAY SILENT. It is the `if not self._reconciled`
+                # branch, and it records what is already open without diffing. Emitting OPENs there
+                # would copy every position already on the master every time the engine restarts.
                 for pid, snap in fresh.items():
-                    self._positions.setdefault(pid, snap)
+                    if pid in self._positions:
+                        continue
+                    self._positions[pid] = snap
+                    log.info(f"[{self.master_id}] reconcile: position {pid} opened externally "
+                             f"({snap.symbol} {snap.action}) — the live event was missed, recovering")
+                    asyncio.ensure_future(
+                        self.on_event({"type": "OPEN", "snap": snap}, self.master_id))
 
         elif ptype == ProtoOAExecutionEvent().payloadType:
             event = Protobuf.extract(message)
