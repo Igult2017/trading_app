@@ -109,5 +109,35 @@ check('m/m and y/y survive as distinct words',
 check('...and are not confused with each other',
       m.tokens('Core CPI y/y').includes('yoy') && !m.tokens('Core CPI y/y').includes('mom'), true);
 
+// -- THE WHOLE REAL BUCKET, END TO END --------------------------------------
+// Everything Trading Economics published for USD on 23 Oct against everything the platform had
+// stored for USD that day. Both lists are real, neither is trimmed to make the answer come out.
+const REAL_RELEASED = [
+  { event: 'S&P Global Composite PMI Flash',               actual: '57.6' },
+  { event: 'S&P Global Manufacturing PMI Flash',           actual: '56.0' },
+  { event: 'S&P Global Services PMI Flash',                actual: '57.9' },
+  { event: 'Michigan Consumer Sentiment Final',            actual: '48.0' },
+  { event: 'Michigan 5 Year Inflation Expectations Final', actual: '3.5%' },
+  { event: 'Michigan Consumer Expectations Final',         actual: '48.8' },
+  { event: 'Michigan Current Conditions Final',            actual: '46.7' },
+  { event: 'Michigan Inflation Expectations Final',        actual: '4.7%' },
+  { event: 'Baker Hughes Oil Rig Count',                   actual: '460'  },
+];
+const REAL_STORED = FF.map(title => ({ title }));
+const resolved = resolveClaims(REAL_RELEASED, REAL_STORED);
+const landed = Object.fromEntries(
+  Array.from(resolved).map(([i, v]) => [REAL_STORED[i].title, v.actual]));
+
+check('the real bucket fills the three it can be sure of', resolved.size, 3);
+check('...Flash Manufacturing PMI gets the manufacturing number',
+      landed['Flash Manufacturing PMI'], '56.0');
+check('...Flash Services PMI gets the services number',
+      landed['Flash Services PMI'], '57.9');
+check('...Revised UoM Consumer Sentiment gets the Michigan sentiment number',
+      landed['Revised UoM Consumer Sentiment'], '48.0');
+check('...and the inflation row is left EMPTY rather than given a coin-flip',
+      landed['Revised UoM Inflation Expectations'], undefined);
+
+
 console.log(`\n${fail === 0 ? 'ALL PASS' : `${fail} FAILED`}  (${pass + fail} checks)`);
 process.exit(fail === 0 ? 0 : 1);
