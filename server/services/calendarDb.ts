@@ -1,4 +1,5 @@
 import { db } from "../db";
+import { resolveClaims } from "./releasedMatch";
 import { economicEvents } from "@shared/schema";
 import { and, eq, gte, inArray, lt, lte, or, sql } from "drizzle-orm";
 
@@ -149,16 +150,6 @@ export interface ReleasedValue {
   previous: string;
 }
 
-/** Strip a title to its comparable core, so the SAME event named slightly differently on two sites
- *  still matches: case, punctuation and the month tag TE appends ("OCT") all go. */
-function titleKey(t: string): string {
-  return String(t || "")
-    .toLowerCase()
-    .replace(/\(.*?\)/g, " ")
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim();
-}
-
 /**
  * Write released numbers onto the calendar rows they belong to.
  *
@@ -177,28 +168,42 @@ export async function storeReleasedValues(values: ReleasedValue[]): Promise<numb
   const rows = await db.select().from(economicEvents)
     .where(and(gte(economicEvents.eventTime, from), lte(economicEvents.eventTime, to)));
 
-  // Index what is stored by currency + title + day, counting collisions as we go.
-  const index = new Map<string, { id: string; hits: number }>();
+  // Stored rows grouped by currency + calendar day — the day, never the clock: the two sources
+  // print times in different zones, so matching on the minute would attach a real number to the
+  // wrong event.
+  const byDay = new Map<string, { id: string; title: string }[]>();
   for (const r of rows) {
     const day = new Date(r.eventTime).toISOString().slice(0, 10);
-    const k = `${r.currency}|${titleKey(r.title)}|${day}`;
-    const seen = index.get(k);
-    if (seen) seen.hits += 1;
-    else index.set(k, { id: r.id, hits: 1 });
+    const k = `${r.currency}|${day}`;
+    const list = byDay.get(k) ?? [];
+    list.push({ id: r.id, title: r.title });
+    byDay.set(k, list);
   }
 
-  let filled = 0, ambiguous = 0, unmatched = 0;
+  // Group the released values by the day+currency bucket they could belong to, so each bucket is
+  // resolved as a whole — one-to-one in both directions — rather than row by row.
+  const buckets = new Map<string, ReleasedValue[]>();
   for (const v of values) {
-    const k = `${v.currency}|${titleKey(v.event)}|${v.date}`;
-    const hit = index.get(k);
-    if (!hit) { unmatched += 1; continue; }
-    if (hit.hits > 1) { ambiguous += 1; continue; }     // never guess between two same-named rows
-    await db.update(economicEvents)
-      .set({ actualValue: v.actual })
-      .where(and(eq(economicEvents.id, hit.id), sql`${economicEvents.actualValue} IS NULL`));
-    filled += 1;
+    const k = `${v.currency}|${v.date}`;
+    const list = buckets.get(k) ?? [];
+    list.push(v);
+    buckets.set(k, list);
   }
-  console.log(`[calendarDb] released values: ${filled} filled, ${unmatched} unmatched, ${ambiguous} ambiguous`);
+
+  let filled = 0, refused = 0, unmatched = 0;
+  for (const [k, group] of buckets) {
+    const candidates = byDay.get(k);
+    if (!candidates || candidates.length === 0) { unmatched += group.length; continue; }
+    const assigned = resolveClaims(group, candidates);
+    refused += group.length - assigned.size;
+    for (const [idx, v] of assigned) {
+      await db.update(economicEvents)
+        .set({ actualValue: v.actual })
+        .where(and(eq(economicEvents.id, candidates[idx].id), sql`${economicEvents.actualValue} IS NULL`));
+      filled += 1;
+    }
+  }
+  console.log(`[calendarDb] released values: ${filled} filled, ${unmatched} no same-day event, ${refused} refused (no confident match)`);
   return filled;
 }
 
