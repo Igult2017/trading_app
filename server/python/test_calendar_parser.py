@@ -199,5 +199,48 @@ from news_calendar import _TLS_PROFILES
 check('the rates fallback still has its TLS profiles',
       isinstance(_TLS_PROFILES, list) and len(_TLS_PROFILES) > 0, True)
 
+# -- THE RELEASED NUMBER (added 2026-10-25) -----------------------------------
+#
+# HIS INSTRUCTION: *"the economic calendar should also send the outcome of news ... after the news
+# release. It is not doing that right now."*
+#
+# It could not. The ForexFactory feed this module reads has SIX fields and `actual` is not one of
+# them (0 of 86 rows), and lastweek/nextweek/today all 404 -- so `parse_forexfactory` hardcodes
+# `'actual': '-'`. The released number now comes from a Trading Economics COUNTRY page.
+#
+# THESE TWO ROWS ARE COPIED VERBATIM from tradingeconomics.com/united-states/calendar, not written
+# to look like it -- one already released, one still to come. A hand-made lookalike would not have
+# the nested flag table that broke the first parser, nor the single-quoted ids.
+from news_calendar import parse_te_calendar, _TE_CALENDARS
+
+_TE_RELEASED = '<tr data-url="/united-states/composite-pmi" data-id="398767" data-country="united states" data-category="composite pmi" data-event="s&p global composite pmi flash" data-symbol=\'UNITEDSTACOMPMI\'> <td style="white-space: nowrap;" class=\' 2026-10-23\'> <span class="event-0 calendar-date-2"> 01:45 PM </span> </td> <td class="calendar-item" style="white-space: nowrap"> <table style="padding: 0px;"> <tr> <td style="padding-left: 5px;"> <div title="United States" class=\'flag flag-us\'></div> </td> <td title="United States" style="padding-left: 5px;" class="calendar-iso">US</td> </tr> </table> </td> <td style="max-width: 250px; overflow-x: hidden;"> <a class=\'calendar-event\' href=\'/united-states/composite-pmi\'>S&P Global Composite PMI Flash</a> <span class="calendar-reference">OCT</span> </td> <td class="calendar-item calendar-item-positive"> <a href=\'/united-states/composite-pmi\'><span id=\'actual\'>57.6</span></a> </td> <td class="calendar-item calendar-item-positive"> <span id=\'previous\'>58.4</span> <span id=\'revised\' style="cursor: pointer; color: #333; font-size: 10px;" data-bs-toggle="tooltip" title=> </span> </td> <td class="calendar-item calendar-item-positive"> <a id=\'consensus\' aria-label=\'UNITEDSTACOMPMI\' href=\'/united-states/composite-pmi\'></a></span> </td> <td class="calendar-item calendar-item-positive"> <a id=\'forecast\' href=\'/united-states/composite-pmi\'>57.6</a></span> </td> <td class=\'d-md-none d-lg-table-cell\' style=\'text-align: right\'><a target=\'_blank\' style=\'text-align: center\' href=\'/united-states/composite-pmi\'><div class=\'lazy\' style=\'height: 20px; width: 40px;\' data-src=\'https://d3fy651gv2fhd3.cloudfront.net/charts/calendar-398767.png?h=20&w=40&n=4&y=0&y2=0&x=0&title=false&lbl=0&bg=0&v=V20230410&url=/united-states/composite-pmi\' data-chart=\'/united-states/composite-pmi\' title=\'US Composite PMI\' data-placement=\'right\'></div></a></td> <td class=" d-none d-md-table-cell d-lg-none"></td> <td class=\'td-alert\'> <div title=\'Create Alert\' data-type=\'te-alert-hook\' class=\'bi bi-bell-fill te-alert-bell\'></div> </td> </tr> <!-- copy of table head to show on scroll -->'
+
+_TE_PENDING = '<tr data-url="/united-states/chicago-fed-national-activity-index" data-id="398758" data-country="united states" data-category="chicago fed national activity index" data-event="chicago fed national activity index" data-symbol=\'UNITEDSTACHIFEDNATAC\'> <td style="white-space: nowrap;" class=\' 2026-10-26\'> <span class="event-10 calendar-date-2"> 12:30 PM </span> </td> <td class="calendar-item" style="white-space: nowrap"> <table style="padding: 0px;"> <tr> <td style="padding-left: 5px;"> <div title="United States" class=\'flag flag-us\'></div> </td> <td title="United States" style="padding-left: 5px;" class="calendar-iso">US</td> </tr> </table> </td> <td style="max-width: 250px; overflow-x: hidden;"> <a class=\'calendar-event\' href=\'/united-states/chicago-fed-national-activity-index\'>Chicago Fed National Activity Index</a> <span class="calendar-reference">SEP</span> </td> <td class="calendar-item calendar-item-positive"> <span id=\'actual\'></span> </td> <td class="calendar-item calendar-item-negative"> <span id=\'previous\'>-0.04</span> <span id=\'revised\' style="cursor: pointer; color: #333; font-size: 10px;" data-bs-toggle="tooltip" title=> </span> </td> <td class="calendar-item calendar-item-positive"> <a id=\'consensus\' aria-label=\'UNITEDSTACHIFEDNATAC\' href=\'/united-states/chicago-fed-national-activity-index\'></a></span> </td> <td class="calendar-item calendar-item-negative"> <a id=\'forecast\' href=\'/united-states/chicago-fed-national-activity-index\'>-0.1</a></span> </td> <td class=\'d-md-none d-lg-table-cell\' style=\'text-align: right\'><a target=\'_blank\' style=\'text-align: center\' href=\'/united-states/chicago-fed-national-activity-index\'><div class=\'lazy\' style=\'height: 20px; width: 40px;\' data-src=\'https://d3fy651gv2fhd3.cloudfront.net/charts/calendar-398758.png?h=20&w=40&n=4&y=0&y2=0&x=0&title=false&lbl=0&bg=0&v=V20230410&url=/united-states/chicago-fed-national-activity-index\' data-chart=\'/united-states/chicago-fed-national-activity-index\' title=\'US Chicago Fed National Activity Index\' data-placement=\'right\'></div></a></td> <td class=" d-none d-md-table-cell d-lg-none"></td> <td class=\'td-alert\'> <div title=\'Create Alert\' data-type=\'te-alert-hook\' class=\'bi bi-bell-fill te-alert-bell\'></div> </td> </tr> <!-- copy of table head to show on scroll -->'
+
+_rows = parse_te_calendar(_TE_RELEASED + _TE_PENDING, 'USD')
+
+check('only the RELEASED row is returned, never the pending one', len(_rows), 1)
+check('the released value is read', _rows[0]['actual'], '57.6')
+check('...with its event name', _rows[0]['event'], 'S&P Global Composite PMI Flash')
+check('...its date', _rows[0]['date'], '2026-10-23')
+check('...its previous reading', _rows[0]['previous'], '58.4')
+check('...and the currency it was asked for', _rows[0]['currency'], 'USD')
+
+# THE NESTED FLAG TABLE. Each row contains its own <table><tr>...</tr></table>, so a non-greedy
+# `<tr>.*?</tr>` stops at the INNER close and truncates the row before the value -- which looks
+# exactly like "this page has no actuals". Slicing between `data-event=` markers is what avoids
+# it, and this is the check that would catch a regression back to the naive match.
+check('the value survives the nested flag table inside the row',
+      'flag flag-us' in _TE_RELEASED and _rows[0]['actual'] == '57.6', True)
+
+# A pending row on its own must produce NOTHING -- never a message that says nothing.
+check('a page with nothing released yields no rows', parse_te_calendar(_TE_PENDING, 'USD'), [])
+check('an empty page is handled', parse_te_calendar('', 'USD'), [])
+check('a page with no calendar rows is handled',
+      parse_te_calendar('<html><body>no</body></html>', 'USD'), [])
+
+# Only the currencies actually traded -- four pages, not the whole world.
+check('the four traded currencies are covered', sorted(_TE_CALENDARS), ['EUR', 'GBP', 'JPY', 'USD'])
+
 print(f'\n{_pass} passed, {_fail} failed')
 sys.exit(1 if _fail else 0)

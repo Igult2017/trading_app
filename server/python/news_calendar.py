@@ -27,6 +27,7 @@ import sys
 import re
 import io
 import csv
+import html as html_mod
 import json
 import time
 import requests
@@ -860,6 +861,111 @@ _BANK_NAMES = {
 }
 
 
+# ── THE RELEASED NUMBER ───────────────────────────────────────────────────────
+#
+# HIS INSTRUCTION, 2026-10-25: *"In telegram the economic calendar should also send the outcome of
+# news and the expected move of specific pairs affected by that news after the news release."*
+#
+# WHY THIS HAD TO EXIST AT ALL. The ForexFactory weekly feed this module already reads carries SIX
+# fields and `actual` is not one of them — not empty, ABSENT:
+#
+#     ['title', 'country', 'date', 'impact', 'forecast', 'previous']       0 of 86 rows
+#
+# and `lastweek` / `nextweek` / `today` all 404, so there is no variant of it that ever publishes a
+# released value. That is why `parse_forexfactory` hardcodes `'actual': '-'` and says so.
+#
+# TRADING ECONOMICS PER-COUNTRY PAGES DO CARRY IT, with no API key. Measured on
+# tradingeconomics.com/united-states/calendar: 10 of 315 rows already released, values like 57.6,
+# 3.5%, 48.8.
+#
+# ⚠ THE GLOBAL /calendar PAGE IS THE WRONG ONE. It lists only UPCOMING events, so all 445 of its
+# `actual` spans are empty and it looks like the data is not there at all. Use the country page.
+#
+# ⚠ AND THE MARKUP IS SINGLE-QUOTED: `<span id='actual'>`. Searching for id="actual" returns zero
+# and reads as "no such field" — that is a wrong conclusion this module should not invite twice.
+
+# Only the currencies the platform actually trades (server/services/newsAlerts.ts TRADED_CURRENCIES).
+# Gold is driven by US data and carries no calendar of its own, so it rides on USD.
+_TE_CALENDARS = {
+    'USD': 'united-states',
+    'EUR': 'euro-area',
+    'GBP': 'united-kingdom',
+    'JPY': 'japan',
+}
+
+
+def _te_text(segment: str, pattern: str) -> str:
+    """One field out of a row, tags stripped and entities decoded. '' when absent or empty."""
+    m = re.search(pattern, segment, re.S | re.I)
+    if not m:
+        return ''
+    inner = re.sub(r'<[^>]+>', '', m.group(1))
+    return html_mod.unescape(inner).strip()
+
+
+def parse_te_calendar(page: str, currency: str) -> list:
+    """Released values from ONE Trading Economics country calendar page.
+
+    Returns only rows that HAVE a released number — an event still to come has nothing to report and
+    must never produce a message that says nothing.
+
+    ⚠ ROWS ARE SLICED BETWEEN `data-event=` MARKERS, NOT matched with `<tr>...</tr>`. Every row
+    contains a NESTED table for the country flag, so a non-greedy `.*?</tr>` stops at the inner
+    `</tr>` and truncates the row BEFORE the value — which looks exactly like "no actuals on this
+    page". That cost one wrong reading while this was being written.
+    """
+    if not page:
+        return []
+    starts = [m.start() for m in re.finditer(r'<tr[^>]*data-event=', page)]
+    if not starts:
+        return []
+    starts.append(len(page))
+
+    out = []
+    for i in range(len(starts) - 1):
+        seg = page[starts[i]:starts[i + 1]]
+        actual = _te_text(seg, r"<span id='actual'[^>]*>(.*?)</span>")
+        if not actual:
+            continue                                  # not released yet — nothing to say
+        title = _te_text(seg, r"<a class='calendar-event'[^>]*>(.*?)</a>")
+        if not title:
+            continue                                  # unnameable row: skip, never guess
+        day = re.search(r"class='\s*(\d{4}-\d{2}-\d{2})\s*'", seg)
+        if not day:
+            continue                                  # undated row cannot be matched to anything
+        tm = re.search(r'(\d{1,2}:\d{2}\s*[AP]M)', seg, re.I)
+        out.append({
+            'currency': currency,
+            'event':    title,
+            'date':     day.group(1),
+            'time':     (tm.group(1).strip() if tm else ''),
+            'actual':   actual,
+            'previous': _te_text(seg, r"<span id='previous'[^>]*>(.*?)</span>") or '-',
+            # TE calls the forecast "consensus", and it is an <a>, not a <span>.
+            'forecast': _te_text(seg, r"<a id='consensus'[^>]*>(.*?)</a>") or '-',
+        })
+    return out
+
+
+def fetch_released_values() -> list:
+    """Released numbers for every currency the platform trades, newest page per currency.
+
+    A page that cannot be fetched is skipped rather than failing the whole run: one blocked country
+    must not cost the other three. `_te_html` already handles the challenge the datacenter IP is
+    served — the same workaround the interest rates use.
+    """
+    results = []
+    for currency, slug in _TE_CALENDARS.items():
+        page = _te_html(f'https://tradingeconomics.com/{slug}/calendar')
+        if not page:
+            print(f'[news_calendar] TE {currency}: page unavailable', file=sys.stderr)
+            continue
+        rows = parse_te_calendar(page, currency)
+        print(f'[news_calendar] TE {currency}: {len(rows)} released', file=sys.stderr)
+        results.extend(rows)
+    return results
+
+
 def get_interest_rates() -> dict:
     """
     Fetch central bank policy rates.
@@ -944,6 +1050,10 @@ if __name__ == '__main__':
 
     if mode == 'rates':
         output = get_interest_rates()
+    elif mode == 'actuals':
+        # The released numbers only — see fetch_released_values. Kept a separate mode because it
+        # runs on its own schedule (just after a release), not with the weekly calendar scrape.
+        output = fetch_released_values()
     else:
         # The economic calendar, and nothing else. Crypto headlines from RSS used to be appended
         # here; they were removed on his instruction, and their removal also takes away the thing
