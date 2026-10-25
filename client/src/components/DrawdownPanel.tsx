@@ -7,6 +7,7 @@ import { DrawdownSkeleton } from '@/components/skeletons/DrawdownSkeleton';
 import { DiveProfile } from '@/components/drawdown/diveProfile';
 import { DP_CSS } from '@/components/drawdown/dpStyles';
 import { LossBars } from '@/components/drawdown/lossBars';
+import { dayMark } from '@/lib/dayOutcome';
 
 /**
  * DrawdownPanel — "Dive Profile" layout.
@@ -139,6 +140,8 @@ export default function DrawdownPanel({ sessionId, dispFont, bodyFont }:
   const [ddView, setDdView] = useState('STRATEGY');
   const [dir,    setDir]    = useState('BULLISH');
   const [diag,   setDiag]   = useState('CONTEXT');
+  // WHICH MONTH IS OPEN in the Monthly Drawdown table, as "year-month" (month 1-12), or null.
+  const [openMonth, setOpenMonth] = useState<string | null>(null);
 
   const { data: result, isLoading, isError, error } = useQuery<any>({
     queryKey: ['/api/drawdown/compute', sessionId],
@@ -159,6 +162,33 @@ export default function DrawdownPanel({ sessionId, dispFont, bodyFont }:
       const json = await r.json();
       if (!json.success) throw new Error(json.error || 'Drawdown computation failed');
       return json;
+    },
+  });
+
+  // ── THE DAY-BY-DAY OUTCOMES BEHIND EACH MONTH ───────────────────────────────────
+  //
+  // His instruction: *"Drawdown by month should have a drop that shows all traded dates and outcome
+  // just like the calendar does but not with money ... L for loss ... W for win ... BE for
+  // breakeven."*
+  //
+  // ⚠ THE SAME CALL THE CALENDAR MAKES, ON PURPOSE — same URL, same query key, so React Query
+  // serves it from cache when he has already opened the calendar, and so the two screens can never
+  // be looking at different numbers for the same day. `/api/calendar/compute` already returns EVERY
+  // month, keyed "{year}-{month}" with a real 1-12 month, each holding day-of-month -> { pnl, ... }
+  // (server/python/calendar_calculator.py). No new endpoint was needed.
+  //
+  // Fetched only once a month has actually been opened, so a user who never expands a row pays
+  // nothing for it.
+  const { data: calResult } = useQuery<any>({
+    queryKey: ['/api/calendar/compute', sessionId],
+    enabled: !!sessionId && openMonth !== null,
+    staleTime: 2 * 60 * 1000,
+    gcTime:   30 * 60 * 1000,
+    retry: 2,
+    queryFn: async () => {
+      const r = await authFetch(`/api/calendar/compute?sessionId=${sessionId}`);
+      if (!r.ok) throw new Error(`${r.status}: ${r.statusText}`);
+      return r.json();
     },
   });
 
@@ -313,6 +343,25 @@ export default function DrawdownPanel({ sessionId, dispFont, bodyFont }:
       return { ret: r, cf: combined };   // still underwater → show raw return, carry the deficit
     });
   })();
+
+  // ── the traded days inside one month, as W / L / BE ─────────────────────────
+  //
+  // ⚠ THE OUTCOME IS THE DAY'S NET, AND THE TOLERANCE IS THE CALENDAR'S OWN. TradingCalendar
+  // calls a day flat when |pnl| < 0.005 (`FLAT_EPS`, `toneOf`), so a day that nets to zero out of a
+  // +100 and a -100 reads BE there. Using any other rule here would have the two screens disagree
+  // about the same date, which is worse than not showing it at all.
+  const dayOutcomes = (m: any): { day: number; mark: 'W' | 'L' | 'BE' }[] => {
+    const key = `${m.year}-${MONTH_ABBR.indexOf(m.month) + 1}`;
+    const days = calResult?.calendarData?.[key] ?? {};
+    return Object.keys(days)
+      .map(Number)
+      .filter(n => !Number.isNaN(n))
+      .sort((a, b) => a - b)
+      .map(day => {
+        const pnl = Number(days[String(day)]?.pnl ?? 0);
+        return { day, mark: dayMark(pnl) };
+      });
+  };
 
   // ── render ──────────────────────────────────────────────────────────────────
   return (
@@ -517,9 +566,28 @@ export default function DrawdownPanel({ sessionId, dispFont, bodyFont }:
                     const eqStr = eq == null ? '—' : eq === 0 ? '0.00%' : `${eq > 0 ? '+' : ''}${eq.toFixed(2)}%`;
                     const eqCls = eq == null ? 'mut' : eq > 0 ? 'gain' : eq < 0 ? 'loss' : 'dim';
                     const dot = m.dominantCauseClass === 'bad' ? 'var(--loss)' : m.dominantCauseClass === 'good' ? 'var(--gain)' : 'var(--warn)';
+                    // ── OPEN A MONTH TO SEE ITS TRADED DATES ────────────────────────
+                    // His instruction: a drop-down showing "all traded dates and outcome just like
+                    // the calendar does but not with money". Purely ADDITIVE — his 2026-09-27 rule
+                    // ("dont change how Monthly Drawdown is displayed") still holds: the seven
+                    // columns, their values, the dot and the LIVE badge are all untouched, and the
+                    // only new thing on a closed table is the little chevron.
+                    const mKey = `${m.year}-${MONTH_ABBR.indexOf(m.month) + 1}`;
+                    const isOpen = openMonth === mKey;
+                    const toggle = () => setOpenMonth(isOpen ? null : mKey);
+                    const outcomes = isOpen ? dayOutcomes(m) : [];
                     return (
-                      <tr key={`${m.month}-${m.year}`} style={isLive ? { background: 'rgba(96,165,250,0.06)' } : undefined}>
-                        <td><span className="mmname"><span className="d" style={{ background: isLive ? '#60a5fa' : dot, boxShadow: m.dominantCauseClass === 'good' ? undefined : 'none' }} /><span className="nm">{m.month.toUpperCase()}/{m.year}</span>{isLive && <span className="live-badge" style={{ marginLeft: 6, fontSize: 11, fontWeight: 800, letterSpacing: '.1em', border: '1px solid rgba(96,165,250,.5)', borderRadius: 999, padding: '0 5px', verticalAlign: 'middle' }}>LIVE</span>}</span></td>
+                      <React.Fragment key={`${m.month}-${m.year}`}>
+                      <tr
+                        style={{ ...(isLive ? { background: 'rgba(96,165,250,0.06)' } : {}), cursor: 'pointer' }}
+                        onClick={toggle}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } }}
+                        tabIndex={0}
+                        role="button"
+                        aria-expanded={isOpen}
+                        aria-label={`${m.month} ${m.year} — show the days traded`}
+                      >
+                        <td><span className="mmname"><span className="d" style={{ background: isLive ? '#60a5fa' : dot, boxShadow: m.dominantCauseClass === 'good' ? undefined : 'none' }} /><span className="nm">{m.month.toUpperCase()}/{m.year}</span>{isLive && <span className="live-badge" style={{ marginLeft: 6, fontSize: 11, fontWeight: 800, letterSpacing: '.1em', border: '1px solid rgba(96,165,250,.5)', borderRadius: 999, padding: '0 5px', verticalAlign: 'middle' }}>LIVE</span>}<span aria-hidden style={{ marginLeft: 7, display: 'inline-block', fontSize: 9, opacity: 0.55, transition: 'transform .15s', transform: isOpen ? 'rotate(90deg)' : 'none' }}>▶</span></span></td>
                         <td className={eqCls}>{eqStr}</td>
                         <td className="mut">{Math.round(m.recoveryPct)}%</td>
                         <td className={m.maxDdPct === 0 ? 'mut' : 'loss'}>{fmtDd(m.maxDdPct)}</td>
@@ -527,6 +595,37 @@ export default function DrawdownPanel({ sessionId, dispFont, bodyFont }:
                         <td className="dim">{m.lossCount}/{m.totalTrades}</td>
                         <td className={cf === '0.00%' ? 'mut' : 'loss'}>{cf}</td>
                       </tr>
+                      {isOpen && (
+                        <tr>
+                          <td colSpan={7} style={{ padding: '10px 12px 14px' }}>
+                            {outcomes.length === 0 ? (
+                              <span className="mut" style={{ fontSize: 12 }}>No day-by-day record stored for this month.</span>
+                            ) : (
+                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                                {outcomes.map(({ day, mark }) => (
+                                  <span
+                                    key={day}
+                                    title={`${m.month} ${day}`}
+                                    style={{
+                                      display: 'inline-flex', alignItems: 'center', gap: 5,
+                                      padding: '3px 8px', borderRadius: 6, fontSize: 12,
+                                      // The drawdown page's own tokens — and --warn is already the
+                                      // breakeven colour on BOTH screens (his rule, 2026-08-29).
+                                      color: mark === 'W' ? 'var(--gain)' : mark === 'L' ? 'var(--loss)' : 'var(--warn)',
+                                      border: '1px solid currentColor',
+                                      opacity: 0.92,
+                                    }}
+                                  >
+                                    <span style={{ opacity: 0.75 }}>{day}</span>
+                                    <b style={{ letterSpacing: '.04em' }}>{mark}</b>
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      )}
+                      </React.Fragment>
                     );
                   })}
                 </tbody>

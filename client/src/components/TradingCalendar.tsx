@@ -4,6 +4,7 @@ import { authFetch } from "@/lib/queryClient";
 import { useDelayedLoading } from "@/lib/useDelayedLoading";
 import { CalendarSkeleton } from "@/components/skeletons/CalendarSkeleton";
 import { useTranslation } from "react-i18next";
+import { dayTone } from "@/lib/dayOutcome";
 
 const FONT   = "'Montserrat', sans-serif";
 
@@ -59,13 +60,10 @@ const TONE: Record<Tone, { hex: string; rgb: string }> = {
   loss: { hex: RED,    rgb: "var(--tc-down-rgb, 255,61,90)" },
   flat: { hex: ORANGE, rgb: "var(--tc-warn-rgb, 255,193,85)" },
 };
-/** Half a cent, so a day that nets to zero out of a +100 and a -100 reads as flat rather than as a
- *  win off a rounding crumb. */
-const FLAT_EPS = 0.005;
-function toneOf(pnl: number): Tone {
-  if (Math.abs(pnl) < FLAT_EPS) return "flat";
-  return pnl > 0 ? "win" : "loss";
-}
+/** The win / loss / break-even rule now lives in `lib/dayOutcome` because the Monthly Drawdown
+ *  table prints the SAME answer as W / L / BE. One copy, so the two screens cannot drift apart and
+ *  disagree about the same date. The half-cent tolerance and the behaviour are unchanged. */
+const toneOf = dayTone;
 const BG     = 'var(--tc-bg,     #0A0D14)';
 const CARD   = 'var(--tc-card,   #0F1520)';
 const BORDER = 'var(--tc-border, #1C2333)';
