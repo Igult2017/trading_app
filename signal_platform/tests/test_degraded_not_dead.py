@@ -120,8 +120,15 @@ probe.degraded_note(_Log())
 probe.degraded_note(_Log())
 probe.degraded_note(_Log())
 check("three scan ticks produce ONE line, not three", len(seen), 1)
-check("...and it names what still works AND what is paused",
-      "journal ticker" in seen[0] and "trade monitoring resume" in seen[0])
+# ⚠ THE WORDING IS PINNED BECAUSE IT IS A CLAIM, NOT DECORATION. It tells him what is still
+# working during an outage, and an inaccurate one here is an alert that lies. It must say FIX is
+# carrying the series, which strategy keeps running, which one pauses, and that anything that
+# cannot be brought up to date is refused rather than served stale.
+check("...it says FIX is carrying the series on", "carrying the series on" in seen[0])
+check("...it names the strategy that PAUSES rather than implying all is well",
+      "BX-S/D pauses" in seen[0])
+check("...and promises stale bars are refused, not served",
+      "refused rather than served stale" in seen[0])
 
 # ── 4. RECOVERY PUTS IT BACK ─────────────────────────────────────────────────────────────
 

@@ -29,6 +29,22 @@ from shared.mtf_utils import grid_phase, seconds_to_close, to_minutes
 log = logging.getLogger(__name__)
 
 _store: dict[tuple[str, str], tuple[list, float]] = {}  # (symbol, tf) → (candles, expire_at)
+
+# ── THE LAST SERIES THAT ACTUALLY ARRIVED, KEPT AFTER ITS COPY EXPIRES ───────────────────────
+#
+# ⚠ WHY A SECOND STORE EXISTS AT ALL. `get()` deletes an expired entry, which is right for the
+# fresh-copy question it answers. But when the broker stops answering, deleting it threw away the
+# only history FIX had to build on - and FIX *can* carry the series on from where the broker
+# stopped (`tick_serving.extend_with_ticks`). His correction, 25 Oct 2026: *"FIX data can pick from
+# where the main signal source went down and build from there and i think we already have that
+# logic here."* He was right; what was missing was anything left to extend.
+#
+# ⚠ KEEPING THEM IS CORRECT, NOT A GUESS. These are CLOSED bars, and a closed bar never changes.
+# What must never happen is serving them as though they were CURRENT - that check lives in
+# `candle_fetcher`, which refuses anything FIX cannot bring up to now.
+#
+# One series per (symbol, tf), replaced whenever a real fetch succeeds, so this cannot grow.
+_last_good: dict[tuple[str, str], list] = {}
 _lock  = threading.Lock()
 
 
@@ -147,8 +163,19 @@ def get(symbol: str, tf: str) -> list | None:
         if entry and time.monotonic() < entry[1]:
             return entry[0]
         if entry:
-            del _store[key]   # expired
+            del _store[key]   # expired as a FRESH copy - but kept in _last_good for FIX to extend
         return None
+
+
+def get_last_good(symbol: str, tf: str) -> list | None:
+    """The last series that really arrived, however old. CLOSED bars only, so still true.
+
+    ⚠ THE CALLER MUST PROVE IT IS CURRENT BEFORE SERVING IT. This answers "what did we last see?",
+    never "what is the market doing now?". `candle_fetcher` is the one place that may use it, and
+    only after FIX has carried it up to the present bar.
+    """
+    with _lock:
+        return _last_good.get((symbol, tf))
 
 
 def _note_grid(symbol: str, tf: str, last_open: float | None) -> None:
@@ -185,6 +212,7 @@ def put(symbol: str, tf: str, candles: list) -> None:
     expires = time.monotonic() + ttl
     with _lock:
         _store[(symbol, tf)] = (candles, expires)
+        _last_good[(symbol, tf)] = candles        # survives expiry; see _last_good above
     log.debug(f"[candle_cache] cached {symbol} {tf} — {len(candles)} bars, TTL={ttl:.0f}s")
 
 

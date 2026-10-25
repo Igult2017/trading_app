@@ -55,9 +55,11 @@ def degraded_note(log_) -> None:
     if now - _LAST_NOTE < _NOTE_EVERY_S:
         return
     _LAST_NOTE = now
-    log_.warning("[scanner] skipped - no broker history feed. Live prices and the journal ticker "
-                 "are still running on FIX; scanning and trade monitoring resume by themselves "
-                 "when the cTrader account is reconnected.")
+    log_.warning("[scanner] the broker history feed is down. The FIX tick feed is carrying the "
+                 "series on from the broker's last bars, so VIX.1 (M1 + H1) keeps scanning and "
+                 "trade monitoring keeps judging; BX-S/D pauses, because H4/M30/M15/M5 cannot be "
+                 "rebuilt from ticks. Anything FIX cannot bring up to date is refused rather than "
+                 "served stale. Full service returns by itself when the account is reconnected.")
 
 
 def hint_for(raw: str, settings) -> str:
@@ -132,10 +134,12 @@ async def ensure_market_data(settings, write_status, bootstrap_tokens) -> bool:
     # `candle_fetcher` and `trade_watcher` gets its positions from `position_book` - BOTH are the
     # Open API, so both pause with it. FIX keeps the live quote stream and the journal ticker, and
     # tick bars keep building. Claiming monitoring survives would be a lie told by an alert.
-    log.warning("[boot] DEGRADED, not dead: FIX live prices and the journal ticker keep running, "
-                "and tick candles keep building. PAUSED until the account is back: signal "
-                "scanning and trade monitoring - both read the broker's own history, which FIX "
-                "cannot supply (the strategies want thousands of bars; FIX starts empty).")
+    log.warning("[boot] DEGRADED, not dead. Still running: FIX live prices, the journal ticker, "
+                "and - where FIX can carry the series on from the broker's last bars - VIX.1 "
+                "scanning and trade monitoring, both of which read only M1 and H1. PAUSED: "
+                "BX-S/D, which needs H4/M30/M15/M5 that ticks cannot rebuild. NOTE: after a "
+                "RESTART there is nothing to carry on from, so nothing is carried until the "
+                "account is back.")
     asyncio.create_task(_retry_forever(settings, write_status, bootstrap_tokens))
     return False
 

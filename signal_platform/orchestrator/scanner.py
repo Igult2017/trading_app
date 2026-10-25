@@ -136,18 +136,20 @@ async def _run_tick() -> tuple[bool, int | None]:
         _was_scanning = False
         return False, None
 
-    # ⚠ NO HISTORY FEED, NO SCAN — and say it ONCE, not once per symbol per tick.
-    # When the broker account that serves historical candles is unavailable the platform now keeps
-    # running on FIX (live prices, the journal ticker, trade monitoring) instead of exiting. But a
-    # scan cannot be made from live ticks: VIX.1 reads 3,000 H1 bars and BX-S/D 1,000 H4 — months
-    # of history that FIX, which starts empty and builds forward, does not have. Without this gate
-    # every tick would ask for each symbol and timeframe, have `candle_fetcher` treat each failure
-    # as empty, and fill the log with errors describing a condition already reported once.
+    # ⚠ A MISSING BROKER FEED NO LONGER STOPS THE SCAN — FIX CARRIES IT.
+    # This was a blunt "skip everything while the feed is down", which would have blocked the exact
+    # thing he asked for: *"FIX data can pick from where the main signal source went down and build
+    # from there."* It can, and `candle_fetcher._carry_on` now does it — the last series the broker
+    # sent, brought up to the present minute by the FIX tick feed, and refused outright the moment
+    # it can no longer be made current.
+    #
+    # So the tick runs as usual. A symbol FIX cannot carry simply comes back with no candles, which
+    # every strategy already handles, and the fetcher says so once every 15 minutes. VIX.1 keeps
+    # working throughout (it reads only M1 and H1, both of which FIX rebuilds); BX-S/D pauses,
+    # because H4/M30/M15/M5 cannot be built from a 4-hour tick memory.
     from core.ctrader_probe import market_data_ready, degraded_note
     if not market_data_ready():
         degraded_note(log)
-        _was_scanning = False
-        return False, None
 
     # Market-hours gate FIRST: when forex is closed (all Saturday, Sunday before
     # 22:00 UTC, Friday from 22:00 UTC) the whole tick is a no-op — no scanning,

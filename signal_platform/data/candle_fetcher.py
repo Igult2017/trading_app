@@ -198,10 +198,82 @@ async def fetch_candles(symbol: str, tf: str, count: int = 100) -> list[Candle]:
 
         # The owner always returns its own result — never loops — so a data
         # source that returns fewer bars than `count` cannot spin forever.
-        return _serve(symbol, tf, candles[-count:]) if candles else []
+        if candles:
+            return _serve(symbol, tf, candles[-count:])
+        # ⚠ THE BROKER SAID NOTHING — LET FIX CARRY THE SERIES ON. This line used to be a bare
+        # `else []`, which skipped `_serve` entirely: the one moment FIX exists for, and it was
+        # never asked. See `_carry_on`.
+        return _carry_on(symbol, tf, count)
 
 
 def _serve(symbol: str, tf: str, bars: list[Candle]) -> list[Candle]:
     """Append the minutes the broker has not published yet, when that is allowed. See tick_serving."""
     from data.tick_serving import extend_with_ticks
     return extend_with_ticks(symbol, tf, bars)
+
+
+def _carry_on(symbol: str, tf: str, count: int) -> list[Candle]:
+    """The broker is unreachable: take the last series it DID send and let FIX bring it to now.
+
+    HIS CORRECTION, 25 Oct 2026: *"FIX data can pick from where the main signal source went down and
+    build from there and i think we already have that logic here."* It did — `extend_with_ticks`
+    has always appended the minutes FIX watched being made, with a per-symbol trust check and a
+    refusal on any gap at the join. It simply was never reached, because a failed fetch returned an
+    empty list before `_serve` could run, and the cache had already deleted the history it needed.
+
+    ⚠ THE RULE THAT MAKES THIS SAFE: SERVE IT ONLY WHILE IT IS CURRENT. An out-of-date bar handed
+    to a strategy as though it were the live one is worse than no bar at all — every level, every
+    momentum test and every entry would be measured against a market that has moved on. So the
+    newest bar must be the bar in progress right now, on this timeframe's own grid
+    (`mtf_utils.bar_open_at`, which reads the broker's real 21:00 day start, not midnight).
+
+    When FIX cannot reach that — a dropped stream, a hole, an untrusted symbol, or an outage longer
+    than FIX's own 4-hour memory (`tick_bars._KEEP`) — this returns [] exactly as before.
+    """
+    base = candle_cache.get_last_good(symbol, tf)
+    if not base:
+        return []
+    carried = _serve(symbol, tf, base)
+    if not carried:
+        return []
+    newest = getattr(carried[-1], "time", None)
+    if newest is None:
+        return []
+    from shared.mtf_utils import bar_open_at, seconds
+    current_open = bar_open_at(tf=tf)
+    # The newest bar is either the one still forming, or the one that closed immediately before it.
+    # Anything older means a bar has closed that we do not have, and the series is behind the market.
+    if newest < current_open - seconds(tf):
+        _note_stale(symbol, tf, newest, current_open)
+        return []
+    _note_carried(symbol, tf, len(carried))
+    return carried[-count:]
+
+
+# ── SAYING IT ONCE, NOT ONCE PER SYMBOL PER TICK ─────────────────────────────────────────────
+# The scan runs every 45s over several symbols and timeframes. An unlimited line here would bury
+# the one message that matters - the alert naming the account to reconnect - under hundreds of
+# copies of a condition nobody can act on twice.
+_CARRY_NOTE_EVERY_S = 900
+_carry_noted: dict[tuple[str, str], float] = {}
+
+
+def _note(key: tuple[str, str], msg: str, *args) -> None:
+    now = time.monotonic()
+    if now - _carry_noted.get(key, 0.0) < _CARRY_NOTE_EVERY_S:
+        return
+    _carry_noted[key] = now
+    log.warning(msg, *args)
+
+
+def _note_carried(symbol: str, tf: str, n: int) -> None:
+    _note(("carry", symbol + tf),
+          "[candle_fetcher] %s %s: the broker is not answering - serving %d bars carried on from "
+          "its last series by the FIX tick feed. These are current; scanning continues.", symbol, tf, n)
+
+
+def _note_stale(symbol: str, tf: str, newest: float, current_open: float) -> None:
+    _note(("stale", symbol + tf),
+          "[candle_fetcher] %s %s: STOPPING - the FIX feed can no longer bring the series up to "
+          "date (newest bar %.0fs before the current bar opened). Serving nothing rather than a "
+          "stale bar.", symbol, tf, current_open - newest)
