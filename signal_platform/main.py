@@ -155,33 +155,21 @@ async def _startup() -> None:
         log.error("[boot] %s (after 3 attempts)", _reach_err)
         sys.exit(1)
 
-    # cTrader probe — actually fetches bars to confirm auth + account ID are correct
-    log.info("[boot] probing cTrader connection (EUR/USD H1)...")
-    try:
-        from data.data_source import fetch_raw
-        probe = await asyncio.wait_for(fetch_raw("EUR/USD", "H1", 5), timeout=25)
-        if not probe:
-            msg  = f"Spotware returned 0 bars — CTRADER_ACCOUNT_ID={settings.ctrader_account_id} may be wrong"
-            hint = "Confirm CTRADER_ACCOUNT_ID is the ctid numeric ID, not your broker login number"
-            write_status("error", msg, hint)
-            log.error("[boot] %s", msg)
-            sys.exit(1)
-        log.info("[boot] cTrader OK — %d bars received for EUR/USD H1", len(probe))
-    except Exception as exc:
-        raw = str(exc)
-        if "refresh" in raw.lower() or "token" in raw.lower() or "backoff" in raw.lower():
-            hint = "CTRADER_REFRESH_TOKEN is stale. ADMIN_SECRET must be set so Python can auto-fetch tokens from Node DB."
-        elif "app auth failed" in raw.lower():
-            hint = "CTRADER_CLIENT_ID or CTRADER_CLIENT_SECRET is wrong, OR the app is not Active in the cTrader portal"
-        elif "account auth failed" in raw.lower():
-            hint = f"CTRADER_ACCOUNT_ID={settings.ctrader_account_id} is invalid on the {_env} server"
-        else:
-            hint = "Check CTRADER_ACCESS_TOKEN, CTRADER_REFRESH_TOKEN, CTRADER_ACCOUNT_ID in Coolify"
-        write_status("error", raw, hint)
-        log.error("[boot] cTrader probe FAILED: %s", raw)
-        log.error("[boot] hint: %s", hint)
-        sys.exit(1)
-
+    # ⚠ THE BROKER HISTORY FEED IS CHECKED **AFTER** EVERYTHING FIX CAN CARRY IS ALREADY UP, and
+    # a failure no longer ends the process. It used to sys.exit(1) right here, which on 25 Oct 2026
+    # restarted the whole platform 20 times in half an hour over ONE account's dead login — and
+    # took the journal's live price ticker down with it, because this process is what publishes it
+    # (production served {"prices":[]} throughout). His instruction: "signal platform should not be
+    # going off when the account that provides data for signal is not there because we also have
+    # FIX data which provides real time signals."
+    #
+    # FIX has its own credential on its own port, so it is untouched by a dead Open API login.
+    # What FIX CANNOT do is make new strategy signals: VIX.1 asks for 3,000 H1 bars and BX-S/D for
+    # 1,000 H4 — months of history — while FIX starts empty and builds forward a minute at a time.
+    # So the honest degraded state is: prices, ticker and monitoring live; new signals wait.
+    # ⚠ PLUGINS AND NOTIFICATIONS COME BEFORE THE WATCHERS. The entry watcher scans the instant
+    # a 1-minute bar closes, and a scan with an empty strategy registry would quietly find
+    # nothing. Registering first makes that impossible rather than unlikely.
     # 4. Register plugins
     import features      # noqa: F401
     import strategies    # noqa: F401
@@ -194,19 +182,9 @@ async def _startup() -> None:
     from notifications.dispatcher import register as register_dispatcher
     register_dispatcher()
 
-    # 6. Build + start scheduler
-    from orchestrator.scanner import scan_markets
-    from monitor.signal_monitor import check_all
-    from scheduler import scheduler
-    # THE TRADE TRACKER GETS ITS OWN JOB. It used to be called from inside `check_all` above, which
-    # is why it ran on the signal poller's 30-second clock — see the note on the job in
-    # scheduler.py. Signals are watched every 30s; his open trades every 2s.
-    scheduler.build(scan_markets, check_all, _track_positions)
-    scheduler.start()
-
-    write_status("ok")
-    log.info("[boot] scheduler started — platform is running")
-
+    # ── FIX FIRST. These start BEFORE the Open API is checked, deliberately: they are the half
+    #    that survives a dead broker login, and starting them first is what keeps the journal's
+    #    live prices on screen during an outage instead of blanking them.
     # 6a. REAL-TIME TRADE WATCHER — opt-in, and started as its own task so it cannot delay boot.
     #     It streams prices over FIX (a different protocol, a different port, its own credential)
     #     and spends NONE of the Open API request budget the scanner uses. Every failure inside it
@@ -238,6 +216,27 @@ async def _startup() -> None:
             log.warning(f"[boot] watchers failed to start (non-fatal): {exc}")
     else:
         log.info("[boot] real-time watchers are OFF (trade_watcher_enabled=false)")
+
+    log.info("[boot] checking the cTrader history feed (EUR/USD H1)...")
+    from core.ctrader_probe import ensure_market_data
+    market_data_ok = await ensure_market_data(settings, write_status, bootstrap_ctrader_tokens)
+
+    # 6. Build + start scheduler
+    from orchestrator.scanner import scan_markets
+    from monitor.signal_monitor import check_all
+    from scheduler import scheduler
+    # THE TRADE TRACKER GETS ITS OWN JOB. It used to be called from inside `check_all` above, which
+    # is why it ran on the signal poller's 30-second clock — see the note on the job in
+    # scheduler.py. Signals are watched every 30s; his open trades every 2s.
+    scheduler.build(scan_markets, check_all, _track_positions)
+    scheduler.start()
+
+    # ONLY "ok" WHEN IT REALLY IS. Saying ok while the history feed is missing would clear the
+    # outage marker and send a recovery message for a recovery that has not happened; the retry
+    # task in ctrader_probe sends that the moment the feed is genuinely back.
+    if market_data_ok:
+        write_status("ok")
+    log.info("[boot] scheduler started — platform is running")
 
     # 6b. Boot heartbeat + first scan — BEST-EFFORT. A failure here must never crash
     #     _startup: the process would exit, the watchdog would restart it, and it would

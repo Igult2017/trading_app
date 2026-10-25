@@ -136,6 +136,19 @@ async def _run_tick() -> tuple[bool, int | None]:
         _was_scanning = False
         return False, None
 
+    # ⚠ NO HISTORY FEED, NO SCAN — and say it ONCE, not once per symbol per tick.
+    # When the broker account that serves historical candles is unavailable the platform now keeps
+    # running on FIX (live prices, the journal ticker, trade monitoring) instead of exiting. But a
+    # scan cannot be made from live ticks: VIX.1 reads 3,000 H1 bars and BX-S/D 1,000 H4 — months
+    # of history that FIX, which starts empty and builds forward, does not have. Without this gate
+    # every tick would ask for each symbol and timeframe, have `candle_fetcher` treat each failure
+    # as empty, and fill the log with errors describing a condition already reported once.
+    from core.ctrader_probe import market_data_ready, degraded_note
+    if not market_data_ready():
+        degraded_note(log)
+        _was_scanning = False
+        return False, None
+
     # Market-hours gate FIRST: when forex is closed (all Saturday, Sunday before
     # 22:00 UTC, Friday from 22:00 UTC) the whole tick is a no-op — no scanning,
     # no news fetch, and no session-open alerts. Nothing fires while closed.

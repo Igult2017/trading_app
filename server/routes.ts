@@ -2801,6 +2801,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/internal/ctrader-credentials', requireAdminSecret, async (req, res) => {
     try {
       const pin = String((req.query.ctrader_id ?? '')).trim();
+      if (!pin) {
+        // ⚠ UNPINNED NOW REFUSES. It used to return "the most recently updated cTrader account" —
+        // and that query is not scoped to any user, so with more than one person on the platform it
+        // would hand the signal engine A STRANGER'S ACCOUNT, silently, under our own identity. It
+        // would also move on its own: `updated_at` is stamped by every connect, every sync, every
+        // balance read, so whoever touched their account last became the signal platform.
+        //
+        // Refusing is the same ruling the pinned branch above already makes when its account's token
+        // is dead: do NOT fall through to somebody else's. Guessing which account should power the
+        // signals is exactly the class of error the pin was introduced to end.
+        //
+        // 412 (precondition failed), not 404: the accounts exist, the SETTING is missing.
+        console.error('[ctrader-credentials] REFUSED — CTRADER_SIGNAL_ACCOUNT_ID is not set, so there '
+                        + 'is no way to know which account should power the signal platform. It will NOT '
+                        + 'be given whichever account was touched last, which may belong to another user.');
+        return res.status(412).json({
+          error: 'CTRADER_SIGNAL_ACCOUNT_ID is not set — refusing to pick a cTrader account on its '
+                 + 'own, because the most recently updated one may belong to a different user. Set it '
+                 + 'to the ctid of the account the signal platform should use.',
+          needs_setting: 'CTRADER_SIGNAL_ACCOUNT_ID',
+        });
+      }
       // PINNED READS MUST NOT BE LIMITED BY RECENCY. The pinned account is found by decrypting and
       // matching `ctraderId`, which SQL cannot filter on — and it is precisely the account NOT being
       // touched, so a `LIMIT 5` ordered by recency is exactly how it would be missed.
@@ -2812,36 +2834,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { rows } = await pool.query<{
         id: string; account_type: string; password_enc: string; default_session_id?: string | null;
         balance: string | null; currency: string | null;
-      }>(`SELECT id, account_type, password_enc, balance, currency, default_session_id FROM broker_accounts WHERE platform = 'ctrader' ORDER BY updated_at DESC ${pin ? 'LIMIT 200' : 'LIMIT 5'}`);
+      }>(`SELECT id, account_type, password_enc, balance, currency, default_session_id FROM broker_accounts WHERE platform = 'ctrader' ORDER BY updated_at DESC LIMIT 200`);
 
-      if (pin) {
-        for (const row of rows) {
-          let creds: any;
-          try {
-            const plain = safeDecrypt(row.password_enc);
-            if (!plain) continue;
-            creds = JSON.parse(plain);
-          } catch { continue; }
-          if (String(creds?.ctraderId ?? '') !== pin) continue;
-          const out = await ctraderCredsFor(row, creds);
-          if (out) return res.json(out);
-          // THE PINNED ACCOUNT EXISTS BUT ITS TOKEN IS DEAD. Do NOT fall through to another
-          // account — silently trading someone else's is the whole defect this fixes.
-          return res.status(409).json({
-            error: `cTrader account ${pin} found but its token could not be refreshed — reconnect it`,
-            ctrader_id: pin,
-          });
-        }
-        return res.status(404).json({
-          error: `no cTrader account with ctraderId ${pin} — check CTRADER_SIGNAL_ACCOUNT_ID`,
-          ctrader_id: pin,
-        });
-      }
-
-      // UNPINNED: exactly the old behaviour, but it says so. An unpinned platform is one account
-      // update away from switching identity, and that should be visible rather than assumed.
-      console.warn('[ctrader-credentials] NO PIN — returning the most recently updated cTrader ' +
-                   'account. Set CTRADER_SIGNAL_ACCOUNT_ID so the signal platform owns one account.');
       for (const row of rows) {
         let creds: any;
         try {
@@ -2849,10 +2843,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (!plain) continue;
           creds = JSON.parse(plain);
         } catch { continue; }
+        if (String(creds?.ctraderId ?? '') !== pin) continue;
         const out = await ctraderCredsFor(row, creds);
         if (out) return res.json(out);
+        // THE PINNED ACCOUNT EXISTS BUT ITS TOKEN IS DEAD. Do NOT fall through to another
+        // account — silently trading someone else's is the whole defect this fixes.
+        return res.status(409).json({
+          error: `cTrader account ${pin} found but its token could not be refreshed — reconnect it`,
+          ctrader_id: pin,
+        });
       }
-      return res.status(404).json({ error: 'No cTrader account with tokens found' });
+      return res.status(404).json({
+        error: `no cTrader account with ctraderId ${pin} — check CTRADER_SIGNAL_ACCOUNT_ID`,
+        ctrader_id: pin,
+      });
+
     } catch (err: any) {
       return res.status(500).json({ error: err.message });
     }
