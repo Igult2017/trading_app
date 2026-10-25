@@ -11,6 +11,8 @@ import { fetchTradesForAccount, API_PLATFORMS } from './brokerAdapters/index';
 import { processIncomingTrades } from './brokerSyncService';
 import { safeDecrypt, safeEncrypt } from '../lib/crypto';
 import { refreshAccessToken, fetchCTraderBalance } from './brokerAdapters/ctrader';
+import { currentToken, mirrorToAccounts } from './ctraderTokenStore';
+import { backfillCtraderTokenRecords } from './ctraderTokenBackfill';
 import type { BrokerAccount } from '../../shared/schema';
 import { storage } from '../storage';
 
@@ -102,6 +104,24 @@ export function refreshCTraderToken(account: BrokerAccount): Promise<BrokerAccou
  */
 async function _refreshCTraderTokenInner(account: BrokerAccount): Promise<BrokerAccount | null> {
   const tag = `${account.platform}(${account.id.slice(0, 8)})`;
+
+  // ── THE SHARED RECORD RENEWS FOR EVERYONE ──────────────────────────────────────────────
+  // When this account belongs to a sign-in record, renewal goes through that record: it is
+  // single-flighted per RECORD (so two accounts cannot both spend the same single-use ticket),
+  // written with a compare-and-set, and then mirrored onto every account attached to it. One
+  // renewal therefore keeps the whole family alive instead of killing the siblings.
+  if (account.ctraderTokenId) {
+    const fresh = await currentToken(account.ctraderTokenId);
+    if (fresh) {
+      await mirrorToAccounts(account.ctraderTokenId, fresh);
+      const [row] = await db.select().from(brokerAccounts).where(eq(brokerAccounts.id, account.id));
+      return row ?? null;
+    }
+    // The record could not produce a token. Fall through to the per-account path rather than
+    // giving up: an account connected before the record existed may still hold a working ticket.
+    console.warn(`[AutoSync] ${tag} sign-in record has no usable token — trying its own copy`);
+  }
+
   try {
     const plain = safeDecrypt(account.passwordEnc);
     if (!plain) return null;
@@ -553,9 +573,16 @@ export function startAutoSync(): void {
   const sweep = () => syncAllAccounts().catch(err =>
     console.error('[AutoSync] SWEEP FAILED — no account was synced this round: '
                   + (err?.message ?? err)));
-  // The repair runs FIRST, so the boot sweep already sees any account it just corrected.
-  repairApiConnectionType()
-    .catch(err => console.error('[AutoSync] connectionType repair failed: ' + (err?.message ?? err)))
-    .finally(sweep);
+  // BOOT ORDER, AND IT MATTERS. The backfill gives accounts connected before 25 Oct 2026 a shared
+  // sign-in record; the repair then corrects any account filed under the wrong connection type.
+  // Both run BEFORE the first sweep, so that sweep already sees a corrected, grouped picture — and
+  // each step's failure is logged and stepped over rather than taking the sweep down with it.
+  const bootSteps = async () => {
+    try { await backfillCtraderTokenRecords(); }
+    catch (err: any) { console.error('[AutoSync] cTrader token backfill failed: ' + (err?.message ?? err)); }
+    try { await repairApiConnectionType(); }
+    catch (err: any) { console.error('[AutoSync] connectionType repair failed: ' + (err?.message ?? err)); }
+  };
+  void bootSteps().finally(sweep);
   setInterval(sweep, SYNC_INTERVAL_MS);
 }

@@ -23,6 +23,7 @@ import { getCTraderAuthUrl, exchangeCodeForTokens, getCTraderAccounts, fetchCTra
 import { addCTraderAccount, removeCTraderAccount } from "./services/ctraderRealtime";
 import { sessionAt } from "./lib/forexSession";
 import { syncAccount, refreshCTraderToken } from "./services/autoSyncService";
+import { createTokenRecord } from "./services/ctraderTokenStore";
 import { randomBytes, randomUUID } from "crypto";
 import { sendCampaignEmail, isEmailConfigured } from "./services/emailService";
 import { storage } from "./storage";
@@ -5064,6 +5065,18 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
       const traderLogin = String(ct?.traderLogin ?? ctraderId);
       const credJson = JSON.stringify({ accessToken: tokens.accessToken, refreshToken: tokens.refreshToken, ctraderId, tokenExpiresAt: Date.now() + (tokens.expiresIn * 1000), app: oauthApp });
 
+      // ONE SIGN-IN, ONE SHARED TOKEN RECORD. Even with a single account today, the record is
+      // what a LATER sign-in attaches its siblings to — and it is the only thing that renews.
+      const owner = (await storage.getBrokerAccountById(resolvedAccountId))?.userId ?? '';
+      if (owner) {
+        const made = await createTokenRecord(owner, oauthApp, {
+          accessToken: tokens.accessToken, refreshToken: tokens.refreshToken,
+          tokenExpiresAt: Date.now() + (tokens.expiresIn * 1000),
+        }, [resolvedAccountId]);
+        if (!made) console.warn('[cTrader OAuth] could not create the shared token record — the '
+                              + 'account still works from its own copy, but siblings will not share it');
+      }
+
       await storage.updateBrokerAccount(resolvedAccountId, {
         loginId:     traderLogin,
         // THIS IS THE MOMENT THE ACCOUNT BECOMES API-CONNECTED, AND IT WAS NEVER RECORDED.
@@ -5157,6 +5170,32 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
     const chosen = (pending.accounts as any[]).find(a => String(a.ctidTraderAccountId) === String(ctidTraderAccountId));
     if (!chosen) return res.status(400).json({ error: 'Account not in selection list' });
     const credJson = JSON.stringify({ accessToken: chosen.accessToken, refreshToken: chosen.refreshToken, ctraderId: chosen.ctidTraderAccountId, tokenExpiresAt: Date.now() + ((chosen.expiresIn ?? 3600) * 1000), app: pending.app });
+    // ⚠ THE RECORD COVERS EVERY ACCOUNT THAT SIGN-IN RETURNED, not only the one he picked. cTrader
+    // issued ONE token for the whole cTID, so the accounts he did NOT pick are covered by it too —
+    // and attaching them here is what lets a later renewal keep them alive instead of each one
+    // being refused in turn. Accounts he has not linked yet simply have no row to attach, which is
+    // why this matches on the cTrader id he already has rows for.
+    const siblingRows = await pool.query<{ id: string; password_enc: string }>(
+      "SELECT id, password_enc FROM broker_accounts WHERE user_id = $1 AND platform = 'ctrader'",
+      [user.id]);
+    const coveredCtids = new Set((pending.accounts as any[]).map(a => String(a.ctidTraderAccountId)));
+    const attachIds = [token];
+    for (const row of siblingRows.rows) {
+      if (row.id === token) continue;
+      try {
+        const c = JSON.parse(safeDecrypt(row.password_enc) ?? '{}');
+        if (c?.ctraderId && coveredCtids.has(String(c.ctraderId))) attachIds.push(row.id);
+      } catch { /* an unreadable blob is not a sibling we can prove — leave it alone */ }
+    }
+    const made = await createTokenRecord(user.id, String(pending.app ?? 'legacy'), {
+      accessToken: chosen.accessToken, refreshToken: chosen.refreshToken,
+      tokenExpiresAt: Date.now() + ((chosen.expiresIn ?? 3600) * 1000),
+    }, attachIds);
+    if (!made) console.warn('[cTrader OAuth] could not create the shared token record for this sign-in');
+    if (attachIds.length > 1) {
+      console.log(`[cTrader OAuth] one sign-in now covers ${attachIds.length} linked account(s) — `
+                + `renewing any one of them keeps the rest alive`);
+    }
     await storage.updateBrokerAccount(token, {
       loginId:     String(chosen.traderLogin ?? chosen.ctidTraderAccountId),
       connectionType: 'api',      // see the note in the OAuth callback — this was the missing line

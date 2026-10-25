@@ -711,5 +711,39 @@ CREATE UNIQUE INDEX IF NOT EXISTS journal_entries_synced_trade_key
     ON journal_entries (synced_trade_id)
  WHERE synced_trade_id IS NOT NULL;
 
+
+-- ---------------------------------------------------------------------------
+-- ONE cTRADER SIGN-IN'S TOKEN, SHARED BY EVERY ACCOUNT IT COVERS   (25 Oct 2026)
+--
+-- cTrader issues ONE token per sign-in for the whole cTID, and renewing it is
+-- single-use: the new pair kills the old one instantly. Storing a separate copy
+-- on every broker_accounts row therefore meant the first account to renew
+-- invalidated every sibling's copy, and each sibling then erased its own login.
+-- Four accounts were lost that way in one morning.
+--
+-- IT LIVES HERE AS WELL AS IN shared/schema.ts BECAUSE PRODUCTION RUNS THIS FILE
+-- at boot (start.sh), not drizzle-kit push. A table added only to the schema file
+-- would simply not exist in production.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS ctrader_tokens (
+    id            VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id       VARCHAR NOT NULL,
+    app           TEXT NOT NULL DEFAULT 'legacy',
+    tokens_enc    TEXT NOT NULL,
+    expires_at    TIMESTAMP,
+    version       INTEGER NOT NULL DEFAULT 1,
+    last_error    TEXT,
+    last_error_at TIMESTAMP,
+    created_at    TIMESTAMP DEFAULT NOW(),
+    updated_at    TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS ctrader_tokens_user_id_idx ON ctrader_tokens (user_id);
+
+ALTER TABLE broker_accounts ADD COLUMN IF NOT EXISTS ctrader_token_id VARCHAR;
+
+CREATE INDEX IF NOT EXISTS broker_accounts_ctrader_token_idx
+    ON broker_accounts (ctrader_token_id) WHERE ctrader_token_id IS NOT NULL;
+
 -- ── Done ─────────────────────────────────────────────────────────────────────
 DO $$ BEGIN RAISE NOTICE 'docker-migrate.sql complete'; END $$;

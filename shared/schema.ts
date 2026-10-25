@@ -754,6 +754,14 @@ export const brokerAccounts = pgTable("broker_accounts", {
   // DEFAULT TRUE so nothing he has already set up disappears on deploy; he turns OFF what he does
   // not want rather than having to re-enable four accounts.
   copyEnabled:    boolean("copy_enabled").default(true),
+  // ── WHICH cTRADER SIGN-IN THIS ACCOUNT'S LOGIN BELONGS TO ────────────────────────────────────
+  // cTrader issues ONE token per sign-in, covering every trading account under that cTID — not one
+  // per account (help.ctrader.com/open-api/account-authentication, and our own routes.ts:5035-5053
+  // exchanges the code once then copies the pair onto every account the sign-in returned). Renewing
+  // is single-use: the new pair immediately kills the old one. So while each row kept its own COPY,
+  // the first account to renew invalidated every sibling's copy and each of them then failed.
+  // Pointing them all at one shared record is what makes one sign-in repair the whole family.
+  ctraderTokenId: varchar("ctrader_token_id"),
   syncStatus:     text("sync_status").default("pending"), // pending|syncing|ok|error
   lastSyncAt:     timestamp("last_sync_at"),
   lastSyncError:  text("last_sync_error"),
@@ -769,6 +777,44 @@ export const brokerAccounts = pgTable("broker_accounts", {
 export const insertBrokerAccountSchema = createInsertSchema(brokerAccounts).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertBrokerAccount = z.infer<typeof insertBrokerAccountSchema>;
 export type BrokerAccount = typeof brokerAccounts.$inferSelect;
+
+/**
+ * ONE cTRADER SIGN-IN'S TOKEN, SHARED BY EVERY ACCOUNT IT COVERS.
+ *
+ * ⚠ WHY THIS TABLE EXISTS. On 25 Oct 2026 four accounts lost their logins in one morning and the
+ * signal platform crash-looped 20 times. cTrader hands out one token per sign-in for the whole
+ * cTID; we were storing a separate COPY of it on every account row. Renewing is single-use — the
+ * new pair kills the old one instantly — so the first account to renew silently invalidated every
+ * other row's copy, and each of those then erased itself. Fixing one account armed the trap for
+ * the next, which is exactly the loop he hit.
+ *
+ * One record, many accounts: renewing it once keeps every account alive, and ONE sign-in repairs
+ * the whole family.
+ *
+ * `version` IS NOT DECORATION. The renewal is a read-modify-write of a single-use ticket, so two
+ * writers that both read version 7 would both spend it and the loser's ticket would already be
+ * dead. Every write carries the version it read and fails if that is no longer current.
+ */
+export const ctraderTokens = pgTable("ctrader_tokens", {
+  id:          varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId:      varchar("user_id").notNull(),
+  // Which Open API app issued it — a ticket can only be renewed with its own app's credentials
+  // (docs/ctrader-open-api-apps.md). 'legacy' is the approved app the signal platform uses.
+  app:         text("app").notNull().default("legacy"),
+  // AES-256 encrypted {accessToken, refreshToken, tokenExpiresAt} — the same shape and the same
+  // encryption the per-account credential blob already uses, so nothing new had to be invented.
+  tokensEnc:   text("tokens_enc").notNull(),
+  expiresAt:   timestamp("expires_at"),
+  version:     integer("version").notNull().default(1),
+  lastError:   text("last_error"),
+  lastErrorAt: timestamp("last_error_at"),
+  createdAt:   timestamp("created_at").defaultNow(),
+  updatedAt:   timestamp("updated_at").defaultNow(),
+}, (t) => [
+  index("ctrader_tokens_user_id_idx").on(t.userId),
+]);
+
+export type CtraderToken = typeof ctraderTokens.$inferSelect;
 
 /**
  * Raw trades synced from broker (via webhook or API poll).
