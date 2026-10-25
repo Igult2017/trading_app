@@ -81,6 +81,16 @@ async def dispatch(event: dict, master_id: str) -> None:
                    else "not eligible for this event")
             _log(f.id, master_trade_id, "INFO", "SKIP", f"Not copied — {why}")
         if not linked:
+            # ⚠ THIS CASE REACHES THE ACTIVITY LOG TOO, and until 25 Oct 2026 it did not. A master
+            # with nobody linked wrote one stdout line and NOTHING he could see — so when he asked
+            # why his copy log was empty, the three most recent master trades (30 Sep, 12 Oct,
+            # 19 Oct) had left no record of any kind. "Nothing was copied" is an answer, and an
+            # answer he cannot read is the same as silence.
+            #
+            # `follower_id` is None because there is no follower to name - the column is nullable
+            # precisely so a decision about NOBODY can still be recorded.
+            _log(None, master_trade_id, "INFO", "SKIP",
+                 f"Not copied — no copier is linked to this master, so this {etype} went nowhere")
             log.info("[dispatch] master %s: no followers are linked to it at all, so this %s "
                      "was not copied anywhere", master_id, etype)
         return
@@ -578,6 +588,12 @@ def _follower_label(follower_id: str) -> str:
     slave account."* The log line printed a uuid, so reading the deploy logs told you a copy was
     skipped but not whose account it was skipped for — useless the moment there is more than one.
     """
+    # ⚠ NO FOLLOWER IS A REAL CASE, NOT A BUG TO GUARD AGAINST LATELY. A decision about NOBODY -
+    # "no copier is linked to this master" - is recorded with `follower_id = None`, and this used
+    # to be reached with `follower_id[:8]`, which raises on None. The line it was about to print
+    # would have taken the dispatch down with it.
+    if not follower_id:
+        return "no copier"
     if follower_id in _labels:
         return _labels[follower_id]
     label = follower_id[:8]

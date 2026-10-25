@@ -16,6 +16,7 @@
 import fs from "fs";
 import { scraperScheduler } from "../scrapers/scheduler";
 import { startAutoSync } from "../services/autoSyncService";
+import { removeOrphanedCopyLinks } from "../services/copyLinkRepair";
 import { startMissedCloseWatch } from "../services/missedCloseWatch";
 import { startHealthWatchdog } from "../services/healthWatchdog";
 import { startCTraderRealtime } from "../services/ctraderRealtime";
@@ -41,6 +42,12 @@ export const isPrimaryWorker =
  */
 export function startBackgroundServices(): void {
   if (!isPrimaryWorker) return;
+
+  // A COPY LINK NAMING AN ACCOUNT THAT NO LONGER EXISTS IS REMOVED HERE, before anything reads
+  // the copy tables. Deleting an account and signing it back in gives it a NEW id, so the copy
+  // rows were left pointing at the old one — a setup on screen that could not possibly run.
+  // Not awaited: it is tidying, and nothing below depends on it.
+  void removeOrphanedCopyLinks();
 
   scraperScheduler.start();
   startAutoSync();              // the reconciliation sweep (daily) for every API-connected account
