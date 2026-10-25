@@ -4381,11 +4381,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
                            f.max_open_trades, f.trade_delay_sec, f.symbol_whitelist,
                            f.symbol_blacklist, f.pause_on_dd, f.max_dd_percent, f.max_daily_loss,
                            f.deployed_at, f.broker_account_id,
-                           -- `dropped_at` DECIDES WHETHER THIS LINK EXISTS AT ALL, and it was
+                           -- dropped_at DECIDES WHETHER THIS LINK EXISTS AT ALL, and it was
                            -- missing from this list. Reading the response, an absent field looks
                            -- exactly like a null one, so a retired follower read as a live one
                            -- and I reported it as such. A diagnostic that omits the field the
                            -- state turns on is worse than no diagnostic.
+                           -- NO BACKTICKS IN HERE: this SQL sits inside a JS template literal, so
+                           -- one backtick ends the string and the file stops compiling. It did.
                            f.dropped_at,
                            b.platform, b.name AS account_name, b.login_id AS ctrader_account,
                            b.account_type, b.is_active AS account_active,
