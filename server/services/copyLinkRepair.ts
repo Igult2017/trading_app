@@ -1,5 +1,5 @@
 /**
- * A COPY LINK THAT NAMES AN ACCOUNT THAT NO LONGER EXISTS IS A GHOST — remove it, and say so.
+ * A COPY LINK THAT NAMES AN ACCOUNT THAT NO LONGER EXISTS IS A GHOST — retire it, and say so.
  *
  * ⚠ WHAT THIS IS FOR. On 25 Oct 2026 his copy panel showed a master and a follower set up, and the
  * whole arrangement was unusable: every `copy_masters` and `copy_followers` row named a
@@ -12,7 +12,7 @@
  * (`is_active = false`). This sweep fixes a panel that showed an arrangement which could not run —
  * a different fault, worth fixing on its own, and not the headline.
  *
- * ⚠ IT ONLY EVER REMOVES ROWS THAT NAME A MISSING ACCOUNT. A row with no account at all
+ * ⚠ IT ONLY EVER TOUCHES ROWS THAT NAME A MISSING ACCOUNT. A row with no account at all
  * (`broker_account_id IS NULL`) is left alone: that is how a Telegram-sourced master is stored and
  * it is not broken. Deleting on a guess would take away configuration he still wants.
  *
@@ -44,24 +44,42 @@ export async function removeOrphanedCopyLinks(): Promise<OrphanSweep> {
           AND NOT EXISTS (SELECT 1 FROM broker_accounts b WHERE b.id = f.broker_account_id)`);
     if (!doomed.rowCount) return out;
 
-    // FOLLOWERS FIRST. A follower row points at a master; removing masters first would leave a
-    // follower naming something that is gone — one kind of ghost swapped for another.
+    // ⚠ RETIRED, NOT DELETED — AND THE DATABASE IS WHY. The first version of this DELETED the
+    // rows, and production refused it:
+    //
+    //   orphan sweep failed: update or delete on table "copy_followers" violates foreign key
+    //   constraint "copy_execution_logs_follower_..."
+    //
+    // The activity log points at the follower, and those are the very rows that explain what the
+    // copier did in September - the records this whole investigation was read from. The constraint
+    // is protecting the audit trail, not getting in the way, so the sweep bends to it.
+    //
+    // RETIRING ACHIEVES WHAT HE ASKED FOR. His choice was "delete them and set the copy up fresh";
+    // what he wants is a panel clear of arrangements that cannot run. `dropped_at` already means
+    // exactly that - "the user took it off the copier, so it appears in no list he can see"
+    // (dispatcher.py says so where it refuses to write about dropped rows) - and it keeps the
+    // history. A master is retired by switching it off and unlisting it, which takes it out of the
+    // panel and out of the public directory alike.
     const f = await pool.query(
-      `DELETE FROM copy_followers f
+      `UPDATE copy_followers f SET dropped_at = now(), is_active = false
         WHERE f.broker_account_id IS NOT NULL
+          AND f.dropped_at IS NULL
           AND NOT EXISTS (SELECT 1 FROM broker_accounts b WHERE b.id = f.broker_account_id)`);
     const m = await pool.query(
-      `DELETE FROM copy_masters m
+      `UPDATE copy_masters m SET is_active = false, is_public = false
         WHERE m.broker_account_id IS NOT NULL
+          AND (m.is_active OR m.is_public)
           AND NOT EXISTS (SELECT 1 FROM broker_accounts b WHERE b.id = m.broker_account_id)`);
     out.followers = f.rowCount ?? 0;
     out.masters   = m.rowCount ?? 0;
     out.details   = doomed.rows.map(r => `${r.kind} "${r.label}" -> account ${String(r.acct).slice(0, 8)}`);
 
-    console.warn(`[copyLinks] removed ${out.masters} master(s) and ${out.followers} follower(s) that `
+    if (!out.masters && !out.followers) return out;   // already retired on an earlier boot
+    console.warn(`[copyLinks] retired ${out.masters} master(s) and ${out.followers} follower(s) that `
                + `pointed at broker accounts which no longer exist. This happens when an account is `
-               + `deleted and re-added — the new one has a different id, so the copy setup was left `
-               + `naming the old. Set the copier up again against the current accounts.`);
+               + `deleted and re-added - the new one has a different id, so the copy setup was left `
+               + `naming the old. They are off the copier and out of the panel; their history is `
+               + `kept. Set the copier up again against the current accounts.`);
     for (const d of out.details) console.warn(`[copyLinks]   ${d}`);
 
     // Tell the engine, so it reloads instead of holding the removed rows until its next restart.
