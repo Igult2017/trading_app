@@ -39,7 +39,16 @@ log = logging.getLogger(__name__)
 
 _POLL_S = 0.25            # how often the tick stream is examined; costs no broker requests
 _IDLE_S = 60.0            # how often to look again when the market is shut
-_STALE_AFTER_S = 90.0     # no tick this long, on an open market, means the stream is not working
+_STALE_AFTER_S = 90.0     # no tick on ANY pair this long, on an open market
+# ⚠ THIS THRESHOLD IS KEPT, AND IT IS MEASURED. Over 786 days of the broker's own saved minutes
+# there was not ONE stretch of even two consecutive tickless minutes on any pair, so 90 seconds of
+# silence across every pair at once has never happened from a quiet market. Unlike the ladder's old
+# 3-second rule (about 1,940 false alarms a weekday on EUR/USD alone), this one does not cry wolf.
+#
+# The session test below is the FIRST line all the same: it catches a dead feed in 75 seconds
+# without waiting to see whether prices happen to move, and it cannot be fooled by a busy market
+# hiding a half-dead session.
+_SESSION_SILENT_S = 75.0
 _REPORT_EVERY_S = 15 * 60 # how often the tick-vs-broker candle match rate is logged
 
 
@@ -158,7 +167,12 @@ class EntryWatcher:
         assumed to be calm. Said ONCE per outage so it stays visible without becoming noise, and
         re-armed on recovery. The scheduled scan covers the gap meanwhile — nothing stops working,
         it just goes back to being as late as it was before."""
-        stale = self._stream is None or self._stream.is_stale(_STALE_AFTER_S)
+        # TWO QUESTIONS, AND THE SESSION ONE COMES FIRST. "No price lately" is normal in a quiet
+        # market; "the session has not said anything at all" never is, because FIX heartbeats keep
+        # arriving whether or not the price moves.
+        stale = (self._stream is None
+                 or self._stream.session_silent(_SESSION_SILENT_S)
+                 or self._stream.is_stale(_STALE_AFTER_S))
         if stale and not self._degraded:
             self._degraded = True
             log.warning("[entry-watcher] price stream quiet — falling back to the scheduled scan")

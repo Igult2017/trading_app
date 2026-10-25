@@ -35,15 +35,32 @@ from notifications import safe_notify as notify
 
 log = logging.getLogger(__name__)
 
-# NO TICK FOR THIS LONG, WHILE WATCHING, MEANS FALL BACK AND SHOUT.
+# ⚠ "NO TICK" MEANS THE PRICE HAS NOT CHANGED — NOT THAT THE FEED HAS DIED.
 #
-# This was 20 seconds. That is twenty seconds of silently deciding where a stop goes from a price the
-# market has left — the exact window he was worried about on 2026-09-06: *"sometimes a market moves
-# very fast so if it is not first we can lose money in no time."* Three seconds is long enough that a
-# genuinely quiet pair does not cry wolf and short enough that a dying feed is caught before it can
-# cost a rung. The fallback it drops to is a real current quote, so the cost of being wrong is a
-# broker request, not a bad stop.
-_STALE_AFTER_S = 3.0
+# This was 3 seconds, and it was the wrong QUESTION rather than the wrong number. A tick is sent
+# when the bid or ask moves; no tick means the quote still stands. Measured over 786 days of the
+# broker's own saved minutes (the M1 bars carry cTrader's tick count):
+#
+#     EUR/USD pauses 3s or longer about 1,940 times a WEEKDAY - 34.6% of all minutes hold one,
+#     and at 21:00 UTC it is one every 12 seconds. GBP/USD: 1,452 a weekday.
+#
+# So the ladder was announcing a dead feed thousands of times a day, on a feed that was working
+# perfectly, and DMing him on every flip. His report: *"whenever it starts working, it keeps on
+# going off ... it assumes FIX data has stopped when price stops or starts moving slowly."*
+#
+# No price-based threshold fixes that: to get under one false alarm a day needs 60-90s, and a stop
+# that waits 90s to notice a dead feed is the exact risk the 3s was lowered to avoid on 6 Sep.
+#
+# THE SESSION IS WHAT IS ASKED NOW. FIX heartbeats keep arriving through the quietest market (we
+# negotiate 30s at logon), so silence from the SESSION - not from the price - is what means dead.
+# The streamed price is used however old it is, because while the session lives, unchanged IS
+# current, and polling the broker would return the same number.
+_SESSION_SILENT_S = 75.0
+# A session can live while ONE symbol's subscription quietly dies. If OTHER symbols are ticking and
+# this one has not for this long, that is suspect and worth a real quote; if nothing is ticking at
+# all, the market is simply quiet and nothing is wrong. No threshold has to be guessed for the
+# quiet case, which is the one that was crying wolf.
+_SYMBOL_SUSPECT_S = 90.0
 # How long to wait for a tick before going round anyway — a liveness check, NOT a polling cadence.
 # Every real price arrives on the tick callback and wakes the loop immediately.
 _QUIET_S = 2.0
@@ -174,35 +191,56 @@ class TradeWatcher:
         """(read, guard) — the CHART price that decides when a rung is reached, and the price THIS
         stop fires on (bid for a buy, ask for a sell). See `position_tracker._prices_now`.
 
-        Falls back to the Open API quote whenever the stream has nothing fresh — and says so ONCE,
-        rather than every pass, so a genuine outage is visible without becoming noise.
+        ⚠ THE STREAMED PRICE IS USED HOWEVER OLD IT IS, while the session is alive. A tick is only
+        sent when the price MOVES, so an old quote on a live session is the current quote — polling
+        the broker would return the same number, having cost a request and a wait.
+
+        It falls back to a polled quote in the two cases that are really wrong: the SESSION has gone
+        silent (no heartbeat, no anything), or this one symbol has stopped while others are still
+        ticking, which is a dead subscription rather than a quiet market.
         """
         from monitor.position_tracker import _prices_now
         if streamed and self._stream is not None:
-            if not self._stream.is_stale(_STALE_AFTER_S, p.symbol):
-                q = self._stream.quote(p.symbol)
-                if q is not None:
-                    if self._degraded:
-                        self._degraded = False
-                        log.info("[watcher] streamed prices are flowing again")
-                        # SAY SO — the warning went to his DM, so the all-clear must too. This only
-                        # ever logged, so a recovered feed left him holding a warning that his stop
-                        # moves were running late when they were not.
-                        notify.tell_soon(
-                            self.send,
-                            f"✅ The live price stream is flowing again for {p.symbol} — "
-                            f"stop moves are back to acting within a second.")
-                    return q[0], (q[0] if p.bullish else q[1])
+            dead_session = self._stream.session_silent(_SESSION_SILENT_S)
+            # A DEAD SUBSCRIPTION, TOLD APART FROM A QUIET MARKET: this symbol has gone silent while
+            # others are still arriving. If nothing is ticking anywhere, the market is quiet and
+            # there is nothing to report.
+            age = self._stream.age(p.symbol)
+            others = self._stream.ticking_symbols(_SYMBOL_SUSPECT_S)
+            mine_silent = age is None or age > _SYMBOL_SUSPECT_S
+            dead_symbol = mine_silent and others > 0
+            q = self._stream.quote(p.symbol)
+            if q is not None and not dead_session and not dead_symbol:
+                if self._degraded:
+                    self._degraded = False
+                    log.info("[watcher] the price feed is answering again")
+                    notify.tell_soon(
+                        self.send,
+                        f"✅ The live price feed is flowing again for {p.symbol} — stop moves are "
+                        f"back to acting on the streamed price.")
+                return q[0], (q[0] if p.bullish else q[1])
+            # ONE STATE FOR THE WHOLE FEED, NOT ONE TEST PER SYMBOL AGAINST A SHARED FLAG. That
+            # combination made the flag flip both ways within a single pass whenever two pairs
+            # differed — a warning and an all-clear every couple of seconds from one quiet pair.
             if not self._degraded:
                 self._degraded = True
-                age = self._stream.age(p.symbol)
-                msg = (f"⚠️ The live price stream went quiet for {p.symbol} "
-                       f"({'no price yet' if age is None else f'{age:.0f}s ago'}). "
-                       f"Falling back to the slower price — stop moves may be up to a minute late.")
-                log.warning(f"[watcher] stream stale for {p.symbol}, falling back")
+                if dead_session:
+                    sage = self._stream.session_age()
+                    # EVERY PAIR IS AFFECTED, and the message says so rather than naming one and
+                    # implying the rest are fine — but it still names the position he is holding,
+                    # because that is the one his money is in.
+                    why = ("the live price feed stopped answering altogether"
+                           + ("" if sage is None else f" ({sage:.0f}s with no message of any kind)")
+                           + f" — every pair is affected, including {p.symbol}")
+                else:
+                    why = (f"{p.symbol} stopped arriving while other pairs kept streaming"
+                           + ("" if age is None else f" ({age:.0f}s ago)"))
+                log.warning(f"[watcher] falling back to polled prices — {why}")
                 # NOT AWAITED — this sits in the middle of reading the price a stop decision is
                 # made on, so it must cost nothing at all.
-                notify.tell_soon(self.send, msg)
+                notify.tell_soon(self.send,
+                    f"⚠️ {why[0].upper()}{why[1:]}. Falling back to the slower price — stop moves "
+                    f"may be up to a minute late until it returns.")
         return await _prices_now(p.symbol, p.bullish)
 
     async def _check_all(self, positions, streamed: bool) -> None:

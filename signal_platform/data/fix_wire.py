@@ -41,6 +41,44 @@ def build(msg_type: str, seq: int, sender: str, body: list[tuple[int, str]]) -> 
     return (frame + f"10={sum(frame.encode()) % 256:03d}{SOH}").encode()
 
 
+_BEGIN = "8=FIX.4.4"
+_CHECKSUM = SOH + "10="
+
+
+def parse_stream(raw: str) -> tuple[list[dict], str]:
+    """COMPLETE messages only, plus whatever is left of an unfinished one.
+
+    ⚠ WHY THIS EXISTS. The read loop used to call `parse(buf)` and then clear the buffer outright.
+    TCP hands over arbitrary chunks, so a FIX message is regularly split across two reads — and
+    clearing the buffer DESTROYED the half-message, while the continuation that arrived next had no
+    "8=FIX.4.4" header and was parsed as garbage. Lose a test request that way and the broker never
+    hears back from us and logs the session out: a real disconnect, caused by our own parsing, and
+    indistinguishable from the broker's fault.
+
+    A FIX message ends with its checksum field, "10=nnn" followed by the separator, so a message is
+    complete exactly when that terminator has arrived. Anything after the last complete one is
+    handed back for the next read to finish.
+    """
+    out: list[dict] = []
+    i = 0
+    while True:
+        start = raw.find(_BEGIN, i)
+        if start < 0:
+            # Nothing even begins a message. Keep only a possible partial header, never the junk
+            # before it - an unbounded buffer is its own kind of failure.
+            tail = raw[-len(_BEGIN):] if raw else ""
+            return out, tail if _BEGIN.startswith(tail.lstrip(SOH)) else ""
+        cs = raw.find(_CHECKSUM, start)
+        if cs < 0:
+            break                                  # the checksum has not arrived yet
+        end = raw.find(SOH, cs + len(_CHECKSUM))
+        if end < 0:
+            break                                  # the checksum itself is still arriving
+        out.extend(parse(raw[start:end + 1]))
+        i = end + 1
+    return out, raw[i:]
+
+
 def parse(raw: str) -> list[dict]:
     """Split a buffer into messages, each a {tag: value} dict.
 

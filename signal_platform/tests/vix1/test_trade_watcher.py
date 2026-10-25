@@ -161,7 +161,12 @@ s.check("...naming the symbol", any("GBP/USD" in m and "flowing again" in m for 
 _drain(w._price_for(_P(), streamed=True))
 st.book.connected = False
 _drain(w._price_for(_P(), streamed=True))
-warnings = [m for m in sent if "went quiet" in m]
+# THE MARKER CHANGED WITH THE MESSAGE, AND DELIBERATELY. It used to be "went quiet" — which is
+# exactly the framing the 25 Oct fix removed: a QUIET market is not a dead feed, and measured over
+# 786 days EUR/USD goes 3+ seconds without a tick about 1,940 times a WEEKDAY. The warning now says
+# what actually happened (the feed stopped answering, or one pair stopped while others streamed).
+# The behaviour under test is unchanged: one warning per outage, and a second outage warns again.
+warnings = [m for m in sent if "Falling back to the slower price" in m]
 s.check("A SECOND OUTAGE WARNS AGAIN — the alarm is not spent", len(warnings), 2)
 s.check("...and each outage is still announced only once", len(sent), 3)
 

@@ -24,7 +24,7 @@ import ssl
 import time
 
 from data.fix_book import QuoteBook
-from data.fix_wire import build, logon_body, parse, subscribe_body
+from data.fix_wire import build, logon_body, parse, parse_stream, subscribe_body
 
 log = logging.getLogger(__name__)
 
@@ -122,6 +122,18 @@ def live_streams() -> int:
 
 HEARTBEAT_S = 30
 
+# ── PROVING THE SESSION IS ALIVE WHEN THE PRICE IS NOT MOVING ───────────────────────────────
+# We negotiate a 30-second heartbeat at logon (tag 108), so an idle session is obliged to keep
+# talking. Silence beyond that is already abnormal - but rather than GUESS from it, we ask: send a
+# test request and require an answer. That turns "is the feed dead?" from an inference about price
+# movement into a question with a yes/no answer.
+#
+# WHY IT MATTERS: the old answer was inferred from tick age, and measured over 786 days of the
+# broker's own minutes, EUR/USD pauses 3+ seconds about 1,940 times a WEEKDAY. The ladder called
+# every one of those a dead feed.
+_SILENCE_BEFORE_ASK_S = 40.0
+_ANSWER_WITHIN_S      = 10.0
+
 
 class FixQuoteStream:
     """One FIX price session, and the book it fills."""
@@ -193,16 +205,35 @@ class FixQuoteStream:
             return False
 
     async def _pump(self) -> None:
-        """Read pushed prices until closed. Answers heartbeats so the broker does not drop us."""
+        """Read until closed: prices, and the heartbeats that prove the session is alive.
+
+        ⚠ EVERY MESSAGE COUNTS AS PROOF OF LIFE, not just prices. A heartbeat (35=0) was not even
+        handled here, and a test request (35=1) was answered without being recorded — so the one
+        thing that distinguishes a quiet market from a dead feed was received and thrown away,
+        thousands of times a day, while the watchers inferred death from the price standing still.
+
+        ⚠ AND THE BUFFER KEEPS WHAT IT HAS NOT FINISHED READING. It used to be cleared after every
+        read, which destroyed any message split across two of them. A lost test request is never
+        answered, and the broker logs us out: a real disconnect caused by our own parsing.
+        """
         buf = ""
         try:
             while self.book.connected and self._reader is not None:
-                data = await self._reader.read(65535)
+                try:
+                    data = await asyncio.wait_for(self._reader.read(65535),
+                                                  timeout=_SILENCE_BEFORE_ASK_S)
+                except asyncio.TimeoutError:
+                    # Nothing at all for 40s on a session that promised a 30s heartbeat. Ask.
+                    if not await self._prove_alive():
+                        return self._lost()
+                    continue
                 if not data:
                     log.warning("[fix] stream closed by the broker")
                     return self._lost()
+                self.book.heard()                            # ANY bytes = the session is alive
                 buf += data.decode(errors="replace")
-                for m in parse(buf):
+                msgs, buf = parse_stream(buf)                # the tail waits for the next read
+                for m in msgs:
                     mt = m.get("35")
                     if mt == "1":                            # test request -> heartbeat back
                         self._writer.write(self._msg("0", [(112, m.get("112", "t"))]))
@@ -212,12 +243,39 @@ class FixQuoteStream:
                     elif mt == "5":
                         log.warning("[fix] broker logged us out")
                         return self._lost()
-                buf = ""
         except asyncio.CancelledError:
             raise
         except Exception as exc:
             log.error(f"[fix] stream ended: {type(exc).__name__}: {exc}")
             self._lost()
+
+    async def _prove_alive(self) -> bool:
+        """Send a test request and wait for any reply. True = the session answered.
+
+        THE POINT OF ASKING RATHER THAN ASSUMING. Silence can mean a dead socket or a market that
+        has simply stopped moving, and from the inside they are identical. A test request makes the
+        difference observable: a live session must answer it.
+        """
+        if self._writer is None or self._reader is None:
+            return False
+        try:
+            self._writer.write(self._msg("1", [(112, f"alive-{int(time.time())}")]))
+            await self._writer.drain()
+            data = await asyncio.wait_for(self._reader.read(65535), timeout=_ANSWER_WITHIN_S)
+        except Exception as exc:
+            log.warning(f"[fix] session did not answer a test request: {type(exc).__name__}: {exc}")
+            return False
+        if not data:
+            log.warning("[fix] session closed while being asked to prove it is alive")
+            return False
+        self.book.heard()
+        # Feed the bytes back through the normal path so a price that arrived alongside the
+        # heartbeat is not dropped on the floor.
+        msgs, _ = parse_stream(data.decode(errors="replace"))
+        for m in msgs:
+            if m.get("35") in ("W", "X"):
+                self.book.absorb(m)
+        return True
 
     async def close(self) -> None:
         self._lost()
@@ -266,6 +324,16 @@ class FixQuoteStream:
 
     def is_stale(self, limit_s: float, symbol: str | None = None) -> bool:
         return self.book.is_stale(limit_s, symbol)
+
+    def session_silent(self, limit_s: float) -> bool:
+        """Has the session said NOTHING for this long? The honest test for a broken feed."""
+        return self.book.session_silent(limit_s)
+
+    def session_age(self) -> float | None:
+        return self.book.session_age()
+
+    def ticking_symbols(self, within_s: float) -> int:
+        return self.book.ticking_symbols(within_s)
 
     def minute_rolled(self, symbol: str) -> bool:
         return self.book.minute_rolled(symbol)

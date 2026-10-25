@@ -31,6 +31,19 @@ class QuoteBook:
         self._tick_epoch: dict[str, float] = {}     # the BROKER's clock, for minute rolls
         self._seen_minute: dict[str, int] = {}
         self._last_any: float = 0.0
+        # ── WHEN THE SESSION LAST SAID ANYTHING AT ALL ──────────────────────────────────────
+        # Separate from the tick clocks ON PURPOSE, and it is the whole fix for the false alarm.
+        # A tick only arrives when the PRICE MOVES, so "no tick" means "unchanged", not "dead" —
+        # yet both watchers read tick-age as proof the feed had failed. Measured over 786 days of
+        # the broker's own minutes: EUR/USD pauses 3+ seconds about 1,940 times a WEEKDAY (34.6%
+        # of all minutes hold one; at 21:00 UTC it is one every 12 seconds). The ladder's 3-second
+        # rule was therefore announcing a dead feed thousands of times a day on a feed that was
+        # working perfectly.
+        #
+        # A FIX session proves it is alive on its own schedule: we negotiate a 30-second heartbeat
+        # at logon (tag 108), so heartbeats and test requests keep arriving through the quietest
+        # market. THIS clock is stamped by every one of them, and it is what the alarm reads.
+        self._last_msg: float = 0.0
         self._tick_sinks: list = []
         self._connected = False
         self._connected_at: float = 0.0
@@ -59,6 +72,44 @@ class QuoteBook:
         """Seconds this session has been open. 0.0 when it is not."""
         return (time.monotonic() - self._connected_at) if (self._connected and self._connected_at) else 0.0
 
+    def heard(self) -> None:
+        """A message of ANY kind arrived — heartbeat, test request, logout or price.
+
+        Called from the read loop for everything it receives, which is what lets "the session is
+        alive" be answered without the price having to move.
+        """
+        self._last_msg = time.monotonic()
+
+    def session_silent(self, limit_s: float) -> bool:
+        """Has the session said NOTHING for `limit_s`? That is a broken feed, not a quiet market.
+
+        ⚠ READ THIS, NOT `is_stale`, TO DECIDE THE FEED HAS FAILED. `is_stale` answers a different
+        and perfectly good question — "has the price moved lately" — which is right for deciding
+        whether a quote is worth re-reading, and catastrophic as an alarm: see the measurement in
+        `__init__`.
+
+        A session that has only just opened is judged from the moment it opened, exactly as
+        `is_stale` does, so a stream cannot be called dead before its first message can arrive.
+        """
+        if not self.connected:
+            return True
+        last = self._last_msg or self._connected_at
+        return (time.monotonic() - last) > limit_s if last else self.open_for() > limit_s
+
+    def session_age(self) -> float | None:
+        """Seconds since the session last said anything, or None if it never has."""
+        return (time.monotonic() - self._last_msg) if self._last_msg else None
+
+    def ticking_symbols(self, within_s: float) -> int:
+        """How many symbols have ticked in the last `within_s`.
+
+        THE DISCRIMINATOR FOR A DEAD SUBSCRIPTION. A session can stay alive while ONE symbol's
+        subscription quietly stops. If others are ticking and this one is not, that is suspect; if
+        nothing at all is ticking, the market is simply quiet. No threshold has to be guessed.
+        """
+        now = time.monotonic()
+        return sum(1 for t in self._last_tick.values() if t and now - t <= within_s)
+
     def on_bid_tick(self, fn) -> None:
         """Register a callback fed `(symbol, bid, broker_epoch)` for every tick. Bid only."""
         self._tick_sinks.append(fn)
@@ -78,7 +129,7 @@ class QuoteBook:
         if b is None or a is None:
             return
         self._quotes[sym] = (b, a)
-        self._last_tick[sym] = self._last_any = time.monotonic()
+        self._last_tick[sym] = self._last_any = self._last_msg = time.monotonic()
         # THE BROKER'S OWN TIMESTAMP where it sent one (tag 52), falling back to ours. A minute
         # decided on a drifted local clock would bucket a tick into a minute it did not belong to.
         epoch = sending_time(m.get("52")) or time.time()
