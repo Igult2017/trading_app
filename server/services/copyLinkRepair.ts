@@ -42,6 +42,13 @@ export async function removeOrphanedCopyLinks(): Promise<OrphanSweep> {
          FROM copy_followers f
         WHERE f.broker_account_id IS NOT NULL
           AND NOT EXISTS (SELECT 1 FROM broker_accounts b WHERE b.id = f.broker_account_id)`);
+    // ⚠ IT SAYS WHAT IT FOUND, EVERY TIME, INCLUDING NOTHING. The first two attempts at this both
+    // returned in silence and I could not tell "found no ghosts" from "found them and changed
+    // nothing" from "never ran" — three different faults with one symptom. The same reasoning as
+    // `reportDuplicateGuard`: one line at boot makes the question answerable from the log instead
+    // of by guessing.
+    console.log(`[copyLinks] checked: ${doomed.rowCount ?? 0} copy row(s) name a broker account `
+              + `that no longer exists`);
     if (!doomed.rowCount) return out;
 
     // ⚠ RETIRED, NOT DELETED — AND THE DATABASE IS WHY. The first version of this DELETED the
@@ -74,7 +81,10 @@ export async function removeOrphanedCopyLinks(): Promise<OrphanSweep> {
     out.masters   = m.rowCount ?? 0;
     out.details   = doomed.rows.map(r => `${r.kind} "${r.label}" -> account ${String(r.acct).slice(0, 8)}`);
 
-    if (!out.masters && !out.followers) return out;   // already retired on an earlier boot
+    if (!out.masters && !out.followers) {
+      console.log('[copyLinks] ...and all of them were already retired, so nothing changed');
+      return out;
+    }
     console.warn(`[copyLinks] retired ${out.masters} master(s) and ${out.followers} follower(s) that `
                + `pointed at broker accounts which no longer exist. This happens when an account is `
                + `deleted and re-added - the new one has a different id, so the copy setup was left `
