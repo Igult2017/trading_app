@@ -82,13 +82,39 @@ export function refreshCTraderToken(account: BrokerAccount): Promise<BrokerAccou
   return p;
 }
 
+/**
+ * ⚠ A REFUSED RENEWAL MUST LEAVE THE STORED LOGIN EXACTLY AS IT WAS.
+ *
+ * This function used to write whatever `refreshAccessToken` handed back, and `refreshAccessToken`
+ * only checked the HTTP status — but cTrader refuses a spent ticket with HTTP **200** and an error
+ * body (measured 2026-10-25; see `assertTokenResponse` in brokerAdapters/ctrader.ts). So a refusal
+ * was written as `accessToken: undefined`, `JSON.stringify` silently dropped the key, and the
+ * account was left with NO access token — permanently "not connected" until a human signed in.
+ *
+ * Two guards now, because one alone would not have been enough:
+ *   1. `refreshAccessToken` THROWS on a refusal, so we never reach the write.
+ *   2. The write itself refuses to store credentials without an access token, so no future caller
+ *      can reintroduce the same destruction from a different direction.
+ *
+ * AND THE REASON IS RECORDED. This was a bare `catch { return null; }` — the one error that
+ * explains a platform-down condition was thrown away, which is why nothing in 30 minutes of
+ * production logs said why four accounts had died.
+ */
 async function _refreshCTraderTokenInner(account: BrokerAccount): Promise<BrokerAccount | null> {
+  const tag = `${account.platform}(${account.id.slice(0, 8)})`;
   try {
     const plain = safeDecrypt(account.passwordEnc);
     if (!plain) return null;
     const creds = JSON.parse(plain);
     if (!creds.refreshToken) return null;
     const tokens = await refreshAccessToken(creds.refreshToken, creds.app);   // issuing app's creds
+    // THE SECOND GUARD. Belt and braces on the one write that can destroy a credential.
+    if (!tokens?.accessToken) {
+      console.error(`[AutoSync] ${tag} renewal returned no access token — stored login left `
+                  + `untouched rather than overwritten with a blank one`);
+      await markNeedsReconnect(account, 'cTrader returned no access token on renewal');
+      return null;
+    }
     const newCreds = {
       ...creds,
       accessToken:    tokens.accessToken,
@@ -96,11 +122,38 @@ async function _refreshCTraderTokenInner(account: BrokerAccount): Promise<Broker
       tokenExpiresAt: Date.now() + (tokens.expiresIn * 1000),
     };
     await db.update(brokerAccounts)
-      .set({ passwordEnc: safeEncrypt(JSON.stringify(newCreds)) })
+      .set({ passwordEnc: safeEncrypt(JSON.stringify(newCreds)), syncStatus: 'ok', lastSyncError: null })
       .where(eq(brokerAccounts.id, account.id));
     const [fresh] = await db.select().from(brokerAccounts).where(eq(brokerAccounts.id, account.id));
     return fresh ?? null;
-  } catch { return null; }
+  } catch (err: any) {
+    const why = String(err?.message ?? err);
+    console.error(`[AutoSync] ${tag} token renewal FAILED: ${why}`);
+    await markNeedsReconnect(account, why);
+    return null;
+  }
+}
+
+/**
+ * Say on the account itself that it needs signing in again, and why.
+ *
+ * ⚠ IT RECORDS, IT DOES NOT DELETE. The stored credentials are deliberately left alone: a refusal
+ * may be this account's ticket having been rotated by a sibling, and the moment that sibling's
+ * renewal is written back this account can recover without a human. Erasing is what made the
+ * failure permanent.
+ *
+ * Its own failure is swallowed ON PURPOSE and loudly — a status update must never be the thing
+ * that takes down a sync sweep.
+ */
+async function markNeedsReconnect(account: BrokerAccount, why: string): Promise<void> {
+  try {
+    await db.update(brokerAccounts)
+      .set({ syncStatus: 'error', lastSyncError: `Reconnect needed — ${why}`.slice(0, 500) })
+      .where(eq(brokerAccounts.id, account.id));
+  } catch (err: any) {
+    console.error(`[AutoSync] could not record the reconnect state for ${account.id.slice(0, 8)}: `
+                + (err?.message ?? err));
+  }
 }
 
 async function doFetch(account: BrokerAccount, fromMs: number, toMs: number) {

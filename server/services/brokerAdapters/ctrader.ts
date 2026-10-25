@@ -164,6 +164,38 @@ export async function appAuth(ws: WebSocket, app?: string) {
 
 // ── OAuth2 ────────────────────────────────────────────────────────────────────
 
+/**
+ * ⚠ cTRADER REPORTS A REFUSED TOKEN WITH HTTP **200**. Measured against the live endpoint on
+ * 2026-10-25 with a deliberately invalid refresh token:
+ *
+ *     POST https://connect.spotware.com/apps/token   grant_type=refresh_token
+ *     HTTP_STATUS=200
+ *     {"errorCode":"ACCESS_DENIED","description":"Access denied. Make sure the credentials are valid."}
+ *
+ * Both token calls below used to test `res.ok` and nothing else, so a refusal sailed through as a
+ * SUCCESS carrying `access_token: undefined`. `_refreshCTraderTokenInner` then wrote that back over
+ * the account's stored credentials, `JSON.stringify` dropped the undefined key, and the account was
+ * left with NO access token at all — reported ever after as "cTrader: not connected. Complete OAuth
+ * first." and unrecoverable without a human signing in again.
+ *
+ * That is how four accounts were lost in one morning: one renewal rotates the shared ticket, every
+ * other account's copy is then refused, and each one erased itself on its next attempt.
+ *
+ * THE STATUS CODE IS NOT THE ANSWER — THE BODY IS. Anything without an `access_token` is a failure,
+ * whatever the status says, and the thrown error carries cTrader's own words so the log finally
+ * says WHY.
+ */
+function assertTokenResponse(data: any, what: string): void {
+  if (data?.errorCode) {
+    throw new Error(`cTrader ${what} refused (${data.errorCode}): `
+                  + `${data.description ?? data.errorDescription ?? 'no description given'}`);
+  }
+  if (!data?.access_token) {
+    throw new Error(`cTrader ${what} returned no access_token: `
+                  + `${JSON.stringify(data ?? null).slice(0, 200)}`);
+  }
+}
+
 export function getCTraderAuthUrl(state: string, app?: string): string {
   const { clientId } = appCreds(app ?? newConnectApp());
   const redirectUri = process.env.CTRADER_REDIRECT_URI ?? '';
@@ -187,6 +219,7 @@ export async function exchangeCodeForTokens(code: string, app?: string): Promise
   });
   const data = await res.json() as any;
   if (!res.ok) throw new Error(data.error_description ?? `cTrader token error: ${res.status}`);
+  assertTokenResponse(data, 'sign-in');
   return { accessToken: data.access_token, refreshToken: data.refresh_token, expiresIn: data.expires_in ?? 3600 };
 }
 
@@ -204,6 +237,7 @@ export async function refreshAccessToken(refreshToken: string, app?: string): Pr
   });
   const data = await res.json() as any;
   if (!res.ok) throw new Error(data.error_description ?? `cTrader refresh error: ${res.status}`);
+  assertTokenResponse(data, 'renewal');
   return { accessToken: data.access_token, refreshToken: data.refresh_token ?? refreshToken, expiresIn: data.expires_in ?? 3600 };
 }
 
