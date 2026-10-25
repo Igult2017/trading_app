@@ -2,6 +2,7 @@ import { AfterDelay, BONE_CSS } from '@/components/skeletons/shellBones';
 import JournalShellSkeleton from '@/components/skeletons/JournalShellSkeleton';
 import AdminShellSkeleton from '@/components/skeletons/AdminShellSkeleton';
 import { ADMIN_THEMES, ADMIN_THEME_DEFAULT, storedAdminTheme } from '@/components/admin-ui/adminThemes';
+import { THEMES, storedJournalTheme } from '@/hooks/useJournalSettings';
 
 /**
  * The app-shell placeholder — the wait between "you are signed in" and "the screen is here", shown
@@ -31,9 +32,13 @@ export default function LoadingScreen({ variant = 'journal' }: { variant?: 'jour
   // THE GROUND IS PAINTED BEFORE THE DELAY ELAPSES, so the 400ms of "nothing" is the page's own
   // colour rather than a white flash. For the admin that colour is whichever of the five palettes
   // is stored, which is why this reads the key here as well.
+  // ⚠ BOTH VARIANTS READ THEIR OWN SAVED THEME. The admin one always did; the journal one was a
+  // hardcoded near-black, so a journal on the Light theme went white (first paint) -> near-black
+  // (this screen) -> white (the page). `index.html` picks the same saved theme for the very first
+  // frame, and this now agrees with it instead of overpainting it.
   const ground = admin
     ? (ADMIN_THEMES[storedAdminTheme()] ?? ADMIN_THEMES[ADMIN_THEME_DEFAULT]).bg
-    : '#07090f';
+    : (THEMES[storedJournalTheme()] ?? THEMES.navy).bg;
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: ground, display: 'flex', flexDirection: 'column' }}

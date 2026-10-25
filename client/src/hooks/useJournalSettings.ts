@@ -200,6 +200,26 @@ export const FONTS: Record<FontId, FontDef> = {
 const SETTINGS_KEY = 'journal_settings_v2';
 const DEFAULT_FONT: FontId = 'playfair-display';
 /** Marker for the one-time move off the old 'montserrat' default. Presence = already applied. */
+/**
+ * The theme saved on THIS device, for code that runs before the journal itself does.
+ *
+ * ⚠ THE LOADING SCREEN NEEDS THIS AND DID NOT HAVE IT. `index.html` already reads the same key to
+ * paint the right ground on the very first frame — then React mounted and the journal placeholder
+ * painted hardcoded near-black over it, whatever theme was chosen. On the Light theme that is a
+ * white page, a dark flash, and a white page again.
+ *
+ * Never throws: storage is unreadable in a private window, and a placeholder must not be the thing
+ * that breaks a page load.
+ */
+export function storedJournalTheme(): ThemeId {
+  try {
+    const raw = localStorage.getItem(SETTINGS_KEY);
+    const id = raw ? (JSON.parse(raw) || {}).theme : null;
+    if (id && (THEMES as Record<string, unknown>)[id]) return id as ThemeId;
+  } catch { /* private window, or cleared storage */ }
+  return 'navy';
+}
+
 const FONT_DEFAULT_MIGRATION_KEY = 'journal_settings_font_default_playfair';
 /**
  * v2 — the pass above only rescued devices saved on 'montserrat', yet it stamped its marker on EVERY

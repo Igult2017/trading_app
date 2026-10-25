@@ -1,4 +1,4 @@
-import { Bone } from '@/components/skeletons/shellBones';
+import { Bone, isLightGround } from '@/components/skeletons/shellBones';
 // THE ADMIN'S OWN PALETTES, from the constants-only module beside the admin tokens. Importing
 // anything from `AdminPanel.tsx` here would drag that lazy-loaded 3,400-line page into the entry
 // bundle and destroy the very code-split this placeholder exists to cover.
@@ -21,15 +21,6 @@ import { ADMIN_THEMES, ADMIN_THEME_DEFAULT, storedAdminTheme } from '@/component
  * 61px pitch (44 tall, 17 gap), under a 66px logo block, over a user footer. Measured, not
  * recalled — those group headings do not exist on the page.
  */
-
-/** Is this palette's page light? Read from the palette's own ground rather than from its NAME, so
- *  a sixth light palette would not need this line changed. */
-function isLightGround(hex: string): boolean {
-  const m = /^#([0-9a-f]{6})$/i.exec(hex.trim());
-  if (!m) return false;
-  const n = parseInt(m[1], 16);
-  return (0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255 > 0.5;
-}
 
 export default function AdminShellSkeleton() {
   const t = ADMIN_THEMES[storedAdminTheme()] ?? ADMIN_THEMES[ADMIN_THEME_DEFAULT];

@@ -75,6 +75,22 @@ export function AfterDelay({ after = 400, children }: { after?: number; children
 
 /** One placeholder block. No backticks anywhere in the style tag below — a backtick inside a
  *  template-literal <style> is a runtime crash that still builds clean. */
+/**
+ * Is this palette's page light? Read from the palette's own ground rather than from its NAME, so a
+ * new light palette needs no change here.
+ *
+ * ⚠ IT LIVES HERE BECAUSE BOTH SKELETONS NEED IT. The admin one had its own copy; the journal one
+ * had no concept of theme at all and painted every surface near-black, whatever the user had
+ * chosen. Two copies of this test would be two chances for them to disagree about what "light"
+ * means, on the one screen whose whole job is to look like the page behind it.
+ */
+export function isLightGround(hex: string): boolean {
+  const m = /^#([0-9a-f]{6})$/i.exec((hex || '').trim());
+  if (!m) return false;
+  const n = parseInt(m[1], 16);
+  return (0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255 > 0.5;
+}
+
 export function Bone({ w, h, r = 8, dark = false, mt = 0 }: { w: number | string; h: number; r?: number; dark?: boolean; mt?: number }) {
   return (
     <div className="app-bone" style={{
