@@ -5,6 +5,7 @@ Separate from telegram_formatter.py (signal cards) to stay under 150 lines.
 
 from notifications import titles
 from datetime import datetime, timezone
+from notifications.brand import SIGNATURE_HTML
 
 
 def format_scan_started(payload: dict) -> str:
@@ -24,7 +25,7 @@ def format_scan_started(payload: dict) -> str:
         f"📅 <b>Sessions:</b>    <code>{sess_list}</code>",
         "",
         "<i>Market is open — scanning for setups.</i>",
-        "⚡️ <i>Trade&amp;Journal Signal Platform</i>",
+        SIGNATURE_HTML,
     ])
 
 
@@ -45,7 +46,7 @@ def format_session_open(session_name: str) -> str:
         f"🕐 <b>Time:</b> <code>{now_utc}</code>",
         "",
         f"<i>{label} session is now live. Watch for setups.</i>",
-        "⚡️ <i>Trade&amp;Journal Signal Platform</i>",
+        SIGNATURE_HTML,
     ])
 
 
@@ -77,5 +78,5 @@ def format_platform_status(is_open: bool, sessions: list[str], next_open: str | 
         if next_open:
             lines.append(f"🔔 <b>Reopens:</b> <code>{next_open}</code>")
         lines += ["", "<i>Idle until the market reopens — nothing fires while closed.</i>"]
-    lines.append("⚡️ <i>Trade&amp;Journal Signal Platform</i>")
+    lines.append(SIGNATURE_HTML)
     return "\n".join(lines)

@@ -151,6 +151,54 @@ msgs, leftover = parse_stream(two)
 check("two whole messages in one read are both parsed", len(msgs), 2)
 check("...with nothing left over", leftover, "")
 
+# ── 6. THE LIVE QUOTE ITSELF NO LONGER SWITCHES OFF IN A QUIET MARKET ───────────────────
+# Four readers depend on this, and each paid for the old age-only rule:
+#   the forming momentum candle (fell back to a bar up to 80s behind, ~37x a weekday)
+#   the position tracker, where a STOP goes (~1,940x a weekday, at a 3s limit)
+#   the spread reader, and the journal ticker - which DROPPED the pair from his screen.
+from data import fix_quotes  # noqa: E402
+
+class _FakeBook:
+    """Just enough book to answer the three questions `_usable` asks."""
+    def __init__(self, session_dead=False, others=0):
+        self._dead, self._others = session_dead, others
+    def session_silent(self, _limit):   return self._dead
+    def ticking_symbols(self, _within): return self._others
+
+quiet = _FakeBook(session_dead=False, others=0)       # nothing ticking: a still market
+check("a 60s-old price on a LIVE session is usable — it has not changed",
+      fix_quotes._usable(quiet, "EUR/USD", 60.0, 15.0), True)
+check("...and at the 3-second limit the stop decision uses too",
+      fix_quotes._usable(quiet, "EUR/USD", 60.0, 3.0), True)
+check("a fresh price is of course still usable",
+      fix_quotes._usable(quiet, "EUR/USD", 1.0, 15.0), True)
+
+dead = _FakeBook(session_dead=True)
+check("a price from a session that stopped answering is REFUSED",
+      fix_quotes._usable(dead, "EUR/USD", 60.0, 15.0), False)
+check("...even a recent one is refused once the session is gone",
+      fix_quotes._usable(dead, "EUR/USD", 20.0, 15.0), False)
+check("...but inside the caller's own freshness window it is still taken",
+      fix_quotes._usable(dead, "EUR/USD", 2.0, 15.0), True)
+
+busy = _FakeBook(session_dead=False, others=3)        # other pairs ARE arriving
+check("one pair silent while three others tick = a dead subscription, refused",
+      fix_quotes._usable(busy, "GBP/JPY", 120.0, 15.0), False)
+check("...and never having had a price at all is refused the same way",
+      fix_quotes._usable(busy, "GBP/JPY", None, 15.0), False)
+
+# ⚠ THE CEILING, AND THE GAP IT CLOSES. With ONE symbol subscribed there is no other stream to
+# compare against, so "others are ticking" cannot tell a dead subscription from a still market
+# however long it lasts. An existing test caught exactly that — a 10-minute-old quote being
+# accepted. Across 786 days there was never a single minute with zero ticks on these pairs, so
+# five minutes of silence is a broken feed, not a quiet one.
+check("a 10-minute-old price is refused even with a live session and nothing else subscribed",
+      fix_quotes._usable(quiet, "EUR/USD", 600.0, 15.0), False)
+check("...while four minutes on a live session is still accepted",
+      fix_quotes._usable(quiet, "EUR/USD", 240.0, 15.0), True)
+check("a pair quiet for 20s while others tick is NOT yet suspect",
+      fix_quotes._usable(busy, "GBP/JPY", 20.0, 15.0), True)
+
 print()
 if failed:
     print(f"{len(failed)} of {count} FAILED: {failed}")

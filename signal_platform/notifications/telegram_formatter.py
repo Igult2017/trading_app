@@ -9,6 +9,7 @@ from core.types import Signal, Direction
 # shared with the channel cards. Duplicating either is how they drift apart.
 from notifications.telegram_cards import _digits, _stamp
 from notifications import titles
+from notifications.brand import SIGNATURE_HTML
 
 
 def _h(text: str) -> str:
@@ -66,7 +67,7 @@ def format_setup_alert(signal: Signal) -> str:
         "",
         "──────────────────────────",
         "👁 <i>Heads-up only — trade at your discretion</i>",
-        "⚡️ <i>Trade&amp;Journal Signal Platform</i>",
+        SIGNATURE_HTML,
     ]
     return "\n".join(lines)
 

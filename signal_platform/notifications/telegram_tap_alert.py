@@ -19,6 +19,7 @@ message rather than a fresh punchline for the same event.
 """
 from core.types import Signal, Direction
 from notifications import titles
+from notifications.brand import RISK_DISCLAIMER_HTML
 
 # Rotating sign-offs, in the user's own register: the agent deferring to the reader, slightly
 # sheepish about having spoken up at all. The FIRST is his line, near-verbatim.
@@ -121,7 +122,6 @@ def format_tap_alert(signal: Signal) -> str:
         "",
         f"<i>{_h(_signoff(signal.dedup_key))}</i>",
         "",
-        "<i>⚠️ Trade&amp;Journal does not offer financial advice and is not liable for any "
-        "losses you incur.</i>",
+        RISK_DISCLAIMER_HTML,
     ]
     return "\n".join(lines)

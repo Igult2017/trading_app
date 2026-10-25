@@ -54,6 +54,53 @@ _STREAMS: set = set()
 # a closed M1 bar, which is up to ~80s stale by construction, so anything fresher than this is still
 # an improvement. A quiet market is not a broken one.
 _FRESH_S = 15.0
+# ── HOW LONG SILENCE IS ALLOWED TO MEAN "DEAD" ──────────────────────────────────────────────
+# Defined HERE so one number serves every reader - the ladder kept its own copies, which is how
+# two parts of the same system came to disagree about what a dead feed is.
+#
+# _SESSION_SILENT_S: nothing of ANY kind from the session, heartbeats included. We negotiate a
+#   30-second heartbeat at logon, so 75s of total silence is already well past abnormal.
+# _SYMBOL_SUSPECT_S: this symbol has not ticked while OTHERS have - a dead subscription rather
+#   than a quiet market. Only meaningful alongside "something else is ticking".
+_SESSION_SILENT_S = 75.0
+_SYMBOL_SUSPECT_S = 90.0
+# ⚠ AN ABSOLUTE CEILING, BECAUSE THE "OTHERS ARE TICKING" TEST IS BLIND ON ITS OWN. With a single
+# symbol subscribed there is no other stream to compare against, so a dead subscription and a still
+# market look identical however long it lasts. Beyond this, refuse regardless.
+#
+# 300 seconds is chosen from the data, not taste: across 786 days of the broker's own minutes there
+# was not ONE minute with zero ticks on EUR/USD, GBP/USD or XAU/USD, and pauses even reaching 90s
+# happen about 0.5 times a WEEKDAY. Five minutes of silence has never been a quiet market here - it
+# is a broken one.
+_MAX_AGE_S = 300.0
+
+
+def _usable(book, symbol: str, age: float | None, max_age_s: float) -> bool:
+    """Is this quote safe to use — not merely recent?
+
+    ⚠ THE OLD TEST WAS AGE ALONE, AND IT WAS THE WRONG QUESTION. A tick is sent when the price
+    MOVES, so an old quote on a live session means the price has not changed — it IS the current
+    price, and the broker would return the same number if asked. Measured over 786 days of the
+    broker's own minutes, EUR/USD goes 15 seconds without a tick about 37 times a WEEKDAY and 3
+    seconds about 1,940 times; every one of those made a caller here fall back or, in the journal
+    ticker's case, drop the pair from his screen entirely.
+
+    So a quote is usable when EITHER
+      * it is fresh by the caller's own standard — unchanged behaviour, and the fast path; or
+      * the session is alive and this symbol is not suspect.
+
+    It is refused when the session has stopped answering altogether, or when this symbol alone has
+    gone silent while other symbols keep arriving — a dead subscription, which age alone can never
+    tell apart from a market that is simply still.
+    """
+    if age is not None and age <= max_age_s:
+        return True
+    if age is None or age > _MAX_AGE_S:
+        return False                      # nothing is this still; see the ceiling above
+    if book.session_silent(_SESSION_SILENT_S):
+        return False
+    mine_silent = age is None or age > _SYMBOL_SUSPECT_S
+    return not (mine_silent and book.ticking_symbols(_SYMBOL_SUSPECT_S) > 0)
 
 
 def _register(stream) -> None:
@@ -86,7 +133,7 @@ def live_quote(symbol: str, max_age_s: float = _FRESH_S) -> tuple[float, float] 
             if not q:
                 continue
             age = st.book.age(symbol)
-            if age is None or age > max_age_s:
+            if not _usable(st.book, symbol, age, max_age_s):
                 continue
             bid, ask = q
             if not bid or not ask:

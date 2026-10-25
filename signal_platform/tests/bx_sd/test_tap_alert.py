@@ -18,6 +18,7 @@ from core.types import Candle                                          # noqa: E
 from core import delivery_ledger                                       # noqa: E402
 from strategies.bx_sd_registry import MarkedZone                       # noqa: E402
 from strategies.bx_sd_reports import scan_reports                      # noqa: E402
+from notifications.brand import BRAND_NAME
 
 N, F = 0, []
 
@@ -212,7 +213,12 @@ chk("  the headline itself carries the warning", "we do NOT trade these" in msg,
 chk("  and says WHY — its own reaction was a fake change of character",
     "FAKE change of character" in msg, True)
 chk("carries the disclaimer", "does not offer financial advice" in msg, True)
-chk("escapes the ampersand for HTML mode", "Trade&amp;Journal" in msg, True)
+# THE BRAND IS READ FROM ONE CONSTANT NOW, not written into five message templates by hand. The
+# old check was "Trade&amp;Journal appears, correctly escaped" - which pinned a name that changed
+# on 2026-10-11 while these Python senders kept shipping the old one to his channel for two weeks.
+# Checking the CONSTANT means the next rename cannot leave a message behind.
+chk("carries the app name", BRAND_NAME in msg, True)
+chk("...the current one, not the name it was renamed from", "Trade&amp;Journal" in msg, False)
 chk("no raw unescaped ampersand", "&" in msg.replace("&amp;", ""), False)
 # DETERMINISTIC, not random: a failed send re-fires the same key next scan, and a fresh punchline
 # under an identical card reads to the room like a second event.

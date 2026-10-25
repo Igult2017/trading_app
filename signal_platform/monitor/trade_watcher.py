@@ -32,6 +32,9 @@ import logging
 from config.settings import settings
 from monitor import position_book
 from notifications import safe_notify as notify
+# THE LIMITS LIVE WITH THE FEED, NOT HERE. Two copies of the same number is how the
+# watcher and the quote reader came to disagree about what a dead feed is.
+from data.fix_quotes import _SESSION_SILENT_S, _SYMBOL_SUSPECT_S
 
 log = logging.getLogger(__name__)
 
@@ -55,12 +58,10 @@ log = logging.getLogger(__name__)
 # negotiate 30s at logon), so silence from the SESSION - not from the price - is what means dead.
 # The streamed price is used however old it is, because while the session lives, unchanged IS
 # current, and polling the broker would return the same number.
-_SESSION_SILENT_S = 75.0
 # A session can live while ONE symbol's subscription quietly dies. If OTHER symbols are ticking and
 # this one has not for this long, that is suspect and worth a real quote; if nothing is ticking at
 # all, the market is simply quiet and nothing is wrong. No threshold has to be guessed for the
 # quiet case, which is the one that was crying wolf.
-_SYMBOL_SUSPECT_S = 90.0
 # How long to wait for a tick before going round anyway — a liveness check, NOT a polling cadence.
 # Every real price arrives on the tick callback and wakes the loop immediately.
 _QUIET_S = 2.0
