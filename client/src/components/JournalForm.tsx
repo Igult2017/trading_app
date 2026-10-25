@@ -6,6 +6,7 @@ import { useAuth } from "@/context/AuthContext";
 import { prefetchAllPanels } from "@/lib/prefetchPanels";
 import { calcDollarRisk, deriveAchievedRR, outcomeFromPrices } from "@/lib/tradeCalculations";
 import { useTranslation } from "react-i18next";
+import { JF_READABLE_CSS } from "@/components/journal-form/jfReadable";
 
 // ─── Commission estimator ─────────────────────────────────────────────────────
 // Returns an estimated round-trip commission in USD based on instrument type,
@@ -2043,7 +2044,11 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className="obs-jf flex flex-col lg:flex-row bg-[#09090b] text-[#d4d4d8]" style={{ minHeight:"100%", height:"100%", fontFamily: "'Playfair Display Variable', 'Playfair Display', Georgia, serif" }}>
-      <style dangerouslySetInnerHTML={{ __html: OBS_CSS }} />
+      {/* JF_READABLE_CSS comes LAST on purpose: it raises the sizes OBS_CSS already set and remaps
+          two white-theme colours, and several of those rules tie on specificity — appending settles
+          every tie in its favour by source order. See journal-form/jfReadable.ts for the measured
+          numbers behind each one. */}
+      <style dangerouslySetInnerHTML={{ __html: OBS_CSS + JF_READABLE_CSS }} />
 
       {/* ── Form column ──────────────────────────────────────────────────── */}
       <main className={`flex-1 min-w-0 flex flex-col overflow-hidden bg-[#09090b] border-r border-[#18181b] ${mobileTab === "stats" ? "hidden lg:flex" : "flex"}`}>
