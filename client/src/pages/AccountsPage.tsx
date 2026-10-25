@@ -526,24 +526,55 @@ export default function AccountsPage({ openModal = false, darkMode = true, onVie
     }
   }, []);
 
+  /**
+   * ⚠ IT RETRIES BY ITSELF RATHER THAN TELLING HIM TO.
+   *
+   * 2026-10-25: a redeploy restarted the server while he had this page open, the one load in
+   * flight came back 502, and the page then sat showing "please retry in a moment" — with the
+   * accounts listed underneath, from cache — until he reloaded by hand. The server was healthy
+   * again seconds later. Nothing was broken except that nobody asked a second time.
+   *
+   * A 502/503/504 or a dropped connection means "the server is not there THIS SECOND", which is
+   * exactly the shape of a deploy, a restart or a blip — so it is retried, three times, backing
+   * off 1s / 2s / 4s. The banner only appears if all of them fail.
+   *
+   * ⚠ A 401 IS NOT RETRIED. That is a sign-in problem, and hammering it would neither fix it nor
+   * tell him anything new.
+   */
   async function fetchAccounts() {
     if (_accountsCache === null) setLoading(true);   // spinner only on first-ever load; otherwise refresh silently
+    const WAITS = [1000, 2000, 4000];
     try {
-      const res = await fetch("/api/broker-accounts", { headers: await authHeaders() });
-      if (res.ok) {
-        const data = await res.json();
-        setAccounts(Array.isArray(data) ? data : []);
-        setInfo("");                                  // clear any prior load error
-      } else {
+      for (let attempt = 0; ; attempt++) {
+        let res: Response | null = null;
+        try {
+          res = await fetch("/api/broker-accounts", { headers: await authHeaders() });
+        } catch { /* network/connection failure — treated the same as a 5xx below */ }
+
+        if (res?.ok) {
+          const data = await res.json();
+          setAccounts(Array.isArray(data) ? data : []);
+          setInfo("");                                // clear any prior load error
+          return;
+        }
+        if (res && res.status === 401) {
+          setInfo("Session expired — refresh the page or sign in again to load your accounts (they're safe).");
+          return;
+        }
+        // Worth another try? Only while attempts remain AND it looks momentary.
+        const momentary = !res || res.status >= 500;
+        if (momentary && attempt < WAITS.length) {
+          await new Promise(r => setTimeout(r, WAITS[attempt]));
+          continue;
+        }
         // Never blank an existing list on a transient failure — surface the real
         // reason instead of the misleading "No accounts yet" empty state. Accounts
         // live server-side; a failed load does NOT mean they're gone.
-        setInfo(res.status === 401
-          ? "Session expired — refresh the page or sign in again to load your accounts (they're safe)."
-          : `Couldn't load your accounts (error ${res.status}). They're safe on the server — please retry in a moment.`);
+        setInfo(res
+          ? `Couldn't load your accounts (error ${res.status}) after ${attempt + 1} tries. They're safe on the server — it should clear on its own; reload if it does not.`
+          : "Couldn't reach the server to load your accounts. Check your connection — your accounts are safe.");
+        return;
       }
-    } catch {
-      setInfo("Couldn't reach the server to load your accounts. Check your connection and retry — your accounts are safe.");
     } finally {
       setLoading(false);
     }
