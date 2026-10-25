@@ -121,7 +121,11 @@ const OBS_CSS = `
   .obs-rating-btn:hover:not(.obs-rating-active) { border-color:#4e8cff80; color:#4e8cff; background:#4e8cff0d; }
   .obs-rating-active { background:#4e8cff; border-color:#4e8cff; color:#fff; box-shadow:0 0 0 2px #4e8cff30; }
   .obs-jf select option { background: #0c0c0e; color: #e8edf9; }
-  .obs-jf textarea::placeholder, .obs-jf input::placeholder { opacity: 0.35; }
+  /* The 0.35 placeholder opacity that used to sit here is GONE (2026-10-25). It was written for a
+     dark ground and multiplied an already near-black hint colour down to 1.18:1 - invisible - and
+     in the white theme it took the muted ink down to 1.74:1. Both themes now state the placeholder
+     colour outright in journal-form/jfReadable.ts, with the measured contrast beside each one, so
+     this rule could never have taken effect again. */
   .obs-jf .obs-scrollbar::-webkit-scrollbar { width: 2px; }
   .obs-jf .obs-scrollbar::-webkit-scrollbar-track { background: transparent; }
   .obs-jf .obs-scrollbar::-webkit-scrollbar-thumb { background: #27272a; }

@@ -77,6 +77,28 @@ export const JF_READABLE_CSS = `
   .journal-light .obs-jf input::placeholder,
   .journal-light .obs-jf textarea::placeholder { color: #7A7362 !important; opacity: 1 !important; }
 
+  /* THE SAME DEFECT IN THE DARK THEMES, AND WORSE - 1.18:1, which is invisible. His instruction,
+     2026-10-25, after I reported it instead of fixing it: "Fix that dark theme invicibility you
+     ignored too."
+
+     The cause is the same pairing: each input carries placeholder:text-[#3f3f46], a near-black
+     meant to read as a hint on a dark ground, and the 0.35 opacity then takes 35% of a near-black
+     on a near-black. #757E9C measures 4.86:1 on the input ground #0c0c0e and 4.95:1 on the page
+     #09090b, sitting deliberately below the label (9.30:1) and the typed value (16.67:1) so a hint
+     still reads as a hint rather than as something already filled in.
+
+     ⚠ YES, THIS IS A THIRD GREY, and OBS_CSS warns against exactly that - "a third grey is how the
+     form ended up with #3f3f46, #27272a, #52525b and #71717a, four greys nobody chose". That
+     warning is about UNMEASURED greys that all landed below AA. This one is measured, written as
+     an explicit value rather than an opacity, and exists because a placeholder that matches the
+     label colour reads as a filled field.
+
+     EXPLICIT COLOUR, NOT AN OPACITY, in both themes. A blanket opacity is what caused this bug in
+     the first place: it was correct for the ground it was written against and silently wrong on
+     every other. */
+  .journal-root:not(.journal-light) .obs-jf input::placeholder,
+  .journal-root:not(.journal-light) .obs-jf textarea::placeholder { color: #757E9C !important; opacity: 1 !important; }
+
   /* THE FIELD LABELS - these ALREADY passed at 7.24:1. This is his request, not a defect being
      fixed: "make text darker". #4A4538 measures 9.47:1. Scoped to the form, so the theme's muted
      ink is unchanged everywhere else in the journal. */
