@@ -7,7 +7,7 @@ import { DrawdownSkeleton } from '@/components/skeletons/DrawdownSkeleton';
 import { DiveProfile } from '@/components/drawdown/diveProfile';
 import { DP_CSS } from '@/components/drawdown/dpStyles';
 import { LossBars } from '@/components/drawdown/lossBars';
-import { dayMark } from '@/lib/dayOutcome';
+import { MonthDays, monthDayCells } from '@/components/drawdown/monthDays';
 
 /**
  * DrawdownPanel — "Dive Profile" layout.
@@ -344,25 +344,6 @@ export default function DrawdownPanel({ sessionId, dispFont, bodyFont }:
     });
   })();
 
-  // ── the traded days inside one month, as W / L / BE ─────────────────────────
-  //
-  // ⚠ THE OUTCOME IS THE DAY'S NET, AND THE TOLERANCE IS THE CALENDAR'S OWN. TradingCalendar
-  // calls a day flat when |pnl| < 0.005 (`FLAT_EPS`, `toneOf`), so a day that nets to zero out of a
-  // +100 and a -100 reads BE there. Using any other rule here would have the two screens disagree
-  // about the same date, which is worse than not showing it at all.
-  const dayOutcomes = (m: any): { day: number; mark: 'W' | 'L' | 'BE' }[] => {
-    const key = `${m.year}-${MONTH_ABBR.indexOf(m.month) + 1}`;
-    const days = calResult?.calendarData?.[key] ?? {};
-    return Object.keys(days)
-      .map(Number)
-      .filter(n => !Number.isNaN(n))
-      .sort((a, b) => a - b)
-      .map(day => {
-        const pnl = Number(days[String(day)]?.pnl ?? 0);
-        return { day, mark: dayMark(pnl) };
-      });
-  };
-
   // ── render ──────────────────────────────────────────────────────────────────
   return (
     <div className="dp" style={dpStyle}>
@@ -572,10 +553,17 @@ export default function DrawdownPanel({ sessionId, dispFont, bodyFont }:
                     // ("dont change how Monthly Drawdown is displayed") still holds: the seven
                     // columns, their values, the dot and the LIVE badge are all untouched, and the
                     // only new thing on a closed table is the little chevron.
-                    const mKey = `${m.year}-${MONTH_ABBR.indexOf(m.month) + 1}`;
+                    //
+                    // ⚠ EVERY DATE IN THE MONTH, not only the traded ones — his correction on
+                    // seeing the first version (2026-10-25): *"display all the dates in that month
+                    // and only label as w or L those that were traded ... There is unused space
+                    // and that design i propose will use that space."*
+                    const monthIdx = MONTH_ABBR.indexOf(m.month);
+                    const mKey = `${m.year}-${monthIdx + 1}`;
                     const isOpen = openMonth === mKey;
                     const toggle = () => setOpenMonth(isOpen ? null : mKey);
-                    const outcomes = isOpen ? dayOutcomes(m) : [];
+                    const cells = isOpen ? monthDayCells(calResult?.calendarData, m.year, monthIdx) : [];
+                    const anyTraded = cells.some(c => c.mark);
                     return (
                       <React.Fragment key={`${m.month}-${m.year}`}>
                       <tr
@@ -597,30 +585,11 @@ export default function DrawdownPanel({ sessionId, dispFont, bodyFont }:
                       </tr>
                       {isOpen && (
                         <tr>
-                          <td colSpan={7} style={{ padding: '10px 12px 14px' }}>
-                            {outcomes.length === 0 ? (
+                          <td colSpan={7} style={{ padding: '10px 2px 14px' }}>
+                            {!anyTraded ? (
                               <span className="mut" style={{ fontSize: 12 }}>No day-by-day record stored for this month.</span>
                             ) : (
-                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                                {outcomes.map(({ day, mark }) => (
-                                  <span
-                                    key={day}
-                                    title={`${m.month} ${day}`}
-                                    style={{
-                                      display: 'inline-flex', alignItems: 'center', gap: 5,
-                                      padding: '3px 8px', borderRadius: 6, fontSize: 12,
-                                      // The drawdown page's own tokens — and --warn is already the
-                                      // breakeven colour on BOTH screens (his rule, 2026-08-29).
-                                      color: mark === 'W' ? 'var(--gain)' : mark === 'L' ? 'var(--loss)' : 'var(--warn)',
-                                      border: '1px solid currentColor',
-                                      opacity: 0.92,
-                                    }}
-                                  >
-                                    <span style={{ opacity: 0.75 }}>{day}</span>
-                                    <b style={{ letterSpacing: '.04em' }}>{mark}</b>
-                                  </span>
-                                ))}
-                              </div>
+                              <MonthDays cells={cells} label={m.month} />
                             )}
                           </td>
                         </tr>

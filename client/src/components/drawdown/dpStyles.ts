@@ -17,6 +17,7 @@
 import { DP_TOKENS_DARK, DP_TOKENS_LIGHT,
          DP_TOKENS_MONTHLY_DARK, DP_TOKENS_MONTHLY_LIGHT } from '@/components/drawdown/dpTokens';
 import { DP_SECTIONS_CSS } from '@/components/drawdown/dpSections';
+import { MONTH_DAYS_CSS } from '@/components/drawdown/monthDays';
 
 const DP_CORE_CSS = `
 .dp{
@@ -192,5 +193,7 @@ const DP_CORE_CSS = `
 .dp .foot .v .u{color:var(--ink3);font-size:11px;margin-left:6px;}
 `;
 
-/** The whole stylesheet: shared chrome first, then the per-section rules. */
-export const DP_CSS = DP_CORE_CSS + DP_SECTIONS_CSS;
+/** The whole stylesheet: shared chrome first, the per-section rules, then the month-day strip
+ *  that opens under a row of the Monthly Drawdown table (it keeps its own rules beside its
+ *  markup, in `monthDays.tsx`, so the two never drift apart). */
+export const DP_CSS = DP_CORE_CSS + DP_SECTIONS_CSS + MONTH_DAYS_CSS;
