@@ -170,6 +170,23 @@ class CopyEngine:
                         log.exception("[engine] could not deactivate orphaned master %s", master.id)
                     continue
                 broker_account = accounts[master.broker_account_id]
+                # ⚠ SIGNED OUT IS NOT ORPHANED, AND MUST NOT BE DEACTIVATED (2026-10-26). His
+                # instruction: *"when one logs out ctrader account that was followed or following,
+                # when they log back in, the previous settings and setups are restored."*
+                #
+                # Logging out KEEPS the account row and clears its credentials
+                # (`server/services/accountDisconnect.ts`), so `classify_master` above correctly
+                # says START — the account is not missing. But starting a provider for it would
+                # fail on credentials every cycle.
+                #
+                # It is skipped and LEFT ALONE: the master keeps `is_active`, so signing back in
+                # resumes it with no setting up again. That is the opposite of the orphan branch
+                # above, which switches a master off because its account is gone for good.
+                if broker_account.is_active is False:
+                    log.info("[engine] master %s: its account is signed out — not started; "
+                             "settings kept and it resumes when the account signs back in",
+                             master.id)
+                    continue
                 platform = (broker_account.platform or "").lower()
                 # NOT a duplicate of classify_master's test: that one reads the master's
                 # `source_type`, this one reads the linked ACCOUNT's platform, and they can

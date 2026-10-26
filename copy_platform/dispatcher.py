@@ -255,6 +255,23 @@ async def _exec_follower(master_trade_id: str, follower: CopyFollower,
             _log(fid, master_trade_id, "ERROR", "FAIL", "No broker account linked")
             return
 
+        # ⚠ A SIGNED-OUT ACCOUNT IS NOT A BROKEN ONE (2026-10-26). His instruction: *"ctrader
+        # should also have memory such that when one logs out ctrader account that was followed or
+        # following, when they log back in, the previous settings and setups are restored."*
+        #
+        # Logging out keeps the account row and every copy setting attached to it, and deliberately
+        # clears the stored credentials (`server/services/accountDisconnect.ts`). Without this
+        # check the next line finds no credentials and files it as ERROR/FAIL on every mirrored
+        # trade — which reads as the copier being broken, and buries the real failures among them.
+        #
+        # SKIP, NOT FAIL, and nothing is changed: his follower settings are left exactly as they
+        # are so that signing back in resumes them untouched.
+        if broker_account.is_active is False:
+            _log(fid, master_trade_id, "INFO", "SKIP",
+                 "this account is signed out — its copy settings are kept and resume when you "
+                 "sign back in")
+            return
+
         creds = await get_creds(broker_account)
         if not creds:
             _log(fid, master_trade_id, "ERROR", "FAIL", "Could not get credentials")

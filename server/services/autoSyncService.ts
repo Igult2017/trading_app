@@ -8,6 +8,7 @@ import { db, pool } from '../db';
 import { brokerAccounts } from '../../shared/schema';
 import { eq } from 'drizzle-orm';
 import { RUNNING_API_ACCOUNT } from '../lib/accountFilters';
+import { refreshAccountType } from './accountTypeSync';
 import { fetchTradesForAccount, API_PLATFORMS } from './brokerAdapters/index';
 import { processIncomingTrades } from './brokerSyncService';
 import { safeDecrypt, safeEncrypt } from '../lib/crypto';
@@ -303,6 +304,17 @@ export async function syncAccount(account: BrokerAccount,
   }
 
   await db.update(brokerAccounts).set({ syncStatus: 'syncing' }).where(eq(brokerAccounts.id, account.id));
+
+  // ⚠ ASK THE BROKER WHETHER THIS IS DEMO OR LIVE, BEFORE USING THE ANSWER. His instruction,
+  // 2026-10-26: *"When syncing accounts request ctrader for account status as Demo or Live."*
+  // It has to happen HERE, before the fetch below, because the stored value is what picks which
+  // cTrader server that fetch talks to — correcting it afterwards would mean this sync still ran
+  // against the wrong one. Costs one lookup per sign-in per sweep, not one per account.
+  if (account.platform.toLowerCase() === 'ctrader' && account.passwordEnc) {
+    try {
+      account = await refreshAccountType(account, JSON.parse(safeDecrypt(account.passwordEnc) ?? '{}'));
+    } catch { /* unreadable credentials are the next step's problem, not this one's */ }
+  }
 
   try {
     const now   = Date.now();

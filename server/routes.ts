@@ -10,7 +10,8 @@ import { cacheGet, cacheSet, cacheDel, userSessionKey,
 // is stored under. Imported rather than re-declared so the PUT below and the sync's repair cannot
 // drift apart. See the note on EDIT_LOCK_KEY in services/autoJournal/index.ts.
 // `record` is aliased: in a file this size a bare `record` says nothing about what it records.
-import { EDIT_LOCK_KEY, EDIT_LOCKABLE_ALL, record as recordSyncEvent } from "./services/autoJournal";
+import { EDIT_LOCK_KEY, EDIT_LOCKABLE_ALL } from "./services/autoJournal";
+import { deleteJournalEntryFully } from "./lib/journalDelete";
 import { db, pool } from "./db";
 import { userProfiles, adminAccessLogs, tradingSignals, priceAlerts, emailTracking,
          platformHeartbeat, platformDowntime } from "@shared/schema";
@@ -1830,51 +1831,91 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!existing || existing.userId !== auth.id) {
         return res.status(404).json({ error: "Journal entry not found" });
       }
-      const success = await storage.deleteJournalEntry(req.params.id);
-      if (!success) {
+      // ⚠ THE WORK ITSELF LIVES IN `lib/journalDelete.ts`, shared with the bulk route below. The
+      // long note that was here — why deleting has to REMEMBER the decision, and how both of his
+      // instructions are satisfied at once — moved there with it, so the two routes cannot drift
+      // into one marking the broker trade and the other not.
+      const done = await deleteJournalEntryFully(existing);
+      if (!done) {
         return res.status(404).json({ error: "Journal entry not found" });
       }
-
-      // RELEASE ANY SYNCED TRADE THAT POINTED AT IT, AND REMEMBER THAT HE DELETED IT.
-      //
-      // HIS REPORT, 2026-10-04: *"Make the journal autosync for synced accounts to remember that a
-      // recorded trade was deleted so it does not autosync it again. I currently have that problem.
-      // I try deleting trades from my synced account and it keeps getting rerecorded."*
-      //
-      // ⚠ THIS LINE USED TO DO THE OPPOSITE ON PURPOSE, and the reasoning is kept here because it
-      // was HIS: on 2026-09-06 he reported *"i deleted auto synced data and tried to sync again for
-      // them to be recalculated but the data didnt come back after syncing"*, so deleting was wired
-      // to release the pointer and let the next sync rebuild the entry. That is what now brings a
-      // trade back ~15 minutes after he removes it.
-      //
-      // BOTH REQUESTS ARE SATISFIED, because what actually differed was the TRIGGER, not deletion:
-      // in September he deleted and then PRESSED SYNC himself, expecting a rebuild; today it returns
-      // on its own. His words this time are *"does not AUTOsync it again"*. So:
-      //
-      //   * the automatic paths (the 15-minute sweep, the live push feed, the missed-close watcher)
-      //     see the mark and never re-journal it;
-      //   * pressing Sync on the account clears the mark and rebuilds — him asking, explicitly.
-      //
-      // Releasing the pointer is still right and is not the bug: a column naming a destroyed row is
-      // a broken state. What was missing was any record that the absence was his decision.
-      const released = await storage.markSyncedTradeJournalDeleted(req.params.id).catch(() => 0);
-      if (released) {
-        console.log(`[Journal] entry ${req.params.id} deleted — marked ${released} synced trade(s) `
-                    + `as deleted on purpose; no automatic sync will re-journal them`);
-        // ONE AUDIT ROW, AT THE MOMENT OF THE DECISION — not one per sweep. The sweep runs every 15
-        // minutes, so logging the skip each time would be ~96 rows a day per deleted trade, which is
-        // the audit-trail mistake the copier's Drop fix already paid for.
-        await recordSyncEvent({ externalId: null, symbol: existing.instrument ?? null,
-                                stage: 'journal-deleted',
-                                detail: `he deleted the journal entry for ${released} synced `
-                                        + `trade(s) — automatic syncs will not write it again` })
-          .catch(() => {});
+      if (done.released) {
+        console.log(`[Journal] entry ${req.params.id} deleted — marked ${done.released} synced `
+                    + `trade(s) as deleted on purpose; no automatic sync will re-journal them`);
       }
 
       await invalidateComputeCaches(existing.sessionId ?? undefined, existing.userId ?? undefined);
       res.status(204).send();
     } catch (error) {
       res.status(500).json({ error: "Failed to delete journal entry" });
+    }
+  });
+
+  /**
+   * DELETE SEVERAL TRADES IN ONE GO.
+   *
+   * His instruction, 2026-10-26: *"Tradevault should allow me to select more than one item then
+   * delete them once not one by one."*
+   *
+   * ⚠ IT GOES THROUGH THE SAME FUNCTION AS THE SINGLE DELETE, which is the point of that function
+   * existing. The part that is easy to leave out of a second delete path is the mark that says he
+   * deleted these ON PURPOSE — without it the 15-minute sweep writes every one of them back, and
+   * the symptom (trades returning a quarter of an hour later) looks nothing like a bulk-delete bug.
+   *
+   * ⚠ OWNERSHIP IS CHECKED ON THE WHOLE BATCH BEFORE ANYTHING IS DELETED. An id that is not his is
+   * not an error that stops the batch — it is simply not deleted, and the reply says how many were
+   * refused, so a client bug can never quietly delete someone else's row OR silently drop his.
+   *
+   * The caches are cleared ONCE at the end rather than once per entry: clearing them forty times
+   * for one click is how a bulk action becomes slower than the loop it replaced.
+   */
+  app.post("/api/journal/entries/bulk-delete", async (req, res) => {
+    const auth = await requireAuth(req, res);
+    if (!auth) return;
+    const ids = Array.isArray((req.body as any)?.ids) ? (req.body as any).ids as unknown[] : null;
+    if (!ids || ids.length === 0) {
+      return res.status(400).json({ error: "Send { ids: [...] } with at least one entry id" });
+    }
+    // A sane ceiling. The vault shows a page at a time, so a request naming thousands is a bug or
+    // an attack, not him clicking — and either way a reply is better than a long-running delete.
+    if (ids.length > 500) {
+      return res.status(400).json({ error: "Too many at once — select 500 or fewer" });
+    }
+    try {
+      const wanted = Array.from(new Set(ids.map(String)));
+      const rows = await Promise.all(wanted.map(id => storage.getJournalEntryById(id)));
+      const mine = rows.filter((e): e is NonNullable<typeof e> => !!e && e.userId === auth.id);
+      const refused = wanted.length - mine.length;
+
+      let deleted = 0, released = 0;
+      const sessions = new Set<string | undefined>();
+      for (const entry of mine) {
+        // One failure must not abandon the rest — he ticked them all and expects them all gone.
+        const done = await deleteJournalEntryFully(entry).catch(() => null);
+        if (!done) continue;
+        deleted++;
+        released += done.released;
+        sessions.add(entry.sessionId ?? undefined);
+      }
+
+      console.log(`[Journal] bulk delete: ${deleted} of ${wanted.length} entr(ies) removed`
+                + (released ? `, ${released} synced trade(s) marked as deleted on purpose` : '')
+                + (refused ? `, ${refused} not found or not this user's` : ''));
+
+      for (const sessionId of sessions) await invalidateComputeCaches(sessionId, auth.id);
+      if (!sessions.size) await invalidateComputeCaches(undefined, auth.id);
+
+      return res.json({
+        deleted,
+        refused,
+        released,
+        message: deleted === wanted.length
+          ? `Deleted ${deleted} trade${deleted === 1 ? '' : 's'}.`
+          : `Deleted ${deleted} of ${wanted.length}. ${refused} could not be found.`,
+      });
+    } catch (error: any) {
+      console.error('[Journal] bulk delete failed:', error);
+      return res.status(500).json({ error: "Failed to delete the selected trades" });
     }
   });
 
@@ -4613,9 +4654,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const updates: Record<string, unknown> = {};
     if (name)        updates.name        = name;
     if (server)      updates.server      = server;
-    if (accountType) updates.accountType = accountType;
     if (currency)    updates.currency    = currency;
     if (password)    updates.passwordEnc = encrypt(password);
+
+    // ⚠ DEMO OR LIVE IS THE BROKER'S FACT, NOT A FIELD. His instruction, 2026-10-26: *"request
+    // ctrader for account status as Demo or Live. This will prevent users from editing but display
+    // real status."*
+    //
+    // It is refused rather than quietly dropped, so a client that still sends it is told why
+    // instead of appearing to succeed and showing the old value back. Every sync now re-reads it
+    // from cTrader (`services/accountTypeSync.ts`), which is what makes refusing it safe: the
+    // value cannot get stuck wrong with no way to correct it.
+    //
+    // ONLY cTRADER. An EA or manually-added account has no API to ask, so there the person
+    // entering it is the only source there is and the field stays theirs.
+    const isCTrader = account.platform.toLowerCase() === 'ctrader';
+    if (accountType && isCTrader && accountType.toLowerCase() !== (account.accountType ?? '').toLowerCase()) {
+      return res.status(400).json({
+        error: "Demo or Live comes from cTrader itself and cannot be changed here. "
+             + "It is re-read from the broker on every sync.",
+      });
+    }
+    if (accountType && !isCTrader) updates.accountType = accountType;
 
     const updated = await storage.updateBrokerAccount(req.params.id, updates as any);
     const { passwordEnc: _, ...safe } = updated!;

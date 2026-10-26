@@ -334,14 +334,25 @@ function AddAccountForm({ platform, onCancel, onCreated }: AddFormProps) {
         )
       )}
 
-      <div>
-        <label style={lbl}>Account Type</label>
-        <select style={inp} value={accountType} onChange={e => setAccountType(e.target.value as any)}>
-          <option value="demo">DEMO</option>
-          <option value="live">LIVE</option>
-          <option value="funded">FUNDED</option>
-        </select>
-      </div>
+      {/* NOT OFFERED FOR cTRADER — signing in tells us, and asking first would be asking him to
+          guess at something the broker is about to state. The value chosen here used to survive
+          until sign-in overwrote it, so the form could show LIVE for a demo account and look like
+          the app had got it wrong. */}
+      {isCT ? (
+        <div>
+          <label style={lbl}>Account Type</label>
+          <div style={{ ...inp, cursor: 'default', color: '#94a3b8' }}>Read from cTrader when you sign in</div>
+        </div>
+      ) : (
+        <div>
+          <label style={lbl}>Account Type</label>
+          <select style={inp} value={accountType} onChange={e => setAccountType(e.target.value as any)}>
+            <option value="demo">DEMO</option>
+            <option value="live">LIVE</option>
+            <option value="funded">FUNDED</option>
+          </select>
+        </div>
+      )}
 
       {error && <div style={{ color: "#ef4444", fontSize: 14.5 }}>{error}</div>}
 
@@ -433,12 +444,22 @@ function EditModal({ account, onClose, onSaved }: { account: BrokerAccount; onCl
   const [busy,        setBusy]        = useState(false);
   const [err,         setErr]         = useState('');
 
+  // DEMO OR LIVE IS cTRADER'S ANSWER, NOT A CHOICE. His instruction, 2026-10-26: *"request ctrader
+  // for account status as Demo or Live. This will prevent users from editing but display real
+  // status."* It is re-read from the broker on every sync (`server/services/accountTypeSync.ts`),
+  // and the server refuses a change to it on a cTrader account — this just stops him being
+  // offered a control that would be rejected.
+  const typeIsFixed = account.platform?.toLowerCase() === 'ctrader';
+
   async function save() {
     setBusy(true); setErr('');
-    const res  = await fetch(`/api/broker-accounts/${account.id}`, { method: 'PUT', headers: await authHeaders(), body: JSON.stringify({ name, accountType }) });
+    // The type is left OUT of the request entirely when the broker owns it, so saving a rename
+    // can never be refused because of a field he was not allowed to change anyway.
+    const body = typeIsFixed ? { name } : { name, accountType };
+    const res  = await fetch(`/api/broker-accounts/${account.id}`, { method: 'PUT', headers: await authHeaders(), body: JSON.stringify(body) });
     const data = await res.json();
     setBusy(false);
-    if (res.ok) onSaved({ ...account, name, accountType });
+    if (res.ok) onSaved({ ...account, name, accountType: typeIsFixed ? account.accountType : accountType });
     else setErr(data.error || 'Save failed');
   }
 
@@ -454,9 +475,23 @@ function EditModal({ account, onClose, onSaved }: { account: BrokerAccount; onCl
         <label style={lbl}>Name</label>
         <input value={name} onChange={e => setName(e.target.value)} style={{ ...inp, marginBottom: 14 }} />
         <label style={lbl}>Type</label>
-        <select value={accountType} onChange={e => setAccountType(e.target.value)} style={{ ...inp, marginBottom: err ? 8 : 20 }}>
-          {['demo', 'live', 'funded'].map(t => <option key={t} value={t}>{t.toUpperCase()}</option>)}
-        </select>
+        {typeIsFixed ? (
+          <div style={{ marginBottom: err ? 8 : 20 }}>
+            <div style={{ ...inp, display: 'flex', alignItems: 'center', gap: 8, cursor: 'default',
+                          color: account.accountType === 'live' ? '#4ade80' : '#ef4444',
+                          fontWeight: 700, letterSpacing: '0.04em' }}>
+              {(account.accountType || 'demo').toUpperCase()}
+            </div>
+            <div style={{ color: '#64748b', fontSize: 13, marginTop: 6, lineHeight: 1.45 }}>
+              Read from cTrader itself and checked again on every sync, so it always shows the real
+              status of the account.
+            </div>
+          </div>
+        ) : (
+          <select value={accountType} onChange={e => setAccountType(e.target.value)} style={{ ...inp, marginBottom: err ? 8 : 20 }}>
+            {['demo', 'live', 'funded'].map(t => <option key={t} value={t}>{t.toUpperCase()}</option>)}
+          </select>
+        )}
         {err && <div style={{ color: '#ef4444', fontSize: 14.5, marginBottom: 12 }}>{err}</div>}
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
           <button onClick={onClose} style={{ background: 'none', border: '1px solid #334155', color: '#94a3b8', padding: '7px 16px', cursor: 'pointer', fontSize: 15.5, borderRadius: 4 }}>Cancel</button>

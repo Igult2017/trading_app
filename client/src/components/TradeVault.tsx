@@ -454,6 +454,11 @@ export default function TradeVault({ sessionId, startingBalance: sessionStarting
   // What went wrong on the last save attempt, so a failure is never silent again.
   const [saveError, setSaveError] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  // WHICH TRADES ARE TICKED. A Set, not an array — the row render asks "is this one ticked?" for
+  // every row on every keystroke elsewhere in the page, and that is a lookup, not a scan.
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [confirmBulk, setConfirmBulk] = useState(false);
+  const [bulkNote, setBulkNote] = useState("");
   const [exported, setExported] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
@@ -583,6 +588,44 @@ export default function TradeVault({ sessionId, startingBalance: sessionStarting
       invalidateAll();
     },
   });
+
+  /**
+   * DELETE EVERYTHING TICKED, IN ONE REQUEST.
+   *
+   * His instruction, 2026-10-26: *"Tradevault should allow me to select more than one item then
+   * delete them once not one by one."*
+   *
+   * ⚠ ONE REQUEST, NOT A LOOP OF THE SINGLE DELETE. A loop would clear the computed caches once
+   * per trade and, if it failed halfway, would leave him with no answer about which ones went.
+   * The server deletes each through the same function the single delete uses, so the mark that
+   * stops the sweep re-recording them is applied to every one (`server/lib/journalDelete.ts`).
+   */
+  const bulkDeleteMutation = useMutation({
+    mutationFn: async (ids: string[]) => {
+      const r = await apiRequest("POST", "/api/journal/entries/bulk-delete", { ids });
+      return r.json() as Promise<{ deleted: number; refused: number; message: string }>;
+    },
+    onSuccess: (result) => {
+      setSelected(new Set());
+      setConfirmBulk(false);
+      setBulkNote(result.message);
+      setTimeout(() => setBulkNote(""), 6000);
+      invalidateAll();
+    },
+    onError: () => {
+      setConfirmBulk(false);
+      setBulkNote("Could not delete the selected trades. Nothing was removed.");
+      setTimeout(() => setBulkNote(""), 6000);
+    },
+  });
+
+  // ⚠ THE TICKS ARE PRUNED TO WHAT IS ACTUALLY ON SCREEN. Switching session, deleting, or a
+  // refetch can remove a trade that is still ticked — and a selection holding ids that no longer
+  // exist would show "5 selected" over four rows and then report one refused by the server.
+  const visibleIds = new Set(trades.map(t => t.id));
+  const selectedIds = Array.from(selected).filter(id => visibleIds.has(id));
+  const allSelected = trades.length > 0 && selectedIds.length === trades.length;
+  const someSelected = selectedIds.length > 0;
 
   const totalPL = trades.reduce((sum, t) => sum + t.pl, 0);
   // Canonical win rate (break-evens excluded) — shared with every other journal
@@ -798,6 +841,74 @@ export default function TradeVault({ sessionId, startingBalance: sessionStarting
 
       {vaultHeader(loading ? "Loading…" : `Performance ledger · ${trades.length} ${trades.length === 1 ? "entry" : "entries"}`)}
 
+      {/* THE SELECTION BAR — only there when something is ticked, so the table is unchanged until
+          he starts selecting. The confirm names the exact COUNT rather than asking "are you sure":
+          a bulk delete is irreversible, and the number is the one fact that tells him whether he
+          ticked what he meant to. */}
+      {(someSelected || bulkNote) && (
+        <div style={{
+          display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap",
+          padding: "10px 16px", borderBottom: "1px solid var(--jr-border)",
+          background: someSelected ? "rgba(255,77,109,0.07)" : "transparent",
+        }} data-testid="bulk-bar">
+          {someSelected ? (
+            <>
+              <span style={{ color: "var(--jr-ink, #ECEEF2)", fontSize: 15, fontWeight: 600 }}>
+                {selectedIds.length} selected
+              </span>
+              <button
+                onClick={() => setSelected(new Set())}
+                style={{ background: "none", border: "none", color: "#9aa4b2", fontSize: 14,
+                         cursor: "pointer", textDecoration: "underline", padding: 0 }}
+                data-testid="button-clear-selection"
+              >
+                Clear
+              </button>
+              <div style={{ flex: 1 }} />
+              {confirmBulk ? (
+                <>
+                  <span style={{ color: "#ff8fa3", fontSize: 14.5 }}>
+                    Delete {selectedIds.length} trade{selectedIds.length === 1 ? "" : "s"}? This cannot be undone.
+                  </span>
+                  <button
+                    onClick={() => setConfirmBulk(false)}
+                    style={{ background: "none", border: "1px solid var(--jr-border)", borderRadius: 6,
+                             color: "#9aa4b2", fontSize: 14, cursor: "pointer", padding: "6px 12px" }}
+                    data-testid="button-cancel-bulk-delete"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => bulkDeleteMutation.mutate(selectedIds)}
+                    disabled={bulkDeleteMutation.isPending}
+                    style={{ background: "#ff4d6d", border: "none", borderRadius: 6, color: "#fff",
+                             fontSize: 14, fontWeight: 700, cursor: "pointer", padding: "6px 14px",
+                             display: "flex", alignItems: "center", gap: 6 }}
+                    data-testid="button-confirm-bulk-delete"
+                  >
+                    <Trash2 size={14} />
+                    {bulkDeleteMutation.isPending ? "Deleting…" : `Delete ${selectedIds.length}`}
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={() => setConfirmBulk(true)}
+                  style={{ background: "none", border: "1px solid rgba(255,77,109,0.5)", borderRadius: 6,
+                           color: "#ff8fa3", fontSize: 14, fontWeight: 600, cursor: "pointer",
+                           padding: "6px 14px", display: "flex", alignItems: "center", gap: 6 }}
+                  data-testid="button-bulk-delete"
+                >
+                  <Trash2 size={14} />
+                  Delete selected
+                </button>
+              )}
+            </>
+          ) : (
+            <span style={{ color: "var(--jr-ink, #ECEEF2)", fontSize: 14.5 }} data-testid="bulk-note">{bulkNote}</span>
+          )}
+        </div>
+      )}
+
       <div style={{ padding: 0 }}>
       {!sessionId ? (
         <div style={{ ...styles.tableWrapper, padding: 40, textAlign: "center" as const }}>
@@ -812,6 +923,20 @@ export default function TradeVault({ sessionId, startingBalance: sessionStarting
           <table className="tv-table" style={{ ...styles.table, minWidth: 760 }}>
             <thead>
               <tr>
+                {/* TICK EVERYTHING SHOWING, in one click. It reflects the real state of the list:
+                    filled when all are ticked, half-filled when some are, which is what tells him
+                    at a glance that a selection is still live after he scrolls. */}
+                <th style={{ ...styles.th, width: 34, paddingRight: 0 }}>
+                  <input
+                    type="checkbox"
+                    aria-label={allSelected ? "Clear selection" : "Select all trades"}
+                    checked={allSelected}
+                    ref={el => { if (el) el.indeterminate = someSelected && !allSelected; }}
+                    onChange={() => setSelected(allSelected ? new Set() : new Set(trades.map(tr => tr.id)))}
+                    style={{ cursor: "pointer", width: 15, height: 15, accentColor: "#ff4d6d" }}
+                    data-testid="checkbox-select-all"
+                  />
+                </th>
                 {["DATE", "ASSET", "STRATEGY", "SESSION", "DIRECTION", "RR", "OUTCOME", "P/L", "ACTIONS"].map((col) => (
                   <th key={col} style={styles.th}>{col}</th>
                 ))}
@@ -828,6 +953,20 @@ export default function TradeVault({ sessionId, startingBalance: sessionStarting
                   }}
                   data-testid={`row-trade-${trade.id}`}
                 >
+                  <td style={{ ...styles.td, paddingRight: 0 }}>
+                    <input
+                      type="checkbox"
+                      aria-label={`Select the ${trade.asset} trade on ${trade.date}`}
+                      checked={selected.has(trade.id)}
+                      onChange={() => setSelected(prev => {
+                        const next = new Set(prev);
+                        next.has(trade.id) ? next.delete(trade.id) : next.add(trade.id);
+                        return next;
+                      })}
+                      style={{ cursor: "pointer", width: 15, height: 15, accentColor: "#ff4d6d" }}
+                      data-testid={`checkbox-trade-${trade.id}`}
+                    />
+                  </td>
                   <td style={styles.td}>
                     <div className="tv-num" style={styles.dateText}>{trade.date}</div>
                     <div className="tv-num" style={styles.timeText}>{trade.time}</div>
