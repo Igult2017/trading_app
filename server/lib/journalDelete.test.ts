@@ -6,7 +6,7 @@
  * one item then delete them once not one by one."*
  *
  * ⚠ THE DANGER IN A SECOND DELETE PATH IS NOT THAT IT DELETES TOO MUCH. It is that it forgets to
- * mark the broker trade as deleted ON PURPOSE. Without that mark the 15-minute sweep writes every
+ * mark the broker trade as deleted ON PURPOSE. Without that mark the next sync sweep writes every
  * one of them straight back — his report, 2026-10-04: *"I try deleting trades from my synced
  * account and it keeps getting rerecorded."* The symptom would be trades reappearing a quarter of
  * an hour after a bulk delete, which looks nothing like a bulk-delete bug and would be hunted

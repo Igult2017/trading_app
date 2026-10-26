@@ -27,7 +27,12 @@ import { getCTraderAccounts } from './brokerAdapters/ctrader';
 import type { BrokerAccount } from '../../shared/schema';
 
 /** Long enough to cover one sweep of every account, short enough that it is never a stale answer
- *  carried into the next one. The sweep runs every 15 minutes. */
+ *  carried into the next one.
+ *
+ *  ⚠ THE SWEEP IS DAILY BY DEFAULT, not every 15 minutes (`autoSyncService.ts:51` —
+ *  `SYNC_INTERVAL_MINUTES`, default 1440, and production does not set it). So the Demo/Live
+ *  status is re-read once a day, plus whenever he presses Sync and whenever an account
+ *  reconnects, since both of those go through `syncAccount` too. */
 const CACHE_MS = 60_000;
 
 type Reading = { byCtid: Map<string, boolean>; at: number };

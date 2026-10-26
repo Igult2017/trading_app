@@ -4,7 +4,7 @@
  * ⚠ WHY IT IS A SHARED DEFINITION AND NOT THREE COPIES. Three separate places decide which
  * accounts keep working, and every one of them tested only `connection_type = 'api'`:
  *
- *   `services/autoSyncService.ts`   the 15-minute sync sweep
+ *   `services/autoSyncService.ts`   the sync sweep (daily by default — `SYNC_INTERVAL_MINUTES`)
  *   `services/ctraderRealtime.ts`   the live feed's subscriber list, re-checked on a timer
  *   `services/missedCloseWatch.ts`  the missed-close watcher
  *
